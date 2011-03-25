@@ -77,4 +77,6 @@ type Dom.event.kind =
   / { newline }
   / { keyesc }
   / { resize }
+  / { input } //HTML5
+  / { paste } //HTML5
   / { custom : string}

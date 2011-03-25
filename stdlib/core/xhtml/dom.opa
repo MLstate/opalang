@@ -1088,6 +1088,8 @@ Dom = {{
       | { newline }    -> "keydown.newline"
       | { keyesc}      -> "keydown.keyesc"
       | { ready }      -> "ready"
+      | { input }      -> "input"
+      | { paste }      -> "paste"
       | ~{custom}      -> custom
 
     of_string(handle:string):Dom.event.kind = match handle with
@@ -1117,6 +1119,8 @@ Dom = {{
       | "scroll"     -> {scroll}
       | "change"     -> {change}
       | "resize"     -> {resize}
+      | "input"      -> {input}
+      | "paste"      -> {paste}
       | "newline"  | "keydown.newline"    -> {newline}
       | "keyesc"   | "keydown.keyesc"     -> {keyesc}
       | _            -> {custom = handle}
