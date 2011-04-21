@@ -1,3 +1,4 @@
+package opages
 import opace
 
 /**
@@ -93,7 +94,7 @@ Page = {{
    */
   @private get_suffix(file) =
     match file with
-    | "/" -> some("html")
+    | "" | "/" -> some("html")
     | _ -> x = Parser.try_parse(Rule.has_suffix(Rule.alphanum_string), file)
            Option.map((x -> x.f2), x)
 
@@ -322,6 +323,9 @@ Page = {{
 
     }}
 
+    get_filename() =
+      Dom.get_value(Dom.select_id("admin_new_file"))
+
     /**
      * Build the xhtml administration interface.
      */
@@ -352,7 +356,9 @@ Page = {{
           | {partial = _} ->
             Scheduler.sleep(1000, aux)
           | ~{content} ->
-            filename = "/{file.filename}"
+            filename = match String.trim(get_filename())
+              | "" -> "/{file.filename}"
+              | x -> x
             do save(filename, content)
             do Log.notice("Uploader", "Uploading of {file.filename} was done")
             do Action.open_file(access, filename)(Dom.Event.default_event)
@@ -365,7 +371,8 @@ Page = {{
           {
            /* Insert xhtml list of <tr><td> */
            StringMap.rev_fold(
-            (file, _, lxhtml -> file_line(access, file == url, file) +> lxhtml),
+            (file, _, lxhtml ->
+              file_line(access, file == url, file) +> lxhtml),
             page_map, []
            )
           }
@@ -401,18 +408,29 @@ Page = {{
    *   directly to the client.
    */
   resource(url) =
-    match ?/pages/public[url] with
-    | {some = ~{embedded}} -> embedded_to_xembedded(embedded)
-    | {some = {resource = ~{image}}} -> {resource = Resource.image(image)}
-    | {some = {resource = ~{css}}} -> {resource = Resource.build_css(css)}
-    | {some = {resource = ~{source mime}}} -> {resource = Resource.source(source, mime)}
+    match try_resource(url)
+    | {some=resource} -> resource
     | {none} -> match get_suffix(url) with
-    | {some="html"} -> embedded_to_xembedded(/pages/not_found)
-    | _ -> {resource = Resource.full_page("",
+      | {some="html"} -> embedded_to_xembedded(/pages/not_found)
+      | _ ->
+       {resource = Resource.full_page("",
                Xhtml.of_string_unsafe(/pages/not_found/body),
                Xhtml.of_string_unsafe(/pages/not_found/header),
                {wrong_address}, []
              )}
+
+  try_resource(url) =
+    Option.map(
+      | ~{embedded} -> embedded_to_xembedded(embedded)
+      | {resource = ~{image}} -> {resource = Resource.image(image)}
+      | {resource = ~{css}} -> {resource = Resource.build_css(css)}
+      | {resource = ~{source mime}} -> {resource = Resource.source(source, mime)},
+      ?/pages/public[url]
+    )
+
+  try_raw_resource(url) = ?/pages/public[url]
+
+  resource_date(url) = Db.modification_time(@/pages/public[url])
 
 
 }}

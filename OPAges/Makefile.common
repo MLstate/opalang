@@ -24,7 +24,7 @@ $(PACKNAME) : $(BUILDDIR)/$(PACKNAME)
 
 $(BUILDDIR)/$(PACKNAME) : $(DEPENDS)
 	@echo "### Building package $(PACKNAME)"
-	@$(OPA) --autocompile $? --build-dir $(BUILDDIR)
+	$(OPA) --autocompile $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) --build-dir $(BUILDDIR) -I $(BUILDDIR)
 	@mv $(PACKNAME) $(BUILDDIR)/
 
 ########################################
@@ -39,7 +39,7 @@ $(BUILDDIR)/%.opp :
 # EXECUTABLE BUILDING
 $(EXE) : $(PCK:%.opx=$(BUILDDIR)/%.opx) $(SRC)
 	@echo "### Building executable $(EXE)"
-	$(OPA) $(SRC) -o $@ -I $(BUILDDIR) --build-dir $(BUILDDIR)/$(EXE)
+	$(OPA) $(MAINSRC) $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) -o $@ -I $(BUILDDIR) --build-dir $(BUILDDIR)/$(EXE)
 
 $(EXE:%.exe=%.run) : $(EXE)
 	./$(EXE) -p $(PORT)
@@ -59,6 +59,11 @@ $(PACKDOC) : $(DEPENDS)
 
 doc.sub :
 	@if [ -n "$(PCK)" ]; then make $(PCK:%.opx=-C $(PCKDIR)/%) doc; fi
+
+########################################
+# Using by recursives makefile
+pack.depends :
+	@echo $(PCK) $(PLUGIN)
 
 ########################################
 # CLEANING

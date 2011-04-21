@@ -1,3 +1,4 @@
+package opages
 /**
  * {1 About this module}
  * Manage OPAges users. For now OPAges have only one administrator

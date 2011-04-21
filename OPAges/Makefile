@@ -1,8 +1,9 @@
 ########################################
 # USER VARIABLES
 EXE = main.exe
-PACKNAME = main.opx
-SRC = src/main.opa src/page.opa src/users.opa
+PACKNAME = opages.opx
+SRC = src/page.opa src/users.opa
+MAINSRC = src/main.opa
 PCK = opace.opx
 PCKDIR = ./
 PLUGIN =
