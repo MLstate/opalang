@@ -323,8 +323,9 @@ Page = {{
 
     }}
 
-    get_filename() =
-      Dom.get_value(Dom.select_id("admin_new_file"))
+    get_filename_mime() =
+      (Dom.get_value(Dom.select_id("admin_new_file")),
+       Dom.get_value(Dom.select_id("upload_mime_type")))
 
     /**
      * Build the xhtml administration interface.
@@ -340,7 +341,7 @@ Page = {{
       perform_file(file) =
         /* Save page resource for the uploaded file using file
            suffix. */
-        save(filename, content) =
+        save(filename, content, mimetype) =
           content = match get_suffix(filename) with
           | {some = "html"} | {some = "xhtml"} ->
             {embedded = {header="" body=content}}
@@ -348,7 +349,7 @@ Page = {{
           | {some = "jpg"} -> {resource= {image={jpg=content}}}
           | {some = "ico"} -> {resource= {image={ico=content}}}
           | {some = "gif"} -> {resource= {image={gif=content}}}
-          | _ -> {resource = {source = content mime="application/octet-stream"}}
+          | _ -> {resource = {source = content mime=mimetype}}
           save(filename, content)
         /* Waiting full file content */
         rec aux() =
@@ -356,11 +357,15 @@ Page = {{
           | {partial = _} ->
             Scheduler.sleep(1000, aux)
           | ~{content} ->
-            filename = match String.trim(get_filename())
+            (filename, mimetype) = get_filename_mime()
+            filename = match String.trim(filename)
               | "" -> "/{file.filename}"
               | x -> x
-            do save(filename, content)
-            do Log.notice("Uploader", "Uploading of {file.filename} was done")
+            mimetype = match String.trim(mimetype)
+              | "" -> "application/octet-stream"
+              | x -> x
+            do save(filename, content, mimetype)
+            do Log.notice("Uploader", "Uploading of {file.filename} ({mimetype}) was done")
             do Action.open_file(access, filename)(Dom.Event.default_event)
             void
         aux()
@@ -384,7 +389,13 @@ Page = {{
       <div id="admin_buttons">
         <input  id="admin_new_file" type="text"/>
         <button type="button" onclick={Action.new_file(access)}>New file</button>
-        {Upload.make({Upload.default_config with ~perform_file})}
+        { config = {Upload.default_config with ~perform_file
+                    body_form = (<>
+                      {Upload.default_config.body_form}
+                      Mime-type <input id="upload_mime_type" type="text" value="application/octet-stream"/>
+                    </>)
+                    }
+          Upload.make(config)}
       </div>
 
   }}

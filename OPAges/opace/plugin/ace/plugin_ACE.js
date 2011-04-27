@@ -54,3 +54,50 @@
     editor.getSession().getUndoManager().undo();
     return js_void;
 }
+
+function setCookie(name,value)
+{
+    document.cookie=escape(name) + "=" + escape(value);
+}
+
+function getCookie(name)
+{
+var i,x,y,ARRcookies=document.cookie.split(";");
+for (i=0;i<ARRcookies.length;i++)
+{
+  x=ARRcookies[i].substr(0,ARRcookies[i].indexOf("="));
+  y=ARRcookies[i].substr(ARRcookies[i].indexOf("=")+1);
+  x=x.replace(/^\s+|\s+$/g,"");
+  if (x==name)
+    {
+    return unescape(y);
+    }
+  }
+}
+
+##register save_input : -> void
+##args()
+{
+    var input;
+    var inputs = $('input[name!=""]');
+    inputs.each(function(node){
+            var val = this.value;
+            if (val!="" && val!=undefined) setCookie("__opa_input_"+this.name, val);
+        });
+    return js_void;
+}
+
+##register load_input : -> void
+##args()
+{
+    var input;
+    var inputs = $('input[name!=""]');
+    inputs.each(function(node){
+            var val = this.value;
+            var c = getCookie("__opa_input_"+this.name);
+            if (val=="" && c != undefined) {
+                this.value = c;
+            }
+        });
+    return js_void;
+}
