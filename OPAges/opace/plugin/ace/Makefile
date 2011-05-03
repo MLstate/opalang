@@ -17,7 +17,7 @@ endif
 # PLUGIN BUILDING
 $(PLUGNAME) : $(SRC)
 	@echo "### Building plugin $(PLUGNAME)"
-	@$(MKLIB) --lib $(@:%.opp=%) $? $(CONF) --build-dir $(BUILDDIR)
+	@$(MKLIB) -o $(@:%.opp=%) $? $(CONF) --build-dir $(BUILDDIR)
 
 ########################################
 # CLEANING
