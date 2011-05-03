@@ -13,82 +13,68 @@ import opace
 /**
  * {1 Types defined in this module}
  */
-/**
- * Html page that should be embedded by the applications.
- */
-/* @private */type Page.embedded = {
-  header : string
-  body   : string
-}
 
 /**
- * Database embeddable resource
+ * A configuration for initialize a page entity
  */
-/* @private */type Page.resource =
-  {image : image} /
-  {css : string} /
-  {source : string; mime : string}
+type Page.config('a, 'b) = {
+  dbpath : ref_path(stringmap(Page.stored('a, 'b)))
+  engine : Template.engine('a, 'b)
+}
 
 /**
  * Define what is a page.
  * - embedded means that the page should be embedded in the applications.
  * - resource is a subset of [resource] that be able to store in database.
  */
-/* @private */type Page.t =
-  {embedded : Page.embedded} /
-  {resource : Page.resource}
+type Page.t =
+  {embedded : {head : xhtml body : xhtml}} /
+  {resource : resource}
+
+type Page.manager = {
+  admin: string, string -> xhtml
+  resource: string -> Page.t
+  try_resource: string -> option(Page.t)
+  date : string -> Date.date
+}
 
 /**
- * Define different class of file.
+ * Type of data stored in database
  */
-/* @private */type Page.class =
-  {embedded} / {image} / {octet} / {source}
+@abstract type Page.stored('a, 'b) =
+  {image : image} /
+  {css   : string} /
+  {source : string mime : string} /
+  {binary : binary mime : string} /
+  {hcontent : Template.content(either('a, 'b))
+   bcontent : Template.content(either('a, 'b))}
 
 /**
  * A record used for give some primitive to the admin GUI unless
  * publish critical primitives.
  */
-/* @private */type Page.access = {
-  get_class : (string -> Page.class)
-  get  : (string -> Page.t)
-  save : (string, Page.t -> void)
-  remove : (string -> void)
+@private type Page.access('a, 'b) = {
+  save : string, Page.stored('a, 'b) -> void
+  get : string -> option(Page.stored('a, 'b))
+  remove : string -> void
+  get_edit : string -> Page.edit
+
+  list : -> list(string)
 }
 
-/*
- * A database stringmap that contains binding beetween url and html
- * page.
- */
-db /pages/public : stringmap(Page.t)
-
-/*
- * A database path which contains the 404 page. The default value is
- * [Pages.default_404]
- */
-db /pages/not_found : Page.embedded = {
-  header = "<title>OPAges Not found</title>"
-  body   = "<h1>404 - Not found</h1>"
-}
-
-/* Some default needed default values. */
-db /pages/public[_] = { embedded = /pages/not_found }
-db /pages/public[_]/resource/image = {png=binary_of_string("")}
-db /pages/public[_]/resource = {css = ""}
+@private type Page.edit =
+  {image} /
+  {binary mime : string save : {mime : string} -> void} /
+  {source : string; mime : string} /
+  {css : string} /
+  {hsource : string; bsource : string
+   save : {hsource : string; bsource : string} -> option(Template.failure)}
 
 Page = {{
 
   /**
    * {2 Privates utils}
    */
-  /**
-   * Transform an "string" embedded to "xhtml" embedded
-   */
-  @private embedded_to_xembedded(embedded) = {embedded = {
-        header = Xhtml.of_string_unsafe(embedded.header)
-        body = Xhtml.of_string_unsafe(embedded.body)
-      }
-    }
-
   /**
    * Get mode corresponding to the [file].
    */
@@ -98,42 +84,57 @@ Page = {{
     | _ -> x = Parser.try_parse(Rule.has_suffix(Rule.alphanum_string), file)
            Option.map((x -> x.f2), x)
 
-
   /**
-   * Return default value corresponding to a file mode.
+   * {2 Database access}
    */
-  @private default =
-    | {some = "html"} ->
-        { embedded = { header = "<!-- Enter your headers here -->"
-                       body="<!-- Enter your body here -->" } }
-    | {some = "css"}  ->
-        { resource = { css = "/* Enter your css here */"} }
-    | _               ->
-        { resource = { source = "Default ressource" mime="text/plain" } }
+  @private Access(~{engine dbpath}:Page.config('a, 'b)) = {{
+    save(key, page) =
+      Db.write(dbpath, StringMap.add(key, page, Db.read(dbpath)))
 
+    get(key) =
+      StringMap.get(key, Db.read(dbpath))
 
-  /**
-   * Save a public [page] at [url].
-   */
-  @private save(url, page) = /pages/public[url] <- page
+    remove(key) =
+      Db.write(dbpath, StringMap.remove(key, Db.read(dbpath)))
 
-  /**
-   * Delete page at [url].
-   */
-  @private remove(url) = /pages/public <- StringMap.remove(url, /pages/public)
+    list() = StringMap.rev_fold(key, _, acc -> key +> acc, Db.read(dbpath), [] )
 
-  /**
-   * Get a page at [url].
-   */
-  @private get(url) = match ?/pages/public[url]
-    | ~{some} -> some
-    | {none} -> default(get_suffix(url))
+    save_as_template(key, ~{hsource bsource}) =
+      match Template.try_parse(engine, hsource)
+      | ~{ko} -> some(ko)
+      | {ok = hcontent} ->
+        match Template.try_parse(engine, bsource)
+        | ~{ko} -> some(ko)
+        | {ok = bcontent} ->
+          do save(key, ~{hcontent bcontent})
+          none
 
-  @private get_class(url) = match ?/pages/public[url]
-    | {some = {embedded = _}} -> {embedded}
-    | {some = {resource = {image = _}}} -> {image}
-    | {some = {resource = {mime = "application/octet-stream" ...}}} -> {octet}
-    | _ -> {source}
+    get_edit(key):Page.edit =
+      match get(key) with
+      | {some={image=_}} -> {image}
+      | {some={css=_} as k}
+      | {some={source=_ mime=_} as k} -> k
+      | {some=~{binary mime}} ->
+        save(~{mime}) = save(key, ~{binary mime})
+        {binary ~mime ~save}
+      | {some=~{hcontent bcontent}} -> {
+          hsource = Template.to_source(engine, hcontent)
+          bsource = Template.to_source(engine, bcontent)
+          save = save_as_template(key, _)
+        }
+      | {none} ->
+        match get_suffix(key)
+        | {some="html"} -> {
+            hsource = "<!-- Enter your headers here -->"
+            bsource = "<!-- Enter your body here --> "
+            save = save_as_template(key, _)
+          }
+        | _ -> {source = "A custom resource" mime="text/plain"}
+
+    access : Page.access    =
+      ~{save get get_edit remove list}
+
+  }}
 
   /**
    * {2 Graphical user interface (admin)}
@@ -142,7 +143,9 @@ Page = {{
    * This modules provides a build function for administration
    * interface.
    */
-  AdminGui = {{
+  @private AdminGui = {{
+    @private save_id_button = "save_button"
+    @private message_placeholder_id = "msg_placeholder"
 
     /** Just a simple string transformation for xhtml insert. */
     @private file_for_xhtml =
@@ -179,77 +182,92 @@ Page = {{
      * Note : Client side function because need dom access.
      */
     @client build_buffer(access, file, id) =
-      make_buttons(get_page) =
+      failure_msg_placeholder = Dom.of_xhtml(<div id={message_placeholder_id}></div>)
+      _ = Dom.put_at_start(Dom.select_id(id), failure_msg_placeholder)
+      make_buttons(save) =
         buttons =
           remove = <button type="button"
                     onclick={Action.remove_file(access, file)}>Remove</button>
-          match get_page with
-          | {some = get_page} ->
+          match save with
+          | {some = save} ->
             <><button type="button"
-                    onclick={_ -> access.save(file, get_page())}>Save</button>
+                    onclick={_ -> save()}>Save</button>
             {remove}</>
           | {none} -> remove
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(buttons))
         void
-      match access.get_class(file) with
+      match access.get_edit(file) with
       | {image} ->
         dom = Dom.of_xhtml(<img src="{file}"/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
         make_buttons(none)
-      | {octet} ->
-        dom = Dom.of_xhtml(<span>Uneditable binary file</span>)
+      | {binary ~mime ~save} ->
+        mime_id = "mime_{id}"
+        x = <>Uneditable binary file, Mimetype
+              <input type="text" id="{mime_id}" value="{mime}"/></>
+        _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
+        save() = save({mime = Dom.get_value(Dom.select_id(mime_id))})
+        make_buttons(some(save))
+      | ~{source mime} ->
+        /* A raw resource editor is an ace editor + an input for mime */
+        id_src = "{id}_src"
+        dom = Dom.of_xhtml(<div id="{id_src}" class="admin_editor_source"/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
-        make_buttons(none)
-      | _ ->
-        match access.get(file) with
-        | {embedded = ~{body header}} ->
-          /* Html embedded editor is divided in two ace editor, one for
-          headers another for body */
-          head_id = "{id}_headers" body_id = "{id}_body"
-          dom = Dom.of_xhtml(<div id="{head_id}" class="admin_editor_html_header"/>
-                             <div id="{body_id}" class="admin_editor_html_body"/>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
-          /* Head ace */
-          ace_head = Ace.edit(head_id)
-          do Ace.set_content(ace_head, header)
-          _ = Ace.set_mode(ace_head, "html")
-          /* Body ace */
-          ace_body = Ace.edit(body_id)
-          do Ace.set_content(ace_body, body)
-          _ = Ace.set_mode(ace_body, "html")
-          /* Buffer buttons */
-          make_buttons(some( -> {embedded = {header=Ace.get_content(ace_head)
-                                             body=Ace.get_content(ace_body)}}))
+        ace_src = Ace.edit(id_src)
+        _ = Ace.set_content(ace_src, source)
+        /* Buffer buttons */
+        get_mime() = Dom.get_value(Dom.select_id("admin_editor_mime"))
+        do make_buttons(some(->
+             access.save(file, {source=Ace.get_content(ace_src) mime=get_mime()})
+          ))
+        dom = Dom.of_xhtml(<input type="text" value="{mime}" id="admin_editor_mime"/>)
+        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        void
+      | ~{css} ->
+        /* Css editor is just a simple ace editor */
+        id_css = "{id}_css"
+        dom = Dom.of_xhtml(<div id="{id_css}" class="admin_editor_css"/>)
+        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        ace_css = Ace.edit(id_css)
+        _ = Ace.set_content(ace_css, css)
+        _ = Ace.set_mode(ace_css, "css")
+        make_buttons(some(->
+            access.save(file, {css=Ace.get_content(ace_css)})
+          ))
+      | ~{hsource bsource save} ->
+        /* Html embedded editor is divided in two ace editor, one for
+        headers another for body */
+        head_id = "{id}_headers" body_id = "{id}_body" error_id = "{id}_error"
+        dom = Dom.of_xhtml(<div id="{head_id}" class="admin_editor_html_header"/>
+                           <div id="{body_id}" class="admin_editor_html_body"/>
+                           <span id="{error_id}"></span>
+                          )
+        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        /* Head ace */
+        ace_head = Ace.edit(head_id)
+        do Ace.set_content(ace_head, hsource)
+        _ = Ace.set_mode(ace_head, "html")
+        /* Body ace */
+        ace_body = Ace.edit(body_id)
+        do Ace.set_content(ace_body, bsource)
+        _ = Ace.set_mode(ace_body, "html")
+        /* Buffer buttons */
+        make_buttons(
+          some(->
+            fail = save({
+              hsource = Ace.get_content(ace_head)
+              bsource = Ace.get_content(ace_body)
+            })
+            msg(msg) =
+              _ = Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg))
+              void
+            match fail
+            | {none} -> msg(<>Save success</>)
+            | {some=fail} -> msg(<>{"{fail}"}</>)
 
+          )
+        )
 
-        | {resource = ~{css}} ->
-          /* Css editor is just a simple ace editor */
-          id_css = "{id}_css"
-          dom = Dom.of_xhtml(<div id="{id_css}" class="admin_editor_css"/>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
-          ace_css = Ace.edit(id_css)
-          _ = Ace.set_content(ace_css, css)
-          _ = Ace.set_mode(ace_css, "css")
-          make_buttons(some( -> {resource = {css=Ace.get_content(ace_css)}}))
-
-        | {resource = ~{source mime}} ->
-          /* A raw resource editor is an ace editor + an input for mime */
-          id_src = "{id}_src"
-          dom = Dom.of_xhtml(<div id="{id_src}" class="admin_editor_source"/>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
-          ace_src = Ace.edit(id_src)
-          _ = Ace.set_content(ace_src, source)
-          /* Buffer buttons */
-          get_mime() = Dom.get_value(Dom.select_id("admin_editor_mime"))
-          do make_buttons(some( -> {resource = {source=Ace.get_content(ace_src)
-                                                mime=get_mime()}}))
-          dom = Dom.of_xhtml(<input type="text" value="{mime}" id="admin_editor_mime"/>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
-          void
-        | _ ->
-          dom = Dom.of_xhtml(<span>Unexpected kind of file</span>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
-          void
 
 
     /**
@@ -315,12 +333,6 @@ Page = {{
         do Dom.remove(fl)
         do Dom.remove(buf)
         void
-
-      save_file(access:Page.access, get, file) : FunAction.t = _event ->
-        // TODO - Something
-        access.save(file, get())
-
-
     }}
 
     get_filename_mime() =
@@ -332,40 +344,35 @@ Page = {{
      */
     build(access:Page.access, url) =
       /* Add default page if url does not already exists on page map */
-      page_map =
-        map = /pages/public
-        if StringMap.mem(url, map) then map
-        else StringMap.add(url, default(get_suffix(url)), map)
+      page_list = List.unique_list_of(url +> access.list())
 
       /* Perform an uploaded file */
       perform_file(file) =
         /* Save page resource for the uploaded file using file
            suffix. */
-        save(filename, content, mimetype) =
-          content = match get_suffix(filename) with
-          | {some = "html"} | {some = "xhtml"} ->
-            {embedded = {header="" body=content}}
-          | {some = "png"} -> {resource= {image={png=content}}}
-          | {some = "jpg"} -> {resource= {image={jpg=content}}}
-          | {some = "ico"} -> {resource= {image={ico=content}}}
-          | {some = "gif"} -> {resource= {image={gif=content}}}
-          | _ -> {resource = {source = content mime=mimetype}}
-          save(filename, content)
+        // save(filename, content, mimetype) =
+        //   content = match get_suffix(filename) with
+        //   | {some = "png"} -> {image={png=content}}
+        //   | {some = "jpg"} -> {image={jpg=content}}
+        //   | {some = "ico"} -> {image={ico=content}}
+        //   | {some = "gif"} -> {image={gif=content}}
+        //   | _ -> {source = content mime=mimetype}
+        //   access.save(filename, content)
         /* Waiting full file content */
         rec aux() =
           match file.content() with
           | {partial = _} ->
             Scheduler.sleep(1000, aux)
           | ~{content} ->
-            (filename, mimetype) = get_filename_mime()
+            (filename, mime) = get_filename_mime()
             filename = match String.trim(filename)
               | "" -> "/{file.filename}"
               | x -> x
-            mimetype = match String.trim(mimetype)
+            mime = match String.trim(mime)
               | "" -> "application/octet-stream"
               | x -> x
-            do save(filename, content, mimetype)
-            do Log.notice("Uploader", "Uploading of {file.filename} ({mimetype}) was done")
+            do access.save(filename, {binary = content ~mime})
+            do Log.notice("Uploader", "Uploading of {file.filename} ({mime}) was done")
             do Action.open_file(access, filename)(Dom.Event.default_event)
             void
         aux()
@@ -375,11 +382,7 @@ Page = {{
           <caption> Published files </caption>
           {
            /* Insert xhtml list of <tr><td> */
-           StringMap.rev_fold(
-            (file, _, lxhtml ->
-              file_line(access, file == url, file) +> lxhtml),
-            page_map, []
-           )
+           List.fold(file, lxhtml -> file_line(access, file == url, file) +> lxhtml, page_list, [])
           }
         </table>
       </div>
@@ -400,6 +403,18 @@ Page = {{
 
   }}
 
+  @private build_resource(engine, stored) =
+    match stored
+    | ~{image}             -> {resource = Resource.image(image)}
+    | ~{css}               -> {resource = Resource.build_css(css)}
+    | ~{source mime}       -> {resource = Resource.source(source, mime)}
+    | ~{binary mime}       -> {resource = Resource.source(binary, mime)}
+    | ~{hcontent bcontent} -> {embedded = {
+                                   head = Template.to_xhtml(engine, hcontent)
+                                   body = Template.to_xhtml(engine, bcontent)
+                                }
+                              }
+
   /**
    * Provides an interface which allows to create and modify pages.
    * This iterface is composed :
@@ -408,40 +423,27 @@ Page = {{
    *   3 - An action zone
    * This admin interface open by default an editor for [url] file.
    */
-  admin(url, _user) =
-    AdminGui.build(~{get_class get save remove}, url)
+  make(config) : Page.manager =
+    access = Access(config).access
+    admin(url, _user:string) = AdminGui.build(access, url)
+    resource(url) = match access.get(url)
+      | {none} ->
+        {embedded = {head = <title>Not found</title>
+                     body = <h1>404 - Not found</h1>}
+        }
+      | {some=resource} -> build_resource(config.engine, resource)
+    try_resource(url) =
+      Option.map((resource -> build_resource(config.engine, resource)),
+                 access.get(url))
+    date(_url) =
+      Db.modification_time(config.dbpath)
 
-  /**
-   * Return a record corresponding to the resource at [url].
-   * - [{embedded = ...}] Means that page should be embedded into
-   *   applications, that provides a header and body field.
-   * - [{resource = ...}] Is a raw resource that be able to return
-   *   directly to the client.
-   */
-  resource(url) =
-    match try_resource(url)
-    | {some=resource} -> resource
-    | {none} -> match get_suffix(url) with
-      | {some="html"} -> embedded_to_xembedded(/pages/not_found)
-      | _ ->
-       {resource = Resource.full_page("",
-               Xhtml.of_string_unsafe(/pages/not_found/body),
-               Xhtml.of_string_unsafe(/pages/not_found/header),
-               {wrong_address}, []
-             )}
+    ~{admin resource try_resource date}
 
-  try_resource(url) =
-    Option.map(
-      | ~{embedded} -> embedded_to_xembedded(embedded)
-      | {resource = ~{image}} -> {resource = Resource.image(image)}
-      | {resource = ~{css}} -> {resource = Resource.build_css(css)}
-      | {resource = ~{source mime}} -> {resource = Resource.source(source, mime)},
-      ?/pages/public[url]
-    )
-
-  try_raw_resource(url) = ?/pages/public[url]
-
-  resource_date(url) = Db.modification_time(@/pages/public[url])
+  to_resource:Page.t -> resource =
+    | ~{resource} -> resource
+    | ~{embedded} -> Resource.full_page("", embedded.body, embedded.head,
+                       {success}, [])
 
 
 }}
