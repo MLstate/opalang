@@ -17,6 +17,16 @@ import components.applicationframe
  *   additionaly an access to the administration pages.
  */
 
+/** A  path to store template content. */
+db /opages : stringmap(Page.stored(TemplateDemo.tags(void), void))
+
+db /opages[] full
+
+/** */
+demo_engine = Template.combine(TemplateDemo.engine, Template.default)
+
+page_demo = Page.make({dbpath = @/opages engine = demo_engine})
+
 /** Init admin is does not exists or if needed on command line. */
 admin_init =
   cmdline:CommandLine.family(bool) = {
@@ -26,16 +36,18 @@ admin_init =
       description = "Reinitialize administrator password and print it."
       on_encounter(_) = {no_params = true}
     }]
+    anonymous = []
+    title = "OPAges"
   }
-  if not(User.has_admin()) || CommandLine.filter("OPAges", cmdline) then
+  if not(User.has_admin()) || CommandLine.filter(cmdline) then
     User.init_admin()
 
 /** Non secure server - just serve page in database */
 server =
   dispatcher = parser
     | url=(.*) ->
-      match Page.resource(Text.to_string(url))
-      | ~{embedded} -> Resource.full_page("Opalang",embedded.body, embedded.header,
+      match page_demo.resource(Text.to_string(url))
+      | ~{embedded} -> Resource.full_page("Opalang",embedded.body, embedded.head,
                                       {success}, [])
       | ~{resource} -> resource
   { Server.simple_server(dispatcher) with server_name = "http" }
@@ -43,30 +55,30 @@ server =
 /** Secure server - page in database + administration page access */
 server =
   build_html(url, embedded) =
-    /* Application frame configuration. */
-    app_frame_config = { CApplicationFrame.default_config with
-      authenticate(name, pass) =
-        if User.is_admin(name, pass) then none
-        else some("Invalid password")
-      private_page(_title, user) = Page.admin(url, user)
-      public_page(_title) = embedded.body
-      public_head(_title) = embedded.header
-    }
-    /* Application frame initialization. */
-    init = CApplicationFrame.init(app_frame_config)
-    CApplicationFrame.make(init, app_frame_config, "OPAges")
+  /* Application frame configuration. */
+  app_frame_config = { CApplicationFrame.default_config with
+    authenticate(name, pass) =
+      if User.is_admin(name, pass) then none
+      else some("Invalid password")
+    private_page(_title, user) = page_demo.admin(url, user)
+    public_page(_title) = embedded.body
+    public_head(_title) = embedded.head
+  }
+  /* Application frame initialization. */
+  init = CApplicationFrame.init(app_frame_config)
+  CApplicationFrame.make(init, app_frame_config, "OPAges")
   /* OPAges url dispatcher it's just a coating of Page.resource */
   url_dispatcher = parser
-    | url=(.*) ->
-      url = Text.to_string(url)
-      match Page.resource(url) with
-      | ~{embedded} ->
-        /* Build application frame resource that embedded the returned
-           embedded html.*/
-        build_html(url, embedded)
-      | ~{resource} ->
-        /* Page return directly a resource. */
-        Resource.secure(resource)
+  | url=(.*) ->
+    url = Text.to_string(url)
+    match page_demo.resource(url) with
+    | ~{embedded} ->
+      /* Build application frame resource that embedded the returned
+         embedded html.*/
+      build_html(url, embedded)
+    | ~{resource} ->
+      /* Page return directly a resource. */
+      Resource.secure(resource)
   /* Secured service */
   secure = Server.secure(Server.ssl_default_params, url_dispatcher)
   { secure with
