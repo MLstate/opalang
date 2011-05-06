@@ -1,3 +1,9 @@
+profile(name:string, f:-> 'a) = f()
+
+
+@server pagecache(f: 'a -> 'b) =
+  Cache.make(Cache.Negociator.always_necessary(f), { Cache.default_options with age_limit = some(Duration.h(6)) }) ;
+
 package opages
 import opace
 
@@ -87,12 +93,18 @@ Page = {{
   /**
    * {2 Database access}
    */
-  @private Access(~{engine dbpath}:Page.config('a, 'b)) = {{
-    save(key, page) =
-      Db.write(dbpath, StringMap.add(key, page, Db.read(dbpath)))
+  @server @private Access(~{engine dbpath}:Page.config('a, 'b)) = {{
+    get2(key) =
+       StringMap.get(key, profile("Db.read", -> Db.read(dbpath)))
 
-    get(key) =
-      StringMap.get(key, Db.read(dbpath))
+    toto = pagecache(get2)
+
+    get = toto.get
+    invalidate = toto.invalidate
+
+    save(key, page) =
+      do invalidate(key);
+      Db.write(dbpath, StringMap.add(key, page, Db.read(dbpath)))
 
     remove(key) =
       Db.write(dbpath, StringMap.remove(key, Db.read(dbpath)))
@@ -410,8 +422,8 @@ Page = {{
     | ~{source mime}       -> {resource = Resource.source(source, mime)}
     | ~{binary mime}       -> {resource = Resource.source(binary, mime)}
     | ~{hcontent bcontent} -> {embedded = {
-                                   head = Template.to_xhtml(engine, hcontent)
-                                   body = Template.to_xhtml(engine, bcontent)
+                                   head = profile("Template.export(head)", -> Template.to_xhtml(engine, hcontent))
+                                   body = profile("Template.export(head)", -> Template.to_xhtml(engine, bcontent))
                                 }
                               }
 
@@ -426,7 +438,7 @@ Page = {{
   make(config) : Page.manager =
     access = Access(config).access
     admin(url, _user:string) = AdminGui.build(access, url)
-    resource(url) = match access.get(url)
+    resource(url) = match profile("Access.get({url})", -> access.get(url))
       | {none} ->
         {embedded = {head = <title>Not found</title>
                      body = <h1>404 - Not found</h1>}
