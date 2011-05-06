@@ -40,6 +40,13 @@
 #
 /* hexadecimal digit */
 hexa <- [0-9A-Fa-f]:c {{ c }}
+hexa_digit <- [0-9]:c {{ Char.code c - Char.code '0' }}
+            / [A-F]:c {{ Char.code c - Char.code 'A' + 10 }}
+            / [a-f]:c {{ Char.code c - Char.code 'a' + 10 }}
+hexa4 <- hexa_digit:h1 hexa_digit:h2 hexa_digit:h3 hexa_digit:h4 {{
+           ((h1 lsl 4 + h2) lsl 4 + h3) lsl 4 + h4
+         }}
+hexa8 <- hexa4:h1 hexa4:h2 {{ h1 lsl 16 + h2 }}
 
 #
 # Whitespace management
@@ -86,26 +93,30 @@ char <-  [\'] char_char [\'] {{ __2 }}
 
 
 stringcharspecial <-
-        / [{] {{ '{' }} / [}] {{ '}' }}
-        / [n] {{ '\n' }} / [r] {{ '\r' }} / [t] {{ '\t' }}
-        / [\'] {{ '\'' }} / [\"] {{ '\"' }}  / [\\] {{ '\\' }}
+        / [{] {{ Char.code '{' }} / [}] {{ Char.code '}' }}
+        / [n] {{ Char.code '\n' }} / [r] {{ Char.code '\r' }} / [t] {{ Char.code '\t' }}
+        / [\'] {{ Char.code '\'' }} / [\"] {{ Char.code '\"' }}  / [\\] {{ Char.code '\\' }}
         / (=deco([0-9]+)):p {{ let (i,pos) = p in
-                               try char_of_int (Tgrammar.int_of_chars i)
+                               try Tgrammar.int_of_chars i
                                with
-                                 | Invalid_argument "char_of_int"
                                  | Failure "int_of_string" -> error_char_overflow pos
                              }}
-#        / 'u' hexa hexa hexa hexa {{ ??? }}                      #Can't really handle this with OCaml strings/chars, can we?
-#        / 'U' hexa hexa hexa hexa hexa hexa hexa hexa {{ ??? }}  #Can't really handle this with OCaml strings/chars, can we?
+        / 'u' hexa4:i {{ i }}
+        / 'U' hexa8:i {{ i }}
          / (=careful_deco(.)):p {{ error_char_escape (undecorate p) (label p) }}
 
 ; stringchar <-
-          [\\] stringcharspecial {{ String.make 1 __2 }}
-        / (![\\\"{] .)+ $_
+          [\\] stringcharspecial {{ Cactutf.cons __2 }}
+        / (![\\\"{] utf8char)+:l {{ BaseString.concat_map "" Cactutf.cons l }}
 
 char_char <-
           [\\] stringcharspecial {{ __2 }}
-        / .
+        / utf8char
+
+utf8char <- [\000-\127]:i1 {{ Cactutf.one_byte (Char.code i1) }}
+          / [\192-\223]:i1 .:i2 {{ Cactutf.two_bytes  (Char.code i1) (Char.code i2) }}
+          / [\224-\239]:i1 .:i2 .:i3 {{ Cactutf.three_bytes (Char.code i1) (Char.code i2) (Char.code i3) }}
+          / [\240-\255]:i1 .:i2 .:i3 .:i4 {{ Cactutf.four_bytes (Char.code i1) (Char.code i2) (Char.code i3) (Char.code i4) }}
 
 #
 # Numbers

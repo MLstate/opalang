@@ -1071,10 +1071,10 @@ opa_in_braces <- lbrace expr:e rbrace {{ e }}
   {6 Const }
 *)
 ;/** constant **/
-const      <- float:f {{ CFloat   f }}
-            / int:i {{ CInt     (Big_int.big_int_of_int i) }}
-            / string:s {{ CString  s }}
-            / char:c {{ CChar    (Char.code c)}}
+const      <- float:f {{ CFloat f }}
+            / int:i {{ CInt (Big_int.big_int_of_int i) }}
+            / string:s {{ CString s }}
+            / char:c {{ CChar c}}
 
 (**
    {6 Types}
