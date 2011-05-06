@@ -114,7 +114,7 @@ let error1 s annot =
 
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
 let error_string = error1 "you start an unterminated string (the `\"' is not matched by a closing `\"')."
-let error_char_escape c = error1 (sprintf "the escape \\%s is illegal. The legal escapes are: \\{, \\}, \\n, \\t, \\r, \\', \\\", \\\\, \\<integer>." (Char.escaped c))
+let error_char_escape c = error1 (sprintf "the escape \\%s is illegal. The legal escapes are: \\{, \\}, \\n, \\t, \\r, \\', \\\", \\\\, \\<integer>, \\uXXXX, \\UXXXXXXXX." (Char.escaped c))
 let error_fun_space = error1 (sprintf "you must not put a space between a function and its parameters.")
 let error_directive_not_good_arguments (s,pos) = error1 (sprintf "`@%s' expects arguments." s) pos
 let error_directive mess (s,pos) = error1 (sprintf "Directive `@%s' expects %s." s mess) pos
@@ -1294,62 +1294,6 @@ let list_style_def (s,pos) =
     | "upper-alpha" | "upper-latin" -> record1 "latin" (simple_record_expr "upper_case" pos)
     | "lower-greek" -> simple_record_expr "greek" pos
     | _ -> assert false
-
-(*
- * TRX
- *)
-
-let coerce_record1 s e t =
-  coerce_name_expr (record1 s e) t
-let coerce_simple_record s pos t =
-  coerce_name_expr (simple_record_expr s pos) t
-
-(* TODO Taken from old TRX; verify correctness *)
-let range_convert_utf8 l =
-  let shift v offset shl = (v - offset) lsl shl in
-  let build2 b1 b2 = shift b1 192 6 + shift b2 128 0 in
-  let build3 b1 b2 b3 = shift b1 224 12 + shift b2 128 6 + shift b3 128 0 in
-  let build4 b1 b2 b3 b4 = shift b1 240 18 + shift b2 128 12 + shift b3 128 6 + shift b4 128 0 in
-  let rec aux = function
-  | `char c1 :: tl when c1 < 128 ->
-      `char c1 :: aux tl
-  | `char c1 :: _ when c1 < 192 ->
-      OManager.error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [1]"
-  | `char c1 :: `char c2 :: `char c3 :: `char c4 :: tl when c1 >= 240 ->
-      `char (build4 c1 c2 c3 c4) :: aux tl
-  | `char c1 :: `char c2 :: `char c3 :: tl when c1 >= 224 ->
-      `char (build3 c1 c2 c3) :: aux tl
-  | `char c1 :: `char c2 :: tl ->
-      `char (build2 c1 c2) :: aux tl
-  | (`range | `any as v) :: tl ->
-      v :: aux tl
-  | [] ->
-      []
-  | _ ->
-      OManager.error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [2]"
-  in
-  aux l
-
-let range_to_ascii = function
-  | `ONE c -> `ONE (Char.code c)
-  | `RANGE (c1, c2) -> `RANGE (Char.code c1, Char.code c2)
-
-let range_expand = function
-  | `ONE e -> [`char e]
-  | `RANGE (c1, c2) -> [`char c1; `range; `char c2]
-
-let rec range_contract = function
-  | [] -> []
-  | `char c1 :: `range :: `char c2 :: tl ->
-      `RANGE(c1, c2) :: range_contract tl
-  | `char c :: tl ->
-      `ONE c :: range_contract tl
-  | _ ->
-      OManager.error "parser_utils.ml > range_contract"
-
-let convert_range rs =
-  rs |> List.map range_to_ascii |> List.concat_map range_expand |> range_convert_utf8 |> range_contract
-
 
 (*---------------------------------*)
 (*------- deep record update ------*)

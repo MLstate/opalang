@@ -489,14 +489,6 @@ val css_simple_record_hyphen2 : string * annot -> ('a, 'b) coerced_expr
 val list_style_def : string * annot -> ('a, 'b) coerced_expr
 
 
-(** Utils for trx parser *)
-val coerce_record1 : string -> (string, [> `coerce ] as 'a) expr -> string -> (string, 'a) expr
-val coerce_simple_record : string -> annot -> string -> (string, [> `coerce ]) expr
- (* re-groups ranges to properly take care of UTF8 characters *)
-val convert_range : [`RANGE of char * char | `ONE of char] list ->
-                    [`RANGE of int  * int  | `ONE of int ] list
-
-
 (** utils for rewriting deep record syntactic sugar *)
 val rewrite_long_extend_record :
   ((string * annot) list * (string, SurfaceAst.parsing_directive) SurfaceAst.expr) list ->

@@ -73,14 +73,16 @@ Primary_aux <-
         / Class:cls                                 {{ Trx_ast.Class cls }}
         / DOT                                       {{ Trx_ast.Any }}
 
-Class <- '[' (! ']' Range:r {{ r }})*:cls ']' {{ convert_range cls }}
+Class <- '[' (! ']' Range:r {{ r }})*:cls ']' {{ cls }}
 
-Range <- Char:c1 '-' Char:c2 {{ `RANGE(c1, c2) }}
-       / Char:c              {{ `ONE(c) }}
+Range <- RangeChar:c1 '-' RangeChar:c2 {{ `RANGE(c1, c2) }}
+       / RangeChar:c                   {{ `ONE(c) }}
 
-Char <- '\\' [nrt'"\\\[\]\-{}] {{ match __2 with 'n' -> '\n' | 'r' -> '\r' | 't' -> '\t' | x -> x }}
-      / '\\' [0-9]+ {{ char_of_int (Tgrammar.int_of_chars __2) }}
-      / !'\\' .
+RangeChar <- "\\[" {{ Char.code '[' }}
+           / "\\]" {{ Char.code ']' }}
+           / "\\-" {{ Char.code '-' }}
+           / Char
+Char <- Opa_lexer.char_char
 
 (**
    {6 Lexical analysis}
@@ -92,8 +94,8 @@ Identifier <-
 
 (* forbid braces [{...}] in literals, if a literal contains braces then we want to interpret
    it as an embedded OPA expression. Literal braces need escaping. *)
-Literal <- ['] (!['{}] Char {{ __2 }})* ['] {{ Tgrammar.string_of_chars __2 }}
-         / ["] (!["{}] Char {{ __2 }})* ["] {{ Tgrammar.string_of_chars __2 }}
+Literal <- ['] (!['{}] Char {{ __2 }})* ['] {{ BaseString.concat_map "" Cactutf.cons __2 }}
+         / ["] (!["{}] Char {{ __2 }})* ["] {{ BaseString.concat_map "" Cactutf.cons __2 }}
 
 AND <- spacing [&]
 NOT <- spacing [!]
