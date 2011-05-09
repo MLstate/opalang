@@ -445,5 +445,6 @@ Page = {{
     | ~{embedded} -> Resource.full_page("", embedded.body, embedded.head,
                        {success}, [])
 
-
+  empty: Page.stored('a,'b) =
+    { source = "" mime = "text/plain" }
 }}
