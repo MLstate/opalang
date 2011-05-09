@@ -1,9 +1,6 @@
 profile(name:string, f:-> 'a) = f()
 
 
-@server pagecache(f: 'a -> 'b) =
-  Cache.make(Cache.Negociator.always_necessary(f), { Cache.default_options with age_limit = some(Duration.h(6)) }) ;
-
 package opages
 import opace
 
@@ -24,8 +21,16 @@ import opace
  * A configuration for initialize a page entity
  */
 type Page.config('a, 'b) = {
-  dbpath : ref_path(stringmap(Page.stored('a, 'b)))
+  access : Page.access_config('a, 'b)
   engine : Template.engine('a, 'b)
+}
+
+type Page.access_config('a, 'b) = {
+  set : string, Page.stored('a, 'b) -> void
+  get : string -> option(Page.stored('a, 'b))
+  rm  : string -> void
+  ls  : -> list(string)
+  date : string -> Date.date
 }
 
 /**
@@ -64,8 +69,8 @@ type Page.manager = {
   get : string -> option(Page.stored('a, 'b))
   remove : string -> void
   get_edit : string -> Page.edit
-
   list : -> list(string)
+  date : string -> Date.date
 }
 
 @private type Page.edit =
@@ -93,23 +98,16 @@ Page = {{
   /**
    * {2 Database access}
    */
-  @server @private Access(~{engine dbpath}:Page.config('a, 'b)) = {{
-    get2(key) =
-       StringMap.get(key, profile("Db.read", -> Db.read(dbpath)))
+  @server @private Access(~{engine access=caccess}:Page.config('a, 'b)) = {{
+    get(key) = caccess.get(key)
 
-    toto = pagecache(get2)
+    save(key, page) = caccess.set(key, page)
 
-    get = toto.get
-    invalidate = toto.invalidate
+    remove(key) = caccess.rm(key)
 
-    save(key, page) =
-      do invalidate(key);
-      Db.write(dbpath, StringMap.add(key, page, Db.read(dbpath)))
+    date(key) = caccess.date(key)
 
-    remove(key) =
-      Db.write(dbpath, StringMap.remove(key, Db.read(dbpath)))
-
-    list() = StringMap.rev_fold(key, _, acc -> key +> acc, Db.read(dbpath), [] )
+    list() = caccess.ls()
 
     save_as_template(key, ~{hsource bsource}) =
       match Template.try_parse(engine, hsource)
@@ -144,7 +142,7 @@ Page = {{
         | _ -> {source = "A custom resource" mime="text/plain"}
 
     access : Page.access    =
-      ~{save get get_edit remove list}
+      ~{save get get_edit remove list date}
 
   }}
 
@@ -421,11 +419,11 @@ Page = {{
     | ~{css}               -> {resource = Resource.build_css(css)}
     | ~{source mime}       -> {resource = Resource.source(source, mime)}
     | ~{binary mime}       -> {resource = Resource.source(binary, mime)}
-    | ~{hcontent bcontent} -> {embedded = {
-                                   head = profile("Template.export(head)", -> Template.to_xhtml(engine, hcontent))
-                                   body = profile("Template.export(head)", -> Template.to_xhtml(engine, bcontent))
-                                }
-                              }
+    | ~{hcontent bcontent} ->
+      {embedded = {
+         head = profile("Template.export(head)", -> Template.to_xhtml(engine, hcontent))
+         body = profile("Template.export(head)", -> Template.to_xhtml(engine, bcontent))
+      } }
 
   /**
    * Provides an interface which allows to create and modify pages.
@@ -438,7 +436,8 @@ Page = {{
   make(config) : Page.manager =
     access = Access(config).access
     admin(url, _user:string) = AdminGui.build(access, url)
-    resource(url) = match profile("Access.get({url})", -> access.get(url))
+    resource(url) =
+      match profile("Access.get({url})", -> access.get(url))
       | {none} ->
         {embedded = {head = <title>Not found</title>
                      body = <h1>404 - Not found</h1>}
@@ -447,8 +446,7 @@ Page = {{
     try_resource(url) =
       Option.map((resource -> build_resource(config.engine, resource)),
                  access.get(url))
-    date(_url) =
-      Db.modification_time(config.dbpath)
+    date = access.date
 
     ~{admin resource try_resource date}
 

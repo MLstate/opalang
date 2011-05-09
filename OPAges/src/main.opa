@@ -25,7 +25,15 @@ db /opages[] full
 /** */
 demo_engine = Template.combine(TemplateDemo.engine, Template.default)
 
-page_demo = Page.make({dbpath = @/opages engine = demo_engine})
+demo_access = {
+  set = key, page -> /opages[key] <- page
+  get = key -> ?/opages[key]
+  rm  = key -> Db.remove(@/opages[key])
+  ls  = -> StringMap.rev_fold(key, _, acc -> key +> acc, /opages, [] )
+  date = key -> Db.modification_time(@/opages[key])
+}
+
+page_demo = Page.make({access = demo_access engine = demo_engine})
 
 /** Init admin is does not exists or if needed on command line. */
 admin_init =
