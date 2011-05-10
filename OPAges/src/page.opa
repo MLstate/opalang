@@ -221,16 +221,19 @@ Page = {{
       | ~{source mime} ->
         /* A raw resource editor is an ace editor + an input for mime */
         id_src = "{id}_src"
+        id_mime = "{id}_mime"
         dom = Dom.of_xhtml(<div id="{id_src}" class="admin_editor_source"/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
         ace_src = Ace.edit(id_src)
         _ = Ace.set_content(ace_src, source)
         /* Buffer buttons */
-        get_mime() = Dom.get_value(Dom.select_id("admin_editor_mime"))
+        get_mime() =
+          x = Dom.get_value(Dom.select_id(id_mime))
+          x
         do make_buttons(some(->
              access.save(file, {source=Ace.get_content(ace_src) mime=get_mime()})
           ))
-        dom = Dom.of_xhtml(<input type="text" value="{mime}" id="admin_editor_mime"/>)
+        dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
         void
       | ~{css} ->
