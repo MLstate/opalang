@@ -10,7 +10,7 @@ PLUGIN =
 PLUGINDIR =
 
 #Compiler variables
-OPACOMPILER = opa.exe
+OPACOMPILER = opa
 FLAG =
 OPADOC = opadoc-gen.exe
 PORT = 9000

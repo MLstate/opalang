@@ -8,7 +8,7 @@ BUILDDOCDIR ?=$(PWD)/doc/
 export BUILDDOCDIR
 PACKDOC = $(BUILDDOCDIR)/$(PACKNAME:%.opx=%.doc)/
 BUILDDOC = $(PACKDOC)
-OPACOMPILER ?= opa.exe
+OPACOMPILER ?= opa
 OPADOC ?= opadoc-gen.exe
 DEPENDS = $(SRC) $(PCK:%=$(BUILDDIR)/%) $(PLUGIN:%=$(BUILDDIR)/%)
 

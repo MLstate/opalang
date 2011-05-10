@@ -9,7 +9,7 @@ PLUGIN = ace.opp
 PLUGINDIR = plugin
 
 #Compiler variables
-OPACOMPILER = opa.exe
+OPACOMPILER = opa
 FLAG =
 
 PORT = 8080
