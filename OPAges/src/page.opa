@@ -23,6 +23,7 @@ import opace
 type Page.config('a, 'b) = {
   access : Page.access_config('a, 'b)
   engine : Template.engine('a, 'b)
+  not_found : resource
 }
 
 type Page.access_config('a, 'b) = {
@@ -98,7 +99,7 @@ Page = {{
   /**
    * {2 Database access}
    */
-  @server @private Access(~{engine access=caccess}:Page.config('a, 'b)) = {{
+  @server @private Access(~{engine access=caccess ...}:Page.config('a, 'b)) = {{
     get(key) = caccess.get(key)
 
     save(key, page) = caccess.set(key, page)
@@ -441,10 +442,7 @@ Page = {{
     admin(url, _user:string) = AdminGui.build(access, url)
     resource(url) =
       match profile("Access.get({url})", -> access.get(url))
-      | {none} ->
-        {embedded = {head = <title>Not found</title>
-                     body = <h1>404 - Not found</h1>}
-        }
+      | {none} -> {resource = config.not_found}
       | {some=resource} -> build_resource(config.engine, resource)
     try_resource(url) =
       Option.map((resource -> build_resource(config.engine, resource)),
