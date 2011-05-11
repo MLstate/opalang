@@ -140,6 +140,7 @@ Page = {{
             bsource = "<!-- Enter your body here --> "
             save = save_as_template(key, _)
           }
+        | {some="css"} -> {css = "/* Enter your css here */"}
         | _ -> {source = "A custom resource" mime="text/plain"}
 
     access : Page.access    =
