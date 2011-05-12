@@ -112,11 +112,11 @@ Page = {{
 
     save_as_template(key, ~{hsource bsource}) =
       match Template.try_parse(engine, hsource)
-      | ~{ko} -> some(ko)
-      | {ok = hcontent} ->
+      | ~{failure} -> some(failure)
+      | {success = hcontent} ->
         match Template.try_parse(engine, bsource)
-        | ~{ko} -> some(ko)
-        | {ok = bcontent} ->
+        | ~{failure} -> some(failure)
+        | {success = bcontent} ->
           do save(key, ~{hcontent bcontent})
           none
 
