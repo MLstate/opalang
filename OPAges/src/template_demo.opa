@@ -55,12 +55,12 @@ TemplateDemo = {{
 
   namespace = Uri.of_string("http://opalang.org/schema/demo.xsd") |> Option.get
 
-  @private parse(~{ns tag args children }:Template.import_arg(TemplateDemo.tags('a), 'b)) : outcome(Template.content(either(TemplateDemo.tags('a), 'b)), Template.failure) =
+  @private parse(_config, ~{ns tag args children }:Template.import_arg(TemplateDemo.tags('a), 'b)) : outcome(Template.content(either(TemplateDemo.tags('a), 'b)), Template.failure) =
     if ns == namespace then
       build = match tag
         | "random"      -> some(TRandom.build)
         | "date"        -> some(TDate.build)
-        | "scope"       -> some(~{args children} -> {scope = children} )
+        | "scope"       -> some({args=_ ~children} -> {scope = children} )
         | _             -> none
       Option.switch((build -> {success = Template.to_extension(build(~{args children}))}),
                     {failure = {unsupported_tag ~ns ~tag}},
@@ -76,7 +76,7 @@ TemplateDemo = {{
       {success = match e
             | {random} as e         -> TRandom.export(e, child)
             | {date_format=_} as e  -> TDate.export(e, child)
-            | ~{scope}              -> child}
+            | {scope=_}              -> child}
 
   @private source(content, child, xmlns_binding, printer) =
     binding = StringMap.get(Uri.to_string(namespace), xmlns_binding)
@@ -93,7 +93,7 @@ TemplateDemo = {{
           match tag
           | { random } -> create_tag("version", none, true)
           | ~{ date_format } -> create_tag("date", some(" format=\"{date_format}\""), true)
-          | ~{ scope }       -> create_tag("scope", none, false)
+          | { scope=_ }       -> create_tag("scope", none, false)
         )}
 
   @private extract_children(content) = match Template.from_extension(content)

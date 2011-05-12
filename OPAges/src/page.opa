@@ -1,4 +1,4 @@
-profile(name:string, f:-> 'a) = f()
+profile(_name:string, f:-> 'a) = f()
 
 
 package opages
@@ -165,7 +165,7 @@ Page = {{
       | x -> x
 
     /** A translation that allows to use file on dom identifiers. */
-    @private file_id = md5
+    @private file_id = Crypto.Hash.md5
 
     /** Create a file line for table insert. */
     @private file_line(access:Page.access, opened, file) =

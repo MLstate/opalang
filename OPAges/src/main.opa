@@ -20,7 +20,8 @@ import components.applicationframe
 /** A  path to store template content. */
 db /opages : stringmap(Page.stored(TemplateDemo.tags(void), void))
 
-db /opages[] full
+db /opages[_] full
+db /opages[_] = Page.empty
 
 /** */
 demo_engine = Template.combine(TemplateDemo.engine, Template.default)
@@ -33,7 +34,10 @@ demo_access = {
   date = key -> Db.modification_time(@/opages[key])
 }
 
-page_demo = Page.make({access = demo_access engine = demo_engine})
+demo_not_found =
+  Resource.error_page("Page not found", <h1>Page not found</h1>, {wrong_address})
+
+page_demo = Page.make({access = demo_access engine = demo_engine not_found = demo_not_found} : Page.config)
 
 /** Init admin is does not exists or if needed on command line. */
 admin_init =
