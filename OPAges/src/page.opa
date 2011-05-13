@@ -21,14 +21,14 @@ import opace
  * A configuration for initialize a page entity
  */
 type Page.config('a, 'b) = {
-  access : Page.access_config('a, 'b)
+  access : Page.config.access
   engine : Template.engine('a, 'b)
   not_found : resource
 }
 
-type Page.access_config('a, 'b) = {
-  set : string, Page.stored('a, 'b) -> void
-  get : string -> option(Page.stored('a, 'b))
+type Page.config.access = {
+  set : string, Page.stored -> void
+  get : string -> option(Page.stored)
   rm  : string -> void
   ls  : -> list(string)
   date : string -> Date.date
@@ -53,21 +53,22 @@ type Page.manager = {
 /**
  * Type of data stored in database
  */
-@abstract type Page.stored('a, 'b) =
+@abstract type Page.stored =
   {image : image} /
   {css   : string} /
   {source : string mime : string} /
   {binary : binary mime : string} /
-  {hcontent : Template.content(either('a, 'b))
-   bcontent : Template.content(either('a, 'b))}
+  /* Contains sourced template */
+  {hcontent : string
+   bcontent : string}
 
 /**
  * A record used for give some primitive to the admin GUI unless
  * publish critical primitives.
  */
 @private type Page.access('a, 'b) = {
-  save : string, Page.stored('a, 'b) -> void
-  get : string -> option(Page.stored('a, 'b))
+  save : string, Page.stored -> void
+  get : string -> option(Page.stored)
   remove : string -> void
   get_edit : string -> Page.edit
   list : -> list(string)
@@ -117,7 +118,8 @@ Page = {{
         match Template.try_parse(engine, bsource)
         | ~{failure} -> some(failure)
         | {success = bcontent} ->
-          do save(key, ~{hcontent bcontent})
+          do save(key, ~{hcontent=Template.to_source(engine, hcontent)
+                         bcontent=Template.to_source(engine, bcontent)})
           none
 
     get_edit(key):Page.edit =
@@ -129,8 +131,8 @@ Page = {{
         save(~{mime}) = save(key, ~{binary mime})
         {binary ~mime ~save}
       | {some=~{hcontent bcontent}} -> {
-          hsource = Template.to_source(engine, hcontent)
-          bsource = Template.to_source(engine, bcontent)
+          hsource = hcontent
+          bsource = bcontent
           save = save_as_template(key, _)
         }
       | {none} ->
@@ -426,8 +428,8 @@ Page = {{
     | ~{binary mime}       -> {resource = Resource.source(binary, mime)}
     | ~{hcontent bcontent} ->
       {embedded = {
-         head = profile("Template.export(head)", -> Template.to_xhtml(engine, hcontent))
-         body = profile("Template.export(head)", -> Template.to_xhtml(engine, bcontent))
+         head = Template.to_xhtml(engine, Template.parse(engine, hcontent))
+         body = Template.to_xhtml(engine, Template.parse(engine, bcontent))
       } }
 
   /**
@@ -457,6 +459,6 @@ Page = {{
     | ~{embedded} -> Resource.full_page("", embedded.body, embedded.head,
                        {success}, [])
 
-  empty: Page.stored('a,'b) =
+  empty: Page.stored =
     { source = "" mime = "text/plain" }
 }}
