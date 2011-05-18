@@ -18,7 +18,7 @@ import components.applicationframe
  */
 
 /** A  path to store template content. */
-db /opages : stringmap(Page.stored(TemplateDemo.tags(void), void))
+db /opages : stringmap(Page.stored)
 
 db /opages[_] full
 db /opages[_] = Page.empty
