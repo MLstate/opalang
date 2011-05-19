@@ -137,7 +137,7 @@ Page = {{
         }
       | {none} ->
         match get_suffix(key)
-        | {some="html"} -> {
+        | {some="html"} | {some = "xmlt"}-> {
             hsource = "<!-- Enter your headers here -->"
             bsource = "<!-- Enter your body here --> "
             save = save_as_template(key, _)
