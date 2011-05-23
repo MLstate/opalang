@@ -1,6 +1,3 @@
-profile(_name:string, f:-> 'a) = f()
-
-
 package opages
 import opace
 
@@ -23,7 +20,6 @@ import opace
 type Page.config('a, 'b) = {
   access : Page.config.access
   engine : Template.engine('a, 'b)
-  not_found : resource
 }
 
 type Page.config.access = {
@@ -453,8 +449,15 @@ Page = {{
         | _ -> none),
         access.get(url))
     resource(url) =
-      match profile("Access.get({url})", -> access.get(url))
-      | {none} -> {resource = config.not_found}
+      match access.get(url)
+      | {none} -> {resource =
+          match access.get("404.xmlt")
+          | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
+          | {some=r} ->
+            match build_resource(config.engine, r)
+            | {embedded = ~{body head}} -> Resource.full_page("", body, head, {found}, [])
+            | x -> to_resource(x)
+        }
       | {some=resource} -> build_resource(config.engine, resource)
     try_resource(url) =
       Option.map((resource -> build_resource(config.engine, resource)),
