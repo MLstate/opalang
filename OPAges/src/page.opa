@@ -47,6 +47,7 @@ type Page.manager = {
   admin: string, string -> xhtml
   resource: string -> Page.t
   try_resource: string -> option(Page.t)
+  source : string -> option(string)
   date : string -> Date.date
 }
 
@@ -443,6 +444,13 @@ Page = {{
   make(config) : Page.manager =
     access = Access(config).access
     admin(url, _user:string) = AdminGui.build(access, url)
+    source(url) = Option.bind(
+      (page:Page.stored -> match page
+        | ~{css} -> some(css)
+        | ~{source ...} -> some(source)
+        | ~{bcontent ...} -> some(bcontent)
+        | _ -> none),
+        access.get(url))
     resource(url) =
       match profile("Access.get({url})", -> access.get(url))
       | {none} -> {resource = config.not_found}
@@ -452,7 +460,7 @@ Page = {{
                  access.get(url))
     date = access.date
 
-    ~{admin resource try_resource date}
+    ~{admin resource try_resource date source}
 
   to_resource:Page.t -> resource =
     | ~{resource} -> resource
