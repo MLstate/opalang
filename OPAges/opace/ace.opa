@@ -74,4 +74,9 @@ Ace = {{
    */
   redo = %%plugin_ace.redo%%
 
+  /**
+   * Set editor as read only
+   */
+  read_only = %%plugin_ace.read_only%%
+
 }}
