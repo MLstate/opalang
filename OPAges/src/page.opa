@@ -98,6 +98,7 @@ Page = {{
     | _ -> x = Parser.try_parse(Rule.has_suffix(Rule.alphanum_string), file)
            Option.map((x -> x.f2), x)
 
+  @private template_config = { Template.default_conf with fallback_to_text_node = false }
   /**
    * {2 Database access}
    */
@@ -113,10 +114,10 @@ Page = {{
     list() = caccess.ls()
 
     save_as_template(key, ~{hsource bsource}) =
-      match Template.try_parse(engine, hsource)
+      match Template.try_parse_with_conf(template_config, engine, hsource)
       | ~{failure} -> some(failure)
       | {success = hcontent} ->
-        match Template.try_parse(engine, bsource)
+        match Template.try_parse_with_conf(template_config, engine, bsource)
         | ~{failure} -> some(failure)
         | {success = bcontent} ->
           do save(key, ~{hcontent=Template.to_source(engine, hcontent)
