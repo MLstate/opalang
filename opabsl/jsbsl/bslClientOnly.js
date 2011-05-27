@@ -381,18 +381,6 @@ if (window.Node && Node.prototype && !Node.prototype.contains)
   Node.prototype.contains = function (arg) { return !!(this.compareDocumentPosition(arg) & 16) }
 }
 
-
-##register getKeyCode : 'a -> int
-##args(event)
-{
-  if(!event&&window.event) {
-    event=window.event;
-  }
-  if(event) {
-      return(1*event.keyCode);
-  }
-}
-
 /**
  * {1 Timeout and Intervals}
  *
