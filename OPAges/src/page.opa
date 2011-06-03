@@ -360,37 +360,42 @@ Page = {{
     build(access:Page.access, url) =
       /* Add default page if url does not already exists on page map */
       page_list = List.unique_list_of(url +> access.list())
-
-      /* Perform an uploaded file */
-      perform_file(file) =
-        /* Save page resource for the uploaded file using file
-           suffix. */
-        // save(filename, content, mimetype) =
-        //   content = match get_suffix(filename) with
-        //   | {some = "png"} -> {image={png=content}}
-        //   | {some = "jpg"} -> {image={jpg=content}}
-        //   | {some = "ico"} -> {image={ico=content}}
-        //   | {some = "gif"} -> {image={gif=content}}
-        //   | _ -> {source = content mime=mimetype}
-        //   access.save(filename, content)
-        /* Waiting full file content */
-        rec aux() =
-          match file.content() with
-          | {partial = _} ->
-            Scheduler.sleep(1000, aux)
-          | ~{content} ->
-            (filename, mime) = get_filename_mime()
-            filename = match String.trim(filename)
-              | "" -> "/{file.filename}"
-              | x -> x
-            mime = match String.trim(mime)
-              | "" -> "application/octet-stream"
-              | x -> x
-            do access.save(filename, {binary = content ~mime})
-            do Log.notice("Uploader", "Uploading of {file.filename} ({mime}) was done")
-            do Action.open_file(access, filename)(Dom.Event.default_event)
-            void
-        aux()
+      init_result = {mime=""
+                     filename=""
+                     content=none}
+      fold_datas(data, result) = match data
+        | ~{name="upload_file_content" filename content fold_headers} ->
+          if filename=="" then result
+          else
+            mime=
+              if result.mime=="" then
+                @unsafe_cast(fold_headers)("",
+                  (head, (value:string), mime -> match head | "Content_Type" -> value | _ -> mime)
+                  )
+              else result.mime
+            content =
+              rec aux() = match content()
+                | {partial=_} -> do Scheduler.wait(500) aux()
+                | ~{content} -> content
+              aux()
+            filename = if result.filename=="" then "/{filename}" else result.filename
+            {~filename ~mime content=some(content)}
+        | {name = "upload_mime_type" value=""} -> result
+        | {name = "upload_mime_type" ~value}   -> { result with mime=value }
+        | {name = "upload_file_name" value=""} -> result
+        | {name = "upload_file_name" ~value}   -> { result with filename=value }
+        | {~name filename=_ content=_ fold_headers=_}
+        | {~name value=_}
+         -> do Log.error("PageUploader", "Unknown field {name}") result
+      perform_result(result) =
+        match result.content
+        | {none} -> Log.error("PageUploader", "No file to perform")
+        | {some = binary} ->
+          mime = if result.mime=="" then "application/octet-some" else result.mime
+          do Log.notice("PageUploader", "Uploading of {result.filename} ({mime}) was done")
+          do access.save(result.filename, {~binary ~mime})
+          do Action.open_file(access, result.filename)(Dom.Event.default_event)
+          void
       /* Build admin xhtml body page */
       <div id="admin_files">
         <table id="admin_files_table">
@@ -405,14 +410,15 @@ Page = {{
         {file_buffer(access, true, url)}
       </div>
       <div id="admin_buttons">
-        <input  id="admin_new_file" type="text"/>
-        <button type="button" onclick={Action.new_file(access)}>New file</button>
-        { config = {Upload.default_config with ~perform_file
-                    body_form = (<>
-                      {Upload.default_config.body_form}
-                      Mime-type <input id="upload_mime_type" type="text" value="application/octet-stream"/>
-                    </>)
-                    }
+        { config = Upload.default_config(init_result)
+          config = { config with ~fold_datas ~perform_result
+                       body_form = <>
+                         Filename : <input  id="admin_new_file" name="upload_file_name" type="text"/>
+                         <button type="button" onclick={Action.new_file(access)}>New file</button>
+                         Mime-type <input name="upload_mime_type" type="text" value="application/octet-stream"/>
+                         <input type="file" name="upload_file_content"/>
+                         <button type="submit">Upload</button>
+                       </> }
           Upload.make(config)}
       </div>
 
