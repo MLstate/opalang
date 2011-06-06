@@ -381,9 +381,16 @@ Page = {{
             filename = if result.filename=="" then "/{filename}" else result.filename
             {~filename ~mime content=some(content)}
         | {name = "upload_mime_type" value=""} -> result
-        | {name = "upload_mime_type" ~value}   -> { result with mime=value }
+        | {name = "upload_mime_type" ~value}   ->
+          value = String.trim(value)
+          if value=="" then result else
+          { result with mime=value }
+
         | {name = "upload_file_name" value=""} -> result
-        | {name = "upload_file_name" ~value}   -> { result with filename=value }
+        | {name = "upload_file_name" ~value}   ->
+          value = String.trim(value)
+          if value=="" then result else
+          { result with filename=value }
         | {~name filename=_ content=_ fold_headers=_}
         | {~name value=_}
          -> do Log.error("PageUploader", "Unknown field {name}") result
