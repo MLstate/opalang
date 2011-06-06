@@ -25,6 +25,8 @@
 
 import stdlib.core.{parser}
 
+// FIXME, this module needs a clean-up
+
 /**
  * {1 About this module}
  *
@@ -317,10 +319,43 @@ Uri =
    * @param s A string
    * @return true if the string represents a valid [http], [https] or [mailto] URI.
    */
+  // FIXME, secure? in what sense secure?
   is_secure(s:string) =
      match of_string(s) with
         | {none} -> false
         | _      -> true
+
+  /* FIXME, the distinction between relative/absolute URIs is not too good; improve?*/
+  is_absolute(uri : Uri.uri) : bool =
+    match uri with
+    | ~{schema=_ domain=_ path=_ ...} -> true
+    | _ -> false
+
+  /**
+   * Returns true for a valid, non-local HTTP(s) address.
+   *
+   * @param uri an URI
+   * @return true iff [uri] is a valid HTTP(s) address (syntactically; it doesn't
+   *         mean that such a page exists/is up and running).
+   */
+  is_valid_http(uri : Uri.uri) : bool =
+    path_contains_a_dot =
+      | [hd|_] -> String.index(".", hd) |> Option.is_some
+      | _ -> false
+    match uri with
+    /* absolute URIs are OK if they have HTTP/HTTPs schemas or at least one
+       dot in the path ([localhost] is not good, [test.com] is) */
+    | ~{schema path ...} ->
+        (match schema : option(string) with
+        | {some="http"} -> true
+        | {some="https"} -> true
+        | {some=_} -> false
+        | {none} -> path_contains_a_dot(path)
+        )
+    /* relative URIs are OK if they have a dot in the path (as above) */
+    | ~{path ...} -> path_contains_a_dot(path)
+    /* email addresses are not ok */
+    | {address=_ query=_} -> false
 
   /**
    * Conversion from URIs to their string representation.

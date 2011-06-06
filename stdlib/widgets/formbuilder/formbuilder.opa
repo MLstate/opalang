@@ -186,6 +186,16 @@ WFormBuilder =
       else
         {failure = error_msg}
 
+  url_validator(error_msg : xhtml) : WFormBuilder.validator =
+    input ->
+      match Uri.of_string(input) with
+      | {none} -> {failure = error_msg}
+      | {some=uri} ->
+          if Uri.is_valid_http(uri) then
+            {success = input}
+          else
+            {failure = error_msg}
+
   merge_validators(vs : list(WFormBuilder.validator)) : WFormBuilder.validator =
     rec aux(input) =
       | [] -> { success=input }
@@ -215,6 +225,15 @@ WFormBuilder =
   add_email_validator(field : WFormBuilder.field, err_msg : xhtml)
     : WFormBuilder.field =
     add_validator(field, email_validator(err_msg))
+
+  add_default_email_validator(field : WFormBuilder.field) : WFormBuilder.field =
+    add_email_validator(field, <>This is not a valid email address.</>)
+
+  add_url_validator(field : WFormBuilder.field, err_msg : xhtml) : WFormBuilder.field =
+    add_validator(field, url_validator(err_msg))
+
+  add_default_url_validator(field : WFormBuilder.field) : WFormBuilder.field =
+    add_url_validator(field, <>This does not seem to be a valid URL.</>)
 
   set_id(field : WFormBuilder.field, id : string) : WFormBuilder.field =
     {field with ~id}
