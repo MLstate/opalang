@@ -37,7 +37,7 @@
 ##register add_event_listener : Ace.t, string, ( -> void) -> void
 ##args(editor, kind, handler)
 {
-    editor.getSession().addEventListener(kind, function(){handler()});
+    editor.getSession().addEventListener(kind, handler);
     return js_void;
 }
 
@@ -59,5 +59,12 @@
 ##args(editor, b)
 {
     editor.setReadOnly(b);
+    return js_void;
+}
+
+##register move_cursor : Ace.t, int, int -> void
+##args(editor, col, line)
+{
+    editor.getSelection().moveCursorToScreen(col, line);
     return js_void;
 }

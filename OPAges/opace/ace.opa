@@ -79,4 +79,9 @@ Ace = {{
    */
   read_only = %%plugin_ace.read_only%%
 
+  /**
+   * Set cursor position.
+   */
+  move_cursor = %%plugin_ace.move_cursor%%
+
 }}
