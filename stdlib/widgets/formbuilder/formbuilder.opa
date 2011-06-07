@@ -54,7 +54,7 @@ type WFormBuilder.field =
   { id : string
   ; label : string
   ; needed : { required } / { optional }
-  ; field_type : { email } / { text } / { passwd }
+  ; field_type : { email } / { text } / { passwd} / { desc : { cols: int rows: int} }
   ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
   }
@@ -213,6 +213,21 @@ WFormBuilder =
      hint=none
     }
 
+  mk_text_field(label) : WFormBuilder.field =
+    mk_field(label, {text})
+
+  mk_email_field(label) : WFormBuilder.field =
+    mk_field(label, {email})
+
+  mk_passwd_field(label) : WFormBuilder.field =
+    mk_field(label, {passwd})
+
+  mk_desc_field_with(label, size : {rows : int; cols : int}) : WFormBuilder.field =
+    mk_field(label, {desc=size})
+
+  mk_desc_field(label) : WFormBuilder.field =
+    mk_desc_field_with(label, {rows=3 cols=40})
+
   add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
     : WFormBuilder.field =
     { field with
@@ -311,23 +326,30 @@ WFormBuilder =
           {label}
           {req}
         </> |> style(s.label_style(true))
-      input_type =
+      input(input_type) =
+        <input type={input_type} id=#{input_id(id)} />
+      input_tag =
         match field_type with
-        | {email} -> "email"
-        | {text} -> "text"
-        | {passwd} -> "password"
-      input_xhtml =
-        <input type={input_type} id=#{input_id(id)}
-               onblur={_ ->
-                 do do_validate(spec.style, id, validator)
-                 do hide_hint(spec.style, id)
-                 void
-               }
-               onfocus={_ ->
-                 do show_hint(spec.style, id)
-                 void
-               } />
-        |> style(s.input_style(true))
+        | {email} -> input("email")
+        | {text} -> input("text")
+        | {passwd} -> input("password")
+        | {desc=~{cols rows}} ->
+            // FIXME, resize:none should be in css{...}
+            <textarea style="resize: none;" type="text" id=#{input_id(id)}
+                      rows={rows} cols={cols} />
+      stl_input_tag = input_tag |> style(s.input_style(true))
+      onblur(_) =
+        do do_validate(spec.style, id, validator)
+        do hide_hint(spec.style, id)
+        void
+      onfocus(_) =
+        do show_hint(spec.style, id)
+        void
+      bindings =
+        [ ({blur}, onblur)
+        , ({focus}, onfocus)
+        ]
+      input_xhtml = WCore.add_binds(bindings, stl_input_tag)
       hint_xhtml =
         match hint with
         | {none} -> <></>
