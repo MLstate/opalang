@@ -70,6 +70,9 @@ type Page.manager = {
   get_edit : string -> Page.edit
   list : -> list(string)
   date : string -> Date.date
+  release : string -> Page.Lock.return
+  try_lock : string -> Page.Lock.return
+  force_release : string -> Page.Lock.return
 }
 
 @private type Page.edit =
@@ -80,7 +83,17 @@ type Page.manager = {
   {hsource : string; bsource : string
    save : {hsource : string; bsource : string} -> option(Template.failure)}
 
+type Page.Lock.return = outcome(
+  {lock_at:Date.date},
+
+  {internal_error}
+/ {locked : {lock_at : Date.date lock_by : ThreadContext.client}}
+/ {unlocked}
+)
+
 Page = {{
+
+
 
   /**
    * {2 Privates utils}
@@ -95,10 +108,71 @@ Page = {{
            Option.map((x -> x.f2), x)
 
   @private template_config = { Template.default_conf with fallback_to_text_node = false }
+
+  @private lock_message(r:Page.Lock.return) = match r
+    | {success = ~{lock_at}} -> "Lock success at {Date.to_string(lock_at)}"
+    | {failure = {internal_error}} -> "Lock failure : internal error"
+    | {failure = {unlocked}} -> "Unlock failure : seems already unlocked"
+    | {failure = {locked = ~{lock_at lock_by}}} ->
+      "Lock failure : already locked at {Date.to_string(lock_at)} by {lock_by}"
+
   /**
    * {2 Database access}
    */
   @server @private Access(~{engine access=caccess ...}:Page.config('a, 'b)) = {{
+
+    /**
+     * {2 Lock system}
+     */
+    Lock = {{
+      /**
+       * Private cell that manage lock.
+       */
+      @private lock_cell = Cell.make(StringMap.empty,
+        (map, message -> match message
+          | ~{lock} ->
+            match StringMap.get(lock, map)
+            | ~{some} -> match ThreadContext.get({current}).key
+              | ~{client} ->
+                if client == some.lock_by then
+                  {return = {success={lock_at = some.lock_at}} instruction = {unchanged}}
+                else
+                  {return = {failure={locked = some}} instruction = {unchanged}}
+              | _ -> {return = {failure={locked = some}} instruction = {unchanged}}
+              end
+            | {none} -> match ThreadContext.get({current}).key
+              | {client=lock_by} ->
+                lock_at = Date.now()
+                {return = {success=~{lock_at}}
+                 instruction = {set = StringMap.add(lock, ~{lock_at lock_by}, map)}}
+              | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
+              end
+            end
+          | ~{unlock force} ->
+            match StringMap.get(unlock, map)
+            | {none}  -> {return = {failure={unlocked}} instruction = {unchanged}}
+            | ~{some} -> match ThreadContext.get({current}).key
+              | ~{client} ->
+                if force || client == some.lock_by then
+                  {return = {success={lock_at = some.lock_at}}
+                   instruction = {set = StringMap.remove(unlock, map)}}
+                else
+                  {return = {failure={locked = some}}
+                   instruction = {unchanged}}
+              | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
+              end
+            end
+        )
+      )
+
+      try(url) = Cell.call(lock_cell, {lock=url})
+
+      release(url) = Cell.call(lock_cell, {unlock=url force=false})
+
+      force_release(url) = Cell.call(lock_cell, {unlock=url force=true})
+
+    }}
+
     get(key) = caccess.get(key)
 
     save(key, page) = caccess.set(key, page)
@@ -116,7 +190,9 @@ Page = {{
         match Template.try_parse_with_conf(template_config, engine, bsource)
         | ~{failure} -> some(failure)
         | {success = bcontent} ->
-          do save(key, ~{hcontent=Template.to_source(engine, hcontent)
+          hcontent = Template.to_source(engine, hcontent)
+          do Log.notice("PageDebug", "Saving headers {hcontent}")
+          do save(key, ~{hcontent=hcontent
                          bcontent=Template.to_source(engine, bcontent)})
           none
 
@@ -144,7 +220,8 @@ Page = {{
         | _ -> {source = "A custom resource" mime="text/plain"}
 
     access : Page.access    =
-      ~{save get get_edit remove list date}
+      ~{save get get_edit remove list date
+        try_lock=Lock.try release=Lock.release force_release=Lock.force_release}
 
   }}
 
@@ -194,20 +271,79 @@ Page = {{
      * Note : Client side function because need dom access.
      */
     @client build_buffer(access, file, id) =
-      failure_msg_placeholder = Dom.of_xhtml(<div id={message_placeholder_id}></div>)
-      _ = Dom.put_at_start(Dom.select_id(id), failure_msg_placeholder)
-      make_buttons(save) =
+      /* Error reporting */
+      reporting =
+        error_id = "{id}_error"
+        do Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(<div id={error_id}/>))
+        (msg:xhtml) -> ignore(Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg)))
+
+
+      /* Generate some buttons */
+      make_buttons(action) =
         buttons =
-          remove = <button type="button"
+          common = <>
+            <button type="button"
                     onclick={Action.remove_file(access, file)}>Remove</button>
-          match save with
-          | {some = save} ->
-            <><button type="button"
-                    onclick={_ -> save()}>Save</button>
-            {remove}</>
-          | {none} -> remove
+          </>
+          match action with
+          | {some = action} ->
+              save_button_id = "{id}_button_save"
+              lock_button_id = "{id}_button_lock"
+              make_lock_button(lock, x) =
+                <button type="button" id={lock_button_id}
+                        onclick={lock}>{x}</button>
+              rec val lock_button = make_lock_button(action_try_lock, "Lock")
+              and val unlock_button = make_lock_button(action_release, "Release")
+              and action_try_lock(_:Dom.event) =
+                result = access.try_lock(file)
+                do reporting(<>{lock_message(result)}</>)
+                match result
+                | {success=_} ->
+                  do ignore(Dom.put_replace(Dom.select_id(lock_button_id),
+                                            Dom.of_xhtml(unlock_button)))
+                  do Dom.set_enabled(Dom.select_id(save_button_id), true)
+                  action.read_only(false)
+                | _ ->
+                  do Dom.set_enabled(Dom.select_id(save_button_id), false)
+                  action.read_only(true)
+              and action_release(_:Dom.event) =
+                result = access.release(file)
+                do reporting(<>Un{lock_message(result)}</>)
+                do Dom.put_replace(Dom.select_id(lock_button_id),
+                                   Dom.of_xhtml(lock_button))
+                do Dom.set_enabled(Dom.select_id(save_button_id), false)
+                do action.read_only(true)
+                void
+              and action_force_release(_:Dom.event) =
+                result = access.force_release(file)
+                do reporting(<>{lock_message(result)}</>)
+                do Dom.set_enabled(Dom.select_id(save_button_id), false)
+                do action.read_only(true)
+                void
+            <>
+              <button type="button"
+                      onclick={action_force_release}>ForceRelease</button>
+              {lock_button}
+              <button type="button"
+                      id={save_button_id}
+                      disabled="disabled"
+                      onclick={_ -> action.save()}>Save</button>
+              {common}
+            </>
+          | {none} -> common
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(buttons))
         void
+
+      common_ace_init(id_buffer, class, content, mode) =
+        dom = Dom.of_xhtml(<div id={id_buffer} class={class}/>)
+        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        ace = Ace.edit(id_buffer)
+        do Option.iter(x -> ignore(Ace.set_mode(ace, x)), mode)
+        _ = Ace.set_content(ace, content)
+        do Ace.read_only(ace, true)
+        (dom, ace)
+
+      /* Generate the main edition view */
       match access.get_edit(file) with
       | {image} ->
         dom = Dom.of_xhtml(<img src="{file}"/>)
@@ -219,68 +355,62 @@ Page = {{
               <input type="text" id="{mime_id}" value="{mime}"/></>
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
         save() = save({mime = Dom.get_value(Dom.select_id(mime_id))})
-        make_buttons(some(save))
+        make_buttons(some({
+            ~save
+            read_only(_) = void
+          }))
       | ~{source mime} ->
         /* A raw resource editor is an ace editor + an input for mime */
         id_src = "{id}_src"
         id_mime = "{id}_mime"
-        dom = Dom.of_xhtml(<div id="{id_src}" class="admin_editor_source"/>)
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
-        ace_src = Ace.edit(id_src)
-        _ = Ace.set_content(ace_src, source)
+        (_, ace) = common_ace_init(id_src, ["admin_editor_source"], source, none)
         /* Buffer buttons */
         get_mime() =
           x = Dom.get_value(Dom.select_id(id_mime))
           x
-        do make_buttons(some(->
-             access.save(file, {source=Ace.get_content(ace_src) mime=get_mime()})
-          ))
+        do make_buttons(some({
+             save() = access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
+             read_only(b) = Ace.read_only(ace, b)
+          }))
         dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
         void
       | ~{css} ->
         /* Css editor is just a simple ace editor */
         id_css = "{id}_css"
-        dom = Dom.of_xhtml(<div id="{id_css}" class="admin_editor_css"/>)
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
-        ace_css = Ace.edit(id_css)
-        _ = Ace.set_content(ace_css, css)
-        _ = Ace.set_mode(ace_css, "css")
-        make_buttons(some(->
-            access.save(file, {css=Ace.get_content(ace_css)})
-          ))
+        (_, ace) = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
+        make_buttons(some({
+            save = -> access.save(file, {css=Ace.get_content(ace)})
+            read_only(b) = Ace.read_only(ace, b)
+          }))
       | ~{hsource bsource save} ->
         /* Html embedded editor is divided in two ace editor, one for
         headers another for body */
-        head_id = "{id}_headers" body_id = "{id}_body" error_id = "{id}_error"
-        dom = Dom.of_xhtml(<div id="{head_id}" class="admin_editor_html_header"/>
-                           <div id="{body_id}" class="admin_editor_html_body"/>
-                           <span id="{error_id}"></span>
-                          )
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        head_id = "{id}_headers" body_id = "{id}_body"
         /* Head ace */
-        ace_head = Ace.edit(head_id)
-        do Ace.set_content(ace_head, hsource)
-        _ = Ace.set_mode(ace_head, "html")
+        (_, ace_head) = common_ace_init(head_id, ["admin_editor_html_header"],
+                                        hsource, some("html"))
         /* Body ace */
-        ace_body = Ace.edit(body_id)
-        do Ace.set_content(ace_body, bsource)
-        _ = Ace.set_mode(ace_body, "html")
+        (_, ace_body) = common_ace_init(body_id, ["admin_editor_html_body"],
+                                        bsource, some("html"))
         /* Buffer buttons */
         make_buttons(
-          some(->
-            fail = save({
-              hsource = Ace.get_content(ace_head)
-              bsource = Ace.get_content(ace_body)
-            })
-            msg(msg) =
-              _ = Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg))
-              void
-            match fail
-            | {none} -> msg(<>Save success</>)
-            | {some=fail} -> msg(<>{"{fail}"}</>)
+          some({
+            save() =
+              fail = save({
+                hsource = Ace.get_content(ace_head)
+                bsource = Ace.get_content(ace_body)
+              })
+              match fail
+              | {none} -> reporting(<>Save success</>)
+              | {some=fail} -> reporting(<>{"{fail}"}</>)
 
-          )
+           read_only(b) =
+             do Ace.read_only(ace_head, b)
+             do Ace.read_only(ace_body, b)
+             void
+
+          })
         )
 
 
