@@ -59,7 +59,7 @@
  * functions and implement parse (conversion from xml to content) and export functions.
  * {[
  * my_namespace = "http://response.xsd"
- * 
+ *
  * my_engine = { Template.empty with
  *   // Parse function. It takes the xmlns, and a xmlns parse which is able to process xmlns into Template.content.
  *   // If the current engine is able to process the current, it should create a Template.content. Otherwise, it should fail.
