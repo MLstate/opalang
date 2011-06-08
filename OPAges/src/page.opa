@@ -24,10 +24,14 @@ type Page.config('a, 'b) = {
 
 type Page.config.access = {
   set : string, Page.stored -> void
+  set_rev : string, int -> void
   get : string -> option(Page.stored)
+  get_rev : string -> option(Page.stored)
+  get_rev_number : string -> int
   rm  : string -> void
   ls  : -> list(string)
   date : string -> Date.date
+  history : string, int, int -> list(Page.stored)
 }
 
 /**
@@ -65,14 +69,18 @@ type Page.manager = {
  */
 @private type Page.access('a, 'b) = {
   save : string, Page.stored -> void
+  set_rev : string, int -> void
   get : string -> option(Page.stored)
-  remove : string -> void
   get_edit : string -> Page.edit
+  get_rev_number : string -> int
+  remove : string -> void
   list : -> list(string)
   date : string -> Date.date
   release : string -> Page.Lock.return
   try_lock : string -> Page.Lock.return
   force_release : string -> Page.Lock.return
+  history_size : string -> int
+  history_edit : string, int -> option(Page.edit)
 }
 
 @private type Page.edit =
@@ -110,11 +118,11 @@ Page = {{
   @private template_config = { Template.default_conf with fallback_to_text_node = false }
 
   @private lock_message(r:Page.Lock.return) = match r
-    | {success = ~{lock_at}} -> "Lock success at {Date.to_string(lock_at)}"
-    | {failure = {internal_error}} -> "Lock failure : internal error"
-    | {failure = {unlocked}} -> "Unlock failure : seems already unlocked"
+    | {success = ~{lock_at}} -> "Success : lock at {Date.to_string(lock_at)}"
+    | {failure = {internal_error}} -> "Failure : lock internal error"
+    | {failure = {unlocked}} -> "Failure : seems already unlocked"
     | {failure = {locked = ~{lock_at lock_by}}} ->
-      "Lock failure : already locked at {Date.to_string(lock_at)} by {lock_by}"
+      "Failure : already locked at {Date.to_string(lock_at)} by {lock_by}"
 
   /**
    * {2 Database access}
@@ -173,7 +181,7 @@ Page = {{
 
     }}
 
-    get(key) = caccess.get(key)
+    get(key) = caccess.get_rev(key)
 
     save(key, page) = caccess.set(key, page)
 
@@ -196,19 +204,23 @@ Page = {{
                          bcontent=Template.to_source(engine, bcontent)})
           none
 
-    get_edit(key):Page.edit =
-      match get(key) with
-      | {some={image=_}} -> {image}
-      | {some={css=_} as k}
-      | {some={source=_ mime=_} as k} -> k
-      | {some=~{binary mime}} ->
+    make_edit(key, stored) = match stored
+      | {image=_} -> {image}
+      | {css=_} as k
+      | {source=_ mime=_} as k -> k
+      | ~{binary mime} ->
         save(~{mime}) = save(key, ~{binary mime})
         {binary ~mime ~save}
-      | {some=~{hcontent bcontent}} -> {
+      | ~{hcontent bcontent} -> {
           hsource = hcontent
           bsource = bcontent
           save = save_as_template(key, _)
         }
+
+
+    get_edit(key):Page.edit =
+      match caccess.get(key) with
+      | {some=stored} -> make_edit(key, stored)
       | {none} ->
         match get_suffix(key)
         | {some="html"} | {some = "xmlt"}-> {
@@ -219,9 +231,20 @@ Page = {{
         | {some="css"} -> {css = "/* Enter your css here */"}
         | _ -> {source = "A custom resource" mime="text/plain"}
 
+
+    history_size(key) = List.length(caccess.history(key, 1, 0))
+
+    history_edit(key, rev) = match caccess.history(key, rev, 1)
+      | [] -> none
+      | [stored] -> some(make_edit(key, stored))
+      | _ -> do Log.error("Opages", "Unexpected multiple revisions") none
+
     access : Page.access    =
-      ~{save get get_edit remove list date
-        try_lock=Lock.try release=Lock.release force_release=Lock.force_release}
+      ~{save get get_edit remove list date history_edit history_size
+        try_lock=Lock.try release=Lock.release force_release=Lock.force_release
+        set_rev=caccess.set_rev
+        get_rev_number=caccess.get_rev_number
+       }
 
   }}
 
@@ -271,12 +294,13 @@ Page = {{
      * Note : Client side function because need dom access.
      */
     @client build_buffer(access, file, id) =
+      error_id = "{id}_error"
       /* Error reporting */
-      reporting =
-        error_id = "{id}_error"
+      make_reporting() =
         do Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(<div id={error_id}/>))
-        (msg:xhtml) -> ignore(Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg)))
-
+        void
+      reporting(msg:xhtml) =
+        ignore(Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg)))
 
       /* Generate some buttons */
       make_buttons(action) =
@@ -308,7 +332,7 @@ Page = {{
                   action.read_only(true)
               and action_release(_:Dom.event) =
                 result = access.release(file)
-                do reporting(<>Un{lock_message(result)}</>)
+                do reporting(<>Release {lock_message(result)}</>)
                 do Dom.put_replace(Dom.select_id(lock_button_id),
                                    Dom.of_xhtml(lock_button))
                 do Dom.set_enabled(Dom.select_id(save_button_id), false)
@@ -334,6 +358,7 @@ Page = {{
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(buttons))
         void
 
+      /* Generate ace buffer */
       common_ace_init(id_buffer, class, content, mode) =
         dom = Dom.of_xhtml(<div id={id_buffer} class={class}/>)
         _ = Dom.put_at_end(Dom.select_id(id), dom)
@@ -343,75 +368,124 @@ Page = {{
         do Ace.read_only(ace, true)
         (dom, ace)
 
-      /* Generate the main edition view */
-      match access.get_edit(file) with
-      | {image} ->
-        dom = Dom.of_xhtml(<img src="{file}"/>)
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
-        make_buttons(none)
-      | {binary ~mime ~save} ->
-        mime_id = "mime_{id}"
-        x = <>Uneditable binary file, Mimetype
-              <input type="text" id="{mime_id}" value="{mime}"/></>
-        _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
-        save() = save({mime = Dom.get_value(Dom.select_id(mime_id))})
-        make_buttons(some({
-            ~save
-            read_only(_) = void
-          }))
-      | ~{source mime} ->
-        /* A raw resource editor is an ace editor + an input for mime */
-        id_src = "{id}_src"
-        id_mime = "{id}_mime"
-        (_, ace) = common_ace_init(id_src, ["admin_editor_source"], source, none)
-        /* Buffer buttons */
-        get_mime() =
-          x = Dom.get_value(Dom.select_id(id_mime))
-          x
-        do make_buttons(some({
-             save() = access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
-             read_only(b) = Ace.read_only(ace, b)
-          }))
-        dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
-        void
-      | ~{css} ->
-        /* Css editor is just a simple ace editor */
-        id_css = "{id}_css"
-        (_, ace) = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
-        make_buttons(some({
-            save = -> access.save(file, {css=Ace.get_content(ace)})
-            read_only(b) = Ace.read_only(ace, b)
-          }))
-      | ~{hsource bsource save} ->
-        /* Html embedded editor is divided in two ace editor, one for
-        headers another for body */
-        head_id = "{id}_headers" body_id = "{id}_body"
-        /* Head ace */
-        (_, ace_head) = common_ace_init(head_id, ["admin_editor_html_header"],
-                                        hsource, some("html"))
-        /* Body ace */
-        (_, ace_body) = common_ace_init(body_id, ["admin_editor_html_body"],
-                                        bsource, some("html"))
-        /* Buffer buttons */
-        make_buttons(
-          some({
-            save() =
-              fail = save({
-                hsource = Ace.get_content(ace_head)
-                bsource = Ace.get_content(ace_body)
-              })
-              match fail
-              | {none} -> reporting(<>Save success</>)
-              | {some=fail} -> reporting(<>{"{fail}"}</>)
+      /* Generate history selector */
+      rec build_history_selector(rev) =
+        history_id = "{id}_history"
+        select_id = "{history_id}_select"
+        get_selected_rev() =
+          Int.of_string(Dom.get_value(Dom.select_id(select_id)))
+        action_history_show(_:Dom.event) =
+          rev = some(get_selected_rev())
+          do build(rev)
+          void
+        action_history_current(_:Dom.event) = build(none)
+        action_set_rev(_:Dom.event) = access.set_rev(file, get_selected_rev())
+        build_select() =
+          size = access.history_size(file)
+          make_option =
+            default(i) = <option value="{i}">{i}</option>
+            selected(i) = <option value="{i}" selected="selected">{i}</option>
+            match rev
+            | {none} -> i -> if i == size then selected(i) else default(i)
+            | {some=rev} -> i -> if i == rev then selected(i) else default(i)
+          <select id={select_id}>{
+            for((1, []),
+                ((i, acc) -> (i+1, make_option(i) +> acc)),
+                ((i, _) -> i <= size)).f2
+          }</select>
+        xhtml =
+          <div id={history_id} class="opages_history_browser">
+            <span>Current revision : {access.get_rev_number(file)}</span>
+            <button onclick={action_history_current}>Show last</button>
+            <button onclick={action_history_show}>Show selected revision</button>
+            <button onclick={action_set_rev}>Set public page as selected revision</button>
+            {build_select()}
+          </div>
+        Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(xhtml))
 
-           read_only(b) =
-             do Ace.read_only(ace_head, b)
-             do Ace.read_only(ace_body, b)
-             void
+      and build_buffers(rev) =
+        edit = match rev
+          | {none} -> access.get_edit(file)
+          | {some=rev} -> Option.get(access.history_edit(file, rev))
+        make_buttons = match rev | {some=_} -> _ -> void | _ -> make_buttons
+        match edit with
+        | {image} ->
+          dom = Dom.of_xhtml(<img src="{file}"/>)
+          _ = Dom.put_at_end(Dom.select_id(id), dom)
+          make_buttons(none)
+        | {binary ~mime ~save} ->
+          mime_id = "mime_{id}"
+          x = <>Uneditable binary file, Mimetype
+                <input type="text" id="{mime_id}" value="{mime}"/></>
+          _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
+          save() = save({mime = Dom.get_value(Dom.select_id(mime_id))})
+          make_buttons(some({
+              ~save
+              read_only(_) = void
+            }))
+        | ~{source mime} ->
+          /* A raw resource editor is an ace editor + an input for mime */
+          id_src = "{id}_src"
+          id_mime = "{id}_mime"
+          (_, ace) = common_ace_init(id_src, ["admin_editor_source"], source, none)
+          /* Buffer buttons */
+          get_mime() =
+            x = Dom.get_value(Dom.select_id(id_mime))
+            x
+          do make_buttons(some({
+               save() = access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
+               read_only(b) = Ace.read_only(ace, b)
+            }))
+          dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
+          _ = Dom.put_at_end(Dom.select_id(id), dom)
+          void
+        | ~{css} ->
+          /* Css editor is just a simple ace editor */
+          id_css = "{id}_css"
+          (_, ace) = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
+          make_buttons(some({
+              save = -> access.save(file, {css=Ace.get_content(ace)})
+              read_only(b) = Ace.read_only(ace, b)
+            }))
+        | ~{hsource bsource save} ->
+          /* Html embedded editor is divided in two ace editor, one for
+          headers another for body */
+          head_id = "{id}_headers" body_id = "{id}_body"
+          /* Head ace */
+          (_, ace_head) = common_ace_init(head_id, ["admin_editor_html_header"],
+                                          hsource, some("html"))
+          /* Body ace */
+          (_, ace_body) = common_ace_init(body_id, ["admin_editor_html_body"],
+                                          bsource, some("html"))
+          /* Buffer buttons */
+          make_buttons(
+            some({
+              save() =
+                fail = save({
+                  hsource = Ace.get_content(ace_head)
+                  bsource = Ace.get_content(ace_body)
+                })
+                match fail
+                | {none} -> reporting(<>Save success</>)
+                | {some=fail} -> reporting(<>{"{fail}"}</>)
 
-          })
-        )
+             read_only(b) =
+               do Ace.read_only(ace_head, b)
+               do Ace.read_only(ace_body, b)
+               void
+
+            })
+          )
+
+        and build(rev) =
+          do Dom.remove_content(Dom.select_id(id))
+          /* Create view */
+          do make_reporting()
+          do build_buffers(rev)
+          do build_history_selector(rev)
+          void
+
+        build(none)
 
 
 
