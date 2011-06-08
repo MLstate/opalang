@@ -561,17 +561,19 @@ Page = {{
 
   }}
 
-  @private build_resource(engine, stored) =
+  @private build_resource(engine, stored, modified_on) =
+    add_web_cache(r) =
+      Option.switch(modified_on -> Resource.cache_control(r, ~{modified_on}), r, modified_on)
     match stored
-    | ~{image}             -> {resource = Resource.image(image)}
-    | ~{css}               -> {resource = Resource.build_css(css)}
-    | ~{source mime}       -> {resource = Resource.source(source, mime)}
-    | ~{binary mime}       -> {resource = Resource.source(binary, mime)}
+    | ~{image}             -> {resource = add_web_cache(Resource.image(image))}
+    | ~{css}               -> {resource = add_web_cache(Resource.build_css(css))}
+    | ~{source mime}       -> {resource = add_web_cache(Resource.source(source, mime))}
+    | ~{binary mime}       -> {resource = add_web_cache(Resource.source(binary, mime))}
     | ~{hcontent bcontent} ->
       {embedded = {
          head = Template.to_xhtml(engine, Template.parse(engine, hcontent))
          body = Template.to_xhtml(engine, Template.parse(engine, bcontent))
-      } }
+      } } : Page.t
 
   /**
    * Provides an interface which allows to create and modify pages.
@@ -597,13 +599,13 @@ Page = {{
           match access.get("404.xmlt")
           | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
           | {some=r} ->
-            match build_resource(config.engine, r)
+            match build_resource(config.engine, r, {some = access.date(url)})
             | {embedded = ~{body head}} -> Resource.full_page("", body, head, {found}, [])
             | x -> to_resource(x)
         }
-      | {some=resource} -> build_resource(config.engine, resource)
+      | {some=resource} -> build_resource(config.engine, resource, {some = access.date(url)})
     try_resource(url) =
-      Option.map((resource -> build_resource(config.engine, resource)),
+      Option.map((resource -> build_resource(config.engine, resource, {some = access.date(url)})),
                  access.get(url))
     date = access.date
 
