@@ -59,6 +59,8 @@ type WFormBuilder.field =
   ; hint : option(xhtml)
   }
 
+type WFormBuilder.element = { field : WFormBuilder.field } / { fragment : xhtml }
+
 type WFormBuilder.style =
   { field_style : bool -> WStyler.styler
   ; label_style : bool -> WStyler.styler
@@ -73,7 +75,7 @@ type WFormBuilder.style =
   }
 
 type WFormBuilder.specification =
-  { fields : list(WFormBuilder.field)
+  { elts : list(WFormBuilder.element)
   ; style : WFormBuilder.style
   }
 
@@ -100,8 +102,8 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification(fields : list(WFormBuilder.field)) =
-    {~fields style=empty_style}
+  create_specification(elts : list(WFormBuilder.element)) =
+    {~elts style=empty_style}
 
   empty_validator : WFormBuilder.validator =
     input -> {success=input}
@@ -366,13 +368,20 @@ WFormBuilder =
         {err_xhtml}
       </>
       |> style(s.field_style(true))
+    mk_element =
+    | ~{ fragment } -> fragment
+    | ~{ field } -> mk_field(field)
     <>
-      {List.map(mk_field, spec.fields)}
+      {List.map(mk_element, spec.elts)}
     </>
 
   start(spec : WFormBuilder.specification) : void =
-    first_field = List.head(spec.fields)
-    Dom.give_focus(#{input_id(first_field.id)})
+    is_field =
+    | {field=_} -> true
+    | _ -> false
+    match List.find(is_field, spec.elts) with
+    | {some=~{field}} -> Dom.give_focus(#{input_id(field.id)})
+    | _ -> void
 
   get_field_value(id : string) =
     Dom.get_value(#{id})
