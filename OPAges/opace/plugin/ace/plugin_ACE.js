@@ -31,40 +31,34 @@
 ##args(editor, content)
 {
     editor.getSession().setValue(content);
-    return js_void;
 }
 
-##register add_event_listener : Ace.t, string, ( -> void) -> void
+##register add_event_listener : Ace.t, string, ( -> 'void) -> void
 ##args(editor, kind, handler)
 {
     editor.getSession().addEventListener(kind, handler);
-    return js_void;
 }
 
 ##register redo : Ace.t -> void
 ##args(editor)
 {
     editor.getSession().getUndoManager().redo();
-    return js_void;
 }
 
 ##register undo : Ace.t -> void
 ##args(editor)
 {
     editor.getSession().getUndoManager().undo();
-    return js_void;
 }
 
 ##register read_only : Ace.t, bool -> void
 ##args(editor, b)
 {
     editor.setReadOnly(b);
-    return js_void;
 }
 
 ##register move_cursor : Ace.t, int, int -> void
 ##args(editor, col, line)
 {
     editor.getSelection().moveCursorToScreen(col, line);
-    return js_void;
 }
