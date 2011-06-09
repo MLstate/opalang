@@ -67,7 +67,7 @@ type Page.manager = {
  * A record used for give some primitive to the admin GUI unless
  * publish critical primitives.
  */
-@private type Page.access('a, 'b) = {
+@private type Page.access = {
   save : string, Page.stored -> void
   set_rev : string, int -> void
   get : string -> option(Page.stored)
@@ -76,11 +76,26 @@ type Page.manager = {
   remove : string -> void
   list : -> list(string)
   date : string -> Date.date
-  release : string -> Page.Lock.return
-  try_lock : string -> Page.Lock.return
-  force_release : string -> Page.Lock.return
   history_size : string -> int
   history_edit : string, int -> option(Page.edit)
+}
+
+@private type Page.notify = {
+  subscribe : ({event : Page.Notification.event by : string} -> void) -> void
+  send    :  Page.Notification.event -> void
+}
+
+@private type Page.locker = {
+  release : string -> Page.Lock.return
+  try : string -> Page.Lock.return
+  check : string -> Page.Lock.return
+  force_release : string -> Page.Lock.return
+}
+
+@private type Page.full_access = {
+  access : Page.access
+  notify : Page.notify
+  locker : Page.locker
 }
 
 @private type Page.edit =
@@ -91,11 +106,19 @@ type Page.manager = {
   {hsource : string; bsource : string
    save : {hsource : string; bsource : string} -> option(Template.failure)}
 
+type Page.Notification.event =
+  {connect}
+/ {open : string}
+/ {save : string}
+/ {remove : string}
+/ {lock : string}
+/ {release : string}
+
 type Page.Lock.return = outcome(
-  {lock_at:Date.date},
+  {lock_at:Date.date by : string},
 
   {internal_error}
-/ {locked : {lock_at : Date.date lock_by : ThreadContext.client}}
+/ {locked : {lock_at : Date.date by : string lock_by : ThreadContext.client}}
 / {unlocked}
 )
 
@@ -118,32 +141,33 @@ Page = {{
   @private template_config = { Template.default_conf with fallback_to_text_node = false }
 
   @private lock_message(r:Page.Lock.return) = match r
-    | {success = ~{lock_at}} -> "Success : lock at {Date.to_string(lock_at)}"
+    | {success = ~{lock_at by}} -> "Success : lock at {Date.to_string(lock_at)} by {by}"
     | {failure = {internal_error}} -> "Failure : lock internal error"
     | {failure = {unlocked}} -> "Failure : seems already unlocked"
-    | {failure = {locked = ~{lock_at lock_by}}} ->
-      "Failure : already locked at {Date.to_string(lock_at)} by {lock_by}"
+    | {failure = {locked = ~{lock_at lock_by by}}} ->
+      "Failure : already locked at {Date.to_string(lock_at)} by {by}    (with context {lock_by})"
 
   /**
    * {2 Database access}
    */
-  @server @private Access(~{engine access=caccess ...}:Page.config('a, 'b)) = {{
+  @server @private ServerAccess(~{engine access=caccess}:Page.config('a, 'b)) = {{
 
     /**
-     * {2 Lock system}
+     * {2 Notification system + Lock system for one user}
      */
-    Lock = {{
-      /**
-       * Private cell that manage lock.
-       */
-      @private lock_cell = Cell.make(StringMap.empty,
-        (map, message -> match message
+    Notification_Lock =
+      network = Network.empty()
+      lock_cell = Cell.make((Date.now(), StringMap.empty),
+        ((date, map), message ->
+          do jlog("LOCKING CELL === {Date.to_string(date)}")
+          by = message.by
+          match message.action
           | ~{lock} ->
             match StringMap.get(lock, map)
             | ~{some} -> match ThreadContext.get({current}).key
               | ~{client} ->
                 if client == some.lock_by then
-                  {return = {success={lock_at = some.lock_at}} instruction = {unchanged}}
+                  {return = {success={lock_at = some.lock_at ~by}} instruction = {unchanged}}
                 else
                   {return = {failure={locked = some}} instruction = {unchanged}}
               | _ -> {return = {failure={locked = some}} instruction = {unchanged}}
@@ -151,8 +175,8 @@ Page = {{
             | {none} -> match ThreadContext.get({current}).key
               | {client=lock_by} ->
                 lock_at = Date.now()
-                {return = {success=~{lock_at}}
-                 instruction = {set = StringMap.add(lock, ~{lock_at lock_by}, map)}}
+                {return = {success=~{lock_at by}}
+                 instruction = {set = (date, StringMap.add(lock, ~{by lock_by lock_at}, map))}}
               | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
               end
             end
@@ -162,24 +186,61 @@ Page = {{
             | ~{some} -> match ThreadContext.get({current}).key
               | ~{client} ->
                 if force || client == some.lock_by then
-                  {return = {success={lock_at = some.lock_at}}
-                   instruction = {set = StringMap.remove(unlock, map)}}
+                  {return = {success={lock_at = some.lock_at ~by}}
+                   instruction = {set = (date, StringMap.remove(unlock, map))}}
                 else
                   {return = {failure={locked = some}}
                    instruction = {unchanged}}
               | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
               end
             end
+          | ~{check} ->
+            match StringMap.get(check, map)
+            | ~{some} -> match ThreadContext.get({current}).key
+              | ~{client} ->
+                if client == some.lock_by then
+                  {return = {success={lock_at = some.lock_at ~by}} instruction = {unchanged}}
+                else
+                  {return = {failure={locked = some}} instruction = {unchanged}}
+              | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
+              end
+            | {none} -> {return = {success={lock_at = Date.now() ~by}} instruction = {unchanged}}
         )
       )
+      by ->
+        Notification = {{
 
-      try(url) = Cell.call(lock_cell, {lock=url})
+          @private client_listener =
+            handler(state, msg) = match msg
+              | ~{handler} -> {set = handler +> state}
+              | ~{event by} -> do Scheduler.push(-> List.iter(handler -> handler(~{event by}), state)) {unchanged}
+            Session.make([], handler)
 
-      release(url) = Cell.call(lock_cell, {unlock=url force=false})
+          @private init_listener =
+            Network.add(client_listener, network)
 
-      force_release(url) = Cell.call(lock_cell, {unlock=url force=true})
+          send(event:Page.Notification.event) =
+            Network.broadcast(~{event by}, network)
 
-    }}
+          subscribe(handler) = Session.send(client_listener, ~{handler})
+        }}
+        Lock = {{
+          @private wrap(x) = {action=x ~by}
+
+          @private wrap_result(event, result) = match result
+            | {success=_} -> do Notification.send(event) result
+            | _ -> result
+
+          try(url) = wrap_result({lock=url}, Cell.call(lock_cell, wrap({lock=url})))
+
+          release(url) = wrap_result({release=url}, Cell.call(lock_cell, wrap({unlock=url force=false})))
+
+          force_release(url) = wrap_result({release=url}, Cell.call(lock_cell, wrap({unlock=url force=true})))
+
+          check(url) = Cell.call(lock_cell, wrap({check=url}))
+        }}
+        (Notification, Lock)
+
 
     get(key) = caccess.get_rev(key)
 
@@ -241,10 +302,24 @@ Page = {{
 
     access : Page.access    =
       ~{save get get_edit remove list date history_edit history_size
-        try_lock=Lock.try release=Lock.release force_release=Lock.force_release
         set_rev=caccess.set_rev
         get_rev_number=caccess.get_rev_number
        }
+
+    full(user) =
+      (Notification, Lock) = Notification_Lock(user)
+      { ~access
+        locker = {
+          try=Lock.try
+          release=Lock.release
+          force_release=Lock.force_release
+          check=Lock.check
+        } : Page.locker
+        notify = {
+          subscribe = Notification.subscribe
+          send = Notification.send
+        } : Page.notify
+      }
 
   }}
 
@@ -268,7 +343,7 @@ Page = {{
     @private file_id = Crypto.Hash.md5
 
     /** Create a file line for table insert. */
-    @private file_line(access:Page.access, opened, file) =
+    @private file_line(access:Page.full_access, opened, file) =
       class = if opened then "on" else "off"
       <tr class="{class}" id="admin_files_table_{file_id(file)}">
         <td onclick={Action.open_file(access, file)}>
@@ -294,6 +369,7 @@ Page = {{
      * Note : Client side function because need dom access.
      */
     @client build_buffer(access, file, id) =
+      do access.notify.send({open = file})
       error_id = "{id}_error"
       /* Error reporting */
       make_reporting() =
@@ -311,15 +387,32 @@ Page = {{
           </>
           match action with
           | {some = action} ->
-              save_button_id = "{id}_button_save"
               lock_button_id = "{id}_button_lock"
+              save_button_id = "{id}_button_save"
+              do access.notify.subscribe(
+                   | {event={~lock} ~by} ->
+                     if lock != file || Outcome.is_success(access.locker.check(file)) //so bad
+                     then void else
+                     b = Dom.select_id(save_button_id)
+                     do Dom.set_enabled(b, false)
+                     do action.read_only(true)
+                     do Dom.put_inside(b, Dom.of_xhtml(<>Save : (locked by {by})</>))
+                     void
+                   | {event={~release} ~by} -> if release != file then void else
+                     b = Dom.select_id(save_button_id)
+                     do Dom.set_enabled(b, true)
+                     do action.read_only(false)
+                     do Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
+                     void
+                   | _ -> void
+                 )
               make_lock_button(lock, x) =
                 <button type="button" id={lock_button_id}
                         onclick={lock}>{x}</button>
               rec val lock_button = make_lock_button(action_try_lock, "Lock")
               and val unlock_button = make_lock_button(action_release, "Release")
               and action_try_lock(_:Dom.event) =
-                result = access.try_lock(file)
+                result = access.locker.try(file)
                 do reporting(<>{lock_message(result)}</>)
                 match result
                 | {success=_} ->
@@ -331,7 +424,7 @@ Page = {{
                   do Dom.set_enabled(Dom.select_id(save_button_id), false)
                   action.read_only(true)
               and action_release(_:Dom.event) =
-                result = access.release(file)
+                result = access.locker.release(file)
                 do reporting(<>Release {lock_message(result)}</>)
                 do Dom.put_replace(Dom.select_id(lock_button_id),
                                    Dom.of_xhtml(lock_button))
@@ -339,20 +432,28 @@ Page = {{
                 do action.read_only(true)
                 void
               and action_force_release(_:Dom.event) =
-                result = access.force_release(file)
+                result = access.locker.force_release(file)
                 do reporting(<>{lock_message(result)}</>)
                 do Dom.set_enabled(Dom.select_id(save_button_id), false)
                 do action.read_only(true)
                 void
             <>
-              <button type="button"
-                      onclick={action_force_release}>ForceRelease</button>
+              {match access.locker.check(file)
+               | {success = _} ->
+                 <button type="button"
+                      id={save_button_id}
+                      onclick={_ -> action.save()}>Save</button>
+               | ~{failure} ->
+                 by = match failure | {locked = {~by ...}} -> by | _ -> "501??!!??"
+                 <button type="button"
+                      disabled="disabled"
+                      id={save_button_id}
+                      onclick={_ -> action.save()}>Save (locked by {by})</button>
+              }
+              {common}
               {lock_button}
               <button type="button"
-                      id={save_button_id}
-                      disabled="disabled"
-                      onclick={_ -> action.save()}>Save</button>
-              {common}
+                      onclick={action_force_release}>ForceRelease</button>
             </>
           | {none} -> common
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(buttons))
@@ -365,13 +466,15 @@ Page = {{
         ace = Ace.edit(id_buffer)
         do Option.iter(x -> ignore(Ace.set_mode(ace, x)), mode)
         _ = Ace.set_content(ace, content)
-        do Ace.read_only(ace, true)
+        do Ace.move_cursor(ace, 0, 0)
+        do Ace.read_only(ace, false)
         (dom, ace)
 
       /* Generate history selector */
       rec build_history_selector(rev) =
         history_id = "{id}_history"
         select_id = "{history_id}_select"
+        update_id = "{history_id}_report"
         get_selected_rev() =
           Int.of_string(Dom.get_value(Dom.select_id(select_id)))
         action_history_show(_:Dom.event) =
@@ -379,9 +482,9 @@ Page = {{
           do build(rev)
           void
         action_history_current(_:Dom.event) = build(none)
-        action_set_rev(_:Dom.event) = access.set_rev(file, get_selected_rev())
+        action_set_rev(_:Dom.event) = access.access.set_rev(file, get_selected_rev())
         build_select() =
-          size = access.history_size(file)
+          size = access.access.history_size(file)
           make_option =
             default(i) = <option value="{i}">{i}</option>
             selected(i) = <option value="{i}" selected="selected">{i}</option>
@@ -395,18 +498,26 @@ Page = {{
           }</select>
         xhtml =
           <div id={history_id} class="opages_history_browser">
-            <span>Current revision : {access.get_rev_number(file)}</span>
-            <button onclick={action_history_current}>Show last</button>
+            <span id={update_id}></span><span>Current revision : {access.access.get_rev_number(file)}</span>
+            <button onclick={action_history_current}>Fetch</button>
             <button onclick={action_history_show}>Show selected revision</button>
             <button onclick={action_set_rev}>Set public page as selected revision</button>
             {build_select()}
           </div>
-        Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(xhtml))
+        do access.notify.subscribe(
+             | {event={~save} ~by} -> if save != file then void else
+               _ = Dom.put_replace(Dom.select_id(update_id),
+                     Dom.of_xhtml(<>Not up to date</>))
+               void
+             | _ -> void
+           )
+        _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(xhtml))
+        void
 
       and build_buffers(rev) =
         edit = match rev
-          | {none} -> access.get_edit(file)
-          | {some=rev} -> Option.get(access.history_edit(file, rev))
+          | {none} -> access.access.get_edit(file)
+          | {some=rev} -> Option.get(access.access.history_edit(file, rev))
         make_buttons = match rev | {some=_} -> _ -> void | _ -> make_buttons
         match edit with
         | {image} ->
@@ -418,7 +529,10 @@ Page = {{
           x = <>Uneditable binary file, Mimetype
                 <input type="text" id="{mime_id}" value="{mime}"/></>
           _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
-          save() = save({mime = Dom.get_value(Dom.select_id(mime_id))})
+          save() =
+            do save({mime = Dom.get_value(Dom.select_id(mime_id))})
+            do access.notify.send({save = file})
+            void
           make_buttons(some({
               ~save
               read_only(_) = void
@@ -433,7 +547,10 @@ Page = {{
             x = Dom.get_value(Dom.select_id(id_mime))
             x
           do make_buttons(some({
-               save() = access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
+               save() =
+                 do access.access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
+                 do access.notify.send({save = file})
+                 void
                read_only(b) = Ace.read_only(ace, b)
             }))
           dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
@@ -444,7 +561,10 @@ Page = {{
           id_css = "{id}_css"
           (_, ace) = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
           make_buttons(some({
-              save = -> access.save(file, {css=Ace.get_content(ace)})
+              save() =
+                do access.access.save(file, {css=Ace.get_content(ace)})
+                do access.notify.send({save = file})
+                void
               read_only(b) = Ace.read_only(ace, b)
             }))
         | ~{hsource bsource save} ->
@@ -466,7 +586,9 @@ Page = {{
                   bsource = Ace.get_content(ace_body)
                 })
                 match fail
-                | {none} -> reporting(<>Save success</>)
+                | {none} ->
+                  do access.notify.send({save = file})
+                  reporting(<>Save success</>)
                 | {some=fail} -> reporting(<>{"{fail}"}</>)
 
              read_only(b) =
@@ -492,7 +614,7 @@ Page = {{
     /**
      * Create a buffer for the given [file].
      */
-    @private file_buffer(access:Page.access, opened, file) =
+    @private file_buffer(access:Page.full_access, opened, file) =
       id = "admin_buffer_{file_id(file)}"
       class = if opened then "on" else "off"
       <div class="{class} admin_editor" id="{id}"
@@ -502,7 +624,7 @@ Page = {{
     /**
      * Create and insert a buffer for given [file] on dom.
      */
-    @client insert_buffer(access:Page.access, opened, file) =
+    @client insert_buffer(access:Page.full_access, opened, file) =
       edito = Dom.select_id("admin_editor_container")
       buffer = Dom.of_xhtml(file_buffer(access, opened, file))
       _ = Dom.put_at_end(edito, buffer)
@@ -525,7 +647,7 @@ Page = {{
       /**
        * Open file
        */
-      open_file(access:Page.access, file) : FunAction.t = _event ->
+      open_file(access:Page.full_access, file) : FunAction.t = _event ->
         do all_off()
         do file_line_insert(access, true, file)
         buf = Dom.select_id("admin_buffer_{file_id(file)}")
@@ -539,19 +661,24 @@ Page = {{
       /**
        * Create a new file.
        */
-      new_file(access:Page.access) : FunAction.t = event ->
+      new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
         do file_line_insert(access, true, file)
         open_file(access, file)(event)
 
-      remove_file(access:Page.access, file) : FunAction.t = _event ->
-        do access.remove(file)
+      /**
+       * Remove a file
+       */
+      remove_file(access:Page.full_access, file) : FunAction.t = _event ->
+        do access.access.remove(file)
+        do access.notify.send({remove = file})
         fl  = Dom.select_id("admin_files_table_{file_id(file)}")
         buf = Dom.select_id("admin_buffer_{file_id(file)}")
         do Dom.remove(fl)
         do Dom.remove(buf)
         void
+
     }}
 
     get_filename_mime() =
@@ -561,9 +688,9 @@ Page = {{
     /**
      * Build the xhtml administration interface.
      */
-    build(access:Page.access, url) =
+    build(access:Page.full_access, url) =
       /* Add default page if url does not already exists on page map */
-      page_list = List.unique_list_of(url +> access.list())
+      page_list = List.unique_list_of(url +> access.access.list())
       init_result = {mime=""
                      filename=""
                      content=none}
@@ -604,7 +731,7 @@ Page = {{
         | {some = binary} ->
           mime = if result.mime=="" then "application/octet-some" else result.mime
           do Log.notice("PageUploader", "Uploading of {result.filename} ({mime}) was done")
-          do access.save(result.filename, {~binary ~mime})
+          do access.access.save(result.filename, {~binary ~mime})
           do Action.open_file(access, result.filename)(Dom.Event.default_event)
           void
       /* Build admin xhtml body page */
@@ -616,6 +743,26 @@ Page = {{
            List.fold(file, lxhtml -> file_line(access, file == url, file) +> lxhtml, page_list, [])
           }
         </table>
+      </div>
+      <div id="admin_notifications" onready={_ ->
+        handler(~{event by}) =
+          message = match event
+            | {connect} -> "{by} is now connected"
+            | ~{save} -> "{by} save {save}"
+            | ~{open} -> "{by} open {open}"
+            | ~{lock} -> "{by} lock {lock}"
+            | ~{release} -> "{by} release {release}"
+            | ~{remove} -> "{by} remove {remove}"
+          xhtml = <div>{message}</div>
+          dom = Dom.select_id("admin_notifications")
+          _ = Dom.put_at_end(dom, Dom.of_xhtml(xhtml))
+          do Dom.scroll_to_bottom(dom)
+          void
+        do access.notify.subscribe(handler)
+        do access.notify.send({connect})
+        void
+      }>
+
       </div>
       <div id="admin_editor_container">
         {file_buffer(access, true, url)}
@@ -657,9 +804,11 @@ Page = {{
    *   3 - An action zone
    * This admin interface open by default an editor for [url] file.
    */
-  make(config) : Page.manager =
-    access = Access(config).access
-    admin(url, _user:string) = AdminGui.build(access, url)
+  make(config:Page.config('a, 'b)) : Page.manager =
+    srvacc = ServerAccess(config)
+    access = srvacc.access
+    admin(url, user) =
+      AdminGui.build(srvacc.full(user), url)
     source(url) = Option.bind(
       (page:Page.stored -> match page
         | ~{css} -> some(css)
