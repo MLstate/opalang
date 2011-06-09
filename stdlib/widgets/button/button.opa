@@ -32,6 +32,7 @@ import stdlib.widgets.core
  */
 
 type WButton.config = {
+    button_type : {button} / {reset} / {submit}
     image: option(string) /** Image to display on the button (optional) */
 
     common_style: WStyler.styler /** Style common to all button states */
@@ -54,6 +55,7 @@ WButton = {{
    */
   bare_config : WButton.config = {
     image = none
+    button_type = {button}
     common_style = WStyler.empty
     default_style = WStyler.empty
     over_style = WStyler.empty
@@ -69,6 +71,7 @@ WButton = {{
    */
   default_config : WButton.config = {
       image = none
+      button_type = {button}
 
       common_style = WStyler.make_style(
           Css_build.font2( [{bold}], {percent=100.},
@@ -143,7 +146,8 @@ WButton = {{
    * A default config with a green theme, well suited for
    * 'Cancel' and denying buttons.
    */
-  red_config : WButton.config = {default_config with
+  red_config : WButton.config = {
+    default_config with
       over_style = WStyler.make_style(css {
           background:#fbe3e4;
           border:1px solid #fbc2c4;
@@ -174,10 +178,14 @@ WButton = {{
       handles: list((Dom.event.kind, (Dom.event -> void))), content: xhtml)
       : xhtml =
     inner_id = get_inner_id(id)
+    button_type_string =
+    | {button} -> "button"
+    | {reset} -> "reset"
+    | {submit} -> "submit"
     style(stl)(_) = apply_style(config, id, stl)
      /* ADAM is it a good idea to stop propagation of onclick events for buttons?
         I think in most cases this is what one wants... how about other events? */
-    <button id={inner_id}
+    <button id={inner_id} type={button_type_string(config.button_type)}
       onmouseover={style(config.over_style)}
       onmouseout={style(config.default_style)}
       onmousedown={style(config.active_style)}
@@ -216,6 +224,7 @@ WButton = {{
    * {2 Old and deprecated button}
    */
 
+  @deprecated({use = "WButton.html or WSimpleButton.html"})
   make_default(click_handle, label) =
     <button onclick={click_handle}>{label}</button>
       |> WStyler.add(default_config.common_style, _)

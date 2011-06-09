@@ -51,8 +51,7 @@ type CCalendarControls.config('event) =
 
   @private make_buttons_style(class) =
     mk_button_stl(state) = WStyler.make_class([class, state])
-    {
-      image = none
+    { WButton.bare_config with
       common_style = mk_button_stl("common")
       default_style = mk_button_stl("default")
       over_style = mk_button_stl("over")
