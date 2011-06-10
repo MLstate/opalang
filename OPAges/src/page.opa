@@ -113,6 +113,7 @@ type Page.Notification.event =
 / {remove : string}
 / {lock : string}
 / {release : string}
+/ {talk : string}
 
 type Page.Lock.return = outcome(
   {lock_at:Date.date by : string},
@@ -678,6 +679,13 @@ Page = {{
         do Dom.remove(buf)
         void
 
+      send_message(access:Page.full_access) : FunAction.t = _event ->
+        input = Dom.select_id("admin_notifications_action_msg")
+        talk = Dom.get_value(input)
+        do access.notify.send(~{talk})
+        Dom.set_value(input, "")
+
+
     }}
 
     get_filename_mime() =
@@ -739,33 +747,36 @@ Page = {{
           void
       /* Build admin xhtml body page */
       <div id="admin_files">
-        <table id="admin_files_table">
+        <table id="admin_files_table" onready={hack(access)}>
           <caption> Published files </caption>
-          {
-           /* Insert xhtml list of <tr><td> */
-           List.fold(file, lxhtml -> file_line(access, file == url, file) +> lxhtml, page_list, [])
-          }
         </table>
       </div>
-      <div id="admin_notifications" onready={_ ->
-        handler(~{event by}) =
-          message = match event
-            | {connect} -> "{by} is now connected"
-            | ~{save} -> "{by} save {save}"
-            | ~{open} -> "{by} open {open}"
-            | ~{lock} -> "{by} lock {lock}"
-            | ~{release} -> "{by} release {release}"
-            | ~{remove} -> "{by} remove {remove}"
-          xhtml = <div>{message}</div>
-          dom = Dom.select_id("admin_notifications")
-          _ = Dom.put_at_end(dom, Dom.of_xhtml(xhtml))
-          do Dom.scroll_to_bottom(dom)
+      <div id="admin_notifications">
+        <div id="admin_notifications_box" onready={_ ->
+          handler(~{event by}) =
+            message = match event
+              | {connect} -> "{by} is now connected"
+              | ~{save} -> "{by} save {save}"
+              | ~{open} -> "{by} open {open}"
+              | ~{lock} -> "{by} lock {lock}"
+              | ~{release} -> "{by} release {release}"
+              | ~{remove} -> "{by} remove {remove}"
+              | ~{talk} -> "{by} says {talk}"
+            xhtml = <div>{message}</div>
+            dom = Dom.select_id("admin_notifications_box")
+            _ = Dom.put_at_end(dom, Dom.of_xhtml(xhtml))
+            do Dom.scroll_to_bottom(dom)
+            void
+          do access.notify.subscribe(handler)
+          do access.notify.send({connect})
           void
-        do access.notify.subscribe(handler)
-        do access.notify.send({connect})
-        void
-      }>
-
+        }>
+        </div>
+        <div id="admin_notifications_action">
+          <input type="text" id="admin_notifications_action_msg"/>
+          <button onclick={Action.send_message(access)}
+                  onnewline={Action.send_message(access)}>Send a message</button>
+        </div>
       </div>
       <div id="admin_editor_container">
         {file_buffer(access, true, url)}
