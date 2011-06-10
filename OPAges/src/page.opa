@@ -159,7 +159,6 @@ Page = {{
       network = Network.empty()
       lock_cell = Cell.make((Date.now(), StringMap.empty),
         ((date, map), message ->
-          do jlog("LOCKING CELL === {Date.to_string(date)}")
           by = message.by
           match message.action
           | ~{lock} ->
@@ -357,7 +356,7 @@ Page = {{
       if Dom.is_empty(line) then
         /* Insert a line on files table. */
         table = Dom.select_id("admin_files_table")
-        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, true, file)))
+        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file)))
         void
       else Dom.add_class(line, if opened then "on" else "off")
 
@@ -685,12 +684,16 @@ Page = {{
       (Dom.get_value(Dom.select_id("admin_new_file")),
        Dom.get_value(Dom.select_id("upload_mime_type")))
 
+    @client @private hack(access:Page.full_access)(_:Dom.event) =
+      d = Dom.select_id("admin_files_table")
+      page_list = List.unique_list_of(access.access.list())
+      List.iter(file -> file_line_insert(access, false, file), page_list)
+
     /**
      * Build the xhtml administration interface.
      */
     build(access:Page.full_access, url) =
       /* Add default page if url does not already exists on page map */
-      page_list = List.unique_list_of(url +> access.access.list())
       init_result = {mime=""
                      filename=""
                      content=none}
