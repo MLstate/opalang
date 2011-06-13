@@ -14,12 +14,16 @@ import opace
  * {1 Types defined in this module}
  */
 
+type Page.env = {
+  current_url : string
+}
+
 /**
  * A configuration for initialize a page entity
  */
 type Page.config('a, 'b) = {
   access : Page.config.access
-  engine : Template.engine('a, 'b)
+  engine : Page.env -> Template.engine('a, 'b)
 }
 
 type Page.config.access = {
@@ -253,6 +257,7 @@ Page = {{
     list() = caccess.ls()
 
     save_as_template(key, ~{hsource bsource}) =
+      engine = engine({current_url=""})
       match Template.try_parse_with_conf(template_config, engine, hsource)
       | ~{failure} -> some(failure)
       | {success = hcontent} ->
@@ -831,18 +836,20 @@ Page = {{
         | _ -> none),
         access.get(url))
     resource(url) =
+      engine = config.engine({ current_url = url })
       match access.get(url)
       | {none} -> {resource =
           match access.get("404.xmlt")
           | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
           | {some=r} ->
-            match build_resource(config.engine, r, {some = access.date(url)})
+            match build_resource(engine, r, {some = access.date(url)})
             | {embedded = ~{body head}} -> Resource.full_page("", body, head, {found}, [])
             | x -> to_resource(x)
         }
-      | {some=resource} -> build_resource(config.engine, resource, {some = access.date(url)})
+      | {some=resource} -> build_resource(engine, resource, {some = access.date(url)})
     try_resource(url) =
-      Option.map((resource -> build_resource(config.engine, resource, {some = access.date(url)})),
+      engine = config.engine({ current_url = url })
+      Option.map((resource -> build_resource(engine, resource, {some = access.date(url)})),
                  access.get(url))
     date = access.date
 
