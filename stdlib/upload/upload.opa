@@ -15,6 +15,21 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+package stdlib.upload
+
+/**
+ * @author Quentin Bourgerie
+ * @author Adam Koprowski
+ *
+ *
+ * {1 About this module}
+ *
+ * This module provides functionality to create a form containing
+ * a file upload field.
+**/
+
+
 /**
  * Represents an uploaded file.
  */
@@ -130,16 +145,12 @@ Upload = {{
         )
     resource = Resource.dynamic(dynamic)
     upload_url = DynamicResource.publish(resource, config.url_parameters)
-    idframe = Random.string(10)
-    <iframe name={idframe}
-            id={idframe} src="{fake_url}"
+    <iframe name="iframeId"
+            id="iframeId" src="#"
             style="width:0;height:0;border:0px solid #fff;"/>
-    <form action="{upload_url}" id="upload_form" target={idframe}
+    <form action="{upload_url}" id="upload_form" target="iframeId"
           method="post" enctype="multipart/form-data">
     {config.body_form}
-    </form>;
+    </form>
 
-  @private dummy_page = Resource.raw_text("")
-  @private @publish
-  fake_url = DynamicResource.publish(dummy_page, {consumption={unlimited}; expiration={none}; visibility={shared}})
 }}
