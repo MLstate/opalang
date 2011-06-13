@@ -104,7 +104,7 @@ type Page.manager = {
   {source : string; mime : string} /
   {css : string} /
   {hsource : string; bsource : string
-   save : {hsource : string; bsource : string} -> option(Template.failure)}
+   save_template : {hsource : string; bsource : string} -> option(Template.failure)}
 
 type Page.Notification.event =
   {connect}
@@ -275,8 +275,8 @@ Page = {{
       | ~{hcontent bcontent} -> {
           hsource = hcontent
           bsource = bcontent
-          save = save_as_template(key, _)
-        }
+          save_template = save_as_template(key, _)
+        } : Page.edit
 
 
     get_edit(key):Page.edit =
@@ -287,7 +287,7 @@ Page = {{
         | {some="html"} | {some = "xmlt"}-> {
             hsource = "<!-- Enter your headers here -->"
             bsource = "<!-- Enter your body here --> "
-            save = save_as_template(key, _)
+            save_template = save_as_template(key, _)
           }
         | {some="css"} -> {css = "/* Enter your css here */"}
         | _ -> {source = "A custom resource" mime="text/plain"}
@@ -567,7 +567,7 @@ Page = {{
                 void
               read_only(b) = Ace.read_only(ace, b)
             }))
-        | ~{hsource bsource save} ->
+        | ~{hsource bsource save_template} ->
           /* Html embedded editor is divided in two ace editor, one for
           headers another for body */
           head_id = "{id}_headers" body_id = "{id}_body"
@@ -581,7 +581,7 @@ Page = {{
           make_buttons(
             some({
               save() =
-                fail = save({
+                fail = save_template({
                   hsource = Ace.get_content(ace_head)
                   bsource = Ace.get_content(ace_body)
                 })
