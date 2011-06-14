@@ -1,0 +1,25 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+val encode_key : Keys.t -> string
+val decode_key : string -> int -> int * Keys.t
+val encode_path : Path.t -> string
+val decode_path : string -> int -> int * Path.t
+val encode_dataimpl : DataImpl.data -> string
+val decode_dataimpl : string -> int -> int * DataImpl.data
+val encode_datas : Datas.ns -> string
+val decode_datas : string -> int -> int * Datas.ns
