@@ -93,16 +93,15 @@ Upload = {{
 
   /* Folding on the data of the multipart form data */
   @private
-  multifold(config)(part, fh, _) =
+  multifold(config)(part, fold_headers, _) =
     match part with
      // fileupload field -- process
     | ~{filename name content} ->
-         /* A hack for forall, TODO make it proprely */
-         fold_headers = @unsafe_cast(fh)
          find_mime(header, value, acc) =
            match header with
            | "Content_Type" -> value
            | _ -> acc
+         /* A hack for forall, TODO make it proprely */
          mimetype = @unsafe_cast(fold_headers)("text/plain", find_mime)
          field_name = name
          full_content =
@@ -153,9 +152,10 @@ Upload = {{
       display: none;
       border: 0px solid white
     }
+    frameId = Dom.fresh_id()
     <>
-      <iframe name="iframeId" id="iframeId" src="#" style={frame_style} />
-      <form action="{upload_url}" id="upload_form" target="iframeId"
+      <iframe name={frameId} id={frameId} src="#" style={frame_style} />
+      <form action="{upload_url}" id="upload_form" target={frameId}
             method="post" enctype="multipart/form-data">
         {config.body_form}
       </form>

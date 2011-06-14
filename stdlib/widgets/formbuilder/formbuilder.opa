@@ -54,7 +54,7 @@ type WFormBuilder.field =
   { id : string
   ; label : string
   ; needed : { required } / { optional }
-  ; field_type : { email } / { text } / { passwd} / { desc : { cols: int rows: int} }
+  ; field_type : { email } / { text } / { passwd } / { desc : { cols: int rows: int} } / { upload }
   ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
   }
@@ -77,6 +77,7 @@ type WFormBuilder.style =
 type WFormBuilder.specification =
   { elts : list(WFormBuilder.element)
   ; style : WFormBuilder.style
+  ; process : { get_field_value : string -> string } -> void
   }
 
 WFormBuilder =
@@ -102,8 +103,10 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification(elts : list(WFormBuilder.element)) =
-    {~elts style=empty_style}
+  create_specification(elts : list(WFormBuilder.element),
+                       process : { get_field_value : string -> string } -> void
+                      ) : WFormBuilder.specification =
+    {~elts style=empty_style ~process}
 
   empty_validator : WFormBuilder.validator =
     input -> {success=input}
@@ -215,6 +218,9 @@ WFormBuilder =
      hint=none
     }
 
+  mk_fragment(xhtml : xhtml) : WFormBuilder.element =
+    {fragment=xhtml}
+
   mk_text_field(label) : WFormBuilder.field =
     mk_field(label, {text})
 
@@ -229,6 +235,9 @@ WFormBuilder =
 
   mk_desc_field(label) : WFormBuilder.field =
     mk_desc_field_with(label, {rows=3 cols=40})
+
+  mk_upload_field(label) : WFormBuilder.field =
+    mk_field(label, {upload})
 
   add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
     : WFormBuilder.field =
@@ -315,7 +324,7 @@ WFormBuilder =
   hide_hint(style, id) : void =
     animate(style, #{hint_id(id)}, Dom.Effect.fade_out())
 
-  create_form(spec : WFormBuilder.specification) : xhtml =
+  html(spec : WFormBuilder.specification) : xhtml =
     s = spec.style
     style(style) = WStyler.add(style, _)
     mk_field(~{label validator needed field_type id hint}) =
@@ -335,6 +344,7 @@ WFormBuilder =
         | {email} -> input("email")
         | {text} -> input("text")
         | {passwd} -> input("password")
+        | {upload} -> input("file")
         | {desc=~{cols rows}} ->
             // FIXME, resize:none should be in css{...}
             <textarea style="resize: none;" type="text" id=#{input_id(id)}
@@ -371,8 +381,9 @@ WFormBuilder =
     mk_element =
     | ~{ fragment } -> fragment
     | ~{ field } -> mk_field(field)
-    <>
-      {List.map(mk_element, spec.elts)}
+    body_form = List.map(mk_element, spec.elts)
+    <form onsubmit={_ -> spec.process(~{get_field_value})} method="post">
+      {body_form}
     </>
 
   start(spec : WFormBuilder.specification) : void =

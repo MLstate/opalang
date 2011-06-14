@@ -74,7 +74,7 @@ type WNotification.box = {
   content : xhtml
 
   /** Buttons of dialog box **/
-  buttons : { standard : list(WNotification.button) } / { customized : WNotification.box_id -> xhtml }
+  buttons : { standard : list(WNotification.button) } / { customized : WNotification.box_id -> xhtml } / { no_buttons }
 }
 
 
@@ -175,6 +175,7 @@ WNotification =
             {List.map((action -> make_button(action)), buttons)}
           </div> |> WStyler.add(conf.style_buttons,_)
       | {customized=f} -> f(ids)
+      | {no_buttons} -> <></>;
 
     <div id="{get_notification_box_id(new_id)}"
          style="z-index:{index};display:none;

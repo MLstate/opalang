@@ -64,8 +64,10 @@ FormBuilderTemplate =
         match fb_tag with
         | {form} ->
           fields = []
-          spec = FB.create_specification(fields)
-          form = FB.create_form(spec)
+           // FIXME, plug-in form processing
+          process({get_field_value=_}) = void
+          spec = FB.create_specification(fields, process)
+          form = FB.html(spec)
           {success = form}
 
   engine : Template.engine =
