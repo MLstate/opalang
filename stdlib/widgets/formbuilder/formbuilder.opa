@@ -18,7 +18,7 @@
 
 
 import stdlib.web.mail
-import stdlib.widgets.core
+import stdlib.widgets.{core, upload}
 
 /**
  * @author Adam Koprowski
@@ -61,6 +61,18 @@ type WFormBuilder.field =
 
 type WFormBuilder.element = { field : WFormBuilder.field } / { fragment : xhtml }
 
+type WFormBuilder.text_field_accessor =
+  WFormBuilder.form_data -> string
+
+type WFormBuilder.file_upload_accessor =
+  WFormBuilder.form_data -> Upload.file
+
+type WFormBuilder.text_field =
+  (WFormBuilder.text_field_accessor, WFormBuilder.field)
+
+type WFormBuilder.file_field =
+  (WFormBuilder.file_upload_accessor, WFormBuilder.field)
+
 type WFormBuilder.style =
   { field_style : bool -> WStyler.styler
   ; label_style : bool -> WStyler.styler
@@ -78,6 +90,11 @@ type WFormBuilder.specification =
   { elts : list(WFormBuilder.element)
   ; style : WFormBuilder.style
   }
+
+@abstract
+type WFormBuilder.form_data =
+    { SimpleForm }
+  / { FileUploadForm : Upload.form_data }
 
 WFormBuilder =
 
@@ -102,7 +119,7 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification(elts : list(WFormBuilder.element)) : WFormBuilder.specification =
+  create_specification( elts : list(WFormBuilder.element)) : WFormBuilder.specification =
     {~elts style=empty_style}
 
   empty_validator : WFormBuilder.validator =
@@ -207,6 +224,7 @@ WFormBuilder =
           | res -> res
     aux(_)(vs)
 
+  @private
   mk_field(label, field_type) : WFormBuilder.field =
     {~label ~field_type
      needed={optional}
@@ -215,26 +233,39 @@ WFormBuilder =
      hint=none
     }
 
+  @private
+  mk_text_type_field(label, field_type) : WFormBuilder.text_field =
+    field = mk_field(label, field_type)
+    accessor = @todo
+    (accessor, field)
+
+  @private
+  mk_file_type_field(label, field_type) : WFormBuilder.file_field =
+    field = mk_field(label, field_type)
+    accessor = @todo
+    (accessor, field)
+
   mk_fragment(xhtml : xhtml) : WFormBuilder.element =
     {fragment=xhtml}
 
-  mk_text_field(label) : WFormBuilder.field =
-    mk_field(label, {text})
+  mk_text_field(label) : WFormBuilder.text_field =
+    mk_text_type_field(label, {text})
 
-  mk_email_field(label) : WFormBuilder.field =
-    mk_field(label, {email})
+  mk_email_field(label) : WFormBuilder.text_field =
+    mk_text_type_field(label, {email})
 
-  mk_passwd_field(label) : WFormBuilder.field =
-    mk_field(label, {passwd})
+  mk_passwd_field(label) : WFormBuilder.text_field =
+    mk_text_type_field(label, {passwd})
 
-  mk_desc_field_with(label, size : {rows : int; cols : int}) : WFormBuilder.field =
-    mk_field(label, {desc=size})
+  mk_desc_field_with(label, size : {rows : int; cols : int})
+    : WFormBuilder.text_field =
+    mk_text_type_field(label, {desc=size})
 
-  mk_desc_field(label) : WFormBuilder.field =
+  mk_desc_field(label) : WFormBuilder.text_field =
     mk_desc_field_with(label, {rows=3 cols=40})
 
-  mk_upload_field(label) : WFormBuilder.field =
-    mk_field(label, {upload})
+  mk_upload_field(label) : WFormBuilder.file_field =
+    mk_file_type_field(label, {upload})
 
   add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
     : WFormBuilder.field =
@@ -321,9 +352,16 @@ WFormBuilder =
   hide_hint(style, id) : void =
     animate(style, #{hint_id(id)}, Dom.Effect.fade_out())
 
-  html(spec : WFormBuilder.specification,
-       process : { get_field_value : string -> string } -> void)
-       : xhtml =
+  @private
+  upload_fields_no(spec : WFormBuilder.specification) : int =
+    is_upload_field =
+    | ~{ field } -> field.field_type == {upload}
+    | _ -> false
+    List.filter(is_upload_field, spec.elts) |> List.length
+
+  html( spec : WFormBuilder.specification
+      , process : WFormBuilder.form_data -> void
+      ) : xhtml =
     s = spec.style
     style(style) = WStyler.add(style, _)
     mk_field(~{label validator needed field_type id hint}) =
@@ -380,10 +418,17 @@ WFormBuilder =
     mk_element =
     | ~{ fragment } -> fragment
     | ~{ field } -> mk_field(field)
-    body_form = List.map(mk_element, spec.elts)
-    <form onsubmit={_ -> process(~{get_field_value})} method="post">
-      {body_form}
-    </>
+    body_form = <>{List.map(mk_element, spec.elts)}</>
+    match upload_fields_no(spec) with
+    | 0 ->
+        body_form
+    | 1 ->
+        process(data) =
+          do Scheduler.push( -> process({FileUploadForm=data}))
+          void
+        Upload.html({Upload.default_config() with ~body_form ~process})
+    | _ ->
+        @todo //("WFormBuilder: forms with more than 1 upload fields are not (yet) supported")
 
   start(spec : WFormBuilder.specification) : void =
     is_field =
@@ -393,14 +438,28 @@ WFormBuilder =
     | {some=~{field}} -> Dom.give_focus(#{input_id(field.id)})
     | _ -> void
 
+  submit_action(spec : WFormBuilder.specification) : (Dom.event -> void) =
+    _ ->
+      match upload_fields_no(spec) with
+      | 0 ->
+          @todo
+//          form_data = {SimpleForm}
+//          spec.process(form_data)
+      | 1 ->
+          @todo
+      | _ ->
+          @todo
+
+  get_field_value(id : string) =
+    Dom.get_value(#{id})
+
+
+
   // TODO do we want to keep field ids as strings? Maybe introduce abstraction for them...
   get_all_field_ids(spec : WFormBuilder.specification) : list(string) =
     get_field_ids =
     | ~{field} -> some(field.id)
     | _ -> none
     List.filter_map(get_field_ids, spec.elts)
-
-  get_field_value(id : string) =
-    Dom.get_value(#{id})
 
 }}

@@ -35,10 +35,10 @@ package stdlib.upload
 type Upload.file = {
 
   /** Name of the input field corresponding to the uploaded file. */
-  field_name : string;
+  field_name : string
 
   /** Name of the uploaded file. */
-  filename : string;
+  filename : string
 
   /** The mimetype of the file */
   mimetype : string
@@ -48,9 +48,24 @@ type Upload.file = {
 }
 
 /**
+ * A data of the form created with this module
+ */
+type Upload.form_data = {
+   /** data of the uploaded file (if missing then something went wrong
+       with form submission) */
+  file : option(Upload.file)
+
+   /** data of other fields (map from field id to field value) */
+  form_fields : stringmap(string)
+}
+
+/**
  * Configuration of the file uploader.
  */
-type Upload.config('result) = {
+type Upload.config = {
+
+  /** id of the form */
+  form_id : string
 
   /** Parameters for the dynamic url to be created by the upload manager. */
   url_parameters : DynamicResource.parameters
@@ -65,7 +80,7 @@ type Upload.config('result) = {
   body_form : xhtml
 
   /** A function that will be invoked upon uploading the file */
-  process : Upload.file -> void
+  process : Upload.form_data -> void
 }
 
 /**
@@ -79,7 +94,8 @@ Upload = {{
    * It creates a form with only one file upload field and
    * does nothing upon retrieving the file.
    */
-  default_config : Upload.config = {
+  default_config() : Upload.config = {
+    form_id = Dom.fresh_id()
     url_parameters = {
       expiration={none}
       consumption={unlimited}
@@ -93,7 +109,7 @@ Upload = {{
 
   /* Folding on the data of the multipart form data */
   @private
-  multifold(config)(part, fold_headers, _) =
+  multifold(part, fold_headers, (file, fields)) =
     match part with
      // fileupload field -- process
     | ~{filename name content} ->
@@ -113,11 +129,10 @@ Upload = {{
              | ~{content} -> content
             aux()
           file = ~{filename field_name mimetype content=full_content}
-          do Scheduler.push( -> config.process(file))
-          void
+          (some(file), fields)
      // "regular" field -- ignore
-    | {name=_ value=_} ->
-          void
+    | ~{name value} ->
+          (file, Map.add(name, value, fields))
 
   /**
    * Creates a form with file upload capabilities.
@@ -141,7 +156,9 @@ Upload = {{
             Resource.error_page("Upload failed", <h1>Unexpected load request</h1>,
               {forbidden})
         | {some = multipart} ->
-            do HttpRequest.Generic.fold_multipart(multipart, void, multifold(config))
+            (file, form_fields) = HttpRequest.Generic.fold_multipart(multipart,
+                                    (none, Map.empty), multifold)
+            do Scheduler.push( -> config.process(~{file form_fields}))
             Resource.source("Upload successful", "text/plain")
         )
     resource = Resource.dynamic(dynamic)
@@ -155,7 +172,7 @@ Upload = {{
     frameId = Dom.fresh_id()
     <>
       <iframe name={frameId} id={frameId} src="#" style={frame_style} />
-      <form action="{upload_url}" id="upload_form" target={frameId}
+      <form id={config.form_id} action="{upload_url}" target={frameId}
             method="post" enctype="multipart/form-data">
         {config.body_form}
       </form>
