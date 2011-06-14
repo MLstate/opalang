@@ -41,6 +41,10 @@ let default_local_options =
     dot = false;
     readonly = false;
   }
+let default_light_options =
+  { Badop.
+    lpath = default_file ~name:"db_light" ();
+  }
 
 let default =
   (module Badop_local : Badop.S), (Badop.Options_Local default_local_options)
@@ -52,6 +56,10 @@ let badop_wrapper functo modul =
 
 let get_local_options = function
   | Badop.Options_Local o -> o
+  | _ -> raise Not_found
+
+let get_light_options = function
+  | Badop.Options_Light o -> o
   | _ -> raise Not_found
 
 
@@ -141,6 +149,32 @@ let options_parser_with_default ?name (_default_m, default_o) =
          "Use a local database at given path%s. Use additional flag 'restore' to try and recover a corrupted database, \
           or 'dot' to have a database dot output each commit. You can specify several flags, separated by ','." default_str)
     ;
+    ["--db-light"],
+    A.func (A.option A.string)
+      (fun (_,o) str_opt ->
+         if o <> default_o
+         then prerr_endline ("Warning: database options before --db-light will be ignored"^spec_msg);
+         let path,_flags = match str_opt with
+           | Some str -> Base.String.split_char_last ':' str
+           | None -> "", ""
+         in
+         let path = match path with
+           | "" ->
+               (match o with Badop.Options_Light({ Badop.lpath = path; _ }) -> path | _ -> default_file ?name ())
+           | p -> (match name with None -> p | Some n -> Filename.concat p n)
+         in
+         let lpath = path^"_light" in
+         Logger.log ~color:`red "path: %s" path;
+         (module Badop_light : Badop.S),
+         Badop.Options_Light { Badop. lpath }),
+      "[<path>][:<flags>]",
+      (let default_str = match default_o with
+         | Badop.Options_Light({ Badop.lpath = lpath }) ->
+             Printf.sprintf " (default: %s_light)" lpath
+         | _ -> ""
+       in
+       Printf.sprintf
+         "Use a light database at given path.%s"
   ]
   @
   #<If:BADOP_DEBUG> [

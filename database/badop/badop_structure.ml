@@ -131,7 +131,7 @@ module Node_property = struct
       | ConflictOnWrite -> "Conflict on write"
       | TakeLast -> "Take last"
       | TakeMin -> "Take min"
-      | TakeMax -> "Take min"
+      | TakeMax -> "Take max"
       | Add -> "Add"
 
     let node_config nc =

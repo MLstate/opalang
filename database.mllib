@@ -75,3 +75,11 @@ database/db3/structs/SigListMap
 database/db3/structs/RaListMap
 database/db3/structs/SimpleListMap
 database/db3/structs/TabMap
+# Badop light
+database/Badop_light
+database/light/Node_light
+database/light/Session_light
+database/light/Transaction_light
+database/light/Db_light
+database/light/Io_light
+database/light/Encode_light
