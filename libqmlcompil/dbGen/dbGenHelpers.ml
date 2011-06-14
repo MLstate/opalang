@@ -549,6 +549,8 @@ struct
 
     let local_options() =
       func (BadopEngine.local_options) [typeoption tystring; typeoption tystring; tyoptions]
+    let light_options() =
+      func (BadopEngine.light_options) [typeoption tystring; typeoption tystring; tyoptions]
     let client_options() =
       func (BadopEngine.client_options) [typeoption tystring; typeoption tystring; typeoption tyint; tyoptions]
     let check_remaining_arguments() =

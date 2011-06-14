@@ -1238,6 +1238,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         | `db3 file ->
             H.apply_lambda' (Bypass.local_options())
               [ db_name_opt; wrap_opt H.const_string file H.tystring ]
+        | `db3light file ->
+            H.apply_lambda' (Bypass.light_options())
+              [ db_name_opt; wrap_opt H.const_string file H.tystring ]
         | `meta ->
             H.apply_lambda' (Bypass.local_options())
               [ db_name_opt; Helpers_gen.expr_none H.tystring ]

@@ -496,6 +496,7 @@ struct
     let (!!) s = !! ("Badop_engine." ^ s)
     let check_remaining_arguments = !! "check_remaining_arguments"
     let local_options = !! "local_options"
+    let light_options = !! "light_options"
     let client_options = !! "client_options"
     let get = !! "get"
   end

@@ -247,6 +247,8 @@ db_virtual <-
 db_options <-
   / "@" "local" Opa_lexer.lpar_nosp spacing '"' file_path:s '"' rpar {{ [`engine (`db3 (Some s))] }}
   / "@" "local" {{ [`engine (`db3 None)] }}
+  / "@" "light" Opa_lexer.lpar_nosp spacing '"' file_path:s '"' rpar {{ [`engine (`db3light (Some s))] }}
+  / "@" "light" {{ [`engine (`db3light None)] }}
   / "@" "meta" {{ [`engine (`meta)] }}
   / "@" "shared" Opa_lexer.lpar_nosp spacing '"' network_hostname?:h network_port?:p '"' rpar {{ [`engine (`client (h, p))] }}
   / "@" "shared" {{ [`engine (`client (None, None))] }}

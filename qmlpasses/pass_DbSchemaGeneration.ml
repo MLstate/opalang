@@ -35,6 +35,7 @@ struct
       let arg_opt = if arg = "" then None else Some arg in
       match engine with
       | "local" -> [`engine (`db3 arg_opt)]
+      | "light" -> [`engine (`db3light arg_opt)]
       | "meta" -> [`engine `meta]
       | "shared" ->
           let (hostname, port) = BaseString.split_char ':' arg in

@@ -205,6 +205,16 @@ let local_options name file_opt =
   in
   db_options name (m, o)
 
+##register [restricted: dbgen; opacapi] light_options: option(string), option(string) -> database_options
+let light_options name file_opt =
+  let m = (module Badop_light : Badop.S) in
+  let o = Badop.Options_Light {
+    Badop.
+      lpath = (match file_opt with Some f -> f | None -> Badop_meta.default_file ?name ());
+  }
+  in
+  db_options name (m, o)
+
 ##register [restricted: dbgen; opacapi] client_options: option(string), option(string), option(int) -> database_options
 let client_options ident host_opt port_opt =
   let m = (module Badop_client : Badop.S) in

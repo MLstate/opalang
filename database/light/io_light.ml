@@ -187,7 +187,7 @@ let reopen t =
          failwith (sprintf "Can't reopen Dbm file %s %s" t.location (Printexc.to_string exn)))
 
 let make mode file =
-  let cfile = File.explicit_path file None in
+  let cfile = File.explicit_path file (Some (Unix.getcwd())) in
   match Hashtbl.find_opt dbtbl cfile with
   | Some t ->
       #<If>Logger.log ~color:`magenta "Returning existing Dbm data %s" cfile#<End>;

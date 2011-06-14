@@ -163,6 +163,7 @@ struct
   type engine =
       [
       |`db3 of string option (* path *)
+      |`db3light of string option (* path *)
       |`meta
       |`client of string option * int option (* server:port *)
       ]
@@ -206,6 +207,7 @@ struct
   let engine_to_string opt =
     match opt with
     | `db3 s -> "@local(" ^ Option.default "" s ^ ")"
+    | `db3light s -> "@light(" ^ Option.default "" s ^ ")"
     | `meta -> "@meta"
     | `client (h, p) ->
         let h = Option.default "" h in

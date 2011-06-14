@@ -174,7 +174,8 @@ let options_parser_with_default ?name (_default_m, default_o) =
          | _ -> ""
        in
        Printf.sprintf
-         "Use a light database at given path.%s"
+         "Same as --db-local, but using the lightweight, history-less backend%s."
+         default_str)
   ]
   @
   #<If:BADOP_DEBUG> [

@@ -87,6 +87,7 @@ struct
     "unix" ;
     "bigarray";
     "ssl" ;
+    "dbm" ;
     "zip" ;
     "nums" ;
     "ulexing" ;
