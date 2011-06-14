@@ -180,15 +180,29 @@ Page = {{
   /**
    * {2 Database access}
    */
+  //Hack because we no slicer annot on functor
+  network = Network.empty()
+    : Network.network(
+        { by: string; event: Page.Notification.event }
+      / { handler: { by: string; event: Page.Notification.event } -> void }
+    )
+
+  @client @private client_listener =
+    handler(state, msg) = match msg
+      | ~{handler} -> {set = handler +> state}
+      | ~{event by} -> do Scheduler.push(-> List.iter(handler -> handler(~{event by}), state)) {unchanged}
+    x = Session.make([], handler)
+    do Network.add(x, network)
+    x
+
   @server @private ServerAccess(~{engine access=caccess}:Page.config('a, 'b)) = {{
 
     /**
      * {2 Notification system + Lock system for one user}
      */
     Notification_Lock =
-      network = Network.empty()
-      lock_cell = Cell.make((Date.now(), StringMap.empty),
-        ((date, map), message ->
+      lock_cell = Cell.make(StringMap.empty,
+        (map, message ->
           by = message.by
           match message.action
           | ~{lock} ->
@@ -205,7 +219,7 @@ Page = {{
               | {client=lock_by} ->
                 lock_at = Date.now()
                 {return = {success=~{lock_at by}}
-                 instruction = {set = (date, StringMap.add(lock, ~{by lock_by lock_at}, map))}}
+                 instruction = {set = StringMap.add(lock, ~{by lock_by lock_at}, map)}}
               | _ -> {return = {failure={internal_error}} instruction = {unchanged}}
               end
             end
@@ -216,7 +230,7 @@ Page = {{
               | ~{client} ->
                 if force || client == some.lock_by then
                   {return = {success={lock_at = some.lock_at ~by}}
-                   instruction = {set = (date, StringMap.remove(unlock, map))}}
+                   instruction = {set = StringMap.remove(unlock, map)}}
                 else
                   {return = {failure={locked = some}}
                    instruction = {unchanged}}
@@ -238,15 +252,6 @@ Page = {{
       )
       by ->
         Notification = {{
-
-          @private client_listener =
-            handler(state, msg) = match msg
-              | ~{handler} -> {set = handler +> state}
-              | ~{event by} -> do Scheduler.push(-> List.iter(handler -> handler(~{event by}), state)) {unchanged}
-            Session.make([], handler)
-
-          @private init_listener =
-            Network.add(client_listener, network)
 
           send(event:Page.Notification.event) =
             Network.broadcast(~{event by}, network)
@@ -827,9 +832,8 @@ Page = {{
         }>
         </div>
         <div id="admin_notifications_action">
-          <input type="text" id="admin_notifications_action_msg"/>
-          <button onclick={Action.send_message(access)}
-                  onnewline={Action.send_message(access)}>Send a message</button>
+          <input type="text" onnewline={Action.send_message(access)} id="admin_notifications_action_msg"/>
+          <button onclick={Action.send_message(access)}>Send a message</button>
         </div>
       </div>
       <div id="admin_editor_container">
