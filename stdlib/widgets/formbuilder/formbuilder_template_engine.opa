@@ -38,23 +38,24 @@ type FormBuilderTemplate.tag = { form }
 
 FormBuilderTemplate =
 
-  my_ns : Uri.uri =
-    Uri.of_string("http://opalang.org/template/FormBuilder")
-    |> Option.get
-
+  my_ns = "http://opalang.org/template/FormBuilder"
   FB = WFormBuilder
 
 {{
 
   @private
-  parse(_conf, {~ns; ~tag; args=_; children=_})
+  parse(_conf : Template.conf, ~{xmlns_parser=_ xmlns})
     : outcome(Template.content(either(FormBuilderTemplate.tag, 'b)), Template.failure) =
-    if ns != my_ns then
-      { failure = { namespace_not_supported_by_engine = "Got {ns}, expected {my_ns}" }}
-    else
-      match tag with
-      | "form" -> { success = Template.to_extension({form}) }
-      | _ -> { failure = { unsupported_tag; ~ns; ~tag } }
+    match xmlns with
+    | {~tag; namespace=ns ...} ->
+        if ns != my_ns then
+          { failure = { namespace_not_supported_by_engine = "Got {ns}, expected {my_ns}" }}
+        else
+          ( match tag with
+          | "form" -> { success = Template.to_extension({form}) }
+          | _ -> { failure = { unsupported_tag; ~ns; ~tag } }
+          )
+    | _ -> Template.error_unsupported_node(xmlns)
 
   @private
   export(content, _) =
