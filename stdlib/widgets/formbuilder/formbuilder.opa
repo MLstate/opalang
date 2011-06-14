@@ -77,7 +77,6 @@ type WFormBuilder.style =
 type WFormBuilder.specification =
   { elts : list(WFormBuilder.element)
   ; style : WFormBuilder.style
-  ; process : { get_field_value : string -> string } -> void
   }
 
 WFormBuilder =
@@ -103,10 +102,8 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification(elts : list(WFormBuilder.element),
-                       process : { get_field_value : string -> string } -> void
-                      ) : WFormBuilder.specification =
-    {~elts style=empty_style ~process}
+  create_specification(elts : list(WFormBuilder.element)) : WFormBuilder.specification =
+    {~elts style=empty_style}
 
   empty_validator : WFormBuilder.validator =
     input -> {success=input}
@@ -324,7 +321,9 @@ WFormBuilder =
   hide_hint(style, id) : void =
     animate(style, #{hint_id(id)}, Dom.Effect.fade_out())
 
-  html(spec : WFormBuilder.specification) : xhtml =
+  html(spec : WFormBuilder.specification,
+       process : { get_field_value : string -> string } -> void)
+       : xhtml =
     s = spec.style
     style(style) = WStyler.add(style, _)
     mk_field(~{label validator needed field_type id hint}) =
@@ -382,7 +381,7 @@ WFormBuilder =
     | ~{ fragment } -> fragment
     | ~{ field } -> mk_field(field)
     body_form = List.map(mk_element, spec.elts)
-    <form onsubmit={_ -> spec.process(~{get_field_value})} method="post">
+    <form onsubmit={_ -> process(~{get_field_value})} method="post">
       {body_form}
     </>
 
@@ -393,6 +392,13 @@ WFormBuilder =
     match List.find(is_field, spec.elts) with
     | {some=~{field}} -> Dom.give_focus(#{input_id(field.id)})
     | _ -> void
+
+  // TODO do we want to keep field ids as strings? Maybe introduce abstraction for them...
+  get_all_field_ids(spec : WFormBuilder.specification) : list(string) =
+    get_field_ids =
+    | ~{field} -> some(field.id)
+    | _ -> none
+    List.filter_map(get_field_ids, spec.elts)
 
   get_field_value(id : string) =
     Dom.get_value(#{id})
