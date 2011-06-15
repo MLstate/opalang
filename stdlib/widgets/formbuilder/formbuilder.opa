@@ -404,21 +404,18 @@ WFormBuilder =
     | ~{ fragment } -> fragment
     | ~{ field } -> mk_field(field)
     body_form = <>{List.map(mk_element, spec.elts)}</>
-    match upload_fields_no(spec) with
-    | 0 ->
-        <form id={spec.form_id} action="#" onsubmit={_ -> process({SimpleForm})}
-          method="get" options:onsubmit="prevent_default">
-          {body_form}
-        </form>
-    | 1 ->
-        process(data) =
-          do Scheduler.push( -> process({FileUploadForm=data}))
-          void
-        config = {Upload.default_config() with
-                    ~body_form ~process form_id=spec.form_id}
-        Upload.html(config)
-    | _ ->
-        @todo //("WFormBuilder: forms with more than 1 upload fields are not (yet) supported")
+    if upload_fields_no(spec) == 0 then
+      <form id={spec.form_id} action="#" onsubmit={_ -> process({SimpleForm})}
+        method="get" options:onsubmit="prevent_default">
+        {body_form}
+      </form>
+    else
+      process(data) =
+        do Scheduler.push( -> process({FileUploadForm=data}))
+        void
+      config = {Upload.default_config() with
+                  ~body_form ~process form_id=spec.form_id}
+      Upload.html(config)
 
   start(spec : WFormBuilder.specification) : void =
     is_field =

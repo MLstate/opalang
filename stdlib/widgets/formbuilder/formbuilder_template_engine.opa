@@ -64,11 +64,12 @@ FormBuilderTemplate =
     | {some=fb_tag} ->
         match fb_tag with
         | {form} ->
-          fields = [] // FIXME
-          process(_) = @todo
-          spec = FB.create_specification(Dom.fresh_id(), fields)
-          form = FB.html(spec, process)
-          {success = form}
+            // FIXME
+            fields = []
+            process(_) = void
+            spec = FB.create_specification(Dom.fresh_id(), fields)
+            form = FB.html(spec, process)
+            {success = form}
 
   engine : Template.engine =
     { Template.empty with ~parse ~export }
