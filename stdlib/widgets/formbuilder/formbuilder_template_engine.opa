@@ -66,7 +66,7 @@ FormBuilderTemplate =
         | {form} ->
           fields = [] // FIXME
           process(_) = @todo
-          spec = FB.create_specification(fields)
+          spec = FB.create_specification(Dom.fresh_id(), fields)
           form = FB.html(spec, process)
           {success = form}
 

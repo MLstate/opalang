@@ -20,6 +20,11 @@
 import stdlib.web.mail
 import stdlib.widgets.{core, upload}
 
+/* FIXME For now form fields should have unique names within a page. We could
+         try to use selection within a form, but then we have to figure out
+         how to transfer form id to equals_validator */
+// FIXME Change form field id -> name
+
 /**
  * @author Adam Koprowski
  * @category widget
@@ -61,18 +66,6 @@ type WFormBuilder.field =
 
 type WFormBuilder.element = { field : WFormBuilder.field } / { fragment : xhtml }
 
-type WFormBuilder.text_field_accessor =
-  WFormBuilder.form_data -> string
-
-type WFormBuilder.file_upload_accessor =
-  WFormBuilder.form_data -> Upload.file
-
-type WFormBuilder.text_field =
-  (WFormBuilder.text_field_accessor, WFormBuilder.field)
-
-type WFormBuilder.file_field =
-  (WFormBuilder.file_upload_accessor, WFormBuilder.field)
-
 type WFormBuilder.style =
   { field_style : bool -> WStyler.styler
   ; label_style : bool -> WStyler.styler
@@ -87,7 +80,8 @@ type WFormBuilder.style =
   }
 
 type WFormBuilder.specification =
-  { elts : list(WFormBuilder.element)
+  { form_id : string
+  ; elts : list(WFormBuilder.element)
   ; style : WFormBuilder.style
   }
 
@@ -119,8 +113,10 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification( elts : list(WFormBuilder.element)) : WFormBuilder.specification =
-    {~elts style=empty_style}
+  create_specification( form_id : string
+                      , elts : list(WFormBuilder.element)
+                      ) : WFormBuilder.specification =
+    {~form_id ~elts style=empty_style}
 
   empty_validator : WFormBuilder.validator =
     input -> {success=input}
@@ -200,7 +196,7 @@ WFormBuilder =
 
   equals_validator(fld_id : string, error_msg : xhtml) : WFormBuilder.validator =
     input ->
-      if input == get_field_value(fld_id) then
+      if input == get_text_value_of(fld_id) then
         {success = input}
       else
         {failure = error_msg}
@@ -233,39 +229,27 @@ WFormBuilder =
      hint=none
     }
 
-  @private
-  mk_text_type_field(label, field_type) : WFormBuilder.text_field =
-    field = mk_field(label, field_type)
-    accessor = @todo
-    (accessor, field)
-
-  @private
-  mk_file_type_field(label, field_type) : WFormBuilder.file_field =
-    field = mk_field(label, field_type)
-    accessor = @todo
-    (accessor, field)
-
   mk_fragment(xhtml : xhtml) : WFormBuilder.element =
     {fragment=xhtml}
 
-  mk_text_field(label) : WFormBuilder.text_field =
-    mk_text_type_field(label, {text})
+  mk_text_field(label) : WFormBuilder.field =
+    mk_field(label, {text})
 
-  mk_email_field(label) : WFormBuilder.text_field =
-    mk_text_type_field(label, {email})
+  mk_email_field(label) : WFormBuilder.field =
+    mk_field(label, {email})
 
-  mk_passwd_field(label) : WFormBuilder.text_field =
-    mk_text_type_field(label, {passwd})
+  mk_passwd_field(label) : WFormBuilder.field =
+    mk_field(label, {passwd})
 
   mk_desc_field_with(label, size : {rows : int; cols : int})
-    : WFormBuilder.text_field =
-    mk_text_type_field(label, {desc=size})
+    : WFormBuilder.field =
+    mk_field(label, {desc=size})
 
-  mk_desc_field(label) : WFormBuilder.text_field =
+  mk_desc_field(label) : WFormBuilder.field =
     mk_desc_field_with(label, {rows=3 cols=40})
 
-  mk_upload_field(label) : WFormBuilder.file_field =
-    mk_file_type_field(label, {upload})
+  mk_upload_field(label) : WFormBuilder.field =
+    mk_field(label, {upload})
 
   add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
     : WFormBuilder.field =
@@ -375,7 +359,7 @@ WFormBuilder =
           {req}
         </> |> style(s.label_style(true))
       input(input_type) =
-        <input type={input_type} id=#{input_id(id)} />
+        <input type={input_type} name={input_id(id)} id={input_id(id)} />
       input_tag =
         match field_type with
         | {email} -> input("email")
@@ -384,8 +368,9 @@ WFormBuilder =
         | {upload} -> input("file")
         | {desc=~{cols rows}} ->
             // FIXME, resize:none should be in css{...}
-            <textarea style="resize: none;" type="text" id=#{input_id(id)}
-                      rows={rows} cols={cols} />
+            <textarea style="resize: none;" type="text"
+              name={input_id(id)} id={input_id(id)}
+              rows={rows} cols={cols} />
       stl_input_tag = input_tag |> style(s.input_style(true))
       onblur(_) =
         do do_validate(spec.style, id, validator)
@@ -421,12 +406,17 @@ WFormBuilder =
     body_form = <>{List.map(mk_element, spec.elts)}</>
     match upload_fields_no(spec) with
     | 0 ->
-        body_form
+        <form id={spec.form_id} action="#" onsubmit={_ -> process({SimpleForm})}
+          method="get" options:onsubmit="prevent_default">
+          {body_form}
+        </form>
     | 1 ->
         process(data) =
           do Scheduler.push( -> process({FileUploadForm=data}))
           void
-        Upload.html({Upload.default_config() with ~body_form ~process})
+        config = {Upload.default_config() with
+                    ~body_form ~process form_id=spec.form_id}
+        Upload.html(config)
     | _ ->
         @todo //("WFormBuilder: forms with more than 1 upload fields are not (yet) supported")
 
@@ -438,28 +428,33 @@ WFormBuilder =
     | {some=~{field}} -> Dom.give_focus(#{input_id(field.id)})
     | _ -> void
 
-  submit_action(spec : WFormBuilder.specification) : (Dom.event -> void) =
+  submit_action(form_id : string) : (Dom.event -> void) =
     _ ->
-      match upload_fields_no(spec) with
-      | 0 ->
-          @todo
-//          form_data = {SimpleForm}
-//          spec.process(form_data)
-      | 1 ->
-          @todo
-      | _ ->
-          @todo
+       // submit the form
+      Dom.trigger(#{form_id}, {submit})
 
-  get_field_value(id : string) =
-    Dom.get_value(#{id})
+  @private get_text_value_of(id : string) =
+    Dom.get_value(#{input_id(id)})
 
+  get_field_text_value( id : string
+                      , data : WFormBuilder.form_data
+                      ) : string =
+    match data with
+    | { SimpleForm } -> get_text_value_of(id)
+    | { FileUploadForm=data } -> Map.get(input_id(id), data.form_fields) ? ""
 
+  get_file_upload_value( id : string
+                       , data : WFormBuilder.form_data
+                       ) : option(Upload.file) =
+    match data with
+    | { SimpleForm } -> none
+    | { FileUploadForm=data } -> Map.get(input_id(id), data.uploaded_files)
 
   // TODO do we want to keep field ids as strings? Maybe introduce abstraction for them...
-  get_all_field_ids(spec : WFormBuilder.specification) : list(string) =
-    get_field_ids =
-    | ~{field} -> some(field.id)
+  get_all_fields(spec : WFormBuilder.specification) : list(WFormBuilder.field) =
+    get_field =
+    | ~{field} -> some(field)
     | _ -> none
-    List.filter_map(get_field_ids, spec.elts)
+    List.filter_map(get_field, spec.elts)
 
 }}

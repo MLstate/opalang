@@ -53,7 +53,7 @@ type Upload.file = {
 type Upload.form_data = {
    /** data of the uploaded file (if missing then something went wrong
        with form submission) */
-  file : option(Upload.file)
+  uploaded_files : stringmap(Upload.file)
 
    /** data of other fields (map from field id to field value) */
   form_fields : stringmap(string)
@@ -109,7 +109,7 @@ Upload = {{
 
   /* Folding on the data of the multipart form data */
   @private
-  multifold(part, fold_headers, (file, fields)) =
+  multifold(part, fold_headers, form_data) =
     match part with
      // fileupload field -- process
     | ~{filename name content} ->
@@ -129,10 +129,12 @@ Upload = {{
              | ~{content} -> content
             aux()
           file = ~{filename field_name mimetype content=full_content}
-          (some(file), fields)
+          { form_data with
+              uploaded_files=Map.add(name, file, form_data.uploaded_files) }
      // "regular" field -- ignore
     | ~{name value} ->
-          (file, Map.add(name, value, fields))
+         { form_data with
+             form_fields=Map.add(name, value, form_data.form_fields) }
 
   /**
    * Creates a form with file upload capabilities.
@@ -156,9 +158,10 @@ Upload = {{
             Resource.error_page("Upload failed", <h1>Unexpected load request</h1>,
               {forbidden})
         | {some = multipart} ->
-            (file, form_fields) = HttpRequest.Generic.fold_multipart(multipart,
-                                    (none, Map.empty), multifold)
-            do Scheduler.push( -> config.process(~{file form_fields}))
+            empty_form_data = { form_fields=Map.empty uploaded_files=Map.empty }
+            form_data =  HttpRequest.Generic.fold_multipart(multipart,
+                           empty_form_data, multifold)
+            do Scheduler.push( -> config.process(form_data))
             Resource.source("Upload successful", "text/plain")
         )
     resource = Resource.dynamic(dynamic)
