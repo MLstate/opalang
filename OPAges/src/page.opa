@@ -180,22 +180,24 @@ Page = {{
   /**
    * {2 Database access}
    */
-  //Hack because we no slicer annot on functor
-  network = Network.empty()
-    : Network.network(
-        { by: string; event: Page.Notification.event }
-      / { handler: { by: string; event: Page.Notification.event } -> void }
-    )
 
-  @client @private client_listener =
+  //Hack because we no slicer annot on functor
+  @client @private get_listener() =
     handler(state, msg) = match msg
       | ~{handler} -> {set = handler +> state}
       | ~{event by} -> do Scheduler.push(-> List.iter(handler -> handler(~{event by}), state)) {unchanged}
-    x = Session.make([], handler)
-    do Network.add(x, network)
-    x
+    Session.make([], handler)
 
   @server @private ServerAccess(~{engine access=caccess}:Page.config('a, 'b)) = {{
+
+    /**
+     * Network used for the notification systemp
+     */
+    network = Network.empty()
+      : Network.network(
+          { by: string; event: Page.Notification.event }
+        / { handler: { by: string; event: Page.Notification.event } -> void }
+      )
 
     /**
      * {2 Notification system + Lock system for one user}
@@ -253,10 +255,22 @@ Page = {{
       by ->
         Notification = {{
 
+          @private client_listener =
+            r = Mutable.make(none)
+            -> match r.get()
+               | {none} ->
+                 c = get_listener()
+                 do r.set({some = c})
+                 do Network.add(c, network)
+                 c
+               | ~{some} -> some
+
+
+
           send(event:Page.Notification.event) =
             Network.broadcast(~{event by}, network)
 
-          subscribe(handler) = Session.send(client_listener, ~{handler})
+          subscribe(handler) = Session.send(client_listener(), ~{handler})
         }}
         Lock = {{
           @private wrap(x) = {action=x ~by}
