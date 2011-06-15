@@ -15,9 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
-    @authors ?
-**/
 
 import stdlib.core.iter
 
@@ -924,49 +921,6 @@ Map_make(order: order('key,'order) ) : Map =
 
 }} //: Map_make
 
-// FIXME keep it?
-type mapmake('key,'value,'order,'new_value,'acc) = {
-  From : {
-    assoc_list : list(('key, 'value)) -> ordered_map('key, 'value, 'order);
-  };
-  To : {
-    assoc_list : ordered_map('key,'value,'order) -> list(('key, 'value));
-    key_list : ordered_map('key,'value,'order) -> list('key);
-    val_list : ordered_map('key,'value,'order) -> list('value);
-  };
-  add : 'key, 'value, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  add_without_erasing : 'key, 'value, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  empty : ordered_map('key,'value,'order);
-  equal : ordered_map('key,'value,'order), ordered_map('key,'value,'order) -> bool;
-  exists : ('key, 'value -> bool), ordered_map('key,'value,'order) -> bool;
-  extract : 'key, ordered_map('key,'value,'order) -> (ordered_map('key,'value,'order), option('value));
-  extract_max_binding : ordered_map('key,'value,'order) -> (ordered_map('key,'value,'order), option(('key, 'value)));
-  extract_min_binding : ordered_map('key,'value,'order) -> (ordered_map('key,'value,'order), option(('key, 'value)));
-  fold : ('key, 'value, 'acc -> 'acc), ordered_map('key,'value,'order), 'acc -> 'acc;
-  get : 'key, ordered_map('key,'value,'order) -> option('value);
-  height : ordered_map('key,'value,'order) -> int;
-  intersection : ordered_map('key,'value,'order), ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  is_empty : ordered_map('key,'value,'order) -> bool;
-  iter : ('key, 'value -> void), ordered_map('key,'value,'order) -> void;
-  map : ('value -> 'new_value), ordered_map('key,'value,'order) -> ordered_map('key,'new_value,'order);
-  mapi : ('key, 'value -> 'new_value), ordered_map('key,'value,'order) -> ordered_map('key,'new_value,'order);
-  mem : 'key, ordered_map('key,'value,'order) -> bool;
-  min_binding : ordered_map('key,'value,'order) -> ('key, 'value);
-  remove : 'key, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  replace : 'key, ('value -> 'new_value), ordered_map('key,'value,'order) -> ordered_map('key,'new_value,'order);
-  replace_or_add : 'key, (option('value) -> 'new_value), ordered_map('key,'value,'order) -> ordered_map('key,'new_value,'order);
-  retrieve : ('key, 'value -> bool), ordered_map('key,'value,'order) -> list(('key, 'value));
-  rev_fold : ('key, 'value, 'acc -> 'acc), ordered_map('key,'value,'order), 'acc -> 'acc;
-  singleton : 'key, 'value -> ordered_map('key,'value,'order);
-  size : ordered_map('key,'value,'order) -> int;
-  sub_map_gen : ('key -> bool), ('key -> bool), ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  submap : 'key, 'key, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  greater : 'key, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  less : 'key, ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-  to_iter : ordered_map('key,'value,'order) -> iter(('key, 'value));
-  to_rev_iter : ordered_map('key,'value,'order) -> iter(('key, 'value));
-  union : ordered_map('key,'value,'order), ordered_map('key,'value,'order) -> ordered_map('key,'value,'order);
-}
 /**
  * {1 Functions and modules exported to the global namespace}
  */
@@ -983,9 +937,6 @@ IntMap    = Map_make(Int.order):Map(int, Int.order)
  * Otherwise, the order between strings is alphabetical.
  */
 StringMap = Map_make(String.order):Map(string, String.order)
-
-//INTERNAL NOTE: [StringMap] and [IntMap] are used by functions inserted by the compiler.
-//If you feel like removing them, please make sure that you're not breaking anything.
 
 /**
  * The default [Map] module.
