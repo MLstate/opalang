@@ -152,6 +152,31 @@ Page = {{
     | {failure = {locked = ~{lock_at lock_by by}}} ->
       "Failure : already locked at {Date.to_string(lock_at)} by {by}    (with context {lock_by})"
 
+  @private
+  search_dead_link_for_resource(access, resource_id):option(list(string)) = (
+    inside_href_parser = (parser | t=((!"\"" .)+) -> Text.to_string(t))
+    href_parser = (parser | "href=\"" url=inside_href_parser "\"" -> url)
+    sep = (parser | (!"href=\"" .)+ -> void)
+    link_parser = (parser | lst={Rule.parse_list_sep(true, href_parser, sep)} sep  -> lst)
+    Option.switch( stored ->
+      match stored with
+      | { ~bcontent; hcontent=_ } -> Parser.try_parse(link_parser, bcontent)
+      | _ -> none
+      , none
+      , access.access.get(resource_id))
+    )
+
+  @private
+  fetch_dead_links(access) : stringmap(list(string)) = (
+    List.foldl(el, acc ->
+      do Log.debug("Admin", "Search for dead links in {el}")
+      match search_dead_link_for_resource(access, el) with
+      | { ~some } -> StringMap.add(el,some, acc)
+      | {none } -> acc
+    , access.access.list()
+    , StringMap_empty )
+  )
+
   /**
    * {2 Database access}
    */
@@ -690,6 +715,30 @@ Page = {{
         do access.notify.send(~{talk})
         Dom.set_value(input, "")
 
+      search_dead_links(access:Page.full_access) : FunAction.t = _event ->
+        do all_off()
+        dead_links = fetch_dead_links(access)
+        buf = Dom.select_id("admin_buffer_dead_links")
+        edito = Dom.select_id("admin_editor_container")
+        buffer = Dom.of_xhtml(
+          <div id=#admin_buffer_dead_links class="on" >
+            <ul>
+              {StringMap.fold(key, val, acc ->
+                <>{acc}
+                  <li>{key} : {List.to_string_using("","",", ", val)}</li>
+                </>
+              , dead_links
+              , <></>)}
+            </ul>
+          </div>
+        )
+        if Dom.is_empty(buf) then
+          _ = Dom.put_at_end(edito, buffer)
+          void
+        else
+          do Dom.add_class(buf, "on")
+          do Dom.remove_class(buf, "off")
+          void
 
     }}
 
@@ -797,6 +846,9 @@ Page = {{
                          <button type="submit">Upload</button>
                        </> }
           Upload.make(config)}
+        <div id="search_dead_link_button">
+          <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
+        </div>
       </div>
 
   }}
