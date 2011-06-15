@@ -58,7 +58,11 @@ struct
   and typ =
     | Var of var ref
     | Dontcare
-    | Arrow of typ list * effects * typ
+    | Arrow of bool ref (* this boolean is really a hack
+                         * because after lambda lifting we have
+                         * poymorphic parameters and so we can't infer anymore
+                         * this whole pass should really end up in the typer
+                         *) * typ list * effects * typ
   and effects = effect * effect_var ref
   and effect_var =
     | EFresh of level ref * int
@@ -79,7 +83,9 @@ struct
          | Unified ty -> string_of_typ ty)
     | Dontcare ->
         "dontcare"
-    | Arrow (tyl,e,ty) ->
+    | Arrow ({contents=true},_,_,_) ->
+        string_of_typ Dontcare
+    | Arrow ({contents=false},tyl,e,ty) ->
         let sl = String.concat " -> " (List.map string_of_typ tyl) in
         let s = string_of_typ ty in
         let eff, var = flatten_effect_aux e in
@@ -89,7 +95,8 @@ struct
     | Dontcare
     | Var {contents = Fresh _ } as ty -> ty
     | Var {contents = Unified ty} -> traverse_normalize tra ty
-    | Arrow (typs,effects,typ) -> Arrow (List.map tra typs,traverse_normalize_eff effects,tra typ)
+    | Arrow ({contents=true},_,_,_) -> traverse_normalize tra Dontcare
+    | Arrow (ref_,typs,effects,typ) -> Arrow (ref_,List.map tra typs,traverse_normalize_eff effects,tra typ)
   and traverse_normalize_eff ((l,v) as p) =
     match !v with
     | EFresh _ -> p
@@ -105,7 +112,9 @@ struct
         (match !v' with
         | Fresh _ -> ()
         | Unified ty -> occur_check v ty)
-    | Arrow (tyl,_,ty) ->
+    | Arrow ({contents=true},_,_,_) ->
+        occur_check v Dontcare
+    | Arrow ({contents=false},tyl,_,ty) ->
       List.iter (occur_check v) tyl;
       occur_check v ty
 
@@ -113,7 +122,8 @@ struct
 
   let rec set_max_level max_level = function
     | Dontcare -> ()
-    | Arrow (tyl,_,ty) ->
+    | Arrow ({contents=true},_,_,_) -> set_max_level max_level Dontcare
+    | Arrow ({contents=false},tyl,_,ty) ->
         List.iter (set_max_level max_level) tyl;
         set_max_level max_level ty
     | Var v ->
@@ -140,18 +150,25 @@ struct
           occur_check v ty;
           set_max_level (match !v with Fresh (lev, _) -> !lev | _ -> assert false) ty;
           v := Unified ty
-        | Arrow (tyl1,(l1, r1),ret1), Arrow (tyl2,(l2, r2),ret2) ->
-          let lev1 = (match !r1 with EFresh (r,_) -> !r | _ -> assert false) in
-          let lev2 = (match !r2 with EFresh (r,_) -> !r | _ -> assert false) in
-          let r3 = ref (EFresh (ref (min lev1 lev2), next())) in
-          r1 := EUnified (l2, r3);
-          r2 := EUnified (l1, r3);
-          List.iter2 unify tyl1 tyl2;
-          unify ret1 ret2
+        | Arrow (ref1,tyl1,(l1, r1),ret1), Arrow (ref2,tyl2,(l2, r2),ret2) ->
+          assert (not !ref1 && not !ref2);
+          if List.length tyl1 = List.length tyl2 then (
+            let lev1 = (match !r1 with EFresh (r,_) -> !r | _ -> assert false) in
+            let lev2 = (match !r2 with EFresh (r,_) -> !r | _ -> assert false) in
+            let r3 = ref (EFresh (ref (min lev1 lev2), next())) in
+            r1 := EUnified (l2, r3);
+            r2 := EUnified (l1, r3);
+            List.iter2 unify tyl1 tyl2;
+            unify ret1 ret2
+          ) else (
+            (* see the comment about the meaning of the ref *)
+            ref1 := true;
+            ref2 := true;
+          )
         | Dontcare, Dontcare ->
           ()
-        | Dontcare, Arrow (tyl,(_,r),ty)
-        | Arrow (tyl,(_,r),ty), Dontcare ->
+        | Dontcare, Arrow ({contents=false},tyl,(_,r),ty)
+        | Arrow ({contents=false},tyl,(_,r),ty), Dontcare ->
             (*Printf.printf "Loss of precision: unifying %s and %s\n%!"
             (string_of_typ ty1) (string_of_typ ty2);*)
             (match !r with
@@ -161,6 +178,9 @@ struct
                  List.iter (unify Dontcare) tyl;
                  unify Dontcare ty
              | _ -> assert false)
+        | _, Arrow ({contents=true},_,_,_)
+        | Arrow ({contents=true},_,_,_), _ ->
+            assert false
       )
     )
 
@@ -176,11 +196,12 @@ struct
            map, ty)
     | Var {contents = Unified ty} ->
       instantiate level map ty
-    | Arrow (tyl,effects,ty) ->
+    | Arrow ({contents=true},_,_,_) -> instantiate level map Dontcare
+    | Arrow ({contents=false},tyl,effects,ty) ->
       let map, tyl = List.fold_left_map (instantiate level) map tyl in
       let (varmap, effmap), ty = instantiate level map ty in
       let effmap, effects = instantiate_eff level effmap effects in
-      (varmap, effmap), Arrow (tyl, effects, ty)
+      (varmap, effmap), Arrow (ref false, tyl, effects, ty)
   and instantiate_eff level effmap (l,v) =
     match !v with
     | EFresh (this_level,i) ->
@@ -203,7 +224,8 @@ struct
           this_level := generic_level
       | Unified ty -> generalize level ty)
     | Dontcare -> ()
-    | Arrow (tyl,effects,ty) ->
+    | Arrow ({contents=true},_,_,_) -> generalize level Dontcare
+    | Arrow ({contents=false},tyl,effects,ty) ->
       List.iter (generalize level) tyl;
       generalize level ty;
       generalize_eff level effects
@@ -226,7 +248,7 @@ struct
 
   let rec convert_type varmap level = function
     | Q.TypeArrow (tyl,ty) ->
-        Arrow (List.map (convert_type varmap level) tyl, (S.no_effect, next_eff_var level), convert_type varmap level ty)
+        Arrow (ref false,List.map (convert_type varmap level) tyl, (S.no_effect, next_eff_var level), convert_type varmap level ty)
     | Q.TypeVar v ->
         (try QmlTypeVars.TypeVarMap.find v !varmap
          with Not_found ->
@@ -242,7 +264,7 @@ struct
     let varmap = ref QmlTypeVars.TypeVarMap.empty in
     match ty with
     | Q.TypeArrow (tyl,ty) ->
-        Arrow (List.map (convert_type varmap level) tyl, (effect, next_eff_var level), convert_type varmap level ty)
+        Arrow (ref false,List.map (convert_type varmap level) tyl, (effect, next_eff_var level), convert_type varmap level ty)
     | ty -> convert_type varmap level ty
 
   let rec infer bp env effect level e =
@@ -277,7 +299,7 @@ struct
           (fun env (s,ty) -> IdentMap.add s ty env) env styl in
       let effect = next_eff_var level in
       let ty = infer bp env effect (level+1) e in
-      Arrow (List.map snd styl, (S.no_effect,effect), ty)
+      Arrow (ref false,List.map snd styl, (S.no_effect,effect), ty)
     | Q.Directive (_, `partial_apply missing, [e], _) -> (
         let missing = Option.get missing in
         match e with
@@ -289,15 +311,15 @@ struct
             let missing_types = List.init missing (fun _ -> next_var level) in
             let ret_ty = next_var level in
             let new_effect = (S.no_effect,next_eff_var level) in
-            unify (Arrow (tyl @ missing_types,new_effect,ret_ty)) arrow_ty;
-            Arrow (missing_types,new_effect,ret_ty)
+            unify (Arrow (ref false,tyl @ missing_types,new_effect,ret_ty)) arrow_ty;
+            Arrow (ref false,missing_types,new_effect,ret_ty)
         | _ -> assert false
       )
     | Q.Apply (_, e, el) ->
       let arrow_ty = infer bp env effect (level+1) e in
       let tyl = List.map (infer bp env effect (level+1)) el in
       let ret_ty = next_var level in
-      unify (Arrow (tyl,(S.no_effect,effect),ret_ty)) arrow_ty;
+      unify (Arrow (ref false,tyl,(S.no_effect,effect),ret_ty)) arrow_ty;
       ret_ty
     | Q.Match (_, e, pel) ->
       (* not sure about that node *)
