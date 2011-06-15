@@ -78,6 +78,18 @@ let make_t () =
   t.tree.up := t.tree;
   t
 
+let rec copy_node t parent tree =
+  t.next_uid <- Uid.succ t.next_uid;
+  let ntree = { sts = Hashtbl.create 10;
+                uid = t.next_uid;
+                key = tree.key;
+                node = tree.node;
+                up = ref parent;
+              } in
+  Hashtbl.iter (fun k st -> Hashtbl.add ntree.sts k (copy_node t ntree st)) tree.sts;
+  t.tcount <- Eid.succ t.tcount;
+  ntree
+
 let sts_of_list l =
   let ht = Hashtbl.create 10 in
   List.iter (fun (k,v) -> Hashtbl.add ht k v) l;
@@ -213,9 +225,9 @@ let rec string_of_tree0 indent node =
   Hashtbl.fold
     (fun k v acc ->
        sprintf "%s%s%s ->\n%s%s" acc indent (Keys.to_string k) indent (string_of_tree0 (indent^" ") v))
-    node.sts s;;
-let string_of_tree = string_of_tree0 "";;
-let print_t t = printf "%s\n" (string_of_tree t.tree);;
+    node.sts s
+let string_of_tree = string_of_tree0 ""
+let print_t t = printf "%s\n" (string_of_tree t.tree)
 
 (* the root of the database *)
 let root_eid = Eid.make 0
@@ -472,10 +484,16 @@ let start = root_eid
   (* Just behave like links for now... *)
   let set_copy db path link =
     let tree = get_tree_of_path db path in
-    (*let copy = get_tree_of_path db link in
-    tree.node.Node_light.content <- Node_light.get_content copy.node;*)
     tree.node.Node_light.content <- Datas.Copy (Some rev, link);
     db
+
+  (*Unfinished...
+    let set_physical_copy db path link =
+    let tree = get_tree_of_path db path in
+    let target = get_tree_of_path db link in
+    tree.node.Node_light.content <- Node_light.get_content copy.node;
+    tree.node.Node_light.content <- Datas.Copy (Some rev, link);
+    db*)
 
   let rec follow_path (db:t) node path_end =
     (*#<If:DEBUG_DB$minlevel 10>
@@ -514,8 +532,6 @@ let start = root_eid
     in
     aux db path
 
-(*end*)
-
 (*
 let tt_ref = ref (make_t ())
 
@@ -531,6 +547,7 @@ let _ =
   let _K_y = Keys.StringKey "y" in
   let _K_z = Keys.StringKey "z" in
   let a = Path.of_list [_K_a] in
+  let de = Path.of_list [_K_d; _K_e] in
   let ab = Path.of_list [_K_a; _K_b] in
   let abc = Path.of_list [_K_a; _K_b; _K_c] in
   let abd = Path.of_list [_K_a; _K_b; _K_d] in
@@ -551,6 +568,12 @@ let _ =
   printf "node_is_root(tt.tree)=%b\n" (node_is_root tt.tree);
   printf "node_is_root(find_node(abc))=%b\n" (node_is_root (Option.get (find_node_opt tt abc)));
   let node_ab = find_node_opt tt ab in
+  set_link tt de ab;
+  print_t tt;
+  ignore (remove_tree tt de);
+  print_t tt;
+  set_copy tt de ab;
+  print_t tt;
   printf "node_ab=%s\n" (Option.to_string string_of_node node_ab);
   printf "down_node(node_ab,\"c\")=%s\n" (Option.to_string string_of_node (down_node_opt (Option.get node_ab) _K_c));
   printf "up_node(node_ab)=%s\n" (Option.to_string string_of_node (up_node_opt (Option.get node_ab)));
