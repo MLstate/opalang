@@ -58,8 +58,9 @@ type WFormBuilder.passwd_validator_spec =
 type WFormBuilder.field =
   { id : string
   ; label : string
-  ; needed : { required } / { optional }
+  ; optionality : { required } / { optional }
   ; field_type : { email } / { text } / { passwd } / { desc : { cols: int rows: int} } / { upload }
+  ; initial_value : string
   ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
   }
@@ -223,8 +224,9 @@ WFormBuilder =
   @private
   mk_field(label, field_type) : WFormBuilder.field =
     {~label ~field_type
-     needed={optional}
      id=Dom.fresh_id()
+     optionality={optional}
+     initial_value=""
      validator=empty_validator
      hint=none
     }
@@ -276,11 +278,14 @@ WFormBuilder =
   set_id(field : WFormBuilder.field, id : string) : WFormBuilder.field =
     {field with ~id}
 
+  set_initial_value(field : WFormBuilder.field, initial_value : string) : WFormBuilder.field =
+    {field with ~initial_value}
+
   make_required(field : WFormBuilder.field, err_msg : xhtml)
     : WFormBuilder.field =
     v = required_validator(err_msg)
     { field with
-        needed={required}
+        optionality={required}
         validator=merge_validators([field.validator, v])
     }
 
@@ -348,9 +353,9 @@ WFormBuilder =
       ) : xhtml =
     s = spec.style
     style(style) = WStyler.add(style, _)
-    mk_field(~{label validator needed field_type id hint}) =
+    mk_field(~{label validator optionality initial_value field_type id hint}) =
       req =
-        match needed with
+        match optionality with
         | {optional} -> <span></> |> style(s.non_required_style)
         | {required} -> <span>*</> |> style(s.required_style)
       label_xhtml =
@@ -359,7 +364,8 @@ WFormBuilder =
           {req}
         </> |> style(s.label_style(true))
       input(input_type) =
-        <input type={input_type} name={input_id(id)} id={input_id(id)} />
+        <input type={input_type} name={input_id(id)} id={input_id(id)}
+          value={initial_value} />
       input_tag =
         match field_type with
         | {email} -> input("email")
