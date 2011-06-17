@@ -34,6 +34,45 @@ import stdlib.core.parser
  *
  * {1 Where should I start ?}
  *
+ * A simple example would be:
+ *
+ * {[
+ * type custom_params = {
+ *   name   : option(string)
+ *   city   : option(string)
+ *   others : list(string)
+ * }
+ *
+ * init_params = {
+ *   name   = {none}
+ *   city   = {none}
+ *   others = []
+ * }
+ *
+ * my_params = CommandLine.filter({
+ *   title   = "My parameters"
+ *   init    = init_params
+ *
+ *   parsers = [{CommandLine.default_parser with
+ *       names        = ["--name", "-n"]
+ *       description  = "A name"
+ *       on_param(st) = parser n=Rule.consume -> {no_params = {st with name = {some = n}}}
+ *     },
+ *
+ *     {CommandLine.default_parser with
+ *       names       = ["--city", "-c"]
+ *       description = "A city"
+ *       on_param(st) = parser c=Rule.consume -> {no_params = {st with city = {some = c}}}
+ *     }]
+ *
+ *   anonymous = [{
+ *       filter        = "*"
+ *       description   = "Other anonymous parameters"
+ *       parse(others) = parser result={Rule.consume} -> result +> others
+ *     }]
+ * })
+ * }
+ *
  * {1 What if I need more ?}
  *
 **/
@@ -65,7 +104,7 @@ type CommandLine.change_state('a) =
  * The type of a command-line flag
  *
  * [names] is the list of names recognized for this flag.
- * A typical exemple of name begins with one or two '-',
+ * A typical example of name begins with one or two '-',
  * followed by a short keyword identifying the flag.
  * This is a list so that it is easy to define shorthands
  * like e.g [[ "--output-dir", "-o" ]]
@@ -76,7 +115,7 @@ type CommandLine.change_state('a) =
  * [description] used by the help menu as well.
  *
  * [on_encounter] the function is called with the current state as argument
- * when the flag is encounted. Depending on the returned {!CommandLine.change_state},
+ * when the flag is encountered. Depending on the returned {!CommandLine.change_state},
  * some more calls to [on_param] will be done.
  *
  * [on_param] called after an [on_encounter] in case of a expected parameter to
@@ -109,6 +148,14 @@ type CommandLine.anonymous_parser('state) = {
 
 /**
  * A type for a complete set of command line flags.
+ *
+ * [param] title The title of the family (e.g. "Debug options", "User options", etc.)
+ *
+ * [init] An initial state at the start of parsing of this family
+ *
+ * [parsers] A family of parsers manipulating the state
+ *
+ * [anonymous] Anonymous argument parsers
 **/
 type CommandLine.family('state) = {
   title : string ;
@@ -117,6 +164,10 @@ type CommandLine.family('state) = {
   anonymous: list(CommandLine.anonymous_parser('state)) ;
 }
 
+
+/**
+ * {1 Interface}
+ */
 
 @server_private CommandLine = {{
 
@@ -132,9 +183,7 @@ type CommandLine.family('state) = {
    * Parsing takes place immediately.
    * Used arguments are removed from the set of arguments for further calls to [filter].
    *
-   * @param init An initial state at the start of parsing of this family
-   * @param title The title of the family (e.g. "Debug options", "User options", etc.)
-   * @param parsers A family of parsers manipulating the state
+   * @param family A family of options to parse
   **/
   filter(family: CommandLine.family('state)) : 'state =
     { ~title ~init ~parsers ~anonymous } = family
