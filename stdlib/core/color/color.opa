@@ -15,13 +15,36 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * Colors management
+ */
+
+package stdlib.color
 import stdlib.core.parser
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 type color = Color.color
 
 type Color.color = { r : int ; g : int ; b : int ; a : int}
 
 type Color.color_hsv = {h:float s:float v:float}
+
+/**
+ * {1 Interface}
+ */
+
 Color = {{
 
   // from http://mjijackson.com/2008/02/rgb-to-hsl-and-rgb-to-hsv-color-model-conversion-algorithms-in-javascript
