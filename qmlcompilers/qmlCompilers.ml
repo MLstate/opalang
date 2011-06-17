@@ -103,26 +103,6 @@ sig
   (** From there, the final passes have the same type *)
   type final_pass = (options, options, env_final, env_final) PassHandler.pass
 
-(*
-  (** *)
-  val pass_BypassHoisting : final_pass
-  val pass_UntypedBypassHoisting : final_pass
-  (** *)
-  val pass_CpsRewriter : lang:BslLanguage.t -> final_pass
-
-  (** *)
-  val pass_LambdaLifting : final_pass
-
-  (** *)
-  val pass_Closure : final_pass
-
-  (** *)
-  val pass_Uncurry : final_pass
-
-  (** *)
-  val pass_ConstantSharing : final_pass
-*)
-
   (** main: combine passes using PassHandler, and return the final env for the
       backends *)
   val main : ?dynloader:dynloader -> side:[`client|`server] -> lang:BslLanguage.t -> options -> env_final
@@ -459,17 +439,6 @@ struct
       ] in
     make_final_pass_options_blender precond postcond
       (fun options _blender -> Pass_LambdaLifting.process_code ~early:false ~typed:(not options.cps) ~side)
-  let pass_UntypedBypassHoisting =
-    let precond =
-      [
-        (* TODO: add pre condition *)
-      ] in
-    let postcond =
-      [
-        QmlCheck.Bypass.expanded extract ;
-        QmlAlphaConv.Check.alpha extract_final_ac ;
-      ] in
-    make_final_pass_bypass_typer precond postcond (Pass_BypassHoisting.process_code ~just_expand:false ~typed:false)
 
   let pass_BypassHoisting =
     let precond =
@@ -481,7 +450,11 @@ struct
         QmlCheck.Bypass.expanded extract ;
         QmlAlphaConv.Check.alpha extract_final_ac ;
       ] in
-    make_final_pass_bypass_typer precond postcond (Pass_BypassHoisting.process_code ~just_expand:false ~typed:true)
+    make_final_pass precond postcond (
+      fun gamma annotmap code ->
+        let annotmap, code = Pass_BypassApply.process_code gamma annotmap code in
+        (gamma, annotmap), code
+    )
 
   let pass_DiscardRemoteBypasses ~lang =
     let precond = [] and postcond = [] in
@@ -665,7 +638,7 @@ struct
 
     |> PassHandler.handler "Assertion" pass_Assertion
 
-    (* Although this pass is unused for qmlflat, it is a good test for opa *)
+    (* needed by closures *)
     |> PassHandler.handler "BypassHoisting" pass_BypassHoisting
 
     (* expects bypasses to be at the toplevel (could be patched to remove this precondition) *)
@@ -676,9 +649,6 @@ struct
     (* |> PassHandler.if_handler ~if_:if_LambdaLifting "PreCpsLambdaLifting" pass_LambdaLifting *)
 
     |> PassHandler.handler "CpsRewriter" (pass_CpsRewriter ~lang)
-
-    (* If needed, we can use this pass for factorizing bypasses (bypass sharing) *)
-    (* |> PassHandler.handler "UntypedBypassHoisting" pass_UntypedBypassHoisting  *)
 
     |> PassHandler.if_handler ~if_:if_LambdaLifting "LambdaLifting" (pass_LambdaLifting side)
     |> PassHandler.if_handler ~if_:(if_ClosureServer side) "Uncurry" (pass_Uncurry side)

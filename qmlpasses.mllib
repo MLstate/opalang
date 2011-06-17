@@ -4,7 +4,6 @@ qmlpasses/Pass_DbPathCoercion
 qmlpasses/Pass_WarnCoerce
 qmlpasses/Pass_DbAccessorsGeneration
 qmlpasses/Pass_DbCodeGeneration
-qmlpasses/Pass_BypassHoisting
 qmlpasses/Pass_Uncurry
 qmlpasses/Pass_Closure
 qmlpasses/Pass_ConstantSharing
@@ -18,3 +17,4 @@ qmlpasses/Pass_GenerateServerAst
 qmlpasses/pass_CompileRecursiveValues
 qmlpasses/pass_Assertion
 qmlpasses/pass_CleanLambdaLiftingDirectives
+qmlpasses/pass_BypassApply

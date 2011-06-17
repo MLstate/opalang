@@ -983,9 +983,10 @@ let pass_MacroExpansion =
 let pass_BypassHoisting =
   make_pass_raw_env (
     Passes.pass_QmlProcessCode_env_Gen (
-      Pass_BypassHoisting.process_code
-        ~just_expand:false
-        ~typed:true
+      (fun _bypass_typer gamma annotmap code ->
+         let annotmap, code = Pass_BypassApply.process_code gamma annotmap code in
+         (gamma, annotmap), code
+      )
     )
   )
     ~invariant ()
