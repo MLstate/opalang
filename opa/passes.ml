@@ -249,28 +249,6 @@ let pass_static_inclusions ~(options:opa_options) env =
 let pass_static_inclusion_directory ~(options:opa_options) env =
   {env with sa_lcode = SurfaceAstStaticInclude.pass_static_inclusion_directory ~options env.sa_lcode}
 
-(* Warning: the code does not retype after this pass (nor Explicitly
-   Instantiates, since some type schemes may reside in coercion AST nodes) *)
-let pass_PurgeTypeDirectives ?(typeof=false) ?(type_directives=false) ~options:(_:opa_options) (env:'tmp_env env_Gen) : 'tmp_env env_Gen =
-  let gamma = env.typerEnv.QmlTypes.gamma in
-  let walk annotmap e =
-    match e with
-    | Q.Directive (_, #Q.type_directive, [de], _)
-    | Q.Coerce (_, de, _)
-      when type_directives ->
-        (annotmap, de)
-    | Q.Directive (_, `typeof, _, _) when typeof ->
-        Pass_ExplicitInstantiation.dummy_opaty annotmap gamma
-    | _ ->
-        (annotmap, e)
-  in
-  let annotmap, qmlAst =
-    QmlAstWalk.CodeExpr.fold_map
-      (QmlAstWalk.Expr.foldmap_up walk) env.typerEnv.QmlTypes.annotmap env.qmlAst
-  in
-  let typerEnv = {env.typerEnv with QmlTypes.annotmap} in
-  {env with qmlAst; typerEnv}
-
 let pass_PurgeS3Directives ~options:(_:opa_options) (env:'tmp_env env_Gen) : 'tmp_env env_Gen =
   let walk annotmap e =
     match e with

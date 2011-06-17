@@ -112,12 +112,11 @@ end
 
 module Pattern :
 sig
-  val iter_down : (QmlAst.pat -> unit) -> QmlAst.pat -> unit
-  val fold_down : ('a -> QmlAst.pat -> 'a) -> 'a -> QmlAst.pat -> 'a
-  val foldmap_down : ('a -> QmlAst.pat -> 'a * QmlAst.pat) -> 'a -> QmlAst.pat -> 'a * QmlAst.pat
-  val map_down : (QmlAst.pat -> QmlAst.pat) -> QmlAst.pat -> QmlAst.pat
+  include TraverseInterface.TRAVERSE
+    with type 'a t = QmlAst.pat constraint 'a = _ * _ * _
+    and type 'a container = QmlAst.pat constraint 'a = _ * _ * _
 
-  val get_fields : QmlAst.pat -> ( (string * QmlAst.pat) list * bool ) option (** extend : true *)
+  val get_fields : QmlAst.pat -> ((string * QmlAst.pat) list * bool) option (** extend : true *)
 end
 
 module Expr : sig

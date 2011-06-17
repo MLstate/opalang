@@ -18,3 +18,4 @@ qmlpasses/pass_CompileRecursiveValues
 qmlpasses/pass_Assertion
 qmlpasses/pass_CleanLambdaLiftingDirectives
 qmlpasses/pass_BypassApply
+qmlpasses/pass_Purge

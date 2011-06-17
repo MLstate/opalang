@@ -456,36 +456,42 @@ end
 
 module Pattern =
 struct
-  let rec foldmap_down f acc pat =
-    let acc, pat = f acc pat in
-    let p0 = pat in
-    match p0 with
-    | Q.PatConst _ | Q.PatVar _ | Q.PatAny _ -> acc, p0
-    | Q.PatRecord (label, fields, rowvar) ->
-        let foldmap acc ((field, pat) as tpl) =
-          let acc, fpat = foldmap_down f acc pat in
-          acc,
-          if pat == fpat then tpl else
-            (field, fpat)
-        in
-        let acc, ffields = List.fold_left_map foldmap acc fields in
-        acc,
-        if fields == ffields then p0 else
-          Q.PatRecord (label, ffields, rowvar)
-    | Q.PatCoerce (label, pat, t) ->
-        let acc, fpat = foldmap_down f acc pat in
-        acc,
-        if pat == fpat then p0 else
-          Q.PatCoerce (label, fpat, t)
-    | Q.PatAs (label, pat, id) ->
-        let acc, fpat = foldmap_down f acc pat in
-        acc,
-        if pat == fpat then p0 else
-          Q.PatAs (label, fpat, id)
+  module S2 =
+  struct
+    type 'a t = QmlAst.pat constraint 'a = _ * _ * _
+    let foldmap tra acc input_p =
+      match input_p with
+      | Q.PatConst _ | Q.PatVar _ | Q.PatAny _ -> acc, input_p
+      | Q.PatRecord (label, fields, rowvar) ->
+          let acc, fields' =
+            List.fold_left_map_stable
+              (fun acc ((f,p) as c) ->
+                 let acc, p' = tra acc p in
+                 if p == p' then acc, c else acc, (f,p')
+              ) acc fields in
+          if fields == fields' then
+            acc, input_p
+          else
+            acc, Q.PatRecord (label, fields', rowvar)
+      | Q.PatCoerce (label, pat, t) ->
+          let acc, pat' = tra acc pat in
+          if pat == pat' then
+            acc, input_p
+          else
+            acc, Q.PatCoerce (label, pat', t)
+      | Q.PatAs (label, pat, id) ->
+          let acc, pat' = tra acc pat in
+          if pat == pat' then
+            acc, input_p
+          else
+            acc, Q.PatAs (label, pat', id)
 
-  let fold_down f = make_fold foldmap_down f
-  let map_down  f = make_map  foldmap_down f
-  let iter_down f = make_iter foldmap_down f
+    let fold tra acc e = Traverse.Unoptimized.fold foldmap tra acc e
+    let iter tra e = Traverse.Unoptimized.iter foldmap tra e
+    let map tra e = Traverse.Unoptimized.map foldmap tra e
+  end
+
+  include Traverse.Make2(S2)
 
   let get_fields pat =
     let rec top pat0 =

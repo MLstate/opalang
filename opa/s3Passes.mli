@@ -236,6 +236,9 @@ val pass_Typing :
 val pass_Retyping :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
+val pass_PurgeTypeDirectiveAfterTyping :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
 val pass_DbAccessorsGeneration :
   (unit Passes.env_Gen, (QmlDbGen.dbinfo StringListMap.t * QmlAlphaConv.t option) Passes.env_Gen) opa_pass
 
@@ -309,7 +312,7 @@ val pass_SlicedCleaning :
 val pass_FunActionJsCallGeneration :
   (unit env_Gen_sliced, unit env_Gen_sliced) opa_pass
 
-val pass_PurgeTypeDirective :
+val pass_PurgeTypeDirectiveAfterEi :
   (unit env_Gen_sliced, unit env_Gen_sliced) opa_pass
 
 val pass_ResolveRemoteCalls :

@@ -147,6 +147,9 @@ let () =
 
       |+> ("DbCodeGeneration", S3.pass_DbCodeGeneration)
 
+    (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
+    |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)
+
     |> PH.handler ~count_time:false "EndOfSeparateCompilation" (S3.pass_EndOfSeparateCompilation (fun e -> e
 
       |+> ("BypassHoisting", S3.pass_BypassHoisting)
@@ -200,7 +203,7 @@ let () =
       |?> (If.server or If.separated,
            "FunActionJsCallGeneration", S3.pass_FunActionJsCallGeneration)
 
-      |+> ("PurgeTypeDirectives", S3.pass_PurgeTypeDirective)
+      |+> ("PurgeTypeDirectivesAfterEi", S3.pass_PurgeTypeDirectiveAfterEi)
 
       |?> (If.explicit_instantiation & (If.server or If.separated),
            "ResolveRemoteCalls", S3.pass_ResolveRemoteCalls)

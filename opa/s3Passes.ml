@@ -1180,7 +1180,19 @@ let pass_Assertion =
            qmlAst = code ;
        })
 
-let pass_PurgeTypeDirective =
+let pass_PurgeTypeDirectiveAfterTyping =
+  PassHandler.make_pass
+    ~invariant:[]
+    ~precond:[]
+    ~postcond:[]
+    (fun one_env ->
+       let env = one_env.PH.env in
+       let typerEnv = env.P.typerEnv in
+       let annotmap, qmlAst = Pass_Purge.process_code_after_typer typerEnv.QmlTypes.annotmap env.P.qmlAst in
+       let env = {env with P.typerEnv = {typerEnv with QmlTypes.annotmap}; qmlAst} in
+       {one_env with PH.env})
+
+let pass_PurgeTypeDirectiveAfterEi =
   Adapter.adapt_sliced
     ~invariant:[
       PassHandler.make_cons_invariant SlicedCheck.Code.valrec;
@@ -1189,11 +1201,12 @@ let pass_PurgeTypeDirective =
     ~precond:[
       SlicedCheck.Annot.unicity
     ]
-    (fun ~options e ->
-       (P.pass_PurgeTypeDirectives
-          ~typeof:(Main_utils.if_not
-                     Main_utils.If.explicit_instantiation ~options ())
-          ~type_directives:true ~options e))
+    ~postcond:[
+    ]
+    (fun ~options:_ e ->
+       let typerEnv = e.P.typerEnv in
+       let annotmap, qmlAst = Pass_Purge.process_code_after_ei typerEnv.QmlTypes.annotmap e.P.qmlAst in
+       {e with P.typerEnv = {typerEnv with QmlTypes.annotmap}; qmlAst})
 
 let pass_ResolveRemoteCalls =
   let fpass =
