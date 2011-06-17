@@ -360,9 +360,6 @@ val pass_GenerateServerAst : bool ->
 (* ***********************************************)
 (* FINAL SERVER COMPILATION **********************)
 
-val pass_Remove_client_bypass :
-  (env_NewFinalCompile, env_NewFinalCompile) opa_pass
-
 val pass_CleanLambdaLiftingDirectives :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 

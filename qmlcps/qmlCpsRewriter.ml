@@ -403,7 +403,9 @@ module U = struct
            | Some key -> Q.Bypass (label, key)
            | None -> bp)
       | Q.Bypass _ -> bp
-      | _ -> assert false
+      | _ ->
+          Format.printf "@[<2>expr:@ %a@]@." QmlPrint.pp#expr bp;
+          assert false
     in aux bp
 
   let is_second_order_bypass bsltags =

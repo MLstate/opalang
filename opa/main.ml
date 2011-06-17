@@ -176,9 +176,6 @@ let () =
 
       (**********************************************)
       (* SLICED PASSES ******************************)
-      |> PH.old_if_handler ~if_:(PH.neg (If.separated or If.server))
-          "NoSlicerRemoveJsIdent" S2.pass_PurgeS3Directives
-
       <?> (If.server or If.separated or If.slicer_test,
           ("Slicing"  , S3.pass_SimpleSlicer),
           ("NoSlicing", S3.pass_NoSlicer))
@@ -249,9 +246,6 @@ let () =
 
       (* ***********************************************)
       (* FINAL SERVER COMPILATION **********************)
-
-      |?> (PH.neg (If.separated or If.server),
-           "NoSlicerCleanClientBypass", S3.pass_Remove_client_bypass)
 
       |+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives)
 

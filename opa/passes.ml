@@ -249,35 +249,39 @@ let pass_static_inclusions ~(options:opa_options) env =
 let pass_static_inclusion_directory ~(options:opa_options) env =
   {env with sa_lcode = SurfaceAstStaticInclude.pass_static_inclusion_directory ~options env.sa_lcode}
 
-let pass_PurgeS3Directives ~options:(_:opa_options) (env:'tmp_env env_Gen) : 'tmp_env env_Gen =
-  let walk annotmap e =
-    match e with
-    | Q.Directive (_, `js_ident, _, []) ->
-        QmlAstCons.TypedExpr.string annotmap "Compiler forgot to change js event to value case"
-    | _ ->
-        (annotmap, e)
-  in
-  let annotmap, qmlAst =
-    QmlAstWalk.CodeExpr.fold_map
-      (QmlAstWalk.Expr.foldmap_up walk) env.typerEnv.QmlTypes.annotmap env.qmlAst
-  in
-  let typerEnv = {env.typerEnv with QmlTypes.annotmap} in
-  {env with qmlAst; typerEnv}
-
-
 let pass_no_slicer ~options:(_:opa_options) (env:'tmp_env env_Gen) =
+  let rec is_a_bypass = function
+    | Q.Directive (_, (`restricted_bypass _ | `may_cps),[e],_) -> is_a_bypass e
+    | Q.Bypass (_,key) -> Some key
+    | _ -> None in
+  let client_key key =
+    match BslLib.BSL.ByPassMap.find_opt env.bsl.BslLib.bymap key with
+    | Some bypass ->
+        not (BslLib.BSL.ByPass.implemented_in_any bypass ~lang:[OpaEnv.Parameters.bsl_server_language])
+    | None -> assert false in
   let annotmap, code =
     QmlAstWalk.CodeExpr.fold_map
       (QmlAstWalk.Expr.foldmap_up
          (fun annotmap -> function
-          | Q.Directive (label, `sliced_expr, [_ (* client*); e (* server *)], _)
-          | Q.Directive (label, #Q.slicer_directive, [e], _) ->
+          | Q.Directive (label, `sliced_expr, [_(*client*); e(*server*)], _)
+          | Q.Directive (label, (#Q.slicer_directive | `fun_action _), [e], _) ->
               let tsc_gen = QmlAnnotMap.find_tsc_opt_label label annotmap in
               let annotmap = QmlAnnotMap.add_tsc_opt_label (Q.Label.expr e) tsc_gen annotmap in
               annotmap, e
-          | Q.Directive (_, #Q.slicer_directive, _, _) ->
+          | Q.Directive (_, (#Q.slicer_directive | `sliced_expr | `fun_action _), _, _) ->
               assert false
-          | e -> annotmap, e
+          | Q.Directive (_, `js_ident, _, []) ->
+              QmlAstCons.TypedExpr.string annotmap "Compiler forgot to change js event to value case"
+          | e ->
+              match is_a_bypass e with
+              | Some key when client_key key ->
+                  let annotmap, s =
+                    QmlAstCons.TypedExpr.string
+                      annotmap
+                      (Printf.sprintf "%s is not wanted on server" (BslKey.to_string key)) in
+                  annotmap, Q.Directive (Q.Label.expr e,`fail,[s],[])
+              | _ ->
+                  annotmap, e
          )
       ) env.typerEnv.QmlTypes.annotmap env.qmlAst in
    let env_gen = env in
@@ -487,83 +491,6 @@ let qml_milkshake = env.newFinalCompile_qml_milkshake in
 
 let pass_ReplaceCompileTimeDirective ~options code =
   {code with sa_lcode = Pass_CompileTimeDirective.process_code ~options code.sa_lcode}
-
-(* FIXME: passes.ml is not the place for implementing functions *)
-let remove_client_bypass_GEN ~broken_annotmap bymap annotmap qmlAst =
-  let typeof annotmap expr = QmlAnnotMap.find_ty (Q.QAnnot.expr expr) annotmap  in
-  let r_annotmap = ref annotmap in
-  (* sadly we have a version with broken_annotmap in S3 and good_annotmap in S2 *)
-  let fbroken_annotmap pos expanded bslkey =
-     let str = BslKey.to_string bslkey in
-     let message = Printf.sprintf "%s is not wanted on server" str in
-     let message = QmlAstCons.UntypedExpr.string message in
-     let return = QmlAstCons.UntypedExpr.directive `fail [message] [] in
-     let return = QmlAst.Pos.New.expr return pos in
-     let ty = BslLib.BSL.ByPassMap.bypass_typer bymap bslkey in
-     match ty with
-     | Some (Q.TypeArrow (args, _)) when not expanded ->
-         QmlAstCons.UntypedExpr.lambda
-           (List.map (fun _ -> Ident.next "_") args)
-           return
-     | _ -> return
-  in
-
-  let fgood_annotmap pos expanded bslkey e =
-    let annotmap = !r_annotmap in
-    let str = BslKey.to_string bslkey in
-    let message = Printf.sprintf "%s is not wanted on server" str in
-    let annotmap, message = QmlAstCons.TypedExpr.string annotmap message in
-    let annotmap, return = QmlAstCons.TypedExpr.directive ~pos annotmap `fail [message] [] in
-    let ty = typeof annotmap e in
-    match ty with
-    | Q.TypeArrow (args, _) when not expanded ->
-        let args = List.map (fun _ -> Ident.next "_") args in
-        let ty = typeof annotmap e in
-        let lambda = QmlAstCons.UntypedExpr.lambda args return in
-        let annotmap, lambda = QmlAstCons.TypedExpr.make annotmap lambda ty in
-        r_annotmap := annotmap ;
-        lambda
-    | _ -> return
-  in
-
-  let rec rewr expanded tra e =
-    match e with
-    (* exchange the bslkey if needed *)
-    | Q.Bypass (label, bslkey)
-    | Q.Directive (label, `restricted_bypass _, [Q.Bypass (_, bslkey)], []) ->
-        let pos = Annot.pos label in
-        begin match BslLib.BSL.ByPassMap.find_opt bymap bslkey with
-        | Some bypass when not (BslLib.BSL.ByPass.implemented_in_any bypass
-                                  ~lang:[OpaEnv.Parameters.bsl_server_language]) ->
-            if not BuildInfos.is_release
-            then
-              OManager.printf "@{<yellow>Warning@}: \"%s\" is not a server-side bypass, replaced by not_wanted_on_server@."
-                         (BslKey.to_string bslkey)
-            ;
-            if broken_annotmap
-            then fbroken_annotmap pos expanded bslkey
-            else fgood_annotmap pos expanded bslkey e
-        | _ -> e
-        end
-    | _ -> tra e
-  in
-  let qmlAst = QmlAstWalk.CodeExpr.map (QmlAstWalk.Expr.traverse_map (rewr false)) qmlAst in
-  let annotmap = !r_annotmap in annotmap,qmlAst
-
-
-let remove_client_bypass bymap annotmap qmlAst =
-  remove_client_bypass_GEN ~broken_annotmap:false bymap annotmap qmlAst
-
-let remove_client_bypass_BROKEN_ANNOTMAP bymap qmlAst =
-  snd (remove_client_bypass_GEN ~broken_annotmap:true bymap QmlAnnotMap.empty qmlAst)
-
-
-
-
-let pass_Remove_client_bypass  ~options:(_:opa_options) env =
-  let annotmap, qmlAst  = remove_client_bypass env.bsl.BslLib.bymap env.typerEnv.QmlTypes.annotmap env.qmlAst in
-  { env with qmlAst = qmlAst ; typerEnv = { env.typerEnv with QmlTypes.annotmap = annotmap } }
-
 
 let pass_DbAccessorsGeneration ~(options:opa_options) env =
   (** About alpha conv : use opa ones, but do not apply it since calling blender final only*)

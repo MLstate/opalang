@@ -1132,21 +1132,6 @@ let pass_GenericSlicer slicer =
 let pass_NoSlicer = pass_GenericSlicer Passes.pass_no_slicer
 let pass_SimpleSlicer = pass_GenericSlicer Passes.pass_simple_slicer
 
-let pass_Remove_client_bypass =
-  PassHandler.make_pass (fun one_env ->
-  let env = one_env.PH.env in
-  let milk = env.P.newFinalCompile_qml_milkshake in
-  let typerEnv = milk.QmlBlender.env in
-  let (*annotmap,*) code  = P.remove_client_bypass_BROKEN_ANNOTMAP
-    env.P.newFinalCompile_bsl.BslLib.bymap
-    (*typerEnv.QmlTypes.annotmap *)
-    milk.QmlBlender.code
-  in
-(*  let typerEnv = { typerEnv with QmlTypes.annotmap = annotmap } in  *)
-  let milk     = { milk     with QmlBlender.env = typerEnv ; QmlBlender.code = code } in
-  { one_env with PH.env = { env with P.newFinalCompile_qml_milkshake = milk } }
-  )
-
 let pass_CleanLambdaLiftingDirectives =
   PassHandler.make_pass
     (fun one_env ->
