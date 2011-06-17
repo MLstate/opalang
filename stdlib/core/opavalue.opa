@@ -17,11 +17,20 @@
 */
 
 /**
- * Manipulating OPA values and provides somes magic functions.
+ * Manipulating OPA values and provides some magic functions.
+ *
  * @category introspection
  * @destination ??
  * @author Quentin Bourgerie
  * @stability almost stable
+ */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
 
 /**
@@ -311,7 +320,7 @@ OpaValue = {{
 
     /**
      * Fold a record with a list of fields. Like [fold] but folder
-     * take an additionnal type argument and you provide the corresponding
+     * take an additional type argument and you provide the corresponding
      * [fields]. If [fields] are ordered this functions ensures that
      * folder receive the type corresponding to the value.
      */
@@ -411,7 +420,7 @@ OpaValue = {{
 
     /**
      * Add field and associated value to a record constructor.
-     * WARNING : This method has a functionnal interface but it can be
+     * WARNING : This method has a functional interface but it can be
      * imperative (it imperative on js)
      */
     add_field = %%BslValue.Record.add_field%%
@@ -571,7 +580,7 @@ OpaValue = {{
       | _ -> none
 
     /**
-     * Returns the distant identfier of closure if it implementation
+     * Returns the distant identifier of closure if it implementation
      * is present on the other side.
      */
     on_distant(closure) =
@@ -587,7 +596,7 @@ OpaValue = {{
     get_local = %%BslClosure.get_local%% : string -> option(Closure.t)
 
     /**
-     * Returns the local identfier of closure if an implementation is
+     * Returns the local identifier of closure if an implementation is
      * present on this side.
      */
     on_local(clos) =

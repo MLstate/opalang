@@ -17,16 +17,23 @@
 */
 
 /**
- * {1 About this module}
- * Definition of the string library
- *
- * Strings are immutable containers of characters.
- *
  * @author Nicolas Pelletier, 2010
  * @author Valentin Gatien-Baron, 2010 (documentation)
  * @destination public
  * @stability unknown
  * @category data
+ */
+
+/**
+ * {1 About this module}
+ *
+ * Definition of the string library
+ *
+ * Strings are immutable containers of characters.
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
  */
 
 /*
@@ -36,11 +43,18 @@
  */
 
 /**
- * Order type label for string
+ * {1 Types defined in this module}
  */
 
+/**
+ * Order type label for string
+ */
 type String.order = Order.default
 @abstract type String.order_ci = void
+
+/**
+ * {1 Interface}
+ */
 
 String =
 {{
@@ -86,7 +100,7 @@ String =
   /**
    * Determine if a string is empty
    *
-   * @return true if the tring is empty, false otherwise
+   * @return true if the string is empty, false otherwise
    */
   is_empty(s): bool =
      length(s) == 0
@@ -104,11 +118,11 @@ String =
   : string
 
   /**
-   * [index(substring, string)] finds a substring in a string
+   * [index(substring, string)] finds a sub-string in a string
    *
    * @return {none} if [substring] doesn't appear in [string]
    * @return {some} containing the index of the first occurrence of the
-   * substring otherwise
+   * sub-string otherwise
    */
   index = %% BslString.index %%
 
@@ -129,7 +143,7 @@ String =
    * [substring] by [replacement]
    *
    * Characters from the input cannot belong to several overlapping occurrences
-   * of the substring
+   * of the sub-string
    * eg: [replace("aba","c","ababa")] will return ["cba"]
    */
   replace = %% BslString.replace %%
@@ -200,7 +214,7 @@ String =
   /**
    * Order for string comparison
    *
-   * Same behavioud than [String.order], but case insensitive.
+   * Same behavior than [String.order], but case insensitive.
    */
   order_ci =
     Order.make(x,y -> ordering(to_lower(x),to_lower(y)))
@@ -261,7 +275,7 @@ String =
 
   /**
    * Build a string from a byte value.
-   * Usefull if you use strings for outputing in binary format
+   * Useful if you use strings for outputs in binary format
   **/
   of_byte_val = %% BslString.of_byte_val %%
 
@@ -325,7 +339,7 @@ String =
   : string
 
   /**
-   * [check_substring(string, pos, substr)] checks that the substring
+   * [check_substring(string, pos, substr)] checks that the sub-string
    * of [string] starting at [pos] begins with [substr]
    */
   check_substring : string, int, string -> bool = %% BslString.check_match_literal %%
@@ -369,7 +383,7 @@ String =
 
   /**
    * Splits a string into a list of segments separated by a given string.
-   * Two consecutive occurences of a separator are treated as one; if
+   * Two consecutive occurrences of a separator are treated as one; if
    * that's not what you want check [String.explode_with].
    *
    * @param separator a string to act as a separator
@@ -496,7 +510,7 @@ String =
   : int
 
   /**
-   * Returns the index of unmached char
+   * Returns the index of unmatched char
    * Returns 0 if both strings [left] and [right] are equal
    * Returns 1 if the first char differ
    */
@@ -545,7 +559,7 @@ String =
   : string
 
   /**
-   * Returns a string that suceed [source]
+   * Returns a string that succeed [source]
    */
   next(source: string)=
     if length(source) == 0 then "a"
@@ -561,7 +575,7 @@ String =
 
 
   /**
-   *  ALIAS / SHORTHAND OF PRE-EXISTANTS FUNCTIONS
+   *  ALIAS / SHORTHAND OF PREEXISTING FUNCTIONS
    */
 
   strpos             = index

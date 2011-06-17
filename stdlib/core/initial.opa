@@ -73,7 +73,7 @@ void={}:void
 /**
  * {1 Comparison functions}
  *
- * All comparision functions return a boolean.
+ * All comparison functions return a boolean.
  */
 
 
@@ -106,7 +106,7 @@ compare(a,b) = OpaValue.compare(a,b)
 `==`(a:'a,b:'a):bool = match compare(a,b) with  {eq} -> true  | _ -> false
 
 /**
- * Universal comparaison functions
+ * Universal comparison functions
  */
 
 @specialize(String.`lt`,Int.`<`,Float.`<`,Char.`lt`)
@@ -426,7 +426,7 @@ unfold = for
   else
     /*
       JS imp backend may simplify pattern matching generated
-      from && in opa code. We can easyer match the form of
+      from && in opa code. We can easily match the form of
       the generated code if the following bool is syntactic.
       Do not replace it with the identifier [false]
     */

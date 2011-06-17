@@ -15,22 +15,34 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * @author Adam Koprowski (re-factored from okko)
+ * @destination public
+ * @category Data
+ * @stability Stable
+ */
+
 /**
  * {1 About this module}
  *
- * Contains the [outcome] datatype, which represents an outcome of
+ * Contains the [outcome] data type, which represents an outcome of
  * some action, which can be either successful (and carry the result
  * value) or it can be a failure (and carry the description of the
  * problem).
+ *
+ * {1 Where should I start ?}
+ *
  * So the [outcome] type has two constructors:
  *   - [{success=value}], with some [value]
  *   - [{failure=problem}], with indication of the [problem].
  * and it is parametrized by the types of: [value] and [problem].
  *
- * @author Adam Koprowski (re-factored from okko)
- * @destination public
- * @category Data
- * @stability Stable
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 /**
@@ -41,6 +53,10 @@
 type outcome('a, 'b)=
     { success: 'a }
   / { failure: 'b }
+
+/**
+ * {1 Interface}
+ */
 
 Outcome =
 {{

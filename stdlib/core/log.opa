@@ -27,6 +27,17 @@
  * @stability UNKNOWN
  */
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 Log = {{
   /**

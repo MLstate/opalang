@@ -19,17 +19,27 @@
 @abstract type Char.order = void
 
 /**
- * {1 About this module}
- *
- * Here are provided some basic functionality on characters
- * Characters only represent the ASCII set
- *
  * @category data
  * @destination public
  * @author Valentin Gatien-Baron, 2010 (documentation)
  * @author Sarah Maarek, 2010 (review)
  * @stability stable
+ */
+
+/**
+ * {1 About this module}
+ *
+ * Here are provided some basic functionality on characters
+ * Characters only represent the ASCII set
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Interface}
+ */
 
 Char = {{
 

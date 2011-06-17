@@ -15,26 +15,41 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * {1 About this module}
- *
- * Contains the 'option' datatype
- * This datatype allows you to represent arbitrary type with the ability
- * to indicate lack of value.
- * It is a type-safe(!) version of null/void values in many imperative languages.
- * It is most useful to create functions that may fail, or values that need a
- * dummy case
- *
  * @author Valentin Gatien-Baron (documentation)
  * @destination public
  * @category Data
  * @stability Stable
  */
 
+/**
+ * {1 About this module}
+ *
+ * Contains the 'option' data type.
+ * This data type allows you to represent arbitrary type with the ability
+ * to indicate lack of value.
+ * It is a type-safe(!) version of null/void values in many imperative languages.
+ * It is most useful to create functions that may fail, or values that need a
+ * dummy case.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type either('a,'b) = {left:'a} / {right:'b}
 
 @opacapi
 type option('a) = { none } / { some : 'a }
+
+/**
+ * {1 Interface}
+ */
 
 @expand `?`(o, d) = match o : option with
     | { ~some } -> some
@@ -85,7 +100,7 @@ Option = {{
   ) : ('a -> 'b), 'b, option('a) -> 'b
 
   /**
-   * for continution writing, when trying to get a some case
+   * For continuation writing, when trying to get a some case
    */
   lazy_try = (callbacks, o ->
     match o with

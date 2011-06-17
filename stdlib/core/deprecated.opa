@@ -15,17 +15,23 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * Arguments for taging part of the code as deprecated.
+ * Arguments for tagging part of the code as deprecated.
 **/
 
 /**
+ * {1 About this module}
+ *
  * This module defines the type of the argument of the directive @deprecated
+ *
  * These arguments are read at compile time, and should use literal only.
  * @see pass_CodingDirectives
  * @see opa parser
  *
- * here are some example of use:
+ * {1 Where should I start?}
+ *
+ * Here are some example of use:
  *
  * {[
  *   @deprecated({use="bar"}) foo = bar
@@ -35,7 +41,12 @@
  *   @deprecated({hint="Please refactor your code, this function does no longer exists"}) foo = ...
  * }
  *
-**/
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * Argument of the @deprecated directive
@@ -48,7 +59,7 @@ type Deprecated.argument =
     * @deprecated({use="this_function"}) deprec_fun() = void
     * do deprec_fun()
     * }
-    * will produce a warning around the utilisation of the deprec_fun, telling :
+    * will produce a warning around the utilization of the deprec_fun, telling :
     * {This code uses a deprecated construction. Please use "this_function" instead}
    **/
    { use : string }

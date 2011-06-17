@@ -16,12 +16,28 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 @opacapi
 type finite_single_thread_lazy('a) = Mutable.t(
   { delayed : -> 'a } /* a lazy not yet evaluated */
 / { evaluating } /* a value that is being forced right now */
 / { value : 'a } /* a lazy that has been computed before */
 )
+
+/**
+ * {1 Interface}
+ */
 
 /** Use by the compiler to implement non lambda recursive values, where recursions are lambda guarded (hence evaluating the recursion has a chance to be finite).
     Do not use it for any other purpose then finite lazy values with non concurrent force calls */

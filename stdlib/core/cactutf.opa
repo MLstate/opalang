@@ -23,11 +23,24 @@
 | CactUTF interface |
 -------------------*/
 
-/*
-** The purpose of this file is to permit the use of the functions of
-** cactutf.ml into the module Text in opa.
-** For a description of the functions, see cactutf.ml
-*/
+/**
+ * The purpose of this file is to permit the use of the functions of
+ * cactutf.ml into the module Text in opa.
+ *
+ * For a description of the functions, see cactutf.ml
+ */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 Cactutf = {{
 

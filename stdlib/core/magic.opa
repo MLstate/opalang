@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Magic interaction with the type system.
  *
@@ -24,9 +25,25 @@
 **/
 
 /**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
  * A black type, e.g. for gathering heterogenous data inside a typed structure.
 **/
 type black = external
+
+/**
+ * {1 Interface}
+ */
 
 Magic = {{
 

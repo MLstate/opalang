@@ -59,7 +59,7 @@
  * {1 What if I need more?}
  *
  * This module contains numerous other functions, including the all-powerful {!List.foldi}, which will
- * let you apply arbitrary collections/tranformations/loops based on the contents of a list.
+ * let you apply arbitrary collections/transformations/loops based on the contents of a list.
  *
  * Lists are immutable, as are all base data structures in OPA -- this lets the compiler optimize numerous
  * operations, including concurrency and database access. If you need mutability, you should consider wrapping
@@ -110,7 +110,7 @@ List = {{
    * Add an element at the start of a list
    *
    * [List.cons(e,l)] returns the list whose first element is [e] and in which the rest of the list is [l]
-   * You may also use the syntactif shorhands [[ e | l ]]
+   * You may also use the syntactic shorthands [[ e | l ]]
    *
    * You can combine several call to [cons] for creating a list with more elements,
    * [ List.cons(0, List.cons(1, tl)) ] is equivalent to [[ 0, 1 | tl ]]
@@ -125,7 +125,7 @@ List = {{
   add = cons
 
   /**
-   * A add in a list ordered by a function of comparaison.
+   * A add in a list ordered by a function of comparison.
    * Not tail rec, used for small list only
    * in this case, this is more efficient than a Set.
   **/
@@ -239,7 +239,7 @@ List = {{
    * Check that the list has the given length
    *
    * More efficient that computing the length of the list and then comparing
-   * againt the desired length, because this function returns false earlier
+   * against the desired length, because this function returns false earlier
    * if the list is very long
    */
    check_length(l:list,n:int) : bool =
@@ -275,7 +275,7 @@ List = {{
    * @param l A list. If it contains less than [n+1] elements, the result will be [{none}],
    * @return [({none}, l)] if the list contains less than [n+1] elements or if [n] < 0. Otherwise,
    * [({some = x}, r)], where [x] is the [nth] element of the list and [r] is the list obtained by
-   * removing the first occurrenc of [x] from [l].
+   * removing the first occurrence of [x] from [l].
    */
   extract(n:int, l:list('a)) = extract_pi((j,_ -> n == j),l): (option('a), list('a))
 
@@ -578,7 +578,7 @@ List = {{
    *         {result={false}} if the predicate failed before the end of the shorter list
    *         {different_length=reason} if the predicate succeeded until the end of the shorter list
    *         (reason is either {longest_first} or {longest_second})
-   * Note that if the lists have differents lengths but the predicate fails before the end
+   * Note that if the lists have different lengths but the predicate fails before the end
    * of one of the list, then you will get {result=false} and not {different_length=...}
    */
   for_all2(f, l1, l2) =
@@ -898,8 +898,8 @@ List = {{
  * lists behave as if adding a new element with a given key masks all previous
  * elements with the same key.
  *
- * Note that module [Map] provides dictionaires which are generally much
- * faster than association lists. Use association lists if your dictionaires
+ * Note that module [Map] provides dictionaries which are generally much
+ * faster than association lists. Use association lists if your dictionaries
  * are small or if you wish to guarantee that the order of elements does not
  * change.
  */
@@ -915,10 +915,10 @@ List = {{
   assoc(k:'a, l:list(('a,'b)) ) = assoc_gen(eq, k, l): option('b)
 
   /**
-   * As [assoc], but with control on the comparaison function.
+   * As [assoc], but with control on the comparison function.
    *
    * Use this function rather than [assoc] if you wish to use a special-purpose
-   * comparaison function, e.g. to compare texts without case.
+   * comparison function, e.g. to compare texts without case.
    *
    * @param equals A comparison function.
    * @param k A key.
@@ -1249,11 +1249,11 @@ List = {{
    * Sort a list by usual order.
    *
    * This function uses the order defined by function [compare]. The sort algorithm used may change with
-   * future releases of OPA. In the current version, the sort algorith used is merge sort.
+   * future releases of OPA. In the current version, the sort algorithm used is merge sort.
    *
    * @param l A list, possibly empty.
    * @return A list with the same length, in which all elements are ordered by increasing order
-   * using regular comparaison.
+   * using regular comparison.
    */
   sort(l:list('a)) = merge_sort_with_order(Order.default, l): list('a)
 
@@ -1271,9 +1271,9 @@ List = {{
    *
    * This function first projects elements of the list before comparing them. You may use this
    * projection for instance to normalize list elements before comparing, e.g. to convert strings
-   * to lower-case before comparaison, so as to ensure that your list is sorted by purely alphabetical
+   * to lower-case before comparison, so as to ensure that your list is sorted by purely alphabetical
    * order, without taking case into account. Similarly, if you sort lists of complex data structures, you
-   * can ensure that only a subset of data is taken into account by comparaison.
+   * can ensure that only a subset of data is taken into account by comparison.
    *
    * @param f A projection function.
    * @param A list, possibly empty.
@@ -1296,7 +1296,7 @@ List = {{
    *
    * This is a more powerful variant of [sort_by].
    *
-   * @param cmp A comparaison function.
+   * @param cmp A comparison function.
    * @param l A list, possibly empty.
    */
   sort_with(cmp:'a, 'a -> Order.ordering, l: list('a)) = merge_sort(cmp, l): list('a)
@@ -1306,7 +1306,7 @@ List = {{
    *
    * This is a more powerful variant of [sort_by].
    *
-   * @param cmp A comparaison function.
+   * @param cmp A comparison function.
    * @param l A list, possibly empty.
    */
   sort_with_order(cmp:order('a, _), l: list('a)) = merge_sort_with_order(cmp, l): list('a)
@@ -1333,7 +1333,7 @@ List = {{
   /**
    * Check whether a list is sorted, using a custom order.
    *
-   * @param cmp A comparaison function.
+   * @param cmp A comparison function.
    * @param l A list, possibly empty.
    * @return [{true}] if the list is sorted by increasing order of [compare] (in particular if the list is empty),
    * [{false}] otherwise.
@@ -1398,7 +1398,7 @@ List = {{
     aux(l)
 
 /**
- * {2 Parsing and pretty-priting}
+ * {2 Parsing and pretty-printing}
  */
 
   /**
@@ -1484,7 +1484,7 @@ nil = List.empty
 `++`(x, y) = List.append(x, y)
 
 /**
- * An external type for manipulating Ocaml lists.
+ * An external type for manipulating OCaml lists.
 **/
 @opacapi
 type caml_list('a) = external

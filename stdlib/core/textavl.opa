@@ -20,16 +20,27 @@
 */
 
 /**
- * a [textavl] is the inner datastructure of a texralist (which is itself
- * a inner datastructure of a text).
- * Some lines may be commented, because of the desactivation of mapc(), and
+ * {1 About this module}
+ *
+ * a [textavl] is the inner data structure of a texralist (which is itself
+ * a inner data structure of a text).
+ *
+ * Some lines may be commented, because of the deactivation of mapc(), and
  * because we don't need Camomile anymore.
-**/
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * type character :
  * Represent a single character.
- * Since we want Unicode encoding, the traditionnal `char' of one byte will not be enough.
+ * Since we want Unicode encoding, the traditional `char' of one byte will not be enough.
  * This is only an input/output type ! The inner type is UTF-8 (one to four bytes).
  *
  * FIXME: Can it be abstract
@@ -57,6 +68,9 @@ type utf8eucatextavl = textavl
 
 type utf8cacttextavl = textavl
 
+/**
+ * {1 Interface}
+ */
 
 Textavl =
        paramfun_length=Cactutf.length
@@ -430,7 +444,7 @@ smart_merge_nn(avl1, avl2) =
      create_node(avl1m, root, avl2)
 
 /**
- * Subfunction of smart_merge_nn().
+ * Sub-function of smart_merge_nn().
 **/
 smart_merge_nn_aux_left(avl) =
   match avl:textavl with
@@ -488,7 +502,7 @@ left_leaf_size(avl, old) =
       left_leaf_size(l, stxt)
 
 /**
- * Directly concatene a string and the left leaf.
+ * Directly concatenate a string and the left leaf.
 **/
 concat_left(avl, st) =
   match avl:textavl with
@@ -501,7 +515,7 @@ concat_left(avl, st) =
          create_node(concat_left(l, st), v, r)
 
 /**
- * Directly concatene a string and the right leaf.
+ * Directly concatenate a string and the right leaf.
 **/
 concat_right(avl, st) =
   match avl:textavl with
@@ -641,7 +655,7 @@ utf8_apply_mapc(s, f) =
 
 /*
 ** Utf8_txtavl : AVL trees with unicode strings.
-** Support international langages.
+** Support international languages.
 */
 
 /*

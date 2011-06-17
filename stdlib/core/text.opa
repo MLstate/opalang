@@ -15,19 +15,20 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @authors Matthieu Guffroy, Frédéric Ye, Corentin Gallet
 */
 
 /*
         TODO Critical for speed : integrate Utf-8 length in Text node, remove all possible call to Text_node.length
-             Currently : concat and insert have inacceptable worst case complexity
+             Currently : concat and insert have unacceptable worst case complexity
 */
 
 
 /*
 ** Text.
-** The `camomile part' is desactivated. If you want Camomile back, uncomment
+** The `camomile part' is deactivated. If you want Camomile back, uncomment
 ** it.
 ** Tip : C-s camo
 */
@@ -44,12 +45,27 @@
  * because on the server, [pos] is the index in bytes, where in Javascript,
  * it is the character position (native support of utf8)
  * This is implemented in [opaserialize]
-**/
+ *
+ * {2 About this module}
+ *
+ * {2 Where should I start?}
+ *
+ * {2 What if I need more?}
+ */
+
+/**
+ * {2 Types defined in this module}
+ */
+
 @opacapi
 @abstract type itextrator = {
   txt : string ;
   pos : int ;
 }
+
+/**
+ * {1 Interface}
+ */
 
 Itextrator = {{
 
@@ -66,7 +82,7 @@ pos(it:itextrator) =
   it.pos
 
 /**
- * Returns the complete txt used by the iterators
+ * Returns the complete text used by the iterators
  * <!> Not for casual user
 **/
 txt(it:itextrator) = it.txt
@@ -120,16 +136,31 @@ forward(it : itextrator, bytes : int) : itextrator =
 **/
 
 /**
+ * {2 About this module}
+ *
  * Represent a text (an ordered collection of strings) as a `rope'.
  * The left part is a RA list of AVLs.
  * The right part is a reversed RA list of AVLs.
-**/
+ *
+ * {2 Where should I start?}
+ *
+ * {2 What if I need more?}
+ */
+
+/**
+ * {2 Types defined in this module}
+ */
+
 @opacapi
 @abstract type text =
    { textralist1 : list(textavl) ; textralist2 : list(textavl) }
  / { string : string }
 
 @abstract type utf8cacttext = {textralist1:utf8cacttextralist; textralist2:utf8cacttextralist} / {string:string}
+
+/**
+ * {1 Interface}
+ */
 
 Text =
 Textralist = Utf8cact_textralist
@@ -344,6 +375,7 @@ insert(txt1, txt2, pos) =
  *
  * FIXME:
  * historically, naive implementation., using itstat flatten + 'next' utilisation
+ *
  * Since the itstart flatten the text, there is no efficient itextrator for text.
  *
  * Now: since we use the flattening, better is to make that point explicit in the code.
@@ -357,7 +389,7 @@ compare(t1:text, t2:text) =
     String.compare(s1, s2)
 
 /**
- * Return an uppercased Text.
+ * Return an uppercase Text.
 **/
 uppercase(txt) =
   match txt:text with
@@ -367,7 +399,7 @@ uppercase(txt) =
       {textralist1 = Textralist.uppercase(r1); textralist2 = Textralist.uppercase(r2)}:text
 
 /**
- * Return a lowercased Text.
+ * Return a lowercase Text.
 **/
 lowercase(txt) =
   match txt:text with

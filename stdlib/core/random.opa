@@ -15,6 +15,19 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
+
 Random = {{
   int   = %% BslNumber.Random.int %% : int -> int
   float = %% BslNumber.Random.float %% : float -> float

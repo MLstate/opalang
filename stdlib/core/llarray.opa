@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Native Imperative Array.
  *
@@ -26,13 +27,17 @@
  * {1 About this module}
  *
  * This module contains an API for manipulating imperative native array.
- * You must be carrefull by using this module, there are some strong constraints:
+ * You must be careful by using this module, there are some strong constraints:
  * + your array will not be serializable. Implementation is available on each side,
  * but llarray are not meant to be transported from a side to an other.
  * + this structure brings not any guarantee in case of parrallelism, and distribution.
  *
  * You may use this structure, if you know what you're doing.
  * Probably not for casual user.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
 
 /**
@@ -74,7 +79,7 @@ LowLevelArray = {{
   set    = %% Lowlevelarray.set %%    : llarray('a), int, 'a -> void
 
   /**
-   * [LowLevelArray.create(size,v)] creates an llarray of the size [size] with each cell initialised to [v]
+   * [LowLevelArray.create(size,v)] creates an llarray of the size [size] with each cell initialized to [v]
    * [llarray] of size zero returned are shared
    * You may also use the directive [@llarray(0, 1, 2, 3)] for building
    * static and small arrays.
@@ -150,7 +155,7 @@ LowLevelArray = {{
      map_aux(a,na,f,i-1)
 
   /**
-   * Remap an array using a function taking position and old value and returing new value
+   * Remap an array using a function taking position and old value and returning new value
    * The order in which the function will be called is undefined
    */
   mapi(a)(f) =

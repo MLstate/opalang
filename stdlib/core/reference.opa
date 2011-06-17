@@ -15,7 +15,24 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type reference('a) = external
+
+/**
+ * {1 Interface}
+ */
 
 Reference =
 {{
@@ -41,6 +58,10 @@ Reference =
    compare_and_swap = %% BslReference.compare_and_swap %%: reference('a),'a,'a -> bool
    update(ref,f) = set(ref,f(get(ref)))
 }}
+
+/**
+ * {1 Server-side reference}
+ */
 
 /**
   * Deprecated, same as reference

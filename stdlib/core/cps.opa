@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Defining API on external continuation.
  *
@@ -36,6 +37,10 @@
  *
  * Since the continuation will also be the native support of transactions,
  * there is a need for an API.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
 
 /**
@@ -49,6 +54,10 @@ type bycps__unit = external
  */
 @opacapi
 type continuation('a) = external
+
+/**
+ * {1 Interface}
+ */
 
 Continuation = {{
 
@@ -103,7 +112,7 @@ Continuation = {{
  * The type of a future.
  * Currently, used by generated code only.
  * May become used by the user, if we export the
- * concurrency primitives spaw, wait.
+ * concurrency primitives spawn, wait.
 **/
 @opacapi
 type Cps.future('a) = external

@@ -15,12 +15,25 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Debugging utilities
  *
  * @author David Rajchenbach-Teller, 2010 (documentation)
  * @destination public
  * @stability stabilizing
+ */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
  */
 
 Debug = {{

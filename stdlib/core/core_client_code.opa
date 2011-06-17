@@ -15,14 +15,21 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * @category compiler interface
+ * @destination internal use, private
+ * @author Valentin Gatien-Baron, 2011 (ad hoc serialization)
+ * @author Mathieu Barbin, 2011 (review)
+ * @stability stable
+ */
+
 /**
  * {1 About this module}
  *
- * @category compiler interface
- * @destination internal use, private
- * @author Valentin Gatien-Baron, 2011 (adhoc serialization)
- * @author Mathieu Barbin, 2011 (review)
- * @stability stable
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
 **/
 
 /**
@@ -30,6 +37,10 @@
  *
  * Server side code used to store and retrieve javascript/css files
 **/
+
+/**
+ * {3 Types}
+ */
 
 /**
  * BEWARE: the compiler generate this type in qmljs_Serializer
@@ -45,6 +56,10 @@ type Client_code.input =
 type Client_code.output =
      {adhoc : string; package_ : string}
    / {ast : JsAst.code}
+
+/**
+ * {3 Interface}
+ */
 
 Core_client_code =
 {{
@@ -87,11 +102,19 @@ Core_client_code =
 **/
 
 /**
+ * {3 Types}
+ */
+
+/**
  * BEWARE: the compiler generates this type in pass_GenerateServerAst
  * @opacapi
 **/
 type ServerCode.t =
      {adhoc : string; package_ : string}
+
+/**
+ * {3 Interface}
+ */
 
 Core_server_code =
 {{

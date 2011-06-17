@@ -15,9 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * {1 About this module}
- *
  * This modules defines operations on integers, which are guaranteed to be at
  * least 31 bits wide (including the sign bit)
  *
@@ -28,12 +27,27 @@
  * @stability stable
 **/
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * Order type label for int and float
  */
 type Int.order = Order.default
 type Float.order = Order.default
+
+/**
+ * {1 Interface}
+ */
 
 Int = {{
 

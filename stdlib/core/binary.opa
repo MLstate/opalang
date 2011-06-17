@@ -18,13 +18,32 @@
 
 
 /**
- * Binary data handling: for any sequence of bytes that is not to be considered as text
+ * Binary data handling: for any sequence of bytes that is not to be considered
+ * as text.
+ *
  * @destination PRIVATE
  * @stability UNSTABLE
+ */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 //TODO:This should be [external]. However, for the moment, we rely on [static_file_include] and we just can't.
 @opacapi
 type binary = string
+
+/**
+ * {1 Interface}
+ */
+
 string_of_binary(x:binary) = @unsafe_cast(x): string
 binary_of_string(x:string) = @unsafe_cast(x): binary

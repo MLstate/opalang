@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Types definitions for the Javascript runtime ast
  *
@@ -25,13 +26,21 @@
 **/
 
 /**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
  * The content of the [JsAst.mini_expr] ident node.
 **/
 type JsAst.ident = string
 
 /**
  * The run-time representation of the js code,
- * Should support dependancy analysis, and alpha renaming
+ * Should support dependency analysis, and alpha renaming
 **/
 type JsAst.mini_expr =
    /**
@@ -90,7 +99,7 @@ type JsAst.code_elt = {
   definition : ServerAst.definition
 
   /**
-   * Some code_elt are taged as root by the compiler.
+   * Some code_elt are tagged as root by the compiler.
    * They should not be cleaned.
   **/
   root : Server.reference(bool)

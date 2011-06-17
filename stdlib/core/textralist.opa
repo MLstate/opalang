@@ -15,25 +15,40 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @authors Matthieu Guffroy, Frédéric Ye, Corentin Gallet
 **/
 
-/*
-** RA lists of AVLs.
-** `RA' stands for "Random Access".
-**
-** The lists are ascending, but only one element for two ; the second is always a single leaf-tree.
-** So 1-1-1-2-1-3-1-7 is okay.
-** They can't be two elements h>1, they have to be merged.
-** 1-1-4-1-4 -> 1-1-5
-** And no h=1 element at the end of a list with elements h>1 :
-** 1-2-1-3-6-1 is not okay, since the last tree will never be merged.
-** 4 h=1 elements must be merged :
-** 1-1-1-1 -> 1-2.
-**
-** Beware : some RA lists are reversed here.
-*/
+/**
+ * {1 About this module}
+ *
+ * RA lists of AVLs.
+ * `RA' stands for "Random Access".
+ *
+ * {1 Where should I start?}
+ *
+ * The lists are ascending, but only one element for two ; the second is always a single leaf-tree.
+ * So 1-1-1-2-1-3-1-7 is okay.
+ *
+ * They can't be two elements h>1, they have to be merged.
+ * 1-1-4-1-4 -> 1-1-5
+ *
+ * And no h=1 element at the end of a list with elements h>1 :
+ * 1-2-1-3-6-1 is not okay, since the last tree will never be merged.
+ *
+ * 4 h=1 elements must be merged :
+ * 1-1-1-1 -> 1-2.
+ *
+ * Beware : some RA lists are reversed here.
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type textralist = list(textavl)
 
 /* disabled for S3:
@@ -74,6 +89,10 @@ type Textralist('a,'b,'c,'d) =
 type utf8camotextralist = textralist(utf8camotextavl)
 type utf8eucatextralist = textralist*/
 type utf8cacttextralist = textralist
+
+/**
+ * {1 Interface}
+ */
 
 Make_textralist/*(Textavl:Textavl)*/ =
 //Textavl = Utf8cact_textavl
@@ -139,7 +158,7 @@ raregroup(lavl) =
                      /* Case 9 : Merging the 3 elements.*/
                   else if (hei1 > 1) then
                      raregroup_aux(List.cons(Textavl.merge_avl_nn(hd1, hd2), tl2):textralist, 10)
-                     /* Case 10 : Merginig the first and the second elements.*/
+                     /* Case 10 : Merging the first and the second elements.*/
                   else
                      List.cons(hd1, raregroup_aux(tl1, n + 1)):textralist
                      /* Case 11 : one more step forward.*/
@@ -194,7 +213,7 @@ raregroup_rev(lavl) =
                      /* Case 9 : Merging the 3 elements.*/
                   else if (hei1 > 1) then
                      raregroup_aux_rev(List.cons(Textavl.merge_avl_nn(hd2, hd1), tl2):textralist, 10)
-                     /* Case 10 : Merginig the first and the second elements.*/
+                     /* Case 10 : Merging the first and the second elements.*/
                   else
                      List.cons(hd1, raregroup_aux_rev(tl1, n + 1)):textralist
                      /* Case 11 : one more step forward.*/

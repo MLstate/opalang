@@ -25,7 +25,9 @@
 /* **************************************************************** */
 /**
  * {1 Module OpaTsc}
+ *
  * This module allow to get a type scheme from a name of a type
+ *
  * @category introspection
  * @destination ??
  * @author Quentin Bourgerie
@@ -136,8 +138,10 @@ OpaTsc = {{
 /* **************************************************************** */
 /**
  * {1 Module OpaType}
+ *
  * Module OpaType defines what is an OPA type and it offers some
  * utils for manipulate this type.
+ *
  * @category introspection
  * @destination ??
  * @author Quentin Bourgerie
@@ -178,8 +182,9 @@ type OpaType.interface = {{
  * Please note that, for the invariants on this datatype to be valid, they have to
  * be satisfied by Pass_ExplicitInstantiation (for the initial creation of type) and by
  * by every function in the stdlib (at type instantiation for instance).
+ *
  * BEWARE: for now, the INVARIANT is probably not satisfied because serialization
- * and unseralization of a type probably shuffles the order
+ * and unseralization of a type probably shuffles the order.
  * Still, [unifiable] relies on the invariant for now
  */
 @opacapi
@@ -232,10 +237,11 @@ opa_type_const_eq(a : OpaType.ty_const, b : OpaType.ty_const) =
   | ({TyString}, {TyString}) -> true
   | _ -> false
 /**
- * Bellow we have lot of sub types for OpaType.ty.
- * Thinks to simplify this? All of this types it's useful?
+ * Below we have lot of sub types for OpaType.ty.
+ *
+ * Maybe we can simplify this? Are all these types useful?
  * -- perhaps more readable and we may have to change it later from string
- *    to something more complex, similar as in QmlAst
+ *    to something more complex, similar to QmlAst
  */
 type OpaType.field = {label : OpaType.Field.label; ty : OpaType.ty}
 type OpaType.fields = list(OpaType.field)
@@ -400,6 +406,7 @@ OpaType = {{
    * [lfields]. [lfields] must be ordered else cause a runtime
    * error. Usefull for retrieve type of a record when [@typeof] return
    * a type sum.
+   *
    * @return (fields corresponding to the value, position on [lfields])
    *
    */
@@ -454,6 +461,7 @@ OpaType = {{
 
   /**
    * {2 Module OpaType.Field}
+   *
    * This module provides some functions for manipulate value of
    * type [OpaType.Field.label]. This field in [OpaType] is not the
    * same that the field in [OpaValue].

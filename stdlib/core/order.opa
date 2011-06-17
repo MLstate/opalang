@@ -25,6 +25,8 @@
  */
 
 /**
+ * {1 About this module}
+ *
  * A total order on elements of a given type.
  *
  * Total orders are characterized both by the type of elements they can order
@@ -48,12 +50,25 @@
  * @param 'item  The type of elements compared
  * @param 'label A label used to differentiate incompatible orderings
  * on elements of the same type.
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
  */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 @abstract type order('item, 'label) = ('item, 'item -> Order.ordering)
 @abstract type Order.default = void
 @opacapi
 type Order.comparison = {lt} / {gt} / {eq} / {neq}
 type Order.ordering   = {lt} / {gt} / {eq}
+
+/**
+ * {1 Interface}
+ */
 
 Order = {{
 

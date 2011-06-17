@@ -15,6 +15,19 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type ServerAst.code = llarray(ServerAst.code_elt)
 type ServerAst.code_elt = {
   ident : option(ServerAst.ident);
@@ -33,6 +46,10 @@ type ServerAst.definition =
 type ServerAst.rpc_key = string
 type ServerAst.type_key = string
 type ServerAst.ident = JsAst.ident
+
+/**
+ * {1 Interface}
+ */
 
 ServerAst = {{
   fold_code = LowLevelArray.fold

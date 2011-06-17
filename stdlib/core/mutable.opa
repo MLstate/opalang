@@ -16,6 +16,18 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type Mutable.t('a) = {get: -> 'a; set: 'a -> void}
 Mutable =
 {{
@@ -27,6 +39,10 @@ Mutable =
         }}
 
 }}
+
+/**
+ * {1 Interface}
+ */
 
 @opacapi
 Mutable_make = Mutable.make
