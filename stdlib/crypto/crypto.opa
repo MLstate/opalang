@@ -30,6 +30,10 @@
  *
 **/
 
+/**
+ * {1 Interface}
+ */
+
 Crypto = {{
 
   Base64 = {{
