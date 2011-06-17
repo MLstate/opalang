@@ -353,7 +353,11 @@ package_install (){
             ulex)
                 $SUDO $INSTALLDIR/bin/ocamlfind remove -destdir $INSTALLDIR/lib/ocaml ulex || true
                 rm -f myocamlbuild.ml
-                install_generic
+                make all.opt
+                # the following is copy pasted from ulex's Makefile
+                # because install depends on all (it just does't work
+                # when your rights for compiling and installing are not compatible)
+                cd _build && $SUDO make -f ../Makefile realinstall
                 ;;
             jpeg)
                 ./configure --prefix $PREFIX
