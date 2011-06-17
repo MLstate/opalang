@@ -447,7 +447,6 @@ struct
       ] in
     let postcond =
       [
-        QmlCheck.Bypass.expanded extract ;
         QmlAlphaConv.Check.alpha extract_final_ac ;
       ] in
     make_final_pass precond postcond (
@@ -590,7 +589,6 @@ struct
     in
    let precond =
       [
-        QmlCheck.Bypass.well_formed extract;
       ] in
     let postcond =
       [
@@ -641,7 +639,6 @@ struct
     (* needed by closures *)
     |> PassHandler.handler "BypassHoisting" pass_BypassHoisting
 
-    (* expects bypasses to be at the toplevel (could be patched to remove this precondition) *)
     |> PassHandler.handler "DiscardRemoteBypasses" (pass_DiscardRemoteBypasses ~lang)
 
     (* This one is for testing, maybe we'll use it, and update Cps so that it does its

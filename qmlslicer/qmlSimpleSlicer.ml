@@ -996,7 +996,7 @@ let is_a_lambda info =
   let rec aux = function
       (* this check should be kept consistent with the one in qmlUncurry presumably *)
     | Q.Coerce (_, e, _)
-    | Q.Directive (_, (#Q.type_directive | `expanded_bypass), [e], _) -> aux e
+    | Q.Directive (_, #Q.type_directive, [e], _) -> aux e
     | Q.Lambda _ -> true
     | _ -> false in
   match info.expr with

@@ -1807,7 +1807,6 @@ let pass_ServerCpsRewriter =
     ] in
   let precond =
     [
-      QmlCheck.Bypass.well_formed extract ;
     ] in
   let postcond =
     [

@@ -18,7 +18,7 @@
 module Q = QmlAst
 module List = Base.List
 
-type ignored_directive = [ Q.type_directive | `expanded_bypass ]
+type ignored_directive = Q.type_directive
 
 (* for each top level function, we record
    1-its defining identifier,

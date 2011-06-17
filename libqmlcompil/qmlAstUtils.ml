@@ -326,40 +326,6 @@ struct
 
 end
 
-module Bypass =
-struct
-  module QC = QmlAstCons.UntypedExpr
-
-  type t = (Ident.t list * Q.expr list) option
-
-  let unexpand_t e =
-    let fail _ = invalid_arg "QmlAstUtils.Bypass.unexpand" in
-    let aux bypass =
-      let original_bypass = bypass in
-      let rec aux_aux = function
-        | Q.Directive (_, `restricted_bypass _, [e], _)
-        | Q.Directive (_, `may_cps, [e], _) -> aux_aux e
-        | Q.Bypass (_, skey) -> skey, original_bypass
-        | _ -> fail ()
-      in aux_aux original_bypass
-    in
-    match e with
-    | Q.Lambda (_, params, Q.Apply (_, bypass, args)) ->
-        if List.length params = List.length args
-        then Some (params, args), aux bypass
-        else fail ()
-    | _ -> None, aux e
-
-  let unexpand e = snd (unexpand_t e)
-
-  let expand_t t bypass =
-    match t with
-    | None -> bypass
-    | Some (params, args) ->
-        let apply = QC.apply bypass args in
-        QC.lambda params apply
-end
-
 module Const =
 struct
   let compare a b =

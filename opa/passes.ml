@@ -550,13 +550,6 @@ let remove_client_bypass_GEN ~broken_annotmap bymap annotmap qmlAst =
 
   let rec rewr expanded tra e =
     match e with
-   (* detect if already expanded *)
-    | Q.Directive (_, `expanded_bypass, [expanded], []) ->
-        let _, unexp = QmlAstUtils.Bypass.unexpand expanded in
-        let unexp' = rewr false tra unexp in
-        if unexp'== unexp then e
-        else unexp'
-
     (* exchange the bslkey if needed *)
     | Q.Bypass (label, bslkey)
     | Q.Directive (label, `restricted_bypass _, [Q.Bypass (_, bslkey)], []) ->

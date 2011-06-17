@@ -227,7 +227,7 @@ let string_of_pos = FilePos.to_string
 
 (* The cps transform makes no assumption about the bypass it receives
  * It will eta expand if needed, but only when necessary (when bypasses
- * are not surrounded by a `expanded_bypass) *)
+ * are not applied) *)
 let expand_bypass (env:env) (expr:QmlAst.expr) =
   let key =
     match expr with
@@ -236,30 +236,19 @@ let expand_bypass (env:env) (expr:QmlAst.expr) =
     | _ -> assert false in
   let typ = env.bsl_bypass_typer key in
   (* forming the type list corresponding to this type *)
-  let inputs, output = match typ with
+  let inputs, _output = match typ with
     | BslTypes.Fun (_, inputs, output) -> Some inputs, output
     | _ -> None, typ
   in
-  let _ =
-    match output with
-    | BslTypes.Fun _ ->
-        OManager.i_error
-          "Error on bypass : %a@\ncps cannot handle bypass which return a functionnal value@\n%a@\nreturned type : %a@\n"
-          BslKey.pp key
-          BslTypes.pp typ
-          BslTypes.pp output
-    | _ -> ()
-  in
   match inputs with
   | None ->
-      (* it is not a function, just protect it *)
-      (Q.Directive (Annot.next_label (Q.Pos.expr expr), `expanded_bypass, [expr], []))
+      (* it is not a function, do nothing *)
+      None
   | Some l ->
       let n = List.length l in
       let args = List.init n (fun i -> Ident.nextf "bypass_arg_%d" i) in
       let apply = QC.apply expr (List.map QC.ident args) in
-      let expanded = QC.lambda args apply in
-      Q.Directive (Annot.next_label (Q.Pos.expr expanded), `expanded_bypass, [expanded], [])
+      Some (QC.lambda args apply)
 
 
 (* private context to be sure to control what goes out *)
@@ -399,7 +388,7 @@ module U = struct
     | Q.Bypass (_, key) -> key, None
     | _ ->
         let context = QmlError.Context.expr bp in
-        QmlError.cond_violation QmlCheck.Bypass.well_formed_id context
+        QmlError.i_error None context
           "Unexpected form of bypass"
 
   let bp_get_key bp = fst (bp_get_key_and_passid bp)
@@ -564,12 +553,7 @@ end
 
 (** The code_elt is there only for Error context *)
 (* Convert a QML expression to a CPS term.*)
-let il_of_qml ?code_elt ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr:QmlAst.expr)  =
-  let error_context sub_expr =
-    let c = QmlError.Context.exprs expr [sub_expr] in
-    let c = match code_elt with Some code_elt -> QmlError.Context.merge2 c (QmlError.Context.code_elt code_elt) | None -> c in
-    c
-  in
+let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr:QmlAst.expr)  =
   (* Records
      <!> beware, this function is partial, it is defined only on complex records, and lazy records.
      the skip option specify if we accept to use and propagate skip nodes and provide the
@@ -873,12 +857,27 @@ let il_of_qml ?code_elt ?(can_skip_toplvl=false) (env:env) (private_env:private_
         List.fold_left fold il_term build_fields
 
     | Q.Bypass _
-    | Q.Directive (_, `restricted_bypass _, [Q.Bypass _], _) ->
+    | Q.Directive (_, `restricted_bypass _, [Q.Bypass _], _) -> (
         (* if we end up here, it means QmlBypassHoisting wasn't called, or that someone
          * introduced other bypasses in the meantime
          * In any case, we eta expand them ourselves
          *)
-        aux_can_skip ~can_skip_lambda (expand_bypass env expr) context
+        match expand_bypass env expr with
+        | None -> (
+            match expr with
+            | Q.Directive (_, `restricted_bypass pass, [Q.Bypass (_, key)], _) ->
+                (* value bypass *)
+                let v = IL.fresh_v () in
+                IL.LetVal (v, IL.BasicBypass (IL.Bypass(key, Some pass)), Context.apply context v)
+            | Q.Bypass (_, key) ->
+                (* value bypass *)
+                let v = IL.fresh_v () in
+                IL.LetVal (v, IL.BasicBypass (IL.Bypass(key, None)), Context.apply context v)
+            | _ -> assert false (* not matched by the outer pattern *)
+          )
+        | Some e ->
+            aux_can_skip ~can_skip_lambda e context
+      )
 
     | Q.Coerce (_, e, _) -> aux_can_skip ~can_skip_lambda e context
 
@@ -943,30 +942,6 @@ let il_of_qml ?code_elt ?(can_skip_toplvl=false) (env:env) (private_env:private_
         failwith "Internal error: CPS Directive @immovable is not yet implemented"
           (* in particular : see if this directive should be removed by this pass,
              or preserved (or transformed?) for a specific back-end directive *)
-
-    | Q.Directive (_, `expanded_bypass, [expanded_bypass], _) ->
-      (*At this stage, [expr] should have the form
-        [fun x1 x2 x3 ... xn -> %%bypass%% x1 x2 x3 ... xn]
-        We transform the [fun] part without altering the application part,
-        as we cannot deal with partial application in bypasses.
-      *)
-      let fail e =
-        QmlError.cond_violation QmlCheck.Bypass.well_formed_id (error_context expr)
-          "Got: %a" QmlPrint.pp#expr e in
-      let collect_lambdas expr context =
-        match expr with
-        | Q.Lambda (_, _, _) -> aux_can_skip ~can_skip_lambda expr context
-        | Q.Directive (_, `restricted_bypass pass, [Q.Bypass (_, key)], _) ->
-          (* value bypass *)
-          let v = IL.fresh_v () in
-          IL.LetVal (v, IL.BasicBypass (IL.Bypass(key, Some pass)), Context.apply context v)
-        | Q.Bypass (_, key) ->
-          (* value bypass *)
-          let v = IL.fresh_v () in
-          IL.LetVal (v, IL.BasicBypass (IL.Bypass(key, None)), Context.apply context v)
-        | _ -> fail expr
-      in
-      collect_lambdas expanded_bypass context
 
     | Q.Directive (_, `assert_, [e], _) ->
         if env.options.no_assert
@@ -1398,8 +1373,6 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
 
     | IL.Directive (`immovable, _, _) -> assert false (* cf remark in qml -> IL *)
 
-    | IL.Directive (`expanded_bypass, _, _) -> assert false (* removed by qml -> IL *)
-
     | IL.Directive (`create_lazy_record, _, _) -> assert false (* expressed as const after qml -> IL *)
 
     | IL.Directive (`module_, _, _) -> assert false (* removed by qml -> IL *)
@@ -1571,7 +1544,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
             | Q.Directive (_, `asynchronous_toplevel, [e], _) -> true, e
             | _ -> false, expr
           in
-          let private_env, il_term = il_of_qml ~code_elt ~can_skip_toplvl:can_skip_toplvl env private_env expr in
+          let private_env, il_term = il_of_qml ~can_skip_toplvl:can_skip_toplvl env private_env expr in
           let private_env, il_term = il_simplification env private_env il_term in
           match il_term with
             (* a barrier won't be needed when an expression is skipable at toplvl *)
@@ -1623,7 +1596,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               end
         in
         let immediate_lambda arity =
-          let private_env, il_term = il_of_qml ~code_elt ~can_skip_toplvl:true env private_env expr in
+          let private_env, il_term = il_of_qml ~can_skip_toplvl:true env private_env expr in
           let private_env, il_term = il_simplification env private_env il_term in
           let toplevel_cont v = QC.ident v in
           match il_term with
@@ -1635,7 +1608,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let fskip_id =  Ident.refreshf ~map:"%s_skip" id in
               let private_env = private_env_add_skipped_fun id arity fskip_id id private_env in
               let fskip_eta_exp = QmlAstUtils.Lambda.eta_expand_ast arity (QC.ident id) in
-              let private_env, fcps_il = il_of_qml ~code_elt env private_env fskip_eta_exp in
+              let private_env, fcps_il = il_of_qml env private_env fskip_eta_exp in
               let private_env, fcps = qml_of_il ~toplevel_cont env private_env fcps_il in
               let fcps = simpl_let_in fcps in
               private_env, [ (fskip_id, fskip); (id, fcps) ]
@@ -1673,7 +1646,6 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         | Q.LetRecIn _ -> immediate_value_or_barrier ()
 
         | Q.Directive (_, `restricted_bypass _, [Q.Lambda (_, l, _)], _)
-        | Q.Directive (_, `expanded_bypass, [Q.Lambda (_, l, _)], _)
         | Q.Lambda (_, l, _) -> immediate_lambda (List.length l)
 
         | Q.Apply _ -> immediate_value_or_barrier ~can_skip_toplvl:true ()
@@ -1689,7 +1661,6 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         | Q.ExtendRecord _ -> immediate_value_or_barrier ()
 
         | Q.Directive (_, `restricted_bypass _, _, _)
-        | Q.Directive (_, `expanded_bypass, _, _)
         | Q.Bypass _ -> immediate_value_or_barrier ()
 
         | Q.Coerce (_, e, _) -> fold_filter_map private_env (id, e)
@@ -1773,7 +1744,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
 
         (* normal case *)
         | Q.Lambda _ ->
-          let private_env, il_term = il_of_qml ~code_elt ~can_skip_toplvl:false env private_env expr in
+          let private_env, il_term = il_of_qml ~can_skip_toplvl:false env private_env expr in
           let private_env, il_term = il_simplification env private_env il_term in
           let toplevel_cont v = QC.ident v in
           begin match il_term with
@@ -1891,8 +1862,6 @@ let no_cps_pass env code =
   in
   let rewrite expr =
     match expr with
-    | Q.Directive (_, `expanded_bypass, [e], _) -> e
-    | Q.Directive (_, `expanded_bypass, _, _) -> assert false
     | Q.Apply (_, Q.Ident _, _) -> expr
     | Q.Apply (_, f, f_args) when (not(U.good_apply_property private_env f f_args))-> expr
     | Q.Apply (label, bypass, f_args) ->

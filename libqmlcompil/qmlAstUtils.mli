@@ -36,7 +36,7 @@
    these directives.
 
    {[
-   type structural_ignored_directives = [ `tracker | `coerce | `expanded_bypass, etc..]
+   type structural_ignored_directives = [ `tracker | `coerce, etc..]
    let util ... =
      let rec aux ... = function
       | Directive (#structural_ignored_directive, e, ...) -> aux e
@@ -288,31 +288,6 @@ sig
 
   val pat_fold  : ('a -> Annot.t -> QmlAst.ident -> 'a) -> QmlAst.pat -> 'a -> 'a
   val expr_fold : ('a -> Annot.t -> QmlAst.ident -> 'a) -> QmlAst.expr -> 'a -> 'a
-end
-
-module Bypass:
-sig
-
-  (**
-     used to introspect `expanded_bypass. return the node Bypass or `restricted bypass and the skey.
-
-     The [expr] passed to this function should be the one directly protected by the expanded_bypass
-     directive.
-
-     {[
-      | Directive (`expanded_bypass, _, Some expr, _) -> unexpand expr
-     ]}
-
-     @raise Invalid_argument if the expr is not a valid bypass
-  *)
-  val unexpand : QmlAst.expr -> BslKey.t * QmlAst.expr
-
-  (**
-     A private type for cons/decons
-  *)
-  type t
-  val unexpand_t : QmlAst.expr -> t * (BslKey.t * QmlAst.expr)
-  val expand_t : t -> QmlAst.expr -> QmlAst.expr
 end
 
 (**

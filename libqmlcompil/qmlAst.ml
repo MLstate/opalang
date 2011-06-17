@@ -914,14 +914,6 @@ type qml_directive = [
   | `typeof     (** -> WIP, don't use (yet) *)
 
   | `expand  of Big_int.big_int option     (**Marker for macro (function) that are macro-expanded, the integer represents the number of unrolling the compiler is authorised to do, it must do at least one *)
-  | `expanded_bypass (*of string * int (* useful to check if a bypass is already expanded *)*)
-      (**Specify that a bypass has been expanded so as to make it a complete application and should therefore
-         not be expanded (again). The [expr option] should be [Some e] where [e] should have the form
-         [fun x1 x2 x3 ... xn -> %%bypass%% x1 x2 x3 ... xn].
-         Produced by QmlBypassHoisting.
-         Produced and handled by CPS transformation.
-         Handled by back-ends if no --cps mode
-      *)
   | `restricted_bypass of string
       (** this directive should be produced by any pass inserting some restricted bypass,
           with a static string identifier to identify the pass.

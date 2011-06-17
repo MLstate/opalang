@@ -365,7 +365,6 @@ struct
         List.iter (fun e -> ignore (infer bp env effect level e)) el;
         next_var level
     | Q.Directive (_, ( `restricted_bypass _
-                      | `expanded_bypass
                       | #Q.type_directive
                       | `recval
                       | #Q.slicer_directive

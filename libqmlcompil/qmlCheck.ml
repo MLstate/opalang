@@ -115,14 +115,6 @@ struct
     WarningClass.create ~parent:cond_bypass ~name:"applied"
       ~doc:"Total application of bypasses"
       ~err:true ~enable:true ()
-  let cond_bypass_expanded =
-    WarningClass.create ~parent:cond_bypass ~name:"expanded"
-      ~doc:"Well-formedness of directives @expanded_bypass (rejecting sole bypasses)"
-      ~err:true ~enable:true ()
-  let cond_bypass_well_formed =
-    WarningClass.create ~parent:cond_bypass ~name:"well-formed"
-      ~doc:"Well-formedness of directives @expanded_bypass"
-      ~err:true ~enable:true ()
 
   let id = PassHandler.define_cond cond_bypass
 
@@ -199,118 +191,6 @@ struct
       (fun env ->
         let bypass_typer, code = extract env in
         bypass_applied bypass_typer code)
-
-
-  let expanded_id = PassHandler.define_cond cond_bypass_expanded
-  let well_formed_id = PassHandler.define_cond cond_bypass_well_formed
-  (* Implementation
-     If all is ok, return unit, else call some [scheck_fail]
-  *)
-  let bypass_expanded_factory ~allow_not_expanded bypass_typer code =
-    let cond_id = if allow_not_expanded then well_formed_id else expanded_id in
-    let is_well_formed code_elt traverse expr =
-      let (!!) fmt = QmlError.scheck_fail cond_id (context_code_elt_expr code_elt expr) fmt in
-      match expr with
-      | Q.Directive (_, `expanded_bypass, [expanded], _) -> (
-          let rec aux_expanded expanded =
-            match expanded with
-            | Q.Lambda (_, fun_params, body) -> (
-                let fun_arity = List.length fun_params in
-                match body with
-                | Q.Apply (_, bypass, app_args) -> (
-                    let rec aux_apply bypass =
-                      match bypass with
-                      | Q.Directive (_, `may_cps, [bypass], _) -> aux_apply bypass
-                      | Q.Directive (_, `restricted_bypass _, [ Q.Bypass (_, skey) ],_)
-                      | Q.Bypass (_, skey) ->
-                          let ty = bypass_typer skey in
-                          let bypass_arity =
-                            match ty with
-                            | Some (QmlAst.TypeArrow (args, ty)) -> QmlTypesUtils.TypeArrow.nary_arity args ty
-                            | Some _ -> 0 (* should not happen *)
-                            | None -> fun_arity
-                                (* type is unknown so simply check the form
-                                   (by assuming the bypass has the same arity than the lambda term) *)
-                          in
-                          let args_number = List.length app_args in
-                          let iter2 expr ident =
-                            match expr with
-                            | Q.Ident (_, id) ->
-                                if not (Ident.equal id ident) then
-                                  !! "Incorrect expansion : var %s@\n" (Ident.stident id)
-                            | _ -> !! "Bypass not applied to an identifier but to %a@\n" QmlPrint.pp#expr expr
-                          in
-                          let _ =
-                            try
-                              List.iter2 iter2 app_args fun_params
-                            with
-                            | Invalid_argument _ -> !! "Incorrect expansion: free vars\n"
-                          in
-                          (* The lambda term takes [fun_arity] arguments.
-                             The bypass takes also [fun_arity] arguments and
-                             is applied to [args_number] arguments which must be
-                             equal to [fun_arity] *)
-                          if not (args_number = fun_arity && fun_arity = bypass_arity) then
-                            let ty = Option.default (QmlAst.TypeConst QmlAst.TyNull) ty in
-                            !! (
-                              "The expansion of the bypass does not correspond to the arity@\n"^^
-                                "returned by the bsl bypass typer@\n"^^
-                                "bsl typer type : %a@\nbsl arity : %d@\n"^^
-                                "and there the eta-expension has arity %d" )
-                              QmlPrint.pp#ty ty bypass_arity args_number
-
-                      | _ -> !! "Incorrect application"
-                    in aux_apply bypass
-                  )
-                | _ -> !! "Expanded bypass with wrong application"
-              )
-            | Q.Directive (_, `may_cps, [bypass], _) -> aux_expanded bypass
-            | Q.Directive (_, `restricted_bypass _, [ Q.Bypass (_, skey) ], _)
-            | Q.Bypass (_, skey) -> (* a bypass of arity 0 (so is not applied) *)
-                let ty = bypass_typer skey in
-                let bypass_arity =
-                  match ty with
-                  | Some (QmlAst.TypeArrow (args, ty)) -> QmlTypesUtils.TypeArrow.nary_arity args ty
-                  | Some _ -> 0 (* a value *)
-                  | None -> 0 (* ! *)
-                in
-                if not (bypass_arity = 0) then
-                  let ty = Option.default (QmlAst.TypeConst QmlAst.TyNull) ty in
-                  !! (
-                    "The expansion of the bypass does not correspond to the arity@\n"^^
-                      "returned by the bsl bypass typer@\n"^^
-                      "bsl typer type : %a@\nbsl arity : %d@\n"^^
-                      "and there the eta-expension has arity %d" )
-                    QmlPrint.pp#ty ty bypass_arity 0
-            | _ -> !! "This bypass is not well expanded"
-          in aux_expanded expanded
-        )
-      | Q.Directive (_, `may_cps, _, _)
-      | Q.Directive (_, `restricted_bypass _, _, _)
-      | Q.Bypass _ -> if not allow_not_expanded then !! "This bypass is not expanded"
-      | _ -> traverse expr
-    in
-    List.iter (
-      fun code_elt ->
-        QmlAstWalk.Top.iter_expr (QmlAstWalk.Expr.traverse_iter (is_well_formed code_elt)) code_elt
-    )
-      code
-
-  let bypass_expanded bypass_typer code = bypass_expanded_factory ~allow_not_expanded:false bypass_typer code
-  let bypass_well_formed bypass_typer code = bypass_expanded_factory ~allow_not_expanded:true bypass_typer code
-
-  (* link to passHandler *)
-  let expanded extract =
-    PassHandler.make_condition expanded_id
-      (fun env ->
-        let bypass_typer, code = extract env in
-        bypass_expanded bypass_typer code)
-
-  let well_formed extract =
-    PassHandler.make_condition well_formed_id
-      (fun env ->
-        let bypass_typer, code = extract env in
-        bypass_well_formed bypass_typer code)
 end
 
 (* c *)

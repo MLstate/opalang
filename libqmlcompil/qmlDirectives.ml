@@ -268,7 +268,6 @@ let ty directive exprs tys =
   (* === *)
   (* Expansion *)
   | `expand _ -> Ty.id ()
-  | `expanded_bypass -> Ty.id ()
 
   (* === *)
   (* Closures *)

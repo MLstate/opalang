@@ -124,33 +124,6 @@ sig
   *)
   val applied : ('env, (QmlTypes.bypass_typer * QmlAst.code)) checker
   val applied_id : PassHandler.cond_id
-
-  (** {6 Expanded} *)
-
-  (**
-     Checks that every bypass is correctly protected with the directive
-     [`expanded_bypass] and that the expression inside has the correct
-     form, which is :
-     {[fun x1 x2 ... xn -> %%bypass%% x1 x2 ... xn]} for a bypass of arity [n]
-
-     If the type is unknown (the bypass typer returns [None]),
-     simply checks the form.
-     - Condition name : ["cond.bypass.expanded"]
-     - Warning class : [cond_bypass_expanded]
-  *)
-  val expanded : ('env, (QmlTypes.bypass_typer * QmlAst.code)) checker
-  val expanded_id : PassHandler.cond_id
-
-  (**
-     Perform the same check as 'expanded' on bypass which are expanded,
-     but do not crash if some bypass are not yet expanded.
-     (i.e. not protected with [`expanded_bypass] directive).
-
-     - Condition name : ["cond.bypass.well-formed"]
-     - Warning class : [cond_bypass_well_formed]
-  *)
-  val well_formed : ('env, (QmlTypes.bypass_typer * QmlAst.code)) checker
-  val well_formed_id : PassHandler.cond_id
 end
 
 (** General checks on the code *)

@@ -118,7 +118,6 @@ let directive (d:QmlAst.qml_directive) =
   | `spawn -> "@spawn"
   | `wait -> "@wait"
   | `callcc -> "@callcc"
-  | `expanded_bypass -> "@expanded_bypass"
   | `restricted_bypass pass -> "@restricted_bypass["^ pass ^ "]"
   | `fail -> "@fail"
   | `create_lazy_record -> "@create_lazy_record"

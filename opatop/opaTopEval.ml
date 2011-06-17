@@ -59,7 +59,6 @@ type ('a, 'b) ignored_directive = [
 | QmlAst.type_directive
 | `asynchronous_toplevel
 | `atomic
-| `expanded_bypass
 | `fun_action of 'a
 | `nonexpansive
 | `spawn

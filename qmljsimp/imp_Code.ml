@@ -130,10 +130,6 @@ let compile_expr_to_expr env private_env expr =
     | Q.Bypass (_, key) ->
         private_env, compile_bypass env key
 
-    | Q.Directive (_, `expanded_bypass, [expr], _) ->
-        let key, _ = QmlAstUtils.Bypass.unexpand expr in
-        private_env, compile_bypass env key
-
     | Q.Lambda _ ->
         unimplemented "internal lambda"
 

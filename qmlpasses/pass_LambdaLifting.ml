@@ -214,7 +214,6 @@ let pp_ident_set f set =
 
 type 'a ignored_directive =
     [ Q.type_directive
-    | `expanded_bypass
     | `partial_apply of int option
     | `lifted_lambda of 'a
     | `full_apply of int
@@ -297,11 +296,6 @@ let name_anonymous_lambda_expr ~options annotmap (toplevel_name,e) =
     | `untyped ->
         let rec aux tra is_anonymous annotmap e =
           match e with
-          | Q.Directive (_, `expanded_bypass,
-                              [(Q.Bypass _
-                               |Q.Directive (_, `restricted_bypass _, _, _))],_) -> annotmap, e
-              (* not creating a letin when the expanded bypass is not a function *)
-          | Q.Directive (_, `expanded_bypass, _, _)
           | Q.Lambda _ when is_anonymous ->
               let fun_ident = Ident.refreshf ~map:"anon_fun_%s" toplevel_name in
               let annotmap, e = aux tra false annotmap e in
