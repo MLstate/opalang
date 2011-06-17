@@ -15,9 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
+
+/**
     @author David Rajchenbach-Teller
-**/
+*/
 
 import stdlib.core.{map, date}
 
@@ -47,7 +48,7 @@ import stdlib.core.{map, date}
  *
  * {1 What if I need more?}
  *
- * Module {!Cache.Negociator} and function {!Cache.make} are designed to give you fine control upon the cache. Use these to
+ * Module {!Cache.Negotiator} and function {!Cache.make} are designed to give you fine control upon the cache. Use these to
  * set a maximal size for the cache, or to determine how long results should be kept in the cache, or how they should be
  * stored, or how new results should be added to the cache, or to set the concurrency level, or if you wish to invalidate
  * cache results manually, or to add results to the cache manually.
@@ -57,12 +58,16 @@ import stdlib.core.{map, date}
  * @stability Experimental
  */
 
+/**
+ * {1 Types defined in this module}
+ */
+
 type Cache.options('key, 'value, 'order) =
 {
    size_limit: option(int)                                         /**If set, determine the maximal number of items to store in the cache. Otherwise, no limit.*/
    age_limit:  option(Duration.duration)                           /**If set, items older than a given duration are discarded from the cache.*/
-   storage:    {default}                                           /**Store to local RAM, using default strategy to differenciate ['key]*/
-           /   {ordering: order('key, 'order)}                     /**Store to local RAM, using custom strategy to differenciate ['key] */
+   storage:    {default}                                           /**Store to local RAM, using default strategy to differentiate ['key]*/
+           /   {ordering: order('key, 'order)}                     /**Store to local RAM, using custom strategy to differentiate ['key] */
    strategy:   {minimize_overhead}                                 /**Optimistic concurrency: optimize assuming little concurrency.
                                                                       If several requests are placed to the cache concurrently, some results will not be stored
                                                                       into the cache.
@@ -110,7 +115,7 @@ type Cache.async('a, 'b, 'signature) =
  * a given information was downloaded. Whenever the user asks the client to access the information
  * from the server, the client sends to the server the latest modification date, and the server
  * may decide to either return the complete data or to reply that the data hasn't changed in the
- * meantime. This may be implemented as a [Cache.negociator(url, WebClient.result(string), Date.date)],
+ * meantime. This may be implemented as a [Cache.negotiator(url, WebClient.result(string), Date.date)],
  * where the [Date.date] is the last date at which the information was downloaded.
  *
  * Example: accessing a resource on a distant web server (with etags)
@@ -120,26 +125,39 @@ type Cache.async('a, 'b, 'signature) =
  * the user asks the client to access the information from the server, the client sends the signature
  * to the server, and the server may decide to either return the complete data (e.g. if the signature
  * doesn't fit) or to reply that the data hasn't changed in the meantime. This may be implemented as a
- * [Cache.negociator(url, WebClient.result(string), string)].
+ * [Cache.negotiator(url, WebClient.result(string), string)].
  *
  * Other examples include accessing a database, in which case the signature can be a revision number.
  */
-@abstract type Cache.negociator('a, 'b, 'signature, 'diff) = ({
+@abstract type Cache.negotiator('a, 'b, 'signature, 'diff) = ({
     get_always:        'a -> ('signature, 'b)                 //Note: typically, located on the server
     get_diff:          'signature, 'a -> ('signature, 'diff)  //Note: typically, located on the server
     get_many:          list((option('signature), 'a)) -> list(('signature, 'a, {init:'b} / {diff: 'diff}))//Note: typically, located on the server
     decode_diff:       ('b,'diff) -> 'b                       //Note: typically, located on the client
 })
 
+// @deprecated({use = "Cache.negotiator"})
+/**
+ * {emp DEPRECATED: was a typo, replaced by} {!Cache.negotiator}
+ */
+@abstract type Cache.negociator('a, 'b, 'signature, 'diff) = Cache.negotiator('a, 'b, 'signature, 'diff)
+
+
+/**
+ * {1 Interface}
+ */
+
 @both Cache =
 {{
 
-     Negociator =
+     @deprecated({use = "Cache.Negotiator"}) Negociator = Negotiator
+
+     Negotiator =
      {{
         /**
-         * Produce a 'dumb' negociator, that always negociates to perform the computation
+         * Produce a 'dumb' negotiator, that always negotiates to perform the computation
          */
-        always_necessary(f: 'a -> 'b): Cache.negociator('a, 'b, void, 'b) =
+        always_necessary(f: 'a -> 'b): Cache.negotiator('a, 'b, void, 'b) =
           {
              get_always(x) = (void, f(x))
              get_diff(_,x) = (void, f(x))
@@ -154,7 +172,7 @@ type Cache.async('a, 'b, 'signature) =
          * Deprecated
          */
         make(~{get_always:        'a -> ('signature, 'b)
-               get_maybe:         'signature, 'a -> ('signature, option('b))}): Cache.negociator('a, 'b, 'signature, option('b)) =
+               get_maybe:         'signature, 'a -> ('signature, option('b))}): Cache.negotiator('a, 'b, 'signature, option('b)) =
         (
              get_many = make_default_get_many(get_always, get_maybe)
              decode_diff((x,diff)) = match diff with
@@ -165,10 +183,10 @@ type Cache.async('a, 'b, 'signature) =
         )
 
         /**
-         * Produce a negociator interested only in signatures, not in decoding replies
+         * Produce a negotiator interested only in signatures, not in decoding replies
          */
         make_sig(~{get_always:        'a -> ('signature, 'b)
-                   get_diff:          'signature, 'a -> ('signature, option('b))}): Cache.negociator('a, 'b, 'signature, option('b)) =
+                   get_diff:          'signature, 'a -> ('signature, option('b))}): Cache.negotiator('a, 'b, 'signature, option('b)) =
              get_many = make_default_get_many(get_always, get_diff)
              decode_diff((x,diff)) = match diff with
                                         | ~{some} -> some
@@ -179,7 +197,7 @@ type Cache.async('a, 'b, 'signature) =
         make_no_diff(~{get_always: 'a -> ('signature, 'b)
                       get_maybe:  'signature, 'a -> ('signature, option('b))
                       get_many: list((option('signature), 'a)) -> list(('signature, 'a, {init:'b} / {diff: 'diff}))
-                     }) : Cache.negociator('a, 'b, 'signature, option('b)) =
+                     }) : Cache.negotiator('a, 'b, 'signature, option('b)) =
              decode_diff((x,diff)) = match diff with
                                         | ~{some} -> some
                                         | {none} -> x
@@ -204,7 +222,7 @@ type Cache.async('a, 'b, 'signature) =
       * or age limit, using the default strategy.
       */
      simple(f: 'a -> 'b): 'a -> 'b =
-        make(Negociator.always_necessary(f), default_options).get
+        make(Negotiator.always_necessary(f), default_options).get
 
      /**
       * A default set of options. You may customize it for finer control on your caches.
@@ -221,7 +239,7 @@ type Cache.async('a, 'b, 'signature) =
      /**
       * Create a cache for a function
       */
-     make(get_manager:Cache.negociator('a/*string*/, 'b/*float*/, 'signature/*void*/, 'diff/*dom*/),
+     make(get_manager:Cache.negotiator('a/*string*/, 'b/*float*/, 'signature/*void*/, 'diff/*dom*/),
           options:    Cache.options('a/*string*/, 'b/*float*/, 'order)): Cache.sync('a/*string*/, 'b/*float*/, 'signature/*void*/) =
      (
         Storage : Map('a/*string*/, _) = match options.storage with
@@ -411,7 +429,7 @@ type Cache.async('a, 'b, 'signature) =
                      lru = touch_lr(lru, index, generation, key)
                      do setter(~{storage lru generation size})                     //     Update cache (possibly erasing result of competing threads)  O(1)
                      value                                                         //     Return value
-                  else                                                             // otherwise, data may be obsolete, we need to renegociate
+                  else                                                             // otherwise, data may be obsolete, we need to renegotiate
                      //do jlog("[do_get] data is old, need to check whether it's obsolete")
                      ~{storage lru generation size} = Option.get(invalidate_in(key, content))
                                                                                    //     Invalidate value, decreasing size                           O(ln(n))
@@ -447,18 +465,18 @@ type Cache.async('a, 'b, 'signature) =
                        storage = Storage.add(key, stored, storage)
                        lru = touch_lr(lru, index, generation, key)
                        (acc_to_update, ~{storage lru generation size})
-                    else                                                             // otherwise, data may be obsolete, we need to renegociate
+                    else                                                             // otherwise, data may be obsolete, we need to renegotiate
                        //do jlog("[do_get] data is old, need to check whether it's obsolete")
                        content = Option.get(invalidate_in(key, content))
                                                                                      //     Invalidate value, decreasing size                            O(ln(n))
-                       ([ ({renegociate=signature previous=value}, key) | acc_to_update ], content)      //     Ask for renegociation
+                       ([ ({renegotiate=signature previous=value}, key) | acc_to_update ], content)      //     Ask for renegotiation
               |  {none} ->
-                       ([ ({none}, key) | acc_to_update ], content)                  //     Ask for initial negociation
+                       ([ ({none}, key) | acc_to_update ], content)                  //     Ask for initial negotiation
            ), keys, ([], content))
            instructions_to_transmit = List.map(((detail, key) ->
                                     match detail with
                                           | {none} -> ({none}, key)
-                                          | {renegociate=signature previous=_} -> ({some = signature}, key)
+                                          | {renegotiate=signature previous=_} -> ({some = signature}, key)
                                     ), to_update)//TODO: Should be an array
            updates = get_manager.get_many(instructions_to_transmit)
            decoder = get_manager.decode_diff
@@ -469,8 +487,8 @@ type Cache.async('a, 'b, 'signature) =
                | ~{diff} ->
                   previous_value =
                     match instruction.f1 with
-                      | {renegociate=_ ~previous} -> previous
-                      | {none} -> error("Internal error in cache: renegociation indicated that previous version was still valid, but there is no previous version")
+                      | {renegotiate=_ ~previous} -> previous
+                      | {none} -> error("Internal error in cache: renegotiation indicated that previous version was still valid, but there is no previous version")
                     end
                   new_value = decoder((previous_value,diff))
                   insert_in(key, new_value, storage, lru, size + 1, generation, signature)
