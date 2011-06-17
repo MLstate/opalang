@@ -35,7 +35,7 @@ type Page.config.access = {
   get_rev : string -> option(Page.stored)
   get_rev_number : string -> int
   rm  : string -> void
-  ls  : -> list(string)
+  ls  : -> list((string,int))
   date : string -> Date.date
   history : string, int, int -> list(Page.stored)
 }
@@ -60,7 +60,7 @@ type Page.manager = {
 /**
  * Type of data stored in database
  */
-@abstract type Page.stored =
+@abstract type Page.stored_content =
   {image : image} /
   {css   : string} /
   {source : string mime : string} /
@@ -69,20 +69,26 @@ type Page.manager = {
   {hcontent : string
    bcontent : string}
 
+@abstract type Page.stored =
+  {author : string
+   content : Page.stored_content
+   date : Date.date}
+
 /**
  * A record used for give some primitive to the admin GUI unless
  * publish critical primitives.
  */
 @private type Page.access = {
-  save : string, Page.stored -> void
+  save : string, Page.stored_content -> void
   set_rev : string, int -> void
   get : string -> option(Page.stored)
   get_edit : string -> Page.edit
   get_rev_number : string -> int
   remove : string -> void
-  list : -> list(string)
+  list : -> list((string,int))
   date : string -> Date.date
   history_size : string -> int
+  history_list : string -> list((string,Date.date))
   history_edit : string, int -> option(Page.edit)
 }
 
@@ -114,6 +120,7 @@ type Page.manager = {
 
 type Page.Notification.event =
   {connect}
+/ {publish : (string,int)}
 / {open : string}
 / {save : string}
 / {remove : string}
@@ -160,7 +167,7 @@ Page = {{
     href_parser = (parser | "href=\"" url=inside_href_parser "\"" -> url)
     sep = (parser | (!"href=\"" .)+ -> void)
     link_parser = (parser | lst={Rule.parse_list_sep(true, href_parser, sep)} sep  -> lst)
-    Option.switch( stored ->
+    Option.switch( {content=stored author=_ date=_ } ->
       match stored with
       | { ~bcontent; hcontent=_ } -> Parser.try_parse(link_parser, bcontent)
       | _ -> none
@@ -170,7 +177,7 @@ Page = {{
 
   @private
   fetch_dead_links(access) : stringmap(list(string)) = (
-    List.foldl(el, acc ->
+    List.foldl((el,_), acc ->
       do Log.debug("Admin", "Search for dead links in {el}")
       match search_dead_link_for_resource(access, el) with
       | { ~some } -> StringMap.add(el,some, acc)
@@ -292,74 +299,76 @@ Page = {{
         (Notification, Lock)
 
 
-    get(key) = caccess.get_rev(key)
+    access(user) : Page.access    =
+      get(key) : option(Page.stored) = caccess.get_rev(key)
 
-    save(key, page) = caccess.set(key, page)
+      save(key, page : Page.stored_content) : void= caccess.set(key, {author=user content=page date=Date.now()})
 
-    remove(key) = caccess.rm(key)
+      remove(key) = caccess.rm(key)
 
-    date(key) = caccess.date(key)
+      date(key) = caccess.date(key)
 
-    list() = caccess.ls()
+      list() = caccess.ls()
 
-    save_as_template(key, ~{hsource bsource}) =
-      engine = engine({current_url=""})
-      match Template.try_parse_with_conf(template_config, engine, hsource)
-      | ~{failure} -> some(failure)
-      | {success = hcontent} ->
-        match Template.try_parse_with_conf(template_config, engine, bsource)
+      save_as_template(key, ~{hsource bsource}) =
+        engine = engine({current_url=""})
+        match Template.try_parse_with_conf(template_config, engine, hsource)
         | ~{failure} -> some(failure)
-        | {success = bcontent} ->
-          hcontent = Template.to_source(engine, hcontent)
-          do Log.notice("PageDebug", "Saving headers {hcontent}")
-          do save(key, ~{hcontent=hcontent
-                         bcontent=Template.to_source(engine, bcontent)})
-          none
+        | {success = hcontent} ->
+          match Template.try_parse_with_conf(template_config, engine, bsource)
+          | ~{failure} -> some(failure)
+          | {success = bcontent} ->
+            hcontent = Template.to_source(engine, hcontent)
+            do Log.notice("PageDebug", "Saving headers {hcontent}")
+            do save(key, ~{hcontent=hcontent
+                           bcontent=Template.to_source(engine, bcontent)})
+            none
 
-    make_edit(key, stored) = match stored
-      | {image=_} -> {image}
-      | {css=_} as k
-      | {source=_ mime=_} as k -> k
-      | ~{binary mime} ->
-        save(~{mime}) = save(key, ~{binary mime})
-        {binary ~mime ~save}
-      | ~{hcontent bcontent} -> {
-          hsource = hcontent
-          bsource = bcontent
-          save_template = save_as_template(key, _)
-        } : Page.edit
-
-
-    get_edit(key):Page.edit =
-      match caccess.get(key) with
-      | {some=stored} -> make_edit(key, stored)
-      | {none} ->
-        match get_suffix(key)
-        | {some="html"} | {some = "xmlt"}-> {
-            hsource = "<!-- Enter your headers here -->"
-            bsource = "<!-- Enter your body here --> "
+      make_edit(key, {content=stored date=_ author=_} : Page.stored) = match stored
+        | {image=_} -> {image}
+        | {css=_} as k
+        | {source=_ mime=_} as k -> k
+        | ~{binary mime} ->
+          save(~{mime}) = save(key, ~{binary mime})
+          {binary ~mime ~save}
+        | ~{hcontent bcontent} -> {
+            hsource = hcontent
+            bsource = bcontent
             save_template = save_as_template(key, _)
-          }
-        | {some="css"} -> {css = "/* Enter your css here */"}
-        | _ -> {source = "A custom resource" mime="text/plain"}
+          } : Page.edit
 
 
-    history_size(key) = List.length(caccess.history(key, 1, 0))
+      get_edit(key):Page.edit =
+        match caccess.get(key) : option(Page.stored) with
+        | {some=stored} -> make_edit(key, stored)
+        | {none} ->
+          match get_suffix(key)
+          | {some="html"} | {some = "xmlt"}-> {
+              hsource = "<!-- Enter your headers here -->"
+              bsource = "<!-- Enter your body here --> "
+              save_template = save_as_template(key, _)
+            }
+          | {some="css"} -> {css = "/* Enter your css here */"}
+          | _ -> {source = "A custom resource" mime="text/plain"}
 
-    history_edit(key, rev) = match caccess.history(key, rev, 1)
-      | [] -> none
-      | [stored] -> some(make_edit(key, stored))
-      | _ -> do Log.error("Opages", "Unexpected multiple revisions") none
 
-    access : Page.access    =
-      ~{save get get_edit remove list date history_edit history_size
+      history_size(key) = List.length(caccess.history(key, 1, 0))
+
+      history_list(key) = List.map(x -> (x.author,x.date) ,caccess.history(key, 1, 0))
+
+      history_edit(key, rev) = match caccess.history(key, rev, 1)
+        | [] -> none
+        | [stored] -> some(make_edit(key, stored))
+        | _ -> do Log.error("Opages", "Unexpected multiple revisions") none
+
+      ~{save get get_edit remove list date history_edit history_size history_list
         set_rev=caccess.set_rev
         get_rev_number=caccess.get_rev_number
        }
 
     full(user) =
       (Notification, Lock) = Notification_Lock(user)
-      { ~access
+      { access = access(user)
         locker = {
           try=Lock.try
           release=Lock.release
@@ -393,26 +402,33 @@ Page = {{
     /** A translation that allows to use file on dom identifiers. */
     @private file_id = Crypto.Hash.md5
 
+    @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
+      <td onclick={Action.open_file(access, file, published_rev)}>
+        {file_for_xhtml(file)}
+        {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
+        {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
+      </td>
+
     /** Create a file line for table insert. */
-    @private file_line(access:Page.full_access, opened, file) =
+    @private file_line(access:Page.full_access, opened, file, edit_rev, published_rev) =
       class = if opened then "on" else "off"
       <tr class="{class}" id="admin_files_table_{file_id(file)}">
-        <td onclick={Action.open_file(access, file)}>
-          {file_for_xhtml(file)}
-        </td>
+        {file_line_content(access, file, edit_rev, published_rev)}
       </tr>
 
     /** Insert if necessary a file line into files table. */
-    @private file_line_insert(access, opened, file) =
+    @private file_line_insert(access, opened, file, edit_rev, published_rev) =
       line = Dom.select_id("admin_files_table_{file_id(file)}")
       if Dom.is_empty(line) then
         /* Insert a line on files table. */
         table = Dom.select_id("admin_files_table")
-        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file)))
+        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file, edit_rev, published_rev)))
         void
-      else Dom.add_class(line, if opened then "on" else "off")
-
-    /**
+      else
+        do Dom.add_class(line, if opened then "on" else "off")
+        _ = Dom.put_inside(line,Dom.of_xhtml(file_line_content(access, file, edit_rev, published_rev)))
+        void
+    /** 
      * Build a buffer and insert it on dom node with identifier
      * [id]. The buffer can be specialized according to file
      * extension.
@@ -421,16 +437,77 @@ Page = {{
      */
     @client build_buffer(access, file, id) =
       do access.notify.send({open = file})
+      history_id = "{id}_history"
+      select_id = "{history_id}_select"
+      update_id = "{history_id}_report"
       error_id = "{id}_error"
+      
       /* Error reporting */
       make_reporting() =
         do Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(<div id={error_id}/>))
         void
+
       reporting(msg:xhtml) =
         ignore(Dom.put_inside(Dom.select_id(error_id), Dom.of_xhtml(msg)))
 
       /* Generate some buttons */
-      make_buttons(action) =
+
+      /* Generate ace buffer */
+      common_ace_init(id_buffer, class, content, mode) =
+        dom = Dom.of_xhtml(<div id={id_buffer} class={class}/>)
+        _ = Dom.put_at_end(Dom.select_id(id), dom)
+        ace = Ace.edit(id_buffer)
+        do Option.iter(x -> ignore(Ace.set_mode(ace, x)), mode)
+        _ = Ace.set_content(ace, content)
+        do Ace.move_cursor(ace, 0, 0)
+        do Ace.read_only(ace, false)
+        (dom, ace)
+
+      /* Generate history selector */
+      rec build_history_selector(rev : option(int)) =
+        get_selected_rev() =
+          Int.of_string(Dom.get_value(Dom.select_id(select_id)))
+        action_history_current(_:Dom.event) = build(none)
+        xhtml =
+          // <div id={history_id} class="opages_history_browser">
+          //   <button onclick={action_history_show}>Show selected revision</button>
+          // </div>
+          <div id={history_id}> Published revision : {access.access.get_rev_number(file)}</div>
+        do access.notify.subscribe(
+             | {event={~save} ~by} ->
+               if save != file then void else
+               build_history_selector(rev)
+             | _ -> void
+           )
+        _ = Dom.remove(#{history_id})
+        _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(xhtml))
+        void
+
+      and make_buttons(rev : option(int),action) =
+        get_selected_rev() =
+            Int.of_string(Dom.get_value(Dom.select_id(select_id)))
+        action_change_rev(_:Dom.event)=
+          build(some(get_selected_rev()))
+        action_set_rev(_:Dom.event) =
+          rev = get_selected_rev()
+          do access.notify.send({publish=(file,rev)})
+          do access.access.set_rev(file, get_selected_rev())
+          build(some(rev))
+        build_select(rev) =
+          hist = access.access.history_list(file)
+          size = List.length(hist)
+          make_option(i : int ,(user,date)  : (string,Date.date)) : xhtml =(
+            i = size - i
+            value = "#{i} {Date.to_formatted_string(Date.debug_printer,date)} by {user}"
+            default(i : int) : xhtml = (<option value="{i}">{value}</option>)
+            selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
+            match rev
+            | {none} ->    if i == size then selected(i) else default(i)
+            | {some=rev} ->if i == rev  then selected(i) else default(i))
+
+          <select id={select_id} onchange={action_change_rev}>
+            {List.mapi(make_option,hist)}
+          </select>
         buttons =
           common = <>
             <button type="button"
@@ -455,6 +532,10 @@ Page = {{
                      do action.read_only(false)
                      do Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
                      void
+                   | {event={publish=(mfile,rev)} ~by } -> if mfile != file then void else
+                     build_history_selector(some(rev))
+                   | {event={~save} by=_} -> if save != file then void else
+                     build_history_selector(rev)
                    | _ -> void
                  )
               make_lock_button(lock, x) =
@@ -489,92 +570,48 @@ Page = {{
                 do action.read_only(true)
                 void
             <>
-              {match access.locker.check(file)
-               | {success = _} ->
-                 <button type="button"
-                      id={save_button_id}
-                      onclick={_ -> action.save()}>Save</button>
-               | ~{failure} ->
-                 by = match failure | {locked = {~by ...}} -> by | _ -> "501??!!??"
-                 <button type="button"
-                      disabled="disabled"
-                      id={save_button_id}
-                      onclick={_ -> action.save()}>Save (locked by {by})</button>
-              }
-              {common}
-              {lock_button}
-              <button type="button"
-                      onclick={action_force_release}>ForceRelease</button>
+              <div>Current Revision : {build_select(rev)}</div>
+              <div class="button_group" style="display:inline-block; margin-right:40px" >
+                {match access.locker.check(file)
+                 | {success = _} ->
+                   <button type="button"
+                           id={save_button_id}
+                           onclick={_ -> action.save()}>Save</button>
+                 | ~{failure} ->
+                   by = match failure | {locked = {~by ...}} -> by | _ -> "501??!!??"
+                   <button type="button"
+                     disabled="disabled"
+                     id={save_button_id}
+                     onclick={_ -> action.save()}>Save (locked by {by})</button>
+                }
+                <button type="button" onclick={action_change_rev}> Discard change </button>
+                <button type="button"
+                        onclick={action_set_rev}>Publish</button>
+              </div>
+              <div class="button_group" style="display:inline-block; margin-right:40px">
+                {lock_button}
+                <button type="button"
+                        onclick={action_force_release}>ForceRelease</button>
+              </div>
+              <div class="button_group" style="display:inline-block; margin-right:40px">
+                {common}
+              </div>
             </>
           | {none} -> common
         _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(buttons))
         void
 
-      /* Generate ace buffer */
-      common_ace_init(id_buffer, class, content, mode) =
-        dom = Dom.of_xhtml(<div id={id_buffer} class={class}/>)
-        _ = Dom.put_at_end(Dom.select_id(id), dom)
-        ace = Ace.edit(id_buffer)
-        do Option.iter(x -> ignore(Ace.set_mode(ace, x)), mode)
-        _ = Ace.set_content(ace, content)
-        do Ace.move_cursor(ace, 0, 0)
-        do Ace.read_only(ace, false)
-        (dom, ace)
 
-      /* Generate history selector */
-      rec build_history_selector(rev) =
-        history_id = "{id}_history"
-        select_id = "{history_id}_select"
-        update_id = "{history_id}_report"
-        get_selected_rev() =
-          Int.of_string(Dom.get_value(Dom.select_id(select_id)))
-        action_history_show(_:Dom.event) =
-          rev = some(get_selected_rev())
-          do build(rev)
-          void
-        action_history_current(_:Dom.event) = build(none)
-        action_set_rev(_:Dom.event) = access.access.set_rev(file, get_selected_rev())
-        build_select() =
-          size = access.access.history_size(file)
-          make_option =
-            default(i) = <option value="{i}">{i}</option>
-            selected(i) = <option value="{i}" selected="selected">{i}</option>
-            match rev
-            | {none} -> i -> if i == size then selected(i) else default(i)
-            | {some=rev} -> i -> if i == rev then selected(i) else default(i)
-          <select id={select_id}>{
-            for((1, []),
-                ((i, acc) -> (i+1, make_option(i) +> acc)),
-                ((i, _) -> i <= size)).f2
-          }</select>
-        xhtml =
-          <div id={history_id} class="opages_history_browser">
-            <span id={update_id}></span><span>Current revision : {access.access.get_rev_number(file)}</span>
-            <button onclick={action_history_current}>Fetch</button>
-            <button onclick={action_history_show}>Show selected revision</button>
-            <button onclick={action_set_rev}>Set public page as selected revision</button>
-            {build_select()}
-          </div>
-        do access.notify.subscribe(
-             | {event={~save} ~by} -> if save != file then void else
-               _ = Dom.put_replace(Dom.select_id(update_id),
-                     Dom.of_xhtml(<>Not up to date</>))
-               void
-             | _ -> void
-           )
-        _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(xhtml))
-        void
-
-      and build_buffers(rev) =
+      and build_buffers(rev : option(int)) =
+        do jlog("revision #{rev}")
         edit = match rev
           | {none} -> access.access.get_edit(file)
           | {some=rev} -> Option.get(access.access.history_edit(file, rev))
-        make_buttons = match rev | {some=_} -> _ -> void | _ -> make_buttons
         match edit with
         | {image} ->
           dom = Dom.of_xhtml(<img src="{file}"/>)
           _ = Dom.put_at_end(Dom.select_id(id), dom)
-          make_buttons(none)
+          make_buttons(rev,none)
         | {binary ~mime ~save} ->
           mime_id = "mime_{id}"
           x = <>Uneditable binary file, Mimetype
@@ -584,7 +621,7 @@ Page = {{
             do save({mime = Dom.get_value(Dom.select_id(mime_id))})
             do access.notify.send({save = file})
             void
-          make_buttons(some({
+          make_buttons(rev,some({
               ~save
               read_only(_) = void
             }))
@@ -597,7 +634,7 @@ Page = {{
           get_mime() =
             x = Dom.get_value(Dom.select_id(id_mime))
             x
-          do make_buttons(some({
+          do make_buttons(rev,some({
                save() =
                  do access.access.save(file, {source=Ace.get_content(ace) mime=get_mime()})
                  do access.notify.send({save = file})
@@ -611,7 +648,7 @@ Page = {{
           /* Css editor is just a simple ace editor */
           id_css = "{id}_css"
           (_, ace) = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
-          make_buttons(some({
+          make_buttons(rev,some({
               save() =
                 do access.access.save(file, {css=Ace.get_content(ace)})
                 do access.notify.send({save = file})
@@ -629,7 +666,7 @@ Page = {{
           (_, ace_body) = common_ace_init(body_id, ["admin_editor_html_body"],
                                           bsource, some("html"))
           /* Buffer buttons */
-          make_buttons(
+          make_buttons(rev,
             some({
               save() =
                 fail = save_template({
@@ -650,7 +687,7 @@ Page = {{
             })
           )
 
-        and build(rev) =
+        and build(rev : option(int)) =
           do Dom.remove_content(Dom.select_id(id))
           /* Create view */
           do make_reporting()
@@ -698,9 +735,9 @@ Page = {{
       /**
        * Open file
        */
-      open_file(access:Page.full_access, file) : FunAction.t = _event ->
+      open_file(access:Page.full_access, file,pub) : FunAction.t = _event ->
         do all_off()
-        do file_line_insert(access, true, file)
+        do file_line_insert(access, true, file, none, pub)
         buf = Dom.select_id("admin_buffer_{file_id(file)}")
         if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
@@ -715,8 +752,8 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
-        do file_line_insert(access, true, file)
-        open_file(access, file)(event)
+        do file_line_insert(access, true, file, none, none)
+        open_file(access, file,none)(event)
 
       /**
        * Remove a file
@@ -770,7 +807,12 @@ Page = {{
     @client @private hack(access:Page.full_access)(_:Dom.event) =
       d = Dom.select_id("admin_files_table")
       page_list = List.unique_list_of(access.access.list())
-      List.iter(file -> file_line_insert(access, false, file), page_list)
+      do List.iter((file,pub) -> file_line_insert(access, false, file, none, (if pub==0 then none else some(pub))), page_list)
+      access.notify.subscribe(
+             | {event={publish=(file,rev)} ~by} ->
+               file_line_insert(access, false, file, none,some(rev))
+             | _ -> void
+           )
 
     /**
      * Build the xhtml administration interface.
@@ -818,7 +860,7 @@ Page = {{
           mime = if result.mime=="" then "application/octet-some" else result.mime
           do Log.notice("PageUploader", "Uploading of {result.filename} ({mime}) was done")
           do access.access.save(result.filename, {~binary ~mime})
-          do Action.open_file(access, result.filename)(Dom.Event.default_event)
+          do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
           void
       /* Build admin xhtml body page */
       <div id="admin_files">
@@ -837,6 +879,7 @@ Page = {{
               | ~{release} -> "{by} release {release}"
               | ~{remove} -> "{by} remove {remove}"
               | ~{talk} -> "{by} says {talk}"
+              | ~{publish} -> "{by} publish {publish.f1} rev {publish.f2}"
             xhtml = <div>{message}</div>
             dom = Dom.select_id("admin_notifications_box")
             _ = Dom.put_at_end(dom, Dom.of_xhtml(xhtml))
@@ -876,7 +919,7 @@ Page = {{
   @private build_resource(engine, stored, modified_on) =
     add_web_cache(r) =
       Option.switch(modified_on -> Resource.cache_control(r, ~{modified_on}), r, modified_on)
-    match stored
+    match stored.content
     | ~{image}             -> {resource = add_web_cache(Resource.image(image))}
     | ~{css}               -> {resource = add_web_cache(Resource.build_css(css))}
     | ~{source mime}       -> {resource = add_web_cache(Resource.source(source, mime))}
@@ -897,11 +940,11 @@ Page = {{
    */
   make(config:Page.config('a, 'b)) : Page.manager =
     srvacc = ServerAccess(config)
-    access = srvacc.access
+    access = srvacc.access("server")
     admin(url, user) =
       AdminGui.build(srvacc.full(user), url)
     source(url) = Option.bind(
-      (page:Page.stored -> match page
+      (page:Page.stored -> match page.content
         | ~{css} -> some(css)
         | ~{source ...} -> some(source)
         | ~{bcontent ...} -> some(bcontent)
@@ -933,5 +976,5 @@ Page = {{
                        {success}, [])
 
   empty: Page.stored =
-    { source = "" mime = "text/plain" }
+    {author="server" content={source = "" mime = "text/plain" } date=Date.now()}
 }}
