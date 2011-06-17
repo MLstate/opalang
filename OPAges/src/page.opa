@@ -2,6 +2,7 @@ package opages
 import opace
 import stdlib.crypto
 import stdlib.web.template
+import stdlib.upload
 /**
  * {1 About this module}
  * This module provides a function for build an xhtml administration
