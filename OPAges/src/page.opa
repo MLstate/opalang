@@ -155,32 +155,6 @@ Page = {{
   @private get_preview() =
     UserContext.execute(identity, preview_context)
 
-  @private init_preview(id) =
-    iframe_id = "{id}_iframe_preview"
-    close_id = "{id}_close_preview"
-    frame_style =
-      [ {background=
-          {url=none position=none repeat=none
-           color=some(Color.white) attached=none}},
-        {border=(
-            {all},
-            {style=none color=none width=some({size={px=0}})}
-          )},
-        {position={fixed}}, {z_index=some(2000)},
-        {width={percent=(100.)}},
-        {height={percent=(100.)}},
-        {top={px=0}}, {left={px=0}} ]
-    do Dom.set_style(#{iframe_id}, frame_style)
-    close_style =
-      [ {background=
-          {url=none position=none repeat=none
-           color=some(Color.white) attached=none}},
-        {position={fixed}}, {z_index=some(2001)},
-        {height={px=25}},
-        {top={px=0}}, {right={px=5}}, {opacity=0.5} ]
-    do Dom.set_style(#{close_id}, close_style)
-    void
-
   /**
    * {2 Privates utils}
    */
@@ -766,13 +740,7 @@ Page = {{
                    close() =
                      do Dom.remove(#{preview_id})
                      void
-                   content =
-                     <div id="{preview_id}"
-                          onready={_->init_preview(id)}>
-                       <a id="{close_id}" onclick={_->close()}>Close preview</a>
-                       <iframe id="{iframe_id}" frameBorder="0" src="{src}"></iframe>
-                     </div>
-                   do Dom.transform([#{id} +<- content])
+                   _ = Client.winopen(src, {_blank},[], false)
                    void
                  | {some=fail} ->
                    reporting(<>{"{fail}"}</>)
