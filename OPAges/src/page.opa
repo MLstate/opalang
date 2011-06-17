@@ -1,5 +1,7 @@
 package opages
 import opace
+import stdlib.crypto
+import stdlib.blob
 
 /**
  * {1 About this module}

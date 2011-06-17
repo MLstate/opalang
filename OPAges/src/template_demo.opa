@@ -16,11 +16,7 @@ package opages
  * @stability experimental
  */
 
-import stdlib.{core, xhtml}
-import stdlib.rpc.core
-import stdlib.web.core
 import stdlib.web.template
-import stdlib.date
 
 type TemplateDemo.tags('a) =
   { random }
@@ -103,4 +99,3 @@ TemplateDemo = {{
   engine = ~{Template.empty with parse export source extract_children}
 
 }}
-

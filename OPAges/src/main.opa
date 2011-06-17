@@ -1,5 +1,5 @@
 import opages
-import components.applicationframe
+import stdlib.components.applicationframe
 
 /**
  * {1 Main}
