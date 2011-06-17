@@ -15,11 +15,30 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * Comparison
+ */
+
 import stdlib.core.map
 
-/** This module implements comparison using runtime type
-  * The implementation separate matching type and value to provide efficient comparison
-  */
+/**
+ * {1 About this module}
+ *
+ * This module implements comparison using runtime type.
+ *
+ * The implementation separate matching type and value to provide efficient
+ * comparison.
+ *
+ * {1 Where should I start ?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 @private
 type input = external
 
@@ -42,14 +61,23 @@ type P.key ={
      args : list(OpaType.ty)
 }
 
+/**
+ * [ty : P.key]
+ * The type for the entry
+ *
+ * [implementation : option(P.implementation('a))]
+ * The implementation if already known (during type comparison calculation
+ * implementation is not known)
+ *
+ * [postenv_i  : option(int)]
+ * If the unknown implementation need to be, it is affected an index in the
+ * env_postmatch_ty, e.g. recursion
+ */
 @private
 type P.entry('a) = {
-     /** the type for the entry */
      ty             : P.key
-     /** the implementation if already known (during type comparison calculation implementation is not known) */
      implementation : option(P.implementation('a))
-     /** if the unknown implementation need to be, it is affected an index in the env_postmatch_ty, e.g. recursivity */
-     postenv_i  : option(int)
+     postenv_i      : option(int)
 }
 
 @private
@@ -58,6 +86,10 @@ type Record.patterns_indexes = external
 type Record.fields_indexes = external
 @private
 type Record.field_index = external
+
+/**
+ * {1 Interface}
+ */
 
 @both_implem // to duplicate caches
 Compare = {{
@@ -129,12 +161,16 @@ order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
 }}
 
 
+/*
+   Return the comparison function for constant type as fast as possible,
+   Remove noop encapsulation of the type
+   Cache top type for comparison (other deeper name are locally cached by the
+   compare_prematch_ty
+   The goal is that the cache contains only type that are compared by compare
+   and nothing else (to minimize time of cache access)
+*/
 @private
 compare_front(ty) =
- /* return the comparison function for constant type as fast as possible,
-    remove noop encapsulation of the type
-    cache top type for comparison (other deeper name are locally cached by the compare_prematch_ty
-    the goal is that the cache contains only type that are compared by compare and nothing else (to minimize time of cache access) */
  match ty
  {TyConst = c} -> match c
    {TyInt}    -> @unsafe_cast(compare_int)
@@ -172,7 +208,7 @@ compare_front(ty) =
     rec record_gen(fields_ty,fields,fields_indexes,preenv) =
      match LowLevelArray.size(fields)
      0 -> (always_equal_postenv,preenv)
-     /* the following optimisation is important and should be extended */
+     /* the following optimization is important and should be extended */
      1 -> // sum case record with no information have already been compared physically
           // so it s not necessary to short cut with always_equal_postenv for void empty field
           (field_cmp,preenv) = aux((fields_ty@0).ty,preenv)
@@ -186,7 +222,7 @@ compare_front(ty) =
                Record.compare_field(field_index0, field_cmp0, postenv, a, b)
            ||| Record.compare_field(field_index1, field_cmp1, postenv, a, b) )
           ,preenv)
-     /* feel free to add more optimised cases */
+     /* feel free to add more optimized cases */
      n ->
       (fields_cmp,preenv) = LowLevelArray.fold_mapi(fields_ty,preenv)(_i,x,preenv->
         aux(x.ty,preenv)
@@ -381,10 +417,10 @@ equal_ty(ty1:OpaType.ty,ty2:OpaType.ty) =
 
 empty_preenv = {next_index=0 entries=[]}
 
-/** key construction */
+/* Key construction */
 key(name,args)= ~{name args}:P.key
 
-/** entry construction */
+/* Entry construction */
 entry(key) = {ty=key implementation=none postenv_i=none} :  P.entry
 
 key_eq(k1:P.key,k2:P.key) = k1.name==k2.name &&  equal_lty(k1.args,k2.args)
@@ -392,7 +428,7 @@ key_eq(k1:P.key,k2:P.key) = k1.name==k2.name &&  equal_lty(k1.args,k2.args)
 
 entry_key_eq(k1:P.key,e2:P.entry) = key_eq(k1,e2.ty)
 
-/** change the implementation associated to a key */
+/** Change the implementation associated to a key */
 update_implementation(key,implem:P.implementation(input),preenv:P.preenv) =
 //  do debug(->"try update_implementation {key}")
   upif(v:P.entry) =
@@ -415,10 +451,10 @@ findl(key,list) =
   [hd|tl] -> if entry_key_eq(key,hd) then some(hd) else findl(key,tl)
   [] -> none
 
-/** get the entry associated to a key */
+/** Get the entry associated to a key */
 get_entry(key,preenv:P.preenv) = open_entry(findl(key,preenv.entries))
 
-/** set the env_postmatch flag of an entry */
+/** Set the env_postmatch flag of an entry */
 need_env_postmatch(key,preenv:P.preenv) =
   match List.index_p(v -> entry_key_eq(key,v) && v.postenv_i!={none},preenv.entries)
   {some=i} -> (preenv,i)
@@ -430,8 +466,11 @@ need_env_postmatch(key,preenv:P.preenv) =
   entries=List.map(upif,preenv.entries)
   ({preenv with ~entries next_index=i+1},i)
 
-/** generate the post env
-    it is an array of comparison implementations, indicated and indexed as specified by the preenv */
+/**
+ * Generate the post env
+ * It is an array of comparison implementations, indicated and indexed as
+ * specified by the preenv
+ */
 postenv_i(preenv:P.preenv):P.postenv =
   n = List.fold(e,acc-> match e.postenv_i {none}->acc {some=_}-> acc+1,preenv.entries,0)
   postenv = LowLevelArray.create(n, @unsafe_cast(0)) // TODO
@@ -460,9 +499,15 @@ Record = {{
   fields_indexes = %% bslValue.Record.fields_indexes %% : llarray(Record.field) -> Record.fields_indexes
   dot_with_field_index =  %% bslValue.Record.dot_with_field_index %% : 'record, Record.field_index -> 'field_content
   patterns_indexes  = %% bslValue.Record.patterns_indexes  %% : llarray(Record.fields_indexes) -> Record.patterns_indexes
-  /** if the returned integer is -2 or -1 it is a comparison otherwise it is the index */
+
+  /*
+   * If the returned integer is -2 or -1 it is a comparison otherwise it is the
+   * index
+   */
   compare_structure = %% bslValue.Record.compare_structure %% : Record.patterns_indexes,'record,'record -> int
-  /* Comparing fields, should use something faster like llarray instead of list
+
+  /*
+   * Comparing fields, should use something faster like llarray instead of list
    * so fold2 and fold should provide field index list((string,('preenv,'a,'a -> 'cmp)))
    */
   @expand
