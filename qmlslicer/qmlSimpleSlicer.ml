@@ -696,7 +696,47 @@ let look_at_user_annotation env pp_pos node annot =
           aux node (Some {wish=Force; side=Server}) in
   aux node annot
 
+(* to preserve the behaviour that we had before the early lambda lifting
+ * by default, a function is sliced as if all local functions had not been lifted
+ * IF it is not annotated
+ * If it is annotated, it is treated as if the user had lambda lifted the code by hand *)
+let node_is_annotated info =
+  match info.privacy with
+  | Visible -> (
+      (* no @publish nor @server_private *)
+      match info.user_annotation with
+      | None -> (* no @client, @server, @both *) false
+      | _ -> true
+    )
+  | _ -> true
+let inline_informations_lambda_lifted env =
+  IdentTable.iter
+    (fun _ info ->
+       match info.lambda_lifted with
+       | Some orig ->
+           if node_is_annotated info then () else (
+             (* merging @sliced_expr, @call_*_bypass
+              * because these are the only properties that would
+              * be different if the the lifted functions were inlined
+              * I think (they depend on the field expr) *)
+             let orig_info = IdentTable.find env.informations orig in
+             orig_info.has_sliced_expr <- orig_info.has_sliced_expr || info.has_sliced_expr;
+             orig_info.calls_client_bypass <- (
+               match orig_info.calls_client_bypass with
+               | None -> info.calls_client_bypass
+               | Some _ as v -> v
+             );
+             orig_info.calls_server_bypass <- (
+               match orig_info.calls_server_bypass with
+               | None -> info.calls_server_bypass
+               | Some _ as v -> v
+             )
+           )
+       | None -> ()
+    ) env.informations
+
 let choose_sides env =
+  inline_informations_lambda_lifted env;
   let graph = env.call_graph in
   let groups = SCC.scc ~size:1000 graph in
   List.iter
@@ -746,8 +786,13 @@ let choose_sides env =
          (* third step: dispatch according the annotation *)
          List.iter (fun node ->
                       match node.lambda_lifted with
+                      | Some _ ->
+                          if node_is_annotated node then
+                            look_at_user_annotation env pp_pos node node.user_annotation
+                          else
+                            (* this is treated below *)
+                            ()
                       | None -> look_at_user_annotation env pp_pos node node.user_annotation
-                      | Some _ -> () (* there can't be any annotations for now on these *)
                    ) group
        )
     ) groups;
@@ -758,21 +803,23 @@ let choose_sides env =
          (fun node ->
             match node.lambda_lifted with
             | Some i ->
-                (* never publish those for now at least, because it adds type
-                 * variables in unwanted places like the runtime of the serialization *)
-                let node_i = IdentTable.find env.informations i in
-                let relax = function
-                  | None -> assert false
-                  | Some (Some `expression)
-                  | Some None as v -> v
-                  | Some (Some `alias)
-                  | Some (Some `insert_server_value) ->
-                      (* avoids many useless insert_server_values
-                       * should be solved cleanly when we have an actual slicing strategy for
-                       * local functions *)
-                      Some None in
-                node.on_the_server <- relax (node_i.on_the_server :> client_code_kind option option);
-                node.on_the_client <- relax node_i.on_the_client;
+                if node_is_annotated node then () else (
+                  (* never publish those for now at least, because it adds type
+                   * variables in unwanted places like the runtime of the serialization *)
+                  let node_i = IdentTable.find env.informations i in
+                  let relax = function
+                    | None -> assert false
+                    | Some (Some `expression)
+                    | Some None as v -> v
+                    | Some (Some `alias)
+                    | Some (Some `insert_server_value) ->
+                        (* avoids many useless insert_server_values
+                         * should be solved cleanly when we have an actual slicing strategy for
+                         * local functions *)
+                        Some None in
+                  node.on_the_server <- relax (node_i.on_the_server :> client_code_kind option option);
+                  node.on_the_client <- relax node_i.on_the_client;
+                )
             | None -> ()
          ) group
     ) groups

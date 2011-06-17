@@ -191,6 +191,8 @@ Cell_private = {{
    *                  it's {!OpaSerialize.partial_serialize}
    * @return return value after applying on_message
    */
+  @private gm = %% BslSession.get_more%%
+  @private bsl_llcall = %%BslSession.SynchronousCell.llcall%%
   llcall(cell : Cell.cell('message, 'result),
          message : 'message,
          serialize : option('message -> RPC.Json.json),
@@ -223,13 +225,11 @@ Cell_private = {{
            json = Json.from_ll_json(lljson) ? error("CELL : Convert RPC.Json.private.native to json failed")
            unserialize_result(json)
     on_message =
-        gm = %% BslSession.get_more%%
         match gm(cell) with
         |{some = {cell = ~{on_message ...}}} -> on_message
         |{none} ->
           _, _ -> error("No handler on this cells (That case should never happens)")
 
-      bsl_llcall = %%BslSession.SynchronousCell.llcall%%
       bsl_llcall(cell, message, serialize, unserialize_result, on_message)
 
     server =
