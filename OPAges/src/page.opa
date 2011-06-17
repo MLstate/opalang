@@ -116,7 +116,8 @@ type Page.manager = {
   {source : string; mime : string} /
   {css : string} /
   {hsource : string; bsource : string
-   save_template : {hsource : string; bsource : string} -> option(Template.failure)}
+   save_template : {hsource : string; bsource : string} -> option(Template.failure)
+   preview_template : {hsource : string; bsource : string} -> option(Template.failure)}
 
 type Page.Notification.event =
   {connect}
@@ -138,7 +139,47 @@ type Page.Lock.return = outcome(
 
 Page = {{
 
+  /**
+   * {2 Privates preview utils}
+   */
 
+  @private preview_url = "/{Random.string(32)}"
+
+  @private preview_context =
+    empty = <></>
+    UserContext.make({embedded={head=empty body=empty}})
+
+  @private set_preview(page) =
+    UserContext.change(_->page, preview_context)
+
+  @private get_preview() =
+    UserContext.execute(identity, preview_context)
+
+  @private init_preview(id) =
+    iframe_id = "{id}_iframe_preview"
+    close_id = "{id}_close_preview"
+    frame_style =
+      [ {background=
+          {url=none position=none repeat=none
+           color=some(Color.white) attached=none}},
+        {border=(
+            {all},
+            {style=none color=none width=some({size={px=0}})}
+          )},
+        {position={fixed}}, {z_index=some(2000)},
+        {width={percent=(100.)}},
+        {height={percent=(100.)}},
+        {top={px=0}}, {left={px=0}} ]
+    do Dom.set_style(#{iframe_id}, frame_style)
+    close_style =
+      [ {background=
+          {url=none position=none repeat=none
+           color=some(Color.white) attached=none}},
+        {position={fixed}}, {z_index=some(2001)},
+        {height={px=25}},
+        {top={px=0}}, {right={px=5}}, {opacity=0.5} ]
+    do Dom.set_style(#{close_id}, close_style)
+    void
 
   /**
    * {2 Privates utils}
@@ -324,6 +365,21 @@ Page = {{
                            bcontent=Template.to_source(engine, bcontent)})
             none
 
+    preview_template(~{hsource bsource}) =
+      engine = engine({current_url=""})
+      match Template.try_parse_with_conf(template_config, engine, hsource)
+      | ~{failure} -> some(failure)
+      | {success = h} ->
+        match Template.try_parse_with_conf(template_config, engine, bsource)
+        | ~{failure} -> some(failure)
+        | {success = b} ->
+          page = { embedded = {
+                     head = Template.to_xhtml(engine, h)
+                     body = Template.to_xhtml(engine, b)
+                   } } : Page.t
+          do set_preview(page)
+          none
+
       make_edit(key, {content=stored date=_ author=_} : Page.stored) = match stored
         | {image=_} -> {image}
         | {css=_} as k
@@ -335,6 +391,7 @@ Page = {{
             hsource = hcontent
             bsource = bcontent
             save_template = save_as_template(key, _)
+			~preview_template
           } : Page.edit
 
 
@@ -570,6 +627,12 @@ Page = {{
                 do action.read_only(true)
                 void
             <>
+              {match action.preview with
+               | {some=p} ->
+                 <button type="button"
+                         onclick={_->p()}>
+                      Preview</button>
+               | {none} -> <></>}
               <div>Current Revision : {build_select(rev)}</div>
               <div class="button_group" style="display:inline-block; margin-right:40px" >
                 {match access.locker.check(file)
@@ -624,6 +687,7 @@ Page = {{
           make_buttons(rev,some({
               ~save
               read_only(_) = void
+              preview=none
             }))
         | ~{source mime} ->
           /* A raw resource editor is an ace editor + an input for mime */
@@ -640,6 +704,7 @@ Page = {{
                  do access.notify.send({save = file})
                  void
                read_only(b) = Ace.read_only(ace, b)
+               preview=none
             }))
           dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
           _ = Dom.put_at_end(Dom.select_id(id), dom)
@@ -654,8 +719,9 @@ Page = {{
                 do access.notify.send({save = file})
                 void
               read_only(b) = Ace.read_only(ace, b)
+              preview=none
             }))
-        | ~{hsource bsource save_template} ->
+        | ~{hsource bsource save_template preview_template} ->
           /* Html embedded editor is divided in two ace editor, one for
           headers another for body */
           head_id = "{id}_headers" body_id = "{id}_body"
@@ -673,7 +739,7 @@ Page = {{
                   hsource = Ace.get_content(ace_head)
                   bsource = Ace.get_content(ace_body)
                 })
-                match fail
+                match fail with
                 | {none} ->
                   do access.notify.send({save = file})
                   reporting(<>Save success</>)
@@ -683,6 +749,34 @@ Page = {{
                do Ace.read_only(ace_head, b)
                do Ace.read_only(ace_body, b)
                void
+
+             preview =
+               some( ->
+                 fail = preview_template({
+                    hsource = Ace.get_content(ace_head)
+                    bsource = Ace.get_content(ace_body)
+                 })
+                 match fail with
+                 | {none} ->
+                   do reporting(<></>)
+                   src = preview_url
+                   preview_id = "{id}_preview"
+                   iframe_id = "{id}_iframe_preview"
+                   close_id = "{id}_close_preview"
+                   close() =
+                     do Dom.remove(#{preview_id})
+                     void
+                   content =
+                     <div id="{preview_id}"
+                          onready={_->init_preview(id)}>
+                       <a id="{close_id}" onclick={_->close()}>Close preview</a>
+                       <iframe id="{iframe_id}" frameBorder="0" src="{src}"></iframe>
+                     </div>
+                   do Dom.transform([#{id} +<- content])
+                   void
+                 | {some=fail} ->
+                   reporting(<>{"{fail}"}</>)
+               )
 
             })
           )
@@ -952,7 +1046,8 @@ Page = {{
         access.get(url))
     resource(url) =
       engine = config.engine({ current_url = url })
-      match access.get(url)
+      if url == preview_url then get_preview()
+      else match access.get(url) with
       | {none} -> {resource =
           match access.get("404.xmlt")
           | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
