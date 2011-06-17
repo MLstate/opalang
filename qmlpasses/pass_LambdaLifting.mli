@@ -57,5 +57,4 @@ val process_code:
 val process_code_fun_action:
   QmlAst.annotmap ->
   QmlAst.code ->
-  QmlAst.annotmap * QmlAst.code * IdentSet.t (* client set *)
-                                * IdentSet.t (* public set *)
+  QmlAst.annotmap * QmlAst.code

@@ -639,7 +639,6 @@ let pass_SaToQml =
            typerEnv = typerEnv;
            doc_types = env.P.sa_doc_types;
            temporary_env = ();
-           funactions = IdentSet.empty ;
            local_typedefs = QmlAst.TypeIdentSet.empty;
            stdlib_gamma = QmlTypes.Env.empty;
          } in
@@ -770,12 +769,11 @@ let pass_FunActionLifting =
     (fun e ->
        let code = e.PH.env.P.qmlAst in
        let {QmlTypes.annotmap=annotmap} = e.PH.env.P.typerEnv in
-       let annotmap, code, client_set, _public_set =
+       let annotmap, code =
          Pass_LambdaLifting.process_code_fun_action annotmap code in
        { e with PH.env = {e.PH.env with P.
                          qmlAst = code;
                          typerEnv = {e.PH.env.P.typerEnv with QmlTypes.annotmap = annotmap};
-                         funactions = client_set ;
                          } })
 
 

@@ -193,7 +193,6 @@ type 'tmp_env env_Gen = {
   stdlib_gamma : QmlTypes.gamma; (* used to get the tsc of the stdlib ident *)
   doc_types : Ident.t doc_types; (** opadoc specific data *)
   temporary_env : 'tmp_env;
-  funactions : IdentSet.t ;
 }
 
 type env_Sliced_aux = QmlSimpleSlicer.splitted_code = {
@@ -225,7 +224,6 @@ let change_temporary (temporary_env : 'b) (env_gen : 'a env_Gen)  = ({
   stdlib_gamma = env_gen.stdlib_gamma;
   doc_types = env_gen.doc_types;
   temporary_env = temporary_env;
-  funactions = env_gen.funactions
 } : ('b env_Gen))
 
 let pass_resolve_server_entry_point ~options env =
@@ -303,14 +301,7 @@ let pass_no_slicer ~options:(_:opa_options) (env:'tmp_env env_Gen) =
 
 let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
   let make_sliced_env env_gen ~server ~client =
-    { env_gen = (
-        let renaming = client.QmlSimpleSlicer.renaming in
-        let map id = QmlRenamingMap.new_from_original renaming id in
-        { env_gen with
-            funactions = IdentSet.map map env_gen.funactions ;
-        }
-      )
-    ;
+    { env_gen;
       sliced_env = {
         server = server;
         client = client;

@@ -1261,4 +1261,4 @@ let process_code_fun_action annotmap code =
       code in
   let (_gamma, annotmap), code = process_code_gen ~mode:(`fun_action (public_set,client_set)) gamma annotmap code in
   R_fa.save these_names;
-  annotmap, code, !client_set, !public_set
+  annotmap, code
