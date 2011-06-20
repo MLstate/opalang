@@ -64,8 +64,8 @@ read xml_parser.trx
 *)
 ;main <- init declarations:d {{ d }}
 ;+main_eoi : {(SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.code} <- init declarations:d !. {{ d }}
-;+expr_eoi : {(SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.expr} <- init expr:e !. {{ e }}
-;+ty_eoi : {SurfaceAst.nonuid SurfaceAst.ty} <- init typ:t !. {{ t }}
+;+expr_eoi : {(SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.expr} <- init expr:e spacing !. {{ e }}
+;+ty_eoi : {SurfaceAst.nonuid SurfaceAst.ty} <- init typ:t spacing !. {{ t }}
 
 (**
    {6 Initialization}
