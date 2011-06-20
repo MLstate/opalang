@@ -2,7 +2,9 @@ package opages
 import opace
 import stdlib.crypto
 import stdlib.web.template
+import stdlib.web.client
 import stdlib.upload
+
 /**
  * {1 About this module}
  * This module provides a function for build an xhtml administration
@@ -111,11 +113,15 @@ type Page.manager = {
 }
 
 @private type Page.edit =
-  {image} /
-  {binary mime : string save : {mime : string} -> void} /
-  {source : string; mime : string} /
-  {css : string} /
-  {hsource : string; bsource : string
+  {image}
+/ {binary
+   mime:string
+   save:{mime:string} -> void
+   set_preview:{mime:string} -> void}
+/ {source : string; mime : string}
+/ {css : string}
+/ {hsource : string
+   bsource : string
    save_template : {hsource : string; bsource : string} -> option(Template.failure)
    preview_template : {hsource : string; bsource : string} -> option(Template.failure)}
 
@@ -143,17 +149,19 @@ Page = {{
    * {2 Privates preview utils}
    */
 
-  @private preview_url = "/{Random.string(32)}"
+  @private preview_context = UserContext.make(StringMap.empty:stringmap(Page.stored_content))
 
-  @private preview_context =
-    empty = <></>
-    UserContext.make({embedded={head=empty body=empty}})
+  @private set_preview(key,page) =
+    UserContext.change(StringMap.add(key,page,_), preview_context)
 
-  @private set_preview(page) =
-    UserContext.change(_->page, preview_context)
+  @private has_preview(key) =
+    UserContext.execute(StringMap.mem(key,_), preview_context)
 
-  @private get_preview() =
-    UserContext.execute(identity, preview_context)
+  @private get_preview(key) =
+    UserContext.execute(StringMap.get(key,_), preview_context)
+
+  @private del_preview(key) =
+    UserContext.change(StringMap.remove(key,_), preview_context)
 
   /**
    * {2 Privates utils}
@@ -334,12 +342,12 @@ Page = {{
           | ~{failure} -> some(failure)
           | {success = bcontent} ->
             hcontent = Template.to_source(engine, hcontent)
+            bcontent = Template.to_source(engine, bcontent)
             do Log.notice("PageDebug", "Saving headers {hcontent}")
-            do save(key, ~{hcontent=hcontent
-                           bcontent=Template.to_source(engine, bcontent)})
+            do save(key, ~{hcontent bcontent})
             none
 
-    preview_template(~{hsource bsource}) =
+    preview_template(key, ~{hsource bsource}) =
       engine = engine({current_url=""})
       match Template.try_parse_with_conf(template_config, engine, hsource)
       | ~{failure} -> some(failure)
@@ -347,11 +355,10 @@ Page = {{
         match Template.try_parse_with_conf(template_config, engine, bsource)
         | ~{failure} -> some(failure)
         | {success = b} ->
-          page = { embedded = {
-                     head = Template.to_xhtml(engine, h)
-                     body = Template.to_xhtml(engine, b)
-                   } } : Page.t
-          do set_preview(page)
+          page = {hcontent=Template.to_source(engine, h)
+                  bcontent=Template.to_source(engine, b)
+                 }:Page.stored_content
+          do set_preview(key, page)
           none
 
       make_edit(key, {content=stored date=_ author=_} : Page.stored) = match stored
@@ -360,17 +367,22 @@ Page = {{
         | {source=_ mime=_} as k -> k
         | ~{binary mime} ->
           save(~{mime}) = save(key, ~{binary mime})
-          {binary ~mime ~save}
+          set_preview(~{mime}) = set_preview(key, ~{binary mime})
+          {binary ~mime ~save ~set_preview}
         | ~{hcontent bcontent} -> {
             hsource = hcontent
             bsource = bcontent
             save_template = save_as_template(key, _)
-			~preview_template
+            preview_template = preview_template(key, _)
           } : Page.edit
 
 
       get_edit(key):Page.edit =
-        match caccess.get(key) : option(Page.stored) with
+        stored_page = match get_preview(key) with
+          | {some=s} ->
+            some({content=s date=Date.now() author=""})
+          | {none} -> caccess.get(key)
+        match stored_page with
         | {some=stored} -> make_edit(key, stored)
         | {none} ->
           match get_suffix(key)
@@ -378,6 +390,7 @@ Page = {{
               hsource = "<!-- Enter your headers here -->"
               bsource = "<!-- Enter your body here --> "
               save_template = save_as_template(key, _)
+              preview_template = preview_template(key, _)
             }
           | {some="css"} -> {css = "/* Enter your css here */"}
           | _ -> {source = "A custom resource" mime="text/plain"}
@@ -494,6 +507,14 @@ Page = {{
         do Ace.read_only(ace, false)
         (dom, ace)
 
+      on_ok_preview() =
+        do reporting(<></>) 
+        unpreview_id = "{id}_unpreview"
+        _ = Client.winopen(file, {_blank},[], false)
+        do Dom.set_style(#{unpreview_id},
+                         [{display={inline}}])
+        void
+
       /* Generate history selector */
       rec build_history_selector(rev : option(int)) =
         get_selected_rev() =
@@ -546,6 +567,7 @@ Page = {{
           </>
           match action with
           | {some = action} ->
+              unpreview_id = "{id}_unpreview"
               lock_button_id = "{id}_button_lock"
               save_button_id = "{id}_button_save"
               do access.notify.subscribe(
@@ -601,12 +623,25 @@ Page = {{
                 do action.read_only(true)
                 void
             <>
-              {match action.preview with
-               | {some=p} ->
-                 <button type="button"
-                         onclick={_->p()}>
-                      Preview</button>
-               | {none} -> <></>}
+              {unpreview =
+                 act(_) =
+                   do del_preview(file)
+                   do Dom.set_style(#{unpreview_id}, [{display={css_none}}])
+                   void
+                 display =
+                   if has_preview(file) then {inline}
+                   else {css_none}
+                 <span style="display:{display};" id="{unpreview_id}">
+                   <button type="button" onclick={act}>
+                      Disable preview
+                   </button>
+                 </span>;
+               <>
+                 <button type="button" onclick={_->action.preview()}>
+                   Preview
+                 </button>
+                 {unpreview}
+               </>}
               <div>Current Revision : {build_select(rev)}</div>
               <div class="button_group" style="display:inline-block; margin-right:40px" >
                 {match access.locker.check(file)
@@ -649,7 +684,7 @@ Page = {{
           dom = Dom.of_xhtml(<img src="{file}"/>)
           _ = Dom.put_at_end(Dom.select_id(id), dom)
           make_buttons(rev,none)
-        | {binary ~mime ~save} ->
+        | {binary ~mime ~save ~set_preview} ->
           mime_id = "mime_{id}"
           x = <>Uneditable binary file, Mimetype
                 <input type="text" id="{mime_id}" value="{mime}"/></>
@@ -661,7 +696,10 @@ Page = {{
           make_buttons(rev,some({
               ~save
               read_only(_) = void
-              preview=none
+              preview() =
+                page = {mime = Dom.get_value(Dom.select_id(mime_id))}
+                do set_preview(page)
+                on_ok_preview()
             }))
         | ~{source mime} ->
           /* A raw resource editor is an ace editor + an input for mime */
@@ -678,7 +716,11 @@ Page = {{
                  do access.notify.send({save = file})
                  void
                read_only(b) = Ace.read_only(ace, b)
-               preview=none
+               preview() =
+                 page = {source=Ace.get_content(ace)
+                         mime=get_mime()}
+                do set_preview(file, page)
+                on_ok_preview()
             }))
           dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
           _ = Dom.put_at_end(Dom.select_id(id), dom)
@@ -693,12 +735,16 @@ Page = {{
                 do access.notify.send({save = file})
                 void
               read_only(b) = Ace.read_only(ace, b)
-              preview=none
+              preview() =
+                page = {css=Ace.get_content(ace)}
+                do set_preview(file, page)
+                on_ok_preview()
             }))
         | ~{hsource bsource save_template preview_template} ->
           /* Html embedded editor is divided in two ace editor, one for
           headers another for body */
-          head_id = "{id}_headers" body_id = "{id}_body"
+          head_id = "{id}_headers"
+          body_id = "{id}_body"
           /* Head ace */
           (_, ace_head) = common_ace_init(head_id, ["admin_editor_html_header"],
                                           hsource, some("html"))
@@ -724,27 +770,14 @@ Page = {{
                do Ace.read_only(ace_body, b)
                void
 
-             preview =
-               some( ->
-                 fail = preview_template({
-                    hsource = Ace.get_content(ace_head)
-                    bsource = Ace.get_content(ace_body)
-                 })
-                 match fail with
-                 | {none} ->
-                   do reporting(<></>)
-                   src = preview_url
-                   preview_id = "{id}_preview"
-                   iframe_id = "{id}_iframe_preview"
-                   close_id = "{id}_close_preview"
-                   close() =
-                     do Dom.remove(#{preview_id})
-                     void
-                   _ = Client.winopen(src, {_blank},[], false)
-                   void
-                 | {some=fail} ->
-                   reporting(<>{"{fail}"}</>)
-               )
+             preview() =
+               fail = preview_template({
+                  hsource = Ace.get_content(ace_head)
+                  bsource = Ace.get_content(ace_body)
+               })
+               match fail with
+               | {none} -> on_ok_preview()
+               | {some=fail} -> reporting(<>{"{fail}"}</>)
 
             })
           )
@@ -869,12 +902,16 @@ Page = {{
     @client @private hack(access:Page.full_access)(_:Dom.event) =
       d = Dom.select_id("admin_files_table")
       page_list = List.unique_list_of(access.access.list())
-      do List.iter((file,pub) -> file_line_insert(access, false, file, none, (if pub==0 then none else some(pub))), page_list)
+      do List.iter(
+        (file,pub) ->
+          file_line_insert(access, false, file, none,
+            (if pub==0 then none else some(pub))),
+        page_list)
       access.notify.subscribe(
-             | {event={publish=(file,rev)} ~by} ->
-               file_line_insert(access, false, file, none,some(rev))
-             | _ -> void
-           )
+        | {event={publish=(file,rev)} ~by} ->
+          file_line_insert(access, false, file, none,some(rev))
+        | _ -> void
+      )
 
     /**
      * Build the xhtml administration interface.
@@ -978,10 +1015,10 @@ Page = {{
 
   }}
 
-  @private build_resource(engine, stored, modified_on) =
+  @private build_resource(engine, content, modified_on) =
     add_web_cache(r) =
       Option.switch(modified_on -> Resource.cache_control(r, ~{modified_on}), r, modified_on)
-    match stored.content
+    match content with
     | ~{image}             -> {resource = add_web_cache(Resource.image(image))}
     | ~{css}               -> {resource = add_web_cache(Resource.build_css(css))}
     | ~{source mime}       -> {resource = add_web_cache(Resource.source(source, mime))}
@@ -1014,20 +1051,23 @@ Page = {{
         access.get(url))
     resource(url) =
       engine = config.engine({ current_url = url })
-      if url == preview_url then get_preview()
-      else match access.get(url) with
+      res = match get_preview(url) with
+        | {some=r} -> some(r)
+        | {none} -> Option.map(x->x.content,access.get(url))
+      match res with
       | {none} -> {resource =
           match access.get("404.xmlt")
           | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
           | {some=r} ->
-            match build_resource(engine, r, {some = access.date(url)})
+            match build_resource(engine, r.content, {some = access.date(url)})
             | {embedded = ~{body head}} -> Resource.full_page("", body, head, {found}, [])
             | x -> to_resource(x)
         }
-      | {some=resource} -> build_resource(engine, resource, {some = access.date(url)})
+      | {some=resource} ->
+        build_resource(engine, resource, {some = access.date(url)})
     try_resource(url) =
       engine = config.engine({ current_url = url })
-      Option.map((resource -> build_resource(engine, resource, {some = access.date(url)})),
+      Option.map((resource -> build_resource(engine, resource.content, {some = access.date(url)})),
                  access.get(url))
     date = access.date
 
