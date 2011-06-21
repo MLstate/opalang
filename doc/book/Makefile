@@ -1,5 +1,6 @@
 OPA ?= opa
 OPA_PLUGIN_BUILDER ?= opa-plugin-builder
+OCAMLOPT ?= ocamlopt.opt
 
 export
 
@@ -65,13 +66,13 @@ test.pdf: test.html Makefile toc.xsl print-cover.html print-footer.html print-he
 	zip ../book.zip *
 
 examples: $(EXAMPLES)
-	make -C also_bindings/sources
-	make -C also_bindings/sources/c_binding
-	make -C also_bindings/sources/external_types
-	make -C also_bindings/sources/opa_types
+	$(MAKE) -C also_bindings/sources
+	$(MAKE) -C also_bindings/sources/c_binding
+	$(MAKE) -C also_bindings/sources/external_types
+	$(MAKE) -C also_bindings/sources/opa_types
 
 hello_recaptcha/%.exe:
-	make -C $(@D) $(@F)
+	$(MAKE) -C $(@D) $(@F)
 
 %.exe: %.opa
 	cd $(<D) && $(OPA) $(<F)

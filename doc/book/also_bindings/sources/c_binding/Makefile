@@ -3,13 +3,13 @@ DIR:=$(shell pwd)
 all: freq.o plugin opa
 
 freq.o: freq.c
-	ocamlopt.opt freq.c
+	$(OCAMLOPT) freq.c
 
 plugin:
-	opa-plugin-builder -o c_binding c_binding.ml
+	$(OPA_PLUGIN_BUILDER) -o c_binding c_binding.ml
 
 opa:
-	opa --mllopt $(DIR)/freq.o c_binding.opp freq.opa
+	$(OPA) --mllopt $(DIR)/freq.o c_binding.opp freq.opa
 	@echo "run: ./freq.exe" 
 
 clean:

@@ -5,10 +5,10 @@ LINK=dbm.cmxa
 all : plugin opa
 
 plugin:
-	opa-plugin-builder $(INCLUDE) -o dbm dbm.ml
+	$(OPA_PLUGIN_BUILDER) $(INCLUDE) -o dbm dbm.ml
 
 opa:
-	opa $(INCLUDE) $(LINK) dbm.opp dbm.opa
+	$(OPA) $(INCLUDE) $(LINK) dbm.opp dbm.opa
 
 clean:
 	rm -rf _build _tracks dbm.opp dbm.exe *.log
