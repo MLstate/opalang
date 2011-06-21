@@ -113,6 +113,7 @@ type 'a answer = [
 (** A type for the introspection of a running badop *)
 type status =
   | Local of string (* path where the files are stored *)
+  | Light of string (* light version, path where the dbm files are stored *)
   | Client of Unix.inet_addr * (Unix.inet_addr * int) * status (* local, remote, remote status *)
   | Layer of string * status
   | Layer_multi of string * status list

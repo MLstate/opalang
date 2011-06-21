@@ -41,7 +41,7 @@ let open_database options k =
 let close_database db k =
   Session_light.close_db db.session |> k
 
-let status db k = Badop.Local db.file |> k
+let status db k = Badop.Light db.file |> k
 
 module Tr = struct
   let start db k =
