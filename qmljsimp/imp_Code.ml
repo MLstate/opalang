@@ -427,17 +427,30 @@ let analyse_tail_recursion bindings =
     | Q.Match (_, _, pel) -> List.iter (fun (_,e) -> aux myself e) pel
     | Q.Apply (_, Q.Directive (_, `partial_apply _, [Q.Apply (_, Q.Ident (_, f), _)], _), _)
     | Q.Apply (_, Q.Ident (_, f), _) when IdentTable.mem env f ->
+        #<If:JS_IMP$contains "tailcall">
+          Format.printf " %s\n%!" (Ident.to_string f)
+        #<End>;
         let set1 = IdentTable.find env f in
         let set2 = IdentTable.find env myself in
         let full_set = IdentSet.add myself (IdentSet.add f (IdentSet.union set1 set2)) in
         IdentSet.iter (fun i -> IdentTable.replace env i full_set) full_set
-    | _ -> () in
+    | e ->
+        #<If:JS_IMP$contains "fulltailcall">
+          Format.printf "@\nstopped on %a" QmlPrint.pp#expr e
+        #<End>;
+        () in
   List.iter
     (fun (i,expr) ->
-       match expr with
-       | Q.Lambda (_, _, Q.Lambda (_, _, e))
-       | Q.Lambda (_, _, e) -> aux i e
-       | _ -> assert false
+       #<If:JS_IMP$contains "tailcall">
+         Format.printf ">> analysing tail calls of %s: " (Ident.to_string i)
+       #<End>;
+       (match expr with
+        | Q.Lambda (_, _, Q.Lambda (_, _, e))
+        | Q.Lambda (_, _, e) -> aux i e
+        | _ -> assert false);
+       #<If:JS_IMP$contains "tailcall">
+         Format.printf "@."
+       #<End>
     ) bindings;
   let binding_of_ident i =
     List.find (fun (j,_e) -> Ident.equal i j) bindings in
