@@ -1,6 +1,6 @@
 ########################################
 # USER VARIABLES
-MKLIB = bslregister
+MKLIB = opa-plugin-builder
 PLUGNAME = ace.opp
 SRC = plugin_ACE.js external_ACE.js
 CONF = myconf.jsconf
