@@ -1,0 +1,9 @@
+# dependency on qml2ocaml : sharing some pass on qml
+
+# compiler
+<**/*.{ml,mli,byte,native}>: use_buildinfos, use_libbase, use_pplib, use_libqmlcompil, use_libbsl, use_jslang, use_qmlcpsrewriter, use_qml2ocaml, use_passlib, use_compilerlib, use_opalang, use_opacapi
+
+# pp debug : add if needed only
+# <qml2js.ml> : with_mlstate_debug
+<qmljs_Serializer.ml> : with_mlstate_debug
+<qml2jsOptions.ml>: with_mlstate_debug

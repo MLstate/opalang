@@ -1,0 +1,281 @@
+The database
+------------
+
+//Main author: Louis
+//Paired with: MBn
+
+//Base: Types, sets, default values
+//More advanced: Virtual paths, multiple db
+//Manipulation: Reading, writing, reference paths
+//Advanced queries: Set manipulations, history
+//Transactions: Simple, extended
+//How to structure data: Recursive types? relations between data, constraints
+
+One of the unique characteristics of Opa is that the language contains a
+database. Database operations are fully integrated in the language, which
+increases code reusability, simplifies code coverage tests, and permits both
+automated optimizations and automated safety, security and sanity checks.
+
+Whenever you launch an Opa, you do not need to worry about launching or
+connecting to a database, as Opa embeds its own database. If you launch
+several servers using the Opa launch scripts, Opa handles setup automatically
+and the servers transparently connect to each other to share their database.
+
+In this chapter, we recapitulate the constructions of Opa dedicated to storage
+of data and manipulation of stored data.
+
+General use
+~~~~~~~~~~~
+
+Overview
+^^^^^^^^
+
+The core notion of the database is that of a _path_. A database _path_ describes
+a position in the database and it is through a path that you can read, write,
+remove data, or access its history.
+
+Declare a path with holding _one_ value of a given type:
+[source,opa]
+-------------------------
+db /path/to/define : type
+-------------------------
+
+Note that the path is compulsory. Opa uses it at launch-time to verify that the
+database stored to the disk is compatible with the application. If the database
+schema has changed, Opa will offer the choice between proceeding to an automated
+database migration or leaving the application.
+
+Read from said path:
+[source,opa]
+-------------------------
+x = /path/to/data
+-------------------------
+
+Modify the contents of said path:
+[source,opa]
+-------------------------
+/path/to/data <- x
+-------------------------
+
+Note that the database is structured. Therefore,
+you may define the following paths:
+
+[source,opa]
+-------------------------
+db /db/a: int
+db /db/b: string
+-------------------------
+
+and then you access path +/db+ with type +{ a: int; b: string }+.
+
+Conversely, you may define
+[source,opa]
+-------------------------
+db /db2 : { a: int; b: string } / { c: float }
+-------------------------
+and then access paths +/db/a+, +/db/b+ or +/db/c+ directly.
+
+Writing forces the state of the db. For instance, the following
+operation is valid:
+
+[source,opa]
+-------------------------
+/db2/c <- 3.14
+-------------------------
+
+If +db2+ held values for +/db2/a+ and +/db2/b+, both values are
+overwritten.
+
+Default values
+^^^^^^^^^^^^^^
+
+Each path has a _default value_. Whenever you attempt to read a value that does not exist, the default value is
+returned:
+
+[source,opa]
+-------------------------
+/db2 <- { a = 3; b = "four" }
+x = /db2/c //x holds 0.0
+-------------------------
+
+While Opa can generally define a default value automatically, it is often a good
+idea to define an application-specific default value:
+
+[source,opa]
+-------------------------
+db /path/to/something = value
+-------------------------
+
+When you do not define a default value, Opa uses the following strategy:
+
+- the default value for an integer is +0+;
+- the default value for a floating-point number is +0.0+;
+- the default value for a string is +""+;
+- the default value for a record is the record of default values;
+- the default value for a sum type is the case which looks most like an empty case (e.g. +\{none\}+ for +option+, +\{nil\}+ for list, etc.)
+
+
+Native maps
+^^^^^^^^^^^
+
+Opa offers special treatment for values of type +stringmap+ or +intmap+. If you define
+[source,opa]
+-------------------------
+/db3/mymap: intmap({ a: int; b: string })
+-------------------------
+
+a shortcut (and optimized) notation is available:
+[source,opa]
+-------------------------
+x = /db3/mymap[12]   //Whichever value is associated to 12 in the map, or a default value
+y = /db3/mymap[12]/b //Field b of said value
+-------------------------
+
+Manipulating paths
+^^^^^^^^^^^^^^^^^^
+
+Most operations deal with data, with the syntaxes presented above. Other operations deal with
+meta-data, that is the path itself, and require a slightly different syntax:
+
+[source,opa]
+-------------------------
+Db.modification_time(!/path/to/data)
+-------------------------
+
+A path written with notation +!/path/to/data+ is called a _native paths_. Native
+paths represent a snapshot the state of the path. Should you write a new value
+at this path at a later stage, this will not affect the data or meta-data of
+these paths.
+
+[source,opa]
+-------------------------
+path = !/path/to/data          //Take a snapshot of the path
+/path/to/data <- some_new_data //Modify data
+Db.modification_time(path)     //The old modification time
+-------------------------
+
+Should you need to make reference to the _latest version_ of data and metadata,
+you will need to use a _reference path_, as obtained with the following notation:
+[source,opa]
+-------------------------
+ref_path = @/path/to/data
+-------------------------
+
+Note that the write operation actually takes such a path, and the two following
+operations are actually equivalent:
+
+[source,opa]
+-------------------------
+/path/to/data  <- value
+@/path/to/data <- value
+-------------------------
+
+Once we have defined a reference path, we may write
+[source,opa]
+-------------------------
+ref_path <- value
+-------------------------
+
+Manipulating databases
+^^^^^^^^^^^^^^^^^^^^^^
+
+An Opa application can manipulate several databases, which may have distinct
+engines, or may be stored to distinct networks, for instance.  This is a
+powerful tool for fine-tuning application performance or for ensuring that
+critical data is backed up.
+
+For this purpose, you should give a name to the database and specify a default
+engine (at the time of this writing, either +local+ or +remote+), as follows:
+
+[source,opa]
+-------------------------
+database @local("./where/to/store/")
+database my_db = @remote(localhost:4849)
+-------------------------
+
+With this definition, any path starting with +/my_db+ will be stored to
+database +my_db+. The default database is always named +database+.
+
+Note that the choice of engine can be superseded by command-line options.
+
+The full syntax is the following:
+-------------------------
+dbdef ::= database [id:] <spec>
+spec ::= @meta | @local[("path")] | @remote[...]
+-------------------------
+
+
+Transactions
+^^^^^^^^^^^^
+
+Whenever several users or several treatments need to access the database
+simultaneously, consistency needs to be enforced. For this purpose, Opa
+offers a mechanism of _transactions_.
+
+In their simplest and most common form, transactions take the form of function
++Db.transaction+:
+
+[source,opa]
+-------------------------
+atomic() =
+(
+  //...any operations
+)
+
+result = Db.transaction(database_name, atomic)
+match result with
+  | {none} -> //a conflict or another database error prevented the commit
+  |~{some} -> //success, [some] contains the result of [atomic()]
+-------------------------
+
+Note that this requires the database to be named (see above).
+
+
+
+// 
+// 
+// 
+// 
+// Types
+// ^^^^^
+// 
+// [CAUTION]
+// TODO
+// 
+// 
+// More advanced
+// ~~~~~~~~~~~~~
+// 
+// [CAUTION]
+// TODO
+// 
+// Manipulation
+// ~~~~~~~~~~~~
+// 
+// [CAUTION]
+// TODO
+// 
+// Advanced queries
+// ~~~~~~~~~~~~~~~~
+// 
+// [CAUTION]
+// TODO
+// 
+// Transactions
+// ~~~~~~~~~~~~
+// 
+// [CAUTION]
+// TODO
+// 
+// Simple
+// ^^^^^^
+// 
+// [CAUTION]
+// TODO
+// 
+// Extended
+// ^^^^^^^^
+// 
+// [CAUTION]
+// TODO
+// 

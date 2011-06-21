@@ -1,0 +1,14 @@
+== Widget Image ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Add support for more sources for the image (e.g. custom xhtml, string => dynamic resource ?) besides an URL.
+
+.Short term
+-
+
+.Later
+- 

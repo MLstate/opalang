@@ -1,0 +1,17 @@
+== Widget Textarea ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- import Guillem's widget for (non riched) text edition: WTextarea from spec/Widgets/weditor.opa
+- make the maximum number of lines configurable (this widget must replace both native textareas *and* input fields).
+
+NOTE: it seems that input fields are stylizable after all. Is it the case for textareas ??
+
+.Short term
+-
+
+.Later
+- make the maximum number of characters configurable

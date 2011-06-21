@@ -1,0 +1,135 @@
+From 8a43a55a35ef4e1d52d354f7005a3eac355b4b1c Mon Sep 17 00:00:00 2001
+From: Louis Gesbert <louis.gesbert@mlstate.com>
+Date: Thu, 16 Jun 2011 17:08:01 +0200
+Subject: [PATCH] Added a Makefile for windows
+
+---
+ Makefile.windows |  116 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 116 insertions(+), 0 deletions(-)
+ create mode 100644 Makefile.windows
+
+diff --git a/Makefile.windows b/Makefile.windows
+new file mode 100644
+index 0000000..0de282c
+--- /dev/null
++++ b/Makefile.windows
+@@ -0,0 +1,116 @@
++# $Id: Makefile.mingw,v 1.16 2011/04/18 17:39:31 nanard Exp $
++# Miniupnp project.
++# http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
++# (c) 2005-2011 Thomas Bernard
++# This Makefile is made for MinGW
++#
++CC = cl /DWIN32 /nologo 
++#CFLAGS = -Wall -g -DDEBUG -D_WIN32_WINNT=0X501
++CFLAGS = -DNDEBUG -D_WIN32_WINNT=0X501
++LDLIBS = -lws2_32 -liphlpapi
++# -lwsock32
++# -liphlpapi is used for GetBestRoute()
++PYTHON=\utils\python25\python
++OBJS=miniwget.obj minixml.obj igd_desc_parse.obj minisoap.obj \
++     miniupnpc.obj upnpreplyparse.obj upnpcommands.obj upnperrors.obj \
++     connecthostport.obj portlistingparse.obj receivedata.obj
++OBJSDLL=$(addprefix dll/, $(OBJS))
++
++all:	init upnpc-static testminixml libminiupnpc.a 
++
++init:
++	mkdir dll
++	echo init > init
++
++clean:
++	rm -f dll\*.obj
++	rm -f *.obj
++	rm -f *.exe
++	rm -f *.lib
++	rm -f miniupnpc.dll
++	rm -f libminiupnpc.a
++	rm -rf _CL_*
++
++#AR=cl /LD 
++
++libminiupnpc.a:	$(OBJS)
++	$(AR) -cr $@ $?
++	cp libminiupnpc.a libminiupnpc.lib
++
++pythonmodule:	libminiupnpc.a
++	$(PYTHON) setupmingw32.py build --compiler=mingw32
++	$(PYTHON) setupmingw32.py install --skip-build
++
++miniupnpc.dll:	libminiupnpc.a $(OBJSDLL)
++	dllwrap -k --driver-name gcc \
++	--def miniupnpc.def \
++	--output-def miniupnpc.dll.def \
++	--implib miniupnpc.lib -o $@ \
++	$(OBJSDLL) $(LDLIBS)
++
++miniupnpc.lib:	miniupnpc.dll
++	echo $@ generated with $<
++
++dll/upnpc.obj:	upnpc.obj
++	echo $@ generated with $<
++
++.c.o:
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++	$(CC) $(CFLAGS) -DMINIUPNP_EXPORTS -c /Fodll/$@ $<
++	
++upnpc.obj: upnpc.c
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++	$(CC) $(CFLAGS) -c /Fodll/$@ $<
++
++upnpc-static:	upnpc.obj libminiupnpc.a
++	$(CC) -enable-stdcall-fixup /Fe$@  ws2_32.lib Iphlpapi.lib libminiupnpc.lib upnpc.obj 
++
++upnpc-shared:	dll/upnpc.obj miniupnpc.lib
++	$(CC) -enable-stdcall-fixup /Fe$@ ws2_32.lib Iphlpapi.lib libminiupnpc.lib upnpc.obj 
++
++wingenminiupnpcstrings:	wingenminiupnpcstrings.obj
++
++wingenminiupnpcstrings.obj:	wingenminiupnpcstrings.c
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++miniupnpcstrings.h: miniupnpcstrings.h.in wingenminiupnpcstrings
++	./wingenminiupnpcstrings.exe $< $@
++
++minixml.obj:	minixml.c minixml.h miniupnpcstrings.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++upnpc.obj:	upnpc.c miniwget.h minisoap.h miniupnpc.h igd_desc_parse.h upnpreplyparse.h upnpcommands.h upnperrors.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++miniwget.obj:	miniwget.c miniwget.h miniupnpcstrings.h connecthostport.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++minisoap.obj:	minisoap.c minisoap.h miniupnpcstrings.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++miniupnpc.obj:	miniupnpc.c miniupnpc.h minisoap.h miniwget.h minixml.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++igd_desc_parse.obj:	igd_desc_parse.c igd_desc_parse.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++testminixml:	minixml.obj igd_desc_parse.obj testminixml.c
++	$(CC) $(CFLAGS) -DSTATICLIB /Fe$@ minixml.obj igd_desc_parse.obj testminixml.c
++
++upnpreplyparse.obj:	upnpreplyparse.c upnpreplyparse.h minixml.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++upnpcommands.obj:	upnpcommands.c upnpcommands.h upnpreplyparse.h miniupnpc.h portlistingparse.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++upnperrors.obj:	upnperrors.c upnperrors.h minixml.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++connecthostport.obj: connecthostport.c connecthostport.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++portlistingparse.obj: portlistingparse.c portlistingparse.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
++
++receivedata.obj: receivedata.c receivedata.h
++	$(CC) $(CFLAGS) -DSTATICLIB -c /Fo$@ $<
+-- 
+1.7.1
+

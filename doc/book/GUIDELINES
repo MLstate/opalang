@@ -1,0 +1,20 @@
+Naming conventions:
+* the language is called Opa, not OPA or opa;
+* respectively, other languages are called JavaScript, OCaml, HTML, PHP;
+* the BSL is the Binding System Library;
+
+Spelling conventions:
+* we are writing in American, so use the "z" of your keyboard;
+* full words, please, not "we're" but "we are", no "it's" but "it is", etc.
+
+Chapter conventions:
+* tutorials start with "Hello"
+
+Convention for source code:
+* source code must fit in 80 columns;
+* source must be fully commented, in Opadoc style;
+* keywords are between ++
+
+Typography:
+* don't forget semi-columns;
+* in lists, they are compulsory.

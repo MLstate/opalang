@@ -1,0 +1,29 @@
+Low-level libraries
+-------------------
+
+.About this section
+***********************
+This section details the addition of new Opa primitives to the Bypass Standard Library, including:
+
+- definition of BSL plugins;
+- the BSL type system;
+- BSL automatic projections;
+- interacting with Opa data structures and functions from native extensions.
+***********************
+
+//////////////////////////////////////////////
+// Main editor for this section: Mathieu Barbin
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item spans several sections, please provide
+// hyperlinks, e.g. type definitions have both a syntax
+// and a more complete definition on the corresponding
+// section
+//////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item is considered experimental and may or may
+// not survive to future versions, please label it using
+// an Admonition block with style [CAUTION]
+//////////////////////////////////////////////////////

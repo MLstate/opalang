@@ -1,0 +1,51 @@
+== Table component ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- add messages +UpdateRowFilter : 'row, bool -> bool+ to update the filter on rows
+- refactor/finish off the scrolling of rows:
+   1) factorize code between goto/scroll-up/scroll-down
+   2) correct handling of filter
+   3) optimal behaviour when no (or almost no) filtered lines
+   4) make +prevent_empty_row_at_the_end+ actually compatible with filters 
+- make configurable the construction of HTML for rows and for the table in general (see calendar-tables). Idea:
+---------------
+make_table: id, xhtml -> xhtml
+//default: x -> <table id={id}>{x}</table>
+
+make_row : id, 'row, xhtml -> xhtml)
+//default: id, i, x -> <tr id={id}>{x}</tr>
+
+make_cell : id, 'row, 'col, xhtml -> xhtml
+//default: id, i, j, x -> <td id={id}>{x}</td>
+---------------
+- first test example of sortable and filterable table (list of rows) with nice buttons
+- optimize the mapping from a key to the corresp. row/col number (use jQuery.indexOf)
+
+.Short term
+- new component "table-control" to deal with usual buttons and actions (virtual scrollbar, filtering and sorting)
+- create a new component "simple-table" (or "long-list" ;-)) to deal with 1 column table
+- efficient data-structure +BMap+ for storing numbered (and flagged) keys
+- add support for multicolumn cells (via +colspan+) 
+- refactor scrolling of columns
+- add boolean parameters : +prevent_empty_col_at_the_end+
+  (default value: true)
+
+.Later
+- helper library for scrolling even bigger data ?
+- filtering and sorting columns as well
+- sugar for SetDisplay ? (N.B. centering is more than sugar, because of hidden rows)
+* +jump-to-key+ (center / top)
+* +jump-to-row-index+ (center / top)
+* +jump-to-col-index+ (center / top)
+* +set-row-page-size+
+* +set-col-page-size+
+- optional key-bindings : TAB(move right), RET(close+move down)
+- optional cell selection + key-binding LEFT/RIGHT/UP/DOWN
+
+.Ideas
+- moving lines and columns with drag'n drop (or the like for ipads, iphones)
+- replace the message +SortRows+ by a real "sorting mode" with messages: +SetRowSorting+ / +ClearRowSorting+ (the numbering of rows, i.e. the +BMap+, is unchanged but temporarily replaced by a display based on the sorting): in sorting mode, +AddRow+ inserts at the right (visual) position but as usual maps the entry to the last number in the +BMap+.

@@ -1,0 +1,114 @@
+(*
+    Copyright Â© 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+##FIXME## there are 4 *different* instances of default.trx in the repo. They should be merged.
+hexa <- [0-9A-Fa-f]
+space <- [ \n\r\t]
+spacing <- [ \n\r\t]
+# FIXME: optimiser !eol = ![\r\n]
+eol <- "\r\n" $ / [\r\n] $
+eof <- !.
+
+# FIXME: optimiser string + inverser les appellations
+string <-  stringnosp spacing {{ __1 }}
+stringnosp <- [\"] stringchar* [\"] {{ Tgrammar.string_of_chars __2 }}
+# FIXME: optimiser le code genere (= ne pas construire des expressions qui sont jetees)
+stringquote <- stringnosp $_
+
+# "\\\\" {{ '\\' }} / "\\\"" {{ '\"' }} / ![\"] .
+stringcharspecial <- 
+	  [n] {{ '\n' }} / [r] {{ '\r' }} / [t] {{ '\t' }}
+	/ [\'] {{ '\'' }} / [\"] {{ '\"' }}  / [\\] {{ '\\' }}
+	/ [0-9]+ {{ char_of_int (Tgrammar.int_of_chars __1) }}
+stringchar <- 
+	  [\\] stringcharspecial {{ __2 }}
+	/ ![\\\"] .
+singlequotechar_ <- 
+	  [\\] stringcharspecial {{ __2 }}
+	/ ![\\\'] .
+
+
+# FIXME: fonctions !!!
+charsinglequote <- [\'] singlequotechar_ [\'] {{ __2 }} 
+
+stringsinglequote <- [\'] stringsinglechar* [\'] $_
+stringsinglechar <- "\\\\" {{ '\\' }} / "\\\'" {{ '\'' }} / "\\" stringcharspecial {{ __2 }} / ![\'] .
+
+# FIXME: parenthèses INCLUES (et le SPACING de rparen !!)
+parexpr <- lparen (parexpr $/ !rparen . $)* rparen $_
+parexprexcluded <- lparen ((parexpr $/ !rparen . $)* $_) rparen {{ __2 }}
+parexprnosp <- lparen (parexpr $/ !rparen . $)* [)] $_
+# FIXME: parenthèses EXCLUES
+accolexprcontent <- (accolexpr $ / !raccol . $)* $_
+accolexpr <- laccol accolexprcontent raccol {{ __2 }}
+bracketexprcontent <- (bracketexpr $ / !rbracket . $)* $_
+bracketexpr <- lbracket bracketexprcontent rbracket {{ __2 }}
+
+slash <- [/] spacing $ 
+equal <- [=] spacing $
+comma <- [,] spacing $
+plus <- [+] spacing $
+laccol <- [{] spacing $
+raccol <- [}] spacing $
+colon <- [:] spacing $ 
+semi <- [;] spacing $
+lparen <- [(] spacing $
+rparen <- [)] spacing $
+lbracket <- [\[] spacing $
+rbracket <- [\]] spacing $
+times <- [*] spacing $
+bar <- [|] spacing $
+bang <- [!] spacing $
+question <- [?] spacing $
+question_ <- [?] $
+dot <- [.] spacing $
+sharp <- [#] spacing $
+bar <- [|] spacing $
+at <- [@] spacing $
+underscore <- [_] spacing $
+tilde_ <- [~] $ 
+
+leftarrow <- "<-" spacing $
+rightarrow <- "->" spacing $
+
+strbool <- ("true" / "false") $_
+bool <- strbool {{ bool_of_string __1 }}
+
+strint64 <- [-]? [0-9]+ $_
+int64 <- strint64 {{ Int64.of_string __1 }}
+
+strint <- [-]? [0-9]+ $_
+int <- strint {{ int_of_string __1 }}
+
+strfloat <- [-]? ([0-9]+ [.] [0-9]* / [0-9]* [.] [0-9]+) $_
+float <- strfloat {{ float_of_string __1 }}
+
+sharpcomment <- [#] (!eol .)* $
+mlcomment <- mlCOMMENTSTART (!mlCOMMENTSTOP (mlcomment / . $))* mlCOMMENTSTOP $
+mlCOMMENTSTART <- '(*' $
+mlCOMMENTSTOP <- '*)' $
+
+humanint <- int [kMG]? 
+	  {{ match __2 with 
+	  | Some 'k' -> __1 * 1024
+	  | Some 'M' -> __1 * 1024 * 1024
+	  | Some 'G' -> __1 * 1024 * 1024 * 1024 (* FIXME: overflow !!! *)
+	  | _ -> __1
+	  }}
+
+int3 <- [2]([5][0-5] / [0-4][0-9]) / [0-1][0-9][0-9] / [0-9][0-9]?
+str_ipaddr <- int3 [.] int3 [.] int3 [.] int3 $_

@@ -1,0 +1,23 @@
+==============================================================================
+-- begin LICENCE
+	(c) 2006-2009 MLstate
+	All rights reserved.
+	This file is confidential and intended solely for the addressee(s).
+	Any unauthorised use or dissemination is prohibited.
+end LICENCE -- 
+===============================================================================   
+@authors : A young and dynamic Mlstate team (M & M) !
++ Mathieu Barbin <mathieu.barbin@mlstate.com>
++ Mehdi Bouaziz <mehdi.bouaziz@mlstate.com>
+
+Generate ocamldoc : full documentation of libbsl
+You need the package hevea installed
+libqml/libbsl/Register$ make doc
+
+Generate manual : html pages
+libqml/libbsl/manual$ make
+
+Please read the manual !
+Enjoy !
+
+{m&m}

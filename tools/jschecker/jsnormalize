@@ -1,0 +1,105 @@
+#!/bin/bash
+
+CC_DIR="$OPAGENERAL/tools/jschecker"
+CC="$CC_DIR/compiler.jar"
+
+CC_OPT='--formatting PRETTY_PRINT'
+
+COMPILATION_LEVEL='WHITESPACE_ONLY'
+SIMPLE_OPTIMIZATIONS='SIMPLE_OPTIMIZATIONS'
+ADVANCED_OPTIMIZATIONS='ADVANCED_OPTIMIZATIONS'
+
+FILES=''
+
+EXTERNALS="$CC_DIR/externals.js"
+WITH_EXTERNALS=false
+TARGET='/dev/stdout'
+
+help() {
+    cat <<EOF
+$0: normalize and beautify js files.
+
+This script is meant to be runned from anywhere on js files.
+It is just a wrapper to the google closure compiler:
+
+google closure compiler
+  http://code.google.com/closure/compiler/
+
+Use:
+  $0 [options] js-files*
+
+Options:
+  --help|-help|help         print this help message
+  -e                        include standard externals distributed with the checker
+  -c                        turn on simple optimizations
+  -cc                       turn on advanced optimizations
+  -o *                      produce resulting js in a file rather than stdout
+  -- *                      give all remaining options to the google closure compiler
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+
+        # h
+        --help|-help|help)
+            help
+            exit 0
+            ;;
+
+        -e)
+            WITH_EXTERNALS=true
+            ;;
+
+        -c)
+            COMPILATION_LEVEL=$SIMPLE_OPTIMIZATIONS
+            ;;
+
+        -cc)
+            COMPILATION_LEVEL=$ADVANCED_OPTIMIZATIONS
+            ;;
+
+        -o)
+            if [ -z "$2" ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift
+            TARGET="$1"
+            ;;
+
+        --)
+            shift
+            CC_OPT="$CC_OPT $@"
+            break
+            ;;
+
+        *)
+            FILES="$FILES $1"
+            ;;
+
+   esac
+    shift
+done
+
+CC_OPT="$CC_OPT --compilation_level $COMPILATION_LEVEL --js_output_file $TARGET"
+
+if [ "$WITH_EXTERNALS" = true ] ; then
+    CC_OPT="$CC_OPT --externs $EXTERNALS"
+fi
+
+if [ ! -f "$CC" ] ; then
+    cat <<EOF
+Cannot find the closure compiler.
+OPAGENERAL is set to : '$OPAGENERAL'
+searched at:
+ OPAGENERAL/tools/jschecker/compiler.jar
+EOF
+    exit 1
+fi
+
+JS_FILES=''
+for file in $FILES ; do
+    JS_FILES="$JS_FILES --js $file"
+done
+
+command="java -jar $CC $CC_OPT $JS_FILES"
+echo "$command"
+$command

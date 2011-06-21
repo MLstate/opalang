@@ -1,0 +1,8 @@
+(* this is the post infos *)
+
+let git_version_counter =
+  opalang_git_version
+
+let version_id = Printf.sprintf "%d-(%s)"
+  git_version_counter
+  opalang_git_sha

@@ -1,0 +1,60 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+read default.trx
+
+types:{{
+open Base
+open Ocaml
+open Tgrammar
+
+type pt_type =
+  | PT_Record of (string * pt_type option) list
+  | PT_ListTuple of pt_type list
+  | PT_String of string
+  | PT_Char of char
+  | PT_Int of int
+  | PT_Int64 of int64
+  | PT_Float of float
+  | PT_Bool of bool
+  | PT_Unit
+
+}}
+
+quote <- '"'
+literal <- quote (Default.stringchar* $_) quote {{ __2 }}
+
+recel <- literal ":" pt {{ (__1,Some __3) }}
+       / literal {{ (__1,None) }}
+
+recels <- recel ("," recel {{ __2 }})* {{ __1::__2 }}
+
+record <- "{" recels "}" {{ PT_Record __2 }}
+
+lstels <- pt ("," pt {{ __2 }})* {{ __1::__2 }}
+
+listtuple <- "[" lstels "]" {{ PT_ListTuple __2 }}
+
+string <- literal {{ PT_String __1 }}
+char <- Default.charsinglequote {{ PT_Char __1 }}
+integer <- Default.int {{ PT_Int __1 }}
+integer64 <- Default.int64 {{ PT_Int64 __1 }}
+float <- Default.float {{ PT_Float __1 }}
+bool <- Default.bool {{ PT_Bool __1 }}
+unit <- "()" {{ PT_Unit }}
+
++pt : { pt_type } <- (record / listtuple / string / char / float / integer / integer64 / bool / unit) {{ __1 }}

@@ -1,0 +1,15 @@
+# -*- conf -*- (for emacs)
+# This is the part of the old libqml.cma which should be use by
+# compilers only, but not by the runtime.
+
+<*.{ml,mli}>: use_libbase, use_buildinfos
+
+<graphUtils.ml>: use_graph
+<objectFiles.ml>: use_graph, use_buildinfos
+
+# ppdebug
+
+<ident.ml>: with_mlstate_debug
+<objectFiles.ml>: with_mlstate_debug
+<oManager.ml>: with_mlstate_debug
+<template.ml>: with_mlstate_debug

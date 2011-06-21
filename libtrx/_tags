@@ -1,0 +1,2 @@
+<*.trx>: trx_cache
+<*.{ml,mli,byte,native}>: use_str, use_ulex, use_libbase

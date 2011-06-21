@@ -1,0 +1,141 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+quote("#include  <stdlib.h>");
+quote("#include <stdio.h>");
+quote("/////  \n\
+#ifdef WIN32  \n\
+#include <winsock2.h>  \n\
+#else  \n\
+#include <netinet/in.h>  \n\
+#include <arpa/inet.h>  \n\
+#endif");
+
+quote("#include <libnatpmp/getgateway.h>");
+quote("#include <libnatpmp/natpmp.h>");
+
+
+struct timeval {
+  long int tv_sec;
+  long int tv_usec;
+}; 
+
+typedef [int32] unsigned long uint32_t;
+typedef unsigned short uint16_t;
+typedef uint32_t in_addr_t;
+
+struct in_addr {
+  in_addr_t  s_addr;
+};
+
+struct in_addr * generate_in_addr(void) 
+  quote(call, "_res = malloc(sizeof(struct in_addr)); _res->s_addr = 0;");
+
+int inet_aton([in,string] const char * name, [in,out] struct in_addr * addr) 
+    quote(call, "_res = inet_aton(name, addr);");
+
+/*
+// this is a somehow polymorphic print for debug
+quote(C,"void print_struct( void * astruct, size_t structSize){\n\
+    size_t i;\n\
+    char *printme=(char *) astruct;\n\
+    int formatter=1;\n\
+    for( i=0;i < structSize;i++ ) {\n\
+         fprintf(stderr,\"%02x \",*printme++); fflush(stderr); \n\
+         if (!(formatter%4)) {\n\
+              fprintf(stderr,\"\\n\"); fflush(stderr); \n\
+         };\n\
+    };\n\
+}\n");
+*/
+
+[string, null_terminated] char * inet_ntoa([in] struct in_addr addr) 
+  quote(call, "_res = (char *) inet_ntoa( ((struct in_addr) addr) );") ;
+
+quote(ml, "module GateWay = struct");
+quote(mli, "module GateWay : sig ");
+int getdefaultgateway([in,out,unique] in_addr_t * addr);
+quote(mlmli, "end");
+
+typedef [abstract] struct {
+  int s;
+  in_addr_t gateway;
+  int has_pending_request;
+  unsigned char pending_request[12];
+  int pending_request_len;
+  int try_number;
+  int retry_time;
+  struct timeval retry_time;
+} natpmp_t;
+
+in_addr_t get_gateway_of_natpmp_t([in] const natpmp_t n)
+    quote(call, "_res = n.gateway;") ;
+
+typedef struct {
+  uint16_t type;
+  uint16_t resultcode;
+  uint32_t epoch;
+  [switch_is(type)] union {
+  case NATPMP_RESPTYPE_PUBLICADDRESS: 
+    struct {
+      struct in_addr addr;
+    } publicaddress;
+  case NATPMP_RESPTYPE_UDPPORTMAPPING: 
+  case NATPMP_RESPTYPE_TCPPORTMAPPING: 
+    struct {
+      uint16_t privateport;
+      uint16_t mappedpublicport;
+      uint32_t lifetime;
+    } newportmapping;
+  } pnu;
+} natpmpresp_t;
+
+natpmp_t * generate_natpmp_t(void)
+  quote(call, "\
+natpmp_t * z = malloc(sizeof(natpmp_t));\n\
+_res = z;") ;
+
+int initnatpmp([in,out,unique] natpmp_t * p, [in] int forcegw, [in] in_addr_t forcedgw)
+  quote(call, "_res = initnatpmp(p, forcegw, forcedgw);");
+
+int closenatpmp([in,out,unique] natpmp_t * p);
+
+int sendpublicaddressrequest([in,out,unique] natpmp_t * p);
+
+enum switch_protocol { 
+  NATPMP_PROTOCOL_UDP = 1,
+  NATPMP_PROTOCOL_TCP = 2
+} ;
+
+int sendnewportmappingrequest([in,out,unique] natpmp_t * p, 
+			      [in] enum switch_protocol protocol,
+                              [in] uint16_t privateport, 
+			      [in] uint16_t publicport,
+			      [in] uint32_t lifetime)
+    quote(call, "_res = sendnewportmappingrequest(p, protocol, privateport, publicport, lifetime);");
+
+int getnatpmprequesttimeout([in,out,unique] natpmp_t * p, [out,unique] struct timeval * timeout)
+    quote(call, "fd_set fds;\n\
+FD_ZERO(&fds);\n\
+FD_SET(p->s, &fds);\n\
+_res = getnatpmprequesttimeout(p, timeout);\n\
+select(FD_SETSIZE, &fds, NULL, NULL, timeout);");
+
+int readnatpmpresponseorretry([in,out,unique] natpmp_t * p, [out,unique] natpmpresp_t * response)
+    quote(call, "_res = readnatpmpresponseorretry(p, response); if (_res != 0) { response = NULL; };");
+

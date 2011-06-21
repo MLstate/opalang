@@ -1,0 +1,13 @@
+A tour of the standard library
+------------------------------
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:?
+//
+
+[CAUTION]
+TODO

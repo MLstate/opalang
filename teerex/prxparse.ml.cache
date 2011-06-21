@@ -1,0 +1,3242 @@
+open Base open Tgrammar
+
+
+
+
+let parse = ( fun  _filename _text ->
+ 
+let _exc_pos = ref ( -1 ) 
+in 
+let _len = String.length _text 
+in 
+let _get_char = String.unsafe_get _text 
+in 
+let _get_sub = String.sub _text 
+in 
+let parse_with = ( fun  f_noerr f_err pos ->
+ begin
+ try ( ( begin
+ match ( ( f_noerr pos ) ) with
+ | Some ( ( pos , res ) ) -> begin
+ ( pos , res ) 
+end
+ | None -> begin
+ begin
+ match ( ( f_err pos ) ) with
+ | Trx_runtime.Ok ( ( ( _ , _ ) , _ ) ) -> begin
+ assert ( false ) 
+end
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.gen_syntax_error _get_char err 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.SyntaxError ( loc , err ) -> begin
+ raise ( ( Trx_runtime.SyntaxError ( ( loc , err ) ) ) ) 
+end
+ | e -> begin
+ Trx_runtime.gen_user_error _get_char ( ! _exc_pos ) e 
+end
+ 
+end
+ ) 
+in 
+let memo_Default_bar = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_bar_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_bracketexpr = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_bracketexpr_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_bracketexprcontent = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_bracketexprcontent_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_lbracket = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_lbracket_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_lparen = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_lparen_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_parexpr = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_parexpr_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rbracket = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rbracket_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rightarrow = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rightarrow_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rparen = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_rparen_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_semi = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_semi_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_spacing = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_spacing_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringchar = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringchar_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringcharspecial = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringcharspecial_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringnosp = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringnosp_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringquote = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_stringquote_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_times = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_times_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_underscore = Hashtbl.create ( 128 ) 
+in 
+let memo_Default_underscore_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_def = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_def_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_define = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_define_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_elem = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_elem_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_file = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_file_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_name = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_name_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_operator = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_operator_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_pattern = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_pattern_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_production = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_production_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_rule = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_rule_err = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_spacing = Hashtbl.create ( 128 ) 
+in 
+let memo_Prxparse_spacing_err = Hashtbl.create ( 128 ) 
+in 
+let rec try_Default_spacing_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_spacing input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_103 ->
+ if (  ( input_103 < _len )  ) then (  
+let c = _get_char input_103 
+in if (  ( ( c = ( ' ' ) ) || ( ( c = ( '\t' ) ) || ( ( c = ( '\r' ) ) || ( c = ( '\n' ) ) ) ) )  ) then (  Some ( ( succ input_103 , c ) )  ) else (  None  )   ) else (  None  )  ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_102 , __1 ) ) -> begin
+ Some ( ( input_102 , 
+let _ = _exc_pos := input_102 
+in ( __1 ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_spacing input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rightarrow_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rightarrow input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( 
+let new_pos = input + ( 2 ) 
+in if (  ( ( new_pos <= _len ) && ( ( ( _get_char ( input + ( 0 ) ) ) = ( '-' ) ) && ( ( ( _get_char ( input + ( 1 ) ) ) = ( '>' ) ) && ( true ) ) ) )  ) then (  Some ( ( new_pos , "->" ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_122 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_122 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_123 , __2 ) ) -> begin
+ Some ( ( input_123 , 
+let _ = _exc_pos := input_123 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rightarrow input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_pattern_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_pattern input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary_noerr ( true ) ( ( fun  input_10 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_rightarrow_noerr input_10 ) ) with
+ | None -> begin
+ Some ( ( input_10 , () ) ) 
+end
+ | Some ( ( _ , _ ) ) -> begin
+ None 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_11 , __1 ) ) -> begin
+ begin
+ match ( ( if (  ( input_11 < _len )  ) then (  
+let c = _get_char input_11 
+in Some ( ( succ input_11 , c ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_12 , __2 ) ) -> begin
+ Some ( ( input_12 , 
+let _ = _exc_pos := input_12 
+in ( __2 ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_9 , __1 ) ) -> begin
+ Some ( ( input_9 , _get_sub input ( input_9 - input ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_pattern input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_spacing = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_spacing_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_330 ->
+ Trx_runtime.option_to_res_err ( if (  ( input_330 < _len )  ) then (  
+let c = _get_char input_330 
+in if (  ( ( c = ( ' ' ) ) || ( ( c = ( '\t' ) ) || ( ( c = ( '\r' ) ) || ( c = ( '\n' ) ) ) ) )  ) then (  Some ( ( succ input_330 , c ) )  ) else (  None  )   ) else (  None  )  ) input_330 ( [ Trx_runtime.Expected ( "'\t'" ) ; Trx_runtime.Expected ( "'\n'" ) ; Trx_runtime.Expected ( "'\r'" ) ; Trx_runtime.Expected ( "' '" ) ] ) ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_329 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_329 , 
+let _ = _exc_pos := input_329 
+in ( __1 ) ) , Trx_runtime.emptyError input_329 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_spacing_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_lbracket = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_lbracket_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '[' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'['" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_396 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_396 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_397 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_397 , 
+let _ = _exc_pos := input_397 
+in ( () ) ) , Trx_runtime.emptyError input_397 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_lbracket_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_lparen = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_lparen_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '(' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'('" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_392 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_392 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_393 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_393 , 
+let _ = _exc_pos := input_393 
+in ( () ) ) , Trx_runtime.emptyError input_393 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_lparen_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rparen = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rparen_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ')' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "')'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_347 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_347 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_348 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_348 , 
+let _ = _exc_pos := input_348 
+in ( () ) ) , Trx_runtime.emptyError input_348 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rparen_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_parexpr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_parexpr_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_lparen input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_375 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_378 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_parexpr input_378 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_381 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_381 , 
+let _ = _exc_pos := input_381 
+in ( () ) ) , Trx_runtime.emptyError input_381 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Default_rparen input_378 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Ok ( ( input_378 , () ) , err ) 
+end
+ | Trx_runtime.Ok ( ( ( _ , _ ) , err ) ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_379 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_379 < _len )  ) then (  
+let c = _get_char input_379 
+in Some ( ( succ input_379 , c ) )  ) else (  None  )  ) input_379 ( [ Trx_runtime.Expected ( "any character" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_380 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_380 , 
+let _ = _exc_pos := input_380 
+in ( () ) ) , Trx_runtime.emptyError input_380 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) ) input_375 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_376 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_rparen input_376 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_377 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_377 , _get_sub input ( input_377 - input ) ) , Trx_runtime.emptyError input_377 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_parexpr_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringcharspecial_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringcharspecial input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 'n' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_75 , __1 ) ) -> begin
+ Some ( ( input_75 , 
+let _ = _exc_pos := input_75 
+in ( '\n'  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 'r' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_74 , __1 ) ) -> begin
+ Some ( ( input_74 , 
+let _ = _exc_pos := input_74 
+in ( '\r'  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 't' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_73 , __1 ) ) -> begin
+ Some ( ( input_73 , 
+let _ = _exc_pos := input_73 
+in ( '\t'  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\'' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_72 , __1 ) ) -> begin
+ Some ( ( input_72 , 
+let _ = _exc_pos := input_72 
+in ( '\''  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_71 , __1 ) ) -> begin
+ Some ( ( input_71 , 
+let _ = _exc_pos := input_71 
+in ( '\"'  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\\' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_70 , __1 ) ) -> begin
+ Some ( ( input_70 , 
+let _ = _exc_pos := input_70 
+in ( '\\'  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( true ) ( ( fun  input_69 ->
+ if (  ( input_69 < _len )  ) then (  
+let c = _get_char input_69 
+in if (  ( ( c >= ( '0' ) ) && ( c <= ( '9' ) ) )  ) then (  Some ( ( succ input_69 , c ) )  ) else (  None  )   ) else (  None  )  ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_68 , __1 ) ) -> begin
+ Some ( ( input_68 , 
+let _ = _exc_pos := input_68 
+in ( char_of_int (int_of_chars __1)  ) ) ) 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringcharspecial input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_semi_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_semi input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ';' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_118 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_118 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_119 , __2 ) ) -> begin
+ Some ( ( input_119 , 
+let _ = _exc_pos := input_119 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_semi input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_spacing_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_spacing input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_1 ->
+ if (  ( input_1 < _len )  ) then (  
+let c = _get_char input_1 
+in if (  ( ( c = ( ' ' ) ) || ( ( c = ( '\t' ) ) || ( ( c = ( '\r' ) ) || ( c = ( '\n' ) ) ) ) )  ) then (  Some ( ( succ input_1 , c ) )  ) else (  None  )   ) else (  None  )  ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_0 , __1 ) ) -> begin
+ Some ( ( input_0 , 
+let _ = _exc_pos := input_0 
+in ( __1 ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_spacing input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_define_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_define input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( 
+let new_pos = input + ( 3 ) 
+in if (  ( ( new_pos <= _len ) && ( ( ( _get_char ( input + ( 0 ) ) ) = ( ':' ) ) && ( ( ( _get_char ( input + ( 1 ) ) ) = ( ':' ) ) && ( ( ( _get_char ( input + ( 2 ) ) ) = ( '=' ) ) && ( true ) ) ) ) )  ) then (  Some ( ( new_pos , "::=" ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_37 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_spacing_noerr input_37 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_38 , __2 ) ) -> begin
+ Some ( ( input_38 , () ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_define input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_name_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_name input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( ( c >= ( 'a' ) ) && ( c <= ( 'z' ) ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_21 , __1 ) ) -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_23 ->
+ if (  ( input_23 < _len )  ) then (  
+let c = _get_char input_23 
+in if (  ( ( ( c >= ( 'a' ) ) && ( c <= ( 'z' ) ) ) || ( ( ( c >= ( 'A' ) ) && ( c <= ( 'Z' ) ) ) || ( ( ( c >= ( '0' ) ) && ( c <= ( '9' ) ) ) || ( c = ( '_' ) ) ) ) )  ) then (  Some ( ( succ input_23 , c ) )  ) else (  None  )   ) else (  None  )  ) ) input_21 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_22 , __2 ) ) -> begin
+ Some ( ( input_22 , _get_sub input ( input_22 - input ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_19 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_spacing_noerr input_19 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_20 , __2 ) ) -> begin
+ Some ( ( input_20 , 
+let _ = _exc_pos := input_20 
+in ( __1  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_name input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_bar_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bar input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '|' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_213 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_213 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_214 , __2 ) ) -> begin
+ Some ( ( input_214 , 
+let _ = _exc_pos := input_214 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bar input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_times_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_times input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '*' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_46 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_46 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_47 , __2 ) ) -> begin
+ Some ( ( input_47 , 
+let _ = _exc_pos := input_47 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_times input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_lbracket_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_lbracket input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '[' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_169 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_169 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_170 , __2 ) ) -> begin
+ Some ( ( input_170 , 
+let _ = _exc_pos := input_170 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_lbracket input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rbracket_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rbracket input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ']' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_124 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_124 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_125 , __2 ) ) -> begin
+ Some ( ( input_125 , 
+let _ = _exc_pos := input_125 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rbracket input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_bracketexpr_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bracketexpr input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_lbracket_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_210 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_bracketexprcontent_noerr input_210 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_211 , __2 ) ) -> begin
+ begin
+ match ( ( try_Default_rbracket_noerr input_211 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_212 , __3 ) ) -> begin
+ Some ( ( input_212 , 
+let _ = _exc_pos := input_212 
+in ( __2  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bracketexpr input res ;
+ res 
+end
+ 
+end
+ ) 
+and try_Default_bracketexprcontent_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bracketexprcontent input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_206 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_bracketexpr_noerr input_206 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_209 , __1 ) ) -> begin
+ Some ( ( input_209 , 
+let _ = _exc_pos := input_209 
+in ( () ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Default_rbracket_noerr input_206 ) ) with
+ | None -> begin
+ Some ( ( input_206 , () ) ) 
+end
+ | Some ( ( _ , _ ) ) -> begin
+ None 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_207 , __1 ) ) -> begin
+ begin
+ match ( ( if (  ( input_207 < _len )  ) then (  
+let c = _get_char input_207 
+in Some ( ( succ input_207 , c ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_208 , __2 ) ) -> begin
+ Some ( ( input_208 , 
+let _ = _exc_pos := input_208 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_205 , __1 ) ) -> begin
+ Some ( ( input_205 , _get_sub input ( input_205 - input ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bracketexprcontent input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_lparen_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_lparen input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '(' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_165 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_165 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_166 , __2 ) ) -> begin
+ Some ( ( input_166 , 
+let _ = _exc_pos := input_166 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_lparen input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rparen_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rparen input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ')' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_120 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_120 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_121 , __2 ) ) -> begin
+ Some ( ( input_121 , 
+let _ = _exc_pos := input_121 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rparen input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_parexpr_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_parexpr input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_lparen_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_148 , __1 ) ) -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_151 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_parexpr_noerr input_151 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_154 , __1 ) ) -> begin
+ Some ( ( input_154 , 
+let _ = _exc_pos := input_154 
+in ( () ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Default_rparen_noerr input_151 ) ) with
+ | None -> begin
+ Some ( ( input_151 , () ) ) 
+end
+ | Some ( ( _ , _ ) ) -> begin
+ None 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_152 , __1 ) ) -> begin
+ begin
+ match ( ( if (  ( input_152 < _len )  ) then (  
+let c = _get_char input_152 
+in Some ( ( succ input_152 , c ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_153 , __2 ) ) -> begin
+ Some ( ( input_153 , 
+let _ = _exc_pos := input_153 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) ) input_148 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_149 , __2 ) ) -> begin
+ begin
+ match ( ( try_Default_rparen_noerr input_149 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_150 , __3 ) ) -> begin
+ Some ( ( input_150 , _get_sub input ( input_150 - input ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_parexpr input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringchar_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringchar input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\\' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_78 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_stringcharspecial_noerr input_78 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_79 , __2 ) ) -> begin
+ Some ( ( input_79 , 
+let _ = _exc_pos := input_79 
+in ( __2  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( ( c = ( '\\' ) ) || ( c = ( '"' ) ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ Some ( ( input , () ) ) 
+end
+ | Some ( ( _ , _ ) ) -> begin
+ None 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_76 , __1 ) ) -> begin
+ begin
+ match ( ( if (  ( input_76 < _len )  ) then (  
+let c = _get_char input_76 
+in Some ( ( succ input_76 , c ) )  ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_77 , __2 ) ) -> begin
+ Some ( ( input_77 , 
+let _ = _exc_pos := input_77 
+in ( __2 ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringchar input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringnosp_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringnosp input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_64 , __1 ) ) -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_67 ->
+ try_Default_stringchar_noerr input_67 ) ) input_64 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_65 , __2 ) ) -> begin
+ begin
+ match ( ( if (  ( input_65 < _len )  ) then (  
+let c = _get_char input_65 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input_65 , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_66 , __3 ) ) -> begin
+ Some ( ( input_66 , 
+let _ = _exc_pos := input_66 
+in ( string_of_chars __2  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringnosp input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringquote_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringquote input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_stringnosp_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_63 , __1 ) ) -> begin
+ Some ( ( input_63 , _get_sub input ( input_63 - input ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringquote input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_underscore_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_underscore input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '_' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_44 , __1 ) ) -> begin
+ begin
+ match ( ( try_Default_spacing_noerr input_44 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_45 , __2 ) ) -> begin
+ Some ( ( input_45 , 
+let _ = _exc_pos := input_45 
+in ( () ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_underscore input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_operator_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_operator input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '<' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_15 , __1 ) ) -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( true ) ( ( fun  input_18 ->
+ if (  ( input_18 < _len )  ) then (  
+let c = _get_char input_18 
+in if (  ( ( c = ( '<' ) ) || ( ( c = ( '>' ) ) || ( ( c = ( '+' ) ) || ( ( c = ( '-' ) ) || ( ( c = ( '/' ) ) || ( c = ( '*' ) ) ) ) ) ) )  ) then (  Some ( ( succ input_18 , c ) )  ) else (  None  )   ) else (  None  )  ) ) input_15 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_16 , __2 ) ) -> begin
+ begin
+ match ( ( if (  ( input_16 < _len )  ) then (  
+let c = _get_char input_16 
+in if (  ( c = ( '>' ) )  ) then (  Some ( ( succ input_16 , c ) )  ) else (  None  )   ) else (  None  )  ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_17 , __3 ) ) -> begin
+ Some ( ( input_17 , _get_sub input ( input_17 - input ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_13 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_spacing_noerr input_13 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_14 , __2 ) ) -> begin
+ Some ( ( input_14 , 
+let _ = _exc_pos := input_14 
+in ( __1  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_operator input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_elem_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_elem input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( try_Default_stringquote_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_35 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_spacing_noerr input_35 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_36 , __2 ) ) -> begin
+ Some ( ( input_36 , 
+let _ = _exc_pos := input_36 
+in ( `string __1  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Default_lbracket_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_31 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_name_noerr input_31 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_32 , __2 ) ) -> begin
+ begin
+ match ( ( try_Default_bracketexprcontent_noerr input_32 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_33 , __3 ) ) -> begin
+ begin
+ match ( ( try_Default_rbracket_noerr input_33 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_34 , __4 ) ) -> begin
+ Some ( ( input_34 , 
+let _ = _exc_pos := input_34 
+in ( `production (__2, __3)  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Default_parexpr_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_29 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_spacing_noerr input_29 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_30 , __2 ) ) -> begin
+ Some ( ( input_30 , 
+let _ = _exc_pos := input_30 
+in ( `ocaml __1  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Prxparse_name_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_28 , __1 ) ) -> begin
+ Some ( ( input_28 , 
+let _ = _exc_pos := input_28 
+in ( `var __1  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( begin
+ match ( ( try_Prxparse_operator_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_27 , __1 ) ) -> begin
+ Some ( ( input_27 , 
+let _ = _exc_pos := input_27 
+in ( `operator __1  ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( try_Default_underscore_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_26 , __1 ) ) -> begin
+ Some ( ( input_26 , 
+let _ = _exc_pos := input_26 
+in ( `space  ) ) ) 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_elem input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_production_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_production input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.while_primary_noerr ( true ) ( ( fun  input_8 ->
+ try_Prxparse_elem_noerr input_8 ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_7 , __1 ) ) -> begin
+ Some ( ( input_7 , 
+let _ = _exc_pos := input_7 
+in ( __1 ) ) ) 
+end
+ 
+end
+ ) ) with
+ | None -> begin
+ begin
+ match ( ( try_Default_times_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_6 , __1 ) ) -> begin
+ Some ( ( input_6 , 
+let _ = _exc_pos := input_6 
+in ( []  ) ) ) 
+end
+ 
+end
+ 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_production input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_rule_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_rule input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_bar_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_2 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_pattern_noerr input_2 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_3 , __2 ) ) -> begin
+ begin
+ match ( ( try_Default_rightarrow_noerr input_3 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_4 , __3 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_production_noerr input_4 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_5 , __4 ) ) -> begin
+ Some ( ( input_5 , 
+let _ = _exc_pos := input_5 
+in ( __2, __4  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_rule input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_def_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_def input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Prxparse_name_noerr input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_39 , __1 ) ) -> begin
+ begin
+ match ( ( try_Prxparse_define_noerr input_39 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_40 , __2 ) ) -> begin
+ begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_43 ->
+ try_Prxparse_rule_noerr input_43 ) ) input_40 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_41 , __3 ) ) -> begin
+ begin
+ match ( ( try_Default_semi_noerr input_41 ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_42 , __4 ) ) -> begin
+ Some ( ( input_42 , 
+let _ = _exc_pos := input_42 
+in ( __1, __3  ) ) ) 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_def input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_spacing = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_spacing_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_228 ->
+ Trx_runtime.option_to_res_err ( if (  ( input_228 < _len )  ) then (  
+let c = _get_char input_228 
+in if (  ( ( c = ( ' ' ) ) || ( ( c = ( '\t' ) ) || ( ( c = ( '\r' ) ) || ( c = ( '\n' ) ) ) ) )  ) then (  Some ( ( succ input_228 , c ) )  ) else (  None  )   ) else (  None  )  ) input_228 ( [ Trx_runtime.Expected ( "'\t'" ) ; Trx_runtime.Expected ( "'\n'" ) ; Trx_runtime.Expected ( "'\r'" ) ; Trx_runtime.Expected ( "' '" ) ] ) ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_227 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_227 , 
+let _ = _exc_pos := input_227 
+in ( __1 ) ) , Trx_runtime.emptyError input_227 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_spacing_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_times = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_times_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '*' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'*'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_273 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_273 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_274 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_274 , 
+let _ = _exc_pos := input_274 
+in ( () ) ) , Trx_runtime.emptyError input_274 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_times_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rbracket = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rbracket_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ']' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "']'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_351 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_351 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_352 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_352 , 
+let _ = _exc_pos := input_352 
+in ( () ) ) , Trx_runtime.emptyError input_352 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rbracket_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_bracketexprcontent = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bracketexprcontent_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_433 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_bracketexpr input_433 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_436 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_436 , 
+let _ = _exc_pos := input_436 
+in ( () ) ) , Trx_runtime.emptyError input_436 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Default_rbracket input_433 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Ok ( ( input_433 , () ) , err ) 
+end
+ | Trx_runtime.Ok ( ( ( _ , _ ) , err ) ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_434 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_434 < _len )  ) then (  
+let c = _get_char input_434 
+in Some ( ( succ input_434 , c ) )  ) else (  None  )  ) input_434 ( [ Trx_runtime.Expected ( "any character" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_435 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_435 , 
+let _ = _exc_pos := input_435 
+in ( () ) ) , Trx_runtime.emptyError input_435 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_432 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_432 , _get_sub input ( input_432 - input ) ) , Trx_runtime.emptyError input_432 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bracketexprcontent_err input res ;
+ res 
+end
+ 
+end
+ ) 
+and try_Default_bracketexpr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bracketexpr_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_lbracket input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_437 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_bracketexprcontent input_437 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_438 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_rbracket input_438 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_439 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_439 , 
+let _ = _exc_pos := input_439 
+in ( __2  ) ) , Trx_runtime.emptyError input_439 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bracketexpr_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringcharspecial = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringcharspecial_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 'n' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'n'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_302 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_302 , 
+let _ = _exc_pos := input_302 
+in ( '\n'  ) ) , Trx_runtime.emptyError input_302 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 'r' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'r'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_301 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_301 , 
+let _ = _exc_pos := input_301 
+in ( '\r'  ) ) , Trx_runtime.emptyError input_301 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( 't' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'t'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_300 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_300 , 
+let _ = _exc_pos := input_300 
+in ( '\t'  ) ) , Trx_runtime.emptyError input_300 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\'' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'''" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_299 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_299 , 
+let _ = _exc_pos := input_299 
+in ( '\''  ) ) , Trx_runtime.emptyError input_299 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'\"'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_298 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_298 , 
+let _ = _exc_pos := input_298 
+in ( '\"'  ) ) , Trx_runtime.emptyError input_298 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\\' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'\\'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_297 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_297 , 
+let _ = _exc_pos := input_297 
+in ( '\\'  ) ) , Trx_runtime.emptyError input_297 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( true ) ( ( fun  input_296 ->
+ Trx_runtime.option_to_res_err ( if (  ( input_296 < _len )  ) then (  
+let c = _get_char input_296 
+in if (  ( ( c >= ( '0' ) ) && ( c <= ( '9' ) ) )  ) then (  Some ( ( succ input_296 , c ) )  ) else (  None  )   ) else (  None  )  ) input_296 ( [ Trx_runtime.Expected ( "['0'-'9']" ) ] ) ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_295 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_295 , 
+let _ = _exc_pos := input_295 
+in ( char_of_int (int_of_chars __1)  ) ) , Trx_runtime.emptyError input_295 ) ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringcharspecial_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringchar = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringchar_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '\\' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'\\'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_305 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_stringcharspecial input_305 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_306 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_306 , 
+let _ = _exc_pos := input_306 
+in ( __2  ) ) , Trx_runtime.emptyError input_306 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( ( c = ( '\\' ) ) || ( c = ( '"' ) ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'\"'" ) ; Trx_runtime.Expected ( "'\\'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Ok ( ( input , () ) , err ) 
+end
+ | Trx_runtime.Ok ( ( ( _ , _ ) , err ) ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_303 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_303 < _len )  ) then (  
+let c = _get_char input_303 
+in Some ( ( succ input_303 , c ) )  ) else (  None  )  ) input_303 ( [ Trx_runtime.Expected ( "any character" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_304 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_304 , 
+let _ = _exc_pos := input_304 
+in ( __2 ) ) , Trx_runtime.emptyError input_304 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringchar_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringnosp = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringnosp_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'\"'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_291 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_294 ->
+ try_Default_stringchar input_294 ) ) input_291 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_292 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_292 < _len )  ) then (  
+let c = _get_char input_292 
+in if (  ( c = ( '"' ) )  ) then (  Some ( ( succ input_292 , c ) )  ) else (  None  )   ) else (  None  )  ) input_292 ( [ Trx_runtime.Expected ( "'\"'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_293 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_293 , 
+let _ = _exc_pos := input_293 
+in ( string_of_chars __2  ) ) , Trx_runtime.emptyError input_293 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringnosp_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_stringquote = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_stringquote_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_stringnosp input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_290 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_290 , _get_sub input ( input_290 - input ) ) , Trx_runtime.emptyError input_290 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_stringquote_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_underscore = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_underscore_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '_' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'_'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_271 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_271 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_272 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_272 , 
+let _ = _exc_pos := input_272 
+in ( () ) ) , Trx_runtime.emptyError input_272 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_underscore_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_name = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_name_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( ( c >= ( 'a' ) ) && ( c <= ( 'z' ) ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "['a'-'z']" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_248 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_250 ->
+ Trx_runtime.option_to_res_err ( if (  ( input_250 < _len )  ) then (  
+let c = _get_char input_250 
+in if (  ( ( ( c >= ( 'a' ) ) && ( c <= ( 'z' ) ) ) || ( ( ( c >= ( 'A' ) ) && ( c <= ( 'Z' ) ) ) || ( ( ( c >= ( '0' ) ) && ( c <= ( '9' ) ) ) || ( c = ( '_' ) ) ) ) )  ) then (  Some ( ( succ input_250 , c ) )  ) else (  None  )   ) else (  None  )  ) input_250 ( [ Trx_runtime.Expected ( "'_'" ) ; Trx_runtime.Expected ( "['0'-'9']" ) ; Trx_runtime.Expected ( "['A'-'Z']" ) ; Trx_runtime.Expected ( "['a'-'z']" ) ] ) ) ) input_248 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_249 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_249 , _get_sub input ( input_249 - input ) ) , Trx_runtime.emptyError input_249 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_246 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_spacing input_246 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_247 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_247 , 
+let _ = _exc_pos := input_247 
+in ( __1  ) ) , Trx_runtime.emptyError input_247 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_name_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_operator = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_operator_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '<' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'<'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_242 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( true ) ( ( fun  input_245 ->
+ Trx_runtime.option_to_res_err ( if (  ( input_245 < _len )  ) then (  
+let c = _get_char input_245 
+in if (  ( ( c = ( '<' ) ) || ( ( c = ( '>' ) ) || ( ( c = ( '+' ) ) || ( ( c = ( '-' ) ) || ( ( c = ( '/' ) ) || ( c = ( '*' ) ) ) ) ) ) )  ) then (  Some ( ( succ input_245 , c ) )  ) else (  None  )   ) else (  None  )  ) input_245 ( [ Trx_runtime.Expected ( "'*'" ) ; Trx_runtime.Expected ( "'+'" ) ; Trx_runtime.Expected ( "'-'" ) ; Trx_runtime.Expected ( "'/'" ) ; Trx_runtime.Expected ( "'<'" ) ; Trx_runtime.Expected ( "'>'" ) ] ) ) ) input_242 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_243 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_243 < _len )  ) then (  
+let c = _get_char input_243 
+in if (  ( c = ( '>' ) )  ) then (  Some ( ( succ input_243 , c ) )  ) else (  None  )   ) else (  None  )  ) input_243 ( [ Trx_runtime.Expected ( "'>'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_244 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_244 , _get_sub input ( input_244 - input ) ) , Trx_runtime.emptyError input_244 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_240 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_spacing input_240 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_241 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_241 , 
+let _ = _exc_pos := input_241 
+in ( __1  ) ) , Trx_runtime.emptyError input_241 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_operator_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_elem = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_elem_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( try_Default_stringquote input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_262 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_spacing input_262 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_263 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_263 , 
+let _ = _exc_pos := input_263 
+in ( `string __1  ) ) , Trx_runtime.emptyError input_263 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Default_lbracket input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_258 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_name input_258 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_259 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_bracketexprcontent input_259 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_260 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_rbracket input_260 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_261 , __4 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_261 , 
+let _ = _exc_pos := input_261 
+in ( `production (__2, __3)  ) ) , Trx_runtime.emptyError input_261 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Default_parexpr input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_256 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_spacing input_256 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_257 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_257 , 
+let _ = _exc_pos := input_257 
+in ( `ocaml __1  ) ) , Trx_runtime.emptyError input_257 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Prxparse_name input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_255 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_255 , 
+let _ = _exc_pos := input_255 
+in ( `var __1  ) ) , Trx_runtime.emptyError input_255 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( begin
+ match ( ( try_Prxparse_operator input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_254 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_254 , 
+let _ = _exc_pos := input_254 
+in ( `operator __1  ) ) , Trx_runtime.emptyError input_254 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_underscore input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_253 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_253 , 
+let _ = _exc_pos := input_253 
+in ( `space  ) ) , Trx_runtime.emptyError input_253 ) ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_elem_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_production = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_production_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( begin
+ match ( ( Trx_runtime.while_primary ( true ) ( ( fun  input_235 ->
+ try_Prxparse_elem input_235 ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_234 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_234 , 
+let _ = _exc_pos := input_234 
+in ( __1 ) ) , Trx_runtime.emptyError input_234 ) ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_times input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_233 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_233 , 
+let _ = _exc_pos := input_233 
+in ( []  ) ) , Trx_runtime.emptyError input_233 ) ) 
+end
+ 
+end
+ ) 
+end
+ | ok -> begin
+ ok 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_production_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_rightarrow = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_rightarrow_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_msg ( 
+let new_pos = input + ( 2 ) 
+in if (  ( ( new_pos <= _len ) && ( ( ( _get_char ( input + ( 0 ) ) ) = ( '-' ) ) && ( ( ( _get_char ( input + ( 1 ) ) ) = ( '>' ) ) && ( true ) ) ) )  ) then (  Some ( ( new_pos , "->" ) )  ) else (  None  )  ) input ( "\"->\"" ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_349 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_349 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_350 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_350 , 
+let _ = _exc_pos := input_350 
+in ( () ) ) , Trx_runtime.emptyError input_350 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_rightarrow_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_define = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_define_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_msg ( 
+let new_pos = input + ( 3 ) 
+in if (  ( ( new_pos <= _len ) && ( ( ( _get_char ( input + ( 0 ) ) ) = ( ':' ) ) && ( ( ( _get_char ( input + ( 1 ) ) ) = ( ':' ) ) && ( ( ( _get_char ( input + ( 2 ) ) ) = ( '=' ) ) && ( true ) ) ) ) )  ) then (  Some ( ( new_pos , "::=" ) )  ) else (  None  )  ) input ( "\"::=\"" ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_264 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_spacing input_264 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_265 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_265 , () ) , Trx_runtime.emptyError input_265 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_define_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_semi = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_semi_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( ';' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "';'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_345 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_345 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_346 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_346 , 
+let _ = _exc_pos := input_346 
+in ( () ) ) , Trx_runtime.emptyError input_346 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_semi_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Default_bar = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Default_bar_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input < _len )  ) then (  
+let c = _get_char input 
+in if (  ( c = ( '|' ) )  ) then (  Some ( ( succ input , c ) )  ) else (  None  )   ) else (  None  )  ) input ( [ Trx_runtime.Expected ( "'|'" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_440 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_spacing input_440 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_441 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_441 , 
+let _ = _exc_pos := input_441 
+in ( () ) ) , Trx_runtime.emptyError input_441 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Default_bar_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_pattern = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_pattern_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary ( true ) ( ( fun  input_237 ->
+ begin
+ match ( ( begin
+ match ( ( try_Default_rightarrow input_237 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Ok ( ( input_237 , () ) , err ) 
+end
+ | Trx_runtime.Ok ( ( ( _ , _ ) , err ) ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ 
+end
+ ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_238 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.option_to_res_err ( if (  ( input_238 < _len )  ) then (  
+let c = _get_char input_238 
+in Some ( ( succ input_238 , c ) )  ) else (  None  )  ) input_238 ( [ Trx_runtime.Expected ( "any character" ) ] ) ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_239 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_239 , 
+let _ = _exc_pos := input_239 
+in ( __2 ) ) , Trx_runtime.emptyError input_239 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_236 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_236 , _get_sub input ( input_236 - input ) ) , Trx_runtime.emptyError input_236 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_pattern_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_rule = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_rule_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Default_bar input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_229 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_pattern input_229 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_230 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_rightarrow input_230 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_231 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_production input_231 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_232 , __4 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_232 , 
+let _ = _exc_pos := input_232 
+in ( __2, __4  ) ) , Trx_runtime.emptyError input_232 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_rule_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_def = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_def_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( try_Prxparse_name input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_266 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Prxparse_define input_266 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_267 , __2 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_270 ->
+ try_Prxparse_rule input_270 ) ) input_267 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_268 , __3 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( begin
+ match ( ( try_Default_semi input_268 ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_269 , __4 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_269 , 
+let _ = _exc_pos := input_269 
+in ( __1, __3  ) ) , Trx_runtime.emptyError input_269 ) ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_def_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_file = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_file_err input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary ( false ) ( ( fun  input_252 ->
+ try_Prxparse_def input_252 ) ) input ) ) with
+ | Trx_runtime.Fail ( err ) -> begin
+ Trx_runtime.Fail ( err ) 
+end
+ | Trx_runtime.Ok ( ( ( input_251 , __1 ) , err ) ) -> begin
+ Trx_runtime.addErrorInfo err ( Trx_runtime.Ok ( ( input_251 , 
+let _ = _exc_pos := input_251 
+in ( StringMap.from_list __1  ) ) , Trx_runtime.emptyError input_251 ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_file_err input res ;
+ res 
+end
+ 
+end
+ ) 
+in 
+let rec try_Prxparse_file_noerr = ( fun  input ->
+ begin
+ try ( ( Hashtbl.find memo_Prxparse_file input ) ) with
+ | Not_found -> begin
+ 
+let res = begin
+ match ( ( Trx_runtime.while_primary_noerr ( false ) ( ( fun  input_25 ->
+ try_Prxparse_def_noerr input_25 ) ) input ) ) with
+ | None -> begin
+ None 
+end
+ | Some ( ( input_24 , __1 ) ) -> begin
+ Some ( ( input_24 , 
+let _ = _exc_pos := input_24 
+in ( StringMap.from_list __1  ) ) ) 
+end
+ 
+end
+ 
+in Hashtbl.add memo_Prxparse_file input res ;
+ res 
+end
+ 
+end
+ ) 
+in ( parse_with try_Prxparse_file_noerr try_Prxparse_file , parse_with try_Prxparse_def_noerr try_Prxparse_def ) ) 
+and 
+ _grammar_rules = [ ( "Prxparse_spacing" , None ) ; ( "Prxparse_rule" , None ) ; ( "Prxparse_production" , None ) ; ( "Prxparse_pattern" , None ) ; ( "Prxparse_operator" , None ) ; ( "Prxparse_name" , None ) ; ( "Prxparse_file" , None ) ; ( "Prxparse_elem" , None ) ; ( "Prxparse_define" , None ) ; ( "Prxparse_def" , None ) ; ( "Default_underscore" , None ) ; ( "Default_times" , None ) ; ( "Default_tilde_" , None ) ; ( "Default_strint" , None ) ; ( "Default_stringsinglequote" , None ) ; ( "Default_stringsinglechar" , None ) ; ( "Default_stringquote" , None ) ; ( "Default_stringnosp" , None ) ; ( "Default_stringcharspecial" , None ) ; ( "Default_stringchar" , None ) ; ( "Default_string" , None ) ; ( "Default_strfloat" , None ) ; ( "Default_str_ipaddr" , None ) ; ( "Default_spacing" , None ) ; ( "Default_space" , None ) ; ( "Default_slash" , None ) ; ( "Default_singlequotechar_" , None ) ; ( "Default_sharpcomment" , None ) ; ( "Default_sharp" , None ) ; ( "Default_semi" , None ) ; ( "Default_rparen" , None ) ; ( "Default_rightarrow" , None ) ; ( "Default_rbracket" , None ) ; ( "Default_raccol" , None ) ; ( "Default_question_" , None ) ; ( "Default_question" , None ) ; ( "Default_plus" , None ) ; ( "Default_parexprnosp" , None ) ; ( "Default_parexprexcluded" , None ) ; ( "Default_parexpr" , None ) ; ( "Default_mlcomment" , None ) ; ( "Default_mlCOMMENTSTOP" , None ) ; ( "Default_mlCOMMENTSTART" , None ) ; ( "Default_lparen" , None ) ; ( "Default_leftarrow" , None ) ; ( "Default_lbracket" , None ) ; ( "Default_laccol" , None ) ; ( "Default_int3" , None ) ; ( "Default_int" , None ) ; ( "Default_humanint" , None ) ; ( "Default_hexa" , None ) ; ( "Default_float" , None ) ; ( "Default_equal" , None ) ; ( "Default_eol" , None ) ; ( "Default_eof" , None ) ; ( "Default_dot" , None ) ; ( "Default_comma" , None ) ; ( "Default_colon" , None ) ; ( "Default_charsinglequote" , None ) ; ( "Default_bracketexprcontent" , None ) ; ( "Default_bracketexpr" , None ) ; ( "Default_bar" , None ) ; ( "Default_bang" , None ) ; ( "Default_at" , None ) ; ( "Default_accolexprcontent" , None ) ; ( "Default_accolexpr" , None ) ] 
+
+let parse_prxparse_file = ( fun  ?( _filename  =  "" ) ?( _start  =  0 ) _text ->
+ 
+let ( _prxparse_file , _prxparse_def ) = parse _filename _text 
+in _prxparse_file _start ) 
+ 
+
+let parse_prxparse_def = ( fun  ?( _filename  =  "" ) ?( _start  =  0 ) _text ->
+ 
+let ( _prxparse_file , _prxparse_def ) = parse _filename _text 
+in _prxparse_def _start ) 
+ 

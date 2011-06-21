@@ -1,0 +1,19 @@
+# -*- conf -*- (for emacs)
+
+# compiler
+<*.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_compilerlib, use_qmlpasses
+
+# application, linkink
+# common
+<{qmljs_exe}.{ml,mli,byte,native}>: thread, use_unix, use_dynlink, use_str, use_graph, use_ulex, use_libtrx, use_pplib, use_opabsl_for_compiler, use_passlib, use_nums, use_buildinfos, use_opalang, use_compilerlib, use_opacapi
+
+# specific
+<qmljs_exe.{ml,byte,native}>: use_qmljsimp, use_qml2js, use_zip
+<qmlCompilers.{ml,mli,byte,native}>: use_qmlslicer, use_passlib, use_opalang
+
+# FIXME:continue to refactore
+# until qmlc will provide common passes (next commit)
+<*.{ml,mli,byte,native}>: use_qml2ocaml, use_qml2js
+
+# explicit deps for linking
+<{qmljs_exe}.{byte,native}>: use_qmlslicer

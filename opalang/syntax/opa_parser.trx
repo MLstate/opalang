@@ -1,0 +1,1339 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+(**
+   The general OPA parser, with HMX.
+
+   @TODO: Rule [deco] should return the correct line/char number,
+   which requires either advanced TRX hackery or a preliminary phase
+   to associate to each file a mapping from char number to line/column number.
+*)
+
+read opa_lexer.trx
+read parser_path.trx
+read string_expr.trx
+read action.trx
+read xml.trx
+read css.trx
+read trx.trx
+read xml_parser.trx
+
+%%imperative-errors = true
+%%opt-errors = true
+
+{{
+   open SurfaceAst
+   open Parser_utils
+
+   module SA = SurfaceAst
+
+   (* some types for IDEs; please maintain this in particular when you add/remove/change directives *)
+   (* IF YOU WANT TO CHANGE THIS UPDATE THE IDE REPO *)
+   type fixed_code_for_ide = (string, parsing_directive) code
+}}
+
+(**
+   General convention:
+
+  each rule exists in two versions
+   - [just_foo], which performs the actual parsing and returns the result
+   - [foo], which is defined as
+     [deco = deco just_foo]
+
+   As a general guideline, you should always call rule [foo] from your other rules,
+   never [just_foo].
+*)
+
+
+(**
+   {6 Entry points}
+*)
+;main <- init declarations:d {{ d }}
+;+main_eoi : {(SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.code} <- init declarations:d !. {{ d }}
+;+expr_eoi : {(SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.expr} <- init expr:e !. {{ e }}
+;+ty_eoi : {SurfaceAst.nonuid SurfaceAst.ty} <- init typ:t !. {{ t }}
+
+(**
+   {6 Initialization}
+*)
+
+init <- _succeed {{ Parser_utils.filename := _filename }}
+
+(**
+   {6 Stuff for IDEs}
+*)
+
+;+maybe_declaration : {[`failure of string * Trx_runtime.pos * Trx_runtime.pos
+                       | `success of (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.code ]} <-
+  / declaration:d {{ `success (d : (string, parsing_directive) code) }}
+  / ((!declaration .)+ $_):d  {{ `failure (d, _pos_beg, _pos_end) }} ;
+
+(**
+   {6 Declarations}
+   A toplevel open is rewritten into [_ = @toplevel_open(e)]
+*)
+;declarations <- spacing (=list0(declaration,semic?)):l semic? spacing {{ List.flatten l }}
+;declaration <- (=deco(just_declaration)):p {{ let (l,label) = p in List.map (fun x -> (x, copy_label label)) l }}
+;/** toplevel declaration **/
+just_declaration <-
+  / (_succeed {{ clear_hints () }}) _fail {{ assert false }}
+  / (pos:p !(spacing "=") {{ push_hint (`declaration p) }}) _fail {{ assert false }}
+  / database:d {{ d }}
+  / declaration_directives:dirs Opa_lexer.REC (=list1(rec_binding_pat, and)):bindings {{
+      let bindings = declaration_directive dirs bindings in
+      [NewVal (bindings,true)]
+    }}
+  (* this case needs to come before val_binding so that css = ... is parsed by this rule *)
+  / Css.css:d {{ [d] }}
+  / declaration_directives:dirs deco_fun_binding:d
+    {{ let ident,e = d in
+       let bindings = [var_to_patvar ident, e] in
+       let bindings = declaration_directive dirs bindings in
+       [NewVal (bindings,false)] }}
+  (* this case needs to come before pattern so that f (2) doesn't get parsed *)
+  / (=deco(ml_identifier_nosp:i strict_spacing lpar)):p {{ error_fun_space (label p) }}
+  / declaration_directives:dirs val_binding:b {{ [NewVal (declaration_directive dirs [b], false)] }}
+  (* 'do' is a keyword, so situation like do(1,2) is not ambiguous *)
+  / do_block:b {{ [NewVal ([b],false) ] }}
+  / typedef_directives:dirs Opa_lexer.TYPE (=list1(type_binding,Opa_lexer.AND)):typedefs
+    {{
+       let ty_def_options, visibility_dirs = dirs in
+       (* First, update the visibility of each individual defined type with the
+          visibility directives that are global here for all types
+          and-defined. *)
+       let updated_typedefs =
+         List.map
+           (fun (ty_def, pos) ->
+              (*
+                merging the options between the global (before the type keyword)
+                and the local options, in case of several definitions
+              *)
+              let ty_def_options =
+                let global = ty_def_options in
+                let local = ty_def.SurfaceAst.ty_def_options in
+                Parser_utils.merge_type_def_options ~global ~local
+              in
+              let updated_visibility =
+                Parser_utils.merge_type_def_visibility
+                  (ty_def.SurfaceAst.ty_def_visibility :: visibility_dirs) pos
+              in
+              ({ ty_def with SurfaceAst.
+                   ty_def_options ;
+                   ty_def_visibility = updated_visibility ;
+               },
+               pos))
+           typedefs in
+       [NewType updated_typedefs]
+    }}
+  / (=Opa_lexer.exact_ident("package")) package_identifier:name {{ [Package (`declaration, name)] }}
+  / (=Opa_lexer.exact_ident("import-plugin")) package_expr_list:s {{ [Package (`import_plugin, s)] }}
+  / (=Opa_lexer.exact_ident("import")) package_expr_list:s {{ [Package (`import, s)] }}
+  / (&. {{ print_hints () }}) _fail {{ assert false }}
+
+; typedef_directives <-
+  / ("@" !strict_spacing deco_ml_identifier_nosp:v spacing {{ undecorate v }})*:list
+    {|
+        (*
+          Return in case of a syntax error,
+          the production {| will return None, and trx gets a syntax error
+        *)
+        Return.set_checkpoint_none (
+          fun label ->
+            let parse_error () = Return.return label () in
+            let rec fold (ty_def_options, visibility_dirs) = function
+              | "abstract" ->
+                  let visibility_dirs = SurfaceAst.TDV_abstract :: visibility_dirs in
+                  ty_def_options, visibility_dirs
+              | "private" ->
+                  let visibility_dirs = SurfaceAst.TDV_private :: visibility_dirs in
+                  ty_def_options, visibility_dirs
+              | "opacapi" ->
+                  let ty_def_options =
+                    { ty_def_options with QmlAst.
+                        opacapi = true ;
+                    } in
+                  ty_def_options, visibility_dirs
+              | _ -> parse_error ()
+            in
+            let ty_def_options = QmlAst.ty_def_options in
+            List.fold_left fold (ty_def_options, []) list
+        )
+     |}
+
+; /** package **/
+package_identifier <- spacing ([a-zA-Z0-9_.\-]+ $_):s {{ s }}
+; /** package expression **/
+package_expr <- spacing package_expr_no_spacing+:l {{ String.concat "" l }}
+package_expr_no_spacing <-
+              / [a-zA-Z0-9_.\-*]+ $_
+              / "{" package_expr_list:s rbrace {{ s }}
+package_expr_list <-
+  (=list1(package_expr,comma)):l
+    {{ Base.String.sconcat ~left:"{" ~right:"}" "," l }}
+
+;/** file path **/
+file_path <- [ a-zA-Z0-9-._~]* '/' [ a-zA-Z0-9-._/~]* $_
+
+;/** network hostname (or IPv4 address) **/
+network_hostname <- [a-zA-Z0-9-.]+ $_
+
+;/** colon and network server port **/
+network_port <- Opa_lexer.colon_nosp Opa_lexer.int:p {{ p }}
+
+(**
+  {6 Database}
+*)/** database declaration **/
+database <-
+  (* single database, short form and full form *)
+  / Opa_lexer.DATABASE spacing file_path:s {{ [Database ("database", [], [`engine (`db3 (Some s))])] }}
+  / Opa_lexer.DATABASE spacing db_options:dbo {{ [Database ("database", [], dbo)] }}
+  (* many-db or one, but named, db *)
+  / Opa_lexer.DATABASE ml_identifier:i assign spacing db_options:dbo {{ [Database (i, [i], dbo)] }}
+  (* a common error *)
+  / Opa_lexer.DATABASE deco_ml_identifier:e !assign {{ error_db_file_without_slash e }}
+  (* other db specifications *)
+  / (=exact_ident("db")) db_pathdef:d db_virtual?:v
+    {{ match v with
+       | None -> d
+       | Some v ->
+           match d with
+           | (NewDbDef(
+                QmlAst.Db.Db_TypeDecl(l,_)
+              | QmlAst.Db.Db_Default(l,_)
+              | QmlAst.Db.Db_Alias(l,_)
+              | QmlAst.Db.Db_Constraint(l,_)))::_ ->
+               d@[NewDbDef(QmlAst.Db.Db_Virtual(l, v))]
+           | _ -> assert false (* see db_pathdef *)
+     }}
+
+/** database path declaration **/
+db_pathdef <-
+  / Parser_path.pathdef_type:l colon typ:t (assign expr:e{{e}})?:o
+    {{ let dec = [NewDbDef(QmlAst.Db.Db_TypeDecl(l, t))] in
+         match o with
+           | None -> dec
+           | Some e -> NewDbDef(QmlAst.Db.Db_Default(l, e)) :: dec
+     }}
+  / Parser_path.pathdef:l assign expr:e
+    {{ [NewDbDef(QmlAst.Db.Db_Default(l, e))] }}
+  / (Parser_path.pathdef / (=exact_ident("/")) {{ [] }}):l (=exact_ident("alias")) Parser_path.pathdef:l2
+    {{ [NewDbDef(QmlAst.Db.Db_Alias(l, l2))] }}
+  / Parser_path.pathdef:l db_constraint:c
+    {{ [NewDbDef(QmlAst.Db.Db_Constraint(l, c))] }}
+
+/** database constraint **/
+db_constraint <-
+  / (=exact_ident("full")) {{ QmlAst.Db.C_Private }}
+
+/** database virtual path **/
+db_virtual <-
+  / (=exact_ident(":=")) expr:e {{ e }}
+
+/** database options **/
+db_options <-
+  / "@" "local" Opa_lexer.lpar_nosp spacing '"' file_path:s '"' rpar {{ [`engine (`db3 (Some s))] }}
+  / "@" "local" {{ [`engine (`db3 None)] }}
+  / "@" "meta" {{ [`engine (`meta)] }}
+  / "@" "shared" Opa_lexer.lpar_nosp spacing '"' network_hostname?:h network_port?:p '"' rpar {{ [`engine (`client (h, p))] }}
+  / "@" "shared" {{ [`engine (`client (None, None))] }}
+
+(**
+   {6 Bindings}
+   Bindings or assimilated (like do)
+*)
+(* Regrouped here so that toplevel bindings and local bindings reuse the same rules *)
+
+may_coerce <- (colon typ:t{{t}})?
+;let deco_fun_binding_gen Ident =
+   Ident:ident function_parameters_nosp+:argss may_coerce:t assign expr:e
+     {{ let e = List.fold_right (fun (args,label) acc -> args_expr_to_lambda ~zero_ary:label args acc) argss (may_coerce_expr e t) in
+       (ident, e) }}
+deco_fun_binding <- (=deco_fun_binding_gen(deco_ml_identifier_nosp))
+/** function binding **/
+fun_binding <- deco_fun_binding:d {{ let (i,e) = d in (undecorate i, e) }}
+fun_binding_ <- deco_fun_binding:d {{ let (i,e) = d in (var_to_patvar i, e) }}
+/** pattern binding **/
+val_binding <- pattern:p assign expr:e {{ (p,e) }}
+/** identifier binding **/
+ident_binding <- fun_binding
+                / ml_identifier:i may_coerce:t assign expr:e {{ (i,may_coerce_expr e t) }}
+
+(* this rule is meant for modules only, where the fact of writing a rec doesn't matter
+ * but you must write to be able to write rec val ... *)
+rec_ident_binding <-
+  / Opa_lexer.REC? ident_binding:b {{ b }}
+  / Opa_lexer.REC (=deco((=exact_ident("val")))):o ident_binding:b {{
+    let (_, label) = o in
+    let (i, e) = b in
+    (i, (Directive (`recval, [e], []), label))
+  }}
+
+binding_pat <- fun_binding_ / val_binding
+rec_binding_pat <- (=deco((=exact_ident("val"))))?:o binding_pat:b
+  {{ let _ = (b : string pat * (_,_) expr) in
+     let r =
+       match o with
+       | None -> b
+       | Some (_, label) ->
+           let (p, e) = b in
+           (p, (Directive (`recval, [e], []), label)) in
+     r : string pat * (_,_) expr
+  }}
+/** long binding **/
+long_ident_nosp <- deco_ml_identifier_nosp:i ('.' deco_ml_identifier_nosp:i {{i}})*:l {{ i :: l }}
+long_ident <- spacing long_ident_nosp:l {{ l }}
+long_binding <- (=deco_fun_binding_gen(long_ident_nosp))
+              / long_ident:i may_coerce:t assign expr:e {{ (i,may_coerce_expr e t) }}
+
+
+;/** do block **/
+do_block <- Opa_lexer.DO expr:e {{ let e = magic_do e in
+                                   let p = (PatAny, nlabel e) in
+                                   (p,e)
+                                }}
+
+;/** type binding **/
+type_binding = deco(just_type_binding)
+;just_type_binding <-
+  / type_const:s {{ error_redefinition_basic_type s }}
+  / !external typedef_directives:dirs type_identifier:i (lpar (=list1(just_flatvar,comma)):l rpar {{l}})?:o assign typ:t
+  {{
+     let _,loc = t in
+     let l = Option.default [] o in
+     let ty_def_options, visibility_dirs = dirs in
+     (* Record the visibility of the type definition. However, since the parser
+        can't know yet which package it is processing, we delay the
+        determination of the package to later. For the moment, it is just
+        sufficient to know if the definition is public, private or abstract.
+        Note that the visibility set in the definition is the one attached to
+        the type individually defined at this point. If some directives are
+        set outside for the bunch of types defined in the global type
+        definition, they will be taken into account (and hence modify the
+        visibility of the current type) afterwards. *)
+     let visibility = Parser_utils.merge_type_def_visibility visibility_dirs loc in
+     {
+       SurfaceAst.ty_def_options ;
+       SurfaceAst.ty_def_visibility = visibility ;
+       SurfaceAst.ty_def_name = Typeident i ;
+       SurfaceAst.ty_def_params = l ;
+       SurfaceAst.ty_def_body = t ;
+     } : string typedef_node
+   }}
+
+(**
+   {6 Patterns}
+*)
+
+(**
+   Function parameters, ie the [((a,b))] in [f((a,b)) = ...]
+ *)
+;/** function parameters **/
+function_parameters_nosp <- (=careful_deco(just_function_parameters_nosp)):l {{ l }}
+;just_function_parameters_nosp <- Opa_lexer.lpar_nosp (=list0(pattern,comma)):l rpar {{ l }}
+
+(**
+   {7 Tuples}
+   Tuple pattern
+   (a,b,c,...)
+   (a,) is a 1-uple, () doesn't exists
+   it may contain [...] (like (a,...) but [(...)] and [(,...)] are not valid
+ *)
+/** tuple pattern or parenthized pattern **/
+tuple_pat <- lpar tuple_pat_inside:p rpar {{ p }}
+tuple_pat_inside <- (=list1(pattern,comma)):l tuple_pat_end:e
+    {{ match l,e with
+         | [p], `nothing -> undecorate p
+         | _ , _ -> undecorate (coerce_name_pat (tuple_pat l) (tuple_string l))
+     }}
+tuple_pat_end <- comma {{ `tuple1 }}
+               / _succeed {{ `nothing }}
+
+;row_pattern <- (=exact_symbol("...")) {{ () }}
+
+(**
+   {7 Record pattern}
+   A record may be empty: [{}]
+   A record can contain an ellipsis (even the empty record): [{...}]
+ *)
+tilda <- (spacing "~")?:o {{ Option.is_some o }}
+/** record pattern **/
+record_pat <-
+  (* null case only for speed, very common: *)
+  / tilda lbrace rbrace {{ PatRecord ([], `closed) }}
+  / tilda:tilda lbrace record_pat_inside:ri rbrace
+  {{ let (f,row) = ri in
+     let l = default_value_in_pat_record tilda f in
+     match row with
+     | None -> undecorate (record_pat l)
+     | Some () -> PatRecord (encode_record l, `open_)
+   }}
+;record_pat_inside <- (=list0(field_pat,(spacing semic? $))):l semic? row_pattern?:r {{ (l,r) }}
+;field_pat <- tilda:tilda deco_ml_identifier:i may_coerce:t (assign pattern:p {{ p }})?:p
+  {{ let ident,label = i in
+     let p =
+       match p,tilda with
+         | None,true -> `value (var_to_patvar i)
+         | None,false -> `novalue i
+         | Some p,true -> `value (PatAs (p,ident),label)
+         | Some p,false -> `value p in
+       (ident, p, t)
+   }}
+
+(**
+  {7 List patterns}
+*)
+list_pat <-
+  / lbracket (=list0(pattern,comma)):l pos:p comma? (Opa_lexer.BAR pattern:p {{p}})?:tl rbracket
+  {{ undecorate (list_pat_of_pat_list ?tl l p) }}
+
+
+(**
+  {7 Patterns}
+  A pattern is a basic pattern, with optionally a 'as' and a coerce around it
+*)
+;/** pattern **/
+pattern = deco just_pattern_as_coerce
+;just_pattern_as_coerce <- pattern_as:p (colon typ:te {{ te }})?:o
+    {{ match o with
+         | None -> undecorate p
+         | Some te -> PatCoerce (p, te)
+     }}
+;pattern_as = deco just_pattern_as
+;just_pattern_as <- pattern_no_as_coerce:p (Opa_lexer.AS ml_identifier:v {{ v }})?:o
+    {{ match o with
+         | None -> undecorate p
+         | Some i -> PatAs (p,i)
+     }}
+;pattern_no_as_coerce = deco just_pattern_no_as_coerce
+;just_pattern_no_as_coerce <-
+    Opa_lexer.UNDERSCORE {{ PatAny }}
+  / ml_identifier_nosp:i !"(" {{ PatVar i }}
+  / const:c {{ PatConst c }}
+  / tuple_pat
+  / record_pat
+  / list_pat
+
+(**
+   {6 Expressions}
+
+   Expressions are divided into differents to take care of operators priorities
+   - <-
+   - %
+   - |
+   - &
+   - <
+   - *
+   - unary -
+   - : (coercion)
+   - and then expressions without operators (at the top)
+*)
+
+;/** expression **/
+expr <- expr_1
+;expr_1 = deco just_expr_1;
+;expr0 = deco just_expr0;
+;expr7 = deco just_expr7;
+;expr8 = deco just_expr8;
+;expr9 = deco just_expr9;
+;expr10 = deco just_expr10;
+
+(**
+   {7 Operators }
+*)
+(* no spaces are parsed around operators on purpose
+ * it is because spaces matters to see if the operators is actually infix
+ * the infix rule takes care of them *)
+let ident_careful_deco rule = (=careful_deco(rule)):t {{let (i,label) = t in (Ident i, label)}}
+;OpCont <- !"/*" [.+\-^*/<>=@|&!]
+(* Operatort beginning with ('|' [&!.]) are forbidden because parser syntax *)
+;OpPipe = ident_careful_deco(!"||" "|" ![&!.] OpCont+ $_ / "@" OpCont* $_)
+;OpOr   = ident_careful_deco("||" OpCont* $_ / "?" OpCont* $_)
+;OpAnd  = ident_careful_deco("&" OpCont* $_)
+;OpComp = ident_careful_deco(  ( "=" OpCont+ $_
+                    / ( ">" / "<=" / ">=" /  "!=" / (!"<-" !Xml.xhtml "<":s {{s}}) ) OpCont* $_))
+;OpAdd  = ident_careful_deco(!"->" [+\-^] OpCont*  $_)
+;OpMul  = ident_careful_deco("*" OpCont* $_  / !"/*" !"//" "/" OpCont* $_)
+;NegOp  = ident_careful_deco( "-." !OpCont {{ Opacapi.unary_minus_dot }}
+                            / "-" !OpCont  {{ Opacapi.unary_minus }})
+
+(**
+   {7 The different levels of expressions }
+*)
+just_expr_1 <- (=deco(Parser_path.path_write)):pa (=deco(larrow)):p expr:e
+                {{ let (path,pos) = pa in
+                   let ident = var_to_exprvar ("<-",label p) in
+                     Apply (ident,encode_tuple_pos [(DBPath (path,QmlAst.Db.Ref),pos);e]) }}
+             / expr0:e1 (=deco(larrow)):p expr:e2
+                {{ let ident = var_to_exprvar ("<-",label p) in
+                     Apply (ident, encode_tuple_pos [e1;e2]) }}
+             / just_expr0
+just_expr0 <- expr1:e (=exact_symbol("%"))?:o
+              {{ match o with
+                   | None -> undecorate e
+                   | Some _ -> undecorate (record [("percent",e)])
+               }}
+            / deco_underscore pos:p (=exact_symbol("%"))
+              {{ undecorate (lambda_to_lambda (fun e -> record [("percent",e)]) p) }}
+
+(* would probably be more efficient to have list1sleft and list1sright *)
+/** expression `|' `@' **/
+expr1 <- (=list1s(expr2,OpPipe)):v  {{ apply_operators `left  v }}
+/** expression `||' `?' **/
+expr2 <- (=list1s(expr3,OpOr  )):v  {{ apply_operators `right v }}
+/** expression `&' **/
+expr3 <- (=list1s(expr4,OpAnd )):v  {{ apply_operators `right v }}
+/** expression `<' `=' **/
+expr4 <- (=list1s(expr5,OpComp)):v  {{ apply_operators `left  v }}
+/** expression `+' `-' **/
+expr5 <- (=list1s(expr6,OpAdd )):v  {{ apply_operators `left  v }}
+/** expression `*' `/' **/
+expr6 <- (=list1s(expr7,OpMul )):v  {{ apply_operators `left  v }}
+/** expression unary '-' **/
+just_expr7 <- NegOp?:i expr8:e
+                 {{ match i with
+                   | None -> undecorate e
+                   | Some i -> i &. [e]
+                  }}
+            / NegOp:i deco_underscore:p {{ undecorate (apply_f_with_holes i [`hole p]) }}
+/** subsumption of sum types **/
+just_expr8 <- expr9:e (ltcolon typ:t {{ t }})?:t
+      {{ match t with
+           | None -> undecorate e
+           | Some t -> coerce (directive1 `opensums e, label e) t
+       }}
+/** coerced expression **/
+just_expr9 <- expr10:e (colon typ:t {{ t }})?:t
+      {{ match t with
+           | None -> undecorate e
+           | Some t -> coerce e t
+       }}
+/** expression without operators **/
+just_expr10 <-
+       / function_call_dot (* also contains directives, ids and bypasses *)
+       / match
+       / lambda
+       / letin
+       / Parser_path.query:v {{ let (path,access_kind) = v in DBPath (path, access_kind)}}
+       (* FIXME: useful? / paths_opa_expr / props_aux*)
+       / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
+       / Trx.ExpressionAsFunction:e {{ parser_ e }}
+       / Xml.xhtml:v {{ undecorate v }}
+       / ip
+       / just_module
+       / just_record
+       / tuple_expr (* or parenthesized expr *)
+       / __position__
+       / Opa_lexer.CSS lbrace Xml.css_properties:e rbrace {{ undecorate e }}
+       / list
+       / Opa_lexer.BEGIN expr:e Opa_lexer.END {{ undecorate e }}
+       / ml_identifier_nosp:i hint_end_of_callable {{ Ident i }}
+       / const:c {{ Const c }}
+       / String_expr.string_with_opa:e {{ undecorate e }} (* need to come after const so that constant strings are just parsed as constants *)
+       / Css.prop_value_expr_opa:e {{ undecorate e }} (* useful when constructing colors as #123456 *)
+
+(**
+  {7 Hint utils}
+*)
+;hint_end_of_callable <- (=careful_deco(& " (")):p {{ push_hint (`function_call (label p)); () }}
+                       / !"(" $
+                       (*/ (=careful_deco("(")):p {{ error_neither_ident_nor_call (label p) }}*)
+
+(**
+   {7 Declaration directives}
+   These directives are linked to the identifier (even if in the ast, they end up
+   in an expression)
+*)
+/** toplevel directive **/
+declaration_directives <- (=deco(declaration_directive))*
+declaration_directive <-
+  / "@" !strict_spacing deco_ml_identifier_nosp:v function_arguments_nosp?:o
+    {| let l = Option.default [] o in
+       let list0 = function
+         | [] -> ()
+         | _ -> error_directive_number_argument 0 (List.length l) v in
+       let list1 = function
+         | [ _ ] -> ()
+         | _ -> error_directive_number_argument 1 (List.length l) v in
+       match undecorate v with
+       | "asynchronous" -> list0 l; Some (`asynchronous_toplevel, l, [])
+       | "both" -> list0 l; Some (`side_annotation `both, l, [])
+       | "both_implem" -> list0 l; Some (`side_annotation `both_implem, l, [])
+       | "client" -> list0 l; Some (`side_annotation `client, l, [])
+       | "deprecated" -> list1 l; Some (`deprecated, l, [])
+       | "expand" ->
+           Some
+             (match l with
+              | [] -> `expand None, [], []
+              | [(Const (CInt i),_)] -> `expand (Some i), [], []
+              | _ -> error_directive_wrong_arguments_type v)
+       | "opacapi" -> list0 l; Some (`opacapi, l, [])
+       | "package" -> list0 l; Some (`package, l, [])
+       | "prefer_both" -> list0 l; Some (`side_annotation `prefer_both, l, [])
+       | "prefer_client" -> list0 l; Some (`side_annotation `prefer_client, l, [])
+       | "prefer_server" -> list0 l; Some (`side_annotation `prefer_server, l, [])
+       | "private" -> list0 l; Some (`private_, l, [])
+       | "public" -> list0 l; Some (`public, l, [])
+       | "publish" -> list0 l; Some (`visibility_annotation (`public `sync), l, [])
+       | "publish_async" -> list0 l; Some (`visibility_annotation (`public `async), l, [])
+       | "server" -> list0 l; Some (`side_annotation `server, l, [])
+       | "server_private" -> list0 l; Some (`visibility_annotation `private_, l, [])
+       | "specialize" -> Some (`specialize `polymorphic, l, [])
+       | "specialize_strict" -> Some (`specialize `strict, l, [])
+       | _ -> None
+    |}
+  / "@" !strict_spacing deco_ml_identifier_nosp:v Opa_lexer.lpar_nosp typ:t rpar
+    {| match undecorate v with
+       | "stringifier" -> Some (`stringifier, [], [t])
+       | "comparator" -> Some (`comparator, [], [t])
+       | "serializer" -> Some (`serializer, [], [t])
+       | "xmlizer" -> Some (`xmlizer, [], [t])
+       | _ -> None
+    |}
+
+
+
+
+(**
+   {7 Directives}
+   Everything with @ident syntax
+ *)
+;/** directive **/
+directive <-
+  (* FIXME: could accept assert_message(,_e)(s)
+   * instead of just assert_message(s,e) *)
+  / "@" "xml" "(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
+  / "@" "typeval" Opa_lexer.lpar_nosp typ:t rpar {{
+
+    (*
+    For convenience, directive [@typeval] is handled as thin syntactic sugar.
+
+    Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
+    *)
+    let expr_cast      = (directive1 `unsafe_cast (void (nlabel t)), nlabel t) in
+    let expr_coerced   = coerce_expr expr_cast t                   in
+    let just_typeof    = directive1 `typeof expr_coerced           in
+    just_typeof
+    }}
+  / "@" !strict_spacing deco_ml_identifier_nosp:v function_arguments_nosp?:o
+      {|
+    let l = Option.default [] o in
+    let s = undecorate v in
+    let list0 = function
+      | [] -> ()
+      | _ -> error_directive_number_argument 0 (List.length l) v in
+    let list1 ?(cond=ignore) = function
+      | [h] -> cond h; h
+      | l -> error_directive_number_argument 1 (List.length l) v in
+    let list2 = function
+      | h1 :: h2 :: [] -> (h1,h2)
+      | l -> error_directive_number_argument 2 (List.length l) v in
+    let directive0 v = directive0 v (list0 l) in
+    let directive1 ?cond v = directive1 v (list1 ?cond l) in
+    let directive1' v = directive1' v (list1 l) in
+    let directive2 v = directive2 v (list2 l) in
+    let directive2' v = directive2' v (list2 l) in
+    let static_string f (e,_) =
+      match e with
+      | Const (CString s) -> f s
+      | _ -> error_static_string v in
+    let static_record (e,_) =
+      match e with
+      | Record _
+      | ExtendRecord _ -> ()
+      | _ -> error_static_record v in
+    let not_release = not BuildInfos.is_release in
+    match s with
+
+    (* a *)
+    | "assert"                      -> Some (directive1 `assert_)
+    | "assert_message"              -> Some (directive2' (static_string (fun x -> `assert_message x)))
+    | "atomic"                      -> Some (directive1 `atomic)
+
+    (* c *)
+    | "callcc"                      -> Some (directive1 `callcc)
+    | "catch" when not_release      -> Some (directive2 `catch)
+    | "compiletime"                 -> Some (Directive (static_string (fun x -> `compiletime x) (list1 l), [], []))
+
+    (* d *)
+    | "deprecated"                  -> Some (directive2 `deprecated)
+
+    (* e *)
+    | "ensure"                      -> Some (directive1 `ensure)
+    | "ensure_message"              -> Some (directive2' (static_string (fun x -> `ensure_message x)))
+
+    (* f *)
+    | "fail"                        ->
+        (*
+          Argument of directive @fail is optional.
+          Add the empty string in case of no argument.
+        *)
+        Return.set_checkpoint_none (
+          fun parse_error ->
+            let l =
+              match l with
+              | [] ->
+                  let label = label v in
+                  [ SA.Const (SA.CString ""), label ]
+              | [ _ ] -> l
+              | _ -> Return.return parse_error ()
+            in
+            SurfaceAst.Directive (`fail, l, [])
+        )
+
+    | "force"                       -> Some (directive1 `force)
+
+    (* j *)
+    | "js_ident"                    -> Some (directive1 `js_ident)
+
+    (* l *)
+    | "lazy"                        -> Some (directive1 ~cond:static_record `lazy_)
+    | "lazy_record"                 -> Some (directive1 ~cond:static_record `create_lazy_record)
+    | "llarray"                     -> Some (SurfaceAst.Directive (`llarray, l, []))
+
+    (* m *)
+    | "may_cps"                     -> Some (directive1 `may_cps)
+
+    (* n *)
+    | "nonexpansive"                -> Some (directive1 `nonexpansive)
+
+    (* o *)
+    | "openrecord"                  -> Some (directive1 `openrecord)
+    | "opensums"                    -> Some (directive1 `opensums)
+
+    (* s *)
+    | "sliced_expr"                 -> let (client,server) =
+                                         match l with
+                                         | [(Record l,_)] ->
+                                             (match l with
+                                             | ["server", server; "client", client] -> (client,server)
+                                             | ["client", client; "server", server] -> (client,server)
+                                             | _ -> error_sliced_expr (snd v))
+                                         | _ -> error_static_record v in
+                                       Some (Directive (`sliced_expr, [client; server], []))
+    | "spawn"                       -> Some (directive1 ~cond:static_record `spawn)
+
+    | "static_content"               -> begin
+                                        match l with
+                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_content (x, false)) x1, [],  []))
+                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_content (x, false)) x1, [x2], []))
+                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
+                                        end
+
+
+    | "static_content_directory"    -> begin
+                                        match l with
+                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_content_directory (x, false)) x1, [],  []))
+                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_content_directory (x, false)) x1, [x2], []))
+                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
+                                        end
+
+    | "static_resource"             -> begin
+                                        match l with
+                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_resource x) x1, [],  []))
+                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_resource x) x1, [x2], []))
+                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
+                                        end
+    | ("static_include_directory" | "static_resource_directory" )   -> begin
+                                        match l with
+                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_resource_directory x) x1, [],  []))
+                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_resource_directory x) x1, [x2], []))
+                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
+                                        end
+    | "static_source_content"       -> Some (directive1' (static_string (fun x -> `static_content (x, true))))
+    | "static_binary_content"       -> Some (directive1' (static_string (fun x -> `static_content (x, true))))
+
+    (* t *)
+    | "thread_context"              -> Some (directive0 `thread_context)
+    | "throw" when not_release      -> Some (directive1 `throw)
+    | "todo"                        -> Some (directive0 `todo)
+    | "toplevel"                    -> Some (directive0 `toplevel)
+    | "track" -> (
+        match l with
+        | [(Const (CString s1), label); expr] ->
+            let pos = SurfaceAstHelper.Annot.to_string label in
+            let tracker = PassTracker.next (sprintf "%s : %s" s1 pos) in
+            Some (Directive (`tracker tracker, [ expr ],  []))
+        | [expr] ->
+            let pos = SurfaceAstHelper.Annot.to_string' expr in
+            let tracker = PassTracker.next pos in
+            Some (Directive (`tracker tracker, [ expr ],  []))
+        | _ -> error_directive_wrong_arguments_type v
+      )
+
+    | "translate"                   -> Some (directive1 `translate)
+    | "typeof"                      -> Some (directive1 `typeof)
+
+    (* u *)
+    | "unsafe_cast"                 -> Some (directive1 `unsafe_cast)
+
+    (* w *)
+    | "wait"                        -> Some (directive1 `wait)
+    | "warning"                     -> Some (directive2' (static_string (fun x -> `warning x)))
+    | "with_thread_context"         -> Some (directive2 `with_thread_context)
+
+    (* x *)
+    | "xml"                         -> error_static_xml (label v)
+
+    (* error *)
+    | _ -> None
+  |}
+
+(**
+  {7 Position}
+*)
+;__position__ <-
+       / (=deco((=exact_ident("__POSITION__")))):p
+          {{ let pos = label p in
+               Const (CString (FilePos.to_string pos.QmlLoc.pos))
+           }}
+
+(**
+  {7 Function call, field access and method call}
+  Function call, field access and method call are left associative and with
+  the same priority
+  When taking care of holes, the whole list of application/field access/...
+  is looked at: [f(_).x(_)] is transformed in [y,z -> f(z).x(z)]
+  An underscore at the beginning of the series of calls is valid:
+  [_(x)] means [f -> f(x)], [_.x] means [fun r -> r.x], etc.
+*)
+/** function calls, field access **/
+function_call_dot <-
+       / expr_before_mandatory_function_call:e function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
+         {{ make_function2 letins double_dot (`expr e) params }}
+       / (=careful_deco(Opa_lexer.underscore_nosp)):p function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
+         {{ make_function2 letins double_dot (`hole (label p)) params }}
+       / expr_before_possible_function_call:e ( function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
+                                                  {{ fun e -> make_function2 letins double_dot (`expr e) params }}
+                                              / _succeed
+                                                  {{ fun e -> undecorate e }}):f {{ f e }}
+
+(* Only certain kind of expression can be applied *)
+;expr_before_mandatory_function_call = careful_deco just_expr_before_mandatory_function_call
+;expr_before_possible_function_call = careful_deco just_expr_before_possible_function_call
+just_expr_before_mandatory_function_call <-
+     / ml_identifier_nosp:i {{ Ident i }}
+     / lpar expr:e rpar {{ undecorate e }}
+just_expr_before_possible_function_call <-
+     / id
+     / directive
+     / bypass
+
+(**
+   {7 Id}
+*)
+id <-  (=careful_deco("#")):p deco_ml_identifier_nosp:s
+         {{ undecorate ((Ident "$",label p) & [string2 s]) }}
+     / (=careful_deco("#")):p opa_in_braces_nosp:e
+         {{ undecorate ((Ident "$",label p) & [e]) }}
+naked_id <-
+       (=careful_deco("#")):p deco_ml_identifier_nosp:s
+         {{ string2 s }}
+     / (=careful_deco("#")):p opa_in_braces_nosp:e
+         {{ e }}
+
+(**
+  {7 Pattern matching}
+  Or if-then-else construct
+
+  Disjunctive patterns are allowed only at the toplevel in the pattern:
+  [match e with p | p -> e] is allowed, not [match o with Some (1|2) -> e]
+  Disjunctive pattern are removed right away by duplicating the pattern
+*)
+/** pattern/if then else **/
+match <- Opa_lexer.MATCH expr:e Opa_lexer.WITH?
+           Opa_lexer.BAR? (=list1(rule,match_sep)):l
+           match_end
+         {{ Match (e, List.flatten l) }}
+       / Opa_lexer.IF expr:e1 Opa_lexer.THEN expr:e2 (Opa_lexer.ELSE expr:e {{ e }})?:o
+        {{ if_then_else e1 e2 o }}
+       / Opa_lexer.IF pos:p1 binding_pat separator pos:p2 Opa_lexer.THEN
+        {{ Parser_utils.error_bad_compare (union_annot p1 p2) }}
+       / Xml_parser.xml_parser
+
+match_sep <- !Opa_lexer.END Opa_lexer.BAR?
+match_end <- (Opa_lexer.END $ / (=exact_ident("|_")) $)?
+
+rule <- (=list1(pattern,Opa_lexer.BAR?)):l rarrow expr:e {{ match l with
+                                                             | [] -> assert false
+                                                                 (* avoid duplication in the usual case where there is only one pattern *)
+                                                             | h :: l -> (h,e) :: List.map (fun p -> (p,SurfaceAstCons.Refresh.expr e)) l
+                                                         }}
+(**
+  {7 Lambda}
+  The syntax is either:
+  [pattern,pattern,... -> e] (the equivalent of ocaml 'fun')
+  [| pattern -> e
+   | pattern -> e
+   | ... ] (the equivalent of ocaml 'function')
+  [-> e] which means [{} -> e]
+*)
+/** anonymous function **/
+lambda <-
+     rarrow expr:e
+       {{ Lambda ([], e) }}
+   / (=list1(pattern,comma)):l rarrow expr:e {{ Lambda (encode_args_as_record l, e) }}
+     (* making the BAR optional below causes problem
+      * When it is:
+      * do a -> b(2)
+         | c -> d
+        is understood as
+        do function a -> b(2)
+                  | c -> d
+        but
+        do a -> b
+         | c -> d
+        is understood as
+        fun a -> (function b|c -> d)
+      *)
+   / (=deco(Opa_lexer.BAR)):p (=list1(rule,Opa_lexer.BAR)):l match_end {{ function_ (List.flatten l) (label p)}}
+
+(**
+  {7 Letin}
+  Bindings and assimilated
+  Only identifiers on the left hand side of recursive values
+*)
+/** local binding **/
+letin <- pos:pos1 Opa_lexer.REC (=list1pos(rec_binding_pat, and)):l separator pos:pos_f expr:e
+          {{ let l,posl = l in
+             push_hint (`same_indents ((pos1::posl) @ [pos_f]));
+             let l = List.concat_map pat_in_to_simple_bindings l in
+             LetIn (true, l, e)
+           }}
+       / pos:pos1 (binding_pat / do_block):b separator:pos2 expr:e
+          {{ push_hint (`same_indent (pos1,pos2)); bind_in_to_expr_in b e }}
+
+and <- spacing pos:p Opa_lexer.AND {{ p }}
+(* the ! here is here to prevent code such as {r=123x} to parse as {r=123 x}
+ * because the user then have ununderstandable type errors *)
+separator <-  (spacing semic / not_assign ![~a-zA-Z`_]) pos:p {{ p }}
+not_assign <- !(spacing may_coerce assign)
+
+(**
+  {7 Ip address}
+  The parsing only allows for integers between 0 and 255, so writing
+  0.0.0.256 is a parse error
+*)
+;int3 <- Opa_lexer.int3:i {{ CInt (Big_int.big_int_of_string i) }}
+;ip_item = deco just_ip_item
+;just_ip_item <- int3:v {{ Const v }}
+;just_ip <- ip_item:a [.] ip_item:b [.] ip_item:c [.] ip_item:d {{ Record (encode_record [("a",a);("b",b);("c",c);("d",d)]) }}
+;/** ip address **/
+ip <- (=deco(just_ip)):p {{ coerce_name p Opacapi.Types.ip }}
+
+(**
+ {7 Lists }
+ Either ml lists or action lists
+ Empty list are just treated as action lists, but it doesn't make any difference
+ since an empty action will be transformed into a regular empty list
+ Action lists come first or else [ a +<- b ] is going to be parsed as [`+<-`(a,b) ]
+ *)
+/** expression/action list **/
+list <-
+    / lbracket (=list0(Action.action,comma)):l pos:p comma? (Opa_lexer.BAR expr:e {{e}})?:tl rbracket
+  {{ undecorate (list_expr_of_expr_list ?tl l p) }}
+    / lbracket (=list0(expr,         comma)):l pos:p comma? (Opa_lexer.BAR expr:e {{e}})?:tl rbracket
+  {{ undecorate (list_expr_of_expr_list ?tl l p) }}
+
+(**
+ {7 Bypasses }
+ may contain any character except %% ?
+*)
+/** bypass **/
+bypass <- Opa_lexer.BYPASS ((!Opa_lexer.BYPASS .)* $_):content Opa_lexer.BYPASS
+  {{ bypass content }}
+
+(**
+ {7 Tuples, or parenthesized expression}
+  [()] is not in the syntax
+  [(e)] is [e] parenthesized
+  [(e,)] is the 1-uple made of [e]
+  [(e,...,e)] or [(e,...,e,)] is a tuple
+*)
+/** tuple expression / parenthesized expression **/
+tuple_expr <- lpar tuple_expr_inside:t rpar {{ t }}
+tuple_expr_inside <- (=list1(expr,comma)):l comma?:o
+                  {{ match l,o with
+                       | [], _ -> assert false
+                       | [e],None -> undecorate e
+                       | _,_ -> coerce_name (tuple l) (tuple_string l)
+                   }}
+
+(**
+ {7 Record or module expression}
+*)
+
+
+module_element <- declaration_directives:dirs spacing rec_ident_binding:d
+   {{ List.hd (declaration_directive dirs [d]) }}
+
+/** module **/
+just_module <-
+  / spacing "{{" spacing pos:pos (=deco((=list0pos(module_element,separator)))):r separator spacing "}}"
+    {{ let (r,posl),label = r in
+       push_hint (`same_indents (pos :: posl));
+       module_ (Record r,label) }}
+
+/** record **/
+just_record <- tilda:tilda lbrace record_fields:f rbrace {{
+                   Record (default_value_in_expr_record tilda f)
+                 }}
+              / tilda:tilda lbrace expr:e Opa_lexer.WITH extend_record_fields:f rbrace {{
+                   let long_bindings = default_value_in_expr_record tilda f in
+                   undecorate (rewrite_long_extend_record long_bindings e)
+                 }}
+;record_fields <- (=list0(record_element,separator)):l separator {{ l }}
+;extend_record_fields <- (=list0(extend_record_element,separator)):l separator {{ l }}
+
+extend_record_element <-
+   / long_binding:b {{ `binding b }}
+   / tilda:tilda (=deco(long_ident)):lp may_coerce:t not_assign
+     {{ let (l,pos) = lp in
+        let p = (undecorate (List.last l), pos) in
+        let rhs = if tilda then `value (var_to_exprvar p) else `novalue p in
+        `noassign (l, rhs, t)
+     }}
+
+record_element <-
+   / ident_binding:b {{ `binding b }}
+   / tilda:tilda deco_ml_identifier:p may_coerce:t not_assign
+     {{ let rhs = if tilda then `value (var_to_exprvar p) else `novalue p in
+        `noassign (undecorate p, rhs, t)
+     }}
+
+(**
+   {7 Function arguments}
+ *)
+
+(* used for directives, where you have no holes (at least now) *)
+;/** directive arguments **/
+function_arguments <- function_arguments_nosp
+;function_arguments_nosp <- (=careful_deco(just_function_arguments_nosp)):l {{ undecorate l }}
+;just_function_arguments_nosp <- Opa_lexer.lpar_nosp (=list0(expr,comma)):l rpar {{ l }}
+
+(* used for actual function arguments *)
+;/** function arguments **/
+function_arguments2 <- function_arguments_nosp2
+;function_arguments_nosp2 <- (=careful_deco(just_function_arguments_nosp2)):l {{ undecorate l }}
+;just_function_arguments_nosp2 <- Opa_lexer.lpar_nosp (=list0(expr_underscore,comma)):l rpar {{ l }}
+;expr_underscore = expr_or_hole expr
+
+(* the UNDERSCORE rule needs to come after so that priorities are correct:
+ * [2 + _ * 3] gets parsed like [2 + (_ * 3)]
+ * and [f(_ + 2)] is parsed [f(fun x -> x + 2)] and not [f; (_ + 2)]
+ *)
+;let expr_or_hole expr = expr:e {{ `expr e }}
+                       / deco_underscore:p {{ `hole p }}
+
+(* used for everything assimilated to a function call: field access, method call, regular function call *)
+;function_arguments_dot_method_nosp = careful_deco(just_function_arguments_dot_method_nosp)
+;just_function_arguments_dot_method_nosp <-
+  / function_arguments_nosp2:args {{ `function_call args }}
+  / "." Opa_lexer.ml_identifier_nosp:i {{ `dot i }}
+  / ".." Opa_lexer.ml_identifier_nosp:i {{ `double_dot i }}
+
+(**
+  {7 Opa expression inside braces}
+  Used for embedding opa in texts like string or xhtml
+*)
+/** embedded opa **/
+opa_in_braces_nosp <- lbrace_nosp expr:e rbrace {{ e }}
+/** embedded opa **/
+opa_in_braces <- lbrace expr:e rbrace {{ e }}
+
+
+(**
+  {6 Const }
+*)
+;/** constant **/
+const      <- float:f {{ CFloat   f }}
+            / int:i {{ CInt     (Big_int.big_int_of_int i) }}
+            / string:s {{ CString  s }}
+            / char:c {{ CChar    (Char.code c)}}
+
+(**
+   {6 Types}
+*)
+
+(**
+   {7 Type constants}
+*)
+
+;/** type constant **/
+type_const = deco just_type_const;
+just_type_const <-  (=exact_ident("int"))    {{TypeConst TyInt}}
+                  / (=exact_ident("float"))  {{TypeConst TyFloat}}
+                  / (=exact_ident("string")) {{TypeConst TyString}}
+                  / (=exact_ident("char"))   {{TypeConst TyChar}}
+
+(**
+   {7 Type variables}
+*)
+
+;/** type variable **/
+typevar = deco just_typevar;
+just_typevar <- quote ml_identifier:i {{ (i:nonuid) }}
+              / Opa_lexer.UNDERSCORE {{ fresh_variable () }}
+
+(*
+  Use production [implicit_row_variable] to parse variables which
+  only appear as [...] in the concrete syntax.
+
+  e.g. [ {hd:int;...} -> int] *)
+
+;implicit_row_variable = deco just_implicit_row_variable;
+just_implicit_row_variable <- (=exact_symbol("...")) {{ Rowvar (fresh_variable ()) }}
+                            / just_rowvar:r {{ r }}
+;rowvar = deco just_rowvar;
+just_rowvar <- just_typevar:v {{ Rowvar v }}
+
+;colvar = deco just_colvar;
+just_colvar <- just_typevar:v {{ Colvar v }}
+
+;flatvar= deco just_flatvar;
+just_flatvar<- just_typevar:v {{ Flatvar v }}
+
+(**
+   {7 Record types}
+   Including syntactic sugar for tuple types
+   The syntax for tuple types is the same as the one for expressions and patterns
+*)
+
+;/** record type **/
+type_record = deco just_type_record
+just_type_record <-
+     tilda:tilda lbrace just_fields:f just_final_row_variable?:rv spacing (semic spacing)? rbrace
+     {{ TyRow (default_value_in_type_record tilda f, rv)}}
+   / tilda lbrace just_implicit_row_variable?:rv spacing semic? rbrace {{TyRow ([],  rv)}}
+
+;/** module type **/
+just_type_module <-
+     "{{" (=list0(module_field,type_separator)):l spacing (semic spacing)? "}}"
+     {{ TypeModule l }}
+
+;/** tuple type **/
+type_tuple <- lpar (=list1(typ,comma)):types comma? rpar {{ TypeNamed (Typeident(tuple_string types),types) }}
+
+(**
+   {8 Regular records}
+*)
+/** record type fields **/
+just_fields = list1(just_field,type_separator);
+
+type_separator <- semic / !colon
+
+module_field <- field_name:f colon typ:ty {{ (f,ty) }}
+just_field <- module_field:v     {{ let (f,ty) = v in (f, `value ty) }}
+            / tilda:tilda (=deco(field_name)):f  {{ let ty =
+                                                      if tilda then
+                                                        `value (typenamed (undecorate f) [] (label f))
+                                                      else
+                                                        `novalue (f) in
+                                                    (undecorate f, ty) }}
+field_name  <- ml_identifier
+
+
+just_final_row_variable   <- semic? just_implicit_row_variable:rv {{ rv }}
+
+
+(**
+   {7 Database types}
+
+   @TODO
+*)
+
+(**
+   {7 Type instances}
+*)
+/** type arguments **/
+list_types_comma <- (=list0(typ,comma))
+
+type_arguments <- Opa_lexer.lpar_nosp list_types_comma:l rpar {{l}}
+                / !"(" {{ [] }}
+
+
+;type_instance = deco just_type_instance;
+just_type_instance <- !forall !external !just_type_const type_identifier_nosp:i type_arguments:t {{(Typeident i,t)}}
+
+(**
+   {7 General types}
+
+   By order of decreasing priority, we have
+   - arrow
+   - sums
+*)
+
+;/** type **/
+typ = deco just_typ;
+just_typ <-
+  / (=deco((=list0(type_without_arrow,comma)))):p rarrow type_without_arrow:last (=deco(rarrow))?:o
+    {{ match o with
+       | Some (_,label) ->
+           error_consecutive_arrow label
+       | None ->
+           let l,pos = p in
+           arrow l last pos }}
+  / type_without_arrow:t {{ undecorate t }}
+
+;type_without_arrow = deco(just_type_without_arrow)
+;just_type_without_arrow <- type_sum
+                          / just_type_without_sum
+
+type_sum <- (=list1(type_sum_element,(=infix(Opa_lexer.slash)))):l end_of_type_sum?:o
+            {{ match l,o with
+                 | [h], None ->
+                     ( match undecorate h with
+                         | SumRecord r -> TypeRecord r
+                         | SumName t -> TypeNamed t
+                         | _ -> assert false
+                     )
+                 | _,_ -> TypeSumSugar (l @ Option.to_list o)
+             }}
+/** sum type element **/
+type_sum_element = deco just_type_sum_element;
+just_type_sum_element <- just_type_record:r {{ SumRecord r }}
+                       / just_type_instance:t  {{ SumName t }}
+end_of_type_sum <- slash end_of_type_sum_var:f {{ f }}
+end_of_type_sum_var <- typevar:f {{ unc2 colvar f }}
+                     / implicit_col_variable:f {{ unc2 colvar f }}
+implicit_col_variable = deco just_implicit_col_variable;
+just_implicit_col_variable <- (=exact_symbol("...")) {{ fresh_variable () }}
+
+;type_without_sum = deco just_type_without_sum;
+just_type_without_sum <- just_type_const:t {{ t }}
+                       / just_flatvar:t {{ TypeVar t }}
+                       / external {{ TypeExternal }}
+                       / lpar just_typ:t rpar {{ t }}
+                       / type_tuple
+                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t {{ TypeForall(typevars, t) }}
+                       / just_type_module
+
+external <- (=exact_ident("external"))
+forall <- (=exact_ident("forall"))
+
+(**
+    Some decorations
+ *)
+;deco_ml_identifier_nosp = careful_deco ml_identifier_nosp
+;deco_ml_identifier = deco ml_identifier
+;deco_underscore <- (=deco(Opa_lexer.UNDERSCORE)):p {{ label p }}
+;deco_underscore_nosp <- (=careful_deco(Opa_lexer.UNDERSCORE)):p {{ label p }}
+;let deco_option rule = (=deco(rule ?))
+;let exact_symbol rule = (=Opa_lexer.exact_symbol(rule))
+;let exact_ident rule = (=Opa_lexer.exact_ident(rule))
+(* WARNING: _succeed always succeeds but careful_deco and deco fail if they start
+ * at the end of the file. So don't use pos at a place where it might be the last rule
+ * applied *)
+;pos <- (=careful_deco(_succeed)):p {{ label p }}
+;offset <- Opa_lexer.offset
+
+(**
+   {6 Convenience functions}
+ *)
+
+(** Always succeed
+
+    @TODO Patch Teerex to make this a primitive.
+*)
+(* adds some "expects ... or any character" in error messages that are not nice *)
+_succeed <- (&. $/ !. $)
+_fail <- &. &(!.) . $
+
+(**
+   {7 Importing the lexer}
+*)
+string <- Opa_lexer.string
+char   <- Opa_lexer.char
+int <- Opa_lexer.int
+float  <- Opa_lexer.float
+spacing<- Opa_lexer.spacing
+strict_spacing<- Opa_lexer.strict_spacing
+ml_identifier <- spacing Opa_lexer.ml_identifier {{ __2 }}
+ml_identifier_nosp <- spacing Opa_lexer.ml_identifier_nosp {{ __2 }}
+type_identifier <- spacing Opa_lexer.type_identifier {{ __2 }}
+type_identifier_nosp <- spacing Opa_lexer.type_identifier_nosp {{ __2 }}
+
+
+larrow   <- Opa_lexer.larrow $
+rarrow   <- Opa_lexer.rarrow  $
+lbrace   <- Opa_lexer.lbrace  $
+lbrace_nosp <- Opa_lexer.lbrace_nosp $
+rbrace   <- Opa_lexer.rbrace  $
+lbracket <- Opa_lexer.lbracket$
+rbracket <- Opa_lexer.rbracket$
+colon    <- Opa_lexer.colon   $
+ltcolon  <- Opa_lexer.ltcolon $
+comma    <- Opa_lexer.comma   $
+semic    <- Opa_lexer.semic   $
+slash    <- Opa_lexer.slash   $
+lpar     <- Opa_lexer.lpar    $
+rpar     <- Opa_lexer.rpar    $
+bquote   <- Opa_lexer.bquote  $
+quote    <- Opa_lexer.quote   $
+ampersand <- Opa_lexer.ampersand $
+underscore <- Opa_lexer.underscore $
+alias <- Opa_lexer.alias $
+dots <- Opa_lexer.dots $
+assign <- Opa_lexer.assign $
+
+(**
+   {6 Meta-rules}
+*)
+
+(**
+   {7 Separated lists}
+*)
+
+(** list where a the separator must occur *)
+let list2 element separator = element:e (separator element:e {{e}})+:l
+  {{ e :: l }}
+
+(**Non-empty lists*)
+let list1 element separator = element:e (separator element {{__2}})*:l
+  {{ e :: l }};
+
+(**Possibly empty lists*)
+let list0 element separator = (=list1(element,separator))?:o
+  {{ match o with
+       | None -> []
+       | Some l -> l
+   }}
+
+(** Non-empty lists where you get the separator and maybe holes instead of expressions
+  * but it avoids parsing [_] as a list of one element *)
+let list1s element operator =
+  / element:e ((=infix(operator)):s (=expr_or_hole(element)):e {{ (s,e) }})*:l {{ (`expr e,l) }}
+  / deco_underscore:p ((=infix(operator)):s (=expr_or_hole(element)):e {{ (s,e) }})+:l {{ (`hole p,l) }}
+
+
+let list1pos element separator = element:e (separator:s element:e {{ (s,e) }})*:l {{ let sl,el = List.split l in e::el,sl }}
+let list0pos element separator = (=list1pos(element,separator))?:o {{ Option.default ([],[]) o }}
+
+(**
+   {7 Rules for operators}
+*)
+;let infix operator = spacing offset:o1 operator:s offset:o2
+   {| let c1 = _get_char (o1 - 1) in
+      let c2 = _get_char o2 in
+      (*Printf.printf "%d %d %C %C\n%!" (o1 - 1) o2 c1 c2;*)
+      if Char.is_space c1 = Char.is_space c2 then Some s else None |}
+
+(**
+   {7 Labelling stuff with positions}
+*)
+
+let careful_deco rule = (=Opa_lexer.careful_deco(rule));
+let deco rule = (=Opa_lexer.deco(rule));

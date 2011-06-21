@@ -1,0 +1,10 @@
+== Widget Select ==
+
+Simple selection in a (finite, static) list of 'a values, using a drop-down menu. Replaces native +select+.
+
+Should provide three functions: +show+, +edit+ and +html+.
+The function +html+ will be deduced from +interactions/editable+.
+
+Includes a triangle +v+ icon on the right in edit mode. The show mode is trivial (use the user provided function 'a -> string).
+
+This widget should provide a default implementation of +CTable.Cell.widget('a)+.

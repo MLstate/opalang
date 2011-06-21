@@ -1,0 +1,3 @@
+#!/bin/bash
+
+rlwrap ocamlbase.top -I $MLSTATELIBS/lib/opa/static $@

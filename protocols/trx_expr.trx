@@ -1,0 +1,249 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+#
+#extra _grammar     : {string Tgrammar.PreGrammar.pre_grammar}
+#extra _file_name   : {string}
+#extra _module_name : {string}
+#extra _stoppable   : {bool}
+#
+#/** TRX grammar **/
+#+Grammar : {string Tgrammar.PreGrammar.pre_grammar} <- Spacing GElems EOF {{ __2 }}
+#
+#/** list of TRX elements **/
+#GElems <- IncludeRead GElems {{ let key, id = __1 in { __2 with PreGrammar.incl = StringMap.add key id __2.PreGrammar.incl } }}
+#	/ Extra GElems {{ { __2 with PreGrammar.pextra = __1 :: __2.PreGrammar.pextra } }}
+#	/ Option GElems {{ { __2 with PreGrammar.poptions = __1 :: __2.PreGrammar.poptions } }}
+#	/ HeaderCode GElems {{ { __2 with PreGrammar.pheader = __1 :: __2.PreGrammar.pheader } }}
+#	/ Function GElems {{ add_function __2 __1 }}
+#	/ Definition GElems {{ add_definition __2 __1 }}
+#	/ Spacing {{ _grammar }}
+#
+#strict_GElem <- IncludeRead {{ `read __1 }}
+#	/ Extra {{ `extra __1 }}
+#        / Option {{ `option __1 }}
+#	/ HeaderCode {{ `header __1 }}
+#	/ Function {{ `func __1 }}
+#	/ Definition {{ `def __1 }}
+#
+#/** TRX element **/
+#GElem <- strict_GElem {{ __1 }}
+#       / Spacing {{ `spacing }} ;
+#
+#GElem_no_sp <- Spacing strict_GElem Spacing {{ __2 }} ;
+#
+#maybe_GElem_no_sp <- GElem_no_sp {{ `success __1 }} 
+#                   / (!GElem_no_sp .)+  {{ `failure (Base.String.of_chars __1, _pos_beg, _pos_end) }} ;
+#maybe_GElems_no_sp <- maybe_GElem_no_sp* ;
+#maybe_GElems_no_sp_eof <- maybe_GElems_no_sp EOF ;
+#
+#/** TRX rule **/
+#Definition <- SEMI? rule_annots:annots KEEP_CACHE?:cache DEBUG?:debug MARK?:mark Identifier:id Type?:rtype DefExpr:expr SEMI?
+#	{{ jlog ~level:2 (sprintf "definition: %s" id) ;
+#	   let entry = 
+#	     { PreGrammar.expression = expr 
+#	     ; debug = debug <> None 
+#	     ; mark = mark <> None
+#	     ; retain_cache = cache <> None 
+#	     ; rule_type = rtype
+#	     ; origin = Some { file_name = _file_name; line_number = fst (FilePos.get_pos _file_name _pos_beg) }
+#	     }
+#	   in
+#	   (id, (entry, annots)) 
+#	}}
+
+let construct_name_aux prefix suffix = 
+  prefix Spacing ((!(Spacing suffix) .)* $_) Spacing suffix Spacing {{ __3 }}
+
+construct_name_primary   = construct_name_aux("/**", "**/");
+construct_name_secondary = construct_name_aux("/*",  "*/" );
+
+/* optional rule name */
+construct_name_opt <- construct_name_primary   {{ PrimaryName __1 }}
+                    / construct_name_secondary {{ SecondaryName __1 }}
+
+/* memoization annotation */
+memo_opt <- "{$"
+             ( "0" {{ MemoNone }}
+             / "F" {{ MemoFail }}
+             / "S" {{ MemoSuccess }}
+             / "1" {{ MemoFull }}
+             ) 
+             "}" Spacing {{ __2 }}
+
+/* rule annotations */
+rule_annots <- construct_name_opt? memo_opt?
+  {{ let name = match __1 with Some r -> r | None -> NoName in 
+     let memo = match __2 with Some m -> m | None -> MemoNoInfo in
+       { rule_name = name; rule_memo = memo }
+  }}
+
+DefExpr <- LEFTARROW Expression {{ PreGrammar.Expr __2 }}
+	/ EQUAL Identifier Exprs {{ PreGrammar.App (__2, __3) }}
+
+/* list of expressions */
+Exprs <- OPEN Expression (COMMA Expression {{ __2 }})* CLOSE {{ __2 :: __3 }}
+       / !OPEN Expression {{ [ __2 ] }}
+
+/** TRX function **/
+Function <- rule_annots LET Identifier Identifier+ EQUAL Expression SEMI?
+	{{ (*jlog (sprintf "function: %s" __3) ;*)
+	(__3, ({ PreGrammar.vars = __4 ; expr =  PreGrammar.Expr __6 }, __1)) }}
+
+/** include directive **/
+IncludeRead <- ("include" {{ PreGrammar.Incl }} / "read" {{ PreGrammar.Read }}) Spacing Filename Spacing ("global" Spacing Names {{ __3 }})? 
+	{{ __3, { PreGrammar.it = __1 ; gl = match __5 with Some l -> l | _ -> [] } }}
+
+Type <- Spacing ":" Spacing LBRACE ((!RBRACE .)* $_):t RBRACE Spacing {{ t }}
+
+/* extra directive */
+Extra <- "extra" Space Spacing mlvar:var Type:vartype {{ var, vartype }}
+
+/* TRX option */
+Option <- "%%" optionType Spacing "=" Spacing mlvar Spacing {{ __2, __6 }}
+
+/* element name */
+mlvar <- [a-z_][a-zA-Z0-9_]* $_
+/* TRX option name */
+optionType <- [a-z][a-zA-Z0-9_\-]* $_
+/* file name */
+Filename <- Literal / (!Space .)+ $_
+
+/** rule body **/
+Expression <- SLASH? Sequence (SLASH Sequence {{ __2 }})* {{ __2 :: __3 }}
+
+item_list <- (Prefix Primary Suffix (Spacing [:] [_]? Spacing mlvar Spacing {{ __5, __3 <> None }})? {{ (__1, __2, __3), __4 }})+ 
+		{{ List.fold_left_i (
+		     fun (liste,map) (item, option) num -> 
+		       match option with 
+			 None -> (liste @ [item]), map 
+		       | Some (label, b) -> (liste @ [item]), (StringMap.add label ((string_of_int (num+1)),b) map)
+		   ) ([], StringMap.empty) __1 }}
+
+/* a sequence of parsing expressions */
+Sequence <- item_list Code? {{ let liste, map = __1 in liste, map, __2 }}
+
+BackId <- [`] Identifier $_
+
+HeaderCode <- ( "inside:" {{fun x -> `inside x}}
+              / "types:"  {{fun x -> `types x}}
+	      / "decls:"  {{fun x -> `decls x}}
+	      / ""        {{fun x -> `normal x}}
+              ):variant DefaultCodeNoStop:code  
+              {{ variant code, Some { file_name = _file_name; line_number = fst (FilePos.get_pos _file_name _pos_beg) } }}
+
+CodeRange <- (":_" Spacing)? {{ __1 <> None }}
+StoppableCode <- ("!!" Spacing)? {{ __1 <> None }}
+
+let code_aux beg end =
+  beg Spacing StoppableCode CodeRange ((!end .)* $_) end {{ __4, (if __3  then __5 else sprintf "Some (%s)" __5) }} 
+
+DefaultCode <- (=code_aux(BEGIn, ENd)) {{ let (u, v) = __1 in u, v, true }}
+             / (=code_aux(BEGIN, END))   {{ let (u, v) = __1 in u, v, false }}
+DefaultCodeNoStop <- BEGIN ((!END .)* $_) END {{ __2 }} 
+
+/* rule production */
+Code <- DefaultCode
+	/ "$_" CodeRange Spacing {{ __2, ".sub", false }}
+	/ "$:" ([0-9]+ $_) Spacing {{ true, sprintf "%s__%s" ("") __2, false }}
+	/ DOLLAR  {{ false, sprintf "%s()" (""), false }} 
+PrefixElement <- AND {{ `AND }} / NOT {{ `NOT }}
+SuffixElement <- QUESTION {{`QUESTION }} / STAR {{`STAR}} / PLUS {{`PLUS}}
+/* element's prefix */
+Prefix <- PrefixElement? {{ match __1 with None -> `NORMAL | Some x -> x }}
+/* element's suffix */
+Suffix <- SuffixElement? {{ match __1 with None -> `NORMAL | Some x -> x }}
+/* parsing element */
+Primary <- Identifier !LEFTARROW {{ PreGrammar.Ident __1 }}
+	/ OPEN EQUAL Identifier Exprs CLOSE {{ PreGrammar.Paren (PreGrammar.App (__3, __4)) }}
+	/ OPEN Expression CLOSE {{ PreGrammar.Paren (PreGrammar.Expr __2) }}
+	/ Literal TILDE? {{ PreGrammar.Literal (__1, is_none __2) }}
+	/ Class {{ let range, negation = __1 in
+		   let _class = PreGrammar.Class range in
+		   if negation then
+		     PreGrammar.Paren (PreGrammar.Expr [[`NOT, _class, `NORMAL ; `NORMAL, PreGrammar.Class [Any], `NORMAL], StringMap.empty, None])
+		   else
+		     _class
+		 }}
+	/ DOT {{ PreGrammar.Class [Any] }}
+
+# Lexical syntax
+
+Module <- [A-Z][A-Za-z0-9_]* $_
+Name <- [a-zA-Z_] [a-zA-Z0-9_]* $_
+Names <- OPEN (Name Spacing COMMA? {{ __1 }})* CLOSE {{ __2 }}
+
+/* identifier */
+Identifier <- (
+	/ Module [.] Name {{ __1 ^ "_" ^ __3 }} 
+	#/ Name {{ _module_name ^ "_" ^ __1 }} 
+	) Spacing {{ __1 }}
+/* literal */
+Literal <- ['] (!['] Char {{ __2 }})* ['] Spacing {{ string_of_chars __2 }}
+	 / [\"] (![\"] Char {{ __2 }})* [\"] Spacing {{ string_of_chars __2 }}
+/* class of symbols */
+Class <- '[' '^'? (!']' Range {{ __2 }})* ']' Spacing {{ __3, (Option.is_some __2) }}
+   
+
+Range <- Char '-' Char {{ Range (__1, __3) }}
+       / Char {{ One __1 }}
+Char <- '\\' [nrt'\"\\\[\]\-] {{ match __2 with 'n' -> '\n' | 'r' -> '\r' | 't' -> '\t' | x -> x }}
+      / '\\' [0-9]+ {{ char_of_int (int_of_chars __2) }}
+      / !'\\' .
+
+MARK <- [+]
+KEEP_CACHE <- "<icache>" Spacing
+DEBUG <- [%]
+LBRACE <- '{' Spacing
+RBRACE <- '}' Spacing
+BEGIN <- '{{'
+END <- '}}' Spacing
+BEGIn <- '{|'
+ENd <- '|}' Spacing
+LEFTARROW <- '<-' Spacing
+RIGHTARROW <- '->' Spacing
+SLASH <- [/] Spacing
+AND <- [&] Spacing
+NOT <- [!] Spacing
+QUESTION <- [?] Spacing
+STAR <- [*] Spacing
+PLUS <- [+] Spacing
+OPEN <- [(] Spacing
+CLOSE <- [)] Spacing
+DOT <- [.] Spacing
+DOLLAR <- [$] Spacing
+TILDE <- [~] Spacing
+EQUAL <- [=] Spacing
+COMMA <- [,] Spacing
+SEMI <- [;] Spacing
+COLON <- [:] Spacing
+
+LET <- "let" Spacing
+
+/* spacing */
+Spacing <- (Space $/ Comment)* 
+/* a comment */
+Comment <- '#' (!EOL .)* (EOL / EOF) $
+	/ mlcomment
+mlcomment <- mlCOMMENTSTART (!mlCOMMENTSTOP (mlcomment / . $))* mlCOMMENTSTOP $
+mlCOMMENTSTART <- '(*' Spacing
+mlCOMMENTSTOP <- '*)' Spacing
+
+Space <- [ \t] $ / EOL $
+/* end of line */
+EOL <- [\n\r] $ / '\r' '\n' $
+EOF <- !. 

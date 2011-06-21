@@ -1,0 +1,19 @@
+New lib for the slicer.
+We need it to be potentially called as up as possible
+E.G. we want to add a debug tracer of the slicing process in qmltop,
+to have a interactive loop with it.
+
+A test with a slicing to a double ocaml side will also take place here.
+
+Since this version of the slicer works on new ast,
+there is no other dependancies in OPA.
+
+This lib contains only the kernel of the slicing process,
+the opa-specific traitements are still in opa.
+
+With opageneral, anyway there is no more problems to have the slicer lib 
+here w.r.t the duration of the build process (thanks to Louis)
+
+We hope as well that in this way, ast and typer changes will be corrected
+in this lib by the commiters without asking them to be brave enough to go 
+to opa repository.

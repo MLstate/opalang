@@ -1,0 +1,220 @@
+The compiler : opa
+~~~~~~~~~~~~~~~~~~
+
+This chapter describes the _opa_ compiler, which compiles OPA source files to package object files
+and links these object files to produce standalone executables.
+
+Level and Modes of utilisation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The compiler offers 2 levels of utilisation, a high-level one, and a low-level one,
+and 2 low-level modes of execution, the compilation and the linking.
+
+Standard utilisation
+++++++++++++++++++++
+
+The high-level utilisation of _opa_ is an _autobuild_ mode. It offers an automatic way for building
+medium and large applications composed of several packages. It simplifies the set up of a build system.
+This is the default behavior of _opa_, able to build an application as a standalone executable,
+from all its source files, recompiling only what is needed, without needing e.g. a Makefile.
+During the same call to opa, the compiler will process to the compilation of all needed packages,
+and perform the final linking at the end.
+
+Same example:
+--------------------
+user@computer:~/$ ls
+foo.opa
+
+user@computer:~/$ opa foo.opa
+
+user@computer:~/$ ls
+foo.exe  _build  foo.opa  foo.opx
+--------------------
+
+Other modes
++++++++++++
+
+The low-level utilisation of _opa_ is comparable with standard compilers like _gcc_
+or _java_. It takes one of more opa files from the same package, compile them into
+compiled packages, or link previous compiled packages and opa files, depending on
+the activated mode.
+
+Compilation
++++++++++++
+
+This mode corresponds to the compilation of the files composing a package into intermediate object files,
+ready to be linked. Note than compiled packages can be shared between linked applications.
+For example, the distribution of OPA contains the compiled packages of the stdlib (cf opx files),
+and these opx files are linked with all OPA applications.
+
+Linking
++++++++
+
+The linking is the final step in the build process. This produces an standalone executable from
+given previously compiled _opx_ files.
+
+[TIP]
+.About linking
+===========================
+It is possible to give some opa file for the linking.
+In this case, they are considered to be all regrouped in the same package.
+This can be used for a quick prototyping, and small applications, but
+this practice is discouraged for medium and big applications. Use rather
+autobuild mode (default) or link only packages previously compiled (_opx_)
+===========================
+
+Example
++++++++
+
+Example:
+--------------------
+user@computer:~/$ ls
+foo.opa
+
+user@computer:~/$ cat foo.opa
+package foo
+do print("this is foo.opa\n")
+
+user@computer:~/$ opa -c foo.opa
+
+user@computer:~/$ ls
+foo.opa  foo.opx
+
+user@computer:~/$ opa -l foo.opx
+
+user@computer:~/$ ls
+a.exe  _build  foo.opa  foo.opx
+
+user@computer:~/$ ./a.exe
+this is foo.opa
+--------------------
+
+Arguments, input
+^^^^^^^^^^^^^^^^
+
+The compiler recognizes a certain number of file extension in its command line.
+For more details about the file extension, see the section [Filename extensions]
+
+[width="90%",cols="2",frame="topbot",options="header"]
+|========================================================
+| extension | action
+| *.conf | read a conf file for package organisation
+| *.cmx, *.cmxa | add ocaml native libraries for linking
+| *.opa | compile and/or link opa files
+| *.opack | read option and arguments from an external file
+| *.opp | link with an OPA plugin
+| *.opx | link with a previous compiled package
+|========================================================
+
+Output of the compiler
+^^^^^^^^^^^^^^^^^^^^^^
+
+The compiler produces a number of files and/or executable, depending on its mode of utilisation,
+and the options activated.
+
+[width="90%",cols="3",frame="topbot",options="header"]
+|========================================================
+| output | mode or option | description
+| api | --api | used by _opadoc_
+| executable | linking or autobuild | standalone executables
+| odep | --odep | dependency graphs of the compiled application
+| opx | compilation or autobuild | compiled packages
+|========================================================
+
+Options
+^^^^^^^
+
+This list contains only the offical options supported in the distributions of OPA.
+For more details about your specific opa version, use _opa --help_
+
+Levels and modes of utilisation
++++++++++++++++++++++++++++++
+
+[width="90%",cols="3",frame="topbot",options="header"]
+|========================================================
+| option | argument | description
+| <default> | none | High-level compilation mode, compiles everything and build a standalone executable
+| -c | none | Low-level compilation mode, compiles the current package
+| -l | none | Low-level linking mode, link the given packages and opa files
+| --autocompile | none | High-level mode, compile every package, but do not link at end, for building e.g. shared opa librairies
+|========================================================
+
+Other options
++++++++++++++
+
+TODO
+
+Common errors
+^^^^^^^^^^^^^
+
+TODO
+
+Warnings
+^^^^^^^^
+
+The warnings of the compiler are organized in hierarchical classes composing a warning tree.
+Each warning class is a node of this tree. Each class can contain sub-classes (children), and
+can be switched into :
+
+* ignored
+* warning
+* error
+
+It is possible to change the default properties of a warning class
+using the following options:
+
+[width="90%",cols="2",frame="topbot",options="header"]
+|========================================================
+| option | description
+| --no-warn | ignored (not printed)
+| --warn, --no-warn-error | printed as a warning, the compilation continues
+| --warn-error | treated as an error, the compilation stops
+|========================================================
+
+For accessing to the list of all warnings, use _--warn-help_.
+
+The name of the classes are implied by their place in the warning tree,
+this is the path of nodes leading to the class, lowercased, and separated
+by dots. Example, the class _coding_ corresponds to rules about coding style,
+and contains a subclass named _deprecated_ used for pointing out the use of deprecated
+constructions. So, the name of this subclass for the command line is _coding.deprecated_ :
+
+----------------------------
+user@computer:~/$ opa --warn-error coding.deprecated foo.opa
+----------------------------
+
+A property set to a class is applied to all children of the class. For example, _--warn-error coding_ implies _--warn-error coding.deprecated_
+
+[TIP]
+.About the root warning class
+===================================
+All warning classes have a common ancestor named _root_, this is the root of the tree.
+You can use e.g. _--warn-error root_ for enabling all warnings
+as errors. Although this is the root of the tree, the name 'root'
+does not appear in each warning class name (this is the only exception)
+===================================
+
+Example:
+
+---------------------
+user@computer:~/$ ls
+foo.opa
+
+user@computer:~/$ cat foo.opa
+f(x) = 0
+
+user@computer:~/$ opa foo.opa
+Warning unused
+File "foo.opa", line 1, characters 2-3, (1:2-1:3 | 2-3)
+  Unused variable x.
+
+user@computer:~/$ opa --no-warn unused foo.opa
+
+user@computer:~/$ opa --warn-error unused foo.opa
+Warning unused
+File "foo.opa", line 1, characters 2-3, (1:2-1:3 | 2-3)
+  Unused variable x.
+
+Error
+Fatal warning: 'unused'
+---------------------

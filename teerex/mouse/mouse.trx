@@ -1,0 +1,110 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+## Author: Adam Koprowski
+## A TRX grammar for PEG grammar's in the Mouse format.
+## Mouse is a PEG tool by Roman Redziejowski
+## http://www.romanredz.se/freesoft.htm
+## this grammar was (manuallly) transcribed from grammar.mouse 
+## (i.e. grammar.peg coming in the distribution of Mouse)
+## after preforming certain simplifications on the grammar.
+
+{{
+  open MouseAst
+}}
+
+/** Grammar **/
++Grammar : {MouseAst.mouse_grammar} <- Space (&. Rule)*:grammar EOT {{ grammar : mouse_grammar }}
+
+/** Rule **/
+Rule      <- Name:name EQUAL RuleRhs:rhs DiagName?:desc SEMI {{ Rule(name, rhs, desc) }}
+
+/** right-hand side **/
+RuleRhs   <- Sequence:seq Actions (SLASH Sequence:seq Actions {{seq}})*:seqs {{ seq::seqs }}
+
+Choice    <- Sequence:seq (SLASH Sequence:seq {{seq}})*:seqs {{ seq::seqs }}
+      
+Sequence  <- Prefixed+
+      
+Prefixed  <- PREFIX:prefix Space Primary:item SUFFIX:suffix Space {{ (prefix, item, suffix) }}
+
+Primary   <- / Name:name                 {{ Call name }}
+             / LPAREN Choice:exp RPAREN  {{ Parens exp }}
+             / ANY                       {{ Any }}
+             / StringLit:lit             {{ Literal lit }}
+             / Range:range               {{ let (c1, c2) = range in Range(c1, c2) }}
+             / CharClass:cc              {{ CharClass cc }}
+      
+Actions   <- OnSucc OnFail $
+  
+OnSucc    <- (LWING AND? Name? RWING)? $
+  
+OnFail    <- (TILDA LWING Name? RWING)? $
+  
+Name      <- (Letter (Letter / Digit)* $_) Space {{ __1 }}
+      
+DiagName  <- "<" ((!">" Char)+ $_) ">" Space {{ __2 }}
+      
+StringLit <- [\"] ((![\"] Char)+ $_):lit [\"] Space {{ lit }}
+      
+CharClass <- "[" (!"]" Char)+:chars "]" Space {{ chars }}
+      
+Range     <- "[" Char:c1 "-" Char:c2 "]" Space {{ (c1, c2) }}
+      
+Char      <- Escape
+           / ![\r\n\\] .
+
+Escape    <- "\\u" (HexDigit HexDigit HexDigit HexDigit $_):hex
+  {{ let s = Base.String.from_hex hex in 
+       assert(String.length s = 2 && Char.code (String.get s 0) = 0); 
+       String.get s 1
+  }}
+           / "\\t"  {{ '\t' }}
+           / "\\n"  {{ '\n' }}
+           / "\\r"  {{ '\r' }}
+           / !"\\u""\\" .:c {{ c }}
+             
+Letter    <- [a-z] / [A-Z]
+Digit     <- [0-9]
+HexDigit  <- [0-9] / [a-f] / [A-F]
+  
+PREFIX    <- [&] {{ `AND }}
+           / [!] {{ `NOT }}
+           / ""  {{ `NORMAL }}
+SUFFIX    <- [?] {{ `OPTION }}
+           / [*] {{ `STAR }}
+           / [+] {{ `PLUS }}
+           / ""  {{ `NORMAL }}
+  
+EQUAL     <- "=" Space {{ __1 }}
+SEMI      <- ";" Space {{ __1 }}
+SLASH     <- "/" Space {{ __1 }}
+AND       <- "&" Space {{ __1 }}
+LPAREN    <- "(" Space {{ __1 }}
+RPAREN    <- ")" Space {{ __1 }}
+LWING     <- "{" Space {{ __1 }}
+RWING     <- "}" Space {{ __1 }}
+TILDA     <- "~" Space {{ __1 }}
+ANY       <- "_" Space {{ __1 }}
+  
+Space     <- ([ \r\n\t] $ / Comment)* $
+Comment   <- "//" (!EOL .)* EOL $
+  
+/* end of line */
+EOL       <- [\r\n] $ / !. $
+/* end of text */
+EOT       <- !. $

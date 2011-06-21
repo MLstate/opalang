@@ -1,0 +1,92 @@
+# -*- conf -*- (this is for emacs)
+#
+# All tools that either can be built from the current repo ("internal"), or should be
+# available installed (from your $PATH) ("external")
+#
+# syntax:
+# <internal|external>	tool_name	build_target	[install_dir]
+#
+# tool_name is the common name of your tool, as it is installed and referred to.
+# the build_target is the name of the exe as understood by ocamlbuild.
+# install dir is relative to the installation prefix, default is "bin/"
+
+# from opageneral itself
+internal ppdebug              pplib/ppml.native
+internal ppdebug-opa          pplib/ppopa.native
+internal ppjs                 pplib/ppjs.native
+
+# from libqml
+internal mlstate_platform     libbase/gen_platform
+internal trx                  teerex/trx_ocaml.native
+internal trx_interpreter      teerex/trx_interpreter.native
+internal opa-plugin-builder-bin libbsl/bslregister.native lib/opa/bin
+internal opa-plugin-browser-bin libbsl/bslbrowser.native lib/opa/bin
+internal bslbrowser           libbsl/bslbrowser
+internal passdesign           passlib/passdesign.native
+internal ocamlbase.top        ocamlbase.top
+internal ocamlbase            libbase/ocamlbase
+internal opa-db-server        database/database_server.native
+internal opa-db-tool          database/database_tool.native
+internal opatrack             passlib/opatrack.sh
+internal opadep               compilerlib/opadep.sh
+internal filepos              libbase/testfilepos.native
+internal genproto             protocols/genproto.native
+internal mlidl                protocols/mlidl.native
+internal wsdl2ml              protocols/wsdl2ml.native
+internal jsstat               jslang/jsstat.native
+
+# from qml2llvm
+internal opatop     opatop/opatop.native
+internal qmljs      qmlcompilers/qmljs_exe.native
+internal qmlJsImpClientLib.js      qmljsimp/qmlJsImpClientLib.js lib/opa/static
+internal clientLibLib.js      qml2js/clientLibLib.js lib/opa/static
+internal qmlCpsClientLib.js      qmlcps/qmlCpsClientLib.js lib/opa/static
+internal qmlNoCpsClientLib.js      qmlcps/qmlNoCpsClientLib.js lib/opa/static
+internal odep tools/odep.native
+internal odeplink tools/odeplink.native
+
+# from opa
+internal opa2opa              opalang/opa2opa.native
+internal ofile                tools/ofile.native
+
+# The name of opa raw executable, following unix guidelines (e.g. firefox distrib)
+# when there is a wraper used to call a raw exe
+internal opa-bin              opa/main.native lib/opa/bin
+
+internal opa_bash_completion  bash_completion share/opa
+
+internal opadoc               opadoc/opadoc.native
+
+# for now, these can't be built cleanly from opageneral
+internal opabslgen.bypass     opabsl/opabslgen.bypass lib/opa/static
+internal serverLib.cmi        opabsl/serverLib.cmi lib/opa/static
+# for helping developpers of plugins we can distribute the source of the interface
+internal bslServerLib.ml      libbase/bslServerLib.ml lib/opa/static
+
+# slicer plugin
+# internal testSlicerPlugin.cmxs plugins/testSlicerPlugin.cmxs plugins
+# internal testSlicerMLRuntime.cmx plugins/testSlicerMLRuntime.cmx plugins
+# internal testSlicerMLRuntime.cmi plugins/testSlicerMLRuntime.cmi plugins
+# internal testSlicerMLRuntime.o plugins/testSlicerMLRuntime.o plugins
+# internal testSlicerJSPlugin.js plugins/testSlicerJSRuntime.js plugins
+
+
+# javascript checker
+internal jschecker.jar tools/jschecker/compiler.jar share/opa/jschecker
+internal jschecker_cpsclientlib.js qmlcps/qmlCpsClientLib-external.js share/opa/jschecker
+internal jschecker_clientlib.js qml2js/clientLib-external.js share/opa/jschecker
+internal jschecker_clientliblib.js qml2js/clientLibLib-external.js share/opa/jschecker
+internal jschecker_externals.js tools/jschecker/externals.js share/opa/jschecker
+internal jschecker_jquery.js opabsl/jsbsl/jquery-1.6.externs.js share/opa/jschecker
+
+# for the linking of servers
+internal runtimeMain.cmx libnet/runtimeMain.cmx lib/opa/static
+internal runtimeMain.cmo libnet/runtimeMain.cmo lib/opa/static
+internal runtimeMain.o libnet/runtimeMain.o lib/opa/static
+
+
+# mimetype database
+internal mimetype_database.xml libbase/mimetype_database.xml share/opa
+
+# dissemination
+internal opa-cloud dissemination/spawn.sh

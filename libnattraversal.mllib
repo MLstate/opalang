@@ -1,0 +1,6 @@
+# -*- conf -*-
+libnet/nattraversal/Stubsnatpmp
+libnet/nattraversal/HighNatpmp
+libnet/nattraversal/Stubsminiupnpc
+libnet/nattraversal/Miniupnp
+libnet/nattraversal/Nattraversal

@@ -1,0 +1,2 @@
+This library is a tmp location for extracting passes from libqmlcompil.
+After the refactoring of libraries (after removing S2), we'll merge opa and qml passes.

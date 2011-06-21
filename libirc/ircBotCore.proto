@@ -1,0 +1,80 @@
+% vim: syntax=erlang
+
+%
+%   Copyright © 2011 MLstate
+%
+%   This file is part of OPA.
+%
+%   OPA is free software: you can redistribute it and/or modify it under the
+%   terms of the GNU Affero General Public License, version 3, as published by
+%   the Free Software Foundation.
+%
+%   OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+%   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+%   FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+%   more details.
+%
+%   You should have received a copy of the GNU Affero General Public License
+%   along with OPA. If not, see <http://www.gnu.org/licenses/>.
+%
+
+-generate client
+-protocol IRC
+-debugvar PROTOCOL_DEBUG
+-include "libirc/ircMessages.proto"
+
+-type irc = {
+    username:string;
+    realname:string;
+    nickname:string;
+    password:string;
+    server:string;
+    channel:string;
+    callback: Scheduler.connection_info -> unit
+}
+
+-type payload = unit
+-type rt_proto = {
+    rt_backtrace: bool;
+    rt_block_size: int;
+    rt_payload: payload;
+    rt_server_write_timeout: Time.t
+}
+-type runtime = {rt_proto: rt_proto}
+
++open_connection(irc:irc):
+    send (Pass irc.password);
+    send (Nick irc.nickname);
+    send (User (irc.username, "localhost", irc.server, irc.realname));
+    read_welcome_messages(irc)
+
+read_welcome_messages(irc):
+    receive
+        | Sns (_, "376", _) -> join_channels(irc)
+        | _ -> read_welcome_messages(irc)
+
+join_channels(irc):
+    send(Join (irc.channel, ""));
+    read_channels(irc)
+
+read_channels(irc):
+    receive
+        | Sns (_, "366", _) ->
+            % When we receive the end-of-the-NAMES command signal, we
+            % can call the callback and let the outer application do its
+            % own business with the connection.
+            {{ Scheduler.push sched (fun () -> irc.callback conn) }}
+            read_channels(irc)
+        | SrvPrivmsg (_, _, "!botquit") ->
+            % This might be subject to deletion in the near future since
+            % the outer application has no (clean) means of knowing
+            % whether the connection is still alive.
+            quit()
+        | Ping msg ->
+            send (Pong msg);
+            read_channels(irc)
+        | _ -> read_channels(irc)
+
+quit():
+    send(Quit);
+    -!-

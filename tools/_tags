@@ -1,0 +1,18 @@
+# Odep
+<odep*.{ml,byte,native}>: thread, use_str, use_unix, use_graph, use_zip, use_libbase, use_ulex
+
+###
+# Ofile
+# compiling
+<ofile.ml>: use_libbase
+
+# linking
+<ofile.{byte,native}>: use_unix, use_str, thread, use_ulex, use_libbase, use_zip
+
+# TODO(Rudy, you are on the git blame)
+# this look like weird. Correct the code, and reactivate the warning
+<ofile.ml>: warn_error_z
+
+###
+# jschecker
+<jschecker>: traverse

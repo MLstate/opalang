@@ -1,0 +1,8 @@
+# -*- conf -*- (for emacs)
+
+# compiler
+<{flat_{Common,Field,VTable,Simple,Bsl,Opabsl,MatchGeneration,Shared,BypassGeneration,RecordGeneration,ExprGeneration,DotGeneration,Env,Options,Warnings}}.{ml,mli,byte,native}>: use_libbase, use_ocamllang, use_libqmlcompil, use_libbsl, use_qml2ocaml, use_qmlcpsrewriter, use_compilerlib, use_qmlpasses, use_opacapi
+
+# pp debug
+<flat_Bsl.ml> : with_mlstate_debug
+<flat_Env.ml>: with_mlstate_debug

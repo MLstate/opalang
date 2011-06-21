@@ -1,0 +1,77 @@
+From 31856310213622726f2a70404327d3fb0ad6aac3 Mon Sep 17 00:00:00 2001
+From: Louis Gesbert <louis.gesbert@mlstate.com>
+Date: Thu, 16 Jun 2011 17:06:10 +0200
+Subject: [PATCH] Added a Makefile for windows
+
+---
+ Makefile.windows |   58 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 58 insertions(+), 0 deletions(-)
+ create mode 100644 Makefile.windows
+
+diff --git a/Makefile.windows b/Makefile.windows
+new file mode 100644
+index 0000000..ed5d46a
+--- /dev/null
++++ b/Makefile.windows
+@@ -0,0 +1,58 @@
++# $Id: Makefile,v 1.16 2011/01/03 17:31:03 nanard Exp $
++# This Makefile is designed for use with GNU make
++# libnatpmp
++# (c) 2007-2011 Thomas Bernard
++# http://miniupnp.free.fr/libnatpmp.html
++
++CC = cl /DWIN32 /DSTATICLIB /nologo 
++LDFLAGS = --no-undefined
++CFLAGS = -DENABLE_STRNATPMPERR
++
++LIBOBJS = natpmp.obj getgateway.obj wingettimeofday.obj
++
++OBJS = $(LIBOBJS) testgetgateway.obj natpmpc.obj
++
++STATICLIB = libnatpmp.lib
++  
++HEADERS = natpmp.h
++
++EXECUTABLES = testgetgateway natpmpc-static
++
++.PHONY:	all clean depend install
++
++all: $(STATICLIB) $(EXECUTABLES)
++
++clean:
++	$(RM) $(OBJS) $(EXECUTABLES) $(STATICLIB)
++	$(RM) pythonmodule
++	$(RM) -r build/ dist/
++
++depend:
++	makedepend -f$(MAKEFILE_LIST) -Y $(OBJS:.obj=.c) 2>/dev/null
++
++testgetgateway:	testgetgateway.obj getgateway.obj
++		$(CC) $(CFLAGS) /Fe$@ ws2_32.lib Iphlpapi.lib $?
++
++natpmpc-static:	natpmpc.obj $(STATICLIB)
++	$(CC) /Fe$@ ws2_32.lib Iphlpapi.lib $(STATICLIB) $<
++
++$(STATICLIB):	$(LIBOBJS)
++	$(AR) crs $@ $?
++	cp $@ libnatpmp.a
++
++# DO NOT DELETE
++
++natpmp.obj: natpmp.c natpmp.h getgateway.h declspec.h
++	  $(CC) /c $(CFLAGS) /Fo$@ $<
++
++getgateway.obj: getgateway.c getgateway.h declspec.h
++	      $(CC) /c $(CFLAGS) /Fo$@ $<
++
++testgetgateway.obj: testgetgateway.c getgateway.h declspec.h
++		  $(CC) /c $(CFLAGS) /Fo$@ $<
++
++natpmpc.obj: natpmpc.c natpmp.h
++	     $(CC) /c $(CFLAGS) /Fo$@ $<
++
++wingettimeofday.obj: wingettimeofday.c 
++	      $(CC) /c $(CFLAGS) /Fo$@ $<
+-- 
+1.7.1
+

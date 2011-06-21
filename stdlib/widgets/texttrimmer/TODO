@@ -1,0 +1,14 @@
+== Widget TextTrimmer ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- 
+
+.Short term
+- Improve complexity from linear to logarithmic (dichotomy)
+
+.Later
+-

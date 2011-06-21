@@ -1,0 +1,19 @@
+== Widget Completion ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Apply new naming conventions
+- Rename
+  * +set_open+ -> +open+
+  * +set_close+ -> +close+
+  * +is_opened+ -> +is_open+
+- Fix wrong header mentionning 'datepicker'
+
+.Short term
+-
+
+.Later
+-

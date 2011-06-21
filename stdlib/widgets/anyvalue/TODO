@@ -1,0 +1,15 @@
+= Widget AnyValue ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- remove dependency to StringValue
+- then refactor StringValue to use AnyValue (shoud be similar to Int/FloatValue)
+
+.Short term
+-
+
+.Later
+-

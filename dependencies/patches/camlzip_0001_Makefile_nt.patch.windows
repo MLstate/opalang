@@ -1,0 +1,111 @@
+diff -pr1 a/Makefile.nt b/Makefile.nt
+*** a/Makefile.nt	2010-06-18 11:28:08.158000000 +0200
+--- b/Makefile.nt	2010-06-18 12:24:36.373800000 +0200
+***************
+*** 0 ****
+--- 1,104 ----
++ #
++ # Question, are .lib and .a files used after this ?
++ # Because ocamlmklib produces .lib files !
++ # Current solution make a .a copy of the .lib
++ 
++ ### Configuration section
++ 
++ # We discard these variable to take from caller
++ #OCAMLC   ?= ocamlc
++ #OCAMLOPT ?= ocamlopt
++ #OCAMLDEP ?= ocamldep
++ #OCAMLMKLIB ?= ocamlmklib -custom
++ 
++ 
++ # The directory containing the Zlib library (libz.a or libz.so)
++ #ZLIB_LIBDIR=/windows_libs/zlib/
++ 
++ # The name of the Zlib library.  Usually -lz
++ ZLIB_LIB="$(ZLIB_LIBDIR)/zlib.lib"
++ 
++ # The directory containing the Zlib header file (zlib.h)
++ #ZLIB_INCLUDE ?= /home/mlstate/git/opageneral/ms_windows/zlib/
++ 
++ # Where to install the library.  By default: sub-directory 'zip' of
++ # OCaml's standard library directory.
++ #
++ #  NOT WORKING !!!!
++ #
++ #CAMLDIR=$($(OCAMLC) -where)
++ CAMLLIBDIR ?= /cygdrive/c/ocamlms/lib
++ INSTALLDIR=$(CAMLLIBDIR)/zip
++ 
++ ### End of configuration section
++ 
++ LDOPT=-ldopt -explain
++ 
++ OCAMLMKLIB:=$(OCAMLMKLIB) $(LDOPT)
++ 
++ OBJS=zlib.cmo zip.cmo gzip.cmo
++ C_OBJS=zlibstubs.obj
++ 
++ #all: clean_problems libcamlzip.a zip.cma
++ all: clean_problems zip.cma
++ 
++ clean_problems:
++ 	@rm -rf problems
++ 
++ allopt: zip.cmxa
++ 
++ zip.cma: $(C_OBJS) $(OBJS)
++ 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) $(C_OBJS) -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
++ 
++ zip.cmxa: $(C_OBJS) $(OBJS:.cmo=.cmx)
++ 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) $(C_OBJS) -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
++ 
++ #libcamlzip.a: $(C_OBJS)
++ #	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
++ #            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
++ #	echo libcamlzip ok, making a copy
++ #	cp libcamlzip.lib libcamlzip.a
++ 
++ .SUFFIXES: .mli .ml .cmo .cmi .cmx
++ 
++ .mli.cmi:
++ 	$(OCAMLC) -c $<
++ .ml.cmo:
++ 	$(OCAMLC) -c $<
++ .ml.cmx:
++ 	$(OCAMLOPT) -c $<
++ 
++ zlibstubs.obj: zlibstubs.c
++ 	$(OCAMLC) -verbose -c -I "$(ZLIB_INCLUDE)" zlibstubs.c
++ 	-$(OCAMLOPT) -verbose -c -ccopt -I -ccopt "$(ZLIB_INCLUDE)" zlibstubs.c
++ 
++ # -g --ccopt no supported by cl.exe
++ .c.obj:
++ 	$(OCAMLC) -verbose -c -I $(ZLIB_INCLUDE) $<
++ 
++ clean:
++ 	rm -f *.cm*
++ 	rm -f *.o *.a *.obj
++ 
++ install:
++ 	cp libcamlzip.lib libcamlzip.a
++ 	echo INSTALLATION IN $(INSTALLDIR)
++ 	mkdir -p $(INSTALLDIR)
++ 	cp zip.cma zip.cmi gzip.cmi zip.mli zlib.cmi gzip.mli zip.lib libcamlzip.lib libcamlzip.a $(INSTALLDIR)
++ 	if test -f dllcamlzip.so; then \
++ 	  cp dllcamlzip.so $(INSTALLDIR); \
++           ldconf=`$(OCAMLC) -where`/ld.conf; \
++           installdir=$(INSTALLDIR); \
++           if test `grep -s -c $$installdir'$$' $$ldconf || :` = 0; \
++           then echo $$installdir >> $$ldconf; fi \
++         fi
++ 
++ installopt:
++ 	cp zip.cmxa zip.a zip.cmx gzip.cmx $(INSTALLDIR)
++ 
++ # MAYBE A BUG HERE IF DEPS ARE CALCULATED DIFFERENTLY ON GCC AND MSVC
++ depend:
++ 	gcc -MM -I $(ZLIB_INCLUDE) *.c > .depend
++ 	ocamldep *.mli *.ml >> .depend
++ 
++ include .depend
+Only in b: Makefile.nt~

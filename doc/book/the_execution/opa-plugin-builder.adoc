@@ -1,0 +1,30 @@
+[[opa_plugin_builder]]
+opa-plugin-builder
+~~~~~~~~~~~~~~~~~~
+
+plugin builder
+
+Arguments, input
+^^^^^^^^^^^^^^^^
+
+TODO
+
+Output
+^^^^^^
+
+TODO
+
+Options
+^^^^^^^
+
+TODO
+
+Common errors
+^^^^^^^^^^^^^
+
+TODO
+
+Warnings
+^^^^^^^^
+
+TODO

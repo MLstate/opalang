@@ -1,0 +1,68 @@
+diff --git a/src/common/utils.ml b/src/common/utils.ml
+index 5de267c..bf542e0 100644
+--- a/src/common/utils.ml
++++ b/src/common/utils.ml
+@@ -30,6 +30,8 @@ let current_time () =
+ 
+ 
+ (* I/O functions *)
++let href_of_file_line = Printf.sprintf "%s.%d.html"
++let filepos = ref "filepos"
+ 
+ let read_lines filename =
+   let chan = open_in filename in
+diff --git a/src/common/utils.mli b/src/common/utils.mli
+index 4548769..3adeb61 100644
+--- a/src/common/utils.mli
++++ b/src/common/utils.mli
+@@ -27,6 +27,13 @@ val current_time : unit -> string
+ 
+ (** {6 I/O functions} *)
+ 
++val href_of_file_line : string -> int -> string
++(** [href_of_file_line file line] returns a filename corresponding
++    to the href inserted by the html output, and the citation output *)
++
++val filepos : string ref
++(** is a reference to run the extern executable filepos (for making citation) *)
++
+ val read_lines : string -> string list
+ (** [read_lines file] returns the lines of file [file]
+     (["-"] being interpreted as the standard input).
+diff --git a/src/driver/args.ml b/src/driver/args.ml
+index ddd2034..380cbff 100644
+--- a/src/driver/args.ml
++++ b/src/driver/args.ml
+@@ -187,6 +187,7 @@ let usage =
+ let switches =
+   [ ("-config", Arg.Set_string config_file, "<file>  Set configuration file");
+     ("--gen-config", Arg.Unit print_default_config, " Generated a full config file");
++    ("--filepos", Arg.Set_string Utils.filepos, "<file> Path to the tool filepos");
+     ("-ignore", Arg.Set_string ignore_file, "<file>  Set ignore file");
+     ("-plugin", Arg.String ignore, "<file>  Load plugin");
+     ("-available", Arg.Unit print_available, " Print available checks");
+diff --git a/src/outputs/html.ml b/src/outputs/html.ml
+index 0deabf3..b602905 100644
+--- a/src/outputs/html.ml
++++ b/src/outputs/html.ml
+@@ -135,6 +135,11 @@ let run file _ report =
+                 Child { tag_name = "img";
+                         tag_attributes = ["class", kind; "alt", kind];
+                         tag_data = [] } in
++              let href file line text =
++                let link = Utils.href_of_file_line file line in
++                Child { tag_name = "a";
++                        tag_attributes = ["href", link];
++                        tag_data = [Text text] } in
+               let message =
+                 let max_length = 60 in
+                 if (String.length element.message) > max_length then
+@@ -154,7 +159,7 @@ let run file _ report =
+                 tag_data = [(tag [img kind]);
+                             (tag [tt (element.category :> string)]);
+                             (tag [tt (element.check :> string)]);
+-                            (tag' ("line " ^ (string_of_int element.line)));
++                            (tag [href file element.line ("line " ^ (string_of_int element.line))]);
+                             (tag' (match element.column with Some x -> "column " ^ (string_of_int x) | None -> ""));
+                             message]; })
+             report in

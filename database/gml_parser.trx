@@ -1,0 +1,42 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+(* A simple GML (Graph Modelling Language) parser
+   syntax from http://www.infosun.fim.uni-passau.de/Graphlet/GML/gml-tr.html
+*)
+
+types:{{
+  type gml = Int of int | Float of float | String of string | List of (string * gml) list
+}}
+
++gml : {gml} <- list {{ List __1 }}
+list <- (whitespace* key whitespace+ value whitespace* {{ __2, __4 }})*
+value <- Integer {{ Int __1 }}
+       / Real {{ Float __1 }}
+       / String {{ String __1 }}
+       / '[' list ']' {{ List __2 }}
+
+key <- [a-zA-Z][a-zA-Z0-9]* $_
+Integer	<- (sign [0-9]+ $_) {{ int_of_string __1 }}
+Real <- (sign [0-9]* '.' [0-9]* ( 'E' sign [0-9] ) $_) {{ float_of_string __1 }}
+String <- '"' (instring* $_) '"' {{ __2 }}
+sign <- ('+' / '-')? $_
+instring <- ![&\"] . $_ / '&' [a-zA-Z]+ ';' $_ # html escapes (&nbsp;)
+whitespace <- [ \t\n] $ / comment $
+comment <- '#' (!EOL .)* (EOL / EOF) $
+EOL <- [\n\r] $ / '\r\n' $
+EOF <- !.

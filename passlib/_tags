@@ -1,0 +1,9 @@
+# -*- conf -*- (for emacs)
+
+<*.{ml,mli,byte,native}>: use_libbase, use_compilerlib, thread, use_ulex, use_unix, use_str
+
+<passHandler.ml>: use_buildinfos
+<passdesign.{byte,native}>: use_buildinfos, use_graph
+
+# PP debug
+<passHandler.ml>: with_mlstate_debug

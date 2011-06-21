@@ -1,0 +1,18 @@
+== Calendar component ==
+
+.Monthly view:
+- Make calendar unselectable. That would require OPA to accept the following CSS:
+--------------------
+*.unselectable {
+   -moz-user-select: -moz-none;
+   -khtml-user-select: none;
+   -webkit-user-select: none;
+   user-select: none;
+}
+--------------------
+- For today display also the time (updated); this will require making widgets.dateprinter more generic.
+- Better integration with datepicker for "goto" button (add styling, ...)
+
+.Daily view:
+.Weekly view:
+.Two weeks view:

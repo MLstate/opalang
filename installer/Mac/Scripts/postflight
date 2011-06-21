@@ -1,0 +1,35 @@
+#!/bin/sh -e
+
+#
+# MacOS X version
+#
+
+OPTION=$1
+
+MLSTATELIBS=/opt/mlstate
+DEST=/usr/local/bin
+mkdir -p $DEST
+DEST_EMACS=/Library/Application\ Support/Emacs/site-lisp/opa-mode
+
+logger -t "OPA" "Postflight starting"
+logger -t "OPA" "Creating shortcut"
+
+logger -t "OPA" "Installing opa shortcut"
+
+$MLSTATELIBS/share/opa/install.sh --dir $MLSTATELIBS --ocaml-prefix $MLSTATELIBS --link $DEST
+
+logger -t "OPA" "Add symbolic links in '/usr/local/bin' to '/opa/mlstate/bin'"
+for x in $(ls /opt/mlstate/bin) ; do
+    sudo ln -s /opt/mlstate/bin/$x /usr/local/bin/$x || logger -t "OPA" " -- $1 link could not be created."
+done
+
+logger -t "OPA" "Installing Emacs plug-in"
+sudo mkdir -p "$DEST_EMACS"
+sudo install $MLSTATELIBS/share/opa/emacs/opa-mode.el "$DEST_EMACS/"
+sudo install $MLSTATELIBS/share/opa/emacs/site-start.el "$DEST_EMACS/"
+
+logger -t "OPA" "Set ownership to 'root'"
+sudo chown -f -R root:wheel $MLSTATELIBS
+
+
+logger -t "OPA" "Postflight complete"

@@ -1,0 +1,294 @@
+From 676db4a493a3ced98fbce8a89143db633be8ffa6 Mon Sep 17 00:00:00 2001
+From: Louis Gesbert <louis.gesbert@mlstate.com>
+Date: Thu, 16 Jun 2011 16:59:19 +0200
+Subject: [PATCH] fixed stubs for windows compilation
+
+---
+ src/ssl_stubs.c |  124 +++++++++++++++++++++++++-----------------------------
+ 1 files changed, 57 insertions(+), 67 deletions(-)
+
+diff --git a/src/ssl_stubs.c b/src/ssl_stubs.c
+index afc1e7f..5073d68 100644
+--- a/src/ssl_stubs.c
++++ b/src/ssl_stubs.c
+@@ -24,14 +24,16 @@
+  * @author Samuel Mimram
+  */
+ 
+-/* $Id: ssl_stubs.c 7933 2010-11-09 17:38:05Z smimram $ */
++/* $Id: ssl_stubs.c 6920 2009-11-10 08:48:26Z smimram $ */
+ 
+ /*
+  * WARNING: because of thread callbacks, all ssl functions should be in
+  * blocking sections.
+  */
+ 
+-#include <unistd.h>
++#include <io.h>
++#include <process.h>
++
+ #include <string.h>
+ #include <assert.h>
+ 
+@@ -48,8 +50,6 @@
+ #include <openssl/err.h>
+ #include <openssl/crypto.h>
+ 
+-#include <pthread.h>
+-
+ static int client_verify_callback(int, X509_STORE_CTX *);
+ 
+ /*******************
+@@ -101,70 +101,40 @@ static struct custom_operations socket_ops =
+  * Initialization *
+  ******************/
+ 
+-struct CRYPTO_dynlock_value
+-{
+-  pthread_mutex_t mutex;
+-};
+-
+-static pthread_mutex_t *mutex_buf = NULL;
+-
+-static void locking_function(int mode, int n, const char *file, int line)
+-{
+-  if (mode & CRYPTO_LOCK)
+-      pthread_mutex_lock(&mutex_buf[n]);
+-  else
+-    pthread_mutex_unlock(&mutex_buf[n]);
+-}
+-
+-static unsigned long id_function(void)
++CAMLprim value ocaml_ssl_crypto_num_locks(value unit)
+ {
+-  return ((unsigned long) pthread_self());
++  return Val_int(CRYPTO_num_locks());
+ }
+ 
+-static struct CRYPTO_dynlock_value *dyn_create_function(const char *file, int line)
++void locking_function(int mode, int n, const char *file, int line)
+ {
+-  struct CRYPTO_dynlock_value *value;
+-
+-  value = malloc(sizeof(struct CRYPTO_dynlock_value));
+-  if (!value)
+-    return NULL;
+-  pthread_mutex_init(&value->mutex, NULL);
++  value lf;
+ 
+-  return value;
+-}
++  caml_leave_blocking_section();
+ 
+-static void dyn_lock_function(int mode, struct CRYPTO_dynlock_value *l, const char *file, int line)
+-{
++  lf = Field(Field(*caml_named_value("caml_ssl_thread_locking_function"), 0), 0);
+   if (mode & CRYPTO_LOCK)
+-    pthread_mutex_lock(&l->mutex);
++    caml_callback2(lf, Val_int(n), Val_int(1));
+   else
+-    pthread_mutex_unlock(&l->mutex);
++    caml_callback2(lf, Val_int(n), Val_int(0));
++
++  caml_enter_blocking_section();
+ }
+ 
+-static void dyn_destroy_function(struct CRYPTO_dynlock_value *l, const char *file, int line)
++unsigned long id_function(void)
+ {
+-  pthread_mutex_destroy(&l->mutex);
+-  free(l);
++  return Int_val(caml_callback(Field(Field(*caml_named_value("caml_ssl_thread_id_function"), 0), 0), Val_unit));
+ }
+ 
+ CAMLprim value ocaml_ssl_init(value use_threads)
+ {
+-  int i;
+-
+   SSL_library_init();
+   SSL_load_error_strings();
+ 
+   if(Int_val(use_threads))
+   {
+-    mutex_buf = malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+-    assert(mutex_buf);
+-    for (i = 0; i < CRYPTO_num_locks(); i++)
+-      pthread_mutex_init(&mutex_buf[i], NULL);
+-    CRYPTO_set_locking_callback(locking_function);
+     CRYPTO_set_id_callback(id_function);
+-    CRYPTO_set_dynlock_create_callback(dyn_create_function);
+-    CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
+-    CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
++    CRYPTO_set_locking_callback(locking_function);
+   }
+ 
+   return Val_unit;
+@@ -193,15 +163,15 @@ static SSL_METHOD *get_method(int protocol, int type)
+       switch (type)
+       {
+         case 0:
+-          method = SSLv23_client_method();
++          method = (SSL_METHOD*) SSLv2_client_method();
+           break;
+ 
+         case 1:
+-          method = SSLv23_server_method();
++          method = (SSL_METHOD*) SSLv2_server_method();
+           break;
+ 
+         case 2:
+-          method = SSLv23_method();
++          method = (SSL_METHOD*) SSLv2_method();
+           break;
+       }
+       break;
+@@ -210,15 +180,15 @@ static SSL_METHOD *get_method(int protocol, int type)
+       switch (type)
+       {
+         case 0:
+-          method = SSLv3_client_method();
++          method = (SSL_METHOD*) SSLv23_client_method();
+           break;
+ 
+         case 1:
+-          method = SSLv3_server_method();
++          method = (SSL_METHOD*) SSLv23_server_method();
+           break;
+ 
+         case 2:
+-          method = SSLv3_method();
++          method = (SSL_METHOD*) SSLv23_method();
+           break;
+       }
+       break;
+@@ -227,15 +197,32 @@ static SSL_METHOD *get_method(int protocol, int type)
+       switch (type)
+       {
+         case 0:
+-          method = TLSv1_client_method();
++          method = (SSL_METHOD*) SSLv3_client_method();
+           break;
+ 
+         case 1:
+-          method = TLSv1_server_method();
++          method = (SSL_METHOD*)SSLv3_server_method();
+           break;
+ 
+         case 2:
+-          method = TLSv1_method();
++          method = (SSL_METHOD*)SSLv3_method();
++          break;
++      }
++      break;
++
++    case 3:
++      switch (type)
++      {
++        case 0:
++          method = (SSL_METHOD*)TLSv1_client_method();
++          break;
++
++        case 1:
++          method = (SSL_METHOD*)TLSv1_server_method();
++          break;
++
++        case 2:
++          method = (SSL_METHOD*)TLSv1_method();
+           break;
+       }
+       break;
+@@ -425,7 +412,7 @@ CAMLprim value ocaml_ssl_ctx_set_default_passwd_cb(value context, value cb)
+   value *pcb;
+ 
+   /* TODO: this never gets freed or even unregistered */
+-  pcb = malloc(sizeof(value));
++  pcb = (value*)malloc(sizeof(value));
+   *pcb = cb;
+   caml_register_global_root(pcb);
+ 
+@@ -465,9 +452,10 @@ CAMLprim value ocaml_ssl_get_current_cipher(value socket)
+ {
+   CAMLparam1(socket);
+   SSL *ssl = SSL_val(socket);
++  SSL_CIPHER *cipher;
+ 
+   caml_enter_blocking_section();
+-  SSL_CIPHER *cipher = (SSL_CIPHER*)SSL_get_current_cipher(ssl);
++  cipher = (SSL_CIPHER*)SSL_get_current_cipher(ssl);
+   caml_leave_blocking_section();
+   if (!cipher)
+     caml_raise_constant(*caml_named_value("ssl_exn_cipher_error"));
+@@ -535,7 +523,7 @@ static struct custom_operations cert_ops =
+ 
+ CAMLprim value ocaml_ssl_read_certificate(value vfilename)
+ {
+-  value block;
++  CAMLlocal1(block);
+   char *filename = String_val(vfilename);
+   X509 *cert = NULL;
+   FILE *fh = NULL;
+@@ -562,15 +550,17 @@ CAMLprim value ocaml_ssl_get_certificate(value socket)
+ {
+   CAMLparam1(socket);
+   SSL *ssl = SSL_val(socket);
++  X509 *cert ;
++  CAMLlocal1(block);
+ 
+   caml_enter_blocking_section();
+-  X509 *cert = SSL_get_peer_certificate(ssl);
++  cert = SSL_get_peer_certificate(ssl);
+   caml_leave_blocking_section();
+ 
+   if (!cert)
+     caml_raise_constant(*caml_named_value("ssl_exn_certificate_error"));
+ 
+-  CAMLlocal1(block);
++  
+   block = caml_alloc_final(2, finalize_cert, 0, 1);
+   (*((X509 **) Data_custom_val(block))) = cert;
+   CAMLreturn(block);
+@@ -580,9 +570,9 @@ CAMLprim value ocaml_ssl_get_issuer(value certificate)
+ {
+   CAMLparam1(certificate);
+   X509 *cert = Cert_val(certificate);
+-
++  char *issuer ;
+   caml_enter_blocking_section();
+-  char *issuer = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
++  issuer = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+   caml_leave_blocking_section();
+   if (!issuer) caml_raise_not_found ();
+ 
+@@ -593,9 +583,9 @@ CAMLprim value ocaml_ssl_get_subject(value certificate)
+ {
+   CAMLparam1(certificate);
+   X509 *cert = Cert_val(certificate);
+-
++  char *subject ;
+   caml_enter_blocking_section();
+-  char *subject = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
++  subject = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+   caml_leave_blocking_section();
+   if (subject == NULL) caml_raise_not_found ();
+ 
+@@ -716,7 +706,7 @@ CAMLprim value ocaml_ssl_write(value socket, value buffer, value start, value le
+   CAMLparam2(socket, buffer);
+   int ret, err;
+   int buflen = Int_val(length);
+-  char *buf = malloc(buflen);
++  char *buf = (char*)malloc(buflen);
+   SSL *ssl = SSL_val(socket);
+ 
+   if (Int_val(start) + Int_val(length) > caml_string_length(buffer))
+@@ -740,7 +730,7 @@ CAMLprim value ocaml_ssl_read(value socket, value buffer, value start, value len
+   CAMLparam2(socket, buffer);
+   int ret, err;
+   int buflen = Int_val(length);
+-  char *buf = malloc(buflen);
++  char *buf = (char*)malloc(buflen);
+   SSL *ssl = SSL_val(socket);
+ 
+   if (Int_val(start) + Int_val(length) > caml_string_length(buffer))
+-- 
+1.7.1
+

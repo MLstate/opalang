@@ -1,0 +1,226 @@
+Guidelines for writing new Widgets
+==================================
+Mathieu Baudet <mathieu.baudet@mlstate.com>
+v1.2
+(C) MLstate 2010
+
+////////////////////
+asciidoc format: use 'asciidoc GUIDELINES' to compile into HTML (or not)
+////////////////////
+
+== Definitions ==
+
+We distinguish two types of graphical elements in the OPA library :
+
+1. passive elements, a.k.a. 'widgets', are elementary building blocks meant to be essentially stateless;
+
+2. active elements, a.k.a. 'components', are meant to realize more elaborate tasks; for that purpose they generally embed a state, typically stored into a client-side session (sometime even linked to a server-side session and indirectly to the dababase).
+
+As opposed to library modules, components and widgets are meant to impact the user interface.
+
+CAUTION: Choosing the right design for a new graphical element may not be easy (but reading this guidelines should help you a lot).
+
+
+== General design of widgets ==
+
+Widgets are passive, that is, mostly stateless. The only permitted states are internal and display-oriented (e.g. for a dialog box, being closed or being open).
+
+Widgets never use sessions, nor the database.
+
+Widgets are installed in two steps:
+
+1. Compute the initial xhtml of the widget
+=> This computation is done by a pure function receiving a (reusable) configuration and a set of specific parameters as arguments.
+
+2. Install the xhtml
+=> This is done either by including the xhtml of the widget in the web page returned by the server, or by replacing some part of the clients's DOM by the widget.
+
+
+== Client/server slicing ==
+
+The creation of the initial xhtml must be feasible on both sides.
+
+Once they are installed (unless they are provided with server-only functions) widgets should be entirely run on the client-side.
+
+Default configurations must be available on both sides and the functions that they contain must be serializable.
+=> In current version of OPA S3, this means that the functions must be defined at top-level and themselves available on both sides.
+
+CAUTION: Please ensure these properties by testing your widget, e.g. by deconnecting the server after the page is loaded. For maximum coverability, test examples must generate the xhtml on the server's side. OPA experts may also use the compiler option +--dump-slicer+.
+
+
+== Package and naming conventions ==
+
+Widgets must be part of the package +widgets+ whose source code lies in +opa/stdlib/packages/widgets+.
+
+Each widget must have its own directory in the repo and usually has one main public module.
+
+The name of the package is *a priori* the basename of the widget in lowercase, as in +statusbar+.
+
+[NOTE]
+For a better organization, later, during the consolidation phase, small widgets will be grouped in one package, and subpackages may be created.
+
+The name of the main module of a widget must be the basename in lowercase except for the first letters of words, prefixed by a +W+, as in: +WStatusBar+.
+The name of the main file of the package must be based on the package name, as in +statusbar.opa+.
+
+
+== Configuration of widgets ==
+
+Each widget +xxx+ should define a type +WXxx.config+ that is essentially a record providing the 'configuration parameters' of the widget. By configuration parameters we mean parameters that can (reasonably) be shared between several instances of the widgets.
+
+Instance parameters, such as displayed values and DOM identifiers, must NOT be included in the structure WXxx.config.
+
+Each widget should come with at least one default value named +default_config+.
+
+
+== Management of DOM identifiers ==
+
+Each instance of a widget is identified by a unique, global DOM identifier +id+ that must be recalled to every function of the API.
+
+This +id+ denotes the location of DOM where the widget will be installed.
+
+It is used as a prefix for all subsequent internal ids created by the component.
+
+Unless specified otherwise, a widget may replace itself at runtime, by writing over its id.
+
+
+== HTML styles and CSS classes ==
+
+No CSS class names should be hard-coded in the source code.
+
+Ideally, the general appearance of a widget should be specified using only the WStyler.styler(s) provided by the configuration. (N.B. generating functions may be used for complex widgets.)
+
+[NOTE]
+However, for simplicity, it is admitted that the first version of a widget uses only classes instead of stylers. Even in this case, the class names MUST be prefixed by a user-provided string to prevent clashes between variants of the widget.
+
+If necessary, a widget MAY use *internal classes* for storing a state into the DOM. These MUST use a user-provided string as a prefix.
+
+=== Style-based v.s. CSS-based default configurations ===
+For better usability, the default configuration of small or ``sparsely used" widgets should preferably instantiate the +WStyler.styler+(s) with styles instead of CSS class names.
+
+However, the default appearance of big, or very common widgets should preferably be specified by a set of CSS class-names, parameterized by a prefix :
+---------------------------
+default_config_with_CSS(... CSS_class_prefix : string) : Xxx.config
+---------------------------
+
+In the latter case, of course a corresponding default css must be provided.
+
+TIP: Use the function +Css.add_prefix_to_all_classes+ to add a prefix everywhere in your basic CSS.
+---------------------------
+CWeather.default_css(prefix : string) = Css.add_prefix_to_all_classes(CWeather.private_default_css, prefix)
+----------------------------
+
+
+=== Usage of a widget with CSS-based default configuration ===
+---------------------------------
+css = CWeather.css("toto") ++ css
+---------------------------------
+
+== Tests and examples ==
+
+Tests and examples should be pushed in the repository reftester, within the directory +opa/stdlib/packages/widgets/xxx+.
+
+CAUTION: Use the same branch as their widget, that is +master+.
+
+The main test should be name +test_xxx.opa+ (if +xxx+ is the name of the widget in lower case).
+
+
+== Minimal interface (required) ==
+
+The minimal API of a widget includes
+
+- HTML creation functions (in possibly various modes, no side effects)
+
+- parsing functions (client-side only, only read access to the DOM are permitted)
+
+The typical creation function is:
+
+---------------------------------
+html(config : WXxx.config, id : string, action<i> : funtype<i>..., value : contenttype) : xhtml
+// standard mode
+---------------------------------
+
+[NOTE]
+Widgets with several distinct modes may define additional creation functions.
+For instance, a readonly mode and an editable mode should be named as follows:
+---------------------------------
+show(config : WXxx.config, id : string, action<i> : funtype<i>..., value : contenttype) : xhtml
+// read-only mode
+
+edit(config : WXxx.config, id : string, action<i> : funtype<i>..., value : contenttype) : xhtml
+// editable mode
+---------------------------------
+
+
+[NOTE]
+The functions above are functional but the ``fun-actions" are not. They may replace some elements of the DOM (include the +id+.)
+
+
+For widget with an editable content, a typical parsing function is
+
+---------------------------------
+parse(config : WXxx.config, id : string) : option(contenttype)
+// read and parse the fields of the widget
+---------------------------------
+
+This function will be client-side only.
+
+
+== Typical usage of the minimal API ==
+
+The typical way to install a new widget somewhere in the DOM is
+
+- select an +id+ to install the widget and that can be used as a prefix
+
+- create a config :
+---------------------------------
+     config = { default_config with foo = myvalue }
+---------------------------------
+
+- get the xhtml and install it
+---------------------------------
+     html = show(config, id, ...)
+     Dom.transform([#id <- html])
+---------------------------------
+
+If you are building a bigger xhtml value in a functional way, you may use a span or a div, as in :
+---------------------------------
+ <div id=#{id}>
+   { show(default_config, id, ...) }
+ </div>
+---------------------------------
+
+CAUTION: Whenever possible, it is advised to use the latter option to build the initial web-page of a server, since this makes content indexation possible. In any case, this option should be preferred for tests.
+
+
+== Imperative interface (optional) ==
+
+For efficiency reasons, state modifiers (e.g. +open+, +close+) may be provided for those widgets that embed a (small, display-oriented) internal state.
+
+Two locations may be used to store the internal state of a widget:
+
+- the closures of ``fun-actions''
+
+- the widget's own HTML (encoding the state in classes).
+The second option is a standard trick that is useful when the state of the widget must be retrieved from outside, e.g. to implement the functions +is_open+ and +is_close+.
+
+In the case of a widget with a lot of content, content modifiers may also be provided to allow incremental update of the values inside the widget (i.e. without generating and installing the whole xhtml fragment).
+
+CAUTION:
+Similarly as for the minimal API, the functions of the imperative API do not store the configuration of the widgets nor its DOM identifier. These arguments must be recalled when needed.
+
+Example from the date picker:
+---------------------------------
+   do_open(opened_class: string, id: string): void
+---------------------------------
+This function does not need the configuration of the widget (so it is not asked). It expects a class name used to encode the fact that the widget is open, and its DOM id.
+
+
+== Widgets core library ==
+
+The helping module +WCore+ of the package +widgets.core+ contains a number of generic tools and type definition.
+
++WStyler.styler+ is unifying type for +css_class+ and +Css.properties+.
+
++WCore.make*+ are helping functions to install a widget somewhere in the DOM.
+
++WCore.add_binds+ is a utilitary function based on +Xhtml.add_binds+.

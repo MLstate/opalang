@@ -1,0 +1,416 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+read default.trx global (spacing)
+read ocaml_keywords.trx
+read ocaml_types.trx
+
+{{
+open Ocaml
+open Printf
+
+let make_app l =
+  assert(List.length l >= 2);
+  let rec aux r = function
+  | [] -> assert false
+  | [hd] -> App (r, hd)
+  | hd::tl -> aux (App (r, hd)) tl
+  in aux (List.hd l) (List.tl l);;
+}}
+
+spacing <- (Default.space $ / Default.mlcomment)* $
+
+emptylist <- Default.lbracket spacing Default.rbracket {{ EmptyList }}
+unit <- Default.lparen spacing Default.rparen $
+const <-
+        Default.float spacing {{ Float __1 }}
+        / Default.int spacing {{ Int __1 }}
+        / Default.string spacing {{ String __1 }}
+        # / ['] Default.stringsinglechar ['] spacing {{ Char (__2.[0]) }}
+        / Default.charsinglequote spacing {{ Char (__1) }}
+        / unit {{ Unit }}
+        / "false" spacing {{ Bool false }}
+        / "true" spacing {{ Bool true }}
+
+
+mlIdent_cont <- [a-zA-Z_0-9']
+mlIdent_aux_ <- ([a-z_] mlIdent_cont* $_) {{ __1 }}
+mlIdent_aux <- mlIdent_aux_ spacing {{ __1 }}
+mlIdent <- !(Ocaml_keywords.KEYWORDS !mlIdent_cont) mlIdent_aux {{ __2 }}
+        / Default.lparen ([!$%&*+-./:<=>?@^|~][!$%&*+-./:<=>?@^|~]* $_) Default.rparen
+        {{ sprintf "(%s)" __2 }}
+mlIdent_ <- !(Ocaml_keywords.KEYWORDS !mlIdent_cont) mlIdent_aux_ {{ __2 }}
+
+
+#typeIdent_aux <- ([a-z_] mlIdent_cont* $_) spacing {{ __1 }}
+#typeIdent <- !(Qml_keywords.KEYWORDS !mlIdent_cont) typeIdent_aux {{ __2 }}
+
+paramFormel <- # FIXME : integrer les pattern
+  / Default.tilde_ Default.lparen mlIdent (Default.colon type {{__2}})? Default.rparen
+    {{
+       Label (__3, None, __4)
+    }}
+
+  / Default.tilde_ mlIdent_ (Default.colon pattern_aux {{__2}})? spacing
+    {{
+       Label (__2, __3, None)
+    }}
+
+  / Default.tilde_ mlIdent_ Default.colon Default.lparen pattern_aux (Default.colon type {{__2}})? Default.rparen
+    {{
+       Label (__2, Some __5, __6)
+    }}
+
+  / Default.question Default.lparen mlIdent (Default.colon type {{__2}})? (Default.equal Expr {{__2}})? Default.rparen
+     {{
+        Opt (__3, __4, __5)
+     }}
+
+  / Default.question mlIdent {{ Opt (__2, None, None) }}
+
+  / Default.lparen mlIdent (Default.colon type {{__2}})? Default.rparen
+    {{
+      match __3 with
+      | None -> Pat (PatVar (Ident.source __2))
+      | Some x -> Pat (PatAnnot (PatVar (Ident.source __2), x))
+    }}
+
+  / pattern_aux
+    {{
+       Pat __1
+    }}
+
+
+paramEffectif <-
+  / Default.tilde_ mlIdent_ (Default.colon ExprNotApp {{__2}})? spacing
+    {{
+       Labeled (__2, __3)
+    }}
+
+#/ capMlIdent_* ([.] (capMlIdent_))* mlIdent_ (capMlIdent / mlIdent) spacing {{ FIXME gerer les modules }}
+
+  / (moduleName_ [.] {{__1}})* mlIdent
+    {{
+       Pated (List.map Ident.source (__1 @ [__2]), false)
+    }}
+
+  / constructorName
+    {{
+       Pated (List.map Ident.source __1, true)
+    }}
+
+capMlIdent_ <- ([`A-Z] mlIdent_cont* $_)
+capMlIdent <-  capMlIdent_ spacing {{ __1 }}
+moduleName <- capMlIdent {{ __1 }}
+moduleName_ <- capMlIdent_ {{ __1 }}
+#moduleNames <- (moduleName_ [.] {{__1}})* moduleName {{ Pated (__1 @ [__2]) }}
+constructorName <- (capMlIdent_ [.] {{__1}})* capMlIdent_ ![.] spacing {{ __1 @ [__2] }}
+
+type <- Ocaml_types.typedef
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+pattern_aux_aux <- # FIXME : manque les pairs
+
+( mlIdent {{ PatVar (Ident.source __1) }}
+
+  / Default.lparen pattern_aux (Default.colon type)? Default.rparen {{ __2 }}
+
+  / Default.underscore {{ PatAny }}
+
+  / const {{ PatConst __1 }}
+
+  / Default.laccol mlIdent Default.equal pattern_aux (Default.semi mlIdent Default.equal pattern_aux {{__2, __4}})* Default.semi? Default.raccol
+    {{
+       PatRecord ((__2, __4)::__5)
+    }}
+
+  / Default.lbracket (pattern_aux (Default.semi pattern_aux {{__2}})* {{__1, __2}})? Default.rbracket
+    {{
+       match __2 with
+       | None -> PatEmptyList
+       | Some (a, l) ->
+           PatList (a, List.fold_right (fun e accu -> PatList (e, accu)) l PatEmptyList)
+    }}
+
+  / constructorName Default.lparen pattern_cons (Default.comma pattern_cons {{__2}})* Default.rparen
+    {{
+       PatConstructor (List.map Ident.source __1, __3::__4)
+    }}
+
+  / constructorName pattern_cons?
+    {{
+       PatConstructor (List.map Ident.source __1, match __2 with Some x -> [x] | None -> [])
+    }}
+) (Ocaml_keywords.AS mlIdent {{__2}})*
+  {{
+     List.fold_left (fun accu e -> PatAs (accu, Ident.source e)) __1 __2
+  }}
+
+pattern_cons <- pattern_aux_aux (Ocaml_keywords.CONS pattern_cons {{__2}})?
+  {{
+     match __2 with
+     | None -> __1
+     | Some x -> PatList (__1, x)
+  }}
+
+pattern_aux_l <- pattern_cons (Default.comma pattern_aux_l {{__2}})?
+  {{
+     match __2 with
+     | None -> [__1]
+     | Some s -> __1::s
+  }}
+
+pattern_aux <- pattern_aux_l
+  {{
+     match __1 with
+     | [t] -> t
+     | _ -> PatTuple __1
+  }}
+
+pattern <- pattern_aux (Ocaml_keywords.WHEN Expr {{__2}})?
+  {{
+     match __2 with
+     | None -> None, __1
+     | Some x -> Some x, __1
+  }}
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Open <- Ocaml_keywords.OPEN moduleName {{ Open [ Ident.source __2 ]}}
+Module <- Ocaml_keywords.MODULE moduleName
+        (Default.lparen moduleName (Default.colon moduleName {{ Signature (Referenced [__2]) }})? Default.rparen {{__2, __3}})*
+        (Default.colon moduleName {{ Signature (Referenced [__2]) }})?
+        Default.equal (Ocaml_keywords.STRUCT LetOrType* Ocaml_keywords.END {{ __2 }} / LetOrType {{ [__1] }}) {{ match __3 with [] -> Module (__2, __4, __6, None) | _ -> DeclareFunctor (__2, __3, __4, Structure __6) }}
+
+Constructor <-
+  constructorName Default.lparen Expr Default.rparen
+    {{
+       Constructor (List.map Ident.source __1, match __3 with Tuple l -> l | x -> [x])
+    }}
+
+  / constructorName SimpleExpr
+    {{
+       Constructor (List.map Ident.source __1, [__2])
+    }}
+
+# for cases like F [1] or F U, where U takes no arguments
+
+  / constructorName ExprNotApp?
+    {{
+       Constructor (List.map Ident.source __1, match __2 with None -> [] | Some s -> [s])
+    }}
+
+Const <- const {{ Const __1 }}
+Var <- paramEffectif {{ Var __1 }}
+MakeRef <- Ocaml_keywords.REF SimpleExpr {{ MakeRef __2}}
+GetRef <- [!] SimpleExpr {{ GetRef __2 }}
+SetRef <- SimpleExpr Ocaml_keywords.GETREF Expr {{ SetRef (__1, __3) }}
+Cons <- # Expr Ocaml_keywords.CONS SimpleExpr {{ FIXME }}
+        / Default.lbracket Expr_without_seq (Default.semi Expr_without_seq {{__2}})* Default.rbracket
+{{ List.fold_right (fun e accu -> Cons (e, accu)) (__2::__3) EmptyList}}
+EmptyList <- emptylist
+Cond <- Ocaml_keywords.IF Expr Ocaml_keywords.THEN Expr_without_seq (Ocaml_keywords.ELSE Expr_without_seq {{__2}})?
+{{ Cond (__2, __4, match __5 with None -> Const Unit | Some s -> s) }}
+Abs <- (Ocaml_keywords.FUN paramFormel+ Default.rightarrow {{__2}})+ Expr {{ Abs (List.flatten __1, __2) }}
+
+{{ let make_fun e = function | [] -> e | x -> Abs (x, e) }}
+
+Let <-	(Ocaml_keywords.LET Ocaml_keywords.REC? paramFormel paramFormel*
+        Default.equal {{__2, __3, __4}})?
+        Expr
+        (Ocaml_keywords.AND paramFormel paramFormel* Default.equal Expr {{ let tmp = make_fun __5 __3 in __2, tmp }})*
+
+        {{ match __1 with
+        | None -> __2
+        | Some (_rec, name, pfs) ->
+                match _rec with
+                | Some _ ->
+                        let tmp = make_fun __2 pfs in Letrec ((name, tmp)::__3)
+                | None -> let tmp = make_fun __2 pfs in Let ((name, tmp)::__3)
+        }}
+#Letin <- Ocaml_keywords.LET Ocaml_keywords.REC? paramFormel paramFormel* Default.equal Expr Ocaml_keywords.IN Expr
+#	{{ let tmp = make_fun __6 __4 in match __2 with None -> Letin ([__3, tmp], __8)
+#          | _ -> Letrecin ([__3, tmp], __8) }}
+Letin <-    Ocaml_keywords.LET Ocaml_keywords.REC? paramFormel paramFormel* Default.equal Expr
+            (Ocaml_keywords.AND paramFormel paramFormel* Default.equal Expr {{ let tmp = make_fun __5 __3 in __2, tmp }})*
+ Ocaml_keywords.IN Expr
+        {{ match __2 with Some _ -> let tmp = make_fun __6 __4 in Letrecin ((__3, tmp)::__7, __9)
+        | None -> let tmp = make_fun __6 __4 in Letin ((__3, tmp)::__7, __9)
+        }}
+
+
+RNameOpt <- (mlIdent Ocaml_keywords.WITH {{ __1 }})
+Record <- Default.laccol RNameOpt? mlIdent Default.equal Expr_without_seq
+          (Default.semi mlIdent Default.equal Expr_without_seq {{ __2, __4}})*
+          Default.semi? Default.raccol
+            {{ Record (__2,((__3, __5)::__6)) }}
+Type <- Ocaml_types.typedeclaration {{ Type __1 }}
+Match <-
+    Ocaml_keywords.MATCH Expr Ocaml_keywords.WITH Default.bar? matchExpr (Default.bar matchExpr {{ __2 }})*
+    {{
+       Match (__2, __5 :: __6)
+    }}
+  / Ocaml_keywords.FUNCTION Default.bar? matchExpr (Default.bar matchExpr {{ __2 }})*
+    {{
+       Function (__3::__4)
+    }}
+
+matchExpr <- pattern Default.rightarrow Expr
+  {{
+     match __1 with
+     | Some guard, pat -> pat, Some guard, __3
+     | None, pat -> pat, None, __3
+  }}
+
+Exception <- Ocaml_keywords.EXCEPTION capMlIdent (Ocaml_keywords.OF type)? {{ Exception (__2, None) (* FIXME *)}}
+
+Raise <- Ocaml_keywords.RAISE capMlIdent (Default.lparen Expr Default.rparen {{__2}})?
+  {{
+     Raise ([Ident.source __2], __3)
+  }}
+
+Try <- Ocaml_keywords.TRY Expr Ocaml_keywords.WITH Default.bar? matchExpr
+        (Default.bar matchExpr {{ __2 }})* {{ Try (__2 , __5::__6) }}
+
+Assert <- Ocaml_keywords.ASSERT Expr {{ Assert __2 }}
+
+ExprNotApp <- ((
+        #/ Type
+        / Open
+        / Module
+        #/ Constructor
+        / Cond
+        / Letin
+        / Match
+        / Exception
+        / Raise
+        / Try
+        / Assert
+        / MakeRef
+        / GetRef
+        / SetRef
+        / Cons
+        / EmptyList
+        / Abs
+        / SimpleExpr
+        ) (Ocaml_keywords.CONS OpLevel1 {{__2}})? {{ match __2 with | None -> __1 | Some x -> Cons (__1, x)}})
+        {{ __1 }}
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Dot <- Default.dot ((capMlIdent_ [.] {{__1}})* {{ __1 }}) (mlIdent {{`MlIdent __1}} / Default.lparen Default.int spacing Default.rparen {{ `Int __2}}) {{ match __3 with `MlIdent s ->
+  let tmp = String.concat_map "." (fun s -> s) __2 in
+  let tmp = if tmp = "" then "" else tmp ^ "." in
+  `MlIdent (tmp ^ s) | `Int i -> `Int i }}
+
+Paren <- Default.lparen Expr (Default.colon type)? Default.rparen {{ __2 }} / Ocaml_keywords.BEGIN Expr Ocaml_keywords.END {{ __2 }}
+dotable <-
+        / Record
+        / Paren
+        / Var
+SimpleExpr <-
+        / dotable Dot* (Default.leftarrow Expr_without_seq {{__2}})? {{ let tmp = List.fold_left (fun accu -> function | `MlIdent e -> Dot (accu, e)
+        | `Int i -> Dot (accu, sprintf "(%d)" i)) __1 __2 in match __3  with None -> tmp | Some s -> SetMutable (tmp, s) }}
+        / Const {{ __1 }}
+        / Default.lparen op_special Default.rparen {{ Var (Pated ([Ident.source __2], true)) }}
+
+Expr_without_seq_aux <- OpLevel1 (Default.comma Expr_without_seq_aux {{ __2 }})? {{ match __2 with None -> [__1] | Some s -> __1::s }}
+Expr_without_seq <- Expr_without_seq_aux {{ match __1 with [t] -> t | _ -> Tuple __1 }}
+Expr <- Expr_without_seq (Default.semi Expr {{ __2 }})? {{ match __2 with None -> __1 | Some x -> Sequence (__1, x) }}
+#Expr <- Expr_without_seq (Default.semi Expr_without_seq {{ __2 }})* {{ let rec aux = function [] -> assert false | [t] -> t | t::q -> Sequence (t, aux q) in aux (__1::__2) }}
+OpLevel1 <- OpLevel2 (InfOpLevel1 OpLevel1 {{ __1, __2 }})? {{ match __2 with None -> __1 | Some (__2, __3) -> App (App (__2, __1), __3) }}
+OpLevel2 <- OpLevel3 (InfOpLevel2 OpLevel2 {{ __1, __2 }})? {{ match __2 with None -> __1 | Some (__2, __3) -> App (App (__2, __1), __3) }}
+OpLevel3 <- OpLevel4 (InfOpLevel3 OpLevel3 {{ __1, __2 }})? {{ match __2 with None -> __1 | Some (__2, __3) -> App (App (__2, __1), __3) }}
+OpLevel4 <- App (InfOpLevel4 OpLevel4 {{ __1, __2 }})? {{ match __2 with None -> __1 | Some (__2, __3) -> App (App (__2, __1), __3) }}
+App <-	# / SimpleExpr [-] spacing Const {{ App (App (Var (Pated ["-"]), __1), __4) }}
+        / Constructor
+        # this is too slow;
+        #/ (SimpleExpr !"-") ExprNotApp+ {{ make_app (__1 :: __2) }}
+        # unary -, :: and := below to ban the wrong parsing and relegate below
+        / (SimpleExpr !"-" !"::" !":=") ExprNotApp* {{ match __2 with [] -> __1 | _ -> make_app (__1 :: __2) }}
+        #other, subtly different? variants:
+        #/ (SimpleExpr !"-" !(spacing "::")) ExprNotApp* {{ match __2 with [] -> __1 | _ -> make_app (__1 :: __2) }}
+        #/ (ExprNotApp !"-") ExprNotApp* {{ match __2 with [] -> __1 | _ -> make_app (__1 :: __2) }}
+        / ExprNotApp
+
+#LetExpr <- (Type / Let) (';;' spacing)? {{ __1 }}
+
+Operators <- InfOpLevel1 / InfOpLevel2 / InfOpLevel3 / InfOpLevel4
+
+InfOpLevel1 <- (op_and / op_or)
+  {{
+     Ocaml.make_Var __1
+  }}
+
+InfOpLevel2 <-
+  (op_equal_struct / op_equal / op_notequal / op_notequal_struct / LE  / GE  / LT  / GT)
+    {{
+       Ocaml.make_Var __1
+    }}
+
+  / op_special
+    {{
+       Ocaml.make_Var __1
+    }}
+
+InfOpLevel3 <- (PLUS / MINUS / op_concat / op_aro / op_logic)
+    {{
+       Ocaml.make_Var __1
+    }}
+
+InfOpLevel4 <- (MULT / DIV)
+    {{
+       Ocaml.make_Var __1
+    }}
+
+op_and <- "&&" spacing {{ __1 }}
+op_or <- ("||" / "or") spacing {{ "||" }}
+op_equal <- "=" spacing {{ __1 }}
+op_equal_struct <- "==" spacing {{ __1 }}
+op_notequal_struct <- "!=" spacing {{ __1 }}
+op_notequal <- "<>" spacing {{ __1 }}
+
+op_concat <- "^" spacing {{ __1 }}
+op_aro <- "@" spacing {{ __1 }}
+op_logic <- "asr" spacing {{ "asr" }}
+
+op_special <- Ocaml_keywords.SPECIALS spacing {{ __1 }}
+
+LT <- '<' spacing {{ __1 }}
+GT <- '>' spacing {{ __1 }}
+LE <- '<=' spacing {{ __1 }}
+GE <- '>=' spacing {{ __1 }}
+
+PLUS <- FPLUS / IPLUS
+MINUS <- FMINUS / IMINUS
+MULT <- FMULT / IMULT
+DIV <- FDIV / IDIV
+
+IPLUS <- '+' spacing {{ __1 }}
+IMINUS <- '-' spacing {{ __1 }}
+IMULT <- '*' spacing {{ __1 }}
+IDIV <- '/' spacing {{ __1 }}
+
+FPLUS <- '+.' spacing {{ __1 }}
+FMINUS <- '-.' spacing {{ __1 }}
+FMULT <- '*.' spacing {{ __1 }}
+FDIV <- '/.' spacing {{ __1 }}
+
+LetOrType <- spacing (Type / Let) (';;' spacing)? {{ __2 }}
+
++parse : {Ocaml.code} <- LetOrType parse {{ ((__1 :: __2) : Ocaml.code) }}
+        / Default.eof {{ [] }}

@@ -1,0 +1,16 @@
+[appendix]
+Compiler directives
+-------------------
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//   - preprocessor
+//   - directives
+//
+
+[CAUTION]
+TODO
