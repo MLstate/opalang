@@ -15,8 +15,9 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * Librarie for fresh identifiers
+ * Library for fresh identifiers
  *
  * @author Mathieu Barbin
  * @destination public
@@ -29,14 +30,25 @@ import stdlib.core.{rpc.core}
  *
  * This module implements primitives for creating fresh identifier.
  * Depending on what you want to do, there are different implementations.
- * On the server, it is based on a global cellule, on the client, it is a reference.
+ * On the server, it is based on a global cell, on the client, it is a reference.
  *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * The interface of a fresh maker
  */
 type Fresh.next('fresh) = -> 'fresh
+
+/**
+ * {1 Interface}
+ */
 
 Fresh = {{
 
@@ -66,7 +78,7 @@ Fresh = {{
     next : Fresh.next('fresh)
 
   /**
-   * This fresh uses a shared cellule
+   * This fresh uses a shared cell
   **/
   @server server(from_int : int -> 'fresh) =
     r = private_server_Fresh()
