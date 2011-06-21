@@ -20,6 +20,7 @@ import stdlib.core.{web.core, rpc.core, js}
 
 /**
  * Make some magic things with fun action.
+ *
  * @category compiler
  * @destination private
  * @author Quentin Bourgerie
@@ -28,9 +29,21 @@ import stdlib.core.{web.core, rpc.core, js}
  */
 
 /**
+ * {1 Client-side}
+ */
+
+/**
+ * {2 Types defined in this module}
+ */
+
+/**
  * Type of a fun action
  */
 type FunAction.t = Dom.event -> void
+
+/**
+ * {2 Interface}
+ */
 
 @opacapi @client
 callFA(json : string, event : Dom.event): void =
@@ -65,7 +78,7 @@ FunAction = {{
 }}
 
 /**
-   This module contains the runtime to serialize js call site in html using the adhoc S2 mode,
+   This module contains the runtime to serialize js call site in html using the ad hoc S2 mode,
    Entry point used by the compiler are alias defined above:
    FunActionServer_serialize_call and FunActionServer_serialize_argument
 
@@ -141,12 +154,24 @@ FunAction = {{
 
 */
 
+/**
+ * {1 Server-side}
+ */
+
+/**
+ * {2 Types defined in this module}
+ */
+
 type FunActionServer.serialized_arg('a) = {arg : 'a ; serialized_arg : string}
 
 
+/**
+ * {2 Interface}
+ */
+
 FunActionServer = {{
 /** serialize an argument to a FunActionServer.serialized_arg
-    the serialised_arg field is suitable as js code source
+    the serialized_arg field is suitable as js code source
 */
 serialize_argument(__toplevel_var,arg)=
   #<Ifstatic:OPA_OPTIMIZE_RPC_I 1>
