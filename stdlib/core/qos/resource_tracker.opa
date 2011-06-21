@@ -16,9 +16,8 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 /**
- * Manager of collectable resources, binding with QOS (appserver)
+ * Manager of collectible resources, binding with QOS (appserver)
  *
  * @category WEB
  * @author Mathieu Barbin, 2011
@@ -26,8 +25,24 @@
  * @stability UNTESTED
 **/
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type ResourceTracker.manager('message, 'result) = external
 type ResourceTracker.signal = external
+
+/**
+ * {1 Interface}
+ */
 
 ResourceTracker = {{
 
@@ -57,7 +72,7 @@ ResourceTracker = {{
     /*result*/ -> 'result
 
   /**
-   * Send a terminaison signal to a manager.
+   * Send a termination signal to a manager.
   **/
   term = %%BslResourceTracker.term%% : ResourceTracker.manager, ResourceTracker.signal -> void
 
