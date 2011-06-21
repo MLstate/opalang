@@ -125,6 +125,7 @@ let fatal_error_for_dbgen = fun s1 s2 s3 -> Logger.critical "%s%s%s" s1 s2 s3; B
 let status_string db k =
   let rec print_status st k = match st with
     | Badop.Local file -> Printf.sprintf "Local(\"%s\")" file |> k
+    | Badop.Light file -> Printf.sprintf "Light(\"%s\")" file |> k
     | Badop.Client (_local, (remote,port), remote_st) ->
         let remote =
           try (Unix.gethostbyaddr remote).Unix.h_name
@@ -148,6 +149,7 @@ let status_string db k =
 let get_db_prefix db k =
   let rec get_file st k = match st with
     | Badop.Local file -> file |> k
+    | Badop.Light file -> file |> k
     | Badop.Client (_local, (remote,_port), remote_st) ->
         let remote =
           try (Unix.gethostbyaddr remote).Unix.h_name
