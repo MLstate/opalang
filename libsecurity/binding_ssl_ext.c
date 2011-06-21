@@ -167,11 +167,8 @@ static int no_client_verify_callback(int ok, X509_STORE_CTX *ctx)
 {
   char *subject, *issuer;
   unsigned char *signature;
-  int depth, error;
   char *xs;
 
-  depth = ctx->error_depth;
-  error = ctx->error;
   xs = (char *)X509_STORE_CTX_get_current_cert(ctx);
 
   subject = issuer = NULL;
