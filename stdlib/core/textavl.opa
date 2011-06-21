@@ -53,24 +53,12 @@ type Unicode.character = int
 
 type stringtextavl = textavl
 
-
-/*type utf8camotextavl = textavl(string)*/
-
 type utf8eucatextavl = textavl
 
 type utf8cacttextavl = textavl
 
 
-Textavl/*(paramfun_length,
-             paramfun_sub,
-             paramfun_upper,
-             paramfun_lower,
-             paramfun_get,
-             /*paramfun_applyc,*/
-             paramfun_nextchar,
-             paramfun_look,
-             paramfun_cons,
-             description)*/ =
+Textavl =
        paramfun_length=Cactutf.length
        paramfun_sub=Cactutf.sub
        paramfun_sub_opt=Cactutf.sub_opt
@@ -107,8 +95,6 @@ node_lowercase =
   paramfun_lower
 node_get =
   paramfun_get
-/*node_applyc =
-  paramfun_applyc*/
 node_nextchar =
   paramfun_nextchar
 node_look =

@@ -316,20 +316,4 @@ WPanelview =
         if not(current_layout == some.name) then
           set_layout(id, panels, some)
 
-  /**
-   * {1 Lower-level interface}
-   */
-
-  /**
-   * Fold over all the inside panels in [panel]
-   */
-  // FIXME: doesn't work
-//   fold(f: (jquery, 'a -> 'a), panel: jquery, init: 'a): 'a =
-//     acc = f(panel, init)
-//     inner_panel = jQuery.next("*_body", panel)
-//       |> jQuery.children("*", _)
-//       |> Dom.get(_, 0)
-//     if Dom.length(inner_panel) == 0 then acc
-//     else fold(f, inner_panel, acc)
-
 }}

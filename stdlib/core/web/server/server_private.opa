@@ -397,9 +397,9 @@ Server_private = {{
     int2time = %%BslTime.export_t%%
     data = [
       // Most of identifiers used there are inserted by the compiler, opa_Roots
-      // FIXME: use directive @compiletime("key")
       ("compilation options",     if @compiletime("release") then "release" else "debug"),
-      ("compilation date",        Date.to_string(Date.ll_import(int2time(@compiletime("compilation_date"))))), // FIXME, compilation_date should be time_t, not int
+          // TODO: update compilation_date to time_t
+      ("compilation date",        Date.to_string(Date.ll_import(int2time(@compiletime("compilation_date"))))),
       ("opa compilation date",    @compiletime("opa_date")),
       ("opa git version",         Int.to_string(@compiletime("opa_git_version"))),
       ("opa git version hash",    @compiletime("opa_git_version_hash")),
@@ -416,4 +416,4 @@ Server_private = {{
 }}
 
 @opacapi Server_private_run_services = Server_private.run_services
-@opacapi Server_private_add_service  = Server_private.add_service
+@opacapi Server_private_add_service  = Server_private.add_service 

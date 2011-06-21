@@ -61,30 +61,6 @@ __internal__add_css_entry(k:list, data:map(string,'b), m:ordered_map(Css.entry, 
 
 Css_printer =
 {{
-/*  reverse_color(l) =
-    aux =
-    | { ~background } -> {color=background}
-    | { ~color      } -> {background=color}
-/*  { color }
-    { cursor }
-    { padding }
-    { margin }
-    { overflow }
-    { position }
-    { display }
-    { decoration }
-    { height }
-    { width }
-    { border }
-    { font }
-    { float }
-    { position }
-    { top }
-    { left }
-    { background }
-    { not_typed } */
-    | TODO -> TODO
-    List.map(aux,l)*/
 
   set(lst, old) =
     eq(old, new) = match (old, new) with
