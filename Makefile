@@ -64,7 +64,7 @@ distrib: $(MYOCAMLBUILD)
 
 .PHONY: install*
 
-STDLIB_DIR = $(PREFIX)/lib/opa/stdlib
+STDLIB_DIR = $(INSTALL_DIR)/lib/opa/stdlib
 define install-package
 @echo "Installing into $(STDLIB_DIR)/$*.opx[K\r\c"
 @mkdir -p "$(STDLIB_DIR)/$*.opx/_build"
@@ -101,70 +101,70 @@ install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
 	@echo "Installation to $(STDLIB_DIR) done.[K"
 
 install-bin:
-	@echo "Installing into $(PREFIX)/bin[K\r\c"
-	@mkdir -p $(PREFIX)/bin
-	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(PREFIX)/bin)
-	@utils/install.sh --quiet --dir $(PREFIX) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
-	@echo "Installation to $(PREFIX)/bin done.[K"
+	@echo "Installing into $(INSTALL_DIR)/bin[K\r\c"
+	@mkdir -p $(INSTALL_DIR)/bin
+	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
+	@utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
+	@echo "Installation to $(INSTALL_DIR)/bin done.[K"
 
 install-lib:
-	@echo "Installing into $(PREFIX)/lib/opa[K\r\c"
-	@mkdir -p $(PREFIX)/lib/opa
-	@$(if $(wildcard $(BUILD_DIR)/lib/opa/*),$(INSTALL) -r $(BUILD_DIR)/lib/opa/* $(PREFIX)/lib/opa/)
-	@echo "Installation to $(PREFIX)/lib/opa done.[K"
+	@echo "Installing into $(INSTALL_DIR)/lib/opa[K\r\c"
+	@mkdir -p $(INSTALL_DIR)/lib/opa
+	@$(if $(wildcard $(BUILD_DIR)/lib/opa/*),$(INSTALL) -r $(BUILD_DIR)/lib/opa/* $(INSTALL_DIR)/lib/opa/)
+	@echo "Installation to $(INSTALL_DIR)/lib/opa done.[K"
 
 install-share:
-	@echo "Installing into $(PREFIX)/share/opa[K\r\c"
-	@mkdir -p $(PREFIX)/share/opa
-	@$(if $(wildcard $(BUILD_DIR)/share/opa/*),$(INSTALL) -r $(BUILD_DIR)/share/opa/* $(PREFIX)/share/opa/)
-	@echo "Installation to $(PREFIX)/share/opa done.[K"
+	@echo "Installing into $(INSTALL_DIR)/share/opa[K\r\c"
+	@mkdir -p $(INSTALL_DIR)/share/opa
+	@$(if $(wildcard $(BUILD_DIR)/share/opa/*),$(INSTALL) -r $(BUILD_DIR)/share/opa/* $(INSTALL_DIR)/share/opa/)
+	@echo "Installation to $(INSTALL_DIR)/share/opa done.[K"
 
 install-doc:
-	@echo "Installing into $(PREFIX)/share/doc/opa[K\r\c"
+	@echo "Installing into $(INSTALL_DIR)/share/doc/opa[K\r\c"
 	@if [ -d $(BUILD_DIR)/opadoc/doc/ ]; then \
-	  mkdir -p $(PREFIX)/share/doc/opa/api; \
-	  $(INSTALL) -r $(BUILD_DIR)/opadoc/doc/* $(PREFIX)/share/doc/opa/api; \
+	  mkdir -p $(INSTALL_DIR)/share/doc/opa/api; \
+	  $(INSTALL) -r $(BUILD_DIR)/opadoc/doc/* $(INSTALL_DIR)/share/doc/opa/api; \
 	fi
-	@echo "Installation to $(PREFIX)/share/doc/opa done.[K"
+	@echo "Installation to $(INSTALL_DIR)/share/doc/opa done.[K"
 
 install: install-bin install-lib install-share install-packages install-doc
-	@echo "Installation under prefix $(PREFIX) done.[K"
+	@echo "Installation into $(INSTALL_DIR) done.[K"
 
 .PHONY: uninstall
 uninstall:
-	rm -rf $(PREFIX)/lib/opa
-	@[ ! -d $(PREFIX)/lib ] || [ -n "`ls -A $(PREFIX)/lib`" ] || rmdir $(PREFIX)/lib
-	rm -rf $(PREFIX)/share/opa
-	rm -rf $(PREFIX)/share/doc/opa
-	@[ ! -d $(PREFIX)/share ] || [ -n "`ls -A $(PREFIX)/share`" ] || rmdir $(PREFIX)/share
-	$(foreach file,$(BUILD_DIR)/bin/*,rm -f $(PREFIX)/bin/$(notdir $(file));)
-	@utils/install.sh --uninstall --dir $(PREFIX)
-	@[ ! -d $(PREFIX)/bin ] || [ -n "`ls -A  $(PREFIX)/bin`" ] || rmdir $(PREFIX)/bin
+	rm -rf $(INSTALL_DIR)/lib/opa
+	@[ ! -d $(INSTALL_DIR)/lib ] || [ -n "`ls -A $(INSTALL_DIR)/lib`" ] || rmdir $(INSTALL_DIR)/lib
+	rm -rf $(INSTALL_DIR)/share/opa
+	rm -rf $(INSTALL_DIR)/share/doc/opa
+	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
+	$(foreach file,$(BUILD_DIR)/bin/*,rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
+	@utils/install.sh --uninstall --dir $(INSTALL_DIR)
+	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@echo "Uninstall done.[K"
 
 # Install our ocamlbuild-generation engine
 install-bld:
-	@mkdir -p $(PREFIX)/bin
-	@echo "#!/bin/bash -ue" > $(PREFIX)/bin/bld
-	@chmod 755 $(PREFIX)/bin/bld
-	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(PREFIX)/bin/bld
-	@echo "_build/myocamlbuild -no-plugin -j 6 \"\$$@\"" >> $(PREFIX)/bin/bld
-	@mkdir -p $(PREFIX)/share/opa/bld
+	@mkdir -p $(INSTALL_DIR)/bin
+	@echo "#!/bin/bash -ue" > $(INSTALL_DIR)/bin/bld
+	@chmod 755 $(INSTALL_DIR)/bin/bld
+	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
+	@echo "_build/myocamlbuild -no-plugin -j 6 \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
+	@mkdir -p $(INSTALL_DIR)/share/opa/bld
 	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml config.sh config.mli config.ml\
-	  $(PREFIX)/share/opa/bld
+	  $(INSTALL_DIR)/share/opa/bld
 
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
 install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
-	@mkdir -p $(PREFIX)/bin $(PREFIX)/share/opa/mlstatebsl
-	@$(INSTALL) $(BUILD_DIR)/opabsl/mlstatebsl/opabslgen_*.opa $(PREFIX)/share/opa/mlstatebsl
-	@echo "#!/bin/bash -ue" > $(PREFIX)/bin/qmlflat
-	@chmod 755 $(PREFIX)/bin/qmlflat
+	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
+	@$(INSTALL) $(BUILD_DIR)/opabsl/mlstatebsl/opabslgen_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
+	@echo "#!/bin/bash -ue" > $(INSTALL_DIR)/bin/qmlflat
+	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
 	@echo 'exec opa --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(shell sed "s%^[^# ]\+%$(PREFIX)/share/opa/mlstatebsl/opabslgen_&%; t OK; d; :OK" opabsl/mlstatebsl/bsl-sources); fi) "$$@"' \
-	>> $(PREFIX)/bin/qmlflat
+	>> $(INSTALL_DIR)/bin/qmlflat
 
 # installs some dev tools on top of the normal install; these should not change often
 install-all: install install-bld install-qmlflat
-	@$(INSTALL) platform_helper.sh $(PREFIX)/bin/
+	@$(INSTALL) platform_helper.sh $(INSTALL_DIR)/bin/
 
 ##
 ## DOCUMENTATION
