@@ -1,7 +1,7 @@
 /**
  * For documentation please see [ace.opa]
  */
-##extern-type [opaname] Ace.t = object
+##extern-type Ace.t
 
 ##register edit : string -> Ace.t
 ##args(id)
