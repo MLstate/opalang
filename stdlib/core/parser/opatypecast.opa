@@ -15,12 +15,24 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * {2 Module OpaTypeCast}
- * This module provides some functions for manipulate a value with the right type
- * using dynamic verification.
- * It should be used instead of Magic.id when you are manipulating type in conjunction of typeof until this mecanism is made type safe
+ * {1 About this module}
+ *
+ * This module provides some functions for manipulate a value with the right
+ * type using dynamic verification.
+ *
+ * It should be used instead of Magic.id when you are manipulating type in conjunction of typeof until this mechanism is made type safe
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ *
 **/
+
+/**
+ * {1 Interface}
+ */
 
 OpaTypeCast = {{
 

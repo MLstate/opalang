@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * @author ...?
  * @author Adam Koprowski, February-March 2010
@@ -49,7 +50,11 @@ import stdlib.core.map
  */
 
 /**
- * {1 Some useful parsers and parser combinators}
+ * {1 Interface}
+ */
+
+/**
+ * Some useful parsers and parser combinators
  */
 Rule =
 {{
@@ -173,7 +178,7 @@ Rule =
 
 
   /**
-   * {2 Parsers for basic datatypes}
+   * {2 Parsers for basic data types}
    */
 
   /**
@@ -213,7 +218,7 @@ Rule =
   integer = parser sign="-"? val=natural -> Option.switch(_ -> -1, 1, sign) * val
 
   /**
-   * A parser for byte (interger between 0 and 255
+   * A parser for byte (integer between 0 and 255
    */
   byte = parser
     x=( | ("25" [0-5])

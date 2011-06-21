@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * @author Corentin Gallet, October 2009 (now using text iterators)
  * @author Adam Koprowski, February 2010 (clean-up, extensions, documentation, ...)
@@ -27,6 +28,10 @@
  *
  * This module contains some low-level functions for parsing, as used by TRX.
  * We probably do not want to expose this interface to end-users.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
 
 /**
@@ -57,7 +62,7 @@ type Parser_private.range = { one : Unicode.character }
                               /** an arbitrary character */
 
 /**
- * {1 Functions defined in this module}
+ * {1 Interface}
  */
 
 Parser_private =
@@ -194,7 +199,7 @@ Parser_private =
    *   [to_string(of_string(s)) == s]
    *
    * as the input string will typically have some stuff that will be thrown
-   * away in its datatypes representation (think: white space). But instead
+   * away in its data representation types (think: white space). But instead
    * we perform this test with its normalized version i.e. with:
    *
    *   [s_normalized = to_string(of_string(s))]
@@ -203,10 +208,10 @@ Parser_private =
    *
    *   [to_string(of_string(s_normalized)) == s_normalized]
    *
-   * So in a sense we check for the fixpoint of the initial condition.
+   * So in a sense we check for the fixed point of the initial condition.
    *
-   * @param to_string a function converting from this datatype to string
-   * @param of_string a function converting from string to some datatype
+   * @param to_string a function converting from this data type to string
+   * @param of_string a function converting from string to some data type
    * @param s a string on which to test whether parsing and pretty printing
    * are inverses in the above sense.
    * @return a boolean value indicating whether the test was successful

@@ -62,11 +62,11 @@
  */
 
 /**
- * {1 Types defined in this module}
+ * {1 Parser module interface}
  */
 
 /**
- * {1 Parser: a module with parsing related functions and some common parsers}
+ * A module with parsing related functions and some common parsers
  */
 Parser =
 {{
@@ -80,7 +80,7 @@ Parser =
    *
    * @param partial indicates whether partial parsing is allowed
    * (if not then parsing which does not consume the whole input
-   * is considered errorenous)
+   * is considered erroneous)
    * @param rule parser to be used
    * @param s input string to be parsed
    * @param on_failure if parsing fails then the result will be
@@ -198,7 +198,7 @@ Parser =
   int = try_parse(Rule.integer, _)
 
   /**
-   * A parsnig function for floating point numbers.
+   * A parsing function for floating point numbers.
    *
    * @param an input string
    *
