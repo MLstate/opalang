@@ -59,6 +59,7 @@ database/Badop_dispatcher
 # Badop more functor fun
 database/Badop_wrapper_template
 database/Badop_stash
+database/Badop_cache
 database/Badop_debug
 database/Badop_stats
 database/Badop_workaround

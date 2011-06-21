@@ -210,6 +210,11 @@ let options_parser_with_default ?name (_default_m, default_o) =
       (fun (m,o) () ->
          badop_wrapper (module Badop_stash.F : Badop_wrapper) m, o),
     "", "Wrap the database defined in previous arguments with a trivial caching layer";
+    ["--db-cache"],
+    A.func A.unit
+      (fun (m,o) () ->
+         badop_wrapper (module Badop_cache.F : Badop_wrapper) m, o),
+    "", "Wrap the database defined in previous arguments with another trivial caching layer";
     ["--db-debug"],
     A.func (A.option A.string)
       (fun (m,o) pfx ->
