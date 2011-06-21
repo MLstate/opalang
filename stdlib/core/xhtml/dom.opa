@@ -638,6 +638,11 @@ Dom = {{
         %% BslDom.set_checked %%(of_selection(dom), v)
   )
 
+  is_enabled(dom:dom): bool =
+  (
+        %% BslDom.get_enabled %%(of_selection(dom))
+  )
+
   set_enabled(dom:dom, v:bool): void =
   (
         %% BslDom.set_enabled %%(of_selection(dom), v)

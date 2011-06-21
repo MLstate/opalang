@@ -416,6 +416,14 @@
     dom.prop("disabled", !v);
 }
 
+##register get_enabled: Dom.private.element -> bool
+##args(dom)
+{
+    if(dom.prop("disabled")) // if undefined, return true
+        return false
+    else return true;
+}
+
 ##register get_content: Dom.private.element -> string
 ##args(dom)
 {
