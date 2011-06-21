@@ -35,7 +35,6 @@ include_subdirs "qmlflat";
 def_stubs ~dir:"libbase" "stubs";
 def_stubs ~dir:"libsecurity" "ssl_ext";
 def_stubs ~dir:"appruntime" "io";
-def_stubs ~dir:"libsecurity" "cryptokit2";
 
 let root_ocamldir = Config.ocamllib in
 

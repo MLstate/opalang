@@ -33,7 +33,7 @@
 
 # -- from appserver --
 <{appruntime,libnet,libsecurity,libtools,protocols,opasmanagers}>: traverse
-<libsecurity.*a>: use_cryptokit2, use_ssl_ext
+<libsecurity.*a>: use_ssl_ext
 <appruntime.*a>: use_io
 <libnattraversal.*a>: use_miniupnpc_idl, use_natpmp_idl
 

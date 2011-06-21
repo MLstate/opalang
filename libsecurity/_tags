@@ -3,10 +3,9 @@
 true: warn_A, warn_e, warn_error_A
 
 <**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_libruntime, use_ssl, use_unix, use_zip, use_str, use_appruntime, use_cryptokit
-<**/*.{byte,native}>: use_io, use_cryptokit2
+<**/*.{byte,native}>: use_io
 
 <*.c>: c_wall, use_ssl
 
-<cryptokit2.ml>: use_cryptokit
 <cryptoLib.ml>: use_cryptokit
 <sslAS.ml>: with_mlstate_debug
