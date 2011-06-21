@@ -77,7 +77,7 @@ type Upload.config = {
     * <input type="file" id="..." name="..." />
     * ]}
     */
-  body_form : xhtml
+  form_body : xhtml
 
   /** A function that will be invoked upon uploading the file */
   process : Upload.form_data -> void
@@ -101,7 +101,7 @@ Upload = {{
       consumption={unlimited}
       visibility={current_context}
     }
-    body_form =
+    form_body =
       <input type="file" name="filename"/>
       <input type="submit" value="Upload"/>
     process(_) = void
@@ -177,7 +177,7 @@ Upload = {{
       <iframe name={frameId} id={frameId} src="#" style={frame_style} />
       <form id={config.form_id} action="{upload_url}" target={frameId}
             method="post" enctype="multipart/form-data">
-        {config.body_form}
+        {config.form_body}
       </form>
     </>
 

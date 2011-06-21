@@ -39,7 +39,7 @@ type FormBuilderTemplate.tag = { form }
 FormBuilderTemplate =
 
   my_ns = "http://opalang.org/template/FormBuilder"
-  FB = WFormBuilder
+//  FB = WFormBuilder
 
 {{
 
@@ -64,12 +64,14 @@ FormBuilderTemplate =
     | {some=fb_tag} ->
         match fb_tag with
         | {form} ->
+/*
             // FIXME
             fields = []
             process(_) = void
             spec = FB.create_specification(Dom.fresh_id(), fields)
             form = FB.html(spec, process)
-            {success = form}
+*/
+            {success = <></>}
 
   engine : Template.engine =
     { Template.empty with ~parse ~export }

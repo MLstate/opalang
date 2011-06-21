@@ -55,7 +55,8 @@ type WFormBuilder.passwd_validator_spec =
   ; force_special_char_err_msg : xhtml
   }
 
-type WFormBuilder.field =
+@abstract
+type WFormBuilder.field('ty) =
   { id : string
   ; label : string
   ; optionality : { required } / { optional }
@@ -63,9 +64,8 @@ type WFormBuilder.field =
   ; initial_value : string
   ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
+  ; field_accessor : WFormBuilder.form_data -> 'ty
   }
-
-type WFormBuilder.element = { field : WFormBuilder.field } / { fragment : xhtml }
 
 type WFormBuilder.style =
   { field_style : bool -> WStyler.styler
@@ -78,12 +78,6 @@ type WFormBuilder.style =
   ; hint_elt_type : {inline} / {block}
   ; error_elt_type : {inline} / {block}
   ; fade_duration : Dom.Effect.duration
-  }
-
-type WFormBuilder.specification =
-  { form_id : string
-  ; elts : list(WFormBuilder.element)
-  ; style : WFormBuilder.style
   }
 
 @abstract
@@ -101,6 +95,8 @@ WFormBuilder =
 
 {{
 
+  /** {1 Styling} */
+
   empty_style : WFormBuilder.style =
     { field_style(_) = WStyler.empty
     ; label_style(_) = WStyler.empty
@@ -114,10 +110,7 @@ WFormBuilder =
     ; hint_elt_type = {block}
     }
 
-  create_specification( form_id : string
-                      , elts : list(WFormBuilder.element)
-                      ) : WFormBuilder.specification =
-    {~form_id ~elts style=empty_style}
+  /** {1 Validators} */
 
   empty_validator : WFormBuilder.validator =
     input -> {success=input}
@@ -221,37 +214,51 @@ WFormBuilder =
           | res -> res
     aux(_)(vs)
 
+  /** {1 Fields/form querying} */
+
+  get_field_label(f : WFormBuilder.field) =
+    f.label
+
+  get_field_value(f : WFormBuilder.field('a), data : WFormBuilder.form_data) : 'a =
+    f.field_accessor(data)
+
+  /** {1 Fields/form construction} */
+
   @private
-  mk_field(label, field_type) : WFormBuilder.field =
-    {~label ~field_type
-     id=Dom.fresh_id()
+  mk_field(label, field_type, mk_accessor) : WFormBuilder.field =
+    id = Dom.fresh_id()
+    {~label ~field_type ~id
      optionality={optional}
      initial_value=""
      validator=empty_validator
      hint=none
+     field_accessor=mk_accessor(id)
     }
 
-  mk_fragment(xhtml : xhtml) : WFormBuilder.element =
-    {fragment=xhtml}
+  @private
+  mk_string_field =
+    mk_field(_, _, (id -> get_field_text_value(id, _)))
 
-  mk_text_field(label) : WFormBuilder.field =
-    mk_field(label, {text})
+  mk_text_field(label) : WFormBuilder.field(string) =
+    mk_string_field(label, {text})
 
-  mk_email_field(label) : WFormBuilder.field =
-    mk_field(label, {email})
+  mk_email_field(label) : WFormBuilder.field(string) =
+    mk_string_field(label, {email})
 
-  mk_passwd_field(label) : WFormBuilder.field =
-    mk_field(label, {passwd})
+  mk_passwd_field(label) : WFormBuilder.field(string) =
+    mk_string_field(label, {passwd})
 
   mk_desc_field_with(label, size : {rows : int; cols : int})
-    : WFormBuilder.field =
-    mk_field(label, {desc=size})
+    : WFormBuilder.field(string) =
+    mk_string_field(label, {desc=size})
 
-  mk_desc_field(label) : WFormBuilder.field =
+  mk_desc_field(label) : WFormBuilder.field(string) =
     mk_desc_field_with(label, {rows=3 cols=40})
 
-  mk_upload_field(label) : WFormBuilder.field =
-    mk_field(label, {upload})
+  mk_upload_field(label) : WFormBuilder.field(option(Upload.file)) =
+    mk_field(label, {upload}, (id -> get_file_upload_value(id, _)))
+
+  /** {1 Extending fields} */
 
   add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
     : WFormBuilder.field =
@@ -291,6 +298,95 @@ WFormBuilder =
 
   make_required_with_default_msg(field : WFormBuilder.field) : WFormBuilder.field =
     make_required(field, <>Please provide a value</>)
+
+  /** {1 Form/fields rendering} */
+
+  field_html(field : WFormBuilder.field('ty), style : WFormBuilder.style) : xhtml =
+    s = style
+    style(style) = WStyler.add(style, _)
+    mk_field(~{label validator optionality initial_value field_type id hint ...}) =
+      req =
+        match optionality with
+        | {optional} -> <span></> |> style(s.non_required_style)
+        | {required} -> <span>*</> |> style(s.required_style)
+      label_xhtml =
+        <label id={label_id(id)} for={input_id(id)}>
+          {label}
+          {req}
+        </> |> style(s.label_style(true))
+      input(input_type) =
+        <input type={input_type} name={input_id(id)} id={input_id(id)}
+          value={initial_value} />
+      input_tag =
+        match field_type with
+        | {email} -> input("email")
+        | {text} -> input("text")
+        | {passwd} -> input("password")
+        | {upload} -> input("file")
+        | {desc=~{cols rows}} ->
+            // FIXME, resize:none should be in css{...}
+            <textarea style="resize: none;" type="text"
+              name={input_id(id)} id={input_id(id)}
+              rows={rows} cols={cols} />
+      stl_input_tag = input_tag |> style(s.input_style(true))
+      onblur(_) =
+        do do_validate(s, id, validator)
+        do hide_hint(s, id)
+        void
+      onfocus(_) =
+        do show_hint(s, id)
+        void
+      bindings =
+        [ ({blur}, onblur)
+        , ({focus}, onfocus)
+        ]
+      input_xhtml = WCore.add_binds(bindings, stl_input_tag)
+      hint_xhtml =
+        match hint with
+        | {none} -> <></>
+        | {some=hint} ->
+            <span id={hint_id(id)} style={css {display: none}}>{hint}</>
+            |> style(s.hint_style)
+      err_xhtml =
+        <span id={error_id(id)} style={css {display: none}} />
+        |> style(s.error_style)
+      <div id={field_id(id)}>
+        {label_xhtml}
+        {input_xhtml}
+        {hint_xhtml}
+        {err_xhtml}
+      </>
+      |> style(s.field_style(true))
+    <>{mk_field(field)}</>
+
+  form_html( form_id : string
+           , form_type : {Basic} / {Normal}
+           , form_body : xhtml
+           , process_form : WFormBuilder.form_data -> void
+           ) : xhtml =
+    match form_type
+    | {Basic} ->
+        <form id={form_id} action="#" onsubmit={_ -> process_form({SimpleForm})}
+          method="get" options:onsubmit="prevent_default">
+          {form_body}
+        </form>
+    | {Normal} ->
+        process(data) =
+          do Scheduler.push( -> process_form({FileUploadForm=data}))
+          void
+        config = {Upload.default_config() with
+                    ~form_body ~process form_id=form_id}
+        Upload.html(config)
+
+  focus_on(field : WFormBuilder.field) : void =
+    Dom.give_focus(#{input_id(field.id)})
+
+  submit_action(form_id : string) : (Dom.event -> void) =
+    _ ->
+       // submit the form
+      Dom.trigger(#{form_id}, {submit})
+
+  /* ---------- Private functions ---------- */
 
   @private
   animate(style, dom, e) =
@@ -341,104 +437,10 @@ WFormBuilder =
   hide_hint(style, id) : void =
     animate(style, #{hint_id(id)}, Dom.Effect.fade_out())
 
-  @private
-  upload_fields_no(spec : WFormBuilder.specification) : int =
-    is_upload_field =
-    | ~{ field } -> field.field_type == {upload}
-    | _ -> false
-    List.filter(is_upload_field, spec.elts) |> List.length
-
-  html( spec : WFormBuilder.specification
-      , process : WFormBuilder.form_data -> void
-      ) : xhtml =
-    s = spec.style
-    style(style) = WStyler.add(style, _)
-    mk_field(~{label validator optionality initial_value field_type id hint}) =
-      req =
-        match optionality with
-        | {optional} -> <span></> |> style(s.non_required_style)
-        | {required} -> <span>*</> |> style(s.required_style)
-      label_xhtml =
-        <label id={label_id(id)} for={input_id(id)}>
-          {label}
-          {req}
-        </> |> style(s.label_style(true))
-      input(input_type) =
-        <input type={input_type} name={input_id(id)} id={input_id(id)}
-          value={initial_value} />
-      input_tag =
-        match field_type with
-        | {email} -> input("email")
-        | {text} -> input("text")
-        | {passwd} -> input("password")
-        | {upload} -> input("file")
-        | {desc=~{cols rows}} ->
-            // FIXME, resize:none should be in css{...}
-            <textarea style="resize: none;" type="text"
-              name={input_id(id)} id={input_id(id)}
-              rows={rows} cols={cols} />
-      stl_input_tag = input_tag |> style(s.input_style(true))
-      onblur(_) =
-        do do_validate(spec.style, id, validator)
-        do hide_hint(spec.style, id)
-        void
-      onfocus(_) =
-        do show_hint(spec.style, id)
-        void
-      bindings =
-        [ ({blur}, onblur)
-        , ({focus}, onfocus)
-        ]
-      input_xhtml = WCore.add_binds(bindings, stl_input_tag)
-      hint_xhtml =
-        match hint with
-        | {none} -> <></>
-        | {some=hint} ->
-            <span id={hint_id(id)} style={css {display: none}}>{hint}</>
-            |> style(s.hint_style)
-      err_xhtml =
-        <span id={error_id(id)} style={css {display: none}} />
-        |> style(s.error_style)
-      <div id={field_id(id)}>
-        {label_xhtml}
-        {input_xhtml}
-        {hint_xhtml}
-        {err_xhtml}
-      </>
-      |> style(s.field_style(true))
-    mk_element =
-    | ~{ fragment } -> fragment
-    | ~{ field } -> mk_field(field)
-    body_form = <>{List.map(mk_element, spec.elts)}</>
-    if upload_fields_no(spec) == 0 then
-      <form id={spec.form_id} action="#" onsubmit={_ -> process({SimpleForm})}
-        method="get" options:onsubmit="prevent_default">
-        {body_form}
-      </form>
-    else
-      process(data) =
-        do Scheduler.push( -> process({FileUploadForm=data}))
-        void
-      config = {Upload.default_config() with
-                  ~body_form ~process form_id=spec.form_id}
-      Upload.html(config)
-
-  start(spec : WFormBuilder.specification) : void =
-    is_field =
-    | {field=_} -> true
-    | _ -> false
-    match List.find(is_field, spec.elts) with
-    | {some=~{field}} -> Dom.give_focus(#{input_id(field.id)})
-    | _ -> void
-
-  submit_action(form_id : string) : (Dom.event -> void) =
-    _ ->
-       // submit the form
-      Dom.trigger(#{form_id}, {submit})
-
   @private get_text_value_of(id : string) =
     Dom.get_value(#{input_id(id)})
 
+  @private
   get_field_text_value( id : string
                       , data : WFormBuilder.form_data
                       ) : string =
@@ -446,18 +448,12 @@ WFormBuilder =
     | { SimpleForm } -> get_text_value_of(id)
     | { FileUploadForm=data } -> Map.get(input_id(id), data.form_fields) ? ""
 
+  @private
   get_file_upload_value( id : string
                        , data : WFormBuilder.form_data
                        ) : option(Upload.file) =
     match data with
     | { SimpleForm } -> none
     | { FileUploadForm=data } -> Map.get(input_id(id), data.uploaded_files)
-
-  // TODO do we want to keep field ids as strings? Maybe introduce abstraction for them...
-  get_all_fields(spec : WFormBuilder.specification) : list(WFormBuilder.field) =
-    get_field =
-    | ~{field} -> some(field)
-    | _ -> none
-    List.filter_map(get_field, spec.elts)
 
 }}
