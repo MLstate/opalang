@@ -15,24 +15,42 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @author AUDOUIN Maxime
     @author ???
 **/
 
-/**
+/*
  * <!> totally untested
-**/
+ */
 
+/**
+ * {1 About this module}
+ *
+ * Generic iterators
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
 
-// Generic iterators
+/**
+ * {1 Types defined in this module}
+ */
 
 type iter('a) =
   { next: -> option(('a, iter('a))) }
 
+/**
+ * {1 Interface}
+ */
+
 Iter = {{
 
-  // Constructors
+  /**
+   * {2 Constructors}
+   */
 
   cons(elt, i) =
     { next() = some((elt, i)) } : iter
@@ -62,11 +80,16 @@ Iter = {{
     } : iter
 
 
+  /**
+   * {2 Methods}
+   */
 
   is_empty(s) = to_list(take(1, s)) == []
 
 
-  // Lazy
+  /**
+   * Lazy
+   */
   map(f, iter : iter) =
     { next() =
         match iter.next() : option
@@ -74,7 +97,9 @@ Iter = {{
         | {none} -> none
     } : iter
 
-  // Lazy
+  /**
+   * Lazy
+   */
   filter(f, iter: iter) =
     { next() =
         match iter.next() : option
@@ -96,7 +121,9 @@ Iter = {{
     | {none} -> void
     | {some=res} -> do f(res.f1); iter(f, res.f2)
 
-  // Lazy
+  /**
+   * Lazy
+   */
   take(n, i: iter) =
     { next() =
         if n == 0 then none else
@@ -111,7 +138,9 @@ Iter = {{
     | {some=res} -> skip(n-1, res.f2 : iter)
     | {none} -> empty
 
-  // Lazy
+  /**
+   * Lazy
+   */
   append(e1:iter, e2: iter) =
     { next() =
         match e1.next() : option
