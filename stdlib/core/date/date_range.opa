@@ -27,6 +27,7 @@
  *   This module contains functions to manipulate date ranges. A date range
  * is a time interval fixed in time; in other words a date range consist
  * of a starting and ending date.
+ *
  *   If you are interested in time durations (intervals), without a fixed
  * location in time then see the {!Duration} module.
  *
@@ -35,7 +36,15 @@
  *
  *   This module will let you manipulate date ranges, which occur naturally
  * when considering time events (think: events in your agenda).
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * A date range, i.e. an interval between two dates.

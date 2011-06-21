@@ -209,7 +209,7 @@ import stdlib.core.parser
     parse_segment = parser
        // for every '%' character we try to interpret it with our list of directives
       | [%] r={parse_directive(directives)} -> r
-       // we leave the segments of non-percent characters un-interpreted
+       // we leave the segments of non-percent characters uninterpreted
       | r=(![%] .)+ -> {success = _ -> Text.to_string(Text.ltconcat(r))}
 
     combine_results(f, r1, r2) =
@@ -247,7 +247,7 @@ import stdlib.core.parser
 
     unfold_abbreviation = parser
       | "%%" -> {success = "%%"}
-       // try to unfold abbraviations
+       // try to unfold abbreviations
       | "%" r={unfold_abbreviations_with(abbreviations)} -> r
        // and leave the rest untouched
       | c=(.) -> {success = Text.to_string(c)}

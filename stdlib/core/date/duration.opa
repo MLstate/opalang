@@ -28,6 +28,7 @@ import stdlib.core.{parser, map, set}
  * This module contains functions to manipulate durations, i.e. intervals
  * of time. Duration can be either positive (duration "in the future") or
  * negative (duration "in the past").
+ *
  * You may also be interested in the module {!Date} which contains functions
  * to manipulate dates & times.
  *
@@ -39,7 +40,15 @@ import stdlib.core.{parser, map, set}
  * two dates). It will also allow you to print them in a format of your
  * choice (such as: "yesterday", "tomorrow", "in 2 days", "3 hours ago"
  * etc.)
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * A duration, i.e. the time difference between two dates.
@@ -52,6 +61,7 @@ import stdlib.core.{parser, map, set}
 
 /**
  * A duration, decompressed in a more understandable format.
+ *
 **/
 type Duration.human_readable = {
   /** [{true}] if the duration represents a forward (or null) shift in time, [{false}] otherwise. **/
@@ -99,6 +109,10 @@ type Duration.map('a) = ordered_map(Duration.duration, 'a, Duration.order)
  * A set of durations.
 **/
 type Duration.set = ordered_set(Duration.duration, Duration.order)
+
+/**
+ * {1 Interface}
+ */
 
 Duration = {{
 
@@ -347,10 +361,10 @@ Duration = {{
     d < 0
 
   /**
-   * Checks whether a given duration is instantenous (empty duration)
+   * Checks whether a given duration is instantaneous (empty duration)
    *
    * @param d a duration
-   * @param true iff duration [d] is instantenous
+   * @param true iff duration [d] is instantaneous
   **/
   is_instantenous(d : Duration.duration) : bool =
     d == 0
@@ -366,7 +380,7 @@ Duration = {{
     duration1 + duration2
 
   /**
-   * A diference between two durations
+   * A difference between two durations
   **/
   subtract(duration1 : Duration.duration, duration2 : Duration.duration) : Duration.duration =
     duration1 - duration2
@@ -525,7 +539,7 @@ Duration = {{
    * - "[%Y:...] where:
    *      Y = '>', '0' or '<' and
    *    This mode prints the nested format "..." only if the current duration "DUR"
-   *    is: positive, instantenous, negative (resp. for Y='>', Y='0' and Y='<').
+   *    is: positive, instantaneous, negative (resp. for Y='>', Y='0' and Y='<').
    *    Typical use of this mode will be to print some prefix/suffix (such as:
    *    ('*in* ... days' or '... days *ago*'
    *
@@ -538,7 +552,7 @@ Duration = {{
    *   Let's say we want to print a duration in the format:
    * "[in] X  years Y months Z days [ago]"
    *   but:
-   * - ommiting given entry if the corresponding value is zero,
+   * - omitting given entry if the corresponding value is zero,
    * - printing the prefix "in"/suffix "ago" depending on whether the duration is
    *   positive/negative.
    * - replacing those 3 fields with "less than one day" if absolute value duration
@@ -628,7 +642,7 @@ Duration = {{
    *   "X hours"
    *   "X minutes"
    *   "X seconds"
-   * and additionaly the last letter "s" will not be printed for [X=1]
+   * and additionally the last letter "s" will not be printed for [X=1]
   **/
   @both_implem default_printer = generate_printer(default_printer_fmt)
 
@@ -715,9 +729,9 @@ Duration = {{
    * The string is composed of blocks of the following shape:
    *   [+/-][n][s/m/h/D/M/Y]
    * which represents a positive/negative (resp. with [+/-] as prefix) duration
-   * of [n] [seconds/minuts/hours/days/months/years] (resp. for [s/m/h/D/M/Y].
+   * of [n] [seconds/minutes/hours/days/months/years] (resp. for [s/m/h/D/M/Y].
    * The whole duration is a summation over duration represented by blocks.
-   * The [+] prefix can be ommited.
+   * The [+] prefix can be omitted.
    *
    * Few examples:
    * [1Y-1D] - a duration of one year, without a day (i.e. 364 days)

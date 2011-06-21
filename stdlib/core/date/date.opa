@@ -30,11 +30,14 @@ import stdlib.core.{parser, map, set}
  * ranges (durations fixed in time), see, respectively, the {!Duration}
  * and {!DateRange} modules.
  *
- *
  * {1 When to use this module}
  *
  * This module will let you manipulate dates, compute the duration between times,
  * etc.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
 
 /* TODO Here we combine daily date & time into one. Sometimes one is interested
@@ -143,7 +146,7 @@ type time_t = external
   **/
 
   /**
-   * The arbitrary date of january 1st, 1970, at 0000
+   * The arbitrary date of January 1st, 1970, at 0000
   **/
   epoch : Date.date =
     0
@@ -274,9 +277,9 @@ type time_t = external
    * @param shift Any human-readable duration.
    *
    * @return The date obtained by advancing [date] by [shift] (or shifting backwards if [shift.forward] is [false])
-   * Any field of [shift] may be negative, and the shifitng will be done accordingly.
+   * Any field of [shift] may be negative, and the shifting will be done accordingly.
   **/
-  // Note: this function relies on the fact that [of_human_readable] accepts and normalises incorrect dates in a consistent way.
+  // Note: this function relies on the fact that [of_human_readable] accepts and normalizes incorrect dates in a consistent way.
 // TODO: Clean, check & test this function.
   calendar_advance(date : Date.date, shift : Duration.human_readable) : Date.date =
     date = to_human_readable(date)
@@ -329,7 +332,7 @@ type time_t = external
    *        searched and if so return [{eq}], if it is too
    *        late return [{lt}] and if too early [{gt}].
    *        The additional parameter [range] indicates the
-   *        current range being consindered in the binary search
+   *        current range being considered in the binary search
    *        and will usually be ignored. (One possible use if
    *        we are looking for some approximation, hence can
    *        never really return [{eq}]; but if we never do
@@ -463,7 +466,7 @@ type time_t = external
   get_year : Date.date -> Date.year = Date_private.time_local_year
 
   /**
-   * Returns the week number coresponding to the given date.
+   * Returns the week number corresponding to the given date.
    *
    * This routine follows ISO 8601 and hence assumes that "the first week of a year
    * is the week that contains the first Thursday of the year" and that "weeks start
@@ -549,8 +552,8 @@ type time_t = external
    * This is a perfect hash function for dates. It can also be useful to convert
    * dates to "identifiers".
    *
-   * But in general use with caution. Converting to miliseconds, doing integer
-   * arhitmetic and then converting back to a date is *strongly* discouraged.
+   * But in general use with caution. Converting to milliseconds, doing integer
+   * arithmetic and then converting back to a date is *strongly* discouraged.
    * You have been warned.
   **/
   in_milliseconds(date : Date.date) : int =
@@ -772,10 +775,10 @@ type time_t = external
         none
 
     /**
-     * Gives the preceeding month.
+     * Gives the preceding month.
      *
      * @param d a month
-     * @return [some(nd)], where [nd] is the month preceeding [d], or [none] if [d] is January.
+     * @return [some(nd)], where [nd] is the month preceding [d], or [none] if [d] is January.
      */
     prev(d : Date.month) : option(Date.month) =
       di = to_int(d)
@@ -806,7 +809,7 @@ type time_t = external
    * - [%b] abbreviated month name (ex. Jan, Feb, Mar, ...)
    * - [%B] full month name (ex. January, February, ...)
    * - [%c] date and time; same as [%a %b %_d %Y %T] (ex, Thu Mar  3 2005 23:05:25)
-   * - [%C] century, like [%Y] but with last two digits ommited (ex. 20)
+   * - [%C] century, like [%Y] but with last two digits omitted (ex. 20)
    * - [%d] day of month (01-31)
    * - [%e] day of month, space padded; same as [%_d] (ex.  3; with space in front of 3)
    * - [%E] day of month with suffixes 'st', 'nd' or 'th'
@@ -979,8 +982,8 @@ type time_t = external
    * - the padding flags ('_', '-' and '0') are ignored and all numerical values
    *   accept leading spaces and zeros.
    * - the format should not be redundant, i.e. parsing with format "%H %H" will
-   *   effectively ignore the first occurence of "%H" (as the first hour will be
-   *   overrwriten by parsing the second one). *Warning:* to parse date in a 12h
+   *   effectively ignore the first occurrence of "%H" (as the first hour will be
+   *   overwritten by parsing the second one). *Warning:* to parse date in a 12h
    *   format, the period directive ("%p"/"%P") must be placed *after* the hour
    *   directive.
    * - when using only last two digits for the year ("%y"), values xx<70 are assumed
@@ -1024,7 +1027,7 @@ type time_t = external
    *
    * As {!Date.of_formatted_string_aux} but the [init_date] is taken to be empty, so
    * either the [scanner] used should include all the components of the date type
-   * or some the fields of the returned date will remain un-initialized (or
+   * or some the fields of the returned date will remain uninitialized (or
    * more precisely, as in the {!Date.epoch}).
   **/
   of_formatted_string(scanner : Date.scanner, date_string : string) : option(Date.date) =
@@ -1040,7 +1043,7 @@ type time_t = external
   Map = Map_make(order) : Map(Date.date, Date.order)
 
   /**
-   * A [Set] of dates, using chronological comparaison.
+   * A [Set] of dates, using chronological comparison.
    */
   Set = Set_make(order) : Set(Date.date, Date.order)
 
