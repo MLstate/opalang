@@ -15,21 +15,34 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Runtime client dead code elimination.
+ *
  * @author Mathieu Barbin
 **/
 
 
 /**
- * The cleaning algorithm is a mark and swip, based on a graph accessibility from root nodes.
+ * {1 About this module}
+ *
+ * The cleaning algorithm is a mark and sweep, based on a graph accessibility 
+ * from root nodes.
  * As we prefer that the stdlib does not depend on fgraph, there is an ad-hoc implementation,
  * without graphs construction, dealing with specialized structures.
  *
  * We have several [JsAst.code] registered from several packages. The cleaning is global.
  * That's why environment of cleaning (infos) and the cleaning itself should be performed
  * on the full [list(JsAst.code)], without omitting any package.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * Accessing [code_elt] by their names.
@@ -50,7 +63,7 @@ type JsCleaning.stack = list(JsAst.ident)
 type JsCleaning.unicity = stringset
 
 /**
- * The type of the infos used for the cleaning.
+ * The type of information used for the cleaning.
 **/
 type JsCleaning.infos = {
   elements : JsCleaning.elements
@@ -70,6 +83,10 @@ type JsCleaning.infos = {
  * The type use by the marking function
 **/
 type JsCleaning.marked = JsIdentSet.t
+
+/**
+ * {1 Interface}
+ */
 
 /**
  * Module for dead code elimination

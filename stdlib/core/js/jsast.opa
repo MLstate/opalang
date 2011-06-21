@@ -15,8 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Runtime of Js language, for server initialization.
+ *
  * @author Rudy Sicard
  * @author Mathieu Barbin
 **/
@@ -24,17 +26,20 @@
 import stdlib.core.{map,set}
 
 /**
+ * {1 JsAst module}
+ *
  * Run-time manipulation of js ast.
-**/
+ */
+
 @server_private JsAst = {{
 
   /**
-   * {1 Iterators}
+   * {2 Iterators}
   **/
 
   /**
    * Using this iterators rather than the iterator corresponding to the current implementation
-   * of the ast assures that the code will not necessite to adapt ast changes.
+   * of the ast assures that the code won't need to adapt to ast changes.
   **/
 
   fold_content = ( LowLevelArray.fold : (JsAst.mini_expr, 'acc -> 'acc), JsAst.content, 'acc -> 'acc )
@@ -130,16 +135,20 @@ import stdlib.core.{map,set}
 }}
 
 /**
+ * {1 JsIdent module}
+ *
  * Binding with the bsl module for managing runtime alpha renaming.
 **/
+
 JsIdent = {{
+
   /**
    * Used by resolution of directives @js_ident
    * and by the [JsAst.apha_rename] function.
    * The language of fresh idents should have an empty intersection with the language of local idents
    * used by the local renaming. This is for toplevel idents only.
    * This works by side-effect in a local reference. You can clean the reference with the [JsIdent.clear] function
-   * for memory utilisation.
+   * for memory utilization.
   **/
   // Local idents : [a-zA-Z][a-zA-Z0-9]*
   // Toplevel idents : _local-ident
@@ -166,6 +175,10 @@ JsIdent = {{
   **/
   is_root = %%bslJsIdent.is_root%% : string -> bool
 }}
+
+/**
+ * {1 JsAst maps and sets}
+ */
 
 /**
  * The type of map indexed by [JsAst.ident]
