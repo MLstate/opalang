@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Utility functions on virtual path
  *
@@ -25,9 +26,20 @@
  */
 
 /**
- * A virtual reference path parameterized by the type of value which
- * can be readed, and type of value that take for write.
+ * {1 About this module}
+ *
+ * A virtual reference path parametrized by the type of value which
+ * can be read, and type of value that take for write.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 @opacapi
 @abstract type virtual_ref_path('read, 'write) = {
   read : -> 'read;
@@ -35,13 +47,17 @@
 }
 
 /**
- * A virtual value path parameterized by the type of value which
- * can be readed.
+ * A virtual value path parametrized by the type of value which
+ * can be read.
  */
 @opacapi
 @abstract type virtual_val_path('read) = {
   read : -> 'read;
 }
+
+/**
+ * {1 Interface}
+ */
 
 DbVirtual = {{
 

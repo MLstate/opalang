@@ -26,12 +26,18 @@
  */
 
 /**
+ * {1 About this module}
+ *
  * This contains bindings that are needed by the database access generation
  * engine of OPA. Shouldn't be used by hand.
  */
 
+/**
+ * {1 Types defined in this module}
+ */
+
 /* These types come from libqml's mlbsl. We just ensure OPA knows about them here
- * so that it won't complain when encoutering them in intermediate code */
+ * so that it won't complain when encountering them in intermediate code */
 @opacapi type badoplink_database = external
 @opacapi type badoplink_transaction = external
 type badoplink_revision = external
@@ -58,6 +64,10 @@ type badoplink_revision = external
 
 // The following needs to be defined for dbgen !
 exception_transaction_failure = { Transaction_failure }
+
+/**
+ * {1 Low-level interface}
+ */
 
 Db_private = {{
 

@@ -52,6 +52,10 @@ import stdlib.core.{date,map,parser}
  */
 
 /**
+ * {1 Types defined in this module}
+ */
+
+/**
  * Value paths
  *
  * Value paths are obtained with the syntax [!/path/to/data]. They are used by most
@@ -79,13 +83,17 @@ type val_path('a) = path_t(path_val_p, 'a)
  */
 type ref_path('a) = path_t(path_ref_p, 'a)
 
+/**
+ * {1 Interface}
+ */
+
 Db = {{
 
   /**
    * Writes data at the given path in the database.
    * [do write(@/path,42)] is equivalent to [do /path <- 42]
    *
-   * @example [write(@/path,42)] initialises or updates the data at path [/path]
+   * @example [write(@/path,42)] initializes or updates the data at path [/path]
    */
   write = %%path_write%%
 
@@ -167,7 +175,7 @@ Db = {{
     List.map((val, time) -> (Date.ll_import(time), val), r)
 
   /**
-   * Returns the last mofification date of a path.
+   * Returns the last modification date of a path.
    */
   modification_time(path) : Date.date =
     bp = %%path_modification_time%%

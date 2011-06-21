@@ -37,6 +37,7 @@
  * {1 Where do I start?}
  *
  * {2 Path declaration}
+ *
  * On the first step define a multiple keys path like that :
  * [db /myset[a;b] : {a : int; b : string; c : int}]
  *
@@ -45,24 +46,26 @@
  * [b].
  *
  * {2 Data(s) access}
+ *
  * Actually you can access to path by 2 ways, in the two case you
  * access with a virtual path.
-
+ *
  * On both ways the write access take a record that contains all
  * fields of the stored data type unless the keys which are already
  * binded.
  *
-
+ *
  * The read access differs if you give a full key, or just a partial
  * key. Indeed if you give a full key the read returns a single value,
  * else the read returns a dbset value.
  *
  * {3 Examples }
+ *
  * {[
  *   /* Access with a full key */
  *   @/myset[a=1; b="opa"] : virtual_ref_path({a:int; b:string; c:int},
  *                                            {b:string; c : int})
- *   /* Access with a partil key */
+ *   /* Access with a partial key */
  *   @/myset[a=1] : virtual_ref_path(dbset({a:int; b:string; c:int}),
  *                                   {b:string; c : int})
  *
@@ -76,15 +79,24 @@
  *   /myset[b="opa"] : dbset({a:int; b:string; c:int})
  * }
  *
+ * {1 What if I need more?}
  *
  * TODO (Access with range, etc.)
 **/
 
 /**
- * A datatbase set that contains ['a] values
+ * {1 Types defined in this module}
+ */
+
+/**
+ * A database set that contains ['a] values
 **/
 @opacapi
 type dbset('a) = external
+
+/**
+ * {1 Interface}
+ */
 
 DbSet = {{
 
