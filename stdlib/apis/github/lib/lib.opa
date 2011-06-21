@@ -34,7 +34,7 @@ import stdlib.apis.github
 
 type GHParse.map = {
   str    : string -> string
-  date   : string -> string
+  date   : string -> Date.date
   int    : string -> int
   bool   : string -> bool
   float  : string -> float
@@ -105,19 +105,36 @@ GHLib = {{
 
 GHParse = {{
 
-/* WIP: Date parser
   parse_date(str) =
-    n = parser v=([0-9]+) -> Int.of_string(Text.to_string(v))
+    int_of_text(t) = Int.of_string(Text.to_string(t))
+    n = parser k=[0-9] -> k
+    nn = parser v=(n+) -> int_of_text(v)
+    shift(forward,h,m) =
+      h = int_of_text(h)
+      min = int_of_text(m)
+      d = { Duration.zero with ~forward ~h ~min }
+        |> Duration.of_human_readable
+      Date.advance(_, d)
     tmz = parser
-      |
+      | "Z" -> identity
+      | "-" h=(n n) m=(n n) -> shift(true, h, m)
+      | "-" h=(n n) ":" m=(n n) -> shift(true, h, m)
+      | "+" h=(n n) m=(n n) -> shift(false, h, m)
+      | "+" h=(n n) ":" m=(n n) -> shift(false, h, m)
+      | .* -> identity
     p = parser
-      | y=n "/" m=n "/" d=n " " h=n ":" m=n ":" s=n " " tmz=
-*/
+      | y=nn "/" m=nn "/" d=nn " " h=nn ":" min=nn ":" s=nn " " tmz=tmz ->
+        m = Date.Month.of_int(m-1)
+        tmz(Date.build({year=y month=m day=d h=h min=min s=s}))
+      | y=nn "-" m=nn "-" d=nn "T" h=nn ":" min=nn ":" s=nn tmz=tmz ->
+        m = Date.Month.of_int(m-1)
+        tmz(Date.build({year=y month=m day=d h=h min=min s=s}))
+    Parser.try_parse(p, str) ? Date.epoch
 
   map_funs(srcmap) =
     map = JsonOpa.record_fields(srcmap) ? Map.empty
     str = API_libs_private.map_get_string(_, map)
-    date = str
+    date(field) = str(field) |> parse_date
     int = API_libs_private.map_get_int(_, map)
     bool = API_libs_private.map_get_bool(_, map, false)
     float = API_libs_private.map_get_float(_, map)

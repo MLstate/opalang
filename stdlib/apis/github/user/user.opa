@@ -63,7 +63,7 @@ type GitHub.user = {
   name              : string
   company           : string
   gravatar_id       : string
-  created_at        : gdate
+  created_at        : Date.date
   location          : string
   blog              : string
   public_repo_count : int

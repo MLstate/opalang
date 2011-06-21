@@ -62,7 +62,7 @@ type GitHub.pull_req = {
   user             : GitHub.user_simple
   comments         : int
   votes            : int
-  state            : {open}/{closed:gdate}/{other:string} /* Todo: Date ? (closed_at) */
+  state            : {open}/{closed:Date.date}/{other:string}
   position         : float
   number           : int
   head             : GitHub.commit
@@ -71,11 +71,11 @@ type GitHub.pull_req = {
   diff_url         : string
   html_url         : string
   patch_url        : string
-  issue_created_at : gdate
-  issue_updated_at : gdate
-  created_at       : gdate
-  updated_at       : gdate
-  merged_at        : gdate
+  issue_created_at : Date.date
+  issue_updated_at : Date.date
+  created_at       : Date.date
+  updated_at       : Date.date
+  merged_at        : Date.date
 //  labels           : list(string) ???
 //  mergeable        : string ???
 }

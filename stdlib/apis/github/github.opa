@@ -31,8 +31,6 @@
 
 /* Types returned by API */
 
-type gdate = string
-
 type GitHub.repository = {
   name          : string
   owner         : string
@@ -40,8 +38,8 @@ type GitHub.repository = {
   url           : string
   description   : string
   language      : string
-  created_at    : gdate
-  pushed_at     : gdate
+  created_at    : Date.date
+  pushed_at     : Date.date
   size          : int
   private       : bool
   fork          : bool
