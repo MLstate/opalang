@@ -35,7 +35,7 @@ import stdlib.core.map
  * {1 What if I need more?}
  */
 
-/**
+/*
  * {1 Types defined in this module}
  */
 

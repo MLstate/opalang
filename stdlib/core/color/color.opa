@@ -20,7 +20,7 @@
  * Colors management
  */
 
-package stdlib.color
+package stdlib.core.color
 import stdlib.core.parser
 
 /**
