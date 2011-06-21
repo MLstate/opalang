@@ -173,6 +173,7 @@ type Map('key,'order) =
         rev_fold: ('key,'val,'acc -> 'acc), ordered_map('key,'val,'order), 'acc -> 'acc
 
         filter_map : (('value -> option('new_value)), ordered_map('key, 'value, 'order) -> ordered_map('key, 'new_value, 'order))
+        
      /**
       * Change all values of the map
       * by applying a change function to all values stored in the map
@@ -199,7 +200,7 @@ type Map('key,'order) =
         mem  : 'key, ordered_map('key,'val,'order) -> bool
 
         /**
-         * {1 Informations}
+         * {1 Information}
          */
 
         /**
@@ -292,7 +293,7 @@ type Map('key,'order) =
         extract_max_binding: ordered_map('key,'val,'order) -> (ordered_map('key, 'val,'order), option(('key, 'val)))
         /**
          * Get a random key,element couple from the map
-         * Picking distribution is approximatively uniform
+         * Picking distribution is approximately uniform
          */
         random_get : ordered_map('key,'val,'order) -> option( ('key,'val) )
         sub_map_gen: ('key -> bool), ('key -> bool), ordered_map('key,'val,'order) -> ordered_map('key, 'val, 'order)
@@ -535,7 +536,7 @@ Map_private =
 
 
 /**
- * Create a module map from a specialized comparaison function.
+ * Create a module map from a specialized comparison function.
  *
  * @param compare_key A total order on keys.
  * @return A module defining all the functions specified in type [Map].
@@ -933,7 +934,7 @@ IntMap    = Map_make(Int.order):Map(int, Int.order)
 /**
  * A [Map] on strings, using alphabetical comparison on strings.
  *
- * This instance of [Map] differenciates uppercase from lowercase.
+ * This instance of [Map] differentiates uppercase from lowercase.
  * Otherwise, the order between strings is alphabetical.
  */
 StringMap = Map_make(String.order):Map(string, String.order)
