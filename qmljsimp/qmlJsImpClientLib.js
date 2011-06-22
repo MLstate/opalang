@@ -364,7 +364,7 @@ function patterns_indexes(patterns) {
 function compare_structure_same(fields,r) {
    for (var i=0;i<fields.length;i++){
      var field = fields[i];
-     if (unsafe_dot(r,field)==undefined) return false;
+     if (udot(r,field)==undefined) return false;
    };
    return true;
 }
