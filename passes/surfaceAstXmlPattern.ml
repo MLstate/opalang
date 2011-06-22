@@ -145,11 +145,11 @@ let rec process_named_pattern named_pattern l tl acc =
               (C.E.match_ !i
                  [ C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl), acc ])
         | Some (Xml_number e,_) ->
-            C.E.match_opt (C.E.applys !I.Xml.split [e;!l])
+            C.E.match_opt (C.E.applys !I.List.split_at_opt [e;!l])
               (C.P.none (), C.E.none ())
               (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
         | Some (Xml_range (e1,e2),_) ->
-            C.E.match_opt (C.E.applys !I.Xml.split_between [!l;e1;e2])
+            C.E.match_opt (C.E.applys !I.List.split_between [!l;e1;e2])
               (C.P.none (), C.E.none ())
               (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
       )

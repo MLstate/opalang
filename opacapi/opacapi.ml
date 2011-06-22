@@ -107,6 +107,13 @@ struct
   let fold = !! "fold"
 end
 
+module List =
+struct
+  let (!!) s = !! ("List_"^s)
+  let split_at_opt = !! "split_at_opt"
+  let split_between = !! "split_between"
+end
+
 module Mutable =
 struct
   let (!!) s = !! ("Mutable_" ^ s)
@@ -208,16 +215,13 @@ end
 
 module Xml =
 struct
-  (* FIXME: respect guidelines in opa_compiler_interface, Xml_ *)
-  let (!!) s = !! ("xml_" ^ s)
+  let (!!) s = !! ("Xml_" ^ s)
   let find_attr = !! "find_attr"
   let match_number = !! "match_number"
   let match_plus = !! "match_plus"
   let match_question = !! "match_question"
   let match_range = !! "match_range"
   let match_star = !! "match_star"
-  let split = !! "split"
-  let split_between = !! "split_between"
 end
 
 (**

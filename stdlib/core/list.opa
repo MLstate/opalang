@@ -1489,5 +1489,5 @@ nil = List.empty
 @opacapi
 type caml_list('a) = external
 
-@opacapi xml_split = List.split_at_opt
-@opacapi xml_split_between = List.split_between
+@opacapi List_split_at_opt = List.split_at_opt
+@opacapi List_split_between = List.split_between

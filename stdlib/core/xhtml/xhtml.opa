@@ -1121,9 +1121,9 @@ Xhtml =
 }}
 
 /* Functions used by xml pattern matching */
-@opacapi xml_find_attr = Xml.find_attr
-@opacapi xml_match_star = Xmlns.match_star
-@opacapi xml_match_plus = Xmlns.match_plus
-@opacapi xml_match_question = Xmlns.match_question
-@opacapi xml_match_number = Xmlns.match_exact
-@opacapi xml_match_range = Xmlns.match_range
+@opacapi Xml_find_attr = Xml.find_attr
+@opacapi Xml_match_star = Xmlns.match_star
+@opacapi Xml_match_plus = Xmlns.match_plus
+@opacapi Xml_match_question = Xmlns.match_question
+@opacapi Xml_match_number = Xmlns.match_exact
+@opacapi Xml_match_range = Xmlns.match_range
