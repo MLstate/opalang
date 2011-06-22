@@ -26,12 +26,12 @@
    @author Mehdi Bouaziz
 *)
 
-(**)
+(* depends *)
+module Arg = Base.Arg
+module Format = BaseFormat
+module String = BaseString
 
-(* FIXME *)
-open Base
-
-(* -- *)
+(* - *)
 
 module Parameters =
 struct
@@ -141,7 +141,6 @@ sig
   val parse_options : unit -> unit
   val get_options : unit -> opa_options
   val echo_help : unit -> unit
-  val echo_options : unit -> unit
 
   (** Fill a pprocess environment from opa options. *)
   val to_ppenv : opa_options -> Pprocess.env -> Pprocess.env
@@ -262,7 +261,7 @@ struct
         f
 
     let extra_split g =
-      List.map Base.String.trim (Base.String.split (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
+      List.map String.trim (String.split (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
 
     (** lib & js for ocaml compilation *)
     let ccopt = MutableList.create ()
@@ -287,10 +286,10 @@ struct
         OManager.error (
           "I don't know what to do with arg @{<bright>%S@}@\n"^^
           "@[<2>@{<bright>Hint@}:@\n"^^
-          "expected extensions for @{<bright>--extra-lib@} are {%s}@]"
+          "expected extensions for @{<bright>--extra-lib@} are {%a}@]"
         )
           f
-          (String.concat ", " (List.map (sprintf "\"%s\"") expected))
+          (Format.pp_list ", " (fun fmt -> Format.fprintf fmt "%S")) expected
 
     let set_project_root dir =
         try
@@ -342,7 +341,7 @@ struct
     let add_full_extra_path s = List.iter add_extra_path (extra_split s)
 
     let str_version =
-      sprintf (
+      Printf.sprintf (
         "Opa compiler (c) MLstate -- version %s -- build %d"
       )
         BuildInfos.opa_version_name
@@ -366,19 +365,19 @@ struct
     let full_help = ref (fun () -> ())
 
     let help_menu speclist () =
-      let head = (sprintf
+      let head = Printf.sprintf
                     "---- OPA Compiler Help ----
 Syntax is :
 
   \"opa.exe [options] source1.opa [source2.opa ...]\"
 
 where options are :
-" ) in
+" in
       Arg.usage speclist head;
       if not BuildInfos.is_release
       then (
         prerr_endline "\nYou can set the following environment variable if needed (VAR MEANING DEFAULT):\n" ;
-        List.iter (fun (var, mess, _)-> prerr_endline (sprintf "  %s \t-- %s" (String.escaped var) mess)) Env.envvar ;
+        List.iter (fun (var, mess, _)-> prerr_endline (Printf.sprintf "  %s \t-- %s" (String.escaped var) mess)) Env.envvar ;
       ) ;
       prerr_endline "\n-----------------------------\n"
 
@@ -395,12 +394,24 @@ where options are :
         WarningClass.Arg.options () @
         ObjectFiles.Arg.public_options @
         [
-          ("--api",Arg.Set generate_interface_and_compile," Generate interfaces (json and text) and continue compilation");
-          ("--api-only",Arg.Set generate_interface," Generate interfaces (json and text) and exit");
+          (* a *)
+          "--api",
+          Arg.Set generate_interface_and_compile,
+          " Generate interfaces (json and text) and continue compilation"
+          ;
+
+          "--api-only",
+          Arg.Set generate_interface,
+          " Generate interfaces (json and text) and exit"
+          ;
+
           (* ("--back-end",          Arg.Symbol (available_back_end_list, back_end), (sprintf " Select a backend between %s (default is %s) [EXPERIMENTAL]" (String.concat ", " available_back_end_list) (string_of_available_back_end !back_end_wanted))); *)
 
           (* b *)
-          ("--build-dir",         Arg.String (fun s -> build_dir := s), " set the build directory : default is _build. you must set an absolute path.");
+          "--build-dir",
+          Arg.String (fun s -> build_dir := s),
+          " set the build directory : default is _build. you must set an absolute path."
+          ;
 
           (* c *)
           "--ccopt",
@@ -487,8 +498,18 @@ where options are :
           ("--no-ei", Arg.Clear explicit_instantiation, "");
           ("--generate-interface",Arg.Set generate_interface," DEPRECATED (use --api-only instead)");
           ("--generate-interface-and-compile",Arg.Set generate_interface_and_compile," DEPRECATED (use --api instead)");
-          ("--hacker-mode", Arg.Set hacker_mode, " Perform some usefull tricks when compiling the ocaml code for debugging purpose");
-          ("--js-back-end",          Arg.Symbol (available_js_back_end_list, js_back_end), (sprintf " Select a JS backend between %s (default is %s)" (String.concat ", " available_js_back_end_list) js_back_end_wanted_name));
+
+          "--hacker-mode",
+          Arg.Set hacker_mode,
+          " Perform some usefull tricks when compiling the ocaml code for debugging purpose"
+          ;
+
+          "--js-back-end",
+          Arg.Symbol (available_js_back_end_list, js_back_end),
+          Printf.sprintf " Select a JS backend between %s (default is %s)"
+            (String.concat ", " available_js_back_end_list) js_back_end_wanted_name
+          ;
+
           ("--js-as", Arg.spec_of_assoc js_serialize ["adhoc", `adhoc; "ast", `ast], " Compile the client into a json string, instead of the runtime ast directly");
           ("--js-no-cleanup", Arg.Clear js_cleanup, "");
           ("--js-no-local-inlining", Arg.Clear js_local_inlining, "");
@@ -572,7 +593,7 @@ where options are :
                 (** for js files, we use the extra-path feature *)
         in
         let preprocess acc line =
-          let line = Base.String.trim line in
+          let line = String.trim line in
           let len = String.length line in
           if len = 0 then acc
           else
@@ -580,7 +601,7 @@ where options are :
             | '#' -> acc
             | _ ->
                 (** split, and call preprocess_word *)
-                let split = Base.String.split (function ' ' | '\t' | '\n' -> true | _ -> false) in
+                let split = String.split (function ' ' | '\t' | '\n' -> true | _ -> false) in
                 List.fold_left preprocess_word acc (split line)
         in
         let opack_options = File.lines_fold preprocess [] file in
@@ -623,23 +644,6 @@ where options are :
       target_qmli := Option.default (!last_target_from_file ^ ".qmli") !target_opt;
       target_dbgen_schema := Option.default (!last_target_from_file ^ ".dot") !target_opt
 
-    let echo_options () =
-
-      (match !filenames with
-       | [] -> OManager.error "Where are my opa files ?"
-       | filenames ->
-           (* FIXME: OManager.printf ? *)
-           prerr_endline
-             (Printf.sprintf "I will compile file(s)\t: %s" (String.concat ", " filenames));
-      );
-
-      OManager.verbose "The @{<bright>%s@} will be\t: @{<bright>%s@}" (if !no_server <> Some true then "executable" else "server") !target;
-      List.iter (
-        fun (opt, name, mess) -> if opt then OManager.verbose "arg option: --%s : %s" name mess
-      )
-        [
-          (!no_server <> Some true), "no-server", "The executable will not be a server";
-        ]
   end
 
   (* Parse and get options, work with a side effect on module ArgParser *)
@@ -735,8 +739,6 @@ where options are :
   }
 
   let echo_help () = ArgParser.do_print_help ()
-
-  let echo_options () = ArgParser.echo_options ()
 
   (** Fill a pprocess environment from opa options. *)
   let to_ppenv options env =

@@ -16,9 +16,9 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(* FIXME: continue to hoist Base *)
-module String = Base.String
-module Marshal = Base.Marshal
+(* depends *)
+module String = BaseString
+module Marshal = BaseMarshal
 
 let error fmt = OManager.error ("OpaTracker."^^fmt^^"\n")
 
@@ -98,14 +98,12 @@ let handle_close_out oc =
   try close_out oc
   with
   | Sys_error s ->
-      (* FIXME: warning instead ? *)
       error "Output.start: cannot close_out in %s : %s" !directory s
 
 let handle_close_in ic =
   try close_in ic
   with
   | Sys_error s ->
-      (* FIXME: warning instead ? *)
       error "Input.start: cannot close_int in %s : %s" !directory s
 
 let handle_mkdir path =

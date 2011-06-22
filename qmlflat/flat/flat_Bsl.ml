@@ -91,7 +91,10 @@ struct
     uncps_level = 0 ;
   }
 
-  (* FIXME: this is ugly *)
+  (*
+    Collect warning about unprojected bypass, put it in the env,
+    and remove them from the State reference.
+  *)
   let collect_segfault env =
     let segfault =
       List.fold_left (
@@ -115,7 +118,10 @@ struct
     let bsltags = ref BslTags.default in
     (fun s -> bsltags := s), (fun () -> !bsltags)
 
-  (* FIXME: this is ugly, follow guidelines about error reporting *)
+  (*
+    Collecting error messages during projection of bypasses,
+    for outputing them all at the end (do not fail after the first error)
+  *)
   let failure_projection fct bslkey t p =
     match fct p with
     | Some (BI.MetaCode projection) ->

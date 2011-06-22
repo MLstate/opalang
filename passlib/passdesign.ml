@@ -418,7 +418,6 @@ struct
              e
          | L.B (_, b) -> L.B (L.K (if !bug_rewriting then (-9) else 9), b)
          | t -> t)
-  (* FIXME: map_up*)
   let code_elt code_elt = Lang.Walk.Elt.map_nonrec (expr code_elt) code_elt
   let code env = List.map code_elt env
 end

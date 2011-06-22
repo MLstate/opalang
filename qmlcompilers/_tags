@@ -11,8 +11,6 @@
 <qmljs_exe.{ml,byte,native}>: use_qmljsimp, use_qml2js, use_zip
 <qmlCompilers.{ml,mli,byte,native}>: use_qmlslicer, use_passlib, use_opalang
 
-# FIXME:continue to refactore
-# until qmlc will provide common passes (next commit)
 <*.{ml,mli,byte,native}>: use_qml2ocaml, use_qml2js
 
 # explicit deps for linking

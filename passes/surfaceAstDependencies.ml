@@ -509,7 +509,6 @@ let flatten_newval_newtype code =
    circular dependencies between libraries
 
 *)
-(* FIXME FIXME FIXME FIXME: LE CLEAN UP VA JARTER DES TYPES, ATTENTION! *)
 let reorder_toplevel ?roots create_groups lcode =
   debug "reorder" pp_code lcode;
   let lcode = flatten_newval_newtype lcode in

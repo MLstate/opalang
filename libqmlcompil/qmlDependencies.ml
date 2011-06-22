@@ -637,7 +637,6 @@ let debug _f _x =
    circular dependencies between libraries
 
 *)
-(* FIXME FIXME FIXME FIXME: LE CLEAN UP VA JARTER DES TYPES, ATTENTION! *)
 let reorder_toplevel val_ roots roots_addon create_groups lcode =
   let lcode = flatten lcode in
     (* FIXME: should i remove the pat vars from the dependencies? *)

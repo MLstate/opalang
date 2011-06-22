@@ -22,30 +22,13 @@ module O = OpaEnv
 let infos_ident =
   [
 
-    (*
-      Seems to be in experimental/closure_private.opa only
-      FIXME: remove
-    *)
-    "explicit_closure", (fun options -> C.E.bool options.O.closure);
-
-    (*
-      FIXME: is it really at runtime ?
-      or is it old deprecated workarround
-    *)
-    "cps_mode", (fun options -> C.E.bool options.O.cps);
     "cps_client_mode", (fun options -> C.E.bool options.O.cps_client);
-    "closure_mode", (fun options -> C.E.bool options.O.closure);
-
-    (* BEGIN used by xhtml.opa *)
-    (*
-      FIXME: is it the only dependency ??
-    *)
 
     "release", (fun options -> C.E.bool options.O.compile_release);
     "opa_filenames", (fun options -> C.E.list
                         (List.map C.E.string options.O.filenames));
 
-    (* FIXME, I guess we'd rather have [time_t] or [Date.date] than [int] *)
+    (* transformed into a [Date.date] using [int2time] *)
     "compilation_date", (fun _ -> C.E.int (Time.in_milliseconds (
                            #<If:DIFFING>
                              Time.zero
@@ -59,9 +42,6 @@ let infos_ident =
     "opa_git_version_hash", (fun _ -> C.E.string BuildInfos.opalang_git_sha);
     "opa_date",             (fun _ -> C.E.string BuildInfos.date);
     "opa_is_release",       (fun _ -> C.E.bool BuildInfos.is_release);
-
-    (* END used by xhtml.opa *)
-
   ]
 
 let infos_ident_names =

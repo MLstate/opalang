@@ -15,13 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(*
-  Mathieu Tue Feb  8 12:22:20 CET 2011
-  TODO: this is the first implementation of this module,
-  this is quite naive and not particulary efficient.
-  After first prototyping, we should improve the quality
-  of the implementation.
-*)
 
 (* depends *)
 module Format = Base.Format
@@ -787,12 +780,6 @@ struct
   module SC = SumCondition
 
   type sum_case = FieldSet.t
-
-  (*
-    Mathieu Tue Feb  8 12:45:38 CET 2011
-    FIXME:
-    moi j'appelle ça une usine à gaz
-  *)
 
   type sum_content = {
     ty : QmlAst.ty ;
