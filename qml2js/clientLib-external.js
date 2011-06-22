@@ -185,7 +185,7 @@ function field_index(f) {}
 
 /**
  * @param {!*} r
- * @param {!string} f
+ * @param {!string} fi
  * @return {!*}
  */
 function dot_with_field_index(r,fi) {}
