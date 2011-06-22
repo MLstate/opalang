@@ -251,21 +251,13 @@ OpaDocXhtml = {{
     with_link = make_hyperlink(hyperlink)
 
     append((buf: xhtml, acc: xhtml), content: xhtml) =
-      (<>
-        {buf}
-        {content}
-      </>,
-      acc)
+      (<>{buf}{content}</>, acc)
 
     flush((buf: xhtml, acc: xhtml), transform: (xhtml -> xhtml)): (xhtml, xhtml) =
       if buf == <></> then
         (buf, acc)
       else
-        (<></>,
-        <>
-          {acc}
-          {transform(buf)}
-        </>)
+        (<></>, <>{acc}{transform(buf)}</>)
 
     _flush_para(acc: (xhtml, xhtml), classes: list(string)): (xhtml, xhtml) =
       wrap_para(content: xhtml) =
@@ -273,6 +265,11 @@ OpaDocXhtml = {{
       flush(acc, wrap_para)
 
     flush_id(acc) = flush(acc, identity)
+
+    flush_line(acc: (xhtml, xhtml)): (xhtml, xhtml) =
+      new_line(content: xhtml) =
+        <><br />{content}</>
+      flush(acc, new_line)
 
     append_body(acc, content) =
       append(acc, content)
@@ -349,7 +346,7 @@ OpaDocXhtml = {{
               |> append_body(acc, _)
 
           /*| {Newline} -> flush_para(acc, [])*/
-          | {Newline} -> acc
+          | {Newline} -> flush_line(acc)
           | ~{Code} -> append(acc, <span class="code">{Code}</span>)
 
           | { Format = (s, t) } ->
@@ -373,9 +370,7 @@ OpaDocXhtml = {{
                 // {! ModulePath.function}
                 match t.l with
                 | [ { Raw = path } ] -> with_link(String.trim(path), <>{x}</>)
-                | _ ->
-                  // else, we ignore the format
-                  x
+                | _ -> x // else, we ignore the format
               )
               | {emphasize}   -> <em>{x}</em>
               | {superscript} -> <sup>{x}</sup>
