@@ -434,9 +434,9 @@ let analyse_tail_recursion bindings =
         let set2 = IdentTable.find env myself in
         let full_set = IdentSet.add myself (IdentSet.add f (IdentSet.union set1 set2)) in
         IdentSet.iter (fun i -> IdentTable.replace env i full_set) full_set
-    | e ->
+    | __e ->
         #<If:JS_IMP$contains "fulltailcall">
-          Format.printf "@\nstopped on %a" QmlPrint.pp#expr e
+          Format.printf "@\nstopped on %a" QmlPrint.pp#expr __e
         #<End>;
         () in
   List.iter
