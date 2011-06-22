@@ -145,6 +145,26 @@ On Linux, add the following lines to your configuration file:
 (add-to-list 'auto-mode-alist '("\\.opa$" . opa-mode))
 ------
 
+[TIP]
+==============
+You may want to activate spell-checking on OPA comments and strings. To do so,
+type the command +M-x flyspell-prog-mode+ within emacs.
+
+And if you want this functionality activated each time you open an OPA file,
+you just need to add the following lines to your configuration file:
+
+------
+(defun enable_flyspell ()
+  (ispell-change-dictionary "american")
+  (flyspell-prog-mode)
+)
+
+;; Enable spell-checking on OPA comments and strings
+(add-hook 'opa-mode-hook 'enable_flyspell)
+------
+
+==============
+
 Vim
 ^^^
 
