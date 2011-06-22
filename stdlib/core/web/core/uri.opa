@@ -67,7 +67,7 @@ type Uri.uri = Uri.absolute / Uri.relative / Uri.mailto
 
 type Uri.absolute =
      /**Absolute URI*/
-                { schema : option(string) // should not be an option
+                { schema : option(string) // FIXME enumeration instead of string?
                 ; credentials : Uri.uri_credentials
                 ; domain : string
                 ; port : option(int)
@@ -97,31 +97,6 @@ type Uri.mailto =
 type Url.url = Uri.uri
 
 /**
- * @author Adam Koprowski, February 2010
- * @author David Rajchenbach-Teller (packaging), December 2010
- *
- * @destination public
- */
-
-
-/**
- * {1 About this module}
- *
- * This module contains a datatype for representation of URIs/URLs.
- *
- *
- * {1 Where should I start?}
- *
- * See type {!Uri.uri} for a datatype representing an URI. See module
- * {!Uri} for some functions for manipulating URIs.
- */
-
-/**
- * {1 Types defined in this module}
- */
-
-
-/**
  * {1 A module with parsing rules for URIs}
  */
 UriParser =
@@ -143,9 +118,8 @@ UriParser =
   uri = parser
     | Rule.ws ~schema res={
         match schema with
-        | "http" | "https" -> http_uri(some(schema))
-        | "mailto" -> mailto_uri
-        | _ -> @fail // cannot happen because of schema parser
+        | {http} | {https} -> http_uri(some(schema2string(schema)))
+        | {mailto} -> mailto_uri
       } -> res
     | Rule.ws ~path ~query? ~fragment? Rule.ws ->
       {path=path.path ~fragment query=query ? []
@@ -153,14 +127,15 @@ UriParser =
        is_directory=path.is_directory
       }
 
-  http_uri(schema) = parser credentials=authority? ~domain ~port?
-    [/]? path={path}? ~query? ~fragment? Rule.ws ->
+  http_uri(schema) = parser
+    credentials=authority? ~domain ~port? path={parser "/" p=path -> p}?
+    ~query? ~fragment? Rule.ws ->
        { ~schema
-       ; credentials=credentials ? {username=none ; password=none}
+       ; credentials=credentials ? {username=none password=none}
        ; ~domain
        ; ~port
        ; path=Option.map(_.path, path) ? []
-       ; is_directory=Option.map(_.is_directory, path) ? true
+       ; is_directory=Option.map(_.is_directory, path) ? false
        ; query=query ? []
        ; ~fragment
        } : Uri.uri
@@ -211,9 +186,17 @@ UriParser =
   uric_mailto = parser a=uric -> a | t=("@") -> Text.to_string(t);
   chars_mailto = parser v=uric_mailto+ -> String.flatten(v)
 
+  schema2string =
+    | {mailto} -> "mailto"
+    | {http} -> "http"
+    | {https} -> "https"
+
   schema =
     // TODO do we want to include other schemas here?
-    schema_name = parser schema=("https" | "http" | "mailto") -> Text.to_string(schema)
+    schema_name = parser
+    | "https" -> {https}
+    | "http" -> {http}
+    | "mailto" -> {mailto}
     parser schema=schema_name ":" "//"? -> schema
 
   authority =
@@ -229,7 +212,7 @@ UriParser =
     path_content = Rule.parse_list_sep(false, path_chars, parser [/])
     have_slash = parser r=([/]+)? -> Option.is_some(r)
     parser
-       is_from_root={have_slash} v={path_content} is_directory={have_slash} ->
+       is_from_root=have_slash v=path_content is_directory=have_slash ->
        f(item, acc) =
           match item with
           | "" | "." -> acc //Eliminate noop
