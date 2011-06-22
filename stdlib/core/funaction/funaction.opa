@@ -66,7 +66,7 @@ FunAction = {{
 
 /**
    This module contains the runtime to serialize js call site in html using the adhoc S2 mode,
-   Entry point used by the compiler are alias defined in opa_compiler_interface:
+   Entry point used by the compiler are alias defined above:
    FunActionServer_serialize_call and FunActionServer_serialize_argument
 
    Deserialized : {arg : 'a ; serialized_arg : string} -> 'a

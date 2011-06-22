@@ -52,23 +52,6 @@ let filtering_files path =
   in
   kept
 
-(*
-  This is a way for helping the reordering to have in the first place in the code
-  all the dependencies of the generated code by the compiler.
-*)
-let sort_stdlib =
-  let order_map =
-    [
-      ("opa_compiler_interface_private.opa" , 0)
-    ]
-  |> StringMap.from_list
-  in
-  let proj s =
-    let s = Filename.basename s in
-    Option.default max_int (StringMap.find_opt (Filename.basename s) order_map)  in
-  let cmp f1 f2 = compare (proj f1) (proj f2) in
-  fun l -> List.sort cmp l
-
 let folder acc path =
   if filtering_files path then path::acc else acc
 
@@ -77,12 +60,10 @@ let of_basedir basedirs options =
   else (
     let folder acc ~name:_ ~path = folder acc path in
     List.fold_left (fun acc basedir -> acc @ (File.fold_dir_rec folder [] basedir)) [] basedirs
-  |> sort_stdlib
   )
 
 let of_static_include options =
   if not options.O.stdlib then []
   else (
     List.fold_left folder [] StaticsInclude.file_list
-  |> sort_stdlib
   )

@@ -48,7 +48,6 @@ type Css.compiled_property = {name: string; value:string}
 
 Css_private =
 {{
-  // Used by compiler (css.trx, via __internal__add_css_entry in opa_compiler_interface_private)
   order = Order.make_unsafe(compare) : order(Css.entry, Css.order)
   Entry_map=Map_make(/*compare:Css.entry->Css.entry->int*/ order)
 }}

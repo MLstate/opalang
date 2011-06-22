@@ -1679,7 +1679,7 @@ let merge_maptoident_val infos acc toplevel_names =
        | (OpenedIdent (_, i, []),_) :: _ when is_exported i infos -> Some i
            (* it means that some value is first defined at toplevel by an open statement
             * it is possible but then the compiler won't access it
-            * (everything should be defined as an alias in opa_compiler_interface
+            * (everything should be defined as an alias with @opacapi
             * so no open *)
        | _  -> None) toplevel_names in
   stringmap_safe_merge acc names
