@@ -269,14 +269,14 @@ let empty_pre_grammar =
 (* pour le traitement des includes, on n'ajoute que si nécessaire *)
 let add_definition preg (name, def) =
   if StringMap.mem name preg.P.defs then
-    ( B.jlog ~level:2 (B.sprintf "definition %s exists, skipping" name) ; preg)
+    ((* Printf.eprintf "definition %s exists, skipping\n" name ;*) preg)
   else
     { preg with P.defs = StringMap.add name def preg.P.defs }
 
 (* FIXME: factoriser *)
 let add_function preg (name, def) =
   if StringMap.mem name preg.P.funs then
-    ( B.jlog ~level:2 (B.sprintf "function %s exists, skipping" name) ; preg)
+    ((* Printf.eprintf "function %s exists, skipping\n" name ;*) preg)
   else
     { preg with P.funs = StringMap.add name def preg.P.funs }
 

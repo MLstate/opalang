@@ -670,13 +670,12 @@ let macro_pass_CompilationSuccess ((options:opa_options), _) =
 (*   let exe = Filename.basename options.OpaEnv.target in *)
   let target_exe = options.OpaEnv.target in
   let exe_path = if Filename.is_relative target_exe then Filename.concat cwd target_exe else target_exe in
-  Base.jlog ~color:`green (Printf.sprintf "Compilation is ok, result is current directory : %s" exe_path); flush stderr;
+  OManager.printf "@{<green>Compilation is ok, result is current directory : %s@}" exe_path; flush stderr;
   0
 
 let macro_pass_CompilationFailure _ =
   flush stderr; flush stdout;
-  Base.jlog ~color:`red "\nInternal compiler error : Ocaml Compilation Failed";
-  1
+  OManager.i_error "Ocaml Compilation Failed"
 
 
 let pass_resolve_remote_calls ~options (env:'tmp_env env_Gen_sliced) =

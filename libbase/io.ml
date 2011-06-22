@@ -31,7 +31,7 @@ struct
     let zs = Zlib.deflate_init level header in
     let (_, _(*used_in*), used_out) = Zlib.deflate zs inbuf 0 length outbuf 0 length Zlib.Z_NO_FLUSH in
     let rec aux finished used_out =
-      Base.jlog (Printf.sprintf "aux_compr: used_out = %d" used_out) ;
+      Printf.eprintf "aux_compr: used_out = %d\n" used_out;
       if finished then used_out
       else
         let (finished, _, add) = Zlib.deflate zs inbuf 0 0 outbuf used_out (length - used_out) Zlib.Z_FINISH in
@@ -47,7 +47,7 @@ struct
     let zs = Zlib.inflate_init header in
     let (_, _(*used_in*), used_out) = Zlib.inflate zs inbuf 0 length outbuf 0 length Zlib.Z_SYNC_FLUSH in
     let rec aux first finished used_out =
-      Base.jlog (Printf.sprintf  "aux_uncompr: used_out = %d" used_out) ;
+      Printf.eprintf  "aux_uncompr: used_out = %d\n" used_out;
       if finished then used_out
       else
         let dummy_byte = if first && not header then 1 else 0 in
@@ -235,16 +235,16 @@ struct
   (** lecture de l OCTETS *)
   let read t =
     let p = pos_in t.ff in
-(*     Base.jlog (Printf.sprintf  "read PRE current=%d t.pos=%d t.endpos=%d t.offset=%d" p t.pos t.endpos t.offset) ; *)
+(*     Printf.eprintf "read PRE current=%d t.pos=%d t.endpos=%d t.offset=%d\n" p t.pos t.endpos t.offset ; *)
     let n = input t.ff t.b 0 t.buffer_size in
     (* if n = 0 then Base.warning "Read.read: unexpected end of file. Perhaps a wrong path to a file?" ; *)
     t.pos <- p ;
     t.offset <- 0 ;
     t.endpos <- p + n - 1
-(*     Base.jlog (Printf.sprintf  "read POST current=%d t.pos=%d t.endpos=%d t.offset=%d" p t.pos t.endpos t.offset) *)
-    (* Base.jlog "read done" *)
+(*     Printf.eprintf "read POST current=%d t.pos=%d t.endpos=%d t.offset=%d\n" p t.pos t.endpos t.offset *)
+    (* Printf.eprintf "read done" *)
   let seek t p =
-(*     Base.jlog (Printf.sprintf  "seek pos=%d t.pos=%d t.endpos=%d t.offset=%d" p t.pos t.endpos t.offset) ;      *)
+(*     Printf.eprintf  "seek pos=%d t.pos=%d t.endpos=%d t.offset=%d\n" p t.pos t.endpos t.offset ;      *)
     seek_in t.ff p ;
     if p < t.pos or p > t.endpos then read t
     else t.offset <- p - t.pos

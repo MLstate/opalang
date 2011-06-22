@@ -61,7 +61,7 @@ maybe_GElems_no_sp_eof <- maybe_GElems_no_sp EOF ;
 
 /** TRX rule **/
 Definition <- SEMI? rule_annots:annots KEEP_CACHE?:cache DEBUG?:debug MARK?:mark Identifier:id Type?:rtype DefExpr:expr SEMI?
-	{{ jlog ~level:2 (sprintf "definition: %s" id) ;
+	{{ (*jlog ~level:2 (sprintf "definition: %s" id) ;*)
 	   let entry = 
 	     { PG.expression = expr 
 	     ; debug = debug <> None 

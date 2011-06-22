@@ -71,8 +71,6 @@ module PathMap = BaseMap.Make
 
 let internal_error fmt = OManager.i_error fmt
 
-let sch_warn s = Base.jlog ~color:`magenta ("Database Warning: " ^ s)
-
 let (@*) = InfixOperator.(@*)
 
 type t = SchemaGraphLib.SchemaGraph0.t
@@ -172,7 +170,7 @@ let rec manage_pervasive_type ~context t gamma n =
       let t = insert_multi t ~key_kind:kind ~multi_type:tymap n in
       Some (t, Some n)
     with Failure "key_kind" ->
-      QmlError.warning ~wclass:WarningClass.dbgen_schema context
+       QmlError.warning ~wclass:WarningClass.dbgen_schema context
         "@[<2>this kind of @{<bright>map@} is not handled by the database,@ elements won't be reachable directly@ (at %s)@]"
         (SchemaGraphLib.string_path_of_node t n)
       ;
@@ -196,7 +194,9 @@ let rec manage_pervasive_type ~context t gamma n =
                          | _ -> false) ->
                  manage_tymap n ty1 ty2
              | _ ->
-                 Base.jlog (Printf.sprintf "Warning: this map uses an ordering that is unsupported by the database.\nAccess to elements by key will be disabled (at %s)" (SchemaGraphLib.string_path_of_node t n));
+                 QmlError.warning ~wclass:WarningClass.dbgen_schema context
+                 "This map uses an ordering that is unsupported by the database.\nAccess to elements by key will be disabled (at %s)"
+                 (SchemaGraphLib.string_path_of_node t n);
                  None)
       | Q.TypeName ([],tid) when Q.TypeIdent.to_string tid = "binary" ->
           let t, _n = SchemaGraphLib.set_node_label t n (C.Leaf C.Leaf_binary) in

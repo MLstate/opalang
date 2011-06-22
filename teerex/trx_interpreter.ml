@@ -28,6 +28,10 @@ module P = Tgrammar.PreGrammar
 
 let pr = Printf.sprintf
 
+(* TODO: change this printf *)
+let log fmt =
+  Printf.eprintf (fmt^^"\n")
+
 let grammar_to_string g =
   pr "Start: {%s}\nProductions:\n%s\n" g.T.start
     (T.def_map_to_string (StringMap.map fst g.T.grammar))
@@ -337,18 +341,18 @@ let parse peg input =
   let rec try_parse print_success = function
   | [] -> None
   | s::ss ->
-      jlog ~level:2 (pr "Trying to parse with the start production: %s" s);
+      (*jlog ~level:2 (pr "Trying to parse with the start production: %s" s);*)
       match parse_definition s 0 with
       | Fail e ->
           let err_str = show_parse_error (FilePos.get_pos_no_cache input) e in
-          jlog (pr "Production %s gives syntax error: %s" s err_str);
+          log "Production %s gives syntax error: %s" s err_str;
           try_parse print_success ss
       | Ok ((pos, _), _e) ->
           if print_success then
-            jlog (pr "Success with: %s" s);
+            log "Success with: %s" s;
           Some pos
   in
-    jlog ~level:3 (pr "Parsing with the following grammar:\n%s\n======\n" (grammar_to_string peg));
+    (*jlog ~level:3 (pr "Parsing with the following grammar:\n%s\n======\n" (grammar_to_string peg));*)
     match !startProd with
     | None -> try_parse true (Pgrammar.start_definitions peg.T.grammar)
     | Some s -> try_parse false [s]
@@ -414,27 +418,27 @@ let load_grammar grammarFn =
   peg
 
 let parse_file peg inputFn =
-  jlog (pr "Parsing <%s>..." inputFn);
+  log  "Parsing <%s>..." inputFn;
   let input = File.content inputFn in
   let all = String.length input in
   let go () = parse peg input in
   let res, t = measureTime go in
   begin match res with
   | Some pos ->
-      jlog (pr "Parsing successful [%d/%d] in %4.2fsec." pos all t)
+      log "Parsing successful [%d/%d] in %4.2fsec." pos all t
   | None ->
-      jlog "Parsing failed"
+      log "Parsing failed"
   end;
   begin match !traceFile with
   | None -> ()
   | Some fn ->
       write_trace input (open_out fn);
-      jlog (pr "Parsing trace written to <%s>" fn)
+      log "Parsing trace written to <%s>" fn
   end
 
 let parse_files peg inputFn =
   let inc = open_in inputFn in
-  jlog (pr "Parsing all files from <%s>" inputFn);
+  log "Parsing all files from <%s>" inputFn;
   let n = ref 0 in
   let go () =
     try
@@ -448,7 +452,7 @@ let parse_files peg inputFn =
         close_in inc
   in
   let _, t = measureTime go in
-  jlog (pr "Total time of parsing %d files from <%s>: %4.2fsec." !n inputFn t)
+  log "Total time of parsing %d files from <%s>: %4.2fsec." !n inputFn t
 
 let parsing peg =
   let inputFn = get_input_fn () in
@@ -490,7 +494,7 @@ let analyze_memo peg =
     let _, t = parseWithPeg peg' in
     progress ();
     if false then
-      jlog ~level:2 (pr "Trying to change memo option for def. <%s> to <%s> gives time: %4.3fsec." def_name (memo2str memo_opt) t);
+      (*jlog ~level:2 (pr "Trying to change memo option for def. <%s> to <%s> gives time: %4.3fsec." def_name (memo2str memo_opt) t);*)
     if t < best then
       (Some move, t)
     else
@@ -506,22 +510,22 @@ let analyze_memo peg =
     let res, best' = StringMap.fold (try_to_improve peg) peg.T.grammar (None, best) in
     match res with
     | None ->
-        jlog (pr "\nNo improvement...")
+        log "\nNo improvement..."
     | Some move ->
         let impr = best -. best' in
-        jlog (pr "\nConsider changing memoization option for definition <%s> to <%s>.\nIt resulted in time %4.3fsec. (%4.3fsec./%1.3f%% improvement)"
-          (fst move) (memo2str (snd move)) best' impr (100.0 *. impr /. best));
+        log "\nConsider changing memoization option for definition <%s> to <%s>.\nIt resulted in time %4.3fsec. (%4.3fsec./%1.3f%% improvement)"
+          (fst move) (memo2str (snd move)) best' impr (100.0 *. impr /. best);
         improve (best', apply_move move peg)
   in
   let _, best = parseWithPeg peg in
-  jlog (pr "Initial grammar gives timing: %4.3fsec. [no. of rules: %d]" best (StringMap.size peg.T.grammar));
+  log "Initial grammar gives timing: %4.3fsec. [no. of rules: %d]" best (StringMap.size peg.T.grammar);
   improve (best, peg)
 
 let _ =
     parse_args ();
   let grammarFn = get_grammar_fn () in
   let inputFn = get_input_fn () in
-    jlog (pr "Loading grammar from {%s} and then parsing {%s}\n" grammarFn inputFn);
+    log "Loading grammar from {%s} and then parsing {%s}\n" grammarFn inputFn;
   try
     let peg = load_grammar grammarFn in
     match !cmd with

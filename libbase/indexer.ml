@@ -47,7 +47,7 @@ let common_words = Str.regexp "\\(a\\(bout\\|ll\\|n[dy]\\|re\\|[mnst]\\)\\|b\\(u
     returns the updated map with occurences from s *)
 let utf8_string map s =
   let bad_utf8 () =
-    Base.jlog ~level:3 "Invalid utf-8 in string, not indexing"; map in
+    (* Base.jlog ~level:3 "Invalid utf-8 in string, not indexing";*) map in
   let add_word map w =
     match StringMap.find_opt w map with
       | Some num ->  StringMap.add w (num + 1) map

@@ -36,10 +36,10 @@ module P = T.PreGrammar
 exception GrammarParse of string
 exception GrammarCheck of string
 
-(* let parse_ok text = *)
-(*   match Trxparse.parse `Grammar text empty_pre_grammar true with *)
-(*   | Some (lastp, _) -> Some lastp *)
-(*   | _ -> None *)
+(* TODO: change this printf *)
+let log fmt =
+  Printf.eprintf (fmt^^"\n")
+
 
 (* FIXME: déséquilibre file / input *)
 (* FIXME: les extra des include sont ajoutés !!! *)
@@ -51,7 +51,6 @@ let find_file f =
 
 let module_name_of_name n =
   let chop s = File.chop_extension s in
-  (*jlog (sprintf "n=%s basename=%s" n (Filename.basename n)) ;*)
   String.capitalize (chop (Filename.basename n))
 
 let add_globals pg cur_mod new_mod =
@@ -94,13 +93,13 @@ let parse_pre_grammar ?(name="Main") ?(stoppable=false) ~verbose input =
     if StringSet.mem name !already_read then
       pg
     else begin
-      if verbose then B.jlog ~color:`yellow (B.sprintf "parsing %s (stoppable:%b)" name stoppable);
+      if verbose then log "parsing %s (stoppable:%b)" name stoppable;
       let input_len = String.length input in
       let result =
         try
           let lastp, pg = Trxparse.parse_trxparse_grammar pg name (module_name_of_name module_name) stoppable input in
           if lastp = input_len then begin
-            if verbose then B.jlog ~color:`green (B.sprintf "(%s) read %d/%d bytes" name lastp input_len);
+            if verbose then log "(%s) read %d/%d bytes" name lastp input_len;
             StringMap.fold (
               fun x include_def pg ->
                 let pg = { pg with P.incl = StringMap.remove x pg.P.incl } in
@@ -123,7 +122,7 @@ let parse_pre_grammar ?(name="Main") ?(stoppable=false) ~verbose input =
     end
   in
   let pg = load T.empty_pre_grammar input name name in
-  B.jlog ~level:2 "parse_pre_grammar: end" ;
+  (*log "parse_pre_grammar: end" ;*)
   pg
 
 let read_pre_grammar ?stoppable ~verbose name = parse_pre_grammar ?stoppable ~verbose ~name (File.content name)
@@ -188,7 +187,7 @@ let dependencies pg =
   StringMap.map (fun (def,_msg_error) -> dep_of_expression StringSet.empty (T.get_expression def)) pg
 
 let grammar_error s =
-  B.jlog ~color:`red s;
+  log "[31m%s[0m" s;
   exit 2
 
 let grammar_analysis pg =
@@ -492,7 +491,7 @@ let parse_grammar ?(name="Main") ?stoppable ?memo_default ?(unfold_starplus=true
 let list_start ~verbose name =
   let pg = read_pre_grammar ~verbose name in
   let stdefs = start_definitions pg.P.defs in
-  List.iter (fun s -> B.jlog s) stdefs
+  List.iter (fun s -> log "%s" s) stdefs
 
 (* FIXME: only the grammar *)
 let output_binary_grammar ~verbose ?(input="trxparse.trx") ?start output_file =
@@ -503,9 +502,9 @@ let output_binary_grammar ~verbose ?(input="trxparse.trx") ?start output_file =
 
 let input_binary_grammar input_file =
   let ic = open_in input_file in
-  B.jlog "input_binary_grammar: begin" ;
+  log "input_binary_grammar: begin" ;
   let (grammar:'a T.grammar) = input_value ic in
-  B.jlog "input_binary_grammar: end" ;
+  log "input_binary_grammar: end" ;
   close_in ic ;
   grammar
 

@@ -23,9 +23,6 @@
 (* register _and\Pervasives.(&&) : bool -> bool -> bool *)
 
 
-##register jlog : string -> void
-let jlog s = Base.jlog s
-
 
 ##register _and : bool, bool -> bool
 let _and = ( && )

@@ -133,8 +133,7 @@ let loop_schedule _ = Scheduler.run BslScheduler.opa
     using them, without changing its semantic without --cps mode *)
 
 ##module Notcps_compatibility
-  let jlog = fun s -> Base.jlog ~color:`magenta s
-  let fatal_error = fun s -> jlog s; BslSys.do_exit 1
+  let fatal_error = fun s -> Logger.critical "%s" s; BslSys.do_exit 1
 
   ##register [no-projection, restricted : cps] dummy_cont : continuation(void)
   let dummy_cont = QmlCpsServerLib.cont_ml (fun x -> x)

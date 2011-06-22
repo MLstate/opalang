@@ -29,6 +29,9 @@ module OcamlG = Ocaml.Cons
 let pr = Printf.sprintf
 let prErr = Printf.eprintf
 
+let log fmt = Printf.eprintf (fmt^^"\n")
+let error fmt = Printf.eprintf ("[31m"^^fmt^^"[0m\n")
+
  (* we count parts of the sequence starting from 1 (they can be accessed in semantic
     actions via __1, __2 etc. variables *)
 let first_pos = 1
@@ -768,7 +771,7 @@ let rec generate_exp ctx = function
 and generate_seq ctx (items, map, code) =
   (* if there is no provided [code] and there is only one part of the sequence that
      can be used as a result - use it *)
-  jlog ~color:`green ~level:3 (pr "generate_seq [gen_err: %b]" ctx.gen_err);
+(*  jlog ~color:`green ~level:3 (pr "generate_seq [gen_err: %b]" ctx.gen_err);*)
   (* We substitute proper variables into [_pos_beg] and [_pos_end] variables,
    * substitute for positional variables (named parts of a sequence and catch
    * exceptions thrown from productions' code.
@@ -984,7 +987,7 @@ and generate_primary ctx = function
   | P.Ident id ->
       let pf = parsing_function ctx.gen_err id in
       G.add_edge dep_g !generated_prod pf;
-      jlog ~color:`green ~level:3 (pr "Function dependency: %s --> %s" !generated_prod pf);
+      (*jlog ~color:`green ~level:3 (pr "Function dependency: %s --> %s" !generated_prod pf);*)
       call_fun (List.map var (pf :: grammar_extras ctx.peg @ [main_param_filename; main_param_text; ctx.input]))
   | P.Paren exp ->
       generate_exp ctx exp
@@ -1034,7 +1037,7 @@ let funPreliminaries () =
 
 let generate_prod peg gen_err (name, (def, annots)) =
   let funName = parsing_function gen_err name in
-  jlog ~color:`green ~level:3 (pr "Generating function: %s [gen_err: %b]" funName gen_err);
+  (*jlog ~color:`green ~level:3 (pr "Generating function: %s [gen_err: %b]" funName gen_err);*)
   G.add_vertex dep_g funName;
   generated_prod := funName;
   let inputVar = "input" in
@@ -1397,9 +1400,9 @@ let optimize_memoization peg =
     else
       n, (def, annots)
   in
-  let n, g = StringMap.fold_map optimize_rule peg.T.grammar 0 in
-  jlog ~color:`green ~level:2 (pr "Turning off memoization for %d (out of the total of %d) trivial rules"
-                                 n (StringMap.size peg.T.grammar));
+  let _n, g = StringMap.fold_map optimize_rule peg.T.grammar 0 in
+  (*jlog ~color:`green ~level:2 (pr "Turning off memoization for %d (out of the total of %d) trivial rules"
+                                 n (StringMap.size peg.T.grammar));*)
   { peg with T.grammar = g }
 
 (* =========================================================================================================== *)
@@ -1501,7 +1504,8 @@ let set_bool_option opt v var =
   | "true" -> var := true
   | "false" -> var := false
   | _ ->
-      jlog ~color:`red (pr "Unknown value in the grammar for the boolean option <%s=%s> (should be 'false' or 'true')" opt v); exit 2
+      (error "Unknown value in the grammar for the boolean option <%s=%s> (should be 'false' or 'true')" opt v;
+      exit 2)
 
 let rec process_options opts =
   let process_option (opt, v) =
@@ -1513,7 +1517,7 @@ let rec process_options opts =
     | "imperative-errors" -> set_bool imperative_errors
     | "memoization" -> () (* This option is taken care of in Pgrammar.read_grammar *)
     | _ ->
-      jlog ~color:`red (pr "Unknown option in the grammar file: <%s=%s>" opt v); exit 2
+       (error "Unknown option in the grammar file: <%s=%s>" opt v; exit 2)
   in
   match opts with
   | [] -> ()
@@ -1521,8 +1525,8 @@ let rec process_options opts =
       process_option x;
       process_options xs
 
-let print_options () =
-  let memo2str = function
+let print_options () = ()
+  (*let memo2str = function
     | None -> "unspecified (defaults to 'success' unless overriten in the grammar)"
     | Some T.MemoNone -> "none"
     | Some T.MemoFail -> "fail"
@@ -1544,7 +1548,7 @@ let print_options () =
     --auto--ast            = %b%s\n"
     !incremental !imperative_errors !opt_errors !opt_gen_res !opt_inline_literals
     !opt_inline_ranges !debug_mode !functorize !auto_ast
-    (memoOpt2str "memoization" memo_default))
+    (memoOpt2str "memoization" memo_default))*)
 
 let non_verbose f =
   let res = f () in
@@ -1553,8 +1557,8 @@ let non_verbose f =
 let is_verbose () = false
 
 let print_start_prods peg =
-  jlog ~color:`green "Start productions:";
-  let print_prod p = jlog ~color:`green (pr " > %s" p) in
+  log "Start productions:";
+  let print_prod p = log " > %s" p in
   List.iter print_prod (Pgrammar.start_definitions peg.T.grammar)
 
 let write_to_file fn code =
@@ -1584,7 +1588,7 @@ let _ =
               | Some s -> s
             in
             let fn_ml, fn_mli = baseName ^ ".ml", baseName ^ ".mli" in
-            jlog ~color:`green ~level:2 (pr "TRX applied to grammar {%s} will generate code in {%s} and interface in {%s} " grammarFn fn_ml fn_mli);
+            (*jlog ~color:`green ~level:2 (pr "TRX applied to grammar {%s} will generate code in {%s} and interface in {%s} " grammarFn fn_ml fn_mli);*)
             let read () = Pgrammar.read_grammar ?memo_default:!memo_default ~verbose:(is_verbose ()) ~unfold_starplus:!opt_unfold_starplus None grammarFn in
             let peg, _used = non_verbose read in
             let peg = optimize_memoization peg in

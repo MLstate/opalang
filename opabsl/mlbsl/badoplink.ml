@@ -105,16 +105,16 @@ let abort_transaction k =
 
 
 ##register [opacapi;restricted:dbgen] jlog: string -> void
-let jlog s = Base.jlog ~color:`magenta s
+let jlog s = Logger.info "%s" s
 
-let debug __s = #<If:DEBUG_DB> jlog __s #<End>
+let debug __s = #<If:DEBUG_DB> Logger.log ~color:`magenta __s #<End>
 
 ##register [opacapi;restricted:dbgen,cps-bypass] error: string, continuation('a) -> void
 let error s k =
   error s; abort_transaction @> k
 
 ##register [opacapi;restricted:dbgen] fatal_error \ fatal_error_for_dbgen: string, string, string -> 'a
-let fatal_error_for_dbgen = fun s1 s2 s3 -> Base.jlog (s1^s2^s3); BslSys.do_exit 1
+let fatal_error_for_dbgen = fun s1 s2 s3 -> Logger.critical "%s%s%s" s1 s2 s3; BslSys.do_exit 1
 
 (* let wrap_option : 'a_option BslCps.continuation -> 'a Dblib.answer -> unit = fun k a -> match a with *)
 (*   | `Answer x -> qmlreturn k (qml_some x) *)
