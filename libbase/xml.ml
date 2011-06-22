@@ -16,9 +16,17 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+#<Debugvar:DEBUG_XML>
+
 module List = BaseList
 
-(**)
+(* -- *)
+
+let debug fmt =
+  #<If> Printf.eprintf ("[Xml]"^^fmt)
+  #<Else> Printf.ifprintf stdout fmt
+  #<End>
+
 
 (* FIXME: unifier avec Qml *)
 type value =
@@ -72,7 +80,7 @@ let rewrite l =
   let rec aux ok stack xml = function
     | `one ((n, _) as t) :: tl -> aux ok stack xml (`start t :: `stop n :: tl)
     | `start (n, o) :: tl ->
-        Base.jlog ~level:3 (Printf.sprintf "start: %s" n) ;
+        debug "start: %s" n;
         let nid = xml.count
         and node = new_node n o in
         let stack, is_main = match stack with
@@ -85,28 +93,28 @@ let rewrite l =
         let xml = if is_main then { xml with main = nid :: xml.main } else xml in
         aux ok stack { xml with count = succ nid } tl
     | `stop n :: tl ->
-        Base.jlog ~level:3 (Printf.sprintf "stop: %s" n) ;
+        debug "stop: %s" n;
         begin match stack with
         | (nid, node) :: stl ->
             if node.nname = n then
               let node = { node with ncontent = List.rev node.ncontent } in
               aux ok stl { xml with nodes = IntMap.add nid node xml.nodes } tl
             else (
-              Base.jlog (Printf.sprintf "error in rewrite: closing tag %s which is not last open tag" n) ;
+              debug "error in rewrite: closing tag %s which is not last open tag" n;
               aux false stack xml tl
             )
         | _ ->
-            Base.jlog (Printf.sprintf "error in rewrite: closing tag %s which is not open" n) ;
+            debug "error in rewrite: closing tag %s which is not open" n;
             aux false stack xml tl
         end
     | `text t :: tl ->
-        Base.jlog ~level:3 (Printf.sprintf "text: %s" t) ;
+        debug "text: %s" t;
         begin match stack with
         | (nid, node) :: stl ->
             let node = add_node node (Text t) in
             aux ok ((nid, node)::stl) xml tl
         | _ ->
-            Base.jlog (Printf.sprintf "error in rewrite: text '%s' outside of tag (skipped)" t) ;
+            debug "error in rewrite: text '%s' outside of tag (skipped)" t;
             aux false stack xml tl
         end
     | `space :: tl ->
@@ -117,7 +125,7 @@ let rewrite l =
         else
           let id = fst (List.hd stack) in
           let name = (snd (List.hd stack)).nname in
-          Base.jlog (Printf.sprintf "error in rewrite: tag <%d:%s> is never closed" id name) ;
+          debug "error in rewrite: tag <%d:%s> is never closed" id name;
           aux false stack xml [`stop name]
   in
   aux true [] empty_xml l
@@ -182,7 +190,7 @@ let delete_node ?(replace=[]) xml parent nid =
       { xml with nodes = IntMap.add p { parent_node with ncontent = parent_content } xml.nodes }
 
 let insert_node parent (xml, nid_list) (n, o, content) =
-  Base.jlog "insert_node" ;
+  debug "insert_node" ;
   let nid = xml.count
   and node = new_node n o in
   let node =

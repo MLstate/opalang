@@ -482,6 +482,13 @@ val debug_paxos_rbr : debug_var
 val debug_paxos_consensus : debug_var
 val debug_paxos_sched : debug_var
 
+
+(**
+  {b MLSTATE_DEBUG_XML}
+  Enables debug messages for Xml module (libbase)
+*)
+val debug_xml: debug_var
+
 (**
    {b MLSTATE_DIFFING}
    Try to remove as much as possible any diff not due to the input of the compiler,
