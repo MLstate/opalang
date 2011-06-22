@@ -91,6 +91,14 @@ Javascript code.
 
 The use of these tools is transitional, and will soon be made optional.
 
+Part of the jslang library, has been closely inspired by ocamljs/jslib:
+
+* ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
+
+Files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules
+found in ocamljs, specialized for OPA specific needs.
+We would like to thank the authors of the ocamljs/jslib.
+
 
 Contact
 -------
