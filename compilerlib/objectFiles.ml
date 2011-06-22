@@ -814,8 +814,10 @@ struct
     try
       let channel = open_in_bin name in
       let l1 = input_line channel in
-      if l1 <> this_file_version then
-        error "The package %s was compiled with a different version of the compiler." package_name;
+      #<If$contains "noerror"> () #<Else>
+        if l1 <> this_file_version then
+          error "The package %s was compiled with a different version of the compiler." package_name
+      #<End>;
       let v = (Marshal.from_channel channel : t) in
       close_in channel;
       v
