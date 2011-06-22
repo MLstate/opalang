@@ -5,6 +5,7 @@ import stdlib.web.template
 import stdlib.web.client
 import stdlib.upload
 import stdlib.widgets.tabs
+import stdlib.widgets.hlist
 import stdlib.widgets.core
 
 /**
@@ -151,6 +152,15 @@ type Page.Lock.return = outcome(
 / {unlocked}
 )
 
+
+file_stringify(x:string) = "{x}"
+file_config = {
+  WHList.default_config_with_css("admin_files") with
+  helper = {
+      stringify = file_stringify
+      father = _ -> none
+  }
+} : WHList.config
 
 
 
@@ -539,26 +549,26 @@ Page = {{
       s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
-    @private file_line_content(access:Page.full_access, file, published_rev, preview) =
+    @private file_line_content(access:Page.full_access, name, file, published_rev, preview) =
       id = buffer_file_id(file)
-      <td onclick={Action.open_file(access, file, published_rev)} >
-        {file_for_xhtml(file)}
+      <span onclick={Action.open_file(access, file, published_rev)} >
+        {file_for_xhtml(name)}
         <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
         <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
         <span id={file_line_edit(file)} >{
          buf = Dom.select_raw("#{id} #{id}_select}")
          if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
         }</span>
-      </td>
+      </span>
 
     /** Create a file line for table insert. */
-    @private file_line(access:Page.full_access, opened, file, published_rev, preview) =
+    @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <tr class="{class}" id={table_file_id(file)}>
-        {file_line_content(access, file, published_rev, preview)}
-      </tr>
+      <span class="{class}" id="admin_files_navigator_{file_id(file)}">
+        {file_line_content(access, name, file, published_rev, preview)}
+      </span>
 
-    /** Insert if necessary a file line into files table. */
+    /** Insert if necessary a file line into files table. *//*
     @private file_line_insert(access, opened, file, published_rev, preview) =
       line = Dom.select_id(table_file_id(file))
       if Dom.is_empty(line) then
@@ -568,9 +578,65 @@ Page = {{
         void
       else
         do Dom.add_class(line, if opened then "on" else "off")
-        void
+        void*/
 
-    /** 
+    /** Insert if necessary a file line into files navigator. */
+    @private file_line_insert(access, opened, file_uri, edit_rev, published_rev) =
+
+      match file_uri
+      {none} -> void
+      {some=uri} ->
+
+        match uri
+        ~{fragment is_directory is_from_root path query} ->
+          _file = Uri.to_string(uri)
+          path = if is_from_root then ["" | path] else path
+          do Syslog.info("[file_line_insert]", "Path {path}")
+
+          _ = List.fold(
+            e, acc ->
+              file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
+              key = "admin_files_navigator_{file_id(file)}"
+              content = file_line(access, opened, e, file, edit_rev, published_rev)
+              item = WHList.make_item(
+                {title=e value=content},
+                {selected=false; checked=false},
+                {selectable=false; checkable=false; no_sons=false}
+              )
+              do Syslog.info("[file_line_insert]", "Insert {file} {key} {item} {List.rev(acc)}")
+              file_config = { file_config with
+                helper = {
+                  stringify = file_stringify
+                  father = _ ->
+                    if acc == [] then none
+                    else
+                      father_file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev(acc) ~query})
+                      ff = "admin_files_navigator_{file_id(father_file)}"
+                      do Syslog.info("[file_line_insert]", "father file: {father_file} {ff}")
+                      some(ff)
+                }
+              }
+              do match WHList.insert_item(file_config, "admin_files", key, item, none, false) with
+              | ~{some} -> Syslog.info("[file_line_insert]", "Insert OK @{some}")
+              | {none} -> void
+              [e|acc]
+            , path, []
+          )
+
+          void
+        _ -> void
+//           line = Dom.select_id("admin_files_navigator_{file_id(file)}")
+//           if Dom.is_empty(line) then
+//             /* Insert a line on files navigator. */
+//             navigator = Dom.select_id("admin_files_navigator")
+//             _ = Dom.put_at_end(navigator, Dom.of_xhtml(file_line(access, opened, file, edit_rev, published_rev)))
+//             void
+//           else
+//             do Dom.add_class(line, if opened then "on" else "off")
+//             _ = Dom.put_inside(line,Dom.of_xhtml(file_line_content(access, file, edit_rev, published_rev)))
+//             void
+
+    /**
      * Build a buffer and insert it on dom node with identifier
      * [id]. The buffer can be specialized according to file
      * extension.
@@ -1018,7 +1084,8 @@ Page = {{
        */
       open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
         do all_off()
-        do file_line_insert(access, true, file, pub,false)
+        file_uri = Uri.of_string(file)
+        do file_line_insert(access, true, file_uri, none, pub)
         id = "admin_buffer_{file_id(file)}"
         buf = Dom.select_id(id)
         if Dom.is_empty(buf) then
@@ -1034,7 +1101,10 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
-        do file_line_insert(access, true, file, none, false)
+        do Syslog.info("[new_file]", "New File {file}")
+        file_uri = Uri.of_string(file)
+        do Syslog.info("[new_file]", "Uri {file_uri}")
+        do file_line_insert(access, true, file_uri, none, none)
         open_file(access, file,none)(event)
 
       /**
@@ -1043,8 +1113,8 @@ Page = {{
       remove_file(access:Page.full_access, file) : FunAction.t = _event ->
         do access.access.remove(file)
         do access.notify.send({remove = file})
-        fl  = Dom.select_id(table_file_id(file))
-        buf = Dom.select_id(buffer_file_id(file))
+        fl  = Dom.select_id("admin_files_navigator_{file_id(file)}")
+        buf = Dom.select_id("admin_buffer_{file_id(file)}")
         do Dom.remove(fl)
         do Dom.remove(buf)
         void
@@ -1086,16 +1156,32 @@ Page = {{
       (Dom.get_value(Dom.select_id("admin_new_file")),
        Dom.get_value(Dom.select_id("upload_mime_type")))
 
-    @client @private hack(access:Page.full_access)(_:Dom.event) =
+//     @client @private hack(access:Page.full_access)(_:Dom.event) =
+//       page_list = List.unique_list_of(access.access.list())
+//       do List.iter(
+//         (file,pub) ->
+//           file_line_insert(access, false, file, none,
+//             (if pub.rev==0 then none else some(pub.rev))),
+//         page_list)
+//       access.notify.subscribe(
+//         | {event={publish=(file,rev)} by=_} ->
+//           file_line_insert(access, false, file, none,some(rev))
+//         | _ -> void
+//       )
+
+    @client @private build_tree(access:Page.full_access)(_:Dom.event) =
+      do Dom.transform([#admin_files_navigator <- WHList.html(file_config, "admin_files", [])])
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
-        (file,pub,preview) ->
-          file_line_insert(access, false, file,
+        (file,pub, preview) ->
+          file_uri = Uri.of_string(file)
+          file_line_insert(access, false, file_uri, none,
             (if pub.rev==0 then none else some(pub.rev)),
-            preview),
+			preview)
         page_list)
       access.notify.subscribe(
         | {event={publish=(file,rev)} by=_} ->
+          file_uri = Uri.of_string(file)
           file_line_set_publish(file,some(rev))
         | _ -> void
       )
@@ -1150,9 +1236,8 @@ Page = {{
           void
       /* Build admin xhtml body page */
       <div id="admin_files">
-        <table id="admin_files_table" onready={hack(access)}>
-          <caption> Published files </caption>
-        </table>
+        <div>Files explorer</div>
+        <div id="admin_files_navigator" onready={build_tree(access)}></div>
       </div>
       <div id="admin_notifications">
         <div id="admin_notifications_box" onready={_ ->
