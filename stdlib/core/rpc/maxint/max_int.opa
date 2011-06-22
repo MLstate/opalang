@@ -15,7 +15,20 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.rpc.core
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 /**
  * The largest integer usable in OPA
@@ -23,7 +36,7 @@ import stdlib.core.rpc.core
  * Note that the size of integers is dictated both by server limitations (64-bit servers have larger integers than 32-bit servers)
  * and by client limitations (JavaScript implementations are typically limited to 53-bit integers).
  */
-max_int = IntServer.max_int // 2**53 (size of mantisse in js)
+max_int = IntServer.max_int // 2**53 (size of significand in js)
 
 /**
  * The smallest integer usable in OPA

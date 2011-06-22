@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @authors Raja Boujbel, 2010
 **/
@@ -29,6 +30,18 @@ import stdlib.core.{web.core, security.ssl}
   @author Louis Gesbert (interface change + documentation), 2011
 */
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type endpoint = external
 type bslhlnet_channel('out, 'in) = external
 type bslhlnet_channel_spec('out,'in) = external
@@ -41,7 +54,7 @@ type bslhlnet_channel_spec('out,'in) = external
 type Hlnet.channel('out,'in) = bslhlnet_channel('out,'in)
 
 /** Type of what should be provided to define a safe ('out,'in) channel
-    (includes a service name, serialisation and deserialisation functions */
+    (includes a service name, serialization and deserialization functions */
 type Hlnet.channel_spec('out,'in) = bslhlnet_channel_spec('out,'in)
 
 /** An [endpoint] is one end of a channel. It may be local or remote. */
@@ -60,6 +73,10 @@ type Hlnet.protocol('query,'response) = {
   client_spec: Hlnet.channel_spec('query,'response);
   server_spec: Hlnet.channel_spec('response,'query);
 }
+
+/**
+ * {1 Interface}
+ */
 
 Hlnet =
 {{
@@ -94,7 +111,7 @@ Hlnet =
 
   /** Consistently defines the specs for both ends of a channel.
 
-    {b Guideline:} always explicitely coerce the return value of define_protocol,
+    {b Guideline:} always explicitly coerce the return value of define_protocol,
     to make the types used in the protocol visible. This will really help understanding
     what your code does. */
   define_protocol(
@@ -146,7 +163,7 @@ Hlnet =
     list = %%BslHlnet.listen%%
     list(endpoint)
 
-  /** Setup a function to call everytime a channel looking for the service [spec] is
+  /** Setup a function to call every time a channel looking for the service [spec] is
       opened to the current host.
       You would usually use it to do a [setup_respond] on the given channel. */
   accept(endpoint: endpoint, spec: Hlnet.channel_spec('out,'in), handler: Hlnet.channel('out,'in) -> void) : void =
@@ -223,7 +240,7 @@ Hlnet =
     bp = %%BslHlnet.serialise_channel%%
     bp(chan)
 
-  /** For use on a received serialised channel: unserialises it and registers
+  /** For use on a received serialized channel: unserializes it and registers
       it locally with the given [spec] (which service name should match that of the
       serialised channel). The carrier channel is asked as an argument as well, but only
       used for some auxiliary connection information. */
@@ -263,9 +280,10 @@ Hlnet =
   @private endpoint_addr     = %%BslHlnet.EndpointGet.addr%%     : endpoint -> string
   @private endpoint_port     = %%BslHlnet.EndpointGet.port%%     : endpoint -> int
 
-  @private
   /** {6 Peerpoints} */
+  
   /** Converting a endpoint to a peerpoint */
+  @private
   endpoint_to_peerpoint(ep:Hlnet.endpoint):Hlnet.peerpoint=
     protocol =
       match endpoint_protocol(ep)
