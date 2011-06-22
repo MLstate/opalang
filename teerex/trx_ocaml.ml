@@ -19,12 +19,11 @@
     @author Adam Koprowski
 **)
 
-(* TODO remove *)
-open Base
-
 module T = Tgrammar
 module P = Tgrammar.PreGrammar
 module OcamlG = Ocaml.Cons
+module List = BaseList
+module String = BaseString
 
 let pr = Printf.sprintf
 let prErr = Printf.eprintf
@@ -1497,7 +1496,7 @@ let parse_args () =
     " RULE produces parser with 'main' function parsing with given production")
 
   ]) anon_fun
-    (sprintf "%s <options> syntax_file.[trx|prx]" Sys.argv.(0))
+    (Printf.sprintf "%s <options> syntax_file.[trx|prx]" Sys.argv.(0))
 
 let set_bool_option opt v var =
   match v with

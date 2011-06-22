@@ -22,9 +22,10 @@
 (* FIXME, proper trace output for --multiple option *)
 (* FIXME, in --analyze-memo stop parsing with given settings when it takes longer than the best result so far (timeout) *)
 
-open Base
 module T = Tgrammar
 module P = Tgrammar.PreGrammar
+module List = BaseList
+module Char = BaseChar
 
 let pr = Printf.sprintf
 
@@ -206,7 +207,7 @@ let parse peg input =
       StringMap.find id peg.T.grammar
     with
         Not_found ->
-          log_error (pr "Could not find a definition for the production: %s" id);
+          Base.log_error (pr "Could not find a definition for the production: %s" id);
           raise Not_found
   in
 
@@ -411,7 +412,7 @@ let parse_args () =
     " default memoization level for rules with no annotations [none | fail | success | full]");
 
   ]) anon_fun
-    (sprintf "%s <options> syntax_file.[trx|prx] input_file" Sys.argv.(0))
+    (Printf.sprintf "%s <options> syntax_file.[trx|prx] input_file" Sys.argv.(0))
 
 let load_grammar grammarFn =
   let peg, _ = Pgrammar.read_grammar ?memo_default:!memo_default ~verbose:true None grammarFn in
@@ -493,8 +494,8 @@ let analyze_memo peg =
     let peg' = apply_move move peg in
     let _, t = parseWithPeg peg' in
     progress ();
-    if false then
-      (*jlog ~level:2 (pr "Trying to change memo option for def. <%s> to <%s> gives time: %4.3fsec." def_name (memo2str memo_opt) t);*)
+    (*if false then
+      jlog ~level:2 (pr "Trying to change memo option for def. <%s> to <%s> gives time: %4.3fsec." def_name (memo2str memo_opt) t);*)
     if t < best then
       (Some move, t)
     else
@@ -533,4 +534,4 @@ let _ =
     | `analyze_memo -> analyze_memo peg
   with
   | Pgrammar.GrammarParse _err ->
-      log_error (pr "Failed while parsing the input grammar: {%s}!\n" grammarFn)
+      Base.log_error (pr "Failed while parsing the input grammar: {%s}!\n" grammarFn)
