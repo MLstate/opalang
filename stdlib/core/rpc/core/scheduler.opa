@@ -27,11 +27,25 @@
  */
 
 
+/**
+ * {1 About this module}
+ *
+ * Scheduling functions.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
+
 Scheduler =
 {{
 
   /**
-   * {1 Timers}
+   * {2 Timers}
    */
 
   @private lltimer = @may_cps(%% BslScheduler.timer %%) : int, (-> void) -> void
@@ -108,7 +122,7 @@ Scheduler =
 
 
   /**
-   * {1 Sleep}
+   * {2 Sleep}
    */
 
   /**

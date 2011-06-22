@@ -18,11 +18,7 @@
 
 
 /**
- * This file provides some modules. This modules allows to make
- * introspection on OPA value. Define what is an OPA type and it
- * offers some functions for manipulate OPA value
- * This module defined some type and provides functions for make RPC
- * beetween client and server
+ * Client and server RPC
  *
  * @category internal RPC
  * @destination private
@@ -31,8 +27,16 @@
  */
 
 /**
- * {1 Interface for module OpaRPC}
+ * {1 About this module}
+ *
+ * This module defines some types and provides functions to make RPC between
+ * client and server.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
+
 /* disabled for S3:
 type OpaRPC.interface = {{
   /* Unserialize */
@@ -49,14 +53,15 @@ type OpaRPC.interface = {{
 */
 
 /**
- * {1 Types defined for OpaRPC}
+ * {1 Types defined in this module}
+ *
  * An RPC request in opa is composed by :
  * - A list of arguments.
- * - A list of types (for arguments whose types can't be know
- * statically).
+ * - A list of types (for arguments whose types can't be know statically).
  */
+
 /**
- * An RPC request.
+ * A RPC request.
  */
 @opacapi
 @abstract type OpaRPC.request = {
@@ -69,11 +74,13 @@ type OpaRPC.interface = {{
 /**
  * {1 Common module for client and server}
  */
+
 @both OpaRPC = {{
 
   /**
    * {2 Unserialization}
    */
+
   /**
    * Unserialize from [string] to an {!OpaRPC.request}.
    */
@@ -144,6 +151,7 @@ type OpaRPC.interface = {{
   /**
    * {2 Serializion}
    */
+
   /**
    * Value of the empty request. Used for construct a request.
    */
@@ -185,16 +193,15 @@ type OpaRPC.interface = {{
 
 
 
-
-
 /**
  * {1 Specific client module for RPC}
  */
+
 @client OpaRPC_Client = {{
 
   /**
    * A cache for rpc request, its used for non-functionnal rpc
-   * TODO (K1) : Use a hastbl intead
+   * TODO (K1) : Use a hastbl instead
    *
    * Note: This function is type-unsafe and should be used only by the compiler.
    */
@@ -244,10 +251,10 @@ type OpaRPC.interface = {{
 
 
 
-
 /**
  * {1 Specific server module for RPC}
  */
+
 @server OpaRPC_Server =
 
 
@@ -271,7 +278,7 @@ type OpaRPC.interface = {{
   {{
 
   /**
-   * A cache for rpc request, its used for non-functionnal rpc
+   * A cache for rpc request, its used for non-functional rpc
    * TODO (K1) : GC of cached rpc
    *
    * Note: This function is type-unsafe and should be used only by the compiler.
@@ -361,7 +368,7 @@ type OpaRPC.interface = {{
     get      = %%BslRPC.Dispatcher.get%%
 
     /* Duplication
-     * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depdns on package [stdlib.rpc.core] */
+     * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depends on the package [stdlib.rpc.core] */
     get_requested_post_content = %% BslNet.Requestdef.get_request_message_body %% : WebInfo.private.native_request -> string
 
     parser_(winfo) =

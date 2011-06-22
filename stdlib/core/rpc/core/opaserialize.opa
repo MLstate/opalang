@@ -15,7 +15,20 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
 import stdlib.core.{map, web.core}
+
+/**
+ * {1 Types defined in this module}
+ */
 
 type OpaSerialize.unser = RPC.Json.json
 
@@ -32,7 +45,7 @@ type OpaSerialize.options = {
   /** Indicates how serialize closure :
       - {local} : Keep the call site on local
       - {distant} : If we a distant implementation exists serialize
-        closure with this environnement (Currently we can serialize
+        closure with this environment (Currently we can serialize
         only empty closure on this way, when try to serialize a
         non-empty closure call the given function (example : for print
         a warning) and serialize as {local}).
@@ -51,6 +64,10 @@ type OpaSerialize.options = {
   */
 
 }
+
+/**
+ * {1 Interface}
+ */
 
 @both OpaSerialize = {{
 
@@ -287,7 +304,7 @@ type OpaSerialize.options = {
       | {TyName_ident = "style_constructor"; TyName_args = _} ->
         aux_abstract_client(value, WebUtils.is_client())
 
-      /* Encapsuled types ***********************/
+      /* Encapsulated types ***********************/
       | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(value, impl)
       | {TyName_args = args; TyName_ident = ident} ->
          match %%BslValue.MagicContainer.serializer_get%%(ident) with
@@ -341,7 +358,7 @@ type OpaSerialize.options = {
    */
   finish_serialize(unser) = JsonTop.serialize_opt(unser)
 
-  /**
+ /**
    * {2 Unserialization}
    */
   /**
@@ -457,7 +474,7 @@ type OpaSerialize.options = {
                 | 6 -> Magic.id(a1,a2,a3,a4,a5,a6 -> call(cell, [a1,a2,a3,a4,a5,a6]))
                 | 7 -> Magic.id(a1,a2,a3,a4,a5,a6,a7 -> call(cell, [a1,a2,a3,a4,a5,a6,a7]))
                 | 8 -> Magic.id(a1,a2,a3,a4,a5,a6,a7,a8 -> call(cell, [a1,a2,a3,a4,a5,a6,a7,a8]))
-                | _ -> //This case should be never occurs because serialization was failed
+                | _ -> //This case should be never occurs because serialization failed
                   error("[OpaSerialize.finish_unserialize] Closure with more than 8 arguments can't be unserialized (try to compile with --closure)")
                 end
               #<End>
@@ -523,7 +540,7 @@ type OpaSerialize.options = {
       end
 
     /* For list, slow but tail-rec
-       construct a couple (should be removed automaticaly)
+       construct a couple (should be removed automatically)
        and an option (need to have a special folder)
      */
     and aux_list(l,ty_arg_opt)=
@@ -584,7 +601,7 @@ type OpaSerialize.options = {
       | ({List = l}, {TyName_ident = "list"; TyName_args = [ty_arg]}) ->
         aux_list(l, some(ty_arg) )
 
-      /* List case when deserialisation case is not a record type */
+      /* List case when deserialization case is not a record type */
       | ({List = l}, {TyRecord_row = row ...}) ->
         aux_list(l, OpaType.type_of_field(row, OpaType.Field.of_string("hd")) )
       | ({List = l}, {TySum_col = col ...}) ->
@@ -593,7 +610,7 @@ type OpaSerialize.options = {
         | {some = row} -> aux_list(l, OpaType.type_of_field(row,OpaType.Field.of_string("hd")) )
         end
 
-      /* List case when serialisation type is not list */
+      /* List case when serialization type is not list */
       | ({Record = _}, {TyName_ident = "list"; TyName_args = [ty_arg]}) ->
          rec record_to_list(r,acc)=
            match r:RPC.Json.json
@@ -632,7 +649,7 @@ type OpaSerialize.options = {
       | (_, {TyName_ident = "style_constructor"; TyName_args = _}) ->
         aux_abstract_client(json, WebUtils.is_client())
 
-      /* Encapsuled types ***********************/
+      /* Encapsulated types ***********************/
       | (_, {TyName_args = args; TyName_ident = ident}) ->
         OpaValue.todo_magic_container(
           (ident ->
@@ -665,7 +682,7 @@ type OpaSerialize.options = {
     aux(unser, ty)
 
 
-  /* [ltyfield] and lsit on [lfields] must be ordered */
+  /* [ltyfield] and list on [lfields] must be ordered */
   fields_of_fields_list2(ltyfield : list(string), lfields:list(OpaType.fields)) =
     List.find(
       (fields ->

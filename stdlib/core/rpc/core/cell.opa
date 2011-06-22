@@ -40,6 +40,8 @@ import stdlib.core.{map, web.core, parser}
  * {1 Where do I start?}
  *
  * You can create a cell with {!Cell.make} and call it with {!Cell.call}.
+ *
+ * {1 What if I need more?}
  */
 
 /**
@@ -70,7 +72,7 @@ type Cell.basic_instruction('result) = {
 /**
  * The type of a cell.
  *
- * @param 'message The type of messages accpeted by the cell
+ * @param 'message The type of messages accepted by the cell
  * @param 'result The type of returned value
  */
 @abstract type Cell.cell('message, 'result) =
@@ -93,6 +95,9 @@ type Cell.handler('state, 'message, 'result) =
 
 /**
  * {1 Low-level module}
+ */
+
+/**
  * The low level module for cells.
  */
 Cell_private = {{
@@ -136,7 +141,7 @@ Cell_private = {{
          Magic.id(OpaSerialize.finish_unserialize(json, t)))
     /* Unserialize function */
     unserialize =
-        /* Here it's a little hackie ...
+        /* Here it's a little hackish ...
          * Session that we create take a couple of ('message -> void, 'message)
          * The user give us a function for unserialize 'message, bellow we make
          * a function that unserialize ('message -> void, 'message) */
@@ -185,7 +190,7 @@ Cell_private = {{
   /**
    * Send a message to a cell
    *
-   * @param cell Cell to wich message is sent
+   * @param cell Cell to which message is sent
    * @param message Message to send
    * @param serialize An optional function for serialize the message, by default
    *                  it's {!OpaSerialize.partial_serialize}
@@ -238,7 +243,7 @@ Cell_private = {{
       sess = cell
       /* Redefined serialize */
       serialize =
-        /* Here it's a little hackie ...
+        /* Here it's a little hackish ...
          * Session encapsulated by the cell it's typed by
          * ('message -> void, 'message)
          * The user give us a function for serialize 'message, bellow we make
@@ -295,7 +300,7 @@ Cell_private = {{
   /**
    * Send a message to a cell
    *
-   * @param cell to wich message is sent
+   * @param cell to which message is sent
    * @param message
    * @return return value after applying on_message & on_return functions
   **/

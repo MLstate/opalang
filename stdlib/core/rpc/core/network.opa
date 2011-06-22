@@ -15,13 +15,25 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-import stdlib.core.{set}
 
 /**
- * An infrastructure for broadcasting informations to observers. Observers may be sessions or functions,
+ * {1 About this module}
+ *
+ * An infrastructure for broadcasting information to observers. Observers may
+ * be sessions or functions,
  * located on the same machine, or on any client or server.
  *
  * This infrastructure performs automated garbage-collection when required.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+import stdlib.core.{set}
+
+/**
+ * {1 Types defined in this module}
  */
 
 /**
@@ -39,6 +51,10 @@ type Network.instruction('a) = {add: channel('a)} / {remove: channel('a)} / {bro
  * It can be used to unregister the observer.
  */
 @abstract type Network.observer = -> void
+
+/**
+ * {1 Interface}
+ */
 
 //Note: For the moment, [Network] is meaningful only on the server, as the client-side implementation of channels cannot provide a stable ordering of channels
 Network = {{

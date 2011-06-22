@@ -18,11 +18,73 @@
 
 // Needed by compiler
 
+/**
+ * {1 About this module}
+ *
+ * Serialization and unserialization of json values.
+ *
+    {1 How to start}
+    This module provide 2 important functions :
+
+    - serialize_opt for serialize a json value
+    - deserialize_opt for unserialize a json value
+
+    The serialization and unserialization doesn't respect exactly JSON
+    format. Because client native json parser can crash if the json
+    to parse is too deep. Perhaps the server parser is also limited,
+    but it isn't tested. Therefore the exchange client -> server
+    respect JSON format, but the server -> client exchange doesn't
+    respect exactly JSON format. This modified JSON format will be
+    called cut JSON.
+
+    Server side :
+      - serialize_opt : Returns cut JSON
+      - deserialize_opt : Get normal JSON
+
+    Client side :
+      - serialize_opt : Returns normal JSON
+      - deserialize_opt : Get cut JSON
+
+
+    {1 What is the cut JSON?}
+
+    If JSON value is not too deep the generated string respect exactly
+    JSON format which doesn't contains null value.
+
+    Else it's a special format. This special format begin by $
+    character. This indicates that the JSON is cut. Then it's a
+    sequence of : integer followed by JSON. Integer indicates the size
+    of JSON which follows. This following JSON may contains null
+    value. This null value indicates that it must be replaced by the
+    following value. Cut JSON format is informally described bellow.
+
+    Cut JSON format
+      JSON
+      $ (size JSON)+
+
+    Simple example on list (with depth limit = 2) :
+      $44{"hd":"toto0","tl":{"hd":"toto1","tl":null}}44{"hd":"toto2","tl":{"hd":"toto3","tl":null}}44{"hd":"toto4","tl":{"hd":"toto5","tl":null}}...
+
+    {1 Important notes}
+
+    Functions defined in this module (must) don't change order of json
+    objects. For example :
+    [Json.serialize_opt({Record = [("a",1), ("b",2)]}) == "{a:1,b:2}"]
+    [Json.serialize_opt({Record = [("a",1), ("b",2)]}) != "{b:2,a:1}"]
+
+*/
+
+
 import stdlib.core.{js, web.core, map}
 
-/** The type of json. All json object can be reprensented by this
-    type.
-*/
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * The type of json. All json object can be represented by this
+ * type.
+ */
 type RPC.Json.json0('json) =
     { Int: int }
   / { Float: float }
@@ -38,62 +100,11 @@ type RPC.Json.js_code =
   RPC.Json.json0(RPC.Json.js_code) / { Direct : string}
 
 /** Those types are used for translation OPA Json to/from low level Json,
- * ie native implementation on javascrpt, and corresponding implementation in OCaml.
+ * ie native implementation on javascript, and corresponding implementation in OCaml.
   */
 type RPC.Json.private.native = external
 type ll_json_list_repr = external
 type ll_json_record_repr = external
-
-/** {1 - How to start}
-    This module provide 2 important functions :
-
-    - serialize_opt for serialize a json value
-    - deserialize_opt for unserialize a json value
-
-    The serialization and unserialization doesn't respect exactly JSON
-    format. Because client native json parser can crash if the json
-    to parse is too deep. Perhaps the server parser is also limited,
-    but it isn't tested. Therefore the exchange client -> server
-    respect JSON format, but the server -> client exchange doesn't
-    respect exactly JSON format. This modified JSON format will be
-    called cutted JSON.
-
-    Server side :
-      - serialize_opt : Returns cutted JSON
-      - deserialize_opt : Get normal JSON
-
-    Client side :
-      - serialize_opt : Returns normal JSON
-      - deserialize_opt : Get cutted JSON
-
-
-    {1 - What is the cutted JSON?}
-
-    If JSON value is not too deep the generated string respect exactly
-    JSON format which doesn't contains null value.
-
-    Else it's a special format. This special format begin by $
-    character. This indicates that the JSON is cutted. Then it's a
-    sequence of : integer followed by JSON. Integer indicates the size
-    of JSON which follows. This following JSON may contains null
-    value. This null value indicates that it must be replaced by the
-    following value. Cutted JSON format is informally described bellow.
-
-    Cutted JSON format
-      JSON
-      $ (size JSON)+
-
-    Simple example on list (with depth limit = 2) :
-      $44{"hd":"toto0","tl":{"hd":"toto1","tl":null}}44{"hd":"toto2","tl":{"hd":"toto3","tl":null}}44{"hd":"toto4","tl":{"hd":"toto5","tl":null}}...
-
-    {1 - Important notes}
-
-    Functions defined in this module (must) don't change order of json
-    objects. For example :
-    [Json.serialize_opt({Record = [("a",1), ("b",2)]}) == "{a:1,b:2}"]
-    [Json.serialize_opt({Record = [("a",1), ("b",2)]}) != "{b:2,a:1}"]
-
-*/
 
 
 @both Json = {{
@@ -116,7 +127,7 @@ type ll_json_record_repr = external
     Text.to_string(to_text(j,Text.cons(""), {false}))
 
   /**
-   * Deserialize a JSON value from a standard representation as a cahracter string.
+   * Deserialize a JSON value from a standard representation as a character string.
    */
   deserialize(s:string): option(RPC.Json.json) =
     of_string(s)
@@ -124,19 +135,19 @@ type ll_json_record_repr = external
  /**
   * {2 Communications inside OPA}
   *
-  * These functions produce or consume "cutted" JSON, i.e. an optimized representation of JSON that
+  * These functions produce or consume "cut" JSON, i.e. an optimized representation of JSON that
   * can be used to improve chances of legacy browsers not throwing an exception during deserialization.
-  * Only OPA understands "cutted" JSON.
+  * Only OPA understands "cut" JSON.
   */
 
   /**
-   * Serialize a JSON value to a "cutted" character string
+   * Serialize a JSON value to a "cut" character string
    */
   serialize_opt(j: RPC.Json.json): string =
     Text.to_string(to_text(j,Text.cons(""), {true}))
 
   /**
-   * Deserialize a valid character string (possibly "cutted") to a JSON value
+   * Deserialize a valid character string (possibly "cut") to a JSON value
    */
   deserialize_opt(s: string): option(RPC.Json.json) =
     of_string(s)
@@ -180,7 +191,7 @@ type ll_json_record_repr = external
 
 
   /** This function creates a OPA Json object from a low level Json object
-   * it takes the same params than [native_to_json], except the last,
+   * it takes the same parameters than [native_to_json], except the last,
    * which is a low level Json object
    *
    * @return A OPA Json object
@@ -192,7 +203,7 @@ type ll_json_record_repr = external
   /** This function deconstruct a OPA JSon object and create a low level Json object
    *
    * @param a OPA Json object
-   * @return a low level Json object (native javascipt for the client, Json implementation for the server)
+   * @return a low level Json object (native javascript for the client, Json implementation for the server)
    */
   to_ll_json(json_elem) =
     to_int = %%BslJson.Json.json_repr_int%%
@@ -237,7 +248,7 @@ type ll_json_record_repr = external
       deep object. This serialization is added at right of given text.
       @param j A json value to serialize.
       @param tx A text for store serialization.
-      @param cut If [true], construct "cutted" JSON, understood only by OPA. Otherwise, construct standard JSON.
+      @param cut If [true], construct "cut" JSON, understood only by OPA. Otherwise, construct standard JSON.
       @return The text which was concatenate the serialization of json
         value.
   */
@@ -306,12 +317,16 @@ type ll_json_record_repr = external
     j <: RPC.Json.js_code
 
   // FOR JAVASCRIPT FILE
-  /** Serialize a json value, this serialized value must be inserted
+  /** 
+      Serialize a json value, this serialized value must be inserted
       on a javascript file only. This generated string can be
-      evaluated natively by browers (It's javascript code).
+      evaluated natively by browsers (It's javascript code).
+      
       TODO : Test if depth_limit should be different.
-      WARNING : Don't use this function for network transfert.
+      
+      WARNING : Don't use this function for network transfers.
       not too deep.
+      
       @param j A json value to serialize.
       @param tx A text for store serialization.
       @return The serialized json value can be evaluated natively by
@@ -354,23 +369,23 @@ type ll_json_record_repr = external
           )
          (tx ++ "]", ls, nid)
 
-    rec aux2(j : RPC.Json.js_code, ls : list((string, RPC.Json.js_code)), res : list(text), current_id, last_id, cutted) =
+    rec aux2(j : RPC.Json.js_code, ls : list((string, RPC.Json.js_code)), res : list(text), current_id, last_id, cut) =
       (txr, lsr, last_id) = aux(j, Text.cons(""), depth_limit, String.next(last_id))
       ls = List.append(ls, lsr)
       match ls with
       | [] ->
-        txr = if cutted then Text.insert_left(txr, "var "^current_id^" = ") ++ ";"
+        txr = if cut then Text.insert_left(txr, "var "^current_id^" = ") ++ ";"
               else txr
         (List.fold(
           (elt, acc -> Text.concat(acc, elt)),
           List.add(txr, res), Text.cons("")
-        ), cutted)
+        ), cut)
       | [ (new_id, j) | tl ] ->
         txr = Text.insert_left(txr, "var "^current_id^" = ") ++ ";"
         aux2(j, tl, List.add(txr, res), new_id, String.next(last_id), true)
 
-    (txr, cutted) = aux2(j, [], [], "a", "a", false)
-    if cutted then
+    (txr, cut) = aux2(j, [], [], "a", "a", false)
+    if cut then
        Text.insert_left(txr,"(function()\{") ++ "return a;})()"
     else
        txr

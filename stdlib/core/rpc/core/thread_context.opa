@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Defining local_thread_context.
  *
@@ -61,7 +62,7 @@ import stdlib.core.{web.core}
 
 type ThreadContext.client = {
   client : string/**The (cookie) identity of the client */;
-  page:   int   /**An identifier serving to differenciate several pages being
+  page:   int   /**An identifier serving to differentiate several pages being
                    accessed simultaneously by the same client*/;
 }
 
@@ -95,6 +96,7 @@ type ThreadContext.t =
 /**
  * {1 Access to thread context}
  */
+
 ThreadContext = {{
   // /**
   //  * Create a thread context with [client] and [page] identifier.

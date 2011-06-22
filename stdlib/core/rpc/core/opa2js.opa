@@ -15,13 +15,29 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{web.core, js}
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 @server Opa2Js = {{
 
-  /* A common transformation. No back-end dependent, but JavaScript
-   * implementation dependent. */
+  /**
+   * A common transformation. No back-end dependent, but JavaScript
+   * implementation dependent.
+   */
   Common = {{
+
     /**
      * Serialize a server session on [RPC.Json.js_code].
      */
@@ -67,7 +83,7 @@ import stdlib.core.{web.core, js}
           _ = size
           {Record = lst}
 
-    /* Main auxiliar function *******************/
+    /* Main auxiliary function *******************/
     rec aux(value, ty) : RPC.Json.js_code =
       match ty with
       /* Basic case *****************************/
@@ -104,7 +120,7 @@ import stdlib.core.{web.core, js}
         | {none} -> aux_default(value, ty)
         end
 
-      /* Encapsuled types ***********************/
+      /* Encapsulated types ***********************/
       | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(value, impl): RPC.Json.js_code
       | {TyName_args = args; TyName_ident = ident} ->
         implem = OpaType.type_of_name(ident,args)

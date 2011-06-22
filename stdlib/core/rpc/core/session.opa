@@ -44,7 +44,7 @@ import stdlib.core.rpc.hlnet
  * {1 What are sessions?}
  *
  * A session is a unit of state and concurrency. A session can be created on a server
- * or on a client, an can be shared between serveral servers.
+ * or on a client, an can be shared between several servers.
  *
  * To construct a session, Opa requires an initial {e state} and a message {e handler}.
  * Each time a message is sent to a session, the handler is triggered and can optionally
@@ -65,7 +65,7 @@ import stdlib.core.rpc.hlnet
  * background, but only one message at a time. This ensures absolute consistency
  * on the state of the session but may not be appropriate for all applications.
  * By opposition, function [Session.NonBlocking.make] creates a session which
- * can handle any number of messages simultanously. This ensures maximal
+ * can handle any number of messages simultaneously. This ensures maximal
  * responsiveness, but the message handler cannot be certain that it is holding the
  * latest value of the state.
  *
@@ -93,7 +93,7 @@ import stdlib.core.rpc.hlnet
  * By default, a session uses the concurrency context of its creator. In other words, a
  * session created to handle a given HTTP request will retain the information on the user
  * performing that request, or the content of the request, even after the response to the
- * request. For tracability and security reasons, this is generally the desired behavior.
+ * request. For traceability and security reasons, this is generally the desired behavior.
  *
  * Some applications, however, need to be able to customize this behavior. For this purpose,
  * use function [Session.make_dynamic] instead of [Session.make].
@@ -169,6 +169,10 @@ channel_order = @nonexpansive(Order.make_unsafe(compare_channel)) : order(channe
 /** The Hlnet definitions for the protocol for "make_at" queries */
 type make_at_query = (OpaType.ty, OpaType.ty, RPC.Json.json, RPC.Json.json)
 type make_at_response = option(RPC.Json.json)
+
+/**
+ * {1 Interface}
+ */
 
 Session = {{
 
@@ -284,7 +288,7 @@ Session = {{
         )
 
     /**
-     * Like [make] but created session is shared beetween all of your
+     * Like [make] but created session is shared between all of your
      * servers which have the same directory. The shared session was
      * identified by a given [key].
      *
@@ -565,7 +569,7 @@ Session = {{
 
 
     /**
-     * {2 Utils}
+     * {2 Utilities}
      */
     /**
      * Get the server [entity] corresponding to the given [endpoint].

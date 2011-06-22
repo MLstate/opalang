@@ -69,6 +69,9 @@ type Session.how_send('message) =
     herror : -> void; hsuccess : -> void}
   /** Send with an error handler and success handler */
 
+/**
+ * {1 Interface}
+ */
 
 /* Register serialization and unserialization of -> unit on bsl */
 @both_implem register_uu =
@@ -86,11 +89,11 @@ type Session.how_send('message) =
 @private Session_private = {{
 
     /**
-     * {2 Utils}
+     * {2 Utilities}
      */
 
     /**
-     * Hight level handler to low level handler.
+     * High level handler to low level handler.
      * Convert a session handler to a function which take the state
      * and a message on parameter and returns an optional state.
      */
@@ -193,7 +196,7 @@ type Session.how_send('message) =
 
     /**
      * Send a message to the given channel [chan], with a function for
-     * [serialize] sended [message]. If the session was created with
+     * [serialize] sent [message]. If the session was created with
      * selector [sender], the session's handler is executed with the
      * given [context].
      */
@@ -221,7 +224,7 @@ type Session.how_send('message) =
 
 
     /**
-     * {2 Utils}
+     * {2 Utilities}
      */
 
     /**
