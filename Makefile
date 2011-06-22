@@ -163,8 +163,11 @@ install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocam
 	>> $(PREFIX)/bin/qmlflat
 
 # installs some dev tools on top of the normal install; these should not change often
-install-all: install install-bld install-qmlflat
+install-all: install install-bld install-qmlflat utils/maxmem
 	@$(INSTALL) platform_helper.sh $(PREFIX)/bin/
+	@$(INSTALL) utils/maxmem $(PREFIX)/bin/
+	@rm utils/maxmem
+	@$(INSTALL) utils/plotmem $(PREFIX)/bin/
 
 ##
 ## DOCUMENTATION
