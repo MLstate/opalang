@@ -26,13 +26,29 @@ let process_code_gen ~except annotmap code =
           match e with
           | Q.Directive (_, (#Q.type_directive as variant), _, _) when except variant ->
               tra annotmap e
-          | Q.Coerce (label,e,_)
-          | Q.Directive (label, #Q.type_directive, [e], _) ->
-              assert (QmlAnnotMap.find_tsc_inst_opt_label label annotmap = None);
+          | Q.Coerce (label,inner_e,_)
+          | Q.Directive (label, #Q.type_directive, [inner_e], _) ->
+              let tsc_inst_opt = QmlAnnotMap.find_tsc_inst_opt_label label annotmap in
+              let annotmap =
+                if tsc_inst_opt <> None then
+                  (* there should be no tsc_inst but if the typer has put one anyway
+                   * we work around it by putting it on the node below if it doesn't have one *)
+                  if QmlAnnotMap.find_tsc_inst_opt (Q.QAnnot.expr inner_e) annotmap = None then (
+                    let annotmap = QmlAnnotMap.add_tsc_inst_opt (Q.QAnnot.expr inner_e) tsc_inst_opt annotmap in
+                    let annotmap = QmlAnnotMap.add_ty (Q.QAnnot.expr inner_e) (QmlAnnotMap.find_ty_label label annotmap) annotmap in
+                    annotmap
+                  ) else (
+                    let context = QmlError.Context.expr e in
+                    QmlError.i_error None context "unexpected tsc_inst on a typing directive"
+                  )
+                else
+                  (* this is the normal case, when the typer doesn't do put funny
+                   * things in the annotmap *)
+                  annotmap in
               let tsc_gen_opt = QmlAnnotMap.find_tsc_opt_label label annotmap in
-              assert (QmlAnnotMap.find_tsc_opt (Q.QAnnot.expr e) annotmap = None);
-              let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr e) tsc_gen_opt annotmap in
-              self annotmap e
+              assert (QmlAnnotMap.find_tsc_opt (Q.QAnnot.expr inner_e) annotmap = None);
+              let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr inner_e) tsc_gen_opt annotmap in
+              self annotmap inner_e
           | Q.Directive (_, #Q.type_directive, _, _) ->
               assert false
           | Q.Match (label,e2,pel) ->
