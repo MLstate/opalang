@@ -4,6 +4,8 @@ import stdlib.crypto
 import stdlib.web.template
 import stdlib.web.client
 import stdlib.upload
+import stdlib.widgets.tabs
+import stdlib.widgets.core
 
 /**
  * {1 About this module}
@@ -147,6 +149,9 @@ type Page.Lock.return = outcome(
 / {locked : {lock_at : Date.date by : string lock_by : ThreadContext.client}}
 / {unlocked}
 )
+
+
+
 
 Page = {{
 
@@ -455,11 +460,89 @@ Page = {{
     /** A translation that allows to use file on dom identifiers. */
     @private file_id = Crypto.Hash.md5
 
+    // @both_implem  // @both_implem
+    // class(s) = WStyler.make_class(["TABS_{s}"])
+
+    // //Configuration
+
+    // @both_implem // @both_implem
+    // stylers = {
+    //   tabs =              class("tabs")
+    //   tab =               class("tab")
+    //   tab_content =       class("tab_content")
+    //   tab_sons =          class("tab_sons")
+    //   tab_selectable =    class("tab_selectable")
+    //   tab_checkable =     class("tab_checkable")
+    //   tab_no_sons =       class("tab_no_sons")
+    //   tab_closable =      class("tab_closable")
+    //   tab_duplicatable =  class("tab_duplicatable")
+    //   tab_close =         class("tab_close")
+    //   tab_duplicate =     class("tab_duplicate")
+    //   tab_add =           class("tab_add")
+    // }
+
+    // @client
+    // tabs_display(id : string) : void  =
+    //   check(pre : string )(dom : dom)=
+    //     if (Dom.get_id(dom) == "{pre}{id}") || (Dom.get_id(dom) == "thisisblock")
+    //     then
+    //       do Dom.show(dom)
+    //       void
+    //     else
+    //       do Dom.hide(dom)
+    //       void
+    //   _ = Dom.iter(check("tab_"), Dom.select_children(Dom.select_id("content")))
+    //   void
+
+    // @client
+    // on_select(_num:int, tab:WTabs.tab) = do tabs_display(Option.get(tab.custom_data)) true
+
+    // @client
+    // on_add(_num:int, _tab:WTabs.tab) = none
+
+    // @client
+    // on_remove(_num:int, _tab:WTabs.tab) = false
+    // @client
+    // on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
+    // @both
+    // insert_pos = {at_end}:WTabs.pos
+    // @both
+    // delete_pos = {after_select}:WTabs.pos
+    // @client
+    // new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
+
+    // @both// @both_implem
+    // tabs_config : WTabs.config = {
+    //   WTabs.default_config with
+    //     ~insert_pos ~delete_pos
+    //     ~on_select ~on_add
+    //     ~on_duplicate ~on_remove ~stylers
+    //     ~new_tab_content
+    //     add_text=none
+    // }
+
+    // tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
+
+    // add_tab(id : string, title : string) =
+    //     // content = <div id="tab_{id}" onready={_ -> Dom.transform([#{"tab_{id}"} <- xhtml() ])}></div>
+    //     on_remove(_,_) =  // _ = Dom.remove(#{"nav_{id}"}) _ = Dom.remove(#{"tab_{id}"})
+    //       true
+    //     new_tab_content(_i) = WTabs.make_constant_content(title)
+    //     on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
+    //                      true, true, false, 
+    //                      some(id), none, none))
+    //     config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
+    //     // _ = Dom.transform([#navbar +<- nav_bar,
+    //     //       #content +<- content])
+    //     do WTabs.add_tab(config,"tabs_file")
+    //     void
+
     @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
       <td onclick={Action.open_file(access, file, published_rev)}>
         {file_for_xhtml(file)}
         {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
         {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
+        {if has_preview(file) then "[preview]" else ""}
       </td>
 
     /** Create a file line for table insert. */
@@ -495,6 +578,7 @@ Page = {{
       lock_button_id = "{id}_button_lock"
       save_button_id = "{id}_button_save"
       draft_id = "{id}_draft"
+      unpreview_id = "{id}_unpreview"
 
       editor_id = "{id}_editor"
       reporting_id = "{id}_reporting"
@@ -529,16 +613,13 @@ Page = {{
 
       /* Generate history selector */
       rec build_pub_version(rev : option(int)) =
-        get_selected_rev() =
-          Int.of_string(Dom.get_value(Dom.select_id(select_id)))
-        action_history_current(_:Dom.event) = build(none)
         xhtml =
           <div> Published revision : {r = access.access.get_rev_number(file)
                                       if r.rev == -1
                                       then "none"
                                       else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</div>
         do access.notify.subscribe(
-             | {event={~save} ~by} ->
+             | {event={~save} by=_} ->
                if save != file then void else
                build_pub_version(rev)
              | _ -> void
@@ -582,9 +663,6 @@ Page = {{
           </>
           match action with
           | {some = action} ->
-              unpreview_id = "{id}_unpreview"
-              lock_button_id = "{id}_button_lock"
-              save_button_id = "{id}_button_save"
               do access.notify.subscribe(
                    | {event={~lock} ~by} ->
                      if lock != file || Outcome.is_success(access.locker.check(file)) //so bad
@@ -592,15 +670,15 @@ Page = {{
                      b = Dom.select_id(save_button_id)
                      do Dom.set_enabled(b, false)
                      do action.read_only(true)
-                     do Dom.put_inside(b, Dom.of_xhtml(<>Save : (locked by {by})</>))
+                     _ =  Dom.put_inside(b, Dom.of_xhtml(<>Save : (locked by {by})</>))
                      void
-                   | {event={~release} ~by} -> if release != file then void else
+                   | {event={~release} by=_} -> if release != file then void else
                      b = Dom.select_id(save_button_id)
                      do Dom.set_enabled(b, true)
                      do action.read_only(false)
-                     do Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
+                     _= Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
                      void
-                   | {event={publish=(mfile,rev)} ~by } -> if mfile != file then void else
+                   | {event={publish=(mfile,rev)} by=_ } -> if mfile != file then void else
                      build_pub_version(some(rev))
                    | {event={~save} by=_} -> if save != file then void else
                      build_pub_version(rev)
@@ -626,7 +704,7 @@ Page = {{
               and action_release(_:Dom.event) =
                 result = access.locker.release(file)
                 do do_report(<>Release {lock_message(result)}</>)
-                do Dom.put_replace(Dom.select_id(lock_button_id),
+                _ =  Dom.put_replace(Dom.select_id(lock_button_id),
                                    Dom.of_xhtml(lock_button))
                 do Dom.set_enabled(Dom.select_id(save_button_id), false)
                 do action.read_only(true)
@@ -704,7 +782,7 @@ Page = {{
                 <input type="text" id="{mime_id}" value="{mime}"/></>
           _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
           save() =
-            do save({mime = Dom.get_value(Dom.select_id(mime_id))})
+            _rev = save({mime = Dom.get_value(Dom.select_id(mime_id))})
             do access.notify.send({save = file})
             void
           make_buttons(rev,some({
@@ -807,7 +885,7 @@ Page = {{
             <div id={reporting_id} style="foat:left" />
             <div id={command_id} />
             <div id={published_id} />
-          do Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(html))
+          _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(html))
           do build_reporting()
           do build_buffers(rev)
           do build_pub_version(rev)
@@ -831,6 +909,7 @@ Page = {{
      */
     @client insert_buffer(access:Page.full_access, opened, file) =
       edito = Dom.select_id("admin_editor_container")
+      //do add_tab(file,file)
       buffer = Dom.of_xhtml(file_buffer(access, opened, file))
       _ = Dom.put_at_end(edito, buffer)
       void
@@ -922,7 +1001,6 @@ Page = {{
        Dom.get_value(Dom.select_id("upload_mime_type")))
 
     @client @private hack(access:Page.full_access)(_:Dom.event) =
-      d = Dom.select_id("admin_files_table")
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
         (file,pub) ->
@@ -930,7 +1008,7 @@ Page = {{
             (if pub.rev==0 then none else some(pub.rev))),
         page_list)
       access.notify.subscribe(
-        | {event={publish=(file,rev)} ~by} ->
+        | {event={publish=(file,rev)} by=_} ->
           file_line_insert(access, false, file, none,some(rev))
         | _ -> void
       )
@@ -1006,8 +1084,8 @@ Page = {{
             _ = Dom.put_at_end(dom, Dom.of_xhtml(xhtml))
             do Dom.scroll_to_bottom(dom)
             void
-          do access.notify.subscribe(handler)
-          do access.notify.send({connect})
+          _ = access.notify.subscribe(handler)
+          _ = access.notify.send({connect})
           void
         }>
         </div>
@@ -1016,6 +1094,7 @@ Page = {{
           <button onclick={Action.send_message(access)}>Send a message</button>
         </div>
       </div>
+      
       <div id="admin_editor_container">
         {file_buffer(access, true, url)}
       </div>
