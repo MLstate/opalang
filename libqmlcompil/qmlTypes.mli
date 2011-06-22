@@ -428,11 +428,6 @@ val process_scheme : gamma -> typescheme -> typescheme
 val process_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotmap
 val process_typenames_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotmap
 
-(** place-holder for a finer dependency analysis of type definitions, used in the Blender;
-    for the moment, assumes dependency is maximal and returns a single mutually-recursive
-    definition of all types *)
-val dependency : QmlAst.code -> QmlAst.code
-
 (** fails if there are duplicate type definitions *)
 val check_no_duplicate_type_defs : QmlAst.code -> unit
 

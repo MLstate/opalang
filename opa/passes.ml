@@ -483,7 +483,7 @@ let qml_milkshake = env.newFinalCompile_qml_milkshake in
 let pass_ReplaceCompileTimeDirective ~options code =
   {code with sa_lcode = Pass_CompileTimeDirective.process_code ~options code.sa_lcode}
 
-let pass_DbAccessorsGeneration ~(options:opa_options) env =
+let pass_DbAccessorsGeneration ~options:(_ : opa_options) env =
   (** About alpha conv : use opa ones, but do not apply it since calling blender final only*)
   let alphaconv_opt =
     let map =
@@ -498,20 +498,8 @@ let pass_DbAccessorsGeneration ~(options:opa_options) env =
         IdentMap.empty in
     Some (QmlAlphaConv.create_from_maps ~map:map ~revmap:revmap)
   in
-  let blender_options = QmlBlender.DyDbGenBlender.default_options () in
-  (** BLENDER : replacing all db access to correct bypass call to db3 librarie using dbGen *)
-  let typerEnv =
-    { env.typerEnv with
-        QmlTypes.exception_handler =
-          QmlTyperErrHandling.typechecking_exception_handler ;
-        QmlTypes.options =
-        { blender_options.QmlBlender.initial_env.QmlTypes.options
-          with
-            QmlTypes.explicit_instantiation = options.OpaEnv.explicit_instantiation;
-        }
-    }
-  in
   let () = env.temporary_env in
+  let typerEnv = env.typerEnv in
   let gamma = typerEnv.QmlTypes.gamma in
   let annotmap = typerEnv.QmlTypes.annotmap in
   let schema = typerEnv.QmlTypes.schema in

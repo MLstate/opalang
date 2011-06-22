@@ -46,7 +46,6 @@ let debug fmt =
   in
 *)
 
-(* FIXME: what in case of fatal error ? *)
 module HLParser =
 struct
   let nopos = FilePos.nopos "BslLib.HLParser"

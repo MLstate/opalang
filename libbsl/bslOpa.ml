@@ -125,62 +125,8 @@ let preprocess ~final_bymap decorated_file =
 
 (*
   TODO:
-  some elts from the old BslRegisterLib
-
-  MLstateLanguages.parse_and_check_type  ~lang  ~interface env (file, contents)
-
-    let mlstate_check_ast lang =
-        let fold_map_opt ~interface env (lang2, (file, contents)) =
-          if MLstateLanguage.compare lang lang2 = 0
-          then MLstateLanguages.parse_and_check_type ~lang ~interface env (file, contents)
-          else env, None
-        in
-        let env as initial_env = BslInitChecker.empty ~bypass_typer () in
-        let env, _ = List.fold_left_filter_map (fold_map_opt ~interface:(fun _ -> None)) env reg.reg_bootstrap.bootstrap_mlstateinit in
-        let env, ast_list = List.fold_left_filter_map (fold_map_opt ~interface) env finload_mlstateinit in
-        let ast_final = List.concat ast_list in
-
-        (* Init-Blend-Checking -- to detect early features used in the libs but not supported by the blender (if any) *)
-        let env =
-          begin
-            verbose "Init-Blend-Checking";
-            let options = { (QmlBlender.OfficialDbGenBlender.default_options ()) with
-                              QmlBlender.initial_env = initial_env ;
-                              alphaconv_opt = None
-                          } in
-            let fail s =
-              werror (sprintf "Init-Blend-Checking failed because of the following error :\n%s" s);
-              { env with QmlTypes.had_error = true } in
-            try
-              let _ = QmlBlender.OfficialDbGenBlender.blend_initial ~options ast_final in
-              env
-            with
-            | QmlTypes.Exception e -> fail (QmlTyper.OfficialTyper.string_of_error e)
-            | QmlTyperException.Exception e -> fail (QmlTyperExceptionUtils.to_string e)
-            | e -> fail (Printexc.to_string e)
-          end
-        in
-        (* Init-Blend-Checking *)
-
-        (** Will stop if there is some error *)
-        (if env.QmlTypes.had_error
-         then
-           if BslInitChecker.is_unsafe_mode ()
-           then werror "building process accomplished with errors ignored because of option unsafe"
-           else
-             begin
-               werror "building process not accomplished due to errors in init-code";
-               List.iter (fun (_, (file, contents)) ->
-                            let file = Filename.basename file in
-                            let log = sprintf "bsl_log_%s" file in
-                            werror (sprintf "generating \"%s\" ..." log);
-                            (if not (File.output log contents) then error (sprintf "error in generation in debug log %s" log))) (reg.reg_bootstrap.bootstrap_mlstateinit@finload_mlstateinit);
-               exit 1
-             end
-        );
-      in
-
-
+  when we will finaly remove mlstatebsl files, we will remove opa files from opa-plugin-builder files
+  and remove the module BslOpa
 *)
 
 type true_means_error = bool

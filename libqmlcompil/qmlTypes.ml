@@ -958,17 +958,6 @@ let process_typenames_annotmap ~gamma annotmap =
 let process_annotmap ~gamma annotmap =
   QmlAnnotMap.map (type_of_type gamma) annotmap
 
-(*
-  Mathieu Mon Oct 11 18:30:40 CEST 2010
-  FIXME: one declaration for everything, is it a joke ?
-*)
-let dependency code =
-  let label = Annot.nolabel "QmlTypes.dependency" in
-  [
-    Q.NewType (label,
-               (List.concat_map (function | Q.NewType (_, l) -> l | _ -> assert false) code))
-  ]
-
 let check_no_duplicate_type_defs =
   let cmp x y =
     let c = TypeIdent.compare_names x y in

@@ -295,10 +295,7 @@ struct
       let blender_options =
         let blender_options = QmlBlender.DyDbGenBlender.default_options () in
         { blender_options with
-            QmlBlender.typer_off = false ;
             initial_env = { blender_options.QmlBlender.initial_env with QmlTypes.bypass_typer = bypass_typer } ;
-            (* FIXME: check that blender uses PassTracker to output the schema *)
-            display_schema = options.display_schema
         } in
       let qml_milkshake =
         let fct () =

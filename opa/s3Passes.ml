@@ -1575,8 +1575,6 @@ let pass_SlicedToFinal =
            let blender_milkshake : QmlBlender.qml_milkshake =
              { QmlBlender.env = typerEnv;
                QmlBlender.alphaconv = None;
-               QmlBlender.code_dbfiles = [];
-               QmlBlender.code_dbdefs = [];
                QmlBlender.code_typedefs = [];
                QmlBlender.code = sliced_aux.P.code;
              } in
