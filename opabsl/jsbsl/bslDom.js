@@ -886,5 +886,5 @@ function bsldom_do_slide_out(dom, maybe_duration, maybe_easing, maybe_cb)
       ev.returnValue = prompt;    //For IE, FF
       return prompt;              //For Safari
    }
-   $(window).bind('beforeunload', f);
+    (new $(window)).bind('beforeunload', f);
 }

@@ -36,13 +36,13 @@ var _true
  */
 var _false
 /**
- * @type {!*}
+ * @type {!Object}
  */
 var js_none
 
 /**
  * @param {!*} s
- * @return {!*}
+ * @return {!Object}
  */
 var js_some
 
@@ -104,7 +104,7 @@ var field_of_name = function(name) {}
 
 /**
  * @param {!string} name
- * @return {!*}
+ * @return {!string}
  */
 var static_field_of_name = function(name) {}
 

@@ -19,7 +19,13 @@
 var js_void = {}
 var _true = true
 var _false = false
+/**
+ * @type {!Object}
+ */
 var js_none = {none:js_void}
+/**
+  * @return(!Object)
+  */
 function js_some(x) { return {some:x} }
 function bool2obj(x) {
     // WONT BE IMPLEMENTED or change the name

@@ -508,6 +508,7 @@ function opa_event_to_dom_event(event, name)
     return result;
 }
 
+/* Looks like it is not used anymore.
 function tn_encaps(tn, fun){
     var a = (new $(document.createElement('span')));
   a.append(tn[0].data);
@@ -516,6 +517,7 @@ function tn_encaps(tn, fun){
   a.myrplce(tn);
   return ret;
 }
+*/
 
 // jQuery Plugins
 

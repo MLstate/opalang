@@ -239,7 +239,7 @@ this.close_jlog= function () { (new jQuery("#" + jlog_id)).remove() };
 var jlog_item;
 var jlog_with_colors= function(foreground, background, message)
 {
-  $(function(){
+  new $(function(){
     if (!document.getElementById(jlog_id))
     {
       var item = "position: absolute; right: 0px; top: 0px; z-index: 100; font-size: .7em; ";

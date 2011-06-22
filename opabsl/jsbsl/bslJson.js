@@ -74,7 +74,8 @@ function is_float(n){
         str = str.substr(1);
         while (str.length > 0){
             var start_json = str.search(/[^0-9]/);
-            var json_length = parseInt(str.substr(0, start_json));
+            // Numbers are parsed as decimal strings.
+            var json_length = parseInt(str.substr(0, start_json), 10);
             var json = str.substr(start_json, json_length);
             tab.push(JSON.parse(json));
             str = str.substr(start_json + json_length);
