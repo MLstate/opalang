@@ -3077,8 +3077,7 @@ and cache = __3
 and annots = __2 in
 
 #64 "trxparse.trx"
-( jlog ~level:2 (sprintf "definition: %s" id) ;
-	   let entry = 
+( let entry = 
 	     { PG.expression = expr 
 	     ; debug = debug <> None 
 	     ; mark = mark <> None
@@ -3629,8 +3628,7 @@ and cache = __3
 and annots = __2 in
 
 #64 "trxparse.trx"
-( jlog ~level:2 (sprintf "definition: %s" id) ;
-	   let entry = 
+( let entry = 
 	     { PG.expression = expr 
 	     ; debug = debug <> None 
 	     ; mark = mark <> None
