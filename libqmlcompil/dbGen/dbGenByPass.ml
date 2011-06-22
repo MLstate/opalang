@@ -168,18 +168,8 @@ struct
   let distributed = use_distributed_db
 end
 
-module I_Fun : I with type env = ExprIdent.t -> ExprIdent.t =
-struct
-  type env = ExprIdent.t -> ExprIdent.t
-  let empty = fun i -> i
-  let conv env id = env id
-  let distributed = use_distributed_db
-end
-
-
 module BSLDbGen = MakeS ( QmlInterface ) ( I_Unit )
 module BSLDbGenAlpha = MakeS ( QmlInterface ) ( I_Alpha )
-module BSLDbGenFun = MakeS ( QmlInterface )  ( I_Fun )
 
 module DbOpaInterface =
 struct
@@ -200,4 +190,3 @@ struct
 end
 
 module BSLDbGenAlphaOpa = MakeS ( DbOpaInterface )  ( I_Alpha )
-module BSLDbGenFunOpa = MakeS ( DbOpaInterface )  ( I_Fun )

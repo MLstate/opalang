@@ -185,11 +185,8 @@ module DbGenByPass : sig
   module MakeS ( N : DbGenByPass.SourceInterface ) (I : DbGenByPass.I) : S with type ValInitial.env = I.env
   module I_Unit : DbGenByPass.I
   module I_Alpha : DbGenByPass.I
-  module I_Fun : DbGenByPass.I
   module BSLDbGen : S
   module BSLDbGenAlpha : S
-  module BSLDbGenFun : S
-  module BSLDbGenFunOpa : S with type ValInitial.env = Ident.t -> Ident.t
   module BSLDbGenAlphaOpa : S with type ValInitial.env = QmlAlphaConv.t option
 end
 
