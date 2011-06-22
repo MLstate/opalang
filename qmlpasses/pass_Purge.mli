@@ -17,7 +17,7 @@
 *)
 
 (**
-   Purging type directives, except @module and @warncoerce and @unsafe_cast
+   Purging type directives, except \@module and \@warncoerce and \@unsafe_cast
 *)
 val process_code_after_typer : QmlAst.annotmap -> QmlAst.code -> QmlAst.annotmap * QmlAst.code
 
