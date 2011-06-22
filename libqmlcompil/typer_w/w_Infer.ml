@@ -49,9 +49,18 @@ let annotmap_add_scheme_creation key scheme annotmap =
     (Annot.to_string key)
   #<End> ;
   let (quantif, _, _) = QmlGenericScheme.export_unsafe scheme in
-  if  QmlTypeVars.FreeVars.is_empty quantif then annotmap
-  else QmlAnnotMap.add_tsc key scheme annotmap
-
+  if QmlTypeVars.FreeVars.is_empty quantif then (
+    #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+    OManager.printf "annotmap_add_scheme_creation: trivial scheme: no addition.@." ;
+    #<End> ;
+    annotmap
+   )
+  else (
+    #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+    OManager.printf "annotmap_add_scheme_creation: non-trivial scheme: addition.@." ;
+    #<End> ;
+    QmlAnnotMap.add_tsc key scheme annotmap
+   )
 
 
 (* ************************************************************************** *)
@@ -70,8 +79,18 @@ let annotmap_add_scheme_elimination key scheme annotmap =
     (Annot.to_string key)
   #<End> ;
   let (quantif, _, _) = QmlGenericScheme.export_unsafe scheme in
-  if  QmlTypeVars.FreeVars.is_empty quantif then annotmap
-  else QmlAnnotMap.add_tsc_inst key scheme annotmap
+  if  QmlTypeVars.FreeVars.is_empty quantif then (
+    #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+    OManager.printf "annotmap_add_scheme_elimination: trivial scheme: no addition.@." ;
+    #<End> ;
+    annotmap
+   )
+  else (
+    #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+    OManager.printf "annotmap_add_scheme_elimination: non-trivial scheme: addition.@." ;
+    #<End> ;
+    QmlAnnotMap.add_tsc_inst key scheme annotmap
+   )
 
 
 
@@ -99,6 +118,11 @@ let perform_infer_expr_type_postlude expr annotmap infered_ty =
   (* We still must automatically instantiate the type if it is a type forall. *)
   let (final_ty, was_instantiated) =
     W_SchemeGenAndInst.automatically_instantiate_if_forall infered_ty in
+  #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+  OManager.printf
+    "perform_infer_expr_type_postlude: forall auto inst: %b@."
+    (was_instantiated <> None) ;
+  #<End> ;
   (* If the type was a type forall, then it was implicitly instantiated, and in
      this case we must extend the annotation map with a "scheme has been
      instantiated" information. *)
