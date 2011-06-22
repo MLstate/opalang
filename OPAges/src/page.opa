@@ -1190,7 +1190,7 @@ Page = {{
         { config = Upload.default_config(init_result)
           config = { config with ~fold_datas ~perform_result
                        body_form = <>
-                         Filename : <input  id="admin_new_file" name="upload_file_name" type="text"/>
+                         Filename : <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
                          <button type="button" onclick={Action.new_file(access)}>New file</button>
                          Mime-type <input name="upload_mime_type" type="text" value="application/octet-stream"/>
                          <input type="file" name="upload_file_content"/>
