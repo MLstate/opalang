@@ -59,7 +59,6 @@ libbase/DependenciesOrdering
 libbase/DebugPrint
 libbase/Return
 # the following libs can be split into 2 libs for_compiler & for_server
-libbase/Io
 libbase/Uchar
 libbase/Heap
 libbase/Xml
