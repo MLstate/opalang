@@ -94,7 +94,7 @@ module type JsBackend = sig
                 ?closure_map:Ident.t IdentMap.t ->
                 renaming_server:QmlRenamingMap.t ->
                 renaming_client:QmlRenamingMap.t ->
-                t -> BslLib.env_bsl -> Qml2ocaml.env_blender -> env_js_input
+                t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
   val name : string
   val runtime_libs : cps:bool -> (string * BslJsConf.conf) list
   val dummy_compile : unit -> unit (* if the back end is not called because the input code is empty

@@ -254,15 +254,16 @@ sig
                 (module Qml2jsOptions.JsBackend) ->
                 Qml2jsOptions.t ->
                 BslLib.env_bsl ->
-                Qml2ocaml.env_blender ->
+                QmlTyper.env ->
+                QmlAst.code ->
                 J.env_js_input
   val dummy_for_opa : (module Qml2jsOptions.JsBackend) -> unit
 end
 =
 struct
-  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client back_end argv bsl blender =
+  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client back_end argv env_bsl env_typer code =
     let module M = (val back_end : Qml2jsOptions.JsBackend) in
-    let env_js_input = M.compile ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client argv bsl blender in
+    let env_js_input = M.compile ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client argv env_bsl env_typer code in
     env_js_input
   let dummy_for_opa backend =
     let module M = (val backend : Qml2jsOptions.JsBackend) in

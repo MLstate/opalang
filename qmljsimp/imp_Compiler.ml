@@ -26,11 +26,11 @@ module E = Imp_Env
 
 let warning_set = Imp_Warnings.warning_set
 
-let initial_env ~val_ ~renaming_server ~renaming_client options blender =
+let initial_env ~val_ ~renaming_server ~renaming_client options env_typer code =
   let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
   let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~js_ctrans () in
-  let gamma = blender.QmlBlender.env.QmlTypes.gamma in
-  let annotmap = blender.QmlBlender.env.QmlTypes.annotmap in
+  let gamma = env_typer.QmlTypes.gamma in
+  let annotmap = env_typer.QmlTypes.annotmap in
   let env = {E.
     options;
     gamma;
@@ -40,7 +40,6 @@ let initial_env ~val_ ~renaming_server ~renaming_client options blender =
     renaming_client;
     renaming_server;
   } in
-  let code = blender.QmlBlender.code in
   env, code
 
 let initial_private_env () = {E.
@@ -61,10 +60,10 @@ let repeat2 n f =
       aux (i+1) a b in
   aux 0
 
-let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming_server ~renaming_client options _bslenv blender =
+let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming_server ~renaming_client options _env_bsl env_typer code =
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
-  let env, code = initial_env ~val_ ~renaming_server ~renaming_client options blender in
+  let env, code = initial_env ~val_ ~renaming_server ~renaming_client options env_typer code in
   let js_init = Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in

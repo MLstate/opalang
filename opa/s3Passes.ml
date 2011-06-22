@@ -1574,8 +1574,6 @@ let pass_SlicedToFinal =
          let mk_blender typerEnv sliced_aux =
            let blender_milkshake : QmlBlender.qml_milkshake =
              { QmlBlender.env = typerEnv;
-               QmlBlender.alphaconv = None;
-               QmlBlender.code_typedefs = [];
                QmlBlender.code = sliced_aux.P.code;
              } in
            { P.
@@ -1705,9 +1703,9 @@ let pass_ResolveJsIdent =
        let env =
          { env with P.
              newFinalCompile_qml_milkshake =
-             { env.P.newFinalCompile_qml_milkshake with
-                 QmlBlender.code = code;
-                 QmlBlender.env =
+             { QmlBlender.
+                 code = code ;
+                 env =
                    { env.P.newFinalCompile_qml_milkshake.QmlBlender.env with
                        QmlTypes.annotmap = annotmap;
                    }
@@ -1734,8 +1732,8 @@ let pass_GenerateServerAst generate =
        let env =
          { env with P.
              newFinalCompile_qml_milkshake =
-             { env.P.newFinalCompile_qml_milkshake with QmlBlender.
-                 code;
+             { QmlBlender.
+                 code ;
                  env =
                  { env.P.newFinalCompile_qml_milkshake.QmlBlender.env with QmlTypes.
                      annotmap;
@@ -1775,7 +1773,7 @@ let pass_InitializeBslValues =
        let annotmap, code = extract_final_ac env in
        let gamma = extract_final_gamma env in
        let gamma, annotmap, code = Pass_InitializeBslValues.process_code bypass_typer gamma annotmap code in
-       let milkshake = {env.P.newFinalCompile_qml_milkshake with QmlBlender.
+       let milkshake = { QmlBlender.
                           code = code;
                           env = {env.P.newFinalCompile_qml_milkshake.QmlBlender.env with QmlTypes.
                                    annotmap = annotmap;

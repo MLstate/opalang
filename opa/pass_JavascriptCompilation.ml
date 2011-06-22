@@ -304,7 +304,19 @@ let full_serialize
       OpaMapToIdent.val_ ~side:`client name
     with Not_found ->
       OManager.error "Function %S not registered in Opacapi@\n" name in
-  let env_js_input = Qml2js.Sugar.for_opa ~bsl:bsl_and_plugin_ast ~val_:env_js_input_val_ ~closure_map ~renaming_server ~renaming_client back_end jsoptions bsl_client client in
+  let env_js_input =
+    Qml2js.Sugar.for_opa
+      ~bsl:bsl_and_plugin_ast
+      ~val_:env_js_input_val_
+      ~closure_map
+      ~renaming_server
+      ~renaming_client
+      back_end
+      jsoptions
+      bsl_client
+      client.QmlBlender.env
+      client.QmlBlender.code
+  in
 
   let rev_code : JsSerializer.jsast_code = [] in
   let rev_code = List.fold_left

@@ -381,9 +381,10 @@ let extract_env_NewFinalCompile (env:env_NewFinalCompile) =
 
 let rebuild_env_NewFinalCompile (env:env_NewFinalCompile) typerEnv code : env_NewFinalCompile =
   let milkshake =
-    { env.newFinalCompile_qml_milkshake with
-        QmlBlender.env = typerEnv;
-        QmlBlender.code = code }
+    { QmlBlender.
+      env = typerEnv ;
+      code ;
+    }
   in
     { env with
         newFinalCompile_qml_milkshake = milkshake }
@@ -443,9 +444,9 @@ let pass_QmlUncurry2 ~typed ~side ~options:_ env =
     Pass_Uncurry.process_code ~side ~typed ~can_be_cleaned gamma annotmap code in
   let typerEnv = {typerEnv with QmlTypes.gamma; annotmap} in
   let newFinalCompile_qml_milkshake =
-    { env.newFinalCompile_qml_milkshake with QmlBlender.
-        env = typerEnv;
-        code = code;
+    { QmlBlender.
+        env = typerEnv ;
+        code ;
     } in
   { env with newFinalCompile_qml_milkshake; newFinalCompile_closure_map }
 let pass_QmlClosure2 ~typed ~side ~options env =

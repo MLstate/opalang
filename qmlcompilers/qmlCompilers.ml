@@ -62,9 +62,35 @@ type options = Qml2ocamlOptions.argv_options
 *)
 type env_final = {
   env_bsl : BslLib.env_bsl ;
-  env_blender : QmlBlender.qml_milkshake
+  env_typer : QmlTyper.env ;
+  code : QmlAst.code ;
 }
 
+let extract_final_ac env = env.env_typer.QmlTypes.annotmap, env.code
+let extract_final_agc env = env.env_typer.QmlTypes.annotmap, env.env_typer.QmlTypes.gamma, env.code
+let extract_final_code env = env.code
+let extract_final_bypass_typer env = env.env_typer.QmlTypes.bypass_typer
+let extract_final_bypass_typer_code env = extract_final_bypass_typer env, extract_final_code env
+
+(**
+   Get a function working on env_final from a process_code working on gamma, annotmap and code
+*)
+let final_sugar ~process_code =
+  let pass env_final =
+    let env_typer = env_final.env_typer in
+    let gamma = env_typer.QmlTypes.gamma in
+    let annotmap = env_typer.QmlTypes.annotmap in
+    let code = env_final.code in
+    let (gamma, annotmap), code = process_code gamma annotmap code in
+    { env_final with
+        env_typer = { env_typer with QmlTypes.
+                        gamma ;
+                        annotmap ;
+                    } ;
+        code ;
+    }
+  in
+  ( pass : env_final -> env_final )
 
 module QmlPasses :
 sig
@@ -94,9 +120,9 @@ sig
     PassHandler.pass
 
   (**
-     Blend the code : DbGen + Typing + AlphaConv
+     AlphaConv + Typing
   *)
-  val pass_Blend :
+  val pass_Typing :
     (options, options, BslLib.env_bsl * env_parsed, env_final) PassHandler.pass
 
   (** {6 Middle passes} *)
@@ -273,7 +299,6 @@ struct
     try
       fct ()
     with
-    | QmlBlender.Exception s -> OManager.error "Blender : %s" s
     | (QmlTypes.Exception _ | QmlTyperException.Exception _) as exn ->
         (* At this point, we do not have any environment nor annotations map. *)
         OManager.error "Typer : %a"
@@ -283,23 +308,55 @@ struct
     | QmlCpsRewriter.Exception e ->
         OManager.error "QmlCps : %s" (QmlCpsRewriter.error_message e)
 
-  let pass_Blend =
-    let extract_ac env = env.env_blender.QmlBlender.env.QmlTypes.annotmap, env.env_blender.QmlBlender.code in
-    let extract_agc env = env.env_blender.QmlBlender.env.QmlTypes.annotmap, env.env_blender.QmlBlender.env.QmlTypes.gamma, env.env_blender.QmlBlender.code in
-    let extract_code env = env.env_blender.QmlBlender.code in
+  module HighTyper = QmlTyper.DynamicallyChangeableTyper.HighTyper
+
+  let pass_Typing =
     let transform pass_env =
-      let options = pass_env.PassHandler.options in
-      let bsl, qml = pass_env.PassHandler.env in
+      let env_bsl, qml = pass_env.PassHandler.env in
       (** construction of bypass_typer *)
-      let bypass_typer = BslLib.BSL.ByPassMap.bypass_typer bsl.BslLib.bymap in
-      let blender_options =
-        let blender_options = QmlBlender.DyDbGenBlender.default_options () in
-        { blender_options with
-            initial_env = { blender_options.QmlBlender.initial_env with QmlTypes.bypass_typer = bypass_typer } ;
-        } in
-      let qml_milkshake =
+      let bypass_typer = BslLib.BSL.ByPassMap.bypass_typer env_bsl.BslLib.bymap in
+      let env_typer =
+        HighTyper.initial
+          ~explicit_instantiation:false
+          ~bypass_typer
+          ~value_restriction:`disabled
+          ~exported_values_idents:IdentSet.empty
+          ()
+      in
+      let env_typer, code =
+        let code = Option.default [] qml.init_code @ qml.user_code in
         let fct () =
-          QmlBlender.DyDbGenBlender.full_blend ~options:blender_options (Option.default [] qml.init_code @ qml.user_code)
+          (* 1°: sorting things out *)
+          let code_defs, code_dbfiles, code_dbdefs, code =
+            (* verbose "I-1) Sorting top-level nodes"; *)
+            let sort_user = QmlAstSort.add QmlAstSort.empty code in
+            let code_defs = QmlAstSort.Get.new_type sort_user
+            and code_dbfiles = QmlAstSort.Get.database sort_user
+            and code_dbdefs = QmlAstSort.Get.new_db_value sort_user
+            and user_code = QmlAstSort.Get.new_val sort_user
+            in code_defs, code_dbfiles, code_dbdefs, user_code
+          in
+
+          assert (code_dbfiles = []);
+          assert (code_dbdefs = []);
+
+          (* pre-2: dependency analysis on type definitions *)
+          QmlTypes.check_no_duplicate_type_defs code_defs;
+
+          (* 2°: getting type definitions into Gamma *)
+          let env_typer = HighTyper.fold env_typer code_defs in
+
+          (* 5°: alpha-conversion *)
+          let code =
+            let alpha = QmlAlphaConv.next () in
+            (* verbose "I-5) alpha-converting the code"; *)
+            let _, code = QmlAlphaConv.code alpha code in
+            code
+          in
+
+          (* 6°: typing *)
+          let env_typer = HighTyper.fold env_typer code in
+          env_typer, code
         in
         handle_exception_error fct
       in
@@ -308,12 +365,13 @@ struct
 
       let env =
         {
-          env_bsl = bsl ;
-          env_blender = qml_milkshake
+          env_bsl ;
+          env_typer ;
+          code ;
         }
       in
-      let printers = QmlTracker.printers extract_agc in
-      let trackers = QmlTracker.trackers extract_code in
+      let printers = QmlTracker.printers extract_final_agc in
+      let trackers = QmlTracker.trackers extract_final_code in
       { pass_env with PassHandler.
           env ;
           printers ;
@@ -326,7 +384,7 @@ struct
       ] in
     let postcond =
       [
-        QmlAlphaConv.Check.alpha extract_ac
+        QmlAlphaConv.Check.alpha extract_final_ac
       ] in
     PassHandler.make_pass ~precond ~postcond transform
 
@@ -338,14 +396,13 @@ struct
 
   let make_final_pass precond postcond process_code =
     let transform pass_env =
-      let blender = pass_env.PassHandler.env.env_blender in
-      let blender =
-        let fct () = QmlBlender.Sugar.process_code ~process_code blender in
+      let env_final = pass_env.PassHandler.env in
+      let env_final =
+        let fct () = final_sugar ~process_code env_final in
         handle_exception_error fct
       in
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
     PassHandler.make_pass ~precond ~postcond transform
@@ -353,66 +410,61 @@ struct
   let make_final_pass_options precond postcond process_code =
     let transform pass_env =
       let options = pass_env.PassHandler.options in
-      let blender = pass_env.PassHandler.env.env_blender in
+      let env_final = pass_env.PassHandler.env in
       let process_code = process_code options in
-      let blender =
-        let fct () = QmlBlender.Sugar.process_code ~process_code blender in
+      let env_final =
+        let fct () = final_sugar ~process_code env_final in
         handle_exception_error fct
       in
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
     PassHandler.make_pass ~precond ~postcond transform
 
 
-  let make_final_pass_options_blender precond postcond process_code =
+  let make_final_pass_options_env_typer precond postcond process_code =
     let transform pass_env =
       let options = pass_env.PassHandler.options in
-      let blender = pass_env.PassHandler.env.env_blender in
-      let blender =
-        let fct () = QmlBlender.Sugar.process_code ~process_code:(process_code options blender) blender in
+      let env_final = pass_env.PassHandler.env in
+      let env_typer = env_final.env_typer in
+      let env_final =
+        let fct () = final_sugar ~process_code:(process_code options env_typer) env_final in
         handle_exception_error fct
       in
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
     PassHandler.make_pass ~precond ~postcond transform
 
   let make_final_pass_bypass_typer precond postcond process_code =
     let transform pass_env =
-      let blender = pass_env.PassHandler.env.env_blender in
-      let bypass_typer = blender.QmlBlender.env.QmlTypes.bypass_typer in
-      let blender =
-        let fct () = QmlBlender.Sugar.process_code ~process_code:(process_code bypass_typer) blender in
+      let env_final = pass_env.PassHandler.env in
+      let bypass_typer = env_final.env_typer.QmlTypes.bypass_typer in
+      let env_final =
+        let fct () = final_sugar ~process_code:(process_code bypass_typer) env_final in
         handle_exception_error fct
       in
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
     PassHandler.make_pass ~precond ~postcond transform
 
   let make_final_pass_bymap precond postcond process_code =
     let transform pass_env =
-      let blender = pass_env.PassHandler.env.env_blender in
-      let bymap = pass_env.PassHandler.env.env_bsl.BslLib.bymap in
-      let blender =
-        let fct () = QmlBlender.Sugar.process_code ~process_code:(process_code ~bymap) blender in
+      let env_final = pass_env.PassHandler.env in
+      let bymap = env_final.env_bsl.BslLib.bymap in
+      let env_final =
+        let fct () = final_sugar ~process_code:(process_code ~bymap) env_final in
         handle_exception_error fct
       in
       { pass_env with PassHandler.
-          env = {pass_env.PassHandler.env with env_blender = blender} } in
+          env = env_final ;
+      }
+    in
     PassHandler.make_pass ~precond ~postcond transform
-
-  let extract_final_ac env = env.env_blender.QmlBlender.env.QmlTypes.annotmap, env.env_blender.QmlBlender.code
-  let extract_final_code env = env.env_blender.QmlBlender.code
-  let extract_final_bypass_typer env = env.env_blender.QmlBlender.env.QmlTypes.bypass_typer
-  let extract pass_env = (extract_final_bypass_typer pass_env, extract_final_code pass_env)
 
   let pass_Assertion =
     let process_code options gamma annotmap code =
@@ -434,8 +486,8 @@ struct
       [
         QmlAlphaConv.Check.alpha extract_final_ac ;
       ] in
-    make_final_pass_options_blender precond postcond
-      (fun options _blender -> Pass_LambdaLifting.process_code ~early:false ~typed:(not options.cps) ~side)
+    make_final_pass_options precond postcond
+      (fun options -> Pass_LambdaLifting.process_code ~early:false ~typed:(not options.cps) ~side)
 
   let pass_BypassHoisting =
     let precond =
@@ -465,8 +517,8 @@ struct
       [
         QmlAlphaConv.Check.alpha extract_final_ac ;
       ] in
-    make_final_pass_options_blender precond postcond
-      (fun options _ gamma annotmap code ->
+    make_final_pass_options precond postcond
+      (fun options gamma annotmap code ->
          let gamma_annotmap, _closure_map, code =
            Pass_Uncurry.process_code
              ~typed:(not options.cps)
@@ -487,14 +539,14 @@ struct
       [
         QmlAlphaConv.Check.alpha extract_final_ac ;
       ] in
-    make_final_pass_options_blender precond postcond
-      (fun options blender ->
+    make_final_pass_options_env_typer precond postcond
+      (fun options env_typer ->
          Pass_Closure.process_code
            ~typed:(not options.cps)
            ~side
            ~renaming_server:QmlRenamingMap.empty
            ~renaming_client:QmlRenamingMap.empty
-           blender.QmlBlender.env.QmlTypes.bypass_typer)
+           env_typer.QmlTypes.bypass_typer)
 
   let pass_ConstantSharing =
     let transform pass_env =
@@ -507,13 +559,12 @@ struct
       *)
       let typed = not options.cps in
       let process_code = Pass_ConstantSharing.process_code ~side:`client ~typed in
-      let blender = pass_env.PassHandler.env.env_blender in
-      let blender =
-        QmlBlender.Sugar.process_code ~process_code blender
+      let env_final = pass_env.PassHandler.env in
+      let env_final =
+        final_sugar ~process_code env_final
       in
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
     let precond =
@@ -530,8 +581,10 @@ struct
   let pass_CpsRewriter ~lang =
     let transform pass_env =
       let options = pass_env.PassHandler.options in
-      let bsl = pass_env.PassHandler.env.env_bsl in
-      let blender = pass_env.PassHandler.env.env_blender in
+      let env_final = pass_env.PassHandler.env in
+      let code = env_final.code in
+      let env_bsl = env_final.env_bsl in
+      let env_typer = env_final.env_typer in
       let cps_options =
         { QmlCpsRewriter.default_options with QmlCpsRewriter.
             no_assert = options.no_assert ;
@@ -540,7 +593,7 @@ struct
             server_side = options.server_side
         } in
       let bsl_bypass_typer key =
-        match BslLib.BSL.ByPassMap.bsl_bypass_typer bsl.BslLib.bymap key with
+        match BslLib.BSL.ByPassMap.bsl_bypass_typer env_bsl.BslLib.bymap key with
         | None ->
             (* TODO: this must be a precondition, violation by the type checking *)
             OManager.error (
@@ -552,7 +605,7 @@ struct
       let bsl_bypass_tags key =
         match BslLib.BSL.ByPassMap.bsl_bypass_tags
           ~lang
-          bsl.BslLib.bymap key
+          env_bsl.BslLib.bymap key
         with
         | None ->
             OManager.error (
@@ -562,26 +615,28 @@ struct
               (BslKey.to_string key)
         | Some t -> t in
       let bsl_bypass_cps =
-        BslLib.BSL.ByPassMap.bsl_bypass_cps ~lang  bsl.BslLib.bymap in
+        BslLib.BSL.ByPassMap.bsl_bypass_cps ~lang env_bsl.BslLib.bymap in
       let env_cps =
         QmlCpsRewriter.env_initial
           ~options:cps_options
           ~bsl_bypass_typer
           ~bsl_bypass_tags
           ~bsl_bypass_cps
-          ~typing:blender.QmlBlender.env
+          ~typing:env_typer
           ()
       in
       let code =
-        let fct () = (if options.cps then QmlCpsRewriter.cps_pass ~side:`server else QmlCpsRewriter.no_cps_pass) env_cps blender.QmlBlender.code in
+        let fct () =
+          (if options.cps then QmlCpsRewriter.cps_pass ~side:`server else QmlCpsRewriter.no_cps_pass)
+            env_cps code
+        in
         handle_exception_error fct in
-      let blender = { blender with QmlBlender.code = code } in
+      let env_final = { env_final with code ; } in
 
       OManager.flush_errors () ;
 
       { pass_env with PassHandler.
-          env = { pass_env.PassHandler.env with
-                    env_blender = blender }
+          env = env_final ;
       }
     in
    let precond =
@@ -601,7 +656,8 @@ struct
 
   let pass_RemoveTyperCrap =
     let transform env =
-      let blender = env.PassHandler.env.env_blender in
+      let env_final = env.PassHandler.env in
+      let code = env_final.code in
       let code =
         QmlAstWalk.CodeExpr.map
           (QmlAstWalk.Expr.map_up
@@ -612,8 +668,10 @@ struct
                    | [e] -> e
                    | _ -> assert false)
               | e -> e)
-          ) blender.QmlBlender.code in
-      {env with PassHandler.env = {env.PassHandler.env with env_blender = {blender with QmlBlender.code}}} in
+          ) code in
+      let env_final = { env_final with code } in
+      {env with PassHandler.env = env_final }
+    in
     PassHandler.make_pass transform
 
   (* lambda lifting can be switche on without closure, for testing *)
@@ -629,7 +687,7 @@ struct
     PassHandler.make_env options dynloader
     |> PassHandler.handler "BslLoading" pass_BslLoading
     |> PassHandler.handler "Parse" pass_Parse
-    |> PassHandler.handler "Blend" pass_Blend
+    |> PassHandler.handler "Typing" pass_Typing
 
     |> PassHandler.handler "Assertion" pass_Assertion
 
@@ -673,24 +731,24 @@ struct
         let options = Qml2jsOptions.Argv.qml2ocaml_sharing options in
         QmlPasses.main ~lang:BslLanguage.js ~side:`client ~dynloader options
       in
-      let bsl = env_final.env_bsl in
-      let blender = env_final.env_blender in
-      let env = PassHandler.make_env options (bsl, blender) in
+      let env = PassHandler.make_env options env_final in
       env
       |> PassHandler.handler "JavascriptBslfilesLoading" (PassHandler.make_pass (
            fun env ->
              let options = env.PH.options in
-             let env_js_input = env.PH.env in
-             let generated_files, generated_ast = Qml2js.JsTreat.js_bslfilesloading options bsl in
-             PassHandler.make_env options (generated_files,generated_ast,env_js_input)
+             let env_final = env.PH.env in
+             let env_bsl = env_final.env_bsl in
+             let generated_files, generated_ast = Qml2js.JsTreat.js_bslfilesloading options env_bsl in
+             PassHandler.make_env options (generated_files, generated_ast, env_final)
          ))
       |> PassHandler.handler "JavascriptCompilation" (PassHandler.make_pass (
            fun env ->
              let options = env.PH.options in
-             let generated_files, generated_ast, (bsl, blender) = env.PH.env in
+             let generated_files, generated_ast, env_final = env.PH.env in
+             let { env_bsl ; env_typer ; code } = env_final in
              let renaming_client = QmlRenamingMap.empty in
              let renaming_server = QmlRenamingMap.empty in
-             let env_js_input = B.compile options ~renaming_server ~renaming_client ~bsl:generated_ast bsl blender in
+             let env_js_input = B.compile options ~renaming_server ~renaming_client ~bsl:generated_ast env_bsl env_typer code in
              PassHandler.make_env options (generated_files, env_js_input)
          ))
       |> PassHandler.handler "JavascriptGeneration" (PassHandler.make_pass (
