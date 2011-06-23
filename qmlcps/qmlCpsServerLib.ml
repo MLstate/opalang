@@ -293,7 +293,6 @@ let nb_step_apply = 10000
 let max_blocking_step = 1000000
 (* cannot embbed the reference for typing problem *)
 let applied_step = ref nb_step_apply
-let wait_release = ref false
 
 let check_stack_step = pred (1 lsl 10) (* <!> should be a 2^^n -1 *)
 let stack_limit = 5000000
@@ -367,13 +366,10 @@ let resume_block_stack _ =
       (* we assume that a save_block_stack is always executed before a resume_block_stack *)
       assert false
 
-let before_blocking_wait _ =
-  save_block_stack () ;
-  wait_release := true
+let before_wait = save_block_stack
 
 let blocking_wait (v : 'a barrier) : 'a =
   resume_block_stack () ;
-  wait_release := false;
   match v.status with
   | Computed a -> a
   | Exception _ -> failwith "exception outside of cps context"
@@ -384,20 +380,26 @@ let blocking_wait (v : 'a barrier) : 'a =
            "Barrier (%s : %d) was not released, don't wait anymore"
            v.ident v.nb)
 
-let before_wait = save_block_stack
-
 let toplevel_wait (v : 'a barrier) : 'a =
   resume_block_stack () ;
   match v.status with
   | Computed a -> a
   | Exception _ ->
-      failwith "toplevel_wait: exception at non-cps toplevel"
+      (*
+        For the projection of the projection of the toplevel, we do not use
+        the function fail_barrier in the exception handler of the continuation
+        passed to the function releasing the barrier. So this should not happen.
+        We may want to change this behavior in the future,
+        if we want to use fail_barrier.
+      *)
+      assert false
+
   | Waiting _ ->
       (*
         This should really not happens, because we give to the scheduler a function
-        for checking if the barrier was released.
+        for checking if the barrier was released, as the argument of a [Scheduler.loop_until]
       *)
-      failwith "toplevel_wait: internal error"
+      assert false
 
 let release_barrier (v:'a barrier) (x:'a) =
   debug "release_barrier";
@@ -410,6 +412,7 @@ let release_barrier (v:'a barrier) (x:'a) =
       List.iter (fun f -> CR.args_apply1 f.payload x) !l
 
 let fail_barrier (v:'a barrier) (exc:'a) =
+  debug "fail_barrier";
   match v.status with
   | Exception _
   | Computed _ ->
@@ -469,7 +472,6 @@ external black_future : 'a future -> black_future = "%identity"
 external unblack_future : black_future -> 'a future = "%identity"
 let black_make_barrier str = black_future (make_barrier str)
 let black_release_barrier v = release_barrier (unblack_future v)
-let black_blocking_wait v = blocking_wait (unblack_future v)
 let black_toplevel_wait v = toplevel_wait (unblack_future v)
 
 external magic_func : ('a, 'b) func -> ('c, 'd) func = "%identity"
@@ -499,10 +501,10 @@ let spawn (f:(unit, 'a) func) =
 let wait v k = wait_barrier v k
 
 let uncps ident k f =
-  debug "uncps";
+  debug "uncps: %s" ident ;
   let b = make_barrier ident in
   let c = ccont_ml k (fun z -> release_barrier b z) in
-  before_blocking_wait ();
+  before_wait ();
   let _ = CR.args_apply1 f c in
   looping_wait b
 

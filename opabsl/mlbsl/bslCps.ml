@@ -81,10 +81,6 @@ let uncps_ml = QmlCpsServerLib.uncps_ml
 let uncps_native = uncps_ml
 let uncps = QmlCpsServerLib.uncps
 
-##register [no-projection, restricted : cps] blocking_wait \ `QmlCpsServerLib.blocking_wait` : Cps.future('a) -> 'a
-
-##register [no-projection, restricted : cps] black_blocking_wait \ `QmlCpsServerLib.black_blocking_wait` : black_future -> 'a
-
 ##register [no-projection, restricted : cps] before_wait \ `QmlCpsServerLib.before_wait` : -> void
 
 ##register [no-projection, restricted : cps] toplevel_wait : Cps.future('a) -> 'a

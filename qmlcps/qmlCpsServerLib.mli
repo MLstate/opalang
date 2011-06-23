@@ -214,15 +214,12 @@ val release_barrier : 'a future -> 'a -> unit
 *)
 val is_released : _ future -> bool
 
-(** Initialize some structure for a future use of blocking_wait. *)
+(** Initialize some structure for a future use of [toplevel_wait]. *)
 val before_wait : 'projection_friendly -> unit
 
-(** Check if the barrier was realeased and returns the computed value
-    else raise a [Failure]. *)
-val blocking_wait : 'a future -> 'a
-
 (**
-   Essentially the same function than [blocking_wait] but with less hack.
+   Check if the barrier was realeased and returns the computed value
+   else raise a [Failure].
    This function is specially used only for toplevel rewritting.
 *)
 val toplevel_wait : 'a future -> 'a
@@ -255,7 +252,6 @@ val magic_func_more : _ -> _
 type black_future
 val black_make_barrier : string -> black_future
 val black_release_barrier : black_future -> 'a -> unit
-val black_blocking_wait : black_future -> 'a
 val black_toplevel_wait : black_future -> 'a
 
 (** {6 A few useful functions} *)

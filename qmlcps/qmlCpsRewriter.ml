@@ -45,8 +45,6 @@ external error_message : error -> string = "%identity"
 
 module DebugLevel =
 struct
-  let blocking_wait = 1
-
   let make_barrier = 2
   let release_barrier = make_barrier
 
@@ -1438,7 +1436,6 @@ module Barrier :
 sig
   val make : Ident.t -> QmlAst.expr
   val release : barrier_id:Ident.t -> value:Ident.t -> QmlAst.expr
-  val blocking_wait : Ident.t -> QmlAst.expr
 
   (**
      A bypass for setting by side-effect to QmlCpsServerLib global properties.
@@ -1496,22 +1493,6 @@ struct
 
   let before_wait () =
     QC.apply (qml_bycps_call "before_wait") [ QC.unit () ]
-
-  let blocking_wait barrier_id =
-    let cpsblockingwait =
-      let fct_name = black_if_magic "blocking_wait" in
-      qml_bycps_call fct_name in
-    let blocking_wait = QC.apply cpsblockingwait [ QC.ident barrier_id ] in
-    let blocking_wait =
-      #<If:CPS_DEBUG>
-        runtime_debug DebugLevel.blocking_wait
-        (Printf.sprintf "blocking_wait : %s" (Ident.to_string barrier_id))
-        blocking_wait
-      #<Else>
-        blocking_wait
-      #<End>
-    in
-    blocking_wait
 
   let toplevel_wait barrier_id =
     let cpstoplevelwait =
