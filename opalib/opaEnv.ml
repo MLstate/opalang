@@ -436,8 +436,40 @@ where options are :
           ("--js-check-bsl-types", Arg.Set js_check_bsl_types, " Enables runtime type checking of the types of bypasses");
 
           (* m *)
-          ("--mlcopt",            Arg.String add_mlcopt, "<opt> Give option to ocaml compilation");
-          ("--mllopt",            Arg.String add_mllopt, "<opt> Give option to ocaml linking");
+
+          "--minimal-version",
+          Arg.String (fun s ->
+                        match BuildInfos.assert_minimal_version s with
+                        | None ->
+                            OManager.error (
+                              "option --minimal-version: @{<bright>%s@} not recognized@\n"^^
+                              "@[<2>@{<bright>Hint@}:@\n"^^
+                              "try e.g. S3.%%d, v%%d, or %%d@]"
+                            )
+                              s
+                        | Some false ->
+                            OManager.error (
+                              "@[<2>This application needs a more recent version of Opa@\n"^^
+                              "Required version: %s or later@\n"^^
+                              "Current version:  %s/%d@]"
+                            )
+                              s
+                              BuildInfos.opa_version_name
+                              BuildInfos.opalang_git_version
+                        | Some true -> ()
+                     ),
+          "<version> Ensure that the compiler is newer than the given version"
+          ;
+
+          "--mlcopt",
+          Arg.String add_mlcopt,
+          "<opt> Give option to ocaml compilation"
+          ;
+
+          "--mllopt",
+          Arg.String add_mllopt,
+          "<opt> Give option to ocaml linking"
+          ;
 
           (* n *)
 

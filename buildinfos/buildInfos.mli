@@ -100,3 +100,26 @@ val git_version_counter : int
 
 (** From the different infos, we build a uniq version identifier *)
 val version_id : string
+
+(**
+   Check if the current version of the compiler is newer than a given string.
+
+   The purpose is to get quickly a clear error message about the version
+   of the compiler, rather than a strange error message caused by
+   an update in the compiler and/or in the stdlib.
+
+   It is recommended to use this option in your Makefile for applications
+   using new features, or new functions of the stdlib, or in any application
+   published somewhere, and potentially compiled by people having
+   wild and heterogeneous versions of Opa (nightly builds, from sources).
+
+   Support several formats:
+   -only the name, like "S3.5"
+   -simple int, in that case this will compare with the build id
+   HACK: for backward compatibility (reset of build number)
+   any number after 27000 is older than numbers between 0 and 27000.
+
+   If the function returns [None], that means that the given
+   string does not make sence as a version name.
+*)
+val assert_minimal_version : string -> bool option

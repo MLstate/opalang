@@ -1,17 +1,27 @@
 #!/bin/bash -eu
-# -- begin LICENCE
-#    (c) 2006-2011 MLstate
-#    All rights reserved.
-#    This file is confidential and intended solely for the addressee(s).
-#    Any unauthorized use or dissemination is prohibited.
-#    end LICENCE --
+# Copyright © 2011 MLstate
 
-MLSTATE_DIFFING=${MLSTATE_DIFFING:-"0"}
+# This file is part of OPA.
+
+# OPA is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License, version 3, as published by
+# the Free Software Foundation.
+
+# OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+# more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with OPA. If not, see <http://www.gnu.org/licenses/>.
 
 # This script is used to generate the module BuildInfos
 # it is called by bld at build time of the repositories.
 # Since this module is very high regarding to the dependencies
 # it is regenerated only in release mode, or after a clean.
+
+MLSTATE_DIFFING=${MLSTATE_DIFFING:-"0"}
+
 help () {
     cat <<EOF
 generating buildInfos.ml
@@ -66,20 +76,16 @@ git_version_cmd () { git log --pretty=oneline | wc -l; }
 git_sha_cmd ()     { git log -n1 --pretty=format:%h; }
 git_date_cmd ()    { git log -n1 --pretty=format:%ad --date=short; }
 
+# special case for opalang, the origin is the publication
+git_opalang_version_cmd () {
+    local ORIGIN_SHA='fccc6851ccd2cb4fd9e83ba7b8c8d6d780ed3e13'
+    git log --pretty=oneline "$ORIGIN_SHA".. | wc -l
+}
+
 is_git_root () {
     LOOKED_FOR_REPO=$1
     [ -d .git ] && git remote show -n origin | grep -q 'URL:.*'$LOOKED_FOR_REPO
 }
-
-# go_to_git_root () {
-#     REPO=$1
-#     if is_git_root $REPO; then return 0
-#     elif [ "$PWD" = "/" ]; then echo "[!] Git repo $REPO not found" >&2; return 1
-#     else cd ..; go_to_git_root $REPO
-#     fi
-# }
-
-# go_to_git_root "$ROOT_REPO" || exit 1
 
 in_repo () {
     REPO=$1; shift
@@ -113,17 +119,13 @@ echo "let opa_version_name = \"${OPA_VERSION}\""
 for repo in $REPOS ; do
     if [ "$MLSTATE_DIFFING" = 1 ] ; then
         echo "let ${repo}_git_version = 0"
-    else
-        echo "let ${repo}_git_version = $(in_repo $repo git_version_cmd)"
-    fi
-done
-echo
-
-# git sha
-for repo in $REPOS ; do
-    if [ "$MLSTATE_DIFFING" = 1 ] ; then
         echo "let ${repo}_git_sha = \"diffing\""
     else
+        if [ "$repo" = "$ROOT_REPO" ] ; then
+            echo "let ${repo}_git_version = $(in_repo $repo git_opalang_version_cmd)"
+        else
+            echo "let ${repo}_git_version = $(in_repo $repo git_version_cmd)"
+        fi
         echo "let ${repo}_git_sha = \"$(in_repo $repo git_sha_cmd)\""
     fi
 done
