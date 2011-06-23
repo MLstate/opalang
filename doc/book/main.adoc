@@ -1,5 +1,6 @@
 Simple, Secure, Scalable Web Development with Opa
 =================================================
+The Opa Team
 :author:The Opa Team:
 :editor:David Rajchenbach-Teller <David@opalang.org>:
 :toclevels:4:

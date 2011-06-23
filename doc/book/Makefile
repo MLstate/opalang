@@ -29,6 +29,10 @@ book.pdf: lang.map *.adoc */*.adoc asciidoc.conf
 	a2x --asciidoc-opts="--conf asciidoc.conf" -d book -v --dblatex-opts="--texstyle=style.sty -d" -a toc main.adoc;
 	mv main.pdf book.pdf
 
+book.epub: lang.map *.adoc */*.adoc asciidoc.conf
+	a2x --asciidoc-opts="--conf asciidoc.conf" -d book -v -f epub -a toc main.adoc;
+	mv main.epub book.epub
+
 book.xml: lang.map *.adoc */*.adoc opalang.css */*.opa
 	asciidoc --conf asciidoc.conf -a toclevel=4 -a theme=slidy -a stylesheet=$(CURDIR)/opalang.css -a toc -a numbered -b docbook -v -d book main.adoc;
 	mv main.xml book.xml
