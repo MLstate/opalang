@@ -207,7 +207,7 @@ let parse peg input =
       StringMap.find id peg.T.grammar
     with
         Not_found ->
-          Base.log_error (pr "Could not find a definition for the production: %s" id);
+          log "Could not find a definition for the production: %s" id;
           raise Not_found
   in
 
@@ -534,4 +534,4 @@ let _ =
     | `analyze_memo -> analyze_memo peg
   with
   | Pgrammar.GrammarParse _err ->
-      Base.log_error (pr "Failed while parsing the input grammar: {%s}!\n" grammarFn)
+      log "Failed while parsing the input grammar: {%s}!\n" grammarFn

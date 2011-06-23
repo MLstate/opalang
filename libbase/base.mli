@@ -147,12 +147,6 @@ val sprintf : ('a, unit, string) format -> 'a
 (**
    deprecated jlog. is implemented with function [ignore]
 *)
-val log_error :
-  ?long:bool ->
-  ?color:Ansi.color ->
-  ?level:int ->
-  string -> unit
-
 val warning : ?level:int -> string -> unit
 
 (**
