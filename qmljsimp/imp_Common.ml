@@ -82,6 +82,7 @@ let does_side_effects e =
   JsWalk.OnlyExpr.exists
     (function
      | J.Je_hole _
+     | J.Je_new _
      | J.Je_call (_,_,_,false) -> true
      | J.Je_unop (_, ( J.Ju_delete
                      | J.Ju_add2_pre
