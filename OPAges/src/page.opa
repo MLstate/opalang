@@ -94,7 +94,7 @@ type Page.manager = {
   get_edit : string -> Page.edit
   get_rev_number : string -> Page.published
   remove : string -> void
-  list : -> list((string,Page.published))
+  list : -> list((string,Page.published,bool))
   date : string -> Date.date
   history_size : string -> int
   history_list : string -> list((string,Date.date,int))
@@ -103,6 +103,7 @@ type Page.manager = {
 
 @private type Page.notify = {
   subscribe : ({event : Page.Notification.event by : string} -> void) -> void
+  subscribe_with : string,({event : Page.Notification.event by : string} -> void) -> void
   send    :  Page.Notification.event -> void
 }
 
@@ -210,7 +211,7 @@ Page = {{
 
   @private
   fetch_dead_links(access : Page.full_access) : stringmap(list(string)) = (
-    List.foldl((el,_), acc ->
+    List.foldl((el,_,_), acc ->
       do Log.debug("Admin", "Search for dead links in {el}")
       match search_dead_link_for_resource(access, el) with
       | { ~some } -> StringMap.add(el,some, acc)
@@ -226,9 +227,11 @@ Page = {{
   //Hack because we no slicer annot on functor
   @client @private get_listener() =
     handler(state, msg) = match msg
-      | ~{handler} -> {set = handler +> state}
-      | ~{event by} -> do Scheduler.push(-> List.iter(handler -> handler(~{event by}), state)) {unchanged}
-    Session.make([], handler)
+      | ~{handler} -> {set = Map.add(Dom.fresh_id(),handler,state)}
+      | ~{handler id} -> {set = Map.add(id,handler,state)}
+      | ~{remove} -> {set = Map.remove(remove,state) }
+      | ~{event by} -> do Scheduler.push(-> Map.iter(_,handler -> handler(~{event by}), state)) {unchanged}
+    Session.make(Map.empty, handler)
 
   @server @private ServerAccess(~{engine access=caccess}:Page.config('a, 'b)) = {{
 
@@ -239,6 +242,8 @@ Page = {{
       : Network.network(
           { by: string; event: Page.Notification.event }
         / { handler: { by: string; event: Page.Notification.event } -> void }
+        / { id : string ; handler: { by: string; event: Page.Notification.event } -> void }
+        / { remove : string}
       )
 
     /**
@@ -313,6 +318,9 @@ Page = {{
             Network.broadcast(~{event by}, network)
 
           subscribe(handler) = Session.send(client_listener(), ~{handler})
+
+          subscribe_with(id,handler) = Session.send(client_listener(), ~{handler id})
+
         }}
         Lock = {{
           @private wrap(x) = {action=x ~by}
@@ -331,7 +339,6 @@ Page = {{
         }}
         (Notification, Lock)
 
-
     access(user) : Page.access    =
       get(key) : option((Page.stored,int)) = caccess.get_rev(key)
 
@@ -342,7 +349,7 @@ Page = {{
 
       date(key) = caccess.date(key)
 
-      list() = caccess.ls()
+      list() = List.map((x,p) -> do jlog("map") (x,p,has_preview(x)),caccess.ls())
 
       save_as_template(key, ~{hsource bsource}, rev_opt) =
         engine = engine({current_url=""})
@@ -435,6 +442,7 @@ Page = {{
         } : Page.locker
         notify = {
           subscribe = Notification.subscribe
+          subscribe_with = Notification.subscribe_with
           send = Notification.send
         } : Page.notify
       }
@@ -449,8 +457,6 @@ Page = {{
    * interface.
    */
   @private AdminGui = {{
-    @private save_id_button = "save_button"
-    @private message_placeholder_id = "msg_placeholder"
 
     /** Just a simple string transformation for xhtml insert. */
     @private file_for_xhtml =
@@ -459,111 +465,111 @@ Page = {{
 
     /** A translation that allows to use file on dom identifiers. */
     @private file_id = Crypto.Hash.md5
+    @private buffer_file_id(file) = "admin_buffer_{file_id(file)}"
+    @private table_file_id(file) = "admin_files_table_{file_id(file)}"
+    @private file_line_preview(file) = "admin_files_table_preview{file_id(file)}"
+    @private file_line_edit(file) ="admin_files_table_edit{file_id(file)}"
+    @private file_line_publish(file) ="admin_files_table_publish{file_id(file)}"
 
-    // @both_implem  // @both_implem
-    // class(s) = WStyler.make_class(["TABS_{s}"])
+    /** Tabs init. */
+    @private class(s) = WStyler.make_class(["TABS_{s}"])
+    @private @both_implem
+    stylers = {
+      tabs =              class("tabs")
+      tab =               class("tab")
+      tab_content =       class("tab_content")
+      tab_sons =          class("tab_sons")
+      tab_selectable =    class("tab_selectable")
+      tab_checkable =     class("tab_checkable")
+      tab_no_sons =       class("tab_no_sons")
+      tab_closable =      class("tab_closable")
+      tab_duplicatable =  class("tab_duplicatable")
+      tab_close =         class("tab_close")
+      tab_duplicate =     class("tab_duplicate")
+      tab_add =           class("tab_add")
+    }
+    @private @client
+    on_select(_num:int, tab:WTabs.tab) =
+      do Dom.trigger(Dom.select_raw("#{Option.get(tab.custom_data)} td"),{click})
+      true
+    @private @client on_add(_num:int, _tab:WTabs.tab) = none
+    @private @client on_remove(_num:int, _tab:WTabs.tab) = false
+    @private @client on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
+    @private @both insert_pos = {at_end}:WTabs.pos
+    @private @both delete_pos = {after_select}:WTabs.pos
+    @private @client new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
+    @private @both
+    tabs_config : WTabs.config = {
+      WTabs.default_config with
+        ~insert_pos ~delete_pos
+        ~on_select ~on_add
+        ~on_duplicate ~on_remove ~stylers
+        ~new_tab_content
+        add_text=none }
+    @private
+    tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
 
-    // //Configuration
+    @client
+    add_tab(file : string, title : string) =
+        id = buffer_file_id(file)
+        bid = table_file_id(file)
+        on_remove(_,_) =
+          // do access.notify.remove(id)
+          do Dom.remove(#{id})
+          do del_preview(file)
+          true
+        new_tab_content(_i) = WTabs.make_constant_content(title)
+        on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
+                           true, true, false, some(bid), none, none))
+        config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
+        do WTabs.add_tab(config,"tabs_file")
+        void
 
-    // @both_implem // @both_implem
-    // stylers = {
-    //   tabs =              class("tabs")
-    //   tab =               class("tab")
-    //   tab_content =       class("tab_content")
-    //   tab_sons =          class("tab_sons")
-    //   tab_selectable =    class("tab_selectable")
-    //   tab_checkable =     class("tab_checkable")
-    //   tab_no_sons =       class("tab_no_sons")
-    //   tab_closable =      class("tab_closable")
-    //   tab_duplicatable =  class("tab_duplicatable")
-    //   tab_close =         class("tab_close")
-    //   tab_duplicate =     class("tab_duplicate")
-    //   tab_add =           class("tab_add")
-    // }
+    @private file_line_set_preview(file,b) =
+      s = if b then "[preview]" else ""
+      Dom.set_text(#{file_line_preview(file)},s)
 
-    // @client
-    // tabs_display(id : string) : void  =
-    //   check(pre : string )(dom : dom)=
-    //     if (Dom.get_id(dom) == "{pre}{id}") || (Dom.get_id(dom) == "thisisblock")
-    //     then
-    //       do Dom.show(dom)
-    //       void
-    //     else
-    //       do Dom.hide(dom)
-    //       void
-    //   _ = Dom.iter(check("tab_"), Dom.select_children(Dom.select_id("content")))
-    //   void
+    @private file_line_set_publish(file,pub_opt) =
+      s = match pub_opt with | {~some} -> " [pub #{some}]" | {none} -> ""
+      Dom.set_text(#{file_line_publish(file)},s)
 
-    // @client
-    // on_select(_num:int, tab:WTabs.tab) = do tabs_display(Option.get(tab.custom_data)) true
+    @private file_line_set_edit(file) =
+      id = buffer_file_id(file)
+      buf = Dom.select_raw("#{id} #{id}_select}")
+      s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+      Dom.set_text(#{file_line_edit(file)},s)
 
-    // @client
-    // on_add(_num:int, _tab:WTabs.tab) = none
-
-    // @client
-    // on_remove(_num:int, _tab:WTabs.tab) = false
-    // @client
-    // on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
-    // @both
-    // insert_pos = {at_end}:WTabs.pos
-    // @both
-    // delete_pos = {after_select}:WTabs.pos
-    // @client
-    // new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
-
-    // @both// @both_implem
-    // tabs_config : WTabs.config = {
-    //   WTabs.default_config with
-    //     ~insert_pos ~delete_pos
-    //     ~on_select ~on_add
-    //     ~on_duplicate ~on_remove ~stylers
-    //     ~new_tab_content
-    //     add_text=none
-    // }
-
-    // tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
-
-    // add_tab(id : string, title : string) =
-    //     // content = <div id="tab_{id}" onready={_ -> Dom.transform([#{"tab_{id}"} <- xhtml() ])}></div>
-    //     on_remove(_,_) =  // _ = Dom.remove(#{"nav_{id}"}) _ = Dom.remove(#{"tab_{id}"})
-    //       true
-    //     new_tab_content(_i) = WTabs.make_constant_content(title)
-    //     on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
-    //                      true, true, false, 
-    //                      some(id), none, none))
-    //     config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
-    //     // _ = Dom.transform([#navbar +<- nav_bar,
-    //     //       #content +<- content])
-    //     do WTabs.add_tab(config,"tabs_file")
-    //     void
-
-    @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
-      <td onclick={Action.open_file(access, file, published_rev)}>
+    @private file_line_content(access:Page.full_access, file, published_rev, preview) =
+      id = buffer_file_id(file)
+      <td onclick={Action.open_file(access, file, published_rev)} >
         {file_for_xhtml(file)}
-        {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
-        {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
-        {if has_preview(file) then "[preview]" else ""}
+        <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
+        <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
+        <span id={file_line_edit(file)} >{
+         buf = Dom.select_raw("#{id} #{id}_select}")
+         if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+        }</span>
       </td>
 
     /** Create a file line for table insert. */
-    @private file_line(access:Page.full_access, opened, file, edit_rev, published_rev) =
+    @private file_line(access:Page.full_access, opened, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <tr class="{class}" id="admin_files_table_{file_id(file)}">
-        {file_line_content(access, file, edit_rev, published_rev)}
+      <tr class="{class}" id={table_file_id(file)}>
+        {file_line_content(access, file, published_rev, preview)}
       </tr>
 
     /** Insert if necessary a file line into files table. */
-    @private file_line_insert(access, opened, file, edit_rev, published_rev) =
-      line = Dom.select_id("admin_files_table_{file_id(file)}")
+    @private file_line_insert(access, opened, file, published_rev, preview) =
+      line = Dom.select_id(table_file_id(file))
       if Dom.is_empty(line) then
         /* Insert a line on files table. */
         table = Dom.select_id("admin_files_table")
-        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file, edit_rev, published_rev)))
+        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file, published_rev,preview)))
         void
       else
         do Dom.add_class(line, if opened then "on" else "off")
-        _ = Dom.put_inside(line,Dom.of_xhtml(file_line_content(access, file, edit_rev, published_rev)))
         void
+
     /** 
      * Build a buffer and insert it on dom node with identifier
      * [id]. The buffer can be specialized according to file
@@ -578,7 +584,7 @@ Page = {{
       lock_button_id = "{id}_button_lock"
       save_button_id = "{id}_button_save"
       draft_id = "{id}_draft"
-      unpreview_id = "{id}_unpreview"
+      preview_id = "{id}_preview"
 
       editor_id = "{id}_editor"
       reporting_id = "{id}_reporting"
@@ -603,31 +609,25 @@ Page = {{
         do Ace.read_only(ace, false)
         ace
 
-      on_ok_preview() =
+      on_ok_preview(f) =
         do do_report(<></>)
-        unpreview_id = "{id}_unpreview"
         _ = Client.winopen(file, {_blank},[], false)
-        do Dom.set_style(#{unpreview_id},
-                         [{display={inline}}])
+        _ = f()
         void
 
       /* Generate history selector */
-      rec build_pub_version(rev : option(int)) =
+      rec build_pub_version(_rev : option(int)) =
         xhtml =
           <div> Published revision : {r = access.access.get_rev_number(file)
                                       if r.rev == -1
                                       then "none"
                                       else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</div>
-        do access.notify.subscribe(
-             | {event={~save} by=_} ->
-               if save != file then void else
-               build_pub_version(rev)
-             | _ -> void
-           )
         Dom.transform([#{published_id} <- xhtml])
       and draft()=
         do Dom.show(#{draft_id})
         do Dom.set_enabled(#{select_id},false)
+        do Dom.set_enabled(#{save_button_id},true)
+        do file_line_set_edit(file)
         void
       and make_buttons(rev : option(int),action) =
         get_selected_rev() =
@@ -635,12 +635,15 @@ Page = {{
         action_change_rev(_:Dom.event)=
           if Dom.get_property(#{select_id},"disable")=={some="true"}
           then void
-          else build(some(get_selected_rev()))
+          else
+            do build_buffers(some(get_selected_rev()))
+            file_line_set_edit(file)
         action_set_rev(_:Dom.event) =
           rev = get_selected_rev()
           do access.notify.send({publish=(file,rev)})
           do access.access.set_rev(file, rev)
-          build(some(rev))
+          do build_buffers(some(rev))
+          build_pub_version(some(rev))
         build_select(rev) =
           hist = access.access.history_list(file)
           size = List.length(hist)
@@ -663,32 +666,12 @@ Page = {{
           </>
           match action with
           | {some = action} ->
-              do access.notify.subscribe(
-                   | {event={~lock} ~by} ->
-                     if lock != file || Outcome.is_success(access.locker.check(file)) //so bad
-                     then void else
-                     b = Dom.select_id(save_button_id)
-                     do Dom.set_enabled(b, false)
-                     do action.read_only(true)
-                     _ =  Dom.put_inside(b, Dom.of_xhtml(<>Save : (locked by {by})</>))
-                     void
-                   | {event={~release} by=_} -> if release != file then void else
-                     b = Dom.select_id(save_button_id)
-                     do Dom.set_enabled(b, true)
-                     do action.read_only(false)
-                     _= Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
-                     void
-                   | {event={publish=(mfile,rev)} by=_ } -> if mfile != file then void else
-                     build_pub_version(some(rev))
-                   | {event={~save} by=_} -> if save != file then void else
-                     build_pub_version(rev)
-                   | _ -> void
-                 )
               make_lock_button(lock, x) =
                 <button type="button" id={lock_button_id}
                         onclick={lock}>{x}</button>
               rec val lock_button = make_lock_button(action_try_lock, "Lock")
               and val unlock_button = make_lock_button(action_release, "Release")
+              and val force_unlock_button = make_lock_button(action_force_release, "Force Release")
               and action_try_lock(_:Dom.event) =
                 result = access.locker.try(file)
                 do do_report(<>{lock_message(result)}</>)
@@ -700,21 +683,70 @@ Page = {{
                   action.read_only(false)
                 | _ ->
                   do Dom.set_enabled(Dom.select_id(save_button_id), false)
+                  do ignore(Dom.put_replace(Dom.select_id(lock_button_id),
+                                            Dom.of_xhtml(force_unlock_button)))
                   action.read_only(true)
               and action_release(_:Dom.event) =
                 result = access.locker.release(file)
                 do do_report(<>Release {lock_message(result)}</>)
                 _ =  Dom.put_replace(Dom.select_id(lock_button_id),
                                    Dom.of_xhtml(lock_button))
-                do Dom.set_enabled(Dom.select_id(save_button_id), false)
-                do action.read_only(true)
+                do Dom.set_enabled(Dom.select_id(save_button_id), true)
+                do action.read_only(false)
                 void
               and action_force_release(_:Dom.event) =
                 result = access.locker.force_release(file)
                 do do_report(<>{lock_message(result)}</>)
-                do Dom.set_enabled(Dom.select_id(save_button_id), false)
-                do action.read_only(true)
+                do Dom.set_enabled(Dom.select_id(save_button_id), true)
+                do ignore(Dom.put_replace(Dom.select_id(lock_button_id),
+                                            Dom.of_xhtml(lock_button)))
+                do action.read_only(false)
                 void
+              and make_preview_button(action,title)=
+                 <button type="button" id="{preview_id}" onclick={action}>
+                   {title}
+                 </button>
+              and val start_preview = make_preview_button(_->action_start_preview(),"Start Preview")
+              and val stop_preview = make_preview_button(_->action_stop_preview(), "Stop Preview")
+              and action_start_preview() =
+                f() =
+                  do file_line_set_preview(file, true)
+                    Dom.put_replace(Dom.select_id(preview_id),
+                                    Dom.of_xhtml(stop_preview))
+                _ = action.preview(f)
+                void
+              and action_stop_preview() =
+                do del_preview(file)
+                do file_line_set_preview(file, false)
+                _ = Dom.put_replace(Dom.select_id(preview_id),
+                                   Dom.of_xhtml(start_preview))
+                void
+
+              do access.notify.subscribe_with(id,
+                   | {event={~lock} ~by} ->
+                     if lock != file || Outcome.is_success(access.locker.check(file)) //so bad
+                     then void else
+                     b = Dom.select_id(save_button_id)
+                     do Dom.set_enabled(b, false)
+                     do action.read_only(true)
+                     _ =  Dom.put_inside(b, Dom.of_xhtml(<>Save : (locked by {by})</>))
+                     do ignore(Dom.put_replace(Dom.select_id(lock_button_id),
+                                            Dom.of_xhtml(force_unlock_button)))
+                     void
+                   | {event={~release} by=_} -> if release != file then void else
+                     b = Dom.select_id(save_button_id)
+                     do Dom.set_enabled(b, true)
+                     do action.read_only(false)
+                     _= Dom.put_inside(b, Dom.of_xhtml(<>Save</>))
+                     do ignore(Dom.put_replace(Dom.select_id(lock_button_id),
+                                            Dom.of_xhtml(lock_button)))
+                     void
+                   | {event={publish=(mfile,rev)} by=_ } -> if mfile != file then void else
+                     build_pub_version(some(rev))
+                   | {event={~save} by=_} -> if save != file then void else
+                     build_pub_version(rev)
+                   | _ -> void
+                 )
             <>
               <div>Current Revision <span style="display:none" id=#{draft_id}>--Draft--</span>: {build_select(rev)}</div>
               <div class="button_group" style="display:inline-block; margin-right:40px" >
@@ -722,43 +754,34 @@ Page = {{
                  | {success = _} ->
                    <button type="button"
                            id={save_button_id}
-                           onclick={_ -> action.save()}>Save</button>
+                           onclick={_ ->
+                             do Dom.set_enabled(#{save_button_id}, false)
+                             _ = action.save()
+                             file_line_set_edit(file)} >Save</button>
                  | ~{failure} ->
                    by = match failure | {locked = {~by ...}} -> by | _ -> "501??!!??"
                    <button type="button"
                      disabled="disabled"
                      id={save_button_id}
-                     onclick={_ -> action.save()}>Save (locked by {by})</button>
+                     onclick={_ ->
+                       do Dom.set_enabled(#{save_button_id}, false)
+                       _ = action.save()
+                       file_line_set_edit(file)}>Save (locked by {by})</button>
                 }
                 <button type="button" onclick={action_change_rev}> Discard change </button>
                 <button type="button"
                         onclick={action_set_rev}>Publish</button>
               </div>
 
-              {unpreview =
-                 act(_) =
-                   do del_preview(file)
-                   do Dom.set_style(#{unpreview_id}, [{display={css_none}}])
-                   void
-                 display =
-                   if has_preview(file) then {inline}
-                   else {css_none}
-                 <span style="display:{display};" id="{unpreview_id}">
-                   <button type="button" onclick={act}>
-                      Disable preview
-                   </button>
-                 </span>;
-               <div class="button_group" style="display:inline-block; margin-right:40px">
-                 <button type="button" onclick={_->action.preview()}>
-                   Preview
-                 </button>
-                 {unpreview}
-               </div>}
+              {if has_preview(file)
+               then stop_preview
+               else start_preview}
 
               <div class="button_group" style="display:inline-block; margin-right:40px">
-                {lock_button}
-                <button type="button"
-                        onclick={action_force_release}>ForceRelease</button>
+                {match access.locker.check(file)
+                 | {success = _} -> lock_button
+                 | {failure=_} -> force_unlock_button
+                }
               </div>
               <div class="button_group" style="display:inline-block; margin-right:40px">
                 {common}
@@ -784,14 +807,16 @@ Page = {{
           save() =
             _rev = save({mime = Dom.get_value(Dom.select_id(mime_id))})
             do access.notify.send({save = file})
+            do Dom.set_enabled(#{save_button_id},true)
+            do do_report(<>Save success</>)
             void
           make_buttons(rev,some({
               ~save
               read_only(_) = void
-              preview() =
+              preview(f) =
                 page = {mime = Dom.get_value(Dom.select_id(mime_id))}
                 do set_preview(page)
-                on_ok_preview()
+                on_ok_preview(f)
             }))
         | ~{source mime} ->
           /* A raw resource editor is an ace editor + an input for mime */
@@ -802,17 +827,38 @@ Page = {{
           get_mime() =
             x = Dom.get_value(Dom.select_id(id_mime))
             x
+          do Ace.add_event_listener(ace, {change}, draft)
           do make_buttons(rev,some({
                save() =
                  rev = access.access.save(file, {source=Ace.get_content(ace) mime=get_mime()},rev)
                  do access.notify.send({save = file})
-                 build(some(rev))
+                 do build_buffers(some(rev))
+                 do do_report(<>Save success</>)
+                 Dom.set_enabled(#{save_button_id},false)
+                 
                read_only(b) = Ace.read_only(ace, b)
-               preview() =
-                 page = {source=Ace.get_content(ace)
-                         mime=get_mime()}
-                do set_preview(file, page)
-                on_ok_preview()
+               preview(f) =
+                fail()=
+                   page = {source=Ace.get_content(ace)
+                           mime=get_mime()}
+                   set_preview(file, page)
+
+                rec val timer = Scheduler.make_timer(1000, -> Session.send(sess,void))
+                and val sess = Session.make(Date.now(),(last_date,_ -> now= Date.now()
+                                                        do Log.info("d","preview update")
+                                                        do
+                                                          if Date.compare(Date.advance(last_date,Duration.s(2)),Date.now())=={lt}
+                                                          then
+                                                            do Log.info("d","preview timer stop")
+                                                            _ = fail()
+                                                            timer.stop()
+                                                          else Log.info("d","preview update")
+                                                        {set=now}
+                                                         ))
+                do Log.info("d","preview first start timer")
+                do Ace.add_event_listener(ace, {change}, -> do timer.stop() timer.start())
+                do fail()
+                on_ok_preview(f)
             }))
           dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
           _ = Dom.put_at_end(Dom.select_id(id), dom)
@@ -821,16 +867,35 @@ Page = {{
           /* Css editor is just a simple ace editor */
           id_css = "{id}_css"
           ace = common_ace_init(id_css, ["admin_editor_css"], css, some("css"))
+          do Ace.add_event_listener(ace, {change}, draft)
           make_buttons(rev,some({
               save() =
                 rev = access.access.save(file, {css=Ace.get_content(ace)}, rev)
                 do access.notify.send({save = file})
-                build(some(rev))
+                do build_buffers(some(rev))
+                do do_report(<>Save success</>)
+                Dom.set_enabled(#{save_button_id},false)
               read_only(b) = Ace.read_only(ace, b)
-              preview() =
-                page = {css=Ace.get_content(ace)}
-                do set_preview(file, page)
-                on_ok_preview()
+              preview(f) =
+                fail()=
+                  page = {css=Ace.get_content(ace)}
+                  set_preview(file, page)
+                rec val timer = Scheduler.make_timer(1000, -> Session.send(sess,void))
+                and val sess = Session.make(Date.now(),(last_date,_ -> now= Date.now()
+                                                        do Log.info("d","preview update")
+                                                        do
+                                                          if Date.compare(Date.advance(last_date,Duration.s(2)),Date.now())=={lt}
+                                                          then
+                                                            do Log.info("d","preview timer stop")
+                                                            _ = fail()
+                                                            timer.stop()
+                                                          else Log.info("d","preview update")
+                                                        {set=now}
+                                                         ))
+                do Log.info("d","preview first start timer")
+                do Ace.add_event_listener(ace, {change}, -> do timer.stop() timer.start())
+                do fail()
+                on_ok_preview(f)
             }))
         | ~{hsource bsource save_template preview_template} ->
           /* Html embedded editor is divided in two ace editor, one for
@@ -845,6 +910,7 @@ Page = {{
                                           bsource, some("html"))
 
           do Ace.add_event_listener(ace_body, {change}, draft)
+          do Ace.add_event_listener(ace_head, {change}, draft)
           /* Buffer buttons */
           make_buttons(rev,
             some({
@@ -856,22 +922,41 @@ Page = {{
                 match fail with
                 | {~rev} ->
                   do access.notify.send({save = file})
+                  do build_buffers(some(rev))
                   do do_report(<>Save success</>)
-                  build(some(rev))
-                | {~fail} -> do_report(<>{"{fail}"}</>)
+                  Dom.set_enabled(#{save_button_id},false)
+                | {~fail} ->
+                  do Dom.set_enabled(#{save_button_id},true)
+                  do_report(<>{"{fail}"}</>)
 
              read_only(b) =
                do Ace.read_only(ace_head, b)
                do Ace.read_only(ace_body, b)
                void
 
-             preview() =
-               fail = preview_template({
+             preview(f) =
+               fail() = preview_template({
                   hsource = Ace.get_content(ace_head)
                   bsource = Ace.get_content(ace_body)
                })
-               match fail with
-               | {none} -> on_ok_preview()
+
+               rec val timer = Scheduler.make_timer(1000, -> Session.send(sess,void))
+               and val sess = Session.make(Date.now(),(last_date,_ -> now= Date.now()
+                                                        do Log.info("d","preview update")
+                                                        do
+                                                          if Date.compare(Date.advance(last_date,Duration.s(2)),Date.now())=={lt}
+                                                          then
+                                                            do Log.info("d","preview timer stop")
+                                                            _ = fail()
+                                                            timer.stop()
+                                                          else Log.info("d","preview update")
+                                                        {set=now}
+                                                         ))
+               do Log.info("d","preview first start timer")
+               do Ace.add_event_listener(ace_body, {change}, -> do timer.stop() timer.start())
+               do Ace.add_event_listener(ace_head, {change}, -> do timer.stop() timer.start())
+               match fail() with
+               | {none} -> on_ok_preview(f)
                | {some=fail} -> do_report(<>{"{fail}"}</>)
 
             })
@@ -898,10 +983,11 @@ Page = {{
      * Create a buffer for the given [file].
      */
     @private file_buffer(access:Page.full_access, opened, file) =
-      id = "admin_buffer_{file_id(file)}"
+      id = buffer_file_id(file)
       class = if opened then "on" else "off"
       <div class="{class} admin_editor" id="{id}"
-       onready={_ -> _ = build_buffer(access, file, id) void}>
+       onready={_ -> do add_tab(file,file)
+                     _ = build_buffer(access, file, id) void}>
       </div>
 
     /**
@@ -909,7 +995,6 @@ Page = {{
      */
     @client insert_buffer(access:Page.full_access, opened, file) =
       edito = Dom.select_id("admin_editor_container")
-      //do add_tab(file,file)
       buffer = Dom.of_xhtml(file_buffer(access, opened, file))
       _ = Dom.put_at_end(edito, buffer)
       void
@@ -931,10 +1016,11 @@ Page = {{
       /**
        * Open file
        */
-      open_file(access:Page.full_access, file,pub) : FunAction.t = _event ->
+      open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
         do all_off()
-        do file_line_insert(access, true, file, none, pub)
-        buf = Dom.select_id("admin_buffer_{file_id(file)}")
+        do file_line_insert(access, true, file, pub,false)
+        id = "admin_buffer_{file_id(file)}"
+        buf = Dom.select_id(id)
         if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
         else
@@ -948,7 +1034,7 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
-        do file_line_insert(access, true, file, none, none)
+        do file_line_insert(access, true, file, none, false)
         open_file(access, file,none)(event)
 
       /**
@@ -957,8 +1043,8 @@ Page = {{
       remove_file(access:Page.full_access, file) : FunAction.t = _event ->
         do access.access.remove(file)
         do access.notify.send({remove = file})
-        fl  = Dom.select_id("admin_files_table_{file_id(file)}")
-        buf = Dom.select_id("admin_buffer_{file_id(file)}")
+        fl  = Dom.select_id(table_file_id(file))
+        buf = Dom.select_id(buffer_file_id(file))
         do Dom.remove(fl)
         do Dom.remove(buf)
         void
@@ -1003,13 +1089,14 @@ Page = {{
     @client @private hack(access:Page.full_access)(_:Dom.event) =
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
-        (file,pub) ->
-          file_line_insert(access, false, file, none,
-            (if pub.rev==0 then none else some(pub.rev))),
+        (file,pub,preview) ->
+          file_line_insert(access, false, file,
+            (if pub.rev==0 then none else some(pub.rev)),
+            preview),
         page_list)
       access.notify.subscribe(
         | {event={publish=(file,rev)} by=_} ->
-          file_line_insert(access, false, file, none,some(rev))
+          file_line_set_publish(file,some(rev))
         | _ -> void
       )
 
@@ -1094,8 +1181,9 @@ Page = {{
           <button onclick={Action.send_message(access)}>Send a message</button>
         </div>
       </div>
-      
+
       <div id="admin_editor_container">
+        {tabs_html()}
         {file_buffer(access, true, url)}
       </div>
       <div id="admin_buttons">
