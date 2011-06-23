@@ -183,6 +183,9 @@ Recaptcha =
       )
    )
 
+   @private client_reload = %%Recaptcha.reload%% /**Implementation of [reload]*/
+   @private client_destroy = %%Recaptcha.destroy%% /**Implementation of [destroy]*/
+
    /**
     * Construct the object representing the reCaptcha
     *
@@ -220,9 +223,7 @@ Recaptcha =
 
         )
       )
-      reload() = (%%Recaptcha.reload%%)()       /**Implementation of [reload]*/
-      destroy()= (%%Recaptcha.destroy%%)()      /**Implementation of [destroy]*/
-      ~{validate reload destroy}
+      {~validate reload=client_reload destroy=client_destroy}
    )
 
    /**

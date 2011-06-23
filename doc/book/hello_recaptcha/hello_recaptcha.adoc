@@ -454,6 +454,8 @@ From +validate+, as well as our JavaScript implementations of +reload+ and +dest
 construct our +Recaptcha.implementation+, as follows:
 [source, opa]
 --------------
+client_reload = %%Recaptcha.reload%%       /**Implementation of [reload]*/
+client_destroy = %%Recaptcha.destroy%%      /**Implementation of [destroy]*/
 make_implementation(privkey: string): Recaptcha.implementation =
 (
    validate(challenge, response, callback:Recaptcha.result -> void) =
@@ -485,9 +487,7 @@ make_implementation(privkey: string): Recaptcha.implementation =
 
      )
    )
-   reload() = (%%Recaptcha.reload%%)()       /**Implementation of [reload]*/
-   destroy()= (%%Recaptcha.destroy%%)()      /**Implementation of [destroy]*/
-   ~{validate reload destroy}
+   {~validate reload=client_reload destroy=client_destroy}
 )
 --------------
 
@@ -693,6 +693,9 @@ Recaptcha =
       )
    )
 
+   @private client_reload = %%Recaptcha.reload%% /**Implementation of [reload]*/
+   @private client_destroy = %%Recaptcha.destroy%% /**Implementation of [destroy]*/
+
    @private make_implementation(privkey: string): Recaptcha.implementation =
    (
       validate(challenge, response, callback:Recaptcha.result -> void) =
@@ -724,9 +727,7 @@ Recaptcha =
 
         )
       )
-      reload() = (%%Recaptcha.reload%%)()       /**Implementation of [reload]*/
-      destroy()= (%%Recaptcha.destroy%%)()      /**Implementation of [destroy]*/
-      ~{validate reload destroy}
+      {~validate reload=client_reload destroy=client_destroy}
    )
 
    @private get_token(): (string, string) =
