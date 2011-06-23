@@ -89,10 +89,9 @@ WAccordion = {{
  *the tab.
  *@return The HTML corresponding to the widget
  */
-  html(config: WAccordion.config, id: string, tab_content: list((string, string, string))): xhtml =
+  html(config: WAccordion.config, id: string, tab_content: list((string, string, string)))      : xhtml =
       widget = <div id=#{id}>{get_tabs(config,tab_content,id)}</div>
-      widget = WStyler.add(config.global_style,widget)
-      <>{widget}</>
+      WStyler.add(config.global_style,widget)
 
 /**
  *Function that opens a closed tab
