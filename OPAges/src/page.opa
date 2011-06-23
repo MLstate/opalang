@@ -663,7 +663,6 @@ Page = {{
         {file_for_xhtml(file)}
         {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
         {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
-        {if has_preview(file) then "[preview]" else ""}
       </td>
 >>>>>>> [opages/opalang.org] Add a function that compute resource with a custom env, and use it on include tag
 
