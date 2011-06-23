@@ -152,7 +152,7 @@ let warning s =
 ##register jlog : string -> void
 let jlog s =
   sync_to_print_on stderr;
-    #<If:TESTING> Logger.log "%s" s #<Else> Logger.info "%s" s #<End>
+  Logger.notice "%s" s
 
 (**
  * Type-unsafe identity.
