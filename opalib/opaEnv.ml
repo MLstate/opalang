@@ -261,7 +261,7 @@ struct
         f
 
     let extra_split g =
-      List.map String.trim (String.split (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
+      List.map String.trim (String.slice_chars "{} ,;'" g)
 
     (** lib & js for ocaml compilation *)
     let ccopt = MutableList.create ()
@@ -633,7 +633,7 @@ where options are :
             | '#' -> acc
             | _ ->
                 (** split, and call preprocess_word *)
-                let split = String.split (function ' ' | '\t' | '\n' -> true | _ -> false) in
+                let split = String.slice_chars " \t\n" in
                 List.fold_left preprocess_word acc (split line)
         in
         let opack_options = File.lines_fold preprocess [] file in

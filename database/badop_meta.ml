@@ -101,7 +101,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
            | p -> (match name with None -> p | Some n -> Filename.concat p n)
          in
 
-         let lflags = BaseString.split (fun x -> x=',') flags in
+         let lflags = BaseString.slice ',' flags in
          let restore,lflags =
            let found, lflags = consume_option "restore" lflags in
            let r =
@@ -148,7 +148,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
        (fun (_,o) i ->
          let opt = get_local_options o in
          (module Badop_local : Badop.S), Badop.Options_Local { opt with Badop.revision = Some i }),
-     "<int>", "Open the db at given revision. Be careful, it will overwrite current db";
+     "<int>", "Revert the database to the given revision. Be careful, all data after that revision will be cleared";
     ["--db-template"],
     A.func A.unit
       (fun (m,o) () ->

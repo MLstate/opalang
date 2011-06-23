@@ -41,7 +41,7 @@ let resolve_UNIX name =
   try
     (Unix.gethostbyname name).Unix.h_addr_list.(0)
      |> Unix.string_of_inet_addr
-     |> String.split ((=) '.')
+     |> String.slice '.'
      |> List.map int_of_string
      |> function [a;b;c;d] -> Some (a,b,c,d) | _ -> None
   with Unix.Unix_error _ -> None

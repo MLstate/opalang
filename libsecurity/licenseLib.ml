@@ -83,7 +83,7 @@ let sign_serialized_license data sym_key rsa_sig_privkey=
 let check_license_data license_data sym_key rsa_sig_pubkey = try
   let license_content = CL.symetric_decrypt (CL.from_hex sym_key) (CL.from_base64 license_data) in
   let p1, p2 =
-    let l = Base.String.split ((=) '\n') license_content in
+    let l = Base.String.slice '\n' license_content in
     if List.length l = 2 then
       let p1 = List.nth l 0
       and p2 = List.nth l 1 in
@@ -94,20 +94,20 @@ let check_license_data license_data sym_key rsa_sig_pubkey = try
 with C.Error _ | InvalidLicense -> None
 
 let recover_license serialized_license signature =
-  let l = Base.String.split ((=) ';') serialized_license in
+  let l = Base.String.slice ';' serialized_license in
   if List.length l = 5 then
     let lv = List.nth l 0
     and lid = List.nth l 1
     and ci = List.nth l 2
     and pbi = List.nth l 3
     and pii = List.nth l 4 in
-    let cl = Base.String.split ((=) ',') ci
-    and pbl = Base.String.split ((=) ',') pbi
-    and pil = Base.String.split ((=) ',') pii in
+    let cl = Base.String.slice ',' ci
+    and pbl = Base.String.slice ',' pbi
+    and pil = Base.String.slice ',' pii in
     let customer_info_data =
       List.fold_left (
         fun acc elt ->
-          let kv = Base.String.split ((=) '=') elt in
+          let kv = Base.String.slice '=' elt in
           let k = List.nth kv 0
           and v = (CryptoLib.from_base64 (List.nth kv 1)) in
           StringMap.add k v acc
@@ -115,7 +115,7 @@ let recover_license serialized_license signature =
     and product_bool_info_data =
       List.fold_left (
         fun acc elt ->
-          let kv = Base.String.split ((=) '=') elt in
+          let kv = Base.String.slice '=' elt in
           let k = List.nth kv 0
           and v = List.nth kv 1 in
           StringMap.add k (bool_of_string v) acc
@@ -123,7 +123,7 @@ let recover_license serialized_license signature =
     and product_int_info_data =
       List.fold_left (
         fun acc elt ->
-          let kv = Base.String.split ((=) '=') elt in
+          let kv = Base.String.slice '=' elt in
           let k = List.nth kv 0
           and v = List.nth kv 1 in
           StringMap.add k (int_of_string v) acc
@@ -136,7 +136,7 @@ let system_uuid () = try
   if Sys.file_exists sysprof then
     let ic = Unix.open_process_in (Printf.sprintf "%s -detailLevel full SPHardwareDataType | grep UUID" sysprof) in
     let huuid = input_line ic in
-    let l = Base.String.split ((=) ':') huuid in
+    let l = Base.String.slice ':' huuid in
     let uuid = Base.String.trim (List.nth l 1) in
     uuid
   else ""

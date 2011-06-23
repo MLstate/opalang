@@ -604,7 +604,7 @@ let simplify_path =
       path
     else
       let b = path.[len-1] = path_sep.[0] in
-      let l = String.split ((=) path_sep.[0]) path in (* warning : "" are eliminated by split *)
+      let l = String.slice path_sep.[0] path in
       let b2 = path.[0] = path_sep.[0] in
       let l = aux (not b2) l in
       let path = String.concat path_sep l in

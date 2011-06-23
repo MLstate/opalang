@@ -182,7 +182,7 @@ let get_compression_limit mime_type =
   (* We find that the mime_type value actually includes the charset.  It's
      not supposed to but we can't do anything about that.  We'll just have to
      strip it out here. *)
-  match String.split (function ';' -> true | _ -> false) mime_type with
+  match String.slice ';' mime_type with
   | [] -> CL_Never
   | mt::_ ->
       (match StringMap.find_opt (String.trim mt) comp_lim_map with

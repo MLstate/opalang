@@ -256,4 +256,4 @@ let rec add_bash_completion ?name ?names ?default args =
      " Dumps a bash completion in ./bash_completion") :: args in
   new_args
 
-let split s = String.split (fun c -> List.mem c [' '; ','; ';']) s
+let split s = String.slice_chars " .;" s

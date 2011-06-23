@@ -168,7 +168,7 @@ let http_server_callback runtime (buf,pos_ref) =
   | Some cb -> cb runtime.rt_proto.rt_payload !pos_ref buf
   | None -> true
 let split_cookie str =
-  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.split ((=) ';') str)
+  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)
 }}
 
 % FIXME: parse this...

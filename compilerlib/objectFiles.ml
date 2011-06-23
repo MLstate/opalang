@@ -121,7 +121,7 @@ type conf_line =
   | Package of package_name
   | Infos of (filename list * string list) (* filenames, and imported packages *)
 
-let conf_split s = String.split (fun c -> List.mem c [ ' ' ; '\t' ]) s
+let conf_split s = String.slice_chars " \t" s
 let process_line ~position line =
   let line =
     match String.findi '#' line with
@@ -208,7 +208,7 @@ let load_conf conffile =
     match process_line ~position line with
     | None -> package
     | Some (Package package_name) ->
-        if package_name = "" || not ( List.for_all String.is_word (String.split ((=)'.') package_name ) )
+        if package_name = "" || not ( List.for_all String.is_word (String.slice '.' package_name ) )
         then
           OManager.error (
             "%a@\n" ^^

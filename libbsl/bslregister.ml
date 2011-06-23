@@ -194,8 +194,7 @@ let finalize_options () =
 
 let spliter g =
   List.map String.trim
-    (String.split
-       (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
+    (String.slice_chars "{} ,;" g)
 
 
 let itersplit f sss = List.iter f (spliter sss)

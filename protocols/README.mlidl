@@ -347,7 +347,7 @@ Notes
 
   1) The text provided by the <value> string is  technically OCaml code but note
      that you can't currently use complex code here because the string is parsed
-     very simply with  String.split, so you  can't have any semicolons or commas
+     very simply with  String.slice, so you  can't have any semicolons or commas
      in your ML code!   The above  table  indicates the  types of the  resulting
      OCaml text.
 

@@ -198,7 +198,7 @@ let create hr =
   { hr with HST.hr_ec = ec; hr_ic = ic; hr_dt2 = dt2; }
 
 let split_cookie str =
-  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.split ((=) ';') str)
+  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)
 
 let collect_cookies sched (_,expired) =
   List.iteri

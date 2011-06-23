@@ -131,7 +131,7 @@ end
 =
 struct
   (** tools *)
-  let extra_split g = List.map Base.String.trim (Base.String.split (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
+  let extra_split g = List.map Base.String.trim (Base.String.slice_chars "{} ,;" g)
   let mutable_list_factory () =
     let s = MutableList.create () in
     ((fun () -> MutableList.to_list s), (fun p -> List.iter (MutableList.add s) (extra_split p)), (fun () -> MutableList.clear s))

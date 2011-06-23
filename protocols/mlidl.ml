@@ -3103,11 +3103,11 @@ let trimbr l r s =
 
 let getextal s0 =
   let s = trimbr '[' ']' s0 in
-  let ss = String.split (function ';' -> true | _ -> false) s in
+  let ss = String.slice ';' s in
   let ss = List.map (trimbr '(' ')') ss in
   let ss =
     List.map (fun s ->
-                match String.split (function ',' -> true | _ -> false) s with
+                match String.slice ',' s with
                 | [k;v] -> (k,v)
                 | _ -> failwith (sprintf "Syntax error in external string '%s'" s0)) ss
   in

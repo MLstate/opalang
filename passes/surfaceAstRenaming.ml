@@ -534,7 +534,7 @@ let tuples = ref IntMap.empty
 let add_tuple_n num ident = tuples := IntMap.safe_add num ident !tuples
 let get_tuple_n num = IntMap.find_opt num !tuples
 let get_tuple_size name =
-  match String.split ((=) '_') name with
+  match String.slice '_' name with
     | ["tuple"; s] ->
         ( match int_of_string_opt s with
             | None -> None

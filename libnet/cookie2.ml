@@ -230,7 +230,7 @@ let get_resource_tracker ic =
     else raise Unknown_cookie
 
 let split_cookie str =
-  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.split ((=) ';') str)
+  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)
 
 let collect_cookies (ics,ecs,ic_updts) =
   List.iter (fun ec ->

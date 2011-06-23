@@ -103,7 +103,7 @@ end
 (*
   (* Transcript the type to a qml-well-parsed type in a generation of qml-code *)
 
-  let module_spliter = String.split (fun c -> List.mem c ['~'; '/'; ','; '.'; '#'])
+  let module_spliter = String.slice_chars "~/,.#"
 
   let ocaml_module_path_manager_from_string full pwd =
     let pfull = module_spliter full and ppwd = module_spliter pwd in

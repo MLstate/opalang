@@ -261,7 +261,7 @@ module SharedChannel = struct
            match s with
            | "own" -> {o with kind = `server}
            | _ ->
-               let l = String.split (function ':' -> true | _ -> false) s in
+               let l = String.slice ':' s in
                { o with
                  kind = `client;
                  dir_endpoint =

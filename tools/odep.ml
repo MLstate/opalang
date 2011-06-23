@@ -315,7 +315,7 @@ struct
     let libname = File.chop_extension (Filename.basename filename) in
     let repo =
       match
-        try String.split (function '/' -> true | _ -> false) (Unix.readlink filename)
+        try String.slice '/' (Unix.readlink filename)
         with Unix.Unix_error _ -> []
       with
       | "repos"::repo::_ -> Some repo
@@ -324,7 +324,7 @@ struct
       match parse line with
       | None -> env
       | Some (path, module_name) ->
-          let path_elts = String.split ((=)'/') path in
+          let path_elts = String.slice '/' path in
           match path_elts with
           | [] ->
               Printf.eprintf (
@@ -416,7 +416,7 @@ struct
     | Some line -> (
         let left, right = String.split_char ':' line in
         let left = String.trim left in
-        let depends = String.split Char.is_space right in
+        let depends = String.slice_chars " \t\r\n" right in
         match Mllib.parse left with
         | None -> None
         | Some (path, module_name) ->

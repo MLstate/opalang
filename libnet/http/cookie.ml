@@ -87,7 +87,7 @@ let create() =
 
 let id_of_cookie str =
 (*  let () = prerr_endline str in *)
-  let cookies = String.split ((=)';') str |>
+  let cookies = String.slice ';' str |>
       List.map
       (fun x ->
         let a, b = String.split_char '=' x in

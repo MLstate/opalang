@@ -178,7 +178,7 @@ let is_contained str = function
 
 let flag str = function
   | None -> false
-  | Some var -> List.mem str (Base.String.split (function ',' -> true | _ -> false) var)
+  | Some var -> List.mem str (Base.String.slice ',' var)
 
 let _ =
   match check_vars with

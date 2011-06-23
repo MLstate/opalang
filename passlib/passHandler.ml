@@ -37,7 +37,7 @@ let tracker_map = ref StringMap.empty
 module Arg = struct
   open Base
   let split =
-    String.split (function ',' -> true | _   -> false)
+    String.slice ','
 
   let add_strs ?ids str set =
     let () =

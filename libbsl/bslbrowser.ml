@@ -72,8 +72,7 @@ let debug fmt =
 
 let spliter g =
   List.map String.trim
-    (String.split
-       (fun c -> List.mem c ['{'; '}'; ' '; ','; ';']) g)
+    (String.slice_chars "{} ,;" g)
 
 
 (* options state *)

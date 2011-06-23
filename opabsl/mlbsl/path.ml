@@ -244,7 +244,9 @@ let stringmap_fold_range t f acc start end_opt filter k =
 
 let search key2val words t k =
   let words = Cactutf.lowercase words in
-  let words = Base.String.split ((=) ' ') words in (* Fixme: better split (different spaces, ponctuation...) *)
+  let words = Base.String.slice_chars " \t,.'" words in
+  let words = List.map Base.String.trim words in
+  let words = List.filter ((<>) "") words in
   get_trans t @> C.ccont_ml k
   @> fun tr ->
     tr.B.tr_engine.E.read tr.B.tr t.path (Badop.Search (D.query (words, (None,0))))

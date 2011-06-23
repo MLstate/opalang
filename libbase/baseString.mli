@@ -414,31 +414,29 @@ val rev_char_list_of_string : string -> char list
 (** {6 Splitting} *)
 
 (**
-   TODO:implement the following function if needed
-   val split_first : (char -> bool) -> string -> string * string
-   val split_last : (char -> bool) -> string -> string * string
-   And then remove [split_char], [split_char_last], [split_chars]
+   cuts a string at the occurences of the given character. The separation
+   character is removed. Empty strings are'nt returned (that is,
+   [slice '/' "/path//x/"] returns [["path";"x"]]). Non tail-recursive.
 *)
+val slice : char -> string -> string list
 
 (**
-   splits a string using character criterion
+   same as slice, but cuts at every character present in the string given as
+   first parameter.
 *)
-val split : (char -> bool) -> string -> string list
+val slice_chars : string -> string -> string list
 
 (**
-   split a string in two substrings, split is first occurrence of char in string
+   split a string in two substrings, at the first occurence of [char], which is removed.
+   If [char] doesn't appear in [string], returns [(string,"")]
 *)
 val split_char : char -> string -> string * string
 
 (**
-   split a string in two substrings, split is last occurrence of char in string
+   split a string in two substrings, at the last occurence of [char], which is removed.
+   If [char] doesn't appear in [string], returns [(string,"")]
 *)
 val split_char_last : char -> string -> string * string
-
-(**
-   split a string in two substrings, split is first occurrence of one of chars in string
-*)
-val split_chars : char list -> string -> string * string
 
 
 (** {6 UNDOCUMENTED : use it at your own risk} *)

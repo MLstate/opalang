@@ -49,7 +49,7 @@ let icfs plplst s ls n =
   in
   aux plplst
 
-let verlstch ch str = List.map int_of_string (String.split (function c -> c = ch) str)
+let verlstch ch str = List.map int_of_string (String.slice ch str)
 
 let verlst = verlstch '.'
 let verlstm = verlstch '-'

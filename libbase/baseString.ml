@@ -642,53 +642,47 @@ let rev_char_list_of_string s =
 
 (* =========================================================================== *)
 (*
-  Splitting: if you need to patch this code, cf comment in mli
+  Splitting, dicing & slicing
 *)
 
-let split crit s =
-  let l = length s in
-  let rec aux r count pos =
-    if pos < 0 then
-      if count = 0 then r
-      else unsafe_sub s 0 count :: r
-    else
-      let c = unsafe_get s pos in
-      if crit c then
-        let r = if count = 0 then r else
-          unsafe_sub s (succ pos) count :: r in
-        aux r 0 (pred pos)
-      else
-        aux r (succ count) (pred pos)
+let slice cut str =
+  let rec aux pos =
+    try
+      let i = String.index_from str pos cut in
+      if i==pos then aux (succ pos)
+      else unsafe_sub str pos (i - pos) :: aux (succ i)
+    with Not_found | Invalid_argument _ ->
+      let l = String.length str in
+      if l==pos then []
+      else [ unsafe_sub str pos (l - pos) ]
   in
-  aux [] 0 (pred l)
+  aux 0
+
+let slice_chars cut str =
+  let rec index_from pos = if String.contains cut str.[pos] then pos else index_from (succ pos) in
+  let rec aux pos =
+    try
+      let i = index_from pos in
+      if i==pos then aux (succ pos)
+      else unsafe_sub str pos (i - pos) :: aux (succ i)
+    with Invalid_argument _ ->
+      let l = String.length str in
+      if l==pos then []
+      else [ unsafe_sub str pos (l - pos) ]
+  in
+  aux 0
 
 let split_char c s =
-  let l = length s in
-  let rec search_char i =
-    if i=l then s, ""
-    else
-      if unsafe_get s i = c then sub s 0 i, sub s (i+1) (l-i-1)
-      else search_char (succ i) in
-  search_char 0
+  try
+    let i = String.index s c in
+    unsafe_sub s 0 i, unsafe_sub s (i + 1) (String.length s - i - 1)
+  with Not_found -> s, ""
 
 let split_char_last c s =
-  let l = length s in
-  let rec search_char i =
-    if i=0 then s, ""
-    else
-      let pi = pred i in
-      if unsafe_get s pi = c then sub s 0 pi, sub s (pi+1) (l-pi-1)
-      else search_char pi in
-  search_char l
-
-let split_chars cl s =
-  let l = length s in
-  let rec search_char i =
-    if i=l then s, ""
-    else
-      if List.mem (unsafe_get s i) cl then sub s 0 i, sub s (i+1) (l-i-1)
-      else search_char (succ i) in
-  search_char 0
+  try
+    let i = String.rindex s c in
+    unsafe_sub s 0 i, unsafe_sub s (i + 1) (String.length s - i - 1)
+  with Not_found -> s, ""
 
 (* =========================================================================== *)
 

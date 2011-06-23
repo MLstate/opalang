@@ -71,7 +71,7 @@ let of_list =
   in stop_fold []
 
 let parse s =
-  let li = String.split (fun t -> List.mem t ['/'; ' '; ',' ;'{' ; '}']) s in
+  let li = String.slice_chars "/ ,{}" s in
   of_list li
 
 let gen_print f list = String.concat_map ~left:"{" ~right:"}" ", " f list

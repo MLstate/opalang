@@ -104,7 +104,7 @@ let mkchk from_n mms cnt inname error =
   (saconcat "\n" (Array.init cnt (fun i -> Printf.sprintf "  if c%d < '%s' || c%d > '%s' then %s;"
                                                     i (Char.escaped (fst (mms.(i)))) i (Char.escaped (snd (mms.(i)))) error)))
 
-let mkus args = String.concat " " (List.map (fun s -> "_"^s) (String.split (fun c -> c = ' ') args))
+let mkus args = String.concat " " (List.map (fun s -> "_"^s) (String.slice ' ' args))
 
 let mkerrargs errordef argtys =
   String.concat " " (List.map (fun (a,t) -> "("^(if List.mem_assoc a errordef then "" else "_")^a^":"^t^")") argtys)

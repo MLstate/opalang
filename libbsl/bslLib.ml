@@ -121,7 +121,7 @@ end
 let map_type_from_type_map_and_path type_path_map current_path ?(definition=false) (typ : BslTypes.t) =
   let module_path = String.concat "." current_path in
   let map_type_key name =
-    let parts = List.map String.lowercase (String.split ((=) '.') name) in
+    let parts = List.map String.lowercase (String.slice '.' name) in
     let nkey = BslKey.normalize_string (String.concat "_" parts) in
     let rec find_first_success rest_rev_path =
       let nkey = String.concat "_" (List.rev_map String.lowercase (nkey::rest_rev_path)) in
@@ -644,7 +644,7 @@ struct
 
         let of_string s =
           let elts =
-            String.split (fun c -> List.mem c ['~'; '/'; ','; '.'; '#']) s in
+            String.slice_chars "~/,.#" s in
           build elts
 
         let to_string = function
