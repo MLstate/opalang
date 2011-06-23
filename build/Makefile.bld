@@ -42,7 +42,9 @@ OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin -j 6 $(OCAMLBUILD_FLAGS)
 
 INSTALL ?= cp -u
 
-LIB_INSTALL_DIR = $(PREFIX)/lib/opa/static
+DESTDIR ?=
+INSTALL_DIR = $(DESTDIR)$(PREFIX)
+LIB_INSTALL_DIR = $(INSTALL_DIR)/lib/opa/static
 
 .PHONY: clean
 clean:
@@ -132,7 +134,7 @@ $(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS)
 	        if (dir=="bin") printf " && chmod a+x $$(BUILD_DIR)/%s/%s\n",dir,tool; \
 	        else printf "\n"; \
 	        printf "install-%s = ", tool; \
-	        printf "mkdir -p $$(PREFIX)/%s && $$(INSTALL) $$(BUILD_DIR)/%s/%s $$(PREFIX)/%s/%s\n", \
+	        printf "mkdir -p $$(PREFIX)/%s && $$(INSTALL) $$(BUILD_DIR)/%s/%s $$(INSTALL_DIR)/%s/%s\n", \
 	          dir, dir, tool, dir, tool; \
 	        printf "\n"; \
 	      } \
