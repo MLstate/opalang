@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @authors ?
 **/
@@ -26,6 +27,18 @@ import stdlib.core.{iter,map}
  *
  * @author David Rajchenbach-Teller 2010 (review, clean-up and documentation)
  * @author Raja Boujbel
+ */
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 /**
@@ -51,12 +64,12 @@ type Set('elem,'order) =
   is_empty : ordered_set('elem,'order) ->  bool
 
   /**
-   * Return a set containing an uniq element, the given one
+   * Return a set containing an single element, the given one
    */
   singleton : 'elem -> ordered_set('elem,'order)
 
   /**
-   * Return the heigth of given set
+   * Return the height of given set
    */
   height : ordered_set('elem,'order) ->  int
 
@@ -70,7 +83,7 @@ type Set('elem,'order) =
    *
    * @param elem the element to add. If the element exists in the set,
    *             it is not added
-   * @param set  the set to wich to add
+   * @param set  the set to which to add
    * @return A set containing all the element of set plus the element [elem],
    *  if it doesn't exist on the set
    */
@@ -108,7 +121,7 @@ type Set('elem,'order) =
   /**
    * Remove an element from the set.
    *
-   * @param elem a element, possibly ine the set
+   * @param elem a element, possibly in the set
    * @param s    a set
    * @return [s] if the set doesn't contain [elem]. Otherwise, a set obtained
    *              by removing the element [elem]
@@ -158,7 +171,7 @@ type Set('elem,'order) =
    *
    * @param s1, s2 sets to merge, possibly empty
    * @return a set containing all element contained either in [s1] or in [s2].
-   *         If an element apears in both sets, it appears once on result set
+   *         If an element appears in both sets, it appears once on result set
    */
   union : ordered_set('elem,'order),  ordered_set('elem,'order) -> ordered_set('elem,'order)
 
@@ -172,7 +185,7 @@ type Set('elem,'order) =
   min_binding : ordered_set('elem,'order) -> option('elem)
 
   /**
-   * Same behaviour than [min_binding], instead of returning an option, it returns the element.
+   * Same behavior than [min_binding], instead of returning an option, it returns the element.
    * Raise an error message if the given set is empty.
    */
   unsafe_min_binding : ordered_set('elem,'order) -> 'elem
@@ -195,7 +208,7 @@ type Set('elem,'order) =
   max_binding : ordered_set('elem,'order) -> option('elem)
 
   /**
-   * Same behaviour than [max_binding], instead of returning an option, it returns the element.
+   * Same behavior than [max_binding], instead of returning an option, it returns the element.
    * Raise an error message if the given set is empty.
    */
   unsafe_max_binding : ordered_set('elem,'order) -> 'elem
@@ -209,28 +222,28 @@ type Set('elem,'order) =
   remove_max_binding : ordered_set('elem,'order) -> ordered_set('elem,'order)
 
   /**
-   * Substract a part of a set
+   * Subtract a part of a set
    *
-   * @param l a lowerbound
-   * @param u an upperbound
+   * @param l a lower bound
+   * @param u an upper bound
    * @param s a set
-   * @return a set containing all element appearing in [s] and  betwenn [l] and [u]
+   * @return a set containing all element appearing in [s] and  between [l] and [u]
    */
   subset : 'elem, 'elem, ordered_set('elem,'order) -> ordered_set('elem,'order)
 
   /**
-   * Substract a part of a set
+   * Subtract a part of a set
    *
-   * @param l a lowerbound
+   * @param l a lower bound
    * @param s a set
    * @return a set containing all element appearing in [s] and greater than [l]
    */
   greater : 'elem, ordered_set('elem,'order) -> ordered_set('elem,'order)
 
   /**
-   * Substract a part of a set
+   * Subtract a part of a set
    *
-   * @param u an upperbound
+   * @param u an upper bound
    * @param s a set
    * @return a set containing all element appearing in [s] and smaller than [u]
    */
@@ -254,11 +267,15 @@ type Set('elem,'order) =
   pop_min_binding : ordered_set('elem, 'order) -> (ordered_set('elem, 'order), option('elem));
   /**
    * Get a random element from the set
-   * Picking distribution is approximatively uniform
+   * Picking distribution is approximately uniform
    */
   random_get : ordered_set('elem, 'order) -> option('elem)
 
 }}
+
+/**
+ * {1 Interface}
+ */
 
 Set_make( order : order('elem,'order)  )  =
 {{
@@ -410,19 +427,19 @@ Set_make( order : order('elem,'order)  )  =
 /**
  * The default [Set] module.
  *
- * Chances are that you will use this module for most tasks. It uses the default comparaison.
+ * Chances are that you will use this module for most tasks. It uses the default comparison.
  */
 Set = @nonexpansive(Set_make(Order.default)) : Set('elem, Order.default)
 
 /**
- * A [Set] on strings, using alphabetical comparaison on strings.
+ * A [Set] on strings, using alphabetical comparison on strings.
  *
- * This instance of [Set] differenciates uppercase from lowercase.
+ * This instance of [Set] differentiates uppercase from lowercase.
  * Otherwise, the order between strings is alphabetical.
  */
 StringSet = Set_make(String.order) : Set(string, String.order)
 
 /**
- * A [Set] on numbers, using numeric comparaison.
+ * A [Set] on numbers, using numeric comparison.
  */
 IntSet    = Set_make(Int.order) : Set(int, Int.order)
