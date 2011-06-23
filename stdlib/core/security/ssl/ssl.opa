@@ -15,10 +15,22 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
+
+/**
     @author David Rajchenbach-Teller
 **/
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * The information required to prove identity to an interlocutor
@@ -34,6 +46,10 @@ type SSL.secure_type = external
 type SSL.certificate = external
 
 //To create a certificate or a policy, use directives @ssl_static_certificate and @ssl_static_policy
+
+/**
+ * {1 Interface}
+ */
 
 SSL =
 {{
