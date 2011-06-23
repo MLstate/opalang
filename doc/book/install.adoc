@@ -15,17 +15,17 @@ a number of other operating systems (e.g. BSD) but these platforms are not suppo
 Installing Opa
 ~~~~~~~~~~~~~~
 
-The easiest solution for installing Opa is to download an installer from http://opalang.org/download.html[our website].
+The easiest solution for installing Opa is to download an installer from http://opalang.org/get.xmlt[our website].
 
 MacOS X
 ^^^^^^^
 
 - If you have not done so yet, install the XCode tools, provided by Apple with your copy of MacOS X. If you do not have XCode, you can either download the latest version from the http://itunes.apple.com/us/app/xcode/id422352214?uo=2&mt=12&uo=2&v0=WWW-NAUS-ITUHOME-NEWAPPLICATIONS[Mac AppStore] (paying) or download an older version from https://daw.apple.com/cgi-bin/WebObjects/DSAuthWeb.woa/wa/login?appIdKey=D635F5C417E087A3B9864DAC5D25920C4E9442C9339FA9277951628F0291F620&path=/%2Fmembercenter%2FurlRedirect.action%3FfullURL%3Dhttp%253A%252F%252Fconnect.apple.com%252Fcgi-bin%252FWebObjects%252Fregister.woa%252F49%252Fwa%252Fdefault%253Fmode%253Dregister%2526userAction%253Dlogin%2526successURL%253Dhttp%25253A%25252F%25252Fconnect.apple.com%25252Fcgi-bin%25252FWebObjects%25252FMemberSite.woa%25252Fwa%25252Flogin%25253Faction%25253DgetSoftware%2525253FbundleID%2525253D20792[Apple's website] (free, registration required). In addition to general development utilities, this package provides some of the low-level, Mac-specific, tools used by Opa to produce server-side executables.
-- Download http://www.opalang.org/downloads[Opa for MacOS X].
+- Download http://www.opalang.org/get.xmlt[Opa for MacOS X].
 - Once the download is complete, if your browser does not open automatically the file you have just downloaded, go to your Download folder and open this file. This should open a new Finder window containing the Opa installer package.
 - Open the Opa installer package by double-clicking on it.
-- Follow the instructions on screen. You will need the password of an administrative account.
-- Once the installation is complete, the Opa compiler will be installed in directory
+- Follow the instructions on the screen. You will need the password of an administrative account.
+- Once the installation is complete, the Opa compiler will be installed in the directory
 
   /opt/mlstate
 
@@ -35,10 +35,10 @@ Ubuntu Linux, Debian Linux
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 The following instructions are also valid for all Debian-based Linux distributions.
 
-- Download the Ubuntu Linux package from http://www.opalang.org/download.html.
+- Download the http://www.opalang.org/get.xmlt[Ubuntu Linux package].
 - Once the download is complete, your operating system will offer you to install Opa using a tool such as gdebi or kdebi.
-- Follow the instructions on sreen. You will need the password of an account with administration rights.
-- Once the installation is complete, the Opa compiler will be installed in directory
+- Follow the instructions on the screen. You will need the password of an account with administrative rights.
+- Once the installation is complete, the Opa compiler will be installed in the directory
 
   /usr/bin
 
@@ -46,69 +46,66 @@ and the documentation and examples will be in
 
   /usr/share/doc/opa
 
-Other Linux, installing as user
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Other Linux distribution
+^^^^^^^^^^^^^^^^^^^^^^^^
 To install Opa on Suse, Red Hat, Fedora and other distributions of Linux which
-do not use the .deb system, or if you don't have administrative rights on your
+do not use the .deb system, or if you do not have administrative rights on your
 machine, take the following steps:
 
 
 - Using your package manager, install packages:
 **    +libssl-devel+
 **    +zlib1g-devel+
-
 - Or, if these packages do not exist in your distribution, install whichever packages provide
 **  library +libssl.so+
 **  library +libz.so+
-
-- Download the Linux self-extracting package from http://www.opalang.org/download.html.
+- Download the from http://www.opalang.org/download.html[Linux self-extracting package].
 - When prompted by your browser, choose to save the file in a temporary directory, for instance, +/tmp+.
-- To install as user:
+- To install as a user:
 ** Set the execution permission on the downloaded program
-** Run it and follow the instructions on screen
-** The compiler is installed by default in ~/mlstate-opa/bin
+** Run it and follow the instructions on the screen
+** The compiler is installed by default in +~/mlstate-opa/bin+
 - To install system-wide, open a terminal (if you are using KDE, the terminal is called Konsole)
 ** In the terminal, write:
 
     sudo sh [complete path to the file you have just downloaded]
 
-** Follow the instructions on screen
-** By default, the install is done in /usr/local
-- This installation comes with an uninstall script, in [install prefix]/share/opa/uninstall.sh
+** Follow the instructions on the screen
+** By default, the installation is done in +/usr/local+
+- This installation comes with an un-installation script, in +[install prefix]/share/opa/uninstall.sh+
 
-Building Opa from source
-~~~~~~~~~~~~~~~~~~~~~~~~
+Building Opa from the sources
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 [CAUTION]
 ==========
 Work in progress
 ==========
 
-Should you wish to work on an unsupported platform, or to contribute to Opa, you will need to build Opa from source. This requires a bit more work than the
+Should you wish to work on an unsupported platform, or to contribute to Opa, you will need to build Opa from sources. This requires a bit more work than the
 installation, but you should have no major difficulties. You will need:
 
 - git (to download the source);
-- libgif 4.1 or ulterior (dev version)
-- libjpeg 8b-1 or ulterior (dev version)
-- libpng 1.2.44 or ulterior (dev version)
-- libssl 0.9.8 or ulterior (dev version)
-- libxft 2.2.0 or ulterior (dev version)
+- libgif 4.1 or later (dev version)
+- libjpeg 8b-1 or later (dev version)
+- libpng 1.2.44 or later (dev version)
+- libssl 0.9.8 or later (dev version)
+- libxft 2.2.0 or later (dev version)
 - m4
 - dblatex
-- java 1.5 or ulterior
-- libx11 1.4.2 or ulterior (dev version)
-- zlib 1.2.3.4 or ulterior (dev version)
+- java 1.5 or later
+- libx11 1.4.2 or later (dev version)
+- zlib 1.2.3.4 or later (dev version)
 
-In addition, if you are using MacOS X, you will need
+In addition, if you are using MacOS X, you will need:
 
 - GNU coreutils, part of http://macports.org[MacPorts] (free)
 - The XCode suite, provided by Apple with your copy of MacOS X. If you do not have XCode, you can either download the latest version from the http://itunes.apple.com/us/app/xcode/id422352214?uo=2&mt=12&uo=2&v0=WWW-NAUS-ITUHOME-NEWAPPLICATIONS[Mac AppStore] (paying) or download an older version from https://daw.apple.com/cgi-bin/WebObjects/DSAuthWeb.woa/wa/login?appIdKey=D635F5C417E087A3B9864DAC5D25920C4E9442C9339FA9277951628F0291F620&path=/%2Fmembercenter%2FurlRedirect.action%3FfullURL%3Dhttp%253A%252F%252Fconnect.apple.com%252Fcgi-bin%252FWebObjects%252Fregister.woa%252F49%252Fwa%252Fdefault%253Fmode%253Dregister%2526userAction%253Dlogin%2526successURL%253Dhttp%25253A%25252F%25252Fconnect.apple.com%25252Fcgi-bin%25252FWebObjects%25252FMemberSite.woa%25252Fwa%25252Flogin%25253Faction%25253DgetSoftware%2525253FbundleID%2525253D20792[Apple's website] (free, registration required). This package provides some of the low-level, Mac-specific, tools used by Opa to produce server-side executables.
 
 Once these dependencies are satisfied, take the following steps:
 
-- Grab the source on http://github.com/MLstate/opalang[github]
+- Grab the sources from http://github.com/MLstate/opalang[github] by entering in a terminal:
 
-  - In a terminal, enter
 ------
 git clone git@github.com:MLstate/opalang.git
 ------
@@ -116,12 +113,12 @@ git clone git@github.com:MLstate/opalang.git
   - In the same terminal, enter
 ------
 cd opalang
-./configure --prefix=SOMEDIRECTORY
+./configure --prefix=SOME_DIRECTORY
 make
 make install
 ------
 
-(You will need root privileges). This will install Opa in directory _SOMEDIRECTORY_
+(You may need root privileges). This will install Opa in directory +SOME_DIRECTORY+
 
 
 Setting up your editor
@@ -140,7 +137,7 @@ On MacOS-X, either you're using Aquamacs and the package installation took care 
 (add-to-list 'auto-mode-alist '("\\.opa$" . opa-mode))
 ------
 
-Onn Linux, it's easy as 1 2 3, add the following lines to your configuration file:
+On Linux, add the following lines to your configuration file:
 
 ------
 ;; MLstate
@@ -151,12 +148,11 @@ Onn Linux, it's easy as 1 2 3, add the following lines to your configuration fil
 Vim
 ^^^
 
-If your running linux (resp. MacOS-X), copy files +/usr/share/opa/vim/{ftdetect,syntax}/opa.vim+ (resp. +/opt/mlstate/share/opa/vim/{ftdetect,syntax}/opa.vim+) in your +.vim+ directory, keeping directory structure, of course.
-That's it !!
+If you are running Linux (resp. MacOS-X), copy files +/usr/share/opa/vim/{ftdetect,syntax}/opa.vim+ (resp. +/opt/mlstate/share/opa/vim/{ftdetect,syntax}/opa.vim+) to your +.vim+ directory, keeping the directory structure.
 
 [TIP]
 ==============
-Instead of copying you can create a symbolic link. This will let you be automatically up-to-date with the latest mode everytime you install Opa from a new Opa package.
+Instead of copying you can create a symbolic link. This will let you be automatically up-to-date with the latest mode every time you install a new version of Opa.
 ==============
 
 Other editors
