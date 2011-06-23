@@ -368,6 +368,10 @@ let resume_block_stack _ =
 
 let before_wait = save_block_stack
 
+(*
+  Used internally only, not exported.
+  This wait is used for projecting cps functions into non cps functions.
+*)
 let blocking_wait (v : 'a barrier) : 'a =
   resume_block_stack () ;
   match v.status with
@@ -380,6 +384,11 @@ let blocking_wait (v : 'a barrier) : 'a =
            "Barrier (%s : %d) was not released, don't wait anymore"
            v.ident v.nb)
 
+(*
+  This wait is exported, and used for the evaluation of toplevel expressions.
+  It is called after a [Scheduler.loop_until] enforcing that the barrier is
+  released [Computed] when this function is called.
+*)
 let toplevel_wait (v : 'a barrier) : 'a =
   resume_block_stack () ;
   match v.status with
@@ -421,6 +430,10 @@ let fail_barrier (v:'a barrier) (exc:'a) =
       v.status <- Exception (Obj.repr exc);
       List.iter (fun f -> return (handler_cont f) exc) !l
 
+(*
+  Function to check if the barrier is still not released.
+  Used combined with a [Scheduler.loop_until].
+*)
 let is_released v =
   match v.status with
   | Waiting _ ->
@@ -432,6 +445,14 @@ let is_released v =
       false
   | _ -> true
 
+(*
+  Proposition using a time limit for projection cps functions.
+  We may also implement the skipping of a few second order bypass
+  call, that way we will reject code which would need such a
+  projection. Currently, this is not used.
+*)
+module LoopingWait =
+struct
 let max_loop_time = 40.0
 let time_limit () = Unix.gettimeofday () +.  max_loop_time
 let false_may_fail_on_time_limit v time_limit =
@@ -466,6 +487,7 @@ let looping_wait (v : 'a barrier) : 'a =
     loop ();
   );
   toplevel_wait v
+end
 
 type black_future
 external black_future : 'a future -> black_future = "%identity"
@@ -506,7 +528,7 @@ let uncps ident k f =
   let c = ccont_ml k (fun z -> release_barrier b z) in
   before_wait ();
   let _ = CR.args_apply1 f c in
-  looping_wait b
+  blocking_wait b
 
 let uncps_ml ident k (f:'b continuation -> unit) =
   uncps ident k (CR.create_no_ident1 f)
