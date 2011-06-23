@@ -212,13 +212,6 @@ let handler_cont k = match k.continuation_info.exn_handler with
   | Some h -> magic_cont h
 let catch_ml h k = { k with continuation_info = {k.continuation_info with exn_handler = Some (ccont_ml k (fun x -> h (Obj.obj x) k)) } }
 let catch h k = { k with continuation_info = {k.continuation_info with exn_handler = Some (ccont_ml k (fun x -> CR.args_apply2 h (Obj.obj x) k)) } }
-(*
-  Runtime error : The scheduler has nothing to do
-  This event can have serveral different meaning depending on the situation.
-  + At end of program : the exception is simply ignored, execution is finished
-  + Waiting (blocking_wait) for a barrier : internal error, a release barrier should have been done
-*)
-exception Nothing_to_do
 
 type 'a barrier_status =
   | Computed of 'a
