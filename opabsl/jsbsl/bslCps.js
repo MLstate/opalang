@@ -85,7 +85,7 @@ var empty_continuation = new Continuation(function() {return js_void});
 /**
  * @param f A function with OPA type [continuation('a) -> void],
  * converted by CPS into [('a -> unit continuation -> unit) -> unit continuation -> unit)]
- * @param k A [continuation('a)], which must be called by [f] to return any result
+ * @param {{apply1}} k A [continuation('a)], which must be called by [f] to return any result
  *
  * This implementation mirrors [QmlCpsServerLib.uncps_directive]
  */

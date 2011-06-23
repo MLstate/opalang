@@ -571,6 +571,7 @@ var LowLevelPingLoop = {};
 
     /* ************************************************** */
     /* Ping loop **************************************** */
+    /** @param {{ id, msg, herror, hsuccess, name, args }} srvmsg */
     function recovers_from_server(srvmsg, ctx) {
         var id = srvmsg.id;
         var message = srvmsg.msg;
@@ -597,6 +598,7 @@ var LowLevelPingLoop = {};
     }
 
     /** Process messages according to here type */
+    /** @param {{ id, msg, herror, hsuccess, name, args }} mess */
     function process_msg (mess){
         switch(mess.type){
         case "rpc" :

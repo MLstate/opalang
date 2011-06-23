@@ -175,7 +175,7 @@ Array.prototype.inArray = function (value)
 
 /**
  * Remove blank char at left and right.
- * @return {string} trimed string
+ * @return {String|string} trimed string
 **/
 String.prototype.trim = function ()
 {
