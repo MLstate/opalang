@@ -66,7 +66,7 @@ distrib: $(MYOCAMLBUILD)
 
 STDLIB_DIR = $(INSTALL_DIR)/lib/opa/stdlib
 define install-package
-@echo -e "Installing into $(STDLIB_DIR)/$*.opx[K\r\c"
+@printf "Installing into $(STDLIB_DIR)/$*.opx[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opx/_build"
 @find "$(BUILD_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_DIR)/$*.opx/" \;
 @$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.a "$(STDLIB_DIR)/$*.opx/_build/"
@@ -95,40 +95,40 @@ install-package-%:
 	$(install-package)
 
 install-packages: $(addprefix install-packageopt-,$(OPA_PACKAGES))
-	@echo -e "Installation to $(STDLIB_DIR) done.[K"
+	@printf "Installation to $(STDLIB_DIR) done.[K\n"
 
 install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
-	@echo -e "Installation to $(STDLIB_DIR) done.[K"
+	@printf "Installation to $(STDLIB_DIR) done.[K\n"
 
 install-bin:
-	@echo -e "Installing into $(INSTALL_DIR)/bin[K\r\c"
+	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
 	@utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
-	@echo -e "Installation to $(INSTALL_DIR)/bin done.[K"
+	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
 install-lib:
-	@echo -e "Installing into $(INSTALL_DIR)/lib/opa[K\r\c"
+	@printf "Installing into $(INSTALL_DIR)/lib/opa[K\r"
 	@mkdir -p $(INSTALL_DIR)/lib/opa
 	@$(if $(wildcard $(BUILD_DIR)/lib/opa/*),$(INSTALL) -r $(BUILD_DIR)/lib/opa/* $(INSTALL_DIR)/lib/opa/)
-	@echo -e "Installation to $(INSTALL_DIR)/lib/opa done.[K"
+	@printf "Installation to $(INSTALL_DIR)/lib/opa done.[K\n"
 
 install-share:
-	@echo -e "Installing into $(INSTALL_DIR)/share/opa[K\r\c"
+	@printf "Installing into $(INSTALL_DIR)/share/opa[K\r"
 	@mkdir -p $(INSTALL_DIR)/share/opa
 	@$(if $(wildcard $(BUILD_DIR)/share/opa/*),$(INSTALL) -r $(BUILD_DIR)/share/opa/* $(INSTALL_DIR)/share/opa/)
-	@echo -e "Installation to $(INSTALL_DIR)/share/opa done.[K"
+	@printf "Installation to $(INSTALL_DIR)/share/opa done.[K\n"
 
 install-doc:
-	@echo -e "Installing into $(INSTALL_DIR)/share/doc/opa[K\r\c"
+	@printf "Installing into $(INSTALL_DIR)/share/doc/opa[K\r"
 	@if [ -d $(BUILD_DIR)/opadoc/doc/ ]; then \
 	  mkdir -p $(INSTALL_DIR)/share/doc/opa/api; \
 	  $(INSTALL) -r $(BUILD_DIR)/opadoc/doc/* $(INSTALL_DIR)/share/doc/opa/api; \
 	fi
-	@echo -e "Installation to $(INSTALL_DIR)/share/doc/opa done.[K"
+	@printf "Installation to $(INSTALL_DIR)/share/doc/opa done.[K\n"
 
 install: install-bin install-lib install-share install-packages install-doc
-	@echo -e "Installation into $(INSTALL_DIR) done.[K"
+	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
 uninstall:
@@ -140,7 +140,7 @@ uninstall:
 	$(foreach file,$(BUILD_DIR)/bin/*,rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
 	@utils/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
-	@echo -e "Uninstall done.[K"
+	@printf "Uninstall done.[K\n"
 
 # Install our ocamlbuild-generation engine
 install-bld:
