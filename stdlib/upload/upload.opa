@@ -132,10 +132,14 @@ Upload = {{
     upload_url = DynamicResource.publish(resource, config.url_parameters)
     idframe = Random.string(10)
     <iframe name={idframe}
-            id={idframe} src="#"
+            id={idframe} src="{fake_url}"
             style="width:0;height:0;border:0px solid #fff;"/>
     <form action="{upload_url}" id="upload_form" target={idframe}
           method="post" enctype="multipart/form-data">
     {config.body_form}
-    </form>
+    </form>;
+
+  @private dummy_page = Resource.raw_text("")
+  @private @publish
+  fake_url = DynamicResource.publish(dummy_page, {consumption={unlimited}; expiration={none}; visibility={shared}})
 }}
