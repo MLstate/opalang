@@ -101,7 +101,7 @@ module String = BaseString
 module Utf8 = BaseUtf8
 
 (* deprecated *)
-let jlog ?long:_ ?color:_ ?level:_ _ = ()
+let jlog ?long:_ ?color:_ ?level:_ s = Printf.eprintf "DEPRECATED JLOG: %s" s
 let log_error = jlog
 let error = failwith
-let warning ?level:_ _ = ()
+let warning ?level:_ s = Printf.eprintf "DEPRECATED WARNING: %s" s
