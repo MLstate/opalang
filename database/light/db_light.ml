@@ -293,7 +293,7 @@ let start = root_eid
 
   (* may raise UnqualifiedPath *)
   let rec get db path =
-    Logger.info "Db_light.get: path=%s%!" (Path.to_string path);
+    #<If:DEBUG_DB$minlevel 20>Logger.info "Db_light.get: path=%s%!" (Path.to_string path)#<End>;
     let node, _rev = get_node_of_path db path in
     match Node_light.get_content node with
     | Datas.Data d -> d
@@ -514,7 +514,7 @@ let start = root_eid
         with Not_found -> raise UnqualifiedPath
 
   let follow_link db path =
-    Logger.info "Db_light.follow_link: path=%s" (Path.to_string path);
+    #<If:DEBUG_DB$minlevel 20>Logger.info "Db_light.follow_link: path=%s" (Path.to_string path)#<End>;
     let rec aux db path =
       let path_end = Path.to_list path in
       let (path_end, node) = follow_path db db.tree path_end in

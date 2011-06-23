@@ -252,7 +252,8 @@ module Aux : sig
 end = struct
 
   module D = Badop_lib
-  open Cps.Ops
+  let (@>) = Cps.Ops.(@>)
+  let (|>) = Cps.Ops.(|>)
 
   (** Helper function to extract the resulting transaction from write operations *)
   let result_transaction write_op_response =
@@ -311,6 +312,16 @@ end = struct
     | Search dialog ->
         D.Dialog_aux.map_dialog ~query:(fun x k -> x |> k) ~response:(fun l k -> l |> k) dialog
         @> fun dialog -> Search dialog |> k
+
+  let map_read_list_op
+      ~(revision: 'revision1 -> 'revision2 Cps.t)
+      (l_op: ('which, 'revision1) generic_read_op list)
+      : ('which, 'revision2) generic_read_op list Cps.t =
+    fun k ->
+      let rd acc op k =
+        map_read_op ~revision op @> fun op -> op::acc |> k
+      in
+      Cps.List.fold rd [] l_op k
 
   let map_write_op
       ~(transaction: 'transaction1 -> 'transaction2 Cps.t)

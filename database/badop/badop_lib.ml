@@ -42,7 +42,8 @@ module Dialog = struct
 end
 
 module Dialog_aux = struct
-  open Cps.Ops
+  let (@>) = Cps.Ops.(@>)
+  let (|>) = Cps.Ops.(|>)
 
   let respond _ r = Response r
 
