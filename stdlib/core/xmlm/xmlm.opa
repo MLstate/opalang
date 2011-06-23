@@ -33,6 +33,14 @@ import stdlib.core.{xhtml}
 
 
 /**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
  * {1 Types defined in this module}
  */
 
@@ -41,6 +49,10 @@ type Xmlm.signal =
   / { Dtd : option(string) }
   / { El_end }
   / { El_start; namespace : string; tag : string; args : list(string_assoc(string)) }
+
+/**
+ * {1 Interface}
+ */
 
 Xmlm =
 {{
