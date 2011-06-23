@@ -791,16 +791,19 @@ type doctype_access_directive =
     | `package (* visible only in the current package *)
     ]
 
+(**
+  add information around an apply or a lifted lambda
+*)
 type lambda_lifting_directive = [
-  | `partial_apply of int option (* original arity of the function, guaranteed to be filled by lambda lifting, None means 'undisclosed information' :)  *)
-      (**
-         Used to indicate a partial application
-         Must be around an Apply node
-      *)
+  | `partial_apply of int option * bool (* original arity of the function, guaranteed to be filled by lambda lifting,
+                                           None means 'undisclosed information' :)
+                                           the boolean indicates that this is a creation of serializable closure
+                                           (so the partial apply may have extra type arguments) *)
   | `full_apply of int (* size of the env *)
-  | `lifted_lambda of int * Ident.t list
-      (* size of the env and the toplevel name of the hierarchy of functions
-       * from which it was lifted (innermost function first) *)
+  | `lifted_lambda of int * Ident.t option (* size of the env and the toplevel name of the declaration from where it was lifted
+                                            * (meaningful between lambda lifting and explicit instantiation, because
+                                            * ei adds @lifted_lambda on declarations that are not really lifted, so
+                                            * what would the value be?) *)
 ]
 
 (*

@@ -20,3 +20,4 @@ qmlpasses/pass_CleanLambdaLiftingDirectives
 qmlpasses/pass_BypassApply
 qmlpasses/pass_Purge
 qmlpasses/pass_RewriteAsyncLambda
+qmlpasses/pass_InstrumentForClosureSerialization

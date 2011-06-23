@@ -288,6 +288,9 @@ val pass_SimplifyEquality :
 val pass_SimplifyMagic :
   (Pass_SimplifyMagic.env Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
+val pass_InstrumentForClosureSerialization :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
 val pass_ReorderEnvGen :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 

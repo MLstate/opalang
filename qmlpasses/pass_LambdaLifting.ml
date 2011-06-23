@@ -722,7 +722,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                 | None ->
                     assert (original_arity <> -1);
                     let tsc_gen_opt = QmlAnnotMap.find_tsc_opt_label label annotmap in
-                    e, [], `partial_apply (Some original_arity), tsc_gen_opt
+                    e, [], `partial_apply (Some original_arity,false), tsc_gen_opt
                     (* ident with an env -> partial application *)
                 | Some ({applied = e; args = el; used; tsc_gen_opt} as context) ->
                     (* full apply (if the user code didn't contain

@@ -49,7 +49,11 @@ module S =
 struct
   type t = env
   let pass = "qmlUncurry"
-  let pp f _ = Format.pp_print_string f "<dummy>"
+  let pp f {funcs} =
+    IdentMap.iter
+      (fun _ {arity;code;closure} ->
+         Format.fprintf f "%s: arity: %d, clos %s@\n" (Ident.to_string code) arity (Ident.to_string closure)
+      ) funcs
 end
 
 module R =
@@ -286,8 +290,9 @@ let rewrite_expr cons env e =
            with Not_found -> e
          )
 
-       | Q.Directive (label2, `partial_apply missing, [Q.Apply (_, Q.Ident (label, x), args)], []) ->
+       | Q.Directive (label2, `partial_apply missing, (Q.Apply (_, Q.Ident (label, x), args) :: more_args), []) ->
            let args = List.map self args in
+           let more_args = List.map self more_args in
            let func_info =
              try IdentMap.find x env.funcs
              with Not_found ->
@@ -297,7 +302,7 @@ let rewrite_expr cons env e =
              because only the lambda lifting introduces such cases
            *)
            let f = get_closure_ident cons (Annot.annot label) func_info in
-           Q.Directive (label2, `partial_apply missing, [closure_apply cons label2 f args], [])
+           Q.Directive (label2, `partial_apply missing, (closure_apply cons label2 f args :: more_args), [])
 
        | Q.Directive (_, `partial_apply _, _, _) -> assert false
 

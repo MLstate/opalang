@@ -98,7 +98,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
                 label,
                 QmlAst.Directive
                   (label,
-                   `partial_apply None,
+                   `partial_apply (None, false),
                    [QmlAst.Apply (label2, fun_, env_args)],
                    []),
                 args)

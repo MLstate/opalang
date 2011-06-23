@@ -1074,6 +1074,19 @@ let pass_SimplifyMagic =
     )
     ~invariant:(global_invariant ())
 
+let pass_InstrumentForClosureSerialization =
+  PassHandler.make_pass
+    (fun e ->
+       let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
+       let {Passes.typerEnv = typerEnv; qmlAst = code} = env in
+       let {QmlTypes.annotmap = annotmap; gamma = gamma} = typerEnv in
+       let gamma, annotmap, code = Pass_InstrumentForClosureSerialization.process_code gamma annotmap code in
+       let typerEnv = {typerEnv with QmlTypes.annotmap = annotmap; gamma} in
+       let env = {env with Passes.typerEnv = typerEnv; qmlAst = code} in
+       {e with PH.env = env}
+    )
+    ~invariant:(global_invariant ())
+
 let pass_ReorderEnvGen =
   PassHandler.make_pass
     (fun e ->

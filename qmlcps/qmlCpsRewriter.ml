@@ -441,9 +441,12 @@ module U = struct
 
   (** skipped_apply fskip_id f_args :
       create the IL application of the SKIPPED function fskip_id with QML IDENT arguments *)
-  let skipped_apply ?(partial=false) fskip_id f_args =
+  let skipped_apply ?partial fskip_id f_args =
     let e = QmlAstUtils.App.from_list (Q.Ident (label (), fskip_id) ::  f_args ) in
-    let e = if partial then Q.Directive (label (), `partial_apply None, [e], []) else e in
+    let e =
+      match partial with
+      | None -> e
+      | Some (more_args, ser) -> Q.Directive (label (), `partial_apply (None,ser), e :: more_args, []) in
     IL.Skip e
 
   (** same for bypass *)
@@ -451,70 +454,73 @@ module U = struct
 
   (** bad_apply_property  f f_args : check that all args are idents that don't need rewriting
                                      and that f is either an non barrier ident or a bypass *)
-  let good_apply_property penv f f_args =
+  let good_apply_property ?(more_args=[]) penv f f_args =
      List.for_all (is_stable_ident penv) f_args
+    && List.for_all (is_stable_ident penv) more_args
     && is_not_barrier_ident_or_internal_bypass penv f
 
   (** transform the expression so that the apply has the good property
       gives name to all element in need for cps rewriting *)
-  let normalize_apply_property ?stack_info ?(partial=false) penv f f_args =
-    let f_and_args = f::f_args in
-    let rec fold ?(head_is_f=false) f_and_args (bindings, ids) =
-      let s_fold e l= fold l (bindings, (e :: ids)) in
-      match f_and_args with
-      (* keep already named *)
-      (* 1 eventually the function *)
-      | (Q.Bypass _ | Q.Directive (_, `restricted_bypass _, _, _) as e) :: l
-          when head_is_f        -> s_fold e l
-      (* 2 function and args *)
-      | (Q.Ident _ as e) :: l
-          when is_stable_ident penv e
-          || (head_is_f && is_not_barrier_ident_or_internal_bypass penv f)
-          -> s_fold e l
-      (* name all others *)
-      | e :: l ->
+  let normalize_apply_property ?stack_info ?partial penv f f_args =
+    let name_arg (bindings,exprs) e =
+      match e with
+      | Q.Ident _ when is_stable_ident penv e -> (bindings, e :: exprs)
+      | _ ->
           let id = Ident.next "arg" in
-          fold l (((id, e) :: bindings), Q.Ident (label (), id) :: ids)
-      (* create the letin if needed *)
-      | [] when bindings = [] -> assert false
-      | [] ->
-          let app = QmlAstUtils.App.from_list (List.rev ids) in
-          let app =
-            match stack_info with
-            | None -> app
-            | Some info -> Q.Directive (label (), `cps_stack_apply info, [app], []) in
-          let app =
-            if partial then Q.Directive (label (), `partial_apply None, [app], [])
-            else app in
-          Q.LetIn (label (), bindings, app)
-    in fold ~head_is_f:true f_and_args ([],[])
+          ((id,e) :: bindings, Q.Ident (label (), id) :: exprs) in
+    let acc =
+      match f with
+      | Q.Bypass _ | Q.Directive (_, `restricted_bypass _, _, _) ->
+          ([],[f])
+      | Q.Ident _ when is_stable_ident penv f || is_not_barrier_ident_or_internal_bypass penv f ->
+          ([],[f])
+      | _ ->
+          name_arg ([],[]) f in
+    let bindings, rev_args = List.fold_left name_arg acc f_args in
+    let bindings, rev_more_args_opt =
+      match partial with
+      | None -> bindings, None
+      | Some (more_args, ser) ->
+          let bindings, rev_more_args = List.fold_left name_arg (bindings,[]) more_args in
+          bindings, Some (rev_more_args, ser) in
+    let app = QmlAstUtils.App.from_list (List.rev rev_args) in
+    let app =
+      match stack_info with
+      | None -> app
+      | Some info -> Q.Directive (label (), `cps_stack_apply info, [app], []) in
+    let app =
+      match rev_more_args_opt with
+      | None -> app
+      | Some (rev_more_args, ser) ->
+          Q.Directive (label (), `partial_apply (None,ser), (app :: List.rev rev_more_args), []) in
+    Q.LetIn (label (), bindings, app)
 
   let rewrite_apply_partial context f_id f_args =
     let e = IL.Skip (QC.apply (QC.ident f_id) f_args) in
     if Skip.can then e
     else Skip.remove e context
 
-  let rewrite_apply ?stack_info ?(partial=false) ~private_env ~expr ~context f_id f_args =
+  let rewrite_apply ?stack_info ?partial ~private_env ~expr ~context f_id f_args =
     match private_env_get_skipped_fun f_id private_env with
-    | Some(real_arity, fskip_id, fcps_id) ->
-        if partial then
-          (* skipped version exists but incomplete call *)
-          skipped_apply ~partial fcps_id f_args
-        else (
-          (* skipped version exists, complete call *)
-          if List.length f_args <> real_arity then (
-            Format.printf "Partial apply (expected %d args, get %d) in CpsRewriter :@\n%a@."
-              real_arity (List.length f_args) QmlPrint.pp#expr expr;
-            assert false
-          );
-          skipped_apply ~partial fskip_id f_args
+    | Some(real_arity, fskip_id, fcps_id) -> (
+        match partial with
+        | Some _ ->
+            (* skipped version exists but incomplete call *)
+            skipped_apply ?partial fcps_id f_args
+        | None ->
+            (* skipped version exists, complete call *)
+            if List.length f_args <> real_arity then (
+              Format.printf "Partial apply (expected %d args, get %d) in CpsRewriter :@\n%a@."
+                real_arity (List.length f_args) QmlPrint.pp#expr expr;
+              assert false
+            );
+            skipped_apply ?partial fskip_id f_args
         )
     | None ->
         (* skipped version don t exist *)
-        if partial then
-          skipped_apply ~partial f_id f_args
-        else
-          cps_apply ?stack_info f_id f_args context
+        match partial with
+        | Some _ -> skipped_apply ?partial f_id f_args
+        | None -> cps_apply ?stack_info f_id f_args context
 
   let is_const e =
     match e with
@@ -728,14 +734,15 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
        to guaranty property : f is a non barrier ident or a bypass, f_args are stable identifiers *)
     | Q.Apply (_, f, f_args) when not(U.good_apply_property private_env f f_args) ->
         aux_can_skip (U.normalize_apply_property private_env f f_args) context
-    | Q.Directive (_, `partial_apply _, [Q.Apply (_, f, f_args)], _) when not(U.good_apply_property private_env f f_args) ->
-        aux_can_skip (U.normalize_apply_property private_env ~partial:true f f_args) context
+    | Q.Directive (_, `partial_apply (_,ser), Q.Apply (_, f, f_args) :: more_args, _)
+        when not (U.good_apply_property ~more_args private_env f f_args) ->
+        aux_can_skip (U.normalize_apply_property private_env ~partial:(more_args,ser) f f_args) context
 
     (* guaranteed property : f is a non barrier ident, f_args are stable identifiers *)
     | Q.Apply (_, Q.Ident (_, f_id), f_args) ->
         U.rewrite_apply ~private_env ~expr ~context f_id f_args
-    | Q.Directive (_, `partial_apply _, [Q.Apply (_, Q.Ident (_, f_id), f_args)], _) ->
-        U.rewrite_apply ~partial:true ~private_env ~expr ~context f_id f_args
+    | Q.Directive (_, `partial_apply (_, ser), Q.Apply (_, Q.Ident (_, f_id), f_args) :: more_args, _) ->
+        U.rewrite_apply ~partial:(more_args,ser) ~private_env ~expr ~context f_id f_args
 
     (* guaranteed property : f is a bypass, f_args are stable identifiers *)
     | Q.Apply (_, bypass, bp_args) ->

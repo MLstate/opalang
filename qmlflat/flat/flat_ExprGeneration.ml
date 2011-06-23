@@ -191,7 +191,7 @@ let expr env expr =
     | Q.Coerce (_, expr, _) ->
         aux expr
 
-    | Q.Directive (_, `partial_apply (Some 0), [e], _) when not env.E.options.P.cps && not env.E.options.P.qml_closure ->
+    | Q.Directive (_, `partial_apply (Some 0, _), [e], _) when not env.E.options.P.cps && not env.E.options.P.qml_closure ->
         (* i think that the directive @partial_apply (Some 0) may stay in the code
          * even when closures are activated, but in that case, they have been taken
          * care of already

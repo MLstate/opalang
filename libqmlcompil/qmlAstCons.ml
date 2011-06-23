@@ -629,8 +629,11 @@ struct
                 match ty_func with
                 | Q.TypeArrow (more_params,more_ty) ->
                     let tparams = tparams @ more_params in
-                    assert (params_len = List.length tparams);
-                    tparams, more_ty
+                    if params_len = List.length tparams then
+                      tparams, more_ty
+                    else (
+                      OManager.i_error "QmlAstCons.TypedExpr.apply_gen: try to apply %d args to a function [%a] with %d-%d parameters (type = %a) (at %s)" params_len QmlPrint.pp#expr func (List.length tparams) (List.length more_params) QmlPrint.pp#ty (QmlAnnotMap.find_ty annot annotmap) (FilePos.to_string pos)
+                    )
                 | _ -> assert false
               ) in
             let tparams = List.drop params_len tparams in

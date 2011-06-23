@@ -276,7 +276,7 @@ struct
         (try instantiate level (IdentMap.find i env)
         with Not_found -> Printf.printf "Not found %s\n%!"
           (Ident.to_string i);
-          assert false)
+           assert false)
     | Q.LetIn (_, iel,e) ->
       let env =
         List.fold_left
@@ -300,8 +300,8 @@ struct
       let effect = next_eff_var level in
       let ty = infer bp env effect (level+1) e in
       Arrow (ref false,List.map snd styl, (S.no_effect,effect), ty)
-    | Q.Directive (_, `partial_apply missing, [e], _) -> (
-        let missing = Option.get missing in
+    | Q.Directive (_, `partial_apply (info,_), e :: _, _) -> (
+        let missing = Option.get info in
         match e with
         | Q.Apply (_, e, el) ->
             (* no change on the current effect, since it is a partial
@@ -364,11 +364,11 @@ struct
     | Q.Directive (_, `fail, el, _) ->
         List.iter (fun e -> ignore (infer bp env effect level e)) el;
         next_var level
+
     | Q.Directive (_, ( `restricted_bypass _
                       | #Q.type_directive
                       | `recval
                       | #Q.slicer_directive
-                      | `partial_apply _
                       | `lifted_lambda _
                       | `full_apply _
                       | `assert_), l, _) -> (

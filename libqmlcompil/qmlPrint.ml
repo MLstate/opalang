@@ -147,8 +147,8 @@ let directive (d:QmlAst.qml_directive) =
   | `xmlizer -> "@xmlizer"
   | `llarray -> "@llarray"
   | `specialize variant -> Printf.sprintf "@specialize%s" (match variant with `strict -> "_strict" | `polymorphic -> "")
-  | `partial_apply None -> "@partial_apply"
-  | `partial_apply (Some i) -> Printf.sprintf "@partial_apply[misssing:%d]" i
+  | `partial_apply (None, ser) -> Printf.sprintf "@partial_apply[ser:%B]" ser
+  | `partial_apply (Some i, ser) -> Printf.sprintf "@partial_apply[missing:%d,ser:%B]" i ser
   | `full_apply n -> Printf.sprintf "@full_apply[env %d]" n
   | `lifted_lambda (n,l) ->
       Format.sprintf "@@lifted_lambda[env %d,[%a]]"

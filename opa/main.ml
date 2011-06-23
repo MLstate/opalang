@@ -181,6 +181,8 @@ let () =
       |> PH.old_if_handler
           "EarlyLambdaLifting" S2.pass_EarlyLambdaLifting
 
+      |+> ("InstrumentForClosureSerialization", S3.pass_InstrumentForClosureSerialization)
+
       (**********************************************)
       (* SLICED PASSES ******************************)
       <?> (If.server or If.separated or If.slicer_test,

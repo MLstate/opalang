@@ -61,6 +61,7 @@ type Client_code.output =
  * {3 Interface}
  */
 
+@server_private
 Core_client_code =
 {{
   /*

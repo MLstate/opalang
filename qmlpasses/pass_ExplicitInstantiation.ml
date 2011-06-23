@@ -1553,15 +1553,35 @@ let walk_undirective ~val_ side gamma toplevel_lambdas annotmap e =
        | Q.Coerce (_,_,_)
        | Q.Directive (_,#Q.type_directive,_,_) -> tra context annotmap e
 
-       | Q.Directive (label, (`partial_apply _ | `full_apply _ as v), [Q.Apply (_, Q.Directive (_, `apply_ty_arg (lt,lrow,lcol), [de], _),args)], _) -> (
+       | Q.Directive (label, (`partial_apply _ | `full_apply _ as v), (Q.Apply (_, Q.Directive (_, `apply_ty_arg (lt,lrow,lcol), [de], _),args) :: other_args), _) -> (
            assert (match try_get_ident de with `ident x -> IdentSet.mem x toplevel_lambdas | `call -> true | `none -> false);
            let annotmap, args' = aux_lambda abstracted_set annotmap de lt lrow lcol in
            let annotmap, e = QmlAstCons.TypedExpr.apply_partial gamma annotmap de (args' @ args) in
-           let v =
+           let v, other_args, annotmap =
              match v with
-             | `partial_apply missing -> `partial_apply missing
-             | `full_apply env -> `full_apply (env + List.length lt + List.length lrow + List.length lcol) in
-           let e = Q.Directive (label, v, [e], []) in
+             | `partial_apply ((_, false) as missing) ->
+                 (* unserializable closure, don't do anything *)
+                 `partial_apply missing, other_args, annotmap
+             | `partial_apply ((_, true) as missing) ->
+                 (* serializable closure, update the other args because the env was enriched
+                  * with types *)
+                 let annotmap, other_args_ty =
+                   List.fold_left_map (
+                     fun annotmap _ -> arg_of_type ~val_ side abstracted_set gamma annotmap opatype_type
+                   ) annotmap lt in
+                 let annotmap, other_args_row =
+                   List.fold_left_map (
+                     fun annotmap _ -> arg_of_type ~val_ side abstracted_set gamma annotmap oparow_type
+                   ) annotmap lrow in
+                 let annotmap, other_args_col =
+                   List.fold_left_map (
+                     fun annotmap _ -> arg_of_type ~val_ side abstracted_set gamma annotmap opacol_type
+                   ) annotmap lcol in
+                 let other_args = other_args_ty @ other_args_row @ other_args_col @ other_args in
+                 `partial_apply missing, other_args, annotmap
+             | `full_apply env ->
+                 `full_apply (env + List.length lt + List.length lrow + List.length lcol), other_args, annotmap in
+           let e = Q.Directive (label, v, (e :: other_args), []) in
            tra (abstracted_set,false) annotmap e
          )
 
@@ -1577,10 +1597,10 @@ let walk_undirective ~val_ side gamma toplevel_lambdas annotmap e =
            let annotmap, e = QmlAstCons.TypedExpr.apply_partial gamma annotmap de args in
            match try_get_ident de with
            | `ident x when IdentSet.mem x toplevel_lambdas ->
-               let annotmap, e = QmlAstCons.TypedExpr.directive annotmap (`partial_apply None) [e] [] in
+               let annotmap, e = QmlAstCons.TypedExpr.directive annotmap (`partial_apply (None,false)) [e] [] in
                tra (abstracted_set,false) annotmap e
            | `call ->
-               let annotmap, e = QmlAstCons.TypedExpr.directive annotmap (`partial_apply None) [e] [] in
+               let annotmap, e = QmlAstCons.TypedExpr.directive annotmap (`partial_apply (None,false)) [e] [] in
                tra (abstracted_set,false) annotmap e
            | _ ->
                tra (abstracted_set,false) annotmap e
