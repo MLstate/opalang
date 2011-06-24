@@ -103,7 +103,7 @@ struct
       (match mode with
        | Create ->
            if Sys.file_exists f then
-             (#<If> Base.warning (Printf.sprintf "New db, purge: deleting file %s" f) #<End>;
+             (#<If> Logger.warning "New db, purge: deleting file %s" f #<End>;
               Sys.remove f);
            make_channel Create f
        | mode -> make_channel mode f)

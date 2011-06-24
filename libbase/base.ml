@@ -102,4 +102,3 @@ module Utf8 = BaseUtf8
 
 (* deprecated *)
 let error = failwith
-let warning ?level:_ s = Printf.eprintf "DEPRECATED WARNING: %s" s

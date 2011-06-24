@@ -253,11 +253,10 @@ let build_ids ?(tag="id") xml =
     fun id node (acc, err) ->
       if StringMap.mem tag node.npars then
         let (Value value) = StringMap.find tag node.npars in
-        StringMap.add value id acc,
-      (StringMap.mem value acc)
-      (* Base.warning_if_true (StringMap.mem value acc) *)
-      (*   (Printf.sprintf "id %s is defined several times" value) *)
-      or err
+        let mem = StringMap.mem value acc in
+        #<If> if mem then
+              debug "Warning: id %s is defined several times" value #<End>;
+        StringMap.add value id acc, mem or err
       else (acc, err)
   ) xml.nodes (StringMap.empty, false)
 

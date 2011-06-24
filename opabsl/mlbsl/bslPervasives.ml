@@ -132,7 +132,7 @@ let webutils_server_side () = true
 
 ##register stop: -> 'a
 let stop () =
-  Base.warning "BslSyslog.stop has been called :  shutting down application ...";
+  Logger.warning "BslSyslog.stop has been called :  shutting down application ...";
   ServerLib.do_exit 1
 
 
@@ -147,7 +147,7 @@ let rec never_do_anything _ = Obj.magic never_do_anything
 ##register warning : string -> void
 let warning s =
   sync_to_print_on stderr;
-  Base.warning s
+  Logger.warning "%s" s
 
 ##register jlog : string -> void
 let jlog s =

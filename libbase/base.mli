@@ -145,11 +145,6 @@ module Utf8 : module type of BaseUtf8
 val sprintf : ('a, unit, string) format -> 'a
 
 (**
-   deprecated jlog. is implemented with function [ignore]
-*)
-val warning : ?level:int -> string -> unit
-
-(**
    deprecated error. is implemeted with a failwith
 *)
 val error : string -> 'a
