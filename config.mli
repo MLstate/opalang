@@ -49,6 +49,9 @@ val miniupnpc : (string*string*string) option (** name of the lib, lib dir, incl
     "camlidl", "libnatpmp", "miniupnpc", ...) *)
 val available : string list
 
+(** lists all the valid optional tags ([available] is a subset of those) *)
+val all_tags : string list
+
 (** are we compiling in release or debug mode ? In release mode,
     assertions and debug variables are disabled *)
 val is_release : bool

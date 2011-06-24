@@ -546,9 +546,10 @@ camlopt() {
     fi
 }
 
+ALL_TAGS_LIST="camlidl libnatpmp miniupnpc"
 TAGS_LIST=""
-for tag in camlidl libnatpmp miniupnpc; do
-    hasvar=HAS_${tag^^}
+for tag in $ALL_TAGS_LIST; do
+    hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
     if [ -n "${!hasvar}" ]; then TAGS_LIST="$TAGS_LIST\"$tag\"; "; fi
 done
 
@@ -567,6 +568,7 @@ let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
 let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
 
 let available = [ $TAGS_LIST]
+let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
 type os = Linux | Mac | Win32 | Cygwin
