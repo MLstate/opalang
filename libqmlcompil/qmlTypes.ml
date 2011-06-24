@@ -180,7 +180,9 @@ let map_vars_of_ty map_ty map_row map_col =
 module Scheme =
 struct
   type t = typescheme
+  type renaming = TypeVar.t TypeVarMap.t * RowVar.t RowVarMap.t * ColVar.t ColVarMap.t
 
+  let empty_renaming = (TypeVarMap.empty,RowVarMap.empty,ColVarMap.empty)
   let next v = QmlGenericScheme.import FreeVars.empty (Q.TypeVar v) ()
 
   (* TODO: we will also need a version which keeps track between runs
@@ -189,7 +191,7 @@ struct
      to write the general function and then instantiate it for
      typesheme refresh below
    *)
-  let refresh s =
+  let refresh_quantifier_and_renaming s =
     let ordered_quantif = QmlGenericScheme.export_ordered_quantif s in
     (** BEWARE : refreshing set and ordered quantification with coherence *)
     let typevarmap, new_typevar =
@@ -230,27 +232,39 @@ struct
         rowvar = new_rowvar;
         colvar = new_colvar
       } in
+    new_quantif, (typevarmap, rowvarmap, colvarmap)
 
-    (** /!\ Beware here, use the refresh substitution to refresh all variable
-        according to the new quantification *)
-    let map_ty ty v =
-      match TypeVarMap.find_opt v typevarmap with
-      | Some t -> Q.TypeVar t
-      | None -> ty
-    in
-    let map_row ((Q.TyRow (r, _)) as row) v =
-      match RowVarMap.find_opt v rowvarmap with
-      | Some t -> Q.TyRow (r, Some t)
-      | None -> row
-    in
-    let map_col ((Q.TyCol (l, _)) as col) v =
-      match ColVarMap.find_opt v colvarmap with
-      | Some t -> Q.TyCol (l, Some t)
-      | None -> col
-    in
+  let apply_renaming (((typevarmap, rowvarmap, colvarmap) as renaming) : renaming) ty =
+    if renaming = empty_renaming then ty else (
+      (** /!\ Beware here, use the refresh substitution to refresh all variable
+          according to the new quantification *)
+      let map_ty ty v =
+        match TypeVarMap.find_opt v typevarmap with
+        | Some t -> Q.TypeVar t
+        | None -> ty
+      in
+      let map_row ((Q.TyRow (r, _)) as row) v =
+        match RowVarMap.find_opt v rowvarmap with
+        | Some t -> Q.TyRow (r, Some t)
+        | None -> row
+      in
+      let map_col ((Q.TyCol (l, _)) as col) v =
+        match ColVarMap.find_opt v colvarmap with
+        | Some t -> Q.TyCol (l, Some t)
+        | None -> col
+      in
+      map_vars_of_ty map_ty map_row map_col ty
+    )
+
+  let refresh_and_renaming s =
+    let new_quantif, renaming = refresh_quantifier_and_renaming s in
     let (_, body, ()) = QmlGenericScheme.export_unsafe s in
-    let new_body = map_vars_of_ty map_ty map_row map_col body in
-    QmlGenericScheme.import new_quantif new_body ()
+    let new_body = apply_renaming renaming body in
+    let new_s = QmlGenericScheme.import new_quantif new_body () in
+    new_s, renaming
+
+  let refresh s =
+    fst (refresh_and_renaming s)
 
   let instantiate t =
     let s = refresh t in

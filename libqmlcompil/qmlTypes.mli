@@ -164,10 +164,14 @@ val freevars_of_col :
 module Scheme :
 sig
   type t = typescheme
+  type renaming
   (* val to_string : t -> string (\** e.g : [Forall { 'a } : 'a -> int] *\) *)
 
   (* alpha-renaming to new, fresh type vars *)
   val refresh : t -> t
+  val refresh_and_renaming : t -> t * renaming
+  val apply_renaming : renaming -> QmlAst.ty -> QmlAst.ty
+  val empty_renaming : renaming
 
   (** <<<<<<<<<<<<<<<<<<<<<<<< *)
   (** EXPORT : can be usefull for Named-type as well (keep it in API) *)
