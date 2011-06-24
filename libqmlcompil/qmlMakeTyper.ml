@@ -20,37 +20,6 @@
    Top level typing loop.
 *)
 
-(*
-  NOTES:
-  This File don't need any mli, because it would be a lot of duplication of code with interfaces
-
-  Mathieu : lundi 25 mai 2009, 20:09:42 (UTC+0100)
-  Same reasons to introduce a shared typing-loop.
-  - we will be able to integrate in the option --new-typer in opa.exe
-  and see what would be the inferred types of the qml generated file
-  - we can imagine verification command line tools based on the utilisation of this module
-  ( like qmltyper myfile.qml > myfile.qmli, etc... )
-
-  Functor man try to make the life simplier
-  -----------------------------------------
-  After a talk with Louis, we decided to link staticly dbGen with the Make Typer
-  (we have only one dbGen, with a very clean interface, so that's no problem to update it
-  one day possibly)
-*)
-
-(** {6 Typing Exception Handling} *)
-(**
-   Deprecated, the typer should now be ported to QmlError API (wip)
-*)
-
-(** {6 Annotations} *)
-
-(**
-   About the annotation, the interface uses functionnal annotation maps -- see qmlAnnotMap.ml
-
-   There is now a special API about annotations in QmlAnnotMap (both for code factoring
-   and to facilitate future changes of internal representation).
-*)
 
 
 (* depends *)
@@ -108,7 +77,6 @@ sig
 
   (** All default values are specified on the right (empty or dummy version for bypass_typer) *)
   val initial :
-    gamma: gamma -> schema: schema -> annotmap: Q.annotmap ->
     bypass_typer: bypass_typer ->
     ?exception_handler:(env -> exn -> unit) -> (** fun _ e -> raise e *)
     ?display:bool ->               (** false *)
@@ -196,28 +164,22 @@ struct
   type env = public_env
 
   let initial
-      ~gamma ~schema ~annotmap ~bypass_typer
-      ?(exception_handler=(fun _ e -> raise e))
-      ?(display=false)
-      ~explicit_instantiation
-      ~value_restriction
-      ~exported_values_idents
-      ()
-      =
-        let open QmlTypes in
+      ~bypass_typer ?(exception_handler=(fun _ e -> raise e))
+      ?(display=false) ~explicit_instantiation ~value_restriction
+      ~exported_values_idents () =
     {
-      exported_values_idents ;
-      gamma ;
-      schema ;
-      annotmap ;
-      bypass_typer ;
-      exception_handler ;
-      had_error = false ;
-      display ;
-      options = {
-        explicit_instantiation;
-        value_restriction;
-      } ;
+      QmlTypes.exported_values_idents = exported_values_idents ;
+      QmlTypes.gamma = QmlTypes.Env.empty ;          (* Initial gamma. *)
+      QmlTypes.schema = QmlDbGen.Schema.initial ;    (* Initial DB scheme. *)
+      QmlTypes.annotmap = QmlAnnotMap.empty ;        (* Initial annotmap. *)
+      QmlTypes.bypass_typer = bypass_typer ;
+      QmlTypes.exception_handler = exception_handler ;
+      QmlTypes.had_error = false ;
+      QmlTypes.display = display ;
+      QmlTypes.options = {
+        QmlTypes.explicit_instantiation = explicit_instantiation ;
+        QmlTypes.value_restriction = value_restriction ;
+      }
    }
 
   let exception_handler env (code_elt, (e, x)) =

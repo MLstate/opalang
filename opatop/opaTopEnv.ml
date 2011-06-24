@@ -746,8 +746,7 @@ let restart () =
 
   let env_types =
     Typer.initial
-      ~gamma: QmlTypes.Env.empty ~schema: QmlDbGen.Schema.initial
-      ~annotmap: QmlAnnotMap.empty ~bypass_typer ~explicit_instantiation:true
+      ~bypass_typer ~explicit_instantiation:true
       ~value_restriction: (P.value_restriction_get ())
       ~exported_values_idents: IdentSet.empty () in
   let env_values = IdentMap.empty in

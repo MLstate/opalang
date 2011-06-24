@@ -318,10 +318,9 @@ struct
         BslLib.BSL.ByPassMap.bypass_typer env_bsl.BslLib.bymap in
       let env_typer =
         HighTyper.initial
-          ~gamma: QmlTypes.Env.empty ~schema: QmlDbGen.Schema.initial
-          ~annotmap: QmlAnnotMap.empty ~bypass_typer
-          ~explicit_instantiation: false ~value_restriction: `disabled
-          ~exported_values_idents: IdentSet.empty () in
+          ~bypass_typer ~explicit_instantiation: false
+          ~value_restriction: `disabled ~exported_values_idents: IdentSet.empty
+          () in
       let env_typer, code =
         let code = Option.default [] qml.init_code @ qml.user_code in
         let fct () =

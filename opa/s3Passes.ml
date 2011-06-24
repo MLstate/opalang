@@ -619,8 +619,7 @@ let pass_SaToQml =
            BslLib.BSL.ByPassMap.bypass_typer
              ~typeident:type_renamer env.P.sa_bsl.BslLib.bymap in
          QmlTyper.OfficialTyper.initial
-           ~gamma: QmlTypes.Env.empty ~schema: QmlDbGen.Schema.initial
-           ~annotmap: QmlAnnotMap.empty ~bypass_typer
+           ~bypass_typer
            ~exception_handler:
              QmlTyperErrHandling.typechecking_exception_handler
            ~explicit_instantiation: options.O.explicit_instantiation
