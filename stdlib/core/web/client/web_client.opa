@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @author David Rajchenbach-Teller
 **/
@@ -28,7 +29,7 @@ import stdlib.core.{date, web.core, rpc.core, xhtml, security.ssl, parser}
  *
  * This module defines all the operations you need to perform low-level web requests. These requests
  * are generally useful for the following purposes:
- * - downloading or exploring some content from another web server (using operation GET), e.g. to access publically-visible
+ * - downloading or exploring some content from another web server (using operation GET), e.g. to access publicly-visible
  *    files or implement a search engine
  * - using services defined with the REST protocol (using all operations), including WebDav services
  * - simulating the actions of a web browser, e.g. to automatize usage of a web service which doesn't have a clean API
@@ -56,6 +57,9 @@ import stdlib.core.{date, web.core, rpc.core, xhtml, security.ssl, parser}
  * @author David Rajchenbach-Teller, 2010
  */
 
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * A failure of the web client
@@ -143,7 +147,7 @@ type WebClient.Post.options('content) =
    auth:             option(string)
    custom_headers:   option(string)
    custom_agent:     option(string)
-   redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, doesn't follow redirections.*/
+   redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, don't follow redirections.*/
    timeout_sec:      option(float)
    ssl_key:          option(SSL.private_key)
    ssl_policy:       option(SSL.policy)
@@ -158,7 +162,7 @@ type WebClient.Put.options =
    auth:             option(string)
    custom_headers:   option(string)
    custom_agent:     option(string)
-   redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, doesn't follow redirections.*/
+   redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, don't follow redirections.*/
    timeout_sec:      option(float)
    ssl_key:          option(SSL.private_key)
    ssl_policy:       option(SSL.policy)
@@ -177,8 +181,17 @@ type WebClient.Generic.options =
  }
 
 
+/**
+ * {1 Interface}
+ */
+
 WebClient =
 {{
+
+   /**
+    * {2 WebClient.Get}
+    */
+
    Get =
    {{
 
@@ -273,6 +286,10 @@ WebClient =
           Loop.loop(options.follow_redirects)
        )
    }}
+
+   /**
+    * {2 WebClient.Head}
+    */
 
    Head =
    {{
@@ -369,6 +386,10 @@ WebClient =
        )
    }}
 
+   /**
+    * {2 WebClient.Delete}
+    */
+
    Delete =
    {{
 
@@ -456,6 +477,10 @@ WebClient =
            ssl_policy      = options.ssl_policy
          }
    }}
+
+   /**
+    * {2 WebClient.Post}
+    */
 
    Post = {{
 
@@ -615,6 +640,10 @@ WebClient =
           }
    }}
 
+   /**
+    * {2 WebClient.Put}
+    */
+
    Put = {{
 
       /**
@@ -709,6 +738,10 @@ WebClient =
    }}
 
    /**
+    * {2 WebClient.Generic}
+    */
+
+   /**
     * Generic operations
     */
    Generic = {{
@@ -773,6 +806,10 @@ WebClient =
              Rec.loop(location, options)
    }}
 
+
+   /**
+    * {2 WebClient.Result}
+    */
 
    /**
     * Utilities for manipulating the result of a request
