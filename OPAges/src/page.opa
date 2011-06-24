@@ -153,15 +153,24 @@ type Page.Lock.return = outcome(
 )
 
 
+on_remove(key) =
+  do Log.info("[on_remove]", "{key}")
+  false
+
 file_stringify(x:string) = "{x}"
 file_config = {
   WHList.default_config_with_css("admin_files") with
   helper = {
-      stringify = file_stringify
-      father = _ -> none
+    stringify = file_stringify
+    father = _ -> none
   }
+  ~on_remove
 } : WHList.config
 
+make_absolute(file) =
+  match String.index("/", file)
+  {some=0} -> file
+  _ -> "/{file}"
 
 
 Page = {{
@@ -470,7 +479,7 @@ Page = {{
 
     /** Just a simple string transformation for xhtml insert. */
     @private file_for_xhtml =
-      | "/" -> "*index*"
+      | "" | "/" -> "/"
       | x -> x
 
     /** A translation that allows to use file on dom identifiers. */
@@ -589,21 +598,22 @@ Page = {{
 
         match uri
         ~{fragment is_directory is_from_root path query} ->
-          _file = Uri.to_string(uri)
           path = if is_from_root then ["" | path] else path
-          do Syslog.info("[file_line_insert]", "Path {path}")
+          is_from_root = false
+          do Log.info("[file_line_insert]", "Path {path}")
 
           _ = List.fold(
             e, acc ->
               file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
               key = "admin_files_navigator_{file_id(file)}"
-              content = file_line(access, opened, e, file, edit_rev, published_rev)
+              f = if file == "" then "/" else file
+              content = file_line(access, opened, e, f, edit_rev, published_rev)
               item = WHList.make_item(
                 {title=e value=content},
-                {selected=false; checked=false},
-                {selectable=false; checkable=false; no_sons=false}
+                {selected=opened; checked=false},
+                {selectable=true; checkable=false; no_sons=false}
               )
-              do Syslog.info("[file_line_insert]", "Insert {file} {key} {item} {List.rev(acc)}")
+              do Log.info("[file_line_insert]", "Insert {file} {key} in {List.rev(acc)}")
               file_config = { file_config with
                 helper = {
                   stringify = file_stringify
@@ -612,12 +622,12 @@ Page = {{
                     else
                       father_file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev(acc) ~query})
                       ff = "admin_files_navigator_{file_id(father_file)}"
-                      do Syslog.info("[file_line_insert]", "father file: {father_file} {ff}")
+                      do Log.info("[file_line_insert]", "father file: {father_file} {ff}")
                       some(ff)
                 }
               }
               do match WHList.insert_item(file_config, "admin_files", key, item, none, false) with
-              | ~{some} -> Syslog.info("[file_line_insert]", "Insert OK @{some}")
+              | ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
               | {none} -> void
               [e|acc]
             , path, []
@@ -1101,9 +1111,9 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
-        do Syslog.info("[new_file]", "New File {file}")
+        file = make_absolute(file)
         file_uri = Uri.of_string(file)
-        do Syslog.info("[new_file]", "Uri {file_uri}")
+        do Log.info("[new_file]", "New File {file} Uri {file_uri}")
         do file_line_insert(access, true, file_uri, none, none)
         open_file(access, file,none)(event)
 
@@ -1113,9 +1123,11 @@ Page = {{
       remove_file(access:Page.full_access, file) : FunAction.t = _event ->
         do access.access.remove(file)
         do access.notify.send({remove = file})
-        fl  = Dom.select_id("admin_files_navigator_{file_id(file)}")
+        key = "admin_files_navigator_{file_id(file)}"
+        do match WHList.remove_item(file_config, "admin_files", key, true) with
+        | ~{some} -> Log.info("[remove_file]", "Remove OK @{some}")
+        | {none} -> void
         buf = Dom.select_id("admin_buffer_{file_id(file)}")
-        do Dom.remove(fl)
         do Dom.remove(buf)
         void
 
@@ -1153,21 +1165,8 @@ Page = {{
     }}
 
     get_filename_mime() =
-      (Dom.get_value(Dom.select_id("admin_new_file")),
+      (make_absolute(Dom.get_value(Dom.select_id("admin_new_file"))),
        Dom.get_value(Dom.select_id("upload_mime_type")))
-
-//     @client @private hack(access:Page.full_access)(_:Dom.event) =
-//       page_list = List.unique_list_of(access.access.list())
-//       do List.iter(
-//         (file,pub) ->
-//           file_line_insert(access, false, file, none,
-//             (if pub.rev==0 then none else some(pub.rev))),
-//         page_list)
-//       access.notify.subscribe(
-//         | {event={publish=(file,rev)} by=_} ->
-//           file_line_insert(access, false, file, none,some(rev))
-//         | _ -> void
-//       )
 
     @client @private build_tree(access:Page.full_access)(_:Dom.event) =
       do Dom.transform([#admin_files_navigator <- WHList.html(file_config, "admin_files", [])])
