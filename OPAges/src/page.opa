@@ -476,59 +476,58 @@ Page = {{
     @private file_line_edit(file) ="admin_files_navigator_edit{file_id(file)}"
     @private file_line_publish(file) ="admin_files_navigator_publish{file_id(file)}"
 
-    /** Tabs init. */
-    @private class(s) = WStyler.make_class(["TABS_{s}"])
-    @private @both_implem
-    stylers = {
-      tabs =              class("tabs")
-      tab =               class("tab")
-      tab_content =       class("tab_content")
-      tab_sons =          class("tab_sons")
-      tab_selectable =    class("tab_selectable")
-      tab_checkable =     class("tab_checkable")
-      tab_no_sons =       class("tab_no_sons")
-      tab_closable =      class("tab_closable")
-      tab_duplicatable =  class("tab_duplicatable")
-      tab_close =         class("tab_close")
-      tab_duplicate =     class("tab_duplicate")
-      tab_add =           class("tab_add")
-    }
+    /** Tabs. */
+
+    tabs_file_id = "tabs_file"
+
     @private @client
     on_select(_num:int, tab:WTabs.tab) =
-      do Dom.trigger(#{Option.get(tab.custom_data)},{click})
-      true
-    @private @client on_add(_num:int, _tab:WTabs.tab) = none
-    @private @client on_remove(_num:int, _tab:WTabs.tab) = false
-    @private @client on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
+      match tab.custom_data
+      {some=(file)} ->
+        bid = navigator_file_id(file)
+        do Dom.trigger(#{bid}, {click})
+        true
+      _ -> false
+    @private @client on_add(num:int, tab:WTabs.tab) =
+      match tab.custom_data
+      {some=(file)} ->
+        id = buffer_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(id), "tab", "{num}")
+        some(tab)
+      _ -> none
+    @private @client on_remove(_num:int, tab:WTabs.tab) =
+      match tab.custom_data
+      {some=(file)} ->
+        id = buffer_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(id), "tab", "")
+        // do access.notify.remove(id)
+        do Dom.remove(#{id})
+        do del_preview(file)
+        true
+      _ -> false
     @private @both insert_pos = {at_end}:WTabs.pos
     @private @both delete_pos = {after_select}:WTabs.pos
-    @private @client new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
     @private @both
-    tabs_config : WTabs.config = {
-      WTabs.default_config with
-        ~insert_pos ~delete_pos
-        ~on_select ~on_add
-        ~on_duplicate ~on_remove ~stylers
-        ~new_tab_content
-        add_text=none }
+    tabs_config = {
+      WTabs.default_config_with_css(tabs_file_id) with
+        ~insert_pos
+        ~delete_pos
+        ~on_add
+        ~on_select
+        ~on_remove
+        add_text=none
+    } : WTabs.config
     @private
-    tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
+    tabs_html() = WTabs.html(tabs_config, tabs_file_id, [])
 
     @client
     add_tab(file : string, title : string) =
-        id = buffer_file_id(file)
-        bid = navigator_file_id(file)
-        on_remove(_,_) =
-          // do access.notify.remove(id)
-          do Dom.remove(#{id})
-          do del_preview(file)
-          true
-        new_tab_content(_i) = WTabs.make_constant_content(title)
-        on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
-                           true, true, false, some(bid), none, none))
-        config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
-        do WTabs.add_tab(config,"tabs_file")
-        void
+      do Log.info("[add_tab]", "{title} {file}")
+      tab = WTabs.make_tab(
+              _ -> WTabs.make_constant_content(title),
+              true, true, false, some(file), tabs_config.remove_text, none)
+      do WTabs.insert_tab(tabs_config, tabs_file_id, tab)
+      void
 
 <<<<<<< HEAD
     /** File navigator. */
@@ -666,10 +665,22 @@ Page = {{
       </td>
 >>>>>>> [opages/opalang.org] Add a function that compute resource with a custom env, and use it on include tag
 
+    toggle_file_sons(file) =
+      key = navigator_file_id(file)
+      li_id = WHList.item_id(admin_files_id, key)
+      li_sons = WHList.item_sons_class(admin_files_id)
+      sons = Dom.select_raw("li#{li_id} > ul > li.{li_sons}")
+      do Log.info("[dbl]","{sons}")
+      do Dom.toggle(sons)
+      Log.info("[dbl]","dbl click on {file}")
+
     /** Create a file line for table insert. */
     @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <span class="{class}" id="{navigator_file_id(file)}" onclick={Action.open_file(access, file, published_rev)}>
+      <span class="{class}"
+            id="{navigator_file_id(file)}"
+            onclick={Action.open_file(access, file, published_rev)}
+            ondblclick={_->toggle_file_sons(file)}>
         {file_line_content(access, name, file, published_rev, preview)}
       </span>
 
@@ -711,8 +722,10 @@ Page = {{
                 }
               }
               do match WHList.insert_item(file_config, admin_files_id, key, item, none, false) with
-              | ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
-              | {none} -> void
+              ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
+              {none} ->
+                _ = WHList.select_item(file_config, admin_files_id, key, false)
+                Log.info("[file_line_insert]", "Insert KO {key}")
               [e|acc]
             , path, []
           )
@@ -1136,7 +1149,7 @@ Page = {{
       id = buffer_file_id(file)
       class = if opened then "on" else "off"
       <div class="{class} admin_editor" id="{id}"
-       onready={_ -> do add_tab(file,file)
+       onready={_ -> do add_tab(file, file)
                      _ = build_buffer(access, file, id) void}>
       </div>
 
@@ -1172,6 +1185,14 @@ Page = {{
         do file_line_insert(access, true, file_uri, pub, false)
         id = buffer_file_id(file)
         buf = Dom.select_id(id)
+        do match Dom.get_property(Dom.select_id(id), "tab")
+        {some=num} ->
+          match Parser.int(num)
+          {some=tab_num} ->
+            WTabs.select_tab(tabs_config, tabs_file_id, tab_num, WTabs.no_tab(), false)
+          {none} -> void
+          end
+        {none} -> void
         if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
         else
@@ -1189,7 +1210,7 @@ Page = {{
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
         do file_line_insert(access, true, file_uri, none, false)
-        open_file(access, file,none)(event)
+        open_file(access, file, none)(event)
 
       /**
        * Remove a file
@@ -1246,7 +1267,7 @@ Page = {{
       do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
-        (file,pub, preview) ->
+        (file, pub, preview) ->
           file_uri = Uri.of_string(file)
           file_line_insert(
             access, false, file_uri,
