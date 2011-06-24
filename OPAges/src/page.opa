@@ -554,8 +554,9 @@ Page = {{
 
     @private file_line_set_edit(file) =
       id = buffer_file_id(file)
-      buf = Dom.select_raw("#{id} #{id}_select}")
-      s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+      _buf = Dom.select_raw("#{id} #{id}_select}")
+      s = "" // FIXME !!
+      //s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
     @private file_line_content(access:Page.full_access, name, file, published_rev, preview) =
@@ -565,8 +566,9 @@ Page = {{
         <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
         <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
         <span id={file_line_edit(file)} >{
-         buf = Dom.select_raw("#{id} #{id}_select}")
-         if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+         _buf = Dom.select_raw("#{id} #{id}_select}")
+         "" // FIXME !!
+         //if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
         }</span>
       </span>
 
@@ -590,7 +592,7 @@ Page = {{
         void*/
 
     /** Insert if necessary a file line into files navigator. */
-    @private file_line_insert(access, opened, file_uri, edit_rev, published_rev) =
+    @private file_line_insert(access, opened, file_uri, published_rev, preview) =
 
       match file_uri
       {none} -> void
@@ -607,7 +609,7 @@ Page = {{
               file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
               key = "admin_files_navigator_{file_id(file)}"
               f = if file == "" then "/" else file
-              content = file_line(access, opened, e, f, edit_rev, published_rev)
+              content = file_line(access, opened, e, f, published_rev, preview)
               item = WHList.make_item(
                 {title=e value=content},
                 {selected=opened; checked=false},
@@ -911,7 +913,7 @@ Page = {{
                  do build_buffers(some(rev))
                  do do_report(<>Save success</>)
                  Dom.set_enabled(#{save_button_id},false)
-                 
+
                read_only(b) = Ace.read_only(ace, b)
                preview(f) =
                 fail()=
@@ -1095,7 +1097,7 @@ Page = {{
       open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
         do all_off()
         file_uri = Uri.of_string(file)
-        do file_line_insert(access, true, file_uri, none, pub)
+        do file_line_insert(access, true, file_uri, pub, false)
         id = "admin_buffer_{file_id(file)}"
         buf = Dom.select_id(id)
         if Dom.is_empty(buf) then
@@ -1114,7 +1116,7 @@ Page = {{
         file = make_absolute(file)
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
-        do file_line_insert(access, true, file_uri, none, none)
+        do file_line_insert(access, true, file_uri, none, false)
         open_file(access, file,none)(event)
 
       /**
@@ -1174,13 +1176,15 @@ Page = {{
       do List.iter(
         (file,pub, preview) ->
           file_uri = Uri.of_string(file)
-          file_line_insert(access, false, file_uri, none,
+          file_line_insert(
+            access, false, file_uri,
             (if pub.rev==0 then none else some(pub.rev)),
-			preview)
-        page_list)
+            preview
+          )
+        , page_list
+      )
       access.notify.subscribe(
         | {event={publish=(file,rev)} by=_} ->
-          file_uri = Uri.of_string(file)
           file_line_set_publish(file,some(rev))
         | _ -> void
       )
