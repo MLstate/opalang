@@ -620,6 +620,7 @@ type context = (* this datatype represents an apply node
   applied : Q.expr;
   args : Q.expr list;
   mutable used : bool;
+  tsc_gen_opt : (Q.ty,unit) QmlGenericScheme.tsc option;
 }
 
 module IdentAssoc = BaseList.MakeAssoc(Ident)
@@ -672,7 +673,8 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
        * we can't match Apply (Ident _, _) because we may have directives or
        * coercions in the middle *)
       let acc, es' = List.fold_left_map (fun acc e -> parameterLiftExp ~options acc e) full_env es in
-      let outer_apply = {applied = e1; args = es'; used = false} in
+      let tsc_gen_opt = QmlAnnotMap.find_tsc_opt_label label annotmap in
+      let outer_apply = {applied = e1; args = es'; used = false; tsc_gen_opt} in
       let acc, e1' = parameterLiftExp ~options ~outer_apply acc e1 in
       acc, if e1 == e1' && es == es' then e else
              if outer_apply.used then e1' else Q.Apply (label, e1', es')
@@ -695,13 +697,14 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                * environment *)
               full_env, e
           | _ ->
-              let e, old_args, partial =
+              let e, old_args, partial, orig_tsc_gen_opt =
                 match outer_apply with
                 | None ->
                     assert (original_arity <> -1);
-                    e, [], `partial_apply (Some original_arity)
+                    let tsc_gen_opt = QmlAnnotMap.find_tsc_opt_label label annotmap in
+                    e, [], `partial_apply (Some original_arity), tsc_gen_opt
                     (* ident with an env -> partial application *)
-                | Some ({applied = e; args = el; used} as context) ->
+                | Some ({applied = e; args = el; used; tsc_gen_opt} as context) ->
                     (* full apply (if the user code didn't contain
                      * any partial apply) *)
                     assert (used = false);
@@ -709,7 +712,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                      * or else we would end up with [f(env,args)(args)]
                      * instead of [f(env,args)] *)
                     context.used <- true;
-                    e, el, `full_apply (List.length args) in
+                    e, el, `full_apply (List.length args), tsc_gen_opt in
               (match options.mode with
                | `typed ->
                    let args =
@@ -737,6 +740,8 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                    let annotmap,e =
                      let annotmap, e = mk_apply gamma annotmap e args old_args in
                      wrap_partial_apply ~partial annotmap e in
+                   (* propagating the tsc_gen that was (maybe) on the ident or apply *)
+                   let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr e) orig_tsc_gen_opt annotmap in
                    (gamma,annotmap,env),e
                | `untyped ->
                    let e =
