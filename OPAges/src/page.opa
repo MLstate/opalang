@@ -153,26 +153,6 @@ type Page.Lock.return = outcome(
 )
 
 
-on_remove(key) =
-  do Log.info("[on_remove]", "{key}")
-  false
-
-file_stringify(x:string) = "{x}"
-file_config = {
-  WHList.default_config_with_css("admin_files") with
-  helper = {
-    stringify = file_stringify
-    father = _ -> none
-  }
-  ~on_remove
-} : WHList.config
-
-make_absolute(file) =
-  match String.index("/", file)
-  {some=0} -> file
-  _ -> "/{file}"
-
-
 Page = {{
 
   /**
@@ -238,6 +218,11 @@ Page = {{
     , access.access.list()
     , StringMap_empty )
   )
+
+  make_absolute(file) =
+    match String.index("/", file)
+    {some=0} -> file
+    _ -> "/{file}"
 
   /**
    * {2 Database access}
@@ -543,6 +528,30 @@ Page = {{
         config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
         do WTabs.add_tab(config,"tabs_file")
         void
+
+    /** File navigator. */
+
+    admin_files_id = "admin_files"
+
+    on_file_remove(key) =
+      do Log.info("[on_remove]", "{key}")
+      li_id = WHList.item_id(admin_files_id, key)
+      do Log.info("[on_remove]", "{li_id}")
+      //li = Dom.select_id(li_id)
+      li_sons = WHList.item_sons_class(admin_files_id)
+      sons = Dom.select_children(Dom.select_raw("li#{li_id} > ul > li.{li_sons} > ul"))
+      do Log.info("[on_remove]", "Sons : {sons}")
+      Dom.is_empty(sons)
+
+    file_stringify(x:string) = "{x}"
+    file_config = {
+      WHList.default_config_with_css(admin_files_id) with
+      helper = {
+        stringify = file_stringify
+        father = _ -> none
+      }
+      on_remove=on_file_remove
+    } : WHList.config
 
     @private file_line_set_preview(file,b) =
       s = if b then "[preview]" else ""
