@@ -250,18 +250,26 @@ compare_front(ty) =
 
      and custom(comparator,args,preenv) =
        nargs = List.length(args)
+       #<Ifstatic:OPA_CLOSURE>
        match nargs with
-       | 0 -> ((_postenv,a,b -> comparator(a,b) ),preenv)
+       | 0 -> ((_postenv,a,b -> comparator(a,b)), preenv)
        | _ ->
          (args_cmp,preenv) = List.fold_map(aux,args,preenv)
          cmp(postenv,a,b)=
-          clos_arg = OpaValue.Closure.Args.create(nargs+2)
-          do List.iteri(
-              (i, cmp -> OpaValue.Closure.Args.set(clos_arg, i, cmp(postenv,_,_))
-            ), args_cmp)
-          f = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
-          f(a,b)
+           clos_arg = OpaValue.Closure.Args.create(nargs+2)
+           do List.iteri(
+             (i, cmp -> OpaValue.Closure.Args.set(clos_arg, i, cmp(postenv,_,_))
+           ), args_cmp)
+           // FIXME: we shouldn't be applying an array where the two last
+           // indexes are undefined!!!
+           f = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+           f(a,b)
          (cmp,preenv)
+       #<Else>
+       match nargs with
+       | 0 -> ((_postenv,a,b -> comparator(a,b)), preenv)
+       | _ -> @fail("Custom comparison is not implemented for cases where List.length(args) > 0 in non closure mode")
+       #<End>
 
     and lazy_error(ty,preenv)=
       cmp(_,_,_) = error_ty(ty)
