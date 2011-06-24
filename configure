@@ -331,20 +331,24 @@ check-c-lib () (
 )
 
 HAS_LIBNATPMP=
-LIBNATPMP=
+LIBNATPMP=()
 HAS_MINIUPNPC=
-MINIUPNPC=
+MINIUPNPC=()
 if [ -n "$HAS_CAMLIDL" ]; then
 # - checking libnatpmp *
     echo-check libnatpmp
     if LIBNATPMP=($(check-c-lib libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
         HAS_LIBNATPMP=1
+    else
+        LIBNATPMP=("")
     fi
 
 # - checking miniupnpc *
     echo-check miniupnpc
     if MINIUPNPC=($(check-c-lib miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
         HAS_MINIUPNPC=1
+    else
+        MINIUPNPC=("")
     fi
 fi
 
