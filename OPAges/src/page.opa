@@ -481,30 +481,31 @@ Page = {{
     tabs_file_id = "tabs_file"
 
     @private @client
-    on_select(_num:int, tab:WTabs.tab) =
+    on_tab_select(_num:int, tab:WTabs.tab) =
       match tab.custom_data
       {some=(file)} ->
         bid = navigator_file_id(file)
         do Dom.trigger(#{bid}, {click})
         true
       _ -> false
-    @private @client on_add(num:int, tab:WTabs.tab) =
+    @private @client on_tab_add(num:int, tab:WTabs.tab) =
       match tab.custom_data
       {some=(file)} ->
-        id = buffer_file_id(file)
-        do Dom.set_property_unsafe(Dom.select_id(id), "tab", "{num}")
+        fid = navigator_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(fid), "tab", "{num}")
         some(tab)
       _ -> none
-    @private @client on_remove(_num:int, tab:WTabs.tab) =
+    @private @client on_tab_remove(_num:int, tab:WTabs.tab) =
       match tab.custom_data
       {some=(file)} ->
         id = buffer_file_id(file)
-        do Dom.set_property_unsafe(Dom.select_id(id), "tab", "")
+        fid = navigator_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(fid), "tab", "")
         // do access.notify.remove(id)
         do Dom.remove(#{id})
         do del_preview(file)
         true
-      _ -> false
+      _ -> true
     @private @both insert_pos = {at_end}:WTabs.pos
     @private @both delete_pos = {after_select}:WTabs.pos
     @private @both
@@ -512,9 +513,9 @@ Page = {{
       WTabs.default_config_with_css(tabs_file_id) with
         ~insert_pos
         ~delete_pos
-        ~on_add
-        ~on_select
-        ~on_remove
+        on_add=on_tab_add
+        on_select=on_tab_select
+        on_remove=on_tab_remove
         add_text=none
     } : WTabs.config
     @private
@@ -1185,7 +1186,8 @@ Page = {{
         do file_line_insert(access, true, file_uri, pub, false)
         id = buffer_file_id(file)
         buf = Dom.select_id(id)
-        do match Dom.get_property(Dom.select_id(id), "tab")
+        fid = navigator_file_id(file)
+        do match Dom.get_property(Dom.select_id(fid), "tab")
         {some=num} ->
           match Parser.int(num)
           {some=tab_num} ->
@@ -1219,11 +1221,18 @@ Page = {{
         do access.access.remove(file)
         do access.notify.send({remove = file})
         key = navigator_file_id(file)
+        fid = navigator_file_id(file)
+        do match Dom.get_property(Dom.select_id(fid), "tab")
+        {some=num} ->
+          match Parser.int(num)
+          {some=tab_num} ->
+            WTabs.remove_tab(tabs_config, tabs_file_id, tab_num, {WTabs.no_tab() with custom_data=some(file)})
+          {none} -> void
+          end
+        {none} -> void
         do match WHList.remove_item(file_config, admin_files_id, key, true) with
         | ~{some} -> Log.info("[remove_file]", "Remove OK @{some}")
         | {none} -> void
-        buf = Dom.select_id("admin_buffer_{file_id(file)}")
-        do Dom.remove(buf)
         void
 
       send_message(access:Page.full_access) : FunAction.t = _event ->
@@ -1330,10 +1339,64 @@ Page = {{
           _rev = access.access.save(result.filename, {~binary ~mime},none)
           do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
           void
+      back_button =
+        <span>
+          <button type="button" onclick={ _ ->
+            do Dom.hide(#admin_add_file)
+            do Dom.hide(#admin_upload_file)
+            do Dom.show(#admin_actions)
+            void
+          }>&lt;</button>
+        </span>
       /* Build admin xhtml body page */
       <div id={admin_files_id}>
         <!--<h2>Files explorer</h2>-->
         <div id="{admin_files_id}_navigator" onready={build_tree(access)}></div>
+      </div>
+      <div id="admin_buttons">
+        { config = {
+            Upload.default_config(init_result) with
+            ~fold_datas ~perform_result
+            body_form =
+              <div id="admin_actions">
+                <span>
+                  <button type="button" onclick={ _ ->
+                    do Dom.hide(#admin_actions)
+                    do Dom.hide(#admin_upload_file)
+                    do Dom.show(#admin_add_file)
+                    Log.info("[action]", "add file")
+                  }>Add/Open</button>
+                </span>
+                <span>
+                  <button type="button" onclick={ _ ->
+                    do Dom.hide(#admin_actions)
+                    do Dom.hide(#admin_add_file)
+                    do Dom.show(#admin_upload_file)
+                    Log.info("[action]", "upload file")
+                  }>Upload</button>
+                </span>
+                <span>
+                  <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
+                </span>
+              </div>
+              <div id="admin_add_file" style="display:none">
+                {back_button}
+                <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
+                <button type="button" onclick={Action.new_file(access)}>New file</button>
+              </div>
+              <div id="admin_upload_file" style="display:none">
+                {back_button}
+                <input type="file" name="upload_file_content"/>
+                <button type="submit">Upload</button>
+              </div>
+              <div id="admin_choose_mime" style="display:none">
+                {back_button}
+                <label for="admin_mime_type">Mime-type:</label>
+                <input id="admin_mime_type" name="upload_mime_type" type="text" value="application/octet-stream"/>
+              </div>
+          }
+          Upload.make(config)
+        }
       </div>
       <div id="admin_notifications">
         <div id="admin_notifications_box" onready={_ ->
@@ -1366,21 +1429,6 @@ Page = {{
       <div id="admin_editor_container">
         {tabs_html()}
         {file_buffer(access, true, url)}
-      </div>
-      <div id="admin_buttons">
-        { config = Upload.default_config(init_result)
-          config = { config with ~fold_datas ~perform_result
-                       body_form = <>
-                         Filename : <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
-                         <button type="button" onclick={Action.new_file(access)}>New file</button>
-                         Mime-type <input name="upload_mime_type" type="text" value="application/octet-stream"/>
-                         <input type="file" name="upload_file_content"/>
-                         <button type="submit">Upload</button>
-                       </> }
-          Upload.make(config)}
-        <div id="search_dead_link_button">
-          <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
-        </div>
       </div>
 
   }}
