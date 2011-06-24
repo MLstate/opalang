@@ -15,7 +15,20 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{parser, web.core}
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 UserAgentParser =
 {{

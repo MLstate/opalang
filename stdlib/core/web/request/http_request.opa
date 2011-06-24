@@ -15,15 +15,27 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{xhtml, rpc.core, xmlm}
 
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * The method used by the client to when placing the request to the server.
  *
  * Use this type and the corresponding function [HttpRequest.Generic.get_method] if you are defining a REST service and wish to
- * differenciate requests based on their method.
+ * differentiate requests based on their method.
  *
  * see http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html for a complete definition of methods
  */
@@ -67,16 +79,19 @@ type HttpRequest.partcontent =
   {partial : int} /
   {content : binary}
 
+/**
+ * {1 Interface}
+ */
+
 HttpRequest = {{
 
   _of_web_info(winfo) = winfo.http_request
 
+  /**
+   * {2 Manipulation of requests}
+   */
+
   Generic = {{
-
-    /**
-     * {1 Manipulation of requests}
-     */
-
 
     /**
      * Extract low-level http request information
@@ -261,7 +276,10 @@ HttpRequest = {{
 
   }}
 
-  /** {1 Thread context functions} */
+  /**
+   * {2 Thread context functions}
+   */
+
   @private apply(f : 'a -> 'b) : option('b) = Option.map(f, thread_context().request)
   @private apply2(f : 'a -> option('b)) : option('b) = Option.bind(f, thread_context().request)
 
