@@ -470,10 +470,10 @@ Page = {{
     /** A translation that allows to use file on dom identifiers. */
     @private file_id = Crypto.Hash.md5
     @private buffer_file_id(file) = "admin_buffer_{file_id(file)}"
-    @private table_file_id(file) = "admin_files_table_{file_id(file)}"
-    @private file_line_preview(file) = "admin_files_table_preview{file_id(file)}"
-    @private file_line_edit(file) ="admin_files_table_edit{file_id(file)}"
-    @private file_line_publish(file) ="admin_files_table_publish{file_id(file)}"
+    @private navigator_file_id(file) = "admin_files_navigator_{file_id(file)}"
+    @private file_line_preview(file) = "admin_files_navigator_preview{file_id(file)}"
+    @private file_line_edit(file) ="admin_files_navigator_edit{file_id(file)}"
+    @private file_line_publish(file) ="admin_files_navigator_publish{file_id(file)}"
 
     /** Tabs init. */
     @private class(s) = WStyler.make_class(["TABS_{s}"])
@@ -516,7 +516,7 @@ Page = {{
     @client
     add_tab(file : string, title : string) =
         id = buffer_file_id(file)
-        bid = table_file_id(file)
+        bid = navigator_file_id(file)
         on_remove(_,_) =
           // do access.notify.remove(id)
           do Dom.remove(#{id})
@@ -616,7 +616,7 @@ Page = {{
           _ = List.fold(
             e, acc ->
               file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
-              key = "admin_files_navigator_{file_id(file)}"
+              key = navigator_file_id(file)
               f = if file == "" then "/" else file
               content = file_line(access, opened, e, f, published_rev, preview)
               item = WHList.make_item(
@@ -632,12 +632,12 @@ Page = {{
                     if acc == [] then none
                     else
                       father_file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev(acc) ~query})
-                      ff = "admin_files_navigator_{file_id(father_file)}"
+                      ff = navigator_file_id(father_file)
                       do Log.info("[file_line_insert]", "father file: {father_file} {ff}")
                       some(ff)
                 }
               }
-              do match WHList.insert_item(file_config, "admin_files", key, item, none, false) with
+              do match WHList.insert_item(file_config, admin_files_id, key, item, none, false) with
               | ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
               | {none} -> void
               [e|acc]
@@ -1134,8 +1134,8 @@ Page = {{
       remove_file(access:Page.full_access, file) : FunAction.t = _event ->
         do access.access.remove(file)
         do access.notify.send({remove = file})
-        key = "admin_files_navigator_{file_id(file)}"
-        do match WHList.remove_item(file_config, "admin_files", key, true) with
+        key = navigator_file_id(file)
+        do match WHList.remove_item(file_config, admin_files_id, key, true) with
         | ~{some} -> Log.info("[remove_file]", "Remove OK @{some}")
         | {none} -> void
         buf = Dom.select_id("admin_buffer_{file_id(file)}")
@@ -1180,7 +1180,7 @@ Page = {{
        Dom.get_value(Dom.select_id("upload_mime_type")))
 
     @client @private build_tree(access:Page.full_access)(_:Dom.event) =
-      do Dom.transform([#admin_files_navigator <- WHList.html(file_config, "admin_files", [])])
+      do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
         (file,pub, preview) ->
@@ -1247,9 +1247,9 @@ Page = {{
           do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
           void
       /* Build admin xhtml body page */
-      <div id="admin_files">
+      <div id={admin_files_id}>
         <div>Files explorer</div>
-        <div id="admin_files_navigator" onready={build_tree(access)}></div>
+        <div id="{admin_files_id}_navigator" onready={build_tree(access)}></div>
       </div>
       <div id="admin_notifications">
         <div id="admin_notifications_box" onready={_ ->
