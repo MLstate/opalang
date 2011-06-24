@@ -507,9 +507,13 @@ let pp_private_path pp_pos f info =
     | `key key -> Format.fprintf f "%%%%%a%%%% which is a server bypass" BslKey.pp key
     | `package package -> Format.fprintf f "from package %a" Package.pp_full package
     | `annot -> Format.fprintf f "which is annotated as @@server_private" in
-  Format.fprintf f "@[<v>%a@ %a@]"
-    (Format.pp_list "@ " pp_info) l
-    pp_end end_
+  if l = [] then
+    Format.fprintf f "@[<v>%a@]"
+      pp_end end_
+  else
+    Format.fprintf f "@[<v>%a@ %a@]"
+      (Format.pp_list "@ " pp_info) l
+      pp_end end_
 
 (* FIXME: with the smarter analysis for side effects, this function doesn't work anymore:
  * @server b = 1
