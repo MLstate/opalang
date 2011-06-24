@@ -15,16 +15,34 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * TestSuite, Tools for unit testing (with external scripts that catch "TEST KO", etc.)
  *
 **/
 
+/**
+ * {1 About this module}
+ *
+ * API used in unit tests
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+**/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 @abstract type TestSuite.t = {
   list : list(-> void) ;
   title : string ;
 }
+
+/**
+ * {1 Interface}
+ */
 
 TestSuite = {{
 
