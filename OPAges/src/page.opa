@@ -1365,7 +1365,7 @@ Page = {{
                     do Dom.hide(#admin_upload_file)
                     do Dom.show(#admin_add_file)
                     Log.info("[action]", "add file")
-                  }>Add/Open</button>
+                  }>Open</button>
                 </span>
                 <span>
                   <button type="button" onclick={ _ ->
@@ -1381,8 +1381,9 @@ Page = {{
               </div>
               <div id="admin_add_file" style="display:none">
                 {back_button}
+                <label for="admin_new_file">Path:</label>
                 <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
-                <button type="button" onclick={Action.new_file(access)}>New file</button>
+                <button type="button" onclick={Action.new_file(access)}>Open it</button>
               </div>
               <div id="admin_upload_file" style="display:none">
                 {back_button}
