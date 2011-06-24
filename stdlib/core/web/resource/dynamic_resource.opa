@@ -45,9 +45,13 @@ import stdlib.core.{fresh, qos}
  * {1 What if I need more?}
  *
  * If you need to customize the accessibility policy of a resource, you can use
- * the function custom_publish, and provide your own consumation function, e.g. sending
+ * the function custom_publish, and provide your own consumption function, e.g. sending
  * message to some external sessions, etc.
 **/
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * The default parameters for configuring the dynamic publication of a resource.
@@ -111,10 +115,10 @@ type DynamicResource.parameters.state = {
  * Url configuration, can be optional (see {!DynamicResource.publish_extend})
  */
 type DynamicResource.config = {
-  /** Means corresponding generated url will be optionaly prefixed. */
+  /** Means corresponding generated url will be optionally prefixed. */
   prefix : option(string)
 
-  /** Means corresponding generated url will be optionaly sufixed. */
+  /** Means corresponding generated url will be optionally suffixed. */
   sufix : option(string)
 
   /** A callback that be called at each url access. */
@@ -147,6 +151,10 @@ type DynamicResource.message =
  / { get : DynamicResource.key }
  / { remove : DynamicResource.key }
 
+/**
+ * {1 Interface}
+ */
+
 @server DynamicResource = {{
 
   /**
@@ -159,9 +167,9 @@ type DynamicResource.message =
       return =
         match StringMap.get(key, map) with
         | { some = ~{ resource manager } } ->
-          // !! Warning, if the semantic of cellule changes, it wont work anymore
+          // !! Warning, if the semantic of cell changes, it wont work anymore
           // currently, cell are using dynamic session, so this context is the context
-          // of the sender. If this propertie change, replace the cellule by a dynamic cellule,
+          // of the sender. If this property change, replace the cell by a dynamic cell,
           // or provide the context of the sender via the message
           if ResourceTracker.call(manager, ThreadContext.get({current}))
           then some(resource)
@@ -193,7 +201,7 @@ type DynamicResource.message =
   @private resourceCell =
     state = {map = StringMap.empty : stringmap(DynamicResource.resource);
              default = _ -> Resource.default_error_page({wrong_address})}
-    // CF remark about thread context, we may want to use a dynamic cellule instead.
+    // CF remark about thread context, we may want to use a dynamic cell instead.
     Cell.make(state, on_message)
 
   @private find_resource(key) =

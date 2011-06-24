@@ -46,6 +46,10 @@ import stdlib.core.{parser, map, web.core, xhtml, rpc.maxint}
  */
 
 /**
+ * {1 Types defined in this module}
+ */
+
+/**
  * A web resource.
  *
  * Web resources are web pages, images, videos, etc. More generally, anything that can be accessed by a URL.
@@ -123,10 +127,15 @@ type platform_customization =
  */
 type resource_content = external
 */
+
+/**
+ * {1 Interface}
+ */
+
 Resource = {{
 
 /**
- * {1 Constructors}
+ * {2 Constructors}
  */
 
 /**
@@ -155,7 +164,7 @@ html_constructor(title,headers,html,status,customizers,rc_lastm) =
 page(title:string, body: xhtml): resource = styled_page(title, [], body)
 
 /**
- * Build a web page, adding a set of stylesheet.
+ * Build a web page, adding a set of stylesheets.
  *
  * This function is sufficient for most uses. If you need to more control on the page, e.g. to insert platform-specific
  * changes or error codes, you should rather use function [full_page].
@@ -284,7 +293,7 @@ soap(soap: xml): resource =
 
 /**
 * Build some xmlns content
-* @param xml The contents of the xml ressource
+* @param xml The contents of the xml resource
 */
 xml(xml: xml) =
  { rc_content = {xml=xml};
@@ -298,8 +307,8 @@ xml(xml: xml) =
 *
 * This function is a more powerful variant on [soap]
 *
-* @param soap The contents of the soap ressource
-* @param status A http status for this ressource. For most ressources, you will want to use [{success}].
+* @param soap The contents of the soap resource
+* @param status A http status for this resource. For most resources, you will want to use [{success}].
 */
 full_soap(soap : xml, status: web_response) =
  { rc_content = {~soap};
@@ -353,7 +362,7 @@ json(t: RPC.Json.json) =
 
 
 /**
- * {1 Unknown resources}
+ * {2 Unknown resources}
  *
  * The following functions can be used to build resources for any other kind of content, e.g. audio, video, etc.
  */
@@ -382,7 +391,7 @@ raw_response(content: string, mimetype: string, status: web_response) =
   } : resource
 
 /**
- * Build a resource conaining only a status (empty content)
+ * Build a resource containing only a status (empty content)
  *
  * e.g. to send a 409, use [raw_status({conflict})].
  */
@@ -442,7 +451,7 @@ override_type_unsafe(content: resource, mimetype:string) : resource =
     ~rc_lastm ~rc_status} : resource
 
 /**
- * {1 Platform-specific extensions}
+ * {2 Platform-specific extensions}
  */
 
 /**
@@ -470,7 +479,7 @@ iphone_customizer(icon: string, startup_image: string, custom_css : list(string)
   | _ -> {none}
 
 /**
- * {1 Specialized constructors for errors and redirections}
+ * {2 Specialized constructors for errors and redirections}
  */
 
 /**
@@ -500,7 +509,7 @@ redirection_page(title: string, body: xhtml, status: web_response, delay: int, r
 
 
 /**
- * {2 Adding context}
+ * {3 Adding context}
  */
 
 /**
@@ -555,7 +564,7 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
     * receive information on the connexion and the user-specific information
     * associated with the given context and user.
     * @param context A user context containing information useful for building
-    * this resouce.
+    * this resource.
     *
     * @return A function which may be used in [Server.make] or [Server.secure].
     */
@@ -582,7 +591,7 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
     * servers by saturating servers with complex XML data structures that are completely unrelated
     * to the actual capabilities of the server. For better protection against Denial-of-Service
     * attack, you should consider one of the following designs:
-    * - authentifying clients before calling [in_soap_request]
+    * - authenticating clients before calling [in_soap_request]
     * - using a variant on this mechanism, such as [in_wsdl_request] (if you need XML), or
     * [in_rest_request] (for custom protocols), both of which let you define more resilient
     * services.
@@ -604,7 +613,7 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
 
 
   /**
-   * {1 Adding batches of files}
+   * {2 Adding batches of files}
    */
 
   @private get_executable_id = %% BslInit.get_executable_id %%: -> string
@@ -619,7 +628,7 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
 
 
  /**
-  * {1 Deprecated}
+  * {2 Deprecated}
   *
   * Prefer the more powerful [Server.resources] and [Server.permanent_resources].
   */
@@ -661,7 +670,7 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
 
 
 /**
- * {1 Exported to global namespace}
+ * {1 Functions exported to the global namespace}
  */
 
 /**

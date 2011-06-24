@@ -30,9 +30,20 @@ import stdlib.core.compare
  */
 
 /**
- * The actual contents of a resource.
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
 
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * The actual contents of a resource.
+ */
 type resource_private_content =
 //User-definable resources
     {html:xhtml; headers: xhtml; customizers: list(platform_customization)}
@@ -97,6 +108,11 @@ type dynamic_resource_private = { rc_name    : string;
                                   rc_lastm   : web_cache_control;
                                   rc_status  : web_response
                                 }
+
+/**
+ * {1 Interface}
+ */
+
 Resource_private =
 {{
   @private
@@ -479,7 +495,7 @@ Resource_private =
 
 
 /**
- * {1 Delivery mechanism}
+ * {2 Delivery mechanism}
  */
 
 /**
@@ -622,6 +638,7 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
         }
       ]
    })
+   
 /**
  * A cache for generation of xhtml resources
  */
@@ -784,7 +801,7 @@ export_resource(external_css_files: list(string),
       make_response(lastm, req, status, t ^ "; charset=utf-8", s)
 
     /**
-     * The contination to call to respond to the request
+     * The continuation to call to respond to the request
      */
     rec response(force_mimetype)(winfo:web_info, resource: resource)=
       resource_pr = resource
