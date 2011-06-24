@@ -57,9 +57,6 @@ let show_instantiation ~allow_partial_application gamma quant vars rows cols spe
           vars := QmlTypeVars.TypeVarMap.add v t !vars
     | Q.TypeConst _ , Q.TypeConst _ -> ()
 
-    | ty1, Q.TypeArrow ([],ty2)
-    | Q.TypeArrow ([],ty1), ty2 when allow_partial_application ->
-        aux ty1 ty2
     | Q.TypeArrow (tyl1,ty1), Q.TypeArrow (tyl2,ty2) ->
         if allow_partial_application then (
           aux_arrow eh ty1 ty2 tyl1 tyl2
@@ -67,6 +64,14 @@ let show_instantiation ~allow_partial_application gamma quant vars rows cols spe
           List.iter2 aux tyl1 tyl2;
           aux ty1 ty2
         )
+     (* we need to look at that case after the one with two arrows
+      * so that unify -> 'a and -> 'b unify 'a with 'b and not 'a with -> 'b
+      * actually i am not sure that this cases are needed anymore...
+      * if ei was patched to generate real n-ary types this 'partial' flag
+      * could be removed altogether *)
+    | ty1, Q.TypeArrow ([],ty2)
+    | Q.TypeArrow ([],ty1), ty2 when allow_partial_application ->
+        aux ty1 ty2
 
     (* casting typerecord into typesum if needed and possible *)
     | Q.TypeRecord (Q.TyRow (fields,None)), Q.TypeSum _ ->
