@@ -354,7 +354,7 @@ Page = {{
 
       date(key) = caccess.date(key)
 
-      list() = List.map((x,p) -> do jlog("map") (x,p,has_preview(x)),caccess.ls())
+      list() = List.map((x,p) -> (x,p,has_preview(x)),caccess.ls())
 
       save_as_template(key, ~{hsource bsource}, rev_opt) =
         engine = engine({current_url=""})
