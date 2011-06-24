@@ -15,8 +15,9 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
- * Librarie for functionnal graphs.
+ * Library for functional graphs.
  *
  * @author Mathieu Barbin
  * @category algorithmic
@@ -28,7 +29,7 @@
 /**
  * {1 About this module}
  *
- * This module contains a high-level interface for manipulating functionnal graphs.
+ * This module contains a high-level interface for manipulating functional graphs.
  * The kind of graph is
  * + directed
  * + vertex-labeled
@@ -37,6 +38,10 @@
  * It is inspired and adapted from OcamlGraph Signatures and Persitent implementation.
  *
  * This representation is adapted for several cases, from simple directed graphs to automatons.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
  */
 
 /**
@@ -45,7 +50,7 @@
 
 /**
  * The type for indexing the nodes of a graph.
- * We use the native type [int] as uniq identifier. Creating a new node
+ * We use the native type [int] as unique identifier. Creating a new node
  * will use a call to a fresh maker, which is on the server. If a client uses
  * this lib, there will be some request to the server for generating nodes.
  */
@@ -53,7 +58,7 @@ type FGraph.index = int
 type FGraph.index.order = Order.default
 
 /**
- * The type for a vertex. A vertex is indexed with an uniq index, generated
+ * The type for a vertex. A vertex is indexed with an unique index, generated
  * via a fresh maker.
  * The label is an info you can attach to a vertex. Different vertices can
  * share the same label, comparison between vertex is always computed only
@@ -138,6 +143,10 @@ type FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'ordering_ve
 }
 
 /**
+ * {1 Interface}
+ */
+
+/**
  * The functor for creating a new instance of FGraph, depending on the type of
  * the label of the edges. For non labeled edges or vertex, you can use the type [void]
  *
@@ -146,12 +155,13 @@ type FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'ordering_ve
 FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'ordering_vertex)) = {{
 
   /**
-   * {1 Manipulation of vertices}
+   * {2 Manipulation of vertices}
    */
+
   Vertex = {{
 
     /**
-     * {1 Vertices are Comparable}
+     * {3 Vertices are Comparable}
      */
 
     ordering(v1: FGraph.vertex, v2: FGraph.vertex)= Int.ordering(v1.index, v2.index)
@@ -160,7 +170,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     equal(v1, v2) = (v1 : FGraph.vertex).index == (v2 : FGraph.vertex).index
 
     /**
-     * Comparaison based on label
+     * Comparison based on label
      */
     ordering_label(v1: FGraph.vertex, v2: FGraph.vertex)= Order.ordering(v1.label, v2.label, X.order_vertex_label)
     compare_label(v1, v2) = @opensums(ordering_label(v1, v2))
@@ -169,11 +179,11 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
                      order(FGraph.vertex, 'vertex_label))
 
     /**
-     * {1 Vertices are labeled}
+     * {3 Vertices are labeled}
      */
 
     /**
-     * The private fresh make used by the FGraph librarie.
+     * The private fresh make used by the FGraph library.
     **/
     @private cpt_vertex = Fresh.server(i->i)
 
@@ -195,18 +205,18 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
 // VertexSet = Set_make(VertexOrder)
 
   /**
-   * {1 Manipulation of edges}
+   * {2 Manipulation of edges}
    */
   Edge = {{
 
     /**
-     * {1 Edges are Ordered}
+     * {3 Edges are Ordered}
      */
 
     /**
-     * The comparaison is down in lexicographic order
-     * wrt the order :(src, dst, label). Comparaison on vertex is based on uniq index,
-     * and comparaison on label is based on the [compare_label] given in argument [X].
+     * The comparison is down in lexicographic order
+     * wrt the order :(src, dst, label). Comparison on vertex is based on unique index,
+     * and comparison on label is based on the [compare_label] given in argument [X].
      */
     ordering(e1, e2) =
       { src=src1 label=label1 dst=dst1 } = e1
@@ -229,7 +239,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
                     'edge_label))
 
     /**
-     * Comparaison based on label
+     * Comparison based on label
      */
     ordering_label(e1, e2) = Order.ordering((e1 : FGraph.edge).label, (e2 : FGraph.edge).label, X.order_edge_label)
     compare_label(e1, e2) = @opensums(ordering_label(e1, e2))
@@ -238,14 +248,14 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
                     order(FGraph.edge('edge_label, 'vertex_label), 'edge_label))
 
     /**
-     * {1 Edges are directed}
+     * {3 Edges are directed}
      */
 
     src(e) = (e : FGraph.edge('edge_label, 'vertex_label)).src
     dst(e) = (e : FGraph.edge('edge_label, 'vertex_label)).dst
 
     /**
-     * {1 Edges are labeled}
+     * {3 Edges are labeled}
      */
 
     /**
@@ -260,7 +270,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
   }}
 
   /**
-   * private functions: (monomorphized acces + utils)
+   * private functions: (monomorphized access + utilities)
    * TODO: do not export in the interface (OPA missing feature).
    * Please do not use in your code.
    */
@@ -288,7 +298,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
 
 
   /**
-   * {1 Size functions}
+   * {2 Size functions}
    */
 
   is_empty(t) = get_size(t) == 0
@@ -316,7 +326,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     | { some = node } -> VertexMap.size(node.in)
 
   /**
-   * Computing the out (resp. in) degree of a vertex [vertex] distinguing edges by their labels.
+   * Computing the out (resp. in) degree of a vertex [vertex] distinguishing edges by their labels.
    * If there are several edges between 2 vertices, they are counted several times.
    * If the vertex is not in the graph, the function returns [0].
    */
@@ -347,12 +357,12 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     | { some = node } -> cardinal_edges_label(node.in, label)
 
   /**
-   * {1 Membership functions}
+   * {2 Membership functions}
    */
 
   /**
-   * Test the occurence of a vertex in a graph.
-   * Remember that vertex_label are ignored by the comparaison function.
+   * Test the occurrence of a vertex in a graph.
+   * Remember that vertex_label are ignored by the comparison function.
    */
   mem_vertex(t, vertex) =
     vertices = get_vertices(t)
@@ -369,7 +379,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     | { none } -> false
 
   /**
-   * Test the occurence of a labeled edge between 2 vertices in a graph with a specific label
+   * Test the occurrence of a labeled edge between 2 vertices in a graph with a specific label
    * If one of the vertices in not in the graph, the function returns [false]
    */
   mem_edge(t, src, label, dst) =
@@ -401,7 +411,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     | { none } -> List.empty
 
   /**
-   * {1 Successors and predecessors}
+   * {2 Successors and predecessors}
    */
 
   /**
@@ -410,7 +420,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
 
   /**
    * Returns the successors (resp. predecessors) of a [vertex].
-   * The returned list does not contains doublons, although they could be several
+   * The returned list does not contains doubloons, although they could be several
    * edges between the [vertices]. The returned list is empty if the vertex is not in the graph.
    */
 
@@ -461,11 +471,11 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     | { some = node } -> VertexMap.To.val_list(node.in)
 
   /**
-   * {1 Graph iterators}
+   * {2 Graph iterators}
    */
 
   /**
-   * Iter on all vertices of a graph.
+   * Iterate on all vertices of a graph.
    */
   iter_vertex(iter, t) =
     vertices = get_vertices(t)
@@ -479,7 +489,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     VertexMap.fold(vertex, _, acc -> fold(vertex, acc), vertices, acc)
 
   /**
-   * Iter on all edges.
+   * Iterate on all edges.
    */
   iter_edge(iter, t) =
     iter(node) =
@@ -499,7 +509,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     VertexMap.fold(_, node, acc -> fold(node, acc), vertices, acc)
 
   /**
-   * Iter on all neighbors. There is only one iteration, even if there are several edges between 2 vertices
+   * Iterate on all neighbors. There is only one iteration, even if there are several edges between 2 vertices
    */
   iter_neighbor(iter, t) =
     iter(src, node) =
@@ -541,11 +551,11 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
     VertexMap.fold(_, node, acc -> fold(node, acc), vertices, acc)
 
   /**
-   * {1 Vertex iterators}
+   * {2 Vertex iterators}
    */
 
   /**
-   * Iter/fold on all successors/predecessors of a vertex. There is no doublon in iteration, even if there are several
+   * Iterate/fold on all successors/predecessors of a vertex. There is no doubloon in iteration, even if there are several
    * edges between 2 vertices.
    */
 
@@ -610,7 +620,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
    */
 
   /**
-   * {1 Add / Remove operations}
+   * {2 Add / Remove operations}
    */
 
   /**
@@ -724,8 +734,8 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
 
   /**
    * Remove an edge of the graph. If the edge is not in the graph, returns the same graph.
-   * FIXME: we can return physically the same graph, if we have the fonction List.filter_stable.
-   * If one of the vertices is not in the graph, the function considere just
+   * FIXME: we can return physically the same graph, if we have the function List.filter_stable.
+   * If one of the vertices is not in the graph, the function considers just
    * that the edge is not in the graph (no error).
    */
   remove_edge(t, src, label, dst) =
@@ -806,7 +816,7 @@ FGraph(X : FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'order
 
 
   /**
-   *
+   * {2 FGraph.Export}
    */
   Export = {{
     to_dot(t) =

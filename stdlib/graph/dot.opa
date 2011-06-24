@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Utils for calling dot (using external plugin)
  * Part of the fgraph lib
@@ -25,6 +26,19 @@
  * @stabilization Totally untested, beware by using this code
  */
 
+/**
+ * {1 About this module}
+ *
+ * An interface to use dot in OPA.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * Several supported output images format, using external {it dot} command line tool
@@ -33,6 +47,10 @@ type Dot.format =
     {png}
   / {svg}
   / {jpg}
+
+/**
+ * {1 Interface}
+ */
 
 Dot = {{
 
@@ -58,7 +76,7 @@ Dot = {{
     exec(command, source)
 
   /**
-   * Parse the svg output of {it dot}, and extract the svg part (hacky)
+   * Parse the svg output of {it dot}, and extract the svg part (hackish)
    * for building an xhtml opa representation of a graph.
   **/
   @private find_svg=parser
