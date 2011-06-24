@@ -546,6 +546,12 @@ camlopt() {
     fi
 }
 
+TAGS_LIST=""
+for tag in camlidl libnatpmp miniupnpc; do
+    hasvar=HAS_${tag^^}
+    if [ -n "${!hasvar}" ]; then TAGS_LIST="$TAGS_LIST\"$tag\"; "; fi
+done
+
 # See config.mli for the documentation and spec of these variables
 cat >config.ml <<EOF
 let prefix = "$PREFIX"
@@ -559,6 +565,8 @@ let camlp4orf = "$CAMLP4ORF"
 let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
 let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
 let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
+
+let available = [ $TAGS_LIST]
 
 let is_release = $(camlbool "$IS_RELEASE")
 type os = Linux | Mac | Win32 | Cygwin
