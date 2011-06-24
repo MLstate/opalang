@@ -34,30 +34,49 @@ user_update(x: message) =
   Dom.scroll_to_bottom(#conversation)
 
 /**
- * Broadcast text to the [room].
+ * Inserts a small graphical component that displays an input and a button.
  *
- * Read the contents of [#entry], clear these contents and send the message to [room].
+ * Reads the content of [#entry], clear this content, and call the [action] function on it.
  *
- * @param author The name of the author. Will be included in the message broadcasted.
+ * @param title The text on the button.
+ * @param action The function called when clicking on the button (or pressing enter).
  */
-broadcast(author) =
-   do Network.broadcast({~author text=Dom.get_value(#entry)}, room)
-   Dom.clear_value(#entry)
+insert_input(title, action) =
+  f() = _ = action(Dom.get_value(#entry)); Dom.clear_value(#entry)
+  do Dom.transform([#footer <-
+    <input id=#entry onnewline={_ -> f()}/>
+    <div class="button" onclick={_ -> f()}>{ title }</div> ])
+  Dom.give_focus(#entry)
+
+/**
+ * Inserts the input that allows to post messages, broadcasting them to other clients.
+ */
+insert_post_input(author) =
+  broadcast(text) = Network.broadcast(~{author text}, room)
+  insert_input("Post", broadcast)
+
+/**
+ * Inserts the initial input that allows to choose the author's name.
+ *
+ * When the name is chosen, it inserts the normal post input,
+ * specialized to the given author name.
+ *
+ */
+insert_author_input() =
+  insert_input("Please pick a name", insert_post_input)
 
 /**
  * Build the user interface for a client.
  *
- * Pick a random author name which will be used throughout the chat.
+ * Note: [onready] events are triggered on the browser when the elements are inserted in the page.
  *
  * @return The user interface, ready to be sent by the server to the client on connection.
  */
 start() =
-   <div id=#header><div id=#logo></div>Your name: <input id=#name /></div>
-   <div id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
-   <div id=#footer>
-      <input id=#entry  onnewline={_ -> broadcast(Dom.get_value(#name))}/>
-      <div class="button" onclick={_ -> broadcast(Dom.get_value(#name))}>Post</div>
-   </div>
+  <div id=#header><div id=#logo></div></div>
+  <div id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
+  <div id=#footer onready={_ -> insert_author_input()}>
+  </div>
 
 /**
  * {1 Application}

@@ -9,6 +9,7 @@ ADOCDIR=/opt/local/etc/asciidoc/
 
 EXAMPLES= \
   hello_chat/hello_chat.exe \
+  hello_chat/hello_chat_author.exe \
   hello_wiki/hello_wiki.exe \
   hello_web_services/hello_wiki_rest.exe \
   hello_web_services/hello_wiki_rest_client.exe \

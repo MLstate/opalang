@@ -176,6 +176,7 @@ pre {
     margin:5px 0;
     padding:5px 15px;
     font-size:1.2em;
+    cursor: pointer;
 }
 .button {display: inline-block;}
 
@@ -206,7 +207,6 @@ input#entry {
 #conversation {
      background: none repeat scroll 0% 0% transparent;
      margin: 5px 5px 60px 5px;
-     width: 100%;
 }
 
 .line {
