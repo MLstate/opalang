@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @authors ?
 **/
@@ -38,14 +39,18 @@ import stdlib.core.{web.core, map, color}
  * {1 Where do I start}
  *
  * The main part of this file is the definition of the CSS properties ({!Css.unary}). These
- * have a simple correspondance with css2, described below.
+ * have a simple correspondence with css2, described below.
  *
  * This module is transitional and will soon be replaced by a better structured approach.
  *
+ * {1 what if i need more?}
  */
 
 type Css.compiled_property = {name: string; value:string}
 
+/**
+ * {1 Css_private interface}
+ */
 Css_private =
 {{
   order = Order.make_unsafe(compare) : order(Css.entry, Css.order)
@@ -57,6 +62,10 @@ __internal__add_css_entry(k:list, data:map(string,'b), m:ordered_map(Css.entry, 
    match Css_private.Entry_map.get(k, m)
      | {~some} -> Css_private.Entry_map.add(k, StringMap.union(data, some), m)
      | {none}  -> Css_private.Entry_map.add(k, data, m)
+
+/**
+ * {1 Css_printer interface}
+ */
 
 Css_printer =
 {{
@@ -473,7 +482,7 @@ type Css.unary =
   / { z_index: option(int) }
   / { not_typed: (string,string) }
 /*
-  we show the correspondance between Css.unary and css2 definitions
+  we show the correspondence between Css.unary and css2 definitions
          ------------------------------------------------
            css_unary                       css
          -------------------------------------------------
@@ -812,15 +821,18 @@ type Css.properties = list(Css.unary)
 type css_properties = Css.properties
 
 /**
+ * {1 Css_build interface}
+ */
+
+/**
  * Constructors for typed css
  *
  * This module defines all constructors to build values of the main [Css.unary] type.
  */
-
 Css_build =
 {{
 /**
- * this two function should no be insinde the module,
+ * this two function should no be inside the module,
  * but because of open module with local environ crash, they moved here
  */
   sum_option(o1,o2) =
@@ -1129,7 +1141,11 @@ Css_build =
   z_index_auto = z_index(none)
 }}
 
-/* ---------------- < utils for CSS > --------------- */
+/**
+ * {1 Functions exported to the global namespace}
+ */
+
+/* ---------------- < utilities for CSS > --------------- */
 map_css_size(f) =
   | { ~cm } -> {cm = f(cm)}
   | { ~em } -> {em = f(em)}

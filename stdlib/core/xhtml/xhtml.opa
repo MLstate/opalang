@@ -15,7 +15,20 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer}
+
+/**
+ * {1 About this module}
+ *
+ * {1 where should i start?}
+ *
+ * {1 what if i need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
 
 /**
  * The content of a xhtml event handler
@@ -111,6 +124,10 @@ type xml_document =
   }
 
 /**
+ * {1 Functions exported to the global namespace}
+ */
+
+/**
  * The empty fragment of xhtml
  */
 empty_xhtml = {fragment = []} : xhtml
@@ -129,6 +146,10 @@ empty_xhtml = {fragment = []} : xhtml
             XmlConvert.of_void:void -> xhtml,
             XmlConvert.of_char:char -> xhtml)
 magicToXml = XmlConvert.of_alpha : 'a -> xml
+
+/**
+ * {1 Xmlns interface}
+ */
 
 Xmlns =
 {{
@@ -377,6 +398,10 @@ Xmlns =
 verbatim_expr(_)=""
 
 /**
+ * {1 Xml interface}
+ */
+
+/**
  * The functions that should go in that module are functions that are available
  * independently of the specificity of your xml
  * Thus, functions like to_string, or parse cannot appear in here
@@ -405,6 +430,10 @@ Xml =
       | {none} -> {none}
       | {some = {~value ... }} -> {some = value}
     end
+
+  /**
+   * {2 Rule module}
+   */
 
   Rule = {{
     integer = xml_parser parser v={@toplevel.Rule.integer} -> v
@@ -467,6 +496,10 @@ Xml =
 
 }}
 
+/**
+ * {1 Xml_parser interface}
+ */
+
 Xml_parser = {{
 
   flatten_and_discard_whitespace_aux(xml,acc) =
@@ -495,11 +528,15 @@ Xml_parser = {{
 }}
 
 /**
+ * {1 XmlConvert interface}
+ */
+
+/**
  * Create xml representation of some basic type
  */
 XmlConvert = {{
 
-  /*
+  /**
    * Return the xml representation of any value
    */
   of_alpha(value) =
@@ -572,6 +609,10 @@ XmlConvert = {{
     List.compose((x, y -> <>{x}{y}</>), beg_symbol, end_symbol, sep_symbol, l)
 
 }}
+
+/**
+ * {1 Xhtml interface}
+ */
 
 /**
  * This module regroups only xhtml specific functions
@@ -1029,7 +1070,7 @@ Xhtml =
 
 
   /**
-   * Perform the finalisation of the js by encapsulation in a secured script construction
+   * Perform the finalization of the js by encapsulation in a secured script construction
    * to be used with [prepare_for_xhtml_export]
    */
   finalize_js_inline(js:xhtml):xhtml =
@@ -1067,7 +1108,7 @@ Xhtml =
 
   /**
    * Add an id to the xhtml when it is not already defined,
-   * When the futur position of the id is not clear (several possible node), it encapsulated everything in a div
+   * When the future position of the id is not clear (several possible node), it encapsulated everything in a div
    */
   add_id(id,x:xhtml):xhtml =
     id = id ? Random.string(16)
@@ -1086,7 +1127,7 @@ Xhtml =
 
   /**
    * Add style to the xhtml (added to pre-exiting style)
-   * When the futur position of the style is not clear (several possible node), it encapsulated everything in a div
+   * When the future position of the style is not clear (several possible node), it encapsulated everything in a div
    */
   add_style(style,x):xhtml =
    match x : xhtml
@@ -1101,8 +1142,8 @@ Xhtml =
 
   /**
    * Add a onready event the xhtml
-   * NEED TO DETAIL BEHAVIOUR IF onready ALREADY EXISTING
-   * DOES NOT WORK ON SERVER SIDE UNTIL CLOSURE SERIALISATION IS WORKING AND USED ON XHTML
+   * NEED TO DETAIL BEHAVIOR IF onready ALREADY EXISTING
+   * DOES NOT WORK ON SERVER SIDE UNTIL CLOSURE SERIALIZATION IS WORKING AND USED ON XHTML
    */
   add_onready(f,x):xhtml =
    match x : xhtml

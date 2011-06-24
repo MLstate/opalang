@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Low-level interaction with the user-interface
  *
@@ -41,17 +42,19 @@ import stdlib.core.{web.core}
  * {! Dom.insert}.
  *
  * To move items on the page, take a look at {!Dom.move_after}
+ *
+ * {1 what if i need more?}
  */
 
 /**
- * {1} Types defined in this module.
+ * {1 Types defined in this module.}
  */
 
 /**
  * The type of a selection in a document.
  *
  * Note for advanced users: By default, selections are browser-independent and lazy. In other
- * words, you may create selection [#foo] even on the server, and even if there is no clientconnected.
+ * words, you may create selection [#foo] even on the server, and even if there is no client connected.
 
 Selections are resolved lazily. In other words, you may create selection [#foo]
  * even if your document doesn't contain any element with id [foo] yet. Whenever you
@@ -147,16 +150,20 @@ type @abstract Dom.transition = Dom.private.element
 
 `$` = Dom.select_id
 
+/**
+ * {1 Interface}
+ */
+
 Dom = {{
 
   /**
-   * {1 Fresh}
+   * {2 Fresh}
    */
   fresh_id() = Random.string(32)
 
 
   /**
-   * {1 Selecting elements}
+   * {2 Selecting elements}
    */
 
   /**
@@ -318,7 +325,7 @@ Dom = {{
   )
 
   /**
-   * {1 Inserting new content}
+   * {2 Inserting new content}
    */
 
   of_xhtml(xhtml:xhtml): dom =
@@ -327,7 +334,7 @@ Dom = {{
   )
 
   /**
-   * {1 Dom as a data structure}
+   * {2 Dom as a data structure}
    */
 
   get(x:dom, index:int): dom =
@@ -447,7 +454,7 @@ Dom = {{
 
 
   /**
-   * {1 Actions on the web page}
+   * {2 Actions on the web page}
    */
 
    /**
@@ -659,11 +666,11 @@ Dom = {{
   )
 
   /**
-   * {1 Visuals }
+   * {2 Visuals }
    */
 
   /**
-   * {2 Position}
+   * {3 Position}
    */
 
   get_offset(dom:dom): Dom.dimensions =
@@ -678,7 +685,7 @@ Dom = {{
   )
 
   /**
-   * {2 Size}
+   * {3 Size}
    */
 
   get_width(dom): int =
@@ -913,13 +920,13 @@ Dom = {{
     })
 
   /**
-   * {1 Dimension}
+   * {2 Dimension module}
    */
 
   Dimension = {{
 
     /**
-     * The distance between 2 coord
+     * The distance between 2 coordinates
      */
     distance({x_px=x1 y_px=y1} : Dom.Dimension.t,{x_px=x2 y_px=y2} : Dom.Dimension.t) : int =
       Math.sqrt_i(Math.square_i(x1-x2) + Math.square_i(y1-y2))
@@ -931,7 +938,7 @@ Dom = {{
       {x_px=(x1+x2)  y_px=(y1+y2)}
 
     /**
-     * Substract 2nd dimension to the 1st one
+     * Subtract 2nd dimension to the 1st one
      */
     sub({x_px=x1 y_px=y1} : Dom.Dimension.t,{x_px=x2 y_px=y2} : Dom.Dimension.t) : Dom.Dimension.t=
       {x_px=(x1-x2)  y_px=(y1-y2)}
@@ -959,7 +966,7 @@ Dom = {{
 
 
   /**
-   * {1 Event handling}
+   * {2 Event handling}
    */
 
   /**
@@ -1045,6 +1052,10 @@ Dom = {{
         do %% BslDom.trigger_event %%(of_selection(dom), event, Event.get_name(event.kind))
         void
   )
+
+  /**
+   * {2 Event module}
+   */
 
   Event =
   {{
@@ -1252,6 +1263,10 @@ Dom = {{
 
 
   /**
+   * {2 Effect module}
+   */
+
+  /**
    * Manipulation of special effects.
    * Use function [transition] to perform actual special effects.
    */
@@ -1275,7 +1290,7 @@ Dom = {{
      toggle(): Dom.animation = {apply = %% BslDom.do_toggle %% }
 
      /**
-      * Progressively change update current css propeties with the given set of properties
+      * Progressively change update current css properties with the given set of properties
       * Current css properties are not erased but modified according to the given set
       */
      change_to(properties: Css.properties): Dom.animation =
@@ -1322,12 +1337,12 @@ Dom = {{
 
 
      /**
-      * An animation that makes a dom disappear progressively, by transparence -- requires jQuery 1.4.x
+      * An animation that makes a dom disappear progressively, by transparency -- requires jQuery 1.4.x
       */
      fade_out(): Dom.animation= {apply = %% BslDom.do_fade_out %% }
 
      /**
-      * An animation that makes a dom appear progressively, by transparence -- requires jQuery 1.4.x
+      * An animation that makes a dom appear progressively, by transparency -- requires jQuery 1.4.x
       */
      fade_in(): Dom.animation = {apply = %% BslDom.do_fade_in %% }
 
@@ -1423,6 +1438,10 @@ Dom = {{
   }}
 
   /**
+   * {2 Key module}
+   */
+
+  /**
    * Constants for usual keypresses.
    */
   Key =
@@ -1442,6 +1461,10 @@ Dom = {{
   PAGEDOWN:  Dom.key_code = 34
   INSERT:    Dom.key_code = 45
   }}
+
+  /*
+   * {2 Select module}
+   */
 
   @private Select =
   {{
@@ -1620,6 +1643,10 @@ Dom = {{
 
 
  /**
+  * {2 Low-level interface}
+  */
+
+ /**
    * Bind an event handler to an event (low-level version)
    *
    * @param event The name of the event, e.g. "click", "dblclick", etc. You are not limited to standard browser events.
@@ -1639,7 +1666,7 @@ Dom = {{
 
 
   /**
-   * {1 Dom node constructors}
+   * {2 Dom node constructors}
    */
   /**
    * Create a dom text node from a string
@@ -1674,7 +1701,7 @@ Dom = {{
     : string, string -> Dom.private.element
 
   /**
-   * {1 Dom node manipulations}
+   * {2 Dom node manipulations}
    */
   /**
    * Set the [attribute] with a string [value] of the given dom
@@ -1716,7 +1743,7 @@ Dom = {{
     : dom_element, string, string -> void
 
   /**
-   * [append_child parent child] Append to childs list of [parent] the
+   * [append_child parent child] Append to the children list of [parent] the
    * given [child] dom node.
    */
   @private append_child = %% BslClientOnly.Dom.append_child %%
@@ -1731,6 +1758,7 @@ Dom = {{
   /**
    * {2 Style constructions}
    */
+
   /**
    * Create an empty style constructor
    */
@@ -1763,6 +1791,7 @@ Dom = {{
   /**
    * {2 Insertion handlers}
    */
+
   /**
    * Create an empty [insertion_handlers].
    */
@@ -1949,6 +1978,9 @@ Dom = {{
 
 
 
+/**
+ * {1 Functions exported to the global namespace}
+ */
 
 /* TODO: move with html ?? */
 type xhtml_attr('a)   = { namespace:string name:string value:'a }//TODO: Always used with [string], we can certainly normalize

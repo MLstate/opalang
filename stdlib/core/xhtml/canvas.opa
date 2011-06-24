@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Low-level interaction with the user-interface
  *
@@ -30,8 +31,14 @@ import stdlib.core.{web.core}
  *
  * This module defines client side manipulation of canvas element (html5).
  *
+ * {1 where should i start?}
+ *
+ * {1 what if i need more?}
  */
 
+/**
+ * {1 Types defined in this module}
+ */
 
 @abstract
 type Canvas.context = canvas_element
@@ -75,8 +82,13 @@ type Image.image = external
 type Video.video = external
 type Image.data = external
 
+/**
+ * {1 Interface}
+ */
+
 @client
 Canvas = {{
+
   /**
    * {2 Canvas}
   **/
@@ -119,8 +131,8 @@ Canvas = {{
     to_data_url(canvas, "image/png")
 
   /**
-   * {Context}
-   */
+   * {2 Context}
+  **/
 
   get_context(canvas : Canvas.canvas, t : string) : option(Canvas.context) =
     %% BslCanvas.get_context %%(canvas, t)
@@ -403,13 +415,13 @@ Canvas = {{
    * {2 Focus management}
   **/
 
-  //todo
+  // TODO
 
   /**
    * {2 Text}
   **/
 
-  //todo
+  // TODO
 
   /**
    * {2 Drawing images}
@@ -442,7 +454,7 @@ Canvas = {{
    * {2 Pixel manipulation}
   **/
 
-  //todo
+  // TODO
   // put_image_data(context : Canvas.context, data : Image.data, x : int, y : int) : void =
   //   %% BslCanvas.put_image_data %%(context, data, x, y)
 
