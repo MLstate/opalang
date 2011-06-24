@@ -1311,7 +1311,7 @@ Page = {{
           void
       /* Build admin xhtml body page */
       <div id={admin_files_id}>
-        <div>Files explorer</div>
+        <!--<h2>Files explorer</h2>-->
         <div id="{admin_files_id}_navigator" onready={build_tree(access)}></div>
       </div>
       <div id="admin_notifications">
