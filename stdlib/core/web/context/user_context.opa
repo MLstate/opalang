@@ -36,7 +36,7 @@ import stdlib.core.{rpc.core, map, db, web.core}
  * This module provides the necessary functions to define and interact with UserContext.
  * UserContext are the high-level mechanism used to associate values to each client (based on cookie)
  *
- * User's data stored in the UserContext can only be acced and modified by the user owning this
+ * User's data stored in the UserContext can only be accessed and modified by the user owning this
  * data (based on thread context)
  *
  * {1 Where do I start?}
@@ -44,6 +44,8 @@ import stdlib.core.{rpc.core, map, db, web.core}
  * For most of your needs, you only need to use functions [UserContext.make] to create a UserContext
  * with a default value, [UserContext.change] to change the current state of the UserContext for this
  * user and [UserContext.remove] to remove the current value.
+ *
+ * {1 What if I need more?}
  */
 
 
@@ -58,11 +60,15 @@ type UserContext.messages('state) = {exec: 'state -> (-> void)}
                                   / {remove: void}
                                   / {set_default: 'state}
 /**
- * The type of UserContext parameterized by the type of value stored
+ * The type of UserContext parametrized by the type of value stored
  */
 @abstract
 type UserContext.t('state) = Cell.cell(UserContext.messages('state), option( ->void))
 
+
+/**
+ * {1 Interface}
+ */
 
 UserContext =
 {{
