@@ -17,10 +17,24 @@
 */
 
 /**
- * {1 Actual utilities}
+ * {1 About this module}
+ *
+ * Actual utilities
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 type web_side = {client} / {server}
+
+/**
+ * {1 Interface}
+ */
 
 @both WebUtils = {{
     /**

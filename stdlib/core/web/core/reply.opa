@@ -15,10 +15,19 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{date}
 
 /**
- * {1 Exporting stuff}
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 /**
@@ -108,6 +117,10 @@ type web_cache_control =  {volatile}    /** The resource changes at each request
 
 type web_server_status = external
 
+/**
+ * {1 Interface}
+ */
+
 WebCoreExport =
 {{
 
@@ -141,7 +154,7 @@ default_make_response(cache_control: web_cache_control, request: WebInfo.private
 )
 
 /**
- * {1 Manipulating status}
+ * {2 Manipulating status}
  */
 
 web_err_num_of_web_response =

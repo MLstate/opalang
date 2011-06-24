@@ -17,13 +17,6 @@
 */
 
 /**
- * The type of an IP address or a Netmask.
- */
-@opacapi
-type ip = IPv4.ip
-
-type IPv4.ip = { a : int ; b : int ; c : int ; d : int }
-/**
  *
  * @author Hugo Venturini, Hugo Heuzard
  * @creation 12/2010
@@ -38,6 +31,25 @@ type IPv4.ip = { a : int ; b : int ; c : int ; d : int }
  *
  * This module is an IPv4 tool-box.
  *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * The type of an IP address or a Netmask.
+ */
+@opacapi
+type ip = IPv4.ip
+
+type IPv4.ip = { a : int ; b : int ; c : int ; d : int }
+
+/**
+ * {1 Interface}
  */
 
 IPv4 =

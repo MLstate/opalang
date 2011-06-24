@@ -16,6 +16,10 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * {1 Types defined in this module}
+ */
+
 @abstract type user_id = string
 
 /**
@@ -46,6 +50,9 @@ type simple_url_handler('result) = Parser.general_parser('result)
  */
 type url_handler('result)  =  Parser.general_parser(HttpRequest.request -> 'result)
 
+/**
+ * {1 Functions exported to the global namespace}
+ */
 
 user_id_of_string(s : string) : user_id = s
 

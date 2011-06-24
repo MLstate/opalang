@@ -16,6 +16,18 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 type HttpRequest.request =
     { request : WebInfo.private.native_request;
       connexion : WebInfo.private.native_connection;
@@ -35,27 +47,30 @@ type web_info = {
 @abstract type WebInfo.private.native_response = external
 @abstract type WebInfo.private.native_ip = external
 
+/**
+ * {1 Interface}
+ */
 
 WebInfo = {{
-  
+
     @private web_info_cont = %%BslNet.Http_server.web_info_cont%% : WebInfo.private.native -> (WebInfo.private.native_response -> void)
     @private web_info_request = %% BslNet.Http_server.web_info_request %% : WebInfo.private.native -> WebInfo.private.native_request
     @private web_info_conn    = %% BslNet.Http_server.web_info_conn    %% : WebInfo.private.native -> WebInfo.private.native_connection
     @private web_info_ip = %%BslNet.Http_server.ip_of_web_info%%
-    
+
     of_native_web_info(winfo:WebInfo.private.native) =
-      req : HttpRequest.request = 
+      req : HttpRequest.request =
         { request = web_info_request(winfo);
           connexion = web_info_conn(winfo);
         }
       { cont         = web_info_cont(winfo)
-        http_request = req 
+        http_request = req
       } : web_info
-    
+
     to_native_web_info(winfo:web_info) =
           reconstruct = %% BslNet.Http_server.web_info_reconstruct %%
           reconstruct(winfo.cont, winfo.http_request.request, winfo.http_request.connexion)
-    
+
     get_conn_ip(conn) =
       IPv4.ip_of_string(web_info_ip(conn))
 }}

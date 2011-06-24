@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * @author Adam Koprowski, February 2010
  * @author David Rajchenbach-Teller (packaging), December 2010
@@ -34,6 +35,8 @@ import stdlib.core.{parser}
  *
  * See type {!Uri.uri} for a datatype representing an URI. See module
  * {!Uri} for some functions for manipulating URIs.
+ *
+ * {1 What if I need more?}
  */
 
 /**
@@ -91,13 +94,18 @@ type Uri.mailto =
                 { address : string
                 ; query : list((string, string))
                 }
+                
 /**
  * For most purposes we treat URLs as synonyms to URIs, so [Url.url] is a synonym of {!Uri.uri}.
  */
 type Url.url = Uri.uri
 
 /**
- * {1 A module with parsing rules for URIs}
+ * {1 Parsing rules for URIs}
+ */
+
+/**
+ * A module with parsing rules for URIs.
  */
 UriParser =
 {{
@@ -283,6 +291,7 @@ Uri =
   default_absolute_domain(domain,path) =
    {default_absolute
       with ~domain ~path}
+      
   /**
    * Convert a string into a URI.
    *
@@ -292,7 +301,7 @@ Uri =
   of_string = Parser.try_parse(uri_parser, _)
 
   /**
-   * Encode a string meant to be injected in a URI to ensore that it does not contain any reserved character
+   * Encode a string meant to be injected in a URI to ensure that it does not contain any reserved character
    */
   encode_string: string -> string = %% BslString.encode_uri_component %%
 

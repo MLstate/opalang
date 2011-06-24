@@ -15,14 +15,25 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import stdlib.core.{parser}
 
 /**
+ * {1 About this module}
+ *
  * Type URL ; savagely extracted from css.opa
  */
 // ***** TODO: this should be either merged or replaced by uri.opa *****
 
+/**
+ * {1 Types defined in this module}
+ */
+
 @abstract type url = string
+
+/**
+ * {1 Interface}
+ */
 
 Url = {{
 /*
