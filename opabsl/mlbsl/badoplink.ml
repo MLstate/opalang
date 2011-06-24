@@ -105,7 +105,7 @@ let abort_transaction k =
 
 
 ##register [opacapi;restricted:dbgen] jlog: string -> void
-let jlog s = Logger.info "%s" s
+let jlog s = Logger.notice "%s" s
 
 let debug __s = #<If:DEBUG_DB> Logger.log ~color:`magenta __s #<End>
 
