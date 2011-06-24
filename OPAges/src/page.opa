@@ -681,10 +681,10 @@ Page = {{
       /* Generate history selector */
       rec build_pub_version(_rev : option(int)) =
         xhtml =
-          <div> Published revision : {r = access.access.get_rev_number(file)
+          <span> Published revision : {r = access.access.get_rev_number(file)
                                       if r.rev == -1
                                       then "none"
-                                      else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</div>
+                                      else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</span>
         Dom.transform([#{published_id} <- xhtml])
       and draft()=
         do Dom.show(#{draft_id})
@@ -1032,7 +1032,7 @@ Page = {{
             <div id={editor_id} class="admin_editor_content" />
             <div id={reporting_id} style="foat:left" />
             <div id={command_id} />
-            <div id={published_id} />
+            <span id={published_id} />
           _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(html))
           do build_reporting()
           do build_buffers(rev)
