@@ -26,7 +26,8 @@ module Dialog = Badop_lib.Dialog
 module Dialog_aux = Badop_lib.Dialog_aux
 let (@>) = Cps.Ops.(@>)
 let (|>) = Cps.Ops.(|>)
-let sprintf = Printf.sprintf
+let sprintf fmt = Printf.sprintf fmt
+let path_to_string = Badop.Aux.path_to_string
 
 module F (Bk: Badop.S) =
 struct
@@ -43,7 +44,7 @@ struct
 
   type cache_entry =
     | CacheAnswer of (Dialog.query read_op * ans) list
-    | CacheLink of Path.t
+    | CacheLink of Badop.path
 
   type transaction = { (* Extended transaction (called xtr below) *)
     db: Bk.database;
@@ -128,12 +129,12 @@ struct
     | Badop.Stat (Dialog.Query ()) -> "Query(Stat())"
     | Badop.Stat (Dialog.Response (path, rev_opt, _DLU)) ->
         sprintf "Response(Stat(%s,%s,%s))"
-          (Path.to_string path) (Option.to_string Bk.Debug.revision_to_string rev_opt) (string_of_DLU _DLU)
+          (path_to_string path) (Option.to_string Bk.Debug.revision_to_string rev_opt) (string_of_DLU _DLU)
     | Badop.Contents (Dialog.Query ()) -> "Query(Contents())"
     | Badop.Contents (Dialog.Response data) -> sprintf "Response(Contents(%s))" (DataImpl.to_string data)
     | Badop.Children (Dialog.Query key_range) -> sprintf "Query(Children(%s))" (string_of_range Keys.to_string key_range)
     | Badop.Children (Dialog.Response path_list) ->
-        sprintf "Response(Children([%s]))" (String.concat_map "; " Path.to_string path_list)
+        sprintf "Response(Children([%s]))" (String.concat_map "; " path_to_string path_list)
     | Badop.Revisions (Dialog.Query rev_range) ->
         sprintf "Query(Children(%s))" (string_of_range Bk.Debug.revision_to_string rev_range)
     | Badop.Revisions (Dialog.Response rtl) ->
@@ -149,7 +150,7 @@ struct
     @> fun tr -> Badop.Aux.map_read_op ~revision:(fun r k -> r |> k) read_op
     @> fun bk_read_op -> Bk.read tr path bk_read_op
     @> fun ans ->
-      #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CACHING(%s,%s)" (Path.to_string path) (string_of_gro read_op)#<End>;
+      #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CACHING(%s,%s)" (path_to_string path) (string_of_gro read_op)#<End>;
       Hashtbl.replace xtr.cache path (CacheAnswer ((read_op,ans)::ans_list));
       ans |> k
 
@@ -158,11 +159,11 @@ struct
     | Some (CacheAnswer ans_list) ->
         (match List.assoc_opt read_op ans_list with
          | Some ans ->
-             #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CACHED(%s,%s)" (Path.to_string path) (string_of_gro read_op)#<End>;
+             #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CACHED(%s,%s)" (path_to_string path) (string_of_gro read_op)#<End>;
              ans |> k
          | None -> really_read ans_list xtr path read_op k)
     | Some (CacheLink p) ->
-        #<If:BADOP_DEBUG$minlevel 10>Logger.debug "FOLLOWING(%s)" (Path.to_string p)#<End>;
+        #<If:BADOP_DEBUG$minlevel 10>Logger.debug "FOLLOWING(%s)" (path_to_string p)#<End>;
         read xtr p read_op k
     | None -> really_read [] xtr path read_op k
 
@@ -171,19 +172,19 @@ struct
     (match write_op with
      | Badop.Set (Dialog.Query data) ->
          let gro = Badop.Contents (Dialog_aux.make_unsafe_response data) in
-         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "UPDATED(%s,%s)" (Path.to_string path) (string_of_gro gro)#<End>;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "UPDATED(%s,%s)" (path_to_string path) (string_of_gro gro)#<End>;
          Hashtbl.replace xtr.cache path (CacheAnswer[(Badop.Contents (Dialog_aux.make_unsafe_query ()),`Answer gro)
                                                      (* Can't add stat here because we can't predict the revision *)])
      | Badop.Clear (Dialog.Query ()) ->
-         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CLEARED(%s)" (Path.to_string path)#<End>;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "CLEARED(%s)" (path_to_string path)#<End>;
          Hashtbl.replace xtr.cache path (CacheAnswer [(Badop.Contents (Dialog_aux.make_unsafe_query ()),`Absent);
                                                       (Badop.Stat (Dialog_aux.make_unsafe_query ()),`Absent)])
      | Badop.Link (Dialog.Query p) ->
-         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "LINKED(%s->%s)" (Path.to_string path) (Path.to_string p)#<End>;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "LINKED(%s->%s)" (path_to_string path) (path_to_string p)#<End>;
          Hashtbl.replace xtr.cache path (CacheLink p)
      (*| Badop.Copy (Dialog.Query _) ???*)
      | _ ->
-         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "INVALIDATED(%s)" (Path.to_string path)#<End>;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.debug "INVALIDATED(%s)" (path_to_string path)#<End>;
          Hashtbl.remove xtr.cache path);
     Badop.Aux.map_write_op ~transaction:(fun xtr k -> get_tr xtr @> k) ~revision:(fun r k -> r |> k) write_op
       (* only for types, no tr in queries *)
