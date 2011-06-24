@@ -495,7 +495,7 @@ Page = {{
     }
     @private @client
     on_select(_num:int, tab:WTabs.tab) =
-      do Dom.trigger(Dom.select_raw("#{Option.get(tab.custom_data)} td"),{click})
+      do Dom.trigger(#{Option.get(tab.custom_data)},{click})
       true
     @private @client on_add(_num:int, _tab:WTabs.tab) = none
     @private @client on_remove(_num:int, _tab:WTabs.tab) = false
@@ -569,9 +569,9 @@ Page = {{
       s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
-    @private file_line_content(access:Page.full_access, name, file, published_rev, preview) =
+    @private file_line_content(_access:Page.full_access, name, file, published_rev, preview) =
       id = buffer_file_id(file)
-      <span onclick={Action.open_file(access, file, published_rev)} >
+      <span>
         {file_for_xhtml(name)}
         <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
         <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
@@ -669,7 +669,7 @@ Page = {{
     /** Create a file line for table insert. */
     @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <span class="{class}" id="{navigator_file_id(file)}">
+      <span class="{class}" id="{navigator_file_id(file)}" onclick={Action.open_file(access, file, published_rev)}>
         {file_line_content(access, name, file, published_rev, preview)}
       </span>
 
@@ -1170,7 +1170,7 @@ Page = {{
         do all_off()
         file_uri = Uri.of_string(file)
         do file_line_insert(access, true, file_uri, pub, false)
-        id = "admin_buffer_{file_id(file)}"
+        id = buffer_file_id(file)
         buf = Dom.select_id(id)
         if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
