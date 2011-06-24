@@ -109,9 +109,9 @@ let tstf  f = f = dif  (eif  f) 0
 *)
 
 let put_len c1 c2 c3 c4 i =
-  if i <= 0xff then sprintf "%c%s" c1 (ei8 i)
-  else if i <= 0xffff then sprintf "%c%s" c2 (ei16 i)
-  else if i <= 0xffffffff then sprintf "%c%s" c3 (ei32 i)
+  if i >= 0 && i <= 255 then sprintf "%c%s" c1 (ei8 i)
+  else if i >= 0 && i <= 65535 then sprintf "%c%s" c2 (ei16 i)
+  else if i >= 0 && i <= 4294967295 then sprintf "%c%s" c3 (ei32 i)
   else sprintf "%c%s" c4 (ei64 i)
 
 let rec encode_key = function
@@ -157,6 +157,7 @@ let rec decode_key s i =
   | _ -> assert false
 
 (*
+let km1 = Keys.IntKey (-1)
 let k1 = Keys.IntKey 123
 let k2 = Keys.IntKey 0x100
 let k3 = Keys.IntKey 0x10000
@@ -170,7 +171,7 @@ let k10 = Keys.VariableKey 0x100000000
 let k11 = Keys.ListKey (Array.of_list [k1;k2;k3;k4;k5;k6;k7;k8;k9;k10])
 let k12 = Keys.ListKey (Array.of_list [k11;k11])
 let tstk k = k = snd (decode_key (encode_key k) 0)
-let allk = [k1;k2;k3;k4;k5;k6;k7;k8;k9;k10;k11;k12]
+let allk = [km1;k1;k2;k3;k4;k5;k6;k7;k8;k9;k10;k11;k12]
 let good = List.for_all tstk allk
 *)
 
@@ -265,7 +266,15 @@ let alld = [d1;d2;d3;d4;d5]
 let tstd d = d = snd (decode_datas (encode_datas d) 0)
 let good = List.for_all tstd alld
 let db = Dbm.opendbm ("/home/norman/.mlstate/"^(Filename.basename Sys.argv.(0))^"/db_light") [Dbm.Dbm_rdwr] 0O664;;
-Dbm.iter (fun k d -> print_endline (String.escaped (Printf.sprintf "%s -> %s" k d))) db;;
+let db = Dbm.opendbm "/tmp/opadb1" [Dbm.Dbm_rdwr] 0O664;;
+let dbl = ref [];;
+Dbm.iter (fun k d ->
+            (match k with
+             | "version" -> ()
+             | "timestamp" -> ()
+             | _ -> dbl := (Path.to_string (snd (Encode_light.decode_path k 0)),
+                            snd (Encode_light.decode_datas d 0))::!dbl);
+            print_endline (String.escaped (Printf.sprintf "%s -> %s" k d))) db;;
 Dbm.close db;;
 *)
 

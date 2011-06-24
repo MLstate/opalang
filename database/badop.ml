@@ -230,6 +230,11 @@ module Aux : sig
     ('which, 'revision1) generic_read_op ->
     ('which, 'revision2) generic_read_op Cps.t
 
+  val map_read_list_op:
+    revision:('revision1 -> 'revision2 Cps.t) ->
+    ('which, 'revision1) generic_read_op list ->
+    ('which, 'revision2) generic_read_op list Cps.t
+
   val map_write_op:
     transaction:('transaction1 -> 'transaction2 Cps.t) ->
     revision:('revision1 -> 'revision2 Cps.t) ->
