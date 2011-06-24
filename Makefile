@@ -11,12 +11,16 @@ include config.make
 
 INSTALL ?= cp -u -L
 
+OPAOPT += "--rebuild"
+
+ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
+export DISABLED_LIBS = libnattraversal
+endif
+
 .PHONY: default
 default: all
 
 include build/Makefile.bld
-
-OPAOPT += "--rebuild"
 
 export
 

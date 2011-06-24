@@ -44,6 +44,7 @@ internal opapasses passes
 internal appruntime
 internal libsecurity
 internal libnet
+internal libnattraversal libnet/nattraversal
 internal libirc
 internal libtools
 internal protocols

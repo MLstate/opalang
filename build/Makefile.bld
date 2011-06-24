@@ -103,6 +103,8 @@ $(BUILD_DIR)/build_libs.make: $(BUILD_LIBS)
 	      }' \
 	  $(^F) > $@
 
+ALL_LIBS := $(filter-out $(DISABLED_LIBS),$(ALL_LIBS))
+
 target-libs = $(addsuffix .cmxa,$(1))
 
 .PHONY: libs

@@ -97,8 +97,10 @@ mkdir -p $BUILD_DIR
     for i in $BUILD_LIBS; do
         if [ -e "$i" ]; then
             echo "#1 \"$i\""
-            awk '/^external/ { print "mlstate_lib ~dir:\"lib/opa/static\" \""$2"\";" }
-                 /^internal/ { print "internal_lib", $3 ? "~dir:\""$3"\"" : "", "\""$2"\";" }' $i
+            awk 'BEGIN { split (ENVIRON["DISABLED_LIBS"],a); for (i in a) disabled[a[i]] = 1 }
+                 /^external/ { print "mlstate_lib ~dir:\"lib/opa/static\" \""$2"\";" }
+                 /^internal/ && ! ($2 in disabled) \
+                   { print "internal_lib", $3 ? "~dir:\""$3"\"" : "", "\""$2"\";" }' $i
         fi
     done
     for i in $BUILD_RULES; do
