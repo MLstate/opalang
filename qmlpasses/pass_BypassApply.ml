@@ -64,7 +64,7 @@ let process_code gamma annotmap code =
                   if e == e' && el == el' then
                     annotmap, input_e
                   else
-                    annotmap, Q.Apply (label,e,el)
+                    annotmap, Q.Apply (label,e',el')
               | _ ->
                   tra annotmap e
        )
