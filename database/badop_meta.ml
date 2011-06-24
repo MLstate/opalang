@@ -164,7 +164,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
            | p -> (match name with None -> p | Some n -> Filename.concat p n)
          in
          let lpath = path^"_light" in
-         Logger.log ~color:`red "path: %s" path;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "path: %s" path#<End>;
          (module Badop_light : Badop.S),
          Badop.Options_Light { Badop. lpath }),
       "[<path>][:<flags>]",
