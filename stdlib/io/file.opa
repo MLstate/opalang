@@ -18,9 +18,19 @@
 
 
 /**
-  * Be aware that this package access local file
-  * and could be unaccessible or not working with some cloud configuration
-  */
+ * {1 About this module}
+ *
+ * Be aware that this package access local file
+ * and could be inaccessible or not working with some cloud configuration
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Interface}
+ */
 
 /**
   * A module for very basic file access
@@ -32,6 +42,10 @@ is_directory = %% BslFile.is_directory %% : string -> bool
 mimetype_opt = %% BslFile.mimetype_opt %% : string -> option(string)
 }}
 
+
+/**
+ * {1 Functions exported to the global namespace}
+ */
 
 @deprecated({use="File.content"})
 file_content = File.content
