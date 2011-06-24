@@ -563,9 +563,8 @@ Page = {{
 
     @private file_line_set_edit(file) =
       id = buffer_file_id(file)
-      _buf = Dom.select_raw("#{id} #{id}_select}")
-      s = "" // FIXME !!
-      //s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+      buf = Dom.select_raw("#{id} #{id}_select}")
+      s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
     @private file_line_content(access:Page.full_access, name, file, published_rev, preview) =
@@ -575,30 +574,17 @@ Page = {{
         <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
         <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
         <span id={file_line_edit(file)} >{
-         _buf = Dom.select_raw("#{id} #{id}_select}")
-         "" // FIXME !!
-         //if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+         buf = Dom.select_raw("#{id} #{id}_select}")
+         if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
         }</span>
       </span>
 
     /** Create a file line for table insert. */
     @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <span class="{class}" id="admin_files_navigator_{file_id(file)}">
+      <span class="{class}" id="{navigator_file_id(file)}">
         {file_line_content(access, name, file, published_rev, preview)}
       </span>
-
-    /** Insert if necessary a file line into files table. *//*
-    @private file_line_insert(access, opened, file, published_rev, preview) =
-      line = Dom.select_id(table_file_id(file))
-      if Dom.is_empty(line) then
-        /* Insert a line on files table. */
-        table = Dom.select_id("admin_files_table")
-        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file, published_rev,preview)))
-        void
-      else
-        do Dom.add_class(line, if opened then "on" else "off")
-        void*/
 
     /** Insert if necessary a file line into files navigator. */
     @private file_line_insert(access, opened, file_uri, published_rev, preview) =
@@ -646,16 +632,6 @@ Page = {{
 
           void
         _ -> void
-//           line = Dom.select_id("admin_files_navigator_{file_id(file)}")
-//           if Dom.is_empty(line) then
-//             /* Insert a line on files navigator. */
-//             navigator = Dom.select_id("admin_files_navigator")
-//             _ = Dom.put_at_end(navigator, Dom.of_xhtml(file_line(access, opened, file, edit_rev, published_rev)))
-//             void
-//           else
-//             do Dom.add_class(line, if opened then "on" else "off")
-//             _ = Dom.put_inside(line,Dom.of_xhtml(file_line_content(access, file, edit_rev, published_rev)))
-//             void
 
     /**
      * Build a buffer and insert it on dom node with identifier
