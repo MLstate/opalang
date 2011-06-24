@@ -745,8 +745,10 @@ let restart () =
   let bypass_typer = OpaTopBsl.bypass_typer bypass_map in
 
   let env_types =
-    Typer.initial ~bypass_typer ~explicit_instantiation:true
-      ~value_restriction:(P.value_restriction_get ())
+    Typer.initial
+      ~gamma: QmlTypes.Env.empty ~schema: QmlDbGen.Schema.initial
+      ~annotmap: QmlAnnotMap.empty ~bypass_typer ~explicit_instantiation:true
+      ~value_restriction: (P.value_restriction_get ())
       ~exported_values_idents: IdentSet.empty () in
   let env_values = IdentMap.empty in
   (* Reset (in fact, init to "empty") the type of exceptions. *)

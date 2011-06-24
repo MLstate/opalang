@@ -314,15 +314,14 @@ struct
     let transform pass_env =
       let env_bsl, qml = pass_env.PassHandler.env in
       (** construction of bypass_typer *)
-      let bypass_typer = BslLib.BSL.ByPassMap.bypass_typer env_bsl.BslLib.bymap in
+      let bypass_typer =
+        BslLib.BSL.ByPassMap.bypass_typer env_bsl.BslLib.bymap in
       let env_typer =
         HighTyper.initial
-          ~explicit_instantiation:false
-          ~bypass_typer
-          ~value_restriction:`disabled
-          ~exported_values_idents:IdentSet.empty
-          ()
-      in
+          ~gamma: QmlTypes.Env.empty ~schema: QmlDbGen.Schema.initial
+          ~annotmap: QmlAnnotMap.empty ~bypass_typer
+          ~explicit_instantiation: false ~value_restriction: `disabled
+          ~exported_values_idents: IdentSet.empty () in
       let env_typer, code =
         let code = Option.default [] qml.init_code @ qml.user_code in
         let fct () =

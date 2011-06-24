@@ -66,23 +66,11 @@ type bypass_typer = BslKey.t -> QmlAst.ty option
 type options =
     {
       (*** general options about the behaviour of the typer *)
-      (** A flag to allow (if set to true) abstract (local) types to
-          be considered as concrete; useful for some passes where
-          generated code is typed; should not be used for the initial
-          typing of user code *)
-      concrete_abstract : bool;
-
       (** see the OPA option --explicit-instantiation *)
       explicit_instantiation : bool;
 
       (** see the OPA option --value-restriction *)
       value_restriction : [`disabled|`normal|`strict];
-
-      (** the list, which is the first argument of TypeArrow is used
-          for types of arguments of lambdas and each series of applications
-          is checked to exactly match the arity of TypeArrow of the function
-          (that is the length of the list) *)
-      multiargument_arrow : bool;
     }
 
 (** the safest, most complete (and slowest) set of options *)
@@ -406,10 +394,6 @@ type 'schema public_env =
       schema       : 'schema ;
       annotmap     : QmlAst.annotmap ;
       bypass_typer : bypass_typer ;
-      fatal_mode   : bool ;     (** true by default *)
-      handle_exception : bool ; (** true by default *)
-      unique_types : bool ;    (** false by default; if true means that type redefinitions
-                                   overwrite old types; dangerous, but useful for OPA *)
       had_error    : bool ;
       exception_handler : 'schema public_env -> exn -> unit ;
       display      : bool ;     (** false by default *)

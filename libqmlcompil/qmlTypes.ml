@@ -78,18 +78,14 @@ type gamma = {
 
 type options =
     {
-      concrete_abstract : bool;
       explicit_instantiation : bool;
       value_restriction : [`disabled|`normal|`strict];
-      multiargument_arrow : bool;
     }
 
 let default_options =
     {
-      concrete_abstract = false; (* safest choice *)
       explicit_instantiation = true; (* in case Explicit Instantiation used *)
       value_restriction = `disabled; (* in case value restriction used *)
-      multiargument_arrow = true; (* in case some code not updated *)
     }
 
 module type QML_LOW_LEVEL_TYPER =
@@ -793,9 +789,6 @@ type 'schema public_env =
       schema       : 'schema ;
       annotmap     : Q.annotmap ;
       bypass_typer : bypass_typer ;
-      fatal_mode   : bool ;     (** true by default *)
-      handle_exception : bool ; (** true by default *)
-      unique_types : bool ;    (** false by default *)
       had_error    : bool ;
       exception_handler : 'schema public_env -> exn -> unit ;
       display      : bool ;     (** false by default *)

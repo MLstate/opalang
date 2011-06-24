@@ -108,34 +108,23 @@ sig
 
   (** All default values are specified on the right (empty or dummy version for bypass_typer) *)
   val initial :
-    ?gamma:gamma ->                (** gamma empty *)
-    ?schema:schema ->              (** schema empty *)
-    ?annotmap:Q.annotmap ->          (** IntMap.empty *)
-    ?bypass_typer:bypass_typer ->  (** fun _ -> None *)
-    ?handle_exception:bool ->      (** true *)
-    ?fatal_mode:bool ->            (** true *)
+    gamma: gamma -> schema: schema -> annotmap: Q.annotmap ->
+    bypass_typer: bypass_typer ->
     ?exception_handler:(env -> exn -> unit) -> (** fun _ e -> raise e *)
-    ?unique_types:bool ->          (** false *)
     ?display:bool ->               (** false *)
-    ?concrete_abstract: bool ->    (** false *)
     explicit_instantiation : bool ->
-    value_restriction : [`disabled|`normal|`strict] ->
     (** not an optional argument, because it has to be the same
         as the OPA compilation option of the same name, it's called
         in many places in OPA, and the default value in OPA changes
         (so we risk getting out of sync with OPA and having obscure errors
         or inefficiencies, if we have a (different) default value here, too) *)
-    ?multiargument_arrow: bool -> (** true *)
+    value_restriction : [`disabled|`normal|`strict] ->
     (** The set of toplevel identifiers that are visible outside the package.
         It will be used to raise an error if a value has a type containing a
         @private type and this value is not marked also by a @private. This
         is to avoid private types escaping from their scope. *)
     exported_values_idents: IdentSet.t ->
     unit -> env
-
-  (** Fatal mode : if an exception if raised, don't catch it and fail
-      other-wise, will ignore all failure definition (keep the previous env in this case only)
-      Default value for fatal-mode is true *)
 
   val map_expr : env -> Q.expr -> Q.ty
   val map_elt : env -> Q.code_elt -> QT.typed_code_elt
@@ -207,19 +196,11 @@ struct
   type env = public_env
 
   let initial
-      ?(gamma=QT.Env.empty)
-      ?(schema=QmlDbGen.Schema.initial)
-      ?(annotmap=QmlAnnotMap.empty)
-      ?(bypass_typer=(fun _ -> None))
-      ?(handle_exception=true)
-      ?(fatal_mode=true)
+      ~gamma ~schema ~annotmap ~bypass_typer
       ?(exception_handler=(fun _ e -> raise e))
-      ?(unique_types=false)
       ?(display=false)
-      ?(concrete_abstract=false)
       ~explicit_instantiation
       ~value_restriction
-      ?(multiargument_arrow=QT.default_options.QT.multiargument_arrow)
       ~exported_values_idents
       ()
       =
@@ -230,31 +211,20 @@ struct
       schema ;
       annotmap ;
       bypass_typer ;
-      fatal_mode ;
-      handle_exception ;
       exception_handler ;
-      unique_types ;
       had_error = false ;
       display ;
-      options =
-        {
-          concrete_abstract;
-          explicit_instantiation;
-          value_restriction;
-          multiargument_arrow;
-        } ;
+      options = {
+        explicit_instantiation;
+        value_restriction;
+      } ;
    }
 
   let exception_handler env (code_elt, (e, x)) =
     match e with
     | QmlTyperException.Exception _ ->
-        if env.QT.fatal_mode then
-          if env.QT.handle_exception then
-            env.QT.exception_handler env (QT.Exception (QT.TyperError (code_elt, (e, x))))
-          else
-            raise e
-        (* silently ignore typing exceptions, if that's what the user wants *)
-        else ()
+        env.QT.exception_handler
+          env (QT.Exception (QT.TyperError (code_elt, (e, x))))
     | _ ->
         (* reraise any non-typer exceptions (assert failures, etc.) *)
         raise e
@@ -273,20 +243,15 @@ struct
           (fun { Q.ty_def_name = ti; Q.ty_def_params = vars;
                  Q.ty_def_body = te ; Q.ty_def_visibility = visibility } ->
              let add_ti ti visibility = [(ti, (vars, te), visibility)] in
-             if env.QT.unique_types && QT.Env.TypeIdent.mem ti gamma then
-               let (ti, _) =
-                 QT.Env.TypeIdent.findi ~visibility_applies: true ti gamma in
-               add_ti ti visibility
-             else
-               match te with
-               | _ when TypeIdent.is_already_known ti -> add_ti ti visibility
-               | Q.TypeAbstract ->
-                   add_ti (TypeIdent.new_abstract ~extern: true ti) visibility
-               | _ ->
-                   (* [TODO] Attention, here the body of the definition is
-                      allowed to use only type constructors that are visible
-                      from the currently compiled package. *)
-                   add_ti (TypeIdent.new_concrete ti) visibility)
+             match te with
+             | _ when TypeIdent.is_already_known ti -> add_ti ti visibility
+             | Q.TypeAbstract ->
+                 add_ti (TypeIdent.new_abstract ~extern: true ti) visibility
+             | _ ->
+                 (* [TODO] Attention, here the body of the definition is
+                    allowed to use only type constructors that are visible
+                    from the currently compiled package. *)
+                 add_ti (TypeIdent.new_concrete ti) visibility)
           ty_defs in
       let tirec = List.map (fun (ti, (vars, _), _) -> (ti, vars)) l in
       let (more_gamma, gamma), l =
