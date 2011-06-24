@@ -22,7 +22,18 @@ import stdlib.core.{js, rpc.core}
  *
  * Server side code used to store and retrieve javascript/css files.
  * Used by generated server, not for casual user.
+ *
+ * {1 Where should I start?}
+ *
+ * If you simply want to prepare some tea, use function [Tea.prepare].
+ *
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Interface}
+ */
 
 @server Client_code = {{
 
@@ -86,11 +97,15 @@ import stdlib.core.{js, rpc.core}
   retrieve_css_file() : string = String.concat("",retrieve_css_files())
 }}
 
+/**
+ * {1 Functions exported to the global namespace}
+ */
+
 /* client code */
 @opacapi Client_code_register_js_code_elt = Client_code.register_js_code_elt
 Client_code_register_css_file = Client_code.register_css_file
 
-/************************************************/
-/* Some export for pass "AddCSS" ****************/
-/************************************************/
+/**
+ * Some export for pass "AddCSS"
+ */
 @opacapi Client_code_register_css_declaration = Client_code.register_css_declaration

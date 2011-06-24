@@ -24,7 +24,15 @@ import stdlib.core.{color, funaction, map}
  * {1 About this module}
  *
  * This module presents the source code of the application.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
 **/
+
+/**
+ * {1 Interface}
+ */
 
 AppSources =
 {{

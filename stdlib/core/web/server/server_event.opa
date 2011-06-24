@@ -15,16 +15,27 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /*
     @Author: David Rajchenbach-Teller, 2010
 **/
 
 
 /**
+ * {1 About this module}
+ *
  * Server-side system event management.
  *
- * Use this module to post information on non-fatal server-side error, disconnexion error, resource temporarily not available, etc.
+ * Use this module to post information on non-fatal server-side error, disconnection error, resource temporarily not available, etc.
  * or to catch these events.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
  */
 
 type ServerEvent.event =
@@ -36,6 +47,10 @@ type ServerEvent.info =
   {date:   Date.date
    context:ThreadContext.t
    event:  ServerEvent.event}
+
+/**
+ * {1 Interface}
+ */
 
 @server ServerEvent = {{
 

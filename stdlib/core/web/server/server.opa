@@ -41,7 +41,7 @@ import stdlib.core.{parser, map, rpc.core, web.{core,context,resource}}
  * It depends on the kind of application you intend to write. If your application fits
  * on one page, you should use the simplest server available, use [one_page_server]. This
  * server is well-suited to applications that behave like desktop applications rather
- * than webpages, e.g. Google Mail.
+ * than web pages, e.g. Google Mail.
  *
  * If, on the other hand, you wish your application to manipulate several pages, you
  * should use [simple_server]. This server is well-suited to applications that are
@@ -52,12 +52,12 @@ import stdlib.core.{parser, map, rpc.core, web.{core,context,resource}}
  *
  * For advanced uses, a third and more powerful server is available, [Server.make].
  * In addition to the features of [simple_server], [Server.make] will let you access
- * informations about the connexion. This function may be composed with the functions
+ * information about the connexion. This function may be composed with the functions
  * of module [UserContext] and with function [Resource.in_context] to attach information
  * to each user, such as log-in credentials, user-specific data, etc.
  *
  * Finally, if your server needs secure communications, you should use function [Server.secure].
- * As [Server.make], this function will let you access and store informations about users. In
+ * As [Server.make], this function will let you access and store information about users. In
  * addition, this function enforces https-encrypted communications and guarantees that all the
  * resources provided by the server are protected by some resource access policy. Of course, you
  * will need to define and provide a policy, for instance the one implemented in the [Login] module.
@@ -118,7 +118,7 @@ type service =
 /**
  * The type of a resource whose generation must be protected by some application-specific security policy.
  *
- * For more informations, see functions [Server.protect], [Server.public] and [Server.secure].
+ * For more information, see functions [Server.protect], [Server.public] and [Server.secure].
  */
 @abstract type Server.secure_resource = HttpRequest.request -> resource
 
@@ -130,12 +130,16 @@ type service =
 @abstract type Server.filter = Uri.relative -> option(Uri.relative)
 
 /**
+ * {1 Interface}
+ */
+
+/**
  * Server module
  */
 Server = {{
 
 /**
- * {1 Starting a server}
+ * {2 Starting a server}
  */
 
 
@@ -151,7 +155,7 @@ Server = {{
 
 
 /**
- * {1 Constructing a server}
+ * {2 Constructing a server}
  */
 
 /**
@@ -188,7 +192,7 @@ one_page_server(title: string, content: -> xhtml): service =
     * See also:
     * If you are only interested in producing one page, you can also use the simplified function
     * [one_page]. Other functions provide servers with different features. For instance, if your
-    * application requires encrypted communications and authentification, you should take a look
+    * application requires encrypted communications and authentication, you should take a look
     * at function [secure_dispatch].
     */
    simple_dispatch(dispatcher:Uri.relative -> resource): service =
@@ -212,7 +216,7 @@ one_page_server(title: string, content: -> xhtml): service =
     * See also:
     * If you are only interested in producing one page, you can also use the simplified function
     * [one_page]. Other functions provide servers with different features. For instance, if your
-    * application requires encrypted communications and authentification, you should take a look
+    * application requires encrypted communications and authentication, you should take a look
     * at function [secure_dispatch].
     */
    make_dispatch(filter: Server.filter, dispatcher: Uri.relative -> resource): service =
@@ -322,7 +326,7 @@ one_page_bundle(title:string, resources: list(stringmap(resource)), css:list(str
  * See also:
  * If you are only interested in producing one page, you can also use the simplified function
  * [one_page]. Other functions provide servers with different features. For instance, if your
- * application requires encrypted communications and authentification, you should take a look
+ * application requires encrypted communications and authentication, you should take a look
  * at function [secure].
  */
 simple_server(urls: simple_url_handler(resource)) : service =
@@ -342,8 +346,8 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
   /**
    * Create a complete server for following users, producing web pages and other contents.
    *
-   * By opposition to [simple_server], services created with [make] can take advantange
-   * of connexion information, e.g. to authentify users, generate different contents based
+   * By opposition to [simple_server], services created with [make] can take advantage
+   * of connexion information, e.g. to authenticate users, generate different contents based
    * on user agent, etc.
    *
    * Example:
@@ -366,7 +370,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    * See also:
    * If you are only interested in producing one page, you can also use the simplified function
    * [one_page]. Other functions provide servers with different features. For instance, if your
-   * application requires encrypted communications and authentification, you should take a look
+   * application requires encrypted communications and authentication, you should take a look
    * at function [secure].
    *
    * See also:
@@ -376,7 +380,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
     { port=8080 netmask=0.0.0.0 ~url_handler encryption={no_encryption} server_name=default_server_name }
 
 /**
- * {1 Security checks}
+ * {2 Security checks}
  */
 
   /**
@@ -484,7 +488,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
 
 
   /**
-   * {1 Specialized parsers}
+   * {2 Specialized parsers}
    */
 /*  Parser =
   {{*/

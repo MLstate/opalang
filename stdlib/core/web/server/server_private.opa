@@ -30,10 +30,22 @@ import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, 
  * @stability UNSTABLE
  */
 
+/*
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
 /**
  * A type for messages used internally inside the server for updating state and/or applying actions.
  *
- * @param 'msg The type of messages used to commnicate inside the server requesting update of state.
+ * @param 'msg The type of messages used to communicate inside the server requesting update of state.
  * @param 'state The state of the server.
  */
 type internal_server_communication('msg, 'state) =
@@ -57,6 +69,9 @@ type Server.private.generate_resource = {
        minifier : string -> string
   }
 
+/**
+ * {1 Interface}
+ */
 
 Server_private = {{
 
@@ -197,7 +212,7 @@ Server_private = {{
       executable_id = get_executable_id()
 
       /* Javascript variables */
-      /* here, we are making making sure that the html sent to the client
+      /* here, we are making sure that the html sent to the client
        * has a url for the js that always contains the server id
        * but we are also making sure that _internal_/code/all.js is still a valid
        * url (but the client never uses it, it is meant for us because having a stable
@@ -275,7 +290,7 @@ Server_private = {{
           external_handler:Parser.general_parser(void) = parser
             | make_resource=service.url_handler ->
               export(winfo, make_resource(HttpRequest._of_web_info(winfo)))
-            //Default (overridable) favicon, shortcut icons, etc
+            //Default (can be overridden) favicon, shortcut icons, etc
             | x=overridable_handlers -> export(winfo, x)
             | any=(.*) ->
               do Log.warning("Server_private",
@@ -322,11 +337,11 @@ Server_private = {{
         url_dispatcher = make_dispatcher(service)
         dispatcher =
           // CAUTION     : The url_dispatcher called is delayed (via push) by complete_dispatcher for one important reason :
-          //               It introduces a new execution task in the sheduler.
+          //               It introduces a new execution task in the scheduler.
           //               By default AppServer don't make this choice for you.
           //               Without it, you have no concurrent server response.
           // PERFORMANCE : The main task is not interrupted, so working set context
-          //               switching may be minimzed. The server is more efficient with the push
+          //               switching may be minimized. The server is more efficient with the push
           complete_dispatcher(x -> url_dispatcher(WebInfo.of_native_web_info(x))):continuation(WebInfo.private.native)
 
         /* Initialize server */
@@ -414,6 +429,10 @@ Server_private = {{
         </table>)
 
 }}
+
+/**
+ * {1 Functions exported to the global namespace}
+ */
 
 @opacapi Server_private_run_services = Server_private.run_services
 @opacapi Server_private_add_service  = Server_private.add_service 
