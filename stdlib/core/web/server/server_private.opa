@@ -271,6 +271,7 @@ Server_private = {{
             | js_parser   -> export(winfo, provide_js)
             | css_parser  -> export(winfo, provide_css)
             | "src_code" -> export(winfo, AppSources.page())
+            | "null" -> export(winfo, Resource.raw_text(""))
             | any=(.*) ->
               do Log.warning("Server_private",
                  "This is an abnormal request to a non-existent internal resource."
