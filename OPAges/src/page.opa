@@ -99,7 +99,7 @@ type Page.manager = {
   list : -> list((string,Page.published,bool))
   date : string -> Date.date
   history_size : string -> int
-  history_list : string -> list((string,Date.date,int))
+  history_list : string -> list((string, Date.date, int))
   history_edit : string, int -> option(Page.edit)
 }
 
@@ -705,7 +705,7 @@ Page = {{
           <span> Published revision : {r = access.access.get_rev_number(file)
                                       if r.rev == -1
                                       then "none"
-                                      else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</span>
+                                      else "{r.rev} - {Date.to_formatted_string(Date.date_only_printer, r.date)} @ {Date.to_formatted_string(Date.time_only_printer, r.date)} by {r.author}"}</span>
         Dom.transform([#{published_id} <- xhtml])
       and draft()=
         do Dom.show(#{draft_id})
@@ -728,21 +728,25 @@ Page = {{
           do access.access.set_rev(file, rev)
           do build_buffers(some(rev))
           build_pub_version(some(rev))
+
         build_select(rev) =
           hist = access.access.history_list(file)
           size = List.length(hist)
-          make_option(i : int ,(user,date,parent)  : (string,Date.date, int)) : xhtml =(
+          make_option(i, (user, date, parent) : (string, Date.date, int)) : xhtml =
             i = i+1
-            value = "#{i} {Date.to_formatted_string(Date.debug_printer,date)} by {user} based on {parent}"
+            based = if parent < 0 then "" else " based on {parent}"
+            value = "#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
             match rev
             | {none} ->    if i == size then selected(i) else default(i)
-            | {some=rev} ->if i == rev  then selected(i) else default(i))
+            | {some=rev} ->if i == rev  then selected(i) else default(i)
+            end
 
           <select id={select_id} onchange={action_change_rev}>
-            {List.rev_mapi(make_option,hist)}
+            {List.rev_mapi(make_option, hist)}
           </select>
+
         buttons =
           common = <>
             <button type="button"
@@ -832,7 +836,7 @@ Page = {{
                    | _ -> void
                  )
             <>
-              <div>Current Revision <span style="display:none" id=#{draft_id}>--Draft--</span>: {build_select(rev)}</div>
+              <div>Selected Revision <span style="display:none" id=#{draft_id}>--Draft--</span>: {build_select(rev)}</div>
               <div class="button_group" style="display:inline-block; margin-right:40px" >
                 {match access.locker.check(file)
                  | {success = _} ->
