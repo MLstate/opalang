@@ -580,13 +580,6 @@ Page = {{
         }</span>
       </span>
 
-//     @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
-//       <td onclick={Action.open_file(access, file, published_rev)}>
-//         {file_for_xhtml(file)}
-//         {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
-//         {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
-//       </td>
-
     toggle_file_sons(file) =
       key = navigator_file_id(file)
       li_id = WHList.item_id(admin_files_id, key)
