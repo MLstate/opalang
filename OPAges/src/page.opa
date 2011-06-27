@@ -585,8 +585,8 @@ Page = {{
       li_id = WHList.item_id(admin_files_id, key)
       li_sons = WHList.item_sons_class(admin_files_id)
       sons = Dom.select_raw("li#{li_id} > ul > li.{li_sons}")
-      do Log.info("[dbl]","{sons}")
       do Dom.toggle(sons)
+      do Dom.toggle_class(#{li_id}, "toggled")
       Log.info("[dbl]","dbl click on {file}")
 
     /** Create a file line for table insert. */
@@ -637,7 +637,12 @@ Page = {{
                 }
               }
               do match WHList.insert_item(file_config, admin_files_id, key, item, none, false) with
-              ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
+              ~{some} ->
+                do Log.info("[file_line_insert]", "Insert OK @{some}")
+                do if List.length(acc) > 0 then
+                  toggle_file_sons(file)
+                else void
+                void
               {none} ->
                 _ = WHList.select_item(file_config, admin_files_id, key, false)
                 Log.info("[file_line_insert]", "Insert KO {key}")
