@@ -54,14 +54,16 @@ type Css.compiled_property = {name: string; value:string}
 Css_private =
 {{
   order = Order.make_unsafe(compare) : order(Css.entry, Css.order)
-  Entry_map=Map_make(/*compare:Css.entry->Css.entry->int*/ order)
+  Entry_map = Map_make(order)
+  Entry_map_empty : ordered_map(Css.entry, stringmap(list(Css.prop_value_item)), Css.order) = Entry_map.empty
+  Entry_map_add(k:list, data:map(string,'b), m:ordered_map(Css.entry, map(string,'b), Css.order)) =
+   match Entry_map.get(k, m)
+     | {~some} -> Entry_map.add(k, StringMap.union(data, some), m)
+     | {none}  -> Entry_map.add(k, data, m)
 }}
 
 @opacapi
-__internal__add_css_entry(k:list, data:map(string,'b), m:ordered_map(Css.entry, map(string,'b), Css.order)) =
-   match Css_private.Entry_map.get(k, m)
-     | {~some} -> Css_private.Entry_map.add(k, StringMap.union(data, some), m)
-     | {none}  -> Css_private.Entry_map.add(k, data, m)
+__internal__add_css_entry = Css_private.Entry_map_add
 
 /**
  * {1 Css_printer interface}

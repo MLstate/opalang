@@ -750,9 +750,9 @@ let apply e1 e2 = applys e1 [e2]
 
 let append e1 e2 = ident "++" (nlabel e1) & [e1;e2]
 let stringmap_empty label = dots ["StringMap";"empty"] label
-let cssentrymap_empty label = dots ["Css_private";"Entry_map";"empty"] label
+let cssentrymap_empty label = dots ["Css_private";"Entry_map_empty"] label
 let stringmap_add pos k v map = dots ["StringMap";"add"] pos & [k;v;map]
-let cssentrymap_add pos k v map = dots ["Css_private";"Entry_map";"add"] pos & [k;v;map]
+let cssentrymap_add pos k v map = dots ["Css_private";"Entry_map_add"] pos & [k;v;map]
 let map_add_merge pos k data map = ident Opacapi.internal__add_css_entry pos & [k;data;map]
 
 (*
