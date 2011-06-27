@@ -1249,7 +1249,7 @@ Page = {{
         match result.content
         | {none} -> Log.error("PageUploader", "No file to perform")
         | {some = binary} ->
-          mime = if result.mime=="" then "application/octet-some" else result.mime
+          mime = if result.mime=="" then "application/octet-stream" else result.mime
           do Log.notice("PageUploader", "Uploading of {result.filename} ({mime}) was done")
           _rev = access.access.save(result.filename, {~binary ~mime},none)
           do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
