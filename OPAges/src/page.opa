@@ -882,7 +882,7 @@ Page = {{
           mime_id = "mime_{id}"
           x = <>
                 Uneditable binary file, Mimetype
-                <input type="text" id="{mime_id}" value="{mime}"/>
+                <input type="text" id="{mime_id}" value="{mime}" onkeypress={_ -> draft()}/>
               </>
           do Dom.transform([#{buffer_mime_id} <- x])
           save() =
@@ -941,7 +941,7 @@ Page = {{
                 do fail()
                 on_ok_preview(f)
             }))
-          do Dom.transform([#{buffer_mime_id} <- <>Mimetype: <input type="text" value="{mime}" id="{id_mime}"/></>])
+          do Dom.transform([#{buffer_mime_id} <- <>Mimetype: <input type="text" value="{mime}" id="{id_mime}" onkeypress={_ -> draft()}/></>])
           void
         | ~{css} ->
           /* Css editor is just a simple ace editor */
