@@ -56,11 +56,12 @@ let string2json str =
 let get_request_params req = Rcontent.get_content req.HttpServerTypes.request_message_body
 
 ##register [cps-bypass] complete_dispatcher_cps : \
+string, \
     (WebInfo.private.native, continuation(opa[void]) -> void), \
     continuation(continuation(WebInfo.private.native)) -> \
     void
-let complete_dispatcher_cps dispatcher k =
-  let r = Str.regexp "/_internal_/\\([0-9]+\\)/+\\(.*\\)" in
+let complete_dispatcher_cps base_url dispatcher k =
+  let r = Str.regexp (base_url^"/_internal_/\\([0-9]+\\)/+\\(.*\\)") in
   let rec aux_complete_dispatcher winfo =
        let uri = winfo.HttpServerTypes.request.HttpServerTypes.request_line.HttpServerTypes.request_uri in
        (* Get the page number and remove it from winfo *)
@@ -72,7 +73,7 @@ let complete_dispatcher_cps dispatcher k =
              winfo with HttpServerTypes.request = {
                winfo.HttpServerTypes.request with HttpServerTypes.request_line = {
                  winfo.HttpServerTypes.request.HttpServerTypes.request_line with
-                   request_uri = Printf.sprintf "/_internal_/%s" uri
+                   request_uri = Printf.sprintf "%s/_internal_/%s" base_url uri
                }
              }
            } in
@@ -217,13 +218,13 @@ let complete_dispatcher_cps dispatcher k =
 
   in QmlCpsServerLib.return k (QmlCpsServerLib.cont_ml aux_complete_dispatcher)
 
-##register complete_dispatcher : (WebInfo.private.native -> void), WebInfo.private.native -> void
-let complete_dispatcher dispatcher winfo =
+##register complete_dispatcher : string, (WebInfo.private.native -> void), WebInfo.private.native -> void
+let complete_dispatcher base_url dispatcher winfo =
   let dispatcher a k =
     QmlCpsServerLib.return k (dispatcher a) in
   let r = ref None in
   let k = QmlCpsServerLib.cont_ml (fun x -> r := Some x) in
-  complete_dispatcher_cps dispatcher k;
+  complete_dispatcher_cps base_url dispatcher k;
   match !r with
   | None -> failwith ("dispatcher was not computed - Do you use no cps?")
   | Some wcont -> QmlCpsServerLib.execute wcont winfo

@@ -7,6 +7,7 @@
  */
 
 var page_server = 0;
+var base_url = "";
 
 /**
  * {1 Runtime-defined}

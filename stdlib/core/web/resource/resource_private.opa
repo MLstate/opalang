@@ -839,8 +839,10 @@ export_resource(external_css_files: list(string),
                    do Log.warning("Resource export",
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
-          page_id = <script type="text/javascript"> var page_server = {num_page} </script>
+          page_id = "var page_server = {num_page};"
+          js_base_url = Option.switch(base -> "var base_url = \"{base}\";", "", base_url)
 
+          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_id} {js_base_url}</script>"} : xhtml
           {body = ready_body
            head = head_without_id
            mime_type= mime_type} = cache_for_xhtml(
@@ -854,11 +856,11 @@ export_resource(external_css_files: list(string),
               request = HttpRequest._of_web_info(winfo);
               Option.switch(host ->
                 s = if HttpRequest.Generic.is_secured(request) then "s" else "";
-                <base href="http{s}://{host}/{base}/" />,
-                <><base href="{base}" />{Xhtml.of_string_unsafe("<!-- no host -->")}</>,
+                <base href="http{s}://{host}{base}/" />,
+                <>{Xhtml.of_string_unsafe("<!-- no host to set base url -->")}</>,
                 HttpRequest.Generic.get_host(request)),
               <></>, base_url)
-          ready_head = <head>{base}{head_without_id}{page_id}</head>
+          ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
           page= Xhtml.of_string_unsafe(shared_html_header) <+>
             <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>

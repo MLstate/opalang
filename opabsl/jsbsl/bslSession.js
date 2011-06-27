@@ -70,10 +70,17 @@ var LowLevelPingLoop = {};
         page_index = random();
     }
 
+    var base_url_client = "";
+    if (typeof(base_url) != 'undefined') {
+        base_url_client = base_url;
+    } else {
+        base_url_client = "";
+    }
+
     /**
      * All internal request needs a page number
      */
-    var internal_url = "/_internal_/"+page_index;
+    var internal_url = base_url_client+"/_internal_/"+page_index;
 
     var async_rpc_return = true;
     /* If client is dumb, we must force rpc to be synchronous */
@@ -839,7 +846,7 @@ var LowLevelPingLoop = {};
     /** Setting the page identifier */
     LowLevelPingLoop.set_page = function(page){
         page_index = page;
-        internal_url = "/_internal_/"+page_index;
+        internal_url = base_url_client+"/_internal_/"+page_index;
     }
 
     /**

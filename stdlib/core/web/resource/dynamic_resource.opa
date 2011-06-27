@@ -217,7 +217,7 @@ type DynamicResource.message =
 
   @private dynamic_resource_path = "dynamic_resource"
 
-  @private url_of_key(key) = "/_internal_/{dynamic_resource_path}/{key}"
+  @private url_of_key(key) = "{Resource.base_url ? ""}/_internal_/{dynamic_resource_path}/{key}"
 
   set_default(default) = ignore(Cell.call(resourceCell, ~{default}))
 

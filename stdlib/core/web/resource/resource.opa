@@ -134,6 +134,19 @@ type resource_content = external
 
 Resource = {{
 
+base_url =
+  commandline : CommandLine.family(option(string)) = {
+    title = "Specify a base URL"
+    init = none
+    parsers = [{ CommandLine.default_parser with
+      names = ["--base-url"]
+      description = "Relative URLs will be relative to this parameter (which should be a relative URL path)"
+      on_param(_) = parser base=UriParser.path -> {no_params = some("/{String.concat("/",base.path)}") }
+    }]
+  anonymous = [] ;
+  }
+  CommandLine.filter(commandline)
+
 /**
  * {2 Constructors}
  */

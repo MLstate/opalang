@@ -75,18 +75,10 @@ type Server.private.generate_resource = {
 
 Server_private = {{
 
-    base_url =
-      commandline : CommandLine.family(option(string)) = {
-        title = "Specify a base URL"
-        init = none
-        parsers = [{ CommandLine.default_parser with
-          names = ["--base-url"]
-          description = "Relative URLs will be relative to this parameter (which should be a relative URL path)"
-          on_param(_) = parser base=UriParser.path -> {no_params = some(String.concat("/", base.path)) }
-        }]
-      anonymous = [] ;
-      }
-      CommandLine.filter(commandline)
+    @private _internal_ = "_internal_"
+    @private base_url_string = Resource.base_url ? ""
+    @private _internal_string = "{_internal_}"
+    @private _internal_parser = parser "{_internal_}" -> void
 
     /**
      * The date at which the server was launched
@@ -221,7 +213,7 @@ Server_private = {{
       js_unique_stamp = ( %% BslCrypto.md5 %% )(js_code) //As some bits of the JS are generated at launch-time and can be randomized (e.g. @public sessions), the server id isn't sufficient
       js_file_no_internal_without_version = "code/all.js"
       js_file_no_internal_with_version = "{js_unique_stamp}/{js_file_no_internal_without_version}"
-      js_file_with_version = "/_internal_/{js_file_no_internal_with_version}"
+      js_file_with_version = "{base_url_string}/{_internal_}/{js_file_no_internal_with_version}"
       //js_file_without_version = "/_internal_/{js_file_no_internal_without_version}"
       js_library = [js_file_with_version]
       js_inline_code = ""
@@ -234,7 +226,7 @@ Server_private = {{
       css_code = Client_code.retrieve_css_file()
       css_file_no_internal_without_version = "css/dyn_css.css"
       css_file_no_internal_with_version = "{executable_id}/{css_file_no_internal_without_version}"
-      css_file_with_version = "/_internal_/{css_file_no_internal_with_version}"
+      css_file_with_version = "{base_url_string}/{_internal_}/{css_file_no_internal_with_version}"
       //css_file_without_version = "/_internal_/{css_file_no_internal_without_version}"
       css_inline_code = ""
       css_library = [css_file_with_version]
@@ -247,7 +239,7 @@ Server_private = {{
         export_resource = Resource_private.export_resource(
             css_library, css_inline_code,
             js_library,  js_inline_code,
-            base_url,
+            Resource.base_url,
             WebCoreExport.default_make_response)
 
         export(winfo, r) = export_resource(winfo,r)(HttpRequest.Generic.get_low_level_request(winfo.http_request)) // ??
@@ -300,11 +292,17 @@ Server_private = {{
               export(winfo, Resource.default_error_page({wrong_address})) : void
 
           full_handler:Parser.general_parser(void) = parser
-            | "/_internal_/" internal_handler -> void
+            | "/" _internal_parser "/" internal_handler -> void
             | external_handler                -> void
 
           full_handler_with_base = parser
-            | "{base_url ? ""}" full_handler -> void
+            | "{base_url_string}" full_handler -> void
+            | any=(.*) ->
+              do Log.warning("Server_private",
+                 "This is a request for a non-existent resource."
+                 ^ " [{Text.to_string(any)}]"
+                 ^ "Answer wrong_adress")
+              export(winfo, Resource.default_error_page({wrong_address})) : void
 
           Parser.parse(full_handler_with_base, str_url)
         )
@@ -342,7 +340,7 @@ Server_private = {{
           //               Without it, you have no concurrent server response.
           // PERFORMANCE : The main task is not interrupted, so working set context
           //               switching may be minimized. The server is more efficient with the push
-          complete_dispatcher(x -> url_dispatcher(WebInfo.of_native_web_info(x))):continuation(WebInfo.private.native)
+          complete_dispatcher((base_url_string),(x -> url_dispatcher(WebInfo.of_native_web_info(x)))):continuation(WebInfo.private.native)
 
         /* Initialize server */
         do set_cookie_expiry_callback(bogus_cookie_expiry_callback)
