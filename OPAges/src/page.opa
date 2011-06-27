@@ -668,6 +668,7 @@ Page = {{
       reporting_id = "{id}_reporting"
       command_id = "{id}_command"
       published_id = "{id}_published"
+      buffer_mime_id = "{id}_mime_container"
 
       /* Error reporting */
       build_reporting() = Dom.transform([#{reporting_id} <- <div id={error_id}/>])
@@ -879,9 +880,11 @@ Page = {{
           make_buttons(rev,none)
         | {binary ~mime ~save ~set_preview} ->
           mime_id = "mime_{id}"
-          x = <>Uneditable binary file, Mimetype
-                <input type="text" id="{mime_id}" value="{mime}"/></>
-          _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(x))
+          x = <>
+                Uneditable binary file, Mimetype
+                <input type="text" id="{mime_id}" value="{mime}"/>
+              </>
+          do Dom.transform([#{buffer_mime_id} <- x])
           save() =
             _rev = save({mime = Dom.get_value(Dom.select_id(mime_id))})
             do access.notify.send({save = file})
@@ -938,8 +941,7 @@ Page = {{
                 do fail()
                 on_ok_preview(f)
             }))
-          dom = Dom.of_xhtml(<input type="text" value="{mime}" id="{id_mime}"/>)
-          _ = Dom.put_at_end(Dom.select_id(id), dom)
+          do Dom.transform([#{buffer_mime_id} <- <>Mimetype: <input type="text" value="{mime}" id="{id_mime}"/></>])
           void
         | ~{css} ->
           /* Css editor is just a simple ace editor */
@@ -1045,10 +1047,13 @@ Page = {{
           /* Create view */
           html =
             <div id={editor_id} class="admin_editor_content" />
-            <div id={reporting_id} style="foat:left" />
-            <div id={command_id} />
-            <span id={published_id} />
-          _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(html))
+            <div class="admin_editor_infos">
+              <div id={reporting_id}/>
+              <div id={command_id} />
+              <div id={published_id} />
+              <div id={buffer_mime_id} />
+            </div>
+          _ = Dom.put_at_end(#{id}, Dom.of_xhtml(html))
           do build_reporting()
           do build_buffers(rev)
           do build_pub_version(rev)
@@ -1122,7 +1127,7 @@ Page = {{
        */
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
-        file = Dom.get_value(Dom.select_id("admin_new_file"))
+        file = Dom.get_value(#admin_new_file)
         file = make_absolute(file)
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
@@ -1184,8 +1189,8 @@ Page = {{
     }}
 
     get_filename_mime() =
-      (make_absolute(Dom.get_value(Dom.select_id("admin_new_file"))),
-       Dom.get_value(Dom.select_id("upload_mime_type")))
+      (make_absolute(Dom.get_value(#admin_new_file)),
+       Dom.get_value(#upload_mime_type))
 
     @client @private build_tree(access:Page.full_access)(_:Dom.event) =
       do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
@@ -1206,114 +1211,148 @@ Page = {{
         | _ -> void
       )
 
+    back_button =
+      <span>
+        <button type="button" onclick={ _ ->
+          do Dom.hide(#admin_add_file)
+          do Dom.hide(#admin_upload_file)
+          do Dom.hide(#admin_choose_mime)
+          do Dom.show(#admin_actions)
+          void
+        }>&lt;</button>
+      </span>
+
+    @server
+    validate_upload(access, filename, binary) =
+      mime = Dom.get_value(#admin_mime_type)
+      mime = if mime=="" then "application/octet-stream" else mime
+      do Log.notice("PageUploader", "Uploading of {filename} ({mime}) was done")
+      _rev = access.access.save(filename, {~binary ~mime}, none)
+      do Action.open_file(access, filename, none)(Dom.Event.default_event)
+      do Dom.hide(#admin_choose_mime)
+      do Dom.show(#admin_actions)
+      void
+
+    @server
+    choose_mime(access, result, binary) =
+      valid() = validate_upload(access, result.filename, binary)
+      <>
+        {back_button}
+        <label for="admin_mime_type">Mime-type:</label>
+        <input id="admin_mime_type" name="upload_mime_type" type="text" value="{result.mime}"/>
+        <button type="button" id="validate_mime_type" onclick={_ -> valid() }>Save</button>
+      </>
+
+    @server
+    fold_datas(data, result) = match data
+      | ~{name="upload_file_content" filename content fold_headers} ->
+        if filename=="" then result
+        else
+          mime=
+            if result.mime=="" then
+              @unsafe_cast(fold_headers)("",
+                (head, (value:string), mime -> match head | "Content_Type" -> value | _ -> mime)
+                )
+            else result.mime
+          content =
+            rec aux() = match content()
+              | {partial=_} -> do Scheduler.wait(500) aux()
+              | ~{content} -> content
+            aux()
+          filename = if result.filename=="" then "/{filename}" else result.filename
+          {~filename ~mime content=some(content)}
+      | {name = "upload_mime_type" value=""} -> result
+      | {name = "upload_mime_type" ~value}   ->
+        value = String.trim(value)
+        if value=="" then result else
+        { result with mime=value }
+
+      | {name = "upload_file_name" value=""} -> result
+      | {name = "upload_file_name" ~value}   ->
+        value = String.trim(value)
+        if value=="" then result else
+        { result with filename=value }
+      | {~name filename=_ content=_ fold_headers=_}
+      | {~name value=_}
+       -> do Log.error("PageUploader", "Unknown field {name}") result
+
+    @server
+    init_result = {
+      mime=""
+      filename=""
+      content=none
+    }
+
+    @server
+    perform_result(access)(result) =
+      match result.content
+      | {none} -> Log.error("PageUploader", "No file to perform")
+      | {some = binary} ->
+        do Dom.transform([#admin_choose_mime <- choose_mime(access, result, binary)])
+        do Dom.hide(#admin_upload_file)
+        do Dom.show(#admin_choose_mime)
+        void
+
+    @server
+    config(access, body_form) = {
+      Upload.default_config(init_result) with
+      ~fold_datas
+      perform_result=perform_result(access)
+      ~body_form
+    }
+
     /**
      * Build the xhtml administration interface.
      */
     build(access:Page.full_access, url) =
       /* Add default page if url does not already exists on page map */
-      init_result = {mime=""
-                     filename=""
-                     content=none}
-      fold_datas(data, result) = match data
-        | ~{name="upload_file_content" filename content fold_headers} ->
-          if filename=="" then result
-          else
-            mime=
-              if result.mime=="" then
-                @unsafe_cast(fold_headers)("",
-                  (head, (value:string), mime -> match head | "Content_Type" -> value | _ -> mime)
-                  )
-              else result.mime
-            content =
-              rec aux() = match content()
-                | {partial=_} -> do Scheduler.wait(500) aux()
-                | ~{content} -> content
-              aux()
-            filename = if result.filename=="" then "/{filename}" else result.filename
-            {~filename ~mime content=some(content)}
-        | {name = "upload_mime_type" value=""} -> result
-        | {name = "upload_mime_type" ~value}   ->
-          value = String.trim(value)
-          if value=="" then result else
-          { result with mime=value }
-
-        | {name = "upload_file_name" value=""} -> result
-        | {name = "upload_file_name" ~value}   ->
-          value = String.trim(value)
-          if value=="" then result else
-          { result with filename=value }
-        | {~name filename=_ content=_ fold_headers=_}
-        | {~name value=_}
-         -> do Log.error("PageUploader", "Unknown field {name}") result
-      perform_result(result) =
-        match result.content
-        | {none} -> Log.error("PageUploader", "No file to perform")
-        | {some = binary} ->
-          mime = if result.mime=="" then "application/octet-stream" else result.mime
-          do Log.notice("PageUploader", "Uploading of {result.filename} ({mime}) was done")
-          _rev = access.access.save(result.filename, {~binary ~mime},none)
-          do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
-          void
-      back_button =
-        <span>
-          <button type="button" onclick={ _ ->
-            do Dom.hide(#admin_add_file)
-            do Dom.hide(#admin_upload_file)
-            do Dom.show(#admin_actions)
-            void
-          }>&lt;</button>
-        </span>
       /* Build admin xhtml body page */
       <div id={admin_files_id}>
         <!--<h2>Files explorer</h2>-->
         <div id="{admin_files_id}_navigator" onready={build_tree(access)}></div>
       </div>
       <div id="admin_buttons">
-        { config = {
-            Upload.default_config(init_result) with
-            ~fold_datas ~perform_result
-            body_form =
-              <div id="admin_actions">
-                <span>
-                  <button type="button" onclick={ _ ->
-                    do Dom.hide(#admin_actions)
-                    do Dom.hide(#admin_upload_file)
-                    do Dom.show(#admin_add_file)
-                    Log.info("[action]", "add file")
-                  }>Open</button>
-                </span>
-                <span>
-                  <button type="button" onclick={ _ ->
-                    do Dom.hide(#admin_actions)
-                    do Dom.hide(#admin_add_file)
-                    do Dom.show(#admin_upload_file)
-                    Log.info("[action]", "upload file")
-                  }>Upload</button>
-                </span>
-                <span>
-                  <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
-                </span>
-              </div>
-              <div id="admin_add_file" style="display:none">
-                {back_button}
-                <label for="admin_new_file">Path:</label>
-                <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
-                <button type="button" onclick={Action.new_file(access)}>Open it</button>
-              </div>
-              <div id="admin_upload_file" style="display:none">
-                {back_button}
-                <input type="file" name="upload_file_content"/>
-                <button type="submit">Upload</button>
-              </div>
-              <div id="admin_choose_mime" style="display:none">
-                {back_button}
-                <label for="admin_mime_type">Mime-type:</label>
-                <input id="admin_mime_type" name="upload_mime_type" type="text" value="application/octet-stream"/>
-              </div>
-          }
-          Upload.make(config)
+        { body_form =
+            <div id="admin_actions">
+              <span>
+                <button type="button" onclick={ _ ->
+                  do Dom.hide(#admin_actions)
+                  do Dom.hide(#admin_upload_file)
+                  do Dom.hide(#admin_choose_mime)
+                  do Dom.show(#admin_add_file)
+                  Log.info("[action]", "add file")
+                }>Open</button>
+              </span>
+              <span>
+                <button type="button" onclick={ _ ->
+                  do Dom.hide(#admin_actions)
+                  do Dom.hide(#admin_add_file)
+                  do Dom.hide(#admin_choose_mime)
+                  do Dom.show(#admin_upload_file)
+                  Log.info("[action]", "upload file")
+                }>Upload</button>
+              </span>
+              <span>
+                <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
+              </span>
+            </div>
+            <div id="admin_add_file" style="display:none">
+              {back_button}
+              <label for="admin_new_file">Path:</label>
+              <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
+              <button type="button" onclick={Action.new_file(access)}>Open it</button>
+            </div>
+            <div id="admin_upload_file" style="display:none">
+              {back_button}
+              <input type="file" name="upload_file_content"/>
+              <button type="submit">Upload</button>
+            </div>
+            <div id="admin_choose_mime" style="display:none">
+            </div>
+          Upload.make(config(access, body_form))
         }
       </div>
+
       <div id="admin_notifications">
         <div id="admin_notifications_box" onready={_ ->
           handler(~{event by}) =
