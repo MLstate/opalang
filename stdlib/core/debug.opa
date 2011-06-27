@@ -26,6 +26,7 @@
 
 /**
  * {1 About this module}
+
  *
  * {1 Where should I start?}
  *
@@ -38,7 +39,7 @@
 
 Debug = {{
 
-@deprecated({use="the directive @fail"})
+@deprecated({use="the directive @fail (or Log.error if you do not want to fail)"})
 error(s) = @fail(s) :'a
 
 /**
@@ -98,14 +99,14 @@ alert(s)=warning(s)
 flush_all = %% Bslpervasives.flush_all %%
 
 /**
- * Quit if some condition is false.
+ * Deprecated
 **/
-@deprecated({hint="This function will be replaced by a compiler directive"})
+@deprecated({use="do @assert(cond) instead of assert(cond, fun)"})
 assert(condition:bool, message:-> string) =
    if condition then void
    else error("Assertion failed: {message()}")
 
 }}
 
-@deprecated({hint="This function will be replaced by a compiler directive"})
+@deprecated({use="do @assert(cond) instead of assert(cond, fun)"})
 assert = Debug.assert
