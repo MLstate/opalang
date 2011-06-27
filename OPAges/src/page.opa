@@ -992,7 +992,7 @@ Page = {{
           do Ace.add_event_listener(ace_body, {change}, draft)
           do Ace.add_event_listener(ace_head, {change}, draft)
           /* Buffer buttons */
-          make_buttons(rev,
+          do make_buttons(rev,
             some({
               save() =
                 fail = save_template({
@@ -1041,6 +1041,8 @@ Page = {{
 
             })
           )
+          do Dom.transform([#{buffer_mime_id} <- <>Mimetype: text/html</>])
+          void
 
         and build(rev : option(int)) =
           do Dom.remove_content(Dom.select_id(id))
