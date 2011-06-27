@@ -1741,7 +1741,8 @@ let load ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filenam
  * that the compiler can call
  * ie the global map will only contain identifiers from these packages *)
 let stdlib_package_names name =
-  (String.is_prefix "stdlib." name)
+  (String.is_prefix "stdlib.core." name)
+  || ("stdlib.core" = name)
   || (not (is_separated ()))
 
 let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
