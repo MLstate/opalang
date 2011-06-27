@@ -1187,9 +1187,19 @@ let walk_generalization (have_typeof:QmlTypeVars.FreeVars.t) id gamma annotmap e
 
 (* Calculates the set of type variables that are used in any @typeof;
    can be computed incrementally, but according to the order
-   of dependecies between top-level values; until we implement polymorphic
-   recursion, we don't need a fixpoint computation for mutual recursion,
-   even a local fixpoint (for a single toplevel ValRec set) is not needed *)
+   of dependencies between top-level values
+
+   We need a fixpoint for recursive bindings if the variables in their schemes
+   are not guaranteed to be identical:
+   rec f(x) = g(x) and g(x) = f(x)
+   if the typeschemes of f and g share the same 'a, then there is no need for a fixpoint
+   (this is the kind of types returned by the typer)
+   However, if the variables are not guaranteed to be shared, then we need
+   the fixpoint (and this happens because the early lambda lifting refreshes
+   variables to avoid some unwanted sharing)
+   Since the lambda lifting refreshes only toplevel declarations, we never need a fixpoint
+   for local recursions
+*)
 let debug fmt = console_debug "have_typeof" fmt
 let have_typeof ~set gamma annotmap qmlAst =
   let walk (tainted:QmlTypeVars.FreeVars.t) e =
@@ -1263,12 +1273,29 @@ let have_typeof ~set gamma annotmap qmlAst =
           let new_tainted = QmlTypeVars.FreeVars.diff tainted _original_tainted in
           debug "%s" (QmlTypeVars.FreeVars.to_string new_tainted)
         #<End>;
-        tainted
-  in
+        tainted in
   let walk_top tainted top = QmlAstWalk.Expr.fold_up walk tainted top in
+  let size {QmlTypeVars.typevar; rowvar; colvar} =
+    QmlTypeVars.TypeVarSet.cardinal typevar +
+      QmlTypeVars.RowVarSet.cardinal rowvar +
+      QmlTypeVars.ColVarSet.cardinal colvar in
   let lt =
-    QmlAstWalk.CodeExpr.fold walk_top set qmlAst
-  in
+    List.fold_left
+      (fun lt code_elt ->
+         match code_elt with
+         | Q.NewVal (_,iel) ->
+             List.fold_left (fun lt (_,e) -> walk_top lt e) lt iel
+         | Q.NewValRec (_,iel) ->
+             (* fixpointing *)
+             let rec repeat prev_size lt =
+               let lt = List.fold_left (fun lt (_,e) -> walk_top lt e) lt iel in
+               let new_size = size lt in
+               if new_size = prev_size then lt
+               else repeat new_size lt in
+             repeat (size lt) lt
+         | _ ->
+             assert false
+      ) set qmlAst in
   #<If:EXPL_INST_DEBUG>
     let s_lt = QmlTypeVars.FreeVars.to_string lt in
     debug "Total have typeof list is %s" s_lt
