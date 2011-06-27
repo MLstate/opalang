@@ -1109,12 +1109,13 @@ Page = {{
           {none} -> void
           end
         {none} -> void
-        if Dom.is_empty(buf) then
+        do if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
         else
           do Dom.add_class(buf, "on")
           do Dom.remove_class(buf, "off")
           void
+        Dom.clear_value(#admin_new_file)
 
       /**
        * Create a new file.
