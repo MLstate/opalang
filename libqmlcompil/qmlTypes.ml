@@ -267,24 +267,6 @@ struct
     let (_, body, ()) = QmlGenericScheme.export_unsafe t in
     body
 
-  let export_with_quantif_as_ordered_set t =
-    let t = refresh t in
-    (* in some typers (e.g. HMX) we represent order of type arguments
-       by generating the variables fresh in increasing order and storing
-       them in ordered set; hence the asserts checking the work of [refresh] *)
-    let ordered_quantif = QmlGenericScheme.export_ordered_quantif t in
-    assert
-      (let l = List.sort TypeVar.compare ordered_quantif.QTV.typevar in
-      ordered_quantif.QTV.typevar = l);
-    assert
-      (let l = List.sort RowVar.compare ordered_quantif.QTV.rowvar in
-      ordered_quantif.QTV.rowvar = l);
-    assert
-      (let l = List.sort ColVar.compare ordered_quantif.QTV.colvar in
-      ordered_quantif.QTV.colvar = l);
-    let (quantif, body, ()) = QmlGenericScheme.export_unsafe t in
-    (quantif, body)
-
   let generalize gamma ty =
     let free_ty = freevars_of_ty ty in
     let free_gamma = freevars_of_gamma gamma in
@@ -736,35 +718,9 @@ struct
     let find s g =
       let s = ImplFieldMap.find s g.field_map in
       ImplFieldMap.S.elements s
-    let find_inter sl g =
-      match sl with
-      | [] -> []
-      | hd::tl ->
-          let aux acc s =
-            ImplFieldMap.S.inter (ImplFieldMap.find s g.field_map) acc
-          in
-          let res = List.fold_left aux (ImplFieldMap.find hd g.field_map) tl in
-          ImplFieldMap.S.elements res
   end
 
-  module FieldMapQuick =
-  struct
-    let find s g =
-      let s = StringSet.from_list s in
-      let s = ImplFieldMapQuick.find s g.field_map_quick in
-      ImplFieldMapQuick.S.elements s
-    let find_inter sl g =
-      match sl with
-      | [] -> []
-      | hd::tl ->
-          let aux acc s =
-            let s = StringSet.from_list s in
-            ImplFieldMapQuick.S.inter (ImplFieldMapQuick.find s g.field_map_quick) acc
-          in
-          let hd = StringSet.from_list hd in
-          let res = List.fold_left aux (ImplFieldMapQuick.find hd g.field_map_quick) tl in
-          ImplFieldMapQuick.S.elements res
-  end
+
 
   let pp f gamma =
     Format.fprintf f "@[<v>@[<v2>ident:@ %a@]@ @[<v2>types:@ %a@]@]" Ident.pp gamma TypeIdent.pp gamma

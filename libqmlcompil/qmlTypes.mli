@@ -183,8 +183,6 @@ sig
       ty cannot appear in typescheme if ty will be corrupted later,
       typescheme keep clean *)
 
-  val export_with_quantif_as_ordered_set : t -> QmlTypeVars.quantif * QmlAst.ty (* TODO: remove when we use  Scheme.refresh in HMX *)
-
   val generalize : gamma -> QmlAst.ty -> t
   val quantify : QmlAst.ty -> t
 
@@ -296,15 +294,6 @@ sig
   module FieldMap :
   sig
     val find : string -> gamma -> QmlAst.typeident list
-    val find_inter : string list -> gamma -> QmlAst.typeident list
-  end
-
-  (* considers whole lists of fields of component records and if a named type
-     has any extra fields, the named type is ignored *)
-  module FieldMapQuick :
-  sig
-    val find : string list -> gamma -> QmlAst.typeident list
-    val find_inter : string list list -> gamma -> QmlAst.typeident list
   end
 
   val pp : Format.formatter -> gamma -> unit
