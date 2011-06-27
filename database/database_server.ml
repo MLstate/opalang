@@ -44,11 +44,14 @@ let options =
                  {o with bind = addr; port = Option.default o.port portopt}),
             "<addr>[:<port>]", Printf.sprintf "Bind the server to the given local address")
            ::
+             (if Config.os = Config.Mac then []
+             else [
            (["--daemon";"-d"],
               ServerArg.func (ServerArg.option ServerArg.string)
                 (fun o pidfile -> {o with daemonize = true; pidfile}),
             "[pidfile]", Printf.sprintf "Run in the background ** NOT MacOSX COMPATIBLE ** ")
-           ::
+             ])
+           @
            List.map
              (fun (arg,parse,params,help) -> arg, wrap_parser parse, params, help)
              Badop_meta.options_parser
