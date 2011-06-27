@@ -139,7 +139,7 @@ let read_int t =
 
 let read_bytes t l =
   if l >= Sys.max_string_length then
-    Base.error (Printf.sprintf "read_bytes: limit (%d > %d) exceeded" l Sys.max_string_length)
+    failwith (Printf.sprintf "read_bytes: limit (%d > %d) exceeded" l Sys.max_string_length)
   else
     Base.String.init l (fun _ -> read_char t)
 

@@ -143,8 +143,3 @@ module Utf8 : module type of BaseUtf8
     + [FBuffer.printf], [SRope.printf]
     + [Printf.sprintf] in any other case.*)
 val sprintf : ('a, unit, string) format -> 'a
-
-(**
-   deprecated error. is implemeted with a failwith
-*)
-val error : string -> 'a

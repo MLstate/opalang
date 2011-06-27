@@ -178,7 +178,7 @@ let directive_dependencies filter acc v =
       | `magic_to_xml
       | `fun_action) as v ->
         let str =  dir_to_str_fun v in
-        let id = try OpaMapToIdent.val_noerr str with Not_found -> Base.error (Printf.sprintf "Please define %s." str) in
+        let id = try OpaMapToIdent.val_noerr str with Not_found -> failwith (Printf.sprintf "Please define %s." str) in
         begin match filter with
           | None -> add_val id acc
           | Some f when f id -> add_val id acc

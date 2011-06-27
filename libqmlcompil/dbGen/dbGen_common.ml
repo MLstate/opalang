@@ -106,4 +106,4 @@ let engine_opt opts =
   match Base.List.filter_map (function `engine e -> Some e | _ -> None) opts with
   | [engine] -> engine
   | [] -> `db3 None (* default engine, if any requested *)
-  | _::_ -> Base.error "Ambiguous database engine specification"
+  | _::_ -> failwith "Ambiguous database engine specification"

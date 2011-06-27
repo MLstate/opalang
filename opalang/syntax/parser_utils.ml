@@ -974,7 +974,7 @@ let action _filename jqs val_css verb e : (_,_) expr_node =
       | `magicToXml -> (fun e -> (magic_to_xml e, label val_css)) in
   let verb_s,verb_label = verb in
     if a = "css" && verb_s <> "set" then
-      error (sprintf "In file %s, there is an invalid operation (%s) for CSS. you can only set CSS." _filename verb_s);
+      OManager.error "In file %s, there is an invalid operation (%s) for CSS. you can only set CSS." _filename verb_s;
     let record =
       record
         [("jq", jqs);
@@ -1308,7 +1308,7 @@ let range_convert_utf8 l =
   | `char c1 :: tl when c1 < 128 ->
       `char c1 :: aux tl
   | `char c1 :: _ when c1 < 192 ->
-      error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [1]"
+      OManager.error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [1]"
   | `char c1 :: `char c2 :: `char c3 :: `char c4 :: tl when c1 >= 240 ->
       `char (build4 c1 c2 c3 c4) :: aux tl
   | `char c1 :: `char c2 :: `char c3 :: tl when c1 >= 224 ->
@@ -1320,7 +1320,7 @@ let range_convert_utf8 l =
   | [] ->
       []
   | _ ->
-      error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [2]"
+      OManager.error "trx_opa.ml > range_translate_utf8 : out of range in a byte (UTF8) [2]"
   in
   aux l
 
@@ -1339,7 +1339,7 @@ let rec range_contract = function
   | `char c :: tl ->
       `ONE c :: range_contract tl
   | _ ->
-      error "parser_utils.ml > range_contract"
+      OManager.error "parser_utils.ml > range_contract"
 
 let convert_range rs =
   rs |> List.map range_to_ascii |> List.concat_map range_expand |> range_convert_utf8 |> range_contract

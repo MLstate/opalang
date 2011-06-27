@@ -99,6 +99,3 @@ module Random = BaseRandom
 module Set = BaseSet
 module String = BaseString
 module Utf8 = BaseUtf8
-
-(* deprecated *)
-let error = failwith

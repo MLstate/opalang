@@ -301,7 +301,7 @@ struct
   let app5 a b c d e = app (app4 a b c d) e
 
   let rec app_list = function
-    | [] -> error (sprintf "[ ocaml.ml; #83726 ]")
+    | [] -> failwith "[ ocaml.ml; #83726 ]"
     | [x] -> x
     | [x; y] -> app x y
     | ls ->
@@ -362,7 +362,7 @@ struct
 
    (* transforms [a; b; c] into [a -> b -> c] *)
   let rec type_arrows = function
-    | [] | [_] -> error "[ ocaml.ml; #58253 ] impossible case in type_arrows"
+    | [] | [_] -> failwith "[ ocaml.ml; #58253 ] impossible case in type_arrows"
     | [x; y] -> TypeArrow (x, y)
     | x::xs -> TypeArrow (x, type_arrows xs)
 

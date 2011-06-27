@@ -233,7 +233,7 @@ module MakeDebugInterface (P : INTERFACEPARAMETER)
 #<<    let plurial, debug_ext = match DebugTracer.ext with  >>#;
 #<<    | [t] -> "", "."^t  >>#;
 #<<    | _::_ as l -> "s", "{"^(String.concat ", " l)^"}"  >>#;
-#<<    | _ -> Base.error (Printf.sprintf "%s has no tracer-module implemented, and that is sad !" this_id)  >>#;
+#<<    | _ -> failwith (Printf.sprintf "%s has no tracer-module implemented, and that is sad !" this_id)  >>#;
 #<<    let _prefix = ref ((String.lowercase P.libname)^"diagnostic")  >>#;
 #<<    let set_trace_prefix s = _prefix := s  >>#;
 #<<    let trace ?(verbose=true) () =  >>#;

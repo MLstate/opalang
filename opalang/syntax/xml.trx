@@ -247,7 +247,7 @@ css_size_value <- css_size_with_or_without_expr:e
               (* zero is the only value that is allowed not to have a unit *)
               record1 "em" (float 0. pos)
             else
-              error "You have to give a unit for non-zero values in css lengths"
+              failwith "You have to give a unit for non-zero values in css lengths"
         | Some "px" ->
             record1 "px"
               ( match value with

@@ -138,16 +138,16 @@ let rewrite_funs pg =
           begin match StringMap.find_opt f functions with
           | None ->
               if StringMap.mem f all_functions then
-                B.error (B.sprintf "function %s is recursive" f)
+                failwith (B.sprintf "function %s is recursive" f)
               else
-                B.error (B.sprintf "function %s is undefined" f)
+                failwith (B.sprintf "function %s is undefined" f)
           | Some (fdef, _) ->
               let functions = StringMap.remove f functions in
               let expected_arity = List.length fdef.P.vars in
               if expected_arity = List.length vars then
                 let bindings = List.fold_left2 (fun acc idfun expra -> StringMap.add idfun (aux_seql expra) acc) bindings fdef.P.vars vars in
                 rewrite_fun functions bindings fdef.P.expr
-              else B.error (B.sprintf "function %s is of arity %d" f expected_arity)
+              else failwith (B.sprintf "function %s is of arity %d" f expected_arity)
           end
     and aux_seql sl = List.map aux_seq sl
     and aux_seq (il, map, code) = List.map aux_item il, map, code

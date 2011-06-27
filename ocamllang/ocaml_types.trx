@@ -58,8 +58,8 @@ typedeflist <- Default.bar? typedef (Default.bar typedef {{ __2 }})* {{
 match __2, __3 with
 | _, [] -> __2
 | TypeConstructor l1, l2 -> 
-	TypeConstructor ( l1 @ List.flatten (List.map (function | TypeConstructor l -> l | _ -> error "@Ocaml_types.typedeflist : must be a constructor") l2))
-| _x, _xl -> error "@Ocaml_types.typedeflist : impossible"
+	TypeConstructor ( l1 @ List.flatten (List.map (function | TypeConstructor l -> l | _ -> failwith "@Ocaml_types.typedeflist : must be a constructor") l2))
+| _x, _xl -> failwith "@Ocaml_types.typedeflist : impossible"
 }}
  
 typedef_base <- 
@@ -81,7 +81,7 @@ match __2 with
 
 typedef_no_arrow <- typedef_aux ([*] spacing typedef_aux {{__3}})* {{ 
   match (__1::__2) with
-    | [] -> error "@Ocaml_types.typedef_no_arrow : empty type tuple"
+    | [] -> failwith "@Ocaml_types.typedef_no_arrow : empty type tuple"
     | [td] -> td
     | tdl -> TypeTuple tdl
 }}

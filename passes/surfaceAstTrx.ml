@@ -211,7 +211,7 @@ and translate_seq ~nested ~res_needed org_input (seq, loc) =
            (* used names are extended with the optional explicit item name *)
           let use_name n =
             if StringSet.mem n used_names then
-              error (Printf.sprintf "Use of the name %s ambiguous in a parser!" n);
+              failwith (Printf.sprintf "Use of the name %s ambiguous in a parser!" n);
             StringSet.add n used_names
           in
           let used_names = Option.default_map used_names use_name item_name in
