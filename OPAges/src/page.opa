@@ -530,7 +530,6 @@ Page = {{
       do WTabs.insert_tab(tabs_config, tabs_file_id, tab)
       void
 
-<<<<<<< HEAD
     /** File navigator. */
 
     admin_files_id = "admin_files"
@@ -580,91 +579,13 @@ Page = {{
          if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
         }</span>
       </span>
-=======
-    // @both_implem  // @both_implem
-    // class(s) = WStyler.make_class(["TABS_{s}"])
 
-    // //Configuration
-
-    // @both_implem // @both_implem
-    // stylers = {
-    //   tabs =              class("tabs")
-    //   tab =               class("tab")
-    //   tab_content =       class("tab_content")
-    //   tab_sons =          class("tab_sons")
-    //   tab_selectable =    class("tab_selectable")
-    //   tab_checkable =     class("tab_checkable")
-    //   tab_no_sons =       class("tab_no_sons")
-    //   tab_closable =      class("tab_closable")
-    //   tab_duplicatable =  class("tab_duplicatable")
-    //   tab_close =         class("tab_close")
-    //   tab_duplicate =     class("tab_duplicate")
-    //   tab_add =           class("tab_add")
-    // }
-
-    // @client
-    // tabs_display(id : string) : void  =
-    //   check(pre : string )(dom : dom)=
-    //     if (Dom.get_id(dom) == "{pre}{id}") || (Dom.get_id(dom) == "thisisblock")
-    //     then
-    //       do Dom.show(dom)
-    //       void
-    //     else
-    //       do Dom.hide(dom)
-    //       void
-    //   _ = Dom.iter(check("tab_"), Dom.select_children(Dom.select_id("content")))
-    //   void
-
-    // @client
-    // on_select(_num:int, tab:WTabs.tab) = do tabs_display(Option.get(tab.custom_data)) true
-
-    // @client
-    // on_add(_num:int, _tab:WTabs.tab) = none
-
-    // @client
-    // on_remove(_num:int, _tab:WTabs.tab) = false
-    // @client
-    // on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
-    // @both
-    // insert_pos = {at_end}:WTabs.pos
-    // @both
-    // delete_pos = {after_select}:WTabs.pos
-    // @client
-    // new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
-
-    // @both// @both_implem
-    // tabs_config : WTabs.config = {
-    //   WTabs.default_config with
-    //     ~insert_pos ~delete_pos
-    //     ~on_select ~on_add
-    //     ~on_duplicate ~on_remove ~stylers
-    //     ~new_tab_content
-    //     add_text=none
-    // }
-
-    // tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
-
-    // add_tab(id : string, title : string) =
-    //     // content = <div id="tab_{id}" onready={_ -> Dom.transform([#{"tab_{id}"} <- xhtml() ])}></div>
-    //     on_remove(_,_) =  // _ = Dom.remove(#{"nav_{id}"}) _ = Dom.remove(#{"tab_{id}"})
-    //       true
-    //     new_tab_content(_i) = WTabs.make_constant_content(title)
-    //     on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
-    //                      true, true, false,
-    //                      some(id), none, none))
-    //     config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
-    //     // _ = Dom.transform([#navbar +<- nav_bar,
-    //     //       #content +<- content])
-    //     do WTabs.add_tab(config,"tabs_file")
-    //     void
-
-    @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
-      <td onclick={Action.open_file(access, file, published_rev)}>
-        {file_for_xhtml(file)}
-        {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
-        {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
-      </td>
->>>>>>> [opages/opalang.org] Add a function that compute resource with a custom env, and use it on include tag
+//     @private file_line_content(access:Page.full_access, file, edit_rev, published_rev) =
+//       <td onclick={Action.open_file(access, file, published_rev)}>
+//         {file_for_xhtml(file)}
+//         {match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}
+//         {match edit_rev with | {~some} -> " [editing #{some}]" | {none} -> ""}
+//       </td>
 
     toggle_file_sons(file) =
       key = navigator_file_id(file)
