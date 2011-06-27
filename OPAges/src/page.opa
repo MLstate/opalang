@@ -5,6 +5,7 @@ import stdlib.web.template
 import stdlib.web.client
 import stdlib.upload
 import stdlib.widgets.tabs
+import stdlib.widgets.hlist
 import stdlib.widgets.core
 
 /**
@@ -56,6 +57,7 @@ type Page.t =
 type Page.manager = {
   admin: string, string -> xhtml
   resource: string -> Page.t
+  resource_with_env: string, Page.env -> Page.t
   try_resource: string -> option(Page.t)
   source : string -> option(string)
   date : string -> Date.date
@@ -152,8 +154,6 @@ type Page.Lock.return = outcome(
 )
 
 
-
-
 Page = {{
 
   /**
@@ -219,6 +219,11 @@ Page = {{
     , access.access.list()
     , StringMap_empty )
   )
+
+  make_absolute(file) =
+    match String.index("/", file)
+    {some=0} -> file
+    _ -> "/{file}"
 
   /**
    * {2 Database access}
@@ -349,7 +354,7 @@ Page = {{
 
       date(key) = caccess.date(key)
 
-      list() = List.map((x,p) -> do jlog("map") (x,p,has_preview(x)),caccess.ls())
+      list() = List.map((x,p) -> (x,p,has_preview(x)),caccess.ls())
 
       save_as_template(key, ~{hsource bsource}, rev_opt) =
         engine = engine({current_url=""})
@@ -460,70 +465,94 @@ Page = {{
 
     /** Just a simple string transformation for xhtml insert. */
     @private file_for_xhtml =
-      | "/" -> "*index*"
+      | "" | "/" -> "/"
       | x -> x
 
     /** A translation that allows to use file on dom identifiers. */
     @private file_id = Crypto.Hash.md5
     @private buffer_file_id(file) = "admin_buffer_{file_id(file)}"
-    @private table_file_id(file) = "admin_files_table_{file_id(file)}"
-    @private file_line_preview(file) = "admin_files_table_preview{file_id(file)}"
-    @private file_line_edit(file) ="admin_files_table_edit{file_id(file)}"
-    @private file_line_publish(file) ="admin_files_table_publish{file_id(file)}"
+    @private navigator_file_id(file) = "admin_files_navigator_{file_id(file)}"
+    @private file_line_preview(file) = "admin_files_navigator_preview{file_id(file)}"
+    @private file_line_edit(file) ="admin_files_navigator_edit{file_id(file)}"
+    @private file_line_publish(file) ="admin_files_navigator_publish{file_id(file)}"
 
-    /** Tabs init. */
-    @private class(s) = WStyler.make_class(["TABS_{s}"])
-    @private @both_implem
-    stylers = {
-      tabs =              class("tabs")
-      tab =               class("tab")
-      tab_content =       class("tab_content")
-      tab_sons =          class("tab_sons")
-      tab_selectable =    class("tab_selectable")
-      tab_checkable =     class("tab_checkable")
-      tab_no_sons =       class("tab_no_sons")
-      tab_closable =      class("tab_closable")
-      tab_duplicatable =  class("tab_duplicatable")
-      tab_close =         class("tab_close")
-      tab_duplicate =     class("tab_duplicate")
-      tab_add =           class("tab_add")
-    }
+    /** Tabs. */
+
+    tabs_file_id = "tabs_file"
+
     @private @client
-    on_select(_num:int, tab:WTabs.tab) =
-      do Dom.trigger(Dom.select_raw("#{Option.get(tab.custom_data)} td"),{click})
-      true
-    @private @client on_add(_num:int, _tab:WTabs.tab) = none
-    @private @client on_remove(_num:int, _tab:WTabs.tab) = false
-    @private @client on_duplicate(_num:int, _tab:WTabs.tab, _new_num:int, _new_tab:WTabs.tab) = none
+    on_tab_select(_num:int, tab:WTabs.tab) =
+      match tab.custom_data
+      {some=(file)} ->
+        bid = navigator_file_id(file)
+        do Dom.trigger(#{bid}, {click})
+        true
+      _ -> false
+    @private @client on_tab_add(num:int, tab:WTabs.tab) =
+      match tab.custom_data
+      {some=(file)} ->
+        fid = navigator_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(fid), "tab", "{num}")
+        some(tab)
+      _ -> none
+    @private @client on_tab_remove(_num:int, tab:WTabs.tab) =
+      match tab.custom_data
+      {some=(file)} ->
+        id = buffer_file_id(file)
+        fid = navigator_file_id(file)
+        do Dom.set_property_unsafe(Dom.select_id(fid), "tab", "")
+        // do access.notify.remove(id)
+        do Dom.remove(#{id})
+        do del_preview(file)
+        true
+      _ -> true
     @private @both insert_pos = {at_end}:WTabs.pos
     @private @both delete_pos = {after_select}:WTabs.pos
-    @private @client new_tab_content(i : int ) = WTabs.make_constant_content("{i}")
     @private @both
-    tabs_config : WTabs.config = {
-      WTabs.default_config with
-        ~insert_pos ~delete_pos
-        ~on_select ~on_add
-        ~on_duplicate ~on_remove ~stylers
-        ~new_tab_content
-        add_text=none }
+    tabs_config = {
+      WTabs.default_config_with_css(tabs_file_id) with
+        ~insert_pos
+        ~delete_pos
+        on_add=on_tab_add
+        on_select=on_tab_select
+        on_remove=on_tab_remove
+        add_text=none
+    } : WTabs.config
     @private
-    tabs_html() = WTabs.html(tabs_config, "tabs_file", [])
+    tabs_html() = WTabs.html(tabs_config, tabs_file_id, [])
 
     @client
     add_tab(file : string, title : string) =
-        id = buffer_file_id(file)
-        bid = table_file_id(file)
-        on_remove(_,_) =
-          // do access.notify.remove(id)
-          do Dom.remove(#{id})
-          do del_preview(file)
-          true
-        new_tab_content(_i) = WTabs.make_constant_content(title)
-        on_add(_,_) = some(WTabs.make_tab(_ -> WTabs.make_constant_content(title),
-                           true, true, false, some(bid), none, none))
-        config = {tabs_config with ~on_remove ~on_add ~new_tab_content new_tab_closable=true new_tab_duplicatable=false}
-        do WTabs.add_tab(config,"tabs_file")
-        void
+      do Log.info("[add_tab]", "{title} {file}")
+      tab = WTabs.make_tab(
+              _ -> WTabs.make_constant_content(title),
+              true, true, false, some(file), tabs_config.remove_text, none)
+      do WTabs.insert_tab(tabs_config, tabs_file_id, tab)
+      void
+
+    /** File navigator. */
+
+    admin_files_id = "admin_files"
+
+    on_file_remove(key) =
+      do Log.info("[on_remove]", "{key}")
+      li_id = WHList.item_id(admin_files_id, key)
+      do Log.info("[on_remove]", "{li_id}")
+      //li = Dom.select_id(li_id)
+      li_sons = WHList.item_sons_class(admin_files_id)
+      sons = Dom.select_children(Dom.select_raw("li#{li_id} > ul > li.{li_sons} > ul"))
+      do Log.info("[on_remove]", "Sons : {sons}")
+      Dom.is_empty(sons)
+
+    file_stringify(x:string) = "{x}"
+    file_config = {
+      WHList.default_config_with_css(admin_files_id) with
+      helper = {
+        stringify = file_stringify
+        father = _ -> none
+      }
+      on_remove=on_file_remove
+    } : WHList.config
 
     @private file_line_set_preview(file,b) =
       s = if b then "[preview]" else ""
@@ -539,38 +568,87 @@ Page = {{
       s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
-    @private file_line_content(access:Page.full_access, file, published_rev, preview) =
+    @private file_line_content(_access:Page.full_access, name, file, published_rev, preview) =
       id = buffer_file_id(file)
-      <td onclick={Action.open_file(access, file, published_rev)} >
-        {file_for_xhtml(file)}
+      <span>
+        {file_for_xhtml(name)}
         <span id={file_line_publish(file)} >{match published_rev with | {~some} -> " [pub #{some}]" | {none} -> ""}</span>
         <span id={file_line_preview(file)} >{if preview then"[preview]" else ""}</span>
         <span id={file_line_edit(file)} >{
          buf = Dom.select_raw("#{id} #{id}_select}")
          if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
         }</span>
-      </td>
+      </span>
+
+    toggle_file_sons(file) =
+      key = navigator_file_id(file)
+      li_id = WHList.item_id(admin_files_id, key)
+      li_sons = WHList.item_sons_class(admin_files_id)
+      sons = Dom.select_raw("li#{li_id} > ul > li.{li_sons}")
+      do Log.info("[dbl]","{sons}")
+      do Dom.toggle(sons)
+      Log.info("[dbl]","dbl click on {file}")
 
     /** Create a file line for table insert. */
-    @private file_line(access:Page.full_access, opened, file, published_rev, preview) =
+    @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
       class = if opened then "on" else "off"
-      <tr class="{class}" id={table_file_id(file)}>
-        {file_line_content(access, file, published_rev, preview)}
-      </tr>
+      <span class="{class}"
+            id="{navigator_file_id(file)}"
+            onclick={Action.open_file(access, file, published_rev)}
+            ondblclick={_->toggle_file_sons(file)}>
+        {file_line_content(access, name, file, published_rev, preview)}
+      </span>
 
-    /** Insert if necessary a file line into files table. */
-    @private file_line_insert(access, opened, file, published_rev, preview) =
-      line = Dom.select_id(table_file_id(file))
-      if Dom.is_empty(line) then
-        /* Insert a line on files table. */
-        table = Dom.select_id("admin_files_table")
-        _ = Dom.put_at_end(table, Dom.of_xhtml(file_line(access, opened, file, published_rev,preview)))
-        void
-      else
-        do Dom.add_class(line, if opened then "on" else "off")
-        void
+    /** Insert if necessary a file line into files navigator. */
+    @private file_line_insert(access, opened, file_uri, published_rev, preview) =
 
-    /** 
+      match file_uri
+      {none} -> void
+      {some=uri} ->
+
+        match uri
+        ~{fragment is_directory is_from_root path query} ->
+          path = if is_from_root then ["" | path] else path
+          is_from_root = false
+          do Log.info("[file_line_insert]", "Path {path}")
+
+          _ = List.fold(
+            e, acc ->
+              file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
+              key = navigator_file_id(file)
+              f = if file == "" then "/" else file
+              content = file_line(access, opened, e, f, published_rev, preview)
+              item = WHList.make_item(
+                {title=e value=content},
+                {selected=opened; checked=false},
+                {selectable=true; checkable=false; no_sons=false}
+              )
+              do Log.info("[file_line_insert]", "Insert {file} {key} in {List.rev(acc)}")
+              file_config = { file_config with
+                helper = {
+                  stringify = file_stringify
+                  father = _ ->
+                    if acc == [] then none
+                    else
+                      father_file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev(acc) ~query})
+                      ff = navigator_file_id(father_file)
+                      do Log.info("[file_line_insert]", "father file: {father_file} {ff}")
+                      some(ff)
+                }
+              }
+              do match WHList.insert_item(file_config, admin_files_id, key, item, none, false) with
+              ~{some} -> Log.info("[file_line_insert]", "Insert OK @{some}")
+              {none} ->
+                _ = WHList.select_item(file_config, admin_files_id, key, false)
+                Log.info("[file_line_insert]", "Insert KO {key}")
+              [e|acc]
+            , path, []
+          )
+
+          void
+        _ -> void
+
+    /**
      * Build a buffer and insert it on dom node with identifier
      * [id]. The buffer can be specialized according to file
      * extension.
@@ -618,10 +696,10 @@ Page = {{
       /* Generate history selector */
       rec build_pub_version(_rev : option(int)) =
         xhtml =
-          <div> Published revision : {r = access.access.get_rev_number(file)
+          <span> Published revision : {r = access.access.get_rev_number(file)
                                       if r.rev == -1
                                       then "none"
-                                      else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</div>
+                                      else "{r.rev} - {Date.to_formatted_string(Date.debug_printer,r.date)} by {r.author}"}</span>
         Dom.transform([#{published_id} <- xhtml])
       and draft()=
         do Dom.show(#{draft_id})
@@ -835,7 +913,7 @@ Page = {{
                  do build_buffers(some(rev))
                  do do_report(<>Save success</>)
                  Dom.set_enabled(#{save_button_id},false)
-                 
+
                read_only(b) = Ace.read_only(ace, b)
                preview(f) =
                 fail()=
@@ -969,7 +1047,7 @@ Page = {{
             <div id={editor_id} class="admin_editor_content" />
             <div id={reporting_id} style="foat:left" />
             <div id={command_id} />
-            <div id={published_id} />
+            <span id={published_id} />
           _ = Dom.put_at_end(Dom.select_id(id), Dom.of_xhtml(html))
           do build_reporting()
           do build_buffers(rev)
@@ -986,7 +1064,7 @@ Page = {{
       id = buffer_file_id(file)
       class = if opened then "on" else "off"
       <div class="{class} admin_editor" id="{id}"
-       onready={_ -> do add_tab(file,file)
+       onready={_ -> do add_tab(file, file)
                      _ = build_buffer(access, file, id) void}>
       </div>
 
@@ -1018,9 +1096,19 @@ Page = {{
        */
       open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
         do all_off()
-        do file_line_insert(access, true, file, pub,false)
-        id = "admin_buffer_{file_id(file)}"
+        file_uri = Uri.of_string(file)
+        do file_line_insert(access, true, file_uri, pub, false)
+        id = buffer_file_id(file)
         buf = Dom.select_id(id)
+        fid = navigator_file_id(file)
+        do match Dom.get_property(Dom.select_id(fid), "tab")
+        {some=num} ->
+          match Parser.int(num)
+          {some=tab_num} ->
+            WTabs.select_tab(tabs_config, tabs_file_id, tab_num, WTabs.no_tab(), false)
+          {none} -> void
+          end
+        {none} -> void
         if Dom.is_empty(buf) then
           insert_buffer(access, true, file)
         else
@@ -1034,8 +1122,11 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(Dom.select_id("admin_new_file"))
-        do file_line_insert(access, true, file, none, false)
-        open_file(access, file,none)(event)
+        file = make_absolute(file)
+        file_uri = Uri.of_string(file)
+        do Log.info("[new_file]", "New File {file} Uri {file_uri}")
+        do file_line_insert(access, true, file_uri, none, false)
+        open_file(access, file, none)(event)
 
       /**
        * Remove a file
@@ -1043,10 +1134,19 @@ Page = {{
       remove_file(access:Page.full_access, file) : FunAction.t = _event ->
         do access.access.remove(file)
         do access.notify.send({remove = file})
-        fl  = Dom.select_id(table_file_id(file))
-        buf = Dom.select_id(buffer_file_id(file))
-        do Dom.remove(fl)
-        do Dom.remove(buf)
+        key = navigator_file_id(file)
+        fid = navigator_file_id(file)
+        do match Dom.get_property(Dom.select_id(fid), "tab")
+        {some=num} ->
+          match Parser.int(num)
+          {some=tab_num} ->
+            WTabs.remove_tab(tabs_config, tabs_file_id, tab_num, {WTabs.no_tab() with custom_data=some(file)})
+          {none} -> void
+          end
+        {none} -> void
+        do match WHList.remove_item(file_config, admin_files_id, key, true) with
+        | ~{some} -> Log.info("[remove_file]", "Remove OK @{some}")
+        | {none} -> void
         void
 
       send_message(access:Page.full_access) : FunAction.t = _event ->
@@ -1083,17 +1183,22 @@ Page = {{
     }}
 
     get_filename_mime() =
-      (Dom.get_value(Dom.select_id("admin_new_file")),
+      (make_absolute(Dom.get_value(Dom.select_id("admin_new_file"))),
        Dom.get_value(Dom.select_id("upload_mime_type")))
 
-    @client @private hack(access:Page.full_access)(_:Dom.event) =
+    @client @private build_tree(access:Page.full_access)(_:Dom.event) =
+      do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
       page_list = List.unique_list_of(access.access.list())
       do List.iter(
-        (file,pub,preview) ->
-          file_line_insert(access, false, file,
+        (file, pub, preview) ->
+          file_uri = Uri.of_string(file)
+          file_line_insert(
+            access, false, file_uri,
             (if pub.rev==0 then none else some(pub.rev)),
-            preview),
-        page_list)
+            preview
+          )
+        , page_list
+      )
       access.notify.subscribe(
         | {event={publish=(file,rev)} by=_} ->
           file_line_set_publish(file,some(rev))
@@ -1148,11 +1253,65 @@ Page = {{
           _rev = access.access.save(result.filename, {~binary ~mime},none)
           do Action.open_file(access, result.filename,none)(Dom.Event.default_event)
           void
+      back_button =
+        <span>
+          <button type="button" onclick={ _ ->
+            do Dom.hide(#admin_add_file)
+            do Dom.hide(#admin_upload_file)
+            do Dom.show(#admin_actions)
+            void
+          }>&lt;</button>
+        </span>
       /* Build admin xhtml body page */
-      <div id="admin_files">
-        <table id="admin_files_table" onready={hack(access)}>
-          <caption> Published files </caption>
-        </table>
+      <div id={admin_files_id}>
+        <!--<h2>Files explorer</h2>-->
+        <div id="{admin_files_id}_navigator" onready={build_tree(access)}></div>
+      </div>
+      <div id="admin_buttons">
+        { config = {
+            Upload.default_config(init_result) with
+            ~fold_datas ~perform_result
+            body_form =
+              <div id="admin_actions">
+                <span>
+                  <button type="button" onclick={ _ ->
+                    do Dom.hide(#admin_actions)
+                    do Dom.hide(#admin_upload_file)
+                    do Dom.show(#admin_add_file)
+                    Log.info("[action]", "add file")
+                  }>Open</button>
+                </span>
+                <span>
+                  <button type="button" onclick={ _ ->
+                    do Dom.hide(#admin_actions)
+                    do Dom.hide(#admin_add_file)
+                    do Dom.show(#admin_upload_file)
+                    Log.info("[action]", "upload file")
+                  }>Upload</button>
+                </span>
+                <span>
+                  <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
+                </span>
+              </div>
+              <div id="admin_add_file" style="display:none">
+                {back_button}
+                <label for="admin_new_file">Path:</label>
+                <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
+                <button type="button" onclick={Action.new_file(access)}>Open it</button>
+              </div>
+              <div id="admin_upload_file" style="display:none">
+                {back_button}
+                <input type="file" name="upload_file_content"/>
+                <button type="submit">Upload</button>
+              </div>
+              <div id="admin_choose_mime" style="display:none">
+                {back_button}
+                <label for="admin_mime_type">Mime-type:</label>
+                <input id="admin_mime_type" name="upload_mime_type" type="text" value="application/octet-stream"/>
+              </div>
+          }
+          Upload.make(config)
+        }
       </div>
       <div id="admin_notifications">
         <div id="admin_notifications_box" onready={_ ->
@@ -1185,21 +1344,6 @@ Page = {{
       <div id="admin_editor_container">
         {tabs_html()}
         {file_buffer(access, true, url)}
-      </div>
-      <div id="admin_buttons">
-        { config = Upload.default_config(init_result)
-          config = { config with ~fold_datas ~perform_result
-                       body_form = <>
-                         Filename : <input  id="admin_new_file" name="upload_file_name" type="text"/>
-                         <button type="button" onclick={Action.new_file(access)}>New file</button>
-                         Mime-type <input name="upload_mime_type" type="text" value="application/octet-stream"/>
-                         <input type="file" name="upload_file_content"/>
-                         <button type="submit">Upload</button>
-                       </> }
-          Upload.make(config)}
-        <div id="search_dead_link_button">
-          <button type="button" onclick={Action.search_dead_links(access)}>Search for dead links</button>
-        </div>
       </div>
 
   }}
@@ -1238,8 +1382,8 @@ Page = {{
         | ~{bcontent ...} -> some(bcontent)
         | _ -> none),
         access.get(url))
-    resource(url) =
-      engine = config.engine({ current_url = url })
+    resource_with_env(url, env) =
+      engine = config.engine(env)
       res = match get_preview(url) with
         | {some=r} -> some(r)
         | {none} -> Option.map((x,_)->x.content,access.get(url))
@@ -1254,13 +1398,16 @@ Page = {{
         }
       | {some=resource} ->
         build_resource(engine, resource, {some = access.date(url)})
+    resource(url) =
+      env = { current_url = url }
+      resource_with_env(url, env)
     try_resource(url) =
       engine = config.engine({ current_url = url })
       Option.map(((resource,_) -> build_resource(engine, resource.content, {some = access.date(url)})),
                  access.get(url))
     date = access.date
 
-    ~{admin resource try_resource date source}
+    ~{admin resource resource_with_env try_resource date source}
 
   to_resource:Page.t -> resource =
     | ~{resource} -> resource
