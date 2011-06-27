@@ -75,11 +75,12 @@ let process_code_gen ~except annotmap code =
 let process_code_after_typer annotmap code =
   process_code_gen
     ~except:(function
-             | `module_ | `warncoerce | `unsafe_cast -> true
+             | `module_ | `warncoerce
+             | `unsafe_cast | `opensums | `openrecord -> true
              | _ -> false)
     (* not removing these directives, they are used by
      * undot, warncoerce, and codingDirectives
-     * for @unsafe_cast, i don't know which type should by kept
+     * for @unsafe_cast and @opensums, i don't know which type should by kept
      * and i am not sure that keeping the outer type will not break ei *)
     annotmap code
 
