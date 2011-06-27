@@ -138,11 +138,27 @@ let options_parser_with_default ?name (_default_m, default_o) =
          | _ -> ""
        in
        Printf.sprintf
-         "Use a local database at given path. Use additional flag 'restore' to try and recover a corrupted database, \
-          or 'dot' to have a database dot output each commit%s. You can specify several flags, separated by ','." default_str)
+         "Use a local database at given path%s. Use additional flag 'restore' to try and recover a corrupted database, \
+          or 'dot' to have a database dot output each commit. You can specify several flags, separated by ','." default_str)
+    ;
   ]
   @
   #<If:BADOP_DEBUG> [
+    ["--db-remote-replicated"],
+    A.func (A.list ',' A.parse_addr)
+      (fun (_,o) addrlist ->
+         if o <> default_o
+         then prerr_endline ("Warning: database options before --db-remote-replicated will be ignored"^spec_msg);
+         (module Badop_dispatcher.F(Badop_client) : Badop.S),
+         Badop.Options_Dispatcher
+           (List.length addrlist,
+            List.map
+              (fun (addr,portopt) ->
+                 Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt)))
+              addrlist)),
+    "<host>[:<port>],<host>[:<port>],...",
+    "Use a remote database replicated on all the given servers"
+    ;
     ["--db-revision"],
     A.func A.int
        (fun (_,o) i ->
