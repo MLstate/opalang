@@ -84,6 +84,8 @@ val bool: bool param_parser
 val unit: unit param_parser
 val stringset: (string * 'a) list -> 'a param_parser
   (** Parse a string within the given association list or fails *)
+val list: char -> 'a param_parser -> 'a list param_parser
+  (** splits a string using the given separator character, then parses individual elements *)
 val option: 'a param_parser -> 'a option param_parser
 val pair: 'a param_parser -> 'b param_parser -> ('a * 'b) param_parser
 val check: 'a param_parser -> ('a -> bool) -> 'a param_parser

@@ -66,6 +66,20 @@ let stringset list = function
   | x::args -> (try Some (List.assoc x list), [], args with Not_found -> None, [], args)
   | [] -> None, [], []
 
+let list separator parse = function
+  | [] -> Some [], [], []
+  | x::args ->
+      try
+        Some (
+          List.map
+            (fun x -> match parse [x] with  Some x, [], [] -> x | _ -> raise Exit)
+            (Base.String.slice separator x)
+        ),
+        [], args
+      with Exit ->
+        None, [], args
+
+
 let option parse args = match parse args with
   | (Some _) as x, skipped, args -> Some x, skipped, args
   | _ -> Some None, [], args
