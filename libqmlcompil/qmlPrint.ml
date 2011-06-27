@@ -462,6 +462,7 @@ object (self)
   method expr f e =
     self#expr_node f e
   method apply_expr f = function
+    | Q.Bypass _
     | Q.Directive _
     | Q.Ident _
     | Q.Apply _
