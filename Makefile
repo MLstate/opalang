@@ -40,6 +40,7 @@ build: all
 runtime-libs: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) runtime-libs.stamp
 
+.PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)

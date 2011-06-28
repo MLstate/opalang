@@ -290,7 +290,7 @@ module DT = DbTypes
   let close_db ?(donothing=false) t =
     let file = IoManager.get_location t.file_manager in
     let _position = position file in
-    Logger.info "Closing the database%s" (#<If:TESTING> "" #<Else> "at "^ file #<End>);
+    Logger.info "Closing the database%s" (#<If:TESTING> "" #<Else> " at "^ file #<End>);
     #<If>
       Logger.log ~color:`yellow "Please wait, closing DB at %s%s" _position file
     #<End>;

@@ -228,34 +228,3 @@ module F (C: SigCpsBackend) = struct
         Logger.error "Could not open file %s for writing database XML dump" file;
         () |> k
 end
-
-(*
-* import-db: todo...
-let xml_from_file file =
-  try
-    let contents = File.content file in
-    let _pos, (xml, ok) = Xparse.parse_xparse_file ~_filename:file contents in
-    if not ok then failwith "xml structure error";
-    Some xml
- with
- | Sys_error _ -> Printf.eprintf "import_db failed: could not open file %s.\n" file; None
- | Trx_runtime.SyntaxError (pos,msg) -> Printf.eprintf "import_db failed: syntax error in xml, %s\n" msg; None
- | Failure msg -> Printf.eprintf "import_db failed: %s\n" msg; None
-
-%#register import_db: extern Dbgenlink.trans -> string -> unit
-let import_db tr file =
-  let rec aux tree path = function
-    | [] -> ()
-    | Xml.Text txt ->
-        (match tree_node tree with
-         | Hidden -> aux tree (Dbgenlink.dbpath_add path (Dbgenlink.key_int 0)) path
-         | Leaf Leaf_int -> Dbgenlink.set tr path (int_of_string txt)
-         | Leaf Leaf_string -> Dbgenlink.set tr path txt)
-    | Xml.Node i ->
-        let node = Stringmap.find nodes i in
-        match tree_node tree with
-        |
-  match xml_from_file file with
-  | Some { main = i } ->
-  | _ -> Printf.eprintf "import_db failed: unrecognised xml format"
-*)
