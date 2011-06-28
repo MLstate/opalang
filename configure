@@ -331,9 +331,9 @@ check-c-lib () (
 )
 
 HAS_LIBNATPMP=
-LIBNATPMP=()
+LIBNATPMP=("")
 HAS_MINIUPNPC=
-MINIUPNPC=()
+MINIUPNPC=("")
 if [ -n "$HAS_CAMLIDL" ]; then
 # - checking libnatpmp *
     echo-check libnatpmp
