@@ -29,7 +29,7 @@ environment string delim "\"" "\"" escape "\\" begin
    end
 end
 
-keyword = "and|as|db|do|else|if|match|then|type|with|begin|css|end|external|forall|import|package|parser|rec|server|val|xml_parser"
+keyword = "and|as|database|db|do|else|if|match|then|type|with|begin|css|end|external|forall|import|package|parser|rec|server|val|xml_parser"
 
 comment delim "/*" "*/" multiline nested
 comment start "//"
