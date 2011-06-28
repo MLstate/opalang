@@ -116,7 +116,7 @@ let make_status code msg = Sl (http_version_number, code, msg)
 let get_response sl headers content =
   (string_of_msg sl)^(List.fold_left (fun s h -> s^(string_of_msg h)) "" headers)^crlf^(get_content content)
 let version = string_of_int BuildInfos.git_version_counter
-let server_name = sprintf "OPA/%s" version
+let server_name = Printf.sprintf "OPA/%s" version
 let headerstr headers = List.fold_left (fun s h -> s^(string_of_msg h)) "" headers
 let request_type_http_version = function
  | Get (_,v) -> v
@@ -135,7 +135,7 @@ let request_type_uri = function
  | Del (uri,_) -> uri
  | Trace (uri,_) -> uri
  | Conn (uri,_) -> uri
- | msg -> raise (Failure (sprintf "request_type_uri: %s not a request type" (string_of_msg msg)))
+ | msg -> raise (Failure (Printf.sprintf "request_type_uri: %s not a request type" (string_of_msg msg)))
 let parse_content_disposition = function
   | Content_Disposition (s,l) -> List.map (fun s -> rmldtrsp2 (Base.String.split_char '=' s)) (s::l)
   | _ -> failwith "Not implemented yet."
@@ -445,7 +445,7 @@ handle_simple_post_cont(request_type, uri, headers, hr, body, len, contlen, time
 %% Handling ( x-www-form-urlencoded )
 handle_simple_post(request_type, uri, headers, hr, body, len, contlen, timeout):
   debug 10 {{ Logger.debug "handle_simple_post: uri=%s contlen=%d\n%!" uri contlen }}
-  let _runtime = {{ set_payload _runtime ((sprintf "FIXED:%d" contlen),headers) }}
+  let _runtime = {{ set_payload _runtime ((Printf.sprintf "FIXED:%d" contlen),headers) }}
   fixed {{ contlen }}
   | data ->
     debug {{ Logger.debug "handle_simple_post: data='%s'\n%!" (String.escaped data) }}

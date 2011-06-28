@@ -112,10 +112,10 @@ let parse_pre_grammar ?(name="Main") ?(stoppable=false) ~verbose input =
             ) pg.P.incl pg
           end else
             (* FIXME, Adam, this should be handled in the grammar *)
-            raise (GrammarParse (B.sprintf "error parsing '%s': only %d out of %d bytes processed" name lastp input_len))
+            raise (GrammarParse (Printf.sprintf "error parsing '%s': only %d out of %d bytes processed" name lastp input_len))
         with
         | Trx_runtime.SyntaxError (pos, err) ->
-            raise (GrammarParse (B.sprintf "error parsing '%s': %s" name (Trx_runtime.show_error input pos err)))
+            raise (GrammarParse (Printf.sprintf "error parsing '%s': %s" name (Trx_runtime.show_error input pos err)))
       in
       FilePos.uncache name;
       result
@@ -138,16 +138,16 @@ let rewrite_funs pg =
           begin match StringMap.find_opt f functions with
           | None ->
               if StringMap.mem f all_functions then
-                failwith (B.sprintf "function %s is recursive" f)
+                failwith (Printf.sprintf "function %s is recursive" f)
               else
-                failwith (B.sprintf "function %s is undefined" f)
+                failwith (Printf.sprintf "function %s is undefined" f)
           | Some (fdef, _) ->
               let functions = StringMap.remove f functions in
               let expected_arity = List.length fdef.P.vars in
               if expected_arity = List.length vars then
                 let bindings = List.fold_left2 (fun acc idfun expra -> StringMap.add idfun (aux_seql expra) acc) bindings fdef.P.vars vars in
                 rewrite_fun functions bindings fdef.P.expr
-              else failwith (B.sprintf "function %s is of arity %d" f expected_arity)
+              else failwith (Printf.sprintf "function %s is of arity %d" f expected_arity)
           end
     and aux_seql sl = List.map aux_seq sl
     and aux_seq (il, map, code) = List.map aux_item il, map, code
@@ -178,7 +178,7 @@ let dependencies pg =
               match primary with
               | P.Ident s ->
                   if StringMap.mem s pg then StringSet.add s acc
-                  else raise (GrammarCheck (B.sprintf "definition '%s' missing!" s))
+                  else raise (GrammarCheck (Printf.sprintf "definition '%s' missing!" s))
               | P.Paren (P.Expr e) -> dep_of_expression acc e
               | P.Paren _ -> assert false
               | _ -> acc

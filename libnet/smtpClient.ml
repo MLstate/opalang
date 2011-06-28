@@ -41,11 +41,11 @@ let valid_email s =
 let simple_mail s =
   try
     let _, (_, (user, domain)) = Email.parse_email_email s in
-    Base.sprintf "%s@%s" user domain
+    Printf.sprintf "%s@%s" user domain
   with Trx_runtime.SyntaxError _ -> raise (Bad_address s)
 
 let mail_content ?(charset="ISO-8859-1") ?(cte="7bit") body =
-  Base.sprintf "Content-Type: text/plain; charset=%s\r\n\
+  Printf.sprintf "Content-Type: text/plain; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
 \r\n%s\r\n" charset cte body
 
@@ -138,7 +138,7 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?cte
     | Some return_path -> return_path
     | None -> mfrom
   in
-  (Base.sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s"
+  (Printf.sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s"
                 mfrom return_path mto (String.random 10) mfrom (Date.rfc1123 (Time.gmtime (Time.now())))
                 (if subject = "" then "" else sprintf "Subject: %s\r\n" subject))
   ^(if files = []
@@ -169,7 +169,7 @@ let resolve_additional r n =
           | Dig.Ip i -> Some i
           | _ -> aux tl
         else aux tl
-    | _ -> resolve_UNIX (List.fold_left (fun acc x -> Base.sprintf "%s.%s" acc x) (List.hd n) (List.tl n))
+    | _ -> resolve_UNIX (List.fold_left (fun acc x -> Printf.sprintf "%s.%s" acc x) (List.hd n) (List.tl n))
   in
   aux (List.assoc "ADDITIONAL" r)
 
@@ -183,7 +183,7 @@ let resolve_additional r n =
 (* FIXME: il faut en sortie une iterateur IntMapSort d'IP, triée par priorité
    ensuite, on doit tenter les IP une à une... *)
 let resolve_mx name =
-  let output = File.process_output (Base.sprintf "dig %s MX" name) in
+  let output = File.process_output (Printf.sprintf "dig %s MX" name) in
   try
     let _pos, r = Dig.parse_dig_dig output in
       List.assoc "ANSWER" r
@@ -240,7 +240,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                         let x = x * 60 in
                         wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) cont ips)
                     | Mailerror.Add_cc s ->
-                        let new_mail = { mail with SCC.body = Base.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
+                        let new_mail = { mail with SCC.body = Printf.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
                         wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) cont ips)
                     | _ when fst (read_code msg) = 451 ->
                         let x = 60 * attempt * attempt in

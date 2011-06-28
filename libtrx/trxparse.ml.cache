@@ -656,7 +656,7 @@ Some((((succ) (input_332)), c)) ) else ( None )
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_328, __6 ) ) -> Some((input_328, 
 #161 "trxparse.trx"
-( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else sprintf "Some (%s)" __5)  ))))))))) with
+( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5)  ))))))))) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_322, __1 ) ) -> Some((input_322, 
 #163 "trxparse.trx"
@@ -682,7 +682,7 @@ Some((((succ) (input_318)), c)) ) else ( None )
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_314, __6 ) ) -> Some((input_314, 
 #161 "trxparse.trx"
-( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else sprintf "Some (%s)" __5)  ))))))))) with
+( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5)  ))))))))) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_308, __1 ) ) -> Some((input_308, 
 #164 "trxparse.trx"
@@ -719,12 +719,12 @@ if ( (((&&)) ((((>=)) (c) ('0'))) ((((<=)) (c) ('9')))) ) then ( Some((((succ) (
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_362, __3 ) ) -> Some((input_362, 
 #170 "trxparse.trx"
-( true, sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false  )))))) with
+( true, Printf.sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false  )))))) with
 None -> (match (try_Trxparse_DOLLAR_noerr (_grammar) (_file_name) (_module_name) (_stoppable) (_filename) (_text) (input)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_359, __1 ) ) -> Some((input_359, 
 #171 "trxparse.trx"
-( false, sprintf "%s()" (if _stoppable then "Some " else ""), None, false  ))))
+( false, Printf.sprintf "%s()" (if _stoppable then "Some " else ""), None, false  ))))
 | ( _ok ) as __pat_var -> __pat_var)
 | ( _ok ) as __pat_var -> __pat_var)
 | ( _ok ) as __pat_var -> __pat_var) in
@@ -2026,7 +2026,7 @@ Trx_runtime.Fail((err))))) (input_723)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_725, __6 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_725, 
 #161 "trxparse.trx"
-( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else sprintf "Some (%s)" __5)  )), ((Trx_runtime.emptyError) (input_725)))))))))))))))))))))) with
+( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5)  )), ((Trx_runtime.emptyError) (input_725)))))))))))))))))))))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_719, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_719, 
 #163 "trxparse.trx"
@@ -2061,7 +2061,7 @@ Trx_runtime.Fail((err))))) (input_709)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_711, __6 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_711, 
 #161 "trxparse.trx"
-( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else sprintf "Some (%s)" __5)  )), ((Trx_runtime.emptyError) (input_711)))))))))))))))))))))) with
+( __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5)  )), ((Trx_runtime.emptyError) (input_711)))))))))))))))))))))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_705, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_705, 
 #164 "trxparse.trx"
@@ -2100,12 +2100,12 @@ if ( (((&&)) ((((>=)) (c) ('0'))) ((((<=)) (c) ('9')))) ) then ( Some((((succ) (
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_759, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_759, 
 #170 "trxparse.trx"
-( true, sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false  )), ((Trx_runtime.emptyError) (input_759))))))))))))) with
+( true, Printf.sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false  )), ((Trx_runtime.emptyError) (input_759))))))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Trxparse_DOLLAR (_grammar) (_file_name) (_module_name) (_stoppable) (_filename) (_text) (input)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_756, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_756, 
 #171 "trxparse.trx"
-( false, sprintf "%s()" (if _stoppable then "Some " else ""), None, false  )), ((Trx_runtime.emptyError) (input_756)))))))))
+( false, Printf.sprintf "%s()" (if _stoppable then "Some " else ""), None, false  )), ((Trx_runtime.emptyError) (input_756)))))))))
 | ( _ok ) as __pat_var -> __pat_var)))
 | ( _ok ) as __pat_var -> __pat_var)))
 | ( _ok ) as __pat_var -> __pat_var)) (input) (((Trx_runtime.Expected(("<rule production>")))::([])))) in

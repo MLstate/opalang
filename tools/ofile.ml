@@ -20,14 +20,14 @@ open Base
 
 
 let extension = "of"
-let error s = prerr_endline (sprintf "[!] ofile : %s" s); exit 1
+let error s = prerr_endline (Printf.sprintf "[!] ofile : %s" s); exit 1
 let do_verbose = ref false
 let verbose s =
-  if !do_verbose then prerr_endline (sprintf "ofile : %s" s)
+  if !do_verbose then prerr_endline (Printf.sprintf "ofile : %s" s)
 
 let safe_content file =
   try (String.escaped (File.content file))
-  with Unix.Unix_error(e,s0,s1) -> error (sprintf "cannot load \"%s\" from \"%s\" [%s,%s,%s]" file (Sys.getcwd ()) (Unix.error_message e) s0 s1)
+  with Unix.Unix_error(e,s0,s1) -> error (Printf.sprintf "cannot load \"%s\" from \"%s\" [%s,%s,%s]" file (Sys.getcwd ()) (Unix.error_message e) s0 s1)
 
 let win2unix f =
   let res = String.copy f in
@@ -39,7 +39,7 @@ let win2unix f =
 
 let iter_of path file =
   if File.extension file <> extension
-  then error (sprintf "input file \"%s\" must have .%s extension" file extension)
+  then error (Printf.sprintf "input file \"%s\" must have .%s extension" file extension)
   else
     if Sys.file_exists file && not (Sys.is_directory file)
     then
@@ -56,14 +56,14 @@ let iter_of path file =
          ~windows:PathTransform.string_to_windows ()) path_file
       in
       let buf = List.fold_left
-        (fun buf t -> FBuffer.addln buf (sprintf "  | %S -> Some \"%s\"" t (safe_content (portable_path path t) ))) buf files_list in
+        (fun buf t -> FBuffer.addln buf (Printf.sprintf "  | %S -> Some \"%s\"" t (safe_content (portable_path path t) ))) buf files_list in
       let buf = FBuffer.addln buf "  | _ -> None\n" in
       let buf = FBuffer.addln buf "let file_list =" in
-      let buf = FBuffer.addln buf (String.concat_map ~left:"[" ~right:"]" "; " (fun f -> sprintf "%S" f) files_list) in
+      let buf = FBuffer.addln buf (String.concat_map ~left:"[" ~right:"]" "; " (fun f -> Printf.sprintf "%S" f) files_list) in
       let out = (File.chop_extension file)^".ml" in
       if File.output out (FBuffer.contents buf)
-      then verbose (sprintf "write file \"%s\"" out)
-      else error (sprintf "cannot write file \"%s\" from \"%s\"" out (Sys.getcwd ()))
+      then verbose (Printf.sprintf "write file \"%s\"" out)
+      else error (Printf.sprintf "cannot write file \"%s\" from \"%s\"" out (Sys.getcwd ()))
 
 let _ =
   (** please, keep the possibility of this option for other potential users of this generic application *)
@@ -73,6 +73,6 @@ let _ =
       "-path", Arg.Set_string path, "<dir> prefix directory for files"
     ]
     (fun t -> iter_of !path t; empty := false)
-    (sprintf "%s : embedded file ocaml preprocessor" Sys.argv.(0));
+    (Printf.sprintf "%s : embedded file ocaml preprocessor" Sys.argv.(0));
   if !empty
-  then error (sprintf "no input files (give me some \"%s\" file)" extension)
+  then error (Printf.sprintf "no input files (give me some \"%s\" file)" extension)

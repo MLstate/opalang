@@ -36,7 +36,7 @@ let input_name = "__input__"
 let partial_flag_name = "__partial__"
 let range_type = Printf.sprintf "%s.range" runtime_module
 
-let position_var_name = sprintf "pos__%s"
+let position_var_name = Printf.sprintf "pos__%s"
 
 let seq_it_name =
   let r = ref 0 in

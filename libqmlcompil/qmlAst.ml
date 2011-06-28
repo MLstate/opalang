@@ -363,7 +363,7 @@ struct
     in
     match id with
     | Raw x -> Printf.sprintf "``_ty_raw_%s" (Ident.to_string x)
-    | Processed (t, i) -> Base.sprintf "``_ty_%s_%s" (Ident.to_string i) (tag_to_string t)
+    | Processed (t, i) -> Printf.sprintf "``_ty_%s_%s" (Ident.to_string i) (tag_to_string t)
 
   (*
     We test strictly than the of_string function is called only on

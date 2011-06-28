@@ -139,7 +139,7 @@ module P = PreGrammar
 let rec def_map_to_string ?cf dm =
   StringMap.fold (
     fun x y acc ->
-      B.sprintf "%s%s%s%s%s%s <- %s" acc (if y.P.mark & (not y.P.debug) & (not (acc = "")) then ";" else "") (if acc = "" then "" else "\n\n") (if y.P.debug then "%" else "") (if y.P.mark then "+" else "") x (def_to_string ?cf y)
+      Printf.sprintf "%s%s%s%s%s%s <- %s" acc (if y.P.mark & (not y.P.debug) & (not (acc = "")) then ";" else "") (if acc = "" then "" else "\n\n") (if y.P.debug then "%" else "") (if y.P.mark then "+" else "") x (def_to_string ?cf y)
   ) dm ""
 and def_to_string ?cf d =
   expr_to_string ?cf d.P.expression
@@ -152,7 +152,7 @@ and seq_list_to_string ?cf = function
   | _ -> assert false
 and seq_to_string ?cf = function
   | il, map, None -> item_list_to_string ?cf ~map:map ~i:1 il
-  | il, map, Some (b, code, _loc, c) ->  B.sprintf "%s %s" (item_list_to_string ?cf ~map:map ~i:1 il) (match cf with None -> "CODE" | Some f -> f b c code)
+  | il, map, Some (b, code, _loc, c) ->  Printf.sprintf "%s %s" (item_list_to_string ?cf ~map:map ~i:1 il) (match cf with None -> "CODE" | Some f -> f b c code)
 and item_list_to_string ?cf ?map ?i = function
   | [hd] -> (item_to_string ?cf ?map ?i hd)
   | (hd :: tl) ->
@@ -188,8 +188,8 @@ and primary_to_string ?cf = function
   | P.Ident i -> i
   | P.Paren e -> "(" ^ expr_to_string ?cf e ^ ")"
   | P.Literal (s, b) ->
-      B.sprintf "\"%s\"%s" (String.escaped s) (if b then "~" else "")
-  | P.Class rl -> B.sprintf "%s" (range_list_to_string rl)
+      Printf.sprintf "\"%s\"%s" (String.escaped s) (if b then "~" else "")
+  | P.Class rl -> Printf.sprintf "%s" (range_list_to_string rl)
 and range_list_to_string = function
   | [Any] -> "."
   | liste ->
@@ -197,7 +197,7 @@ and range_list_to_string = function
       | [hd] -> range_to_string bool hd
       | hd :: tl -> range_to_string true hd ^ aux true tl
       | _ -> assert false
-      in B.sprintf "[%s]" (aux false liste)
+      in Printf.sprintf "[%s]" (aux false liste)
 and range_to_string b = function
   | One c ->
       begin
@@ -210,10 +210,10 @@ and range_to_string b = function
         | '\'' -> "\\'"
         | '\\' -> "\\\\"
         | c ->
-            if (b && ((c = '-') || (c = '"'))) then B.sprintf "\\%c" c
-            else B.sprintf "%c" c
+            if (b && ((c = '-') || (c = '"'))) then Printf.sprintf "\\%c" c
+            else Printf.sprintf "%c" c
       end
-  | Range (c1, c2) -> B.sprintf "%c-%c" c1 c2
+  | Range (c1, c2) -> Printf.sprintf "%c-%c" c1 c2
   | Any -> assert false
 
 let make_const name =
@@ -314,7 +314,7 @@ let str2memo_type = function
   | "fail" -> MemoFail
   | "success" -> MemoSuccess
   | "full" -> MemoFull
-  | s -> failwith (B.sprintf "Unknown memoization option: '%s' (should be: 'none', 'fail', 'success' or 'full')" s)
+  | s -> failwith (Printf.sprintf "Unknown memoization option: '%s' (should be: 'none', 'fail', 'success' or 'full')" s)
 
 let prefix2str = function
   | `AND -> "&"
@@ -333,19 +333,19 @@ let rangeChar2str = function
   | c -> Char.escaped c
 
 let range2str = function
-  | One c -> B.sprintf "%s" (rangeChar2str c)
-  | Range (c1, c2) -> B.sprintf "%s-%s" (rangeChar2str c1) (rangeChar2str c2)
+  | One c -> Printf.sprintf "%s" (rangeChar2str c)
+  | Range (c1, c2) -> Printf.sprintf "%s-%s" (rangeChar2str c1) (rangeChar2str c2)
   | Any -> failwith "Unexpected Any in a non-trivial range"
 
 let rec primary2str = function
   | P.Ident i -> i
   | P.Paren exp -> "(" ^ expr2str exp ^ ")"
-  | P.Literal (l, cs) -> B.sprintf "\"%s\"%s" (String.escaped l) (if cs then "" else "~")
+  | P.Literal (l, cs) -> Printf.sprintf "\"%s\"%s" (String.escaped l) (if cs then "" else "~")
   | P.Class [Any] -> "."
-  | P.Class cs -> B.sprintf "[%s]" (List.to_string range2str cs)
+  | P.Class cs -> Printf.sprintf "[%s]" (List.to_string range2str cs)
 
 and item2str (prefix, primary, suffix) =
-  B.sprintf "%s%s%s" (prefix2str prefix) (primary2str primary) (suffix2str suffix)
+  Printf.sprintf "%s%s%s" (prefix2str prefix) (primary2str primary) (suffix2str suffix)
 
  (* FIXME add support for printing code *)
  (* FIXME add support for printing named items *)
@@ -360,7 +360,7 @@ and expr2str = function
   | P.App _ -> failwith "tgrammar:expr2str -> App"
 
 let rule2str (name, (exp, _)) =
-  B.sprintf "%s <- %s ;\n\n" name (expr2str exp.P.expression)
+  Printf.sprintf "%s <- %s ;\n\n" name (expr2str exp.P.expression)
 
 let grammar2str peg =
   List.to_string rule2str (StringMap.to_list peg.grammar)

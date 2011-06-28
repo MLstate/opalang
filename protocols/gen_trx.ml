@@ -36,8 +36,8 @@ let rec pr = function
   | _ -> "blurb"
 
 let rewrite_ident prevents = function
-  | G.Literal (s,mod_opt) :: _ -> B.sprintf " ((%s !%s%s .)+ $_)" prevents s (Option.default "" mod_opt)
-  | l when prevents <> "" or l = [] -> B.sprintf " ((%s .)+ $_) " prevents
+  | G.Literal (s,mod_opt) :: _ -> Printf.sprintf " ((%s !%s%s .)+ $_)" prevents s (Option.default "" mod_opt)
+  | l when prevents <> "" or l = [] -> Printf.sprintf " ((%s .)+ $_) " prevents
   | _ -> raise T.LiteralRequired
 
 let rewrite_pattern var_lst lst =
@@ -48,14 +48,14 @@ let rewrite_pattern var_lst lst =
     | G.SubPattern (name, c, sub) :: tail when lst = [] ->
         let lst = (L.rev_map snd @* snd) <| L.fold_left T.bruijnise (0, []) sub in
         let tuplized = S.concat ", " <| L.map (T.prefix "__") lst in
-          B.sprintf " (%s {{ %s }})%s %s" (aux [] sub) tuplized c (aux [] tail)
+          Printf.sprintf " (%s {{ %s }})%s %s" (aux [] sub) tuplized c (aux [] tail)
     | G.Ident name :: tail ->
         let t = try T.type_to_str <| L.assoc name var_lst with Not_found -> name in
         let acc = L.fold_left (fun acc s -> acc ^ " !" ^ s) "" lst in
         let str =
           if t = "string" then rewrite_ident acc tail
           else acc ^ " " ^ t
-        in B.sprintf " %s %s" str <| aux [] tail
+        in Printf.sprintf " %s %s" str <| aux [] tail
     | _ -> assert false
   in aux [] lst
 
@@ -64,20 +64,20 @@ let rewrite_defines = function
       try
         let var_lst = L.map T.tuple_of_var lst in
         let rule = rewrite_pattern var_lst pat in
-        if L.is_empty var_lst then B.sprintf "%s {{ %s }}" rule name
+        if L.is_empty var_lst then Printf.sprintf "%s {{ %s }}" rule name
         else
           let tuplized =
             let lst = snd <| L.fold_left T.bruijnise (0, []) pat in
             let lst = L.map (fun x ->
 	      try L.assoc (fst x) lst with
 		| Not_found ->
-		  failwith (B.sprintf
+		  failwith (Printf.sprintf
 	      "Fatal Error : %s is not bound when defining %s"
 	      (fst x) name))  var_lst
             in S.concat ", " <| L.map (T.prefix "__") lst
-          in B.sprintf "%s {{ %s (%s) }}" rule name tuplized
+          in Printf.sprintf "%s {{ %s (%s) }}" rule name tuplized
       with T.LiteralRequired -> failwith <|
-        B.sprintf "Error when trying to generate the teerex rule for the message: %s" name
+        Printf.sprintf "Error when trying to generate the teerex rule for the message: %s" name
     )
   | _ -> assert false
 

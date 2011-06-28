@@ -36,10 +36,10 @@ let msgtype_of_defs lst =
 let gettype_of_defs lst =
   let gettype_of_def = function
     | G.Define (G.Constr (name, []), _) ->
-        O.Val (Ident.source (Base.sprintf "get_%s" name),
+        O.Val (Ident.source (Printf.sprintf "get_%s" name),
              O.TypeArrow (O.TypeName ([O.TypeVerbatim "msg"],["list"]), O.TypeVerbatim "msg option"))
     | G.Define (G.Constr (name, lst), _) ->
-        O.Val (Ident.source (Base.sprintf "get_%s" name),
+        O.Val (Ident.source (Printf.sprintf "get_%s" name),
              O.TypeArrow (O.TypeName ([O.TypeVerbatim "msg"],["list"]),
                         O.TypeName ([(O.TypeTuple (List.map (snd @* Tools.tuple_of_var) lst))],["option"])))
     | _ -> assert false
@@ -56,9 +56,9 @@ let msgtype_of_raws lst =
 
 let gettype_of_raws lst =
   let gettype_of_raw = function
-    | G.Raw (name, _, []) -> O.Val (Ident.source (Base.sprintf "get_%s" name),
+    | G.Raw (name, _, []) -> O.Val (Ident.source (Printf.sprintf "get_%s" name),
                                 O.TypeArrow (O.TypeName ([O.TypeVerbatim "rawmsg"],["list"]), O.TypeVerbatim "rawmsg option"))
-    | G.Raw (name, _, lst) -> O.Val (Ident.source (Base.sprintf "get_%s" name),
+    | G.Raw (name, _, lst) -> O.Val (Ident.source (Printf.sprintf "get_%s" name),
                                  O.TypeArrow (O.TypeName ([O.TypeVerbatim "rawmsg"],["list"]),
                                             O.TypeName ([(O.TypeTuple (ol2l (List.map (fun (_,b,_,_) -> b) lst)))],["option"])))
     | _ -> assert false
@@ -308,7 +308,7 @@ let rec resolve_includes lst =
                          let str = File.content name in
                          let pos,partial = G.parse_grammar_prog str in
                          if pos < String.length str then
-                           failwith <| Base.sprintf "Parse error at char: %d in file %s" pos name
+                           failwith <| Printf.sprintf "Parse error at char: %d in file %s" pos name
                          else
                            let lst2 = resolve_includes (partial) in
                            lst2@lst
@@ -330,7 +330,7 @@ let () =
 
     let pos, partial = G.parse_grammar_prog str in
     if pos < String.length str then
-      failwith <| Base.sprintf "Parse error at char: %d in file %s" pos src
+      failwith <| Printf.sprintf "Parse error at char: %d in file %s" pos src
     else
       let complete = resolve_includes partial in
 
@@ -385,7 +385,7 @@ let () =
                     with
                     | Failure s -> prerr_endline s
                     | e -> prerr_endline
-                      <| Base.sprintf "Fatal error while generating the signature file:"
+                      <| Printf.sprintf "Fatal error while generating the signature file:"
                       ^ Printexc.to_string e
                   ) ; close_out output_mli
                 with

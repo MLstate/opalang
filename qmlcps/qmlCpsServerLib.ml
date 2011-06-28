@@ -189,7 +189,7 @@ let fun_args2string f_string larg =
     String.sub s 0 (min (String.length s) 1000)
   in
   let lval = Base.String.concat_map ", " f larg in
-  Base.sprintf "%s(%s, ...)" f_string lval
+  Printf.sprintf "%s(%s, ...)" f_string lval
 
 let display_backtrace s =
   let bt_pos = ref (bt_take ()) in

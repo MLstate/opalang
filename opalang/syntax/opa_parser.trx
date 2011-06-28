@@ -765,7 +765,7 @@ directive <-
         match l with
         | [(Const (CString s1), label); expr] ->
             let pos = SurfaceAstHelper.Annot.to_string label in
-            let tracker = PassTracker.next (sprintf "%s : %s" s1 pos) in
+            let tracker = PassTracker.next (Printf.sprintf "%s : %s" s1 pos) in
             Some (Directive (`tracker tracker, [ expr ],  []))
         | [expr] ->
             let pos = SurfaceAstHelper.Annot.to_string' expr in

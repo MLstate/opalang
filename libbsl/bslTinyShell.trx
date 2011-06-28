@@ -106,7 +106,7 @@ decls:{{
      | Pipe (p, (key, optlist, arg)) -> Printf.sprintf "%s [%s] <%s> | unix:\"%s\"" (string_of_key key) (String.concat_map "; " string_of_toption optlist) arg  p
 
    let clash_option o =
-     let m = sprintf "option %s cannot be used in this context" (string_of_toption o) in
+     let m = Printf.sprintf "option %s cannot be used in this context" (string_of_toption o) in
 (* #<<      dddw m;  >>#; *)
      m
 

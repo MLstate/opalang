@@ -52,10 +52,10 @@ let inet_addr_of_name machine =
   with Unix.Unix_error _ | Failure _ -> raise (Unknown_machine machine)
 
 let addr_of_ipv4 (ip1, ip2, ip3, ip4) =
-  Unix.inet_addr_of_string (Base.sprintf "%d.%d.%d.%d" ip1 ip2 ip3 ip4)
+  Unix.inet_addr_of_string (Printf.sprintf "%d.%d.%d.%d" ip1 ip2 ip3 ip4)
 
 let string_of_ipv4 (ip1, ip2, ip3, ip4) =
-  Base.sprintf "%d.%d.%d.%d" ip1 ip2 ip3 ip4
+  Printf.sprintf "%d.%d.%d.%d" ip1 ip2 ip3 ip4
 
 let name_of_addr addr =
   try (Unix.gethostbyaddr addr).Unix.h_name

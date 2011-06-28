@@ -1321,7 +1321,7 @@ and f_record_node ~kind all_env hierar record_node =
 and f_module all_env hierar iel =
   let dump_type_env_mods f_env = {f_env with ftypevars = all_env.f.ftypevars} in
   let module_name = hierar |> snd |> List.last in
-  check_unicity ~case:(sprintf "the module `%s`" module_name) ~compare_by:(fun (i,e) -> (i,Parser_utils.label e)) iel;
+  check_unicity ~case:(Printf.sprintf "the module `%s`" module_name) ~compare_by:(fun (i,e) -> (i,Parser_utils.label e)) iel;
   (* creating the new names for every identifier and binding them into a new
    * environment *)
   (* all_env is what is seen by functions and by the [e] of [let ... in e] *)

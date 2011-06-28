@@ -117,7 +117,7 @@ let encode_list_to_map encode_list =
   chmap
 
 (* Generic URL encode. *)
-let chhxmp = Array.init 256 (fun i -> Base.sprintf "%02X" i)
+let chhxmp = Array.init 256 (fun i -> Printf.sprintf "%02X" i)
 let pc_encode ch = "%"^(chhxmp.(Char.code ch))
 
 (* RFC 1738 but excluding , / ? : @ & = + $ #

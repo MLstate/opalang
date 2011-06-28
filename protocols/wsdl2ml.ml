@@ -25,7 +25,7 @@
 *)
 let printf = Printf.printf
 let eprintf = Printf.eprintf
-let sprintf = Base.sprintf
+let sprintf = Printf.sprintf
 let fprintf = Printf.fprintf
 let kfprintf = Format.kfprintf
 let ikfprintf = Format.ikfprintf

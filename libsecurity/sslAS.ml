@@ -62,34 +62,34 @@ let string_of_certificate ce =
   match ce with
     | None -> ""
     | Some c ->
-        sprintf "[cert_file %s] [cert_privkey %s] [cert_password %s] %s [cert_capath %s]"
+        Printf.sprintf "[cert_file %s] [cert_privkey %s] [cert_password %s] %s [cert_capath %s]"
           c.cert_file
           c.cert_privkey
           c.cert_password
           (match c.cert_cafile with
              | None -> ""
-             | Some v -> (sprintf "[cert_cafile %s]" v))
+             | Some v -> (Printf.sprintf "[cert_cafile %s]" v))
           (match c.cert_capath with
              | None -> ""
-             | Some v -> (sprintf "[cert_capath %s]" v))
+             | Some v -> (Printf.sprintf "[cert_capath %s]" v))
 
 let string_of_param pe =
   match pe with
     | None -> ""
     | Some p ->
-        sprintf "%s %s %s %s [always %s]"
+        Printf.sprintf "%s %s %s %s [always %s]"
           (match p.cafile with
              | None -> ""
-             | Some v -> (sprintf "[cafile %s]" v))
+             | Some v -> (Printf.sprintf "[cafile %s]" v))
           (match p.capath with
              | None -> ""
-             | Some v -> (sprintf "[capath %s]" v))
+             | Some v -> (Printf.sprintf "[capath %s]" v))
           (match p.certpath with
              | None -> ""
-             | Some v -> (sprintf "[certpath %s]" v))
+             | Some v -> (Printf.sprintf "[certpath %s]" v))
           (match p.client_ca_file with
              | None -> ""
-             | Some v -> (sprintf "[client_ca_file %s]" v))
+             | Some v -> (Printf.sprintf "[client_ca_file %s]" v))
           (match p.always with
              | true -> "true"
              | false -> "false")
@@ -228,7 +228,7 @@ let compute_fingerprint certificate = Ssl_ext.compute_digest certificate digest_
 let certs = ref StringMap.empty
 
 let reload_certs ?(extensions=["pem"]) verify_params =
-  info "reload_certs" ?param:(Some verify_params) (sprintf "[extensions %s]" (List.fold_left (fun a b -> (sprintf "%s %s" a b)) "" extensions));
+  info "reload_certs" ?param:(Some verify_params) (Printf.sprintf "[extensions %s]" (List.fold_left (fun a b -> (Printf.sprintf "%s %s" a b)) "" extensions));
   (* Clean the map *)
   certs := StringMap.empty;
   (* Reload every files in certpath *)
@@ -245,7 +245,7 @@ let reload_certs ?(extensions=["pem"]) verify_params =
             let subject = Ssl.get_subject certificate
             and fingerprint = compute_fingerprint certificate in
             certs := StringMap.add fingerprint subject !certs;
-            info "reload_certs" (sprintf "Certificate loaded:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size))
+            info "reload_certs" (Printf.sprintf "Certificate loaded:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size))
           with
           | Ssl.Certificate_error (* read_certificate *)
           | Not_found (* get_subject *) -> info "reload_certs" path (* Continue even if one file fails *)
@@ -259,13 +259,13 @@ let validate_certificate certificate verify_params =
   let has_certpath = Option.is_some verify_params.certpath in
   let fingerprint = compute_fingerprint certificate in
   if not has_certpath || ((* (hash = "" || fingerprint = hash) && *) StringMap.mem fingerprint !certs) then (
-    info "validate_certificate" (sprintf "Valid certificate received:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
+    info "validate_certificate" (Printf.sprintf "Valid certificate received:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
     true
   ) else if verify_params.accept_fun certificate then (
-    info "validate_certificate" (sprintf "Certificate accepted:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
+    info "validate_certificate" (Printf.sprintf "Certificate accepted:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
     true
   ) else (
-    info "validate_certificate" (sprintf "Invalid certificate received:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
+    info "validate_certificate" (Printf.sprintf "Invalid certificate received:\n%s" (Ssl_ext.certificate_to_string certificate digest_name digest_size));
     false
   )
 
@@ -322,11 +322,11 @@ let get_listen_callback sched (server_params, client_params) server_fun =
             end
     with
       | Ssl.Private_key_error as e ->
-        warning "get_listen_callback" (sprintf "Error while trying to read private key file %S.\n" server_params.cert_privkey);
+        warning "get_listen_callback" (Printf.sprintf "Error while trying to read private key file %S.\n" server_params.cert_privkey);
         raise e
     (*ServerLib.do_*)(* exit 1 *)
       | Ssl.Certificate_error as e ->
-        warning "get_listen_callback" (sprintf "Error while trying to read ssl certificate %S.\n" server_params.cert_file);
+        warning "get_listen_callback" (Printf.sprintf "Error while trying to read ssl certificate %S.\n" server_params.cert_file);
         raise e
     (*ServerLib.do_*)(* exit 1 *)
   end;
@@ -367,7 +367,7 @@ let get_listen_callback sched (server_params, client_params) server_fun =
           | Ssl.Error_want_read -> Scheduler.listen_once sched conn continuation
           | Ssl.Error_want_write -> Scheduler.connect sched conn continuation
           | _ ->
-              warning "glc" (sprintf "Ssl.Error_%s : %s"
+              warning "glc" (Printf.sprintf "Ssl.Error_%s : %s"
                 (Ssl_ext.error_to_string ssl_error) (Ssl.get_error_string()));
               Scheduler.remove_connection sched conn
       in
@@ -392,8 +392,8 @@ let get_err_cont sched conn err_cont =
                Scheduler.remove_connection sched conn;
                match e with
                | Ssl.Accept_error ssl_error ->
-                   warning "SslAS" (sprintf "Ssl_ssl_error'%s'\n%s" (Ssl_ext.error_to_string  ssl_error) backtrace)
-               | e -> warning "SslAS" (sprintf "%s\n%s" (Printexc.to_string e)  backtrace)
+                   warning "SslAS" (Printf.sprintf "Ssl_ssl_error'%s'\n%s" (Ssl_ext.error_to_string  ssl_error) backtrace)
+               | e -> warning "SslAS" (Printf.sprintf "%s\n%s" (Printexc.to_string e)  backtrace)
             )
   | Some f -> f
 
@@ -413,11 +413,11 @@ let connect sched conn (client_certificate, verify_cert) ?err_cont cont =
         Ssl.use_certificate ctx params.cert_file params.cert_privkey
         with
           | Ssl.Private_key_error as e ->
-            warning "get_secure_socket" (sprintf "SslAS.client_connect: Error while trying to read private key file %s.\n" params.cert_privkey);
+            warning "get_secure_socket" (Printf.sprintf "SslAS.client_connect: Error while trying to read private key file %s.\n" params.cert_privkey);
             err_cont e
         (*ServerLib.do_*)(* exit 1 *)
           | Ssl.Certificate_error as e ->
-            warning "get_secure_socket" (sprintf "SslAS.client_connect: Error while trying to read ssl certificate %s.\n" params.cert_file);
+            warning "get_secure_socket" (Printf.sprintf "SslAS.client_connect: Error while trying to read ssl certificate %s.\n" params.cert_file);
             err_cont e
         (*ServerLib.do_*)(* exit 1 *)
       end;

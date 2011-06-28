@@ -47,8 +47,6 @@ let is_windows = Sys.os_type = "Win32"
 let failwithf fmt = Printf.ksprintf failwith fmt
 let invalid_argf fmt = Printf.ksprintf invalid_arg fmt
 
-let sprintf = Printf.sprintf
-
 (* *)
 let debug_getenv _ dflt = dflt
 let debug_getenv_toggle _ = false

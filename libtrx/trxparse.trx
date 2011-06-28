@@ -61,7 +61,7 @@ maybe_GElems_no_sp_eof <- maybe_GElems_no_sp EOF ;
 
 /** TRX rule **/
 Definition <- SEMI? rule_annots:annots KEEP_CACHE?:cache DEBUG?:debug MARK?:mark Identifier:id Type?:rtype DefExpr:expr SEMI?
-	{{ (*jlog ~level:2 (sprintf "definition: %s" id) ;*)
+	{{ (*jlog ~level:2 (Printf.sprintf "definition: %s" id) ;*)
 	   let entry = 
 	     { PG.expression = expr 
 	     ; debug = debug <> None 
@@ -109,7 +109,7 @@ Exprs <- OPEN Expression (COMMA Expression {{ __2 }})* CLOSE {{ __2 :: __3 }}
 
 /** TRX function **/
 Function <- rule_annots LET Identifier Identifier+ EQUAL Expression SEMI?
-	{{ (*jlog (sprintf "function: %s" __3) ;*)
+	{{ (*jlog (Printf.sprintf "function: %s" __3) ;*)
 	(__3, ({ PG.vars = __4 ; expr =  PG.Expr __6 }, __1)) }}
 
 /** include directive **/
@@ -158,7 +158,7 @@ CodeRange <- (":_" Spacing)? {{ __1 <> None }}
 StoppableCode <- ("!!" Spacing)? {{ __1 <> None }}
 
 let code_aux beg end =
-  beg Spacing StoppableCode CodeRange ((!end .)* $_) end {{ __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else sprintf "Some (%s)" __5) }} 
+  beg Spacing StoppableCode CodeRange ((!end .)* $_) end {{ __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5) }} 
 
 DefaultCode <- (=code_aux(BEGIn, ENd)) {{ let (u, v) = __1 in u, v, Some(current_location _file_name _pos_beg), true }}
              / (=code_aux(BEGIN, END))   {{ let (u, v) = __1 in u, v, Some(current_location _file_name _pos_beg), false }}
@@ -167,8 +167,8 @@ DefaultCodeNoStop <- BEGIN ((!END .)* $_) END {{ __2 }}
 /* rule production */
 Code <- DefaultCode
 	/ "$_" CodeRange Spacing {{ __2, ".sub", None, false }}
-	/ "$:" ([0-9]+ $_) Spacing {{ true, sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false }}
-	/ DOLLAR  {{ false, sprintf "%s()" (if _stoppable then "Some " else ""), None, false }} 
+	/ "$:" ([0-9]+ $_) Spacing {{ true, Printf.sprintf "%s__%s" (if _stoppable then "Some " else "") __2, None, false }}
+	/ DOLLAR  {{ false, Printf.sprintf "%s()" (if _stoppable then "Some " else ""), None, false }} 
 PrefixElement <- AND {{ `AND }} / NOT {{ `NOT }}
 SuffixElement <- QUESTION {{`QUESTION }} / STAR {{`STAR}} / PLUS {{`PLUS}}
 /* element's prefix */

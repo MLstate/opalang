@@ -130,16 +130,3 @@ module Random : module type of BaseRandom
 module Set : module type of BaseSet
 module String : module type of BaseString
 module Utf8 : module type of BaseUtf8
-
-
-(** {6 Deprecated API} *)
-
-(** The following functions are there for backward compatibility
-    until we clean-up the depending code.
-    Please DO NOT use it in new code *)
-
-(** You may rather use one of the following :
-    + Functions from OManager, which support format
-    + [FBuffer.printf], [SRope.printf]
-    + [Printf.sprintf] in any other case.*)
-val sprintf : ('a, unit, string) format -> 'a

@@ -231,7 +231,7 @@ struct
 
   let keep_magic_directive = false
 
-  let fail p s = raise (Exception (sprintf "%s : %s" (SH.Annot.to_string' p) s))
+  let fail p s = raise (Exception (Printf.sprintf "%s : %s" (SH.Annot.to_string' p) s))
     (* indicate mostly a node that can't be converted to the new ast *)
 
   let rec const_ty_node = function
@@ -409,7 +409,7 @@ struct
           QA.PatCoerce ((make_label_from_opa_annot opa_annot), p, ty_)
       | SA.PatAs (p, i) ->
           #<If:PATTERNS_REAL_PATAS $equals "0">
-            fail p (sprintf "PatAs %s" (Arg.to_string i))
+            fail p (Printf.sprintf "PatAs %s" (Arg.to_string i))
           #<Else>
             let p = aux p in
             QA.PatAs (make_label_from_opa_annot opa_annot, p, ident i)

@@ -151,7 +151,7 @@ module Binary(X : Ordered) = struct
   let to_string print_elt h =
     let data = Array.to_list h.data in
     let data = Base.String.concat_map "; " print_elt data in
-    Base.sprintf "heap{ len = %d; data = [%s]}" h.length data
+    Printf.sprintf "heap{ len = %d; data = [%s]}" h.length data
 end
 
 module type Epsilon = sig

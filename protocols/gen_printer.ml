@@ -37,11 +37,11 @@ let rec rewrite_option n opt next =
   let sub = rewrite_pattern true 1 opt in
   let idents = A.of_list <| L.filter T.is_ident opt in
   let tuple = tuplize <| A.length idents in
-    B.sprintf "^ (match __%s with None -> \"\" | Some (%s) -> \"\"%s)%s"
+    Printf.sprintf "^ (match __%s with None -> \"\" | Some (%s) -> \"\"%s)%s"
       (string_of_int n) tuple sub <| rewrite_pattern false (succ n) next
 
 and rewrite_subpattern n sub next =
-  B.sprintf " ^ (String.concat \"\" (List.map (fun (%s) -> \"\"%s) __%s))%s"
+  Printf.sprintf " ^ (String.concat \"\" (List.map (fun (%s) -> \"\"%s) __%s))%s"
 (*    (tuplize <| A.length (A.of_list <| L.filter is_ident sub)) *)
     (L.fold_left T.bruijnise (0, []) sub
       |> snd
@@ -60,13 +60,13 @@ and rewrite_pattern in_sub n = function
     | G.SubPattern (_, "?", lst) :: tail -> rewrite_option n lst tail
     | G.SubPattern (_, _, lst) :: tail -> rewrite_subpattern n lst tail
     | G.Ident "string" :: tail ->
-        B.sprintf " ^ __%s%s" (string_of_int n) <| rewrite_pattern in_sub (succ n) tail
+        Printf.sprintf " ^ __%s%s" (string_of_int n) <| rewrite_pattern in_sub (succ n) tail
     | G.Ident t :: tail ->
         let stroft =
           match t with
             "int64" -> "Int64.to_string"
-          | _ -> B.sprintf "string_of_%s" t in
-        B.sprintf " ^ (%s __%s)%s" stroft
+          | _ -> Printf.sprintf "string_of_%s" t in
+        Printf.sprintf " ^ (%s __%s)%s" stroft
           (string_of_int n) 
           <| rewrite_pattern in_sub (succ n) tail
     | _ -> assert false
@@ -94,7 +94,7 @@ let pattern_of_define = function
         in O.PatConstructor ([Ident.source name], var_lst), O.Verbatim ("\"\"" ^ verbatim)
       with
       | T.NestedSubPatterns ->
-          let msg = B.sprintf
+          let msg = Printf.sprintf
             "Error in the definition of \"%s\" : sub-patterns cannot be nested"
             name
           in failwith msg

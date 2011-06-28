@@ -34,10 +34,10 @@ let content_length req =
   | Some v -> int_of_string v
 
 let string_of_request_line r =
-  sprintf "%s %s %s%s" (string_of_method r._method) r.request_uri r.http_version crlf
+  Printf.sprintf "%s %s %s%s" (string_of_method r._method) r.request_uri r.http_version crlf
 
 let string_of_request r =
-  sprintf "%s%s%s%s"
+  Printf.sprintf "%s%s%s%s"
     (string_of_request_line r.request_line)
     (RequestHeader.to_string string_of_request_header r.request_header)
     crlf
@@ -62,7 +62,7 @@ type status_line =
 let string_of_status_line sl =
   let code = status_code sl.status in
   let phrase = reason_phrase code in
-  sprintf "%s %d %s%s" sl.status_http_version code phrase crlf
+  Printf.sprintf "%s %d %s%s" sl.status_http_version code phrase crlf
 
 type res_body =
   | Result of string
@@ -83,24 +83,24 @@ let reponse_content_length req =
 let rec string_of_body body =
   match body with
   | Result s -> s
-  | PartialResult (_, s, _) -> sprintf "partial\n%s" s
+  | PartialResult (_, s, _) -> Printf.sprintf "partial\n%s" s
   | AuthenticationRequest body ->
       let s = string_of_body body in
-      sprintf "authentification\n%s" s
+      Printf.sprintf "authentification\n%s" s
 
 let string_of_response_header r =
-  sprintf "%s%s%s"
+  Printf.sprintf "%s%s%s"
     (string_of_status_line r.status_line)
     (ResponseHeader.to_string string_of_response_header r.response_header)
     crlf
 
 let string_of_response ?(body_limit=1024) r =
-  sprintf "%s%s"
+  Printf.sprintf "%s%s"
     (string_of_response_header r)
     (String.sub (string_of_body r.response_message_body) 0 (min (reponse_content_length r) body_limit))
 
 (* let string_of_response r = *)
-(*   sprintf "%s%s%s%s" *)
+(*   Printf.sprintf "%s%s%s%s" *)
 (*     (string_of_status_line r.status_line) *)
 (*     (ResponseHeader.to_string string_of_response_header r.response_header) *)
 (*     crlf *)

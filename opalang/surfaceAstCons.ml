@@ -27,11 +27,11 @@ struct
 
   (**Generate new type variables*)
   let typevar =
-    Fresh.fresh_factory (sprintf "opa_v_%d")
+    Fresh.fresh_factory (Printf.sprintf "opa_v_%d")
 
   (* a name that shouldn't conflict with user defined ones *)
   let dontuse_fresh_ident =
-    Fresh.fresh_factory (sprintf "__%d__")
+    Fresh.fresh_factory (Printf.sprintf "__%d__")
   let old_name ?name () =
     let n = dontuse_fresh_ident () in
     match name with
@@ -73,7 +73,7 @@ struct
 end
 
 let c = Label.copy_label
-let encode_tuple l = List.mapi (fun i typ -> sprintf "f%d" (i+1), typ) l
+let encode_tuple l = List.mapi (fun i typ -> Printf.sprintf "f%d" (i+1), typ) l
 
 let position_stack = Stack.create ()
 (* making sure that in dev mode, we have Stack.empty exceptions when trying to

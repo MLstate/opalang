@@ -39,7 +39,7 @@ exception NoStateDefined
 
 (* Note: the <CR> is essential because ppdebug.pl is line-based. *)
 let ifstr = function
-  | Some level -> B.sprintf "#<If$minlevel %d>" level
+  | Some level -> Printf.sprintf "#<If$minlevel %d>" level
   | None -> "#<If>"
 
 let os s_opt = Option.default "" s_opt
@@ -340,7 +340,7 @@ let rewrite_fun f =
       )
     with
       | T.Operation_after_statecall s ->
-          B.sprintf "Error in state ' %s ' : no operation can be done after going to state : %s" n s
+          Printf.sprintf "Error in state ' %s ' : no operation can be done after going to state : %s" n s
           |> failwith
       | e -> raise e
   in match f with

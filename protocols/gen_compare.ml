@@ -50,21 +50,21 @@ let name_pattern_of_ getdr dr =
   (O.PatConstructor ([Ident.source name],pt), None, Cons.string name)
 
 let gen_get_name_ name getdr lst =
-  O.Let [O.Pat (O.PatVar (Ident.source (B.sprintf "get_%s_name" name))), O.Function ((L.map (name_pattern_of_ getdr) lst))]
+  O.Let [O.Pat (O.PatVar (Ident.source (Printf.sprintf "get_%s_name" name))), O.Function ((L.map (name_pattern_of_ getdr) lst))]
 
 let gen_get_msg_name = gen_get_name_ "msg" get_define
 let gen_get_rawmsg_name = gen_get_name_ "rawmsg" get_raw
 
 let get_pattern_of_ getdr dr =
   let name, lst = getdr dr in
-  (B.sprintf "\nlet get_%s rh =\n   " name)^
+  (Printf.sprintf "\nlet get_%s rh =\n   " name)^
     if L.length lst <> 0
     then
-      let pat = B.sprintf "%s _v" name in
-      (B.sprintf "match List.find_opt (function %s -> true | _ -> false) rh with\n  | Some (%s) -> Some _v\n  | _ -> None"
+      let pat = Printf.sprintf "%s _v" name in
+      (Printf.sprintf "match List.find_opt (function %s -> true | _ -> false) rh with\n  | Some (%s) -> Some _v\n  | _ -> None"
                pat pat)
     else
-      (B.sprintf "match List.find_opt (function %s -> true | _ -> false) rh with\n  | Some %s -> Some %s\n  | _ -> None"
+      (Printf.sprintf "match List.find_opt (function %s -> true | _ -> false) rh with\n  | Some %s -> Some %s\n  | _ -> None"
                name name name)
 
 let gen_get_value_ getdr lst = O.Verbatim (String.concat "\n" (L.map (get_pattern_of_ getdr) lst))
