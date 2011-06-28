@@ -23,7 +23,6 @@
  * A tool for converting TRX grammar to Coq format acceptable by certified TRX
 **)
 
-open Base
 module T = Tgrammar
 module P = T.PreGrammar
 

@@ -16,7 +16,6 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Base
 
 let string_of_production = function
   | `string s -> `prod (sprintf "(text %s)" s)
