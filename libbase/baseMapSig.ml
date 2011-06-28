@@ -74,6 +74,12 @@ sig
   val mem : key -> 'a t -> bool
   val iter : (key -> 'a -> unit) -> 'a t -> unit
   val rev_iter : (key -> 'a -> unit) -> 'a t -> unit
+
+  (**
+     Returns an arbitrary element of the map.
+     @raise Not_found on the empty list
+  *)
+  val choose : 'a t -> (key * 'a)
   val map : ('a -> 'b) -> 'a t -> 'b t
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
   val fold_map : (key -> 'a -> 'c -> 'c * 'b) -> 'a t -> 'c -> 'c * 'b t

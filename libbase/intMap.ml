@@ -331,6 +331,13 @@ let rec min t = match t with
   | Empty -> raise Not_found
 let min t = ordertop min t
 
+(*
+  Choose is min, because they are no value except on leaf
+  hence I must go to a leaf to find something. And min already
+  find a leaf
+*)
+let choose = min
+
 let rec max t = match t with
   | Br (_,_m,_tl,tr) -> max tr
   | Lf (k,v) -> k,v

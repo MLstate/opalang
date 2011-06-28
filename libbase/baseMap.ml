@@ -238,6 +238,10 @@ struct
       | Node (l, _, _, _, _) -> aux l
     in aux t
 
+  let choose = function
+    | Empty -> raise Not_found
+    | Node (_,v,d,_,_) -> v,d
+
   let max t =
     let rec aux = function
       | Empty -> raise Not_found
