@@ -20,8 +20,8 @@
     @author Maxime Audouin
 **)
 
-(* TODO remove *)
-open Base
+(* depends *)
+module List = BaseList
 
 let (|>) = InfixOperator.(|>)
 
