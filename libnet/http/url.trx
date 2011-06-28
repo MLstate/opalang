@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 types:{{
-open Base.Char
+open BaseChar
 type url = { secure : bool
            ; host : string (* FIXME : en fait, plus précis que string *)
 	   ; port : int

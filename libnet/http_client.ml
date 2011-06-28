@@ -22,9 +22,6 @@
    @author David Rajchenbach-Teller
 **)
 
-(* open Base *)
-(* open Protocol *)
-
 #<Debugvar:TESTING>
 
 open Http_common

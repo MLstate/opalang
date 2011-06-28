@@ -19,8 +19,10 @@
    @author Frederic Ye
 **)
 
+(* depends *)
+module String = BaseString
+module List = BaseList
 
-open Base
 open Requestdef
 
 (** This module is used for compressing response in an HTTP server.

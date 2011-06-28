@@ -19,7 +19,6 @@
     @author Laurent Le Brun
 **)
 
-open Base
 open Requestdef
 
 let version = string_of_int BuildInfos.git_version_counter

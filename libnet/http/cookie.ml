@@ -27,8 +27,8 @@
 (* ic: internal cookie, doesn't change, the server can use it to identify someone *)
 (* ec: external cookie, change often, given to the browser *)
 
-(* TODO remove *)
-open Base
+(* depends *)
+module String = BaseString
 
 let (|>) = InfixOperator.(|>)
 

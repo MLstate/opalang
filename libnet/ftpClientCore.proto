@@ -21,7 +21,6 @@
 -debugvar PROTOCOL_DEBUG
 -protocol FTP
 
--open Base
 -open Printf
 -open Rcontent
 

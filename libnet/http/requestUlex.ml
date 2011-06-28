@@ -16,7 +16,6 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* The lexer definition *)
-open Base
 open RequestParse
 open Printf
 

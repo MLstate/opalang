@@ -16,7 +16,6 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 open Printf
-open Base
 open Option
 open Rp_typ
 open Rp_hdr

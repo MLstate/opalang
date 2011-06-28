@@ -17,9 +17,11 @@
 *)
 (* Accept: see the interface file for docs. *)
 open Printf
-open Base
 open HttpTools
 open HttpServerTypes
+
+(* depends *)
+module List = BaseList
 
 type el = string list * string list list * float option
 

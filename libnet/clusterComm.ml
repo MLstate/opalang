@@ -19,7 +19,6 @@
     @author Adam Koprowski
 **)
 
-open Base
 
 #<Debugvar:LIBNET_CLUSTER>
 

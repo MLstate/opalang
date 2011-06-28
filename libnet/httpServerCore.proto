@@ -21,7 +21,6 @@
 -debugvar PROTOCOL_DEBUG
 -protocol HTTP
 
--open Base
 -open Rcontent
 -open HttpTools
 -open HttpServerTypes

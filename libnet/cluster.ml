@@ -19,7 +19,9 @@
     @author Adam Koprowski
 **)
 
-open Base
+(* depends *)
+module List = BaseList
+module String = BaseString
 
 #<Debugvar:LIBNET_CLUSTER>
 

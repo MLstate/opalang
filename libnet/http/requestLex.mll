@@ -17,7 +17,6 @@
 *)
 (* The lexer definition *)
 {
-open Base
 open RequestParse
 open Printf
 
