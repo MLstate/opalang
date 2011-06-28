@@ -19,7 +19,9 @@
     @author Frederic Ye
 **)
 
-open Base
+(* depends *)
+module String = BaseString
+
 open Ssl
 open Cryptokit
 

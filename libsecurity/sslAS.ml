@@ -16,7 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Base
+(* depends *)
+module String = BaseString
 
 exception InvalidCertificate
 exception Want_read
