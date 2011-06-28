@@ -19,7 +19,8 @@
     @author Adam Koprowski
 **)
 
-open Base
+(* depends *)
+module List = BaseList
 
 let emph s = "[1m" ^ s ^ "[22m"
 let strong s = "[4m" ^ emph s ^ "[24m"
