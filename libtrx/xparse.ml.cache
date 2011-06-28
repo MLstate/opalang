@@ -2,7 +2,6 @@ open Base
 
 #20 "xparse.trx"
  
-open Base
 open Xml 
 
 let _grammar_rules = [ ("Xparse_value", None) ; ("Xparse_underscore", None) ; ("Xparse_times", None) ; ("Xparse_tilde_", None) ; ("Xparse_text", None) ; ("Xparse_strint64", None) ; ("Xparse_strint", None) ; ("Xparse_stringsinglequote", None) ; ("Xparse_stringsinglechar", None) ; ("Xparse_stringquote", None) ; ("Xparse_stringnosp", None) ; ("Xparse_stringcharspecial", None) ; ("Xparse_stringchar", None) ; ("Xparse_string", None) ; ("Xparse_strfloat", None) ; ("Xparse_strbool", None) ; ("Xparse_str_ipaddr", None) ; ("Xparse_spacing", None) ; ("Xparse_space", None) ; ("Xparse_slash", None) ; ("Xparse_singlequotechar_", None) ; ("Xparse_sharpcomment", None) ; ("Xparse_sharp", None) ; ("Xparse_sglexpr", None) ; ("Xparse_semi", None) ; ("Xparse_rparen", None) ; ("Xparse_rightarrow", None) ; ("Xparse_rbracket", None) ; ("Xparse_raccol", None) ; ("Xparse_quote", None) ; ("Xparse_question_", None) ; ("Xparse_question", None) ; ("Xparse_plus", None) ; ("Xparse_parexprnosp", None) ; ("Xparse_parexprexcluded", None) ; ("Xparse_parexpr", None) ; ("Xparse_option", None) ; ("Xparse_open", None) ; ("Xparse_nsname", None) ; ("Xparse_name", None) ; ("Xparse_mlcomment", None) ; ("Xparse_mlCOMMENTSTOP", None) ; ("Xparse_mlCOMMENTSTART", None) ; ("Xparse_lparen", None) ; ("Xparse_leftarrow", None) ; ("Xparse_lbracket", None) ; ("Xparse_laccol", None) ; ("Xparse_int64", None) ; ("Xparse_int3", None) ; ("Xparse_int", None) ; ("Xparse_humanint", None) ; ("Xparse_hexa", None) ; ("Xparse_header", None) ; ("Xparse_function", None) ; ("Xparse_funclist", None) ; ("Xparse_float", None) ; ("Xparse_file", None) ; ("Xparse_extra_header", None) ; ("Xparse_equal", None) ; ("Xparse_eol", None) ; ("Xparse_eof", None) ; ("Xparse_element", None) ; ("Xparse_dot", None) ; ("Xparse_dblq", None) ; ("Xparse_dblexpr", None) ; ("Xparse_content_item", None) ; ("Xparse_content", None) ; ("Xparse_commentstop", None) ; ("Xparse_commentstart", None) ; ("Xparse_comment", None) ; ("Xparse_comma", None) ; ("Xparse_colon", None) ; ("Xparse_close", None) ; ("Xparse_charsinglequote", None) ; ("Xparse_char", None) ; ("Xparse_cdata", None) ; ("Xparse_bracketexprcontent", None) ; ("Xparse_bracketexpr", None) ; ("Xparse_bool", None) ; ("Xparse_bar", None) ; ("Xparse_bang", None) ; ("Xparse_at", None) ; ("Xparse_accolexprcontent", None) ; ("Xparse_accolexpr", None) ]
@@ -68,7 +67,7 @@ let memo_Xparse_value = ((Hashtbl.create) (128))
 let memo_Xparse_value_err = ((Hashtbl.create) (128))
 let prepare_cache () = ((Hashtbl.clear) (memo_Xparse_cdata)) ; ((Hashtbl.clear) (memo_Xparse_cdata_err)) ; ((Hashtbl.clear) (memo_Xparse_char)) ; ((Hashtbl.clear) (memo_Xparse_char_err)) ; ((Hashtbl.clear) (memo_Xparse_close)) ; ((Hashtbl.clear) (memo_Xparse_close_err)) ; ((Hashtbl.clear) (memo_Xparse_comment)) ; ((Hashtbl.clear) (memo_Xparse_comment_err)) ; ((Hashtbl.clear) (memo_Xparse_content)) ; ((Hashtbl.clear) (memo_Xparse_content_err)) ; ((Hashtbl.clear) (memo_Xparse_content_item)) ; ((Hashtbl.clear) (memo_Xparse_content_item_err)) ; ((Hashtbl.clear) (memo_Xparse_dblexpr)) ; ((Hashtbl.clear) (memo_Xparse_dblexpr_err)) ; ((Hashtbl.clear) (memo_Xparse_element)) ; ((Hashtbl.clear) (memo_Xparse_element_err)) ; ((Hashtbl.clear) (memo_Xparse_equal)) ; ((Hashtbl.clear) (memo_Xparse_equal_err)) ; ((Hashtbl.clear) (memo_Xparse_extra_header)) ; ((Hashtbl.clear) (memo_Xparse_extra_header_err)) ; ((Hashtbl.clear) (memo_Xparse_file)) ; ((Hashtbl.clear) (memo_Xparse_file_err)) ; ((Hashtbl.clear) (memo_Xparse_function)) ; ((Hashtbl.clear) (memo_Xparse_function_err)) ; ((Hashtbl.clear) (memo_Xparse_header)) ; ((Hashtbl.clear) (memo_Xparse_header_err)) ; ((Hashtbl.clear) (memo_Xparse_int)) ; ((Hashtbl.clear) (memo_Xparse_int_err)) ; ((Hashtbl.clear) (memo_Xparse_lparen)) ; ((Hashtbl.clear) (memo_Xparse_lparen_err)) ; ((Hashtbl.clear) (memo_Xparse_name)) ; ((Hashtbl.clear) (memo_Xparse_name_err)) ; ((Hashtbl.clear) (memo_Xparse_nsname)) ; ((Hashtbl.clear) (memo_Xparse_nsname_err)) ; ((Hashtbl.clear) (memo_Xparse_open)) ; ((Hashtbl.clear) (memo_Xparse_open_err)) ; ((Hashtbl.clear) (memo_Xparse_option)) ; ((Hashtbl.clear) (memo_Xparse_option_err)) ; ((Hashtbl.clear) (memo_Xparse_rparen)) ; ((Hashtbl.clear) (memo_Xparse_rparen_err)) ; ((Hashtbl.clear) (memo_Xparse_sglexpr)) ; ((Hashtbl.clear) (memo_Xparse_sglexpr_err)) ; ((Hashtbl.clear) (memo_Xparse_slash)) ; ((Hashtbl.clear) (memo_Xparse_slash_err)) ; ((Hashtbl.clear) (memo_Xparse_spacing)) ; ((Hashtbl.clear) (memo_Xparse_spacing_err)) ; ((Hashtbl.clear) (memo_Xparse_strint)) ; ((Hashtbl.clear) (memo_Xparse_strint_err)) ; ((Hashtbl.clear) (memo_Xparse_text)) ; ((Hashtbl.clear) (memo_Xparse_text_err)) ; ((Hashtbl.clear) (memo_Xparse_value)) ; ((Hashtbl.clear) (memo_Xparse_value_err))
 let rec try_Xparse_commentstart = 
-#83 "xparse.trx"
+#82 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -76,7 +75,7 @@ and _get_sub = ((String.sub) (_text)) in
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_573, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_573, __1), ((Trx_runtime.emptyError) (input_573))))))))
 let rec try_Xparse_commentstop = 
-#84 "xparse.trx"
+#83 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -84,7 +83,7 @@ and _get_sub = ((String.sub) (_text)) in
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_572, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_572, __1), ((Trx_runtime.emptyError) (input_572))))))))
 let rec try_Xparse_comment = 
-#82 "xparse.trx"
+#81 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -118,7 +117,7 @@ if ( (((||)) ((((=)) (c) (' '))) ((((||)) ((((=)) (c) ('\n'))) ((((||)) ((((=)) 
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_391, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_391, __1), ((Trx_runtime.emptyError) (input_391))))))))
 let rec try_Xparse_spacing = 
-#85 "xparse.trx"
+#84 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -153,7 +152,7 @@ if ( (((=)) (c) ('=')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_equal_err) (input) (res)) ; res)
 )
 let rec try_Xparse_dblq = 
-#79 "xparse.trx"
+#78 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -162,7 +161,7 @@ if ( (((=)) (c) ('"')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_556, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_556, __1), ((Trx_runtime.emptyError) (input_556))))))))
 let rec try_Xparse_dblexpr = 
-#67 "xparse.trx"
+#66 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -174,7 +173,7 @@ Not_found -> let res = (match (try_Xparse_dblq (_filename) (_text) (input)) with
 | Trx_runtime.Ok ( ( ( input_557, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.while_primary (false) ((fun input_561 -> (match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_561) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_561) (0))))) ('\\'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_561) (1))))) ('"'))) (true)))))) ) then ( Some(((((+)) (input_561) (2)), "\\\"")) ) else ( None )) (input_561) ("\"\\\"\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_564, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_564, 
-#67 "xparse.trx"
+#66 "xparse.trx"
 ( '\"'  )), ((Trx_runtime.emptyError) (input_564))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_dblq (_filename) (_text) (input_561)) with
 Trx_runtime.Fail ( ( err ) ) -> let input_562 = input_561 in
@@ -192,12 +191,12 @@ Trx_runtime.Fail((err)))))
 | Trx_runtime.Ok ( ( ( input_559, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_spacing (_filename) (_text) (input_559)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_560, __4 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_560, 
-#67 "xparse.trx"
+#66 "xparse.trx"
 ( Tgrammar.string_of_chars __2  )), ((Trx_runtime.emptyError) (input_560)))))))))))))))) in
 (Hashtbl.add (memo_Xparse_dblexpr_err) (input) (res)) ; res)
 )
 let rec try_Xparse_name = 
-#55 "xparse.trx"
+#54 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -210,12 +209,12 @@ if ( (((||)) ((((&&)) ((((>=)) (c) ('a'))) ((((<=)) (c) ('z'))))) ((((||)) ((((&
 | Trx_runtime.Ok ( ( ( input_469, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_spacing (_filename) (_text) (input_469)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_470, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_470, 
-#55 "xparse.trx"
+#54 "xparse.trx"
 ( Tgrammar.string_of_chars __1  )), ((Trx_runtime.emptyError) (input_470)))))))))) in
 (Hashtbl.add (memo_Xparse_name_err) (input) (res)) ; res)
 )
 let rec try_Xparse_quote = 
-#80 "xparse.trx"
+#79 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -224,7 +223,7 @@ if ( (((=)) (c) ('\'')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) e
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_423, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_423, __1), ((Trx_runtime.emptyError) (input_423))))))))
 let rec try_Xparse_sglexpr = 
-#68 "xparse.trx"
+#67 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -236,7 +235,7 @@ Not_found -> let res = (match (try_Xparse_quote (_filename) (_text) (input)) wit
 | Trx_runtime.Ok ( ( ( input_405, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.while_primary (false) ((fun input_409 -> (match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_409) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_409) (0))))) ('\\'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_409) (1))))) ('\''))) (true)))))) ) then ( Some(((((+)) (input_409) (2)), "\\'")) ) else ( None )) (input_409) ("\"\\'\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_412, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_412, 
-#68 "xparse.trx"
+#67 "xparse.trx"
 ( '\''  )), ((Trx_runtime.emptyError) (input_412))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_quote (_filename) (_text) (input_409)) with
 Trx_runtime.Fail ( ( err ) ) -> let input_410 = input_409 in
@@ -254,12 +253,12 @@ Trx_runtime.Fail((err)))))
 | Trx_runtime.Ok ( ( ( input_407, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_spacing (_filename) (_text) (input_407)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_408, __4 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_408, 
-#68 "xparse.trx"
+#67 "xparse.trx"
 ( Tgrammar.string_of_chars __2  )), ((Trx_runtime.emptyError) (input_408)))))))))))))))) in
 (Hashtbl.add (memo_Xparse_sglexpr_err) (input) (res)) ; res)
 )
 let rec try_Xparse_value = 
-#66 "xparse.trx"
+#65 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -280,7 +279,7 @@ Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xpa
 (Hashtbl.add (memo_Xparse_value_err) (input) (res)) ; res)
 )
 let rec try_Xparse_function = 
-#74 "xparse.trx"
+#73 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -290,7 +289,7 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (try_Xparse_value (_filename) (_text) (input)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_514, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_514, 
-#75 "xparse.trx"
+#74 "xparse.trx"
 ( Value __1  )), ((Trx_runtime.emptyError) (input_514))))))) in
 (Hashtbl.add (memo_Xparse_function_err) (input) (res)) ; res)
 )
@@ -311,7 +310,7 @@ if ( (((=)) (c) ('(')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_lparen_err) (input) (res)) ; res)
 )
 let rec try_Xparse_nsname = 
-#64 "xparse.trx"
+#63 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -330,7 +329,7 @@ Trx_runtime.Fail ( ( err ) ) -> Trx_runtime.Ok(((input_464, None), err))
 | Trx_runtime.Ok ( ( ( input_468, r ), err ) ) -> Trx_runtime.Ok(((input_468, Some((r))), err))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_465, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_465, 
-#64 "xparse.trx"
+#63 "xparse.trx"
 ( __1 (* FIXME *)  )), ((Trx_runtime.emptyError) (input_465)))))))))) in
 (Hashtbl.add (memo_Xparse_nsname_err) (input) (res)) ; res)
 )
@@ -351,7 +350,7 @@ if ( (((=)) (c) (')')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_rparen_err) (input) (res)) ; res)
 )
 let rec try_Xparse_option = 
-#59 "xparse.trx"
+#58 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -365,13 +364,13 @@ Not_found -> let res = (match (match (try_Xparse_nsname (_filename) (_text) (inp
 | Trx_runtime.Ok ( ( ( input_459, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_function (_filename) (_text) (input_459)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_460, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_460, 
-#60 "xparse.trx"
+#59 "xparse.trx"
 ( __2  )), ((Trx_runtime.emptyError) (input_460)))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> Trx_runtime.Ok(((input_457, None), err))
 | Trx_runtime.Ok ( ( ( input_461, r ), err ) ) -> Trx_runtime.Ok(((input_461, Some((r))), err))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_458, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_458, 
-#60 "xparse.trx"
+#59 "xparse.trx"
 ( __1, match __2 with Some r -> r | None -> Value "true"  )), ((Trx_runtime.emptyError) (input_458)))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.option_to_res_err (if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('$')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None )) (input) (((Trx_runtime.Expected(("'$'")))::([])))) with
@@ -388,13 +387,13 @@ if ( (((=)) (c) (':')) ) then ( Some((((succ) (input_452)), c)) ) else ( None ) 
 | Trx_runtime.Ok ( ( ( input_455, __5 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_rparen (_filename) (_text) (input_455)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_456, __6 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_456, 
-#61 "xparse.trx"
+#60 "xparse.trx"
 ( __5  )), ((Trx_runtime.emptyError) (input_456))))))))))))))))))))))))
 | ( _ok ) as __pat_var -> __pat_var) in
 (Hashtbl.add (memo_Xparse_option_err) (input) (res)) ; res)
 )
 let rec try_Xparse_cdata_noerr = 
-#30 "xparse.trx"
+#29 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -415,12 +414,12 @@ Some((((succ) (input_292)), c)) ) else ( None )
 | Some ( ( input_288, __2 ) ) -> (match if ( (((&&)) ((((<=)) ((((+)) (input_288) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_288) (0))))) (']'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_288) (1))))) (']'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_288) (2))))) ('>'))) (true)))))))) ) then ( Some(((((+)) (input_288) (3)), "]]>")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_289, __3 ) ) -> Some((input_289, 
-#30 "xparse.trx"
+#29 "xparse.trx"
 ( `text __2  )))))) in
 (Hashtbl.add (memo_Xparse_cdata) (input) (res)) ; res)
 )
 let rec try_Xparse_extra_header_noerr = 
-#31 "xparse.trx"
+#30 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -449,19 +448,19 @@ if ( (((=)) (c) ('>')) ) then ( Some((((succ) (input_211)), c)) ) else ( None ) 
 (Hashtbl.add (memo_Xparse_extra_header) (input) (res)) ; res)
 )
 let rec try_Xparse_commentstart_noerr = 
-#83 "xparse.trx"
+#82 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
 if ( (((&&)) ((((<=)) ((((+)) (input) (4))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (0))))) ('<'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (1))))) ('!'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (2))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (3))))) ('-'))) (true)))))))))) ) then ( Some(((((+)) (input) (4)), "<!--")) ) else ( None ))
 let rec try_Xparse_commentstop_noerr = 
-#84 "xparse.trx"
+#83 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
 if ( (((&&)) ((((<=)) ((((+)) (input) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (0))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (1))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input) (2))))) ('>'))) (true)))))))) ) then ( Some(((((+)) (input) (3)), "-->")) ) else ( None ))
 let rec try_Xparse_comment_noerr = 
-#82 "xparse.trx"
+#81 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -490,7 +489,7 @@ and _get_sub = ((String.sub) (_text)) in
 if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((||)) ((((=)) (c) (' '))) ((((||)) ((((=)) (c) ('\n'))) ((((||)) ((((=)) (c) ('\r'))) ((((=)) (c) ('\t')))))))) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ))
 let rec try_Xparse_spacing_noerr = 
-#85 "xparse.trx"
+#84 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -507,7 +506,7 @@ None -> (try_Xparse_comment_noerr (_filename) (_text) (input_71))
 (Hashtbl.add (memo_Xparse_spacing) (input) (res)) ; res)
 )
 let rec try_Xparse_close_noerr = 
-#78 "xparse.trx"
+#77 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -523,7 +522,7 @@ if ( (((=)) (c) ('>')) ) then ( Some((((succ) (input_267)), c)) ) else ( None ) 
 (Hashtbl.add (memo_Xparse_close) (input) (res)) ; res)
 )
 let rec try_Xparse_name_noerr = 
-#55 "xparse.trx"
+#54 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -536,12 +535,12 @@ if ( (((||)) ((((&&)) ((((>=)) (c) ('a'))) ((((<=)) (c) ('z'))))) ((((||)) ((((&
 | Some ( ( input_152, __1 ) ) -> (match (try_Xparse_spacing_noerr (_filename) (_text) (input_152)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_153, __2 ) ) -> Some((input_153, 
-#55 "xparse.trx"
+#54 "xparse.trx"
 ( Tgrammar.string_of_chars __1  ))))) in
 (Hashtbl.add (memo_Xparse_name) (input) (res)) ; res)
 )
 let rec try_Xparse_nsname_noerr = 
-#64 "xparse.trx"
+#63 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -560,12 +559,12 @@ None -> Some((input_147, None))
 | Some ( ( input_151, r ) ) -> Some((input_151, Some((r))))) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_148, __2 ) ) -> Some((input_148, 
-#64 "xparse.trx"
+#63 "xparse.trx"
 ( __1 (* FIXME *)  ))))) in
 (Hashtbl.add (memo_Xparse_nsname) (input) (res)) ; res)
 )
 let rec try_Xparse_open_noerr = 
-#77 "xparse.trx"
+#76 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -597,14 +596,14 @@ if ( (((=)) (c) ('=')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_equal) (input) (res)) ; res)
 )
 let rec try_Xparse_dblq_noerr = 
-#79 "xparse.trx"
+#78 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
 if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('"')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ))
 let rec try_Xparse_dblexpr_noerr = 
-#67 "xparse.trx"
+#66 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -616,7 +615,7 @@ Not_found -> let res = (match (try_Xparse_dblq_noerr (_filename) (_text) (input)
 | Some ( ( input_240, __1 ) ) -> (match (Trx_runtime.while_primary_noerr (false) ((fun input_244 -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_244) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_244) (0))))) ('\\'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_244) (1))))) ('"'))) (true)))))) ) then ( Some(((((+)) (input_244) (2)), "\\\"")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_247, __1 ) ) -> Some((input_247, 
-#67 "xparse.trx"
+#66 "xparse.trx"
 ( '\"'  )))) with
 None -> (match (try_Xparse_dblq_noerr (_filename) (_text) (input_244)) with
 None -> let input_245 = input_244 in
@@ -631,19 +630,19 @@ Some((((succ) (input_245)), c)) ) else ( None )
 | Some ( ( input_242, __3 ) ) -> (match (try_Xparse_spacing_noerr (_filename) (_text) (input_242)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_243, __4 ) ) -> Some((input_243, 
-#67 "xparse.trx"
+#66 "xparse.trx"
 ( Tgrammar.string_of_chars __2  ))))))) in
 (Hashtbl.add (memo_Xparse_dblexpr) (input) (res)) ; res)
 )
 let rec try_Xparse_quote_noerr = 
-#80 "xparse.trx"
+#79 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
 if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('\'')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ))
 let rec try_Xparse_sglexpr_noerr = 
-#68 "xparse.trx"
+#67 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -655,7 +654,7 @@ Not_found -> let res = (match (try_Xparse_quote_noerr (_filename) (_text) (input
 | Some ( ( input_88, __1 ) ) -> (match (Trx_runtime.while_primary_noerr (false) ((fun input_92 -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_92) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_92) (0))))) ('\\'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_92) (1))))) ('\''))) (true)))))) ) then ( Some(((((+)) (input_92) (2)), "\\'")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_95, __1 ) ) -> Some((input_95, 
-#68 "xparse.trx"
+#67 "xparse.trx"
 ( '\''  )))) with
 None -> (match (try_Xparse_quote_noerr (_filename) (_text) (input_92)) with
 None -> let input_93 = input_92 in
@@ -670,12 +669,12 @@ Some((((succ) (input_93)), c)) ) else ( None )
 | Some ( ( input_90, __3 ) ) -> (match (try_Xparse_spacing_noerr (_filename) (_text) (input_90)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_91, __4 ) ) -> Some((input_91, 
-#68 "xparse.trx"
+#67 "xparse.trx"
 ( Tgrammar.string_of_chars __2  ))))))) in
 (Hashtbl.add (memo_Xparse_sglexpr) (input) (res)) ; res)
 )
 let rec try_Xparse_value_noerr = 
-#66 "xparse.trx"
+#65 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -690,7 +689,7 @@ None -> (try_Xparse_name_noerr (_filename) (_text) (input))
 (Hashtbl.add (memo_Xparse_value) (input) (res)) ; res)
 )
 let rec try_Xparse_function_noerr = 
-#74 "xparse.trx"
+#73 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -700,7 +699,7 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (try_Xparse_value_noerr (_filename) (_text) (input)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_197, __1 ) ) -> Some((input_197, 
-#75 "xparse.trx"
+#74 "xparse.trx"
 ( Value __1  )))) in
 (Hashtbl.add (memo_Xparse_function) (input) (res)) ; res)
 )
@@ -737,7 +736,7 @@ if ( (((=)) (c) (')')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_rparen) (input) (res)) ; res)
 )
 let rec try_Xparse_option_noerr = 
-#59 "xparse.trx"
+#58 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -751,13 +750,13 @@ Not_found -> let res = (match (match (try_Xparse_nsname_noerr (_filename) (_text
 | Some ( ( input_142, __1 ) ) -> (match (try_Xparse_function_noerr (_filename) (_text) (input_142)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_143, __2 ) ) -> Some((input_143, 
-#60 "xparse.trx"
+#59 "xparse.trx"
 ( __2  ))))) with
 None -> Some((input_140, None))
 | Some ( ( input_144, r ) ) -> Some((input_144, Some((r))))) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_141, __2 ) ) -> Some((input_141, 
-#60 "xparse.trx"
+#59 "xparse.trx"
 ( __1, match __2 with Some r -> r | None -> Value "true"  ))))) with
 None -> (match if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('$')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ) with
@@ -774,7 +773,7 @@ if ( (((=)) (c) (':')) ) then ( Some((((succ) (input_135)), c)) ) else ( None ) 
 | Some ( ( input_138, __5 ) ) -> (match (try_Xparse_rparen_noerr (_filename) (_text) (input_138)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_139, __6 ) ) -> Some((input_139, 
-#61 "xparse.trx"
+#60 "xparse.trx"
 ( __5  )))))))))
 | ( _ok ) as __pat_var -> __pat_var) in
 (Hashtbl.add (memo_Xparse_option) (input) (res)) ; res)
@@ -796,7 +795,7 @@ if ( (((=)) (c) ('/')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_slash) (input) (res)) ; res)
 )
 let rec try_Xparse_element_noerr = 
-#36 "xparse.trx"
+#35 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -810,7 +809,7 @@ Not_found -> let res = (match (try_Xparse_open_noerr (_filename) (_text) (input)
 | Some ( ( input_235, __1 ) ) -> (match (try_Xparse_nsname_noerr (_filename) (_text) (input_235)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_236, __2 ) ) -> Some((input_236, 
-#38 "xparse.trx"
+#37 "xparse.trx"
 ( `stop __2  ))))) with
 None -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_221) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_221) (0))))) ('!'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_221) (1))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_221) (2))))) ('-'))) (true)))))))) ) then ( Some(((((+)) (input_221) (3)), "!--")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
@@ -824,7 +823,7 @@ Some((((succ) (input_233)), c)) ) else ( None )
 | Some ( ( input_230, __2 ) ) -> (match if ( (((&&)) ((((<=)) ((((+)) (input_230) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_230) (0))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_230) (1))))) ('-'))) (true)))))) ) then ( Some(((((+)) (input_230) (2)), "--")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_231, __3 ) ) -> Some((input_231, 
-#39 "xparse.trx"
+#38 "xparse.trx"
 ( `nothing  )))))) with
 None -> (match (try_Xparse_nsname_noerr (_filename) (_text) (input_221)) with
 ( None ) as __pat_var -> __pat_var
@@ -835,7 +834,7 @@ None -> Some((input_225, None))
 | Some ( ( input_227, r ) ) -> Some((input_227, Some((r))))) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_226, __3 ) ) -> Some((input_226, 
-#40 "xparse.trx"
+#39 "xparse.trx"
 ( match __3 with Some _ -> `one (__1, __2) | _ -> `start (__1, __2)  ))))))
 | ( _ok ) as __pat_var -> __pat_var)
 | ( _ok ) as __pat_var -> __pat_var) with
@@ -843,7 +842,7 @@ None -> Some((input_225, None))
 | Some ( ( input_222, __2 ) ) -> (match (try_Xparse_close_noerr (_filename) (_text) (input_222)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_223, __3 ) ) -> Some((input_223, 
-#41 "xparse.trx"
+#40 "xparse.trx"
 ( __2  )))))) in
 (Hashtbl.add (memo_Xparse_element) (input) (res)) ; res)
 )
@@ -889,7 +888,7 @@ Not_found -> let res = (match (try_Xparse_strint_noerr (_filename) (_text) (inpu
 (Hashtbl.add (memo_Xparse_int) (input) (res)) ; res)
 )
 let rec try_Xparse_char_noerr = 
-#49 "xparse.trx"
+#48 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -904,7 +903,7 @@ if ( (((=)) (c) ('%')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 | Some ( ( input_285, __2 ) ) -> (match (try_Xparse_hexa_noerr (_filename) (_text) (input_285)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_286, __3 ) ) -> Some((input_286, 
-#49 "xparse.trx"
+#48 "xparse.trx"
 ( char_of_int (16 * Char.hexa_value __2 + Char.hexa_value __3)  )))))) with
 None -> (match (match if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('&')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ) with
@@ -912,27 +911,27 @@ if ( (((=)) (c) ('&')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 | Some ( ( input_274, __1 ) ) -> (match (match (match if ( (((&&)) ((((<=)) ((((+)) (input_274) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (0))))) ('g'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (1))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (2))))) (';'))) (true)))))))) ) then ( Some(((((+)) (input_274) (3)), "gt;")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_283, __1 ) ) -> Some((input_283, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '>'  )))) with
 None -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_274) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (0))))) ('l'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (1))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (2))))) (';'))) (true)))))))) ) then ( Some(((((+)) (input_274) (3)), "lt;")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_282, __1 ) ) -> Some((input_282, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '<'  )))) with
 None -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_274) (4))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (0))))) ('a'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (1))))) ('m'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (2))))) ('p'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (3))))) (';'))) (true)))))))))) ) then ( Some(((((+)) (input_274) (4)), "amp;")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_281, __1 ) ) -> Some((input_281, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '&'  )))) with
 None -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_274) (5))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (0))))) ('q'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (1))))) ('u'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (2))))) ('o'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (3))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (4))))) (';'))) (true)))))))))))) ) then ( Some(((((+)) (input_274) (5)), "quot;")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_280, __1 ) ) -> Some((input_280, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '"'  )))) with
 None -> (match (match if ( (((&&)) ((((<=)) ((((+)) (input_274) (5))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (0))))) ('a'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (1))))) ('p'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (2))))) ('o'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (3))))) ('s'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_274) (4))))) (';'))) (true)))))))))))) ) then ( Some(((((+)) (input_274) (5)), "apos;")) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_279, __1 ) ) -> Some((input_279, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '\''  )))) with
 None -> (match if ( (((<)) (input_274) (_len)) ) then ( let c = ((_get_char) (input_274)) in
 if ( (((=)) (c) ('#')) ) then ( Some((((succ) (input_274)), c)) ) else ( None ) ) else ( None ) with
@@ -943,7 +942,7 @@ if ( (((=)) (c) ('#')) ) then ( Some((((succ) (input_274)), c)) ) else ( None ) 
 if ( (((=)) (c) (';')) ) then ( Some((((succ) (input_277)), c)) ) else ( None ) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_278, __3 ) ) -> Some((input_278, 
-#51 "xparse.trx"
+#50 "xparse.trx"
 ( char_of_int __2  ))))))
 | ( _ok ) as __pat_var -> __pat_var)
 | ( _ok ) as __pat_var -> __pat_var)
@@ -952,7 +951,7 @@ if ( (((=)) (c) (';')) ) then ( Some((((succ) (input_277)), c)) ) else ( None ) 
 | ( _ok ) as __pat_var -> __pat_var) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_275, __2 ) ) -> Some((input_275, 
-#51 "xparse.trx"
+#50 "xparse.trx"
 ( __2  ))))) with
 None -> (match if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('<')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None ) with
@@ -962,7 +961,7 @@ let __1 = () in
 Some((((succ) (input_272)), c)) ) else ( None ) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_273, __2 ) ) -> Some((input_273, 
-#52 "xparse.trx"
+#51 "xparse.trx"
 ( __2  ))))
 | Some ( ( _, _ ) ) -> None)
 | ( _ok ) as __pat_var -> __pat_var)
@@ -970,7 +969,7 @@ Some((((succ) (input_272)), c)) ) else ( None ) with
 (Hashtbl.add (memo_Xparse_char) (input) (res)) ; res)
 )
 let rec try_Xparse_text_noerr = 
-#44 "xparse.trx"
+#43 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -980,18 +979,18 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (match (Trx_runtime.while_primary_noerr_nores (true) ((fun input_11 -> (try_Xparse_space_noerr (_filename) (_text) (input_11)))) (input)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_10, __1 ) ) -> Some((input_10, 
-#45 "xparse.trx"
+#44 "xparse.trx"
 ( `space  )))) with
 None -> (match (Trx_runtime.while_primary_noerr (true) ((fun input_9 -> (try_Xparse_char_noerr (_filename) (_text) (input_9)))) (input)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_8, __1 ) ) -> Some((input_8, 
-#46 "xparse.trx"
+#45 "xparse.trx"
 ( `text (Tgrammar.string_of_chars __1)  ))))
 | ( _ok ) as __pat_var -> __pat_var) in
 (Hashtbl.add (memo_Xparse_text) (input) (res)) ; res)
 )
 let rec try_Xparse_content_item_noerr = 
-#34 "xparse.trx"
+#33 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1006,7 +1005,7 @@ None -> (match (try_Xparse_extra_header_noerr (_filename) (_text) (input)) with
 | Some ( ( input_248, __1 ) ) -> (match (try_Xparse_content_item_noerr (_filename) (_text) (input_248)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_249, __2 ) ) -> Some((input_249, 
-#34 "xparse.trx"
+#33 "xparse.trx"
 ( __2  )))))
 | ( _ok ) as __pat_var -> __pat_var)
 | ( _ok ) as __pat_var -> __pat_var)
@@ -1014,7 +1013,7 @@ None -> (match (try_Xparse_extra_header_noerr (_filename) (_text) (input)) with
 (Hashtbl.add (memo_Xparse_content_item) (input) (res)) ; res)
 )
 let rec try_Xparse_content_noerr = 
-#33 "xparse.trx"
+#32 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1024,7 +1023,7 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (Trx_runtime.while_primary_noerr (false) ((fun input_254 -> (try_Xparse_content_item_noerr (_filename) (_text) (input_254)))) (input)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_253, __1 ) ) -> Some((input_253, 
-#33 "xparse.trx"
+#32 "xparse.trx"
 ( rewrite __1  )))) in
 (Hashtbl.add (memo_Xparse_content) (input) (res)) ; res)
 )
@@ -1040,7 +1039,7 @@ let __1 = () in
 Some((input_220, ()))
 | Some ( ( _, _ ) ) -> None))
 let rec try_Xparse_header_noerr = 
-#28 "xparse.trx"
+#27 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1058,12 +1057,12 @@ Not_found -> let res = (match if ( (((&&)) ((((<=)) ((((+)) (input) (5))) (_len)
 | Some ( ( input_194, __4 ) ) -> (match (try_Xparse_spacing_noerr (_filename) (_text) (input_194)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_195, __5 ) ) -> Some((input_195, 
-#28 "xparse.trx"
+#27 "xparse.trx"
 ( __3  )))))))) in
 (Hashtbl.add (memo_Xparse_header) (input) (res)) ; res)
 )
 let rec try_Xparse_file_noerr = 
-#25 "xparse.trx"
+#24 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1081,13 +1080,13 @@ None -> Some((input, None))
 | Some ( ( input_206, __3 ) ) -> (match (try_Xparse_eof_noerr (_filename) (_text) (input_206)) with
 ( None ) as __pat_var -> __pat_var
 | Some ( ( input_207, __4 ) ) -> Some((input_207, 
-#26 "xparse.trx"
+#25 "xparse.trx"
 ( let head = match __1 with Some h -> h | None -> [] in 
      let xml, ok = __2 in { xml with header = head }, ok  ))))))) in
 (Hashtbl.add (memo_Xparse_file) (input) (res)) ; res)
 )
 let rec try_Xparse_close = 
-#78 "xparse.trx"
+#77 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1146,7 +1145,7 @@ Not_found -> let res = (match (try_Xparse_strint (_filename) (_text) (input)) wi
 (Hashtbl.add (memo_Xparse_int_err) (input) (res)) ; res)
 )
 let rec try_Xparse_char = 
-#49 "xparse.trx"
+#48 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1161,7 +1160,7 @@ if ( (((=)) (c) ('%')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 | Trx_runtime.Ok ( ( ( input_602, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_hexa (_filename) (_text) (input_602)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_603, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_603, 
-#49 "xparse.trx"
+#48 "xparse.trx"
 ( char_of_int (16 * Char.hexa_value __2 + Char.hexa_value __3)  )), ((Trx_runtime.emptyError) (input_603))))))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_err (if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('&')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None )) (input) (((Trx_runtime.Expected(("'&'")))::([])))) with
@@ -1169,27 +1168,27 @@ if ( (((=)) (c) ('&')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 | Trx_runtime.Ok ( ( ( input_591, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_591) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (0))))) ('g'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (1))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (2))))) (';'))) (true)))))))) ) then ( Some(((((+)) (input_591) (3)), "gt;")) ) else ( None )) (input_591) ("\"gt;\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_600, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_600, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '>'  )), ((Trx_runtime.emptyError) (input_600))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_591) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (0))))) ('l'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (1))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (2))))) (';'))) (true)))))))) ) then ( Some(((((+)) (input_591) (3)), "lt;")) ) else ( None )) (input_591) ("\"lt;\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_599, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_599, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '<'  )), ((Trx_runtime.emptyError) (input_599))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_591) (4))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (0))))) ('a'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (1))))) ('m'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (2))))) ('p'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (3))))) (';'))) (true)))))))))) ) then ( Some(((((+)) (input_591) (4)), "amp;")) ) else ( None )) (input_591) ("\"amp;\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_598, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_598, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '&'  )), ((Trx_runtime.emptyError) (input_598))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_591) (5))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (0))))) ('q'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (1))))) ('u'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (2))))) ('o'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (3))))) ('t'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (4))))) (';'))) (true)))))))))))) ) then ( Some(((((+)) (input_591) (5)), "quot;")) ) else ( None )) (input_591) ("\"quot;\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_597, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_597, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '"'  )), ((Trx_runtime.emptyError) (input_597))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_591) (5))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (0))))) ('a'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (1))))) ('p'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (2))))) ('o'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (3))))) ('s'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_591) (4))))) (';'))) (true)))))))))))) ) then ( Some(((((+)) (input_591) (5)), "apos;")) ) else ( None )) (input_591) ("\"apos;\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_596, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_596, 
-#50 "xparse.trx"
+#49 "xparse.trx"
 ( '\''  )), ((Trx_runtime.emptyError) (input_596))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.option_to_res_err (if ( (((<)) (input_591) (_len)) ) then ( let c = ((_get_char) (input_591)) in
 if ( (((=)) (c) ('#')) ) then ( Some((((succ) (input_591)), c)) ) else ( None ) ) else ( None )) (input_591) (((Trx_runtime.Expected(("'#'")))::([])))) with
@@ -1200,7 +1199,7 @@ if ( (((=)) (c) ('#')) ) then ( Some((((succ) (input_591)), c)) ) else ( None ) 
 if ( (((=)) (c) (';')) ) then ( Some((((succ) (input_594)), c)) ) else ( None ) ) else ( None )) (input_594) (((Trx_runtime.Expected(("';'")))::([])))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_595, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_595, 
-#51 "xparse.trx"
+#50 "xparse.trx"
 ( char_of_int __2  )), ((Trx_runtime.emptyError) (input_595)))))))))))))))
 | ( _ok ) as __pat_var -> __pat_var)))
 | ( _ok ) as __pat_var -> __pat_var)))
@@ -1209,7 +1208,7 @@ if ( (((=)) (c) (';')) ) then ( Some((((succ) (input_594)), c)) ) else ( None ) 
 | ( _ok ) as __pat_var -> __pat_var) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_592, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_592, 
-#51 "xparse.trx"
+#50 "xparse.trx"
 ( __2  )), ((Trx_runtime.emptyError) (input_592)))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.option_to_res_err (if ( (((<)) (input) (_len)) ) then ( let c = ((_get_char) (input)) in
 if ( (((=)) (c) ('<')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) else ( None )) (input) (((Trx_runtime.Expected(("'<'")))::([])))) with
@@ -1219,7 +1218,7 @@ let __1 = () in
 Some((((succ) (input_589)), c)) ) else ( None )) (input_589) (((Trx_runtime.Expected(("any character")))::([])))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_590, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_590, 
-#52 "xparse.trx"
+#51 "xparse.trx"
 ( __2  )), ((Trx_runtime.emptyError) (input_590)))))))))
 | Trx_runtime.Ok ( ( ( _, _ ), err ) ) -> let err = err in
 Trx_runtime.Fail((err)))))
@@ -1228,7 +1227,7 @@ Trx_runtime.Fail((err)))))
 (Hashtbl.add (memo_Xparse_char_err) (input) (res)) ; res)
 )
 let rec try_Xparse_text = 
-#44 "xparse.trx"
+#43 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1238,12 +1237,12 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (match (Trx_runtime.while_primary_nores (true) ((fun input_328 -> (try_Xparse_space (_filename) (_text) (input_328)))) (input)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_327, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_327, 
-#45 "xparse.trx"
+#44 "xparse.trx"
 ( `space  )), ((Trx_runtime.emptyError) (input_327))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.while_primary (true) ((fun input_326 -> (try_Xparse_char (_filename) (_text) (input_326)))) (input)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_325, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_325, 
-#46 "xparse.trx"
+#45 "xparse.trx"
 ( `text (Tgrammar.string_of_chars __1)  )), ((Trx_runtime.emptyError) (input_325)))))))))
 | ( _ok ) as __pat_var -> __pat_var) in
 (Hashtbl.add (memo_Xparse_text_err) (input) (res)) ; res)
@@ -1277,7 +1276,7 @@ let __1 = () in
 | Trx_runtime.Ok ( ( ( _, _ ), err ) ) -> let err = err in
 Trx_runtime.Fail((err))))
 let rec try_Xparse_cdata = 
-#30 "xparse.trx"
+#29 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1301,12 +1300,12 @@ Trx_runtime.Fail((err))))) (input_604)) with
 | Trx_runtime.Ok ( ( ( input_605, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_605) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_605) (0))))) (']'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_605) (1))))) (']'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_605) (2))))) ('>'))) (true)))))))) ) then ( Some(((((+)) (input_605) (3)), "]]>")) ) else ( None )) (input_605) ("\"]]>\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_606, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_606, 
-#30 "xparse.trx"
+#29 "xparse.trx"
 ( `text __2  )), ((Trx_runtime.emptyError) (input_606))))))))))))) in
 (Hashtbl.add (memo_Xparse_cdata_err) (input) (res)) ; res)
 )
 let rec try_Xparse_extra_header = 
-#31 "xparse.trx"
+#30 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1339,7 +1338,7 @@ Trx_runtime.Fail((err)))))) in
 (Hashtbl.add (memo_Xparse_extra_header_err) (input) (res)) ; res)
 )
 let rec try_Xparse_open = 
-#77 "xparse.trx"
+#76 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1355,7 +1354,7 @@ if ( (((=)) (c) ('<')) ) then ( Some((((succ) (input)), c)) ) else ( None ) ) el
 (Hashtbl.add (memo_Xparse_open_err) (input) (res)) ; res)
 )
 let rec try_Xparse_element = 
-#36 "xparse.trx"
+#35 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1369,7 +1368,7 @@ Not_found -> let res = (match (try_Xparse_open (_filename) (_text) (input)) with
 | Trx_runtime.Ok ( ( ( input_552, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_nsname (_filename) (_text) (input_552)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_553, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_553, 
-#38 "xparse.trx"
+#37 "xparse.trx"
 ( `stop __2  )), ((Trx_runtime.emptyError) (input_553)))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_538) (3))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_538) (0))))) ('!'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_538) (1))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_538) (2))))) ('-'))) (true)))))))) ) then ( Some(((((+)) (input_538) (3)), "!--")) ) else ( None )) (input_538) ("\"!--\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
@@ -1386,7 +1385,7 @@ Trx_runtime.Fail((err))))) (input_546)) with
 | Trx_runtime.Ok ( ( ( input_547, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<=)) ((((+)) (input_547) (2))) (_len))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_547) (0))))) ('-'))) ((((&&)) ((((=)) (((_get_char) ((((+)) (input_547) (1))))) ('-'))) (true)))))) ) then ( Some(((((+)) (input_547) (2)), "--")) ) else ( None )) (input_547) ("\"--\"")) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_548, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_548, 
-#39 "xparse.trx"
+#38 "xparse.trx"
 ( `nothing  )), ((Trx_runtime.emptyError) (input_548))))))))))))) with
 Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_nsname (_filename) (_text) (input_538)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
@@ -1397,7 +1396,7 @@ Trx_runtime.Fail ( ( err ) ) -> Trx_runtime.Ok(((input_542, None), err))
 | Trx_runtime.Ok ( ( ( input_544, r ), err ) ) -> Trx_runtime.Ok(((input_544, Some((r))), err))) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_543, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_543, 
-#40 "xparse.trx"
+#39 "xparse.trx"
 ( match __3 with Some _ -> `one (__1, __2) | _ -> `start (__1, __2)  )), ((Trx_runtime.emptyError) (input_543)))))))))))))))
 | ( _ok ) as __pat_var -> __pat_var)))
 | ( _ok ) as __pat_var -> __pat_var) with
@@ -1405,12 +1404,12 @@ Trx_runtime.Fail ( ( err ) ) -> Trx_runtime.Ok(((input_542, None), err))
 | Trx_runtime.Ok ( ( ( input_539, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_close (_filename) (_text) (input_539)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_540, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_540, 
-#41 "xparse.trx"
+#40 "xparse.trx"
 ( __2  )), ((Trx_runtime.emptyError) (input_540))))))))))))) in
 (Hashtbl.add (memo_Xparse_element_err) (input) (res)) ; res)
 )
 let rec try_Xparse_content_item = 
-#34 "xparse.trx"
+#33 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1431,7 +1430,7 @@ Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xpa
 | Trx_runtime.Ok ( ( ( input_565, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_content_item (_filename) (_text) (input_565)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_566, __2 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_566, 
-#34 "xparse.trx"
+#33 "xparse.trx"
 ( __2  )), ((Trx_runtime.emptyError) (input_566))))))))))))
 | ( _ok ) as __pat_var -> __pat_var)))
 | ( _ok ) as __pat_var -> __pat_var)))
@@ -1439,7 +1438,7 @@ Trx_runtime.Fail ( ( err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xpa
 (Hashtbl.add (memo_Xparse_content_item_err) (input) (res)) ; res)
 )
 let rec try_Xparse_content = 
-#33 "xparse.trx"
+#32 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1449,12 +1448,12 @@ and _get_sub = ((String.sub) (_text)) in
 Not_found -> let res = (match (Trx_runtime.while_primary (false) ((fun input_571 -> (try_Xparse_content_item (_filename) (_text) (input_571)))) (input)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_570, __1 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_570, 
-#33 "xparse.trx"
+#32 "xparse.trx"
 ( rewrite __1  )), ((Trx_runtime.emptyError) (input_570))))))) in
 (Hashtbl.add (memo_Xparse_content_err) (input) (res)) ; res)
 )
 let rec try_Xparse_header = 
-#28 "xparse.trx"
+#27 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1472,12 +1471,12 @@ Not_found -> let res = (match (Trx_runtime.option_to_res_msg (if ( (((&&)) ((((<
 | Trx_runtime.Ok ( ( ( input_511, __4 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_spacing (_filename) (_text) (input_511)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_512, __5 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_512, 
-#28 "xparse.trx"
+#27 "xparse.trx"
 ( __3  )), ((Trx_runtime.emptyError) (input_512))))))))))))))))))) in
 (Hashtbl.add (memo_Xparse_header_err) (input) (res)) ; res)
 )
 let rec try_Xparse_file = 
-#25 "xparse.trx"
+#24 "xparse.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
 and _get_sub = ((String.sub) (_text)) in
@@ -1495,7 +1494,7 @@ Trx_runtime.Fail ( ( err ) ) -> Trx_runtime.Ok(((input, None), err))
 | Trx_runtime.Ok ( ( ( input_523, __3 ), err ) ) -> (Trx_runtime.addErrorInfo (err) ((match (try_Xparse_eof (_filename) (_text) (input_523)) with
 ( Trx_runtime.Fail ( ( _err ) ) ) as __pat_var -> __pat_var
 | Trx_runtime.Ok ( ( ( input_524, __4 ), err ) ) -> (Trx_runtime.addErrorInfo (err) (Trx_runtime.Ok(((input_524, 
-#26 "xparse.trx"
+#25 "xparse.trx"
 ( let head = match __1 with Some h -> h | None -> [] in 
      let xml, ok = __2 in { xml with header = head }, ok  )), ((Trx_runtime.emptyError) (input_524)))))))))))))))) in
 (Hashtbl.add (memo_Xparse_file_err) (input) (res)) ; res)

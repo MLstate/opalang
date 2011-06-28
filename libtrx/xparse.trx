@@ -18,7 +18,6 @@
 include default.trx
 
 {{ 
-open Base
 open Xml 
 }}
 
