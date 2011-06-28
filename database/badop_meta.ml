@@ -77,7 +77,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
          if o <> default_o
          then prerr_endline ("Warning: database options before --db-remote will be ignored"^spec_msg);
          (module Badop_client : Badop.S),
-         Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt))),
+         Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt), fun () -> `abort)),
       "<host>[:<port>]",
       (let default_str = match default_o with
          | Badop.Options_Client(_,(host,port),_) ->

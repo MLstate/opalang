@@ -128,7 +128,8 @@ type local_options =
 
 type options =
   | Options_Local of local_options
-  | Options_Client of Scheduler.t * (Unix.inet_addr * int) (** scheduler, server *)
+  | Options_Client of Scheduler.t * (Unix.inet_addr * int) * (unit -> [ `retry of Time.t | `abort ])
+      (** scheduler, server, on_disconnect *)
   | Options_Debug of string * options (** debug line prefix, backend options *)
   | Options_Dispatcher of int * options list (** flat-replication factor, backends options *)
 

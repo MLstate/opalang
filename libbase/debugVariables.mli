@@ -398,6 +398,12 @@ val cps_verbose : debug_var
 *)
 val cps_blocking_wait : debug_var
 
+(** {b MLSTATE_DATABASE_RECONNECT}
+  Set up a delay in seconds for automatic reconnection when a database server is lost.
+  (if unset, never reconnect automatically)
+*)
+val database_reconnect : debug_var
+
 (**
    {b MLSTATE_DB3_NO_FINAL_SNAPSHOT}
    When activated, when the database is closed, we do not make a snapshot of the current revision,
@@ -407,13 +413,6 @@ val cps_blocking_wait : debug_var
    always use a snapshot when we close the database, the transaction binary file is always empty.
 *)
 val db3_no_final_snapshot : debug_var
-
-(**
-   {b MLSTATE_LOW_LEVEL_DB_LOG}
-   When activated, the low level database will print disk writing related log in
-   'low_level_db.log' file.
-*)
-val low_level_db_log : debug_var
 
 (**
    {b MLSTATE_DB3_TRANSACTION_LIMIT}
@@ -591,6 +590,13 @@ val lambda_correct : debug_var (** check that the code is well lambda lifted
                                    [val g(x,y) = y val f(x) = g(x)] but the lambda lifting
                                    is not correct anyway
                                *)
+
+(**
+   {b MLSTATE_LOW_LEVEL_DB_LOG}
+   When activated, the low level database will print disk writing related log in
+   'low_level_db.log' file.
+*)
+val low_level_db_log : debug_var
 
 (**
    {b MLSTATE_NO_ACCESS_LOG}

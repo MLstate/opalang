@@ -33,13 +33,14 @@ include Badop_protocol.F
 module N = Hlnet
 
 let open_database options k =
-  let scheduler, remote = match options with
-    | Badop.Options_Client (scheduler,(addr,port)) -> scheduler, N.Tcp (addr,port)
+  let scheduler, remote, on_disconnect  = match options with
+    | Badop.Options_Client (scheduler,(addr,port), on_disconnect) -> scheduler, N.Tcp (addr,port), on_disconnect
     | _ -> assert false
   in
   let on_disconnect () =
-    Logger.error "Can not connect to %s" (N.endpoint_to_string remote);
-    `abort in
+    Logger.error "Disconnected from %s" (N.endpoint_to_string remote);
+    on_disconnect()
+  in
   N.open_channel scheduler remote ~on_disconnect database_channel_spec @> k
 
 let close_database db k = N.close_channel db |> k
