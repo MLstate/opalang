@@ -46,6 +46,8 @@
     The IL ast should be updated to support annotation
 *)
 
+module List = BaseList
+
 module IL = struct
   type ident = Ident.t
 
@@ -195,7 +197,6 @@ end
 module Subs : TraverseInterface.S2 with type 'a t = IL.term constraint 'a = _ * _ * _ =
 struct
   open IL
-  open Base
   type 'a t = term constraint 'a = _ * _ * _
 
   let foldmap tra acc t =
@@ -293,7 +294,6 @@ sig
 end =
 struct
   open IL
-  open Base
 
   let foldmap_vident tra acc ((Value id) as v) =
     let acc, fid = tra acc id in
@@ -539,7 +539,6 @@ sig
 end =
 struct
   open IL
-  open Base
 
   let counter = ref 0
   let count () = !counter
