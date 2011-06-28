@@ -64,6 +64,7 @@ type WAnyValue.config('any) = {
   default_value : WAnyValue.value('any);
   parse : string -> option(WAnyValue.value('any));
   show : WAnyValue.value('any) -> string;
+  non_editable_show : WAnyValue.value('any) -> option(xhtml);
   validator: WAnyValue.value('any) -> bool;
   incr: option((string, xhtml, (WAnyValue.value('any) -> WAnyValue.value('any))))
   decr: option((string, xhtml, (WAnyValue.value('any) -> WAnyValue.value('any))))
@@ -82,6 +83,7 @@ WAnyValue = {{
     default_value = default_value
     parse(_) = none
     show(x) = "{x}"
+    non_editable_show(_) = none
     validator(_) = true
     incr = none
     decr = none
@@ -139,7 +141,9 @@ WAnyValue = {{
    * Display a non-editable value of the widget.
    */
   show(config:WAnyValue.config('any), prefix_id:string, init_value:WAnyValue.value('any)) : xhtml =
-    <span id=#{anyvalue_id(prefix_id)}>{init_value}</span> |> WStyler.add(config.stylers.base_stylers.show, _)
+    <span id=#{anyvalue_id(prefix_id)}>
+      {config.non_editable_show(init_value) ? <>{ config.show(init_value) }</> }
+    </span> |> WStyler.add(config.stylers.base_stylers.show, _)
 
   /**
    * Returns the current value of the widget.
@@ -173,7 +177,7 @@ WAnyValue = {{
   internal_edit(config:WAnyValue.config('any), prefix_id:string, manually_editable:bool, init_value:WAnyValue.value('any)) : xhtml =
     html = if manually_editable 
       then <input type="text" id=#{anyvalue_id(prefix_id)} value={config.show(init_value)}/>
-      else <span id=#{anyvalue_id(prefix_id)}>{config.show(init_value)}</span>
+      else <span id=#{anyvalue_id(prefix_id)}>{config.non_editable_show(init_value) ? <>{ config.show(init_value) }</>}</span>
     html |> WStyler.add(config.stylers.base_stylers.edit, _)
 
   edit(config:WAnyValue.config('any), prefix_id:string, init_value:WAnyValue.value('any)) : xhtml =
@@ -190,7 +194,7 @@ WAnyValue = {{
              _ = Dom.set_value(#{anyvalue_id(prefix_id)}, config.show(new_val))
              void
            else
-             Dom.transform([#{anyvalue_id(prefix_id)} <- <>{config.show(new_val)}</>])
+             Dom.transform([#{anyvalue_id(prefix_id)} <- config.non_editable_show(new_val) ? <>{config.show(new_val)}</>])
         parameters.on_change(new_val)
       else void
     | {none} -> void
