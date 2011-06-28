@@ -710,7 +710,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
         | (QmlTyperException.Exception _) as exn ->
             QmlError.error context
               "@[<2>Type error in DB definition:@\n%a@]"
-              (QmlTyperErrHandling.pp_report_from_typer_exception gamma
+              (QmlTyperErrHandling.pp_report_from_typer_exception
                  QmlAnnotMap.empty)
               exn in
       register_path ~context t gamma p ty, None

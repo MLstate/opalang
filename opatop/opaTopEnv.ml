@@ -204,7 +204,7 @@ let try_infer typer env arg =
   | (QmlTyperException.Exception _ | QmlTypes.Exception _) as exn ->
       OManager.error "%a"
         (QmlTyperErrHandling.pp_report_from_typer_exception
-           env.QmlTypes.gamma env.QmlTypes.annotmap) exn
+           env.QmlTypes.annotmap) exn
 
 
 

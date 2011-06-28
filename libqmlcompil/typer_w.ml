@@ -177,7 +177,6 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
       W_TypingEnv.reset_empty_variables_mapping_on_error () ;
       (* Now, have a look at who killed us to issue an error message. *)
       match killed_by with
-        (* [TODO] better exception and error messages handling. *)
       | W_Unify.Unification_simple_type_conflict (ty1, ty2, detail) ->
           (* Case of error during unification but with no more precise error
              diagnosis. *)

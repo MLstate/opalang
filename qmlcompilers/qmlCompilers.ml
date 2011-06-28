@@ -302,8 +302,7 @@ struct
     | (QmlTypes.Exception _ | QmlTyperException.Exception _) as exn ->
         (* At this point, we do not have any environment nor annotations map. *)
         OManager.error "Typer : %a"
-          (QmlTyperErrHandling.pp_report_from_typer_exception
-             QmlTypes.Env.empty QmlAnnotMap.empty)
+          (QmlTyperErrHandling.pp_report_from_typer_exception QmlAnnotMap.empty)
           exn ;
     | QmlCpsRewriter.Exception e ->
         OManager.error "QmlCps : %s" (QmlCpsRewriter.error_message e)

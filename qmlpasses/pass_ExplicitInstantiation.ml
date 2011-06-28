@@ -1109,7 +1109,9 @@ let have_typeof ~set gamma annotmap qmlAst =
         let lt,lrow,lcol =
           try QmlMoreTypes.unify_and_show_instantiation ~allow_partial_application:true ~gamma t tsc
           with QmlTyperException.Exception _ as exn ->
-            OManager.i_error "%a@\non %a@." (QmlTyperErrHandling.pp_report_from_typer_exception gamma annotmap) exn QmlPrint.pp#expr e
+            OManager.i_error "%a@\non %a@."
+              (QmlTyperErrHandling.pp_report_from_typer_exception annotmap)
+              exn QmlPrint.pp#expr e
           | exn ->
               let context = QmlError.Context.expr e in
               QmlError.i_error None context "@[<2>Typing error: %s@\n(tsc:%a vs@ ty:%a)]@." (Printexc.to_string exn) QmlPrint.pp#tsc tsc QmlPrint.pp#ty t

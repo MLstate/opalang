@@ -48,10 +48,6 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
     ?(ident_printer = QmlPrint.pp#ident) ppf (_loc, e) =
   let print_ty ty = highlight_printer type_printer ty in
   match e with
-  | TExc.InvalidExpression ->
-      Format.fprintf ppf
-        ("The@ expression@ is@ invalid@ (e.g.@ a@ record@ with@ twice@ the@ " ^^
-         "same@ field).@\n")
   | TExc.InvalidType (t, kind) -> (
       Format.fprintf ppf "The@ type@  %a @ is@ invalid" print_ty t ;
       match kind with
@@ -88,20 +84,6 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
          "have@ @{<green>%d@}@ argument(s).@ However,@ here,@ it@ is@ " ^^
          "applied@ to@ @{<red>%d@}@ argument(s).@\n")
         QmlPrint.pp#typeident name (List.length vl) (List.length vr)
-  | TExc.InvalidUnification (t1, t2, ts_opt) -> (
-      Format.fprintf ppf
-        ("This@ expression@ has@ type@  %a .@\nHowever,@ according@ to@ " ^^
-         "the@ context,@ it@ seems@ that@ it@ should@ have@ type@  %a .@\n")
-        print_ty t1 print_ty t2 ;
-      match ts_opt with
-      | Some (t3, t4) ->
-          (* [TODO] Don't print different types, if they look the same. *)
-          Format.fprintf ppf
-            ("The@ types@ are incompatible,@ because@ type@  %a@ and@ " ^^
-             "type@  %a @ are@ incompatible.@\n")
-              print_ty t3 print_ty t4
-      | None -> ())
-  | TExc.InternalError s -> Format.fprintf ppf "Internal@ Error:@ %s@\n" s
   | TExc.IdentifierNotFound (eid, _) ->
       Format.fprintf ppf
         "The value@  @{<red>%a@} @ is@ not@ defined.@\n" ident_printer eid
@@ -109,87 +91,12 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
       Format.fprintf ppf
         "The type@  @{<red>%a@} @ is@ not@ defined.@\n"
         QmlPrint.pp#typeident tid
-  | TExc.MatchNamedTypeProblem ->
-      Format.fprintf ppf
-        ("No@ named@ type@ found@ for@ a@ pattern@ match@ and@ row@ " ^^
-         "variables@ prevent@ the@ creation@ of@ the@ anonymous@ sum.@\n")
   | TExc.UnableToTypeBypass bsl ->
       Format.fprintf ppf
         "Unable@ to@ type@ bypass@  @{<red>%s@}.@\n" (BslKey.to_string bsl)
-  | TExc.NotImplementedYet s ->
-      Format.fprintf ppf " @{<red>%s@} @ not@ yet@ implemented.@\n" s
   | TExc.DuplicateTypeDefinitions s ->
       Format.fprintf ppf
         "There@ are@ duplicate@ definitions@ for@ type@  @{<red>%s@} .@\n" s
-  | TExc.ExpansiveExprAtTopLevel ->
-      Format.fprintf ppf
-        ("Cannot@ define@ this@ expansive@ expression,@ try@ to@ " ^^
-         "explicit@ arguments.@\n")
-
-
-
-(* ************************************************************************** *)
-(** {b Descr}: Collects the cases missing between the 2 sums passed as
-    argument, [~complete] being considered as the sum with the most cases and
-    [incomplete] the one with the less cases.
-    The missing cases are returned as a column, i.e. as the sum type hosting
-    all the cases found missing.
-    {b Visibility}: Not exported outside this module.                         *)
-(* ************************************************************************** *)
-let get_missing_cases ~complete: (Q.TyCol (al, aopt))
-    ~incomplete: (Q.TyCol (bl, bopt)) =
-  let rl =
-    List.fold_left
-      (fun (acc: (string * 'a) list list) (fields: (string * 'a) list) ->
-         (* If there is one case of [bl] containing [fields], then drop
-            [fields], otherwise keep it. *)
-         if List.exists
-           (fun fields' ->
-              List.for_all
-                (fun (one_name, _) ->
-                   List.exists
-                     (fun (one_name', _) -> one_name = one_name')
-                     fields')
-                fields)
-           bl
-         then acc
-         else fields :: acc)
-      [] al in
-  let ropt =
-    match (aopt, bopt) with
-    | (None, None) -> None
-    | (_, Some _) -> None
-    | ((Some _ as opt), None) -> opt in
-  Q.TyCol (rl, ropt)
-
-
-
-(* ************************************************************************** *)
-(** {b Descr}: Prints the fields names separated by a comma and starting by
-    "a field named" or "fields named" depending on if the list contains one
-    or several fields names.
-    {b Visibility}: Not exported outside this module.                         *)
-(* ************************************************************************** *)
-let pp_fields_names ppf = function
-  | [] -> Format.fprintf ppf "no@ field"
-  | [x]-> Format.fprintf ppf "a@ field@ named@ @{<red>%s@}" x
-  | h :: q ->
-      Format.fprintf ppf "fields@ named@ @{<red>%s@}" h ;
-      List.iter (fun n ->  Format.fprintf ppf ",@ @{<red>%s@}" n) q
-
-
-
-(* ************************************************************************** *)
-(** {b Descr}: Convert an integer considered as expressing an ranking order
-    into a redeable string. This is used to handle the English exceptions
-    "1st", "2nd" and "3rd" for ranks 1, 2 and 3.
-    {b Visibility}: Not exported outside this module.                         *)
-(* ************************************************************************** *)
-let order_number_to_string = function
-  | 1 -> "1st"
-  | 2 -> "2nd"
-  | 3 -> "3rd"
-  | n -> (string_of_int n) ^ "th"
 
 
 
@@ -206,21 +113,8 @@ let get_closest_names typo l =
 
 
 
-let resolve_type gamma typ =
-  match typ with
-  | Q.TypeName (ty, typeident) -> (
-      match
-        QmlTypes.Env.TypeIdent.find_opt
-          ~visibility_applies: true typeident gamma with
-      | None -> typ
-      | Some tsc -> QmlTypes.Scheme.specialize ~typeident ~ty tsc
-    )
-  | _ -> assert false
-
-
-
 (* This function assumes that we are rid of [TypeIdent]. *)
-let rec pp_advice gamma ppf = function
+let rec pp_advice ppf = function
   | QmlTyperException.InvalidTypeDefinition _ ->
       Format.fprintf ppf
         ("@[Diagnosis:@ possibly,@ a@ type@ variable@ appears@ in@ the@ " ^^
@@ -231,32 +125,6 @@ let rec pp_advice gamma ppf = function
          "several@ cases@ having@ the@ same@ labels@ like@ " ^^
          "@{<red>{ l } / { l }@}@ or@ " ^^
          "@{<red>{ l : bool } / { l : int }@}.@]@\n")
-  | QmlTyperException.InvalidUnification
-        (
-          (*Looking for*)(Q.TypeRecord (Q.TyRow (found, _))
-                          |
-                          Q.TypeSum (Q.TyCol ([found], _))),
-          (*Found*)      (Q.TypeRecord (Q.TyRow ([name, _], _))
-                          |
-                          Q.TypeSum (Q.TyCol ([[name, _]], _))),
-                         _) ->    (* Here, a field is missing. *)
-      Format.fprintf ppf
-        ("@[Diagnosis:@ It@ seems@ that@ you@ are@ expecting@ this@ record@ " ^^
-         "to@ have@ a@ field@ named@ @{<red>%s@}.@ However,@ according@ " ^^
-         "to@ the@ definition@ of@ this@ record@ and/or@ with@ previous@ " ^^
-         "uses@ of@ this@ record,@ this@ record@ doesn't@ have@ any@ " ^^
-         "field@ with@ this@ name.")
-        name ;
-      (* Try to print suggestions if some are found. *)
-      (match get_closest_names name (List.map fst found) with
-       | [] ->  ()    (* No idea or empty record. *)
-       | [name, _] ->
-           Format.fprintf ppf "@ Perhaps@ you@ meant@ @{<red>%s@}?" name
-       | (name_1, _) :: (name_2, _) :: _ ->
-           Format.fprintf ppf
-             ("@ Perhaps@ you@ meant@ @{<red>%s@}@ or@ " ^^
-              "@{<red>%s@}?") name_1 name_2) ;
-      Format.fprintf ppf "@]@\n"
   | QmlTyperException.IdentifierNotFound (name, bound_in_scope) ->
       let name = Ident.original_name name in
       let bound_in_scope =
@@ -273,159 +141,6 @@ let rec pp_advice gamma ppf = function
              ("@[Diagnosis:@ This@ identifier@ doesn't@ exist.@ Perhaps@ " ^^
               "you@ meant@ @{<red>%s@}@ or@ @{<red>%s@}?@]@\n")
              name_1 name_2)
-  | QmlTyperException.InvalidUnification (
-        (Q.TypeRecord (Q.TyRow (have_fields, _))
-         |
-         Q.TypeSum (Q.TyCol ([have_fields], _))),
-        (Q.TypeRecord (Q.TyRow (expected_fields, _))
-         |
-         Q.TypeSum (Q.TyCol ([expected_fields], _))),
-        _) ->
-      (* Here, we may have several fields missing. *)
-      let expected_names = List.map fst expected_fields in
-      let have_names = List.map fst have_fields in
-      (match BaseList.subtract expected_names have_names with
-       | [] ->
-           (* No missing name. The type error is due to a field having the
-              wrong type.*)
-           Format.fprintf ppf
-             ("@[Diagnosis:@ It@ seems@ that@ some@ of@ the@ fields@ of@ " ^^
-              "this@ record@ do@ not@ have@ the@ expected@ type.@]@\n")
-       | l  ->
-           let plural_or_singular_end_of_sentence =
-             (match l with
-              | [] -> assert false
-              | [_] -> "such a field"
-              | _ -> "such fields") in
-           Format.fprintf ppf
-             ("@[Diagnosis:@ It@ seems@ that@ you@ are@ expecting@ this@ " ^^
-              "record@ to@ have@ %a.@ However,@ according@ to@ the@ " ^^
-              "definition@ of@ this@ record@ and/or@ with@ previous@ uses@ " ^^
-              "of@ this@ record,@ this@ record@ doesn't@ have@ %s.@]@\n")
-             pp_fields_names l plural_or_singular_end_of_sentence)
-  | QmlTyperException.InvalidUnification
-        ((Q.TypeSum t1), (Q.TypeSum t2), None) ->
-      (* Note: we're only doing this with [None], to make sure that we're
-         not displaying conflicting error messages. *)
-      (* Missing cases *)
-      let v1 = get_missing_cases ~complete: t1 ~incomplete: t2 in
-      (match v1 with
-       | Q.TyCol ([], None) -> ()
-       | Q.TyCol ([], Some _) ->
-           Format.fprintf ppf
-             ("@[Diagnosis:@ This@ expression@ is@ an@ open@ sum.@ To@ " ^^
-              "access@ its@ contents,@ you@ need@ to@ use@ " ^^
-              "pattern-matching@ with@ a@ catch-all@ pattern,@ to@ make@ " ^^
-              "sure@ that@ all@ possible@ cases@ are@ handled.@]@\n")
-       | _ ->
-           Format.fprintf ppf
-             ("@[Diagnosis:@ This@ expression@ is@ a@ sum@ and@ could@ be@ " ^^
-              "evaluated@ to@ records@ with@ several@ distinct@ " ^^
-              "structures.@ While@ you@ handle@ some@ of@ the@ possible@ " ^^
-              "structures,@ it@ seems@ that@ you@ have@ forgotten@ to@ " ^^
-              "handle@ some@ cases,@ such@ as@ @{<red>%a@}.@]@\n")
-             QmlPrint.pp#ty (Q.TypeSum v1))
-  | QmlTyperException.InvalidUnification
-      (Q.TypeSum t1, Q.TypeRecord (Q.TyRow (expected_fields, _dots)), _) ->
-      (* Missing cases. *)
-      let t2 = Q.TyCol ([expected_fields], None) in
-      let v1 = get_missing_cases ~complete: t1 ~incomplete: t2 in
-      (match v1 with
-       | Q.TyCol ([], None) -> ()     (* Probably a deeper type error. *)
-       | Q.TyCol ([], Some _) ->
-           Format.fprintf ppf
-             ("@[Diagnosis:@ This@ expression@ is@ an@ open@ sum.@ To@ " ^^
-              "access@ its@ contents,@ you@ need@ to@ use@ " ^^
-              "pattern-matching@ with@ a@ catch-all@ pattern,@ to@ make@ " ^^
-              "sure@ that@ all@ possible@ cases@ are@ handled.@]@\n")
-       | _ ->
-           Format.fprintf ppf
-             ("@[Diagnosis:@ It@ seems@ that@ you@ are@ using@ this@ " ^^
-              "expression@ as@ if@ it@ were@ a@ record@ containing@ %a.@ " ^^
-              "However,@ this@ expression@ is@ a@ sum@ and@ could@ be@ " ^^
-              "evaluated@ to@ other@ records,@ with@ structures@ such@ as@ " ^^
-              "@{<red>%a@}.@]@\n")
-             pp_fields_names (List.map fst expected_fields)
-             QmlPrint.pp#ty (Q.TypeSum v1)
-      )
-  | QmlTyperException.InvalidUnification
-      ((Q.TypeArrow (t1, _t2)), (Q.TypeArrow (u1, _u2)), _) ->
-      let len1 = List.length t1 in
-      let len2 = List.length u1 in
-      if len1 < len2 then
-        Format.fprintf ppf
-          ("Diagnosis:@ This@ expression@ is@ a@ function@ and@ it@ takes@ " ^^
-           "@{<red>%d@}@ arguments.@ However,@ it@ seems@ that@ you@ are@ " ^^
-           "applying@ only@ @{<red>%d@}@ argument(s).@\n")
-          len2 len1
-      else
-        if len1 > len2 then
-          Format.fprintf ppf
-            ("@[Diagnosis:@ This@ expression@ is@ a@ function@ and@ it@ " ^^
-             "takes@ only@ @{<red>%d@}@ arguments.@ However,@ it@ seems@ " ^^
-             "that@ you@ are@ applying@ @{<red>%d@}@ argument(s).@]@\n")
-            len2 len1
-        else
-          let can_unify a b =
-            let tv = Q.TypeVar (Q.TypeVar.next()) in
-            (QmlMoreTypes.unifiable ~gamma tv a) &&
-            (QmlMoreTypes.unifiable ~gamma tv b) in
-          let rec aux t u i =
-            match (t, u) with
-            | ([], []) ->
-                (* should possibly look at t2 and u2 *)
-                Format.fprintf ppf
-                  ("@[Diagnosis:@ This@ expression@ is@ a@ function.@ It@ " ^^
-                   "seems@ that@ the@ result@ of@ this@ function@ has@ an@ " ^^
-                   "incorrect@ type.@]@\n")
-            | (t1 :: ts, u1 :: us) ->
-                begin
-                  if can_unify t1 u1 then
-                    (* Ok, the error is probably not at this argument. *)
-                    aux ts us (i + 1)
-                  else
-                    (* Well, the error is here. *)
-                    match (ts, us) with
-                    | ([], []) ->
-                        Format.fprintf ppf
-                          ("@[Diagnosis:@ This@ expression@ is@ a@ " ^^
-                           "function.@ The@ %s@ argument@ seems@ to@ have@ " ^^
-                           "an@ incorrect@ type.@]@\n")
-                          (order_number_to_string i)
-                    | (t2 :: _, u2 :: _) ->
-                        if can_unify t1 u2 && can_unify t2 u1 then
-                          (* Ok, we may have exchanged two arguments. *)
-                          Format.fprintf ppf
-                            ("@[Diagnosis:@ This@ expression@ is@ a@ " ^^
-                             "function.@ You@ may@ have@ switched@ " ^^
-                             "arguments@ %d@ and@ %d.@]@\n")
-                            i (i + 1)
-                        else
-                          Format.fprintf ppf
-                            ("@[Diagnosis:@ This@ expression@ is@ a@ " ^^
-                             "function.@ The @{<red>%s@}@ argument@ seems@ " ^^
-                             "to@ have@ an@ incorrect@ type.@]@\n")
-                            (order_number_to_string i)
-                    | _ ->
-                        (* We have checked that the two lists have distinct
-                           values. That's an internal error. *)
-                        assert false
-                end
-            | _ ->
-                (* We have checked that the two lists have distinct values.
-                   That's an internal error. *)
-                assert false in
-          aux t1 u1 1
-  | QmlTyperException.InvalidUnification ((Q.TypeArrow _), _, _)
-  | QmlTyperException.InvalidUnification (_, (Q.TypeArrow _), _) ->
-      (* Not a function. *)
-      Format.fprintf ppf
-        ("@[Diagnosis:@ It@ seems@ that@ you@ expect@ this@ expression@ to@ " ^^
-         "be@ a@ function,@ although@ it@ isn't.@]@\n")
-  | QmlTyperException.MatchNamedTypeProblem ->
-      Format.fprintf ppf
-        ("@[Diagnosis:@ You@ may@ wish@ to@ add@ a@ coercion@ around@ this@ " ^^
-         "expression@ for@ a@ more@ detailed@ diagnosis.@]@\n")
   | _ ->  ()
 
 
@@ -436,7 +151,7 @@ let rec pp_advice gamma ppf = function
     Prints an ending \n
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-let pp_description_and_advice gamma ppf err_descr =
+let pp_description_and_advice ppf err_descr =
   (* Printf the core of the error message description. *)
   Format.fprintf ppf "@[Description:@ " ;
   pp_typer_error
@@ -451,24 +166,7 @@ let pp_description_and_advice gamma ppf err_descr =
   Format.fprintf ppf "@]" ;
   (* Print the more detailled message (advice) if some can be guessed. This
      always prints an ending if a more detailled message is printed\n. *)
-  (match snd err_descr with
-   | QmlTyperException.InvalidUnification
-       ((Q.TypeName(_, _) as old_ty1), (Q.TypeName (_, _) as old_ty2), opt) ->
-       let ty1 = resolve_type gamma old_ty1 in
-       let ty2 = resolve_type gamma old_ty2 in
-       pp_advice
-         gamma ppf (QmlTyperException.InvalidUnification (ty1, ty2, opt))
-   | QmlTyperException.InvalidUnification
-         ((Q.TypeName (_, _) as old_ty1), ty2, opt) ->
-       let ty1 = resolve_type gamma old_ty1 in
-       pp_advice
-         gamma ppf (QmlTyperException.InvalidUnification (ty1, ty2, opt))
-   | QmlTyperException.InvalidUnification
-         (ty1, (Q.TypeName (_, _) as old_ty2), opt) ->
-       let ty2 = resolve_type gamma old_ty2 in
-       pp_advice
-         gamma ppf (QmlTyperException.InvalidUnification (ty1, ty2, opt))
-   | otherwise -> pp_advice gamma ppf otherwise)
+  pp_advice ppf (snd err_descr)
 
 
 
@@ -546,14 +244,13 @@ let pp_position_or_code ppf at_location =
     Prints an ending \n
     {b Visibility} : Not exported outside this module.                        *)
 (* ************************************************************************** *)
-let pp_typer_exception_error gamma _annotmap ppf err_descr =
+let pp_typer_exception_error ppf err_descr =
   let ((at_location, loc_set), _) = err_descr in
   (* Print the location taken from the expression's one, then print the message
      describing the typer error and its possible advice. *)
   Format.fprintf ppf
     "@[%a@\n%a@]"
-    pp_position_or_code at_location
-    (pp_description_and_advice gamma) err_descr ;
+    pp_position_or_code at_location pp_description_and_advice err_descr ;
   (* Get extra location that are not "unknown" to eventually print them. *)
   let extra_locations =
     QmlTyperException.LocSet.fold
@@ -629,7 +326,7 @@ let rec exist_precise_main_location annotmap = function
     Prints an ending \n.
     {b Visibility} : Exported outside this module.                            *)
 (* ************************************************************************** *)
-let rec pp_report_from_typer_exception gamma annotmap ppf = function
+let rec pp_report_from_typer_exception annotmap ppf = function
   | QmlTypes.Exception (QmlTypes.TyperError (code_elt, (e, excn))) ->
       let enqued_excs = e :: excn in
       (* Hack especially rotten to handle source location in type definitions.
@@ -648,9 +345,9 @@ let rec pp_report_from_typer_exception gamma annotmap ppf = function
             if not (FilePos.is_empty loc) then
               Format.fprintf ppf "%s@\n" (FilePos.to_string loc)
         | _ -> ()) ;
-      List.iter (pp_report_from_typer_exception gamma annotmap ppf) enqued_excs
+      List.iter (pp_report_from_typer_exception annotmap ppf) enqued_excs
   | QmlTyperException.Exception err_descr ->
-      pp_typer_exception_error gamma annotmap ppf err_descr
+      pp_typer_exception_error ppf err_descr
   | e -> Format.fprintf ppf "%s@\n" (Printexc.to_string e)
 
 
@@ -659,8 +356,7 @@ let typechecking_exception_handler env exn =
   match exn with
   | QmlTypes.Exception _ ->
       OManager.error "%a"
-        (pp_report_from_typer_exception
-           env.QmlTypes.gamma env.QmlTypes.annotmap) exn
+        (pp_report_from_typer_exception env.QmlTypes.annotmap) exn
   | _ -> raise exn
 
 

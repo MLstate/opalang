@@ -27,7 +27,6 @@
     Prints an ending \n.                                                      *)
 (* ************************************************************************** *)
 val pp_report_from_typer_exception :
-  QmlTypes.gamma -> 'a QmlAnnotMap.gen_annotmap -> Format.formatter -> exn ->
-  unit
+  'a QmlAnnotMap.gen_annotmap -> Format.formatter -> exn -> unit
 
 val typechecking_exception_handler : 'a QmlTypes.public_env -> exn -> 'b

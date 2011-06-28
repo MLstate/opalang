@@ -78,8 +78,6 @@ let loc_add_set set (main, old_set) =
 
 
 type 'ty t =
-  | InvalidExpression (* Invalid expression detected while typing (could have
-      been caught earlier) -- expression is in the location *)
   | InvalidType of
       'ty * [`duplicate_field | `duplicate_field_with_diff_ty_in_sum_cases |
              `not_a_record | `record_not_closed | `abstract_in_ty_annotation |
@@ -97,24 +95,14 @@ type 'ty t =
   | InvalidTypeUsage of QmlAst.typeident * QmlAst.typevar list * 'ty list (* The
       use of a typename does not agree with its definition (e.g. number of type
       parameters). *)
-  | InvalidUnification of 'ty * 'ty * ('ty * 'ty) option (* The option is in
-      case we have more precise information *)
-  | InternalError of string
   | IdentifierNotFound of Ident.t * Ident.t list
       (* [IdentifierNotFound (missing, list_of_identifiers_at_this_point)].
          [list_of_identifiers_at_this_point] may be empty if we are in a context
          where the list of identifiers is unclear*)
   | TypeIdentNotFound of QmlAst.typeident
-  | MatchNamedTypeProblem (* In pattern-matching, the typer sometimes tries to
-      guess a typename; this exception corresponds to the case when it needed
-      to guess a typename but didn't succeed; at time of writing, it means that
-      several typenames are possible, and the typer refuses to create an
-      overload (this may change very often). *)
   | UnableToTypeBypass of BslKey.t
-  | NotImplementedYet of string
   | DuplicateTypeDefinitions of string (* An exception for QmlBlender and OPA,
       not thrown in the normal QML world. *)
-  | ExpansiveExprAtTopLevel
 
 
 
@@ -125,21 +113,12 @@ exception Exception of exn_t
 
 (* val map : ('a -> 'b) -> 'a QmlTyperException.t -> 'b QmlTyperException.t *)
 let map f_ty = function
-  | InvalidExpression -> InvalidExpression
   | InvalidType (t,k) -> InvalidType (f_ty t, k)
   | InvalidTypeDefinition (ty1, ty2) ->
       InvalidTypeDefinition (f_ty ty1, f_ty ty2)
   | InvalidTypeUsage (tid, tvl, tyl) ->
       InvalidTypeUsage (tid, tvl, List.map f_ty tyl)
-  | InvalidUnification (ty1, ty2, tys_opt) ->
-      InvalidUnification
-        (f_ty ty1, f_ty ty2,
-         Option.map (fun (ty3, ty4) -> (f_ty ty3, f_ty ty4)) tys_opt)
-  | InternalError s -> InternalError s
   | IdentifierNotFound _ as x -> x
   | TypeIdentNotFound x -> TypeIdentNotFound x
-  | MatchNamedTypeProblem -> MatchNamedTypeProblem
   | UnableToTypeBypass x -> UnableToTypeBypass x
-  | NotImplementedYet x -> NotImplementedYet x
   | DuplicateTypeDefinitions s -> DuplicateTypeDefinitions s
-  | ExpansiveExprAtTopLevel -> ExpansiveExprAtTopLevel
