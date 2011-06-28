@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{parser, map, rpc.core, web.{core,context,resource}}
+import stdlib.core.{security.ssl, parser, map, rpc.core, web.{core,context,resource}}
 
 /**
  * Defining web services.
@@ -85,6 +85,7 @@ type Server.encryption =
     private_key: string/**Name of a file containing a SSL-issued private key*/
     password:    string/**A full-text password*/
  }
+/ { secure_type: SSL.secure_type}
 
 /**
  * Specification of a service.

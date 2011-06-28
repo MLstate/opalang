@@ -36,6 +36,11 @@ let default_scheduler = BslScheduler.opa
 ##opa-type HttpRequest.part
 
 
+##extern-type SSL.private_key = SslAS.ssl_certificate
+##extern-type SSL.policy      = SslAS.ssl_verify_params
+##extern-type SSL.certificate = Ssl.certificate
+##extern-type SSL.secure_type = SslAS.secure_type
+
 
 (** Provides functions from OPA HTTP server, manipulating HTTP
     request, make HTTP response, etc.*)
@@ -253,15 +258,17 @@ let default_scheduler = BslScheduler.opa
       option(string), \
       option(string), \
       option(string), \
+      SSL.secure_type, \
       (WebInfo.private.native -> void), \
       (string, HttpRequest.msg_list, int -> bool) ->\
       void
-  let init_server name port certfileo privkeyo passwdo dispatcher ontransfer =
+  let init_server name port certfileo privkeyo passwdo secure_type dispatcher ontransfer =
     let sop = function | Some s -> s | None -> "" in
     let dialog_name = Printf.sprintf "%s-dialog" name in
     let http_server_name = Printf.sprintf "%s" name in
     let dialog _ _sched = dispatcher in
     let callback (name,hdrs) i _buf = ontransfer name hdrs i (*buf*) in
+    let ssl_certificate,ssl_verify_params=secure_type in
     Runtime.add_httpDialog dialog_name (HttpDialog.options_with_dialog dialog);
     Runtime.add_httpServer http_server_name
       {HttpServer.default_options with
@@ -271,6 +278,8 @@ let default_scheduler = BslScheduler.opa
          dialog = dialog_name;
          port = port;
          callback = Some callback;
+         ssl_certificate = ssl_certificate;
+         ssl_verify_params = ssl_verify_params;
       }
 
   (*##register init_server_cps : string, int, option(string), option(string), option(string), continuation(WebInfo.private.native), (int, int, bool, string, string, string -> void) -> unit*)
@@ -280,11 +289,12 @@ let default_scheduler = BslScheduler.opa
       option(string), \
       option(string), \
       option(string), \
+      SSL.secure_type, \
       continuation(WebInfo.private.native), \
       (string, HttpRequest.msg_list, int -> bool) -> \
       void
-  let init_server_cps name port certfileo privkeyo passwdo dispatcher ontransfer =
-    init_server name port certfileo privkeyo passwdo
+  let init_server_cps name port certfileo privkeyo passwdo secure_type dispatcher ontransfer =
+    init_server name port certfileo privkeyo passwdo secure_type
       (fun winfo -> QmlCpsServerLib.return dispatcher winfo)
       ontransfer
 
@@ -318,12 +328,6 @@ let default_scheduler = BslScheduler.opa
 
 ##endmodule
 
-
-##extern-type SSL.private_key = SslAS.ssl_certificate
-##extern-type SSL.policy      = SslAS.ssl_verify_params
-##extern-type SSL.certificate = Ssl.certificate
-##extern-type SSL.secure_type = SslAS.secure_type
-
 ##module ssl
 (**
    Construct a SSL certificate + private key
@@ -334,7 +338,7 @@ let default_scheduler = BslScheduler.opa
    @param privkey Path to a file containing the private key
    @param password The password to use if private key protected
 *)
-   ##register make_key: option(string), option(string), string, string, string -> opa[SSL.private_key]
+   ##register make_key: option(string), option(string), string, string, string -> SSL.private_key
   let make_key cafile capath certfile privkey password = SslAS.make_ssl_certificate ?cafile ?capath certfile privkey password
 
  (**
@@ -348,21 +352,21 @@ let default_scheduler = BslScheduler.opa
    @param capath A directory containing CA certificates in PEM format, used for verification
    @param certpath A directory containing client certificates in PEM format
 *)
-  ##register make_policy: option(string), option(opa[SSL.certificate] -> bool), bool, string, string, string -> opa[SSL.policy]
+  ##register make_policy: option(string), option(SSL.certificate -> bool), bool, string, string, string -> SSL.policy
   let make_policy client_ca_file fallback always cafile capath certpath =
     SslAS.make_ssl_verify_params ?client_ca_file ?accept_fun:fallback ~always cafile capath certpath
 
-  ##register make_secure_type: option(opa[SSL.private_key]), option(opa[SSL.policy]) -> SSL.secure_type
+  ##register make_secure_type: option(SSL.private_key), option(SSL.policy) -> SSL.secure_type
   let make_secure_type key policy = (key, policy)
 (**
    Consult the issuer of a certificate
 *)
-  ##register get_issuer \ `Ssl.get_issuer` : opa[SSL.certificate] -> string
+  ##register get_issuer \ `Ssl.get_issuer` : SSL.certificate -> string
 
 (**
    Consult the subject of a certificate
 *)
-  ##register get_subject \ `Ssl.get_subject` : opa[SSL.certificate] -> string
+  ##register get_subject \ `Ssl.get_subject` : SSL.certificate -> string
 
 ##endmodule
 
@@ -412,8 +416,8 @@ let default_scheduler = BslScheduler.opa
       option(string), \
       bool, \
       option(string), \
-      option(opa[SSL.private_key]), \
-      option(opa[SSL.policy]), \
+      option(SSL.private_key), \
+      option(SSL.policy), \
       option(time_t), \
       option(string), \
       option(string), \

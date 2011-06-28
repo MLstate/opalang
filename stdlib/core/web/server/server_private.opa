@@ -327,7 +327,7 @@ Server_private = {{
       make_server(service:service) =
         /* Select bypasses */
         init_server = %% BslNet.Http_server.init_server_cps %%
-                    : _, _, _, _, _, continuation(WebInfo.private.native), _ -> void
+                    : _, _, _, _, _, _, continuation(WebInfo.private.native), _ -> void
         set_cookie_expiry_callback = %% BslNet.Http_server.set_cookie_expiry_callback %%
                     : (string, string -> void) -> void
         complete_dispatcher = %%BslDispatcher.complete_dispatcher_cps%%
@@ -348,11 +348,15 @@ Server_private = {{
         match service.encryption with
         | {no_encryption} ->
           init_server(service.server_name, service.port,
-                      {none}, {none}, {none},
+                      {none}, {none}, {none}, (SSL.make_secure_type(none,none)),
                       dispatcher, bogus_ontransfer)
         | ~{ certificate private_key password } ->
           init_server(service.server_name, service.port,
-                      some(certificate), some(private_key), some(password),
+                      some(certificate), some(private_key), some(password), (SSL.make_secure_type(none,none)),
+                      dispatcher, bogus_ontransfer)
+        | ~{ secure_type } ->
+          init_server(service.server_name, service.port,
+                      none, none, none, secure_type,
                       dispatcher, bogus_ontransfer)
       make_server
 

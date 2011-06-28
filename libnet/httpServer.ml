@@ -436,6 +436,8 @@ type options =
       ssl_ca_path : string;
       ssl_client_ca_file : string;
       ssl_client_cert_path : string;
+      ssl_certificate : SslAS.ssl_certificate option;
+      ssl_verify_params : SslAS.ssl_verify_params option;
       pid_file : string option;
       dialog : string;
       request_size_max : int;
@@ -521,6 +523,8 @@ let default_options =
     ssl_ca_path = "";
     ssl_client_ca_file = "";
     ssl_client_cert_path = "";
+    ssl_certificate = None;
+    ssl_verify_params = None;
     pid_file = None;
     dialog = "default";
     request_size_max = 10*1024*1024;
@@ -753,23 +757,29 @@ let spec_args name =
 
 (* From httpServerOptions *)
 let make_ssl_cert opt =
-  if opt.ssl_cert <> "" then
-    if opt.ssl_key <> "" then
-      Some (SslAS.make_ssl_certificate opt.ssl_cert opt.ssl_key opt.ssl_pass)
-    else begin
-      Logger.critical "Error : ssl-cert option MUST be used with ssl-key option";
-      exit 1
-    end
-  else
-    None
+  match opt.ssl_certificate with
+  | Some x -> Some x
+  | None ->
+      if opt.ssl_cert <> "" then
+        if opt.ssl_key <> "" then
+          Some (SslAS.make_ssl_certificate opt.ssl_cert opt.ssl_key opt.ssl_pass)
+        else begin
+          Logger.critical "Error : ssl-cert option MUST be used with ssl-key option";
+          exit 1
+        end
+      else
+        None
 
 let make_ssl_verify opt =
-  if opt.ssl_ca_file <> "" || opt.ssl_ca_path <> "" || opt.ssl_client_cert_path <> "" then
-    Some (SslAS.make_ssl_verify_params ~client_ca_file:opt.ssl_client_ca_file
-      ~accept_fun:opt.ssl_accept_fun ~always:opt.ssl_always
-      opt.ssl_ca_file opt.ssl_ca_path opt.ssl_client_cert_path)
-  else
-    None
+  match opt.ssl_verify_params with
+  | Some x -> Some x
+  | None ->
+      if opt.ssl_ca_file <> "" || opt.ssl_ca_path <> "" || opt.ssl_client_cert_path <> "" then
+        Some (SslAS.make_ssl_verify_params ~client_ca_file:opt.ssl_client_ca_file
+          ~accept_fun:opt.ssl_accept_fun ~always:opt.ssl_always
+          opt.ssl_ca_file opt.ssl_ca_path opt.ssl_client_cert_path)
+      else
+        None
 
 let init_server opt runtime server_info =
   if opt.print_log_info then HSCm.init_logger ();
