@@ -26,7 +26,9 @@
 
 val default : 'a -> 'a option -> 'a
 val default_lazy : 'a Lazy.t -> 'a option -> 'a
+(** true if the argument is None*)
 val is_none : 'a option -> bool
+(** true if the argument is Some _*)
 val is_some : 'a option -> bool
 
 (**

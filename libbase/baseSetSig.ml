@@ -56,6 +56,11 @@ sig
   val from_list : elt list -> t
   val min_elt : t -> elt
   val max_elt : t -> elt
+
+  (**
+     Returns an arbitrary element of the set.
+     @raise Not_found on the empty set
+  *)
   val choose : t -> elt
   val split : elt -> t -> t * bool * t
   val draw : t -> elt * t

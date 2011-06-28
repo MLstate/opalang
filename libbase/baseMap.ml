@@ -43,6 +43,10 @@ struct
     let hl = height l and hr = height r in
     Node(l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
 
+  (*
+    Balance the tree such that the difference between the heights of
+    the two branches is at most one
+  *)
   let bal l x d r =
     let hl = height l
     and hr = height r in

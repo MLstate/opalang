@@ -15,15 +15,39 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(**
+   Output signature of functors.
+   Taking an aggregate of 'a element (lists, set, map..) to give an iterator.
+*)
 module type S =
 sig
+
+  (** The type of the aggregate of elements of type 'a*)
   type +'a structure
+
+  (** The type of the elements of the aggregate*)
   type +'a element
+
+  (** The type of the iterator*)
   type 'a t
+
+  (** Create an iterator for the structure*)
   val make : 'a structure -> 'a t
+
+  (** Taking an element of the iterator
+     @raise IteratorEnd if there are no more elements*)
   val get : 'a t -> 'a element
+
+  (** The iterator, one step further
+     @raise IteratorEnd if there are no more elements*)
   val next : 'a t -> 'a t
 (*   val prev : 'a t -> 'a t *)
+
+  (** True if this iterator has no more element
+     (get and next would raise IteartorEnd) *)
   val at_end : 'a t -> bool
+
+  (** The number of remaining elements *)
   val remaining : 'a t -> int
 end

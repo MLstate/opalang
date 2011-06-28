@@ -20,10 +20,23 @@ exception IteratorEnd
 (** Big-Endian Particia tree maps, from "Fast Mergeable Integer Maps", Chris Okasaki, Andrew Gill
     @author Louis Gesbert *)
 
+(*In the comments, low means on the right, hence the bits whose value is
+smaller. If a number is b_4b_3b_2b_1, then b_1 is the lowest bit and b_4 the highest
+When we speak of "bit m" we will mean the bit k=log(m), and we assume
+that m=2^k - hence m has only one 1 in his binary representation*)
+
+(*Big-endian means that branches are shared for paths whose higher bits are
+equal*)
 type key = int
+
 type 'a t =
   | Empty
+  (*A tree with one element whose index is the int*)
   | Lf of int * 'a
+  (*A tree with two subtree, we assume that the index of both subtree are
+    equal on bit higher than mask, and the bit at position mask is 0 on the
+    left subtree, and 1 on the right subtree.
+    We require that the m lower bits are 01111...11*)
   | Br of int (* prefix *) * int (* branching bit (mask) *) * 'a t * 'a t
 
 let empty = Empty
@@ -32,36 +45,47 @@ let is_empty t = Empty = t
 
 let singleton k v = Lf (k,v)
 
-(* Sets all bits lower than the bit at 1 in m to 1, and bit m to 0 *)
-let mask i m = if m > 0 then (i lor (m-1)) land (lnot m) else 0
+(** Sets bit m to 0, and all lower bit to 1*)
+let mask i m = if m > 0 then (i lor (m-1)(*one-ing the bit at post lower than m*)) land (lnot m) (*zeroing bit m*)else 0
 
+(**is bit mth equal to 0*)
 let zerobit i m = (0 = i land m)
 
-(* Try to put all bits to 0 from bit m leftwards until we found the highest bit*)
+(* Put all bits to 0 from bit m leftwards until we found the highest bit*)
+(**The highest bit, assuming there is one at least at bit m, else 0*)
 let highestbit i m =
   let rec aux i =
     let m = i land (-i) in (* lowest bit of i *)
-    if i = m then i else aux (i - m)
-  in aux (i land (lnot (m - 1)))
+    if i = m (* If i has only one bit, which is the lowest one, or i=0*)
+    then i else aux (i - m (*i without its lowest bit*))
+  in aux (i land (lnot (m - 1))
+            (*bits at position strictly lower than m are zeroed*))
 
-(* First bit when p1 and p2 differ *)
+(** Highest bit where p1 and p2 differ at bit m or higher, else 0*)
 let branchingbit p1 p2 m = highestbit (p1 lxor p2) m
 
+(** A tree whith two subtrees, t1 and t2, whose indexes, p1 and p2.
+    We assume that they differ only at position m or higher*)
 let join p1 t1 p2 t2 m =
+  (*the position of the highest difference at bit m or higher*)
   let m = branchingbit p1 p2 m in
+  (*if the first different bit is 0 in p1*)
   if zerobit p1 m
   then Br (mask p1 m, m, t1, t2)
   else Br (mask p1 m, m, t2, t1)
+
 
 let rec add k v t = match t with
   | Lf (k',_v') ->
       if k = k' then Lf (k, v)
       else join k (Lf (k, v)) k' t 1
   | Br (p,m,t1,t2) when mask k m = p ->
+      (*if k and m are equal on bit strictly higher than m*)
       if zerobit k m
       then Br (p, m, add k v t1, t2)
       else Br (p, m, t1, add k v t2)
   | Br (p,m,_t1,_t2) ->
+      (*There is a difference on bit m or an higher bit*)
       join k (Lf (k, v)) p t (m lsl 1)
   | Empty -> Lf (k, v)
 

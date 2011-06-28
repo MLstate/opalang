@@ -96,6 +96,10 @@ val iter_right : ('a -> 'b) -> 'a list -> unit
 val iteri : ('a -> int -> unit) -> 'a list -> unit
 val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
 val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
+
+(**
+   similar to [(map f list) @ tail]
+*)
 val map_with_tail : ('a -> 'b) -> 'a list -> 'b list -> 'b list
 val for_alli : (int -> 'a -> bool) -> 'a list -> bool
 
@@ -137,16 +141,18 @@ val split_at_sep : ('a -> bool) -> 'a list -> 'a list list
 val splice : int -> int -> 'a list -> 'a list -> 'a list
 val fold_left_i : ('a -> 'b -> int -> 'a) -> 'a -> 'b list -> 'a
 val fold_right_i : ('a -> int -> 'b -> 'b) -> 'a list -> 'b -> 'b
-val fold : ('a -> 'a -> 'a) -> 'a list -> 'a
 
 (**
-    @deprecated use [List.concat_map]
+   As [fold_left] with the head of the list as an accumulator
+   @raise Empty on empty list
 *)
-(*val collect : ('a -> 'b list) -> 'a list -> 'b list*)
-
+val fold : ('a -> 'a -> 'a) -> 'a list -> 'a
 
 val to_string : ('a -> string) -> 'a list -> string
-(** Print on list format; i.e. [a;b;c;...] *)
+
+(**
+   Print on list format; i.e. [a;b;c;...]
+*)
 val print : ('a -> string) -> 'a list -> string
 val max : 'a list -> 'a
 val min : 'a list -> 'a
@@ -253,9 +259,16 @@ val get_first_some_ar2 :
   ('a -> 'b -> 'c option) list -> 'a -> 'b -> 'c option
 val fold_right_map :
   ('a -> 'b -> 'c * 'b) -> 'a list -> 'b -> 'c list * 'b
-  (** foldl f [ 1, 2 , 3 ] acc =       acc |> f 1 |> f 2 |> f 3 *)
+
+(**
+   {[foldl f [ 1, 2 , 3 ] acc =       acc |> f 1 |> f 2 |> f 3]}
+   same as foldl except that the argument are in a different order
+*)
 val foldl  : ('a -> 'acc -> 'acc) -> 'a list -> 'acc -> 'acc
-  (** foldr f [ 1, 2 , 3 ] acc =       acc |> f 3 |> f 2 |> f 1 *)
+
+(**
+   {[foldr f [ 1, 2 , 3 ] acc =       acc |> f 3 |> f 2 |> f 1]}
+*)
 val foldr  : ('a -> 'acc -> 'acc) -> 'a list -> 'acc -> 'acc
 
 (**
@@ -276,16 +289,18 @@ val foldr1 : ('a -> 'a -> 'a) -> 'a list -> 'a
 *)
 val fold_left1 :  ('a -> 'a -> 'a) -> 'a list -> 'a
 
+(**
+   Just like fold_left, except that you are given only the second element of
+   the assoc list
+   (useful for folding on the values of a record node in an ast for example)
+*)
 val fold_left_snd : ('acc -> 'elt -> 'acc) -> 'acc -> (_ * 'elt) list -> 'acc
-  (**
-     just like fold_left, except that you are given only the second element of
-     the assoc list
-     (useful for folding on the values of a record node in an ast for example)
-  *)
 
-(**This is like a [map] but returns physically the same list if the maped
+(**
+   This is like a [map] but returns physically the same list if the maped
    elt is physically the same for each element of the list. Tail recursive.
-   Used for optimizing traversal constructions*)
+   Used for optimizing traversal constructions
+*)
 val map_stable : ('a -> 'a) -> 'a list -> 'a list
 
 (** This is a fold_left combined with a map. Tail recursive. *)

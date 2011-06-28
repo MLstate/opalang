@@ -500,6 +500,13 @@ let map_stable map list =
   let flist = List.fold_left fct [] list in
   if !equal then list else List.rev flist
 
+(**
+   {[('acc -> 'input -> ('acc * 'output))  ->  'acc  ->  'output list  ->  'input list  -> ('acc *  'output list)]}
+   @param f takes the accumulator and the head of the list to give back the new element
+   of the output list and the new accumulator
+   @param end_ is the end of the output list
+   the result of the mapping is reversed
+*)
 let fold_left_rev_map_end f acc end_ list =
   let rec aux acc list = function
     | [] -> acc, list
@@ -509,6 +516,13 @@ let fold_left_rev_map_end f acc end_ list =
   aux acc end_ list
 
 let fold_left_rev_map f acc list = fold_left_rev_map_end f acc [] list
+
+(**
+   {[('acc -> 'input -> ('acc * 'output))  ->  'acc  ->  'output list  ->  'input list  -> ('acc *  'output list)]}
+   @param f takes the accumulator and the head of the list to give back the new element
+   of the output list and the new accumulator
+   @param rev_beginning is the beginning of the output list in the reverse order
+*)
 let fold_left_map_init f acc rev_beginning list =
   let acc, l = fold_left_rev_map_end f acc rev_beginning list in
   acc, List.rev l

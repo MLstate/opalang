@@ -58,18 +58,18 @@ sig
   *)
   val remove : key -> 'a t -> 'a t
 
-  val update : key -> ('a -> 'a) -> 'a t -> 'a t
   (**
      @raise Not_found if the binding to update is not present
   *)
+  val update : key -> ('a -> 'a) -> 'a t -> 'a t
 
-  val update_default : key -> ('a -> 'a) -> 'a -> 'a t -> 'a t
   (**
      [update_default key updater default map]
      Looks for the value of [key] in [map]
      - if it is present then, replace it with [updater value]
      - or else add the binding [key] -> [default] to the map
   *)
+  val update_default : key -> ('a -> 'a) -> 'a -> 'a t -> 'a t
 
   val mem : key -> 'a t -> bool
   val iter : (key -> 'a -> unit) -> 'a t -> unit
@@ -109,6 +109,12 @@ sig
   val filter_keys : (key -> bool) -> 'a t -> 'a t
   val filter_val : ('a -> bool) ->'a t -> 'a t
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
+
+  (**
+     Check that both map contains the same keys,
+     and that the binded value is the same,
+     using the equality function for values
+  *)
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   module Iter :
     (IterSig.S with type +'a element = key * 'a and type +'a structure = 'a t)
@@ -118,12 +124,14 @@ sig
 
   (**
      Find the naearest smaller entry in a map.
-     @raise Not_found if there is no smaller key in the map *)
+     @raise Not_found if there is no smaller key in the map
+  *)
   val find_inf : key -> 'a t -> key * 'a
 
   (**
      Find the naearest greater entry in a map.
-     @raise Not_found if there is no smaller key in the map *)
+     @raise Not_found if there is no smaller key in the map
+  *)
   val find_sup : key -> 'a t -> key * 'a
 
   val from_list : (key * 'a) list -> 'a t
