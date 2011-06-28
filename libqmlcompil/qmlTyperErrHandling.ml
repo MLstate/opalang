@@ -125,14 +125,7 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
       Format.fprintf ppf
         ("Cannot@ define@ this@ expansive@ expression,@ try@ to@ " ^^
          "explicit@ arguments.@\n")
-  | TExc.Escaping_private_type (ident, ty) ->
-      Format.fprintf ppf
-        ("@[Definition@ of@ @{<red>%a@}@ is@ not@ private@ but@ its@ type@ "^^
-         "contains@ a@ type@ private@ to@ the@ package.@ Type@ %a@ must@ " ^^
-         "not@ escape@ its@ scope.@]@\n" ^^
-         "@[<2>@{<bright>Hint@}:@\nAdd@ a@ @@private@ directive@ on@ this@ " ^^
-         "definition.@]@\n")
-        ident_printer ident print_ty ty
+
 
 
 (* ************************************************************************** *)

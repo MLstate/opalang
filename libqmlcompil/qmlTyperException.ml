@@ -115,11 +115,8 @@ type 'ty t =
   | DuplicateTypeDefinitions of string (* An exception for QmlBlender and OPA,
       not thrown in the normal QML world. *)
   | ExpansiveExprAtTopLevel
-  | Escaping_private_type of (Ident.t * 'ty)  (* A toplevel value definition has
-      a type in which a @private type to the package appears and this definition
-      is not marked @private, hence is exported outside the package. Since the
-      @private type is not visible the toplevel definition must not be visible
-      also. *)
+
+
 
 type exn_t = error_loc * (QmlAst.ty t)
 exception Exception of exn_t
@@ -146,4 +143,3 @@ let map f_ty = function
   | NotImplementedYet x -> NotImplementedYet x
   | DuplicateTypeDefinitions s -> DuplicateTypeDefinitions s
   | ExpansiveExprAtTopLevel -> ExpansiveExprAtTopLevel
-  | Escaping_private_type (ident, ty) -> Escaping_private_type (ident, f_ty ty)

@@ -56,7 +56,11 @@ sig
   (* ************************************************************************ *)
   (* {b Descr}: Exception raised when a type contains a sub-term being a named
      type defined as @private. The embedded type is the named type expression
-     whose named is bound to a @private type definition.                      *)
+     whose named is bound to a @private type definition.
+     This is used when a toplevel value definition has a type in which a
+     @private type to the package appears and this definition is not marked
+     @private, hence is exported outside the package. Since the @private type
+     is not visible the toplevel definition must not be visible also.         *)
   (* ************************************************************************ *)
   exception Escaping_private_type of QmlAst.ty
 

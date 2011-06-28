@@ -303,10 +303,17 @@ struct
     let type_bndlist ?(env=env) valrec letrec fields =
       let gamma = env.QT.gamma in
       let bypass_typer = env.QT.bypass_typer in
-      let annotmap = env.QT.annotmap in
+      (* Keep this annotmap under the hand because this is the one that has locations
+         information. The one that will be returned after typechecking doesn't have
+         some anymore. So, in case of error, keeping this annotmap allows us to report
+         the error accurately in the source code instead of crudely citing the guilty
+         part of source code. *)
+      let initial_annotmap_with_locs = env.QT.annotmap in
       let options = env.QT.options in
       let exported_values_idents = env.QT.exported_values_idents in
-      let typer = type_of_expr ~options ~annotmap ~bypass_typer ~gamma in
+      let typer =
+        type_of_expr
+          ~options ~annotmap: initial_annotmap_with_locs  ~bypass_typer ~gamma in
       let (gamma, annotmap, t) = typer letrec in
       let fold_map gamma (ident, exp) (s, _, _) =
         let ty = get_let_component s t annotmap ident letrec in
@@ -316,13 +323,15 @@ struct
         if IdentSet.mem ident exported_values_idents then (
           try QmlTypesUtils.Inspect.check_no_private_type_escaping gamma ty with
           | QmlTypesUtils.Inspect.Escaping_private_type prv_ty ->
-              let err_loc =
-                QmlTyperException.loc_make
-                  (`Expr_loc letrec) QmlTyperException.loc_set_empty in
-              raise
-                (QmlTyperException.Exception
-                  (err_loc,
-                   (QmlTyperException.Escaping_private_type (ident, prv_ty))))
+              let err_ctxt =
+                QmlError.Context.annoted_expr initial_annotmap_with_locs exp in
+              QmlError.error err_ctxt
+                ("@[Definition@ of@ @{<red>%a@}@ is@ not@ private@ but@ its@ type@ "^^
+                 "contains@ a@ type@ private@ to@ the@ package.@ Type@ %a@ must@ " ^^
+                 "not@ escape@ its@ scope.@]@\n" ^^
+                 "@[<2>@{<bright>Hint@}:@\nAdd@ a@ @@private@ directive@ on@ this@ " ^^
+                 "definition.@]@\n")
+                QmlPrint.pp#ident ident QmlPrint.pp#ty prv_ty
         ) ;
         (* If interface printing is requested, then print the type of the bound
            value. *)
