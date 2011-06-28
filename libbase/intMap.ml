@@ -297,6 +297,33 @@ module Iter : (IterSig.S with type +'a element = int * 'a and type +'a structure
   let remaining _i = failwith "NotImplemented: IntMap.Iter.remaining"
 end
 
+(*this is not efficient, but at this time, this function is not called and is
+here only to confom to the signature*)
+(*todo: look if ordertop is needed, and can be applied to both tree*)
+let fold_map2 f t t' acc =
+  (* the result of the map, the accumulator and the iterator*)
+  let rec aux iter acc = function
+    | Br (p,m,tl,tr) ->
+        let acc, tl, iter = aux iter acc tl in
+        let acc, tr, iter = aux iter acc tr in
+        acc, Br (p, m, tl, tr), iter
+    | Lf (k,v) ->
+        let ()=if Iter.at_end iter
+        then invalid_arg "intMap.fold_map2" in
+        let k',v' = Iter.get iter in
+        let () = assert (k=k')
+        and iter = Iter.next iter in
+        let acc, v = f k v v' acc in
+        acc, Lf (k, v), iter
+    | Empty ->
+        acc, Empty, iter
+  in
+  let iter' = Iter.make t' in
+  let acc, t, iter' = aux iter' acc t in
+  if Iter.at_end iter' then acc, t
+  else invalid_arg "intMap.fold_map2"
+
+
 module RevIter : (IterSig.S with type +'a element = int * 'a and type +'a structure = 'a t) = struct
   type 'a structure = 'a t
   type 'a element = int * 'a

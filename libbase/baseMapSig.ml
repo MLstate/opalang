@@ -89,6 +89,12 @@ sig
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
   val fold_map : (key -> 'a -> 'c -> 'c * 'b) -> 'a t -> 'c -> 'c * 'b t
   val fold: (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  (** Takes two sets with the same key and apply the function to the key
+      and the two values associated.
+      The key are seen in increasing order
+      @raise Invalid_argument if the 2 map do not have the same keys
+  *)
+  val fold_map2: (key -> 'a -> 'b -> 'acc -> ('acc * 'result)) -> 'a t -> 'b t -> 'acc -> ('acc * 'result t)
 
     (** [fold_range_compare f map kmin kmax acc] Like fold range but
         [kmin] and [kmax] are not key type and the range selection is

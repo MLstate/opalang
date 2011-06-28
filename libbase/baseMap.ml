@@ -444,6 +444,26 @@ struct
     let remaining _i = failwith ("NotImplemented BaseMap.Make.Iter.remaining")
   end
 
+  let rec fold_map2 f m m' acc =
+    let iter' = Iter.make m' in
+    (* the result of the map, the accumulator and the iterator*)
+    let rec aux iter acc = function
+      | Empty -> Empty, acc, iter
+      | Node (l, v, d, r, h) ->
+          let l, acc, iter = aux iter acc l in
+          let () = if Iter.at_end iter then invalid_arg "baseMap.fold_map2: not enough element in second map" in
+          let v',e = Iter.get iter in
+          let () = if not (v'=v) then invalid_arg "baseMap.fold_map2: map with different elements" in
+          let iter = Iter.next iter in
+          let acc, e = f v d e acc in
+          let r, acc, iter = aux iter acc r in
+          let m = Node (l, v, e, r, h) in
+          m, acc, iter
+    in
+    let m, result, iter'=aux iter' acc m in
+    if Iter.at_end iter' then result, m
+    else invalid_arg "baseMap.fold_map2 not enough element in first map"
+
   module RevIter : (IterSig.S with type +'a element = key * 'a and type +'a structure = 'a t) =
     struct
     type 'a structure = 'a t
