@@ -419,15 +419,19 @@ struct
           else _merge (aux l) (aux r)
     in aux m
 
-  module Iter : (IterSig.S with type +'a element = key * 'a and type +'a structure = 'a t)=
+  module Iter : (IterSig.S with type +'a element = key * 'a and type +'a structure = 'a t and type +'a t = ((key *'a ) * 'a t) list) =
   struct
     type 'a structure = 'a t
     type 'a element = key * 'a
     type 'a t = ('a element * 'a structure) list
 
-    let rec make = function
-      | Empty -> []
-      | Node (l, v, d, r, _) -> make l @ [(v, d), r]
+    let rec aux_make acc= function
+      | Empty -> acc
+      | Node (l, v, d, r, _) ->
+          let acc=((v,d),r)::acc in
+          aux_make acc l
+
+    let make m = aux_make [] m
           (* let make_iterator m = let rec aux = function | Empty ->
              [] | Node (l, v, d, r, _) -> (v, d, r) :: aux l in List.rev (aux
              m) *)
@@ -436,7 +440,7 @@ struct
       | _ -> raise IteratorEnd
     let next = function
       | (_, Empty) :: tl -> tl
-      | (_, r) :: tl -> make r @ tl
+      | (_, r) :: tl -> aux_make tl r
       | _ -> raise IteratorEnd
     let at_end i = i = []
 
