@@ -453,7 +453,7 @@ let read_int buf offset =
 let serialised_endpoint_size = 8
 let serialise_endpoint ep =
   let buf = String.make serialised_endpoint_size '\000' in
-  let addr, port = 
+  let addr, port =
     match ep with
     | Tcp (addr,port) -> (* ['T'|0|address(4bytes)|port(2bytes)] *)
         buf.[0] <- 'T';
@@ -575,10 +575,12 @@ sig
     | Message of channel_id * RequestId.id
     | Delete of channel_id
     | Channel of pre_channel
+    | Reset
   val unserialise_operation : endpoint -> operation stream_unserialise
   val serialise_message : RequestId.id -> ('out','in') channel -> 'out' -> string
   val serialise_delchan: channel_id -> string
   val serialise_channel: black_channel -> endpoint (* local *) -> string
+  val reset_message : string
 end =
 struct
 
@@ -586,6 +588,7 @@ struct
     | Message of channel_id * RequestId.id
     | Delete of channel_id
     | Channel of pre_channel
+    | Reset
 
   (** Format specification for a message :
       - (1c) char M, the "shebang" for a message
@@ -678,6 +681,8 @@ struct
   let unserialise_delchan msg =
     read_int msg shebang_length
 
+  let reset_message = "R"
+
   let unserialise_operation remote_endpoint msg offset =
     assert (offset=0); (* only called that way, but would be a nice optimisation *)
     let len = String.length msg in
@@ -707,6 +712,8 @@ struct
         else
           let channel_id,request_id = unserialise_message_header msg in
           `data (Message (channel_id, request_id), offset + message_header_length)
+    | 'R' -> (* reset *)
+        `data (Reset, offset + 1)
     | _ ->
         `failure "Invalid message"
 
@@ -1322,6 +1329,7 @@ let reading_loop_aux sched connection loop_end =
           #<If$minlevel 10>
             debug "Bad message from %s: «\n[33m%s[0m»" (connection_to_string connection) (hexprint buf)
           #<End>;
+          Connection.write connection Serialise.reset_message ~success:(fun _ -> ()) ~failure:(fun _ -> ());
           loop_end ()
     in
     match !reading_status with
@@ -1369,6 +1377,10 @@ let reading_loop_aux sched connection loop_end =
     in
     raw_read (Serialise.unserialise_operation remote_endpoint)
     @> function
+    | Serialise.Reset ->
+        Logger.warning "remote end reset connection %s" (connection_to_string connection);
+        loop_end();
+        Connection.disconnect connection
     | Serialise.Channel pre_channel ->
         first_channel_treatment connection pre_channel;
         loop ()
