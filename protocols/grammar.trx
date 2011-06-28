@@ -24,7 +24,6 @@ read ocaml_parser.trx
 #read trx_expr.trx
 
 types:{{
-open Base
 open Ocaml
 open Tgrammar
 

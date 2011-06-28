@@ -21,7 +21,6 @@ read ocaml_keywords.trx
 read ocaml_parser.trx
 
 types:{{
-open Base
 open Ocaml
 open Tgrammar
 

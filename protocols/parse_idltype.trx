@@ -18,7 +18,6 @@
 read default.trx
 
 types:{{
-open Base
 open Ocaml
 open Tgrammar
 

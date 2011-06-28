@@ -3150,7 +3150,6 @@ unit <- \"()\" {{ PT_Unit }}\n\
 read default.trx\n\
 \n\
 types:{{\n\
-open Base\n\
 open Tgrammar\n\
 \n\
 type pt_type =\n\
