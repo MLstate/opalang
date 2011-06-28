@@ -15,8 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(* depends *)
+module List = BaseList
+
 (* TODO remove *)
-open Base
 open SurfaceAst
 let (|>) = InfixOperator.(|>)
 

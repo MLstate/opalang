@@ -15,7 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-open Base
 
 (*
   We test strictly than the val_ function is called only on

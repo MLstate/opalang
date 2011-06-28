@@ -20,7 +20,6 @@
 *)
 
 (* TODO remove *)
-open Base
 open SurfaceAst
 open SurfaceAstHelper
 
@@ -153,7 +152,7 @@ struct
     | e -> sub_expr_no_ident e
 
   let sub_expr' fd x = unannot (sub_expr_node' fd) x
-  let sub_expr_node e = sub_expr_node' identity e
+  let sub_expr_node e = sub_expr_node' Base.identity e
   let sub_expr x = unannot sub_expr_node x
 
 

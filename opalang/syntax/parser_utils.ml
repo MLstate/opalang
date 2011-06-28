@@ -15,8 +15,13 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(* depends *)
+module String = BaseString
+module List = BaseList
+module Char = BaseChar
+
 (* TODO remove *)
-open Base
 open Printf
 open SurfaceAst
 module Cons = SurfaceAstCons.StringCons

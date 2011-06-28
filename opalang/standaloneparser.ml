@@ -19,7 +19,6 @@
  * This file is a standalone parser for the opa syntax
  * It is meant for debugging/profiling the parser
  *)
-open Base
 
 let show = ref false
 let show_pos = ref false

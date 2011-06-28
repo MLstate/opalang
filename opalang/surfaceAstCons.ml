@@ -15,8 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(* depends *)
+module List = BaseList
+
 (* FIXME: open *)
-open Base
 open SurfaceAst
 
 module Fresh =
@@ -66,8 +69,8 @@ module StringIdent =
 struct
   type ident = string
   let equal s s' = String.compare s s' = 0
-  let val_ = identity
-  let typ = identity
+  let val_ = Base.identity
+  let typ = Base.identity
   let fresh = Fresh.typevar
   let ns_fresh ~label:_ s = s
 end

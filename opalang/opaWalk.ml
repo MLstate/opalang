@@ -15,7 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-open Base
+
+(* depends *)
+module List = BaseList
+
 open SurfaceAst
 
 let foldmap_2_stable tra acc ((s,p) as c) =
