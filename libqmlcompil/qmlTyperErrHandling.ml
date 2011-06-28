@@ -91,9 +91,6 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
       Format.fprintf ppf
         "The type@  @{<red>%a@} @ is@ not@ defined.@\n"
         QmlPrint.pp#typeident tid
-  | TExc.UnableToTypeBypass bsl ->
-      Format.fprintf ppf
-        "Unable@ to@ type@ bypass@  @{<red>%s@}.@\n" (BslKey.to_string bsl)
   | TExc.DuplicateTypeDefinitions s ->
       Format.fprintf ppf
         "There@ are@ duplicate@ definitions@ for@ type@  @{<red>%s@} .@\n" s

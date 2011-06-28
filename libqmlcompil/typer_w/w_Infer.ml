@@ -892,12 +892,8 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
           perform_infer_expr_type_postlude
             original_expr W_AnnotMap.empty_annotmap ty
       | None ->
-          let err_loc =
-            QmlTyperException.loc_make
-              (`Expr_loc original_expr) QmlTyperException.loc_set_empty in
           raise
-            (QmlTyperException.Exception
-               (err_loc, QmlTyperException.UnableToTypeBypass bsl_key))
+            (W_InferErrors.Infer_bypass_type_not_found (bsl_key, original_expr))
     )
   | QmlAst.Coerce (_, expr, coercing_ty_expr) -> (
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)

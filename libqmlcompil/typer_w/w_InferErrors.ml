@@ -96,3 +96,14 @@ exception Infer_private_type_not_opaque of
    W_Algebra.simple_type)   (** The precise private type (part of the above
                                 type obvioously) causing the definition to be
                                 not generalizabled. *)
+
+
+
+(* ************************************************************************** *)
+(** {b Descr} Exception thrown when a bypass key was not bound in the BSL. This
+    means that we were unable to find the type of this bypass via the BSL.
+    {b Visibility}: Exported outside this module.                             *)
+(* ************************************************************************** *)
+exception Infer_bypass_type_not_found of (
+  BslKey.t *    (** The bypass key that was not found. *)
+  QmlAst.expr)  (** The bypass faulty expression. *)

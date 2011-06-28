@@ -100,7 +100,6 @@ type 'ty t =
          [list_of_identifiers_at_this_point] may be empty if we are in a context
          where the list of identifiers is unclear*)
   | TypeIdentNotFound of QmlAst.typeident
-  | UnableToTypeBypass of BslKey.t
   | DuplicateTypeDefinitions of string (* An exception for QmlBlender and OPA,
       not thrown in the normal QML world. *)
 
@@ -120,5 +119,4 @@ let map f_ty = function
       InvalidTypeUsage (tid, tvl, List.map f_ty tyl)
   | IdentifierNotFound _ as x -> x
   | TypeIdentNotFound x -> TypeIdentNotFound x
-  | UnableToTypeBypass x -> UnableToTypeBypass x
   | DuplicateTypeDefinitions s -> DuplicateTypeDefinitions s

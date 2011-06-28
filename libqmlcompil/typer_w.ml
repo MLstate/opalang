@@ -215,6 +215,14 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
             (Ident.to_string name)
             W_PrintTypes.pp_simple_type_start_sequence whole_ty
             W_PrintTypes.pp_simple_type_end_sequence prv_ty
+      | W_InferErrors.Infer_bypass_type_not_found (bp_key, bp_expr) ->
+          let annotmap_for_err_report =
+            W_ReportErrors.get_annotmap_for_error_report () in
+          let err_ctxt =
+            QmlError.Context.annoted_expr annotmap_for_err_report bp_expr in
+          QmlError.error err_ctxt
+            "Unable@ to@ type@ bypass@  @{<red>%s@}.@\n"
+            (BslKey.to_string bp_key)
       | W_SchemeGenAndInst.Non_generalizable_type_var (global_ty, var_ty)
       | W_SchemeGenAndInst.Non_generalizable_row_var (global_ty, var_ty)
       | W_SchemeGenAndInst.Non_generalizable_column_var (global_ty, var_ty) -> (
