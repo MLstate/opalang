@@ -35,7 +35,9 @@ let tracker_map = ref StringMap.empty
 (************************************************)
 (* Options **************************************)
 module Arg = struct
-  open Base
+
+  module Arg = Base.Arg
+
   let split =
     String.slice ','
 
