@@ -338,6 +338,9 @@ let min t = ordertop min t
 *)
 let choose = min
 
+let choose_opt t =
+  try Some (choose t) with | Not_found -> None
+
 let rec max t = match t with
   | Br (_,_m,_tl,tr) -> max tr
   | Lf (k,v) -> k,v

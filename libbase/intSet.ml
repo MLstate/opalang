@@ -70,6 +70,12 @@ let diff set set' = filter (fun x -> not (mem x set')) set
 let subset (set:t) (set':t) = for_all (fun x -> mem x set') set
 
 let choose = min_elt
+
+let choose_opt (set:t) =
+  match IntMap.choose_opt set with
+  | None -> None
+  | Some (a, _) -> Some a
+
 let split int set =
   fold
     (fun i (inf, b, sup) ->

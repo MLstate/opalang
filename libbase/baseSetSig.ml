@@ -62,6 +62,11 @@ sig
      @raise Not_found on the empty set
   *)
   val choose : t -> elt
+
+  (**
+     Returns an arbitrary element of the set if it is not empty
+  *)
+  val choose_opt : t -> elt option
   val split : elt -> t -> t * bool * t
   val draw : t -> elt * t
   val size : t -> int

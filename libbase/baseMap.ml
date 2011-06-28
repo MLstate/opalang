@@ -576,6 +576,10 @@ struct
               add k v acc
          ) map1 empty
 
+  let rec choose_opt = function
+    | Empty -> None
+    | Node(_, k, v, _r, _) -> Some (k, v)
+
   let from_sorted_array keys vals =
     let len_keys = Array.length keys in
     let len_vals = Array.length vals in

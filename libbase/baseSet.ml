@@ -321,6 +321,10 @@ struct
 
   let choose = min_elt
 
+  let rec choose_opt = function
+    | Empty -> None
+    | Node (_, v, _r, _) -> Some v
+
   let complete_join big small =
     fold add small big
 

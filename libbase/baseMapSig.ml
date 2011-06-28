@@ -80,6 +80,11 @@ sig
      @raise Not_found on the empty list
   *)
   val choose : 'a t -> (key * 'a)
+
+  (**
+     Returns an arbitrary element of the set if it is not_empty, or null
+  *)
+  val choose_opt : 'a t -> (key * 'a) option
   val map : ('a -> 'b) -> 'a t -> 'b t
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
   val fold_map : (key -> 'a -> 'c -> 'c * 'b) -> 'a t -> 'c -> 'c * 'b t
