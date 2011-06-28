@@ -15,9 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(** Simplier version of ofile + retourned type is an option (safer) *)
-open Base
 
+(* depends *)
+module String = BaseString
+
+(** Simplier version of ofile + retourned type is an option (safer) *)
 
 let extension = "of"
 let error s = prerr_endline (Printf.sprintf "[!] ofile : %s" s); exit 1
