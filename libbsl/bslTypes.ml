@@ -21,7 +21,6 @@
 module List = Base.List
 module String = Base.String
 
-(* TODO: define open Base.InfixOperators *)
 let (@*) = InfixOperator.(@*)
 
 (* refactoring in progress *)
