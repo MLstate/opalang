@@ -80,7 +80,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
          Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt))),
       "<host>[:<port>]",
       (let default_str = match default_o with
-         | Badop.Options_Client(_,(host,port)) ->
+         | Badop.Options_Client(_,(host,port),_) ->
              Printf.sprintf " (default: %s:%d)" (Unix.string_of_inet_addr host) port
          | _ -> ""
        in
@@ -154,7 +154,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
            (List.length addrlist,
             List.map
               (fun (addr,portopt) ->
-                 Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt)))
+                 Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt), fun () -> `abort))
               addrlist)),
     "<host>[:<port>],<host>[:<port>],...",
     "Use a remote database replicated on all the given servers"

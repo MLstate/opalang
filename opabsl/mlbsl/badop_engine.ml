@@ -159,7 +159,7 @@ let db_options =
           conflicting_db (Option.default "database" ident)
           (match snd options.engine_options with
            | Badop.Options_Local { Badop.path = str; _ } -> Printf.sprintf " (%s)" str
-           | Badop.Options_Client (_,(h,p)) -> Printf.sprintf " (%s:%d)" (Unix.string_of_inet_addr h) p
+           | Badop.Options_Client (_,(h,p), _) -> Printf.sprintf " (%s:%d)" (Unix.string_of_inet_addr h) p
            | _ -> "");
         exit 1
     | None ->
@@ -209,12 +209,32 @@ let client_options ident host_opt port_opt =
   let host = match host_opt with None -> default_host | Some host ->
     try (Unix.gethostbyname host).Unix.h_addr_list.(0) with Not_found -> default_host in
   let port = Option.default Badop_meta.default_port port_opt in
-  let o = Badop.Options_Client (Scheduler.default, (host, port)) in
+  let o = Badop.Options_Client (Scheduler.default, (host, port), fun () -> `abort) in
   db_options ident (m, o)
 
 ##register [restricted: dbgen; no-projection; opacapi] get: database_options -> t
 let get options =
-  let { engine_options = (backend, _); _ } = options in
+  let { engine_options = (backend, eopts); _ } = options in
+  let eopts = match eopts with
+    | Badop.Options_Client (sched,server,_on_disconnect) ->
+        let on_disconnect () =
+          (match ServerLib.field_of_name "server_event_db_error" with
+           | Some record ->
+               let event =
+                 ServerLib.make_record
+                   (ServerLib.add_field ServerLib.empty_record_constructor record ServerLib.void)
+               in
+               BslServer_event.send (Obj.magic event) (QmlCpsServerLib.cont_ml (fun _ -> ()))
+           | None ->
+               Logger.error "Database connection error before OPA runtime initialisation")
+          ;
+          #<If:DATABASE_RECONNECT$minlevel 0>
+            `retry (Time.seconds (int_of_string (Option.get DebugVariables.database_reconnect)))
+          #<Else> `abort #<End>
+        in
+        Badop.Options_Client (sched,server,on_disconnect)
+    | eopts -> eopts
+  in
   let module Backend = (val backend : Badop.S) in
   let module Engine = Make_Badop_Record(Backend) in
-  Engine.engine options
+  Engine.engine { options with engine_options = (backend, eopts) }
