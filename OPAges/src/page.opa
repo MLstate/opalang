@@ -162,16 +162,16 @@ Page = {{
 
   @private preview_context = UserContext.make(StringMap.empty:stringmap(Page.stored_content))
 
-  @private set_preview(key,page) =
+  @server @private set_preview(key,page) =
     UserContext.change(StringMap.add(key,page,_), preview_context)
 
-  @private has_preview(key) =
+  @server @private has_preview(key) =
     UserContext.execute(StringMap.mem(key,_), preview_context)
 
-  @private get_preview(key) =
+  @server @private get_preview(key) =
     UserContext.execute(StringMap.get(key,_), preview_context)
 
-  @private del_preview(key) =
+  @server @private del_preview(key) =
     UserContext.change(StringMap.remove(key,_), preview_context)
 
   /**
@@ -732,20 +732,47 @@ Page = {{
         build_select(rev) =
           hist = access.access.history_list(file)
           size = List.length(hist)
-          make_option(i, (user, date, parent) : (string, Date.date, int)) : xhtml =
+
+          make_map(i, (user, date, parent), acc) =
             i = i+1
-            based = if parent < 0 then "" else " based on {parent}"
-            value = "#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
+            acc = IntMap.add(i, (user, date, parent, []), acc)
+            match IntMap.get(parent, acc)
+            {some=(user, date, par, sons)} -> IntMap.add(parent, (user, date, par, [i|sons]), acc)
+            _ -> acc
+          map = List.foldi(make_map, hist, IntMap.empty)
+
+          map_fold(key, (user, date, parent, _sons), acc) =
+            i = key
+            based = "" //if parent < 0 then "" else " based on {parent}"
+            len =
+              match IntMap.get(parent, map)
+              {some=(_user, _date, _parent, sons)} -> List.length(sons)
+              _ -> 0
+            end
+            pad = String.make(len-1, '-')
+            value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
-            match rev
+            res = match rev
             | {none} ->    if i == size then selected(i) else default(i)
             | {some=rev} ->if i == rev  then selected(i) else default(i)
-            end
+            [res|acc]
+
+//           make_option(i, (user, date, parent) : (string, Date.date, int)) : xhtml =
+//             i = i+1
+//             based = if parent < 0 then "" else " based on {parent}"
+//             value = "#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
+//             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
+//             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
+//             match rev
+//             | {none} ->    if i == size then selected(i) else default(i)
+//             | {some=rev} ->if i == rev  then selected(i) else default(i)
+//             end
 
           <select id={select_id} onchange={action_change_rev}>
-            {List.rev_mapi(make_option, hist)}
+            {IntMap.fold(map_fold, map, [])}
           </select>
+          // {List.rev_mapi(make_option, hist)}
 
         buttons =
           common = <>
