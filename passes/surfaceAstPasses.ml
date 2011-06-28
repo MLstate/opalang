@@ -16,7 +16,6 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* rebel open *)
-open Base
 open SurfaceAst
 open SurfaceAstHelper
 open OpaEnv

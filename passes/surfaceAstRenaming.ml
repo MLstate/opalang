@@ -55,10 +55,14 @@
 
 *)
 
+(* depends *)
+module List = BaseList
+module Format = BaseFormat
+module String = BaseString
+
 (* HACK : please, clean-up in opa lang *)
 module Parser_utils = OpaParserUtils
 
-open Base
 open SurfaceAst
 open SurfaceAstHelper
 
@@ -439,7 +443,7 @@ let check_for_toplevel_duplicates val_map type_map =
           let origins = List.filter_map
             (function
                | (OpenedIdent (_,ident,(_ :: _ as path)),_) ->
-                   Some (String.concat_map "." identity (Ident.original_name ident :: path))
+                   Some (String.concat_map "." Base.identity (Ident.original_name ident :: path))
                | _ ->
                    None
             ) l in
@@ -536,7 +540,7 @@ let get_tuple_n num = IntMap.find_opt num !tuples
 let get_tuple_size name =
   match String.slice '_' name with
     | ["tuple"; s] ->
-        ( match int_of_string_opt s with
+        ( match Base.int_of_string_opt s with
             | None -> None
             | Some n -> if n >= 0 then Some n else None
         )

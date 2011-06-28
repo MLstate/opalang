@@ -22,7 +22,6 @@
 (* HACK : please, clean-up in opa lang *)
 module Parser_utils = OpaParserUtils
 
-open Base
 open Trx_ast
 open SurfaceAst
 open SurfaceAstHelper

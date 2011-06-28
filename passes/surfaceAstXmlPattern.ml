@@ -19,10 +19,13 @@
 
 *)
 
+(* depends *)
+module List = BaseList
+
+
 (* HACK : please, clean-up in opa lang *)
 module Parser_utils = OpaParserUtils
 
-open Base
 open SurfaceAst
 module C = SurfaceAstCons.StringCons
 module I = Opacapi

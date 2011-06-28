@@ -19,7 +19,6 @@
     @author Rudy Sicard
 **)
 
-open Base
 
 val reorder_toplevel :
   ?roots:(Ident.t list) ->
