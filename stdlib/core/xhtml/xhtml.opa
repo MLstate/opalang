@@ -668,6 +668,11 @@ Xhtml =
     List.find_map(oracle, list)
 
   @private
+  remove_attr(attr, list: list(string_assoc(string))): list(string_assoc(string)) =
+    oracle(i:Xml.attribute) = i.name == attr
+    List.remove_p(oracle, list)
+
+  @private
   iter_tell_me_if_i_am_last(f: 'a,bool -> void, l: list('a)):void =
     rec aux =
       | [hd ] -> f(hd, true)
@@ -1124,6 +1129,54 @@ Xhtml =
     _ -> <div id={id}>{x}</div>
     end
     aux(id,x)
+
+  /**
+   * Add an attribute to an xhtml node if not already defined
+   */
+  add_attribute(name: string, value: string, x:xhtml):xhtml =
+    // aux(id, x) with
+    rec aux(x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(x)
+    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+      args = if exists_attr(name,args) then args
+             else [{~name namespace="" ~value}|args]
+      @opensums({x with ~args})
+    _ -> x
+    end
+    aux(x)
+
+  /**
+   * Set an attribute to an xhtml node. Replace if already_exists
+   */
+  set_attribute(name: string, value: string, x:xhtml):xhtml =
+    // aux(id, x) with
+    rec aux(x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(x)
+    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+      args =
+        l = remove_attr(name,args)
+        [{~name namespace="" ~value}|l]
+      @opensums({x with ~args})
+    _ -> x
+    end
+    aux(x)
+
+   /**
+   * Remove an attribute from an xhtml node.
+   */
+  remove_attribute(name: string, x:xhtml):xhtml =
+    // aux(id, x) with
+    rec aux(x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(x)
+    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+      args = remove_attr(name,args)
+      @opensums({x with ~args})
+    _ -> x
+    end
+    aux(x)
 
   /**
    * Add style to the xhtml (added to pre-exiting style)
