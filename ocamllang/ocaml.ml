@@ -21,8 +21,8 @@
     @author Mathieu Barbin
 **)
 
-(* open Text *)
-open Base
+(* depends *)
+module List = BaseList
 
 (**)
 

@@ -132,7 +132,6 @@ end
 
 (* ===== Code optimization ===== *)
 
-open Base
 open Ocaml (* FIXME, when we switch to ocaml 3.12, use the local open construct *)
 
 (*
