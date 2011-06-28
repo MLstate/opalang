@@ -16,8 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(* TODO remove *)
-open Base
+(* depends *)
+module List = BaseList
 
 let (|>) = InfixOperator.(|>)
 
