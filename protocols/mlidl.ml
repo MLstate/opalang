@@ -45,6 +45,7 @@ let string_functions = ref true
 let bsl_file = ref true
 let no_ocaml = ref false
 let no_opa = ref false
+let protocol_name = ref None
 
 let mns = ref ""
 let _Mns = ref ""
@@ -155,6 +156,7 @@ let restore_opts {
     module_name := opt_module_name;
     output_suffix := opt_output_suffix;
     bsl_prefix := opt_bsl_prefix;
+    (* bslmns := opt_bsl_prefix; *)
     (*encoding_number := opt_encoding_number;*)
     ocaml_wrap_opt := opt_ocaml_wrap_opt;
     opa_wrap_opt := opt_opa_wrap_opt;
@@ -262,11 +264,11 @@ let getbase filename from_suffix =
 let setsuffix filename prefix from_suffix to_suffix extension =
   let d = Filename.dirname filename in
   let base = getbase filename from_suffix in
-  Filename.concat d ((Tools.add_prefix (Tools.add_suffix base to_suffix) prefix)^extension)
+  Filename.concat d ((Tools.add_prefix ~force_split:true (Tools.add_suffix base to_suffix) prefix)^extension)
 
-let modnamesuffix from_suffix filename = Tools.add_suffix (getbase filename from_suffix) !output_suffix
+let modnamesuffix from_suffix filename = Tools.add_suffix ~force_split:true (getbase filename from_suffix) !output_suffix
 
-let prefixmodname prefix from_suffix filename = Tools.add_prefix (modnamesuffix from_suffix filename) prefix
+let prefixmodname prefix from_suffix filename = Tools.add_prefix ~force_split:true (modnamesuffix from_suffix filename) prefix
 
 let output_header oc filename intro cs ce =
   let tim = Time.localtime (Time.now ()) in
@@ -815,7 +817,7 @@ let input_seq enc pre sep post es output =
      in
      aux [] es)
 
-let apps enc fs = 
+let apps enc fs =
   let rec aux = function
     | [] -> assert false
     | [a] -> a
@@ -1602,7 +1604,7 @@ let ocaml_wrap_encoding () = {
     output_l = (fun enc o t l ef sf -> sprintf "(fun __l -> JsonTypes.Array (List.map (fun __e -> %s) __l))" (ef "__e" ""));
     make_ext_fn = (fun enc (tyns,exts) -> (function
                                            | [n] -> (sprintf "%s_%s" enc.prefix n)
-                                           | [mn;n] -> (sprintf "%s.%s_%s" ("Bsl"^(String.lowercase mn)) enc.prefix n)
+                                           | [mn;n] -> (sprintf "%s.%s_%s" ((Base.String.capitalize !bsl_prefix)^"_"^(String.lowercase mn)) enc.prefix n)
                                            | ("external"::t::tn) -> get_external_function enc exts t
                                            | _ -> assert false));
   };
@@ -1645,7 +1647,7 @@ let ocaml_unwrap_encoding () = {
     tup_v = tup_v;
     make_ext_fn = (fun enc (tyns,exts) -> (function
                                            | [n] -> (sprintf "%s_%s" enc.prefix n)
-                                           | [mn;n] -> (sprintf "%s.%s_%s" ("Bsl"^(String.lowercase mn)) enc.prefix n)
+                                           | [mn;n] -> (sprintf "%s.%s_%s" ((Base.String.capitalize !bsl_prefix)^"_"^(String.lowercase mn)) enc.prefix n)
                                            | ("external"::t::tn) -> get_external_function enc exts t
                                            | _ -> assert false));
   };
@@ -2465,7 +2467,7 @@ let make_jsonio_opa tynames oco name te =
 let make_create tyns oc oci _ocb _ocbo name te =
   match create_te_fn tyns name te with
   | [], [], [], "" -> ()
-  | args, typs, opatyps, cr -> 
+  | args, typs, opatyps, cr ->
       (fprintf oc "let create_%s %s =\n  %s\n\n" name (String.concat " " args) cr;
        fprintf oci "val create_%s : %s -> %s\n\n" name (String.concat " -> " typs) name(*;
        We would have to wrap these. OPA can se debrouille.
@@ -2652,6 +2654,145 @@ let respond_client entrypoint_protocol scheduler endpoint userdata client_cont f
         base !protocol_version
     end
 
+let make_sar_code_opa oc base sars =
+  let srs,rest = List.partition (function PI.IDLSar (name,_,_) -> issrpfx name | _ -> false) sars in
+  let ss,rest = List.partition (function PI.IDLSar (name,_,_) -> isspfx name | _ -> false) rest in
+  let rs,rest = List.partition (function PI.IDLSar (name,_,_) -> isrpfx name | _ -> false) rest in
+  let ps,rest = List.partition (function PI.IDLSar (name,_,_) -> isppfx name | _ -> false) rest in
+  let jps,rest = List.partition (function PI.IDLSar (name,_,_) -> isjppfx name | _ -> false) rest in
+  let rps,rest = List.partition (function PI.IDLSar (name,_,_) -> isrppfx name | _ -> false) rest in
+  if List.length rest <> 0
+  then
+    let names = List.map (function PI.IDLSar (name,_,_) -> name | _ -> assert false) rest in
+    failwith (sprintf "Unknown Hlnet function prefix: %s" (String.concat ", " names))
+  else
+    let _has_sar = List.length srs > 0 in
+    let _has_s = List.length ss > 0 in
+    let _has_r = List.length rs > 0 in
+    let has_p = List.length ps > 0 in
+    let has_jp = List.length jps > 0 in
+    let has_rp = List.length rps > 0 in
+    let _get_log name =
+      if !hlnet_logging
+      then
+        ((if name = "receive"
+          then sprintf "%s \"entering %s function\";\n  " !logger_function name
+          else sprintf "%s \"entering %s function for %%s\" msg_out;\n  " !logger_function name),
+         sprintf "%s \"received %%s\" msg_in;\n    " !logger_function,
+         sprintf "%s \"sending %%s\" msg_out;\n      " !logger_function,
+         sprintf "%s \"receiving ...\";\n      " !logger_function,
+         sprintf ";\n      %s \"sent %%s\" msg_out\n  " !logger_function,
+         sprintf ";\n      %s \"... received\"\n  " !logger_function,
+         (if name = "receive"
+          then sprintf ";\n  %s \"exiting %s function\"" !logger_function name
+          else sprintf ";\n  %s \"exiting %s function for %%s\" msg_out" !logger_function name))
+      else ("","","","","","","")
+    in
+(*     if has_sar *)
+(*     then begin *)
+(*       let (l1,l2,l3,_,l5,_,l7) = get_log "sendreceive" in *)
+(*       fprintf oc "\ *)
+(* __idl_sendrecv (to_string : 'a -> string) (from_string : string -> 'b%s)\n                   \ *)
+(*                    (sched : Scheduler.t) (endpoint : Hlnet.endpoint) (chan_spec :(string,string) Hlnet.channel_spec) \n                   \ *)
+(*                    ?(on_disconnect=((fun () -> `abort):(unit -> [ `retry of Time.t | `abort ])))\n                   \ *)
+(*                    (msg : 'a) (cont : 'b%s -> unit) =\n  \ *)
+(*   let msg_out = to_string msg in\n  %s\ *)
+(*   let cont_s msg_in =\n    %s\ *)
+(*     cont (from_string msg_in)\n  \ *)
+(*   in\n  \ *)
+(*   (Hlnet.open_channel sched endpoint chan_spec ~on_disconnect) @> (\n    \ *)
+(*     fun chan ->\n      %s\ *)
+(*       Hlnet.sendreceive chan msg_out cont_s%s)%s\ *)
+(* \n\n" (opt()) (opt()) l1 l2 l3 l5 l7 *)
+(*     end; *)
+(*     if has_s *)
+(*     then begin *)
+(*       let (l1,_,l3,_,l5,_,l7) = get_log "send" in *)
+(*       fprintf oc "\ *)
+(* let __idl_send (to_string : 'a -> string)\n               \ *)
+(*                (sched : Scheduler.t) (endpoint : Hlnet.endpoint) (chan_spec : (string,string) Hlnet.channel_spec) \n               \ *)
+(*                ?(on_disconnect=((fun () -> `abort):(unit -> [ `retry of Time.t | `abort ])))\n               \ *)
+(*                (msg : 'a) =\n  \ *)
+(*   let msg_out = to_string msg in\n  %s\ *)
+(*   (Hlnet.open_channel sched endpoint chan_spec ~on_disconnect) @> (\n    \ *)
+(*     fun chan ->\n      %s\ *)
+(*       Hlnet.send chan msg_out%s)%s\ *)
+(* \n\n" l1 l3 l5 l7 *)
+(*     end; *)
+(*     if has_r *)
+(*     then begin *)
+(*       let (l1,l2,_,l4,_,l6,l7) = get_log "receive" in *)
+(*       fprintf oc "\ *)
+(* let __idl_recv (from_string : string -> 'b%s)\n               \ *)
+(*                (sched : Scheduler.t) (endpoint : Hlnet.endpoint) (chan_spec :(string,string) Hlnet.channel_spec) \n               \ *)
+(*                ?(on_disconnect=((fun () -> `abort):(unit -> [ `retry of Time.t | `abort ])))\n               \ *)
+(*                (cont : 'b%s -> unit) =\n  \ *)
+(*   %s\ *)
+(*   let cont_s msg_in =\n    %s\ *)
+(*     cont (from_string msg_in)\n  \ *)
+(*   in\n  \ *)
+(*   (Hlnet.open_channel sched endpoint chan_spec ~on_disconnect) @> (\n    \ *)
+(*     fun chan ->\n      %s\ *)
+(*       Hlnet.receive chan cont_s%s)%s\ *)
+(* \n\n" (opt()) (opt()) l1 l2 l4 l6 l7 *)
+(*     end; *)
+    if has_p || has_jp || has_rp
+    then begin
+      let gets v f = v in
+      let getu v f = v in
+      let sq = gets "string_of_q(q)" "serialise_query" in
+      let uq = getu "q_of_string(s)" "unserialise_query" in
+      let sr = gets "string_of_r(r)" "serialise_response" in
+      let ur = getu "r_of_string(s)" "unserialise_response" in
+      fprintf oc "\
+__idl_make_protocol(q_of_string, string_of_q, r_of_string, string_of_r) =\n  \
+  Hlnet.define_protocol(\"%s\",%d,(q -> %s),(_chan,s -> %s), ( r -> %s), ( _chan,s -> %s))\n\n"
+        base !protocol_version sq uq sr ur
+    end(* ; *)
+(*     if has_rp *)
+(*     then begin *)
+(*       fprintf oc "\ *)
+(* let __idl_make_entrypoint_protocol client_protocol : (unit option, ('a, 'b) Hlnet.channel) Hlnet.protocol =\n  \ *)
+(*   Hlnet.define_protocol\n    \ *)
+(*     ~name:\"%s/entry\" ~version:%d\n    \ *)
+(*     ~serialise_query:      (fun _msg -> \"x\") (\* FIXME: hlnet doesn't like \"\" *\)\n    \ *)
+(*     ~unserialise_query:    (fun _chan _s _offset -> `data (None, 1))\n    \ *)
+(*     ~serialise_response:   (Hlnet.serialise_channel)\n    \ *)
+(*     ~unserialise_response: (Hlnet.unserialise_remote_channel client_protocol.Hlnet.client_spec)\n\ *)
+(* \n\ *)
+(* let respond_server entrypoint_protocol client_protocol scheduler endpoint (init_ud_server,init_ud_conn) responder =\n  \ *)
+(*   let ud_server_ref = ref init_ud_server in\n  \ *)
+(*   Hlnet.accept scheduler endpoint entrypoint_protocol.Hlnet.server_spec\n  \ *)
+(*   @> fun channel ->\n    \ *)
+(*     Hlnet.setup_respond channel\n      \ *)
+(*       (fun _msg fout ->\n      \ *)
+(*         fout (Hlnet.Aux.respond_on_new_channel channel client_protocol.Hlnet.server_spec\n                \ *)
+(*                 (let ud_conn_ref = ref init_ud_conn in\n                \ *)
+(*                 (fun msg ffout ->\n                   \ *)
+(*                    let ud_server, ud_conn, reply_opt, continue = responder (!ud_server_ref,!ud_conn_ref) msg in\n                   \ *)
+(*                    ud_server_ref := ud_server; ud_conn_ref := ud_conn;\n                   \ *)
+(*                    Option.iter ffout reply_opt;\n                   \ *)
+(*                    if not continue then Hlnet.refuse scheduler endpoint))))\n\ *)
+(* \n\ *)
+(* let respond_client entrypoint_protocol scheduler endpoint userdata client_cont final_cont =\n  \ *)
+(*   Hlnet.open_channel scheduler endpoint entrypoint_protocol.Hlnet.client_spec\n  \ *)
+(*   @> fun principal_channel ->\n    \ *)
+(*     Hlnet.sendreceive principal_channel None\n    \ *)
+(*     @> fun chan ->\n      \ *)
+(*       let rec aux userdata = function\n        \ *)
+(*         | true ->\n            \ *)
+(*             client_cont userdata\n            \ *)
+(*                (fun userdata -> function\n               \ *)
+(*                 | (Some msg,Some handler) -> Hlnet.sendreceive chan msg @> (fun str -> handler userdata str aux)\n               \ *)
+(*                 | (Some msg,None) -> (Hlnet.send chan msg; final_cont userdata)\n               \ *)
+(*                 | (None,Some handler) -> Hlnet.receive chan @> (fun str -> handler userdata str aux)\n               \ *)
+(*                 | (None,None) -> final_cont userdata)\n        \ *)
+(*         | false -> final_cont userdata\n      \ *)
+(*       in\n      \ *)
+(*       aux userdata true\n\n" *)
+(*         base !protocol_version *)
+(*     end *)
+
 let opatyp = function "string" -> "string" | t -> sprintf "%s_%s" !mns t
 let opa_typ = function "string" -> "string" | t -> sprintf "opa_%s_%s" !mns t
 let opatyp_ = function "string" -> "string" | t -> sprintf "%s.%s" !mns t
@@ -2738,6 +2879,66 @@ let respond_client_send%s msg final_cont =\n  \
      fprintf oci "val respond_client_single%s : %s -> (%s option -> unit) -> unit\n" bn st rt;
      fprintf oci "val respond_client_send%s : %s -> (unit -> unit) -> unit\n\n" bn st;
      fprintf oci "val respond_client_receive%s : (%s option -> unit) -> unit\n" bn rt)
+  else
+    failwith (sprintf "Unknown Hlnet prefix '%s'\n" name)
+
+
+let make_sar_opa oc name st rt =
+  if issrpfx name
+  then ()
+    (* (fprintf oc "%s = __idl_sendrecv(string_of_%s, %s_of_string)\n\n" name st rt) *)
+  else
+  (* if isspfx name *)
+  (* then *)
+  (*   (fprintf oc "%s = __idl_send string_of_%s\n\n" name st) *)
+  (* else *)
+  (* if isrpfx name *)
+  (* then *)
+  (*   (fprintf oc "%s = __idl_recv %s_of_string\n\n" name st) *)
+  (* else *)
+  if isppfx name
+  then
+    let ofsfn = function "string" -> "( s -> some( s) )" | t -> sprintf "%s_of_string" t in
+    let soffn = function "string" -> "( s -> s)" | t -> sprintf "string_of_%s" t in
+    (fprintf oc "%s = __idl_make_protocol(%s, %s, %s, %s)\n\n" name (ofsfn st) (soffn st) (ofsfn rt) (soffn rt))
+  (* else *)
+  (* if isjppfx name *)
+  (* then *)
+  (*   let ofsfn = function "string" -> "( s -> some( s))" | t -> sprintf "(fun __s -> fromjson_%s (Json_utils.from_string __s))" t in *)
+  (*   let soffn = function "string" -> "( s -> s)" | t -> sprintf "(fun __t -> Json_utils.to_string (tojson_%s __t))" t in *)
+  (*   (fprintf oc "let %s = __idl_make_protocol %s %s %s %s\n\n" name (ofsfn st) (soffn st) (ofsfn rt) (soffn rt); *)
+  (*    fprintf oci "val %s : (%s,%s) Hlnet.protocol\n\n" name st rt) *)
+(*   else *)
+(*   if isrppfx name *)
+(*   then *)
+(*     let bn = name_of_prefix rp_prefixes name in *)
+(*     let ofsfn = function "string" -> "(fun s -> Some s)" | t -> sprintf "%s_of_string" t in *)
+(*     let soffn = function "string" -> "(fun s -> s)" | t -> sprintf "string_of_%s" t in *)
+(*     (fprintf oc "protocol%s = __idl_make_protocol %s %s %s %s\n\n" bn (ofsfn st) (soffn st) (ofsfn rt) (soffn rt); *)
+(*      fprintf oc "entrypoint_protocol%s = __idl_make_entrypoint_protocol protocol%s\n\n" bn bn; *)
+(*      fprintf oc "port%s = ref %d\n" bn !default_port; *)
+(*      fprintf oc "addr%s = ref %s\n" bn !default_addr; *)
+(*      fprintf oc "endpoint%s = ref (Hlnet.Tcp (!addr%s, !port%s))\n" bn bn bn; *)
+(*      fprintf oc "scheduler%s = ref Scheduler.default\n\n" bn; *)
+(*      fprintf oc "init_responder%s port addr sched =\n  \ *)
+(*   port%s := port;\n  \ *)
+(*   addr%s := addr;\n  \ *)
+(*   endpoint%s := Hlnet.Tcp (!addr%s, !port%s);\n  \ *)
+(*   scheduler%s := sched\n\n" bn bn bn bn bn bn bn; *)
+(*      fprintf oc "let respond_server%s (ud_shared,init_ud_conn) responder =\n  \ *)
+(*   respond_server entrypoint_protocol%s protocol%s !scheduler%s !endpoint%s (ud_shared,init_ud_conn) responder\n\n" bn bn bn bn bn; *)
+(*      fprintf oc " let respond_client%s userdata client_cont final_cont =\n  \ *)
+(*   respond_client entrypoint_protocol%s !scheduler%s !endpoint%s userdata client_cont final_cont\n\n" bn bn bn bn; *)
+(*      fprintf oc "let respond_client_single%s msg final_cont =\n  \ *)
+(*   let client_cont _ k = k None ((Some msg, Some (fun _ reply k -> k (Some reply) false))) in\n  \ *)
+(*   respond_client entrypoint_protocol%s !scheduler%s !endpoint%s None client_cont final_cont\n\n" bn bn bn bn; *)
+(*      fprintf oc "\ *)
+(* let respond_client_send%s msg final_cont =\n  \ *)
+(*   let client_cont () k = k () ((Some msg, None)) in\n  \ *)
+(*   respond_client entrypoint_protocol%s !scheduler%s !endpoint%s () client_cont final_cont\n\n" bn bn bn bn; *)
+(*      fprintf oc "let respond_client_receive%s final_cont =\n  \ *)
+(*   let client_cont _ k = k None ((None, Some (fun _ reply k -> k (Some reply) false))) in\n  \ *)
+(*   respond_client entrypoint_protocol%s !scheduler%s !endpoint%s None client_cont final_cont\n\n" bn bn bn bn;) *)
   else
     failwith (sprintf "Unknown Hlnet prefix '%s'\n" name)
 
@@ -2991,7 +3192,7 @@ unit <- \"()\" {{ PT_Unit }}\n\
 "
   (*| _ -> assert false*)
 
-let write_ml_types_file file mdls tynames exts idls sars =
+let write_ml_types_file file mdls tynames exts idls sars import=
   mns := modnamesuffix ".mlidl" file;
   _Mns := String.capitalize !mns;
   bslmns := prefixmodname !bsl_prefix ".mlidl" file;
@@ -3041,9 +3242,18 @@ let write_ml_types_file file mdls tynames exts idls sars =
         end;
 
         make_abbrevs oc;
+        (match !protocol_name with
+        | None -> ()
+        | Some p ->
+            if !bsl_file
+            then fprintf ocbo "package protocols.%s\n\n" p);
+        List.iter (fun x ->(fprintf ocbo "import protocols.%s\n" x)) import;
         List.iter (function
                    | PI.IDLType (name,te,_) -> make_type_ocaml oc oci ocb ocbo tyext name te
                    | _ -> assert false) idls;
+        (match !protocol_name with
+        | None -> ()
+        | Some m -> if !bsl_file then fprintf ocbo ("Protocols%s = {{\n") (Base.String.capitalize m));
         if !bsl_file
         then (fprintf ocb "%s" (hdr_bsl());
               fprintf ocbo "%s" (hdr_bslo());
@@ -3071,11 +3281,17 @@ let write_ml_types_file file mdls tynames exts idls sars =
         then (List.iter (function PI.IDLType (name,te,_) -> make_string_of oc oci ocb ocbo name te | _ -> assert false) idls;
               List.iter (function PI.IDLType (name,te,_) -> make_of_string oc oci ocb ocbo name te | _ -> assert false) idls);
         (*if !bsl_file then fprintf ocb "##endmodule\n\n";*)
-        make_sar_code oc !base sars;
+        let prot_name = match !protocol_name with | Some pn -> pn | None -> !base in
+        make_sar_code oc prot_name sars;
+        make_sar_code_opa ocbo prot_name sars;
         List.iter (function PI.IDLSar (name,st,rt) -> make_sar_ocaml oc oci name st rt | _ -> assert false) sars;
+        List.iter (function PI.IDLSar (name,st,rt) -> make_sar_opa ocbo name st rt | _ -> assert false) sars;
         if !bsl_file
         then List.iter (function PI.IDLSar (name,st,rt) -> make_sar_bsl ocb ocbo name st rt | _ -> assert false) sars;
         fprintf oc "%s" (hdr_dbg ());
+        (match !protocol_name with
+        | None -> ()
+        | Some _ -> if !bsl_file then fprintf ocbo "\n}}\n");
         if !bsl_file then fprintf ocbo "%s" (hdr_ocbo_dbg ());
         close_out oc; close_out oci;
         if !bsl_file then (close_out ocb; close_out ocbo));
@@ -3154,10 +3370,15 @@ let get_output_suffix mn os = List.fold_left (fun (mn,os) -> function
       ((String.capitalize str),os)
   | _ -> (mn,os)) (mn,os)
 
+let get_import = List.fold_left (fun x  -> function
+  | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "protocol_name")), Ocaml.Const (Ocaml.String str))]) ->
+      str::x
+  | _ -> x) []
+
 let read_opens file tynames exts opns =
   let opts = save_opts () in
-  let mdls, tynames, exts =
-    List.fold_left (fun (mdls,tynames,exts) ->
+  let mdls, tynames, exts, import =
+    List.fold_left (fun (mdls,tynames,exts,imp) ->
                       (function
                        | PI.IDLLet (Ocaml.Open [Ident.Source _Modname]) ->
                            if !verbose then eprintf "Open: %s\n%!" _Modname;
@@ -3168,6 +3389,7 @@ let read_opens file tynames exts opns =
                            (*eprintf "ifile: %s\n" ifile;*)
                            let itynames, iexts, _idls, _sars, iopns, ilets = read_idl_file ifile in
                            let mn, os = get_output_suffix _Modname !output_suffix ilets in
+                           let import = get_import ilets in
                            let amn = mn^os in
                            if !verbose then eprintf "Open file output suffix: %s\n%!" os;
                            (*eprintf "tynames: %s\n%!" (string_of_tynames itynames);*)
@@ -3176,13 +3398,13 @@ let read_opens file tynames exts opns =
                            let isect = intersect tynames itynames in
                            if isect <> []
                            then (eprintf "Multiple type occurrences [%s]%s\n%!" (string_of_tynames isect) pimsg; assert false);
-                           (amn::mdls, (tynames@(List.map (fun mn -> amn::mn) itynames)), iexts@exts)
-                       | idl -> 
+                           (amn::mdls, (tynames@(List.map (fun mn -> amn::mn) itynames)), iexts@exts,imp@import)
+                       | idl ->
                            (eprintf "Unknown syntax: %s\n%!" (string_of_idl idl);
-                            assert false))) ([],tynames,exts) opns
+                            assert false))) ([],tynames,exts,[]) opns
   in
   restore_opts opts;
-  mdls, tynames, exts
+  mdls, tynames, exts, import
 
 (*let set_encoding_number = function
   | 1 -> (encoding_number := 1; ocaml_encoding := ocaml_encoding1; opa_encoding := opa_encoding1)
@@ -3214,7 +3436,10 @@ let process_inbuilt_options = List.iter (function
   | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "logger_function")), Ocaml.Const (Ocaml.String str))]) ->
       (if !verbose then eprintf "Inbuilt: logger_function = %s\n%!" str; logger_function := str)
   | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "protocol_version")), Ocaml.Const (Ocaml.Int n))]) ->
-      (if !verbose then eprintf "Inbuilt: protocol_version = %d\n%!" n; protocol_version := n)
+      (if !verbose then eprintf "Inbuilt: protocol_version = %d\n%!" n;
+      protocol_version := n)
+  | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "protocol_name")), Ocaml.Const (Ocaml.String str))]) ->
+      (if !verbose then eprintf "Inbuilt: protocol_name = %s\n%!" str; protocol_name:=Some str)
   | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "default_port")), Ocaml.Const (Ocaml.Int n))]) ->
       (if !verbose then eprintf "Inbuilt: default_port = %d\n%!" n; default_port := n)
   | PI.IDLLet (Ocaml.Let [(Ocaml.Pat (Ocaml.PatVar (Ident.Source "default_addr")), Ocaml.Const (Ocaml.String str))]) ->
@@ -3246,10 +3471,10 @@ let usage = "mlidl {options} <mlidl file>\n"
 
 let translate_file file =
   let tynames, exts, idls, sars, opns, lets = read_idl_file file in
-  let mdls, tynames, exts = read_opens file tynames exts opns in
+  let mdls, tynames, exts, import = read_opens file tynames exts opns in
   if !verbose then eprintf "tynames: %s\n%!" (string_of_tynames tynames);
   process_inbuilt_options lets;
-  write_ml_types_file file mdls tynames exts idls sars
+  write_ml_types_file file mdls tynames exts idls sars import
 
 let _ =
   if testfile
@@ -3301,7 +3526,10 @@ let _ =
       (usage^"Options:\n");
     if !files = []
     then printf "%s\n" usage
-    else List.iter (fun file -> restore_opts !default_opts; translate_file file) (!files)
+    else List.iter (fun file ->
+      restore_opts !default_opts;
+      bslmns := prefixmodname !bsl_prefix ".mlidl" file;
+      translate_file file) (!files)
   end
 
 (* End of file  mlidl.ml *)

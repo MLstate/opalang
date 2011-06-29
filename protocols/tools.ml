@@ -87,7 +87,15 @@ let let_of_set = function
   | G.Set (G.GVar (n, _), value) -> O.make_Let (O.Pat (O.PatVar (Ident.source n))) (O.Verbatim value)
   | _ -> assert false
 
-let add_suffix name suffix =
+
+let add_suffix ?(force_split=false) name suffix =
+  let split(us)=
+    if suffix = "" then ""
+    else if force_split
+    then "_"
+    else if us = 0
+    then ""
+    else "_" in
   match S.fold (fun (uc,lc,us) c ->
                        match c with
                        | 'a'..'z' -> (uc,lc+1,us)
@@ -95,11 +103,18 @@ let add_suffix name suffix =
                        | '_' -> (uc,lc,us+1)
                        | _ -> (uc,lc,us)) (0,0,0) name with
   | (0,0,0) -> name^suffix
-  | (uc,0,us) -> name^(if us = 0 || suffix = "" then "" else "_")^(S.uppercase suffix)
-  | (0,lc,us) -> name^(if us = 0 || suffix = "" then "" else "_")^(S.lowercase suffix)
-  | (uc,lc,us) -> name^(if us = 0 || suffix = "" then "" else "_")^(S.capitalize suffix)
- 
-let add_prefix name prefix =
+  | (uc,0,us) -> name^(split(us))^(S.uppercase suffix)
+  | (0,lc,us) -> name^(split(us))^(S.lowercase suffix)
+  | (uc,lc,us) -> name^(split(us))^(S.capitalize suffix)
+
+let add_prefix ?(force_split=false) name prefix =
+  let split(us)=
+    if prefix = "" then ""
+    else if force_split
+    then "_"
+    else if us = 0
+    then ""
+    else "_" in
   match S.fold (fun (uc,lc,us) c ->
                        match c with
                        | 'a'..'z' -> (uc,lc+1,us)
@@ -107,10 +122,10 @@ let add_prefix name prefix =
                        | '_' -> (uc,lc,us+1)
                        | _ -> (uc,lc,us)) (0,0,0) name with
   | (0,0,0) -> prefix^name
-  | (uc,0,us) -> (S.uppercase prefix)^(if us = 0 || prefix = "" then "" else "_")^name
-  | (0,lc,us) -> (S.lowercase prefix)^(if us = 0 || prefix = "" then "" else "_")^name
-  | (uc,lc,us) -> (S.capitalize prefix)^(if us = 0 || prefix = "" then "" else "_")^name
- 
+  | (uc,0,us) -> (S.uppercase prefix)^(split(us))^name
+  | (0,lc,us) -> (S.lowercase prefix)^(split(us))^name
+  | (uc,lc,us) -> (S.capitalize prefix)^(split(us))^name
+
 let str_of_type_expr te = let b = Buffer.create 1024 in (OcamlPrint.Buf.type_expr b te; Buffer.contents b)
 
 let str_of_expr e = let b = Buffer.create 1024 in (OcamlPrint.Buf.expr b e; Buffer.contents b)
