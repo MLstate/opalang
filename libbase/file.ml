@@ -307,7 +307,8 @@ let rec remove_symlinks path =
   let path' =
     try
       let link = Unix.readlink path in
-      Filename.concat (Filename.dirname path) link
+      if is_relative link then Filename.concat (Filename.dirname path) link
+      else link
     with Unix.Unix_error _ | Invalid_argument _ -> path in
   if path' = path
   then path'
