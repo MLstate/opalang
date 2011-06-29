@@ -75,7 +75,7 @@ let merge_pos = LangAst.merge_pos
 let pp_value ?ty ?(force=false) fmt value =
   match ty with
 
-  | Some (Q.TypeName (_, ident)) when (QmlAst.TypeIdent.is_abstract ident) ->
+  | Some (Q.TypeName (_, ident)) when (QmlAst.TypeIdent.is_external_ty ident) ->
       Format.pp_print_string fmt "<abstr>"
 
   | Some (Q.TypeVar _) ->

@@ -486,20 +486,10 @@ let of_ty ~gamma ty =
             ~visibility_applies: false typeident gamma with
         | Some (typeident, typ) ->
             let ident = Q.TypeIdent.to_string typeident in
-            if Q.TypeIdent.is_abstract typeident
-            then
-              (* warning : an abstract type can point to another type which can be different;
-                 extern types point to themselves, so we have to avoid looping *)
-              if Q.TypeIdent.is_extern typeident
-              then
-                let varmap, maped_ty = List.fold_left_map aux varmap ty_list in
-                let maped = External (pos, ident, maped_ty) in
-                varmap, maped
-              else (
-                (* abstract, but we found its definition: apparently we do as if it was concrete *)
-                List.iter (ignore @* aux varmap) ty_list; (* side-effect *)
-                aux varmap (QmlTypes.Scheme.specialize ~typeident:typeident ~ty:ty_list typ)
-              )
+            if Q.TypeIdent.is_external_ty typeident then
+              let varmap, maped_ty = List.fold_left_map aux varmap ty_list in
+              let maped = External (pos, ident, maped_ty) in
+              varmap, maped
             else (
               (* Standard extended types in LibBSL : bool, option *)
               match ident with

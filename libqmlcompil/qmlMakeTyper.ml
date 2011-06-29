@@ -208,7 +208,7 @@ struct
              match te with
              | _ when TypeIdent.is_already_known ti -> add_ti ti visibility
              | Q.TypeAbstract ->
-                 add_ti (TypeIdent.new_abstract ~extern: true ti) visibility
+                 add_ti (TypeIdent.new_external_ty ti) visibility
              | _ ->
                  (* [TODO] Attention, here the body of the definition is
                     allowed to use only type constructors that are visible

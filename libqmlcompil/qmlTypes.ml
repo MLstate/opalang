@@ -621,10 +621,12 @@ struct
     let add id (s, visibility) g =
       assert (TypeIdent.is_already_processed id);
       let field_map =
-        if TypeIdent.is_abstract id
-        then g.field_map (** abstract: don't update the field map *)
+        if TypeIdent.is_external_ty id then (
+          (** Abstract (i.e external) : don't update the field map. *)
+          g.field_map
+         )
         else
-          (** update field map : only in the case of type sum and type record *)
+          (** Update field map : only in the case of type sum and type record *)
           let fields =
             let _, ty = Scheme.export s in
             records_field_names ty
@@ -632,10 +634,12 @@ struct
           List.fold_left (fun map f -> ImplFieldMap.add f id map) g.field_map fields
       in
       let field_map_quick =
-        if TypeIdent.is_abstract id
-        then g.field_map_quick (** abstract: don't update the field map *)
+        if TypeIdent.is_external_ty id then (
+           (** Abstract(i.e external) : don't update the field map. *)
+          g.field_map_quick
+         )
         else
-          (** update field map : only in the case of type sum and type record *)
+          (** Update field map : only in the case of type sum and type record *)
           let fields =
             let _, ty = Scheme.export s in
             records_field_names_quick ty
@@ -765,7 +769,7 @@ let unsugar_type gamma ty =
     | Q.TypeName (params, ti) ->
         let (ti, tsc) =
           Env.TypeIdent.findi ~visibility_applies: true ti gamma in
-        if TypeIdent.is_abstract ti ||
+        if TypeIdent.is_external_ty ti ||
            Scheme.instantiate tsc = Q.TypeAbstract then (
           (* The type name is bound to a definition that is said "abstract" or
              "extern", so return a type that is a named type with the same

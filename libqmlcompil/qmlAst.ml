@@ -316,7 +316,7 @@ type ident = Ident.t
 
 module TypeIdent :
 sig
-  type tag = Concrete | Abstract | Extern
+  type tag = Concrete | Extern
   type uniq
   type t = private
            | Raw of Ident.t
@@ -333,15 +333,11 @@ sig
 
   val new_ident : ?prefix:string -> tag -> t -> t
   val new_concrete : t -> t
-  val new_abstract :  ?prefix:string -> ?extern:bool -> t -> t
-  val new_local : ?prefix:string -> t -> t * t
-    (* creates a concrete and an abstract (and prefixed) version of the same ident
-       /!\ can be dangerous *)
+  val new_external_ty :  ?prefix:string -> t -> t
 
   val is_already_processed : t -> bool
   val is_already_known : t -> bool
-  val is_abstract : t -> bool
-  val is_extern : t -> bool
+  val is_external_ty : t -> bool
 
   val compare_names : t -> t -> int
   val equal_names : t -> t -> bool
@@ -354,7 +350,7 @@ struct
      to do the right cast with the data in qmltoplevel.
      For others application, there is no distinction *)
 
-  type tag = Concrete | Abstract | Extern
+  type tag = Concrete | Extern
   type uniq = tag * Ident.t
   type t = Raw of Ident.t | Processed of uniq
 
@@ -369,7 +365,6 @@ struct
   let to_debug_string id =
     let tag_to_string = function
       | Concrete -> ""
-      | Abstract -> "(abs)"
       | Extern ->  "(ext)"
     in
     match id with
@@ -418,21 +413,9 @@ struct
   let new_concrete id =
     new_ident Concrete id
 
-  let new_abstract ?(prefix="") ?(extern=false) id =
-    new_ident ~prefix (if extern then Extern else Abstract) id
+  let new_external_ty ?(prefix="") id = new_ident ~prefix Extern id
 
-  let new_local ?(prefix="") id =
-    let concrete = new_ident Concrete id in
-    let abstract = new_ident ~prefix Abstract concrete in
-    (concrete, abstract)
-
-  let is_abstract = function
-    | Raw _ ->
-        (* The identifier should have already been please processed. *)
-        assert false
-    | Processed (t, _) -> t = Abstract || t = Extern
-
-  let is_extern = function
+  let is_external_ty = function
     | Raw _ ->
         (* The identifier should have already been please processed. *)
         assert false

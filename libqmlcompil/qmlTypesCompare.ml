@@ -47,7 +47,7 @@ module TyPairSet : (BaseSetSig.S with type elt = QmlAst.ty * QmlAst.ty) =
 
 
 
-let typeident_is_abstract ti = QmlAst.TypeIdent.is_abstract ti
+let typeident_is_abstract ti = QmlAst.TypeIdent.is_external_ty ti
 
 
 
