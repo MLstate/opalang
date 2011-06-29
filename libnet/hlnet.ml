@@ -230,16 +230,12 @@ type ('query,'response) protocol = {
 
 (* -- generic -- *)
 
-let debug ?(show=false) fmt =
-  if show then
-    Printf.fprintf stderr ("[32m[hlnet][0m "^^fmt^^"\n%!")
-  else
+let debug fmt =
   #<If> Printf.fprintf stderr ("[32m[hlnet][0m "^^fmt^^"\n%!")
   #<Else> Printf.ifprintf stderr fmt
   #<End>
 
-let warning fmt =
-  Printf.fprintf stderr ("[32m[43m[hlnet][0m "^^fmt^^"\n%!")
+let warning fmt = Logger.warning ("[hlnet] " ^^ fmt)
 
 let hexprint ?(chars_per_line=32) s =
   let pfx0 = "[22m" and pfx1 = "[01m" in
@@ -785,10 +781,16 @@ end = struct
     in
     match Cps.Lazy.get_state conn.info with
     | Some (Some info) when Scheduler.check_connection conn.scheduler info ->
-        let cont _ = Scheduler.remove_connection conn.scheduler info; channels_handling () in
+        let cont _ =
+          Scheduler.remove_connection conn.scheduler info;
+          conn.info <- Cps.Lazy.lazy_from_val None;
+          channels_handling ()
+        in
         Scheduler.write conn.scheduler info "" (* make sure everything has been flushed before closing *)
-          ~err_cont:cont cont
-    | _ -> channels_handling()
+          ~err_cont:cont cont;
+    | _ ->
+        conn.info <- Cps.Lazy.lazy_from_val None;
+        channels_handling()
 
   let register sched connection_info =
     let endpoint = remote_of_conn_info connection_info in
@@ -806,56 +808,78 @@ end = struct
     Wconnections.merge table connection
 
   let get ?ssl sched remote =
-    match Wconnections.get_opt table remote with
-    | Some connection -> connection
-    | None ->
-      (let addr, port, encryption, local =
-        match remote with
-        | Tcp (addr, port) -> addr, port, Network.Unsecured, Tcp (Unix.inet_addr_any, 0)
-        | Ssl (addr, port, None) ->
-            let sec =
-              match ssl with
-              | Some sec ->
-                  (try
-                      let found = Hashtbl.find certificates remote in
-                      if sec <> found then
-                          warning "Want to replace the certificate ??";
-                  with Not_found -> Hashtbl.add certificates remote sec);
-                  sec
-              | None -> Hashtbl.find certificates remote in
-             addr, port, Network.Secured sec, Ssl (Unix.inet_addr_any, 0, None)
-        | _ -> assert false
-       in
-        (* The use of Cps.Lazy is so that we don't open several connections if
-           several channels have been opened just at once to the same remote. *)
-        let update_local_ref = ref (fun _ -> assert false) in
-        let disconnect_ref = ref (fun _ -> assert false) in
-        let connect cont =
-          #<If$minlevel 10> debug "Connecting to %s" (endpoint_to_string remote) #<End>;
-          Network.connect sched (Network.make_port_spec ~protocol addr port) encryption
-            ~socket_flags:[Unix.SO_KEEPALIVE]
-            ~err_cont:(fun _ -> !disconnect_ref (); None |> cont)
-          @> fun connection_info ->
-            #<If$minlevel 20> debug "Connected to %s" (endpoint_to_string remote) #<End>;
-            !update_local_ref (local_of_conn_info connection_info);
-            Some connection_info |> cont
-        in
-        let connection = {
-          local = local; (* to be initialised below *)
-          remote = remote;
-          scheduler = sched;
-          info = Cps.Lazy.make (Scheduler.push sched) connect;
-          channels = Wchannels.create 17;
-          last_channels = Weak.create 7; last_channels_ptr = 0;
-          finalised = false;
-        } in
-        update_local_ref := (fun local -> connection.local <- local);
-        disconnect_ref := (fun () -> disconnect connection);
-        Wconnections.add table connection;
-        gc_finalise sched disconnect connection;
+    let connection_opt = Wconnections.get_opt table remote in
+    (* The use of Cps.Lazy is so that we don't open several connections if
+       several channels have been opened just at once to the same remote. *)
+    match connection_opt with
+    | Some connection when Cps.Lazy.get_state connection.info <> Some None ->
+        (* we are either connected or connecting *)
         connection
-      )
-
+    | _ ->
+        (* we are either unconnected, or disconnected *)
+        let addr, port, encryption, local =
+          match remote with
+          | Tcp (addr, port) -> addr, port, Network.Unsecured, Tcp (Unix.inet_addr_any, 0)
+          | Ssl (addr, port, None) ->
+              let sec =
+                match ssl with
+                | Some sec ->
+                    (try
+                       let found = Hashtbl.find certificates remote in
+                       if sec <> found then
+                         warning "Want to replace the certificate ??";
+                     with Not_found -> Hashtbl.add certificates remote sec);
+                    sec
+                | None -> Hashtbl.find certificates remote in
+              addr, port, Network.Secured sec, Ssl (Unix.inet_addr_any, 0, None)
+          | _ -> assert false
+        in
+        match connection_opt with
+        | Some connection -> (* the structure exists, but is disconnected *)
+            let reconnect cont =
+              #<If$minlevel 10> debug "Reconnecting to %s" (endpoint_to_string remote) #<End>;
+              Network.connect sched (Network.make_port_spec ~protocol addr port) encryption
+                ~socket_flags:[Unix.SO_KEEPALIVE]
+                ~err_cont:(
+                  fun _ ->
+                    #<If$minlevel 20> debug "Reconnection to %s failed" (endpoint_to_string remote) #<End>;
+                    disconnect connection; None |> cont
+                )
+              @> fun connection_info ->
+                #<If$minlevel 20> debug "Reconnected to %s" (endpoint_to_string remote) #<End>;
+                connection.local <- (local_of_conn_info connection_info);
+                connection.finalised <- false;
+                Some connection_info |> cont
+            in
+            connection.info <- Cps.Lazy.make (Scheduler.push sched) reconnect;
+            connection
+        | None -> (* we have yet to connect *)
+            let update_local_ref = ref (fun _ -> assert false) in
+            let disconnect_ref = ref (fun _ -> assert false) in
+            let connect cont =
+              #<If$minlevel 10> debug "Connecting to %s" (endpoint_to_string remote) #<End>;
+              Network.connect sched (Network.make_port_spec ~protocol addr port) encryption
+                ~socket_flags:[Unix.SO_KEEPALIVE]
+                ~err_cont:(fun _ -> !disconnect_ref (); None |> cont)
+              @> fun connection_info ->
+                #<If$minlevel 20> debug "Connected to %s" (endpoint_to_string remote) #<End>;
+                !update_local_ref (local_of_conn_info connection_info);
+                Some connection_info |> cont
+            in
+            let connection = {
+              local = local; (* to be initialised below *)
+              remote = remote;
+              scheduler = sched;
+              info = Cps.Lazy.make (Scheduler.push sched) connect;
+              channels = Wchannels.create 17;
+              last_channels = Weak.create 7; last_channels_ptr = 0;
+              finalised = false;
+            } in
+            update_local_ref := (fun local -> connection.local <- local);
+            disconnect_ref := (fun () -> disconnect connection);
+            Wconnections.add table connection;
+            gc_finalise sched disconnect connection;
+            connection
 
   let find = Wconnections.get_opt table
 
