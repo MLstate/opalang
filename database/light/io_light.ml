@@ -64,9 +64,9 @@ let really_remove_lock_file t =
                  | None -> ());
                 t.has_lock <- false;
                 Unix.unlink lock_file_name)
-        with exn ->
+        with _exn ->
           #<If>Logger.log ~color:`red "DB-LIGHT : Warning exception removing lock file: %s"
-                                              (Printexc.to_string exn)#<End>)
+                                              (Printexc.to_string _exn)#<End>)
   else ()
 
 let close t =
@@ -102,8 +102,8 @@ let make_lock_file t =
                Dbm.replace dbm "lock_hostname" hostname
            | None -> ());
           t.has_lock <- true
-        with exn ->
-          critical_error t (sprintf "DB-LIGHT : Can't create lock file %s" (Printexc.to_string exn)))
+        with _exn ->
+          critical_error t (sprintf "DB-LIGHT : Can't create lock file %s" (Printexc.to_string _exn)))
 
 let remove_lock_file t =
   let lock_file_name = t.location^"_lock" in
@@ -119,8 +119,8 @@ let remove_lock_file t =
                 with Dbm.Dbm_error "dbm_delete" -> ()));
           Unix.unlink lock_file_name;
           t.has_lock <- false
-        with exn ->
-          critical_error t (sprintf "DB-LIGHT : Can't remove lock file %s" (Printexc.to_string exn)))
+        with _exn ->
+          critical_error t (sprintf "DB-LIGHT : Can't remove lock file %s" (Printexc.to_string _exn)))
   else ()
 
 let read_lock_file t =
@@ -131,9 +131,9 @@ let read_lock_file t =
           let (pid,hostname) = Scanf.fscanf ic "%d\n%s\n" (fun i s -> (i,s)) in
           close_in ic;
           Some (hostname,pid)
-        with exn ->
+        with _exn ->
           (#<If>Logger.log ~color:`red "DB-LIGHT : Warning exception reading lock file: %s"
-                                               (Printexc.to_string exn)#<End>;
+                                               (Printexc.to_string _exn)#<End>;
            None))
   else None
 
@@ -183,8 +183,8 @@ let reopen t =
                t.dbm <- Some (Dbm.opendbm t.location (match t.mode with
                                                       | ReadOnly -> [Dbm.Dbm_rdonly;Dbm.Dbm_create]
                                                       | _ -> [Dbm.Dbm_rdwr;Dbm.Dbm_create]) File.default_rights))
-       with exn ->
-         failwith (sprintf "Can't reopen Dbm file %s %s" t.location (Printexc.to_string exn)))
+       with _exn ->
+         failwith (sprintf "Can't reopen Dbm file %s %s" t.location (Printexc.to_string _exn)))
 
 let make mode file =
   let cfile = File.explicit_path file (Some (Unix.getcwd())) in
@@ -206,11 +206,11 @@ let make mode file =
                if Sys.file_exists dir_file
                then (#<If>Logger.log ~color:`yellow "New db, purge: deleting file %s" dir_file#<End>;
                      (try Sys.remove dir_file
-                      with exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
-                                                                    dir_file (Printexc.to_string exn)#<End>; ());
+                      with _exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
+                                                                    dir_file (Printexc.to_string _exn)#<End>; ());
                      (try Sys.remove pag_file
-                      with exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
-                                                                    pag_file (Printexc.to_string exn) #<End>; ()));
+                      with _exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
+                                                                    pag_file (Printexc.to_string _exn) #<End>; ()));
                #<If>Logger.log ~color:`magenta "Opened new Dbm file %s" dir_file#<End>;
                let dbm = Dbm.opendbm cfile [Dbm.Dbm_rdwr;Dbm.Dbm_create] File.default_rights in
                Dbm.add dbm "version" version;
@@ -222,8 +222,8 @@ let make mode file =
            | ReadOnly ->
                #<If>Logger.log ~color:`magenta "Opened Dbm file for Read %s" dir_file#<End>;
                Dbm.opendbm file [Dbm.Dbm_rdonly] File.default_rights)
-        with exn ->
-          failwith (sprintf "Can't open Dbm file %s %s" file (Printexc.to_string exn))
+        with _exn ->
+          failwith (sprintf "Can't open Dbm file %s %s" file (Printexc.to_string _exn))
       in
       t.dbm <- Some dbm;
       t.link_count <- t.link_count + 1;

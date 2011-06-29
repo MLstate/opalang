@@ -19,7 +19,8 @@
 
 (* shorthands *)
 module DT = DbTypes
-let sprintf = Printf.sprintf
+module String = BaseString
+let sprintf fmt = Printf.sprintf fmt
 
 (* debug *)
 #<Debugvar:DEBUG_DB>
@@ -77,18 +78,18 @@ let sprintf = Printf.sprintf
   (*******************)
 
   let write_trans dbm trans =
-    List.iter (fun (path,query) ->
-                 match query with
-                 | Tr.Set datas ->
-                     #<If>Logger.log ~color:`magenta "DB-LIGHT : updating path %s to %s"
-                                                             (Path.to_string path) (Datas.to_string datas)#<End>;
-                     Dbm.replace dbm (Encode_light.encode_path path) (Encode_light.encode_datas datas)
-                 | Tr.Remove path ->
-                     (* TODO: subtrees!!! *)
-                     #<If>Logger.log ~color:`magenta "DB-LIGHT : (qm) removing path %s" (Path.to_string path)#<End>;
-                     try Dbm.remove dbm (Encode_light.encode_path path)
-                     with Dbm.Dbm_error "dbm_delete" -> ()
-              ) (List.rev trans.Tr.tr_query_map);
+    List.iter
+      (fun (_i,path,query) ->
+         match query with
+         | Tr.Set datas ->
+             #<If>Logger.log ~color:`magenta "DB-LIGHT(%d) : updating path %s to %s"
+                                             _i (Path.to_string path) (Datas.to_string datas)#<End>;
+             Dbm.replace dbm (Encode_light.encode_path path) (Encode_light.encode_datas datas)
+         | Tr.Remove path ->
+             #<If>Logger.log ~color:`magenta "DB-LIGHT(%d) : (qm) removing path %s" _i (Path.to_string path)#<End>;
+             try Dbm.remove dbm (Encode_light.encode_path path)
+             with Dbm.Dbm_error "dbm_delete" -> ())
+      (Tr.get_sorted_queries trans);
     List.iter (fun path ->
                  #<If>Logger.log ~color:`magenta "DB-LIGHT : (rl) removing path %s" (Path.to_string path)#<End>;
                  try Dbm.remove dbm (Encode_light.encode_path path)
@@ -221,8 +222,8 @@ let sprintf = Printf.sprintf
     let t = { t with is_weak = is_weak; with_dot = with_dot; } in
     let db =
       try restart_db_from_last t
-      with exn ->
-        #<If>Logger.log "restart_db:  Can't open Dbm %s %s" file (Printexc.to_string exn)#<End>;
+      with _exn ->
+        #<If>Logger.log "restart_db:  Can't open Dbm %s %s" file (Printexc.to_string _exn)#<End>;
         raise (Open (None, "Corrupted files"))
     in
     t.db_ref <- db;
@@ -413,7 +414,8 @@ let sprintf = Printf.sprintf
             t.session_lock <- None;
             true
           with
-          | Db_light.UnqualifiedPath | DiskError _ -> false
+          | Db_light.UnqualifiedPath | DiskError _ ->
+              false
         in
         if success then begin
           #<If> Logger.info "Finished a commit." #<End>

@@ -87,6 +87,14 @@ module List = BaseList
     | x when x < 0 -> aux p1 p2
     | _ -> aux p2 p1
 
+  let is_prefix p1 p2 =
+    let rec aux = function
+      | (k1::r1,k2::r2) -> if Keys.equal k1 k2 then aux (r1,r2) else false
+      | ([],_) -> true
+      | _ -> false
+    in
+    aux (List.rev p1, List.rev p2)
+
   let concat p1 p2 = List.append p2 p1
 
   let to_list p = List.rev p

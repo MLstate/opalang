@@ -34,6 +34,7 @@
   val compare : t -> t -> int
   val remaining : t -> t -> Keys.t list option
   val remaining_prefix : t -> t -> t option
+  val is_prefix : t -> t -> bool
   val concat : t -> t -> t
   val to_list : t -> Keys.t list
   val of_list : Keys.t list -> t

@@ -100,7 +100,7 @@ let sts_of_list l =
 let set_version t version = t.version <- version
 
 let update_data tree data =
-  let old_data = tree.node.Node_light.content in
+  let _old_data = tree.node.Node_light.content in
   (match tree.node.Node_light.content, data with
    | Datas.UnsetData, Datas.UnsetData -> ()
    | _, Datas.UnsetData -> ()
@@ -108,7 +108,7 @@ let update_data tree data =
    | _, _ -> tree.node.Node_light.content <- data);
   #<If$minlevel 3>Logger.log ~color:`cyan "update_data: data=%s old_data=%s new_data=%s"
                                                   (Datas.to_string data)
-                                                  (Datas.to_string old_data)
+                                                  (Datas.to_string _old_data)
                                                   (Datas.to_string tree.node.Node_light.content)#<End>
 
 let add_tree t path data =
@@ -136,16 +136,10 @@ let remove_tree t path =
     | [] -> false
     | [k] ->
         (try
-           let st = Hashtbl.find tree.sts k in
-           if Hashtbl.length st.sts = 0
-           then (#<If$minlevel 2>
-                 Logger.log ~color:`cyan "remove_tree(rmv): path=%s data=%s"
-                   (Path.to_string path) (Datas.to_string st.node.Node_light.content)#<End>;
-                 Hashtbl.remove tree.sts k)
-           else (#<If$minlevel 2>
-                 Logger.log ~color:`cyan "remove_tree(set): path=%s data=%s"
-                   (Path.to_string path) (Datas.to_string st.node.Node_light.content)#<End>;
-                 st.node.Node_light.content <- Datas.UnsetData);
+           let _st = Hashtbl.find tree.sts k in
+           #<If$minlevel 2>Logger.log ~color:`cyan "remove_tree(rmv): path=%s data=%s"
+                                                   (Path.to_string path) (Datas.to_string _st.node.Node_light.content)#<End>;
+           Hashtbl.remove tree.sts k;
            true
          with Not_found -> false)
     | k::rest ->
@@ -163,7 +157,7 @@ let remove_tree t path =
   removed
 
 (* Node-level navigation:
-   Note that we can't export this yet because the Badop.S sig doesn't support this.
+   Note that we can't export this yet because the Badop.S sig doesn't support it.
 *)
 
 exception At_root
@@ -350,14 +344,37 @@ let start = root_eid
     in
     aux tree path 0 ([],0) 0
 
-  (* may raise UnqualifiedPath *)
-  let rec get_children db range_opt path =
-    let tree = get_tree_of_path db path in
-    match Node_light.get_content tree.node with
-    | Datas.Link p
-    | Datas.Copy (_, p) -> get_children db range_opt p
-    | _ -> fst (get_ch db tree range_opt path 1 true)
+  let rec _get_children db range_opt path max_depth allow_empty raise_on_unqualified =
+    let tree =
+      if raise_on_unqualified
+      then
+        Some (get_tree_of_path db path)
+      else
+        try
+          Some (get_tree_of_path db path)
+        with UnqualifiedPath -> None
+    in
+    match tree with
+    | Some tree ->
+        (match Node_light.get_content tree.node with
+         | Datas.Link p
+         | Datas.Copy (_, p) -> _get_children db range_opt p max_depth allow_empty raise_on_unqualified
+         | _ -> fst (get_ch db tree range_opt path max_depth allow_empty))
+    | None -> []
 
+  (* may raise UnqualifiedPath *)
+  let get_children db range_opt path =
+    let ch = _get_children db range_opt path 1 true true in
+    #<If:DEBUG_DB$minlevel 20>Logger.info "Db_light.get_children: %s -> [%s]%!"
+      (Path.to_string path) (String.concat_map "; " Path.to_string ch)#<End>;
+    ch
+
+  (* won't raise UnqualifiedPath *)
+  let get_all_children db range_opt path =
+    let ch = _get_children db range_opt path max_int false false in
+    #<If:DEBUG_DB$minlevel 20>Logger.info "Db_light.get_all_children: %s -> [%s]%!"
+      (Path.to_string path) (String.concat_map "; " Path.to_string ch)#<End>;
+    ch
 
   (********************)
   (* basics DB writes *)

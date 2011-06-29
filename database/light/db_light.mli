@@ -20,6 +20,7 @@ exception Merge
 
 type t
 type tree
+
 (*type node_map*)
 type index = ((Path.t * float) list) StringMap.t
 
@@ -40,55 +41,28 @@ val get_rev : t -> Revision.t
 val get_tcount : t -> Eid.t
 val get_next_uid : t -> Uid.t
 val is_empty : t -> bool
-(*val get_uid_map : t -> Uid.t RevisionMap.t EidMap.t
-val get_node_map : t -> node_map
-val get_noweak_node_map : t -> Node.t UidMap.t
-val get_last_nodes : t -> Node.t UidMap.t*)
 val get_index : t -> index
 
 val set_version : t -> string -> unit
 
 (* navigation through the db *)
-(*val get_uid_of_eid : t -> Revision.t -> Eid.t -> Uid.t
-val get_node_of_uid : t -> Uid.t -> Node_light.t*)
 val get_node_of_path : t -> (*Revision.t ->*) Path.t -> Node_light.t * Revision.t
-(*val get_node_of_eid : t -> Revision.t -> Eid.t -> Node_light.t
-val get_eid_of_path : t -> Revision.t -> Path.t -> Eid.t * Revision.t
-val is_new_uid : t -> Uid.t -> bool*)
 val get_tree_of_path : t -> Path.t -> tree
 
-(* cleaning *)
-(*val clean_tmp_maps : t -> t*)
-
 (* creation / rebuilding of a database *)
-(*val make_node_map_from_weak : (Uid.t, Node_light.t) WeakCacheMap.t -> node_map
-val make_node_map_from_uidmap : Node_light.t UidMap.t -> node_map*)
-val make : (*?weak:(Uid.t -> Node_light.t) ->*) unit -> t
-(*val restart :
-  ?index:index ->
-  Revision.t -> Eid.t -> Uid.t ->
-  (Uid.t RevisionMap.t EidMap.t) ->
-  node_map ->
-  t*)
+val make : unit -> t
 
 (* basic db writing *)
-(*val update_db : t -> Revision.t -> (Eid.t * Uid.t) list -> (Uid.t * Node_light.t) list -> t*)
 val update : t -> Path.t -> Datas.t -> t
 val remove : t -> Path.t -> t
 val set_rev : t -> Revision.t -> t
 
 (* basic db reading *)
-val get : t -> (*Revision.t ->*) Path.t -> DataImpl.t
+val get : t -> Path.t -> DataImpl.t
 val get_data : t -> Node_light.t -> DataImpl.t
-(*val get_children :
-  t -> Revision.t -> (Keys.t option * int) option
-  -> Path.t -> (Path.t * Revision.t) list
-*)
 val get_children : t -> (Keys.t option * int) option -> Path.t -> Path.t list
-(*
-val get_descendants : t -> Path.t -> (Path.t * DataImpl.t) list
-val get_all_rev_of_path : t -> Path.t -> Revision.t list
-val get_last_rev_of_path : t -> Revision.t -> Path.t -> Revision.t*)
+val get_all_children : t -> (Keys.t option * int) option -> Path.t -> Path.t list
+
 (* Index management *)
 val update_index : t -> (Path.t * DataImpl.t) list -> t
 val remove_from_index : t -> (Path.t * DataImpl.t) list -> t
@@ -111,11 +85,8 @@ val set_copy : t -> Path.t -> Path.t -> t
     @return The node at which a copy or link was encountered
     and the remaining suffix of the path.
 *)
-val follow_path :
-  (*t -> Revision.t -> Node_light.t -> Keys.t list -> Keys.t list * Node_light.t*)
-  t -> tree -> Keys.t list -> Keys.t list * tree
+val follow_path : t -> tree -> Keys.t list -> Keys.t list * tree
 
-(*
 (** [follow_link db original_rev path] returns unwound path as it was
     at db revision [original_rev]. The result is independent on any
     changes to the databse after [original_rev]. There is no escape
@@ -129,7 +100,4 @@ val follow_path :
 
     @return The path unwound at [original_rev].
 *)
-val follow_link : t -> Revision.t -> Path.t -> Path.t * Node_light.t
-*)
-
 val follow_link : t -> Path.t -> Path.t * tree

@@ -45,12 +45,14 @@ let status db k = Badop.Light db.file |> k
 
 module Tr = struct
   let start db k =
+    (*Logger.debug "Badop_light.Tr.start";*)
     { db = db; tr = Session_light.new_trans db.session } |> k
 
   let start_at_revision db _rev k =
     { db = db; tr = Session_light.new_trans (*~read_only:(true, Some rev)*) db.session } |> k
 
   let prepare trans k =
+    (*Logger.debug "Badop_light.Tr.prepare";*)
     (* Executes [k] as soon as prepare finished, asynchronously, nonblocking.
        When prepare is postponed and stored on the FIFO,
        the continuation is stored as well. The exceptions from [k]
@@ -63,6 +65,7 @@ module Tr = struct
       ({db = trans.db; tr = trans.tr}, true) |> k
 
   let commit trans k =
+    (*Logger.debug "Badop_light.Tr.commit";*)
     if Transaction_light.modified trans.tr then
       (* Assumption: [trans] is prepared by [execute_trans_prepare].
          Here some continuations of [prepare] may be executed, but only in case
@@ -80,7 +83,9 @@ type revision = Revision.t
 (** All the operations that query the db *)
 type 'which read_op = ('which,revision) Badop.generic_read_op
 
-let read trans path op k = match op with
+let read trans path op k =
+  (*Logger.debug "Badop_light.read";*)
+  match op with
   | Badop.Stat (D.Query () as q) ->
       (try `Answer (Badop.Stat (D.Dialog_aux.respond q (Session_light.stat trans.tr path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
@@ -116,7 +121,9 @@ let read trans path op k = match op with
 (** All the operations that write to the db *)
 type 'which write_op = ('which,transaction,revision) Badop.generic_write_op
 
-let write trans path op k = match op with
+let write trans path op k =
+  (*Logger.debug "Badop_light.write";*)
+  match op with
   | Badop.Set (D.Query data as q) ->
       Badop.Set (D.Dialog_aux.respond q { trans with tr = Session_light.set trans.tr path data }) |> k
   | Badop.Clear (D.Query () as q) ->
