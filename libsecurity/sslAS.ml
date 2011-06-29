@@ -364,10 +364,11 @@ let get_listen_callback sched (server_params, client_params) server_fun =
           server_fun (SecuredRes (valid_cert, (cert, client_params))) sconn
         with Ssl.Accept_error ssl_error ->
           match ssl_error with
-          | Ssl.Error_want_read -> info "glc" "want_read"; Scheduler.listen_once sched conn continuation
-          | Ssl.Error_want_write -> info "glc" "want_write"; Scheduler.connect sched conn continuation
+          | Ssl.Error_want_read -> Scheduler.listen_once sched conn continuation
+          | Ssl.Error_want_write -> Scheduler.connect sched conn continuation
           | _ ->
-              warning "glc" (sprintf "Ssl.Error_%s" (Ssl_ext.error_to_string ssl_error));
+              warning "glc" (sprintf "Ssl.Error_%s : %s"
+                (Ssl_ext.error_to_string ssl_error) (Ssl.get_error_string()));
               Scheduler.remove_connection sched conn
       in
       info "glc" "listening...";
