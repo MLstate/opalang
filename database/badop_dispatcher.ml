@@ -82,7 +82,7 @@ module Node_property = Badop_structure.Node_property
 module F (Bk: Badop.S) = struct
 
   type local_transaction =
-    | Tr_notstarted of Bk.database * Bk.revision option
+    | Tr_notstarted of Bk.database * Bk.revision option * (exn -> unit)
     | Tr_started of Bk.transaction
     | Tr_changed of Bk.transaction
 
@@ -117,17 +117,17 @@ module F (Bk: Badop.S) = struct
       Badop.Layer_multi("Dispatcher", L.to_list stloc) |> k
 
   module Tr = struct
-    let start xdb k =
-      L.map xdb (fun db k -> Tr_notstarted (db,None) |> k)
+    let start xdb errk k =
+      L.map xdb (fun db k -> Tr_notstarted (db,None,errk) |> k)
       @> fun loc -> {
         loc = loc;
         status = ref Fresh;
       } |> k
-    let start_at_revision xdb rev k =
+    let start_at_revision xdb rev errk k =
       L.mapi xdb
         (fun key db k ->
            let rev_opt = match L.get_key rev key with Rev_now -> None | Rev_fixed r -> Some r in
-           Tr_notstarted (db, rev_opt) |> k)
+           Tr_notstarted (db, rev_opt, errk) |> k)
       @> fun loc -> {
         loc = loc;
         status = ref Fresh;
@@ -180,12 +180,12 @@ module F (Bk: Badop.S) = struct
 
   let get_tr (push: local_transaction -> unit) ltr k = match ltr with
     | Tr_started tr | Tr_changed tr -> tr |> k
-    | Tr_notstarted (db,None) ->
+    | Tr_notstarted (db,None,errk) ->
         (* FIXME: start at a revision guaranteed consistent with the transactions that xtr already contains *)
-        Bk.Tr.start db
+        Bk.Tr.start db errk
         @> fun tr -> push (Tr_started tr); tr |> k
-    | Tr_notstarted (db,Some rev) ->
-        Bk.Tr.start_at_revision db rev
+    | Tr_notstarted (db,Some rev,errk) ->
+        Bk.Tr.start_at_revision db rev errk
         @> fun tr -> push (Tr_started tr); tr |> k
 
   let get_local_rev key rev k = match L.get_key rev key with

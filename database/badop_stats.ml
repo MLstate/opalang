@@ -55,8 +55,8 @@ module F (Bk: Badop.S) = struct
 
 
   module Tr = struct
-    let start db k = incr transactions; Bk.Tr.start db @> k
-    let start_at_revision db rev k = incr transactions; Bk.Tr.start_at_revision db rev @> k
+    let start db errk k = incr transactions; Bk.Tr.start db errk @> k
+    let start_at_revision db rev errk k = incr transactions; Bk.Tr.start_at_revision db rev errk @> k
     let prepare tr k = Bk.Tr.prepare tr @> k
     let commit tr k = incr commits; Bk.Tr.commit tr @> k
     let abort tr k = incr aborts; Bk.Tr.abort tr @> k

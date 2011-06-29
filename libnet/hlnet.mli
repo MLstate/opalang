@@ -154,6 +154,10 @@ val setup_respond: ('out','in') channel -> ('in' -> ('out' -> unit) -> unit) -> 
 (** Closes given channel *)
 val close_channel: ('out','in') channel -> unit
 
+(** Closes the given channel and the underlying connection, triggering any
+    registered handlers *)
+val panic: ('out','in') channel -> unit
+
 (** Registers a function to be called if the connection the channel relies on is lost.
     It's not called if the channel is closed normally (by hand, or when we know nobody
     may write to it anymore) *)

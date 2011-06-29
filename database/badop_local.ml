@@ -63,10 +63,10 @@ let close_database db k =
 let status db k = Badop.Local db.file |> k
 
 module Tr = struct
-  let start db k =
+  let start db _errk k =
     { db = db; tr = Session.new_trans db.session } |> k
 
-  let start_at_revision db rev k =
+  let start_at_revision db rev _errk k =
     { db = db; tr = Session.new_trans ~read_only:(true, Some rev) db.session } |> k
 
   let prepare trans k =

@@ -114,10 +114,12 @@ struct
       match request with
       | Transaction (D.Query () as query) ->
           Backend.Tr.start db
+            (fun _exc -> N.alert_channel channel)
           @> fun backend_tr -> init_tr backend_tr
           @> fun tr -> Transaction (D.Dialog_aux.respond query tr) |> k
       | Transaction_at (D.Query rev as query) ->
           Backend.Tr.start_at_revision db rev
+            (fun _exc -> N.alert_channel channel)
           @> fun backend_tr -> init_tr backend_tr
           @> fun tr -> Transaction_at (D.Dialog_aux.respond query tr) |> k
       | Status (D.Query () as query) ->

@@ -196,6 +196,7 @@ let client_address db k =
 
 let in_trans db k f =
   db.db_engine.E.tr_start db.db
+    (fun _exc -> abort_transaction k)
   @> fun tr ->
     f tr @> C.ccont_ml k
     @> fun x ->
@@ -249,10 +250,12 @@ let dbpath_add p key = Badop.Path.add p key
 ##register [opacapi;restricted:dbgen,cps-bypass] trans_start: database, continuation(transaction) -> void
 let trans_start db k =
   db.db_engine.E.tr_start db.db
+    (fun _exc -> abort_transaction k)
   @> fun tr -> { tr_engine = db.db_engine; tr = tr } |> k
 
 let trans_start_at_revision db rev k =
   db.db_engine.E.tr_start_at_revision db.db rev
+    (fun _exc -> abort_transaction k)
   @> fun tr -> { tr_engine = db.db_engine; tr = tr } |> k
 
 ##register[restricted:dbgen,cps-bypass] trans_start_read_only: database, continuation(transaction) -> void
@@ -656,6 +659,9 @@ let set_current_copy tr writeto_path pointto_path k =
 ##register [cps-bypass] get_raw_schema : database, continuation(string) -> void
 let get_raw_schema db k =
   db.db_engine.E.tr_start db.db
+    (fun exc ->
+       Logger.error "Database connection error before OPA runtime initialisation: %s" (Printexc.to_string exc);
+       exit 3)
   @> fun tr ->
     (* Path /2/0 to schema defined in dbGen_private.ml (/2 is config_keys, config key 0 is schema) *)
     db.db_engine.E.read tr (Badop.Path.of_list [ key_int 2; key_int 0 ]) (Badop.Contents (D.query ()))

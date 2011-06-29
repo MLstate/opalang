@@ -29,6 +29,7 @@ module F (Bk: Badop.S) = struct
     db: Bk.database;
     status: transaction_status;
     tr: Bk.transaction option;
+    errk: exn -> unit;
     stash: (Badop.path * Dialog.query Bk.write_op) list;
   }
   type revision = Bk.revision
@@ -38,7 +39,7 @@ module F (Bk: Badop.S) = struct
   let status db k = Bk.status db @> fun st -> Badop.Layer("Stash", st) |> k
 
   let get_tr xtr k = match xtr.tr with
-    | None -> Bk.Tr.start xtr.db @> k
+    | None -> Bk.Tr.start xtr.db xtr.errk @> k
     | Some tr -> tr |> k
 
   let flush xtr k = match xtr.stash with
@@ -50,11 +51,11 @@ module F (Bk: Badop.S) = struct
             { xtr with tr = Some tr; status = Changed; stash = [] } |> k
 
   module Tr = struct
-    let start db k =
-      { db = db; tr = None; status = Fresh; stash = [] } |> k
-    let start_at_revision db rev k =
-      Bk.Tr.start_at_revision db rev
-      @> fun tr -> { db = db; tr = Some tr; status = Fresh; stash = [] } |> k
+    let start db errk k =
+      { db = db; tr = None; errk = errk; status = Fresh; stash = [] } |> k
+    let start_at_revision db rev errk k =
+      Bk.Tr.start_at_revision db rev errk
+      @> fun tr -> { db = db; tr = Some tr; errk = errk; status = Fresh; stash = [] } |> k
     let prepare xtr k =
       flush xtr
       @> fun xtr ->

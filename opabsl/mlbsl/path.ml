@@ -326,6 +326,7 @@ let exists t k =
 
 let trans_start_rev db rev k =
   db.B.db_engine.E.tr_start_at_revision db.B.db rev
+    (fun _exc -> B.abort_transaction k)
   @> fun tr ->
     { B.tr_engine = db.B.db_engine; B.tr = tr } |> k
 

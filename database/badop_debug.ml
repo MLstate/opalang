@@ -60,13 +60,13 @@ module F (Bk: Badop.S) = struct
   let status xdb k = Bk.status xdb.db @> fun st -> Badop.Layer("Wrapper_template", st) |> k
 
   module Tr = struct
-    let start xdb k =
+    let start xdb errk k =
       let id = new_id xdb in print xdb.db_pfx "Transaction %d: START" id;
-      Bk.Tr.start xdb.db
+      Bk.Tr.start xdb.db errk
       @> fun tr -> { tr = tr; id = id; pfx = xdb.db_pfx } |> k
-    let start_at_revision xdb rev k =
+    let start_at_revision xdb rev errk k =
       let id = new_id xdb in print xdb.db_pfx "Transaction %d: START (at revision %s)" id (Bk.Debug.revision_to_string rev);
-      Bk.Tr.start_at_revision xdb.db rev
+      Bk.Tr.start_at_revision xdb.db rev errk
       @> fun tr -> { tr = tr; id = id; pfx = xdb.db_pfx } |> k
     let prepare xtr k =
       print xtr.pfx "Transaction %d: PREPARE" xtr.id;

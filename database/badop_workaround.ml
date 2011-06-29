@@ -33,8 +33,8 @@ module F (Bk: Badop.S) = struct
 
 
   module Tr = struct
-    let start db k = Bk.Tr.start db @> k
-    let start_at_revision db rev k = Bk.Tr.start_at_revision db rev @> k
+    let start db errk k = Bk.Tr.start db errk @> k
+    let start_at_revision db rev errk k = Bk.Tr.start_at_revision db rev errk @> k
     let prepare tr k = Bk.Tr.prepare tr @> k
     let commit tr k = Bk.Tr.commit tr @> k
     let abort tr k = Bk.Tr.abort tr @> k

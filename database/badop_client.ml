@@ -48,7 +48,8 @@ let close_database db k = N.close_channel db |> k
 let status db k =
   match N.local_of_channel db, N.remote_of_channel db with
   | N.Tcp (local_addr,_), N.Tcp (remote_addr,remote_port) ->
-      (N.sendreceive db (Status (Dialog.query ()))
+      (N.sendreceive' db (Status (Dialog.query ()))
+         (fun _ -> Badop.Client (local_addr, (remote_addr, remote_port), Badop.Other "disconnected") |> k)
        @> function
        | Status (Dialog.Response st) ->
            Badop.Client (local_addr, (remote_addr, remote_port), st) |> k
@@ -57,35 +58,39 @@ let status db k =
 
 module Tr = struct
 
-  let start db k =
-    N.sendreceive db (Transaction (Dialog.query ()))
+  let start db errk k =
+    N.sendreceive' db (Transaction (Dialog.query ())) errk
     @> function
-    | Transaction (Dialog.Response tr) -> tr |> k
-    | _ -> assert false
+    | Transaction (Dialog.Response tr) ->
+        N.on_disconnect tr (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
+        tr |> k
+    | _ -> N.panic db
 
-  let start_at_revision db rev k =
-    N.sendreceive db (Transaction_at (Dialog.query rev))
+  let start_at_revision db rev errk k =
+    N.sendreceive' db (Transaction_at (Dialog.query rev)) errk
     @> function
-    | Transaction_at (Dialog.Response tr) -> tr |> k
-    | _ -> assert false
+    | Transaction_at (Dialog.Response tr) ->
+        N.on_disconnect tr (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
+        tr |> k
+    | _ -> N.panic db
 
   let prepare tr k =
     N.sendreceive tr (Prepare (Dialog.query ()))
     @> function
     | Prepare (D.Response (tr',success)) -> (tr', success) |> k
-    | _ -> assert false
+    | _ -> N.panic tr
 
   let commit tr k =
     N.sendreceive tr (Commit (Dialog.query ()))
     @> function
     | Commit (D.Response success) -> success |> k
-    | _ -> assert false
+    | _ -> N.panic tr
 
   let abort tr k =
     N.sendreceive tr (Abort (Dialog.query ()))
     @> function
     | Abort (D.Response ()) -> () |> k
-    | _ -> assert false
+    | _ -> N.panic tr
 
 end
 
@@ -93,7 +98,7 @@ let read tr path query k =
   N.sendreceive tr (Read (path, Dialog.query query))
   @> function
   | Read (path', D.Response result) -> assert (path = path'); result |> k
-  | _ -> assert false
+  | _ -> N.panic tr
 
 let write tr path query k =
   N.sendreceive tr (Write (path, query))
@@ -105,7 +110,7 @@ let write tr path query k =
         ~transaction:(fun chan k -> chan |> k)
         result
       @> k
-  | _ -> assert false
+  | _ -> N.panic tr
 
 let write_list tr l_path_query k =
   N.sendreceive tr (WriteList (Dialog.query l_path_query))
@@ -113,7 +118,7 @@ let write_list tr l_path_query k =
   | WriteList (D.Response l_path_result) ->
       l_path_result
       |> k
-  | _ -> assert false
+  | _ -> N.panic tr
 
 let node_properties _db _config k =
   #<If:TESTING> () |> k #<Else>

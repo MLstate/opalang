@@ -42,8 +42,8 @@ type t0 = {
   close_database: db -> unit Cps.t;
   status: db -> Badop.status Cps.t;
 
-  tr_start: db -> tr Cps.t;
-  tr_start_at_revision: db -> rv -> tr Cps.t;
+  tr_start: db -> (exn -> unit) -> tr Cps.t;
+  tr_start_at_revision: db -> rv -> (exn -> unit) -> tr Cps.t;
   tr_prepare: tr -> (tr * bool) Cps.t;
   tr_commit: tr -> bool Cps.t;
   tr_abort: tr -> unit Cps.t;
@@ -229,7 +229,8 @@ let get options =
                in
                BslServer_event.send (Obj.magic event) (QmlCpsServerLib.cont_ml (fun _ -> ()))
            | None ->
-               Logger.error "Database connection error before OPA runtime initialisation")
+               Logger.error "Database connection error before OPA runtime initialisation";
+               exit 3)
           ;
           #<If:DATABASE_RECONNECT$minlevel 0>
             `retry (Time.seconds (int_of_string (Option.get DebugVariables.database_reconnect)))

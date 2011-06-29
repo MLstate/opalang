@@ -157,9 +157,11 @@ module type S = sig
 
   (** Transaction-handling functions are grouped in this module *)
   module Tr : sig
-    val start: database -> transaction Cps.t
+    (** Takes a hook that can be triggered at any point during the life of the
+        transaction if a fatal database error occurs (disconnection...) *)
+    val start: database -> (exn -> unit) -> transaction Cps.t
 
-    val start_at_revision: database -> revision -> transaction Cps.t
+    val start_at_revision: database -> revision -> (exn -> unit) -> transaction Cps.t
 
     (** In [prepare] and [commit], the returned boolean is [true] for success. *)
     val prepare: transaction -> (transaction * bool) Cps.t

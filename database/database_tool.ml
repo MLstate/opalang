@@ -144,9 +144,13 @@ let read_schema_from_db tr k =
 
 let get_transaction_at_revision db k =
   match options.time with
-  | None -> Db.Tr.start db @> k
+  | None ->
+      Db.Tr.start db
+        (fun exc -> Logger.critical "Database error: %s" (Printexc.to_string exc); exit 4)
+      @> k
   | Some revision_timestamp ->
       Db.Tr.start db
+        (fun exc -> Logger.critical "Database error: %s" (Printexc.to_string exc); exit 4)
       @> fun tr ->
         Db.read tr Badop.Path.root (Badop.Revisions (Badop.Dialog.query (None,0)))
         @> function
@@ -162,7 +166,9 @@ let get_transaction_at_revision db k =
                    (Db.Debug.revision_to_string revision)
                    (Time.local_mday ts) (Time.local_mon ts) (Time.local_year ts)
                    (Time.local_hour ts) (Time.local_min ts) (Time.local_sec ts);
-                 Db.Tr.start_at_revision db revision @> k)
+                 Db.Tr.start_at_revision db revision
+                   (fun exc -> Logger.critical "Database error: %s" (Printexc.to_string exc); exit 4)
+                 @> k)
         | _ ->
             Printf.eprintf "Error while looking for revisions of the database"; exit 2
 

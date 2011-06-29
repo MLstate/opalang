@@ -108,7 +108,12 @@ module F (B: Badop.S) (C: Xml_dump.SigCpsBackend) = struct
               () |> k
     in
     let write (tropt,n) path write_op k =
-      (fun k -> match tropt with Some tr -> tr |> k | None -> B.Tr.start db @> fun tr -> tr |> k)
+      (fun k -> match tropt with
+       | Some tr -> tr |> k
+       | None ->
+           B.Tr.start db
+             (fun err -> error "database error: %s" (Printexc.to_string err) |> emergency_cont)
+           @> fun tr -> tr |> k)
       @> mkcont k
       @> fun tr ->
         B.write tr path write_op

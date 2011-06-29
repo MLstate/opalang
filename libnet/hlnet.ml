@@ -853,16 +853,16 @@ end = struct
         match connection_opt with
         | Some connection -> (* the structure exists, but is disconnected *)
             let reconnect cont =
-              #<If$minlevel 10> debug "Reconnecting to %s" (endpoint_to_string remote) #<End>;
+              Logger.info "Reconnecting to %s" (endpoint_to_string remote);
               Network.connect sched (Network.make_port_spec ~protocol addr port) encryption
                 ~socket_flags:[Unix.SO_KEEPALIVE]
                 ~err_cont:(
                   fun _ ->
-                    #<If$minlevel 20> debug "Reconnection to %s failed" (endpoint_to_string remote) #<End>;
+                    Logger.info "Reconnection to %s failed" (endpoint_to_string remote);
                     disconnect connection; None |> cont
                 )
               @> fun connection_info ->
-                #<If$minlevel 20> debug "Reconnected to %s" (endpoint_to_string remote) #<End>;
+                Logger.info "Reconnected to %s" (endpoint_to_string remote);
                 connection.local <- (local_of_conn_info connection_info);
                 connection.finalised <- false;
                 Some connection_info |> cont
@@ -878,7 +878,7 @@ end = struct
                 ~socket_flags:[Unix.SO_KEEPALIVE]
                 ~err_cont:(fun _ -> !disconnect_ref (); None |> cont)
               @> fun connection_info ->
-                #<If$minlevel 20> debug "Connected to %s" (endpoint_to_string remote) #<End>;
+                Logger.info "Connected to %s" (endpoint_to_string remote);
                 !update_local_ref (local_of_conn_info connection_info);
                 Some connection_info |> cont
             in
@@ -1588,6 +1588,9 @@ let close_channel chan =
   #<If> debug "Closing channel %s" (channel_id_to_debug_string chan.id) #<End>;
   ChanH.remove chan.id
 
+let panic chan =
+  #<If> debug "Alert on channel %s" (channel_id_to_debug_string chan.id) #<End>;
+  Connection.disconnect chan.connection
 
 let dup : ('out','in') channel -> ('out'2,'in2) channel_spec -> ('out'2,'in2) channel =
   fun (chan : ('out', 'in') channel) spec ->
