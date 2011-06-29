@@ -331,11 +331,9 @@ sig
   val of_string : ?check:bool -> string -> t (* should be used only by the parser *)
   val of_ident : Ident.t -> t
 
-  val new_ident : ?prefix:string -> tag -> t -> t
   val new_concrete : t -> t
-  val new_external_ty :  ?prefix:string -> t -> t
+  val new_external_ty : t -> t
 
-  val is_already_processed : t -> bool
   val is_already_known : t -> bool
   val is_external_ty : t -> bool
 
@@ -353,10 +351,6 @@ struct
   type tag = Concrete | Extern
   type uniq = tag * Ident.t
   type t = Raw of Ident.t | Processed of uniq
-
-  let is_already_processed = function
-    | Raw _ -> false
-    | Processed _ -> true
 
   let is_already_known = function
     | Raw _ -> false
@@ -402,18 +396,18 @@ struct
     if check then opacapi_check name;
     Raw (Ident.source name)
 
-  let get = Fresh.fresh_factory (fun t -> t)
-
   let of_ident ident = Raw ident
 
-  let new_ident ?prefix:(_="") tag = function (* FIXME: prefix? *)
+  (* ************************************************************************ *)
+  (** {b Visibility}: Not exported outside this module.                       *)
+  (* ************************************************************************ *)
+  let new_ident tag = function
     | Raw name -> Processed (tag, name)
     | Processed (_, i) -> Processed (tag, i)
 
-  let new_concrete id =
-    new_ident Concrete id
+  let new_concrete id = new_ident Concrete id
 
-  let new_external_ty ?(prefix="") id = new_ident ~prefix Extern id
+  let new_external_ty id = new_ident Extern id
 
   let is_external_ty = function
     | Raw _ ->

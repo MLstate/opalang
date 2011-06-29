@@ -619,7 +619,7 @@ struct
       in handle_ty [] t
 
     let add id (s, visibility) g =
-      assert (TypeIdent.is_already_processed id);
+      assert (TypeIdent.is_already_known id);
       let field_map =
         if TypeIdent.is_external_ty id then (
           (** Abstract (i.e external) : don't update the field map. *)
@@ -654,7 +654,7 @@ struct
 
     (** WARNING: remove does not restore any previously user-visible type -- don't use, except for updates *)
     let remove id g =
-      assert (TypeIdent.is_already_processed id);
+      assert (TypeIdent.is_already_known id);
       let field_map =
         let found_info = TypeIdentPreciseMap.find_opt id g.type_ident_precise in
         match found_info with
@@ -854,7 +854,7 @@ let process_typenames ?(typedef=false) gamma ty =
   let aux ty =
     match ty with
     | Q.TypeName (tl, ti) ->
-        if TypeIdent.is_already_processed ti then
+        if TypeIdent.is_already_known ti then
           ty
         else (
           let (ti, ts) =
@@ -934,6 +934,6 @@ let is_processed ty =
   not (QmlAstWalk.Type.exists
     (function
       | Q.TypeSumSugar _ -> true
-      | Q.TypeName (_, ti) -> not (TypeIdent.is_already_processed ti)
+      | Q.TypeName (_, ti) -> not (TypeIdent.is_already_known ti)
       | _ -> false
     ) ty)
