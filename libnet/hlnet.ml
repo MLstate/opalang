@@ -48,9 +48,9 @@ let apply_fun_option opt =
 (* Type definitions                                             *)
 (* ------------------------------------------------------------ *)
 
-exception Hlnet_ssl
-
 type 'a cps = ('a -> unit) -> unit
+
+type 'a errcps = (exn -> unit) -> ('a -> unit) -> unit
 
 type 'a stream_unserialise = string -> int -> [ `data of 'a * int | `needmore of int | `failure of string ]
 
@@ -58,6 +58,9 @@ type endpoint =
   | Tcp of Unix.inet_addr * int
   | Ssl of Unix.inet_addr * int * SslAS.secure_type option
   (* | Udp of Unix.inet_addr * int *)
+
+exception Hlnet_ssl
+exception Disconnected of endpoint
 
 type channel_id = int
 
@@ -73,7 +76,7 @@ module rec Types : sig
   (* don't look at this, it's a copy-paste of the definitions below (ocaml needs
      an explicit sig for functors and here the module only contains type
      definitions *)
-  type ('out','in') channel_spec = { service: service_id; out_serialise: 'out' -> string; in_unserialise: ('out','in') channel -> 'in' stream_unserialise; } and ('out','in') channel = { id: channel_id; spec: ('out','in') channel_spec; connection: connection; mutable handler : ('in' -> ('out' -> unit) -> unit) option; mutable waiting_handler : ('in' -> unit) IM.t; mutable pending: 'in' list IM.t ; on_disconnect: ((bool -> unit) -> unit) ref; mutable propagate_removal: bool ref option } and black_channel = (black,black) channel and connection = { remote: endpoint; mutable local: endpoint; scheduler: Scheduler.t; mutable info: Scheduler.connection_info option Cps.Lazy.t; channels: Wchannels.t; last_channels: black_channel Weak.t; mutable last_channels_ptr: int; mutable finalised: bool; }
+  type ('out','in') channel_spec = { service: service_id; out_serialise: 'out' -> string; in_unserialise: ('out','in') channel -> 'in' stream_unserialise; } and ('out','in') channel = { id: channel_id; spec: ('out','in') channel_spec; connection: connection; mutable handler : ('in' -> ('out' -> unit) -> unit) option; mutable waiting_handler : ((exn -> unit) * ('in' -> unit)) IM.t; mutable pending: 'in' list IM.t ; on_disconnect: ((bool -> unit) -> unit) ref; mutable propagate_removal: bool ref option } and black_channel = (black,black) channel and connection = { remote: endpoint; mutable local: endpoint; scheduler: Scheduler.t; mutable info: Scheduler.connection_info option Cps.Lazy.t; channels: Wchannels.t; last_channels: black_channel Weak.t; mutable last_channels_ptr: int; mutable finalised: bool; }
   val _define_at_least_one_value_in_the_module_to_avoid_ocaml_bug_: unit
 end = struct
   type ('out','in') channel_spec = {
@@ -92,7 +95,7 @@ end = struct
     mutable handler : ('in' -> ('out' -> unit) -> unit) option;
 
     (* Handler for specific request-ids (responses to sendreceive) *)
-    mutable waiting_handler : ('in' -> unit) IM.t;
+    mutable waiting_handler : ((exn -> unit) * ('in' -> unit)) IM.t;
 
     (* stored received messages, by request ids *)
     mutable pending: 'in' list IM.t ;
@@ -769,10 +772,16 @@ end = struct
     let _ = conn.finalised <- true in
     let channels = conn.channels in
     #<If$minlevel 12> debug "Closing connection to %s" (endpoint_to_string conn.remote) #<End>;
-    Wconnections.remove table conn;
     let channels_handling () =
       Wchannels.iter
         (fun ch ->
+           (* Abort all expected answers *)
+           IM.iter
+             (fun _ (errcont,_) ->
+                Scheduler.push (conn.scheduler) (fun () -> errcont (Disconnected conn.remote))
+             )
+             ch.waiting_handler;
+           (* Reset and call the disconnection handlers *)
            let on_disconnect = ch.on_disconnect in
            let f = !on_disconnect in
            on_disconnect := (fun cont -> false |> cont);
@@ -1145,18 +1154,25 @@ let register_channel =
 let channel_stop_removal_propagation chan =
   match chan.propagate_removal with Some r -> r := false | None -> ()
 
-let rec channel_write channel value cont =
-  let scheduler = channel.connection.scheduler in
+let channel_write channel value errcont cont =
   Connection.write channel.connection value
-    ~failure:(fun _ ->
-             let f = !(channel.on_disconnect) in
-             channel.on_disconnect :=
-               (fun cont1 -> f @> function
-                | true ->
-                    Scheduler.push scheduler (fun () -> channel_write channel value @> cont);
-                    true |> cont1
-                | false -> false |> cont1))
+    ~failure: (
+      fun e ->
+        Logger.error "Could not write to channel %016x (%s)"
+          channel.id (Printexc.to_string e);
+        errcont (Disconnected (channel.connection.remote))
+    )
     ~success:cont
+(*
+    (fun _ ->
+       let f = !(channel.on_disconnect) in
+       channel.on_disconnect :=
+         (fun cont1 -> f @> function
+          | true ->
+              Scheduler.push scheduler (fun () -> channel_write channel value @> cont);
+              true |> cont1
+          | false -> false |> cont1))
+*)
 
 
 (*
@@ -1173,15 +1189,18 @@ let get_channel_connection chan cont =
 (* ------------------------------------------------------------ *)
 
 (* send over a channel *)
-let send_aux chan ?(request_id=RequestId.dummy_request_id) ?(cont=(fun _ -> ())) value =
+(* The error continuation does not need to trigger the on_disconnect handler,
+   because in case of problem the whole connection will be marked as
+   disconnected, and trigger that for all hosted channels including this one *)
+let send_aux chan ?(request_id=RequestId.dummy_request_id) ?(errcont=(fun _ -> ())) ?(cont=(fun _ -> ())) value =
   let msg = Serialise.serialise_message request_id chan value in
   #<If$minlevel 21>
     debug "Sending a packet on channel %s, over %s" (channel_id_to_debug_string chan.id) (connection_to_string chan.connection)
-  #<End>;
+    #<End>;
   #<If$minlevel 30>
     debug "«\n[34m%s[0m»" (hexprint msg)
-  #<End>;
-  channel_write chan msg @> fun buflen -> cont buflen
+    #<End>;
+  channel_write chan msg errcont @> fun buflen -> cont buflen
 
 (* -- Treatment of incoming messages -- *)
 
@@ -1230,7 +1249,7 @@ let store_message channel reqid msg =
 
 let first_message_treatment (channel:black_channel) reqid msg =
   match IM.find_opt reqid channel.waiting_handler with
-  | Some inh ->
+  | Some (_errh,inh) ->
       #<If$minlevel 10>
         debug "-- Received a message, waiting handler for %s" (request_id_to_debug_string reqid)
       #<End>;
@@ -1428,7 +1447,7 @@ let listen sched endpoint =
       let abort_listen = Network.listen sched port_spec encryption ~socket_flags:[Unix.SO_KEEPALIVE] handler in
       EP.add endpoint { chan_handlers = Hashtbl.create 11;
                         abort_listen = abort_listen };
-      #<If:TESTING> () #<Else> debug ~show:true "Listening on %s" (endpoint_to_string endpoint) #<End>
+      #<If:TESTING> () #<Else> Logger.debug "Listening on %s" (endpoint_to_string endpoint) #<End>
   (* | _ -> assert false *)
 
 let accept ?(safe=false) sched endpoint chan_spec chan_handler =
@@ -1460,14 +1479,14 @@ let accept ?(safe=false) sched endpoint chan_spec chan_handler =
 (* Always inform the other hand about a channel before we can send data through it *)
 let send_channel chan cont =
   let msg = Serialise.serialise_channel (channel_to_black chan) chan.connection.local in
-  channel_write chan msg @> fun _ -> () |> cont
+  channel_write chan msg (fun _ -> () |> cont) @> fun _ -> () |> cont
 
 
 (* Receives, or sets up the receiving function, for one packet on the given channel *)
-let receive_aux chan ?(request_id=RequestId.dummy_request_id) inhandler =
+let receive_aux chan ?(request_id=RequestId.dummy_request_id) errcont inhandler =
   #<If>
     debug "Receiving a packet on channel %s" (channel_id_to_debug_string chan.id)
-    #<End>;
+  #<End>;
   let msgs =
     try List.rev (IM.find request_id chan.pending)
     with Not_found -> []
@@ -1478,10 +1497,10 @@ let receive_aux chan ?(request_id=RequestId.dummy_request_id) inhandler =
       #<If$minlevel 10>
         debug "-- Receive: adding a waiting handler for %s (%d)"
         (request_id_to_debug_string request_id) (IM.size chan.waiting_handler)
-        #<End>;
+      #<End>;
       let cond = IM.is_empty chan.waiting_handler
       in
-      chan.waiting_handler <- IM.add request_id handl chan.waiting_handler;
+      chan.waiting_handler <- IM.add request_id (errcont,handl) chan.waiting_handler;
       if cond then ChanH.add chan;
       reading_loop chan.connection
   | msg::y ->
@@ -1516,22 +1535,24 @@ let refuse _scheduler endpoint =
   let endpoint = clean_ssl_endpoint endpoint in
   Option.iter
     (fun connection_handler ->
-       #<If:TESTING> () #<Else> debug ~show:true "Stop listening on %s" (endpoint_to_string endpoint) #<End>;
+       #<If:TESTING> () #<Else> Logger.debug "Stop listening on %s" (endpoint_to_string endpoint) #<End>;
        connection_handler.abort_listen ();
        EP.remove endpoint)
     (EP.find endpoint)
 
 let send chan value = send_aux chan value
 
-let receive chan inhandler = receive_aux chan inhandler
+let receive chan inhandler = receive_aux chan (fun _ -> ()) inhandler
+let receive' chan errcont inhandler = receive_aux chan errcont inhandler
 
-let sendreceive chan msg inhandler =
+let sendreceive' chan msg errcont inhandler =
   let request_id = RequestId.fresh_request_id () in
   #<If$minlevel 10> debug "-- SendReceive with reqid : %s" (request_id_to_debug_string request_id) #<End>;
   let cont =
     fun _ ->
-      receive_aux chan ~request_id inhandler in
-  send_aux chan ~request_id ~cont msg
+      receive_aux chan ~request_id errcont inhandler in
+  send_aux chan ~request_id ~errcont ~cont msg
+let sendreceive chan msg inhandler = sendreceive' chan msg (fun _ -> ()) inhandler
 
 let multi_sendreceive chan_list inhandlers =
   let total = List.length inhandlers in
@@ -1587,27 +1608,23 @@ let open_channel sched remote_endpoint channel_spec ?(on_disconnect=fun () -> `a
 
   let rec rec_on_disconnect chan =
     let rec handler cont =
+      #<If$minlevel 15> debug "Channel %s disconnected" (channel_id_to_debug_string chan.id) #<End>;
       match on_disconnect() with
       | `abort -> false |> cont
       | `retry delay ->
           let _akey =
             Scheduler.sleep sched delay
               (fun () ->
-                 let connection = Connection.get sched remote_endpoint in
-                 let on_disconnect_ref = ref (fun _ -> ()) in
-                 let chan =
-                   { chan with
-                       connection;
-                       on_disconnect = on_disconnect_ref;
-                       id = fresh_channel_id();
-                       propagate_removal = None;
-                   } in
-                 on_disconnect_ref := rec_on_disconnect chan;
-                 register_channel chan;
-                 send_channel chan
-                 @> fun () ->
-                   chan.waiting_handler <- IM.empty;
-                   true |> cont)
+                 let _ = Connection.get sched remote_endpoint in
+                 Cps.Lazy.force chan.connection.info
+                 @> function
+                 | Some info when Scheduler.check_connection chan.connection.scheduler info ->
+                     chan.on_disconnect := rec_on_disconnect chan;
+                     send_channel chan
+                     @> fun () ->
+                       chan.waiting_handler <- IM.empty;
+                       true |> cont
+                 | _ -> handler cont)
           in ()
     in
     let rec aux cont =

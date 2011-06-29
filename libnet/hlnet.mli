@@ -34,12 +34,18 @@ type ('out','in') channel
 *)
 type 'a cps = ('a -> unit) -> unit
 
+(** Same as ['a cps], but also taking an error continuation *)
+type 'a errcps = (exn -> unit) -> ('a -> unit) -> unit
+
 (** An [endpoint] is one end of a connection. It may be local or remote. *)
 type endpoint =
   | Tcp of Unix.inet_addr * int
   | Ssl of Unix.inet_addr * int * SslAS.secure_type option
   (* | Udp of Unix.inet_addr * int *)
       (*| ... *)
+
+(** Not raised, passed as parameter to error continuations *)
+exception Disconnected of endpoint
 
 (** A label for a service: used to provide or ask for a given service, with given version *)
 type service_id = private {
@@ -132,10 +138,12 @@ val send: ('out','in') channel -> 'out' -> unit
 
 (** Handles one incoming packet on channel *)
 val receive: ('out','in') channel -> 'in' cps
+val receive': ('out','in') channel -> 'in' errcps
 
 (** Sends a packet on the given channel, then gets ready to treat the answer with the given continuation.
     * Returns immediately *)
 val sendreceive: ('out','in') channel -> 'out' -> 'in' cps
+val sendreceive': ('out','in') channel -> 'out' -> 'in' errcps
 
 (** Sends packets on givens channels, waits for all answer before treating them with given continuations *)
 val multi_sendreceive: (('out','in') channel * 'out') list -> ('in' -> unit) list -> unit
