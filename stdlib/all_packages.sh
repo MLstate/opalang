@@ -3,6 +3,8 @@
 
 DIRS=$(find . -type d | sed "s/.\///")
 
+: ${PACKAGE_FILTER:=cat}
+
 PACKAGES=''
 for dir in $DIRS ; do
     files=$(find $dir -maxdepth 1 -name '*.opa')
@@ -10,4 +12,4 @@ for dir in $DIRS ; do
         this=$(echo $dir | sed 's/\//./g')
         echo "stdlib.$this"
     fi
-done | sort -u
+done | sort -u | $PACKAGE_FILTER
