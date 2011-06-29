@@ -49,7 +49,7 @@ let options =
            (["--daemon";"-d"],
               ServerArg.func (ServerArg.option ServerArg.string)
                 (fun o pidfile -> {o with daemonize = true; pidfile}),
-            "[pidfile]", Printf.sprintf "Run in the background ** NOT MacOSX COMPATIBLE ** ")
+            "[pidfile]", Printf.sprintf "Run in the background (does not exist on MacOS)")
              ])
            @
            List.map
