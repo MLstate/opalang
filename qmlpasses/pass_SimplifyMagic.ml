@@ -189,12 +189,16 @@ let rewrite_expr env gamma annotmap code =
      | _ -> tra annotmap e in
   QmlAstWalk.Expr.traverse_foldmap aux annotmap code
 
-let process_code ?(specialized_env=IdentMap.empty) gamma annotmap code =
+let empty_env = IdentMap.empty
+let process_code ?(specialized_env=empty_env) gamma annotmap code =
   let (env,annotmap), code = build_env specialized_env gamma annotmap code in
   R.save annotmap env;
   #<If:SIMPLIFYMAGIC_DISABLE>
     annotmap, code
   #<Else>
-    let annotmap, env = R.load annotmap env in
+    let annotmap, env2 = R.load annotmap empty_env in
+    let env = IdentMap.merge (@) env2 env in (* the old env has priority over the current one
+                                              * so that Date.to_string doesn't override intToString
+                                              * in the package date *)
     QmlAstWalk.CodeExpr.fold_map (rewrite_expr env gamma) annotmap code
   #<End>

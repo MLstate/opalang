@@ -447,7 +447,7 @@ let analyse_tail_recursion bindings =
        (match expr with
         | Q.Lambda (_, _, Q.Lambda (_, _, e))
         | Q.Lambda (_, _, e) -> aux i e
-        | _ -> assert false);
+        | _ -> OManager.i_error "Non lambda in a recursion: %a@." QmlPrint.pp#expr expr);
        #<If:JS_IMP$contains "tailcall">
          Format.printf "@."
        #<End>
