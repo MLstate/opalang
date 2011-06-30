@@ -524,7 +524,7 @@ customize_header(add) =  some({
        })
 
 customizer_for_icon =
-  | { environment = _; renderer={ Trident =_ } } -> customize_header(<link rel="shortcut icon" type="image/x-icon" href="{Resource.base_url}/favicon.ico" />)
+  | { environment = _; renderer={ Trident =_ } } -> customize_header(<link rel="shortcut icon" type="image/x-icon" href="{Resource.base_url ? ""}/favicon.ico" />)
   | _ -> customize_header(<link rel="icon" type="image/gif" href="{Resource.base_url}/favicon.gif" />)
 
 customizer_for_google_frame = // IE google frame
