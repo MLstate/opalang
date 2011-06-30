@@ -875,7 +875,7 @@ let execute_query_map tr db =
     aux tr db Hldb.root_eid [] tr.tr_query_map Path.root
   with
   | e ->
-      #<If> Logger.log ~color:`red "Commit --> %s" (Printexc.to_string e) #<End>;
+      #<If> Logger.log ~color:`red "Commit --> %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())#<End>;
       raise e
 
 let execute_remove_list tr rev db =

@@ -209,8 +209,7 @@ let rec get_old_revs ~f node =
 let rec next_eid ~f k node =
   #<If:DEBUG_DB$minlevel 1000>
     Logger.log ~color:`green "DB : next_eid node(%s) k(%s)"
-      (to_string node)
-      (Keys.to_string k)
+      (to_string node) (Keys.to_string k)
   #<End>;
   match node with
   | Full node -> KeyMap.find k node.map

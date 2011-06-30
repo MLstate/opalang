@@ -169,6 +169,13 @@ type t = {
 
   (* may raise Not_found from _get_uid_of_eid *)
   let get_uid_of_eid db rev eid =
+    #<If:DEBUG_DB$minlevel 1000>
+      Logger.log ~color:`green
+         "DB : get_uide_of_eid eid(%s) rev(%s)"
+           (Eid.to_string eid)
+           (Revision.to_string rev)
+    #<End>;
+
     if rev < db.rev then _get_uid_of_eid db rev eid
     else
       try EidMap.find eid db.tmp_uid_of_eid
@@ -178,11 +185,24 @@ type t = {
      or reading from disk if no found in all the maps. *)
   (* Raise Not_found id the uid is not in the temporary or full nodemap *)
   let get_node_of_uid db uid =
+    #<If:DEBUG_DB$minlevel 1000>
+      Logger.log ~color:`green
+        "DB : get_node_of_uid uid(%s)"
+           (Uid.to_string uid)
+    #<End>;
+
       match UidMap.find_opt uid db.tmp_node_of_uid with
       | Some node -> node
       | None -> UidMap.find uid db.node_of_uid
 
   let get_node_of_eid db rev eid =
+    #<If:DEBUG_DB$minlevel 1000>
+      Logger.log ~color:`green
+         "DB : get_node_of_eid eid(%s) rev(%s)"
+           (Eid.to_string eid)
+           (Revision.to_string rev)
+    #<End>;
+
     let uid =
       try get_uid_of_eid db rev eid
       with Not_found ->
@@ -205,6 +225,13 @@ type t = {
      revision, or if the current key of the path is not found in the map of the
      current node. *)
   let rec get_eid_of_path db rev path =
+    #<If:DEBUG_DB$minlevel 1000>
+      Logger.log ~color:`green
+        "DB : get_eid_of_path rev(%s) path(%s)"
+           (Revision.to_string rev)
+           (Path.to_string path)
+    #<End>;
+
     let rec aux db pos rev cur_path path =
       match path with
       | [] -> pos, rev
@@ -227,6 +254,13 @@ type t = {
      find the node associated with the eid if it has been found *)
   (* TODO: the [rev] result does not seem used a lot; use or simplify *)
   let get_node_of_path db rev path =
+    #<If:DEBUG_DB$minlevel 1000>
+      Logger.log ~color:`green
+        "DB : get_node_of_path rev(%s) path(%s)"
+           (Revision.to_string rev)
+           (Path.to_string path)
+    #<End>;
+
     let eid, rev = get_eid_of_path db rev path in
     try get_node_of_eid db rev eid, rev
     with Not_found -> raise UnqualifiedPath
@@ -687,6 +721,12 @@ type t = {
         with Not_found -> raise UnqualifiedPath
 
   let follow_link db original_rev path =
+    #<If:DEBUG_DB$minlevel 10>
+      Logger.log ~color:`green
+        "DB : following link %s at rev %s"
+          (Revision.to_string original_rev)
+          (Path.to_string path)
+    #<End>; 
     let rec aux db rev path =
       let path_end = Path.to_list path in
       let root = get_node_of_eid db rev root_eid in
