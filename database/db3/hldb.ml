@@ -41,7 +41,7 @@ type t = {
   uid_of_eid : (Uid.t RevisionMap.t) EidMap.t ;
   node_of_uid : node_map ;
   index : index ;
-  tmp_uid_of_eid : Uid.t EidMap.t ;
+  tmp_uid_of_eid : Uid.t Eid.Map.t ;
   tmp_node_of_uid : Node.t Uid.Map.t ;
 }
 
@@ -81,9 +81,9 @@ type t = {
     ) db.tmp_node_of_uid "\n"
 
   let print_tmp_uid_map db =
-    if db.tmp_uid_of_eid = EidMap.empty
+    if Eid.Map.is_empty db.tmp_uid_of_eid
     then "Empty"
-    else EidMap.fold (
+    else Eid.Map.fold (
       fun eid uid acc -> Printf.sprintf "%s\t%d -> %s\n"
         acc (Eid.value eid) (Uid.to_string uid)
     ) db.tmp_uid_of_eid "\n"
@@ -99,7 +99,7 @@ type t = {
       ) map ("", ""))
 
   let print_uid_map db =
-    if db.uid_of_eid = EidMap.empty then "Empty"
+    if EidMap.is_empty db.uid_of_eid then "Empty"
     else
       EidMap.fold (
         fun eid map acc -> Printf.sprintf "%s%d -> %s"
@@ -177,7 +177,7 @@ type t = {
 
     if rev < db.rev then _get_uid_of_eid db rev eid
     else
-      try EidMap.find eid db.tmp_uid_of_eid
+      try Eid.Map.find eid db.tmp_uid_of_eid
       with Not_found -> _get_uid_of_eid db rev eid
 
   (* looking for an uid from an eid into the different maps of the db,
@@ -255,7 +255,7 @@ type t = {
      writen on disk. *)
   let clean_tmp_maps db =
     { db with
-        tmp_uid_of_eid = EidMap.empty ;
+        tmp_uid_of_eid = Eid.Map.empty  ;
         tmp_node_of_uid = Uid.Map.empty ;
     }
 
@@ -275,13 +275,13 @@ type t = {
       let eid_0 = Eid.make 0 in
       let rev_0 = Revision.make 0 in
       let content = RevisionMap.add rev_0 uid_0 RevisionMap.empty in
-      EidMap.add eid_0 content EidMap.empty in
+      EidMap.add eid_0 content (EidMap.empty ()) in
     let node_of_uid, tmp_node_of_uid = (UidMap.add uid_0 t (UidMap.empty ())), Uid.Map.empty in
 
     let tcount = Eid.make 0 in
     let next_uid = uid_1 in
     let index = StringMap.empty in
-    let tmp_uid_of_eid = EidMap.empty in
+    let tmp_uid_of_eid = Eid.Map.empty in
     { rev;
       tcount;
       next_uid;
@@ -301,7 +301,7 @@ type t = {
       uid_of_eid;
       node_of_uid;
       index;
-      tmp_uid_of_eid = EidMap.empty;
+      tmp_uid_of_eid = Eid.Map.empty;
       tmp_node_of_uid = Uid.Map.empty;
     }
 
@@ -389,7 +389,7 @@ type t = {
       let eid, _= get_eid_of_path db cur_rev path in
       let revisions = RevisionMap.keys (EidMap.find eid db.uid_of_eid) in
       let revisions =
-        if Option.is_some (EidMap.find_opt eid db.tmp_uid_of_eid)
+        if Option.is_some (Eid.Map.find_opt eid db.tmp_uid_of_eid)
         then cur_rev::revisions else revisions in
      revisions
     with Not_found | UnqualifiedPath ->
@@ -433,10 +433,10 @@ type t = {
           let map = EidMap.find eid db.uid_of_eid in
           let new_map = RevisionMap.add rev uid map in
           EidMap.add eid new_map acc1,
-          EidMap.add eid uid acc2
+          Eid.Map.add eid uid acc2
             with Not_found ->
               EidMap.add eid (RevisionMap.add rev uid RevisionMap.empty) acc1,
-              EidMap.add eid uid acc2
+              Eid.Map.add eid uid acc2
               ) (db.uid_of_eid, db.tmp_uid_of_eid) uid_list
 
   let update_node_of_uid db node_list =

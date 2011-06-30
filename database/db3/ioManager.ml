@@ -899,13 +899,13 @@ let read_dbstate fm =
   logfm fm "Read dbstate at %d (length %d)" (F.position_in fm F.Db_state)  length;
 
   let uidmap =
-    let mappumulator = ref (EidMap.empty, 0) in
-    if is_empty then EidMap.empty
+    let mappumulator = ref ((EidMap.empty ()), 0) in
+    if is_empty then (EidMap.empty ())
     else (
       try
       iscorrupted (F.read_char fm F.Db_state) cc0;
       let size = F.read_int fm F.Db_state in
-      Loop.For.range 0 size EidMap.empty (
+      Loop.For.range 0 size (EidMap.empty ()) (
         fun _ uidmap -> (
           let _lastpos = F.position_in fm F.Db_state in
             let eid, rev_size =

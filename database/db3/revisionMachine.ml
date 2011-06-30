@@ -59,7 +59,7 @@ let purge_eidmap lastrevision uidmap lasteid =
            neweidmap
          else
            EidMap.add eid map neweidmap)
-    ) uidmap EidMap.empty
+    ) uidmap (EidMap.empty ())
 
 
 let purge_nodemap lastuid nodemap =
