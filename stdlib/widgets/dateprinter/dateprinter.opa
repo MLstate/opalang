@@ -36,7 +36,13 @@ type WDatePrinter.config = {
      date_printer : Date.printer
      duration_printer : Duration.printer
      css_class : string
-     server_date : bool /** Whether or not the initial date comes from the server */
+
+    /**
+     * Whether or not the initial date comes from the server, and if it is to 
+     * be cached on the client (useful in order to avoid countless 
+     * client-server exchanges).
+     */
+     server_date : { disable } / { enable } / { cache }
 }
 
 WDatePrinter = {{
@@ -49,7 +55,7 @@ WDatePrinter = {{
     { duration_printer = Duration.default_printer
       date_printer = Date.default_printer
       css_class = ""
-      server_date = true
+      server_date = {cache}
     }
 
   /**
@@ -61,15 +67,33 @@ WDatePrinter = {{
     <span id=#{get_widget_id(id)} class="{config.css_class}" title="{title}"
         onready={_ ->
             shift =
-              if config.server_date then Duration.between(Date.now(), now_server())
-              else Duration.empty
+              match config.server_date with
+                | {disable} -> Duration.empty
+                | {enable}  -> Duration.between(Date.now(), now_server())
+                | {cache}   -> Duration.between(Date.now(), now_server_cache())
             update(config, id, Date.shift_backward(date, shift), ( -> void))} />
 
   /**
    * {1 Private functions}
    */
 
+  /*
+   * Server time
+   */
   @private @server now_server(): Date.date = Date.now()
+
+  /*
+   * Client cache containing the server time
+   */
+  @private @client date_cache: Cache.sync(void, Date.date, void) =
+    Cache.make(Cache.Negotiator.always_necessary(_ -> now_server()),
+          {Cache.default_options with age_limit = some(Duration.s(10))})
+
+  /*
+   * The server time cached on the client
+   */
+  @private @client now_server_cache(): Date.date =
+    date_cache.get(void)
 
   @private
   @both_implem
