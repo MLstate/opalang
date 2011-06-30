@@ -16,3 +16,4 @@
 # subdirs
 <io>: traverse
 <migration>: traverse
+<structs>: traverse

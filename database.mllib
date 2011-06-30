@@ -70,3 +70,5 @@ database/Gml_parser
 database/Dbgraph
 database/Xml_dump
 #database/Xml_import
+#Internal structs
+database/db3/structs/TabMap
