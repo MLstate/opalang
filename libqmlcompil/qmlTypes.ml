@@ -652,40 +652,6 @@ struct
         TypeIdentPreciseMap.add id (s, visibility) g.type_ident_precise in
       { g with type_ident = type_ident ; type_ident_precise = type_ident_precise ; field_map = field_map; field_map_quick = field_map_quick }
 
-    (** WARNING: remove does not restore any previously user-visible type -- don't use, except for updates *)
-    let remove id g =
-      assert (TypeIdent.is_already_known id);
-      let field_map =
-        let found_info = TypeIdentPreciseMap.find_opt id g.type_ident_precise in
-        match found_info with
-        | None -> g.field_map
-        | Some (s, _) ->
-            let fields =
-              let (_, ty) = Scheme.export s in
-              records_field_names ty in
-            List.fold_left
-              (fun map f -> ImplFieldMap.remove f id map) g.field_map fields in
-      let field_map_quick =
-        let found_info = TypeIdentPreciseMap.find_opt id g.type_ident_precise in
-        match found_info with
-        | None -> g.field_map_quick
-        | Some (s, _) ->
-            let fields =
-              let (_, ty) = Scheme.export s in
-              records_field_names_quick ty in
-            let fields = List.map StringSet.from_list fields in
-            List.fold_left
-              (fun map f -> ImplFieldMapQuick.remove f id map)
-              g.field_map_quick fields in
-      let type_ident = TypeIdentMap.remove id g.type_ident in
-      let type_ident_precise =
-        TypeIdentPreciseMap.remove id g.type_ident_precise in
-      { g with
-          type_ident = type_ident ;
-          type_ident_precise = type_ident_precise ;
-          field_map = field_map ;
-          field_map_quick = field_map_quick }
-
     let mem id g =
       match id with
       | T.Raw _ -> TypeIdentMap.mem id g.type_ident

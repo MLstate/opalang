@@ -267,7 +267,6 @@ sig
     val add :
       QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> gamma ->
       gamma
-    val remove : QmlAst.typeident -> gamma -> gamma
     val mem : QmlAst.typeident -> gamma -> bool
     val iter :
       (QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> unit) ->
