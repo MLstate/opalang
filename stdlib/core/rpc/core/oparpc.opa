@@ -345,11 +345,9 @@ type OpaRPC.interface = {{
   /**
    * Execute asynchronously, don't produce any meaningful reply
    */
-  async_execute_without_reply((expr: -> _)): option(string) =
+  async_execute_without_reply((expr: -> void)): void =
   (
-    f() = _ = expr() void
-    do Scheduler.push(f)
-    {some = ""}
+    Scheduler.push(expr)
   )
 
   /**
