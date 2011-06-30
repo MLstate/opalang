@@ -81,6 +81,7 @@ libbase/DebugVariables
 libbase/UnionFind
 libbase/SRope
 libbase/HdList
+libbase/RAList
 libbase/IdentGenerator
 libbase/File_mimetype
 # From weblib
