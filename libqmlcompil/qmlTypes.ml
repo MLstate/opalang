@@ -27,7 +27,6 @@ module QTV = QmlTypeVars
 (* aliases *)
 module TypeIdent = QmlAst.TypeIdent
 module TypeIdentMap = QmlAst.TypeIdentMap
-module TypeIdentPreciseMap = QmlAst.TypeIdentPreciseMap
 
 module FreeVars = QmlTypeVars.FreeVars
 module TypeVar = QmlTypeVars.TypeVar
@@ -69,8 +68,6 @@ module ImplFieldMapQuick = SetMap.Make(StringSet)(TypeIdent)
 type gamma = {
   ident : typescheme IdentMap.t ;
   type_ident : (typescheme * QmlAst.type_def_visibility) TypeIdentMap.t ;
-  type_ident_precise :
-    (typescheme  * QmlAst.type_def_visibility) TypeIdentPreciseMap.t ;
   field_map : ImplFieldMap.t ;
   field_map_quick : ImplFieldMapQuick.t ;
 }
@@ -104,7 +101,6 @@ end
 let gamma_empty = {
   ident = IdentMap.empty ;
   type_ident = TypeIdentMap.empty ;
-  type_ident_precise = TypeIdentPreciseMap.empty ;
   field_map = ImplFieldMap.empty ;
   field_map_quick = ImplFieldMapQuick.empty ;
 }
@@ -535,9 +531,7 @@ struct
     let find_opt ~visibility_applies id g =
       let opt_found =
         (match id with
-         | T.Raw _ -> TypeIdentMap.find_opt id g.type_ident
-         | T.Processed _ ->
-             TypeIdentPreciseMap.find_opt id g.type_ident_precise) in
+         | T.Raw _ | T.Processed _ -> TypeIdentMap.find_opt id g.type_ident) in
       match opt_found with
       | None -> None
       | Some (sch, visibility) ->
@@ -547,9 +541,7 @@ struct
     let findi_opt ~visibility_applies id g =
       let opt_found =
         (match id with
-         | T.Raw _ -> TypeIdentMap.findi_opt id g.type_ident
-         | T.Processed _ ->
-             TypeIdentPreciseMap.findi_opt id g.type_ident_precise) in
+         | T.Raw _ | T.Processed _ -> TypeIdentMap.findi_opt id g.type_ident) in
       match opt_found with
       | None -> None
       | Some (i, (sch, visibility)) -> (
@@ -583,9 +575,7 @@ struct
          fetch in the environment is done ignoring visibility. *)
       let opt_found =
         (match id with
-         | T.Raw _ -> TypeIdentMap.find_opt id g.type_ident
-         | T.Processed _ ->
-             TypeIdentPreciseMap.find_opt id g.type_ident_precise) in
+         | T.Raw _ | T.Processed _ -> TypeIdentMap.find_opt id g.type_ident) in
       Option.get_exn
         (QmlTyperException.Exception
            (QmlTyperException.loc_empty,
@@ -648,32 +638,28 @@ struct
           List.fold_left (fun map f -> ImplFieldMapQuick.add f id map) g.field_map_quick fields
       in
       let type_ident = TypeIdentMap.add id (s, visibility) g.type_ident in
-      let type_ident_precise =
-        TypeIdentPreciseMap.add id (s, visibility) g.type_ident_precise in
-      { g with type_ident = type_ident ; type_ident_precise = type_ident_precise ; field_map = field_map; field_map_quick = field_map_quick }
+      { g with
+          type_ident = type_ident ; field_map = field_map ;
+          field_map_quick = field_map_quick }
 
     let mem id g =
       match id with
-      | T.Raw _ -> TypeIdentMap.mem id g.type_ident
-      | T.Processed _ -> TypeIdentPreciseMap.mem id g.type_ident_precise
+      | T.Raw _ | T.Processed _ -> TypeIdentMap.mem id g.type_ident
 
     (* we iter and fold only on the PreciseMap (because it's the only thing that makes sense) *)
-    let iter f g =
-      TypeIdentPreciseMap.iter f g.type_ident_precise
+    let iter f g = TypeIdentMap.iter f g.type_ident
 
-    let fold f g =
-      TypeIdentPreciseMap.fold f g.type_ident_precise
+    let fold f g = TypeIdentMap.fold f g.type_ident
 
     let to_list gamma = TypeIdentMap.to_list gamma.type_ident
 
     let fold_map f gamma acc =
       let acc, type_ident = TypeIdentMap.fold_map f gamma.type_ident acc in
-      let acc, type_ident_precise = TypeIdentPreciseMap.fold_map f gamma.type_ident_precise acc in
-      acc, {gamma with type_ident = type_ident; type_ident_precise = type_ident_precise}
+      (acc, {gamma with type_ident = type_ident })
+
     let map f gamma =
       let type_ident = TypeIdentMap.map f gamma.type_ident in
-      let type_ident_precise = TypeIdentPreciseMap.map f gamma.type_ident_precise in
-      {gamma with type_ident = type_ident; type_ident_precise = type_ident_precise}
+      { gamma with type_ident = type_ident }
 
     let pp f gamma =
       iter
@@ -699,10 +685,10 @@ struct
   let append g1 g2 =
     let ident = IdentMap.merge (fun _ x -> x) g1.ident g2.ident
     and type_ident = TypeIdentMap.merge (fun _ x -> x) g1.type_ident g2.type_ident
-    and type_ident_precise = TypeIdentPreciseMap.merge (fun _ x -> x) g1.type_ident_precise g2.type_ident_precise
     and field_map = ImplFieldMap.M.merge ImplFieldMap.S.union g1.field_map g2.field_map
     and field_map_quick = ImplFieldMapQuick.M.merge ImplFieldMapQuick.S.union g1.field_map_quick g2.field_map_quick in
-    { ident = ident ; type_ident = type_ident ; type_ident_precise = type_ident_precise ; field_map = field_map; field_map_quick = field_map_quick }
+    { ident = ident ; type_ident = type_ident ; field_map = field_map ;
+      field_map_quick = field_map_quick }
 
 end
 

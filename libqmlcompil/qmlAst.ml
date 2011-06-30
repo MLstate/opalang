@@ -415,6 +415,9 @@ struct
         assert false
     | Processed (t, _) -> t = Extern
 
+  (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
+     constructor, this must be removed and replaced by a simple
+     Ident.compare. *)
   let compare_names x y =
     match x, y with
     | Processed (_, x), Processed (_, y) -> Ident.compare x y
@@ -424,12 +427,18 @@ struct
 
   (* FIXME this comparison is completely crazy, it defines an equality that
    * is not transitive! *)
+  (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
+     constructor, this must be removed and replaced by a simple
+     Ident.compare. *)
   let compare x y =
     match x, y with
     | Processed (_, i), Processed (_, j) -> Ident.compare i j
     | Raw x, Processed (_, y)
     | Processed (_, x), Raw y
     | Raw x, Raw y -> Ident.compare x y
+
+(* TODO-REFACT: compare is the same thing than compare_names. Remove one.
+                equal is the same thing than equal_names. Remove one. *)
 
   let equal x y = compare x y = 0
 
@@ -1370,10 +1379,8 @@ module TypeIdentMap : (BaseMapSig.S with type key = TypeIdent.t) = BaseMap.Make 
     (* not [compare], because it needs to work for user-written names of types,
        so that we can find a type with a given name without knowing
        if it's abstract and if so, what the abstract stamp is *)
-    let compare = TypeIdent.compare_names
+    let compare = TypeIdent.compare_names (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw constructor, this must be removed and replaced by a simple Typeident.compare which will be Ident.compare. *)
     end )
-
-module TypeIdentPreciseMap : (BaseMapSig.S with type key = TypeIdent.t) = BaseMap.Make ( TypeIdent )
 
 module TypeIdentSet : (BaseSetSig.S with type elt = TypeIdent.t) = BaseSet.Make ( TypeIdent )
 
