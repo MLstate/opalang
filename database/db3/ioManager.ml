@@ -506,13 +506,13 @@ let write_node node =
   | N.Full full ->
       let lst =
         [ [c0];
-          c0 :: key2fm full.N.max ;
-          c1 :: key2fm full.N.min ;
+          c0 :: key2fm (K.IntKey (-1)) (*full.N.max*) ;
+          c1 :: key2fm (K.IntKey (-1)) (*full.N.min*) ;
           c2 :: [rev2fm full.N.cur_rev] ;
-          c3 ::
-            Option.default_map [c1]
+          c3 :: [c1] (* : None *)
+(*            Option.default_map [c1]
             (fun x -> c0 :: rev2fm x :: [])
-            full.N.pred_rev ;
+            full.N.pred_rev*) ;
           c4 :: data2fm full.N.content ;
         ] in
       let oldrev = [] in
@@ -557,16 +557,16 @@ let read_node fm =
   match F.read_char fm f with
   | c when c = cc0 ->
       iscorrupted (F.read_char fm f) cc0;
-      let nodemax = fm2key fm f in
+      let _nodemax = fm2key fm f in
 
       iscorrupted (F.read_char fm f) cc1;
-      let nodemin = fm2key fm f in
+      let _nodemin = fm2key fm f in
 
       iscorrupted (F.read_char fm f) cc2;
       let current_revision = fm2rev fm f in
 
       iscorrupted (F.read_char fm f) cc3;
-      let previous_revision =
+      let _previous_revision =
         let shb = F.read_char fm f in
         if shb = cc0 then Some (fm2rev fm f)
         else (iscorrupted shb cc1;  None) in
@@ -605,10 +605,7 @@ let read_node fm =
           | _ -> raise F.Corruption in
 
       N.Full { N.
-        max = nodemax ;
-        min = nodemin ;
         cur_rev = current_revision ;
-        pred_rev = previous_revision ;
         content ;
         map = nodemap ;
       }

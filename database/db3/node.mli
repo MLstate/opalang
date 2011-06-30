@@ -63,10 +63,7 @@ val fold_range :
 *)
 
 type full = {
-  max : Keys.t ;
-  min : Keys.t ;
   cur_rev : Revision.t ;
-  pred_rev : Revision.t option ;
   content : Datas.t ;
   map : Eid.t KeyMap.t ;
 }

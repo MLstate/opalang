@@ -21,10 +21,7 @@ module List = BaseList
 (* -- *)
 
 type full = {
-  max : Keys.t ;
-  min : Keys.t ;
   cur_rev : Revision.t ;
-  pred_rev : Revision.t option ; (* TODO: unused! *)
   content : Datas.t ;
   map : Eid.t KeyMap.t ;
 }
@@ -101,13 +98,10 @@ let print_rev_delta delta =
 
 let print_full n =
   Printf.sprintf
-    "max=%s, min=%s, rev=%s, pred_rev=%s, content=%s, map=%s"
-    (Keys.to_string n.max)(Keys.to_string n.min)
+    "rev=%s, content=%s, map=%s"
     (Revision.to_string n.cur_rev)
-    (match n.pred_rev with
-     | Some r -> Revision.to_string r
-     | _ -> "none")
-    (Datas.to_string n.content)(print_map n.map)
+    (Datas.to_string n.content)
+    (print_map n.map)
 
 let to_string = function
   | Full node -> Printf.sprintf "Full {%s}" (print_full node)
@@ -220,10 +214,7 @@ let create ?content rev =
     | Some d -> d
     | _ -> Datas.empty
   in
-  Full { max = Keys.newkey
-       ; min = Keys.newkey
-       ; cur_rev = rev
-       ; pred_rev = None
+  Full { cur_rev = rev
        ; content = content
        ; map = KeyMap.empty }
 
@@ -234,26 +225,20 @@ let is_full_map node =
   | RevDelta (_uid, _rev, delta) ->
       (List.length delta.extra_children >= max_delta)
 
-let update_full_to_full ?content ?child uid rev node =
-  let new_map, new_max, new_min =
+let update_full_to_full ?content ?child _uid rev node =
+  let new_map =
     match child with
     | Some (k, eid) ->
-        KeyMap.add k eid node.map, Keys.max k node.max, Keys.min k node.min
-    | _ -> node.map, node.max, node.min
+        KeyMap.add k eid node.map
+    | _ -> node.map
   in
-  let new_rev, new_pred_rev =
-    if rev = node.cur_rev then node.cur_rev, node.pred_rev
-    else rev, Some (node.cur_rev)
-  in
+  let new_rev = rev in
   let new_content =
     match content with
     | Some d -> d
     | _ -> node.content
   in
-  Full { max = new_max
-       ; min = new_min
-       ; cur_rev = new_rev
-       ; pred_rev = new_pred_rev
+  Full { cur_rev = new_rev
        ; content = new_content
        ; map = new_map}
 
@@ -309,14 +294,7 @@ let update_delta ~f ?content ?child uid rev old_uid old_rev old_delta delta =
           | Some d -> d
           | _ -> get_content ~f old_node
         in
-        let max, min =
-          if KeyMap.is_empty map then Keys.newkey, Keys.newkey
-          else fst (KeyMap.max map), fst (KeyMap.min map)
-        in
-        Full { max = max
-             ; min = min
-             ; cur_rev = rev
-             ; pred_rev = Some old_rev
+        Full { cur_rev = rev
              ; content = new_content
              ; map = map }
     | _ ->
@@ -351,14 +329,7 @@ let update_delta ~f ?content ?child uid rev old_uid old_rev old_delta delta =
           | Some d -> d
           | _ -> get_content ~f old_node
         in
-        let max, min =
-          if KeyMap.is_empty map then Keys.newkey, Keys.newkey
-          else fst (KeyMap.max map), fst (KeyMap.min map)
-        in
-        Full { max = max
-             ; min = min
-             ; cur_rev = old_rev
-             ; pred_rev = None
+        Full { cur_rev = old_rev
              ; content = new_content
              ; map = map }
     | _ ->
@@ -403,12 +374,8 @@ let rec remove_child ~f rev node key =
   match node with
   | Full node ->
       let new_map = KeyMap.remove key node.map in
-      let new_max, new_min =
-        if KeyMap.is_empty new_map then Keys.newkey, Keys.newkey
-        else fst (KeyMap.max new_map), fst (KeyMap.min new_map)
-      in
       Full {node with
-              map = new_map; max = new_max; min = new_min; cur_rev = rev}
+              map = new_map; cur_rev = rev}
   | Delta (uid, _rev, _delta) ->
       let new_map = KeyMap.remove key (get_map ~f node) in
       let content = get_content ~f node in
