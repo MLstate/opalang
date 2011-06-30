@@ -968,7 +968,7 @@ type time_t = external
    * @param duration a duration to be printed
    * @return string representation of [duration] using {!Date.default_printer} format.
   **/
-  to_string(date : Date.date) : string =
+  @stringifier(Date.date) to_string(date : Date.date) : string =
     to_formatted_string(default_printer, date)
 
   /**
