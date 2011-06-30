@@ -31,6 +31,40 @@
 
 /* Types returned by API */
 
+
+type GitHub.plan = {
+  name          : string
+  collaborators : int
+  space         : int
+  private_repos : int
+}
+
+type GitHub.user_more = {
+  total_private_repo_count : int
+  collaborators            : int
+  disk_usage               : int
+  owned_private_repo_count : int
+  private_gist_count       : int
+  plan                     : GitHub.plan
+}
+
+type GitHub.user = {
+  id                : int
+  login             : string
+  name              : string
+  company           : string
+  gravatar_id       : string
+  created_at        : Date.date
+  location          : string
+  blog              : string
+  public_repo_count : int
+  public_gist_count : int
+  followers_count   : int
+  following_count   : int
+  user_type         : string
+  more              : option(GitHub.user_more)
+}
+
 type GitHub.repository = {
   name          : string
   owner         : string
@@ -55,4 +89,10 @@ type GitHub.public_key = {
   title : string
   id    : int
   key   : string
+}
+
+type GitHub.commit_user = {
+  name  : string
+  login : string
+  email : string
 }

@@ -4,9 +4,8 @@
     This file is part of OPA.
 
     OPA is free software: you can redistribute it and/or modify it under the
-    terms of the GNU Affero General Public License as published by the Free
-    Software Foundation, either version 3 of the License, or (at your option)
-    any later version.
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
 
     OPA is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -39,99 +38,15 @@ type GHUser.t =
     { self  : string } /** Token of user - provides more information */
   / { login : string } /** Login of user */
 
-/* Types returned by API */
-
-type GitHub.plan = {
-  name          : string
-  collaborators : int
-  space         : int
-  private_repos : int
-}
-
-type GitHub.user_more = {
-  total_private_repo_count : int
-  collaborators            : int
-  disk_usage               : int
-  owned_private_repo_count : int
-  private_gist_count       : int
-  plan                     : GitHub.plan
-}
-
-type GitHub.user = {
-  id                : int
-  login             : string
-  name              : string
-  company           : string
-  gravatar_id       : string
-  created_at        : Date.date
-  location          : string
-  blog              : string
-  public_repo_count : int
-  public_gist_count : int
-  followers_count   : int
-  following_count   : int
-  user_type         : string
-  more              : option(GitHub.user_more)
-}
-
 @private GHUp = {{
 
   @private GP = GHParse
 
-  get_plan(srcmap) =
-    m = GP.map_funs(srcmap)
-    { name          = m.str("name")
-      collaborators = m.int("collaborators")
-      space         = m.int("space")
-      private_repos = m.int("private_repos")
-    } : GitHub.plan
-
-  get_more(m) =
-    if m.exists("total_private_repo_count") then
-      user_more = {
-        total_private_repo_count = m.int("total_private_repo_count")
-        collaborators            = m.int("collaborators")
-        disk_usage               = m.int("disk_usage")
-        owned_private_repo_count = m.int("owned_private_repo_count")
-        private_gist_count       = m.int("private_gist_count")
-        plan                     = get_plan(m.record("plan"))
-      } : GitHub.user_more
-      {some=user_more}
-    else {none}
-
-  get_user(srcmap) =
-    m = GP.map_funs(srcmap)
-    if m.exists("id") then
-      id = match m.record("id") with
-        | {Int=i} -> i
-        | {String=s} ->
-          String.explode("-",s) |> List.rev
-          |> List.head |> Int.of_string
-        | _ -> 0
-      res = {
-        id                = id
-        login             = m.str("login")
-        name              = m.str("name")
-        company           = m.str("company")
-        gravatar_id       = m.str("gravatar_id")
-        created_at        = m.date("created_at")
-        location          = m.str("location")
-        blog              = m.str("blog")
-        public_repo_count = m.int("public_repo_count")
-        public_gist_count = m.int("public_gist_count")
-        followers_count   = m.int("followers_count")
-        following_count   = m.int("following_count")
-        user_type         = m.str("user_type")
-        more              = get_more(m)
-      } : GitHub.user
-      {some=res}
-    else {none}
-
   one_full_user(res) =
-    GP.dewrap_obj(res, "user", get_user)
+    GP.dewrap_obj(res, "user", GP.get_user)
 
   multiple_full_users(res) =
-    GP.dewrap_list(res, "users", get_user)
+    GP.dewrap_list(res, "users", GP.get_user)
 
   multiple_users_ids(res) =
     GP.multiple_strings(res, "users")
