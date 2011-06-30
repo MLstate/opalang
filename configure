@@ -131,8 +131,19 @@ trap lastresort_hint ERR
 
 # specific platform checks
 if [ -n "${IS_MAC:-}" ]; then
+    echo-check for gsed
+    if which gsed > /dev/null 2>&1; then echo-ok ok
+    else
+        echo-err Not found
+        echo "gsed is needed to build OPA."
+        if which port >/dev/null 2>&1; then
+            echo -e " You should run:\n\tsudo port install gsed"
+        # else #todo# [add useful suggestion here]
+        fi
+        exit 1
+    fi >&2
     echo-check for GNU coreutils
-    if which gsed gtail gmktemp gsort greadlink >/dev/null 2>&1; then echo-ok ok
+    if which gtail gmktemp gsort greadlink >/dev/null 2>&1; then echo-ok ok
     else
         echo-err Not found
         echo "GNU coreutils are needed to build OPA."
