@@ -33,8 +33,6 @@ type json = JS.json
 let unserialize_uu = BslPingRegister.unserialize_uu
 let serialize_uu   = BslPingRegister.serialize_uu
 
-##extern-type RPC.Json.private.native = JsonTypes.json
-
 
 
 (**********************************************************)

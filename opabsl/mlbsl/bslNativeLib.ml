@@ -173,3 +173,8 @@ let opa_tuple_4 (a, b, c, d) =
     ServerLib.make_record acc
   in
   wrap_opa_tuple_4 record
+
+(**
+   {1 Continuations}
+*)
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation

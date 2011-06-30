@@ -10,6 +10,7 @@ bslResourceTracker.ml
 bslAppSrcCode.ml
 
 bool.ml
+bslTime.ml
 bslNet.ml
 bslClosure.ml
 bslCps.ml
@@ -24,7 +25,6 @@ bslCactutf.ml
 bslCrypto.ml
 bslFile.ml
 bslMail.ml
-bslTime.ml
 bslReference.ml
 bslNumber.ml
 

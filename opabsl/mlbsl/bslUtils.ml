@@ -37,9 +37,6 @@ let rclient x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_reco
 let rserver x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fserver) x)
 let rnothing    = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fnone) (ServerLib.make_record ServerLib.empty_record_constructor))
 
-
-##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
-
 ##opa-type ThreadContext.t
 
 ##opa-type ThreadContext.client

@@ -17,7 +17,6 @@
 *)
 ##extern-type Closure.args = QmlClosureRuntime.AnyArray.t
 ##extern-type Closure.t = QmlClosureRuntime.t
-##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 
 ##module Args
   ##register create \ `QmlClosureRuntime.AnyArray.create` : int -> Closure.args

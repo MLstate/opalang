@@ -22,7 +22,6 @@
  */
 ##extern-type Closure.t
 ##extern-type Closure.args
-##extern-type continuation('a)
 
 var global = this;
 

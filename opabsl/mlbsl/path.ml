@@ -61,33 +61,26 @@ let ( @* ) f g x = f(g(x))
 
 (* -- Some conversion helpers -- *)
 
-(* Manual conversion for the cases where the BSL can't convert (value passed to a cont...) *)
-##opa-type list('a)
-
+let nil_record = ServerLib.make_simple_record (BslNativeLib.field_nil)
 let qml_nil () =
-  let record =
-    ServerLib.make_simple_record (Option.get (ServerLib.field_of_name "nil"))
-  in wrap_opa_list record
+  BslNativeLib.wrap_opa_list nil_record
 
 let qml_cons x l =
   let record =
     ServerLib.make_record
       (ServerLib.add_field
-         (ServerLib.add_field ServerLib.empty_record_constructor
-            (Option.get (ServerLib.field_of_name "hd")) x)
-         (Option.get (ServerLib.field_of_name "tl")) l)
-  in wrap_opa_list record
-
-##opa-type tuple_2('a,'b)
+         (ServerLib.add_field ServerLib.empty_record_constructor BslNativeLib.field_hd x)
+         BslNativeLib.field_tl l)
+  in BslNativeLib.wrap_opa_list record
 
 let qml_pair x y =
   let record =
     ServerLib.make_record
       (ServerLib.add_field
          (ServerLib.add_field ServerLib.empty_record_constructor
-            (Option.get (ServerLib.field_of_name "f1")) x)
-         (Option.get (ServerLib.field_of_name "f2")) y)
-  in wrap_opa_tuple_2 record
+            BslNativeLib.f1 x)
+         BslNativeLib.f2 y)
+  in BslNativeLib.wrap_opa_tuple_2 record
 
 (* We need to handle map types (with values passed to dbgen) *)
 ##opa-type map('keys,'values)
@@ -244,7 +237,7 @@ let stringmap_fold_range t f acc start end_opt filter k =
 
 let search key2val words t k =
   let words = Cactutf.lowercase words in
-  let words = Base.String.slice_chars " \t,.'" words in
+  let words = Base.String.slice_chars " \t,." words in
   let words = List.map Base.String.trim words in
   let words = List.filter ((<>) "") words in
   get_trans t @> C.ccont_ml k
@@ -376,7 +369,6 @@ let history t pos len k = match t with
             (post_filter revisions)
           @> k
 
-##extern-type time_t = int (* FIXME, how to use this type from byTime? *)
 ##register[cps-bypass] history_time: t(ref_p, 'a), time_t, time_t, continuation(opa[list(tuple_2('a,time_t))]) -> void
 (* todo optimise with a low-level filter: now it gets all revs before filtering *)
 let history_time t from until k = match t with

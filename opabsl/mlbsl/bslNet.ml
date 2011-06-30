@@ -20,7 +20,6 @@ module List = BaseList
 (* The opa scheduler *)
 let default_scheduler = BslScheduler.opa
 
-##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##extern-type web_server_status = Requestdef.status
 ##extern-type WebInfo.private.native_request = HttpServerTypes.request
 ##extern-type WebInfo.private.native_post_body_list = HttpServerTypes.post_body list
@@ -28,7 +27,6 @@ let default_scheduler = BslScheduler.opa
 ##extern-type WebInfo.private.native = HttpServerTypes.web_info
 ##extern-type WebInfo.private.native_connection = Scheduler.connection_info
 ##extern-type buffer = Buffer.t
-##extern-type time_t = int
 ##extern-type HttpRequest.multipart = HttpServerTypes.post_body list
 ##extern-type HttpRequest.payload = HttpServerCore.payload
 ##extern-type HttpRequest.msg_list = HttpServerCore_parse.msg list
@@ -149,7 +147,9 @@ let default_scheduler = BslScheduler.opa
   let make_response_req expires r stat s1 s2 =
     HttpServer.make_response_req (Time.milliseconds expires) r stat s1 (Http_common.Result s2)
 
-  ##register make_response_req_loc : time_t, string, WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response
+  ##register make_response_req_loc : \
+      time_t, string, WebInfo.private.native_request, web_server_status, string, string \
+        -> WebInfo.private.native_response
   let make_response_req_loc expires url r stat s1 s2 =
     HttpServer.make_response_req_loc (Time.milliseconds expires) url r stat s1 (Http_common.Result s2)
 

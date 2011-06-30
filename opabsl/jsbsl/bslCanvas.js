@@ -16,8 +16,6 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-##opa-type Dom.private.element
-
 ##extern-type Canvas.context
 ##extern-type Canvas.pattern
 ##extern-type Canvas.gradient
