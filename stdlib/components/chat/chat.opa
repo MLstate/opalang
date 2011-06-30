@@ -83,7 +83,7 @@ type CChat.message('user, 'content) = {
 type CChat.action('user, 'content) =
     { message : CChat.message('user, 'content); id : CChat.message_id }
   / { remove : CChat.message_id }
-  / { edit   : CChat.message_id }
+  / { edit   : CChat.message_id; new_content : 'content }
 
 type CChat.server('user, 'content) = {
   register  : Network.network(CChat.action('user, 'content))
@@ -127,7 +127,11 @@ type CChat.config('user, 'content) = {
   date_printer: option(Date.date -> xhtml)
 
   /** Message input XHTML */
-  entry_printer: CChat.display('user, 'content), ('content -> void) -> xhtml
+  entry_printer:
+    CChat.display('user, 'content), ('content -> void), 'content -> xhtml
+
+  /** Message edition XHTML */
+  edit_printer: (option('content) -> void), 'content -> (xhtml, xhtml)
 
   /** Search input */
   search_printer: option((CChat.display('user, 'content),
@@ -162,7 +166,7 @@ type CChat.display('user, 'content) = {
 type CChat.content('user, 'content) = intmap(CChat.message('user, 'content))
 
 type CChat.data_writer('user, 'content) =
-    CChat.message('user, 'content) -> void
+    int, CChat.message('user, 'content) -> void
 
 type CChat.request('content) =
     { all }
@@ -183,18 +187,33 @@ CChat = {{
 
   default_author_printer(author) = <>{author}</>
 
-  default_entry_printer(_display: CChat.display, send: string -> void) =
+  default_entry_printer(_display: CChat.display, send: string -> void,
+      init_content: string) =
     id = Dom.fresh_id()
     entry_input = #{entry_id(id)}
     send_action = _evt ->
       do send(Dom.get_value(entry_input))
       Dom.clear_value(entry_input)
     <>
-      <input id=#{entry_id(id)} class="chat_entry" onnewline={send_action}/>
+      <input id=#{entry_id(id)} class="chat_entry" onnewline={send_action}
+          value="{init_content}"/>
       <button class="button" onclick={send_action}>
         Post
       </button>
     </>
+
+  default_edit_printer(update: option(string) -> void, init_content: string)
+      : (xhtml, xhtml) =
+    id = Dom.fresh_id()
+    (<input id={id} class="chat_edit_area" value={init_content} />,
+    <button class="chat_confirm_edit"
+        onclick={_evt -> update({some = Dom.get_value(#{id})})}>
+      Save
+    </button>
+    <button class="chat_cancel_edit"
+        onclick={_evt -> update({none})}>
+      Cancel
+    </button>)
 
   default_search_printer(_display: CChat.display, id: string,
       search: (string -> void), clear: -> void) =
@@ -241,6 +260,7 @@ CChat = {{
     message_printer   = Xhtml.of_string
     date_printer      = {some = create_timer}
     entry_printer     = default_entry_printer
+    edit_printer      = default_edit_printer
     search_printer    = {some = default_search_printer(_, id, _, _)}
     search_action     = {some = default_search_action}
   }
@@ -254,7 +274,6 @@ CChat = {{
       @sliced_expr({
         client = message ->
           filter_word = Dom.get_value(#{filter_id(id)})
-          do jlog("filter_word (id = {id}) = {filter_word}")
           if String.length(filter_word) == 0 then
             {true}
           else
@@ -291,12 +310,19 @@ CChat = {{
    */
   init(_config: CChat.config('user, 'content))
       : CChat.server('user, 'content) =
-    net = Network.empty()
-    {
-      register  = net
-      room      = net
-      requester = dummy_requester
-    }
+
+    /* Generate a random ID and associate it to the message */
+    set_key(action: CChat.action): CChat.action = match action with
+      | { ~message id=_ } ->
+        key = Random.int(1000000)
+        { ~message id=key }
+      | any -> any
+
+    /* Chat room and associated observer */
+    llchat_room = Network.empty()
+    chat_room = Network.map(set_key, llchat_room)
+
+    { register = llchat_room; room = chat_room; requester = dummy_requester }
 
   /**
    * Initialize a new persistent chat session
@@ -320,8 +346,10 @@ CChat = {{
     db_writer(action: CChat.action): void = match action with
       | { ~message ~id } ->
         Db.write(db_path.get(id), message)
-      | { edit=_edit } ->
-        void
+      | { edit = id; ~new_content } ->
+        msg_path = db_path.get(id)
+        msg = Db.read(msg_path)
+        Db.write(msg_path, {msg with content = new_content})
       | { remove = key } ->
         Db.remove(db_path.get(key))
 
@@ -350,6 +378,9 @@ CChat = {{
     /* CChat server instance */
     { register = llchat_room; room = chat_room; requester = db_reader }
 
+  @private
+  ignore2(_, _) = void
+
   /**
    * Create a chat box with default parameters (user information and message
    * content are both assumed to be of type strings)
@@ -364,7 +395,7 @@ CChat = {{
     config = default_config(id)
     initial_content = server.requester({ range = (0, config.history_limit) })
     create(config, server, id, default_display(id, username),
-        initial_content, ignore)
+        initial_content, ignore2)
 
   /**
    * Create a chat box with admin rights
@@ -377,7 +408,7 @@ CChat = {{
     }
     initial_content = server.requester({ range = (0, config.history_limit) })
     create(config, server, id, default_display(id, username),
-        initial_content, ignore)
+        initial_content, ignore2)
 
   /**
    * Generic function to build a chat box
@@ -404,18 +435,19 @@ CChat = {{
           <span class="error_noresult">No message found.</span>])
       else
         Dom.transform([#{conversation_id(id)} <-
-          content_xhtml(config, id, author, initial_display, results, server)])
+          content_xhtml(config, id, data_writer, author, initial_display,
+              results, server)])
     do_search(query) = do_request({ ~query })
     do_clear() = do_request({ range = (0, config.history_limit) })
     conversation_box =
       (<a onready={_ ->
           Network.add_callback(
-              user_update(config, id, initial_display, author, server, _),
-                  server.register)}/>
+              user_update(config, id, data_writer, initial_display, author,
+                  server, _), server.register)}/>
       <div id=#{conversation_id(id)} class="chat_conversation"
           style={css {overflow: auto;}}>
-        {content_xhtml(config, id, author, initial_display, initial_content,
-            server)}
+        {content_xhtml(config, id, data_writer, author, initial_display,
+            initial_content, server)}
       </div>)
     search_box =
       match config.search_printer with
@@ -427,7 +459,7 @@ CChat = {{
     entry_box =
       (<div class="entry_container">
         {config.entry_printer(initial_display,
-            send_message(id, server, data_writer, author, _))}
+            send_message(id, server, data_writer, author, _), "")}
       </div>)
     chat_elements = [conversation_box, entry_box, search_box]
     <>
@@ -487,53 +519,66 @@ CChat = {{
       }></div>
 
   @private
-  actions_of_credentials({read=_ edit=_ ~remove}: CChat.credentials,
-      msg_id, _msg, server): xhtml =
-      /*{if edit then <button class="chat_edit">Edit</button> else <></>}*/
+  actions_of_credentials(config, id, data_writer, {read=_ ~edit ~remove},
+      msg_id, msg, server): xhtml =
     <>
+      {if edit then
+        <span class="chat_view">
+          <button class="chat_start_edit"
+              onclick={_evt -> edit_message(config, id, data_writer, msg_id, msg, server)}>
+            Edit
+          </button>
+        </span>
+        <span class="chat_edit" style={css {display: none}}>
+        </span>
+      else <></>}
       {if remove then
-        <button onclick={_evt -> remove_message(msg_id, server)} class="chat_remove">
+        <button class="chat_remove"
+            onclick={_evt -> remove_message(msg_id, server)}>
           Remove
         </button>
       else <></>}
     </>
 
   @private
-  message_xhtml(config, id, user, msg_id, msg, server): xhtml =
+  message_xhtml(config, id, data_writer, user, msg_id, msg, server): xhtml =
     creds = config.check_credentials(user, msg)
     if creds.read then
       dp_xhtml = match config.date_printer with
         | {none} -> <></>
         | {~some} -> some(msg.date)
-      edit_xhtml = actions_of_credentials(creds, msg_id, msg, server)
+      actions_xhtml =
+        actions_of_credentials(config, id, data_writer, creds, msg_id, msg,
+            server)
       <div id={message_id(id, msg_id)} class="chat_line">
         <div class="chat_author">{config.author_printer(msg.author)}</div>
         <div class="chat_message">{config.message_printer(msg.content)}</div>
         <div class="chat_date">{dp_xhtml}</div>
-        <div class="chat_actions">{edit_xhtml}</div>
+        <div class="chat_actions">{actions_xhtml}</div>
       </div>
     else
       <></>
 
   @private
-  content_xhtml(config: CChat.config, id, user, display: CChat.display,
-      content: CChat.content, server): xhtml =
+  content_xhtml(config: CChat.config('user, 'content), id, data_writer, user,
+      display: CChat.display, content: CChat.content, server): xhtml =
     fold = if display.reverse then IntMap.rev_fold else IntMap.fold
     aux(key, msg, acc) =
       acc <+>
         if display.filter(msg) then
-          message_xhtml(config, id, user, key, msg, server)
+          message_xhtml(config, id, data_writer, user, key, msg, server)
         else
           <></>
     fold(aux, content, <></>)
 
   @private @client
-  user_update(config: CChat.config, id, display: CChat.display,
+  user_update(config: CChat.config, id, data_writer, display: CChat.display,
       user, server, action): void =
     match action with
       | { ~message id=msg_id } ->
         /*if display.filter(message) then*/
-          msg_xhtml = message_xhtml(config, id, user, msg_id, message, server)
+          msg_xhtml = message_xhtml(config, id, data_writer, user, msg_id,
+              message, server)
           conv_id = conversation_id(id)
           funaction =
             if display.reverse then [#{conv_id} -<- msg_xhtml]
@@ -556,15 +601,53 @@ CChat = {{
           do_scroll(#{conversation_id(id)})
       | { ~remove } ->
         Dom.remove(#{message_id(id, remove)})
-      | { edit = _edit } -> void
+      | { edit=msg_id; ~new_content } ->
+        _ = config.message_printer(new_content)
+          |> Dom.of_xhtml(_)
+          |> Dom.put_inside(select_message_class(id, msg_id, "chat_message"),
+            _)
+        void
 
   /** Retrieve entered text and broadcast it */
   @private
   send_message(_id, server, data_writer, author, content): void =
     if content != "" then
       new_message = {~author; ~content; date = Date.now()}
-      _ = data_writer(new_message)
-      Network.broadcast({ id = -1; message = new_message }, server.room)
+      dummy_id = -1
+      _ = data_writer(dummy_id, new_message)
+      Network.broadcast({ id = dummy_id; message = new_message }, server.room)
+
+  @private
+  select_message_class(id, msg_id, cls: string): dom =
+    Dom.select_class(cls)
+      |> Dom.select_inside(#{message_id(id, msg_id)}, _)
+
+  // TODO: handle DB history and versioning
+  @private
+  edit_message(config: CChat.config('user, 'content), id, data_writer, msg_id,
+      msg: CChat.message('user, 'content), server): void =
+    select_class = select_message_class(id, msg_id, _)
+    update(message_opt) =
+      do Dom.set_style(select_class("chat_edit"), css {display: none})
+      do Dom.set_style(select_class("chat_view"), css {display: inline})
+      message_content = match message_opt with
+        | {none} -> msg.content
+        | {~some} ->
+          _ = data_writer(msg_id, {msg with content=some})
+          do Network.broadcast({edit=msg_id; new_content=some}, server.room)
+          some
+      _ = config.message_printer(message_content)
+        |> Dom.of_xhtml(_)
+        |> Dom.put_inside(select_class("chat_message"), _)
+      void
+    (edit_area, edit_buttons) = config.edit_printer(update, msg.content)
+    _ = Dom.of_xhtml(edit_area)
+      |> Dom.put_inside(select_class("chat_message"), _)
+    _ = Dom.of_xhtml(edit_buttons)
+      |> Dom.put_inside(select_class("chat_edit"), _)
+    do Dom.set_style(select_class("chat_view"), css {display: none})
+    do Dom.set_style(select_class("chat_edit"), css {display: inline})
+    void
 
   @private
   remove_message(msg_id, server): void =
