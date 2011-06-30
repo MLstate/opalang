@@ -625,30 +625,31 @@ let init db ?read_only i =
 (* le commit de la transaction *)
 (*******************************)
 
+let add_or_update_assoc lst k v =
+  let rec aux acc = function
+    | [] -> (k,v) :: acc
+    | ((x,_) as hd)::y ->
+        if x = k then
+          (k,v) :: acc @ y
+        else
+         aux (hd::acc) y
+  in aux [] lst
+
 let update_uid_list l eid uid =
-  if List.mem_assoc eid l
-  then (eid, uid) :: (List.remove_assoc eid l)
-  else (eid, uid) :: l
+  add_or_update_assoc l eid uid
 
 let update_node_list l uid node =
-  if List.mem_assoc uid l
-  then (uid, node) :: (List.remove_assoc uid l)
-  else (uid, node) :: l
+  add_or_update_assoc l uid node
 
 let update_node old_uid old_node db rev q_option ?child replace =
   let delta = not replace in
   match q_option with
   | None ->
-      begin match child with
+    begin match child with
       | Some (_, _) ->
-          let node, b =
-            Node.update
-              ~f:(Hldb.get_node_of_uid db) old_uid old_node rev ?child delta
-          in
-          node, b
-      | _ ->
-          old_node, false
-      end
+        Node.update ~f:(Hldb.get_node_of_uid db) old_uid old_node rev ?child delta
+      | _ -> old_node, false
+    end
   | Some d ->
       Node.update
         ~f:(Hldb.get_node_of_uid db) old_uid old_node rev
@@ -732,39 +733,50 @@ let execute_query_list tr db rev path l =
     | _ -> tr, db
   ) (tr, db) l
 
+
+
 let execute_query_map tr db =
   #<If>
-    Logger.log ~color:`yellow "%s" (QueryMap.print_query_map tr.tr_query_map)
+    Logger.log ~color:`yellow "Query_map : %s" (QueryMap.print_query_map tr.tr_query_map)
   #<End>;
   let rev = Hldb.get_rev db in
-  let f_acc q_option pos uid nuid
-      (acc1, acc2, acc3, node, replace, neid, next_uid) k =
-    if (k = Keys.newkey) then
-      (acc1, acc2, acc3, node, replace, neid, next_uid)
-    else
-      match Node.find_opt ~f:(Hldb.get_node_of_uid db) k node with
-      | Some eid ->
-          let new_fold_list = (k, eid) :: acc3 in
-          acc1, acc2, new_fold_list, node, replace, neid, next_uid
-      | _ ->
-          let replace = replace || List.mem_assoc nuid acc2 in (* TODO: ? *)
-          let new_node, is_full =
-            update_node uid node db rev q_option ~child:(k, neid) replace
-          in
-          (* TODO: the following two are probably redundant or can be
-             moved outside of the loop *)
-          let new_uid_list = update_uid_list acc1 pos nuid in
-          let new_node_list = update_node_list acc2 nuid new_node in
-          let new_uid_list = update_uid_list new_uid_list neid next_uid in
-          let new_node_list =
-            update_node_list new_node_list next_uid (Node.create rev)
-          in
-          let new_fold_list = (k, neid) :: acc3 in
-          let next_eid = Eid.succ neid in
-          let next_uid = Uid.succ next_uid in
-          new_uid_list, new_node_list, new_fold_list,
-          new_node, (replace && not is_full), next_eid, next_uid
+    
+  let otherfun q_option pos uid nuid node replace neid next_uid klist =
+    let rec intern ulist nlist flist node replace neid next_uid klist =
+      match klist with
+      | [] -> ulist, nlist, flist
+      | k::tl ->
+        (if (k = Keys.newkey) then
+            intern ulist nlist flist node replace neid next_uid tl
+        else
+          (match Node.find_opt ~f:(Hldb.get_node_of_uid db) k node with
+          | Some eid ->
+              let new_fold_list = (k, eid) :: flist in
+              intern ulist nlist new_fold_list node replace neid next_uid tl
+          | _ ->
+              let replace = replace || List.mem_assoc nuid nlist in (* TODO: ? *)
+              let new_node, is_full =
+                update_node uid node db rev q_option ~child:(k, neid) replace
+              in
+              (* TODO: the following two are probably redundant or can be
+                 moved outside of the loop *)
+              let new_node_list = update_node_list nlist nuid new_node in
+              let new_node_list = update_node_list new_node_list next_uid (Node.create rev) in
+
+              let new_uid_list = update_uid_list ulist pos nuid in
+              let new_uid_list = update_uid_list new_uid_list neid next_uid in
+
+              let new_fold_list = (k, neid) :: flist in
+              
+              let next_eid = Eid.succ neid in
+              let next_uid = Uid.succ next_uid in
+
+              intern new_uid_list new_node_list new_fold_list new_node
+                 (replace && not is_full) next_eid next_uid tl))
+    in
+    intern [] [] [] node replace neid next_uid klist
   in
+
   let rec aux tr db pos qlist map path =
     #<If:DEBUG_DB$minlevel 500>
       Logger.log ~color:`yellow "DB : start of execute_query_map_aux [%s] at %s"
@@ -824,11 +836,7 @@ let execute_query_map tr db =
             let new_uid =
               if (replace && not is_full)
               then old_uid else Hldb.get_next_uid db in
-            let new_uid_list = update_uid_list [] pos new_uid in
-            let new_node_list =
-              update_node_list [] new_uid new_node
-            in
-            new_uid_list, new_node_list
+            [ (pos,new_uid) ], [ (new_uid,new_node) ]
         in
         let db =
           match (uid_list, node_list) with
@@ -845,14 +853,7 @@ let execute_query_map tr db =
         in
         let uid_list, node_list, fold_list =
           let tcount = Eid.succ (Hldb.get_tcount db) in
-          let uid_list, node_list, fold_list, _, _, _, _ =
-            List.fold_left
-              (f_acc q_option pos old_uid next_uid)
-              ([], [], [],
-               old_node, replace, tcount, next_next_uid)
-              key_list
-          in
-          uid_list, node_list, fold_list
+          otherfun q_option pos old_uid next_uid old_node replace tcount next_next_uid key_list
         in
         let db =
           match (uid_list, node_list) with
@@ -864,15 +865,15 @@ let execute_query_map tr db =
         in
         List.fold_left
           (fun (tr, db) (key, eid) ->
-             match key with
-             | k when k = Keys.newkey -> tr, db
-             | _ ->
-                 let new_qlist, new_map = KeyRecMap.find key map in
-                 aux tr db eid new_qlist new_map (Path.add path key))
+            if key = Keys.newkey then
+              tr, db
+            else
+              let new_qlist, new_map = KeyRecMap.find key map in
+              aux tr db eid new_qlist new_map (Path.add path key))
           (tr, db) sorted_fold_list
   in
-  try
-    aux tr db Hldb.root_eid [] tr.tr_query_map Path.root
+
+  try aux tr db Hldb.root_eid [] tr.tr_query_map Path.root
   with
   | e ->
       #<If> Logger.log ~color:`red "Commit --> %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())#<End>;
