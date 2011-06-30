@@ -166,17 +166,25 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true tn env in
         let (un, ue) =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true un env in
-        if (typeident_is_abstract tn && typeident_is_abstract un) then (
+        (* First, perform a test ensuring that both types have the same names
+           and the same arguments (by induction, they hence will be the
+           same). *)
+        let are_equal_by_name =
           (QmlAst.TypeIdent.equal tn un) &&
-          ((List.length ts) = (List.length us)) &&
-          (List.for_all2 (call_aux ~bound_vars) ts us)
-         )
+           ((List.length ts) = (List.length us)) &&
+           (List.for_all2 (call_aux ~bound_vars) ts us) in
+        (* Types are equal just by their name and inductively by their
+           argument, then we are done, test is true. *)
+        if are_equal_by_name then true
         else (
-          let comparable_by_name =
-            (QmlAst.TypeIdent.equal tn un) &&
-            ((List.length ts) = (List.length us)) &&
-            (List.for_all2  (call_aux ~bound_vars) ts us) in
-          if comparable_by_name then true
+          (* Ok, we are in the case where the 2 types are not equal by names.
+             This means that they have different name and/or different
+             arguments.
+             If these types are abstract, then they have no more internal
+             representation (i.e. they are not abbreviations that could
+             point on a same representation, and they don't have any own
+             structure as told just above) and hence they are *different*. *)
+          if (typeident_is_abstract tn && typeident_is_abstract un) then false
           else (
             let t =
               if typeident_is_abstract tn then QmlAst.TypeName (ts, tn)
