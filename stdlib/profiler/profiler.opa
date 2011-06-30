@@ -24,6 +24,14 @@
  *
  * A simple module for pseudo-profiling; allows to call functions,
  * measuring execution time and printing summary in the end.
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ */
+
+/**
+ * {1 Server_profiler interface}
  */
 
 /**
@@ -87,6 +95,10 @@ client Client_profiler = {{
 
 }}
 */
+
+/**
+ * {1 Profile interface}
+ */
 
 /**
  * [Profile] helps to monitor function execution time
