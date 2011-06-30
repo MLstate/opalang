@@ -430,25 +430,15 @@ type t = {
   let update_uid_of_eid db uid_list rev =
     List.fold_left (
       fun (acc1, acc2) (eid, uid) ->
-          try
-            let map = EidMap.find eid db.uid_of_eid in
-            let new_map =
-            let map =
-              if RevisionMap.size map = 104 then
-                let node = get_node_of_eid db rev eid in
-                let chld = Node.get_children ~f:(get_node_of_uid db) node in
-                if chld = [] then map
-                else
-                  let min_key, min_val = RevisionMap.min map in
-                  RevisionMap.add min_key min_val RevisionMap.empty
-              else map in
-            RevisionMap.add rev uid map in
-            EidMap.add eid new_map acc1,
-            EidMap.add eid uid acc2
-          with Not_found ->
-            EidMap.add eid (RevisionMap.add rev uid RevisionMap.empty) acc1,
-            EidMap.add eid uid acc2
-    ) (db.uid_of_eid, db.tmp_uid_of_eid) uid_list
+        try
+          let map = EidMap.find eid db.uid_of_eid in
+          let new_map = RevisionMap.add rev uid map in
+          EidMap.add eid new_map acc1,
+          EidMap.add eid uid acc2
+            with Not_found ->
+              EidMap.add eid (RevisionMap.add rev uid RevisionMap.empty) acc1,
+              EidMap.add eid uid acc2
+              ) (db.uid_of_eid, db.tmp_uid_of_eid) uid_list
 
   let update_node_of_uid db node_list =
     List.fold_left (
