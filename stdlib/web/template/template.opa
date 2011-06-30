@@ -58,30 +58,32 @@
  * Next, we implement the engine. We start from Template.empty which is an engine with default
  * functions and implement parse (conversion from xml to content) and export functions.
  * {[
- *   my_engine = { Template.empty with
- *     // Parse function. It takes the namespace, tag name, attributes and children of a node
- *     // and create a Template.content if the tag is processable by the engine. Otherwise, it fails.
- *     parse({~ns; ~tag; args=_; children=_ }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
- *     my_ns : Uri.uri = Uri.of_string("http://response.xsd") |> Option.get
- *     // We check if the node namespace is correct
- *     if ns == my_ns
- *        then
- *        match tag with
- *        // We use Template.to_extension to encapsulate our type in the Template.content tree.
- *        | "response" -> { success = Template.to_extension({ response }) }
- *        | _ -> { failure = { unsupported_tag; ~ns; ~tag } }
- *     else { failure = { namespace_not_supported_by_engine = "Got {ns}, expect {my_ns}" } }
- *    // Export function. It takes a Template.content tree and create the xhtml.
- *    export(content, _) =
- *       // We use Template.from_extension to extract the
- *       // extension tag if it exists
- *       match Template.from_extension(content) with
- *       | { none } -> { failure = { unknown_tag = "Expected extension" } }
- *       | { some=opa_tag } ->
- *         match opa_tag with
- *         | { response } -> { success = <>42</> }
- *         end
- *   }
+ * my_namespace = "http://response.xsd"
+ * 
+ * my_engine = { Template.empty with
+ *   // Parse function. It takes the xmlns, and a xmlns parse which is able to process xmlns into Template.content.
+ *   // If the current engine is able to process the current, it should create a Template.content. Otherwise, it should fail.
+ *   parse(_conf, {xmlns_parse=_; ~xmlns }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
+ *   match xmlns with
+ *   // We check if the node namespace is correct
+ *   | { ~tag; namespace="http://response.xsd" ... } ->
+ *      match tag with
+ *      // We use Template.to_extension to encapsulate our type in the Template.content tree.
+ *      | "response" -> { success = Template.to_extension({ response }) }
+ *      | _ -> { failure = { unsupported_tag; ns=my_namespace; ~tag } }
+ *      end
+ *   | _ -> { failure = { unsupported_node = xmlns } }
+ *  // Export function. It takes a Template.content tree and create the xhtml.
+ *  export(content, _) =
+ *     // We use Template.from_extension to extract the
+ *     // extension tag if it exists
+ *     match Template.from_extension(content) with
+ *     | { none } -> { failure = { unknown_tag = "Expected extension" } }
+ *     | { some=opa_tag } ->
+ *       match opa_tag with
+ *       | { response } -> { success = <>42</> }
+ *       end
+ * }
  * }
  *
  * This is enough to create an engine for our "response" tag. We will combine it
@@ -104,32 +106,33 @@
  * the date format as an attribute.
  *
  *  {[
+ *   
  *   // Our engine type
  *   type DateEngine.tag = { date; format:string }
- *
+ *   
  *   default_date_format : string = "%d/%m/%y"
- *
+ *   
  *   date_attribute = "format"
- *
+ *   
  *   // Parse function for date tag. It seeks if a "format" attribute exists and fetch its value.
- *   parse_date_tag(args:Template.args) ) : DateEngine.tag =
+ *   parse_date_tag(args:Template.args) : DateEngine.tag =
  *     match List.find( { namespace=_; ~name; value=_ } -> name == date_attribute, args) with
  *     | {some = {value=format ... } } -> { date; ~format }
  *     | { none } -> { date; format=default_date_format }
- *
+ *   
  *   // The export to xhtml function
  *   date_html(date_format)=
  *     match Date.try_generate_printer(date_format) with
  *     | { success=date_printer } -> <>{Date.to_formatted_string(date_printer, Date.now())}</>
  *     | { ~failure } -> <>Incorrect date format {failure}</>
- *
+ *   
  *   // The engine implementation.
  *   date_engine = { Template.empty with
- *     parse({~ns; ~tag; ~args; children=_ }) =
- *        match tag with
- *       | "date" -> { success = Template.to_extension(parse_date_tag(args)) }
- *       | _ -> { failure = { unsupported_tag; ~ns; ~tag } }
- *
+ *     parse(_conf, {~xmlns; xmlns_parser=_}) =
+ *       match xmlns with
+ *       | {tag="date"; ~args; namespace=_; content=_; specific_attributes=_ } -> { success = Template.to_extension(parse_date_tag(args)) }
+ *       | _ -> { failure = { unsupported_node=xmlns } }
+ *   
  *    export(content, _) =
  *      match Template.from_extension(content) with
  *      | { none } -> { failure = { unknown_tag = "Expected extension" } }
@@ -162,27 +165,29 @@
  * }
  *
  * {[
- *   head_foot_engine : Template.engine(head_foot_tag('a), 'a) = { Template.empty with
- *     // Parse the tag. This time, we put the children passed in argument in the record.
- *     parse({~ns; ~tag; args=_; ~children }) =
- *      match tag with
- *      | "headfoot" -> {success = Template.to_extension( { header_footer; ~children } ) }
- *      | _ -> { failure = { unsupported_tag; ~ns; ~tag } }
- *
- *     // Export the tag in xhtml. The children is already transformed in xhtml and
- *     // provided as an argument. We just need to wrap our child in a header/footer
- *     export(content, child) =
- *       head_foot_html() =
- *         <><div>Header</div>{child}<div>Footer</div></>
- *       match Template.from_extension(content) with
- *       | { none } -> { failure = { unknown_tag = "Expected extension" } }
- *       | { some=head_foot_tag } ->
- *         match head_foot_tag with
- *         | { header_footer; children=_ } -> { success = head_foot_html() }
- *         | _ -> { failure = { unknown_tag = "" } }
- *         end
- *
- *   }
+ * 
+ *    head_foot_engine : Template.engine(head_foot_tag('a), 'a) = { Template.empty with
+ *      // Parse the tag. This time, we put the children passed in argument in the record.
+ *      parse(_conf, {~xmlns; ~xmlns_parser} ) =
+ *       match xmlns with
+ *       | {tag="headfoot"; ~content ... } -> 
+ *          children = Template.parse_list_xmlns(content, xmlns_parser)
+ *          {success = Template.to_extension( { header_footer; ~children } ) }
+ *       | _ -> { failure = { unsupported_node=xmlns } }
+ *                           
+ *      // Export the tag in xhtml. The children is already transformed in xhtml and
+ *      // provided as an argument. We just need to wrap our child in a header/footer
+ *      export(content, child) =
+ *        head_foot_html() =
+ *          <><div>Header</div>{child}<div>Footer</div></>
+ *        match Template.from_extension(content) with
+ *        | { none } -> { failure = { unknown_tag = "Expected extension" } }
+ *        | { some=head_foot_tag } ->
+ *          match head_foot_tag with
+ *          | { header_footer; children=_ } -> { success = head_foot_html() }
+ *          | _ -> { failure = { unknown_tag = "" } }
+ *          end
+ *    }
  * }
  * Now, we can use our headfoot tag.
  * {[
@@ -211,12 +216,13 @@
  * and a printer for source indentation.
  * In our headfoot engine, we can to implement source as the following :
  * {[
- *     source(content, child, xmlns_binding, printer) =
- *      match Template.from_extension(content) with
- *      | { none } -> { failure = { unknown_tag = "Expected extension" } }
- *      | { some=head_foot_tag } ->
- *        res = Template.print_tag("headfoot", none, "", false, some(child) )
- *        { success = printer(res) }
+ *  source(content, content_exporter, _xmlns_binding, printer, depth) =
+ *   match Template.from_extension(content) with
+ *   | { none } -> { failure = { unknown_tag = "Expected extension" } }
+ *   | { some={header_footer; ~children } } ->
+ *     child = Outcome.get(content_exporter(children) )
+ *     res = Template.print_tag("headfoot", none, "", false, true, some(child) )
+ *     { success = printer(depth)(res) }   
  * }
  * With this, a {[ Template.to_source(head_foot_engine, content) } will be able to print the headfoot tags correctly.
  *
