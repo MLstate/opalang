@@ -560,6 +560,7 @@ just_expr10 <-
 /** toplevel directive **/
 declaration_directives <- (=deco(declaration_directive))*
 declaration_directive <-
+  / slicing_directive
   / "@" !strict_spacing deco_ml_identifier_nosp:v function_arguments_nosp?:o
     {| let l = Option.default [] o in
        let list0 = function
@@ -570,9 +571,6 @@ declaration_directive <-
          | _ -> error_directive_number_argument 1 (List.length l) v in
        match undecorate v with
        | "asynchronous" -> list0 l; Some (`asynchronous_toplevel, l, [])
-       | "both" -> list0 l; Some (`side_annotation `both, l, [])
-       | "both_implem" -> list0 l; Some (`side_annotation `both_implem, l, [])
-       | "client" -> list0 l; Some (`side_annotation `client, l, [])
        | "deprecated" -> list1 l; Some (`deprecated, l, [])
        | "expand" ->
            Some
@@ -582,15 +580,8 @@ declaration_directive <-
               | _ -> error_directive_wrong_arguments_type v)
        | "opacapi" -> list0 l; Some (`opacapi, l, [])
        | "package" -> list0 l; Some (`package, l, [])
-       | "prefer_both" -> list0 l; Some (`side_annotation `prefer_both, l, [])
-       | "prefer_client" -> list0 l; Some (`side_annotation `prefer_client, l, [])
-       | "prefer_server" -> list0 l; Some (`side_annotation `prefer_server, l, [])
        | "private" -> list0 l; Some (`private_, l, [])
        | "public" -> list0 l; Some (`public, l, [])
-       | "publish" -> list0 l; Some (`visibility_annotation (`public `sync), l, [])
-       | "publish_async" -> list0 l; Some (`visibility_annotation (`public `async), l, [])
-       | "server" -> list0 l; Some (`side_annotation `server, l, [])
-       | "server_private" -> list0 l; Some (`visibility_annotation `private_, l, [])
        | "specialize" -> Some (`specialize `polymorphic, l, [])
        | "specialize_strict" -> Some (`specialize `strict, l, [])
        | _ -> None
@@ -603,6 +594,24 @@ declaration_directive <-
        | "xmlizer" -> Some (`xmlizer, [], [t])
        | _ -> None
     |}
+
+slicing_directives <- (=deco(slicing_directive))*
+slicing_directive <-
+  / "@" !strict_spacing deco_ml_identifier_nosp:v !"("
+  {|
+     match undecorate v with
+     | "both" -> Some (`side_annotation `both, [], [])
+     | "both_implem" -> Some (`side_annotation `both_implem, [], [])
+     | "client" -> Some (`side_annotation `client, [], [])
+     | "prefer_both" -> Some (`side_annotation `prefer_both, [], [])
+     | "prefer_client" -> Some (`side_annotation `prefer_client, [], [])
+     | "prefer_server" -> Some (`side_annotation `prefer_server, [], [])
+     | "publish" -> Some (`visibility_annotation (`public `sync), [], [])
+     | "publish_async" -> Some (`visibility_annotation (`public `async), [], [])
+     | "server" -> Some (`side_annotation `server, [], [])
+     | "server_private" -> Some (`visibility_annotation `private_, [], [])
+     | _ -> None
+  |}
 
 
 
@@ -907,14 +916,17 @@ lambda <-
   Only identifiers on the left hand side of recursive values
 *)
 /** local binding **/
-letin <- pos:pos1 Opa_lexer.REC (=list1pos(rec_binding_pat, and)):l separator pos:pos_f expr:e
+letin <- pos:pos1 slicing_directives:dirs Opa_lexer.REC (=list1pos(rec_binding_pat, and)):l separator pos:pos_f expr:e
           {{ let l,posl = l in
              push_hint (`same_indents ((pos1::posl) @ [pos_f]));
              let l = List.concat_map pat_in_to_simple_bindings l in
+             let l = declaration_directive dirs l in
              LetIn (true, l, e)
            }}
-       / pos:pos1 (binding_pat / do_block):b separator:pos2 expr:e
-          {{ push_hint (`same_indent (pos1,pos2)); bind_in_to_expr_in b e }}
+       / pos:pos1 slicing_directives:dirs (binding_pat / do_block):b separator:pos2 expr:e
+          {{ push_hint (`same_indent (pos1,pos2));
+             bind_in_to_expr_in dirs b e
+           }}
 
 and <- spacing pos:p Opa_lexer.AND {{ p }}
 (* the ! here is here to prevent code such as {r=123x} to parse as {r=123 x}

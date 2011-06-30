@@ -356,7 +356,7 @@ let update_call_graph env info =
 
          | Q.Directive (label, (`side_annotation _ | `visibility_annotation _), _, _) ->
              let error_context = QmlError.Context.label label in
-             QmlError.serror error_context "@[This is an invalid slicer annotation: they can only appear on toplevel bindings (or inside toplevel modules)@]";
+             QmlError.serror error_context "@[This is an invalid slicer annotation: they can only appear on toplevel bindings (or inside toplevel modules) or on function bindings.@]";
              context
 
          | Q.Directive (_, `lifted_lambda (_,name), _, _) ->

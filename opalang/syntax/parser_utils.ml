@@ -805,12 +805,13 @@ and bind_aux_record label name acc rowvar r =
   else
     bindings
 
-let rec create_letins ~label l e2 =
-  List.fold_right (fun v acc ->
-                     match v with
-                     | `one (s,e1) -> (LetIn (false, [s,e1], acc), copy_label label)
-                     | `list l -> (LetIn (false, l, acc), copy_label label)
-                  ) l e2
+let create_letins ~label dirs l e2 =
+  List.fold_right
+    (fun v acc ->
+       match v with
+       | `one (s,e1) -> (LetIn (false, declaration_directive dirs [s,e1], acc), copy_label label)
+       | `list l -> (LetIn (false, declaration_directive dirs l, acc), copy_label label)
+    ) l e2
 
 (* transforms [let (a,b) = e1 in e2] in
  * let fresh = e1 in
@@ -818,17 +819,17 @@ let rec create_letins ~label l e2 =
  * let b = fresh.f2 in
  * e2
  *)
-let rec bind_in_to_expr_in binding e2 =
+let rec bind_in_to_expr_in dirs binding e2 =
   let (p,e1) = binding in
   undecorate (
     match p with
-      | (PatVar v, label) -> (LetIn (false,[(v,e1)],e2),copy_label label)
-      | (PatAny, label) -> (LetIn (false,[(fresh_name (),e1)],e2),copy_label label)
-      | (PatCoerce (p,ty),label) -> (bind_in_to_expr_in (p,Cons.E.coerce ~label e1 ty) e2,label)
+      | (PatVar v, label) -> (LetIn (false,declaration_directive dirs [(v,e1)],e2),copy_label label)
+      | (PatAny, label) -> (LetIn (false,declaration_directive dirs [(fresh_name (),e1)],e2),copy_label label)
+      | (PatCoerce (p,ty),label) -> (bind_in_to_expr_in dirs (p,Cons.E.coerce ~label e1 ty) e2,label)
       | (_,label) ->
           let n = fresh_name () in
           let bindings = `one (n,e1) :: List.rev (bind n [] p) in
-          create_letins ~label bindings e2
+          create_letins ~label dirs bindings e2
   )
 
 let add_recval ~is_recval label (i,e) =

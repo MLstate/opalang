@@ -260,7 +260,10 @@ val map_add_merge : annot -> (string, 'a) expr -> (string, 'a) expr -> (string, 
 (** Utilities on patterns *)
 val if_then_else : ('a, 'b) coerced_expr -> ('a, 'b) expr -> ('a, 'b) expr option -> ('a, 'b) expr_node
 (* transform [let pat = expr in expr] into [match expr with pat -> expr] *)
-val bind_in_to_expr_in : string pat * (string, [< all_directives > `coerce ] as 'a) expr -> (string, 'a) expr -> (string, 'a) expr_node
+val bind_in_to_expr_in :
+  (parsing_directive * (string, parsing_directive) expr list * string ty list) label list ->
+  string pat * (string, parsing_directive) expr ->
+  (string, parsing_directive) expr -> (string, parsing_directive) expr_node
 val pat_in_to_simple_bindings : (string pat * ((string, [< all_directives > `coerce `recval ]) expr as 'expr)) -> (string * 'expr) list
 
 (** Utils on type definitions *)
