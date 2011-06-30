@@ -494,7 +494,11 @@ CChat = {{
     "[%<:[%D:[#=1:yesterday :ago ]]]"
 
   @private @server
-  default_credentials(_username, _msg): CChat.credentials = read_only
+  default_credentials(username, msg): CChat.credentials =
+    if not(username == "anonymous") && username == msg.author then
+      read_edit
+    else
+      read_only
 
   @private @server
   default_admin_credentials(_username, _msg): CChat.credentials =
