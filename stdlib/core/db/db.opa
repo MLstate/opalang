@@ -158,9 +158,9 @@ Db = {{
    * current revision, 1 and forward is from the first revision.
    * @param [length] how many revisions to return, from then on if positive, from then
    * backwards if negative. If 0, return all revisions from [from].
-   * @example [history(/p, 0, -10)] returns the last 10 revisions in reverse order.
-   * @example [history(/p, -9, 10)] returns the last 10 revisions in chronological order.
-   * @example [history(/p, 1, 0)] returns all revisions in chronological order.
+   * @example [history(@/p, 0, -10)] returns the last 10 revisions in reverse order.
+   * @example [history(@/p, -9, 10)] returns the last 10 revisions in chronological order.
+   * @example [history(@/p, 1, 0)] returns all revisions in chronological order.
    */
   history = %%path_history%%
 
