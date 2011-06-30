@@ -515,7 +515,7 @@ let write_node node =
             full.N.pred_rev ;
           c4 :: data2fm full.N.content ;
         ] in
-      let oldrev = full.N.old_revs in
+      let oldrev = [] in
       let lst1 =
         let length, nodemap = write_key_map full.N.map in
         [ c5 :: F.WInt length :: nodemap ]
@@ -581,7 +581,7 @@ let read_node fm =
       iscorrupted (F.read_char fm f) cc6;
       let size = F.read_int fm f in
 
-      let old_revisions =
+      let _old_revisions =
           match size with
           | 0 -> []
           | 1 ->
@@ -611,7 +611,6 @@ let read_node fm =
         pred_rev = previous_revision ;
         content ;
         map = nodemap ;
-        old_revs = old_revisions ;
       }
 
   | c when c = cc1 ->

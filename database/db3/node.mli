@@ -40,7 +40,6 @@ val remove_child : f:(Uid.t -> t) -> Revision.t -> t -> Keys.t -> t
 (* access to the fields *)
 val get_content : f:(Uid.t -> t) -> t -> Datas.t
 val get_cur_rev : t -> Revision.t
-val get_old_revs : f:(Uid.t -> t) -> t -> (Revision.t * Uid.t) list
 val get_children : f:(Uid.t -> t) -> t -> Keys.t list
 val get_children_eid : f:(Uid.t -> t) -> t -> Eid.t list
 
@@ -68,7 +67,6 @@ type full = {
   min : Keys.t ;
   cur_rev : Revision.t ;
   pred_rev : Revision.t option ;
-  old_revs : (Revision.t * Uid.t) list ;
   content : Datas.t ;
   map : Eid.t KeyMap.t ;
 }

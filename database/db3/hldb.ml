@@ -203,22 +203,7 @@ type t = {
            (Revision.to_string rev)
     #<End>;
 
-    let uid =
-      try get_uid_of_eid db rev eid
-      with Not_found ->
-        (* since the uid is not found in the maps for the given revision, taking the
-           uid for the current revision and looking into the previous versions of the
-           node associated to this uid. *)
-        let uid = get_uid_of_eid db db.rev eid in
-        let node = get_node_of_uid db uid in
-        let old_revs = Node.get_old_revs ~f:(get_node_of_uid db) node in
-        List.assoc rev old_revs
-    in
-    #<If:DEBUG_DB$minlevel 1000>
-      Logger.log ~color:`green
-        "DB : get_node_of_eid eid(%s) rev(%s) uid(%s)"
-          (Eid.to_string eid) (Revision.to_string rev) (Uid.to_string uid)
-    #<End>;
+    let uid = get_uid_of_eid db rev eid in
     get_node_of_uid db uid
 
   (* raise UnqualifiedPath if unable to find a node from its eid and the given

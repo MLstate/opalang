@@ -25,12 +25,6 @@ type full = {
   min : Keys.t ;
   cur_rev : Revision.t ;
   pred_rev : Revision.t option ; (* TODO: unused! *)
-  old_revs : (Revision.t * Uid.t) list ;
-              (* TODO: split that list among full nodes in history
-                 and traverse them if needed (have a uid link to the
-                 previous full node). In memory, the list suffixes
-                 are shared among full nodes, but after write and read
-                 to disk, they become unshared and kill performance. *)
   content : Datas.t ;
   map : Eid.t KeyMap.t ;
 }
@@ -107,17 +101,12 @@ let print_rev_delta delta =
 
 let print_full n =
   Printf.sprintf
-    "max=%s, min=%s, rev=%s, pred_rev=%s, old_rev=%s, content=%s, map=%s"
+    "max=%s, min=%s, rev=%s, pred_rev=%s, content=%s, map=%s"
     (Keys.to_string n.max)(Keys.to_string n.min)
     (Revision.to_string n.cur_rev)
     (match n.pred_rev with
      | Some r -> Revision.to_string r
      | _ -> "none")
-    (List.to_string
-       (fun (rev, uid) ->
-          Printf.sprintf "(%s -> %s )"
-            (Revision.to_string rev) (Uid.to_string uid)
-       ) n.old_revs)
     (Datas.to_string n.content)(print_map n.map)
 
 let to_string = function
@@ -194,18 +183,6 @@ let get_cur_rev = function
   | Delta (_, rev, _) -> rev
   | RevDelta (_uid, rev, _delta) -> rev
 
-let rec get_old_revs ~f node =
-  let rec get_all_revs uid node =
-    match node with
-    | Full node -> (node.cur_rev, uid) :: node.old_revs
-    | Delta (uid, rev, _) -> (rev, uid) :: get_all_revs uid (f uid)
-    | RevDelta (uid, _rev, _delta) -> List.tl (get_all_revs uid (f uid))
-  in
-  match node with
-  | Full node -> node.old_revs
-  | Delta (uid, _rev, _) -> get_all_revs uid (f uid)
-  | RevDelta (uid, _rev, _delta) -> List.tl (List.tl (get_all_revs uid (f uid)))
-
 let rec next_eid ~f k node =
   #<If:DEBUG_DB$minlevel 1000>
     Logger.log ~color:`green "DB : next_eid node(%s) k(%s)"
@@ -247,7 +224,6 @@ let create ?content rev =
        ; min = Keys.newkey
        ; cur_rev = rev
        ; pred_rev = None
-       ; old_revs = []
        ; content = content
        ; map = KeyMap.empty }
 
@@ -265,9 +241,9 @@ let update_full_to_full ?content ?child uid rev node =
         KeyMap.add k eid node.map, Keys.max k node.max, Keys.min k node.min
     | _ -> node.map, node.max, node.min
   in
-  let new_rev, new_pred_rev, old_revs =
-    if rev = node.cur_rev then node.cur_rev, node.pred_rev, node.old_revs
-    else rev, Some (node.cur_rev), (node.cur_rev, uid) :: node.old_revs
+  let new_rev, new_pred_rev =
+    if rev = node.cur_rev then node.cur_rev, node.pred_rev
+    else rev, Some (node.cur_rev)
   in
   let new_content =
     match content with
@@ -278,7 +254,6 @@ let update_full_to_full ?content ?child uid rev node =
        ; min = new_min
        ; cur_rev = new_rev
        ; pred_rev = new_pred_rev
-       ; old_revs = old_revs
        ; content = new_content
        ; map = new_map}
 
@@ -338,12 +313,10 @@ let update_delta ~f ?content ?child uid rev old_uid old_rev old_delta delta =
           if KeyMap.is_empty map then Keys.newkey, Keys.newkey
           else fst (KeyMap.max map), fst (KeyMap.min map)
         in
-        let old_revs = (old_rev, uid) :: (get_old_revs ~f old_node) in
         Full { max = max
              ; min = min
              ; cur_rev = rev
              ; pred_rev = Some old_rev
-             ; old_revs = old_revs
              ; content = new_content
              ; map = map }
     | _ ->
@@ -382,11 +355,9 @@ let update_delta ~f ?content ?child uid rev old_uid old_rev old_delta delta =
           if KeyMap.is_empty map then Keys.newkey, Keys.newkey
           else fst (KeyMap.max map), fst (KeyMap.min map)
         in
-        let old_revs = get_old_revs ~f old_node in
         Full { max = max
              ; min = min
              ; cur_rev = old_rev
-             ; old_revs = old_revs
              ; pred_rev = None
              ; content = new_content
              ; map = map }
@@ -430,7 +401,7 @@ let update ~f uid node rev ?content ?child delta =
 
 let rec remove_child ~f rev node key =
   match node with
-  | Full node -> (* TODO: why old_revs not updated here? Perhaps rev has to be equal to cur_rev. If so, add an assertion to this effect. *)
+  | Full node ->
       let new_map = KeyMap.remove key node.map in
       let new_max, new_min =
         if KeyMap.is_empty new_map then Keys.newkey, Keys.newkey
