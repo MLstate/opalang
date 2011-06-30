@@ -60,7 +60,7 @@ let sort_bound_vars env bvs t =
   let rec aux memo (sbvs, bvs) t =
     match t with
     | Q.TypeSumSugar _ ->
-        (* They should have all disapeared. *)
+        (* They should have all disappeared. *)
         assert false
     | Q.TypeConst _ -> (sbvs, bvs)
     | Q.TypeVar v ->
@@ -186,18 +186,18 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
               else QmlTypes.Scheme.specialize ~typeident: un ~ty: us ue in
             (* FPE: Dirty fix for ticket OPA-485. In fact, when comparing
                1 type named different, testing if they are both abstract
-               (hence not equal) usign the above:
+               (hence not equal) using the above:
                   [(typeident_is_abstract tn && typeident_is_abstract un)]
                is wrong. This test only check the tag of the ident. With
                new @private and @abstract types, this tag seems not to be
-               informed wether a type is @abstract or @private. Hence, it
+               informed whether a type is @abstract or @private. Hence, it
                doesn't see that the types are @abstract and continues testing
                on their structure. Since their structure are both
                [QmlAstTypeAbstract], we go in the case where types are == and
                and then the 2 different abstract types finally are considered
                equal, which is totally wrong.
                So, when we arrive here, we know that both named types have
-               not already be seen, have different names, the test on wether
+               not already be seen, have different names, the test on whether
                they are both abstract based on their idents failed, so we
                ensure that the bodies of the schemes bound to these 2 different
                named types are not both [QmlAst.TypeAbstract]. If they are not,
@@ -209,7 +209,7 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
                if this is possible since such types are not abstract in their
                definition package and are either not visible or abstract outside
                their definition package. So I don't know yet if the mechanism
-               of tags in idents can support this change od status.
+               of tags in idents can support this change of status.
                Other solution, may be remove the tags in idents mechanism if
                this has no real meaning or is not consistent.
                This issue is to be investigated to finally arrive to a better
@@ -227,7 +227,7 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
         match (t, u) with
         | Q.TypeForall (t_bvs, t_row_vars, t_col_vars, t),
           Q.TypeForall (u_bvs, _, _, u) ->
-            (* TODO : comparision is not correct !!! *)
+            (* TODO : comparison is not correct !!! *)
             (* quantification over row and column variables is not handled *)
             let t_bvs = sort_bound_vars env t_bvs t in
             let u_bvs = sort_bound_vars env u_bvs u in
@@ -238,7 +238,7 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
                  into a pseudo scheme, call QmlTypes.instantiate on it with
                  a fake type ident since lists of quantified vars being the
                  same length, we won't get an error, so the fake ident won't
-                 respring. *)
+                 re-spring. *)
               let fake_ident =
                 QmlAst.TypeIdent.of_string "__icmpty_broken_if_seen " in
               let fake_quantif =
