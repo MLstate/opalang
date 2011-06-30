@@ -164,8 +164,7 @@ type t = {
   (* Raise Not_found if the revision looked for is the smallest one *)
   let _get_uid_of_eid db rev eid =
     let map = EidMap.find eid db.uid_of_eid in
-    try RevisionMap.find rev map
-    with Not_found -> snd (RevisionMap.find_inf rev map)
+    snd (RevisionMap.find_inf rev map)
 
   (* may raise Not_found from _get_uid_of_eid *)
   let get_uid_of_eid db rev eid =
