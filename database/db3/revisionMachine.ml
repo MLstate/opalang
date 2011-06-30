@@ -149,7 +149,7 @@ let restore_db ~restore ~uidrev fm =
   (* inreconstructible, faut voir ce que l'on a & faire avec *)
   let nodemap =
     (match nodemap with
-    | `PartialNode m when m = UidMap.empty ->
+    | `PartialNode m when UidMap.is_empty m ->
       addln "Node file: Empty"; m
     | `PartialNode m ->
       addln "Node file: broken until uid %s" (Uid.to_string (fst (UidMap.max m))); m

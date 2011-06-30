@@ -67,8 +67,8 @@ val write_dbstate :
 
 val read_dbstate : t -> DbTypes.dbstate
 
-val write_nodes : t -> ?last_uid:DbTypes.uid -> DbTypes.nodefile -> unit
-val overwrite_nodes : t -> DbTypes.nodefile -> unit
+val write_nodes : t -> ?last_uid:DbTypes.uid -> Node.t Uid.Map.t -> unit
+val overwrite_nodes : t -> Node.t Uid.Map.t -> unit
 val read_nodes : t -> DbTypes.nodefile
 val read_specific_node : t -> DbTypes.uid -> Node.t
 

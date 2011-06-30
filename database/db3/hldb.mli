@@ -39,7 +39,7 @@ val get_next_uid : t -> Uid.t
 val is_empty : t -> bool
 val get_uid_map : t -> Uid.t RevisionMap.t EidMap.t
 val get_node_map : t -> Node.t UidMap.t
-val get_last_nodes : t -> Node.t UidMap.t
+val get_last_nodes : t -> Node.t Uid.Map.t
 val get_index : t -> index
 
 (* navigation through the db *)

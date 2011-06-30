@@ -1013,7 +1013,7 @@ let write_nodes_aux ~seek fm ?last_uid nodes =
 
   let accumulator = ref last_uid in
 
-  let _ = UidMap.fold
+  let _ = Uid.Map.fold
    (fun uid node memory ->
      let uid = Uid.value uid in
      let lastu = !accumulator in
@@ -1050,7 +1050,7 @@ let overwrite_nodes fm nodes = write_nodes_aux ~seek:false fm nodes
     we read until last valid position which is read in
     the flag file *)
 let read_nodes fm =
-  let mappumulator = ref (UidMap.empty,0) in
+  let mappumulator = ref ((UidMap.empty ()),0) in
   let limit = get_pos_from_flags fm F.Node in
   F.seek_in fm F.Node 0;
   F.seek_in fm F.Uid 0;
@@ -1065,7 +1065,7 @@ let read_nodes fm =
   in
   logfm fm "Read nodes at %d (to %d) & uid at %d"
     (F.position_in fm F.Node) limit (F.position_in fm F.Uid);
-  try aux 0 UidMap.empty
+  try aux 0 (UidMap.empty ())
   with F.EOF -> (let m,p = !mappumulator in raise (DT.CrashNode (m,p)))
 
 

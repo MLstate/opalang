@@ -42,7 +42,7 @@ type t = {
   node_of_uid : node_map ;
   index : index ;
   tmp_uid_of_eid : Uid.t EidMap.t ;
-  tmp_node_of_uid : Node.t UidMap.t ;
+  tmp_node_of_uid : Node.t Uid.Map.t ;
 }
 
   (*
@@ -73,9 +73,9 @@ type t = {
   (******************)
 
   let print_tmp_node_map db =
-    if db.tmp_node_of_uid = UidMap.empty
+    if Uid.Map.is_empty db.tmp_node_of_uid 
     then "Empty"
-    else UidMap.fold (
+    else Uid.Map.fold (
       fun uid node acc -> Printf.sprintf "%s\t%d -> %s\n"
         acc (Uid.value uid) (Node.to_string node)
     ) db.tmp_node_of_uid "\n"
@@ -190,7 +190,7 @@ type t = {
            (Uid.to_string uid)
     #<End>;
 
-      match UidMap.find_opt uid db.tmp_node_of_uid with
+      match Uid.Map.find_opt uid db.tmp_node_of_uid with
       | Some node -> node
       | None -> UidMap.find uid db.node_of_uid
 
@@ -249,14 +249,14 @@ type t = {
     try get_node_of_eid db rev eid, rev
     with Not_found -> raise UnqualifiedPath
 
-  let is_new_uid db uid = UidMap.mem uid db.tmp_node_of_uid
+  let is_new_uid db uid = Uid.Map.mem uid db.tmp_node_of_uid
 
   (* cleaning the temporary maps (mostly when the current revision has been
      writen on disk. *)
   let clean_tmp_maps db =
     { db with
         tmp_uid_of_eid = EidMap.empty ;
-        tmp_node_of_uid = UidMap.empty ;
+        tmp_node_of_uid = Uid.Map.empty ;
     }
 
   (************************************)
@@ -276,7 +276,7 @@ type t = {
       let rev_0 = Revision.make 0 in
       let content = RevisionMap.add rev_0 uid_0 RevisionMap.empty in
       EidMap.add eid_0 content EidMap.empty in
-    let node_of_uid, tmp_node_of_uid = (UidMap.add uid_0 t UidMap.empty), UidMap.empty in
+    let node_of_uid, tmp_node_of_uid = (UidMap.add uid_0 t (UidMap.empty ())), Uid.Map.empty in
 
     let tcount = Eid.make 0 in
     let next_uid = uid_1 in
@@ -302,7 +302,7 @@ type t = {
       node_of_uid;
       index;
       tmp_uid_of_eid = EidMap.empty;
-      tmp_node_of_uid = UidMap.empty;
+      tmp_node_of_uid = Uid.Map.empty;
     }
 
   let set_rev db rev = {db with rev = rev}
@@ -442,7 +442,7 @@ type t = {
   let update_node_of_uid db node_list =
     List.fold_left (
       fun (acc1, acc2) (uid, node) ->
-            (UidMap.add uid node acc1), UidMap.add uid node acc2
+            (UidMap.add uid node acc1), Uid.Map.add uid node acc2
     ) (db.node_of_uid, db.tmp_node_of_uid) node_list
 
   let print_uid_list l =
@@ -469,7 +469,7 @@ type t = {
     let new_node_map, tmp_map_2 = update_node_of_uid db node_list in
     let next_uid =
       try
-        let uid1 = fst (UidMap.max tmp_map_2) in
+        let uid1 = fst (Uid.Map.max tmp_map_2) in
         let uid = Uid.make (succ (Uid.value uid1)) in
         Uid.max uid db.next_uid
       with Not_found -> db.next_uid
@@ -494,7 +494,7 @@ type t = {
     #<End>;
     let f = get_node_of_uid db in
     let aux uid eid node =
-      let replace = UidMap.mem uid db.tmp_node_of_uid in
+      let replace = Uid.Map.mem uid db.tmp_node_of_uid in
       (* FIXME replace db.next_uid by the next one? *)
       let nuid, _next_uid =
         if replace
