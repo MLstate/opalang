@@ -562,10 +562,11 @@ Page = {{
       s = match pub_opt with | {~some} -> " [pub #{some}]" | {none} -> ""
       Dom.set_text(#{file_line_publish(file)},s)
 
-    @private file_line_set_edit(file) =
+    @private file_line_set_edit(file, force) =
       id = buffer_file_id(file)
       buf = Dom.select_raw("#{id} #{id}_select}")
-      s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) then "" else "[editing]"
+      do Log.info("[set_edit]", "{file} {Dom.is_empty(buf)} {Dom.is_enabled(buf)}")
+      s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) && not(force) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
     @private file_line_content(_access:Page.full_access, name, file, published_rev, preview) =
@@ -711,7 +712,7 @@ Page = {{
         do Dom.show(#{draft_id})
         do Dom.set_enabled(#{select_id},false)
         do Dom.set_enabled(#{save_button_id},true)
-        do file_line_set_edit(file)
+        do file_line_set_edit(file, false)
         void
       and make_buttons(rev : option(int),action) =
         get_selected_rev() =
@@ -721,7 +722,7 @@ Page = {{
           then void
           else
             do build_buffers(some(get_selected_rev()))
-            file_line_set_edit(file)
+            file_line_set_edit(file, false)
         action_set_rev(_:Dom.event) =
           rev = get_selected_rev()
           do access.notify.send({publish=(file,rev)})
@@ -872,7 +873,7 @@ Page = {{
                            onclick={_ ->
                              do Dom.set_enabled(#{save_button_id}, false)
                              _ = action.save()
-                             file_line_set_edit(file)} >Save</button>
+                             file_line_set_edit(file, false)} >Save</button>
                  | ~{failure} ->
                    by = match failure | {locked = {~by ...}} -> by | _ -> "501??!!??"
                    <button type="button"
@@ -881,7 +882,7 @@ Page = {{
                      onclick={_ ->
                        do Dom.set_enabled(#{save_button_id}, false)
                        _ = action.save()
-                       file_line_set_edit(file)}>Save (locked by {by})</button>
+                       file_line_set_edit(file, false)}>Save (locked by {by})</button>
                 }
                 <button type="button" onclick={action_change_rev}> Discard change </button>
                 <button type="button"
@@ -1159,6 +1160,7 @@ Page = {{
           do Dom.add_class(buf, "on")
           do Dom.remove_class(buf, "off")
           void
+        do file_line_set_edit(file, true)
         Dom.clear_value(#admin_new_file)
 
       /**
@@ -1171,7 +1173,8 @@ Page = {{
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
         do file_line_insert(access, true, file_uri, none, false)
-        open_file(access, file, none)(event)
+        do open_file(access, file, none)(event)
+        void
 
       /**
        * Remove a file
