@@ -152,17 +152,20 @@ let db_options =
     arguments := rest (* consume the specific arguments, not the generic ones *)
     ;
     (* check for conflicting options with previous settings *)
-    match Base.List.assoc_opt (snd options.engine_options) (!parsed_engine_options) with
-    | Some conflicting_db ->
-        Printf.fprintf stderr
-          "Error: conflicting configuration for databases \"%s\" and \"%s\": same location%s.\n%!"
-          conflicting_db (Option.default "database" ident)
-          (match snd options.engine_options with
-           | Badop.Options_Local { Badop.path = str; _ } -> Printf.sprintf " (%s)" str
-           | Badop.Options_Client (_,(h,p), _) -> Printf.sprintf " (%s:%d)" (Unix.string_of_inet_addr h) p
-           | _ -> "");
-        exit 1
-    | None ->
+    try
+      let conflicting_db =
+        Base.List.assoc_custom_equality ~eq:Badop.Aux.options_conflict
+          (snd options.engine_options) !parsed_engine_options
+      in
+      Logger.critical
+        "Error: conflicting configuration for databases \"%s\" and \"%s\": same location%s."
+        conflicting_db (Option.default "database" ident)
+        (match snd options.engine_options with
+         | Badop.Options_Local { Badop.path = str; _ } -> Printf.sprintf " (%s)" str
+         | Badop.Options_Client (_,(h,p), _) -> Printf.sprintf " (%s:%d)" (Unix.string_of_inet_addr h) p
+         | _ -> "");
+      exit 1
+    with Not_found ->
         parsed_engine_options :=
           (snd options.engine_options, Option.default "database" ident) :: !parsed_engine_options;
         options

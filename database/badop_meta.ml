@@ -74,8 +74,8 @@ let options_parser_with_default ?name (_default_m, default_o) =
     ["--db-remote"],
     A.func A.parse_addr
       (fun (_,o) (addr,portopt) ->
-         if o <> default_o
-         then prerr_endline ("Warning: database options before --db-remote will be ignored"^spec_msg);
+         if o != default_o
+         then Logger.warning "Warning: database options before --db-remote will be ignored%s" spec_msg;
          (module Badop_client : Badop.S),
          Badop.Options_Client (Scheduler.default, (addr, Option.default default_port portopt), fun () -> `abort)),
       "<host>[:<port>]",
@@ -89,8 +89,8 @@ let options_parser_with_default ?name (_default_m, default_o) =
     ["--db-local"],
     A.func (A.option A.string)
       (fun (_,o) str_opt ->
-         if o <> default_o
-         then prerr_endline ("Warning: database options before --db-local will be ignored"^spec_msg);
+         if o != default_o
+         then Logger.warning "Warning: database options before --db-local will be ignored%s" spec_msg;
          let path,flags = match str_opt with
            | Some str -> Base.String.split_char_last ':' str
            | None -> "", ""
@@ -127,7 +127,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
            in r,lflags in
 
         if not (List.is_empty lflags) then
-          (prerr_endline ("Error: unknown db flag "^(List.print (fun x -> x) lflags)^spec_msg); raise Exit);
+          (Logger.warning "Error: unknown db flag %s%s" (List.print (fun x -> x) lflags) spec_msg; raise Exit);
 
          (module Badop_local : Badop.S),
          Badop.Options_Local { Badop. path; restore; dot; readonly; revision = None }),
@@ -147,8 +147,8 @@ let options_parser_with_default ?name (_default_m, default_o) =
     ["--db-remote-replicated"],
     A.func (A.list ',' A.parse_addr)
       (fun (_,o) addrlist ->
-         if o <> default_o
-         then prerr_endline ("Warning: database options before --db-remote-replicated will be ignored"^spec_msg);
+         if o != default_o
+         then Logger.warning "Warning: database options before --db-remote-replicated will be ignored%s "spec_msg;
          (module Badop_dispatcher.F(Badop_client) : Badop.S),
          Badop.Options_Dispatcher
            (List.length addrlist,

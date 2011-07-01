@@ -234,6 +234,9 @@ module Aux : sig
     ('which, 'transaction1, 'revision1) generic_write_op list ->
     ('which, 'transaction2, 'revision2) generic_write_op list Cps.t
 
+  (** checks if the two sets of options may conflict (bind to the same database twice) *)
+  val options_conflict: options -> options -> bool
+
   (** Printers and debug helpers *)
 
   val path_to_string: path -> string
@@ -336,6 +339,16 @@ end = struct
         map_write_op ~transaction ~revision op @> fun op -> op::acc |> k
       in
       Cps.List.fold wr [] l_op k
+
+  let rec options_conflict o1 o2 = match (o1,o2) with
+    | Options_Local l1, Options_Local l2 -> l1 = l2
+    | Options_Client (_,remote1,_), Options_Client (_,remote2,_) -> remote1 = remote2
+    | Options_Debug (_,o1), o2
+    | o1, Options_Debug (_,o2) -> options_conflict o1 o2
+    | Options_Dispatcher (_, ol), o
+    | o, Options_Dispatcher (_, ol) ->
+        List.exists (fun o1 -> options_conflict o1 o) ol
+    | _ -> false
 
   let path_to_string = Path.to_string
 end
