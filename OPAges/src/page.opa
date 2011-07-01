@@ -1260,9 +1260,26 @@ Page = {{
       (make_absolute(Dom.get_value(#admin_new_file)),
        Dom.get_value(#upload_mime_type))
 
+    is_file(file) =
+      file_uri = Uri.of_string(file)
+      Option.is_some(String.index(".", file)) &&
+      match file_uri
+      {none} -> false
+      {some={fragment=_ is_directory=_ is_from_root=_ ~path query=_}} ->
+        List.length(path) == 1
+
+    filter_files(page_list) =
+      List.filter((file, _pub, _preview) -> is_file(file), page_list)
+
+    filter_dirs(page_list) =
+      List.filter((file, _pub, _preview) -> not(is_file(file)), page_list)
+
     @client @private build_tree(access:Page.full_access)(_:Dom.event) =
       do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
       page_list = List.unique_list_of(access.access.list())
+      dirs = filter_dirs(page_list)
+      files = filter_files(page_list)
+      reordered_page_list = dirs ++ files
       do List.iter(
         (file, pub, preview) ->
           file_uri = Uri.of_string(file)
@@ -1272,7 +1289,7 @@ Page = {{
             preview,
             true
           )
-        , page_list
+        , reordered_page_list
       )
       access.notify.subscribe(
         | {event={publish=(file,rev)} by=_} ->
