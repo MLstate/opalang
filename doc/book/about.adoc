@@ -207,7 +207,7 @@ A few ways to get in touch:
   the ``Opa'' tag);
 - by e-mail, at mailto:feedback@opalang.org[feedback@opalang.org];
 - by irc://irc.freenode.net/#opalang[IRC], on Freenode, channel #opalang;
-- through http://www.facebook.com/pages/Opalang/196987260339043[Facebook], as Opalang;
+- through http://www.facebook.com/Opalang[Facebook], as Opalang;
 - through http://twitter.com/opalang[Twitter], as opalang.
 
 We will be there!
