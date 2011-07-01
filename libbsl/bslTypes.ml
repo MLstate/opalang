@@ -460,7 +460,6 @@ let of_ty ~gamma ty =
     let pos = (* get pos from ty *) nopos in
     match ty with
     | Q.TypeConst const -> varmap, Const (pos, const)
-
     | Q.TypeVar var -> (
         (* build a TypeVar , with coherence for a full call to of_ty *)
         match TypeVarMap.find_opt var varmap with
@@ -469,66 +468,73 @@ let of_ty ~gamma ty =
             TypeVarMap.add var alpha varmap, alpha
         | Some alpha -> varmap, alpha
       )
-
     | Q.TypeArrow (la, b) ->
         let varmap, auxla = List.fold_left_map aux varmap la in
         let varmap, auxb = aux varmap b in
         varmap, Fun (pos, auxla, auxb)
-
     | (Q.TypeName (ty_list, typeident)) -> (
         match
-          (* A priori, this is part is used by the back-end so it needs to
-             access the internal of types even if they are not visible from the
-             package. Typechecking will have to have ensured that types were
-             used in a consistent way. *)
-          QmlTypes.Env.TypeIdent.findi_opt
-            ~visibility_applies: false typeident gamma with
-        | Some (typeident, typ) ->
+            (* A priori, this is part is used by the back-end so it needs to
+               access the internal of types even if they are not visible from
+               the package. Typechecking will have to have ensured that types
+               were used in a consistent way.
+               INVARIANT: since visibility is not applied, we never obtain
+               [Q.TypeAbstract] in case were are outside the definition package
+               of the type.
+               Hence, if we get [Q.TypeAbstract] this is because the type name
+               is really bound to a Q.TypeAbstract. *)
+            QmlTypes.Env.TypeIdent.findi_opt
+              ~visibility_applies: false typeident gamma with
+        | Some (typeident, typ) -> (
             let ident = Q.TypeIdent.to_string typeident in
-            if Q.TypeIdent.is_external_ty typeident then
-              let varmap, maped_ty = List.fold_left_map aux varmap ty_list in
-              let maped = External (pos, ident, maped_ty) in
-              varmap, maped
-            else (
-              (* Standard extended types in LibBSL : bool, option *)
-              match ident with
-              | "bool" -> varmap, Bool pos
-              | "unit" | "void" -> varmap, Void pos
-              | "option" -> (
-                  match ty_list with
-                  | [what] ->
-                      let varmap, auxwhat = aux varmap what in
-                      varmap, Option (pos, auxwhat)
-                  | _ ->
-                      (** Here we can raise a public typing exception because the type option is
-                          used with a wrong number of parameters *)
-                      fail_ty
-                        "The external constructor \"option\" expects 1 arg@ but is here called with %d arguments(s)@\n"
-                        (List.length ty_list)
-                )
-              | other -> (
-                  (* warning : an typename do point on a other type that is instancied *)
-                  (* side-effect so that we can use the quantify_sort function *)
-                  List.iter (ignore @* aux varmap) ty_list;
-                  let ty = (QmlTypes.Scheme.specialize ~typeident:typeident ~ty:ty_list typ) in
-                  aux ~name:(Some other) varmap ty
-                )
-            )
-
+            (* Standard extended types in LibBSL : bool, option *)
+            match ident with
+            | "bool" -> varmap, Bool pos
+            | "unit" | "void" -> varmap, Void pos
+            | "option" -> (
+                match ty_list with
+                | [what] ->
+                    let varmap, auxwhat = aux varmap what in
+                    varmap, Option (pos, auxwhat)
+                | _ ->
+                    (** Here we can raise a public typing exception because
+                        the type option is used with a wrong number of
+                        parameters *)
+                    fail_ty
+                      "The external constructor \"option\" expects 1 arg@ but is here called with %d arguments(s)@\n"
+                      (List.length ty_list)
+               )
+            | other -> (
+                (* warning : an typename do point on a other type that is
+                   instancied side-effect so that we can use the
+                   [quantify_sort] function *)
+                List.iter (ignore @* aux varmap) ty_list ;
+                let ty =
+                  (QmlTypes.Scheme.specialize
+                     ~typeident: typeident ~ty: ty_list typ) in
+                if ty = QmlAst.TypeAbstract then (
+                  let varmap, maped_ty =
+                    List.fold_left_map aux varmap ty_list in
+                  let maped = External (pos, ident, maped_ty) in
+                  (varmap, maped)
+                 )
+                else aux ~name: (Some other) varmap ty
+               )
+           )
         | None ->
-            (* This can appears in some funny cases with #typer off, playing with qmltop *)
-            (* in this case, we build an extern type *)
+            (* No definition was found for the type name in the environment.
+               This can appears in some funny cases with #typer off,
+               playing with qmltop in this case, we build an extern type *)
             let ident = Q.TypeIdent.to_string typeident in
             let varmap, maped_ty = List.fold_left_map aux varmap ty_list in
             let maped = External (pos, ident, maped_ty) in
-            varmap, maped
+            (varmap, maped)
       )
-
     | Q.TypeRecord (Q.TyRow ([], None))
     | Q.TypeSum (Q.TyCol ([[]], _)) ->
-        (* We close the column variable by passing it the the external primitive *)
+        (* We close the column variable by passing it the the external
+           primitive *)
         varmap, Void pos
-
     | Q.TypeRecord t ->
         let name =
           match name with
