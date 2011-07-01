@@ -40,33 +40,43 @@ module F
 struct
   type revision = Host.revision
 
+  type tr_version = int
+
   type 'which read_op = ('which,revision) Badop.generic_read_op
 
-  type ('which,'transaction) poly_write_op = ('which,'transaction,revision) Badop.generic_write_op
+  type 'which internal_write_op = ('which,unit,revision) Badop.generic_write_op
 
   (* 'transaction is a parameter, because we change it to string when we want to serialise *)
-  type ('which,'transaction) poly_transaction_op =
+  type ('which,'transaction_channel) poly_transaction_op =
     | Read of Badop.path
-        * ('which, Dialog.query read_op, Dialog.response read_op Badop.answer) Dialog.t
-    | Write of Badop.path
-        * ('which,'transaction) poly_write_op
-    | WriteList of ('which, (Badop.path * (Dialog.query,'transaction) poly_write_op) list, 'transaction) Dialog.t
-    | Prepare of ('which, unit, 'transaction * bool) Dialog.t
-    | Commit of ('which, unit, bool) Dialog.t
-    | Abort of ('which, unit, unit) Dialog.t
+        * ('which, tr_version * Dialog.query read_op, Dialog.response read_op Badop.answer) Dialog.t
+    | Write of Badop.path * tr_version * 'which internal_write_op
+    | WriteList of tr_version * ('which, (Badop.path * Dialog.query internal_write_op) list, unit) Dialog.t
+    | Prepare of ('which, tr_version, bool) Dialog.t
+    | Commit of ('which, tr_version, bool) Dialog.t
+    | Abort of ('which, tr_version, unit) Dialog.t
+    | Fork of ('which, tr_version, 'transaction_channel) Dialog.t
 
-  type transaction = (* needs rectypes *)
-      ((Host.spoken,transaction) poly_transaction_op, (Host.understood,transaction) poly_transaction_op)
+  type transaction_channel =
+      ((Host.spoken,transaction_channel) poly_transaction_op, (Host.understood,transaction_channel) poly_transaction_op)
         Hlnet.channel
 
-  type 'which write_op = ('which,transaction) poly_write_op
+  type 'which transaction_op =
+      ('which,transaction_channel) poly_transaction_op
 
-  type 'which transaction_op = ('which,transaction) poly_transaction_op
+  type transaction = {
+    channel : transaction_channel;
+    version : tr_version;
+    mutable last : bool;
+  }
+
+  type 'which write_op = ('which,transaction,revision) Badop.generic_write_op
 
   type 'which database_query =
-    | Transaction of ('which, unit, transaction) Dialog.t
-    | Transaction_at of ('which, revision, transaction) Dialog.t
+    | Transaction of ('which, unit, transaction_channel) Dialog.t
+    | Transaction_at of ('which, revision, transaction_channel) Dialog.t
     | Status of ('which, unit, Badop.status) Dialog.t
+
 
   (* Just maps on transactions *)
   let map_transaction_op
@@ -74,31 +84,18 @@ struct
         ('transaction1 -> 'transaction2) -> ('which,'transaction1) poly_transaction_op
         -> ('which,'transaction2) poly_transaction_op
       = fun f op ->
-    let map_write_op
-        : 'which 't1 't2. ('t1 -> 't2) -> ('which,'t1) poly_write_op -> ('which,'t2) poly_write_op
-        = fun f op ->
-      nocps
-        (Badop.Aux.map_write_op ~transaction:(fun tr k -> k (f tr)) ~revision:(fun x k -> k x) op)
-    in
     match op with
-    | Write (path, write_op) ->
-        Write (path, map_write_op f write_op)
-    | WriteList (dialog) ->
-        let dialog = nocps
-          (Dialog_aux.map_dialog
-             ~query:(fun oplist k -> k (List.map (fun (path,op) -> path, map_write_op f op) oplist))
-             ~response:(fun tr k -> k (f tr))
-             dialog)
-        in
-        WriteList dialog
-    | Prepare dialog ->
-        let dialog = nocps
-          (Dialog_aux.map_dialog ~query:(fun x k -> k x) ~response:(fun (tr,ok) k -> k (f tr, ok)) dialog)
-        in
-        Prepare dialog
+    | Write (path, v, internal_write_op) -> Write (path, v, internal_write_op)
+    | WriteList (v, dialog) -> WriteList (v, dialog)
+    | Prepare dialog -> Prepare dialog
     | Read (path, op) -> Read (path, op)
     | Commit op -> Commit op
     | Abort op -> Abort op
+    | Fork dialog ->
+        let dialog = nocps
+          (Dialog_aux.map_dialog ~query:(fun x k -> k x) ~response:(fun tr k -> k (f tr)) dialog)
+        in
+        Fork dialog
 
   (* We need to expand this functions even if we use marshal internally, because
      embedded transactions need to be processed through
@@ -123,11 +120,10 @@ struct
       : (Host.spoken transaction_op, Host.understood transaction_op) Hlnet.channel_spec
       = {
       Hlnet.
-        service = Hlnet.make_service_id ~name:"badop/trans" ~version:1;
+        service = Hlnet.make_service_id ~name:"badop/trans" ~version:2;
         out_serialise = transaction_op_serialise;
         in_unserialise = transaction_op_unserialise;
     }
-
 
   let database_op_serialise = function
     | Transaction (Dialog.Query ()) -> "\000"
@@ -136,6 +132,7 @@ struct
     | Transaction_at (Dialog.Response transaction) -> "\101" ^ Hlnet.serialise_channel transaction
     | Status (Dialog.Query ()) -> "\002"
     | Status (Dialog.Response status) -> "\102" ^ Marshal.to_string status []
+
   let database_op_unserialise channel s offset = match s.[offset] with
     | '\000' -> `data (Transaction (Dialog_aux.make_unsafe_query ()), offset + 1)
     | '\100' ->
@@ -161,7 +158,7 @@ struct
       : (Host.spoken database_query, Host.understood database_query) Hlnet.channel_spec
       = {
       Hlnet.
-        service = Hlnet.make_service_id ~name:"badop/db" ~version:1;
+        service = Hlnet.make_service_id ~name:"badop/db" ~version:2;
         out_serialise = database_op_serialise;
         in_unserialise = database_op_unserialise;
     }

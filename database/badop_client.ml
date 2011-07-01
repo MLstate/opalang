@@ -56,69 +56,76 @@ let status db k =
        | _ -> assert false)
   | _ -> assert false
 
+let tr_next tr k =
+  if tr.last then
+    let tr' = { tr with version = succ tr.version } in tr.last <- false; tr' |> k
+  else
+    N.sendreceive tr.channel (Fork (Dialog.query tr.version))
+    @> function
+    | Fork (Dialog.Response tr_channel) ->
+        { channel = tr_channel; version = succ tr.version; last = true } |> k
+    | _ -> N.panic tr.channel
+
 module Tr = struct
 
   let start db errk k =
     N.sendreceive' db (Transaction (Dialog.query ())) errk
     @> function
-    | Transaction (Dialog.Response tr) ->
-        N.on_disconnect tr (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
-        tr |> k
+    | Transaction (Dialog.Response tr_channel) ->
+        N.on_disconnect tr_channel (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
+        { channel = tr_channel; version = 0; last = true } |> k
     | _ -> N.panic db
 
   let start_at_revision db rev errk k =
     N.sendreceive' db (Transaction_at (Dialog.query rev)) errk
     @> function
-    | Transaction_at (Dialog.Response tr) ->
-        N.on_disconnect tr (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
-        tr |> k
+    | Transaction_at (Dialog.Response tr_channel) ->
+        N.on_disconnect tr_channel (fun () -> N.Disconnected (N.remote_of_channel db) |> errk);
+        { channel = tr_channel; version = 0; last = true } |> k
     | _ -> N.panic db
 
   let prepare tr k =
-    N.sendreceive tr (Prepare (Dialog.query ()))
+    tr_next tr
+    @> fun tr ->
+      N.sendreceive tr.channel (Prepare (Dialog.query tr.version))
     @> function
-    | Prepare (D.Response (tr',success)) -> (tr', success) |> k
-    | _ -> N.panic tr
+    | Prepare (D.Response success) -> (tr, success) |> k
+    | _ -> N.panic tr.channel
 
   let commit tr k =
-    N.sendreceive tr (Commit (Dialog.query ()))
+    N.sendreceive tr.channel (Commit (Dialog.query tr.version))
     @> function
     | Commit (D.Response success) -> success |> k
-    | _ -> N.panic tr
+    | _ -> N.panic tr.channel
 
   let abort tr k =
-    N.sendreceive tr (Abort (Dialog.query ()))
+    N.sendreceive tr.channel (Abort (Dialog.query tr.version))
     @> function
     | Abort (D.Response ()) -> () |> k
-    | _ -> N.panic tr
+    | _ -> N.panic tr.channel
 
 end
 
 let read tr path query k =
-  N.sendreceive tr (Read (path, Dialog.query query))
+  N.sendreceive tr.channel (Read (path, Dialog.query (tr.version, query)))
   @> function
   | Read (path', D.Response result) -> assert (path = path'); result |> k
-  | _ -> N.panic tr
+  | _ -> N.panic tr.channel
 
 let write tr path query k =
-  N.sendreceive tr (Write (path, query))
-  @> function
-  | Write (path', result) ->
-      assert (path = path');
-      Badop.Aux.map_write_op
-        ~revision:(fun x k -> x |> k)
-        ~transaction:(fun chan k -> chan |> k)
-        result
-      @> k
-  | _ -> N.panic tr
+  Badop.Aux.map_write_op ~transaction:(fun _tr k -> () |> k) ~revision:(fun x k -> x |> k) query
+  @> fun query1 -> tr_next tr
+  @> fun tr ->
+    N.send tr.channel (Write (path, tr.version, query1));
+    Badop.Aux.respond_set_transaction query tr |> k
 
 let write_list tr l_path_query k =
-  N.sendreceive tr (WriteList (Dialog.query l_path_query))
-  @> function
-  | WriteList (D.Response l_path_result) ->
-      l_path_result
-      |> k
-  | _ -> N.panic tr
+  let paths,queries = List.split l_path_query in
+  Badop.Aux.map_write_list_op ~transaction:(fun _tr k -> () |> k) ~revision:(fun x k -> x |> k) queries
+  @> fun queries1 -> tr_next tr
+  @> fun tr ->
+    N.send tr.channel (WriteList (tr.version, Dialog.query (List.combine paths queries1)));
+    tr |> k
 
 let node_properties _db _config k =
   #<If:TESTING> () |> k #<Else>

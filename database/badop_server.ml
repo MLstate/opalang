@@ -40,66 +40,53 @@ struct
     scheduler: Scheduler.t;
   }
 
-  let rec transaction_callback (backend_trans: Backend.transaction) transaction
+  let rec transaction_callback (transmap: Backend.transaction IntMap.t ref) channel
       : (D.Dialog.query transaction_op
          -> (D.Dialog.response transaction_op -> unit) -> unit)
     =
     fun request k ->
       match request with
-      | Read (path, (D.Query op as query)) ->
-          Backend.read backend_trans path op
+      | Read (path, (D.Query (tr_version, op) as query)) ->
+          Backend.read (IntMap.find tr_version !transmap) path op
           @> fun resp -> Read (path, D.Dialog_aux.respond query resp) |> k
-      | Write (path, op) ->
+      | Write (path, tr_next_version, op) ->
           Badop.Aux.map_write_op (* From Protocol.transaction to Backend.transaction *)
             ~revision:(fun r k -> r |> k)
-            ~transaction:(fun _ k -> assert(not true); backend_trans |> k)
+            ~transaction:(fun () k -> assert false |> k)
             op
           @> fun op ->
-            Backend.write backend_trans path op
-            @> fun backend_response ->
-              Badop.Aux.map_write_op (* From Backend.transaction to Protocol.transaction *)
-                ~revision:(fun r k -> r |> k)
-                ~transaction:(fun backend_trans k ->
-                   let transaction = N.dup transaction transaction_channel_spec in
-                   N.setup_respond transaction (transaction_callback backend_trans transaction);
-                   transaction |> k)
-                backend_response
-              @> fun resp -> Write (path,resp) |> k
-      | WriteList l ->
-          let l_q =
-            match l with
-            | D.Query l_q -> l_q
-            | D.Response _ -> assert false
-          in
-          let l_op = List.map snd l_q in
+            Backend.write (IntMap.find (pred tr_next_version) !transmap) path op
+          @> fun backend_response ->
+            let tr = Badop.Aux.result_transaction backend_response in
+            transmap := IntMap.add tr_next_version tr !transmap (* no continuation needed *)
+      | WriteList (tr_next_version, D.Query l_q) ->
+          let l_paths,l_op = List.split l_q in
           Badop.Aux.map_write_list_op (* From Protocol.transaction to Backend.transaction *)
             ~revision:(fun r k -> r |> k)
-            ~transaction:(fun _ k -> assert(not true);
-                            backend_trans |> k)
+            ~transaction:(fun _ k -> assert false |> k)
             l_op
-          @> (fun l_op ->
-                let l_zip = List.combine (List.map fst l_q) l_op in
-                Backend.write_list backend_trans l_zip
-                @> (fun backend_trans ->
-                      (* From Backend.transaction to Protocol.transaction *)
-                      let transaction = N.dup transaction transaction_channel_spec in
-                      N.setup_respond
-                        transaction
-                        (transaction_callback backend_trans transaction);
-                      WriteList (D.Dialog_aux.respond l transaction) |> k))
-      | Prepare (D.Query () as query) ->
-          Backend.Tr.prepare backend_trans
-          @> fun (backend_trans,success) ->
-            let transaction = N.dup transaction transaction_channel_spec in
-            N.setup_respond transaction (transaction_callback backend_trans transaction);
-            Prepare (D.Dialog_aux.respond query (transaction, success)) |> k
-      | Commit (D.Query () as query) ->
-          Backend.Tr.commit backend_trans
+          @> fun l_op ->
+            Backend.write_list (IntMap.find (pred tr_next_version) !transmap) (List.combine l_paths l_op)
+          @> fun tr ->
+            transmap := IntMap.add tr_next_version tr !transmap (* no continuation needed *)
+      | Prepare (D.Query tr_next_version as query) ->
+          Backend.Tr.prepare (IntMap.find (pred tr_next_version) !transmap)
+          @> fun (tr,success) ->
+            transmap := IntMap.add tr_next_version tr !transmap;
+            Prepare (D.Dialog_aux.respond query success) |> k
+      | Commit (D.Query tr_version as query) ->
+          Backend.Tr.commit (IntMap.find tr_version !transmap)
           @> fun resp -> Commit (D.Dialog_aux.respond query resp) |> k
-      | Abort (D.Query () as query) ->
-          Backend.Tr.abort backend_trans
+      | Abort (D.Query tr_version as query) ->
+          Backend.Tr.abort (IntMap.find tr_version !transmap)
           @> fun resp -> Abort (D.Dialog_aux.respond query resp) |> k
-      | Read (_, D.Response _) | Prepare (D.Response _) | Commit (D.Response _) | Abort (D.Response _) ->
+      | Fork (D.Query tr_version as query) ->
+          let channel = N.dup channel transaction_channel_spec in
+          let transmap = ref (IntMap.filter_keys ((<=) tr_version) !transmap) in
+          N.setup_respond channel (transaction_callback transmap channel);
+          Fork (D.Dialog_aux.respond query channel) |> k
+      | Read (_, D.Response _) | WriteList (_, D.Response _) | Prepare (D.Response _)
+      | Commit (D.Response _) | Abort (D.Response _) | Fork (D.Response _) ->
           assert false
 
   let main_callback db (channel: database) :
@@ -107,19 +94,19 @@ struct
     =
     fun request k ->
       let init_tr backend_tr k =
-        let transaction = N.dup channel transaction_channel_spec in
-        N.setup_respond transaction (transaction_callback backend_tr transaction);
-        transaction |> k
+        let channel = N.dup channel transaction_channel_spec in
+        N.setup_respond channel (transaction_callback (ref (IntMap.singleton 0 backend_tr)) channel);
+        channel |> k
       in
       match request with
       | Transaction (D.Query () as query) ->
           Backend.Tr.start db
-            (fun _exc -> N.alert_channel channel)
+            (fun _exc -> N.panic channel)
           @> fun backend_tr -> init_tr backend_tr
           @> fun tr -> Transaction (D.Dialog_aux.respond query tr) |> k
       | Transaction_at (D.Query rev as query) ->
           Backend.Tr.start_at_revision db rev
-            (fun _exc -> N.alert_channel channel)
+            (fun _exc -> N.panic channel)
           @> fun backend_tr -> init_tr backend_tr
           @> fun tr -> Transaction_at (D.Dialog_aux.respond query tr) |> k
       | Status (D.Query () as query) ->
