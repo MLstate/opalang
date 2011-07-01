@@ -27,11 +27,10 @@ module E = Badop_engine
 open C.Ops (* This file follows the duck-style cps guidelines © *)
 
 ##property [mli]
-##extern-type [normalize] transaction_status = Active | Aborted (* | Finished (?) *)
+##extern-type [normalize] transaction_status = Active of Badoplink.transaction | Aborted (* | Finished (?) *)
 
 ##extern-type [normalize] monadic_trans('a) = {                 \
   database: Badoplink.database ;                                \
-  badoplink_tr: Badoplink.transaction ;                         \
   status: transaction_status ;                                  \
   fallback: unit -> 'a QmlCpsServerLib.continuation -> unit ;   \
   (* == (unit, 'a) C.func *)                                    \
@@ -90,14 +89,24 @@ let fail db s ret k =
 ##register [opacapi;cps-bypass] start: Badoplink.database, 'a, continuation(t('a)) -> void
 let start db x k =
   (fun k -> match get_transaction k db with
-   | Some tr -> (true, tr) |> k
-   | None -> B.trans_start db @> C.ccont_ml k @> fun tr -> (false, tr) |> k)
+   | Some tr -> (true, Active tr) |> k
+   | None ->
+       B.trans_start db
+       @> C.catch_ml
+         (fun exc k1 ->
+            Logger.error "Could not start transaction";
+            if ServerLib.compare exc (B.transaction_fail_exception()) <> 0 then
+              let _ = Logger.error "not for me ! Re-raise" in
+              exc |> C.handler_cont k1 (* re-raise *)
+            else
+              (false, Aborted) |> k)
+       @> C.ccont_ml k @> fun tr -> (false, Active tr) |> k
+  )
   @> C.ccont_ml k
-  @> fun (embedded, tr) ->
+  @> fun (embedded, status) ->
     {
       database = db;
-      badoplink_tr = tr;
-      status = Active;
+      status = status;
       fallback = (fun () k -> x |> k);
       embedded = embedded;
       value = x;
@@ -106,22 +115,22 @@ let start db x k =
 ##register[cps-bypass] abort: t('a), continuation('a) -> void
 let abort htr k = match htr.status with
   | Aborted -> htr.value |> k
-  | Active ->
-      htr.badoplink_tr.Badoplink.tr_engine.Badop_engine.tr_abort htr.badoplink_tr.Badoplink.tr
+  | Active btr ->
+      btr.Badoplink.tr_engine.Badop_engine.tr_abort btr.Badoplink.tr
       @> fun () -> htr.fallback () @> k
 
 ##register [opacapi;cps-bypass] commit: t('a), continuation('a) -> void
 let commit htr k =
   match htr.status with
     | Aborted -> htr.value |> k
-    | Active ->
+    | Active btr ->
         if htr.embedded then htr.value |> k
         else
-          htr.badoplink_tr.Badoplink.tr_engine.Badop_engine.tr_prepare htr.badoplink_tr.Badoplink.tr
+          btr.Badoplink.tr_engine.Badop_engine.tr_prepare btr.Badoplink.tr
           @> (fun k (tr, success) ->
                 match success with
                 | true ->
-                    htr.badoplink_tr.Badoplink.tr_engine.Badop_engine.tr_commit
+                    btr.Badoplink.tr_engine.Badop_engine.tr_commit
                       tr k
                 | false -> k false)
           @> (fun k success ->
@@ -146,26 +155,25 @@ let continue htr f fallback k =
   match htr.status with
     | Aborted ->
         abort_trans htr @> k
-    | Active ->
+    | Active btr ->
         match get_transaction k htr.database with
         | None ->
             let k = (* Set the handler inside the continuation *)
               C.catch_ml
                 (fun exc k -> (* Handler *)
                    Logger.debug "Transaction aborted";
-                   htr.badoplink_tr.B.tr_engine.E.tr_abort htr.badoplink_tr.B.tr
-                   @> fun () ->
-                     abort_trans htr @> C.ccont_ml k
-                     @> fun htr ->
-                       if ServerLib.compare exc (B.transaction_fail_exception()) <> 0 then
-                         htr.fallback () @> C.ccont_ml k
-                         @> fun _ -> exc |> C.handler_cont k (* re-raise *)
-                       else
-                         htr |> k)
+                   btr.B.tr_engine.E.tr_abort btr.B.tr @> (fun () -> ());
+                   abort_trans htr @> C.ccont_ml k
+                   @> fun htr ->
+                     if ServerLib.compare exc (B.transaction_fail_exception()) <> 0 then
+                       htr.fallback () @> C.ccont_ml k
+                       @> fun _ -> exc |> C.handler_cont k (* re-raise *)
+                     else
+                       htr |> k)
                 k
             in
             let k = (* Then set the context inside the continuation *)
-              set_transaction k htr.database htr.badoplink_tr
+              set_transaction k htr.database btr
             in
             f htr.value @> C.ccont_ml k
             @> (fun value ->
@@ -176,11 +184,11 @@ let continue htr f fallback k =
                   | Some badoplink_tr -> {
                       htr with
                         value = value;
-                        badoplink_tr = badoplink_tr;
+                        status = Active badoplink_tr;
                         fallback = fun () k -> htr.fallback () @> C.ccont_ml k @> fun a -> fallback a @> k;
                     } |> k)
         | Some badoplink_tr ->
-            if not htr.embedded || badoplink_tr != htr.badoplink_tr
+            if not htr.embedded || badoplink_tr != btr
             then
               (Logger.error "Transaction mismatch (trying to continue a transaction within an incompatible one)";
                abort_trans htr @> k)
