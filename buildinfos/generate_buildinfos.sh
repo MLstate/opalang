@@ -79,7 +79,7 @@ git_date_cmd ()    { git log -n1 --pretty=format:%ad --date=short; }
 # special case for opalang, the origin is the publication
 git_opalang_version_cmd () {
     local ORIGIN_SHA='fccc6851ccd2cb4fd9e83ba7b8c8d6d780ed3e13'
-    git log --pretty=oneline "$ORIGIN_SHA".. | wc -l
+    git log --pretty=oneline "$ORIGIN_SHA".. | awk '/^'$ORIGIN_SHA'/ { x=1 } END { print NR+1-x }'
 }
 
 is_git_root () {
