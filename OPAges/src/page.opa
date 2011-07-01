@@ -504,6 +504,7 @@ Page = {{
         // do access.notify.remove(id)
         do Dom.remove(#{id})
         do del_preview(file)
+        do file_line_set_edit(file, false)
         true
       _ -> true
     @private @both insert_pos = {at_end}:WTabs.pos
@@ -565,7 +566,6 @@ Page = {{
     @private file_line_set_edit(file, force) =
       id = buffer_file_id(file)
       buf = Dom.select_raw("#{id} #{id}_select}")
-      do Log.info("[set_edit]", "{file} {Dom.is_empty(buf)} {Dom.is_enabled(buf)}")
       s = if (Dom.is_empty(buf) || Dom.is_enabled(buf)) && not(force) then "" else "[editing]"
       Dom.set_text(#{file_line_edit(file)},s)
 
@@ -586,9 +586,12 @@ Page = {{
       li_id = WHList.item_id(admin_files_id, key)
       li_sons = WHList.item_sons_class(admin_files_id)
       sons = Dom.select_raw("li#{li_id} > ul > li.{li_sons}")
-      do Dom.toggle(sons)
       do Dom.toggle_class(#{li_id}, "toggled")
-      Log.info("[dbl]","dbl click on {file}")
+      // do Dom.toggle(sons) // does not seem to work as expected
+      do if Dom.has_class(#{li_id}, "toggled") then Dom.hide(sons)
+      else Dom.show(sons)
+      do Log.info("[toggle_file_sons]","toggle {file}")
+      void
 
     /** Create a file line for table insert. */
     @private file_line(access:Page.full_access, opened, name, file, published_rev, preview) =
@@ -601,7 +604,7 @@ Page = {{
       </span>
 
     /** Insert if necessary a file line into files navigator. */
-    @private file_line_insert(access, opened, file_uri, published_rev, preview) =
+    @private file_line_insert(access, opened, file_uri, published_rev, preview, collapse) =
 
       match file_uri
       {none} -> void
@@ -640,7 +643,7 @@ Page = {{
               do match WHList.insert_item(file_config, admin_files_id, key, item, none, false) with
               ~{some} ->
                 do Log.info("[file_line_insert]", "Insert OK @{some}")
-                do if List.length(acc) > 0 then
+                do if collapse && List.length(acc) > 0 then
                   toggle_file_sons(file)
                 else void
                 void
@@ -1136,13 +1139,35 @@ Page = {{
         do Dom.remove_class(dom_on, "on")
         void
 
+      expand_file(file_uri) =
+        match file_uri
+        {none} -> void
+        {some=uri} ->
+          match uri
+          ~{fragment is_directory is_from_root path query} ->
+            path = List.take(List.length(path)-1, path)
+            _ = List.fold(
+              e, acc ->
+                file = Uri.to_string({~fragment ~is_directory ~is_from_root path=List.rev([e|acc]) ~query})
+                fid = navigator_file_id(file)
+                li_id = WHList.item_id(admin_files_id, fid)
+                do if Dom.has_class(#{li_id}, "toggled") then
+                  do toggle_file_sons(file)
+                  void
+                else void
+                [e|acc]
+              , path, [])
+            void
+          _ -> void
+
       /**
        * Open file
        */
       open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
+        do Log.info("[open_file]", "{file}")
         do all_off()
         file_uri = Uri.of_string(file)
-        do file_line_insert(access, true, file_uri, pub, false)
+        do file_line_insert(access, true, file_uri, pub, false, false)
         id = buffer_file_id(file)
         buf = Dom.select_id(id)
         fid = navigator_file_id(file)
@@ -1161,6 +1186,7 @@ Page = {{
           do Dom.remove_class(buf, "off")
           void
         do file_line_set_edit(file, true)
+        do expand_file(file_uri)
         Dom.clear_value(#admin_new_file)
 
       /**
@@ -1172,7 +1198,7 @@ Page = {{
         file = make_absolute(file)
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
-        do file_line_insert(access, true, file_uri, none, false)
+        do file_line_insert(access, true, file_uri, none, false, false)
         do open_file(access, file, none)(event)
         void
 
@@ -1243,7 +1269,8 @@ Page = {{
           file_line_insert(
             access, false, file_uri,
             (if pub.rev==0 then none else some(pub.rev)),
-            preview
+            preview,
+            true
           )
         , page_list
       )
