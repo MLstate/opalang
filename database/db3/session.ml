@@ -31,6 +31,12 @@ module DT = DbTypes
   module List = BaseList
   module Tr = Transaction
 
+  module WIM = Weak.Make(struct
+    type t = Tr.t
+    let equal a b = compare (Tr.get_num a) (Tr.get_num b) = 0
+    let hash = Tr.get_num
+  end)
+
   (* The queue of transaction numbers, stored in order of appearance,
      helps in choosing the next prepare to do (the longest waiting).
      TODO: it's imperative; perhaps do this functionally? *)
@@ -53,7 +59,7 @@ module DT = DbTypes
 
   type t = { mutable trans_num : int
                (* counter for fresh transaciton serial numbers *)
-           ; mutable init_map : (int list) intmap
+           ; init_map : WIM.t
              (* map of the not commited and not rolled back transactions
                 initialised under given revisions; no empty lists allowed;
                 used only for optimization, to shorten db_to_merge *)
@@ -251,7 +257,7 @@ module DT = DbTypes
       | e -> raise (Open (None, Printexc.to_string e)) in
     let db = Hldb.make () in
     { trans_num = 0
-    ; init_map = IntMap.empty
+    ; init_map = WIM.create 11
     ; db_ref = db
     ; db_to_merge = IntMap.empty
     ; with_dot = false
@@ -580,50 +586,30 @@ module DT = DbTypes
         #<End>;
       let tr =
         match tr_read_only with
-        | Some read_only -> Tr.init t.db_ref ~read_only trans_num 
-        | None ->  Tr.init t.db_ref trans_num 
+        | Some read_only -> Tr.init t.db_ref ~read_only trans_num
+        | None ->  Tr.init t.db_ref trans_num
       in
+    
       match read_only with
-      | Some (true, _) ->
-          tr
-      | _ ->
-          let rev = Hldb.get_rev t.db_ref in
-          let vrev = Revision.value rev in
-          let new_map =
-            let new_list =
-              match IntMap.find_opt vrev t.init_map with
-              | Some l -> trans_num :: l
-              | None -> [trans_num]
-            in
-            IntMap.add vrev new_list t.init_map
-          in
-          t.init_map <- new_map;
-          tr
-
-  let remove_from_init_map trans init_map =
-    let trans_rev = Hldb.get_rev (Tr.get_db trans) in
-    let t_num = Tr.get_num trans in
-    let vrev = Revision.value trans_rev in
-    let l = IntMap.find vrev init_map in
-    let l = List.remove_all t_num l in
-    if List.is_empty l then
-      (* no empty lists allowed *)
-      IntMap.remove vrev init_map
-    else
-      IntMap.add vrev l init_map
+      | Some (true, _) -> tr
+      | _ -> WIM.add t.init_map tr; tr
 
   let shrink_db_to_merge t =
     if (IntMap.is_empty t.db_to_merge
-        || IntMap.is_empty t.init_map)
+        || WIM.count t.init_map = 0)
     then
       IntMap.empty
     else
       let (min, _) = IntMap.min t.db_to_merge in
-      let (min_used, _) = IntMap.min t.init_map in
-      let rm k _v acc =
-        if IntMap.mem k acc then IntMap.remove k acc
-        else acc
-      in
+      let min_used =
+        (WIM.fold
+        (fun tr acc ->
+          if acc = -1 then
+            (Revision.value (Hldb.get_rev (Tr.get_db tr)))
+          else
+            (Pervasives.min acc (Revision.value (Hldb.get_rev (Tr.get_db tr)))))
+         t.init_map (-1)) in
+      let rm k _v acc = IntMap.remove k acc in
       IntMap.fold_range rm t.db_to_merge min min_used t.db_to_merge
 
   let abort_of_unprepared t _trans =
@@ -670,8 +656,7 @@ module DT = DbTypes
     let trans_rev = Hldb.get_rev (Tr.get_db trans) in
     let t_num = Tr.get_num trans in
     let vrev = Revision.value trans_rev in
-    let l = IntMap.find_opt vrev t.init_map in
-    if not (Option.default_map false (List.mem t_num) l) then begin
+    if not (WIM.mem t.init_map trans) then begin
       #<If>
         Logger.log ~color:`magenta
           "DB : transaction %d at revision %d has already been comitted or aborted. Cannot prepare it again." t_num vrev
@@ -774,8 +759,7 @@ module DT = DbTypes
           (* Not removed from init_map, because at the higher level
              it may be wiped up and rebuilt differently, so it still exists. *)
         end else begin
-          let new_map = remove_from_init_map trans t.init_map in
-          t.init_map <- new_map;
+          WIM.remove t.init_map trans;
           t.db_to_merge <- shrink_db_to_merge t;
           (* Release the lock. *)
           t.session_lock <- None;
@@ -793,11 +777,10 @@ module DT = DbTypes
         let success =
           try
             assert (Tr.get_num transl = Tr.get_num trans);
-            let new_map = remove_from_init_map trans t.init_map in
-            t.init_map <- new_map;
+            WIM.remove t.init_map trans;
             t.db_ref <- db;
             let cur_rev = Hldb.get_rev db in
-            if IntMap.is_empty new_map then
+            if WIM.count t.init_map = 0 then
               (* The most common case. No messing around with query maps. *)
               t.db_to_merge <- IntMap.empty
             else begin
@@ -813,10 +796,7 @@ module DT = DbTypes
               t.db_to_merge <- db_to_merge;
               t.db_to_merge <- shrink_db_to_merge t;
             end;
-            (* TODO: without '~trans' it breaks tests; no idea why.
-               Perhaps when it reads db back, it replay trans,
-               which reinitializes some stuff left blank
-               in a freshly loaded db. *)
+
             disk_writing t ~trans cur_rev;
             t.db_ref <- Hldb.clean_tmp_maps db;
             (* Release the lock. *)
@@ -868,12 +848,16 @@ module DT = DbTypes
 
 
   (* writing to DB *)
+  let update_init_map t tr =
+    WIM.remove t.init_map tr;
+    WIM.add t.init_map tr;
+    tr
 
-  let set trans path data = Tr.set trans path data
+  let set t trans path data = update_init_map t (Tr.set trans path data)
 
-  let remove trans path = Tr.remove trans path
+  let remove t trans path = update_init_map t (Tr.remove trans path)
 
-  let set_link trans path link = Tr.set_link trans path link
+  let set_link t trans path link = update_init_map t (Tr.set_link trans path link)
 
-  let set_copy _t trans path (target_path, target_rev) =
-    Tr.set_copy trans path (target_path, target_rev)
+  let set_copy t trans path (target_path, target_rev) =
+    update_init_map t (Tr.set_copy trans path (target_path, target_rev))

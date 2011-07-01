@@ -145,17 +145,17 @@ type 'which write_op = ('which,transaction,revision) Badop.generic_write_op
 
 let write trans path op k = match op with
   | Badop.Set (D.Query data as q) ->
-      Badop.Set (D.Dialog_aux.respond q { trans with tr = Session.set trans.tr path data }) |> k
+      Badop.Set (D.Dialog_aux.respond q { trans with tr = Session.set trans.db.session trans.tr path data }) |> k
   | Badop.Clear (D.Query () as q) ->
       Badop.Clear
         (D.Dialog_aux.respond q
            (try
-              { trans with tr = Session.remove trans.tr path }
+              { trans with tr = Session.remove trans.db.session trans.tr path }
             with Hldb.UnqualifiedPath -> trans)) |> k
   | Badop.Link (D.Query linkpath as q) ->
       Badop.Link
         (D.Dialog_aux.respond q
-           { trans with tr = Session.set_link trans.tr path linkpath }) |> k
+           { trans with tr = Session.set_link trans.db.session trans.tr path linkpath }) |> k
   | Badop.Copy (D.Query (copypath,copyrev) as q) ->
       Badop.Copy
         (D.Dialog_aux.respond q

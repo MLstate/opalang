@@ -39,9 +39,9 @@
   val really_commit : t -> Transaction.t -> bool
 
   (* db writes *)
-  val set : Transaction.t -> Path.t -> DataImpl.t -> Transaction.t
-  val remove : Transaction.t -> Path.t -> Transaction.t
-  val set_link : Transaction.t -> Path.t -> Path.t -> Transaction.t
+  val set : t -> Transaction.t -> Path.t -> DataImpl.t -> Transaction.t
+  val remove : t -> Transaction.t -> Path.t -> Transaction.t
+  val set_link : t -> Transaction.t -> Path.t -> Path.t -> Transaction.t
   val set_copy : t -> Transaction.t -> Path.t -> (Path.t * Revision.t option) -> Transaction.t
 
   (* db reads *)
