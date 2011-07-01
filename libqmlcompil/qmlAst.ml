@@ -316,11 +316,9 @@ type ident = Ident.t
 
 module TypeIdent :
 sig
-  type tag = Concrete | Extern
-  type uniq
   type t = private
            | Raw of Ident.t
-           | Processed of uniq
+           | Processed of Ident.t
 
   (** to be used in printers *)
   val to_printable_string : t -> string
@@ -331,8 +329,7 @@ sig
   val of_string : ?check:bool -> string -> t (* should be used only by the parser *)
   val of_ident : Ident.t -> t
 
-  val new_concrete : t -> t
-  val new_external_ty : t -> t
+  val new_type_ident : t -> t
 
   val is_already_known : t -> bool
 
@@ -347,22 +344,15 @@ struct
      to do the right cast with the data in qmltoplevel.
      For others application, there is no distinction *)
 
-  type tag = Concrete | Extern
-  type uniq = tag * Ident.t
-  type t = Raw of Ident.t | Processed of uniq
+  type t = Raw of Ident.t | Processed of Ident.t
 
   let is_already_known = function
     | Raw _ -> false
     | Processed _ -> true
 
   let to_debug_string id =
-    let tag_to_string = function
-      | Concrete -> ""
-      | Extern ->  "(ext)"
-    in
     match id with
-    | Raw x -> Printf.sprintf "``_ty_raw_%s" (Ident.to_string x)
-    | Processed (t, i) -> Printf.sprintf "``_ty_%s_%s" (Ident.to_string i) (tag_to_string t)
+    | Raw i | Processed i -> Printf.sprintf "``_ty_%s" (Ident.to_string i)
 
   (*
     We test strictly than the of_string function is called only on
@@ -386,8 +376,7 @@ struct
     )
 
   let to_string = function
-    | Raw x
-    | Processed (_,x) -> Ident.original_name x
+    | Raw x | Processed x -> Ident.original_name x
 
   let to_printable_string = to_string
 
@@ -400,22 +389,18 @@ struct
   (* ************************************************************************ *)
   (** {b Visibility}: Not exported outside this module.                       *)
   (* ************************************************************************ *)
-  let new_ident tag = function
-    | Raw name -> Processed (tag, name)
-    | Processed (_, i) -> Processed (tag, i)
-
-  let new_concrete id = new_ident Concrete id
-
-  let new_external_ty id = new_ident Extern id
+  let new_type_ident = function
+    | Raw name -> Processed name
+    | Processed i -> Processed i
 
   (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
      constructor, this must be removed and replaced by a simple
      Ident.compare. *)
   let compare_names x y =
     match x, y with
-    | Processed (_, x), Processed (_, y) -> Ident.compare x y
-    | Raw x, Processed (_, y)
-    | Processed (_, x), Raw y
+    | Processed x, Processed y -> Ident.compare x y
+    | Raw x, Processed y
+    | Processed x, Raw y
     | Raw x, Raw y -> Ident.compare x y
 
   (* FIXME this comparison is completely crazy, it defines an equality that
@@ -425,9 +410,9 @@ struct
      Ident.compare. *)
   let compare x y =
     match x, y with
-    | Processed (_, i), Processed (_, j) -> Ident.compare i j
-    | Raw x, Processed (_, y)
-    | Processed (_, x), Raw y
+    | Processed i, Processed j -> Ident.compare i j
+    | Raw x, Processed y
+    | Processed x, Raw y
     | Raw x, Raw y -> Ident.compare x y
 
 (* TODO-REFACT: compare is the same thing than compare_names. Remove one.
@@ -442,7 +427,7 @@ struct
     equal(t1, t2) => hash(t1) = hash(t2)
   *)
   let hash = function
-    | Processed (_, i)
+    | Processed i
     | Raw i ->
         Ident.hash i
 end

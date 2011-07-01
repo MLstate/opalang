@@ -207,13 +207,11 @@ struct
              let add_ti ti visibility = [(ti, (vars, te), visibility)] in
              match te with
              | _ when TypeIdent.is_already_known ti -> add_ti ti visibility
-             | Q.TypeAbstract ->
-                 add_ti (TypeIdent.new_external_ty ti) visibility
              | _ ->
                  (* [TODO] Attention, here the body of the definition is
                     allowed to use only type constructors that are visible
                     from the currently compiled package. *)
-                 add_ti (TypeIdent.new_concrete ti) visibility)
+                 add_ti (TypeIdent.new_type_ident ti) visibility)
           ty_defs in
       let tirec = List.map (fun (ti, (vars, _), _) -> (ti, vars)) l in
       let (more_gamma, gamma), l =
