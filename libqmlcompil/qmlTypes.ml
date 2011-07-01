@@ -609,38 +609,29 @@ struct
       in handle_ty [] t
 
     let add id (s, visibility) g =
-      assert (TypeIdent.is_already_known id);
+      (* TODO-REFACT: Remove when no more tags on TypeIdent. *)
+      assert (TypeIdent.is_already_known id) ;
       let field_map =
-        if TypeIdent.is_external_ty id then (
-          (** Abstract (i.e external) : don't update the field map. *)
-          g.field_map
-         )
-        else
-          (** Update field map : only in the case of type sum and type record *)
-          let fields =
-            let _, ty = Scheme.export s in
-            records_field_names ty
-          in
-          List.fold_left (fun map f -> ImplFieldMap.add f id map) g.field_map fields
-      in
+        (* Update field map : only in the case of type sum and type record.
+           Abstract type are obviously skipped. *)
+        let fields =
+          let (_, ty) = Scheme.export s in
+          records_field_names ty in
+        List.fold_left
+          (fun map f -> ImplFieldMap.add f id map) g.field_map fields in
       let field_map_quick =
-        if TypeIdent.is_external_ty id then (
-           (** Abstract(i.e external) : don't update the field map. *)
-          g.field_map_quick
-         )
-        else
-          (** Update field map : only in the case of type sum and type record *)
-          let fields =
-            let _, ty = Scheme.export s in
-            records_field_names_quick ty
-          in
-          let fields = List.map StringSet.from_list fields in
-          List.fold_left (fun map f -> ImplFieldMapQuick.add f id map) g.field_map_quick fields
-      in
+        (* Update field map : only in the case of type sum and type record. *)
+        let fields =
+          let _, ty = Scheme.export s in
+          records_field_names_quick ty in
+        let fields = List.map StringSet.from_list fields in
+        List.fold_left
+          (fun map f -> ImplFieldMapQuick.add f id map)
+          g.field_map_quick fields in
       let type_ident = TypeIdentMap.add id (s, visibility) g.type_ident in
       { g with
-          type_ident = type_ident ; field_map = field_map ;
-          field_map_quick = field_map_quick }
+        type_ident = type_ident ; field_map = field_map ;
+        field_map_quick = field_map_quick }
 
     let mem id g =
       match id with
@@ -721,8 +712,7 @@ let unsugar_type gamma ty =
     | Q.TypeName (params, ti) ->
         let (ti, tsc) =
           Env.TypeIdent.findi ~visibility_applies: true ti gamma in
-        if TypeIdent.is_external_ty ti ||
-           Scheme.instantiate tsc = Q.TypeAbstract then (
+        if (Scheme.instantiate tsc) = Q.TypeAbstract then (
           (* The type name is bound to a definition that is said "abstract" or
              "extern", so return a type that is a named type with the same
              name than the initial one. This way, since the type has no

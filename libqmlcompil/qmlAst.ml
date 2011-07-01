@@ -335,7 +335,6 @@ sig
   val new_external_ty : t -> t
 
   val is_already_known : t -> bool
-  val is_external_ty : t -> bool
 
   val compare_names : t -> t -> int
   val equal_names : t -> t -> bool
@@ -408,12 +407,6 @@ struct
   let new_concrete id = new_ident Concrete id
 
   let new_external_ty id = new_ident Extern id
-
-  let is_external_ty = function
-    | Raw _ ->
-        (* The identifier should have already been please processed. *)
-        assert false
-    | Processed (t, _) -> t = Extern
 
   (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
      constructor, this must be removed and replaced by a simple
