@@ -160,7 +160,7 @@ Page = {{
    * {2 Privates preview utils}
    */
 
-  @private preview_context = UserContext.make(StringMap.empty:stringmap(Page.stored_content))
+  @server @private preview_context = UserContext.make(StringMap.empty:stringmap(Page.stored_content))
 
   @server @private set_preview(key,page) =
     UserContext.change(StringMap.add(key,page,_), preview_context)
