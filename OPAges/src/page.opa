@@ -745,22 +745,34 @@ Page = {{
             _ -> acc
           map = List.foldi(make_map, hist, IntMap.empty)
 
-          map_fold(key, (user, date, parent, _sons), acc) =
+          map_fold(key, (user, date, parent, sons), (acc, pad)) =
             i = key
-            based = "" //if parent < 0 then "" else " based on {parent}"
-            len =
-              match IntMap.get(parent, map)
-              {some=(_user, _date, _parent, sons)} -> List.length(sons)
-              _ -> 0
-            end
-            pad = String.make(len-1, '-')
+            based = "" // if parent < 0 then "" else " based on {parent}"
+            pad = String.make(pad, '-')
             value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
+            r = access.access.get_rev_number(file)
+            value = if r.rev == i then value ^ " [pub]" else value
+            value = if access.access.history_size(file) == i then value ^ " [last]" else value
             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
             res = match rev
             | {none} ->    if i == size then selected(i) else default(i)
             | {some=rev} ->if i == rev  then selected(i) else default(i)
             [res|acc]
+
+          rec aux(map, rev, (acc, pad, p_sons_len)) =
+            match IntMap.get(rev, map)
+            {some=(user, date, parent, sons)} ->
+              acc = map_fold(rev, (user, date, parent, sons), (acc, pad))
+              len = List.length(sons)
+              pad = if len > 1 || p_sons_len > 1 then pad+1 else pad
+              List.fold(
+                rev_son, acc -> aux(map, rev_son, (acc, pad, len))
+              , sons, acc)
+            _ -> acc
+
+          build_revisions(map) =
+            aux(map, 1, ([], 0, 0))
 
 //           make_option(i, (user, date, parent) : (string, Date.date, int)) : xhtml =
 //             i = i+1
@@ -774,8 +786,9 @@ Page = {{
 //             end
 
           <select id={select_id} onchange={action_change_rev}>
-            {IntMap.fold(map_fold, map, [])}
+            {build_revisions(map)}
           </select>
+          //{IntMap.fold(map_fold, map, [])}
           // {List.rev_mapi(make_option, hist)}
 
         buttons =
