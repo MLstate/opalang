@@ -316,9 +316,7 @@ type ident = Ident.t
 
 module TypeIdent :
 sig
-  type t = private
-           | Raw of Ident.t
-           | Processed of Ident.t
+  type t = Ident.t
 
   (** to be used in printers *)
   val to_printable_string : t -> string
@@ -329,30 +327,14 @@ sig
   val of_string : ?check:bool -> string -> t (* should be used only by the parser *)
   val of_ident : Ident.t -> t
 
-  val new_type_ident : t -> t
-
-  val is_already_known : t -> bool
-
-  val compare_names : t -> t -> int
-  val equal_names : t -> t -> bool
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val hash : t -> int
 end =
 struct
-  (* We use a distinction between abstract and extern in order
-     to do the right cast with the data in qmltoplevel.
-     For others application, there is no distinction *)
+  type t = Ident.t
 
-  type t = Raw of Ident.t | Processed of Ident.t
-
-  let is_already_known = function
-    | Raw _ -> false
-    | Processed _ -> true
-
-  let to_debug_string id =
-    match id with
-    | Raw i | Processed i -> Printf.sprintf "``_ty_%s" (Ident.to_string i)
+  let to_debug_string id = Printf.sprintf "``_ty_%s" (Ident.to_string id)
 
   (*
     We test strictly than the of_string function is called only on
@@ -375,61 +357,26 @@ struct
       assert false
     )
 
-  let to_string = function
-    | Raw x | Processed x -> Ident.original_name x
+  let to_string x = Ident.original_name x
 
   let to_printable_string = to_string
 
-  let of_string ?(check=true) name =
-    if check then opacapi_check name;
-    Raw (Ident.source name)
+  let of_string ?(check = true) name =
+    if check then opacapi_check name ;
+    Ident.source name
 
-  let of_ident ident = Raw ident
+  let of_ident ident = ident
 
-  (* ************************************************************************ *)
-  (** {b Visibility}: Not exported outside this module.                       *)
-  (* ************************************************************************ *)
-  let new_type_ident = function
-    | Raw name -> Processed name
-    | Processed i -> Processed i
-
-  (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
-     constructor, this must be removed and replaced by a simple
-     Ident.compare. *)
-  let compare_names x y =
-    match x, y with
-    | Processed x, Processed y -> Ident.compare x y
-    | Raw x, Processed y
-    | Processed x, Raw y
-    | Raw x, Raw y -> Ident.compare x y
-
-  (* FIXME this comparison is completely crazy, it defines an equality that
-   * is not transitive! *)
-  (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw
-     constructor, this must be removed and replaced by a simple
-     Ident.compare. *)
-  let compare x y =
-    match x, y with
-    | Processed i, Processed j -> Ident.compare i j
-    | Raw x, Processed y
-    | Processed x, Raw y
-    | Raw x, Raw y -> Ident.compare x y
-
-(* TODO-REFACT: compare is the same thing than compare_names. Remove one.
-                equal is the same thing than equal_names. Remove one. *)
+  let compare x y = Ident.compare x y
 
   let equal x y = compare x y = 0
 
-  let equal_names x y = compare_names x y = 0
 
   (*
     <!> keep the following property :
     equal(t1, t2) => hash(t1) = hash(t2)
   *)
-  let hash = function
-    | Processed i
-    | Raw i ->
-        Ident.hash i
+  let hash i = Ident.hash i
 end
 
 (**
@@ -497,14 +444,15 @@ module EqualsTy : sig
   val equal : ty -> ty -> bool
   val compare : ty -> ty -> int
   (** comparison modulo alpha-renaming of typevars, rowvars, colvars
-      * if the [absorb] flag is on, it means that [Some row or col var] is equal to [None]
-      (but if row or col vars are present on both sides, they must be consistent)
-      * if the [collapse] flag is on, then distinct variables from the first type are allowed
-      to be collapsed in the second one (warning this option is not symmetric)
-      * if the [byname] flag is on, the more permissive comparison by name is used on named types
+      * if the [absorb] flag is on, it means that [Some row or col var] is equal
+        to [None] (but if row or col vars are present on both sides, they must
+        be consistent)
+      * if the [collapse] flag is on, then distinct variables from the first
+        type are allowed to be collapsed in the second one (warning this option
+        is not symmetric)
   *)
-  val equal_alpha : ?collapse:bool -> ?absorb:bool -> ?byname:bool -> ty -> ty -> bool
-  val compare_alpha : ?collapse:bool -> ?absorb:bool -> ?byname:bool -> ty -> ty -> int
+  val equal_alpha : ?collapse: bool -> ?absorb: bool -> ty -> ty -> bool
+  val compare_alpha : ?collapse: bool -> ?absorb: bool -> ty -> ty -> int
 end =
 struct
   type t = ty
@@ -548,21 +496,21 @@ struct
       let cmp_field (tfn, tft) (ufn, uft) =
         let c = Pervasives.compare tfn ufn in
         if c <> 0 then c
-        else compare tft uft
-      in
-      List.make_compare cmp_field f1 f2
-    in compare
+        else compare tft uft in
+      List.make_compare cmp_field f1 f2 in
+    compare
 
-  let compare = compare_gen TypeIdent.compare TypeVar.compare (Option.make_compare RowVar.compare) (Option.make_compare ColVar.compare)
+  let compare =
+    compare_gen
+      TypeIdent.compare TypeVar.compare (Option.make_compare RowVar.compare)
+      (Option.make_compare ColVar.compare)
 
   let equal t1 t2 = (compare t1 t2 = 0)
 
-  let compare_alpha ?(collapse=false) ?(absorb=false) ?(byname=false) t1 t2 =
-    let cmp_ti = if byname then TypeIdent.compare_names else TypeIdent.compare in
+  let compare_alpha ?(collapse=false) ?(absorb=false) t1 t2 =
     let hashtbl_size = 8 in
     let option_make =
-      if absorb
-      then fun cmp v1 v2 -> Option.default 0 (Option.map2 cmp v1 v2)
+      if absorb then fun cmp v1 v2 -> Option.default 0 (Option.map2 cmp v1 v2)
       else Option.make_compare in
     let cmp_factory =
       if collapse
@@ -582,10 +530,10 @@ struct
     let cmp_tv = cmp_factory TypeVar.compare
     and cmp_rv = cmp_factory (option_make RowVar.compare)
     and cmp_cv = cmp_factory (option_make ColVar.compare) in
-    compare_gen cmp_ti cmp_tv cmp_rv cmp_cv t1 t2
+    compare_gen TypeIdent.compare cmp_tv cmp_rv cmp_cv t1 t2
 
-  let equal_alpha ?(collapse=false) ?(absorb=false) ?(byname=false) t1 t2 =
-    compare_alpha ~collapse ~absorb ~byname t1 t2 = 0
+  let equal_alpha ?(collapse=false) ?(absorb=false) t1 t2 =
+    compare_alpha ~collapse ~absorb t1 t2 = 0
 
 end
 
@@ -1357,7 +1305,7 @@ module TypeIdentMap : (BaseMapSig.S with type key = TypeIdent.t) = BaseMap.Make 
     (* not [compare], because it needs to work for user-written names of types,
        so that we can find a type with a given name without knowing
        if it's abstract and if so, what the abstract stamp is *)
-    let compare = TypeIdent.compare_names (* TODO-REFACT: when TypeIdent won't have no more Processed | Raw constructor, this must be removed and replaced by a simple Typeident.compare which will be Ident.compare. *)
+    let compare = TypeIdent.compare
     end )
 
 module TypeIdentSet : (BaseSetSig.S with type elt = TypeIdent.t) = BaseSet.Make ( TypeIdent )

@@ -55,7 +55,7 @@ let empty_memory = []
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 let compare_expansions ex1 ex2 =
-  (QmlAst.TypeIdent.equal_names ex1.W_Algebra.nst_name ex2.W_Algebra.nst_name)
+  (QmlAst.TypeIdent.equal ex1.W_Algebra.nst_name ex2.W_Algebra.nst_name)
   &&
   (List.for_all2
      (fun arg1_ty arg2_ty -> arg1_ty == arg2_ty)

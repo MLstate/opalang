@@ -402,6 +402,3 @@ val process_typenames_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotm
 
 (** fails if there are duplicate type definitions *)
 val check_no_duplicate_type_defs : QmlAst.code -> unit
-
-(** check is a type is processed (e.g. as a result of type_of_type) *)
-val is_processed : QmlAst.ty -> bool

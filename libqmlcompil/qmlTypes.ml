@@ -333,7 +333,7 @@ struct
       | Q.TypeRecord r -> check_row r
       | Q.TypeName (vars, name) ->
           List.iter check vars ;
-          if TypeIdent.equal_names name tname then
+          if TypeIdent.equal name tname then
             let ok =
               if ty == t then (
                 (* We want to reject definitions trivially cyclic like
@@ -458,8 +458,7 @@ struct
     let (_, body, ()) = QmlGenericScheme.export_unsafe s in
     map_vars_of_ty map_ty map_row (fun col _ -> col) body
 
-  let id ty =
-    QmlGenericScheme.import FreeVars.empty ty ()
+  let id ty = QmlGenericScheme.import FreeVars.empty ty ()
 
   let explicit_forall tsc =
     let (tv,rv,cv),ty = export tsc in
@@ -481,7 +480,8 @@ struct
       | None ->
           raise (QmlTyperException.Exception
                    (QmlTyperException.loc_empty,
-                    QmlTyperException.IdentifierNotFound (id, IdentMap.keys g.ident)))
+                    QmlTyperException.IdentifierNotFound
+                      (id, IdentMap.keys g.ident)))
     let add id s g = { g with ident = IdentMap.add id s g.ident }
     let remove id g = { g with ident = IdentMap.remove id g.ident }
     let mem id g = IdentMap.mem id g.ident
@@ -529,9 +529,7 @@ struct
         need to see types' structure once the typechecker ensured these types,
         even not visible are used in a consistent way. *)
     let find_opt ~visibility_applies id g =
-      let opt_found =
-        (match id with
-         | T.Raw _ | T.Processed _ -> TypeIdentMap.find_opt id g.type_ident) in
+      let opt_found = TypeIdentMap.find_opt id g.type_ident in
       match opt_found with
       | None -> None
       | Some (sch, visibility) ->
@@ -539,9 +537,7 @@ struct
           else Some sch
 
     let findi_opt ~visibility_applies id g =
-      let opt_found =
-        (match id with
-         | T.Raw _ | T.Processed _ -> TypeIdentMap.findi_opt id g.type_ident) in
+      let opt_found = TypeIdentMap.findi_opt id g.type_ident in
       match opt_found with
       | None -> None
       | Some (i, (sch, visibility)) -> (
@@ -573,9 +569,7 @@ struct
     let raw_find id g =
       (* Since we return both the bound scheme and its visibility information,
          fetch in the environment is done ignoring visibility. *)
-      let opt_found =
-        (match id with
-         | T.Raw _ | T.Processed _ -> TypeIdentMap.find_opt id g.type_ident) in
+      let opt_found = TypeIdentMap.find_opt id g.type_ident in
       Option.get_exn
         (QmlTyperException.Exception
            (QmlTyperException.loc_empty,
@@ -609,8 +603,6 @@ struct
       in handle_ty [] t
 
     let add id (s, visibility) g =
-      (* TODO-REFACT: Remove when no more tags on TypeIdent. *)
-      assert (TypeIdent.is_already_known id) ;
       let field_map =
         (* Update field map : only in the case of type sum and type record.
            Abstract type are obviously skipped. *)
@@ -622,7 +614,7 @@ struct
       let field_map_quick =
         (* Update field map : only in the case of type sum and type record. *)
         let fields =
-          let _, ty = Scheme.export s in
+          let (_, ty) = Scheme.export s in
           records_field_names_quick ty in
         let fields = List.map StringSet.from_list fields in
         List.fold_left
@@ -633,11 +625,8 @@ struct
         type_ident = type_ident ; field_map = field_map ;
         field_map_quick = field_map_quick }
 
-    let mem id g =
-      match id with
-      | T.Raw _ | T.Processed _ -> TypeIdentMap.mem id g.type_ident
+    let mem id g = TypeIdentMap.mem id g.type_ident
 
-    (* we iter and fold only on the PreciseMap (because it's the only thing that makes sense) *)
     let iter f g = TypeIdentMap.iter f g.type_ident
 
     let fold f g = TypeIdentMap.fold f g.type_ident
@@ -792,24 +781,26 @@ let unsugar_type gamma ty =
 
 
 
+(* FPE says: after so many refactoring, it seems tat now this function only
+   checks that names of types are used with the right arity... *)
 let process_typenames ?(typedef=false) gamma ty =
   let aux ty =
     match ty with
     | Q.TypeName (tl, ti) ->
-        if TypeIdent.is_already_known ti then
-          ty
-        else (
-          let (ti, ts) =
-            Env.TypeIdent.findi ~visibility_applies: true ti gamma in
-          if (typedef || tl <> []) && List.length tl <> QmlGenericScheme.arity ts then
-            let exn = QmlTyperException.InvalidTypeUsage (ti, (QmlGenericScheme.export_ordered_quantif ts).QTV.typevar, tl) in
-            let (_, body, ()) = QmlGenericScheme.export_unsafe ts in
-            type_err_raise body exn
-          else
-            Q.TypeName (tl, ti)
-        )
-    | _ -> ty
-  in QmlAstWalk.Type.map_up aux ty
+        let (ti, ts) = Env.TypeIdent.findi ~visibility_applies: true ti gamma in
+        if (typedef || tl <> []) &&
+           (List.length tl <> QmlGenericScheme.arity ts) then
+          let exn =
+            QmlTyperException.InvalidTypeUsage
+              (ti, (QmlGenericScheme.export_ordered_quantif ts).QTV.typevar,
+               tl) in
+          let (_, body, ()) = QmlGenericScheme.export_unsafe ts in
+          type_err_raise body exn
+        else Q.TypeName (tl, ti)
+    | _ -> ty in
+  QmlAstWalk.Type.map_up aux ty
+
+
 
 let type_of_type ?(typedef = false) ?(tirec = []) gamma ty =
   let gamma =
@@ -853,29 +844,19 @@ let process_typenames_annotmap ~gamma annotmap =
 let process_annotmap ~gamma annotmap =
   QmlAnnotMap.map (type_of_type gamma) annotmap
 
+
+
 let check_no_duplicate_type_defs =
   let cmp x y =
-    let c = TypeIdent.compare_names x y in
-    if c = 0 && (TypeIdent.is_already_known x) && (TypeIdent.is_already_known y) && (TypeIdent.compare x y <> 0)
-    then
-        raise (QmlTyperException.Exception (QmlTyperException.loc_empty,
-        QmlTyperException.DuplicateTypeDefinitions (TypeIdent.to_string x)));
-    c
-  in
+    let c = TypeIdent.compare x y in
+    if c = 0 then
+      raise
+        (QmlTyperException.Exception
+           (QmlTyperException.loc_empty,
+            QmlTyperException.DuplicateTypeDefinitions
+              (TypeIdent.to_string x))) ;
+    c in
   ignore @* (List.sort cmp) @*
     (List.concat_map
        (function Q.NewType (_, l) ->
           List.map (fun ty_def -> ty_def.QmlAst.ty_def_name) l | _ -> []))
-
-let is_processed ty =
-  (*
-    Mathieu Mon Oct 11 18:30:56 CEST 2010
-    FIXME: what does the following comments means there ?
-  *)
-  (* FIXME: use intuitionistic logic *)
-  not (QmlAstWalk.Type.exists
-    (function
-      | Q.TypeSumSugar _ -> true
-      | Q.TypeName (_, ti) -> not (TypeIdent.is_already_known ti)
-      | _ -> false
-    ) ty)

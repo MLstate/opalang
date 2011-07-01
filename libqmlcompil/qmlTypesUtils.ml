@@ -44,7 +44,7 @@ end
 module TypeOrder =
 struct
   type t = Q.ty
-  let compare t1 t2 = Q.EqualsTy.compare_alpha ~collapse:true ~absorb:true ~byname:true t1 t2
+  let compare t1 t2 = Q.EqualsTy.compare_alpha ~collapse:true ~absorb:true t1 t2
   let to_string ty = Format.to_string QmlPrint.pp#ty ty
 end
 
