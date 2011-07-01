@@ -47,10 +47,6 @@ module TyPairSet : (BaseSetSig.S with type elt = QmlAst.ty * QmlAst.ty) =
 
 
 
-let typeident_is_abstract ti = QmlAst.TypeIdent.is_external_ty ti
-
-
-
 (**
    sort the list of type variables [bvs] bounds in a TypeForall
    according to the apparition order in the quantified type [t]
@@ -179,52 +175,15 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
         else (
           (* Ok, we are in the case where the 2 types are not equal by names.
              This means that they have different name and/or different
-             arguments.
-             If these types are abstract, then they have no more internal
-             representation (i.e. they are not abbreviations that could
-             point on a same representation, and they don't have any own
-             structure as told just above) and hence they are *different*. *)
-          if (typeident_is_abstract tn && typeident_is_abstract un) then false
-          else (
-            let t =
-              if typeident_is_abstract tn then QmlAst.TypeName (ts, tn)
-              else QmlTypes.Scheme.specialize ~typeident: tn ~ty: ts te in
-            let u =
-              if typeident_is_abstract un then QmlAst.TypeName (us, un)
-              else QmlTypes.Scheme.specialize ~typeident: un ~ty: us ue in
-            (* FPE: Dirty fix for ticket OPA-485. In fact, when comparing
-               1 type named different, testing if they are both abstract
-               (hence not equal) using the above:
-                  [(typeident_is_abstract tn && typeident_is_abstract un)]
-               is wrong. This test only check the tag of the ident. With
-               new @private and @abstract types, this tag seems not to be
-               informed whether a type is @abstract or @private. Hence, it
-               doesn't see that the types are @abstract and continues testing
-               on their structure. Since their structure are both
-               [QmlAstTypeAbstract], we go in the case where types are == and
-               and then the 2 different abstract types finally are considered
-               equal, which is totally wrong.
-               So, when we arrive here, we know that both named types have
-               not already be seen, have different names, the test on whether
-               they are both abstract based on their idents failed, so we
-               ensure that the bodies of the schemes bound to these 2 different
-               named types are not both [QmlAst.TypeAbstract]. If they are not,
-               we can safely recurse, otherwise, if they are both, we know
-               that they are 2 different named types abstract hence they are
-               not equal.
-               A better fix should be to make the tags in the ident consistent
-               with the new notion of @abstract / @private types. I don't know
-               if this is possible since such types are not abstract in their
-               definition package and are either not visible or abstract outside
-               their definition package. So I don't know yet if the mechanism
-               of tags in idents can support this change of status.
-               Other solution, may be remove the tags in idents mechanism if
-               this has no real meaning or is not consistent.
-               This issue is to be investigated to finally arrive to a better
-               fix of the ticket OPA-485. *)
-            if (t = QmlAst.TypeAbstract) && (u = QmlAst.TypeAbstract) then false
-            else test_tys_eq env ~bound_vars memo t u
-           )
+             arguments. *)
+          let t = QmlTypes.Scheme.specialize ~typeident: tn ~ty: ts te in
+          let u = QmlTypes.Scheme.specialize ~typeident: un ~ty: us ue in
+          (* If these types are abstract, then they have no more internal
+             representation (i.e. they are not abbreviations that could point on
+             a same representation, and they don't have any own structure) and
+             hence they are *different*. *)
+          if (t = QmlAst.TypeAbstract) && (u = QmlAst.TypeAbstract) then false
+          else test_tys_eq env ~bound_vars memo t u
          )
        )
   | ((Q.TypeForall _), _) | (_, (Q.TypeForall _)) ->
@@ -276,11 +235,9 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
         let memo = TyPairSet.add (t1, t2) memo in
         let (tn, te) =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true tn env in
-        if typeident_is_abstract tn then false
-        else (
-          let t = QmlTypes.Scheme.specialize ~typeident: tn ~ty: ts te in
-          test_tys_eq env memo t u
-        )
+        let t = QmlTypes.Scheme.specialize ~typeident: tn ~ty: ts te in
+        if t = QmlAst.TypeAbstract then false
+        else test_tys_eq env memo t u
       )
   | (_, (Q.TypeName (_, _))) -> call_aux ~bound_vars t2 t1
   | (Q.TypeAbstract, _) | (_, Q.TypeAbstract) -> false
@@ -302,7 +259,6 @@ and sort_and_cmp_fields env memo tfs ufs =
     let ufs' = sort_row_fields ufs in
     List.for_all2 cmp_field tfs' ufs'
    )
-
 
 
 
