@@ -177,6 +177,25 @@ type CChat.data_requester('user, 'content) =
     CChat.request('content) -> CChat.content('user, 'content)
 
 CChat = {{
+  /**
+   * {1 Resources}
+   */
+
+  @private resource_parameters =
+    { consumption={unlimited}; expiration={none}; visibility={shared} }
+
+  @private search_icon =
+    @static_resource("stdlib/components/chat/resources/search_icg_16.png")
+
+  @private clear_icon =
+    @static_resource("stdlib/components/chat/resources/close_icg_16.png")
+
+  @private @publish url_search_icon =
+    DynamicResource.publish(search_icon, resource_parameters)
+
+  @private @publish url_clear_icon =
+    DynamicResource.publish(clear_icon, resource_parameters)
+
 /**
  * {1 Configuration}
  *
@@ -205,9 +224,11 @@ CChat = {{
   default_edit_printer(update: option(string) -> void, init_content: string)
       : (xhtml, xhtml) =
     id = Dom.fresh_id()
-    (<input id={id} class="chat_edit_area" value={init_content} />,
+    update_message(_evt) = update({some = Dom.get_value(#{id})})
+    (<input id={id} class="chat_edit_area" value={init_content}
+        onnewline={update_message}/>,
     <button class="chat_confirm_edit"
-        onclick={_evt -> update({some = Dom.get_value(#{id})})}>
+        onclick={update_message}>
       Save
     </button>
     <button class="chat_cancel_edit"
@@ -233,7 +254,7 @@ CChat = {{
     // TODO: hide the 'Clear' button when the field is empty
     <>
       <input type="text" id=#{search_id(id)} class="search_entry"
-          onnewline={search_action}/>
+          onnewline={search_action} />
       <input type="hidden" id=#{filter_id} />
       <button class="button" onclick={search_action}>
         Search
@@ -242,6 +263,82 @@ CChat = {{
         Clear
       </button>
     </>
+
+  // TODO: factorize the code with [default_search_printer]
+  // TODO: make this search box a widget?
+  modern_search_printer(_display: CChat.display, id: string,
+      search: (string -> void), clear: -> void) =
+    search_input = #{search_id(id)}
+    filter_id = filter_id(id)
+    search_button_id = Dom.fresh_id()
+    clear_button_id = Dom.fresh_id()
+
+    /* Search actions */
+    clear_search = _evt ->
+      do clear()
+      do Dom.clear_value(#{filter_id})
+      do Dom.clear_value(search_input)
+      do Dom.hide(#{clear_button_id})
+      Dom.show(#{search_button_id})
+    search_action = evt ->
+      query = Dom.get_value(search_input)
+      if query == "" then
+        clear_search(evt)
+      else
+        do Dom.set_value(#{filter_id}, query)
+        do Dom.hide(#{search_button_id})
+        do Dom.show(#{clear_button_id})
+        search(Dom.get_value(search_input))
+
+    /* Search style */
+    wrap_style = "
+      background: white;
+      display:block;
+      float: left;
+      position: relative;
+      margin: 15px;
+      padding: 0;
+      border-radius: 10em;
+      -moz-border-radius: 10em;
+      -webkit-border-radius: 10em;
+      box-shadow: inset 0 1px 3px gray, 0 1px rgba(255,255,255,0.5);
+      -moz-box-shadow: inset 0 1px 3px gray, 0 1px rgba(255,255,255,0.5);
+      -webkit-box-shadow: inset 0 1px 3px gray, 0 1px rgba(255,255,255,0.5);
+    "
+    input_style = "
+      border-radius: 0.2em;
+      -moz-border-radius: 0.2em;
+      -webkit-border-radius: 0.2em;
+      margin: 1px;
+      padding: 2px;
+      border: 0px solid #BBB;
+      display: inline-block;
+      background: transparent;
+      float: left;
+    "
+    button_style(img_url, hidden) = "
+      background: url('{img_url}') no-repeat 50% 0px;
+      height: 16px;
+      width: 16px;
+      padding: 2px;
+      float: right;
+      display: {if hidden then "none" else "block"};
+    "
+
+    <div class="search_wrap" style="{wrap_style}">
+      <input type="text" id={search_id(id)} class="search_entry"
+          style="{input_style}"
+          onnewline={search_action}
+          onkeypress={evt ->
+              kc = evt.key_code ? Dom.Key.RETURN
+              if not(kc == Dom.Key.RETURN) then
+                do Dom.hide(#{clear_button_id})
+                Dom.show(#{search_button_id})} />
+      <a title="Clear" class="clean_search_button" onclick={clear_search}
+          id={clear_button_id} style="{button_style(url_clear_icon, true)}"></a>
+      <a title="Search" class="search_button" onclick={search_action}
+          id={search_button_id} style="{button_style(url_search_icon, false)}"></a>
+    </div>
 
   default_search_action(_query: string): CChat.content =
     // TODO: implement client-side search on non-persistent messages
@@ -261,7 +358,7 @@ CChat = {{
     date_printer      = {some = create_timer}
     entry_printer     = default_entry_printer
     edit_printer      = default_edit_printer
-    search_printer    = {some = default_search_printer(_, id, _, _)}
+    search_printer    = {some = modern_search_printer(_, id, _, _)}
     search_action     = {some = default_search_action}
   }
 
@@ -529,7 +626,8 @@ CChat = {{
       {if edit then
         <span class="chat_view">
           <button class="chat_start_edit"
-              onclick={_evt -> edit_message(config, id, data_writer, msg_id, msg, server)}>
+              onclick={_evt ->
+                edit_message(config, id, data_writer, msg_id, msg, server)}>
             Edit
           </button>
         </span>
@@ -606,6 +704,10 @@ CChat = {{
       | { ~remove } ->
         Dom.remove(#{message_id(id, remove)})
       | { edit=msg_id; ~new_content } ->
+        /*edit_button = select_message_class(id, msg_id, "chat_start_edit")*/
+        /*do Dom.unbind_event(edit_button, {click})*/
+        /*_ = Dom.bind(edit_button, {click}, (_evt -> edit_message(*/
+        /*    config, id, data_writer, msg_id, new_content, server)))*/
         _ = config.message_printer(new_content)
           |> Dom.of_xhtml(_)
           |> Dom.put_inside(select_message_class(id, msg_id, "chat_message"),
