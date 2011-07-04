@@ -89,11 +89,6 @@ type CLogin.config('login_data, 'state, 'credential) = {
   /** A callback that be call when the state change. */
   on_change : ('login_data -> void), 'credential -> void
 
-  /** A database path where user ['state] are saved. If [path_to_store
-  = none] then user states are not persistent beetween several server
-  running. */
-  dbpath : option(ref_path(stringmap('state)))
-
   /** */
   prelude : option(-> option('login_data))
 
@@ -122,10 +117,8 @@ CLogin = {{
    * The default [state] it's used when user is not logged.
    */
   make(state, config : CLogin.config) : CLogin.t = {
-      config = {config with dbpath = none}
-      state = match config.dbpath with
-        | {some = dbpath} -> UserContext.make_stored(state, dbpath)
-        | {none} -> UserContext.make(state)
+      ~config
+      state = UserContext.make(state)
       defaultc = config.get_credential(state)
     }
 
@@ -172,9 +165,8 @@ CLogin = {{
       match credential
       | {some=_} -> WLoginbox.set_logged_in(id, logout(dochange))
       | _ -> WLoginbox.set_logged_out(id, <>Invalid password</>)
-    dbpath = none
     prelude = none
-    { ~authenticate ~get_credential ~loginbox ~on_change ~dbpath ~prelude }
+    { ~authenticate ~get_credential ~loginbox ~on_change ~prelude }
 
 
 

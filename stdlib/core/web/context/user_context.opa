@@ -59,12 +59,16 @@ type UserContext.messages('state) = {exec: 'state -> (-> void)}
                                   / {set: 'state -> option('state)}
                                   / {remove: void}
                                   / {set_default: 'state}
+@private
+type UserContext.private.message('state) = {exec: 'state -> (-> void)}
+                                         / {set: 'state -> option('state)}
 /**
  * The type of UserContext parametrized by the type of value stored
  */
 @abstract
 type UserContext.t('state) = Cell.cell(UserContext.messages('state), option( ->void))
-
+@private
+type UserContext.private.t('state) = Cell.cell(UserContext.private.message('state), option( ->void))
 
 /**
  * {1 Interface}
@@ -88,69 +92,50 @@ UserContext =
    */
   @server
   make(default : 'state) =
-    init = (UserContextMap.empty: stringmap('state),default)
-    aux((state,default), msg) =
+    init = (UserContextMap.empty: stringmap(UserContext.private.t('state)),default)
+    rec val ctx = Cell.make(init, aux): UserContext.t('state)
+    and aux2(state,msg) = match msg with
+      | {~exec} -> {return=some(exec(state)) instruction={unchanged}}
+      | {~set} -> match set(state) with
+        | {~some} -> {return=none instruction={set=some}}
+        | {none} ->
+          do remove(ctx)
+          {return=none instruction={stop}}
+        end
+    and aux((state,default), msg) =
       get_info(client, state) =
-        Option.default(default, UserContextMap.get(client, state))
+        match UserContextMap.get(client, state) with
+          | {some=c} -> (c,false)
+          | {none} -> (Cell.make(default,aux2),true)
       client = match thread_context().key with
-        | {nothing} | {server=_server} -> do Log.warning("UserContext","The thread context is not client") ""
+        | {nothing} | {server=_server} ->
+          do Log.warning("UserContext","Cannot identify user. This execution is not attached to any user")
+          ""
         | {~client} -> client.client
       match msg with
       | {~exec} ->
-        {return=some(exec(get_info(client, state)))
-            instruction={unchanged}}
+        (c,new) = get_info(client, state)
+        instruction =
+          if new
+          then {set=(UserContextMap.add(client,c,state),default)}
+          else {unchanged}
+        {return=some(-> Cell.call(c, {~exec}) |> Option.get(_)())
+            ~instruction}
       | {~set} ->
-        new_info = set(get_info(client, state))
-        match new_info
-        | ~{some} ->
-          {return=none
-           instruction={set = (UserContextMap.add(client, some, state),default)}}
-        | {none} ->
-          {return=none
-           instruction={set = (UserContextMap.remove(client, state),default)}}
-        end
+        (c,new) = get_info(client, state)
+        instruction =
+          if new
+          then {set=(UserContextMap.add(client,c,state),default)}
+          else {unchanged}
+        f() = ignore(Cell.call(c, {~set}))
+        {return=some(f) ~instruction}
       | {remove} ->
         {return=none
          instruction={set = (UserContextMap.remove(client, state),default)}}
       | {~set_default} ->
         {return=none
          instruction={set=(state,set_default)}}
-    Cell.make(init, aux): UserContext.t('state)
-
-  /**
-   * [make(default, path)] Create an empty context from a default value and a path
-   * This UserContext will be stored in the database.
-   *
-   * @param default the default value of the UserContext
-   * @param path the database path for storing the UserContext
-   *
-   * @return A UserContext
-   */
-  @server
-  make_stored(default: 'state, path: ref_path(stringmap('state))) =
-    aux(default, msg)=
-      get_info(client) =
-        UserContextMap.get(client, Db.read(path)) ? default
-      client = match thread_context().key with
-        | {nothing} | {server=_server} -> ""
-        | {~client} -> client.client
-      match msg with
-      | {~exec} ->
-        {return=some(exec(get_info(client)))
-            instruction={unchanged}}
-      | {~set} ->
-        do match set(get_info(client))
-        | {some=info} ->
-          Db.write(path, UserContextMap.add(client, info, Db.read(path)))
-        | {none} ->
-          Db.write(path, UserContextMap.remove(client, Db.read(path)))
-        end
-        {return=none instruction={unchanged}}
-      | {remove} ->
-        do Db.write(path, UserContextMap.remove(client, Db.read(path)))
-        {return=none instruction={unchanged}}
-      | {~set_default} -> {return=none instruction={set=set_default}}
-    Cell.make(default, aux):  UserContext.t('state)
+    ctx
 
   /**
    * [change(f, context)] Change the state of a UserContext
@@ -162,7 +147,7 @@ UserContext =
    */
   @server
   change(change : ('state -> 'state), context : UserContext.t('state)) : void =
-    ignore(Cell.call(context, {set=(x -> some(change(x)))}))
+    (Cell.call(context, {set=(x -> some(change(x)))}) |> Option.get(_))()
 
   /**
    * [change_or_destroy(f, context)] Like [change(f, context)] but [f]
@@ -171,7 +156,7 @@ UserContext =
    */
   @server
   change_or_destroy(change : ('state -> option('state)), context : UserContext.t('state)) =
-    ignore(Cell.call(context, {set=change}))
+    (Cell.call(context, {set=change}) |> Option.get(_))()
 
   /**
    * [remove(context)] Remove the state associated with a user from a UserContext (the default value will be used instead)
