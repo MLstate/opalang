@@ -199,7 +199,7 @@ type GitHub.full_pull_req = {
         tree           = m.str("tree")
       } |> some
     | "IssueComment" ->
-      { comment_id     = m.int("comment_id")
+      { comment_id     = m.int("id")
         gravatar_id    = m.str("gravatar_id")
         user           = get_user_simple(m.record("user"))
         created_at     = m.date("created_at")
@@ -207,7 +207,7 @@ type GitHub.full_pull_req = {
         body           = m.str("body")
       } |> some
     | "PullRequestReviewComment" ->
-      { review_pos     = m.int("review_pos")
+      { review_pos     = m.int("position")
         diff_hunk      = m.str("diff_hunk")
         user           = get_user_simple(m.record("user"))
         commit_id      = m.str("commit_id")

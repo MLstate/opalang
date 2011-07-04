@@ -58,14 +58,14 @@ GHLib = {{
 
   api_get_full(full_path, data, parse_fun) =
     final_path = generic_build_path(full_path, data)
-    do jlog("GET {final_path}")
+    //do jlog("GET {final_path}")
     match Uri.of_string(final_path) with
     | {none} -> none
     | {some=uri} ->
       match WebClient.Get.try_get(uri) with
       | {failure=_} -> none
       | {success=s} ->
-        do jlog(s.content)
+        //do jlog(s.content)
         parse_fun(s.content)
       end
 
@@ -83,14 +83,14 @@ GHLib = {{
 
   full_post(base, path, data, parse_fun) =
     txtdata = AL.form_urlencode(data)
-    do jlog("POST {txtdata} on {base}{path}")
+    //do jlog("POST {txtdata} on {base}{path}")
     match Uri.of_string("{base}{path}") with
     | {none} -> none
     | {some=uri} ->
       match WebClient.Post.try_post(uri,txtdata) with
       | {failure=_} -> none
       | {success=s} ->
-        do jlog(s.content)
+        //do jlog(s.content)
         parse_fun(s.content)
       end
 
@@ -110,7 +110,7 @@ GHLib = {{
   v3_put(path, data, token:option(string), parse_fun) =
     txtdata =
       {Record=data}:RPC.Json.json |> Json.serialize
-    do jlog("PUT {txtdata} on {basev3}{path}")
+    //do jlog("PUT {txtdata} on {basev3}{path}")
     match Uri.of_string("{basev3}{path}") with
     | {none} -> none
     | {some=uri} ->
@@ -120,7 +120,7 @@ GHLib = {{
       match WebClient.Put.try_put_with_options(uri,txtdata,options) with
       | {failure=_} -> none
       | {success=s} ->
-        do jlog(s.content)
+        //do jlog(s.content)
         parse_fun(s.content)
       end
 
