@@ -653,13 +653,11 @@ module DT = DbTypes
 
   (* Never runs the continuation [k]. *)
   let prepare_commit t trans k =
-    let trans_rev = Hldb.get_rev (Tr.get_db trans) in
-    let t_num = Tr.get_num trans in
-    let vrev = Revision.value trans_rev in
     if not (WIM.mem t.init_map trans) then begin
       #<If>
         Logger.log ~color:`magenta
-          "DB : transaction %d at revision %d has already been comitted or aborted. Cannot prepare it again." t_num vrev
+          "DB : transaction %d at revision %d has already been comitted or aborted. Cannot prepare it again."
+          (Tr.get_num trans) (Revision.value (Hldb.get_rev (Tr.get_db trans)))
       #<End>;
       raise Hldb.Merge (* merge conflict of 0 transactions *)
     end else begin
