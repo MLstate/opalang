@@ -15,10 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-open QmlAst
-open QmlAstCons
-
-
 (* shorthands *)
 module Q = QmlAst
 module QC = QmlAstCons
@@ -35,7 +31,7 @@ let get name = fun ?(posexpr = default_pos name) annotmap gamma ->
     let ident = OpaMapToIdent.val_ name in
     let (ty : QmlAst.ty) =
       QmlTypes.Scheme.instantiate (QmlTypes.Env.Ident.find ident gamma) in
-    let (annotmap, e) = TypedExpr.ident annotmap ident ty in
+    let (annotmap, e) = QC.TypedExpr.ident annotmap ident ty in
     let annotmap =
       QmlAnnotMap.add_tsc_inst (QmlAst.QAnnot.expr e)
         (QmlTypes.Env.Ident.find ident gamma) annotmap in
@@ -58,7 +54,7 @@ let magic_add ~annotmap ~stdlib d =
 
 let add_to_magic ~stdlib ~gamma ~annotmap n e d =
   let annotmap, add = magic_add ~annotmap ~stdlib d in
-  let i = ExprIdent.next "magic_add" in
+  let i = Ident.next "magic_add" in
   let annotmap, e = QC.TypedExpr.apply gamma annotmap add [n; e] in
   let annotmap, e = QC.TypedExpr.directive annotmap (`side_annotation `both_implem) [e] [] in
   (annotmap, (i, e))
@@ -97,9 +93,9 @@ let process_expr ~specialize_env ~stdlib ~gamma ~annotmap ((i, e) as cpl) =
     | Q.Directive (_, (#Q.opavalue_directive as d), [expr], [Q.TypeName (args, name)]) ->
         check expr ;
         let ty = QmlAnnotMap.find_ty (QmlAst.QAnnot.expr expr) annotmap in
-        let (annotmap, expri) = TypedExpr.ident annotmap i ty in
+        let (annotmap, expri) = QC.TypedExpr.ident annotmap i ty in
         let (annotmap, name) =
-          TypedExpr.string annotmap (QmlAst.TypeIdent.to_string name) in
+          QC.TypedExpr.string annotmap (QmlAst.TypeIdent.to_string name) in
         let (annotmap, to_add) =
           add_to_magic ~stdlib ~gamma ~annotmap name expri d in
         let specialize_env =
