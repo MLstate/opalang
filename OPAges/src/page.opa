@@ -1275,6 +1275,11 @@ Page = {{
       (make_absolute(Dom.get_value(#admin_new_file)),
        Dom.get_value(#upload_mime_type))
 
+    /* We consider a file, a resource that has a dot in its path,
+       and is only at the root of the tree
+
+       @TODO: to be improved, with handling of sub folders,
+              currently, only first level is well ordered */
     is_file(file) =
       file_uri = Uri.of_string(file)
       Option.is_some(String.index(".", file)) &&
@@ -1283,12 +1288,15 @@ Page = {{
       {some={fragment=_ is_directory=_ is_from_root=_ ~path query=_}} ->
         List.length(path) == 1
 
+    /* Filters the files from the page list */
     filter_files(page_list) =
       List.filter((file, _pub, _preview) -> is_file(file), page_list)
 
+    /* Filters the directories from the page list */
     filter_dirs(page_list) =
       List.filter((file, _pub, _preview) -> not(is_file(file)), page_list)
 
+    /* Build the tree view */
     @client @private build_tree(access:Page.full_access)(_:Dom.event) =
       do Dom.transform([#admin_files_navigator <- WHList.html(file_config, admin_files_id, [])])
       page_list = List.unique_list_of(access.access.list())
