@@ -187,8 +187,7 @@ compare_front(ty) =
       do cache_ty.add(key,cmp)
       cmp
 
- {TyForall_quant = _; TyForall_body = impl}
- {TyPrivate_impl = impl; TyPrivate_ghost = _} -> compare_front(impl)
+ {TyForall_quant = _; TyForall_body = impl} -> compare_front(impl)
  _ -> compare_prematch_ty(ty)
 
  @private
@@ -342,8 +341,7 @@ compare_front(ty) =
         end
 
       /* Indirection cases ***********************/
-      {TyForall_quant = _; TyForall_body = impl}
-      {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(impl,preenv)
+      {TyForall_quant = _; TyForall_body = impl} -> aux(impl,preenv)
 
       /* Maybe error case if called *************/
       {TyRecord_row = _; TyRecord_rowvar = _}
@@ -406,7 +404,6 @@ equal_ty(ty1:OpaType.ty,ty2:OpaType.ty) =
 
   /* Indirection cases ***********************/
   {TyForall_quant = _; TyForall_body = impl1} -> match ty2 {TyForall_quant = _; TyForall_body = impl2} -> equal_ty(impl1,impl2) _ -> false end
-  {TyPrivate_impl = impl1; TyPrivate_ghost = _}-> match ty2 {TyPrivate_impl = impl2; TyPrivate_ghost = _}-> equal_ty(impl1,impl2) _ -> false end
 
   {TyVar = _} -> match ty2 {TyVar = _} -> true _ -> false end // ??
 

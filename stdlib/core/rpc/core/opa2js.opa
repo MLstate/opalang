@@ -121,7 +121,6 @@ import stdlib.core.{web.core, js}
         end
 
       /* Encapsulated types ***********************/
-      | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(value, impl): RPC.Json.js_code
       | {TyName_args = args; TyName_ident = ident} ->
         implem = OpaType.type_of_name(ident,args)
         aux(value, implem): RPC.Json.js_code

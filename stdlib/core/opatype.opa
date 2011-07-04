@@ -105,9 +105,6 @@ OpaTsc = {{
         {TyName_args = aux_list(TyName_args);
          TyName_ident = TyName_ident}
       | {TyAbstract} -> t
-      | {~TyPrivate_impl ~TyPrivate_ghost} ->
-        {TyPrivate_impl = aux(TyPrivate_impl);
-         TyPrivate_ghost = aux(TyPrivate_ghost)}//TODO: inst here, really?
       | {~TyForall_quant ~TyForall_body} ->
         //TODO : Remove quantifier if all instantiate in body??
         {TyForall_quant = TyForall_quant;
@@ -194,7 +191,6 @@ type OpaType.ty =
   {TyArrow_params : list(OpaType.ty); TyArrow_res : OpaType.ty} /
   {TyName_args : list(OpaType.ty); TyName_ident : OpaType.ty_ident} /
   {TyAbstract} /
-  {TyPrivate_impl : OpaType.ty; TyPrivate_ghost : OpaType.ty} /
   {TyForall_quant : OpaTsc.quantifier; TyForall_body : OpaType.ty} /
   {TyRecord_row : OpaType.fields} / /* INVARIANT: the lists are sorted by the field names lexixographically
                                      * (and the shorter record is the smaller) */
@@ -295,7 +291,6 @@ OpaType = {{
       | {~TySum_col ~TySum_colvar} -> "\{TySum_col = {aux_fields_list(TySum_col)}; TySum_colvar = {TySum_colvar}}"
       | {~TyName_args ~TyName_ident} -> "\{TyName_args = {aux_list(TyName_args)}; TyName_ident = {TyName_ident}}"
       | {TyAbstract} -> "\{TyAbstract}"
-      | {~TyPrivate_impl ~TyPrivate_ghost} -> "\{TyPrivate_impl = {aux(TyPrivate_impl)}; TyPrivate_ghost = {aux(TyPrivate_ghost)}}"
       | {~TyForall_quant ~TyForall_body} ->
 
         "\{TyForall_quant = {aux_quant(TyForall_quant)}; TyForall_body = {aux(TyForall_body)}}"
@@ -343,7 +338,6 @@ OpaType = {{
       | {~TySum_col TySum_colvar = _} -> to_pretty_lfields(TySum_col) ^ " / __"
       | {~TyName_args ~TyName_ident} -> TyName_ident ^ aux_list(TyName_args)
       | {TyAbstract} -> "abstract"
-      | {~TyPrivate_impl ...} -> "private(" ^ aux(TyPrivate_impl) ^ ")"
       | {~TyForall_quant ~TyForall_body} ->
         "forall(" ^ aux_quant(TyForall_quant) ^ ")." ^ aux(TyForall_body)
     and aux_quant(~{types rows cols}:OpaTsc.quantifier) =
@@ -383,8 +377,7 @@ OpaType = {{
     OpaTsc.instantiate_type_only(args, OpaTsc.get_unsafe(ident))
 
   /**
-   * Get implementation of the given type. i.e. traverse [TyName] and
-   * [TyPrivate].
+   * Get implementation of the given type. i.e. traverse [TyName].
    *
    * Note : If that should be returns {TyAbstract} instead returns the
    * named type that encapsulate {TyAbstract} (if it possible...)
@@ -392,7 +385,6 @@ OpaType = {{
   implementation(ty : OpaType.ty) =
     rec aux(ty : OpaType.ty) =
       match ty with
-      | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(impl)
       | {TyName_ident = ident; TyName_args = args} ->
         match type_of_name(ident, args) with
         | {TyAbstract} -> ty

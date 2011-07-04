@@ -94,7 +94,6 @@ OpaApiFile = {{
              table = associate_id_val(TyName_ident, val, table)
              aux_list(table, TyName_args)
            | {TyAbstract} -> table
-           | {TyPrivate_impl=_ ...} -> table
            | { TyForall_quant=_ TyForall_body=body } -> aux(table, body)
            end
          aux_sugar(table, ty:Api.ty) =

@@ -189,9 +189,6 @@ OpaValue = {{
         aux_rec(value, OpaType.fields_of_fields_list(value, col).f1, text)
 
       /* Encapsuled types ***********************/
-      | {TyPrivate_impl = impl; TyPrivate_ghost = _} ->
-        "private(" ++ aux(value, impl, text) ++ ")"
-
       | {TyName_args = args; TyName_ident = ident} ->
         todo_magic_container(
           %%BslValue.MagicContainer.to_string_get%%,
@@ -250,7 +247,6 @@ OpaValue = {{
         end
 
       /* Encapsuled types ***********************/
-      | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(a, b, impl)
       | {TyName_args = args; TyName_ident = ident} ->
         match %%BslValue.MagicContainer.compare_get%%(ident) with
         | {none} -> aux(a, b, OpaType.type_of_name(ident, args))

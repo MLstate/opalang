@@ -192,7 +192,6 @@ OpaDocXhtml = {{
         r = with_link(TyName_ident, <>{aux_tuple(TyName_ident)}</>)
         <>{r}({aux_list(TyName_args)})</>
       | {TyAbstract} -> <>external</>
-      | {~TyPrivate_impl ...} -> <>private({aux(TyPrivate_impl)})</>
       | {~TyForall_quant ~TyForall_body} ->
         <>&forall;
           {concat_greek(TyForall_quant.types

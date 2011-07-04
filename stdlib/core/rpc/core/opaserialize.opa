@@ -305,7 +305,6 @@ type OpaSerialize.options = {
         aux_abstract_client(value, WebUtils.is_client())
 
       /* Encapsulated types ***********************/
-      | {TyPrivate_impl = impl; TyPrivate_ghost = _} -> aux(value, impl)
       | {TyName_args = args; TyName_ident = ident} ->
          match %%BslValue.MagicContainer.serializer_get%%(ident) with
          | {none} -> aux(value, OpaType.type_of_name(ident, args))
@@ -659,8 +658,6 @@ type OpaSerialize.options = {
           ident, args, (ty, x -> aux(x, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
           json)
-      | (_, {TyPrivate_impl = impl; TyPrivate_ghost = _}) ->
-        aux(json, impl)
       | (_, {TyForall_quant = _; TyForall_body = body}) ->
         aux(json, body)
 
