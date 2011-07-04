@@ -157,13 +157,13 @@ let process_code ~stdlib ~gamma ~annotmap code =
   (specialize_env, annotmap, (List.rev toplvl))
 
 let just_purge code =
-  List.map
-    (QmlAstWalk.Top.map_expr
-       (function
-          | Q.Directive (_, #Q.opavalue_directive, [expr], _) -> expr
+  QmlAstWalk.CodeExpr.map
+    (QmlAstWalk.Expr.self_traverse_map
+       (fun self tra -> function
+          | Q.Directive (_, #Q.opavalue_directive, [expr], _) -> self expr
           | Q.Directive (_, #Q.opavalue_directive, _, _) as e ->
               let context = QmlError.Context.expr e in
               QmlError.serror context "Unexpected form for an opavalue directive.";
-              e
-          | e -> e)
+              tra e
+          | e -> tra e)
     ) code
