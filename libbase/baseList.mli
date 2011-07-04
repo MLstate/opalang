@@ -383,6 +383,14 @@ val filterbounds : 'a option * int -> ('b -> 'a) -> 'b list -> 'b list
 val assoc_custom_equality: eq:('a -> 'b -> bool) -> 'b -> ('a * 'c) list -> 'c
 
 (* ************************************************************************** *)
+(** {b Descr}: Returns the value (second component) associated with the key
+    (first component) equal to [x] in a list of pairs if it exists, else None.
+    Equality test is performed with the provided function [eq] instead of the
+    general [=] function.                                                     *)
+(* ************************************************************************** *)
+val assoc_custom_equality_opt: eq:('a -> 'b -> bool) -> 'b -> ('a * 'c) list -> 'c option
+
+(* ************************************************************************** *)
 (** {b Descr}: Transforms a list of triplets into a triplet of lists.         *)
 (* ************************************************************************** *)
 val split3: ('a * 'b * 'c) list -> ('a list * 'b list * 'c list)

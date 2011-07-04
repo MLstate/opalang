@@ -712,6 +712,11 @@ let rec assoc_custom_equality ~eq x = function
   | (k, v) :: rem ->
       if eq k x then v else assoc_custom_equality ~eq x rem
 
+let rec assoc_custom_equality_opt ~eq x = function
+  | [] -> None
+  | (k, v) :: rem ->
+      if eq k x then Some v else assoc_custom_equality_opt ~eq x rem
+
 
 (* ************************************************************************** *)
 (** {b Descr}: Transforms a list of triplets into a triplet of lists.         *)
