@@ -733,23 +733,33 @@ Page = {{
           do build_buffers(some(rev))
           build_pub_version(some(rev))
 
+        /* Build the select input, for selecting file revisions */
         build_select(rev) =
           hist = access.access.history_list(file)
           size = List.length(hist)
 
-          make_map(i, (user, date, parent), acc) =
+          /* Build the map of revisions,
+             Each cell contains :
+             - its author
+             - its date
+             - its parent revision
+             - its sons revision
+
+             @TODO: should be cached maybe? */
+          make_map(i, (author, date, parent), acc) =
             i = i+1
-            acc = IntMap.add(i, (user, date, parent, []), acc)
+            acc = IntMap.add(i, (author, date, parent, []), acc)
             match IntMap.get(parent, acc)
-            {some=(user, date, par, sons)} -> IntMap.add(parent, (user, date, par, [i|sons]), acc)
+            {some=(author, date, par, sons)} -> IntMap.add(parent, (author, date, par, [i|sons]), acc)
             _ -> acc
           map = List.foldi(make_map, hist, IntMap.empty)
 
-          map_fold(key, (user, date, parent, sons), (acc, pad)) =
+          /* Build one revision of the file for the select input */
+          build_rev(key, (author, date, parent, sons), (acc, pad)) =
             i = key
             based = "" // if parent < 0 then "" else " based on {parent}"
             pad = String.make(pad, '-')
-            value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
+            value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {author}{based}"
             r = access.access.get_rev_number(file)
             value = if r.rev == i then value ^ " [pub]" else value
             value = if access.access.history_size(file) == i then value ^ " [last]" else value
@@ -760,36 +770,28 @@ Page = {{
             | {some=rev} ->if i == rev  then selected(i) else default(i)
             [res|acc]
 
+          /* Auxiliary function for building revision.
+             First treat the parent revision, then folds on its sons.
+             There will be a padding if the parent revision has more than one sons */
           rec aux(map, rev, (acc, pad, p_sons_len)) =
             match IntMap.get(rev, map)
-            {some=(user, date, parent, sons)} ->
-              acc = map_fold(rev, (user, date, parent, sons), (acc, pad))
+            {some=(author, date, parent, sons)} ->
+              acc = build_rev(rev, (author, date, parent, sons), (acc, pad))
+              pad = if p_sons_len > 1 then pad+1 else pad
               len = List.length(sons)
-              pad = if len > 1 || p_sons_len > 1 then pad+1 else pad
               List.fold(
                 rev_son, acc -> aux(map, rev_son, (acc, pad, len))
               , sons, acc)
             _ -> acc
 
+          /* Build the file revisions list,
+             we know the root is revision 1 because no revision is deleted */
           build_revisions(map) =
             aux(map, 1, ([], 0, 0))
-
-//           make_option(i, (user, date, parent) : (string, Date.date, int)) : xhtml =
-//             i = i+1
-//             based = if parent < 0 then "" else " based on {parent}"
-//             value = "#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {user}{based}"
-//             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
-//             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
-//             match rev
-//             | {none} ->    if i == size then selected(i) else default(i)
-//             | {some=rev} ->if i == rev  then selected(i) else default(i)
-//             end
 
           <select id={select_id} onchange={action_change_rev}>
             {build_revisions(map)}
           </select>
-          //{IntMap.fold(map_fold, map, [])}
-          // {List.rev_mapi(make_option, hist)}
 
         buttons =
           common = <>
