@@ -41,10 +41,19 @@ type options =
       opt_ssl_ca_path : string;
       opt_ssl_client_ca_file : string;
       opt_ssl_client_cert_path : string;
+      opt_ssl_certificate : SslAS.ssl_certificate option;
+      opt_ssl_verify_params : SslAS.ssl_verify_params option;
       opt_dialog: string;
       opt_on_server_close : Scheduler.t -> unit;
       opt_name: string;
+      opt_email_handler : SCC.email -> int * string
     }
+
+let handle_email { SCC.from=_from; dests=_dests; body=_body } =
+  #<If$minlevel 10>Logger.debug "handle_email:\n";
+  Logger.debug "FROM: %s TO: [%s]\n" _from (String.concat ", " _dests);
+  Logger.debug "%s\n" (Rcontent.get_content _body)#<End>;
+  250, "Ok"
 
 let default_options =
   { opt_addr = "0.0.0.0";
@@ -59,9 +68,12 @@ let default_options =
     opt_ssl_ca_path = "";
     opt_ssl_client_ca_file = "";
     opt_ssl_client_cert_path = "";
+    opt_ssl_certificate = None;
+    opt_ssl_verify_params = None;
     opt_dialog = "default";
     opt_on_server_close = (fun _ -> ());
     opt_name = "smtpServerPort";
+    opt_email_handler = handle_email
   }
 
 let prefixed_opt name opt = [Printf.sprintf "--%s-%s" name opt; Printf.sprintf "--%s" opt]
@@ -100,29 +112,30 @@ let spec_args name =
   ]
 
 let make_ssl_cert opt =
-  if opt.opt_ssl_cert <> "" then
-    if opt.opt_ssl_key <> "" then
-      Some (SslAS.make_ssl_certificate opt.opt_ssl_cert opt.opt_ssl_key opt.opt_ssl_pass)
-    else begin
-      Logger.critical "Error : ssl-cert option MUST be used with ssl-key option";
-      exit 1
-    end
-  else
-    None
+  match opt.opt_ssl_certificate with
+  | Some x -> Some x
+  | None ->
+    if opt.opt_ssl_cert <> "" then
+      if opt.opt_ssl_key <> "" then
+        Some (SslAS.make_ssl_certificate opt.opt_ssl_cert opt.opt_ssl_key opt.opt_ssl_pass)
+      else begin
+        Logger.critical "Error : ssl-cert option MUST be used with ssl-key option";
+        exit 1
+      end
+    else
+      None
 
 let make_ssl_verify opt =
-  if opt.opt_ssl_ca_file <> "" || opt.opt_ssl_ca_path <> "" || opt.opt_ssl_client_cert_path <> "" then
-    Some (SslAS.make_ssl_verify_params ~client_ca_file:opt.opt_ssl_client_ca_file
-      ~accept_fun:opt.opt_ssl_accept_fun ~always:opt.opt_ssl_always
-      opt.opt_ssl_ca_file opt.opt_ssl_ca_path opt.opt_ssl_client_cert_path)
-  else
-    None
+  match opt.opt_ssl_verify_params with
+  | Some x -> Some x
+  | None ->
+    if opt.opt_ssl_ca_file <> "" || opt.opt_ssl_ca_path <> "" || opt.opt_ssl_client_cert_path <> "" then
+      Some (SslAS.make_ssl_verify_params ~client_ca_file:opt.opt_ssl_client_ca_file
+              ~accept_fun:opt.opt_ssl_accept_fun ~always:opt.opt_ssl_always
+              opt.opt_ssl_ca_file opt.opt_ssl_ca_path opt.opt_ssl_client_cert_path)
+    else
+      None
 
-let handle_email { SCC.from=_from; dests=_dests; body=_body } =
-  #<If$minlevel 10>Logger.debug "handle_email:\n";
-  Logger.debug "FROM: %s TO: [%s]\n" _from (String.concat ", " _dests);
-  Logger.debug "%s\n" (Rcontent.get_content _body)#<End>;
-  250, "Ok"
 
 let handle_verify = function
   | _ -> (551,"User not local")
@@ -153,7 +166,7 @@ let make (_name:string) (opt:options) (_sched:Scheduler.t) : t =
                 server_port = 2525;
                 hello_message = "";
                 client_domain = "";
-                callback = handle_email;
+                callback = opt.opt_email_handler;
                 verify = handle_verify;
                 expand = handle_expand;
                 extended = false;
