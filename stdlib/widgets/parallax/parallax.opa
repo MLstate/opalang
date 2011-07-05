@@ -87,10 +87,14 @@ WParallax = {{
  *
  *@param config The widget configuration
  *@param sources The elements configuration list
+ *@param id The widget ID
  *@return The HTML corresponding to the widget
  */
-  html(config: WParallax.config, sources: list(WParallax.src)): xhtml =
-    parallax = <div id=#parallax style="positon:absolute overflow:hidden" onready={_ -> configure(config,sources)}></div>
+  html(config: WParallax.config, sources: list(WParallax.src), id: string): xhtml =
+    list_sources = sort_sources(sources)
+    parallax = <div id="{id}_parallax" class=opa_parallax style="positon:absolute overflow:hidden" onready={_ -> configure(config,sources,id)}>
+               {get_content(config,list_sources)}
+               </div>
     WStyler.add(config.global_style,parallax)
 
 /*
@@ -240,14 +244,14 @@ WParallax = {{
  *
  *@param config The widget configuration
  *@param sources The elements configuration list
+ *@param id The widget ID
  */
   @private
-  configure(config: WParallax.config, sources: list(WParallax.src)): void =
+  configure(config: WParallax.config, sources: list(WParallax.src), id: string): void =
     list_sources = sort_sources(sources)
-    dom_parallax = Dom.select_id("parallax")
+    dom_parallax = Dom.select_id("{id}_parallax")
     do Dom.set_style(dom_parallax,[{position={relative}},{overflow={hidden}},{width={px=config.width}},{height={px=config.height}}])
-    do Dom.transform([#parallax <- get_content(config,list_sources)])
-    _ = Dom.bind(dom_parallax,{mousemove},handle(config,list_sources,_))
+    _ = Dom.bind(dom_parallax,{mousemove},handle(config,list_sources,_,id))
     void
 
 
@@ -279,9 +283,9 @@ WParallax = {{
  *@param event The event information
  */
   @private
-  handle(config: WParallax.config, sources: list(WParallax.src), event: Dom.event): void =
+  handle(config: WParallax.config, sources: list(WParallax.src), event: Dom.event, id: string): void =
     dimensions = event.mouse_position_on_page
-    offset = Dom.get_offset(Dom.select_id("parallax"))
+    offset = Dom.get_offset(Dom.select_id("{id}_parallax"))
     percent_x = get_adjustment(dimensions.x_px,offset.x_px,config.width)
     percent_y = get_adjustment(dimensions.y_px,offset.y_px,config.height)
     adjust(source) = (
@@ -293,7 +297,7 @@ WParallax = {{
       margin_left = float_of_int(config.width - w) / 2.
       adj_x = int_of_float(percent_x * margin_left)
       adj_y = int_of_float(percent_y * margin_top)
-      src = Dom.select_id("{source.id}")
+      src = Dom.select_inside(Dom.select_id("{id}_parallax"),Dom.select_id("{source.id}"))
       style = match config.display with
         |{horizontal} -> if source.depth>0
                          then [{left={px=adj_x}}]
