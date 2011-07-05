@@ -25,3 +25,11 @@
 {
     return document.createElement('input').placeholder !== undefined
 }
+
+##register support_notification: -> bool
+##args()
+{
+    if(window.webkitNotifications)
+      return true;
+    else return false;
+}

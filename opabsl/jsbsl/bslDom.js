@@ -896,3 +896,19 @@ function bsldom_do_slide_out(dom, maybe_duration, maybe_easing, maybe_cb)
    }
     (new $(window)).bind('beforeunload', f);
 }
+
+##register notification: string,string,string -> void
+##args(img_url,title,body)
+{
+    if(window.webkitNotifications){
+        function RequestPermission (callback) { window.webkitNotifications.requestPermission(callback); }
+        function showNotification(){
+            if (window.webkitNotifications.checkPermission() > 0) {
+                RequestPermission(showNotification);
+            } else {
+                window.webkitNotifications.createNotification(img_url,title,body).show();
+            }
+        }
+        showNotification()
+            };
+}

@@ -1968,12 +1968,36 @@ Dom = {{
     do store_insertion_handlers(dom, ins)
     wrap_as_dom(dom)
 
-
+  /**
+   * Check functionality supported by the client's browser.
+   */
   Support = {{
     placeholder() : bool =
        %% BslDomSupport.support_placeholder %%()
 
+    notification():bool =
+      %% BslDomSupport.support_notification %%()
   }}
+
+
+  /**
+   * Allow to use Html5 notification system.
+   */
+  Notification = {{
+    /**
+     *Displays a notification on the clients screen
+     *
+     *@param img Url of the notification icon, put empty string for no icon
+     *@param title Title of the notification
+     *@param body Text of the notification
+     */
+    show(img : string, title : string, body : string):void =(
+      if Support.notification()
+      then %% BslDom.notification %%(img,title,body)
+      else Log.warning("Notification","Your browser doesn't support Html5 notification")
+    )
+  }}
+
 }}
 
 
