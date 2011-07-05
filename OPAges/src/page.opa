@@ -34,15 +34,42 @@ type Page.config('a, 'b) = {
 }
 
 type Page.config.access = {
-  set : string, Page.stored -> int
-  set_rev : string, Page.published -> void
-  get : string -> option((Page.stored,int))
-  get_rev : string -> option((Page.stored,int))
-  get_rev_number : string -> Page.published
+
+  /** Read function of stored datas. */
+  select : (
+      /** Return the last version of page. */
+      {last : string} /
+
+      /** Return the published version of page. */
+      {published : string} /
+
+      /** Return the [rev] revision of page. */
+      {key : string rev : int}
+    ) -> option({rev : int page : Page.stored})
+
+  /** Write function on stored datas. */
+  save : (
+      /** Save a new page revision */
+      {key : string page : Page.stored} /
+
+      /** Set [publish] as publihed revision. */
+      {key : string publish : Page.published}
+    ) -> int
+
+  /** Return info on the published page. */
+  published : string -> option(Page.published)
+
+  /** Remove page stored on corresponding key. */
   rm  : string -> void
-  ls  : -> list((string,Page.published))
-  date : string -> Date.date
-  history : string, int, int -> list(Page.stored)
+
+  /** List all of stored key associated to corresponding published
+      page. */
+  ls : -> list((string, option(Page.published)))
+
+  /** Return list of all page stored at given key. (Last stored page
+      as first element of list). */
+  history : string -> list(Page.stored)
+
 }
 
 /**
@@ -60,7 +87,6 @@ type Page.manager = {
   resource_with_env: string, Page.env -> Page.t
   try_resource: string -> option(Page.t)
   source : string -> option(string)
-  date : string -> Date.date
 }
 
 /**
@@ -97,8 +123,6 @@ type Page.manager = {
   get_rev_number : string -> Page.published
   remove : string -> void
   list : -> list((string,Page.published,bool))
-  date : string -> Date.date
-  history_size : string -> int
   history_list : string -> list((string, Date.date, int))
   history_edit : string, int -> option(Page.edit)
 }
@@ -345,16 +369,14 @@ Page = {{
         (Notification, Lock)
 
     access(user) : Page.access    =
-      get(key) : option((Page.stored,int)) = caccess.get_rev(key)
+      get(key) : option((Page.stored,int)) = Option.map(~{page rev} -> (page, rev), caccess.select({published = key}))
 
       save(key, page : Page.stored_content, rev_opt) : int =
-        caccess.set(key, {author=user content=page date=Date.now() parent=(rev_opt ? -1) })
+        caccess.save(~{key page = {author=user content=page date=Date.now() parent=(rev_opt ? -1)}})
 
       remove(key) = caccess.rm(key)
 
-      date(key) = caccess.date(key)
-
-      list() = List.map((x,p) -> (x,p,has_preview(x)),caccess.ls())
+      list() = List.map((x,p) -> (x, p ? Page.not_published, has_preview(x)) ,caccess.ls())
 
       save_as_template(key, ~{hsource bsource}, rev_opt) =
         engine = engine({current_url=""})
@@ -402,12 +424,8 @@ Page = {{
 
 
       get_edit(key):Page.edit =
-        stored_page = match get_preview(key) with
-          | {some=s} ->
-            some(({content=s date=Date.now() author="" parent=-1},-1))
-          | {none} -> caccess.get(key)
-        match stored_page with
-        | {some=(stored,rev)} -> make_edit(key, stored, rev)
+        match caccess.select({last = key}) with
+        | {some=~{rev page}} -> make_edit(key, page, rev)
         | {none} ->
           match get_suffix(key)
           | {some="html"} | {some = "xmlt"}-> {
@@ -419,21 +437,16 @@ Page = {{
           | {some="css"} -> {css = "/* Enter your css here */"}
           | _ -> {source = "A custom resource" mime="text/plain"}
 
+      history_list(key) = List.map(~{author date parent ...} -> (author, date, parent), caccess.history(key))
 
-      history_size(key) = List.length(caccess.history(key, 1, 0))
+      history_edit(key, rev) = Option.map(~{rev page} -> make_edit(key, page, rev), caccess.select(~{key rev}))
 
-      history_list(key) = List.map(x -> (x.author,x.date,x.parent) ,caccess.history(key, 1, 0))
+      set_rev(key, rev) = ignore(caccess.save(~{key publish = {author=user ~rev date=Date.now()}}))
 
-      history_edit(key, rev) = match caccess.history(key, rev, 1)
-        | [] -> none
-        | [stored] -> some(make_edit(key, stored,rev))
-        | _ -> do Log.error("Opages", "Unexpected multiple revisions") none
+      get_rev_number(key) = caccess.published(key) ? Page.not_published
 
-      set_rev(key, rev) : void = caccess.set_rev(key, {author=user ~rev date=Date.now()})
-
-      ~{save get get_edit remove list date history_edit history_size history_list
-        ~set_rev
-        get_rev_number=caccess.get_rev_number
+      ~{save get get_edit remove list history_edit history_list
+        set_rev get_rev_number
        }
 
     full(user) =
@@ -1570,29 +1583,28 @@ Page = {{
     resource_with_env(url, env) =
       engine = config.engine(env)
       res = match get_preview(url) with
-        | {some=r} -> some(r)
-        | {none} -> Option.map((x,_)->x.content,access.get(url))
+        | {some=r} -> some((r, Date.now()))
+        | {none} -> Option.map((x,_)->(x.content, x.date) ,access.get(url))
       match res with
       | {none} -> {resource =
           match access.get("404.xmlt")
           | {none} -> Resource.full_page("Not found",<h1>404 - Not found</h1>, <></>, {found}, [])
           | {some=(r,_)} ->
-            match build_resource(engine, r.content, {some = access.date(url)})
+            match build_resource(engine, r.content, {some = r.date})
             | {embedded = ~{body head}} -> Resource.full_page("", body, head, {found}, [])
             | x -> to_resource(x)
         }
-      | {some=resource} ->
-        build_resource(engine, resource, {some = access.date(url)})
+      | {some=(resource, date)} ->
+        build_resource(engine, resource, {some = date})
     resource(url) =
       env = { current_url = url }
       resource_with_env(url, env)
     try_resource(url) =
       engine = config.engine({ current_url = url })
-      Option.map(((resource,_) -> build_resource(engine, resource.content, {some = access.date(url)})),
+      Option.map(((resource,_) -> build_resource(engine, resource.content, {some = resource.date})),
                  access.get(url))
-    date = access.date
 
-    ~{admin resource resource_with_env try_resource date source}
+    ~{admin resource resource_with_env try_resource source}
 
   to_resource:Page.t -> resource =
     | ~{resource} -> resource
