@@ -210,14 +210,14 @@ let ssl_init = lazy (
 )
 
 (* Create an SSL server context *)
-let ssl_server_context = lazy (
+let ssl_server_context() =
   Lazy.force ssl_init;
-  Ssl.create_context Ssl.SSLv23 Ssl.Server_context)
+  Ssl.create_context Ssl.SSLv23 Ssl.Server_context
 
 (* Create an SSL client context *)
-let ssl_client_context = lazy (
+let ssl_client_context() =
   Lazy.force ssl_init;
-  Ssl.create_context Ssl.SSLv23 Ssl.Client_context)
+  Ssl.create_context Ssl.SSLv23 Ssl.Client_context
 
 (* Digest name and size used for fingerprint *)
 let digest_name, digest_size = (* "SHA1", 40 *) "SHA256", 64 (* "SHA512", 128 *)
@@ -284,7 +284,7 @@ let get_listen_callback sched (server_params, client_params) server_fun =
     | _ -> false, false, false in
   let has_server_ca = Option.is_some server_params.cert_cafile || Option.is_some server_params.cert_capath in
   info "glc" "ctx...";
-  let ctx = Lazy.force ssl_server_context in
+  let ctx = ssl_server_context() in
   info "glc" "ctx ok";
   if server_params.cert_password <> "" then
     Ssl.set_password_callback ctx (fun _ -> server_params.cert_password);
@@ -400,7 +400,7 @@ let get_err_cont sched conn err_cont =
 
 
 let connect sched conn (client_certificate, verify_cert) ?err_cont cont =
-  let ctx = Lazy.force ssl_client_context in
+  let ctx = ssl_client_context() in
     (* Provide this client certificate if asked *)
   let err_cont = get_err_cont sched conn err_cont in
   begin match client_certificate with
