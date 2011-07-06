@@ -175,20 +175,25 @@ let allk = [km1;k1;k2;k3;k4;k5;k6;k7;k8;k9;k10;k11;k12]
 let good = List.for_all tstk allk
 *)
 
-let encode_path (path:Path.t) =
-  let kl = Path.to_list path in
+let encode_keylist (kl:Keys.t list) =
   String.concat_map ~left:(put_len 'p' 'q' 'P' 'Q' (List.length kl)) "" encode_key kl
 
-let decode_path s i =
+let encode_path (path:Path.t) = encode_keylist (Path.to_list path)
+
+let decode_keylist s i =
   let i, len = get_len 'p' 'q' 'P' 'Q' s i s.[i] in
   let rec aux i j l =
     if j >= len
-    then i, Path.of_list (List.rev l)
+    then i, List.rev l
     else
       let i, k = decode_key s i in
       aux i (j+1) (k::l)
   in
   aux i 0 []
+
+let decode_path s i =
+  let i, kl = decode_keylist s i in
+  i, Path.of_list kl
 
 (*
 let p1 = Path.of_list [k1;k2]
@@ -240,7 +245,7 @@ let tstdi di = di = snd (decode_dataimpl (encode_dataimpl di) 0)
 let good = List.for_all tstdi alldi
 *)
 
-(* a b c d f i j l m p q s t v w x y *)
+(* a b c d e f g h i j l m p q s t v w x y *)
 
 let encode_datas = function
   | Datas.Data di -> "e"^(encode_dataimpl di)
@@ -265,6 +270,58 @@ let d5 = Datas.UnsetData
 let alld = [d1;d2;d3;d4;d5]
 let tstd d = d = snd (decode_datas (encode_datas d) 0)
 let good = List.for_all tstd alld
+*)
+
+let encode_node { Node_light. on_disk; disk_file; content } =
+  match on_disk, disk_file with
+  | true, Some file -> (put_len 'g' 'h' 'G' 'H' (String.length file))^file
+  | _, _ -> "k"^(encode_datas content)
+
+let decode_node s i =
+  match s.[i] with
+  | ('g' | 'h' | 'G' | 'H') as c ->
+      let i, len = get_len 'g' 'h' 'G' 'H' s i c in
+      (i+len, { Node_light. on_disk=true; disk_file=Some (String.sub s i len); content=Datas.UnsetData; })
+  | 'k' ->
+      let i, d = decode_datas s (i+1) in
+      i, { Node_light. on_disk=false; disk_file=None; content=d; }
+  | _ -> assert false
+
+(*
+let n1 = { Node_light. on_disk=false; disk_file=None; content=Datas.Data (DataImpl.Text "abc") }
+let n2 = { Node_light. on_disk=true; disk_file=Some "/tmp/dog"; content=Datas.UnsetData }
+let alln = [n1;n2]
+let tstn n = n = snd (decode_node (encode_node n) 0)
+let good = List.for_all tstn alln
+*)
+
+let encode_tuple_2 (e1,e2) (v1,v2) =
+  "2"^(e1 v1)^(e2 v2)
+
+let decode_tuple_2 (d1,d2) s i =
+  match s.[i] with
+  | '2' ->
+      let (i1:int), v1 = d1 s (i+1) in
+      let (i2:int), v2 = d2 s i1 in
+      i2, (v1, v2)
+  | _ -> assert false
+
+let encode_kld kld = encode_tuple_2 (encode_keylist,encode_datas) kld
+let decode_kld s i = decode_tuple_2 (decode_keylist,decode_datas) s i
+let encode_kln kln = encode_tuple_2 (encode_keylist,encode_node) kln
+let decode_kln s i = decode_tuple_2 (decode_keylist,decode_node) s i
+
+(*
+let tst2 kld = kld = snd (decode_kld (encode_kld kld) 0)
+let di1 = DataImpl.Int 123
+let d1 = Datas.Data di1
+let k1 = Keys.IntKey 123
+let k2 = Keys.IntKey 0x100
+let kl1 = [k1;k2]
+let good = tst2 (kl1,d1)
+*)
+
+(*
 let db = Dbm.opendbm ("/home/norman/.mlstate/"^(Filename.basename Sys.argv.(0))^"/db_light") [Dbm.Dbm_rdwr] 0O664;;
 let db = Dbm.opendbm "/tmp/opadb1" [Dbm.Dbm_rdwr] 0O664;;
 let dbl = ref [];;

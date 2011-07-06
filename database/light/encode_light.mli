@@ -23,3 +23,9 @@ val encode_dataimpl : DataImpl.data -> string
 val decode_dataimpl : string -> int -> int * DataImpl.data
 val encode_datas : Datas.ns -> string
 val decode_datas : string -> int -> int * Datas.ns
+val encode_node : Node_light.t -> string
+val decode_node : string -> int -> int * Node_light.t
+val encode_kld : Keys.t list * Datas.ns -> string
+val decode_kld : string -> int -> int * (Keys.t list * Datas.ns)
+val encode_kln : Keys.t list * Node_light.t -> string
+val decode_kln : string -> int -> int * (Keys.t list * Node_light.t)
