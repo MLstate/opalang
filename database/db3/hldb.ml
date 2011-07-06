@@ -745,3 +745,21 @@ type t = {
     let eid, rev = get_eid_of_path db rev path in
     try get_node_of_eid db rev eid, rev
     with Not_found -> raise UnqualifiedPath
+
+  let update_aborted db trdb =
+    UidMap.resize db.node_of_uid (Uid.value db.next_uid);
+    EidMap.resize db.uid_of_eid (succ (Eid.value db.tcount));
+    let rec filter_rev max lst = 
+        if Revision.compare (fst (RevisionMap.max lst)) max <= 0 then
+          lst
+        else
+          filter_rev max (RevisionMap.remove_last lst)
+    in
+
+        
+    Eid.Map.iter (fun k _ -> 
+      if Eid.compare k db.tcount <= 0 then
+        ignore (EidMap.add k (filter_rev db.rev (EidMap.find k db.uid_of_eid)) db.uid_of_eid)
+    )  trdb.tmp_uid_of_eid;
+
+    db

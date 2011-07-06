@@ -663,9 +663,7 @@ module DT = DbTypes
     end else begin
       match t.session_lock with
       | None ->
-          let cur_rev =
-            Revision.succ (Hldb.get_rev t.db_ref)
-          in
+          let cur_rev = Revision.succ (Hldb.get_rev t.db_ref) in
           let db = _prepare_commit t.db_ref t.db_to_merge cur_rev trans in
           t.session_lock <- Some (trans, db);
           Some (trans, k)
@@ -761,6 +759,7 @@ module DT = DbTypes
           t.db_to_merge <- shrink_db_to_merge t;
           (* Release the lock. *)
           t.session_lock <- None;
+          t.db_ref <- Hldb.update_aborted t.db_ref _db;
           pop_trans_prepare t;
           #<If>
             Logger.log ~color:`magenta
@@ -768,6 +767,7 @@ module DT = DbTypes
                (Tr.get_num trans)
             #<End>;
         end
+
 
   let really_commit t trans =
     match t.session_lock with

@@ -118,3 +118,5 @@ val follow_path :
     @return The path unwound at [original_rev].
 *)
 val follow_link : t -> Revision.t -> Path.t -> Path.t * Node.t
+
+val update_aborted : t -> t -> t
