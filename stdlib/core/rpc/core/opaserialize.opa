@@ -71,7 +71,7 @@ type OpaSerialize.options = {
 
 @both OpaSerialize = {{
 
-  JsonTop = @toplevel().Json
+  JsonTop = @toplevel.Json
 
   Record = OpaValue.Record
   Closure = OpaValue.Closure
@@ -574,7 +574,7 @@ type OpaSerialize.options = {
 
       /* Particular basic case ******************/
       | ({String = value}, {TyConst = {TyChar}}) ->
-        if @toplevel().String.length(value) == 1 then
+        if @toplevel.String.length(value) == 1 then
           magic_some(Char.of_string(value))
         else error_ret("char is too long", none)
 
@@ -692,7 +692,7 @@ type OpaSerialize.options = {
           | [hd1 | tl1] ->
             (match l2 with
              | {hd = hd2; tl = tl2} ->
-               if @toplevel().String.equals(hd1, hd2.label) then aux(tl1, tl2)
+               if @toplevel.String.equals(hd1, hd2.label) then aux(tl1, tl2)
                else false
              | _ -> false)
           | _ -> false

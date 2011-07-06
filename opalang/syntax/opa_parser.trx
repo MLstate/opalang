@@ -557,248 +557,189 @@ just_expr10 <-
    These directives are linked to the identifier (even if in the ast, they end up
    in an expression)
 *)
+
+declaration_directive_any <-
+  / "specialize_strict" {{ `specialize `strict }}
+  / "specialize" {{ `specialize `polymorphic }}
+declaration_directive1 <-
+  / "deprecated" {{ `deprecated }}
+declaration_directive0 <-
+  / "asynchronous" {{ `asynchronous_toplevel }}
+  / "opacapi" {{ `opacapi }}
+  / "package" {{ `package }}
+  / "private" {{ `private_ }}
+  / "public" {{ `public }}
+  / "expand" {{ `expand None }} (* not allowing anymore to give an integer to expand, could be put back *)
+declaration_directive1_typ <-
+  / "stringifier" {{ `stringifier }}
+  / "comparator" {{ `comparator }}
+  / "serializer" {{ `serializer }}
+  / "xmlizer" {{ `xmlizer }}
+
 /** toplevel directive **/
 declaration_directives <- (=deco(declaration_directive))*
 declaration_directive <-
   / slicing_directive
-  / "@" !strict_spacing deco_ml_identifier_nosp:v function_arguments_nosp?:o
-    {| let l = Option.default [] o in
-       let list0 = function
-         | [] -> ()
-         | _ -> error_directive_number_argument 0 (List.length l) v in
-       let list1 = function
-         | [ _ ] -> ()
-         | _ -> error_directive_number_argument 1 (List.length l) v in
-       match undecorate v with
-       | "asynchronous" -> list0 l; Some (`asynchronous_toplevel, l, [])
-       | "deprecated" -> list1 l; Some (`deprecated, l, [])
-       | "expand" ->
-           Some
-             (match l with
-              | [] -> `expand None, [], []
-              | [(Const (CInt i),_)] -> `expand (Some i), [], []
-              | _ -> error_directive_wrong_arguments_type v)
-       | "opacapi" -> list0 l; Some (`opacapi, l, [])
-       | "package" -> list0 l; Some (`package, l, [])
-       | "private" -> list0 l; Some (`private_, l, [])
-       | "public" -> list0 l; Some (`public, l, [])
-       | "specialize" -> Some (`specialize `polymorphic, l, [])
-       | "specialize_strict" -> Some (`specialize `strict, l, [])
-       | _ -> None
-    |}
-  / "@" !strict_spacing deco_ml_identifier_nosp:v Opa_lexer.lpar_nosp typ:t rpar
-    {| match undecorate v with
-       | "stringifier" -> Some (`stringifier, [], [t])
-       | "comparator" -> Some (`comparator, [], [t])
-       | "serializer" -> Some (`serializer, [], [t])
-       | "xmlizer" -> Some (`xmlizer, [], [t])
-       | _ -> None
-    |}
+  / "@" (=exact_ident(declaration_directive1)):v Opa_lexer.lpar_nosp expr:e rpar
+    {{ (v, [e], []) }}
+  / "@" (=exact_ident(declaration_directive0)):v !"("
+    {{ (v, [], []) }}
+  / "@" (=exact_ident(declaration_directive_any)):v Opa_lexer.lpar_nosp (=list0(expr,comma)):el rpar
+    {{ (v, el, []) }}
+  / "@" (=exact_ident(declaration_directive1_typ)):v Opa_lexer.lpar_nosp typ:t rpar
+    {{ (v, [], [t]) }}
 
+slicing_directive0 <-
+  / "both_implem" {{ `side_annotation `both_implem }}
+  / "both" {{ `side_annotation `both }}
+  / "client" {{ `side_annotation `client }}
+  / "prefer_both" {{ `side_annotation `prefer_both }}
+  / "prefer_client" {{ `side_annotation `prefer_client }}
+  / "prefer_server" {{ `side_annotation `prefer_server }}
+  / "publish_async" {{ `visibility_annotation (`public `async) }}
+  / "publish" {{ `visibility_annotation (`public `sync) }}
+  / "server_private" {{ `visibility_annotation `private_ }}
+  / "server" {{ `side_annotation `server }}
 slicing_directives <- (=deco(slicing_directive))*
 slicing_directive <-
-  / "@" !strict_spacing deco_ml_identifier_nosp:v !"("
-  {|
-     match undecorate v with
-     | "both" -> Some (`side_annotation `both, [], [])
-     | "both_implem" -> Some (`side_annotation `both_implem, [], [])
-     | "client" -> Some (`side_annotation `client, [], [])
-     | "prefer_both" -> Some (`side_annotation `prefer_both, [], [])
-     | "prefer_client" -> Some (`side_annotation `prefer_client, [], [])
-     | "prefer_server" -> Some (`side_annotation `prefer_server, [], [])
-     | "publish" -> Some (`visibility_annotation (`public `sync), [], [])
-     | "publish_async" -> Some (`visibility_annotation (`public `async), [], [])
-     | "server" -> Some (`side_annotation `server, [], [])
-     | "server_private" -> Some (`visibility_annotation `private_, [], [])
-     | _ -> None
-  |}
-
-
+  / "@" (=exact_ident(slicing_directive0)):v !"("
+    {{ (v, [], []) }}
 
 
 (**
    {7 Directives}
    Everything with @ident syntax
  *)
+;
+directive0 <-
+  / "thread_context" {{ `thread_context }}
+  / "todo" {{ `todo }}
+  / "toplevel" {{ `toplevel }}
+
+directive1 <-
+  / "assert" {{ `assert_ }}
+  / "atomic" {{ `atomic }}
+  / "callcc" {{ `callcc }}
+  / "ensure" {{ `ensure }}
+  / "force" {{ `force }}
+  / "js_ident" {{ `js_ident }}
+  / "may_cps" {{ `may_cps }}
+  / "nonexpansive" {{ `nonexpansive }}
+  / "openrecord" {{ `openrecord }}
+  / "opensums" {{ `opensums }}
+  / "throw"  {{ `throw }}
+  / "translate" {{ `translate }}
+  / "typeof" {{ `typeof }}
+  / "unsafe_cast" {{ `unsafe_cast }}
+  / "wait" {{ `wait }}
+
+directive2 <-
+  / "catch" {{ `catch }}
+  / "deprecated" {{ `deprecated }}
+  / "with_thread_context" {{ `with_thread_context }}
+
+directive2str <-
+  / "assert_message" {{ fun x -> `assert_message x }}
+  / "ensure_message" {{ fun x -> `ensure_message x }}
+  / "warning" {{ fun x -> `warning x }}
+
+directive1str <-
+  / ("static_source_content" / "static_binary_content") {{ fun x -> `static_content (x, true) }}
+  / "compiletime" {{ fun x -> `compiletime x }}
+
+directive1rec <-
+  / "lazy_record" {{ `create_lazy_record }}
+  / "lazy" {{ `lazy_ }}
+  / "spawn" {{ `spawn }}
+
+directive1or2str <-
+  / "static_content_directory" {{ (fun x -> `static_content_directory (x, false)) }}
+  / "static_content" {{ (fun x -> `static_content (x, false)) }}
+  / ("static_include_directory" / "static_resource_directory" ) {{ fun x -> `static_resource_directory x }}
+  / "static_resource" {{ fun x -> `static_resource x }}
+
 ;/** directive **/
 directive <-
   (* FIXME: could accept assert_message(,_e)(s)
    * instead of just assert_message(s,e) *)
-  / "@" "xml" "(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
-  / "@" "typeval" Opa_lexer.lpar_nosp typ:t rpar {{
-
-    (*
-    For convenience, directive [@typeval] is handled as thin syntactic sugar.
-
-    Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
-    *)
-    let expr_cast      = (directive1 `unsafe_cast (void (nlabel t)), nlabel t) in
-    let expr_coerced   = coerce_expr expr_cast t                   in
-    let just_typeof    = directive1 `typeof expr_coerced           in
-    just_typeof
+  / "@xml(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
+  / "@typeval(" typ:t rpar {{
+      (* For convenience, directive [@typeval] is handled as thin syntactic sugar.
+         Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
+      *)
+      let expr_cast      = (directive1 `unsafe_cast (void (nlabel t)), nlabel t) in
+      let expr_coerced   = coerce_expr expr_cast t                   in
+      let just_typeof    = directive1 `typeof expr_coerced           in
+      just_typeof
     }}
-  / "@" !strict_spacing deco_ml_identifier_nosp:v function_arguments_nosp?:o
+  / "@" (=exact_ident(directive0)):v !"("
+    {{ Directive (v,[],[]) }}
+  / "@" (=exact_ident(directive1)):v Opa_lexer.lpar_nosp expr:e rpar
+    {{ Directive (v,[e],[]) }}
+  / "@" (=exact_ident(directive1str)):v Opa_lexer.lpar_nosp string:str rpar
+    {{ Directive (v str,[],[]) }}
+  / "@" (=exact_ident(directive1rec)):v Opa_lexer.lpar_nosp (=deco(just_record)):e rpar
+    {{ Directive (v,[e],[]) }}
+  / "@" (=exact_ident(directive2str)):v Opa_lexer.lpar_nosp string:str comma expr:e rpar
+    {{ Directive (v str,[e],[]) }}
+  / "@" (=exact_ident(directive2)):v Opa_lexer.lpar_nosp expr:e1 comma expr:e2 rpar
+    {{ Directive (v,[e1;e2],[]) }}
+  / "@" (=exact_ident(directive1or2str)):v Opa_lexer.lpar_nosp string:str (comma expr:e {{ [e] }} / _succeed {{ [] }}):el rpar
+    {{ Directive (v str,el,[]) }}
+  / "@" !strict_spacing deco_ml_identifier_nosp:v (function_arguments_nosp / !"(" {{ [] }}):l
       {|
-    let l = Option.default [] o in
-    let s = undecorate v in
-    let list0 = function
-      | [] -> ()
-      | _ -> error_directive_number_argument 0 (List.length l) v in
-    let list1 ?(cond=ignore) = function
-      | [h] -> cond h; h
-      | l -> error_directive_number_argument 1 (List.length l) v in
-    let list2 = function
-      | h1 :: h2 :: [] -> (h1,h2)
-      | l -> error_directive_number_argument 2 (List.length l) v in
-    let directive0 v = directive0 v (list0 l) in
-    let directive1 ?cond v = directive1 v (list1 ?cond l) in
-    let directive1' v = directive1' v (list1 l) in
-    let directive2 v = directive2 v (list2 l) in
-    let directive2' v = directive2' v (list2 l) in
-    let static_string f (e,_) =
-      match e with
-      | Const (CString s) -> f s
-      | _ -> error_static_string v in
-    let static_record (e,_) =
-      match e with
-      | Record _
-      | ExtendRecord _ -> ()
-      | _ -> error_static_record v in
-    match s with
+          (* the directives in here are the ones that inspect a little too much
+           * their arguments, and so it is difficult to factorize them *)
 
-    (* a *)
-    | "assert"                      -> Some (directive1 `assert_)
-    | "assert_message"              -> Some (directive2' (static_string (fun x -> `assert_message x)))
-    | "atomic"                      -> Some (directive1 `atomic)
+          let s = undecorate v in
+          match s with
 
-    (* c *)
-    | "callcc"                      -> Some (directive1 `callcc)
-    | "catch"                       -> Some (directive2 `catch)
-    | "compiletime"                 -> Some (Directive (static_string (fun x -> `compiletime x) (list1 l), [], []))
+          | "fail" ->
+              (*
+                Argument of directive @fail is optional.
+                Add the empty string in case of no argument.
+              *)
+              Return.set_checkpoint_none (
+                fun parse_error ->
+                  let l =
+                    match l with
+                    | [] ->
+                        let label = label v in
+                        [ SA.Const (SA.CString ""), label ]
+                    | [ _ ] -> l
+                    | _ -> Return.return parse_error ()
+                  in
+                  SurfaceAst.Directive (`fail, l, [])
+              )
 
-    (* d *)
-    | "deprecated"                  -> Some (directive2 `deprecated)
+          | "llarray" -> Some (SurfaceAst.Directive (`llarray, l, []))
 
-    (* e *)
-    | "ensure"                      -> Some (directive1 `ensure)
-    | "ensure_message"              -> Some (directive2' (static_string (fun x -> `ensure_message x)))
+          | "sliced_expr" ->
+              let (client,server) =
+                match l with
+                | [(Record l,_)] ->
+                    (match l with
+                     | ["server", server; "client", client] -> (client,server)
+                     | ["client", client; "server", server] -> (client,server)
+                     | _ -> error_sliced_expr (snd v))
+                | _ -> error_static_record v in
+              Some (Directive (`sliced_expr, [client; server], []))
 
-    (* f *)
-    | "fail"                        ->
-        (*
-          Argument of directive @fail is optional.
-          Add the empty string in case of no argument.
-        *)
-        Return.set_checkpoint_none (
-          fun parse_error ->
-            let l =
+          | "track" -> (
               match l with
-              | [] ->
-                  let label = label v in
-                  [ SA.Const (SA.CString ""), label ]
-              | [ _ ] -> l
-              | _ -> Return.return parse_error ()
-            in
-            SurfaceAst.Directive (`fail, l, [])
-        )
+              | [(Const (CString s1), label); expr] ->
+                  let pos = SurfaceAstHelper.Annot.to_string label in
+                  let tracker = PassTracker.next (Printf.sprintf "%s : %s" s1 pos) in
+                  Some (Directive (`tracker tracker, [ expr ],  []))
+              | [expr] ->
+                  let pos = SurfaceAstHelper.Annot.to_string' expr in
+                  let tracker = PassTracker.next pos in
+                  Some (Directive (`tracker tracker, [ expr ],  []))
+              | _ -> error_directive_wrong_arguments_type v
+            )
 
-    | "force"                       -> Some (directive1 `force)
-
-    (* j *)
-    | "js_ident"                    -> Some (directive1 `js_ident)
-
-    (* l *)
-    | "lazy"                        -> Some (directive1 ~cond:static_record `lazy_)
-    | "lazy_record"                 -> Some (directive1 ~cond:static_record `create_lazy_record)
-    | "llarray"                     -> Some (SurfaceAst.Directive (`llarray, l, []))
-
-    (* m *)
-    | "may_cps"                     -> Some (directive1 `may_cps)
-
-    (* n *)
-    | "nonexpansive"                -> Some (directive1 `nonexpansive)
-
-    (* o *)
-    | "openrecord"                  -> Some (directive1 `openrecord)
-    | "opensums"                    -> Some (directive1 `opensums)
-
-    (* s *)
-    | "sliced_expr"                 -> let (client,server) =
-                                         match l with
-                                         | [(Record l,_)] ->
-                                             (match l with
-                                             | ["server", server; "client", client] -> (client,server)
-                                             | ["client", client; "server", server] -> (client,server)
-                                             | _ -> error_sliced_expr (snd v))
-                                         | _ -> error_static_record v in
-                                       Some (Directive (`sliced_expr, [client; server], []))
-    | "spawn"                       -> Some (directive1 ~cond:static_record `spawn)
-
-    | "static_content"               -> begin
-                                        match l with
-                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_content (x, false)) x1, [],  []))
-                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_content (x, false)) x1, [x2], []))
-                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
-                                        end
-
-
-    | "static_content_directory"    -> begin
-                                        match l with
-                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_content_directory (x, false)) x1, [],  []))
-                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_content_directory (x, false)) x1, [x2], []))
-                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
-                                        end
-
-    | "static_resource"             -> begin
-                                        match l with
-                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_resource x) x1, [],  []))
-                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_resource x) x1, [x2], []))
-                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
-                                        end
-    | ("static_include_directory" | "static_resource_directory" )   -> begin
-                                        match l with
-                                          | [x1]    -> Some (Directive (static_string (fun x -> `static_resource_directory x) x1, [],  []))
-                                          | [x1;x2] -> Some (Directive (static_string (fun x -> `static_resource_directory x) x1, [x2], []))
-                                          |  _ -> error_directive_number_argument 1 ~max:2 (List.length l) v
-                                        end
-    | "static_source_content"       -> Some (directive1' (static_string (fun x -> `static_content (x, true))))
-    | "static_binary_content"       -> Some (directive1' (static_string (fun x -> `static_content (x, true))))
-
-    (* t *)
-    | "thread_context"              -> Some (directive0 `thread_context)
-    | "throw"                       -> Some (directive1 `throw)
-    | "todo"                        -> Some (directive0 `todo)
-    | "toplevel"                    -> Some (directive0 `toplevel)
-    | "track" -> (
-        match l with
-        | [(Const (CString s1), label); expr] ->
-            let pos = SurfaceAstHelper.Annot.to_string label in
-            let tracker = PassTracker.next (Printf.sprintf "%s : %s" s1 pos) in
-            Some (Directive (`tracker tracker, [ expr ],  []))
-        | [expr] ->
-            let pos = SurfaceAstHelper.Annot.to_string' expr in
-            let tracker = PassTracker.next pos in
-            Some (Directive (`tracker tracker, [ expr ],  []))
-        | _ -> error_directive_wrong_arguments_type v
-      )
-
-    | "translate"                   -> Some (directive1 `translate)
-    | "typeof"                      -> Some (directive1 `typeof)
-
-    (* u *)
-    | "unsafe_cast"                 -> Some (directive1 `unsafe_cast)
-
-    (* w *)
-    | "wait"                        -> Some (directive1 `wait)
-    | "warning"                     -> Some (directive2' (static_string (fun x -> `warning x)))
-    | "with_thread_context"         -> Some (directive2 `with_thread_context)
-
-    (* x *)
-    | "xml"                         -> error_static_xml (label v)
-
-    (* error *)
-    | _ -> None
-  |}
+          | _ -> None
+      |}
 
 (**
   {7 Position}

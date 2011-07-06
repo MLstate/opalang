@@ -127,10 +127,10 @@ order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
 @private compare_int_postenv    = @nonexpansive(Magic.id(compare_int_postenv_)  : P.implementation)
 @private compare_float_postenv  = @nonexpansive(Magic.id(compare_float_postenv_)  :P.implementation)
 @private compare_string_postenv = @nonexpansive(Magic.id(compare_string_postenv_) :P.implementation)
-@private compare_char   = @nonexpansive(Magic.id(@toplevel().compare_char) :'a,'a->Order.comparison)
-@private compare_int    = @nonexpansive(Magic.id(@toplevel().compare_int) :'a,'a->Order.comparison)
-@private compare_float  = @nonexpansive(Magic.id(@toplevel().compare_float) :'a,'a->Order.comparison)
-@private compare_string = @nonexpansive(Magic.id(@toplevel().compare_string) :'a,'a->Order.comparison)
+@private compare_char   = @nonexpansive(Magic.id(@toplevel.compare_char) :'a,'a->Order.comparison)
+@private compare_int    = @nonexpansive(Magic.id(@toplevel.compare_int) :'a,'a->Order.comparison)
+@private compare_float  = @nonexpansive(Magic.id(@toplevel.compare_float) :'a,'a->Order.comparison)
+@private compare_string = @nonexpansive(Magic.id(@toplevel.compare_string) :'a,'a->Order.comparison)
 
 @private always_equal_postenv(_,_,_)   = {eq}
 
