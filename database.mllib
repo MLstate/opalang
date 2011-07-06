@@ -73,4 +73,5 @@ database/Xml_dump
 #Internal structs
 database/db3/structs/SigListMap
 database/db3/structs/RaListMap
+database/db3/structs/SimpleListMap
 database/db3/structs/TabMap
