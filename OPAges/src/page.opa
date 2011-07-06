@@ -618,9 +618,16 @@ Page = {{
       class = if opened then "on" else "off"
       <span class="{class}"
             id="{navigator_file_id(file)}"
-            onclick={Action.open_file(access, file, published_rev)}
-            ondblclick={_->toggle_file_sons(file)}>
+            onclick={_ ->
+              do Log.info("[file_line]", "click")
+              Action.open_file(access, file, published_rev)}
+            options:onclick={[{stop_propagation}]}>
+        <span ondblclick={_->
+              do Log.info("[file_line]", "dblclick")
+              toggle_file_sons(file)}
+            options:ondblclick={[{stop_propagation}]}>
         {file_line_content(access, name, file, published_rev, preview)}
+        </span>
       </span>
 
     /** Insert if necessary a file line into files navigator. */
@@ -1197,7 +1204,7 @@ Page = {{
       /**
        * Open file
        */
-      open_file(access:Page.full_access, file, pub) : FunAction.t = _event ->
+      open_file(access:Page.full_access, file, pub) =
         do Log.info("[open_file]", "{file}")
         do all_off()
         file_uri = Uri.of_string(file)
@@ -1219,9 +1226,10 @@ Page = {{
           do Dom.add_class(buf, "on")
           do Dom.remove_class(buf, "off")
           void
-        do file_line_set_edit(file, true)
+        // do file_line_set_edit(file, true)
         do expand_file(file_uri)
-        Dom.clear_value(#admin_new_file)
+        do Dom.clear_value(#admin_new_file)
+        void
 
       /**
        * Create a new file.
@@ -1233,7 +1241,7 @@ Page = {{
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
         do file_line_insert(access, true, file_uri, none, false, false)
-        do open_file(access, file, none)(event)
+        do open_file(access, file, none)
         void
 
       /**
@@ -1395,7 +1403,7 @@ Page = {{
       path = make_absolute(path)
       do Log.notice("PageUploader", "Uploading of {filename} ({mime}) was done")
       _rev = access.access.save(path, {~binary ~mime}, none)
-      do Action.open_file(access, path, none)(Dom.Event.default_event)
+      do Action.open_file(access, path, none)
       void
 
     @server
