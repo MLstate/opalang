@@ -272,6 +272,7 @@ Server_private = {{
             | css_parser  -> export(winfo, provide_css)
             | "src_code" -> export(winfo, AppSources.page())
             | "null" -> export(winfo, Resource.raw_text(""))
+            | "about/opa" -> export(winfo, page_version)
             | any=(.*) ->
               do Log.warning("Server_private",
                  "This is an abnormal request to a non-existent internal resource."
@@ -438,4 +439,4 @@ Server_private = {{
  */
 
 @opacapi Server_private_run_services = Server_private.run_services
-@opacapi Server_private_add_service  = Server_private.add_service 
+@opacapi Server_private_add_service  = Server_private.add_service
