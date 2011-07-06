@@ -71,4 +71,6 @@ database/Dbgraph
 database/Xml_dump
 #database/Xml_import
 #Internal structs
+database/db3/structs/SigListMap
+database/db3/structs/RaListMap
 database/db3/structs/TabMap
