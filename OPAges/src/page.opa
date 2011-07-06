@@ -245,9 +245,16 @@ Page = {{
   )
 
   make_absolute(file) =
-    match String.index("/", file)
+    // Add the starting /
+    file = match String.index("/", file)
     {some=0} -> file
     _ -> "/{file}"
+    // Remove the ending /
+    len = String.length(file)
+    file = if String.get(len-1, file) == "/" then
+      String.substring(0, len-1, file)
+    else file
+    file
 
   /**
    * {2 Database access}
