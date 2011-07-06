@@ -404,22 +404,16 @@ object (self)
   | `magic_do -> Format.pp_print_string f "magic_do"
   | `typeof -> Format.pp_print_string f "typeof"
   | `assert_ -> Format.pp_print_string f "assert_"
-  | `assert_message s -> pp f "assert_message[%s]" s
-  | `ensure -> Format.pp_print_string f "ensure"
-  | `ensure_message s -> pp f "ensure_message[%s]" s
   | `deprecated -> pp f "deprecated"
   | `todo -> pp f "todo"
-  | `warning s -> pp f "warning[%s]" s
   | `server_entry_point -> Format.pp_print_string f "server_entry_point"
   | `spawn -> Format.pp_print_string f "spawn"
   | `wait -> Format.pp_print_string f "wait"
-  | `lazy_ -> Format.pp_print_string f "lazy_"
-  | `force -> Format.pp_print_string f "force"
   | `callcc -> Format.pp_print_string f "callcc"
   | `atomic -> Format.pp_print_string f "atomic"
   | `thread_context -> Format.pp_print_string f "thread_context"
   | `with_thread_context -> Format.pp_print_string f "with_thread_context"
-  | `asynchronous_toplevel -> Format.pp_print_string f "asynchronous"
+  | `async -> Format.pp_print_string f "async"
   | `side_annotation _ -> Format.pp_print_string f "side_annotation"
   | `visibility_annotation _ -> Format.pp_print_string f "visibility_annotation"
   | `static_content (s, eval) -> pp f "static_content[%s][%b]" s eval
@@ -441,7 +435,6 @@ object (self)
   | `module_ -> Format.pp_print_string f "module_"
   | `module_field_lifting -> Format.pp_print_string f "module_field_lifting"
   | `warncoerce -> Format.pp_print_string f "warncoerce"
-  | `translate -> Format.pp_print_string f "translate"
   | `js_ident -> Format.pp_print_string f "js_ident"
   | `open_ -> Format.pp_print_string f "open_"
   | `toplevel_open -> Format.pp_print_string f "toplevel_open"

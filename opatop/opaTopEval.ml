@@ -57,7 +57,7 @@ type env = V.t IdentMap.t
 
 type ('a, 'b) ignored_directive = [
 | QmlAst.type_directive
-| `asynchronous_toplevel
+| `async
 | `atomic
 | `fun_action of 'a
 | `nonexpansive
@@ -70,7 +70,7 @@ type ('a, 'b) ignored_directive = [
 
 let rec traverse_ignore expr =
   match expr with
-  | Q.Directive (_, #ignored_directive, [expr], _) -> traverse_ignore expr
+  | Q.Directive (_, #ignored_directive, [expr], _)
   | Q.Coerce (_, expr, _) -> traverse_ignore expr
   | _ -> expr
 

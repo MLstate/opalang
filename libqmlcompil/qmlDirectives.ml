@@ -260,7 +260,7 @@ let ty directive exprs tys =
   | `callcc -> Ty.callcc ()
   | `cps_stack_lambda _
   | `cps_stack_apply _
-  | `asynchronous_toplevel
+  | `async
   | `may_cps
   | `apply_cont
     -> Ty.id ()
@@ -403,16 +403,6 @@ let ty directive exprs tys =
 
   | `recval ->
       Ty.id ()
-
-  (* === *)
-  (* Deprecated directives : TODO: remove from QmlAst *)
-  | `box
-  | `unbox
-  | `unbox_option
-  | `enrich
-  | `eval
-    ->
-      assert false
 
 (* utils *)
 

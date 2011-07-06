@@ -42,7 +42,7 @@ module P = Qml2ocamlOptions
 *)
 type ('a, 'b, 'c, 'd, 'e) assume_traverse = [
 | QmlAst.type_directive
-| `asynchronous_toplevel
+| `async
 | `atomic
 | `fun_action of 'a
 | `nonexpansive

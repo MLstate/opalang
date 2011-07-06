@@ -67,7 +67,7 @@
   '("type" "if" "match" "do" "parser" "xml_parser" "database" "server" "rec" "and" "as" "css" "db" "with" "val"
     "import" "import-plugin" "package")))
 (defconst opa-directives
-  '("xml" "typeval" "static_content_directory" "static_resource_directory" "static_source_content" "static_binary_content" "static_include_directory" "catch" "client" "fail" "typeof" "lazy" "lazy_record" "thread_context" "with_thread_context" "throw" "track" "wrap" "unwrap" "callcc" "uncps" "atomic" "js_ident" "expand" "spawn" "wait" "server" "unsafe_cast" "toplevel" "assert" "opensums" "publish" "publish_async" "both" "prefer_client" "prefer_server" "prefer_both" "both_implem" "abstract" "private" "public" "package" "nonexpansive" "asynchronous" "compiletime" "sliced_expr" "may_cps" "llarray" "specialize" "specialize_strict" "server_private" "opacapi" "stringifier" "xmlizer" "serializer" "comparator" "deprecated" "todo"))
+  '("xml" "typeval" "static_content_directory" "static_resource_directory" "static_source_content" "static_binary_content" "static_include_directory" "catch" "client" "fail" "typeof" "lazy" "lazy_record" "thread_context" "with_thread_context" "throw" "track" "wrap" "unwrap" "callcc" "uncps" "atomic" "js_ident" "expand" "spawn" "wait" "server" "unsafe_cast" "toplevel" "assert" "opensums" "publish" "publish_async" "both" "prefer_client" "prefer_server" "prefer_both" "both_implem" "abstract" "private" "public" "package" "nonexpansive" "async" "compiletime" "sliced_expr" "may_cps" "llarray" "specialize" "specialize_strict" "server_private" "opacapi" "stringifier" "xmlizer" "serializer" "comparator" "deprecated" "todo"))
 
 (defun match-opa-tuple-type (limit)
   (when (and (looking-at "( *")

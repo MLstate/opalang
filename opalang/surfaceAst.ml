@@ -300,11 +300,6 @@ type magic_directive =
     ]
 type error_directive =
     [ `assert_
-    | `assert_message of string
-(* TODO: remove ensure* directives (unused) *)
-    | `ensure
-    | `ensure_message of string
-    | `warning of string
     ]
 type coding_directive = [
   | `deprecated
@@ -316,16 +311,14 @@ type insert_server_directive =
 type concurrency_directive =
     [ `spawn
     | `wait
-    | `lazy_
-    | `force
     | `callcc
     | `atomic
     | `thread_context
     | `with_thread_context
     | `throw
     | `catch
-    | `asynchronous_toplevel
     | `may_cps
+    | `async
     ]
 type distribution_directive = QmlAst.slicer_directive
 type file_inclusion_directive =
@@ -358,8 +351,7 @@ type type_directive =
     | `warncoerce
     ]
 type other_directive =
-    [ `translate
-    | `fun_action
+    [ `fun_action
     | `js_ident
     | `sliced_expr (** the expressions is a two elements containing first the client expression and then the server expression  *)
     | `llarray

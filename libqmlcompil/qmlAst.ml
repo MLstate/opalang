@@ -740,7 +740,7 @@ type cps_directive = [
           the third element is the position of the application, if any
       *)
 
-  | `asynchronous_toplevel
+  | `async
       (**
          Tag for using partially the toplevel-concurrency mode when the option is not activated.
          As we have no way to put directives at toplevel in the AST, we count on the luck and the
@@ -767,14 +767,6 @@ type exception_directive = [
                exception thrown during this evaluation and not already caught is
                passed directly to the function given, and the result of this
                application is the return value of the directive *)
-]
-
-type deprecated_directive = [
-  | `box
-  | `unbox
-  | `unbox_option
-  | `enrich
-  | `eval
 ]
 
 (** Used for extend magic function. *)
@@ -810,7 +802,6 @@ type qml_directive = [
   | slicer_directive
   | thread_context_directive
   | type_directive
-  | deprecated_directive
 
   | `closure_create of Ident.t * int * ((ty, unit) QmlGenericScheme.tsc) option
       (** definition of a closure with its implementation, arity, and type scheme *)

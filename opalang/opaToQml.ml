@@ -540,10 +540,10 @@ struct
     | (
         `typeof | `opensums | `openrecord | `unsafe_cast
       | `nonexpansive | `doctype _ | `module_ | `module_field_lifting
-      | `spawn | `wait | `callcc | `atomic | `js_ident | `expand _
+      | `spawn | `wait | `atomic | `callcc | `js_ident | `expand _
       | `create_lazy_record | `assert_  | `fail
       | `thread_context
-      | `asynchronous_toplevel
+      | `async
       | `throw | `catch | `tracker _
       | `with_thread_context
       | `sliced_expr
@@ -552,12 +552,10 @@ struct
       | `deprecated
       | `todo
       | `recval
+      | #SA.opavalue_directive
       | #SA.distribution_directive
-      ) as variant, el, [] ->
-        let el =  List.map expr el in
-        QA.Directive ((make_label_from_opa_annot opa_annot), variant, el, [])
-    | (`stringifier | `comparator | `serializer | `xmlizer)
-        as variant, el, tl ->
+      | `llarray
+      ) as variant, el, tl ->
         let el =  List.map expr el in
         let tl = List.map ty tl in
         QA.Directive ((make_label_from_opa_annot opa_annot), variant, el, tl)
@@ -566,11 +564,6 @@ struct
         let t = ty t in
         let e = expr e in
         QA.Coerce ((make_label_from_opa_annot opa_annot), e, t)
-    | `llarray, exprs, tys ->
-        let tys = List.map ty tys in
-        let exprs = List.map expr exprs in
-        QA.Directive
-          ((make_label_from_opa_annot opa_annot), `llarray, exprs, tys)
     | `coerce, _, _ -> assert false
 
     | `warncoerce, _, _ ->
@@ -617,15 +610,6 @@ struct
     | (`magic_to_string | `magic_to_xml) as variant, [e], []
           when not keep_magic_directive ->
         apply_directive opa_annot (directive_variant_to_string variant) e
-    | (
-        `assert_ | `magic_to_string | `fun_action | `magic_to_xml
-      | `deprecated | `todo
-      ), l, _ -> (
-        Format.eprintf "%a%!" Arg.pp_print_directive d;
-        match l with
-        | [] -> assert false
-        | e :: _ -> fail e "directive: supposed to be taken care of already"
-      )
 
     | #SA.all_directives, e :: _, _ ->
         Format.eprintf "%a%!" Arg.pp_print_directive d;

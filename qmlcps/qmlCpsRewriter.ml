@@ -1094,7 +1094,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
     | Q.Directive (_, `catch, _, _) ->
         failwith "Internal error: directive @catch should have 2 arguments"
 
-    | Q.Directive (_, `asynchronous_toplevel, _, _) ->
+    | Q.Directive (_, `async, _, _) ->
         failwith "Internal error: presence of @asynchronous directive in an expression"
 
     | Q.Directive (_, `partial_apply _, _, _) -> assert false
@@ -1379,7 +1379,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
 
     | IL.Directive (`restricted_bypass _, _, _) -> assert false (* rewrited in a expanded_bypass after qml -> IL or removed by hoisting *)
 
-    | IL.Directive (`asynchronous_toplevel, _, _) ->
+    | IL.Directive (`async, _, _) ->
         (* at toplevel only, checked by qml -> IL *)
         assert false
 
@@ -1524,7 +1524,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         let immediate_value_or_barrier ?(can_skip_toplvl=false) () =
           let is_asynchronous, expr =
             match expr with
-            | Q.Directive (_, `asynchronous_toplevel, [e], _) -> true, e
+            | Q.Directive (_, `async, [e], _) -> true, e
             | _ -> false, expr
           in
           let private_env, il_term = il_of_qml ~can_skip_toplvl:can_skip_toplvl env private_env expr in
@@ -1700,7 +1700,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               | _ -> assert false
             end
 
-        | Q.Directive (_, `asynchronous_toplevel, _, _) -> immediate_value_or_barrier ()
+        | Q.Directive (_, `async, _, _) -> immediate_value_or_barrier ()
 
         | Q.Directive (_, `llarray, _, _) -> immediate_value_or_barrier ~can_skip_toplvl:true ()
 

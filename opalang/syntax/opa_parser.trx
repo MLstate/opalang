@@ -564,7 +564,7 @@ declaration_directive_any <-
 declaration_directive1 <-
   / "deprecated" {{ `deprecated }}
 declaration_directive0 <-
-  / "asynchronous" {{ `asynchronous_toplevel }}
+  / "async" {{ `async }}
   / "opacapi" {{ `opacapi }}
   / "package" {{ `package }}
   / "private" {{ `private_ }}
@@ -620,15 +620,12 @@ directive1 <-
   / "assert" {{ `assert_ }}
   / "atomic" {{ `atomic }}
   / "callcc" {{ `callcc }}
-  / "ensure" {{ `ensure }}
-  / "force" {{ `force }}
   / "js_ident" {{ `js_ident }}
   / "may_cps" {{ `may_cps }}
   / "nonexpansive" {{ `nonexpansive }}
   / "openrecord" {{ `openrecord }}
   / "opensums" {{ `opensums }}
   / "throw"  {{ `throw }}
-  / "translate" {{ `translate }}
   / "typeof" {{ `typeof }}
   / "unsafe_cast" {{ `unsafe_cast }}
   / "wait" {{ `wait }}
@@ -638,18 +635,12 @@ directive2 <-
   / "deprecated" {{ `deprecated }}
   / "with_thread_context" {{ `with_thread_context }}
 
-directive2str <-
-  / "assert_message" {{ fun x -> `assert_message x }}
-  / "ensure_message" {{ fun x -> `ensure_message x }}
-  / "warning" {{ fun x -> `warning x }}
-
 directive1str <-
   / ("static_source_content" / "static_binary_content") {{ fun x -> `static_content (x, true) }}
   / "compiletime" {{ fun x -> `compiletime x }}
 
 directive1rec <-
   / "lazy_record" {{ `create_lazy_record }}
-  / "lazy" {{ `lazy_ }}
   / "spawn" {{ `spawn }}
 
 directive1or2str <-
@@ -680,8 +671,6 @@ directive <-
     {{ Directive (v str,[],[]) }}
   / "@" (=exact_ident(directive1rec)):v Opa_lexer.lpar_nosp (=deco(just_record)):e rpar
     {{ Directive (v,[e],[]) }}
-  / "@" (=exact_ident(directive2str)):v Opa_lexer.lpar_nosp string:str comma expr:e rpar
-    {{ Directive (v str,[e],[]) }}
   / "@" (=exact_ident(directive2)):v Opa_lexer.lpar_nosp expr:e1 comma expr:e2 rpar
     {{ Directive (v,[e1;e2],[]) }}
   / "@" (=exact_ident(directive1or2str)):v Opa_lexer.lpar_nosp string:str (comma expr:e {{ [e] }} / _succeed {{ [] }}):el rpar

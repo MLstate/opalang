@@ -35,7 +35,7 @@ module P = Imp_PatternAnalysis
 
 type ('a, 'b) ignored_directive = [
 | QmlAst.type_directive
-| `asynchronous_toplevel
+| `async
 | `atomic
 | `fun_action of 'a
 | `nonexpansive
