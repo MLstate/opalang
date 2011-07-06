@@ -44,13 +44,15 @@ val is_empty : t -> bool
 val get_index : t -> index
 
 val set_version : t -> string -> unit
+val set_filemanager : t -> Io_light.t option -> unit
+val set_max_size : t -> int -> unit
 
 (* navigation through the db *)
-val get_node_of_path : t -> (*Revision.t ->*) Path.t -> Node_light.t * Revision.t
+val get_node_of_path : t -> Path.t -> Node_light.t * Revision.t
 val get_tree_of_path : t -> Path.t -> tree
 
 (* creation / rebuilding of a database *)
-val make : unit -> t
+val make : ?filemanager:Io_light.t -> ?max_size:int -> unit -> t
 
 (* basic db writing *)
 val update : t -> Path.t -> Datas.t -> t
@@ -101,3 +103,8 @@ val follow_path : t -> tree -> Keys.t list -> Keys.t list * tree
     @return The path unwound at [original_rev].
 *)
 val follow_link : t -> Path.t -> Path.t * tree
+
+(* Caching *)
+val od_early : bool ref
+val action_od : unit -> unit
+

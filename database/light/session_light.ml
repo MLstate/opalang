@@ -56,6 +56,8 @@ let sprintf fmt = Printf.sprintf fmt
   type t = { mutable trans_num : int     (* counter for fresh transaction serial numbers *)
            ; mutable db_ref : Db_light.t (* the reference db passed to new transactions *)
            ; with_dot : bool (* Not used *)
+           ; with_ondemand : bool (* No db preload, load values on access *)
+           ; with_max_size : int (* Save data bigger than this in files *)
            ; is_weak : bool (* Not used *)
            ; file_manager : Io_light.t
            ; mutable session_lock : lock
@@ -97,19 +99,25 @@ let sprintf fmt = Printf.sprintf fmt
               ) (List.rev trans.Tr.tr_remove_list)
 
   let disk_writing t trans =
-    match Io_light.get_dbm t.file_manager with
-    | Some dbm ->
-        (try
-           Dbm.replace dbm "timestamp" (Date.rfc1123 (Time.localtime (Time.now())));
-           write_trans dbm trans
-         with e -> (
-           let cause = Printexc.to_string e in
-           let bt = Printexc.get_backtrace() in
-           #<If>Logger.log ~color:`red "DB-LIGHT : error during disk writing for\n%s\n%s" cause bt#<End>;
-           raise (DiskError (sprintf "%s\n%s" cause bt))))
-    | None ->
-        #<If>Logger.log ~color:`red "DB-LIGHT : warning Dbm closed during disk writing transaction #%d"
-                                            (Tr.get_num trans)#<End>
+    if not t.with_ondemand
+    then 
+      match Io_light.get_dbm t.file_manager with
+      | Some dbm ->
+          (try
+             t.file_manager.Io_light.timestamp <- Time.now ();
+             write_trans dbm trans
+           with e -> (
+             let cause = Printexc.to_string e in
+             let bt = Printexc.get_backtrace() in
+             #<If>Logger.log ~color:`red "DB-LIGHT : error during disk writing for\n%s\n%s" cause bt#<End>;
+             raise (DiskError (sprintf "%s\n%s" cause bt))))
+      | None ->
+          #<If>Logger.log ~color:`red "DB-LIGHT : warning Dbm closed during disk writing transaction #%d"
+                                      (Tr.get_num trans)#<End>
+    else
+      #<If>Logger.log ~color:`red "DB-LIGHT : No disk write for (ondemand) transaction #%d"
+                                  (Tr.get_num trans)#<End>
+      
 
   (************************)
   (* timestamps managment *)
@@ -117,7 +125,7 @@ let sprintf fmt = Printf.sprintf fmt
 
   let get_timestamp t =
     let timestamp = Io_light.get_timestamp t.file_manager in
-    #<If>Logger.log ~color:`yellow "DB-LIGHT : get timestamp = %s" (Date.rfc1123 (Time.localtime timestamp))#<End>;
+    #<If>Logger.log ~color:`magenta "DB-LIGHT : get timestamp = %s" (Date.rfc1123 (Time.localtime timestamp))#<End>;
     timestamp
 
 
@@ -130,7 +138,7 @@ let sprintf fmt = Printf.sprintf fmt
     then sprintf "%s/" (Unix.getcwd ())
     else ""
 
-  let init_db mode file =
+  let init_db ?ondemand ?max_size mode file =
     let rep = Filename.dirname file in
     let _ =
       try
@@ -141,75 +149,116 @@ let sprintf fmt = Printf.sprintf fmt
           let s = sprintf "%s %s => %s" f p (Unix.error_message r) in
           raise (Open (None,s))
       | e -> raise (Open (None, Printexc.to_string e)) in
-    let db = Db_light.make () in
+    let filemanager = Io_light.make mode file in
+    let with_ondemand = match ondemand with Some ondemand -> ondemand | None -> false in
+    let with_max_size = match max_size with Some max_size -> max_size | None -> max_int in
+    let db =
+      if with_ondemand
+      then Db_light.make ~filemanager ?max_size ()
+      else Db_light.make ()
+    in
     { trans_num = 0
     ; db_ref = db
     ; with_dot = false
     ; is_weak = false
-    ; file_manager = Io_light.make mode file
+    ; with_ondemand = with_ondemand
+    ; with_max_size = with_max_size
+    ; file_manager = filemanager
     ; session_lock = None
     ; waiting_FIFO = create_FIFO ()
     }
 
-  let make ?dot ?weak file =
+  let make ?dot ?weak ?ondemand ?max_size file =
     let _ = (dot,weak) in
-    Logger.info "make: file=%s" file;
-    let t = init_db Io_light.Create file in
-    let _position = position file in
+    Logger.info "DB-LIGHT : Session_light.make: file=%s" file;
+    let t = init_db ?ondemand ?max_size Io_light.Create file in
     let _dot, with_dot = (*match dot with
     | Some true -> "with", true
     | Some false | None ->*) "without", false in
     let _disk, _weak, is_weak = (*match weak with
     | Some true -> "reading on disk", Some (read_node_from_disk t), true
     | Some false | None ->*) "ram only", None, false in
-    #<If>Logger.log "Opening a new DB %s dot files, %s at %s%s by %s"
-                            _dot _disk _position file (Sys.executable_name)#<End>;
-    let db = Db_light.make () in
-    {t with db_ref = db
-       ; is_weak = is_weak
-       ; with_dot = with_dot }
+    #<If>
+      let _position = position file in
+      let _ondemand = match ondemand with | Some true -> " ondemand " | Some false | None -> " " in
+      let _max_size =
+        match max_size with
+        | Some n when (n < 0 || n = max_int) -> " "
+        | Some ms -> sprintf " max_size=%d " ms
+        | None -> " "
+      in
+      Logger.log "DB-LIGHT : Opening a new DB %s dot files, %s%s%sat %s%s by %s"
+                 _dot _disk _ondemand _max_size _position file (Sys.executable_name)
+    #<End>;
+    { t with is_weak = is_weak; with_dot = with_dot; }
 
   let close_db ?(donothing=false) t =
     let _ = donothing in
     let file = Io_light.get_location t.file_manager in
     let _position = position file in
-    Logger.info "Closing the database at %s" file;
+    Logger.info "DB-LIGHT : Closing the database at %s" file;
     Io_light.close t.file_manager;
-    #<If>Logger.log ~color:`yellow "DB-LIGHT : '%s%s' closed(%b)"
+    #<If>Logger.log ~color:`magenta "DB-LIGHT : '%s%s' closed(%b)"
                                            _position file (Io_light.is_closed t.file_manager)#<End>
 
   let restart_db_from_last t =
-    let db = Db_light.make () in
+    let db = t.db_ref in
     (match Io_light.get_dbm t.file_manager with
      | Some dbm ->
          Dbm.iter (fun pathstr datastr ->
                      match pathstr with
                      | "version" ->
                          if Io_light.version <> datastr
-                         then Logger.log ~color:`red "Warning: Dbm file version %s does not match DB %s"
+                         then Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file version %s does not match DB %s"
                                                              datastr Io_light.version;
-                         #<If>Logger.log ~color:`magenta "Dbm file version %s" datastr#<End>;
-                         Db_light.set_version db datastr
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file version %s" datastr#<End>;
+                         Db_light.set_version t.db_ref datastr
+                     | "ondemand" ->
+                         let ondemand =
+                           try bool_of_string datastr
+                           with Invalid_argument "bool_of_string" ->
+                             Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file nonsensical bool string for ondemand = '%s'" datastr;
+                             false
+                         in
+                         Db_light.set_filemanager t.db_ref (if ondemand then Some t.file_manager else None);
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file ondemand %s" datastr#<End>
+                     | "max_size" ->
+                         let max_size =
+                           try int_of_string datastr
+                           with Invalid_argument "int_of_string" ->
+                             Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file nonsensical int string for max_size = '%s'" datastr;
+                             max_int
+                         in
+                         Db_light.set_max_size t.db_ref max_size;
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file max_size %s" datastr#<End>
                      | "timestamp" ->
-                         #<If>Logger.log ~color:`magenta "Dbm file timestamp %s" datastr#<End>;()
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file timestamp %s" datastr#<End>;
+                         t.file_manager.Io_light.timestamp <- (try Date.of_string datastr
+                                                               with Not_found -> Time.now ())
                      | "lock_pid" ->
-                         #<If>Logger.log ~color:`magenta "Dbm file lock PID %s" datastr#<End>;()
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file lock PID %s" datastr#<End>
                      | "lock_hostname" ->
-                         #<If>Logger.log ~color:`magenta "Dbm file lock hostname %s" datastr#<End>;()
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file lock hostname %s" datastr#<End>
                      | _ ->
-                         let path = snd (Encode_light.decode_path pathstr 0) in
-                         let datas = snd (Encode_light.decode_datas datastr 0) in
-                         #<If>Logger.log ~color:`magenta "DB-LIGHT : set %s -> %s"
-                                                                 (Path.to_string path) (Datas.to_string datas)#<End>;
-                         (match datas with Datas.Data dataImpl -> ignore (Db_light.update_index db [(path,dataImpl)]) | _ -> ());
-                         ignore (Db_light.update db path datas))
+                         if t.with_ondemand
+                         then ()
+                         else
+                           let path = snd (Encode_light.decode_path pathstr 0) in
+                           let datas = snd (Encode_light.decode_datas datastr 0) in
+                           #<If>Logger.log ~color:`magenta "DB-LIGHT : set %s -> %s"
+                                                           (Path.to_string path) (Datas.to_string datas)#<End>;
+                           (match datas with
+                            | Datas.Data dataImpl -> ignore (Db_light.update_index t.db_ref [(path,dataImpl)])
+                                (* FIXME: Links!!! *)
+                            | _ -> ());
+                           ignore (Db_light.update t.db_ref path datas))
            dbm
      | None -> ());
     db
 
-  let restart_db ?dot ?weak ?restore ?openat_rev file =
+  let restart_db ?dot ?weak ?restore ?openat_rev ?ondemand ?max_size file =
     let _ = dot, weak, restore, openat_rev in
-    let t = init_db Io_light.Append file in
+    let t = init_db ?ondemand ?max_size Io_light.Append file in
     let _position = position file in
     let _dot, with_dot = (*match dot with
     | Some true -> "with", true
@@ -217,19 +266,26 @@ let sprintf fmt = Printf.sprintf fmt
     let _disk, _weak, is_weak = (*match weak with
     | Some true -> "reading on disk", Some (read_node_from_disk t), true
     | Some false | None ->*) "ram only", None, false in
-    #<If>Logger.log "Opening an existing DB %s dot files, %s at %s%s by %s"
-                   _dot _disk _position file (Sys.executable_name)#<End>;
+    let _ondemand = match ondemand with | Some true -> ", ondemand " | Some false | None -> " " in
+    let _max_size =
+      match max_size with
+      | Some n when n < 0 || n = max_int -> " "
+      | Some max_size -> sprintf ", max_size=%d " max_size
+      | None -> " "
+    in
+    #<If>Logger.log "DB-LIGHT : Opening an existing DB %s dot files, %s%s%sat %s%s by %s"
+                   _dot _disk _ondemand _max_size _position file (Sys.executable_name)#<End>;
     let t = { t with is_weak = is_weak; with_dot = with_dot; } in
     let db =
       try restart_db_from_last t
       with _exn ->
-        #<If>Logger.log "restart_db:  Can't open Dbm %s %s" file (Printexc.to_string _exn)#<End>;
+        #<If>Logger.log "DB-LIGHT : restart_db:  Can't open Dbm %s %s" file (Printexc.to_string _exn)#<End>;
         raise (Open (None, "Corrupted files"))
     in
     t.db_ref <- db;
     t
 
-  let open_db_aux ?dot ?weak ?rev ?restore file =
+  let open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?max_size file =
     let _ = (rev, restore) in
     let _starting_time = Unix.gettimeofday() in
     let pretty_location = #<If:TESTING> "" #<Else> " at "^file #<End> in
@@ -237,19 +293,19 @@ let sprintf fmt = Printf.sprintf fmt
     else
       let is_new, session =
         if Sys.file_exists (file^".dir")
-        then (Logger.info "Opening database%s" pretty_location;
-              false, restart_db ?dot ?weak ?restore file)
-        else (Logger.notice "Initialising empty database%s" pretty_location;
-              true, make ?dot ?weak file)
+        then (Logger.info "DB-LIGHT : Opening database%s" pretty_location;
+              false, restart_db ?dot ?weak ?restore ?ondemand ?max_size file)
+        else (Logger.notice "DB-LIGHT : Initialising empty database%s" pretty_location;
+              true, make ?dot ?weak ?ondemand ?max_size file)
       in
-      #<If>Logger.log "time to open = %f" (Unix.gettimeofday() -. _starting_time)#<End>;
+      #<If>Logger.log "DB-LIGHT : time to open = %f" (Unix.gettimeofday() -. _starting_time)#<End>;
       session, is_new
 
-  let open_db ?dot ?weak ?rev ?restore file =
-    try open_db_aux ?dot ?weak ?rev ?restore file
+  let open_db ?dot ?weak ?rev ?restore ?ondemand ?max_size file =
+    try open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?max_size file
     with Open (db, s) ->
       (Option.iter (fun db -> close_db ~donothing:true db) db;
-      Logger.critical "Error during database opening :\n%s" s;
+      Logger.critical "DB-LIGHT : Error during database opening :\n%s" s;
       exit 1)
 
 
@@ -269,8 +325,8 @@ let sprintf fmt = Printf.sprintf fmt
       let trans_num = (succ t.trans_num) mod max_int in
       t.trans_num <- trans_num;
       #<If>
-        Logger.log ~color:`white
-        "Initialisation of a new transaction%swith number #%d on a DB"
+        Logger.log ~color:`magenta
+        "DB-LIGHT : Initialisation of a new transaction%swith number #%d on a DB"
            (match read_only with
             | Some (true, _) -> " read only "
             | _ -> " ")
@@ -285,7 +341,7 @@ let sprintf fmt = Printf.sprintf fmt
        of cleaning it. *)
     #<If>
       Logger.log ~color:`red
-      "Abort of unprepared transaction or of the continuation of committed transaction #%d."
+      "DB-LIGHT : Abort of unprepared transaction or of the continuation of committed transaction #%d."
          (Tr.get_num _trans)
       #<End>;
     (* Not removed from init_map, because at the higher level
@@ -293,19 +349,19 @@ let sprintf fmt = Printf.sprintf fmt
     ()
 
   let _prepare_commit db_ref trans =
-    #<If>Logger.log ~color:`white "Preparing commit of transaction #%d on a DB." (Tr.get_num trans)#<End>;
+    #<If>Logger.log ~color:`magenta "DB-LIGHT : Preparing commit of transaction #%d on a DB." (Tr.get_num trans)#<End>;
     Tr.commit trans db_ref
 
   (* Never runs the continuation [k]. *)
   let prepare_commit t trans k =
     match t.session_lock with
     | None ->
-        #<If>Logger.log ~color:`cyan "Preparing transaction #%d (no FIFO)." (Tr.get_num trans)#<End>;
+        #<If>Logger.log ~color:`magenta "DB-LIGHT : Preparing transaction #%d (no FIFO)." (Tr.get_num trans)#<End>;
         let db = _prepare_commit t.db_ref trans in
         t.session_lock <- Some (trans, db);
         Some (trans, k)
     | Some _ ->
-        #<If>Logger.info "Previous prepared transaction not committed yet. Stashed transaction #%d on the waiting FIFO."
+        #<If>Logger.info "DB-LIGHT : Previous prepared transaction not committed yet. Stashed transaction #%d on the waiting FIFO."
                          (Tr.get_num trans) #<End>;
         (* Assumption: this won't raise exceptions. If the data structure
            gets complicated and exceptions are possible, change
@@ -333,20 +389,20 @@ let sprintf fmt = Printf.sprintf fmt
            and reraise the exception in a saner internal state. *)
         (* do not reraise the excpetion, coonsider that the transaction failed
          * apply the continuation with [false], and continue popping *) 
-        (Logger.error "Error During db transaction : %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ());
+        (Logger.error "DB-LIGHT : Error During db transaction : %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ());
         abort_of_unprepared t trans;
         k (trans, false);
         pop_trans_k t)
 
   and pop_trans_k t =
       if is_empty_FIFO t.waiting_FIFO then begin
-        #<If> Logger.log ~color:`red "Nothing popped from FIFO." #<End>;
+        #<If> Logger.log ~color:`red "DB-LIGHT : Nothing popped from FIFO." #<End>;
         None
       end else begin
         let (trans, k) = take_FIFO t.waiting_FIFO in
         #<If>
           Logger.log ~color:`red
-          "Commit of transaction #%d popped from FIFO; %d commits waiting."
+          "DB-LIGHT : Commit of transaction #%d popped from FIFO; %d commits waiting."
              (Tr.get_num trans) (Queue.length t.waiting_FIFO)
              #<End>;
         try_prepare_commit t trans k
@@ -367,7 +423,7 @@ let sprintf fmt = Printf.sprintf fmt
   let abort_or_rollback t trans =
     #<If>
       Logger.log ~color:`red
-      "Rollback of prepared or abort of unprepared or of the continuation of committed transaction #%d."
+      "DB-LIGHT : Rollback of prepared or abort of unprepared or of the continuation of committed transaction #%d."
          (Tr.get_num trans)
     #<End>;
     match t.session_lock with
@@ -386,7 +442,7 @@ let sprintf fmt = Printf.sprintf fmt
              In other words, we for now we treat this as abort, not rollback. *)
           #<If>
             Logger.log ~color:`red
-            "Abort of unprepared transaction #%d (while another, prepared transaction waits for commit)."
+            "DB-LIGHT : Abort of unprepared transaction #%d (while another, prepared transaction waits for commit)."
                (Tr.get_num trans)
             #<End>;
           (* Not removed from init_map, because at the higher level
@@ -397,7 +453,7 @@ let sprintf fmt = Printf.sprintf fmt
           pop_trans_prepare t;
           #<If>
             Logger.log ~color:`red
-            "Rollback of prepared transaction #%d"
+            "DB-LIGHT : Rollback of prepared transaction #%d"
                (Tr.get_num trans)
             #<End>;
         end
@@ -410,6 +466,7 @@ let sprintf fmt = Printf.sprintf fmt
             assert (Tr.get_num transl = Tr.get_num trans);
             t.db_ref <- db;
             disk_writing t trans;
+            if not (!(Db_light.od_early)) then Db_light.action_od ();
             (* Release the lock. *)
             t.session_lock <- None;
             true
@@ -418,14 +475,14 @@ let sprintf fmt = Printf.sprintf fmt
               false
         in
         if success then begin
-          #<If> Logger.info "Finished a commit." #<End>
+          #<If> Logger.info "DB-LIGHT : Finished a commit." #<End>
         end else begin
-          #<If> Logger.info "Failed a commit." #<End>
+          #<If> Logger.info "DB-LIGHT : Failed a commit." #<End>
         end;
         pop_trans_prepare t;
         success
     | None ->
-        Logger.error "Inconsistent state: it should be locked before commit.";
+        Logger.error "DB-LIGHT : Inconsistent state: it should be locked before commit.";
         assert false
 
   (* reading from DB *)

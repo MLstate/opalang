@@ -32,8 +32,20 @@ let open_database options k =
     match options with
     | Badop.Options_Light options -> options
     | _ -> assert false in
+  let open_db ?ondemand ?max_size p =
+    Logger.log ~color:`red "DB-LIGHT : open_database: ondemand=%s" (Option.to_string string_of_bool options.Badop.ondemand);
+    Logger.log ~color:`red "DB-LIGHT : open_database: max_size=%s" (Option.to_string string_of_int options.Badop.max_size);
+    Session_light.open_db p ?ondemand ?max_size
+  in
+  let open_db ?ondemand p =
+    match options.Badop.max_size with
+    | Some max_size -> open_db ?ondemand ~max_size(*:1024*) p
+    | None -> open_db ?ondemand p
+  in
   let open_db p =
-    Session_light.open_db p
+    match options.Badop.ondemand with
+    | Some ondemand -> open_db ~ondemand(*:true*) p
+    | None -> open_db p
   in
   let path = options.Badop.lpath in
   open_db path |> fun (db,_) -> { session = db; file = path; node_config = [] } |> k
@@ -84,15 +96,17 @@ type revision = Revision.t
 type 'which read_op = ('which,revision) Badop.generic_read_op
 
 let read trans path op k =
-  (*Logger.debug "Badop_light.read";*)
   match op with
   | Badop.Stat (D.Query () as q) ->
+      (*Logger.debug "Badop_light.read Stat";*)
       (try `Answer (Badop.Stat (D.Dialog_aux.respond q (Session_light.stat trans.tr path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Contents (D.Query () as q) ->
+      (*Logger.debug "Badop_light.read Contents";*)
       (try `Answer (Badop.Contents (D.Dialog_aux.respond q (Session_light.get trans.db.session trans.tr path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Children (D.Query range as q) ->
+      (*Logger.debug "Badop_light.read Children";*)
       (try
          `Answer
            (Badop.Children
@@ -100,6 +114,7 @@ let read trans path op k =
                  (Session_light.get_children trans.db.session trans.tr range path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Revisions (D.Query _range as q) ->
+      (*Logger.debug "Badop_light.read Revisions";*)
       (try
          `Answer
            (Badop.Revisions
@@ -109,6 +124,7 @@ let read trans path op k =
                  |> List.map (fun rev -> rev, Session_light.get_timestamp trans.db.session))))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Search (D.Query (words, _range_FIXME) as q) ->
+      (*Logger.debug "Badop_light.read Search";*)
       (try
          `Answer
            (Badop.Search
@@ -122,21 +138,24 @@ let read trans path op k =
 type 'which write_op = ('which,transaction,revision) Badop.generic_write_op
 
 let write trans path op k =
-  (*Logger.debug "Badop_light.write";*)
   match op with
   | Badop.Set (D.Query data as q) ->
+      (*Logger.debug "Badop_light.write Set";*)
       Badop.Set (D.Dialog_aux.respond q { trans with tr = Session_light.set trans.tr path data }) |> k
   | Badop.Clear (D.Query () as q) ->
+      (*Logger.debug "Badop_light.write Clear";*)
       Badop.Clear
         (D.Dialog_aux.respond q
            (try
               { trans with tr = Session_light.remove trans.tr path }
             with Db_light.UnqualifiedPath -> trans)) |> k
   | Badop.Link (D.Query linkpath as q) ->
+      (*Logger.debug "Badop_light.write Link";*)
       Badop.Link
         (D.Dialog_aux.respond q
            { trans with tr = Session_light.set_link trans.tr path linkpath }) |> k
   | Badop.Copy (D.Query (copypath,copyrev) as q) ->
+      (*Logger.debug "Badop_light.write Copy";*)
       Badop.Copy
         (D.Dialog_aux.respond q
            { trans with tr = Session_light.set_copy trans.db.session trans.tr path (copypath, copyrev) }) |> k

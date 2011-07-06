@@ -86,7 +86,7 @@ let get_query_map tr = tr.tr_query_map
 
 let full_search tr slist path =
   #<If>
-  Logger.log ~color:`yellow "DB-LIGHT : full search for %s at %s"
+  Logger.log ~color:`cyan "DB-LIGHT : full search for %s at %s"
                  (BaseList.to_string (fun s -> sprintf "%s "s)slist)
                          (Path.to_string path)
   #<End>;
@@ -131,18 +131,24 @@ let rec find_set_data_in_query_list = function
    end in a non-existing node (dangling Links at the end are OK, though,
    and the revision returned for them is None). *)
 let stat tr path =
-  let path, kind =
-    let rec aux path =
-      let (node, _) = Db_light.get_node_of_path tr.tr_db path in
-      match Node_light.get_content node with
-      | Datas.Data _ -> path, `Data
-      | Datas.Link p -> p, `Link
-      | Datas.Copy (_, p) -> aux p
-      | Datas.UnsetData -> path, `Unset
+  try
+    let path, kind =
+      let rec aux path =
+        let (node, _) = Db_light.get_node_of_path tr.tr_db path in
+        Logger.log ~color:`green "Transaction_light.stat: path=%s node=%s\n"
+                                 (Path.to_string path) (Datas.to_string (Node_light.get_content node));
+        match Node_light.get_content node with
+        | Datas.Data _ -> path, `Data
+        | Datas.Link p -> p, `Link
+        | Datas.Copy (_, p) -> aux p
+        | Datas.UnsetData -> path, `Unset
+      in
+      aux path
     in
-    aux path
-  in
-  (path, Some (Revision.make 0), kind)
+    (path, Some (Revision.make 0), kind)
+  with exn ->
+    Logger.log ~color:`red "Transaction_light.stat: exn=%s" (Printexc.to_string exn);
+    raise exn
 
 let datas_from_path tr path = Node_light.get_content (Db_light.node_node (snd (Db_light.follow_link tr.tr_db path)))
 
@@ -151,17 +157,17 @@ let rec unwind tr path =
     match Option.default [] (Hashtbl.find_opt tr.tr_query_map path) with
     | [] ->
         let datas = datas_from_path tr path in
-        #<If>Logger.log ~color:`yellow "DB-LIGHT : unwind %s -> %s" (Path.to_string path) (Datas.to_string datas)#<End>;
+        #<If>Logger.log ~color:`cyan "DB-LIGHT : unwind %s -> %s" (Path.to_string path) (Datas.to_string datas)#<End>;
         datas
     | qlist ->
         (try
            let datas = find_datas_in_query_list qlist in
-           #<If>Logger.log ~color:`yellow "DB-LIGHT : unwind(qlist) %s -> %s"
+           #<If>Logger.log ~color:`cyan "DB-LIGHT : unwind(qlist) %s -> %s"
                                           (Path.to_string path) (Datas.to_string datas)#<End>;
            datas
          with Datas_not_found ->
            let datas = datas_from_path tr path in
-           #<If>Logger.log ~color:`yellow "DB-LIGHT : unwind(noset) %s -> %s" (Path.to_string path)
+           #<If>Logger.log ~color:`cyan "DB-LIGHT : unwind(noset) %s -> %s" (Path.to_string path)
                                           (Datas.to_string datas)#<End>;
            datas)
   in
@@ -178,7 +184,7 @@ let get tr path =
     | Datas.UnsetData -> DataImpl.empty
     | _ -> assert false
   in
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : get data at %s = %s" (Path.to_string path) (DataImpl.to_string data)#<End>;
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : get data at %s = %s" (Path.to_string path) (DataImpl.to_string data)#<End>;
   data
 
 (* may raise Removed and Not_found *)
@@ -186,7 +192,7 @@ let virtual_get_children tr path =
   Hashtbl.fold (fun p _ a -> if Path.is_prefix path p then p::a else a) tr.tr_query_map []
 
 let get_children tr range path =
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : get children at %s" (Path.to_string path)#<End>;
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : get children at %s" (Path.to_string path)#<End>;
   try
     let virtual_children = virtual_get_children tr path in
     let virtual_children = List.sort compare virtual_children in
@@ -218,8 +224,8 @@ let get_query_index () = incr query_index; !query_index
 
 let add_to_query_map =
   let do_it tr path (query:query) =
-    #<If$minlevel 3>Logger.log ~color:`blue
-                              "Transaction_light.add_to_query_map: path=%s query=%s"
+    #<If$minlevel 3>Logger.log ~color:`cyan
+                              "DB-LIGHT : add_to_query_map: path=%s query=%s"
                               (Path.to_string path) (string_of_query query)#<End>;
     Hashtbl.replace tr.tr_query_map path
                     ((get_query_index(),path,query)::(Option.default [] (Hashtbl.find_opt tr.tr_query_map path)));
@@ -237,7 +243,7 @@ let add_to_query_map =
       if counter < trans_operation_counter_limit then do_it tr path query
       else if counter = -1 then begin
         #<If>
-          Logger.log ~color:`yellow
+          Logger.log ~color:`cyan
           "DB-LIGHT : operation count still exceeded for transaction #%d"
              tr.tr_num
         #<End>;
@@ -270,7 +276,7 @@ let remove_subtree path tr =
 
 let set_link tr path link =
   #<If>
-    Logger.log ~color:`yellow
+    Logger.log ~color:`cyan
       "DB-LIGHT : set link at %s toward %s"
         (Path.to_string path) (Path.to_string link)
   #<End>;
@@ -293,7 +299,7 @@ let set_link tr path link =
    if the path is dangling or not. *)
 let set_copy tr path (target_path, _target_rev) =
   #<If>
-    Logger.log ~color:`yellow
+    Logger.log ~color:`cyan
       "DB-LIGHT : set copy at %s toward %s"
          (Path.to_string path) (Path.to_string target_path)
   #<End>;
@@ -309,7 +315,7 @@ let set_copy tr path (target_path, _target_rev) =
 
 let set tr path data =
   #<If>
-  Logger.log ~color:`yellow
+  Logger.log ~color:`cyan
     "DB-LIGHT : set %s at %s"
        (DataImpl.to_string data) (Path.to_string path)
   #<End>;
@@ -352,7 +358,7 @@ let check_remove tr path =
    was removed, but you can trace through his ancestors to see at which
    revision it became inaccessible (=removed). *)
 let remove tr path =
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : remove at %s"(Path.to_string path)#<End>;
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : remove at %s"(Path.to_string path)#<End>;
   add_to_query_map tr path (Remove path)
 
 (* initialization of transactions *)
@@ -387,15 +393,15 @@ let compare_q (i1,_,_) (i2,_,_) = Pervasives.compare i1 i2
 let get_sorted_queries tr = List.sort compare_q (Hashtbl.fold (fun _ ql a -> ql@a) tr.tr_query_map [])
 
 let execute_query_map tr db =
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : execute_query_map %s" (string_of_query_map tr.tr_query_map)#<End>;
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map %s" (string_of_query_map tr.tr_query_map)#<End>;
   let qs = get_sorted_queries tr in
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : execute_query_map(sorted)[%s]"
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map(sorted)[%s]"
                                  (String.concat_map "; " string_of_query_element qs)#<End>;
   try
     let ia, ir, rl =
       List.fold_left
         (fun (ia,ir,rl) (_i,path,query) ->
-           #<If>Logger.log ~color:`yellow "DB-LIGHT : execute_query_map %s" (string_of_query_element (_i,path,query))#<End>;
+           #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map %s" (string_of_query_element (_i,path,query))#<End>;
            match query with
            | Set (data) ->
                ignore (Db_light.update db path data);
@@ -408,12 +414,12 @@ let execute_query_map tr db =
                        let d = Db_light.get tr.tr_db path in
                        ((path,d)::ia,ir,rl)
                      with Db_light.UnqualifiedPath ->
-                       #<If>Logger.log ~color:`red "execute_query_map: dangling link or copy %s -> %s"
+                       #<If>Logger.log ~color:`red "DB-LIGHT : execute_query_map: dangling link or copy %s -> %s"
                                                    (Path.to_string path) (Path.to_string _p)#<End>;
                        (ia,ir,rl)))
            | Remove path ->
                let ch = try Db_light.get_all_children db None path with Db_light.UnqualifiedPath -> [] in
-               #<If>Logger.log ~color:`yellow "DB-LIGHT : execute_query_map(Remove) ch=[%s]"
+               #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map(Remove) ch=[%s]"
                                               (String.concat_map "; " Path.to_string ch)#<End>;
                ignore (Db_light.remove db path);
                let allir = (path,DataImpl.Unit)::(List.map (fun p -> (p,DataImpl.Unit)) ch) in
@@ -425,7 +431,7 @@ let execute_query_map tr db =
   with
   | e ->
       let _bt = Printexc.get_backtrace () in
-      #<If>Logger.log ~color:`red "execute_query_map --> %s\n%s" (Printexc.to_string e) _bt#<End>;
+      #<If>Logger.log ~color:`red "DB-LIGHT : execute_query_map --> %s\n%s" (Printexc.to_string e) _bt#<End>;
       raise e
 
 let execute_remove_list tr db =

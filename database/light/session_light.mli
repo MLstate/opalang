@@ -25,6 +25,8 @@ type t = {
   mutable trans_num : int;
   mutable db_ref : Db_light.t;
   with_dot : bool;
+  with_ondemand : bool;
+  with_max_size : int;
   is_weak : bool;
   file_manager : Io_light.t;
   mutable session_lock : lock;
@@ -36,13 +38,13 @@ val write_trans : Dbm.t -> Transaction_light.t -> unit
 val disk_writing : t -> Transaction_light.t -> unit
 val get_timestamp : t -> Time.t
 val position : string -> string
-val init_db : Io_light.mode -> string -> t
-val make : ?dot:'a -> ?weak:'b -> string -> t
+val init_db : ?ondemand:bool -> ?max_size:int -> Io_light.mode -> string -> t
+val make : ?dot:'a -> ?weak:'b -> ?ondemand:bool -> ?max_size:int -> string -> t
 val close_db : ?donothing:bool -> t -> unit
 val restart_db_from_last : t -> Db_light.t
-val restart_db : ?dot:'a -> ?weak:'b -> ?restore:'c -> ?openat_rev:'d -> string -> t
-val open_db_aux : ?dot:'a -> ?weak:'b -> ?rev:'c -> ?restore:'d -> string -> t * bool
-val open_db : ?dot:'a -> ?weak:'b -> ?rev:'c -> ?restore:'d -> string -> t * bool
+val restart_db : ?dot:'a -> ?weak:'b -> ?restore:'c -> ?openat_rev:'d -> ?ondemand:bool -> ?max_size:int -> string -> t
+val open_db_aux : ?dot:'a -> ?weak:'b -> ?rev:'c -> ?restore:'d -> ?ondemand:bool -> ?max_size:int -> string -> t * bool
+val open_db : ?dot:'a -> ?weak:'b -> ?rev:'c -> ?restore:'d -> ?ondemand:bool -> ?max_size:int -> string -> t * bool
 val is_empty : t -> bool
 val get_rev : t -> Revision.t
 val is_closed_db : t -> bool
