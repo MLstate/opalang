@@ -17,6 +17,10 @@ import stdlib.components.applicationframe
  *   additionaly an access to the administration pages.
  */
 
+/* DOES NOT COMPILE ANYMORE,
+   if you need a demo, please see repo opalang.org
+   @TODO: remove CApplicationFrame !! */
+
 /** A  path to store template content. */
 db /opages : stringmap(Page.stored)
 
@@ -67,7 +71,7 @@ server =
 /** Secure server - page in database + administration page access */
 server =
   build_html(url, embedded) =
-  /* Application frame configuration. */
+  /* Application frame configuration. /!\ @TODO: Remove me !! /!\ */
   app_frame_config = { CApplicationFrame.default_config with
     authenticate(name, pass) =
       if User.is_admin(name, pass) then none
