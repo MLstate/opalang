@@ -11,7 +11,9 @@ include config.make
 
 INSTALL ?= cp -u -L
 
+ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += "--rebuild"
+endif
 
 ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
 export DISABLED_LIBS = libnattraversal
