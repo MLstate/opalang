@@ -481,9 +481,9 @@ object (self)
     match exprs, tys with
     | [], [] -> pp f "@[<2>%a@]" variant_aux variant
     | _, [] ->
-        pp f "@[<2>%a(%a)@]" variant_aux variant (pp_list ",@ " self#reset#under_comma#expr) exprs
+        pp f "@[<2>%a(@,%a)@]" variant_aux variant (pp_list ",@ " self#reset#under_comma#expr) exprs
     | _ ->
-        pp f "@[<2>%a(%a ; %a)@]" variant_aux variant
+        pp f "@[<2>%a(@,%a ;@ %a)@]" variant_aux variant
           (pp_list ",@ " self#reset#under_comma#expr) exprs
           (pp_list ",@ " self#reset#under_comma#ty) tys
   method record f l =
