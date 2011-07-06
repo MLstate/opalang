@@ -129,6 +129,8 @@ type local_options =
 
 type light_options =
   { lpath : string; (** path *)
+    ondemand : bool option; (** no preload, read disk on access *)
+    max_size : int option; (** store node data in files if larger than this value *)
   }
 
 type options =

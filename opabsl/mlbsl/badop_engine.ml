@@ -211,6 +211,8 @@ let light_options name file_opt =
   let o = Badop.Options_Light {
     Badop.
       lpath = (match file_opt with Some f -> f | None -> Badop_meta.default_file ?name ());
+      ondemand = None;
+      max_size = None;
   }
   in
   db_options name (m, o)
