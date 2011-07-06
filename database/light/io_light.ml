@@ -32,6 +32,8 @@ type t = {
   mutable dbm : Dbm.t option;
   mutable link_count : int;
   mutable has_lock : bool;
+  mutable timestamp : Time.t;
+  mutable next_file_idx : int;
 }
 
 let dbtbl = ((Hashtbl.create 10) : (string,t) Hashtbl.t)
@@ -45,6 +47,15 @@ let db = ref (None:Backend.database option);;
 open_database options (fun dbdb -> db := (Some dbdb));;
 close_database (Option.get (!db)) nilcont;;
 *)
+
+let get_content_file_name t =
+  let rec aux n =
+    let name = t.location^"_content_"^(string_of_int n) in
+    if File.exists name
+    then aux (n+1)
+    else (t.next_file_idx <- t.next_file_idx + 1; name)
+  in
+  aux t.next_file_idx
 
 let really_remove_lock_file t =
   let lock_file_name = t.location^"_lock" in
@@ -70,12 +81,16 @@ let really_remove_lock_file t =
   else ()
 
 let close t =
-  #<If>Logger.log ~color:`magenta "Close Dbm %s (lc:%d)" t.location t.link_count#<End>;
+  #<If>Logger.log ~color:`magenta "DB-LIGHT : Close Dbm %s (lc:%d)" t.location t.link_count#<End>;
   if t.link_count > 0
   then (t.link_count <- t.link_count - 1;
         if t.link_count = 0
         then (really_remove_lock_file t;
-              ignore (Option.map Dbm.close t.dbm);
+              (match t.dbm with
+               | Some dbm ->
+                   Dbm.replace dbm "timestamp" (Date.rfc1123 (Time.localtime t.timestamp));
+                   Dbm.close dbm
+               | None -> ());
               t.dbm <- None))
 
 let critical_error t errstr =
@@ -166,19 +181,19 @@ let check_other_used t =
 let reopen t =
   match t.dbm with
   | Some _ ->
-      #<If>Logger.log ~color:`yellow "Reopen: Attempt to re-open already open Dbm file %s" t.location#<End>;
+      #<If>Logger.log ~color:`yellow "DB-LIGHT : Reopen: Attempt to re-open already open Dbm file %s" t.location#<End>;
       t.link_count <- t.link_count + 1
   | None ->
       (try
          check_other_used t;
          let dir_file = t.location^".dir" in
          if Sys.file_exists dir_file
-         then (#<If>Logger.log ~color:`magenta "Reopening Dbm file %s" t.location#<End>;
+         then (#<If>Logger.log ~color:`magenta "DB-LIGHT : Reopening Dbm file %s" t.location#<End>;
                t.link_count <- t.link_count + 1;
                t.dbm <- Some (Dbm.opendbm t.location (match t.mode with
                                                       | ReadOnly -> [Dbm.Dbm_rdonly]
                                                       | _ -> [Dbm.Dbm_rdwr]) File.default_rights))
-         else (#<If>Logger.log ~color:`yellow "Reopen: Dbm file has disappeared, recreating %s" t.location#<End>;
+         else (#<If>Logger.log ~color:`yellow "DB-LIGHT : Reopen: Dbm file has disappeared, recreating %s" t.location#<End>;
                t.link_count <- t.link_count + 1;
                t.dbm <- Some (Dbm.opendbm t.location (match t.mode with
                                                       | ReadOnly -> [Dbm.Dbm_rdonly;Dbm.Dbm_create]
@@ -190,12 +205,15 @@ let make mode file =
   let cfile = File.explicit_path file (Some (Unix.getcwd())) in
   match Hashtbl.find_opt dbtbl cfile with
   | Some t ->
-      #<If>Logger.log ~color:`magenta "Returning existing Dbm data %s" cfile#<End>;
+      #<If>Logger.log ~color:`magenta "DB-LIGHT : Returning existing Dbm data %s" cfile#<End>;
       if is_open t
       then (t.link_count <- t.link_count + 1; t)
       else (reopen t; t)
   | None ->
-      let t = { dbm = None; location = cfile; mode = mode; link_count = 0; has_lock = false; } in
+      let t = { dbm = None; location = cfile; mode = mode;
+                link_count = 0; has_lock = false; timestamp = Time.now();
+                next_file_idx = Random.int 10000;
+              } in
       check_other_used t;
       let dir_file = cfile^".dir" in
       let pag_file = cfile^".pag" in
@@ -204,39 +222,39 @@ let make mode file =
           (match mode with
            | Create ->
                if Sys.file_exists dir_file
-               then (#<If>Logger.log ~color:`yellow "New db, purge: deleting file %s" dir_file#<End>;
+               then (#<If>Logger.log ~color:`yellow "DB-LIGHT : New db, purge: deleting file %s" dir_file#<End>;
                      (try Sys.remove dir_file
-                      with _exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
+                      with _exn -> #<If>Logger.log ~color:`yellow "DB-LIGHT : Error deleting file %s %s"
                                                                     dir_file (Printexc.to_string _exn)#<End>; ());
                      (try Sys.remove pag_file
-                      with _exn -> #<If>Logger.log ~color:`yellow "Error deleting file %s %s"
+                      with _exn -> #<If>Logger.log ~color:`yellow "DB-LIGHT : Error deleting file %s %s"
                                                                     pag_file (Printexc.to_string _exn) #<End>; ()));
-               #<If>Logger.log ~color:`magenta "Opened new Dbm file %s" dir_file#<End>;
+               #<If>Logger.log ~color:`magenta "DB-LIGHT : Opened new Dbm file %s" dir_file#<End>;
                let dbm = Dbm.opendbm cfile [Dbm.Dbm_rdwr;Dbm.Dbm_create] File.default_rights in
                Dbm.add dbm "version" version;
                Dbm.add dbm "timestamp" (Date.rfc1123 (Time.localtime (Time.now())));
                dbm
            | Append ->
-               #<If>Logger.log ~color:`magenta "Opened Dbm file for RdWr %s" dir_file#<End>;
+               #<If>Logger.log ~color:`magenta "DB-LIGHT : Opened Dbm file for RdWr %s" dir_file#<End>;
                Dbm.opendbm file [Dbm.Dbm_rdwr] File.default_rights
            | ReadOnly ->
-               #<If>Logger.log ~color:`magenta "Opened Dbm file for Read %s" dir_file#<End>;
+               #<If>Logger.log ~color:`magenta "DB-LIGHT : Opened Dbm file for Read %s" dir_file#<End>;
                Dbm.opendbm file [Dbm.Dbm_rdonly] File.default_rights)
         with _exn ->
-          failwith (sprintf "Can't open Dbm file %s %s" file (Printexc.to_string _exn))
+          failwith (sprintf "DB-LIGHT : Can't open Dbm file %s %s" file (Printexc.to_string _exn))
       in
       t.dbm <- Some dbm;
       t.link_count <- t.link_count + 1;
       Hashtbl.add dbtbl cfile t;
       t
 
-let get_timestamp t =
-  match t.dbm with
+let get_timestamp t = t.timestamp
+  (*match t.dbm with
   | Some dbm ->
       (try Date.of_string (Dbm.find dbm "timestamp")
        with Not_found -> Time.now ())
   | None ->
-      Time.now ()
+      Time.now ()*)
 
 let get_location t = t.location
 let get_dbm t = t.dbm

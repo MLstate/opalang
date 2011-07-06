@@ -23,11 +23,14 @@ type t = {
   mutable dbm : Dbm.t option;
   mutable link_count : int;
   mutable has_lock : bool;
+  mutable timestamp : Time.t;
+  mutable next_file_idx : int;
 }
 val dbtbl : (string, t) Hashtbl.t
 val is_open : t -> bool
 val is_closed : t -> bool
 val really_remove_lock_file : t -> unit
+val get_content_file_name : t -> string
 val close : t -> unit
 val make_lock_file : t -> unit
 val remove_lock_file : t -> unit
