@@ -837,7 +837,8 @@ module DT = DbTypes
 
   let get_all_rev_of_path tr path =
     let l = Tr.get_all_rev_of_path tr path in
-    assert (l = List.uniq (List.sort compare l));
+    let l = List.rev l in
+    assert (if l <> List.uniq (List.sort compare l) then (Printf.printf "pbl! %s vs %s\n%!" (List.print Revision.to_string l) (List.print Revision.to_string (List.uniq (List.sort compare l))); false) else true);
     l
 
   let get_last_rev_of_path tr path = Tr.get_last_rev_of_path tr path
