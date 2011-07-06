@@ -665,6 +665,7 @@ let is_module e =
              ;D.Remove.Basic.letin
              ;D.Remove.Basic.doctype
              ;D.Remove.Basic.opacapi
+             ;D.Remove.Basic.async
              ] e
 
 (**

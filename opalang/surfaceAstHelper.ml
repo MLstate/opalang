@@ -352,7 +352,8 @@ module Rec = struct
                  ; D.Remove.Basic.coerce
                  ; D.Remove.Basic.slicer_directive
                  ; D.Remove.Basic.letin
-                 ; D.Remove.Basic.open_ ] e in
+                 ; D.Remove.Basic.open_
+                 ; D.Remove.Basic.async ] e in
     D.Look.module_ e || D.Look.lambda e
 
   let recursive_scope e =
@@ -364,7 +365,8 @@ module Rec = struct
                  ; D.Remove.Basic.opavalue_directive
                  ; D.Remove.Basic.coerce
                  ; D.Remove.Basic.slicer_directive (* LOOK AGAIN: not sure *)
-                 ; D.Remove.Basic.letin ] e in
+                 ; D.Remove.Basic.letin
+                 ; D.Remove.Basic.async ] e in
     D.Look.module_ e || D.Look.lambda e
 end
 

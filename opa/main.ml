@@ -141,6 +141,8 @@ let () =
 
     |+> ("CompileRecursiveValues", S3.pass_CompileRecursiveValues)
 
+    |+> ("RewriteAsyncLambda", S3.pass_RewriteAsyncLambda)
+
     (*|+> ("Retyping", S3.pass_Retyping)*)
 
       |+> ("DbAccessorsGeneration", S3.pass_DbAccessorsGeneration)

@@ -103,6 +103,7 @@ type ('a,'b,'c) strictly_non_expansive =
     | `specialize of 'c
     | `may_cps
     | Q.opavalue_directive
+    | `async
     ]
 type non_expansive = [
   | `module_

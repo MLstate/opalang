@@ -254,6 +254,9 @@ val pass_WarnCoerce :
 val pass_CompileRecursiveValues :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
+val pass_RewriteAsyncLambda :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
 val pass_MacroExpansion :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 

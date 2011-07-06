@@ -61,6 +61,10 @@ struct
       | (Directive (#access_directive,[e],_),_) -> e
       | (Directive (#access_directive,_,_),_) -> assert false
       | e -> e
+    let async = function
+      | (Directive (`async, [e], _),_) -> e
+      | (Directive (`async, _, _),_) -> assert false
+      | e -> e
     let coerce = function
       | (Directive (`coerce,[e],_),_) -> e
       | (Directive (`coerce,_,_),_) -> assert false

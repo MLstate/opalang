@@ -212,12 +212,12 @@ let debug_coerce annotmap body _ty =
 let pp_ident_set f set =
   IdentSet.iter (fun x -> Format.fprintf f "%s@ " (Ident.to_string x)) set
 
-type 'a ignored_directive =
-    [ Q.type_directive
-    | `partial_apply of int option
-    | `lifted_lambda of 'a
-    | `full_apply of int
-    | Q.slicer_directive ]
+type 'a ignored_directive =[
+| Q.type_directive
+| Q.lambda_lifting_directive
+| Q.slicer_directive
+| `async
+]
 
 (* some utility functions to get types and type schemes *)
 let get_ty annotmap ann =

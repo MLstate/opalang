@@ -198,6 +198,12 @@ struct
   let raw_resource_factory  = !! "raw_resource_factory"
 end
 
+module Scheduler =
+struct
+  let (!!) s = !! ("Scheduler_" ^ s)
+  let push = !! "push"
+end
+
 module Server_private =
 struct
   let (!!) s = !! ("Server_private_" ^ s)

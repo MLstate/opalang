@@ -26,6 +26,7 @@ module Remove :
       sig
         val access_directive:('a, [< all_directives > `private_ `package `public ]) through
         val access_not_public:('a, [< all_directives > `private_ `package `public ]) through
+        val async :          ('a, [< all_directives > `async ]) through
         val coerce :         ('a, [< all_directives > `coerce ]) through
         val deprecated :         ('a, [< all_directives > `deprecated ]) through
         val directive :      ('a, 'b) through

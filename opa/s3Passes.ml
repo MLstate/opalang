@@ -933,6 +933,21 @@ let pass_CompileRecursiveValues =
        {e with PH.env = env}
     )
 
+let pass_RewriteAsyncLambda =
+  PassHandler.make_pass
+    (fun e ->
+       let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
+       let typerEnv = env.Passes.typerEnv in
+       let gamma = typerEnv.QmlTypes.gamma in
+       let annotmap = typerEnv.QmlTypes.annotmap in
+       let code = env.Passes.qmlAst in
+       let val_ = OpaMapToIdent.val_ in
+       let annotmap, code = Pass_RewriteAsyncLambda.process_code ~val_ gamma annotmap code in
+       let typerEnv = {typerEnv with QmlTypes.annotmap} in
+       let env = {env with P.typerEnv; qmlAst = code} in
+       {e with PH.env = env}
+    )
+
 let pass_DbAccessorsGeneration =
   let invariant = global_invariant () in
   let precond = [

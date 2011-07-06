@@ -255,6 +255,7 @@ struct
   | QmlAst.type_directive
   | QmlAst.slicer_directive
   | `lifted_lambda of 'b
+  | `async
   ]
 
   let check_valrec ~undot check_fail (annotmap, code) =

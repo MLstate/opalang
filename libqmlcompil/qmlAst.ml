@@ -742,7 +742,10 @@ type cps_directive = [
 
   | `async
       (**
-         Tag for using partially the toplevel-concurrency mode when the option is not activated.
+         When put on a lambda, means that the call to this function should be asynchronous
+         (valid for local calls and remote calls)
+         When put on something else, tag for using partially the toplevel-concurrency mode
+         when the option is not activated.
          As we have no way to put directives at toplevel in the AST, we count on the luck and the
          great passes magical spirit for the directive to stay arround the expression associated
          to the binded identifier in a NewVal.
@@ -782,6 +785,19 @@ type doctype_access_directive =
     | `public (* visible to everyone *)
     | `package (* visible only in the current package *)
     ]
+
+type lambda_lifting_directive = [
+  | `partial_apply of int option (* original arity of the function, guaranteed to be filled by lambda lifting, None means 'undisclosed information' :)  *)
+  | `full_apply of int (* size of the env *)
+  | `lifted_lambda of int * Ident.t option (* size of the env and the toplevel name of the declaration from where it was lifted
+                                            * (meaningful between lambda lifting and explicit instantiation, because
+                                            * ei adds @lifted_lambda on declarations that are not really lifted, so
+                                            * what would the value be?) *)
+      (**
+         Used to indicate a partial application
+         Must be around an Apply node
+      *)
+]
 
 (*
   If you want to add a new directive, it should appear:
@@ -867,16 +883,7 @@ type qml_directive = [
          is raised if the type cannot be specialized.
       *)
 
-  | `partial_apply of int option (* original arity of the function, guaranteed to be filled by lambda lifting, None means 'undisclosed information' :)  *)
-  | `full_apply of int (* size of the env *)
-  | `lifted_lambda of int * Ident.t option (* size of the env and the toplevel name of the declaration from where it was lifted
-                                            * (meaningful between lambda lifting and explicit instantiation, because
-                                            * ei adds @lifted_lambda on declarations that are not really lifted, so
-                                            * what would the value be?) *)
-      (**
-         Used to indicate a partial application
-         Must be around an Apply node
-      *)
+  | lambda_lifting_directive
 
   | `at_init
       (**

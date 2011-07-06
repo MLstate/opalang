@@ -1366,7 +1366,7 @@ let eta_expansion lt lrow lcol lt' lrow' lcol' =
  * (@server, @client, etc. can be ignored since they have been removed by the slicer) *)
 let rec get_lambda = function
   | Q.Coerce (_,e,_)
-  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _), [e], _) -> get_lambda e
+  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async), [e], _) -> get_lambda e
   | Q.Directive (_, `lifted_lambda env, [e], _) -> (
       match e with
       | Q.Lambda (_,params,e) -> `lambda (env,params,e)

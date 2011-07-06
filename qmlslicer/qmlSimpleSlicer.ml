@@ -73,13 +73,12 @@ type publication = [ `Published of [`sync | `async | `funaction ]
                    | `Private ]
 
 type privacy =
-  | Published of [`sync | `async]
+  | Published
   | Private
   | Visible
 
-let sync_of_privacy = function
-  | Published sync -> sync
-  | Private | Visible -> `sync
+let variant_of_async async =
+  if async then `async else `sync
 
 type 'a value =
   | Local of 'a
@@ -91,6 +90,7 @@ type information = (* TODO: explicit the invariants *)
       implemented_both : bool;
       user_annotation : user_annotation option;
       ident : Ident.t;
+      async : bool;
       mutable expr : Q.expr value; (* this field is muted only at the very end
                              * to avoid marshalling the expression *)
 
@@ -214,22 +214,45 @@ let empty_env bymap typer_env =
     annotmap = typer_env.QmlTypes.annotmap;
   }
 
-let rec slicer_annots_of_expr visibility both_implem side_annot annotmap expr =
+(* same as rewriteAsyncLambda presumably *)
+type ignored_directive = [
+| Q.type_directive
+| Q.lambda_lifting_directive
+| Q.slicer_directive
+]
+let async_lambda e =
+  QmlAstWalk.Expr.traverse_exists
+    (fun tra -> function
+     | Q.Coerce _
+     | Q.Directive (_, #ignored_directive, _, _) ->
+         tra e
+     | Q.Lambda _ -> true
+     | _ -> false
+    ) e
+
+let rec slicer_annots_of_expr visibility both_implem side_annot async annotmap expr =
   match expr with
+  | Q.Directive (label, `async, [e], _) when async_lambda e ->
+      async := true;
+      let tsc_gen = QmlAnnotMap.find_tsc_opt_label label !annotmap in
+      annotmap := QmlAnnotMap.add_tsc_opt_label (Q.Label.expr e) tsc_gen !annotmap;
+      slicer_annots_of_expr visibility both_implem side_annot async annotmap e
   | Q.Coerce (label, e, ty) ->
-      let e' = slicer_annots_of_expr visibility both_implem side_annot annotmap e in
+      let e' = slicer_annots_of_expr visibility both_implem side_annot async annotmap e in
       (*if e == e' then expr else*) Q.Coerce (label, e', ty)
   | Q.Directive (label, (#Q.type_directive as d), [e], ty) ->
-      let e' = slicer_annots_of_expr visibility both_implem side_annot annotmap e in
+      let e' = slicer_annots_of_expr visibility both_implem side_annot async annotmap e in
       (*if e == e' then expr else*) Q.Directive (label, d, [e'], ty)
   | Q.Directive (label, (`visibility_annotation _ | `side_annotation _ as v), [e], _) ->
       (match v, !visibility, !side_annot with
        | `visibility_annotation v, None, _ ->
            visibility := Some (
              match v with
-             | `public (`sync | `async as sync) -> Published sync
+             | `public (`sync | `async as sync) ->
+                 (async := match sync with `async -> true | `sync -> !async);
+                 Published
              | `private_ -> Private
-             | `public `funaction -> Published `sync
+             | `public `funaction -> Published (* `sync*)
                  (* problem: since fun actions are lambda lifting with two groups
                   * of lambda, the funaction is onclick="f(env)(arg)"
                   * and the remote call f(env) does not return void
@@ -256,46 +279,44 @@ let rec slicer_annots_of_expr visibility both_implem side_annot annotmap expr =
            QmlError.serror context "You have several slicing annotations on the same declaration.");
       let tsc_gen = QmlAnnotMap.find_tsc_opt_label label !annotmap in
       annotmap := QmlAnnotMap.add_tsc_opt_label (Q.Label.expr e) tsc_gen !annotmap;
-      slicer_annots_of_expr visibility both_implem side_annot annotmap e
+      slicer_annots_of_expr visibility both_implem side_annot async annotmap e
   | _ -> expr
 
 let default_information ~env ~annotmap (ident,expr) =
   let visibility = ref None in
   let both_implem = ref false in
   let side_annot = ref None in
-  let expr = slicer_annots_of_expr visibility both_implem side_annot annotmap expr in
+  let async = ref false in
+  let expr = slicer_annots_of_expr visibility both_implem side_annot async annotmap expr in
+  if !async then (
+    (* we can't have asynchronous calls to functions that return something else than void
+     * note that {} / ... is not good either because f(x:{} / ...) = x cannot
+     * be called asynchronous
+     * So we are NOT checking that the return type is unifiable with void,
+     * we want exactly void
+     * Another way to do that would be to force the typer to unify void and the return type
+     * but for that, the directive would need to be still in the ast when typing *)
+    let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr expr) !annotmap in
+    let fail () =
+      let context = QmlError.Context.expr expr in
+      QmlError.serror context
+        "@[@@async_publish can be put only on functions whose return type is {}@]@\n\
+         @[<2>Hint:@\nit has type %a@]@."
+        QmlPrint.pp#ty ty
+    in
+    (match QmlTypesUtils.Inspect.get_arrow_through_alias_and_private env.gamma ty with
+     | None -> fail ()
+     | Some (_params, ty) ->
+         if not (QmlTypesUtils.Inspect.is_type_void env.gamma ty) then fail ());
+  );
   { calls_private = None;
     lambda_lifted = None;
     calls_server_bypass = None;
     calls_client_bypass = None;
-    privacy =
-      (match !visibility with
-       | None -> Visible
-       | Some (Visible | Published `sync | Private as p) -> p
-       | Some (Published `async as p) ->
-           (* we can't have asynchronous calls to functions that return something else than void
-            * note that {} / ... is not good either because f(x:{} / ...) = x cannot
-            * be called asynchronous
-            * So we are NOT checking that the return type is unifiable with void,
-            * we want exactly void
-            * Another way to do that would be to force the typer to unify void and the return type
-            * but for that, the directive would need to be still in the ast when typing *)
-           let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr expr) !annotmap in
-           let fail () =
-             let context = QmlError.Context.expr expr in
-             QmlError.serror context
-               "@[@@async_publish can be put only on functions whose return type is {}@]@\n\
-                  @[<2>Hint:@\nit has type %a@]@."
-               QmlPrint.pp#ty ty
-           in
-           (match QmlTypesUtils.Inspect.get_arrow_through_alias_and_private env.gamma ty with
-            | None -> fail ()
-            | Some (_params, ty) ->
-                if not (QmlTypesUtils.Inspect.is_type_void env.gamma ty) then fail ());
-           p
-      );
+    privacy = Option.default Visible !visibility;
     implemented_both = !both_implem;
     user_annotation = !side_annot;
+    async = !async;
     has_sliced_expr = false;
     expr = Local expr;
     on_the_server = None;
@@ -404,11 +425,11 @@ module G_for_server_private =
 struct
   include G
   let iter_succ f graph node =
-    iter_succ (fun node -> match node.privacy with Published _ -> () | _ -> f node) graph node
+    iter_succ (fun node -> match node.privacy with Published -> () | _ -> f node) graph node
   let exists_succ f graph node =
-    exists_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node) graph node
+    exists_succ (fun node -> match node.privacy with Published -> false | _ -> f node) graph node
   let find_succ f graph node =
-    find_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node)  graph node
+    find_succ (fun node -> match node.privacy with Published -> false | _ -> f node)  graph node
   let find_opt_succ f graph node =
     try Some (find_succ f graph node) with Not_found -> None
 end
@@ -487,7 +508,7 @@ let rec find_private_path acc info =
   let acc = info :: acc in
   match info.privacy with
   | Private -> List.rev acc, `annot
-  | Published _ | Visible ->
+  | Published | Visible ->
       match info.calls_server_bypass with
       | Some key -> List.tl (List.rev acc), `key key
       | None ->
@@ -571,14 +592,14 @@ let look_at_user_annotation env pp_pos node annot =
             pp_pos node;
         node.on_the_server <- Some (Some `expression);
         node.on_the_client <- Some None;
-        node.publish_on_the_server <- node.calls_private = None || (match node.privacy with Published _ -> true | _ -> false);
+        node.publish_on_the_server <- node.calls_private = None || node.privacy = Published;
         node.publish_on_the_client <- false
     | Some {wish=Force; side=Both} ->
         let fake_server, fake_client =
           if node.calls_private <> None then (
             (
             match node.privacy with
-            | Published _ -> ()
+            | Published -> ()
             | _ ->
                 OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as @@both but it uses server private values:@\n%a@]"
                   pp_pos node
@@ -938,7 +959,7 @@ let insert_directives_expr
                 | `server -> `comet_call
                 | `client ->
                     let info = IdentTable.find infos j in
-                    let sync = sync_of_privacy info.privacy in
+                    let sync = variant_of_async info.async in
                     `ajax_call sync in
               let annotmap, e = directive_call call annotmap e in
               assert (IdentMap.mem j tsc);
@@ -1177,7 +1198,7 @@ let split_code ~gamma:_ ~annotmap_old env code =
                           assert (IdentMap.mem i tsc_client);
                           let tsc = IdentMap.find i tsc_client in
                           let info = IdentTable.find env.informations i in
-                          let sync = sync_of_privacy info.privacy in
+                          let sync = variant_of_async info.async in
                           let annotmap, e =
                             eta_expand (`ajax_call sync) ~gamma:env.gamma ~expr_for_annot:e ~annotmap_old ~annotmap ~tsc server_name in
                           annotmap, Some (client_name, e)
@@ -1210,7 +1231,7 @@ let split_code ~gamma:_ ~annotmap_old env code =
                       let new_i = rename_server i in
                       let e = snd (List.find (fun (j,_) -> Ident.equal new_i j) more_server) in
                       let server_publish = IdentMap.add new_i None server_publish in
-                      let sync = sync_of_privacy info.privacy in
+                      let sync = variant_of_async info.async in
                       let annotmap, e = directive_publish new_i (`ajax_publish sync) annotmap e in
                       let label = Annot.nolabel "QmlSimpleSlicer.rev_code_server" in
                       (annotmap, Q.NewVal (label, [Ident.refresh ~map:(fun s -> "skel_"^s) new_i, e]) :: rev_code_server, server_publish)
