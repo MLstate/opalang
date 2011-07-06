@@ -750,7 +750,7 @@ Page = {{
         build_select(rev) =
           hist = access.access.history_list(file)
           size = List.length(hist)
-
+          r = access.access.get_rev_number(file)
           /* Build the map of revisions,
              Each cell contains :
              - its author
@@ -773,9 +773,8 @@ Page = {{
             based = "" // if parent < 0 then "" else " based on {parent}"
             pad = String.make(pad, '-')
             value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {author}{based}"
-            r = access.access.get_rev_number(file)
             value = if r.rev == i then value ^ " [pub]" else value
-            value = if access.access.history_size(file) == i then value ^ " [last]" else value
+            value = if size == i then value ^ " [last]" else value
             default(i : int) : xhtml = (<option value="{i}">{value}</option>)
             selected(i : int) : xhtml = (<option value="{i}" selected="selected">{value}</option>)
             res = match rev
