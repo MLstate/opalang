@@ -1203,6 +1203,10 @@ let is_remote chan =
   | Some (OpaNetwork.RemoteClient _) -> true
   | _ -> false
 
+##register is_local : Session.private.native('msg, 'ctx) -> bool
+let is_local chan =
+  try Option.is_none (Channel.owner chan) with Channel.Unregistered -> false
+
 ##register get_endpoint : Session.private.native('msg, 'ctx) -> option(endpoint)
 let get_endpoint chan =
   match Channel.identify chan with

@@ -57,6 +57,10 @@
  * {1 What if I need more?}
 **/
 
+/**
+ * <!> Built in [BslNativeLib.ml]
+**/
+@opacapi
 type Exception.common =
    { fail : string ; position : string }
    /**
@@ -75,3 +79,11 @@ type Exception.common =
     * using [Printexc.to_string], and the [bslkey] of the bypass is
     * stored in the Opa exception.
    **/
+
+// This is a hack for preserving the type of exceptions
+@private @server_private _dead_code() =
+  match 0 with
+  | 1 -> @throw( @opensums( { fail = "" ; position = "" } : Exception.common ) )
+  | 2 -> @throw( @opensums( { Transaction_failure } : Exception.common ) )
+  | 3 -> @throw( @opensums( { ocaml_exc = "" ; bslkey = "" } : Exception.common ) )
+  | _ -> void

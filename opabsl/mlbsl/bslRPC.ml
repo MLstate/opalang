@@ -17,6 +17,18 @@
 *)
 module Ping = BslPingRegister.M
 module Client = BslPingRegister.Client
+module PingScheduler = BslPingRegister.PingScheduler
+
+(*
+  A delay for a specific RPC call.
+  A client may be still connected, and continue to ping, but an error occurred
+  and this client will never respond to a rpc_call.
+  This timeout is meant to abort the rpc_call, and to raise an exception on the server side.
+  It is also used as timeout of distant cellules calls.
+  Keep consistent with values defined in [pingRegister.ml]
+*)
+##register rpc_response_delay : int
+let rpc_response_delay = 45 * 1000
 
 (** Primitive for make rpc call to the client. *)
 module RPC : sig
@@ -33,6 +45,7 @@ module RPC : sig
   val return : string -> string -> bool
 
 end = struct
+
   let random_int () = Random.int 1073741823 (* 2^30 -1 *)
 
   let generate_without_conflicts exists =
@@ -49,6 +62,21 @@ end = struct
   let generate_id () =
     generate_without_conflicts (fun id -> Hashtbl.mem rpc_ids id)
 
+  let set_rpc_timeout (cid : Client.key) fun_id id =
+    let abort () =
+      (* if the id is still in the rpc table, then remove it, and abort *)
+      try
+        let k = Hashtbl.find rpc_ids id in
+        Hashtbl.remove rpc_ids id ;
+        let exc = BslNativeLib.OpaExc.OpaRPC.timeout cid fun_id in
+        let k_exc = QmlCpsServerLib.handler_cont k in
+        QmlCpsServerLib.push_cont k_exc exc
+      with
+      | Not_found -> ()
+    in
+    let _async_key = PingScheduler.sleep rpc_response_delay abort in
+    ()
+
   let call fun_id args k cid =
     let id = generate_id () in
     #<If:PING_DEBUG>
@@ -59,7 +87,8 @@ end = struct
     (* TODOK1 : args is a string but it should be a json! *)
     let mess = Client.RPC (string_of_int id, fun_id, JsonTypes.String args) in
     if Ping.mem cid then (
-      Ping.send mess cid;
+      Ping.send mess cid ;
+      set_rpc_timeout cid fun_id id ;
       true
     ) else false
 

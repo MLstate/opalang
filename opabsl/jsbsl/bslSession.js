@@ -186,7 +186,10 @@ var LowLevelPingLoop = {};
                 sess_debug("Call a killed session : "+this.lchan_id);
                 #<End>
                 if (herror != undefined) herror();
-                throw new Killed();
+                #<Ifstatic:PING_DEBUG>
+                    sess_debug("[LocalChannel.send] Killed :"+er);
+                #<End>
+                return;
             }
             // Get the good context (owner if setted, sender else)
             var ctx;
@@ -195,15 +198,23 @@ var LowLevelPingLoop = {};
             // Perform action
             #<Ifstatic:PING_DEBUG> ping_debug("Start handler"); #<End>
             if (hsuccess !=  undefined) hsuccess();
-            var new_st = this.action(this.state, msg, ctx);
-            #<Ifstatic:PING_DEBUG> ping_debug("End handler"); #<End>
-            if ('none' in new_st){
-                // Stop session
-                this.state = null;
-                this.kill();
-            } else {
-                // Update state
-                this.state = new_st.some;
+            var new_st = null ;
+            try {
+                new_st = this.action(this.state, msg, ctx);
+                #<Ifstatic:PING_DEBUG> ping_debug("End handler"); #<End>
+                if ('none' in new_st){
+                    // Stop session
+                    this.state = null;
+                    this.kill();
+                    return;
+                } else {
+                    // Update state
+                    this.state = new_st.some;
+                    return;
+                }
+            } catch (er) {
+                %%bslsyslog_error%%("[LocalChannel.send] Catch :", er);
+                return;
             }
         },
         #<End>
@@ -259,20 +270,7 @@ var LowLevelPingLoop = {};
         #<Else>
             var lchan = this;
             function aux(){
-                try {
-                    lchan.send_no_cps_aux(msg, ctx, herror, hsuccess);
-                } catch (er) {
-                    if(er instanceof Killed) {
-                        #<Ifstatic:PING_DEBUG>
-                        sess_debug("[LocalChannel.send] Killed :"+er);
-                        #<End>
-                        return;
-                    }
-                    #<Ifstatic:PING_DEBUG>
-                    sess_debug("[LocalChannel.send] Catch :"+er);
-                    #<End>
-                    throw er;
-                }
+                lchan.send_no_cps_aux(msg, ctx, herror, hsuccess);
             }
             if(this.concurrent){
                 aux();
@@ -309,8 +307,7 @@ var LowLevelPingLoop = {};
                 this.action = f;
                 this.send_no_cps_aux(msg, js_none);
             } catch (er) {
-                if (er instanceof Killed) error("Call to a killed cell");
-                else throw er
+                %%bslsyslog_error%%("[LocalChannel.call] Cell :", er);
             }
             if(res === null) error("Call failed, result was [null]");
             return res;
@@ -563,6 +560,7 @@ var LowLevelPingLoop = {};
     function RPC_call(id, name, argument) {
         var funct = RPC_comet_table[name];
         if ( funct == null ) throw new Error("Rpc client "+name+" doesn't exists");
+        // hook for try catch there, and return a special case, maybe e.g. rpc_return_exc
         var data = funct(argument);
         if ('none' in data) {
             if(window.console && window.console.error) window.console.error("RPC comet call ", id, " failed, no data in ", argument);
@@ -592,7 +590,7 @@ var LowLevelPingLoop = {};
             herror = function(){unserialize_uu(srvmsg.herror)()};
         if (hsuccess != undefined)
             hsuccess = function(){unserialize_uu(srvmsg.hsuccess)()};
-        if (lchan != null) {
+        if (lchan != null){
             var unser_msg = lchan.unserialize(message);
             lchan.send(null, unser_msg, ctx, herror, hsuccess);
         } else if (herror !=  undefined){
@@ -994,6 +992,15 @@ var LowLevelPingLoop = {};
 ##args(chan)
 {
     return ('addr' in chan);
+}
+
+##register is_local : Session.private.native('msg, 'ctx) -> bool
+##args(_)
+{
+    // This is incorrect, but unused yet.
+    // If we implement a feature about timeout for cell calls
+    // on the client side, this will probably need an update.
+    return false;
 }
 
 ##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)

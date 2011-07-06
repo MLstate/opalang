@@ -250,13 +250,33 @@ type OpaRPC.interface = {{
 }}
 
 
+/**
+ * {1 Special RPC exception}
+ *
+ * <!> Built in [BslNativeLib.ml]
+**/
+@opacapi
+type OpaRPC.timeout = {
+  OpaRPC_Server : {
+    timeout : {
+      client : ThreadContext.client ;
+      fun_id : string ;
+    }
+  }
+}
+
+// hack
+@server_private @private _please_type_me_this_rpc_exception(client : ThreadContext.client) =
+  timeout = { ~client ; fun_id = ""}
+  exc = { OpaRPC_Server = { ~timeout } }
+  @throw( @opensums(exc) )
+
 
 /**
  * {1 Specific server module for RPC}
  */
 
 @server OpaRPC_Server =
-
 
   TCMap =
     tc_order = Order.make(

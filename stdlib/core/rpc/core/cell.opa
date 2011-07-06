@@ -188,6 +188,28 @@ Cell_private = {{
    */
 
   /**
+   * Generating fresh identifiers for call remote cells
+  **/
+  @private @server fresh_call_id = Mutable.make(0)
+  @private @server call_tbl = Mutable.make(IntSet.empty)
+  @private @server gen_call_id() =
+    id = fresh_call_id.get()
+    do fresh_call_id.set(succ(id))
+    set = IntSet.add(id, call_tbl.get())
+    do call_tbl.set(set)
+    id
+  @private @server unset_gen_call(id) =
+    set = call_tbl.get()
+    if IntSet.mem(id, set)
+    then
+      do call_tbl.set(IntSet.remove(id, set))
+      true
+    else
+      false
+
+  @private @publish rpc_response_delay = %%BslRPC.rpc_response_delay%%
+
+  /**
    * Send a message to a cell
    *
    * @param cell Cell to which message is sent
@@ -217,7 +239,7 @@ Cell_private = {{
     #<Ifstatic:OPA_CPS_CLIENT>
     #<Else>
     @sliced_expr({
-    client =
+    client = (
       serialize(x) =
         x = serialize(x)
         x = {List = {hd={String = "PleaseCallForMe"};tl={hd=x;tl=[]}}}
@@ -229,15 +251,18 @@ Cell_private = {{
       unserialize_result(lljson:RPC.Json.private.native):'result =
            json = Json.from_ll_json(lljson) ? error("CELL : Convert RPC.Json.private.native to json failed")
            unserialize_result(json)
-    on_message =
+      on_message =
         match gm(cell) with
         |{some = {cell = ~{on_message ...}}} -> on_message
         |{none} ->
           _, _ -> error("No handler on this cells (That case should never happens)")
 
       bsl_llcall(cell, message, serialize, unserialize_result, on_message)
+    )
 
-    server =
+    ;
+
+    server = (
     #<End>
       /* Encapsulated session */
       sess = cell
@@ -258,14 +283,47 @@ Cell_private = {{
         @with_thread_context(
           ThreadContext.get({from = k}),
           Session_private.llsend(sess, {~serialize message=(k, message)}))
-      @callcc(callbis)
+
+      if not(Session.is_local(sess))
+      then (
+        id = gen_call_id()
+        @server timeout() =
+          if unset_gen_call(id)
+          then
+            // if needed, we can retrieve the context corresponding to the client
+            // and store it in the exception
+            @throw( { Cell = { timeout } } )
+        do sleep(rpc_response_delay, timeout)
+        r = @callcc(callbis)
+        if unset_gen_call(id) then r
+        else error("This cell call was aborted, result ignored")
+      )
+      else
+        @callcc(callbis)
+
     #<Ifstatic:OPA_CPS_CLIENT>
     #<Else>
-      })
+      )
+    })
     #<End>
 
 }}
 
+/**
+ * {1 Special Cell exception}
+ *
+**/
+@opacapi
+type Cell.timeout = {
+  Cell : {
+    timeout : { }
+  }
+}
+
+// hack
+@server_private @private _please_type_me_this_cell_exception() =
+  exc = { Cell = { timeout } }
+  @throw( @opensums(exc) )
 
 /**
  * {1 High-level module}

@@ -599,11 +599,18 @@ Session = {{
       bsl(chan)
 
     /**
-     * Returns true if the channel is not owned by this server
+     * Returns true if the channel is not owned by this server.
+     * Beware, this returns false in case of non RemoteClient.
      */
     is_remote(chan : channel) =
       bsl = %%BslSession.is_remote%%
       bsl(chan)
+
+    /**
+     * Returns true only if the channel is owned by this server.
+     * Returns false in case of Client.
+    **/
+    is_local = %%BslSession.is_local%% : channel -> bool
 
     /**
      * [on_remove channel f] Execute f when the [channel] is removed

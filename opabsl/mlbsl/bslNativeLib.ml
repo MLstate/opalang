@@ -178,3 +178,63 @@ let opa_tuple_4 (a, b, c, d) =
    {1 Continuations}
 *)
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+
+(**
+   {1 Standard Exceptions}
+*)
+
+module OpaExc =
+struct
+  (**
+     Keep synchronized with stdlib.core/exception.opa
+  *)
+
+  let f_fail = ServerLib.static_field_of_name "fail"
+  let f_position = ServerLib.static_field_of_name "position"
+  let fail ~message ~position =
+    let r = ServerLib.empty_record_constructor in
+    let r = ServerLib.add_field r f_fail (ServerLib.wrap_string message) in
+    let r = ServerLib.add_field r f_position (ServerLib.wrap_string position) in
+    ServerLib.make_record r
+
+  let f_transaction_failure = ServerLib.static_field_of_name "Transaction_failure"
+  let transaction_failure = ServerLib.make_simple_record f_transaction_failure
+
+  let f_ocaml_exc = ServerLib.static_field_of_name "ocaml_exc"
+  let f_bslkey = ServerLib.static_field_of_name "bslkey"
+  let ocaml_exc bslkey exc =
+    let message = Printexc.to_string exc in
+    let r = ServerLib.empty_record_constructor in
+    let r = ServerLib.add_field r f_ocaml_exc (ServerLib.wrap_string message) in
+    let r = ServerLib.add_field r f_bslkey (ServerLib.wrap_string bslkey) in
+    ServerLib.make_record r
+
+
+  (**
+     Keep synchronized with stdlib.core.rpc.core/oparpc.opa
+  *)
+  let f_OpaRPC_Server = ServerLib.static_field_of_name "OpaRPC_Server"
+  let f_timeout = ServerLib.static_field_of_name "timeout"
+  let f_client = ServerLib.static_field_of_name "client"
+  let f_fun_id = ServerLib.static_field_of_name "fun_id"
+
+  module OpaRPC =
+  struct
+    (*
+      client : Client.key from BslRPC
+      fun_id : the name of the distant function
+    *)
+    let timeout client fun_id =
+      let timeout = ServerLib.empty_record_constructor in
+      let timeout = ServerLib.add_field timeout f_client client in
+      let timeout =
+        ServerLib.add_field timeout f_fun_id (ServerLib.wrap_string fun_id) in
+      let timeout = ServerLib.make_record timeout in
+      let rpc = ServerLib.empty_record_constructor in
+      let rpc = ServerLib.add_field rpc f_timeout timeout in
+      let rpc = ServerLib.make_record rpc in
+      let exc = ServerLib.empty_record_constructor in
+      let exc = ServerLib.add_field exc f_OpaRPC_Server rpc in
+      ServerLib.make_record exc
+  end
+end

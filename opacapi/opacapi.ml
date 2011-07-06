@@ -282,6 +282,12 @@ struct
   let xhtml_href   = !! "xhtml_href"
   let xml = !! "xml"
 
+  module Cell =
+  struct
+    let (!!) s = !! ("Cell." ^ s)
+    let timeout = !! "timeout"
+  end
+
   module Css =
   struct
     let (!!) s= !! ("Css." ^ s)
@@ -324,6 +330,12 @@ struct
     end
   end
 
+  module Exception =
+  struct
+    let (!!) s = !! ("Exception." ^ s)
+    let common = !! "common"
+  end
+
   module FunAction =
   struct
         let (!!) s = ("FunAction." ^ s)
@@ -344,6 +356,7 @@ struct
   struct
     let (!!) s = !! ("OpaRPC." ^s)
     let request = !! "request"
+    let timeout = !! "timeout"
   end
 
   module OpaSerialize =

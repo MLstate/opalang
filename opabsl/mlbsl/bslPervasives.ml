@@ -163,32 +163,7 @@ let jlog s =
   ##register [opacapi] id \ `Obj.magic` : 'a -> 'b
 ##endmodule
 
-module OpaExc =
-struct
-  (**
-     Keep synchronized with stdlib.core/exception.opa
-  *)
-
-  let f_fail = ServerLib.static_field_of_name "fail"
-  let f_position = ServerLib.static_field_of_name "position"
-  let fail ~message ~position =
-    let r = ServerLib.empty_record_constructor in
-    let r = ServerLib.add_field r f_fail (ServerLib.wrap_string message) in
-    let r = ServerLib.add_field r f_position (ServerLib.wrap_string position) in
-    ServerLib.make_record r
-
-  let f_transaction_failure = ServerLib.static_field_of_name "Transaction_failure"
-  let transaction_failure = ServerLib.make_simple_record f_transaction_failure
-
-  let f_ocaml_exc = ServerLib.static_field_of_name "ocaml_exc"
-  let f_bslkey = ServerLib.static_field_of_name "bslkey"
-  let ocaml_exc bslkey exc =
-    let message = Printexc.to_string exc in
-    let r = ServerLib.empty_record_constructor in
-    let r = ServerLib.add_field r f_ocaml_exc (ServerLib.wrap_string message) in
-    let r = ServerLib.add_field r f_bslkey (ServerLib.wrap_string bslkey) in
-    ServerLib.make_record r
-end
+module OpaExc = BslNativeLib.OpaExc
 
 (**
    Bypass used in the compilation of the directive {[\@fail]}.
