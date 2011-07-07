@@ -888,8 +888,8 @@ Template =
       | { ~success } -> {success = { fragment = success } }
       | { ~failure } -> { failure= { multiple_failure = failure } }
 
-  parse_list_xmlns(children:list(xmlns), xmlns_parser:(xmlns -> outcome(Template.content('a), Template.failure ) ) ):Template.content('a) =
-    Outcome.get(merge_outcome_content(List.map(xmlns_parser, children) ))
+  parse_list_xmlns(children:list(xmlns), xmlns_parser:(xmlns -> outcome(Template.content('a), Template.failure ))):outcome(Template.content('a), Template.failure) =
+    merge_outcome_content(List.map(xmlns_parser, children))
 
   export_list_content(content:list(Template.content), exporter):xhtml =
     outcome = merge_outcome(List.map(exporter, content) )
