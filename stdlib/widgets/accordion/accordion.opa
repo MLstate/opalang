@@ -86,10 +86,25 @@ WAccordion = {{
  *@param id The widget identifier
  *@param tab_content The content of the tabs of the widget. This list contains
  *the identifier of a tab container, the title of the tab and the content of
- *the tab.
+ *the tab as a string.
  *@return The HTML corresponding to the widget
  */
   html(config: WAccordion.config, id: string, tab_content: list((string, string, string)))      : xhtml =
+      tab_content = List.map((a,b,c) -> (a,b,<>{c}</>), tab_content)
+      widget = <div id=#{id}>{get_tabs(config,tab_content,id)}</div>
+      WStyler.add(config.global_style,widget)
+
+/**
+ *Main display function of the accordion.
+ *
+ *@param config The widget configuration
+ *@param id The widget identifier
+ *@param tab_content The content of the tabs of the widget. This list contains
+ *the identifier of a tab container, the title of the tab and the content of
+ *the tab as xhtml.
+ *@return The HTML corresponding to the widget
+ */
+  html_xhtml_content(config: WAccordion.config, id: string, tab_content: list((string, string, xhtml)))      : xhtml =
       widget = <div id=#{id}>{get_tabs(config,tab_content,id)}</div>
       WStyler.add(config.global_style,widget)
 
@@ -120,7 +135,7 @@ WAccordion = {{
  *@return A list containing the HTML of each tab
  */
   @private
-  get_tabs(config: WAccordion.config, tab_content: list((string,string,string)), id: string): list(xhtml) =
+  get_tabs(config: WAccordion.config, tab_content: list((string,string,xhtml)), id: string): list(xhtml) =
     add_tab(i,(num,title,content))=
       (class,style,tab_style) = if i==0
                        then (internal_opa_open,WStyler.merge([config.tab_content_style,config.open_style,WStyler.make_style([Css_build.display_block])]),config.tab_open_style)
