@@ -144,7 +144,7 @@ struct
   let extract_values = !! "extract_values"
   let fake_stub = !! "fake_stub"
   let serialize = !! "serialize"
-  let server_async_execute_without_reply = !! "Server_async_execute_without_reply"
+  let server_async_send_to_client = !! "Server_async_send_to_client"
   let server_dispatcher_register = !! "Server_Dispatcher_register"
   let server_send_to_client = !! "Server_send_to_client"
   let server_try_cache = !! "Server_try_cache"

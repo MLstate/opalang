@@ -61,8 +61,7 @@ let roots_for_s3
     Opacapi.OpaRPC.client_async_send_to_server;
 
     Opacapi.OpaRPC.server_send_to_client;
-    Opacapi.OpaRPC.server_send_to_client;
-    Opacapi.OpaRPC.server_async_execute_without_reply;
+    Opacapi.OpaRPC.server_async_send_to_client;
 
     Opacapi.OpaRPC.fake_stub;
     Opacapi.OpaRPC.error_stub;

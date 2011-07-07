@@ -557,6 +557,7 @@ var LowLevelPingLoop = {};
     /** Contains skeletons. */
     var RPC_comet_table = new Object();
 
+    /* the id is null when the call is async */
     function RPC_call(id, name, argument) {
         var funct = RPC_comet_table[name];
         if ( funct == null ) throw new Error("Rpc client "+name+" doesn't exists");
@@ -564,7 +565,7 @@ var LowLevelPingLoop = {};
         var data = funct(argument);
         if ('none' in data) {
             if(window.console && window.console.error) window.console.error("RPC comet call ", id, " failed, no data in ", argument);
-        } else {
+        } else if (id != null) {
             internal_ajax({
                     type : 'POST',
                         url : "/rpc_return/"+id,
@@ -608,6 +609,9 @@ var LowLevelPingLoop = {};
         switch(mess.type){
         case "rpc" :
             RPC_call(mess.id, mess.name, mess.args);
+            break;
+        case "asyncrpc" :
+            RPC_call(null, mess.name, mess.args);
             break;
         case "chan" :
             recovers_from_server(mess, js_none);

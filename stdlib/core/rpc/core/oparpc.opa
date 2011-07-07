@@ -339,13 +339,15 @@ type OpaRPC.timeout = {
   /**
    * Sending a request to the client
    */
-  send_to_client(fun_name : string, request : OpaRPC.request, ty : OpaType.ty) : 'a =
-    send_response = %%BslRPC.call%%
-                  : string, /* id for return */
+  @private send_response = %%BslRPC.call%%
+                  : bool, /* synchronous */
+                    string, /* id for return */
                     string, /* serialized arguments */
                     (continuation(string)), /* continuation */
                     ThreadContext.client -> /* page id */
                     bool
+
+  send_to_client(fun_name : string, request : OpaRPC.request, ty : OpaType.ty) : 'a =
     id = fun_name  //plus some things
     arg = OpaRPC.serialize(request)
     serialized_return =
@@ -354,7 +356,7 @@ type OpaRPC.timeout = {
           t = ThreadContext.get({from = k})
           match t with
           | {key = {client = x}; details = _; request = _} ->
-              if not(send_response(id, arg, k, x)) then
+              if not(send_response(true, id, arg, k, x)) then
                 error("Server request client rpc but client wasn't ping ({fun_name})")
           | _ ->
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
@@ -362,13 +364,17 @@ type OpaRPC.timeout = {
       )
     OpaSerialize.unserialize(serialized_return, ty) ? error("OPARPC : Request on client url {fun_name} has failed")
 
-  /**
-   * Execute asynchronously, don't produce any meaningful reply
-   */
-  async_execute_without_reply((expr: -> void)): void =
-  (
-    Scheduler.push(expr)
-  )
+  @private dummy_cont = Continuation.make((_:string) -> @fail("Dummy cont should't be called"))
+  async_send_to_client(fun_name : string, request : OpaRPC.request, _) : 'a =
+    id = fun_name  //plus some things
+    arg = OpaRPC.serialize(request)
+    match thread_context() with
+    | {key = {client = x}; details = _; request = _} ->
+      if not(send_response(false, id, arg, dummy_cont, x)) then
+        error("Server request client rpc but client wasn't ping ({fun_name})")
+    | _ ->
+      error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
+    end
 
   /**
    * This module is a dispatcher of RPC on server

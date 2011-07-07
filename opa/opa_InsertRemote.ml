@@ -269,7 +269,9 @@ module OpaRPC = struct
        | `sync -> Opacapi.OpaRPC.client_send_to_server
        | `async -> Opacapi.OpaRPC.client_async_send_to_server
     else
-      Opacapi.OpaRPC.server_send_to_client) ~side
+      match sync with
+      | `sync -> Opacapi.OpaRPC.server_send_to_client
+      | `async -> Opacapi.OpaRPC.server_async_send_to_client) ~side
 
   let fake_stub  = TyIdent.get Opacapi.OpaRPC.fake_stub
   let error_stub = TyIdent.get Opacapi.OpaRPC.error_stub
@@ -524,7 +526,6 @@ let check_and_get ?(msg="") ~annotmap ~gamma:_ explicit_map expr =
 
     This generate skeleton maybe used both on server and client.
 
-    If the call is synchronous, generate a skeleton such as (in OPA style):
       fun str ->
         match OpaRPC.unserialize str with
         | {some = request} ->
@@ -537,24 +538,6 @@ let check_and_get ?(msg="") ~annotmap ~gamma:_ explicit_map expr =
                 | { some = [a1; a2; a3; ...] } ->
                   { some = OpaSerialize.serialize tres
                         (sliced_fun v1 v2 ... r1 r2 ... c1 c2 ... a1 a2 a3 ...) }
-                | _ -> { none = () })
-              | _ -> { none = () })
-           | _ -> { none = () })
-        | _ -> { none = () }
-      : string -> string option
-
-    If the call is asynchronous, generate a skeleton such as (in OPA style):
-      fun str ->
-        match OpaRPC.unserialize str with
-        | {some = request} ->
-          (match OpaRPC.extract_type request with
-           | [i1; i2; ...] ->
-             (match OpaTsc.implementation [i1; i2; ...] tsc with
-              | { TyArrow_params = [t1; t2; t3; ...]; TyArrow_res = tres } ->
-                (match  OpaRPC.extract_value [t1; t2; t3; ...] request  with
-                | { some = [a1; a2; a3; ...] } ->
-                     do Scheduler.push (-> sliced_fun i1 i2 ... a1 a2 a3 ...)
-                     { some = "Async" }
                 | _ -> { none = () })
               | _ -> { none = () })
            | _ -> { none = () })
@@ -576,7 +559,7 @@ let check_and_get ?(msg="") ~annotmap ~gamma:_ explicit_map expr =
     @param sync True if the call is synchronous, false if it is asynchronous i.e. result doesn't matter
     @param expr The body of the function
 *)
-let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr =
+let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr =
   (* Check and get *)
   let expr, ident, _ty, _tsc, nb_tyvar, nb_rowvar, nb_colvar, oty, otsc, number_of_lambdas =
     check_and_get ~msg:"generate_skeleton" ~annotmap ~gamma  explicit_map expr
@@ -657,24 +640,12 @@ let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~sync ex
     (* NOT SURE: what if the expression already has no arguments? *)
     (*try*)
       if is_a_function then
-        let ((annotmap, typed_fun_call_expr) as typed_fun_call) =
-          let args_ty = list_expr_ty @ list_expr_row @ list_expr_col in
-          match number_of_lambdas with
-          | `one_lambda -> full_apply gamma annotmap expr args_ty list_expr_val
-          | `two_lambdas ->
-              let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
-              QmlAstCons.TypedExpr.apply gamma annotmap apply1 list_expr_val in
-        match sync, side with
-        | `sync, _
-        | _, `client -> typed_fun_call
-        | `async, `server ->
-          let (annotmap, typed_async_fun_call)  = TypedExpr.lambda annotmap [] typed_fun_call_expr in
-          let (annotmap, typed_oparpc_executor) = TyIdent.get Opacapi.OpaRPC.server_async_execute_without_reply ~side annotmap stdlib_gamma
-          in
-          TypedExpr.apply gamma annotmap typed_oparpc_executor [typed_async_fun_call]
-          (*
-            This is <<OpaRPC_Server.async_no_reply(-> $typed_fun_call$)>>
-          *)
+        let args_ty = list_expr_ty @ list_expr_row @ list_expr_col in
+        match number_of_lambdas with
+        | `one_lambda -> full_apply gamma annotmap expr args_ty list_expr_val
+        | `two_lambdas ->
+            let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
+            QmlAstCons.TypedExpr.apply gamma annotmap apply1 list_expr_val
       else (
         assert (list_expr_val = []);
         TypedExpr.may_apply gamma annotmap expr (list_expr_ty @ list_expr_row @ list_expr_col)
@@ -1076,7 +1047,7 @@ let resolving_slicer_directive ~annotmap ~stdlib_gamma ~gamma ~side code
              assert(side = directive_to_side d);
              let sync = publish_directive_to_sync d in
              let annotmap, gamma, nrvals =
-               publish_resolver ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr in
+               publish_resolver ~annotmap ~stdlib_gamma ~gamma ~side expr in
              let annotmap, gamma, other_nrvals =
                if ObjectFiles.Arg.is_fully_separated () then
                  generate_stub_from_publish ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr
@@ -1210,11 +1181,11 @@ let generate_stub_from_publish,
 (** Publish resolver. This resolver can be work on both side. This
     resolver generate a skeleton and an expression for register this
     skeleton. *)
-let make_publish_resolver genskel explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr =
+let make_publish_resolver genskel explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side expr =
   try
     _skel ();
     let annotmap, gamma, (iskeleton, skeleton) =
-      genskel explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr in
+      genskel explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr in
     let annotmap, gamma, cpl_register =
       register_skeleton ~renamingmap ~annotmap ~stdlib_gamma ~gamma ~side expr iskeleton in
     (match iskeleton with

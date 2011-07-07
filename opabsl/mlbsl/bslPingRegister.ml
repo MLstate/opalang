@@ -49,6 +49,7 @@ module Client : sig
     | SendCChan of (string * json)
     | SendCChanThen of (string * json * (unit -> unit) * (unit -> unit))
     | RPC of (string * string * json)
+    | AsyncRPC of (string * json)
 
   val serialize : msg -> json Cps.t
 
@@ -81,6 +82,7 @@ end = struct
     | SendCChan of (string * json)
     | SendCChanThen of (string * json * (unit -> unit) * (unit -> unit))
     | RPC of (string * string * json)
+    | AsyncRPC of (string * json)
 
   let serialize json k =
     match json with
@@ -102,6 +104,10 @@ end = struct
     | RPC (id, name, json) ->
         JS.Record [("type", JS.String "rpc");
                    ("id", JS.String id);
+                   ("name", JS.String name);
+                   ("args", json)] |> k
+    | AsyncRPC (name, json) ->
+        JS.Record [("type", JS.String "asyncrpc");
                    ("name", JS.String name);
                    ("args", json)] |> k
 

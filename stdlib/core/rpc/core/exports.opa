@@ -64,7 +64,7 @@
 
 /* Export module OpaRPC_Server*/
 @opacapi @server OpaRPC_Server_send_to_client              = OpaRPC_Server.send_to_client
-@opacapi @server OpaRPC_Server_async_execute_without_reply = OpaRPC_Server.async_execute_without_reply
+@opacapi @server OpaRPC_Server_async_send_to_client        = OpaRPC_Server.async_send_to_client
 @opacapi @server OpaRPC_Server_Dispatcher_register         = OpaRPC_Server.Dispatcher.register
 @opacapi @server OpaRPC_Server_try_cache                   = OpaRPC_Server.try_cache
 

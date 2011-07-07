@@ -35,8 +35,9 @@ module RPC : sig
 
   (** Call an rpc on the client identified by [cid] and send an
       identifier. Register the cps continuation, this continuation
-      will be called on [return].*)
-  val call : string -> string -> string QmlCpsServerLib.continuation -> Client.key
+      will be called on [return].
+      When the boolean is true, the call should be synchronous *)
+  val call : bool -> string -> string -> string QmlCpsServerLib.continuation -> Client.key
     -> bool
 
   (** [return id response] Call the continuation corresponding to
@@ -77,18 +78,24 @@ end = struct
     let _async_key = PingScheduler.sleep rpc_response_delay abort in
     ()
 
-  let call fun_id args k cid =
-    let id = generate_id () in
+  let call sync fun_id args k cid =
     #<If:PING_DEBUG>
       Logger.debug "[RPC] Try to call rpc %s on client %s"
       fun_id (Client.key_to_string cid);
     #<End>;
-    Hashtbl.add rpc_ids id k;
-    (* TODOK1 : args is a string but it should be a json! *)
-    let mess = Client.RPC (string_of_int id, fun_id, JsonTypes.String args) in
+    let mess, id_opt =
+      if sync then
+        let id = generate_id () in
+        Hashtbl.add rpc_ids id k;
+        (* TODOK1 : args is a string but it should be a json! *)
+        Client.RPC (string_of_int id, fun_id, JsonTypes.String args), Some id
+      else
+        Client.AsyncRPC (fun_id, JsonTypes.String args), None in
     if Ping.mem cid then (
       Ping.send mess cid ;
-      set_rpc_timeout cid fun_id id ;
+      (match id_opt with
+      | None -> ()
+      | Some id -> set_rpc_timeout cid fun_id id);
       true
     ) else false
 
@@ -117,9 +124,9 @@ end
     but it's back end dependent. We should use a ServerLib
     function for translate ML string to OPA string... coming
     soon? *)
-##register call : string, string, continuation('a), 'ctx -> bool
-let call fun_id args k key =
-   RPC.call fun_id args (Obj.magic k) (Obj.magic key)
+##register call : bool, string, string, continuation('a), 'ctx -> bool
+let call sync fun_id args k key =
+   RPC.call sync fun_id args (Obj.magic k) (Obj.magic key)
 
 (** This module is very dangerous, don't use it directly. It's a
     module for RPC.*)
