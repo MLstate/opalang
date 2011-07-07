@@ -23,6 +23,7 @@ val wget : string -> string
 val tar : string -> string
 val ps : string -> string
 val mktemp : string -> string
+val cp : string -> string
 
 val system_call : string -> string * Unix.process_status
 

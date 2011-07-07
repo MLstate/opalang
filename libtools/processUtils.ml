@@ -53,3 +53,4 @@ let wget cmd = command_fct "wget" cmd
 let tar cmd = command_fct "tar" cmd
 let ps cmd = command_fct "ps" cmd
 let mktemp cmd = command_fct "mktemp" cmd
+let cp cmd = command_fct "cp" cmd
