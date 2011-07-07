@@ -267,6 +267,9 @@ let expr env expr =
         let exprs = List.tail_map aux exprs in
         Ocaml.AnArray exprs
 
+    | Q.Directive (label, (`throw | `catch), _, _) when not env.E.options.Qml2ocamlOptions.cps ->
+        aux (Q.Directive (label, `fail, [QCons.string "Call to throw or catch in non cps mode"], []))
+
     | Q.Directive (_, variant, exprs, tys) ->
         env_expr_error env expr
           "Internal error: At this stage, all directives %a should have been compiled"

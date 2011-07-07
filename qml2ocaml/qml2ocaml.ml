@@ -140,7 +140,7 @@ let qml_to_ocaml_factory : ('a, 'b, 'c) back_end_factory -> qml_to_ocaml =
     let used_bypasses =
       let bypass_of_directive = function
         | `assert_ -> Some "bslpervasives.assertion"
-        | `fail -> Some "bslpervasives.fail"
+        | `fail | `throw | `catch -> Some "bslpervasives.fail"
         | `callcc -> Some "bslcps.notcps_compatibility.callcc_directive"
         | `thread_context -> Some "bslcps.notcps_compatibility.thread_context"
         | `with_thread_context -> Some "bslcps.notcps_compatibility.with_thread_context"
