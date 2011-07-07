@@ -664,7 +664,6 @@ directive <-
       | Record _
       | ExtendRecord _ -> ()
       | _ -> error_static_record v in
-    let not_release = not BuildInfos.is_release in
     match s with
 
     (* a *)
@@ -674,7 +673,7 @@ directive <-
 
     (* c *)
     | "callcc"                      -> Some (directive1 `callcc)
-    | "catch" when not_release      -> Some (directive2 `catch)
+    | "catch"                       -> Some (directive2 `catch)
     | "compiletime"                 -> Some (Directive (static_string (fun x -> `compiletime x) (list1 l), [], []))
 
     (* d *)
@@ -767,7 +766,7 @@ directive <-
 
     (* t *)
     | "thread_context"              -> Some (directive0 `thread_context)
-    | "throw" when not_release      -> Some (directive1 `throw)
+    | "throw"                       -> Some (directive1 `throw)
     | "todo"                        -> Some (directive0 `todo)
     | "toplevel"                    -> Some (directive0 `toplevel)
     | "track" -> (
