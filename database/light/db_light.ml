@@ -76,7 +76,7 @@ let create_node ?max_size ?filemanager ?content () =
       if _max_size < max_int
       then
         let disk_file = Io_light.get_content_file_name fm in
-        eprintf "stuffing data to %s\n%!" disk_file;
+        #<If$minlevel 10>Logger.log ~color:`yellow "stuffing data to %s\n%!" disk_file#<End>;
         Node_light.create ~disk_file ?max_size ?content ()
       else
         Node_light.create ?max_size ?content ()

@@ -56,11 +56,11 @@ let close_database db k =
 let status db k = Badop.Light db.file |> k
 
 module Tr = struct
-  let start db k =
+  let start db _errk k =
     (*Logger.debug "Badop_light.Tr.start";*)
     { db = db; tr = Session_light.new_trans db.session } |> k
 
-  let start_at_revision db _rev k =
+  let start_at_revision db _rev _errk k =
     { db = db; tr = Session_light.new_trans (*~read_only:(true, Some rev)*) db.session } |> k
 
   let prepare trans k =
