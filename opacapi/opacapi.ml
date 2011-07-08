@@ -277,7 +277,7 @@ struct
   let stringmap = !! "stringmap"
   let text = !! "text"
 
-  let transactions_t = !! "transactions_t"
+  let transactions_t = !! "opa_transaction_t"
   let tuple_2 = !! "tuple_2"
   let virtual_ref_path = !! "virtual_ref_path"
   let virtual_val_path = !! "virtual_val_path"
@@ -601,7 +601,7 @@ struct
 
   module Transactions =
   struct
-    let (!!) s = !! ("Transactions." ^ s)
+    let (!!) s = !! ("Opa_transaction." ^ s)
     let commit = !! "commit"
     let continue = !! "continue"
     let fail = !! "fail"

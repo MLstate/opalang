@@ -30,17 +30,18 @@ let error s = Logger.error "Database error: %s" s
 let qml_some x = ServerLib.wrap_option (Some x)
 let qml_none () = ServerLib.wrap_option None
 
-let transaction_fail_exception () =
+let transaction_fail_exception =
   (*
      <!> keep consistent with the type Exception.common from the Opa stdlib
   *)
-  match ServerLib.field_of_name "Transaction_failure" with
-    | Some fld ->
-        ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor fld ServerLib.void)
-    | None -> prerr_endline "Internal error: exception Transaction_failure not defined"; assert false
+  let fld = ServerLib.static_field_of_name "Transaction_failure" in
+  let fields = ServerLib.empty_record_constructor in
+  let fields = ServerLib.add_field fields fld ServerLib.void in
+  let record = ServerLib.make_record fields in
+  BslNativeLib.wrap_opa_exception_common record
 
 let abort_transaction k =
-  QmlCpsServerLib.return (QmlCpsServerLib.handler_cont k) (transaction_fail_exception ())
+  QmlCpsServerLib.return (QmlCpsServerLib.handler_cont k) transaction_fail_exception
 
 (** abstract types used by dbgenlink *)
 ##extern-type [normalize] db_path_key = Badop.key

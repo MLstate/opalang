@@ -166,7 +166,9 @@ let get_trans t k =
   match t with
     | { kind = Path_val tr } -> tr |> k
     | { kind = Path_ref (db,_) } ->
-        match Transactions.get_transaction k db with
+        Opa_transaction.get_db_transaction db
+        @> C.ccont_ml k
+        @> function
         | Some tr -> tr |> k
         | None -> Badoplink.trans_start db @> k
 
@@ -271,12 +273,13 @@ let do_in_trans
     (db:  Badoplink.database)
     (f:  Badoplink.transaction -> ( Badoplink.transaction) QmlCpsServerLib.continuation -> unit)
     (k: 'opavoid QmlCpsServerLib.continuation) =
-  match Transactions.get_transaction k db with
+  Opa_transaction.get_db_transaction db
+  @> C.ccont_ml k
+  @> function
   | Some tr ->
       f tr
       @> C.ccont_ml k
-      @> fun tr ->
-        ServerLib.void |> Transactions.set_transaction k db tr
+      @> fun tr -> Opa_transaction.set_global_transaction db tr @> k
   | None ->
       B.trans_start db @> C.ccont_ml k
       @> fun tr ->
@@ -341,9 +344,12 @@ let trans_start_rev db rev k =
 let history t pos len k = match t with
   | { kind = Path_val _ } -> assert false (* should be guaranteed by typing *)
   | { path = path; reader = reader; kind = Path_ref (db, _) } ->
-      (match Transactions.get_transaction k db with
-       | Some tr -> (fun k -> tr |> k)
-       | None -> Badoplink.trans_start db)
+      (fun k ->
+         Opa_transaction.get_db_transaction db
+         @> C.ccont_ml k
+         @> function
+         | Some tr -> tr |> k
+         | None -> Badoplink.trans_start db @> k)
       @> C.ccont_ml k
       @> fun tr ->
         let rec skip n = function _::r when n > 0 -> skip (n-1) r | l -> l in
@@ -375,9 +381,12 @@ let history t pos len k = match t with
 let history_time t from until k = match t with
   | { kind = Path_val _ } -> assert false (* should be guaranteed by typing *)
   | { path = path; reader = reader; kind = Path_ref (db, _) } ->
-      (match Transactions.get_transaction k db with
-       | Some tr -> (fun k -> tr |> k)
-       | None -> Badoplink.trans_start db)
+      (fun k ->
+         Opa_transaction.get_db_transaction db
+         @> C.ccont_ml k
+         @> function
+         | Some tr -> tr |> k
+         | None -> Badoplink.trans_start db @> k)
       @> C.ccont_ml k
       @> fun tr ->
             let rec skip = function
@@ -387,7 +396,7 @@ let history_time t from until k = match t with
               | (rev,ts)::r -> if ts <= Time.milliseconds until then (rev,ts) :: cut r else []
               | [] -> [] in
             let post_filter revisions = List.rev (cut (skip revisions)) in
-            Badoplink.revisions tr path (None, 0, None) 
+            Badoplink.revisions tr path (None, 0, None)
             @> C.ccont_ml k
             @> fun revisions ->
               C.fold_list

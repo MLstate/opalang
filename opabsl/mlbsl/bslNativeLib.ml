@@ -183,6 +183,9 @@ let opa_tuple_4 (a, b, c, d) =
    {1 Standard Exceptions}
 *)
 
+##opa-type exception
+##opa-type exception_common
+
 module OpaExc =
 struct
   (**
@@ -195,7 +198,7 @@ struct
     let r = ServerLib.empty_record_constructor in
     let r = ServerLib.add_field r f_fail (ServerLib.wrap_string message) in
     let r = ServerLib.add_field r f_position (ServerLib.wrap_string position) in
-    ServerLib.make_record r
+    wrap_opa_exception (ServerLib.make_record r)
 
   let f_transaction_failure = ServerLib.static_field_of_name "Transaction_failure"
   let transaction_failure = ServerLib.make_simple_record f_transaction_failure
@@ -207,7 +210,7 @@ struct
     let r = ServerLib.empty_record_constructor in
     let r = ServerLib.add_field r f_ocaml_exc (ServerLib.wrap_string message) in
     let r = ServerLib.add_field r f_bslkey (ServerLib.wrap_string bslkey) in
-    ServerLib.make_record r
+    wrap_opa_exception (ServerLib.make_record r)
 
 
   (**

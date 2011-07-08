@@ -55,6 +55,38 @@ import stdlib.core.{date,map,parser}
  * {1 Types defined in this module}
  */
 
+/*
+  Private types
+
+  These types come from the opabsl/mlbsl. They need to be defined because they
+  are manipulated by the compiler.
+
+  Not to be used by hand.
+*/
+@opacapi type badoplink_database = external
+@opacapi type badoplink_transaction = external
+type badoplink_revision = external
+@opacapi type badoplink_db_path_key = external
+@opacapi type badoplink_path = external
+@opacapi type badoplink_data_d = external
+@opacapi type badoplink_db_partial_key = external
+
+@opacapi type badoplink_node_config = external
+
+@opacapi type badop_engine_database_options = external
+@opacapi type badop_engine_t = external
+
+@opacapi type path_t('a,'path_kind) = external
+@opacapi type path_embedded_obj = external
+@opacapi type path_embed_info = external
+
+@opacapi type path_val_p = external
+@opacapi type path_ref_p = external
+
+@opacapi type opa_transaction_t('a) = external
+@opacapi type dbgraph_diff = external
+
+
 /**
  * Value paths
  *
@@ -187,11 +219,10 @@ Db = {{
    * @param [f] a function that will be executed within a single transaction.
    * @return the return value of f as option, or [{none}] if the transaction commit failed.
    */
-  transaction(db,f) =
-    tr = Db_private.Transactions.start(db,{})
-    tr = Db_private.Transactions.continue(tr,(_ -> some(f())),(_ -> none))
-    Db_private.Transactions.commit(tr)
-
+  transaction(f) =
+    tr = Transaction.new()
+    r = tr.try(-> some(f()), -> none)
+    match tr.commit() with {success} -> r | {failure} -> none
 
   /**
    * Dumps the contents of the whole database into an XML file.
@@ -220,10 +251,67 @@ Db = {{
 
 `<-` = Db.`<-`
 
-// interface needed by the compiler
-type dbgenlink_database = external
-type dbgenlink_db_path_key = external
-type dbgenlink_path = external
-type dbgenlink_trans = external
-type dbgenlink_path_trans = external
-type dbgenlink_data_d = external
+
+type transaction = {{
+
+  /** Calls a function within the transaction. On error, the execution is
+      skipped (the error status can be checked by calls to [try] or [commit]) */
+  in: (-> {}) -> {};
+
+  /** [try(f,fallback)] applies function [f] within the transaction,
+      triggering [fallback] in case of problem */
+  try: (-> 'a), (-> 'a) -> 'a;
+
+  /** Attempts to commit the given transaction. If successful, the transaction
+      is reset. */
+  commit: -> outcome(void,void);
+
+  /** Aborts the transaction ; any further calls to [try] will trigger
+      the error case, any further calls to [in] will be ignored */
+  rollback: -> void;
+
+}}
+
+
+/* Implementation note:
+   providing Transaction as an object, where opa_transaction_t doesn't appear
+   explicitely makes passing transactions between client and server possible
+   (because we actually only pass handles to server closures)
+*/
+Transaction = {{
+
+  @private Make(tr : opa_transaction_t) : transaction = {{
+    in(f) = try(f, -> void)
+      /** [try(tr,f,fallback)] applies function [f] within the transaction [tr],
+      triggering [fallback] in case of problem */
+    try = %%opa_transaction_continue%%(tr,_,_)
+    commit() = %%opa_transaction_commit%%(tr)
+    rollback() = %%opa_transaction_abort%%(tr)
+  }}
+
+  /** Start a new, empty transaction */
+  new() = Make(%%opa_transaction_start%%())
+
+  /** Starts a new transaction, synchronously initialised on the given
+      databases (it will still be extended to other databases if and when
+      needed, as with [new]) */
+  new_on(databases) =
+    tr = %%opa_transaction_start%%()
+    do %%opa_transaction_init%%(tr,databases)
+    Make(tr)
+
+  /** Force the failing of the transaction currently in the execution
+      context */
+  fail() = %%opa_transaction_fail%%()
+
+  /**
+    Note on nested transactions: if a new transaction is started within
+    another one (during a call to [try] or [in]), their execution flows
+    are merged. Errors will always trigger the topmost handler, and only
+    the top-level commit will actually commit to the database.
+
+    Moreover, writes done in child transaction are visible to the parent
+    even if they have not been committed. In other words, the commit of
+    the inner transaction does'nt have an effect on the database.
+  */
+}}
