@@ -529,6 +529,9 @@ let absify ~toplevel env gamma_with_lambda_bindings annotmap e xs =
          | _ ->
              (* you don't add parameters to something that is not a function *)
              assert false) annotmap e
+
+
+
 let absify_untyped ~toplevel e xs =
   match xs with
   | [] when toplevel -> e
@@ -540,11 +543,18 @@ let absify_untyped ~toplevel e xs =
          | Q.Coerce _
          | Q.Directive (_, #ignored_directive, _, _) as e -> tra e
          | _ -> assert false) e
+
+
+
 let absify_fun_action e xs =
   (* could use 0-ary functions, but since it's completely untested,
    * seems risky for now *)
   let xs = if xs = [] then [Ident.next "_"] else xs in
-  QmlAstCons.UntypedExpr.lambda xs e
+  let pos = Q.Pos.expr e in
+  let label = Annot.next_label pos in
+  QmlAstCons.UntypedExprWithLabel.lambda ~label xs e
+
+
 
 (* substitution on expressions *)
 let subst e sigma =
