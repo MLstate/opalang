@@ -77,6 +77,15 @@ struct
     QmlPrint.pp_annotation#code fmt code;
     Format.fprintf fmt "@."
 
+  (* ************************************************************************ *)
+  (** {b Descr}: Printer for position in source code.
+      {b Visibility} : Not exported outside this module.                      *)
+  (* ************************************************************************ *)
+  let position fmt code =
+    Format.fprintf fmt "/* printer: --print position */@\n@\n";
+    QmlPrint.pp_position#code fmt code;
+    Format.fprintf fmt "@."
+
   let tracked fmt code =
     Format.fprintf fmt "/* printer: --print tracked */" ;
     let bind kw rec_ (s, e) =
@@ -110,6 +119,7 @@ let for_ei_id = define "for_ei"
 let size_id = define "size"
 let declaration_id = define "declaration"
 let annotation_id = define "annotation"
+let position_id = define "position"
 let tracked_id = define "tracked"
 let gamma_id = define "gamma"
 
@@ -129,6 +139,8 @@ let printers extract _ =
     very_light_ident_id, make_code Printer.very_light_ident ;
     declaration_id, make_code Printer.declaration ;
     annotation_id, make_code Printer.annotation;
+    (* Source code positions printer registered. *)
+    position_id, make_code Printer.position;
     size_id, make_code Printer.size ;
     with_type_id, make_ac Printer.code_with_type;
     for_ei_id, make_ac Printer.code_for_ei;

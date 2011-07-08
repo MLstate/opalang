@@ -667,6 +667,34 @@ object(self)
     annotation_node_factory QmlAst.QAnnot.pat self#pat0 fmt expr
 end
 
+
+
+(* ************************************************************************** *)
+(** {b Descr}: Prints an AST element and its source code location. Used by the
+    position printer below which is made available in opatrack via file
+    qmlTracker.ml.
+    {b Visibility}: Not exported outside this module.                         *)
+(* ************************************************************************** *)
+let position_node_factory pos pp fmt ast =
+      Format.fprintf fmt "(%a : § %a)" pp ast FilePos.pp (pos ast)
+
+
+
+(* ************************************************************************** *)
+(** {b Descr}: Printer decorating source code with positions of its elements.
+    {b Visibility}: Exported outside this module.                             *)
+(* ************************************************************************** *)
+class position_printer =
+object(self)
+  inherit base_printer_with_sugared_types
+  method expr_node fmt expr =
+    position_node_factory QmlAst.Pos.expr self#expr0 fmt expr
+  method pat_node fmt expr =
+    position_node_factory QmlAst.Pos.pat self#pat0 fmt expr
+end
+
+
+
 exception Bad_printer
 
 (* you cannot create instances of these two printers
@@ -759,6 +787,7 @@ let pp_light_ident = new light_ident_printer
 let pp_very_light_ident = new very_light_ident_printer
 let pp_declaration = new declaration_printer
 let pp_annotation = new annotation_printer
+let pp_position = new position_printer
 let pp_value_restriction = new pp_value_restriction
 
 (**
