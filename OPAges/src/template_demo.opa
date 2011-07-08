@@ -27,6 +27,10 @@ type TemplateDemo.content('a) = Template.content(either(TemplateDemo.tags('a), '
 
 TemplateDemo = {{
 
+  namespace = "http://opalang.org/schema/demo.xsd" 
+
+  dom_err(msg) = {failure = {dom_error = msg}}
+
   @private TDate = {{
 
     @private default_date_format = "%d/%m/%y"
@@ -36,7 +40,7 @@ TemplateDemo = {{
       | {some = { ~value ... } } -> { date_format=value }
       | { none } -> { date_format=default_date_format }
 
-    export(~{date_format}, _child) = match Date.try_generate_printer(date_format) with
+    export(~{date_format}, _exporter) = match Date.try_generate_printer(date_format) with
       | { success=date_printer } -> <>{Date.to_formatted_string(date_printer, Date.now())}</>
       | { ~failure } -> <>Incorrect date format {failure}</>
   }}
@@ -45,57 +49,49 @@ TemplateDemo = {{
 
     build({args=_ children=_}) = {random}
 
-    export({random}, _child) = <>Random : {Random.int(515)}</>
+    export({random}, _exporter) = <>Random : {Random.int(515)}</>
 
   }}
 
-  namespace = Uri.of_string("http://opalang.org/schema/demo.xsd") |> Option.get
-
-  @private parse(_config, ~{ns tag args children }:Template.import_arg(TemplateDemo.tags('a), 'b)) : outcome(Template.content(either(TemplateDemo.tags('a), 'b)), Template.failure) =
-    if ns == namespace then
+  @private parse(_config, ~{xmlns xmlns_parser}:Template.import_arg(TemplateDemo.tags('a), 'b)) : outcome(Template.content(either(TemplateDemo.tags('a), 'b)), Template.failure) =
+    match xmlns with
+    | { ~tag; namespace="http://opalang.org/schema/demo.xsd"; ~args; specific_attributes=_; ~content } -> 
+      children = Outcome.get(Template.parse_list_xmlns(content, xmlns_parser))
       build = match tag
         | "random"      -> some(TRandom.build)
         | "date"        -> some(TDate.build)
         | "scope"       -> some({args=_ ~children} -> {scope = children} )
         | _             -> none
       Option.switch((build -> {success = Template.to_extension(build(~{args children}))}),
-                    {failure = {unsupported_tag ~ns ~tag}},
+                    {failure = {unsupported_tag ns=namespace ~tag}},
                     build)
-    else {failure = {namespace_not_supported_by_engine =
-                "Engine({namespace}) vs Namespace({ns})"}}
+    | _ -> { failure = { unsupported_node=xmlns } }
 
-  @private export(content, child) =
-    e = Template.from_extension(content)
-    match e
+  @private export(content, exporter) =
+    match Template.from_extension(content)
     | {none} -> {failure = {unknown_tag="Expected extension"}}
     | {some = e} ->
       {success = match e
-            | {random} as e         -> TRandom.export(e, child)
-            | {date_format=_} as e  -> TDate.export(e, child)
-            | {scope=_}              -> child}
+            | {random} as e         -> TRandom.export(e, exporter)
+            | {date_format=_} as e  -> TDate.export(e, exporter)
+            | {~scope}              -> Outcome.get(exporter(scope) ) }
 
-  @private source(content, child, xmlns_binding, printer) =
-    binding = StringMap.get(Uri.to_string(namespace), xmlns_binding)
+  @private source(content, exporter, xmlns_binding, printer, depth) =
+    binding = StringMap.get(namespace, xmlns_binding)
               |> Option.default("opa", _)
-    create_tag(tag_name, may_attribute, autoclose) =
-      begin, after ->
-        attr = Option.default("", may_attribute)
-        if autoclose
-          then "{begin}<{binding}:{tag_name}{attr} />"
-          else "{begin}<{binding}:{tag_name}{attr}> {child} {after}</{binding}:{tag_name}>"
+    create_tag(tag_name, may_attribute, autoclose, may_child) =
+      may_child = Option.map(child -> Outcome.get(exporter(child) ), may_child)
+      Template.print_tag(tag_name, some(binding), Option.default("", may_attribute), autoclose, true, may_child)
+
       match Template.from_extension(content) with
       | { none } -> { failure = { unknown_tag = "Expected extension" } }
-      | { some=tag } -> { success = printer(
+      | { some=tag } -> { success = printer(depth)(
           match tag
-          | { random } -> create_tag("version", none, true)
-          | ~{ date_format } -> create_tag("date", some(" format=\"{date_format}\""), true)
-          | { scope=_ }       -> create_tag("scope", none, false)
+          | { random } -> create_tag("version", none, true, none)
+          | ~{ date_format } -> create_tag("date", some(" format=\"{date_format}\""), true, none)
+          | { ~scope }       -> create_tag("scope", none, false, some(scope))
         )}
 
-  @private extract_children(content) = match Template.from_extension(content)
-    | {some = ~{scope}} -> [scope]
-    | _ -> []
-
-  engine = ~{Template.empty with parse export source extract_children}
+  engine = ~{Template.empty with parse export source }
 
 }}

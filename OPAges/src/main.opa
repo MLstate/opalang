@@ -1,4 +1,5 @@
 import opages
+import stdlib.web.template
 import stdlib.components.applicationframe
 
 /**
@@ -22,26 +23,93 @@ import stdlib.components.applicationframe
    @TODO: remove CApplicationFrame !! */
 
 /** A  path to store template content. */
-db /opages : stringmap(Page.stored)
+db /opages/pages : stringmap(Page.stored)
+db /opages/pages[_] = Page.empty
+db /opages/pages_rev : stringmap(Page.published)
+db /opages/pages_rev[_] = Page.not_published
 
-db /opages[_] full
-db /opages[_] = Page.empty
+database opages = @meta
 
 /** */
-demo_engine = Template.combine(TemplateDemo.engine, Template.default)
+demo_engine  = Template.combine(TemplateDemo.engine, Template.default)
 
-demo_access = {
-  set = key, page -> /opages[key] <- page
-  get = key -> ?/opages[key]
-  rm  = key -> Db.remove(@/opages[key])
-  ls  = -> StringMap.rev_fold(key, _, acc -> key +> acc, /opages, [] )
-  date = key -> Db.modification_time(@/opages[key])
-}
+Access = {{
 
-demo_not_found =
-  Resource.error_page("Page not found", <h1>Page not found</h1>, {wrong_address})
+  rec val cache = Cache.make(
+    Cache.Negociator.always_necessary(cached),
+    Cache.default_options
+  )
+  cached(key) = select(key)
+  select =
+    | {last = key}      ->
+      do Log.warning("OpalangPage","Database access : last {key}")
+      Option.map(page -> {rev = nb_rev(key) ~page}, ?/opages/pages[key])
+    | ~{key rev}        ->
+      do Log.warning("OpalangPage","Database access : {rev} {key}")
+      match Db.history(@/opages/pages[key], rev, 1)
+      | []  -> do Log.error("OpalangPage", "Revision {rev} at {key} not found") none
+      | [page] -> some(~{page rev})
+      | _ -> do Log.error("OpalangPage", "Inconsistent result : Revision {rev} at {key} not found") none
+      end
+    | {published = key} ->
+      do Log.warning("OpalangPage","Database access : published {key}")
+      match ?/opages/pages_rev[key]
+      | {none} -> cache.get({last = key})
+      | {some=p} ->
+        rev = Page.rev_of_published(p)
+        cache.get(~{key rev})
+    nb_rev(key) = List.length(Db.history(@/opages/pages[key], 1, 0))
+  
+  reset_cache() =
+    lst = access.ls()
+    List.iter((key, _) -> do cache.invalidate({last = key}) do cache.invalidate({published = key}) void, lst)
+  fill_cache() =
+    lst = access.ls()
+    List.iter((key, _) -> ignore(access.select({published = key})), lst)
+  
+  access = {
+  
+    select = cache.get(_)
+  
+    save =
+      | ~{key page} ->
+        rec aux() = match Db.transaction(opages,
+             -> do /opages/pages[key] <- page
+             nb_rev(key)
+          ) with
+          | {none} ->
+            do Log.error("OpalangPage", "Save transaction failed, retry") aux()
+          | {some = rev} ->
+            do cache.invalidate({last = key})
+            rev
+          end
+        aux()
+      | ~{key publish} ->
+        do /opages/pages_rev[key] <- publish
+        do cache.invalidate({published = key})
+        Page.rev_of_published(publish)
+  
+    published(key) = ?/opages/pages_rev[key]
+  
+    rm(key) =
+      do Db.remove(@/opages/pages[key])
+      do Db.remove(@/opages/pages_rev[key])
+      do cache.invalidate({last = key})
+      do cache.invalidate({published = key})
+      void
+    ls() = StringMap.rev_fold(key, _, acc -> (key, ?/opages/pages_rev[key]) +> acc,
+                              /opages/pages,
+                              [])
+    history(key) = Db.history(@/opages/pages[key], 1, 0)
 
-page_demo = Page.make({access = demo_access engine = demo_engine not_found = demo_not_found} : Page.config)
+  }
+}}
+
+page_demo = Page.make(
+  { 
+    access = Access.access 
+    engine(_env)= demo_engine 
+  } : Page.config)
 
 /** Init admin is does not exists or if needed on command line. */
 admin_init =
@@ -94,17 +162,14 @@ server =
       build_html(url, embedded)
     | ~{resource} ->
       /* Page return directly a resource. */
-      Resource.secure(resource)
+      Server.public(_ -> resource)
   /* Secured service */
-  secure = Server.secure(Server.ssl_default_params, url_dispatcher)
-  { secure with
-    /* Record extension will give us a record, i.e. a closed sum so, open it
-       to make it compatible with type [Server.encryption]. */
-      encryption = {Server.ssl_default_params with
-                      certificate="./main.crt"
-                      private_key="./main.key"} <: Server.encryption
-      server_name = "https"
-  }
+  ssl_params = { Server.ssl_default_params with
+                   certificate="opages.crt"
+                   private_key="opages.key"
+               } <: Server.encryption
+  { Server.secure(ssl_params, url_dispatcher) with server_name = "https" }
+
 
 /** CSS used for administration pages for moment all services share
     css. */
