@@ -221,7 +221,10 @@ module DT = DbTypes
     Logger.log ~color:`yellow
       "DB : get timestamp for revision %s" (Revision.to_string rev)
     #<End>;
-    IoManager.read_timestamp t.file_manager (Revision.value rev)
+    try IoManager.read_timestamp t.file_manager (Revision.value rev)
+    with DT.CrashTimestamp ->
+      raise (DiskError (Printf.sprintf "Timestamp: try to read an uncommitted revision (%s vs %s)"
+                (Revision.to_string rev) (Revision.to_string dbrev)))
 
 
   (************************************)

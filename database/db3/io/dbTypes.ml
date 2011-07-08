@@ -169,6 +169,7 @@ exception CrashStateMap of uidmap posexc
 exception CrashStateIndex of dbstate posexc
 exception CrashTrans of transfile posexc
 exception CrashUidRev of bool
+exception CrashTimestamp
 
 (*
 (* Unused *)

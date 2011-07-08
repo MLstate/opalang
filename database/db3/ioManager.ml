@@ -745,12 +745,14 @@ let write_timestamp fm ts =
 
 let read_timestamp fm rev =
   (* 9 bytes are written for each revision *)
+  try
   let pos = 9 * rev in
   logfm fm "Read timestamp at %d (for rev %d)" pos rev;
   F.seek_in fm F.Timestamp pos;
   iscorrupted (F.read_char fm F.Timestamp) cc0;
   let t = F.read_int64 fm F.Timestamp in
   Time.milliseconds (Int64.to_int t)
+  with F.EOF | F.Corruption -> raise DT.CrashTimestamp
 
 (* +++ UID REV +++ *)
 (* Uid Rev file :
