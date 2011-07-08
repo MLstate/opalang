@@ -219,7 +219,7 @@ let pp_unification_conflict_detail ppf detail =
        if not something_printed then Format.fprintf ppf "@\n" ;
        (* Now print the name of the faulty field. *)
        Format.fprintf ppf
-         ("@[<2>@{<bright>Hint@}:@\nError@ occured@ through@ field@ " ^^
+         ("@[<2>@{<bright>Hint@}:@\nError@ occurred@ through@ field@ " ^^
           "@{<red>%s@}.@]@\n")
          field_name)
 

@@ -537,7 +537,7 @@ module DT = DbTypes
             disk_writing session (Revision.make 0)
           with DiskError s -> (
             Logger.error "disk writing error : %s" s;
-            (* an error occured during disk writing for the first revision.
+            (* an error occurred during disk writing for the first revision.
                doesn't seems good for the further writings.
                so the db is being closed.
             *)

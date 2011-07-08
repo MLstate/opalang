@@ -100,7 +100,7 @@ let auto_disp_schema schema =
     with
     | e ->
         OManager.warning ~wclass:WarningClass.dbgen_schema
-          "@[<2>  An error occured while trying to display the output the db schema@\n%s@]"
+          "@[<2>  An error occurred while trying to display the output the db schema@\n%s@]"
           (Printexc.to_string e)
   else
     if ObjectFiles.compilation_mode() = `init then (* Only export the full schema, ie after `init *)

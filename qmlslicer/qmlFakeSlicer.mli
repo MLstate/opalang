@@ -30,7 +30,7 @@ val discard_remote_bypasses :
      If they are really called at runtime, an exception will be thrown
 
    - Precond:
-     It assumes bypass hoisting has occured
+     It assumes bypass hoisting has occurred
 
    - Goal:
      It is intended for tests, because when the code is not sliced you end up with client bypasses

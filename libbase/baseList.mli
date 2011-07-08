@@ -165,7 +165,7 @@ val remove_first : 'a -> 'a list -> 'a list
 val remove_first_or_fail_eq :
   eq: ('a -> 'a -> bool) -> 'a -> 'a list -> 'a list
 val remove_last : 'a list -> 'a list
-(** [replace elt rep lst] replaces all occurences of [elt] by given list [rep]. If [elt] does not occur in [lst], returns [lst]. *)
+(** [replace elt rep lst] replaces all occurrences of [elt] by given list [rep]. If [elt] does not occur in [lst], returns [lst]. *)
 val replace : 'a -> 'a list -> 'a list -> 'a list
 val cons : 'a -> 'a list -> 'a list
 
@@ -182,7 +182,7 @@ val get_only_element: 'a list -> 'a
 
 (**
    Remove duplicates from a sorted list.
-   The first occurence is keeped, and the returned
+   The first occurrence is keeped, and the returned
    list is still sorted.
 *)
 val uniq : ?cmp:('a -> 'a -> int) -> 'a list -> 'a list
@@ -190,7 +190,7 @@ val uniq : ?cmp:('a -> 'a -> int) -> 'a list -> 'a list
 (**
    Remove duplicates from a unsorted list.
    The returned list is not sorted, but does
-   contains only the first occurence of each element.
+   contains only the first occurrence of each element.
 *)
 val uniq_unsorted : ?cmp:('a -> 'a -> int) -> ?conflict:('a -> 'a -> unit) -> 'a list -> 'a list
 

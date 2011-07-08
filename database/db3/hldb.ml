@@ -570,7 +570,7 @@ type t = {
   let merge_search_results ll =
     let n = List.length ll in
     let occur = Hashtbl.create 23 in
-      (* table from key to number of occurences. When that number equals n, we got a result *)
+      (* table from key to number of occurrences. When that number equals n, we got a result *)
     let results = ref [] in
     let add key =
       let nb_occur = try Hashtbl.find occur key + 1 with Not_found -> 1 in

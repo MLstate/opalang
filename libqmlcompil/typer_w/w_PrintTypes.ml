@@ -344,7 +344,7 @@ and __prepare_print_scheme_parameters
        Types { A ; ~a } and { B ; ~b } are incompatible.
        Bla bla { <~a> } and { < ~b> } bla bla bla.
       "
-    that occured before because while printing the first message, abbreviations
+    that occurred before because while printing the first message, abbreviations
     were created for the types, and then when printing the second message, the
     printing routine directly found these abbreviations hence used them to
     represent the types instead of showing again their structure.

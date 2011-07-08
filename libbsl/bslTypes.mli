@@ -243,7 +243,7 @@ type 'a substitution = 'a TypeVarMap.t
 val empty_substitution : t substitution
 
 (**
-   Given a [substitution] between [typevar] and [t], replace every occurence
+   Given a [substitution] between [typevar] and [t], replace every occurrence
    of [TypeVar i] by [substitute(i)].
 
    The maping is the identity if [i] is [Not_found]

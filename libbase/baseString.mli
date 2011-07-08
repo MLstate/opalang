@@ -90,7 +90,7 @@ val map : (char -> char) -> string -> string
   (* val rev_map *)
 
 (**
-   [multi_replace s (pat * repl) list] replace in [s] all occurences of
+   [multi_replace s (pat * repl) list] replace in [s] all occurrences of
    each [pat] by its corresponding [repl]. Returns an error if a [pat]
    is exactly the beginning of another one (e.g: 'to' and 'toto'). If a
    pattern is included elseway in another way, the longer will be applyed
@@ -102,7 +102,7 @@ val map : (char -> char) -> string -> string
 val multi_replace : string -> (string * string) list -> string
 
 (**
-   [replace s pat repl] replace in [s] all occurence of [pat] by [repl].
+   [replace s pat repl] replace in [s] all occurrence of [pat] by [repl].
    Implemented using multi_replace. Returns a fresh string.
 *)
 val replace : string -> string -> string -> string
@@ -414,7 +414,7 @@ val rev_char_list_of_string : string -> char list
 (** {6 Splitting} *)
 
 (**
-   cuts a string at the occurences of the given character. The separation
+   cuts a string at the occurrences of the given character. The separation
    character is removed. Empty strings are'nt returned (that is,
    [slice '/' "/path//x/"] returns [["path";"x"]]). Non tail-recursive.
 *)
@@ -427,13 +427,13 @@ val slice : char -> string -> string list
 val slice_chars : string -> string -> string list
 
 (**
-   split a string in two substrings, at the first occurence of [char], which is removed.
+   split a string in two substrings, at the first occurrence of [char], which is removed.
    If [char] doesn't appear in [string], returns [(string,"")]
 *)
 val split_char : char -> string -> string * string
 
 (**
-   split a string in two substrings, at the last occurence of [char], which is removed.
+   split a string in two substrings, at the last occurrence of [char], which is removed.
    If [char] doesn't appear in [string], returns [(string,"")]
 *)
 val split_char_last : char -> string -> string * string

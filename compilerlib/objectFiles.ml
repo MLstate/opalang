@@ -823,7 +823,7 @@ struct
       v
     with
     | e ->
-        error "%a@\n@[<2>  An error occured while trying to read package %s: %s.@]"
+        error "%a@\n@[<2>  An error occurred while trying to read package %s: %s.@]"
           FilePos.pp_pos pos
           package_name
           (Printexc.to_string e)
@@ -869,7 +869,7 @@ struct
       assert(fst !current_package <> ""); (* asserting that the current package has been initialized *)
       let file = dirname_from_package !current_package in
       if not (File.check_create_path file) then
-        OManager.error "An error occured while trying to create the object file %s." file;
+        OManager.error "An error occurred while trying to create the object file %s." file;
       let filename = filename_from_package !current_package S.pass in
       assert (not (File.exists filename)); (* this would break only if the compiler doesn't clean an existing
                                             * object file before compiling it or if someone tries to
@@ -882,14 +882,14 @@ struct
         close_out channel ;
         ()
       with e ->
-        OManager.error "An error occured while outputting to the object file %s: %s" file (Printexc.to_string e)
+        OManager.error "An error occurred while outputting to the object file %s: %s" file (Printexc.to_string e)
 
   let show package =
     try
       let v = load1_exn package in
       Format.printf "@[<2>%s:@\n%a@]@\n" S.pass S.pp v
     with No_exit _s ->
-      Format.printf "@[<2>%s:@\nAn error occured@]@\n" S.pass
+      Format.printf "@[<2>%s:@\nAn error occurred@]@\n" S.pass
 
   let () = show_list := show :: !show_list
 end

@@ -63,7 +63,7 @@ val default_options : continuation_options
 val make_cont: continuation_options -> QmlClosureRuntime.t -> 'a continuation
 val make_cont_ml: continuation_options -> ('a -> unit) -> 'a continuation
 
-(** a short name because of the number of occurences in the generated code *)
+(** a short name because of the number of occurrences in the generated code *)
 val cont: QmlClosureRuntime.t -> 'a continuation
 val cont_ml: ('a -> unit) -> 'a continuation
 
@@ -210,7 +210,7 @@ val release_barrier : 'a future -> 'a -> unit
    Check if a barrier has been released.
    Used for rewritting the top-level.
    The function returns [true] if the barrier is computed,
-   or if an exception occured during the computation of the barrier.
+   or if an exception occurred during the computation of the barrier.
 *)
 val is_released : _ future -> bool
 

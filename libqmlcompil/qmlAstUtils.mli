@@ -94,12 +94,12 @@ val map_exprident : QmlAst.code -> ( Ident.t -> Ident.t ) ->  QmlAst.code
 val get_deeper_expr : ?except:(QmlAst.expr-> bool) -> QmlAst.expr -> QmlAst.expr
 (**
    substitute old_expr new_expr global_expr
-   =>replace in global_expr every occurence of old_expr (based on the annotation number) with new_expr
+   =>replace in global_expr every occurrence of old_expr (based on the annotation number) with new_expr
 *)
 val substitute : QmlAst.expr -> QmlAst.expr -> QmlAst.expr -> QmlAst.expr
 (**
    collect sub_expr global_expr
-   =>collect all occurence of sub_expr (based on the annotation number)
+   =>collect all occurrence of sub_expr (based on the annotation number)
 *)
 val collect : QmlAst.expr -> QmlAst.expr -> QmlAst.expr list
 (**
@@ -186,7 +186,7 @@ sig
   val change_ident : QmlAst.ident -> QmlAst.expr -> QmlAst.expr
 
   (**
-     substitute all occurences of an ident by another expression
+     substitute all occurrences of an ident by another expression
      dont care about annotmap and annot unicity, you are warned
      can embbed side effet in the ident substitution map,
      to count substitution for instance

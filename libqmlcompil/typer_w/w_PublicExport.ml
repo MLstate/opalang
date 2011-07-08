@@ -289,7 +289,7 @@ let simple_type_to_qml_type initial_ty =
     W_CoreTypes.cleanup_simple_type initial_ty ;
     exported_ty
   with killed_by ->
-    (* In any case, even if an error occured, don't forget to cleanuo the type
+    (* In any case, even if an error occurred, don't forget to cleanuo the type
        otherwise printing routines will encounter unexpected remaining
        markers. *)
     W_CoreTypes.cleanup_simple_type initial_ty ;

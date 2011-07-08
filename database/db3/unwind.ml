@@ -189,9 +189,9 @@ type unwind_mode =
    which are at a given revision and so ignore queries until
    you escape the copy via a link (back into the fully general problem).
 
-   Invariant: queries say nothing about a path between the first occurence
+   Invariant: queries say nothing about a path between the first occurrence
    of copy in the unwound version of the path and the first subsequent
-   occurence of link (because any db operation changing anything inside
+   occurrence of link (because any db operation changing anything inside
    a copy has to rewrite and replace the copy node together with the whole
    path, until a link jumps out of the old revision).
 *)

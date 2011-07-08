@@ -145,7 +145,7 @@ module ExprPatt : sig
   val fold : ('a -> QmlAst.expr -> 'a) -> ('a -> QmlAst.pat -> 'a) -> 'a -> QmlAst.expr -> 'a
 end
 
-(** a test of occurence of anything depending on db in an expr *)
+(** a test of occurrence of anything depending on db in an expr *)
 module UseDb :
 sig
   val expr : QmlAst.expr -> bool

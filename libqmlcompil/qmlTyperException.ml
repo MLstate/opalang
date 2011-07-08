@@ -55,7 +55,7 @@ let loc_set_add = LocSet.add
 let loc_set_union  = LocSet.union
 
 type error_loc =
-    (* the main location, of the subexpression being typed when error occured *)
+    (* the main location, of the subexpression being typed when error occurred *)
     location *
     (* any extra related locations, e.g., an application in another let rec
        branch, which makes the currently typed application incorrect *)

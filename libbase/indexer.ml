@@ -43,8 +43,8 @@ exception Result of int StringMap.t (* internal use, to return result at eof *)
    Optimized regexp: *)
 let common_words = Str.regexp "\\(a\\(bout\\|ll\\|n[dy]\\|re\\|[mnst]\\)\\|b\\(ut\\|[ey]\\)\\|can\\|do\\(n't\\)?\\|edu\\|f\\(or\\|rom\\)\\|get\\|h\\(a\\(s\\|ve\\)\\|e\\)\\|i[fnst]\\|just\\|like\\|m\\(ore\\|[ey]\\)\\|not?\\|o\\(ne\\|ther\\|ut\\|[fnr]\\)\\|so\\(me\\)?\\|t\\(h\\(at\\|e\\(re\\|y\\)?\\|is\\)\\|o\\)\\|up\\|w\\(as\\|e\\|h\\(at\\|ich\\|o\\)\\|i\\(ll\\|th\\)\\|ould\\)\\|your?\\)$"
 
-(** @param map is a map from word to number of its occurences; this function
-    returns the updated map with occurences from s *)
+(** @param map is a map from word to number of its occurrences; this function
+    returns the updated map with occurrences from s *)
 let utf8_string map s =
   let bad_utf8 () =
     (* Base.jlog ~level:3 "Invalid utf-8 in string, not indexing";*) map in

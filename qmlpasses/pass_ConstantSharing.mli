@@ -28,7 +28,7 @@
    definition.
    We define a subset of QML ast to work only on the part of the ast which we are interested in.
 
-   Then it replaces every occurence of the constant by the corresponding
+   Then it replaces every occurrence of the constant by the corresponding
    toplevel identifier just defined.
 
    Example :

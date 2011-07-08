@@ -520,7 +520,7 @@ module Factorize :
 sig
   open IL
 
-  (** letcont : factorize all occurence of the form
+  (** letcont : factorize all occurrence of the form
       [LetCont (k, (x -> term), [ ApplyCont (k, y) ])]
       rewriting it so :
       [ <term> {x <- y} ]
@@ -603,7 +603,7 @@ struct
                 (* this can be factorized <term> { vident <- vident' } *)
                 (* Optimisation: once Vident are (vident, ExprIdent.t) UnionFind.t,
                    we can use : UnionFind.replace vident vident', but we need to be
-                   sure that [term] is the only one containing occurences of [vident] *)
+                   sure that [term] is the only one containing occurrences of [vident] *)
 
                 let _ = #<If:CPS_VERBOSE $minlevel 1> Chrono.start _chrono_subst #<End> in
                 let term = Substitution.ident vident vident' term in

@@ -206,7 +206,7 @@ module type S = sig
       This cause a runtime error if the field is not present. *)
   val unsafe_dot : ty_record -> field -> 'a
 
-  (** In sum types, sometimes you just want to check the occurence of a field, without
+  (** In sum types, sometimes you just want to check the occurrence of a field, without
       accessing its data *)
   val is_present : ty_record -> field -> bool
 

@@ -34,7 +34,7 @@ type occur_kind =
   | Multiple(* of bool*) (* multiple occurrences after possibly any binding
                           * [true] means that the binding is used as an expression *)
       (* BEWARE:
-       * (a=1)+a counts as two occurences of a
+       * (a=1)+a counts as two occurrences of a
        * when (a=1, a) counts as one occurrence of a
        * because (a=1)+a really means (a=1,a)+a
        *)

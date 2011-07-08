@@ -1868,7 +1868,7 @@ Expression has type [red]##{ f: !for all 'a . 'a -> 'a; g: int -> int }## but is
 coerced into [red]##{ f: int -> int; g: int -> int }##.
 Types [red]##!for all 'a . 'a -> 'a## and [red]##int -> int## are not compatible
 Hint:
-  Error occured through field [red]##f##.__
+  Error occurred through field [red]##f##.__
 
 // Ok.
 _ = {{ f(x:int) = x ; g(x) = x + 1 }} : {{ f : int -> int ; g : int -> int }}
@@ -1880,7 +1880,7 @@ _ = M : {{ f : int -> int ; g : int -> int }}
 Expression has type [red]##Mty## but is coerced into [red]##{ f: int -> int; g: int -> int }##.
 Types [red]##int -> int## and [red]##!for all 'a . 'a -> 'a## are not compatible
 Hint:
-  Error occured through field [red]##f##.__
+  Error occurred through field [red]##f##.__
 
 // Ok.
 _ = {{ f = M.f : int -> int ; g = M.g }} : {{ f : int -> int ; g : int -> int }}
@@ -1951,7 +1951,7 @@ Function was found of type
 expects it to be of type [red]##Mty -> 'b##.
 Types [red]##int -> 'a## and [red]##!for all 'c . 'c -> 'c## are not compatible
 Hint:
-  Error occured through field [red]##f##.__
+  Error occurred through field [red]##f##.__
 
 // Ok because M.f is instantiated.
 _ = f({ f = M.f })

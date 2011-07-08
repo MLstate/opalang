@@ -68,7 +68,7 @@ val sort : (key * spec * doc) list -> (key * spec * doc) list
   (** sort the options by alphabetical order on the key.
       if a key appear more than once in the spec list,
       only the first occurrence is keeped, while any other
-      occurence is simply removed (no error) *)
+      occurrence is simply removed (no error) *)
 
 val spec_of_assoc : 'a ref -> (string * 'a) list -> spec
 val spec_opt_of_assoc : 'a option ref -> (string * 'a) list -> spec

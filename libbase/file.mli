@@ -107,7 +107,7 @@ val content : string -> string
 val content_opt : string -> string option
   (**
      @param f the filename to read
-     @return [None] if an error occured, [Some] of the content instead
+     @return [None] if an error occurred, [Some] of the content instead
   *)
 
 val mimetype : ?magic_file:string -> string -> string
@@ -312,7 +312,7 @@ val channel_contents : in_channel -> string
 exception Process_error of string
 val process_output : string -> string
 val simplify_path : string -> string
-  (* return completed paths for filename fname for each occurence in dirs *)
+  (* return completed paths for filename fname for each occurrence in dirs *)
 
 val get_locations_regexp : ?dir:bool -> string list (*dirs*) -> string (*filename:caml regexp*) -> string list (* fnames *)
 val get_locations : ?dir:bool -> string list (*dirs*) -> string (*fname*) -> string list (* fnames *)
