@@ -9,7 +9,7 @@ SCRIPTNAME=$(basename $0)
 # OS independent various variables
 # Warning: only put in DEFAULT_PACKAGES what should be included in our binary package
 DEFAULT_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex ocaml-ssl camlidl libnatpmp miniupnpc)
-ALL_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc)
+ALL_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc cairo-ocaml)
 
 BUILD_DIR=$SCRIPTDIR/packages
 
@@ -187,6 +187,7 @@ sources () {
         camlidl) echo "http://caml.inria.fr/pub/old_caml_site/distrib/bazar-ocaml/camlidl-1.05.tar.gz";;
         libnatpmp) echo "http://miniupnp.free.fr/files/download.php?file=libnatpmp-20110103.tar.gz";;
         miniupnpc) echo "http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.5.20110418.tar.gz";;
+        cairo-ocaml) echo "http://cgit.freedesktop.org/cairo-ocaml/snapshot/cairo-ocaml-master.tar.gz";;
         *) msg_red "Error: don't know about package $1" >&2; exit 2
     esac
 }
@@ -194,6 +195,7 @@ sources () {
 package_dir () {
     local p=$1
     local dir=$(find . -maxdepth 1 -type d -name "$p-[0-9]*")
+    local dir="$dir "$(find . -maxdepth 1 -type d -name "$p-master")
     echo $dir | (read a b; if [ -n "$b" ]; then
             msg_red "Error: found several source directories for $p"
             exit 12
@@ -313,6 +315,13 @@ package_install (){
                 rm -f myocamlbuild.ml
                 install_generic
                 ;;
+            cairo-ocaml)
+                aclocal -I support
+                autoconf
+                ./configure --prefix $PREFIX --without-gtk
+                make
+                make install
+                ;;
             *)
                 msg_yellow "Install $1 by hand"
                 msg_yellow "TODO : check $1 installation"
@@ -402,6 +411,13 @@ package_install (){
                 INCLUDE=$INSTALLDIR/include/miniupnpc
                 $SUDO mkdir -p $INCLUDE
                 $SUDO cp *.h $INCLUDE
+                ;;
+            cairo-ocaml)
+                aclocal -I support
+                autoconf
+                ./configure --prefix $PREFIX --without-gtk
+                make
+                $SUDO make install
                 ;;
             *)
                 install_generic
