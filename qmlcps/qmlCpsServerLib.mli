@@ -282,7 +282,14 @@ end
     List.fold is a fun exercise, it's less efficient. *)
 val fold_list : ('acc -> 'a -> 'acc continuation -> unit) -> 'acc -> 'a list -> 'acc continuation -> unit
 
+(** Maps the given cps function on the elements of the list, in parallel *)
+val map_list : ('a -> 'b continuation -> unit) -> 'a list -> 'b list continuation -> unit
+
+(** Iters the given cps function on the elements of the list, in parallel *)
+val iter_list : ('a -> unit continuation -> unit) -> 'a list -> unit continuation -> unit
+
 val fold_array : ('acc -> 'a -> 'acc continuation -> unit) -> 'acc -> 'a array -> 'acc continuation -> unit
+
 (*
 (*
   {6 Tasks}

@@ -617,6 +617,31 @@ let rec fold_list f acc l k = match l with
   | [] -> acc |> k
   | hd::tl -> f acc hd @> ccont_ml k @> fun acc -> fold_list f acc tl @> k
 
+let rec iter_list f l k =
+  let n = ref 0 in
+  let k =
+    ccont_ml k (fun () -> decr n; if !n == 0 then () |> k)
+  in
+  List.iter
+    (fun x -> incr n; Scheduler.push Scheduler.default (fun () -> f x @> k))
+    l
+
+let rec map_list f l k =
+  let n = ref 0 in
+  let results = ref [||] in
+  let ki =
+    fun i ->
+      ccont_ml k
+        (fun x ->
+           !results.(i) <- x;
+           decr n;
+           if !n > 0 then () else Array.to_list !results |> k)
+  in
+  List.iter
+    (fun x -> let k = ki !n in incr n; Scheduler.push Scheduler.default (fun () -> f x @> k))
+    l;
+  results := Array.make !n (Obj.magic ())
+
 let fold_array f acc arr k =
   let s = Array.length arr in
   let rec aux acc i k =
