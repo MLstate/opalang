@@ -144,7 +144,7 @@ uninstall:
 	rm -rf $(INSTALL_DIR)/share/opa
 	rm -rf $(INSTALL_DIR)/share/doc/opa
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
-	$(foreach file,$(BUILD_DIR)/bin/*,rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
+	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
 	@utils/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
