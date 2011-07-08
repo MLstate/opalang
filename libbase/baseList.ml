@@ -362,6 +362,13 @@ let assoc_opt key =
     | _::q -> aux q
   in aux
 
+let assq_opt key =
+  let rec aux = function
+    | [] -> None
+    | (k, v)::_ when key == k -> Some v
+    | _::q -> aux q
+  in aux
+
 let find_opt f l =
   try
     Some (find f l)

@@ -225,6 +225,7 @@ val flip : 'a list list -> 'a list list
 *)
 val combine_opt : 'a list -> 'b list -> ('a * 'b) list option
 val assoc_opt : 'a -> ('a * 'b) list -> 'b option
+val assq_opt : 'a -> ('a * 'b) list -> 'b option
 val find_opt : ('a -> bool) -> 'a list -> 'a option
 
 (**
