@@ -15,7 +15,7 @@ SmtpServer= {{
   init_server = %% BslMail.Mailserver.init_server %%
   start(ip : ip ,port : int, ssl : option(SSL.secure_type), handler : SmtpServer.handler)=
     new_handler(f,t,c) = match handler(f,t,c) with
-                         | {success} -> (200,"done!")
+                         | {success} -> (250,"done!")
                          | {failure = {undisponible}} -> (450,"undone because mail box not disponible")
                          | {failure = {stopped}} -> (451,"treatment error")
                          | {failure = {unfound}} -> (550,"No access to mail box => unfound")
