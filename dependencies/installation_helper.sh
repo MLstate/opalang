@@ -318,7 +318,7 @@ package_install (){
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $PREFIX --without-gtk
+                ./configure --prefix $PREFIX --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 make install
                 ;;
@@ -415,7 +415,7 @@ package_install (){
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $PREFIX --without-gtk
+                ./configure --prefix $PREFIX --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 $SUDO make install
                 ;;
