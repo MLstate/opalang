@@ -93,7 +93,7 @@ type Page.manager = {
 /**
  * Type of data stored in database
  */
-@abstract type Page.stored_content =
+type Page.stored_content =
   {image : image} /
   {css   : string} /
   {source : string mime : string} /
