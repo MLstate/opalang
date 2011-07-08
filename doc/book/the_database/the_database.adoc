@@ -209,8 +209,9 @@ Transactions
 ^^^^^^^^^^^^
 
 Whenever several users or several treatments need to access the database
-simultaneously, consistency needs to be enforced. For this purpose, Opa
-offers a mechanism of _transactions_.
+simultaneously, consistency needs to be enforced. For this purpose, Opa offers a
+mechanism of _transactions_. It's also more efficient, if you do some database
+operations in a row, to encapsulate them explicitely in a transaction.
 
 In their simplest and most common form, transactions take the form of function
 +Db.transaction+:
@@ -222,15 +223,70 @@ atomic() =
   //...any operations
 )
 
-result = Db.transaction(database_name, atomic)
+result = Db.transaction(atomic)
 match result with
   | {none} -> //a conflict or another database error prevented the commit
   |~{some} -> //success, [some] contains the result of [atomic()]
 -------------------------
 
-Note that this requires the database to be named (see above).
+It is possible to get much finer control over what is done with a transaction ;
+unlike most common database engines, Opa doesn't force a transaction to be run
+in one block: it can be suspended and continued later, without blocking the
+database in any way.
 
+[source,opa]
+-------------------------
+tr = Transaction.new()
 
+do tr.in(atomic)
+
+// some other treatments
+
+match tr.commit() with
+  | {success} -> // ...
+  | {failure} -> // ...
+-------------------------
+
+Here, only the +atomic+ function is run within the transaction, the other
+treatments at the top level will be done normally. This means that, until the
+transaction +tr+ is committed, its results aren't visible to the
+outside. Moreover, operations executed in +tr+ won't see the changes done
+outside, which ensures that it proceeds in a consistent database state. There is
+no limit to the number of +tr.in+ you can do in the same transaction.
+
+The problem with this approach is that the operations done on both sides could
+conflict, and +tr+ could stop being valid because of changes written to the
+database in the meantime. This is why +commit+ can return a +failure+, which
+can be used to either try again or inform the user of the error.
+
+// Note: conflict resolution
+// At the time being, a transaction will conflict whenever some data that it writes
+// has been changed in the meantime. Other conflict policies are planned and, in the future,
+// it will be possible to select them on specific database paths (eg. conflict if
+// the transaction _read_ some data that has been changed at the time of commit,
+// solve conflicts on a counter by adding the increments, etc.)
+
+The continuable transactions are quite useful in a web application context: they
+can be used to write operations done by a user synchronously, then only commit
+when he chooses to validate. You can get back data from a running transaction
+with +tr.try+, by providing an error-case handler:
+
+[source,opa]
+-------------------------
+tr = Transaction.new()
+
+some_operations() = some(/* ... */)
+error_case() = none
+
+r = tr.try(some_operations, error_case)
+-------------------------
+
+If you are using multiple databases, the commit of a transaction is guaranteed
+to be consistent on all the ones that were accessed in its course (if the commit
+fails on a single database, no database will be modified). However, when using
++Transaction.new()+, a low-level transaction is only started on each database as
+needed: if you want to make sure your transaction is started at the same point
+on different databases, use +Transaction.new_on([database1,database2])+ instead.
 
 // 
 // 
