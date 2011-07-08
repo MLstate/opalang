@@ -563,11 +563,13 @@
   (make-local-variable 'compilation-error-alist)
   (setq compilation-error-regexp-alist
         '(
-          ;this first regexp corresponds to the deprecated syntax, should be removed
-          ("[Ii]n \"?\\([^ \"]*?\\)\"? \\[\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) [^]]*\\]" 1 (2 . 4) (3 . 5) 1)
-          ;this one corrsponds to FilePos.to_string
-          ;it presents the advantage that it does also match Ocaml errors and back-traces
-          ("[Ff]ile \"?\\([^ \"]*?\\)\"?, line \\([0-9]+\\), characters \\([0-9]+\\)-\\([0-9]+\\)" 1 2 (3 . 4) 1)
+          ;the format of syntax errors (to be unified)
+          ("In \\(.+\\) \\[\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | global chars=[0-9]+-[0-9]+\\]" 1 (2 . 4) (3 . 5) 1)
+
+          ;this fallback one presents the advantage that it does also match Ocaml errors and back-traces
+          ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line \\([0-9]+\\), characters \\([0-9]+\\)-\\([0-9]+\\)" 1 2 (3 . 4) 1)
+          ;corresponds to FilePos.to_string
+          ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line [0-9]+, characters [0-9]+-[0-9]+, (\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | [0-9]+-[0-9]+)" 1 (2 . 4) (3 . 5) 1)
           )
         )
   (set (make-local-variable 'compilation-first-column) 1)
