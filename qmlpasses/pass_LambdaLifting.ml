@@ -286,8 +286,15 @@ let name_anonymous_lambda_expr ~options annotmap (toplevel_name,e) =
       let annotmap,id_x = QmlAstCons.TypedExpr.ident annotmap x ty in
       let annotmap,let_in = QmlAstCons.TypedExpr.letin annotmap [x,e] id_x in
       annotmap,let_in
-    else
-      annotmap, QmlAstCons.UntypedExpr.letin [x,e] (QmlAstCons.UntypedExpr.ident x) in
+    else (
+      let pos_let = Q.Pos.expr e in
+      let label_let = Annot.next_label pos_let in
+      let label_ident = Annot.next_label pos_let in
+      (annotmap,
+       (QmlAstCons.UntypedExprWithLabel.letin
+          ~label: label_let [x,e]
+          (QmlAstCons.UntypedExprWithLabel.ident ~label: label_ident x)))
+     ) in
   (* is_anonymous is a flag which indicates
      whether the given expression is the rhs of a let *)
   let aux =
@@ -537,12 +544,16 @@ let absify_untyped ~toplevel e xs =
   | [] when toplevel -> e
   | _ ->
       QmlAstWalk.Expr.traverse_map
-        (fun tra -> function
-         | Q.Lambda (_, orig_xs, e) ->
-             QmlAstCons.UntypedExpr.lambda (xs @ orig_xs) e
-         | Q.Coerce _
-         | Q.Directive (_, #ignored_directive, _, _) as e -> tra e
-         | _ -> assert false) e
+        (fun tra expr ->
+          match expr with
+          | Q.Lambda (_, orig_xs, e) ->
+              let pos = Q.Pos.expr expr in
+              let label = Annot.next_label pos in
+              QmlAstCons.UntypedExprWithLabel.lambda ~label (xs @ orig_xs) e
+          | Q.Coerce _
+          | Q.Directive (_, #ignored_directive, _, _) as e -> tra e
+          | _ -> assert false)
+        e
 
 
 
@@ -688,7 +699,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
       let acc, e1' = parameterLiftExp ~options ~outer_apply acc e1 in
       acc, if e1 == e1' && es == es' then e else
              if outer_apply.used then e1' else Q.Apply (label, e1', es')
-  | Q.Ident (label, x) ->
+  | (Q.Ident (label, x)) as whole_expr ->
       begin
         try
           (* if ident is a function symbol *)
@@ -755,10 +766,25 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                    (gamma,annotmap,env),e
                | `untyped ->
                    let e =
-                     let args = List.map QmlAstCons.UntypedExpr.ident args in
-                     let e = QmlAstCons.UntypedExpr.apply e (args @ old_args) in
+                     let args =
+                       List.map
+                         (fun arg_expr ->
+                           (* Use location of the whole initial expression we
+                              are processing. *)
+                           let pos = Q.Pos.expr whole_expr in
+                           let label = Annot.next_label pos in
+                           QmlAstCons.UntypedExprWithLabel.ident
+                             ~label arg_expr)
+                         args in
+                     (* Like above, let's use location of the whole initial
+                        expression we are processing. *)
+                     let pos_for_e = Q.Pos.expr whole_expr in
+                     let label_for_e = Annot.next_label pos_for_e in
+                     let e =
+                       QmlAstCons.UntypedExprWithLabel.apply
+                         ~label: label_for_e e (args @ old_args) in
                      wrap_partial_apply_untyped ~partial e in
-                   full_env, e
+                   (full_env, e)
                | `fun_action (public_set,_) ->
                    let pos = Annot.pos label in
                    let args =

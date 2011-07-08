@@ -280,10 +280,29 @@ struct
     | Q.Lambda (_, params, body)  -> curryfied_arity params body
     | _ -> 0
 
+
+
+  (* ************************************************************************ *)
+  (** {b Visibility}: Exported outside this module.                           *)
+  (* ************************************************************************ *)
   let eta_expand_ast arity e =
-    let idents = List.init arity (fun i -> Ident.next (Printf.sprintf "eta_%d_%d" i arity)) in
-    let exps = List.map (fun i -> QmlAstCons.UntypedExpr.ident i) idents in
-    QmlAstCons.UntypedExpr.lambda idents (QmlAstCons.UntypedExpr.apply e exps)
+    (* Use as position for of generated pieces of code, the position of the
+       currently processed expression. *)
+    let pos = Q.Pos.expr e in
+    let idents =
+      List.init
+        arity (fun i -> Ident.next (Printf.sprintf "eta_%d_%d" i arity)) in
+    let exps =
+      List.map
+        (fun i ->
+          let label = Annot.next_label pos in
+          QmlAstCons.UntypedExprWithLabel.ident ~label i)
+        idents in
+    let label_lambda = Annot.next_label pos in
+    let label_apply = Annot.next_label pos in
+    QmlAstCons.UntypedExprWithLabel.lambda
+      ~label: label_lambda idents
+      (QmlAstCons.UntypedExprWithLabel.apply ~label: label_apply e exps)
 end
 
 module Coerce =
