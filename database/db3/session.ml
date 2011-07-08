@@ -221,6 +221,7 @@ module DT = DbTypes
     Logger.log ~color:`yellow
       "DB : get timestamp for revision %s" (Revision.to_string rev)
     #<End>;
+    let dbrev = Hldb.get_rev (t.db_ref) in
     try IoManager.read_timestamp t.file_manager (Revision.value rev)
     with DT.CrashTimestamp ->
       raise (DiskError (Printf.sprintf "Timestamp: try to read an uncommitted revision (%s vs %s)"
