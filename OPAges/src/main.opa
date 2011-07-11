@@ -1,6 +1,5 @@
 import opages
 import stdlib.web.template
-import stdlib.components.applicationframe
 
 /**
  * {1 Main}
@@ -135,22 +134,56 @@ server =
                                       {success}, [])
       | ~{resource} -> resource
   { Server.simple_server(dispatcher) with server_name = "http" }
+/** authentication */
+
+logout_xhtml(name : string, dochange : User.tokken -> void) =
+  <>
+    {name} - <a onclick={_->dochange(none)}>logout</a>
+  </>
+
+authenticate(token,cred) =
+  match token with
+    | {some=(n,p)} -> if User.is_admin(n,p) then some({admin=n}) else none
+    | _ -> {none}
+
+login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
+  ~authenticate
+  get_credential = identity
+  loginbox =
+    dochange, cred ->
+      box(xhtml) =
+        WLoginbox.html({style=WStyler.empty},
+                       idclogin,(s1,s2->dochange(some((s1,s2)))),xhtml)
+    match cred.cred with
+    | {anon} -> box(none)
+    | _ -> box(some(logout_xhtml(cred.name,dochange)))
+  on_change = dochange, cred ->
+    match cred.cred with
+      | {anon} ->
+             do WLoginbox.set_logged_out(idclogin,<></>)
+             WAppFrame.do_set_content(idappframe, public_page(""))
+      | {user} ->
+             do WLoginbox.set_logged_in(idclogin,logout_xhtml(cred.name,dochange))
+             WAppFrame.do_set_content(idappframe, private_page("",cred.name))
+      | {admin} -> do WLoginbox.set_logged_in(idclogin,logout_xhtml(cred.name,dochange))
+             WAppFrame.do_set_content(idappframe, admin_private_page("",cred.name))
+    end
+  prelude=none
+}
+
+@publish
+server_state = CLogin.make({anon}, login_config)
+
 
 /** Secure server - page in database + administration page access */
 server =
+  build_main(x)=
+    <div>{CLogin.html(server_state)}</div>
+    <div>{x}</div>
   build_html(url, embedded) =
-  /* Application frame configuration. /!\ @TODO: Remove me !! /!\ */
-  app_frame_config = { CApplicationFrame.default_config with
-    authenticate(name, pass) =
-      if User.is_admin(name, pass) then none
-      else some("Invalid password")
-    private_page(_title, user) = page_demo.admin(url, user)
-    public_page(_title) = embedded.body
-    public_head(_title) = embedded.head
-  }
-  /* Application frame initialization. */
-  init = CApplicationFrame.init(app_frame_config)
-  CApplicationFrame.make(init, app_frame_config, "OPAges")
+    match CLogin.get_credential(server_state) with
+      | {anon} -> Resource.full_page("", build_main(embedded.body), embedded.head, {success}, [])
+      | {~admin} -> Resource.page("",build_main(page_demo.admin(url, user)))
   /* OPAges url dispatcher it's just a coating of Page.resource */
   url_dispatcher = parser
   | url=(.*) ->

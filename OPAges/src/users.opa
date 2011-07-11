@@ -11,6 +11,10 @@ package opages
  */
 db /users/admin/pass : stringmap(string)
 
+type User.tokken = option((string,string))
+
+type User.credential = {admin:string} / {anon}
+
 User = {{
   /**
    * (Re)Initialize admin password and print it on server output.
