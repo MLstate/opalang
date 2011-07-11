@@ -69,7 +69,7 @@ let inter set set' = filter (fun x -> mem x set') set
 let diff set set' = filter (fun x -> not (mem x set')) set
 let subset (set:t) (set':t) = for_all (fun x -> mem x set') set
 
-let choose = min_elt
+let choose t = fst (IntMap.choose t)
 
 let choose_opt (set:t) =
   match IntMap.choose_opt set with

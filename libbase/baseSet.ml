@@ -319,7 +319,9 @@ struct
   let add_list l t = List.fold_left (fun acc v -> add v acc) t l
   let from_list l = add_list l empty
 
-  let choose = min_elt
+  let choose = function
+    | Empty -> raise Not_found
+    | Node(_, v, _, _) -> v
 
   let rec choose_opt = function
     | Empty -> None
