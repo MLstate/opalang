@@ -186,6 +186,15 @@ server =
       | {~admin} -> Resource.page("",build_main(page_demo.admin(url, user)))
   /* OPAges url dispatcher it's just a coating of Page.resource */
   url_dispatcher = parser
+  | "/admin" ->
+    resource=Resource.full_page("Administration Page", page_demo.admin("/", "Totolol"), 
+      <link rel="stylesheet" type="text/css" href="/admin/style.css"/>,
+      {success}, [])
+    Server.public(_ -> resource)
+  | "/admin/style.css" ->
+    resource=Resource.source(@static_source_content("static-include/admin/style.css"),
+    "text/css")
+    Server.public(_ -> resource)
   | url=(.*) ->
     url = Text.to_string(url)
     match page_demo.resource(url) with
