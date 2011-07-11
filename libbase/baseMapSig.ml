@@ -209,6 +209,13 @@ sig
   val diff2 : 'a t -> _ t -> _ t -> 'a t
 
   (**
+     If the two set have different key, give back an element in the left set not
+     in the right one, or in the right one not in the left one, or None.
+     See also [BaseSetSig.S.example_diff]
+  *)
+  val example_diff : 'a t -> 'a t -> (key * 'a) option
+
+  (**
      Optimized initialization for huge maps, to avoid temporary unused balancing.
      The key array should be sorted in increasing order, using the same order than the set.
      The value array should have the same length than the key array.

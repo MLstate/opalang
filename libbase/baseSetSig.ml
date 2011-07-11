@@ -67,6 +67,15 @@ sig
      Returns an arbitrary element of the set if it is not empty
   *)
   val choose_opt : t -> elt option
+
+  (**
+     If the two set are different, give back an element in the left set not in
+     the right one, or in the right one not in the left one, or None
+     We cannot use there [elt Base.either option], because this would create
+     a circular build. If needed, we can return a variant indicating where
+     the element was found.
+  *)
+  val example_diff : t -> t -> elt option
   val split : elt -> t -> t * bool * t
   val draw : t -> elt * t
   val size : t -> int

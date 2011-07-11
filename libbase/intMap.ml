@@ -463,4 +463,14 @@ let diff2 map1 map2 map3 =
             add k v acc
        ) map1 empty
 
+  let example_diff s1 s2 =
+    let diff_ = diff s1 s2 in
+    match choose_opt diff_ with
+    | Some elt -> Some elt
+    | None ->
+        let diff = diff s2 s1 in
+        match choose_opt diff with
+        | Some elt -> Some elt
+        | None -> None
+
 let from_sorted_array _ = assert false

@@ -76,6 +76,16 @@ let choose_opt (set:t) =
   | None -> None
   | Some (a, _) -> Some a
 
+let example_diff s1 s2 =
+  let diff_ = diff s1 s2 in
+  match choose_opt diff_ with
+  | Some elt -> Some elt
+  | None ->
+      let diff = diff s2 s1 in
+      match choose_opt diff with
+      | Some elt -> Some elt
+      | None -> None
+
 let split int set =
   fold
     (fun i (inf, b, sup) ->
