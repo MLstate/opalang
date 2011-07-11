@@ -183,7 +183,7 @@ type onion =
   | Term of onion_term             (* terminal *)
 
 
-(** pattern disjuntion *)
+(** pattern disjunction *)
 and onion_or =
     {
       cases   : onion list  ;   (* list of patterns *)

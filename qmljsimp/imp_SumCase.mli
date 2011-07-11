@@ -489,7 +489,7 @@ sig
        + using not maybe_js_false types for minimizing the size of the test
        + using presence rather than absence checks
 
-       This fitering respect the following property:
+       This filtering respect the following property:
        if the filter apply make so that the list become empty, the filter is ignored,
        and return the list received as input.
     *)

@@ -30,7 +30,7 @@
    the structure of the pattern and the type of the matched expression.
 *)
 
-(** {6 Flags for pattern terminaison} *)
+(** {6 Flags for pattern termination} *)
 (**
    Matching sums and column
    [`closed] means that all cases are present,
@@ -74,7 +74,7 @@ end
    that means that the simple fact that the presence of matched field is suffisant for validating
    the pattern.
 
-   Invariant: in a list of [pat] of the same level, the [col_var] is homogenous.
+   Invariant: in a list of [pat] of the same level, the [col_var] is homogeneous.
    For optimization of representation, and size computation, the fields are stored into
    an array rather than a list.
 *)
@@ -110,7 +110,7 @@ type ('pat, 'right_hand) matching = ('pat * 'right_hand) list
    The projection of patterns depends on all patterns present in a given
    pattern matching. For projecting correctly all pattern of a pattern matching,
    we should analysis all of them.
-   Invariant: in the [pat] list, the [col_var] is homogenous
+   Invariant: in the [pat] list, the [col_var] is homogeneous
 *)
 type 'right_hand t =
   | Trivial of (T.pat, 'right_hand) matching

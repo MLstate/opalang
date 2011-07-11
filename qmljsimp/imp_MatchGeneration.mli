@@ -47,7 +47,7 @@ type pat = Imp_PatternAnalysis.pat
 type 'right_hand rev_cases = (guard option * bindings * 'right_hand) list
 
 (**
-   The type of an global analysis of a match.
+   The type of a global analysis of a match.
    Should be built with all cases of the match.
    This is a local environment, used at the level of
    the match, for compiling each pattern.
@@ -96,7 +96,7 @@ type special_bool_hack = [
    }
    ]}
 
-   In an other hand, some js value can never be evaluated to false.
+   On the other hand, some js value can never be evaluated to false.
    We take also benefits of this for having shorter guards.
    Example, for list matching, we know that a list is an js object,
    and a js object is equivalent to [true] in a conditional,
@@ -110,7 +110,7 @@ type special_bool_hack = [
    ]}
 
    Details about params [assign] and [ident]
-   If the ident is Some, is should necessary be the ident of the assignement.
+   If the ident is Some, it should necessary be the ident of the assignment.
    {[
    assign: v0 = a.x
    ident: Some v0

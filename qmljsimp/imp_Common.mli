@@ -25,7 +25,7 @@ val pp_path : Format.formatter -> string list -> unit
 val pp_fieldset : Format.formatter -> StringSet.t -> unit
 
 (**
-   Interaface to the runtime lib
+   Interface to the runtime lib
 *)
 module ClientLib :
 sig

@@ -25,7 +25,7 @@
   the analysis part, to be able to use it on the server too.
   Possible solution:
   1) Functorization
-  2) Parametrized librairie
+  2) Parametrized libraries
 *)
 
 (* depends *)
@@ -96,7 +96,7 @@ type analysed_bool_pattern = [
       (*
         We do not know at compile time if the runtime value will be a boolean or not.
         If we end-up in this case, that means that either a pass as lost some type annotation,
-        or the user has redefined some exotic types dealing with fiels ["true"] or ["false"],
+        or the user has redefined some exotic types dealing with fields ["true"] or ["false"],
         like:
         {[
         type optionbool('a) = { false } / { true : 'a}

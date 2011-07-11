@@ -176,7 +176,7 @@ struct
          patterns at this level (presence or absence of catchall making the
          difference. However, this opening or closing is explicit in the type
          given to patterns of this level.
-         So, to known if the column is opened or closed, we will inspect the
+         So, to know if the column is opened or closed, we will inspect the
          type of the current level of pattern.
          If the patterns at this level have a named type, then we must inspect
          this named type definition to know if it corresponds to a closed or

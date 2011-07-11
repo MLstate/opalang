@@ -69,7 +69,7 @@ sig
      and the identifier of the top-level declaration
      containing the processed expression
 
-     It is possible to return a fresh ident which does not depend on its arguement,
+     It is possible to return a fresh ident which does not depend on its arguments,
      but is could also be interressant to name identifier depending on the context,
      for a better debugging.
   *)
