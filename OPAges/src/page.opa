@@ -7,6 +7,7 @@ import stdlib.upload
 import stdlib.widgets.tabs
 import stdlib.widgets.hlist
 import stdlib.widgets.core
+import stdlib.widgets.notification
 
 /**
  * {1 About this module}
@@ -1629,7 +1630,7 @@ Page = {{
 
   to_resource:Page.t -> resource =
     | ~{resource} -> resource
-    | ~{embedded} -> Resource.full_page("", embedded.body, embedded.head,
+    | ~{embedded} -> Resource.full_page("", <>{embedded.body}{WNotification.html(WNotification.default_config, "notify")}</>, embedded.head,
                        {success}, [])
 
   empty: Page.stored =
