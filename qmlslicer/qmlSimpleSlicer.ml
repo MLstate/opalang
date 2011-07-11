@@ -146,9 +146,33 @@ let pp_server_ident f = function
       Format.fprintf f "`ident_tsc (%s, %a)" (Ident.to_string i) (pp_option
         QmlPrint.pp_base#tsc) tsc_opt
   | `undefined -> Format.pp_print_string f "undefined"
-let pp_info f {ident; server_ident; client_ident; _} =
-  Format.fprintf f "@[<v>{@[<v2>@ ident: %s@ server_ident: %a@ client_ident: %a@]@ }@]"
+let pp_kind f = function
+  | `expression -> Format.pp_print_string f "`expression"
+  | `insert_server_value -> Format.pp_print_string f "`insert_server_value"
+  | `alias -> Format.pp_print_string f "`alias"
+let pp_value pp_a f = function
+  | Local a -> Format.fprintf f "Local %a" pp_a a
+  | External p -> Format.fprintf f "External %a" Package.pp p
+let pp_info_ident f {ident; _} = Format.pp_print_string f (Ident.to_string ident)
+let pp_privacy f = function
+  | Published -> Format.pp_print_string f "Published"
+  | Private -> Format.pp_print_string f "Private"
+  | Visible -> Format.pp_print_string f "Visible"
+let pp_info f {ident; server_ident; client_ident;
+               publish_on_the_server; publish_on_the_client;
+               on_the_server; on_the_client;
+               calls_private; privacy;
+               calls_server_bypass; calls_client_bypass; _} =
+  Format.fprintf f "@[<v>{@[<v2>@ ident: %s@ server_ident: %a@ client_ident: %a\
+                                @ publish_on_the_server: %B@ publish_on_the_client: %B\
+                                @ on_the_server: %a@ on_the_client: %a\
+                                @ calls_private: %a@ privacy: %a\
+                                @ calls_server_bypass: %a@ calls_client_bypass: %a@]@ }@]"
     (Ident.to_string ident) pp_server_ident server_ident pp_server_ident client_ident
+    publish_on_the_server publish_on_the_client
+    (pp_option (pp_option pp_kind)) on_the_server (pp_option (pp_option pp_kind)) on_the_client
+    (pp_option (pp_value pp_info_ident)) calls_private pp_privacy privacy
+    (pp_option BslKey.pp) calls_server_bypass (pp_option BslKey.pp) calls_client_bypass
 
 module Information =
 struct
