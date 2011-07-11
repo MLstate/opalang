@@ -783,7 +783,7 @@ Page = {{
             _ -> IntMap.add(parent, (author, date, -1, [i]), acc)
           map = List.foldi(make_map, hist, IntMap.empty)
 
-          //do IntMap.iter(k, v -> jlog("{k} -> {v}"), map)
+          do IntMap.iter(k, v -> Log.info("map", "{k} -> {v}"), map)
 
           /* Build one revision of the file for the select input */
           build_rev(key, (author, date, parent, sons), (acc, pad)) =
@@ -808,8 +808,8 @@ Page = {{
             {some=(author, date, parent, sons)} ->
               //do jlog("rev {rev}")
               acc = if rev < 0 then acc else build_rev(rev, (author, date, parent, sons), (acc, pad))
-              pad = if p_sons_len > 1 then pad+1 else pad
               len = List.length(sons)
+              pad = if p_sons_len > 1 || len > 1 then pad+1 else pad
               List.fold(
                 rev_son, acc -> aux(map, rev_son, (acc, pad, len))
               , sons, acc)
