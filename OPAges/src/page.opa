@@ -773,6 +773,7 @@ Page = {{
              - its sons revision
 
              @TODO: should be cached maybe? */
+          //do Log.info("history", "{hist}")
           make_map(i, (author, date, parent), acc) =
             i = i+1
             //do jlog("map {i} - {parent}")
@@ -955,6 +956,7 @@ Page = {{
         Dom.transform([#{command_id} <- buttons])
 
       and build_buffers(rev : option(int)) =
+        //do Log.info("build_buffers","{rev}")
         edit = match rev
           | {none} -> access.access.get_edit(file)
           | {some=rev} -> Option.get(access.access.history_edit(file, rev))
