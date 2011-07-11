@@ -314,24 +314,28 @@ let rec remove_symlinks path =
   then path'
   else remove_symlinks path'
 
+(* remove symlinks everywhere in the path *)
+let rec remove_all_symlinks path =
+  if path = "." || path = "/" then path else
+    let dirname = Filename.dirname path in
+    let dirname = remove_all_symlinks dirname in
+    let path = Filename.concat dirname (Filename.basename path) in
+    remove_symlinks path
+
 (** crée tous les répertoires nécessaires pour accéder à path *)
 let check_create_path ?(rights=0o755) path =
   let path =
     if Filename.basename path = "." then path
-    else path ^ "/"
-  in
-  let path = remove_symlinks path in
+    else path ^ "/" in
+  let path = remove_all_symlinks path in
   let rec aux1 = function
       [] -> aux1 [Filename.dirname path]
-    | (hd::tl) as l ->
+    | (hd :: tl) as l ->
         let d = Filename.dirname hd in
-        if d <> hd then aux1 (d::l)
+        if d <> hd then aux1 (d :: l)
         else tl (* car hd = C:\ ou / *) in
-  let mkdir d = try Unix.mkdir d rights ; true with Unix.Unix_error _ -> false in
-  List.fold_left (
-    fun acc x ->
-      acc && (Sys.file_exists x or mkdir (remove_symlinks x))
-  ) true (aux1 [])
+  let mkdir d = try Unix.mkdir d rights; true with Unix.Unix_error _ -> false in
+  List.for_all (fun x -> Sys.file_exists x || mkdir x) (aux1 [])
 
 (** hopefully, this is the ultimate and portable version of cp *)
 let copy ?(force=false) src tgt =
