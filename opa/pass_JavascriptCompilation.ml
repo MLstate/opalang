@@ -280,7 +280,7 @@ let full_serialize
              let content = bsl_pp content in
              match conf with
              | BslJsConf.Verbatim ->
-                 let code_elt = make_root plugin_id content in
+                 let code_elt = make_root key_prefix content in
                  (`unparsed code_elt, key_prefix) :: rev_ast
              | BslJsConf.Optimized optimized_conf ->
                  (`parsed (parse_js_content ~optimized_conf ~key_prefix ~filename ~content), key_prefix) :: rev_ast in
