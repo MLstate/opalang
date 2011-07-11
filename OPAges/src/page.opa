@@ -774,17 +774,19 @@ Page = {{
 
              @TODO: should be cached maybe? */
           make_map(i, (author, date, parent), acc) =
-            i = i
-            do jlog("map {i} - {parent}")
+            i = i+1
+            //do jlog("map {i} - {parent}")
             acc = IntMap.add(i, (author, date, parent, []), acc)
             match IntMap.get(parent, acc)
             {some=(author, date, par, sons)} -> IntMap.add(parent, (author, date, par, [i|sons]), acc)
             _ -> IntMap.add(parent, (author, date, -1, [i]), acc)
           map = List.foldi(make_map, hist, IntMap.empty)
 
+          //do IntMap.iter(k, v -> jlog("{k} -> {v}"), map)
+
           /* Build one revision of the file for the select input */
           build_rev(key, (author, date, parent, sons), (acc, pad)) =
-            i = key+1
+            i = key
             based = "" // if parent < 0 then "" else " based on {parent}"
             pad = String.make(pad, '-')
             value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {author}{based}"
@@ -803,7 +805,7 @@ Page = {{
           rec aux(map, rev, (acc, pad, p_sons_len)) =
             match IntMap.get(rev, map)
             {some=(author, date, parent, sons)} ->
-              do jlog("rev {rev}")
+              //do jlog("rev {rev}")
               acc = if rev < 0 then acc else build_rev(rev, (author, date, parent, sons), (acc, pad))
               pad = if p_sons_len > 1 then pad+1 else pad
               len = List.length(sons)
@@ -967,7 +969,7 @@ Page = {{
             rev = save({mime = Dom.get_value(Dom.select_id(mime_id))})
             do access.notify.send({save = file})
             do Dom.set_enabled(#{save_button_id},true)
-            do do_report(<>Save success -> rev {rev}</>)
+            do do_report(<>Save binary success -> rev {rev}</>)
             do build_buffers(some(rev))
             void
           x = <>
@@ -998,7 +1000,7 @@ Page = {{
                  rev = access.access.save(file, {source=Ace.get_content(ace) mime=get_mime()},rev)
                  do access.notify.send({save = file})
                  do build_buffers(some(rev))
-                 do do_report(<>Save success -> rev {rev}</>)
+                 do do_report(<>Save source success -> rev {rev}</>)
                  Dom.set_enabled(#{save_button_id},false)
 
                read_only(b) = Ace.read_only(ace, b)
@@ -1038,7 +1040,7 @@ Page = {{
                 rev = access.access.save(file, {css=Ace.get_content(ace)}, rev)
                 do access.notify.send({save = file})
                 do build_buffers(some(rev))
-                do do_report(<>Save success -> rev {rev}</>)
+                do do_report(<>Save css success -> rev {rev}</>)
                 Dom.set_enabled(#{save_button_id},false)
               read_only(b) = Ace.read_only(ace, b)
               preview(f) =
@@ -1088,7 +1090,7 @@ Page = {{
                 | {~rev} ->
                   do access.notify.send({save = file})
                   do build_buffers(some(rev))
-                  do do_report(<>Save success -> rev {rev}</>)
+                  do do_report(<>Save hsource success -> rev {rev}</>)
                   Dom.set_enabled(#{save_button_id},false)
                 | {~fail} ->
                   do Dom.set_enabled(#{save_button_id},true)
