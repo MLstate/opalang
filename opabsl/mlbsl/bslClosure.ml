@@ -63,9 +63,17 @@ let create_anyarray_cps func arity ident k =
 let apply_cps closure args k =
   (* Add k only on full application *)
   assert (
-    closure.QmlClosureRuntime.arity - 1 =
-      (QmlClosureRuntime.AnyArray.length closure.QmlClosureRuntime.args)
-      + (QmlClosureRuntime.AnyArray.length args)
+    if (
+      closure.QmlClosureRuntime.arity - 1 =
+        (QmlClosureRuntime.AnyArray.length closure.QmlClosureRuntime.args)
+        + (QmlClosureRuntime.AnyArray.length args)
+    ) then true else (
+      Printf.printf "BslClosure.apply_cps:\n  closure:%s\n  args:%s\n  k:%s\n"
+        (DebugPrint.print closure)
+        (DebugPrint.print args)
+        (DebugPrint.print k);
+      false
+    )
   );
   let args = QmlClosureRuntime.AnyArray.append args [|Obj.repr k|] in
   QmlClosureRuntime.args_apply closure args
