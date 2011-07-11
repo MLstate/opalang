@@ -1,5 +1,9 @@
 import opages
 import stdlib.web.template
+import stdlib.components.login
+import stdlib.widgets.loginbox
+import stdlib.widgets.core
+import stdlib.web.client
 
 /**
  * {1 Main}
@@ -28,6 +32,10 @@ db /opages/pages_rev : stringmap(Page.published)
 db /opages/pages_rev[_] = Page.not_published
 
 database opages = @meta
+
+id=Dom.fresh_id()
+idappframe = "{id}appframe"
+idclogin = "{id}clogin"
 
 /** */
 demo_engine  = Template.combine(TemplateDemo.engine, Template.default)
@@ -72,7 +80,7 @@ Access = {{
   
     save =
       | ~{key page} ->
-        rec aux() = match Db.transaction(opages,
+        rec aux() = match Db.transaction(
              -> do /opages/pages[key] <- page
              nb_rev(key)
           ) with
@@ -141,9 +149,16 @@ logout_xhtml(name : string, dochange : User.tokken -> void) =
     {name} - <a onclick={_->dochange(none)}>logout</a>
   </>
 
-authenticate(token,cred) =
+authenticate(token,_cred) =
   match token with
-    | {some=(n,p)} -> if User.is_admin(n,p) then some({admin=n}) else none
+    | {some=(n,p)} -> 
+    if User.is_admin(n,p) 
+      then 
+        do Log.debug("Build html", "User iz admin")
+        some({admin=n}) 
+      else 
+        do Log.debug("Build html", "User iz not admin n=={n} p=={p}")
+        none
     | _ -> {none}
 
 login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
@@ -154,19 +169,20 @@ login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
       box(xhtml) =
         WLoginbox.html({style=WStyler.empty},
                        idclogin,(s1,s2->dochange(some((s1,s2)))),xhtml)
-    match cred.cred with
+    match cred with
     | {anon} -> box(none)
-    | _ -> box(some(logout_xhtml(cred.name,dochange)))
+    | {~admin} -> box(some(logout_xhtml(admin,dochange)))
+
   on_change = dochange, cred ->
-    match cred.cred with
+    match cred with
       | {anon} ->
-             do WLoginbox.set_logged_out(idclogin,<></>)
-             WAppFrame.do_set_content(idappframe, public_page(""))
-      | {user} ->
-             do WLoginbox.set_logged_in(idclogin,logout_xhtml(cred.name,dochange))
-             WAppFrame.do_set_content(idappframe, private_page("",cred.name))
-      | {admin} -> do WLoginbox.set_logged_in(idclogin,logout_xhtml(cred.name,dochange))
-             WAppFrame.do_set_content(idappframe, admin_private_page("",cred.name))
+        do WLoginbox.set_logged_out(idclogin,<></>)
+        do Client.reload()
+        void
+      | {~admin} -> 
+        do WLoginbox.set_logged_in(idclogin,logout_xhtml(admin,dochange))
+        do Client.reload()
+        void
     end
   prelude=none
 }
@@ -174,22 +190,28 @@ login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
 @publish
 server_state = CLogin.make({anon}, login_config)
 
+default_embedded = 
+{ head = <></>
+  body = <>Administration Page</>
+  }
 
 /** Secure server - page in database + administration page access */
 server =
   build_main(x)=
     <div>{CLogin.html(server_state)}</div>
-    <div>{x}</div>
+    <div id="totololz">{x}</div>
   build_html(url, embedded) =
     match CLogin.get_credential(server_state) with
-      | {anon} -> Resource.full_page("", build_main(embedded.body), embedded.head, {success}, [])
-      | {~admin} -> Resource.page("",build_main(page_demo.admin(url, user)))
+      | {anon} -> 
+        do Log.debug("Build html", "Anon waz here")
+        Resource.full_page("", build_main(embedded.body), embedded.head, {success}, [])
+      | {~admin} -> 
+        do Log.debug("Build html", "Admin waz here")
+        Resource.full_page("",build_main(page_demo.admin(url, admin)), <link rel="stylesheet" type="text/css" href="/admin/style.css"/>, {success}, [] )
   /* OPAges url dispatcher it's just a coating of Page.resource */
   url_dispatcher = parser
   | "/admin" ->
-    resource=Resource.full_page("Administration Page", page_demo.admin("/", "Totolol"), 
-      <link rel="stylesheet" type="text/css" href="/admin/style.css"/>,
-      {success}, [])
+    resource=build_html("/admin", default_embedded )
     Server.public(_ -> resource)
   | "/admin/style.css" ->
     resource=Resource.source(@static_source_content("static-include/admin/style.css"),
@@ -197,14 +219,10 @@ server =
     Server.public(_ -> resource)
   | url=(.*) ->
     url = Text.to_string(url)
-    match page_demo.resource(url) with
-    | ~{embedded} ->
-      /* Build application frame resource that embedded the returned
-         embedded html.*/
-      build_html(url, embedded)
-    | ~{resource} ->
-      /* Page return directly a resource. */
-      Server.public(_ -> resource)
+    Server.public(_ -> 
+      Page.to_resource(page_demo.resource(url))
+    )
+    
   /* Secured service */
   ssl_params = { Server.ssl_default_params with
                    certificate="opages.crt"
