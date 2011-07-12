@@ -773,10 +773,13 @@ Page = {{
              - its parent revision
              - its sons revision
 
+             /!\ Note that the keys in DB starts at 1 and not 0 /!\
+             -- Those who do not have parents have the -1 parent, aka root --
+
              @TODO: should be cached maybe? */
           //do Log.info("history", "{hist}")
           make_map(i, (author, date, parent), acc) =
-            i = i+1
+            i = i+1 // Use the same key as in DB
             //do jlog("map {i} - {parent}")
             acc = IntMap.add(i, (author, date, parent, []), acc)
             match IntMap.get(parent, acc)
@@ -784,7 +787,9 @@ Page = {{
             _ -> IntMap.add(parent, (author, date, -1, [i]), acc)
           map = List.foldi(make_map, hist, IntMap.empty)
 
+          do Log.info("map", "-- begin revision map")
           do IntMap.iter(k, v -> Log.info("map", "{k} -> {v}"), map)
+          do Log.info("map", "-- end revision map")
 
           /* Build one revision of the file for the select input */
           build_rev(key, (author, date, parent, sons), (acc, pad)) =
