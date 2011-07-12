@@ -779,13 +779,23 @@ let inline_informations_lambda_lifted env =
                match orig_info.calls_server_bypass with
                | None -> info.calls_server_bypass
                | Some _ as v -> v
-             )
+             );
+             (* we add a dependency from the original to the lifted one
+              * because if the local function is not used, then there is no dependency
+              * (and the outer function will be put on both sides, so will the inner function
+              * and if it is server private, resolveRemoteCalls will break)
+              * example of such a problem if you remove this:
+              * @server_private x = 1
+              * g() =
+              *   f() = x
+              *   @fail
+              *)
+             G.add_edge env.call_graph orig_info info
            )
        | None -> ()
     ) env.informations
 
 let choose_sides env =
-  inline_informations_lambda_lifted env;
   let graph = env.call_graph in
   let groups = SCC.scc ~size:1000 graph in
   List.iter
@@ -1470,6 +1480,8 @@ let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma ~bymap ~code =
   #<If:SLICER_TIME> Printf.printf "load_env: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let env, code = initialize_env ~env code in
   #<If:SLICER_TIME> Printf.printf "initialize_env: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
+  inline_informations_lambda_lifted env;
+  #<If:SLICER_TIME> Printf.printf "inline_informations_lambda_lifted: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   propagate_server_private env;
   #<If:SLICER_TIME> Printf.printf "propagate_server_private: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   analyse_side_effects env code;
