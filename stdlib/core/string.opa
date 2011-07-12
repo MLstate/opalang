@@ -571,7 +571,30 @@ String =
       else source ^ "a"
   : string
 
+  /**
+   * Returns true iff the source string has a given suffix.
+   *
+   * @param source a source string
+   * @param suffix a suffix to check
+   * @reutrn true iff [source] has suffix [suffix]
+   */
+  has_suffix(source: string, suffix: string) : bool =
+    i = length(suffix)
+    match substring_opt(String.length(source) - i, i, source)
+    | {none} -> false
+    | {some=source_suffix} -> equals(suffix, source_suffix)
 
+  /**
+   * Returns true iff the source string has a given prefix.
+   *
+   * @param source a source string
+   * @param prefix a prefix to check
+   * @reutrn true iff [source] has prefix [prefix]
+   */
+  has_prefix(source: string, prefix: string) : bool =
+    match substring_opt(0, String.length(prefix), source)
+    | {none} -> false
+    | {some=source_prefix} -> equals(prefix, source_prefix)
 
 
   /**
