@@ -193,6 +193,28 @@ String =
   : string
 
   /**
+   * Gets a prefix of a given string of given length.
+   *
+   * @param length prefix length
+   * @param source source string
+   * @return [length]-character length prefix of [source] or [none] if
+   *         [source] is shorter than [length] characters.
+   */
+  get_prefix(length: int, source: string) : option(string) =
+    String.substring_opt(0, length, source)
+
+  /**
+   * Gets a suffix of a given string of given length.
+   *
+   * @param length suffix length
+   * @param source source string
+   * @return [length]-character length suffix of [source] or [none] if
+   *         [source] is shorter than [length] characters.
+   */
+  get_suffix(length: int, source: string) : option(string) =
+    String.substring_opt(String.length(source) - length, length, source)
+
+  /**
    * [replace the first character by his uppercase]
    *
    * eg: [capitalize("toTo")] will return ["ToTo"]
@@ -572,30 +594,28 @@ String =
   : string
 
   /**
-   * Returns true iff the source string has a given suffix.
-   *
-   * @param source a source string
-   * @param suffix a suffix to check
-   * @reutrn true iff [source] has suffix [suffix]
-   */
-  has_suffix(source: string, suffix: string) : bool =
-    i = length(suffix)
-    match substring_opt(String.length(source) - i, i, source)
-    | {none} -> false
-    | {some=source_suffix} -> equals(suffix, source_suffix)
-
-  /**
    * Returns true iff the source string has a given prefix.
    *
-   * @param source a source string
    * @param prefix a prefix to check
+   * @param source a source string
    * @reutrn true iff [source] has prefix [prefix]
    */
-  has_prefix(source: string, prefix: string) : bool =
-    match substring_opt(0, String.length(prefix), source)
+  has_prefix(prefix: string, source: string) : bool =
+    match get_prefix(length(prefix), source)
     | {none} -> false
     | {some=source_prefix} -> equals(prefix, source_prefix)
 
+  /**
+   * Returns true iff the source string has a given suffix.
+   *
+   * @param suffix a suffix to check
+   * @param source a source string
+   * @reutrn true iff [source] has suffix [suffix]
+   */
+  has_suffix(suffix: string, source: string) : bool =
+    match get_suffix(length(suffix), source)
+    | {none} -> false
+    | {some=source_suffix} -> equals(suffix, source_suffix)
 
   /**
    *  ALIAS / SHORTHAND OF PREEXISTING FUNCTIONS
