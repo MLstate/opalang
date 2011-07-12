@@ -43,6 +43,7 @@ bslBuffer.ml
 bslJsIdent.ml
 bslInit.ml
 bslClientCode.ml
+bslClientEvent.ml
 
 bslServer_event.ml
 
