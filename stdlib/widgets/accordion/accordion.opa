@@ -43,6 +43,7 @@ import stdlib.widgets.core
  *The configuration of a widget.
  */
 type WAccordion.config = {
+  open_first : bool /** Defines if the first tab is opened when the accordion is generated */
   close_others : bool /** Defines if at the opening of one tab the other open tabs should be closed */
   global_style : WStyler.styler /** Global CSS style of the widget */
   tab_open_style : WStyler.styler /** CSS style of the tab when it is open*/
@@ -66,6 +67,7 @@ WAccordion = {{
  *Default configuration of a widget
  */
   default_config : WAccordion.config = {
+      open_first   = true
       close_others = true
       global_style = WStyler.make_style(css {
                                             font-family: Verdana;
@@ -137,9 +139,14 @@ WAccordion = {{
   @private
   get_tabs(config: WAccordion.config, tab_content: list((string,string,xhtml)), id: string): list(xhtml) =
     add_tab(i,(num,title,content))=
-      (class,style,tab_style) = if i==0
-                       then (internal_opa_open,WStyler.merge([config.tab_content_style,config.open_style,WStyler.make_style([Css_build.display_block])]),config.tab_open_style)
-                       else (internal_opa_close,WStyler.merge([config.tab_content_style,config.close_style,WStyler.make_style([Css_build.display_none])]),config.tab_close_style)
+      (class, style, tab_style) =
+        if i == 0 && config.open_first
+        then (internal_opa_open,
+              WStyler.merge([config.tab_content_style,config.open_style,WStyler.make_style([Css_build.display_block])]),
+              config.tab_open_style)
+        else (internal_opa_close,
+              WStyler.merge([config.tab_content_style,config.close_style,WStyler.make_style([Css_build.display_none])]),
+              config.tab_close_style)
       block_content = <div id="{num}_content">{content}</div>
       block_content = WStyler.add(style,block_content)
       block_title = <div id="{num}_title" onclick={_ -> clicked_title(id,num,config)}>{title}</div>
@@ -191,10 +198,18 @@ WAccordion = {{
 
   @private
   apply_change(config: WAccordion.config, dom_content: dom, dom_container: dom, id: string, action: WAccordion.private.mode): void =
-    (remove_class,add_class,style,tab_style,action)=
-      if action=={close}
-      then (internal_opa_open,internal_opa_close,config.close_style,config.tab_close_style,Dom.transition(_,Dom.Effect.hide()))
-      else (internal_opa_close,internal_opa_open,config.open_style,config.tab_open_style,Dom.transition(_,Dom.Effect.slide_in()))
+    (remove_class, add_class, style, tab_style, action)=
+      if action == {close}
+      then (internal_opa_open,
+            internal_opa_close,
+            WStyler.merge([config.tab_content_style,config.close_style]),
+            config.tab_close_style,
+            Dom.transition(_,Dom.Effect.hide()))
+      else (internal_opa_close,
+            internal_opa_open,
+            WStyler.merge([config.tab_content_style,config.open_style]),
+            config.tab_open_style,
+            Dom.transition(_,Dom.Effect.slide_in()))
     do Dom.remove_class(dom_container,remove_class)
     do Dom.add_class(dom_container,add_class)
     do WStyler.set_dom(style,"{id}_content")
