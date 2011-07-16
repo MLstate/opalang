@@ -139,15 +139,15 @@ Levels and modes of utilisation
 | --autocompile | none | High-level mode, compile every package, but do not link at end, for building e.g. shared opa librairies
 |========================================================
 
-Other options
-+++++++++++++
+// Other options
+// +++++++++++++
 
-TODO
+// TODO!
 
-Common errors
-^^^^^^^^^^^^^
+// Common errors
+// ^^^^^^^^^^^^^
 
-TODO
+// TODO!
 
 Warnings
 ^^^^^^^^

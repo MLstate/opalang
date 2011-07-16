@@ -720,13 +720,14 @@ correspond to the macro CAMLparam, CAMLreturn, Store_field, etc.
 [[client_lib]]
 ClientLib
 +++++++++
-TODO
+Coming soon...
+// TODO!
 
 [[server_lib]]
 ServerLib
 +++++++++
-TODO
-
+Coming soon...
+// TODO!
 
 Complete example using Opa types manipulation
 ++++++++++++++++++++++++++++++++++++++++++++

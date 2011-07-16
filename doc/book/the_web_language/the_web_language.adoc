@@ -512,7 +512,7 @@ Meaning described in the <<slicer,client-server distribution>>.
 //@static_binary_content::
 @static_resource::
 @static_resource_directory::
-  TODO
+//  TODO!
 
 @xml::
 Takes an xml literal +

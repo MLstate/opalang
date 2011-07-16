@@ -18,8 +18,8 @@ include::opa.adoc[]
 
 include::opadoc.adoc[]
 
-include::opa-plugin-builder.adoc[]
+// include::opa-plugin-builder.adoc[] TODO!
 
-include::opa-plugin-browser.adoc[]
+// include::opa-plugin-browser.adoc[] TODO!
 
 include::opa_applications.adoc[]

@@ -77,12 +77,12 @@ user@computer:~/$ open doc/index.html
 -------------------------
 
 
-Common errors
-^^^^^^^^^^^^^
+// Common errors
+// ^^^^^^^^^^^^^
 
-TODO
+// TODO!
 
-Syntax of comments
-^^^^^^^^^^^^^^^^^^
+// Syntax of comments
+// ^^^^^^^^^^^^^^^^^^
 
-TODO
+// TODO!
