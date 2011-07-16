@@ -59,7 +59,7 @@ machine, take the following steps:
 - Or, if these packages do not exist in your distribution, install whichever packages provide
 **  library +libssl.so+
 **  library +libz.so+
-- Download the from http://www.opalang.org/download.html[Linux self-extracting package].
+- Download the http://www.opalang.org/get.xmlt[Linux self-extracting package].
 - When prompted by your browser, choose to save the file in a temporary directory, for instance, +/tmp+.
 - To install as a user:
 ** Set the execution permission on the downloaded program

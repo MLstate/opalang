@@ -201,8 +201,8 @@ If you have any question or feedback, do not hesitate to contact us.
 
 A few ways to get in touch:
 
-- through the http://opalang.org/discuss.xmlt[message board] of http://opalang.org[our website];
-- through http://stackoverflow.com[Stack Overflow], an excellent site for seeking
+- Opa https://lists.owasp.org/mailman/listinfo/opa[mailing list];
+- http://stackoverflow.com[Stack Overflow], an excellent site for seeking
   help with programming problems (do not forget to mark Opa related questions with
   the ``Opa'' tag);
 - by e-mail, at mailto:feedback@opalang.org[feedback@opalang.org];
