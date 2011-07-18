@@ -246,6 +246,7 @@ Template =
     | { span; ~content; ~standard_attribute } -> { span; content= map_content(translation, content); ~standard_attribute }
     | { ~fragment } -> { fragment = List.map(el -> map_content(translation, el), fragment) }
     | { ~text } -> { ~text }
+    | { ~checked_text } -> { ~checked_text }
     | { ~extension } -> { extension = translation(extension) }
     | { br ; ~standard_attribute } -> { br ; ~standard_attribute }
     | { fieldset ; ~content ; ~standard_attribute } -> { fieldset ; content=map_content(translation, content) ; ~standard_attribute }

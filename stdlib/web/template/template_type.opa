@@ -317,6 +317,7 @@ type Template.public_content('a) =
 / { paragraph; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { fragment:list(Template.public_content('a)) }
 / { text : string }
+/ { checked_text : string }
 / { caption; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { table; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { thead; content:Template.public_content('a); standard_attribute:Template.standard_attribute }

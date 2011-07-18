@@ -531,7 +531,9 @@ import stdlib.web.client
 
   @private parse_title_tag(child : Template.content('a) ) : outcome(Template.content('a), Template.failure) =
     match child with
-    | { ~text } -> { success = { title=text } }
+    | { ~text }
+    | { checked_text=text } -> { success = { title=text } }
+    | {fragment = [{checked_text=text}]}
     | {fragment = [{~text}]} -> { success = { title=text } }
     | _ -> { failure = { dom_error = "The title tag should contains only text, got {child}" } }
 
@@ -613,7 +615,7 @@ import stdlib.web.client
     match xmlns with
     | { ~tag; ~args; ~content ... } -> parse_node(conf, tag, args, content, xmlns, xmlns_parser)
     | { ~fragment } -> Template.merge_outcome_content(List.map(xmlns_parser, fragment))
-    | { ~text } -> {success = { ~text } }
+    | { ~text } -> {success = { checked_text=text } }
     | _ -> Template.error_unsupported_node(xmlns)
     end
   )
@@ -679,7 +681,8 @@ import stdlib.web.client
     | { meta; ~meta_attribute }                    -> add_attributes_to_xhtml(meta_attrs.export(meta_attribute), <meta /> )
     | { base; ~base_attribute }                    -> add_attributes_to_xhtml(base_attrs.export(base_attribute), <base /> )
     | {link; ~link_attribute }                     -> add_attributes_to_xhtml(link_attrs.export(link_attribute), <link />)
-    | {~text}                                      -> {success = Xhtml.of_string_unsafe(text) }
+    | {~text}                                      -> {success = <>{text}</> }
+    | {~checked_text}                              -> {success = Xhtml.of_string_unsafe(checked_text) }
     | {fragment=_}                                 -> {success = child }
     | { head; content=_ }                          -> {success = <head>{child}</head> }
     | { ~title; }                                  -> {success = <title>{title}</title> }
@@ -699,6 +702,7 @@ import stdlib.web.client
        rec should_print_after(node) = match base_extract_children(node) with
         | [] -> true
         | lst -> match List.head(List.rev(lst) ) with
+          | { checked_text=text }
           | { ~text } -> String.ws_length(String.reverse(text)) != 0
           | { pre; ... } -> false
           | other -> should_print_after(other)
@@ -769,6 +773,7 @@ import stdlib.web.client
        | {head; content=_ }                           -> print_html_tag("head", [], false)
        | { ~title }                                  -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
        | {~text}                                      -> {success = (before, _ -> print_text_node(before, text)) }
+       | {~checked_text}                                      -> {success = (before, _ -> print_text_node(before, checked_text)) }
        | {fragment=_}                                 -> {success = (_, _  -> "{child}") }
        | tag                                          -> {failure = { unknown_tag = "{tag}" } }
        match res with
