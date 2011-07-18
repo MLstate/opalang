@@ -209,8 +209,7 @@ check-ocaml () {
 let p = Unix.getpid()
 let _ = Printf.printf "%s, %s %dbit" Sys.ocaml_version Sys.os_type Sys.word_size
 let _ =
-  if Sys.word_size <> 64 then exit 1
-  else exit 0
+  exit Sys.word_size
 EOF
 
     echo "# $OCAMLBUILD$OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
@@ -226,14 +225,24 @@ EOF
         echo "Your ocaml installation seems broken, please fix it"
         false
     fi >&2
-    if RET=$(_build/test.native); then
-        echo-ok $RET
-    else
-        R=$?
-        echo-err $RET
-        echo "Your ocaml seems to be a 32bit version. Please install a native 64 bit package."
-        false
-    fi >&2
+    set +e
+    RET=$(_build/test.native);
+    R=$?
+    set -e
+    case $R in
+        32)
+            OCAML_WORD_SIZE=32
+            echo-ok $RET
+            ;;
+        64)
+            OCAML_WORD_SIZE=64
+            echo-ok $RET
+            ;;
+        *)
+            echo-err $RET
+            echo "Your ocaml seems to be neither a 64bit or a 32bit version. Please install a native 64 bit package."
+            false
+    esac >&2
     rm -rf /tmp/${DIR#/tmp/}
     trap - EXIT
     cd "$OPA_SOURCE_DIR"
@@ -612,6 +621,7 @@ OCAMLBUILD="$OCAMLBUILD"
 OCAMLBUILD_FLAGS="$OCAMLBUILD_FLAGS"
 CAMLP4O="$CAMLP4O"
 CAMLP4ORF="$CAMLP4ORF"
+OCAML_WORD_SIZE="$OCAML_WORD_SIZE"
 
 HAS_CAMLIDL="$HAS_CAMLIDL"
 CAMLIDL="$CAMLIDL"
