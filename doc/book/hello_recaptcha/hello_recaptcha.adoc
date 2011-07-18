@@ -742,7 +742,6 @@ Recaptcha =
 
 [TIP]
 .About modules
-[source, opa]
 ==============
 A _module_ is a form of record introduced with +{{ ... }}+ instead of +{ ... }+.
 

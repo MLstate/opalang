@@ -170,7 +170,7 @@ A value has a _sum type_ +t/u+ if, depending on the execution path, it can
 have either values of type +t+ or values of type +u+ . A good example of sum type
 is booleans, which are defined as +\{false\}/\{true\}+ . Another good example of
 sum type is the type +list+ of linked lists, whose definition can be summed up
-as +\{nil\} / \{hd: ...; tl: list\}+.
+as +\{nil\} / \{\hd: ...; tl: list\}+.
 
 Note that sum types are not limited to two cases. Advanced applications commonly
 manipulate sum types with ten cases or more.
@@ -502,9 +502,9 @@ This issue can be solved quite easily, but let us first detail the cost of
 saving:
 
 1. The client sends a +save+ request to the server (1 request).
-1. The server prompts the client for the value of +edit_content+ (2 requests).
-1. The server instructs the client to hide +show_content+ (2 requests).
-1. The server instructs the client to show +edit_content+ (2 requests).
+2. The server prompts the client for the value of +edit_content+ (2 requests).
+3. The server instructs the client to hide +show_content+ (2 requests).
+4. The server instructs the client to show +edit_content+ (2 requests).
 
 Surely, this is not the best that Opa can do? Indeed, Opa can do better.  To
 solve this, we only need to provide a little additional information to the
