@@ -602,15 +602,28 @@ Page = {{
         }</span>
       </span>
 
-    toggle_file_sons(file) =
+    @client
+    toggle_file_sons(file, force) =
       key = navigator_file_id(file)
       li_id = WHList.item_id(admin_files_id, key)
       li_sons = WHList.item_sons_class(admin_files_id)
       sons = Dom.select_raw("li#{li_id} > ul > li.{li_sons}")
+      ssons = Dom.select_raw("li#{li_id} > ul > li.{li_sons} > ul > li")
       do Dom.toggle_class(#{li_id}, "toggled")
       // do Dom.toggle(sons) // does not seem to work as expected
-      do if Dom.has_class(#{li_id}, "toggled") then Dom.hide(sons)
-      else Dom.show(sons)
+      do if Dom.has_class(#{li_id}, "toggled") then
+        do Dom.hide(sons)
+        do jlog("{ssons} {Dom.length(ssons)}")
+        if Dom.length(ssons) > 0 || force then
+          _ = Dom.set_text(#{"{navigator_file_id(file)}_toggle"}, "+")
+          void
+        else
+          _ = Dom.set_text(#{"{navigator_file_id(file)}_toggle"}, "")
+          void
+      else
+        do Dom.show(sons)
+        _ = Dom.set_text(#{"{navigator_file_id(file)}_toggle"}, "-")
+        void
       do Log.info("[toggle_file_sons]","toggle {file}")
       void
 
@@ -623,12 +636,7 @@ Page = {{
               do Log.info("[file_line]", "click")
               Action.open_file(access, file, published_rev)}
             options:onclick={[{stop_propagation}]}>
-        <span ondblclick={_->
-              do Log.info("[file_line]", "dblclick")
-              toggle_file_sons(file)}
-            options:ondblclick={[{stop_propagation}]}>
         {file_line_content(access, name, file, published_rev, preview)}
-        </span>
       </span>
 
     /** Insert if necessary a file line into files navigator. */
@@ -650,8 +658,15 @@ Page = {{
               key = navigator_file_id(file)
               f = if file == "" then "/" else file
               content = file_line(access, opened, e, f, published_rev, preview)
+              value =
+                <div>
+                  <span id="{navigator_file_id(file)}_toggle" onclick={_->
+                    toggle_file_sons(file, false)}
+                    options:onclick={[{stop_propagation}]}/>
+                  {content}
+                </div>
               item = WHList.make_item(
-                {title=e value=content},
+                {title=e ~value},
                 {selected=opened; checked=false},
                 {selectable=true; checkable=false; no_sons=false}
               )
@@ -672,7 +687,7 @@ Page = {{
               ~{some} ->
                 do Log.info("[file_line_insert]", "Insert OK @{some}")
                 do if collapse && List.length(acc) > 0 then
-                  toggle_file_sons(file)
+                  toggle_file_sons(file, true)
                 else void
                 void
               {none} ->
@@ -1206,7 +1221,7 @@ Page = {{
                 fid = navigator_file_id(file)
                 li_id = WHList.item_id(admin_files_id, fid)
                 do if Dom.has_class(#{li_id}, "toggled") then
-                  do toggle_file_sons(file)
+                  do toggle_file_sons(file, false)
                   void
                 else void
                 [e|acc]
