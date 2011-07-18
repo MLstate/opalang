@@ -245,11 +245,11 @@ Page = {{
     , StringMap_empty )
   )
 
-  make_absolute(file) =
+  make_absolute(file, special) =
     // Add the starting /
     file = match String.index("/", file)
     {some=0} -> file
-    _ -> "/{file}"
+    _ -> if special then file else "/{file}"
     // Remove the ending /
     len = String.length(file)
     file = if String.get(len-1, file) == "/" then
@@ -1250,7 +1250,8 @@ Page = {{
       new_file(access:Page.full_access) : FunAction.t = event ->
         /* Select file to open */
         file = Dom.get_value(#admin_new_file)
-        file = make_absolute(file)
+        special = Dom.is_checked(#special_admin_new_file)
+        file = make_absolute(file, special)
         file_uri = Uri.of_string(file)
         do Log.info("[new_file]", "New File {file} Uri {file_uri}")
         do file_line_insert(access, true, file_uri, none, false, false)
@@ -1312,7 +1313,9 @@ Page = {{
     }}
 
     get_filename_mime() =
-      (make_absolute(Dom.get_value(#admin_new_file)),
+      filename = Dom.get_value(#admin_new_file)
+      special = Dom.is_checked(#special_admin_new_file)
+      (make_absolute(filename, special),
        Dom.get_value(#upload_mime_type))
 
     /* We consider a file, a resource that has a dot in its path,
@@ -1413,7 +1416,7 @@ Page = {{
       mime = if mime=="" then "application/octet-stream" else mime
       path = Dom.get_value(#admin_filepath)
       path = if path=="" then filename else path
-      path = make_absolute(path)
+      path = make_absolute(path, false)
       do Log.notice("PageUploader", "Uploading of {filename} ({mime}) was done")
       _rev = access.access.save(path, {~binary ~mime}, none)
       do Action.open_file(access, path, none)
@@ -1487,6 +1490,8 @@ Page = {{
               {back_button}
               <label for="admin_new_file">Path:</label>
               <input id="admin_new_file" name="upload_file_name" type="text" onnewline={Action.new_file(access)}/>
+              <label for="special_admin_new_file">Don't force absolute:</label>
+              <input id="special_admin_new_file" type="checkbox"/>
               <button type="button" onclick={Action.new_file(access)}>Open it</button>
               </>
             do Dom.transform([#admin_add_file <- html])
