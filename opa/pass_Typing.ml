@@ -23,7 +23,11 @@ module S =
 struct
   type t = (QmlAst.ty, unit) QmlGenericScheme.tsc IdentMap.t
   let pass = "pass_Typing"
-  let pp f _ = Format.pp_print_string f "<dummy>"
+  let pp f map =
+    IdentMap.iter
+      (fun k v ->
+         Format.fprintf f "@[<2>%s ->@ %a@]@\n" (Ident.to_string k) QmlPrint.pp#tsc v
+      ) map
 end
 
 module R = ObjectFiles.Make(S)

@@ -356,14 +356,14 @@ struct
 
   let make_code_elt expr =
     let label = Annot.nolabel "QmlAstCons.make_code_elt" in
-    Q.NewVal (label, [(Ident.source "_", expr)]),
+    Q.NewVal (label, [(Ident.next "_", expr)]),
     (function
       | Q.NewVal (_, [(_, e)]) -> e
       | _ -> failwith "QmlAstCons.UnValRec.make_code_elt.rebuilder")
 
   let make_code_elt_maped expr =
     let label = Annot.nolabel "QmlAstCons.make_code_elt_maped" in
-    Q.NewVal (label, [(Ident.source "_", expr)]),
+    Q.NewVal (label, [(Ident.next "_", expr)]),
     (function
       | Q.M_NewVal [(_, t)] -> t
       | _ -> failwith "QmlAstCons.UnValRec.make_code_elt_maped.rebuilder")
