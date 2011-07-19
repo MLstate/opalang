@@ -252,11 +252,14 @@ Db = {{
 `<-` = Db.`<-`
 
 
-type transaction = {{
+/* ideally, we don't want the 'a parameter, and try should be a type-forall('a).
+   However, at the time being functions with types-forall can't be poperly
+   serialised: count this as a temporary workaround */
+type transaction('a) = {
 
   /** Calls a function within the transaction. On error, the execution is
       skipped (the error status can be checked by calls to [try] or [commit]) */
-  in: (-> {}) -> {};
+  in: (-> void) -> void;
 
   /** [try(f,fallback)] applies function [f] within the transaction,
       triggering [fallback] in case of problem */
@@ -270,7 +273,7 @@ type transaction = {{
       the error case, any further calls to [in] will be ignored */
   rollback: -> void;
 
-}}
+}
 
 
 /* Implementation note:
@@ -280,14 +283,12 @@ type transaction = {{
 */
 Transaction = {{
 
-  @private Make(tr : opa_transaction_t) : transaction = {{
-    in(f) = try(f, -> void)
-      /** [try(tr,f,fallback)] applies function [f] within the transaction [tr],
-      triggering [fallback] in case of problem */
+  @private @server_private Make(tr : opa_transaction_t) : transaction = {
+    in(f) = %%opa_transaction_continue%%(tr,f, (-> void))
     try = %%opa_transaction_continue%%(tr,_,_)
     commit() = %%opa_transaction_commit%%(tr)
     rollback() = %%opa_transaction_abort%%(tr)
-  }}
+  }
 
   /** Start a new, empty transaction */
   new() = Make(%%opa_transaction_start%%())
