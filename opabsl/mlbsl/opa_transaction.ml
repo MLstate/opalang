@@ -27,8 +27,13 @@ module E = Badop_engine
 open C.Ops (* This file follows the duck-style cps guidelines © *)
 
 ##extern-type [normalize] status = \
-  | Active of (Badoplink.database * Badoplink.transaction) list \
+  | Active of (Badop_engine.t * Badoplink.transaction) list \
   | Aborted
+(*| Busy of (status C.continuation) Queue.t;
+   *todo*: to prevent
+   race-condition if ever two threads use the same transaction
+   simultaneously (at the time being, they would override each
+   other's transaction and write operations may be lost) *)
 
 (* A sub-transaction is a transaction started within another one ;
    it shares the status reference of its parent *)
@@ -69,31 +74,35 @@ let set_global_transaction db tr k =
   | None ->
       #<If:DBGEN_DEBUG> Logger.error "Set global transaction without context..." #<End>;
       ServerLib.void |> set k {
-        status = ref (Active [ db,tr ]);
+        status = ref (Active [ db.B.db_engine,tr ]);
         sub = false;
       };
   | Some { status = { contents = Active trs } as status; _ } ->
-      status := Active (update_tr db tr trs);
+      status := Active (update_tr db.B.db_engine tr trs);
       ServerLib.void |> k
   | Some { status = { contents = Aborted }; _ } ->
       Logger.error "'set transaction' within a broken transaction context, this shouldn't happen";
       ServerLib.void |> k
 
 ##register [opacapi;restricted:dbgen,cps-bypass] get_global_transaction_opt: \
-      Badoplink.database, continuation(opa[option(Badoplink.transaction)]) -> void
+    Badoplink.database, continuation(opa[option(Badoplink.transaction)]) -> void
 
 let get_db_transaction db k =
   match get_opt k with
   | None -> None |> k
   | Some ({ status = { contents = Active trs }; _ } as t) -> (
-      match Base.List.assq_opt db trs with
-      | Some tr -> Some tr |> k
+      match Base.List.assq_opt db.B.db_engine trs with
+      | Some tr ->
+          Some tr |> k
       | None ->
           db.B.db_engine.E.tr_start db.B.db
             (fun _exc ->
                #<If:DBGEN_DEBUG> Logger.error "get_gl_trans/fail: %s" (Printexc.to_string _exc) #<End>;
                abort t)
-          @> fun tr -> Some { B. tr_engine = db.B.db_engine; tr = tr } |> k
+          @> fun tr ->
+            let tr = { B. tr_engine = db.B.db_engine; tr = tr } in
+            t.status := Active (update_tr db.B.db_engine tr trs);
+            Some tr |> k
     )
   | Some { status = { contents = Aborted }; _ } ->
       Logger.error "'get transaction' within a broken transaction context, this shouldn't happen";
@@ -108,7 +117,7 @@ let init t dbs k = match !(t.status) with
   | Active trs ->
       C.iter_list
         (fun db k ->
-           match Base.List.assq_opt db trs with
+           match Base.List.assq_opt db.B.db_engine trs with
            | Some _ -> () |> k
            | None ->
                db.B.db_engine.E.tr_start db.B.db
@@ -119,9 +128,9 @@ let init t dbs k = match !(t.status) with
                  match !(t.status) with
                  | Active trs ->
                      (* The call case in opa stdlib should guarantee this race condition doesn't happen *)
-                     assert (not (List.exists (fun (db',_) -> db' == db) trs));
+                     assert (not (List.exists (fun (db',_) -> db' == db.B.db_engine) trs));
                      let tr = { B. tr_engine = db.B.db_engine; tr = tr } in
-                     t.status := Active ((db,tr) :: trs);
+                     t.status := Active ((db.B.db_engine,tr) :: trs);
                      () |> k
                  | Aborted -> () |> k)
         (BslNativeLib.opa_list_to_ocaml_list (fun db -> db) dbs)
@@ -211,7 +220,7 @@ let commit t k =
       QmlCpsServerLib.map_list
         (fun (db,tr) k ->
            tr.B.tr_engine.E.tr_prepare tr.B.tr
-           @> fun (tr,success) -> ({ B. tr_engine = db.B.db_engine; tr = tr }, success) |> k)
+           @> fun (tr,success) -> ({ B. tr_engine = db; tr = tr }, success) |> k)
         trs
       @> C.ccont_ml k
       @> fun prepare_result ->

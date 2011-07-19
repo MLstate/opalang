@@ -50,7 +50,7 @@ type ref_p_
 (* Used for hidden embedded data in records: at first we put the current transaction, then
    when accessed it's checked and may be turned into a revision if there is one that holds
    the expected data. *)
-##extern-type [normalize] trans_or_rev = Transaction of Badoplink.transaction | Revision of Badoplink.revision
+##extern-type [normalize] trans_or_rev = Transaction of Badoplink.transaction | Revision of Badop_engine.t * Badoplink.revision
 
 ##extern-type [normalize] embed_info = { embedded_path: Badoplink.path; embedded_transaction: trans_or_rev }
 
@@ -104,7 +104,7 @@ let get_lazy_info_opt r k =
              @> function
              | `Answer (Badop.Stat (D.Response (_path, Some rev, _kind))) ->
                  (* The info is valid and bound to revision rev ; update the lazy data *)
-                 let embed_info = { embed_info with embedded_transaction = Revision rev } in
+                 let embed_info = { embed_info with embedded_transaction = Revision (tr.B.tr_engine,rev) } in
                  ignore (ServerLib.inject_lazy_data record (Some (`path (Obj.repr embed_info))));
                  ServerLib.wrap_option (Some embed_info) |> k
              | _ -> (* The info is not valid (doesn't belong to a committed rev) *)
@@ -290,17 +290,17 @@ let do_in_trans
 
 ##register [opacapi;restricted:dbgen,cps-bypass] copy: Badoplink.transaction, embed_info, Badoplink.path, continuation(Badoplink.transaction) -> void
 let copy tr embed dbpath k =
-  (* FIXME: we need to check that we don't copy between different databases,
-     otherwise Sharing + MultiDB = *BOOM* *)
   match embed.embedded_transaction with
   | Transaction _ ->
       Badoplink.error "Bad internal copy query from a transaction" @> k
         (* this should have been resolved to a Revision or discarded by get_lazy_data_opt *)
-  | Revision revision ->
-      tr.B.tr_engine.E.write tr.B.tr dbpath (Badop.Copy (D.query (embed.embedded_path, Some revision)))
-      @> function
-      | Badop.Copy (D.Response resp) -> { tr with Badoplink.tr = resp } |> k
-      | _ -> assert false
+  | Revision (engine,revision) when engine == tr.B.tr_engine ->
+      (tr.B.tr_engine.E.write tr.B.tr dbpath (Badop.Copy (D.query (embed.embedded_path, Some revision)))
+       @> function
+       | Badop.Copy (D.Response resp) -> { tr with Badoplink.tr = resp } |> k
+       | _ -> assert false)
+  | _ ->
+      Badoplink.error "Error: attempt to share between databases; fixme" @> k
 
 ##register[cps-bypass] write: t( ref_p, 'a), 'a, continuation(opa[void]) -> void
 let write t x k = match t with
