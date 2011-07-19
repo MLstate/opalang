@@ -613,7 +613,6 @@ Page = {{
       // do Dom.toggle(sons) // does not seem to work as expected
       do if Dom.has_class(#{li_id}, "toggled") then
         do Dom.hide(sons)
-        do jlog("{ssons} {Dom.length(ssons)}")
         if Dom.length(ssons) > 0 || force then
           _ = Dom.set_text(#{"{navigator_file_id(file)}_toggle"}, "+")
           void
