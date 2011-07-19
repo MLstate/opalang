@@ -359,14 +359,14 @@ module F (B: Badop.S) (C: Xml_dump.SigCpsBackend) = struct
            @> fun () -> trn |> k)
       @> k
     and import_recursive trn id path (_e,t) trec k =
-      let key =
+      let key,id0 =
         match t with
-        | G.Tnode (id', _, _) ->
+        | G.Tnode (id0, _, _) ->
             let key = try
-              let _, _, key = Hashtbl.find recursive_nodes id' in key+1
+              let _, _, key = Hashtbl.find recursive_nodes id0 in key+1
             with Not_found -> 0 in
-            Hashtbl.add recursive_nodes id' (path, trec, key);
-            key
+            Hashtbl.replace recursive_nodes id0 (path, trec, key);
+            key,id0
         | _ ->
             error "Unexpected schema structure at recursive node %s" id;
             assert false
@@ -374,9 +374,12 @@ module F (B: Badop.S) (C: Xml_dump.SigCpsBackend) = struct
       let next_path = Badop.Path.add path (Badop.Key.IntKey key) in
       if key = 0 then
         write trn path (Badop.Clear (D.query ())) @> mkcont k
-          (fun trn -> import_node trn t next_path @> k)
+        @> fun trn -> import_node trn t next_path @> mkcont k
+        @> fun trn -> Hashtbl.remove recursive_nodes id0; trn |> k
       else
-        !do_link trn next_path @> mkcont k
+        let lnk = !do_link in
+        do_link := (fun _ _ _ -> error "Rectype linking error" |> emergency_cont);
+        lnk trn next_path @> mkcont k
         @> fun trn -> import_node trn t next_path @> k
     and import_sum trn path el k =
       read_tags trn
