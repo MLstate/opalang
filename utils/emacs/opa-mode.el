@@ -544,52 +544,23 @@
 
 (require 'compile)
 (require 'ansi-color)
-(defun opa-set-compile-command ()
-  "Hook to set compile-command locally, unless there is a Makefile"
-  (interactive)
-  (unless (or (null buffer-file-name)
-              (file-exists-p "makefile")
-              (file-exists-p "Makefile"))
-    (setq command "opa")
-    (progn
-      (make-local-variable 'compile-command)
-      (setq compile-command (concat command " " filename))))
-  )
 
-(add-hook 'opa-mode-hook 'opa-set-compile-command)
+(setq compilation-error-regexp-alist
+      '(
+        ;the format of syntax errors (to be unified)
+        ("In \\(.+\\) \\[\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | global chars=[0-9]+-[0-9]+\\]" 1 (2 . 4) (3 . 5) 1)
 
-(define-compilation-mode opa-compile-mode "opa-compile" "opa-compile-mode"
-  (set (make-local-variable 'compilation-disable-input) t)
-  (make-local-variable 'compilation-error-alist)
-  (setq compilation-error-regexp-alist
-        '(
-          ;the format of syntax errors (to be unified)
-          ("In \\(.+\\) \\[\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | global chars=[0-9]+-[0-9]+\\]" 1 (2 . 4) (3 . 5) 1)
-
-          ;this fallback one presents the advantage that it does also match Ocaml errors and back-traces
-          ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line \\([0-9]+\\), characters \\([0-9]+\\)-\\([0-9]+\\)" 1 2 (3 . 4) 1)
-          ;corresponds to FilePos.to_string
-          ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line [0-9]+, characters [0-9]+-[0-9]+, (\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | [0-9]+-[0-9]+)" 1 (2 . 4) (3 . 5) 1)
-          )
+        ;this fallback one presents the advantage that it does also match Ocaml errors and back-traces
+        ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line \\([0-9]+\\), characters \\([0-9]+\\)-\\([0-9]+\\)" 1 2 (3 . 4) 1)
+        ;corresponds to FilePos.to_string
+        ("[Ff]ile \\\"?\\([^ \\\"]*?\\)\\\"?, line [0-9]+, characters [0-9]+-[0-9]+, (\\([0-9]+\\):\\([0-9]+\\)-\\([0-9]+\\):\\([0-9]+\\) | [0-9]+-[0-9]+)" 1 (2 . 4) (3 . 5) 1)
         )
-  (set (make-local-variable 'compilation-first-column) 1)
-  (add-hook 'compilation-filter-hook
-            (lambda () (ansi-color-apply-on-region (point-min-marker) (point))))
-  )
+      )
+(set (make-local-variable 'compilation-first-column) 1)
 
-(defun opa-compile (command &optional ignored)
-  (interactive
-   (list
-    (let ((command (eval compile-command)))
-      (if (or compilation-read-command current-prefix-arg)
-          (compilation-read-command command)
-        command))
-    (consp current-prefix-arg)))
-  (unless (equal command (eval compile-command))
-    (setq compile-command command))
-  (save-some-buffers (not compilation-ask-about-save) nil)
-  (setq-default compilation-directory default-directory)
-  (compilation-start command 'opa-compile-mode))
+(add-hook 'compilation-filter-hook
+          (lambda () (ansi-color-apply-on-region (point-min-marker) (point)))
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Launch/Stop
@@ -601,7 +572,7 @@
 (defvar opa-mode-map nil "Keymap for opa-mode")
 
 (setq opa-mode-map (make-sparse-keymap))
-(define-key opa-mode-map "\C-c\C-c" 'opa-compile)
+(define-key opa-mode-map "\C-c\C-c" 'compile)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -616,7 +587,7 @@
       '("Stop application" . opa-stop))
     (define-key opa-menu-map [opa-start]
       '("Launch application" . opa-start))
-    (define-key opa-menu-map [opa-compile]
+    (define-key opa-menu-map [compile]
       '("Compile this file" . compile))
     (define-key opa-menu-map [separator]
       '("--" ))
