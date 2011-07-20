@@ -123,5 +123,8 @@ end
 (** Instantiated ping register with opa scheduler and op client *)
 module M = PingRegister.Make(PingScheduler)(Client)
 
+##register client_start : opa[ThreadContext.client] -> void
+let client_start ck = M.create (Obj.magic ck)
+
 ##register client_stop : opa[ThreadContext.client] -> void
 let client_stop ck = M.delete (Obj.magic ck)

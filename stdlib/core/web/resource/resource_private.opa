@@ -834,7 +834,7 @@ export_resource(external_css_files: list(string),
           user_agent = get_request_ua(req)
           uri        = get_request_uri(req)
           num_page = match thread_context().key with
-            | ~{client}-> client.page
+            | ~{client}-> do %%BslPingRegister.client_start%%(client) client.page
             | _ -> result = Random.int(max_int)
                    do Log.warning("Resource export",
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")

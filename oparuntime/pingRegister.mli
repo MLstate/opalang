@@ -98,4 +98,7 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
   (** Delete a client entry. *)
   val delete : C.key -> unit
 
+  (** Create a client entry (Is needed ...). *)
+  val create : C.key -> unit
+
 end

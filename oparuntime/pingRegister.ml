@@ -352,7 +352,10 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
         [event_key]. *)
     val remove_event : event_key -> unit
 
-    (** Delete connextion of a client. *)
+    (** Create connexion of a client. *)
+    val create : C.key -> unit
+
+    (** Delete connexion of a client. *)
     val delete : C.key -> unit
 
     (** Return [true] if the client connection identifier exists on
@@ -475,6 +478,8 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
       | Not_found ->
           Hashtbl.add state_tbl key (nb, s, ping_delay_client_msecond_rush)
 
+    let create key = update key 0
+
     let find_delay key =
       try
         let (_, _, d) = Hashtbl.find state_tbl key in d
@@ -553,5 +558,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
   let mem = Connection.mem
 
   let delete = Connection.delete
+
+  let create = Connection.create
 
 end
