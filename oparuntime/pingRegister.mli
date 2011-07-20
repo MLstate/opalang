@@ -101,4 +101,7 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
   (** Create a client entry (Is needed ...). *)
   val create : C.key -> unit
 
+  (** Return the number of connections. *)
+  val size : unit -> int
+
 end

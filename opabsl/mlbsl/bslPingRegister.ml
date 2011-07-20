@@ -126,5 +126,8 @@ module M = PingRegister.Make(PingScheduler)(Client)
 ##register client_start : opa[ThreadContext.client] -> void
 let client_start ck = M.create (Obj.magic ck)
 
+##register nb_connection : -> int
+let nb_connection = M.size 
+
 ##register client_stop : opa[ThreadContext.client] -> void
 let client_stop ck = M.delete (Obj.magic ck)

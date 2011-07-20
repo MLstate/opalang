@@ -376,6 +376,9 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
     (** Broadcast the json message. *)
     val broadcast : C.msg -> unit
 
+    (** Returns the number of connections. *)
+    val size : unit -> int
+
   end = struct
 
     type event_key = (C.key option * event * int)
@@ -532,8 +535,10 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
     let broadcast mess =
       #<If>
         ping_debug "PING" "Broadcasting to clients"
-        #<End>;
+      #<End>;
       iter (Entry.send mess)
+
+    let size () = Hashtbl.length state_tbl
 
   end
 
@@ -560,5 +565,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
   let delete = Connection.delete
 
   let create = Connection.create
+
+  let size = Connection.size
 
 end
