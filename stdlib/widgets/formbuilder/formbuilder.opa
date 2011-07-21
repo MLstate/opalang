@@ -16,9 +16,11 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+package stdlib.widgets.formbuilder
 
 import stdlib.web.mail
-import stdlib.widgets.{core, upload}
+import stdlib.upload
+import stdlib.widgets.core
 
 /* FIXME For now form fields should have unique names within a page. We could
          try to use selection within a form, but then we have to figure out
@@ -28,7 +30,7 @@ import stdlib.widgets.{core, upload}
 /**
  * @author Adam Koprowski
  * @category widget
- * @stability experimental [WIP, waiting for feature requests & bug reports]
+ * @stability slowly stabilizing, the API may still change slightly
  *
  *
  * {1 About this module}
