@@ -178,6 +178,12 @@ Option = {{
   make_order(using: order('a, 'b)): order(option('a), 'b) =
      Order.make(ordering(using, _, _))
 
+  merge( f:('a,'a -> 'a), x:option('a), y:option('a) ): option('a) =
+     match (x, y) with
+     | (_, {none}) -> x
+     | ({none}, {some=_}) -> y
+     | ({some=a}, {some=b}) -> {some=f(a,b)}
+
 
 }}
 

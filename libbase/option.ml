@@ -116,8 +116,7 @@ let make_compare cmp o1 o2 =
 
 let merge conflict o1 o2 =
   match o1, o2 with
-  | None, None -> None
-  | Some _, None -> o1
+  | _, None -> o1
   | None, Some _ -> o2
   | Some x1, Some x2 -> Some (conflict x1 x2)
 
