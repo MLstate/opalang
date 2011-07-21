@@ -203,6 +203,9 @@ module type M = functor (N : NETWORK) -> sig
   (** Get a string representation of an [identity]. *)
   val identity_to_string : identity -> string
 
+  (** Returns the numbers of stored channels. *)
+  val size : unit -> int
+
   (** {6 Deprecated/Hack} *)
   (** Fail on non local channel*)
   val get_more : ('msg, 'ctx) t -> Obj.t option
@@ -288,6 +291,8 @@ let make scheduler =
     val get_more : ('msg, 'ctx) t -> Obj.t option
 
     val unserialize : ('msg, 'ctx) t -> N.serialized -> ('msg option -> unit) -> unit
+
+    val size : unit -> int
 
   end = struct
     type ('msg,'ctx) t = {
@@ -475,6 +480,14 @@ let make scheduler =
         Hashtbl.add rcbhtbl chan.lid rcb
       )
 
+    let size () =
+      let w = W.size weak in
+      #<If>
+        U.info "CHANNEL" "weak : %d; rhtbl : %d; rcbhtbl : %d; idset : %d" w
+        (Hashtbl.length rhtbl) (Hashtbl.length rcbhtbl) (IntSet.size !idset);
+      #<End>;
+      w
+
   end
 
 
@@ -505,6 +518,8 @@ let make scheduler =
     val strong : t -> N.cid
 
     val relax : N.cid -> unit
+
+    val size : unit -> int
 
   end = struct
 
@@ -633,6 +648,13 @@ let make scheduler =
         let e, cbs = Hashtbl.find entity_channels cid in
         Hashtbl.replace entity_channels cid (e, rcb::cbs)
       with Not_found -> Scheduler.push scheduler rcb
+
+    let size () =
+      let w = W.size weak in
+      #<If>
+        U.info "CHANNEL" "weak : %d; hash : %d" w (Hashtbl.length entity_channels);
+      #<End>;
+      w
   end
 
 
@@ -874,5 +896,7 @@ let make scheduler =
   let remove_entity entity =
     release_all entity;
     Entity.remove_entity entity
+
+  let size () = Entity.size () + Local.size ()
 
   end in (module Implem : M)

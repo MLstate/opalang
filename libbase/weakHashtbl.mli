@@ -43,4 +43,6 @@ module Make :
 
       val find : t -> key -> HD.t
 
+      val size : t -> int
+
 end

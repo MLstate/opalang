@@ -75,6 +75,7 @@ module Make (HK : Hashtbl.HashedType)(HD : WeakedType) = struct
   let relax t k =
     t.strong <- S.remove (find t k) t.strong
 
-
+  let size t =
+    HT.length t.htbl
 
 end

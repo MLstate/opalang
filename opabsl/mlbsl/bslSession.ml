@@ -1239,3 +1239,6 @@ let my_endpoint k =
 
 ##register force_gc : -> void
 let force_gc = Gc.full_major
+
+##register size : -> int
+let size = Channel.size
