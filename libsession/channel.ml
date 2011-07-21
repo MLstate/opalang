@@ -49,6 +49,9 @@ module type NETWORK = sig
   (** Equality on entity (see [Hashtbl.HashedType])*)
   val equal_entity : entity -> entity -> bool
 
+  (** Comparison on entity. *)
+  val compare_entity : entity -> entity -> int
+
   (** {6 Just for debug} *)
 
   val entity_to_string : entity -> string
@@ -720,6 +723,19 @@ let make scheduler =
       let compare = Pervasives.compare
     end)
 
+  module IdentityHash = BaseHashtbl.Make (
+    struct
+      type t = identity
+      let equal = (=)
+      let hash = Hashtbl.hash
+    end)
+
+  module EntitySet = BaseSet.Make (
+    struct
+      type t = N.entity
+      let compare = N.compare_entity
+    end)
+
   module EntityHash = BaseHashtbl.Make (
     struct
       type t = N.entity
@@ -729,8 +745,12 @@ let make scheduler =
 
   let exported : IdentitySet.t EntityHash.t = EntityHash.create 512
 
+  let rexported : EntitySet.t IdentityHash.t = IdentityHash.create 512
+
   let is_exported k =
-    EntityHash.fold (fun _ set b -> b || (IdentitySet.mem k set)) exported false
+    try
+      not (EntitySet.is_empty (IdentityHash.find rexported k))
+    with Not_found -> false
 
   let identity_to_string = function
     | LocalId i -> Printf.sprintf "ID:Local(%d)" i
@@ -760,12 +780,26 @@ let make scheduler =
          EntityHash.remove exported e
        else EntityHash.replace exported e set
      with Not_found -> ());
+    (try
+       let set = IdentityHash.find rexported k in
+       let set = EntitySet.remove e set in
+       if EntitySet.is_empty set  then
+         IdentityHash.remove rexported k
+       else IdentityHash.replace rexported k set
+     with Not_found -> ());
     #<If$minlevel 50>
-      let count k =
+      let count0 k =
+        try
+          EntitySet.size (IdentityHash.find rexported k)
+        with Not_found -> 0
+      in let count1 k =
         EntityHash.fold (fun _ set b -> if IdentitySet.mem k set then b+1 else 0)
           exported 0 in
       U.debug "CHANNEL-EXPORT" "Channel %s has %d exportations : %b"
-      (identity_to_string k) (count k) (is_exported k);
+      (identity_to_string k) (count0 k) (is_exported k);
+      #<If$minlevel 300>
+        assert ((count0 k) == (count1 k));
+      #<End>;
       print_exportations ();
     #<End>;
     if not (is_exported k) then
@@ -796,7 +830,13 @@ let make scheduler =
         EntityHash.find exported e
       with Not_found -> IdentitySet.empty in
     let set = IdentitySet.add id set in
-        EntityHash.replace exported e set;
+    EntityHash.replace exported e set;
+    let set =
+      try
+        IdentityHash.find rexported id
+      with Not_found -> EntitySet.empty in
+    let set = EntitySet.add e set in
+    IdentityHash.replace rexported id set;
     #<If>
       print_exportations ();
     #<End>;
@@ -815,6 +855,13 @@ let make scheduler =
     EntityHash.remove exported e;
     IdentitySet.iter
       (fun k ->
+         (try
+            let set = IdentityHash.find rexported k in
+            let set = EntitySet.remove e set in
+            if EntitySet.is_empty set  then
+              IdentityHash.remove rexported k
+            else IdentityHash.replace rexported k set
+          with Not_found -> ());
          if not (is_exported k) then
            match k with
            | LocalId sid -> Local.relax (Local.find sid)

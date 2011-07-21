@@ -204,6 +204,18 @@ module OpaNetwork = struct
         assert false
     | _ -> false
 
+  let compare_entity e1 e2 =
+    match e1,e2 with
+    | Client e1, Client e2 -> Pervasives.compare e1 e2
+    | RemoteServer (i1, p1, _), RemoteServer (i2, p2, _) -> Pervasives.compare (i1, p1) (i2, p2)
+    | Client _, RemoteServer _ ->  1
+    | RemoteServer _, Client _ -> -1
+    | RemoteClient _, _
+    | _, RemoteClient _ ->
+        (* We never export explicitly for a remote client, see
+           [WebChannel.redefined_export] *)
+        assert false
+
   let hash_entity = function
     | Client e -> Hashtbl.hash e
     | RemoteServer (i1, p1, _) -> Hashtbl.hash (i1, p1)
