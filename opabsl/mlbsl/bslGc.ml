@@ -17,7 +17,7 @@
 *)
 (*
     @author Rudy Sicard
-   
+
 **)
 
 open Gc
@@ -28,6 +28,14 @@ let minor_collections () = (Gc.stat()).minor_collections
 ##register major_collections : -> int
 let major_collections () = (Gc.stat()).major_collections
 
+##register live_words : -> int
+let live_words () = (Gc.stat()).live_words
+
 ##register compactions : -> int
 let compactions () = (Gc.stat()).compactions
 
+##register collect : -> void
+let collect () = Gc.full_major ()
+
+##register compact : -> void
+let compact () = Gc.compact ()
