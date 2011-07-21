@@ -462,6 +462,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
       #<End>;
       raise_event key Disconnect;
       Entry.remove key;
+      Hashtbl.remove state_tbl key;
       remove_events key
 
     let update key (nb:int) =
