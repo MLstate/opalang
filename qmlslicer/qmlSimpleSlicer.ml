@@ -98,7 +98,7 @@ type information = (* TODO: explicit the invariants *)
       mutable calls_server_bypass : BslKey.t option;
       mutable calls_client_bypass : BslKey.t option;
       mutable has_sliced_expr : bool;
-      mutable lambda_lifted : Ident.t option;
+      mutable lambda_lifted : Ident.t list;
 
       (* computed by propagate_server_private *)
       mutable calls_private : information value option; (* this field is independent of the @publish annotation *)
@@ -334,7 +334,7 @@ let default_information ~env ~annotmap (ident,expr) =
          if not (QmlTypesUtils.Inspect.is_type_void env.gamma ty) then fail ());
   );
   { calls_private = None;
-    lambda_lifted = None;
+    lambda_lifted = [];
     calls_server_bypass = None;
     calls_client_bypass = None;
     privacy = Option.default Visible !visibility;
@@ -404,14 +404,11 @@ let update_call_graph env info =
              QmlError.serror error_context "@[This is an invalid slicer annotation: they can only appear on toplevel bindings (or inside toplevel modules) or on function bindings.@]";
              context
 
-         | Q.Directive (_, `lifted_lambda (_,name), _, _) ->
-             assert (info.lambda_lifted = None);
+         | Q.Directive (_, `lifted_lambda (_,hierarchy), _, _) ->
+             assert (info.lambda_lifted = []);
              (* if the code is lifted, you have only one function per toplevel
                 declaration (so at most one @lifted_lambda) *)
-             assert (name <> None);
-             (* if name is None, then the lambda lifting screwed up, because
-              * None is meant for ei, lambda lifting always puts a Some *)
-             info.lambda_lifted <- name;
+             info.lambda_lifted <- hierarchy;
              context
 
          | _ ->
@@ -758,41 +755,60 @@ let node_is_annotated info =
       | _ -> true
     )
   | _ -> true
+
+let enclosing_info_if_not_toplevel_and_not_annotated env info =
+  if info.lambda_lifted = [] || node_is_annotated info then None
+  else (
+    let orig =
+      try
+        (* a local function is sliced as the its innermost
+         * enclosing function that is annotated
+         * (or the toplevel one by default) *)
+        List.find
+          (fun ident ->
+             let info = IdentTable.find env.informations ident in
+             node_is_annotated info
+          ) info.lambda_lifted
+      with Not_found -> List.last info.lambda_lifted in
+    let orig_info = IdentTable.find env.informations orig in
+    Some orig_info
+  )
+
 let inline_informations_lambda_lifted env =
   IdentTable.iter
     (fun _ info ->
-       match info.lambda_lifted with
-       | Some orig ->
-           if node_is_annotated info then () else (
-             (* merging @sliced_expr, @call_*_bypass
-              * because these are the only properties that would
-              * be different if the the lifted functions were inlined
-              * I think (they depend on the field expr) *)
-             let orig_info = IdentTable.find env.informations orig in
-             orig_info.has_sliced_expr <- orig_info.has_sliced_expr || info.has_sliced_expr;
-             orig_info.calls_client_bypass <- (
-               match orig_info.calls_client_bypass with
-               | None -> info.calls_client_bypass
-               | Some _ as v -> v
-             );
-             orig_info.calls_server_bypass <- (
-               match orig_info.calls_server_bypass with
-               | None -> info.calls_server_bypass
-               | Some _ as v -> v
-             );
-             (* we add a dependency from the original to the lifted one
-              * because if the local function is not used, then there is no dependency
-              * (and the outer function will be put on both sides, so will the inner function
-              * and if it is server private, resolveRemoteCalls will break)
-              * example of such a problem if you remove this:
-              * @server_private x = 1
-              * g() =
-              *   f() = x
-              *   @fail
-              *)
-             G.add_edge env.call_graph orig_info info
-           )
-       | None -> ()
+       match info.expr with
+       | External _ -> ()
+       | Local _ ->
+           match enclosing_info_if_not_toplevel_and_not_annotated env info with
+           | None -> ()
+           | Some orig_info ->
+               (* merging @sliced_expr, @call_*_bypass
+                * because these are the only properties that would
+                * be different if the the lifted functions were inlined
+                * I think (they depend on the field expr) *)
+               orig_info.has_sliced_expr <- orig_info.has_sliced_expr || info.has_sliced_expr;
+               orig_info.calls_client_bypass <- (
+                 match orig_info.calls_client_bypass with
+                 | None -> info.calls_client_bypass
+                 | Some _ as v -> v
+               );
+               orig_info.calls_server_bypass <- (
+                 match orig_info.calls_server_bypass with
+                 | None -> info.calls_server_bypass
+                 | Some _ as v -> v
+               );
+               (* we add a dependency from the original to the lifted one
+                * because if the local function is not used, then there is no dependency
+                * (and the outer function will be put on both sides, so will the inner function
+                * and if it is server private, resolveRemoteCalls will break)
+                * example of such a problem if you remove this:
+                * @server_private x = 1
+                * g() =
+                *   f() = x
+                *   @fail
+                *)
+               G.add_edge env.call_graph orig_info info
     ) env.informations
 
 let choose_sides env =
@@ -844,13 +860,8 @@ let choose_sides env =
 
          (* third step: dispatch according the annotation *)
          List.iter (fun node ->
-                      match node.lambda_lifted with
-                      | Some _ ->
-                          if node_is_annotated node then
-                            look_at_user_annotation env pp_pos node node.user_annotation
-                          else
-                            (* this is treated below *)
-                            ()
+                      match enclosing_info_if_not_toplevel_and_not_annotated env node with
+                      | Some _ -> (* this is treated below *) ()
                       | None -> look_at_user_annotation env pp_pos node node.user_annotation
                    ) group
        )
@@ -860,25 +871,22 @@ let choose_sides env =
     (fun group ->
        List.iter
          (fun node ->
-            match node.lambda_lifted with
-            | Some i ->
-                if node_is_annotated node then () else (
-                  (* never publish those for now at least, because it adds type
-                   * variables in unwanted places like the runtime of the serialization *)
-                  let node_i = IdentTable.find env.informations i in
-                  let relax = function
-                    | None -> assert false
-                    | Some (Some `expression)
-                    | Some None as v -> v
-                    | Some (Some `alias)
-                    | Some (Some `insert_server_value) ->
-                        (* avoids many useless insert_server_values
-                         * should be solved cleanly when we have an actual slicing strategy for
-                         * local functions *)
-                        Some None in
-                  node.on_the_server <- relax (node_i.on_the_server :> client_code_kind option option);
-                  node.on_the_client <- relax node_i.on_the_client;
-                )
+            match enclosing_info_if_not_toplevel_and_not_annotated env node with
+            | Some node_i ->
+                (* never publish those for now at least, because it adds type
+                 * variables in unwanted places like the runtime of the serialization *)
+                let relax = function
+                  | None -> assert false
+                  | Some (Some `expression)
+                  | Some None as v -> v
+                  | Some (Some `alias)
+                  | Some (Some `insert_server_value) ->
+                      (* avoids many useless insert_server_values
+                       * should be solved cleanly when we have an actual slicing strategy for
+                       * local functions *)
+                      Some None in
+                node.on_the_server <- relax (node_i.on_the_server :> client_code_kind option option);
+                node.on_the_client <- relax node_i.on_the_client;
             | None -> ()
          ) group
     ) groups
@@ -1454,18 +1462,18 @@ struct
          List.iter
            (fun info ->
               (* BEWARE: do not modify this info, or else you screw the value memoized in objectFiles *)
-              let info =
-                match info.server_ident with
-                | `ident _ -> info
-                | `undefined -> assert false
-                | `tsc tsc_opt -> {info with server_ident = `tsc (refresh_opt "SERVER" info package tsc_opt)}
-                | `ident_tsc (ident, tsc_opt) -> {info with server_ident = `ident_tsc (ident, refresh_opt "SERVER" info package tsc_opt)} in
-              let info =
-                match info.client_ident with
-                | `ident _ -> info
-                | `undefined -> assert false
-                | `tsc tsc_opt -> {info with client_ident = `tsc (refresh_opt "CLIENT" info package tsc_opt)}
-                | `ident_tsc (ident, tsc_opt) -> {info with client_ident = `ident_tsc (ident, refresh_opt "CLIENT" info package tsc_opt)} in
+              (* damned, cannot simply copy a record *)
+              let info = {info with ident = info.ident} in
+              (match info.server_ident with
+               | `ident _ -> ()
+               | `undefined -> assert false
+               | `tsc tsc_opt -> info.server_ident <- `tsc (refresh_opt "SERVER" info package tsc_opt)
+               | `ident_tsc (ident, tsc_opt) -> info.server_ident <- `ident_tsc (ident, refresh_opt "SERVER" info package tsc_opt));
+              (match info.client_ident with
+               | `ident _ -> ()
+               | `undefined -> assert false
+               | `tsc tsc_opt -> info.client_ident <- `tsc (refresh_opt "CLIENT" info package tsc_opt)
+               | `ident_tsc (ident, tsc_opt) -> info.client_ident <- `ident_tsc (ident, refresh_opt "CLIENT" info package tsc_opt));
               IdentTable.add informations info.ident info;
               G.add_vertex call_graph info;
            ) infos

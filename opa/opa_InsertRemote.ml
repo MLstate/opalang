@@ -995,7 +995,7 @@ let generate_stub explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side 
              List.map (fun id -> id, !OpaType.col) ident_col_list @
              id_ty_std_list)
           match_instantiate in
-      TypedExpr.directive annotmap (`lifted_lambda (nb_tyvar + nb_colvar + nb_rowvar, None)) [lambda] [] in
+      TypedExpr.directive annotmap (`lifted_lambda (nb_tyvar + nb_colvar + nb_rowvar, [])) [lambda] [] in
 
   (* Expand if necessary to have a lambda with 0 args *)
   let expand = (not is_lambda) && nb_tyvar = 0 && nb_colvar = 0 && nb_rowvar = 0 in

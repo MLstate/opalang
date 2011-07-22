@@ -371,7 +371,7 @@ type env = {
                          * it contains all toplevel types and is used to determine if
                          * a name is defined at toplevel or not *);
   hoisted : (Ident.t * Q.expr) list list;
-  toplevel_name : Ident.t option;
+  hierarchy : Ident.t list; (* see the description of @lifted_lambda *)
 }
 
 (* In the functions that take an env and a gamma, the gamma
@@ -528,8 +528,7 @@ let absify ~toplevel env gamma_with_lambda_bindings annotmap e xs =
                            let ty = QmlTypes.Scheme.explicit_forall tsc in
                            (i, ty)) il in
              let annotmap, e = QmlAstCons.TypedExpr.lambda annotmap (xs @ orig_xs) e in
-             assert (env.toplevel_name <> None);
-             QmlAstCons.TypedExpr.directive_id annotmap (`lifted_lambda (List.length xs, env.toplevel_name)) e
+             QmlAstCons.TypedExpr.directive_id annotmap (`lifted_lambda (List.length xs, List.tl env.hierarchy)) e
          | Q.Coerce _
          | Q.Directive (_, #ignored_directive, _, _) as e ->
              tra annotmap e
@@ -912,6 +911,8 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
         {env with gamma = env_gamma}
     | `fun_action _ | `untyped -> env in
 
+  let hierarchy = env.hierarchy in
+
   let (annotmap,env),funcs =
     (* rewrite the body of each function *)
     List.fold_left_map
@@ -924,7 +925,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                        (fun (x,_) -> Ident.equal x f_ident)
                        funcs) in
               (* lift the body *)
-              let env = if toplevel then {env with toplevel_name = Some f_ident} else env in
+              let env = {env with hierarchy = f_ident :: hierarchy} in
               let (gamma_with_lambda_bindings,annotmap,env),body =
                 parameterLiftLambda ~options (gamma,annotmap,env) body in
               let annotmap,body,sigma =
@@ -963,11 +964,13 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
   let (annotmap,env),vals =
     List.fold_left_map
       (fun (annotmap,env) (x,e) ->
-         let env = if toplevel then {env with toplevel_name = Some x} else env in
          let (_,annotmap,env),e = parameterLiftExp ~options (gamma,annotmap,env) e in
          (annotmap,env),(x,e))
       (annotmap,env)
       vals in
+
+  let env = {env with hierarchy} in
+
   (gamma,annotmap,env),(funcs,vals)
 
 (* the gamma returned by this function contains the identifiers bound by the lambda
@@ -1093,14 +1096,14 @@ let lift_code_elt ~options (annotmap,env) elt =
 let process_code_elt ~options (annotmap,env) elt =
   let annotmap,elt = name_anonymous_lambda_code_elt ~options annotmap elt in
   let (annotmap,env),elts = lift_code_elt ~options (annotmap,env) elt in
-  let env = {env with hoisted = []; toplevel_name = None} in
+  let env = {env with hoisted = []; hierarchy = []} in
   (annotmap,env),elts
 
 let empty_env gamma = {
   gamma = gamma;
   funcs = IdentMap.empty;
   hoisted = [];
-  toplevel_name = None;
+  hierarchy = [];
  }
 
 (*

@@ -1373,7 +1373,7 @@ let rec get_lambda = function
       | _ -> assert false
     )
   | Q.Ident (_,x) -> `ident x
-  | Q.Lambda (_,params,e) -> `lambda ((0,None),params,e)
+  | Q.Lambda (_,params,e) -> `lambda ((0,[]),params,e)
   | _ -> `none
 
 (* not sure if this test should be in sync with something else *)

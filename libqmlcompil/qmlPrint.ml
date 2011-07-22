@@ -150,7 +150,10 @@ let directive (d:QmlAst.qml_directive) =
   | `partial_apply None -> "@partial_apply"
   | `partial_apply (Some i) -> Printf.sprintf "@partial_apply[misssing:%d]" i
   | `full_apply n -> Printf.sprintf "@full_apply[env %d]" n
-  | `lifted_lambda (n,o) -> Printf.sprintf "@lifted_lambda[env %d%s]" n (match o with None -> "" | Some i -> Printf.sprintf ", %s" (Ident.to_string i))
+  | `lifted_lambda (n,l) ->
+      Format.sprintf "@@lifted_lambda[env %d,[%a]]"
+        n
+        (Format.pp_list "@ " (fun f i -> Format.pp_print_string f (Ident.to_string i))) l
   | `tagged_string (s, kind) ->
       Printf.sprintf "@tagged_string[%S, %s]" s
         (match kind with
