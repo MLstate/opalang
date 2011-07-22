@@ -17,8 +17,8 @@
 *)
 (**
    Performs 'inlining' of local variables
-   (the usage of variables may be inlined at the point of
-    said variables, but doesn't inline any function)
+   (the usage of variables may be inlined at the point of use
+    of said variables, but doesn't inline any function)
    Local aliases are also removed
 *)
 val local_inline_stm : JsAst.statement -> JsAst.statement
@@ -34,6 +34,9 @@ val global_inline_analyse_stm : env -> JsAst.statement -> env
 val global_inline_analyse_code : env -> JsAst.code -> env
 val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement
 
+(**
+   The interface for separate compilation
+*)
 module R :
 sig
   val load : env -> env

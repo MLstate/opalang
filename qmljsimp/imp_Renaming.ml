@@ -21,6 +21,7 @@ module List = Base.List
 
 
 exception NotImplemented
+
 (*--------------------------------*)
 (*----  control flow -------------*)
 (*--------------------------------*)
@@ -29,16 +30,16 @@ type expr_or_stm =
   | Stm of J.statement
 
 type node = {
-  name : string; (* this name if for debug *)
+  name : string; (* this name is for debug *)
   id : int; (* this id is used to define comparison/hashing on nodes *)
   label : Annot.t option; (* the label is used to identify the expr of statement
                            * that generated the current node
                            * it is only meant for cleaning useless assigments *)
-  def : JsIdentSet.t; (* FIXME should be small sets *)
-  use : JsIdentSet.t; (* FIXME should be small sets *)
-  mutable live_in : JsIdentSet.t; (* FIXME should be small sets *)
-  mutable live_out : JsIdentSet.t; (* FIXME should be small sets *)
-  content : expr_or_stm; (* unused for now, could be removed *)
+  def : JsIdentSet.t; (* FIXME: should be small sets *)
+  use : JsIdentSet.t; (* FIXME: should be small sets *)
+  mutable live_in : JsIdentSet.t; (* FIXME: should be small sets *)
+  mutable live_out : JsIdentSet.t; (* FIXME: should be small sets *)
+  content : expr_or_stm; (* unused, could be removed *)
   alias : bool; (* when true, then the current node is an alias
                  * and so it is treated specially when building the
                  * interference graph *)
@@ -146,6 +147,8 @@ let build_control_flow_graph ?name params body =
   } in
   let local_vars = ref JsIdentSet.empty in
 
+  (* [aux] returns the entry node and output node of the control flow graph
+   * of the [orig_stm] *)
   let rec aux_stm env orig_stm =
     match orig_stm with
     | J.Js_while (_, expr, stm) ->
@@ -200,7 +203,7 @@ let build_control_flow_graph ?name params body =
         let to_ = aux_expr return e in
         link to_ (Option.get env.current_return);
         (* i think this is conservative but i am not so sure *)
-        (* FIXME should probably return (return, `return)
+        (* FIXME: should probably return (return, `return)
          * and that way, we don't the env anymore *)
         return, to_
     | J.Js_return (_, None) ->
@@ -254,7 +257,10 @@ let build_control_flow_graph ?name params body =
                  link end_s end_);
         start, end_
     | J.Js_throw _ ->
-        raise NotImplemented (* chiantos! but cana be done *)
+        (* exceptions are not dealt with
+         * presumably, you should say that a throw flows to the exit of
+         * the current function *)
+        raise NotImplemented
     | J.Js_label (_, label, s) ->
         let node = node_of_stm "label" orig_stm in
         let env = {env with labels = StringMap.add label node env.labels} in
@@ -283,7 +289,8 @@ let build_control_flow_graph ?name params body =
          * can possibly raise exceptions *)
         raise NotImplemented
     | J.Js_dowhile _ ->
-        raise NotImplemented (* this one is just lazyness *)
+        (* this one is just lazyness, because nobody uses it *)
+        raise NotImplemented
     | J.Js_comment _ ->
         let dummy = node_of_stm "comment" orig_stm in
         dummy, dummy
@@ -308,6 +315,8 @@ let build_control_flow_graph ?name params body =
     | None -> from
     | Some e -> aux_expr from e
 
+  (* [aux_expr] returns the output node of the control flow graph
+   * of [expr] that starts at [from] *)
   and aux_expr from orig_expr =
     match orig_expr with
     | J.Je_ident (_,i) when JsIdentSet.mem i !local_vars
@@ -434,7 +443,7 @@ let build_control_flow_graph ?name params body =
            | J.Js_function (_,i,_,_) ->
                if JsIdent.equal i arguments then
                  raise Exit (* if you can use a parameter by saying arguments[i]
-                             * then you have some uses of your parameters are hidden
+                             * then some uses of your parameters are hidden
                              * and squashing won't be correct *)
                else
                  JsIdentSet.add i local_vars
@@ -470,8 +479,7 @@ let build_control_flow_graph ?name params body =
       Some (_file, to_, g)
     with
     | Exit ->
-      (* someone aborted the analysis
-       * for good reasons *)
+      (* someone aborted the analysis for good reasons *)
       None
     | NotImplemented ->
         (* the analysis failed on a construct
@@ -558,36 +566,14 @@ let build_interference_graph control_flow_graph =
  * Since several variables can be given the same color,
  * variables can be squashed
  *
- * Here the coloring using the smaller number of colors is found
+ * Here we do not try very hard to find a good coloring
+ * (currently, ocamlgraph implements a simple greedy algorithm)
+ * because trying harder completely blew up compilation times
+ * and it turns out to be satisfactory as is
  *)
-(*let color_interference_graph g =
-  (* TODO: dichotomy *)
-  (* TODO: use Coloring.Mark instead and see if it is quicker *)
-  let rec aux i =
-    try (i, Coloring.coloring g i)
-    with _ -> aux (i+1) in
-  aux 0*)
 let color_interference_graph g =
   let size = max 1 (GIdent.nb_vertex g) in
   (size, Coloring.coloring g size)
-  (*
-  (* TODO: use Coloring.Mark instead and see if it is quicker *)
-  let size = max 1 (GIdent.nb_vertex g) in
-  let rec aux last_success min max =
-    Printf.printf "min: %d, max: %d\n%!" min max;
-    if float (max - min) /. float size < 0.2 && last_success <> None then Option.get last_success else (
-      let middle = (min + max) / 2 in
-      (*let middle = max in*)
-      try
-        let success = Some (middle, Coloring.coloring g middle) in
-        Printf.printf "success\n%!";
-        aux success min (middle-1)
-        (*Option.get success*)
-      with e when fst (fst (Obj.magic e)) = "Coloring.Mark(G).NoColoring" ->
-        Printf.printf "fail\n%!";
-        aux last_success (middle+1) max
-    ) in
-  aux None 1 size*)
 
 (*
  * This function uses to the result of the coloring
@@ -602,7 +588,7 @@ let color_interference_graph g =
  *)
 let squash_variables dummy_bindings renaming params body =
   (* colors seems to be numbered from 1 *)
-  (* the seen table allow one to avoid renaming*)
+  (* the seen table allow one to avoid renaming *)
   let length = Coloring.H.length renaming + 1 in
   let seen = Array.make length false in
   let var_of_int_unseen =
@@ -622,6 +608,8 @@ let squash_variables dummy_bindings renaming params body =
   let params =
     let aux param = var_of_int (Coloring.H.find renaming param) in
     List.map aux params in
+
+  (* first renaming variables in expressions *)
   let body =
     List.map
       (JsWalk.ExprInStatement.map
@@ -635,13 +623,21 @@ let squash_variables dummy_bindings renaming params body =
             | J.Je_function _ -> assert false
             | _ -> e)
       ) body in
+
+  (* the variables renamed so far are the only used variables (and not just defined variables) *)
   List.iter (fun p ->
                let color = Coloring.H.find renaming p in
                seen.(color) <- false (* no need to put a var on a variable that is a parameter *)
             ) orig_params;
+
+  (* rewriting the Js_var nodes:
+     - remove duplicate [var] arising from squashed variables
+     - renaming the variables
+     - removing some bindings that were detected as useless
+  *)
   let body =
     List.map
-      (JsWalk.OnlyStatement.map_up (* map up allows because we must not called ourself recursively THERE *)
+      (JsWalk.OnlyStatement.map_up (* map up because we must not call ourself recursively THERE *)
          (fun s ->
             match s with
             | J.Js_var (label, s, Some e) when AnnotSet.mem (Annot.annot label) dummy_bindings ->

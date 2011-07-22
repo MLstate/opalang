@@ -169,6 +169,8 @@ struct
     else
       None
 
+  (* when the relevant option is activated, inserting type checks that the js
+   * object received correspond to the type declared in the bsl *)
   let rec aux_qml_of_js key env private_env typ id : (private_env * JsAst.expr) option =
     match typ with
     | B.Const (_, c) ->
@@ -244,17 +246,10 @@ struct
             ~outputs:(aux_qml_of_js key env)
             private_env
             inputs output id in
-        (*let closure_mode = env.options.Qml2jsOptions.qml_closure in
-        if closure_mode then
-          let private_env, ast =
-            match initial_conv with
-            | None -> private_env, JsCons.Expr.ident id
-            | Some (private_env, ast) -> private_env, ast in
-          let ast = call_native "clos_import" [ast; JsCons.Expr.int (List.length inputs)] in
-          Some (private_env, ast)
-        else*)
-          initial_conv
+        initial_conv
 
+  (* in the projection qml -> js, there is no check since the typer
+   * already checks that the input of bypasses are right *)
   and aux_js_of_qml key env private_env typ id =
     match typ with
     | B.Const _ ->
@@ -264,7 +259,8 @@ struct
         None
 
     | B.Void _ ->
-        (* Nobody cares about the returned value of a javascript function returning nothing *)
+        (* Nobody cares about the returned value of a javascript function
+         * returning nothing *)
         None
 
     | B.Bool _ ->
@@ -287,18 +283,7 @@ struct
             ~outputs:(aux_js_of_qml key env)
             private_env
             inputs output id in
-        (*let closure_mode = env.options.Qml2jsOptions.qml_closure in
-        if closure_mode then
-          let private_env_backup = private_env in
-          let private_env, fresh = fresh_var private_env "f" in
-          let private_env, ast =
-            let export_id = call_native "clos_export" [JsCons.Expr.ident id] in
-            match p private_env fresh with
-            | None -> private_env_backup, export_id
-            | Some (private_env,ast) -> private_env, JsCons.Expr.comma [JsCons.Expr.assign_ident fresh export_id] ast in
-          Some (private_env, ast)
-        else*)
-          p private_env id
+        p private_env id
 
   let wrap_return_of_aux = function
     | None -> None

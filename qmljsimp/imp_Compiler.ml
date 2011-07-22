@@ -52,7 +52,8 @@ let _outputer oc js_code =
   let fmt = Format.formatter_of_out_channel oc in
   Format.fprintf fmt "%a%!" JsPrint.pp#code js_code
 
-let repeat2 n f =
+(* repeats [f] [n] times *)
+let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
   let rec aux i a b =
     if i = n then a, b
     else
@@ -68,6 +69,15 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in
 
+  (* lambda lifting used to generate some code specially for qmljsimp
+   * but now that lambda lifting is done before slicing, we can't do that anymore
+   * here we use the directives left by the lambda lifting in the code to generate
+   * the code as it was before the early lambda lifting:
+   * - no partial application
+   * - the code is almost lifted ie one lambda appears at the toplevel
+   *   or two successive lambdas appear at the toplevel
+   *   (the first lambda taking the environment, and the second the argument)
+   *)
   let code =
     QmlAstWalk.CodeExpr.map
       (QmlAstWalk.Expr.map
@@ -95,6 +105,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
           | QmlAst.Directive (_,(`lifted_lambda _ | `full_apply _),_,_) -> assert false
           | e -> e)
       ) code in
+
   let _private_env, js_code = Imp_Code.compile env private_env code in
   #<If:JS_IMP$contains "time"> Printf.printf "qml -> js: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;
@@ -151,6 +162,8 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
   #<If:JS_IMP$contains "time"> Printf.printf "local inline: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_4_local_inline" _outputer js_code) #<End>;
 
+  (* local renaming must be done last, because it generates very tricky code
+   * when it squashes variables together *)
   let js_code = if options.Qml2jsOptions.alpha_renaming then Imp_Renaming.rename js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "local renaming: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_5_local_renaming" _outputer js_code) #<End>;

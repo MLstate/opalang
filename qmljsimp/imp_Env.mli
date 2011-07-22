@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(* the environment that does not vary while compiling *)
 type env = {
   options : Qml2jsOptions.t;
   gamma : QmlTypes.gamma;
@@ -25,9 +27,12 @@ type env = {
   renaming_server : QmlRenamingMap.t;
 }
 
+(* the environment that is passed around as an accumulator *)
 type private_env = {
   local_vars : JsAst.ident list;
-  renaming : JsAst.ident IdentMap.t; (* a local renaming of the parameters of functions *)
+  renaming : JsAst.ident IdentMap.t; (* a local renaming of the parameters of functions
+                                      * used when squashing together the body of mutually
+                                      * recursive functions *)
   no_warn_x : unit;
 }
 

@@ -20,6 +20,17 @@ module List = Base.List
 module Format = Base.Format
 module String = Base.String
 
+(* Inlining works roughly as described in
+   http://research.microsoft.com/en-us/um/people/simonpj/Papers/inlining/
+
+   Note that it works only on generated code, and not on javascript in general
+   It cannot deal with code that is too imperative. However the generated code is not
+   completely functional either because the compilation of tail calls introduces some
+   assignments.
+   Due to this imperativeness, inlining is more complicated that what is described
+   in the paper.
+*)
+
 type occur_kind =
   | NeverUsed (* in that case, the value of the binding is necessarily read
                * if the var never appears and the value of its bindings is not
@@ -31,8 +42,7 @@ type occur_kind =
                                  * for example, it is false in [x = f(); if bool then x],
                                  * since f() may be a side effect, you cannot inline x
                                  *)
-  | Multiple(* of bool*) (* multiple occurrences after possibly any binding
-                          * [true] means that the binding is used as an expression *)
+  | Multiple (* multiple occurrences after possibly any binding *)
       (* BEWARE:
        * (a=1)+a counts as two occurrences of a
        * when (a=1, a) counts as one occurrence of a
@@ -40,7 +50,7 @@ type occur_kind =
        *)
 
 let occurrence_analysis params code =
-  let acc = JsIdentMap.empty in
+  let acc = JsIdentMap.empty in (* maps identifiers to their occur kind *)
   let env = JsIdentSet.empty in (* the set of parameters that have been assigned at the current point in the program *)
   let safe_vars = JsIdentSet.empty in (* the set of variables that are always used when defined (if they are used)
                                        * used to compute the value of the boolean in the Once case of occur_kind
@@ -180,13 +190,10 @@ let local_inlining_policy = function
   (* beware not to inline side effects, even once
    * you can reorder them by doing so *)
   | _e ->
-      (*if Imp_Common.does_side_effects _e then
-        `never
-      else*)
       (* we must check later whether there are side effects or not
        * because we can potentially inline an expression that does side effect
        * into one that didn't *)
-        `once
+      `once
 
 type inline_kind =
   | Safe of J.expr (* you can inline this binding *)
@@ -194,8 +201,8 @@ type inline_kind =
                       * an assignment that would make inlining invalid *)
 
 let simplify occur_env params code =
-  let env = JsIdentSet.empty in
-  let acc = JsIdentMap.empty in (* the set of identifiers to be inlined *)
+  let env = JsIdentSet.empty in (* same as in occurrence_analysis *)
+  let acc = JsIdentMap.empty in (* maps identifiers to be inlined to their inline_kind *)
   let weak_acc = JsIdentMap.empty in (* the set of identifiers to be inlined if no side effect happens
                                       * between the def and the use *)
   let set_to_clean_up = ref JsIdentSet.empty in (* the binding of these identifiers and its expression should be removed *)
@@ -347,7 +354,7 @@ let simplify occur_env params code =
             (* same as in the case Safe in acc
              * the only difference is that the weak_map
              * is reset from times to times
-             * since we just inlined something contains a side effect
+             * since we just inlined something that contains a side effect
              * we must empty the weak acc *)
             let e = JsIdentMap.find i weak_acc in
             set_to_clean_up := JsIdentSet.add i !set_to_clean_up;
@@ -424,7 +431,8 @@ let local_inline code =
 let global_inlining_policy_for_var e =
   (* since we can't know whether a global variable is used several times
    * we assume global vars are always used several times
-   * FIXME: actually, we could when the variable is not exported of the compilation unit *)
+   * FIXME: actually, we could when the variable is not exported of the compilation unit
+   * but this information is lost (for now) very early in the compilation *)
   match e with
   | J.Je_ident _
   | J.Je_num _
@@ -437,20 +445,11 @@ let global_inlining_policy_for_var e =
   | _ -> false
 
 let global_inlining_policy_for_function _name params body =
-  (* FIXME: same here, when a function is used, it can be inlined no matter what *)
-  (* inliner function f(x,y) { return x+x } c'est chiant,
-   * inliner function g(x,y) { return x+y } c'est mieux
-   * inliner function h(x,y) { return y+x } ??
-   * parce que: f(BIG1,BIG2) -> (tmp = BIG1, BIG2, tmp+tmp)
-   *            g(BIG1,BIG2) -> (BIG1 + BIG2)
-   *            h(BIG1,BIG2) -> (tmp = BIG1, BIG2 + tmp) si on veut conserver l'ordre d'évaluation
-   * en plus ça dépend de si on peut réutiliser une variable local ou pas
-   * si les arguments ne font pas d'effet de bord, l'ordre d'eval, on s'en fout
-   * si on travaille sur du code généré l'ordre d'éval on s'en fout
-   * si les arguments sont des identifiants, ou des trucs inlinables à l'infini comme des int
-   *  ça fait pas pareil...
-   *)
-  (* BEWARE BEWARE BEWARE: should make sure not to put recursive functinos in here
+  (* FIXME: same here, when a function is used once, it can be inlined no matter what *)
+  (* we inline but we do not want to make the code bigger, and it is difficult to know
+   * beforehand if the inlined code will be simplified or not
+   * so for now, we are conservative when choosing or not to inline *)
+  (* BEWARE: should make sure not to put recursive functions in here
    * FIXME: should be able to inline functions as:
    * function(x) {
    *   var a;
@@ -484,6 +483,8 @@ let global_inlining_policy_for_function _name params body =
     )
   | _ -> None
 
+(* alpha converting [vars] in [body], while returning the new names of [vars]
+ * (and the new body of course)*)
 let refresh vars body =
   let freshs = List.map (fun _ -> Imp_Env.next_param "inline") vars in
   let map =
@@ -505,9 +506,15 @@ let refresh vars body =
 
 type env = {
   functions : [`var of J.expr | `fun_ of (JsIdent.t list * J.expr) ] JsIdentMap.t;
+  (* maps from some global identifiers (the only that we saw fit for inlining)
+   * to their body *)
+
   closures : JsIdent.t JsIdentMap.t;
+  (* used to map empty closures to the function they represent
+   * most probably useless now *)
 }
 
+(* utility to save [env] for separated compilation *)
 module S =
 struct
   type t = env
@@ -571,6 +578,8 @@ let empty_env = { functions = JsIdentMap.empty; closures = JsIdentMap.empty }
 let env_of_map closure_map =
   let closure_map = IdentMap.fold (fun k v acc -> JsIdentMap.add (JsCons.Ident.ident k) (JsCons.Ident.ident v) acc) closure_map JsIdentMap.empty in
   { functions = JsIdentMap.empty; closures = closure_map }
+
+(* analysis of a toplevel statement, it fills the environment *)
 let global_inline_analyse_stm (env:env) stm =
   JsWalk.OnlyStatement.fold
     (fun env -> function
@@ -591,6 +600,7 @@ let global_inline_analyse_stm (env:env) stm =
 let global_inline_analyse_code env code =
   List.fold_left global_inline_analyse_stm env code
 
+(* rewriting of a toplevel statement, given an inlining environment *)
 let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement =
   let make_var_decl local_vars =
     List.map (fun i -> JsCons.Statement.var i ?expr:None) local_vars in

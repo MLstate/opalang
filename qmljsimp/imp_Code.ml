@@ -33,6 +33,7 @@ module J = JsAst
 module Q = QmlAst
 module P = Imp_PatternAnalysis
 
+(* directives that are simply removed from the ast when compiling them *)
 type ('a, 'b) ignored_directive = [
 | QmlAst.type_directive
 | `async
@@ -57,7 +58,7 @@ let maybe_cons o l =
  * - void is shared
  * - {true=void} and {false=void} are actual booleans
  * - other records are represented as is
- * - records may have a field _size or not, which may
+ * - records may have a field size` or not, which may
  *   be created during pattern matching
  *)
 
@@ -112,6 +113,7 @@ let may_alias_matched_end cons alias result =
   | Some alias -> cons alias result
   | None -> result
 
+(* compilation of an expression into a javascript expression *)
 let compile_expr_to_expr env private_env expr =
   let rec aux private_env expr =
     let toplevel_expr = expr in
@@ -131,6 +133,7 @@ let compile_expr_to_expr env private_env expr =
         private_env, compile_bypass env key
 
     | Q.Lambda _ ->
+        (* a precondition of the backend is that the code is lambda lifted *)
         unimplemented "internal lambda"
 
     | Q.Apply (_, f, args) ->
@@ -162,6 +165,8 @@ let compile_expr_to_expr env private_env expr =
         private_env, JsCons.Expr.comma exprs e
 
     | Q.LetRecIn _ ->
+        (* since the code is lambda lifted, and recursion is allowed only on
+         * functions, this cannot happen *)
         unimplemented "internal rec lambda"
 
     | Q.Match (_, expr, patterns) -> (
@@ -242,6 +247,8 @@ let compile_expr_to_expr env private_env expr =
         private_env, e
 
     | Q.Dot (_, original_e, s) ->
+        (* beware of the tricky case x.true and x.false,  because x maybe the
+         * boolean true or an actual record with the field true *)
         let private_env, e = aux private_env original_e in
         let e =
           match s with
@@ -393,10 +400,83 @@ let add_bindings_statement bindings statement =
       let stmts = List.fold_left fold [statement] (List.rev bindings) in
       JsCons.Statement.block stmts
 
+(*
+Compilation of tail recursion
+f(x) = g(x+1)
+g(x) = f(x+2)
+
+is compiled as:
+
+function f_g(case_, a) {
+  while (true) {
+    switch (case_) {
+    case 0:
+      /* body of f */
+      case_ = 1;
+      a = a + 1;
+      continue;
+    case 1:
+      /* body of g */
+      case_ = 0;
+      a = a + 2;
+      continue;
+    }
+  }
+}
+function f(x) {
+  return f_g(0,x);
+}
+function g(x) {
+  return f_g(1,x);
+}
+
+The code is almost lambda lifted in the sense that you can have one lambda
+at toplevel or two lambdas at toplevel but no other possibility.
+When lifted functions are mutually recursive, the two lambdas are squashed together:
+
+outer(y) =
+  rec f(x) = g(x+y)
+  and g(x) = f(x)
+  f
+
+becomes:
+
+function f_g(case_,y,x) {
+  while (true) {
+    switch(case_) {
+    case 0: /* body of f */
+    case 1: /* body of g */
+    }
+  }
+}
+function f(y) {
+  return function (x) {
+    return f_g(0,y,x);
+  }
+}
+function g(y) {
+  return function (x) {
+    return f_g(0,y,x);
+  }
+}
+function outer(y) {
+  return f(y);
+}
+*)
 type recursion_info = {
   case_ident : J.ident option;
-  params : J.ident list IdentMap.t; (* these parameters are the renamed ones *)
-  index : int IdentMap.t; (* meaningless when not_mutual is true *)
+  (* the variable case_ in the above example, when
+   * the recursion is mutual or None otherwise *)
+  params : J.ident list IdentMap.t;
+  (* these parameters are the renamed ones
+   * in the example:
+   * f -> [a]
+   * g -> [a] *)
+  index : int IdentMap.t;
+  (* meaningless when not_mutual is true
+   * in the example:
+   * f -> 0
+   * g -> 1 *)
   number_of_funs : int;
 }
 
@@ -418,10 +498,17 @@ let add_occurring_variables acc variables_to_look_for expr =
  * to each other}
  * This is used to avoid squashing together the body of many
  * recursive functions when they don't make tail call to each other
+ * Note that if we have a tail call from one function to another (but not a
+ * cycle), here we choose to regroup them, but the other choice would
+ * probably be valid as well
  *)
 let analyse_tail_recursion bindings =
+  (* env contains for each bound identifier in [bindings], the identifiers
+   * to which its body makes tail calls to *)
   let env : IdentSet.t IdentTable.t = IdentTable.create (List.length bindings) in
   List.iter (fun (i,_) -> IdentTable.add env i IdentSet.empty) bindings;
+
+  (* first build a kind of call graph with only the recursive tail calls *)
   let rec aux myself = function
     | Q.LetIn (_, _, e) -> aux myself e
     | Q.Match (_, _, pel) -> List.iter (fun (_,e) -> aux myself e) pel
@@ -452,6 +539,8 @@ let analyse_tail_recursion bindings =
          Format.printf "@."
        #<End>
     ) bindings;
+
+  (* then building the groups of bindings making recursive tail calls to each other *)
   let binding_of_ident i =
     List.find (fun (j,_e) -> Ident.equal i j) bindings in
   let _already_seen, groups =
@@ -475,6 +564,11 @@ let analyse_tail_recursion bindings =
 (*
  * Compiles one function in a set of recursive bindings
  * with the optimization for tail rec calls
+ * To be able to generate the [continue] where there are tail calls, we
+ * must compile an opa expression into a javascript statement everywhere
+ * where we have a tail call.
+ * In practice, we compile to statements everywhere where we _may_ have
+ * a tail call
  *)
 let compile_function_body_aux env private_env recursion_info name body =
   #<If:JS_MATCH_COMPILATION $contains "code_elt">
@@ -485,6 +579,24 @@ let compile_function_body_aux env private_env recursion_info name body =
       FilePos.pp pos
       (Ident.stident name)
   #<End>;
+
+  (* this function is generating the tail calls
+   * it turns out to be quite tricky because we don't want to generate too many
+   * auxiliary variables, but sometimes we must generate some anyway:
+   * f(x,y) = f(y,x)
+   * will be compiled into:
+   * function f(x,y) {
+   *   while (true) {
+   *     var tmp;
+   *     tmp = x;
+   *     x = y;
+   *     y = tmp;
+   *   }
+   * }
+   * because we cannot avoid the temporary variable.
+   * Some analysis of dependency between the arguments of the tail calls
+   * is necessary to minimize the number of temporary variables.
+   *)
   let rec aux_fun private_env ?(fun_env=[]) f args =
     let args = if recursion_info.number_of_funs = 1 then args else fun_env @ args in
     let params = IdentMap.find f recursion_info.params in
@@ -527,6 +639,7 @@ let compile_function_body_aux env private_env recursion_info name body =
              (rev_assignments,rev_aliases1,rev_aliases2,private_env)
         ) ([],[],[],private_env) params args in
 
+    (* adding comments or else the generated code is really difficult to read *)
     let set_callee =
       match recursion_info.case_ident with
       | None -> [JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "simple rec call (to %s)" (Ident.to_string f))]
@@ -534,15 +647,27 @@ let compile_function_body_aux env private_env recursion_info name body =
           let my_index = IdentMap.find name recursion_info.index in
           let other_index = IdentMap.find f recursion_info.index in
           if my_index + 1 = other_index then
+            (* as an additional trick, when calling the next function in the recursive group
+             * we can simply fall through into its code:
+             * f(x) = g(x)
+             * g(x) = f(x)
+             * becomes:
+             * function f_g(case_,x) {
+             *   while (true) {
+             *     switch (case_) {
+             *     case 0: /* fall through */
+             *     case 1: case_ = 0
+             *     }
+             *   }
+             * }
+             *)
             [JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "rec call (to %s) / falling through" (Ident.to_string f))]
           else (
             let s1 = JsCons.Statement.assign_ident case_ (JsCons.Expr.int other_index) in
             let s2 = JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "rec call (to %s) / general case" (Ident.to_string f)) in
-            (* we could use break instead of continue but if we generate some switch
-             * (because we will break that switch instead of the one just inside the while(true))
-             * then it might break *)
             if recursion_info.number_of_funs = my_index + 1 then
-              (* no need to put a continue in the last case of the switch *)
+              (* no need to put a continue in the last case of the switch
+               * (see the example above, in the right hand side of the 'case 1') *)
               [s1;s2]
             else
               let s3 = JsCons.Statement.continue () in
@@ -550,6 +675,7 @@ let compile_function_body_aux env private_env recursion_info name body =
           ) in
     private_env, JsCons.Statement.block (rev_aliases1 @ List.rev rev_assignments @ rev_aliases2 @ set_callee)
 
+  (* compilation of an expression as a javascript statement per se *)
   and aux private_env body =
     match body with
     | Q.Apply (_, Q.Directive (_, `partial_apply _, [Q.Apply (_, Q.Ident (_, f), fun_env)], _), args)
@@ -685,6 +811,8 @@ let wrap_function_bodies _env private_env recursion_info unified_params bodies =
   let body = JsCons.Statement.function_ name (case_ident :: unified_params) (maybe_cons init_body [while_]) in
   private_env, name, body
 
+(* this generate the 'wrapper' that simply calls the recursive function
+ * (ie f or g that call f_g in the example above) *)
 let define_functions rec_name funs =
   List.mapi
     (fun i (name,fun_env,params,_body) ->
@@ -710,6 +838,7 @@ let define_functions rec_name funs =
            ]
     ) funs
 
+(* compilation of l, which is a set of mutually recursive functions *)
 let compile_function_bodies env private_env l =
   let extract_function = function
     | (i, Q.Lambda (_, params1, Q.Lambda (_, params2, body))) -> (i, Some params1, params2, body)
@@ -763,6 +892,10 @@ let compile_function_bodies env private_env l =
         let not_rec_funs = define_functions rec_name funs in
         private_env, JsCons.Statement.block (rec_fun :: not_rec_funs)
 
+(* this generates some debug when set: it generates error when
+ * on of the formal parameters of a function is undefined (which cannot happen
+ * in generated code) very early (so that you don't need to track
+ * the undefined value by hand by unwinding the stack) *)
 let assert_number_arguments __params =
   #<If:JS_IMP$contains "runtimedebug">
     [
@@ -777,6 +910,9 @@ let assert_number_arguments __params =
     []
   #<End>
 
+(* compilation of a non recursive function
+ * when there are no tail rec calls, you don't need to compile the body of the
+ * function to a statement, so it is compiled as an expression only *)
 let compile_fun env private_env i ?fun_env params body =
   let private_env, body = compile_expr_to_expr env private_env body in
   let private_env, declaration = E.maybe_declare_local_vars private_env in
@@ -799,6 +935,8 @@ let compile_fun env private_env i ?fun_env params body =
           ] in
   private_env, stm
 
+(* this directive compiles the nodes that can appear only at the toplevel of
+ * expressions *)
 let compile_non_rec_declaration env private_env (i,e) =
   #<If:JS_MATCH_COMPILATION $contains "code_elt">
     let pos = Q.Pos.expr e in
@@ -856,7 +994,7 @@ let compile_non_rec_declaration env private_env (i,e) =
         match o with
         | None -> e
         | Some declaration ->
-            (* the expression has a local vars, we must wrap it inside
+            (* the expression has local vars, we must wrap it inside
              * a function() { ... }() to open a new scope *)
             JsCons.Expr.call ~pure:false
               (JsCons.Expr.function_ None [] [declaration; JsCons.Statement.return e])

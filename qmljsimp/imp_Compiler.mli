@@ -15,8 +15,13 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 (**
    qmljsimp: imperative js backend for qml
+   Since the backend registers itself in qml2jsoptions through
+   side effects, beware that you must link it
+   (either by using the warning set below, or by linking the cmxa
+    containing it with -linkall)
 *)
 
 val warning_set : WarningClass.Set.t

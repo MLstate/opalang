@@ -18,8 +18,11 @@
 module J = JsAst
 module List = Base.List
 
+(*
+ * these functions flatten nested blocks and removes empty blocks
+ *)
+
 let rec clean_block_stm acc stm =
-  (* not sure how to write that with traverse *)
   match stm with
   | J.Js_block (_,body) -> clean_block_stms acc body
   | J.Js_function (label, name, params, statements) ->
@@ -54,6 +57,13 @@ and always_return_stms stms =
 
 let compare_label = String.compare
 
+exception ComparisonFailure
+
+(* cannot use the generic equality because you have annotation
+ * and positions everywhere in the ast
+ * can raise ComparisonFailure when the comparison is not implemented
+ * (this case probably never happens because it happens only on
+ * generated code and not on hand written javascript) *)
 let rec compare_expr e1 e2 =
   match e1, e2 with
   | J.Je_this _, J.Je_this _ -> 0
@@ -173,7 +183,7 @@ let rec compare_expr e1 e2 =
   | _, J.Je_runtime _ -> 1
 
   | J.Je_hole _, J.Je_hole _ ->
-      failwith "Screw you, write the comparison yourself"
+      raise ComparisonFailure
 
 and compare_stm s1 s2 =
   match s1, s2 with
@@ -322,51 +332,74 @@ and compare_stm s1 s2 =
   | _, J.Js_label _ -> 1
   | J.Js_comment _, J.Js_comment _ -> 0
 
+(* a simple peep hole pass
+ * this rewriting does not (always) reach a fixpoint *)
 let clean_assign ~use_shortcut_assignment stm =
   JsWalk.TStatement.map_up
     (fun s ->
        match s with
+
        | J.Js_expr (_,e) when not (Imp_Common.does_side_effects e) ->
            JsCons.Statement.block []
+
        | J.Js_if (label,J.Je_unop(_,J.Ju_not,e),s1,Some s2) ->
            (* if (!e) s1 s2 -> if (e) s2 s1 *)
            J.Js_if (label, e, s2, Some s1)
+
        | J.Js_if (_, J.Je_unop (_,J.Ju_not,e1),J.Js_expr (_,e2),None) ->
            (* if (!e1) { e2 } -> e1 || e2 *)
            JsCons.Statement.expr (JsCons.Expr.lor_ e1 e2)
+
        | J.Js_if (_, e1,J.Js_expr (_,e2),None) ->
            (* if (e1) { e2 } -> e1 && e2 *)
            JsCons.Statement.expr (JsCons.Expr.land_ e1 e2)
-       | J.Js_if (_, e1,J.Js_expr (_,J.Je_binop (_, J.Jb_assign, assign1, value1)),Some J.Js_expr (_,J.Je_binop (_, J.Jb_assign, assign2, value2))) when compare_expr assign1 assign2 = 0 ->
+
+       | J.Js_if (_, e1,J.Js_expr (_,J.Je_binop (_, J.Jb_assign, assign1, value1)),Some J.Js_expr (_,J.Je_binop (_, J.Jb_assign, assign2, value2))) when try compare_expr assign1 assign2 = 0 with ComparisonFailure -> false ->
            (* if (e1) { assign = value1 } else { assign = value2 } -> assign = e1 ? value1 : value2 *)
            JsCons.Statement.expr (JsCons.Expr.assign assign1 (JsCons.Expr.cond e1 value1 value2))
+
        | J.Js_if (_, e1,J.Js_expr (_,e2), Some J.Js_expr (_,e3)) ->
            (* if (e1) { e2 } else { e3 } -> e1 ? e2 : e3 *)
            JsCons.Statement.expr (JsCons.Expr.cond e1 e2 e3)
+
        | J.Js_if (label1, e1, J.Js_return (label2,Some e2), Some s2) -> (
            match s2 with
            | J.Js_comment _
            | J.Js_block (_,[])
            | J.Js_block (_,[J.Js_comment _]) ->
+               (* if (e1) { return e2 } else { /* comments */ } -> if (e1) { return e2 } *)
+               (* useful because of comments introduced on tail calls
+                * (that may break other rewritings) *)
                J.Js_if (label1, e1, J.Js_return (label2,Some e2), None)
            | J.Js_block (_,[J.Js_return (_,Some e3)])
            | J.Js_return (_,Some e3) ->
+               (* if (e1) { return e2 } else { return e3 } -> return (e1 ? e2 : e3) *)
                J.Js_return (label1, Some (J.Je_cond (label2, e1, e2, e3)))
            | _ -> s
          )
+
        | J.Js_while (label, J.Je_bool (label2,true), s) ->
            let s = clean_block_stm s in
            (match s with
             | J.Js_if (_,e, s1, Some s2) when always_return s2 ->
+                (* while (true) { if (e) { s1 } else { statement_that_returns }} ->
+                   while (e) { s1 }; statement_that_returns *)
                 JsCons.Statement.block [J.Js_while (label, e, s1); s2]
             | J.Js_if (_,e, s1, Some s2) when always_return s1 ->
+                (* while (true) { if (e) { statement_that_returns } else { s2 }} ->
+                   while (!e) { s2 }; statement_that_returns *)
                 JsCons.Statement.block [J.Js_while (label, JsCons.Expr.unop J.Ju_not e, s2); s1]
             | s -> J.Js_while (label, J.Je_bool (label2,true), s))
+
        | _ -> s
     )
     (fun e ->
        match e with
+
        | J.Je_unop (_,J.Ju_not,J.Je_binop (label,op,e1,e2)) -> (
+           (* !(e1 < e2) -> e1 >= e2
+            * !(e1 == e2) -> e1 != e2 etc.
+            * CHECK: this is probably not working with NaN *)
            match op with
            | J.Jb_lt -> J.Je_binop (label, J.Jb_geq, e1, e2)
            | J.Jb_gt -> J.Je_binop (label, J.Jb_leq, e1, e2)
@@ -378,9 +411,17 @@ let clean_assign ~use_shortcut_assignment stm =
            | J.Jb_sneq -> J.Je_binop (label, J.Jb_seq, e1, e2)
            | _ -> e
          )
+
        | J.Je_binop (label, J.Jb_assign, (J.Je_ident (_,i) as ident),
                      (J.Je_binop (_,op,e1,(J.Je_ident(_,j) as right))
                      |J.Je_binop (_,op,J.Je_ident (_,j), (e1 as right)))) when use_shortcut_assignment && JsIdent.equal i j -> (
+           (* i = e1 op i | i = i op e1
+            * i = i + a -> i += a
+            * i = i + 1 -> i += 1 // this one is actually not true
+            *                     // when i is a string
+            *                     // but it doesn't happen on generated code
+            *                     // and, seriously, who would do that in hand written code??
+            * etc. *)
            match op, e1, e1 == right with
            | J.Jb_add, J.Je_num (_,("1"|"1.")), _ (* now, that's just dirty *) -> J.Je_unop (label, J.Ju_add2_post, ident)
            | J.Jb_sub, J.Je_num (_,("1"|"1.")), _ -> J.Je_unop (label, J.Ju_sub2_post, ident)
@@ -399,7 +440,13 @@ let clean_assign ~use_shortcut_assignment stm =
            | J.Jb_or,  _, _ -> J.Je_binop (label, J.Jb_or_assign,  ident, e1)
            | _ -> e
          )
+
        | J.Je_binop (label,op,J.Je_num (_,i1),J.Je_num (_,i2)) -> (
+           (* constant folding
+            * the operations in here should be checked to see
+            * if their behaviour in caml in the same as the one in js
+            * (with overflows, it is very unclear, although the behaviour
+            * of overflows in opa is unclear in the first place) *)
            try
              let i1 = float_of_string i1 in
              let i2 = float_of_string i2 in
@@ -408,7 +455,7 @@ let clean_assign ~use_shortcut_assignment stm =
              match op with
              | J.Jb_mul -> f (i1 *. i2)
              | J.Jb_div -> f (i1 /. i2)
-             (*| J.Jb_mod -> f (i1 % i2) FIXME *)
+             (*| J.Jb_mod -> f (i1 % i2) TODO *)
              | J.Jb_add -> f (i1 +. i2)
              | J.Jb_sub -> f (i1 -. i2)
              | J.Jb_lt -> b (i1 < i2)
@@ -417,18 +464,20 @@ let clean_assign ~use_shortcut_assignment stm =
              | J.Jb_geq -> b (i1 >= i2)
              (*| J.Jb_lsr -> f (i1 lsr i2)
              | J.Jb_lsl -> f (i1 lsl i2)
-             | J.Jb_asr -> f (l1 asr i2) FIXME*)
+             | J.Jb_asr -> f (l1 asr i2) TODO *)
              | J.Jb_eq -> b (i1 = i2)
              | J.Jb_neq -> b (i1 <> i2)
              | J.Jb_land -> f (if i1 <> 0. then i2 else i1)
              | J.Jb_lor -> f (if i1 <> 0. then i1 else i2)
              (*| J.Jb_and -> f (i1 & i2)*)
-                 (*| J.Jb_xor -> i1 *)
-             (*| J.Jb_or -> f (i1 | i2)*) (* FIXME *)
+             (*| J.Jb_xor -> i1 *)
+             (*| J.Jb_or -> f (i1 | i2)*) (* TODO *)
              | _ -> e
            with Failure "float_of_string" ->
+             (* can happen with "NaN" for instance *)
              e
          )
+
        | J.Je_binop(label,J.Jb_add,J.Je_string (_,"",style),J.Je_num (_,s)) -> (
            try
              (* "" + 0x321 doesn't give "0x321", we need to do some kind of normalization
@@ -438,29 +487,44 @@ let clean_assign ~use_shortcut_assignment stm =
              J.Je_string (label,s,style)
            with Failure "int_of_string" -> e
          )
+
        | J.Je_binop(label,J.Jb_add,J.Je_string (_,s1,style),J.Je_string (_,s2,_)) ->
            (* FIXME: need to normalize the ast: "a" + ("b" + c) won't be seen
             * but BEWARE: addition is commutative (on numbers) but not associative in js
             * (1+(2+"a") -> "12a" vs (1+2)+"a") -> "3a" *)
            J.Je_string (label,s1^s2,style)
+
        | J.Je_cond (label,a,J.Je_bool (_,false), J.Je_bool (_,true)) ->
            (* a ? false : true -> !a is valid, but a ? true : false -> a is not valid
             * because a may not be a boolean: [function list_empty(l) { return l.nil ? true : false }] *)
            JsCons.Expr.not_ ~label a
+
        | J.Je_binop (_, J.Jb_assign, (J.Je_ident (_,i) as e), J.Je_ident (_,j)) when JsIdent.equal i j ->
+           (* i = i -> i *)
            e
+
        | J.Je_cond (_,J.Je_bool (_,b), e1, e2) ->
+           (* true ? e1 : e2 -> e1
+            * false ? e1 : e2 -> e2 *)
            if b then e1 else e2
+
        | J.Je_cond (label,J.Je_unop(_,J.Ju_not,e), e1, e2) ->
+           (* !e ? e1 : e2 -> e ? e2 : e1 *)
            J.Je_cond (label, e, e2, e1)
+
        | J.Je_comma (label,el,e) ->
+           (* (side_effect_free_expr, e) -> e *)
            let el = List.filter Imp_Common.does_side_effects el in
            if el = [] then e else J.Je_comma (label,el,e)
+
        | J.Je_function (label,name_opt,params,body) ->
            let body = clean_block body in
            J.Je_function (label,name_opt,params,body)
+
        | J.Je_call (_, J.Je_function (_, None, [], [J.Js_return (_,Some e)]), [], _) ->
+           (* function() { return e }() -> e *)
            e
+
        | _ -> e
     ) stm
 

@@ -38,6 +38,8 @@ let pp_fieldset fmt set =
   ) set
 
 
+(* contains all the calls to the runtime (except the bsl which is called with
+ * bypasses) *)
 module ClientLib =
 struct
   let (!!) s = JsCons.Expr.native_global s
@@ -78,6 +80,8 @@ struct
   let assert_length = !! "assert_length"
 end
 
+(* a very conservative approximation of which expressions do observable side
+ * effects *)
 let does_side_effects e =
   JsWalk.OnlyExpr.exists
     (function
