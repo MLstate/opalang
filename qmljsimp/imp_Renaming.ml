@@ -815,7 +815,7 @@ let rename_code_elt code_elt =
                acc, J.Je_function (label,name,params,body)
          | _ -> tra acc e)
       false code_elt in
-  if failed then JsPasses.local_alpha_stm code_elt else code_elt
+  if failed then Imp_SimpleRenaming.local_alpha_stm code_elt else code_elt
 
 let rename code =
   List.map rename_code_elt code

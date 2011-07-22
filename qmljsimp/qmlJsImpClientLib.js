@@ -16,21 +16,26 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* js_void is shared */
 var js_void = {}
 var _true = true
 var _false = false
+
 /**
  * @type {!Object}
  */
 var js_none = {none:js_void}
+
 /**
   * @return(!Object)
   */
 function js_some(x) { return {some:x} }
+
 function bool2obj(x) {
     // WONT BE IMPLEMENTED or change the name
     return x
 }
+
 function unsafe_dot(r,f) {
     switch (f) {
     case "true": r = dot_true(r); break
@@ -41,6 +46,7 @@ function unsafe_dot(r,f) {
     if (r === undefined) error("unsafe_dot failed on " + f);
     return r
 }
+
 function dot(r,f) {
     switch (f) {
     case "true": r = dot_true(r); break
@@ -51,6 +57,7 @@ function dot(r,f) {
     if (r === undefined) return js_none
     return {some:r}
 }
+
 function udot(r,f) {
     switch (f) {
     case "true": return dot_true(r)
@@ -59,10 +66,14 @@ function udot(r,f) {
     default: return r[f];
     }
 }
+
 function fold_record(f, record, acc) {
-    // FIXME? should try to use the enumeration of object properties
-    // to avoid resorting later
-    // but if we decide to do it, beware with the implementation of extendrecord
+    /* after a few tests:
+     * [for in] is a slow of iterating over the properties of an object
+     *   (even if you don't sort as is done here)
+     * it is actually faster if you have the array of fields
+     * (in addition to the record you want to fold)
+     */
     switch (record) {
     case true: return f("true",js_void,acc)
     case false: return f("false",js_void,acc)
@@ -77,6 +88,7 @@ function fold_record(f, record, acc) {
         return acc
     }
 }
+
 function fold_2_record(f, record1, record2, acc) {
     switch (record1) {
     case true: return f("true", js_void, js_void, acc)
@@ -92,26 +104,32 @@ function fold_2_record(f, record1, record2, acc) {
         return acc
     }
 }
+
 function name_of_field(field) {
     return {some : field}
 }
+
 function field_of_name(name) {
     return {some : name}
 }
+
 function static_field_of_name(name) {
     return name
 }
+
 function empty_constructor() {
     var c = {} /* this object will be modified, do not share it with js_void */
     c[_size] = 0
     return c
 }
+
 function add_field(constructor, field, value) {
     if (field in constructor) error("add_field: trying to add the field " +field+" to the constructor "+constructor.toSource())
     constructor[field] = value;
     constructor[_size]++;
     return constructor
 }
+
 function make_record(constructor) {
     switch (size(constructor)) {
     case 0: return js_void;
@@ -119,6 +137,7 @@ function make_record(constructor) {
     default: return constructor;
     }
 }
+
 function make_simple_record(field) {
     switch (field) {
     case "true": return true
@@ -129,6 +148,7 @@ function make_simple_record(field) {
         return r
     }
 }
+
 function make_onefield_record(field,value) {
     switch (field) {
     case "true": return build_true(value)
@@ -139,22 +159,27 @@ function make_onefield_record(field,value) {
         return r;
     }
 }
+
 function obj2bool() {
     // WONT BE IMPLEMENTED or change the name
     error("obj2bool not implemented")
 }
+
 function normalize_obj(x) { return x;
     // WONT BE IMPLEMENTED
     // error("normalize_obj not implemented")
 }
+
 function normalize_num() {
     // WONT BE IMPLEMENTED or change the name
     error("normalize_num not implemented")
 }
+
 function extendrecord() {
     // WONT BE IMPLEMENTED or change the name
     error("extendrecord not implemented")
 }
+
 function list2js(opalist) {
     var result = [], tl;
     while ((tl = opalist.tl) !== undefined) {
@@ -163,6 +188,7 @@ function list2js(opalist) {
     }
     return result;
 }
+
 function js2list(array) {
     var i = array.length - 1, result = {nil : js_void}
     for (; i >= 0; i--) {
@@ -170,17 +196,19 @@ function js2list(array) {
     }
     return result
 }
+
 function option2js(obj) {
     return 'some' in obj ? obj.some : null
 }
+
 function option2jsu(obj) {
     return obj.some
 }
+
 function js2option(obj) {
     return obj == null ? js_none : {some : obj}
 }
 
-// copy pasted from qmlfunclientlib
 function compare_raw(a,b) {
     switch (typeof a){
     case "number":
@@ -238,6 +266,7 @@ function tailcall_manager_apply(fun, args) {
 function build_true(e) {
     return e === js_void ? true : {'true':e}
 }
+
 function build_false(e) {
     return e === js_void ? false : {'false':e}
 }
@@ -245,6 +274,7 @@ function build_false(e) {
 function dot_true(e) {
     return e === true ? js_void : e["true"]
 }
+
 function dot_false(e) {
     return e === false ? js_void : e["false"]
 }
@@ -269,6 +299,7 @@ function size(x) {
 function uniformize_bool(o) {
     return o === true ? {'true':js_void} : o === false ? {'false':js_void} : o;
 }
+
 function un_uniformize_bool(o) {
     return o["true"] === js_void && size(o) === 1 ? true : o["false"] === js_void && size(o) === 1 ? false : o;
 }
@@ -284,50 +315,67 @@ function extend_record(original_record,new_fields) {
 
 /*
  * dynamic type checking
+ * the functions in here take (at least) a value
+ * and checks that it has the expected type (it is a shallow test
+ * since you can't do much better for functions)
  */
 function typeerror(key,msg) {
     error("TypeError on the bsl key %"+"%"+key+"%"+"% : "+msg)
 }
+
 function type_var(key,value) {
     value != null || typeerror(key,"type var vs value "+value)
 }
+
 function type_bool(key,value) {
     typeof value == "boolean" || typeerror(key,"type bool vs value "+value)
 }
+
 function type_void(key,value) {
     value === js_void || typeerror(key,"type void vs value "+value)
 }
+
 function type_option(key,value) {
     size(value) == 1 && ('none' in value || 'some' in value) || typeerror(key,"type option vs value "+value)
 }
+
 // special case: we accept the js_void, in case of a double projection
 function type_native_void(key,value) {
     value == null || value === js_void || typeerror(key, "type native void vs value "+value)
 }
+
 function type_native_option(key,value) {
     value != null || value === null || typeerror(key, "type native option vs value "+value)
 }
+
 function type_int(key,value) {
     typeof value == "number" && Math.round(value) == value && !isNaN(value) || typeerror(key,"type int vs value "+value)
 }
+
 function type_float(key,value) {
     typeof value == "number" || typeerror(key,"type float vs value "+value)
 }
+
 function type_string(key,value) {
     typeof value == "string" || typeerror(key,"type string vs value "+value)
 }
+
 function type_char(key,value) {
     typeof value == "string" && value.length == 1 || typeerror(key,"type char vs value "+value)
 }
+
 function type_extern(key,value) {
     value != null || typeerror(key,"type extern vs value "+value)
 }
+
 function type_fun(key,value) {
     typeof value == "function" || typeerror(key,"type fun vs value "+value)
 }
+
 function type_fun_arity(key,args,arity) {
     args.length == arity || typeerror(key,"type fun of arity="+arity+" vs arguments received: "+args.length)
 }
+
 function type_opavalue(key,value) {
     value != null || typeerror(key,"type opavalue vs value "+value)
 }

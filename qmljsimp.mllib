@@ -9,4 +9,4 @@ qmljsimp/Imp_SumCase
 qmljsimp/Imp_Renaming
 qmljsimp/Imp_CleanUp
 qmljsimp/Imp_Inlining
-qmljsimp/jsPasses
+qmljsimp/Imp_SimpleRenaming
