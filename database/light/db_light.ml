@@ -190,11 +190,11 @@ let ondemand_add t path ks node =
   | None ->
       #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_add Dbm is closed"#<End>
 
-let ondemand_remove what t path =
+let ondemand_remove _what t path =
   match getdbm t with
   | Some dbm ->
       (* TODO: delete file *)
-      #<If>Logger.log ~color:`yellow "DB-LIGHT : ondemand removing %s %s" what (Path.to_string path)#<End>;
+      #<If>Logger.log ~color:`yellow "DB-LIGHT : ondemand removing %s %s" _what (Path.to_string path)#<End>;
       (try Dbm.remove dbm (Encode_light.encode_path path)
        with Dbm.Dbm_error "dbm_delete" -> Logger.log ~color:`red "ondemand_remove: error")
   | None ->
@@ -386,7 +386,7 @@ let add_bare_tree t tree k =
   st
 
 let rec find_st t path tree k =
-  if not (verifies t path (Some tree)) then verify_data t path (Some tree);
+  (*if not (verifies t path (Some tree)) then verify_data t path (Some tree);*)
   try
     (*eprintf "find_st: trying sts(%s)\n%!" (string_of_sts tree.sts);*)
     let st = Hashtbl.find tree.sts k in
@@ -871,29 +871,50 @@ let start = root_eid
 (*
 let tt_ref = ref (make_t ())
 let file = "/tmp/db_light_self_test"
-let dbl = ref []
 
-let set_dbl file =
+let dodb file f =
   let db = Dbm.opendbm file [(*Dbm.Dbm_create;*) Dbm.Dbm_rdwr] 0O664 in
-  dbl := [];
+  let res = f db in
+  Dbm.close db;
+  res
+
+let k0 = Keys.IntKey 0
+let k1 = Keys.IntKey 1
+let k2 = Keys.IntKey 2
+let path = Path.of_list ([Keys.IntKey 1; Keys.IntKey 0; Keys.IntKey 2; Keys.IntKey 1; Keys.IntKey 583955; Keys.IntKey 0])
+let path1 = Path.of_list ([k1])
+let path10 = Path.add path1 k0
+let path102 = Path.add path10 k2
+let path1021 = Path.add path102 k1
+let path1021n n = Path.add path1021 (Keys.IntKey n)
+let path1021mn m n = Path.add (Path.add path1021 (Keys.IntKey m)) (Keys.IntKey n)
+
+let rawfind file str = dodb file (fun db -> Dbm.find db str)
+let find file path = dodb file (fun db -> snd (Encode_light.decode_kln (Dbm.find db (Encode_light.encode_path path)) 0))
+
+let set_dbl file decode =
+  let dbl = ref [] in
+  dodb file (fun db ->
   Dbm.iter (fun k d ->
               (match k with
                | "version" -> ()
                | "timestamp" -> ()
                | _ -> dbl := (Path.to_string (snd (Encode_light.decode_path k 0)),
-                              snd (Encode_light.decode_kld d 0))::!dbl);
-              print_endline (String.escaped (Printf.sprintf "%s -> %s" k d))) db;
-  Dbm.close db
+                              snd (decode d 0))::!dbl);
+              (*print_endline (String.escaped (Printf.sprintf "%s -> %s" k d)) *) ) db);
+  dbl
 
-let all_disk_nodes () =
-  let db = Dbm.opendbm file [(*Dbm.Dbm_create;*) Dbm.Dbm_rdwr] 0O664 in
+let set_dbld file = set_dbl file Encode_light.decode_datas
+let set_dbln file = set_dbl file Encode_light.decode_kln
+
+let all_disk_nodes file =
   let nodes = ref [] in
+  dodb file (fun db ->
   Dbm.iter (fun k d ->
               (match k with
                | "version" -> ()
                | "timestamp" -> ()
-               | _ -> nodes := ((snd (Encode_light.decode_path k 0))::!nodes))) db;
-  Dbm.close db;
+               | _ -> nodes := ((snd (Encode_light.decode_path k 0))::!nodes))) db);
   !nodes
 
 let cleardb () =

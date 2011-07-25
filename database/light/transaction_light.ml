@@ -135,8 +135,8 @@ let stat tr path =
     let path, kind =
       let rec aux path =
         let (node, _) = Db_light.get_node_of_path tr.tr_db path in
-        Logger.log ~color:`green "Transaction_light.stat: path=%s node=%s\n"
-                                 (Path.to_string path) (Datas.to_string (Node_light.get_content node));
+        #<If>Logger.log ~color:`green "Transaction_light.stat: path=%s node=%s\n"
+                                 (Path.to_string path) (Datas.to_string (Node_light.get_content node))#<End>;
         match Node_light.get_content node with
         | Datas.Data _ -> path, `Data
         | Datas.Link p -> p, `Link
@@ -147,7 +147,7 @@ let stat tr path =
     in
     (path, Some (Revision.make 0), kind)
   with exn ->
-    Logger.log ~color:`red "Transaction_light.stat: exn=%s" (Printexc.to_string exn);
+    #<If>Logger.log ~color:`red "Transaction_light.stat: exn=%s" (Printexc.to_string exn)#<End>;
     raise exn
 
 let datas_from_path tr path = Node_light.get_content (Db_light.node_node (snd (Db_light.follow_link tr.tr_db path)))
