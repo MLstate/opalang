@@ -26,39 +26,79 @@ module List = Base.List
 
 
 (* ************************************************************************** *)
+(** {b Descr}: Kind of fields difference between 2 sum types reported as
+    incompatible during unification. This embedds the case where one of the
+    type is missing cases of the other and the case where both types have the
+    same number of cases, but some of these cases are different.
+    {b Visibility}: Not visible outside this module.                          *)
+(* ************************************************************************** *)
+type missing_or_different_cases_kind =
+  | MODCK_missing of string list list
+  | MODCK_different of (string list list * string list list)
+
+
+
+(* ************************************************************************** *)
 (** {b Descr}: Collects the cases missing between the 2 sums passed as
     argument. If both sums have the same number of cases, then no missing cases
     are reported since we can't really say in this case that one is most
-    "complete" than the other.
+    "complete" than the other. In this case, instead, we report the cases
+    missing in each type compared against the other.
     Missing cases are returned as a list of lists of fields names.
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-let get_missing_cases col_ty1 col_ty2 =
+let get_missing_or_different_cases col_ty1 col_ty2 =
   let col_ty1 = W_CoreTypes.column_type_repr col_ty1 in
   let col_ty2 = W_CoreTypes.column_type_repr col_ty2 in
   let cases1 = fst col_ty1.W_Algebra.ct_value in
   let cases2 = fst col_ty2.W_Algebra.ct_value in
   let nb_cases1 = List.length cases1 in
   let nb_cases2 = List.length cases2 in
+  (* To save computation, we directly transform each sum in a list of lists of
+     fields names. For this, just define a local flattening function and apply
+     it on both sums. *)
+  let flatten_cases cases =
+    List.map
+      (fun row ->
+         let row = W_CoreTypes.row_type_repr row in
+         List.map fst (fst row.W_Algebra.rt_value))
+      cases in
   if nb_cases1 = nb_cases2 then (
     (* Both sums have the same number of cases, so we can't really say that
-       one of them is missing case(s) of the other. *)
-    []
+       one of them is missing case(s) of the other. So, instead, we will try
+       to find the cases that are different (may be  a spelling error). *)
+    (* First, flatten the lists. *)
+    let flat_cases1 = flatten_cases cases1 in
+    let flat_cases2 = flatten_cases cases2 in
+    (* By construction, the remaining cases of cases2 we get at the end are
+       the cases of 2 missing in the cases of 1. *)
+    let (miss1_in2, miss2_in1) =
+      List.fold_left
+        (fun (accu_miss1_in2, rem_cases2) case1 ->
+           try
+             (* If removal succeeds, then [field1] was really found in the list
+                [rem_cases2], and removed from it in the result. *)
+             let rem_cases2' =
+               List.remove_first_or_fail_eq
+                 ~eq:
+                   (fun c_1 c_2 ->
+                      ((List.length c_1) = (List.length c_2)) &&
+                      (List.for_all (fun field -> List.mem field c_2) c_1))
+                 case1 rem_cases2 in
+             (accu_miss1_in2, rem_cases2')
+           with Not_found ->
+             (* [field1] was not present in [rem_cases2], hence it is
+                missing. *)
+             ((case1 :: accu_miss1_in2), rem_cases2))
+        ([], flat_cases2)
+        flat_cases1 in
+    MODCK_different (miss1_in2, miss2_in1)
   )
   else (
     (* Ok, sums have a different number of cases. So determine the least and
        most complete ones before trying to make the difference. *)
     let (least_complete_sum_cases, most_complete_sum_cases) =
       if nb_cases1 < nb_cases2 then (cases1, cases2) else (cases2, cases1) in
-    (* Now, to save computation, directly transform each sum in a list of
-       lists of fields names. For this, just define a local flattening function
-       and apply it on both sums. *)
-    let flatten_cases cases =
-      List.map
-        (fun row ->
-           let row = W_CoreTypes.row_type_repr row in
-           List.map fst (fst row.W_Algebra.rt_value))
-        cases in
     (* Really flatten the 2 sums. *)
     let least_complete = flatten_cases least_complete_sum_cases in
     let most_complete = flatten_cases most_complete_sum_cases in
@@ -80,22 +120,22 @@ let get_missing_cases col_ty1 col_ty2 =
            if drop then accu else mcomplete_fields :: accu)
         []
         most_complete in
-    missing_cases
+    MODCK_missing missing_cases
   )
 
 
 
 (* ************************************************************************** *)
-(** {Descr}: Tries to give hints, clues about why 2 types reported by an
+(** {b Descr}: Tries to give hints, clues about why 2 types reported by an
     unification error are considered not compatible. This function dig the
     types, trying to find some particular cases of errors we can better
     explain. This function is a collection of heuristics and is allowed to be
     a bit heavy since it is called in an error case, i.e. before the
     compilation fails and ends.
-    {Args}:
+    {b Args}:
      - [accur_ty1] : First type involved in the incompatibility error.
      - [accur_ty2] : Second type involved in the incompatibility error.
-    {Visibility} : Not exported outside this module.                          *)
+    {b Visibility} : Not exported outside this module.                        *)
 (* ************************************************************************** *)
 let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
   let accur_ty1 = W_CoreTypes.simple_type_repr accur_ty1 in
@@ -142,16 +182,15 @@ let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
             Format.fprintf ppf
               "only@ appear(s)@ in@ the@ second@ type.@]@\n"
           ) ;
-      | (_, _) ->
+      | (_, _) -> (
           (* Other cases of 2 column types. In this case, not both sums have
              one unique case. In other words, at least one of the sums has
              no or several cases. We will try to find if one of the sums is
              missing cases from the other. *)
-          let missing_cases = get_missing_cases col_ty1 col_ty2 in
-          if missing_cases <> [] then (
-            Format.fprintf ppf
-              ("@\n@[<2>@{<bright>Hint@}:@\nOne@ of@ the@ sum@ types@ " ^^
-               "may@ be@ missing@ the@ following@ cases@ of@ the@ other:") ;
+          let miss_diff_cases =
+            get_missing_or_different_cases col_ty1 col_ty2 in
+          (* Local function to print a list of cases. *)
+          let print_cases cases =
             List.iter
               (fun row_fields_names ->
                  Format.fprintf ppf "@\n@[<2>{ " ;
@@ -159,9 +198,32 @@ let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
                    (fun name -> Format.fprintf ppf "%s@ " name)
                    row_fields_names ;
                  Format.fprintf ppf "}@]")
-              missing_cases ;
-            Format.fprintf ppf ".@]@\n"
-          )
+              cases in
+          match miss_diff_cases with
+          | MODCK_missing missing_cases ->
+              if missing_cases <> [] then (
+                Format.fprintf ppf
+                  ("@\n@[<2>@{<bright>Hint@}:@\nOne@ of@ the@ sum@ types@ " ^^
+                   "may@ be@ missing@ the@ following@ cases@ of@ the@ other:") ;
+                print_cases missing_cases ;
+                Format.fprintf ppf ".@]@\n"
+              )
+          | MODCK_different (miss1_in2, miss2_in1) ->
+              if miss2_in1 <> [] then (
+                Format.fprintf ppf
+                  ("@\n@[<2>@{<bright>Hint@}:@\nFirst@ type@ is@ missing@ " ^^
+                   "the@ following@ cases@ from@ second@ type:") ;
+                print_cases miss2_in1 ;
+                Format.fprintf ppf ".@]@\n"
+              ) ;
+              if miss1_in2 <> [] then (
+                Format.fprintf ppf
+                  ("@\n@[<2>@{<bright>Hint@}:@\nSecond@ type@ is@ missing@ " ^^
+                   "the@ following@ cases@ from@ first@ type:") ;
+                print_cases miss1_in2 ;
+                Format.fprintf ppf ".@]@\n"
+              ) ;
+        )
     )
   | (_, _) ->
       (* Other cases of types. We do not try to explain more for the
