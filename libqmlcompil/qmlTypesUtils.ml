@@ -40,20 +40,6 @@ module Basic = struct
   let string = Q.TypeConst(Q.TyString)
 end
 
-
-module TypeOrder =
-struct
-  type t = Q.ty
-  let compare t1 t2 = Q.EqualsTy.compare_alpha ~collapse:true ~absorb:true t1 t2
-  let to_string ty = Format.to_string QmlPrint.pp#ty ty
-end
-
-module TypeMap = DebugMap.Make (TypeOrder)
-module TypeSet = BaseSet.Make (TypeOrder)
-
-type 'a typemap = 'a TypeMap.t
-type typeset = TypeSet.t
-
 module Inspect =
 struct
 (** Way too many functions with very close names !! Which one should I use ? Needs doc !! *)
@@ -218,47 +204,6 @@ struct
       | Q.TypeForall (_, _, _, body_ty) -> inspect memo body_ty in
     inspect TypeIdentSet.empty initial_ty
 
-
-
-  let to_list_no_sum ty = match ty with
-  | Q.TypeSumSugar sum -> sum
-  | Q.TypeSum (Q.TyCol (sum,_)) -> List.map (fun r -> Q.TypeRecord (Q.TyRow (r, None))) sum
-  | ty -> [ty]
-
-  let from_typename = find_and_specialize
-
-  let from_typename_no_sum gamma typeident args =
-    try to_list_no_sum (find_and_specialize gamma typeident args) with
-    | QmlTyperException.Exception _ ->
-        (* We rebulit the guilty type in order to be able to get a context for
-           the error. *)
-        let err_ctxt =
-          QmlError.Context.ty (Q.TypeName (args, typeident)) in
-        QmlError.i_error
-          None err_ctxt "expand_type " (Q.TypeIdent.to_string typeident)
-
-  let wierd_traverse_map f =
-    let rec tra ty =
-      match ty with
-      | Q.TypeSum (Q.TyCol (col, cv)) ->
-          let col' = List.map_stable
-            (fun row ->
-               match aux (Q.TypeRecord (Q.TyRow (row, None))) with
-               | Q.TypeRecord (Q.TyRow (row, None)) -> row
-               | _ -> assert false) col in
-          if col == col' then ty else Q.TypeSum (Q.TyCol (col', cv))
-      | ty -> QmlAstWalk.Type.map_nonrec aux ty
-    and aux e = f tra e in
-    aux
-
-  let expand_type ?(recurse=true) gamma =
-    wierd_traverse_map
-      (fun tra ty ->
-        let tra = if recurse then tra else Base.identity in
-        match follow_alias gamma ty with
-        | None -> ty
-        | Some ty -> tra ty)
-
   let rec get_deeper_typename gamma ty =
     match ty with
     | Q.TypeName (args, n) -> (
@@ -279,19 +224,6 @@ struct
       match follow_alias gamma ty with
       | Some ty -> get_deeper_type_until gamma f ty
       | None -> ty
-
-  let get_vars ?(filter=fun _ -> true) ty =
-    QmlAstWalk.Type.fold
-      (fun acc ty ->
-        match ty with
-        | Q.TypeVar v when filter v -> TypeVarSet.add v acc
-        | _ty -> acc
-      ) TypeVarSet.empty ty
-
-  let rec typeArrow_to_tuple ty =
-    match ty with
-      |Q.TypeArrow([ty0], ty1) -> (ty0, ty1)
-      | _ -> assert false
 
   let rec is_type_arrow gamma ty =
     match follow_alias_noopt gamma ty with
@@ -314,11 +246,6 @@ struct
         (is_type_void gamma tyt) && (is_type_void gamma tyf)
     | _ -> false
 
-  let get_arrow_result gamma ty =
-    match follow_alias_noopt gamma ty with
-    | Q.TypeArrow (_, t2) -> Some t2
-    | _ -> None
-
   let get_arrow_params gamma ty =
     match follow_alias_noopt gamma ty with
     | Q.TypeArrow (tl, _t2) -> Some tl
@@ -328,49 +255,6 @@ struct
     match follow_alias_noopt gamma ty with
     | Q.TypeArrow (tl, t2) -> Some (tl,t2)
     | _ -> None
-
-  let get_arrow_param gamma ty =
-    match get_arrow_params gamma ty with
-    | None -> None
-    | Some [x] -> Some x
-    | Some _ -> assert false
-
-  (* the comparison is probably just a comparison on terms *)
-  module TySet = Set.Make(struct type t = Q.ty let compare = Q.EqualsTy.compare end)
-
-  (* like QmlAstCons.Arrow.to_rev_list, but the rhs of the rightmost arrow is repeatly expanded *)
-  let rec expand_arrow_to_rev_list gamma ?(set=TypeSet.empty) ty =
-    QmlAstCons.Type.Arrow.to_rev_list
-      ~expandlast:(fun _arity ty ->
-                      match ty with
-                        | Q.TypeName (l, s) when not (TypeSet.mem ty set) ->
-                            let set = TypeSet.add ty set in
-                            expand_arrow_to_rev_list gamma ~set
-                              (find_and_specialize gamma s l)
-                        | Q.TypeArrow _ ->
-                            assert false
-                        | _ -> [ty]
-                   ) ty
-
-  let rec find_arrow_types_aux gamma go_down (acc,set) ty =
-    match ty with
-    | Q.TypeArrow _ ->
-        let tyr = expand_arrow_to_rev_list gamma ty in
-        let tyl = List.rev tyr in
-        (* this step could be avoided if we want to keep the list of types
-         * instead of rebuilding the TypeArrows *)
-        let arrow = Q.TypeArrow (List.tl tyr, List.hd tyr) in
-        let acc = arrow :: acc in
-        List.fold_left (find_arrow_types_aux gamma go_down) (acc,set) tyl
-    | Q.TypeName (l, s) when not (TySet.mem ty set) ->
-        let set = TySet.add ty set in
-        find_arrow_types_aux gamma go_down (acc,set)
-          (find_and_specialize gamma s l)
-    | _ ->
-        go_down (acc,set) ty
-
-  let find_arrow_types gamma typ =
-    fst (QmlAstWalk.Type.traverse_fold (find_arrow_types_aux gamma) ([],TySet.empty) typ)
 end
 
 module TypeArrow =
@@ -383,16 +267,4 @@ struct
       | _ -> cpt
     in
     aux (List.length args) ty
-
-  let nary_arity args _ty = List.length args
-
-  let rec nary_to_unary ?(recurse=true) ty =
-    let rec aux = function
-        (* well known hack for S2 *)
-      | Q.TypeArrow ([], ty) -> Q.TypeArrow ([Q.TypeRecord (Q.TyRow ([], None))], ty)
-      | Q.TypeArrow (args0,Q.TypeArrow (_::_::_ as args1,t)) -> aux (Q.TypeArrow (args0@args1,Q.TypeArrow (args1,t)))
-      | Q.TypeArrow (args0, t) -> List.fold_right (fun arg t -> Q.TypeArrow ([arg], t)) args0 t
-      | ty -> ty
-    in if recurse then QmlAstWalk.Type.map aux ty else aux ty
-
 end
