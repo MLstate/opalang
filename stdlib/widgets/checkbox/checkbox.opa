@@ -66,7 +66,7 @@
  */
 
 import stdlib.widgets.core
-import stdlib.interactions
+import stdlib.interactions.editable
 import stdlib.components.table
 
 /**

@@ -30,7 +30,7 @@
 
 import stdlib.web.client
 import stdlib.widgets.{core, anyvalue}
-import stdlib.interactions
+import stdlib.interactions.editable
 import stdlib.components.table
 
 /**

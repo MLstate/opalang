@@ -23,7 +23,7 @@
 
 import stdlib.widgets.core
 import stdlib.widgets.select
-import stdlib.interactions
+import stdlib.interactions.editable
 
 // dummy code to keep the map balanced TO BE REPLACED BY NEW MAP IMPLEMENTATION
 

@@ -29,7 +29,7 @@
 package stdlib.widgets.radiobutton
 
 import stdlib.widgets.core
-import stdlib.interactions
+import stdlib.interactions.editable
 
 /*
  * {1 About this module}

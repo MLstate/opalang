@@ -24,7 +24,7 @@
 import stdlib.widgets.core
 import stdlib.widgets.select
 import stdlib.components.table
-import stdlib.interactions
+import stdlib.interactions.editable
 
 
 type CSimpleTable.Cell.widget('a) = {
