@@ -31,7 +31,7 @@ type mem_tree = {
   mutable mdata : bool;
 }
 
-let make key = { msts = Hashtbl.create 10; mkey = key; mdata = false; }
+let make ?(hint=10) key = { msts = Hashtbl.create hint; mkey = key; mdata = false; }
 
 let rec fold ff def mtree path =
   Hashtbl.fold (fun k mt def ->
@@ -155,28 +155,28 @@ let output_mt oc tree =
   aux tree
 
 let input_mt ic =
-  let rec aux tree =
+  let rec aux () =
     let has_data = match input_char ic with | 'N' -> true | 'O' -> false | _ -> assert false in
-    tree.mdata <- has_data;
     let n = Encode_light.decode_key_ic ic in
-    tree.mkey <- n;
-    match input_char ic with
-    | ('r' | 'z' | 'R' | 'Z') as c ->
-        let len = Encode_light.get_len_ic 'r' 'z' 'R' 'Z' c ic in
-        let rec aux2 i =
-          if i >= len
-          then n
-          else
-            let st = make (Keys.StringKey "") in
-            let k = aux st in
-            Hashtbl.add tree.msts k st;
-            aux2 (i+1)
-        in
-        aux2 0
-    | _ -> assert false
+    let len =
+      match input_char ic with
+      | ('r' | 'z' | 'R' | 'Z') as c -> Encode_light.get_len_ic 'r' 'z' 'R' 'Z' c ic
+      | _ -> assert false
+    in
+    let mtree = make ~hint:len (Keys.StringKey "") in
+    mtree.mdata <- has_data;
+    mtree.mkey <- n;
+    let rec aux2 i =
+      if i >= len
+      then n, mtree
+      else
+        let k, st = aux () in
+        Hashtbl.add mtree.msts k st;
+        aux2 (i+1)
+    in
+    aux2 0
   in
-  let mtree = make (Keys.StringKey "") in
-  ignore (aux mtree);
+  let _, mtree = aux () in
   (*eprintf "mtree=%s\n%!" (string_of_mtree mtree);*)
   mtree
 
@@ -224,4 +224,9 @@ let tstmt mt =
 let allmt = [mt1;mt2;mt3;mt4;mt5];;
 let good = List.for_all tstmt allmt;;
 eprintf "good=%b\n%!" good;;
+open Mem_tree_light;;
+let file = "/home/norman/.mlstate/import_cities.exe/db_light_mtree";;
+let mtree = test_it file;;
+print_endline (string_of_mtree mtree);;
+HttpTools.timefn 1 test_it file;;
 *)

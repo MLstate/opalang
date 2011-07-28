@@ -22,7 +22,7 @@ type mem_tree = {
   mutable mkey : Keys.t;
   mutable mdata : bool;
 }
-val make : Keys.t -> mem_tree
+val make : ?hint:int -> Keys.t -> mem_tree
 val fold : (Path.t -> Keys.t -> bool -> 'a -> 'a) -> 'a -> mem_tree -> Path.t -> 'a
 val find_mtree : mem_tree -> Path.t -> mem_tree option
 val find_mtree_data : mem_tree -> Path.t -> bool option
