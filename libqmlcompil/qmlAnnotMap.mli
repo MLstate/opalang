@@ -54,7 +54,6 @@ val size : 'a gen_annotmap -> int
 val merge : ?no_conflict_if_equal:bool -> 'a gen_annotmap -> 'a gen_annotmap -> 'a gen_annotmap
 val overwrite : 'a gen_annotmap -> 'a gen_annotmap -> 'a gen_annotmap
 val unsafe_overwrite : 'a gen_annotmap -> 'a gen_annotmap -> 'a gen_annotmap
-val unsafe_mixed_overwrite : 'a gen_annotmap -> 'a gen_annotmap -> 'a gen_annotmap
 
 (** {6 Add} *)
 (** *)
@@ -121,10 +120,6 @@ val find_tsc_inst_opt_label : Annot.label -> 'a gen_annotmap -> ('a, unit) QmlGe
 (** {6 Remove} *)
 (** *)
 val remove : Annot.t -> 'a gen_annotmap -> 'a gen_annotmap
-val remove_ty : Annot.t -> 'a gen_annotmap -> 'a gen_annotmap
-
-val remove_label : Annot.label -> 'a gen_annotmap -> 'a gen_annotmap
-val remove_ty_label : Annot.label -> 'a gen_annotmap -> 'a gen_annotmap
 
 val remove_tsc : Annot.t -> 'a gen_annotmap -> 'a gen_annotmap
 val remove_tsc_inst : Annot.t -> 'a gen_annotmap -> 'a gen_annotmap

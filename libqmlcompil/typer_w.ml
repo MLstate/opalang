@@ -156,7 +156,7 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
        keep the types of the second and the positions of the first.*)
     let result_qml_annotmap =
       (match annotmap with
-       | Some ann -> QmlAnnotMap.unsafe_mixed_overwrite ann qml_infered_annotmap
+       | Some ann -> QmlAnnotMap.overwrite ann qml_infered_annotmap
        | None ->
            (* No initially provided annotation map, hence the result is simply
               the one we obtained after the inference. *)

@@ -2,7 +2,6 @@ libqmlcompil/QmlLoc
 libqmlcompil/QmlTypeVars
 libqmlcompil/QmlTypeVarsScope
 libqmlcompil/QmlAst
-libqmlcompil/QmlpAst
 libqmlcompil/QmlAstSort
 libqmlcompil/QmlAstCons
 libqmlcompil/QmlAstWalk

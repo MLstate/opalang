@@ -96,10 +96,6 @@ let unsafe_overwrite annotmap1 annotmap2 =
   let f _ _ y = y in
   merge_i f annotmap1 annotmap2
 
-let unsafe_mixed_overwrite annotmap1 annotmap2 =
-  let f _ _ y = y in
-  merge_i (annot_merge f f) annotmap1 annotmap2
-
 let find_opt i annotmap = AnnotMap.find_opt i annotmap
 let find_opt_label label = find_opt (!! label)
 let find i annotmap = Option.get_exn (AnnotNotFound ("annot", i)) (find_opt i annotmap)
@@ -107,7 +103,6 @@ let find_label label = find (!! label)
 let add i annot annotmap = AnnotMap.add i annot annotmap
 let add_label label = add (!! label)
 let remove i annotmap = AnnotMap.remove i annotmap
-let remove_label label = remove (!! label)
 
 let find_opt_factory _name accessor i annotmap =
   Option.join (Option.map accessor (find_opt i annotmap))
@@ -138,13 +133,6 @@ let add_ty i t annotmap =
     i t annotmap
 
 let add_ty_label label = add_ty (!! label)
-
-let remove_ty i annotmap =
-  match find_opt i annotmap with
-  | None -> annotmap
-  | Some annot -> add i { annot with a_ty = None } annotmap
-
-let remove_ty_label label = remove_ty (!! label)
 
 let find_tsc_opt i annotmap =
   find_opt_factory "tsc"

@@ -27,8 +27,6 @@ type t
 val empty : t
 val add_elt : t -> QmlAst.code_elt -> t
 val add : t -> QmlAst.code -> t
-val add_pcode_elt : t -> QmlpAst.pcode_elt -> t
-val add_pcode : t -> QmlpAst.pcode -> t
 val get : t -> QmlAst.code
 
 module Get :
@@ -38,9 +36,6 @@ sig
   val new_type : t -> QmlAst.code
   val new_db_value : t -> QmlAst.code
   val new_val : t -> QmlAst.code
-  val new_prop : t -> QmlpAst.pcode
-  val new_pre : t -> QmlpAst.pcode
-  val new_post : t -> QmlpAst.pcode
 end
 
 module RevGet : (** custom tail append need a RevGet *)
