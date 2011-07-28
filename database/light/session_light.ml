@@ -195,6 +195,11 @@ let sprintf fmt = Printf.sprintf fmt
   let close_db ?(donothing=false) t =
     let _ = donothing in
     let file = Io_light.get_location t.file_manager in
+    let mtree_file = file^"_mtree" in
+    let oc = open_out mtree_file in
+    Mem_tree_light.output_mt oc (Db_light.get_mtree t.db_ref);
+    close_out oc;
+    Logger.log "close_db: mtree_file=%s" mtree_file;
     let _position = position file in
     Logger.info "DB-LIGHT : Closing the database at %s" file;
     Io_light.close t.file_manager;
@@ -203,6 +208,20 @@ let sprintf fmt = Printf.sprintf fmt
 
   let restart_db_from_last t =
     let db = t.db_ref in
+    let mtree_file = Io_light.get_location t.file_manager^"_mtree" in
+    Logger.log "restart_db_from_last: mtree_file=%s" mtree_file;
+    let has_mtree =
+      try
+        let ic = open_in mtree_file in
+        let mtree = Mem_tree_light.input_mt ic in
+        Db_light.set_mtree t.db_ref mtree;
+        close_in ic;
+        true
+      with Sys_error _ -> false
+    in
+    Logger.log "restart_db_from_last: has_mtree=%b" has_mtree;
+    if t.with_ondemand && not has_mtree
+    then Logger.warning "DB-LIGHT : Warning: unable to read mem_tree file, rebuilding from Dbm";
     (match Io_light.get_dbm t.file_manager with
      | Some dbm ->
          Dbm.iter (fun pathstr datastr ->
@@ -241,7 +260,32 @@ let sprintf fmt = Printf.sprintf fmt
                          #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file lock hostname %s" datastr#<End>
                      | _ ->
                          if t.with_ondemand
-                         then ()
+                         then
+                           (if not has_mtree
+                            then
+                              (let path = snd (Encode_light.decode_path pathstr 0) in
+                               let node = snd (Encode_light.decode_node datastr 0) in
+                               #<If>Logger.log ~color:`magenta "DB-LIGHT : set mtree %s -> %s"
+                                                               (Path.to_string path)
+                                                               (Datas.to_string node.Node_light.content)#<End>;
+                               Mem_tree_light.add_mtree (Db_light.get_mtree t.db_ref) path node.Node_light.content)
+                            else
+                              (if !(Db_light.verify)
+                               then
+                                 let path = snd (Encode_light.decode_path pathstr 0) in
+                                 let node = snd (Encode_light.decode_node datastr 0) in
+                                 match Mem_tree_light.find_mtree_data (Db_light.get_mtree t.db_ref) path with
+                                 | Some true ->
+                                     if node.Node_light.content = Datas.UnsetData
+                                     then Logger.debug "DB-LIGHT : (verify fail) path %s data in mtree but not in Dbm file"
+                                                       (Path.to_string path)
+                                 | Some false ->
+                                     if node.Node_light.content <> Datas.UnsetData
+                                     then Logger.debug "DB-LIGHT : (verify fail) path %s data in Dbm file but not in mtree"
+                                                       (Path.to_string path)
+                                 | None ->
+                                     Logger.debug "DB-LIGHT : (verify fail) path %s data in Dbm file but node not in mtree"
+                                                  (Path.to_string path)))
                          else
                            let path = snd (Encode_light.decode_path pathstr 0) in
                            let datas = snd (Encode_light.decode_datas datastr 0) in
@@ -251,7 +295,7 @@ let sprintf fmt = Printf.sprintf fmt
                             | Datas.Data dataImpl -> ignore (Db_light.update_index t.db_ref [(path,dataImpl)])
                                 (* FIXME: Links!!! *)
                             | _ -> ());
-                           ignore (Db_light.update t.db_ref path datas))
+                           ignore (Db_light.update ~no_write:true t.db_ref path datas))
            dbm
      | None -> ());
     db
@@ -480,6 +524,7 @@ let sprintf fmt = Printf.sprintf fmt
           #<If> Logger.info "DB-LIGHT : Failed a commit." #<End>
         end;
         pop_trans_prepare t;
+        if !(Db_light.verify) then Db_light.verify_database t.db_ref;
         success
     | None ->
         Logger.error "DB-LIGHT : Inconsistent state: it should be locked before commit.";

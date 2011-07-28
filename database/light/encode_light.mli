@@ -15,8 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+val put_len : char -> char -> char -> char -> int -> string
+val get_len_ic : char -> char -> char -> char -> char -> in_channel -> int
 val encode_key : Keys.t -> string
 val decode_key : string -> int -> int * Keys.t
+val decode_key_ic : in_channel -> Keys.t
 val encode_path : Path.t -> string
 val decode_path : string -> int -> int * Path.t
 val encode_dataimpl : DataImpl.data -> string

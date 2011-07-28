@@ -135,7 +135,7 @@ let stat tr path =
     let path, kind =
       let rec aux path =
         let (node, _) = Db_light.get_node_of_path tr.tr_db path in
-        #<If>Logger.log ~color:`green "Transaction_light.stat: path=%s node=%s\n"
+        #<If>Logger.log ~color:`green "Transaction_light.stat: path=%s node=%s"
                                  (Path.to_string path) (Datas.to_string (Node_light.get_content node))#<End>;
         match Node_light.get_content node with
         | Datas.Data _ -> path, `Data

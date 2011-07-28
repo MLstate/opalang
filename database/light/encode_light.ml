@@ -21,6 +21,7 @@
 
 module String = Base.String
 let sprintf = Printf.sprintf
+let fprintf = Printf.fprintf
 
 let ei8 i =
   let s = String.create 1 in
@@ -131,6 +132,20 @@ let get_len c1 c2 c3 c4 s i c =
   then i+9, di64 s (i+1)
   else assert false
 
+let get_len_ic c1 c2 c3 c4 c ic =
+  try
+    let s = "xxxxxxxx" in
+    if c = c1
+    then (really_input ic s 0 1; di8 s 0)
+    else if c = c2
+    then (really_input ic s 0 2; di16 s 0)
+    else if c = c3
+    then (really_input ic s 0 4; di32 s 0)
+    else if c = c4
+    then (really_input ic s 0 8; di64 s 0)
+    else assert false
+  with End_of_file -> assert false
+
 let rec decode_key s i =
   match s.[i] with
   | ('i' | 'j' | 'I' | 'J') as c ->
@@ -154,6 +169,33 @@ let rec decode_key s i =
   | ('v' | 'w' | 'V' | 'W') as c ->
       let i, num = get_len 'v' 'w' 'V' 'W' s i c in
       i, Keys.VariableKey num
+  | _ -> assert false
+
+let rec decode_key_ic ic =
+  match input_char ic with
+  | ('i' | 'j' | 'I' | 'J') as c ->
+      let num = get_len_ic 'i' 'j' 'I' 'J' c ic in
+      Keys.IntKey num
+  | ('s' | 't' | 'S' | 'T') as c ->
+      let len = get_len_ic 's' 't' 'S' 'T' c ic in
+      let s = String.create len in
+      really_input ic s 0 len;
+      Keys.StringKey s
+  | ('l' | 'm' | 'L' | 'M') as c ->
+      let len = get_len_ic 'l' 'm' 'L' 'M' c ic in
+      let a = Array.make len (Keys.IntKey 0) in
+      let rec aux j =
+        if j >= len
+        then Keys.ListKey a
+        else
+          let k = decode_key_ic ic in
+          a.(j) <- k;
+          aux (j+1)
+      in
+      aux 0
+  | ('v' | 'w' | 'V' | 'W') as c ->
+      let num = get_len_ic 'v' 'w' 'V' 'W' c ic in
+      Keys.VariableKey num
   | _ -> assert false
 
 (*
@@ -245,7 +287,6 @@ let tstdi di = di = snd (decode_dataimpl (encode_dataimpl di) 0)
 let good = List.for_all tstdi alldi
 *)
 
-(* a b c d e f g h i j l m p q s t v w x y *)
 
 let encode_datas = function
   | Datas.Data di -> "e"^(encode_dataimpl di)
@@ -320,6 +361,8 @@ let k2 = Keys.IntKey 0x100
 let kl1 = [k1;k2]
 let good = tst2 (kl1,d1)
 *)
+
+(* 2 Aa Bb Cc Dd e f Gg Hh Ii Jj k Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz *)
 
 (*
 let db = Dbm.opendbm ("/home/norman/.mlstate/"^(Filename.basename Sys.argv.(0))^"/db_light") [Dbm.Dbm_rdwr] 0O664;;

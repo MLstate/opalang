@@ -18,10 +18,15 @@
 exception UnqualifiedPath
 exception Merge
 
+(* flags *)
+val verify : bool ref
+val use_od : bool ref
+val od_early : bool ref
+
+(* types *)
 type t
 type tree
 
-(*type node_map*)
 type index = ((Path.t * float) list) StringMap.t
 
 (* access to node *)
@@ -42,10 +47,12 @@ val get_tcount : t -> Eid.t
 val get_next_uid : t -> Uid.t
 val is_empty : t -> bool
 val get_index : t -> index
+val get_mtree : t -> Mem_tree_light.mem_tree
 
 val set_version : t -> string -> unit
 val set_filemanager : t -> Io_light.t option -> unit
 val set_max_size : t -> int -> unit
+val set_mtree : t -> Mem_tree_light.mem_tree -> unit
 
 (* navigation through the db *)
 val get_node_of_path : t -> Path.t -> Node_light.t * Revision.t
@@ -55,7 +62,8 @@ val get_tree_of_path : t -> Path.t -> tree
 val make : ?filemanager:Io_light.t -> ?max_size:int -> unit -> t
 
 (* basic db writing *)
-val update : t -> Path.t -> Datas.t -> t
+(*val add_mtree : mem_tree -> Path.t -> Datas.t -> unit*)
+val update : ?no_write:bool -> t -> Path.t -> Datas.t -> t
 val remove : t -> Path.t -> t
 val set_rev : t -> Revision.t -> t
 
@@ -105,6 +113,7 @@ val follow_path : t -> tree -> Keys.t list -> Keys.t list * tree
 val follow_link : t -> Path.t -> Path.t * tree
 
 (* Caching *)
-val od_early : bool ref
 val action_od : unit -> unit
 
+(* Verification *)
+val verify_database : t -> unit
