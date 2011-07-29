@@ -26,6 +26,7 @@ type query_map = (Path.t, query_element list) Hashtbl.t
 type t = {
   tr_num : int;
   tr_db : Db_light.t;
+  tr_pending_queries : query_element list ref;
   tr_query_map : query_map;
   mutable tr_remove_list : Path.t list; (* for db_light we need to pass this from prepare to commit *)
   tr_index_set : (Path.t * DataImpl.t) list;
@@ -42,7 +43,7 @@ val get_query_map : t -> query_map
 val full_search : t -> string list -> Path.t -> Keys.t list
 val find_data_in_query_list : query list -> DataImpl.t
 val find_datas_in_query_list : ('a * 'b * query) list -> Datas.t
-val get_query_at : t -> Path.t -> query_element list
+(*val get_query_at : t -> Path.t -> query_element list*)
 val find_set_data_in_query_list : query list -> DataImpl.t option
 val stat : t -> Path.t -> Path.t * Revision.t option * [> `Data | `Link | `Unset ]
 val datas_from_path : t -> Path.t -> Datas.t
@@ -60,7 +61,7 @@ val remove_subtree : Path.t -> t -> unit
 val set_link : t -> Path.t -> Path.t -> t
 val set_copy : t -> Path.t -> Path.t * 'a -> t
 val set : t -> Path.t -> DataImpl.t -> t
-val check_remove : t -> Path.t -> bool
+(*val check_remove : t -> Path.t -> bool*)
 val remove : t -> Path.t -> t
 val init : Db_light.t -> ?read_only:'a -> int -> t
 val update_uid_list : ('a * 'b) list -> 'a -> 'b -> ('a * 'b) list

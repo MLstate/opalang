@@ -25,6 +25,7 @@ type 'a answer = [ `Answer of 'a | `Absent | `Linkto of Badop.path ]
 type database = { session: Session_light.t; file: string; mutable node_config : Node_property.config }
 type transaction = { db: database; tr: Transaction_light.t }
 
+let (@>) f x = f x
 let (|>) x f = f x
 
 let open_database options k =
@@ -55,16 +56,19 @@ let close_database db k =
 
 let status db k = Badop.Light db.file |> k
 
+let start_time = ref 0.0
+
 module Tr = struct
   let start db _errk k =
-    (*Logger.debug "Badop_light.Tr.start";*)
+    Logger.debug "Badop_light.Tr.start";
+    #<If:BADOP_DEBUG$minlevel 10>start_time := Unix.gettimeofday ()#<End>;
     { db = db; tr = Session_light.new_trans db.session } |> k
 
   let start_at_revision db _rev _errk k =
     { db = db; tr = Session_light.new_trans (*~read_only:(true, Some rev)*) db.session } |> k
 
   let prepare trans k =
-    (*Logger.debug "Badop_light.Tr.prepare";*)
+    Logger.debug "Badop_light.Tr.prepare";
     (* Executes [k] as soon as prepare finished, asynchronously, nonblocking.
        When prepare is postponed and stored on the FIFO,
        the continuation is stored as well. The exceptions from [k]
@@ -77,13 +81,17 @@ module Tr = struct
       ({db = trans.db; tr = trans.tr}, true) |> k
 
   let commit trans k =
-    (*Logger.debug "Badop_light.Tr.commit";*)
+    Logger.debug "Badop_light.Tr.commit";
     if Transaction_light.modified trans.tr then
       (* Assumption: [trans] is prepared by [execute_trans_prepare].
          Here some continuations of [prepare] may be executed, but only in case
          when some transactions are on the FIFO and are being prepared
          after the actual commit is completed. *)
-      Session_light.really_commit trans.db.session trans.tr |> k
+      Session_light.really_commit trans.db.session trans.tr
+      |> (fun tf ->
+            #<If:BADOP_DEBUG$minlevel 10>Logger.debug "DB-LIGHT : Badop_light.commit: time=%f\n%!"
+                                                      ((Unix.gettimeofday()) -. !start_time)#<End>;
+            tf |> k)
     else
       true |> k
 
@@ -98,15 +106,15 @@ type 'which read_op = ('which,revision) Badop.generic_read_op
 let read trans path op k =
   match op with
   | Badop.Stat (D.Query () as q) ->
-      (*Logger.debug "Badop_light.read Stat";*)
+      Logger.debug "Badop_light.read Stat";
       (try `Answer (Badop.Stat (D.Dialog_aux.respond q (Session_light.stat trans.tr path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Contents (D.Query () as q) ->
-      (*Logger.debug "Badop_light.read Contents";*)
+      Logger.debug "Badop_light.read Contents";
       (try `Answer (Badop.Contents (D.Dialog_aux.respond q (Session_light.get trans.db.session trans.tr path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Children (D.Query range as q) ->
-      (*Logger.debug "Badop_light.read Children";*)
+      Logger.debug "Badop_light.read Children";
       (try
          `Answer
            (Badop.Children
@@ -114,7 +122,7 @@ let read trans path op k =
                  (Session_light.get_children trans.db.session trans.tr range path)))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Revisions (D.Query _range as q) ->
-      (*Logger.debug "Badop_light.read Revisions";*)
+      Logger.debug "Badop_light.read Revisions";
       (try
          `Answer
            (Badop.Revisions
@@ -124,7 +132,7 @@ let read trans path op k =
                  |> List.map (fun rev -> rev, Session_light.get_timestamp trans.db.session))))
        with Db_light.UnqualifiedPath -> `Absent) |> k
   | Badop.Search (D.Query (words, _range_FIXME) as q) ->
-      (*Logger.debug "Badop_light.read Search";*)
+      Logger.debug "Badop_light.read Search";
       (try
          `Answer
            (Badop.Search
@@ -140,22 +148,22 @@ type 'which write_op = ('which,transaction,revision) Badop.generic_write_op
 let write trans path op k =
   match op with
   | Badop.Set (D.Query data as q) ->
-      (*Logger.debug "Badop_light.write Set";*)
+      Logger.debug "Badop_light.write Set";
       Badop.Set (D.Dialog_aux.respond q { trans with tr = Session_light.set trans.tr path data }) |> k
   | Badop.Clear (D.Query () as q) ->
-      (*Logger.debug "Badop_light.write Clear";*)
+      Logger.debug "Badop_light.write Clear";
       Badop.Clear
         (D.Dialog_aux.respond q
            (try
               { trans with tr = Session_light.remove trans.tr path }
             with Db_light.UnqualifiedPath -> trans)) |> k
   | Badop.Link (D.Query linkpath as q) ->
-      (*Logger.debug "Badop_light.write Link";*)
+      Logger.debug "Badop_light.write Link";
       Badop.Link
         (D.Dialog_aux.respond q
            { trans with tr = Session_light.set_link trans.tr path linkpath }) |> k
   | Badop.Copy (D.Query (copypath,copyrev) as q) ->
-      (*Logger.debug "Badop_light.write Copy";*)
+      Logger.debug "Badop_light.write Copy";
       Badop.Copy
         (D.Dialog_aux.respond q
            { trans with tr = Session_light.set_copy trans.db.session trans.tr path (copypath, copyrev) }) |> k

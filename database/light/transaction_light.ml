@@ -55,6 +55,7 @@ type t = {
   tr_db : Db_light.t ;
   (** the db the transaction refers to *)
 
+  tr_pending_queries : query_element list ref;
   tr_query_map : query_map;
   (** the map of queries against the db *)
 
@@ -78,7 +79,7 @@ type t = {
 
 let get_num tr = tr.tr_num
 let get_db tr = tr.tr_db
-let get_query_map tr = tr.tr_query_map
+let get_query_map _tr = assert false (*tr.tr_query_map*)
 
 (*********************)
 (* DB reading access *)
@@ -111,14 +112,14 @@ let rec find_datas_in_query_list = function
 exception Removed
 
 (* Raises [Not_found] if data absent from query, [Removed] if removed. *)
-let get_query_at tr path =
+(*let get_query_at tr path =
   let query_list = Option.default [] (Hashtbl.find_opt tr.tr_query_map path) in
   if query_list = []
   then
     (if List.mem path tr.tr_remove_list
      then raise Removed
      else raise Not_found);
-  query_list
+  query_list*)
 
 let rec find_set_data_in_query_list = function
   | [] -> None
@@ -152,9 +153,20 @@ let stat tr path =
 
 let datas_from_path tr path = Node_light.get_content (Db_light.node_node (snd (Db_light.follow_link tr.tr_db path)))
 
+(*let map_pending_queries tr =
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : map_pending_queries"#<End>;
+  let start = Unix.gettimeofday () in
+  List.iter (function (_,path,_) as qe ->
+               Hashtbl.replace tr.tr_query_map path
+                 (qe::(Option.default [] (Hashtbl.find_opt tr.tr_query_map path)))) (!(tr.tr_pending_queries));
+  eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : map_pending_queries: time=%f\n%!" ((Unix.gettimeofday()) -. start);
+  tr.tr_pending_queries := []*)
+
 let rec unwind tr path =
+  (*if !(tr.tr_pending_queries) <> [] then map_pending_queries tr;*)
   let datas =
-    match Option.default [] (Hashtbl.find_opt tr.tr_query_map path) with
+    (*match Option.default [] (Hashtbl.find_opt tr.tr_query_map path) with*)
+    match List.fold_right (function (_,p,_) as qe -> fun a -> if p = path then qe::a else a) !(tr.tr_pending_queries) [] with
     | [] ->
         let datas = datas_from_path tr path in
         #<If>Logger.log ~color:`cyan "DB-LIGHT : unwind %s -> %s" (Path.to_string path) (Datas.to_string datas)#<End>;
@@ -189,7 +201,9 @@ let get tr path =
 
 (* may raise Removed and Not_found *)
 let virtual_get_children tr path =
-  Hashtbl.fold (fun p _ a -> if Path.is_prefix path p then p::a else a) tr.tr_query_map []
+  (*if !(tr.tr_pending_queries) <> [] then map_pending_queries tr;
+  Hashtbl.fold (fun p _ a -> if Path.is_prefix path p then p::a else a) tr.tr_query_map []*)
+  List.fold_right (fun (_,p,_) a -> if Path.is_prefix path p then p::a else a) !(tr.tr_pending_queries) []
 
 let get_children tr range path =
   #<If>Logger.log ~color:`cyan "DB-LIGHT : get children at %s" (Path.to_string path)#<End>;
@@ -227,8 +241,11 @@ let add_to_query_map =
     #<If$minlevel 3>Logger.log ~color:`cyan
                               "DB-LIGHT : add_to_query_map: path=%s query=%s"
                               (Path.to_string path) (string_of_query query)#<End>;
-    Hashtbl.replace tr.tr_query_map path
-                    ((get_query_index(),path,query)::(Option.default [] (Hashtbl.find_opt tr.tr_query_map path)));
+    (*let start = Unix.gettimeofday () in*)
+    (*Hashtbl.replace tr.tr_query_map path
+                    ((get_query_index(),path,query)::(Option.default [] (Hashtbl.find_opt tr.tr_query_map path)));*)
+    tr.tr_pending_queries := (get_query_index(),path,query)::(!(tr.tr_pending_queries));
+    (*eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : add_to_query_map: replace time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
     tr
   in
   (* enable the transaction count limit (plus some checks) if requested *)
@@ -271,8 +288,10 @@ let rm_all_with_prefix path l =
 let remove_from_query_map qm path = List.filter (fun (p,_) -> Path.compare path p <> 0) qm
 
 let remove_subtree path tr =
+  (*if !(tr.tr_pending_queries) <> [] then map_pending_queries tr;
   let rl = Hashtbl.fold (fun p _ a -> if Path.is_prefix path p then p::a else a) tr.tr_query_map [] in
-  List.iter (fun p -> Hashtbl.remove tr.tr_query_map p) rl
+  List.iter (fun p -> Hashtbl.remove tr.tr_query_map p) rl*)
+  tr.tr_pending_queries := List.filter (fun (_,p,_) -> not (Path.is_prefix path p)) !(tr.tr_pending_queries)
 
 let set_link tr path link =
   #<If>
@@ -332,7 +351,7 @@ let set tr path data =
    the current form is probably correct.
    Anyway, disabling the optimization triggers bugs in transaction
    conflict detection, so it just has to stay. *)
-let check_remove tr path =
+(*let check_remove tr path =
   try
     ignore (Db_light.get tr.tr_db path);
     true
@@ -343,7 +362,7 @@ let check_remove tr path =
         ignore (get_query_at tr path);
         true
       with
-      | Not_found | Removed ->  false
+      | Not_found | Removed ->  false*)
 
 (* This operation removes a node from the database,
    making its subtree unreachable. The tree won't be ever reachable again.
@@ -367,7 +386,8 @@ let init db ?read_only i =
   let _ = read_only in
   { tr_num = i
   ; tr_db = db
-  ; tr_query_map = Hashtbl.create 16
+  ; tr_pending_queries = ref []
+  ; tr_query_map = Hashtbl.create 100000
   ; tr_remove_list = []
   ; tr_index_set = []
   ; tr_index_remove = []
@@ -390,13 +410,28 @@ let update_node_list l uid node =
   else (uid, node) :: l
 
 let compare_q (i1,_,_) (i2,_,_) = Pervasives.compare i1 i2
-let get_sorted_queries tr = List.sort compare_q (Hashtbl.fold (fun _ ql a -> ql@a) tr.tr_query_map [])
+let get_sorted_queries tr =
+  (*if !(tr.tr_pending_queries) <> [] then map_pending_queries tr;*)
+  (*let start = Unix.gettimeofday() in*)
+  (*let l = List.sort compare_q (Hashtbl.fold (fun _ ql a -> ql@a) tr.tr_query_map []) in*)
+  let l = List.sort compare_q !(tr.tr_pending_queries) in
+  (*eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : get_sorted_queries: time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
+  l
 
 let execute_query_map tr db =
-  #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map %s" (string_of_query_map tr.tr_query_map)#<End>;
   let qs = get_sorted_queries tr in
-  #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map(sorted)[%s]"
-                                 (String.concat_map "; " string_of_query_element qs)#<End>;
+  #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map %d"
+                               (List.length !(tr.tr_pending_queries))
+                               (*(Hashtbl.length tr.tr_query_map)*)
+                               (*string_of_query_map tr.tr_query_map*)#<End>;
+  (*#<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map(sorted)[%s]"
+                               (String.concat_map "; " string_of_query_element qs)#<End>;*)
+  let update_time = ref 0.0 in
+  Db_light.add_tree_1 := 0.0;
+  Db_light.ondemand_add_1 := 0.0;
+  Db_light.update_data_1 := 0.0;
+  Db_light.update_data_2 := 0.0;
+  Db_light.update_data_3 := 0.0;
   try
     let ia, ir, rl =
       List.fold_left
@@ -404,7 +439,9 @@ let execute_query_map tr db =
            #<If>Logger.log ~color:`cyan "DB-LIGHT : execute_query_map %s" (string_of_query_element (_i,path,query))#<End>;
            match query with
            | Set (data) ->
+               let start = Unix.gettimeofday () in
                ignore (Db_light.update db path data);
+               update_time := !update_time +. ((Unix.gettimeofday()) -. start);
                (match data with
                 | Datas.Data d -> ((path,d)::ia,ir,rl)
                 | Datas.UnsetData -> ((path,DataImpl.Unit)::ia,ir,rl)
@@ -426,6 +463,12 @@ let execute_query_map tr db =
                (ia,allir@ir,ch@rl))
         (tr.tr_index_set,tr.tr_index_remove,tr.tr_remove_list) qs
     in
+    (*eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: update_time=%f\n%!" !update_time;
+    eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: add_tree_1=%f\n%!" !(Db_light.add_tree_1);
+    eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: ondemand_add_1=%f\n%!" !(Db_light.ondemand_add_1);
+    eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: update_data_1=%f\n%!" !(Db_light.update_data_1);
+    eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: update_data_2=%f\n%!" !(Db_light.update_data_2);
+    eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : execute_query_map: update_data_3=%f\n%!" !(Db_light.update_data_3);*)
     tr.tr_remove_list <- rl;
     { tr with tr_index_set = ia; tr_index_remove = ir; }, db
   with
@@ -446,7 +489,7 @@ let execute_remove_list tr db =
            { tr with tr_index_remove = (path,d)::tr.tr_index_remove }, db)
         (tr, db) l
 
-let modified tr = not ((Hashtbl.length tr.tr_query_map = 0) && (tr.tr_remove_list = []))
+let modified tr = not ((!(tr.tr_pending_queries) = []) && (Hashtbl.length tr.tr_query_map = 0) && (tr.tr_remove_list = []))
 
 let commit tr db =
   if modified tr then begin
@@ -454,9 +497,13 @@ let commit tr db =
       (* Too big query map, won't merge with any other. *)
       raise Db_light.Merge;
     (* Execute in the low-level db all remove requests. *)
+    (*let start = Unix.gettimeofday () in*)
     let tr, db = execute_remove_list tr db in
+    (*eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : commit: execute_remove_list time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
     (* Execute the writes that survived subsequent removals, etc. *)
+    (*let start = Unix.gettimeofday () in*)
     let tr, db = execute_query_map tr db in
+    (*eprintf(*Logger.log ~color:`cyan*) "DB-LIGHT : commit: execute_query_map time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
     let db =
       match tr.tr_index_remove with
       | [] -> db

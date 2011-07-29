@@ -7,6 +7,7 @@
 <gml_parser.{ml,mli,byte,native}>: use_libtrx
 
 <light/*.{ml,mli,byte,native}>: use_dbm
+#<light/*.{ml,mli,byte,native}>: profile
 
 <badop_{protocol,server,client}.ml>: rectypes
 

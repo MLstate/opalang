@@ -22,6 +22,11 @@ exception Merge
 val verify : bool ref
 val use_od : bool ref
 val od_early : bool ref
+val add_tree_1 : float ref
+val ondemand_add_1 : float ref
+val update_data_1 : float ref
+val update_data_2 : float ref
+val update_data_3 : float ref
 
 (* types *)
 type t

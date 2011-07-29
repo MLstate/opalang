@@ -20,6 +20,7 @@
 (* shorthands *)
 module DT = DbTypes
 module String = BaseString
+let eprintf fmt = Printf.eprintf fmt
 let sprintf fmt = Printf.sprintf fmt
 
 (* debug *)
@@ -199,7 +200,7 @@ let sprintf fmt = Printf.sprintf fmt
     let oc = open_out mtree_file in
     Mem_tree_light.output_mt oc (Db_light.get_mtree t.db_ref);
     close_out oc;
-    Logger.log "close_db: mtree_file=%s" mtree_file;
+    #<If$minlevel 20>Logger.log "close_db: mtree_file=%s" mtree_file#<End>;
     let _position = position file in
     Logger.info "DB-LIGHT : Closing the database at %s" file;
     Io_light.close t.file_manager;
@@ -209,7 +210,7 @@ let sprintf fmt = Printf.sprintf fmt
   let restart_db_from_last t =
     let db = t.db_ref in
     let mtree_file = Io_light.get_location t.file_manager^"_mtree" in
-    Logger.log "restart_db_from_last: mtree_file=%s" mtree_file;
+    #<If$minlevel 20>Logger.log "restart_db_from_last: mtree_file=%s" mtree_file#<End>;
     let has_mtree =
       try
         let ic = open_in mtree_file in
@@ -544,7 +545,14 @@ let sprintf fmt = Printf.sprintf fmt
 
   (* writing to DB *)
 
-  let set trans path data = Tr.set trans path data
+  (*let last = ref (Unix.gettimeofday())*)
+  let set trans path data =
+    (*eprintf(*Logger.log ~color:`magenta*) "DB-LIGHT : Session_light.set: since last=%f\n%!" ((Unix.gettimeofday()) -. !last);*)
+    (*let start = Unix.gettimeofday () in*)
+    let res = Tr.set trans path data in
+    (*eprintf(*Logger.log ~color:`magenta*) "DB-LIGHT : Session_light.set: time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
+    (*last := Unix.gettimeofday ();*)
+    res
 
   let remove trans path = Tr.remove trans path
 

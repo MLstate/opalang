@@ -39,7 +39,7 @@ exception At_leaf
 
 (* Flags *)
 let verify = ref false
-let use_od = ref true
+let use_od = ref false
 let od_early = ref false
 
 (* Datatypes *)
@@ -136,6 +136,12 @@ let rec copy_node t parent tree =
 
 (* Basic database operations *)
 
+(*let ta acc f a =
+  let start = Unix.gettimeofday () in
+  let res = f a in
+  acc := !acc +. ((Unix.gettimeofday ()) -. start);
+  res*)
+
 let set_version t version = t.version <- version
 let set_filemanager t filemanager = t.db_filemanager <- filemanager
 let set_max_size t max_size = t.max_size <- max_size
@@ -179,12 +185,14 @@ let ondemand_prime t path tree =
           ());
      tree.disk <- true)
 
+let ondemand_add_1 = ref 0.0
+
 let ondemand_add t path node =
   match getdbm t with
   | Some dbm ->
       #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand add path=%s to %s"
                                                  (Path.to_string path) (Node_light.to_string node)#<End>;
-      Dbm.replace dbm (Encode_light.encode_path path) (Encode_light.encode_node node)
+      (*ta ondemand_add_1*) (Dbm.replace dbm (Encode_light.encode_path path)) (Encode_light.encode_node node)
   | None ->
       #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_add Dbm is closed"#<End>
 
@@ -219,6 +227,7 @@ let add_od_act p act =
      | None -> ())
   #<End>;
   Hashtbl.replace odacts p act
+  (*eprintf "add_od_act: #odacts=%d\n%!" (Hashtbl.length odacts)*)
 
 let same_t t1 t2 =
   match (t1.db_filemanager, t2.db_filemanager) with
@@ -249,8 +258,8 @@ let action_od () =
   then
     ((*eprintf "od_acts: %s\n%!" (string_of_odacts ());*)
       Hashtbl.iter (fun p -> function
-                    | OD_Add (t, n) -> ondemand_add t p n
-                    | OD_Remove (t, what) -> ondemand_remove what t p) odacts;
+                   | OD_Add (t, n) -> ondemand_add t p n
+                   | OD_Remove (t, what) -> ondemand_remove what t p) odacts;
       Hashtbl.clear odacts)
 
 let rec ondemand_remove_subtree t path tree_opt =
@@ -399,21 +408,26 @@ let verifies t path = function
        | Some _ -> false
        | None -> true)
 
+let update_data_1 = ref 0.0
+let update_data_2 = ref 0.0
+let update_data_3 = ref 0.0
+
 let update_data t path data tree =
-  (*eprintf "update_data: path=%s ks=%s data=%s tree=%d\n%!"
-          (Path.to_string path) (string_of_keyset ks) (Datas.to_string data) (Uid.value tree.uid);*)
+  (*eprintf "update_data: path=%s data=%s tree=%d\n%!" (Path.to_string path) (Datas.to_string data) (Uid.value tree.uid);*)
   let _old_data = Node_light.get_content tree.node in
   (if not tree.disk
-   then (match od_read true t path with
+   then (Node_light.set_content ~max_size:t.max_size tree.node data;
+         (*ta update_data_1*) (od_add t path) tree.node
+         (*match ta update_data_1 (od_read true t) path with
          | Some nodes ->
              (*eprintf "nodes=%s data=%s kss=%s ks=%s\n%!"
                          (Node_light.to_string nodes) (Datas.to_string data) (string_of_keyset kss) (string_of_keyset ks);*)
              if not (Node_light.equals_data nodes data)
              then (Node_light.set_content ~max_size:t.max_size tree.node data;
-                   od_add t path tree.node)
+                   ta update_data_2 (od_add t path) tree.node)
          | None ->
              Node_light.set_content ~max_size:t.max_size tree.node data;
-             od_add t path tree.node)
+             ta update_data_3 (od_add t path) tree.node*))
    else
      if not (Node_light.equals_data tree.node data)
      then (Node_light.set_content ~max_size:t.max_size tree.node data;
@@ -423,6 +437,8 @@ let update_data t path data tree =
                                             (Datas.to_string data) (Datas.to_string _old_data)
                                             (if Node_light.equals_data tree.node data then "new" else "old")#<End>
 
+let add_tree_1 = ref 0.0
+
 let add_tree ?(no_write=false) t path data =
   #<If>Logger.log ~color:`yellow "DB-LIGHT : add_tree: path=%s data=%s" (Path.to_string path) (Datas.to_string data)#<End>;
   let rec aux pt here tree = function
@@ -430,7 +446,7 @@ let add_tree ?(no_write=false) t path data =
         tree.up := pt;
         if no_write
         then Node_light.set_content ~max_size:t.max_size tree.node data
-        else update_data t path data tree
+        else (*ta add_tree_1*) (update_data t path data) tree
     | k::rest ->
         (try
            let st = Hashtbl.find tree.sts k in

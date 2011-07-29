@@ -220,7 +220,8 @@ let good = List.for_all tstk allk
 let encode_keylist (kl:Keys.t list) =
   String.concat_map ~left:(put_len 'p' 'q' 'P' 'Q' (List.length kl)) "" encode_key kl
 
-let encode_path (path:Path.t) = encode_keylist (Path.to_list path)
+(*let encode_path (path:Path.t) = encode_keylist (Path.to_list path)*)
+let encode_path (path:Path.t) = Marshal.to_string path []
 
 let decode_keylist s i =
   let i, len = get_len 'p' 'q' 'P' 'Q' s i s.[i] in
@@ -233,9 +234,10 @@ let decode_keylist s i =
   in
   aux i 0 []
 
-let decode_path s i =
+(*let decode_path s i =
   let i, kl = decode_keylist s i in
-  i, Path.of_list kl
+  i, Path.of_list kl*)
+let decode_path s i = (String.length s, (Marshal.from_string s i:Path.t))
 
 (*
 let p1 = Path.of_list [k1;k2]
@@ -288,19 +290,21 @@ let good = List.for_all tstdi alldi
 *)
 
 
-let encode_datas = function
+(*let encode_datas = function
   | Datas.Data di -> "e"^(encode_dataimpl di)
   | Datas.Link p -> "n"^(encode_path p)
   | Datas.Copy (_,p) -> "o"^(encode_path p)
-  | Datas.UnsetData -> "U"
+  | Datas.UnsetData -> "U"*)
+let encode_datas (path:Datas.t) = Marshal.to_string path []
 
-let decode_datas s i =
+(*let decode_datas s i =
   match s.[i] with
   | 'e' -> let i, di = decode_dataimpl s (i+1) in i, Datas.Data di
   | 'n' -> let i, p = decode_path s (i+1) in i, Datas.Link p
   | 'o' -> let i, p = decode_path s (i+1) in i, Datas.Copy (None,p)
   | 'U' -> i+1, Datas.UnsetData
-  | _ -> assert false
+  | _ -> assert false*)
+let decode_datas s i = (String.length s, (Marshal.from_string s i:Datas.t))
 
 (*
 let d1 = Datas.Data di1
@@ -313,12 +317,13 @@ let tstd d = d = snd (decode_datas (encode_datas d) 0)
 let good = List.for_all tstd alld
 *)
 
-let encode_node { Node_light. on_disk; disk_file; content } =
+(*let encode_node { Node_light. on_disk; disk_file; content } =
   match on_disk, disk_file with
   | true, Some file -> (put_len 'g' 'h' 'G' 'H' (String.length file))^file
-  | _, _ -> "k"^(encode_datas content)
+  | _, _ -> "k"^(encode_datas content)*)
+let encode_node (path:Node_light.t) = Marshal.to_string path []
 
-let decode_node s i =
+(*let decode_node s i =
   match s.[i] with
   | ('g' | 'h' | 'G' | 'H') as c ->
       let i, len = get_len 'g' 'h' 'G' 'H' s i c in
@@ -326,7 +331,8 @@ let decode_node s i =
   | 'k' ->
       let i, d = decode_datas s (i+1) in
       i, { Node_light. on_disk=false; disk_file=None; content=d; }
-  | _ -> assert false
+  | _ -> assert false*)
+let decode_node s i = (String.length s, (Marshal.from_string s i:Node_light.t))
 
 (*
 let n1 = { Node_light. on_disk=false; disk_file=None; content=Datas.Data (DataImpl.Text "abc") }
