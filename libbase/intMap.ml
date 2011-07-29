@@ -141,18 +141,19 @@ let rec remove k t = match t with
   | Lf (k',_v) when k = k' -> Empty
   | n -> n
 
-let rec update k f t = match t with
+(* on_miss specify what to do when the key is not found
+   take the part of intmap that should contains the key *)
+let rec update_gen k f t ~on_miss  = match t with
   | Br (p,m,tl,tr) ->
       if zerobit k m
-      then Br (p,m,update k f tl,tr)
-      else Br (p,m,tl,update k f tr)
+      then Br (p,m,update_gen k f tl ~on_miss,tr)
+      else Br (p,m,tl,update_gen k f tr ~on_miss)
   | Lf (k',v) when k=k' -> Lf (k,f v)
-  | n -> n
+  | n -> on_miss n
 
-(* FIXME: this could be more efficient: once you fail to find the binding, you can add it
- * instead of raising Not_found and then adding it *)
-let update_default key f default map =
-  try update key f map with Not_found -> add key default map
+let raise_Not_found _ = raise Not_found
+let update k f t = update_gen k f t ~on_miss:raise_Not_found
+let update_default k f default t = update_gen k f t ~on_miss:(fun m -> add k default m)
 
 let rec mem k t = match t with
   | Br (_,m,tl,tr) -> if zerobit k m then mem k tl else mem k tr
