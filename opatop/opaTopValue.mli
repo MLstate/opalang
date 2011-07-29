@@ -158,7 +158,6 @@ sig
   val t_int    : ?pos:pos -> int -> t
   val t_float  : ?pos:pos -> float -> t
   val t_string : ?pos:pos -> string -> t
-  val t_char   : ?pos:pos -> char -> t
   val t_int64  : ?pos:pos -> Int64.t -> t
 
   val t_void   : ?pos:pos -> unit -> t

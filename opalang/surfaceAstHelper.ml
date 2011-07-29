@@ -291,12 +291,6 @@ struct
       | (Const (CString s), _) -> Some s
       | _ -> None
   let get_string x = exn_of_opt Exit get_string_opt x
-
-  let get_char_opt e =
-    match Coerce.remove e with
-      | (Const (CChar c), _) -> Some c
-      | _ -> None
-  let get_char x = exn_of_opt Exit get_char_opt x
 end
 
 module Datatype =
@@ -376,7 +370,6 @@ struct
     | CInt _ -> TyInt
     | CFloat _ -> TyFloat
     | CString _ -> TyString
-    | CChar _ -> TyChar
   let type_of x = type_of_node (fst x)
 end
 

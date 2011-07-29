@@ -104,7 +104,6 @@ struct
     | Q.Int i -> Ocaml.Int i
     | Q.Float f -> Ocaml.Float f
     | Q.String s -> Ocaml.String s
-    | Q.Char c -> Ocaml.Char c
 
   (*
     Ident are now shared between ocamlAst and QmlAst

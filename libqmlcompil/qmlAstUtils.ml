@@ -353,7 +353,6 @@ struct
     | Q.Int a, Q.Int b -> Pervasives.compare a b
     | Q.Float a, Q.Float b -> Pervasives.compare a b
     | Q.String a, Q.String b -> String.compare a b
-    | Q.Char a, Q.Char b -> Char.compare a b
     | _ -> assert false
 
   let equal a b = compare a b = 0

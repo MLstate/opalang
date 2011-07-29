@@ -102,7 +102,6 @@ let simple_type_to_qml_type initial_ty =
                | "int" -> QmlAst.TypeConst QmlAst.TyInt
                | "float" -> QmlAst.TypeConst QmlAst.TyFloat
                | "string" -> QmlAst.TypeConst QmlAst.TyString
-               | "char" -> QmlAst.TypeConst QmlAst.TyChar
                | _ ->
                    (* The general and default case. Attention, ni QML we
                       never export the unwounded representation of the type,

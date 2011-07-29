@@ -77,7 +77,6 @@ type const_expr_node =
   | CFloat  of float
 (*  | CFixed  of fixed*)(**This is actually a user-level data structure.*)
   | CString of string   (**A UTF-8 encoded string.*)
-  | CChar   of int      (**A unicode character, represented by its number.*)
 
 and const_expr = const_expr_node label (* cf libqmlcompil/qmlLoc.ml *)
 
@@ -202,7 +201,6 @@ and const_ty_node =
   | TyInt
   | TyFloat
   | TyString
-  | TyChar
 
 and 'ident rowvar        = Rowvar of 'ident
 and 'ident colvar        = Colvar of 'ident

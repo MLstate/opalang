@@ -154,7 +154,6 @@ struct
       match t with
       | B.Const (_, c) -> (
           match c with
-          | Q.TyChar -> serverlib fmt opa_char
           | Q.TyFloat -> serverlib fmt opa_float
           | Q.TyInt -> serverlib fmt opa_int
           | Q.TyNull -> serverlib fmt opa_null

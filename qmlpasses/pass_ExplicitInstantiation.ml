@@ -396,7 +396,6 @@ let rep_of_unit_field annotmap gamma name =
 (** Construct an expression that represents type of simple value. This
     expression is typed by OpaType.ty_const. *)
 let rep_of_const_ty annotmap gamma = function
-  | Q.TyChar -> rep_of_unit_field annotmap gamma "TyChar"
   | Q.TyFloat -> rep_of_unit_field annotmap gamma "TyFloat"
   | Q.TyInt -> rep_of_unit_field annotmap gamma "TyInt"
   | Q.TyString -> rep_of_unit_field annotmap gamma "TyString"
@@ -499,7 +498,6 @@ object (self)
   method const_ty annotmap ty =
     let annotmap, e =
       match ty with
-      | Q.TyChar -> rep_of_unit_field annotmap env.gamma "TyChar"
       | Q.TyFloat -> rep_of_unit_field annotmap env.gamma "TyFloat"
       | Q.TyInt -> rep_of_unit_field annotmap env.gamma "TyInt"
       | Q.TyString -> rep_of_unit_field annotmap env.gamma "TyString"

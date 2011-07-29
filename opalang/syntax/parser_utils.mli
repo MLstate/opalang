@@ -161,7 +161,6 @@ val int : int -> annot -> ('a, 'b) expr
 val floatint2 : int * annot -> ('a, 'b) expr
 val intfloat2 : float * annot -> ('a, 'b) expr
 val bool : bool -> annot -> ('a, 'b) coerced_expr
-val char : char -> annot -> ('a, 'b) expr
 
 
 (** Lambda, application *)
@@ -294,7 +293,6 @@ val type_const : const_ty_node -> annot -> 'a ty
 val tyint : annot -> 'a ty
 val tyfloat : annot -> 'a ty
 val tystring : annot -> 'a ty
-val tychar : annot -> 'a ty
 val tyvoid_ : 'a ty_node
 val tyvoid : annot -> 'a ty
 

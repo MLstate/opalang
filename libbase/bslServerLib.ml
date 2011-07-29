@@ -270,16 +270,12 @@ module type S = sig
   *)
 
   (** *)
-  type ty_char
   type ty_float
   type ty_int
   type ty_null
   type ty_string
 
   (** *)
-  val wrap_char : char -> ty_char
-  val unwrap_char : ty_char -> char
-
   val wrap_float : float -> ty_float
   val unwrap_float : ty_float -> float
 

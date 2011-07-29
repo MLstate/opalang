@@ -238,7 +238,6 @@ struct
     | SA.TyInt -> QA.TyInt
     | SA.TyFloat -> QA.TyFloat
     | SA.TyString -> QA.TyString
-    | SA.TyChar -> QA.TyChar
 
   and ty x = ty_node (fst x)
   and ty_node = function
@@ -351,11 +350,6 @@ struct
              Pervasives.max_int)
     | SA.CFloat f -> QA.Float f
     | SA.CString s -> QA.String s
-    | SA.CChar i ->
-        try QA.Char (Char.chr i)
-        with Invalid_argument "Char.chr" ->
-          let context = OpaError.Context.annot opa_annot in
-          OpaError.error context "Character %d is not representable@." i
 
   let ident = Arg.exprident
 

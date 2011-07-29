@@ -43,7 +43,6 @@ type const_type_expr =
   | TypeInt64
   | TypeFloat
   | TypeBool
-  | TypeChar
   | TypeUnit
 
 (* Module.Module.name *)

@@ -446,8 +446,6 @@ let type_float () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.float) 
 
 let type_string () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.string) [] None
 
-let type_char () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.char) [] None
-
 
 
 (* ************************************************************************** *)

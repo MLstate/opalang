@@ -62,7 +62,6 @@ type const_expr =
   | Int of int (** simplify the life in opa / ml code generator *)
   | Float of float
   | String of string
-  | Char of char
 
 (**
    The type of a simple value.
@@ -70,7 +69,6 @@ type const_expr =
 *)
 
 type const_ty =
-  | TyChar
   | TyFloat
   | TyInt
   | TyNull (** empty type: nothing should really have this type *)
@@ -84,14 +82,12 @@ struct
     | Int _    -> TyInt
     | Float _  -> TyFloat
     | String _ -> TyString
-    | Char _   -> TyChar
 
   (** Return a human-readable version of a simple value.*)
   let string_of_expr = function
     | Int i    -> string_of_int i
     | Float f  -> string_of_float f
     | String s -> Printf.sprintf "%S" s
-    | Char c   -> Printf.sprintf "%C" c
 
   let pp_expr fmt expr = Format.pp_print_string fmt (string_of_expr expr)
 
@@ -101,7 +97,6 @@ struct
         (** if we reswitch to Int64.t, to preserve confusion in declaration of type (e.g. by using register directives in libbsl) it is preferable to print int64 instead of int *)
     | TyFloat  -> "float"
     | TyString -> "string"
-    | TyChar   -> "char"
     | TyNull   -> "null"
 
   let pp_ty fmt ty = Format.pp_print_string fmt (string_of_ty ty)
@@ -118,7 +113,6 @@ struct
     | TyInt -> "long long int"
     | TyFloat -> "double"
     | TyString -> "char *"
-    | TyChar -> "char"
     | TyNull -> assert false (* "void *" ?? *)
 
   (** meta : keep it not too far from the definition *)
@@ -126,7 +120,6 @@ struct
     | TyInt    -> "TyInt"
     | TyFloat  -> "TyFloat"
     | TyString -> "TyString"
-    | TyChar   -> "TyChar"
     | TyNull   -> "TyNull"
 end
 

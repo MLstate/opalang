@@ -139,7 +139,6 @@ sig
   val int :    int -> QmlAst.expr
   val float :  float -> QmlAst.expr
   val string : string -> QmlAst.expr
-  val char :   char -> QmlAst.expr
   val unit :   unit -> QmlAst.expr
   val _false:  unit -> QmlAst.expr
   val _true:   unit -> QmlAst.expr
@@ -486,7 +485,6 @@ sig
   val int :    ?label:Annot.label -> int -> QmlAst.expr
   val float :  ?label:Annot.label -> float -> QmlAst.expr
   val string : ?label:Annot.label -> string -> QmlAst.expr
-  val char :   ?label:Annot.label -> char -> QmlAst.expr
 
   val directive : ?label:Annot.label -> QmlAst.qml_directive -> QmlAst.expr list -> QmlAst.ty list -> QmlAst.expr
 

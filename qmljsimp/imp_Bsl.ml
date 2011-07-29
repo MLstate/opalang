@@ -177,7 +177,6 @@ struct
         if env.options.Qml2jsOptions.check_bsl_types then
           let typer =
             match c with
-            | QmlAst.TyChar ->  Imp_Common.ClientLib.type_char
             | QmlAst.TyFloat -> Imp_Common.ClientLib.type_float
             | QmlAst.TyInt -> Imp_Common.ClientLib.type_int
             | QmlAst.TyNull -> assert false
@@ -217,7 +216,6 @@ struct
             match t with
             | B.Const (_, c) -> (
                 match c with
-                | QmlAst.TyChar ->  Imp_Common.ClientLib.type_char
                 | QmlAst.TyFloat -> Imp_Common.ClientLib.type_float
                 | QmlAst.TyInt -> Imp_Common.ClientLib.type_int
                 | QmlAst.TyNull -> assert false

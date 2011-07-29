@@ -150,7 +150,6 @@ struct
     let string ?(label=w()) () = (TypeConst TyString, c label)
     let int ?(label=w()) () = (TypeConst TyInt, c label)
     let float ?(label=w()) () = (TypeConst TyFloat, c label)
-    let char ?(label=w()) () = (TypeConst TyChar, c label)
     let bool ?label () = name ?label Opacapi.Types.bool
   end
 
@@ -207,8 +206,6 @@ struct
     let big_int ?label i = constant ?label (CInt i)
     let int ?label i = big_int ?label (Big_int.big_int_of_int i)
     let bool ?label b = if b then true_ ?label () else false_ ?label ()
-    let unicode_char ?label code = constant ?label (CChar code)
-    let char ?label c = unicode_char ?label (Char.code c)
 
     let ident ?(label=w()) i = (Ident i, c label)
     let var = ident

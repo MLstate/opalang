@@ -804,7 +804,6 @@ let sexp_tyv f t = Format.pp_print_string f (QmlTypeVars.TypeVar.to_string t)
 let sexp_rowv f t = Format.pp_print_string f (QmlTypeVars.RowVar.to_string t)
 let sexp_colv f t = Format.pp_print_string f (QmlTypeVars.ColVar.to_string t)
 let rec sexp_ty f = function
-  | Q.TypeConst Q.TyChar -> Format.fprintf f "C"
   | Q.TypeConst Q.TyFloat -> Format.fprintf f "F"
   | Q.TypeConst Q.TyInt -> Format.fprintf f "I"
   | Q.TypeConst Q.TyNull -> Format.fprintf f "Null"

@@ -1160,11 +1160,7 @@ struct
       | Q.Int i, Q.Int i' -> if i+1=i' then [] else [Q.Int( i+1 )]
       | Q.Float f, Q.Float f' -> let f'' = (f+.f')/.2.0 in if f<f'' && f''< f' then [Q.Float f''] else []
       | Q.String s, Q.String s' -> [Q.String (s^"_"^s')]
-      | Q.Char c, Q.Char c' ->
-          let c = Char.code c in
-          let c' = Char.code c' in
-          if c+1=c' then [] else [Q.Char( Char.chr (c+1))]
-      | Q.Char _, _ | Q.String _ , _ | Q.Int _ , _ | Q.Float _,_ -> assert false
+      | Q.String _ , _ | Q.Int _ , _ | Q.Float _,_ -> assert false
       in
       let outside first last = match first,last with
       | Q.Int i, Q.Int i' ->
@@ -1178,15 +1174,7 @@ struct
             else [Q.Float (f +. 1.0)]
           else [Q.Float (f' -. 1.0)]
       | Q.String _, Q.String s' -> [ Q.String (s'^", me and many many others") ]
-      | Q.Char c, Q.Char c' ->
-          let c = Char.code c in
-          let c' = Char.code c' in
-          if c = 0 then
-            if c' = 255 then []
-            else [Q.Char (Char.chr (c'+1))]
-          else [Q.Char (Char.chr (c'-1))]
-      | Q.Char _, _ | Q.String _ , _ | Q.Int _ , _ | Q.Float _,_ ->  assert false
-      in
+      | Q.String _ , _ | Q.Int _ , _ | Q.Float _,_ ->  assert false in
       let first = List.hd l in
       let rec aux last l =
         match last,l with

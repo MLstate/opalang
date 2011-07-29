@@ -19,13 +19,12 @@ read default.trx global (spacing)
 spacing <- (Default.space $ / Default.mlcomment)* $
 read ocaml_keywords.trx
 
-typeconst <- (IntT / Int64T / FloatT / StringT / UnitT / CharT / BoolT) {{ TypeConst __1 }}
+typeconst <- (IntT / Int64T / FloatT / StringT / UnitT / BoolT) {{ TypeConst __1 }}
 IntT <- "int" {{ TypeInt }}
 Int64T <- "int64" {{ TypeInt64 }}
 FloatT <- "float" {{ TypeFloat }}
 StringT <- "string" {{ TypeString }}
 UnitT <- "unit" {{ TypeUnit }}
-CharT <- "char" {{ TypeChar }}
 BoolT <- "bool" {{ TypeBool }}
 
 typeIdent_cont <- [a-zA-Z0-9_]

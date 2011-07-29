@@ -379,14 +379,11 @@ b_BASE <-
   / b_External
   / "(" spacing b_ENTRY spacing ")" {{ __3 }}
 
-b_Const <- (CintError / Cint / Cfloat / Cstring / Cchar ) {{ B.Const (pos(), __1) }}
+b_Const <- (Cint / Cfloat / Cstring) {{ B.Const (pos(), __1) }}
 
-CintError <- "int64" ![a-zA-Z]
-  {{ error "@{<bright>int64@} are not supported for external primitives,@ use an @{<bright>int@} or use an @{<bright>external type@}@\n" }}
 Cint <- "int" ![a-zA-Z] {{ Q.TyInt }}
 Cfloat <- "float" ![a-zA-Z]  {{ Q.TyFloat }}
 Cstring <- "string" ![a-zA-Z] {{ Q.TyString }}
-Cchar <- "char" ![a-zA-Z] {{ Q.TyChar }}
 
 b_TypeVar <-
   / "'" name

@@ -204,7 +204,6 @@ struct
   let int i = const (Q.Int i)
   let float f = const (Q.Float f)
   let string s = const (Q.String s)
-  let char c = const (Q.Char c)
 
   let coerce e t = Q.Coerce (Annot.refresh (Q.Label.expr e), e, t)
 
@@ -960,7 +959,6 @@ struct
   let int ?(label=Annot.next_label nopos) i = const ~label (Q.Int i)
   let float ?(label=Annot.next_label nopos) f = const ~label (Q.Float f)
   let string ?(label=Annot.next_label nopos) s = const ~label (Q.String s)
-  let char ?(label=Annot.next_label nopos) c = const ~label (Q.Char c)
 
   let letin ?(label=Annot.next_label nopos) l e = Q.LetIn (label, l, e)
   let letrecin ?(label=Annot.next_label nopos) l e = Q.LetRecIn (label, l, e)

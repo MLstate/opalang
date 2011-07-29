@@ -137,7 +137,6 @@ OpaDocXhtml = {{
       else id
     rec aux_ty_const(ty_const) =
       match ty_const with
-      | {TyChar} -> <>char</>
       | {TyInt} -> <>int</>
       | {TyFloat} -> <>float</>
       | {TyString} -> <>string</>

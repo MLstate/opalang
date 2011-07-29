@@ -35,7 +35,6 @@ let consttype_to_string = function
   | O.TypeBool -> "bool"
   | O.TypeInt64 -> "int64"
   | O.TypeInt -> "int"
-  | O.TypeChar -> "char"
   | O.TypeFloat -> "float"
   | O.TypeUnit -> "unit"
   | _ -> "string"

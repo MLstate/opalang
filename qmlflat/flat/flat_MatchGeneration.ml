@@ -249,7 +249,6 @@ struct
         | Q.Int i -> Ocaml.Cons.pat_int i
         | Q.Float i -> Ocaml.Cons.pat_float i
         | Q.String i -> Ocaml.Cons.pat_string i
-        | Q.Char i -> Ocaml.Cons.pat_char i
       )
 
     | T_PatVar (_, ident) ->

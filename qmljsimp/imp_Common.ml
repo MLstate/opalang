@@ -199,7 +199,7 @@ let maybe_js_false gamma ty =
     | Q.TypeConst ct -> (
         (* In fact, all basic types are "dangerous". *)
         match ct with
-        | Q.TyChar | Q.TyFloat | Q.TyInt | Q.TyString -> true
+        | Q.TyFloat | Q.TyInt | Q.TyString -> true
         | Q.TyNull -> assert false
       )
     | Q.TypeSumSugar _ ->
@@ -230,5 +230,3 @@ let const const =
       JsCons.Expr.float f
   | Q.String s ->
       JsCons.Expr.string s
-  | Q.Char c ->
-      JsCons.Expr.string (String.make 1 c)

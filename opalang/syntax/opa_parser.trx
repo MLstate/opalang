@@ -1003,7 +1003,6 @@ opa_in_braces <- lbrace expr:e rbrace {{ e }}
 const      <- float:f {{ CFloat f }}
             / int:i {{ CInt (Big_int.big_int_of_int i) }}
             / string:s {{ CString s }}
-            / char:c {{ CChar c}}
 
 (**
    {6 Types}
@@ -1018,7 +1017,6 @@ type_const = deco just_type_const;
 just_type_const <-  (=exact_ident("int"))    {{TypeConst TyInt}}
                   / (=exact_ident("float"))  {{TypeConst TyFloat}}
                   / (=exact_ident("string")) {{TypeConst TyString}}
-                  / (=exact_ident("char"))   {{TypeConst TyChar}}
 
 (**
    {7 Type variables}

@@ -230,12 +230,6 @@ type ty_int = V.t
 type ty_null = V.t
 type ty_string = V.t
 
-let wrap_char c = V.Proj.t_char c
-let unwrap_char = function
-  | V.V_const (_, Q.Char c) -> c
-  | t ->
-      fail t "SL.unwrap_char, expecting a char@\n"
-
 let wrap_float c = V.Proj.t_float c
 let unwrap_float = function
   | V.V_const (_, Q.Float f) -> f

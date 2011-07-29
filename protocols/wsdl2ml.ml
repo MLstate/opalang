@@ -658,7 +658,6 @@ let make_type_const pname ai te =
     | O.TypeConst O.TypeInt64 -> "i64",1
     | O.TypeConst O.TypeFloat -> "f",1
     | O.TypeConst O.TypeBool -> "b",1
-    | O.TypeConst O.TypeChar -> "c",1
     | O.TypeConst O.TypeUnit -> "()",0
     | O.TypeName ([], ["int"]) -> "i",1
     | O.TypeName ([], ["WC";"t_dateTime"]) -> "dT",1
@@ -833,7 +832,6 @@ let make_string_const ai cte =
     | O.TypeInt64 -> "Int64.to_string","i64",1
     | O.TypeFloat -> "string_of_float","f",1
     | O.TypeBool -> "string_of_bool","b",1
-    | O.TypeChar -> "(String.make 1)","c",1
     | O.TypeUnit -> "","()",0
   in
   let arg = cname^(if cnt > 0 then string_of_int ai else "") in
@@ -890,7 +888,6 @@ let ph_type_const pname ai te =
     | O.TypeConst O.TypeInt64 -> "Int64.to_string","i64","",1
     | O.TypeConst O.TypeFloat -> "string_of_float","f","",1
     | O.TypeConst O.TypeBool -> "string_of_bool","b","",1
-    | O.TypeConst O.TypeChar -> "(String.make 1)","c","",1
     | O.TypeConst O.TypeUnit -> "","()","",0
     | O.TypeName ([], ["int"]) -> "string_of_int","i","",1
     | O.TypeName ([], ["WC";"t_dateTime"]) -> "WC.string_of_dateTime","dT","",1
@@ -1036,7 +1033,6 @@ let make_toxml_const ai cte =
     | O.TypeInt64 -> "Int64.to_string","i64",1
     | O.TypeFloat -> "string_of_float","f",1
     | O.TypeBool -> "string_of_bool","b",1
-    | O.TypeChar -> "(String.make 1)","c",1
     | O.TypeUnit -> "","()",0
   in
   let arg = cname^(if cnt > 0 then string_of_int ai else "") in
@@ -1234,7 +1230,6 @@ let make_fromxml_const ai cte =
     | O.TypeInt64 -> "WC.fx \"int64\" Int64.of_string","i64",1
     | O.TypeFloat -> "WC.fx \"float\" float_of_string","f",1
     | O.TypeBool -> "WC.fx \"bool\" bool_of_string","b",1
-    | O.TypeChar -> "(fun str -> str.[0])","c",1
     | O.TypeUnit -> "(fun u -> u)","()",0
   in
   let arg = cname^(if cnt > 0 then string_of_int ai else "") in

@@ -65,7 +65,6 @@ OpaApiFile = {{
            end
          rec aux_ty_const(table, ty_const) =
            match ty_const with
-           | {TyChar} -> associate_id_val("char", val, table)
            | {TyInt} -> associate_id_val("int", val, table)
            | {TyFloat} -> associate_id_val("float", val, table)
            | {TyString} -> associate_id_val("string", val, table)

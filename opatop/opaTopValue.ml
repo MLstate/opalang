@@ -208,7 +208,6 @@ struct
   let t_int ?(pos=nopos) i    = V_const  (pos, Q.Int i)
   let t_float ?(pos=nopos) f  = V_const  (pos, Q.Float f)
   let t_string ?(pos=nopos) s = V_const  (pos, Q.String s)
-  let t_char ?(pos=nopos) c   = V_const  (pos, Q.Char c)
   let t_void ?(pos=nopos) ()  = V_record (pos, StringMap.empty, ref None)
   let t_int64 ?(pos=nopos) i  = V_const  (pos, Q.Int (Int64.to_int i))
 
@@ -243,7 +242,6 @@ struct
     | B.Const (pos, Q.TyInt)    -> t_int ~pos (Obj.magic x)
     | B.Const (pos, Q.TyFloat)  -> t_float ~pos (Obj.magic x)
     | B.Const (pos, Q.TyString) -> t_string ~pos (Obj.magic x)
-    | B.Const (pos, Q.TyChar)   -> t_char ~pos (Obj.magic x)
     | B.Const (pos, Q.TyNull)   -> t_null ~pos ()
 
     (* If a type is still an alpha, that means that it is a opa-value represented by itself *)
@@ -294,7 +292,6 @@ struct
       | B.Const (_, Q.TyInt)     , V_const (_, Q.Int    i)   -> Obj.magic i
       | B.Const (_, Q.TyFloat)   , V_const (_, Q.Float  f)   -> Obj.magic f
       | B.Const (_, Q.TyString)  , V_const (_, Q.String s)   -> Obj.magic s
-      | B.Const (_, Q.TyChar)    , V_const (_, Q.Char   c)   -> Obj.magic c
       | B.Const (_, Q.TyNull)    , _                         -> Obj.magic 0
 
       | B.Void _, V_record (_, m, r) when StringMap.is_empty m && !r = None -> Obj.magic ()

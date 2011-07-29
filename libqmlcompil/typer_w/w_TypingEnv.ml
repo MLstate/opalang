@@ -299,7 +299,6 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
     match qml_ty with
     | QmlAst.TypeConst const_ty -> (
         match const_ty with
-        | QmlAst.TyChar -> W_CoreTypes.type_char ()
         | QmlAst.TyFloat -> W_CoreTypes.type_float ()
         | QmlAst.TyInt -> W_CoreTypes.type_int ()
         | QmlAst.TyString -> W_CoreTypes.type_string ()

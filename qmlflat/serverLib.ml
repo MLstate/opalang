@@ -211,9 +211,6 @@ type ty_int = int
 type ty_null = unit
 type ty_string = string
 
-external wrap_char : char -> ty_char = "%identity"
-external unwrap_char : ty_char -> char = "%identity"
-
 external wrap_float : float -> ty_float = "%identity"
 external unwrap_float : ty_float -> float = "%identity"
 

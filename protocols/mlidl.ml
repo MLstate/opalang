@@ -286,7 +286,6 @@ let type_ocaml_cte = function
   | O.TypeInt64 -> "int64"
   | O.TypeFloat -> "float"
   | O.TypeBool -> "bool"
-  | O.TypeChar -> "char"
   | O.TypeUnit -> "unit"
 
 let rec type_ocaml_te tyns = function
@@ -336,7 +335,6 @@ let type_opa_cte = function
   | O.TypeInt64 -> "int64"
   | O.TypeFloat -> "float"
   | O.TypeBool -> "bool"
-  | O.TypeChar -> "char"
   | O.TypeUnit -> "void"
 
 let rec type_opa_te tyns = function
@@ -392,7 +390,6 @@ let opa_arg_type_cte = function
   | O.TypeInt64 -> "opa[int]"
   | O.TypeFloat -> "opa[float]"
   | O.TypeBool -> "opa[bool]"
-  | O.TypeChar -> "opa[char]"
   | O.TypeUnit -> "opa[void]"
 
 let rec opa_arg_type_te name = function
@@ -409,7 +406,6 @@ let type_sl_cte = function
   | O.TypeInt64 -> "ServerLib.ty_int"
   | O.TypeFloat -> "ServerLib.ty_float"
   | O.TypeBool -> "ServerLib.ty_bool"
-  | O.TypeChar -> "ServerLib.ty_char"
   | O.TypeUnit -> "ServerLib.ty_void"
 
 let rec type_sl_te tyns withmod = function
@@ -490,7 +486,6 @@ and enc = {
   int64_to_string : string*string;
   float_to_string : string*string;
   bool_to_string : string*string;
-  char_to_string : string*string;
   unit_to_string : string*string;
   option_pre : string; option_post : string;
   list_pre : string; list_post : string;
@@ -680,7 +675,6 @@ let abs_output_cte enc o t = function
   | O.TypeInt64 -> enc.lang.output_v enc (fst enc.enc.int64_to_string) o t (snd enc.enc.int64_to_string)
   | O.TypeFloat -> enc.lang.output_v enc (fst enc.enc.float_to_string) o t (snd enc.enc.float_to_string)
   | O.TypeBool -> enc.lang.output_v enc (fst enc.enc.bool_to_string) o t (snd enc.enc.bool_to_string)
-  | O.TypeChar -> enc.lang.output_v enc (fst enc.enc.char_to_string) o t (snd enc.enc.char_to_string)
   | O.TypeUnit -> enc.lang.output_v enc (fst enc.enc.unit_to_string) o t (snd enc.enc.unit_to_string)
 
 let rec abs_output_te enc o t tyns = function
@@ -785,7 +779,6 @@ let abs_input2_cte enc = function
   | O.TypeInt64 ->  enc.prs.input_v enc enc.prs.int64_pat
   | O.TypeFloat ->  enc.prs.input_v enc enc.prs.float_pat
   | O.TypeBool ->   enc.prs.input_v enc enc.prs.bool_pat
-  | O.TypeChar ->   enc.prs.input_v enc enc.prs.char_pat
   | O.TypeUnit ->   enc.prs.input_v enc enc.prs.unit_pat
 
 let input_fix enc str success =
@@ -1105,7 +1098,6 @@ let abs_input_cte enc = function
   | O.TypeInt64 ->  enc.prs.input_v enc enc.prs.int64_pat
   | O.TypeFloat ->  enc.prs.input_v enc enc.prs.float_pat
   | O.TypeBool ->   enc.prs.input_v enc enc.prs.bool_pat
-  | O.TypeChar ->   enc.prs.input_v enc enc.prs.char_pat
   | O.TypeUnit ->   enc.prs.input_v enc enc.prs.unit_pat
 
 let rec abs_input_te enc tyns = function
@@ -1237,7 +1229,6 @@ let opa_enc1 = {
   int64_to_string = "__i64", "Int.to_string";
   float_to_string = "__f", "Float.to_string";
   bool_to_string = "__b", "Bool.to_string";
-  char_to_string = "__c", "Char.to_string";
   unit_to_string = "__u", "(_ -> \"()\")";
   list_pre = "\\{List=["; list_post = "]\\}"; lst_pre = "("; lst_sep1 = ";"; lst_sep2 = ""; lst_post = ")";
   tuple_pre = (fun _ -> "\\{Tuple=["); tuple_post = "]\\}"; tup_pre = "("; tup_sep1 = ","; tup_sep2 = ","; tup_post = ")";
@@ -1383,7 +1374,6 @@ let ocaml_enc1 = {
   int64_to_string = "__i64", "Int64.to_string";
   float_to_string = "__f", "string_of_float";
   bool_to_string = "__b", "string_of_bool";
-  char_to_string = "__c", "(fun c -> String.make 1 c)";
   unit_to_string = "__u", "(fun () -> \"()\")";
   list_pre = "{List=["; list_post = "]}";
   lst_pre = "("; lst_sep1 = ";"; lst_sep2 = ""; lst_post = ")";
@@ -1507,7 +1497,6 @@ let opa_tojson_encoding = {
       int64_to_string = "__i64", "Int";
       float_to_string = "__f", "Float";
       bool_to_string = "__b", "Bool";
-      char_to_string = "__c", "Char";
       unit_to_string = "", "{Void}";
       tuple_pre = (fun _ -> "{Record=["); tuple_post = "]}";
       tup_pre = "("; tup_sep1 = ","; tup_sep2 = ","; tup_post = ")"; make_tup = (fun s -> "\""^s^"\"");
@@ -1541,7 +1530,6 @@ let opa_tojson_ll_encoding = {
       int64_to_string = "__i64", "to_int";
       float_to_string = "__f", "to_float";
       bool_to_string = "__b", "to_bool";
-      char_to_string = "__c", "(c -> String (String.make 1 c))";
       unit_to_string = "", "to_void()";
       tuple_pre = (fun _ -> "opar2mlr(["); tuple_post = "])";
       tup_pre = "("; tup_sep1 = ","; tup_sep2 = ","; tup_post = ")"; make_tup = (fun s -> "\""^s^"\"");
@@ -1575,7 +1563,6 @@ let ocaml_tojson_encoding = {
       int64_to_string = "__i64", "JsonTypes.Int";
       float_to_string = "__f", "JsonTypes.Float";
       bool_to_string = "__b", "JsonTypes.Bool";
-      char_to_string = "__c", "(fun c -> JsonTypes.String (String.make 1 c))";
       unit_to_string = "__u", "(fun () -> JsonTypes.Void)";
       tuple_pre = (fun _ -> "JsonTypes.Record ["); tuple_post = "]";
       tup_pre = "("; tup_sep1 = ", "; tup_sep2 = "; "; tup_post = ")"; make_tup = (fun s -> "\""^s^"\"");
@@ -1615,7 +1602,6 @@ let ocaml_wrap_encoding () = {
       int64_to_string = "__i64", "ServerLib.wrap_int";
       float_to_string = "__f", "ServerLib.wrap_float";
       bool_to_string = "__b", "ServerLib.wrap_bool";
-      char_to_string = "__c", "ServerLib.wrap_char";
       unit_to_string = "__u", "wrap_unit";
       record_pre = (fun _ -> "wrap_rcrd ["); record_post = "]";
       tuple_pre = (fun i -> sprintf "wrap_tuple%d(" i); tuple_post = ")";
@@ -1658,7 +1644,6 @@ let ocaml_unwrap_encoding () = {
       int64_to_string = "__i64", "ServerLib.unwrap_int";
       float_to_string = "__f", "ServerLib.unwrap_float";
       bool_to_string = "__b", "ServerLib.unwrap_bool";
-      char_to_string = "__c", "ServerLib.unwrap_char";
       unit_to_string = "__u", "unwrap_unit";
       tuple_pre = (fun _ -> "("); tuple_post = ")";
       tup_pre = ""; tup_sep1 = ""; tup_sep2 = ", "; tup_post = ""; make_tup = (fun s -> "");

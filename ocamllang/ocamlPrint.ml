@@ -116,7 +116,6 @@ struct
     | TypeInt64 -> output_string oc "int64"
     | TypeFloat -> output_string oc "float"
     | TypeBool -> output_string oc "bool"
-    | TypeChar -> output_string oc "char"
     | TypeUnit -> output_string oc "unit"
 
   let type_name oc = output_concat_map oc "." output_string

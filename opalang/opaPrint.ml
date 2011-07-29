@@ -40,7 +40,7 @@ let keyword = function
   | "match" | "with" | "type" | "do" | "if" | "then" | "else" | "as" | "_" -> true
   | _ -> false
 let basic_type = function
-  | "int" | "char" | "string" | "float" -> true
+  | "int" | "string" | "float" -> true
   | _ -> false
 let operator_regexp = Str.regexp "[-.+\\^*/<>=@|&!]+"
 let classify_string s =
@@ -183,7 +183,6 @@ object (self)
     | CInt i -> Format.pp_print_string f (Big_int.string_of_big_int i)
     | CFloat float -> Format.pp_print_float f float
     | CString s -> pp f "\"%s\"" (QmlPrint.escaped_string s)
-    | CChar int -> try pp f "%C" (Char.chr int) with Invalid_argument _ -> pp f "'\\u%#x'" int
 
   method field f s =
     Format.pp_print_string f (
@@ -217,7 +216,6 @@ object (self)
       | TyInt -> "int"
       | TyFloat -> "float"
       | TyString -> "string"
-      | TyChar -> "char"
     )
   method rowvar f _ = Format.pp_print_string f "..."
   method colvar f _ = Format.pp_print_string f "..."

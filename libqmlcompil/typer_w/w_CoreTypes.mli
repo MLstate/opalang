@@ -70,7 +70,6 @@ val type_int: unit -> W_Algebra.simple_type
 val type_bool: unit -> W_Algebra.simple_type
 val type_float: unit -> W_Algebra.simple_type
 val type_string: unit -> W_Algebra.simple_type
-val type_char: unit -> W_Algebra.simple_type
 val type_arrow:
   W_Algebra.simple_type list -> W_Algebra.simple_type -> W_Algebra.simple_type
 val type_closed_record:

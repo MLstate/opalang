@@ -65,7 +65,6 @@ sig
     val string :      ?label:annot -> unit -> ident ty
     val int :         ?label:annot -> unit -> ident ty
     val float :       ?label:annot -> unit -> ident ty
-    val char :        ?label:annot -> unit -> ident ty
     val bool :        ?label:annot -> unit -> ident ty
   end
 
@@ -118,8 +117,6 @@ sig
     val float :         ?label:annot -> float -> (ident, _) expr
     val big_int :       ?label:annot -> Big_int.big_int -> (ident, _) expr
     val int :           ?label:annot -> int -> (ident, _) expr
-    val unicode_char :  ?label:annot -> int -> (ident, _) expr
-    val char :          ?label:annot -> char -> (ident, _) expr
 
     val ident :         ?label:annot -> ident -> (ident, _) expr
     val var :           ?label:annot -> ident -> (ident, _) expr

@@ -29,7 +29,6 @@ let infer_constant_type = function
   | QmlAst.Int _ -> W_CoreTypes.type_int ()
   | QmlAst.Float _ -> W_CoreTypes.type_float ()
   | QmlAst.String _ -> W_CoreTypes.type_string ()
-  | QmlAst.Char _ -> W_CoreTypes.type_char ()
 
 
 

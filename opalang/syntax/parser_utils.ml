@@ -97,7 +97,6 @@ let const_ty_to_string = function
               | TyInt -> Opacapi.Types.int
               | TyFloat -> Opacapi.Types.float
               | TyString -> Opacapi.Types.string
-              | TyChar -> Opacapi.Types.char
           end
       | _ -> assert false
 let isolate s = sprintf "`%s'" s
@@ -401,7 +400,6 @@ let type_const t label = (TypeConst t, copy_label label)
 let tyint label  = type_const TyInt label
 let tyfloat label = type_const TyFloat label
 let tystring label = type_const TyString label
-let tychar label = type_const TyChar label
 let tyvoid_ = TypeRecord (TyRow ([], None))
 let tyvoid label = (tyvoid_, copy_label label)
 
@@ -470,7 +468,6 @@ let int = cur2 int2
 let floatint2 (i,label) = float2 (float_of_int i, label)
 let intfloat2 (f,label) = int2 (int_of_float f, label)
 let bool b label = if b then true_ label else false_ label
-let char c label = (Const (CChar (Char.code c)), copy_label label)
 
 (*
  * More Utils on directives
