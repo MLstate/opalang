@@ -175,7 +175,6 @@ OpaValue = {{
     and aux(value, ty, text) =
       match ty with
       /* Basic case *****************************/
-      | {TyConst = {TyChar}} -> Char.to_string(Magic.id(value))
       | {TyConst = {TyInt}} -> Int.to_string(Magic.id(value))
       | {TyConst = {TyFloat}} -> Float.to_string(Magic.id(value))
       | {TyConst = {TyString}} -> Magic.id(value)
@@ -228,7 +227,6 @@ OpaValue = {{
     and aux(a, b, ty) =
       match ty with
       /* Basic case *****************************/
-      | {TyConst = {TyChar}} -> compare_char(Magic.id(a), Magic.id(b))
       | {TyConst = {TyInt}} -> compare_int(Magic.id(a), Magic.id(b))
       | {TyConst = {TyFloat}} -> compare_float(Magic.id(a), Magic.id(b))
       | {TyConst = {TyString}} -> compare_string(Magic.id(a), Magic.id(b))

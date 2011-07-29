@@ -117,12 +117,6 @@ Int = {{
   to_string   = String.of_int : int -> string
 
   /**
-   * Returns the char whose ASCII code is the given integer
-   * Give [{none}] if the integer is outside of [0,127]
-   */
-  to_char     = %% BslNumber.Int.to_char %% : int -> option(char)
-
-  /**
    * Parse a string as an int
    * The usage of this function is discouraged, as it will exit with an error
    * when the input is incorrect
@@ -145,21 +139,6 @@ Int = {{
    * Return the float representation of an integer
    */
   to_float= Float.of_int
-
-  /**
-   * Return the character whose ASCII code in the given integer
-   * Exits in case of error
-   */
-  to_char_unsafe = (i -> Option.get_msg(-> "Int.to_char_unsafe", to_char(i))) : int -> char
-
-  /**
-   * Convert the int to the string containing its ASCII code, or the empty string
-   * if the integer is invalid
-   */
-  to_string_value = (i -> match to_char(i) with
-    | { some= c } -> "{c}"
-    | _ -> ""
-  ) : int -> string
 
   /**
    * Convert the integer to its string representation in hexadecimal

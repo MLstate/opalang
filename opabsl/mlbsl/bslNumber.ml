@@ -17,12 +17,6 @@
 *)
 ##module Int \ bsl_int
 
-##register to_char : int -> option(char)
-  let to_char i =
-    if 0 <= i && i <= 127 then
-      try Some (Base.Char.chr i) with Invalid_argument _ -> None
-    else None
-
 ##register max_int : int
   let max_int =
     let is_32 = (1 lsl 30) = max_int

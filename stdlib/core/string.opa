@@ -127,16 +127,17 @@ String =
   index = %% BslString.index %%
 
   /**
-   * [init(f, n)] creates a string of length [n] containing the characters [f(0)],
-   * [f(1)], ..., [f(n-1)]
+   * [init(f, n)] creates a string which consists of the flattening of
+   * [f(0)],[f(1)], ..., [f(n-1)]
+   * Efficiency note: as the length of [f(0)] ... [f(n-1)] are not known in
+   * advance, [init] is not very efficient. For constant [f], [repeat] is faster.
    */
-  init = %% BslString.init %%
+  init(f, n) = flatten(List.init(f, n))
 
   /**
-   * [make(n, c)] returns a string of length [n], filled with the character [c].
+   * [repeat(s, n)] returns a string which consists in [n] repetitions of string [s]
    */
-  make(n, c) =
-    init((_index -> c), n)
+  repeat(s, n) = %% BslString.repeat %%(n, s)
 
   /**
    * [replace(substring, replacement, source)] replaces every occurrence of
@@ -291,15 +292,23 @@ String =
   of_utf8_val= %% BslString.to_character %%
 
   /**
-   * @temporary
-   */
-  of_ascii_val= of_utf8_val
-
-  /**
    * Build a string from a byte value.
    * Useful if you use strings for outputs in binary format
   **/
   of_byte_val = %% BslString.of_byte_val %%
+
+  /**
+   * Build a string from a byte value.
+   * Unsafe: may raise an error
+  **/
+  of_byte_unsafe = %% BslString.of_byte_unsafe %%
+
+  /**
+   * Peeks the nth byte in a string
+   * Unsafe: may raise an error
+   * Unsound: may give different results on server and client
+  **/
+  byte_at_unsafe = %% BslString.byte_at_unsafe %%
 
   /**
     * Escapes some characters. Used internally.
@@ -307,12 +316,11 @@ String =
    **/
   escape_non_utf8_special(v) =
     rpl_list = [
-             /* IN FIRST IS BACKSLASH */
              ( "\\" , "\\\\"),
              ( "\n" , "\\n" ),
              ( "\r" , "\\r" ),
              ( "\t" , "\\t" ),
-             ( "{Int.to_char_unsafe(0)}" , "\\000" ),
+             ( "\000" , "\\000" ),
              ( "\"" , "\\\"" )
      ]
      List.foldl((pat, rpl), str -> String.replace(pat, rpl, str) , rpl_list, v)
@@ -484,9 +492,8 @@ String =
   /**
    * @return true if the source contains only white spaces characters, false otherwise
    */
-  is_blank(source: string)=
-    if length(strip_left(source)) > 0 then false else true
-  : bool
+  is_blank(source: string) : bool =
+    strip_left(source) == ""
 
   /**
    * concatenates the list of alphas, inserting string [separator] between each.
@@ -515,13 +522,6 @@ String =
     do List.iter(s -> llappend(llbuff, s), list)
     llcontents(llbuff)
   )
-
-  /**
-   * make a string from a list of chars
-   */
-  of_char_list(list: list(char))=
-    of_list(Char.to_string, "", list)
-  : string
 
   /**
    * This function returns an unsigned int to count blocks of non blank
@@ -573,25 +573,18 @@ String =
   : string
 
   /**
-   * Returns [source] repeated multiplier times
-   */
-  repeat(times: int, source: string)=
-    rec aux= accu, times -> if times > 0 then aux(accu^source, times - 1) else accu
-    aux(source, times - 1)
-  : string
-
-  /**
    * Returns a string that succeed [source]
    */
-  next(source: string)=
-    if length(source) == 0 then "a"
+  next(source: string) : string =
+    if source == "" then "a"
     else
-      i = Char.to_int(Char.of_string(String.get_end(0, source)))
-      if (i >= 65 && i < 90) || (i >= 97 && i < 122) then
-        substring(0, length(source) - 1, source) ^
-          of_char_list([default('_',Int.to_char(i+1))])
-      else source ^ "a"
-  : string
+      last = length(source) - 1
+      i = byte_at_unsafe(last, source)
+      if (i >= 65 && i < 90) || (i >= 97 && i < 122)
+      then
+        substring(0, last, source) ^ of_byte_unsafe(i+1)
+      else
+        source ^ "a"
 
   /**
    * Returns true iff the source string has a given prefix.
@@ -639,14 +632,12 @@ String =
   of_string          = identity:string -> string
   to_int             = Int.of_string
   to_float           = Float.of_string
-  to_char            = Char.of_string
   to_string          = of_string
 
   /**
    * DEPRECATED FUNCTIONS
    */
 
-  @deprecated({use="String.of_char_list"}) string_of_chars = of_char_list
   print_list = source -> "["^concat(",", source)^"]"
 }}
 

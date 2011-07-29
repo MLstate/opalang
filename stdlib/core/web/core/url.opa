@@ -60,10 +60,11 @@ Url = {{
         if String.length(str) == 0 then accu
         else aux(String.drop_left(2, str), accu^"%"^String.sub(0, 2, str))
       aux(if mod(String.length(str), 2) != 0 then "0"^str else str, "")
-    rec p = parser
-      | c=[a-zA-Z0-9~!@$^&*()_|\\=\-\[\]}{;:?/.,] p=p -> Int.to_string_value(c)^p
-      | c=. p=p -> (Int.to_hex(c) |> with_modulo)^p
-      | !. -> ""
+    c = parser
+      | c=([a-zA-Z0-9~!@$^&*()_|\\=\-\[\]}{;:?/.,]) -> Text.to_string(c)
+      | c=. -> (Int.to_hex(c) |> with_modulo)
+    p = parser
+      | l=c* -> String.flatten(l)
     Parser.parse(p,url)
 
 }}

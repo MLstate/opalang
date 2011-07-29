@@ -22,17 +22,10 @@
 ##register get : string, int -> string
   let get s i = String.make 1 (String.get s i)
 
-##register copy \ `String.copy` : string -> string
-
-##register create \ `String.create` : int -> string
-
-##register init : (int -> char), int -> string
-  let init f l = BaseString.init l f
+##register repeat \ `BaseString.repeat` : string, int -> string
 
 ##register sub : int, int, string -> string
   let sub start len src = String.sub src start len
-
-##register set \ `String.set` : string, int, char -> void
 
 ##register replace : string, string, string -> string
   let replace search replacement source =
@@ -109,7 +102,18 @@ let have_to_be_escaped (c:char) = have_to_be_escaped_table.(Char.code c)
 
 ##register of_byte_val : int -> string
 let of_byte_val byte =
-  String.make 1 (Char.chr byte)
+  try
+    String.make 1 (Char.chr byte)
+  with
+  | Invalid_argument _ -> "\000"
+
+##register of_byte_unsafe : int -> string
+let of_byte_unsafe i =
+  String.make 1 (Base.Char.chr i)
+
+##register byte_at_unsafe : int, string -> int
+let byte_at_unsafe n s = Base.Char.code s.[n]
+
 
    (* special function for TRX *)
    (* TODO write it in C for better performance (on pointers)?

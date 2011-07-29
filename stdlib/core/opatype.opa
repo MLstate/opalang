@@ -220,14 +220,12 @@ type OpaType.col =
  * Type of simple value.
  */
 type OpaType.ty_const =
-  {TyChar} /
   {TyInt} /
   {TyFloat} /
   {TyString}
 
 opa_type_const_eq(a : OpaType.ty_const, b : OpaType.ty_const) =
   match (a, b) with
-  | ({TyChar},{TyChar})
   | ({TyInt},{TyInt})
   | ({TyFloat},{TyFloat})
   | ({TyString}, {TyString}) -> true
@@ -265,7 +263,6 @@ OpaType = {{
   to_string(ty) =
     rec aux_ty_const(ty_const : OpaType.ty_const) =
       match ty_const with
-      | {TyChar} -> "TyChar"
       | {TyInt} -> "TyInt"
       | {TyFloat} -> "TyFloat"
       | {TyString} -> "TyString"
@@ -315,7 +312,6 @@ OpaType = {{
   to_pretty(ty : OpaType.ty)=
     rec aux_ty_const(ty_const : OpaType.ty_const) =
       match ty_const with
-      | {TyChar} -> "char"
       | {TyInt} -> "int"
       | {TyFloat} -> "float"
       | {TyString} -> "string"

@@ -133,7 +133,7 @@ import stdlib.core.parser
     fill(s, width, c) =
       n = width - String.length(s)
       if n > 0 then
-        String.make(n, c) ^ s
+        String.repeat(n, c) ^ s
       else
         s
 
@@ -142,45 +142,45 @@ import stdlib.core.parser
       s = Int.to_string(value)
       match p with
       | {do_not_pad} -> s
-      | {pad_with_zeros} -> fill(s, width, '0')
-      | {pad_with_spaces} -> fill(s, width, ' ')
+      | {pad_with_zeros} -> fill(s, width, "0")
+      | {pad_with_spaces} -> fill(s, width, " ")
       | {no_padding_info} -> error("Date.ToString.pad")
 
     abbreviations =
-      [ ('c', "%a %b %_d %Y %H:%M:%S")
-      , ('e', "%_d")
-      , ('D', "%m/%d/%y")
-      , ('F', "%Y-%m-%d")
-      , ('h', "%b")
-      , ('R', "%H:%M")
-      , ('T', "%H:%M:%S")
+      [ ("c", "%a %b %_d %Y %H:%M:%S")
+      , ("e", "%_d")
+      , ("D", "%m/%d/%y")
+      , ("F", "%Y-%m-%d")
+      , ("h", "%b")
+      , ("R", "%H:%M")
+      , ("T", "%H:%M:%S")
       ]
 
     directives =
-      [ ('%', false, ((_, _) -> "%"))
-      , ('a', false, ((_, d) -> String.sub(0, 3, Date.Weekday.to_string(Date.get_weekday(d)))))
-      , ('A', false, ((_, d) -> Date.Weekday.to_string(Date.get_weekday(d))))
-      , ('b', false, ((_, d) -> String.sub(0, 3, Date.Month.to_string(Date.get_month(d)))))
-      , ('B', false, ((_, d) -> Date.Month.to_string(Date.get_month(d))))
-      , ('C', true,  ((p, d) -> pad(Date.get_year(d) / 100, p, {pad_with_spaces}, 2)))
-      , ('d', true,  ((p, d) -> pad(Date.get_day(d), p, {pad_with_zeros}, 2)))
-      , ('E', false, ((_, d) -> match Date.get_day(d) with | 1 -> "1st" | 2 -> "2nd" | 3 -> "3rd" | x -> "{x}th"))
-      , ('H', true,  ((p, d) -> pad(Date.get_hour(d), p, {pad_with_zeros}, 2)))
-      , ('I', true,  ((p, d) -> pad(Date.Hour.convert_24h_to_12h(Date.get_hour(d)), p, {pad_with_zeros}, 2)))
-      , ('k', true,  ((p, d) -> pad(Date.get_hour(d), p, {pad_with_spaces}, 2)))
-      , ('l', true,  ((p, d) -> pad(Date.Hour.convert_24h_to_12h(Date.get_hour(d)), p, {pad_with_spaces}, 2)))
-      , ('m', true,  ((p, d) -> pad(Date.Month.to_int(Date.get_month(d)) + 1, p, {pad_with_zeros}, 2)))
-      , ('M', true,  ((p, d) -> pad(Date.get_min(d), p, {pad_with_zeros}, 2)))
-      , ('n', false, ((_, _) -> "\n"))
-      , ('p', false, ((_, d) -> if Date.Hour.is_am(Date.get_hour(d)) then "AM" else "PM"))
-      , ('P', false, ((_, d) -> if Date.Hour.is_am(Date.get_hour(d)) then "am" else "pm"))
-      , ('S', true,  ((p, d) -> pad(Date.get_sec(d), p, {pad_with_zeros}, 2)))
-      , ('t', false, ((_, _) -> "\t"))
-      , ('u', false, ((_, d) -> wd = Date.Weekday.to_int(Date.get_weekday(d)); Int.to_string(if wd == 0 then 7 else wd)))
-      , ('w', false, ((_, d) -> Int.to_string(Date.Weekday.to_int(Date.get_weekday(d)))))
-      , ('x', true,  ((p, d) -> pad(Date.get_msec(d), p, {pad_with_zeros}, 3)))
-      , ('y', false, ((_, d) -> pad(mod(Date.get_year(d), 100), {pad_with_zeros}, {pad_with_zeros}, 2)))
-      , ('Y', true,  ((p, d) -> pad(Date.get_year(d), p, {pad_with_spaces}, 4)))
+      [ ("%", false, ((_, _) -> "%"))
+      , ("a", false, ((_, d) -> String.sub(0, 3, Date.Weekday.to_string(Date.get_weekday(d)))))
+      , ("A", false, ((_, d) -> Date.Weekday.to_string(Date.get_weekday(d))))
+      , ("b", false, ((_, d) -> String.sub(0, 3, Date.Month.to_string(Date.get_month(d)))))
+      , ("B", false, ((_, d) -> Date.Month.to_string(Date.get_month(d))))
+      , ("C", true,  ((p, d) -> pad(Date.get_year(d) / 100, p, {pad_with_spaces}, 2)))
+      , ("d", true,  ((p, d) -> pad(Date.get_day(d), p, {pad_with_zeros}, 2)))
+      , ("E", false, ((_, d) -> match Date.get_day(d) with | 1 -> "1st" | 2 -> "2nd" | 3 -> "3rd" | x -> "{x}th"))
+      , ("H", true,  ((p, d) -> pad(Date.get_hour(d), p, {pad_with_zeros}, 2)))
+      , ("I", true,  ((p, d) -> pad(Date.Hour.convert_24h_to_12h(Date.get_hour(d)), p, {pad_with_zeros}, 2)))
+      , ("k", true,  ((p, d) -> pad(Date.get_hour(d), p, {pad_with_spaces}, 2)))
+      , ("l", true,  ((p, d) -> pad(Date.Hour.convert_24h_to_12h(Date.get_hour(d)), p, {pad_with_spaces}, 2)))
+      , ("m", true,  ((p, d) -> pad(Date.Month.to_int(Date.get_month(d)) + 1, p, {pad_with_zeros}, 2)))
+      , ("M", true,  ((p, d) -> pad(Date.get_min(d), p, {pad_with_zeros}, 2)))
+      , ("n", false, ((_, _) -> "\n"))
+      , ("p", false, ((_, d) -> if Date.Hour.is_am(Date.get_hour(d)) then "AM" else "PM"))
+      , ("P", false, ((_, d) -> if Date.Hour.is_am(Date.get_hour(d)) then "am" else "pm"))
+      , ("S", true,  ((p, d) -> pad(Date.get_sec(d), p, {pad_with_zeros}, 2)))
+      , ("t", false, ((_, _) -> "\t"))
+      , ("u", false, ((_, d) -> wd = Date.Weekday.to_int(Date.get_weekday(d)); Int.to_string(if wd == 0 then 7 else wd)))
+      , ("w", false, ((_, d) -> Int.to_string(Date.Weekday.to_int(Date.get_weekday(d)))))
+      , ("x", true,  ((p, d) -> pad(Date.get_msec(d), p, {pad_with_zeros}, 3)))
+      , ("y", false, ((_, d) -> pad(mod(Date.get_year(d), 100), {pad_with_zeros}, {pad_with_zeros}, 2)))
+      , ("Y", true,  ((p, d) -> pad(Date.get_year(d), p, {pad_with_spaces}, 4)))
       ]
 
     padding_flag_parser = parser
@@ -190,12 +190,12 @@ import stdlib.core.parser
       | Rule.succeed -> {no_padding_info}
 
     parse_directive_with((d, accepts_padding, f)) =
-      directive_char = Parser.of_string(Char.to_string(d))
+      directive_char = Parser.of_string(d)
       parser pad_info=padding_flag_parser directive_char ->
         if accepts_padding || pad_info == {no_padding_info} then
           {success = date -> f((pad_info, date))}
         else
-          {failure = "Directive %{Char.to_string(d)} does not accept a padding flag"}
+          {failure = "Directive %{d} does not accept a padding flag"}
 
     parse_directive(dirs : list) =
       match dirs with
@@ -236,7 +236,7 @@ import stdlib.core.parser
            // no matching abbreviation - parsing fails
           (parser Rule.fail -> error("Date.ToString.unfold_abbreviations_with"))
       | [(x_short, x_long) | xs] ->
-          directive_char = Parser.of_string(Char.to_string(x_short))
+          directive_char = Parser.of_string(x_short)
           parser
           | pad=padding_flag_parser directive_char ->
              if pad == {no_padding_info} then
@@ -304,34 +304,34 @@ import stdlib.core.parser
     update_am(d : Date.human_readable) = {d with h = if d.h == 12 then  0 else d.h}
     update_pm(d : Date.human_readable) = {d with h = if d.h == 12 then 12 else d.h + 12}
 
-    @both_implem directives : list((char,Parser.general_parser(Date.human_readable -> Date.human_readable))) =
-      [ ('%', parser "%" -> id)
-      , ('a', parse_wday(true, 0))
-      , ('A', parse_wday(false, 0))
-      , ('b', parse_month(true, 0))
-      , ('B', parse_month(false, 0))
+    @both_implem directives : list((string,Parser.general_parser(Date.human_readable -> Date.human_readable))) =
+      [ ("%", parser "%" -> id)
+      , ("a", parse_wday(true, 0))
+      , ("A", parse_wday(false, 0))
+      , ("b", parse_month(true, 0))
+      , ("B", parse_month(false, 0))
 //      , ('C', *not supported for parsing*
-      , ('d', parse_num(v -> d -> {d with day=v}))
-      , ('H', parse_num(v -> d -> {d with h = v}))
-      , ('I', parse_num(v -> d -> {d with h = v}))
-      , ('k', parse_num(v -> d -> {d with h = v}))
-      , ('l', parse_num(v -> d -> {d with h = v}))
-      , ('m', parse_num(v -> d -> {d with month = Date.Month.of_int(v-1)}))
-      , ('M', parse_num(v -> d -> {d with min = v}))
-      , ('n', parser "\n" -> id)
-      , ('p', parser "AM" -> update_am | "PM" -> update_pm)
-      , ('P', parser "am" -> update_am | "pm" -> update_pm)
-      , ('S', parse_num(v -> d -> {d with s = v}))
-      , ('t', parser "\t" -> id)
+      , ("d", parse_num(v -> d -> {d with day=v}))
+      , ("H", parse_num(v -> d -> {d with h = v}))
+      , ("I", parse_num(v -> d -> {d with h = v}))
+      , ("k", parse_num(v -> d -> {d with h = v}))
+      , ("l", parse_num(v -> d -> {d with h = v}))
+      , ("m", parse_num(v -> d -> {d with month = Date.Month.of_int(v-1)}))
+      , ("M", parse_num(v -> d -> {d with min = v}))
+      , ("n", parser "\n" -> id)
+      , ("p", parser "AM" -> update_am | "PM" -> update_pm)
+      , ("P", parser "am" -> update_am | "pm" -> update_pm)
+      , ("S", parse_num(v -> d -> {d with s = v}))
+      , ("t", parser "\t" -> id)
 //      , ('u', *not supported for parsing*
 //      , ('w', *not supported for parsing*
-      , ('x', parse_num(v -> d -> {d with ms = v}))
-      , ('y', parse_num(v -> d -> {d with year=if v < 70 then 2000 + v else 1900 + v}))
-      , ('Y', parse_num(v -> d -> {d with year=v}))
+      , ("x", parse_num(v -> d -> {d with ms = v}))
+      , ("y", parse_num(v -> d -> {d with year=if v < 70 then 2000 + v else 1900 + v}))
+      , ("Y", parse_num(v -> d -> {d with year=v}))
       ]
 
     parse_directive_with((d, p)) =
-      directive_char = Parser.of_string(Char.to_string(d))
+      directive_char = Parser.of_string(d)
       parser directive_char -> p
 
     parse_directive(dirs : list) =

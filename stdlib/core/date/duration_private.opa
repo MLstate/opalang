@@ -60,7 +60,7 @@ import stdlib.core.parser
           str = "{v}"
           i = width - String.length(str)
           if i > 0 then
-            String.make(i, '0') ^ str
+            String.repeat(0, "i") ^ str
           else
             str
         {success=printer}

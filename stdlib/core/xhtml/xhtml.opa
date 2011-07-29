@@ -143,8 +143,7 @@ empty_xhtml = {fragment = []} : xhtml
             XmlConvert.of_int:int -> xhtml,
             XmlConvert.of_float:float -> xhtml,
             XmlConvert.of_bool:bool -> xhtml,
-            XmlConvert.of_void:void -> xhtml,
-            XmlConvert.of_char:char -> xhtml)
+            XmlConvert.of_void:void -> xhtml)
 magicToXml = XmlConvert.of_alpha : 'a -> xml
 
 /**
@@ -551,7 +550,6 @@ XmlConvert = {{
           Magic.id(value)
       | {TyName_ident = "text"; ...} ->
           XmlConvert.of_string(Text.to_string(Magic.id(value)))
-      | {TyConst = {TyChar}} -> XmlConvert.of_char(Magic.id(value))
       | {TyConst = {TyInt}} -> XmlConvert.of_int(Magic.id(value))
       | {TyConst = {TyFloat}} -> XmlConvert.of_float(Magic.id(value))
       | {TyConst = {TyString}} -> XmlConvert.of_string(Magic.id(value))
@@ -579,12 +577,6 @@ XmlConvert = {{
    * Return the xml representation of a float
    */
   of_float(f) = of_string(Float.to_string(f))
-
-  /**
-   * Return the xml representation of a char
-   * Characters with special meaning in xml are escaped (such as '&', '<')
-   */
-  of_char(c) = of_string(Char.to_string(c))
 
   /**
    * Convert a boolean to a xhtml representation.

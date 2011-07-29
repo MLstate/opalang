@@ -195,7 +195,7 @@ Rule =
   /**
    * A parser for a single digit.
    */
-  digit = parser val=[0-9] -> Int.of_string(String.of_ascii_val(val))
+  digit = parser val=([0-9]) -> Int.of_string(Text.to_string(val))
 
   /**
    * A parser for an unsigned integer (i.e. a non-empty list of digits).

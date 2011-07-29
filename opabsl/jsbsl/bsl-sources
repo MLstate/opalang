@@ -8,7 +8,6 @@ jsExtends.js
 bslSyslog.js
 bslPervasives.js
 bslString.js
-bslChar.js
 bslCactutf.js
 bslNumber.js
 bslTime.js

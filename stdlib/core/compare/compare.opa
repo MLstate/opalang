@@ -116,18 +116,15 @@ compare = @nonexpansive(
 compare_ty = compare_prematch_ty(@typeval(OpaType.ty)):OpaType.ty,OpaType.ty->Order.comparison
 order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
 
-@private compare_char_postenv_(_,  a,b) = compare_char(  a,b)
 @private compare_int_postenv_(_,   a,b) = compare_int(   a,b)
 @private compare_float_postenv_(_, a,b) = compare_float( a,b)
 @private compare_string_postenv_(_,a,b) = compare_string(a,b)
 
 
 /** Workaround for bad definition of @unsafe_cast */
-@private compare_char_postenv   = @nonexpansive(Magic.id(compare_char_postenv_) : P.implementation)
 @private compare_int_postenv    = @nonexpansive(Magic.id(compare_int_postenv_)  : P.implementation)
 @private compare_float_postenv  = @nonexpansive(Magic.id(compare_float_postenv_)  :P.implementation)
 @private compare_string_postenv = @nonexpansive(Magic.id(compare_string_postenv_) :P.implementation)
-@private compare_char   = @nonexpansive(Magic.id(@toplevel.compare_char) :'a,'a->Order.comparison)
 @private compare_int    = @nonexpansive(Magic.id(@toplevel.compare_int) :'a,'a->Order.comparison)
 @private compare_float  = @nonexpansive(Magic.id(@toplevel.compare_float) :'a,'a->Order.comparison)
 @private compare_string = @nonexpansive(Magic.id(@toplevel.compare_string) :'a,'a->Order.comparison)
@@ -176,7 +173,6 @@ compare_front(ty) =
    {TyInt}    -> @unsafe_cast(compare_int)
    {TyFloat}  -> @unsafe_cast(compare_float)
    {TyString} -> @unsafe_cast(compare_string)
-   {TyChar}   -> @unsafe_cast(compare_char)
    end
 
  {TyName_args = args; TyName_ident = ident} as ty ->
@@ -324,7 +320,6 @@ compare_front(ty) =
          {TyInt}    -> @unsafe_cast(compare_int_postenv)
          {TyFloat}  -> @unsafe_cast(compare_float_postenv)
          {TyString} -> @unsafe_cast(compare_string_postenv)
-         {TyChar}   -> @unsafe_cast(compare_char_postenv)
          end
        (cmp, preenv)
 
@@ -387,7 +382,6 @@ equal_ty(ty1:OpaType.ty,ty2:OpaType.ty) =
       {TyInt}    -> match c2 {TyInt}    -> true _ -> false end
       {TyString} -> match c2 {TyString} -> true _ -> false end
       {TyFloat}  -> match c2 {TyFloat}  -> true _ -> false end
-      {TyChar}   -> match c2 {TyChar}   -> true _ -> false end
       end
     _ -> false
     end

@@ -70,20 +70,6 @@ let int_rem l r =
 ##register int_neg \ `Pervasives.( ~- )` : int -> int
 ##register float_neg \ `Pervasives.( ~-. )` : float -> float
 
-(**
- * {1 String/char conversions}
-*)
-
-
-##register string_of_char : char -> string
-let string_of_char = String.make 1
-
-##register string_to_char : string -> char
-let string_to_char s = String.get s 0
-
-##register int_of_char : char -> int
-let int_of_char c = Pervasives.int_of_char c
-
 ##register int_of_first_char : string -> int
 let int_of_first_char c = Pervasives.int_of_char (String.get c 0)
 
@@ -120,8 +106,6 @@ let webutils_server_side () = true
 ##register compare_float \ `(Pervasives.compare : float -> float -> int)` : float, float -> int
 ##register compare_string \ `String.compare` : string, string -> int
 ##register [opacapi] compare_raw \ `ServerLib.compare` : 'a, 'a -> int
-(* DO NOT USE Char.compare here, it would break the invariant described above *)
-##register compare_char \ `(Pervasives.compare : char -> char -> int)` : char, char -> int
 
 ##register int_cmp_neq   \ `(Pervasives.(!=) : int -> int -> bool)` : int, int -> bool
 ##register int_cmp_eq    \ `(Pervasives.(==) : int -> int -> bool)` : int, int -> bool
@@ -218,17 +202,11 @@ let print_int i = print_string (string_of_int i)
 ##register print_float : float -> void
 let print_float i = print_string (string_of_float i)
 
-##register print_char : char -> void
-let print_char i = print_string (string_of_char i)
-
 ##register println_int : int -> void
 let println_int i = println_string (string_of_int i)
 
 ##register println_float : float -> void
 let println_float i = println_string (string_of_float i)
-
-##register println_char : char -> void
-let println_char i = println_string (string_of_char i)
 
 ##register flush_stdout : -> void
 let flush_stdout () = Pervasives.flush stdout

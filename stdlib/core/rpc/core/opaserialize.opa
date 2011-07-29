@@ -261,7 +261,6 @@ type OpaSerialize.options = {
     and aux(value, ty) =
       match ty with
       /* Basic case *****************************/
-      | {TyConst = {TyChar}}   -> error("Char should die")
       | {TyConst = {TyInt}}    -> {Int = Magic.id(value)}
       | {TyConst = {TyString}} -> {String = Magic.id(value)}
       | {TyConst = {TyFloat}}
@@ -571,12 +570,6 @@ type OpaSerialize.options = {
         _ -> @fail
         )
       | ({Int = value}, {TyConst = {TyFloat}}) -> magic_some( Float.of_int(value) )
-
-      /* Particular basic case ******************/
-      | ({String = value}, {TyConst = {TyChar}}) ->
-        if @toplevel.String.length(value) == 1 then
-          magic_some(Char.of_string(value))
-        else error_ret("char is too long", none)
 
       /* Record case ****************************/
       | ({Record = js_lst}, {TyRecord_row = row})

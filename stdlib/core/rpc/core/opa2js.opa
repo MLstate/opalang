@@ -87,7 +87,6 @@ import stdlib.core.{web.core, js}
     rec aux(value, ty) : RPC.Json.js_code =
       match ty with
       /* Basic case *****************************/
-      | {TyConst = {TyChar}} -> error("Char must die"): RPC.Json.js_code
       | {TyConst = {TyInt}} -> {Int = Magic.id(value)}: RPC.Json.js_code
       | {TyConst = {TyFloat}} -> {Float = Magic.id(value)}: RPC.Json.js_code
       | {TyConst = {TyString}} -> {String = Magic.id(value)}: RPC.Json.js_code

@@ -101,23 +101,6 @@ var op_neg = function (n) { return -n; };
 ##args(l, r)
 { return l || r; };
 
-
-/**
- * {1 String/char conversions}
- */
-
-##register string_of_char : char -> string
-##args(c)
-{ return c.toString(); }
-
-##register string_to_char : string -> char
-##args(s)
-{ return s[0]; }
-
-##register int_of_char       \ int_of_char : char -> int
-##register int_of_first_char \ int_of_char : string -> int
-function int_of_char(c){ return c.charCodeAt(0); }
-
 ##register int_of_string: string -> option(int)
 ##args(s)
 {
@@ -195,7 +178,6 @@ function string_of_float(v)  {
 ##register compare_int      \ compare_native  : int, int -> int
 ##register compare_float    \ compare_native  : float, float -> int
 ##register compare_string   \ compare_native  : string, string -> int
-##register compare_char     \ compare_native  : char, char -> int
 function compare_native(c1, c2)
 {
     if(c1<c2) return -1;
@@ -385,7 +367,6 @@ if(typeof window != "object" || command_line_execution)//If we're not in a brows
  * {1 Printing}
  */
 
-##register println_char   \ print_endline : char -> void
 ##register println_float  \ print_endline : float -> void
 ##register println_int    \ print_endline : int -> void
 ##register print_endline  \ print_endline : string -> void
@@ -394,7 +375,6 @@ if(typeof window != "object" || command_line_execution)//If we're not in a brows
 ##register print_string \ js_print : string -> void
 ##register print_float  \ js_print : float -> void
 ##register print_int    \ js_print : int -> void
-##register print_char   \ js_print : char -> void
 
 ##register dump\ dump_value : 'a -> string
 var dump_value = function (x) {

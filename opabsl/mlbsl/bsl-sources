@@ -20,7 +20,6 @@ lowLevelArray.ml
 bslGc.ml
 bslPervasives.ml
 bslString.ml
-bslChar.ml
 bslCactutf.ml
 bslCrypto.ml
 bslFile.ml

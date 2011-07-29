@@ -523,11 +523,11 @@ WTextarea =
   xhtml_line_of_text(config: WTextarea.config, editor_id: string,
       text_line: string)
       : xhtml =
-    aux(c: string, acc: xhtml): xhtml =
-      acc <+> match c with
+    p0 = parser
+      | t=((!" " .)+) -> <>{Text.to_string(t)}</>
       | " " -> <>&nbsp;</>
-      | c -> <>{c}</>
-    xhtml_line(config, editor_id, none, String.fold(aux, text_line, <></>))
+    p = parser l=p0* -> <>{ l }</>
+    xhtml_line(config, editor_id, none, Parser.parse(p, text_line))
 
   /**
    * Create a set of editor lines out of a string, making a new line whenever a
@@ -536,16 +536,11 @@ WTextarea =
   @private
   lines_of_text(config: WTextarea.config, editor_id: string, content: string)
       : xhtml =
-    aux(c: string, (text_line: string, acc: xhtml)): (string, xhtml) =
-      match c with
-      | "\n" -> ("", acc <+> xhtml_line_of_text(config, editor_id, text_line))
-      | c -> (text_line ^ c, acc)
-    (last_line, xhtml_lines) = String.fold(aux, content, ("", <></>))
-    xhtml_lines <+>
-      if last_line != "" then
-        xhtml_line_of_text(config, editor_id, last_line)
-      else
-        <></>
+    p0 = parser
+      | t=((!"\n" .)+) -> xhtml_line_of_text(config, editor_id, Text.to_string(t))
+      | "\n" -> <></>
+    p = parser l=p0* -> <>{ l }</>
+    Parser.parse(p, content)
 
   /**
    * Retrieve the content of an editor as a list of string (one string per

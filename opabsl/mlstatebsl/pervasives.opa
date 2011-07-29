@@ -50,7 +50,6 @@ compare_raw = %%bslpervasives.compare_raw%%
 string_of_float = %% BslNumber.Float.to_string %%
 
 string_of_int = %% BslString.of_int %%
-string_of_char = %% bslpervasives.string_of_char %%
 
 float_of_int = %% BslNumber.Float.of_int %%
 float_of_string = %% BslNumber.Float.of_string_opt %%

@@ -55,7 +55,7 @@
 
 let ser_int b i = (* DIRTY DIRTY copy pasting *)
   for j = 64 / 8 - 1 downto 0 do
-    Buffer.add_char b (Option.get (BslChar.chr ((i lsr (j*8)) mod 256)));
+    Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
   done
 
 let serialize_string_length s =
@@ -72,7 +72,7 @@ let input_char input =
   let c = input.string.[input.pos] in
   input.pos <- input.pos + 1;
   c
-let input_byte input = BslChar.code (input_char input)
+let input_byte input = Char.code (input_char input)
 let really_input input s n len =
   String.blit input.string input.pos s n len;
   input.pos <- input.pos + len

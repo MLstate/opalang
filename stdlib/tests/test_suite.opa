@@ -48,7 +48,7 @@ TestSuite = {{
 
   barsize = 70
 
-  bar = String.make(barsize,'#')
+  bar = String.repeat(barsize, "#")
 
   empty : TestSuite.t =
     {list = []; title = "TestSuite"}
@@ -57,7 +57,7 @@ TestSuite = {{
     title = "### LAUNCH : " ^ title
     title = i = (barsize-1) - String.length(title)
       if i > 0 then
-        title ^ " " ^ String.make(i, '#')
+        title ^ " " ^ String.repeat(i, "#")
       else title
     {list = []; title = title}
 

@@ -18,13 +18,6 @@
 
 ##module Int \ bsl_int
 
-
-##register to_char : int -> option(char)
-  ##args(i)
-  {
-    return (i >= 0 && i <= 127) ? js_some(String.fromCharCode(i)) : js_none
-  }
-
 ##register of_string : string -> int
   ##args(str)
   {

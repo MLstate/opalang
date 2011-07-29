@@ -47,24 +47,12 @@
     }
    }
 
-/**
- * @deprecated -- not meaningful in OPA
- */
-##register init : (int -> char), int -> string
-##args(f, l)
+##register repeat : string, int -> string
+##args(s, n)
 {
-    for (var str= "", i= 0; i < l; i++)
-      str += f(i);
+    for (var str= "", i= 0; i < n; i++)
+        str += s ;
     return str;
-  }
-
-/**
- * @deprecated -- not meaningful in OPA
- */
-##register create : int -> string
-  ##args(l)
-  {
-    return "";
   }
 
 ##register get : string, int -> string
@@ -83,12 +71,6 @@
   ##args(s)
   {
     return s.length;
-  }
-
-##register copy : string -> string
-  ##args(s)
-  {
-    return s;
   }
 
 ##register sub : int, int, string -> string
@@ -168,6 +150,18 @@
     else {
       return String.fromCharCode(i);
     }
+  }
+
+##register of_byte_unsafe : int -> string
+  ##args(i)
+  {
+    return String.fromCharCode(i);
+  }
+
+##register byte_at_unsafe : int, string -> int
+  ##args(n, s)
+  {
+    return s.charCodeAt(n);
   }
 
    // special function for TRX

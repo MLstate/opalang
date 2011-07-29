@@ -82,14 +82,13 @@ void={}:void
  */
 compare_int = Int.compare
 compare_string = String.compare
-compare_char = Char.compare
 compare_float = Float.compare
 
 
 /**
  * The structural polymorphic comparison
  */
-@specialize(compare_int,compare_string,compare_char,compare_float)
+@specialize(compare_int,compare_string,compare_float)
 compare(a,b) = OpaValue.compare(a,b)
 
 /**
@@ -109,20 +108,20 @@ compare(a,b) = OpaValue.compare(a,b)
  * Universal comparison functions
  */
 
-@specialize(String.`lt`,Int.`<`,Float.`<`,Char.`lt`)
+@specialize(String.`lt`,Int.`<`,Float.`<`)
 `<`(a:'a,b:'a)  = match compare(a,b) with {lt} -> true  | _ -> false
 
-@specialize(String.`gt`,Int.`>`,Float.`>`,Char.`gt`)
+@specialize(String.`gt`,Int.`>`,Float.`>`)
 `>`(a:'a,b:'a)  = match compare(a,b) with {gt} -> true  | _ -> false
 
 @opacapi
-@specialize(String.`ne`,Int.`!=`,Float.`!=`,Char.`ne`)
+@specialize(String.`ne`,Int.`!=`,Float.`!=`)
 `!=`(a:'a,b:'a) = match compare(a,b) with {eq} -> false | _ -> true
 
-@specialize(String.`ge`,Int.`>=`,Float.`>=`,Char.`ge`)
+@specialize(String.`ge`,Int.`>=`,Float.`>=`)
 `>=`(a:'a,b:'a) = match compare(a,b) with {lt} | {neq} -> false | _ -> true
 
-@specialize(String.`le`,Int.`<=`,Float.`<=`,Char.`le`)
+@specialize(String.`le`,Int.`<=`,Float.`<=`)
 `<=`(a:'a,b:'a) = match compare(a,b) with {gt} | {neq} -> false | _ -> true
 
 @specialize(Int.min,Float.min)
@@ -457,9 +456,6 @@ int_to_string = string_of_int
 string_of_float = String.of_float
 float_to_string = string_of_float
 
-int_to_char = Int.to_char
-char_of_int = int_to_char
-
 //int_of_string             = Parser.int
 //int_of_string = %% BslNumber.Int.of_string %%
 //string_to_int = int_of_string
@@ -475,7 +471,6 @@ string_to_float = Float.of_string
 
 string_of_void() = String.of_void
 void_to_string = String.of_void
-int_of_char               = Char.to_int
 int_of_first_char         = Int.of_utf8
 
 voidToString              = Void.to_string
@@ -483,12 +478,11 @@ intToString               = Int.to_string
 stringToString            = String.to_string
 boolToString              = Bool.to_string
 floatToString             = Float.to_string
-charToString              = Char.to_string
 
 /**
  * The polymorphic conversion to string.
  * Used for the string insertion syntax, e.g. ["{myOpaValueInAString}"]
  */
 @opacapi
-@specialize(voidToString,intToString,stringToString,boolToString,floatToString,charToString)
+@specialize(voidToString,intToString,stringToString,boolToString,floatToString)
 magicToString(s) = OpaValue.to_string(s)
