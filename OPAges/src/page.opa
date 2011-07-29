@@ -809,7 +809,7 @@ Page = {{
           build_rev(key, (author, date, parent, sons), (acc, pad)) =
             i = key
             based = "" // if parent < 0 then "" else " based on {parent}"
-            pad = String.make(pad, '-')
+            pad = String.repeat(pad, "-")
             value = "{pad}#{i} | {Date.to_formatted_string(Date.date_only_printer, date)} @ {Date.to_formatted_string(Date.time_only_printer, date)} by {author}{based}"
             value = if r.rev == i then value ^ " [pub]" else value
             value = if size == i then value ^ " [last]" else value
