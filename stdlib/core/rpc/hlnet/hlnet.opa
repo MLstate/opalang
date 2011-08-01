@@ -74,6 +74,10 @@ type Hlnet.protocol('query,'response) = {
   server_spec: Hlnet.channel_spec('response,'query);
 }
 
+/** Type that describes hlnet error. */
+type Hlnet.error =
+  {disconnected : Hlnet.endpoint}
+
 /**
  * {1 Interface}
  */
@@ -151,7 +155,7 @@ Hlnet =
     sndrcv = %%BslHlnet.sendreceive%%
     sndrcv(chan, msg)
 
-  sendreceiverr = %%BslHlnet.sendreceiverr%% : Hlnet.channel('a, 'b), 'a -> outcome('b, string)
+  sendreceiverr = %%BslHlnet.sendreceiverr%% : Hlnet.channel('a, 'b), 'a -> outcome('b, Hlnet.error)
 
 
   /** {6 Receiving on channels and setting up handlers} */

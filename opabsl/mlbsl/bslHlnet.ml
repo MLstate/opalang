@@ -29,6 +29,25 @@ let scheduler = BslScheduler.opa
 ##extern-type [normalize] channel('o, 'i) = ('o, 'i) Hlnet.channel
 ##extern-type [normalize] channel_spec('o, 'i) = ('o, 'i) Hlnet.channel_spec
 
+##opa-type Hlnet.error
+
+
+(** Projection of ocaml exn raised by hlnet to an opa record
+    (Hlnet.error). *)
+let hlnetexn_ml_to_opa =
+  let disconnected =
+    let fdisconnected = ServerLib.static_field_of_name "disconnected" in
+    function (e:Hlnet.endpoint) ->
+      wrap_opa_hlnet_error (
+        ServerLib.make_record
+          (ServerLib.add_field ServerLib.empty_record_constructor
+             fdisconnected e
+          )
+      )
+  in function
+    | Hlnet.Disconnected ep -> disconnected ep
+    | e -> failwith (Printf.sprintf "Unknow hlnet exn: %s" (Printexc.to_string e))
+
 ##register new_endpoint : string, int -> endpoint
 let new_endpoint addr port =
     (Hlnet.Tcp (Unix.inet_addr_of_string addr, port))
@@ -94,10 +113,10 @@ let receive chan k =
 let sendreceive chan opack k =
   Hlnet.sendreceive chan opack @> fun recv -> recv |> k
 
-##register[cps-bypass] sendreceiverr: channel('o, 'i), 'o, continuation(outcome('i, string)) -> void
+##register[cps-bypass] sendreceiverr: channel('o, 'i), 'o, continuation(outcome('i, Hlnet.error)) -> void
 let sendreceiverr chan opack k =
   Hlnet.sendreceive' chan opack
-    (fun e -> BslUtils.create_outcome (`failure (Printexc.to_string e)) |> k)
+    (fun e -> BslUtils.create_outcome (`failure (hlnetexn_ml_to_opa e)) |> k)
     (fun r -> BslUtils.create_outcome (`success r) |> k)
 
 ##register async_receive: channel('o, 'i), ('i -> void) -> void
