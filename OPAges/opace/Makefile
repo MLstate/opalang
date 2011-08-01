@@ -6,7 +6,7 @@ SRC = ace.opa
 PCK =
 PCKDIR =
 PLUGIN = ace.opp
-PLUGINDIR = plugin
+PLUGINDIR = plugin/
 
 #Compiler variables
 OPACOMPILER = opa
