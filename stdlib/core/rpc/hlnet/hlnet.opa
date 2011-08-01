@@ -151,6 +151,8 @@ Hlnet =
     sndrcv = %%BslHlnet.sendreceive%%
     sndrcv(chan, msg)
 
+  sendreceiverr = %%BslHlnet.sendreceiverr%% : Hlnet.channel('a, 'b), 'a -> outcome('b, string)
+
 
   /** {6 Receiving on channels and setting up handlers} */
 
@@ -281,7 +283,7 @@ Hlnet =
   @private endpoint_port     = %%BslHlnet.EndpointGet.port%%     : endpoint -> int
 
   /** {6 Peerpoints} */
-  
+
   /** Converting a endpoint to a peerpoint */
   @private
   endpoint_to_peerpoint(ep:Hlnet.endpoint):Hlnet.peerpoint=

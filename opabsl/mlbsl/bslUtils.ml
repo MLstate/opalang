@@ -30,6 +30,9 @@ let fclient  = ServerLib.static_field_of_name "client"
 let fserver  = ServerLib.static_field_of_name "server"
 let fnothing = ServerLib.static_field_of_name "nothing"
 
+let fsuccess  =ServerLib.static_field_of_name "success"
+let ffailure  =ServerLib.static_field_of_name "failure"
+
 let rnone    = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fnone) (ServerLib.make_record ServerLib.empty_record_constructor))
 let rsome x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fsome) x)
 
@@ -40,6 +43,8 @@ let rnothing    = ServerLib.make_record (ServerLib.add_field ServerLib.empty_rec
 ##opa-type ThreadContext.t
 
 ##opa-type ThreadContext.client
+
+##opa-type outcome('a, 'b)
 
 (** Project an ['a -> void] opa function rewrited by cps to an ['a ->
     unit] ml function, usefull for [cps-bypass].
@@ -83,6 +88,17 @@ let create_ctx key request =
   )
 
 let get_serverkey context =
-
   let rkey = ServerLib.unsafe_dot context fkey in
   ServerLib.dot rkey fserver
+
+let create_outcome = function
+  | `success success ->
+      wrap_opa_outcome
+        (ServerLib.make_record
+           (ServerLib.add_field ServerLib.empty_record_constructor
+              fsuccess success))
+  | `failure failure ->
+      wrap_opa_outcome
+        (ServerLib.make_record
+           (ServerLib.add_field ServerLib.empty_record_constructor
+              ffailure failure))

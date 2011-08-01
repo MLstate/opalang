@@ -94,6 +94,12 @@ let receive chan k =
 let sendreceive chan opack k =
   Hlnet.sendreceive chan opack @> fun recv -> recv |> k
 
+##register[cps-bypass] sendreceiverr: channel('o, 'i), 'o, continuation(outcome('i, string)) -> void
+let sendreceiverr chan opack k =
+  Hlnet.sendreceive' chan opack
+    (fun e -> BslUtils.create_outcome (`failure (Printexc.to_string e)) |> k)
+    (fun r -> BslUtils.create_outcome (`success r) |> k)
+
 ##register async_receive: channel('o, 'i), ('i -> void) -> void
 let async_receive chan handler =
   Hlnet.receive chan handler

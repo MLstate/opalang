@@ -174,22 +174,20 @@ let continue t f errh k =
           in
           f @> set k t
 
-##opa-type outcome('a,'b)
-
 ##register [opacapi;cps-bypass] commit: t, continuation(opa[outcome(void,void)]) -> void
 
-let opa_success : (ServerLib.ty_void, ServerLib.ty_void) opa_outcome =
+let opa_success : (ServerLib.ty_void, ServerLib.ty_void) BslUtils.opa_outcome =
   let fld = ServerLib.static_field_of_name "success" in
   let fields = ServerLib.empty_record_constructor in
   let fields = ServerLib.add_field fields fld ServerLib.void in
   let record = ServerLib.make_record fields in
-  wrap_opa_outcome record
-let opa_failure : (ServerLib.ty_void, ServerLib.ty_void) opa_outcome =
+  BslUtils.wrap_opa_outcome record
+let opa_failure : (ServerLib.ty_void, ServerLib.ty_void) BslUtils.opa_outcome =
   let fld = ServerLib.static_field_of_name "failure" in
   let fields = ServerLib.empty_record_constructor in
   let fields = ServerLib.add_field fields fld ServerLib.void in
   let record = ServerLib.make_record fields in
-  wrap_opa_outcome record
+  BslUtils.wrap_opa_outcome record
 
 let opa_outcome b = if b then opa_success else opa_failure
 
