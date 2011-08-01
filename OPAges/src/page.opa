@@ -1377,40 +1377,6 @@ Page = {{
         | _ -> void
       )
 
-    @server
-    fold_datas(data, result) = match data
-      | ~{name="upload_file_content" filename content fold_headers} ->
-        if filename=="" then result
-        else
-          mime=
-            if result.mime=="" then
-              @unsafe_cast(fold_headers)("",
-                (head, (value:string), mime -> match head | "Content_Type" -> value | _ -> mime)
-                )
-            else result.mime
-          content =
-            rec aux() = match content()
-              | {partial=_} -> do Scheduler.wait(500) aux()
-              | ~{content} -> content
-            aux()
-          filename = if result.filename=="" then "/{filename}" else result.filename
-          {~filename ~mime content=some(content)}
-      | {name = "upload_mime_type" value=""} -> result
-      | {name = "upload_mime_type" ~value}   ->
-        value = String.trim(value)
-        if value=="" then result else
-        { result with mime=value }
-
-      | {name = "upload_file_name" value=""} -> result
-      | {name = "upload_file_name" ~value}   ->
-        value = String.trim(value)
-        if value=="" then result else
-        { result with filename=value }
-      | {name = "upload_filepath" value=_}   -> result
-      | {~name filename=_ content=_ fold_headers=_}
-      | {~name value=_}
-       -> do Log.warning("PageUploader", "Unknown field {name}") result
-
     @client
     show_actions() =
       do Dom.hide(#admin_add_file)
@@ -1426,65 +1392,62 @@ Page = {{
       </span>
 
     @server
-    validate_upload(access, filename, mime, binary) =
-      mime = if mime=="" then "application/octet-stream" else mime
+    validate_upload(access, file_data, file) =
+      mime = file_data.mime ? "application/octet-stream"
       path = Dom.get_value(#admin_filepath)
-      path = if path=="" then filename else path
+      path = if path=="" then file.filename else path
       path = make_absolute(path, false)
-      do Log.notice("PageUploader", "Uploading of {filename} ({mime}) was done")
-      _rev = access.access.save(path, {~binary ~mime}, none)
+      do Log.notice("PageUploader", "Uploading of {file.filename} ({mime}) was done")
+      _rev = access.access.save(path, {binary=file.content ~mime}, none)
       do Action.open_file(access, path, none)
       void
 
     @server
-    choose_filepath(access, result, binary) =
+    choose_filepath(access, file_data, file) =
       valid() =
-        do validate_upload(access, result.filename, result.mime, binary)
+        do validate_upload(access, file_data, file)
         do show_actions()
         void
       <>
         {back_button}
         <label for="admin_filepath">Path:</label>
-        <input id="admin_filepath" name="upload_filepath" type="text" value="{result.filename}" onnewline={_ -> valid()}/>
+        <input id="admin_filepath" name="upload_filepath" type="text" value="/{file.filename}" onnewline={_ -> valid()}/>
         <button type="button" id="validate_filepath" onclick={_ -> valid()}>Save</button>
       </>
 
     @server
-    choose_mime(access, result, binary) =
+    choose_mime(access, file_data, file) =
       next() =
         mime = Dom.get_value(#admin_mime_type)
-        do Dom.transform([#admin_refine_upload <- choose_filepath(access, {result with ~mime}, binary)])
+        do Dom.transform([#admin_refine_upload <- choose_filepath(access, {file_data with mime=some(mime)}, file)])
         void
       <>
         {back_button}
         <label for="admin_mime_type">Mime-type:</label>
-        <input id="admin_mime_type" name="upload_mime_type" type="text" value="{result.mime}" onnewline={_ -> next()}/>
+        <input id="admin_mime_type" name="upload_mime_type" type="text" value="{file.mimetype}" onnewline={_ -> next()}/>
         <button type="button" id="validate_mime_type" onclick={_ -> next()}>Next</button>
       </>
 
     @server
-    init_result = {
-      mime=""
-      filename=""
-      content=none
-    }
-
-    @server
-    perform_result(access)(result) =
-      match result.content
+    perform_result(access, file_data, result) =
+      match Map.get("upload_file_content", result.uploaded_files)
       | {none} -> Log.warning("PageUploader", "No file to perform")
-      | {some = binary} ->
-        do Dom.transform([#admin_refine_upload <- choose_mime(access, result, binary)])
+      | {some = file} ->
+        do Dom.transform([#admin_refine_upload <- choose_mime(access, file_data, file)])
         do Dom.hide(#admin_upload_file)
         do Dom.show(#admin_refine_upload)
         void
 
     @server
-    config(access, body_form) = {
-      Upload.default_config(init_result) with
-      ~fold_datas
-      perform_result=perform_result(access)
-      ~body_form
+    empty_file_data =
+      { mime = none
+      ; content = none
+      }
+
+    @server
+    config(access, form_body) = { Upload.default_config() with
+      ~form_body
+      process=perform_result(access, empty_file_data, _)
     }
 
     /**
@@ -1546,7 +1509,7 @@ Page = {{
               </span>
             </div>
             <div id="admin_upload_file" style="display:none"/>
-          up = Upload.make(config(access, body_form))
+          up = Upload.html(config(access, body_form))
           <>
             {up}
             <div id=#file_more>
