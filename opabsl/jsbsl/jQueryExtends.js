@@ -208,7 +208,6 @@ $.fn.extend({
            case "keydown":            return this.keydown(fn);
            case "keydown.keyesc":     return this.keyesc(fn);
            case "keydown.newline":    return this.newline(fn);
-           case "mousewheel":         return this.mousewheel(fn);
            default:                   return jq_bind.apply(this, [ns, data, fn]);
        }
     },
