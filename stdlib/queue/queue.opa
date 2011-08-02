@@ -94,18 +94,16 @@ Queue = {{
    * The {b first} element of the list is the {b top} of the queue.
    * Complexity O(n)
   **/
-  /*
-  to_list((l1, _, l2, _) : Queue.t('a)) :list('a) : Queue.t('a)
-  */
+  to_list((l1, _, l2, _) : Queue.t('a)) : list('a) =
+    List.rev_append(List.rev(l2), List.rev(l1))
 
   /**
    * Create a new list from a queue.
-   * The {b first} element of the list is the {b top} of the queue.
+   * The {b last} element of the list is the {b top} of the queue.
    * Complexity O(n)
   **/
-  /*
-  to_list_backwards((l1, _, l2, _) : Queue.t('a)) :list('a) : Queue.t('a)
-  */
+  to_list_backwards((l1, _, l2, _) : Queue.t('a)) :list('a) =
+    List.rev_append(List.rev(l1), List.rev(l2))
 
   /**
    * {1 Bingind with Set}
@@ -166,27 +164,61 @@ Queue = {{
       | [] -> (none, (l1, s1, l2, s2))
       | [ hd | tl ] -> (some(hd), ([], 0, tl, s1 - 1))
 
+  // Take at most [n] element of [list], and return them, and the remaining list.
+  @private
+  list_take_n(n:int, list:list) =
+    rec aux(pos, acc, l) =
+      match l with
+      | [] ->
+        // n was greater than or equal to the number of element in the list
+        // in this case, the function is stable, the initial list is returned
+        (list, [])
+      | [ hd | tl ] ->
+        if pos == n
+        then
+          // acc contains already all the n first elements of the initial list
+          (List.rev(acc), l)
+        else
+          aux(pos+1, hd +> acc, tl)
+     aux(0, [], list)
+
   /**
    * [Queue.take_n(n, q)]
    * Take at most [n] element of [q], and the remaining queue.
    * The first element of the returned list was the top of the queue.
   **/
-  /*
-    Mathieu Wed Feb  2 15:41:42 CET 2011
-    FIXME This implementation is naive.
-    a correct implementation would not use [rem] which
-    will build lots of totally unused quadruplet.
-    (intermediate queues)
-  */
   take_n(n: int, q: Queue.t('a)) : (Queue.t('a), list('a)) =
-    rec aux(q, n, li) =
-      if n == 0 then (q, List.rev(li))
+    match q with
+    | (l1, s1, l2, s2) ->
+      if s2 >= n
+      then
+        (elts, l2) = list_take_n(n, l2)
+        s2 = s2 - n
+        ((l1, s1, l2, s2), elts)
       else
-        (item, q2) = rem(q)
-        match item with
-        | {none} -> (q2, List.rev(li))
-        | {~some} -> aux(q2, n - 1, some +> li)
-    aux(q, n, [])
+        // all elts of l2 will be full extracted and returned
+        // adding also [n1] elts taken from l1
+        n1 = n - s2
+        if n1 >= s1
+        then
+          // that is all the queue
+          (empty, to_list(q))
+        else
+          // it will remain [r1] elts of l1 after extraction
+          // we can take benefits of the operation to reverse l1 to fill l2
+          r1 = s1 - n1
+          (l1, rest) =
+            rec aux(pos, acc, l) =
+              if pos >= r1 then (acc, l)
+              else
+                match l with
+                | [ hd | tl ] ->
+                  aux(pos+1, hd +> acc, tl)
+                | [] -> @fail("internal error")
+            aux(0, [], l1)
+          elts = List.rev_append(List.rev(l2), List.rev(rest))
+          queue = ([], 0, l1, r1)
+          (queue, elts)
 
   /**
    * {1 Iterators}
