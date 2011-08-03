@@ -1,3 +1,21 @@
+/*
+    Copyright Â© 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 import opages
 import stdlib.web.template
 import stdlib.components.login
@@ -66,18 +84,18 @@ Access = {{
         rev = Page.rev_of_published(p)
         cache.get(~{key rev})
     nb_rev(key) = List.length(Db.history(@/opages/pages[key], 1, 0))
-  
+
   reset_cache() =
     lst = access.ls()
     List.iter((key, _) -> do cache.invalidate({last = key}) do cache.invalidate({published = key}) void, lst)
   fill_cache() =
     lst = access.ls()
     List.iter((key, _) -> ignore(access.select({published = key})), lst)
-  
+
   access = {
-  
+
     select = cache.get(_)
-  
+
     save =
       | ~{key page} ->
         rec aux() = match Db.transaction(
@@ -95,9 +113,9 @@ Access = {{
         do /opages/pages_rev[key] <- publish
         do cache.invalidate({published = key})
         Page.rev_of_published(publish)
-  
+
     published(key) = ?/opages/pages_rev[key]
-  
+
     rm(key) =
       do Db.remove(@/opages/pages[key])
       do Db.remove(@/opages/pages_rev[key])
@@ -113,9 +131,9 @@ Access = {{
 }}
 
 page_demo = Page.make(
-  { 
-    access = Access.access 
-    engine(_env)= demo_engine 
+  {
+    access = Access.access
+    engine(_env)= demo_engine
   } : Page.config)
 
 /** Init admin is does not exists or if needed on command line. */
@@ -151,12 +169,12 @@ logout_xhtml(name : string, dochange : User.tokken -> void) =
 
 authenticate(token,_cred) =
   match token with
-    | {some=(n,p)} -> 
-    if User.is_admin(n,p) 
-      then 
+    | {some=(n,p)} ->
+    if User.is_admin(n,p)
+      then
         do Log.debug("Build html", "User iz admin")
-        some({admin=n}) 
-      else 
+        some({admin=n})
+      else
         do Log.debug("Build html", "User iz not admin n=={n} p=={p}")
         none
     | _ -> {none}
@@ -179,7 +197,7 @@ login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
         do WLoginbox.set_logged_out(idclogin,<></>)
         do Client.reload()
         void
-      | {~admin} -> 
+      | {~admin} ->
         do WLoginbox.set_logged_in(idclogin,logout_xhtml(admin,dochange))
         do Client.reload()
         void
@@ -190,7 +208,7 @@ login_config : CLogin.config(User.tokken,User.credential,User.credential) = {
 @publish
 server_state = CLogin.make({anon}, login_config)
 
-default_embedded = 
+default_embedded =
 { head = <></>
   body = <>Administration Page</>
   }
@@ -202,10 +220,10 @@ server =
     <div id="totololz">{x}</div>
   build_html(url, embedded) =
     match CLogin.get_credential(server_state) with
-      | {anon} -> 
+      | {anon} ->
         do Log.debug("Build html", "Anon waz here")
         Resource.full_page("", build_main(embedded.body), embedded.head, {success}, [])
-      | {~admin} -> 
+      | {~admin} ->
         do Log.debug("Build html", "Admin waz here")
         Resource.full_page("",build_main(page_demo.admin(url, admin)), <link rel="stylesheet" type="text/css" href="/admin/style.css"/>, {success}, [] )
   /* OPAges url dispatcher it's just a coating of Page.resource */
@@ -219,10 +237,10 @@ server =
     Server.public(_ -> resource)
   | url=(.*) ->
     url = Text.to_string(url)
-    Server.public(_ -> 
+    Server.public(_ ->
       Page.to_resource(page_demo.resource(url))
     )
-    
+
   /* Secured service */
   ssl_params = { Server.ssl_default_params with
                    certificate="opages.crt"

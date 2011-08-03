@@ -1,11 +1,23 @@
+/*
+    Copyright Â© 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
 package opages
-/** -- begin LICENCE
-    (c) 2006-2011 MLstate
-    All rights reserved.
-    This file is confidential and intended solely for the addressee(s).
-    Any unauthorized use or dissemination is prohibited.
-    end LICENCE --
-**/
 
 /**
  * Opa template engine
@@ -27,7 +39,7 @@ type TemplateDemo.content('a) = Template.content(either(TemplateDemo.tags('a), '
 
 TemplateDemo = {{
 
-  namespace = "http://opalang.org/schema/demo.xsd" 
+  namespace = "http://opalang.org/schema/demo.xsd"
 
   dom_err(msg) = {failure = {dom_error = msg}}
 
@@ -55,7 +67,7 @@ TemplateDemo = {{
 
   @private parse(_config, ~{xmlns xmlns_parser}:Template.import_arg(TemplateDemo.tags('a), 'b)) : outcome(Template.content(either(TemplateDemo.tags('a), 'b)), Template.failure) =
     match xmlns with
-    | { ~tag; namespace="http://opalang.org/schema/demo.xsd"; ~args; specific_attributes=_; ~content } -> 
+    | { ~tag; namespace="http://opalang.org/schema/demo.xsd"; ~args; specific_attributes=_; ~content } ->
       children = Outcome.get(Template.parse_list_xmlns(content, xmlns_parser))
       build = match tag
         | "random"      -> some(TRandom.build)
