@@ -182,14 +182,13 @@ WButton = {{
     | {button} -> "button"
     | {reset} -> "reset"
     | {submit} -> "submit"
-    style(stl)(_) = apply_style(config, id, stl)
      /* ADAM is it a good idea to stop propagation of onclick events for buttons?
         I think in most cases this is what one wants... how about other events? */
     <button id={inner_id} type={button_type_string(config.button_type)}
-      onmouseover={style(config.over_style)}
-      onmouseout={style(config.default_style)}
-      onmousedown={style(config.active_style)}
-      onmouseup={style(config.over_style)}
+      onmouseover={_ -> apply_style(config, id, config.over_style)}
+      onmouseout={_ -> apply_style(config, id, config.default_style)}
+      onmousedown={_ -> apply_style(config, id, config.active_style)}
+      onmouseup={_ -> apply_style(config, id, config.over_style)}
       options:onclick="stop_propagation"
     >
     { match config.image with
