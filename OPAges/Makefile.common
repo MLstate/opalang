@@ -1,1 +1,75 @@
-../Makefile.common
+########################################
+# MAKEFILE VARIABLES
+OPA = $(OPACOMPILER) $(FLAG) $(OPAOPT)
+PWD ?= $(shell pwd)
+BUILDDIR ?= $(PWD)/_build/
+export BUILDDIR
+BUILDDOCDIR ?=$(PWD)/doc/
+export BUILDDOCDIR
+PACKDOC = $(BUILDDOCDIR)/$(PACKNAME:%.opx=%.doc)/
+BUILDDOC = $(PACKDOC)
+OPACOMPILER ?= opa
+OPADOC ?= opadoc-gen.exe
+DEPENDS = $(SRC) $(PCK:%=$(BUILDDIR)/%) $(PLUGIN:%=$(BUILDDIR)/%)
+
+########################################
+# MAIN RULE
+exe : $(EXE)
+pack : $(PACKNAME)
+doc : $(PACKDOC) doc.sub
+
+########################################
+# MAIN PACKAGE BUILDING
+$(PACKNAME) : $(BUILDDIR)/$(PACKNAME)
+
+$(BUILDDIR)/$(PACKNAME) : $(DEPENDS)
+	@echo "### Building package $(PACKNAME)"
+	$(OPA) --autocompile $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) --build-dir $(BUILDDIR) -I $(BUILDDIR)
+	@mv $(PACKNAME) $(BUILDDIR)/
+
+########################################
+# SUBS PACKAGE/PLUGIN BUILDING
+$(BUILDDIR)/%.opx :
+	make $(@:$(BUILDDIR)/%.opx=-C $(PCKDIR)%) pack
+
+$(BUILDDIR)/%.opp :
+	make $(@:$(BUILDDIR)/%.opp=-C $(PLUGINDIR)/%)
+
+########################################
+# EXECUTABLE BUILDING
+$(EXE) : $(PCK:%.opx=$(BUILDDIR)/%.opx) $(SRC) $(MAINSRC)
+	@echo "### Building executable $(EXE)"
+	$(OPA) $(MAINSRC) $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) -o $@ -I $(BUILDDIR) --build-dir $(BUILDDIR)/$(EXE)
+
+$(EXE:%.exe=%.run) : $(EXE)
+	./$(EXE) -p $(PORT)
+
+########################################
+# DOCUMENTATION BUILDING - Dirty...
+$(PACKDOC) : $(DEPENDS)
+	@echo "### Building documentation $(PACKNAME:%.opx=%.doc)"
+	@mkdir -p $(BUILDDOC)
+	@$(OPACOMPILER) $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) --generate-interface -I $(BUILDDIR)
+	@mv $(SRC:%=%.api) $(BUILDDOC)
+	@mv $(SRC:%=%.api-txt) $(BUILDDOC)
+	@ ls $(BUILDDOC)
+	@$(OPADOC) $(BUILDDOC)
+	@mkdir -p $(PACKDOC)
+	@mv doc/*.html doc/*.css $(PACKDOC)
+
+doc.sub :
+	@if [ -n "$(PCK)" ]; then make $(PCK:%.opx=-C $(PCKDIR)/%) doc; fi
+
+########################################
+# Using by recursives makefile
+pack.depends :
+	@echo $(PCK) $(PLUGIN)
+
+########################################
+# CLEANING
+clean :
+	@$(PCK:%.opx=make -C $(PCKDIR)/% clean &&) $(PLUGIN:%.opp=make -C $(PLUGINDIR)/% clean &&) echo -n
+	@if [ -n "$(PACKNAME)" ]; then echo "### Cleaning $(PACKNAME)"; rm -rf $(BUILDDIR)/$(PACKNAME)*; fi
+	@if [ -n "$(EXE)" ]; then echo "### Cleaning $(EXE)"; rm -rf $(BUILDDIR)/$(EXE) $(EXE); fi
+	@if [ -n "$(PACKDOC)" ]; then echo "### Cleaning $(PACKNAME:%.opx=%.doc)"; rm -rf $(PACKDOC); fi
+
