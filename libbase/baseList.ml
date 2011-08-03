@@ -500,6 +500,14 @@ let map_stable map list =
   let flist = List.fold_left fct [] list in
   if !equal then list else List.rev flist
 
+let filter_stable filter list =
+  let equal = ref true in
+  let f acc elt =
+    if filter elt then elt :: acc else (equal := false ; acc)
+  in
+  let acc = List.fold_left f [] list in
+  if !equal then list else List.rev acc
+
 (**
    {[('acc -> 'input -> ('acc * 'output))  ->  'acc  ->  'output list  ->  'input list  -> ('acc *  'output list)]}
    @param f takes the accumulator and the head of the list to give back the new element

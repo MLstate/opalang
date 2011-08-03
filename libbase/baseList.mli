@@ -303,6 +303,13 @@ val fold_left_snd : ('acc -> 'elt -> 'acc) -> 'acc -> (_ * 'elt) list -> 'acc
 *)
 val map_stable : ('a -> 'a) -> 'a list -> 'a list
 
+(**
+   This is like [filter] but returns physically the same list if all
+   elements are kept by the filter function.
+   Tail recursive.
+*)
+val filter_stable : ('a -> bool) -> 'a list -> 'a list
+
 (** This is a fold_left combined with a map. Tail recursive. *)
 val fold_left_map :
   ((*accumulator*)'a -> 'b -> 'a * 'c) -> (*init*)'a -> 'b list -> 'a * 'c list
