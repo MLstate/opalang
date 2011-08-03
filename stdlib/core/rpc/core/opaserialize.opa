@@ -187,7 +187,15 @@ type OpaSerialize.options = {
       /* Select the way to serialize the closure (as identifier or as
        * cell) */
       #<Ifstatic:OPA_CLOSURE>
-        cell = if Closure.is_empty(clos) && not(options.closure == {local}) then
+        cell =
+            /* Check if closure is already serialized */
+            match Closure.get_stored(clos) with
+            | {some = {~cell ~arity}} ->
+              if arity == n_params then
+                aux(Magic.id(cell), @typeval(Cell.cell))
+              else error("runtime")
+            | {none} ->
+          if Closure.is_empty(clos) && not(options.closure == {local}) then
           /* Depends where we send the serialized structure */
           on_distant(clos) = @sliced_expr({
             server =
@@ -203,17 +211,10 @@ type OpaSerialize.options = {
           | {some = id} ->
             do options.serialize_closure_callback(id)
             {String = id}
-          | _ ->
-            /* Check if closure is already serialized */
-            match Closure.get_stored(clos) with
-            | {some = {~cell ~arity}} ->
-              if arity == n_params then
-                aux(Magic.id(cell), @typeval(Cell.cell))
-              else make_cell()
-            | {none} -> make_cell()
+          | _ -> make_cell()
             end
-          end
         else make_cell()
+        end
       #<Ifstatic:CLOSURE_DEBUG>
         do jlog("closure {Closure.get_identifier(clos)} empty={Closure.is_empty(clos)} serialized as {JsonTop.to_string(cell)}\nClosure dump = {Debug.dump(clos)}\nOptions = {options}")
       #<End>
