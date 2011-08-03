@@ -1,0 +1,49 @@
+From b730acce9183df49751c8d3c4a497c0332a361a3 Mon Sep 17 00:00:00 2001
+From: geoffroy <geoffroy.chollon@mlstate.com>
+Date: Tue, 10 May 2011 16:55:40 +0200
+Subject: [PATCH 4/4] modify Makefile to build a native camlidl compiler
+
+---
+ compiler/Makefile |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/compiler/Makefile b/compiler/Makefile
+index 688d14a..fd28e2b 100644
+--- a/compiler/Makefile
++++ b/compiler/Makefile
+@@ -14,22 +14,22 @@
+ 
+ include ../config/Makefile
+ 
+-OBJS=config.cmo utils.cmo clflags.cmo \
+-  prefix.cmo lexpr.cmo cvttyp.cmo variables.cmo \
+-  array.cmo struct.cmo enum.cmo union.cmo cvtval.cmo \
+-  structdecl.cmo enumdecl.cmo uniondecl.cmo \
+-  typedef.cmo funct.cmo constdecl.cmo intf.cmo \
+-  file.cmo predef.cmo \
+-  linenum.cmo parse_aux.cmo parser_midl.cmo lexer_midl.cmo parse.cmo \
+-  fixlabels.cmo normalize.cmo \
+-  main.cmo
++OBJS=config.cmx utils.cmx clflags.cmx \
++  prefix.cmx lexpr.cmx cvttyp.cmx variables.cmx \
++  customarray.cmx struct.cmx enum.cmx union.cmx cvtval.cmx \
++  structdecl.cmx enumdecl.cmx uniondecl.cmx \
++  typedef.cmx funct.cmx constdecl.cmx intf.cmx \
++  file.cmx predef.cmx \
++  linenum.cmx parse_aux.cmx parser_midl.cmx lexer_midl.cmx parse.cmx \
++  fixlabels.cmx normalize.cmx \
++  main.cmx
+ 
+ PROG=camlidl$(EXE)
+ 
+ all: $(PROG)
+ 
+ $(PROG): $(OBJS)
+-	$(OCAMLC) -o $(PROG) $(OBJS)
++	$(OCAMLOPT) -o $(PROG) $(OBJS)
+ 
+ clean::
+ 	rm -f $(PROG)
+-- 
+1.7.3.1
+

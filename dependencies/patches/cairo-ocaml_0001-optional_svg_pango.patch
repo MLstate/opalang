@@ -1,0 +1,44 @@
+diff --git a/configure.ac b/configure.ac
+index 6c8c4e9..9bffe36 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -27,10 +27,20 @@ if test $use_gtk = yes ; then
+ fi
+ 
+ # Optional libsvg-cairo support
++AC_ARG_WITH(libsvg_cairo,
++            AS_HELP_STRING([--with-libsvg_cairo],[Cairo/SVG integration]),
++            use_libsvg_cairo=$withval, use_libsvg_cairo=yes)
++if test $use_libsvg_cairo = yes ; then
+ PKG_CHECK_MODULES(LIBSVG_CAIRO, libsvg-cairo, use_libsvg_cairo=yes, use_libsvg_cairo=no)
++fi
+ 
+ # Optional pango-cairo support
++AC_ARG_WITH(libpangocairo,
++            AS_HELP_STRING([--with-libpangocairo],[Cairo/Pango integration]),
++            use_libpangocairo=$withval, use_libpangocairo=yes)
++if test $use_libpangocairo = yes ; then
+ PKG_CHECK_MODULES(LIBPANGOCAIRO, pangocairo, use_libpangocairo=yes, use_libpangocairo=no)
++fi
+ 
+ echo
+ echo "  GTK+         support: $use_gtk"
+diff --git a/src/Makefile b/src/Makefile
+index 46a62f6..8b54b33 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -79,12 +79,14 @@ $(call cobjs,$(cairo_SRC))    : CPPFLAGS+=$(CAIRO_CFLAGS)
+ $(call cobjs,$(lablgtk_SRC))  : CPPFLAGS+=$(GDK_CFLAGS) -I$(C_LABLGTKDIR)
+ $(call cobjs,$(svgcairo_SRC))  : CPPFLAGS+=$(LIBSVG_CAIRO_CFLAGS)
+ $(call cobjs,$(pangocairo_SRC))  : CPPFLAGS+=$(LIBPANGOCAIRO_CFLAGS) $(GDK_CFLAGS) -I$(C_LABLGTKDIR)
++ifdef LABLGTKDIR
+ $(call mlobjs,$(lablgtk_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
+ $(call mlintfs,$(lablgtk_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
+ $(call mloptobjs,$(lablgtk_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
+ $(call mlobjs,$(pangocairo_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
+ $(call mlintfs,$(pangocairo_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
+ $(call mloptobjs,$(pangocairo_SRC))  : INCFLAGS=-I $(LABLGTKDIR)
++endif
+ 
+ install: all
+ 	mkdir -p $(DESTDIR)$(INSTALLDIR) $(DESTDIR)$(OCAMLLIB)/stublibs

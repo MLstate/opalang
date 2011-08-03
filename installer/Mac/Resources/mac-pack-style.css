@@ -1,0 +1,31 @@
+* {
+     margin: 0;
+     padding: 0;
+}
+
+body {
+  color: #252525;
+  text-shadow: 0 1px 0 #FFFFFF;
+  font: 12px/12px "Lucida Grande", Arial, sans-serif;
+  text-align: left;
+}
+
+* a, * a:hover, a, a:hover {cursor: pointer;}
+
+a, a:link, a:visited {color: #2a658e;text-decoration: none;}
+
+a:hover {color: #3887bd;text-decoration: underline;}
+
+a:active {color: #215171;}
+
+h1, h2, h3, h4, h5, h6 {line-height: 1.2em;}
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {color: inherit;text-decoration: underline;}
+h1 {color:#45392B; font-size: 2em; line-height:1.25em; margin: 0 0 0.7em 0;}
+h2 {color:#569ABF; font-size: 1.8em; line-height:1.3em; margin: 0.5em 0;}
+h3 {color:#3F3F40; font-size: 1.5em; line-height:1.3em; margin: 0 0 0.5em 0;}
+h4 {color:#454545; font-size: 1.4em; line-height:1.3em; margin: 0.5em 0;font-weight:normal;}
+h5 {color:#FF9238; font-size: 1.4em; line-height:1.3em; margin: 0.5em 0;}
+h6 {color:#848487; font-size: 1.25em; line-height: 1.3em; margin: 0.5em 0;}
+h1, h2, h3, h5, h6 {font-family: "proxima-nova", "Avenir", "Futura", "Helvetica", "Arial", sans-serif;font-weight: normal;}
+
+p {margin: 10px 0;}

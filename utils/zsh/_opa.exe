@@ -1,0 +1,64 @@
+#compdef opa.exe opa opacomp
+
+local context state line
+typeset -A val_args
+
+_arguments \
+  '(--help)-h[Print this help]' \
+  '(-h)--help[Print this help]' \
+  '--bytecode[Compile ml generated code in bytecode]' \
+  '--check-license[Check if your license is valid]' \
+  '*--extra-lib[Add lib(s) to link the generated server]:Library file:_files -g "(*.cm*|*.js)"' \
+  '*-x[Add lib(s) to link the generated server]:Library file:_files -g "(*.cm*|*.js)"' \
+  '*--extra-path[Add path(s) to link the generated server]:Path:_files -/' \
+  '*-I[Add path(s) to link the generated server]:Path:_files -/' \
+  '--bypass-coerce[Add the auto coercion of bypass]' \
+  '*--debug[Display log messages or do functions of debug_do only if the label is specified here]:Label:->labels_opt' \
+  '--debug-js[Enables %_auto.js to be modified while the server is running, not embedded in the server (for crazy debuggers only)]' \
+  '--disp-level[Set the jlog level (default: 1, released version or not)]:level:(0 1 2 5 10 100)' \
+  '--dump-dbgen-schema[Dump the inferred dbgen schema (to files %.dot and %.png)]' \
+  '--dump-qmli[Dump the inferred interface (to file %.qmli)]' \
+  '--dump-parsed[Print what is parsed]' \
+  '--force-db3[Use the new db3]' \
+  '--for-qmltop[Output generated QML + Patch it for qmltop]' \
+  '*-impl[Take <file> as a .opa file]:Opa file:_files -g "*.opa"' \
+  '--make-report[Make a report of this server to obtain a license]' \
+  '--meta-qml[Output generated QML in ocaml-ast format to file %.ml (only with option --only-qml)]' \
+  '--new-typer[Use the new typer]' \
+  '(-H)--no-html-check[Disable checking of Html]' \
+  '(--no-html-check)-H[Disable checking of Html]' \
+  '--no-server[Executable will not start a server service]' \
+  '--no-stdlib[Do not use standard libraries]' \
+  '-o[Set server file name to <exe>]:Output file:_files -g "*.exe"' \
+  '--only-new-typer[Same as option --new-typer but exit after it]' \
+  '--only-qml[Output generated QML to file %.qml and exit]' \
+  '*--opack[Use an options-packaging file]:Option pack:_files -g "*.opack"' \
+  '--pass-to-debug[Specify a pass name to debug. The first time, the compiler will run normally. But on next run it will go more or less directly to the pass to debug!]' \
+  '--qml-output-file[Specify a target file for the qml produced by --only-qml option (default: %.qml)]:Output file:_files -g "*.qml"' \
+  '--reparse-qml[Try to reparse the generated qml code (only with --only-qml)]' \
+  '--show-bypass[Show used bypasses]' \
+  '--show-code[Show AST (L0 elements)]' \
+  '*--show-code-at[Show AST after the given passes]:Passes:->passes_opt' \
+  '--show-types[Show types of declarations (L0 elements)]' \
+  '--unicityL0[Duplicated names in level 0 will generate errors]' \
+  '(-v)--verbose[Compiler is more verbose (print some logs)]' \
+  '(--verbose)-v[Compiler is more verbose (print some logs)]' \
+  '--version[Print version and exit]' \
+  '--version-system[Activate the version system]' \
+  '--bypass-user' \
+  '--dirty' \
+  '--make-inter' \
+  '--no-cache-parse' \
+  '--no-discard-of-unused-stdlib' \
+  '--no-forced-generalisation' \
+  '--no-monomorph' \
+  '*:Opa file:_files -g "*.opa"'
+
+case $state in
+  (labels_opt)
+    _values -s , 'Labels' 'Gain' 'arup' 'bsl' 'checkduplication' 'conversion' 'cwajc' 'gtap' 'js' 'jsdispatchnonactions' 'monomorph' 'pass_qml_1' 'pass_slicer' 'phantom' 'projection' 'slicer' 'typer' 'typer-off' 'url' 'alias'
+  ;;
+  (passes_opt)
+    _values -s , 'Passes to print' 'AddingRoots' 'Reorder1' 'Cleaning1' 'TuplesTypeGeneration' 'BSLBypassCoercion' 'Typing1' 'Cleaning2' 'HtmlCheck' 'CheckCSS' 'XmlAndJoint' 'OptimizePredefinedOperators' 'Retyping' 'Apply insert_magicToJS' 'Conversion' 'FunActions' 'Phantom' 'RewriteActionCall' 'ExtendRecord'
+  ;;
+esac

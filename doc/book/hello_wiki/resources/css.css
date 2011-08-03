@@ -1,0 +1,214 @@
+* {
+     margin: 0;
+     padding: 0;
+}
+
+html {
+     background: none repeat scroll 0% 0% #F2F2ED;
+}
+
+body {
+     background: none repeat scroll 0% 0% #F2F2ED;
+     color: #252525;
+     font-family: "ff-meta-serif-web-pro-1","ff-meta-serif-web-pro-Georgia",
+       Georgia,"Times New Roman",Times,serif;
+     font-size: 95%;
+     font-weight: normal;
+     line-height: 1.4em;
+     text-align: center;
+     text-shadow: 0 1px 0 white;
+}
+
+a, a:link, a:visited {
+     color: #0B67B2;
+     text-decoration: none;
+}
+
+a:hover {
+     color: #0B4D86;
+     text-decoration: underline;
+}
+
+a:active {
+     color: #B30A0A;
+}
+
+ul, ol {
+     margin: 0 0 1.5em;
+}
+
+ul li, ol li {
+     list-style-type: disc;
+     margin: 0;
+}
+
+ul li ul, ol li ol {
+     margin-left: 20px;
+}
+
+ul, ol {
+     list-style-image: none;
+     list-style-position: inside;
+}
+
+textarea, input[type="text"], input[type="password"], select {
+     border-radius: 2px 2px 2px 2px;
+     border: 1px solid #DDDDDD;
+     font-family: "Lucida Grande",Arial,sans-serif;
+     font-size: 14px;
+     margin-bottom: 2px;
+     padding: 2px;
+     text-align: left;
+}
+
+ul > li {
+     color: #252525;
+}
+
+ul > li > * {
+     color: #252525;
+}
+
+button {
+     padding: 2px 6px 3px;
+}
+
+table {
+     border-collapse: collapse;
+     margin: 5px 0pt;
+     width: 100%;
+}
+
+table td {
+     border-bottom: 1px solid #C6C6C2;
+     color: #767672;
+     font-size: 0.9em;
+     padding: 3px;
+     vertical-align: top;
+}
+
+table td:after {
+     border-bottom: 1px solid #FFFFFF;
+     content: "";
+     display: block;
+     position: relative;
+     top: 5px;
+}
+
+p {
+     margin: 0 0 1.5em;
+}
+
+li p, td p {
+     display: inline;
+}
+
+h1 {
+     color: #000000;
+     font-size: 2em;
+     line-height: 1.5em;
+     margin: 0 0 0.7em;
+}
+
+h2 {
+     color: #B30A0A;
+     font-size: 1.7em;
+     line-height: 1.4em;
+     margin: 0.5em 0;
+}
+
+h3 {
+     color: #000000;
+     font-size: 1.5em;
+     line-height: 1em;
+     margin: 1em 0;
+}
+
+h4 {
+     color: #969692;
+     font-size: 1.3em;
+     line-height: 1em;
+     margin: 0.5em 0;
+}
+
+h5 {
+     color: #B30A0A;
+     font-size: 1.25em;
+     line-height: 1.2em;
+     margin: 0 0 0.5em;
+}
+
+h6 {
+     color: #969692;
+     font-size: 1em;
+     font-style: italic;
+     line-height: 1em;
+     margin: 0 0 0.5em;
+}
+
+h6 {
+     color: #969692;
+     font-size: 1em;
+     font-style: italic;
+     font-weight: normal;
+     line-height: 1em;
+     margin: 0 0 0.5em;
+}
+
+h1, h2, h3, h4, h5 {
+     font-family: "proxima-nova","Avenir","Futura","Helvetica","Arial",sans-serif;
+     font-weight: normal;
+}
+
+img {
+     display: block;
+     margin: 10px auto;
+     position: relative;
+     text-align: center;
+}
+
+pre {
+     background: none repeat scroll 0% 0% #FFFFFF;
+     border-color: #C6C6C2;
+     border-style: solid;
+     border-width: 1px 1px 1px 5px;
+     color: #767672;
+     margin: 5px 0;
+     padding: 3px;
+}
+
+#header, #show_content, .edit_content {
+     margin: 0pt auto;
+     padding: 10px 0;
+     position: relative;
+     text-align: left;
+     width: 1000px;
+}
+
+#header {
+     color: #000000;
+     font-family: "proxima-nova","Avenir","Futura","Helvetica","Arial",sans-serif;
+     font-size: 1.5em;
+     font-weight: normal;
+     line-height: 1em;
+}
+
+#logo {
+     background: url("/resources/opa-logo.png") no-repeat 0 0;
+     height: 41px;
+     margin: 5px 0 15px;
+     width: 100px;
+}
+
+.edit_content {
+     background: none repeat scroll 0% 0% white;
+     padding:0;
+}
+
+dt {
+    font-weight: bold;
+}
+
+dd {
+    text-indent: 5px;
+}

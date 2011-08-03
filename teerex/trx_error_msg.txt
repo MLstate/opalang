@@ -1,0 +1,20 @@
+Error messages of parser
+
+The parser returns a tuple consisting of 4 elements.
+
+The first is a polymorphic variant which name corresponds to a start rule of the grammar. The variant has an argument of type (int * Qml.Code.elt) option. If parsing fails, the argument is None and Some (_,_) otherwise.
+
+type 'a elt =
+  | Database of string
+  | Newdbvalue of string * Qmlkernel.Kernel.typeexpr
+  | Newtype of string * unit Qmlkernel.TypeDefinition.t
+  | Newval of string * Qml.expression
+
+The second element have type int, it corresponds to maximal character where  parsing succeeded.
+==> ``parse error near character ??''
+
+The third element is a StringSet which contains the names of rules (or the error message associated with the rule in the grammar) on which the parsing failed at the maximal character.
+
+And finally the last element has type ((string * bool) Stack * int) list. Each pair contains a stack that place all the rules covered up the failure of the parser at character in position p (second element of the couple). This position is supposed to be the same as the maximal position of parsing. Indeed, only the stacks which lead to a failure in character maximum were returned. 
+
+In the stack, the boolean associated with the string indicates whether the stored string is the name of the rule or the associated error message.

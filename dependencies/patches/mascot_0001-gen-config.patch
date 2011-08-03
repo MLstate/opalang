@@ -1,0 +1,85 @@
+diff --git a/src/driver/args.ml b/src/driver/args.ml
+index 18204f7..ddd2034 100644
+--- a/src/driver/args.ml
++++ b/src/driver/args.ml
+@@ -108,6 +108,63 @@ let print_parameters () =
+     !checks;
+   if !parameters <> [] then exit 0
+ 
++let ppe fmt s =
++  if s = "" then () else
++    begin
++      Format.fprintf fmt "@\n@\n" ;
++      for i = 0 to pred (String.length s) do
++        match s.[i] with
++        | ' ' -> Format.fprintf fmt "@ "
++        | '\n' -> Format.fprintf fmt "@\n"
++        | c -> Format.fprintf fmt "%c" c
++      done ;
++    end
++
++let print_default_config () =
++  CategoryMap.iter
++    (fun cat list ->
++       let cat = (cat :> string) in
++       Format.printf "@[<2>category %s {" cat ;
++       List.iter
++         (fun check ->
++            let map = Check.parameters check in
++            Format.printf "@\n@\n" ;
++            Format.printf "@[<2>(*@\n" ;
++            Format.printf "%s" (Check.description check) ;
++            Format.printf "%a" ppe (Check.documentation check);
++            Format.printf "%a" ppe (Check.rationale check);
++            Format.printf "%a" ppe (Check.limits check);
++            let () =
++              if Parameter.size map = 0 then () else (
++                Format.printf "@\n" ;
++                Parameter.iter (
++                  fun ident typename _ doc ->
++                    Format.printf "@\nparam [%s] %S: %s" typename (ident :> string) doc
++                ) map
++              )
++            in
++            Format.printf "@]@\n*)@\n" ;
++            Format.printf "%s = " (Check.name check :> string) ;
++            let () =
++              if Parameter.size map = 0
++              then Format.printf "true"
++              else
++                begin
++                  Format.printf "{ " ;
++                  Parameter.iter (
++                    fun ident _ def _ ->
++                      Format.printf "%s = %s; " (ident :> string) def
++                  ) map ;
++                  Format.printf "}" ;
++                end
++            in
++            Format.printf " ;" ;
++         ) list ;
++       Format.printf "@]@\n}@\n@\n" ;
++    )
++    !checks;
++  exit 0
++
+ let print_available () =
+   CategoryMap.iter
+     (fun cat l ->
+@@ -129,6 +186,7 @@ let usage =
+ 
+ let switches =
+   [ ("-config", Arg.Set_string config_file, "<file>  Set configuration file");
++    ("--gen-config", Arg.Unit print_default_config, " Generated a full config file");
+     ("-ignore", Arg.Set_string ignore_file, "<file>  Set ignore file");
+     ("-plugin", Arg.String ignore, "<file>  Load plugin");
+     ("-available", Arg.Unit print_available, " Print available checks");
+@@ -157,7 +215,7 @@ let parse () =
+         let category = Check.category elem in
+         let list = try CategoryMap.find category acc with Not_found -> [] in
+         CategoryMap.add category (elem :: list) acc)
+-      CategoryMap.empty 
++      CategoryMap.empty
+       (Predef.checks @ (Plugin.get_checks ()));
+   checks :=
+     CategoryMap.map

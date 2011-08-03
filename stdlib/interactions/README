@@ -1,0 +1,26 @@
+== Interactions ==
+
+////////////////////
+asciidoc format: use 'asciidoc README' to compile into HTML (or not)
+////////////////////
+
+.Summary
+This graphic library allows one to easily build editable, draggable, droppable and resizable areas out of pre-existing pieces of (dynamic) html.
+
+.Editable
+Builds a two state show/edit input field with an intuitive behaviour (requires the corresponding two pieces of html as input)
+
+See the editable title at http://www.netvibes.com/privatepage/1#General for the desired behaviour and management of h-over.
+
+.Draggable
+Encapsulate a piece of html so that it becomes draggable, that is, movable using the mouse. the finger in iPads and iPhones.
+
+.Droppable
+Encapsulate a piece of html so that it becomes a possible target for dropping draggable objects.
+
+.Resizable
+Encapsulate a piece of html so that it becomes resizable.
+Will add a handle (overlay) on the bottom-right-hand corner.
+
+.Biblio
+See JQuery.UI for examples of draggable, droppable and resizable areas.

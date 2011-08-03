@@ -1,0 +1,60 @@
+Opa applications, at run-time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.About this section
+***********************
+This section details the use of applications built with Opa, including:
+
+- command-line arguments;
+- logging of events;
+- network administration;
+- environment variables.
+***********************
+
+///////////////////////////////////////////////
+// Main editor for this section: Louis Gesbert
+///////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item spans several sections, please provide
+// hyperlinks, e.g. type definitions have both a syntax
+// and a more complete definition on the corresponding
+// section
+//////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item is considered experimental and may or may
+// not survive to future versions, please label it using
+// an Admonition block with style [CAUTION]
+//////////////////////////////////////////////////////
+
+
+Debugging resources
+^^^^^^^^^^^^^^^^^^^
+
+[[section_runtime_editable_resources]]
+
+Opa applicaions support the following command-line options, which can be used to make generated files editable at runtime:
+
+ -  --debug-editable-js makes the compiled JS editable at runtime; [[runtime_arg_debug_editable_js]]
+ -  --debug-editable-css makes the compiled CSS editable at runtime; [[runtime_arg_debug_editable_css]]
+ -  --debug-editable-file f makes embedded file f editable at runtime; [[runtime_arg_debug_editable_file]]
+ -  --debug-editable-all makes everything editable at runtime; [[runtime_arg_debug_editable_all]]
+ -  --debug-list-resources lists the resources that can be made editable. [[runtime_arg_debug_list_resources]]
+
+Each of these options creates a directory _'opa-debug'_, which contains all the editable files. If a file (other than JS) is already present, it is reused instead of the embedded file. Otherwise, the file is created with the contents embedded in the executable. Now, if the file is modified, it is automatically reloaded (without having to relaunch the server) and is immediately visible on the client.
+
+By the way, if a debug file is removed during the execution of the server,
+this file is automatically recreated, without having to relaunch the server.
+We also log any change to the application logs.
+
+Of course, the file is never saved back into the executable. You'll need recompilation for this kind of thing.
+
+
+Index of command-line arguments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- <<runtime_arg_debug_editable_js,     --debug-editable-js>>
+- <<runtime_arg_debug_editable_css,    --debug-editable-css>>
+- <<runtime_arg_debug_editable_file,   --debug-editable-file>>
+- <<runtime_arg_debug_editable_all,    --debug-editable-all>>
+- <<runtime_arg_debug_list_resources,  --debug-list-resources>>

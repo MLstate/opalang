@@ -1,0 +1,35 @@
+% vim:syntax=erlang
+
+%
+%   Copyright © 2011 MLstate
+%
+%   This file is part of OPA.
+%
+%   OPA is free software: you can redistribute it and/or modify it under the
+%   terms of the GNU Affero General Public License, version 3, as published by
+%   the Free Software Foundation.
+%
+%   OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+%   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+%   FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+%   more details.
+%
+%   You should have received a copy of the GNU Affero General Public License
+%   along with OPA. If not, see <http://www.gnu.org/licenses/>.
+%
+
+-define Join (chan, key) = "JOIN " chan " " key "\r\n"
+-define Nick nick = "NICK " nick "\r\n"
+-define Notice (target, msg) = "NOTICE " target " :" msg "\r\n"
+-define Pass passwd = "PASS " passwd "\r\n"
+-define Ping msg = "PING :" msg "\r\n"
+-define Pong srv = "PONG :" srv "\r\n"
+-define Privmsg (target, msg) = "PRIVMSG " target " :" msg "\r\n"
+-define Quit = "QUIT\r\n"
+-define User (user, host, srv, real) = "USER " user " " host " " srv " :" real "\r\n"
+
+% These are server-formatted messages. They are slightly different from
+% the ones used by the client.
+-define SrvNotice (header, args) = header " NOTICE " args "\r\n"
+-define SrvPrivmsg (header, dest, args) = header " PRIVMSG " dest " :" args "\r\n"
+-define (Sns (srv, num, args)) = srv " " num " " args "\r\n"

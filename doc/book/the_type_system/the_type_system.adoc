@@ -1,0 +1,2566 @@
+[appendix]
+[[The_type_system]]
+The type system
+---------------
+
+.About this section
+***********************
+This section details the type system of Opa, including:
+
+- definition of types
+- polymorphism and rank 2 polymorphism
+- interactions with packages and modules
+- type error messages
+- type best practices
+***********************
+
+/////////////////////////////////////////////////
+// Main editor for this section: Francois Pessaux
+/////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item spans several sections, please provide
+// hyperlinks, e.g. type definitions have both a syntax
+// and a more complete definition on the corresponding
+// section
+//////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item is considered experimental and may or may
+// not survive to future versions, please label it using
+// an Admonition block with style [CAUTION]
+//////////////////////////////////////////////////////
+
+
+
+Opa type system overview
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.Strong typing
+
+Opa is a *statically* and *strongly* typechecked language. This means
+that the type of an expression is computed once and for all at compile-time,
+an expression has one unique type and this type can't be used as another one.
+In Opa, any expression evaluates into a value and functions are first class
+values. This means that, like integers, booleans, strings in other languages,
+functions in Opa can be passed as arguments, returned as results, stored in
+data-types, and so on.
+
+
+.Type inference
+
+Opa compiler offers *type inference*, i.e. it automatically determines
+the type of expressions from the context, without the user needing to write these
+types. Hence, a definition like
+[source,opa]
+------------------------
+x = 5
+------------------------
+will lead ++x++ to have the type ++int++ because the integer literal ++5++ is
+known to be of type ++int++, this type representing the type of integer values.
+
+As a bit more complex example, the function
+[source,opa]
+------------------------
+chose(cond, if_true, otherwise) = if cond then if_true else otherwise
+------------------------
+will be found having the type
+[source,opa]
+------------------------
+(bool, int, int) -> int
+------------------------
+where +bool+ represents the type or boolean values
+and +->+ is the function taking arguments of the types
+stated on the left side and returning a result of the type stated on the right
+side of the arrow symbol.
+
+
+.Polymorphism
+
+The type system of Opa features *polymorphism*, i.e. types in which some parts
+are not constrained and can be of any type. For instance, the identity function:
+[source,opa]
+------------------------
+identity(x) = x
+------------------------
+doesn't set any constraint on it argument's type:
+it can safely be applied to any kind of value and will return this kind of
+value. Its type will then be +'a -> 'a+ where +'a+ is a *type variable*,
+i.e. "_any type will do for 'a_". Using +identity+ with an
+integer as argument will then instantiate +'a+ with +int+. Using +identity+
+with a boolean will then instantiate +'a+ with +bool+.
+
+
+.Records and sums
+
+In addition to usual data-types (integers, booleans, string, floating point
+numbers), Opa provides two cornerstone structures: *records* and
+*sums*.
+A *record* can be seen as a +struct+ in C, i.e. a non-ordered sequence of
+fields packed into one global entity. However, conversely to C these records
+can be either "_closed_" or "_opened_": the list of fields can be fixed or can
+contain "at least" the ones stated in the record type.
+A *sum* is a set of possible "cases", each case being a record. Hence, a sum
+allows to express the fact that a data-structure can be of different shapes. This
+can be compared to +union+ in C, with the difference that the effective shape
+of the data is directly embedded inside its representation.
+
+
+.Type abstraction
+
+In the Opa system, *type abstraction*, i.e. ability to hide the actual
+structure of a type is provided thanks to the notions of *private* and
+*abstract* types. The first ones are types that only have an existence in
+the package where they are defined; they are not visible outside this package.
+The second ones are transparently visible (i.e. their structure can be
+manipulated) only in the package where they are defined; outside this package,
+they become opaque, i.e. are still visible but their internal structure is not
+visible anymore.
+
+
+.Modularity
+
+Opa provides a certain notion of *module*, i.e. packages containing value
+definitions via a particular form of records. Such records are syntactically
+marked as being modules and will get a particular type called *type forall*.
+Under some restrictions due to typechecking decidability, it is possible to
+use these modules like regular record, hence passing them through functions or
+returning them as result.
+
+
+
+
+Type inference: a "slight" restriction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Type inference is not complete for some parts of Opa features and
+a few type annotations are required from the user. This is mostly due to the
+expressiveness of the language that provides very flexible features at the price
+of the non-existence of a principal type. Existence of a principal type means
+that there is always one "_better_" type, i.e. all the other types that could be
+chosen for an expression would reduce the contexts where this expression can
+be used. In such a case, the user will have to indicate himself the type he
+wishes using a type annotation to enforce the expression to be of this type.
+This construct is called a *coercion*. On the other side, coercion by type
+annotations may also be required when the
+typechecker infers a cyclic type. In effect, such types are internally used by
+the typechecker but are not currently allowed outside in the language.
+
+
+
+
+[[Opa_type_algebra]]
+Opa type algebra
+~~~~~~~~~~~~~~~~
+As previously stated, expressions evaluate to values of certain types. The
+type algebra describes the shape of these types. The present section doesn't
+explains how types are synthesized from expressions even if some examples are
+given. We rather address here an intuitive presentation of the types.
+
+
+
+Constant types
+^^^^^^^^^^^^^^
+Natively, Opa provides three basic types:
+
+- +int+ : The type of signed integer values (e.g. +0+, +-4+).
+- +string+ : The type of characters strings (e.g. +"this is a string"+).
+- +float+ : The type of signed floating point values (e.g. +0.489+, +-5.94+).
+
+
+
+[[type_variable]]
+Type variable
+^^^^^^^^^^^^^
+As stated in introduction, type variables are used to represent
+types with not particular constraint,
+i.e. types we don't need to know about or we don't know yet their effective
+internal structure. Type variables are written by a leading quote followed by
+regular identifier, for instance: +'a+, +'myvar5+.
+
+Type variables act in two particular parts of the type system.
+
+* During type inference, they are used by the typechecker to temporarily give
+  types to expressions that at a certain point do not exhibit the need to have
+  a particular type.
+* At the end of type inference of a definition, type variables that still
+  remain unconstrained are "_generalized_". This means that the typechecker
+  discovered that there is no need to know more about the structure of the
+  types they represent and hence decides to make the type polymorphic: any type
+  will be suitable in place of these variables. Hence, in the type of a
+  definition (not expression), all finally appearing type variables are
+  implicitly quantified by a "_for all_" qualifier, telling that the definition
+  having this type has all the possible *type schemes* where type variables
+  can be instantiated (replaced) by any type. In other words, a type scheme is
+  a "_model_", a "_pattern_" of types, describing a "_family_" of possible types.
+  + 
+  This last point raises an important concept:
+  - **Expressions** have a **type**.
+  - **Definitions** have a **type scheme**.
+  + 
+  In other words:
+  - In an expression a type variable is just an *unknown* that may one day be
+    known equal to some type.
+  - In a definition a type variable is a *universally quantified type*. Each
+    instance, usage of the identifier bound by this definition is free to
+    replace these variables by types it needs in its context.
+
+
+
+Function type
+^^^^^^^^^^^^^
+A function is characterized by the type of its arguments and the type of its
+result. The type constructor for a function is the "_arrow_" symbol: +->+. On the
+left part the types of the arguments are listed, comma-separated if there are
+several arguments. On the right part is the type of the result of the function.
+
+Examples:
+
+- +-> int+ : Function taking no argument and returning an integer.
+- +int -> bool+ : Function taking one argument of type integer and returning a
+  boolean.
+- +int, string -> string+ : Function taking two arguments, the first one being
+  of type integer, the second of type characters string and returning a
+  characters string.
+- +int, (int -> bool), int -> bool+ : Function taking three arguments, the
+first and third ones being of type integer, the second one being a function
+taking an integer and returning a boolean. Finally, the function returns a
+boolean. Note the presence of parentheses enclosing the function type of the
+second argument.
+
+
+
+Named type
+^^^^^^^^^^
+Types can be inductively combined to form complex data-types and bound to names
+thanks to *type definitions*. Hence, the following extract defines a new type
+name +natural+, whose structure is +int+.
+
+[source,opa]
+------------
+type natural = int
+------------
+
+Once this type is defined, we may use type name +natural+ to denote this new
+type.
+
+Types can have parameters. For instance, the type of pairs with their two
+components being of a same type can be defined as:
+[source,opa]
+-------------
+type same_comp_pair_ty('a) = ('a, 'a)
+-------------
+A pair denoted by the type +same_comp_pair_ty(float)+ will have its two
+components carrying floating point numbers.
+
+The type of pairs with components of any types can be defined as:
+[source,opa]
+-------------
+type same_comp_pair_ty('a,'b) = ('b, 'a)
+-------------
+Note that the order of the type variables +'a+ and +'b+ is different in the
+quantification (i.e. left-part of the definition, on the left of the +=+ sign)
+and in the body of the type definition. As a result, this means that pairs
+having type ++same_comp_pair_ty(int, bool)++ will carry integers in their second
+component and booleans in their first component.
+
+Finally the type of relational operators (i.e. functions taking two arguments
+of the same type and returning a boolean value) can be defined as:
+[source,opa]
+-------------
+type relational_ty('a) = 'a, 'a -> bool
+-------------
+
+Following this definition, the type of relational operators testing integers
+is +relational_ty(int)+.
+
+Hence, a named type is an identifier followed by as many types comma-separated
+and enclosed between parentheses as the corresponding type definition has
+parameters.
+
+See also the section dealing with
+<<type_definitions_section, type definitions>>.
+
+
+[[algebra_sum_type]]
+Sum type
+^^^^^^^^
+Sums are a sequence of cases, each case being a record type.
+
+A record is a sequence of typed fields. In a record, accessing a fields will
+yield a value of the type of this field. Sums as record can be either *closed*
+of *opened*. A *closed* record type (respectively sum) enumerates exactly the
+fields it contains (respectively cases for a sum). An *opened* record type
+(respectively sum) enumerates the fields (respectively cases for a sum) it may
+contain at minimum, and allows to have more if needed. In case of opened record
+or sum, the type ends by a trailing ellipsis, otherwise it is silently closed.
+
+An *opened* sum ends by a *column variable*, i.e. a kind of type variable that
+can be instantiated by another sum. In other words, this column variable allows
+the sum to gain more sum cases.
+
+An *opened* record ends by a *row variable*, i.e. a kind of type variable that
+can be instantiated by another record (also called "__row__"). In other words,
+this row variable allows the record to gain more fields.
+
+In error messages (where they need to be clearly named), column variables
+(resp. row variables) are denoted by ++'c.a++, ++'c.b++, etc
+(resp. ++'r.a++, ++'r.b++, etc). In other cases, when types are printed and
+the identity of such variables doesn't matter, they are both written "...".
+
+Here follow some examples of correct record types :
+
+- +{ }+ : Empty record type. It contains no field.
+- +{ x : int ; y : float }+ : Closed record containing exactly the two fields +x+
+   of type +int+ and '+y+ of type +float+.
+- +{ x : int ; ... }+ or +{ x : int ; ... }+ : Opened record type containing at
+   least a field '+x+ of type +int+ and possibly any other fields of any type.
+
+Sums are a form of sequence of records. They can be non-disjoint, meaning that
+some records forming cases may overlap.
+
+[IMPORTANT]
+A strong restriction imposes that an *opened sum* must not host
+*any* case that is an opened record and any (*closed or opened*) *sum* must not
+host *several* cases that are opened records.
+Moreover, if several cases (i.e. records) of a sum share a same label, this label
+must have the same type in each cases. Finally, if a sum has several cases,
+none of them must be opened.
+
+Here follow some correct sum types examples:
+
+- +{ a : int } / { b : float }+ : Closed sum containing two cases, one being a
+  record having exactly one field +a+ of type +int+, the second begin a record
+  containing a record having exactly a field +b+ of type +float+.
+- +{ a : int } / ...+ : Opened sum containing at least one case being a record
+  having exactly a field +a+ of type +int+ and possibly any other cases.
+- +{ a : int } / { a : int ; b : float }+ : Closed sum containing exactly two
+  cases, one being a record containing exactly one field +a+ of type +int+, the
+  second being a record containing exactly two fields, +a+ of type +int+ and
+  +b+ of type +float+. We see in this example that fields can be common to
+  several cases as long they keep the same type. For example, having +a+ of
+  type +bool+ in one of the cases would be ill-typed.
+- +{ a : int } / { a : int ; b : float } / ...+ : Opened sum type similar to
+  the previous example. It may contains additional other cases compared
+  to the previous example.
+- +{ a : int }+ : Closed sum with only one case. It can be hence seen as a
+  "record" (i.e. like a +struct+ a la C) exactly containing one field +a+ of type
+  +int+.
+- +{ a : int ; ... }+ : Closed sum with only one case. This case is opened
+  hence can be seen as a record containing at least one field +a+ of type
+  +int+. Any other record containing additional fields is compatible with
+  this type.
+
+
+
+[[type_forall_expl]]
+Type forall
+^^^^^^^^^^^^
+We saw in section <<type_variable, Type variable>> the difference between *types*
+and *type schemes*. Variables present in type schemes are universally
+quantified, hence a type scheme represent a family of types. A *type forall*
+embeds a type scheme inside a type and represents the type of a module field.
+Such a type is written by prefixing its body by the keyword +forall+ followed
+by the list of polymorphic type variables of the type between parentheses
+followed by a "+.+" (dot) then the body of the type. Type-forall are in fact a
+way to introduce a flavor of rank-2 polymorphism in Opa type system.
+
+Rank-2 polymorphism is a system in which a forall quantifier
+may not appear to the left of more than 2 arrows (when the type is drawn as a
+tree). To illustrate this concept, consider the function:
+[source,opa]
+------------
+f(x) = x
+_ = (f (true), f(2))
+------------
+variables bound with a definition (sometimes called "__let-definition__" may be
+polymorphic, as in ++f++ above. That's the reason why ++f++ can be applied to two
+different types, ++bool++ and ++int++.
+However, in a rank-1 polymorphism system, function arguments may not be:
+
+[source,opa]
+------------
+g(f) = (f(true), f(2))
+------------
+results in an error:
+[subs="quotes"]
+--------------------------------------
+[black]__**Error**
+Function was found of type [red]##bool -> 'a## but application expects it to be of
+type [red]##int -> 'b##.
+Types [red]##int## and [red]##{ false } / { true }## are not compatible__
+--------------------------------------
+
+In a rank-2 polymorphism system, we can give ++g++ a signature like
+++(forall a. a -> a) -> (bool, int)++. This is called a rank 2 type, because a
+function argument is polymorphic, as indicated by the forall quantifier. Now the
+function ++g++ may be applied to expression whose generalized type is at least
+as general as that declared.
+
+Modules are particular records in which each field type gets generalized. This
+way, a module can be seen as a package of definitions grouped in the module
+rather than laying at toplevel.
+
+When a module field definition appears to be polymorphic, its type is turned
+into a type forall where all generalizable variables are universally quantified.
+The type of the module is hence a *closed* record type whose fields names are
+the fields definitions names with their related type turned into a type forall
+if they are polymorphic. Hence, types forall are closely related to module
+fields types and can only be created via module expressions.
+
+The following program clearly show the difference between the type of +r+ which
+is a regular record and the one a +m+ which is a record containing types
+forall for fields having a polymorphic type.
+
+[subs="quotes"]
+--------------------------------------
+r = {
+  id(x) = x
+  pair(x) = (x, x)
+  one = 1
+}
+[black]__r : {id : 'v0 -> 'v0; pair : 'v1 -> tuple_2('v1, 'v1); one : int} / ... =
+ { id = &lt;fun&gt; ; one = 1 ; pair = &lt;fun&gt; }__
+
+m = {{
+  id(x) = x
+  pair(x) = (x, x)
+  one = 1
+}}
+[black]__m : {id : forall('v0). 'v0 -> 'v0;
+      pair : forall('v1). 'v1 -> tuple_2('v1, 'v1);
+      one : int} =
+ { id = &lt;fun&gt; ; one = 1 ; pair = &lt;fun&gt; }__
+--------------------------------------
+
+In the record type of +r+, no type forall appear even if the type scheme of
++r+ itself is polymorphic (+'v0+ and +'v1+ are generalized). In the record
+type of +m+, since it is a module, all fields having a polymorphic type get
+generalized and turned into forall types. One can notice that +one+ being
+not polymorphic, it is not turned into a forall type.
+
+[IMPORTANT]
+Types forall are explicitly created by the developer when he uses a module
+construct: there is hence no automatic type forall creation. Conversely, when
+a type forall appears in an expression, it is automatically instantiated, hence
+leading to a type in which generalized variables are replaced by fresh variables
+and universal quantification disappears (in other words, the type forall
+becomes a type "non"-forall again).
+
+
+
+Opa type algebra formal grammar
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For sake of completeness, we give here a presentation of the type algebra like
+usually described in theoretical approaches. This section is mostly dedicated
+to advanced users or people familiar with type systems design. A more complete
+description of this theoretical presentation is available in the technical
+and architecture documents of Opa.
+
+.Type
+τ ::= +int+
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Integer constant type                                     +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | +bool+
+    {nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Boolean constant type                                     +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | +string+
+    {nbsp}{nbsp} String constant type                                      +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | +float+
+    {nbsp}
+    {nbsp}{nbsp} Floating point numbers type                               +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | +void+
+    {nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Trivial (i.e. having 1 unique constructor) constant type  +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | α
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Type variable                                             +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | t +(+ τ~i~ +)+
+    {nbsp}{nbsp} Named type constructor (possibly parameterized)            +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | τ +->+ τ
+    {nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Function type                                             +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | κ
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Sum type                                                  +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | ∀ α~i~, ρ~j~, δ~k~ . τ
+    {nbsp}
+    {nbsp}{nbsp} Type forall
+
+.Row
+φ ::= •
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Closed row                                                +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | ρ
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Row variable                                              +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | l +:+ τ +;+ φ
+    {nbsp}{nbsp} Field sequence
+
+.Sum
+κ ::= •
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Closed column                                                +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | ζ
+    {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+    {nbsp}{nbsp} Column variable                                              +
+{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp} | +{+ φ +}+ +/+ κ
+    {nbsp}{nbsp} Case (record) sequence
+
+
+
+[[typing_a_program]]
+Typing a program
+~~~~~~~~~~~~~~~~
+Now that the form of Opa's types has been presented, we will address how Opa
+programs are typechecked. The aim of this section is to understand the type
+to expect for each construct of the language. This presentation is split in two
+parts, one dealing with type definitions and one dealing with expressions.
+
+
+
+[[type_definitions_section]]
+Typing type definitions
+^^^^^^^^^^^^^^^^^^^^^^^
+Type definitions allow to create new data-structure from previously existing
+ones or allow to alias, i.e. provide a name as a shortcut for cumbersome type
+expressions. Both usages follow the same syntax and rules.
+
+
+Structure of a type definition
+++++++++++++++++++++++++++++++
+A type definition is introduced by:
+
+[subs="quotes"]
+--------------------------------------
+[__directive__] type [__directive__] __ident[__(__parameters__,__...__)__]__ = __type expression__
+--------------------------------------
+
+where _ident_ is the name of the created type, _parameters_ is a
+comma-separated enumeration between parentheses of the type variables
+parameterizing the definition (or nothing if the definition is not
+parameterized), and _type expression_ is the body of the defined type. We will
+see directives in the next section.
+
+Once defined, the new type name will be compatible with itself and any
+type expression compatible with the body of its definition. Hence, following
+the definition +type t = int+, the type +t+ can be used anywhere an +int+ is
+expected and reciprocally.
+
+
+Directives in type definitions
+++++++++++++++++++++++++++++++
+Directives allow to alter the visibility of a type definition to ensure
+abstraction. Two directives are available: ++@private++ and ++@abstract++.
+
+- ++@private++ makes the type definition only visible in the package where it
+  it defined. Outside this package, the type is no more visible : it doesn't
+  exist for other packages. Such types are typically "internal tools" of a
+  package and serve only to implement functionalities without appearing in
+  the interface of the package. As a consequence, they must not escape outside
+  the package, i.e. must not appear in the signatures of values visible outside
+  the package. To make this possible, values manipulating such types must also
+  be declared private, using the ++@private++ directive also available for
+  value definitions. If a private type appears in the signature of an exported
+  value, an error is raised, advising to make this value private, like in the
+  following example:
+[subs="quotes"]
+--------------------------------------
+package private_ty_escape2
+@private type prv_string_ty = string
+vv = "" : prv_string_ty
+[black]__**Error**
+Description:
+Definition of [red]##vv## is not private but its type contains a type private to the
+package. Type [red]##prv_string_ty## must not escape its scope.
+Hint:
+  Add a @private directive on this definition.__
+--------------------------------------
+
+- ++@abstract++ makes the type definition transparently visible inside the
+  package where it is defined, i.e. its internal structure can be accessed and
+  manipulated, but outside this package it turns opaque: the type is still
+  visible (i.e. it still exists) but its internal structure is not visible
+  anymore.
+  Such types are typically data-structures implemented in a package, provided
+  to other packages that must not directly manipulate the effective
+  implementation of the data-structure and instead use the API provided by the
+  package implementing the data-structure. This is a kind of abstract data type
+  (ADT), which permits to preserve consistency and internal invariants required
+  by the implementation of a data-type. The basic idea is that the definition
+  package "knows" how to safely manage the type, provides a safe API to the
+  outer "world", hence one gets sure that nobody will come and "hack by hand",
+  hence break, invariants required by the data-structure to keep consistent.
+  Outside its definition module, an abstract type loses its internal
+  representation, hence becomes compatible only with itself.
+[source,opa]
+--------------------------------------
+package p1
+@abstract type u = int
+to_u(x : int) : u = x
+from_u(x : u) = x : int
+// Legal since we are in the defining package: we see u's internals.
+_ = 1 + (1 : u)
+--------------------------------------
+[source,opa]
+--------------------------------------
+package p2
+import p1
+// Obtain a value of type u from the integer 0.
+v = to_u(0)
+_ = 1 + v
+--------------------------------------
+Because the last line of code of package ++p2++ tries to rely on ++u++'s
+internal structure although it is not the package defining it, ++u++ being
+turned abstract can't be compatible with ++int++ anymore, hence leading to the
+error:
+[subs="quotes"]
+--------------------------------------
+[black]__**Error**
+Function was found of type [red]##'a, 'a -> 'a## but application expects it to be of
+type [red]##int, u -> 'b##.
+Types [red]##int## and [red]##u## are not compatible__
+--------------------------------------
+
+
+Parameters in type definitions
+++++++++++++++++++++++++++++++
+
+Parameters allow to define types polymorphically, in order to instantiate them
+later by providing effective type arguments to the type name in future type
+definitions or type expressions. Let's examine the following sample code.
+
+[subs="quotes"]
+--------------------------------------
+type fun_t('a, 'b) = 'a -> 'b
+type int_string_fun_t = fun_t(int, string)
+
+twice_general(f , i) = f(i) + f(i)
+[black]__twice_general : ('v0 -> int), 'v0 -> int = &lt;fun&gt; __
+
+twice(f : fun_t(int, int), i) = f(i) + f(i)
+[black]__twice : fun_t(int, int), int -> int = &lt;fun&gt; __
+--------------------------------------
+
++fun_t+ is defined as the type of functions taking one argument an returning
+a value, both of them not being fixed in the definition. Hence the type
++fun_t+ is "_partially defined_" and will need to be instantiated with
+effective arguments in further usages.
+
+Next comes the definition of +int_string_fun_t+ using +fun_t+ and specializing
+this latter with +int+ for both the types of the argument and returned value of
+the function. By this definition, we used the general +fun_ty+ to create a more
+specialized type definition.
+
+Let's now consider the definition of +twice_general+ taking a function, a
+parametric value and adding twice the result of applying this function to this
+value. The type of +++ (internally +int, int -> int+) enforces the result of
++f+ to be +int+ but no constraint applies on the type of the argument of
++f+. Hence +f+ has type +'v0 -> int+, and by consequence +twice_general+ also
+has a parameterized type +('v0 -> int), 'v0 -> int+.
+
+Using the type definition +int_string_fun_t+, we can define a function similar
+to +twice_general+, i.e. with the same body but with a more restricted type:
++twice+.
+Hence, by adding a type coercion on the parameter +f+ of +twice+, we can
+enforce it to be of type +fun_t(int, int)+ hence forcing the parameter of +f+
+to be +int+ instead of leaving it free like in +twice_general+.
+
+[NOTE]
+Note that both definitions of +fun_t+ and +int_string_fun_t+ do not really
+create "new" types. They are aliases, "_shortcuts_" for a type expression.
+Instead of using these 2 defined type names, we could directly use their body
+but this would be less handy. Creation of really new types is achieved by
+defining sums and records as described below.
+
+
+
+Using type expressions in a type definition body
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+The basic type expressions that can be used allow to represent the types
+described in the <<Opa_type_algebra, Opa type algebra>>.
+
+- *Basic constant named types* : +int+, +bool+, +string+, +float+,
+      +void+. +
+  ++type t = int++ defines +t+ as an alias on the type of integers +int+.
+
+- *Function type* : +->+ +
+  ++type t1 = int -> float++ defines +t1+ as the type of functions taking an
+    +int+ and returning a +float+. +
+  ++type t2 = -> float++ defines +t2+ as the type of functions taking no
+    argument and returning a +float+. +
+  ++type t3('a, 'b) = 'a -> 'b++ defines +t3+ as the type of functions taking
+    an argument and returning a value whose types are not fixed and are
+    parameters of the type definition. Hence, +t3(int, float)+ specializes these
+    parameters and lead to a type compatible with the above type +t1+. +
+  ++type t4 = int, string -> bool++ defines +t4+ as the type of functions taking
+    two arguments (of types +int+ and +string+) and returning a +bool+.
+
+- *Named type* +
+  Type definitions bind type expressions to names. So defined type names can
+  be on their turn used to form new type definitions. If a type name represents
+  a parameterized type, it must be instantiated providing effective type
+  arguments according to its arity (i.e. number of required arguments). +
+  ++type t5 = t1 -> t2++ defines +t5+ as the type of functions taking a
+    parameter of type +t1+ and returning a result of type +t2+, both types
+    being those presented in the above paragraph. +
+  ++type t6 = t3(bool, int)++ defines +t6+ using the previously defined type
+    +t3+ and applying it to +bool+ and +int+. As a consequence, +t6+ is the
+    type of functions taking an argument of type +bool+ and returning a value
+    of type +int+.
+
+- *Sum* +
+  A sum type is an enumeration of "_cases_" separated by a "/" (slash character).
+   Each "_case_" is a "_record_" i.e. an enumeration between braces of labels
+   with their type. +
+  ++type t7 = { A : int } / { B : string ; C : bool }++ defines +t7+ as a new
+    sum type containing two "_cases_". The first one is a record containing a
+    field +A+ of type +int+; The second one is a record containing two fields,
+    +B+ of type +string+ and +C+ of type +bool+. Values of this type can be
+    "_pattern matched_" to discriminate their effective form and access the
+    particular fields of each case. +
+    Sum type definitions always lead to "_closed_" sum, i.e. the resulting
+    type doesn't ends by a "..." (column variable). This simply means that
+    when defining a type, the definition simply describes all the "_cases_"
+    this type can host. +
+    As a shortcut, when a field of record has type +void+, its type
+    specification can be ommited. Hence, +
+  ++type color = { Red } / { Green } / { Blue }++ defines +color+ as a sum
+    with three cases, each of them implicitly of type +void+. This is equivalent
+    to ++{ Red : void } / { Green : void } / { Blue : void }++. The idea in
+    such a definition is that the fields of the record are self-sufficient and
+    do not need to carry additional information to be precise enough. +
+  ++type pair('a, 'b) = { first : 'a ; second : 'b }++ defines +pair+ as a
+    parameterized sum with only one "_case_". This "_case_" is a record
+    containing two fields, one per component of the pair. Since the pair
+    data-structure is naturally polymorphic, this type definition has in effect
+    2 parameters +'a+ and +'b+.
+[IMPORTANT]
+Remember, as already state while presenting Opa type algebra, in the
+<<algebra_sum_type, sum types section>>, that a strong restriction imposes that
+an *opened sum* must not host *any* case that is an opened record and any
+(*closed or opened*) *sum* must not host *several* cases that are opened records.
+Moreover, if several cases (i.e. records) of a sum share a same label, this label
+must have the same type in each cases. Finally, if a sum has several cases,
+none of them must be opened.
+
+- *Record* +
+  A record type is defined like (and compatible with) a sum type with only one
+  "_case_". This way, by default a record type is a closed row in an opened
+  column.
+
+- *Type forall* +
+  Type-forall being strongly related to modules, they are defined using a
+  syntax close to modules, allowing to avoid the explicit quantification of
+  type variables. In fact, type-forall are not directly written, they are
+  introduced on need through module types. Any type variable appearing in the
+  type of a field of the definition and not bound outside will be implicitly
+  considered as quantified. +
+  ++type t = {{ identity : 'a -> 'a }}++ defines +t+ as a module type (i.e. a
+  record) in which the field +identity+ has the type-forall
+  +forall('a).'a -> 'a+. +
+  Note that variables not bound outside the module type have a scope local to
+  the field's type where they appear. For instance, in
+  ++type t = {{ identity : 'a -> 'a ; val : 'a }}++, +'a+ represents 2
+  different variables in +identity+ and +val+. +
+  Variables bound outside the module type are not quantified, hence not
+  participating into type-forall creation. For instance in
+  ++type t('a) = {{ id : 'a -> 'a ; v : 'b }} -> 'a++ the type variable +'a+
+  being a type parameter is bound outside the module type, hence is not
+  quantified. By consequence, the type of the field +identity+ is no more a
+  type-forall. Conversely, +'b+ being not bound remains quantified and
+  introduces a type-forall. This also shows that type-forall are introduced
+  only when polymorphism exists: there exists no "_trivial_" type-forall,
+  i.e. no type-forall with an empty set of quantified variables.
+
+A few syntactic extensions allow shortcuts to make life easier.
+
+- *Sum sugar* +
+Additionally, a syntactic shortcut allows to merge several sum types
+definitions to create a new definition containing the "_cases_" of all the
+initial types. In the same idea than when creating a sum type, i.e. separating
+its different cases by a "/", the names of types to merge are simply separated
+by a "/". +
+++type t = { A } / { B }++ +
+++type u = { C }++ +
+++type v = { D }++ +
+++type w = t / u / v++ +
+++_ = { C } : u++ +
+[black]__\_do_ : u = { C = void ;  }__ +
+In the above sample code, +w+ finally stands for the type definition
++{ A } / { B } / { C } / { D }+ and expression +{ C }+ can really be coerced
+into +w+ although it is initially a value of type +u+.
+You may note the ++_ =++ __expr__ construct which allows evaluating the
+expression __expr__ then throw its result value. Since this value is not bound
+to any identifier, Opa names it ++\_do_++ in its feedback messages.
+
+- *Tuples* +
+  Tuples are generalization of pairs. A pair is a data-structure with 2
+  components: a tuple has an arbitrary number of such components.
+  Two tuples types are compatible if their components are compatible 2 by 2.
+  This especially means that 2 compatible tuples types must at least have the
+  same number of components. Syntactic sugar allows to write tuples types as
+  comma-separated sequence of types enclosed between parentheses. +
+  ++type t10 = (int, bool, int, int)++ defines +t10+ as a tuple with 4
+    components, all being of type +int+ except the second one. +
+  ++type t11('a) = ('a, 'a, 'a)++ defines  +t11+ as a tuple with 3 components
+    all being of the same type, parameter of the type definition. Using
+    +t11+ in a type expression with +bool+ as effective argument will hence
+    represent the type of a tuple with 3 components all being booleans.
+
+[NOTE]
+Opa standard library already proposes numerous data-types like lists, maps,
+sets, etc which may be directly used in developments, avoiding the need to
+implement again the related common and widespread algorithms.
+
+
+
+Typing expressions
+^^^^^^^^^^^^^^^^^^
+In this section, we will review each Opa construct and explain which way its
+type is computed. In some cases, we will see that inference is not complete and
+type annotations may be added by the developper to help the typechecker in its
+job.
+
+
+
+Constant expressions
+++++++++++++++++++++
+Constant expressions are given their natively defined type:
+
+- Integer values: +int+
+- Boolean values (+{ true }+ and +{ false }+): +bool+
+- Characters strings literals: +string+
+- Signed floating point values: +float+
+- The trivial type value (+{}+): +void+
+
+Examples:
+
+[subs="quotes"]
+--------------------------------------
+i = 5
+[black]__i : int = 5__
+f = 3.14159
+[black]__f : float = 3.14159__
+s = "foo"
+[black]__s : string = "foo"__
+v = {}
+[black]__v : {} / ... = void__
+b = true
+[black]__b : bool = { true = void ;  }__
+--------------------------------------
+First, notice the apparition of a construct __ident = ...__ we will detail
+deeper <<identifier_binding_construct,later>>. For the intuition, let's simply
+say it *binds* ("_attaches_" the result of its right-side expression to the
+name __ident__). This allows to name values. Be aware that this is different
+from the notion of *assignment* "à-la C" which permits to modify in place the
+value stored in the memory cell touched by the assignment. The difference between
+a *binding* and an *assignment* refers to the notion of mutability, i.e. the
+possibility to alter the value represented by the identifier. A binding links
+an identifier once for all to a value. Some kind of values are mutable, this is
+the way assignments are obtained aside bindings.
+
+Note in the above sample code that the void and boolean values have been typed
+as sums, not as named types +void+ and +bool+. This is due to the fact that
+type inference is structural: named types are introduced by type
+annotations. Types +bool+ and +void+ are just abbreviations on the
+structural types +{}+ and +{ true = void } / { false = void }+. If no explicit
+type annotation imposes to see these void and boolean values as +void+ and
++bool+, the structural types induced by their structures remain the primarily
+ones inferred.
+
+
+[[typing_function_construct]]
+Functions
++++++++++
+A function may have arguments but always return a value. Hence, defining
+a function requires to define its possible arguments and write its body, i.e.
+the expression building the returned value. The form of a function expression
+is:
+
+[subs="quotes"]
+-------------------------
+__[__parameters__,__...__]__ -> __expr__
+-------------------------
+
+Parameters of the function are bound by the definition, hence are only available
+in the function's body. Obviously, to typecheck the body of the
+function, we will need the types of its arguments. Type schemes bound to
+identifiers (function parameters or identifiers introduced by the
+<<identifier_binding_construct,identifier binding construct>>) are recorded in
+an internal structure we call here a "__typing environment__" acting as the
+memory of "__already seen identifiers'__" types.
+
+Typechecking a function expression is performed in 3 steps:
+
+1. First, each parameter is given a temporary "_unknown_" type: a trivial
+   type scheme (i.e. with no generalized variables) whose body is a type
+   variable.
+   [medium red]*This especially means that a function parameter can't be used
+   polymorphically inside the body of the function.* +
+2. The body __expr__ is then typechecked in the typing __environment__ extended
+   by the function's parameters, hence leading to the type __τ__ of the returned
+   value.
+3. Finally, an "__arrow__" type is built, grouping the types of the parameters
+   (that were possibly instantiated because of type constraints found while
+   typechecking the function's body) on the left-side of the "__arrow__"
+   and setting the returned type on the right-side, finally giving a type of
+   the form __τ~1~, ..., τ~n~ -> τ__.
+
+Examples:
+
+[subs="quotes"]
+-------------------------
+_ = x -> x + 1
+[black]__\_do_ : int -> int = &lt;fun&gt;__
+-------------------------
+
+First, notice the +_ = ...+ notation that allows to throw the result of the
+expression laying on its right-side. This is a particular form of identifier
+binding, a construct described in detail
+<<identifier_binding_construct,later>>. For the moment, the intuition to keep
+is that it binds the result of the expression to "_nothing_".
+
+In this sample code, +x+ is inserted in the typing environment with a type
+variable, say +'a+ (what we previously called an "_unknown_" type). The body of
+the function is then typechecked. Even is we didn't present yet the typechecking
+of function application, driven by the intuition, the operator + expects two
+integers and returns an integer. Hence, to be correctly typed, the parameter
++x+ of the function must be of type +int+ i.e. the type variable +'a+
+previously introduced for +x+ gets instantiated by +int+. Now, +1+ also has type
++int+, so the operator + is
+used in a consistent typing context, returning a value of type +int+ which is
+the global type of the function's body. Finally, the whole function type is
+built having +'a+ now being +int+ on the left-side of the +->+ and +int+ on
+its right-side, giving ++int -> int++.
+
+
+[subs="quotes"]
+-------------------------
+_ = x, y -> x + 1
+[black]__\_do_ : int, 'v0 -> int = &lt;fun&gt;__
+-------------------------
+This second example shows a function with 2 arguments. As previously, each of
+them is entered in the typing environment with a type variable before
+typechecking the body of the function. This body is the same than in the
+previous example, hence it doesn't use the +y+ parameter of the function. As a
+consequence, no constraint applies on +y+ and its type remains a variable. As a
+final result, grouping the types of the arguments on the left-side of the +->+
+and the result type on its right, we obtain the final type ++int, 'v0 -> int++.
+
+
+[subs="quotes"]
+-------------------------
+_ = -> "constant"
+[black]__\_do_ : -> string = &lt;fun&gt;__
+-------------------------
+In this last code snippet, since the function doesn't have any argument, its
+body is typechecked in the unmodified typing environment. The string literal
+++"constant"++ representing the body of the function had type +string+ which
+is the type of its returned value. Since there is no argument, there is no
+type to set on the left-side of the final +->+ type, only the result type will
+appear on its right-side, leading to the function type ++ -> string++.
+
+
+Application
++++++++++++
+Application is the construct allowing to "_use_" a function by providing it
+some effective arguments. In Opa, an application expression is denoted by a
+functional expression on the left-side and the enumeration comma-separated and
+between parentheses of the expressions being effective arguments to pass to the
+function:
+
+[subs="quotes"]
+-------------------------
+__expr~1~__(__[expr~2~__,__...__]__)__
+-------------------------
+
+If the function requires no argument, then the enumeration between the
+parentheses is empty, however, the parentheses still remain required. Note
+*that there must not be any blank between the functional expression and
+the opening parenthesis*. Typechecking an application is performed in 4 steps:
+
+1. First arguments expressions __expr~2~__, ... are typechecked, leading to as
+   many types ++τ~2~, ...++.
+2. Next, the functional expression __expr~1~__ is typechecked. It is then
+   expected to lead to a functional type with as many arguments' types as there
+   are effective arguments and returning a value of a certain type: ++τ++.
+   Hence, the expected type must have the form
+   ++τ'~2~, ... -> τ++.
+3. Each effective argument's type ++τ~i~++ is checked against the corresponding
+   ++τ'~i~++ of the type inferred for the function to ensure they are
+   compatible.
+4. Finally, the type of the application is the result type of the function,
+   i.e. ++τ++
+
+Examples:
+
+[subs="quotes"]
+-------------------------
+f(x, y) = x + y + 1
+[black]__f : int, int -> int = &lt;fun&gt;__
+_ = f(2, 4)
+[black]__\_do_ : int = 7__
+-------------------------
+To begin, simply ignore the typechecking of the function +f+, we will have
+a look at it later. Simply accept it has type ++int, int -> int++ and let's
+examine the second expression. The arguments expressions +2+ and +4+ have
+type +int+. We then typecheck the functional expression which is the identifier
++f+. Even if we don't have described typechecking of identifiers yet, we already
+introduced the notion of "_typing environment_" keeping trace of types of
+identifiers (see <<typing_function_construct,Functions>>). Looking-up in this
+environment we find that +f+ has type ++int, int -> int++. Hence, we see that
+the types of the effective arguments provided in the application are compatible
+with the expected types arguments of ++f++ (i.e. ++int++). Hence the result type
+is the one on the right-side of ++f++'s type: ++int++.
+
+To go further, we can study how +f+ is typechecked since its body contains the
+application of the operator \+. Like previously described for functions, +x+ and
++y+ are entered in the typing environment both with temporary type variables,
+say +'a+ and +'b+. Then the body of the function which is an application must
+be typechecked. We then first type the arguments, i.e. +x+ and +y+ that have
+types +'a+ and +'b+. Assuming that + has the obvious type +int, int -> int+ we
+must now ensure that the types of the effective arguments are compatible with
+the type of \+. This means that +'a+ must be +int+ and same thing for +'b+: the
+two type variables get then instantiated, i.e. made "_equal_" to +int+. The
+result
+type of the application is then the result type of \+, i.e. ++int++. We iterate
+exactly the same process to typecheck the addition with the constant ++1++ which
+finally gives type ++int++. Hence, ++int++ is the type of ++f++'s body, so the
+returned type of +f+. As a consequence, ++f++ is inferred the final type
+++int, int ->int++.
+
+
+
+[[identifier_binding_construct]]
+Identifier binding
++++++++++++++++++++
+The construct
+
+[subs="quotes"]
+--------------------------------
+__ident__ = __expr~1~__
+__expr_~2~__
+--------------------------------
+allows to evaluate __expr~1~__, bind its value to __ident__ and evaluate
+__expr_~2~__ in which __ident__ possibly appears and will be replaced by its
+bound value. Identifier binding introduces polymorphism in Opa: once the type
+of the expression to bind to the identifier is computed, all the type
+variables remaining in it with no constraint are considered polymorphic
+and "_generalized_". As a consequence, in identifier binding expressions,
+identifiers obtain not a type but a type scheme (see also
+the presentation of <<type_variable, type variables>>) that can be
+polymorphic.
+
+Typechecking this construct processes in 3 steps:
+
+1. First, __expr~1~__ is typechecked, leading to a type __τ~1~__.
+2. Then __τ~1~__ gets generalized: all type variables without any constraint
+   are generalized and universally quantified to lead to a type scheme. This
+   type scheme is then bound to the identifier __ident__ in the typing
+   environment.
+3. Finally, __expr~2~__ is typechecked in the extended typing environment,
+   giving a type __τ~2~__ which is the final type of the whole expression.
+
+Examples:
+[subs="quotes"]
+--------------------------------------
+v =
+  one = 1
+  one + one
+[black]__v : int = 2__
+--------------------------------------
+The identifier +one+ is bound to the value ++1++ which has type ++int++. Then it
+is used in an addition. The operator + expects 2 integers and returns an
+integer.
+Hence, since ++one++ was found of type ++int++, it can safely be used with the
+addition, hence this latter expression leads to the final type ++int++.
+
+By the way, we can note a special identifier binding construct, the
+toplevel one that binds the identifier ++v++. In its toplevel flavor, this
+construct doesn't have any trailing expression (we previously called
+__expr_~2~__). This allows to bind identifiers at the outermost level of a
+program, i.e. to give it a scope (a "_life duration_") spanning on
+"_all the rest of the program_".
+
+[subs="quotes"]
+--------------------------------------
+pair =
+  identity(x) = x
+  (identity(1), identity("foo"))
+[black]__pair : tuple_2(int, string) = { f1 = 1 ; f2 = "foo" }__
+--------------------------------------
+
+The above code snippet introduces 2 features. First, the shortcut for defining
+a function by directly enumerating its arguments. Instead of writing
++f = x, y -> 4+, it is possible to write +f(x, y) = 4+. Second, we make use of
+the built-in syntactic sugar to represent tuples whose components are enclosed
+between parentheses and comma-separated.
+
+Hence, the identifier +identity+ gets bound to a function type directly
+returning its argument. Clearly, such a function can take any kind of value and
+will return this kind of value. The only constraint on the type of this
+function is that it returns the same type it got for its argument, hence
+giving the type +'a -> 'a+. This type can then be generalized giving +identity+
+the polymorphic type scheme +∀ 'a.'a -> 'a+. The function is then invoked
+twice, once with an +int+, once with a +string+, which is legal since it has
+a polymorphic type. Hence, the results of these invocations have types +int+
+and +string+ and are grouped in a tuple, ++tuple_2(int, string)++ which is the
+final type of this expression.
+
+
+[[recursive_identifier_binding]]
+Recursive identifier binding
+++++++++++++++++++++++++++++
+Similarly to the identifier binding construct, the recursive flavor
+
+[subs="quotes"]
+--------------------------------
+rec __ident~1~__ = __expr~1~__
+...
+rec __ident~n~__ = __expr~n~__
+__expr_~n+1~__
+--------------------------------
+allows to bind each __ident~i~__ to the value of __expr~i~__ but with
+all the __ident~...~__ possibly appearing in the bodies, __expr~...~__, of
+the bound expressions. This hence allows (mutually) recursive
+definitions. Intuitively, this implies that to compute the type to bind to
+__ident~i~__, we must compute the type of all the expressions __expr~...~__
+for which we may need to already known the types bound to the __ident~...~__.
+
+Note that toplevel definitions are automatically reordered, i.e. it is possible
+to use a function and define it later and if needed, definitions are implicitly
+made recursive. Hence, the ++rec++ construct mostly serves to define *local*
+recursive definitions, i.e. definitions not spanning at toplevel (or in other
+words, definitions nested in other definitions).
+
+Typechecking this construct processes in 5 steps:
+
+1. First, each __ident~i~__ is temporarily given a "_unknown_" type: a trivial
+   type scheme (i.e. with no generalized variables) whose body is a type
+   variable.
+   [medium red]*This especially means that a recursively defined identifier
+   can't be used polymorphically in its own definition.* +
+   The typing environment gets extended, binding each __ident~i~__ to its
+   related temporary type scheme.
+2. Then each __expr~i~__ is typechecked in the extended typing environment,
+   leading to a type __τ~i~__.
+3. Now the bodies of the bindings are typechecked, each __τ~i~__ and the
+   related temporary type scheme bound to __ident~i~__ (which have
+   possibly be instantiated by some type constraints) are checked to ensure
+   they are compatible.
+4. If so, each __τ~i~__ is then generalized and becomes the type scheme bound to
+   __ident~i~__ in the typing environment.
+5. Finally, __expr~n+1~__ is typechecked in the extended typing environment,
+   giving a type __τ~n+1~__ which is the final type of the whole expression.
+
+
+
+Value identifiers
++++++++++++++++++
+As we previously introduced (see <<typing_function_construct, Functions>>), the
+typing environment is a memory keeping trace of types inferred and bound
+to identifiers (bound by a function definition or an identifier binding
+construct). More accurately, it contains, not the types, but the *type schemes*
+bound to identifiers since Opa supports polymorphism.
+
+Typechecking an identifier expression aims to find a type for this identifier
+and is performed in two steps.
+
+1. First a looking-up is performed in the typing environment to find the type
+   scheme entered for this identifiers. Providing that the identifier was
+   actually defined, it das obviously been typechecked and bound a type scheme in
+   this environment.
+2. The obtained type scheme must be transformed into a type. Remember that a
+   type scheme is a "_model_", a "_pattern_" of types, describing a "_family_"
+   of possible types. Generalized (i.e. universally quantified) type variables
+   in the scheme represent "_parts_" that can be instantiated at need by any
+   type expression. In order to allow the identifier to be used with different
+   types in place of the type variables of its scheme, the scheme gets
+   "_specialized_", i.e. the type for this occurrence of the identifier is
+   built by copying the scheme's body, replacing all generalized type variables
+   by fresh (i.e. not appearing anywhere in the program) type variables.
+
+Examples:
+
+[subs="quotes"]
+--------------------------------
+id(x) = x
+[black]__id : 'v0 -> 'v0 = &lt;fun&gt;__
+one = 1
+[black]__one : int = 1__
+hello = "Hi"
+[black]__hello : string = "Hi"__
+_ = (id(one), id(hello), id(id))
+[black]__\_do_ : tuple_3(int, string, 'v1 -> 'v1)__
+--------------------------------
+
+In this sample code, the interesting part deals with the 3 applications used
+to build the tuple expression. We see that +id+ was entered in the typing
+environment with the polymorphic type scheme +∀ 'a.'a -> 'a+.
+
+Hence when
+typechecking +id(one)+, the type scheme of +one+ is fetched, which is not
+polymorphic and whose body is +int+. Hence, the occurrence of +one+ is given
+the type +int+. The type scheme of +id+ is then fetched and instantiated: the
+quantified type variable +'a+ is replaced by a fresh one, say +'b+ leading to
+type +'b ->'b+ (note there is no more ∀ since this is a type, not a type
+scheme). Application then makes this +'b+ instantiated into +int+ and leading to
+the final application type +int+ for the first component of the tuple.
+
+The
+second component of the tuple is processed the same way, the type scheme of +id+
+being fetched again in the environment and specialized again by replacing +'a+
+by another fresh type variable, say +'c+. The type scheme of +hello+ is fetched
+and  is not polymorphic, leading to type +string+. As a consequence, not
+surprisingly the type of the second component of the tuple is +string+.
+
+Finally
+remains the third and last component of the tuple. The type scheme of +id+ is
+fetched twice: one first time for the argument of the application, one second
+time
+for the functional part of it. Each occurrence of +id+ is then given a type
+obtained by specialization of the scheme, each one having fresh type variables
+in place of the ones generalized in +id+'s scheme, leading to types
++'d ->'d+ for the functional usage of +id+ and +'e ->'e+ for +id+ used as
+argument. Then typechecking of the application imposes that +'d+ and +'e->'e+
+must be the same type. The result of the application expression being +'d+,
+from the constraint we have just seen, we obtain that +id(id)+ has type
++'e->'e+, which is the type of the third component of the tuple.
+
+
+Records and sums
+++++++++++++++++
+A sum expression consists in the record representing the case of sum, i.e. an
+enumeration (possibly empty) between braces and semi-separated of the
+field labels with their related values that represent the sum case:
+
+[subs="quotes"]
+--------------------------------
+{ __[label__ = __expr__ ; __...]__ }
+--------------------------------
+
+Such an expression always lead to an *opened* sum type containing a *closed*
+record. The reasons for closed / opened are the following:
+
+- Since the record enumerates all the fields of the case, this means that this
+  record has no more fields in this expression. For this reason, it must be
+  *closed* because it contains no other fields than thoses explicitly stated
+  in the expession.
+- Since the expression represents one case of sum, its type at least contains
+  this case, but possibly some other cases. Hence it must be opened to accept
+  being compatible with these possible future other cases.
+
+Typechecking of a record expression is performed in 3 steps:
+
+1. Each field expression __expr~i~__ is typechecked, leading to as many types
+   __τ~i~__.
+2. A closed record type is then built, binding each __label~i~__ to its
+   related found type __τ~i~__. This record being closed means that it doesn't
+   end by a "__row variable__", hence won't be compatible with record containing
+   other fields than those explicitly specified.
+3. Finally, an opened sum type is created, plugging the above record type as
+  one of its case. This sum being opened means that it ends by a
+  "__column variable__", hence means that the type of this expression contains
+  "__at least__" this case, but may be more if needed.
+
+
+
+Pattern-matching
+++++++++++++++++
+Pattern-matching is the construct allowing to discriminate by cases on the
+structure of a value. According to the syntax:
+
+[source,opa]
+-------------
+match expr with
+ | case_1 -> expr_1
+ | case_2 -> expr_2
+  ...
+ | case_n -> expr_n
+-------------
+the expression __expr__ is matched against each pattern in sequence, stopping
+on the first one that matches. This fitting between the value and the pattern
+may induce bindings of pattern variables. The environment is then extended by
+these bindings and the right-side part expression of the matching case is then
+evaluated as the result of the whole expression.
+
+As a consequence, the matched value and all the patterns must have a same type.
+Because any right-side part expression of the cases can be returned, they must
+also have a same type.
+
+More accurately, typechecking of this construct is performed as follows. First,
+the matched expression is typechecked, leading to a type __τ__. Then, each
+pattern is typechecked leading to types __τ~1~__, ... __τ~n~__ that are checked
+to be compatible together and with __τ__. While typechecking patterns, pattern
+variable types are inferred and reminded for later.
+At this point, a special operation
+is performed on catchall patterns ("_", or pattern variables) having a sum
+type. In effect, a catchall pattern absorbs "__any other value not already
+matched by previous patterns__". In the case of sum types, this means that the
+column type representing this sum can have "__any other cases__", hence is
+opened. For this reason, sum types appearing in the type of a catchall pattern
+get recursively opened (i.e. opening is done in depth).
+Now the type of the matched
+expression and patterns is computed, each right-side part expression of cases
+is typechecked in the environment extended by bindings of its related pattern
+variables (previously recorded). As a result, each branch gets a type
+__τ\'~1~__, ..., __τ'~n~__ that are checked to be compatible.
+The resulting type of the whole expression is then the type of the right side
+parts expressions of the pattern-matching.
+
+Below follow some examples showing pattern-matching typechecking.
+[subs="quotes"]
+--------------------------------
+f(x) =
+  match x with
+  | 0 -> false
+  | 1 -> false
+  | _ -> true
+[black]__f : int -> bool =  &lt;fun&gt;__
+--------------------------------
+
+Typechecking the matched expression ++x++ doesn't impose any particular
+constraint. Hence ++x++ is assigned a type variable. Then, each pattern is
+typechecked and appears to be ++int++. Now, each right-side part
+is typechecked leading to type ++bool++ which is the return type of the
+function. The last pattern is a catchall, but since it doesn't have a sum type,
+opening has no effect. Since this function takes ++x++ as parameter and this
+latter was inferred the type ++int++, the final type of this function is as
+expected ++int -> bool++.
+
+[subs="quotes"]
+--------------------------------
+g1(x) =
+  match x with
+  | { a = 1 } -> 0
+  | { b = bval } -> bval
+[black]__g1 : {b : int } / {a : int} -> int = &lt;fun&gt;__
+--------------------------------
+
+Typechecking the patterns, it can be seen that the matched expression
+must be of a type sum containing either ++{ a : int }++ or ++{ b : 'a }++.
+At this point, the pattern variable ++bval++ is not yet constrained to any
+particular type from the current context, so it remains a type variable. Hence,
+the type of the matched expression must be, a priori, ++{b : 'a} / {a : int}++.
+The first right side part is then typechecked leading to type ++int++. The
+second one, thanks to the previously recorded binding of ++bval++ to ++'a++,
+has type ++'a++ and must be compatible with ++int++. Hence ++'a++ must be
+instantiated by ++int++. As a result, the matched value must have type
+++{b : int } / {a : int}++ and the result of the pattern-matching must have
+type ++int++. Finally, we have a catchall pattern, the variable ++bval++,
+but since its type is not a sum type, opening has no effect and types are not
+changed. Hence, the function ++g1++ is inferred of type
+++{b : int } / {a : int} -> int++.
+
+[subs="quotes"]
+--------------------------------
+g2(x) =
+  match x with
+  | { a = 1 } -> 0
+  | { b = bval } -> bval
+  | _ -> 42
+[black]__g2 : {b : int} / {a : int} / ... -> int = &lt;fun&gt;__
+--------------------------------
+
+This example only differs from the previous one by the addition of a final
+catchall case. Typechecking is done in a similar way than in the previous
+example. The only difference is that because the catchall pattern is related
+to a sum type (++{b : int} / {a : int}++), opening columns has now an effect.
+The type of the matched value finally gets opened, under the form
+++{b : int} / {a : int} / ...++ to reflect the fact that this pattern-matching
+can handle sums with a case ++{ a }++, a case ++{ b }++ or any other case.
+
+[subs="quotes"]
+--------------------------------
+g3(x) =
+  match x with
+  | { a = { c } } -> { d }
+  | { b = bval } -> bval
+[black]__g3 : {b : {d} / ...} / {a : {c}} -> {d} / ... = &lt;fun&gt;__
+--------------------------------
+
+More subtle, the above example shows that while typechecking the patterns,
+the catchall pattern variable ++bval++ is not yet constrained, hence remains
+a type variable ++'a++. If we have a look "in the future", we will see that
+right-side parts impose that ++'a++ is instantiated by a sum type. However, this
+is not yet known and the opening operation has no effect on the type
+currently bound to ++bval++.
+The type of right-side parts is now inferred. The first one imposes to have a
+sum type containing a case ++{ d }++, hence has type ++{ d } / ...++
+(remember that a record expression is by default inferred as plugged in an
+opened column). The second one imposes now ++'a++ to be instantiated by the
+former type. This instantiation of ++'a++ propagates both in the types of the
+argument and of the result of the function ++g3++, stating that this
+pattern-matching can in fact handle sums with a case ++{ a : { c } }++ and a
+case ++{ b }++ itself having a sum type containing "++d++ or any other case".
+This difference then appears in the global type of the function ++g3++ since
+it shows that it returns a sum with either a case ++a++ or any other case
+being the embedded value of its argument when it is a sum of the form
+++{ b = ... }++.
+
+[subs="quotes"]
+--------------------------------
+g4(x) =
+  match x with
+  | { a = 1; b = { c = 3 } } -> 0
+  | { a = 1; b = { c = 4 } } -> 0
+  | _ -> 0
+[black]__g4 : {a : int; b : {c : int} / ... } / ... -> int = &lt;fun&gt;__
+--------------------------------
+This example demonstrates the opening of sums due to catchall patterns operating
+in depth. In effect, the final "_" pattern is bound to a sum type
+++{a : int; b : {c : int} }++, i.e. a sum whose first case has a field ++b++
+also having a sum type. Since this catchall "absorbs all the other cases" of
+this sum type, it absorbs others cases than ++{ a ; b }++ but recursively also
+" the other cases than ++{ c }++ in the type of ++b++". For this reason, both
+sum types get opened in the argument of the function (note the apparition of
+the 2 column variables ++/ ...++).
+
+
+++ ++ +
+** Pattern-matching and records** +
+By default, when typechecking patterns, if all the patterns lead to a same
+record type, the inferred type is a sum type with only one case being this
+record type:
+[subs="quotes"]
+--------------------------------
+g5(x) =
+  match x with
+  | { a = 1 ; b = "" } -> x
+  | { a = 2 ; b = "A" } -> x
+  | _ -> x
+[black]__g5 : {a : int; b : string} / ... -> {a : int; b : string} / ... = &lt;fun&gt;__
+v = g5({ a = 1 ; b = "" })
+[black]__v : {a : int; b : string} / ... = { a = 1 ; b = "" }__
+_ = v.a
+[black]__\_do_ : int = 1__
+--------------------------------
+
+Since such a sum only has one case, it remains compatible with a record as shows
+the creation of ++v++ then its field access in the above sample code. However,
+it is possible to add constraints enforcing the matched expression to have a
+pure record type, i.e. a closed sum. For instance, in:
+
+[subs="quotes"]
+--------------------------------
+g6(x) =
+  match x with
+  | { a = 1 ; b = "" } -> x.a
+  | { a = 2 ; b = "A" } -> 1
+  | _ -> 2
+[black]__g6 : {a : int; b : string} -> int = &lt;fun&gt;__
+--------------------------------
+the field access performed on ++x++ in the right-side part of the first case
+imposes ++x++ to be a record (see section dealing with
+<<field_access, field access>>), i.e. to be plugged into a closed column.
+This appears in the type of ++g6++ since is has any more column variable in
+spite of the catchall pattern. In effect, opening operation is performed after
+typechecking the patterns and before typechecking right-side parts. Hence, the
+field access construct enforce closing again the column that was opened due to
+the final catchall pattern. This is sound because if the sum was remained
+opened, the following example
+
+[subs="quotes"]
+--------------------------------
+g6bug(x) =
+  match x with
+  | { a = 1 ; b = "" } -> x.a
+  | { a = 2 ; b = "A" } -> 1
+  | _ -> x.a
+--------------------------------
+
+would also have type ++{a : int; b : string} /... -> int++ which would be
+unsound because it would mean that in the default case, when none of the 2
+first patterns matches the tested value, we return its field ++x++. Passing
+this function a value of any form not compatible with the 2 first patterns and
+not containing a field ++x++, for instance, ++{ c = 1 }++, would fall in this
+default case and since no field ++a++ is present, the field access would fail.
+
+
+++ ++ +
+** Pattern-matching and elipsis** +
+A special form of pattern, the elipsis written "..." can be used in record
+patterns involved with both sums and records. However, it currently has 2
+different meanings depending on the context and these 2 meanings may sometimes
+conflict. Elipsis is used in patterns under the form:
+
+[source,opa]
+-------------
+match x with
+  | { a = 1 ; ... } ->
+-------------
+
+The first meaning of the elipsis is "this pattern is an opened record". In other
+words, "this pattern matches records with at least all the specified fields,
+all other ones being of no interest". For instance:
+
+[subs="quotes"]
+--------------------------------
+h1(x) =
+  match x with
+  | { a = v; ... } -> v + 1
+[black]__h1 : {a : int; ...} -> int = &lt;fun&gt;__
+_ = h1({ a = 3 ; b = "useless"; c = 3.14159 })
+[black]__\_do_ : int = 4__
+--------------------------------
+
+states that the function ++h1++ takes as argument a record having at least a
+field ++a++ of type ++int++ and ignores all other possible fields of the
+record actually passed.
+
+The second meaning of the elipsis deals with sum cases in which only some fields
+of each case are useful and means "this pattern matches a case of a sum
+containing the specified fields that are useful and the other fields of this
+case are of no interest but I don't want to enumerate all of them". For instance
+
+[subs="quotes"]
+--------------------------------
+type t =
+  { a : int ; b : int ; c : int ; d : int } /
+  { e : int ; f : int }
+[black]__type t = {a : int; b : int; c : int; d : int} / {e : int; f : int}__
+h2(x) =
+  match x : t with
+  | { a = a_val ; ... } -> a_val
+  | { f = f_val ; ... } -> f_val
+[black]__h2 : t -> int = &lt;fun&gt;__
+--------------------------------
+
+defines a sum type with 2 cases and several fields inside. The function ++h2++
+performs a pattern-matching on a value of this type but is only interested in
+one of the fields of each case. To avoid the tedious enumeration of all the
+other useless cases, elipsis is used to let the typechecker determine the
+remaining part of the fields of each case.
+
+However, this 2-sided aspect of the elipsis introduces tricky behavior when the
+context doesn't permit to guess if the elipsis is used in the context of a
+record or a sum type. Without enough information, the elipsis is implicitly
+considered as meaning an opened record type. This means that this creates, for
+the pattern, a record type ended by a row variable. When unifying the type of
+patterns and matched expression to ensure they are compatible together, if the
+opened record types of 2 patterns get unified, they will be along the record
+and not along the sum. In other words, 2 opened records will join their fields
+in a unique final type although 2 closed records with incompatible fields will
+join into a sum type with these 2 records as cases. Hence,
+
+[subs="quotes"]
+--------------------------------
+h3(x) =
+  match x with
+  | { a = 1; ... } -> 0
+  | { b = 2; ... } -> 0
+[black]__h3 : {a : int; b : int; ...} -> int = &lt;fun&gt;__
+--------------------------------
+
+having 2 opened cases, infers for them ++{ a : int ; ... }++ and
+++{ b : int ; ... }++, that get unified into {a : int; b : int; ...},
+giving this possibly surprising type to ++h3++. In fact, the point is that
+there is not enough information in the context to guess if these 2 patterns
+represent 2 different "interesting" fields of a record or represent 2 cases
+of a sum in which we don't want to enumerate useless fields of each case.
+The difference with the previous example is that in the previous one, there was
+a type constraint on the matched expression bringing the information that the
+matched value had a sum type. With this extra information, the typechecker
+"knew" that patterns were related to a sum type and could complete the omitted
+fields of each case instead of considering them as 2 records to merge together.
+
+As we stated above, the elipsis is implicitly considered as meaning an opened
+record type hence creates a type ended by a row variable. If when checking that
+patterns have compatible types unification fails unifying along the record,
+i.e. merging the fields of the record, then it tries to unify along the column,
+i.e. creating a sum case with the 2 records as cases. Consider
+
+[subs="quotes"]
+--------------------------------
+h4(x) =
+  match x with
+  | { a = 1; ... } -> 0
+  | { b = "true" } -> 0
+  | { a = _ } -> 0
+[black]__h4 : {a : int} / {b : string} -> int = &lt;fun&gt;__
+--------------------------------
+
+the types inferred for each pattern is ++{ a : int ; ... } / ...++,
+++{ b : string } / ...++ and ++{ a : int }++. Unifying the 2 first types
+can't succeed along the row because the second record type is closed, then can't
+acquire the field ++a++. Hence unification is performed along the column,
+leading to a sum type ++{a : int; ...} / {b : string} / ...++. Now unification
+is done between this type and the one of the last pattern, ++{ a : int }++.
+These 2 types can be unified since ++{a : int; ... }++ and ++{ a : int }++ can
+be, instantiating and closing the ending row variable. Since there is no
+catchall pattern, the resulting sum is not opened, hence doesn't show any column
+variable.
+
+[CAUTION]
+What happens if both row and column variables appear ? The answer is that in
+this case, it may be possible to unify types along row or columns, i.e. to
+merge fields of records or to catenate records as sum cases. In some cases,
+there is no better choice and hence no principal type. This weakness of the
+type system is known, as well as the fact that unification "prefers" (first
+tries) to unify along the rows. That's some reasons why some type annotations
+are sometimes required to get out of tying errors.
+
+Let's consider the following example:
+
+[subs="quotes"]
+--------------------------------
+h5(x) =
+  match x with
+  | { a = 1; ... } -> 0
+  | { b = "true" } -> 0
+  | _ -> 0
+--------------------------------
+
+The first pattern has type ++{ a : int ; ... } / ...++, the second one has
+type ++{ b : string } / ...++ and the third has type ++'a++. When unifying
+the 2 first types to ensure they are compatible, the only solution is to unify
+along the columns, hence leading to a sum type:
+++{ a: int ; ... } / { b : string } / ...++. Unification with the last type
+only instantiates ++'a++. Because there is a catchall pattern, all sum types
+remain opened, hence the global type of the patterns is finally
+++{ a: int ; ... } / { b : string } / ...++. We are exactly in presence of a
+type that can be unified either along its column or row variable, hence in
+presence of possibilities of non-existence of principal type. In such a case,
+an error is raised by the typechecker:
+[subs="quotes"]
+--------------------------------
+[black]__Sum type with row and column variables
+[red]##{ b: string } / { a: int; 'r.a } / 'c.a##
+**Error**
+Exportation failure__
+--------------------------------
+
+It is worthy to note that at this point, the typechecker detected an issue
+while working with a richer type algebra that the one available to state
+the signatures. In effect, this algebra temporarily tolerates sums with
+row and column variables but is only internally used by the typechecker.
+Error messages related to the internal type algebra print types a bit
+differently.
+
+
+[CAUTION]
+Because a sum type represents an enumeration of cases, possibly opened, but
+with each case having a fixed and finite set of fields, sums with cases
+containing row variables are also not legal types. For this reason, even if
+the richer and internal type algebra used by the typechecker temporarily
+tolerates such types, once typecheking ends such types, if they escape are
+rejected and don't fit the public type algebra in which signatures of the
+values are stated. Hence, the following example:
+[subs="quotes"]
+--------------------------------
+h6(x) =
+  match x with
+  | { a = 1; ... } -> 0
+  | { b = "true" } -> 0
+[black]__Closed sum type with row variable(s) [red]##{ b: string } / { a: int; 'r.a }##
+**Error**
+Exportation failure__
+--------------------------------
+is rejected since the first pattern has type ++{ a : int ; ... } / ...++. The
+second one has type ++{ b : string } / ...++. Hence, unifying these 2 types
+gives ++{ a : int ; ... } / { b : string } / ...++. Since there is no catchall
+pattern, the sum doesn't remain opened hence leading to type
+++{ a : int ; ... } / { b : string }++. This type is a sum and it actually has
+a case being a row ended by a variable.
+
+
+Binary conditional
+++++++++++++++++++
+Binary conditional is introduced under the form:
+
+[subs="quotes"]
+--------------------------------
+if __expr~1~__ then __expr~2~__ else __expr~3~__
+--------------------------------
+
+where __expr~1~__ is the tested condition, expected to be of type ++bool++,
+__expr~2~__ is the result value in case the condition holds (i.e. the
+evaluation of __expr~1~__ yields ++true++) and __expr~3~__ is the result
+value in case the condition doesn't holds. Since this construct can return
+the value of either __expr~2~__ or __expr~3~__, both expressions must have
+the same type.
+Hence, typechecking of this construct if performed in 3 steps:
+
+1. The condition expression __expr~1~__ is typechecked and it is checked to be
+   of type +bool+.
+2. The expression __expr~2~__ and __expr~3~__ are typechecked, leading to types
+   __τ~2~__ and __τ~3~__.
+3. Types __τ~2~__ and __τ~3~__ are checked to be compatible, i.e. are unified
+   in a common type __τ__ and if so, the type of the whole expression is
+   then __τ__.
+
+Example:
+[subs="quotes"]
+--------------------------------
+ok = if true then 1 else 2
+[black]__ok : int = 1__
+reok = if 1 != 2 then { A } else { B }
+[black]__reok : {A : {}} / {B : {}} / ... = { A = void }__
+ko = if 1 then { A } else { B }
+[black]__**Error**
+Matched expression or previous patterns have type [red]##int## but new pattern is
+found of type [red]##{ true } / 'c.a##.__
+reko = if false then 1 else "one"
+[black]__**Error**
+Previous right-side parts of the pattern matching return type [red]##int## but current
+one returns type [red]##string##.
+Types [red]##int## and [red]##string## are not compatible__
+test(c, default) = if c then "Holds" else default
+[black]__test : bool, string -> string = &lt;fun&gt;__
+--------------------------------
+
+In the first example, the condition expression ++true++ is correctly of type
+++bool++, then both +1+ and +2+ have type +int+ hence the whole expression is
+well-typed and of type ++int++.
+
+In the second example, assuming that the comparison operator "different"
+++!=++ has type ++'a -> 'a -> bool++, its application to 2 integers is
+well-typed and of type ++bool++. Hence the condition expression is well-typed.
+The "then" part has type ++{ A } / ...++, the "else "part has type
+++{ B } / ...++, hence the common type obtained by unification of these 2
+types is ++{ A } / { B } / ...++ which is the type of the whole expression.
+
+The third example shows that because the condition expression ++1++ has type
+++int++ and not ++bool++ the whole expression is ill-typed.
+
+The next example shows that because both branches of the binary conditional do
+not have the same type (++string++ versus ++int++), even if the condition
+expression is of the correct type ++bool++, the whole expression is ill-typed.
+
+Finally, the last example exhibits the constraints imposed by the binary
+conditional construct, making them appearing in the type of the function using
+it. In effect, since the tested condition is the first parameter, ++c++ of the
+function ++test++, this enforce this parameter to be of type ++int++. Moreover,
+since the "then" branch has type ++string++ and since both branches are assumed
+to have the same type, the "else" part must also have type ++string++, which
+requires ++default++, the second parameter of ++test++ to be of type
+++string++, which is also the type of the whole conditional expression. From
+these constraints, we actually find that ++test++ has type
+++bool, string -> string++.
+
+[NOTE]
+Internally, the binary conditional construct is transformed in a
+pattern-matching on boolean values. In other words,
+++if c then t else e++ is rewritten as
+++match c with { true } -> t | { false } -> e++. That's the reason why, in case
+of typechecking error on a binary conditional, one sometimes get a message
+involving pattern-matching as we could see in some above examples.
+
+
+Modules
++++++++
+Opa provides a "light" notion of modules through a special form of records
+that are written between double-braces instead of simple-braces. Hence, a
+module expression has the form:
+
+[subs="quotes"]
+--------------------------------
+{{ __[label__ = __expr__ ; __...]__ }}
+--------------------------------
+
+The main feature brought by modules compared to records is the ability to have
+each field separately generalized and all of them implicitly mutually recursive.
+Hence, a module can be seen as a record grouping several definitions instead of
+leaving them spanning at toplevel.
+
+Since modules are a sort of records they are first-class values, i.e. can be
+passed to functions, returned as result, stored in data-structures, etc.
+However their type is not a simple record type. In effect, since each field,
+i.e. definition of the module can be generalized, the type of the definitions
+are especially processed before being part of the module type: if they are
+polymorphic then their type is turned into a type-forall
+(see <<type_forall_expl, types forall>>) to mimic a type scheme.
+The final type of a module is them a *closed* record type in which labels are
+bound to their respective type (possibly being type-forall), embedded in a
+*closed* sum (i.e. the sum has the record as unique "__case__").
+
+Typechecking of a module is performed in 4 steps:
+
+1. Like for record expressions, each field expression __expr~i~__ is
+   typechecked and like for a recursive identifier binding (see
+   <<recursive_identifier_binding, dedicated section>>), fields are considered
+   as implicitly mutually recursive. As a result, we obtain as many types
+   __τ~i~__.
+2. Each type __τ~i~__ is inspected, any unconstrained type variables get
+   generalized and a type-forall __τ'~i~__ is built quantifying these
+   variables and whose body it __τ~i~__. The related module field is
+   then assigned this new type __τ~i~__. However if no such type variable
+   exist in __τ~i~__, then no change is done and the module field keeps its
+   initial type __τ~i~__.
+3. A closed record type is then built, binding each __label~i~__ to its
+   related found type.
+4. Finally, an closed sum type is created, plugging the above record type as
+   its unique "__case__".
+
+Examples:
+[subs="quotes"]
+--------------------------------
+M = {{
+  plus(x, y) = x + y ;
+  f(x) = x
+}}
+[black]__M : { f : forall('v0). 'v0 -> 'v0; plus : int, int -> int} / ... = { f = &lt;fun&gt; ; plus = &lt;fun&gt; }__
+--------------------------------
+
+As we stated before, the type of a module is a closed record in a closed sum.
+The reason for having a closed record is that, like any record, a module
+expression enumerates all the fields this module has, and it has no more fields
+that those making its definition. There are 2 reasons for having a closed
+column. First, modules are not sum types: they do not present "different cases".
+Next, having an ending column variable would make it unconstrained, hence
+generalized. In such a case, when creatign sub-modules, the type of the
+sub-module would have a generalizable column variable and would naturally
+turn itself into a type-forall which is not the expected type for a module.
+
+This feature, pretty related to rank 2 polymorphism, however introduces some
+usage restrictions. The first important point is that modules are explicitly
+introduced: when the syntactic construct ++{{ }}++ is used, a module is to be
+created. The second point to remind is that instantiation of type-forall is
+automatic: each time an expression is found having a type-forall, it is
+immediately specialized, replacing its generalized variables by fresh ones and
+removing the forall quantification (i.e. the obtained type is an instance of the
+type-forall's body).
+
+Let's examine a simple example.
+[subs="quotes"]
+--------------------------------
+// Definition of a module type.
+type Mty = {{ f : 'a -> 'a ; g : int -> int }}
+[black]__type Mty = {f : forall('a). 'a -> 'a ; g : int -> int}__
+
+// Coercion to a module type
+M = {{ f(x) = x ; g(x) = x + 1 }} : Mty
+[black]__M : Mty = { f = &lt;fun&gt; ; g = &lt;fun&gt; }__
+_ = M.f(5)
+[black]__\_do_ : int = 5__
+_ = M.f("foo")
+[black]__\_do_ : string = "foo"__
+--------------------------------
+The first type definition introduces a module type, automatically adding the
+forall-types on polymorphic fields. This avoid having to explicitly state them
+in the type de finition. Next a module +M+ is defined and its signature gets
+constrained by +Mty+. Note that this constraint is not mandatory but set here
+to show how to constrain a module and to avoid getting a verbose structural
+type like
++{f : forall('a). 'a -> 'a; g : int -> int} = { f = <fun> ; g = <fun> ;  }+
+we would get otherwise. Module fields access is performed like for record, via
+the dot-notation. The point to note is that +M.f+ is a forall-type, hence during
+the application to the expression +5+, +M.f+ appears to have type
++forall('a). 'a -> 'a+. As stated above, this forall-type get automatically
+instantiated into a fresh type +'b -> 'b+, and the type of the whole expression
+is +int+ as expected. Following this point, when applied a second time, to the
+expression +"foo"+, this type is instantiated again into another fresh type
++'c -> 'c+, hence preserving the polymorphism and allowing to apply +M.f+ to
+a string, returning the expected +string+ final type.
+
+An important remark is that module types are strict and there is no implicit
+instantiation of explicit quantification. Automatic instantiation is only done
+when encountering a forall-type as a type, not as a subterm-of a type. Hence,
+coercion cannot be used to restrict the type of a module:
+
+[subs="quotes"]
+--------------------------------
+// Rejected.
+_ = {{ f(x) = x ; g(x) = x + 1 }} : {{ f : int -> int ; g : int -> int }}
+[black]__**Error**
+Expression has type [red]##{ f: !for all 'a . 'a -> 'a; g: int -> int }## but is
+coerced into [red]##{ f: int -> int; g: int -> int }##.
+Types [red]##!for all 'a . 'a -> 'a## and [red]##int -> int## are not compatible
+Hint:
+  Error occurred through field [red]##f##.__
+
+// Ok.
+_ = {{ f(x:int) = x ; g(x) = x + 1 }} : {{ f : int -> int ; g : int -> int }}
+[black]__\_do_ : {f : int -> int; g : int -> int} = { f = &lt;fun&gt; ; g = &lt;fun&gt; }__
+
+// Rejected.
+_ = M : {{ f : int -> int ; g : int -> int }}
+[black]__**Error**
+Expression has type [red]##Mty## but is coerced into [red]##{ f: int -> int; g: int -> int }##.
+Types [red]##int -> int## and [red]##!for all 'a . 'a -> 'a## are not compatible
+Hint:
+  Error occurred through field [red]##f##.__
+
+// Ok.
+_ = {{ f = M.f : int -> int ; g = M.g }} : {{ f : int -> int ; g : int -> int }}
+[black]__\_do_ : {f : int -> int; g : int -> int} = { f = &lt;fun&gt; ; g = &lt;fun&gt; }__
+
+// Ok.
+_ = {{ f(x:int) = M.f(x) ; g(x:int) = M.g(x) }} : {{ f : int -> int ; g : int -> int }}
+[black]__\_do_ : {f : int -> int; g : int -> int} = { f = &lt;fun&gt; ; g = &lt;fun&gt; }__
+--------------------------------
+
+Modules can be returned as results of functions, hence providing the mean to
+create functors. For instance:
+[subs="quotes"]
+--------------------------------
+type Mty2 = {{ f : 'a -> 'a }}
+[black]__type Mty2 = {f : forall('a). 'a -> 'a}__
+M2 = {{ f(x) = x }} : Mty2
+[black]__M2 : Mty2 = { f = &lt;fun&gt; }__
+
+// A functor.
+F(m : Mty2) = {{
+  a(x) = m.f(x)
+  b(x, y) = {
+    f1 = m.f(1)
+    f2 = m.f(x)
+    f3 = m.f("string")
+    f4 = m.f(y)
+  }
+}}
+[black]__F : Mty2 ->
+      {a : forall('v0). 'v0 -> 'v0;
+        b : forall('v0, 'v1, rows:, cols:...).
+              'v0, 'v1 -> {f1 : int; f2 : 'v0; f3 : string; f4 : 'v1} / ...} = &lt;fun&gt;__
+
+// Application of the functor.
+M3 = F(M2)
+[black]__M3 : {a : forall('v0). 'v0 -> 'v0;
+       b : forall('v0, 'v1, rows:, cols:...).
+             'v0, 'v1 -> {f1 : int; f2 : 'v0; f3 : string; f4 : 'v1} / ...} = { a = &lt;fun&gt; ; b = &lt;fun&gt; }__
+
+_ = M3.a(1)
+[black]__\_do_ : int = 1__
+_ = M3.b("toto", 18.26)
+[black]__\_do_ : {f1 : int; f2 : string; f3 : string; f4 : float} / ... =
+  { f1 = 1 ; f2 = "toto" ; f3 = "string" ; f4 = 18.26 }__
+--------------------------------
+
+However, an important consequence of module types strictness is that a module
+cannot be passed to a function expecting a less general module or a record,
+for instance:
+
+[subs="quotes"]
+--------------------------------
+f(m) = {{
+  a(x) = {
+    f1 = m.f(x) ;
+    f2 = m.f(365)
+  }
+}}
+[black]__f : {f : int -> 'v0; ...} ->
+  {a : forall(, rows:, cols:...). int -> {f1 : 'v0; f2 : 'v0} / ...} = &lt;fun&gt;__
+
+_ = f(M)     // Rejected because M is too general.
+[black]__**Error**
+Function was found of type
+[red]##{ f: int -> 'a; 'r.a } ->
+{ a: !for all 'c.a . int -> { f1: 'a; f2: 'a } / 'c.a }## but application
+expects it to be of type [red]##Mty -> 'b##.
+Types [red]##int -> 'a## and [red]##!for all 'c . 'c -> 'c## are not compatible
+Hint:
+  Error occurred through field [red]##f##.__
+
+// Ok because M.f is instantiated.
+_ = f({ f = M.f })
+[black]__\_do_ : {a : forall(, rows:, cols:...). int -> {f1 : int; f2 : int} / ...} = { a = &lt;fun&gt; }__
+
+// Rejected.
+_ = f({{ f = M.f }})
+[black]__**Error**
+Function was found of type
+[red]##{ f: int -> 'a; 'r.a } ->
+{ a: !for all 'c.a . int -> { f1: 'a; f2: 'a } / 'c.a }## but application
+expects it to be of type [red]##{ f: !for all 'b . 'b -> 'b } -> 'c##.
+Types [red]##int -> 'a## and [red]##!for all 'b . 'b -> 'b## are not compatible__
+
+// Ok.
+_ = f({{ f = M.f : int -> int }})
+[black]__\_do_ : {a : forall(, rows:, cols:...). int -> {f1 : int; f2 : int} / ...} = { a = &lt;fun&gt; }__
+--------------------------------
+
+
+[[field_access]]
+Field access ("dot" access)
++++++++++++++++++++++++++++
+This construct allows to access the value of a record field following the
+form __expr__++.++__field name__. As a consequence, it is expected that
+__expr__ has a record type in which the field __field name__ exists with a
+given type __τ__. The type of the whole expression is then this type __τ__.
+
+[subs="quotes"]
+--------------------------------
+type t('a) = { a : 'a }
+[black]__type t('a) = { a : 'a }__
+x = { a = 3.14159 } : t(float)
+[black]__x : t(float) = { a = 3.14159 }__
+_ = x.a
+[black]__\_do_ : float = 3.14159__
+_ = x.b
+[black]__**Error**
+Record has type [red]##t(float)## but field access expected it to have type
+[red]##{ b: 'a; 'r.a }##.__
+--------------------------------
+
+As shows the last example, if the "dotted" expression doesn't have a record
+type containing at least the required field, the expression is ill-typed. It
+is important to note that the expected record type must contain at least the
+accessed fields and may contain any other ones as the ending row variable
+++'r.a++ suggests.
+
+
+
+[[record_update]]
+Record update
++++++++++++++
+The construct:
+[subs="quotes"]
+--------------------------------
+{ __expr~0~__ with __field~1~ = __expr~1~__ ; ... ; __field~n~ = __expr~n~__ }
+--------------------------------
+allows creating a new record value, borrowing all the fields from
+__expr~0~__ but replacing the values of __field~1~__ to __field~n~__ by
+those evaluated for __expr~1~__ to __expr~n~__.
+Three important points are:
+
+- The fields updated must belong to the type of __expr~0~__. This means that
+  record update doesn't add new fields to the record. This restriction is
+  required to keep Opa's type system consistent.
+- The types of the updated fields can however change from the ones they had
+  in __expr~0~__.
+- This construct only applies on records, i.e. opened or closed rows hosted by
+  a closed column.
+
+Let's assume that __expr~0~__ has a record type with fields __field~1~__ to
+__field~n~__ and other possible fields __fields~m~__ of type __τ~ms~__.
+Expressions __expr~1~__, to __expr~n~__ are typechecked leading to types
+__τ~1~__, ..., __τ~n~__. The type of the whole expression is then the record
+type where __field~1~__ is bound to type __τ~1~__, ..., __field~n~__ bound
+to type __τ~n~__ and all other fields from the type of __expr~0~__ are
+unchanged. In particular, if the original record type was opened (resp.
+closed), so will be the resulting one. This is clearly shown by the type of the
+function ++f++ in the example below where both the argument and return types
+are opened records since the body of this function only add the constraint
+that the record must contain at least the field ++x++.
+
+[subs="quotes"]
+--------------------------------
+v = { x = 3 ; y = 4 }
+[black]__v : {x : int; y : int} / ... = { x = 3 ; y = 4 }__
+w = { v with x = 3.14159 }
+[black]__w : {x : float; y : int} = { x = 3.14159 ; y = 4 }__
+f(r) = { r with x = "str" }
+[black]__f : {x : 'v0; ...} -> {x : string; ...} = &lt;fun&gt;__
+x = f({ z = 5 })
+[black]__**Error**
+Function was found of type [red]##{ x: 'a; 'r.a } -> { x: string; &lt;'r.a> }## but
+application expects it to be of type { z: int } / 'c.a -> 'b.
+Types [red]##{ x: 'a; 'r.a }## and [red]##{ z: int } / 'c.a## are not compatible
+Hint:
+  Field(s) [red]##x## only appear(s) in the first type.
+Hint:
+  Field(s) [red]##z## only appear(s) in the second type.__
+--------------------------------
+
+
+Type coercion
+++++++++++++++
+Although Opa proposes type inference, it is sometimes useful to force an
+expression to have a certain type instead of the one naturally guessed by
+the typechecker. This mostly happen when a particular signature is wanted for
+an expression (for instance for sake of abstraction) or when a type was
+structurally inferred although the user prefers to get a named type having the
+same structure (either for sake of shortness or because the type structurally
+inferred is recursive and hence must be explicitly replaced by a named type
+since cyclic types are not accepted in types appearing in values interfaces).
+
+Type coercion, __expr__++:++__t__, typechecks __expr__ leading to a type
+__τ__. Then is converts the type expression __t__ leading to a second type
+__τ'__. Finally, if __τ__ and __τ'__ are compatible, it gives the whole
+expression the type __τ'__.
+
+[subs="quotes"]
+--------------------------------
+type t = int
+[black]__type t = int__
+_ = 4 : t
+[black]__\_do_ : t = 4__
+_ = 4.5 : t
+[black]__**Error**
+Description: This expression has type [red]##float##.
+However, according to the context, it seems that it should have type [red]##t##.__
+type ilst = { head : int ; tail : ilst } / { nil }
+[black]__type ilst = {head : int; tail : ilst} / {nil}__
+rec f(x, y) = if x then { nil } else { head = y ; tail = f(true, y) }
+[black]__Cyclic type [red]##'a
+  where 'a = { head: 'b; tail: 'a } / { nil } / 'c.a##
+**Error**
+Exportation failure__
+rec f(x, y) : ilst = if x then { nil } else { head = y ; tail = f(true, y) }
+[black]__f : bool, int -> ilst = &lt;fun&gt;__
+--------------------------------
+
+The first coercion in the above sample code show that because ++t++ and ++int++
+are compatible, the value ++4++ being naturally of type ++int++ can be assigned
+the type ++t++. The second example shows that because ++4.5++ has type ++float++
+and this latter and ++int++ are not compatible, coercion is a failure.
+Finally, the last example exhibits a case where an explicit naming of a
+recursive type must be done. First, a type similar to a list of integer is
+defined, ++ilst++. Then the function ++f++ that builds empty or one-length
+lists of integer is defined. Since Opa typechecking is performed in a
+structural way, nothing in the body of ++f++ indicates that it works on a
+particular named type. The constraints only indicates that the function returns
+a record type containing a field ++tail++ having this record type. As a result,
+an error is issued since cyclic types must not escape in signatures.
+Adding a coercion on the return type of ++f++, like in the last line of code,
+allows the typechecker to find a named type hiding the recursion and removes
+the error.
+
+++ ++ +
+**Implicit type parameters in coercions** +
+When using a parameterized type name in a coercion, it is possible to
+omit the arguments by which its parameters must be instantiated. The
+typechecker will then automatically instantiate them according to the context.
+Omission applies to all or none of the parameters: only omitting some of them
+will result in a typechecking error related to the arity of the used type
+name. To omit only some of the arguments, they must explicitly be replaced
+by some underscore ("_") characters upon matching the right arity of the
+type constructor.
+
+
+[subs="quotes"]
+--------------------------------
+type t('a, 'b) = { first : 'a ; second : 'b }
+[black]__type t('a, 'b) = { first : 'a; second : 'b }__
+_ : t = { first = 1 ; second = "str" }
+[black]__\_do_ : t(int, string) = { first = 1 ; second = "str" }__
+_ : t(int) = { first = 1 ; second = "str" }
+[black]__**Error**
+Description: The type instanciation for [red]##t## is invalid. According to the
+definition of this type, it should have [red]##2## argument(s). However, here, it is
+applied to [red]##1## argument(s).__
+_ : t(int, \_) = { first = 1 ; second = "str" }
+[black]__\_do_ : t(int, string) = { first = 1 ; second = "str" }__
+--------------------------------
+
+In the above sample code, a record type, ++t++, with 2 parameters is defined.
+The first coercion omits all of them. According to the context, since field
+++first++ is assigned the value ++1++ and field the value ++"str"++ it is
+inferred that ++'a++ maps onto ++int++ and ++'b++ onto ++string++. The second
+coercion only omits 1 of the parameters but doesn't explicitly state the
+omission, hence making the type ++t++ used with a wrong number of argument.
+Finally, the last example explicitly claims that the first parameter of ++t++ is
+expected to be ++int++ but second one is not explicitly given, hence
+making the ++t++ type constructor used with its right number of arguments and
+avoiding the previous error.
+
+
+++ ++ +
+**Type variables in coercions and generalization** +
+Type variables appearing in coercion type expressions have precise scoping
+rules and may influence the generalization process, i.e. the polymorphism
+level of definitions. Mostly, in type annotations, type variables are identified
+by their name. This means that inside a definition, several occurrences of a
+same type variable name implies the sharing of this type variable among these
+occurrences. The scope of a type variable name is:
+
+- the current toplevel value definition,
+- the current module field definition.
+
+In other words, all along these 2 constructs, a same variable name represents
+a unique type variable. For instance, in:
+[subs="quotes"]
+--------------------------------
+f(x, y) = y : 'a
+[black]__f : 'v0, 'a -> 'a = &lt;fun&gt;__
+g(x:'a, y) = y : 'a
+[black]__g : 'a, 'a -> 'a = &lt;fun&gt;__
+--------------------------------
+the definition of ++f++ introduces a type variable ++'a++ used only once.
+As a result, ++x++ and ++y++ have 2 different types since they are not
+related. Conversely, in ++g++, a new type variable ++'a++ is introduced
+(diferent from the one of ++f++), but used twice, once to constrain ++x++ and
+once to constrain ++y++. Since these 2 occurrences of ++'a++ are hosted in the
+same toplevel definition, they represent the same variable. As a result, the
+types of the 2 arguments of ++g++ are enforced to be the same which was not the
+case in ++f++.
+
+This example can be reproduced the same way in a module since the scope of a
+variable introduced in a module field is this module field:
+[subs="quotes"]
+--------------------------------
+M = {{
+  f(x, y) = y : 'a
+  g(x:'a, y) = y : 'a
+}}
+[black]__M : {
+  f : forall('v0, 'a). 'v0, 'a -> 'a ;
+  g : forall('a). 'a, 'a -> 'a } =
+ { f = &lt;fun&gt; ; g = &lt;fun&gt; }__
+--------------------------------
+As the type-forall's suggest variables are differents (i.e. not shared) between
+the fields ++f++ and ++g++ since they are generalized separatly. And like in the
+previous example, ++f++ has 2 arguments with different types although ++g++ have
+its ones of the same type.
+
+[CAUTION]
+Introducing type variables in coercions **doesn't** mean that the annotated
+expression is polymorphic ! This only means that its type is named by this
+type variable. Generalization, i.e. polymorphism introduction is a separate
+process that arises at the end of a definition. In particular, introducing a
+type variable in a annotation will postpone its possible generalization upon the
+end of the current toplevel or module field definition. In effect, as soon as
+a name is introduced for a type, we can't make sure this name will be or not
+used later, until we get out of the definition where it is introduced. For
+this reason, it is not safe to generalize it as soon as we leave the definition
+where it appears since some later type constraints may change this variable
+into a non-variable type, i.e. the variable will not remain a variable hence
+can't be subject to generalization. Let's consider:
+[subs="quotes"]
+--------------------------------
+f1() =
+  rec v1(x : 'a) : 'b = v1(x)
+  v1
+[black]__f1 :  -> ('a -> 'b) =  &lt;fun&gt;__
+f2() =
+  rec v1(x : 'a) : 'b = v1(x)
+  _ = v1(1)
+  _ = v1(1.0)
+  v1
+[black]__**Error**
+Function was found of type [red]##int -> 'a## but application expects it to be of type
+[red]##float -> 'b##.
+Types [red]##int## and [red]##float## are not compatible__
+f3() =
+  rec v1(x : 'a) : 'b = v1(x)
+  v2 : bool -> int = v1
+  v1
+[black]__f3 :  -> (bool -> int) =  &lt;fun&gt;__
+--------------------------------
+Let's first have a look at ++f1++. It introduces 2 variables, ++'a++ and
+++'b++ that finally get generalized in the final type of ++f1++ that really
+is polymorphic. However, it must be clear that these 2 type variables were
+**not** generalized at the end of the local definition of ++v1++ ! They were
+generalized at the end of the toplevel definition of ++f1++ through the
+generalization of the type of ++f1++. In other words, inside the body of
+++f1++, the type of ++v1++ was not polymorphic because of the presence of the
+type variables. If we used ++v1++ with several types in the body of ++f1++,
+we would get a typing error like it is the case in ++f2++.
+The definition of ++f3++ also shows that ++'a++ and ++'b++ are not generalized
+as soon as exiting from the definition of ++v1++. In effect, before returning
+++v1++ as the result of ++f3++, we define a local variable ++v2++ as being equal
+to ++v1++ but coercing its type. This implies a unification between the type
+of ++v2++ which is forced to be ++bool -> int++ and an instance of the type
+scheme of ++v1++. But, because ++v1++ is not yet generalized, its type scheme
+is "trivial", i.e. has no generic variables. Hence, taking an instance of it
+implies directly sharing its scheme's body, then instantiating its non-generic
+variables during the unification with the type of ++v2++. For this reason,
+++'a++ becomes ++bool++ and ++'b++ becomes ++int++, hence leading ++f3++ to
+finally have type ++-> (bool -> int)++.
+
+
+Database path
++++++++++++++
+Since databases are explicitly typed at their definition, accesses to paths
+simply have the type they were given when the database was defined. For
+instance, defining a database as:
+[source,opa]
+------------------------
+db /test/i : int
+db /test/map : map(int, string)
+------------------------
+will explicitly state that the path ++ /test/i++ has type ++int++ and the
+path ++ /test/map++ has type ++map(int, string)++. This way, paths can only
+by used in contexts where their types are compatible with expected ones.
+
+
+
+[[opensums_directive]]
+@opensums directive
++++++++++++++++++++
+Sum type definitions always lead to closed columns. In effect, such a
+definition enumerates all the values of the type, hence there is no reason
+for having a trailing column variable. In some particular cases, when an
+expression has a type coming from such a definition, it may be useful to alter
+its type to make it an anonymous opened sum in order to "plug" it in a larger
+sum type. Let's consider the following example:
+
+[subs="quotes"]
+------------
+type small = { a } / { b } / { c }
+[black]__type small = {a} / {b} / {c}__
+type larger = small / { d }
+[black]__type larger = small / {d}__
+larger_to_string(x : larger) =
+  match x with
+  | { a } -> "a"
+  | { b } -> "b"
+  | { c } -> "c"
+  | { d } -> "d"
+[black]__larger_to_string : larger -> string = &lt;fun&gt;__
+small_v = { a } : small
+[black]__small_v : small = { a = void }__
+_ = larger_to_string(small_v)
+[black]__**Error**
+Function was found of type [red]##larger -> string## but application expects it to be
+of type [red]##small -> 'a##.
+Types [red]##{ a } / { b } / { c } / { d }## and [red]##{ a } / { b } / { c }## are not
+compatible
+Hint:
+  One of the sum types may be missing the following cases of the other:
+  [red]##{ d }##.__
+------------
+In the above example, the type ++larger++ clearly contains all the values of
+the type ++small++, and even more. The function ++larger_to_string++ operates
+on all these values, hence is also able to operate on the type ++small++.
+However, applying it to a value of type ++small++ fails. The reason is that
+the type ++small++ is a closed sum. Hence it can't unify with ++larger++ since
+it has no column variable to acquire the field ++c++.
+To workaround this issue, the ++@opensums++ directive can be applied on the
+expression ++small_v++ in order to replace its type ++small++ by the structure
+of this type in which all columns are turned opened (i.e. ending by a column
+variable).
+
+[subs="quotes"]
+------------
+_ = larger_to_string(@opensums(small_v))
+[black]__\_do_ : string = "a"__
+------------
+
+This directive only has an effect when applied to an expression having a sum
+type. Applying it to another type will not change the type unless it is a
+type variable. In effect, type constraints are discovered in an arbitrary
+order by the typechecker. At some point, it may arise that the type of an
+expression is not yet complete, hence still remain a type variable even if
+later it will appear to be a sum type. If the directive is applied to such an
+expression, it can't yet have any effect although if the type constraints
+were acquired sooner it would have an effect. When later the type variable
+may get instantiated by a sum type, it will be too late to open it since the
+directive expression will have been already processed. To prevent such
+non-commutative behavior, an error message is issued requesting to add a type
+constraint on the expression in order to be able to have its type before
+applying the directive.
+
+[subs="quotes"]
+------------
+f(x) = @opensums(x)
+[black]__**Error**
+Expression argument of the @opensums directive has a type that can't be subtype of another
+type (sum or record).
+Hint:
+  Its type is currently unconstrained. Consider explicitly adding a type constraint toward
+a sum type to precise the expression's type.__
+------------
+
+It is important to note that this directive recursively (i.e. searching in
+depth) opens all the sums present in the type of its argument, except on
+function types where it only descends on the result type and not on the
+arguments types. In particular, named types are examined and their structure
+is also recursively traversed by the opening operation. It is worthy to make
+clear that because opening a sum type changes its nature, if an expression
+appears to have a named type being a sum, once opened, it won't have anymore
+this named type, but instead, the structure of this named type in which sums
+are now opened.
+
+
+[[openrecord_directive]]
+@openrecord directive
++++++++++++++++++++++
+As presented in the section dedicated to the <<record_update, record update>>
+construct, fields borrowed from a record must exist in this record: it is
+forbidden to add a new field. This restriction is imposed for sake of
+consistency of Opa's type system.
+However, when 2 different record types have numerous fields in common, writing
+a function transforming a value of the first type to a value of the second
+one, we would like not to have to "__manually__" map the common fields' values
+2 by 2 between the 2 records. For instance:
+
+[source,opa]
+------------
+type house = { number : int ; street : string ; city : string ; zip : int }
+type rented_house = { number : int ; street : string ; city : string ;
+  zip : int ; start_date : int ; end_date : int }
+------------
+defines 2 types, the first one describing houses in general and the second
+one describing houses being rented. The only difference is that the latter
+has 2 more fields than the first one. When modelling the fact that a house
+gets rented, we would like to write a function like:
+
+[source,opa]
+------------
+rent(h : house, start_day, stop_day) : rented_house =
+ { h with start_date = start_day ; end_date = stop_day }
+------------
+
+However, above restriction forbids the addition of new fields as reported by
+the error message:
+
+[subs="quotes"]
+------------
+[black]__**Error**
+Record to update has type [red]##house## but extension requires it to have type
+[red]##{ end_date: 'a; 'r.a }##.
+Types [red]##{ end_date: 'a; 'r.a }## and
+[red]##{ city: string; number: int; street: string; zip: int }[red]## are not compatible
+Hint:
+  Field(s) [red]##end_date## only appear(s) in the first type.
+Hint:
+  Field(s) [red]##city## [red]##number## [red]##street## [red]##zip## only appear(s) in the second type.__
+------------
+
+One solution would then be to write this function under the form:
+[source,opa]
+------------
+rent(h : house, start_day, stop_day) : rented_house =
+  { number = h.number ; street = h.street ; city = h.city ; zip = h.zip ;
+    start_date = start_day ; end_date = stop_day }
+------------
+which is very tedious when the number of common fields is important. As an
+alternative it is possible to explicitly request a record type to get opened,
+hence adding it a fresh row variable to accept addition of new fields by
+the directive ++@openrecord++. The renting function can then be written as:
+[source,opa]
+------------
+rent(h : house, start_day, stop_day) : rented_house =
+ { @openrecord(h) with start_date = start_day ; end_date = stop_day }
+------------
+and finally gets the expected type: ++house, int, int -> rented_house++.
+The ++@openrecord++ directive can only be applied on an expression
+having a record type. Applying it to another type will raise an error depending
+on the encountered type.
+
+First, when the type is a variable, for the same kind of reason than explained
+about the <<opensums_directive, @opensums directive>>, it is requested to
+add a type constraint to explicitly precise the type as shown in the following
+example:
+
+[subs="quotes"]
+------------
+f(x) = @openrecord(x)
+[black]__**Error**
+Expression argument of the @openrecord directive has a type that can't be subtype of
+another type (record).
+Hint:
+  Its type is currently unconstrained. Consider explicitly adding a type constraint
+toward a record type to precise the expression's type.__
+------------
+
+Second, for any other type not being a record or a variable the default error
+message is issued without any hint:
+
+[subs="quotes"]
+------------
+_ = @openrecord(1.0)
+[black]__**Error**
+Expression argument of the @openrecord directive has a type that can't be subtype of a record type.__
+------------
+
+It is important to note that, conversely to the ++@opensums++ directive,
+++@openrecord++ doesn't recursively traverse types: it only acts on the
+toplevel structure of the type being expected, as previously explained, a
+record type.
+
+
+Dealing with recursive types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+By default, Opa typechecker infers types in a structural way. This means that,
+without user coercions, it determines the types by guessing their structure
+rather by giving them names. This is pretty satisfactory since several named
+types can have a same structure and there is no reason the typechecker decides
+itself to give a name a priori to a type structure.
+For instance, consider:
+
+[subs="quotes"]
+------------
+type t = { a } / { b } / { c }
+[black]__type t = { a } / { b } / { c }__
+type u = { a } / { z } / { c }
+[black]__type u = { a } / { z } / { c }__
+f(x) =
+  match x with
+  | { a } -> "a"
+  | { c } -> "c"
+  | _ -> "something else"
+[black]__f : {c} / {a} / ... -> string = &lt;fun&gt;__
+------------
+the function ++f++ has no reason to be considered as taking an argument of type
+++t++ more than of type ++u++. The typechecker inferred a structural type,
+i.e. the shape of the type.
+If we want ++f++ to take explicitly a particular named type, it must be
+coerced by ++f(x : t)++ or ++f(x : u)++. The fact that types are inferred
+structurally is powerful since ++f++ can naturally be used with a value of
+type ++t++ or ++u++ since both of them have a compatible structure:
+
+[subs="quotes"]
+------------
+_ = f({ a } : t)
+[black]__\_do_ : string = "a"__
+_ = f({ c } : u)
+[black]__\_do_ : string = "c"__
+------------
+
+However, this also has drawbacks. During type inference, the typechecker knows
+how to deal with, i.e. build if required, cyclic (recursive) types. However
+such types can't escape in values signatures. They must get mapped onto a
+named type, whose definition is obviously recursive, who hides the structural
+recursion. This may require the user to add some type annotations, i.e
+coercions, to prevent these recursive types from remaining in the final
+signature of the definition which leads to an error message.
+
+[subs="quotes"]
+------------
+rec len(l) =
+  match l with
+  | { end } -> 0
+  | { head = _ ; tail = t } -> 1 + len(t)
+__Cyclic type [red]##'a
+  where 'a = { head: 'b; tail: 'a } / { end }##
+**Error**
+Exportation failure__
+------------
+
+In the above example, the system determined that ++len++ is a function taking
+a sum type with 2 cases, the second one containing a field, ++tail++ being
+of this sum type. Hence, the type is really cyclic as reported in the error
+message. To avoid such a recursive type, one must define a named type having
+an equivalent structure:
+[source,opa]
+------------
+type mylst('a) = { end } / { head : 'a ; tail : mylst('a) }
+------------
+allowing to "name" the recursion. From now, adding a type annotation in the
+source of ++len++ will give the typechecker a clue "which type is used here"
+and will allow replacing the cyclic parts of the structure by the type name.
+
+[subs="quotes"]
+------------
+rec len(l : mylst('a)) =
+  match l with
+  | { end } -> 0
+  | { head = _ ; tail = t } -> 1 + len(t)
+[black]__len : mylst('a) -> int = &lt;fun&gt;__
+------------
+It could have been possible to put the type constraint at some other
+points, like:
+[source,opa]
+------------
+rec len(l) =
+  match l with
+  | { end } : mylst('a) -> 0
+  | { head = _ ; tail = t } -> 1 + len(t)
+
+rec len(l) =
+  match l with
+  | { end } -> 0
+  | { head = _ ; tail = t : mylst('a) } -> 1 + len(t)
+
+rec len(l) =
+  match l with
+  | { end } -> 0
+  | { head = _ ; tail = t } -> 1 + len(t : mylst('a))
+------------
+but a good practice is to put constraints directly in the function's header,
+the closest to its parameters and return types definition. Hence, the fully
+annotated definition of ++len++ according to this good practice would be:
+
+[source,opa]
+------------
+rec len(l : mylst('a)) : int =
+  match l with
+  | { end } -> 0
+  | { head = _ ; tail = t } -> 1 + len(t)
+------------
+where the return type is stated after the parameters of the function and before
+its body.

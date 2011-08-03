@@ -1,0 +1,10 @@
+# -*- conf -*-
+# opasyntax (transitionnal)
+preprocess_formats.opa
+types.opa
+option.opa
+bool.opa
+pervasives.opa
+list.opa
+map.opa
+cps.opa

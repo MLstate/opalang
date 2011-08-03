@@ -1,0 +1,2 @@
+# -*- conf -*- (for emacs)
+<*.{byte,native}>:use_str, use_unix

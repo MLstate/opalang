@@ -1,0 +1,16 @@
+== Widget Download ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Create a very simple first version with:
+** one button to trigger the download of an url (presumably a dynamic resource)
+** an animation instead of a real 'progress bar'
+
+.Short term
+-
+
+.Later
+-

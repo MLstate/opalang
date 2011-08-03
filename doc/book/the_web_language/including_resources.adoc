@@ -1,0 +1,80 @@
+Including external files in an Opa server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The syntax defines two directives for including the contents of one file or the resources of one file:
+
+ - @static_content("foo.png") is replaced by a function that returns the content of compile-time foo.png ; [[syntax_keyword_static_content]]
+ - @static_resource("foo.png") is replaced by a resource foo.png -- with the appropriate last modification time, mime type, etc [[syntax_keyword_static_resource]]
+
+Both directives support an additional argument for pre-processing the contents of the file before returning it.
+
+Both directives have a counterpart that, instead of processing and returning one file, process a directory and return it as a stringmap:
+
+ - @static_content_directory("foo/") is replaced by a stringmap from file name to functions that maps key to the equivalent of @static_content(key). Of course, this stringmap is evaluated only once; [[syntax_keyword_static_content_directory]]
+ - @static_resource_directory is replaced by a stringmap from file name to functions that maps key to the equivalent of @static_resource(key). Here, too, the stringmap is evaluated only once. [[syntax_keyword_static_resource_directory]]
+
+Again, these directives support an additional argument for pre-processing the contents of the file before returning it.
+
+Examples
+^^^^^^^^
+
+The two typical scenarios are embedding one resource:
+
+[source,opa]
+----------------------------------------------------------------
+handler = parser
+  | "/favicon.ico"  -> @static_resource("img/favicon.ico")
+----------------------------------------------------------------
+
+and embedding many resources:
+
+[source,opa]
+----------------------------------------------------------------------
+resources = @static_resource_directory("resources")
+urls      = parser "/" -> start
+          | resource={Server.resource_map(resources)} -> resource
+
+server = Server.simple(urls)
+----------------------------------------------------------------------
+
+For more details on parsers, see the <<section_syntax_trex, related section>>
+For more details on Server.resource_map, see the library documentation.
+
+[NOTE]
+Relative paths are understood as starting from the project root.
+
+See also
+^^^^^^^^
+
+Resources embedded with these directives support runtime modification for debugging purposes. For more details, see the <<section_runtime_editable_resources, related section>>.
+
+
+Runtime behavior
+^^^^^^^^^^^^^^^^
+
+Release mode
+
+Now, chances are that we want to secure these resources, e.g. to ensure that nobody will replace the nice MLstate logo with a not-quite-as-nice competitor logo. For this purpose, it is sufficient to compile your packages in release mode. A resource embedded by a package compiled in release mode is locked safely and can neither be dumped nor reloaded into the application by using --debug-* .
+Performance notes
+
+All these directives are fast. Typically, @static_resource or @static_resource_directory will take a few milliseconds at start-up to determine whether they are executed in debug or non-debug mode, and there is no runtime performance loss in non-debug mode. When building resources, prefer these directives to @static_content or @static_content_directory are generally faster, as the final result will be a tad faster with @static_resource_*.
+
+These directives interact nicely with zero-hit cache, provided that developers introduce resources in the zero-hit cache as follows:
+
+[source,opa]
+-----------
+resources = @static_resource_directory("resources")
+urls      = parser "/" -> start
+          | resource={Server.permanent_resource_map(resources)} -> resource
+
+server = Server.simple(urls)
+-----------
+
+Of course, as usual with the zero-hit cache, you'll have to make sure that you are using URIs. For this purpose, as usual, you should take advantage of Resource.get_uri_of_permanent .
+
+Index of keywords and directives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- <<syntax_keyword_static_content, @static_content>>
+- <<syntax_keyword_static_content_directory, @static_content_directory>>
+- <<syntax_keyword_static_resource, @static_resource>>
+- <<syntax_keyword_static_resource_directory, @static_resource_directory>>

@@ -1,0 +1,36 @@
+**************************************************************************************************************
+*                  OPADOC v1 -------> The Opa documentation generator                                        *
+**************************************************************************************************************
+
+Opadoc is a utility written in Opa which generates an API documentation of opa source files.
+
+
+build:
+
+# ./bld opadoc/opadoc.native
+
+This will build the 'opadoc.native' documentation generator.
+In the installation, a wrapper is created, nammed opadoc.
+
+An simple exemple:
+
+# opadoc my_file.opa
+
+this will generate
+ - doc/index.html.
+ - doc/index_values.html.
+ - doc/index_types.html.
+ - doc/my_file.opa.html.
+
+Build the stdlib doc:
+
+To build the API documentation of 'opa/stdlib'.
+
+# opa --api-only test/empty.opa
+# opadoc test -o doc
+
+open doc/index.html and enjoy !
+
+In general:
+# opadoc FILE.opa* DIR* -o directory
+# open directory/index.html

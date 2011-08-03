@@ -1,0 +1,27 @@
+== Widget Xxx ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Nicer implementation using WTextarea (but keep the current implementation based on 'input' alive, just in case)
+- Better integration in CTable :
+In WStringCell, change
+
+-----
+unbox : option('a) -> WStringValue.value
+-----
+into 
+
+-----
+unbox : 'a -> WStringValue.value
+-----
+Besides, in +internal_html()+, when +val=none+, set the value to an empty string +""+ and attach a special class to make sure +internal_parse+ returns +none+ the next time.
+(even if +""+ is a valid value).
+
+.Short term
+- Clean fixed-width display (configurable separately for show and edit mode) using BaseString.limit_width
+
+.Later
+-

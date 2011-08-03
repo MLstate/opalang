@@ -1,0 +1,42 @@
+(* this is the post infos *)
+
+let git_version_counter =
+  opalang_git_version
+
+let version_id = Printf.sprintf "%d-(%s)"
+  git_version_counter
+  opalang_git_sha
+
+let assert_minimal_version s =
+  let check_int version =
+    if version > 27000
+    then
+      (*
+        At the time we write this code, the number of build
+        has been reset to 0.
+      *)
+      true
+    else
+      version <= opalang_git_version
+  in
+  try
+    let version = int_of_string s in
+    Some (check_int version)
+  with
+  | Failure "int_of_string" ->
+      (*
+        The given string may be: v45.
+        These tests are painful, but we are outside of libbase's scope there :)
+      *)
+      if String.length s > 0 && s.[0] = 'v'
+      then
+        let sub = String.sub s 1 (pred (String.length s)) in
+        try Some (check_int (int_of_string sub))
+        with Failure _ -> None
+      else
+        (* or S3.5 *)
+        if String.length s > 0 && s.[0] = 'S'
+        then
+          Some (s <= opa_version_name)
+        else
+          None

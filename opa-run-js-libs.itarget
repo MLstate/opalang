@@ -1,0 +1,4 @@
+qmljsimp/qmlJsImpClientLib.js
+qmlcps/qmlCpsClientLib.js
+qmlcps/qmlNoCpsClientLib.js
+qml2js/clientLibLib.js

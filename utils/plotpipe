@@ -1,0 +1,56 @@
+#!/bin/bash -e
+
+skip=1
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --help)
+            echo "plotpipe: plots data from stdin in real-time using gnuplot"
+            echo "Usage: <command> | $0 [options] <regex>"
+            echo "Options:"
+            echo "	-s <int>  only take one out of <int> values, skip the rest"
+            echo ""
+            echo "The regexp should match the first group with the value to"
+            echo 'plot (for instance, "^Stack usage: \([0-9]\+\)")'
+            exit 0;;
+        -s)
+            shift
+            skip=$1
+            shift;;
+
+        *)
+            regex=$1
+            shift
+    esac
+done
+
+data=$(mktemp -t plotpipe-XXXXX)
+trap "rm -f $data" EXIT
+
+t=$(date +%s%N)
+
+(
+    echo 'set xlabel "Time (seconds)"'
+
+    first=2 # wait until we have two points to plot
+    i=0
+    while read line; do
+        if echo "$line" | grep "$regex" >/dev/null; then
+            if [ $i -gt 0 ]; then i=$((i - 1))
+            else
+                i=$((skip - 1))
+                echo "$line" | sed "s/$regex/$(date +%s%N) \1/" >>$data
+                if [ $first -eq 0 ]; then
+                    echo "replot";
+                else
+                    if [ $first -eq 1 ]; then
+                        echo "plot \"$data\" using ((\$1 - $t.)/1e9):2 with lines notitle"
+                    fi
+                    first=$((first - 1))
+                fi
+            fi
+        else
+            echo "$line" >&2
+        fi
+    done
+) | gnuplot >/dev/null 2>&1

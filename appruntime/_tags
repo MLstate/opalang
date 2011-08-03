@@ -1,0 +1,17 @@
+# -*- conf -*- (for emacs)
+
+true: warn_A, warn_e, warn_error_A
+
+# subdirs
+<{scheduler,io}>: traverse
+
+<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, use_unix, use_zip, use_str, use_cryptokit, use_libruntime
+<**/*.{byte,native}>: use_io, use_ssl_ext
+<*.native>: use_ulex
+
+<iocp.ml>: with_mlstate_debug
+<epoll.ml>: with_mlstate_debug
+<scheduler.ml>: with_mlstate_debug
+<resourceTracker.ml>: with_mlstate_debug
+<netStats.ml>: with_mlstate_debug
+<local_manager.native>:use_ulex

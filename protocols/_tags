@@ -1,0 +1,11 @@
+# -*- conf -*- (for emacs)
+
+true: warn_A, warn_e, warn_error_A
+
+# compiling dependencies
+<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_graph, use_ulex, use_ocamllang, warn_z, use_buildinfos, use_compilerlib
+
+# linking dependencies
+<**/*.{byte,native}>: use_passlib, use_unix, use_str, use_cryptokit, use_nums
+
+<http*.ml>: with_mlstate_debug

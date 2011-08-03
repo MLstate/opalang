@@ -1,0 +1,111 @@
+# -*- shell-script -*-
+. ${OPA_SOURCE_DIR:-$(dirname $0)/../..}/platform_helper.sh
+
+_test_sh()
+{
+        COMPREPLY=()
+        local cur=${COMP_WORDS[COMP_CWORD]}
+        echo $PWD | grep -q reftester
+        if [ $? -eq 0 ] ; then
+            REFTESTER_DIR=.
+        else
+            REFTESTER_DIR=reftester
+        fi
+        benches=$(ls $REFTESTER_DIR/benches/*.bench | xargs -I {} basename {} .bench)
+        COMPREPLY=( $(compgen -W "$benches" -- ${cur}) )
+}
+
+complete -F _test_sh test.sh
+
+mlset () {
+    if [ $# -eq 0 ]; then
+        for x in $(set | grep -a "^MLSTATE_" | sed 's/^MLSTATE_//'); do
+            IFS="=" read a b <<<"$x"; tr "[:upper:]\n" "[:lower:]=" <<<"$a"; echo "$b"
+        done
+    else
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                cat <<EOF
+mlset: sets MLSTATE debug variables.
+Syntax: mlset (var_name[=value])*
+Without arguments, lists existing set MLSTATE debug variables
+Use lowercase and no MLSTATE_ prefix.
+If value is not set, use "1".
+EOF
+;;
+            *)
+                def="$1"
+                IFS='=' read var value <<<"$def"
+                if [ "$def" = "$var" ]; then value=1; fi
+                var="MLSTATE_"$(tr '[:lower:]' '[:upper:]' <<<$var)
+                export $var="$value"
+        esac
+        shift
+    done
+    fi
+}
+
+mlunset () {
+    if [ $# -eq 0 ]; then
+        mlset
+    else
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                cat <<EOF
+mlunset: unsets MLSTATE debug variables.
+Syntax: mlunset [OPTION] [var_name]*
+Without arguments, lists existing set MLSTATE debug variables
+
+   -h, --help      display this help and exit
+   -a, --all       unsets every MLSTATE_ variable, and ignore the rest of the command
+
+Use lowercase and no MLSTATE_ prefix.
+If the variable is not set, it silently returns.
+EOF
+;;
+            -a|-all)
+                for x in $(set | grep -a "^MLSTATE_" | sed 's/=.*$//'); do
+                    echo "unset $x"
+                    unset $x
+                done
+                ;;
+            *)
+                def="$1"
+                IFUS='=' read var value <<<"$def"
+                if [ "$def" = "$var" ]; then value=1; fi
+                var="MLSTATE_"$(tr '[:lower:]' '[:upper:]' <<<$var)
+                unset $var
+                ;;
+        esac
+        shift
+    done
+    fi
+}
+
+_mlset ()
+{
+        COMPREPLY=()
+        local cur=${COMP_WORDS[COMP_CWORD]}
+        : ${OPA_SOURCE_DIR:=~/opalang}
+        if [ -e $OPA_SOURCE_DIR/libbase/debugVariables.mli ]; then
+            vars=$(grep '^val .*: *debug_var' $OPA_SOURCE_DIR/libbase/debugVariables.mli | cut -d' ' -f2)
+            COMPREPLY=( $(compgen -W "$vars" -- ${cur}) )
+        else
+            echo -e "\nmlset completion error: opalang repo not found, please set \$OPA_SOURCE_DIR" >&2
+        fi
+}
+
+_mlunset ()
+{
+        COMPREPLY=()
+        local cur=${COMP_WORDS[COMP_CWORD]}
+        : ${OPA_SOURCE_DIR:=~/opalang}
+        vars=$(set | grep -a "^MLSTATE_" | sed 's/^MLSTATE_//' | tr "[:upper:]" "[:lower:]" | sed 's/=.*$//'   )
+        COMPREPLY=( $(compgen -W "$vars" -- ${cur}) )
+}
+
+
+complete -F _mlset mlset
+complete -F _mlunset mlunset

@@ -1,0 +1,10 @@
+== Widget IntValue ==
+
+Display and edit an integer, possibly with an interval constraint or an arbitrary validation function.
+
+Should provide three functions: +show+, +edit+ and +html+.
+The function +html+ will be deduced from +interactions/editable+
+
+In edit mode, the integer should be editable with the keyboard or by pressing buttons +#+#+ and +#-#+ right to the integer. The show mode is trivial (no buttons).
+
+This widget should provide a default implementation of +CTable.Cell.widget(int)+.

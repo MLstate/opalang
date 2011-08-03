@@ -1,0 +1,247 @@
+% -*-erlang-*-
+
+%
+%   Copyright © 2011 MLstate
+%
+%   This file is part of OPA.
+%
+%   OPA is free software: you can redistribute it and/or modify it under the
+%   terms of the GNU Affero General Public License, version 3, as published by
+%   the Free Software Foundation.
+%
+%   OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+%   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+%   FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+%   more details.
+%
+%   You should have received a copy of the GNU Affero General Public License
+%   along with OPA. If not, see <http://www.gnu.org/licenses/>.
+%
+-generate client
+-debugvar PROTOCOL_DEBUG
+-protocol FTP
+
+-open Printf
+-open Rcontent
+
+-type ftp = {
+  user:string;
+  password:string;
+  domain:string;
+  pathname:string;
+  filename:string;
+  dataportstr:string;
+  dataportspec:Network.port_spec;
+  datasecuremode:Network.secure_mode;
+  datablocksize:int;
+  content_type:content_type;
+  content_hint:int
+}
+
+-type result = 
+  | Ok of content
+  | Error of string
+
+-type state = {
+  log : int -> string -> unit ;
+  elog : int -> string -> unit ;
+  cont : result -> unit
+}
+
+-type payload = unit
+-type rt_proto = {
+  rt_block_size : int;
+  rt_backtrace : bool;
+  rt_server_write_timeout : Time.t;
+  rt_payload : payload;
+}
+
+-type runtime = {
+  rt_plim : int;
+  rt_buf : Buffer.t;
+  rt_proto : rt_proto;
+}
+
+-define (ENs0 (num : int))     = num "-\r\n"
+-define (Ns0 (num : int))      = num " \r\n"
+-define (ENs (num : int, str)) = num "-" str "\r\n"
+-define (Ns (num : int, str))  = num " " str "\r\n"
+
+-include "libnet/ftpMessages.proto"
+
+{{
+let dlog sep code _msg = Logger.debug "<<< %d%s%s" code sep _msg
+let eilog = dlog "-"
+let ilog = dlog " "
+let olog str =  Logger.debug ">>> %s" str
+let mlog _msg = olog (String.escaped (string_of_msg _msg))
+}}
+
++on_connection(state:state, ftp:ftp):
+  debug 2 {{ Logger.debug "on_connection" }}
+  debug 2 {{ Logger.debug "FtpClientCore: pathname=%s filename=%s" ftp.pathname ftp.filename }}
+  debug {{ Printexc.record_backtrace true }}
+  read_welcome_message(state, ftp)
+
+read_welcome_message(state, ftp):
+  receive
+  | ENs0 220 ->        debug {{ eilog 220 "" }} read_welcome_message(state, ftp)
+  | ENs (220, _msg) ->  debug {{ eilog 220 _msg }} read_welcome_message(state, ftp)
+  | Ns0 220 ->         debug {{ ilog 220 "" }} send_login(state, ftp)
+  | Ns (220, _msg) ->   debug {{ ilog 220 _msg }} send_login(state, ftp)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"read_welcome_message"}})
+  | Ns (code, _msg) ->  {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"read_welcome_message"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"read_welcome_message"}}, exn)
+
+send_login(state, ftp):
+  debug 2 {{ Logger.debug "send_login" }}
+  send(User ftp.user);
+  debug {{ mlog(User ftp.user) }}
+  receive
+  | Ns0 230 ->         debug {{ ilog 230 "" }} send_cwd(state, ftp)
+  | Ns (230, _msg) ->   debug {{ ilog 230 _msg }} send_cwd(state, ftp)
+  | Ns0 331 ->         debug {{ ilog 331 "" }} send_password(state, ftp)
+  | Ns (331, _msg) ->   debug {{ ilog 331 _msg }} send_password(state, ftp)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"send_login"}})
+  | Ns (code, _msg) ->  {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"send_login"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"send_login"}}, exn)
+
+send_password(state, ftp):
+  debug 2 {{ Logger.debug "send_password" }}
+  send(Pass ftp.password);
+  debug {{ mlog(Pass ftp.password) }}
+  receive
+  | Ns0 230 ->         debug {{ ilog 230 "" }} send_cwd(state, ftp)
+  | Ns (230, _msg) ->   debug {{ ilog 230 _msg }} send_cwd(state, ftp)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"send_password"}})
+  | Ns (code, _msg) ->  {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"send_password"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"send_password"}}, exn)
+
+send_cwd(state, ftp):
+  debug 2 {{ Logger.debug "send_cwd" }}
+  send(Cwd ftp.pathname);
+  debug {{ mlog(Cwd ftp.pathname) }}
+  receive
+  | Ns0 250 ->         debug {{ ilog 250 "" }} send_port(state, ftp)
+  | Ns (250, _msg) ->   debug {{ ilog 250 _msg }} send_port(state, ftp)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"send_cwd"}})
+  | Ns (code, _msg) ->  {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"send_cwd"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"send_cwd"}}, exn)
+
+send_port(state, ftp):
+  debug 2 {{ Logger.debug "send_port" }}
+  send(Port ftp.dataportstr);
+  debug {{ mlog(Port ftp.dataportstr) }}
+  receive
+  | Ns0 200 ->         debug {{ ilog 200 "" }} send_retrieve(state, ftp)
+  | Ns (200, _msg) ->   debug {{ ilog 200 _msg }} send_retrieve(state, ftp)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"send_port"}})
+  | Ns (code, _msg) ->  {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"send_port"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"send_port"}}, exn)
+
+send_retrieve(state, ftp):
+  debug 2 {{ Logger.debug "send_retrieve" }}
+  let content = {{ ref (content_make ftp.content_type ~hint:ftp.content_hint) }}
+  let key = listen({{(ftp.dataportspec,ftp.datasecuremode)}},input_ascii_file,state,ftp,content)
+  send(Retr ftp.filename);
+  debug {{ mlog(Port ftp.dataportstr) }}
+  receive
+  | Ns0 150 -> debug {{ ilog 150 "" }} get_file(state, content, key)
+  | Ns (150, _msg) -> debug {{ ilog 150 _msg }} get_file(state, content, key)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, {{"send_retrieve"}})
+  | Ns (code, _msg) -> {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"send_retrieve"}}, err)
+  catch
+  | exn -> handle_exception(state, {{"send_retrieve"}}, exn)
+
+get_file(state, content, key):
+  debug 2 {{ Logger.debug "get_file" }}
+  %sleep {{ Time.milliseconds 100 }}
+  receive
+  | Ns0 226 -> debug {{ ilog 226 "" }} {{ key () }} quit(state, content)
+  | Ns (226, _msg) -> debug {{ ilog 226 _msg }} {{ key () }} quit(state, content)
+  | ENs (code, _msg) -> {{ state.elog code _msg }} {{ key () }} finish_error(state, {{"get_file"}})
+  | Ns (code, _msg) -> {{ state.log code _msg }} {{ key () }} handle_error(state, code, _msg)
+  | err -> {{ key () }} handle_unknown(state, {{"get_file"}}, err)
+  catch
+  | exn -> {{ key () }} handle_exception(state, {{"get_file"}}, exn)
+
+input_ascii_file(state, ftp, content_ref):
+  debug 2 {{ Logger.debug "input_ascii_file" }}
+  %input_ascii_file_n(state, ftp, content)
+  %fixed {{ ftp.datablocksize }} % <-- for some reason we don't get a connection close with this.
+  rawread
+  | cnt_buff ->
+    let buff = {{ snd cnt_buff }}
+    debug 2 {{ Logger.debug "input_ascii_file: got data '%s'" (String.escaped (String.limit 50 buff)) }}
+    % TODO: crlf conversion??? (BIN mode).
+    let buff = {{ FtpServerType.crlf2cr buff }}
+    {{ content_ref := content_add buff (!content_ref) }}
+    input_ascii_file(state, ftp, content_ref)
+
+%%   read_content {{ !content_ref }}
+%%   | cnt_content ->
+%%     {{ content_ref := snd cnt_content }}
+%%     debug 2 {{ Logger.debug "input_ascii_file: got %d bytes" (fst cnt_content) }}
+%%     % TODO: crlf conversion??? (BIN mode).
+%%     %let buff = {{ FtpServerType.crlf2cr buff }}
+%%     input_ascii_file(state, ftp, content_ref)
+    
+
+%% input_ascii_file_n(state, ftp, content):
+%%   debug 2 {{ Logger.debug "input_ascii_file_n" }}
+%%   let cnt_buff = readconn(conn,ftp.datablocksize);
+%%   debug 2 {{ Logger.debug "input_ascii_file_n: got data '%s'" (String.escaped (String.limit 50 (snd cnt_buff))) }}
+%%   if {{ fst cnt_buff > 0 }}
+%%   then
+%%     % TODO: crlf conversion??? (BIN mode).
+%%     let buff = {{ FtpServerType.crlf2cr (snd cnt_buff) }}
+%%     {{ content := content_add buff (!content) }}
+%%     input_ascii_file_n(state, ftp, content)
+%%   else
+%%     input_ascii_file_n(state, ftp, content)
+
+quit(state, content):
+  debug 2 {{ Logger.debug "quit" }}
+  send Quit;
+  debug {{ mlog Quit }}
+  -!-
+  {{ state.cont (Ok (!content)) }}
+
+finish_error(state, from):
+  receive
+  | ENs (code, _msg) -> {{ state.elog code _msg }} finish_error(state, from)
+  | Ns (code, _msg) -> {{ state.log code _msg }} handle_error(state, code, _msg)
+  | err -> handle_unknown(state, {{"finish_error"}}, err)
+  catch
+  | exn -> handle_exception(state, from, exn)
+
+handle_error(state, code, err):
+  let _msg = {{ sprintf "%d %s" code err }}
+  debug {{ Logger.debug "handle_error: %s" _msg; Pervasives.flush stderr }}
+  error(state, _msg)
+
+handle_exception(state, from, exn):
+  let _msg = {{ sprintf "FtpClientCore.%s: exn=%s" from (Printexc.to_string exn) }}
+  debug {{ Printexc.print_backtrace stderr; Pervasives.flush stderr }}
+  error(state, _msg)
+
+handle_unknown(state, from, err):
+  let _msg = {{ sprintf "FtpClientCore.%s: unknown message='%s'" from (String.escaped (string_of_msg err)) }}
+  error(state, _msg)
+
+error(state, _msg):
+  -!-
+  debug {{ Logger.debug "Error: %s" _msg; Pervasives.flush stderr }}
+  {{ Logger.error "Error: %s" _msg }}
+  {{ state.cont (Error _msg) }}

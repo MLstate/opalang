@@ -1,0 +1,62 @@
+# written by Valentin Gatien-Baron, MLstate
+# (licensed as public domain with permission from MLstate)
+
+vardef IDENT = '([a-zA-Z_][a-zA-Z_0-9]*|`[^`]*`)'
+vardef FUNCTION = $IDENT+'(?=\()'
+vardef MODULE = '[A-Z][a-zA-Z_0-9]*(?=\.)'
+# same as number.lang but with 0o and 0b also
+# and without suffixes like unsigned or long long
+vardef NUMBER =
+ '\<[+-]?((0[xXbBoO][[:xdigit:]]+)|(([[:digit:]]*\.)?
+[[:digit:]]+([eE][+-]?[[:digit:]]+)?))\>'
+
+#directives
+preproc = '@[A-Za-z_]+'
+
+number = $NUMBER
+
+# weak coloration for strings
+# we color some parts of the expressions inserted in strings
+# at the first level only and it won't work if you put curly braces
+# in your inserts
+environment string delim "\"" "\"" escape "\\" begin
+   state string delim "{" "}" begin
+      function = $FUNCTION
+      number = $NUMBER
+      symbol = $MODULE
+      include "symbols.lang"
+      string delim "\"" "\"" escape "\\"
+   end
+end
+
+keyword = "and|as|database|db|do|else|if|match|then|type|with|begin|css|end|external|forall|import|package|parser|rec|server|val|xml_parser"
+
+comment delim "/*" "*/" multiline nested
+comment start "//"
+# comment delim "<>" "</>" multiline nested
+
+# #id
+atom = '\#' + $IDENT
+# bypasses
+atom = '%%[^%]*%%'
+# modules
+symbol = $MODULE
+
+# need to come before symbols so that ~ doesn't get colored
+usertype = '~'+$IDENT
+
+# FIXME: need to color also made up symbols, not the set predefined
+# and defined a regexp SYMBOL, use it here and in string insertions above
+include "symbols.lang"
+
+# no idea what this is
+cbracket = "{|}"
+
+# function recognised as 'ident('
+function = $FUNCTION
+# bindings, recognised by 'ident ='
+usertype = $IDENT+'(?=[[:blank:]]*=)'
+
+# matches some stdlib types
+# really ought to parse type expr in type def and in type annotations
+type = '\<(?:int|bool|option|float|void|string|list|text|xhtml|xml)\>'

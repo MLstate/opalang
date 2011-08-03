@@ -1,0 +1,12 @@
+== Widget FloatValue ==
+
+Display and edit a float, possibly with an interval constraint or an arbitrary validation function.
+
+Should provide three functions: +show+, +edit+ and +html+.
+The function +html+ will be deduced from +interactions/editable+
+
+In edit mode, the float should be editable with the keyboard. The show mode is trivial (no buttons).
+
+In a second version of the widget, the edition will (optionnally) include buttons +#+#+ and +#-#+ right to the float. The step caused by pressing a button must be configurable.
+
+This widget should provide a default implementation of +CTable.Cell.widget(float)+.

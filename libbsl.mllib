@@ -1,0 +1,27 @@
+libbsl/BslTypes
+libbsl/BslTypesMap
+libbsl/BslTypesNormalizedMap
+libbsl/BslTypesGeneration
+libbsl/BslRegisterParser
+libbsl/BslLanguage
+libbsl/BslLanguageMap
+libbsl/BslInterface
+libbsl/BslPluginInterface
+libbsl/BslPluginTable
+libbsl/BslLib
+libbsl/BslOpa
+libbsl/BslJs
+libbsl/BslJsConf
+libbsl/BslConf
+libbsl/BslOcaml
+# libbsl/BslC
+libbsl/BslConvention
+libbsl/BslRegisterLib
+libbsl/BslTinyShell
+libbsl/BslMarshalPlugin
+libbsl/BslDynlink
+libbsl/BslTags
+libbsl/BslDirectives
+libbsl/BslIncludeFormats
+libbsl/BslRegisterParserState
+libbsl/BslError

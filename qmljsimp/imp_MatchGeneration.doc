@@ -1,0 +1,312 @@
+(**
+*)
+
+1ere Version, dans normalisation de pattern.
+Cette version sera conservée sur master un temps,
+et devrait déjà ameliorer les perfs comparé à jsfun.
+Par la suite, on pourra étudier l'apport des tags et/ou
+de la normalisation de patterns.
+
+On reprend l'analyse du flat sur les pattern.
+
+trivial_pat ==>
+  soit y'en a beaucoup, et on fait un bdd
+  soit y'en a pas beaucoup, et on fait des if sequentiels
+
+closed_pat ==>
+
+  avec des if sequentiels (sauf que ce sont des cond, avec (? :), et que les affect ai sont des letin)
+  mais si on les ecrit comme ca, on comprendra rien ici.
+
+  if ( e1 ) {
+    a1 ;
+    <right-side>
+  } else
+  if ( e2 ) {
+    a1;
+    <right-side>
+  } else
+  if ( e3 ) {
+  } etc.
+
+  A) ei:
+
+  Chaque expression ei est un conjonction de clauses, décomposée 2 parties :
+
+  1) affectation par dot hypothetiques, avec enrichissement du penv.dot, et gardes de niveau 0
+  f1 = m.field1 , f2 = m.field2, etc...
+
+  Ces dots sont utilisés abilement pour detecter le cas de la somme dans lequel on se trouve.
+  Dans la plupart des cas, un unique dot est suffisant.
+  Ces dots peuvent affecter undefined aux variables.
+
+  Il s'agit de tests conjonctifs visant à valider le pattern, au niveau 0.
+  il en existe 3 types : present, absent, et size.
+  L'utilisation des size est surement à eviter, car cela est moins efficace avec l'optique par cache.
+
+  Quelques exemples :
+  Choix, le choix etant fait en priorité decroissantes selon:
+    + ce qui est partageable avec un binding dans la partie droite (ie bindé dans le pattern)
+    + si le type de la variable et un non-false JS
+    + ce qui est partageable entre les guardes
+
+    (hd,tl|nil)[hd,tl] = present(hd) ou present(tl)
+    (hd,tl|nil)[nil] = present(nil) ou absent(hd) ou absent(tl)
+
+    (a|a,b)[a] = absent(b)
+    (a|a,b)[a,b] = present(b)
+
+    (a|b|a,b)[a] = absent(b)
+    (a|b|a,b)[b] = absent(a)
+    (a|b|a,b)[a,b] = present(a) AND present(b)
+
+  les tests present(field) et absent(field) revient à chercher la variable qui dot le field.
+  soit elle est dans l'affectation par dot hypothetiques qui la precede immediatement,
+  soit elle est dans une des affectations precedentes.
+  dans les 2 cas, le nom de la variable est recherché dans le penv.dot.
+
+  present(field) ==> v != undefined
+  absent(field) ==> v == undefined
+  où v = penv.dot(field)
+
+  Dans le cas où le type de la valeur n'est jamais habité par une valeur pouvant etre évaluée
+  à false dans un test js, on utilise directement le resultat de l'affectation comme test.
+
+  2) gardes d'imbrications
+
+  Il s'agit de tests conjonctifs visant à valider entièrement le pattern dans toutes ses imbrications.
+  Note pour plus tard: cette partie devient obsolète dans le cas de pattern normalisés.
+
+  B) ai:
+
+  Ensuite, vient une partie qui recree les bindings introduit par les pattern, implementé par dot garantis,
+  et par des alias. (ce sont les ai).
+
+
+
+
+
+Quelques exemples:
+
+==============================================
+
+(a|a,b)
+
+      | ~{ a }
+      | ~{ a b }
+
+cas avec valeur pouvant etre false ==>
+
+  v0 = m.a
+  if ( v1 = m.b, v1 == undefined ) {
+    a = v0;
+    <right-side>
+  } else {
+    a = v0;
+    b = v1;
+    <right-side>
+  }
+
+cas avec valeur NE pouvant PAS etre false ==>
+
+  v0 = m.a
+  if ( !(v1 = m.b) ) {
+    a = v0;
+    <right-side>
+  } else {
+    a = v0;
+    b = v1;
+    <right-side>
+  }
+
+
+==============================================
+
+option
+
+      | { some = a }
+      | { none }
+
+==>
+
+  if ( v0 = m.some, v0 != undefined ) {
+    a = v0;
+    <right-side>
+  } else {
+    <right-side>
+  }
+
+==============================================
+
+list
+
+      | [ hd | tl ]
+      | []
+
+==>
+
+  if ( a = m.tl )
+    hd = m.hd ;
+    tl = a ;
+    <right-side>
+  } else {
+    <right-side>
+  }
+
+
+list
+
+      | []
+      | [ hd | tl ]
+
+
+==>
+
+  if ( !(a = m.tl) )
+    <right-side>
+  } else {
+    hd = m.hd ;
+    tl = a ;
+
+    <right-side>
+  }
+
+
+==============================================
+
+list
+
+      | []
+      | [ a ]
+      | [ a, b ]
+      | [ a, b, c ]
+      | [ a, b, c, d | tl ]
+
+==>
+
+  // []
+  if ( !(v0 = m.tl) ) {
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = v0 }
+
+  // [ a ]
+  if ( (v1 = v0.nil) ) {
+    a = m.hd;
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = { hd = b ; tl = v2 } }
+
+  // [ a, b ]
+  if ( v2 = v0.tl && v3 = v2.nil ) {
+    a = m.hd ;
+    b = v0.hd ;
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = { hd = b ; tl = { hd = c ; tl = v4 } } }
+
+  // [ a, b, c ]
+  if ( v4 = v2.tl && v5 = v4.nil ) {
+    a = m.hd ;
+    b = v0.hd ;
+    c = v2.hd ;
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = { hd = b ; tl = { hd = c ; tl = { hd = c ; tl = v6 } } } }
+
+  // [ a, b, c, d | tl ]
+  if ( v6 = v4.tl ) {
+    a = m.hd ;
+    b = v0.hd ;
+    c = v2.hd ;
+    d = v4.hd ;
+    <right-side>
+  }
+
+==============================================
+
+list
+
+      | []
+      | [ a, b, c | tl ]
+      | [ a ]
+      | [ a, b ]
+
+==>
+
+  // []
+  if ( !(v0 = m.tl) ) {
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = v0{ hd = b ; tl = v1{ hd = c ; tl = v2 } } }
+  // [ a, b, c | tl ]
+
+  if ( v1 = v0.tl && v2 = v1.tl ) {
+    a = m.hd ;
+    b = v0.hd ;
+    c = v1.hd ;
+    <right-side>
+  }
+
+  // help: { hd = a ; tl = v0 }
+  // [ a ]
+
+  if ( (v3 = v0.nil) ) {
+    a = m.hd;
+    <right-side>
+  } else
+
+  // help: { hd = a ; tl = v0{ hd = b ; tl = v4 } }
+  // [ a, b ]
+
+  if ( v4 = v1.nil ) { // ou else au mieux
+    a = m.hd ;
+    b = v0.hd ;
+    <right-side>
+  }
+
+
+DECOUPAGE:
+
+la fonction ()[]:
+(a,b|c)[a,b] = present(a) ou present(b) ou absent(c)
+
+on a besoin d'une fonction plus large, qui rend l'ensemble des propriétés vrais
+
+
+type flagvar = Present | Absent
+
+
+
+savoir si un type est un non-false js
+
+
+
+IMPLEMENTATION:
+
+
+  private_env:
+
+    (*
+      C'est la liste des dot déjà effectués dans la partie gauche des tests.
+      Ces tests sont toujours regroupés en partie gauche des expressions sous les if,
+      et peuvent etre partagés d'un cas à l'autre.
+    *)
+    dot : ident StringMap.t (* a voir, peut etre l'indexation se fait sur une liste de champs, pour partager l'intermediaire des cas m.tl.tl.tl.hd *)
+
+
+  plus complexe:
+    on peut conserver un ensemble de condition sous lesquelles l'affectation a été faite,
+    et si on se retrouve sous un ensemble de condition plus fort, reprendre le meme ident
+
+
+
+[18:16:50] <francois-regis.sinot@jabber.mlstate.com> http://mir.aculo.us/dom-monster/
+[18:16:57] <francois-regis.sinot@jabber.mlstate.com> (si tu ne connais pas)
+[18:17:03] <francois-regis.sinot@jabber.mlstate.com> (lien de David)
+[18:17:18] <francois-regis.sinot@jabber.mlstate.com> Found 12386 JavaScript globals. Cutting back on globals can increase JavaScript performance.

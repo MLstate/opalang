@@ -1,0 +1,14 @@
+[appendix]
+Compiler warnings and errors
+----------------------------
+
+//
+// About this chapter:
+//   Main author:  Mathieu Barbin
+//   Paired author:?
+//
+//   Topics:?
+//
+
+[CAUTION]
+TODO

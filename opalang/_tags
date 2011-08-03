@@ -1,0 +1,24 @@
+# -*- conf -*- (for emacs)
+
+true: warn_Z
+
+# subdirs
+<syntax>: traverse
+
+# warnings
+<{*,syntax/parser_utils}.{ml,mli}>: warn_Z
+
+<opaParser.{ml,mli}>: use_buildinfos, use_libtrx, with_mlstate_debug
+<{opaError,opaParser,surfaceAstCons}.ml>: use_buildinfos
+<standaloneparser.ml>: use_buildinfos, use_compilerlib, use_pplib
+<**/*.{ml,mli}>: use_libbase, use_compilerlib, use_libqmlcompil, use_passlib
+
+<{opa2opa,standaloneparser}.{native,byte}>: use_unix, use_libbase, use_mutex, use_graph, use_str, use_zlib, thread, use_nums, use_libtrx, use_passlib, use_libqmlcompil, use_buildinfos, use_ulex, use_compilerlib, use_pplib, use_opacapi
+
+<opaMapToIdent.ml>: use_opacapi
+<surfaceAstCons.ml>: use_opacapi
+<opaToQml.ml>: use_opacapi
+
+# ppdebug
+<opaMapToIdent.ml>: with_mlstate_debug
+<opaToQml.ml>: with_mlstate_debug

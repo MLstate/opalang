@@ -1,0 +1,30 @@
+[[opa_plugin_browser]]
+opa-plugin-browser
+~~~~~~~~~~~~~~~~~~
+
+plugin browser
+
+Arguments, input
+^^^^^^^^^^^^^^^^
+
+TODO
+
+Output
+^^^^^^
+
+TODO
+
+Options
+^^^^^^^
+
+TODO
+
+Common errors
+^^^^^^^^^^^^^
+
+TODO
+
+Warnings
+^^^^^^^^
+
+TODO

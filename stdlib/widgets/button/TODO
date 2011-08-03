@@ -1,0 +1,15 @@
+== Widget Button ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- 
+
+.Short term
+- Add support for auto-repetition when the button/mouse remains down
+- Use it in intvalue and everywhere..
+
+.Later
+-

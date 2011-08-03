@@ -1,0 +1,8 @@
+== Widget StringValue ==
+
+Display and edit a one-line string, possibly with an arbitrary validation function.
+
+Should provide three functions: +show+, +edit+ and +html+.
+The function +html+ will be deduced from +interactions/editable+
+
+This widget should provide a default implementation of +CTable.Cell.widget(string)+.

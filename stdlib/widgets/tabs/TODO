@@ -1,0 +1,14 @@
+== Widget Xxx ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- group stylers of WTabs.config into one struct for better readability
+
+.Short term
+-
+
+.Later
+-

@@ -1,0 +1,3 @@
+A grid with two functionalities:
+-) a data-type of a grid MxN with possibility to place rectangular objects (possibly occupying more than one cell of the grid)
+-) a function to render such a grid to an HTML table.

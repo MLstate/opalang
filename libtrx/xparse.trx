@@ -1,0 +1,84 @@
+(*
+    Copyright Â© 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+include default.trx
+
+{{ 
+open Xml 
+}}
+
++file : {Xml.xml * bool} <- header? content spacing eof 
+  {{ let head = match __1 with Some h -> h | None -> [] in 
+     let xml, ok = __2 in { xml with header = head }, ok }}
+header <- "<?xml" spacing option* "?>" spacing {{ __3 }}
+# factoriser
+cdata <- "<![CDATA[" ((!"]]" .)* $_) "]]>" {{ `text __2 }}
+extra_header <- "<!" ![\-] (![>] .)* [>] $
+
++content : {Xml.xml * bool} <- content_item* {{ rewrite __1 }}
+content_item <- element / text / cdata / extra_header content_item {{ __2 }}
+
+element <-  
+  open (
+    / slash nsname {{ `stop __2 }}
+    / "!--" (!commentstop .)* "--" {{ `nothing }}
+    / nsname option* slash? {{ match __3 with Some _ -> `one (__1, __2) | _ -> `start (__1, __2) }}
+  ) close {{ __2 }}
+
+# FIXME: UTF8 / factoriser avec url.trx et body_rewrite.trx
+text <-
+       / space+ {{ `space }}
+       / char+ {{ `text (Tgrammar.string_of_chars __1) }}
+ 
+# http://xml.silmaril.ie/authors/specials/
+char <- [%] hexa hexa {{ char_of_int (16 * Char.hexa_value __2 + Char.hexa_value __3) }}
+      / [&] ( "gt;" {{ '>' }} / "lt;" {{ '<' }} / "amp;" {{ '&' }} / "quot;" {{ '"' }} / "apos;" {{ '\'' }} 
+            / [#] int [;] {{ char_of_int __2 }} ) {{ __2 }}
+      / ![<] . {{ __2 }}
+
+# FIXME: namespaces ns:name=value
+name <- [a-zA-Z0-9_\-]+ spacing {{ Tgrammar.string_of_chars __1 }}
+
+# FIXME: intégration ici des expansions optionnelles ???
+# FIXME: il faudrait autoriser option* dans l'expansion optionnelle
+option <- 
+    / nsname (equal function {{ __2 }})? {{ __1, match __2 with Some r -> r | None -> Value "true" }}        
+    / [$] name [:] lparen option rparen {{ __5 }}
+
+# ns <- name [:]
+nsname <- name ([:] name)? {{ __1 (* FIXME *) }}
+
+value <- dblexpr / sglexpr / name
+dblexpr <- dblq ("\\\"" {{ '\"' }} / !dblq .)* dblq spacing {{ Tgrammar.string_of_chars __2 }}
+sglexpr <- quote ("\\\'" {{ '\'' }} / !quote .)* quote spacing {{ Tgrammar.string_of_chars __2 }}
+
+funclist <- function (comma funclist {{ __2 }})? 
+  {{ match __2 with 
+  | None -> [__1] 
+  | Some l ->  __1 :: l }}
+	function <- #name lparen funclist rparen {{ Func (__1, __3)}} /
+	    value {{ Value __1 }}
+
+open <- [<] spacing
+close <- spacing [>]
+dblq <- [\"]
+quote <- [\']
+
+comment <- commentstart (!commentstop .)* commentstop $
+commentstart <- "<!--"
+commentstop <- "-->"
+spacing <- (space $/ comment)* $

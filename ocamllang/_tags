@@ -1,0 +1,2 @@
+<ocaml_parser.trx>: trx_cache
+<**/*.{ml,mli,byte,native}>: use_libbase, use_compilerlib, use_passlib, use_libtrx

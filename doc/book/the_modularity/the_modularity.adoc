@@ -1,0 +1,18 @@
+Developing for modularity and reusability
+-----------------------------------------
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//   - Using and designing functions, incl. higher-order functions
+//   - Using and designing types
+//   - Modules
+//   - The type system
+//
+
+[CAUTION]
+TODO
+

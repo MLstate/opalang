@@ -1,0 +1,42 @@
+From 0227ac89f4762cfdf1cfe49a00a065ef8f92df2d Mon Sep 17 00:00:00 2001
+From: Louis Gesbert <louis.gesbert@mlstate.com>
+Date: Thu, 16 Jun 2011 16:06:12 +0200
+Subject: [PATCH] for some reason -custom failed, maybe because caml compilation is not .opt
+ or because of some link somewhere
+
+---
+ src/findlib/Makefile        |    2 +-
+ tools/extract_args/Makefile |    4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/findlib/Makefile b/src/findlib/Makefile
+index 3526ca7..bd5163c 100644
+--- a/src/findlib/Makefile
++++ b/src/findlib/Makefile
+@@ -36,7 +36,7 @@ all: ocamlfind$(EXEC_SUFFIX) findlib.cma findlib_top.cma topfind num_top.cma
+ opt: ocamlfind_opt$(EXEC_SUFFIX) findlib.cmxa topfind
+ 
+ ocamlfind$(EXEC_SUFFIX): findlib.cma $(OCAMLFIND_OBJECTS)
+-	$(OCAMLC) -custom -o ocamlfind$(EXEC_SUFFIX) findlib.cma unix.cma \
++	$(OCAMLC) -o ocamlfind$(EXEC_SUFFIX) findlib.cma unix.cma \
+ 	          $(OCAMLFIND_OBJECTS)
+ 
+ ocamlfind_opt$(EXEC_SUFFIX): findlib.cmxa $(OCAMLFIND_XOBJECTS)
+diff --git a/tools/extract_args/Makefile b/tools/extract_args/Makefile
+index 2a13d5b..0cca0ba 100644
+--- a/tools/extract_args/Makefile
++++ b/tools/extract_args/Makefile
+@@ -1,7 +1,9 @@
+ all: extract_args
+ 
++# for some reason -custom failed, maybe because caml compilation is not .opt
++# or because some link somewhere
+ extract_args: extract_args.ml
+-	ocamlc -o extract_args -custom str.cma extract_args.ml
++	ocamlc -o extract_args str.cma extract_args.ml
+ 
+ clean:
+ 	rm -f *.cmo *.cmi *.cma extract_args
+-- 
+1.7.1
+

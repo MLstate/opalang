@@ -1,0 +1,103 @@
+/**
+ * Boiling water and preparing tea.
+ *
+ * @author David Rajchenbach-Teller, 2009-2010
+ * @author Gregoire Makridis, 2010 (added support for Roibos)
+ * @category food
+ * @destination public
+ */
+
+/**
+ * {1 About this module}
+ *
+ * This module contains a high-level interface for boiling water and preparing tea.
+ * If you wish to prepare tea, this is probably the module you are looking for.
+ *
+ *
+ * {1 Where should I start?}
+ *
+ * If you simply want to prepare some tea, use function [Tea.prepare].
+ *
+ *
+ * {1 What if I need more?}
+ *
+ * Some teas need careful preparations, e.g. Black Tea should be prepared with hot
+ * water, just boiled, at 95 Celcius, and should infuse for 3 minutes. Other teas
+ * require the water to be at 80 Celcius or to infuse for 5 minutes. If you need fine
+ * control on the temperature of water and infusion, you can obtain more control on
+ * tea preparation by using more powerful functions [Tea.boil], [Tea.infuse] and
+ * [Tea.serve].
+ *
+ * Sometimes, you may also need to validate the leaves you have, e.g. to check whether
+ * they are real tea or some substitute such as herbal tea or roibos. For this purpose,
+ * use [Tea.get_variety].
+ *
+ * If this is not sufficient, you may need to use lower-level module [Drinks].
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * Varieties of tea.
+ */
+type Tea.variety = {dark} / {green} / {white}
+                   / {red} /**So-called "red tea". Note that this is not actual tea.*/
+
+
+type Tea.status = {ready} / {infusing} / {boiling}
+
+/**
+ * Some tea or variant of tea.
+ */
+@abstract type Tea.tea = ...
+
+/**
+ * The result of preparing tea.
+ */
+type Tea.preparation = {success: Drinks.cup} /**Your tea is ready and served.*/
+                   /  {not_enough_tea}    /**There isn't enough tea in the reserve to prepare tea.
+                                            In such circumstances, you should call [Mehdi.please] to
+                                            obtain more tea.*/
+                   / {tastes_like_coffee}/**Something is wrong with the contents of the cup. Presumably,
+                                            this is not tea.*/
+                   / {theine_intoxication}     /**OPA's runtime security handler has determined that you have
+                                                  drunk too much tea since you last went home. Perhaps you should
+                                                  go home.*/
+                   / {no_water_available}      /**For some reason, there is no water at this floor. You
+                                                  will need to look for water in other floors.*/
+                   / {no_electricity_available}/**For some reason, the electricity is out in the building.
+                                                  You should find something else to do.*/
+
+Tea =
+{{
+   /**
+    * {1 High-level interface}
+    */
+
+   /**
+    * Complete preparation of tea.
+    *
+    * @param tea A tea which need to be prepared. This can be either a real tea or some near-tea. Note that
+    * the reserve of tea must contain some of this tea, otherwise this function will produce [{not_enough_tea}].
+    *
+    * @return Either [{success = cup}] if preparation succeeded or some error otherwise. See [Tea.preparation]
+    * for the detail on errors.
+    */
+   prepare(tea: Tea.tea) : Tea.preparation =
+     ...
+
+   /**
+    * {1 Lower-level interface}
+    */
+   //...
+}}
+
+/**
+ * {1 Functions exported to the global namespace}
+ */
+
+/**
+ * (none)
+ */

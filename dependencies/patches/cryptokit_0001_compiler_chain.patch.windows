@@ -1,0 +1,85 @@
+diff -pr a/Makefile.win32 b/Makefile.win32
+*** a/Makefile.win32	2010-06-16 19:45:52.307800000 +0200
+--- b/Makefile.win32	2010-06-16 19:45:20.970400000 +0200
+***************
+*** 1,20 ****
+  ### Configuration section
+! 
+! # Where to install the library. By default: OCaml's standard library directory.
+! INSTALLDIR=$(OCAMLSTDLIB)
+  
+  # Which Win32 port of OCaml is used?
+! #TOOLCHAIN=msvc     # Native Win32 port with Microsoft compilers
+! TOOLCHAIN=mingw    # Native Win32 port with Mingw compilers
+  
+  ### End of configuration section
+  
+  OCAMLRUN=ocamlrun
+  OCAMLC=ocamlc -g
+  OCAMLOPT=ocamlopt
+  OCAMLDEP=ocamldep
+  OCAMLSTDLIB="$(shell $(OCAMLC) -where)"
+  
+  ifeq ($(strip $(TOOLCHAIN)),mingw)
+  
+  O=o
+--- 1,25 ----
+  ### Configuration section
+! # This is the original but choose msvc toolchain
+! # and accept external compilers (do not understand how it can call directly windows compiler, maybe because there is no path
+! # dll construction is failing becasue of a missing file
+  
+  # Which Win32 port of OCaml is used?
+! TOOLCHAIN=msvc     # Native Win32 port with Microsoft compilers
+! #TOOLCHAIN=mingw    # Native Win32 port with Mingw compilers
+  
+  ### End of configuration section
+  
++ # define from external call
+  OCAMLRUN=ocamlrun
+  OCAMLC=ocamlc -g
+  OCAMLOPT=ocamlopt
+  OCAMLDEP=ocamldep
+  OCAMLSTDLIB="$(shell $(OCAMLC) -where)"
+  
++ # Where to install the library. By default: OCaml's standard library directory.
++ INSTALLDIR=$(OCAMLSTDLIB)
++ 
++ 
+  ifeq ($(strip $(TOOLCHAIN)),mingw)
+  
+  O=o
+*************** all: dllcryptokit.dll libcryptokit.$(A)
+*** 67,73 ****
+  allopt: dllcryptokit.dll libcryptokit.$(A) cryptokit.cmi cryptokit.cmxa 
+  
+  dllcryptokit.dll: $(DC_OBJS)
+! 	$(call MKDLL,$@,tmp.$(A),$(DC_OBJS) $(OCAMLSTDLIB)/ocamlrun.$(A) $(LIBS))
+  
+  libcryptokit.$(A): $(SC_OBJS)
+  	$(call MKLIB,$@,$(SC_OBJS))
+--- 72,78 ----
+  allopt: dllcryptokit.dll libcryptokit.$(A) cryptokit.cmi cryptokit.cmxa 
+  
+  dllcryptokit.dll: $(DC_OBJS)
+! 	-$(call MKDLL,$@,tmp.$(A),$(DC_OBJS) $(OCAMLSTDLIB)/ocamlrun.$(A) $(LIBS))
+  
+  libcryptokit.$(A): $(SC_OBJS)
+  	$(call MKLIB,$@,$(SC_OBJS))
+*************** clean::
+*** 99,105 ****
+  install:
+  	cp cryptokit.cmi cryptokit.cma cryptokit.mli $(INSTALLDIR)
+  	cp libcryptokit.$(A) $(INSTALLDIR)
+! 	cp dllcryptokit.dll $(INSTALLDIR)
+  	cp cryptokit.cmxa cryptokit.cmx cryptokit.$(A) $(INSTALLDIR)
+  
+  .SUFFIXES: .ml .mli .cmo .cmi .cmx .c .$(DO) .$(SO)
+--- 104,110 ----
+  install:
+  	cp cryptokit.cmi cryptokit.cma cryptokit.mli $(INSTALLDIR)
+  	cp libcryptokit.$(A) $(INSTALLDIR)
+! 	-cp dllcryptokit.dll $(INSTALLDIR)
+  	cp cryptokit.cmxa cryptokit.cmx cryptokit.$(A) $(INSTALLDIR)
+  
+  .SUFFIXES: .ml .mli .cmo .cmi .cmx .c .$(DO) .$(SO)

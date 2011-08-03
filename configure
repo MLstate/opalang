@@ -1,0 +1,664 @@
+#!/bin/bash -ue
+
+: ${OPA_SOURCE_DIR:=$(dirname $0)}
+if [ "${OPA_SOURCE_DIR#/}" = "$OPA_SOURCE_DIR" ]; then OPA_SOURCE_DIR=$PWD/$OPA_SOURCE_DIR; fi
+
+help() {
+    cat >&2 <<EOF
+opalang configure script. Options:
+        -prefix <dir>		the final installation prefix
+        -release		configure for building in release mode
+        -noassert		configure for building in noassert mode
+        -ocamldir <dir>		where to find the ocaml libraries
+        -ocamlopt <path>	the ocaml compiler to use
+        -ocamlfind <path>	use the given ocamlfind to locate libraries
+        -no-ocamlfind		don't use ocamlfind
+        -no-camlidl		disable features based on camlidl
+        -help			shows this message
+EOF
+# --no-<lib> if available
+}
+
+cd "$OPA_SOURCE_DIR"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -prefix)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+            PREFIX=$1
+            ;;
+        -release)
+            IS_RELEASE=1
+            ;;
+        -noassert)
+            OCAMLBUILD_FLAGS="${OCAMLBUILD_FLAGS:-} -tag noassert"
+            ;;
+        -ocamldir)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+            OCAMLLIB=$1
+            ;;
+        -ocamlopt)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+            OCAMLOPT=$1
+            ;;
+        -ocamlfind)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+            OCAMLFIND=$1
+            ;;
+        -no-ocamlfind)
+            NO_OCAMLFIND=1
+            ;;
+        -no-camlidl)
+            NO_CAMLIDL=1
+            ;;
+        -h|-help|--help)
+            help
+            exit 0;;
+        *)
+            echo "Error: unknown option $1" >&2
+            echo
+            help
+            exit 2
+    esac
+    shift
+done
+
+: ${PREFIX:=${MLSTATELIBS:-}}
+: ${PREFIX:=/usr/local}
+: ${IS_RELEASE:=}
+
+CONFIG_LOG=$PWD/config.log
+
+echo -n >$CONFIG_LOG
+
+echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >>$CONFIG_LOG; }
+echo-ok() {
+    local opts=; if [ "X$1" = "X-n" ]; then shift; opts="-n"; fi
+    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >>$CONFIG_LOG;
+}
+echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >>$CONFIG_LOG; }
+echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >>$CONFIG_LOG; }
+
+# check OS
+echo-check your OS
+EXT_LIB="a"
+EXT_OBJ="o"
+EXT_SHARED="so"
+case $(uname) in
+    CYGWIN*)
+        echo-ok Windows/cygwin
+        EXT_LIB="lib"
+        EXT_OBJ="obj"
+        EXT_SHARED="dll"
+        IS_WINDOWS=1;;
+    Darwin*)
+        echo-ok MacOS
+        IS_MAC=1;;
+    Linux*)
+        echo-ok Linux
+        IS_LINUX=1;;
+    *)
+        echo-err "Not sure, probably Unix / Linux"
+        IS_LINUX=1
+esac
+
+echo-check your architecture
+case $(uname -m) in
+    x86_64)
+        echo-ok x86_64;;
+    i?86)
+        echo-ok ix86;;
+    *)
+        echo-err "$(uname -m)"
+        echo "Sorry, this architecture is unsupported at the moment." >&2
+        exit 1
+esac
+
+lastresort_hint() {
+    cat <<EOF
+
+If you have trouble meeting the required dependencies with your distribution,
+you may want to have a look at the script installation_helper.sh in the
+dependencies/ directory to build them from source.
+
+EOF
+}
+trap lastresort_hint ERR
+
+# specific platform checks
+if [ -n "${IS_MAC:-}" ]; then
+    echo-check for gsed
+    if which gsed > /dev/null 2>&1; then echo-ok ok
+    else
+        echo-err Not found
+        echo "gsed is needed to build OPA."
+        if which port >/dev/null 2>&1; then
+            echo -e " You should run:\n\tsudo port install gsed"
+        # else #todo# [add useful suggestion here]
+        fi
+        exit 1
+    fi >&2
+    echo-check for GNU coreutils
+    if which gtail gmktemp gsort greadlink >/dev/null 2>&1; then echo-ok ok
+    else
+        echo-err Not found
+        echo "GNU coreutils are needed to build OPA."
+        if which port >/dev/null 2>&1; then
+            echo -e " You should run:\n\tsudo port install coreutils"
+        # else #todo# [add useful suggestion here]
+        fi
+        exit 1
+    fi >&2
+    . ./platform_helper.sh
+fi
+
+# check ocaml version and location
+echo-check ocamlopt
+if OCAMLOPT=${OCAMLOPT:-$(which ocamlopt.opt)} || OCAMLOPT=${OCAMLOPT:-$(which ocamlopt)}
+then echo-ok $OCAMLOPT
+else
+    echo-err Not found
+    echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
+    false
+fi
+
+echo-check ocamlbuild
+: ${OCAMLBUILD:=$(dirname $OCAMLOPT)/ocamlbuild}
+if [ -n "$IS_RELEASE" ]; then
+    OCAMLBUILD_FLAGS="${OCAMLBUILD_FLAGS:-} -tag release -tag noassert"
+else
+    OCAMLBUILD_FLAGS="${OCAMLBUILD_FLAGS:-} -tag debug"
+fi
+if [ -x "$OCAMLBUILD" ]
+then echo-ok $OCAMLBUILD
+else
+    echo-err Not found
+    echo "Ocamlbuild is required. It should come with your ocaml distribution."
+    false
+fi
+
+echo-check ocamldir
+: ${OCAMLLIB:=$($OCAMLOPT -where)}
+echo-ok $OCAMLLIB
+
+export OCAMLLIB
+
+echo-check ocaml version
+OCAML_VERSION=$($OCAMLOPT -version)
+OCAML_VERSION_MAJOR=${OCAML_VERSION%%.*}
+OCAML_VERSION_MIDDLE=${OCAML_VERSION%.*}
+OCAML_VERSION_MIDDLE=${OCAML_VERSION_MIDDLE#*.}
+if [ $OCAML_VERSION_MAJOR -eq 3 ] && [ $OCAML_VERSION_MIDDLE -ge 12 ]; then
+    echo-ok $OCAML_VERSION
+else
+    echo-err $OCAML_VERSION
+    echo "Ocaml 3.12 or newer is required"
+    false
+fi
+
+echo-check your ocaml setup
+check-ocaml () {
+    local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
+    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
+    cd $DIR
+    cat >test.ml <<EOF
+let p = Unix.getpid()
+let _ = Printf.printf "%s, %s %dbit" Sys.ocaml_version Sys.os_type Sys.word_size
+let _ =
+  exit Sys.word_size
+EOF
+
+    echo "# $OCAMLBUILD$OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
+    R=0; $OCAMLBUILD$OCAMLBUILD_FLAGS -tag use_unix test.native >test.log 2>&1 || R=$?
+
+    cat test.log >> $CONFIG_LOG
+
+    if [ $R -ne 0 ]; then
+        echo-err "could not compile"
+        echo "----------"
+        tail -n 5 test.log | sed 's/^/	/'
+        echo "----------"
+        echo "Your ocaml installation seems broken, please fix it"
+        false
+    fi >&2
+    set +e
+    RET=$(_build/test.native);
+    R=$?
+    set -e
+    case $R in
+        32)
+            OCAML_WORD_SIZE=32
+            echo-ok $RET
+            ;;
+        64)
+            OCAML_WORD_SIZE=64
+            echo-ok $RET
+            ;;
+        *)
+            echo-err $RET
+            echo "Your ocaml seems to be neither a 64bit or a 32bit version. Please install a native 64 bit package."
+            false
+    esac >&2
+    rm -rf /tmp/${DIR#/tmp/}
+    trap - EXIT
+    cd "$OPA_SOURCE_DIR"
+}
+check-ocaml
+
+echo-check for camlp4
+: ${CAMLP4O:=$(dirname $OCAMLOPT)/camlp4o}
+: ${CAMLP4ORF:=$(dirname $OCAMLOPT)/camlp4orf}
+if [ -x "$CAMLP4O" ] && [ -x "$CAMLP4ORF" ]
+then echo-ok $CAMLP4O
+else
+    echo-err Not found
+    echo "You need camlp4 to build this package. It is usually found in packages camlp4, camlp4-extra"
+    false
+fi
+
+# check tools:
+# (*) stuff marked with * could maybe be optional and restrict the build correspondingly
+
+# - checking for perl
+echo-check for perl 5
+if perl -v 2>/dev/null | grep -q 'v5\.'; then
+    echo-ok found
+else
+    echo-err Not found
+    echo "You need Perl v5 to build this package ; it's usually found in package perl-base"
+    exit 1
+fi >&2
+
+# - checking camlidl *
+echo-check for camlidl
+if [ -n "${NO_CAMLIDL:-}" ]; then
+    HAS_CAMLIDL=
+    CAMLIDL=
+    echo-ok Disabled
+elif
+    [ -e $OCAMLLIB/libcamlidl.a ] &&
+    CAMLIDL=${CAMLIDL:-$(dirname "$OCAMLOPT")/camlidl} && [ -x "$CAMLIDL" ] ||
+    CAMLIDL=$(which camlidl)
+then
+    HAS_CAMLIDL=1
+    echo-ok $CAMLIDL
+else
+    HAS_CAMLIDL=
+    echo-err Not found
+fi
+
+
+# check C libs:
+#   we depend on libssl, libzip and others, but through
+#   ocaml libs, so no need to check them directly
+check-c-lib () (
+    local LIB=$1; shift
+    [ $# -gt 0 ]
+    local INCLUDES=("$@")
+
+    local LIBNAME=$(basename "$LIB")
+    local LIBDIR=$(dirname "$LIB")
+    local INCLUDE_DIR
+    for d in {"$OCAMLLIB/..","$OCAMLLIB",/usr/lib,/usr/local/lib}{/$LIBDIR,}; do
+        if [ -e $d/lib$LIBNAME.a ]; then
+            LD_DIR=$(readlink -f $d)
+            INCLUDE_DIR=$LD_DIR/
+            INCLUDE_DIR=${INCLUDE_DIR%/lib/*}/include
+            break
+        fi
+    done
+    if [ -z "${LD_DIR:-}" ]; then
+        echo "could not find lib$LIBNAME.a" >>$CONFIG_LOG
+        echo-err Not found
+        return 1
+    fi >&2
+
+    echo-ok -n "$LD_DIR/lib$LIBNAME.a, "
+
+    # Now checking compile, link & run
+    local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
+    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
+    cd $DIR
+
+    {
+        for i in "${INCLUDES[@]}"; do echo '#include <'$i'>'; done
+        echo 'int main () { return 0; }'
+    } >test_$LIBNAME.c
+
+    echo "# gcc -L$LD_DIR -I$INCLUDE_DIR -l$LIBNAME test_$LIBNAME.c -o test_$LIBNAME" >> $CONFIG_LOG
+    R=0; gcc -L$LD_DIR -I$INCLUDE_DIR -l$LIBNAME test_$LIBNAME.c -o test_$LIBNAME >check_$LIBNAME.log 2>&1 || R=$?
+
+    cat check_$LIBNAME.log >> $CONFIG_LOG
+
+    if [ $R -ne 0 ]; then
+        echo-err "could not compile"
+        echo "----------"
+        tail -n 5 check_${LIBNAME}.log | sed 's/^/	/'
+        echo "----------"
+        return 1
+    fi >&2
+    if ! ./test_$LIBNAME >> $CONFIG_LOG 2>&1; then
+        echo-err "compiled program doesn't work"
+        return 1
+    fi
+
+    echo-ok-tag
+    echo "$LIBNAME $LD_DIR $INCLUDE_DIR"
+)
+
+HAS_LIBNATPMP=
+LIBNATPMP=("")
+HAS_MINIUPNPC=
+MINIUPNPC=("")
+if [ -n "$HAS_CAMLIDL" ]; then
+# - checking libnatpmp *
+    echo-check libnatpmp
+    if LIBNATPMP=($(check-c-lib libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
+        HAS_LIBNATPMP=1
+    else
+        LIBNATPMP=("")
+    fi
+
+# - checking miniupnpc *
+    echo-check miniupnpc
+    if MINIUPNPC=($(check-c-lib miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
+        HAS_MINIUPNPC=1
+    else
+        MINIUPNPC=("")
+    fi
+fi
+
+# check ocaml libs:
+#   probably, first try with ocamlfind then fallback to
+#   custom check ; ensure consistency with function
+#   "get_ocamlfind_directory" in build/myocamlbuild_prefix.ml
+echo-check for ocamlfind
+if [ -n "${NO_OCAMLFIND:-}" ]; then
+    OCAMLFIND=
+    echo-ok Disabled
+elif  [ -z "${OCAMLFIND:-}" ]; then
+    OCAMLFIND=$(dirname $OCAMLOPT)/ocamlfind
+    if [ ! -x "$OCAMLFIND" ]; then
+        OCAMLFIND=$OCAMLLIB/../../bin/ocamlfind
+    fi
+    if [ ! -x "$OCAMLFIND" ]; then
+        echo-ok "Not found"
+        OCAMLFIND=
+    else
+        echo-ok $OCAMLFIND
+    fi
+elif [ -x "$OCAMLFIND" ]; then
+    echo-ok $OCAMLFIND
+else
+    echo-err "Not found"
+    echo "You specified $OCAMLFIND on the command-line, but it doesn't exist or isn't executable" >&2
+    OCAMLFIND=
+fi
+
+EXTRA_TAGS="-tag use_unix"
+check-ocaml-lib () {
+    local MODULE=$1; shift
+    local LIB=$1; shift
+    local LIBDIR=$1; shift
+    [ $# -eq 0 ]
+
+    local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
+    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
+    cd $DIR
+
+    echo "module M = $MODULE" >check_${LIB}.ml
+
+    local libdir_ins=""
+    if [ "$LIBDIR" != "$OCAMLLIB" ]; then libdir_ins=' ~dir:"'$LIBDIR'"'; fi
+    cat >myocamlbuild.ml <<EOF
+let _ = Ocamlbuild_plugin.dispatch (function
+  | Ocamlbuild_plugin.After_rules ->
+      Ocamlbuild_plugin.ocaml_lib ~extern:true$libdir_ins ~tag_name:"use_my_lib" "$LIB"
+  | _ -> ()
+)
+EOF
+
+    echo "# $OCAMLBUILD$OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native" >> $CONFIG_LOG
+
+    R=0; $OCAMLBUILD$OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native >check_${LIB}.log 2>&1 || R=$?
+    cat check_${LIB}.log >> $CONFIG_LOG
+
+    if [ $R -ne 0 ]; then
+        echo-err "could not compile"
+        echo "----------"
+        tail -n 5 check_${LIB}.log | sed 's/^/	/'
+        echo "----------"
+        echo "The installation of $LIB seems broken, please fix it (did it come with a different ocaml compiler ?)"
+        return 1
+    else
+        echo-ok-tag
+    fi >&2
+    rm -rf /tmp/${DIR#/tmp/}
+    trap - EXIT
+    cd "$OPA_SOURCE_DIR"
+}
+
+check-cmxa () {
+    local DIR=$1; shift
+    [ $# -gt 0 ]
+    local canonical_name=$1
+    while [ $# -gt 0 ] && [ ! -e "$DIR/$(basename $1).cmxa" ]; do shift; done
+    if [ $# -eq 0 ]; then
+        echo-err "Not found"
+        echo "Please fix your installation of $canonical_name in $LIBDIR: no proper cmxa file was found there." >&2
+        return 1
+    fi
+    echo $1
+}
+
+locate-ocaml-lib () {
+    local MODULE=$1; shift # one module that the lib contains, to check
+    [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
+
+    echo-check for $(basename $1)
+
+    local LIBDIR=""
+    local LIB
+    local LIB_NAMES=("$@")
+    while [ $# -gt 0 ] && [ -z "$LIBDIR" ]; do
+        LIB=$(basename $1)
+        USUAL_DIR=$(dirname $1)
+        [ "$USUAL_DIR" = "." ] && USUAL_DIR=$LIB
+        if [ -n "$OCAMLFIND" ] &&
+           LIBDIR=$("$OCAMLFIND" query "$LIB" 2>/dev/null)
+        then
+            LIB=$(check-cmxa $LIBDIR $LIB "${LIB_NAMES[@]}") || return 1
+            echo-ok -n "ocamlfind:$LIBDIR, "
+        elif [ -d "$OCAMLLIB"/"$USUAL_DIR" ]
+        then
+            LIB=$(check-cmxa "$OCAMLLIB"/"$USUAL_DIR" $LIB "${LIB_NAMES[@]}") \
+                || return 1
+            echo-ok -n "+$USUAL_DIR, "
+            LIBDIR=+"$USUAL_DIR"
+        elif [ -e "$OCAMLLIB"/"$LIB".cmxa ]
+        then
+            echo-ok -n "$LIB.cmxa, "
+            LIBDIR="$OCAMLLIB"
+        fi
+        shift
+    done
+    if [ -z "$LIBDIR" ]; then
+        echo-err "Not found"
+        return 1
+    fi
+
+    check-ocaml-lib "$MODULE" "$LIB" "$LIBDIR" || return 1
+    echo "$LIBDIR/$LIB"
+}
+# for libs which are needed (fatal warning)
+LIBS_NOT_FOUND=()
+lib-not-found () {
+    local lib=$1; shift
+    local package=$1; shift
+    LIBS_NOT_FOUND[${#LIBS_NOT_FOUND[@]}]="$lib (might be found in package $package)"
+}
+
+# - checking ocaml-ssl
+if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
+then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
+fi
+
+# - checking cryptokit
+if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-ocaml-lib "Cryptokit" "cryptokit")
+then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
+fi
+
+# - checking camlzip
+if ! CONFIG_LIB_CAMLZIP=$(locate-ocaml-lib "Zip" "camlzip" "zip")
+then lib-not-found "camlzip" "libzip-ocaml-dev"
+fi
+
+# - checking ocamlgraph
+if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph/graph")
+then lib-not-found "ocamlgraph" "libocamlgraph-ocaml-dev"
+fi
+
+# - checking ulex
+if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
+then lib-not-found "ulex" "ocaml-ulex"
+fi
+
+# # - checking camlimages *
+# CONFIG_LIB_CAMLIMAGES=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_graphics" locate-ocaml-lib "Jpeg" "camlimages") || true
+
+if [ ${#LIBS_NOT_FOUND[@]} -ne 0 ]; then
+    echo
+    echo "Not configured. You need the following libraries installed:" >&2
+    for lib in "${LIBS_NOT_FOUND[@]}"; do
+        echo "  - $lib" >&2
+    done
+    false
+fi
+
+# Output the configuration
+
+dir_opt() {
+    local DIR=$(dirname "$1"); shift; [ $# -eq 0 ]
+    if [ "$DIR" = "$OCAMLLIB" ]; then echo 'None'
+    else echo 'Some "'$DIR'"'
+    fi
+}
+
+camlbool() { [ $# -eq 1 ]; if [ -n "$1" ]; then echo true; else echo false; fi; }
+
+camlstrtuple() {
+    echo -n '"'$1'"'; shift
+    while [ $# -gt 0 ]; do
+        echo -n ', "'$1'"'; shift
+    done
+}
+
+camlopt() {
+    local cond=$1; shift
+    local val=$1; shift
+    [ $# -eq 0 ]
+    if [ -n "$cond" ]; then echo 'Some ('$val')'
+    else echo 'None'
+    fi
+}
+
+ALL_TAGS_LIST="camlidl libnatpmp miniupnpc"
+TAGS_LIST=""
+for tag in $ALL_TAGS_LIST; do
+    hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
+    if [ -n "${!hasvar}" ]; then TAGS_LIST="$TAGS_LIST\"$tag\"; "; fi
+done
+
+# See config.mli for the documentation and spec of these variables
+cat >config.ml <<EOF
+let prefix = "$PREFIX"
+let ocamllib = "$OCAMLLIB"
+let ocamlopt = "$OCAMLOPT"
+let ocamlbuild = "$OCAMLBUILD"
+let ocamlbuild_flags = "$OCAMLBUILD_FLAGS"
+let camlp4o = "$CAMLP4O"
+let camlp4orf = "$CAMLP4ORF"
+
+let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
+let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
+let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
+
+let available = [ $TAGS_LIST]
+let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
+
+let is_release = $(camlbool "$IS_RELEASE")
+type os = Linux | Mac | Win32 | Cygwin
+let os =
+  $(if [ -n "${IS_LINUX:-}" ]; then echo Linux
+    elif [ -n "${IS_MAC:-}" ]; then echo Mac
+    else echo 'match Sys.os_type with "Win32" -> Win32 | "Cygwin" -> Cygwin | _ -> assert false'
+    fi)
+
+module Libdir = struct
+  let ssl = $(dir_opt "$CONFIG_LIB_OCAMLSSL")
+  let cryptokit = $(dir_opt "$CONFIG_LIB_CRYPTOKIT")
+  let camlzip_name = "$(basename "$CONFIG_LIB_CAMLZIP")"
+  let camlzip = $(dir_opt "$CONFIG_LIB_CAMLZIP")
+  let graph = $(dir_opt "$CONFIG_LIB_OCAMLGRAPH")
+  let ulex = $(dir_opt "$CONFIG_LIB_ULEX")
+end
+
+let ext_lib = "$EXT_LIB"
+let ext_obj = "$EXT_OBJ"
+let ext_shared = "$EXT_SHARED"
+
+EOF
+
+cat >config.sh <<EOF
+PREFIX="$PREFIX"
+OCAMLLIB="$OCAMLLIB"
+OCAMLOPT="$OCAMLOPT"
+OCAMLBUILD="$OCAMLBUILD"
+OCAMLBUILD_FLAGS="$OCAMLBUILD_FLAGS"
+CAMLP4O="$CAMLP4O"
+CAMLP4ORF="$CAMLP4ORF"
+OCAML_WORD_SIZE="$OCAML_WORD_SIZE"
+
+HAS_CAMLIDL="$HAS_CAMLIDL"
+CAMLIDL="$CAMLIDL"
+HAS_LIBNATPMP="$HAS_LIBNATPMP"
+LIBNATPMP=(${LIBNATPMP[@]})
+HAS_MINIUPNPC="$HAS_MINIUPNPC"
+MINIUPNPC=(${MINIUPNPC[@]})
+IS_RELEASE="$IS_RELEASE"
+IS_LINUX="${IS_LINUX:-}"
+IS_WINDOWS="${IS_WINDOWS:-}"
+IS_MAC="${IS_MAC:-}"
+OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
+     elif [ -n "${IS_MAC:-}" ]; then echo '"Mac"'
+     elif [ -n "${IS_WINDOWS:-}" ]; then echo '"Win32"'
+     else echo "Error: OS inconsistency" >&2; exit 2
+     fi)
+
+LIB_OCAMLSSL_DIR="$(dirname "$CONFIG_LIB_OCAMLSSL")"
+LIB_CRYPTOKIT_DIR="$(dirname "$CONFIG_LIB_CRYPTOKIT")"
+LIB_CAMLZIP_NAME="$(basename "$CONFIG_LIB_CAMLZIP")"
+LIB_CAMLZIP_DIR="$(dirname "$CONFIG_LIB_CAMLZIP")"
+LIB_OCAMLGRAPH_DIR="$(dirname "$CONFIG_LIB_OCAMLGRAPH")"
+LIB_ULEX_DIR="$(dirname "$CONFIG_LIB_ULEX")"
+
+EXT_LIB="$EXT_LIB"
+EXT_OBJ="$EXT_OBJ"
+EXT_SHARED="$EXT_SHARED"
+EOF
+
+sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
+if [ -n "${IS_MAC:-}" ]; then
+    echo "INSTALL := gcp -u -L"
+fi >>config.make
+
+{
+    echo
+    echo "Congrats, you're all set. Installation will be done in:"
+    echo "	[1m$PREFIX[0m"
+    echo
+} >&2

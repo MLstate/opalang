@@ -1,0 +1,159 @@
+(** { cps tools } *)
+
+type 'a continuation
+
+module QmlCpsServerLib :
+sig
+  val uncps : ('b continuation -> unit) -> 'b
+  val return : 'a continuation -> 'a -> unit
+end =
+struct
+  let uncps _ = assert false
+  let return _ = assert false
+end
+
+(* recurrence from uncps0 *)
+module A :
+sig
+  val uncps : ('a continuation -> unit) -> 'a
+  val uncps1 : ('a -> 'b continuation -> unit) -> 'a -> 'b
+  val uncps2 :
+    ('a -> ('b -> 'c continuation -> unit) continuation -> unit) ->
+    'a -> 'b -> 'c
+  val uncps3 :
+    ('a ->
+       ('b -> ('c -> 'd continuation -> unit) continuation -> unit)
+         continuation -> unit) ->
+    'a -> 'b -> 'c -> 'd
+  val uncps4 :
+    ('a ->
+         ('b ->
+            ('c -> ('d -> 'e continuation -> unit) continuation -> unit)
+              continuation -> unit)
+           continuation -> unit) ->
+    'a -> 'b -> 'c -> 'd -> 'e
+end =
+struct
+  let uncps = QmlCpsServerLib.uncps
+  let uncps1 f x = uncps (f x)
+  let uncps2 f x = uncps1 (uncps (f x))
+  let uncps3 f x = uncps2 (uncps (f x))
+  let uncps4 f x = uncps3 (uncps (f x))
+end
+
+(* recurrence from uncps1 *)
+module B :
+sig
+  val uncps1 : ('a -> 'b continuation -> unit) -> 'a -> 'b
+  val uncps2 :
+    ('a -> ('b -> 'c continuation -> unit) continuation -> unit) ->
+    'a -> 'b -> 'c
+  val uncps3 :
+    ('a ->
+       ('b -> ('c -> 'd continuation -> unit) continuation -> unit)
+         continuation -> unit) ->
+    'a -> 'b -> 'c -> 'd
+  val uncps4 :
+    ('a ->
+         ('b ->
+            ('c -> ('d -> 'e continuation -> unit) continuation -> unit)
+              continuation -> unit)
+           continuation -> unit) ->
+    'a -> 'b -> 'c -> 'd -> 'e
+end =
+struct
+  let uncps1 = A.uncps1
+  let uncps2 f x1 = uncps1 (uncps1 f x1)
+  let uncps3 f x1 x2 = uncps1 (uncps2 f x1 x2)
+  let uncps4 f x1 x2 x3 = uncps1 (uncps3 f x1 x2 x3)
+end
+
+(* in the other way *)
+module C :
+sig
+  val cps0 : 'a -> 'a continuation -> unit
+  val cps1 : ('a -> 'b) -> 'a -> 'b continuation -> unit
+  val cps2 :
+    ('a -> 'b -> 'c) ->
+    'a -> ('b -> 'c continuation -> unit) continuation -> unit
+  val cps3 :
+    ('a -> 'b -> 'c -> 'd) ->
+    'a ->
+    ('b -> ('c -> 'd continuation -> unit) continuation -> unit)
+      continuation -> unit
+  val cps4 :
+    ('a -> 'b -> 'c -> 'd -> 'e) ->
+    'a ->
+    ('b ->
+       ('c -> ('d -> 'e continuation -> unit) continuation -> unit)
+         continuation -> unit)
+      continuation -> unit
+end
+=
+struct
+  let cps0 f k   = QmlCpsServerLib.return k f
+  let cps1 f x k = QmlCpsServerLib.return k (f x)
+  let cps2 f x k = QmlCpsServerLib.return k (cps1 (f x))
+  let cps3 f x k = QmlCpsServerLib.return k (cps2 (f x))
+  let cps4 f x k = QmlCpsServerLib.return k (cps3 (f x))
+end
+
+(* NARY MODE *)
+
+(* recursive definition *)
+module D :
+sig
+  val uncps : ('a continuation -> unit) -> 'a
+  val uncps1 : ('a -> 'b continuation -> unit) -> 'a -> 'b
+  val uncps2 : ('a -> 'b -> 'c continuation -> unit) -> 'a -> 'b -> 'c
+  val uncps3 : ('a -> 'b -> 'c -> 'd continuation -> unit) -> 'a -> 'b -> 'c -> 'd
+  val uncps4 : ('a -> 'b -> 'c -> 'd -> 'e continuation -> unit) -> 'a -> 'b -> 'c -> 'd -> 'e
+end =
+struct
+  let uncps = QmlCpsServerLib.uncps
+  let uncps1 f a = uncps (f a)
+  let uncps2 f a = uncps1 (f a)
+  let uncps3 f a = uncps2 (f a)
+  let uncps4 f a = uncps3 (f a)
+end
+
+(* expended definition *)
+module E :
+sig
+  val uncps : ('a continuation -> unit) -> 'a
+  val uncps1 : ('a -> 'b continuation -> unit) -> 'a -> 'b
+  val uncps2 : ('a -> 'b -> 'c continuation -> unit) -> 'a -> 'b -> 'c
+  val uncps3 : ('a -> 'b -> 'c -> 'd continuation -> unit) -> 'a -> 'b -> 'c -> 'd
+  val uncps4 : ('a -> 'b -> 'c -> 'd -> 'e continuation -> unit) -> 'a -> 'b -> 'c -> 'd -> 'e
+end =
+struct
+  let uncps = QmlCpsServerLib.uncps
+  let uncps1 f a = uncps (f a)
+  let uncps2 f a b = uncps (f a b)
+  let uncps3 f a b c = uncps (f a b c)
+  let uncps4 f a b c d = uncps (f a b c d)
+end
+
+(* in the other way *)
+module C :
+sig
+  val cps0 : 'a -> 'a continuation -> unit
+  val cps1 : ('a -> 'b) -> 'a -> 'b continuation -> unit
+  val cps2 :
+    ('a -> 'b -> 'c) ->
+    ('a -> 'b -> 'c continuation -> unit)
+  val cps3 :
+    ('a -> 'b -> 'c -> 'd) ->
+    ('a -> 'b -> 'c -> 'd continuation -> unit)
+  val cps4 :
+    ('a -> 'b -> 'c -> 'd -> 'e) ->
+    ('a -> 'b -> 'c -> 'd -> 'e continuation -> unit)
+end
+=
+struct
+  let cps0 f k   = QmlCpsServerLib.return k f
+  let cps1 f x k = QmlCpsServerLib.return k (f x)
+  let cps2 f x y k = QmlCpsServerLib.return k (f x y)
+  let cps3 f x y z k = QmlCpsServerLib.return k (f x y z)
+  let cps4 f x y z t k = QmlCpsServerLib.return k (f x y z t)
+end

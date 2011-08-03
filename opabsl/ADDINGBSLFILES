@@ -1,0 +1,12 @@
+Hello ;) 
+
+If you're here, you probably want to add some bypass primitiv with new implementation files to the BSL.
+To do it, you can simply add your file here in the appropriate directory, check that it contains register directives, 
+and add its name to the file bsl-sources in the same directory.
+
+If there is an ml implementation, your primitives will be loaded in the qmltop-level.
+After reinstalling the libbsl upgraded with your new lib,
+you can check that your new modules or functions are available by using the libbsl introspection tool : bslbrowser
+
+Enjoy,
+M & M

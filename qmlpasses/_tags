@@ -1,0 +1,13 @@
+# -*- conf -*- (for emacs)
+
+<**/*.{ml,mli,byte,native}>: use_str, use_libbase, use_compilerlib, use_libtrx, use_passlib, use_buildinfos, use_libqmlcompil, use_opacapi
+
+<pass_LambdaLifting.ml> : with_mlstate_debug, use_graph
+<pass_ExplicitInstantiation.ml> : with_mlstate_debug
+
+<pass_{BypassHoisting,Uncurry}.ml> : with_mlstate_debug
+<pass_SimplifyMagic.ml>: with_mlstate_debug, use_libqmlcompil
+<pass_SimplifyEquality.ml>: with_mlstate_debug, use_libqmlcompil
+<pass_Closure.{ml,mli}>: with_mlstate_debug, use_jslang
+<pass_ConstantSharing.ml>: with_mlstate_debug
+<pass_GenerateServerAst.ml>: with_mlstate_debug, use_jslang

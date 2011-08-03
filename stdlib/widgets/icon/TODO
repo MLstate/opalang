@@ -1,0 +1,14 @@
+== Widget Icon ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Add comments !
+
+.Short term
+- Think about interaction with button (icon could be a subwidget of button)
+
+.Later
+-

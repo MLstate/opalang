@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>OPA</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.mlstate.opa.pkg</string>
+	<key>CFBundleName</key>
+	<string>OPA</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>IFMajorVersion</key>
+	<integer>0</integer>
+	<key>IFMinorVersion</key>
+	<integer>2</integer>
+	<key>IFPkgFlagAllowBackRev</key>
+	<false/>
+	<key>IFPkgFlagAuthorizationAction</key>
+	<string>RootAuthorization</string>
+	<key>IFPkgFlagDefaultLocation</key>
+	<string>/opt/mlstate</string>
+	<key>IFPkgFlagFollowLinks</key>
+	<true/>
+	<key>IFPkgFlagInstallFat</key>
+	<false/>
+	<key>IFPkgFlagInstalledSize</key>
+	<integer>0</integer>
+	<key>IFPkgFlagIsRequired</key>
+	<false/>
+	<key>IFPkgFlagOverwritePermissions</key>
+	<false/>
+	<key>IFPkgFlagRelocatable</key>
+	<false/>
+	<key>IFPkgFlagRestartAction</key>
+	<string>None</string>
+	<key>IFPkgFlagRootVolumeOnly</key>
+	<false/>
+	<key>IFPkgFlagUpdateInstalledLanguages</key>
+	<false/>
+	<key>IFPkgFormatVersion</key>
+	<real>0.1000000014901161</real>
+        <key>IFRequirementDicts</key>
+        <array>
+                <dict>
+                        <key>MessageKey</key>
+                        <string>To develop with OPA, you will first need to install XCode. XCode is distributed for free by Apple as an additional disc provided with MacOS X. You can also download it from Apple's website, at http://developer.apple.com/technology/xcode.html</string>
+                        <key>SpecArgument</key>
+                        <string>/usr/bin/as</string>
+                        <key>SpecType</key>
+                        <string>file</string>
+                        <key>TestObject</key>
+                        <true/>
+                        <key>TestOperator</key>
+                        <string>eq</string>
+                        <key>TitleKey</key>
+                        <string>Missing XCode</string>
+                </dict>
+        </array>
+
+</dict>
+</plist>

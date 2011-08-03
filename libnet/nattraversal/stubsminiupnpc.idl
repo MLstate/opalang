@@ -1,0 +1,61 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+quote("#include <stdlib.h>");
+quote("#include <stdio.h>");
+
+quote("#include <miniupnpc/miniupnpc.h>");
+
+quote("#include \"custom_miniupnpc.h\"");
+
+
+
+struct UPNPDev {
+    struct UPNPDev * pNext;
+    char * descURL;
+    char * st;
+    char buffer[2];
+};
+
+[string, null_terminated] char * get_descURL_of_UPNPDev([in] struct UPNPDev x)
+    quote(call, "_res = x.descURL;") ;
+
+
+/* upnpDiscover()
+ * discover UPnP devices on the network.
+ * The discovered devices are returned as a chained list.
+ * It is up to the caller to free the list with freeUPNPDevlist().
+ * delay (in millisecond) is the maximum time for waiting any device
+ * response.
+ * If available, device list will be obtained from MiniSSDPd.
+ * Default path for minissdpd socket will be used if minissdpdsock argument
+ * is NULL.
+ * If multicastif is not NULL, it will be used instead of the default
+ * multicast interface for sending SSDP discover packets.
+ * If sameport is not null, SSDP packets will be sent from the source port
+ * 1900 (same as destination port) otherwise system assign a source port. */
+struct UPNPDev * upnpDiscover([in,int32] int delay, [in,string] const char * multicastif,
+		       [in,string] const char * minissdpdsock, [in,int32] int sameport,
+		       [in] boolean ipv6,
+		       [out,unique] int * error)
+  quote(call, "_res = upnpDiscover(delay, multicastif, minissdpdsock, sameport, ipv6, error);") ;
+
+
+int open_a_port([in,string] const char * iadr, [in,int32] int extPort, [in,int32] int inPort, [in,string] const char * proto) ;
+
+int close_a_port([in,string] const char * iadr, [in,string] const char * extPort, [in,string] const char * proto) ;

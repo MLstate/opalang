@@ -1,0 +1,282 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+# TODO
+#   - Implement trxdefine
+#   - Debug Prevent and SubPattern
+#   - Move over to trx_expr (difficult)
+read default.trx
+read ocaml_parser.trx
+#read trx_expr.trx
+
+types:{{
+open Ocaml
+open Tgrammar
+
+type expr =
+  | Debugvar of string
+  | Generate of string
+  | Protocol of string
+  | Include of string
+  | Define of expr * expr list
+  | TrxDefine of string Tgrammar.PreGrammar.sequence list * expr list
+  | SubPattern of string * string * expr list
+  | Constr of string * expr list
+  | Import of expr
+  | MOpen of string
+  | MAlias of string * string
+  | Set of expr * string
+  | Literal of string * string option
+  | Ident of string
+  | Prevent of string
+  | GVar of string * Ocaml.type_expr
+  | GLet of expr * expr
+  | Errcont of string
+  | MType of string * Ocaml.type_expr
+  | MVal of string * Ocaml.type_expr
+  | Raw of string * (string * string list)
+         * (string * Ocaml.type_expr option * (string * string list) option * (string * string) option) list
+  | Case of (expr * expr option) * expr list
+  | Timeout of string * expr list
+  | Upto of Ocaml.expr * expr list * expr list * expr option
+  | Fixed of Ocaml.expr * expr list * expr list * expr option
+  | ReadRaw of expr list * expr list * expr option
+  | Content of Ocaml.expr * expr list * expr list * expr option
+  | Receive of string option * string option * expr list * expr list * expr option
+  | Call of string * expr list
+  | Send of string
+  | SendBuf of Ocaml.expr
+  | SendBufLen of Ocaml.expr * Ocaml.expr
+  | WriteConn of string
+  | ReadConn of expr * string
+  | Sleep of Ocaml.expr
+  | Listen of expr * Ocaml.expr * string list (* let key = listen(port_spec,function_name,function_args) *)
+  | Connect of Ocaml.expr * string list (* (port_spec,function_name,function_args) *)
+  | SendAll of string
+  | GVerbatim of string option * int option * bool * string option * string
+  | OcamlTop of Ocaml.expr list
+  | Ocaml of string option * int option * bool * string option * Ocaml.expr
+  | Async of bool * string option * Ocaml.expr
+  | Startfun of string * expr list * expr list
+  | Fun of string * expr list * expr list
+  | Block of expr list
+  | If of expr * expr * expr
+  | GMatch of bool * string option * Ocaml.expr * ((Ocaml.expr option * Ocaml.pattern) * expr) list
+  | Underscore
+  | Close
+}}
+
+########################
+#      Primitives      #
+########################
+allowed_chars <- [a-zA-Z0-9_'\-éèàêç]
+qallowed_chars <- [.] / allowed_chars
+callowed_chars <- [:] / allowed_chars
+keywords <- (("begin" / "end" / "if" / "then" / "else" / "match" / "with" / "when" / "after" / "as" / "debug" / "release" / "let" 
+          / "connect" / "writeconn"  / "readconn" / "listen" / "send_all" / "send_buf" / "send" / "receive" / "catch"
+          / "upto" / "fixed" / "read_content" / "rawread" / "sleep"
+          / ";;" / "->" / ":" / "~" / "*" / "+" / "?" / "=" / "-!-" / "<<" / ">>" / "[[" / "]]" / "{{" / "}}"
+          / "-trxdefine" / "-debugvar" / "-generate" / "-protocol" / "client" / "server" / "-include" / "-open" / "-modalias"
+          / "-define" / "-raw" / "-import" / "-set" / "-type" / "-val" / "<lws>") !allowed_chars) $_
+quote <- '"'
+capital <- [A-Z]
+tos <- ' ' / '\t' / "\\\n"
+delimitor <- ";;" $ / Default.eol $
+ident_ <- (allowed_chars)+ $_
+ident <- (!keywords ident_) $_
+qident_ <- (qallowed_chars)+ $_
+qident <- (!keywords qident_) $_
+cident_ <- (callowed_chars)+ $_
+cident <- (!keywords cident_) $_
+literal <- quote Default.stringchar* quote $_
+
+
+#######################
+#    Miscellaneous    #
+#######################
+percentcomment <- '%' (!Default.eol .)* (Default.eol+ / Default.eof+) $
+spc <- (percentcomment $ / Default.space $ / Default.mlcomment $)* $
+
+mods <- "~" / "*" / "+" / "?" $_
+word <- literal mods? {{ Literal (__1,__2) }}
+      / ident {{ Ident __1 }}
+      / '!' (literal / ident) {{ Prevent __2 }}
+      / '(' spc pattern spc ')' ('*'/'+'/'?') spc "as" spc ident {{ SubPattern (__10, __6, __3) }}
+
+constr <- capital allowed_chars* $_
+
+real_param <- (!"when" (ident / literal)) spc ":" spc type {{ GVar (__1, __5) }}
+            / (!"when" (ident / literal)) {{ GVar (__1, TypeConst TypeString) }}
+param <- '(' spc real_param spc ')' {{ __3 }}
+       / real_param
+
+real_pl <- spc param (spc ',' spc param {{ __4 }})* {{ __2::__3 }}
+plist <- '(' real_pl ')' {{ __2 }}
+       / real_pl
+
+real_tp <- constr (spc plist {{ __2 }})? {{ let x = (match __2 with None -> [] | Some lst -> lst) in Constr (__1, x) }}
+typepattern <- '(' spc real_tp spc ')' {{ __3 }}
+             / real_tp {{ __1 }}
+
+#trxtypepat <- Trx_expr.Expression {{ __1 }}
+#trxdefine  <- "-trxdefine"   spc trxtypepat spc "=" spc pattern spc delimitor? spc   {{ TrxDefine ( __3, __7) }}
+
+
+#####################
+# Related to: types #
+#####################
+typident <- Ocaml_types.typevars? Ocaml_types.typeIdent $_ 
+type <- Ocaml_types.typedeflist
+
+
+###########################
+# Related to rule: define #
+###########################
+pattern <- spc tos* word (tos+ word {{ __2 }})* spc tos* {{  __3::__4 }}
+
+
+################################
+# Related to rules: func, call #
+################################
+statecall <- ident spc '(' args? ')' {{ __1, (match __4 with None -> [] | Some lst -> lst) }}
+statedef <- ident spc '(' real_pl? ')' {{ __1, (match __4 with None -> [] | Some lst -> lst) }}
+arg <- (ident {{ Ocaml (None,None,false,None,Ocaml.make_Var __1) }} / ocaml / verbatim)
+args <- (spc arg spc ',' {{ __2 }})* spc arg spc {{ __1 @ [__3] }}
+
+
+############################
+# Related to rule: receive #
+############################
+guard <- "when" spc (ocaml / verbatim) {{ __3 }}
+timeout <- "after" spc (Default.strfloat {{ "(Time.seconds_float " ^ __1 ^ ")" }} / qident $_) spc "->" spc code+ {{ Timeout (__3, __7) }}
+matching <- spc '|' spc '_'         spc guard?    "->" spc code+ {{ Case ((Underscore, __6), __9) }}
+          / spc '|' spc typepattern spc guard?    "->" spc code+ {{ Case ((__4, __6), __9) }}
+          / spc '|' spc ident       spc guard?    "->" spc code+ {{ Case ((Ident __4, __6), __9) }}
+maybewith <- "with" spc ident spc {{ __3 }}
+maybeas <- "as" spc ident spc {{ __3 }}
+
+# Ho hum. We need to protect these from running into idents.
+DEBUG <- "debug" !allowed_chars $_
+RELEASE <- "release" !allowed_chars $_
+LET <- "let" !allowed_chars $_
+BEGIN <- "begin" !allowed_chars $_
+END <- "end" !allowed_chars $_
+IF <- "if" !allowed_chars $_
+THEN <- "then" !allowed_chars $_
+ELSE <- "else" !allowed_chars $_
+MATCH <- "match" !allowed_chars $_
+WITH <- "with" !allowed_chars $_
+WRITECONN <- "writeconn" !allowed_chars $_
+SLEEP <- "sleep" !allowed_chars $_
+READCONN <- "readconn" !allowed_chars $_
+CONNECT <- "connect" !allowed_chars $_
+LISTEN <- "listen" !allowed_chars $_
+SEND <- "send" !allowed_chars $_
+SEND_ALL <- "send_all" !allowed_chars $_
+SEND_BUF <- "send_buf" !allowed_chars $_
+UPTO <- "upto" !allowed_chars $_
+FIXED <- "fixed" !allowed_chars $_
+CONTENT <- "read_content" !allowed_chars $_
+RAWREAD <- "rawread" !allowed_chars $_
+RECEIVE <- "receive" !allowed_chars $_
+CATCH <- "catch" !allowed_chars $_
+SLEEP <- "sleep" !allowed_chars $_
+ERRCONT <- "errcont" !allowed_chars $_
+
+#########################
+# Related to rule: code #
+#########################
+# TODO: remove verbatim when ocaml_parser.trx is more complete
+otrm <- spc ';'? spc
+rtrm <- spc ';' spc
+close <- "-!-" otrm {{ Close }}
+call <- statecall ';'? Default.space+ spc {{ Call (fst __1, snd __1) }}
+ocamltop <- "{{" spc Ocaml_parser.LetOrType (spc Ocaml_parser.LetOrType {{ __2 }})* spc "}}" otrm {{ OcamlTop (__3::__4) }}
+dbgrls <- (DEBUG / RELEASE)? {{ __1 }}
+async <- "!"? spc literal? spc "<<" spc Ocaml_parser.Expr spc ">>" otrm {{ Async (Option.is_some __1,__3,__7) }}
+ocaml <- dbgrls spc Default.int? spc "!"? spc literal? spc "{{" spc Ocaml_parser.Expr spc "}}" otrm
+         {{ Ocaml (__1,__3,(Option.is_some __5),__7,__11) }}
+verbatim <- dbgrls spc Default.int? spc "!"? spc literal? spc "[[" ((!"]]" .)+ $_) "]]" otrm
+            {{ GVerbatim (__1,__3,(Option.is_some __5),__7,__10) }}
+letin <- LET spc param spc '=' spc (ocaml / verbatim / async) otrm {{ GLet (__3, __7) }}
+errcont <- ERRCONT spc "(" spc ident spc ")" spc otrm {{ Errcont __5 }}
+sequence <- BEGIN spc code+ END spc {{ Block __3 }}
+cond <- IF spc (ocaml / verbatim) THEN spc code+ ELSE spc code+ (END spc $_)? {{ If (__3, Block __6, Block __9) }}
+patexp <- spc '|' spc Ocaml_parser.pattern spc "->" spc code+ {{ (__4, Block __8) }}
+match <- MATCH spc "!"? spc literal? spc "{{" spc Ocaml_parser.Expr spc "}}" spc WITH spc patexp+ otrm
+         {{ GMatch ((Option.is_some __3),__5,__9,__15) }}
+connwrite <- WRITECONN spc ((!';' .)* $_) rtrm {{ WriteConn __3 }}
+sleep <- SLEEP spc "{{" spc Ocaml_parser.Expr spc "}}" otrm {{ Sleep __5 }}
+connread  <- LET spc param spc '=' spc READCONN spc ((!';' .)* $_) rtrm {{ ReadConn (__3,__9) }}
+not_ident <- ',' / ')' / ' ' / '\t'
+comma_ident <- ',' spc ident {{ __3 }}
+comma_idents <- comma_ident spc (comma_ident spc {{ __1 }})* {{ __1::__3 }}
+connect <- CONNECT spc '(' spc "{{" spc Ocaml_parser.Expr spc "}}" spc comma_idents spc ')' otrm {{ Connect (__7,__11) }}
+listen <- LET spc param spc '=' spc
+          LISTEN spc '(' spc "{{" spc Ocaml_parser.Expr spc "}}" spc comma_idents spc ')' otrm
+            {{ Listen (__3,__13,__17) }}
+send <- SEND spc ((!';' .)* $_) rtrm {{ Send __3 }}
+sendbuf <- SEND_BUF spc "{{" spc Ocaml_parser.Expr spc "}}" otrm {{ SendBuf __5 }}
+sendall <- SEND_ALL spc ((!';' .)* $_) spc ';' spc {{ SendAll __3 }}
+upto <- UPTO spc "{{" spc Ocaml_parser.Expr spc "}}" matching+ (CATCH spc matching+ {{__3}})? timeout? otrm
+        {{ Upto (__5, __8, (match __9 with Some l -> l | None -> []), __10) }}
+fixed <- FIXED spc "{{" spc Ocaml_parser.Expr spc "}}" matching+ (CATCH spc matching+ {{__3}})? timeout? otrm
+         {{ Fixed (__5, __8, (match __9 with Some l -> l | None -> []), __10) }}
+content <- CONTENT spc "{{" spc Ocaml_parser.Expr spc "}}" matching+ (CATCH spc matching+ {{__3}})? timeout? otrm
+           {{ Content (__5, __8, (match __9 with Some l -> l | None -> []), __10) }}
+rawread <- RAWREAD spc matching+ (CATCH spc matching+ {{__3}})? timeout? otrm
+            {{ ReadRaw (__3, (match __4 with Some l -> l | None -> []), __5) }}
+receive <- RECEIVE spc maybewith? maybeas? matching+ CATCH spc matching+ timeout? spc
+           {{ Receive (__3, __4, __5, __8, __9) }}
+         / RECEIVE spc maybewith? maybeas? matching+ timeout? spc
+           {{ Receive (__3, __4, __5, [], __6) }}
+
+code <- receive / sendall / send / sendbuf / connect / connwrite / connread / listen
+      / upto / fixed / content / rawread / sleep / errcont
+      / ocaml / verbatim / async / letin / sequence / cond / match / close / call
+
+
+#########################
+# Related to rule: prog #
+#########################
+dbgvar  <- "-debugvar" spc ident spc                                             {{ Debugvar __3 }}
+gen     <- "-generate" spc ("client" $_ / "server" $_) spc delimitor? spc        {{ Generate __3 }}
+protocol<- "-protocol" spc ident:protocol spc {{ Protocol protocol }}
+incl    <- "-include"  spc Default.stringnosp spc delimitor? spc                 {{ Include __3 }}
+mopen   <- "-open"     spc ((!Default.space .)* $_) spc delimitor? spc           {{ MOpen __3 }}
+malias  <- "-modalias" spc ((!Default.space .)* $_) spc "=" spc ((!Default.space .)* $_) delimitor? spc {{ MAlias (__3,__7) }}
+define  <- "-define"   spc typepattern spc "=" spc pattern spc delimitor? spc    {{ Define (__3, __7) }}
+import  <- "-import"   spc param spc delimitor? spc                              {{ Import __3 }}
+set     <- "-set"      spc param spc "=" spc ((!delimitor .)+ $_) delimitor? spc {{ Set (__3, __7) }}
+deftype <- "-type"     spc typident spc '=' spc type spc delimitor? spc          {{ MType (__3, __7) }}
+defval  <- "-val"      spc typident spc ':' spc type spc delimitor? spc          {{ MVal (__3, __7) }}
+func    <- '+'? spc statedef spc ':' spc code+ spc delimitor? spc
+           {{ match __1 with
+              | None -> Fun (fst __3, snd __3, __7)
+              | Some _ -> Startfun (fst __3, snd __3, __7) }}
+
+lopt    <- ("s"~ / "l"~ / "m"~ / "i"~ / "t"~) {{ String.lowercase __1 }}
+litopt  <- literal lopt* {{ (__1, __2) }}
+convfn  <- "(" spc ident spc spc "," spc ident spc ")" {{ (__3, __8) }}
+rawmtch <- ident spc type? spc litopt? spc convfn? spc {{ (__1, __3, __5, __7) }}
+raw     <- "-raw" spc ident spc "=" spc litopt spc rawmtch* spc delimitor? spc
+           {{ Raw (__3, __7, __9) }}
+
++prog : {expr list} <- spc (ocamltop / verbatim / dbgvar / gen / protocol / incl / mopen / malias / define / raw #/ trxdefine
+                           / import / set / deftype / defval / func)* {{ __2 }}
+
+# End of file: grammar.trx

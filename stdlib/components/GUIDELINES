@@ -1,0 +1,224 @@
+Guidelines for writing new Components
+=====================================
+Mathieu Baudet <mathieu.baudet@mlstate.com>
+v1.1
+(C) MLstate 2010
+
+////////////////////
+asciidoc format: use 'asciidoc GUIDELINES' to compile into HTML (or not)
+////////////////////
+
+
+== Inherited guidelines ==
+
+The following sections of the guidelines of widgets (see +../widgets/GUIDELINES+) apply as well to components: 
+
+- Definitions
+
+- Package and naming conventions
+(for modules, replace +W+ by +C+, as in +CDataSheet+)
+
+- Configuration of widgets
+
+- Management of DOM identifiers
+
+- HTML styles and CSS classes
+
+- Tests and examples
+
+
+== General design of components ==
+
+Components are active, in the sense that they use one or several OPA sessions to operate an internal state.
+
+Components should never be connected directly to the database. They must rely on an API provided by the developer to do so.
+
+.Graphical components (client-side only)
+Purely graphical components are created and installed in one step.
+
+More precisely, a client-side call to creation function will:
+
+- initialize the internal session(s) using the given configuration and parameters
+
+- compute and then install the HTML of the components on the given id
+
+- (optionnaly) process the already given data to fill the view in a synchroneous way
+
+- return an abstract value containing the channel(s) of the created session(s) as well as the constant parameters (e.g. the id).
+
+.General components (client-side and server-side)
+More complex components (e.g. Chat, ApplicationFrame) that are not purely graphical may require a prior initialization on the server to create a server-side object (generally a session containing a network of clients).
+
+The graphical part of such a general component is designed exactly as a purely graphical component.
+
+[NOTE]
+Components that are often used to render the content of the initial home page of a web site may include a 'bootstrapping widget' (see section below) to make content indexation possible.
+
+
+== Client/server slicing ==
+
+Graphical components should be entirely run on the client-side, unless they are explicitly provided with server functions, or connected to server sessions. (This applies in particular to the graphical part of a general component).
+
+Default configurations must be available on both sides and the functions that they contain must be serializable.
+=> In current version of OPA S3, this means that the functions must be defined at top-level and themselves available on both sides.
+
+CAUTION: Please ensure these properties by testing your components, e.g. by deconnecting the server after the page is loaded. OPA experts may also use the compiler option +--dump-slicer+.
+
+
+== Public interface of graphical components ==
+
+.Functions and types
+The minimal API of a component includes
+
+- one creation function
+
+- a function to send messages to the component's session
+
+The main expected functions are
+
+---------------------------------
+create(config : CXxx.config, id : string, initial_display : CXxx.display, initial_content : CXxx.content, data_writer : CXxx.data_writer, data_requester : CXxx.data_requester) : CXxx.instance
+
+send(obj : CXxx.instance, message : CXxx.message) : void
+---------------------------------
+
+where
+
+- +CXxx.config+ is the type of configurations,
+
+- +CXxx.content+ is the type for the content of the component
+
+- +CXxx.instance+ is the type for an instance of the component itself,
+
+- +CXxx.display+ is the type of the display parameters (display parameters may evolve during time as opposed to a configuration),
+
+- +CXxx.data_writer+ is an automaton that will process the updates coming from the user interface and forward them (by side-effect) to the ``outside world".
+
+- +CXxx.data_requester+ is a set of callbacks to request some content for the component.
+
+A typical definition for the data_writer is:
+------------------------------
+type CXxx.data_writer = CXxx.value -> void
+------------------------------
+
+but more complex definitions may assume that a state is passed along as in:
+------------------------------
+type CXxx.data_writer('state) = {
+  initial_state : 'state
+  on_change : 'state, CXxx.content -> CXxx.instruction('state)
+}
+
+type CXxx.instruction('a) = Session.instruction('a)
+------------------------------
+
+NOTE: The implementation of +CXxx.instance+ should be private to the package.
+
+
+A typical definition for the data_requester is:
+------------------------------
+type CXxx.data_requester = () -> option(CXxx.content)
+------------------------------
+A +data_requester+ is expected to return +{ none }+ if the data is not immediately available. Otherwise, the data may be sent later to the component using a message (see below).
+
+IMPORTANT: By default, data should be requested whenever the display is being updated and a value to be displayed is missing.
+
+NOTE: For bigger components with multiple contents, +CXxx.content+ may be replaced by a map from +CXxx.address+ to +CXxx.value+s.
+-----
+create(...initial_content : list(CXxx.address, CXxx.value) ...)
+
+type CXxx.data_requester = CXxx.address -> option(CXxx.value)
+
+type CXxx.data_writer('state) = {
+  initial_state : 'state
+  on_change : 'state, CXxx.address, Cxxx.value -> CXxx.instruction('state)
+}
+-----
+
+
+.Typical messages handled by the components session
+
+------------------
+type CXxx.message =  // public interface of the session
+  / { setDisplay : Cxxx.display }
+  / { setContent : CXxx.content)) }
+  / { clearContent : void } // mark the content as undefined (i.e. missing)
+  / { getContent : option(CXxx.content) -> void) } // iterate on the content
+  / { stop } // Terminate the session of the component
+
+type CXxx.internal_message = // internal messages (if needed)
+  CXxx.message
+  / { notifyContent : option(CXxx.content))) } // may be needed internally  when the value has just changed, and the data_writer needs to be called
+------------------
+
+Compared to the +data_writer+ and +data_requester+, the messages +setContent+, +getContent+, +clearContent+ above provide an alternative asynchroneous interface to execute read/write operations on the data.
+
+== Interface of general components ==
+
+In the case of general components, a +server+ must be initiated first:
+
+---------------------------------
+init(config : CXxx.config, ...) : CXxx.server
+
+create(config : CXxx.config, server : CXxx.server, id : string, initial_display : CXxx.display, initial_content : CXxx.content, data_writer : CXxx.data_writer, data_requester : CXxx.data_requester) : CXxx.instance
+
+send(obj : CXxx.instance, message : CXxx.message) : void
+---------------------------------
+
+Server-side operations acting on the objects +CXxx.server+ may be defined as well.
+
+== Typical usage of the interface ==
+
+The typical way to install a new component somewhere in the DOM is
+
+- select an +id+ to install the component and that can be used as a prefix
+
+- create a config :
+
+---------------------------------
+     config = { default_config with foo = myvalue }
+---------------------------------
+
+- (for general component only) initiate a server-side object:
+---------------------------------
+     server = init(config, ...)
+---------------------------------
+
+- create and install the component,
+
+for graphical components:
+---------------------------------
+     obj = create(config, id, ...)
+---------------------------------
+
+for general components:
+---------------------------------
+     obj = create(config, server, id, ...)
+---------------------------------
+
+
+== Bootstrapping widget (optional) ==
+
+The 'bootstrapping widget' of a component is a pure function
+
+---------------------------------
+html(config : CXxx.config, id : string, initial_display : CXxx.display, initial_value : CXxx.content, connect_me : CXxx.type -> void) : xhtml
+---------------------------------
+
+or for general components
+---------------------------------
+html(config : CXxx.config, server : CXxx.server, id : string, initial_display : CXxx.display, initial_value : CXxx.content, connect_me : CXxx.type -> void) : xhtml
+---------------------------------
+
+that is used by the server to create a temporary, robot-friendly version of the page (typically for indexation).
+
+It is expected that the server uses this function like this
+
+---------------------------------
+<div id=#{id}>
+   { html(config, id, ...) }
+</div>
+---------------------------------
+
+The computed HTML will include a handler +onready+ that will call the function +create+ of the component so that the boostrapping widget disappears as soon as the JS runtime is operational on the client side.
+
+This handler will also install the object returned by +create+ by calling the appropriate callback (named +connect_me+ in the example above).

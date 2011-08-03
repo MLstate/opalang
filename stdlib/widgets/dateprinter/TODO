@@ -1,0 +1,15 @@
+== Widget Dateprinter ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- Add a styler
+- Deal with client/server time lag
+
+.Short term
+- Make the timer adapt to the current "resolution" of the printed date
+
+.Later
+-

@@ -1,0 +1,33 @@
+# external, kept separate for licensing issues.
+md5.js
+base64.js
+jquery-1.6.1.js
+
+# internal
+jsExtends.js
+bslSyslog.js
+bslPervasives.js
+bslString.js
+bslCactutf.js
+bslNumber.js
+bslTime.js
+bslReference.js
+bslScheduler.js
+bslCrypto.js
+bslBuffer.js
+fbuffer.js
+json2.js
+bslJson.js
+jQueryExtends.js
+bslClientOnly.js
+bslAnchors.js
+bslClient.js
+lowLevelArray.js
+bslCps.js
+bslSession.js
+bslValue.js
+bslClosure.js
+bslDom.js
+bslCanvas.js
+bslDomSupport.js
+bool.js

@@ -1,0 +1,10 @@
+# dependency on qml2ocaml : sharing some pass on qml
+
+# compiler
+<**/*.{ml,mli,byte,native}>: use_libbase, use_buildinfos, use_libtrx, use_libqmlcompil, use_libbsl, use_jslang, use_qmlcpsrewriter, use_qml2ocaml, use_ocamllang, use_qml2js, use_compilerlib, use_qmlpasses, use_passlib, use_opacapi
+
+<imp_Code.ml>: with_mlstate_debug
+<imp_SumCase.ml>: with_mlstate_debug
+<imp_MatchGeneration.ml>: with_mlstate_debug
+<imp_Renaming.ml>: use_graph, with_mlstate_debug
+<imp_Compiler.ml>: with_mlstate_debug

@@ -1,0 +1,19 @@
+# -*- conf -*- (for emacs)
+
+<keyRecMap.ml>: rectypes
+<path.ml>: rectypes
+
+# ppdebug
+<revisionMachine.ml>: with_mlstate_debug
+<session.ml>: with_mlstate_debug
+<transaction.ml>: with_mlstate_debug
+<unwind.ml>: with_mlstate_debug
+<node.ml>: with_mlstate_debug
+<ioManager.ml>: with_mlstate_debug
+<hldb.ml>: with_mlstate_debug
+<query_map.ml>: with_mlstate_debug
+
+# subdirs
+<io>: traverse
+<migration>: traverse
+<structs>: traverse

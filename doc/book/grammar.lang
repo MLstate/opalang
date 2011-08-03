@@ -1,0 +1,5 @@
+(usertype,symbol) = `(<[a-z\-A-Z_]+>)([?*+]?)`
+type = '[a-z\-A-Z_]+(?=[[:blank:]]*::=)'
+symbol = '^[[:space:]]*\||::=|sep'
+(function,symbol) = `([^[:blank:]])([?*+])`
+function = '.'

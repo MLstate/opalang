@@ -1,0 +1,84 @@
+From c376371647e9ef514f3c12f6ece13a736389586b Mon Sep 17 00:00:00 2001
+From: geoffroy <geoffroy.chollon@mlstate.com>
+Date: Tue, 10 May 2011 16:54:44 +0200
+Subject: [PATCH 3/4] propagate renaming of array
+
+---
+ compiler/customarray.ml |    2 +-
+ compiler/cvtval.ml      |   20 ++++++++++----------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/compiler/customarray.ml b/compiler/customarray.ml
+index 2ed2c86..c2d21b4 100644
+--- a/compiler/customarray.ml
++++ b/compiler/customarray.ml
+@@ -10,7 +10,7 @@
+ (*                                                                     *)
+ (***********************************************************************)
+ 
+-(* $Id: array.ml,v 1.17 2002/01/16 09:42:00 xleroy Exp $ *)
++(* $Id: customarray.ml,v 1.17 2002/01/16 09:42:00 xleroy Exp $ *)
+ 
+ (* Handling of arrays and bigarrays *)
+ 
+diff --git a/compiler/cvtval.ml b/compiler/cvtval.ml
+index c71e622..594c72b 100644
+--- a/compiler/cvtval.ml
++++ b/compiler/cvtval.ml
+@@ -135,17 +135,17 @@ let rec ml_to_c oc onstack pref ty v c =
+   | Type_pointer(Ignore, ty_elt) ->
+       iprintf oc "%s = NULL;\n" c
+   | Type_array({maybe_null=false} as attr, ty_elt) ->
+-      Array.array_ml_to_c ml_to_c oc onstack pref attr ty_elt v c
++      Customarray.array_ml_to_c ml_to_c oc onstack pref attr ty_elt v c
+   | Type_array({maybe_null=true} as attr, ty_elt) ->
+       option_ml_to_c oc v c
+         (fun v' ->
+-          Array.array_ml_to_c ml_to_c oc onstack pref attr ty_elt v' c)
++          Customarray.array_ml_to_c ml_to_c oc onstack pref attr ty_elt v' c)
+   | Type_bigarray({bigarray_maybe_null=false} as attr, ty_elt) ->
+-      Array.bigarray_ml_to_c oc pref attr ty_elt v c
++      Customarray.bigarray_ml_to_c oc pref attr ty_elt v c
+   | Type_bigarray({bigarray_maybe_null=true} as attr, ty_elt) ->
+       option_ml_to_c oc v c
+         (fun v' ->
+-          Array.bigarray_ml_to_c oc pref attr ty_elt v' c)
++          Customarray.bigarray_ml_to_c oc pref attr ty_elt v' c)
+   | Type_interface(modl, name) ->
+       error (sprintf "Reference to interface %s that is not a pointer" name)
+   | Type_const ty' ->
+@@ -212,15 +212,15 @@ let rec c_to_ml oc pref ty c v =
+   | Type_pointer(Ignore, ty_elt) ->
+       ()
+   | Type_array({maybe_null=false} as attr, ty_elt) ->
+-      Array.array_c_to_ml c_to_ml oc pref attr ty_elt c v
++      Customarray.array_c_to_ml c_to_ml oc pref attr ty_elt c v
+   | Type_array({maybe_null=true} as attr, ty_elt) ->
+       option_c_to_ml oc c v
+-        (Array.array_c_to_ml c_to_ml oc pref attr ty_elt c)
++        (Customarray.array_c_to_ml c_to_ml oc pref attr ty_elt c)
+   | Type_bigarray({bigarray_maybe_null=false} as attr, ty_elt) ->
+-      Array.bigarray_c_to_ml oc pref attr ty_elt c v
++      Customarray.bigarray_c_to_ml oc pref attr ty_elt c v
+   | Type_bigarray({bigarray_maybe_null=true} as attr, ty_elt) ->
+       option_c_to_ml oc c v
+-        (Array.bigarray_c_to_ml oc pref attr ty_elt c)
++        (Customarray.bigarray_c_to_ml oc pref attr ty_elt c)
+   | Type_interface(modl, name) ->
+       error (sprintf "Reference to interface %s that is not a pointer" name)
+   | Type_const ty' ->
+@@ -234,9 +234,9 @@ let rec allocate_output_space oc pref c ty =
+       let c' = new_c_variable ty_arg in
+       iprintf oc "%s = &%s;\n" c c'
+   | Type_array(attr, ty_arg) ->
+-      Array.array_allocate_output_space oc pref attr ty_arg c
++      Customarray.array_allocate_output_space oc pref attr ty_arg c
+   | Type_bigarray(attr, ty_arg) ->
+-      Array.bigarray_allocate_output_space oc pref attr ty_arg c
++      Customarray.bigarray_allocate_output_space oc pref attr ty_arg c
+   | Type_const ty' -> (* does this make sense? *)
+       allocate_output_space oc pref c ty'
+   | _ -> ()
+-- 
+1.7.3.1
+

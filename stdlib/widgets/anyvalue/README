@@ -1,0 +1,5 @@
+== Widget AnyValue ==
+
+A common layer for Int/FloatValue.
+
+Should also be used for StringValue.

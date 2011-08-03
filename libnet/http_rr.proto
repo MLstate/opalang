@@ -1,0 +1,31 @@
+%% Request lines :
+
+%
+%   Copyright © 2011 MLstate
+%
+%   This file is part of OPA.
+%
+%   OPA is free software: you can redistribute it and/or modify it under the
+%   terms of the GNU Affero General Public License, version 3, as published by
+%   the Free Software Foundation.
+%
+%   OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+%   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+%   FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+%   more details.
+%
+%   You should have received a copy of the GNU Affero General Public License
+%   along with OPA. If not, see <http://www.gnu.org/licenses/>.
+%
+-define Get (uri, v) = "GET " uri " HTTP/" v "\r\n"
+-define Head (uri, v) = "HEAD " uri " HTTP/" v "\r\n"
+-define Post (uri, v) = "POST " uri " HTTP/" v "\r\n"
+-define Put (uri, v) = "PUT " uri " HTTP/" v "\r\n"
+-define Del (uri, v) = "DELETE " uri " HTTP/" v "\r\n"
+-define Trace (uri, v) = "TRACE " uri " HTTP/" v "\r\n"
+-define Conn (uri, v) = "CONNECT " uri " HTTP/" v "\r\n"
+-define Opts (uri, v) = "OPTIONS " uri " HTTP/" v "\r\n"
+
+%%% Reponse <- Status line (header crlf)* crlf (Message body)?
+%% Status-Line, v) = HTTP-Version SP Status-Code SP Reason-Phrase CRLF :
+-define Sl (vs, code:int, reason) = "HTTP/" vs " " code " " reason "\r\n"

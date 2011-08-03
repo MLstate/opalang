@@ -1,0 +1,13 @@
+common/jsonFile.opa
+common/opaDocComment.opa
+common/opaDocTy.opa
+common/opaDocUtils.opa
+common/opaDocXhtml.opa
+common/opaDocParameters.opa
+generator/opaApiFile.opa
+generator/opaDocHtml.opa
+generator/opaDocJoin.opa
+generator/opaDocToggle.opa
+generator/opaDocTree.opa
+generator/opaDoc.opa
+--warn-error root

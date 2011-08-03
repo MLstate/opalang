@@ -1,0 +1,18 @@
+Developing for distribution
+---------------------------
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//   - The slicer
+//   - Sessions and networks
+//   - Concurrency, @spawn, @callcc
+//   - Distributed database
+//   - HLnet, RPC
+//
+
+[CAUTION]
+TODO

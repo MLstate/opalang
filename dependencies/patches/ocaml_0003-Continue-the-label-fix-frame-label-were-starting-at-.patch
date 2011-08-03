@@ -1,0 +1,21 @@
+diff -ru a/asmcomp/emitaux.ml b/asmcomp/emitaux.ml
+--- a/asmcomp/emitaux.ml	2010-01-22 13:48:24.000000000 +0100
++++ b/asmcomp/emitaux.ml	2011-01-17 18:12:28.886782407 +0100
+@@ -136,13 +136,16 @@
+ 
+ let emit_frames a =
+   let filenames = Hashtbl.create 7 in
+-  let lbl_filenames = ref 200000 in
++  let user_bound = max_int/2 in
++  let system_bound = user_bound+(max_int/4) in
++  let lbl_filenames = ref system_bound in
+   let label_filename name =
+     try
+       Hashtbl.find filenames name
+     with Not_found ->
+       let lbl = !lbl_filenames in
+       Hashtbl.add filenames name lbl;
++      if !lbl_filenames = max_int then failwith "Ocaml limitation:emitaux.mlp:emit_frames:label number overflow";
+       incr lbl_filenames;
+       lbl in
+   let emit_frame fd =

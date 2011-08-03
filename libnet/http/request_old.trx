@@ -1,0 +1,70 @@
+(*
+    Copyright Â© 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+%%memoization=none
+
+types:{{
+
+open Requestdef
+
+(* TODO: check the grammar with RFC: http://tools.ietf.org/html/rfc2616 *)
+
+(* FIXME: request option ? *)
+type parse_request =
+  | Complete of request
+  | Incomplete
+
+}}
+
++request : {parse_request} <-
+        / RequestLineShort {{ Complete { request_line = __1 ; request_header = RequestHeader.empty ; request_message_body = "" ; server_info = None} }}
+        / RequestLine headers {{ Complete { request_line = __1 ; request_header = __2 ; request_message_body = "" ; server_info = None} }}
+        / RequestLine {{ Incomplete }}
+
++response : {Requestdef.Value.value Requestdef.RequestHeader.t} <-
+        / ResponseLine headers {{ __2 }}
+RequestLine <- Word Space+ Word Space+ Word EOL
+        {{  { _method = method_of_string __1 ; request_uri = __3 ; http_version = __5 } }}
+
+# We need to accept HTTP/0.9 requests.
+RequestLineShort <- Word Space+ Word EOL
+        {{ { _method = method_of_string __1 ; request_uri = __3 ; http_version = "HTTP/0.9" } }}
+
+ResponseLine <- Word Space+ ([0-9]+ $_) (Space+ Word)+ EOL
+        {{  __1, int_of_string(__3) }}
+
+
+headers <- Header headers {{ let k, v = __1 in try RequestHeader.add (request_header_of_string k) v __2 with (Parsing _) -> __2 }}
+        / EOL {{ RequestHeader.empty }}
+
+Header <- Word [:] Space* field_value EOL {{ __1, __4 }}
+
+field_value <-
+        #Values {{ __1 }} /
+        (!EOL . {{ __2 }})* {{ `string (Tgrammar.string_of_chars __1) }}
+
+# FIXME: faux... la virgule peut être dans un " " ou ( ) ??? par exemple
+Values <- Value ([,] Value {{__2}})+ {{ `value (__1 :: __2) }}
+Value <- (![;,\r\n] . {{ __2 }})+ ([;] Space* (![,\r\n] . {{__2 }})+ {{ Tgrammar.string_of_chars __3 }})? {{ Tgrammar.string_of_chars __1, __2 }}
+
+Word <- Char+ {{ Tgrammar.string_of_chars __1 }}
+Char <- !(FullSpace $ / [:] $) . {{ __2 }}
+
+Space <- ' ' / '\t'
+FullSpace <- Space / EOL
+EOL <- '\r\n' / '\n' / '\r'
+# EOF <- !.

@@ -1,0 +1,82 @@
+#!/bin/zsh -e
+
+interval=2
+
+case $1 in
+    --help)
+        echo "plotmem: plots the memory usage of a command in real-time using gnuplot"
+        echo "Usage: $0 [options] command [command-options]"
+        echo "Options:"
+        echo "	-i <int>  specify the refresh interval, in seconds (default 2)"
+        exit 0;;
+    -i)
+        shift
+        interval=$1
+        shift;;
+esac
+
+"$@" &
+pid=$!
+title=$(basename $1)
+
+data=$(mktemp -t plotmem-XXXXX)
+
+trap "rm -f $data" EXIT
+
+procdir=/proc/$pid
+echo "# timestamp virtual resident fds" >> $data
+first=1
+t0=$(date +%s.%N)
+fds0=0
+echo "$t0 0 0 0" >> $data
+
+plot_loop() {
+    while [ -d "$procdir" ]; do
+        vmsize=$(awk '/^VmSize:/ { print $2; }' $procdir/status 2>/dev/null || break)
+        vmrss=$(awk '/^VmRSS:/ { print $2; }' $procdir/status 2>/dev/null || break)
+        fds=$(ls $procdir/fdinfo 2>/dev/null | wc -l)
+        if [ "$fds" -eq "$fds0" ]; then fds=""; else fds0=$fds; fi
+        date +"%s.%N $vmsize $vmrss $fds" >> $data
+        if [ $first -eq 0 ]; then
+            echo "replot";
+        else
+            cat <<EOF
+plot "$data" using (\$1-$t0):(\$2/1000) with lines title "Virtual", \
+          "" using (\$1-$t0):(0):(\$3/1000) with filledcurves lc rgb "#7777aa" notitle, \
+          "" using (\$1-$t0):(\$3/1000) with lines title "Resident", \
+          "" using (\$1-$t0):4 with points pt 6 title "Open fds" axes x1y2
+EOF
+            first=0
+        fi
+        sleep $interval
+    done
+}
+
+trap "" 2
+
+catch_stop() {
+    trap 2
+    plot_loop # should stop once program is dead
+    echo "Program killed. Log in $data. Press enter to close and cleanup." >&2
+    read
+}
+
+{
+    echo "set term wxt noraise title \"$title\""
+    echo "set title \"$title\""
+    echo 'set yrange [0:]'
+    echo 'set xlabel "Time (seconds)"'
+    echo 'set ylabel "Memory usage (MB)"'
+    echo 'set ytics nomirror'
+    echo 'set y2range [0:]'
+    echo 'set y2tics scale 1'
+    echo 'set y2label "Fds"'
+    echo 'set key left box'
+
+    trap catch_stop 2
+    plot_loop
+
+    trap 2
+    echo "Program ended. Log in $data. Press enter to close and cleanup." >&2
+    read
+} | gnuplot >/dev/null

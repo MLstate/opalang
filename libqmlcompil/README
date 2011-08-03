@@ -1,0 +1,186 @@
+TODO 16.07.2009: update! and what is this pprinter_._ml?
+
+Note :
+------
+
+Aiborne.Mathieu jeudi 18 juin 2009, 12:56:55 (UTC+0100)
+
+This continues the refactoring of Mikolaj of qml-framework
+
+Journal :
+---------
+
+qml_base was a big bad blob
+the typer is very jalous and not friendly at all about leting an other typer to be here. (bad if we want a HM(X) typer on day...) 
+
+So, let's refactore a bit !
+
+qml_base.ml and ast.ml are now splitted in to several modules
+
+This modules are not intented to be open, but to be used like the ocaml library : 
+
+List.fold_left .... much better than open List !!
+
+So, use it in the same way :
+
+QmlAstCons.ident ... 
+
+Since opa has very common modules, the modules are named prefixed with Qml...
+
+
+qmlAst is the defintion of the qml ast
+Everymodule depends on it.
+
+The work of having it separatly has allready be done by miko : thanks :)
+
+
+It could possibly contain also common interfaces for the future implementations
+(like typer, dbGen, etc...) 
+
+it has no mli file because it define mostly only type (avoid duplication)
+
+After that, there is all the qmlAst* family
+They implements specific tools and must be short, simple, and with a strong mli
+
++++ jeudi 18 juin 2009, 14:18:46 (UTC+0100)
+
+in the all the modules trx, there are direct call to FreshInt, depending directly on the representation of the ast. default.trx use ExprIdent as well.
+
+a better approach is to use qmlAstCons systematicly in the all the parser trx
+
+some files seams to be unused, it is comlicated to understand e.g. what comment is used ? comment.trx seams not to be
+
+qml_parser and qmlMainParser have a lot of conflicted productions ....
+
+but qml_parser seems not to be used : will be removed
+
+
++++ jeudi 18 juin 2009, 22:15:33 (UTC+0100)
+
+Trx_qml_gen is contains Constructor and things with grammar
+
+one part will be reported in qmlAstCons
+the other part is a TODO !
+
+it is also very weird that it provides some "to_string" features, but depends on qmlPrinters !
+
+
++++ vendredi 19 juin 2009, 00:14:02 (UTC+0100)
+
+QmlPrinters : contain a (try-to-be-)parsable printer for qml, and an other one, more debug-friendly adding some annotation in the printed string (not parsable) like annotation or instance of types, ...
+
+About monomorph !
+
+It would be good that it is shared between all the differents typer (or not ?)
+
+But it needs something like a TypeEnv.t
+maybe then it is specific for any typer ?
+
+But, there is an other thing about TypeEnv :
+
+all the people who need a typer needs to know public interface about how to use it (so, at least, an API is public an the same for all differents typer (use a simple functor), and need some high level function, like : check-file ~output:"myfile.qmli" (or something like it)
+
+There are severals possiblities, but which one is good ?
+
+TypeEnv can be the same, shared in interface between typer, and with a public interface.
+
+Then, it means that TypeScheme are the same everywhere (that is not so good, because I don't agree with the type of TypeScheme in the actual typer..., and would like to implement an other version of the typer with an other type for typescheme)
+
+Possibly, we define an interface for a TypeEnv what is it, and what it is supposed to do --
+
+then, monomorph is a functor of a TypeEnv
+
+so, TypeEnv should contains some function like
+TypeScheme.to_ty , and can abstract the type TypeScheme
+
+In that way, we will be able to use the same monomorph if we write an HM(X) version of the typer
+
+Don't call me a functor-man if you don't propose a simplier solution (but keeping the flexibility)
+
+in fact, there is an other problem with it, and a functor is then not so good, you'll see it in the next part :
+
+---
+
+So, know, we arrived at the typer ...
+
+What should be do in order that we could have as much typer as me want, sharing all what can be, and having specificities they want....
+
+
+1) A interface with public types
+
+  without that, it is impossible to change all the code that use several typer (call-code, like qml2ocaml, qmlToplevel, etc...)
+
+
+2) We want to keep the high level functions (like output_keep_code) for each typer (so, we need a functor from the implementation to a high level ModuleTyper
+
+
+That corresponds to the module MakeAstTyper that was in ast.ml before airborne.
+
+
+3) Since the typevar are strongly incrusted in the AST, the typers must at least start from it (possibly redefine an private ast with other TypeVar in intern)
+
+That could be a problem because for example, I disagree with the key managment in the old TypeVar version, so, I've modified it, and it could possibly change the behavior of other typer... Beware
+
+Having a parametric type for the types would be difficult, and complexify the fact that we could change the typer dynamicly
+
+4) what do we want about mixity use ?
+
+    should it be possible to type a NewVal with a typer, and an other one with an other Typer ??
+
+      if yes, then TypeEnv must be common. (that simplify the life of monomorph, but then we have the problem of fixed-implemented-TypeScheme 
+
+
+ the typer needs some hack in the TypeEnv, hard to let it public ...
+
+
+So maybe, implement a typer is something like :
+implement an instance of TypeEnv, and the typer what does go together
+(* *)						   
+
+
+about TypeScheme :
+------------------
+
+I am quite scary because the side effect on TypeVar could have an effect an TypeScheme (for example, if we call unify on a ty from a TypeScheme, it compromise its integrity)
+
+so, maybe the way to do it properly would be such a thing like : 
+
+module TypeScheme :
+sig 
+  type t
+  val public : t -> TypeVar.t list * ty
+
+....
+end
+ 
+
+
+about annotation : maybe we could get in mind that it could be functionnal ?
+
+
+QmlPrinters
+Qml_base
+Typer
+Typer_new_subtyping_rules
+QmlMainParser
+Ast
+MetaAst
+Lambda_lifting
+Monomorph
+Trx_qml_gen
+DbGenByPass
+DbGenHelpers
+DbGen_private
+Schema_private
+QmlDbGen
+
+
+
+TODO : no time for it (too much things at one time)
+BUT MUST BE DONE !!
+---------------------------------------------------
+
+unify the module qmlAstCons and the same part of it in trx_qml_gen
+
+dont let appear any AST Constructor in the parser trx, use only constructor from qmlAstCons
+

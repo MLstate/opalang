@@ -1,0 +1,37 @@
+#!/bin/bash
+
+P=$MLSTATELIBS/lib/opa/static
+OPA=$P/opabslgen.bypass
+OPT=''
+
+print_help () {
+cat <<EOF
+bslbrowser: wraper for bslbrowsertop, the MLstate bypass plugin browser.
+Usage: bslbrowser [options]
+
+Options of the wraper:
+       -h |--help : print this help message
+        o | opa   : shorthand to load opabsl plugins
+
+Usage of bslbrowsertop:
+
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h|--help)
+            print_help
+            OPT="$OPT --help"
+            ;;
+        o|opa)
+            OPT="$OPT $OPA"
+            ;;
+        *)
+            OPT="$OPT $1"
+            ;;
+    esac
+    shift
+done
+
+rlwrap bslbrowsertop $OPT

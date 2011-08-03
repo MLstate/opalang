@@ -1,0 +1,5 @@
+# -*- conf -*- (for emacs)
+
+true: warn_A, warn_e, warn_error_A
+
+<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, use_unix, use_zip, use_libruntime, use_appruntime, use_str

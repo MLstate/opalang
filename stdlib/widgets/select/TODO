@@ -1,0 +1,15 @@
+== Widget Select ==
+
+////////////////////
+asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
+////////////////////
+
+.Next tasks
+- More testing (keyboard/mouse, IE)
+- Add an option to make the select horizontal (use cases: "avatars") 
+
+.Short term
+-
+
+.Later
+-
