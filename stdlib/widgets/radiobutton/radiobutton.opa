@@ -194,10 +194,10 @@ WRadiobutton = {{
 
 
 /**
- *Gives the id of the checked button of the widget
+ *Gives the value corresponding to the chosen button of the widget
  *
  *@param id_widget The widget identifier
- *@return The id of the checked button
+ *@return The value corresponding to the chosen button
  */
   get_value(id_widget: string): string =
     dom_checked = Dom.select_inside(Dom.select_id(id_widget),Dom.select_class("internal_opa_checked"))
