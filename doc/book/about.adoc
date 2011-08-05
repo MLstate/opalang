@@ -9,8 +9,8 @@ developers. And it works in the cloud too!
 Throughout the pages of this book, we will introduce you to all the neat
 features of Opa, and as you will see, there are many. To quote but a few, Opa is
 concise, simple and readable, it is also extremely powerful, concurrent,
-dynamically distributed, and extremely secure, much more so than just about any
-other programming language. Opa is designed to make web development fun, secure
+dynamically distributed, and secure, much more so than just about any
+other web programming language. Opa is designed to make web development fun, secure
 and _right_.
 
 What problem does Opa solve?
@@ -178,7 +178,7 @@ opa-cloud hello_web.exe --host localhost --host my@my_server1 --host my@my_serve
 Your application is launched, load-balanced, and servers share whichever information
 is necessary.
 
-Welcome to Opa. It really is that simple.
+//Welcome to Opa. It really is that simple.
 
 Summary
 ~~~~~~~

@@ -307,8 +307,8 @@ into a less generic structure.
 Opa features a special pattern matching like constructs that is meant for this:
 [source,opa]
 --------------------------------------
-x = xml_parser
-    | <x>parser x=Rule.integer</><y>parser y=Rule.integer</> -> ~{x y}
+my_parser = xml_parser
+    | <x>parser valx=Rule.integer</><y>parser valy=Rule.integer</> -> {x=valx y=valy}
 --------------------------------------
 
 It defines a parser that transforms xml such as
