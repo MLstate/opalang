@@ -15,7 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 {
+  (* to know what these tokens correspond to, simply
+   * look at association list below *)
   type token =
   | Yield
   | With
@@ -117,7 +120,14 @@
   | AmperAmper
   | Amper
 
+  (* the ecmascript defines two kinds of lexing: for the places in the ast
+   * where a token starting with / is a regular expression, and the places where
+   * it is the division or the division-assignment /=
+   * to avoid having to have some information flow from the parser to the lexer,
+   * this is done by looking at the previous token (see function lex) *)
   let can_have_a_division = ref false
+
+  (* mapping keywords to tokens *)
   let keywords_list = [
     "break", Break;
     "case", Case;
@@ -170,6 +180,8 @@
   ]
   let keywords = Hashtbl.create 100
   let () = List.iter (fun (a,b) -> Hashtbl.add keywords a b) keywords_list
+
+  (* using a single buffer to store the result of parsing string literals, regexp literals, etc. *)
   let b = Buffer.create 1000
 }
 
@@ -179,8 +191,15 @@ let hexa = ['0'-'9''a'-'f''A'-'F']
 
 rule main = parse
 | ['\t''\012''\013'' ']+ { main lexbuf }
+
+(* beware that we must not throw newlines to be able to implement semicolon
+ * insertions *)
 | ['\n' '\r']+ { LT }
+
 | "//" [^'\n''\r']* { main lexbuf }
+
+(* beware that if a newline appears in a multi line comment
+ * then we _must_ generate a newline token *)
 | "/*" { multiline_comment false lexbuf }
 
 | '/' { if !can_have_a_division then Div else (Buffer.clear b; regexp_body lexbuf) }
@@ -244,6 +263,10 @@ rule main = parse
 | eof { EOF }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in main lexing" c)) }
 
+(* regular expression are not really parsed, you simply interpret them enough
+ * so that you can find the end of the regexp
+ * in particular, escapes are *not* interpreted, and so the string in the regexp
+ * node and token should not be escaped when printed *)
 and regexp_body = parse
 | ['\r''\n'] { raise (Stream.Error "Line terminator inside a regexp literal") }
 | '\\' _ as s { Buffer.add_string b s; regexp_body lexbuf }
@@ -263,6 +286,8 @@ and character_class = parse
 and regexp_flags s1 = parse
 | identifier_part* as s2 { Regexp (s1,s2) }
 
+(* [double] is true when the string is enclosed in double quotes
+ * and false when it is enclosed in single quotes *)
 and string double = parse
 | "'" { if double then (Buffer.add_char b '\''; string double lexbuf)
         else String (Buffer.contents b) }
@@ -284,6 +309,7 @@ and string double = parse
 | eof { raise (Stream.Error "unterminated string literal comment") }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in a string literal" c)) }
 
+(* [newline] is true when a newline has been parsed in the comment *)
 and multiline_comment newline = parse
 | [^'*''\n''\r']* { multiline_comment newline lexbuf }
 | ['\r''\n'] { multiline_comment true lexbuf }
@@ -292,7 +318,14 @@ and multiline_comment newline = parse
 | eof { raise (Stream.Error "unterminated multiline comment") }
 
 {
+(* this global variable is used to ensure that the lexer never returns
+ * two consecutive new lines, which is useful in the parser, because
+ * if you want to look at the first non newline token, you need a lookahead
+ * of 2 with this (otherwise the lookahead would be unbounded) *)
 let just_parsed_a_line_terminator = ref true
+
+(* the main lexing function: called the actual lexer, and updates the global
+ * state *)
 let rec lex lexbuf =
   match main lexbuf with
   | LT when !just_parsed_a_line_terminator ->

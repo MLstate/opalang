@@ -18,10 +18,12 @@
 module J = JsAst
 open JsLex (* bringing token in the scope *)
 
+(* right now, the parser doesn't insert any positions in the ast *)
 let dummy_pos = FilePos.nopos "jsParse"
 let label () = Annot.next_label dummy_pos
 let native_ident = JsCons.Ident.native
 
+(* used for debug only, not error messages *)
 let string_of_token = function
   | Break -> "break"
   | Case -> "case"
@@ -123,19 +125,27 @@ let string_of_token = function
   | Div -> "/"
   | DivEqual -> "/="
 
+(* redefining the modules Stream allows us to 'override' the syntax of streams
+ * the new peek, junk and empty function look at the first non-newline token
+ * (which allows us to write almost the whole parser while implicitely
+ * discarding newlines) *)
 module Stream =
 struct
+
   type 'a t = 'a Stream.t
   exception Failure = Stream.Failure
   exception Error = Stream.Error
   let from = Stream.from
   let junk_no_newline = Stream.junk
+  let peek_no_newline = Stream.peek
+
   let junk stream =
+    (* this function is symmetric with peek below *)
     (match Stream.peek stream with
     | Some LT -> Stream.junk stream
     | _ -> ());
     Stream.junk stream
-  let peek_no_newline = Stream.peek
+
   (*let peek stream =
     match Stream.npeek 2 stream with
     | [LT; a] -> Some a
@@ -145,16 +155,22 @@ struct
   let peek stream = (* this Stream.peek makes the parsing really faster *)
     match Stream.peek stream with
     | Some LT ->
+      (* using the invariant that says that you never have two consecutives
+       * newlines in the token stream *)
       (match Stream.npeek 2 stream with
       | _ :: t :: _ -> Some t
       | _ -> None)
     | o -> o
+
+  (* redefining empty because a stream with only a newline must be considered
+   * as empty *)
   let empty s =
     match peek s with
     | None -> ()
     | Some _ -> raise Stream.Failure
 end
 
+(* a handful of parser combinators *)
 let rev_list0_aux acc parser_ stream =
   let rec aux acc = parser
     | [< e = parser_; stream >] -> aux (e :: acc) stream
@@ -209,6 +225,12 @@ let option parser_ = parser
 let option_default default parser_ = parser
   | [< r = parser_ >] -> r
   | [< >] -> default
+
+(* tries to parse using [parser_] but only when there is no newline
+ * in the input stream
+ * for cases such as [return
+ *                   2]
+ * which is parsed as [return; 2] and not [return 2] *)
 let option_no_newline parser_ stream =
   match Stream.peek_no_newline stream with
   | Some LT -> None

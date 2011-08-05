@@ -15,6 +15,18 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(**
+   The javascript lexer
+
+   Beware that the lexer is stateful, so it should not be used
+   by several threads simultaneously, nor should you try to intersperse
+   the lexing of several inputs
+
+   This module is not meant to be called directly, use instead the high level
+   functions provided in jsParse if you want to parse some javascript.
+*)
+
 type token =
   | Yield
   | With
