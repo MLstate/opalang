@@ -693,8 +693,14 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
       head = head_custom
       //Additional IE-specific fix -- note that the mime type can be ignored if the resource uses [override_mime_type]
       mime_type = match user_compat.renderer with
-         | { Trident=_ }
+         /* hack for IE (considers application/xhtml+xml as files to save) */
+         | { Trident=_ } -> "text/html"
+         /* work-around for Chrome & Safari's bug http://code.google.com/p/chromium/issues/detail?id=45440
+            if we serve application/xhtml+xml, we loose the password-saving mechanism for login forms
+            but unfortunately, with text/html, we loose some features (e.g. ability to have SVG)
+            TODO: remove next line when Chrome bug 45440 is fixed */
          | { Webkit=_; variant=_ } -> "text/html"
+         /* application/xhtml+xml is the right content-type by default */
          | _             -> "application/xhtml+xml"
       end }
 
