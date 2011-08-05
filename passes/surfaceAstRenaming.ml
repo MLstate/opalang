@@ -423,7 +423,7 @@ let unbound kind name all_env label =
   make_placeholder label name
 
 let non_linear_pattern name label =
-  serror label "the variable @{<bright>%s@} appears several times." name
+  serror label "the variable @{<bright>%s@} appears several times (in function parameters or in a pattern)." name
 let invalid_open label =
   serror label "you are trying to @{<bright>open@} an invalid expression.";
   [], make_placeholder label "open", []
