@@ -87,6 +87,14 @@ type WFormBuilder.form_data =
     { SimpleForm }
   / { FileUploadForm : Upload.form_data }
 
+type WFormBuilder.field_builder =
+  { mk_label : {optionality:{optional}/{required} label:string label_id:string input_id:string style:WFormBuilder.style} -> xhtml
+  ; mk_input : {input_tag:xhtml style:WFormBuilder.style} -> xhtml
+  ; mk_hint : {hint:option(xhtml) hint_id:string style:WFormBuilder.style} -> xhtml
+  ; mk_err : {error_id:string style:WFormBuilder.style} -> xhtml
+  ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml field_id:string style:WFormBuilder.style} -> xhtml
+  }
+
 WFormBuilder =
 
   field_id(id) = "{id}_field"
@@ -303,19 +311,48 @@ WFormBuilder =
 
   /** {1 Form/fields rendering} */
 
-  field_html(field : WFormBuilder.field('ty), style : WFormBuilder.style) : xhtml =
-    s = style
-    style(style) = WStyler.add(style, _)
-    mk_field(~{label validator optionality initial_value field_type id hint ...}) =
-      req =
-        match optionality with
-        | {optional} -> <span></> |> style(s.non_required_style)
-        | {required} -> <span>*</> |> style(s.required_style)
-      label_xhtml =
-        <label id={label_id(id)} for={input_id(id)}>
+  @private add_style(style) = WStyler.add(style, _)
+
+  default_field_builder : WFormBuilder.field_builder =
+    {
+      mk_label(~{optionality label label_id input_id style=s}) =
+        req =
+          match optionality with
+          | {optional} -> <span></> |> add_style(s.non_required_style)
+          | {required} -> <span>*</> |> add_style(s.required_style)
+        <label id={label_id} for={input_id}>
           {label}
           {req}
-        </> |> style(s.label_style(true))
+        </> |> add_style(s.label_style(true))
+
+      mk_input(~{input_tag ...}) = input_tag
+
+      mk_hint(~{hint hint_id style=s}) =
+        match hint with
+        | {none} -> <></>
+        | {some=hint} ->
+            <span id={hint_id}>{hint}</>
+            |> add_style(s.hint_style)
+
+      mk_err(~{error_id style=s}) =
+        <span id={error_id} />
+        |> add_style(s.error_style)
+
+      mk_field(~{label input hint err field_id style=s}) =
+        <div id={field_id}>
+          {label}
+          {input}
+          {hint}
+          {err}
+        </>
+        |> add_style(s.field_style(true))
+
+     }
+
+  field_html(field : WFormBuilder.field('ty), builder : WFormBuilder.field_builder, style : WFormBuilder.style) : xhtml =
+    hide(tag) = WStyler.add({style=css{display: none}}, tag)
+    mk_field(~{label validator optionality initial_value field_type id hint ...}) =
+      label_xhtml = builder.mk_label(~{optionality label label_id=label_id(id) input_id=input_id(id) style})
       input(input_type) =
         <input type={input_type} name={input_id(id)} id={input_id(id)}
           value={initial_value} />
@@ -330,35 +367,23 @@ WFormBuilder =
             <textarea style="resize: none;" type="text"
               name={input_id(id)} id={input_id(id)}
               rows={rows} cols={cols} />
-      stl_input_tag = input_tag |> style(s.input_style(true))
+      stl_input_tag = input_tag |> add_style(style.input_style(true))
       onblur(_) =
-        do do_validate(s, id, validator)
-        do hide_hint(s, id)
+        do do_validate(style, id, validator)
+        do hide_hint(style, id)
         void
       onfocus(_) =
-        do show_hint(s, id)
+        do show_hint(style, id)
         void
       bindings =
         [ ({blur}, onblur)
         , ({focus}, onfocus)
         ]
-      input_xhtml = WCore.add_binds(bindings, stl_input_tag)
-      hint_xhtml =
-        match hint with
-        | {none} -> <></>
-        | {some=hint} ->
-            <span id={hint_id(id)} style={css {display: none}}>{hint}</>
-            |> style(s.hint_style)
-      err_xhtml =
-        <span id={error_id(id)} style={css {display: none}} />
-        |> style(s.error_style)
-      <div id={field_id(id)}>
-        {label_xhtml}
-        {input_xhtml}
-        {hint_xhtml}
-        {err_xhtml}
-      </>
-      |> style(s.field_style(true))
+      input_tag = WCore.add_binds(bindings, stl_input_tag)
+      input_xhtml = builder.mk_input(~{input_tag style})
+      hint_xhtml = builder.mk_hint(~{hint hint_id=hint_id(id) style}) |> hide
+      err_xhtml = builder.mk_err({error_id=error_id(id) ~style}) |> hide
+      builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml field_id=field_id(id) ~style})
     <>{mk_field(field)}</>
 
   form_html( form_id : string
