@@ -85,3 +85,8 @@ database/light/Db_light
 database/light/Io_light
 database/light/Encode_light
 database/light/Mem_tree_light
+database/light/Mst
+database/light/KeySet
+database/light/DbSig
+database/light/DbmDB
+

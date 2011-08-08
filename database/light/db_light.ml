@@ -15,476 +15,510 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+(* Debug *)
+
 #<Debugvar:DEBUG_DB>
 
-(* depends *)
-module List = BaseList
-module String = BaseString
-module Hashtbl = BaseHashtbl
-module Mtl = Mem_tree_light
+(* Functor *)
 
-let sprintf fmt = Printf.sprintf fmt
-let eprintf fmt = Printf.eprintf fmt
-let printf fmt = Printf.printf fmt
-let rev = Revision.make 0
+module Db_light_ (DB : DbSig.DB) =
+struct
 
-(* -- *)
+  (* Built modules *)
+  module Io_light = Io_light.Io_light_(DB)
+  module DB = Io_light.DB
 
-(* Exceptions *)
+  (* Depends *)
+  module List = BaseList
+  module String = BaseString
+  module Hashtbl = BaseHashtbl
+  module Mtl = Mem_tree_light
 
-exception UnqualifiedPath
-exception Merge
-exception At_root
-exception At_leaf
+  (* Shorthands *)
+  let sprintf fmt = Printf.sprintf fmt
+  let eprintf fmt = Printf.eprintf fmt
+  let printf fmt = Printf.printf fmt
+  let rev = Revision.make 0
 
-(* Flags *)
-let verify = ref false
-let use_od = ref false
-let od_early = ref false
+  (* Exceptions *)
 
-(* Datatypes *)
+  exception UnqualifiedPath
+  exception Merge
+  exception At_root
+  exception At_leaf
 
-type index = ((Path.t * float) list) StringMap.t
+  (* Flags *)
 
-type tree = {
-  sts : (Keys.t, tree) Hashtbl.t;
-  uid : Uid.t;
-  key : Keys.t;
-  mutable node : Node_light.t;
-  mutable up : tree ref;
-  mutable disk : bool;
-}
+  let verify = ref false
+  let use_od = ref false
+  let od_early = ref false
 
-type t = {
-  mutable version : string;
-  mutable db_filemanager : Io_light.t option;
-  mutable tcount : Eid.t;
-  mutable next_uid : Uid.t;
-  mutable index : index;
-  mutable max_size : int;
-  mutable mtree : Mtl.mem_tree;
-  tree : tree;
-}
+  (* Datatypes *)
 
-let string_of_sts sts =
-  let l = Hashtbl.fold (fun k _ acc -> k::acc) sts [] in
-  String.concat_map ~left:"[" ~right:"]" ~nil:"[]" ";" Keys.to_string l
+  type index = ((Path.t * float) list) StringMap.t
 
-(* Constructors *)
+  type tree = {
+    sts : (Keys.t, tree) Hashtbl.t;
+    uid : Uid.t;
+    key : Keys.t;
+    mutable node : Node_light.t;
+    mutable up : tree ref;
+    mutable disk : bool;
+  }
 
-let create_node ?max_size ?filemanager ?content () =
-  match max_size, filemanager with
-  | Some _max_size, Some fm ->
-      if _max_size < max_int
-      then
-        let disk_file = Io_light.get_content_file_name fm in
-        #<If$minlevel 10>Logger.log ~color:`yellow "stuffing data to %s" disk_file#<End>;
-        Node_light.create ~disk_file ?max_size ?content ()
-      else
-        Node_light.create ?max_size ?content ()
-  | _, _ ->
-      Node_light.create ?content ()
+  type t = {
+    mutable version : string;
+    mutable db_filemanager : Io_light.t option;
+    mutable tcount : Eid.t;
+    mutable next_uid : Uid.t;
+    mutable index : index;
+    mutable max_size : int;
+    mutable mtree : Mtl.mem_tree;
+    mutable mst : Mst.t option;
+    tree : tree;
+  }
 
-let make_node t key data =
-  t.next_uid <- Uid.succ t.next_uid;
-  let tree = { sts = Hashtbl.create 10;
-               uid = t.next_uid;
-               key = key;
-               node = create_node ~max_size:t.max_size ?filemanager:t.db_filemanager ~content:data ();
-               up = ref (Obj.magic 0);
-               disk = false;
-             } in
-  tree.up := tree;
-  tree
+  let string_of_sts sts =
+    let l = Hashtbl.fold (fun k _ acc -> k::acc) sts [] in
+    String.concat_map ~left:"[" ~right:"]" ~nil:"[]" ";" Keys.to_string l
 
-let make_t ?filemanager ?(max_size=max_int) () =
-  #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : make_t: filemanager=%s max_size=%d"
-                                             (if Option.is_some filemanager then "Some" else "None") max_size#<End>;
-  let t = { version = "<new>";
-            db_filemanager = filemanager;
-            tcount = Eid.make 0;
-            next_uid = Uid.make 0;
-            tree = { sts = Hashtbl.create 10;
-                     uid = Uid.make 0;
-                     key = Keys.StringKey "";
-                     node = create_node ~max_size ?filemanager ();
-                     up = ref (Obj.magic 0);
-                     disk = false;
-                   };
-            mtree = Mtl.make (Keys.StringKey "");
-            index = StringMap.empty;
-            max_size = max_size;
-          } in
-  t.tree.up := t.tree;
-  t
+  (* Constructors *)
 
-(* For later, physical copy...
-let rec copy_node t parent tree =
-  t.next_uid <- Uid.succ t.next_uid;
-  let ntree = { sts = Hashtbl.create 10;
-                uid = t.next_uid;
-                key = tree.key;
-                node = tree.node;
-                up = ref parent;
-                disk = false;
-                (*subkeys = tree.subkeys;*)
-              } in
-  Hashtbl.iter (fun k st -> Hashtbl.add ntree.sts k (copy_node t ntree st)) tree.sts;
-  t.tcount <- Eid.succ t.tcount;
-  ntree
-*)
+  let create_node ?max_size ?filemanager ?content () =
+    match max_size, filemanager with
+    | Some _max_size, Some fm ->
+        if _max_size < max_int
+        then
+          let disk_file = Io_light.get_content_file_name fm in
+          #<If$minlevel 10>Logger.log ~color:`yellow "stuffing data to %s" disk_file#<End>;
+          Node_light.create ~disk_file ?max_size ?content ()
+        else
+          Node_light.create ?max_size ?content ()
+    | _, _ ->
+        Node_light.create ?content ()
 
-(* Basic database operations *)
+  let make_node t key data =
+    t.next_uid <- Uid.succ t.next_uid;
+    let tree = { sts = Hashtbl.create 10;
+                 uid = t.next_uid;
+                 key = key;
+                 node = create_node ~max_size:t.max_size ?filemanager:t.db_filemanager ~content:data ();
+                 up = ref (Obj.magic 0);
+                 disk = false;
+               } in
+    tree.up := tree;
+    tree
 
-(*let ta acc f a =
-  let start = Unix.gettimeofday () in
-  let res = f a in
-  acc := !acc +. ((Unix.gettimeofday ()) -. start);
-  res*)
+  let make_t ?filemanager ?mst ?(max_size=max_int) () =
+    #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : make_t: filemanager=%s max_size=%d"
+    (if Option.is_some filemanager then "Some" else "None") max_size#<End>;
+    let t = { version = "<new>";
+              db_filemanager = filemanager;
+              tcount = Eid.make 0;
+              next_uid = Uid.make 0;
+              tree = { sts = Hashtbl.create 10;
+                       uid = Uid.make 0;
+                       key = Keys.StringKey "";
+                       node = create_node ~max_size ?filemanager ();
+                       up = ref (Obj.magic 0);
+                       disk = false;
+                     };
+              mtree = Mtl.make (Keys.StringKey "");
+              mst;
+              index = StringMap.empty;
+              max_size = max_size;
+            } in
+    t.tree.up := t.tree;
+    t
 
-let set_version t version = t.version <- version
-let set_filemanager t filemanager = t.db_filemanager <- filemanager
-let set_max_size t max_size = t.max_size <- max_size
-let set_mtree t mtree = t.mtree <- mtree
+  (* For later, physical copy...
+     let rec copy_node t parent tree =
+     t.next_uid <- Uid.succ t.next_uid;
+     let ntree = { sts = Hashtbl.create 10;
+     uid = t.next_uid;
+     key = tree.key;
+     node = tree.node;
+     up = ref parent;
+     disk = false;
+  (*subkeys = tree.subkeys;*)
+     } in
+     Hashtbl.iter (fun k st -> Hashtbl.add ntree.sts k (copy_node t ntree st)) tree.sts;
+     t.tcount <- Eid.succ t.tcount;
+     ntree
+  *)
 
-let getdbm t =
-  match t.db_filemanager with
-  | Some io -> io.Io_light.dbm
-  | None -> None
+  (* Basic database operations *)
 
-let ondemand_read not_quiet t path =
-  match getdbm t with
-  | Some dbm ->
-      (try
-         let node = snd (Encode_light.decode_node (Dbm.find dbm (Encode_light.encode_path path)) 0) in
-         if not_quiet then
-         #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand read path %s -> %s"
-                                                    (Path.to_string path) (Node_light.to_string node)#<End>;
-         Some node
-       with Not_found ->
-         if not_quiet then
-         #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand read path %s -> None" (Path.to_string path)#<End>;
-         None)
-  | None ->
-      #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_read Dbm is closed"#<End>;
-      None
+  (*let ta acc f a =
+    let start = Unix.gettimeofday () in
+    let res = f a in
+    acc := !acc +. ((Unix.gettimeofday ()) -. start);
+    res*)
 
-let ondemand_prime t path tree =
-  #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s tree.disk=%b"
-                                             (Path.to_string path) tree.disk#<End>;
-  if not tree.disk
-  then
-    ((match ondemand_read true t path with
-      | Some node ->
-          #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s to %s"
-                                                     (Path.to_string path) (Node_light.to_string node)#<End>;
-          tree.node <- node
-      | None ->
-          #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s not present"
-                                                     (Path.to_string path)#<End>;
-          ());
-     tree.disk <- true)
+  let set_version t version = t.version <- version
+  let set_filemanager t filemanager = t.db_filemanager <- filemanager
+  let set_max_size t max_size = t.max_size <- max_size
+  let set_mtree t mtree = t.mtree <- mtree
+  let set_mst t mst = t.mst <- mst
 
-let ondemand_add_1 = ref 0.0
+  let getdbm t =
+    match t.db_filemanager with
+    | Some io -> io.Io_light.dbm
+    | None -> None
 
-let ondemand_add t path node =
-  match getdbm t with
-  | Some dbm ->
-      #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand add path=%s to %s"
-                                                 (Path.to_string path) (Node_light.to_string node)#<End>;
-      (*ta ondemand_add_1*) (Dbm.replace dbm (Encode_light.encode_path path)) (Encode_light.encode_node node)
-  | None ->
-      #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_add Dbm is closed"#<End>
+  let ondemand_read not_quiet t path =
+    match getdbm t with
+    | Some dbm ->
+        (try
+           let node = snd (Encode_light.decode_node (DB.find dbm (Encode_light.encode_path path)) 0) in
+           if not_quiet then
+             #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand read path %s -> %s"
+             (Path.to_string path) (Node_light.to_string node)#<End>;
+           Some node
+         with Not_found ->
+           if not_quiet then
+             #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand read path %s -> None" (Path.to_string path)#<End>;
+           None)
+    | None ->
+        #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_read Dbm is closed"#<End>;
+        None
 
-let ondemand_remove _what t path =
-  match getdbm t with
-  | Some dbm ->
-      (* TODO: delete file *)
-      #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand removing %s %s" _what (Path.to_string path)#<End>;
-      (try Dbm.remove dbm (Encode_light.encode_path path)
-       with Dbm.Dbm_error "dbm_delete" -> Logger.log ~color:`red "ondemand_remove: error")
-  | None ->
-      #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_remove Dbm is closed"#<End>
+  let ondemand_prime t path tree =
+    #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s tree.disk=%b"
+    (Path.to_string path) tree.disk#<End>;
+    if not tree.disk
+    then
+      ((match ondemand_read true t path with
+        | Some node ->
+            #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s to %s"
+            (Path.to_string path) (Node_light.to_string node)#<End>;
+            tree.node <- node
+        | None ->
+            #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand prime path=%s not present"
+            (Path.to_string path)#<End>;
+            ());
+       tree.disk <- true)
 
-type od_act =
-  | OD_Add of t * Node_light.t
-  | OD_Remove of t * string
+  let ondemand_add_1 = ref 0.0
 
-let string_of_od_act p = function
-  | OD_Add (_, n) -> sprintf "Add (%s,%s)" (Path.to_string p) (Node_light.to_string n)
-  | OD_Remove (_, what) -> sprintf "Remove (%s,\"%s\")" (Path.to_string p) what
+  let ondemand_add t path node =
+    match getdbm t with
+    | Some dbm ->
+        #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand add path=%s to %s"
+        (Path.to_string path) (Node_light.to_string node)#<End>;
+        (*ta ondemand_add_1*) (DB.replace dbm (Encode_light.encode_path path)) (Encode_light.encode_node node)
+    | None ->
+        #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_add Dbm is closed"#<End>
 
-let odacts = ((Hashtbl.create 100):(Path.t, od_act) Hashtbl.t)
+  let ondemand_remove _what t path =
+    match getdbm t with
+    | Some dbm ->
+        (* TODO: delete file *)
+        #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : ondemand removing %s %s" _what (Path.to_string path)#<End>;
+        (try DB.remove dbm (Encode_light.encode_path path)
+         with DB.DB_error "dbm_delete" -> Logger.log ~color:`red "ondemand_remove: error")
+    | None ->
+        #<If>Logger.log ~color:`red "DB-LIGHT : ondemand_remove Dbm is closed"#<End>
 
-let string_of_odacts () =
-  let l = Hashtbl.fold (fun p act acc -> (string_of_od_act p act)::acc) odacts [] in
-  String.concat_map ~left:"[" ~right:"]" ~nil:"[]" "; " (fun s -> s) l
+  type od_act =
+    | OD_Add of t * Node_light.t
+    | OD_Remove of t * string
 
-let add_od_act p act =
-  #<If$minlevel 30>
+  let string_of_od_act p = function
+    | OD_Add (_, n) -> sprintf "Add (%s,%s)" (Path.to_string p) (Node_light.to_string n)
+    | OD_Remove (_, what) -> sprintf "Remove (%s,\"%s\")" (Path.to_string p) what
+
+  let odacts = ((Hashtbl.create 100):(Path.t, od_act) Hashtbl.t)
+
+  let string_of_odacts () =
+    let l = Hashtbl.fold (fun p act acc -> (string_of_od_act p act)::acc) odacts [] in
+    String.concat_map ~left:"[" ~right:"]" ~nil:"[]" "; " (fun s -> s) l
+
+  let add_od_act p act =
+    #<If$minlevel 30>
     (match Hashtbl.find_opt odacts p with
-     | Some old_act -> eprintf "Replacing OD_ACT: %s -> %s\n%!" (string_of_od_act p old_act) (string_of_od_act p act)
+     | Some old_act -> eprintf "Replacing OD_ACT: %s -> %s" (string_of_od_act p old_act) (string_of_od_act p act)
      | None -> ())
-  #<End>;
-  Hashtbl.replace odacts p act
-  (*eprintf "add_od_act: #odacts=%d\n%!" (Hashtbl.length odacts)*)
+      #<End>;
+    Hashtbl.replace odacts p act
+      (*eprintf "add_od_act: #odacts=%d\n%!" (Hashtbl.length odacts)*)
 
-let same_t t1 t2 =
-  match (t1.db_filemanager, t2.db_filemanager) with
-  | Some fm1, Some fm2 -> fm1.Io_light.location = fm2.Io_light.location
-  | _, _ -> false
+  let same_t t1 t2 =
+    match (t1.db_filemanager, t2.db_filemanager) with
+    | Some fm1, Some fm2 -> fm1.Io_light.location = fm2.Io_light.location
+    | _, _ -> false
 
-let od_read not_quiet t path =
-  if !use_od
-  then
-    (match Hashtbl.find_opt odacts path with
-     | Some (OD_Add (tt, node)) -> if same_t t tt then Some node else ondemand_read not_quiet tt path
-     | Some (OD_Remove (tt, _)) -> if same_t t tt then None else ondemand_read not_quiet tt path
-     | None -> ondemand_read not_quiet t path)
-  else ondemand_read not_quiet t path
+  let od_read not_quiet t path =
+    if !use_od
+    then
+      (match Hashtbl.find_opt odacts path with
+       | Some (OD_Add (tt, node)) -> if same_t t tt then Some node else ondemand_read not_quiet tt path
+       | Some (OD_Remove (tt, _)) -> if same_t t tt then None else ondemand_read not_quiet tt path
+       | None -> ondemand_read not_quiet t path)
+    else ondemand_read not_quiet t path
 
-let od_add t path node =
-  if !use_od
-  then add_od_act path (OD_Add (t, node))
-  else ondemand_add t path node
+  let od_add t path node =
+    if !use_od
+    then add_od_act path (OD_Add (t, node))
+    else ondemand_add t path node
 
-let od_rmv what t path =
-  if !use_od
-  then add_od_act path (OD_Remove (t, what))
-  else ondemand_remove what t path
+  let od_rmv what t path =
+    if !use_od
+    then add_od_act path (OD_Remove (t, what))
+    else ondemand_remove what t path
 
-let action_od () =
-  if !use_od
-  then
-    ((*eprintf "od_acts: %s\n%!" (string_of_odacts ());*)
-      Hashtbl.iter (fun p -> function
-                   | OD_Add (t, n) -> ondemand_add t p n
-                   | OD_Remove (t, what) -> ondemand_remove what t p) odacts;
-      Hashtbl.clear odacts)
+  let action_od () =
+    if !use_od
+    then
+      ((*eprintf "od_acts: %s\n%!" (string_of_odacts ());*)
+        Hashtbl.iter (fun p -> function
+                      | OD_Add (t, n) -> ondemand_add t p n
+                      | OD_Remove (t, what) -> ondemand_remove what t p) odacts;
+        Hashtbl.clear odacts)
 
-let rec ondemand_remove_subtree t path tree_opt =
-  (*eprintf "ondemand_remove_subtree %s tree=%s\n%!"
-          (Path.to_string path) (Option.to_string (fun tree -> Uid.to_string tree.uid) tree_opt);*)
-  (match Mtl.find_mtree_sks t.mtree path with
-   | Some sks ->
-       (*eprintf "ondemand_remove_subtree: sks=%s\n%!" (String.concat_map ~left:"[" ~right:"]" "; " Keys.to_string sks);*)
-       List.iter
-         (fun k ->
-            ondemand_remove_subtree t (Path.add path k)
-              (match tree_opt with
-               | Some tree -> (try Some (Hashtbl.find tree.sts k) with Not_found -> None)
-               | None -> None)) sks;
-   | None -> ());
- od_rmv "subtree" t path
+  let rec ondemand_remove_subtree t path tree_opt =
+    (*eprintf "ondemand_remove_subtree %s tree=%s\n%!"
+      (Path.to_string path) (Option.to_string (fun tree -> Uid.to_string tree.uid) tree_opt);*)
+    (match Mtl.find_mtree_sks t.mtree path with
+     | Some sks ->
+         (*eprintf "ondemand_remove_subtree: sks=%s\n%!" (String.concat_map ~left:"[" ~right:"]" "; " Keys.to_string sks);*)
+         List.iter
+           (fun k ->
+              ondemand_remove_subtree t (Path.add path k)
+                (match tree_opt with
+                 | Some tree -> (try Some (Hashtbl.find tree.sts k) with Not_found -> None)
+                 | None -> None)) sks;
+     | None -> ());
+    od_rmv "subtree" t path
 
-(*
-let refresh_data t path node tree =
-  if tree.disk
-  then ((*eprintf "refresh_data: path=%s content=%s node=%s subkeys=%s ks=%s\n%!"
-          (Path.to_string path) (Datas.to_string (Node_light.get_content tree.node)) (Node_light.to_string node)
-          (string_of_keyset tree.subkeys) (string_of_keyset ks);*)
-        if not (Node_light.equals tree.node node) then od_add t path node)
-  else (match od_read true t path with
-        | Some nodes ->
-            (*eprintf "refresh_data: path=%s nodes=%s node=%s kss=%s ks=%s\n%!"
-              (Path.to_string path) (Node_light.to_string nodes) (Node_light.to_string node) (string_of_keyset kss) (string_of_keyset ks);*)
-            if not (Node_light.equals nodes node) then od_add t path node
-        | None -> od_add t path node);
-  tree.node <- node;
+  (*
+    let refresh_data t path node tree =
+    if tree.disk
+    then ((*eprintf "refresh_data: path=%s content=%s node=%s subkeys=%s ks=%s\n%!"
+    (Path.to_string path) (Datas.to_string (Node_light.get_content tree.node)) (Node_light.to_string node)
+    (string_of_keyset tree.subkeys) (string_of_keyset ks);*)
+    if not (Node_light.equals tree.node node) then od_add t path node)
+    else (match od_read true t path with
+    | Some nodes ->
+  (*eprintf "refresh_data: path=%s nodes=%s node=%s kss=%s ks=%s\n%!"
+    (Path.to_string path) (Node_light.to_string nodes) (Node_light.to_string node) (string_of_keyset kss) (string_of_keyset ks);*)
+    if not (Node_light.equals nodes node) then od_add t path node
+    | None -> od_add t path node);
+    tree.node <- node;
   (*Node_light.set_content ~max_size:t.max_size tree.node data;*)
-  tree.disk <- true;
-  Mtl.refresh_mtree t.mtree path (Node_light.is_occupied node)
-*)
+    tree.disk <- true;
+    Mtl.refresh_mtree t.mtree path (Node_light.is_occupied node)
+  *)
 
-let verify_mtree_at_path t path =
-  match getdbm t with
-  | Some dbm ->
-      let sks =
-        match Mtl.find_mtree_sks t.mtree path with
-        | Some sks -> sks
-        | None -> []
-      in
-      List.for_all (fun k ->
-                      (try ignore (Dbm.find dbm (Encode_light.encode_path (Path.add path k))); true
-                       with Not_found -> false)) sks
-  | None -> false
+  let verify_mtree_at_path t path =
+    match getdbm t with
+    | Some dbm ->
+        let sks =
+          match Mtl.find_mtree_sks t.mtree path with
+          | Some sks -> sks
+          | None -> []
+        in
+        List.for_all (fun k ->
+                        (try ignore (DB.find dbm (Encode_light.encode_path (Path.add path k))); true
+                         with Not_found -> false)) sks
+    | None -> false
 
-let verify_mtree t =
-  match getdbm t with
-  | Some dbm ->
-      Mtl.fold
-        (fun path _k data valid ->
-           valid &&
-             (try
-                let datastr = Dbm.find dbm (Encode_light.encode_path path) in
-                let node = snd (Encode_light.decode_node datastr 0) in
-                let res = data = (node.Node_light.content <> Datas.UnsetData) in
-                if not res then Logger.log ~color:`red "verify_mtree: fails on path %s" (Path.to_string path);
-                res
-              with Not_found -> false))
-        true t.mtree Path.root
-  | None -> false
+  let verify_mtree t =
+    match getdbm t with
+    | Some dbm ->
+        Mtl.fold
+          (fun path _k data valid ->
+             valid &&
+               (try
+                  let datastr = DB.find dbm (Encode_light.encode_path path) in
+                  let node = snd (Encode_light.decode_node datastr 0) in
+                  let res = data = (node.Node_light.content <> Datas.UnsetData) in
+                  if not res then Logger.log ~color:`red "verify_mtree: fails on path %s" (Path.to_string path);
+                  res
+                with Not_found -> false))
+          true t.mtree Path.root
+    | None -> false
 
-let verify_database t =
-  match getdbm t with
-  | Some dbm ->
-      let disk_pathnodes =
-        let pathnodes = ref [] in
-        Dbm.iter (fun pathstr nodestr ->
-                    match pathstr with
-                    | "version" | "ondemand" | "max_size" | "timestamp" | "lock_pid" | "lock_hostname" ->
-                        ()
-                    | _ ->
-                        let path = snd (Encode_light.decode_path pathstr 0) in
-                        let node = snd (Encode_light.decode_node nodestr 0) in
-                        pathnodes := (path,node)::!pathnodes
-                 ) dbm;
-        !pathnodes
-      in
-      let dpaths = List.map (fun (p,_) -> p) disk_pathnodes in
-      let mem_pathdatas = Mtl.fold (fun p _k d pds -> (p,d)::pds) [] t.mtree Path.root in
-      let mpaths = List.map (fun (p,_) -> p) mem_pathdatas in
-      let module PS = Set.Make(Path) in
-      let dpset = List.fold_right PS.add dpaths PS.empty in
-      let mpset = List.fold_right PS.add mpaths PS.empty in
-      let not_on_disk = PS.diff mpset dpset in
-      let not_in_mem = PS.diff dpset mpset in
-      if (PS.is_empty not_on_disk) && (PS.is_empty not_in_mem)
-      then (let pncompare (p1,_) (p2,_) = Path.compare p1 p2 in
-            let pdcompare (p1,_) (p2,_) = Path.compare p1 p2 in
-            let dpns = List.sort pncompare disk_pathnodes in
-            let dpds = List.sort pdcompare mem_pathdatas in
-            List.iter2 (fun (p1,n) (p2,d) ->
-                          if Path.compare p1 p2 <> 0
-                          then Logger.error "verify_database: path mismatch %s %s" (Path.to_string p1) (Path.to_string p2)
-                          else
-                            (if d <> Node_light.is_occupied n
-                             then Logger.log ~color:`red "verify_database: data mismatch on path %s node=%s mdata=%b"
-                                                         (Path.to_string p1) (Node_light.to_string n) d))
-              dpns dpds;
-            Logger.log ~color:`green "verify_database: verifies");
-      if not (PS.is_empty not_on_disk)
-      then (let nodl = PS.fold (fun p ps -> p::ps) not_on_disk [] in
-            Logger.log ~color:`red "verify_database: not_on_disk=[%s]" (String.concat_map "; " Path.to_string nodl));
-      if not (PS.is_empty not_in_mem)
-      then (let niml = PS.fold (fun p ps -> p::ps) not_in_mem [] in
-            Logger.log ~color:`red "verify_database: not_in_mem=[%s]" (String.concat_map "; " Path.to_string niml))
-  | None ->
-      Logger.log ~color:`red "verify_database: Dbm file is closed!"
+  let verify_database t =
+    match getdbm t with
+    | Some dbm ->
+        let disk_pathnodes =
+          let pathnodes = ref [] in
+          DB.iter (fun pathstr nodestr ->
+                     match pathstr with
+                     | "version" | "ondemand" | "max_size" | "timestamp" | "lock_pid" | "lock_hostname" ->
+                         ()
+                     | _ ->
+                         let path = snd (Encode_light.decode_path pathstr 0) in
+                         let node = snd (Encode_light.decode_node nodestr 0) in
+                         pathnodes := (path,node)::!pathnodes
+                  ) dbm;
+          !pathnodes
+        in
+        let dpaths = List.map (fun (p,_) -> p) disk_pathnodes in
+        let mem_pathdatas = Mtl.fold (fun p _k d pds -> (p,d)::pds) [] t.mtree Path.root in
+        let mpaths = List.map (fun (p,_) -> p) mem_pathdatas in
+        let module PS = Set.Make(Path) in
+        let dpset = List.fold_right PS.add dpaths PS.empty in
+        let mpset = List.fold_right PS.add mpaths PS.empty in
+        let not_on_disk = PS.diff mpset dpset in
+        let not_in_mem = PS.diff dpset mpset in
+        if (PS.is_empty not_on_disk) && (PS.is_empty not_in_mem)
+        then (let pncompare (p1,_) (p2,_) = Path.compare p1 p2 in
+              let pdcompare (p1,_) (p2,_) = Path.compare p1 p2 in
+              let dpns = List.sort pncompare disk_pathnodes in
+              let dpds = List.sort pdcompare mem_pathdatas in
+              List.iter2 (fun (p1,n) (p2,d) ->
+                            if Path.compare p1 p2 <> 0
+                            then Logger.error "verify_database: path mismatch %s %s" (Path.to_string p1) (Path.to_string p2)
+                            else
+                              (if d <> Node_light.is_occupied n
+                               then Logger.log ~color:`red "verify_database: data mismatch on path %s node=%s mdata=%b"
+                                 (Path.to_string p1) (Node_light.to_string n) d))
+                dpns dpds;
+              Logger.log ~color:`green "verify_database: verifies");
+        if not (PS.is_empty not_on_disk)
+        then (let nodl = PS.fold (fun p ps -> p::ps) not_on_disk [] in
+              Logger.log ~color:`red "verify_database: not_on_disk=[%s]" (String.concat_map "; " Path.to_string nodl));
+        if not (PS.is_empty not_in_mem)
+        then (let niml = PS.fold (fun p ps -> p::ps) not_in_mem [] in
+              Logger.log ~color:`red "verify_database: not_in_mem=[%s]" (String.concat_map "; " Path.to_string niml))
+    | None ->
+        Logger.log ~color:`red "verify_database: Dbm file is closed!"
 
-let verify_data t path tree_opt =
-  let msg =
-    match tree_opt with
+  let verify_data t path tree_opt =
+    let msg =
+      match tree_opt with
+      | Some tree ->
+          (match od_read false t path with
+           | Some node ->
+               sprintf "verify_data(disk=%b): path=%s\n" tree.disk (Path.to_string path)^
+                 (if Node_light.equals tree.node node
+                  then sprintf "  data: OK=%s\n%!" (Node_light.to_string node)
+                  else sprintf "  data: MEM=%s\n        DSK=%s\n%!" (Node_light.to_string tree.node) (Node_light.to_string node))
+           | None ->
+               sprintf "verify_data(disk=%b): path=%s\n" tree.disk (Path.to_string path)^
+                 (if Node_light.equals_data tree.node Datas.UnsetData
+                  then sprintf "  data: OK=%s\n%!" (Node_light.to_string tree.node)
+                  else sprintf "  data: MEM=%s\n%!" (Node_light.to_string tree.node)))
+      | None ->
+          (match od_read false t path with
+           | Some node ->
+               sprintf "verify_data(no tree): path=%s\n" (Path.to_string path)^
+                 sprintf "  data: MEM=None\n        DSK=%s\n%!" (Node_light.to_string node)
+           | None ->
+               sprintf "verify_data(no tree): path=%s\n" (Path.to_string path)^
+                 sprintf "  data: OK=None\n%!")
+    in
+    Logger.log ~color:`red "%s" msg
+
+  let verifies t path = function
     | Some tree ->
         (match od_read false t path with
-         | Some node ->
-             sprintf "verify_data(disk=%b): path=%s\n" tree.disk (Path.to_string path)^
-             (if Node_light.equals tree.node node
-              then sprintf "  data: OK=%s\n%!" (Node_light.to_string node)
-              else sprintf "  data: MEM=%s\n        DSK=%s\n%!" (Node_light.to_string tree.node) (Node_light.to_string node))
-       | None ->
-           sprintf "verify_data(disk=%b): path=%s\n" tree.disk (Path.to_string path)^
-           (if Node_light.equals_data tree.node Datas.UnsetData
-            then sprintf "  data: OK=%s\n%!" (Node_light.to_string tree.node)
-            else sprintf "  data: MEM=%s\n%!" (Node_light.to_string tree.node)))
-  | None ->
-      (match od_read false t path with
-       | Some node ->
-           sprintf "verify_data(no tree): path=%s\n" (Path.to_string path)^
-           sprintf "  data: MEM=None\n        DSK=%s\n%!" (Node_light.to_string node)
-       | None ->
-           sprintf "verify_data(no tree): path=%s\n" (Path.to_string path)^
-           sprintf "  data: OK=None\n%!")
-  in
-  Logger.log ~color:`red "%s" msg
+         | Some node -> Node_light.equals node tree.node
+         | None -> not (Node_light.is_occupied tree.node))
+    | None ->
+        (match od_read false t path with
+         | Some _ -> false
+         | None -> true)
 
-let verifies t path = function
-  | Some tree ->
-      (match od_read false t path with
-       | Some node -> Node_light.equals node tree.node
-       | None -> not (Node_light.is_occupied tree.node))
-  | None ->
-      (match od_read false t path with
-       | Some _ -> false
-       | None -> true)
+  let update_data_1 = ref 0.0
+  let update_data_2 = ref 0.0
+  let update_data_3 = ref 0.0
 
-let update_data_1 = ref 0.0
-let update_data_2 = ref 0.0
-let update_data_3 = ref 0.0
-
-let update_data t path data tree =
-  (*eprintf "update_data: path=%s data=%s tree=%d\n%!" (Path.to_string path) (Datas.to_string data) (Uid.value tree.uid);*)
-  let _old_data = Node_light.get_content tree.node in
-  (if not tree.disk
-   then (Node_light.set_content ~max_size:t.max_size tree.node data;
-         (*ta update_data_1*) (od_add t path) tree.node
-         (*match ta update_data_1 (od_read true t) path with
-         | Some nodes ->
-             (*eprintf "nodes=%s data=%s kss=%s ks=%s\n%!"
-                         (Node_light.to_string nodes) (Datas.to_string data) (string_of_keyset kss) (string_of_keyset ks);*)
+  let update_data t path data tree =
+    (*eprintf "update_data: path=%s data=%s tree=%d\n%!" (Path.to_string path) (Datas.to_string data) (Uid.value tree.uid);*)
+    let _old_data = Node_light.get_content tree.node in
+    (if not tree.disk
+     then (Node_light.set_content ~max_size:t.max_size tree.node data;
+           (*ta update_data_1*) (od_add t path) tree.node
+           (*match ta update_data_1 (od_read true t) path with
+             | Some nodes ->
+           (*eprintf "nodes=%s data=%s kss=%s ks=%s\n%!"
+             (Node_light.to_string nodes) (Datas.to_string data) (string_of_keyset kss) (string_of_keyset ks);*)
              if not (Node_light.equals_data nodes data)
              then (Node_light.set_content ~max_size:t.max_size tree.node data;
-                   ta update_data_2 (od_add t path) tree.node)
-         | None ->
+             ta update_data_2 (od_add t path) tree.node)
+             | None ->
              Node_light.set_content ~max_size:t.max_size tree.node data;
              ta update_data_3 (od_add t path) tree.node*))
-   else
-     if not (Node_light.equals_data tree.node data)
-     then (Node_light.set_content ~max_size:t.max_size tree.node data;
-           od_add t path tree.node));
-  tree.disk <- true;
-  #<If$minlevel 3>Logger.log ~color:`yellow "DB-LIGHT : update_data: data=%s old_data=%s, using %s data"
-                                            (Datas.to_string data) (Datas.to_string _old_data)
-                                            (if Node_light.equals_data tree.node data then "new" else "old")#<End>
+     else
+       if not (Node_light.equals_data tree.node data)
+       then (Node_light.set_content ~max_size:t.max_size tree.node data;
+             od_add t path tree.node));
+    tree.disk <- true;
+    #<If$minlevel 3>Logger.log ~color:`yellow "DB-LIGHT : update_data: data=%s old_data=%s, using %s data"
+    (Datas.to_string data) (Datas.to_string _old_data)
+      (if Node_light.equals_data tree.node data then "new" else "old")#<End>
 
-let add_tree_1 = ref 0.0
+  let add_tree_1 = ref 0.0
 
-let add_tree ?(no_write=false) t path data =
-  #<If>Logger.log ~color:`yellow "DB-LIGHT : add_tree: path=%s data=%s" (Path.to_string path) (Datas.to_string data)#<End>;
-  let rec aux pt here tree = function
-    | [] ->
-        tree.up := pt;
-        if no_write
-        then Node_light.set_content ~max_size:t.max_size tree.node data
-        else (*ta add_tree_1*) (update_data t path data) tree
-    | k::rest ->
-        (try
-           let st = Hashtbl.find tree.sts k in
-           aux tree (Path.add here k) st rest
-         with Not_found ->
-           let st = make_node t k Datas.UnsetData in
-           st.up <- ref tree;
-           od_add t here tree.node;
-           Hashtbl.add tree.sts k st;
-           aux tree (Path.add here k) st rest)
-  in
-  aux t.tree Path.root t.tree (Path.to_list path);
-  if !od_early then action_od ();
-  t.tcount <- Eid.succ t.tcount;
-  Mtl.add_mtree t.mtree path data
+  let add_tree ?(no_write=false) t path data =
+    #<If>Logger.log ~color:`yellow "DB-LIGHT : add_tree: path=%s data=%s" (Path.to_string path) (Datas.to_string data)#<End>;
+    let rec aux pt here tree = function
+      | [] ->
+          tree.up := pt;
+          if no_write
+          then Node_light.set_content ~max_size:t.max_size tree.node data
+          else (*ta add_tree_1*) (update_data t path data) tree
+      | k::rest ->
+          (try
+             let st = Hashtbl.find tree.sts k in
+             aux tree (Path.add here k) st rest
+           with Not_found ->
+             let st = make_node t k Datas.UnsetData in
+             st.up <- ref tree;
+             od_add t here tree.node;
+             Hashtbl.add tree.sts k st;
+             aux tree (Path.add here k) st rest)
+    in
+    aux t.tree Path.root t.tree (Path.to_list path);
+    if !od_early then action_od ();
+    t.tcount <- Eid.succ t.tcount;
+    Mtl.add_mtree t.mtree path data
 
-let add_bare_tree t tree k =
-  let st = make_node t k Datas.UnsetData in
-  st.up <- ref tree;
-  Hashtbl.add tree.sts k st;
-  st
+  (*let is2 p = List.hd (Path.to_list p) = Keys.IntKey 2*)
 
-let rec find_st t path tree k =
-  if !verify
-  then (ignore (verify_mtree t);
-        if not (verifies t path (Some tree)) then verify_data t path (Some tree));
-  try
-    #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: trying sts(%s)" (string_of_sts tree.sts)#<End>;
-    let st = Hashtbl.find tree.sts k in
-    #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: path=%s tree=%d k=%s from sts %d (st.disk=%b)"
-                                               (Path.to_string path) (Uid.value tree.uid)
-                                               (Keys.to_string k) (Uid.value st.uid) st.disk#<End>;
-    if st.disk
-    then st
-    else (ondemand_prime t (Path.add path k) st;
-          st)
-  with Not_found ->
-    #<If$minlevel 30>
+  let direct_add t path data =
+    let node = create_node ~max_size:t.max_size ?filemanager:t.db_filemanager ~content:data () in
+    match getdbm t with
+    | Some dbm ->
+        #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct add path=%s to %s"
+        (Path.to_string path) (Node_light.to_string node)#<End>;
+        (*if is2 path then*) (DB.replace dbm (Encode_light.encode_path path)) (Encode_light.encode_node node) (*else ()*)
+    | None ->
+        #<If>Logger.log ~color:`red "DB-LIGHT : direct_add Dbm is closed"#<End>
+
+  let add_tree_direct t path data =
+    match t.mst with
+    | Some mst ->
+        (direct_add t path data;
+         Mst.set_path mst path)
+    | None -> assert false
+
+  let add_bare_tree t tree k =
+    let st = make_node t k Datas.UnsetData in
+    st.up <- ref tree;
+    Hashtbl.add tree.sts k st;
+    st
+
+  let rec find_st t path tree k =
+    if !verify
+    then (ignore (verify_mtree t);
+          if not (verifies t path (Some tree)) then verify_data t path (Some tree));
+    try
+      #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: trying sts(%s)" (string_of_sts tree.sts)#<End>;
+      let st = Hashtbl.find tree.sts k in
+      #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: path=%s tree=%d k=%s from sts %d (st.disk=%b)"
+      (Path.to_string path) (Uid.value tree.uid)
+        (Keys.to_string k) (Uid.value st.uid) st.disk#<End>;
+      if st.disk
+      then st
+      else (ondemand_prime t (Path.add path k) st;
+            st)
+    with Not_found ->
+      #<If$minlevel 30>
       let sks =
         match Mtl.find_mtree t.mtree path with
         | Some mtree -> Hashtbl.fold (fun k _ ks -> k::ks) mtree.Mtl.msts []
@@ -492,16 +526,16 @@ let rec find_st t path tree k =
       in
       Logger.log ~color:`yellow "DB-LIGHT : find_st: trying subkeys([%s])" (String.concat_map "; " Keys.to_string sks);
       Logger.log ~color:`yellow "DB-LIGHT : find_st: tree.disk=%b" tree.disk
-    #<End>;
-    if tree.disk
-    then 
-      if (match Mtl.find_mtree t.mtree path with
-          | Some mtree -> Hashtbl.mem mtree.Mtl.msts k
-          | None -> false)
-      then
-        let st = add_bare_tree t tree k in
-        ondemand_prime t (Path.add path k) st;
-        #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: from prime %d" (Uid.value st.uid)#<End>;
+        #<End>;
+      if tree.disk
+      then 
+        if (match Mtl.find_mtree t.mtree path with
+            | Some mtree -> Hashtbl.mem mtree.Mtl.msts k
+            | None -> false)
+        then
+          let st = add_bare_tree t tree k in
+          ondemand_prime t (Path.add path k) st;
+          #<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: from prime %d" (Uid.value st.uid)#<End>;
         st
       else raise Not_found
     else (#<If$minlevel 30>Logger.log ~color:`yellow "DB-LIGHT : find_st: priming %s %d"
@@ -512,7 +546,7 @@ let rec find_st t path tree k =
 let remove_tree t path =
   #<If>Logger.log ~color:`yellow "DB-LIGHT : remove_tree: path=%s" (Path.to_string path)#<End>;
   let rec aux here tree mtree kl =
-    (*eprintf "remove_tree(aux): here=%s tree=%d kl=[%s]\n%!"
+    (*eprintf "remove_tree(aux): here=%s tree=%d kl=[%s]\n%!\n%!"
             (Path.to_string here) (Uid.value tree.uid) (String.concat_map ";" Keys.to_string kl);*)
     match kl with
     | [] -> false
@@ -565,6 +599,22 @@ let remove_tree t path =
 (* Node-level navigation:
    Note that we can't export this yet because the Badop.S sig doesn't support it.
 *)
+
+let direct_remove t path k =
+  match getdbm t with
+  | Some dbm ->
+      (* TODO: delete file *)
+      #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct removing %s" (Path.to_string path)#<End>;
+      (*if is2 path then*)
+      (try DB.remove dbm k
+       with DB.DB_error s -> Logger.log ~color:`red "direct_remove: error %s" s) (*else ()*)
+  | None ->
+      #<If>Logger.log ~color:`red "DB-LIGHT : direct_remove Dbm is closed"#<End>
+
+let remove_tree_direct t path =
+  match t.mst with
+  | Some mst -> Mst.remove ~cb:(direct_remove t) mst path
+  | None -> assert false
 
 let node_uid node = node.uid
 let node_key node = node.key
@@ -686,6 +736,7 @@ let start = root_eid
 
   let get_index _db = assert false (*db.index*)
   let get_mtree db = db.mtree
+  let get_mst db = db.mst
 
 
   (*****************************)
@@ -723,6 +774,41 @@ let start = root_eid
     | Datas.Link p
     | Datas.Copy (_, p) -> get db p
     | Datas.UnsetData -> DataImpl.empty
+    in
+    #<If$minlevel 20>Logger.log ~color:`yellow "DB-LIGHT : get: path=%s returning data=%s"
+                                               (Path.to_string path) (DataImpl.to_string res)#<End>;
+    res
+
+  let direct_read t path =
+    match getdbm t with
+    | Some dbm ->
+        (try
+           (*if is2 path then*)
+             let node = snd (Encode_light.decode_node (DB.find dbm (Encode_light.encode_path path)) 0) in
+             #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct read path %s -> %s"
+                                                        (Path.to_string path) (Node_light.to_string node)#<End>;
+             Some node
+           (*else None*)
+         with Not_found ->
+           #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct read path %s -> None" (Path.to_string path)#<End>;
+           None)
+    | None ->
+        #<If>Logger.log ~color:`red "DB-LIGHT : direct_read Dbm is closed"#<End>;
+        None
+
+  let get_node_direct db path =
+    match direct_read db path with
+    | Some node -> node
+    | None -> raise UnqualifiedPath
+
+  let rec get_direct db path =
+    let node = get_node_direct db path in
+    let res =
+      match Node_light.get_content node with
+      | Datas.Data d -> d
+      | Datas.Link p
+      | Datas.Copy (_, p) -> get_direct db p
+      | Datas.UnsetData -> DataImpl.empty
     in
     #<If$minlevel 20>Logger.log ~color:`yellow "DB-LIGHT : get: path=%s returning data=%s"
                                                (Path.to_string path) (DataImpl.to_string res)#<End>;
@@ -816,6 +902,19 @@ let start = root_eid
                                                         (Path.to_string path) (String.concat_map "; " Path.to_string ch)#<End>;
     ch
 
+  let get_children_direct db range_opt path =
+    match db.mst with
+    | Some mst ->
+        (try
+           let sks = Mst.find mst path in
+           let range = match range_opt with Some range -> range | None -> (None,0) in
+           let skl, _ = KeySet.fold (fun k (l,len) -> if in_range range k len then (k::l,len+1) else (l,len)) sks ([],0) in
+           List.map (Path.add path) skl
+         with Not_found ->
+           raise UnqualifiedPath)
+    | None ->
+      assert false
+
   (********************)
   (* basics DB writes *)
   (********************)
@@ -823,6 +922,8 @@ let start = root_eid
   let update ?no_write db path data = add_tree ?no_write db path data; db
 
   let remove db path = ignore (remove_tree db path); db
+
+  let remove_direct db path = ignore (remove_tree db path); db
 
   (* index management *)
 
@@ -937,11 +1038,19 @@ let start = root_eid
     add_tree db path (Datas.Link link);
     db
 
+  let set_link_direct db path link =
+    add_tree_direct db path (Datas.Link link);
+    db
+
   (* Copies *)
 
   (* Just behave like links for now... *)
   let set_copy db path link =
     add_tree db path (Datas.Copy (None, link));
+    db
+
+  let set_copy_direct db path link =
+    add_tree_direct db path (Datas.Copy (None, link));
     db
 
   (*Unfinished...
@@ -988,15 +1097,16 @@ let start = root_eid
     in
     aux db path
 
+  (* Test code *)
 (*
 let tt_ref = ref (make_t ())
 let dbl = ref []
 let file = "/tmp/db_light_self_test"
 
-let dodb file f =
-  let db = Dbm.opendbm file [(*Dbm.Dbm_create;*) Dbm.Dbm_rdwr] 0O664 in
+let dodb ?(create=false) file f =
+  let db = DB.opendbm file ((if create then [DB.Dbm_create] else [])@[DB.Dbm_rdwr]) 0O664 in
   let res = f db in
-  Dbm.close db;
+  DB.close db;
   res
 
 let km1 = Keys.IntKey (-1)
@@ -1013,13 +1123,16 @@ let path1021 = Path.add path102 k1
 let path1021n n = Path.add path1021 (Keys.IntKey n)
 let path1021mn m n = Path.add (Path.add path1021 (Keys.IntKey m)) (Keys.IntKey n)
 
-let rawfind file str = dodb file (fun db -> Dbm.find db str)
-let find file path = dodb file (fun db -> snd (Encode_light.decode_node (Dbm.find db (Encode_light.encode_path path)) 0))
+let rawfind ?create file str = dodb ?create file (fun db -> DB.find db str)
+let find ?create file path =
+  dodb ?create file (fun db -> snd (Encode_light.decode_node (DB.find db (Encode_light.encode_path path)) 0))
+let setany ?create file k v = dodb ?create file (fun db -> DB.replace db (Marshal.to_string k []) (Marshal.to_string v []))
+let getany ?create file k = Marshal.from_string (dodb ?create file (fun db -> DB.find db (Marshal.to_string k []))) 0
 
 let set_dbl file decode =
   let dbl = ref [] in
   dodb file (fun db ->
-  Dbm.iter (fun k d ->
+  DB.iter (fun k d ->
               (match k with
                | "version" -> ()
                | "timestamp" -> ()
@@ -1034,7 +1147,7 @@ let set_dbln file = set_dbl file Encode_light.decode_kln
 let all_disk_nodes file =
   let nodes = ref [] in
   dodb file (fun db ->
-  Dbm.iter (fun k _d ->
+  DB.iter (fun k _d ->
               (match k with
                | "version" -> ()
                | "timestamp" -> ()
@@ -1042,11 +1155,11 @@ let all_disk_nodes file =
   !nodes
 
 let cleardb file =
-  let db = Dbm.opendbm file [(*Dbm.Dbm_create;*) Dbm.Dbm_rdwr] 0O664 in
+  let db = DB.opendbm file [(*DB.DB_create;*) DB.DB_rdwr] 0O664 in
   let keys = ref [] in
-  Dbm.iter (fun k _ -> keys := k::!keys) db;
-  List.iter (Dbm.remove db) !keys;
-  Dbm.close db
+  DB.iter (fun k _ -> keys := k::!keys) db;
+  List.iter (DB.remove db) !keys;
+  DB.close db
 
 let verify n t path =
   let node_opt = find_node_opt t path in
@@ -1134,3 +1247,4 @@ let _ =
   dbl := set_dbln file
 *)
 
+end

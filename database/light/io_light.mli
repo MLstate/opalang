@@ -15,31 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-val version : string
-type mode = Create | Append | ReadOnly
-type t = {
-  location : string;
-  mode : mode;
-  mutable dbm : Dbm.t option;
-  mutable link_count : int;
-  mutable has_lock : bool;
-  mutable timestamp : Time.t;
-  mutable next_file_idx : int;
-}
-val dbtbl : (string, t) Hashtbl.t
-val is_open : t -> bool
-val is_closed : t -> bool
-val really_remove_lock_file : t -> unit
-val get_content_file_name : t -> string
-val close : t -> unit
-val make_lock_file : t -> unit
-val remove_lock_file : t -> unit
-val read_lock_file : t -> (string * int) option
-val check_other_used : t -> unit
-val reopen : t -> unit
-val make : mode -> string -> t
-val get_timestamp : t -> Time.t
-val get_location : t -> string
-val get_dbm : t -> Dbm.t option
-val get_link_count : t -> int
-val get_has_lock : t -> bool
+
+module Io_light_ : functor (DB : DbSig.DB) -> Io_light_sig.IO_LIGHT
+

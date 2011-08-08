@@ -45,6 +45,7 @@ let default_light_options =
   { Badop.
     lpath = default_file ~name:"db_light" ();
     ondemand = Some true;
+    direct = Some true;
     max_size = Some max_int;
   }
 
@@ -168,31 +169,28 @@ let options_parser_with_default ?name (_default_m, default_o) =
            | p -> (match name with None -> p | Some n -> Filename.concat p n)
          in
          let lflags = List.map (BaseString.slice '=') (BaseString.slice ',' flags) in
-         let ondemand,max_size,lflags =
+         let ondemand,direct,max_size,lflags =
            List.fold_left
-             (fun (od,ms,lf) -> function
-              | ["ondemand"] -> (Some true,ms,lf)
-              | ["max_size";str] -> (od,(try Some (int_of_string str) with Failure "int_of_string" -> ms),lf)
-              | opt -> (od,ms,opt@lf))
+             (fun (od,di,ms,lf) -> function
+              | ["ondemand"] -> (Some true,di,ms,lf)
+              | ["direct"] -> (od,Some true,ms,lf)
+              | ["max_size";str] -> (od,di,(try Some (int_of_string str) with Failure "int_of_string" -> ms),lf)
+              | opt -> (od,di,ms,opt@lf))
              ((match o with Badop.Options_Light({ Badop.ondemand = od; _ }) -> od | _ -> None),
+              (match o with Badop.Options_Light({ Badop.direct = di; _ }) -> di | _ -> None),
               (match o with Badop.Options_Light({ Badop.max_size = ms; _ }) -> ms | _ -> None),
               []) lflags
          in
-         (*let ondemand,lflags =
-           let found, lflags = consume_option "ondemand" lflags in
-           let r =
-             if found
-             then Some true
-             else (match o with Badop.Options_Light({ Badop.ondemand = r; _ }) -> r | _ -> None)
-           in r,lflags in*)
          if not (List.is_empty lflags) then
            (prerr_endline ("Error: unknown db flag "^(List.print (fun x -> x) lflags)^spec_msg); raise Exit);
          let lpath = path^"_light" in
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "path: %s" path#<End>;
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "ondemand: %s" (Option.to_string string_of_bool ondemand)#<End>;
+         #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "direct: %s" (Option.to_string string_of_bool direct)#<End>;
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "max_size: %s" (Option.to_string string_of_int max_size)#<End>;
+         let module Badop_light = Badop_light.Badop_light_(DbmDB) in
          (module Badop_light : Badop.S),
-         Badop.Options_Light { Badop.lpath; ondemand; max_size; }),
+         Badop.Options_Light { Badop.lpath; ondemand; direct; max_size; }),
       "[<path>][:<flags>]",
       (let default_str = match default_o with
          | Badop.Options_Light({ Badop.lpath = lpath; _ }) ->
@@ -230,7 +228,10 @@ let options_parser_with_default ?name (_default_m, default_o) =
     A.func A.int
        (fun (_,o) i ->
          let opt = get_light_options o in
-         (module Badop_light : Badop.S), Badop.Options_Light { opt with Badop.ondemand = Some true; max_size = Some i }),
+         (module Badop_light : Badop.S), Badop.Options_Light { opt with
+                                                                 Badop.ondemand = Some true;
+                                                                 direct = Some true;
+                                                                 max_size = Some i }),
      "<int>", "Store node data on disk if larger than this number of bytes";
     ["--db-template"],
     A.func A.unit

@@ -15,25 +15,36 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(* depends *)
 
-(* shorthands *)
-module DT = DbTypes
-module String = BaseString
-let eprintf fmt = Printf.eprintf fmt
-let sprintf fmt = Printf.sprintf fmt
+(* Debug *)
 
-(* debug *)
 #<Debugvar:DEBUG_DB>
 
-(* -- *)
+(* Functor *)
 
+module Session_light_ (DB : DbSig.DB) =
+struct
 
-  (* shorthands *)
-  type 'a intmap = 'a IntMap.t
+  (* Built modules *)
+  module Transaction_light = Transaction_light.Transaction_light_(DB)
+  module Db_light = Transaction_light.Db_light
+  module Io_light = Db_light.Io_light
+  module DB = Io_light.DB
+
+  (* Exports *)
+  exception UnqualifiedPath = Db_light.UnqualifiedPath
+
+  (* Depends *)
+  module String = BaseString
   module List = BaseList
-  module Tr = Transaction_light
 
+  (* Shorthands *)
+  type 'a intmap = 'a IntMap.t
+  module Tr = Transaction_light
+  let eprintf fmt = Printf.eprintf fmt
+  let sprintf fmt = Printf.sprintf fmt
+
+  (* Types *)
   (* The queue of transaction numbers, stored in order of appearance,
      helps in choosing the next prepare to do (the longest waiting).
      TODO: it's imperative; perhaps do this functionally? *)
@@ -58,6 +69,7 @@ let sprintf fmt = Printf.sprintf fmt
            ; mutable db_ref : Db_light.t (* the reference db passed to new transactions *)
            ; with_dot : bool (* Not used *)
            ; with_ondemand : bool (* No db preload, load values on access *)
+           ; with_direct : bool (* Direct disk write *)
            ; with_max_size : int (* Save data bigger than this in files *)
            ; is_weak : bool (* Not used *)
            ; file_manager : Io_light.t
@@ -71,7 +83,7 @@ let sprintf fmt = Printf.sprintf fmt
                 the commit operation). *)
           }
 
-  (* exceptions *)
+  (* Exceptions *)
   exception Open of (t option * string)
   exception DiskError of string
 
@@ -87,16 +99,16 @@ let sprintf fmt = Printf.sprintf fmt
          | Tr.Set datas ->
              #<If>Logger.log ~color:`magenta "DB-LIGHT(%d) : updating path %s to %s"
                                              _i (Path.to_string path) (Datas.to_string datas)#<End>;
-             Dbm.replace dbm (Encode_light.encode_path path) (Encode_light.encode_datas datas)
+             DB.replace dbm (Encode_light.encode_path path) (Encode_light.encode_datas datas)
          | Tr.Remove path ->
              #<If>Logger.log ~color:`magenta "DB-LIGHT(%d) : (qm) removing path %s" _i (Path.to_string path)#<End>;
-             try Dbm.remove dbm (Encode_light.encode_path path)
-             with Dbm.Dbm_error "dbm_delete" -> ())
+             try DB.remove dbm (Encode_light.encode_path path)
+             with DB.DB_error "dbm_delete" -> ())
       (Tr.get_sorted_queries trans);
     List.iter (fun path ->
                  #<If>Logger.log ~color:`magenta "DB-LIGHT : (rl) removing path %s" (Path.to_string path)#<End>;
-                 try Dbm.remove dbm (Encode_light.encode_path path)
-                 with Dbm.Dbm_error "dbm_delete" -> ()
+                 try DB.remove dbm (Encode_light.encode_path path)
+                 with DB.DB_error "dbm_delete" -> ()
               ) (List.rev trans.Tr.tr_remove_list)
 
   let disk_writing t trans =
@@ -139,7 +151,40 @@ let sprintf fmt = Printf.sprintf fmt
     then sprintf "%s/" (Unix.getcwd ())
     else ""
 
-  let init_db ?ondemand ?max_size mode file =
+  let init_mtree t =
+    let has_mtree =
+      if not t.with_direct
+      then
+        let mtree_file = Io_light.get_location t.file_manager^"_mtree" in
+        #<If$minlevel 20>Logger.log "DB-LIGHT : init_mtree: mtree_file=%s" mtree_file#<End>;
+        try
+          let ic = open_in mtree_file in
+          let mtree = Mem_tree_light.input_mt ic in
+          Db_light.set_mtree t.db_ref mtree;
+          close_in ic;
+          true
+        with Sys_error _ -> false
+      else false
+    in
+    Logger.log "DB-LIGHT : init_mtree: has_mtree=%b" has_mtree;
+    has_mtree
+
+  let init_mst t =
+    let has_mst =
+      if t.with_direct
+      then (try
+              let mst_file = Io_light.get_location t.file_manager^"_mst" in
+              #<If$minlevel 20>Logger.log "DB-LIGHT : init_mst: mst_file=%s" mst_file#<End>;
+              let mst = Mst.create ~create:true ~hint:100000 mst_file in
+              Db_light.set_mst t.db_ref (Some mst);
+              true
+            with Sys_error _ -> false)
+      else false
+    in
+    Logger.log "DB-LIGHT : init_mst: has_mst=%b" has_mst;
+    has_mst
+
+  let init_db ?ondemand ?direct ?max_size mode file =
     let rep = Filename.dirname file in
     let _ =
       try
@@ -152,6 +197,7 @@ let sprintf fmt = Printf.sprintf fmt
       | e -> raise (Open (None, Printexc.to_string e)) in
     let filemanager = Io_light.make mode file in
     let with_ondemand = match ondemand with Some ondemand -> ondemand | None -> false in
+    let with_direct = match direct with Some direct -> direct | None -> false in
     let with_max_size = match max_size with Some max_size -> max_size | None -> max_int in
     let db =
       if with_ondemand
@@ -163,16 +209,18 @@ let sprintf fmt = Printf.sprintf fmt
     ; with_dot = false
     ; is_weak = false
     ; with_ondemand = with_ondemand
+    ; with_direct = with_direct
     ; with_max_size = with_max_size
     ; file_manager = filemanager
     ; session_lock = None
     ; waiting_FIFO = create_FIFO ()
     }
 
-  let make ?dot ?weak ?ondemand ?max_size file =
+  let make ?dot ?weak ?ondemand ?direct ?max_size file =
     let _ = (dot,weak) in
     Logger.info "DB-LIGHT : Session_light.make: file=%s" file;
-    let t = init_db ?ondemand ?max_size Io_light.Create file in
+    let t = init_db ?ondemand ?direct ?max_size Io_light.Create file in
+    let _ = init_mst t in
     let _dot, with_dot = (*match dot with
     | Some true -> "with", true
     | Some false | None ->*) "without", false in
@@ -182,14 +230,15 @@ let sprintf fmt = Printf.sprintf fmt
     #<If>
       let _position = position file in
       let _ondemand = match ondemand with | Some true -> " ondemand " | Some false | None -> " " in
+      let _direct = match direct with | Some true -> " direct " | Some false | None -> " " in
       let _max_size =
         match max_size with
         | Some n when (n < 0 || n = max_int) -> " "
         | Some ms -> sprintf " max_size=%d " ms
         | None -> " "
       in
-      Logger.log "DB-LIGHT : Opening a new DB %s dot files, %s%s%sat %s%s by %s"
-                 _dot _disk _ondemand _max_size _position file (Sys.executable_name)
+      Logger.log "DB-LIGHT : Opening a new DB %s dot files, %s%s%s%sat %s%s by %s"
+                 _dot _disk _ondemand _direct _max_size _position file (Sys.executable_name)
     #<End>;
     { t with is_weak = is_weak; with_dot = with_dot; }
 
@@ -200,6 +249,7 @@ let sprintf fmt = Printf.sprintf fmt
     let oc = open_out mtree_file in
     Mem_tree_light.output_mt oc (Db_light.get_mtree t.db_ref);
     close_out oc;
+    if t.with_direct then ignore (Option.map Mst.close (Db_light.get_mst t.db_ref));
     #<If$minlevel 20>Logger.log "close_db: mtree_file=%s" mtree_file#<End>;
     let _position = position file in
     Logger.info "DB-LIGHT : Closing the database at %s" file;
@@ -209,30 +259,20 @@ let sprintf fmt = Printf.sprintf fmt
 
   let restart_db_from_last t =
     let db = t.db_ref in
-    let mtree_file = Io_light.get_location t.file_manager^"_mtree" in
-    #<If$minlevel 20>Logger.log "restart_db_from_last: mtree_file=%s" mtree_file#<End>;
-    let has_mtree =
-      try
-        let ic = open_in mtree_file in
-        let mtree = Mem_tree_light.input_mt ic in
-        Db_light.set_mtree t.db_ref mtree;
-        close_in ic;
-        true
-      with Sys_error _ -> false
-    in
-    Logger.log "restart_db_from_last: has_mtree=%b" has_mtree;
-    if t.with_ondemand && not has_mtree
+    let has_mtree = init_mtree t in
+    let _ = init_mst t in
+    if t.with_ondemand && not t.with_direct && not has_mtree
     then Logger.warning "DB-LIGHT : Warning: unable to read mem_tree file, rebuilding from Dbm";
     (match Io_light.get_dbm t.file_manager with
      | Some dbm ->
-         Dbm.iter (fun pathstr datastr ->
+         DB.iter (fun pathstr datastr ->
                      match pathstr with
                      | "version" ->
                          if Io_light.version <> datastr
                          then Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file version %s does not match DB %s"
                                                              datastr Io_light.version;
                          #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file version %s" datastr#<End>;
-                         Db_light.set_version t.db_ref datastr
+                         Db_light.set_version db datastr
                      | "ondemand" ->
                          let ondemand =
                            try bool_of_string datastr
@@ -240,8 +280,17 @@ let sprintf fmt = Printf.sprintf fmt
                              Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file nonsensical bool string for ondemand = '%s'" datastr;
                              false
                          in
-                         Db_light.set_filemanager t.db_ref (if ondemand then Some t.file_manager else None);
+                         Db_light.set_filemanager db (if ondemand then Some t.file_manager else None);
                          #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file ondemand %s" datastr#<End>
+                     | "direct" ->
+                         let direct =
+                           try bool_of_string datastr
+                           with Invalid_argument "bool_of_string" ->
+                             Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file nonsensical bool string for direct = '%s'" datastr;
+                             false
+                         in
+                         if direct && Option.is_none (Db_light.get_mst db) then ignore (init_mst t);
+                         #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file direct %s" datastr#<End>
                      | "max_size" ->
                          let max_size =
                            try int_of_string datastr
@@ -249,7 +298,7 @@ let sprintf fmt = Printf.sprintf fmt
                              Logger.log ~color:`red "DB-LIGHT : Warning: Dbm file nonsensical int string for max_size = '%s'" datastr;
                              max_int
                          in
-                         Db_light.set_max_size t.db_ref max_size;
+                         Db_light.set_max_size db max_size;
                          #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file max_size %s" datastr#<End>
                      | "timestamp" ->
                          #<If>Logger.log ~color:`magenta "DB-LIGHT : Dbm file timestamp %s" datastr#<End>;
@@ -269,13 +318,13 @@ let sprintf fmt = Printf.sprintf fmt
                                #<If>Logger.log ~color:`magenta "DB-LIGHT : set mtree %s -> %s"
                                                                (Path.to_string path)
                                                                (Datas.to_string node.Node_light.content)#<End>;
-                               Mem_tree_light.add_mtree (Db_light.get_mtree t.db_ref) path node.Node_light.content)
+                               Mem_tree_light.add_mtree (Db_light.get_mtree db) path node.Node_light.content)
                             else
                               (if !(Db_light.verify)
                                then
                                  let path = snd (Encode_light.decode_path pathstr 0) in
                                  let node = snd (Encode_light.decode_node datastr 0) in
-                                 match Mem_tree_light.find_mtree_data (Db_light.get_mtree t.db_ref) path with
+                                 match Mem_tree_light.find_mtree_data (Db_light.get_mtree db) path with
                                  | Some true ->
                                      if node.Node_light.content = Datas.UnsetData
                                      then Logger.debug "DB-LIGHT : (verify fail) path %s data in mtree but not in Dbm file"
@@ -293,17 +342,17 @@ let sprintf fmt = Printf.sprintf fmt
                            #<If>Logger.log ~color:`magenta "DB-LIGHT : set %s -> %s"
                                                            (Path.to_string path) (Datas.to_string datas)#<End>;
                            (match datas with
-                            | Datas.Data dataImpl -> ignore (Db_light.update_index t.db_ref [(path,dataImpl)])
+                            | Datas.Data dataImpl -> ignore (Db_light.update_index db [(path,dataImpl)])
                                 (* FIXME: Links!!! *)
                             | _ -> ());
-                           ignore (Db_light.update ~no_write:true t.db_ref path datas))
+                           ignore (Db_light.update ~no_write:true db path datas))
            dbm
      | None -> ());
     db
 
-  let restart_db ?dot ?weak ?restore ?openat_rev ?ondemand ?max_size file =
+  let restart_db ?dot ?weak ?restore ?openat_rev ?ondemand ?direct ?max_size file =
     let _ = dot, weak, restore, openat_rev in
-    let t = init_db ?ondemand ?max_size Io_light.Append file in
+    let t = init_db ?ondemand ?direct ?max_size Io_light.Append file in
     let _position = position file in
     let _dot, with_dot = (*match dot with
     | Some true -> "with", true
@@ -312,15 +361,16 @@ let sprintf fmt = Printf.sprintf fmt
     | Some true -> "reading on disk", Some (read_node_from_disk t), true
     | Some false | None ->*) "ram only", None, false in
     let _ondemand = match ondemand with | Some true -> ", ondemand " | Some false | None -> " " in
+    let _direct = match direct with | Some true -> ", direct " | Some false | None -> " " in
     let _max_size =
       match max_size with
       | Some n when n < 0 || n = max_int -> " "
       | Some max_size -> sprintf ", max_size=%d " max_size
       | None -> " "
     in
-    #<If>Logger.log "DB-LIGHT : Opening an existing DB %s dot files, %s%s%sat %s%s by %s"
-                   _dot _disk _ondemand _max_size _position file (Sys.executable_name)#<End>;
-    let t = { t with is_weak = is_weak; with_dot = with_dot; } in
+    #<If>Logger.log "DB-LIGHT : Opening an existing DB %s dot files, %s%s%s%sat %s%s by %s"
+                   _dot _disk _ondemand _direct _max_size _position file (Sys.executable_name)#<End>;
+    let t = { t with is_weak = is_weak; with_dot = with_dot } in
     let db =
       try restart_db_from_last t
       with _exn ->
@@ -330,7 +380,7 @@ let sprintf fmt = Printf.sprintf fmt
     t.db_ref <- db;
     t
 
-  let open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?max_size file =
+  let open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?direct ?max_size file =
     let _ = (rev, restore) in
     let _starting_time = Unix.gettimeofday() in
     let pretty_location = #<If:TESTING> "" #<Else> " at "^file #<End> in
@@ -339,15 +389,15 @@ let sprintf fmt = Printf.sprintf fmt
       let is_new, session =
         if Sys.file_exists (file^".dir")
         then (Logger.info "DB-LIGHT : Opening database%s" pretty_location;
-              false, restart_db ?dot ?weak ?restore ?ondemand ?max_size file)
+              false, restart_db ?dot ?weak ?restore ?ondemand ?direct ?max_size file)
         else (Logger.notice "DB-LIGHT : Initialising empty database%s" pretty_location;
-              true, make ?dot ?weak ?ondemand ?max_size file)
+              true, make ?dot ?weak ?ondemand ?direct ?max_size file)
       in
       #<If>Logger.log "DB-LIGHT : time to open = %f" (Unix.gettimeofday() -. _starting_time)#<End>;
       session, is_new
 
-  let open_db ?dot ?weak ?rev ?restore ?ondemand ?max_size file =
-    try open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?max_size file
+  let open_db ?dot ?weak ?rev ?restore ?ondemand ?direct ?max_size file =
+    try open_db_aux ?dot ?weak ?rev ?restore ?ondemand ?direct ?max_size file
     with Open (db, s) ->
       (Option.iter (fun db -> close_db ~donothing:true db) db;
       Logger.critical "DB-LIGHT : Error during database opening :\n%s" s;
@@ -377,7 +427,9 @@ let sprintf fmt = Printf.sprintf fmt
             | _ -> " ")
            trans_num
         #<End>;
-      Tr.init t.db_ref ?read_only trans_num
+      let res = Tr.init t.db_ref ?read_only trans_num in
+      Logger.log ~color:`magenta "DB-LIGHT : Initialisation done";
+      res
 
   let abort_of_unprepared t _trans =
     assert (t.session_lock = None);
@@ -533,33 +585,52 @@ let sprintf fmt = Printf.sprintf fmt
 
   (* reading from DB *)
 
-  let get _t tr path = Tr.get tr path
+  let get t tr path =
+    if t.with_direct
+    then Tr.get_direct tr path
+    else Tr.get tr path
 
-  let get_children _t trans range path =
-    List.sort compare (Tr.get_children trans range path)
+  let get_children t trans range path =
+    if t.with_direct
+    then List.sort compare (Tr.get_children_direct trans range path)
+    else List.sort compare (Tr.get_children trans range path)
 
-  let stat trans path = Tr.stat trans path
+  let stat t trans path =
+    if t.with_direct
+    then Tr.stat_direct trans path
+    else Tr.stat trans path
 
-  let full_search tr slist path =  Tr.full_search tr slist path
+  let full_search _t tr slist path =  Tr.full_search tr slist path
 
 
   (* writing to DB *)
 
   (*let last = ref (Unix.gettimeofday())*)
-  let set trans path data =
+  let set t trans path data =
     (*eprintf(*Logger.log ~color:`magenta*) "DB-LIGHT : Session_light.set: since last=%f\n%!" ((Unix.gettimeofday()) -. !last);*)
     (*let start = Unix.gettimeofday () in*)
-    let res = Tr.set trans path data in
+    let res =
+      if t.with_direct
+      then Tr.set_direct trans path data
+      else Tr.set trans path data
+    in
     (*eprintf(*Logger.log ~color:`magenta*) "DB-LIGHT : Session_light.set: time=%f\n%!" ((Unix.gettimeofday()) -. start);*)
     (*last := Unix.gettimeofday ();*)
     res
 
-  let remove trans path = Tr.remove trans path
+  let remove t trans path =
+    if t.with_direct
+    then Tr.remove_direct trans path
+    else Tr.remove trans path
 
-  let set_link trans path link = Tr.set_link trans path link
+  let set_link t trans path link =
+    if t.with_direct
+    then Tr.set_link_direct trans path link
+    else Tr.set_link trans path link
 
-  let set_copy _t trans path (target_path, target_rev) =
-    Tr.set_copy trans path (target_path, target_rev)
+  let set_copy t trans path (target_path, target_rev) =
+    if t.with_direct
+    then Tr.set_copy_direct trans path (target_path, target_rev)
+    else Tr.set_copy trans path (target_path, target_rev)
 
-
-
+end
