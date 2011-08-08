@@ -446,7 +446,7 @@ Map_private =
   min_binding(m : Map_private.map) =
    rec aux(a_map : Map_private.map) =
      match a_map with
-      | { left = { empty } ~key ~value right = _ ... } -> (key, value)
+      | { left = ({ empty } : map) ~key ~value right = _ ... } -> (key, value)
       | { ~left key = _ value = _ right = _ ... } -> aux(left)
       | { empty } -> error("Map.min_binding: Not Found")
     aux(m)

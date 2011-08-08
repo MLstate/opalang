@@ -547,7 +547,7 @@ import stdlib.web.client
     | _ -> []
 
   parse_node(conf, tag, args, children, _xmlns, xmlns_parser) =
-    match Template.merge_outcome_content(List.map(xmlns_parser, children)) with
+    match Template.merge_outcome_content(List.map(xmlns_parser, children)) /* : outcome(Template.content(either(void, 'b)), Template.failure) */ with
     | { success = content } ->
       match tag with
       | "a" -> parse_attributes(conf, args , anchor_attrs,(anchor_attribute -> { anchor; ~anchor_attribute; ~content } ) )

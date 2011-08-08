@@ -258,7 +258,7 @@ Session = {{
             Hlnet.setup_respond(chan,
               ((tystate, tymessage, state, on_message) ->
                 /* Unserialize state and handler */
-                tyonmessage =
+                tyonmessage : OpaType.ty =
                   tyret = {TyName_ident = "Session.instruction";
                            TyName_args = [tystate]}
                   {TyArrow_params = [tystate, tymessage];

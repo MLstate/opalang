@@ -1553,7 +1553,7 @@ CTable = {{
    */
   @both
   send(table : CTable.t('a, 'state, 'row, 'col), message : CTable.msg('a, 'state, 'row, 'col)) =
-    Session.send(table,@opensums(message))
+    Session.send(table, @opensums(message) : CTable.internal_msg)
 
   default_data_writer = {
     initial_state = { Init }

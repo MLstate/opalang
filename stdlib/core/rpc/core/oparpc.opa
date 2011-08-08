@@ -97,7 +97,7 @@ type OpaRPC.interface = {{
 
   unserialize(str:string): option(OpaRPC.request) =
     match Json.deserialize_opt(str) with
-    | {some={List=[{List=(types : list(RPC.Json.json))},
+    | {some={List=[{List=(types : list(RPC.Json.json))} : RPC.Json.json,
                    {List=(rows : list(RPC.Json.json))},
                    {List=(cols : list(RPC.Json.json))},
                    {List=(values : list(RPC.Json.json))}]}} ->
@@ -186,7 +186,7 @@ type OpaRPC.interface = {{
     rows = serialize_aux(request.rows)
     cols = serialize_aux(request.cols)
     Json.serialize_opt(
-      {List=[{List=types},{List=rows},{List=cols},{List=List.rev(request.values)}]}
+      {List=[{List=types},{List=rows},{List=cols},{List=List.rev(request.values)}]} : RPC.Json.json
     )
 
 }} /* disabled for S3: : OpaRPC.interface */
