@@ -57,12 +57,14 @@ type WFormBuilder.passwd_validator_spec =
   ; force_special_char_err_msg : xhtml
   }
 
+// FIXME, re-factor this type. It should contain a record with to_xhtml & get_value getters/setters instead.
 @abstract
 type WFormBuilder.field('ty) =
   { id : string
   ; label : string
   ; optionality : { required } / { optional }
   ; field_type : { email } / { text } / { passwd } / { desc : { cols: int rows: int} } / { upload }
+               / { selection : list('ty); to_label : 'ty -> string; to_id : 'ty -> string}
   ; initial_value : string
   ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
@@ -265,6 +267,13 @@ WFormBuilder =
   mk_desc_field(label) : WFormBuilder.field(string) =
     mk_desc_field_with(label, {rows=3 cols=40})
 
+  mk_selection_field(label, selection, to_label, to_id) =
+    get_selection(id)(data) =
+      v = get_field_text_value(id, data)
+      check_opt(o) = to_id(o) == v
+      List.find(check_opt, selection) ? List.head(selection) // FIXME
+    mk_field(label, ~{selection to_label to_id}, get_selection)
+
   mk_upload_field(label) : WFormBuilder.field(option(Upload.file)) =
     mk_field(label, {upload}, (id -> get_file_upload_value(id, _)))
 
@@ -367,6 +376,20 @@ WFormBuilder =
             <textarea style="resize: none;" type="text"
               name={input_id(id)} id={input_id(id)}
               rows={rows} cols={cols} />
+        | ~{selection to_label to_id} ->
+            mk_option(opt) =
+              id = to_id(opt)
+              o =
+                <option value={id}>
+                  {to_label(opt)}
+                </>
+              if initial_value == id then
+                Xhtml.add_attribute("selected", "true", o)
+              else
+                o
+            <select>
+              {List.map(mk_option, selection)}
+            </>
       stl_input_tag = input_tag |> add_style(style.input_style(true))
       onblur(_) =
         do do_validate(style, id, validator)
