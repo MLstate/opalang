@@ -23,6 +23,7 @@
  * The text is automatically updated as the time passes by.
  *
  * @author Adam Koprowski, 2010
+ * @author Frederic Ye, 2011
  * @category widget
  * @destination public
  * @stability experimental
@@ -33,13 +34,13 @@
  */
 
 type WDatePrinter.config = {
-     date_printer : Date.printer
      duration_printer : Duration.printer
+     title_printer : Date.date -> string
      css_class : string
 
     /**
-     * Whether or not the initial date comes from the server, and if it is to 
-     * be cached on the client (useful in order to avoid countless 
+     * Whether or not the initial date comes from the server, and if it is to
+     * be cached on the client (useful in order to avoid countless
      * client-server exchanges).
      */
      server_date : { disable } / { enable } / { cache }
@@ -51,19 +52,19 @@ WDatePrinter = {{
    * {1 Configuration}
    */
 
-  default_config : WDatePrinter.config =
-    { duration_printer = Duration.default_printer
-      date_printer = Date.default_printer
-      css_class = ""
-      server_date = {cache}
-    }
+  default_config : WDatePrinter.config = {
+    duration_printer = Duration.default_printer
+    title_printer = date -> Date.to_formatted_string(Date.default_printer, date)
+    css_class = ""
+    server_date = {cache}
+  }
 
   /**
    * {1 High-level interface}
    */
 
   html(config : WDatePrinter.config, id : string, date : Date.date) : xhtml =
-    title = Date.to_formatted_string(config.date_printer, date)
+    title = config.title_printer(date)
     <span id=#{get_widget_id(id)} class="{config.css_class}" title="{title}"
         onready={_ ->
             shift =
