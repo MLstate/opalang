@@ -445,8 +445,9 @@ and infer_pattern_type typing_env pattern =
          For type coercions, this must be done by hand. So, do it ! *)
       let coercing_ty_expr =
         (try
-           QmlTypes.type_of_type
-             typing_env.W_TypingEnv.ty_env_qml_global coercing_ty_expr
+          fst
+            (QmlTypes.type_of_type
+               typing_env.W_TypingEnv.ty_env_qml_global coercing_ty_expr)
          with QmlTyperException.Exception (_, error) ->
            (* Just set a correct source position. *)
            let err_loc =
@@ -876,7 +877,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
           (* See comment for the case [QmlAst.PatCoerce] in the function
              [infer_pattern_type] to understand the reason of this magic
              call. *)
-          let qml_ty_expr =
+          let (qml_ty_expr, _) =
             QmlTypes.type_of_type
               typing_env.W_TypingEnv.ty_env_qml_global qml_ty_expr in
           (* Now, convert the type expression into an internal typechecker
@@ -918,8 +919,9 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          [infer_pattern_type] to understand the reason of this magic call. *)
       let coercing_ty_expr =
         (try
-           QmlTypes.type_of_type
-             typing_env.W_TypingEnv.ty_env_qml_global coercing_ty_expr
+          fst
+            (QmlTypes.type_of_type
+               typing_env.W_TypingEnv.ty_env_qml_global coercing_ty_expr)
          with QmlTyperException.Exception (_, error) ->
            (* Just set a correct source position. *)
            let err_loc =
@@ -1714,7 +1716,7 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       let dir_qml_ty = QmlDirectives.ty core_directive dir_exprs dir_tys in
       (* See comment for the case [QmlAst.PatCoerce] in the function
          [infer_pattern_type] to understand the reason of this magic call. *)
-      let dir_qml_ty =
+      let (dir_qml_ty, _) =
         QmlTypes.type_of_type
           typing_env.W_TypingEnv.ty_env_qml_global dir_qml_ty in
       let dir_ty =

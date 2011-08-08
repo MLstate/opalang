@@ -954,7 +954,7 @@ let eta_expand comet_call_or_ajax_call ~gamma ~expr_for_annot ~annotmap_old ~ann
   let annotmap = QmlAnnotMap.add_tsc_inst_opt annot tsc annotmap in
   let idents = List.init arity
     (fun i ->
-       let ty = QmlTypes.type_of_type gamma (QmlAstCons.Type.typevar (Q.TypeVar.next ())) in
+       let (ty, _) = QmlTypes.type_of_type gamma (QmlAstCons.Type.typevar (Q.TypeVar.next ())) in
        let ident = Ident.refresh ~map:(fun name -> name ^ "_eta_" ^ string_of_int i) client_name in
        ident,ty
     ) in

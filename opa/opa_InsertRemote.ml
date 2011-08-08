@@ -312,7 +312,7 @@ end
     had a gamma argument on almost above function.
 *)
 let preprocess_types gamma =
-  let process = QmlTypes.type_of_type gamma in
+  let process ty = fst (QmlTypes.type_of_type gamma ty) in
   OpaType.tsc := process Pass_ExplicitInstantiation.opatsc_type;
   OpaType.ty := process Pass_ExplicitInstantiation.opatype_type;
   OpaType.list_of_opaty :=

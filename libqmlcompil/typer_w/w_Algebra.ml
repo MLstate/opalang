@@ -201,6 +201,7 @@ and type_variable = {
 and named_simple_type = {
   nst_name : type_name_ident ;  (** Name of the type constructor. For
                                     instance "list". *)
+  nst_abbrev_height : QmlTypes.abbrev_height ;
   nst_args : simple_type list ;  (** Arguments of the type constructor. *)
   mutable nst_unwinded : simple_type option  (** In case the named type is an
       abbreviation for another type, this field represents this other type. By

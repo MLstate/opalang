@@ -60,6 +60,33 @@ exception Exception of error
 (* public AST types and no constraints in public env: *)
 type typescheme = (QmlAst.ty, unit) QmlGenericScheme.tsc
 type gamma
+
+(* ************************************************************************** *)
+(** {b Descr}: Represents the number of chained type abbreviations this
+    constructor leads to. For instance:
+    - [int] : being a basic type, its height is 0.
+    - [type t1 = int] : t1's height is 1 + int's height = 1.
+    - [type t2 = t1] : 1 + t2's height = 2.
+
+    Can also be negative. In this case, it represents the position (numbered
+    from 1) of the definition's variable that will give (once the constructor
+    of the definition will be used) the height of the resulting type expression.
+    For instance:
+     - [type u('a, 'b) = 'b] : The height of a type expression using [u] is
+       the height of the effective argument provided to instantiate ['b]. Hence,
+       u's height is -2 (minus of the second argument).
+       Then, using [t2] above in the espression [u(t2, int)] will give a height
+       of 0 ([int] has height 0) and [u(int, t2)] will give a height of 2
+       ([t2] has height 2).
+    {b Visibility}: Transparently visible outside this module. We do not hid
+    its implementation since manipulations of heights are very frequent and
+    we prefer to avoid some overhead induced by wrapping functions.
+    In effect, such information is used by [QmlMakeTyper] on the QML side and
+    its better to have it seeing the implementation. This information is also
+    used by the low-level typer W.                                            *)
+(* ************************************************************************** *)
+type abbrev_height = int
+
 type bypass_typer = BslKey.t -> QmlAst.ty option
 
 (** the options are orthogonal; first three off give max speed *)
@@ -244,17 +271,18 @@ sig
   sig
     val find_opt :
       visibility_applies: bool -> QmlAst.typeident -> gamma ->
-        typescheme option
+        (typescheme * abbrev_height) option
     val findi_opt :
       visibility_applies: bool -> QmlAst.typeident -> gamma ->
-        (QmlAst.typeident * typescheme) option
+        (QmlAst.typeident * (typescheme * abbrev_height)) option
     val find :
-      visibility_applies: bool -> QmlAst.typeident -> gamma -> typescheme
+      visibility_applies: bool -> QmlAst.typeident -> gamma ->
+        (typescheme * abbrev_height)
     val findi :
       visibility_applies: bool -> QmlAst.typeident -> gamma ->
-        QmlAst.typeident * typescheme
+        (QmlAst.typeident * (typescheme * abbrev_height))
    (* *********************************************************************** *)
-    (** {b Descr}: Lookup in the environment for the type definition bound to
+   (** {b Descr}: Lookup in the environment for the type definition bound to
         a type name, ignoring the visibility (i.e. scope) of this name, and
         returning this visibility in addition to the bound definition.
         This function is dedicated to be used by the check that no private
@@ -263,27 +291,35 @@ sig
         visibility of the type name.                                          *)
    (* *********************************************************************** *)
     val raw_find :
-      QmlAst.typeident -> gamma -> typescheme * QmlAst.type_def_visibility
+      QmlAst.typeident -> gamma ->
+        (typescheme * abbrev_height * QmlAst.type_def_visibility)
     val add :
-      QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> gamma ->
-      gamma
+      QmlAst.typeident ->
+        (typescheme * abbrev_height * QmlAst.type_def_visibility) -> gamma ->
+          gamma
     val mem : QmlAst.typeident -> gamma -> bool
     val iter :
-      (QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> unit) ->
-      gamma -> unit
+      (QmlAst.typeident ->
+        (typescheme * abbrev_height * QmlAst.type_def_visibility) -> unit) ->
+          gamma -> unit
     val fold :
-      (QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> 'a ->
-         'a) -> gamma -> 'a -> 'a
+      (QmlAst.typeident ->
+        (typescheme * abbrev_height * QmlAst.type_def_visibility) ->
+          'a -> 'a) ->
+            gamma -> 'a -> 'a
     val to_list :
       gamma ->
-      (QmlAst.typeident * (typescheme * QmlAst.type_def_visibility)) list
+        (QmlAst.typeident *
+           (typescheme * abbrev_height * QmlAst.type_def_visibility))
+        list
     val fold_map :
-      (QmlAst.typeident -> (typescheme * QmlAst.type_def_visibility) -> 'acc ->
-         'acc * (typescheme * QmlAst.type_def_visibility)) ->
+      (QmlAst.typeident ->
+        (typescheme * abbrev_height * QmlAst.type_def_visibility) -> 'acc ->
+         'acc * (typescheme * abbrev_height * QmlAst.type_def_visibility)) ->
       gamma -> 'acc -> 'acc * gamma
     val map :
-      ((typescheme * QmlAst.type_def_visibility) ->
-         (typescheme * QmlAst.type_def_visibility)) ->
+      ((typescheme * abbrev_height * QmlAst.type_def_visibility) ->
+         (typescheme * abbrev_height * QmlAst.type_def_visibility)) ->
       gamma -> gamma
     val pp : Format.formatter -> gamma -> unit
   end
@@ -389,14 +425,16 @@ type 'schema public_env =
     }
 
 (** typedef=true -> be strict about arguments of named types *)
-val type_of_type : ?typedef:bool -> ?tirec:((QmlAst.typeident * QmlAst.typevar list) list) -> gamma -> QmlAst.ty -> QmlAst.ty
+val type_of_type :
+  ?typedef:bool -> ?tirec:((QmlAst.typeident * QmlAst.typevar list) list) ->
+    gamma -> QmlAst.ty -> (QmlAst.ty * int)
 (*This function may raises an exception if you give it garbage (e.g. incorrect gamma) *)
 (* : ... -> TypeIdent.raw ty -> TypeIdent.processed ty *)
 
 val process_gamma :
   gamma:gamma (* the one that is processed and contains all types for the other one *) ->
   gamma (* the one to process *) -> gamma
-val process_scheme : gamma -> typescheme -> typescheme
+val process_scheme : gamma -> typescheme -> (typescheme * abbrev_height)
 val process_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotmap
 val process_typenames_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotmap
 

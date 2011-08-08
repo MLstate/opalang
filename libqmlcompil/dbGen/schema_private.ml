@@ -99,7 +99,7 @@ let mapi f = StringListMap.mapi
 let get_type_from_name ~context gamma tylst tid =
   match
     QmlTypes.Env.TypeIdent.findi_opt ~visibility_applies: false tid gamma with
-  | Some (tid, ts) ->
+  | Some (tid, (ts, _)) ->
       QmlTypes.Scheme.specialize ~typeident:tid ~ty:tylst ts
   | None ->
       QmlError.error context
@@ -299,7 +299,8 @@ let rec add_subgraph ~context ?(boundnames = []) gamma t parent edge ty =
              must know they are not "visible" type structures to forbid partial
              writes in paths with these types in databases. *)
           let is_abstract_or_private_ty =
-            (match snd (QmlTypes.Env.TypeIdent.raw_find ty_name gamma) with
+            let (_, _, vis) = QmlTypes.Env.TypeIdent.raw_find ty_name gamma in
+            (match vis with
              | QmlAst.TDV_public -> false
              | QmlAst.TDV_abstract _ | QmlAst.TDV_private _ ->
                  (* A priori, we make so that partial writes on abstract and
@@ -704,9 +705,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
   match value with
   | Db.Db_TypeDecl (p,ty) ->
       let ty =
-        try
-          QmlTypes.type_of_type gamma ty
-        with
+        try fst (QmlTypes.type_of_type gamma ty) with
         | (QmlTyperException.Exception _) as exn ->
             QmlError.error context
               "@[<2>Type error in DB definition:@\n%a@]"
@@ -741,10 +740,9 @@ let register_db_declaration t gamma (label, ident, p, opts) =
   let error msg =
     QmlError.i_error None context msg
   in
-  let database_type = QmlTypes.type_of_type gamma C.tydb in
+  let (database_type, _) = QmlTypes.type_of_type gamma C.tydb in
   let gamma =
-    QmlTypes.Env.Ident.add
-      ident (QmlTypes.Scheme.quantify database_type) gamma
+    QmlTypes.Env.Ident.add ident (QmlTypes.Scheme.quantify database_type) gamma
   in
   begin match p with
   | [] ->

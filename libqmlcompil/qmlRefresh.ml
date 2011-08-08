@@ -170,7 +170,8 @@ let refresh_gamma package gamma =
   let refresh_tsc = refresh_typevars_from_tsc package in
   let gamma = QmlTypes.Env.Ident.map refresh_tsc gamma in
   QmlTypes.Env.TypeIdent.map
-    (fun (tsc, visibility) -> ((refresh_tsc tsc), visibility)) gamma
+    (fun (tsc, height, visibility) -> ((refresh_tsc tsc), height, visibility))
+    gamma
 
 let refresh_typevars_from_code package code =
   List.map

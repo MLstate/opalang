@@ -68,44 +68,70 @@ let compare_expansions ex1 ex2 =
    Relies on the fact that [ty] is a [W_Algebra.SType_named]. *)
 let incrementally_expand_abbrev env seen_expansions ty =
   match ty.W_Algebra.sty_desc with
-  | W_Algebra.SType_named nty_desc ->
-      (try
-         let found =
-           List.find
-             (fun ex -> compare_expansions ex nty_desc) seen_expansions in
-         nty_desc.W_Algebra.nst_unwinded <- found.W_Algebra.nst_unwinded ;
-         (* The type was already seen and previously expanded, so no newly
-            seen expansion. Return the untouched list. *)
-         seen_expansions
-       with
-       | Not_found -> (
-           try
-             let ty_def_sch =
-               W_TypingEnv.find_type nty_desc.W_Algebra.nst_name env in
-             let effective_args =
-               W_TypingEnv.automatically_add_type_construtor_arguments_if_omitted
-                 nty_desc.W_Algebra.nst_args
-                 (List.length ty_def_sch.W_Algebra.ty_parameters) in
-             let ty_vars_mappings =
-               List.combine
-                 ty_def_sch.W_Algebra.ty_parameters effective_args in
-             let expanded_ty =
-               W_SchemeGenAndInst.specialize_with_given_variables_mapping
-                 ~deep: true ty_vars_mappings [] [] ty_def_sch in
-             (* Attention, unification strongly rely for the named type once
-                expanded to be the same type with an effective manifest
-                representation. So, do not make a link. Instead, set the
-                manifest representation directly inside the type. *)
-             nty_desc.W_Algebra.nst_unwinded <- Some expanded_ty ;
-             (* Return the list of already seen expansions with this newly seen
-                expansion done. *)
-             nty_desc :: seen_expansions
-           with (Not_found | W_TypingEnv.Importing_qml_abstract_ty) ->
-             seen_expansions
+  | W_Algebra.SType_named nty_desc -> (
+      match nty_desc.W_Algebra.nst_unwinded with
+      | Some already_expanded ->
+          (* If this named type has already been unwinded in place, do not do
+             it again, simply used the already recorded type. *)
+          (already_expanded, seen_expansions)
+      | None -> (
+          (* So bas, this named type hasn't be already unwinded in place. Try
+             to unwind it now. *)
+          (try
+            (* First, search if a type shaped liek this has already be expanded
+               somewhere else. *)
+            let found =
+              List.find
+                (fun ex -> compare_expansions ex nty_desc) seen_expansions in
+            nty_desc.W_Algebra.nst_unwinded <- found.W_Algebra.nst_unwinded ;
+            (* The type was already seen and previously expanded, so no newly
+               seen expansion. Return the untouched list. *)
+            let ty' =
+              (match found.W_Algebra.nst_unwinded with
+              | None -> ty
+              | Some t -> t) in
+            (ty', seen_expansions)
+          with
+          | Not_found -> (
+              try
+                let ty_def_sch =
+                  W_TypingEnv.find_type nty_desc.W_Algebra.nst_name env in
+                let effective_args =
+                  W_TypingEnv.automatically_add_type_construtor_arguments_if_omitted
+                    nty_desc.W_Algebra.nst_args
+                    (List.length ty_def_sch.W_Algebra.ty_parameters) in
+                let ty_vars_mappings =
+                  List.combine
+                    ty_def_sch.W_Algebra.ty_parameters effective_args in
+                let expanded_ty =
+                  W_SchemeGenAndInst.specialize_with_given_variables_mapping
+                    ~deep: true ty_vars_mappings [] [] ty_def_sch in
+                (* Attention, unification strongly rely for the named type once
+                   expanded to be the same type with an effective manifest
+                   representation. So, do not make a link. Instead, set the
+                   manifest representation directly inside the type. *)
+                nty_desc.W_Algebra.nst_unwinded <- Some expanded_ty ;
+                (* Return the list of already seen expansions with this newly
+                   seen expansion done. *)
+                (expanded_ty, (nty_desc :: seen_expansions))
+              with (Not_found | W_TypingEnv.Importing_qml_abstract_ty) ->
+                (ty, seen_expansions)
+             )
+          )
          )
-      )
+     )
   | _ -> assert false
 
+
+
+let rec expand_abbrev_n_times nb_expansion env seen_expansions ty =
+  if nb_expansion = 0 then (ty, seen_expansions)
+  else (
+    let (ty', seen_expansions') =
+      incrementally_expand_abbrev env seen_expansions ty in
+    if ty == ty' then (ty, seen_expansions')
+    else expand_abbrev_n_times (nb_expansion - 1) env seen_expansions' ty'
+   )
 
 
 (* ************************************************************************** *)
@@ -120,7 +146,7 @@ let rec fully_expand_abbrev env seen_expansions ty =
         (match nty_desc.W_Algebra.nst_unwinded with
         | None ->
             (* The named type was not yet unwinded. Try to unwind it. *)
-            incrementally_expand_abbrev env seen_expansions ty ;
+            snd (incrementally_expand_abbrev env seen_expansions ty)
         | Some _ -> seen_expansions) in
       (* Ok, at this point, [ty] was unwinded if possible. So if it manifest
          representation remained [None] then it means that it was no more

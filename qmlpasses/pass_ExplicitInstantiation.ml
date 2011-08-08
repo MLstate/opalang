@@ -476,9 +476,9 @@ let fold_left_forall_map f acc l =
         aux f acc acc_bool acc_list t in
   aux f acc true [] l
 
-let opaty gamma = QmlTypes.type_of_type gamma opatype_type
-let oparow gamma = QmlTypes.type_of_type gamma oparow_type
-let opacol gamma = QmlTypes.type_of_type gamma opacol_type
+let opaty gamma = fst (QmlTypes.type_of_type gamma opatype_type)
+let oparow gamma = fst (QmlTypes.type_of_type gamma oparow_type)
+let opacol gamma = fst (QmlTypes.type_of_type gamma opacol_type)
 
 let id_of_var_gen kind s_v =
   let s_v = String.sub s_v 1 (String.length s_v - 1) in
@@ -1540,7 +1540,7 @@ let unprocess_code ~val_ ~side gamma annotmap qmlAst =
 
 let tsc_add_op gamma annotmap =
   let ty_void = Q.TypeRecord (Q.TyRow ([], None)) in
-  let opa_tsc = QmlTypes.type_of_type gamma opatsc_type in
+  let (opa_tsc, _) = QmlTypes.type_of_type gamma opatsc_type in
   let ty_add = QmlAst.TypeArrow ([QmlAst.TypeConst (Q.TyString); opa_tsc], ty_void) in
   let pos = FilePos.nopos "tsc_add_op" in
   QmlAstCons.TypedExpr.bypass ~pos annotmap Opacapi.Opabsl.BslValue.Tsc.add ty_add
@@ -1550,7 +1550,7 @@ let generate_tsc_map_updates ~val_ ~side ?(memoize=true) ~local_typedefs gamma a
   match ObjectFiles.compilation_mode () with
   | `init -> annotmap, QmlAst.NewVal (label, [])
   | `compilation | `linking | `prelude ->
-  let update annotmap (id, (tsc, _)) =
+  let update annotmap (id, (tsc, _, _)) =
     (* [fun_add] has to be inside [update] to generate fresh annots *)
     let (annotmap, fun_add) = tsc_add_op gamma annotmap in
     let (annotmap, tsc) =

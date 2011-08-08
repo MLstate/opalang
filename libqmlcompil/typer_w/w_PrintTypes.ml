@@ -499,11 +499,12 @@ let rec __pp_simple_type prio ppf ty =
             if prio >= 2 then Format.fprintf ppf ")@]"
             else Format.fprintf ppf "@]"
         | W_Algebra.SType_named { W_Algebra.nst_name = name ;
+                                  W_Algebra.nst_abbrev_height = abb_height ;
                                   W_Algebra.nst_args = args ;
                                   W_Algebra.nst_unwinded = _manifest } ->
             (* We never print the real representation of a named type. *)
-            Format.fprintf ppf "%s@,"
-              (QmlAst.TypeIdent.to_printable_string name) ;
+            Format.fprintf ppf "%s$%d$@,"
+              (QmlAst.TypeIdent.to_printable_string name) abb_height ;
             (* Only if there are parameters to the type constructor, print them
                separated by a comma and enclosed between parentheses. Since
                arguments of the constructor are always enclosed by parens,

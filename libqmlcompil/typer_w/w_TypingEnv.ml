@@ -56,7 +56,13 @@ let extend_toplevel_valdefs_env_memo id_name sch =
 
 type t = {
   ty_env_local : (QmlAst.ident * W_Algebra.types_scheme) list ;
-  ty_def_env_local : (QmlAst.TypeIdent.t * W_Algebra.types_scheme) list ;
+  ty_def_env_local :
+    (QmlAst.TypeIdent.t *      (** Ident representing the name of the type
+                                   constructor. *)
+     (W_Algebra.types_scheme * (** Type scheme bound to the type constructor. *)
+      QmlTypes.abbrev_height)  (** Height of type abbreviations this constructor
+                                   has. *)
+    ) list ;
   ty_env_qml_global : QmlTypes.Env.t
 }
 
@@ -248,11 +254,11 @@ exception Importing_qml_abstract_ty
 
 
 
-let find_type_nb_args id_name typing_env =
+let find_type_nb_args_and_abbrev_height id_name typing_env =
   let rec find_in_local_env = function
     | [] -> raise Not_found
-    | (n, t) :: q -> if QmlAst.TypeIdent.equal n id_name then
-        List.length t.W_Algebra.ty_parameters
+    | (n, (sc, h)) :: q -> if QmlAst.TypeIdent.equal n id_name then
+        ((List.length sc.W_Algebra.ty_parameters), h)
       else find_in_local_env q in
   try find_in_local_env typing_env.ty_def_env_local
   with Not_found -> (
@@ -261,11 +267,12 @@ let find_type_nb_args id_name typing_env =
         ~visibility_applies: true id_name typing_env.ty_env_qml_global in
     match opt_qml_scheme with
     | None -> raise Not_found
-    | Some qml_scheme ->
+    | Some (qml_scheme, height) ->
         let (qml_quantification, _, _) =
           QmlGenericScheme.export_unsafe qml_scheme in
-        (QmlTypeVars.TypeVarSet.cardinal
-           qml_quantification.QmlTypeVars.typevar)
+        ((QmlTypeVars.TypeVarSet.cardinal
+            qml_quantification.QmlTypeVars.typevar),
+         height)
   )
 
 
@@ -379,11 +386,12 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
     | QmlAst.TypeName (qml_args_ty, qml_name) ->
         (* [TODO-REFACTOR] EXPLICATIONS. *)
         let effective_args = List.map rec_import_qml_type qml_args_ty in
-        let n = find_type_nb_args qml_name qml_tydef_env in
+        let (nb_args, height) =
+          find_type_nb_args_and_abbrev_height qml_name qml_tydef_env in
         let args =
           automatically_add_type_construtor_arguments_if_omitted
-            effective_args n in
-        W_CoreTypes.type_named qml_name args None
+            effective_args nb_args in
+        W_CoreTypes.type_named qml_name height args None
     | QmlAst.TypeAbstract ->
         (* QML types encode abstract type expressions this way. Internally, the
            typechecker wants to represent abstract types by a named type with
@@ -722,7 +730,7 @@ let find_type id_name typing_env =
     (* First, try to recover the scheme bound to the type identifier in the
        most recent, i.e. local part of the environment. See note above in
        [find_in_local_env] about visibility concern. *)
-    let scheme = find_in_local_env typing_env.ty_def_env_local in
+    let (scheme, _) = find_in_local_env typing_env.ty_def_env_local in
     #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
     OManager.printf "@[<1>find_type for %s, Ml scheme:@ %a@]@."
       (QmlAst.TypeIdent.to_string id_name)
@@ -742,7 +750,7 @@ let find_type id_name typing_env =
           ~visibility_applies: true id_name typing_env.ty_env_qml_global in
       match opt_qml_scheme with
       | None -> raise Not_found
-      | Some qml_scheme ->
+      | Some (qml_scheme, abbr_height) ->
           #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
           OManager.printf "@[<1>find_type for %s, QML scheme:@ %a@]@."
             (QmlAst.TypeIdent.to_string id_name)
@@ -798,7 +806,9 @@ let find_type id_name typing_env =
             let typing_env' = {
               typing_env with
                 ty_def_env_local =
-                (id_name, proto_scheme) :: typing_env.ty_def_env_local } in
+                (* FPE says: 0 or -1 ? *)
+                (id_name, (proto_scheme, abbr_height)) ::
+                  typing_env.ty_def_env_local } in
             #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
             OManager.printf "@[<1>find_type for %s: Added proto scheme:@ %a@]@."
               (QmlAst.TypeIdent.to_string id_name)

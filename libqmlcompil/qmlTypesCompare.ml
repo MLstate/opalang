@@ -68,7 +68,7 @@ let sort_bound_vars env bvs t =
     | Q.TypeSum (Q.TyCol (l_fields, _)) ->
         List.fold_left (aux_fields memo) (sbvs, bvs) l_fields
     | Q.TypeName (lt, tn) ->
-        let tsc =
+        let (tsc, _) =
           QmlTypes.Env.TypeIdent.find ~visibility_applies: true tn env in
         let acc =
           if List.mem t memo then (sbvs, bvs)
@@ -158,9 +158,9 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
       if TyPairSet.mem (t1, t2) memo then true (* already seen, assumed equal *)
       else (
         let memo = TyPairSet.add (t1, t2) (TyPairSet.add (t2, t1) memo) in
-        let (tn, te) =
+        let (tn, (te, _)) =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true tn env in
-        let (un, ue) =
+        let (un, (ue, _)) =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true un env in
         (* First, perform a test ensuring that both types have the same names
            and the same arguments (by induction, they hence will be the
@@ -233,7 +233,7 @@ let rec test_tys_eq env ?(bound_vars=[]) memo t1 t2 =
       if TyPairSet.mem (t1, t2) memo then false
       else (
         let memo = TyPairSet.add (t1, t2) memo in
-        let (tn, te) =
+        let (tn, (te, _)) =
           QmlTypes.Env.TypeIdent.findi ~visibility_applies: true tn env in
         let t = QmlTypes.Scheme.specialize ~typeident: tn ~ty: ts te in
         if t = QmlAst.TypeAbstract then false

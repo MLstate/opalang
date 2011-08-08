@@ -65,9 +65,12 @@ type typescheme = (Q.ty, unit) QmlGenericScheme.tsc (* no constraints in public 
 module ImplFieldMap = SetMap.Make(String)(TypeIdent)
 module ImplFieldMapQuick = SetMap.Make(StringSet)(TypeIdent)
 
+type abbrev_height = int
+
 type gamma = {
   ident : typescheme IdentMap.t ;
-  type_ident : (typescheme * QmlAst.type_def_visibility) TypeIdentMap.t ;
+  type_ident :
+    (typescheme * abbrev_height * QmlAst.type_def_visibility) TypeIdentMap.t ;
   field_map : ImplFieldMap.t ;
   field_map_quick : ImplFieldMapQuick.t ;
 }
@@ -505,14 +508,14 @@ struct
     module T = TypeIdent
 
     (** [TODO] Documentation. *)
-    let apply_visibility scheme = function
-      | QmlAst.TDV_public -> Some scheme
+    let apply_visibility scheme abbrev_height = function
+      | QmlAst.TDV_public -> Some (scheme, abbrev_height)
       | QmlAst.TDV_private package ->
           (* Since types private to a package are not visible at all from
              other packages, this type must be considered as non-existant
              if we are not in its definition package. *)
           if package <> (ObjectFiles.get_current_package_name ()) then None
-          else Some scheme
+          else Some (scheme, abbrev_height)
       | QmlAst.TDV_abstract package ->
           (* If we are not in the type's definition package, then it
              must be considered as abstract. *)
@@ -521,9 +524,11 @@ struct
             let (quantif, _, constraints) =
               QmlGenericScheme.export_unsafe scheme in
             Some
-              (QmlGenericScheme.import quantif QmlAst.TypeAbstract constraints)
+              ((QmlGenericScheme.import quantif
+                  QmlAst.TypeAbstract constraints),
+               0)
           )
-          else Some scheme
+          else Some (scheme, abbrev_height)
 
     (** [TODO] Documentation of [~visibility_applies] for passes that anyway
         need to see types' structure once the typechecker ensured these types,
@@ -532,18 +537,19 @@ struct
       let opt_found = TypeIdentMap.find_opt id g.type_ident in
       match opt_found with
       | None -> None
-      | Some (sch, visibility) ->
-          if visibility_applies then apply_visibility sch visibility
-          else Some sch
+      | Some (sch, abbrev_height, visibility) ->
+          if visibility_applies then
+            apply_visibility sch abbrev_height visibility
+          else Some (sch, abbrev_height)
 
     let findi_opt ~visibility_applies id g =
       let opt_found = TypeIdentMap.findi_opt id g.type_ident in
       match opt_found with
       | None -> None
-      | Some (i, (sch, visibility)) -> (
-          if not visibility_applies then Some (i, sch)
+      | Some (i, (sch, abbrev_height, visibility)) -> (
+          if not visibility_applies then Some (i, (sch, abbrev_height))
           else
-            match apply_visibility sch visibility with
+            match apply_visibility sch abbrev_height visibility with
             | None -> None
             | Some sch' -> Some (i, sch')
         )
@@ -602,7 +608,7 @@ struct
         | _  -> acc (* record cannot have any other unnamed type *)
       in handle_ty [] t
 
-    let add id (s, visibility) g =
+    let add id (s, abbrev_height, visibility) g =
       let field_map =
         (* Update field map : only in the case of type sum and type record.
            Abstract type are obviously skipped. *)
@@ -620,7 +626,8 @@ struct
         List.fold_left
           (fun map f -> ImplFieldMapQuick.add f id map)
           g.field_map_quick fields in
-      let type_ident = TypeIdentMap.add id (s, visibility) g.type_ident in
+      let type_ident =
+        TypeIdentMap.add id (s, abbrev_height, visibility) g.type_ident in
       { g with
         type_ident = type_ident ; field_map = field_map ;
         field_map_quick = field_map_quick }
@@ -643,7 +650,7 @@ struct
 
     let pp f gamma =
       iter
-        (fun typeident (tsc, _) ->
+        (fun typeident (tsc, _, _) ->
            Format.fprintf f "@[<2>%s -> %a@]@\n"
              (TypeIdent.to_string typeident) QmlPrint.pp#tsc tsc)
         gamma
@@ -699,7 +706,7 @@ let unsugar_type gamma ty =
       name is bound to. *)
   let unwind_type gamma = function
     | Q.TypeName (params, ti) ->
-        let (ti, tsc) =
+        let (ti, (tsc, _)) =
           Env.TypeIdent.findi ~visibility_applies: true ti gamma in
         if (Scheme.instantiate tsc) = Q.TypeAbstract then (
           (* The type name is bound to a definition that is said "abstract" or
@@ -787,18 +794,33 @@ let process_typenames ?(typedef=false) gamma ty =
   let aux ty =
     match ty with
     | Q.TypeName (tl, ti) ->
-        let (ti, ts) = Env.TypeIdent.findi ~visibility_applies: true ti gamma in
+        let (ti, (ts, _)) =
+          Env.TypeIdent.findi ~visibility_applies: true ti gamma in
         if (typedef || tl <> []) &&
-           (List.length tl <> QmlGenericScheme.arity ts) then
+           (List.length tl <> QmlGenericScheme.arity ts) then (
           let exn =
             QmlTyperException.InvalidTypeUsage
               (ti, (QmlGenericScheme.export_ordered_quantif ts).QTV.typevar,
                tl) in
           let (_, body, ()) = QmlGenericScheme.export_unsafe ts in
           type_err_raise body exn
+         )
         else Q.TypeName (tl, ti)
     | _ -> ty in
   QmlAstWalk.Type.map_up aux ty
+
+
+
+(** {b Visibility}: Not exported outside this module. *)
+(* FPE says: test cases like type 'at = 'a   type 'a u = 'a t to see. *)
+let get_abbreviation_height gamma ty =
+  match ty with
+  | Q.TypeName (_, ti) ->
+      let (_, (_, abb_height)) =
+        Env.TypeIdent.findi ~visibility_applies: true ti gamma in
+      abb_height
+  | Q.TypeVar _ -> -1
+  | _ -> 0
 
 
 
@@ -811,15 +833,19 @@ let type_of_type ?(typedef = false) ?(tirec = []) gamma ty =
          Env.TypeIdent.add
            ti
            (fake_rec_def,
+            (* Abbreviations height is 0 since the definition is considered as
+               binding an abstract type. *)
+            0,
             QmlAst.TDV_private (ObjectFiles.get_current_package_name ()))
            gamma)
       gamma tirec in
   let ty = process_typenames ~typedef gamma ty in
   let ty = unsugar_type gamma ty in
-  ty
+  let abb_height = get_abbreviation_height gamma ty in
+  (ty, abb_height)
 
 let process_scheme gamma tsc =
-  QmlGenericScheme.map_body_unsafe (type_of_type gamma) tsc
+  QmlGenericScheme.map_body_unsafe2 (type_of_type gamma) tsc
     (* safe as long as type_of_type doesn't touch type variables, etc. *)
 
 let process_gamma ~gamma target_gamma =
@@ -827,14 +853,16 @@ let process_gamma ~gamma target_gamma =
   let new_gamma =
     Env.Ident.fold
       (fun id tsc new_gamma ->
-         let tsc' = process_scheme gamma tsc in
+         let (tsc', _) = process_scheme gamma tsc in
          Env.Ident.add id tsc' new_gamma)
       target_gamma new_gamma in
   let new_gamma =
     Env.TypeIdent.fold
-      (fun id (tsc, visibility) new_gamma ->
-         let tsc' = process_scheme gamma tsc in
-         Env.TypeIdent.add id (tsc', visibility) new_gamma)
+      (fun id (tsc, height, visibility) new_gamma ->
+         let (tsc', height') = process_scheme gamma tsc in
+         (* FPE says: I think this should be the case... *)
+         assert (height = height') ;
+         Env.TypeIdent.add id (tsc', height, visibility) new_gamma)
       target_gamma new_gamma in
   new_gamma
 
@@ -842,7 +870,7 @@ let process_typenames_annotmap ~gamma annotmap =
   QmlAnnotMap.map (process_typenames ~typedef:false gamma) annotmap
 
 let process_annotmap ~gamma annotmap =
-  QmlAnnotMap.map (type_of_type gamma) annotmap
+  QmlAnnotMap.map (fun ty -> fst (type_of_type gamma ty)) annotmap
 
 
 

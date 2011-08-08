@@ -85,3 +85,7 @@ let full_arity t =
 
 let map_body_unsafe f t =
   {t with body = f t.body}
+
+let map_body_unsafe2 f t =
+  let (t', v) = f t.body in
+  ({t with body = t'}, v)

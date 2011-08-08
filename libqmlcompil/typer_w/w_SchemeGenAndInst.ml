@@ -210,7 +210,6 @@ let __generalize ~forbid_non_gen_vars ~extra_variables initial_ty =
   (** {Descr}: Local function that walks along a row type, harvesting its
       generalized row variables and recursing in inner types.                 *)
   (* ************************************************************************ *)
-  (* [TODO] Optimize descent when only needed by taking care of markers. *)
   and find_parameters_in_row ignored_tys ignored_row_vars ignored_col_vars row =
     (* Get the canonical representation of the row first. *)
     let (row_fields, row_ending) =
@@ -274,7 +273,6 @@ let __generalize ~forbid_non_gen_vars ~extra_variables initial_ty =
   (** {b Descr}: Local function that walks along a column type, harvesting its
       generalized column variables and recursing in inner types.              *)
   (* ************************************************************************ *)
-  (* [TODO] Optimize descent when only needed by taking care of markers. *)
   and find_parameters_in_column
       ignored_tys ignored_row_vars ignored_col_vars column =
     (* Get the canonical representation of the column first. *)
@@ -483,6 +481,7 @@ let (__specialize, specialize_with_given_variables_mapping) =
                let res_ty' = copy_simple_type ~deep res_ty in
                W_CoreTypes.type_arrow args_tys' res_ty'
            | W_Algebra.SType_named { W_Algebra.nst_name = name ;
+                                     W_Algebra.nst_abbrev_height = height ;
                                      W_Algebra.nst_args = args ;
                                      W_Algebra.nst_unwinded = manifest} ->
                (* Unwounded view of the type must also be copied if we are
@@ -497,9 +496,7 @@ let (__specialize, specialize_with_given_variables_mapping) =
                  else None in
                (* Finally, build a type description of the named type. *)
                W_CoreTypes.type_named
-                 name
-                 (List.map (copy_simple_type ~deep) args)
-                 manifest'
+                 name height (List.map (copy_simple_type ~deep) args) manifest'
            | W_Algebra.SType_sum_of_records sumcases_column ->
                let sumcases_column' = copy_column_type ~deep sumcases_column in
                { W_Algebra.sty_desc =

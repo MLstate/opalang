@@ -23,7 +23,11 @@ type expansions_memory
 val empty_memory : expansions_memory
 val incrementally_expand_abbrev:
   W_TypingEnv.t -> expansions_memory -> W_Algebra.simple_type ->
-  expansions_memory
+  (W_Algebra.simple_type * expansions_memory)
+
+val expand_abbrev_n_times:
+  int -> W_TypingEnv.t -> expansions_memory -> W_Algebra.simple_type ->
+  (W_Algebra.simple_type * expansions_memory)
 
 (* ************************************************************************** *)
 (** {b Descr}: Fully expand a named type untils either it is no more a named

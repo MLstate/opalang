@@ -485,7 +485,7 @@ let of_ty ~gamma ty =
                is really bound to a Q.TypeAbstract. *)
             QmlTypes.Env.TypeIdent.findi_opt
               ~visibility_applies: false typeident gamma with
-        | Some (typeident, typ) -> (
+        | Some (typeident, (typ, _)) -> (
             let ident = Q.TypeIdent.to_string typeident in
             (* Standard extended types in LibBSL : bool, option *)
             match ident with

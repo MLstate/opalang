@@ -46,5 +46,6 @@ val full_arity : ('t, 'c) tsc -> int * int * int
 val is_empty : ('t, 'c) tsc -> bool
 
 val map_body_unsafe : ('t -> 'u) -> ('t, 'c) tsc -> ('u, 'c) tsc
+val map_body_unsafe2 : ('t -> ('u * 'a)) -> ('t, 'c) tsc -> (('u, 'c) tsc) * 'a
 
     (* TODO: add refresh, etc. here, when they are made generic *)

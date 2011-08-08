@@ -215,7 +215,8 @@ struct
         List.fold_left_map
           (fun (more_gamma, gamma) (ti, (vars, te), visibility) ->
              (* /!\ may raise TypeidentNotFound *)
-             let te = QT.type_of_type ~typedef: true ~tirec gamma te in
+             let (te, abb_height) =
+               QT.type_of_type ~typedef: true ~tirec gamma te in
              let te = QmlAstWalk.Type.map
                (fun t ->
                   match t with
@@ -230,16 +231,81 @@ struct
                   | _ -> t)
                te in
              let def_scheme = QT.Scheme.definition ~typevar: vars ti te in
+             (* Check if the definition is a trivial abbreviation, i.e. is of
+                the shape: type t('a, 'b...) = 'b. If so, then the abbreviation
+                height of this named type is set to the negated position
+                (numbered from 1) of the parameter used in the body of the
+                trivial abbreviation definition (in our example, -2).
+                Otherwise, it is set to 1 + the abbreviation height of the
+                body. *)
+             let abb_height' =
+               (match (vars, te) with
+               | ((_ :: _), (Q.TypeVar var_body)) -> (
+                   let opt_found =
+                     List.findi
+                       (fun v -> (QmlTypeVars.TypeVar.compare v var_body) = 0)
+                       vars in
+                   match opt_found with
+                   | None -> assert false
+                   | Some index ->
+                       (* Avoid 0 since it's a regular height. So, start
+                          counting position from 1 instead of 0. *)
+                       - (index + 1)
+                  )
+               | (_, _) ->
+                   (* Attention, here check if the height is negative. *)
+                   if abb_height < 0 then (
+                     (* The type expression of the body must be a type name
+                        otherwise there is something broken. We must hence
+                        recover it and get the height of the argument applied
+                        at the - (abb_height + 1) position. Thsi will then
+                        be the height of the defined type constructor. *)
+                     match te with
+                     | Q.TypeName (args, _) ->
+                         let interest_index = - (abb_height + 1) in
+                         (* Get the effective type expression at this
+                            position. *)
+                         let interest_arg = List.nth args interest_index in
+                         let (interest_arg, interest_arg_height) =
+                           QmlTypes.type_of_type gamma interest_arg in
+                         (* Again special case if we get -1 which means that's
+                            a type variable. *)
+                         if interest_arg_height = -1 then (
+                           match interest_arg with
+                           | Q.TypeVar interest_var -> (
+                               let opt_found =
+                                 List.findi
+                                   (fun v ->
+                                      (QmlTypeVars.TypeVar.compare
+                                         v interest_var) = 0)
+                                   vars in
+                               match opt_found with
+                               | None -> assert false
+                               | Some index ->
+                                   (* Avoid 0 since it's a regular height. So,
+                                      start counting position from 1 instead of
+                                      0. *)
+                                   - (index + 1)
+                             )
+                           | _ -> assert false
+                         )
+                         else 1 + interest_arg_height
+                     | _ -> assert false
+                   )
+                   else  1 + abb_height (* Regular case. *)
+               ) in
              (* Here we must the @private and @abstract directives by
                 exploiting the visibility information of the type definition. *)
              let gamma =
-               QT.Env.TypeIdent.add ti (def_scheme, visibility) gamma in
+               QT.Env.TypeIdent.add
+                 ti (def_scheme, abb_height', visibility) gamma in
              let more_gamma =
-               QT.Env.TypeIdent.add ti (def_scheme, visibility) more_gamma in
+               QT.Env.TypeIdent.add
+                 ti (def_scheme, abb_height', visibility) more_gamma in
              if env.QT.display then (
-               (* Reset the type vars to avoid variables names to be continuously
-                  incremented and not restarted at "'v0" for this new type
-                  definition. *)
+               (* Reset the type vars to avoid variables names to be
+                  continuously incremented and not restarted at "'v0" for this
+                  new type definition. *)
                QmlPrint.pp#reset_typevars ;
                let ((vars, _, _), ty) = QT.Scheme.export def_scheme in
                let def_for_print = {

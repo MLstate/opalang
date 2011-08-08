@@ -227,7 +227,7 @@ let typer = "#typer +\\(.+\\)$", 1, typer_action
 
 (* FIXME : add extern types *)
 let types_action env _ =
-  let iter _ (typescheme, visibility) =
+  let iter _ (typescheme, _, visibility) =
     match visibility with
     | QmlAst.TDV_public ->
         Format.fprintf !std "%a@\n" QmlPrint.pp#tsc typescheme

@@ -64,7 +64,7 @@ val __generic_type_variable_with_public_identity:
 
 val type_variable: unit -> W_Algebra.simple_type
 val type_named:
-  W_Algebra.type_name_ident -> W_Algebra.simple_type list ->
+  W_Algebra.type_name_ident -> int -> W_Algebra.simple_type list ->
   W_Algebra.simple_type option -> W_Algebra.simple_type
 val type_int: unit -> W_Algebra.simple_type
 val type_bool: unit -> W_Algebra.simple_type
@@ -112,3 +112,5 @@ val column_type_repr: W_Algebra.column_type -> W_Algebra.column_type
 val cleanup_simple_type: W_Algebra.simple_type -> unit
 val cleanup_row_type: W_Algebra.row_type -> unit
 val cleanup_column_type: W_Algebra.column_type -> unit
+
+val named_type_expr_height: W_Algebra.named_simple_type -> int

@@ -53,7 +53,7 @@ struct
     (* This function is used by the back-end and needs to access representation
        of types anyway. The typechecking will have to have ensured that types
        even if not legally visible were used in a consistent way. *)
-    let typescheme =
+    let (typescheme, _) =
       QmlTypes.Env.TypeIdent.find ~visibility_applies: false typeident gamma in
     let out = QmlTypes.Scheme.specialize ~typeident ~ty: args typescheme in
     begin
@@ -176,7 +176,7 @@ struct
           let memo' =
             if not (TypeIdentSet.mem name memo) then (
               (* Recover the definition bound to this name. *)
-              let (sch, visibility) =
+              let (sch, _, visibility) =
                 QmlTypes.Env.TypeIdent.raw_find name gamma in
               let extended_memo = TypeIdentSet.add name memo in
               (match visibility with
@@ -207,7 +207,8 @@ struct
   let rec get_deeper_typename gamma ty =
     match ty with
     | Q.TypeName (args, n) -> (
-        match snd (QmlTypes.Env.TypeIdent.raw_find n gamma) with
+        let (_, _, vis) = QmlTypes.Env.TypeIdent.raw_find n gamma in
+        match vis with
         | QmlAst.TDV_public -> (
             let aliased_ty = find_and_specialize gamma n args in
             match aliased_ty with

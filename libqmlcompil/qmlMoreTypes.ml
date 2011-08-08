@@ -36,8 +36,9 @@ let compare_field (s1,_) (s2,_) = String.compare s1 s2
 let compare_rec l1 l2 = List.make_compare compare_field l1 l2
 
 let is_private_or_external gamma n =
-  let tsc = QmlTypes.Env.TypeIdent.find ~visibility_applies:false n gamma in
-  let _, body, () = QmlGenericScheme.export_unsafe tsc in
+  let (tsc, _) =
+    QmlTypes.Env.TypeIdent.find ~visibility_applies:false n gamma in
+  let (_, body, ()) = QmlGenericScheme.export_unsafe tsc in
   match body with
   | Q.TypeAbstract -> true
   | _ -> false
@@ -97,7 +98,8 @@ let show_instantiation ~allow_partial_application gamma quant vars rows cols spe
       begin match need_expansion eh spec gen with
       | None -> ()
       | Some eh ->
-        let tsc = QmlTypes.Env.TypeIdent.find ~visibility_applies:false n1 gamma in
+        let (tsc, _) =
+          QmlTypes.Env.TypeIdent.find ~visibility_applies:false n1 gamma in
         let t1 = QmlTypes.Scheme.specialize ~typeident:n1 ~ty:tyl1 tsc in
         aux_eh eh t1 t2
       end
@@ -105,7 +107,8 @@ let show_instantiation ~allow_partial_application gamma quant vars rows cols spe
       begin match need_expansion eh spec gen with
       | None -> ()
       | Some eh ->
-        let tsc = QmlTypes.Env.TypeIdent.find ~visibility_applies:false n2 gamma in
+        let (tsc, _) =
+          QmlTypes.Env.TypeIdent.find ~visibility_applies:false n2 gamma in
         let t2 = QmlTypes.Scheme.specialize ~typeident:n2 ~ty:tyl2 tsc in
         aux_eh eh t1 t2
       end

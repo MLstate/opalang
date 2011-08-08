@@ -27,7 +27,7 @@
 
 type t = {
   ty_env_local : (QmlAst.ident * W_Algebra.types_scheme) list ;
-  ty_def_env_local : (QmlAst.TypeIdent.t * W_Algebra.types_scheme) list;
+  ty_def_env_local : (QmlAst.TypeIdent.t * (W_Algebra.types_scheme * int)) list;
   ty_env_qml_global : QmlTypes.Env.t
 }
 

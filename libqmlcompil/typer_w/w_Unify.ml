@@ -367,11 +367,8 @@ let check_column_variables_are_in_bijection v_vars w_vars =
     @raise Unification_simple_type_conflict
     @raise Unification_binding_level_conflict
     {b Visibility}: Not exported outside this module.                         *)
-(* [TODO-REFACTOR] ON PEUT SANS DOUTE ÉVITER UN APPEL RÉCURSIF SUR LES TYPES
-   NOMMÉS EN DÉCOUPANT LA FONCTION EN 2, UNE PARTIE QUI S'OCCUPE DE FAIRE LA
-   DÉCOMPRESSION ET CELLE QUI FAIT L'UNIFICATION EFFECTIVE. *)
 (* ************************************************************************** *)
-let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
+let rec __unify_simple_type env seen_expansions ty1 ty2 =
   (* Special case optimization just in case the 2 types are already the same. *)
   if ty1 == ty2 then () else
   (* First, get the canonical representation of the 2 types to unify. *)
@@ -509,11 +506,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
         W_CoreTypes.change_ty_link ~receiver: ty1 ~link_val: (Some ty2) ;
         (* Unify types of arguments 2 by 2. *)
         List.iter2
-          (__unify_simple_type env seen_expansions ~dont_expand: false)
-          args_tys1 args_tys2 ;
+          (__unify_simple_type env seen_expansions) args_tys1 args_tys2 ;
         (* Unify the types of results. *)
-        __unify_simple_type
-          env seen_expansions res_ty1 res_ty2 ~dont_expand: false
+        __unify_simple_type env seen_expansions res_ty1 res_ty2
        )
     | (W_Algebra.SType_named { W_Algebra.nst_name = name ;
                                W_Algebra.nst_args = args ;
@@ -524,9 +519,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
         when QmlAst.TypeIdent.equal name name' -> (
           try
             W_CoreTypes.change_ty_link ~receiver: ty1 ~link_val: (Some ty2) ;
-            List.iter2
-              (__unify_simple_type env seen_expansions ~dont_expand: false)
-              args args' ;
+            List.iter2 (__unify_simple_type env seen_expansions) args args' ;
             (* Two instances of a same named type, as far as they have unifiable
                arguments must have unifiable manifest representations. No need
                to descend inside in order to save efficiency unless we want
@@ -537,7 +530,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
             (match (manifest, manifest') with
              | (None, None) -> ()
              | ((Some m), (Some m')) ->
-                 __unify_simple_type env m m' ~dont_expand: false
+                 __unify_simple_type env m m'
              | (_, _) ->
                  (* Two instances of a same named type should have either no
                     manifest representation or both one. *)
@@ -557,8 +550,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
     | (W_Algebra.SType_named nty1,
        W_Algebra.SType_named nty2)
         (* name <> name' *) -> (
-          __named_named_different
-            env seen_expansions ty1 ty2 nty1 nty2 ~dont_expand
+          __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2
       )
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest }), _) ->
           (* Same remark about trivially cyclic types than in the previous
@@ -569,8 +561,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
                (ty1, ty2,
                 { ucd_kind = DK_none ;
                   ucd_through_field = None })) ;
-        __unify_simple_type
-          env seen_expansions ty2 manifest ~dont_expand: false
+        __unify_simple_type env seen_expansions ty2 manifest
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest })) ->
         (* Same remark about trivially cyclic types than in the previous
            match case. *)
@@ -578,28 +569,25 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_simple_type
-          env seen_expansions ty1 manifest ~dont_expand: false
-    | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = None }), _) ->
-        if dont_expand then
+        __unify_simple_type env seen_expansions ty1 manifest
+    | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = None }), _) -> (
+        let (ty1', seen_expansions') =
+          W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+        if ty1 == ty1' then
           raise
             (Unification_simple_type_conflict
-               (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None }))
-        else (
-          let seen_expansions' =
-            W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
-          __unify_simple_type env seen_expansions' ty1 ty2 ~dont_expand: true
-        )
-    | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) ->
-        if dont_expand then
+               (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
+        __unify_simple_type env seen_expansions' ty2 ty1'
+       )
+    | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) -> (
+        let (ty2', seen_expansions') =
+          W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
+        if ty2 == ty2' then
           raise
             (Unification_simple_type_conflict
-               (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None }))
-        else (
-          let seen_expansions' =
-            W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
-          __unify_simple_type env seen_expansions' ty1 ty2 ~dont_expand: true
-        )
+               (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
+          __unify_simple_type env seen_expansions' ty1 ty2'
+       )
     | ((W_Algebra.SType_sum_of_records col1),
        (W_Algebra.SType_sum_of_records col2)) -> (
         try
@@ -711,8 +699,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
            operate on these copies, hence preventing from dirtying the
            schemes original generalized variables. *)
         __unify_simple_type
-          env seen_expansions scheme1_instance scheme2_instance
-          ~dont_expand: false ;
+          env seen_expansions scheme1_instance scheme2_instance ;
         (* Now, ensure that the qualtified variables of both schemes were
            mapped one-to-one, i.e. no collapse occurred, i.e. both scheme
            were as general. Compute the checks one at time to avoid useless
@@ -755,79 +742,99 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 ~dont_expand =
 
 
 
-(* [TODO-REFACTOR] CHANGER CE NOM POURRI. DOCUMENTATION. *)
-and __named_named_different env seen_expansions ty1 ty2 nty1 nty2 ~dont_expand =
-  (match (nty1.W_Algebra.nst_unwinded, nty2.W_Algebra.nst_unwinded) with
-   | (None, None) ->
-       if dont_expand then (
-         raise
-           (Unification_simple_type_conflict
-              (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-       )
-       else (
-         let seen_expansions' =
-           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
-         let seen_expansions'' =
-           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions' ty2 in
-         __unify_simple_type env seen_expansions'' ty1 ty2 ~dont_expand: true
-       )
-   | (None, (Some mt')) ->
-       if dont_expand then (
-         (* Earlier, type definitions of the form type t = t were not
-            rejected. To prevent looping because the type would have
-            an abbreviation equal to itself, we had ensure that the
-            type name is not in fact an abbreviation to itself.
-            Named types with a manifest representation equal to themselves
-            could be introduced by QML importation, when creating the named
-            type and giving it a manifest type that will be later unified
-            with the named type itself (-- see the function
-            [W_TypingEnv.rec_import_qml_type], case [QmlAst.TypeName] at
-            the end when we build [non_expanded_ty]).
-            Now, type t = t is forbidden, but unification can still create
-            cyclic types by making types like t('a) = 'a unified with 'a.
-            Hence, in this case, a trivially cyclic type appears again. *)
-         (* In the current case, we are unifying 2 named types of different
-            names, one is manifest the other not. So, if the manifest one
-            is trivially cyclic (and of a name different from the other)
-            then the 2 types are not compatible and unification fails. *)
-         if ty2 == (W_CoreTypes.simple_type_repr mt') then
-           raise
-             (Unification_simple_type_conflict
-                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-         __unify_simple_type env seen_expansions  ty1 mt' ~dont_expand: false
-       )
-       else (
-         let seen_expansions' =
-           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
-         __unify_simple_type env seen_expansions' ty1 ty2 ~dont_expand: true
-       )
-   | ((Some mt), None) ->
-       if dont_expand then (
-         (* Same remark than above. Symmetrical case. *)
-         if ty1 == (W_CoreTypes.simple_type_repr mt) then
-           raise
-             (Unification_simple_type_conflict
-                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-         __unify_simple_type env seen_expansions ty2 mt ~dont_expand: false
-       )
-       else (
-         let seen_expansions' =
-           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
-         __unify_simple_type env seen_expansions' ty1 ty2 ~dont_expand: true
-       )
-   | ((Some mt), (Some mt')) ->
-       (* Same remark than above, but in the present case, if the 2 types
-          are both trivially cyclic we could also accept the unification.
-          In effect, 2 "inhabited" types can be considered as compatible
-          since none of them have values, hence no way to make "bus
-          error". For the moment, we retain the incompatibility choice. *)
-       if (ty1 == (W_CoreTypes.simple_type_repr mt)) ||
-         (ty2 == (W_CoreTypes.simple_type_repr mt')) then
-           raise
-             (Unification_simple_type_conflict
-                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-       __unify_simple_type env seen_expansions mt mt' ~dont_expand: false)
-
+(* [TODO-REFACTOR] DOCUMENTATION. *)
+and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
+  let h_nty1 = W_CoreTypes.named_type_expr_height nty1 in
+  let h_nty2 = W_CoreTypes.named_type_expr_height nty2 in
+  if (h_nty1 < 0) && (h_nty2 < 0) then (
+    (* Expand both once then unify the 2 resulting types. *)
+    let (ty1', seen_expansions') =
+      W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+    let (ty2', seen_expansions'') =
+      W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions' ty2 in
+    if (ty1 == ty1') && (ty2 == ty2') then
+      raise
+        (Unification_simple_type_conflict
+           (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
+    __unify_simple_type env seen_expansions'' ty1' ty2'
+  )
+  else (  (* Else 0. *)
+    (* Not ((h_nty1 < 0) && (h_nty2 < 0)). *)
+    if h_nty1 < 0 then (
+      (* Expand left once then unify expanded left and right. *)
+      let (ty1', seen_expansions') =
+        W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+      if ty1 == ty1' then
+        raise
+          (Unification_simple_type_conflict
+             (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
+      __unify_simple_type env seen_expansions' ty2 ty1'
+    )
+    else (  (* Else 1. *)
+      (* (h_nty1 >= 0). *)
+      if h_nty2 < 0 then (
+        (* Expand right once then unify left and expanded right. *)
+        let (ty2', seen_expansions') =
+          W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
+        if ty2 == ty2' then
+          raise
+            (Unification_simple_type_conflict
+               (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
+        __unify_simple_type env seen_expansions' ty1 ty2'
+      )
+      else (   (* Else 2. *)
+        (* None of heights are negative. *)
+        if h_nty1 = h_nty2  then (
+          (* None of heights are negative and they are equal. *)
+          let (ty1', seen_expansions') =
+            W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+          let (ty2', seen_expansions'') =
+            W_TypeAbbrevs.incrementally_expand_abbrev
+              env seen_expansions' ty2 in
+          if (ty1 == ty1') && (ty2 == ty2') then
+            raise
+              (Unification_simple_type_conflict
+                 (ty1, ty2,
+                  { ucd_kind = DK_none ; ucd_through_field = None })) ;
+          __unify_simple_type env seen_expansions'' ty1' ty2'
+        )
+        else (   (* Else 3. *)
+          (* None of heights are negative and they are not equal.
+             Expand highest to match lowest's level then unify left (possibly
+             expanded) and right (possibly expanded).
+             If both are at the same level: unwind them once. *)
+          if h_nty1 < h_nty2 then (
+            (* None of heights are negative and left is lower than right.
+               Expand right. *)
+            let nb_expansion = h_nty2 - h_nty1 in
+            let (ty2', seen_expansions') =
+              W_TypeAbbrevs.expand_abbrev_n_times
+                nb_expansion env seen_expansions ty2 in
+            if ty2 == ty2' then
+              raise
+                (Unification_simple_type_conflict
+                   (ty1, ty2,
+                    { ucd_kind = DK_none ; ucd_through_field = None })) ;
+            __unify_simple_type env seen_expansions' ty1 ty2'
+          )
+          else (   (* Else 4. *)
+            (* None of heights are negative and left is greater than right.
+               Expand left. *)
+            let nb_expansion = h_nty1 - h_nty2 in
+            let (ty1', seen_expansions') =
+              W_TypeAbbrevs.expand_abbrev_n_times
+                nb_expansion env seen_expansions ty1 in
+            if ty1 == ty1' then
+              raise
+                (Unification_simple_type_conflict
+                   (ty1, ty2,
+                    { ucd_kind = DK_none ; ucd_through_field = None })) ;
+            __unify_simple_type env seen_expansions' ty2 ty1'
+          )     (* End of else 4. *)
+        )       (* End of else 3. *)
+      )         (* End of else 2. *)
+    )           (* End of else 1. *)
+  )             (* End of else 0. *)
 
 
 
@@ -1072,8 +1079,7 @@ and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, fi
   if field_name1 <> field_name2 then false
   else (
     try
-      __unify_simple_type
-        env seen_expansions field_ty1 field_ty2 ~dont_expand: false ;
+      __unify_simple_type env seen_expansions field_ty1 field_ty2 ;
       (* If the above unification succeeded, then we arrive here then return a
          boolean telling that everything succeeded. Otherwise, the above
          unification will have raised an exception, and then we never arrive
@@ -1106,13 +1112,27 @@ and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, fi
     {b Visibility}: Exported outside this module.                             *)
 (* ************************************************************************** *)
 let unify_simple_type env ty1 ty2 =
+
+#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
+OManager.printf "unify_simple_type@." ;
+#<End> ;
+
   let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
   try
-    __unify_simple_type
-      env W_TypeAbbrevs.empty_memory ty1 ty2 ~dont_expand: false ;
+    __unify_simple_type env W_TypeAbbrevs.empty_memory ty1 ty2 ;
+
+#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
+OManager.printf "Ended unify_simple_type@." ;
+#<End> ;
+
     W_CoreTypes.reset_unification_changes_trace ()
   with any ->
     W_CoreTypes.rewind_unification_changes ~performed_after: checkpoint ;
+
+#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
+OManager.printf "Ended unify_simple_type@." ;
+#<End> ;
+
     raise any
 
 
@@ -1176,8 +1196,7 @@ let unify_column_type env column_ty1 column_ty2 =
 (* [TODO-REFACTOR] DOCUMENTATION. *)
 let _ = W_TypingEnv.forward_ref__unify_simple_type :=
   (fun env t1 t2 ->
-     __unify_simple_type
-       env W_TypeAbbrevs.empty_memory t1 t2 ~dont_expand: false)
+     __unify_simple_type env W_TypeAbbrevs.empty_memory t1 t2)
 let _ = W_TypingEnv.forward_ref__unify_row_type :=
   (fun env row_ty1 row_ty2 ->
      __unify_row_type env W_TypeAbbrevs.empty_memory row_ty1 row_ty2)

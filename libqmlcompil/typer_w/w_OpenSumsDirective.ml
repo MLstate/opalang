@@ -94,7 +94,7 @@ let open_sum_simple_type env initial_ty =
                      ty
                    )
                    else (
-                     let seen_expansions' =
+                     let (_, seen_expansions') =  (* TODO: May be dont_expand no more useful if this function is refactored according to new unification with heights. *)
                        W_TypeAbbrevs.incrementally_expand_abbrev
                          env seen_expansions ty in
                      ty.W_Algebra.sty_mark <- W_Algebra.TM_not_seen ;

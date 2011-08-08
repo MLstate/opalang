@@ -31,7 +31,7 @@ let expr gamma annotmap expr =
             "This expression has no annotation of type"
       | Some annotty ->
           let () =
-            let ty = QmlTypes.type_of_type gamma ty in
+            let (ty, _) = QmlTypes.type_of_type gamma ty in
             if not (QmlMoreTypes.equal_ty ~gamma ty annotty) then
               let context = QmlError.Context.annoted_expr annotmap expr in
               QmlError.warning ~wclass:QmlTyperWarnings.warncoerce context (

@@ -574,7 +574,7 @@ struct
       | Q.TypeName (targs, tn) ->
           if List.mem tn acc then failwith "loop in a type definition"
           else
-            let tsc =
+            let (tsc, _) =
               QmlTypes.Env.TypeIdent.find ~visibility_applies:false tn gamma in
             let ty = QmlTypes.Scheme.specialize ~typeident: tn ~ty: targs tsc in
             aux (tn :: acc) ty
@@ -1095,7 +1095,11 @@ object (self)
     method patlist pl = self#wrap (TypedPat.list annotmap pl)
     method match_ e pel = self#wrap (TypedExpr.match_ annotmap e pel)
 
-    method tyname name tyl = QmlTypes.type_of_type gamma (Q.TypeName (tyl,TypeIdent.of_string name))
+    method tyname name tyl =
+      let (ty, _) =
+        QmlTypes.type_of_type
+          gamma (Q.TypeName (tyl,TypeIdent.of_string name)) in
+      ty
     method tylist ty = self#tyname "list" [ty]
     method tyoption ty = self#tyname Opacapi.Types.option [ty]
 

@@ -160,7 +160,7 @@ let collect_column_variables _env initial_ty =
         | W_Algebra.SType_forall _ | W_Algebra.SType_arrow (_, _) ->
             ()
         | W_Algebra.SType_named nty -> (
-            (* [TODO] Think about... This was the old code when abbrevs were
+            (* [NOTE] Think about... This was the old code when abbrevs were
                not fully incremental and unflatted all if on unflat was
                asked. Since this time, I wonder of simply descending in the
                arguments is not simply sufficient... Is there cases where the

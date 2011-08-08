@@ -429,23 +429,27 @@ incr foo_counter ;  (* FOR DEBUG PURPOSE ONLY. *)
 
 
 
-let type_named ty_name ty_args manifest =
+let type_named ty_name ty_abb_height ty_args manifest =
   { W_Algebra.sty_desc =
       W_Algebra.SType_named {
         W_Algebra.nst_name = ty_name ;
+        W_Algebra.nst_abbrev_height = ty_abb_height ;
         W_Algebra.nst_args = ty_args ;
         W_Algebra.nst_unwinded = manifest } ;
     W_Algebra.sty_link = None ;
     W_Algebra.sty_mark = W_Algebra.TM_not_seen }
 
-let type_int () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.int) [] None
+let type_int () =
+  type_named (QmlAst.TypeIdent.of_string Opacapi.Types.int) 0 [] None
 
-let type_bool () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.bool) [] None
+let type_bool () =
+  type_named (QmlAst.TypeIdent.of_string Opacapi.Types.bool) 0 [] None
 
-let type_float () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.float) [] None
+let type_float () =
+  type_named (QmlAst.TypeIdent.of_string Opacapi.Types.float) 0 [] None
 
-let type_string () = type_named (QmlAst.TypeIdent.of_string Opacapi.Types.string) [] None
-
+let type_string () =
+  type_named (QmlAst.TypeIdent.of_string Opacapi.Types.string) 0 [] None
 
 
 (* ************************************************************************** *)
@@ -1085,3 +1089,25 @@ and cleanup_column_type column =
       | _ -> col_variable.W_Algebra.cv_mark <- W_Algebra.VM_not_seen
     )
   | W_Algebra.Closed_column -> ()
+
+
+
+let named_type_expr_height nty =
+  if nty.W_Algebra.nst_abbrev_height < 0 then (
+    let interest_arg =
+      List.nth
+        nty.W_Algebra.nst_args (- (nty.W_Algebra.nst_abbrev_height + 1)) in
+    let interest_arg_height =
+      (match interest_arg.W_Algebra.sty_desc with
+      | W_Algebra.SType_var _ -> -1
+      | W_Algebra.SType_named nst -> nst.W_Algebra.nst_abbrev_height
+      | _ -> 0) in
+    (* Again special case if we get -1 which means that's a type variable.
+       In this case we are unable to compute the real height since the variable
+       is not instantiated. Hence we have no other choice than expanding the
+       type. This is signaled by returning -1 ... so to make shorter, to
+       return [interest_arg_height]. So, in any case, we return
+       [interest_arg_height]. *)
+    interest_arg_height
+   )
+  else nty.W_Algebra.nst_abbrev_height
