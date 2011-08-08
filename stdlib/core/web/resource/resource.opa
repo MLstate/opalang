@@ -162,7 +162,7 @@ html_constructor(title, doctype, headers, html, status, customizers, rc_lastm) =
                  headers = match title
                            | "" -> headers
                            | _  -> headers <+> <title>{title}</title>}
-   ~rc_lastm; rc_status=status } : resource
+   rc_status=status rc_headers=[{lastm = rc_lastm}]} : resource
 
 
 /**
@@ -224,9 +224,9 @@ full_page_with_doctype(title: string, doctype, body:xhtml, headers:xhtml, status
    */
   dynamic(compute) =
     rc_content = {dynamic = compute}
-    rc_lastm   = {volatile}
     rc_status  = {success}
-    (~{rc_content rc_lastm rc_status}):resource
+    rc_headers = [{ lastm = {volatile}}]
+    (~{rc_content rc_status rc_headers}):resource
 
 /**
  * Dynamic Resources
@@ -313,8 +313,8 @@ soap(soap: xml): resource =
 */
 xml(xml: xml) =
  { rc_content = {xml=xml};
-   rc_lastm   = {modified_on = Date.now()};
    rc_status  = {success}
+   rc_headers = [{ lastm = {modified_on = Date.now() }}]
  } : resource
 
 /*
@@ -328,8 +328,8 @@ xml(xml: xml) =
 */
 full_soap(soap : xml, status: web_response) =
  { rc_content = {~soap};
-   rc_lastm = {modified_on = Date.now()};
    rc_status = {success}
+   rc_headers = [{ lastm = {modified_on = Date.now()}}]
  } : resource
 */
 
@@ -353,8 +353,8 @@ dyn_image(img: image) =
 build_css(css : string) =
   {
     rc_content = {css = css};
-    rc_lastm   = {modified_on = Date.now()};//Note: this constructor is *not* used for the automatically constructed CSS file
     rc_status = {success}
+    rc_headers = [{ lastm = {modified_on = Date.now()}}]
   } : resource
 
 /**
@@ -362,8 +362,8 @@ build_css(css : string) =
  */
 raw_text(t: string) =
   { rc_content = {txt = t};
-    rc_lastm = {modified_on = Date.now()};
     rc_status = {success}
+    rc_headers = [{ lastm = {modified_on = Date.now()}}]
   } : resource
 
 
@@ -372,8 +372,8 @@ raw_text(t: string) =
  */
 json(t: RPC.Json.json) =
   { rc_content = {json = t};
-    rc_lastm   = {volatile};
     rc_status = {success}
+    rc_headers = [{ lastm = {volatile}}]
   } : resource
 
 
@@ -390,8 +390,8 @@ json(t: RPC.Json.json) =
  */
 binary(content: binary, mimetype: string) =
   { rc_content = {binary = content; mimetype = mimetype};
-    rc_lastm = {modified_on = Date.now()};
     rc_status = {success}
+    rc_headers = [{lastm = {modified_on = Date.now()}}]
   } : resource
 
 /**
@@ -402,8 +402,8 @@ binary(content: binary, mimetype: string) =
  */
 raw_response(content: string, mimetype: string, status: web_response) =
   { rc_content = {source = content; mimetype = mimetype};
-    rc_lastm = {modified_on = Date.now()};
     rc_status = status
+    rc_headers = [{ lastm = {modified_on = Date.now()}}]
   } : resource
 
 /**
@@ -451,8 +451,8 @@ static_page(title:string, body: xmlns): resource =
 
 cache_control(resource: resource, control) =
    {  rc_content = resource.rc_content;
-      rc_lastm   = control;
       rc_status = {success}
+      rc_headers = Resource_private.update_lastm(resource.rc_headers, control)
    } : resource
 
 /**
@@ -462,9 +462,9 @@ cache_control(resource: resource, control) =
  * Use with caution.
  */
 override_type_unsafe(content: resource, mimetype:string) : resource =
-  ~{rc_content rc_lastm rc_status} = content
+  ~{rc_content rc_status rc_headers} = content
   { rc_content = {override_mime_type = mimetype; resource = rc_content}
-    ~rc_lastm ~rc_status} : resource
+    ~rc_status ~rc_headers} : resource
 
 /**
  * {2 Platform-specific extensions}
@@ -536,11 +536,11 @@ redirection_page(title: string, body: xhtml, status: web_response, delay: int, r
  */
 later(maker : ((resource -> void) -> void)) =
    { rc_content = {later=maker} : resource_private_content;
-     rc_lastm   = {volatile};
      rc_status  = {success}
+     rc_headers = [{ lastm = {volatile}}]
    } : resource
 
-export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
+export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
   rec aux(rc_content : resource_private_content) =
     match rc_content with
       | {~html ~doctype ~headers customizers=_} ->

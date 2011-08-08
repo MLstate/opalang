@@ -74,9 +74,32 @@ type resource_private_content =
  * The implementation of type [resource]
  */
 type resource_private = { rc_content : resource_private_content;
-                          rc_lastm   : web_cache_control;
-                          rc_status  : web_response
+                          rc_status  : web_response;
+                          rc_headers : list(http_response_header / http_general_header);
                         }
+
+type http_general_header =
+    { lastm : web_cache_control }
+
+type http_response_header =
+    { set_cookie:cookie_def }
+  / { age:int }
+  / { location:string }
+  / { retry_after: { date:string } / { delay:int } }
+  / { server: list(string) }
+
+type cookie_def = {
+  name : string ;
+  attributes : list(cookie_attributes) ;
+}
+
+type cookie_attributes =
+    { comment:string }
+  / { domain:string }
+  / { max_age:int }
+  / { path:string }
+  / { secure:void }
+  / { version:int }
 
 type resource_cache_customizers = {
      customizers: list(platform_customization)
@@ -112,8 +135,8 @@ type dynamic_private_content =
 
 type dynamic_resource_private = { rc_name    : string;
                                   rc_content : dynamic_private_content;
-                                  rc_lastm   : web_cache_control;
-                                  rc_status  : web_response
+                                  rc_status  : web_response;
+                                  rc_headers : list(http_response_header / http_general_header)
                                 }
 
 /**
@@ -132,6 +155,21 @@ Resource_private =
     match doctype with
     {xhtml1_1} -> shared_xhtml1_1_header
     {html5} -> shared_html5_header
+
+  get_lastm(resource) =
+    check(x) =
+      match x with
+      | { lastm = _ } -> true
+      | _ -> false
+    List.find(check, resource.rc_headers)
+
+  update_lastm(headers, new_lastm) =
+    replace(elem, acc) =
+      match elem with
+      | { lastm = _ } -> List.cons({ lastm = new_lastm }, acc)
+      | otherwise -> List.cons(otherwise, acc)
+    List.foldr(replace, headers, [])
+
 
    /**
     * Construct the inclusion of an external resource that can possibly be modified dynamically for debugging purposes
@@ -287,14 +325,17 @@ Resource_private =
    (
         match make_include(name, kind, minifier, static_source_content, replace, force_immutable) with
            | ~{immutable} ->
-                { make_resource(immutable) with rc_lastm = cache_control}:resource
+                r = make_resource(immutable)
+                { r with rc_headers = update_lastm(r.rc_headers, cache_control)}:resource
            | ~{mutable} ->
                 {rc_content = {dynamic =
                      _ -> {~content; ~modified_on} = mutable()
-                     { make_resource(content) with rc_lastm = ~{modified_on}}:resource
+                      tmp = make_resource(content)
+                     { tmp with rc_headers = update_lastm(tmp.rc_headers, ~{modified_on}) }:resource
                       }
-                 rc_lastm = {volatile}/*ignored*/
-                 rc_status = {success}} : resource
+                 rc_status = {success}
+                 rc_headers = [{lastm = {volatile}}]
+                 } : resource
    )
 
    content_of_include(name:string, kind, minifier:string -> string, static_source_content:string, replace:bool, force_immutable:bool, make_content: string -> 'a): -> 'a =
@@ -310,8 +351,8 @@ Resource_private =
    raw_resource_status_factory(mimetype:string)(content:string, status:web_response) : Resource.resource =
       (
         { rc_content = {binary = content; mimetype = mimetype};
-          rc_lastm   = {volatile};
           rc_status  = status
+          rc_headers = [{ lastm = {volatile}}]
         } : resource
       )
 
@@ -411,17 +452,19 @@ Resource_private =
             | {~png} -> { ~png }
             | {~gif} -> { ~gif }
             { rc_content = r0;
-              rc_lastm   = {permanent};
               rc_status  = {success}
+              rc_headers = [{ lastm = {permanent}}]
             } : resource
 
       dynamic_resource_of_image(r:image) =
-            { resource_of_image(r) with rc_lastm = {volatile} } : resource
+            res = resource_of_image(r)
+            { res with rc_headers = update_lastm(res.rc_headers, {volatile}) } : resource
 
     /**
      * see Resource.create_dynamic_resource
      */
     private_create_dynamic_resource_status(name:string, mtype:string, status:web_response) =
+        lastm = {modified_on = file_last_modification(name)};//TODO: Should be max of this and Server_private.launch_time
         is_binary(arg:string)=
          Parser.partial_parse(parser
             | "image/"  -> true
@@ -439,8 +482,8 @@ Resource_private =
                     {source=file_content(name); mimetype=mtype}
                     : dynamic_private_content
                 ;
-              rc_lastm = {modified_on = file_last_modification(name)};//TODO: Should be max of this and Server_private.launch_time
               rc_status = status
+              rc_headers = [~{lastm}]
              } : dynamic_resource
 
     private_create_dynamic_resource(name, mtype) =
@@ -458,9 +501,13 @@ Resource_private =
     // une seule fois le fichier, mais qu'il modifie en permanance
     private_update_dynamic(resource:dynamic_resource) =
         (new = file_last_modification(resource.rc_name)
-        same = match resource.rc_lastm with
-          | {volatile} | {permanent} | {check_for_changes_after = _} -> false
-          | ~{modified_on} -> match Date.compare(new, modified_on) with {gt} -> true | _ -> {false}
+        same = match Option.get(get_lastm(resource)) with
+          | ~{lastm} -> (
+              match lastm with
+              | {volatile} | {permanent} | {check_for_changes_after = _} -> false
+              | ~{modified_on} -> match Date.compare(new, modified_on) with {gt} -> true | _ -> {false}
+            )
+          | _ -> false
         if same then
             {rc_name = resource.rc_name;
              rc_content =
@@ -471,8 +518,8 @@ Resource_private =
                  | {source=_; mimetype=m} ->
                       {source=file_content(resource.rc_name);
                        mimetype=m} : dynamic_private_content );
-             rc_lastm = {modified_on = new};
-             rc_status = resource.rc_status }
+             rc_status = resource.rc_status
+             rc_headers = update_lastm(resource.rc_headers, {modified_on = new}) }
         else
             resource
         ): dynamic_resource
@@ -485,8 +532,8 @@ Resource_private =
      */
     private_dynamic_to_resource(dresource:dynamic_resource)=
         { rc_content = dresource.rc_content <: resource_private_content;
-          rc_lastm = dresource.rc_lastm;
           rc_status = dresource.rc_status
+          rc_headers = dresource.rc_headers
         } : resource
 
 
@@ -816,8 +863,10 @@ export_resource(external_css_files: list(string),
      */
     rec response(force_mimetype)(winfo:web_info, resource: resource)=
       resource_pr = resource
-      //last_modif = Date_private.of_date(resource_pr.rc_lastm)
-      last_modif  = resource_pr.rc_lastm
+      last_modif =
+        match Option.get(get_lastm(resource_pr)) with
+        | ~{lastm} -> lastm
+        | _ -> error("Prout")
       status = resource_pr.rc_status
 
       // Various content handler
