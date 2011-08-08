@@ -39,9 +39,6 @@ import stdlib.widgets.core
  * for validation.
 **/
 
-type WFormBuilder.validator =
-  string -> outcome(string, xhtml)
-
 type WFormBuilder.passwd_validator_spec =
   { min_length : int
   ; force_uppercase : bool
@@ -57,18 +54,36 @@ type WFormBuilder.passwd_validator_spec =
   ; force_special_char_err_msg : xhtml
   }
 
-// FIXME, re-factor this type. It should contain a record with to_xhtml & get_value getters/setters instead.
-@abstract
-type WFormBuilder.field('ty) =
+type WFormBuilder.field_value('ty) =
+  { no_value } / { conversion_error : xhtml } / { value : 'ty }
+
+type WFormBuilder.field_accessor('ty) =
+  WFormBuilder.field_data -> WFormBuilder.field_value('ty)
+
+type WFormBuilder.field_renderer('ty) =
+  { data : WFormBuilder.field_rendering_data; initial_value : option('ty) } -> xhtml
+
+type WFormBuilder.field_validator('ty) =
+  'ty -> outcome('ty, xhtml)
+
+type WFormBuilder.field_converter('ty) =
+  { render : WFormBuilder.field_renderer('ty)
+  ; accessor : WFormBuilder.field_accessor('ty)
+  }
+
+type WFormBuilder.field_data =
   { id : string
   ; label : string
-  ; optionality : { required } / { optional }
-  ; field_type : { email } / { text } / { passwd } / { desc : { cols: int rows: int} } / { upload }
-               / { selection : list('ty); to_label : 'ty -> string; to_id : 'ty -> string}
-  ; initial_value : string
-  ; validator : WFormBuilder.validator
   ; hint : option(xhtml)
-  ; field_accessor : WFormBuilder.form_data -> 'ty
+  ; optionality : {optional} / {required : xhtml}
+  }
+
+@abstract
+type WFormBuilder.field('ty) =
+  { data : WFormBuilder.field_data
+  ; initial_value : option('ty)
+  ; converter : WFormBuilder.field_converter('ty)
+  ; validator : WFormBuilder.field_validator('ty)
   }
 
 type WFormBuilder.style =
@@ -89,22 +104,29 @@ type WFormBuilder.form_data =
     { SimpleForm }
   / { FileUploadForm : Upload.form_data }
 
+type WFormBuilder.field_ids =
+  { field_id : string
+  ; input_id : string
+  ; label_id : string
+  ; hint_id : string
+  ; error_id : string
+  }
+
+type WFormBuilder.field_rendering_data =
+  { ids : WFormBuilder.field_ids
+  ; style : WFormBuilder.style
+  ; data : WFormBuilder.field_data
+  }
+
 type WFormBuilder.field_builder =
-  { mk_label : {optionality:{optional}/{required} label:string label_id:string input_id:string style:WFormBuilder.style} -> xhtml
-  ; mk_input : {input_tag:xhtml style:WFormBuilder.style} -> xhtml
-  ; mk_hint : {hint:option(xhtml) hint_id:string style:WFormBuilder.style} -> xhtml
-  ; mk_err : {error_id:string style:WFormBuilder.style} -> xhtml
-  ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml field_id:string style:WFormBuilder.style} -> xhtml
+  { mk_label : WFormBuilder.field_rendering_data -> xhtml
+  ; mk_input : xhtml, WFormBuilder.field_rendering_data -> xhtml
+  ; mk_hint : WFormBuilder.field_rendering_data -> xhtml
+  ; mk_err : WFormBuilder.field_rendering_data -> xhtml
+  ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml data:WFormBuilder.field_rendering_data} -> xhtml
   }
 
 WFormBuilder =
-
-  field_id(id) = "{id}_field"
-  label_id(id) = "{id}_label"
-  input_id(id) = "{id}_input"
-  hint_id(id) = "{id}_hint"
-  error_id(id) = "{id}_err"
-
 {{
 
   /** {1 Styling} */
@@ -124,7 +146,7 @@ WFormBuilder =
 
   /** {1 Validators} */
 
-  empty_validator : WFormBuilder.validator =
+  empty_validator : WFormBuilder.field_validator('ty) =
     input -> {success=input}
 
   empty_passwd_validator_spec : WFormBuilder.passwd_validator_spec =
@@ -144,21 +166,8 @@ WFormBuilder =
     ; force_special_char_err_msg = <>one special character</>
     }
 
-  required_validator(error_msg : xhtml) : WFormBuilder.validator =
-    input ->
-      if String.is_empty(input) then
-        {failure=error_msg}
-      else
-        {success=input}
-
-  email_validator(error_msg : xhtml) : WFormBuilder.validator =
-    input ->
-      match Email.of_string_opt(input) with
-      | {none} -> {failure=error_msg}
-      | {some=_} -> {success=input}
-
   password_validator(spec : WFormBuilder.passwd_validator_spec)
-    : WFormBuilder.validator =
+    : WFormBuilder.field_validator(string) =
     input ->
       length_ok = String.length(input) >= spec.min_length
       length_msg = spec.min_length_err_msg(spec.min_length)
@@ -200,24 +209,14 @@ WFormBuilder =
           , (length_ok, length_msg)
           ], true, [])
 
-  equals_validator(fld_id : string, error_msg : xhtml) : WFormBuilder.validator =
+  equals_validator(fld : WFormBuilder.field('ty), error_msg : xhtml) : WFormBuilder.field_validator('ty) =
     input ->
-      if input == get_text_value_of(fld_id) then
+      if {value=input} == get_field_value(fld) then
         {success = input}
       else
         {failure = error_msg}
 
-  url_validator(error_msg : xhtml) : WFormBuilder.validator =
-    input ->
-      match Uri.of_string(input) with
-      | {none} -> {failure = error_msg}
-      | {some=uri} ->
-          if Uri.is_valid_http(uri) then
-            {success = input}
-          else
-            {failure = error_msg}
-
-  merge_validators(vs : list(WFormBuilder.validator)) : WFormBuilder.validator =
+  merge_validators(vs : list(WFormBuilder.field_validator)) : WFormBuilder.field_validator =
     rec aux(input) =
       | [] -> { success=input }
       | [v | vs] ->
@@ -226,188 +225,207 @@ WFormBuilder =
           | res -> res
     aux(_)(vs)
 
-  /** {1 Fields/form querying} */
+  /** {1 Fields interfaces} */
 
-  get_field_label(f : WFormBuilder.field) =
-    f.label
+  string_accessor(data) =
+    v = get_val_string(data.id)
+    if String.is_empty(v) then
+      {no_value}
+    else
+      {value=v}
 
-  get_field_value(f : WFormBuilder.field('a), data : WFormBuilder.form_data) : 'a =
-    f.field_accessor(data)
+  string_converter(data, wrong_data, conv) =
+    match string_accessor(data) with
+    | {no_value} as e
+    | {conversion_error=_} as e -> e
+    | {value=input} ->
+        match conv(input) with
+        | {none} -> {conversion_error = wrong_data}
+        | {some=v} -> {value = v}
+
+  selection_accessor(data, options, to_id, none_selected) =
+    match string_accessor(data) with
+    | {no_value} as e
+    | {conversion_error=_} as e -> e
+    | {value=input} ->
+         check_opt(o) = to_id(o) == input
+         match List.find(check_opt, options) with
+         | {none} -> {conversion_error=none_selected}
+         | {some=opt} -> {value=opt}
+
+  email_accessor = string_converter(_, _, Email.of_string_opt)
+
+  uri_accessor = string_converter(_, _, Uri.of_string)
+
+  render_text_input(~{data initial_value}, f) =
+    add_initial_value(
+      <input type="text" id={data.ids.input_id} />,
+      "value", Option.map(f, initial_value)
+    )
+
+  render_text_area(~{data initial_value}, size) =
+    // FIXME, resize:none should be in css{...}
+    do Log.error("FB", "render_text_area")
+    <textarea onclick={_ -> void} style="resize: none;" type="text" id={data.ids.input_id}
+      rows={size.rows} cols={size.cols}>
+      {initial_value}
+    </>
+
+  render_passwd_input(~{data ...}) =
+    <input type="passwd" id={data.ids.input_id} />
+
+  render_combobox(~{data initial_value}, options, to_id, to_label) =
+    mk_option(opt) =
+      o =
+        <option value={to_id(opt)} id={data.ids.input_id}>
+          {to_label(opt)}
+        </>
+      if initial_value == some(opt) then
+        Xhtml.add_attribute("selected", "true", o)
+      else
+        o
+    <select>
+      {List.map(mk_option, options)}
+    </>
+
+  /** {1 Field converters} */
+
+  text_field : WFormBuilder.field_converter(string) =
+    { render = render_text_input(_, identity)
+    ; accessor = string_accessor
+    }
+
+  passwd_field : WFormBuilder.field_converter(string) =
+    { render = render_passwd_input
+    ; accessor = string_accessor
+    }
+
+  email_field(wrong_email : xhtml) : WFormBuilder.field_converter(Email.email) =
+    { render = render_text_input(_, Email.to_string)
+    ; accessor = email_accessor(_, wrong_email)
+    }
+
+  desc_field_with(size : {rows:int cols:int}) : WFormBuilder.field_converter(string) =
+    { render = render_text_area(_, size)
+    ; accessor = string_accessor
+    }
+
+  desc_field : WFormBuilder.field_converter(string) =
+    desc_field_with({rows=3 cols=40})
+
+  uri_field(wrong_uri : xhtml) : WFormBuilder.field_converter(Uri.uri) =
+    { render = render_text_input(_, Uri.to_string)
+    ; accessor = uri_accessor(_, wrong_uri)
+    }
+
+  select_combobox_field(options : list('a), to_id : 'a -> string,
+    to_label : 'a -> xhtml, none_selected : xhtml) : WFormBuilder.field_converter('a) =
+    { render = render_combobox(_, options, to_id, to_label)
+    ; accessor = selection_accessor(_, options, to_id, none_selected)
+    }
 
   /** {1 Fields/form construction} */
 
-  @private
-  mk_field(label, field_type, mk_accessor) : WFormBuilder.field =
+  field_data(label) =
     id = Dom.fresh_id()
-    {~label ~field_type ~id
+    {~label
+     ~id
      optionality={optional}
-     initial_value=""
-     validator=empty_validator
      hint=none
-     field_accessor=mk_accessor(id)
     }
 
-  @private
-  mk_string_field =
-    mk_field(_, _, (id -> get_field_text_value(id, _)))
-
-  mk_text_field(label) : WFormBuilder.field(string) =
-    mk_string_field(label, {text})
-
-  mk_email_field(label) : WFormBuilder.field(string) =
-    mk_string_field(label, {email})
-
-  mk_passwd_field(label) : WFormBuilder.field(string) =
-    mk_string_field(label, {passwd})
-
-  mk_desc_field_with(label, size : {rows : int; cols : int})
-    : WFormBuilder.field(string) =
-    mk_string_field(label, {desc=size})
-
-  mk_desc_field(label) : WFormBuilder.field(string) =
-    mk_desc_field_with(label, {rows=3 cols=40})
-
-  mk_selection_field(label, selection, to_label, to_id) =
-    get_selection(id)(data) =
-      v = get_field_text_value(id, data)
-      check_opt(o) = to_id(o) == v
-      List.find(check_opt, selection) ? List.head(selection) // FIXME
-    mk_field(label, ~{selection to_label to_id}, get_selection)
-
-  mk_upload_field(label) : WFormBuilder.field(option(Upload.file)) =
-    mk_field(label, {upload}, (id -> get_file_upload_value(id, _)))
+  mk_field(label, converter) : WFormBuilder.field =
+    { data=field_data(label)
+    ; ~converter
+    ; initial_value=none
+    ; validator=empty_validator
+    }
 
   /** {1 Extending fields} */
 
-  add_validator(field : WFormBuilder.field, v : WFormBuilder.validator)
+  add_validator(field : WFormBuilder.field, v : WFormBuilder.field_validator)
     : WFormBuilder.field =
     { field with
         validator=merge_validators([field.validator, v])
     }
 
   add_hint(field : WFormBuilder.field, hint : xhtml) : WFormBuilder.field =
-    { field with hint=some(hint) }
-
-  add_email_validator(field : WFormBuilder.field, err_msg : xhtml)
-    : WFormBuilder.field =
-    add_validator(field, email_validator(err_msg))
-
-  add_default_email_validator(field : WFormBuilder.field) : WFormBuilder.field =
-    add_email_validator(field, <>This is not a valid email address.</>)
-
-  add_url_validator(field : WFormBuilder.field, err_msg : xhtml) : WFormBuilder.field =
-    add_validator(field, url_validator(err_msg))
-
-  add_default_url_validator(field : WFormBuilder.field) : WFormBuilder.field =
-    add_url_validator(field, <>This does not seem to be a valid URL.</>)
+    { field with data.hint=some(hint) }
 
   set_id(field : WFormBuilder.field, id : string) : WFormBuilder.field =
-    {field with ~id}
+    {field with data.id=id}
 
-  set_initial_value(field : WFormBuilder.field, initial_value : string) : WFormBuilder.field =
-    {field with ~initial_value}
+  set_initial_value(field : WFormBuilder.field('ty), initial_value : 'ty) : WFormBuilder.field('ty) =
+    {field with initial_value=some(initial_value)}
 
-  make_required(field : WFormBuilder.field, err_msg : xhtml)
-    : WFormBuilder.field =
-    v = required_validator(err_msg)
-    { field with
-        optionality={required}
-        validator=merge_validators([field.validator, v])
-    }
+  make_required(field : WFormBuilder.field, err_msg : xhtml) : WFormBuilder.field =
+    {field with data.optionality={required = err_msg}}
 
   make_required_with_default_msg(field : WFormBuilder.field) : WFormBuilder.field =
     make_required(field, <>Please provide a value</>)
 
   /** {1 Form/fields rendering} */
 
-  @private add_style(style) = WStyler.add(style, _)
-
   default_field_builder : WFormBuilder.field_builder =
     {
-      mk_label(~{optionality label label_id input_id style=s}) =
+      mk_label({data=~{optionality label ...} ids=~{label_id input_id ...} style=s}) =
         req =
           match optionality with
           | {optional} -> <span></> |> add_style(s.non_required_style)
-          | {required} -> <span>*</> |> add_style(s.required_style)
+          | {required=_} -> <span>*</> |> add_style(s.required_style)
         <label id={label_id} for={input_id}>
           {label}
           {req}
         </> |> add_style(s.label_style(true))
 
-      mk_input(~{input_tag ...}) = input_tag
+      mk_input(input_tag, {style=s ...}) =
+        input_tag |> add_style(s.input_style(true))
 
-      mk_hint(~{hint hint_id style=s}) =
-        match hint with
+      mk_hint(~{data ids style=s}) =
+        match data.hint with
         | {none} -> <></>
         | {some=hint} ->
-            <span id={hint_id}>{hint}</>
+            <span id={ids.hint_id}>{hint}</>
             |> add_style(s.hint_style)
 
-      mk_err(~{error_id style=s}) =
-        <span id={error_id} />
+      mk_err(~{ids style=s ...}) =
+        <span id={ids.error_id} />
         |> add_style(s.error_style)
 
-      mk_field(~{label input hint err field_id style=s}) =
-        <div id={field_id}>
+      mk_field(~{label input hint err data}) =
+        <div id={data.ids.field_id}>
           {label}
           {input}
           {hint}
           {err}
         </>
-        |> add_style(s.field_style(true))
+        |> add_style(data.style.field_style(true))
 
      }
 
   field_html(field : WFormBuilder.field('ty), builder : WFormBuilder.field_builder, style : WFormBuilder.style) : xhtml =
     hide(tag) = WStyler.add({style=css{display: none}}, tag)
-    mk_field(~{label validator optionality initial_value field_type id hint ...}) =
-      label_xhtml = builder.mk_label(~{optionality label label_id=label_id(id) input_id=input_id(id) style})
-      input(input_type) =
-        <input type={input_type} name={input_id(id)} id={input_id(id)}
-          value={initial_value} />
-      input_tag =
-        match field_type with
-        | {email} -> input("email")
-        | {text} -> input("text")
-        | {passwd} -> input("password")
-        | {upload} -> input("file")
-        | {desc=~{cols rows}} ->
-            // FIXME, resize:none should be in css{...}
-            <textarea style="resize: none;" type="text"
-              name={input_id(id)} id={input_id(id)}
-              rows={rows} cols={cols} />
-        | ~{selection to_label to_id} ->
-            mk_option(opt) =
-              id = to_id(opt)
-              o =
-                <option value={id}>
-                  {to_label(opt)}
-                </>
-              if initial_value == id then
-                Xhtml.add_attribute("selected", "true", o)
-              else
-                o
-            <select>
-              {List.map(mk_option, selection)}
-            </>
-      stl_input_tag = input_tag |> add_style(style.input_style(true))
-      onblur(_) =
-        do do_validate(style, id, validator)
-        do hide_hint(style, id)
-        void
-      onfocus(_) =
-        do show_hint(style, id)
-        void
-      bindings =
-        [ ({blur}, onblur)
-        , ({focus}, onfocus)
-        ]
-      input_tag = WCore.add_binds(bindings, stl_input_tag)
-      input_xhtml = builder.mk_input(~{input_tag style})
-      hint_xhtml = builder.mk_hint(~{hint hint_id=hint_id(id) style}) |> hide
-      err_xhtml = builder.mk_err({error_id=error_id(id) ~style}) |> hide
-      builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml field_id=field_id(id) ~style})
-    <>{mk_field(field)}</>
+    ~{data initial_value converter ...} = field
+    ids = build_ids(data.id)
+    rdata = ~{data ids style}
+    label_xhtml = builder.mk_label(rdata)
+    onblur(_) =
+      _ = do_validate(field, style, ids)
+      do hide_hint(style, ids)
+      void
+    onfocus(_) =
+      do show_hint(style, ids)
+      void
+    bindings =
+      [ ({blur}, onblur)
+      , ({focus}, onfocus)
+      ]
+    input_xhtml = converter.render(~{data=rdata initial_value})
+               |> WCore.add_binds(bindings, _)
+               |> builder.mk_input(_, rdata)
+    hint_xhtml = builder.mk_hint(rdata) |> hide
+    err_xhtml = builder.mk_err(rdata) |> hide
+    builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml data=rdata})
 
   form_html( form_id : string
            , form_type : {Basic} / {Normal}
@@ -429,23 +447,29 @@ WFormBuilder =
         Upload.html(config)
 
   focus_on(field : WFormBuilder.field) : void =
-    Dom.give_focus(#{input_id(field.id)})
+    Dom.give_focus(#{build_ids(field.data.id).input_id})
 
   submit_action(form_id : string) : (Dom.event -> void) =
     _ ->
        // submit the form
       Dom.trigger(#{form_id}, {submit})
 
+  get_field_value(field) =
+    field.converter.accessor(field.data)
+
+  get_field_label(field) =
+    field.data.label
+
   /* ---------- Private functions ---------- */
 
-  @private
-  animate(style, dom, e) =
+  @private add_style(style) = WStyler.add(style, _)
+
+  @private animate(style, dom, e) =
     _ = Dom.Effect.with_duration(style.fade_duration, e)
      |> Dom.transition(dom, _)
     void
 
-  @private
-  set_block_type(fld, style) =
+  @private set_block_type(fld, style) =
     do Dom.set_style(fld,
           match style with
           | {inline} -> css {display: inline}
@@ -453,57 +477,70 @@ WFormBuilder =
        )
     void
 
-  @private
-  do_validate(style : WFormBuilder.style, id : string,
-              validator : WFormBuilder.validator) : void =
-    input = Dom.get_value(#{input_id(id)})
-    err_fld = #{error_id(id)}
+  @private do_validate(field : WFormBuilder.field('ty),
+    style : WFormBuilder.style, ids) : bool =
+    err_fld = #{ids.error_id}
     set_styles(ok) =
       go(id, style) = WStyler.set_dom(style(ok), id)
-      do go(label_id(id), style.label_style)
-      do go(field_id(id), style.field_style)
-      do go(input_id(id), style.input_style)
+      do go(ids.label_id, style.label_style)
+      do go(ids.field_id, style.field_style)
+      do go(ids.input_id, style.input_style)
       void
-    match validator(input) with
+    input = get_field_value(field)
+    val_outcome =
+      match (input, field.data.optionality) with
+      | ({conversion_error=err}, _) -> {failure=err}
+      | ({no_value}, {required=req_msg}) -> {failure=req_msg}
+      | ({no_value}, {optional}) -> {success=void}
+      | ({value=v}, _) ->
+          match field.validator(v) with
+          | {success=_} -> {success=void}
+          | {failure=err} -> {failure=err}
+    match val_outcome with
     | {success=_} ->
         do animate(style, err_fld, Dom.Effect.fade_out())
         do set_styles(true)
-        void
+        true
     | {failure=err} ->
         do Dom.transform([{err_fld} <- err])
         do animate(style, err_fld, Dom.Effect.fade_in())
         do set_styles(false)
         do set_block_type(err_fld, style.error_elt_type)
-        void
+        false
 
-  @private
-  show_hint(style, id) : void =
-    hint_fld = #{hint_id(id)}
+  @private show_hint(style, ids) : void =
+    hint_fld = #{ids.hint_id}
     do animate(style, hint_fld, Dom.Effect.fade_in())
     do set_block_type(hint_fld, style.hint_elt_type)
     void
 
-  @private
-  hide_hint(style, id) : void =
-    animate(style, #{hint_id(id)}, Dom.Effect.fade_out())
+  @private hide_hint(style, ids) : void =
+    animate(style, #{ids.hint_id}, Dom.Effect.fade_out())
 
-  @private get_text_value_of(id : string) =
-    Dom.get_value(#{input_id(id)})
+  @private get_val_string(id : string) =
+    Dom.get_value(#{id})
 
-  @private
-  get_field_text_value( id : string
-                      , data : WFormBuilder.form_data
-                      ) : string =
+  @private get_form_val_string(id : string, data : WFormBuilder.form_data) : string =
     match data with
-    | { SimpleForm } -> get_text_value_of(id)
-    | { FileUploadForm=data } -> Map.get(input_id(id), data.form_fields) ? ""
+    | { SimpleForm } -> get_val_string(id)
+    | { FileUploadForm=data } -> Map.get(id, data.form_fields) ? ""
 
-  @private
-  get_file_upload_value( id : string
-                       , data : WFormBuilder.form_data
-                       ) : option(Upload.file) =
+  @private get_file_upload_value(id : string, data : WFormBuilder.form_data) : option(Upload.file) =
     match data with
     | { SimpleForm } -> none
-    | { FileUploadForm=data } -> Map.get(input_id(id), data.uploaded_files)
+    | { FileUploadForm=data } -> Map.get(id, data.uploaded_files)
+
+  @private build_ids(id) : WFormBuilder.field_ids =
+    { field_id = "{id}_field"
+    ; label_id = "{id}_label"
+    ; input_id = "{id}_input"
+    ; hint_id = "{id}_hint"
+    ; error_id = "{id}_err"
+    }
+
+  @private add_initial_value(tag, attr, initial_value) =
+    match initial_value with
+    | {none} -> tag
+    | {some=iv} -> Xhtml.add_attribute(attr, iv, tag)
 
 }}
