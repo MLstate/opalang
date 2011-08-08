@@ -600,12 +600,12 @@ let remove_tree t path =
    Note that we can't export this yet because the Badop.S sig doesn't support it.
 *)
 
-let direct_remove t path k =
+let direct_remove t _path k =
   match getdbm t with
   | Some dbm ->
       (* TODO: delete file *)
-      #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct removing %s" (Path.to_string path)#<End>;
-      (*if is2 path then*)
+      #<If$minlevel 10>Logger.log ~color:`yellow "DB-LIGHT : direct removing %s" (Path.to_string _path)#<End>;
+      (*if is2 _path then*)
       (try DB.remove dbm k
        with DB.DB_error s -> Logger.log ~color:`red "direct_remove: error %s" s) (*else ()*)
   | None ->

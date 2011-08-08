@@ -212,6 +212,7 @@ let light_options name file_opt =
     Badop.
       lpath = (match file_opt with Some f -> f | None -> Badop_meta.default_file ?name ());
       ondemand = None;
+      direct = None;
       max_size = None;
   }
   in
