@@ -18,8 +18,14 @@
 
 import stdlib.core.{map,set}
 
+Init = {{
+    list(n)(f) = List.init(f,n)
+    llarray(n)(f) = LowLevelArray.init(n)(f)
+}}
+
 Map_ = {{
     list(l)(f) = List.map(f,l)
+    list2(l1,l2)(f) = List.map2(f,l1,l2)
     map(m)(f) = Map.map(f,m)
     set(s)(f) = Set.map(f,s)
 }}

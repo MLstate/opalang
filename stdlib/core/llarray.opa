@@ -219,4 +219,14 @@ LowLevelArray = {{
    @expand
   for_all(a)(f) =  aux_for_all(a,f,size(a)-1)
 
+  init(n)(f) =
+    if n==0 then empty else
+    v0 = f(0)
+    a = create(n,v0)
+    rec aux(i) =
+     if i==n then a
+     else do set(a,i,f(i))
+          aux(i)
+    aux(1)
+
 }}
