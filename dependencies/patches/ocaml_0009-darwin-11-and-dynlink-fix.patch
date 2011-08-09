@@ -1,0 +1,24 @@
+From a985768b5e673d7fee6ad513c4211c5107528fa2 Mon Sep 17 00:00:00 2001
+From: Frederic Ye <frederic.ye@mlstate.com>
+Date: Tue, 9 Aug 2011 16:59:58 +0200
+Subject: [PATCH] darwin 11 and dynlink fix
+
+---
+ configure |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/configure b/configure
+index 66ccda9..793db0e 100755
+--- a/configure
++++ b/configure
+@@ -623,6 +623,7 @@ if test $withsharedlibs = "yes"; then
+       if test $arch64 == true; then
+         natdynlink=true
+       fi;;
++    i[3456]86-*-darwin11.*)       natdynlink=true;;
+     i[3456]86-*-darwin[89]*)      natdynlink=true;;
+     powerpc64-*-linux*)           natdynlink=true;;
+     sparc-*-linux*)               natdynlink=true;;
+-- 
+1.7.4.4
+
