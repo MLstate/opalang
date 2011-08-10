@@ -32,7 +32,7 @@ let _conv_exn f a = try f a with Dbm.Dbm_error str -> raise (DB_error str)
 
 let opendb file flags perms = _conv_exn (Dbm.opendbm file (_conv_flags flags)) perms
 let find t k = _conv_exn (Dbm.find t) k
-let replace t k v = _conv_exn (Dbm.replace t) k v
+let replace t k v = _conv_exn (Dbm.replace t k) v
 let remove t k = _conv_exn (Dbm.remove t) k
 let iter f t = _conv_exn (Dbm.iter f) t
 let close t = _conv_exn Dbm.close t

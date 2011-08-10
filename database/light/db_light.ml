@@ -684,7 +684,7 @@ let find_data t path =
 
 let find_data_opt t path = try Some (find_data t path) with Not_found -> None
 
-let string_of_node { sts=_; uid; key; node; up; } =
+let string_of_node { sts=_; uid; key; node; up; disk=_; } =
   sprintf "%d(^%dvs): %s -> %s"
     (Uid.value uid) (Uid.value ((!up).uid)) (*string_of_keyset subkeys*)
     (Keys.to_string key) (Datas.to_string (Node_light.get_content node))
