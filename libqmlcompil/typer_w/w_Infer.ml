@@ -139,6 +139,9 @@ let perform_infer_expr_type_postlude expr annotmap infered_ty =
     QmlAnnotMap.add_ty (QmlAst.QAnnot.expr expr) final_ty annotmap' in
   #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
   OManager.printf "perform_infer_expr_type_postlude stop@." ;
+  OManager.printf "On key %s, registered type: %a@."
+    (Annot.to_string (QmlAst.QAnnot.expr expr))
+    W_PrintTypes.pp_simple_type final_ty ;
   #<End> ;
   (* Finally, return the possibly automatically instantiated type and the
      updated annotation map. *)

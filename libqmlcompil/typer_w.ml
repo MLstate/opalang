@@ -42,9 +42,41 @@ let reset_toplevel_valdefs_schemes_env_memo () =
 
 
 let convert_to_qml ~expr ~inferred_ty ~inference_result_annotmap =
+  #<If:TYPER $minlevel 9>
+  OManager.printf "Starting convert_to_qml@." ;
+  #<End> ;
   try
     (* Convert the type obtained after inference. *)
     let qml_ty = W_PublicExport.simple_type_to_qml_type inferred_ty in
+    #<If:TYPER $minlevel 9>
+    OManager.printf "Converted QML type: %a@." QmlPrint.pp#ty qml_ty ;
+    OManager.printf "Ready to convert annotmap.@." ;
+    QmlAnnotMap.iteri
+      ~f_for_key: (fun k -> OManager.printf "KEY: %s@." (Annot.to_string k))
+      ~f_for_ty:
+        (fun opt_ty ->
+          OManager.printf "TYPE: " ;
+          match opt_ty with
+          | None -> OManager.printf "--@."
+          | Some t -> OManager.printf "%a@." W_PrintTypes.pp_simple_type t)
+      ~f_for_tsc:
+        (fun opt_tsc ->
+          OManager.printf "TSC: " ;
+          match opt_tsc with
+          | None -> OManager.printf "--@."
+          | Some s ->
+              let (_, body, _) = QmlGenericScheme.export_unsafe s in
+              OManager.printf "%a@." W_PrintTypes.pp_simple_type body)
+      ~f_for_tsc_inst:
+        (fun opt_tsc ->
+          OManager.printf "TSC_INST: " ;
+          match opt_tsc with
+          | None -> OManager.printf "--@."
+          | Some s ->
+              let (_, body, _) = QmlGenericScheme.export_unsafe s in
+              OManager.printf "%a@." W_PrintTypes.pp_simple_type body)
+      inference_result_annotmap ;
+    #<End> ;
     (* Now, convert the annotation map obtained after inference into a QML
        annotation map. *)
     let qml_annotmap =
@@ -142,7 +174,8 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
       W_Infer.infer_expr_type ~bypass_typer typing_env expr in
     W_TypingEnv.release_variables_mapping () ;
     #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
-    OManager.printf "typer_w: infer end@." ;
+    OManager.printf "typer_w: infer end with type %a@."
+      W_PrintTypes.pp_simple_type ty ;
     #<End> ; (* <---------- END DEBUG *)
     (* Now, convert the obtained type and the annotations map obtained after
        inference into a QML type and annotations map. *)
