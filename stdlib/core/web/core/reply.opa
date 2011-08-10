@@ -116,6 +116,8 @@ type web_cache_control =  {volatile}    /** The resource changes at each request
                                         with [Dynamic_resource.publish] or [Dynamic_resource.custom_publish] and an expiration of [{none}].*/
 
 type web_server_status = external
+type WebInfo.private.native_http_header = external
+
 
 /**
  * {1 Interface}
@@ -129,9 +131,89 @@ WebCoreExport =
  */
 @private @both_implem startup_date : option = { some = Date.now() }
 
+@private ll_setcookie : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.set_cookie%%
+@private ll_cache_control : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.cache_control%%
+@private ll_expires_at : option(time_t) -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.expires_at%%
+@private ll_lastm : time_t -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.last_modified%%
+@private ll_pragma : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.pragma%%
+@private ll_cdisp_attachment : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.cdisp_attachment%%
+@private ll_location : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.location%%
+
+@private add_ll_header(header : Resource.http_header, lst : list(WebInfo.private.native_http_header)) =
+  match header with
+  | ~{set_cookie} -> [ ll_setcookie(cookie_def_to_string(set_cookie)) | lst ]
+  | ~{location} -> [ ll_location(location) | lst ]
+  | {content_disposition = ~{attachment}} -> [ ll_cdisp_attachment(attachment) | lst ]
+  | ~{lastm} ->
+      match lastm with
+      | {volatile} -> [ ll_cache_control("no-cache") , ll_pragma("no-cache") | lst ]
+      | ~{modified_on}  -> [ ll_cache_control("public") , ll_lastm(Date.ll_export(modified_on)) | lst ]
+      | {permanent} ->
+           match startup_date with
+           | {none} -> [ ll_expires_at({none}) | lst ]
+           | ~{some} ->
+              [ ll_expires_at({none}), ll_cache_control("public"),
+                ll_lastm(Date.ll_export(some)) | lst ]
+           end
+      | {check_for_changes_after = duration } ->
+           now = Date.now()
+           expiry = Date.advance(now, duration)
+           te = Date.ll_export(_)
+           [ ll_expires_at({some = te(expiry)}), ll_cache_control("public") ,
+              ll_lastm(te(now)) | lst ]
+      end
+  | _ -> lst
+
+@private cookie_def_to_string(cd) =
+  cd.name ^ "=" ^ cd.value
+    ^ String.implode(cookie_attribute_to_string, ";", cd.attributes)
+
+@private cookie_attribute_to_string(ca) =
+  match ca with
+  | ~{comment} -> "Comment=" ^ comment
+  | ~{domain} -> "Domain=" ^ domain
+  | ~{max_age} -> "Max-Age={max_age}"
+  | ~{path} -> "Path=" ^ path
+  | {secure} -> "Secure"
+  | ~{version} -> "Version={version}"
+
+@private to_ll_headers(headers : list(Resource.http_header)) : list(WebInfo.private.native_http_header) =
+  List.foldl(add_ll_header, headers, [])
+
 /**
  * Prepare a low-level response
  */
+
+make_response_with_headers(request : WebInfo.private.native_request,
+                           status : web_response,
+                           headers : list(Resource.http_header),
+                           mime_type : string,
+                           content : string) : WebInfo.private.native_response =
+(
+     cache_control = // Ugly and redundant, here for legacy reasons
+        check(x) = match x with | { lastm = _ } -> true | _ -> false end
+        match Option.get(List.find(check, headers)) with
+        | ~{lastm} ->
+            match lastm with
+            | {volatile}  -> {none}
+            | ~{modified_on} -> {some = Date.ll_export(modified_on)}
+            | {permanent} -> Option.map(Date.ll_export, startup_date)
+            | {check_for_changes_after = _ } -> {some = Date.ll_export(Date.now()) }
+            end
+        | _ -> {none}
+        end
+
+    respond = %% BslNet.Http_server.make_response %%
+    to_caml_list : (WebInfo.private.native_http_header
+                      -> WebInfo.private.native_http_header),
+                   list(WebInfo.private.native_http_header)
+                   -> caml_list(WebInfo.private.native_http_header) =
+      %% BslNativeLib.opa_list_to_ocaml_list %%
+    ll_headers = to_caml_list((x -> x), to_ll_headers(headers))
+    answer = web_err_num_of_web_response(status)
+    respond(cache_control, request, answer, ll_headers, mime_type, content)
+)
+
 default_make_response(cache_control: web_cache_control, request: WebInfo.private.native_request, status: web_response, mime_type: string, content: string): WebInfo.private.native_response =
 (
      make_response_modified_since = %% BslNet.Http_server.make_response_modified_since %%

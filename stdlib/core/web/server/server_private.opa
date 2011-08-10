@@ -240,7 +240,8 @@ Server_private = {{
             css_library, css_inline_code,
             js_library,  js_inline_code,
             Resource.base_url,
-            WebCoreExport.default_make_response)
+            WebCoreExport.default_make_response,
+            WebCoreExport.make_response_with_headers)
 
         export(winfo, r) = export_resource(winfo,r)(HttpRequest.Generic.get_low_level_request(winfo.http_request)) // ??
 

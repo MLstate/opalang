@@ -75,31 +75,8 @@ type resource_private_content =
  */
 type resource_private = { rc_content : resource_private_content;
                           rc_status  : web_response;
-                          rc_headers : list(http_response_header / http_general_header);
+                          rc_headers : list(WebCoreExport.http_header);
                         }
-
-type http_general_header =
-    { lastm : web_cache_control }
-
-type http_response_header =
-    { set_cookie:cookie_def }
-  / { age:int }
-  / { location:string }
-  / { retry_after: { date:string } / { delay:int } }
-  / { server: list(string) }
-
-type cookie_def = {
-  name : string ;
-  attributes : list(cookie_attributes) ;
-}
-
-type cookie_attributes =
-    { comment:string }
-  / { domain:string }
-  / { max_age:int }
-  / { path:string }
-  / { secure:void }
-  / { version:int }
 
 type resource_cache_customizers = {
      customizers: list(platform_customization)
@@ -136,7 +113,7 @@ type dynamic_private_content =
 type dynamic_resource_private = { rc_name    : string;
                                   rc_content : dynamic_private_content;
                                   rc_status  : web_response;
-                                  rc_headers : list(http_response_header / http_general_header)
+                                  rc_headers : list(WebCoreExport.http_header);
                                 }
 
 /**
@@ -161,6 +138,7 @@ Resource_private =
       match x with
       | { lastm = _ } -> true
       | _ -> false
+      end
     List.find(check, resource.rc_headers)
 
   update_lastm(headers, new_lastm) =
@@ -168,6 +146,7 @@ Resource_private =
       match elem with
       | { lastm = _ } -> List.cons({ lastm = new_lastm }, acc)
       | otherwise -> List.cons(otherwise, acc)
+      end
     List.foldr(replace, headers, [])
 
 
@@ -828,51 +807,71 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
  * @param inline_js_code Internal JavaScript code. Code will be added to web pages only.
  */
 export_resource(external_css_files: list(string),
-                inline_css_code:    string,
-                external_js_files:  list(string),
-                inline_js_code:     string,
-                base_url:           option(string),
-                make_response:      (web_cache_control, WebInfo.private.native_request, web_response, string, string -> WebInfo.private.native_response))
-                =
+                inline_css_code: string,
+                external_js_files: list(string),
+                inline_js_code: string,
+                base_url: option(string),
+                _make_response: (
+                    web_cache_control, WebInfo.private.native_request,
+                    web_response, string, string
+                      -> WebInfo.private.native_response
+                  ),
+                make_response_with_headers: (
+                    WebInfo.private.native_request, web_response,
+                    list(WebCoreExport.http_header), string, string
+                      -> WebInfo.private.native_response
+                  )
+                ) =
     /**
      * Produce a "ok" HTTP response with the contents of a request.
      *
      * Used for plain text answers.
      */
-    make_plain_response(mime_type: string, content:string, status, req:WebInfo.private.native_request, lastm) =
-       make_response(lastm, req, status, mime_type, content)
+    make_plain_response_with_headers(mime_type: string, content:string, status, req:WebInfo.private.native_request, headers) =
+       make_response_with_headers(req, status, headers, mime_type, content)
+
+//    _make_plain_response(mime_type: string, content:string, status, req:WebInfo.private.native_request, lastm) =
+//       _make_response(lastm, req, status, mime_type, content)
 
     /**
      * Produce an HTTP response with the contents of a request.
      *
      * Used for binary answers.
      */
-    make_bin_response(mime_type: string, content:binary, status, req:WebInfo.private.native_request, lastm) =
-       make_response(lastm, req, status, mime_type, string_of_binary(content))
+    make_bin_response_with_headers(mime_type: string, content:binary, status, req:WebInfo.private.native_request, headers) =
+       make_response_with_headers(req, status, headers, mime_type, string_of_binary(content))
+
+//    _make_bin_response(mime_type: string, content:binary, status, req:WebInfo.private.native_request, lastm) =
+//       _make_response(lastm, req, status, mime_type, string_of_binary(content))
 
     /**
      * Produce an HTTP response with the contents of a request.
      *
      * Used for UTF-8 answers.
      */
-    make_utf_response(t, s, status, req, lastm) =
-      make_response(lastm, req, status, t ^ "; charset=utf-8", s)
+    make_utf_response_with_headers(t, s, status, req, headers) =
+      make_response_with_headers(req, status, headers, t ^ "; charset=utf-8", s)
+
+//    _make_utf_response(t, s, status, req, lastm) =
+//      _make_response(lastm, req, status, t ^ "; charset=utf-8", s)
 
     /**
      * The continuation to call to respond to the request
      */
     rec response(force_mimetype)(winfo:web_info, resource: resource)=
       resource_pr = resource
-      last_modif =
-        match Option.get(get_lastm(resource_pr)) with
-        | ~{lastm} -> lastm
-        | _ -> error("Prout")
       status = resource_pr.rc_status
 
       // Various content handler
-      handle_bin(out,mime_str)(r) = winfo.cont(make_bin_response(force_mimetype ? mime_str,out, status, r, last_modif))
-      handle_utf(out,mime_str)(r) = winfo.cont(make_utf_response(force_mimetype ? mime_str, out, status,r, last_modif))
-      handle_utf_no_cache(out,mime_str)(r) = winfo.cont(make_utf_response(force_mimetype ? mime_str,out, status, r, {volatile}))
+      handle_bin(out,mime_str)(r) = winfo.cont(make_bin_response_with_headers(force_mimetype ? mime_str,out, status, r, resource_pr.rc_headers))
+      handle_utf(out,mime_str)(r) = winfo.cont(make_utf_response_with_headers(force_mimetype ? mime_str, out, status,r, resource_pr.rc_headers))
+      handle_utf_no_cache(out,mime_str)(r) =
+        winfo.cont(
+          make_utf_response_with_headers(
+            force_mimetype ? mime_str, out, status, r,
+            update_lastm(resource_pr.rc_headers, {volatile})
+          )
+        )
 
       // A user agent getter on request
       get_request_ua  = %% BslNet.Requestdef.get_request_ua %% :  WebInfo.private.native_request -> string
@@ -950,7 +949,10 @@ export_resource(external_css_files: list(string),
       | {~txt}  -> handle_utf(txt,"text/plain")
       | {~json} -> handle_utf(Json.to_string(json),"text/plain")
 
-      | {~mimetype ~source} -> (r -> winfo.cont(make_plain_response(mimetype, source, status, r, last_modif))) // should it not be in utf ?
+      | {~mimetype ~source} ->
+          (r -> winfo.cont(
+              make_plain_response_with_headers(mimetype, source, status, r, resource_pr.rc_headers) // should it not be in utf ?
+            ))
 
       response(none)
 

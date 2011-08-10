@@ -206,7 +206,42 @@ let _not_modified ?(include_date=true) () =
      then [HSCp.Date (Date.rfc1123 (Unix.gmtime (Unix.time())))] (* RFC2616: 10.3.5 - we have a clock *)
      else [])
 
-let limstr ?(extra="") str lim = let len = String.length str in (String.sub str 0 (min lim len))^(if len > lim then extra else "")
+let limstr ?(extra="") str lim =
+  let len = String.length str in
+    (String.sub str 0 (min lim len)) ^ (if len > lim then extra else "")
+
+let str_of_result = function
+  | Http_common.Result page -> page
+  | _ -> "<html><head><title>Error</title></head><body>Error.</body></html>"
+
+let make_response_with_headers ?(modified_since=None) ?(compression_level=6)
+        ?(cache_response=true) ?(delcookies=false) ?req
+        headers_out status_line _type content =
+  #<If$minlevel 20>Logger.debug "make_response"#<End>;
+  let code = Rd.status_code status_line in
+  let reason = Rd.reason_phrase code in
+  let sl = HSCp.Sl (HSC.http_version_number, code, reason) in
+  let content = str_of_result content in
+  #<If>Logger.debug "make_response: content=%s" (limstr ~extra:"..." content 100)#<End>;
+  let (sched,hr_opt,uri,headers_in,include_body) =
+    match req with
+      Some req -> (req.HST.request_scheduler,
+                   (Some req.HST.handle_request),
+                   req.HST.request_line.HST.request_uri,
+                   req.HST.request_header,
+                   (match req.HST.request_line.HST._method with HSCp.Head _ -> false | _ -> true))
+    | _ -> (Scheduler.default,None,"",[],true) in
+  let processed =
+    HSCm.process_content_with_headers sched ~modified_since ~compression_level
+      ~cache_response ~_delcookies:delcookies ~_type hr_opt uri
+      (Rc.ContentString content) headers_in headers_out include_body
+  in match processed with
+    Some (headers_out,body,len) -> {
+        HST.sl = sl;
+        HST.headers = HSCp.Content_Length len :: headers_out;
+        HST.body = body;
+      }
+  | None -> _not_modified ()
 
 let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero) ?(cache=true)
                   ?(delcookies=false) ?location ?req status_line _type ?content_dispo content =
@@ -214,10 +249,7 @@ let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response
   let code = Rd.status_code status_line in
   let reason = Rd.reason_phrase code in
   let sl = HSCp.Sl (HSC.http_version_number, code, reason) in
-  let content =
-    match content with
-    | Http_common.Result page -> page
-    | _ -> "<html><head><title>Error</title></head><body>Error.</body></html>" in
+  let content = str_of_result content in
   #<If>Logger.debug "make_response: content=%s" (limstr ~extra:"..." content 100)#<End>;
   let (sched,hr_opt,uri,headers_in,include_body) =
     match req with
@@ -234,7 +266,7 @@ let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response
       let headers_out = match location with
         | Some url -> (HSCp.Location url)::headers_out
         | None -> headers_out in
-      { HST.sl = sl; HST.headers = [HSCp.Content_Length len]@headers_out; HST.body = body }
+      { HST.sl = sl; HST.headers = HSCp.Content_Length len::headers_out; HST.body = body }
   | None -> _not_modified ()
 
 let make_response_result ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero)

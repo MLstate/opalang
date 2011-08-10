@@ -16,6 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 module List = BaseList
+module HSCp = HttpServerCore_parse
 
 (* The opa scheduler *)
 let default_scheduler = BslScheduler.opa
@@ -39,6 +40,50 @@ let default_scheduler = BslScheduler.opa
 ##extern-type SSL.certificate = Ssl.certificate
 ##extern-type SSL.secure_type = SslAS.secure_type
 
+##extern-type WebInfo.private.native_http_header = HSCp.msg
+
+
+##module convertHeader
+
+  ##register set_cookie : string -> WebInfo.private.native_http_header
+  let set_cookie value = HSCp.Set_Cookie value
+
+  ##register last_modified : time_t -> WebInfo.private.native_http_header
+  let last_modified date =
+    let date = Time.milliseconds date in
+      HSCp.Last_Modified (Date.rfc1123 (Time.gmtime date))
+
+  ##register cache_control : string -> WebInfo.private.native_http_header
+  let cache_control s = HSCp.Cache_Control s
+
+  ##register pragma : string -> WebInfo.private.native_http_header
+  let pragma s = HSCp.Pragma s
+
+  ##register location : string -> WebInfo.private.native_http_header
+  let location s = HSCp.Location s
+
+  ##register cdisp_attachment : string -> WebInfo.private.native_http_header
+  let cdisp_attachment s = HSCp.Content_Disposition ("attachment", ["filename="^s])
+
+  ##register expires_at : option(time_t) -> WebInfo.private.native_http_header
+  let expires_at t =
+    let expires =
+      match t with
+      | None -> Time.infinity
+      | Some x -> Time.milliseconds x
+    in
+    let time = Time.now () in (* TODO: HttpServerCommon use a
+    request header here, we should probably do the same *)
+    let time_now = Time.gmtime time in
+    let exp_time =
+      if Time.is_infinite expires then
+        { time_now with Unix.tm_year = time_now.Unix.tm_year + 1 }
+      else if Time.is_positive expires then
+        Time.gmtime (Time.add time expires)
+      else time_now
+    in HSCp.Expires (Date.rfc1123 exp_time)
+
+##endmodule
 
 (** Provides functions from OPA HTTP server, manipulating HTTP
     request, make HTTP response, etc.*)
@@ -112,6 +157,18 @@ let default_scheduler = BslScheduler.opa
 
 
   (** {6 Make weblib response} *)
+  ##register make_response : \
+      option(time_t), \
+      WebInfo.private.native_request, \
+      web_server_status, \
+      caml_list(WebInfo.private.native_http_header), \
+      string, \
+      string -> \
+      WebInfo.private.native_response
+  let make_response ms req stat headers s1 s2 =
+    let modified_since = Option.map Time.milliseconds ms in
+    HttpServer.make_response_with_headers ~modified_since ~req headers stat s1
+      (Http_common.Result s2)
 
   ##register make_response_modified_since : \
       option(time_t), \

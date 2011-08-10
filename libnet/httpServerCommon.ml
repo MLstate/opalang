@@ -227,6 +227,59 @@ let is_valid get_md5 mtime_opt hs =
     | [] -> false
   in aux hs
 
+let process_content_with_headers sched hr_opt ?(modified_since=None) ?(compression_level=6) ?(cache_response=true)
+                    ?(_delcookies=false) ?(use_etag=false) ?(use_md5=false) ?(_type="text/plain")
+                    _uri content headers_in headers_out include_body =
+  #<If$minlevel 10>Logger.debug "process_content: modified_since=%s\n%!"
+                                (Option.to_string (fun d -> (Date.rfc1123 (Time.gmtime d))) modified_since)#<End>;
+  #<If>Logger.debug "process_content: _type=%s\n%!" _type#<End>;
+  let md5 = ref (false,"") in
+  let get_md5 () =
+    if fst !md5
+    then snd !md5
+    else (let _md5 = Rc.content_md5 content in md5 := (true,_md5); _md5)
+  in
+  if is_valid get_md5 modified_since headers_in
+  then (#<If>Logger.debug "not modified\n%!"#<End>;
+        None)
+  else
+    let time = match hr_opt with Some hr -> hr.HST.hr_timestamp | None -> Time.now () in
+    let time_now = Time.gmtime time in
+    let content_len = Rc.content_length content in
+    let gzip, deflate = is_gzip_deflate headers_in in
+    let compression_level = if Base.is_windows then 0 else compression_level in
+    #<If$minlevel 20>Logger.debug "process_content: compressing(%s)\n%!"
+                                  (Rc.string_of_content_type (Rc.get_content_type content))#<End>;
+    let compressed, content =
+      if compression_level > 0 && (needs_compressed _type content_len)
+      then HT.content_compress sched gzip deflate compression_level cache_response content content_len
+      else false, content
+    in
+    #<If$minlevel 20>Logger.debug "process_content: compressed=%b\n%!" compressed#<End>;
+    let content_out = if include_body then content else Rc.ContentNone in
+    let cs = if String.is_contained "charset" _type then "" else "; charset=utf-8" in
+    let typeval = (_type^cs,[]) in
+    #<If$minlevel 10>Logger.debug "process_content: md5=%s" (get_md5())#<End>;
+    let headers =
+      [(HSCp.Date (Date.rfc1123 time_now));(HSCp.Server HSC.server_name)]
+      @(if use_etag then [HSCp.ETag (get_md5())] else [])
+      @(if use_md5 then [HSCp.Content_MD5 (get_md5())] else [])
+      @([HSCp.Content_Type typeval])
+      @ headers_out
+    in
+    #<If$minlevel 10>Logger.debug "process_content: headers=%s\n%!"
+                                  (String.concat "" (List.map HSC.string_of_msg headers))#<End>;
+    let content_encoding = if deflate then "deflate" else if gzip then "gzip" else "identity" in
+    let res =
+    Some (if compressed
+          then (#<If$minlevel 10>Logger.debug "content compressed\n%!"#<End>;
+                (headers@[HSCp.Content_Encoding content_encoding],
+                 content_out, Int64.of_int (Rc.content_length content)))
+          else (headers, content_out, Int64.of_int content_len))
+    in
+    #<If$minlevel 20>Logger.debug "process_content: returning\n%!"#<End>;
+    res
+
 let process_content sched hr_opt ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero)
                     ?(cache=true) ?(_delcookies=false) ?(use_etag=false) ?(use_md5=false) ?(_type="text/plain") ?content_dispo
                     _uri content headers_in include_body =
