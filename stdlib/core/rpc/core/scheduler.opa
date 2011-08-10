@@ -108,18 +108,39 @@ Scheduler =
    * @param fallback
    * @return A function which behaves as [f], but executes [fallback] whenever [f] takes too long to return.
    */
-  @server make_timeoutable(f:'a -> 'b, timeout_ms:int, fallback:-> 'b): 'a -> 'b =
-     g(x) =
-       @callcc(k ->
-         s = Session.make({},
-           (_, msg -> do Continuation.return(k, msg); {stop})
-           )
-         do sleep(0, -> send(s, f(x)))
-         do sleep(timeout_ms, -> send(s, fallback()))
-         void
-        )
-     g
+  @server make_timeoutable(f:'a -> 'b, timeout_ms:int, fallback:-> 'b): 'a -> 'b = a ->
+    ref = Reference.create(false)
+    res = @callcc(k ->
+        failure() = ( Continuation.return(k, fallback()))
+        do Scheduler.sleep(timeout_ms, failure)
+        do Continuation.return(k, f(a))
+        void)
+    if Reference.compare_and_swap(ref, false, true)
+      then res
+      else stop()
 
+
+  /**
+   * Execute the function and return the result if the computation has finished before the timeout.
+   *
+   * Note: this implementation is server-only for the moment
+   *
+   * @param f The function to execute. If this function takes too long to return, it returns a {failure={timeout}}.
+   * @param timeout_ms The amount of time to wait for the function to return before calling the fallback.
+   * @return The result of the function or a failure if it takes too long to return.
+   */
+  @server
+  timeout(f : -> 'a, delay:int) :  -> outcome('a, {timeout}) = ->
+    (make_timeoutable(
+      (_ -> {success= f()})
+      , delay
+      , (->{failure={timeout}}) ))(void)
+
+  /**
+   *  Stop the current thread
+   */
+  @server
+  stop() = @callcc(_k -> void)
 
   /**
    * {2 Sleep}
