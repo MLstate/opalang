@@ -128,7 +128,7 @@ UriParser =
   uri = parser
     | Rule.ws ~schema res={
         match schema with
-        | {http} | {https} -> http_uri(some(schema2string(schema)))
+        | {http} | {https} | {ftp}-> http_uri(some(schema2string(schema)))
         | {mailto} -> mailto_uri
       } -> res
     | Rule.ws ~path ~query? ~fragment? Rule.ws ->
@@ -200,10 +200,12 @@ UriParser =
     | {mailto} -> "mailto"
     | {http} -> "http"
     | {https} -> "https"
+    | {ftp} -> "ftp"
 
   schema =
     // TODO do we want to include other schemas here?
     schema_name = parser
+    | "ftp" -> {ftp}
     | "https" -> {https}
     | "http" -> {http}
     | "mailto" -> {mailto}
@@ -317,7 +319,7 @@ Uri =
    * Decide whether a string represents a well-formed and secure URI.
    *
    * @param s A string
-   * @return true if the string represents a valid [http], [https] or [mailto] URI.
+   * @return true if the string represents a valid [http], [https], [ftp] or [mailto] URI.
    */
   // FIXME, secure? in what sense secure?
   is_secure(s:string) =
