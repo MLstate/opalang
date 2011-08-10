@@ -535,7 +535,7 @@ Session = {{
               | ~{update} ->
                   do state_ref.set(update(state_ref.get()))
                   {continue}
-            state_channel = make_stateless(state_handler) /* not concurrent */
+            state_channel = Session.make_stateless(state_handler) /* not concurrent */
 
             implementation =
             {
