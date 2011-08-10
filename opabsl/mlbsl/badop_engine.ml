@@ -206,8 +206,9 @@ let local_options name file_opt =
   db_options name (m, o)
 
 ##register [restricted: dbgen; opacapi] light_options: option(string), option(string) -> database_options
+#<Ifstatic:HAS_DBM 1>
 let light_options name file_opt =
-  let m = (module Badop_light : Badop.S) in
+  let m = (module Badop_light.WithDbm : Badop.S) in
   let o = Badop.Options_Light {
     Badop.
       lpath = (match file_opt with Some f -> f | None -> Badop_meta.default_file ?name ());
@@ -217,6 +218,9 @@ let light_options name file_opt =
   }
   in
   db_options name (m, o)
+#<Else>
+let light_options _ _ = prerr_endline "This version of OPA was compiled without support for dblight, sorry."; assert false
+#<End>
 
 ##register [restricted: dbgen; opacapi] client_options: option(string), option(string), option(int) -> database_options
 let client_options ident host_opt port_opt =

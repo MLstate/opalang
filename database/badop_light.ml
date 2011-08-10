@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-module Badop_light_ (DB : DbSig.DB) : Badop.S =
+module F (DB : DbSig.DB) : Badop.S =
 struct
 
   module D = Badop_lib
@@ -205,6 +205,4 @@ struct
 
 end
 
-module Badop_light = Badop_light_(DbmDB)
-include Badop_light
-
+module WithDbm = F(DbmDB)

@@ -151,7 +151,9 @@ let options_parser_with_default ?name (_default_m, default_o) =
        Printf.sprintf
          "Use a local database at given path%s. Use additional flag 'restore' to try and recover a corrupted database, \
           or 'dot' to have a database dot output each commit. You can specify several flags, separated by ','." default_str)
-    ;
+  ] @
+#<Ifstatic:HAS_DBM 1>
+  [
     ["--db-light"],
     A.func (A.option A.string)
       (fun (_,o) str_opt ->
@@ -188,7 +190,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "ondemand: %s" (Option.to_string string_of_bool ondemand)#<End>;
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "direct: %s" (Option.to_string string_of_bool direct)#<End>;
          #<If:BADOP_DEBUG$minlevel 10>Logger.log ~color:`red "max_size: %s" (Option.to_string string_of_int max_size)#<End>;
-         let module Badop_light = Badop_light.Badop_light_(DbmDB) in
+         let module Badop_light = Badop_light.F(DbmDB) in
          (module Badop_light : Badop.S),
          Badop.Options_Light { Badop.lpath; ondemand; direct; max_size; }),
       "[<path>][:<flags>]",
@@ -201,6 +203,9 @@ let options_parser_with_default ?name (_default_m, default_o) =
          "Same as --db-local, but using the lightweight, history-less backend%s."
          default_str)
   ]
+#<Else>
+  []
+#<End>
   @
   #<If:BADOP_DEBUG> [
     ["--db-remote-replicated"],
@@ -224,15 +229,6 @@ let options_parser_with_default ?name (_default_m, default_o) =
          let opt = get_local_options o in
          (module Badop_local : Badop.S), Badop.Options_Local { opt with Badop.revision = Some i }),
      "<int>", "Revert the database to the given revision. Be careful, all data after that revision will be cleared";
-    ["--db-maxsize"],
-    A.func A.int
-       (fun (_,o) i ->
-         let opt = get_light_options o in
-         (module Badop_light : Badop.S), Badop.Options_Light { opt with
-                                                                 Badop.ondemand = Some true;
-                                                                 direct = Some true;
-                                                                 max_size = Some i }),
-     "<int>", "Store node data on disk if larger than this number of bytes";
     ["--db-template"],
     A.func A.unit
       (fun (m,o) () ->

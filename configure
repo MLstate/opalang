@@ -82,6 +82,7 @@ echo-ok() {
 }
 echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >>$CONFIG_LOG; }
 echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >>$CONFIG_LOG; }
+echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >>$CONFIG_LOG; }
 
 # check OS
 echo-check your OS
@@ -288,7 +289,7 @@ then
     echo-ok $CAMLIDL
 else
     HAS_CAMLIDL=
-    echo-err Not found
+    echo-skip "Not found (but optional)"
 fi
 
 
@@ -296,6 +297,8 @@ fi
 #   we depend on libssl, libzip and others, but through
 #   ocaml libs, so no need to check them directly
 check-c-lib () (
+    local OPTIONAL=""
+    if [ $1 = "-opt" ]; then OPTIONAL=1; shift; fi
     local LIB=$1; shift
     [ $# -gt 0 ]
     local INCLUDES=("$@")
@@ -313,7 +316,9 @@ check-c-lib () (
     done
     if [ -z "${LD_DIR:-}" ]; then
         echo "could not find lib$LIBNAME.a" >>$CONFIG_LOG
-        echo-err Not found
+        if [ -n "$OPTIONAL" ]; then echo-skip "Not found (but optional)"
+        else echo-err Not found
+        fi
         return 1
     fi >&2
 
@@ -357,7 +362,7 @@ MINIUPNPC=("")
 if [ -n "$HAS_CAMLIDL" ]; then
 # - checking libnatpmp *
     echo-check libnatpmp
-    if LIBNATPMP=($(check-c-lib libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
+    if LIBNATPMP=($(check-c-lib -opt libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
         HAS_LIBNATPMP=1
     else
         LIBNATPMP=("")
@@ -365,7 +370,7 @@ if [ -n "$HAS_CAMLIDL" ]; then
 
 # - checking miniupnpc *
     echo-check miniupnpc
-    if MINIUPNPC=($(check-c-lib miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
+    if MINIUPNPC=($(check-c-lib -opt miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
         HAS_MINIUPNPC=1
     else
         MINIUPNPC=("")
@@ -379,14 +384,14 @@ fi
 echo-check for ocamlfind
 if [ -n "${NO_OCAMLFIND:-}" ]; then
     OCAMLFIND=
-    echo-ok Disabled
+    echo-skip Disabled
 elif  [ -z "${OCAMLFIND:-}" ]; then
     OCAMLFIND=$(dirname $OCAMLOPT)/ocamlfind
     if [ ! -x "$OCAMLFIND" ]; then
         OCAMLFIND=$OCAMLLIB/../../bin/ocamlfind
     fi
     if [ ! -x "$OCAMLFIND" ]; then
-        echo-ok "Not found"
+        echo-skip "Not found (but optional)"
         OCAMLFIND=
     else
         echo-ok $OCAMLFIND
@@ -456,6 +461,8 @@ check-cmxa () {
 }
 
 locate-ocaml-lib () {
+    local OPTIONAL=""
+    if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
     local MODULE=$1; shift # one module that the lib contains, to check
     [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
 
@@ -487,7 +494,11 @@ locate-ocaml-lib () {
         shift
     done
     if [ -z "$LIBDIR" ]; then
-        echo-err "Not found"
+        if [ -n "$OPTIONAL" ]; then
+            echo-skip "Not found (but optional)"
+        else
+            echo-err "Not found"
+        fi
         return 1
     fi
 
@@ -525,6 +536,12 @@ fi
 # - checking ulex
 if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
 then lib-not-found "ulex" "ocaml-ulex"
+fi
+
+# - checking dbm
+HAS_DBM="1"
+if ! CONFIG_LIB_DBM=$(locate-ocaml-lib -opt "Dbm" "dbm")
+then HAS_DBM=
 fi
 
 # # - checking camlimages *
@@ -566,7 +583,7 @@ camlopt() {
     fi
 }
 
-ALL_TAGS_LIST="camlidl libnatpmp miniupnpc"
+ALL_TAGS_LIST="camlidl libnatpmp miniupnpc dbm"
 TAGS_LIST=""
 for tag in $ALL_TAGS_LIST; do
     hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
@@ -586,6 +603,7 @@ let camlp4orf = "$CAMLP4ORF"
 let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
 let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
 let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
+let has_dbm = $(camlbool "$HAS_DBM")
 
 let available = [ $TAGS_LIST]
 let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
@@ -629,6 +647,7 @@ HAS_LIBNATPMP="$HAS_LIBNATPMP"
 LIBNATPMP=(${LIBNATPMP[@]})
 HAS_MINIUPNPC="$HAS_MINIUPNPC"
 MINIUPNPC=(${MINIUPNPC[@]})
+HAS_DBM="$HAS_DBM"
 IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"

@@ -276,6 +276,8 @@ let _ = dispatch begin function
       ocaml_lib ~extern:true ?dir:Config.Libdir.cryptokit "cryptokit";
       ocaml_lib ~extern:true ?dir:Config.Libdir.ulex ~tag_name:"use_ulex" "ulexing";
       ocaml_lib ~extern:true ~dir:"+mascot" "mascot";
+      if Config.has_dbm then
+        ocaml_lib ~extern:true ~tag_name:"opt_use_dbm" "dbm";
 
       (* MLstate libs *)
       let mlstate_lib, internal_lib, mlstate_lib_deps, mlstate_lib_dir =
@@ -311,6 +313,17 @@ let _ = dispatch begin function
       (* ------------------------------------------------------------ *)
       (* Additional rules                                             *)
       (* ------------------------------------------------------------ *)
+
+      (* Preprocessed .mllib *)
+      rule "Preprocessed mllib: mllibp -> mllib"
+        ~dep:"%.mllibp"
+        ~prod:"%.mllib"
+        (fun env _build ->
+           let tags = String.uppercase (String.concat "\\|" Config.available) in
+           let sedexpr =
+             Printf.sprintf "s/^?HAS_\\(%s\\)://; t OK; /^?HAS_.*:/d; :OK" tags
+           in
+           Cmd(S[sed; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
 
       (* Windows specific : redefinition of an existing rule in Ocaml_specific.ml,
          Louis please have a look to avoid the two copies at the end

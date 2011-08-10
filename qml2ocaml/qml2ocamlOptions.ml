@@ -87,7 +87,9 @@ struct
     "unix" ;
     "bigarray";
     "ssl" ;
+#<Ifstatic:HAS_DBM 1>
     "dbm" ;
+#<End>
     "zip" ;
     "nums" ;
     "ulexing" ;

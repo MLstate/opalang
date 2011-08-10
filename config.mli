@@ -40,6 +40,9 @@ val camlp4orf : string
 (** path to the camlidl tool, if present and enabled *)
 val camlidl : string option
 
+(** Flag for Dbm present *)
+val has_dbm : bool
+
 (** library directories, if the libs are enabled *)
 val libnatpmp : (string*string*string) option (** name of the lib, lib dir, include dir *)
 

@@ -74,8 +74,10 @@ $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
 	@echo "Ocamlbuild plugin generation"
 	@$(BLDDIR)/gen_myocamlbuild.sh
 
-cmi-in-lib = $(shell grep -si '^\([^\#].* \)\? *$(1)\( \|$$\)' $(2).mllib)
+# arguments: path to cmi file, lib name
+cmi-in-lib = $(shell grep -si '^\(\([^\#].* \)\? *\|?[^: ]\+:\)$(1)\( \|$$\)' $(2).mllib*)
 
+# arguments: lib name, directory
 lib-cmi = \
 $(foreach cmi,$(wildcard $(BUILD_DIR)/$(2)/*.cmi),\
 $(if $(call cmi-in-lib,$(2)/$(notdir $(basename $(cmi))),$(1)),\

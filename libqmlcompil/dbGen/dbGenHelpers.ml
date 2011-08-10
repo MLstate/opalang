@@ -549,8 +549,21 @@ struct
 
     let local_options() =
       func (BadopEngine.local_options) [typeoption tystring; typeoption tystring; tyoptions]
-    let light_options() =
-      func (BadopEngine.light_options) [typeoption tystring; typeoption tystring; tyoptions]
+    let light_options =
+      #<Ifstatic:HAS_DBM 1>
+        fun () -> func (BadopEngine.light_options) [typeoption tystring; typeoption tystring; tyoptions]
+      #<Else>
+        let haswarn = ref false in
+        fun () ->
+          if not !haswarn then
+            (warn (
+               "The compiler was compiled without support for dblight, which is\n" ^^
+               "set as default in your source (using \"@{<bright>database @@light@}\").\n" ^^
+               "Defaulting to the normal database."
+             );
+             haswarn := true);
+          local_options()
+      #<End>
     let client_options() =
       func (BadopEngine.client_options) [typeoption tystring; typeoption tystring; typeoption tyint; tyoptions]
     let check_remaining_arguments() =
