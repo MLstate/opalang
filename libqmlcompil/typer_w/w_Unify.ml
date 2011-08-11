@@ -587,6 +587,10 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
         #<End> ;                (* <---------- END DEBUG *)
         let (ty1', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "SType_named non-manifest expanded: %a@."
+          W_PrintTypes.pp_simple_type ty1' ;
+        #<End> ;                (* <---------- END DEBUG *)
         if ty1 == ty1' then
           raise
             (Unification_simple_type_conflict
