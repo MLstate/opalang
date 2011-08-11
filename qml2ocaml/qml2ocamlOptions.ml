@@ -56,7 +56,11 @@ struct
     "+ssl" ; "+site-lib/ssl" ;
     "+cryptokit"; "+site-lib/cryptokit" ;
     "+ulex" ; "+site-lib/ulex" ;
-  ]
+  ] @ (
+    if Config.has_dbm then [
+      "+dbm" ; "+site-lib/dbm" ;
+    ] else []
+  )
 
   (**
      Like [server_include_dir] but the path is not absolute, but relative to MLSTATELIBS directory.
