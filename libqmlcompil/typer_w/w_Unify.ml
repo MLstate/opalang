@@ -369,6 +369,11 @@ let check_column_variables_are_in_bijection v_vars w_vars =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 let rec __unify_simple_type env seen_expansions ty1 ty2 =
+  #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+  OManager.printf "__unify_simple_type: %a VERSUS %a@."
+    W_PrintTypes.pp_simple_type_start_sequence ty1
+    W_PrintTypes.pp_simple_type_end_sequence ty2 ;
+  #<End> ;    (* <---------- END DEBUG *)
   (* Special case optimization just in case the 2 types are already the same. *)
   if ty1 == ty2 then () else
   (* First, get the canonical representation of the 2 types to unify. *)
@@ -555,6 +560,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest }), _) ->
           (* Same remark about trivially cyclic types than in the previous
              match case. *)
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "Case SType_named manifest / other@." ;
+        #<End> ;                (* <---------- END DEBUG *)
         if ty1 == (W_CoreTypes.simple_type_repr manifest) then
           raise
             (Unification_simple_type_conflict
@@ -563,6 +571,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
                   ucd_through_field = None })) ;
         __unify_simple_type env seen_expansions ty2 manifest
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest })) ->
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "Case other / SType_named manifest@." ;
+        #<End> ;                (* <---------- END DEBUG *)
         (* Same remark about trivially cyclic types than in the previous
            match case. *)
         if ty2 == (W_CoreTypes.simple_type_repr manifest) then
@@ -571,6 +582,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
         __unify_simple_type env seen_expansions ty1 manifest
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = None }), _) -> (
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "Case SType_named non-manifest / other@." ;
+        #<End> ;                (* <---------- END DEBUG *)
         let (ty1', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
         if ty1 == ty1' then
@@ -580,6 +594,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
         __unify_simple_type env seen_expansions' ty2 ty1'
        )
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) -> (
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "Case other / SType_named non-manifest@." ;
+        #<End> ;                (* <---------- END DEBUG *)
         let (ty2', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
         if ty2 == ty2' then
@@ -744,9 +761,15 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
 
 (* [TODO-REFACTOR] DOCUMENTATION. *)
 and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
+  #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+  OManager.printf "__unify_different_named_types@." ;
+  #<End> ;                (* <---------- END DEBUG *)
   let h_nty1 = W_CoreTypes.named_type_expr_height nty1 in
   let h_nty2 = W_CoreTypes.named_type_expr_height nty2 in
   if (h_nty1 < 0) && (h_nty2 < 0) then (
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Both negative: expand L & R@." ;
+    #<End> ;                (* <---------- END DEBUG *)
     (* Expand both once then unify the 2 resulting types. *)
     let (ty1', seen_expansions') =
       W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
@@ -761,9 +784,16 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
   else (  (* Else 0. *)
     (* Not ((h_nty1 < 0) && (h_nty2 < 0)). *)
     if h_nty1 < 0 then (
+      #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+      OManager.printf "L negative: expand L@." ;
+      #<End> ;                (* <---------- END DEBUG *)
       (* Expand left once then unify expanded left and right. *)
       let (ty1', seen_expansions') =
         W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
+      #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+      OManager.printf "L after expand: %a@."
+        W_PrintTypes.pp_simple_type ty1' ;
+      #<End> ;                (* <---------- END DEBUG *)
       if ty1 == ty1' then
         raise
           (Unification_simple_type_conflict
@@ -773,9 +803,16 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
     else (  (* Else 1. *)
       (* (h_nty1 >= 0). *)
       if h_nty2 < 0 then (
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "R negative: expand R@." ;
+        #<End> ;                (* <---------- END DEBUG *)
         (* Expand right once then unify left and expanded right. *)
         let (ty2', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
+        #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+        OManager.printf "R after expand: %a@."
+          W_PrintTypes.pp_simple_type ty2' ;
+        #<End> ;                (* <---------- END DEBUG *)
         if ty2 == ty2' then
           raise
             (Unification_simple_type_conflict
@@ -785,12 +822,21 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
       else (   (* Else 2. *)
         (* None of heights are negative. *)
         if h_nty1 = h_nty2  then (
+          #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+          OManager.printf "Both positive and equal (%d): expand both@." h_nty1 ;
+          #<End> ;                (* <---------- END DEBUG *)
           (* None of heights are negative and they are equal. *)
           let (ty1', seen_expansions') =
             W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
           let (ty2', seen_expansions'') =
             W_TypeAbbrevs.incrementally_expand_abbrev
               env seen_expansions' ty2 in
+          #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+          OManager.printf "L after expand: %a@."
+            W_PrintTypes.pp_simple_type ty1' ;
+          OManager.printf "R after expand: %a@."
+            W_PrintTypes.pp_simple_type ty2' ;
+          #<End> ;                (* <---------- END DEBUG *)
           if (ty1 == ty1') && (ty2 == ty2') then
             raise
               (Unification_simple_type_conflict
@@ -804,12 +850,19 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
              expanded) and right (possibly expanded).
              If both are at the same level: unwind them once. *)
           if h_nty1 < h_nty2 then (
+            #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+            OManager.printf "L (%d) < R (%d): expand R@." h_nty1 h_nty2 ;
+            #<End> ;                (* <---------- END DEBUG *)
             (* None of heights are negative and left is lower than right.
                Expand right. *)
             let nb_expansion = h_nty2 - h_nty1 in
             let (ty2', seen_expansions') =
               W_TypeAbbrevs.expand_abbrev_n_times
                 nb_expansion env seen_expansions ty2 in
+            #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+            OManager.printf "R after expand: %a@."
+              W_PrintTypes.pp_simple_type ty2' ;
+            #<End> ;                (* <---------- END DEBUG *)
             if ty2 == ty2' then
               raise
                 (Unification_simple_type_conflict
@@ -818,12 +871,19 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
             __unify_simple_type env seen_expansions' ty1 ty2'
           )
           else (   (* Else 4. *)
+            #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+            OManager.printf "R (%d) < L (%d): expand L@." h_nty2 h_nty1 ;
+            #<End> ;                (* <---------- END DEBUG *)
             (* None of heights are negative and left is greater than right.
                Expand left. *)
             let nb_expansion = h_nty1 - h_nty2 in
             let (ty1', seen_expansions') =
               W_TypeAbbrevs.expand_abbrev_n_times
                 nb_expansion env seen_expansions ty1 in
+            #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+            OManager.printf "L after expand: %a@."
+              W_PrintTypes.pp_simple_type ty1' ;
+            #<End> ;                (* <---------- END DEBUG *)
             if ty1 == ty1' then
               raise
                 (Unification_simple_type_conflict
@@ -1112,27 +1172,21 @@ and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, fi
     {b Visibility}: Exported outside this module.                             *)
 (* ************************************************************************** *)
 let unify_simple_type env ty1 ty2 =
-
-#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
-OManager.printf "unify_simple_type@." ;
-#<End> ;
-
+  #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+  OManager.printf "unify_simple_type@." ;
+  #<End> ;     (* <---------- END DEBUG *)
   let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
   try
     __unify_simple_type env W_TypeAbbrevs.empty_memory ty1 ty2 ;
-
-#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
-OManager.printf "Ended unify_simple_type@." ;
-#<End> ;
-
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type@." ;
+    #<End> ;    (* <---------- END DEBUG *)
     W_CoreTypes.reset_unification_changes_trace ()
   with any ->
     W_CoreTypes.rewind_unification_changes ~performed_after: checkpoint ;
-
-#<If:TYPER $minlevel 8> (* <---------- DEBUG *)
-OManager.printf "Ended unify_simple_type@." ;
-#<End> ;
-
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type@." ;
+    #<End> ;    (* <---------- END DEBUG *)
     raise any
 
 
