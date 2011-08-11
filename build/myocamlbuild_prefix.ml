@@ -277,7 +277,7 @@ let _ = dispatch begin function
       ocaml_lib ~extern:true ?dir:Config.Libdir.ulex ~tag_name:"use_ulex" "ulexing";
       ocaml_lib ~extern:true ~dir:"+mascot" "mascot";
       if Config.has_dbm then
-        ocaml_lib ~extern:true ~tag_name:"opt_use_dbm" "dbm";
+        ocaml_lib ~extern:true ~dir:"+dbm" ~tag_name:"opt_use_dbm" "dbm";
 
       (* MLstate libs *)
       let mlstate_lib, internal_lib, mlstate_lib_deps, mlstate_lib_dir =
