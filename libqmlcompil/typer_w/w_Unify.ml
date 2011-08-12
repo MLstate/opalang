@@ -561,7 +561,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
           (* Same remark about trivially cyclic types than in the previous
              match case. *)
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
-        OManager.printf "Case SType_named manifest / other@." ;
+        OManager.printf "Case SType_named manifest / other: %a VERSUS %a@."
+          W_PrintTypes.pp_simple_type_start_sequence ty1
+          W_PrintTypes.pp_simple_type_end_sequence ty2 ;
         #<End> ;                (* <---------- END DEBUG *)
         if ty1 == (W_CoreTypes.simple_type_repr manifest) then
           raise
@@ -572,7 +574,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
         __unify_simple_type env seen_expansions ty2 manifest
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest })) ->
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
-        OManager.printf "Case other / SType_named manifest@." ;
+        OManager.printf "Case other / SType_named manifest: %a VERSUS %a@."
+          W_PrintTypes.pp_simple_type_start_sequence ty1
+          W_PrintTypes.pp_simple_type_end_sequence ty2 ;
         #<End> ;                (* <---------- END DEBUG *)
         (* Same remark about trivially cyclic types than in the previous
            match case. *)
@@ -583,7 +587,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
         __unify_simple_type env seen_expansions ty1 manifest
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = None }), _) -> (
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
-        OManager.printf "Case SType_named non-manifest / other@." ;
+        OManager.printf "Case SType_named non-manifest / other: %a VERSUS %a@."
+          W_PrintTypes.pp_simple_type_start_sequence ty1
+          W_PrintTypes.pp_simple_type_end_sequence ty2 ;
         #<End> ;                (* <---------- END DEBUG *)
         let (ty1', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty1 in
@@ -599,7 +605,9 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
        )
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) -> (
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
-        OManager.printf "Case other / SType_named non-manifest@." ;
+        OManager.printf "Case other / SType_named non-manifest: %a VERSUS %a@."
+          W_PrintTypes.pp_simple_type_start_sequence ty1
+          W_PrintTypes.pp_simple_type_end_sequence ty2 ;
         #<End> ;                (* <---------- END DEBUG *)
         let (ty2', seen_expansions') =
           W_TypeAbbrevs.incrementally_expand_abbrev env seen_expansions ty2 in
