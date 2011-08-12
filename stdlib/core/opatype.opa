@@ -68,6 +68,20 @@ OpaTsc = {{
    * {2 Get type schemes}
    */
 
+  @private @both_implem // TODO differentiate client and server var set
+  freshvar =
+    i = Reference.create(0)
+    get(str) =
+     v =  Reference.get(i)
+     do Reference.update(i,_+1)
+     "`"^String.of_int(v)^"_"^str
+    get
+
+  @private freshtypevar(str)= {TyVar=freshvar(str)}
+  @private freshrowvar(str) = {TyRecord_row=[] TyRecord_rowvar=freshvar(str)}
+  @private freshcolvar(str)= {TySum_col=[] TySum_colvar=freshvar(str)}
+
+
   /**
    * Get a type scheme from a [name] if it exists, else return [none].
    */
@@ -81,42 +95,36 @@ OpaTsc = {{
       get(name))
 
   instantiation_type_only(lt:list(OpaType.ty)) : OpaTsc.instantiation =
-    {types = lt; rows = []; cols = []}
+    {types = lt rows = [] cols = []}
 
-  /**
+  instantiation_quantifier({types=lt rows=lr cols=lc}:OpaTsc.quantifier): OpaTsc.instantiation =
+    {types=List.map(freshtypevar,lt) rows=List.map(freshrowvar,lr) cols=List.map(freshcolvar,lc)}
+
+ /**
    * {2 Manipulation of type schemes}
    */
-  @private
-  find_assoc(var:string, default:'a, quant:list(string), inst:list('a)) : 'a =
-    match (quant, inst) with
-    | ([], []) -> default // can happen with foralls
-    | ([qh | qt], [ih | it]) ->
-      if String.equals(var, qh) then ih
-      else find_assoc(var, default, qt, it)
-    | _ ->
-      error("Try to instantiate with a wrong list of type. Doesn't instantiate " ^ var)
 
   /**
    * Instantiate a type scheme with list of type.
    * Assumes that list of type has the right length.
    */
-  instantiate(inst:OpaTsc.instantiation, tsc:OpaTsc.t) =
+  instantiate_body(body, (subst_var,subst_row,subst_col)) =
     rec aux(t) =
       match (t : OpaType.ty) with
       | {TyConst = _} -> t
-      | {TyVar = var} -> find_assoc(var, t, tsc.quantifier.types, inst.types)
+      | {TyVar = var} -> subst_var(var) ? t
       | {~TyArrow_params ~TyArrow_res} ->
         {TyArrow_params = aux_list(TyArrow_params);
          TyArrow_res = aux(TyArrow_res)}
       | {~TyRecord_row} -> {TyRecord_row = aux_fields(TyRecord_row)}
       | {~TyRecord_row ~TyRecord_rowvar} ->
         fields = aux_fields(TyRecord_row)
-        row = find_assoc(TyRecord_rowvar, {TyRecord_row=[]; ~TyRecord_rowvar}, tsc.quantifier.rows, inst.rows)
+        row = subst_row(TyRecord_rowvar) ? {TyRecord_row=[]; ~TyRecord_rowvar}
         OpaType.instantiate_row(fields,row)
       | {~TySum_col} -> {TySum_col = aux_fields_list(TySum_col)}
       | {~TySum_col ~TySum_colvar} ->
         fieldss = aux_fields_list(TySum_col)
-        col = find_assoc(TySum_colvar, {TySum_col=[]; ~TySum_colvar}, tsc.quantifier.cols, inst.cols)
+        col = subst_col(TySum_colvar) ? {TySum_col=[]; ~TySum_colvar}
         OpaType.instantiate_col(fieldss,col)
       | {~TyName_args ~TyName_ident} ->
         {TyName_args = aux_list(TyName_args);
@@ -130,20 +138,40 @@ OpaTsc = {{
     and aux_fields(fields : list(OpaType.field)) = List.map(field ->
       {label = field.label; ty = aux(field.ty)}, fields)
     and aux_fields_list(l) = List.map(fields -> aux_fields(fields), l)
+    aux(body)
+
+  make_substitutions(inst:OpaTsc.instantiation, quantifier:OpaTsc.quantifier) =
+    add(vq,ty,subst) = [(vq,ty)|subst]
+    make_subst(vs,tys) =
+      subst = List.fold2(add,vs,tys,[])
+      get(v) = List.assoc_gen(String.equals,v,subst) // List.assoc cannot work here
+                                                     // because it uses `==`
+      get
+    subst_var = make_subst(quantifier.types,inst.types):OpaType.typevar->option(OpaType.ty)
+    subst_row = make_subst(quantifier.rows,inst.rows):OpaType.rowvar->option(OpaType.row)
+    subst_col = make_subst(quantifier.cols,inst.cols):OpaType.colvar->option(OpaType.col)
+    (subst_var,subst_row,subst_col)
+
+  instantiate(inst:OpaTsc.instantiation, tsc:OpaTsc.t) =
     match inst with /* when there is no instantiation to be done, we save ourself
                      * the traversal and reallocation of the type */
     | {types=[]; rows=[]; cols=[]} -> tsc.body
-    | _ -> aux(tsc.body)
+    | _ ->
+      instantiate_body(tsc.body,  make_substitutions(inst,tsc.quantifier))
 
   instantiate_type_only(inst:list(OpaType.ty), tsc:OpaTsc.t) =
     instantiate(instantiation_type_only(inst), tsc)
+
+  instantiate_from_quantifier(quant,body)=
+    iquant = instantiation_quantifier(quant):OpaTsc.instantiation
+    (iquant,instantiate_body(body, make_substitutions(iquant,quant)))
 
   /**
    * [implementation(lt, tsc)] returns the implementation of type
    * scheme [tsc] instantiated by the type list [lt].
    */
   implementation(lt : OpaTsc.instantiation, (tsc : OpaTsc.t)) =
-    OpaType.implementation(OpaTsc.instantiate(lt, tsc))
+    OpaType.implementation(instantiate(lt, tsc))
 
 }}
 
@@ -220,6 +248,7 @@ type OpaType.ty =
  * right now, when trying to do so, the typer stupidly complains that a part of the sum is not a record */
 @opacapi
 type OpaType.row =
+  // FIXME use an option for TyRecord_rowvar, and merge the two followings
   {TyRecord_row : OpaType.fields} / /* INVARIANT: the lists are sorted by the field names lexixographically
                                      * (and the shorter record is the smaller) */
   {TyRecord_row : OpaType.fields; TyRecord_rowvar : OpaType.rowvar} /* INVARIANT: same as above */
@@ -228,6 +257,7 @@ type OpaType.row =
  * right now, when trying to do so, the typer stupidly complains that a part of the sum is not a record */
 @opacapi
 type OpaType.col =
+  // FIXME use an option for TySum_colvar, and merge the two followings
   {TySum_col : list(OpaType.fields)} / /* INVARIANT: the records are sorted lexicographically based on the
                                         * order on record defined above */
   {TySum_col : list(OpaType.fields); TySum_colvar : OpaType.colvar} /* INVARIANT: same as above */

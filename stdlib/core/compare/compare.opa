@@ -115,6 +115,7 @@ compare = @nonexpansive(
 
 compare_ty = compare_prematch_ty(@typeval(OpaType.ty)):OpaType.ty,OpaType.ty->Order.comparison
 order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
+equal_ty(a,b) = ComparePrivate.equal_ty(a,b)
 
 @private compare_int_postenv_(_,   a,b) = compare_int(   a,b)
 @private compare_float_postenv_(_, a,b) = compare_float( a,b)
