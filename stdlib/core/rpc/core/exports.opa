@@ -51,6 +51,7 @@
 @opacapi @both OpaRPC_serialize = OpaRPC.serialize
 @opacapi @both OpaRPC_empty_request = OpaRPC.empty_request
 @opacapi @both OpaRPC_add_args_with_type = OpaRPC.add_args_with_type
+//: OpaType.ty, void, OpaRPC.request -> OpaRPC.request // Workaround ei bug
 @opacapi @both OpaRPC_add_var_types = OpaRPC.add_var_types
 @opacapi @both OpaRPC_add_row_types = OpaRPC.add_row_types
 @opacapi @both OpaRPC_add_col_types = OpaRPC.add_col_types

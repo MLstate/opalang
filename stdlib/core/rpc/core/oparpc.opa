@@ -157,10 +157,10 @@ type OpaRPC.interface = {{
    */
   empty_request : OpaRPC.request = {types = []; rows = []; cols = []; values = []}
 
-  add_args_with_type(type_:OpaType.ty, value:'a, request:OpaRPC.request) =
+  add_args_with_type(type_:OpaType.ty, value:void, request:OpaRPC.request) =
     {request with
       values =
-        OpaSerialize.partial_serialize(value, type_) +> request.values}
+        [OpaSerialize.partial_serialize(value, type_) | request.values]}
   : OpaRPC.request
 
   /**

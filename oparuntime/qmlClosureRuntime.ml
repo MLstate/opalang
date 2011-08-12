@@ -32,6 +32,7 @@ module AnyArray : sig
   (* beware : values of this type are created
    * with Obj.magic in the generated code *)
   type t = Obj.t array
+  val empty : t
   val create : int -> t
   val set : t -> int -> 'a -> unit
   val get : t -> int -> 'a
@@ -43,6 +44,7 @@ module AnyArray : sig
 end =
 struct
   type t = Obj.t array
+  let empty = [||]
   let create n = Array.make n (Obj.repr 0)
   let set a i x = a.(i) <- Obj.repr x
   let get a i = Obj.obj a.(i)
@@ -127,13 +129,17 @@ let applied _ = assert false
 let unapplied _ = assert false
 let import _ _ = assert false
 let export _ = assert false
+let get_args _ = assert (Printf.printf "RT:qmlClosureRuntime:Fake.get_args: use opa closures !!");false
+let get_tyargs _ = assert (Printf.printf "RT:qmlClosureRuntime:Fake.get_tyargs: use opa closures !!");false
 
 #<Else>
 
 (*-----------------------*)
 (*----- typedefs --------*)
 (*-----------------------*)
-
+type t_extra = {
+  ty_args : AnyArray.t; (* a type for each arg *)
+}
 type t = { (* the type of closure must be monomorphic
             * or else generalization problem will be really troublesome *)
   arity : int;
@@ -143,6 +149,7 @@ type t = { (* the type of closure must be monomorphic
                         * without the code pointer, and then we fill it
                         * this field will be set either once,
                         * or one time with a dummy value and the second time with the real value *)
+  extra : t_extra  (* all basic closure extension are regroupped here to keep a small standard record for t *)
 }
 
 (*--------------------------------------*)
@@ -192,9 +199,10 @@ let show_gen ?(rec_=false) closure =
     let { identifier=identifier
         ; arity=arity
         ; args=args
-        ; func=_func } = assert_ closure in
+        ; func=_func
+        ; extra=extra } = assert_ closure in
     let string =
-      Printf.sprintf "{identifier=%s; arity=%d; args=#%d[|%s|]; func=_}"
+      Printf.sprintf "{identifier=%s; arity=%d; args=#%d[|%s|]; t_extra=#%d[|%s|]; func=_}"
         (match identifier with
          | None -> "None"
          | Some id -> DebugPrint.print id)
@@ -202,6 +210,11 @@ let show_gen ?(rec_=false) closure =
         (Array.length args)
         (if rec_ then
            (Base.String.concat_map ";" DebugPrint.print (Array.to_list args))
+         else
+           "...")
+        (Array.length extra.ty_args)
+        (if rec_ then
+           (Base.String.concat_map ";" DebugPrint.print (Array.to_list extra.ty_args))
          else
            "...") in
     Some string
@@ -228,6 +241,7 @@ let show_ml_closure_field f =
 
 (* this function will be used to fill the field 'func' for closures defined in two steps *)
 let dummy_function _ = assert false
+let empty_t_extra = { ty_args= AnyArray.empty }
 
 let create_raw f n identifier =
   let closure =
@@ -235,6 +249,7 @@ let create_raw f n identifier =
       arity = n;
       args = AnyArray.create 0;
       identifier = identifier;
+      extra = empty_t_extra
     } in
   #<If> assert_ closure (* this checks that the checking
                          * function is up to date
@@ -283,29 +298,32 @@ let define_function closure fun_ =
 (*-----------------------------*)
 (*-- application of closures --*)
 (*-----------------------------*)
+let array1 v = (Obj.magic {tuple1 = v} : Obj.t array)
+let array2 v1 v2 = (Obj.magic (v1, v2) : Obj.t array)
+
+let check_env_apply clos args =
+  assert (check clos);
+  assert (Array.length clos.args = 0);
+  assert (clos.arity >= Array.length args)
 
 let env_apply clos args =
   #<If>
-    assert (check clos);
-    assert (Array.length clos.args = 0);
-    assert (clos.arity >= Array.length args);
+    check_env_apply clos args
   #<End>;
   {clos with args = args}
 
-let env_apply1 clos arg1 =
+let env_apply_with_ty clos args ty_args =
   #<If>
-    assert (check clos);
-    assert (Array.length clos.args = 0);
-    assert (clos.arity >= 1);
+    check_env_apply clos args
   #<End>;
-  env_apply clos (Obj.magic {tuple1 = arg1} : Obj.t array)
-let env_apply2 clos arg1 arg2 =
-  #<If>
-    assert (check clos);
-    assert (Array.length clos.args = 0);
-    assert (clos.arity >= 2);
-  #<End>;
-  env_apply clos (Obj.magic (arg1, arg2) : Obj.t array)
+  {clos with args = args; extra = {(*clos.extra with *)ty_args = ty_args} }
+
+
+let env_apply1 clos arg1 = env_apply clos (array1 arg1)
+let env_apply2 clos arg1 arg2 = env_apply clos (array2 arg1 arg2)
+
+let env_apply1_with_ty clos arg1 ty_arg1= env_apply_with_ty clos (array1 arg1) (array1 ty_arg1)
+let env_apply2_with_ty clos arg1 arg2 ty_arg1 ty_arg2 = env_apply_with_ty clos (array2 arg1 arg2) (array2 ty_arg1 ty_arg2)
 
 let args_apply clos args =
   #<If>
@@ -406,6 +424,9 @@ let get_identifier obj =
 
 let set_identifier closure value =
   closure.identifier <- Some (Obj.repr value)
+
+let get_args t = t.args
+let get_tyargs t = t.extra.ty_args
 
 (*--------------------------*)
 (*------- bsl proj ---------*)

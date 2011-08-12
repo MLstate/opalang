@@ -52,6 +52,8 @@ struct
   let dot_false = !! "dot_false"
   let dot_bool b = if b then dot_true else dot_false
 
+  let env_apply_with_ty = !! "_env_apply_with_ty"
+
   let error = !! "error"
   let extend_record = !! "extend_record"
 

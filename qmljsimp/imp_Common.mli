@@ -37,6 +37,8 @@ sig
   val dot_false : JsAst.expr
   val dot_true : JsAst.expr
 
+  val env_apply_with_ty : JsAst.expr
+
   val error : JsAst.expr
   val extend_record : JsAst.expr
 

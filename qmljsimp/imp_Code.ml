@@ -286,7 +286,12 @@ let compile_expr_to_expr env private_env expr =
     | Q.Apply (_, f, args) ->
         aux_apply ~pure:false private_env f args
 
-    | Q.Directive (_, `partial_apply (Some _, true), e :: _, _) (* TODO *)
+    | Q.Directive (_, `partial_apply (Some _, true), e :: ty_args, _) ->
+      begin match e with
+      | Q.Apply (_, f, args) ->
+        aux_partial_apply_with_ty ~pure:true private_env f args ty_args
+      | _ -> assert false
+      end
 
     | Q.Directive (_, `partial_apply ((Some _ | None), false), [e], _) ->
       begin match e with
@@ -518,10 +523,17 @@ let compile_expr_to_expr env private_env expr =
   and aux_apply private_env ~pure f args =
     let private_env, f = aux private_env f in
     let private_env, args = List.fold_left_map aux private_env args in
-    private_env, JsCons.Expr.call ~pure f args in
+    private_env, JsCons.Expr.call ~pure f args
+
+  and aux_partial_apply_with_ty private_env ~pure f args ty_args =
+    let private_env, f = aux private_env f in
+    let private_env, args = List.fold_left_map aux private_env args in
+    let private_env, ty_args = List.fold_left_map aux private_env ty_args in
+    private_env, JsCons.Expr.call ~pure Imp_Common.ClientLib.
+    env_apply_with_ty [f;(JsCons.Expr.array args);(JsCons.Expr.array ty_args)]
+  in
 
   aux private_env (simplify expr)
-
 
 let add_bindings_statement bindings statement =
   match bindings with

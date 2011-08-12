@@ -26,7 +26,8 @@ module ConsU = QmlAstCons.UntypedExpr
 
 let bslclosure = "BslClosure"
 let closure_runtime = "CR"
-
+type env_apply_kind = EAK_std | EAK_with_ty
+let eak_str = function EAK_std -> "" | EAK_with_ty -> "_with_ty"
 
 let make_closure_name ?(safe=false) ~side ~renaming_server ~renaming_client ident =
   let client_ident =
@@ -70,13 +71,16 @@ let mk_identifier ~typed ~side ~renaming_server ~renaming_client gamma annotmap 
 let initial_needed_env_apply = -1
 let initial_needed_args_apply = -1
 let needed_env_apply = ref initial_needed_env_apply
+let needed_env_apply_with_ty = ref initial_needed_env_apply
 let needed_args_apply = ref initial_needed_args_apply
 let reset () =
   needed_env_apply := initial_needed_env_apply;
+  needed_env_apply_with_ty := initial_needed_env_apply;
   needed_args_apply := initial_needed_args_apply
 
-let env_apply_ident = Printf.sprintf "clos_env_%d"
-let env_apply_exprident d = Ident.fake_source (env_apply_ident d)
+let env_apply_ident ~eak = Printf.sprintf "clos_env_%s%d" (eak_str eak)
+let env_apply_exprident ~eak d = Ident.fake_source (env_apply_ident ~eak d)
+
 let args_apply_ident = Printf.sprintf "clos_args_%d"
 let args_apply_exprident d = Ident.fake_source (args_apply_ident d)
 let export_ident = Printf.sprintf "clos_export_%d"
@@ -97,9 +101,9 @@ let type_of_args_apply gamma annotmap e =
   | _ ->
       OManager.i_error "@[<v2>QmlClosure: applying an expression with a non arrow type:@ @[<v2>type:@ %a@]@ @[<v2>expr:@ %a@]@]@." QmlPrint.pp#ty ty QmlPrint.pp#expr e
 
-let env_apply ~typed (gamma,annotmap) e es =
-  let env_size = List.length es in
+let env_apply ~env_size ~env_ty_size ~eak ~typed (gamma,annotmap) e es =
   needed_env_apply := max env_size !needed_env_apply;
+  needed_env_apply_with_ty := max env_ty_size !needed_env_apply;
   let annot, annotmap =
     if typed then
       let annot = Annot.next () in
@@ -109,7 +113,7 @@ let env_apply ~typed (gamma,annotmap) e es =
     else
       Annot.next (), annotmap in
   let label = Annot.make_label annot (Q.Pos.expr e) in
-  let ident = Q.Directive (label, `backend_ident (env_apply_ident env_size), [ConsU.ident (env_apply_exprident env_size)], []) in
+  let ident = Q.Directive (label, `backend_ident (env_apply_ident ~eak env_size), [ConsU.ident (env_apply_exprident ~eak env_size)], []) in
   if typed then
     ConsT.apply gamma annotmap ident (e :: es)
   else
@@ -166,10 +170,13 @@ let rewrite_expr ~typed bp_typer ~side ~renaming_client ~renaming_server gamma a
            let e_code = QmlAstCons.UntypedExpr.ident code in
            let e = QmlAstCons.UntypedExpr.apply define [e_clos; e_code] in
            annotmap, e
-      | Q.Directive (label, `partial_apply missing, [Q.Directive (_, `closure_apply, e :: es, _)], _) ->
+      | Q.Directive (label, `partial_apply missing, Q.Directive (_, `closure_apply, e :: es, _) :: tys , _) ->
+          let env_size = List.length es in
+          let env_ty_size = List.length tys in
+          let eak,es = if tys == [] then EAK_std,es else EAK_with_ty,es@tys in
           let annotmap, e = self annotmap e in
           let annotmap, es = List.fold_left_map self annotmap es in
-          let annotmap, e = env_apply ~typed (gamma,annotmap) e es in
+          let annotmap, e = env_apply ~env_size ~env_ty_size ~eak ~typed (gamma,annotmap) e es in
           let e = Q.Directive (label,`partial_apply missing, [e], []) in
           annotmap,e
       | Q.Directive (_, `partial_apply _, _, _) -> assert false
@@ -237,7 +244,7 @@ let js_clos_args n =
   ]
 
 let js_clos_env n =
-  let clos_env = env_apply_exprident n in
+  let clos_env = env_apply_exprident ~eak:EAK_std n in
   let clos_env = JsCons.Ident.ident clos_env in
   let fun_ = JsCons.Ident.native "f" in
   let params = List.init n (fun i -> JsCons.Ident.native (Printf.sprintf "x%d" i)) in
@@ -324,17 +331,25 @@ let caml_apply buffer n =
       pp "\n\n"
     )
 
-let generate_env_apply ~lang buffer n =
+let generate_env_apply ~eak ~lang buffer n =
   let pp fmt = Printf.bprintf buffer fmt in
   let x = Printf.sprintf "x%d" in
+  let ty = Printf.sprintf "ty%d" in
   match lang with
   | `caml ->
-      pp "let %s f %s =\n" (env_apply_ident n) (String.concat " " (List.init n x));
-      pp " %s.env_apply f " closure_runtime;
-      Gen.array ~lang buffer x n;
-      pp "\n"
+    let x_params = String.concat " " (List.init n x) in
+    let opt_ty_params = if eak==EAK_with_ty then String.concat " " (List.init n ty) else "" in
+    pp "let %s f %s %s =\n" (env_apply_ident ~eak n) x_params opt_ty_params;
+    pp " %s.env_apply%s f " closure_runtime (eak_str eak);
+    Gen.array ~lang buffer x n;
+    begin match eak with
+    | EAK_std -> ()
+    | EAK_with_ty -> Gen.array ~lang buffer ty n (* do not scale to scheme type completion easily *)
+    end;
+    pp "\n"
+
   | `js ->
-      pp "function %s(f%s%s) {\n" (env_apply_ident n)  (if n = 0 then "" else ",") (String.concat "," (List.init n x));
+      pp "function %s(f%s%s) {\n" (env_apply_ident ~eak:EAK_std n)  (if n = 0 then "" else ",") (String.concat "," (List.init n x));
       pp "  return env_apply(f,";
       Gen.array ~lang buffer x n;
       pp ");\n}\n"
@@ -384,7 +399,10 @@ let generate_applys ?at_least lang =
   done;
   let n = !needed_env_apply in
   for i = 0 to n do
-    generate_env_apply ~lang buffer i
+    generate_env_apply ~eak:EAK_std ~lang buffer i
+  done;
+  for i = 1 to !needed_env_apply_with_ty do
+    generate_env_apply ~eak:EAK_with_ty ~lang buffer i
   done;
   reset ();
   Buffer.contents buffer
@@ -397,4 +415,5 @@ let generate_applys_js ?at_least () =
     | Some n -> max n_args n in
   let n_env = !needed_env_apply in
   List.init (n_args+1) (fun n -> args_apply_ident n, js_clos_args n) @
-  List.init (n_env+1) (fun n -> env_apply_ident n, js_clos_env n)
+  List.init (n_env+1) (fun n -> env_apply_ident ~eak:EAK_std  n, js_clos_env n) @
+  List.init (n_env+1) (fun n -> env_apply_ident ~eak:EAK_with_ty  n, js_clos_env n)

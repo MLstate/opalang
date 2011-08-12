@@ -30,9 +30,13 @@
 ##register create_no_function \ `QmlClosureRuntime.create_no_function` : int, 'ident -> Closure.t
 ##register [opacapi] define_function \ `QmlClosureRuntime.define_function` : Closure.t, 'impl -> void
 ##register apply \ `QmlClosureRuntime.args_apply` : Closure.t, Closure.args -> 'a
+##register env_apply_with_ty \ `QmlClosureRuntime.env_apply_with_ty` : Closure.t, Closure.args,Closure.args -> Closure.t
+
 ##register is_empty \ `QmlClosureRuntime.is_empty` : 'closure -> bool
 ##register get_identifier \ `QmlClosureRuntime.get_identifier` : 'closure -> option('a)
 ##register set_identifier \ `QmlClosureRuntime.set_identifier` : Closure.t, 'a -> void
+##register get_args \ `QmlClosureRuntime.get_args` : Closure.t -> Closure.args
+##register get_ty_args \ `QmlClosureRuntime.get_tyargs` : Closure.t -> Closure.args
 ##register export \ `QmlClosureRuntime.export` : Closure.t -> 'a
 ##register import \ `QmlClosureRuntime.import` : 'a, int -> Closure.t
 

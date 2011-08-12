@@ -80,7 +80,9 @@ function get_local_unsafe(str) {
 ##register create_anyarray : 'impl, int, 'ident -> Closure.t
 ##args(f,n,identifier)
 {
-    return function() { return f.call(null,arguments) }
+    var new_closure = function() { return f.call(null,arguments) };
+    new_closure.identifier = identifier;
+    return new_closure;
 }
 
 ##register [cps-bypass] create_anyarray_cps \ `create_anyarray_cps` : 'impl, int, 'ident, continuation(Closure.t) -> void
@@ -115,13 +117,14 @@ function args_apply(closure,args) {
 }
 
 function get_closure_name(closure) {
-    return closure.toString().match(/function *([^(]*)/)[1]
+    if ('identifier' in closure) return closure.identifier; // opa
+    if ('name' in closure) return closure.name; // chrome
+    return closure.toString().match(/function *([^(]*)/)[1]; // all
 }
 
 ##register get_identifier : 'c -> option('a)
 ##args(closure)
 {
-    if ('identifier' in closure) return closure.identifier;
     var name = get_closure_name(closure);
     return (global[name] == closure) ? js_some(make_onefield_record(static_field_of_name("closure_name"),name)) : js_none;
 }
@@ -129,6 +132,41 @@ function get_closure_name(closure) {
 ##args(closure, identifier)
 {
     closure.identifier = js_some(identifier);
+}
+/**
+ * Part of JsInterface (funaction)
+**/
+function _env_apply_with_ty(closure,args,ty_args)
+{
+   // if env is empty, we should not apply, since it would triger the function computation
+   // we only want to apply env, not to do any computation
+   // in zero arity no extra lambda is waiting this empty env
+   if( args.length ==0 ){
+       //      closure.opa_args  = [];
+       //      closure.opa_ty_args  = [];
+      return closure;
+    } else {
+      var new_closure = closure.apply(null,args); // breaks tail-rec (I know it is not optimised in streets browsers but it will be some day)
+      new_closure.identifier = get_closure_name(closure);
+      new_closure.opa_args      = args;
+      new_closure.opa_ty_args   = ty_args;
+      return new_closure;
+    }
+}
+##register env_apply_with_ty  \ `_env_apply_with_ty` : Closure.t, Closure.args,Closure.args -> Closure.t
+
+##register get_args : Closure.t -> Closure.args
+##args(closure)
+{
+    var res = closure.opa_args;
+    return (res?res:[]);
+}
+
+##register get_ty_args : Closure.t -> Closure.args
+##args(closure)
+{
+    var res = closure.opa_ty_args;
+    return (res?res:[]);
 }
 
 ##register is_empty : 'b -> bool

@@ -36,6 +36,7 @@ module AnyArray : sig
 end
 
 (**/**)
+type t_extra
 #<Ifstatic:CPS_WITH_ML_CLOSURE .*>
 type t
 #<Else>
@@ -45,6 +46,7 @@ type t = {
   mutable identifier : Obj.t option;
   args: AnyArray.t;
   mutable func: Obj.t;
+  extra : t_extra;
 }
 #<End>
 (**/**)
@@ -77,11 +79,19 @@ val env_apply : t -> AnyArray.t -> t
 val env_apply1 : t -> 'arg1 -> t
 val env_apply2 : t -> 'arg1 -> 'arg2 -> t
 
+(** partial application of a closure with type information about pushed args *)
+val env_apply_with_ty : t -> AnyArray.t -> AnyArray.t -> t
+val env_apply1_with_ty : t -> 'arg1 -> 'ty_arg1 -> t
+val env_apply2_with_ty : t -> 'arg1 -> 'arg2 ->  'ty_arg1 -> 'ty_arg1 -> t
+
+
 (** {6 Interface for serialization} *)
 
 val is_empty : 'closure -> bool
 val get_identifier : 'closure -> 'ident option
 val set_identifier : t -> 'ident -> unit
+val get_args   : t -> AnyArray.t
+val get_tyargs : t -> AnyArray.t
 
 (** {6 Interface for bsl projections} *)
 

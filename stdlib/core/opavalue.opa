@@ -538,10 +538,15 @@ OpaValue = {{
      * [apply f args] Apply the arguments vector [args] to the closure
      * [f].
      */
-    apply(f : Closure.t, args : Closure.args) =
-      bslapply = @may_cps(%%BslClosure.apply%%)
-        : Closure.t, Closure.args -> 'a
-      bslapply(f, args)
+    apply : Closure.t, Closure.args -> 'a =
+     @may_cps(%%BslClosure.apply%%)
+
+    /**
+     * [apply_with_ty f args ty_args] Apply the arguments vector [args] to the closure
+     * [f].
+     */
+    env_apply_with_ty : Closure.t, Closure.args, Closure.args -> 'a =
+     @may_cps(%%BslClosure.env_apply_with_ty%%)
 
     /**
      * Returns a boolean that indicates if the environment of a
@@ -578,6 +583,17 @@ OpaValue = {{
       match bslgi(closure) with
       | {closure_name=_ ~stored} -> some(stored)
       | _ -> none
+
+
+    /**
+     * Get the closure environment
+     */
+    get_args = %% BslClosure.get_args %% : Closure.t -> Closure.args
+
+    /**
+     * Get the closure environment type informations
+     */
+    get_ty_args = %% BslClosure.get_ty_args %% : Closure.t -> Closure.args
 
     /**
      * Returns the distant identifier of closure if it implementation

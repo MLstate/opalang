@@ -203,6 +203,8 @@ let expr env expr =
         env_expr_error env expr
           "Internal error: At this stage, all first-class paths should have been compiled."
 
+    | Q.Directive (_, `unsafe_cast, [e], _) -> aux e
+
     | Q.Directive (_, #assume_traverse, [e], _) ->
         aux e
 
