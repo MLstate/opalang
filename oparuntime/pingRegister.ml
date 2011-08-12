@@ -67,8 +67,8 @@ let send_json_response winfo json =
   #<End>;
   send_txt_response winfo txt
 
-let send_error winfo txt =
-  winfo.HST.cont (HS.make_response ~req:winfo.HST.request Requestdef.SC_Unauthorized
+let send_unmodified winfo txt =
+  winfo.HST.cont (HS.make_response ~req:winfo.HST.request Requestdef.SC_NotModified
                 "text/plain" (Http_common.Result txt))
 
 let disconnection_state_delay = 120 * 1000
@@ -278,7 +278,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
                 ping_error "PING"
                   "PING(%d) not registered PING(%d) already present"
                   n nb;
-                send_error winfo "Already present"
+                send_response winfo Break
               )
           | Messages q ->
               if Queue.is_empty q then (

@@ -652,7 +652,10 @@ var LowLevelPingLoop = {};
                 error("Ping loop type "+native_response.type+" is unknown");
             }
             /* Relaunch loop */
-            if ((nb != undefined && nb >= cpt))
+            if (!async_rpc_return){
+                internal_loop(false);
+            }
+            else if ((nb != undefined && nb >= cpt))
                 internal_loop(false);
         }
 
