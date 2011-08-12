@@ -1439,7 +1439,11 @@ let process_code (have_typeof:QmlTypeVars.FreeVars.t) gamma annotmap _published 
       (QmlAstWalk.Top.fold_map_name_expr walk_top) (annotmap, []) qmlAst
   in
   let label = Annot.nolabel "Pass_ExplicitInstantiation.process_code" in
-  let qmlAst = qmlAst @ [QmlAst.NewVal (label, ajax_ast)] in
+  let qmlAst =
+    if ajax_ast = [] then
+      qmlAst
+    else
+      qmlAst @ [QmlAst.NewVal (label, ajax_ast)] in
   let gamma_updt gamma (id, e) =
     let tsc = QmlTypes.Scheme.quantify (QmlAnnotMap.find_ty (Q.QAnnot.expr e) annotmap) in
     QmlTypes.Env.Ident.add id tsc gamma
