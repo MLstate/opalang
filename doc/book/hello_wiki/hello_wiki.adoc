@@ -35,6 +35,9 @@ If you are curious, this is the full source code of the application.
 ------------------------
 include::hello_wiki.opa[]
 ------------------------
+++++
+<span class="run"><A target="_blank" href="http://tutorials.opalang.org/hello_wiki">Run</A></span>
+++++
 
 In this listing, we define a database for storing the content of the pages in a
 safe format, we define the user interface and finally, the main application.  In
@@ -400,6 +403,9 @@ As a summary, let us recapitulate the source file:
 ------------------------
 include::hello_wiki_simple.opa[]
 ------------------------
+++++
+<span class="run"><A target="_blank" href="http://tutorials.opalang.org/hello_wiki">Run</A></span>
+++++
 
 This is a total of 30 effective lines of code + CSS.
 

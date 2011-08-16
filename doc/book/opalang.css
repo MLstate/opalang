@@ -15,6 +15,12 @@
       margin: 0;
       padding: 0;
   }
+  div.admonitionblock {
+      margin-top: 15px;
+  }
+  .imageblock img {
+      border: 1px dotted black;
+  }
   div.listingblock div.title {
       font-weight:bold
   }
@@ -50,7 +56,7 @@ table td.icon:after {border:none;}
 table td.content {padding-left:10px;}
 table td.content .title {font-variant:small-caps;font-size:1.2em;color:#B30A0A;}
 table td:after {border-bottom: 1px solid #FFF;content:"";position:relative;top:5px;display:block;}
-p {margin: 0 0 1.5em 0;}
+p {margin: 1em 0;}
 li p, td p {display:inline;}
 h1 {color:#000; font-size: 3em; line-height:1.5em; margin: 0.7em 0; }
 h2 {color:#B30A0A; font-size: 2.5em; line-height:1.4em; margin: 1em 0 0.5em 0;}
@@ -91,7 +97,7 @@ img {
   margin: 0 auto;
 }
 #toc {
-  width:40%;
+  width: 80%;
   margin: 0 10%;
 }
   .left {
@@ -104,6 +110,7 @@ img {
 
 #footer {background: #B6B6B2; color:#eee; border-top:1px solid #999; text-shadow: 0 -1px 0 #999;}
 
+/*
 pre {
   background:#FFF;
   margin:5px 0;
@@ -116,6 +123,27 @@ pre {
   overflow:auto;
   font-size:0.9em;
 }
+*/
+  pre {
+   font-size: 90%;
+   font-weight: bold;
+   line-height: 120%;
+   padding-top: 0.5em;
+   padding-bottom: 0.5em;
+   padding-left: 1em;
+   padding-right: 1em;
+   border-style: solid;
+   border-left-width: 1em;
+   border-top-width: thin;
+   border-right-width: thin;
+   border-bottom-width: thin;
+   border-color: #95ABD0;
+   color: #00428C;
+   background-color: #FFF;
+   margin: 0px;
+   max-height: 500px;
+   overflow: auto;
+  }
 /* #preamble {position: absolute;right: 0;top: -370px;} */
 .toctitle {color:#969692;}
 .toclevel1 {font-size:1.2em; margin-top:10px;}
@@ -369,3 +397,14 @@ pre {
 }
 
 
+span.run, span.see {
+    border: 1px solid black;
+    padding: 8px;
+    font-size: 1.2em;
+    border-radius: 8px;
+    background: #DFD;
+    display: inline;
+    position: relative;
+    top: -45px;
+    float: right;
+}
