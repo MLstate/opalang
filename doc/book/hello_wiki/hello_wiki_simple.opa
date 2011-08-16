@@ -1,3 +1,5 @@
+import stdlib.web.template
+
 /**
  * {1 Database and database interaction}
  */
@@ -50,11 +52,11 @@ load_rendered(topic) = Template.to_xhtml( Template.default, /wiki[topic])
 save_source(topic, source) =
    match Template.try_parse(Template.default, source) with
     | ~{success}    ->
-       do /wiki[topic] <- success;
-       Template.to_xhtml(Template.default, success)
+        do /wiki[topic] <- success;
+        Template.to_xhtml(Template.default, success)
     | {failure = _} ->
-       do /wiki[topic] <- Template.text(source);
-       <>Error: {source}</>
+        do /wiki[topic] <- Template.text(source);
+        <>Error: {source}</>
 
 /**
  * {1 User interface}
@@ -77,7 +79,7 @@ edit(topic) =
 /**
  * Set the user interface in reading mode.
  *
- * Save the source code for a topic (source is extracted from [#edit_content]),
+ * Save the source code for a topic (extracted from [#edit_content]),
  * display the rendered version.
  *
  * @param topic The topic to save.
@@ -93,7 +95,7 @@ save(topic) =
  * Main user interface
  *
  * @param topic The topic being consulted
- * @retrn A resource, ready to be passed to a dispatcher.
+ * @return A resource, ready to be passed to a dispatcher.
  */
 display(topic) =
    Resource.styled_page("About {topic}", ["/resources/css.css"],
@@ -115,9 +117,10 @@ display(topic) =
  * Note: The empty request is dispatched as if it were "Hello".
  */
 start =
-   | {path = [] ... } -> display("Hello")
-   | {~path ...}      -> display(String.capitalize(String.to_lower(
-       List.to_string_using("", "", "::", path))))
+   | {path = [] ... } ->
+       display("Hello")
+   | {~path ...}      ->
+       display(String.capitalize(String.to_lower(List.to_string_using("", "", "::", path))))
 
 /**
  * Statically embed a bundle of resources

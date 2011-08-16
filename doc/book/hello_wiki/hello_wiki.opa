@@ -100,8 +100,11 @@ save(topic) =
 display(topic) =
    Resource.styled_page("About {topic}", ["/resources/css.css"],
      <div id=#header><div id=#logo></div>About {topic}</div>
-     <div class="show_content" id=#show_content ondblclick={_ -> edit(topic)}>{load_rendered(topic)}</>
-     <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={_ -> save(topic)}></>
+     <div class="show_content" id=#show_content ondblclick={_ -> edit(topic)}>
+       {load_rendered(topic)}
+     </>
+     <textarea class="edit_content" id=#edit_content style="display:none"
+       cols="40" rows="30" onblur={_ -> save(topic)}></>
    )
 
 /**
@@ -114,8 +117,10 @@ display(topic) =
  * Note: The empty request is dispatched as if it were "Hello".
  */
 start =
-   | {path = [] ... } -> display("Hello")
-   | {~path ...}      -> display(String.capitalize(String.to_lower(List.to_string_using("", "", "::", path))))
+   | {path = [] ... } ->
+       display("Hello")
+   | {~path ...}      ->
+       display(String.capitalize(String.to_lower(List.to_string_using("", "", "::", path))))
 
 /**
  * Statically embed a bundle of resources
