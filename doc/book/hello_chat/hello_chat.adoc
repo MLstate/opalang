@@ -38,7 +38,7 @@ If you are curious, this is the full source code of the application:
 ------------------------
 include::hello_chat.opa[]
 ------------------------
-http://tutorials.opalang.org/hello_chat[Run]
+[run]#http://tutorials.opalang.org/hello_chat[Run]#
 
 In this listing, we define the communication infrastructure for the chatroom,
 the user interface, and finally, the main application. In the rest of the
@@ -593,7 +593,7 @@ As a summary, let us recapitulate the source file:
 ------------------------
 include::hello_chat.opa[]
 ------------------------
-http://tutorials.opalang.org/hello_chat[Run]
+[run]#http://tutorials.opalang.org/hello_chat[Run]#
 
 All this in 20 effective lines of code (without the CSS). Note that, in this
 final version, we have removed some needless parentheses, which were useful

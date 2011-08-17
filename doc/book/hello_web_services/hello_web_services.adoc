@@ -42,7 +42,7 @@ If you are curious, this is the full source code of the REST wiki server:
 -------------
 include::hello_wiki_rest.opa[]
 -------------
-http://tutorials.opalang.org/hello_wiki_rest[Run]
+[run]#http://tutorials.opalang.org/hello_wiki_rest[Run]#
 
 We will now walk through the concepts introduced in this listing.
 
@@ -183,7 +183,7 @@ And with this, we are done! Our wiki can now be scripted by external web applica
 ----------------
 include::hello_wiki_rest.opa[]
 ----------------
-http://tutorials.opalang.org/hello_wiki_rest[Run]
+[run]#http://tutorials.opalang.org/hello_wiki_rest[Run]#
 
 All in all, the changes required a dozen lines of code.
 
@@ -413,7 +413,7 @@ If you are curious, this is the full source code of the REST wiki client (which 
 -------------
 include::hello_wiki_rest_client_customizable.opa[]
 -------------
-http://tutorials.opalang.org/hello_wiki_rest_client[Run]
+[run]#http://tutorials.opalang.org/hello_wiki_rest_client[Run]#
 
 The web client
 ~~~~~~~~~~~~~~
@@ -666,7 +666,7 @@ With this, your client wiki is complete:
 ----------------
 include::hello_wiki_rest.opa[]
 ----------------
-http://tutorials.opalang.org/hello_wiki_rest[Run]
+[run]#http://tutorials.opalang.org/hello_wiki_rest[Run]#
 
 Launch the server wiki, launch the client wiki on a different port (use option
 +--server-port+ to select a port) and behold, you can edit your wiki from two
@@ -899,7 +899,7 @@ The full source code follows:
 --------------
 include::hello_wiki_rest_client_customizable.opa[]
 --------------
-http://tutorials.opalang.org/hello_wiki_rest_client[Run]
+[run]#http://tutorials.opalang.org/hello_wiki_rest_client[Run]#
 
 Exercises
 ~~~~~~~~~
