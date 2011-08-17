@@ -367,10 +367,8 @@ which is equivalent to +path = path+.
 Adding some style
 ~~~~~~~~~~~~~~~~~
 
-As in the previous chapter, without style, this example looks somewhat bland:
-
-image::hello_wiki/result_without_css.png[]
-
+As in the previous chapter, without style, this example looks somewhat bland.
+//image::hello_wiki/result_without_css.png[]
 As previously, we will fix this with an external stylesheet +resources/css.css+,
 with the following contents:
 
@@ -394,6 +392,7 @@ appear _before_ our previous +server+.
 
 With this final line, we have a complete, working wiki. With a few
 additional images, we obtain:
+
 image::hello_wiki/result.png[]
 
 As a summary, let us recapitulate the source file:
