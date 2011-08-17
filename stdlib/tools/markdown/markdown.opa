@@ -28,12 +28,33 @@
 
 package stdlib.tools.markdown
 
-/*
+/**
  * {1 About this module}
  *
  * Simple Markdwon implementation
  * See http://daringfireball.net/projects/markdown/
  * to learn more about Markdown.
+ *
+ * What you can do:
+ * - Create titles (both styles)
+ * - Insert links (both styles)
+ * - Insert images (both styles) 
+ * - Make an simple or a strong emphasis (both ways: _ or *)
+ * - Make simple emphasis inside a strong one
+ * - Make strong emphasis inside a simple one
+ * - Write lists (ul or ol) with elements on one or more lines
+ * - Insert code (both ways: block or inside ``)
+ * - Insert quotes containing anything supported (including other quotes)
+ * - Insert linebreaks
+ * - Insert linefeeds
+ *
+ * What you cannot do:
+ * - Put any effect inside a title
+ * - Put any effect inside a link
+ * - Put any effect inside a emphasis
+ * - Put lists inside of lists
+ * - Put a title inside a lists
+ * - Put a block of code inside a list
  *
  */
 
@@ -476,7 +497,7 @@ __a _simple emphasis_ inside a strong one__.
 ## Lists
 
 You can insert simple bullet lists simply by putting each element in
-a line starting by a `+`, a `+` or a `*`. Mixing symbols will not create
+a line starting by a `-`, a `+` or a `*`. Mixing symbols will not create
 different lists unless there is a blanck line in the middle:
 
     - one
@@ -626,10 +647,19 @@ with a linebreak
    * End user functions
    */
 
+ /**
+  * Default options for Markdown parser
+  */
   default_options = {
     detect_text_links = false
   } : Markdown.options
 
+ /**
+  * Transforms a string into a Markdown element
+  *
+  * @param opt Markdown configuration
+  * @param src Source string
+  */
   @publish @server of_string(_opt:Markdown.options, src:string):Markdown.t =
     src = "{src} "
     parts = String.replace("\r", "", src)
@@ -665,12 +695,26 @@ with a linebreak
       ~{blocks refs}
     endprocess(parts)
 
+ /**
+  * Transforms a Markdown element into xhtml
+  *
+  * @param opt Markdown configuration
+  * @param src Markdown source element
+  */
   @publish @server to_xhtml(opt:Markdown.options, src:Markdown.t) =
     List.fold(
       elt, acc ->
         acc <+> break <+> aux_block(opt, src.refs)(elt),
       src.blocks, <></>)
 
+ /**
+  * Directly transforms a Markdown source text into xhtml
+  * It is in fact nothing more than a [of_string] followed by a
+  * [to_xhtml].
+  *
+  * @param opt Markdown configuration
+  * @param src Source string
+  */
   @publish @server xhtml_of_string(opt:Markdown.options, src:string):xhtml =
     of_string(opt, src) |> to_xhtml(opt, _)
 
@@ -681,6 +725,15 @@ with a linebreak
   //   - Close dialog: 42 request
   //   Manually: 0 request to open or close the dialog \o/
 
+ /**
+  * Main element of the Markdown help display
+  * Note that this does not show anything (you can add a CSS entry
+  * to hide markdown_help to be sure of this). Once placed in a page,
+  * use a [help_button] to add a button that will allow the user to
+  * see this help.
+  *
+  * @param id Identifier of the help element
+  */
   help_div(id) =
     src_id = "{id}_source"
     res_id = "{id}_result"
@@ -727,6 +780,14 @@ with a linebreak
     do Dom.set_style(#{content_sel}, style)
     void
 
+ /**
+  * Displays a button to show Markdown help
+  * Note that there MUST be a [help_div] somewhere in the page for this
+  * to actually show something.
+  *
+  * @param id Identifier of the help element
+  * @param content Content of the link
+  */
   help_button(id, content:xhtml) =
     <a class="markdown_help_button" onclick={_->do_expand(id)}>{content}</a>
 
