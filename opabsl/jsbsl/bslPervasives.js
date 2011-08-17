@@ -101,6 +101,9 @@ var op_neg = function (n) { return -n; };
 ##args(l, r)
 { return l || r; };
 
+##register int_of_first_char \ int_of_char : string -> int
+function int_of_char(c){ return c.charCodeAt(0); }
+
 ##register int_of_string: string -> option(int)
 ##args(s)
 {
