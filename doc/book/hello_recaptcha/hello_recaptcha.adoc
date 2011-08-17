@@ -34,9 +34,7 @@ If you are curious, this is the full source code of our application:
 ------------------------
 include::hello_recaptcha_app.opa[]
 ------------------------
-++++
-<span class="run"><A target="_blank" href="http://tutorials.opalang.org/hello_recaptcha">Run</A></span>
-++++
+http://tutorials.opalang.org/hello_recaptcha[Run]
 
 Of course, since the features are provided by Google reCaptcha, the most
 interesting aspects of the code are not to be found in the source of the
@@ -778,9 +776,7 @@ To test the API, we may write a simple application:
 ------------------------
 include::hello_recaptcha_app.opa[]
 ------------------------
-++++
-<span class="run"><A target="_blank" href="http://tutorials.opalang.org/hello_recaptcha">Run</A></span>
-++++
+http://tutorials.opalang.org/hello_recaptcha[Run]
 
 With the exception of directive +@server_private+, this listing should not
 surprise you. Here, we placed directive +@server_private+ as a sanity check, to
