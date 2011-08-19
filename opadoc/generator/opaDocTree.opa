@@ -38,11 +38,10 @@ type OpaDocTree.node_kind =
  * A node of an OPA's jsTree
  */
 type OpaDocTree.node = {
-/*type OpaDocTree.node('label) = {*/
-  id    : option(string)
-  kind  : option(OpaDocTree.node_kind)
-  href  : option(string)
-  title : option(string)
+  id    : string
+  kind  : OpaDocTree.node_kind
+  href  : string
+  title : string
   tree  : option(OpaDocTree.t)
 }
 
@@ -107,14 +106,6 @@ OpaDocTree = {{
     {ui},
     {hotkeys}
   ]
-
-  empty_node = {
-    id    = {none}
-    kind  = {none}
-    href  = {none}
-    tree  = {none}
-    title = {none}
-  }
 
   /**
    * Node order
@@ -197,15 +188,17 @@ OpaDocTree = {{
       : OpaDocTree.t =
     (entry_name, path) = normalize_path(entry.path)
     code_elt_str = OpaDocXhtml.string_of_code_elt(entry.code_elt)
-    leaf = {empty_node with
-      id    = some("node_{code_elt_str}_{make_path([entry.pkg, path_name])}")
-      kind  = some(kind_of_code_elt(entry_name, entry.code_elt))
-      href  = some("{name}.html#{code_elt_str}_{path_html}")
-      title = some("{code_elt_str}_{make_path([entry.pkg, path_name])}")}
+    leaf = {
+      tree  = none
+      id    = "node_{code_elt_str}_{make_path([entry.pkg, path_name])}"
+      kind  = kind_of_code_elt(entry_name, entry.code_elt)
+      href  = "{name}.html#{code_elt_str}_{path_html}"
+      title = "{code_elt_str}_{make_path([entry.pkg, path_name])}"
+      }
     key = {package_ = entry.pkg}
     prev_val = get_child(key, acc)
     pkg_root = of_path(leaf, prev_val, name, entry.pkg, "", path)
-    OpaDocTree.Map.add(key, {pkg_root with kind = some(key)}, acc)
+    OpaDocTree.Map.add(key, {pkg_root with kind = key}, acc)
 
   /*@private*/
   /*key_equals(key1: OpaDocTree.node_kind, key2: OpaDocTree.node_kind): bool =*/
@@ -232,13 +225,14 @@ OpaDocTree = {{
       parent_name = "{make_path([path_name, hd])}"
       full_path = "value_{make_path([pkg, path_name])}"
       /*full_path = make_path([pkg, path_name])*/
-      {empty_node with
-        id = some("node_{full_path}")
-        kind = some(key)
-        title = some(full_path)
-        href  = some("{filename}.html#{full_path}")
+      {
+        id = "node_{full_path}"
+        kind = key
+        title = full_path
+        href  = "{filename}.html#{full_path}"
         tree = some(OpaDocTree.Map.add(key, of_path(leaf, prev_val, filename, pkg, parent_name, tl),
-            tree))}
+            tree))
+       }
 
   /**
    * Convert API value / type entries to a tree
@@ -270,11 +264,13 @@ OpaDocTree = {{
     (entry_name, path) = normalize_path(entry.path)
     code_elt_str = OpaDocXhtml.string_of_code_elt(entry.code_elt)
     full_path = "{code_elt_str}_{make_path([entry.pkg, path_name])}"
-    leaf = {empty_node with
-      id    = some("node_{full_path}")
-      kind  = some(kind_of_code_elt(entry_name, entry.code_elt))
-      href  = some("{name}.html#{code_elt_str}_{path_html}")
-      title = some(full_path)}
+    leaf = {
+      tree  = none
+      id    = "node_{full_path}"
+      kind  = kind_of_code_elt(entry_name, entry.code_elt)
+      href  = "{name}.html#{code_elt_str}_{path_html}"
+      title = full_path
+    }
     root = of_path(leaf, acc, name, entry.pkg, "", path)
     root.tree ? acc
 
@@ -285,12 +281,13 @@ OpaDocTree = {{
   of_files(files) =
     aux(acc, path) =
       key  = {file = path}
-      name = File.basename(path)
-      node = { empty_node with
-        id    = some("node_file_{path}")
-        kind  = some(key)
-        href  = some("{name}.html")
-        title = some("{path}")
+      path_dot = String.replace(File.dir_sep, ".", path)
+      node = {
+        tree  = none
+        id    = "node_file_{path_dot}"
+        kind  = key
+        href  = "{path_dot}.html"
+        title = "{path}"
       }
       OpaDocTree.Map.add(key, node, acc)
     List.fold_left(aux, OpaDocTree.Map.empty, files)
@@ -315,22 +312,12 @@ OpaDocTree = {{
   }:RPC.Json.json
 
   @private
-  string_of_kind_opt: option(OpaDocTree.node_kind) -> string =
-    | {none}  -> ""
-    | {~some} -> string_of_kind(some)
-
-  @private
   string_of_kind: OpaDocTree.node_kind -> string =
     | {package_ = _} -> "package"
     | {module   = _} -> "module"
     | {type_    = _} -> "type"
     | {value    = _} -> "value"
     | {file     = _} -> "file"
-
-  @private
-  label_of_kindp_opt: option(OpaDocTree.node_kind) -> string =
-    | {none}  -> ""
-    | {~some} -> label_of_kind(some)
 
   @private
   label_of_kind: OpaDocTree.node_kind -> string =
@@ -345,12 +332,10 @@ OpaDocTree = {{
   @private
   xhtml_of_node(label: OpaDocTree.node_kind, node: OpaDocTree.node): xhtml =
     kind = string_of_kind(label)
-    title = node.title ? ""
-    mkli(x) = (match node.id with
-      | {none} -> <li rel={kind} class="{kind}_node">{x}</li>
-      | {some=id} -> <li id="{id}" rel="{kind}" class="{kind}_node">{x}</li>)
+    title = node.title
+    mkli(x) = (<li id="{node.id}" rel="{kind}" class="{kind}_node">{x}</li>)
     <>
-      <a title="{title}" href="{node.href ? "#"}">{label}</a>
+      <a title="{title}" href="{node.href}">{label}</a>
       {match node.tree with
         | {none} -> <></>
         | {some=tree} -> to_xhtml(tree)}
@@ -360,27 +345,22 @@ OpaDocTree = {{
   @private
   json_of_node(label: OpaDocTree.node_kind, node: OpaDocTree.node)
       : RPC.Json.json =
-    x=
+    json_children =
       match node.tree with
-      | {none} -> { Record = [] }:RPC.Json.json
-      | {some=tree} -> to_json(tree):RPC.Json.json
-      end
-    (json_id, json_children) =
-      match node.id with
-      | {none} -> ([], [])
-      | {some=id} -> ([("id", { String = id }:RPC.Json.json)], [("children", x:RPC.Json.json)])
+      | {none} -> []
+      | {some=tree} -> [("children", to_json(tree):RPC.Json.json)]
       end
     { Record = [
         ("data", { Record = [
           ("title", { String = label_of_kind(label) }:RPC.Json.json),
           ("attr", { Record = [
-            ("title", { String = node.title ? "#" }:RPC.Json.json),
-            ("href", { String = node.href ? "#" }:RPC.Json.json)
+            ("title", { String = node.title }:RPC.Json.json),
+            ("href", { String = node.href }:RPC.Json.json)
           ] }:RPC.Json.json)
         ]}:RPC.Json.json),
-        ("attr", { Record =
-          json_id ++ [
-          ("rel", { String = string_of_kind_opt(node.kind) }:RPC.Json.json),
+        ("attr", { Record = [
+          ("id", { String = node.id }:RPC.Json.json),
+          ("rel", { String = string_of_kind(node.kind) }:RPC.Json.json),
         ] }:RPC.Json.json)
         ] ++ json_children
     }
