@@ -222,7 +222,6 @@ type CommandLine.family('state) = {
     // 2. Parsing anonymous arguments
     fold(anonymous, state) =
       // TODO: bind the filter and the description in the ServerArg, for the --help
-      do jlog("FOLD")
       fct = anonymous.parse
       func(state, anon_arg:string) = Parser.try_parse(fct(state), anon_arg)
       %%BslCommandLine.anonymous_filter%%(func, state)
