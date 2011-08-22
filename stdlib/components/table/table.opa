@@ -149,6 +149,8 @@ type CTable.config('a, 'state, 'row, 'col) = {
   on_forall_closed : string -> void
   prevent_empty_row_at_the_end : bool
   prevent_empty_col_at_the_end : bool
+  row_display : string
+  cell_display : string
 }
 
 type CTable.data_writer('a, 'state, 'row, 'col) = {
@@ -307,7 +309,7 @@ CTable = {{
     if simple
     then WStyler.add(td_style,html)
     else
-      <td id="{cell_id}" style="display:none" class={[prefix_td(td_prefix)]}>
+      <td id="{cell_id}" style="display:none" class={[prefix_td(td_prefix),config.col_to_string(col)]}>
         {html}
       </td>
       |> WStyler.add(td_style,_)
@@ -371,28 +373,31 @@ CTable = {{
         <th style="display:none" id="{header_col_id}">{sort_html} {filter_html}</th>
     end
 
- /*
+  /*
   * Sow/Hide - Row/Cell
   */
   @private
-  dom_show_cell(_dur, dom, simple) =
+  dom_show_cell(config)(_dur, dom, simple) =
     if not(simple)
-    then ignore(Dom.set_style_property_unsafe(dom,"display","table-cell"))
+    then ignore(Dom.set_style_property_unsafe(dom,"display",config.cell_display))
 
   @private
   dom_hide_cell(_dur, dom, _simple) = ignore(Dom.set_style_property_unsafe(dom,"display","none"))
+
   @private
-  dom_show_row(_dur, dom) =
-    _ = Dom.set_style_property_unsafe(dom,"display","table-row")
+  dom_show_row(config)(_dur, dom) =
+    _ = Dom.set_style_property_unsafe(dom,"display",config.row_display)
     _ = Dom.add_class(dom, "table_row_show")
     _ = Dom.remove_class(dom, "table_row_hide")
     void
+
   @private
   dom_hide_row(_dur, dom) =
     _ = Dom.set_style_property_unsafe(dom,"display","none")
     _ = Dom.remove_class(dom, "table_row_show")
     _ = Dom.add_class(dom, "table_row_hide")
     void
+
  /*
   * Get next/previous unfiltered row
   */
@@ -485,6 +490,9 @@ CTable = {{
       if r >= col_table_size
       then (col_table_size - 1)
       else r
+
+   dom_show_cell = dom_show_cell(config)
+   dom_show_row = dom_show_row(config)
 
    /*
     * Get the index of a key
@@ -1005,7 +1013,7 @@ CTable = {{
     //         if List.mem(r,rows)
     //         then
     //           id_row = gen_row_id(table_id,config,r)
-    //   	      do Dom.add_class(#{id_row},"selected")
+    //               do Dom.add_class(#{id_row},"selected")
     //           BMap.add(i,(r,f,true),map)
     //         else map
     //       | {none} -> map
@@ -1019,7 +1027,7 @@ CTable = {{
     //         if List.mem(r,rows)
     //         then
     //           id_row = gen_row_id(table_id,config,r)
-    //   	      do Dom.remove_class(#{id_row},"selected")
+    //               do Dom.remove_class(#{id_row},"selected")
     //           BMap.add(i,(r,f,false),map)
     //         else map
     //       | {none} -> map
@@ -1463,6 +1471,9 @@ CTable = {{
     rec val channel = Session.make(table_init_state, table_on_message(simple,id, config, callbacks,_,_,channel))
 
 
+    dom_show_cell = dom_show_cell(config)
+    dom_show_row = dom_show_row(config)
+
     show_displayed_cols(_rows, cols, display) =
       do for_iter(display.top_row_index, display_bottom)(i ->
         (row, _, _) = BMap.get(i, row_map) ? @fail("should not happen") //OK
@@ -1622,6 +1633,8 @@ CTable = {{
     on_forall_closed = default_on_forall_close
     prevent_empty_row_at_the_end = true // TODO put false when prevent_empty_row is fixed
     prevent_empty_col_at_the_end = true
+    cell_display = "table-cell"
+    row_display = "table-row"
   }
 
 
