@@ -23,7 +23,11 @@
 import stdlib.widgets.core
 import stdlib.widgets.button
 
-type WLoginbox.config('a) = {
+type WLoginbox.config = {
+  login_label : option(string)
+  password_label : option(string)
+  login_placeholder : option(string)
+  password_placeholder : option(string)
   style : WStyler.styler
 }
 
@@ -70,8 +74,12 @@ WLoginbox =
     else void
 
     default_config = {
+      login_label = none
+      password_label = none
+      login_placeholder = some("username")
+      password_placeholder = some("password")
       style = WStyler.empty
-    }
+    } : WLoginbox.config
 
     /* Set the username and password fields to [username_init] and
      * [password_init] values as an hint to the user. The fields are cleared when
@@ -124,15 +132,23 @@ WLoginbox =
         <iframe src="{fake_url_1}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
         <form  target="{iframe_id}" method="post"  action="{fake_url_2}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
         <span id={get_not_logged_id(id)} style={login_css}>
+          {match config.login_label
+           {some=s} -> <label for={username_id}>{s}</label>
+           {none} -> <></>}
           <input id={username_id} type="text" autocomplete="on" name="{username_id}" placeholder="{init_username}" onready={place_holder(username_id,init_username,false)} />
+          {match config.password_label
+           {some=s} -> <label for={password_id}>{s}</label>
+           {none} -> <></>}
           <input id={password_id} type="password" autocomplete="on" name="{password_id}" placeholder="{init_password}" onready={place_holder(password_id,init_password,true)} />
           <input type="submit" value="Login" />
         </span>
         </form>
         ;
+      lg_ph = config.login_placeholder?""
+      ps_ph = config.password_placeholder?""
       // Login XHTML chunk itself
       <div id={id}>
-        {login_form("username", "password")}
+        {login_form(lg_ph, ps_ph)}
         <span id={logged_id}>
           {usr_opt ? <></>}
         </span>
