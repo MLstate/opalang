@@ -113,6 +113,7 @@ type WebClient.Head.options =
  {
    auth: option(string)
    custom_headers: option(string)
+
    custom_agent:   option(string)
    follow_redirects: int /*The maximal number of redirects to follow. By default, 0. Usually a bad idea to set it higher than 5.*/
    timeout_sec:      option(float)

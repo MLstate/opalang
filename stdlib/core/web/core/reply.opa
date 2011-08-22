@@ -118,6 +118,32 @@ type web_cache_control =  {volatile}    /** The resource changes at each request
 type web_server_status = external
 type WebInfo.private.native_http_header = external
 
+type Resource.cookie_attributes =
+    { comment:string }
+  / { domain:string }
+  / { max_age:int }
+  / { path:string }
+  / { secure:void }
+  / { version:int }
+
+type Resource.cookie_def = {
+  name : string ;
+  value : string ;
+  attributes : list(Resource.cookie_attributes) ;
+}
+
+type Resource.http_response_header =
+    { set_cookie:Resource.cookie_def }
+  / { age:int }
+  / { location:string }
+  / { retry_after: { date:string } / { delay:int } }
+  / { server: list(string) }
+  / { content_disposition : { attachment : string } }
+
+type Resource.http_general_header =
+    { lastm : web_cache_control }
+
+type Resource.http_header = Resource.http_general_header / Resource.http_response_header
 
 /**
  * {1 Interface}
@@ -165,17 +191,17 @@ WebCoreExport =
   | _ -> lst
 
 @private cookie_def_to_string(cd) =
-  cd.name ^ "=" ^ cd.value
-    ^ String.implode(cookie_attribute_to_string, ";", cd.attributes)
+  g = List.fold(x, acc -> Text.insert_right(acc, "; ") |> Text.insert_right(_, cookie_attribute_to_string(x)), cd.attributes, Text.cons(""))
+  "{cd.name}={cd.value}{g}"
 
 @private cookie_attribute_to_string(ca) =
   match ca with
-  | ~{comment} -> "Comment=" ^ comment
-  | ~{domain} -> "Domain=" ^ domain
-  | ~{max_age} -> "Max-Age={max_age}"
-  | ~{path} -> "Path=" ^ path
-  | {secure} -> "Secure"
-  | ~{version} -> "Version={version}"
+  | ~{comment} -> "comment=" ^ comment
+  | ~{domain} -> "domain=" ^ domain
+  | ~{max_age} -> "max-age={max_age}"
+  | ~{path} -> "path=" ^ path
+  | {secure} -> "secure"
+  | ~{version} -> "version={version}"
 
 @private to_ll_headers(headers : list(Resource.http_header)) : list(WebInfo.private.native_http_header) =
   List.foldl(add_ll_header, headers, [])

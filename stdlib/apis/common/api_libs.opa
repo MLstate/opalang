@@ -33,8 +33,8 @@ API_libs_private = {{
  /**
   * Alias to easily manage the jlog of API modules
   */
-  apijlog(_text:string) =
-    //jlog(text)
+  apijlog(text:string) =
+    do jlog(text)
     void
 
   /* -------------- */

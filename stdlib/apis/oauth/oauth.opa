@@ -57,6 +57,7 @@ type OAuth.parameters = {
   authorize_uri     : string
   http_method       : OAuth.method
   inlined_auth      : bool
+  custom_headers    : option(string)
 }
 
 type OAuth.token = {
@@ -148,7 +149,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     [("oauth_consumer_key", p.consumer_key), ("oauth_timestamp", "{timestamp}"),
      ("oauth_nonce", "{nonce}"), ("oauth_version", "1.0")]
 
-  get_res(more_auth, secret, uri, params, parse_fun) =
+  get_res_2(more_auth, secret, uri, params) =
     auth_params = build_basic_params()
       |> List.append(_, more_auth)
       |> sign_request(secret, uri, params, _)
@@ -174,32 +175,31 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     res = match p.http_method with
     | {GET} ->
       uri = if params_text == "" then uri else "{uri}?{params_text}"
-      options = {WebClient.Get.default_options with auth=auth}
+      options = {WebClient.Get.default_options with auth=auth custom_headers=p.custom_headers}
       do API_libs_private.apijlog("URI: \n{uri}")
       match Uri.of_string(uri) with
-      | {none} -> ""
-      | {some=u} ->
-        match WebClient.Get.try_get_with_options(u, options) with
-        | {failure=_} -> ""
-        | {success=s} -> s.content
-        end
+      | {none} -> error("_______")
+      | {some=u} -> WebClient.Get.try_get_with_options(u, options)
       end
     | {POST} ->
       do API_libs_private.apijlog("URI: \n{uri}")
       options = {WebClient.Post.default_options with
+                    custom_headers=p.custom_headers
                     auth=auth
                     content=(if params_text == "" then {none}
                              else {some=params_text})}
       match Uri.of_string(uri) with
-      | {none} -> ""
-      | {some=u} ->
-        match WebClient.Post.try_post_with_options(u, options) with
-        | {failure=_} -> ""
-        | {success=s} -> s.content
-        end
+      | {none} -> error("_______")
+      | {some=u} -> WebClient.Post.try_post_with_options(u, options)
       end
     do API_libs_private.apijlog("Result: '''{res}'''")
-    parse_fun(res)
+    res
+
+  get_res(more_auth, secret, uri, params, parse_fun) =
+    match get_res_2(more_auth, secret, uri, params) with
+    | {failure=_} -> parse_fun("")
+    | {success=s} -> parse_fun(s.content)
+    end
 
   get_request_token(callback) =
     more_auth =
@@ -217,8 +217,16 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     get_res(more_auth, request_secret, p.access_token_uri, [], build_result)
 
   get_protected_resource(uri, params, access_key, access_secret) =
-    more_auth = [("oauth_token", access_key)]
+    more_auth = match access_key
+      | "" -> []
+      | _ -> [("oauth_token", access_key)]
     get_res(more_auth, access_secret, uri, params, identity)
+
+  get_protected_resource2(uri, params, access_key, access_secret) =
+    more_auth = match access_key
+      | "" -> []
+      | _ -> [("oauth_token", access_key)]
+    get_res_2(more_auth, access_secret, uri, params)
 
 }}
 
@@ -306,5 +314,15 @@ OAuth(parameters:OAuth.parameters) = {{
     OAuth_private(p).get_protected_resource(
       uri, params, access_token, access_secret
     )
+
+  get_protected_resource_2(
+    uri : string,
+    params : list((string, string)),
+    access_token : string,
+    access_secret : string
+  ) =
+    OAuth_private(p).get_protected_resource2(
+      uri, params, access_token, access_secret
+    ) : outcome
 
 }}

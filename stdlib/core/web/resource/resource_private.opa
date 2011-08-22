@@ -75,7 +75,7 @@ type resource_private_content =
  */
 type resource_private = { rc_content : resource_private_content;
                           rc_status  : web_response;
-                          rc_headers : list(WebCoreExport.http_header);
+                          rc_headers : list(Resource.http_header);
                         }
 
 type resource_cache_customizers = {
@@ -113,7 +113,7 @@ type dynamic_private_content =
 type dynamic_resource_private = { rc_name    : string;
                                   rc_content : dynamic_private_content;
                                   rc_status  : web_response;
-                                  rc_headers : list(WebCoreExport.http_header);
+                                  rc_headers : list(Resource.http_header);
                                 }
 
 /**
@@ -818,7 +818,7 @@ export_resource(external_css_files: list(string),
                   ),
                 make_response_with_headers: (
                     WebInfo.private.native_request, web_response,
-                    list(WebCoreExport.http_header), string, string
+                    list(Resource.http_header), string, string
                       -> WebInfo.private.native_response
                   )
                 ) =

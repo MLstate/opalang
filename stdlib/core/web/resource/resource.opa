@@ -128,35 +128,7 @@ type platform_customization =
 type resource_content = external
 */
 
-/**
- * {1 Interface}
- */
-type Resource.cookie_attributes =
-    { comment:string }
-  / { domain:string }
-  / { max_age:int }
-  / { path:string }
-  / { secure:void }
-  / { version:int }
 
-type Resource.cookie_def = {
-  name : string ;
-  value : string ;
-  attributes : list(Resource.cookie_attributes) ;
-}
-
-type Resource.http_response_header =
-    { set_cookie:Resource.cookie_def }
-  / { age:int }
-  / { location:string }
-  / { retry_after: { date:string } / { delay:int } }
-  / { server: list(string) }
-  / { content_disposition : { attachment : string } }
-
-type Resource.http_general_header =
-    { lastm : web_cache_control }
-
-type Resource.http_header = Resource.http_general_header / Resource.http_response_header
 
 
 Resource = {{
