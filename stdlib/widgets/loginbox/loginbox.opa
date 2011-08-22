@@ -24,6 +24,7 @@ import stdlib.widgets.core
 import stdlib.widgets.button
 
 type WLoginbox.config = {
+  login_text : string
   login_label : option(string)
   password_label : option(string)
   login_placeholder : option(string)
@@ -74,6 +75,7 @@ WLoginbox =
     else void
 
     default_config = {
+      login_text = "Login"
       login_label = none
       password_label = none
       login_placeholder = some("username")
@@ -140,7 +142,7 @@ WLoginbox =
            {some=s} -> <label for={password_id}>{s}</label>
            {none} -> <></>}
           <input id={password_id} type="password" autocomplete="on" name="{password_id}" placeholder="{init_password}" onready={place_holder(password_id,init_password,true)} />
-          <input type="submit" value="Login" />
+          <input type="submit" value="{config.login_text}" />
         </span>
         </form>
         ;
