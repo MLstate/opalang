@@ -52,77 +52,44 @@ let get_missing_or_different_cases col_ty1 col_ty2 =
   let col_ty2 = W_CoreTypes.column_type_repr col_ty2 in
   let cases1 = fst col_ty1.W_Algebra.ct_value in
   let cases2 = fst col_ty2.W_Algebra.ct_value in
-  let nb_cases1 = List.length cases1 in
-  let nb_cases2 = List.length cases2 in
   (* To save computation, we directly transform each sum in a list of lists of
      fields names. For this, just define a local flattening function and apply
      it on both sums. *)
   let flatten_cases cases =
     List.map
       (fun row ->
-         let row = W_CoreTypes.row_type_repr row in
-         List.map fst (fst row.W_Algebra.rt_value))
+        let row = W_CoreTypes.row_type_repr row in
+        List.map fst (fst row.W_Algebra.rt_value))
       cases in
-  if nb_cases1 = nb_cases2 then (
-    (* Both sums have the same number of cases, so we can't really say that
-       one of them is missing case(s) of the other. So, instead, we will try
-       to find the cases that are different (may be  a spelling error). *)
-    (* First, flatten the lists. *)
-    let flat_cases1 = flatten_cases cases1 in
-    let flat_cases2 = flatten_cases cases2 in
-    (* By construction, the remaining cases of cases2 we get at the end are
-       the cases of 2 missing in the cases of 1. *)
-    let (miss1_in2, miss2_in1) =
-      List.fold_left
-        (fun (accu_miss1_in2, rem_cases2) case1 ->
-           try
-             (* If removal succeeds, then [field1] was really found in the list
-                [rem_cases2], and removed from it in the result. *)
-             let rem_cases2' =
-               List.remove_first_or_fail_eq
-                 ~eq:
-                   (fun c_1 c_2 ->
-                      ((List.length c_1) = (List.length c_2)) &&
-                      (List.for_all (fun field -> List.mem field c_2) c_1))
-                 case1 rem_cases2 in
-             (accu_miss1_in2, rem_cases2')
-           with Not_found ->
-             (* [field1] was not present in [rem_cases2], hence it is
-                missing. *)
-             ((case1 :: accu_miss1_in2), rem_cases2))
-        ([], flat_cases2)
-        flat_cases1 in
-    MODCK_different (miss1_in2, miss2_in1)
-  )
-  else (
-    (* Ok, sums have a different number of cases. So determine the least and
-       most complete ones before trying to make the difference. *)
-    let (least_complete_sum_cases, most_complete_sum_cases) =
-      if nb_cases1 < nb_cases2 then (cases1, cases2) else (cases2, cases1) in
-    (* Really flatten the 2 sums. *)
-    let least_complete = flatten_cases least_complete_sum_cases in
-    let most_complete = flatten_cases most_complete_sum_cases in
-    let missing_cases =
-      List.fold_left
-        (fun accu mcomplete_fields ->
-           (* If there is one case of [least_complete] containing
-              [mcomplete_fields], then drop [fields], otherwise keep it. *)
-           let drop =
-             List.exists
-               (fun lcomplete_fields ->
-                  List.for_all
-                    (fun mcomplete_name ->
-                       List.exists
-                         (fun lcomplete_name -> mcomplete_name = lcomplete_name)
-                         lcomplete_fields)
-                    mcomplete_fields)
-               least_complete in
-           if drop then accu else mcomplete_fields :: accu)
-        []
-        most_complete in
-    MODCK_missing missing_cases
-  )
-
+  (* We can't really say that
+     one of them is missing case(s) of the other. So, we will try
+     to find the cases that are different (may be  a spelling error). *)
+  (* First, flatten the lists. *)
+  let flat_cases1 = flatten_cases cases1 in
+  let flat_cases2 = flatten_cases cases2 in
+  (* By construction, the remaining cases of cases2 we get at the end are
+     the cases of 2 missing in the cases of 1. *)
+  let (miss1_in2, miss2_in1) =
+    List.fold_left
+      (fun (accu_miss1_in2, rem_cases2) case1 ->
+        try
+          (* If removal succeeds, then [field1] was really found in the list
+             [rem_cases2], and removed from it in the result. *)
+          let rem_cases2' =
+            List.remove_first_or_fail_eq
+              ~eq:
+              (fun c_1 c_2 ->
+                ((List.length c_1) = (List.length c_2)) &&
+                  (List.for_all (fun field -> List.mem field c_2) c_1))
+              case1 rem_cases2 in
+          (accu_miss1_in2, rem_cases2')
+        with Not_found ->
+          (* [field1] was not present in [rem_cases2], hence it is
+             missing. *)
+          ((case1 :: accu_miss1_in2), rem_cases2))
+      ([], flat_cases2)
+      flat_cases1 in
+  MODCK_different (miss1_in2, miss2_in1)
 
 
 (* ************************************************************************** *)
@@ -211,14 +178,14 @@ let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
           | MODCK_different (miss1_in2, miss2_in1) ->
               if miss2_in1 <> [] then (
                 Format.fprintf ppf
-                  ("@\n@[<2>@{<bright>Hint@}:@\nFirst@ type@ is@ missing@ " ^^
+                  ("@\n@[<2>@{<bright>Hint@}:@\nFirst@ type@ does@ not@ include@ " ^^
                    "the@ following@ cases@ from@ second@ type:") ;
                 print_cases miss2_in1 ;
                 Format.fprintf ppf ".@]@\n"
               ) ;
               if miss1_in2 <> [] then (
                 Format.fprintf ppf
-                  ("@\n@[<2>@{<bright>Hint@}:@\nSecond@ type@ is@ missing@ " ^^
+                  ("@\n@[<2>@{<bright>Hint@}:@\nSecond@ type@ does@ not@ include@ " ^^
                    "the@ following@ cases@ from@ first@ type:") ;
                 print_cases miss1_in2 ;
                 Format.fprintf ppf ".@]@\n"
