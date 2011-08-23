@@ -125,12 +125,12 @@ let make_ssl_verify_params ?(client_ca_file="") ?(accept_fun=fun _cert -> false)
     info "make_ssl_verify_params" ?param:(Some p) "";
     p
 
-let make_ssl_certificate ?(cafile="") ?(capath="") certfile privkey password =
+let make_ssl_certificate ?cafile ?capath certfile privkey password =
   let c = { cert_file = certfile
           ; cert_privkey = privkey
           ; cert_password = password
-          ; cert_cafile = if cafile = "" then None else Some cafile
-          ; cert_capath = if capath = "" then None else Some capath } in
+          ; cert_cafile = cafile
+          ; cert_capath = capath } in
     info "make_ssl_certificate" ?cert:(Some c) "";
     c
 
