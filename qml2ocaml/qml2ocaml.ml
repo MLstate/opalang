@@ -740,6 +740,9 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     let mrule ~native = Printf.sprintf "\t%s $<" (if native then "$(NATIVE_RULE)" else "$(BYTECODE_RULE)" ) in
     (* let all_ml = String.concat " " env_ocaml_output.generated_files in *)
 
+    (* let make_filter = "2> >(grep -v \"ld: warning: directory not found for option*\" 1>&2)" in *)
+    let make_filter = "2> /dev/null" in (* FIXME: we ignore all caml compilation error... *)
+
     let makefile : unit -> string = fun () ->
       let ( |> ) = FBuffer.addln in
       let ( |< ) x f = f x in
@@ -781,25 +784,25 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     |> sprintf "\t%s -linkall -a %s -o %s" compiler_bytecode objects_list_bytecode lib_bytecode
     |>         "\n# Default compilation"
     |> sprintf "%s : %s" exe objects_list
-    |> sprintf "\t%s $@" (match options.O.makefile_rule
+    |> sprintf "\t%s $@ %s" (match options.O.makefile_rule
        with
        | O.Bytecode -> "$(BYTECODE_LINKING)"
        | O.Native -> "$(NATIVE_LINKING)"
        | O.Bytecode_and_native -> "$(MAKE) all"
        | O.Bytecode_or_native -> "$(MAKE) tryall"
-       )
+       ) make_filter
 
     |>         "\n# Native compilation"
     |> sprintf "native : cmxa"
-    |> sprintf "\t$(NATIVE_LINKING) %s" exe
+    |> sprintf "\t$(NATIVE_LINKING) %s %s" exe make_filter
     |> sprintf "%s.native : cmxa" exe
-    |>         "\t$(NATIVE_LINKING) $@"
+    |> sprintf "\t$(NATIVE_LINKING) $@ %s" make_filter
 
     |>         "\n# Bytecode compilation"
     |> sprintf "byte : cma"
-    |> sprintf "\t$(BYTECODE_LINKING) %s" exe
+    |> sprintf "\t$(BYTECODE_LINKING) %s %s" exe make_filter
     |> sprintf "%s.byte : cma" exe
-    |>         "\t$(BYTECODE_LINKING) $@"
+    |> sprintf "\t$(BYTECODE_LINKING) $@ %s" make_filter
 
 
     |> "\n# COMPILATION RULES"
