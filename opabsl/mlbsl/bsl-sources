@@ -28,6 +28,7 @@ bslReference.ml
 bslNumber.ml
 
 bslIrc.ml
+bslSocket.ml
 bslJson.ml
 bslMinJs.ml
 bslValue.ml
