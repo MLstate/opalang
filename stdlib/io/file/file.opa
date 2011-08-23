@@ -36,10 +36,14 @@
   * A module for very basic file access
   */
 File = {{
-content = %% BslFile.content %% : string -> string
-content_opt = %% BslFile.content_opt %% : string -> option(string)
-is_directory = %% BslFile.is_directory %% : string -> bool
-mimetype_opt = %% BslFile.mimetype_opt %% : string -> option(string)
+  content = %% BslFile.content %% : string -> string
+  content_opt = %% BslFile.content_opt %% : string -> option(string)
+  is_directory = %% BslFile.is_directory %% : string -> bool
+  mimetype = %% BslFile.mimetype_opt %% : string -> option(string)
+  @deprecated({use="File.mimetype"}) mimetype_opt = %% BslFile.mimetype_opt %% : string -> option(string)
+  basename = %% BslFile.basename %% : string -> string
+  dirname = %% BslFile.dirname %% : string -> string
+  dir_sep = %% BslFile.dir_sep %% : string
 }}
 
 

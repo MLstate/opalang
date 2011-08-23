@@ -38,13 +38,12 @@ let is_directory x =
 let make_dir n =
   try Unix.mkdir n 0o700; true with _ -> false
 
-##register basename : string -> option(string)
-let basename f =
-  try Some (Filename.basename f) with _ -> None
+##register basename \ `Filename.basename` : string -> string
 
-##register dirname : string -> option(string)
-let dirname f =
-  try Some (Filename.dirname f) with _ -> None
+##register dirname \ `Filename.dirname` : string -> string
+
+##register dir_sep : string
+let dir_sep = Filename.dir_sep
 
 ##register copy: string, string, bool -> void
 let copy a b force = ignore (File.copy ~force a b)

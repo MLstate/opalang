@@ -149,8 +149,8 @@ Resource_private =
         file_create    = %% BslFile.of_string %%:        string, string -> void
         dir_exists     = %% BslFile.is_directory %%:     string -> bool
         dir_create     = %% BslFile.create_full_path %%: string -> void
-        //get_base_name  = %% BslFile.basename %%:         string -> option(string)
-        get_dir_name   = %% BslFile.dirname %%:          string -> option(string)
+        //get_base_name  = %% BslFile.basename %%:         string -> string
+        get_dir_name   = %% BslFile.dirname %%:          string -> string
         file_move      = %% BslFile.move %%:             string,string,bool -> void
 
         //If necessary, show resources as they appear
@@ -195,8 +195,8 @@ Resource_private =
                  else void
 
               //2. If path doesn't exist, create path
-              //base_name = Option.get(get_base_name(name)) //Note: error case corresponds to weird characters in file name
-              dir_name  = Option.get(get_dir_name(name))  //Note: error case corresponds to weird characters in file name
+              //base_name = get_base_name(name)
+              dir_name  = get_dir_name(name)
 
               do if not(dir_exists(dir_name)) then dir_create(dir_name) else void
               must_create =
