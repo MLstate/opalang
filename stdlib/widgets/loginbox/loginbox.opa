@@ -17,7 +17,14 @@
 */
 
 /**
- * A widget displaying a login prompt or information about the logged user.
+ * A configuarble widget displaying a login prompt or information about the logged user.
+ *
+ * @author Guillem Rieu, 2010
+ * @author Frederic Ye, 2011
+ * @category WIDGET
+ * @destination PUBLIC
+ * @stability EXPERIMENTAL
+ * @version 0.3
  */
 
 import stdlib.widgets.core
