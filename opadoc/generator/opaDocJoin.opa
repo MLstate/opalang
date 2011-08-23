@@ -30,6 +30,8 @@
  * in an association based on the elements positions.
 **/
 
+import stdlib.io.file
+
 OpaDocJoin = {{
 
   /**
@@ -90,10 +92,10 @@ OpaDocJoin = {{
    * of mixed elements indexed by the original filenames.
   **/
   file_separation(all_join : list(Join.mix)) =
-    basename = %% BslFile.basename %% : string -> option(string)
+    basename(s) = String.replace(File.dir_sep, ".", s)
     // list ==> stringmap of list, indexed by filename
     upd(mix, map) =
-      f = basename(get_file(mix)) ? error("error : basename of  {get_file(mix)}")
+      f = basename(get_file(mix))
       new_list = List.cons(mix, StringMap.get(f, map) ? [])
       StringMap.add(f, new_list, map)
     List.foldl(upd, all_join, StringMap.empty)

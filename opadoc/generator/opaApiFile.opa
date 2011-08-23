@@ -19,6 +19,8 @@
    Types describing one declaration api
 */
 
+import stdlib.io.file
+
 OpaApiFile = {{
      extension = "api" // add to opa filename
      from_api_file(fname)=
@@ -29,7 +31,9 @@ OpaApiFile = {{
        l = List.map(Xhtml.of_string, l)
        <>{ List.intersperse(<br />, l) }</>
 
-  @private basename = %% BslFile.basename %% : string -> option(string)
+  /* not really the basename ... */
+  @private basename(s) =
+    String.replace(File.dir_sep, ".", s)
 
   /**
    * Build the association from types to values hyperlink, and entries by path_name
@@ -39,7 +43,7 @@ OpaApiFile = {{
       if OpaDocUtils.is_private(entry) then tuple_acc else
       path_name = String.concat(".", entry.path)
       path_html = OpaDocUtils.sanitize_path("{entry.pkg}.{path_name}")
-      entry_html = (path_name, (entry, path_html, basename(entry.fname) ? error("extract_by_path basename"))) : Entry.html
+      entry_html = (path_name, (entry, path_html, basename(entry.fname))) : Entry.html
       type_table =
         match entry.code_elt with
         | { value = { ty = opatype ; ... } } ->

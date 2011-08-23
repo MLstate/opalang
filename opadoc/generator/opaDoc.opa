@@ -143,12 +143,10 @@
  * }
  */
 
-import stdlib.*
+import stdlib.io.file
 
-is_dir = %% BslFile.is_directory %% : string -> bool
 file_exists = %% BslFile.exists %% : string -> bool
 make_dir = %% BslFile.make_dir %% : string -> bool
-basename = %% BslFile.basename %% : string -> option(string)
 
 make_path(path_str: string): void =
   aux(dir, acc) =
@@ -171,22 +169,22 @@ walk_dir(path) =
   if String.equals(path,"") then error("Empty string is not a path")
   else
     // glance the dir and get all .opa files
-    if is_dir(path) then
+    if File.is_directory(path) then
       all_files_fun = %%BslFile.fold_dir_rec_opt%% : ('a, string, string -> 'a), 'a, string -> option('a)
       all_files =
         fun4recup(accu,name,path) =
-          if is_opafile(name) && (check_api(path)) then
-            List.cons((name, path),accu)
-          else accu
+          if is_opafile(name) && check_api(path)
+            then [path|accu]
+            else accu
         all_files_fun(fun4recup,[],path)
       all_files
     else // just a file
        if is_opafile(path) && (check_api(path)) then
-          some([(basename(path) ? error("basename error"), path)])
+          some([path])
        else error("Not an .opa file or .api not found")
 
-get_doc_info((acc_lc, acc_lt), (name, path)) =
-  do jlog("extracting API and comments info for : {name}")
+get_doc_info((acc_lc, acc_lt), path) =
+  do jlog("extracting API and comments info for : {path}")
   lc = OpaDocComment.from_opa_file(path)
   lt = OpaApiFile.from_api_file("{path}.api")
   ((lc ++ acc_lc), (lt ++ acc_lt))
@@ -199,9 +197,7 @@ gen_doc(output_path, lc, lt) =
 
 
 sort_opafiles(opafiles) =
-  aux((n1, _), (n2, _)) =
-    String.ordering(String.to_lower(n1), String.to_lower(n2))
-  List.sort_with(aux, opafiles)
+  List.sort_with_order(String.order_ci, opafiles)
 
 group_by_packages(entries) =
   aux(acc, (_, (entry : Api.entry, _, _)) as item) =

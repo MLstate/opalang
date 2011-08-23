@@ -283,14 +283,14 @@ OpaDocTree = {{
    */
 
   of_files(files) =
-    aux(acc, (name, _)) =
-      key  = {file = name}
-      full_name = "file_{name}"
-      node = {empty_node with
-        id    = some("node_{full_name}")
+    aux(acc, path) =
+      key  = {file = path}
+      name = File.basename(path)
+      node = { empty_node with
+        id    = some("node_file_{path}")
         kind  = some(key)
         href  = some("{name}.html")
-        title = some("{full_name}")
+        title = some("{path}")
       }
       OpaDocTree.Map.add(key, node, acc)
     List.fold_left(aux, OpaDocTree.Map.empty, files)
@@ -338,8 +338,9 @@ OpaDocTree = {{
     | {module   = lbl}
     | {type_    = lbl}
     | {value    = lbl}
-    | {file     = lbl}
       -> lbl
+    | {file     = lbl}
+      -> File.basename(lbl)
 
   @private
   xhtml_of_node(label: OpaDocTree.node_kind, node: OpaDocTree.node): xhtml =
