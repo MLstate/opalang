@@ -398,8 +398,8 @@
 (defun buffer-substring1 (pos)
   (buffer-substring pos (1+ pos)))
 
-(defun is-in-xhtml-zone (p)
-  (eq (get-text-property p 'syntax-table) opa-mode-syntax-table-xhtml))
+(defun is-in-xhtml-zone ()
+  (eq (get-text-property (point) 'syntax-table) opa-mode-syntax-table-xhtml))
 
 (defun is-in-ppdebug-zone ()
   (eq (get-text-property (point) 'face) 'opa-font-ppdebug-face))
