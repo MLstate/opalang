@@ -20,6 +20,7 @@
  * A configuarble widget displaying a login prompt or information about the logged user.
  *
  * @author Guillem Rieu, 2010
+ * @author Hugo Heuzard, 2011
  * @author Frederic Ye, 2011
  * @category WIDGET
  * @destination PUBLIC
@@ -164,13 +165,10 @@ WLoginbox =
           {match config.password_help {some=ph} -> ph {none} -> <></>}
           <input type="submit" value="{config.login_text}" />
         </span>
-        </form>
-        ;
-      lg_ph = config.login_placeholder?""
-      ps_ph = config.password_placeholder?""
+        </form>;
       // Login XHTML chunk itself
       <div id={id}>
-        {login_form(lg_ph, ps_ph)}
+        {login_form(config.login_placeholder?"", config.password_placeholder?"")}
         {<span id={logged_id}>{usr_opt ? <></>}</span> |> WStyler.add(config.stylers.logged_box, _)}
         {<span id={unlogged_id}/> |> WStyler.add(config.stylers.unlogged_box, _)}
       </div> |> WStyler.add(config.stylers.login_box, _)
