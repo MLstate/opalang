@@ -740,8 +740,10 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     let mrule ~native = Printf.sprintf "\t%s $<" (if native then "$(NATIVE_RULE)" else "$(BYTECODE_RULE)" ) in
     (* let all_ml = String.concat " " env_ocaml_output.generated_files in *)
 
+
+    let compilation_log_file = "compilation.log" in
     (* let make_filter = "2> >(grep -v \"ld: warning: directory not found for option*\" 1>&2)" in *)
-    let make_filter = "2> /dev/null" in (* FIXME: we ignore all caml compilation error... *)
+    let make_filter = Printf.sprintf "2> %s" compilation_log_file in (* FIXME: we ignore all caml compilation error... *)
 
     let makefile : unit -> string = fun () ->
       let ( |> ) = FBuffer.addln in
@@ -906,11 +908,12 @@ prerr_endline \"CHECKUP - LIBS - OK\"
           let o = cont () in
           if o <> 0
           then (
-            OManager.printf "error during ocaml compilation -- the command was :@\n%s@\n" c;
+            OManager.printf "error during ocaml compilation -- the command was :@\n%s@\nyou can see compilation logs in %s/%s" c build_dir compilation_log_file;
             o
           )
           else do_compilation q in
     let return = do_compilation filter_compilation in
+    (* OManager.printf "Compilation log file at %s/%s\n" build_dir compilation_log_file; *)
     Sys.chdir caller_wd ;
     return
 end
