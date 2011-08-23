@@ -25,9 +25,9 @@ OpaApiFile = {{
          JsonFile.open_api(fname):list(Api.entry)
 
      indent_api(api) =
-       api_l = String.explode("\n", api)
-       aux(acc, s) = <>{acc}{s}<br /></>
-       List.fold_left(aux, <></>, api_l)
+       l = String.explode("\n", api)
+       l = List.map(Xhtml.of_string, l)
+       <>{ List.intersperse(<br />, l) }</>
 
   @private basename = %% BslFile.basename %% : string -> option(string)
 

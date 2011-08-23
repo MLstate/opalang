@@ -359,36 +359,30 @@ OpaDocTree = {{
   @private
   json_of_node(label: OpaDocTree.node_kind, node: OpaDocTree.node)
       : RPC.Json.json =
-    mkli(x:RPC.Json.json) = (match node.id with
-      | {none} -> { Record = [
-          ("data", { Record = [
-            ("title", { String = label_of_kind(label) }:RPC.Json.json),
-            ("attr", { Record = [
-              ("title", { String = node.title ? "#" }:RPC.Json.json),
-              ("href", { String = node.href ? "#" }:RPC.Json.json)
-            ] }:RPC.Json.json)
-          ]}:RPC.Json.json),
+    x=
+      match node.tree with
+      | {none} -> { Record = [] }:RPC.Json.json
+      | {some=tree} -> to_json(tree):RPC.Json.json
+      end
+    (json_id, json_children) =
+      match node.id with
+      | {none} -> ([], [])
+      | {some=id} -> ([("id", { String = id }:RPC.Json.json)], [("children", x:RPC.Json.json)])
+      end
+    { Record = [
+        ("data", { Record = [
+          ("title", { String = label_of_kind(label) }:RPC.Json.json),
           ("attr", { Record = [
-            ("rel", { String = string_of_kind_opt(node.kind) }:RPC.Json.json ),
+            ("title", { String = node.title ? "#" }:RPC.Json.json),
+            ("href", { String = node.href ? "#" }:RPC.Json.json)
           ] }:RPC.Json.json)
-        ] }
-      | {some=id} -> { Record = [
-          ("data", { Record = [
-            ("title", { String = label_of_kind(label) }:RPC.Json.json),
-            ("attr", { Record = [
-              ("title", { String = node.title ? "#" }:RPC.Json.json),
-              ("href", { String = node.href ? "#" }:RPC.Json.json)
-            ] }:RPC.Json.json)
-          ]}:RPC.Json.json),
-          ("attr", { Record = [
-            ("id", { String = id }:RPC.Json.json),
-            ("rel", { String = string_of_kind_opt(node.kind) }:RPC.Json.json),
-          ] }:RPC.Json.json),
-          ("children", x:RPC.Json.json)
-        ] })
-      mkli(match node.tree with
-        | {none} -> { Record = [] }:RPC.Json.json
-        | {some=tree} -> to_json(tree):RPC.Json.json)
+        ]}:RPC.Json.json),
+        ("attr", { Record =
+          json_id ++ [
+          ("rel", { String = string_of_kind_opt(node.kind) }:RPC.Json.json),
+        ] }:RPC.Json.json)
+        ] ++ json_children
+    }
 
   @private
   string_of_plugin: OpaDocTree.plugin -> string =

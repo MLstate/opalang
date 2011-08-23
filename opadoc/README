@@ -7,7 +7,7 @@ Opadoc is a utility written in Opa which generates an API documentation of opa s
 
 build:
 
-# ./bld opadoc/opadoc.native
+# make opadoc/opadoc.native
 
 This will build the 'opadoc.native' documentation generator.
 In the installation, a wrapper is created, nammed opadoc.

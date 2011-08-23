@@ -162,11 +162,7 @@ make_path(path_str: string): void =
   void
 
 is_opafile(file) =
-  len = String.length(file)
-  if len > 4 then
-    if String.substring((len-4), 4, file) == ".opa" then true
-    else false
-  else false
+  String.get_suffix(4, file) == {some = ".opa"}
 
 check_api(file) = file_exists("{file}.api")
 
