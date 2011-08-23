@@ -203,7 +203,7 @@ packages-api: $(MYOCAMLBUILD)
 .PHONY: opadoc/doc
 opadoc/doc: opadoc packages-api
 	@mkdir -p $(BUILD_DIR)/$@
-	$(BUILD_DIR)/bin/opadoc -o $(BUILD_DIR)/$@ $(BUILD_DIR)/stdlib
+	cd $(BUILD_DIR) && ./bin/opadoc -o $@ stdlib && cd -
 
 .PHONY: book
 book:
