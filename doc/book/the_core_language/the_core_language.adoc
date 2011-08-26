@@ -148,13 +148,6 @@ More formally, the following characters are interpreted inside string literals:
 | \ anything else | forbidden escape sequence
 |========================================================
 
-[CAUTION]
-At the time of this writing, Opa does not offer Utf8 character structures.
-The only way to insert
-utf8 characters into your literals is to put the utf8 character in your
-source code.
-// argh, cannot put utf8 character here, they get escaped :/
-
 Datastructures
 ~~~~~~~~~~~~~~
 Records
