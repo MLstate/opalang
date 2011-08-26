@@ -55,6 +55,9 @@ while [ $# -gt 0 ]; do
         -no-camlidl)
             NO_CAMLIDL=1
             ;;
+        -no-dbm)
+            NO_DBM=1
+            ;;
         -h|-help|--help)
             help
             exit 0;;
@@ -539,9 +542,13 @@ then lib-not-found "ulex" "ocaml-ulex"
 fi
 
 # - checking dbm
-HAS_DBM="1"
-if ! CONFIG_LIB_DBM=$(locate-ocaml-lib -opt "Dbm" "dbm")
-then HAS_DBM=
+if [ "X$NO_DBM" = "X1" ]; then
+    HAS_DBM=
+else
+    HAS_DBM="1"
+    if ! CONFIG_LIB_DBM=$(locate-ocaml-lib -opt "Dbm" "dbm")
+        then HAS_DBM=
+    fi
 fi
 
 # # - checking camlimages *
