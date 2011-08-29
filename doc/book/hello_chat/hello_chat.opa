@@ -1,4 +1,11 @@
 /**
+ * {1 Import standard classes of bootstrap css}
+ *
+ * see http://twitter.github.com/bootstrap/
+ */
+import stdlib.themes.bootstrap
+
+/**
  * {1 Network infrastructure}
  */
 
@@ -26,9 +33,13 @@ type message = {author: string /**The name of the author (arbitrary string)*/
  * @param x The message received from the chatroom
  */
 user_update(x: message) =
-  line = <div class="line">
-            <div class="user">{x.author}:</div>
-            <div class="message">{x.text}</div>
+  line = <div class="row line">
+            <div class="span2 columns">
+              <span class="user">{x.author}:</span>
+            </div>
+            <div class="span14 columns">
+              <span class="message">{x.text}</span>
+            </div>
          </div>
   do Dom.transform([#conversation +<- line ])
   Dom.scroll_to_bottom(#conversation)
@@ -53,11 +64,17 @@ broadcast(author) =
  */
 start() =
    author = Random.string(8)
-   <div id=#header><div id=#logo></div></div>
-   <div id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
-   <div id=#footer>
-        <input id=#entry  onnewline={_ -> broadcast(author)}/>
-        <div class="button" onclick={_ -> broadcast(author)}>Post</div>
+   <div class="topbar">
+     <div class="fill">
+       <div class="container">
+         <div id=#logo></div>
+       </div>
+     </div>
+   </div>
+   <div class="container" id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
+   <div class="row" id=#footer>
+      <input id=#entry  onnewline={_ -> broadcast(author)}/>
+      <div class="btn" onclick={_ -> broadcast(author)}>Post</div>
    </div>
 
 /**
