@@ -31,7 +31,7 @@ together or in this context. In 1991, the technologies were the various hardware
 components, the low-level operating system, the high-level operating system and
 the memory itself, which could only be hacked into compliance through copious
 amounts of machine code. Per se, none of these technologies was wrong, but they
-just failed to fit together -- a problem now known as _impedence mismatch_.
+just failed to fit together -- a problem now known as _impedance mismatch_.
 
 Today, the technologies involved include the various incompatible browsers, the
 server components or the database components, to quote but a few. As in 1991,
