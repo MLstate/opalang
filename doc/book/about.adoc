@@ -139,7 +139,7 @@ seasons or ongoing ad campaigns, but also a base of orders that needs
 to be kept secure from would-be intruders, and safe from accidents,
 including hardware failures.
 
-Opa is also great for this kind of applications. Its content
+Opa is also great for these kinds of applications. Its content
 management engine is second to none, whether in flexibility, power or
 security. Opa's built-in security checks guarantee that the
 application will resist most attacks, while the replicated and
