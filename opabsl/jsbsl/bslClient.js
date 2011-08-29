@@ -41,6 +41,12 @@
     location.replace(str);
   }
 
+##register alert : string -> void
+  ##args(str)
+  {
+    alert(str);
+  }
+
 ##register confirm : string -> bool
   ##args(str)
   {

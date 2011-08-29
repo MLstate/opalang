@@ -168,6 +168,7 @@ type JsFunction = external
   width           = %% BslClient.Client.width %%: -> int
   height          = %% BslClient.Client.height %%: -> int
   goto            = %% BslClient.Client.goto %%: string -> void
+  alert           = %% BslClient.Client.alert %%: string -> void
   confirm         = %% BslClient.Client.confirm %%: string -> bool
 
 
