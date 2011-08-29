@@ -34,11 +34,11 @@ type message = {author: string /**The name of the author (arbitrary string)*/
  */
 user_update(x: message) =
   line = <div class="row line">
-            <div class="span2 columns">
-              <span class="user">{x.author}:</span>
+            <div class="span1 columns userpic"></div>
+            <div class="span2 columns user">
+              {x.author}:
             </div>
-            <div class="span14 columns">
-              <span class="message">{x.text}</span>
+            <div class="span13 columns message">{x.text}
             </div>
          </div>
   do Dom.transform([#conversation +<- line ])
@@ -72,9 +72,11 @@ start() =
      </div>
    </div>
    <div class="container" id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
-   <div class="row" id=#footer>
-      <input id=#entry  onnewline={_ -> broadcast(author)}/>
-      <div class="btn" onclick={_ -> broadcast(author)}>Post</div>
+   <div id=#footer>
+     <div class="container">
+          <input class="xlarge" id=#entry  onnewline={_ -> broadcast(author)}/>
+          <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
+     </div>
    </div>
 
 /**

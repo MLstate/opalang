@@ -1,34 +1,31 @@
 /***Header***/
 #logo {
      background: url("/resources/opa-logo.png") no-repeat scroll 0 0 transparent;
-     height: 41px;
-     margin: 5px 0 15px;
-     width: 100px;
+     height: 32px;
+     margin: 10px 0 5px;
+     width: 61px;
 }
 
 /***Conversation***/
 #conversation {
-     background: none repeat scroll 0% 0% transparent;
+    margin-top:58px;
+    margin-bottom:40px;
+    overflow:auto;
 }
-
-.line {
-     background: url("/resources/user.png") no-repeat 5px 5px;
-     min-height: 40px;
+.line {border-bottom:1px solid #ddd;padding-bottom:8px;}
+.line {margin-bottom:8px !important;}
+.user, .message {padding-top:8px;}
+.userpic {
+     background: url("/resources/user.png") no-repeat 0 0;
+     height: 40px;
+     width:40px;
 }
-.line:after {
-    border-bottom: 1px solid #FFF;
-    content:"";
-    display:block;
-    position:relative;
-    top:25px;
-}
-
-.user {color: #B30A0A;font-variant:small-caps;}
-.message{color:#252525;}
+.user {color: #000;font-weight:bold;}
+.message{color:#666;}
 
 /***Footer***/
 #footer {
-    background:#E4E1D8;
+    background:#eee;
     position:fixed;
     bottom:0;
     left:0;
