@@ -34,10 +34,8 @@ type message = {author: string /**The name of the author (arbitrary string)*/
  */
 user_update(x: message) =
   line = <div class="row line">
-            <div class="span1 columns userpic"></div>
-            <div class="span2 columns user">
-              {x.author}:
-            </div>
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{x.author}:</div>
             <div class="span13 columns message">{x.text}
             </div>
          </div>
@@ -52,8 +50,8 @@ user_update(x: message) =
  * @param author The name of the author. Will be included in the message broadcasted.
  */
 broadcast(author) =
-   do Network.broadcast({~author text=Dom.get_value(#entry)}, room)
-   Dom.clear_value(#entry)
+  do Network.broadcast({~author text=Dom.get_value(#entry)}, room)
+  Dom.clear_value(#entry)
 
 /**
  * Build the user interface for a client.
@@ -63,21 +61,13 @@ broadcast(author) =
  * @return The user interface, ready to be sent by the server to the client on connection.
  */
 start() =
-   author = Random.string(8)
-   <div class="topbar">
-     <div class="fill">
-       <div class="container">
-         <div id=#logo></div>
-       </div>
-     </div>
-   </div>
-   <div class="container" id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
-   <div id=#footer>
-     <div class="container">
-          <input class="xlarge" id=#entry  onnewline={_ -> broadcast(author)}/>
-          <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
-     </div>
-   </div>
+  author = Random.string(8)
+  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+  <div id=#conversation class="container" onready={_ -> Network.add_callback(user_update, room)}></div>
+  <div id=#footer><div class="container">
+    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
+    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
+  </div></div>
 
 /**
  * {1 Application}
