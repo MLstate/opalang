@@ -290,6 +290,15 @@ else
     exit 1
 fi >&2
 
+# - checking for java
+echo-check for java
+if which java &>/dev/null; then
+    echo-ok found
+else
+    echo-err Not found
+    exit 1
+fi
+
 # - checking camlidl *
 echo-check for camlidl
 if [ -n "${NO_CAMLIDL:-}" ]; then
