@@ -1,4 +1,7 @@
-#!/bin/bash -ue
+#!/usr/bin/env bash
+
+set -u
+set -e
 
 : ${OPA_SOURCE_DIR:=$(dirname $0)}
 if [ "${OPA_SOURCE_DIR#/}" = "$OPA_SOURCE_DIR" ]; then OPA_SOURCE_DIR=$PWD/$OPA_SOURCE_DIR; fi

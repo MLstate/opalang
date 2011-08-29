@@ -1,4 +1,7 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -e
+set -u
 # Copyright © 2011 MLstate
 
 # This file is part of OPA.

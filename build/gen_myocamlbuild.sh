@@ -1,4 +1,7 @@
-#!/bin/bash -ue
+#!/usr/bin/env bash
+
+set -u
+set -e
 
 # This script reads files config.{sh,ml}, build_rules*.ml, build_libs, build_tools and uses them
 # to build an ocamlbuild plugin in <build_dir>/myocamlbuild
