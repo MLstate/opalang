@@ -14,6 +14,7 @@ opalang configure script. Options:
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
         -no-camlidl		disable features based on camlidl
+        -no-dbm  		disable features based on dbm
         -help			shows this message
 EOF
 # --no-<lib> if available
@@ -542,6 +543,7 @@ then lib-not-found "ulex" "ocaml-ulex"
 fi
 
 # - checking dbm
+: ${NO_DBM:=""}
 if [ "X$NO_DBM" = "X1" ]; then
     HAS_DBM=
 else
