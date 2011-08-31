@@ -31,18 +31,18 @@ together or in this context. In 1991, the technologies were the various hardware
 components, the low-level operating system, the high-level operating system and
 the memory itself, which could only be hacked into compliance through copious
 amounts of machine code. Per se, none of these technologies was wrong, but they
-just failed to fit together -- a problem now known as _impedence mismatch_.
+just failed to fit together -- a problem now known as _impedance mismatch_.
 
 Today, the technologies involved include the various incompatible browsers, the
 server components or the database components, to quote but a few. As in 1991,
 none of these technologies is wrong, but they do not fit together. Because of
-this impedence mismatch, developers need to add to their application logic
+this impedance mismatch, developers need to add to their application logic
 copious amounts of glue code just to get the components to agree on
 communication mechanisms and application-level protocols. Not only is this
 glue code tedious, repetitive and error-prone, but this is also where most
 safety and security issues arise.
 
-In 1991, the answer to impedence mismatch was Software Development Kits, and
+In 1991, the answer to impedance mismatch was Software Development Kits, and
 indeed these SDKs proved very useful at allowing developers to develop anything
 at all, but failed to address the underlying issues. This was only achieved
 later, through better operating systems, better development tools, and resulted
@@ -66,7 +66,7 @@ powerful than any programming language you have ever used. Opa offers all the
 features of a database management system, of a web server, of a server-side
 framework, of a client-side framework, of a distribution middleware, a security
 audit tool, but without the complexity of deployment, administration, or
-impedence mismatch of these technologies.
+impedance mismatch of these technologies.
 
 Developing with Opa is as simple as it gets: first, write your code with the Opa
 programming language -- and only the Opa programming language, no JavaScript, no
@@ -130,7 +130,7 @@ without disrupting the flow, to match holiday seasons or ongoing ad campaigns,
 but also a base of orders that needs to be kept secure from would-be intruders,
 and safe from accidents, including hardware failures.
 
-Opa is also great for this kind of applications. Its content management engine
+Opa is also great for these kinds of applications. Its content management engine
 is second to none, whether in flexibility, power or security. Opa's built-in
 security checks guarantee that the application will resist most attacks,
 while the replicated and versioned database ensures that you can always rollback
