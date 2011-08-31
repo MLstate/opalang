@@ -138,6 +138,24 @@ CLogin = {{
   /**
    * {1 Some configurations}
    */
+
+  @private default_config_builder(id, authenticate, https_host) : CLogin.config(option((string, string)), option('a), option('a)) =
+    logout(dochange) = <a onclick={_ -> do (dochange(none):void)
+                              WLoginbox.set_logged_out(id, <></>)}>Logout</a>
+    get_credential(x) = x
+    loginbox(dochange, credential) =
+      box_config = { WLoginbox.default_config with ~https_host } : WLoginbox.config
+      make_html = WLoginbox.html(box_config, id, (n, p -> dochange(some((n,p)))), _)
+      match credential
+      | {none} -> make_html(none)
+      | {some=_credential} -> make_html(some(logout(dochange)))
+    on_change(dochange, credential) =
+      match credential
+      | {some=_} -> WLoginbox.set_logged_in(id, logout(dochange))
+      | _ -> WLoginbox.set_logged_out(id, <>Invalid password</>)
+    prelude = none
+    { ~authenticate ~get_credential ~loginbox ~on_change ~prelude }
+
   /**
    * The default configuration using widget login box (@see
    * WLoginbox). Data used for logged ([`login_data]) is the [(name,
@@ -153,23 +171,25 @@ CLogin = {{
    * - when logged : 1 unlog button
    */
   default_config(id, authenticate) : CLogin.config(option((string, string)), option('a), option('a)) =
-    logout(dochange) = <a onclick={_ -> do (dochange(none):void)
-                              WLoginbox.set_logged_out(id, <></>)}>Logout</a>
-    get_credential(x) = x
-    loginbox(dochange, credential) =
-      make_html = WLoginbox.html_default(id, (n, p -> dochange(some((n,p)))), _)
-      match credential
-      | {none} -> make_html(none)
-      | {some=_credential} -> make_html(some(logout(dochange)))
-    on_change(dochange, credential) =
-      match credential
-      | {some=_} -> WLoginbox.set_logged_in(id, logout(dochange))
-      | _ -> WLoginbox.set_logged_out(id, <>Invalid password</>)
-    prelude = none
-    { ~authenticate ~get_credential ~loginbox ~on_change ~prelude }
+    default_config_builder(id, authenticate, none)
 
-
-
+  /**
+   * The default configuration using widget login box (@see
+   * WLoginbox). Data used for logged ([`login_data]) is the [(name,
+   * password)] couple. The state is an option [none] means not logged
+   * and some means logged with a custom encapsulated state. [`state]
+   * is strictely equals to [`credential] for this version
+   * ([get_credential = identity]).
+   * In this version the POST is made through HTTPS
+   *
+   * If you use this [default_config] you should certainly overwrite
+   * [loginbox] and [on_change] fields. Indeed that configuration just
+   * switch beetween two views :
+   * - when not logged : 2 inputs (name, password) + 1 log button
+   * - when logged : 1 unlog button
+   */
+  default_config_ssl_post(id, authenticate, https_addr) : CLogin.config(option((string, string)), option('a), option('a)) =
+    default_config_builder(id, authenticate, some(https_addr))
 
   /**
    * {1 Actions on login component}

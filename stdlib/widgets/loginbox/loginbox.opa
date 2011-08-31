@@ -38,14 +38,15 @@ type WLoginbox.stylers = {
 }
 
 type WLoginbox.config = {
-  login_text : string
-  login_label : option(string)
-  password_label : option(string)
-  login_placeholder : option(string)
+  https_host           : option(string)
+  login_text           : string
+  login_label          : option(string)
+  password_label       : option(string)
+  login_placeholder    : option(string)
   password_placeholder : option(string)
-  password_help : option(xhtml)
-  fading_time : int // in ms
-  stylers : WLoginbox.stylers
+  password_help        : option(xhtml)
+  fading_time          : int // in ms
+  stylers              : WLoginbox.stylers
 }
 
 /** Display a login or the logged user if there is one. */
@@ -61,13 +62,14 @@ WLoginbox =
 {{
 
   default_config = {
-    login_text = "Login"
-    login_label = none
-    password_label = none
-    login_placeholder = some("username")
+    https_host           = none
+    login_text           = "Login"
+    login_label          = none
+    password_label       = none
+    login_placeholder    = some("username")
     password_placeholder = some("password")
-    password_help = none
-    fading_time = 0
+    password_help        = none
+    fading_time          = 0
     stylers = {
       login_box = WStyler.empty
       logged_box = WStyler.empty
@@ -139,6 +141,9 @@ WLoginbox =
         login_action: (string, string -> void),
         usr_opt: option(xhtml))
         : xhtml =
+      prepend = match config.https_host with
+        | {none} -> ""
+        | {some=h} -> h
       form_id = "{id}__form"
       iframe_id = "{id}__iframe"
       _button_id = "{id}__button" //TODO use widgets button when fixed
@@ -151,8 +156,8 @@ WLoginbox =
             ([], css{display: none;}), usr_opt)
       login_form(init_username: string, init_password: string) =
       /* ugly hack : needs iframe to be the fake target of the submit form  */
-        <iframe src="{fake_url_1}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
-        <form  target="{iframe_id}" method="post"  action="{fake_url_2}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
+        <iframe src="{prepend}{fake_url_1}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
+        <form  target="{iframe_id}" method="post"  action="{prepend}{fake_url_2}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
         <span id={get_not_logged_id(id)} style={login_css}>
           {match config.login_label
            {some=s} -> <label for={username_id}>{s}</label>
