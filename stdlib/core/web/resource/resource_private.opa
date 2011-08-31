@@ -42,11 +42,18 @@ import stdlib.core.compare
  */
 
 /**
+ * The doctype of an html resource
+ */
+type html_resource_doctype =
+  {html5} /
+  {xhtml1_1}
+
+/**
  * The actual contents of a resource.
  */
 type resource_private_content =
 //User-definable resources
-    {html:xhtml; headers: xhtml; customizers: list(platform_customization)}
+    {html:xhtml; doctype:option(html_resource_doctype); headers: xhtml; customizers: list(platform_customization)}
 /*  / {soap:xmlns}*/
   / {xml:xmlns}
   / {png:binary}
@@ -121,7 +128,10 @@ Resource_private =
   @private
   xhtml_equality(a,b) = xhtml_compare(a,b) == {eq}
 
-
+  html_doctype_to_string(doctype:html_resource_doctype) =
+    match doctype with
+    {xhtml1_1} -> shared_xhtml1_1_header
+    {html5} -> shared_html5_header
 
    /**
     * Construct the inclusion of an external resource that can possibly be modified dynamically for debugging purposes
@@ -498,12 +508,11 @@ Resource_private =
  * {2 Delivery mechanism}
  */
 
-/**
- * The html header shared by all web pages
- */
-shared_html_header =
-  "<?xml version=\"1.0\" encoding=\"utf-8\"?>
-   <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"
+shared_xhtml1_1_header =
+  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"
+
+shared_html5_header =
+  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>"
 
 shared_xml_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -638,7 +647,7 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
         }
       ]
    })
-   
+
 /**
  * A cache for generation of xhtml resources
  */
@@ -827,7 +836,7 @@ export_resource(external_css_files: list(string),
       | {~later} ->
         (r -> later(( (resource : resource) -> response(force_mimetype)(winfo, resource)(r))))
 
-      | { html=body ~headers ~customizers } ->
+      | { html=body ~doctype ~headers ~customizers } ->
         (
          (req:WebInfo.private.native_request) ->
           //Prepare customizations
@@ -862,7 +871,9 @@ export_resource(external_css_files: list(string),
               <></>, base_url)
           ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
-          page= Xhtml.of_string_unsafe(shared_html_header) <+>
+          doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
+
+          page= Xhtml.of_string_unsafe(doctype) <+>
             <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
 
           //Serialize and send

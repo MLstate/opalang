@@ -156,9 +156,9 @@ base_url =
  * to simplify page & full_page
  */
 @private
-html_constructor(title,headers,html,status,customizers,rc_lastm) =
+html_constructor(title, doctype, headers, html, status, customizers, rc_lastm) =
  { rc_content =
-               {~html ~customizers
+               {~html ~customizers ~doctype
                  headers = match title
                            | "" -> headers
                            | _  -> headers <+> <title>{title}</title>}
@@ -186,7 +186,7 @@ page(title:string, body: xhtml): resource = styled_page(title, [], body)
  * @param styles A list of addresses for CSS pages.
  * @param body The contents of the page.
  */
-styled_page(title:string, styles:list(string), body: xhtml): resource = html_constructor(title,
+styled_page(title:string, styles:list(string), body: xhtml): resource = html_constructor(title, {none},
                    <>
                      {List.map(url -> <link rel="stylesheet" type="text/css" href="{url}" />, styles)}
                    </>
@@ -211,8 +211,11 @@ html = page
  * to cellphones or broken browsers. The empty list is a safe default until you start testing your application on exotic platforms.
  */
 full_page(title: string, body:xhtml, headers:xhtml, status: web_response, customizers: list(platform_customization)):resource =
-    html_constructor(title,headers,body,status,List.append(Resource_private.default_customizers, customizers), {volatile})
+    html_constructor(title, {none}, headers, body, status, List.append(Resource_private.default_customizers, customizers), {volatile})
     // Do not cache pages, we always generate a fresh number
+
+full_page_with_doctype(title: string, doctype, body:xhtml, headers:xhtml, status: web_response, customizers: list(platform_customization)):resource =
+    html_constructor(title, {some=doctype}, headers, body, status, List.append(Resource_private.default_customizers, customizers), {volatile})
 
   /**
    * Create a resource which is recomputed at each time it is served.
@@ -540,10 +543,11 @@ later(maker : ((resource -> void) -> void)) =
 export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
   rec aux(rc_content : resource_private_content) =
     match rc_content with
-      | {~html ~headers customizers=_} ->
+      | {~html ~doctype ~headers customizers=_} ->
         body= <body id="Body">{html}</body>
         head = <head>{headers}</head>
-        page= Xhtml.of_string_unsafe(Resource_private.shared_html_header) <+>
+        doctype = match doctype with {some=d} -> Resource_private.html_doctype_to_string(d) {none} -> Resource_private.shared_xhtml1_1_header
+        page= Xhtml.of_string_unsafe(doctype) <+>
           <html xmlns="http://www.w3.org/1999/xhtml">{head}{body}</html>
         data=Xhtml.serialize_as_standalone_html(page)
         some({~data mimetype="text/html"})
