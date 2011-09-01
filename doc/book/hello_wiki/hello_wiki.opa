@@ -1,3 +1,10 @@
+/**
+ * {1 Import standard classes of bootstrap css}
+ *
+ * see http://twitter.github.com/bootstrap/
+ */
+import stdlib.themes.bootstrap
+
 import stdlib.web.template
 
 /**
@@ -11,7 +18,7 @@ import stdlib.web.template
  * Note: By definition, pages stored in the database are always well-formed.
  */
 db /wiki: stringmap(Template.default_content)
-db /wiki[_] = Template.text("This page is empty")
+db /wiki[_] = Template.text("This page is empty. Double-click to edit.")
 
 
 /**
@@ -99,12 +106,14 @@ save(topic) =
  */
 display(topic) =
    Resource.styled_page("About {topic}", ["/resources/css.css"],
-     <div id=#header><div id=#logo></div>About {topic}</div>
-     <div class="show_content" id=#show_content ondblclick={_ -> edit(topic)}>
+     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="content container"><h1>About {topic}</h1>
+          <div id=#show_content ondblclick={_ -> edit(topic)}>
        {load_rendered(topic)}
-     </>
-     <textarea class="edit_content" id=#edit_content style="display:none"
+          </>
+          <textarea class="edit_content" id=#edit_content style="display:none"
        cols="40" rows="30" onblur={_ -> save(topic)}></>
+     </div>
    )
 
 /**
