@@ -116,6 +116,7 @@ pre {
     padding-top:8px;
 }
 #toc {
+   text-align:left;
    float:left;
    font-size:12px;
    width:200px;
