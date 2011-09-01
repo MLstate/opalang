@@ -299,7 +299,7 @@ that we want to be called whenever the network propagates a message:
 .Updating the user interface when a message is received
 [source,opa]
 ------------------------
-user_update(x: message):  =
+user_update(x: message) =
 (
   line = <div class="line">
             <div class="user">{x.author}:</div>
