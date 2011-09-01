@@ -1134,7 +1134,7 @@ just_typ <-
 ;just_type_without_arrow <- type_sum
                           / just_type_without_sum
 
-type_sum <- (=list1(type_sum_element,(=infix(Opa_lexer.slash)))):l end_of_type_sum?:o
+type_sum <- (=infix(Opa_lexer.slash))? (=list1(type_sum_element,(=infix(Opa_lexer.slash)))):l end_of_type_sum?:o
             {{ match l,o with
                  | [h], None ->
                      ( match undecorate h with
