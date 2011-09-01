@@ -154,6 +154,11 @@ let get_index_N_lines_after s i nl =
       if i' = len then len else get (i'+1) (nl-1)
   in get i nl
 
+let parse_error_flag =
+  let search_for = Str.regexp "\\b[Uu][Tt][Ff]-?8\\b" in
+  try let _ = Str.search_forward search_for (Sys.getenv "LC_CTYPE") 0 in "⚐"
+  with Not_found -> "-->"
+
 (* FIXME, use FilePos for obtaining citations etc. *)
 let show_parse_error file_name content error_summary error_details pos =
   let n = max 0 (min pos (String.length content-1)) in
@@ -176,10 +181,10 @@ let show_parse_error file_name content error_summary error_details pos =
        (red file_name) line col line col gchar gchar
        (red error_summary) (red line) (red col)
     )
-    ^ (Printf.sprintf "The error may be in the following citation, usually in the %s part (starting at ⚐) or just before:" (red"red"))
+    ^ (Printf.sprintf "The error may be in the following citation, usually in the %s part (starting at %s) or just before:" (red"red") (parse_error_flag))
     ^ (Printf.sprintf "\n<<%s%s>>\n"
          (green (String.sub content begin_citation    length_citation  ))
-         (red   ("⚐"^(String.sub content begin_error_zone  length_error_zone))))
+         (red   (parse_error_flag^(String.sub content begin_error_zone  length_error_zone))))
     ^ (Printf.sprintf "Hint: %s\n" error_details)
   ) ;
   OManager.error "Syntax error"
