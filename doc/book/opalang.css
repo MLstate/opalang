@@ -9,11 +9,12 @@ html {
 body {
       color:#454545;
       font-size:14px;
-      line-height:18px;
+      line-height:20px;
       font-weight: normal;
       font-family: "Lucida Grande", Helvetica, Arial, sans-serif;
       text-align:left;
       background: #FFF;
+      min-height:600px;
 }
 
 /*links*/
@@ -22,13 +23,13 @@ a:hover {color: #0B4D86;text-decoration: underline;}
 a:active {color: #B30A0A;}
 
 /*Lists*/
-ul, ol { margin: 0 0 1.5em 0; }
+ul, ol { margin: 0 0 10px 17px; }
 ul li, ol li {list-style-type: disc;margin:0;}
-ul li ul, ol li ol {margin-left:20px;}
-ul, ol {list-style-image: none;  list-style-position: inside;}
+ul li ul, ol li ol {margin-left:17px;}
+ul, ol {list-style-image: none;  list-style-position: ioutside;}
 
-ul > li {color: #B6B6B2;}
-ul > li >* {color: #252525;}
+ul > li {color: #808080;}
+ul > li >* {color: #454545;}
 button {padding: 2px 6px 3px 6px;}
 table {
   border-collapse: collapse;
@@ -38,7 +39,8 @@ table {
 table td {vertical-align:top;border-bottom: 1px solid #ddd;padding: 3px;color: #555;font-size:0.9em;}
 table td.icon {width:10%;}
 table td.icon .title {
-  background: #F46E0B;
+  background: #000;
+  padding:4px 0;
   text-align:center;
   color:white;
   border-radius: 0.3em 0.3em 0.3em 0.3em;
@@ -53,8 +55,8 @@ table td.content .title {font-weight:bold;font-size:1.2em;color:#000;}
 p {margin: 1em 0;}
 li p, td p {display:inline;}
 h1 {color:#000; font-size: 2.2em; line-height:1.4em; margin: 0.7em 0; }
-h2 {color:#F46E0B; font-size: 2.5em; line-height:1.4em; margin: 1em 0 0.5em 0;}
-h3, #toctitle {color:#000; font-size: 1.5em; line-height:1em; margin: 1em 0;}
+h2 {color:#000; font-size: 2.5em; line-height:1.4em; margin: 1em 0 0.5em 0;border-bottom: 1px solid #DDD;}
+h3 {color:#000; font-size: 1.5em; line-height:1em; margin: 1em 0;}
 h4 {color:#000; font-size: 1.3em; line-height:1em; margin: 0.5em 0;}
 h5 {color:#F46E0B; font-size: 1.25em; line-height:1.2em; margin: 0 0 0.5em 0;}
 h1, h2, h3, h4, h5 {font-family: "Helvetica", "Arial", sans-serif;font-weight: 700;}
@@ -88,72 +90,122 @@ pre {
 /*Structure*/
 #header {
     width: 100%;
-}
-#header h1{
     text-align:center;
     background:black;
     border-top: 3px solid #FF9238;
     border-bottom: 1px solid #ECECEC;
-    color:#eee;
     height: 50px;
-    padding-top:10px;
     left: 0;
     margin: 0;
     position: fixed;
     top: 0;
-    width: 100%;
     z-index: 50;
+    box-shadow: 0 0 5px #AAA;
+    -webkit-box-shadow: 0 0 5px #AAA;
+    -moz-box-shadow: 0 0 5px #AAA;
+}
+#header h1{
+    background:url("opa-logo-orange.png") no-repeat 20px 8px;
+    color:#DDD;
+    font-size:24px;
+    font-weight:300;
+    position:relative;
+    margin:0 auto;
+    width: 1000px;
+    height:60px;
+    padding-top:8px;
 }
 #toc {
    float:left;
    font-size:12px;
    width:200px;
-   position:relative;
+   position:fixed;
    left:50%;
-   top:0;
-   margin:10px 0 0 -500px;
+   top:74px;
+   margin:0px 0 0 -500px;
+   height:85%;
+   overflow:auto;
+   background:white;
 }
 #content {
    position:relative;
    top:0;
    left:50%;
-   margin: 60px 0 0 -280px;
+   margin: 60px 0 60px -280px;
    width: 780px;
 }
 #footer-text {
   position: relative;
-  text-align: left;
+  text-align: center;
   width:1000px;
-  padding:10px 0;
+  padding:8px 0;
   margin: 0 auto;
 }
 #footer {
-  position: relative;
+  position: fixed;
+  left:0;
+  bottom:0;
   text-align: center;
   width:100%;
-  background: #bbb; 
-  color:#eee; 
-  border-top:1px solid #999; 
-  text-shadow: 0 -1px 0 #999;
+  background: #eee; 
+  color:#808080; 
+  font-size:12px;
+  border-top:2px solid #ccc; 
 }
-
-
-
-  .left {
-      text-align: left;
-  }
-  .right {
-      text-align: right;
-  }
-
-
+.left {text-align: left;}
+.right {text-align: right;}
 
 /* #preamble {position: absolute;right: 0;top: -370px;} */
-.toctitle {color:#969692;}
-.toclevel1 {font-size:1.2em; margin-top:10px;}
-.toclevel2 {margin-left:20px;}
-.toclevel3 {margin-left:40px;}
-.toclevel4 {margin-left:80px;}
+#toctitle {font-size:16px;color:#000;font-weight:bold;margin-top:12px;}
+.toclevel1 {font-size:14px; margin-top:8px;}
+.toclevel2 {margin-left:17px;}
+.toclevel3 {margin-left:34px;}
+.toclevel4 {margin-left:51px;}
+
+span.run a{
+    border: 1px solid #003F81;
+    padding: 5px 10px;
+    font-size: 12px;
+    background: #0064CD;
+    color:white;
+    display: inline;
+    position: relative;
+    top: -62px;
+    float: right;
+    border-radius: 0.3em 0.3em 0.3em 0.3em;
+  -webkit-border-radius: 0.3em 0.3em 0.3em 0.3em;
+  -moz-border-radius: 0.3em 0.3em 0.3em 0.3em;
+}
+
+/*tip block*/
+div.admonitionblock {
+    margin: 15px 0;
+    background:#F8F8F8;
+    border:1px solid #ddd;
+    padding:0.5em;
+      border-radius: 0.3em 0.3em 0.3em 0.3em;
+  -webkit-border-radius: 0.3em 0.3em 0.3em 0.3em;
+  -moz-border-radius: 0.3em 0.3em 0.3em 0.3em;
+    box-shadow: 0 1px 3px #CCCCCC inset;
+    -webkitbox-shadow: 0 1px 3px #CCCCCC inset;
+    -mozbox-shadow: 0 1px 3px #CCCCCC inset;
+}
+div.admonitionblock table td {border:none;}
+/*image block*/
+.imageblock {
+    border: 1px solid #CCCCCC;
+    border-radius: 0.3em 0.3em 0.3em 0.3em;
+    -webkit-border-radius: 0.3em 0.3em 0.3em 0.3em;
+    -moz-border-radius: 0.3em 0.3em 0.3em 0.3em;
+    box-shadow: 0 1px 3px #CCCCCC inset;
+    -webkitbox-shadow: 0 1px 3px #CCCCCC inset;
+    -mozbox-shadow: 0 1px 3px #CCCCCC inset;
+}
+.imageblock img {
+    border:none;
+    max-width:100%;
+}
+div.listingblock div.title {font-weight:bold;}
 }
 
 /**
@@ -163,55 +215,55 @@ pre {
 /**
  * {1 General stuff}
  */
-
-  html {
-  }
-  body {
-      color:       #252525;
-      line-height: 1.4em;
-      font-weight: normal;
-      font-family: serif;
-      text-shadow: 0 1px 0 white;
-      text-align:  left;
-      width:       20cm;
-  }
-  * {
+* {
       margin:  0;
       padding: 0;
-  }
-  #header, #footer {
+}
+html {
+}
+body {
+      color:#454545;
+      font-size:14px;
+      line-height:20px;
+      font-weight: normal;
+      font-family: "Lucida Grande", Helvetica, Arial, sans-serif;
+      text-align:left;
+      background: #FFF;
+}
+
+#header, #footer {
       display:none;
-  }
-  #footnotes {
+}
+#footnotes {
       page-break-before:always;
-  }
-  img {
+}
+img {
       page-break-inside:avoid;
       position:relative;
       margin:10px auto;
       text-align:center;
       display:block;
-  }
+}
+/*links*/
+a, a:link, a:visited {color: #0B67B2;text-decoration: none;}
+a:hover {color: #0B4D86;text-decoration: underline;}
+a:active {color: #B30A0A;}
 
-  a, a:link, a:visited {
-      color:           #0B67B2;
-      text-decoration: none;
-      display:         inline;
-      font-style:      italic;
-  }
-  ul, ol { margin: 0 0 1.5em 0; }
-  ul li, ol li {list-style-type: disc;margin:0;}
-  ul li ul, ol li ol {margin-left:20px;}
-  ul, ol {list-style-image: none;  list-style-position: inside;}
-  ul > li {color: #B6B6B2;}
-  ul > li >* {color: #252525;}
+/*Lists*/
+ul, ol { margin: 0 0 10px 17px; }
+ul li, ol li {list-style-type: disc;margin:0;}
+ul li ul, ol li ol {margin-left:17px;}
+ul, ol {list-style-image: none;  list-style-position: ioutside;}
+
+ul > li {color: #808080;}
+ul > li >* {color: #454545;}
 
 
 /**
  * {1 Listings}
  */
 
-  pre {
+pre {
       font-size: small;
       overflow:  hidden;/*Do not remove this: otherwise, wkhtmltopdf will adjust margin&font size arbitrarily to
                           print <pre>, which generally breaks everything else.*/
@@ -387,48 +439,4 @@ pre {
   button {padding: 2px 6px 3px 6px;}
   li p, td p {display:inline;}
 */
-}
-
-span.run {
-    border: 1px solid gray;
-    padding: 8px;
-    font-size: 1.2em;
-    border-radius: 8px;
-    background: #DDD;
-    display: inline;
-    position: relative;
-    top: -62px;
-    float: right;
-}
-
-/*tip block*/
-div.admonitionblock {
-    margin: 15px 0;
-    background:#F8F8F8;
-    border:1px solid #ddd;
-    padding:0.5em;
-      border-radius: 0.3em 0.3em 0.3em 0.3em;
-  -webkit-border-radius: 0.3em 0.3em 0.3em 0.3em;
-  -moz-border-radius: 0.3em 0.3em 0.3em 0.3em;
-    box-shadow: 0 1px 3px #CCCCCC inset;
-    -webkitbox-shadow: 0 1px 3px #CCCCCC inset;
-    -mozbox-shadow: 0 1px 3px #CCCCCC inset;
-}
-div.admonitionblock table td {border:none;}
-/*image block*/
-.imageblock {
-    border: 1px solid #CCCCCC;
-    border-radius: 0.3em 0.3em 0.3em 0.3em;
-    -webkit-border-radius: 0.3em 0.3em 0.3em 0.3em;
-    -moz-border-radius: 0.3em 0.3em 0.3em 0.3em;
-    box-shadow: 0 1px 3px #CCCCCC inset;
-    -webkitbox-shadow: 0 1px 3px #CCCCCC inset;
-    -mozbox-shadow: 0 1px 3px #CCCCCC inset;
-}
-.imageblock img {
-    border:none;
-    max-width:100%;
-}
-div.listingblock div.title {
-    font-weight:bold;
 }
