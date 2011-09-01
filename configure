@@ -13,7 +13,7 @@ opalang configure script. Options:
         -ocamlopt <path>	the ocaml compiler to use
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
-        -no-camlidl		disable features based on camlidl
+        -camlidl		enable features based on camlidl
         -no-dbm  		disable features based on dbm
         -help			shows this message
 EOF
@@ -21,6 +21,9 @@ EOF
 }
 
 cd "$OPA_SOURCE_DIR"
+
+NO_CAMLIDL=1
+NO_DBM=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -52,6 +55,12 @@ while [ $# -gt 0 ]; do
             ;;
         -no-ocamlfind)
             NO_OCAMLFIND=1
+            ;;
+        -camlidl)
+            NO_CAMLIDL=0
+            ;;
+        -dbm)
+            NO_DBM=0
             ;;
         -no-camlidl)
             NO_CAMLIDL=1
