@@ -827,13 +827,13 @@ do repeat(10,(-> println("Hello!")))
 do inrange(1,10,(i -> println("{i}")))
 
 // summing integer starting from 1 until the sum is greater than 50
-// while has type: ('state -> ('state, bool)), 'state -> 'state
+// while has type: 'state, ('state -> ('state, bool)) -> 'state
 ~{sum ...} =  // we only return the sum, ie the first field of the pair
    while({sum=0 i=1},
          (~{sum i} ->
             sum = sum + i
             i = i + 1
-            ~{sum i}, (sum > 50)))
+            ~{sum i}, (sum <= 50)))
 
 // the same function with the for function
 // for has type: 'state, ('state -> 'state), ('state -> bool) -> 'state
@@ -841,7 +841,7 @@ do inrange(1,10,(i -> println("{i}")))
   for(
     {sum=0 i=1}, // the initial state
     (~{sum i} -> {sum=sum+i i=i+1}), // the function that computes the next state
-    (~{sum ...} -> sum > 50) // the function that tells if we should continue
+    (~{sum ...} -> sum <= 50) // the function that tells if we should continue
   )
 
 /* the equivalent with an imperative syntax:
@@ -857,7 +857,7 @@ In the above,
 - assignments +sum=0; i=1+ correspond to the record +\{sum=0 i=1}+ above;;
 - the body of the loop  +sum=sum+i; i=i+1+ corresponds +
   to the function +~{sum i} -> \{sum=sum+i; i=i+1}+;
-- the check of termination +sum <= 50+ corresponds to +~{sum ...} -> sum > 50+.
+- the loop condition +sum <= 50+ corresponds to +~{sum ...} -> sum <= 50+.
 
 Additional loop functions may be easily created, either by building them from
 these functions, or through <<recursion>>.
