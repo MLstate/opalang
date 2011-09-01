@@ -36,6 +36,7 @@
   * A module for very basic file access
   */
 File = {{
+  exists = %% BslFile.exists %% : string -> bool
   content = %% BslFile.content %% : string -> string
   content_opt = %% BslFile.content_opt %% : string -> option(string)
   is_directory = %% BslFile.is_directory %% : string -> bool
