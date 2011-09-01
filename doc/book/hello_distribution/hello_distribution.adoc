@@ -47,7 +47,7 @@ It's now time to distribute !
 Distributing Hello, chat
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Done! footnote:[*abracadabra distributa sera*] We have a distributed Hello, chat.
+Done! We have a distributed Hello, chat.
 
 Don't be confused, this is no mistake. All the versions of the chat we have been implementing
 so far are distributed.  If you want to try any of them, you just need to launch

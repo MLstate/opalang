@@ -5,8 +5,8 @@ Simple, Secure, Scalable Web Development with Opa
 :toclevels:4:
 :numbered:
 
-// image::oni.png[]
-// include1::oni.prehtml[]
+// image::opa-logo-orange.png[]
+// include1::opa-logo-orange.prehtml[]
 
 //
 // About this book:
