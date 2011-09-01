@@ -197,7 +197,7 @@ SRCDIR=$OPAGENERAL
 OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
 OPADOCGEN=$OPAGENERAL/_build/opadoc/doc # the generated API doc
 
-./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release
+./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release -no-dbm
 
 make clean distrib install
 
