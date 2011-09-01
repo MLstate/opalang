@@ -281,7 +281,7 @@ OpaDocTree = {{
   of_files(files) =
     aux(acc, path) =
       key  = {file = path}
-      path_dot = String.replace(File.dir_sep, ".", path)
+      path_dot = OpaDocUtils.uri_of_path(path)
       node = {
         tree  = none
         id    = "node_file_{path_dot}"

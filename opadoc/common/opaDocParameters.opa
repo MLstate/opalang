@@ -43,6 +43,7 @@ type OpaDocParameters.t = {
   help       : bool
   output_dir : option(string)
   private    : bool
+  long_uris  : bool
 }
 
 /**
@@ -59,6 +60,7 @@ OpaDocParameters = {{
     help       = false
     output_dir = {none}
     private    = false
+    long_uris  = false
   }
 
   /**
@@ -99,6 +101,13 @@ OpaDocParameters = {{
         param_doc = "<dir>"
         on_param(state) = parser path=(.*) ->
           state = { state with output_dir = {some = Text.to_string(path)}}
+          {no_params = state}
+      },
+      { CommandLine.default_parser with
+        names = [ "--long-uris" ]
+        description = "Use long uris of the form stdlib.core.rpc.core.network.opa instead of network.opa"
+        on_encounter(state) =
+          state = { state with long_uris = true }
           {no_params = state}
       },
     ]
