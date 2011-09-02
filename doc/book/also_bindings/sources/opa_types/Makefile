@@ -1,8 +1,8 @@
-### if Opa has been compiled with Dbm support, nothing to add
-### (uncomment if Opa compiler is without Dbm support)
-# # dbm is in a subdirectory of ocaml libs
-# INCLUDE=-I +dbm
-# LINK=dbm.cmxa
+### if Opa has been compiled with Dbm support, nothing to add (comment these lines)
+### if Opa compiler is without Dbm support, uncomment them
+### dbm is in a subdirectory of ocaml libs
+INCLUDE=-I +dbm
+LINK=dbm.cmxa
 
 
 all : plugin opa
