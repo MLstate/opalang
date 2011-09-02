@@ -109,10 +109,15 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
                     match Requestdef.ResponseHeader.get_string `Content_Length header with
                     | Some s ->
                         begin
-                          match try Some (int_of_string s == String.length body) with Failure _ -> None
+                          let len = String.length body in
+                          match try Some (int_of_string s == len) with Failure _ -> None
                           with
                           | Some true  -> success (status, header, body)
-                          | Some false -> failure (`Cannot_parse_response (Printf.sprintf "(incorrect size %s, expected %d)" s (String.length body)))
+                          | Some false ->
+                              if (len = 0) && ("HEAD" = request_kind) then
+                                success (status, header, body)
+                              else
+                                failure (`Cannot_parse_response (Printf.sprintf "(incorrect size %s, expected %d)" s (String.length body)))
                           | None       -> failure (`Cannot_parse_response (Printf.sprintf "(invalid size %S, expected an integer)" s))
                         end
                     | _ -> success (status, header, body)
