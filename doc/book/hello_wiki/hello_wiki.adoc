@@ -6,14 +6,6 @@ In itself, developing a simple wiki is error-prone but otherwise not very diffic
 developing a rich wiki that both scales up and does not suffer from vulnerabilities caused by
 the content provided by users is quite harder. Once again, Opa makes it simple.
 
-
-
-//
-// About this chapter:
-//   Main author: David
-//   Paired author:?
-//
-
 In this chapter, we will see how to program a complete, albeit simple, wiki
 application in Opa. Along the way, we will introduce the Opa database, the
 client-server security policy, the mechanism used to incorporate user-defined
@@ -42,6 +34,8 @@ safe format, we define the user interface and finally, the main application.  In
 the rest of the chapter, we will walk you through all the concepts and
 constructions introduced.
 
+As for the chat, we use http://twitter.github.com/bootstrap/[Bootstrap CSS from
+Twitter] with a single import line.
 
 Setting up storage
 ~~~~~~~~~~~~~~~~~~
@@ -95,13 +89,14 @@ makes manipulation of data easier:
 
 [source,opa]
 -----------------
-db /wiki[_] = Template.text("This page is empty")
+db /wiki[_] = Template.text("This page is empty. Double-click to edit.")
 -----------------
 
 The square brackets +[_]+ are a convention to specify that we are talking about
-the contents of a map and, more precisely, providing a default value. Here,
-the default value is +Template.text("This page is empty")+, i.e. a simple
-text in our templating system. As expected, it has type +Template.default_content+.
+the contents of a map and, more precisely, providing a default value. Here, the
+default value is +Template.text("This page is empty. Double-click to edit.")+,
+i.e. a simple text in our templating system. As expected, it has type
++Template.default_content+.
 
 With these two lines, the database is set. Any data written to the database will
 be kept persistent, versioned and snapshoted regularly. Should you stop and
@@ -255,9 +250,12 @@ As previously, we define a function to produce the user interface:
 display(topic) =
 (
    Resource.styled_page("About {topic}", ["/resources/css.css"],
-     <div id=#header><div id=#logo></div>About {topic}</div>
-     <div class="show_content" id=#show_content ondblclick={_ -> edit(topic)}>{load_source(topic)}</>
-     <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={_ -> save(topic)}></>
+     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="content container">
+       <div class="page-header"><h1>About {topic}</></>
+       <div class="well" id=#show_content ondblclick={_ -> edit(topic)}>{load_rendered(topic)}</>
+       <textarea clas="xxlarge" rows="30" id=#edit_content onblur={_ -> save(topic)}></>
+     </div>
    )
 )
 -----------------
@@ -330,7 +328,7 @@ To get this to work, we need to define a function +start+ as follows:
 start(uri) = (
   match uri with
    | {path = {nil} ...} -> display("Hello")
-   | {path = path  ...} -> display(List.to_string_using("", "", "::", path))
+   | {path = path  ...} -> display(String.concat("::", path))
 )
 ----------------
 
@@ -349,13 +347,14 @@ pattern did not match, for instance on a request to "http://localhost:8080/hello
 In both cases, we execute function +display+. The first case is trivial, while
 in the second case, we first convert our list to a string, with separator +"::"+.
 
-Actually, we will make it a tad nicer by also ensuring that the first letter is uppercase.
-Along the way, we can make this function shorter:
+Actually, we will make it a tad nicer by also ensuring that the first letter is
+uppercase, while the other letters are lowercase. Along the way, we can make
+this function shorter:
 [source,opa]
 ----------------
 start =
    | {path = [] ...} -> display("Hello")
-   | {~path     ...} -> display(String.capitalize(List.to_string_using("", "", "::", path))
+   | {~path     ...} -> display(String.capitalize(String.to_lower(String.concat("::", path))))
 ----------------
 
 In this new version, we use a shorter syntax for pattern-matching. We use +[]+

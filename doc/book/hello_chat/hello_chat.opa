@@ -50,7 +50,9 @@ user_update(x: message) =
  * @param author The name of the author. Will be included in the message broadcasted.
  */
 broadcast(author) =
-  do Network.broadcast({~author text=Dom.get_value(#entry)}, room)
+  text = Dom.get_value(#entry)
+  message = {~author ~text}
+  do Network.broadcast(message, room)
   Dom.clear_value(#entry)
 
 /**

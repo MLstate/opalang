@@ -44,6 +44,21 @@ In this listing, we define the communication infrastructure for the chatroom,
 the user interface, and finally, the main application. In the rest of the
 chapter, we will walk you through all the concepts and constructions introduced.
 
+A bit of style
+~~~~~~~~~~~~~~
+
+Before exposing the real machinery, let's care from the start how the
+apllication should look like, with this single import line:
+
+[source,opa]
+------------------------
+import stdlib.themes.bootstrap
+------------------------
+
+This automatically brings http://twitter.github.com/bootstrap/[Bootstrap CSS
+from Twitter] to your application, so you can use the predefined classes that
+will just look nice.
+
 Setting up communications
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -138,18 +153,20 @@ For starters, consider a possible skeleton for the user interface:
 .Skeleton of the user interface (incomplete)
 [source,opa]
 ------------------------
-<div id=#header><div id=#logo></div></div>
-<div id=#conversation></div>
-<input id=#entry/>
-<div class="button">Send!</div>
+<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div id=#conversation class="container"></div>
+<div id=#footer><div class="container">
+  <input id=#entry class="xlarge"/>
+  <div class="btn primary" >Post</div>
+</div></div>
 ------------------------
 
-If you are familiar with HTML, you will recognize easily that this skeleton defines
-a few boxes (or +<div>+), called respectively +header+, +logo+ and +conversation+ and
-one without a name but with a style class +button+,
-as well as a text input zone (or +<input>+) called +entry+. We will use these names to add
-interactions and style. If you are not familiar with HTML, it might be a good idea to
-grab https://developer.mozilla.org/En/HTML[a good HTML reference] and check up the tags as you see them.
+If you are familiar with HTML, you will recognize easily that this skeleton
+defines a few boxes (or +<div>+), with some names (or +id+) and some classes, as
+well as a text input zone (or +<input>+) called +entry+. We will use these names
+to add interactions and style. If you are not familiar with HTML, it might be a
+good idea to grab https://developer.mozilla.org/En/HTML[a good HTML reference]
+and check up the tags as you see them.
 
 Actually, for convenience, and because it fits with the rest of the library, we will
 put this user interface inside a function, as follows:
@@ -159,10 +176,12 @@ put this user interface inside a function, as follows:
 ------------------------
 start() =
 (
-  <div id=#header><div id=#logo></div></div>
-  <div id=#conversation></div>
-  <input id=#entry/>
-  <div class="button">Send!</div>
+  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+  <div id=#conversation class="container"></div>
+  <div id=#footer><div class="container">
+    <input id=#entry class="xlarge"/>
+    <div class="btn primary" >Post</div>
+  </div></div>
 )
 ------------------------
 
@@ -209,10 +228,12 @@ At this stage, we can already go a bit further and invent an author name, as fol
 start() =
 (
   author = Random.string(8)
-  <div id=#header><div id=#logo></div></div>
-  <div id=#conversation></div>
-  <input id=#entry/>
-  <div class="button">Send!</div>
+  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+  <div id=#conversation class="container"></div>
+  <div id=#footer><div class="container">
+    <input id=#entry class="xlarge"/>
+    <div class="btn primary" >Post</div>
+  </div></div>
 )
 ------------------------
 
@@ -270,9 +291,11 @@ denotes the manipulation of the contents of a web page once that page is display
 in the browser.
 =======================
 
-Speaking of types, it is generally a good idea to know the type of functions. Function +broadcast+
-has type +string \-> void+, meaning that it takes an argument with type +string+ and produces a
-value with type +void+. We could have written just as well:
+Speaking of types, it is generally a good idea to know the type of
+functions. Function +broadcast+ has type +string \-> void+, meaning that it
+takes an argument with type +string+ and produces a value with type
++void+. Also, writing +{author=author text=text}+ is a bit painful, so we added
+a syntactic sugar for this. We could have written just as well:
 
 .Broadcasting a message to the room (variant)
 [source,opa]
@@ -280,7 +303,7 @@ value with type +void+. We could have written just as well:
 broadcast(author: string): void =
 (
    text    = Dom.get_value(#entry)
-   message = {author=author text=text}
+   message = {~author ~text}
    do Network.broadcast(message, room)
    Dom.clear_value(#entry)
 )
@@ -301,9 +324,11 @@ that we want to be called whenever the network propagates a message:
 ------------------------
 user_update(x: message) =
 (
-  line = <div class="line">
-            <div class="user">{x.author}:</div>
-            <div class="message">{x.text}</div>
+  line =  <div class="row line">
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{x.author}:</div>
+            <div class="span13 columns message">{x.text}
+            </div>
          </div>
   do Dom.transform([ #conversation +<- line ])
   Dom.scroll_to_bottom(#conversation)
@@ -354,10 +379,12 @@ Let us connect +broadcast+ to our button and our input. This changes function +s
 start() =
 (
   author = Random.string(8)
-  <div id=#header><div id=#logo></div></div>
-  <div id=#conversation></div>
-  <input id=#entry onnewline={_ -> broadcast(author)}/>
-  <div class="button" onclick={_ -> broadcast(author)}>Send!</div>
+  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+  <div id=#conversation class="container"></div>
+  <div id=#footer><div class="container">
+    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
+    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
+  </div></div>
 )
 ------------------------
 
@@ -389,10 +416,12 @@ the user loads the page, as follows:
 start() =
 (
   author = Random.string(8)
-  <div id=#header><div id=#logo></div></div>
-  <div id=#conversation onready={_ -> Network.add_callback(user_update, room)}></div>
-  <input id=#entry onnewline={_ -> broadcast(author)}/>
-  <div class="button" onclick={_ -> broadcast(author)}>Send!</div>
+  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+  <div id=#conversation class="container" onready={_ -> Network.add_callback(user_update, room)}></div>
+  <div id=#footer><div class="container">
+    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
+    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
+  </div></div>
 )
 ------------------------
 

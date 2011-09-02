@@ -7,15 +7,7 @@
 }
 /***Editing area***/
 .content {margin-top:60px;}
-.edit_content {
-     background: #fcfcfc;
-     padding:0;
-     width:100%;
-}
-dt {
-    font-weight: bold;
-}
-
-dd {
-    text-indent: 5px;
+#edit_content {
+  width:100%;
+  display: none; /* initially hidden */
 }

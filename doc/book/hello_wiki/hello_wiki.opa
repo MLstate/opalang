@@ -5,6 +5,9 @@
  */
 import stdlib.themes.bootstrap
 
+/**
+ * {1 Import templates}
+ */
 import stdlib.web.template
 
 /**
@@ -41,7 +44,7 @@ db /wiki[_] = Template.text("This page is empty. Double-click to edit.")
  *
  * Note: This function does not perform any caching.
  */
-@publish load_rendered(topic) = Template.to_xhtml( Template.default, /wiki[topic])
+@publish load_rendered(topic) = Template.to_xhtml(Template.default, /wiki[topic])
 
 /**
  * Accept source code, save the corresponding document in the database.
@@ -107,12 +110,10 @@ save(topic) =
 display(topic) =
    Resource.styled_page("About {topic}", ["/resources/css.css"],
      <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
-     <div class="content container"><h1>About {topic}</h1>
-          <div id=#show_content ondblclick={_ -> edit(topic)}>
-       {load_rendered(topic)}
-          </>
-          <textarea class="edit_content" id=#edit_content style="display:none"
-       cols="40" rows="30" onblur={_ -> save(topic)}></>
+     <div class="content container">
+       <div class="page-header"><h1>About {topic}</></>
+       <div class="well" id=#show_content ondblclick={_ -> edit(topic)}>{load_rendered(topic)}</>
+       <textarea clas="xxlarge" rows="30" id=#edit_content onblur={_ -> save(topic)}></>
      </div>
    )
 
@@ -129,7 +130,7 @@ start =
    | {path = [] ... } ->
        display("Hello")
    | {~path ...}      ->
-       display(String.capitalize(String.to_lower(List.to_string_using("", "", "::", path))))
+       display(String.capitalize(String.to_lower(String.concat("::", path))))
 
 /**
  * Statically embed a bundle of resources

@@ -1,3 +1,13 @@
+/**
+ * {1 Import standard classes of bootstrap css}
+ *
+ * see http://twitter.github.com/bootstrap/
+ */
+import stdlib.themes.bootstrap
+
+/**
+ * {1 Import templates}
+ */
 import stdlib.web.template
 
 /**
@@ -11,7 +21,7 @@ import stdlib.web.template
  * Note: By definition, pages stored in the database are always well-formed.
  */
 db /wiki: stringmap(Template.default_content)
-db /wiki[_] = Template.text("This page is empty")
+db /wiki[_] = Template.text("This page is empty. Double-click to edit.")
 
 
 /**
@@ -99,12 +109,12 @@ save(topic) =
  */
 display(topic) =
    Resource.styled_page("About {topic}", ["/resources/css.css"],
-     <div id=#header><div id=#logo></div>About {topic}</div>
-     <div class="show_content" id=#show_content ondblclick={_ -> edit(topic)}>
-       {load_rendered(topic)}
-     </>
-     <textarea class="edit_content" id=#edit_content style="display:none"
-       cols="40" rows="30" onblur={_ -> save(topic)}></>
+     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="content container">
+       <div class="page-header"><h1>About {topic}</></>
+       <div class="well" id=#show_content ondblclick={_ -> edit(topic)}>{load_rendered(topic)}</>
+       <textarea clas="xxlarge" rows="30" id=#edit_content onblur={_ -> save(topic)}></>
+     </div>
    )
 
 /**
@@ -120,7 +130,7 @@ start =
    | {path = [] ... } ->
        display("Hello")
    | {~path ...}      ->
-       display(String.capitalize(String.to_lower(List.to_string_using("", "", "::", path))))
+       display(String.capitalize(String.to_lower(String.concat("::", path))))
 
 /**
  * Statically embed a bundle of resources
@@ -131,4 +141,3 @@ server = Server.of_bundle([@static_include_directory("resources")])
  * Launch the [start] dispatcher
  */
 server = Server.simple_dispatch(start)
-
