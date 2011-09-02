@@ -248,7 +248,7 @@ let response_header_of_string = function
   | "Last-Modified" -> `Last_Modified
   | "Accept-Ranges" -> `Accept_Ranges
   | "Age" -> `Age
-  | "ETag" -> `ETag
+  | "ETag" | "Etag" -> `ETag
   | "Location" -> `Location
   | "Proxy-Authenticate" -> `Proxy_Authenticate
   | "Retry-After" -> `Retry_After
