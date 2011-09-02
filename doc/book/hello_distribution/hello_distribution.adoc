@@ -1,12 +1,12 @@
 Hello, scalability
 ------------------
 
-[WARNING]
-.You may need to upgrade Opa
-=============
-Examples in this chapter require a version of Opa dated from May the 25th, 2011, or later
-i.e. build 28532 or greater.
-=============
+// [WARNING]
+// .You may need to upgrade Opa
+// =============
+// Examples in this chapter require a version of Opa dated from May the 25th, 2011, or later
+// i.e. build 28532 or greater.
+// =============
 
 //
 // About this chapter:

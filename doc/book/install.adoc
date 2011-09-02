@@ -86,6 +86,7 @@ Should you wish to work on an unsupported platform, or to contribute to Opa, you
 installation, but you should have no major difficulties. You will need:
 
 - git (to download the source);
+- ocaml 3.12.0-5 or later
 - libgif 4.1 or later (dev version)
 - libjpeg 8b-1 or later (dev version)
 - libpng 1.2.44 or later (dev version)
