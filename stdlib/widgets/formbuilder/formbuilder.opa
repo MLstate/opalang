@@ -227,7 +227,7 @@ WFormBuilder =
   /** {1 Fields interfaces} */
 
   string_accessor(data) =
-    v = get_val_string(data.id)
+    v = get_val_string("{data.id}_input")
     if String.is_empty(v) then
       {no_value}
     else
