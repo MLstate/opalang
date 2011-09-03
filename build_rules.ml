@@ -650,8 +650,8 @@ rule "opadep: .opa -> .opa.depends"
   ~dep: "%.opa"
   ~prod: "%.opa.depends"
   (fun env build ->
-     let dep_regex = "^ *import \\+\\(.\\+\\)$" in
-     Cmd(S[sed; A("s%"^dep_regex^"%\\1.opx%; t OK; d; :OK s% %%g"); P(env "%.opa");
+     let dep_regex = "^ *import  \\*\\(.\\+\\) *$" in
+     Cmd(S[sed; A"-n"; A("s%"^dep_regex^"%\\1.opx%p"); P(env "%.opa");
            Sh">";P(env "%.opa.depends")]));
 
 rule "opacomp: .opa -> .native"

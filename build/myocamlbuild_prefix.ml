@@ -319,11 +319,11 @@ let _ = dispatch begin function
         ~dep:"%.mllibp"
         ~prod:"%.mllib"
         (fun env _build ->
-           let tags = String.uppercase (String.concat "\\|" Config.available) in
+           let tags = String.uppercase (String.concat "|" Config.available) in
            let sedexpr =
-             Printf.sprintf "s/^?HAS_\\(%s\\)://; t OK; /^?HAS_.*:/d; :OK" tags
+             Printf.sprintf "s/^\\?HAS_(%s)://; /HAS_.*:/d" tags
            in
-           Cmd(S[sed; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
+           Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
 
       (* Windows specific : redefinition of an existing rule in Ocaml_specific.ml,
          Louis please have a look to avoid the two copies at the end
