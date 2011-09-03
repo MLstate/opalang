@@ -272,7 +272,7 @@ WFormBuilder =
     </>
 
   render_passwd_input(~{data ...}) =
-    <input type="passwd" id={data.ids.input_id} />
+    <input type="password" id={data.ids.input_id} />
 
   render_combobox(~{data initial_value}, options, to_id, to_label) =
     mk_option(opt) =
