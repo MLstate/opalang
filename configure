@@ -125,7 +125,7 @@ esac
 
 echo-check your architecture
 case $(uname -m) in
-    x86_64)
+    x86_64|amd64)
         echo-ok x86_64;;
     i?86)
         echo-ok ix86;;
