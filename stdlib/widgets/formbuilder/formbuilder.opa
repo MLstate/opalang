@@ -78,7 +78,6 @@ type WFormBuilder.field_data =
   ; optionality : {optional} / {required : xhtml}
   }
 
-@abstract
 type WFormBuilder.field('ty) =
   { data : WFormBuilder.field_data
   ; initial_value : option('ty)
@@ -228,7 +227,7 @@ WFormBuilder =
   /** {1 Fields interfaces} */
 
   string_accessor(data) =
-    v = get_val_string(data.id)
+    v = get_val_string("{data.id}_input")
     if String.is_empty(v) then
       {no_value}
     else
@@ -272,7 +271,7 @@ WFormBuilder =
     </>
 
   render_passwd_input(~{data ...}) =
-    <input type="passwd" id={data.ids.input_id} />
+    <input type="password" id={data.ids.input_id} />
 
   render_combobox(~{data initial_value}, options, to_id, to_label) =
     mk_option(opt) =
