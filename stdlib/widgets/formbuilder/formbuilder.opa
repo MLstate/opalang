@@ -78,7 +78,6 @@ type WFormBuilder.field_data =
   ; optionality : {optional} / {required : xhtml}
   }
 
-@abstract
 type WFormBuilder.field('ty) =
   { data : WFormBuilder.field_data
   ; initial_value : option('ty)
