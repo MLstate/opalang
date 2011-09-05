@@ -59,7 +59,7 @@
  */
 
 import stdlib.web.client
-import stdlib.widgets.hlist
+import stdlib.widgets.deprecated.hlist
 import stdlib.widgets.core
 
 DEBUG = false // sould be replaced by something usable at runtime for debugging...

@@ -28,7 +28,7 @@
 
 import stdlib.web.client
 import stdlib.widgets.core
-import stdlib.widgets.hlist
+import stdlib.widgets.deprecated.hlist
 
 /*
  * {1 About this module}
