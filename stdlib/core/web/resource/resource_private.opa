@@ -621,7 +621,9 @@ required_customizer_for_opa_ad =
 @private autoloaded_js = Mutable.make([] : list(string))
 @private autoloaded_css = Mutable.make([] : list(string))
 @package register_external_js(url : string) = autoloaded_js.set([url | autoloaded_js.get()])
+@package unregister_external_js(url : string) = autoloaded_js.set(List.remove(url, autoloaded_js.get()))
 @package register_external_css(url : string) = autoloaded_css.set([url | autoloaded_css.get()])
+@package unregister_external_css(url : string) = autoloaded_css.set(List.remove(url, autoloaded_css.get()))
 
 customizer_autoloaded : platform_customization =
   _ -> some(

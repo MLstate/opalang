@@ -295,7 +295,7 @@ icon16 = css
 
 
 @private
-icon32 = css 
+icon32 = css
 
 /* ---------------- Icons 32px ---------------- */
 /* Default 32px gray icon for light backgrounds */
@@ -518,4 +518,13 @@ icon32 = css
 /* register resources */
 
 _ = Client_code.register_css_declaration([icon16,icon32])
-_ = Resource.register_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-1.1.1.min.css")
+
+@private
+version = "1.1.1" // use a Reference in order to modify it at runtime?
+_ = Resource.register_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{version}.min.css")
+
+Bootstrap = {
+  import(v) =
+    do Resource.unregister_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{version}.min.css")
+    Resource.register_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{v}.min.css")
+}

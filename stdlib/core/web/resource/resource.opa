@@ -683,6 +683,8 @@ export_data({~rc_content rc_lastm=_ rc_status=_}: resource)=
    */
   register_external_js(url : string) : void = Resource_private.register_external_js(url)
   register_external_css(url : string) : void = Resource_private.register_external_css(url)
+  unregister_external_js(url : string) : void = Resource_private.unregister_external_js(url)
+  unregister_external_css(url : string) : void = Resource_private.unregister_external_css(url)
 }}
 
 
