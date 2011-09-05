@@ -102,6 +102,10 @@ Parser_private =
       | [{~from ~to} | tl] -> (c >= from && c <= to) || aux(tl)
     aux(l)
 
+  @private
+  no_progress(it1,it2) =
+    Itextrator.pos(it1):int == Itextrator.pos(it2)
+
   /**
    * [primary_list] repeatedly applies a given parsing function on the input
    * for as long as it succeeds. The result of [primary_list] is a list of
@@ -112,7 +116,8 @@ Parser_private =
     rec aux(acc, pos) =
       match f(pos) : option with
       | {some = (newpos, res)} ->
-          aux(res +> acc, newpos)
+          if no_progress(pos,newpos) then (pos, List.rev(acc))
+          else aux(res +> acc, newpos)
       | _ ->
           (pos, List.rev(acc))
     res = aux([], init_pos);
@@ -125,16 +130,15 @@ Parser_private =
    * As [primary_list] but we do not care about the result.
    */
   primary_list_no_res(is_plus, f, init_pos) =
-    rec aux(pos, input_needed) =
+    rec aux(pos) =
       match f(pos) : option with
       | {some = (newpos, _)} ->
-          aux(newpos, false)
-      | _ ->
-          if input_needed then
-            none
-          else
-            some((pos, void))
-    aux(init_pos, is_plus)
+          if no_progress(pos,newpos) then pos
+          else aux(newpos)
+      | _ -> pos
+    pos = aux(init_pos)
+    if is_plus && no_progress(init_pos,pos) then none
+    else some((pos,void))
 
   /*
    * [parse_literal(it, literal)] checks whether the text contained by
