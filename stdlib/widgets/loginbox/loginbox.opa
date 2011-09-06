@@ -152,13 +152,13 @@ WLoginbox =
       logged_id   = get_logged_id(id)
       unlogged_id   = get_unlogged_id(id)
       (login_css, _ /* logout_css */ ) = // Display login or logout box?
-        Option.switch(_ -> (css {display: none;}, []),
-            ([], css{display: none;}), usr_opt)
+        Option.switch(_ -> ("display:none", ""),
+            ("", "display:none"), usr_opt)
       login_form(init_username: string, init_password: string) =
       /* ugly hack : needs iframe to be the fake target of the submit form  */
         <iframe src="{prepend}{fake_url_1}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
         <form  target="{iframe_id}" method="post"  action="{prepend}{fake_url_2}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
-        <span id={get_not_logged_id(id)} style={login_css}>
+        <span id={get_not_logged_id(id)} style="{login_css}">
           {match config.login_label
            {some=s} -> <label for={username_id}>{s}</label>
            {none} -> <></>}
