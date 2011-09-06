@@ -26,6 +26,7 @@ bslReference.ml
 bslNumber.ml
 
 bslJson.ml
+bslBson.ml
 bslMinJs.ml
 bslValue.ml
 bslSyslog.ml

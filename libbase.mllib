@@ -58,6 +58,7 @@ libbase/Fresh
 libbase/DependenciesOrdering
 libbase/DebugPrint
 libbase/Return
+libbase/BaseStringSlice
 # the following libs can be split into 2 libs for_compiler & for_server
 libbase/Uchar
 libbase/Heap

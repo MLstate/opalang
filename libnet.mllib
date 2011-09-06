@@ -64,3 +64,5 @@ libnet/ClusterComm
 #libnet/Ec2types
 #libnet/AmazonEC2
 #libnet/Ec2serviceamazonec2
+libnet/Stuff
+libnet/Bson
