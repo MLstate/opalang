@@ -89,7 +89,7 @@ let warning_many_files_10000 =
 
 let warning_directory_does_not_exist =
   let doc = "Static inclusion: stop execution if a directory meant to be included cannot be read (generally because it doesn't exist)." in
-  WarningClass.create ~parent:warning ~doc ~name:"directory_does_not_exist" ~err:true ~enable:true ()
+  WarningClass.create ~parent:warning ~doc ~name:"directory_does_not_exist" ~err:false ~enable:true ()
 
 let warning_directory_empty =
   let doc = "Static inclusion: warn when including an empty directory." in
