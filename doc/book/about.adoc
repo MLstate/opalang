@@ -215,8 +215,6 @@ A few ways to get in touch:
 - http://stackoverflow.com[Stack Overflow], an excellent site for seeking
   help with programming problems (do not forget to mark Opa related questions with
   the ``Opa'' tag);
-- by e-mail, at mailto:feedback@opalang.org[feedback@opalang.org];
-- through http://www.facebook.com/Opalang[Facebook], as Opalang;
 - through http://twitter.com/opalang[Twitter], as opalang.
 
 We will be there!
