@@ -414,9 +414,9 @@ let is_directory path =
     st.Unix.st_kind = Unix.S_DIR
   with Unix.Unix_error _ -> false
 
-let mimetype ?magic_file file =
+let mimetype ?mime_db file =
   let database =
-    match magic_file with
+    match mime_db with
     | Some s -> File_mimetype.get_mimetype_database s
     | None -> File_mimetype.mimetype_database mlstatelibs in
   try

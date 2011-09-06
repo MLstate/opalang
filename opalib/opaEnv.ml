@@ -119,7 +119,7 @@ type opa_options = {
   rpc_options : int * int * int;
 
   profile : bool;
-  magic_file : string option;
+  mime_database : string option;
   project_root : string;
   root_inclusions : string option;
   undot : bool;
@@ -201,7 +201,7 @@ struct
     let slicer_test = ref false
     let slicer_dump = ref false
     let rpc_options = ref (1,0,0)
-    let magic_file = ref None
+    let mime_database = ref None
     let project_root = ref cwd
     let root_inclusions = ref None
     let undot = ref true
@@ -309,15 +309,12 @@ struct
 
     let set_root_inclusions dir = root_inclusions := Some dir
 
-    let set_magic_file f =
+    let set_mime_database f =
         if Sys.file_exists f && not (Sys.is_directory f) then
-            if File.extension f =  "mime" then
-                if Sys.command ("file -C -m "^f) = 0 then
-                    magic_file := Some (File.chop_extension f )
-                else
-                    OManager.error "%S : Bad magic file, try with another one which compiles" f
+            if File.extension f =  "xml" then
+                mime_database := Some f
             else
-                OManager.error "%S : Bad extension. Given file must be a .mime file" f
+                OManager.error "%S : Bad extension. Given file must be a .xml file" f
         else
           OManager.error "I/O error: @{<bright>%S@} -> No such file or directory" f
 
@@ -486,7 +483,7 @@ where options are :
           ("--opack",             Arg.String (fun s -> (!opack_file_function) s), "<opack-file> Use an options-packaging file");
           ("--project-root", Arg.String set_project_root, " Specify the root directory of the project");
           ("--root-inclusions", Arg.String set_root_inclusions, "<root> Specify the root directory of static inclusions");
-          ("--set-mime-magic-file", Arg.String set_magic_file, " Consider given magic file <my_file>.mime for detecting mimetypes. Used with the directive @static_include_directory");
+          ("--set-mime-database", Arg.String set_mime_database, " Consider given mime database for detecting mimetypes. Used with the directive @static_include_directory");
           ("--show-types",        Arg.Set show_types,        " Show types of declarations (L0 elements)");
           ("--slicer-dump",       Arg.Set slicer_dump       ," Dumps a file containing the side of identifiers and the remote calls they make");
           ("--version",           Arg.Unit (fun () -> print_version (); exit 0), " Print version and exit");
@@ -751,7 +748,7 @@ where options are :
     slicer_dump = !ArgParser.slicer_dump;
     rpc_options = !ArgParser.rpc_options;
     profile = !ArgParser.profile;
-    magic_file = !ArgParser.magic_file;
+    mime_database = !ArgParser.mime_database;
     project_root = !ArgParser.project_root;
     root_inclusions = !ArgParser.root_inclusions;
     undot = !ArgParser.undot;

@@ -110,10 +110,10 @@ val content_opt : string -> string option
      @return [None] if an error occurred, [Some] of the content instead
   *)
 
-val mimetype : ?magic_file:string -> string -> string
+val mimetype : ?mime_db:string -> string -> string
   (**
      @return the mimetype of the given filename
-     @param magic_file is a filename as accepted by the -m option of the command file
+     @param mime_db is a filename as accepted by the -m option of the command file
   *)
 
 val is_relative: string -> bool

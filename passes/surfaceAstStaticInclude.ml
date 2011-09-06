@@ -23,7 +23,7 @@ module F : sig
   val normalize_relative_path : string -> string option
   val concat : string -> string -> string
   val path_sep : string
-  val mimetype : ?magic_file:string -> string -> string
+  val mimetype : ?mime_db:string -> string -> string
   val explicit_path : string -> string option -> string
   val is_relative : string -> bool
 
@@ -284,7 +284,7 @@ let pass_static_inclusions  ~options lcode: (Ident.t, 'a) SurfaceAst.code =
         let full_path = PathTransform.string_to_mysys ~relative_position path in
 
         let mimetype  =
-          try F.mimetype ?magic_file:options.OpaEnv.magic_file full_path
+          try F.mimetype ?mime_db:options.OpaEnv.mime_database full_path
           with (File_mimetype.Open s) ->
             (OManager.warning ~wclass:warning_file_does_not_exist
               "Could not open file %s. Error encountered: %s. I'll replace that file by some debugging code." full_path s;
