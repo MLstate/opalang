@@ -100,3 +100,6 @@ libbase/Encodings
 libbase/Rcontent
 libbase/Terminal
 libbase/Wsdl2mlCommon
+# Bson
+libbase/Stuff
+libbase/Bson
