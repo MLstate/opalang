@@ -125,24 +125,19 @@ Network = {{
   @private make_generic(maker:('state, ('state, Network.instruction('message) -> Session.instruction('state)) -> channel(Network.instruction('message)))):Network.network('message) =
   (
       Set = Set_make(channel_order)
-      ref = Server_reference.create({none}): Server.reference(option(channel(Network.instruction('message))))
-      me  = maker(Set.empty,
-              chans, msg ->
-                       match msg with
-                       | {~add}       ->
-                       (
-                         match Server_reference.get(ref) with
-                           | {none} -> error("Internal error: Shared network not initialized")
-                           |~{some} ->
-                               do Session.on_remove(add, (-> remove(add, some)))
-                               {set = Set.add(add, chans)}
-                       )
-                       | {~remove}    -> {set = Set.remove(remove, chans)}
-                       | {~broadcast} ->
-                          do sleep(0, -> Set.iter(chan -> send(chan, broadcast), chans))//Note: sending asynchronously
-                          {unchanged}                                                   //to minimize critical section
-      )
-      do Server_reference.set(ref, {some = me})
+      rec val me  =
+        maker(Set.empty,
+          chans, msg ->
+            match msg with
+            | {~add}       ->
+              do Session.on_remove(add, (-> remove(add, me)))
+              {set = Set.add(add, chans)}
+            | {~remove}    ->
+              {set = Set.remove(remove, chans)}
+            | {~broadcast} ->
+              do sleep(0, -> Set.iter(chan -> send(chan, broadcast), chans))//Note: sending asynchronously
+              {unchanged}                                                   //to minimize critical section
+        )
       me
   )
 
