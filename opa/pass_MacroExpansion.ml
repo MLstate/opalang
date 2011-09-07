@@ -44,7 +44,7 @@ let macro =
     ~name:"macro"
     ~doc:"All the macro expansion related warnings"
     ~err:false
-    ~enable:false
+    ~enable:true
     ()
 
 let macro_call =
@@ -53,6 +53,16 @@ let macro_call =
     ~public:true
     ~name:"call"
     ~doc:"Call with a number of argument inconsistant with its definition, will use function call semantics instead"
+    ~err:false
+    ~enable:true
+    ()
+
+let macro_second_order =
+  WarningClass.create
+    ~parent:macro
+    ~public:true
+    ~name:"second-order"
+    ~doc:"Second order use of a macro, will use function call semantics instead"
     ~err:false
     ~enable:false
     ()
@@ -141,17 +151,21 @@ let collect_macro code =
     collect_1_macro IdentMap.empty code
 
 
-
+exception Bad_application
 (*** expanding macro call ***)
+
+let error_2nd_order ident e =
+  werror ~wclass:macro_second_order e
+    "Second order on macro-function '%s', the result will have non lazy semantic" (Ident.original_name ident)
+
 let error_call ident e =
   werror ~wclass:macro_call e
-    "Partial application of a macro-function '%s', the result will have non lazy semantic" (Ident.original_name ident)
+    "Bad application of a macro-function '%s', the result will have non lazy semantic" (Ident.original_name ident)
 
 (* collect substituation associated to applying args on the lambda expression *)
 (* What if the returned type is a lambda ? seems to be buggy *)
 let get_subst e args subs =
-  let fail () =
-    OManager.i_error "Macro Expansion, get_subst, with invalid arity" in
+  let fail () = raise Bad_application in
   match e, args with
   | Q.Lambda (_, pars, e), args ->
       if List.length pars <> List.length args then fail () else
@@ -207,7 +221,8 @@ let expand_code map_to_expand code =
          (fun self tra (subst, stack, annoto) e ->
             match e with
             | Q.Apply (label, (Q.Ident (_, i)), args)
-                  when IdentMap.mem i map_to_expand ->
+                  when IdentMap.mem i map_to_expand -> (
+              try
                 let macro = IdentMap.find i map_to_expand in
                 let count = Option.default 0 (IdentMap.find_opt i stack) in
                 if count == 0 then
@@ -218,15 +233,20 @@ let expand_code map_to_expand code =
                 else
                   let e = refresh_annot annoto e in
                   tra (subst, stack, annoto) e
+              with Bad_application ->
+                error_call i e;
+                let e = refresh_annot annoto e in
+                tra (subst, stack, annoto) e
+             )
 
-            | Q.Ident (_, i) -> (
+             | Q.Ident (_, i) -> (
                 try
                   let e = IdentMap.find i subst in
                   let e = QmlAlphaConv.expr QmlAlphaConv.empty e in
                   let e = QmlAstCons.UntypedExpr.copy e in
                   self (subst, stack, RefreshSamePos (* really need to refresh? *)) e
                 with Not_found ->
-                  if IdentMap.mem i map_to_expand then error_call i e;
+                  if IdentMap.mem i map_to_expand then error_2nd_order i e;
                   let e = refresh_annot annoto e in
                   tra (subst, stack, annoto) e
               )
