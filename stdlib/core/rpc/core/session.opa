@@ -157,14 +157,10 @@ type Session.entity = external
 /**
  * A partial order on channels
  */
-compare_channel(a:channel('msg), b:channel('msg)): Order.comparison =
-   compare_raw = %%BslSession.compare_channels_maybe%%
-   match compare_raw(a, b) with
-     | {none} -> {neq}
-     | ~{some}-> Order.of_int(some) <: Order.comparison
+compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
+  Order.of_int(%%BslSession.compare_channels%%(a, b))
 
-//TODO: Unsafe! We may need to find another mechanism for Network!
-channel_order = @nonexpansive(Order.make_unsafe(compare_channel)) : order(channel('message),Channel.order)
+channel_order = @nonexpansive(Order.make(compare_channel)) : order(channel('message),Channel.order)
 
 /** The Hlnet definitions for the protocol for "make_at" queries */
 type make_at_query = (OpaType.ty, OpaType.ty, RPC.Json.json, RPC.Json.json)

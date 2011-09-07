@@ -363,10 +363,8 @@ var LowLevelPingLoop = {};
         compare: function(to) {
             if (to instanceof LocalChannel)
                 return compare_native(this.lchan_id, to.lchan_id);
-            else if (to instanceof ServerChannel)
-                return 1;
             else
-                return null;
+                return 1;
         },
 
         owner: function(){
@@ -524,9 +522,13 @@ var LowLevelPingLoop = {};
 
 
         compare: function(to) {
-            if(to instanceof CousinClientChannel &&
-               this.cl_id == to.cl_id) return 0;
-            return null;//Cousin client channels cannot be ordered
+            if(to instanceof CousinClientChannel)
+                return compare_native(this.cl_id == to.cl_id);
+            else
+                if(to instanceof LocalChannel)
+                    return -1;
+                else // ServerChannel
+                    return 1;
         },
 
         owner: function(){
@@ -950,12 +952,10 @@ var LowLevelPingLoop = {};
         return false
 }
 
-##register compare_channels_maybe : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> option(int)
+##register compare_channels : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> int
 ##args(ch1, ch2)
 {
-    var result = ch1.compare(ch2);
-    if(result==null) return js_none;
-    else return js_some(result);
+    return ch1.compare(ch2);
 }
 
 ##register llsend : Session.private.native('b, 'c), ('b -> RPC.Json.private.native), 'b, option('c) -> void

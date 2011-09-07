@@ -1192,8 +1192,8 @@ let on_remove_cps chan f k =
 ##register equals_channel : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> bool
 let equals_channel a b = Channel.compare a b = 0
 
-##register compare_channels_maybe : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> option(int)
-let compare_channels_maybe a b = Some (Channel.compare a b) (*Server-side comparison of channels always works*)
+##register compare_channels : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> int
+let compare_channels a b = Channel.compare a b (*Server-side comparison of channels always works*)
 
 ##register get_more : Session.private.native('msg, 'ctx) -> option('more)
 let get_more chan =
