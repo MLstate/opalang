@@ -156,6 +156,12 @@ HttpRequest = {{
       get_headers(x).header_get("Host")
 
     /**
+     * Try to get the "Accept-Language" header of a connexion
+     */
+    `get_Accept-Language`(x: HttpRequest.request): option(string) =
+      get_headers(x).header_get("Accept_Language")
+
+    /**
      * Indicates if the given request is secured
      */
     is_secured(x: HttpRequest.request): bool =
