@@ -19,11 +19,12 @@
 /**
  * A configurable hierarchical list widget.
  *
- * @author Frederic Ye 2010, Nicolas Glondu 2011
+ * @author Frederic Ye 2010
+ * @author Nicolas Glondu 2011
  * @category WIDGET
  * @destination PUBLIC
  * @stability EXPERIMENTAL
- * @version 0.3
+ * @version 0.4
  */
 
 /*
