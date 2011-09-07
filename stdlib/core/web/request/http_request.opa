@@ -140,6 +140,7 @@ HttpRequest = {{
 
     /**
      * Extract the headers of a connexion
+     * !!! WARNING !!! all '-' in header name are replaced by '_' in input and output of headers and header_get
      */
     get_headers(x: HttpRequest.request): {headers: list(string); header_get: string -> option(string)} =
       request    = get_low_level_request(x)
@@ -155,7 +156,7 @@ HttpRequest = {{
       get_headers(x).header_get("Host")
 
     /**
-     * Try to get the "Host" header of a connexion
+     * Indicates if the given request is secured
      */
     is_secured(x: HttpRequest.request): bool =
       request    = get_low_level_request(x)
