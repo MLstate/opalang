@@ -465,8 +465,8 @@ Xml =
    *  @param the first element of the fold
    *  @param the xml to fold
    */
-  fold(fun:(xml('a, 'b), 'c -> 'c), seed:'c, xhtml:xhtml): 'c =
-    match xhtml with
+  fold(fun:(xml('a, 'b), 'c -> 'c), seed:'c, xml:xml): 'c =
+    match xml with
     | { text=_ }
     | { content_unsafe=_ }
     | { xml_dialect=_ } -> seed
