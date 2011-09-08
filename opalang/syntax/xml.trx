@@ -450,7 +450,7 @@ css_unary <-
   / "font-size" style_delim css_size                                                     {{ css_build_unsafe "font_size" [__3] }}
   / "font-decoration" style_delim (css_decoration_list1 / opa_expr)                      {{ css_build_unsafe "font_decorations" [__3] }}
   / "font-variant" style_delim (css_font_variant / opa_expr)                             {{ css_build_unsafe "font_variant" [__3] }}
-#  / "text-decoration" style_delim (text_decoration_list1 / opa_expr)                     {{ css_build_unsafe 
+#  / "text-decoration" style_delim (text_decoration_list1 / opa_expr)                     {{ css_build_unsafe
   / "height" style_delim css_size                                                        {{ css_build_unsafe "height" [__3] }}
   / ("min-height" / "max-height"):s style_delim css_size_or_none                         {{ css_build_unsafe (hyphen_to_underscore s) [__3] }}
   / "left" style_delim css_size                                                          {{ css_build_unsafe "left" [__3] }}
@@ -501,8 +501,8 @@ just_class_attr    <-
 
 /** xml class value **/
 class_value        <-
-  / squot class_attr:p squot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (List.rev l) pos }}
-  / dquot class_attr:p dquot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (List.rev l) pos }}
+  / squot class_attr:p squot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (l) pos }}
+  / dquot class_attr:p dquot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (l) pos }}
   / deco_ename:e                                                                     {{ list_expr_of_expr_list [string2 e] (label e)}}
   / opa_expr:e                                                                       {{ e }}
 
