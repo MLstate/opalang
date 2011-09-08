@@ -26,6 +26,8 @@ open SurfaceAstHelper
 let (|>) = InfixOperator.(|>)
 let (@*) = InfixOperator.(@*)
 
+let ident a = a.ident
+
 (* FIXME: add some signatures *)
 
 let unannot sub (v,annot) =
@@ -76,8 +78,8 @@ module Pattern =
 struct
   let get_vars_gen add empty p =
     PatTraverse.fold (fun acc -> function
-                        | (PatVar a, _) -> add a acc
-                        | (PatAs (_,a), _) -> add a acc
+                        | (PatVar a, _)
+                        | (PatAs (_,a), _) -> add (ident a) acc
                         | _ -> acc
                      ) empty p
   (* TODO: one functor applied to string and exprident? *)
@@ -87,8 +89,8 @@ struct
   let get_vars_code l =
     PatTraverse.lift_fold SPat.sub_code
       (fun acc -> function
-         | (PatVar a, _) -> IdentSet.add a acc
-         | (PatAs (_,a), _) -> IdentSet.add a acc
+         | (PatVar a, _)
+         | (PatAs (_,a), _) -> IdentSet.add (ident a) acc
          | _ -> acc
       ) IdentSet.empty l
   (* FIXME: we can have duplicates *)
@@ -98,8 +100,8 @@ struct
     PatTraverse.lift_fold_right_down sub
       (fun x acc ->
          match x with
-           | (PatVar a, _) -> a :: acc
-           | (PatAs (_,a), _) -> a :: acc
+           | (PatVar a, _)
+           | (PatAs (_,a), _) -> (ident a) :: acc
            | _ -> acc
       ) l []
   let get_var_list_pattern l = get_var_list SPat.sub_p l
@@ -273,15 +275,15 @@ struct
       PatTraverse.lift_fold SPat.sub_pat_record_node
         (fun env ->
            function
-             | (PatVar a, _) -> add_env env a None
-             | (PatAs (_,a), _) -> add_env env a None (* could say Some... *)
+             | (PatVar a, _)
+             | (PatAs (_,a), _) -> add_env env (ident a) None (* could say Some... *)
              | _ -> env) env r in
     let add_pat pat env =
       PatTraverse.fold
         (fun env ->
            function
-             | (PatVar a, _) -> add_env env a None
-             | (PatAs (_,a), _) -> add_env env a None (* could say Some... *)
+             | (PatVar a, _)
+             | (PatAs (_,a), _) -> add_env env (ident a) None (* could say Some... *)
              | _ -> env) env pat in
     let rec process_pattern_expr tra env acc (pat,expr) =
       let env_bnd = add_pat pat env in

@@ -680,6 +680,16 @@ type simple_slicer_directive =
       *)
     | `sliced_expr ] (** see the description in surfaceAst *)
 
+type userland_public_visibility_directive = [`sync | `async ]
+type compiler_public_visibility_directive = [ `funaction ]
+type public_visibility_directive = [ userland_public_visibility_directive | compiler_public_visibility_directive]
+
+type 'a generic_visibility_directive = [ `visibility_annotation of [ `public of 'a | `private_ ] ]
+
+
+type userland_visibility_directive = userland_public_visibility_directive generic_visibility_directive
+type visibility_directive          = public_visibility_directive          generic_visibility_directive
+
 type slicer_directive =
     [ `side_annotation of [ `server
                           | `client
@@ -688,7 +698,7 @@ type slicer_directive =
                           | `prefer_client
                           | `prefer_both
                           | `both_implem ]
-    | `visibility_annotation of [ `public of [`sync | `async | `funaction] | `private_ ]
+    | visibility_directive
     ]
 
 (** Fun actions *)

@@ -133,7 +133,7 @@ let add_code_doctype sa_code =
       match fst name with
       | SA.PatCoerce (n,_) -> getname n
       | SA.PatVar n
-      | SA.PatAs (_,n) -> Some n
+      | SA.PatAs (_,n) -> Some n.SA.ident
       | _ -> None
     in
     match getname name with

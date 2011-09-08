@@ -331,10 +331,10 @@ let encode_args_as_record_pos = encode_tuple_pos
  *)
 
 let var_to_patvar (ident, label) =
-  (PatVar ident, label)
+  (PatVar {ident=ident;directives=[]}, label)
 let var_to_exprvar (ident, label) =
   (Ident ident, label)
-let patident s label = (PatVar s, label)
+let patident s label = (PatVar {ident=s;directives=[]}, label)
 let patvar = patident
 let ident s label = (Ident s, label)
 let fresh_ident_pat label =
@@ -782,18 +782,18 @@ let rec bind name acc = function
   | (PatConst _,label) as p ->
       `one (fresh_name (), Cons.E.match_ ~label (Cons.E.ident ~label name) [(p,Cons.E.void ~label ())]) :: acc
   | (PatAny,_) -> acc
-  | (PatVar v,label) -> `one (v, Cons.E.ident ~label name) :: acc
+  | (PatVar v,label) -> `one (v.ident, Cons.E.ident ~label name) :: acc
   | PatRecord (r, rowvar), label ->
       bind_aux_record label name acc rowvar r
-  | (PatAs (p,s),label) -> bind name (`one (name,Cons.E.ident ~label s) :: acc) p
+  | (PatAs (p,v),label) -> bind name (`one (v.ident,Cons.E.ident ~label name) :: acc) p
   | (PatCoerce (p,ty),label) -> bind name (`one (fresh_name (), Cons.E.coerce ~label (Cons.E.ident ~label name) ty) :: acc) p
 and bind_aux_record label name acc rowvar r =
   let bindings, block =
     List.fold_left_map (fun acc (s,p) ->
                       let n,p =
                         match p with
-                          | (PatAs (p,s),_) -> s,p
-                          | (PatVar s,label) -> s, Cons.P.any ~label ()
+                          | (PatAs (p,s),_) -> s.ident,p
+                          | (PatVar s,label) -> s.ident, Cons.P.any ~label ()
                           | _ -> fresh_name (), p in
                       let label = snd p in
                       bind n acc p, (n, Cons.E.dot ~label (Cons.E.ident ~label name) s)
@@ -828,7 +828,9 @@ let rec bind_in_to_expr_in dirs binding e2 =
   let (p,e1) = binding in
   undecorate (
     match p with
-      | (PatVar v, label) -> (LetIn (false,declaration_directive dirs [(v,e1)],e2),copy_label label)
+      | (PatVar v, label) ->
+        assert( v.directives = [] );
+        (LetIn (false,declaration_directive dirs [(v.ident,e1)],e2),copy_label label)
       | (PatAny, label) -> (LetIn (false,declaration_directive dirs [(fresh_name (),e1)],e2),copy_label label)
       | (PatCoerce (p,ty),label) -> (bind_in_to_expr_in dirs (p,Cons.E.coerce ~label e1 ty) e2,label)
       | (_,label) ->
@@ -851,7 +853,7 @@ let add_recval ~is_recval label (i,e) =
     (i,e)
 let rec pat_in_to_simple_bindings_aux ~is_recval (p,e) =
   match p with
-  | (PatVar v, _) -> [(v,e)]
+  | (PatVar v, _) -> assert( v.directives = [] );[(v.ident,e)]
   | (PatAny, _) -> [(fresh_name (),e)]
   | (PatCoerce (p,ty),label) -> pat_in_to_simple_bindings_aux ~is_recval (p,Cons.E.coerce ~label e ty)
   | (_, label) ->

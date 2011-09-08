@@ -76,8 +76,8 @@ sig
     val coerce_name :   ?label:annot -> ident pat -> string -> ident pat
 
     val any :           ?label:annot -> unit -> ident pat
-    val ident :         ?label:annot -> ident -> ident pat
-    val var :           ?label:annot -> ident -> ident pat
+    val ident :         ?label:annot -> ?directives:bind_directives list -> ident -> ident pat
+    val var :           ?label:annot -> ?directives:bind_directives list -> ident -> ident pat
 
     val string :        ?label:annot -> string -> ident pat
 

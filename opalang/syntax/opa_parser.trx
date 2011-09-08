@@ -390,7 +390,7 @@ record_pat <-
        match p,tilda with
          | None,true -> `value (var_to_patvar i)
          | None,false -> `novalue i
-         | Some p,true -> `value (PatAs (p,ident),label)
+         | Some p,true -> `value (PatAs (p,{ident=ident;directives=[]}),label)
          | Some p,false -> `value p in
        (ident, p, t)
    }}
@@ -418,12 +418,12 @@ pattern = deco just_pattern_as_coerce
 ;just_pattern_as <- pattern_no_as_coerce:p (Opa_lexer.AS ml_identifier:v {{ v }})?:o
     {{ match o with
          | None -> undecorate p
-         | Some i -> PatAs (p,i)
+         | Some i -> PatAs (p,{ident=i;directives=[]})
      }}
 ;pattern_no_as_coerce = deco just_pattern_no_as_coerce
 ;just_pattern_no_as_coerce <-
     Opa_lexer.UNDERSCORE {{ PatAny }}
-  / ml_identifier_nosp:i !"(" {{ PatVar i }}
+  / ml_identifier_nosp:i !"(" {{ PatVar {ident=i;directives=[]} }}
   / const:c {{ PatConst c }}
   / tuple_pat
   / record_pat

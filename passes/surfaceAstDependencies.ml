@@ -893,7 +893,8 @@ let flatten_toplevel_module create_group_list lcode =
              let map,iel =
                List.fold_left_map
                  (fun map -> function
-                    | ((PatVar i,_) as pat), e ->
+                    | ((PatVar {ident=i;_},_) as pat), e ->
+                        (* directives are not lost => in map *)
                         IdentMap.add i pat map, (i, remove_access_directive e)
                     | pat, e ->
                         let i = fresh_ident () in
@@ -906,7 +907,7 @@ let flatten_toplevel_module create_group_list lcode =
              let pel = List.map
                (fun (i,e) ->
                   match IdentMap.find_opt i map with
-                    | None -> ((PatVar i, copy_label label), e)
+                    | None -> ((PatVar {ident=i;directives=[]}, copy_label label), e)
                     | Some p -> (p,e)
                ) iel in
              (* reordering the result *)

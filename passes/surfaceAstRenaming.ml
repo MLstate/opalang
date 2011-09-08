@@ -638,12 +638,13 @@ let add_opened_var name tree ident path all_env =
   {all_env with
      t = {all_env.t with
             tnames = StringMap.add name (OpenedIdent (tree, ident, path @ [name]) :: old_l) all_env.t.tnames}}*)
-let add_pat_var ?no_warning name hierar all_env label =
+let add_pat_var ?no_warning {SurfaceAst.ident=name;directives=directives} hierar all_env label =
   if is_hiding_pat_var name all_env then
     non_linear_pattern name label;
   let exported, bindings = all_env.f.data in
   let all_env = with_data all_env (exported, StringSet.add name bindings) in
-  add_var ?no_warning ~exported name hierar all_env label
+  let env,ident = add_var ?no_warning ~exported name hierar all_env label in
+  env, {SurfaceAst.ident ;SurfaceAst.directives}
 (* do we really need to give all_env back all the time? *)
 
 
@@ -1228,23 +1229,22 @@ and f_bindings ~rec_ all_env hierar iel =
    * environment *)
   (* all_env is what is seen by functions and by the [e] of [let ... in e] *)
   let old_all_env = all_env in
-  let new_all_env,assoc =
-    List.fold_left
-      (fun (all_env,assoc) (i,e) ->
-         let all_env, _pat_env, ident =
-           f_pat_var_ext (Parser_utils.label e) all_env hierar i in
-         (update_all_env_with i ident e all_env, (i,ident) :: assoc)
-      ) (all_env,[]) iel in
+  let new_all_env, iel =
+    List.fold_left_map
+      (fun all_env (i,e) ->
+        let all_env, _pat_env, {SurfaceAst.ident=ident ; directives=_} =
+          f_pat_var_ext (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i;directives=[]} 
+        in
+        (update_all_env_with i ident e all_env, (ident,e))
+      ) all_env iel
+  in
   let all_env = if rec_ then new_all_env else old_all_env in
-  let (f_env, rev_iel) =
-    List.fold_left
-      (fun (f_env,l) (i,e) ->
+  let (f_env, iel) =
+    List.fold_left_map
+      (fun f_env (i_new,e) ->
          let f_env, e_new = f_expr {all_env with f = f_env} hierar e in
-         let i_new = List.assoc i assoc in
-         let new_l = (i_new, e_new) :: l in
-         (f_env, new_l)
-      ) (new_all_env.f, []) iel in
-  let iel = List.rev rev_iel in
+         (f_env, (i_new, e_new))
+      ) new_all_env.f iel in
   {new_all_env with f = f_env}, iel
 
 (**
@@ -1332,8 +1332,8 @@ and f_module all_env hierar iel =
   let all_env =
     List.fold_left
       (fun all_env (i,e) ->
-         let all_env, _pat_env, ident =
-           f_pat_var_ext ~no_warning:true (Parser_utils.label e) all_env hierar i in
+         let all_env, _pat_env, {SurfaceAst.ident=ident ; directives=_} =
+           f_pat_var_ext ~no_warning:true (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i; directives=[]} in
          update_all_env_with i ident e all_env
       ) all_env iel in
   let (f_env, rev_iel) =
@@ -1438,6 +1438,8 @@ let toplevel_code_elt_node_pe_map =
            * so we can just ignore what it changed in the local scope
            * to put it in the toplevel one
            *)
+          let s = s.SurfaceAst.ident in
+          let ident = ident.SurfaceAst.ident in
           let old_l = Option.default [] (StringMap.find_opt s map) in
             ( match tree_option_of_expr s e with
                 | None -> StringMap.add s (old_l @ [(Normal ident,label.QmlLoc.pos)]) map
@@ -1501,7 +1503,7 @@ let toplevel_code_elt_node_map_for_patterns envs label : _ -> (_ * _ tmp_code_el
       new_envs, `NewVal (new_l,rec_)
   | `Database (name, l, props) ->
       let local_env = envs.l in
-      let (envs, _pat_env, ident) = f_pat_var_ext label envs (fake_hierar "DB") name in
+      let (envs, _pat_env, {SurfaceAst.ident=ident;directives=_}) = f_pat_var_ext label envs (fake_hierar "DB") {SurfaceAst.ident=name; directives=[]} in
       let tnames = envs.t.tnames in
       let names = Option.default [] (StringMap.find_opt name tnames) in
       let names = names @ [(Normal ident,label.QmlLoc.pos)] in

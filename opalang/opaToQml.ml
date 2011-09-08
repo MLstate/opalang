@@ -107,12 +107,13 @@ struct
                (s, C.P.var void),
                same_pos (SA.LetIn (false,[(i, C.T.coerce (same_pos (SA.Ident void) p) (C.T.void ()))], e)) p
            | SA.PatCoerce ((SA.PatVar v, l) as p, ty) ->
+               let v = v.SA.ident in
                let i = next ~label "remove_coerce" in
                (s, p),
                (same_pos (SA.LetIn (false,[(i,C.T.coerce (SA.Ident v,l) ty)], e)) e)
            | _ ->
                let i = next ~label "simplify_lambda" in
-               (s, same_pos (SA.PatVar i) p),
+               (s, same_pos (SA.PatVar {SA.ident=i;SA.directives=[]}) p),
                (same_pos (SA.Match (same_pos (SA.Ident i) p, [(p, e)])) e)
          )
       ) r e
@@ -128,7 +129,7 @@ struct
       | None ->
     match p with
       | SA.PatVar a ->
-          pp, (SA.Ident a, copy_label label)
+          pp, (SA.Ident a.SA.ident, copy_label label)
       | SA.PatRecord (spl, rowvar) ->
           if rowvar = `open_ then (
             let context = OpaError.Context.annot label in
@@ -148,10 +149,10 @@ struct
           let p, e = rebuild ~and_coerces map p in
           p, C.T.coerce e ty
       | SA.PatAs (p,i) ->
-          p, (SA.Ident i, label)
+          p, (SA.Ident i.SA.ident, label)
       | SA.PatAny ->
           let i = next ~label "rebuild" in
-          (SA.PatVar i, label), (SA.Ident i, copy_label label)
+          (SA.PatVar {SA.ident=i;directives=[]}, label), (SA.Ident i, copy_label label)
     )
 
   let remove_as ~and_coerces p e =
@@ -161,9 +162,9 @@ struct
            match p with
              | SA.PatAs (p, s) ->
                  let p,e = rebuild ~and_coerces map p in
-                 let map = IntMap.add label.QmlLoc.notes s map in
-                 let map = IntMap.add (snd p).QmlLoc.notes s map in
-                   (map, (s,e,p)::acc), p
+                 let map = IntMap.add label.QmlLoc.notes s.SA.ident map in
+                 let map = IntMap.add (snd p).QmlLoc.notes s.SA.ident map in
+                   (map, (s.SA.ident,e,p)::acc), p
              | SA.PatCoerce (pc, _) when and_coerces ->
                  let i = next ~label "remove_coerce" in
                  let p,e = rebuild ~and_coerces map p' in
@@ -181,7 +182,7 @@ struct
     let label = snd p in
     match fst p with
       | SA.PatVar v ->
-          [(v, SurfaceAstCons.Refresh.expr expr)]
+          [(v.SA.ident, SurfaceAstCons.Refresh.expr expr)]
       | SA.PatRecord (spl, _) ->
           List.concat_map
             (fun (s, p) ->
@@ -195,7 +196,7 @@ struct
            *)
           assert false
       | SA.PatAs (p, s) ->
-          (s, expr) :: pattern_to_bindings expr p
+          (s.SA.ident, expr) :: pattern_to_bindings expr p
       | SA.PatCoerce (p, ty) ->
           let i = next ~label "pattern_to_bindings" in
           SurfaceAstCons.with_same_pos p (fun () ->
@@ -396,17 +397,17 @@ struct
           QA.PatConst
             (make_label_from_opa_annot opa_annot, (const_expr (c, opa_annot)))
       | SA.PatVar i ->
-          QA.PatVar (make_label_from_opa_annot opa_annot, ident i)
+          QA.PatVar (make_label_from_opa_annot opa_annot, ident i.SA.ident)
       | SA.PatCoerce (p, ty_) ->
           let ty_ = ty ty_ in
           let p = aux p in
           QA.PatCoerce ((make_label_from_opa_annot opa_annot), p, ty_)
       | SA.PatAs (p, i) ->
           #<If:PATTERNS_REAL_PATAS $equals "0">
-            fail p (Printf.sprintf "PatAs %s" (Arg.to_string i))
+            fail p (Printf.sprintf "PatAs %s" (Arg.to_string i.SA.ident))
           #<Else>
             let p = aux p in
-            QA.PatAs (make_label_from_opa_annot opa_annot, p, ident i)
+            QA.PatAs (make_label_from_opa_annot opa_annot, p, ident i.SA.ident)
           #<End>
     in
     (* Effective body of the function [pat] dealing with a whole
@@ -457,7 +458,7 @@ struct
           let params =
             let extract_ident (s_, p) =
               match fst p with
-              | SA.PatVar i -> ident i
+              | SA.PatVar i -> ident i.SA.ident
               | SA.PatAny -> Ident.nextf "anonymous_lambda_arg_%s" s_
                   (* not equivalent but once typing is done, it doesn't matter *)
                   (*| SA.PatRecord [] -> fresh_ident ()*)
@@ -676,7 +677,7 @@ struct
                     * and a slicer annotation, you don't want to introduce an indirection *)
                    aux (p, C.E.coerce ~label e ty)
                      (* the boolean is true when we will keep this name in the future roots *)
-               | SA.PatVar ident -> [(ident, false, e)]
+               | SA.PatVar ident -> [(ident.SA.ident, false, e)]
                | SA.PatAny -> [(PatternUtils.next ~label "_do_", true, e)]
                | _ ->
                    let annotate = propagate_slicer_annotation e in

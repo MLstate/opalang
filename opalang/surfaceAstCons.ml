@@ -169,7 +169,7 @@ struct
     let false_ ?label () = coerce_name ?label (simple_record ?label "false") Opacapi.Types.bool
     let bool ?label b = if b then true_ ?label () else false_ ?label ()
 
-    let ident ?(label=w()) i = (PatVar i, c label)
+    let ident ?(label=w()) ?(directives=[]) ident = (PatVar ({ident;directives}), c label)
     let var = ident
 
     let string ?(label=w()) s = (PatConst (CString s), c label)

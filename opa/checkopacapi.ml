@@ -180,7 +180,7 @@ let stdlib acc code =
           match p with
           | SA.PatVar ident | SA.PatAs (_, ident) ->
               if is_opacapi e
-              then StringSet.add ident acc
+              then StringSet.add ident.SA.ident acc
               else acc
           | _ -> acc
         in

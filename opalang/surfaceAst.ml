@@ -64,6 +64,7 @@ let string_of_hash : uids -> string = Ident.stident
 (**
    {7 Other expressions}
 *)
+type bind_directives = QmlAst.userland_visibility_directive (* TODO Move expand here *)
 
 (**
    Internal data structures.
@@ -90,6 +91,7 @@ and  ('ident, 'dir) record_node = (string * ('ident, 'dir) expr) list
    @param 'dir The type of directives, i.e. stuff left by the compiler for a further phase to rewrite.
 *)
 and ('ident, 'dir) expr = ('ident, 'dir) expr_node label
+and 'ident bind_ident = {ident :'ident ; directives : bind_directives list}
 and ('ident, 'dir) expr_node =
   | Apply        of ('ident, 'dir) expr * ('ident, 'dir) record
       (**
@@ -149,13 +151,14 @@ and ('ident, 'dir) preprocessed_db_element_node =
 *)
 
 and 'ident pat = 'ident pat_node label
+
 and 'ident pat_node =
   | PatRecord       of 'ident pat_record_node * QmlAst.pat_rowvar
   | PatAny
   | PatConst        of const_expr_node
-  | PatVar          of 'ident
+  | PatVar          of 'ident bind_ident
   | PatCoerce       of 'ident pat * 'ident ty
-  | PatAs           of 'ident pat * 'ident
+  | PatAs           of 'ident pat * 'ident bind_ident
 
 and 'ident pat_record_node = (string * 'ident pat) list
 

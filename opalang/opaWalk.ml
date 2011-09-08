@@ -67,12 +67,12 @@ struct
   let get_vars ?(acc=[]) pat =
     fold (fun acc -> function
             | (PatVar v,_)
-            | (PatAs (_,v),_) -> v :: acc
+            | (PatAs (_,v),_) -> v.ident :: acc
             | _ -> acc) acc pat
-  let appears_eq equal ident pat =
+  let appears_eq equal target_ident pat =
     exists (function
              | (PatVar v,_)
-             | (PatAs (_,v),_) -> equal v ident
+             | (PatAs (_,v),_) -> equal (v.ident) target_ident
              | _ -> false) pat
   let appears_str ident pat = appears_eq eq_string ident pat
   let appears ident pat = appears_eq Ident.equal ident pat

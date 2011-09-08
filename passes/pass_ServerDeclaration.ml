@@ -50,7 +50,7 @@ let pass_check_server_entry_point ~options env =
             let entry_point_dir = CS.D.server_entry_point ~label e in
             CS.C.newval_ignore ~label entry_point_dir in
           let fun_fl (has_server, acc) = function
-            | S.NewVal ([(S.PatVar "server", _), e],_), label ->
+            | S.NewVal ([(S.PatVar {S.ident="server";_}, _), e],_), label ->
                 (* [server = $e$] becomes [_ = add_server(e)] *)
             (* this special case makes the code a little more readable *)
                 (true, make_entry_point ~label e :: acc)
@@ -64,12 +64,14 @@ let pass_check_server_entry_point ~options env =
                        let acc, p =
                          OpaWalk.Pattern.foldmap
                            (fun acc -> function
-                            | (S.PatVar "server",label) ->
+                            | (S.PatVar ({S.ident="server";_} as id),label) ->
                                 let fresh = gen () in
-                                fresh :: acc, (S.PatVar fresh, label)
-                            | (S.PatAs (p,"server"), label) ->
+                                let id = {id with S.ident=gen()} in
+                                fresh :: acc, (S.PatVar id, label)
+                            | (S.PatAs (p,({S.ident="server";_} as id)), label) ->
                                 let fresh = gen () in
-                                fresh :: acc, (S.PatAs (p, fresh), label)
+                                let id = {id with S.ident=gen()} in
+                                fresh :: acc, (S.PatAs (p, id), label)
                             | p -> acc, p)
                            acc p in
                        acc, (p,e))

@@ -152,6 +152,11 @@ struct
         | None -> `no_sugar
 end
 
+type userland_visibility_directive = QmlAst.userland_visibility_directive
+type all_directives = SurfaceAst.all_directives
+
+let userland_visibilities_to_whatever ds =
+    (ds : userland_visibility_directive list :> [> all_directives] list)
 
 class virtual ['ident] generic_printer =
 object (self)
@@ -281,15 +286,16 @@ object (self)
     | PatRecord (fields, rowvar) -> self#pat_record f fields rowvar
     | PatAny -> pp f "_"
     | PatConst c -> self#const_expr f c
-    | PatVar v -> self#ident f v
+    | PatVar v -> pp f "%a %a" self#pat_directives  (userland_visibilities_to_whatever v.directives) self#ident v.ident
     | PatCoerce (p,ty) -> pp f "%a : %a" self#under_colon#pat p self#ty ty
-    | PatAs (p,i) -> pp f "%a as %a" self#pat p self#ident i
+    | PatAs (p,i) -> pp f "%a %a as %a" self#pat_directives (userland_visibilities_to_whatever i.directives) self#pat p self#ident i.ident
+
   method pat_record_binding f ((s, p) as pat) =
     match p with
     | PatCoerce ((PatRecord ([], _), _), (TypeRecord (TyRow ([], None)), _)), _ -> self#field f s
     | _ ->
         let getvar = function
-          | S.PatVar v, _ -> Some v
+          | S.PatVar v, _ -> Some v.ident
           | _ -> None
         in
         if self#is_tilde_field getvar pat
@@ -310,7 +316,7 @@ object (self)
         let rowvar =  if rowvar = `open_ then " ; ..." else "" in
         let is_tilde_field field =
           let getvar = function
-            | S.PatVar v, _ -> Some v
+            | S.PatVar v, _ -> Some v.S.ident
             | _ -> None
           in
           self#is_tilde_field getvar field
@@ -483,6 +489,11 @@ object (self)
     | #all_directives,exprs, []  -> pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
     | #all_directives,exprs, tys -> pp f "@[<2>@@%a(%a ; %a)@]" self#variant variant (list ",@ " self#reset#expr) exprs (list ",@ " self#ty) tys
 
+
+  method pat_directive f (v:SurfaceAst.all_directives) = pp f "@[<2>@@%a@]" self#variant v
+
+  method pat_directives f (vs:SurfaceAst.all_directives list) = pp f "%a" (Format.pp_list "@ " self#pat_directive) vs
+
   method record_binding  : 'dir. (string * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun f ((s, e) as expr) ->
     match e with
     | (Directive ((`coerce : [< all_directives]),[(Record [],_)],[TypeRecord (TyRow ([],None)), _]),_) -> self#field f s
@@ -590,7 +601,7 @@ object (self)
       pp f "package %s" s
   method pat_binding : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun f (p,e) ->
     match p, e with
-    | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) -> self#lambda_binding self#ident f (i,r,e)
+    | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) -> self#lambda_binding self#ident f (i.SurfaceAst.ident,r,e)
     | _, (Directive ((`visibility_annotation `public b : [< all_directives ]),[e],_),_) -> (
         match b with
         | `async -> pp f "publish %a" self#pat_binding (p,e)
