@@ -99,7 +99,7 @@ i.e. a simple text in our templating system. As expected, it has type
 +Template.default_content+.
 
 With these two lines, the database is set. Any data written to the database will
-be kept persistent, versioned and snapshoted regularly. Should you stop and
+be kept persistent, versioned and with regular snapshots. Should you stop and
 restart your application, the data will be checked and made available. If the
 data has been corrupted or is somehow incompatible with your application, you
 will be informed.
@@ -166,7 +166,7 @@ A value has a _sum type_ +t/u+ if, depending on the execution path, it can
 have either values of type +t+ or values of type +u+ . A good example of sum type
 is booleans, which are defined as +\{false\}/\{true\}+ . Another good example of
 sum type is the type +list+ of linked lists, whose definition can be summed up
-as +\{nil\} / \{\hd: ...; tl: list\}+.
+as +\{nil\} / \{hd: ...; tl: list\}+.
 
 Note that sum types are not limited to two cases. Advanced applications commonly
 manipulate sum types with ten cases or more.
@@ -228,7 +228,7 @@ records containing exactly one field called +failure+. When our pattern-matching
 encounters such a record, it ignores the contents of the field -- recall that
 +_+ is pronounced "I don't care" -- and executes the body.
 
-Here, we are in the error case, i.e. the user has entered syntactically
+Here, we are in the error case, i.e. the user has entered a syntactically
 incorrect text. We could decide to perform sophisticated error reporting, but
 that goes beyond the scope of this chapter. We will rather employ an alternative
 strategy: we store the text entered by the user, but as source code,
@@ -254,27 +254,29 @@ display(topic) =
      <div class="content container">
        <div class="page-header"><h1>About {topic}</></>
        <div class="well" id=#show_content ondblclick={_ -> edit(topic)}>{load_rendered(topic)}</>
-       <textarea clas="xxlarge" rows="30" id=#edit_content onblur={_ -> save(topic)}></>
+       <textarea rows="30" id=#edit_content onblur={_ -> save(topic)}></>
      </div>
    )
 )
 -----------------
 
-This time, instead of producing a +xhtml+ result, we have embed this result in a
-+resource+, i.e. a representation for anything that the server can send to the
-client, whether it is a page, an image, or anything else. In practice, most
-applications produce a set of resources, as this is more powerful and more
-flexible than plain +xhtml+ . Of course, you will need to use the appropriate
-+server+ constructor, which we will introduce later.
+This time, instead of producing a +xhtml+ result, we have embedded
+this result in a +resource+, i.e. a representation for anything that
+the server can send to the client, whether it is a page, an image, or
+anything else. In practice, most applications produce a set of
+resources, as this is more powerful and more flexible than plain
++xhtml+. Of course, you will need to use the appropriate +server+
+constructor, which we will introduce later.
 
-A number of functions can be used to construct a +resource+. Here, we use
-+Resource.styled_page+, a function which constructs a web page, from
-its title (first argument), a list of stylesheets (second argument) and +xhtml+
-content. At this stage, the +xhtml+ content should not surprise you. We use
-+<div>+ to display the contents of the page, or
-+<textarea>+ (initially hidden) to modify them. When a user double-clicks on the content of the
-page (event +dblclick+), it triggers function +edit+, and when the user stops
-editing the source (event +blur+), it triggers function +save+.
+A number of functions can be used to construct a +resource+. Here, we
+use +Resource.styled_page+, a function which constructs a web page,
+from its title (first argument), a list of stylesheets (second
+argument) and +xhtml+ content. At this stage, the +xhtml+ content
+should not surprise you. We use +<div>+ to display the contents of the
+page, or +<textarea>+ (initially hidden) to modify them. When a user
+double-clicks on the content of the page (event +dblclick+), it
+triggers function +edit+, and when the user stops editing the source
+(event +blur+), it triggers function +save+.
 
 Function +edit+ is defined as follows:
 

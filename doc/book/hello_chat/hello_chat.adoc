@@ -1,12 +1,6 @@
 Hello, chat
 -----------
 
-//
-// About this chapter:
-//   Main author: David
-//   Paired author:Norman
-//
-
 Real-time web applications are notoriously difficult to develop. They require a
 complex and error-prone infrastructure to handle communications between client
 and server, and often from server to server, in addition to deep security checks
@@ -32,32 +26,11 @@ start discussing in real-time. On the picture, we have two users, using regular
 web browsers. For the sake of simplicity, in this application, we choose the name
 of users randomly.
 
-If you are curious, this is the full source code of the application:
-
-[source, opa]
-------------------------
-include::hello_chat.opa[]
-------------------------
-[run]#http://tutorials.opalang.org/hello_chat[Run]#
-
-In this listing, we define the communication infrastructure for the chatroom,
-the user interface, and finally, the main application. In the rest of the
-chapter, we will walk you through all the concepts and constructions introduced.
-
-A bit of style
-~~~~~~~~~~~~~~
-
-Before exposing the real machinery, let's care from the start how the
-apllication should look like, with this single import line:
-
-[source,opa]
-------------------------
-import stdlib.themes.bootstrap
-------------------------
-
-This automatically brings http://twitter.github.com/bootstrap/[Bootstrap CSS
-from Twitter] to your application, so you can use the predefined classes that
-will just look nice.
+If you are curious, the full source code of the application is listed
+at the end of this chapter. In the rest of the chapter, we will walk
+you through all the concepts and constructions: the communication
+infrastructure for the chatroom, the user interface, and finally, the
+main application.
 
 Setting up communications
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -153,20 +126,28 @@ For starters, consider a possible skeleton for the user interface:
 .Skeleton of the user interface (incomplete)
 [source,opa]
 ------------------------
-<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-<div id=#conversation class="container"></div>
-<div id=#footer><div class="container">
-  <input id=#entry class="xlarge"/>
-  <div class="btn primary" >Post</div>
-</div></div>
+<div id=#conversation />
+<input id=#entry />
+<input type="button" value="Post" />
 ------------------------
 
-If you are familiar with HTML, you will recognize easily that this skeleton
-defines a few boxes (or +<div>+), with some names (or +id+) and some classes, as
-well as a text input zone (or +<input>+) called +entry+. We will use these names
-to add interactions and style. If you are not familiar with HTML, it might be a
-good idea to grab https://developer.mozilla.org/En/HTML[a good HTML reference]
-and check up the tags as you see them.
+If you are familiar with HTML, you will recognize easily that this
+skeleton defines a few boxes (or +<div>+), with some names (or +id+),
+as well as a text input zone (or +<input>+) called +entry+. We will
+use these names to add interactions and style. If you are not familiar
+with HTML, it might be a good idea to grab
+https://developer.mozilla.org/En/HTML[a good HTML reference] and check
+up the tags as you see them.
+
+[TIP]
+.About HTML
+========================
+There is not much more magic about HTML in Opa than the special
+syntax. For instance, the skeleton that we just defined is a regular
+Opa value, of type +xhtml+. You can for instance inspect its structure
+(with a +match+ construct that we will se later), apply to it
+functions accepting type +xhtml+, or use it as the body of a function.
+========================
 
 Actually, for convenience, and because it fits with the rest of the library, we will
 put this user interface inside a function, as follows:
@@ -176,12 +157,9 @@ put this user interface inside a function, as follows:
 ------------------------
 start() =
 (
-  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-  <div id=#conversation class="container"></div>
-  <div id=#footer><div class="container">
-    <input id=#entry class="xlarge"/>
-    <div class="btn primary" >Post</div>
-  </div></div>
+  <div id=#conversation />
+  <input id=#entry />
+  <input type="button" value="Post" />
 )
 ------------------------
 
@@ -228,12 +206,9 @@ At this stage, we can already go a bit further and invent an author name, as fol
 start() =
 (
   author = Random.string(8)
-  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-  <div id=#conversation class="container"></div>
-  <div id=#footer><div class="container">
-    <input id=#entry class="xlarge"/>
-    <div class="btn primary" >Post</div>
-  </div></div>
+  <div id=#conversation />
+  <input id=#entry />
+  <input type="button" value="Post" />
 )
 ------------------------
 
@@ -285,16 +260,22 @@ that does not fit would be an error.
 [TIP]
 .About +Dom+
 ========================
-If you are familiar with web applications, you certainly know about the DOM
-already. Otherwise, it is sufficient to know that DOM, or Document Object Model,
-denotes the manipulation of the contents of a web page once that page is displayed
-in the browser.
+If you are familiar with web applications, you certainly know about
+the DOM already. Otherwise, it is sufficient to know that DOM, or
+Document Object Model, denotes the manipulation of the contents of a
+web page once that page is displayed in the browser. In Opa, elements
+in the DOM have type +dom+. A standard way to access such an element
+is through the selection operator +#+, as in +#entry+ which selects
+the element of id +"entry"+ (ids must be unique in the page). A
+variant of the selection operator is +#{id}+, which selects the DOM
+element whose id is the value of +id+ (so +id+ must be of type
++string+).
 =======================
 
 Speaking of types, it is generally a good idea to know the type of
 functions. Function +broadcast+ has type +string \-> void+, meaning that it
 takes an argument with type +string+ and produces a value with type
-+void+. Also, writing +{author=author text=text}+ is a bit painful, so we added
++void+. Also, writing `{author=author text=text}` is a bit painful, so we added
 a syntactic sugar for this. We could have written just as well:
 
 .Broadcasting a message to the room (variant)
@@ -313,25 +294,21 @@ broadcast(author: string): void =
 .About +void+
 ========================
 Type +void+ is an alias for the empty record, i.e. the record with no fields.
-It is commonly used for functions whose result is meaningless.
+It is commonly used for functions whose result is uninformative, such as
+functions only producing side-effects or sending messages.
 =======================
 
-This takes care of sending a message to the network. Let us now define the symmetric function
-that we want to be called whenever the network propagates a message:
+This takes care of sending a message to the network. Let us now define
+the symmetric function that should be called whenever the network
+propagates a message:
 
 .Updating the user interface when a message is received
 [source,opa]
 ------------------------
 user_update(x: message) =
 (
-  line =  <div class="row line">
-            <div class="span1 columns userpic" />
-            <div class="span2 columns user">{x.author}:</div>
-            <div class="span13 columns message">{x.text}
-            </div>
-         </div>
-  do Dom.transform([ #conversation +<- line ])
-  Dom.scroll_to_bottom(#conversation)
+  line = <div>{x.author}: {x.text}</div>
+  Dom.transform([#conversation +<- line ])
 )
 ------------------------
 
@@ -339,9 +316,7 @@ The role of this function is to display a message just received to the screen.
 This function first produces a few items of user interface, using the same
 HTML-like syntax as above, and calls these items +line+. It then calls the
 +Dom.transform+ function to add the contents of +line+ at the end of box
-+conversation+ we have defined earlier. And finally, it scrolls to the bottom of
-the box, to ensure that the user can always read the most recent items of the
-conversation.
++conversation+ we have defined earlier.
 
 If you look more closely at the HTML-like syntax, you may notice that the contents
 inside curly brackets are probably not HTML. Indeed, these curly brackets are
@@ -379,12 +354,9 @@ Let us connect +broadcast+ to our button and our input. This changes function +s
 start() =
 (
   author = Random.string(8)
-  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-  <div id=#conversation class="container"></div>
-  <div id=#footer><div class="container">
-    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
-    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
-  </div></div>
+  <div id=#conversation />
+  <input id=#entry onnewline={_ -> broadcast(author)} />
+  <input type="button" onclick={_ -> broadcast(author)} value="Post" />
 )
 ------------------------
 
@@ -416,28 +388,27 @@ the user loads the page, as follows:
 start() =
 (
   author = Random.string(8)
-  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-  <div id=#conversation class="container" onready={_ -> Network.add_callback(user_update, room)}></div>
-  <div id=#footer><div class="container">
-    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
-    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
-  </div></div>
+  <div id=#conversation onready={_ -> Network.add_callback(user_update, room)} />
+  <input id=#entry onnewline={_ -> broadcast(author)} />
+  <input type="button" onclick={_ -> broadcast(author)} value="Post" />
 )
 ------------------------
 
-This event handler is triggered when the page is (fully) loaded and connects function +user_update+
-to our network.
+This +onready+ event handler is triggered when the page is (fully)
+loaded and connects function +user_update+ to our network.
 
-And that is it! The user interface is complete and connected to all features. Now, we just need
-to add the +server+ and make things a little nicer.
+And that is it! The user interface is complete and connected to all
+features. Now, we just need to add the +server+ and make things a
+little nicer.
 
 [TIP]
 .About +_+
 ========================
-Opa has a special value name +\_+, pronounced "_I don't care_". It is reserved
-for values or arguments that you are not
-going to use, to avoid clutter. You will frequently see it in event handlers, as it is relatively rare to need
-details on the event, at least in this book.
+Opa has a special value name +\_+, pronounced "_I don't care_". It is
+reserved for values or arguments that you are not going to use, to
+avoid clutter. You will frequently see it in event handlers, as it is
+relatively rare to need details on the event (such as the position of
+the mouse pointer), at least in this book.
 =======================
 
 Bundling, building, launching
@@ -543,13 +514,66 @@ Perhaps it is time to add some style.
 Adding some style
 ~~~~~~~~~~~~~~~~~
 
-In Opa, all styling is done with stylesheets defined in the CSS language. This tutorial is not
-about CSS, so if you feel rusty, it is probably a good idea to keep a
+In Opa, all styling is done with stylesheets defined in the CSS
+language. This tutorial is not about CSS, so if you feel rusty, it is
+probably a good idea to keep a
 https://developer.mozilla.org/En/CSS[good reference] at hand.
 
-You have two possibilities for adding style information. You can either do it
-inside your Opa source file or as an external file. For this example, we will
-use an external file with the following contents:
+Of course, you will always need some custom CSS, specific to your
+application. Still, you can use some standard CSS to get you started
+with some predefined, nice-looking classes. Opa makes this as easy as
+a single import line:
+
+[source,opa]
+------------------------
+import stdlib.themes.bootstrap
+------------------------
+
+This automatically brings
+http://twitter.github.com/bootstrap/[Bootstrap CSS from Twitter] to
+your application, so you can use their predefined classes that will
+just look nice.
+
+A first step is to rewrite some of our simple HTML stubs to give them
+more structure and add classes. The main user interface becomes
+(omitting the event handlers):
+
+.Main user interface
+[source,opa]
+------------------------
+<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div id=#conversation class="container"></div>
+<div id=#footer><div class="container">
+  <input id=#entry class="xlarge"/>
+  <div class="btn primary" >Post</div>
+</div></div>
+------------------------
+
+And the update function becomes:
+
+.Function to update the user interface when a message is received
+[source,opa]
+------------------------
+user_update(x: message) =
+(
+  line =  <div class="row line">
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{x.author}:</div>
+            <div class="span13 columns message">{x.text}
+            </div>
+         </div>
+  do Dom.transform([ #conversation +<- line ])
+  Dom.scroll_to_bottom(#conversation)
+)
+------------------------
+
+Note that we have also added a call to +Dom.scroll_to_bottom+, in
+order to scroll to the bottom of the box, to ensure that the user can
+always read the most recent items of the conversation.
+
+For custom style, you have two possibilities. You can either do it
+inside your Opa source file or as an external file. For this example,
+we will use an external file with the following contents:
 
 ifndef::basebackend-docbook[]
 .Contents of file +resources/css.css+
@@ -568,7 +592,7 @@ include::resources/css.css[]
 endif::basebackend-docbook[]
 
 Create a directory called +resources+ and save this file as +resources/css.css+. It might be a good idea to add a few
-images to the mix, matching the names given in this stylesheet (+opa-logo.png+, +user.png+, +btn_or.png+) also in directory +resources+.
+images to the mix, matching the names given in this stylesheet (+opa-logo.png+, +user.png+) also in directory +resources+.
 
 Now, we will want to instruct our +server+ to access the directory and to use our stylesheet, by rewriting
 our +server+ definition as follows:
@@ -808,7 +832,7 @@ equivalently, +match b with \{true\} -> ... | \{false\} -> ...+.
 
 Distinguishing messages between users
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Customize the chat so that your messages are distinguised from messages by other users: your messages should be displayed with one icon and everybody else's messages should be displayed with the default icon.
+Customize the chat so that your messages are distinguished from messages by other users: your messages should be displayed with one icon and everybody else's messages should be displayed with the default icon.
 
 // - Now, expand this beyond two icons. Of course, each user's icon should remain constant during the conversation.
 

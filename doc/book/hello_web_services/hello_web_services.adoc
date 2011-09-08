@@ -1,15 +1,9 @@
 Hello, web services
 -------------------
 
-//
-// About this chapter:
-//   Main author:   David
-//   Paired author: Norman
-//
-
 Nowadays, numerous web applications offer their features as _web services_, APIs
 that can be used by other web applications or native clients. This is how
-Twitter, Github, Google Maps or countless others can be scripted by third-party
+Twitter, GitHub, Google Maps or countless others can be scripted by third-party
 applications, using cleanly defined and easily accessible protocols.
 
 With Opa, offering a web service is just as simple as creating any other form of
@@ -34,7 +28,7 @@ Overview
 
 In this chapter, we will modify our wiki to make it accessible by a _REST_
 API. This involves few changes from the original wiki, only the addition of a
-few cases to differenciate between several kinds of requests that can be sent by
+few cases to differentiate between several kinds of requests that can be sent by
 a client -- which does not need to be a browser anymore.
 
 If you are curious, this is the full source code of the REST wiki server:
@@ -193,25 +187,25 @@ Testing it
 ~~~~~~~~~~
 
 The simplest way of testing a REST API is to use a command-line tool that lets
-you place requests directly, for instance curl or wget. Assuming
-that curl is installed on your system, the following command-line will test
+you place requests directly, for instance +curl+ or +wget+. Assuming
+that +curl+ is installed on your system, the following command-line will test
 the result of placing a +\{get\}+ request at address +\_rest_/hello+:
 
 ---------------
 curl localhost:8080/_rest_/hello
 ---------------
 
-Execute this command-line and curl will show you the result of the call.
+Execute this command-line and +curl+ will show you the result of the call.
 
 
 Similarly, the following command-line will test the result of placing a +\{post\}+
 request at the same address:
 
 ---------------
-curl localhost:8080/_rest_/hello -d "I've justed POST to change the contents of my wiki"
+curl localhost:8080/_rest_/hello -d "I've just POSTed to change the contents of my wiki"
 ---------------
 
-Now, we are not here to learn about curl, but to learn about Opa. And what best way to test
+Now, we are not here to learn about +curl+, but to learn about Opa. And what best way to test
 the REST API of a wiki than by writing a web front-end that does not rely on its own database
 but on that of the wiki we have just defined?
 
@@ -266,7 +260,7 @@ exercises, we decide that any request placed on path +\_rest_+ is a REST request
 =========
 
 
-For testing, use the following command-line (assuming that curl is installed on your system):
+For testing, use the following command-line (assuming that +curl+ is installed on your system):
 
 
 --------
@@ -557,7 +551,7 @@ And that is all for the user interface.
 
 Working with URIs
 ~~~~~~~~~~~~~~~~~
-We have already been using URIs by performing pattern-maching on them inside dispatchers. It is now
+We have already been using URIs by performing pattern-matching on them inside dispatchers. It is now
 time to build new URIs for our function +uri_for_topic+.
 
 [TIP]
@@ -938,7 +932,7 @@ This tuple definition defines both +a = 50+ and +b = 51+. You can, of course, us
 more complex expressions instead of +50+.
 ================
 
-Architecturing a REST chat
+Architecting a REST chat
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 How would you design a chat distributed among servers using only REST for communications between servers?
 

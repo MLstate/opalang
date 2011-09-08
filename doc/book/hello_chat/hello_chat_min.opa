@@ -1,9 +1,8 @@
 /**
- * {1 Import standard classes of bootstrap css}
- *
- * see http://twitter.github.com/bootstrap/
+ * Minimal version of hello_chat
+ * - no style
+ * - no @publish
  */
-import stdlib.themes.bootstrap
 
 /**
  * {1 Network infrastructure}
@@ -18,7 +17,7 @@ type message = {author: string /**The name of the author (arbitrary string)*/
 /**
  * The chatroom.
  */
-@publish room = Network.cloud("room"): Network.network(message)
+room = Network.cloud("room"): Network.network(message)
 
 /**
  * {1 User interface}
@@ -33,14 +32,8 @@ type message = {author: string /**The name of the author (arbitrary string)*/
  * @param x The message received from the chatroom
  */
 user_update(x: message) =
-  line = <div class="row line">
-            <div class="span1 columns userpic" />
-            <div class="span2 columns user">{x.author}:</div>
-            <div class="span13 columns message">{x.text}
-            </div>
-         </div>
-  do Dom.transform([#conversation +<- line ])
-  Dom.scroll_to_bottom(#conversation)
+  line = <div>{x.author}: {x.text}</div>
+  Dom.transform([#conversation +<- line ])
 
 /**
  * Broadcast text to the [room].
@@ -64,12 +57,9 @@ broadcast(author) =
  */
 start() =
   author = Random.string(8)
-  <div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
-  <div id=#conversation class="container" onready={_ -> Network.add_callback(user_update, room)}></div>
-  <div id=#footer><div class="container">
-    <input id=#entry class="xlarge" onnewline={_ -> broadcast(author)}/>
-    <div class="btn primary" onclick={_ -> broadcast(author)}>Post</div>
-  </div></div>
+  <div id=#conversation onready={_ -> Network.add_callback(user_update, room)} />
+  <input id=#entry onnewline={_ -> broadcast(author)} />
+  <input type="button" onclick={_ -> broadcast(author)} value="Post" />
 
 /**
  * {1 Application}
@@ -82,9 +72,4 @@ start() =
  * embedding statically the contents of directory "resources", using the global stylesheet
  * "resources/css.css" and the user interface defined in [start].
  */
-// server = Server.one_page_bundle("Chat",
-//        [@static_resource_directory("resources")],
-//        ["resources/css.css"], start)
-
-
 server = Server.one_page_bundle("Chat", [], [], start)
