@@ -55,8 +55,8 @@ table td.content .title {font-weight:bold;font-size:1.2em;color:#000;}
 p {margin: 1em 0;}
 li p, td p {display:inline;}
 h1 {color:#000; font-size: 2.2em; line-height:1.4em; margin: 0.7em 0; }
-h2 {color:#000; font-size: 2.5em; line-height:1.4em; margin: 1em 0 0.5em 0;border-bottom: 1px solid #DDD;}
-h3 {color:#000; font-size: 1.5em; line-height:1em; margin: 1em 0;}
+h2 {color:#000; font-size: 2.5em; line-height:1.4em; border-bottom: 1px solid #DDD; margin:0; padding:58px 0 5px 0;}
+h3 {color:#000; font-size: 1.5em; line-height:1em; margin:0; padding:60px 0 5px 0;}
 h4 {color:#000; font-size: 1.3em; line-height:1em; margin: 0.5em 0;}
 h5 {color:#F46E0B; font-size: 1.25em; line-height:1.2em; margin: 0 0 0.5em 0;}
 h1, h2, h3, h4, h5 {font-family: "Helvetica", "Arial", sans-serif;font-weight: 700;}
@@ -134,6 +134,7 @@ pre {
    left:50%;
    margin: 60px 0 60px -280px;
    width: 780px;
+   text-align: justify;
 }
 #footer-text {
   position: relative;
