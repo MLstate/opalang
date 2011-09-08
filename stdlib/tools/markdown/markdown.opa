@@ -444,13 +444,15 @@ Markdown = {{
     Parser.parse(main,src):Markdown.private.content
 
   @private help_string = "
-Yan can enter a message using a Markdown-like syntax.
+You can enter a message using a Markdown-like syntax.
 Here is a list of all elements recognized.
 
-## Titles
+## Paragraphe
 
 A group of text isolated by two or more linebreaks will be put
 in a HTML paragraph<p>.
+
+## Titles
 
 You can enter titles using various syntaxes :
 
@@ -742,42 +744,57 @@ with a linebreak
       z-index:2000;
       top:0; left:0;
       width:100%; height:100%;
-      background: gray;
+      background: #888;
       opacity:0.7;
     }
     help_style = css {
       position: fixed;
-      width: 700px;
-      height: 450px;
+      width: 560px;
       z-index: 2001;
       top: 50px;
       background: white;
-      overflow: auto;
-      padding: 5px;
+      padding: 0;
+      border-radius: 6px;
     }
+    header_style = css {
+      border-bottom:1px solid #eee;
+      padding: 5px 20px;
+      height:80px;
+    }
+    body_style = css {
+      padding: 20px;
+      height:450px;
+      overflow: auto;
+    }
+
     <div style="display:none;" id=#{id} class="markdown_help">
-      <div class="markdown_bg" style={bg_style} onclick={_->Dom.hide(#{id})}></div>
+      <div class="markdown-bg" style={bg_style} onclick={_->Dom.hide(#{id})}></div>
       <div style={help_style} class="markdown">
-        This help is written using this syntax,
-        <a onclick={toggle_help(src_id, res_id)}>click here</a>
-        to toggle between source and result. Click anywhere outside this area
-        to close this help.
-        <hr/>
-        <div id=#{res_id}>{help_xhtml}</div>
-        <pre style="display:none;" id=#{src_id}>{help_string}</pre>
+        <div class="markdown-header" style={header_style}>
+             <h3>Markdown Syntax Help</h3> 
+             <p>This help is written using this syntax. 
+             To toggle between source and result <a onclick={toggle_help(src_id, res_id)}>click here</a>. 
+             <br/>To close this help click outside.</p>
+        </div>
+        <div class="markdown-body" style={body_style}> 
+             <div id=#{res_id}>{help_xhtml}</div>
+             <pre style="display:none;" id=#{src_id}>{help_string}</pre>
+        </div>
       </div>
     </div>
 
   @private @client do_expand(id) =
     do Dom.show(#{id})
-    bg_sel = "{id} > .markdown_bg"
+    bg_sel = "{id} > .markdown-bg"
     content_sel = "{id} > .markdown"
+    body_sel = "{id} > .markdown-body"
     win_width = Dom.get_outer_width(#{bg_sel})
     win_height = Dom.get_outer_height(#{bg_sel})
-    left = (win_width - 700)/2
+    left = (win_width - 560)/2
     height = win_height - 100
     style = [ {height={px=height}}, {left={px=left}} ]
     do Dom.set_style(#{content_sel}, style)
+    do Dom.set_style(#{body_sel}, [{height={px=(height-80)}}])
     void
 
  /**
