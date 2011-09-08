@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-module P = SurfaceAstPasses
+module P = SurfaceAstPassesTypes
 module S = SurfaceAst
 module CS = SurfaceAstCons.StringCons
 module C = SurfaceAstCons.ExprIdentCons

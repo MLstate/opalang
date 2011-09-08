@@ -1,0 +1,108 @@
+#FUTUR indicates not ready features
+
+
+*****************************
+* What it is about?
+
+Opa internationalisation (aka i18n) mecanism works by creating and using translation packages, and associating language to server user and to the server.
+
+The compiler offers some helpfull command line functionalities:
+-template package generation for i18n (using --i18n-opa-template)
+#FUTUR - template .po file generation (--i18n-po-template)
+#FUTUR - .po to opa package compilation
+and
+add support for the directive @i18n.
+
+
+*****************************
+* What's new on langage side?
+
+The directive @i18n indicates that its parameter expression will be subject to internationalisation.
+It comes in two flavours:
+- on syntactical string and soon on html, it indicates a string that will be handled later in the translation package. (see example/hello_i18n.opa)
+- on any other expression, it indicates the use of a custom translation, i.e. the expressions require the context lang as a parameter. (see example/custom.opa)
+
+The language used by each these @i18n depends on the current user context.
+For instance, if the server is answering a request of a server user, it will use the user context. Any computation issued from the answer computation will inherit this context. On client side, the context is always the user.
+For any new user the default language is given by the Accept-language header if existing or by the server language.
+
+
+*****************************
+* What's new on command line?
+
+The new compilations options are:
+--i18n-template-po  [ -o ]
+--i18n-dir
+--i18n-pkg
+#FUTUR --i18n-template-opa [ -o ]
+#FUTUR --i18n-every-string // @i18n is not needed
+
+Most users will use only --i18n-template-po and --i18n-dir
+
+
+opa --i18n-template-opa source.opa [-o mypack.translation.opa]
+# create package mypack.translations in mypack.translations.opa
+# eventual merge if existing
+opa mypack.translations.opa
+
+opa --i18n-pkg mypack.translation source.opa
+#compile with translations enable, will use mypack.translation.opa
+
+opa source.opa
+#compile with translations disabled, as now
+
+
+FUTUR
+opa --i18n-template-po source.opa [-o mypack.translation.po]
+# eventual merge
+po2opa mypack.translation.po
+opa mypack.translations.opa
+
+
+*****************************
+* How to make a whole project support i18n?
+
+ Create a 'translation' directory in your project hierarchy.
+ On an already compiled project. Redo all the compilation command adding --i18n-opa-template --i18n-dir translation
+ It will creates translation packages for all your project packages (aka standard packages).
+ Edit all this translations packages in 'translation' to add new languages.
+ Recompiles everything with --i18n-dir translation
+
+
+*****************************
+* How to evolves a project and maintain i18n?
+
+When translation package and standard packages are not synced, you will have warning message indicating missing translations but it will still compiles.
+You can still always compile your projects without i18n.
+At any time you can regenerate templates for translation package templates. Currently auto-merging edited template and new template is not automatic.
+So you will have to use meld or diff, which gives raisonnalbe results on translation packages.
+
+Changing both standard packages and translations packages involves two compilations !
+We have assumed that coding and translationg are different task, each one involves one compilation.
+When changing standard packages, you should used any --i18n-XXX options, but you should be aware that adding @i18n directives or modifying there content can involves extra works for translators.
+When changing translation, we should always use up-to-date standard package, to know which translation are not up to date.
+
+
+*****************************
+* What is the format of translations package?
+
+A translation package is formed of plain opa code, containing one declaration for each @i18n occurence in the corrsponding standard package.
+
+Where can I found an example?
+In ./example.
+
+
+*****************************
+* What are the current limitations ?
+
+The client code (javascript) is mutli-language with is space and computation costly, we expects to resolve this soon.
+
+The .po to opa package generator is not yet done. Updating or refactoring opa translation package and po files to reflects standard opa packages evolution should be automated.
+
+Recompilation is needed to add new translations.
+
+Plurial and regionalisation are not supported yet but we plan support for it.
+
+The directive @i18n_lang is not supported yet, we use directly I18.lang.
+
+New so not well tested, alpha code, be ready for bugs.

@@ -32,8 +32,8 @@
  *)
 val pass_check_server_entry_point :
   options:OpaEnv.opa_options ->
-  (SurfaceAst.nonuid, [< SurfaceAst.all_directives > `server_entry_point ] as 'a) SurfaceAstPasses.env_both_lcodes ->
-    (OpaEnv.opa_options * (string, 'a) SurfaceAstPasses.env_both_lcodes)
+  (SurfaceAst.nonuid, [< SurfaceAst.all_directives > `server_entry_point ] as 'a) SurfaceAstPassesTypes.env_both_lcodes ->
+    (OpaEnv.opa_options * (string, 'a) SurfaceAstPassesTypes.env_both_lcodes)
 
 (**
   This pass replaces \@server_entry_point with call to a Bsl function which will

@@ -21,42 +21,8 @@
   except the parsing pass (that is available in OpaParser)
  *)
 
-open SurfaceAst (* importing code, expr, all the directives types *)
-
-type ('a,'b) env_both_lcodes = {
-  lcodeNotUser : ('a,'b) code ;
-  (** Source code added automatically *)
-
-  lcodeUser : ('a,'b) code ;
-  (** Source code added at the request of the user *)
-
-  lcodeTypeRenaming : (Ident.t * FilePos.pos) StringMap.t ;
-  (** the renaming of types for the current package *)
-
-  exported_values_idents : IdentSet.t ;
-  (** The set of values identifiers that are exported outside this package.
-      It contains all toplevel values definitions that are not marked by a
-      @private directive. *)
-  env_bsl : BslLib.env_bsl ;
-  (** plugins and bymap *)
-}
-
-(**
-   The result of parsing a file.
-*)
-type 'a parsed_file = {
-  parsedFile_filename : string ;
-  (** The full name of the file*)
-
-  parsedFile_lcode : (string,'a) code ;
-  (** The surface Ast *)
-
-  parsedFile_content : string ;
-  (** The content of the file *)
-}
-
-
-type options = OpaEnv.opa_options
+open SurfaceAstPassesTypes
+open SurfaceAst
 
 (**
    This pass looks for Package declaration of each file, and loads these

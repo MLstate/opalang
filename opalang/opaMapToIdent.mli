@@ -42,6 +42,9 @@ val other_side : side -> side
 
 (** {6 Values}*)
 
+val val_no_opacapi_check : ?side:side -> string -> QmlAst.ident
+  (** only use for determinitic hashed naming schemes *)
+
 val val_noerr : ?side:side -> string -> QmlAst.ident
   (** Get the ident of the value originally named by the given
       [string]. Throw [Not_found] if the name doesn't exists on the

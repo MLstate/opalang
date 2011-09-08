@@ -1783,8 +1783,10 @@ let save_env env =
     if ObjectFiles.stdlib_packages (ObjectFiles.get_current_package ()) then
       env.maptoident_val, env.maptoident_typ
     else
+      (* Need something better here *)
       (* only saving the local maptoident for the stdlib packages *)
-      StringMap.empty, StringMap.empty in
+      env.maptoident_val, env.maptoident_typ
+  in
   ObjectOpaMapToIdent.save (my_val,my_typ);
   let val_,typ =
     ObjectOpaMapToIdent.fold

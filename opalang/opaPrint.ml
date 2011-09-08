@@ -398,6 +398,12 @@ object (self)
   method variant : 'dir. ([< all_directives ] as 'dir) pprinter = fun f -> function
   | `magic_to_string -> Format.pp_print_string f "magic_to_string"
   | `magic_to_xml -> Format.pp_print_string f "magic_to_xml"
+  (* computed string *)
+  | `string -> Format.pp_print_string f "string"
+  (* internationalization *)
+  | `i18n -> Format.pp_print_string f "i18n"
+  | `i18n_lang -> Format.pp_print_string f "i18n_lang"
+  (* *)
   | `fun_action -> Format.pp_print_string f "fun_action"
   | `magic_do -> Format.pp_print_string f "magic_do"
   | `typeof -> Format.pp_print_string f "typeof"
@@ -459,6 +465,11 @@ object (self)
   | `specialize `polymorphic -> Format.pp_print_string f "specialize"
   | `recval -> Format.pp_print_string f "recval"
 
+  method string_elmt :  'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f (e,_) ->
+    match e with
+    | Const(CString(s)) -> pp f "%s" (QmlPrint.escaped_string s)
+    | e -> pp f "{%a}" self#expr_node e
+
   method directive : 'dir. ('ident,[< all_directives ] as 'dir) directive pprinter =
     fun f (variant, exprs, tys) ->
     match variant, exprs, tys with
@@ -466,13 +477,12 @@ object (self)
         if comma || colon then pp f "(%a : %a)" self#reset#under_colon#expr e self#ty ty
         else pp f "%a : %a" self#under_colon#expr e self#ty ty
     | `module_, [(Record r,_)], _ -> pp f "@[<v>@[<v2>{{@ %a@]@ }}@]" (list ";@ " self#record_binding) r
-    | #all_directives, _, _ -> (
-        match tys with
-        | [] ->
-            pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
-        | _ ->
-            pp f "@[<2>@@%a(%a ; %a)@]" self#variant variant (list ",@ " self#reset#expr) exprs (list ",@ " self#ty) tys
-      )
+    | `string, l, _ ->
+      pp f "\"%a\"" (list "" self#string_elmt) l
+    | #all_directives,[]   , []  -> pp f "@[<2>@@%a@]" self#variant variant
+    | #all_directives,exprs, []  -> pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
+    | #all_directives,exprs, tys -> pp f "@[<2>@@%a(%a ; %a)@]" self#variant variant (list ",@ " self#reset#expr) exprs (list ",@ " self#ty) tys
+
   method record_binding  : 'dir. (string * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun f ((s, e) as expr) ->
     match e with
     | (Directive ((`coerce : [< all_directives]),[(Record [],_)],[TypeRecord (TyRow ([],None)), _]),_) -> self#field f s
@@ -726,11 +736,14 @@ object
   method typeident_original_name = Ident.original_name
   method typevar f (Flatvar s) = pp f "'%s" (Ident.to_string s)
 end
+let alphanumeric = Str.regexp "[a-zA-Z_][a-zA-Z0-9_]*"
 
 class readable_ident_class =
 object
   inherit ident_class
-  method to_protected_ident i = "`" ^ Ident.original_name i ^ "`"
+  method to_protected_ident i =
+    let n = Ident.original_name i in
+    if Str.string_match alphanumeric n 0 then n else "`" ^ n ^ "`"
   method to_unprotected_ident = Ident.original_name
   method typeident f (Typeident s) = pp f "%s" (Ident.original_name s)
   method typevar f (Flatvar s) = pp f "'%s" (Ident.original_name s)

@@ -7,6 +7,7 @@
  */
 
 var page_server = 0;
+var page_lang = "en";
 var base_url = "";
 
 /**

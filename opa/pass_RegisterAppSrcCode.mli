@@ -29,6 +29,6 @@
 *)
 
 val register_code : special:bool
-                 -> SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
+                 -> SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
                  -> Passes.input_file list
-                 -> SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
+                 -> SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list

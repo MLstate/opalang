@@ -91,8 +91,8 @@ val pass_PreProcess : (env_OpenFiles, env_OpenFiles) opa_pass
 val pass_Parse :
   (
     env_OpenFiles,
-    ( SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
-    * SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
+    ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+    * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
     ) * env_OpenFiles
   )
   opa_pass
@@ -100,8 +100,8 @@ val pass_Parse :
 val pass_RegisterAppSrcCode :
   (
     (
-      ( SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
-      * SurfaceAst.parsing_directive SurfaceAstPasses.parsed_file list
+      ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+      * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
       ) as 'parsed_files
     )
     * env_OpenFiles
@@ -120,13 +120,13 @@ val pass_ConvertStructure :
     ((SurfaceAst.nonuid, SurfaceAst.parsing_directive as 'directive)
        SurfaceAst.code_elt) ObjectFiles.parsed_code * BslLib.env_bsl
       ,
-    (SurfaceAst.nonuid, 'directive) SurfaceAstPasses.env_both_lcodes
+    (SurfaceAst.nonuid, 'directive) SurfaceAstPassesTypes.env_both_lcodes
   ) opa_pass
 
 val pass_LoadObjects :
   (
     (
-      SurfaceAstPasses.options,
+      SurfaceAstPassesTypes.options,
       (SurfaceAst.nonuid,
        [< SurfaceAst.all_directives >
             `static_content `static_content_directory `static_resource `static_resource_directory ] as 'a)
@@ -136,30 +136,37 @@ val pass_LoadObjects :
   )
   ->
   (
-    SurfaceAstPasses.options, unit,
-    ('a SurfaceAstPasses.parsed_file list * 'a SurfaceAstPasses.parsed_file list)
+    SurfaceAstPassesTypes.options, unit,
+    ('a SurfaceAstPassesTypes.parsed_file list * 'a SurfaceAstPassesTypes.parsed_file list)
       , unit
   )
     PassHandler.pass
 
 val pass_CheckServerEntryPoint :
   (
-   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPasses.env_both_lcodes,
-   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPasses.env_both_lcodes
+   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPassesTypes.env_both_lcodes,
+   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPassesTypes.env_both_lcodes
   )
   opa_pass
 
 val pass_ParserGeneration :
   (
-   (SurfaceAst.nonuid, SurfaceAst.parsing_directive)  SurfaceAstPasses.env_both_lcodes,
-   (SurfaceAst.nonuid, SurfaceAst.renaming_directive) SurfaceAstPasses.env_both_lcodes
+   (SurfaceAst.nonuid, SurfaceAst.parsing_directive)  SurfaceAstPassesTypes.env_both_lcodes,
+   (SurfaceAst.nonuid, SurfaceAst.renaming_directive) SurfaceAstPassesTypes.env_both_lcodes
   )
   opa_pass
 
 val pass_CheckDuplication :
   (
-    (SurfaceAst.nonuid, SurfaceAst.renaming_directive)   SurfaceAstPasses.env_both_lcodes,
-    (SurfaceAst.uids,   SurfaceAst.dependency_directive) SurfaceAstPasses.env_both_lcodes
+    (SurfaceAst.nonuid, SurfaceAst.renaming_directive)   SurfaceAstPassesTypes.env_both_lcodes,
+    (SurfaceAst.uids,   SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes
+  )
+  opa_pass
+
+val pass_I18nAndComputedString :
+  (
+   (SurfaceAst.uids, SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes,
+   (SurfaceAst.uids, SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes
   )
   opa_pass
 
@@ -173,7 +180,7 @@ val pass_TreatNoClientCalls : unit ->
 
 val pass_ConvertStructure2 : unit ->
   (
-    (Ident.t,  [< SurfaceAst.all_directives ] as 'a) SurfaceAstPasses.env_both_lcodes,
+    (Ident.t,  [< SurfaceAst.all_directives ] as 'a) SurfaceAstPassesTypes.env_both_lcodes,
     (Ident.t, 'a) Passes.sa_env_Gen
   )
   opa_pass
@@ -215,14 +222,14 @@ val pass_CheckPatternMatching :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_EndOfSeparateCompilation :
-  ((SurfaceAstPasses.options, unit Passes.env_Gen) PassHandler.one_env -> unit) ->
+  ((SurfaceAstPassesTypes.options, unit Passes.env_Gen) PassHandler.one_env -> unit) ->
   (opa_options, unit, unit Passes.env_Gen, unit) PassHandler.pass
 
 (*
   (Passes.env_Gen, Passes.env_Gen) opa_pass
 
-((SurfaceAstPasses.options, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux) PassHandler.one_env -> unit) ->
-(SurfaceAstPasses.options, unit, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux, unit) PassHandler.pass
+((SurfaceAstPassesTypes.options, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux) PassHandler.one_env -> unit) ->
+(SurfaceAstPassesTypes.options, unit, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux, unit) PassHandler.pass
 *)
 
 val pass_FunActionLifting :

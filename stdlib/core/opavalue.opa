@@ -339,6 +339,12 @@ OpaValue = {{
         a, b, (fields, acc)
       ).f2 : 'acc
 
+
+    get_uniq_field_name(r)=
+      match fold(field,_,acc->[field|acc],r,[])
+      [field] -> name_of_field(field)
+      _ -> none
+
     /**
      * {3 Field translation}
      * This part provides some functions for make translation with

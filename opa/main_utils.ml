@@ -65,6 +65,8 @@ struct
     | `linking | `prelude | `compilation -> false
   let full_separation ~options:_ _env =
     ObjectFiles.Arg.is_fully_separated ()
+
+  let i18n_template ~options _env = E.i18n_template options
 end
 
 let if_not f_cond ~options env = not (f_cond ~options env)

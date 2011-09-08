@@ -13,3 +13,4 @@ true: with_mlstate_debug, warn_A, warn_e, warn_error_A
 <surfaceAstDependencies.{ml,mli}>: use_graph
 <surfaceAstRenaming.{ml,mli}>: use_compilerlib
 <pass_CompileTimeDirective.{ml,mli}>: use_opalib, use_compilerlib, use_buildinfos
+<i18nAndComputedString.{ml,mli}>: use_opalib

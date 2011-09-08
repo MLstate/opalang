@@ -16,6 +16,11 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * A module to get internationalization configuration *
+ *
+ * @author Rudy Sicard
+ */
+##extern-type I18n.language
 
-@deprecated({hint="Use Dom.fresh_id instead of uniq"})
-uniq() = Random.string(32)
+##register page_lang \ `page_lang` : I18n.language

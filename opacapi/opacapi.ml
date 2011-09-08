@@ -99,6 +99,12 @@ struct
   let serialize_ty_argument = !! "serialize_ty_argument"
 end
 
+module I18n =
+struct
+  let (!!) s = !! ("I18n_" ^ s)
+  let lang = !! "lang"
+end
+
 module IntMap =
 struct
   let (!!) s = !! ("IntMap_" ^ s)
@@ -209,6 +215,12 @@ struct
   let (!!) s = !! ("Server_private_" ^ s)
   let add_service = !! "add_service"
   let run_services = !! "run_services"
+end
+
+module String =
+struct
+  let (!!) s = !! ("String_" ^ s)
+  let flatten = !! "flatten"
 end
 
 module StringMap =

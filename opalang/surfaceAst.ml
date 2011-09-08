@@ -296,6 +296,14 @@ type magic_directive =
     | `typeof
     | `specialize of [ `strict | `polymorphic ]
     ]
+
+type string_directive = [ `string ]
+
+type internationalization_directive = [
+    | `i18n (* indicate a point of translation *)
+    | `i18n_lang (* return the current context lang, add a directive to later prune js code pattern matching at running time *)
+]
+
 type error_directive =
     [ `assert_
     ]
@@ -379,6 +387,8 @@ type opavalue_directive = [
 
 type basic_directive =
     [ magic_directive
+    | string_directive
+    | internationalization_directive
     | coding_directive
     | error_directive
     | concurrency_directive

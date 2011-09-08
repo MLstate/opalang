@@ -128,9 +128,9 @@ module EnvUtils = struct
     printers =
       (fun opt ->
          let user_printers =
-           printers (fun e -> e.SurfaceAstPasses.lcodeUser) opt in
+           printers (fun e -> e.SurfaceAstPassesTypes.lcodeUser) opt in
          let nuser_printers =
-           printers (fun e -> e.SurfaceAstPasses.lcodeNotUser) opt in
+           printers (fun e -> e.SurfaceAstPassesTypes.lcodeNotUser) opt in
          List.fold_right2
            (fun (id, u) (_, nu) acc -> (
               (* The printer size should not be modified, opa track is expecting a specific format *)
@@ -138,7 +138,7 @@ module EnvUtils = struct
               then
                 (id,
                  (fun fmt e ->
-                    let code = e.SurfaceAstPasses.lcodeNotUser @ e.SurfaceAstPasses.lcodeUser in
+                    let code = e.SurfaceAstPassesTypes.lcodeNotUser @ e.SurfaceAstPassesTypes.lcodeUser in
                     OpaTracker.Printer.size fmt code))
               else
                 (id,
@@ -209,8 +209,8 @@ module Adapter : sig
   (* Keep sig here just for doc..*)
 
   val adapt_sa_both :
-    ('a, (SurfaceAst.nonuid, [< SurfaceAst.all_directives ] as 'b) SurfaceAstPasses.env_both_lcodes) opa_old_pass ->
-    ('a, (SurfaceAst.nonuid, 'b) SurfaceAstPasses.env_both_lcodes) opa_pass
+    ('a, (SurfaceAst.nonuid, [< SurfaceAst.all_directives ] as 'b) SurfaceAstPassesTypes.env_both_lcodes) opa_old_pass ->
+    ('a, (SurfaceAst.nonuid, 'b) SurfaceAstPassesTypes.env_both_lcodes) opa_pass
 
   val adapt_sa :
     ('a, (SurfaceAst.uids, [< SurfaceAst.all_directives ] as 'd) P.sa_env_Gen) opa_old_pass ->
@@ -412,7 +412,7 @@ let pass_Parse =
              ~filename:input_file.P.inputFile_basename
              input_file.P.inputFile_content
          in
-         { SurfaceAstPasses.
+         { SurfaceAstPassesTypes.
              parsedFile_filename = input_file.P.inputFile_filename;
              parsedFile_lcode = lcode;
              parsedFile_content = input_file.P.inputFile_content;
@@ -458,7 +458,7 @@ let pass_ConvertStructure =
     (fun env ->
        let options = env.PH.options in
        let files, env_bsl = env.PH.env in
-       let both_env = { SurfaceAstPasses.
+       let both_env = { SurfaceAstPassesTypes.
          lcodeNotUser = [];
          lcodeUser = List.concat_map (fun (_, _, code) -> code) files;
          lcodeTypeRenaming = StringMap.empty;
@@ -505,6 +505,10 @@ let pass_CheckServerEntryPoint =
        let options = { e with PH.options = opt } in
        EnvUtils.create_sa_both_env options env)
 
+let pass_I18nAndComputedString =
+  PassHandler.make_pass
+    (fun e -> EnvUtils.create_sa_both_env_uids e (I18nAndComputedString.process_directives__i18n__string ~options:e.PH.options e.PH.env))
+
 let pass_ParserGeneration =
   Adapter.adapt_sa_both SurfaceAstPasses.pass_parser_generation
 
@@ -514,12 +518,12 @@ let pass_ConvertStructure2 () =
        let options = e.PH.options in
        let env = e.PH.env in
        let env2 =
-         let sa_lcode = env.SurfaceAstPasses.lcodeNotUser @ env.SurfaceAstPasses.lcodeUser in
+         let sa_lcode = env.SurfaceAstPassesTypes.lcodeNotUser @ env.SurfaceAstPassesTypes.lcodeUser in
          let sa_doc_types = [] in
-         let sa_bsl = env.SurfaceAstPasses.env_bsl in
-         let sa_type_renaming = env.SurfaceAstPasses.lcodeTypeRenaming in
+         let sa_bsl = env.SurfaceAstPassesTypes.env_bsl in
+         let sa_type_renaming = env.SurfaceAstPassesTypes.lcodeTypeRenaming in
          let sa_exported_values_idents =
-           env.SurfaceAstPasses.exported_values_idents in
+           env.SurfaceAstPassesTypes.exported_values_idents in
          {P.
            sa_lcode ;
            sa_doc_types ;

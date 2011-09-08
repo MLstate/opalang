@@ -886,6 +886,7 @@ let magic_to_text e =
 let fun_action e =
   directive1 `fun_action e
 let magic_do e = (directive1 `magic_do e , nlabel e)
+let computed_string l = directive `string l
 
 (*
  * stuff on list put here because they need coerce_name_expr

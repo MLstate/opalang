@@ -317,6 +317,7 @@ struct
       let magic_to_xml ?label () = T.arrow ?label [T.fresh ?label ()] (T.name ?label Opacapi.Types.xml)
       let side_annotation = Common.alpha_arrow_alpha
       let visibility_annotation = Common.alpha_arrow_alpha
+      let i18n_lang  ?label () = T.arrow ?label [] (T.string ?label ())
     end
     (*module Parser =
     struct
@@ -343,6 +344,10 @@ struct
       (Directive (`open_, [e1;e2], []), c label)
     let doctype (path:string list) ?(label=w()) ?(access=`public) e1 =
       (Directive (`doctype (path, access), [e1], []), c label)
+    let string ?(label=w()) l =
+      (Directive (`string, l, []), c label)
+    let i18n_lang ?(label=w()) () =
+      (Directive (`i18n_lang, [], []), c label)
     let side_annotation ?(label=w()) side e =
       (Directive (`side_annotation side, [e], []), c label)
     let visibility_annotation ?(label=w()) visibility e =

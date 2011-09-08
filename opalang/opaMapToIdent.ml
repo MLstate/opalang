@@ -77,9 +77,12 @@ let print_side = function
   | `server -> "server"
   | `client -> "client"
 
+let val_no_opacapi_check ?(side=`server) s =
+  StringMap.find s !(get_rmap side)
+
 let val_noerr ?(side=`server) s =
   opacapi_check s ;
-  StringMap.find s !(get_rmap side)
+  val_no_opacapi_check ~side s
 
 let pp_stringmap f map =
   StringMap.iter

@@ -53,6 +53,50 @@ struct
 (** ==============================================*)
 end
 
+module I18n = struct
+  let template_message ext = Printf.sprintf " Generate %s source code template as translation package, use --i18n-pkg to specify the output file name and corresponding opa package name" ext
+
+  module Type = struct
+    type options = {
+      template_opa : bool;
+      template_po : bool;
+      pkg : string list;
+      dir : string list;
+    }
+  end
+
+  include Type
+
+  let default_options = {
+    template_opa = false;
+    template_po = false;
+    pkg = [] ;
+    dir = [] ;
+  }
+
+  let r = ref default_options
+
+  let options =   [
+    "--i18n-template-opa",
+    Arg.Unit (fun () -> r := {!r with template_opa=true}),
+    template_message "opa";
+
+    "--i18n-template-po",
+    Arg.Unit (fun () -> r := {!r with template_po=true}) ,
+    template_message "po";
+
+    "--i18n-pkg",
+    Arg.String (fun str -> r := {!r with pkg = str :: (!r.pkg)}),
+    " Use the explicitely give package name for i18n";
+
+    "--i18n-dir",
+    Arg.String (fun str -> r := {!r with dir = str :: (!r.dir)}),
+    " Specify the directory containing translations";
+
+  ]
+
+end
+
 let cwd = Sys.getcwd ()
 
 let available_js_back_end_list = Qml2jsOptions.backend_names ()
@@ -134,7 +178,11 @@ type opa_options = {
   js_global_inlining : bool;
   js_local_renaming : bool;
   publish_src_code : bool; (** if true, application source code will be published at [_internal_/src_code] *)
+
+  i18n : I18n.options ;
 }
+
+let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
 
 module Options :
 sig
@@ -390,6 +438,7 @@ where options are :
         OManager.Arg.options @
         WarningClass.Arg.options () @
         ObjectFiles.Arg.public_options @
+        I18n.options @
         [
           (* a *)
           "--api",
@@ -765,6 +814,8 @@ where options are :
     js_global_inlining = !ArgParser.js_global_inlining;
     js_local_renaming = !ArgParser.js_local_renaming;
     publish_src_code = !ArgParser.publish_src_code;
+
+    i18n = !I18n.r
   }
 
   let echo_help () = ArgParser.do_print_help ()

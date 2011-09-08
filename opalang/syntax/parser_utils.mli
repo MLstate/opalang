@@ -351,6 +351,7 @@ val magic_to_string : (string, [> `magic_to_string ] as 'a) expr -> (string, 'a)
 val magic_to_xml : (string, [> `magic_to_xml ] as 'a) expr -> (string, 'a) expr_node
 val magic_to_text : (string, [> `magic_to_text ] as 'a) expr -> (string, 'a) expr_node
 val magic_do : (string, [> `magic_do] as 'a) expr -> (string, 'a) expr
+val computed_string : (string, [> `string] as 'a) expr list -> (string, 'a) expr_node
 
 val toplevel_opens : ('a, [> `toplevel_open ] as 'b) expr list -> ('a, 'b) code_elt_node list
 val bypass : string -> ('a, 'b) expr_node

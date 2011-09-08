@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-module SAP = SurfaceAstPasses
+module SAP = SurfaceAstPassesTypes
 module SAH = SurfaceAstHelper
 module P = Passes
 

@@ -1,4 +1,4 @@
-/*
+(*
     Copyright © 2011 MLstate
 
     This file is part of OPA.
@@ -14,8 +14,13 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
-*/
+*)
 
+(**
+ * A module to get internationalization configuration *
+ *
+ * @author Rudy Sicard
+ *)
 
-@deprecated({hint="Use Dom.fresh_id instead of uniq"})
-uniq() = Random.string(32)
+##register get_server_lang : void -> string
+let get_server_lang () = "en"

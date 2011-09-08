@@ -615,6 +615,7 @@ slicing_directive <-
  *)
 ;
 directive0 <-
+  / "i18n_lang"  {{ `i18n_lang }}
   / "thread_context" {{ `thread_context }}
   / "todo" {{ `todo }}
   / "toplevel" {{ `toplevel }}
@@ -623,6 +624,7 @@ directive1 <-
   / "assert" {{ `assert_ }}
   / "atomic" {{ `atomic }}
   / "callcc" {{ `callcc }}
+  / "i18n"   {{ `i18n }}
   / "js_ident" {{ `js_ident }}
   / "may_cps" {{ `may_cps }}
   / "nonexpansive" {{ `nonexpansive }}

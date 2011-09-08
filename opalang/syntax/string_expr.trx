@@ -29,11 +29,8 @@
 string_with_opa <- (=Opa_parser.deco(just_string_with_opa)):p
   {{ let (l,label) = p in
        (* slight optimization, but mostly it improves readability of pretty printed code *)
-       match l with
-         | [] -> string2 ("",label)
-         | [h] -> h
-         | _ -> ident "sc_list" label & [list_expr_of_expr_list l label]
-   }}
+       (computed_string l),label
+  }}
 
 ;just_string_with_opa <- [\"] inner_string_element*:l (=Opa_lexer.or_eof([\"])):b {{ if not b then error_string (pos_only _filename _pos_beg _pos_end) else l }}
 

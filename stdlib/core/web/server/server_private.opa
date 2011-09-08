@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args}
+import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args, i18n}
 
 
 /**
@@ -24,7 +24,7 @@ import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, 
  *
  * This module provides a low-level API for receiving requests and invoking the corresponding URL parsers.
  *
- * @author Rudy Sicard, 2006-2009
+ * @author Rudy Sicard, 2008-2009
  * @author David Rajchenbach-Teller, 2010
  * @target INTERNAL_USE
  * @stability UNSTABLE
@@ -294,9 +294,13 @@ Server_private = {{
                  ^ "Answer wrong_adress")
               export(winfo, Resource.default_error_page({wrong_address})) : void
 
-          full_handler:Parser.general_parser(void) = parser
+           // to update user lang when external handler is reached
+           touch_lang(_bool,it) = do ServerI18n.touch_user_lang(winfo.http_request)
+                                  some((it,void))
+
+           full_handler:Parser.general_parser(void) = parser
             | "/" _internal_parser "/" internal_handler -> void
-            | external_handler                -> void
+            | &touch_lang external_handler              -> void
 
           full_handler_with_base = parser
             | "{base_url_string}" full_handler -> void

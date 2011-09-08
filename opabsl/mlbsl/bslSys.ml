@@ -132,3 +132,8 @@ let finalise f v = Gc.finalise f v
     @return the memory usage in bytes *)
 ##register get_memory_usage : -> int
 let get_memory_usage = BaseSys.get_memory_usage
+
+(** get access to environment variable if existing *)
+##register get_env_var : string -> option(string)
+let get_env_var var =
+ try Some(Sys.getenv var) with Not_found -> None

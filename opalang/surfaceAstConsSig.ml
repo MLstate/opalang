@@ -192,10 +192,14 @@ sig
       val magic_to_xml :             ?label:annot -> unit -> ident arrow_t
       val side_annotation :          ?label:annot -> unit -> ident arrow_t
       val visibility_annotation :    ?label:annot -> unit -> ident arrow_t
+      val i18n_lang :                ?label:annot -> unit -> ident arrow_t
     end
     (* directive expressions *)
     val open_ : ?label:annot -> (ident, [< all_directives > `open_ ] as 'a) expr -> (ident, 'a) expr -> (ident, 'a) expr
     val doctype : string list -> ?label:annot -> ?access:SurfaceAst.access_directive -> (ident, [< all_directives > `doctype ] as 'a) expr -> (ident, 'a) expr
+    val string : ?label:annot -> (('a, [> `string ]) expr as 'expr) list -> 'expr
+    val i18n_lang : ?label:annot -> unit -> ('a, [> `i18n_lang ]) expr
+
     val side_annotation : ?label:annot -> [`server | `client | `both | `prefer_server | `prefer_client | `prefer_both | `both_implem ] ->
                             (ident, [< all_directives > `side_annotation] as 'a) expr -> (ident,'a) expr
     val visibility_annotation : ?label:annot -> [`public of [`sync | `async | `funaction] | `private_] -> (ident, [< all_directives > `visibility_annotation] as 'a) expr -> (ident,'a) expr

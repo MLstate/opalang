@@ -654,6 +654,13 @@ let regexp_of_glob s =
   done;
   Buffer.contents b
 
+
+let exists_package ?(extrapath=[]) package =
+  let extrapaths = extrapath @ (!extrapaths) in
+  let package_opx = package^".opx" in
+  File.get_locations_regexp ~dir:true extrapaths package_opx <> []
+
+
 let expand_glob ?(mode = (`package : [`package|`plugin])) names (package_name,pos) =
   let package_keyword, import_keyword, unprefixed_dirname =
     match mode with

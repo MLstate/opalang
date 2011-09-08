@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{parser, loop, date, web.core, rpc.core, web.request, cache, xhtml, args, set}
+import stdlib.core.{parser, loop, date, web.core, rpc.core, web.request, cache, xhtml, args, set, i18n}
 import stdlib.core.compare
 
 /**
@@ -898,10 +898,11 @@ export_resource(external_css_files: list(string),
                    do Log.warning("Resource export",
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
-          page_id = "var page_server = {num_page};"
+          page_lang = ServerI18n.page_lang() // TODO by customizer
+          page_info = "var page_server = {num_page};var page_lang = \{{page_lang}:\{}};"
           js_base_url = Option.switch(base -> "var base_url = \"{base}\";", "", base_url)
 
-          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_id} {js_base_url}</script>"} : xhtml
+          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info} {js_base_url}</script>"} : xhtml
           {body = ready_body
            head = head_without_id
            mime_type= mime_type} = cache_for_xhtml(
@@ -911,8 +912,8 @@ export_resource(external_css_files: list(string),
              ~body ~user_agent})
 
           base =
+            request = HttpRequest._of_web_info(winfo)
             Option.switch(base ->
-              request = HttpRequest._of_web_info(winfo);
               Option.switch(host ->
                 s = if HttpRequest.Generic.is_secured(request) then "s" else "";
                 <base href="http{s}://{host}{base}/" />,

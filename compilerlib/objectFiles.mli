@@ -94,6 +94,11 @@ val set_extrapaths : no_stdlib:bool -> filename list -> unit
 val set_bsl_plugins : (basename * hash) list -> unit
 
 (**
+   test existence of a package given known or given extrapath
+*)
+val exists_package : ?extrapath:string list -> string -> bool
+
+(**
    expand syntax of import directives, for package or plugins
 *)
 val expand_glob :

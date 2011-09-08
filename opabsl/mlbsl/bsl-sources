@@ -56,3 +56,6 @@ dbser.ml
 
 bslCommandLine.ml
 bslXmlm.ml
+
+# i18n and localisation
+bslI18n.ml
