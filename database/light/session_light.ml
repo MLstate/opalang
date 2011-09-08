@@ -390,7 +390,7 @@ struct
         if Sys.file_exists (file^".dir")
         then (Logger.info "DB-LIGHT : Opening database%s" pretty_location;
               false, restart_db ?dot ?weak ?restore ?ondemand ?direct ?max_size file)
-        else (Logger.notice "DB-LIGHT : Initialising empty database%s" pretty_location;
+        else (#<If:TESTING> () #<Else> Logger.notice "DB-LIGHT : Initialising empty database%s" pretty_location #<End>;
               true, make ?dot ?weak ?ondemand ?direct ?max_size file)
       in
       #<If>Logger.log "DB-LIGHT : time to open = %f" (Unix.gettimeofday() -. _starting_time)#<End>;

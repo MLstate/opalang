@@ -525,7 +525,7 @@ module DT = DbTypes
             false, restart_db ~readonly ?dot ?weak ?restore file
           )
           else (
-            Logger.notice "Initialising empty database%s" pretty_location;
+            #<If:TESTING> () #<Else> Logger.notice "Initialising empty database%s" pretty_location #<End>;
             true, make ~readonly ?dot ?weak file
           )
       in
