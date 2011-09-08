@@ -18,3 +18,9 @@ Convention for source code:
 Typography:
 * don't forget semi-columns;
 * in lists, they are compulsory.
+
+Git commits:
+* commit messages must respect the following format:
+*	[tag] context: message
+* where allowed tags are:
+*       cleanup, contrib, debug, doc, enhance, feature, fix, layout, revert.
