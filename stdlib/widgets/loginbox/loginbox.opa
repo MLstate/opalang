@@ -35,6 +35,7 @@ type WLoginbox.stylers = {
   login_box : WStyler.styler
   logged_box : WStyler.styler
   unlogged_box : WStyler.styler
+  submit : WStyler.styler
 }
 
 type WLoginbox.config = {
@@ -74,6 +75,7 @@ WLoginbox =
       login_box = WStyler.empty
       logged_box = WStyler.empty
       unlogged_box = WStyler.empty
+      submit = WStyler.empty
     }
   } : WLoginbox.config
 
@@ -168,7 +170,7 @@ WLoginbox =
            {none} -> <></>}
           <input id={password_id} type="password" autocomplete="on" name="{password_id}" placeholder="{init_password}" onready={place_holder(password_id,init_password,true)} />
           {match config.password_help {some=ph} -> ph {none} -> <></>}
-          <input type="submit" value="{config.login_text}" />
+          {<button type="submit">{config.login_text}</button> |> WStyler.add(config.stylers.submit, _)}
         </span>
         </form>;
       // Login XHTML chunk itself
