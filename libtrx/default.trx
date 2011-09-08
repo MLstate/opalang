@@ -1,5 +1,5 @@
 (*
-    Copyright Â© 2011 MLstate
+    Copyright © 2011 MLstate
 
     This file is part of OPA.
 
@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-##FIXME## there are 4 *different* instances of default.trx in the repo. They should be merged.
+
 hexa <- [0-9A-Fa-f]
 space <- [ \n\r\t]
 spacing <- [ \n\r\t]
@@ -30,20 +30,20 @@ stringnosp <- [\"] stringchar* [\"] {{ Tgrammar.string_of_chars __2 }}
 stringquote <- stringnosp $_
 
 # "\\\\" {{ '\\' }} / "\\\"" {{ '\"' }} / ![\"] .
-stringcharspecial <- 
+stringcharspecial <-
 	  [n] {{ '\n' }} / [r] {{ '\r' }} / [t] {{ '\t' }}
 	/ [\'] {{ '\'' }} / [\"] {{ '\"' }}  / [\\] {{ '\\' }}
 	/ [0-9]+ {{ char_of_int (Tgrammar.int_of_chars __1) }}
-stringchar <- 
+stringchar <-
 	  [\\] stringcharspecial {{ __2 }}
 	/ ![\\\"] .
-singlequotechar_ <- 
+singlequotechar_ <-
 	  [\\] stringcharspecial {{ __2 }}
 	/ ![\\\'] .
 
 
 # FIXME: fonctions !!!
-charsinglequote <- [\'] singlequotechar_ [\'] {{ __2 }} 
+charsinglequote <- [\'] singlequotechar_ [\'] {{ __2 }}
 
 stringsinglequote <- [\'] stringsinglechar* [\'] $_
 stringsinglechar <- "\\\\" {{ '\\' }} / "\\\'" {{ '\'' }} / "\\" stringcharspecial {{ __2 }} / ![\'] .
@@ -58,13 +58,13 @@ accolexpr <- laccol accolexprcontent raccol {{ __2 }}
 bracketexprcontent <- (bracketexpr $ / !rbracket . $)* $_
 bracketexpr <- lbracket bracketexprcontent rbracket {{ __2 }}
 
-slash <- [/] spacing $ 
+slash <- [/] spacing $
 equal <- [=] spacing $
 comma <- [,] spacing $
 plus <- [+] spacing $
 laccol <- [{] spacing $
 raccol <- [}] spacing $
-colon <- [:] spacing $ 
+colon <- [:] spacing $
 semi <- [;] spacing $
 lparen <- [(] spacing $
 rparen <- [)] spacing $
@@ -80,7 +80,7 @@ sharp <- [#] spacing $
 bar <- [|] spacing $
 at <- [@] spacing $
 underscore <- [_] spacing $
-tilde_ <- [~] $ 
+tilde_ <- [~] $
 
 leftarrow <- "<-" spacing $
 rightarrow <- "->" spacing $
@@ -102,8 +102,8 @@ mlcomment <- mlCOMMENTSTART (!mlCOMMENTSTOP (mlcomment / . $))* mlCOMMENTSTOP $
 mlCOMMENTSTART <- '(*' $
 mlCOMMENTSTOP <- '*)' $
 
-humanint <- int [kMG]? 
-	  {{ match __2 with 
+humanint <- int [kMG]?
+	  {{ match __2 with
 	  | Some 'k' -> __1 * 1024
 	  | Some 'M' -> __1 * 1024 * 1024
 	  | Some 'G' -> __1 * 1024 * 1024 * 1024 (* FIXME: overflow !!! *)
