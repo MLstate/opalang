@@ -157,14 +157,14 @@ Mongo = {{
    *  Send OP_QUERY and get reply:
    **/
   query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): option(string) =
-    do query_(m.mbuf,0,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
+    do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
 
   /**
    *  Send OP_GETMORE and get reply:
    **/
   getmore(m,ns,numberToReturn,cursorID): option(string) =
-    do get_more_(m.mbuf,0,ns,numberToReturn,cursorID)
+    do get_more_(m.mbuf,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
 
   /**
