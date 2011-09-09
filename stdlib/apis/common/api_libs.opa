@@ -222,7 +222,8 @@ API_libs = {{
   get_data(rawdata) =
     /* Add the '?' at the beginning if it was removed */
     rawdata =
-      if String.substring(0,1,rawdata) == "?" then rawdata
+      if rawdata == "" then "?"
+      else if String.substring(0,1,rawdata) == "?" then rawdata
       else "?{rawdata}"
     Parser.try_parse(UriParser.query, rawdata) ? []
 
