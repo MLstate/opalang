@@ -219,7 +219,7 @@ struct
     let js_local_renaming = ref true
     (* in release, force publishing source code ; otherwise, don't
        publish unless --publish-src-code). *)
-    let publish_src_code = ref (BuildInfos.is_release)
+    let publish_src_code = ref false
 
     let back_end_wanted = ref ( `qmlflat : available_back_end )
     let back_end s =
@@ -482,6 +482,7 @@ where options are :
           ("-o",                  Arg.String change_target,  "<file> Set output file name to <file>");
           ("--opack",             Arg.String (fun s -> (!opack_file_function) s), "<opack-file> Use an options-packaging file");
           ("--project-root", Arg.String set_project_root, " Specify the root directory of the project");
+          ("--publish-src-code", Arg.Set publish_src_code, " Publish application src code at [_internal_/src_code]");
           ("--root-inclusions", Arg.String set_root_inclusions, "<root> Specify the root directory of static inclusions");
           ("--set-mime-database", Arg.String set_mime_database, " Consider given mime database for detecting mimetypes. Used with the directive @static_include_directory");
           ("--show-types",        Arg.Set show_types,        " Show types of declarations (L0 elements)");
@@ -544,7 +545,6 @@ where options are :
           ("--js-no-local-inlining", Arg.Clear js_local_inlining, "");
           ("--js-no-global-inlining", Arg.Clear js_global_inlining, "");
           ("--js-no-local-renaming", Arg.Clear js_local_renaming, "");
-          ("--publish-src-code", Arg.Set publish_src_code, " Publish application src code at [_internal_/src_code]");
 
           ("--no-cache-parse",    Arg.Set no_cache_parse,    " UNDOCUMENTED");
           ("--no-discard-of-unused-stdlib", Arg.Set no_discard_of_unused_stdlib, " UNDOCUMENTED");
