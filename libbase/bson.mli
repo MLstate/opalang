@@ -122,9 +122,7 @@ val st_bin_md5 : char
 val st_bin_user : char
 
 type buf = {
-  str : S.t;
-  len : int;
-  mutable i : int;
+  buf : Buf.buf;
   mutable stack : int list;
   mutable finished : bool;
 }
@@ -143,12 +141,7 @@ module Append :
     val init : ?hint:int -> unit -> buf
     val empty : buf
     val size : buf -> int
-    val add_char : buf -> char -> unit
-    val add_int32 : buf -> int -> unit
-    val add_int64 : buf -> int -> unit
-    val add_double : buf -> float -> unit
-    val append : buf -> ?offset:int -> S.t -> int -> unit
-    val estart : buf -> char -> S.t -> int -> unit
+    val estart : buf -> char -> S.t -> unit
     val int : buf -> S.t -> int -> unit
     val long : buf -> S.t -> int -> unit
     val double : buf -> S.t -> float -> unit
@@ -185,7 +178,7 @@ module Append :
 module type Iterator_sig =
   sig
     module S : S_sig
-    type iter = { buf : S.t; mutable pos : int; mutable first : bool; }
+    type iter = { ibuf : S.t; mutable pos : int; mutable first : bool; }
     val init : buf -> iter
     val from_buffer : S.t -> iter
     val iterator_type : iter -> char
@@ -225,10 +218,10 @@ module IteratorF(S : S_sig) : Iterator_sig with module S = S
 module Iterator : Iterator_sig with module S = S
 module IteratorSS : Iterator_sig with module S = SS
 
-module Element :
+(*module Element :
 sig
   val element : buf -> S.t option -> Iterator.iter -> unit
-end
+end*)
 
 module Print :
 sig

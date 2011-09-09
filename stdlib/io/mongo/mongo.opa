@@ -98,7 +98,10 @@ Mongo = {{
    * Specialised read, read until the size equals the (little endian)
    * 4-byte int at the start of the reply.
    **/
-  @private read_mongo = (%% BslMongo.read_mongo %%: Socket.connection, int -> reply)
+  // Unable to type bypass
+  //  bslmongo_read_mongo.
+  // Sigh.
+  //@private read_mongo = (%% BslMongo.read_mongo %%: Socket.connection, int -> reply)
 
   /**
    *  Create new mongo object:
@@ -121,7 +124,7 @@ Mongo = {{
       (cnt==len)
 
   @private
-  send_with_reply(m,name): option(reply) =
+  send_with_reply(m,name): option(string) =
     match export_(m.mbuf) with
     | (str, len) ->
       s = String.substring(0,len,str)
@@ -129,7 +132,7 @@ Mongo = {{
       cnt = Socket.write_len(m.conn,s,len)
       do println("cnt={cnt} len={len}")
       if (cnt==len)
-      then {some=Socket.read_mongo(m.conn,(1024*1024))}
+      then {some=Socket.read(m.conn)}
       else {none}
 
   /**
@@ -153,16 +156,16 @@ Mongo = {{
   /**
    *  Send OP_QUERY and get reply:
    **/
-  /*query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): bool =
+  query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): option(string) =
     do query_(m.mbuf,0,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
-    send_with_reply(m,"query")*/
+    send_with_reply(m,"query")
 
   /**
    *  Send OP_GETMORE and get reply:
    **/
-  /*getmore(m,ns,numberToReturn,cursorID): bool =
+  getmore(m,ns,numberToReturn,cursorID): option(string) =
     do getmore_(m.mbuf,0,ns,numberToReturn,cursorID)
-    send_with_reply(m,"getmore")*/
+    send_with_reply(m,"getmore")
 
   /**
    *  Send OP_DELETE:

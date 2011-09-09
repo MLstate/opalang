@@ -101,5 +101,7 @@ libbase/Rcontent
 libbase/Terminal
 libbase/Wsdl2mlCommon
 # Bson
+libbase/Buf
 libbase/Stuff
 libbase/Bson
+libbase/Mongo

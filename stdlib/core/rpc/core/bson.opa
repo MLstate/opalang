@@ -24,7 +24,7 @@ type RPC.Bson.bson0('bson) =
     { Double: (string, float) }
   / { String: (string, string) }
   / { Document: (string, 'bson) }
-  / { Array: (string, list('bson)) }
+  / { Array: (string, 'bson) }
   / { Binary: (string, string) }
   / { ObjectID: (string, string) }
   / { Boolean: (string, bool) }
@@ -39,7 +39,7 @@ type RPC.Bson.bson0('bson) =
   / { Int64: (string, int) }
 
 @opacapi
-type RPC.Bson.bson = RPC.Bson.bson0(RPC.Bson.bson)
+type RPC.Bson.bson = list(RPC.Bson.bson0(RPC.Bson.bson))
 
 //@both <-- ??? why doesn't this work ???
 Bson = {{
@@ -50,9 +50,13 @@ Bson = {{
     du(base,s)
 
   /** Return new Bson Object ID */
-  new_oid(_:void): string =
-    no=%% BslBson.Bson.new_oid %%
-    no(void)
+  new_oid = %% BslBson.Bson.new_oid %% : void -> string
+
+  /** Get OID from string */
+  oid_of_string = %% BslBson.Bson.oid_of_string %% : string -> string
+
+  /** Get string from OID */
+  oid_to_string = %% BslBson.Bson.oid_to_string %% : string -> string
 
   /**
    * Serialize a Bson record as a Bson.buf buffer (which is abstract).
@@ -69,11 +73,11 @@ Bson = {{
 
   /**
    * Deserialize a string into a Bson value.  Note that the semantics
-   * of {none} do not mean invalid data since a valid but empty object
-   * will also return {none}.
+   * of an empty return list do not mean invalid data since a valid but empty object
+   * will also return an empty list.
    */
-  deserialize(str: string): option(RPC.Bson.bson) =
-    deser=(%% BslBson.Bson.deserialize %%:string -> option(RPC.Bson.bson))
+  deserialize(str: string): RPC.Bson.bson =
+    deser=(%% BslBson.Bson.deserialize %%:string -> RPC.Bson.bson)
     deser(str)
 
 }}

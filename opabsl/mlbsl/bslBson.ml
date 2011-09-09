@@ -38,7 +38,7 @@ let dump base s =
       then
         (if base = 10
          then Printf.bprintf bb "%04d %-30s %-10s\n" row (Buffer.contents bh) (Buffer.contents ba)
-         else Printf.bprintf bb "%04x %-48s %-10s\n" row (Buffer.contents bh) (Buffer.contents ba);
+         else Printf.bprintf bb "%04x %-48s %-16s\n" row (Buffer.contents bh) (Buffer.contents ba);
          Buffer.clear bh; Buffer.clear ba)
     done
   done;
@@ -47,95 +47,105 @@ let dump base s =
 ##register new_oid: void -> string
 let new_oid () = Bson.Oid.gen ()
 
-##register serialize: int, RPC.Bson.bson -> bson_buf
-let serialize hint bson =
-  let b = Bson.Append.init ~hint () in
-  let rec aux bson =
-    ServerLib.fold_record
-      (fun f v () ->
-         match ServerLib.name_of_field f with
-         | Some "Double" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.double b key (ServerLib.unwrap_float value))
-         | Some "String" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.string b key (ServerLib.unwrap_string value))
-         | Some "Document" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  Bson.Append.start_object b key;
-                  aux value;
-                  Bson.Append.finish_object b)
-         | Some "Array" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  let rec aux2 r =
-                    match ServerLib.dot r BslNativeLib.field_hd with
-                    | None -> ()
-                    | Some a ->
-                        aux a;
-                        aux2 (ServerLib.unsafe_dot r BslNativeLib.field_tl)
-                  in
-                  Bson.Append.start_array b key;
-                  aux2 (BslNativeLib.unwrap_opa_list value);
-                  Bson.Append.finish_array b)
-         | Some "Binary" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  let bin = ServerLib.unwrap_string value in
-                  Bson.Append.binary b key Bson.st_bin_binary bin (String.length bin))
-         | Some "ObjectID" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.oid b key (ServerLib.unwrap_string value))
-         | Some "Boolean" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.bool b key (ServerLib.unwrap_bool value))
-         | Some "Date" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.date b key (ServerLib.unwrap_int value))
-         | Some "Null" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, _) -> Bson.Append.null b key)
-         | Some "Regexp" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  (match BslNativeLib.ocaml_tuple_2 value with
-                   | (regexp, regexp_opts) ->
-                       Bson.Append.regex b key (ServerLib.unwrap_string regexp) (ServerLib.unwrap_string regexp_opts)))
-         | Some "Code" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.code b key (ServerLib.unwrap_string value))
-         | Some "Symbol" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.symbol b key (ServerLib.unwrap_string value))
-         | Some "CodeScope" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  (match BslNativeLib.ocaml_tuple_2 value with
-                   | (code, scope) ->
-                       Bson.Append.start_codewscope b key code;
-                       aux scope;
-                       Bson.Append.finish_codewscope b code))
-         | Some "Int32" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.int b key (ServerLib.unwrap_int value))
-         | Some "Timestamp" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) ->
-                  (match BslNativeLib.ocaml_tuple_2 value with
-                   | (i, t) ->
-                       Bson.Append.timestamp b key ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t))))
-         | Some "Int64" ->
-             (match BslNativeLib.ocaml_tuple_2 v with
-              | (key, value) -> Bson.Append.long b key (ServerLib.unwrap_int value))
-         | Some str ->
-             Printf.eprintf "Unknown code: %s\n%!" str;
-             assert false
-         | None ->
-             assert false)
-      bson ()
+##register oid_of_string: string -> string
+let oid_of_string = Bson.Oid.from_string
+
+##register oid_to_string: string -> string
+let oid_to_string = Bson.Oid.to_string
+
+##register serializeb: RPC.Bson.bson, bson_buf -> void
+let serializeb bsons b =
+  let rec aux bsons =
+    let rec aux3 r =
+      match ServerLib.dot r BslNativeLib.field_hd with
+      | None -> ()
+      | Some bson ->
+          ServerLib.fold_record
+            (fun f v () ->
+               match ServerLib.name_of_field f with
+               | Some "Double" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.double b key (ServerLib.unwrap_float value))
+               | Some "String" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.string b key (ServerLib.unwrap_string value))
+               | Some "Document" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        Bson.Append.start_object b key;
+                        aux (unwrap_opa_rpc_bson_bson value);
+                        Bson.Append.finish_object b)
+               | Some "Array" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        Bson.Append.start_array b key;
+                        aux (unwrap_opa_rpc_bson_bson value);
+                        Bson.Append.finish_array b)
+               | Some "Binary" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        let bin = ServerLib.unwrap_string value in
+                        Bson.Append.binary b key Bson.st_bin_binary bin (String.length bin))
+               | Some "ObjectID" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.oid b key (ServerLib.unwrap_string value))
+               | Some "Boolean" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.bool b key (ServerLib.unwrap_bool value))
+               | Some "Date" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.date b key (ServerLib.unwrap_int value))
+               | Some "Null" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, _) -> Bson.Append.null b key)
+               | Some "Regexp" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        (match BslNativeLib.ocaml_tuple_2 value with
+                         | (regexp, regexp_opts) ->
+                             Bson.Append.regex b key (ServerLib.unwrap_string regexp) (ServerLib.unwrap_string regexp_opts)))
+               | Some "Code" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.code b key (ServerLib.unwrap_string value))
+               | Some "Symbol" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.symbol b key (ServerLib.unwrap_string value))
+               | Some "CodeScope" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        (match BslNativeLib.ocaml_tuple_2 value with
+                         | (code, scope) ->
+                             Bson.Append.start_codewscope b key code;
+                             aux scope;
+                             Bson.Append.finish_codewscope b code))
+               | Some "Int32" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.int b key (ServerLib.unwrap_int value))
+               | Some "Timestamp" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) ->
+                        (match BslNativeLib.ocaml_tuple_2 value with
+                         | (i, t) ->
+                             Bson.Append.timestamp b key ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t))))
+               | Some "Int64" ->
+                   (match BslNativeLib.ocaml_tuple_2 v with
+                    | (key, value) -> Bson.Append.long b key (ServerLib.unwrap_int value))
+               | Some str ->
+                   Printf.eprintf "Unknown code: %s\n%!" str;
+                   assert false
+               | None ->
+                   assert false)
+            bson ();
+          aux3 (ServerLib.unsafe_dot r BslNativeLib.field_tl)
+    in
+    aux3 bsons
   in
-  aux bson;
+  aux (unwrap_opa_rpc_bson_bson bsons)
+
+##register serialize: int, RPC.Bson.bson -> bson_buf
+let serialize hint bsons =
+  let b = Bson.Append.init ~hint () in
+  serializeb bsons b;
   Bson.Append.finish b;
   b
 
@@ -192,46 +202,48 @@ let make_timestamp n (i,t) = make_val field_timestamp n (make_pair i t)
 
 let null_value = make_null "<missing value>" ServerLib.void
 
-##register deserialize: string -> option(RPC.Bson.bson)
+##register deserialize: string -> RPC.Bson.bson
 let deserialize str =
   let i = Bson.Iterator.from_buffer str in
-  let rec aux i = function
-    | c when c = Bson.el_eoo -> None
-    | c when c = Bson.el_int -> Some (make_int32 (Bson.Iterator.key i) (Bson.Iterator.int i))
-    | c when c = Bson.el_long -> Some (make_int64 (Bson.Iterator.key i) (Bson.Iterator.long i))
-    | c when c = Bson.el_double -> Some (make_double (Bson.Iterator.key i) (Bson.Iterator.double i))
-    | c when c = Bson.el_bool -> Some (make_bool (Bson.Iterator.key i) (Bson.Iterator.bool i))
-    | c when c = Bson.el_string -> Some (make_string (Bson.Iterator.key i) (Bson.Iterator.string i))
-    | c when c = Bson.el_object ->
-        let ii = Bson.Iterator.subiterator i in
-        let bson = Option.default null_value (aux ii (Bson.Iterator.next ii)) in
-        Some (make_document (Bson.Iterator.key i) bson)
-    | c when c = Bson.el_array ->
-        let ii = Bson.Iterator.subiterator i in
-        let rec aux2 () =
-          match aux ii (Bson.Iterator.next ii) with
-          | Some bson -> make_cons bson (aux2 ())
-          | None -> shared_nil
-        in
-        let arr = aux2 () in
-        Some (make_array (Bson.Iterator.key i) arr)
-    | c when c = Bson.el_bindata -> Some (make_binary (Bson.Iterator.key i) (Bson.Iterator.bin_data i))
-    | c when c = Bson.el_oid -> Some (make_objectid (Bson.Iterator.key i) (Bson.Iterator.oid i))
-    | c when c = Bson.el_date -> Some (make_date (Bson.Iterator.key i) (Bson.Iterator.date i))
-    | c when c = Bson.el_null -> Some (make_null (Bson.Iterator.key i) ServerLib.void)
-    | c when c = Bson.el_regex -> Some (make_regexp (Bson.Iterator.key i) (Bson.Iterator.regex i) (Bson.Iterator.regex_opts i))
-    | c when c = Bson.el_code -> Some (make_code (Bson.Iterator.key i) (Bson.Iterator.code i))
-    | c when c = Bson.el_symbol -> Some (make_symbol (Bson.Iterator.key i) (Bson.Iterator.symbol i))
-    | c when c = Bson.el_codewscope ->
-        let b = Bson.Iterator.code_scope i in
-        let ii = Bson.Iterator.init b in
-        let scope = Option.default null_value (aux ii (Bson.Iterator.next ii)) in
-        Some (make_codescope (Bson.Iterator.key i) (Bson.Iterator.code i) scope)
-    | c when c = Bson.el_timestamp -> Some (make_timestamp (Bson.Iterator.key i) (Bson.Iterator.timestamp i))
-    | c ->
-        Printf.eprintf "Unknown Bson code: %c\n%!" c;
-        assert false
+  let rec aux i =
+    (function
+     | c when c = Bson.el_eoo -> shared_nil
+     | c when c = Bson.el_int -> let e = make_int32 (Bson.Iterator.key i) (Bson.Iterator.int i) in auxn e i
+     | c when c = Bson.el_long -> let e = make_int64 (Bson.Iterator.key i) (Bson.Iterator.long i) in auxn e i
+     | c when c = Bson.el_double -> let e = make_double (Bson.Iterator.key i) (Bson.Iterator.double i) in auxn e i
+     | c when c = Bson.el_bool -> let e = make_bool (Bson.Iterator.key i) (Bson.Iterator.bool i) in auxn e i
+     | c when c = Bson.el_string -> let e = make_string (Bson.Iterator.key i) (Bson.Iterator.string i) in auxn e i
+     | c when c = Bson.el_object ->
+         let key =  Bson.Iterator.key i in
+         let ii = Bson.Iterator.subiterator i in
+         let bsons = aux ii (Bson.Iterator.next ii) in
+         let e = make_document key bsons in auxn e i
+     | c when c = Bson.el_array ->
+         let key = Bson.Iterator.key i in
+         let ii = Bson.Iterator.subiterator i in
+         let bsons = aux ii (Bson.Iterator.next ii) in
+         let e = make_array key bsons in auxn e i
+     | c when c = Bson.el_bindata -> let e = make_binary (Bson.Iterator.key i) (Bson.Iterator.bin_data i) in auxn e i
+     | c when c = Bson.el_oid -> let e = make_objectid (Bson.Iterator.key i) (Bson.Iterator.oid i) in auxn e i
+     | c when c = Bson.el_date -> let e = make_date (Bson.Iterator.key i) (Bson.Iterator.date i) in auxn e i
+     | c when c = Bson.el_null -> let e = make_null (Bson.Iterator.key i) ServerLib.void in auxn e i
+     | c when c = Bson.el_regex ->
+         let e = make_regexp (Bson.Iterator.key i) (Bson.Iterator.regex i) (Bson.Iterator.regex_opts i) in auxn e i
+     | c when c = Bson.el_code -> let e = make_code (Bson.Iterator.key i) (Bson.Iterator.code i) in auxn e i
+     | c when c = Bson.el_symbol -> let e = make_symbol (Bson.Iterator.key i) (Bson.Iterator.symbol i) in auxn e i
+     | c when c = Bson.el_codewscope ->
+         let key = Bson.Iterator.key i in
+         let code = Bson.Iterator.code i in
+         let b = Bson.Iterator.code_scope i in
+         let ii = Bson.Iterator.init b in
+         let scope = aux ii (Bson.Iterator.next ii) in
+         let e = make_codescope key code scope in auxn e i
+     | c when c = Bson.el_timestamp -> let e = make_timestamp (Bson.Iterator.key i) (Bson.Iterator.timestamp i) in auxn e i
+     | c ->
+         Printf.eprintf "Unknown Bson code: %c\n%!" c;
+         assert false)
+  and auxn e i = make_cons (wrap_opa_rpc_bson_bson e) (aux i (Bson.Iterator.next i))
   in
-  Option.map wrap_opa_rpc_bson_bson (aux i (Bson.Iterator.next i))
+  wrap_opa_rpc_bson_bson (aux i (Bson.Iterator.next i))
 
 ##endmodule

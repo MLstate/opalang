@@ -311,6 +311,7 @@ val write :
   ?block_size:int ->
   ?timeout:Time.t ->
   string ->
+  ?len:int ->
   ?err_cont:(exn -> unit) ->
   (int -> unit) -> unit
 (** Writes over a [connection_info]

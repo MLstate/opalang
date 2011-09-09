@@ -52,6 +52,11 @@ let close connection_info =
 let write connection_info data k =
   Scheduler.write Scheduler.default connection_info data (fun i -> i |> k)
 
+##register [cps-bypass] write_len: Socket.connection, string, int,\
+                               continuation(int) -> void
+let write_len connection_info data len k =
+  Scheduler.write Scheduler.default connection_info data ~len (fun i -> i |> k)
+
 ##register [cps-bypass] read : Socket.connection, continuation(string) -> void
 let read connection_info k =
   Scheduler.read Scheduler.default connection_info (fun (_, str) -> str |> k)

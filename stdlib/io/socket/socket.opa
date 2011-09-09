@@ -57,9 +57,16 @@ Socket = {{
     /**
      * Write data to a connection.
      *
-     * @return The amount of bytes read.
+     * @return The amount of bytes written.
      */
     write: Socket.connection, string -> int = %%BslSocket.write%%
+
+    /**
+     * Write partial data to a connection.
+     *
+     * @return The amount of bytes written.
+     */
+    write_len: Socket.connection, string, int -> int = %%BslSocket.write_len%%
 
     /**
      * Read data from a connection.

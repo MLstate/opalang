@@ -103,6 +103,26 @@ struct
     S.set s (pos+2) (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i32 8 ) 0xffl)));
     S.set s (pos+3) (Char.chr (Int32.to_int (Int32.logand (                          i32   ) 0xffl)))
 
+  let lei64L s pos i64 =
+    S.set s (pos+7) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
+    S.set s (pos+6) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
+    S.set s (pos+5) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
+    S.set s (pos+4) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
+    S.set s (pos+3) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
+    S.set s (pos+2) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
+    S.set s (pos+1) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
+    S.set s (pos+0) (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)))
+
+  let bei64L s pos i64 =
+    S.set s (pos+0) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
+    S.set s (pos+1) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
+    S.set s (pos+2) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
+    S.set s (pos+3) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
+    S.set s (pos+4) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
+    S.set s (pos+5) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
+    S.set s (pos+6) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
+    S.set s (pos+7) (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)))
+
   let ldi32 s i =
     (((Char.code (S.get (s) (i+3))) lsl 24) land 0xff000000) lor
     (((Char.code (S.get (s) (i+2))) lsl 16) land 0x00ff0000) lor
@@ -158,5 +178,57 @@ struct
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+6))))  8) 0x000000000000ff00L)
                  (Int64.logand (                 (Int64.of_int (Char.code (S.get (s) (i+7))))   ) 0x00000000000000ffL))))))))
 
-end (* module Stuff *)
+end (* module StuffF *)
+
+module StuffString = StuffF(String)
+
+let add_le_int32 b i =
+  if Buf.spare b <= 4 then raise (Failure "add_le_int32");
+  StuffString.lei32 b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 4
+
+let add_be_int32 b i =
+  if Buf.spare b <= 4 then raise (Failure "add_be_int32");
+  StuffString.bei32 b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 4
+
+let add_le_int64 b i =
+  if Buf.spare b <= 8 then raise (Failure "add_le_int64");
+  StuffString.lei64 b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
+
+let add_be_int64 b i =
+  if Buf.spare b <= 8 then raise (Failure "add_be_int64");
+  StuffString.bei64 b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
+
+let add_le_d b i =
+  if Buf.spare b <= 8 then raise (Failure "add_le_d");
+  StuffString.led b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
+
+let add_be_d b i =
+  if Buf.spare b <= 8 then raise (Failure "add_be_d");
+  StuffString.bed b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
+
+let add_le_int32l b i =
+  if Buf.spare b <= 4 then raise (Failure "add_le_i32l");
+  StuffString.lei32l b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 4
+
+let add_be_int32l b i =
+  if Buf.spare b <= 4 then raise (Failure "add_be_i32l");
+  StuffString.bei32l b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 4
+
+let add_le_int64L b i =
+  if Buf.spare b <= 4 then raise (Failure "add_le_i64L");
+  StuffString.lei64L b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
+
+let add_be_int64L b i =
+  if Buf.spare b <= 4 then raise (Failure "add_be_i64L");
+  StuffString.bei64L b.Buf.str b.Buf.i i;
+  b.Buf.i <- b.Buf.i + 8
 

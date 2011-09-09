@@ -115,9 +115,7 @@ let st_bin_user = '\x80'
 (* Types *)
 
 type buf =
-    { str : S.t;
-      len : int;
-      mutable i : int;
+    { buf: Buf.buf;
       mutable stack : int list;
       mutable finished : bool;
     }
@@ -161,79 +159,55 @@ struct
 
   let init ?(hint=100) () : buf =
     if hint < 5 then raise (Failure "init: ridiculous hint value");
-    { str=S.create hint; len=hint; i=4; stack=[]; finished=false; }
+    let b = { buf=Buf.create hint; stack=[]; finished=false; } in
+    b.buf.Buf.i <- 4;
+    b
 
   let empty =
-    { str = S.of_string "\x05\x00\x00\x00\x00";
-      len = 5;
-      i = 4;
-      stack = [];
-      finished = true;
-    }
+    let b = { buf = Buf.of_string "\x05\x00\x00\x00\x00";
+              stack = [];
+              finished = true;
+            } in
+    b.buf.Buf.i <- 4;
+    b
 
   let size b =
     if not b.finished
     then 0
-    else St.ldi32 b.str 0
+    else St.ldi32 b.buf.Buf.str 0
 
-  let add_char b c =
-    if b.i >= b.len then raise (Failure "add_char");
-    b.str.[b.i] <- c;
-    b.i <- b.i + 1
-
-  let add_int32 b i =
-    if b.len - b.i <= 4 then raise (Failure "add_int32");
-    St.lei32 b.str b.i i;
-    b.i <- b.i + 4
-
-  let add_int64 b i =
-    if b.len - b.i <= 8 then raise (Failure "add_int32");
-    St.lei64 b.str b.i i;
-    b.i <- b.i + 8
-
-  let add_double b d =
-    if b.len - b.i <= 8 then raise (Failure "add_double");
-    St.led b.str b.i d;
-    b.i <- b.i + 8
-
-  let append b ?(offset=0) s len =
-    S.blit s 0 b.str (b.i+offset) len;
-    b.i <- b.i + len
-
-  let estart b _type name dataSize =
-    let len = S.length name in
-    if b.len - b.i <= 1 + len + dataSize then raise (Failure "estart");
-    add_char b _type;
-    append b name len;
-    add_char b '\x00'
+  let estart b _type name =
+    Buf.add_char b.buf _type;
+    Buf.add_string b.buf name;
+    Buf.add_char b.buf '\x00'
 
   let int b name i =
-    estart b el_int name 4;
-    add_int32 b i
+    estart b el_int name;
+    Stuff.add_le_int32 b.buf i
 
   let long b name l =
-    estart b el_long name 8;
-    add_int64 b l
+    estart b el_long name;
+    Stuff.add_le_int64 b.buf l
 
   let double b name d =
-    estart b el_double name 8;
-    add_double b d
+    estart b el_double name;
+    Stuff.add_le_d b.buf d
 
   let bool b name _b =
-    estart b el_bool name 1;
-    add_char b (if _b then '\x01' else '\x00')
+    estart b el_bool name;
+    Buf.add_char b.buf (if _b then '\x01' else '\x00')
 
   let null b name =
-    estart b el_null name 0
+    estart b el_null name
 
   let undefined b name =
-    estart b el_undefined name 0
+    estart b el_undefined name
 
   let string_base b name value len _type =
-    estart b _type name (len+5);
-    add_int32 b (len+1);
-    append b value len;
-    add_char b '\x00'
+    estart b _type name;
+    Stuff.add_le_int32 b.buf (len+1);
+    Buf.append b.buf value len;
+    Buf.add_char b.buf '\x00'
 
   let string b name value =
     string_base b name value (S.length value) el_string
@@ -257,54 +231,54 @@ struct
     let slen = len + 1 in
     let ssize = size scope in
     let size = slen + ssize + 8 in
-    estart b el_codewscope name size;
-    add_int32 b size;
-    add_int32 b slen;
-    append b code len;
-    add_char b '\x00';
-    append b scope.str ssize
+    estart b el_codewscope name;
+    Stuff.add_le_int32 b.buf size;
+    Stuff.add_le_int32 b.buf slen;
+    Buf.append b.buf code len;
+    Buf.add_char b.buf '\x00';
+    Buf.append b.buf scope.buf.Buf.str ssize
 
   let start_codewscope b name code =
     let len = S.length code in
-    estart b el_codewscope name max_int;
-    b.stack <- b.i :: b.stack;
-    add_int32 b 0;
-    add_int32 b (len+1);
-    append b code len;
-    add_char b '\x00';
-    b.stack <- b.i :: b.stack;
-    add_int32 b 0
+    estart b el_codewscope name;
+    b.stack <- b.buf.Buf.i :: b.stack;
+    Stuff.add_le_int32 b.buf 0;
+    Stuff.add_le_int32 b.buf (len+1);
+    Buf.append b.buf code len;
+    Buf.add_char b.buf '\x00';
+    b.stack <- b.buf.Buf.i :: b.stack;
+    Stuff.add_le_int32 b.buf 0
 
   let finish_codewscope b code =
-    add_char b '\x00';
+    Buf.add_char b.buf '\x00';
     let len = S.length code in
     let start = List.hd b.stack in
     b.stack <- List.tl b.stack;
-    let ssize = b.i - start in
-    St.lei32 b.str start ssize;
+    let ssize = b.buf.Buf.i - start in
+    St.lei32 b.buf.Buf.str start ssize;
     let size = len + ssize + 9 in
     let start = List.hd b.stack in
     b.stack <- List.tl b.stack;
-    St.lei32 b.str start size
+    St.lei32 b.buf.Buf.str start size
 
   let code_w_scope b name code scope =
     code_w_scope_n b name code (S.length code) scope
 
   let binary b name _type str len =
     if _type = st_bin_binary_old
-    then (estart b el_bindata name (len+9);
-          add_int32 b (len+4);
-          add_char b _type;
-          add_int32 b len;
-          append b str len)
-    else (estart b el_bindata name (len+5);
-          add_int32 b len;
-          add_char b _type;
-          append b str len)
+    then (estart b el_bindata name;
+          Stuff.add_le_int32 b.buf (len+4);
+          Buf.add_char b.buf _type;
+          Stuff.add_le_int32 b.buf len;
+          Buf.append b.buf str len)
+    else (estart b el_bindata name;
+          Stuff.add_le_int32 b.buf len;
+          Buf.add_char b.buf _type;
+          Buf.append b.buf str len)
 
   let oid b name oid =
-    estart b el_oid name 12;
-    append b oid 12
+    estart b el_oid name;
+    Buf.append b.buf oid 12
 
   let new_oid b name =
     oid b name (Oid.gen ())
@@ -312,64 +286,64 @@ struct
   let regex b name pattern opts =
     let plen = S.length pattern in
     let olen = S.length opts in
-    estart b el_regex name (plen+olen+2);
-    append b pattern plen;
-    add_char b '\x00';
-    append b opts olen;
-    add_char b '\x00'
+    estart b el_regex name;
+    Buf.append b.buf pattern plen;
+    Buf.add_char b.buf '\x00';
+    Buf.append b.buf opts olen;
+    Buf.add_char b.buf '\x00'
 
   let bson b name bson =
     let bsize = size bson in
-    estart b el_object name bsize;
-    append b bson.str bsize
+    estart b el_object name;
+    Buf.append b.buf bson.buf.Buf.str bsize
 
   let timestamp b name (i,t) =
-    estart b el_timestamp name 8;
-    add_int32 b i;
-    add_int32 b t
+    estart b el_timestamp name;
+    Stuff.add_le_int32 b.buf i;
+    Stuff.add_le_int32 b.buf t
 
   let date b name millis =
-    estart b el_date name 8;
-    add_int64 b millis
+    estart b el_date name;
+    Stuff.add_le_int64 b.buf millis
 
   let time_t b name t =
     date b name (Time.in_milliseconds t)
 
   let start_object b name =
-    estart b el_object name 5;
-    b.stack <- b.i :: b.stack;
-    add_int32 b 0
+    estart b el_object name;
+    b.stack <- b.buf.Buf.i :: b.stack;
+    Stuff.add_le_int32 b.buf 0
 
   let start_array b name =
-    estart b el_array name 5;
-    b.stack <- b.i :: b.stack;
-    add_int32 b 0
+    estart b el_array name;
+    b.stack <- b.buf.Buf.i :: b.stack;
+    Stuff.add_le_int32 b.buf 0
 
   let finish_object b =
-    add_char b '\x00';
+    Buf.add_char b.buf '\x00';
     let start = List.hd b.stack in
     b.stack <- List.tl b.stack;
-    St.lei32 b.str start (b.i - start)
+    St.lei32 b.buf.Buf.str start (b.buf.Buf.i - start)
 
   let finish_array b =
     finish_object b
 
   let finish b =
     if not b.finished
-    then (add_char b '\x00';
-          St.lei32 b.str 0 b.i;
+    then (Buf.add_char b.buf '\x00';
+          St.lei32 b.buf.Buf.str 0 b.buf.Buf.i;
           b.finished <- true)
 
   let get b =
     if not b.finished then raise (Failure "get: not finished");
-    S.sub b.str 0 b.i
+    S.sub b.buf.Buf.str 0 b.buf.Buf.i
 
 end (* module Append *)
 
 module type Iterator_sig =
 sig
   module S : S_sig
-  type iter = { buf : S.t; mutable pos : int; mutable first : bool; }
+  type iter = { ibuf : S.t; mutable pos : int; mutable first : bool; }
   val init : buf -> iter
   val from_buffer : S.t -> iter
   val iterator_type : iter -> char
@@ -412,56 +386,56 @@ struct
   module St = Stuff.StuffF(S)
 
   type iter =
-      { buf : S.t;
+      { ibuf : S.t;
         mutable pos : int;
         mutable first : bool;
       }
 
   let init b =
-    { buf = S.of_string b.str;
+    { ibuf = S.of_string b.buf.Buf.str;
       pos = 4;
       first = true;
     }
 
   let from_buffer buffer =
-    { buf = buffer;
+    { ibuf = buffer;
       pos = 4;
       first = true;
     }
 
-  let iterator_type i = S.get i.buf i.pos
+  let iterator_type i = S.get i.ibuf i.pos
 
   let key i =
     try
       let ks = i.pos + 1 in
-      S.sub i.buf ks ((S.index_from i.buf ks '\x00') - ks)
+      S.sub i.ibuf ks ((S.index_from i.ibuf ks '\x00') - ks)
     with Not_found -> S.empty
 
   let value i =
-    try (S.index_from i.buf (i.pos+1) '\x00') + 1
-    with Not_found -> S.length i.buf
+    try (S.index_from i.ibuf (i.pos+1) '\x00') + 1
+    with Not_found -> S.length i.ibuf
 
   let int_raw i =
-    St.ldi32 i.buf (value i)
+    St.ldi32 i.ibuf (value i)
 
   let long_raw i =
-    St.ldi64 i.buf (value i)
+    St.ldi64 i.ibuf (value i)
 
   let double_raw i =
-    St.ldd i.buf (value i)
+    St.ldd i.ibuf (value i)
 
   let bool_raw i =
-    match S.get i.buf (value i) with
+    match S.get i.ibuf (value i) with
     | '\x00' -> false
     | '\x01' -> true
     | c -> raise (Failure (sprintf "iterator_bool_raw: Unknown code %02x" (Char.code c)))
 
   let oid i =
-    S.sub i.buf (value i) 12
+    S.sub i.ibuf (value i) 12
 
   let string ?(offset=4) i =
     let v = value i in
-    S.sub i.buf (v+offset) ((St.ldi32 i.buf v)-1)
+    S.sub i.ibuf (v+offset) ((St.ldi32 i.ibuf v)-1)
 
   let symbol = string
 
@@ -471,13 +445,13 @@ struct
 
   let cstring ?(offset=0) i =
     let v = value i in
-    S.sub i.buf (v+offset) ((bslen i.buf (v+offset))-1)
+    S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1)
 
   let string_len i =
     int_raw i - 1
 
   let int i =
-    match S.get i.buf (i.pos) with
+    match S.get i.ibuf (i.pos) with
     | c when c = el_int -> int_raw i
     | c when c = el_long -> long_raw i
     | c when c = el_double -> int_of_float (double_raw i)
@@ -486,7 +460,7 @@ struct
   let long = int
 
   let double i =
-    match S.get i.buf (i.pos) with
+    match S.get i.ibuf (i.pos) with
     | c when c = el_int -> float_of_int (int_raw i)
     | c when c = el_long -> float_of_int (long_raw i)
     | c when c = el_double -> double_raw i
@@ -494,10 +468,10 @@ struct
 
   let timestamp i =
     let v = value i in
-    (St.ldi32 i.buf v, St.ldi32 i.buf (v+4))
+    (St.ldi32 i.ibuf v, St.ldi32 i.ibuf (v+4))
 
   let bool i =
-    match S.get i.buf (i.pos) with
+    match S.get i.ibuf (i.pos) with
     | c when c = el_bool -> bool_raw i
     | c when c = el_int -> int_raw i <> 0
     | c when c = el_long -> long_raw i <> 0
@@ -506,25 +480,25 @@ struct
     | _ -> true
 
   let code i =
-    match S.get i.buf i.pos with
+    match S.get i.ibuf i.pos with
     | c when c = el_string || c = el_code -> string ~offset:4 i
     | c when c = el_codewscope ->
         let v = value i in
-        S.sub i.buf (v+8) ((St.ldi32 i.buf (v+4))-1)
+        S.sub i.ibuf (v+8) ((St.ldi32 i.ibuf (v+4))-1)
     | _ -> S.empty
 
   let code_scope i =
-    match S.get i.buf i.pos with
+    match S.get i.ibuf i.pos with
     | c when c = el_codewscope ->
         let v = value i in
-        let code_len = St.ldi32 i.buf (v+4) in
-        let scope_len = St.ldi32 i.buf (v+8+code_len) in
-        { str = S.to_string (S.sub i.buf (v+8+code_len) scope_len);
-          len = scope_len;
-          i = 4;
-          stack = [];
-          finished = true;
-        }
+        let code_len = St.ldi32 i.ibuf (v+4) in
+        let scope_len = St.ldi32 i.ibuf (v+8+code_len) in
+        let b = { buf = Buf.of_string (S.to_string (S.sub i.ibuf (v+8+code_len) scope_len));
+                  stack = [];
+                  finished = true;
+                } in
+        b.buf.Buf.i <- 4;
+        b
     | _ -> Append.empty
 
   let date i =
@@ -534,7 +508,7 @@ struct
     Time.milliseconds (date i)
 
   let bin_type i =
-    S.get i.buf (value i + 4)
+    S.get i.ibuf (value i + 4)
 
   let bin_len i =
     if bin_type i = st_bin_binary_old
@@ -544,38 +518,38 @@ struct
   let bin_data i =
     let v = value i in
     let offset = if bin_type i = st_bin_binary_old then 9 else 5 in
-    S.sub i.buf (v+offset) (bin_len i)
+    S.sub i.ibuf (v+offset) (bin_len i)
 
   let regex i =
     cstring i
 
   let regex_opts i =
     let v = value i in
-    let offset = bslen i.buf v in
-    S.sub i.buf (v+offset) ((bslen i.buf (v+offset))-1)
+    let offset = bslen i.ibuf v in
+    S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1)
 
   let subobject i =
     let v = value i in
-    let len = St.ldi32 i.buf v in
-    { str = S.to_string (S.sub i.buf v len);
-      len = len;
-      i = 4;
-      stack = [];
-      finished = true;
-    }
+    let len = St.ldi32 i.ibuf v in
+    let b = { buf = Buf.of_string (S.to_string (S.sub i.ibuf v len));
+              stack = [];
+              finished = true;
+            } in
+    b.buf.Buf.i <- 4;
+    b
 
   let subiterator i =
-    { buf = i.buf;
+    { ibuf = i.ibuf;
       pos = value i + 4;
       first = true;
     }
 
   let next i =
-    if i.first || S.get i.buf i.pos = el_eoo
-    then (i.first <- false; S.get i.buf i.pos)
+    if i.first || S.get i.ibuf i.pos = el_eoo
+    then (i.first <- false; S.get i.ibuf i.pos)
     else
       let ds =
-        match S.get i.buf i.pos with
+        match S.get i.ibuf i.pos with
         | c when c = el_undefined || c = el_null ->
             0
         | c when c = el_bool ->
@@ -596,13 +570,13 @@ struct
             16 + int_raw i
         | c when c = el_regex ->
             let s = value i in
-            let p = (S.index_from i.buf s '\x00') + 1 in
-            let p = (S.index_from i.buf p '\x00') + 1 in
+            let p = (S.index_from i.ibuf s '\x00') + 1 in
+            let p = (S.index_from i.ibuf p '\x00') + 1 in
             p-s
         | c -> raise (Failure (sprintf "next: Unknown code %02x" (Char.code c)))
       in
-      i.pos <- i.pos + (1 + (bslen i.buf (i.pos+1)) + ds);
-      S.get i.buf i.pos
+      i.pos <- i.pos + (1 + (bslen i.ibuf (i.pos+1)) + ds);
+      S.get i.ibuf i.pos
 
   let find obj name =
     let i = init obj in
@@ -623,31 +597,33 @@ module Iterator : Iterator_sig with module S = S = IteratorF(S)
 module IteratorSS : Iterator_sig with module S = SS = IteratorF(SS)
 
 (* Module dependencies, we need Iterator, even though it's an Append function *)
+(*
 module Element =
 struct
 
   let element b name_opt elem =
-    let next = { Iterator.buf = elem.Iterator.buf; pos = elem.Iterator.pos; first = elem.Iterator.first } in
+    let next = { Iterator.ibuf = elem.Iterator.ibuf; pos = elem.Iterator.pos; first = elem.Iterator.first } in
     ignore (Iterator.next next);
     let size = next.Iterator.pos - elem.Iterator.pos in
     match name_opt with
     | Some name ->
         let data_size = size - S.length (Iterator.key elem) - 2 in
-        Append.estart b (S.get elem.Iterator.buf 0) name data_size;
+        Append.estart b (S.get elem.Iterator.ibuf 0) name data_size;
         Append.append b ~offset:(Iterator.value elem) name data_size
     | None ->
-        Append.append b (S.to_string elem.Iterator.buf) size
+        Append.append b (S.to_string elem.Iterator.ibuf) size
 
 end (* module Element *)
+*)
 
 module Print =
 struct
 
   let rec print b =
-    print_raw b.str 0 0
+    print_raw b.buf.Buf.str 0 0
 
   and print_raw str i depth =
-    let i = { Iterator.buf = S.of_string str; pos = i+4; first = true; } in
+    let i = { Iterator.ibuf = S.of_string str; pos = i+4; first = true; } in
     let rec aux () =
       ignore (Iterator.next i);
       let t = Iterator.iterator_type i in
@@ -680,7 +656,7 @@ struct
              Printf.printf "i: %d, t: %d" i t
          | c when c = el_object || c = el_array ->
              Printf.printf "\n";
-             print_raw i.Iterator.buf (Iterator.value i) (depth + 1)
+             print_raw i.Iterator.ibuf (Iterator.value i) (depth + 1)
          | _ ->
              Printf.eprintf "can't print type : %d\n%!" (Char.code t));
         Printf.printf "\n";
@@ -926,6 +902,7 @@ let good5 = s5 = s5a;;
   | JsonTypes.Int i -> *)
 
 let s6 = "\x2c\x00\x00\x00\x04\x61\x72\x72\x61\x79\x00\x20\x00\x00\x00\x01\x64\x6f\x75\x62\x6c\x65\x00\xae\x47\xe1\x7a\x14\xae\xf3\x3f\x10\x69\x6e\x74\x33\x32\x00\x7b\x00\x00\x00\x00\x00";;
+let s6 = "\x3b\x00\x00\x00\x04\x61\x72\x72\x61\x79\x00\x2f\x00\x00\x00\x01\x64\x6f\x75\x62\x6c\x65\x00\xae\x47\xe1\x7a\x14\xae\xf3\x3f\x10\x69\x6e\x74\x33\x32\x00\x7b\x00\x00\x00\x12\x69\x6e\x74\x36\x34\x00\xaf\xe2\x01\x00\x00\x00\x00\x00\x00\x00";;
 let i6 = Iterator.from_buffer s6;;
 let c6 = Iterator.next i6;;
 let k6 = Iterator.key i6;;
@@ -936,6 +913,9 @@ let v6s1 = Iterator.double i6i;;
 let c6s2 = Iterator.next i6i;;
 let k6s2 = Iterator.key i6i;;
 let v6s2 = Iterator.int i6i;;
+let c6s3 = Iterator.next i6i;;
+let k6s3 = Iterator.key i6i;;
+let v6s3 = Iterator.long i6i;;
 
 let good = List.for_all (fun x -> x) [good1;good2;good3;good4;good5];;
 

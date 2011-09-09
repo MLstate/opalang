@@ -120,10 +120,10 @@ let get_err_cont sched conn err_cont =
      | Timeout | _ -> ()
     ) err_cont
 
-let write sched conn ?(block_size=32768) ?timeout buf ?err_cont finalize =
+let write sched conn ?(block_size=32768) ?timeout buf ?(len=0) ?err_cont finalize =
   #<If> L.info_conn "write" conn.addr #<End>;
   let error = get_err_cont sched conn err_cont in
-  let buflen = String.length buf in
+  let buflen = if len = 0 then String.length buf else len in
   let decide (nwrite, pos) =
     if nwrite = 0 then
       Job.Error Connection_closed
