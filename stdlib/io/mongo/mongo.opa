@@ -164,7 +164,7 @@ Mongo = {{
    *  Send OP_GETMORE and get reply:
    **/
   getmore(m,ns,numberToReturn,cursorID): option(string) =
-    do getmore_(m.mbuf,0,ns,numberToReturn,cursorID)
+    do get_more_(m.mbuf,0,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
 
   /**
