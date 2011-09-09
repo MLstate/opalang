@@ -73,6 +73,8 @@ type ThreadContext.key =
   {client : ThreadContext.client} /
   {nothing}
 
+type ThreadContext.constraint = {free} / {no_client_calls}
+
 /**
  * The type of the thread context
  */
@@ -81,6 +83,7 @@ type ThreadContext.t =
   {
     key: ThreadContext.key/**Information required to communicate with the client*/
     request: option(HttpRequest.request) /** The full HTTP request. */
+    constraint : ThreadContext.constraint
     details:
     option({
         locale:  list(string) /** A list of locales, e.g. "en-US". Be careful: on the client, it's a singleton, while on the server it can contain several items, by order of priority. */
@@ -122,6 +125,7 @@ ThreadContext = {{
     {
       key     = {nothing} ;
       request = none ;
+      constraint = {free};
       details = none ;
     } : ThreadContext.t
 
@@ -145,6 +149,10 @@ ThreadContext = {{
     | { ~some } -> some
   : ThreadContext.t
 
+  no_client_calls() : ThreadContext.t =
+    {ThreadContext.get({current}) with constraint={no_client_calls}}
+
+
 }}
 
 /**
@@ -155,3 +163,4 @@ ThreadContext = {{
  * Return the current thread context.
  */
 thread_context() = ThreadContext.get({current})
+@opacapi ThreadContext_no_client_calls = ThreadContext.no_client_calls

@@ -302,6 +302,7 @@ struct
       let assert_ = Common.bool_arrow_void
       let client = Common.alpha_arrow_alpha
       let server = Common.alpha_arrow_alpha
+      let no_client_calls = Common.alpha_arrow_alpha
       let ensure = Common.bool_arrow_void
       let fail ?label () = T.arrow ?label [T.string ?label ()] (T.fresh ?label ())
       let force = Common.alpha_arrow_alpha
@@ -355,6 +356,10 @@ struct
     let server_entry_point ?(label=w()) e =
         (Directive (`server_entry_point,[e], []),
         c label)
+    let with_thread_context ?(label=w()) ctx e =
+      (Directive (`with_thread_context,[ctx;e], []),
+      c label)
+
   end
 
   module C =

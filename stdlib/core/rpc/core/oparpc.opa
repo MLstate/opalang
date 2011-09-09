@@ -355,9 +355,12 @@ type OpaRPC.timeout = {
         k ->
           t = ThreadContext.get({from = k})
           match t with
-          | {key = {client = x}; details = _; request = _} ->
+          | {key = {client = x}; details = _; request = _; constraint = {free}} ->
               if not(send_response(true, id, arg, k, x)) then
                 error("Server request client rpc but client wasn't ping ({fun_name})")
+
+          | {key = {client = _}; details = _; request = _; constraint = _ } ->
+            error("Server request client rpc but is in a \"no_client_calls\" section ({fun_name})")
           | _ ->
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
           end
@@ -369,7 +372,7 @@ type OpaRPC.timeout = {
     id = fun_name  //plus some things
     arg = OpaRPC.serialize(request)
     match thread_context() with
-    | {key = {client = x}; details = _; request = _} ->
+    | {key = {client = x}; details = _; request = _; constraint = _} ->
       if not(send_response(false, id, arg, dummy_cont, x)) then
         error("Server request client rpc but client wasn't ping ({fun_name})")
     | _ ->

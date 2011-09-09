@@ -145,7 +145,7 @@ Upload = {{
     /* Save creation page context because iframe is another page. */
     reset_context =
       match ThreadContext.get({current}) with
-      | {key=~{client} request=_ details=_} ->
+      | {key=~{client} request=_ details=_ constraint=_} ->
           key = ~{client}
           ( -> { ThreadContext.get({current}) with ~key })
       | _ ->

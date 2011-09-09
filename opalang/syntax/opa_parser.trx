@@ -602,6 +602,7 @@ slicing_directive0 <-
   / "publish" {{ `visibility_annotation (`public `sync) }}
   / "server_private" {{ `visibility_annotation `private_ }}
   / "server" {{ `side_annotation `server }}
+  / "no_client_calls" {{ `no_client_calls }}
 slicing_directives <- (=deco(slicing_directive))*
 slicing_directive <-
   / "@" (=exact_ident(slicing_directive0)):v !"("

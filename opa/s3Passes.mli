@@ -163,6 +163,14 @@ val pass_CheckDuplication :
   )
   opa_pass
 
+val pass_TreatNoClientCalls : unit ->
+  (
+    (SurfaceAstCons.ExprIdentCons.ident,  [< SurfaceAst.all_directives >
+      `no_client_calls `with_thread_context] as 'a ) Passes.sa_env_Gen,
+    (SurfaceAstCons.ExprIdentCons.ident, 'a) Passes.sa_env_Gen
+  )
+  opa_pass
+
 val pass_ConvertStructure2 : unit ->
   (
     (Ident.t,  [< SurfaceAst.all_directives ] as 'a) SurfaceAstPasses.env_both_lcodes,

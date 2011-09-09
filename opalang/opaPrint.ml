@@ -411,6 +411,7 @@ object (self)
   | `atomic -> Format.pp_print_string f "atomic"
   | `thread_context -> Format.pp_print_string f "thread_context"
   | `with_thread_context -> Format.pp_print_string f "with_thread_context"
+  | `no_client_calls -> Format.pp_print_string f "no_client_calls"
   | `async -> Format.pp_print_string f "async"
   | `side_annotation _ -> Format.pp_print_string f "side_annotation"
   | `visibility_annotation _ -> Format.pp_print_string f "visibility_annotation"

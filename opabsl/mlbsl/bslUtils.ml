@@ -25,13 +25,17 @@ let fkey     = ServerLib.static_field_of_name "key"
 let freq     = ServerLib.static_field_of_name "request"
 let fcon     = ServerLib.static_field_of_name "connexion"
 let fdetails = ServerLib.static_field_of_name "details"
+let fconstraint = ServerLib.static_field_of_name "constraint"
 
 let fclient  = ServerLib.static_field_of_name "client"
 let fserver  = ServerLib.static_field_of_name "server"
 let fnothing = ServerLib.static_field_of_name "nothing"
 
-let fsuccess  =ServerLib.static_field_of_name "success"
-let ffailure  =ServerLib.static_field_of_name "failure"
+let fsuccess = ServerLib.static_field_of_name "success"
+let ffailure = ServerLib.static_field_of_name "failure"
+
+let ffree    = ServerLib.static_field_of_name "free"
+let fno_client_calls = ServerLib.static_field_of_name "no_client_calls"
 
 let rnone    = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fnone) (ServerLib.make_record ServerLib.empty_record_constructor))
 let rsome x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fsome) x)
@@ -39,6 +43,8 @@ let rsome x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record
 let rclient x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fclient) x)
 let rserver x  = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fserver) x)
 let rnothing    = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (fnone) (ServerLib.make_record ServerLib.empty_record_constructor))
+
+let rfree = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor (ffree) (ServerLib.make_record ServerLib.empty_record_constructor))
 
 ##opa-type ThreadContext.t
 
@@ -60,6 +66,7 @@ let proj_cps0 pk f =
   fun () -> f (QmlCpsServerLib.ccont_ml pk (fun (_:ServerLib.ty_void) -> ()))
 
 (** Create an opa thread context *)
+(* ThreadContext: Be careful, Thread context is hard coded here. Change it if you change type *)
 let create_ctx key request =
   let rkey = match key with
   | `client client -> rclient client
@@ -78,14 +85,15 @@ let create_ctx key request =
       in
       rsome req in
   let rdetails = rnone in
-  ServerLib.make_record (
-    ServerLib.add_field(
-      ServerLib.add_field
-        (ServerLib.add_field ServerLib.empty_record_constructor
-           (fkey)  rkey
-        )  (freq)  rreq
-    )      (fdetails) rdetails
-  )
+  let rconstraint = rfree in
+  ServerLib.make_record
+    (ServerLib.add_field
+      (ServerLib.add_field
+        (ServerLib.add_field
+          (ServerLib.add_field ServerLib.empty_record_constructor (fkey)  rkey)
+          (freq) rreq)
+        (fdetails) rdetails)
+      (fconstraint) rconstraint)
 
 let get_serverkey context =
   let rkey = ServerLib.unsafe_dot context fkey in

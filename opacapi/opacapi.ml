@@ -219,6 +219,12 @@ struct
   let fold = !! "fold"
 end
 
+module ThreadContext =
+struct
+  let (!!) s = !! ("ThreadContext_" ^ s)
+  let no_client_calls = !! "no_client_calls"
+end
+
 module Xml =
 struct
   let (!!) s = !! ("Xml_" ^ s)

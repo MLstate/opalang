@@ -201,7 +201,8 @@ if (command_line_execution) {
                     renderer:    { Unidentified: js_void }
                 }
             }
-        }
+        },
+        constraint: {free:js_void}
     }
     ))
 }

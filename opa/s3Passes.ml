@@ -488,6 +488,14 @@ let pass_BslLoading =
        PassHandler.make_env options (env, env_bsl)
     )
 
+let pass_TreatNoClientCalls() =
+  PassHandler.make_pass
+    (fun e ->
+      let options = e.PH.options in
+      let env = e.PH.env in
+      PassHandler.make_env options (Pass_TreatNoClientCalls.translate env)
+    )
+
 let pass_CheckServerEntryPoint =
   PassHandler.make_pass
     (fun e ->

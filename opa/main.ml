@@ -86,6 +86,8 @@ let () =
 
     |+> ("ConvertStructure2", S3.pass_ConvertStructure2 ())
 
+    |+> ("TreatNoClientCalls",S3.pass_TreatNoClientCalls ())
+
     |> PH.old_handler
         "ReplaceCompileTimeDirective" S2.pass_ReplaceCompileTimeDirective
 

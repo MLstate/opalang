@@ -313,6 +313,7 @@ type concurrency_directive =
     | `atomic
     | `thread_context
     | `with_thread_context
+    | `no_client_calls
     | `throw
     | `catch
     | `may_cps
