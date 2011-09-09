@@ -17,7 +17,7 @@
 */
 
 /**
-  * Fill this file with function to check fonctionnality browser support
+  * Functions checking if the browser supports some features
   */
 
 ##register support_placeholder : -> bool
