@@ -347,7 +347,7 @@ struct
     let print_version () = prerr_endline str_version
 
     let rpc_doc =
-      "(i,p,c) Different level for optimize RPC (i : server values inserted on client code, p : publisehd functions, c : rpc call)"
+      "(i,p,c) Different level for RPC optimization (i : server values inserted on client code, p : published functions, c : rpc call)"
 
     let set_rpc_options str =
       try
@@ -355,7 +355,7 @@ struct
           "(%d,%d,%d)"
           (fun i p c -> rpc_options := (i,p,c))
       with Failure _ | End_of_file | Scanf.Scan_failure _ ->
-        OManager.error "An error occurs when parse rpc options@\n%s" rpc_doc
+        OManager.error "An error occured while parsing rpc options@\n%s" rpc_doc
 
     (* ===== *)
     (** Options which refers to (and so depends on, ...) options *)
@@ -373,7 +373,7 @@ where options are :
       Arg.usage speclist head;
       if not BuildInfos.is_release
       then (
-        prerr_endline "\nYou can set the following environment variable if needed (VAR MEANING DEFAULT):\n" ;
+        prerr_endline "\nYou can set the following environment variables if needed (VAR MEANING DEFAULT):\n" ;
         List.iter (fun (var, mess, _)-> prerr_endline (Printf.sprintf "  %s \t-- %s" (String.escaped var) mess)) Env.envvar ;
       ) ;
       prerr_endline "\n-----------------------------\n"
@@ -407,7 +407,7 @@ where options are :
           (* b *)
           "--build-dir",
           Arg.String (fun s -> build_dir := s),
-          " set the build directory : default is _build. you must set an absolute path."
+          " set the build directory : default is _build. You must set an absolute path."
           ;
 
           (* c *)
@@ -424,8 +424,8 @@ where options are :
           ("--compile-release",   Arg.Set compile_release, " use this option to make a release : errors should be ignored, activate static file embedding.");
           ("--constant-sharing", Arg.Set constant_sharing, " Activate the constant sharing pass");
           ("--constant-sharing-client", Arg.Set constant_sharing, " Activate the constant sharing pass on javascript code");
-          ("--no-constant-sharing", Arg.Clear constant_sharing, " Unactivate the constant sharing pass");
-          ("--no-constant-sharing-client", Arg.Clear constant_sharing, " Unactivate the constant sharing pass on javascript code");
+          ("--no-constant-sharing", Arg.Clear constant_sharing, " Deactivate the constant sharing pass");
+          ("--no-constant-sharing-client", Arg.Clear constant_sharing, " Deactivate the constant sharing pass on javascript code");
           ("--dump-dbgen-schema", Arg.Set dump_dbgen_schema, " Dump the inferred dbgen schema (to files %.dot and %.png)");
           ("--extra-lib",         Arg.String add_full_extra_lib, "\"*.cm*,*.js,...\" Add lib(s) to link the generated server");
           ("--extra-path",        Arg.String add_full_extra_path, "\"dir,...\" Add path(s) to link the generated server");
@@ -518,7 +518,7 @@ where options are :
           ("--cps", Arg.Set cps, " Activate cps transformation mode");
           ("--cps-client", Arg.Set cps_client, " Activate cps transformation mode on client");
           ("--cps-toplevel-concurrency", Arg.Tuple [ Arg.Set cps ; Arg.Set cps_toplevel_concurrency ],
-           " During cps transformation, toplevel not functionnal values are compiled as future (enforce --cps)");
+           " During cps transformation, toplevel non-functional values are compiled as future (enforce --cps)");
           ("--no-cps", Arg.Clear cps, "");
           ("--show-compilation", Arg.Set show_compilation, " show the caml compilation");
           ("--explicit-instantiation",    Arg.Set explicit_instantiation, " Annotate instantiations of polymorphic functions and use the type information at runtime");
@@ -530,7 +530,7 @@ where options are :
 
           "--hacker-mode",
           Arg.Set hacker_mode,
-          " Perform some usefull tricks when compiling the ocaml code for debugging purpose"
+          " Perform some useful tricks when compiling the ocaml code for debugging purpose"
           ;
 
           "--js-back-end",
@@ -549,11 +549,11 @@ where options are :
           ("--no-cache-parse",    Arg.Set no_cache_parse,    " UNDOCUMENTED");
           ("--no-discard-of-unused-stdlib", Arg.Set no_discard_of_unused_stdlib, " UNDOCUMENTED");
           ("--no-embedded-stdlib",Arg.Clear embedded_opa, " Disable embedded stdlib usage");
-          ("--no-undot",          Arg.Unit (fun () -> undot := false), " Desactivate the optimization on module field calls");
+          ("--no-undot",          Arg.Unit (fun () -> undot := false), " Deactivate the optimization on module field calls");
 
           ("--opa-walker",        Arg.Unit (fun () -> opa_walker := Some true), " UNDOCUMENTED");
           ("--no-opa-walker",     Arg.Unit (fun () -> opa_walker := Some false), " UNDOCUMENTED");
-          ("--optimize-rpc",      Arg.String set_rpc_options, "(i,p,c) Different level for optimize RPC (i : server values inserted on client code, p : publisehd functions, c : rpc call)");
+          ("--optimize-rpc",      Arg.String set_rpc_options, "(i,p,c) Different level of RPC optimization (i : server values inserted on client code, p : published functions, c : rpc call)");
           ("--profile",           Arg.Set profile, " UNDOCUMENTED");
           ("--set-opa-walker",    Arg.Symbol (OpaWalker.Options.available_walkers, OpaWalker.Options.set_opa_walker), " UNDOCUMENTED");
           ("--slicer-test",       Arg.Set slicer_test, " Make the slicer output specific information (and exit after it)");
@@ -640,7 +640,7 @@ where options are :
           Arg.parse_argv ~current:(ref 0) opack_options speclist anon_fun ("")
         with
         | Arg.Bad message ->
-            OManager.error "error by reading opack file @{<bright>%S@} :@\n%s@" file message
+            OManager.error "error while reading opack file @{<bright>%S@} :@\n%s@" file message
         | Arg.Help _ ->
             help_menu speclist () ;
             OManager.error "error, the opack file @{<bright>%S@} contains the option --help" file
