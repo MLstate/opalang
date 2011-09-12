@@ -648,6 +648,9 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
      else
         "{executable_id}{name}"
 
+  get_uri_of_null =
+    "{base_url ? ""}/_internal_/null"
+
 
  /**
   * {2 Deprecated}

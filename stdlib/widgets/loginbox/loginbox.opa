@@ -133,11 +133,7 @@ WLoginbox =
       pwd = Dom.get_value(#{password_id})
       login_action(usr, pwd)
 
-    @private dummy_page = Resource.raw_text("")
-    @publish
-    fake_url_1 = DynamicResource.publish(dummy_page, {consumption={unlimited}; expiration={none}; visibility={shared}})
-    @publish
-    fake_url_2 = DynamicResource.publish(dummy_page, {consumption={unlimited}; expiration={none}; visibility={shared}})
+    null_url = Resource.get_uri_of_null
 
     html(config: WLoginbox.config, id: string,
         login_action: (string, string -> void),
@@ -158,8 +154,8 @@ WLoginbox =
             ("", "display:none"), usr_opt)
       login_form(init_username: string, init_password: string) =
       /* ugly hack : needs iframe to be the fake target of the submit form  */
-        <iframe src="{prepend}{fake_url_1}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
-        <form  target="{iframe_id}" method="post"  action="{prepend}{fake_url_2}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
+        <iframe src="{prepend}{null_url}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
+        <form  target="{iframe_id}" method="post"  action="{prepend}{null_url}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
         <span id={get_not_logged_id(id)} style="{login_css}">
           {match config.login_label
            {some=s} -> <label for={username_id}>{s}</label>

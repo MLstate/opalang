@@ -89,15 +89,7 @@ Themes = {{
     with_theme(theme_name)
 
   @private
-  dummy_page = Resource.raw_text("")
-
-  @private
-  fake_url = DynamicResource.publish(
-              dummy_page,
-              {consumption={unlimited}; expiration={none}; visibility={shared}})
-
-  @private
   bad_resource_url(resource_name, err) =
     do Log.warning("THEME", "{resource_name} - {err}")
-    fake_url
+    "/_internal_/null"
 }}

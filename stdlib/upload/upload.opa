@@ -174,7 +174,7 @@ Upload = {{
     }
     frameId = Dom.fresh_id()
     <>
-      <iframe name={frameId} id={frameId} src="#" style={frame_style} />
+      <iframe name={frameId} id={frameId} src="{Resource.get_uri_of_null}" style={frame_style} />
       <form id={config.form_id} action="{upload_url}" target={frameId}
             method="post" enctype="multipart/form-data">
         {config.form_body}
