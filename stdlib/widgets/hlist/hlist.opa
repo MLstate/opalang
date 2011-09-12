@@ -536,7 +536,7 @@ WHList = {{
         else Option.some("#{father_id} > ul.{item_sons_class(prefix_class)}")
       | {none} ->
         // do jlog("This element has no father")
-        Option.some("#{hlist_id(config.prefix_id)} > ul")
+        Option.some("#{hlist_id(config.prefix_id)}")
     match father_sel with
     | ~{some=father_sel} ->
       // do jlog("Father selector exists")
