@@ -181,12 +181,11 @@ UserContext =
    */
   @server
   execute(action : 'state -> 'b, context : UserContext.t('state)) : 'b =
-    k(cont)= @with_thread_context(ThreadContext.get({from=cont}),
+    k(cont)=
       f(state:'state) : ( -> void) =
         return = action(state)
         -> Continuation.return(cont, return)
       (Cell.call(context, {exec=f}) |> Option.get(_))()
-    )
     @callcc(k)
 
 
