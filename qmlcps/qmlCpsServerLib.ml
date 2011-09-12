@@ -527,7 +527,7 @@ let uncps_ml ident k (f:'b continuation -> unit) =
   uncps ident k (CR.create_no_ident1 f)
 
 let callcc_directive f k =
-  let unit_cont = cont_ml (fun _ -> ()) in
+  let unit_cont = ccont_ml k (fun _ -> ()) in
   f k unit_cont
 
 (* === *)
