@@ -89,7 +89,7 @@ let options =
             "<timestamp>", "Use the database as it was at the given timestamp, instead of now (for -s and -d only)")
            ::
            (["--backup"], ServerArg.func ServerArg.string (fun o s -> set_command o (Close (Backup s))),
-            "<dirpath>", "Do a backup of the database, stored ati the given path. Local databases only")
+            "<dirpath>", "Do a backup of the database, stored at the given path. Local databases only")
            ::
            List.map
              (fun (arg,parse,params,help) -> arg, wrap_parser parse, params, help)
