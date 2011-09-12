@@ -16,7 +16,7 @@ Convention for source code:
 * keywords are between ++
 
 Typography:
-* don't forget semi-columns;
+* don't forget semi-colons;
 * in lists, they are compulsory.
 
 Git commits:
