@@ -257,7 +257,7 @@ let load_conf conffile =
             in
             OManager.error (
               "%a@\n" ^^
-              "You should precise a @{<bright>package@} for @{<bright>%s@}@\n"^^
+              "You should supply a @{<bright>package@} for @{<bright>%s@}@\n"^^
               "@[<2>@{<bright>Hint@}:@\nAdd a package declaration in a line before, using this syntax:@\n" ^^
               "@[<2>mypackage:@\n" ^^
               "%s@]@]@\n"
@@ -514,7 +514,7 @@ let find_dir_no_memo ((package_name, pos) : package) : filename =
       ~missing_file:(fun _dirs _fname ->
                        error (
                          "%a@\n  Cannot find any object file for package @{<bright>%s@}.@\n" ^^
-                           "@[<2>@{<bright>Hint@}:@\nPerhaps some included directory are missing (option -I)@]"
+                           "@[<2>@{<bright>Hint@}:@\nPerhaps some included directories are missing (option -I)@]"
                        )
                          FilePos.pp_pos pos package_name
                     )
@@ -540,7 +540,7 @@ let find_js_file_no_memo (js_file:basename) =
     ~missing_file:(fun _dirs _fname ->
                      error (
                        "Cannot find the file @{<bright>%s@}.@\n" ^^
-                         "@[<2>@{<bright>Hint@}:@\nPerhaps some included directory are missing (option -I)@]"
+                         "@[<2>@{<bright>Hint@}:@\nPerhaps some included directories are missing (option -I)@]"
                      )
                        js_file
                   )
@@ -1108,7 +1108,7 @@ let merge_consistency_info ~exn (acc_js_libs, acc_deps, acc_bsl_plugins) package
               error (
                 "@[<2>External plugin: conflicting versions for %S@\n"^^
                 "package @{<bright>%a@} uses @{<bright>%s@}@\n"^^
-                "previous packages uses @{<bright>%s@}@]@\n"
+                "previous packages used @{<bright>%s@}@]@\n"
               )
                 name
                 Package.pp package uniq_id
@@ -1201,7 +1201,7 @@ let browse_code_and_build_map_aux extract_package_decl filename lcode =
           | Some p -> p :: names in
         let pos_list = List.map snd names in
         let pos = FilePos.merge_pos_list pos_list in
-        OManager.serror "%a@\n  The file %s declares several times its package."
+        OManager.serror "%a@\n  Multiple package declarations in file %s."
           FilePos.pp_pos pos filename;
         Some h in
   package_name, lcode, deps
@@ -1519,7 +1519,7 @@ let reorder :
     | Some reason ->
         let pp_reason f = function
           | `static_include_changed -> Format.pp_print_string f "a file that is included statically has changed"
-          | `conf_changed -> Format.pp_print_string f "the import of the package have been modified by a configuration file"
+          | `conf_changed -> Format.pp_print_string f "the import of the package has been modified by a configuration file"
           | `not_complete -> Format.pp_print_string f "the package exists and is up-to-date but is not complete"
           | `inconsistent s -> Format.fprintf f "the package exists, but is inconsistent (%s)" s
           | `different_sources -> Format.pp_print_string f "the package exists, but was compiled from different sources"
@@ -1766,7 +1766,7 @@ struct
                 autobuild := Some false ;
                 turn_separated_on ();
                 ()),
-    " Recompile only what is needed, but does not link"
+    " Recompile only what is needed, but do not link"
     ;
 
     (* c *)
@@ -1812,7 +1812,7 @@ struct
                   compilation_mode_state := `linking ;
                   turn_separated_on ();
                   ()),
-    " Add package(s) to link with (enfoce separated and linking modes)"
+    " Add package(s) to link with (enforce separated and linking modes)"
     ;
 
     (* o *)

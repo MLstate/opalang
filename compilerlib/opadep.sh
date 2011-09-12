@@ -15,8 +15,8 @@ OPA_PACKAGES='lib/opa/stdlib'
 help() {
     cat <<EOF
 opadep.sh: generate OPA packages dependency graphs.
-Packages to browser are found in the folder :
-  .                            all package previously compiled in the current path
+Packages are expected to be found in the following folders :
+  .                            all packages previously compiled in the current path
   MLSTATELIBS/$OPA_PACKAGES    all installed packages
 
 it generates a folder $OPADEP/ containing the resulting graphs.
@@ -152,4 +152,4 @@ for dot in *.dot ; do
 done
 odeplink *.svg
 
-echo "opadep: Successfull generation of graphs in $OPADEP/"
+echo "opadep: Successful generation of graphs in $OPADEP/"
