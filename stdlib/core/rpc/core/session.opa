@@ -335,10 +335,44 @@ Session = {{
     * @param state As in [Session.make]
     * @param on_message As in [Session.make]
    **/
-    @server cloud(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
-          if shared_mode
-          then make_shared(key, state, on_message)
-          else make(state, on_message)
+    @server cloud(key, state, handler) =
+      if shared_mode
+      then make_shared(key, state, handler)
+      else get_local_cloud(key, state, handler)
+
+    /**
+     * Local index used for cloud sessions when shared mode is not aviable.
+     */
+    @server_private @private local_cloud_index =
+      Cell.make(Map.empty, (map, msg ->
+        match msg
+        | ~{key ty session} ->
+          match Map.get(key, map)
+          | {none} ->
+            { instruction = {set = Map.add(key, ~{session ty}, map)}
+              return = some(session) }
+          | {some = ~{session ty=sty}} ->
+            { instruction = {unchanged}
+              return =
+                // TODO - Use Unification.unifiable when it's done
+                if OpaType.implementation(sty) == OpaType.implementation(ty) then some(session)
+                else none
+            }
+          end
+        end
+        )
+      ) : Cell.cell({key:string ty:OpaType.ty session:black}, option(black))
+
+    /**
+     * Access to local cloud index.
+     */
+    @server_private @private get_local_cloud(key, state,
+          handler : ('state, 'message -> Session.instruction('state))) =
+        ty = @typeval('message)
+        session = Magic.black(Session.make(state, handler))
+        match Cell.call(local_cloud_index, ~{key ty session})
+        | ~{some} -> Magic.id(some) : Session.channel('message)
+        | {none} -> @fail("Session.cloud : session \"{key}\" already exists but {OpaType.to_pretty(@typeval('message))} is not compatible to type of message")
 
 
     /**
