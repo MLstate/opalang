@@ -156,7 +156,9 @@ let get_index_N_lines_after s i nl =
 
 let parse_error_flag =
   let search_for = Str.regexp "\\b[Uu][Tt][Ff]-?8\\b" in
-  try let _ = Str.search_forward search_for (Sys.getenv "LC_CTYPE") 0 in "⚐"
+  try
+    let lang = try Sys.getenv "LC_CTYPE" with Not_found -> Sys.getenv "LANG" in
+    let _ = Str.search_forward search_for lang 0 in "⚐"
   with Not_found -> "-->"
 
 (* FIXME, use FilePos for obtaining citations etc. *)
