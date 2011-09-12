@@ -115,9 +115,12 @@ case $(uname) in
     Darwin*)
         echo-ok MacOS
         IS_MAC=1;;
-    Linux*)
+    Linux*|GNU/kFreeBSD)
         echo-ok Linux
         IS_LINUX=1;;
+    FreeBSD)
+	echo-ok FreeBSD
+	IS_FREEBSD=1;;
     *)
         echo-err "Not sure, probably Unix / Linux"
         IS_LINUX=1
@@ -639,10 +642,11 @@ let available = [ $TAGS_LIST]
 let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
-type os = Linux | Mac | Win32 | Cygwin
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD
 let os =
   $(if [ -n "${IS_LINUX:-}" ]; then echo Linux
     elif [ -n "${IS_MAC:-}" ]; then echo Mac
+    elif [ -n "${IS_FREEBSD:-}" ]; then echo FreeBSD
     else echo 'match Sys.os_type with "Win32" -> Win32 | "Cygwin" -> Cygwin | _ -> assert false'
     fi)
 
@@ -682,9 +686,11 @@ IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"
 IS_MAC="${IS_MAC:-}"
+IS_FREEBSD="${IS_FREEBSD:-}"
 OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      elif [ -n "${IS_MAC:-}" ]; then echo '"Mac"'
      elif [ -n "${IS_WINDOWS:-}" ]; then echo '"Win32"'
+     elif [ -n "${IS_FREEBSD:-}" ]; then echo '"FreeBSD"'
      else echo "Error: OS inconsistency" >&2; exit 2
      fi)
 
@@ -702,8 +708,11 @@ EOF
 
 sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
 if [ -n "${IS_MAC:-}" ]; then
-    echo "INSTALL := gcp -u -L"
-fi >>config.make
+    echo "INSTALL := gcp -u -L" >>config.make
+fi
+if [ -n "${IS_FREEBSD:-}" ]; then
+    echo "INSTALL := cp" >>config.make
+fi
 
 {
     echo

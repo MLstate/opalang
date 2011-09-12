@@ -338,7 +338,7 @@ package_install (){
                 ./configure -prefix $PREFIX ${CYGOPT:-}
                 make world # clean world
                 make bootstrap
-                if [ $IS_LINUX ] || [ $IS_MAC ]; then
+                if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
                     make opt && make opt.opt
                 fi
                 PREFIX=$INSTALLDIR $SUDO make install -e

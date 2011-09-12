@@ -60,7 +60,7 @@ val all_tags : string list
 val is_release : bool
 
 (** the target OS type *)
-type os = Linux | Mac | Win32 | Cygwin
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD
 val os : os
 
 (** the installation directory of external libraries, as in the ocamlopt '-I'

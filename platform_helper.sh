@@ -16,7 +16,8 @@ IS_WINDOWS=""
 case $(uname) in
     CYGWIN*) IS_WINDOWS=1;;
     Darwin*) IS_MAC=1;;
-    Linux*) IS_LINUX=1;;
+    Linux*|GNU/kFreeBSD) IS_LINUX=1;;
+    FreeBSD) IS_FREEBSD=1;;
     *)
         echo "Error: could not detect OS. Defaulting to Linux" >&2
         IS_LINUX=1
