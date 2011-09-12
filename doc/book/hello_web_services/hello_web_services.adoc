@@ -663,7 +663,7 @@ include::hello_wiki_rest.opa[]
 [run]#http://tutorials.opalang.org/hello_wiki_rest[Run]#
 
 Launch the server wiki, launch the client wiki on a different port (use option
-+--server-port+ to select a port) and behold, you can edit your wiki from two
++-p+ or +--opa-server-port+ to select a port) and behold, you can edit your wiki from two
 distinct ports. Or two distinct servers, if you replace +"localhost"+ by the
 appropriate server name.
 
