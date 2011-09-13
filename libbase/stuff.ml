@@ -156,8 +156,7 @@ struct
     (((Char.code (S.get (s) (i+6))) lsl  8) land 0x000000000000ff00) lor
     (((Char.code (S.get (s) (i+7)))       ) land 0x00000000000000ff)
 
-  let ldd s i =
-    Int64.float_of_bits
+  let ldi64L s i =
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+7)))) 56) 0xff00000000000000L)
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+6)))) 48) 0x00ff000000000000L)
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+5)))) 40) 0x0000ff0000000000L)
@@ -167,8 +166,7 @@ struct
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+1))))  8) 0x000000000000ff00L)
                  (Int64.logand (                 (Int64.of_int (Char.code (S.get (s) (i+0))))   ) 0x00000000000000ffL))))))))
 
-  let bdd s i =
-    Int64.float_of_bits
+  let bdi64L s i =
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+0)))) 56) 0xff00000000000000L)
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+1)))) 48) 0x00ff000000000000L)
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+2)))) 40) 0x0000ff0000000000L)
@@ -177,6 +175,9 @@ struct
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+5)))) 16) 0x0000000000ff0000L)
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+6))))  8) 0x000000000000ff00L)
                  (Int64.logand (                 (Int64.of_int (Char.code (S.get (s) (i+7))))   ) 0x00000000000000ffL))))))))
+
+  let ldd s i = Int64.float_of_bits (ldi64L s i)
+  let bdd s i = Int64.float_of_bits (bdi64L s i)
 
 end (* module StuffF *)
 
