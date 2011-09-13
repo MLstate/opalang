@@ -56,7 +56,7 @@ let set buf i ch =
 let unsafe_set buf i ch = String.unsafe_set buf.str i ch
 
 let sub buf base len =
-  if base < 0 || base + len >= buf.i then invalid_arg (Printf.sprintf "Buf.sub index out of bounds %d %d" base len);
+  if base < 0 || base + len > buf.i then invalid_arg (Printf.sprintf "Buf.sub index out of bounds %d %d" base len);
   String.sub buf.str base len
 
 let add_char buf ch =
@@ -64,10 +64,12 @@ let add_char buf ch =
   buf.str.[buf.i] <- ch;
   buf.i <- buf.i + 1
 
-let append buf str len =
-  if String.length buf.str - buf.i < len then invalid_arg (Printf.sprintf "Buf.add_stringn %s" str);
-  String.unsafe_blit str 0 buf.str buf.i len;
+let add_substring buf str base len =
+  if String.length buf.str - buf.i < len then invalid_arg (Printf.sprintf "Buf.add_substring %s %d %d" str base len);
+  String.unsafe_blit str base buf.str buf.i len;
   buf.i <- buf.i + len
+
+let append buf str len = add_substring buf str 0 len
 
 let extend buf len =
   if String.length buf.str - buf.i < len then invalid_arg (Printf.sprintf "Buf.extend %d" len);

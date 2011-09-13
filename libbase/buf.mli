@@ -43,6 +43,7 @@ val clear : buf -> unit
 val reset : buf -> unit
 val add_char : buf -> char -> unit
 val add_string : buf -> string -> unit
+val add_substring : buf -> string -> int -> int -> unit
 val contents : buf -> string
 
 (** Specifics **)
