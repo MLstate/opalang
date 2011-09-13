@@ -91,6 +91,10 @@ val read_fixed_stream_cps :
   Scheduler.t ->
   ?err_cont:(exn -> unit) -> ?timeout:Time.t -> (string -> unit) -> unit
 
+val fixed_stream_cps2_buf :
+  (*?oc_opt:out_channel option ->*) Scheduler.t -> Scheduler.connection_info -> (Buf.t * int ref) -> int ->
+  ?callback:('a -> int -> Buf.t -> bool) -> 'a -> ?blocksize:int ->
+  ?err_cont:(exn -> unit) -> ?timeout:Time.t -> (Buf.t * int * int -> unit) -> unit
 val fixed_stream_cps2 :
   (*?oc_opt:out_channel option ->*) Scheduler.t -> Scheduler.connection_info -> (Buffer.t * int ref) -> int ->
   ?callback:('a -> int -> Buffer.t -> bool) -> 'a -> ?blocksize:int ->
