@@ -15,12 +15,17 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+
+#<Debugvar:MIMETYPE_DEBUG>
+
 module StringMap = Map.Make (struct type t = string let compare = Pervasives.compare end)
 module String = BaseString
 exception MimeType_NotFound
 exception Malformed
 exception Open of string
 
+(* -- *)
 
 type match_type =
   | String
@@ -122,6 +127,11 @@ let pp fmt =
 let ipp fmt =
   Printf.ifprintf stdout (fmt^^"[0m\n%!")
 
+let debug ?(level=0) fmt =
+  let level = succ level in
+  #<If$minlevel level> Printf.printf ("[1m[30m[MimeType][0m "^^fmt^^"\n%!")
+  #<Else> Printf.ifprintf stdout fmt #<End>
+
 
 (*TO STRING (end) *)
 
@@ -212,10 +222,15 @@ let petit_boutiste value =
      let result = String.concat "" maliste in
      result)
 
+let to_byte s =
+  String.make 1 (Char.chr (int_of_string s))
+
+  
 
 
 let mise_enforme v = function
   | String -> chaine_de_remplacement v
+  | Byte -> to_byte v
   | Little16
   | Little32 -> chaine_de_remplacement (petit_boutiste v)
       (*  | Host16 | Host32 -> failwith "refuse"*)
@@ -267,9 +282,13 @@ let get_mimetype_aux filename database =
 
                 let relance cond =
                   if cond then
-                    (match magic.m_imbrik with
+                    let c =
+                      match magic.m_imbrik with
                      | [] -> true
-                     | _ -> check_magic_list magic.m_imbrik)
+                     | _ -> check_magic_list magic.m_imbrik
+                    in
+                    if c then true
+                    else check_magic_list magic_rest
                   else
                     check_magic_list magic_rest
                 in
@@ -322,13 +341,14 @@ let get_mimetype_aux filename database =
               if index = String.length pattern -1 then
                 String.is_prefix
                   (String.sub pattern 0 (length_pattern - 2)) filename
-              else failwith (Printf.sprintf "je ne sais pas traite ce genre de pattern %s" pattern)
+              else failwith (Printf.sprintf "je ne sais pas traiter ce genre de pattern %s" pattern)
              )
         )
   in
 
 
   let second_try mimelist =
+    debug "no result : check_pattern";
     let res =
       list_find_opt
         (fun mime ->
@@ -356,16 +376,24 @@ let get_mimetype_aux filename database =
   | [] -> second_try database
   | [x] -> x
   | _ ->
+      let _ = debug "more than one result : %s" (BaseList.print string_of_all_infos accumulator) in
       try List.find (fun x -> is_some (list_find_opt (fun y -> checkpatt y) x.ai_patterns)) accumulator
       with Not_found -> second_try database
 
 
 let get_mimetype filename database =
-  (get_mimetype_aux filename database).ai_mimetype
+  debug "";
+  debug "Check mimetype of %s" filename;
+  try (get_mimetype_aux filename database).ai_mimetype
+  with Sys_error s -> debug "problem !"; failwith ("Sys_error in mymetype detection : "^s)
 
 
 let path_database mlstatedir =
-  PathTransform.string_to_mysys ~relative_position:(PathTransform.of_string (Lazy.force mlstatedir)) "share/opa/mimetype_database.xml"
+  let p = PathTransform.string_to_mysys
+           ~relative_position:(PathTransform.of_string (Lazy.force mlstatedir))
+           "share/opa/mimetype_database.xml" in
+  debug "Use database at : %s" p;
+  p
 
 let build_mimetype_database database =
   let ic = open_in database in
@@ -433,10 +461,13 @@ let build_mimetype_database database =
                let m_imbrik = aux [] in
                let m_mask = match y with [] -> None | [((("","mask")), m)] -> Some m | _ -> raise Malformed in
 
-               (* replace escaped hars by them real values *)
+               (* replace escaped chars by them real values *)
                let m_value =
-                 Str.global_substitute (Str.regexp "\\\\\\([0-9][0-9][0-9]\\)")
-                   (fun x -> String.make 1 (Char.chr (int_of_string (Str.matched_group 1 x)))) m_value in
+                 let res = 
+                   Str.global_substitute (Str.regexp "\\\\\\([0-9][0-9][0-9]\\)")
+                     (fun x -> String.make 1 (Char.chr (int_of_string (Str.matched_group 1 x)))) m_value
+                 in mise_enforme res m_type
+               in
 
                let magic = { m_type; m_value; m_offset; m_mask; m_imbrik } in
                aux (magic :: acc)

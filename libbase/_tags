@@ -16,6 +16,7 @@
 # mlstate ppdebug
 <debugTracer.ml*> : with_mlstate_debug
 <filePos.ml> : with_mlstate_debug
+<file_mimetype.ml>: with_mlstate_debug
 
 
 <{testconsole,testfilepos}.{ml,mli,byte,native}>: thread, use_str, use_unix, use_libbase, use_ulex

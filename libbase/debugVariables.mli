@@ -599,6 +599,12 @@ val lambda_correct : debug_var (** check that the code is well lambda lifted
 val low_level_db_log : debug_var
 
 (**
+   {b MLSTATE_MIMETYPE_DEBUG}
+   display the debug on mimetype resolution 
+*)
+val mimetype_debug : debug_var
+
+(**
    {b MLSTATE_NO_ACCESS_LOG}
 *)
 val no_access_log : debug_var
