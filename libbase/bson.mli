@@ -182,36 +182,35 @@ module type Iterator_sig =
     val init : buf -> iter
     val from_buffer : S.t -> iter
     val iterator_type : iter -> char
-    val key : iter -> S.t
+    val key : iter -> string
     val value : iter -> int
     val int_raw : iter -> int
     val long_raw : iter -> int
     val double_raw : iter -> float
     val bool_raw : iter -> bool
-    val oid : iter -> S.t
-    val string : ?offset:int -> iter -> S.t
-    val symbol : ?offset:int -> iter -> S.t
-    val bslen : S.t -> int -> int
-    val cstring : ?offset:int -> iter -> S.t
+    val oid : iter -> string
+    val string : ?offset:int -> iter -> string
+    val symbol : ?offset:int -> iter -> string
+    val cstring : ?offset:int -> iter -> string
     val string_len : iter -> int
     val int : iter -> int
     val long : iter -> int
     val double : iter -> float
     val timestamp : iter -> int * int
     val bool : iter -> bool
-    val code : iter -> S.t
+    val code : iter -> string
     val code_scope : iter -> buf
     val date : iter -> int
     val time_t : iter -> Time.t
     val bin_type : iter -> char
     val bin_len : iter -> int
-    val bin_data : iter -> S.t
-    val regex : iter -> S.t
-    val regex_opts : iter -> S.t
+    val bin_data : iter -> string
+    val regex : iter -> string
+    val regex_opts : iter -> string
     val subobject : iter -> buf
     val subiterator : iter -> iter
     val next : iter -> char
-    val find : buf -> S.t -> iter * char
+    val find : buf -> string -> iter * char
   end
 
 module IteratorF(S : S_sig) : Iterator_sig with module S = S

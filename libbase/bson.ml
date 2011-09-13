@@ -347,36 +347,35 @@ sig
   val init : buf -> iter
   val from_buffer : S.t -> iter
   val iterator_type : iter -> char
-  val key : iter -> S.t
+  val key : iter -> string
   val value : iter -> int
   val int_raw : iter -> int
   val long_raw : iter -> int
   val double_raw : iter -> float
   val bool_raw : iter -> bool
-  val oid : iter -> S.t
-  val string : ?offset:int -> iter -> S.t
-  val symbol : ?offset:int -> iter -> S.t
-  val bslen : S.t -> int -> int
-  val cstring : ?offset:int -> iter -> S.t
+  val oid : iter -> string
+  val string : ?offset:int -> iter -> string
+  val symbol : ?offset:int -> iter -> string
+  val cstring : ?offset:int -> iter -> string
   val string_len : iter -> int
   val int : iter -> int
   val long : iter -> int
   val double : iter -> float
   val timestamp : iter -> int * int
   val bool : iter -> bool
-  val code : iter -> S.t
+  val code : iter -> string
   val code_scope : iter -> buf
   val date : iter -> int
   val time_t : iter -> Time.t
   val bin_type : iter -> char
   val bin_len : iter -> int
-  val bin_data : iter -> S.t
-  val regex : iter -> S.t
-  val regex_opts : iter -> S.t
+  val bin_data : iter -> string
+  val regex : iter -> string
+  val regex_opts : iter -> string
   val subobject : iter -> buf
   val subiterator : iter -> iter
   val next : iter -> char
-  val find : buf -> S.t -> iter * char
+  val find : buf -> string -> iter * char
 end
 
 module IteratorF(S : S_sig) : Iterator_sig with module S = S =
@@ -408,8 +407,8 @@ struct
   let key i =
     try
       let ks = i.pos + 1 in
-      S.sub i.ibuf ks ((S.index_from i.ibuf ks '\x00') - ks)
-    with Not_found -> S.empty
+      S.to_string (S.sub i.ibuf ks ((S.index_from i.ibuf ks '\x00') - ks))
+    with Not_found -> ""
 
   let value i =
     try (S.index_from i.ibuf (i.pos+1) '\x00') + 1
@@ -431,11 +430,17 @@ struct
     | c -> raise (Failure (sprintf "iterator_bool_raw: Unknown code %02x" (Char.code c)))
 
   let oid i =
-    S.sub i.ibuf (value i) 12
+    S.to_string (S.sub i.ibuf (value i) 12)
 
   let string ?(offset=4) i =
+    (*let (b,s,l) = S.export i.ibuf in*)
+    (*Printf.eprintf "b=\"%s\" s=%d l=%d\n%!" (String.escaped b) s l;*)
     let v = value i in
-    S.sub i.ibuf (v+offset) ((St.ldi32 i.ibuf v)-1)
+    (*Printf.eprintf "v:%d\n%!" v;
+    Printf.eprintf "len:%d\n%!" ((St.ldi32 i.ibuf v)-1);*)
+    let str = S.to_string (S.sub i.ibuf (v+offset) ((St.ldi32 i.ibuf v)-1)) in
+    (*Printf.eprintf "str:%s\n%!" str;*)
+    str
 
   let symbol = string
 
@@ -445,7 +450,7 @@ struct
 
   let cstring ?(offset=0) i =
     let v = value i in
-    S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1)
+    S.to_string (S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1))
 
   let string_len i =
     int_raw i - 1
@@ -484,8 +489,8 @@ struct
     | c when c = el_string || c = el_code -> string ~offset:4 i
     | c when c = el_codewscope ->
         let v = value i in
-        S.sub i.ibuf (v+8) ((St.ldi32 i.ibuf (v+4))-1)
-    | _ -> S.empty
+        S.to_string (S.sub i.ibuf (v+8) ((St.ldi32 i.ibuf (v+4))-1))
+    | _ -> ""
 
   let code_scope i =
     match S.get i.ibuf i.pos with
@@ -518,7 +523,7 @@ struct
   let bin_data i =
     let v = value i in
     let offset = if bin_type i = st_bin_binary_old then 9 else 5 in
-    S.sub i.ibuf (v+offset) (bin_len i)
+    S.to_string (S.sub i.ibuf (v+offset) (bin_len i))
 
   let regex i =
     cstring i
@@ -526,7 +531,7 @@ struct
   let regex_opts i =
     let v = value i in
     let offset = bslen i.ibuf v in
-    S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1)
+    S.to_string (S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1))
 
   let subobject i =
     let v = value i in
@@ -873,8 +878,8 @@ let c4s1ss = IteratorSS.next i4ssi;;
 let k4s1ss = IteratorSS.key i4ssi;;
 let v4s1ss = IteratorSS.int i4ssi;;
 let good4 =
-  (SS.to_string k41ss, c4s1ss, SS.to_string k4s1ss, v4s1ss) =
-  ("Test", '\016', "int", 12345678)
+  (k41ss, c4s1ss, k4s1ss, v4s1ss) =
+  ("Test", '\016', "int", 12345678);;
 
 let b5a = Append.init ~hint:100 ();;
 let () = Append.code_w_scope b5a "code" "test" scope;;
@@ -897,9 +902,6 @@ let k5si = Iterator.key v5si;;
 let v5si = Iterator.string v5si;;
 let () = Print.print b5;;
 let good5 = s5 = s5a;;
-
-(*let json2bson = function
-  | JsonTypes.Int i -> *)
 
 let s6 = "\x2c\x00\x00\x00\x04\x61\x72\x72\x61\x79\x00\x20\x00\x00\x00\x01\x64\x6f\x75\x62\x6c\x65\x00\xae\x47\xe1\x7a\x14\xae\xf3\x3f\x10\x69\x6e\x74\x33\x32\x00\x7b\x00\x00\x00\x00\x00";;
 let s6 = "\x3b\x00\x00\x00\x04\x61\x72\x72\x61\x79\x00\x2f\x00\x00\x00\x01\x64\x6f\x75\x62\x6c\x65\x00\xae\x47\xe1\x7a\x14\xae\xf3\x3f\x10\x69\x6e\x74\x33\x32\x00\x7b\x00\x00\x00\x12\x69\x6e\x74\x36\x34\x00\xaf\xe2\x01\x00\x00\x00\x00\x00\x00\x00";;
