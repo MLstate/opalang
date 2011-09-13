@@ -83,19 +83,6 @@ function get_local_unsafe(str) {
     return function() { return f.call(null,arguments) }
 }
 
-##register [cps-bypass] create_anyarray_cps \ `create_anyarray_cps` : 'impl, int, 'ident, continuation(Closure.t) -> void
-function create_anyarray_cps(f,n,identifier,k)
-{
-    /*
-    var any_cps = function(args){
-        var k = args.pop();
-        return f(args, k);
-    }
-    return %BslClosure.create%(any_cps, n+1, identifier);
-    */
-    error("TODO create_any_array_cps")
-}
-
 /**
  * Part of JsInterface (funaction)
 **/
@@ -104,15 +91,6 @@ function args_apply(closure,args) {
 }
 ##register apply \ `args_apply` : Closure.t, Closure.args -> 'a
 
-##register [cps-bypass] apply_cps : Closure.t, Closure.args, continuation('a) -> void
-##args(closure, args, k)
-{
-   error("TODO: apply_cps")
-   /*if(closure.arity - 1 == args.length + closure.args.length){
-      args.push(k);
-   }
-   return %BslClosure.apply%(closure, args);*/
-}
 
 function get_closure_name(closure) {
     return closure.toString().match(/function *([^(]*)/)[1]
@@ -138,14 +116,6 @@ function get_closure_name(closure) {
     return (global[name] == closure) // toplevel function are the only opa closures that are empty
 }
 
-##register import \ `clos_import` : 'a, int -> Closure.t
 ##register export \ `clos_export` : Closure.t -> 'a
 function clos_import(clos,_arity) { return clos }
 function clos_export(clos) { return clos }
-
-/** Should print closure-related info. Ignored for the moment.*/
-##register closure_debug_from_opa: string,string -> void
-##args(topic, message)
-{
-    return ;
-}
