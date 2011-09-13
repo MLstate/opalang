@@ -753,8 +753,8 @@ directive <-
 *)
 /** function calls, field access **/
 function_call_dot <-
-       / expr_before_mandatory_function_call:e function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
-         {{ make_function2 letins double_dot (`expr e) params }}
+       / ident_call_dot
+       / paren_expr_call_dot
        / (=careful_deco(Opa_lexer.underscore_nosp)):p function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
          {{ make_function2 letins double_dot (`hole (label p)) params }}
        / expr_before_possible_function_call:e ( function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
@@ -762,12 +762,23 @@ function_call_dot <-
                                               / _succeed
                                                   {{ fun e -> undecorate e }}):f {{ f e }}
 
+
 (* Only certain kind of expression can be applied *)
-;expr_before_mandatory_function_call = careful_deco just_expr_before_mandatory_function_call
+let call_dot func = (=careful_deco(func)):e function_arguments_dot_method_nosp+:params hint_end_of_callable not_assign
+         {{ make_function2 letins double_dot (`expr e) params }}
 ;expr_before_possible_function_call = careful_deco just_expr_before_possible_function_call
-just_expr_before_mandatory_function_call <-
+
+ident_call_dot <- (=call_dot(just_ident_before_mandatory_function_call))
+paren_expr_call_dot <- (=call_dot(just_paren_expr_before_mandatory_function_call))
+
+just_ident_before_mandatory_function_call <-
      / ml_identifier_nosp:i {{ Ident i }}
+
+just_paren_expr_before_mandatory_function_call <-
      / lpar expr:e rpar {{ undecorate e }}
+
+
+
 just_expr_before_possible_function_call <-
      / id
      / directive

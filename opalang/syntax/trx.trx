@@ -41,10 +41,10 @@ Item = deco(Item_aux)
 Item_aux <-
 / SubruleName?:name Prefix:prefix Primary:primary Suffix:suffix
   {{ {Trx_ast.item_name=name; Trx_ast.item_prefix=prefix; Trx_ast.item_primary=primary; Trx_ast.item_suffix=suffix} }}
-/ [~] (=deco(Identifier:e {{e}})):e Suffix:suffix
+/ [~] AutobindIdentifierCall:e Suffix:suffix
   (* the only place when ~ is allowed is when saying ~p or ~X.p*, but not ~{X.p}, not ~[abc], etc. *)
-  {{ let (((name,_),e),label) = e in
-    {Trx_ast.item_name=Some name; Trx_ast.item_prefix=`NORMAL; Trx_ast.item_primary=(Trx_ast.Rule e,label); Trx_ast.item_suffix=suffix} }}
+  {{ let name,((_,label) as e) = e in
+    {Trx_ast.item_name=Some name; Trx_ast.item_prefix=`NORMAL; Trx_ast.item_primary=(Trx_ast.Rule e), label; Trx_ast.item_suffix=suffix} }}
 
 ParserSeq = deco(ParserSeq_aux)
 ParserSeq_aux <- pos:pos Item+:items ParserCode?:pc {{ {Trx_ast.seq_items=items; Trx_ast.seq_code=pc} }}
@@ -66,7 +66,7 @@ Suffix <- SuffixElement?:v {{ Option.default `NORMAL v }}
 Primary = deco(Primary_aux)
 Primary_aux <-
         / Opa_parser.opa_in_braces:e                {{ Trx_ast.Code e }}
-        / Identifier:e                              {{ Trx_ast.Rule (snd e) }}
+        / IdentifierCall:e                          {{ Trx_ast.Rule e }}
         / OPEN Expression:exp CLOSE                 {{ Trx_ast.Parens exp }}
         / Literal:lit TILDE?:cs                     {{ Trx_ast.Literal(lit, cs=None) }}
         / String_expr.string_with_opa:e             {{ Trx_ast.DynamicLiteral e }}
@@ -88,9 +88,13 @@ Char <- Opa_lexer.char_char
    {6 Lexical analysis}
 *)
 
-Identifier <-
-       / deco_ml_identifier:n ([.] deco_ml_identifier:s{{s}})+:l {{ List.last (n :: l), dots2 (n :: l) }}
-       / deco_ml_identifier:n !EQUAL {{ n, unc2 ident n }}
+/** parser subrule call */
+IdentifierCall <-
+       / (=deco(Opa_parser.ident_call_dot))
+       / deco_ml_identifier:n !EQUAL {{ let s,a = n in (ident s a : ('a,'b) SurfaceAst.expr) }}
+
+/** parser subrule call with autobind */
+AutobindIdentifierCall <- IdentifierCall:e {{( get_meaningful_called_ident e, e : string * (string,'b) SurfaceAst.expr) }}
 
 (* forbid braces [{...}] in literals, if a literal contains braces then we want to interpret
    it as an embedded OPA expression. Literal braces need escaping. *)

@@ -164,6 +164,7 @@ val bool : bool -> annot -> ('a, 'b) coerced_expr
 
 
 (** Lambda, application *)
+val get_meaningful_called_ident : (string, 'b) expr -> string
 val args_expr_to_lambda : ?zero_ary:annot -> 'a pat list -> ('a, 'b) expr -> ('a, 'b) expr
 val ( & ) : ('a, 'b) expr -> ('a, 'b) expr list -> ('a, 'b) expr
 val ( &. ) : ('a, 'b) expr -> ('a, 'b) expr list -> ('a, 'b) expr_node

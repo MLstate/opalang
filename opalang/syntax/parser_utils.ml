@@ -502,6 +502,14 @@ let declaration_directive dirs bindings =
  * Utils on functions
  *)
 
+(* get the ident or field in a general call (ident, call dot composition) *)
+let rec get_meaningful_called_ident (e,_) = match e with
+  | Ident(id) -> id
+  | Dot (_,field) -> field
+  | Apply(f,_) -> get_meaningful_called_ident f
+  | _ -> failwith "You are using autobind (i.e. ~) in an ambiguous way"
+
+
 (* takes (arg1,arg2,...) and e and makes fun(arg1,arg2,...) -> e*)
 let args_expr_to_lambda ?zero_ary args e =
   if args = [] then
