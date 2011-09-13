@@ -49,7 +49,7 @@ let copy s =
   r
 
 let unsafe_sub s ofs len =
-  { str=s.str; base=ofs; len; }
+  { str=s.str; base=s.base+ofs; len; }
 
 let sub s ofs len =
   if ofs < 0 || len < 0 || ofs > length s - len
