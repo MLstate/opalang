@@ -433,14 +433,8 @@ struct
     S.to_string (S.sub i.ibuf (value i) 12)
 
   let string ?(offset=4) i =
-    (*let (b,s,l) = S.export i.ibuf in*)
-    (*Printf.eprintf "b=\"%s\" s=%d l=%d\n%!" (String.escaped b) s l;*)
     let v = value i in
-    (*Printf.eprintf "v:%d\n%!" v;
-    Printf.eprintf "len:%d\n%!" ((St.ldi32 i.ibuf v)-1);*)
-    let str = S.to_string (S.sub i.ibuf (v+offset) ((St.ldi32 i.ibuf v)-1)) in
-    (*Printf.eprintf "str:%s\n%!" str;*)
-    str
+    S.to_string (S.sub i.ibuf (v+offset) ((St.ldi32 i.ibuf v)-1))
 
   let symbol = string
 
