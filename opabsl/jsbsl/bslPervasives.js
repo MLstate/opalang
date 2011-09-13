@@ -159,15 +159,6 @@ function string_of_float(v)  {
 }
 
 
-/**
- * Determine if the code is executed server-side
- *
- * @return false in this implementation
- */
-##register webutils_server_side : -> bool
-##args()
-{ return false; }
-
 
 /**
  * dummy implementation, it's for tests.
@@ -370,13 +361,10 @@ if(typeof window != "object" || command_line_execution)//If we're not in a brows
  * {1 Printing}
  */
 
-##register println_float  \ print_endline : float -> void
-##register println_int    \ print_endline : int -> void
 ##register print_endline  \ print_endline : string -> void
 ##register prerr_endline  \ prerr_endline : string -> void
 
 ##register print_string \ js_print : string -> void
-##register print_float  \ js_print : float -> void
 ##register print_int    \ js_print : int -> void
 
 ##register dump\ dump_value : 'a -> string
@@ -406,15 +394,16 @@ var dump_value = function (x) {
   if (t in dumper) return dumper[t](x);
   else return t;
 }
-##register debug_print \ dump_value: 'a -> string
 
 ##opa-type Order.comparison
 ##opa-type Order.ordering
 
+//Used in bslString.js
 ##register order_lt     \ result_lt  : Order.ordering
 ##register order_eq     \ result_eq  : Order.ordering
 ##register order_gt     \ result_gt  : Order.ordering
 
+// Used in bslNumber.js
 ##register compare_lt   \ result_lt  : Order.comparison
 ##register compare_eq   \ result_eq  : Order.comparison
 ##register compare_gt   \ result_gt  : Order.comparison

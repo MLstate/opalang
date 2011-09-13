@@ -79,14 +79,6 @@ let int_of_first_char c = Pervasives.int_of_char (String.get c 0)
 ##register areSameObject : 'a, 'b -> bool
 let areSameObject x y = Obj.magic x == Obj.magic y
 
-(**
- * Determine if the code is executed server-side
- *
- * @return true in this implementation
-*)
-##register webutils_server_side : -> bool
-let webutils_server_side () = true
-
 
 
 (**
@@ -199,15 +191,6 @@ let prerr_endline s = sync_to_print_on stdout ; Pervasives.prerr_endline s
 ##register print_int : int -> void
 let print_int i = print_string (string_of_int i)
 
-##register print_float : float -> void
-let print_float i = print_string (string_of_float i)
-
-##register println_int : int -> void
-let println_int i = println_string (string_of_int i)
-
-##register println_float : float -> void
-let println_float i = println_string (string_of_float i)
-
 ##register flush_stdout : -> void
 let flush_stdout () = Pervasives.flush stdout
 
@@ -228,21 +211,9 @@ let flush_all () = Pervasives.flush_all ()
 let dump x =
   DebugPrint.print x
 
-##register debug_print: 'a -> string
-let debug_print = dump
-
-
 
 ##opa-type Order.comparison
 ##opa-type Order.ordering
-
-##register order_lt\ ord_result_lt: Order.ordering
-##register order_eq\ ord_result_eq: Order.ordering
-##register order_gt\ ord_result_gt: Order.ordering
-##register compare_lt\ comp_result_lt: Order.comparison
-##register compare_eq\ comp_result_eq: Order.comparison
-##register compare_gt\ comp_result_gt: Order.comparison
-##register compare_neq\ comp_result_neq: Order.comparison
 
 let ord_result_lt   = wrap_opa_order_ordering (ServerLib.make_simple_record (ServerLib.static_field_of_name "lt"))
 let ord_result_eq   = wrap_opa_order_ordering (ServerLib.make_simple_record (ServerLib.static_field_of_name "eq"))
