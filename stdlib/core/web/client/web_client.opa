@@ -562,7 +562,7 @@ WebClient =
              | {none} -> 0
              | ~{some} -> String.length(some)
           post_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
-          headers = match default_options.custom_headers with
+          headers = match options.custom_headers with
             | {none}  -> post_headers
             | ~{some} -> "{post_headers}{some}"
           generic_options = {
@@ -720,7 +720,7 @@ WebClient =
       try_put_with_options_async(location:Uri.uri, content:string, options:WebClient.Put.options, on_result: WebClient.result(string) -> void): void =
           length  = String.length(content)
           put_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
-          headers = match default_options.custom_headers with
+          headers = match options.custom_headers with
             | {none}  -> put_headers
             | ~{some} -> "{put_headers}{some}"
           generic_options = {
