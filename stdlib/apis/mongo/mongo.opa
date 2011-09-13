@@ -15,17 +15,39 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+import stdlib.core.{date}
 import stdlib.io.socket
-import stdlib.core.{rpc.core}
 
 type mongo_buf = external
 type cursorID = external
+type mailbox = external
 type reply = external
+
+type RPC.Bson.bson0('bson) =
+    { Double: (string, float) }
+  / { String: (string, string) }
+  / { Document: (string, 'bson) }
+  / { Array: (string, 'bson) }
+  / { Binary: (string, string) }
+  / { ObjectID: (string, string) }
+  / { Boolean: (string, bool) }
+  / { Date: (string, Date.date) }
+  / { Null: (string, void) }
+  / { Regexp: (string, (string, string)) }
+  / { Code: (string, string) }
+  / { Symbol: (string, string) }
+  / { CodeScope: (string, (string, 'bson)) }
+  / { Int32: (string, int) }
+  / { Timestamp: (string, (int, int)) }
+  / { Int64: (string, int) }
+
+@opacapi
+type RPC.Bson.bson = list(RPC.Bson.bson0(RPC.Bson.bson))
 
 type mongo = {
      conn : Socket.connection;
-     mbuf : mongo_buf
+     mbuf : mongo_buf;
+     mailbox : mailbox
   }
 
 //@both <-- ??? why doesn't this work ???
@@ -58,7 +80,19 @@ Mongo = {{
   _ShardConfigStale = 0x00000003
   _AwaitCapable     = 0x00000004
 
-    /** Allocate new buffer of given size **/
+  /** Convenience function, dump string as hex and ascii */
+  dump = (%% BslMongo.Bson.dump %%: int, string -> string)
+
+  /** Return new Bson Object ID */
+  new_oid = (%% BslMongo.Bson.new_oid %%: void -> string)
+
+  /** Get OID from string */
+  oid_of_string = (%% BslMongo.Bson.oid_of_string %%: string -> string)
+
+  /** Get string from OID */
+  oid_to_string = (%% BslMongo.Bson.oid_to_string %%: string -> string)
+
+  /** Allocate new buffer of given size **/
   @private create_ = (%% BslMongo.Mongo.create %%: int -> mongo_buf)
 
   /** Build OP_INSERT message in buffer **/
@@ -77,7 +111,7 @@ Mongo = {{
   @private delete_ = (%% BslMongo.Mongo.delete %%: mongo_buf, int, string, 'a -> void)
 
   /** Build OP_KILL_CURSORS message in buffer **/
-  @private kill_cursors_ = (%% BslMongo.Mongo.kill_cursors %%: mongo_buf, list(cursorID) -> void)
+  @private kill_cursors_ = (%% BslMongo.Mongo.kill_cursors %%: mongo_buf, list('a) -> void)
 
   /** Build OP_MSG message in buffer **/
   @private msg_ = (%% BslMongo.Mongo.msg %%: mongo_buf, string -> void)
@@ -94,14 +128,37 @@ Mongo = {{
   /** Reset the buffer, unallocate storage **/
   @private reset_ = (%% BslMongo.Mongo.reset %%: mongo_buf -> void)
 
+  /** Mailbox so we can use the streaming parser **/
+  @private new_mailbox_ = (%% BslMongo.Mongo.new_mailbox %%: int -> mailbox)
+  @private reset_mailbox_ = (%% BslMongo.Mongo.reset_mailbox %%: mailbox -> void)
+
   /**
    * Specialised read, read until the size equals the (little endian)
    * 4-byte int at the start of the reply.
    **/
-  // Unable to type bypass
-  //  bslmongo_read_mongo.
-  // Sigh.
-  //@private read_mongo = (%% BslMongo.read_mongo %%: Socket.connection, int -> reply)
+  @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, mailbox -> reply)
+
+  @private
+  send_no_reply(m,_name): bool =
+    match export_(m.mbuf) with
+    | (str, len) ->
+      s = String.substring(0,len,str)
+      //do println("{_name}: s=\n{dump(10,s)}")
+      cnt = Socket.write_len(m.conn,s,len)
+      do println("cnt={cnt} len={len}")
+      (cnt==len)
+
+  @private
+  send_with_reply(m,_name): option(reply) =
+    match export_(m.mbuf) with
+    | (str, len) ->
+      s = String.substring(0,len,str)
+      //do println("{_name}: s=\n{dump(10,s)}")
+      cnt = Socket.write_len(m.conn,s,len)
+      do println("cnt={cnt} len={len}")
+      if (cnt==len)
+      then {some=read_mongo_(m.conn,m.mailbox)}
+      else {none}
 
   /**
    *  Create new mongo object:
@@ -110,30 +167,9 @@ Mongo = {{
    **/
   open(bufsize,addr,port): mongo =
     { conn = Socket.connect(addr,port);
-      mbuf = create_(bufsize)
+      mbuf = create_(bufsize);
+      mailbox = new_mailbox_(bufsize)
     }
-
-  @private
-  send_no_reply(m,name): bool =
-    match export_(m.mbuf) with
-    | (str, len) ->
-      s = String.substring(0,len,str)
-      do println("{name}: s=\n{Bson.dump(10)(s)}")
-      cnt = Socket.write_len(m.conn,s,len)
-      do println("cnt={cnt} len={len}")
-      (cnt==len)
-
-  @private
-  send_with_reply(m,name): option(string) =
-    match export_(m.mbuf) with
-    | (str, len) ->
-      s = String.substring(0,len,str)
-      do println("{name}: s=\n{Bson.dump(10)(s)}")
-      cnt = Socket.write_len(m.conn,s,len)
-      do println("cnt={cnt} len={len}")
-      if (cnt==len)
-      then {some=Socket.read(m.conn)}
-      else {none}
 
   /**
    *  Send OP_INSERT with given collection name:
@@ -156,14 +192,14 @@ Mongo = {{
   /**
    *  Send OP_QUERY and get reply:
    **/
-  query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): option(string) =
+  query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): option(reply) =
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
 
   /**
    *  Send OP_GETMORE and get reply:
    **/
-  getmore(m,ns,numberToReturn,cursorID): option(string) =
+  getmore(m,ns,numberToReturn,cursorID): option(reply) =
     do get_more_(m.mbuf,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
 
@@ -181,7 +217,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  kill_cursors(m,cursors): bool =
+  kill_cursors(m,cursors:list(cursorID)): bool =
     do kill_cursors_(m.mbuf,cursors)
     send_no_reply(m,"kill_cursors")
 
@@ -200,7 +236,30 @@ Mongo = {{
   close(m) =
     do Socket.close(m.conn)
     do reset_(m.mbuf)
+    do reset_mailbox_(m.mailbox)
     void
+
+  /** Access components of the reply value **/
+  reply_messageLength = (%% BslMongo.Mongo.reply_messageLength %% : reply -> int)
+  reply_requestId = (%% BslMongo.Mongo.reply_requestId %% : reply -> int)
+  reply_responseTo = (%% BslMongo.Mongo.reply_responseTo %% : reply -> int)
+  reply_opCode = (%% BslMongo.Mongo.reply_opCode %% : reply -> int)
+  reply_responseFlags = (%% BslMongo.Mongo.reply_responseFlags %% : reply -> int)
+  reply_cursorID = (%% BslMongo.Mongo.reply_cursorID %% : reply -> cursorID)
+  reply_startingFrom = (%% BslMongo.Mongo.reply_startingFrom %% : reply -> int)
+  reply_numberReturned = (%% BslMongo.Mongo.reply_numberReturned %% : reply -> int)
+
+  /** Return the n'th document attached to the reply **/
+  reply_document = (%% BslMongo.Mongo.reply_document %% : reply, int -> option(RPC.Bson.bson))
+
+  /** Debug routine, export the internal representation of the reply **/
+  export_reply = (%% BslMongo.Mongo.export_reply %%: reply -> string)
+
+  /** Return a string representation of a cursor (it's an int64) **/
+  string_of_cursorID = (%% BslMongo.Mongo.string_of_cursorID %% : cursorID -> string)
+
+  /** Predicate for end of query, when the cursorID is returned as zero **/
+  is_null_cursorID = (%% BslMongo.Mongo.is_null_cursorID %% : cursorID -> bool)
 
 }}
 
