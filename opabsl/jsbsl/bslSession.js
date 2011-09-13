@@ -995,6 +995,13 @@ var LowLevelPingLoop = {};
     }
 }
 
+##register on_remove : Session.private.native('msg, 'ctx), (-> void) -> void
+##args(chan, callback)
+{
+    %%bslsyslog_warning%%("[Session.on_remove]", "client-side version not implemented");
+    return;
+}
+
 ##register is_remote : Session.private.native('msg, 'ctx) -> bool
 ##args(chan)
 {

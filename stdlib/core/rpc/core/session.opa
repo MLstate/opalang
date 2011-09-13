@@ -160,7 +160,11 @@ type Session.entity = external
 compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
   Order.of_int(%%BslSession.compare_channels%%(a, b))
 
-channel_order = @nonexpansive(Order.make(compare_channel)) : order(channel('message),Channel.order)
+Channel = {{
+  order = @nonexpansive(Order.make(compare_channel)) : order(channel('message), Channel.order)
+}}
+
+ChannelSet = @nonexpansive(Set_make(Channel.order))
 
 /** The Hlnet definitions for the protocol for "make_at" queries */
 type make_at_query = (OpaType.ty, OpaType.ty, RPC.Json.json, RPC.Json.json)
@@ -644,9 +648,9 @@ Session = {{
 
     /**
      * [on_remove channel f] Execute f when the [channel] is removed
-     * of this server.
+     * of this server (no effect on the client).
      */
-    @server on_remove(chan:channel('msg), f:-> void): void =
+    on_remove(chan:channel('msg), f:-> void): void =
       bp = @may_cps(%%BslSession.on_remove%%)
       : Session.private.native('a, _), (-> void) -> void
       bp(chan, f)

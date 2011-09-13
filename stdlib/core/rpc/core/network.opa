@@ -56,27 +56,24 @@ type Network.instruction('a) = {add: channel('a)} / {remove: channel('a)} / {bro
  * {1 Interface}
  */
 
-//Note: For the moment, [Network] is meaningful only on the server, as the client-side implementation of channels cannot provide a stable ordering of channels
 Network = {{
    /**
     * Create an empty network.
     */
-   @publish empty(): Network.network('a) =
-      Set = Set_make(channel_order)
-      me: Network.network('a) = Session.NonBlocking.make(Set.empty,
+   empty(): Network.network('a) =
+      Session.NonBlocking.make(ChannelSet.empty,
          (msg, o ->
             match msg with
               | ~{add} ->
-                  do Session.on_remove(add, (-> o.update(Set.remove(add, _))))
-                  o.update(Set.add(add, _))
+                  do Session.on_remove(add, (-> o.update(ChannelSet.remove(add, _))))
+                  o.update(ChannelSet.add(add, _))
               | ~{remove} ->
-                  o.update(Set.remove(remove, _))
+                  o.update(ChannelSet.remove(remove, _))
               | ~{broadcast} ->
                   chans = o.get()
-                  Set.iter(chan -> send(chan, broadcast), chans)
+                  ChannelSet.iter(chan -> Session.send(chan, broadcast), chans)
          )
       )
-      me
 
 
    /**
@@ -124,18 +121,17 @@ Network = {{
     */
   @private make_generic(maker:('state, ('state, Network.instruction('message) -> Session.instruction('state)) -> channel(Network.instruction('message)))):Network.network('message) =
   (
-      Set = Set_make(channel_order)
       rec val me  =
-        maker(Set.empty,
+        maker(ChannelSet.empty,
           chans, msg ->
             match msg with
             | {~add}       ->
               do Session.on_remove(add, (-> remove(add, me)))
-              {set = Set.add(add, chans)}
+              {set = ChannelSet.add(add, chans)}
             | {~remove}    ->
-              {set = Set.remove(remove, chans)}
+              {set = ChannelSet.remove(remove, chans)}
             | {~broadcast} ->
-              do sleep(0, -> Set.iter(chan -> send(chan, broadcast), chans))//Note: sending asynchronously
+              do sleep(0, -> ChannelSet.iter(chan -> send(chan, broadcast), chans))//Note: sending asynchronously
               {unchanged}                                                   //to minimize critical section
         )
       me
