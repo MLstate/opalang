@@ -65,13 +65,10 @@ module QC = QmlAstCons.UntypedExpr
 (* Bypass helpers *)
 let cps_id = "cps"
 
-(* FIXME: use opacapi *)
-
-let bycps_call call = BslKey.normalize (Printf.sprintf "bslcps.%s" call)
-let il_bycps_call call = IL.Bypass (bycps_call call, Some cps_id)
-let il_other_call call = IL.Bypass (BslKey.normalize call, None)
-let qml_bycps_call call = QC.restricted_bypass ~pass:cps_id (bycps_call call)
-let qml_other_call call = QC.bypass (bycps_call call)
+let il_bycps_call call = IL.Bypass (call, Some cps_id)
+let il_other_call call = IL.Bypass (call, None)
+let qml_bycps_call call = QC.restricted_bypass ~pass:cps_id call
+let qml_other_call call = QC.bypass call
 let qml_byobj_magic () = QC.bypass Opacapi.Opabsl.BslPervasives.Magic.id
 
 let il_bypass key = IL.Bypass (key, None)
@@ -626,7 +623,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           | Some barrier ->
             (* if option --cps-toplevel-concurrency is set,
                this ident may be unbound, and we have just a barrier instead *)
-              let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call "wait"), [IL.Value barrier], k, None) in
+              let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call Opacapi.Opabsl.BslCps.wait), [IL.Value barrier], k, None) in
               Context.insertLetCont context func
           | None when not(Skip.can) ->  Context.apply context (IL.Value x)
           | None ->
@@ -897,7 +894,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
               let expr = aux expr (Context.cont context k) in
               let defs = [(name, [v], k, expr)] in
               let func c =
-                let term = IL.ApplyBypass (il_bycps_call "spawn", [name], c) in
+                let term = IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.spawn, [name], c) in
                 IL.LetFun (defs, term)
               in
               Context.insertLetCont context func
@@ -917,7 +914,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
               let future = IL.fresh_v () in
               let parent = Context.current_cont context in
               IL.LetCont((c1 , future,
-                          (let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call "wait"), [future], k, None) in
+                          (let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call Opacapi.Opabsl.BslCps.wait), [future], k, None) in
                            Context.insertLetCont context func),
                           aux expr (Context.cont context c1)), parent)
 
@@ -933,7 +930,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let c = IL.fresh_c () and f_callcc = IL.fresh_v () in
         let parent = Context.current_cont context in
         IL.LetCont ((c, f_callcc,
-                     (let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call "callcc_directive"), [f_callcc], k, None) in
+                     (let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call Opacapi.Opabsl.BslCps.callcc_directive), [f_callcc], k, None) in
                       Context.insertLetCont context func),
                      aux expr (Context.cont context c)
                     ), parent)
@@ -986,7 +983,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     | Q.Directive (_, `thread_context, _, _) ->
         let term ((IL.Continuation id) as c) =
-          IL.ApplyBypass (il_bycps_call "thread_context", [ IL.Value id ], c)
+          IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.thread_context, [ IL.Value id ], c)
         in
         Context.insertLetCont context term
 
@@ -1003,7 +1000,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           let parent = Some parent in
           IL.LetCont((c1, thread_context_id,
                       IL.LetCont((c2, v3, aux alpha (Context.cont context c3),
-                                  IL.ApplyBypass ((il_bycps_call "with_thread_context"), [ thread_context_id ; IL.Value ctop ], c2)
+                                  IL.ApplyBypass ((il_bycps_call Opacapi.Opabsl.BslCps.with_thread_context), [ thread_context_id ; IL.Value ctop ], c2)
                                  ), parent),
                       (aux thread_context (Context.cont context c1))
                      ), parent)
@@ -1020,7 +1017,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
                ((c, v_exc,
                  IL.LetCont
                    ((c2, v_handler, IL.ApplyCont(cont_of_val v_handler, v_exc),
-                     IL.ApplyBypass (il_bycps_call "handler_cont", [ IL.Value ctop ], c2)),
+                     IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.handler_cont, [ IL.Value ctop ], c2)),
                     Some parent),
                  aux exc (Context.cont context c)),
                Some parent))
@@ -1034,7 +1031,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let catch_bypass =
           let catch =
             if env.options.server_side && env.options.qml_closure
-            then "catch" else "catch_native" in
+            then Opacapi.Opabsl.BslCps.catch else Opacapi.Opabsl.BslCps.catch_native in
           il_bycps_call catch
         in
         let catch ((IL.Continuation ctop) as parent) handler_id =
@@ -1144,7 +1141,7 @@ let qml_of_il_value = function
 let runtime_bt_collection bt_pos _f_string _larg expr =
   let bt_info =
     #<If:CPS_DEBUG $minlevel DebugLevel.full_backtrace>
-      let fun_args2string = qml_other_call "fun_args2string" in
+      let fun_args2string = qml_other_call Opacapi.Opabsl.BslCps.fun_args2string in
       let _larg = List.map (fun arg ->
         QC.apply (qml_byobj_magic ()) [QC.ident arg]) _larg
       in
@@ -1154,12 +1151,12 @@ let runtime_bt_collection bt_pos _f_string _larg expr =
         QC.string bt_pos
         #<End>
   in
-  let bt_add = qml_other_call "bt_add" in
+  let bt_add = qml_other_call Opacapi.Opabsl.BslCps.bt_add in
   QC.letin [Ident.next "_", (QC.apply bt_add [bt_info])]
     expr
 
 let runtime_debug minlevel message expr =
-  let pr = qml_other_call "debug" in
+  let pr = qml_other_call Opacapi.Opabsl.BslCps.debug in
   QC.letin [ Ident.next "_", (QC.apply pr [ QC.int minlevel ; QC.string message ]) ]
     expr
 
@@ -1212,13 +1209,13 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
              let make_continuation =
                qml_bycps_call
                  (if env.options.server_side && env.options.qml_closure
-                  then "cont" else "cont_native") in
+                 then Opacapi.Opabsl.BslCps.cont else Opacapi.Opabsl.BslCps.cont_native) in
               QC.apply make_continuation [lambda]
           | Some (IL.Continuation parent) ->
               let make_continuation =
                 qml_bycps_call
                   (if env.options.server_side && env.options.qml_closure
-                   then "ccont" else "ccont_native") in
+                   then Opacapi.Opabsl.BslCps.ccont else Opacapi.Opabsl.BslCps.ccont_native) in
               QC.apply make_continuation [ QC.ident parent ; lambda ]
         in
         QC.letin [k, body] (aux u)
@@ -1244,7 +1241,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
         QC.letin defs (aux e)
 
     | IL.ApplyCont (IL.Continuation k, IL.Value v) ->
-        let cpsreturn = qml_bycps_call "return" in
+        let cpsreturn = qml_bycps_call Opacapi.Opabsl.BslCps.return in
         QC.apply cpsreturn [ QC.ident k ; QC.ident v ]
 
     | IL.ApplyExpr (cps_function, IL.Value b, IL.Continuation k) ->
@@ -1254,7 +1251,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
               let magic_a = QC.ident a in
               let magic_a =
                   if env.options.server_side && (not (env.options.qml_closure))
-                  then qml_group_app (QC.apply (qml_bycps_call "magic_func") [magic_a])
+                  then qml_group_app (QC.apply (qml_bycps_call Opacapi.Opabsl.BslCps.magic_func) [magic_a])
                   else magic_a
               in
               #<If:CPS_DEBUG>
@@ -1268,7 +1265,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
         (* then *)
           QC.apply cps_function [ QC.ident b ; QC.ident k ]
         (* else *)
-        (*   let cpsapply = qml_bycps_call "apply" in *)
+        (*   let cpsapply = qml_bycps_call Opacapi.Opabsl.BslCps.apply in *)
         (*   QC.apply cpsapply [ cps_function ; QC.ident b ; QC.ident k ] *)
 
     | IL.ApplyNary (cps_function as id, args, IL.Continuation k, stack_infos_opt) ->
@@ -1330,7 +1327,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
         let qml_bypass = qml_bypass_of_il_bypass il_bypass in
         let bypass_result = QC.apply qml_bypass (List.map (function (IL.Value x) -> QC.ident x) args) in
         let v = Ident.next "bypass_result" in
-        let cpsreturn = qml_bycps_call "return" in
+        let cpsreturn = qml_bycps_call Opacapi.Opabsl.BslCps.return in
         QC.letin [v, bypass_result]
           (QC.apply cpsreturn [ QC.ident k ; QC.ident v ])
 
@@ -1432,17 +1429,9 @@ sig
 end =
 struct
 
-  let black_if_magic fct_name =
-    #<If:QMLC_NO_MAGIC>
-      fct_name
-    #<Else>
-      "black_"^fct_name
-    #<End>
-
   let make _ident =
     let cpsbarrier =
-      let fct_name = black_if_magic "make_barrier" in
-      qml_bycps_call fct_name in
+      qml_bycps_call (#<If:QMLC_NO_MAGIC> Opacapi.Opabsl.BslCps.make_barrier #<Else> Opacapi.Opabsl.BslCps.black_make_barrier #<End>) in
     let barrier = QC.apply cpsbarrier [ QC.string (Ident.to_string _ident) ] in
     let barrier =
       #<If:CPS_DEBUG>
@@ -1457,8 +1446,7 @@ struct
 
   let release ~barrier_id ~value =
     let cpsrelease =
-      let fct_name = black_if_magic "release_barrier" in
-      qml_bycps_call fct_name in
+      qml_bycps_call (#<If:QMLC_NO_MAGIC> Opacapi.Opabsl.BslCps.release_barrier #<Else> Opacapi.Opabsl.BslCps.black_release_barrier #<End>) in
     let release_barrier = QC.apply cpsrelease [ QC.ident barrier_id ; QC.ident value ] in
     let release_barrier =
       #<If:CPS_DEBUG>
@@ -1472,12 +1460,12 @@ struct
     release_barrier
 
   let before_wait () =
-    QC.apply (qml_bycps_call "before_wait") [ QC.unit () ]
+    QC.apply (qml_bycps_call Opacapi.Opabsl.BslCps.before_wait) [ QC.unit () ]
 
   let toplevel_wait barrier_id =
     let cpstoplevelwait =
-      let fct_name = black_if_magic "toplevel_wait" in
-      qml_bycps_call fct_name in
+      qml_bycps_call (#<If:QMLC_NO_MAGIC> Opacapi.Opabsl.BslCps.toplevel_wait #<Else> Opacapi.Opabsl.BslCps.black_toplevel_wait #<End>)
+    in
     let toplevel_wait = QC.apply cpstoplevelwait [ QC.ident barrier_id ] in
     toplevel_wait
 end
@@ -1802,10 +1790,10 @@ let cps_pass ~side env qml_code =
 
 let no_cps_pass env code =
   let private_env = private_env_initial () in
-  let bp_uncps = qml_bycps_call "uncps_native" in
-  let bp_cps i = qml_bycps_call
-    (Printf.sprintf "Notcps_compatibility.cps%d_native" i) in
-  let dummy_cont = qml_bycps_call "Notcps_compatibility.dummy_cont" in
+  let bp_uncps = qml_bycps_call Opacapi.Opabsl.BslCps.uncps_native in
+  (* can't use opacapi *)
+  let bp_cps i = qml_bycps_call (BslKey.normalize (Printf.sprintf "Notcps_compatibility.cps%d_native" i)) in
+  let dummy_cont = qml_bycps_call Opacapi.Opabsl.BslCps.Notcps_compatibility.dummy_cont in
   let uncps expr =
     let ident = QmlAstCons.UntypedExpr.string "InsertedByNoCpsPass" in
     QmlAstCons.UntypedExpr.apply bp_uncps [ident; dummy_cont ;expr] in

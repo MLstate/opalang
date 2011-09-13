@@ -524,10 +524,36 @@ struct
   module BslCps =
   struct
     let (!!) s = !! ("BslCps." ^ s)
+    let before_wait = !! "before_wait"
+    let black_make_barrier = !! "black_make_barrier"
+    let black_release_barrier = !! "black_release_barrier"
+    let black_toplevel_wait = !! "black_toplevel_wait"
+    let bt_add = !! "bt_add"
+    let callcc_directive = !! "callcc_directive"
+    let catch = !! "catch"
+    let catch_native = !! "catch_native"
+    let ccont = !! "ccont"
+    let ccont_native = !! "ccont_native"
+    let cont = !! "cont"
+    let cont_native = !! "cont_native"
+    let debug = !! "debug"
+    let fun_args2string = !! "fun_args2string"
+    let handler_cont = !! "handler_cont"
+    let magic_func = !! "magic_func"
+    let make_barrier = !! "make_barrier"
+    let release_barrier = !! "release_barrier"
+    let return = !! "return"
+    let spawn = !! "spawn"
+    let thread_context = !! "thread_context"
+    let toplevel_wait = !! "toplevel_wait"
+    let uncps_native = !! "uncps_native"
+    let wait = !! "wait"
+    let with_thread_context = !! "with_thread_context"
     module Notcps_compatibility =
     struct
       let (!!) s = !! ("Notcps_compatibility." ^ s)
       let thread_context = !! "thread_context"
+      let dummy_cont = !! "dummy_cont"
     end
   end
 
