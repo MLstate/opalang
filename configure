@@ -289,7 +289,7 @@ fi >&2
 
 # - checking camlidl *
 echo-check for camlidl
-if [ -n "${NO_CAMLIDL:-}" ]; then
+if [ "X$NO_CAMLIDL" = "X1" ]; then
     HAS_CAMLIDL=
     CAMLIDL=
     echo-ok Disabled
