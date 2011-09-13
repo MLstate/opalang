@@ -311,6 +311,44 @@ let read_more2 sched conn ?read_max ?timeout buf ?(size_max=(-1)) ?err_cont fina
   in
   ()
 
+let read_more4 sched conn ?read_max ?timeout buf ?(size_max=(-1)) ?err_cont finalize =
+  (* TODO: read_max and size_max (windows) unused *)
+  #<If> L.info_conn "read_more4" conn.addr #<End>;
+  let _ = read_max in
+  let _ = size_max in
+  let decide (nb_read, buf) =
+    if nb_read = -1 then Job.Execute buf
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, buf)
+  in
+  let execute buf =
+    try
+      let nread, buf = C.read_more4 conn.addr buf in
+      NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, buf
+    with
+    | C.Busy ->
+        #<If> L.info_conn "read" ~s:"busy" conn.addr #<End>;
+        (-1, buf)
+    | e ->  raise e
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (-1, buf)
+  in
+  ()
+
 let read sched conn ?timeout ?err_cont finalize =
   #<If> L.info_conn "read" conn.addr #<End>;
   let decide (nb_read, str) =

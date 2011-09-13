@@ -226,6 +226,16 @@ val read_more2 :
   ?err_cont:(exn -> unit) ->
   (int * Buffer.t -> unit) -> unit
 
+val read_more4 :
+  t ->
+  connection_info ->
+  ?read_max:int ->
+  ?timeout:Time.t ->
+  Buf.t ->
+  ?size_max:int ->
+  ?err_cont:(exn -> unit) ->
+  (int * Buf.t -> unit) -> unit
+
 val read :
   t ->
   connection_info ->
