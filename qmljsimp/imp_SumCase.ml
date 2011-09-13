@@ -1181,37 +1181,35 @@ struct
       Option.default IntSet.empty
         (IntMap.find_opt sum_ident condition.SC.T.sum_case_negation)
     in
+    let check_field_constency present field =
+      let decision = SumCondition.check_field present (field :: rev_prefix_path) in
+       try
+         ignore(SumCondition.implies_decision condition decision);
+         true
+       with
+       | SumCondition.Inconsistency _ -> false
+    in
+    (* the set of inconsistents field for this condition *)
+    let inconsistent_absent_fields = FieldSet.filter (fun field -> not(check_field_constency false field)) fields in
     let filteri i case =
       not (i = index)
       && not (IntSet.mem i negation_set)
       && (
-        Return.set_checkpoint (
-          fun label ->
-            let make_iter present field =
-              let decision = SumCondition.check_field present (field :: rev_prefix_path) in
-              try
-                let _ = SumCondition.implies_decision condition decision in
-                ()
-              with
-              | SumCondition.Inconsistency _ ->
-                  Return.return label false
-            in
             (*
               If one of the present field of this case is inconsistent,
               the case should not be kept
             *)
-            FieldSet.iter (make_iter true) case ;
+            FieldSet.for_all (check_field_constency true) case
+          &&
             (*
               If one of the absent field of this case is inconsistent,
               the case should not be kept
             *)
-            FieldSet.iter (make_iter false) (FieldSet.diff fields case) ;
+            FieldSet.is_empty (FieldSet.diff inconsistent_absent_fields case)
             (*
               Else, the case is kept
             *)
-            true
         )
-      )
     in
     Array.filteri filteri cases
 
