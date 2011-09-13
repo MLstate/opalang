@@ -82,9 +82,6 @@ start() =
  * embedding statically the contents of directory "resources", using the global stylesheet
  * "resources/css.css" and the user interface defined in [start].
  */
-// server = Server.one_page_bundle("Chat",
-//        [@static_resource_directory("resources")],
-//        ["resources/css.css"], start)
-
-
-server = Server.one_page_bundle("Chat", [], [], start)
+server = Server.one_page_bundle("Chat",
+        [@static_resource_directory("resources")],
+        ["resources/css.css"], start)
