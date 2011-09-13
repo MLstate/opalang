@@ -52,20 +52,8 @@ let of_string_opt s =
 ##register leq: int, int -> bool
 let leq (a:int) (b:int) = a <= b
 
-##register lt: int, int -> bool
-let lt (a:int) (b:int) = a < b
-
-##register eq: int, int -> bool
-let eq (a:int) (b:int) = a = b
-
 ##register geq: int, int -> bool
 let geq (a:int) (b:int) = a >= b
-
-##register gt: int, int -> bool
-let gt (a:int) (b:int) = a > b
-
-##register neq: int, int -> bool
-let neq (a:int) (b:int) = a <> b
 
 
 ##register ordering: int, int -> opa[Order.ordering]
@@ -200,9 +188,6 @@ let comparison (a:float) (b:float) =
 
 ##module Math
 
-##register pi : float
-  let pi = 4. *. (atan 1.);;
-
 ##register sqrt_f : float -> float
   let sqrt_f = Pervasives.sqrt
 
@@ -253,9 +238,6 @@ let comparison (a:float) (b:float) =
 
 ##register tanh : float -> float
   let tanh = Pervasives.tanh
-
-##register round : float -> int
-  let round x = int_of_float (floor (x +. 0.5))
 
   (* keep the coerse `x : float', otherwise isNaN(0.0 /. 0.0) is false *)
 ##register isNaN : float -> bool

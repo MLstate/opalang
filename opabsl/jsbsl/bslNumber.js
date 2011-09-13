@@ -97,34 +97,10 @@
    return c1 <= c2
 }
 
-##register lt:int, int -> bool
-##args(c1,c2)
-{
-   return c1 < c2
-}
-
-##register eq:int, int -> bool
-##args(c1,c2)
-{
-   return c1 == c2
-}
-
 ##register geq:int, int -> bool
 ##args(c1,c2)
 {
    return c1 >= c2
-}
-
-##register gt:int, int -> bool
-##args(c1,c2)
-{
-   return c1 > c2
-}
-
-##register neq:int, int -> bool
-##args(c1,c2)
-{
-   return c1 != c2
 }
 
 ##register ordering: int,int -> opa[Order.ordering]
@@ -236,12 +212,6 @@
     return %%BslPervasives.compare_gt%%
 }
 
-##register round : float -> int
-  ##args(v)
-  {
-    return Math.round(v)
-  }
-
 ##endmodule
 
 ##module Math \ bsl_math
@@ -280,8 +250,6 @@
 }
 
 ##register is_normal \ `isFinite` : float -> bool
-
-##register pi \ `Math.PI` : float
 
 ##endmodule
 
