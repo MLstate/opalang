@@ -180,15 +180,6 @@ let start_msg m rid msg =
   Buf.add_string m.Bson.buf msg;
   Buf.add_char m.Bson.buf '\x00'
 
-(*struct OP_REPLY {
-    MsgHeader header;         // standard message header
-    int32     responseFlags;  // bit vector - see details below
-    int64     cursorID;       // cursor id if client needs to do get more's
-    int32     startingFrom;   // where in the cursor this reply is starting
-    int32     numberReturned; // number of documents in the reply
-    document* documents;      // documents
-}*)
-
 let bson_init m =
   m.Bson.stack <- m.Bson.buf.Buf.i :: m.Bson.stack;
   Buf.extend m.Bson.buf 4
@@ -203,6 +194,44 @@ let bson_finish m =
 let finish m =
   set_header_len m (Buf.length m.Bson.buf);
   m.Bson.finished <- true
+
+(*struct OP_REPLY {
+    MsgHeader header;         // standard message header
+    int32     responseFlags;  // bit vector - see details below
+    int64     cursorID;       // cursor id if client needs to do get more's
+    int32     startingFrom;   // where in the cursor this reply is starting
+    int32     numberReturned; // number of documents in the reply
+    document* documents;      // documents
+}*)
+
+let geti32 b s = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0
+let geti64L b s = Stuff.StuffString.ldi64L (Buf.sub b s 8) 0
+
+let reply_messageLength (_,_,l) = l + 4
+let reply_requestId (b,s,_) = geti32 b (s+0)
+let reply_responseTo (b,s,_) = geti32 b (s+4)
+let reply_opCode (b,s,_) = geti32 b (s+8)
+let reply_responseFlags (b,s,_) = geti32 b (s+12)
+let reply_cursorID (b,s,_) = geti64L b (s+16)
+let reply_startingFrom (b,s,_) = geti32 b (s+24)
+let reply_numberReturned (b,s,_) = geti32 b (s+28)
+
+let reply_document_pos (b,s,l) n =
+  let messageLength = l + 4 in
+  let numberReturned = reply_numberReturned (b,s,l) in
+  let rec aux i pos =
+    if i >= numberReturned || messageLength - pos < 4
+    then None
+    else 
+      let size = geti32 b pos in
+      if messageLength - pos < size
+      then None
+      else
+        if i = n
+        then Some (pos, size)
+        else aux (i+1) (pos+size)
+  in
+  aux 0 (s+32)
 
 (*
 (* Test code *)
@@ -253,6 +282,24 @@ let () = bson_finish m2;;
 let () = finish m2;;
 let () = print_string (dump (get m2));;
 let good = (get m1) = (get m2);;
+
+let reply_str = "\005\001\000\000\157\229\020\141\1554]F\001\000\000\000\b\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\005\000\000\000-\000\000\000\007_id\000Ni\219z\236\174\136e\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000\"\000\000\000\000-\000\000\000\007_id\000Nj\024}T\145\2385\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj\028\007\193K\175\012\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj!\006\249\179\222P\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj!H\020\003\186#\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000";;
+let b = Buf.create (String.length reply_str);;
+Buf.add_string b reply_str;;
+let reply = (b,4,String.length reply_str - 4);;
+let messageLength = reply_messageLength reply;;
+let requestId = reply_requestId reply;;
+let responseTo = reply_responseTo reply;;
+let opCode = reply_opCode reply;;
+let responseFlags = reply_responseFlags reply;;
+let cursorID = reply_cursorID reply;;
+let startingFrom = reply_startingFrom reply;;
+let numberReturned = reply_numberReturned reply;;
+let Some (pos, size) = reply_document_pos reply 0;;
+let doc1 = reply_document_pos reply 1;;
+let doc2 = reply_document_pos reply 2;;
+let doc3 = reply_document_pos reply 3;;
+let doc4 = reply_document_pos reply 4;;
 
 *)
 

@@ -56,3 +56,13 @@ val start_msg : mongo_buf -> int32 -> string -> unit
 val bson_init : mongo_buf -> unit
 val bson_finish : mongo_buf -> unit
 val finish : mongo_buf -> unit
+
+val reply_messageLength : (Buf.buf * int * int) -> int
+val reply_requestId : (Buf.buf * int * int) -> int
+val reply_responseTo : (Buf.buf * int * int) -> int
+val reply_opCode : (Buf.buf * int * int) -> int
+val reply_responseFlags : (Buf.buf * int * int) -> int
+val reply_cursorID : (Buf.buf * int * int) -> int64
+val reply_startingFrom : (Buf.buf * int * int) -> int
+val reply_numberReturned : (Buf.buf * int * int) -> int
+val reply_document_pos : (Buf.buf * int * int) -> int -> (int * int) option
