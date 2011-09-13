@@ -239,7 +239,7 @@ module DT = DbTypes
       Logger.log ~color:`yellow "DB : create lock_file %s_lock" file
       #<End>
     else
-      (Logger.critical "The database '%s' is currently used by anoter application." file;
+      (Logger.critical "The database '%s' is currently used by another application." file;
       IoManager.close fm;
       exit 1)
 
