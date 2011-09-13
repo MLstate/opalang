@@ -46,6 +46,9 @@ type ('a, 'b) ignored_directive = [
 | `may_cps
 | `wait
 | `backend_ident of string
+(* do not add 'lazy' directive here, or any directive that may avoid some computation,
+   it will increases the number of directly nested record and letin,
+   see may_alias_deep_record and may_flatten_letin, if you need to do it *)
 ]
 
 let maybe_cons o l =
@@ -113,6 +116,145 @@ let may_alias_matched_end cons alias result =
   | Some alias -> cons alias result
   | None -> result
 
+(* removes coercion and some directives, to simplify remaining code *)
+let simplify_noop expr = QmlAstWalk.Expr.map (
+  function
+  | Q.Coerce (_, e, _)
+  | Q.Directive (_, #ignored_directive, [e], _) -> e
+  | e -> e
+) expr
+
+(* limits the depth of data structures, needed by most browsers *)
+let maximum_depth = 42 (* a tuned... parameter *)
+(* assumes simplify_noop
+   e.g. if maximum_depth is around 2
+   r1 = [ 1 , 2 , 3 , 4 ]
+   =>
+   r1' = [3, 4]
+   r1  = [1 , 2| r1'] *)
+let may_alias_deep_record expr =
+  let rec aux depth bind expr =
+    match expr with
+    | Q.Record _ when depth > maximum_depth ->
+      let id = Ident.next "f" in
+      (id,expr)::bind,Q.Ident(QmlAst.Label.expr expr,id)
+    | Q.Record (a, fields) as r ->
+      let bind',fields = List.fold_left_map (fun bind (f,e)->
+        let bind,e = aux (depth+1) bind e in
+        bind,(f,e)
+      ) bind fields
+      in
+      if bind==bind' then bind,r
+      else bind',Q.Record (a, fields)
+    | expr ->  bind,expr
+  in
+  let bind,e = aux 0 [] expr in
+  match bind with
+  | [] -> None
+  | _  -> (
+    let r = Q.LetIn(QmlAst.Label.expr expr,bind,e) in
+    Some(r)
+  )
+
+(* to avoid depthness inspection at each level in simplify_records since it is not necessary (depth is monotonic),
+   it applies a transformation to all datastructure leaf (i.e. non record),
+   see simplify_records *)
+let rec apply_on_record_leaf tra expr =
+  match expr with
+  | Q.Record (a, fields) ->
+    let fields' = Base.List.map_stable (fun ((f,e) as v) ->
+      let e'= apply_on_record_leaf tra e in
+      if e==e' then v
+      else (f,e')
+    ) fields in
+    if fields==fields' then expr
+    else Q.Record (a, fields')
+  | _ -> tra expr
+
+(* apply may_alias_deep_record on the whole code *)
+let simplify_records expr = QmlAstWalk.Expr.traverse_map (fun tra expr ->
+  match expr with
+  |  Q.Record _ ->
+    begin match may_alias_deep_record expr with
+     | Some(e) -> tra e
+     | None -> apply_on_record_leaf tra expr
+    end
+  | _ -> QmlAstWalk.Expr.map_nonrec tra expr
+) expr
+
+
+(* limits the depth of nested environments (needed by inlining, otherwise it does not scale)
+   we consider a record as a letin equivalent and hoist their local bindings
+   e.g.
+   a =
+     b =
+       c = 1
+       1 + c
+     1 + b
+   r = { f1 = d=1 d+a }
+   =>
+   c = 1
+   b = 1 + c
+   a = 1 + b
+   d = 1
+   r = { f1 = d+a }
+*)
+let may_flatten_letin a initial_bind expr =
+  let aux_bind_list aux bind el =
+    Base.List.fold_left_map_stable (fun bind ((i,e) as v) ->
+      let (bind',e') = aux bind e in
+      let v = if e==e' then v else (i,e') in
+      v::bind',v
+    ) bind el
+  in
+  let aux_assoc_list aux bind el =
+    Base.List.fold_left_map_stable (fun bind ((i,e) as v) ->
+      let (bind',e') = aux bind e in
+      let v = if e==e' then v else (i,e') in
+      bind',v
+    ) bind el
+  in
+  let rec aux bind expr =
+    match expr with
+    | Q.LetIn (_, iel, e) ->
+      let bind,_iel = aux_bind_list aux bind iel in
+      let bind,e = aux bind e in
+      bind,e
+    | Q.Record (a, fields) ->
+      let bind,fields' = aux_assoc_list aux bind fields in
+      if fields==fields' then  bind,expr
+      else bind,Q.Record (a, fields')
+    | _ -> bind,expr
+  in
+  let bind,initial_bind' = aux_bind_list aux [] initial_bind in
+  let initial_bind_not_changed = initial_bind'==initial_bind in
+  let bind,e = aux bind expr in
+  if initial_bind_not_changed && e==expr then None
+  else Some(Q.LetIn(a,List.rev bind,e))
+
+(* apply may_flatten_letin on the whole code *)
+let simplify_letin expr = QmlAstWalk.Expr.traverse_map (fun tra expr ->
+  match expr with
+  |  Q.LetIn(a, iel, sexpr) ->
+    begin match may_flatten_letin a iel sexpr with
+     | Some(e) -> tra e
+     | None -> QmlAstWalk.Expr.map_nonrec tra expr
+    end
+  | _ -> QmlAstWalk.Expr.map_nonrec tra expr
+) expr
+
+
+let (|>) a f = f a
+
+(* simplifies a code, to shorten remaining code,
+   to limit datastructure and environment nesting *)
+let simplify expr =
+     expr
+ |>  simplify_noop
+ |>  simplify_records
+ |>  simplify_letin
+
+
 (* compilation of an expression into a javascript expression *)
 let compile_expr_to_expr env private_env expr =
   let rec aux private_env expr =
@@ -121,6 +263,11 @@ let compile_expr_to_expr env private_env expr =
       let context = QmlError.Context.annoted_expr env.E.annotmap expr in
       QmlError.i_error None context ("@[<2>Unimplemented compile_expr_to_expr@\n"^^fmt^^"@]") in
     match expr with
+    | Q.Path _ -> assert false (* slicing error *)
+    (* impossible cases with simplified code *)
+    | Q.Coerce (_,_, _) -> assert false
+    | Q.Directive (_, #ignored_directive, [_], _) -> assert false
+
     | Q.Const (_, c) ->
          private_env, Common.const c
 
@@ -145,15 +292,6 @@ let compile_expr_to_expr env private_env expr =
          | _ -> assert false)
 
     | Q.LetIn (_, iel, e) ->
-        (* flattening letins while compiling to js
-         * this flattening simplifies the local inlining *)
-        let rec aux_e acc ident = function
-          | Q.LetIn (_, l, e) -> aux_iel (aux_e acc ident e) l
-          | e -> (ident,e) :: acc
-        and aux_iel acc iel =
-          List.fold_left (fun acc (i,e) -> aux_e acc i e) acc iel in
-        let iel = aux_iel [] iel in
-
         let private_env, exprs =
           List.fold_left_map
             (fun private_env (i,e) ->
@@ -315,15 +453,6 @@ let compile_expr_to_expr env private_env expr =
                | _ -> assert false
           )
 
-    | Q.Coerce (_, e, _) ->
-        aux private_env e
-
-    | Q.Path _ ->
-        assert false (* slicing error *)
-
-    | Q.Directive (_, #ignored_directive, [e], _) ->
-        aux private_env e
-
     | Q.Directive (_, `llarray, exprs, _) ->
         (*
           We should produce an javascript array.
@@ -388,7 +517,8 @@ let compile_expr_to_expr env private_env expr =
     let private_env, args = List.fold_left_map aux private_env args in
     private_env, JsCons.Expr.call ~pure f args in
 
-  aux private_env expr
+  aux private_env (simplify expr)
+
 
 let add_bindings_statement bindings statement =
   match bindings with

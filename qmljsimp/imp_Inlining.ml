@@ -178,6 +178,12 @@ let contains_vars params e =
      | _ -> false)
     e
 
+let rec object_depth = function
+  | J.Je_object (_, fields) -> 1 + (List.fold_left (fun m (_,e) -> max (object_depth e) m ) 0 fields)
+  | _ -> 0
+
+let local_inlining_maximal_object_depth = 5
+
 let local_inlining_policy = function
   | J.Je_ident _
   | J.Je_num _
@@ -186,6 +192,10 @@ let local_inlining_policy = function
   | J.Je_undefined _ (* beware could be redefined *)
   | J.Je_this _ (* beware, do not inline that inside a local function! *)
     -> `always
+
+  (* we don't want to merge objects that have been carefully splitted in many pieces on purpose *)
+  | J.Je_object _ as obj when object_depth obj > local_inlining_maximal_object_depth ->
+    `never
 
   (* beware not to inline side effects, even once
    * you can reorder them by doing so *)
