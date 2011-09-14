@@ -943,28 +943,8 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           (* in particular : see if this directive should be removed by this pass,
              or preserved (or transformed?) for a specific back-end directive *)
 
-    | Q.Directive (_, `assert_, [e], _) ->
-        if env.options.no_assert
-        then aux (QC.unit ()) context
-        else
-          let bool_result = IL.fresh_v () in
-          let assertion =
-            let message_value =
-              let message = string_of_pos (Q.Pos.expr expr) in
-              IL.Constant (Q.String message) in
-            let message = IL.fresh_v () in
-            let bypass =
-              (* FIXME: use opacapi *)
-              "bslpervasives.assertion"
-            in
-            let term c =
-              IL.LetVal (message, message_value,
-                         IL.ApplyBypass (il_other_call bypass, [bool_result; message], c)) in
-            Context.insertLetCont context term
-          in
-          let c = IL.fresh_c () in
-          let parent = Context.current_cont context in
-          IL.LetCont((c, bool_result, assertion, aux e (Context.cont context c)), parent)
+    | Q.Directive (_, `assert_, _, _) -> assert false (* every assert
+        directive has been rewritten in a fail directive by pass_Assertion. *)
 
     | Q.Directive (_, `fail, args, _) -> (
         (*
