@@ -376,6 +376,9 @@ let reply_document (b,s,l) n =
   | Some (pos, size) -> Some (Bson.deserialize (BaseStringSlice.import (b.Buf.str,pos,size)))
   | None -> None
 
+##register null_cursorID : void -> cursorID
+let null_cursorID () = 0L
+
 ##register string_of_cursorID : cursorID -> string
 let string_of_cursorID cid = Printf.sprintf "%016Lx" cid
 
