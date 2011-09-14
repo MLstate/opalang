@@ -36,6 +36,7 @@ val get : buf -> int -> char
 val unsafe_get : buf -> int -> char
 val set : buf -> int -> char -> unit
 val unsafe_set : buf -> int -> char -> unit
+val copy : buf -> buf
 
 (** Compatibility with Buffer **)
 val nth : buf -> int -> char

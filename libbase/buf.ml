@@ -34,6 +34,8 @@ let resize buf size =
   buf.str <- str;
   buf.i <- newlen
 
+let copy buf = { str=String.copy buf.str; i=buf.i }
+
 let clear buf = buf.i <- 0
 
 let reset buf = buf.str <- ""; buf.i <- 0
