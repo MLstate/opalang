@@ -398,7 +398,8 @@ type OpaSerialize.options = {
    * Check and finish unserialize value. This function ensures that
    * the returned value match with type [ty].
    */
-  finish_unserialize(unser, ty) =
+  finish_unserialize(unser, ty) = finish_unserialize_with_sort(unser, ty, {false})
+  finish_unserialize_with_sort(unser, ty, opt) =
     //do jlog("Try to unserialize {Json.to_string(unser)} with {OpaType.to_pretty(ty)}")
     original_ty = ty
     error_ret(str, v) =
@@ -497,6 +498,14 @@ type OpaSerialize.options = {
         aux_rec_unoptimized(js_lst,fields)
 
     and aux_rec_unoptimized(js_lst, fields) =
+        js_lst =
+          if opt then
+            List.sort_with(
+                ((name1, _), (name2, _) ->
+                  Order.compare(name1, name2, Order.reverse(Order.default))
+                ), js_lst)
+          else
+            js_lst
         res =
           List.foldr(
             ((name, json), (acc, fields, err) ->
@@ -765,6 +774,10 @@ type OpaSerialize.options = {
     unserialize(v:RPC.Json.json) =
      typeof_alpha = @typeval('a)
      OpaSerialize.finish_unserialize(v, typeof_alpha) : option('a)
+
+    unserialize_unsorted(v:RPC.Json.json) =
+     typeof_alpha = @typeval('a)
+     OpaSerialize.finish_unserialize_with_sort(v, typeof_alpha, {true}) : option('a)
   }}
 
 }} /* disabled for S3: : OpaValue.interface */
