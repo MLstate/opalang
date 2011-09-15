@@ -128,8 +128,8 @@ let ipp fmt =
   Printf.ifprintf stdout (fmt^^"[0m\n%!")
 
 let debug ?(level=0) fmt =
-  let level = succ level in
-  #<If$minlevel level> Printf.printf ("[1m[30m[MimeType][0m "^^fmt^^"\n%!")
+  let _level = succ level in
+  #<If$minlevel _level> Printf.printf ("[1m[30m[MimeType][0m "^^fmt^^"\n%!")
   #<Else> Printf.ifprintf stdout fmt #<End>
 
 
