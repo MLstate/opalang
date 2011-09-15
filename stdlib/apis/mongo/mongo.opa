@@ -55,11 +55,11 @@ type mongo = {
 
 type Mongo.failure =
     {Error : string}
-  / {MongoError : (string, int)}
+  / {DocError : RPC.Bson.bson}
 
-//type Mongo.success = RPC.Bson.bson
+type Mongo.success = RPC.Bson.bson
 
-//type Mongo.result = outcome(Mongo.success, Mongo.failure)
+type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
 Bson = {{
 
@@ -430,7 +430,7 @@ Cursor = {{
     then reply(c,Mongo.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
     else set_error(c,"Cursor.get_more: attempt to get more with dead cursor")
 
-  document(c:cursor, n:int): outcome(RPC.Bson.bson, Mongo.failure) =
+  document(c:cursor, n:int): Mongo.result =
     if n >= c.returned
     then {failure={Error="Cursor.document: document index out of range {n}"}}
     else
@@ -505,29 +505,28 @@ Cursor = {{
     then {failure={Error="find: query error"}}
     else {success=c}
 
-  get_err(b:RPC.Bson.bson): option((string,int)) =
-    match b with
-    | [{String=("$err",err)}, {Int32=("code",code)}] -> {some=(err,code)}
-    | _ -> {none}
+  check_err(b:RPC.Bson.bson): Mongo.result =
+    match Bson.find(b,"$err") with
+    | {some=err_doc} -> {failure={DocError=err_doc}}
+    | {none} -> {success=b}
 
-  find_one(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson)): outcome(RPC.Bson.bson,Mongo.failure) =
+  check_cursor_error(c:cursor): Mongo.result =
+    if not(c.killed)
+    then check_err(c.doc)
+    else {failure={Error=c.error}}
+
+  find_one(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson)): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
     c = set_limit(c, 1)
     c = next(c)
-    outcome=
-      if not(c.killed)
-      then
-        (match get_err(c.doc) with
-         | {some=(err,code)} -> {failure={MongoError=(err,code)}}
-         | {none} -> {success=c.doc})
-      else {failure={Error=c.error}}
+    outcome = check_cursor_error(c)
     _ = Cursor.reset(c)
     outcome
 
   @private
-  check_ok(bson:RPC.Bson.bson): outcome(RPC.Bson.bson,Mongo.failure) =
+  check_ok(bson:RPC.Bson.bson): Mongo.result =
     match Bson.find(bson,"ok") with
     | {some=[{Double=("ok",ok)}]} ->
        if ok == 1.0
@@ -538,15 +537,15 @@ Cursor = {{
           | _ -> {failure={Error="ok:{ok}"}})
     | _ -> {success=bson}
 
-  run_command(m:mongo, ns:string, command:RPC.Bson.bson): outcome(RPC.Bson.bson,Mongo.failure) =
+  run_command(m:mongo, ns:string, command:RPC.Bson.bson): Mongo.result =
     match find_one(m, ns^".$cmd", command, {none}) with
     | {success=bson} -> check_ok(bson)
     | {~failure} -> {~failure}
 
-  simple_int_command(m:mongo, ns:string, cmd:string, arg:int): outcome(RPC.Bson.bson,Mongo.failure) =
+  simple_int_command(m:mongo, ns:string, cmd:string, arg:int): Mongo.result =
     run_command(m, ns, [{Int32=(cmd,arg)}])
 
-  simple_str_command(m:mongo, ns:string, cmd:string, arg:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  simple_str_command(m:mongo, ns:string, cmd:string, arg:string): Mongo.result =
     run_command(m, ns, [{String=(cmd,arg)}])
 
   check_connection(m:mongo): outcome(bool,Mongo.failure) =
@@ -554,13 +553,13 @@ Cursor = {{
     | {success=_} -> {success=true}
     | {~failure} -> {~failure}
 
-  drop_db(m:mongo, db:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  drop_db(m:mongo, db:string): Mongo.result =
     simple_int_command(m, db, "dropDatabase", 1)
 
-  drop_collection(m:mongo, db:string, collection:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  drop_collection(m:mongo, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "drop", collection)
 
-  reset_error(m:mongo, db:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  reset_error(m:mongo, db:string): Mongo.result =
     simple_int_command(m, db, "reseterror", 1)
 
   @private
@@ -594,7 +593,7 @@ Cursor = {{
     bupdate = [{Document=("$set",[{String=("pwd",digest)}])}]
     Mongo.update(m,Mongo._Upsert,(db^".system.users"),bselector,bupdate)
 
-  authenticate(m:mongo, db:string, user:string, pass:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  authenticate(m:mongo, db:string, user:string, pass:string): Mongo.result =
     match simple_int_command(m, db, "getnonce", 1) with
     | {success=bson} ->
       (match Bson.find(bson,"nonce") with
