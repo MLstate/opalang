@@ -34,6 +34,7 @@
 ##register get_identifier \ `QmlClosureRuntime.get_identifier` : 'closure -> option('a)
 ##register set_identifier \ `QmlClosureRuntime.set_identifier` : Closure.t, 'a -> void
 ##register export \ `QmlClosureRuntime.export` : Closure.t -> 'a
+##register import \ `QmlClosureRuntime.import` : 'a, int -> Closure.t
 
 (** Create an "anyarray" closure. These closures consider that the
     given native implementation is a function that takes an anyarray
@@ -41,6 +42,53 @@
     see also [opavalue.opa (OpaValue.Closure)]
 *)
 ##register create_anyarray \ `QmlClosureRuntime.create_anyarray` : 'impl, int, 'ident -> Closure.t
+
+(** Create an "anyarray" closure with cps code transformation.
+    i.e. We suppose that the given impl is a native function
+    typed by [Closure.args -> 'a cont -> unit].
+    see also [opavalue.opa (OpaValue.Closure)]
+*)
+##register [cps-bypass] create_anyarray_cps : 'impl, int, 'ident, continuation(Closure.t) -> void
+let create_anyarray_cps func arity ident k =
+  let any_cps oargs =
+    let args = QmlClosureRuntime.AnyArray.sub2 oargs 0 arity in
+    let k = QmlClosureRuntime.AnyArray.get oargs arity in
+    ((Obj.magic func) : _ (*args*) -> _ (*cont*) -> _) args k
+  in
+  (* arity+1 for continuation added by cps *)
+  let cl = QmlClosureRuntime.create_anyarray any_cps (arity + 1) ident in
+  QmlCpsServerLib.return k cl
+
+##register [cps-bypass] apply_cps : Closure.t, Closure.args, continuation('a) -> void
+let apply_cps closure args k =
+  (* Add k only on full application *)
+  assert (
+    if (
+      closure.QmlClosureRuntime.arity - 1 =
+        (QmlClosureRuntime.AnyArray.length closure.QmlClosureRuntime.args)
+        + (QmlClosureRuntime.AnyArray.length args)
+    ) then true else (
+      Printf.printf "BslClosure.apply_cps:\n  closure:%s\n  args:%s\n  k:%s\n"
+        (DebugPrint.print closure)
+        (DebugPrint.print args)
+        (DebugPrint.print k);
+      false
+    )
+  );
+  let args = QmlClosureRuntime.AnyArray.append args [|Obj.repr k|] in
+  QmlClosureRuntime.args_apply closure args
+
+
+(** A function used to print closure-related debug info*)
+##register closure_debug_from_opa: string, string -> void
+let closure_debug_from_opa __topic __msg =
+  #<If:CLOSURE_DEBUG>
+    Logger.debug "[CLOSURE][%s] %s %!" __topic __msg
+  #<Else>
+    ()
+  #<End>
+
+
 
 (* CLOSURE REGISTERING *)
 (** Type of the information. *)
