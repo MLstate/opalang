@@ -27,15 +27,23 @@ open C.Ops
 ##extern-type Socket.connection = Scheduler.connection_info
 
 let private_connect ?(secure_mode = Network.Unsecured) (addr: string) port
-                    (cont: Scheduler.connection_info -> unit) =
+                    ?err_cont (cont: Scheduler.connection_info -> unit) =
   let inet_addr = Network.inet_addr_of_name addr in
   let port_spec = Network.make_port_spec ~socket_type:Network.TCP
                                          ~protocol:"raw" inet_addr port in
-  Network.connect Scheduler.default port_spec secure_mode cont
+  Network.connect Scheduler.default port_spec secure_mode ?err_cont cont
 
 ##register [cps-bypass] connect: string, int,\
                                  continuation(Socket.connection) -> void
 let connect addr port cont = private_connect addr port (fun x -> x |> cont)
+
+(* Patch: for simplicity we turn the exception into a string.  Note that it's
+ * not a real continuation, you should exit the program in the err_cont.
+ *)
+##register [cps-bypass] connect_with_err_cont: string, int,\
+                                 continuation(string), continuation(Socket.connection) -> void
+let connect_with_err_cont addr port err_cont cont =
+  private_connect addr port ~err_cont:(fun exn -> Printexc.to_string exn |> err_cont) (fun x -> x |> cont)
 
 ##register [cps-bypass] secure_connect: string, int, SSL.secure_type,\
                                         continuation(Socket.connection) -> void
