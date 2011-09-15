@@ -788,15 +788,12 @@ Indexes = {{
   create_index(m:mongo, ns:string, key:RPC.Bson.bson, options:int): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
-    do println("name={name}")
     b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],
                       (if Bitwise.land(options,_Unique) != 0 then [{Boolean=("unique",true)}] else []),
                       (if Bitwise.land(options,_DropDups) != 0 then [{Boolean=("dropDups",true)}] else []),
                       (if Bitwise.land(options,_Background) != 0 then [{Boolean=("background",true)}] else []),
                       (if Bitwise.land(options,_Sparse) != 0 then [{Boolean=("sparse",true)}] else [])])
-    do println("b={b}")
     idxns=(match String.index(".",ns) with | {some=p} -> String.substring(0,p,ns) | {none} -> ns)^".system.indexes"
-    do println("idxns={idxns}")
     Mongo.insert(m,0,idxns,b)
 
   /**
