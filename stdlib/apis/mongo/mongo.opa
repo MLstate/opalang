@@ -18,6 +18,7 @@
 import stdlib.core.{date}
 import stdlib.io.socket
 import stdlib.crypto
+import stdlib.system
 
 type mongo_buf = external
 type cursorID = external
@@ -56,7 +57,7 @@ type Mongo.failure =
     {Error : string}
   / {MongoError : (string, int)}
 
-//type Mongo.success = {Doc : RPC.Bson.bson}
+//type Mongo.success = RPC.Bson.bson
 
 //type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
@@ -205,9 +206,14 @@ Mongo = {{
    *  Create new mongo object:
    *    - Open connection to mongo server at addr:port
    *    - Allocate buffer of given size
+   *    - Primitive error handling in case of mongo server malfunction
    **/
   open(bufsize,addr,port): mongo =
-    { conn = Socket.connect(addr,port);
+    err_cont = Continuation.make((s:string ->
+                                   do prerrln("Mongo.open: exn={s}")
+                                   System.exit(-1)))
+    {
+      conn = Socket.connect_with_err_cont(addr,port,err_cont);
       mbuf = create_(bufsize);
       mailbox = new_mailbox_(bufsize);
       ~bufsize
@@ -217,7 +223,7 @@ Mongo = {{
    * We are only concurrent-safe within a connection.
    * We need this to create a new buffer for each cursor.
    **/
-  copy(m: mongo): mongo =
+  copy(m:mongo): mongo =
     { conn=m.conn;
       mbuf = create_(m.bufsize);
       mailbox = new_mailbox_(m.bufsize);
@@ -373,10 +379,10 @@ Cursor = {{
   set_query(c:cursor, query:option(RPC.Bson.bson)): cursor = { c with ~query }
   set_fields(c:cursor, fields:option(RPC.Bson.bson)): cursor = { c with ~fields }
 
-  set_error(c: cursor, error: string) : cursor = { c with ~error; killed={true} }
+  set_error(c:cursor, error:string): cursor = { c with ~error; killed={true} }
 
   @private
-  reply(c: cursor, reply_opt:option(reply), name:string, query_sent:bool): cursor =
+  reply(c:cursor, reply_opt:option(reply), name:string, query_sent:bool): cursor =
     match reply_opt with
     | {some=reply} ->
       // TODO: Check for $err
@@ -391,19 +397,19 @@ Cursor = {{
       }
     | {none} -> set_error(c,"Cursor.{name}: no reply")
 
-  op_query(c: cursor): cursor =
+  op_query(c:cursor): cursor =
     if not(c.killed) && Option.is_some(c.query)
     then reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, Option.get(c.query), c.fields),"op_query",{true})
     else set_error(c,(if c.killed
                       then "Cursor.op_query: already killed"
                       else "Cursor.op_query: no query"))
 
-  get_more(c: cursor): cursor =
+  get_more(c:cursor): cursor =
     if not(c.killed) && not(Mongo.is_null_cursorID(c.cid))
     then reply(c,Mongo.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
     else set_error(c,"Cursor.get_more: attempt to get more with dead cursor")
 
-  document(c: cursor, n: int): outcome(RPC.Bson.bson, Mongo.failure) =
+  document(c:cursor, n:int): outcome(RPC.Bson.bson, Mongo.failure) =
     if n >= c.returned
     then {failure={Error="Cursor.document: document index out of range {n}"}}
     else
@@ -414,10 +420,10 @@ Cursor = {{
          | {none} -> {failure={Error="Cursor.document: no document"}})
       | {none} -> {failure={Error="Cursor.document: no reply"}}
 
-  all_documents(c: cursor): outcome(list(RPC.Bson.bson), Mongo.failure) =
+  all_documents(c:cursor): outcome(list(RPC.Bson.bson), Mongo.failure) =
     match c.reply with
     | {some=reply} ->
-      rec aux(n: int) =
+      rec aux(n:int) =
        if n >= c.returned
        then []
        else (match Mongo.reply_document(reply,n) with
@@ -427,7 +433,7 @@ Cursor = {{
     | {none} -> {failure={Error="Cursor.document: no reply"}}
 
   @private
-  destroy(c: cursor): cursor =
+  destroy(c:cursor): cursor =
     do Mongo.close_copy(c.mongo)
     { c with
         error="<reset>";
@@ -436,7 +442,7 @@ Cursor = {{
         cid=Mongo.null_cursorID(void)
     }
 
-  reset(c: cursor): cursor =
+  reset(c:cursor): cursor =
     if not(Mongo.is_null_cursorID(c.cid))
     then
       if Mongo.kill_cursors(c.mongo, [c.cid])
@@ -444,7 +450,7 @@ Cursor = {{
       else set_error(destroy(c),"Cursor.reset: error killing cursor")
     else destroy(c)
 
-  rec next(c: cursor): cursor =
+  rec next(c:cursor): cursor =
     c = if not(c.query_sent) then op_query(c) else c
     if Option.is_none(c.reply)
     then set_error(c,"Cursor.next: no reply")
@@ -465,8 +471,8 @@ Cursor = {{
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
 
-  find(m: mongo, ns: string, query: RPC.Bson.bson, fields: option(RPC.Bson.bson),
-       limit: int, skip: int, flags: int): outcome(cursor,Mongo.failure) =
+  find(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson),
+       limit:int, skip:int, flags:int): outcome(cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -478,12 +484,12 @@ Cursor = {{
     then {failure={Error="find: query error"}}
     else {success=c}
 
-  get_err(b: RPC.Bson.bson): option((string,int)) =
+  get_err(b:RPC.Bson.bson): option((string,int)) =
     match b with
     | [{String=("$err",err)}, {Int32=("code",code)}] -> {some=(err,code)}
     | _ -> {none}
 
-  find_one(m: mongo, ns: string, query: RPC.Bson.bson, fields: option(RPC.Bson.bson)): outcome(RPC.Bson.bson,Mongo.failure) =
+  find_one(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson)): outcome(RPC.Bson.bson,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -511,15 +517,15 @@ Cursor = {{
           | _ -> {failure={Error="ok:{ok}"}})
     | _ -> {success=bson}
 
-  run_command(m: mongo, ns: string, command: RPC.Bson.bson): outcome(RPC.Bson.bson,Mongo.failure) =
+  run_command(m:mongo, ns:string, command:RPC.Bson.bson): outcome(RPC.Bson.bson,Mongo.failure) =
     match find_one(m, ns^".$cmd", command, {none}) with
     | {success=bson} -> check_ok(bson)
     | {~failure} -> {~failure}
 
-  simple_int_command(m: mongo, ns:string, cmd:string, arg:int): outcome(RPC.Bson.bson,Mongo.failure) =
+  simple_int_command(m:mongo, ns:string, cmd:string, arg:int): outcome(RPC.Bson.bson,Mongo.failure) =
     run_command(m, ns, [{Int32=(cmd,arg)}])
 
-  simple_str_command(m: mongo, ns:string, cmd:string, arg:string): outcome(RPC.Bson.bson,Mongo.failure) =
+  simple_str_command(m:mongo, ns:string, cmd:string, arg:string): outcome(RPC.Bson.bson,Mongo.failure) =
     run_command(m, ns, [{String=(cmd,arg)}])
 
   check_connection(m:mongo): outcome(bool,Mongo.failure) =
@@ -589,7 +595,7 @@ Cursor = {{
 }}
 
 /* Test code */
-/*
+/* */
 _ =
   mongo = Mongo.open(1024,"www.localhost.local",27017)
   //b = [{ObjectID=("_id",Mongo.oid_of_string("333333333333333333333333"))}, {String=("name","Joe1")}, {Int32=("age",44)}]
@@ -644,18 +650,18 @@ _ =
   do println("count={res}")
   res = Cursor.count(mongo,"test","cursors",{some=[{Document=("a",[{Int32=("$gt",0)}])}]})
   do println("count={res}")
-  drop = Cursor.drop_collection(mongo,"test","cursors")
-  do println("drop={drop}")
   ismaster = Cursor.ismaster(mongo)
   do println("ismaster={ismaster}")
   success = Cursor.add_user(mongo,"test","norman","abc123")
   do println("success={success}")
   res = Cursor.authenticate(mongo,"test","norman","abc123")
   do println("authenticate={res}")
+  drop = Cursor.drop_collection(mongo,"test","cursors")
+  do println("drop={drop}")
   res = Cursor.check_connection(mongo)
   do println("check_connection={res}")
   //do println("cursor={cursor}")
   do Mongo.close(mongo)
   void
-*/
+/* */
 
