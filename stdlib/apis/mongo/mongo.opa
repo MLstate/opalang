@@ -26,6 +26,16 @@
 /**
  * {1 About this module}
  *
+ * This is a binding for MongoDB for OPA, loosely based around the C drivers.
+ *
+ * Module [Mongo] has low-level routines to talk to the database server, the only
+ * routines you should need are the [Mongo.open] and [Mongo.close] functions.
+ *
+ * Module [Cursor] has the cursor handling routines but since commands, authentication,
+ * etc. are written using cursors they are also in this module.
+ *
+ * Module [Indexes] has a couple of routines for creating indexes.
+ *
  * {1 Where should I start?}
  *
  * {1 What if I need more?}
