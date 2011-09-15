@@ -77,6 +77,8 @@ sig
 
   val ty : QmlAst.ty -> context
 
+  val package : string -> context
+
   (**
      Sometimes, somebody is too lazy for refactoring code so
      that he can build a correct context.

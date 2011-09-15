@@ -37,6 +37,8 @@ struct
 
     ty : QmlAst.ty list ;
 
+    package : string list ; (* sometime the context is related to compilation option of a package, so you are not on shame but you have no position *)
+
     what_a_shame : string list ;
   }
 
@@ -47,6 +49,7 @@ struct
     expr = [] ;
     pat = [] ;
     ty = [] ;
+    package = [] ;
     what_a_shame = [] ;
   }
 
@@ -65,6 +68,7 @@ struct
     expr = merge_aux c1.expr c2.expr ;
     pat = merge_aux c1.pat c2.pat ;
     ty = merge_aux c1.ty c2.ty ;
+    package = merge_aux c1.package c2.package;
     what_a_shame = merge_aux c1.what_a_shame c2.what_a_shame ;
   }
   let merge = List.fold_left merge2
@@ -77,7 +81,9 @@ struct
   let exprs expr exprs = { default with expr = expr::exprs }
   let pat pat = { default with pat = [pat] }
   let ty ty = { default with ty = [ty] }
+  let package packagename = { default with package = [packagename] }
   let shame_on_me_i_am_too_lazy no_context = { default with what_a_shame = [no_context] }
+
 
   let annoted_expr annotmap expr = { default with annotmap = [annotmap] ; expr = [expr] }
   let annoted_pat annotmap pat = { default with annotmap = [annotmap] ; pat = [pat] }
@@ -149,6 +155,11 @@ struct
       List.iter (fun ty ->
                    Format.fprintf fmt "%s@\nIn the following type:@\n%a@\n"
                      sep QmlPrint.pp#ty ty) c.ty ;
+
+      List.iter (fun package ->
+                   Format.fprintf fmt "%s@\nIn the following package:@\n%a@\n"
+                     sep Format.pp_print_string package) c.package ;
+      ();
 
       List.iter (fun shame ->
                    Format.fprintf fmt "%s@\nIn the following internal positions:@\n%a@\n"
