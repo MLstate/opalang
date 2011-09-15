@@ -226,8 +226,8 @@ let _ =
   exit Sys.word_size
 EOF
 
-    echo "# $OCAMLBUILD$OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
-    R=0; $OCAMLBUILD$OCAMLBUILD_FLAGS -tag use_unix test.native >test.log 2>&1 || R=$?
+    echo "# $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
+    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native >test.log 2>&1 || R=$?
 
     cat test.log >> $CONFIG_LOG
 
@@ -440,9 +440,9 @@ let _ = Ocamlbuild_plugin.dispatch (function
 )
 EOF
 
-    echo "# $OCAMLBUILD$OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native" >> $CONFIG_LOG
+    echo "# $OCAMLBUILD $OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native" >> $CONFIG_LOG
 
-    R=0; $OCAMLBUILD$OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native >check_${LIB}.log 2>&1 || R=$?
+    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS $EXTRA_TAGS -tag use_my_lib check_${LIB}.native >check_${LIB}.log 2>&1 || R=$?
     cat check_${LIB}.log >> $CONFIG_LOG
 
     if [ $R -ne 0 ]; then
