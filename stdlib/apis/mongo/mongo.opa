@@ -606,10 +606,6 @@ Cursor = {{
        | _ -> {failure={Error="Missing nonce String"}})
     | {~failure} -> {~failure}
 
-  // TODO: indexes
-  // TODO: replica sets
-  // TODO: backups
-
 }}
 
 Indexes = {{
@@ -633,7 +629,14 @@ Indexes = {{
     do println("idxns={idxns}")
     Mongo.insert(m,0,idxns,b)
 
+  create_simple_index(m:mongo, ns:string, field:string, options:int): bool =
+    create_index(m, ns, [{Int32=(field,1)}], options)
+
 }}
+
+  // TODO: replica sets
+  // TODO: backups
+
 
 /* Test code */
 /*
