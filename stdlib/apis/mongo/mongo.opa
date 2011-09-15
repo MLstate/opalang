@@ -15,6 +15,23 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * MongoDB binding for OPA.
+ *
+ * @destination public
+ * @stabilization work in progress
+ **/
+
+/**
+ * {1 About this module}
+ *
+ * {1 Where should I start?}
+ *
+ * {1 What if I need more?}
+ *
+ **/
+
 import stdlib.core.{date}
 import stdlib.io.socket
 import stdlib.crypto
@@ -25,6 +42,9 @@ type cursorID = external
 type mailbox = external
 type reply = external
 
+/**
+ * OPA representation of a BSON object.
+ **/
 type RPC.Bson.bson0('bson) =
     { Double: (string, float) }
   / { String: (string, string) }
@@ -102,6 +122,9 @@ Bson = {{
                             | { Int64=(key, _) } -> key == name),
                          bson))
 
+  /**
+   * Return a list of the keys in a bson object.
+   **/
   keys(bson:RPC.Bson.bson): list(string) =
     List.map((b ->
                match b with
@@ -354,6 +377,16 @@ Mongo = {{
 
 }}
 
+/**
+ * type cursor:
+ *   - Contains all the parameters for an op_query call.
+ *   - Stores the reply.
+ *   - Handles indexes into the list of documents returned and
+ *     keeps a note of the last document parsed.
+ *   - Also handles the cursor ID.
+ *   - Use Cursor.reset when not needed, this will generate a
+ *     kill_cursors call to the server to clean up.
+ **/
 type cursor = {
      mongo : mongo;
      ns : string;
@@ -374,8 +407,15 @@ type cursor = {
 
 Cursor = {{
 
+  @private
   error_document(err:string, code:int) = [{String=("$err",err)}, {Int32=("code",code)}]
 
+  /**
+   * Bare cursor initialize.
+   *
+   *   {b Warning:} Note that each time you create a cursor it generates buffers to talk to
+   *   the MongoDB server.  Remember to cleanup cursor objects with [Cursor.reset].
+   **/
   init(mongo:mongo, ns:string): cursor =
   { mongo = Mongo.copy(mongo);
     ~ns;
@@ -394,19 +434,24 @@ Cursor = {{
     error = "<ok>"
   }
 
+  /**
+   * Set cursor parameters.
+   *
+   * These are named as for the arguments to a [Mongo.query] call.
+   **/
   set_flags(c:cursor, flags:int): cursor = { c with ~flags }
   set_skip(c:cursor, skip:int): cursor = { c with ~skip }
   set_limit(c:cursor, limit:int): cursor = { c with ~limit }
   set_query(c:cursor, query:option(RPC.Bson.bson)): cursor = { c with ~query }
   set_fields(c:cursor, fields:option(RPC.Bson.bson)): cursor = { c with ~fields }
 
+  @private
   set_error(c:cursor, error:string): cursor = { c with ~error; killed={true} }
 
   @private
   reply(c:cursor, reply_opt:option(reply), name:string, query_sent:bool): cursor =
     match reply_opt with
     | {some=reply} ->
-      // TODO: Check for $err
       cursorID = Mongo.reply_cursorID(reply)
       { c with
           cid = cursorID;
@@ -418,6 +463,15 @@ Cursor = {{
       }
     | {none} -> set_error(c,"Cursor.{name}: no reply")
 
+  /**
+   * Perform an OP_QUERY call to the database server based on the parameters
+   * stored in the cursor object.
+   *
+   * Will only work on valid cursors, ie. those which have not received an error.
+   *
+   * Note that no tests are performed on the reply, there are other routines which
+   * examine the content of the reply.  You may, however, get a comms error here.
+   **/
   op_query(c:cursor): cursor =
     if not(c.killed) && Option.is_some(c.query)
     then reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, Option.get(c.query), c.fields),"op_query",{true})
@@ -425,11 +479,20 @@ Cursor = {{
                       then "Cursor.op_query: already killed"
                       else "Cursor.op_query: no query"))
 
+  /**
+   * Perform an OP_GETMORE call, if a valid cursor ID exists in the cursor.
+   **/
   get_more(c:cursor): cursor =
     if not(c.killed) && not(Mongo.is_null_cursorID(c.cid))
     then reply(c,Mongo.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
     else set_error(c,"Cursor.get_more: attempt to get more with dead cursor")
 
+  /**
+   * Return the [n]'th document in the reply stored in a cursor.
+   *
+   * This is a low-level routine, use [Cursor.next] to scan the returned values
+   * while sending additional OP_GETMORE calls when necessary.
+   */
   document(c:cursor, n:int): Mongo.result =
     if n >= c.returned
     then {failure={Error="Cursor.document: document index out of range {n}"}}
@@ -441,6 +504,9 @@ Cursor = {{
          | {none} -> {failure={Error="Cursor.document: no document"}})
       | {none} -> {failure={Error="Cursor.document: no reply"}}
 
+  /**
+   * Return all the documents in the reply stored in a cursor.
+   **/
   all_documents(c:cursor): outcome(list(RPC.Bson.bson), Mongo.failure) =
     match c.reply with
     | {some=reply} ->
@@ -463,6 +529,12 @@ Cursor = {{
         cid=Mongo.null_cursorID(void)
     }
 
+  /**
+   * Destroy a cursor object.
+   *
+   * Deletes buffer storage and sends a OP_KILL_CURSOR call if a valid cursor
+   * ID still exists in the cursor.
+   **/
   reset(c:cursor): cursor =
     if not(Mongo.is_null_cursorID(c.cid))
     then
@@ -471,6 +543,21 @@ Cursor = {{
       else set_error(destroy(c),"Cursor.reset: error killing cursor")
     else destroy(c)
 
+  /**
+   * Get the next returned object from a cursor.
+   *
+   * If an OP_QUERY has not been sent then it will be sent with the current
+   * cursor parameters.
+   *
+   * The current document in the cursor is set to the next available document,
+   * calling OP_GETMORE as required.
+   *
+   * On error, the current document will be set to a (fabricated) error BSON document.
+   *
+   * {b Warning:} Does not implement tailable cursors, yet.
+   *
+   * {b Warning:} Does not check the return flags.
+   */
   rec next(c:cursor): cursor =
     c = if not(c.query_sent) then op_query(c) else c
     if Option.is_none(c.reply)
@@ -492,6 +579,15 @@ Cursor = {{
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
 
+  /**
+   * Full find function with all parameters.
+   *
+   * Creates a cursor with the given parameters and calls OP_QUERY to
+   * initiate communications.
+   *
+   * The cursor value is then returned, you can then use [Cursor.next] to
+   * scan along form there.
+   **/
   find(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson),
        limit:int, skip:int, flags:int): outcome(cursor,Mongo.failure) =
     c = init(m, ns)
@@ -505,16 +601,27 @@ Cursor = {{
     then {failure={Error="find: query error"}}
     else {success=c}
 
+  @private
   check_err(b:RPC.Bson.bson): Mongo.result =
     match Bson.find(b,"$err") with
     | {some=err_doc} -> {failure={DocError=err_doc}}
     | {none} -> {success=b}
 
+  /**
+   * If a cursor is valid then return an [outcome] with the current
+   * document.  Will return a [failure] document if "$err" exists in
+   * the document.
+   **/
   check_cursor_error(c:cursor): Mongo.result =
     if not(c.killed)
     then check_err(c.doc)
     else {failure={Error=c.error}}
 
+  /**
+   * Find the first matching document for the given namespace.
+   *
+   * Creates and destroys a cursor.
+   **/
   find_one(m:mongo, ns:string, query:RPC.Bson.bson, fields:option(RPC.Bson.bson)): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
@@ -537,28 +644,52 @@ Cursor = {{
           | _ -> {failure={Error="ok:{ok}"}})
     | _ -> {success=bson}
 
+  /**
+   * Run a "$cmd" command.
+   *
+   * Normally you will get {ok: 0/1} as a reply but sometimes there
+   * are other elements in the reply.
+   **/
   run_command(m:mongo, ns:string, command:RPC.Bson.bson): Mongo.result =
     match find_one(m, ns^".$cmd", command, {none}) with
     | {success=bson} -> check_ok(bson)
     | {~failure} -> {~failure}
 
+  /**
+   * Perform a simple integer command, eg. [{ ping : 1 }]
+   **/
   simple_int_command(m:mongo, ns:string, cmd:string, arg:int): Mongo.result =
     run_command(m, ns, [{Int32=(cmd,arg)}])
 
+  /**
+   * Perform a simple integer command, eg. [{ drop : "collection" }]
+   **/
   simple_str_command(m:mongo, ns:string, cmd:string, arg:string): Mongo.result =
     run_command(m, ns, [{String=(cmd,arg)}])
 
+  /**
+   * Predicate for connection alive.  Peforms an admin "ping" command.
+   **/
   check_connection(m:mongo): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ping", 1) with
     | {success=_} -> {success=true}
     | {~failure} -> {~failure}
 
+  /**
+   * Drop a database
+   **/
   drop_db(m:mongo, db:string): Mongo.result =
     simple_int_command(m, db, "dropDatabase", 1)
 
+  /**
+   * Drop a collection from a database [drop_collection("db","collection")]
+   **/
   drop_collection(m:mongo, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "drop", collection)
 
+  /**
+   * Call a "reseterror" command.
+   **/
   reset_error(m:mongo, db:string): Mongo.result =
     simple_int_command(m, db, "reseterror", 1)
 
@@ -570,6 +701,16 @@ Cursor = {{
     | {some=[{Double=(_,n)}]} -> {success=Float.to_int(n)}
     | _ -> {failure={Error="Missing {name} Int32/Int64/Double"}}
 
+  /**
+   * Count the number of matching elements.
+   *
+   * [count(mongo, "db", "ns", query_opt)] returns the number of elements
+   * matching [query] or the whole collection if [query_opt] is [\{none\}].
+   *
+   * Strictly speaking MongoDB returns an Int64 value but it is unlikely that
+   * a database will be able to overrun the OCaml restriction, so the value is
+   * just an int.
+   **/
   count(m:mongo, db:string, ns:string, query_opt:option(RPC.Bson.bson)): outcome(int,Mongo.failure) =
     cmd = List.flatten([[{String=("count",ns)}],
                         (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
@@ -577,6 +718,9 @@ Cursor = {{
     | {success=bson} -> find_int(bson, "n")
     | {~failure} -> {~failure}
 
+  /**
+   * Predicate for master status.
+   **/
   ismaster(m:mongo): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ismaster", 1) with
     | {success=bson} ->
@@ -587,12 +731,21 @@ Cursor = {{
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
+  /**
+   * Authentication: [add_user(mongo, "db", "user", "pass")] creates a
+   * user for the given db.
+   **/
   add_user(m:mongo, db:string, user:string, pass:string): bool =
     digest = pass_digest(user,pass)
     bselector = [{String=("user",user)}]
     bupdate = [{Document=("$set",[{String=("pwd",digest)}])}]
     Mongo.update(m,Mongo._Upsert,(db^".system.users"),bselector,bupdate)
 
+  /**
+   * Authenticate a user for the given database.
+   *
+   * The password must match the users password.
+   **/
   authenticate(m:mongo, db:string, user:string, pass:string): Mongo.result =
     match simple_int_command(m, db, "getnonce", 1) with
     | {success=bson} ->
@@ -609,11 +762,19 @@ Cursor = {{
 
 Indexes = {{
 
+  /**
+   * Flags used by the index routines.
+   **/
   _Unique = 0x00000001
   _DropDups = 0x00000002
   _Background = 0x00000004
   _Sparse = 0x00000008
 
+  /**
+   * [create_index(mongo, "ns", key, flags)] adds an index to a collection.
+   *
+   * [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
+   **/
   create_index(m:mongo, ns:string, key:RPC.Bson.bson, options:int): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
@@ -628,6 +789,9 @@ Indexes = {{
     do println("idxns={idxns}")
     Mongo.insert(m,0,idxns,b)
 
+  /**
+   * Simpler version of the [create_index] function, for a single named field.
+   **/
   create_simple_index(m:mongo, ns:string, field:string, options:int): bool =
     create_index(m, ns, [{Int32=(field,1)}], options)
 
