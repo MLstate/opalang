@@ -102,6 +102,27 @@ Bson = {{
                             | { Int64=(key, _) } -> key == name),
                          bson))
 
+  keys(bson:RPC.Bson.bson): list(string) =
+    List.map((b ->
+               match b with
+               | { Double=(key, _) } -> key
+               | { String=(key, _) } -> key
+               | { Document=(key, _) } -> key
+               | { Array=(key, _) } -> key
+               | { Binary=(key, _) } -> key
+               | { ObjectID=(key, _) } -> key
+               | { Boolean=(key, _) } -> key
+               | { Date=(key, _) } -> key
+               | { Null=(key, _) } -> key
+               | { Regexp=(key, _) } -> key
+               | { Code=(key, _) } -> key
+               | { Symbol=(key, _) } -> key
+               | { CodeScope=(key, _) } -> key
+               | { Int32=(key, _) } -> key
+               | { Timestamp=(key, _) } -> key
+               | { Int64=(key, _) } -> key),
+             bson)
+
 }}
 
 //@both <-- ??? why doesn't this work ???
@@ -565,10 +586,7 @@ Cursor = {{
        | _ -> {failure={Error="Missing ismaster Boolean"}})
     | {~failure} -> {~failure}
 
-  @private pass_digest(user:string, pass:string): string =
-    hash = Crypto.Hash.md5("{user}:mongo:{pass}")
-    //do println("user=\"{user}\"  pass=\"{pass}\"  hash=\"{hash}\"")
-    hash
+  @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
   add_user(m:mongo, db:string, user:string, pass:string): bool =
     digest = pass_digest(user,pass)
@@ -591,6 +609,29 @@ Cursor = {{
   // TODO: indexes
   // TODO: replica sets
   // TODO: backups
+
+}}
+
+Indexes = {{
+
+  _Unique = 0x00000001
+  _DropDups = 0x00000002
+  _Background = 0x00000004
+  _Sparse = 0x00000008
+
+  create_index(m:mongo, ns:string, key:RPC.Bson.bson, options:int): bool =
+    keys = Bson.keys(key)
+    name = "_"^(String.concat("",keys))
+    do println("name={name}")
+    b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],
+                      (if Bitwise.land(options,_Unique) != 0 then [{Boolean=("unique",true)}] else []),
+                      (if Bitwise.land(options,_DropDups) != 0 then [{Boolean=("dropDups",true)}] else []),
+                      (if Bitwise.land(options,_Background) != 0 then [{Boolean=("background",true)}] else []),
+                      (if Bitwise.land(options,_Sparse) != 0 then [{Boolean=("sparse",true)}] else [])])
+    do println("b={b}")
+    idxns=(match String.index(".",ns) with | {some=p} -> String.substring(0,p,ns) | {none} -> ns)^".system.indexes"
+    do println("idxns={idxns}")
+    Mongo.insert(m,0,idxns,b)
 
 }}
 
@@ -660,6 +701,16 @@ _ =
   do println("drop={drop}")
   res = Cursor.check_connection(mongo)
   do println("check_connection={res}")
+  key = [{Int32=("age",1)}, {Int32=("name",1)}]
+  success = Indexes.create_index(mongo,"tutorial.people",key,0)
+  do println("create_index={success}")
+  doc = Cursor.find_one(mongo,"tutorial.system.indexes",[{Document=("key",key)}],{none})
+  do println("doc={doc}")
+  key = [{Int32=("fog",1)}]
+  success = Indexes.create_index(mongo,"test.bar",key,(Indexes._Sparse+Indexes._Unique))
+  do println("create_index={success}")
+  doc = Cursor.find_one(mongo,"test.system.indexes",[{Document=("key",key)}],{none})
+  do println("doc={doc}")
   //do println("cursor={cursor}")
   do Mongo.close(mongo)
   void
