@@ -595,7 +595,7 @@ Cursor = {{
 }}
 
 /* Test code */
-/* */
+/*
 _ =
   mongo = Mongo.open(1024,"www.localhost.local",27017)
   //b = [{ObjectID=("_id",Mongo.oid_of_string("333333333333333333333333"))}, {String=("name","Joe1")}, {Int32=("age",44)}]
@@ -663,5 +663,5 @@ _ =
   //do println("cursor={cursor}")
   do Mongo.close(mongo)
   void
-/* */
+*/
 
