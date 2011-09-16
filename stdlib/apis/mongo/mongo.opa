@@ -82,7 +82,7 @@ type RPC.Bson.element =
 @opacapi
 type RPC.Bson.document = list(RPC.Bson.element)
 
-type mongo = {
+@abstract type Mongo.db = {
      conn : Socket.connection;
      mbuf : mongo_buf;
      mailbox : mailbox;
@@ -97,6 +97,7 @@ type Mongo.success = RPC.Bson.document
 
 type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
+@server_private
 Bson = {{
 
   /**
@@ -278,7 +279,7 @@ Bson = {{
 
 }}
 
-//@both <-- ??? why doesn't this work ???
+@server_private
 Mongo = {{
 
   /* Flags */
@@ -313,6 +314,9 @@ Mongo = {{
 
   /** Build OP_INSERT message in buffer **/
   @private insert_ = (%% BslMongo.Mongo.insert %%: mongo_buf, int, string, 'a -> void)
+
+  /** Build OP_INSERT message in buffer **/
+  @private insert_batch_ = (%% BslMongo.Mongo.insert_batch %%: mongo_buf, int, string, list('a) -> void)
 
   /** Build OP_UPDATE message in buffer **/
   @private update_ = (%% BslMongo.Mongo.update %%: mongo_buf, int, string, 'a, 'a -> void)
@@ -382,7 +386,7 @@ Mongo = {{
    *    - Allocate buffer of given size
    *    - Primitive error handling in case of mongo server malfunction
    **/
-  open(bufsize,addr,port): mongo =
+  open(bufsize:int, addr:string, port:int): Mongo.db =
     err_cont = Continuation.make((s:string ->
                                    do prerrln("Mongo.open: exn={s}")
                                    System.exit(-1)))
@@ -397,7 +401,7 @@ Mongo = {{
    * We are only concurrent-safe within a connection.
    * We need this to create a new buffer for each cursor.
    **/
-  copy(m:mongo): mongo =
+  copy(m:Mongo.db): Mongo.db =
     { conn=m.conn;
       mbuf = create_(m.bufsize);
       mailbox = new_mailbox_(m.bufsize);
@@ -409,7 +413,16 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  insert(m,flags,ns,documents): bool =
+  insert(m:Mongo.db, flags:int, ns:string, documents:RPC.Bson.document): bool =
+    do insert_(m.mbuf,flags,ns,documents)
+    send_no_reply(m,"insert")
+
+  /**
+   *  Send OP_INSERT with given collection name and multiple documents:
+   *    - no reply expected
+   *    - returns a bool indicating success or failure
+   **/
+  insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(RPC.Bson.document)): bool =
     do insert_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
@@ -418,21 +431,22 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  update(m,flags,ns,selector,update): bool =
+  update(m:Mongo.db, flags:int, ns:string, selector:RPC.Bson.document, update:RPC.Bson.document): bool =
     do update_(m.mbuf,flags,ns,selector,update)
     send_no_reply(m,"update")
 
   /**
    *  Send OP_QUERY and get reply:
    **/
-  query(m,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt): option(reply) =
+  query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
+        query:RPC.Bson.document, returnFieldSelector_opt:option(RPC.Bson.document)): option(reply) =
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
 
   /**
    *  Send OP_GETMORE and get reply:
    **/
-  get_more(m,ns,numberToReturn,cursorID): option(reply) =
+  get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:cursorID): option(reply) =
     do get_more_(m.mbuf,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
 
@@ -441,7 +455,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  delete(m,flags,ns,selector): bool =
+  delete(m:Mongo.db, flags:int, ns:string, selector:RPC.Bson.document): bool =
     do delete_(m.mbuf,flags,ns,selector)
     send_no_reply(m,"delete")
 
@@ -450,7 +464,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  kill_cursors(m,cursors:list(cursorID)): bool =
+  kill_cursors(m:Mongo.db, cursors:list(cursorID)): bool =
     do kill_cursors_(m.mbuf,cursors)
     send_no_reply(m,"kill_cursors")
 
@@ -459,14 +473,14 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  msg(m,msg): bool =
+  msg(m:Mongo.db, msg:string): bool =
     do msg_(m.mbuf,msg)
     send_no_reply(m,"msg")
 
   /**
    *  Close mongo connection and deallocate buffer.
    **/
-  close(m) =
+  close(m:Mongo.db) =
     do Socket.close(m.conn)
     do reset_(m.mbuf)
     do reset_mailbox_(m.mailbox)
@@ -475,7 +489,7 @@ Mongo = {{
   /**
    *  Close mongo copy, deallocate buffer but leave connection open.
    **/
-  close_copy(m) =
+  close_copy(m:Mongo.db) =
     do reset_(m.mbuf)
     do reset_mailbox_(m.mailbox)
     void
@@ -518,7 +532,7 @@ Mongo = {{
  *     kill_cursors call to the server to clean up.
  **/
 type cursor = {
-     mongo : mongo;
+     mongo : Mongo.db;
      ns : string;
      flags : int;
      skip : int;
@@ -535,6 +549,7 @@ type cursor = {
      error : string
 }
 
+@server_private
 Cursor = {{
 
   @private
@@ -546,7 +561,7 @@ Cursor = {{
    *   {b Warning:} Note that each time you create a cursor it generates buffers to talk to
    *   the MongoDB server.  Remember to cleanup cursor objects with [Cursor.reset].
    **/
-  init(mongo:mongo, ns:string): cursor =
+  init(mongo:Mongo.db, ns:string): cursor =
   { mongo = Mongo.copy(mongo);
     ~ns;
     flags = 0;
@@ -714,7 +729,7 @@ Cursor = {{
    * Create and initialise cursor with given query and default options.
    * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
    **/
-  start(m:mongo, ns:string, query:RPC.Bson.document): cursor =
+  start(m:Mongo.db, ns:string, query:RPC.Bson.document): cursor =
     c = Cursor.init(m,ns)
     c = Cursor.set_query(c,{some=query})
     Cursor.next(c)
@@ -733,7 +748,7 @@ Cursor = {{
    * The cursor value is then returned, you can then use [Cursor.next] to
    * scan along form there.
    **/
-  find(m:mongo, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document),
+  find(m:Mongo.db, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document),
        limit:int, skip:int, flags:int): outcome(cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
@@ -767,7 +782,7 @@ Cursor = {{
    *
    * Creates and destroys a cursor.
    **/
-  find_one(m:mongo, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document)): Mongo.result =
+  find_one(m:Mongo.db, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document)): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -795,7 +810,7 @@ Cursor = {{
    * Normally you will get {ok: 0/1} as a reply but sometimes there
    * are other elements in the reply.
    **/
-  run_command(m:mongo, ns:string, command:RPC.Bson.document): Mongo.result =
+  run_command(m:Mongo.db, ns:string, command:RPC.Bson.document): Mongo.result =
     match find_one(m, ns^".$cmd", command, {none}) with
     | {success=bson} -> check_ok(bson)
     | {~failure} -> {~failure}
@@ -803,19 +818,19 @@ Cursor = {{
   /**
    * Perform a simple integer command, eg. [{ ping : 1 }]
    **/
-  simple_int_command(m:mongo, ns:string, cmd:string, arg:int): Mongo.result =
+  simple_int_command(m:Mongo.db, ns:string, cmd:string, arg:int): Mongo.result =
     run_command(m, ns, [{Int32=(cmd,arg)}])
 
   /**
    * Perform a simple integer command, eg. [{ drop : "collection" }]
    **/
-  simple_str_command(m:mongo, ns:string, cmd:string, arg:string): Mongo.result =
+  simple_str_command(m:Mongo.db, ns:string, cmd:string, arg:string): Mongo.result =
     run_command(m, ns, [{String=(cmd,arg)}])
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
    **/
-  check_connection(m:mongo): outcome(bool,Mongo.failure) =
+  check_connection(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ping", 1) with
     | {success=_} -> {success=true}
     | {~failure} -> {~failure}
@@ -823,19 +838,19 @@ Cursor = {{
   /**
    * Drop a database
    **/
-  drop_db(m:mongo, db:string): Mongo.result =
+  drop_db(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "dropDatabase", 1)
 
   /**
    * Drop a collection from a database [drop_collection("db","collection")]
    **/
-  drop_collection(m:mongo, db:string, collection:string): Mongo.result =
+  drop_collection(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "drop", collection)
 
   /**
    * Call a "reseterror" command.
    **/
-  reset_error(m:mongo, db:string): Mongo.result =
+  reset_error(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "reseterror", 1)
 
   @private
@@ -856,7 +871,7 @@ Cursor = {{
    * a database will be able to overrun the OCaml restriction, so the value is
    * just an int.
    **/
-  count(m:mongo, db:string, ns:string, query_opt:option(RPC.Bson.document)): outcome(int,Mongo.failure) =
+  count(m:Mongo.db, db:string, ns:string, query_opt:option(RPC.Bson.document)): outcome(int,Mongo.failure) =
     cmd = List.flatten([[{String=("count",ns)}],
                         (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
     match run_command(m, db, cmd) with
@@ -866,7 +881,7 @@ Cursor = {{
   /**
    * Predicate for master status.
    **/
-  ismaster(m:mongo): outcome(bool,Mongo.failure) =
+  ismaster(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ismaster", 1) with
     | {success=bson} ->
       (match Bson.find(bson,"ismaster") with
@@ -880,7 +895,7 @@ Cursor = {{
    * Authentication: [add_user(mongo, "db", "user", "pass")] creates a
    * user for the given db.
    **/
-  add_user(m:mongo, db:string, user:string, pass:string): bool =
+  add_user(m:Mongo.db, db:string, user:string, pass:string): bool =
     digest = pass_digest(user,pass)
     bselector = [{String=("user",user)}]
     bupdate = [{Document=("$set",[{String=("pwd",digest)}])}]
@@ -891,7 +906,7 @@ Cursor = {{
    *
    * The password must match the users password.
    **/
-  authenticate(m:mongo, db:string, user:string, pass:string): Mongo.result =
+  authenticate(m:Mongo.db, db:string, user:string, pass:string): Mongo.result =
     match simple_int_command(m, db, "getnonce", 1) with
     | {success=bson} ->
       (match Bson.find(bson,"nonce") with
@@ -905,6 +920,7 @@ Cursor = {{
 
 }}
 
+@server_private
 Indexes = {{
 
   /**
@@ -920,7 +936,7 @@ Indexes = {{
    *
    * [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
    **/
-  create_index(m:mongo, ns:string, key:RPC.Bson.document, options:int): bool =
+  create_index(m:Mongo.db, ns:string, key:RPC.Bson.document, options:int): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
     b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],
@@ -934,7 +950,7 @@ Indexes = {{
   /**
    * Simpler version of the [create_index] function, for a single named field.
    **/
-  create_simple_index(m:mongo, ns:string, field:string, options:int): bool =
+  create_simple_index(m:Mongo.db, ns:string, field:string, options:int): bool =
     create_index(m, ns, [{Int32=(field,1)}], options)
 
 }}
