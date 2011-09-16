@@ -76,6 +76,9 @@ type RPC.Bson.bson0('bson) =
 @opacapi
 type RPC.Bson.bson = list(RPC.Bson.bson0(RPC.Bson.bson))
 
+/** Convenience type **/
+type element = RPC.Bson.bson0(RPC.Bson.bson)
+
 type mongo = {
      conn : Socket.connection;
      mbuf : mongo_buf;
@@ -93,6 +96,27 @@ type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
 Bson = {{
 
+  /**
+   * Type codes as per BSON spec.
+   **/
+  tEoo = 0x00
+  tDouble = 0x01
+  tString = 0x02
+  tDocument = 0x03
+  tArray = 0x04
+  tBinary = 0x05
+  tObjectID = 0x07
+  tBoolean = 0x08
+  tDate = 0x09
+  tNull = 0x0a
+  tRegexp = 0x0b
+  tCode = 0x0d
+  tSymbol = 0x0e
+  tCodeScope = 0x0f
+  tInt32 = 0x10
+  tTimestamp = 0x11
+  tInt64 = 0x12
+
   /** Convenience function, dump string as hex and ascii */
   dump = (%% BslMongo.Bson.dump %%: int, string -> string)
 
@@ -106,55 +130,148 @@ Bson = {{
   oid_to_string = (%% BslMongo.Bson.oid_to_string %%: string -> string)
 
   /**
+   * Return the type number (BSON) of an element.
+   **/
+  etype(b0:element): int =
+    match b0 with
+    | {Double=(_, _)} -> tDouble
+    | {String=(_, _)} -> tString
+    | {Document=(_, _)} -> tDocument
+    | {Array=(_, _)} -> tArray
+    | {Binary=(_, _)} -> tBinary
+    | {ObjectID=(_, _)} -> tObjectID
+    | {Boolean=(_, _)} -> tBoolean
+    | {Date=(_, _)} -> tDate
+    | {Null=(_, _)} -> tNull
+    | {Regexp=(_, _)} -> tRegexp
+    | {Code=(_, _)} -> tCode
+    | {Symbol=(_, _)} -> tSymbol
+    | {CodeScope=(_, _)} -> tCodeScope
+    | {Int32=(_, _)} -> tInt32
+    | {Timestamp=(_, _)} -> tTimestamp
+    | {Int64=(_, _)} -> tInt64
+
+  /**
+   * Return the key of an element.
+   **/
+  key(b0:element): string =
+    match b0 with
+    | { Double=(key, _) } -> key
+    | { String=(key, _) } -> key
+    | { Document=(key, _) } -> key
+    | { Array=(key, _) } -> key
+    | { Binary=(key, _) } -> key
+    | { ObjectID=(key, _) } -> key
+    | { Boolean=(key, _) } -> key
+    | { Date=(key, _) } -> key
+    | { Null=(key, _) } -> key
+    | { Regexp=(key, _) } -> key
+    | { Code=(key, _) } -> key
+    | { Symbol=(key, _) } -> key
+    | { CodeScope=(key, _) } -> key
+    | { Int32=(key, _) } -> key
+    | { Timestamp=(key, _) } -> key
+    | { Int64=(key, _) } -> key
+
+  /**
+   * Find an element by key in a bson object.
+   **/
+  find_element(bson:RPC.Bson.bson, name:string): option(element) =
+    List.find((b0 -> key(b0) == name),bson)
+
+  /**
    * Find key of given name in bson object.
    * We only look at the current level, mostly it's for finding
    * "ok" or "errval" etc. in replies.
    **/
   find(bson:RPC.Bson.bson, name:string): option(RPC.Bson.bson) =
-    Option.map((b -> [b]),
-               List.find((b ->
-                            match b with
-                            | { Double=(key, _) } -> key == name
-                            | { String=(key, _) } -> key == name
-                            | { Document=(key, _) } -> key == name
-                            | { Array=(key, _) } -> key == name
-                            | { Binary=(key, _) } -> key == name
-                            | { ObjectID=(key, _) } -> key == name
-                            | { Boolean=(key, _) } -> key == name
-                            | { Date=(key, _) } -> key == name
-                            | { Null=(key, _) } -> key == name
-                            | { Regexp=(key, _) } -> key == name
-                            | { Code=(key, _) } -> key == name
-                            | { Symbol=(key, _) } -> key == name
-                            | { CodeScope=(key, _) } -> key == name
-                            | { Int32=(key, _) } -> key == name
-                            | { Timestamp=(key, _) } -> key == name
-                            | { Int64=(key, _) } -> key == name),
-                         bson))
+    Option.map((b -> [b]),find_element(bson, name))
+
+  /**
+   * Some type-specific versions of [find], search for [key]
+   * in [bson] object and return required type, if possible.
+   * Note that if the key exists but is of the wrong type
+   * then you will still get [\{none\}].
+   **/
+
+  find_bool(bson:RPC.Bson.bson, name:string): option(bool) =
+    match find(bson, name) with
+    | {some=[{Boolean=(_,tf)}]} -> {some=tf}
+    | _ -> {none}
+
+  find_int(bson:RPC.Bson.bson, name:string): option(int) =
+    match find(bson, name) with
+    | {some=[{Int32=(_,i)}]} -> {some=i}
+    | {some=[{Int64=(_,i)}]} -> {some=i}
+    | {some=[{Double=(_,d)}]} -> {some=Float.to_int(d)}
+    | _ -> {none}
+
+  find_string(bson:RPC.Bson.bson, name:string): option(string) =
+    match find(bson, name) with
+    | {some=[{String=(_,str)}]} -> {some=str}
+    | _ -> {none}
+
+  find_doc(bson:RPC.Bson.bson, name:string): option(RPC.Bson.bson) =
+    match find(bson, name) with
+    | {some=[{Document=(_,doc)}]} -> {some=doc}
+    | _ -> {none}
+
+  /**
+   * Return the type of a matching Bson key.
+   **/
+  find_type(bson:RPC.Bson.bson, name:string): option(int) = Option.map(etype,find_element(bson,name))
 
   /**
    * Return a list of the keys in a bson object.
    **/
-  keys(bson:RPC.Bson.bson): list(string) =
-    List.map((b ->
-               match b with
-               | { Double=(key, _) } -> key
-               | { String=(key, _) } -> key
-               | { Document=(key, _) } -> key
-               | { Array=(key, _) } -> key
-               | { Binary=(key, _) } -> key
-               | { ObjectID=(key, _) } -> key
-               | { Boolean=(key, _) } -> key
-               | { Date=(key, _) } -> key
-               | { Null=(key, _) } -> key
-               | { Regexp=(key, _) } -> key
-               | { Code=(key, _) } -> key
-               | { Symbol=(key, _) } -> key
-               | { CodeScope=(key, _) } -> key
-               | { Int32=(key, _) } -> key
-               | { Timestamp=(key, _) } -> key
-               | { Int64=(key, _) } -> key),
-             bson)
+  keys(bson:RPC.Bson.bson): list(string) = List.map(key, bson)
+
+  /**
+   * Iterate over the elements in a bson object.
+   **/
+  iter(f:(element -> void), bson:RPC.Bson.bson) : void =
+    List.iter((b0 -> f(b0)),bson)
+
+  /**
+   * Map over the elements in a bson object.
+   **/
+  map(f:(element -> element), bson:RPC.Bson.bson) : RPC.Bson.bson =
+    List.map((b0 -> f(b0)),bson)
+
+  /**
+   * Fold over the elements in a bson object.
+   **/
+  fold(f:(element, 'a -> 'a), bson:RPC.Bson.bson, acc:'a) : 'a =
+    List.fold((b0, acc -> f(b0, acc)),bson,acc)
+
+  /**
+   * Attempt to turn a bson element into a string which looks like
+   * the mongo shell syntax.
+   * Note: still only partial.
+   **/
+  rec string_of_element(element:element): string =
+    match element with
+    | {Double=(k, v)} -> "\{ \"{k}\" : Double {v} \}"
+    | {String=(k, v)} -> "\{ \"{k}\" : String {v} \}"
+    | {Document=(k, v)} -> "\{ \"{k}\" : Document {string_of_bson(v)} \}"
+    | {Array=(k, v)} -> "\{ \"{k}\" : Array {string_of_bson(v)} \}"
+    | {Binary=(k, v)} -> "\{ \"{k}\" : Binary {v} \}"
+    | {ObjectID=(k, v)} -> "\{ \"{k}\" : ObjectID {oid_to_string(v)} \}"
+    | {Boolean=(k, v)} -> "\{ \"{k}\" : Boolean {v} \}"
+    | {Date=(k, v)} -> "\{ \"{k}\" : Date {v} \}"
+    | {Null=(k, v)} -> "\{ \"{k}\" : Null {v} \}"
+    | {Regexp=(k, v)} -> "\{ \"{k}\" : Regexp {v} \}"
+    | {Code=(k, v)} -> "\{ \"{k}\" : Code {v} \}"
+    | {Symbol=(k, v)} -> "\{ \"{k}\" : Symbol {v} \}"
+    | {CodeScope=(k, v)} -> "\{ \"{k}\" : CodeScope {v} \}"
+    | {Int32=(k, v)} -> "\{ \"{k}\" : Int32 {v} \}"
+    | {Timestamp=(k, (t,i))} -> "\{ \"{k}\" : Timestamp \{ \"t\" : {t}, \"i\" : {i} \}\}"
+    | {Int64=(k, v)} -> "\{ \"{k}\" : Int64 {v} \}"
+
+  /**
+   * Same for a bson object (just a list of elements).
+   **/
+  string_of_bson(bson:RPC.Bson.bson): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
 
 }}
 
@@ -588,6 +705,21 @@ Cursor = {{
                 doc=(match Mongo.reply_document(Option.get(c.reply),c.current) with
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
+
+
+  /**
+   * Create and initialise cursor with given query and default options.
+   * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
+   **/
+  start(m:mongo, ns:string, query:RPC.Bson.bson): cursor =
+    c = Cursor.init(m,ns)
+    c = Cursor.set_query(c,{some=query})
+    Cursor.next(c)
+
+  /**
+   * Test if there is still data in a cursor.
+   **/
+  valid(c:cursor): bool = not(c.killed) && c.query_sent && (c.returned > 0 && (c.current <= c.returned))
 
   /**
    * Full find function with all parameters.
