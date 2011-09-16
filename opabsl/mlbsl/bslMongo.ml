@@ -258,6 +258,16 @@ let insert m f ns (bson:'a) =
   Mongo.bson_finish m;
   Mongo.finish m
 
+##register insert_batch: mongo_buf, int, string, opa[list('a)] -> void
+let insert_batch m f ns (bsons:'a) =
+  let (bsons:opa_rpc_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
+  Mongo.start_insert m 0l f ns;
+  List.iter (fun bson ->
+               Mongo.bson_init m;
+               Bson.serialize bson m;
+               Mongo.bson_finish m) bsons;
+  Mongo.finish m
+
 ##register update: mongo_buf, int, string, 'a, 'a -> void
 let update m flags ns selector update =
   let (selector:opa_rpc_bson_document) = Obj.magic selector in
