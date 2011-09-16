@@ -45,6 +45,8 @@ import stdlib.crypto
 
 /**
  * A record used to represent the path to a database.
+ * @param location The adress of the Couchdb server
+ * @param name The name of the table.
  */
 type CouchDb.db_infos = {
   location : string
@@ -182,7 +184,9 @@ CouchDb = {{
    */
 
   Database = {{
+
     /**
+     * Example: [list_all(auth, host)]
      * @param host The location of the couchdb server.
      */
     list_all(auth, host) = really_get(auth, host, "_all_dbs", {none})
@@ -251,6 +255,7 @@ CouchDb = {{
       really_get(auth, the_db.location, "{the_db.name}/{doc_name}", {some = rev})
 
     /**
+     * Example: [get_attachment(auth, dbinfos, docid, name)]
      * @param name of the attached file.
      */
     get_attachment(auth, the_db : CouchDb.db_infos, docname : CouchDb.doc_id,
@@ -273,6 +278,7 @@ CouchDb = {{
      */
 
     /**
+     * Example: [post(auth, dbinfos, content)]
      * @param content The json document to insert in the db
      */
     post(auth, the_db : CouchDb.db_infos, document) : CouchDb.result =
@@ -292,12 +298,13 @@ CouchDb = {{
               {success = {FormatedJson = (code, response)}}
 
     /**
+     * Example: [put(auth, dbinfos, docid, document)]
+     * @param document The json document to insert in the db
+     *
      * N.B. when updating, the document must contain a "_rev" field set to the
      * last revision number of the document (which you can get with a head
      * request, for example).
      * Otherwise couchdb will say that there's a conflict.
-     *
-     * @param document −
      */
     put(auth, the_db:CouchDb.db_infos, doc_name:CouchDb.doc_id, document) : CouchDb.result =
       path = "{the_db.name}/{doc_name}"
@@ -305,6 +312,7 @@ CouchDb = {{
       put_request_unserialize_result(auth,the_db.location,path,"application/json",content)
 
     /**
+     * Example: [put_attachment_at_revision(auth, dbinfos, docid, rev, name, mimetype, content)]
      * @param name of the attached file
      * @param mimetype of the attached file
      * @param content of the attached file
@@ -316,6 +324,7 @@ CouchDb = {{
       put_request_unserialize_result(auth, the_db.location, path, mimetype, content)
 
     /**
+     * Example: [copy(auth, dbinfos, src, dst)]
      * @param src id of the document to copy
      * @param dst id of the new document
      */
@@ -359,6 +368,7 @@ CouchDb = {{
       delete_request(auth, the_db.location, "{the_db.name}/{docid}?rev={rev}")
 
     /**
+     * Example: [delete_attachment(auth, dbinfos, docid, rev, name)]
      * @param name of the attachment
      */
     delete_attachment(auth, the_db : CouchDb.db_infos, docid : CouchDb.doc_id,
@@ -373,18 +383,21 @@ CouchDb = {{
 
   Misc = {{
     /**
+     * Example: [get_root(auth, host)]
      * @param host address of the couchdb server.
      */
     get_root(auth : CouchDb.authentication_method, host) : CouchDb.result =
       really_get(auth, host, "", {none})
 
     /**
+     * Example: [get_active_tasks(auth, host)]
      * @param host address of the couchdb server.
      */
     get_active_tasks(a : CouchDb.authentication_method, h) : CouchDb.result =
       really_get(a, h, "_active_tasks", {none})
 
     /**
+     * Example: [get_log_tail(auth, host)]
      * @param host address of the couchdb server.
      * @param len an option of the number of bytes to retrieve
      */
@@ -398,11 +411,13 @@ CouchDb = {{
    */
 
   Session = {{
+
     /**
+     * Example: [log_in(host, username, password)]
      * @param host address of the couchdb server.
      * @param username −
      * @param password −
-     * @return The record {Login = ({Session = cookie}, jsonCtx)} when login succeed.
+     * @return [{Login = ({Session = cookie}, jsonCtx)}] when login succeed.
      */
     log_in(host, user:string, pass:string) : CouchDb.result =
       match gen_uri(host, "_session")
@@ -422,6 +437,7 @@ CouchDb = {{
               | otherwise -> {failure = {Other = "{otherwise}"}}
 
     /**
+     * Example: [log_out(auth, host)]
      * @param host −
      */
     log_out(auth : CouchDb.authentication_method, host) : CouchDb.result =
@@ -430,6 +446,7 @@ CouchDb = {{
       | _ -> {failure = {NotLoggedIn}}
 
     /**
+     * Example: [infos(auth, host]
      * @param host −
      */
     infos(auth : CouchDb.authentication_method, host) : CouchDb.result =
