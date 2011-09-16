@@ -293,6 +293,12 @@ icon16 = css
 .selected .icon.icon-volume-off, .icon.icon-volume-off, .icon.icon-volume-off:hover { background-position: -224px -128px; }
 .selected .icon.icon-volume-on, .icon.icon-volume-on, .icon.icon-volume-on:hover { background-position: -240px -128px; }
 
+/* mail */
+.selected .icon.icon-compose, .icon.icon-compose, .icon.icon-compose:hover { background-position: 0 -144px; }
+.selected .icon.icon-inbox, .icon.icon-inbox, .icon.icon-inbox:hover { background-position: -16px -144px; }
+.selected .icon.icon-archive, .icon.icon-archive, .icon.icon-archive:hover { background-position: -32px -144px; }
+.selected .icon.icon-reply, .icon.icon-reply, .icon.icon-reply:hover { background-position: -48px -144px; }
+.selected .icon.icon-sent, .icon.icon-sent, .icon.icon-sent:hover { background-position: -64px -144px; }
 
 @private
 icon32 = css
@@ -513,6 +519,13 @@ icon32 = css
 .selected .icon32.icon-audio, .icon32.icon-audio, .icon32.icon-audio:hover { background-position: -416px -256px; }
 .selected .icon32.icon-volume-off, .icon32.icon-volume-off, .icon32.icon-volume-off:hover { background-position: -448px -256px; }
 .selected .icon32.icon-volume-on, .icon32.icon-volume-on, .icon32.icon-volume-on:hover { background-position: -480px -256px; }
+
+/* mail */
+.selected .icon32.icon-compose, .icon32.icon-compose, .icon32.icon-compose:hover { background-position: 0 -288px; }
+.selected .icon32.icon-inbox, .icon32.icon-inbox, .icon32.icon-inbox:hover { background-position: -32px -288px; }
+.selected .icon32.icon-archive, .icon32.icon-archive, .icon32.icon-archive:hover { background-position: -64px -288px; }
+.selected .icon32.icon-reply, .icon32.icon-reply, .icon32.icon-reply:hover { background-position: -96px -288px; }
+.selected .icon32.icon-sent, .icon32.icon-sent, .icon32.icon-sent:hover { background-position: -128px -288px; }
 
 
 /* register resources */
