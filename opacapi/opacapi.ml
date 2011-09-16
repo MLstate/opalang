@@ -428,7 +428,8 @@ struct
     module Bson =
     struct
       let (!!) s = !! ("Bson." ^ s)
-      let bson = !! "bson"
+      let document = !! "document"
+      let element = !! "element"
     end
   end
 
