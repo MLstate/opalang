@@ -24,7 +24,9 @@
  * It also includes several sets of icons.
  *
  * {2 Where should I start}
- * The only thing you need to do is to import this package
+ * If you want to use the legacy version (1.1.1), just import this package.
+ * Otherwise, call : Bootstrap.import(A_CERTAIN_VERSION) before launching your server.
+ * /!\ We do not check if the version you gave is correct or not /!\
  *
  * {3 How to use icons}
  * There are different sizes:
@@ -533,11 +535,23 @@ icon32 = css
 _ = Client_code.register_css_declaration([icon16,icon32])
 
 @private
-version = "1.1.1" // use a Reference in order to modify it at runtime?
-_ = Resource.register_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{version}.min.css")
+compute_version_url(v:string) =
+  // Old URL
+  if String.le(v, "1.2.0") then "http://twitter.github.com/bootstrap/assets/css/bootstrap-{v}.min.css"
+  // New URL
+  else "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
 
-Bootstrap = {
-  import(v) =
-    do Resource.unregister_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{version}.min.css")
-    Resource.register_external_css("http://twitter.github.com/bootstrap/assets/css/bootstrap-{v}.min.css")
-}
+@private
+version = ServerReference.create("1.1.1") : reference(string)
+_ = Resource.register_external_css(compute_version_url(Reference.get(version)))
+
+Bootstrap = {{
+  unimport() =
+    Resource.unregister_external_css(compute_version_url(Reference.get(version)))
+  import(v:string) =
+    // unregister the previous registered version
+    do unimport()
+    // set and register the new version to import
+    do Reference.set(version, v)
+    Resource.register_external_css(compute_version_url(v))
+}}
