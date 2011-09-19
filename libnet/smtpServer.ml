@@ -155,8 +155,8 @@ let make (_name:string) (opt:options) (_sched:Scheduler.t) : t =
                                rt_payload = ();
                              };
                 } in
-  let state = { SCC.server_domain = "smtp.localhost.local";
-                server_port = 2525;
+  let state = { SCC.server_domain = opt.opt_addr;
+                server_port = opt.opt_port;
                 hello_message = "";
                 client_domain = "";
                 callback = opt.opt_email_handler;
