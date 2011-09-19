@@ -124,6 +124,13 @@ type Session.how_send('message) =
         match selector with
         | { maker } -> { some = ThreadContext.get({current}) }
         | { sender } -> { none }
+        | { mixed } ->
+          context = ThreadContext.get({current})
+          match context.key
+          | { nothing } -> { none }
+          | _ -> { some = context }
+          end
+        end
       make(state, unser, handler, {none}, ctx, more, concurrent)
     : channel('msg)
 

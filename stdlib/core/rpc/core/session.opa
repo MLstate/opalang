@@ -152,6 +152,7 @@ type Session.basic_instruction =
 type Session.context_selector =
     {maker}    /* Takes the context of the creator of the session */
   / {sender}   /* Takes the context of the sender of the message  */
+  / {mixed}    /* As maker, when the context at creation is set (client or sender), otherwise sender  */
 
 /**
  * Type of sessions handlers.
