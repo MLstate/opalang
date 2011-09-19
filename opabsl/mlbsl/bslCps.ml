@@ -135,7 +135,7 @@ let loop_schedule _ = Scheduler.run BslScheduler.opa
   let dummy_cont = QmlCpsServerLib.cont_ml (fun x -> x)
 
   (** return always None *)
-##register [opacapi] thread_context : opa['g] -> option(opa['c])
+  ##register [opacapi] thread_context : opa['g] -> option(opa['c])
   let thread_context _ = None
 
   (** identity, ignore the context *)
@@ -148,22 +148,22 @@ let loop_schedule _ = Scheduler.run BslScheduler.opa
       (QmlCpsServerLib.cont_ml (fun () -> ()))
       f
 
-  ##register cps0_native : (-> 'b) -> (continuation('b) -> void)
+  ##register [opacapi] cps0_native : (-> 'b) -> (continuation('b) -> void)
   let cps0_native f = (fun k -> QmlCpsServerLib.return k (f ()))
 
-  ##register cps1_native : ('a -> 'b) -> ('a, continuation('b) -> void)
+  ##register [opacapi] cps1_native : ('a -> 'b) -> ('a, continuation('b) -> void)
   let cps1_native f = (fun x k -> QmlCpsServerLib.return k (f x))
 
-  ##register cps2_native : ('a, 'b -> 'c) -> ('a, 'b, continuation('c) -> void)
+  ##register [opacapi] cps2_native : ('a, 'b -> 'c) -> ('a, 'b, continuation('c) -> void)
   let cps2_native f = (fun x0 x1 k -> QmlCpsServerLib.return k (f x0 x1))
 
-  ##register cps3_native : ('a, 'b, 'c -> 'd) -> ('a, 'b, 'c, continuation('d) -> void)
+  ##register [opacapi]cps3_native : ('a, 'b, 'c -> 'd) -> ('a, 'b, 'c, continuation('d) -> void)
   let cps3_native f = (fun x0 x1 x2 k -> QmlCpsServerLib.return k (f x0 x1 x2))
 
-  ##register cps4_native : ('a, 'b, 'c, 'd -> 'e) -> ('a, 'b, 'c, 'd, continuation('e) -> void)
+  ##register [opacapi] cps4_native : ('a, 'b, 'c, 'd -> 'e) -> ('a, 'b, 'c, 'd, continuation('e) -> void)
   let cps4_native f = (fun x0 x1 x2 x3 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3))
 
-  ##register cps5_native : ('a, 'b, 'c, 'd, 'e -> 'f) -> ('a, 'b, 'c, 'd, 'e, continuation('f) -> void)
+  ##register [opacapi] cps5_native : ('a, 'b, 'c, 'd, 'e -> 'f) -> ('a, 'b, 'c, 'd, 'e, continuation('f) -> void)
   let cps5_native f = (fun x0 x1 x2 x3 x4 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3 x4))
 
 ##endmodule

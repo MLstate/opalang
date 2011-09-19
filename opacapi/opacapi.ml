@@ -554,6 +554,12 @@ struct
       let (!!) s = !! ("Notcps_compatibility." ^ s)
       let thread_context = !! "thread_context"
       let dummy_cont = !! "dummy_cont"
+      let max_cps_native = 5
+      (* define an array of !! "cps%d_native" from min_cps_native to max_cps_native *)
+      let cps_native =
+        let cps_native_str arity = Printf.sprintf "cps%d_native" arity in
+        let array = Array.init (max_cps_native+1) (fun i -> !! (cps_native_str i)) in
+        fun arity -> array.(arity)
     end
   end
 

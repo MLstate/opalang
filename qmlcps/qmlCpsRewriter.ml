@@ -1792,12 +1792,12 @@ let no_cps_pass env code =
   let private_env = private_env_initial () in
   let bp_uncps = qml_bycps_call Opacapi.Opabsl.BslCps.uncps_native in
   (* can't use opacapi *)
-  let bp_cps i = qml_bycps_call (BslKey.normalize (Printf.sprintf "Notcps_compatibility.cps%d_native" i)) in
+  let bp_cps i = qml_bycps_call (Opacapi.Opabsl.BslCps.Notcps_compatibility.cps_native i) in
   let dummy_cont = qml_bycps_call Opacapi.Opabsl.BslCps.Notcps_compatibility.dummy_cont in
   let uncps expr =
     let ident = QmlAstCons.UntypedExpr.string "InsertedByNoCpsPass" in
     QmlAstCons.UntypedExpr.apply bp_uncps [ident; dummy_cont ;expr] in
-  let max_arity_projectable = 5 in (* the maximum defined in ByCps.not_cpscompatiblity *)
+  let max_arity_projectable = Opacapi.Opabsl.BslCps.Notcps_compatibility.max_cps_native in (* the maximum defined in ByCps.not_cpscompatiblity *)
   let cps key arity expr =
     if arity > max_arity_projectable then (
       OManager.serror "No cps pass can't project cps bypass %a which take functions with arity(=%d) > %d" BslKey.pp key arity max_arity_projectable;
