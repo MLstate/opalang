@@ -423,7 +423,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(RPC.Bson.document)): bool =
-    do insert_(m.mbuf,flags,ns,documents)
+    do insert_batch_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
   /**
