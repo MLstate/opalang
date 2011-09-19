@@ -37,28 +37,6 @@
 @private type Session.private.native('msg, 'ctx) = external
 
 /**
- * Used for select which context is given to the session action.
- * @see [llmake_more]
- */
-type Session.context_selector =
-  { maker } /
-  { sender }
-
-/**
- * Type of sessions handlers.
- */
-type Session.handler('state, 'message) =
-  { normal : 'state, 'message -> Session.instruction('state) } /
-  /** A normal handler, access to state on read/write. */
-
-  { basic : 'state, 'message -> Session.basic_instruction } /
-  /** A handler which can't be set the session state. Access to state
-   * on read only. */
-
-  { concurrent : 'state, 'message -> Session.basic_instruction }
-  /** Like basic handler but can be executed on concurrent way. */
-
-/**
  * Indicates to low level sending function how to send the message.
  */
 type Session.how_send('message) =

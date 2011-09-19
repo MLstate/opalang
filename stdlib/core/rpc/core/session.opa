@@ -136,16 +136,34 @@ type Session.NonBlocking.handler('state) =
    stop:       -> void
 }
 
-
-
 /**
  * An instruction for the session manager, related to session ends.
  *
  * This kind of instruction is used for session without state, allowing to specify when to kill this session.
  */
 type Session.basic_instruction =
-        {continue} /* Continue, don't stop this session */
-       / {stop}    /* Stop this session. Any further message will be ignored */
+    {continue} /* Continue, don't stop this session */
+  / {stop}     /* Stop this session. Any further message will be ignored */
+
+/**
+ * Used to select which context is given to the session action.
+ * @see [Session.make_generic]
+ */
+type Session.context_selector =
+    {maker}    /* Takes the context of the creator of the session */
+  / {sender}   /* Takes the context of the sender of the message  */
+
+/**
+ * Type of sessions handlers.
+ * @see [Session.make_generic]
+ */
+type Session.handler('state, 'message) =
+    { normal : 'state, 'message -> Session.instruction('state) }
+    /** A normal handler, access to state in read/write mode. */
+  / { basic : 'state, 'message -> Session.basic_instruction }
+    /** A handler for a read-only state. */
+  / { concurrent : 'state, 'message -> Session.basic_instruction }
+    /** Like basic handler but can be executed in a concurrent way. */
 
 @private type Session.private.channel('msg) = Session.private.native('msg, ThreadContext.t)
 
@@ -153,6 +171,8 @@ type Session.entity = external
 
 /* Order for channels */
 @abstract type Channel.order = void
+
+type channelset('a) = ordered_set(channel('a), Channel.order)
 
 /**
  * A partial order on channels
@@ -188,45 +208,61 @@ Session = {{
      * session, the message handler is invoked. Note that messages are sent and handled
      * asynchronously, but that the function handler will only handle one message at a time,
      * hence ensuring that the state can be updated without conflicts. If you need to handle
-     * several messages in parallel, you should rather use a {e loose session}.
+     * several messages in parallel, you should rather use functions in [Session.NonBlocking].
+     *
+     * @return A channel which may be used to send messages to the session.
+     *
+     * Note: [Session.make] uses the context of the creator of the session; if
+     * you need to use the context of the sender of the message, you should
+     * rather use [Session.make_dynamic] or [Session.make_generic].
+     */
+    make(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) : channel('message) =
+      make_generic_default(state, {normal = on_message})
+
+    /**
+     * Create a session with more customization.
+     *
+     * @param state The initial state of the session.
+     * @param message_handler The message handler for this session. When
+     * messages are sent to this session, the message handler is invoked, and
+     * the behavior depends on the type of message handler given (normal, basic,
+     * concurrent)
+     * @param selector A selector for the context of the session (maker or sender)
      *
      * @return A channel which may be used to send messages to the session.
      */
-    make(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
-      make_generic(state, {normal = on_message}) : channel('message)
-
-    /**
-     * Like [make] but the message handler of session will be executed
-     * with the thread context of message sender instead of session
-     * creator's context.
-     */
-    make_dynamic(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
+    make_generic(state : 'state, message_handler : Session.handler('state, 'message), selector : Session.context_selector) : channel('message) =
       unserialize = OpaSerialize.finish_unserialize(_, @typeval('message))
-      Session_private.llmake_more(state, unserialize, {normal = on_message}, {none}, {sender})
-    : channel('message)
+      Session_private.llmake_more(state, unserialize, message_handler, {none}, selector)
 
     /**
-     * As [make] but without state.
+     * An internal version of [make_generic] specialized to sender context
+     */
+    @private
+    make_generic_default(state : 'state, message_handler : Session.handler('state, 'message)) : channel('message) =
+      make_generic(state, message_handler, {maker})
+
+    /**
+     * Like [Session.make] but the message handler of the session will be
+     * executed with the thread context of the message sender instead of the
+     * session creator's context.
+     */
+    make_dynamic(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) : channel('message) =
+      make_generic(state, {normal = on_message}, {sender})
+
+    /**
+     * As [Session.make] but without state.
      */
     make_callback(on_message : ('message -> void)) : channel('message) =
       on_message_basic(_ : void, msg : 'message) = do on_message(msg); {continue} : Session.basic_instruction
-      make_generic(void, { basic = on_message_basic })
+      make_generic_default(void, { basic = on_message_basic })
 
     /**
-     * As [make_callback] but permits to precise when session ends.
+     * As [Session.make_callback] but permits to specify when session ends.
      */
     make_stateless(on_message : ('message -> Session.basic_instruction)) =
       on_message_basic(_ : void, msg : 'message) = on_message(msg) : Session.basic_instruction
-      make_generic(void, { basic = on_message_basic })
-
-    /**
-     * As [make] but allows to choose the session handler.
-     */
-    @private
-    make_generic(state : 'state, message_handler : Session.handler('state, 'message)) =
-      unserialize = OpaSerialize.finish_unserialize(_, @typeval('message))
-      Session_private.llmake(state, unserialize, message_handler) : channel('message)
-
+      make_generic_default(void, { basic = on_message_basic })
 
     /**
      * {2 Creating distributed sessions}
@@ -325,7 +361,7 @@ Session = {{
     *
     * Note: Automatic sharing between servers is activated only if your
     * application is executed with the "cloud" option (--cloud or the
-    * cloud launch script).
+    * opa-cloud launch script).
     *
     * When one or several servers invoke [Session.cloud(k)] with the same value [k], only one
     * session is actually created, on one of the participating servers (chosen arbitrarily) and
@@ -587,14 +623,14 @@ Session = {{
        */
       make_callback(on_message : ('message -> void)) : channel('message) =
         on_message_basic(_ : void, msg : 'message) = do on_message(msg); {continue} : Session.basic_instruction
-        make_generic(void, { concurrent = on_message_basic })
+        make_generic_default(void, { concurrent = on_message_basic })
 
       /**
        * As [make_stateless], but concurrent.
        */
       make_stateless(on_message : ('message -> Session.basic_instruction)) =
         on_message_basic(_ : void, msg : 'message) = on_message(msg) : Session.basic_instruction
-        make_generic(void, { concurrent = on_message_basic })
+        make_generic_default(void, { concurrent = on_message_basic })
 
     }}
 
