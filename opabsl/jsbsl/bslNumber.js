@@ -164,6 +164,7 @@
       }
   }
 
+##register round    \ `Math.round`   : float -> int
 ##register ceil     \ `Math.ceil`    : float -> float
 ##register floor    \ `Math.floor`   : float -> float
 
@@ -231,7 +232,6 @@
 
 ##register ceil    \ `Math.ceil`    : float -> float
 ##register floor   \ `Math.floor`   : float -> float
-##register round   \ `Math.round`   : float -> int
 
 ##register sin     \ `Math.sin`     : float -> float
 ##register cos     \ `Math.cos`     : float -> float
