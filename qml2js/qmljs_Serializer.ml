@@ -195,119 +195,175 @@ struct
     statements because statements in expression are in function definition only,
     which are statements not executed.
   *)
-  let is_side_effect_expr expr =
-    Return.set_checkpoint
-      (fun label ->
-         (* we NEED to go up to see Je_runtime TaggedString before seeing the surrounding call
-          * for instance in: [var _aze = register(TaggedString "option", some_tsc)]
-          * if we see [register], we will think there is a side effect,
-          * but we do NOT want it to be a root
-          * which is why we must see TaggedString first
-          *)
-         JsWalk.OnlyExpr.exists_up (
-           function
-           | J.Je_unop (_, unop, _) ->
-               JsAst.is_side_effect_unop unop
+  let is_register_expr expr =
+    JsWalk.OnlyExpr.exists (function
+    | J.Je_runtime (_, JsAstRuntime.TaggedString (_, (QmlAst.Rpc_def | QmlAst.Type_def)) ) -> true
+    | _ -> false) expr
 
-           | J.Je_binop (_, binop, _, _) ->
-               JsAst.is_side_effect_binop binop
 
-           | J.Je_call (_, f, _, pure) ->
-               not pure &&
-                 (match f with
-                  | J.Je_ident (_, J.ExprIdent ident) -> not (IdentSet.mem ident !pure_funs)
-                  | _ -> true)
+  let is_register_element elt =
+    JsWalk.OnlyStatement.exists (function
+      | J.Js_var (_, _, Some e)
+      | J.Js_return (_, Some e)
+      | J.Js_expr (_, e) -> is_register_expr e
+      | _ -> false
+    ) elt
 
-           | J.Je_runtime (_, e) -> (
-               match e with
-               | JsAstRuntime.SetDistant _ -> true
-               | JsAstRuntime.TaggedString (_, (QmlAst.Rpc_use | QmlAst.Type_use | QmlAst.Client_closure_use)) -> false
+  let is_pure = function
+    | J.ExprIdent ident -> IdentSet.mem ident !pure_funs
+    | _ -> false
 
-               (* registering a type name of a rpc doesn't count as a side effect or else you can't clean anything
-                * the runtime cleaning looks for more detailed dependencies to see if it will be kept or not *)
-               | JsAstRuntime.TaggedString (_, (QmlAst.Rpc_def | QmlAst.Type_def)) -> Return.return label false
-             )
+  let add_pure_funs = function
+    | J.ExprIdent ident -> pure_funs := IdentSet.add ident !pure_funs
+    | _ -> ()
 
-           | _ -> false
-         ) expr
-      )
+  let is_in_local_vars local_vars = function
+   | J.Je_ident(_,J.ExprIdent ident) -> IdentSet.mem ident local_vars
+   | J.Je_ident(_,J.Native( `local, str) )-> IdentSet.mem (Ident.source str) local_vars
+   | _ -> false
 
-  let is_side_effect elt =
-    JsWalk.OnlyStatement.self_traverse_exists (
-      fun self _tra stmt ->
-        match stmt with
-        | J.Js_var (_, _, None) ->
-            false
-        | J.Js_var (_, ident, Some expr) -> (
-            match ident, expr with
-            | J.ExprIdent ident, J.Je_function (_, _, _, body) ->
-                if not (List.exists self body) then pure_funs := IdentSet.add ident !pure_funs;
-                false
+  let add_local_vars local_vars = function
+    | J.ExprIdent ident -> IdentSet.add ident local_vars
+    | J.Native( `local, str) -> IdentSet.add (Ident.source str) local_vars
+    | _ -> local_vars
 
-            | _, expr ->
-                is_side_effect_expr expr
-          )
+  exception Return_true
+
+  (* side_effect comment :
+     if the side effect of an operator, changes a local variable there is no external (function) side-effect
+     since assignment op are widely used by the code generator to implement perfectly pure local environment
+     we need to handle this *)
+  let rec is_side_effect_expr ~local_vars expr =
+    JsWalk.OnlyExpr.exists (function
+    | J.Je_unop (_, unop, e) ->
+      JsAst.is_side_effect_unop unop && not(is_in_local_vars local_vars e)
+
+    | J.Je_binop (_, binop, e, _) ->
+       JsAst.is_side_effect_binop binop && not(is_in_local_vars local_vars e)
+
+    | J.Je_call (_, f, args, pure) ->
+      let side_effect_fun = match f with
+        | J.Je_ident (_, ident) when not pure -> not (is_pure ident)
+        (* applied anonymous function <=> block of code,
+           e.g. created by the code generator, to split big datastruture,
+           or toplevel val with local environment *)
+        | J.Je_function (_, _, _, body) -> is_side_effect ~local_vars body
+        | _ -> not pure
+      in side_effect_fun || List.exists (is_side_effect_expr ~local_vars) args
+
+    | J.Je_runtime (_, e) -> (
+      match e with
+      | JsAstRuntime.SetDistant _ -> true
+      | JsAstRuntime.TaggedString _ -> false
+    )
+
+    | _ -> false
+    ) expr
+
+  (* TODO, block statement in non toplevel mode *)
+  and is_side_effect_stmt ~toplevel ~local_vars stmt =
+    (* the problem with statement is that when you have {var x = 1; var y = 2}
+     * then in the ast, you do not say that it defines x
+     * (you can't even say it, you have only one definition for per code element in the ast)
+     * so these blocks look like they are never used, and get cleaned
+     * that's why toplevel statement having local_vars are considered as root (see snd_ ) *)
+    let snd_ = if toplevel
+      then fun (local_vars,b) ->  not(IdentSet.is_empty local_vars) || b
+      else snd
+    in
+    let se_opt_expr e = Option.default_map false (is_side_effect_expr ~local_vars) e in
+    let se_stmt stmt = snd_ (is_side_effect_stmt ~toplevel ~local_vars stmt) in
+    let se_opt_stmt stmt = Option.default_map false se_stmt stmt in
+    match stmt with
+        | J.Js_var (_, ident, expr) -> (
+          let _ = match expr with
+            | Some(J.Je_function (_, _, _, body)) when not(is_side_effect ~local_vars body) -> add_pure_funs ident;
+            | _ -> ()
+          in
+          add_local_vars local_vars ident, (match expr with
+          | Some(expr) ->  is_side_effect_expr ~local_vars expr
+          | None -> false)
+        )
 
         | J.Js_function (_, ident, _, body) ->
-            let ()=
-              match ident with
-              | J.ExprIdent ident ->
-                  if not (List.exists self body) then pure_funs := IdentSet.add ident !pure_funs
-              | _ -> ()
-            in
-            false
+          if not(is_side_effect body) then add_pure_funs ident;
+          add_local_vars local_vars ident,false
 
         | J.Js_return (_, Some e)
         | J.Js_expr (_, e) ->
-            is_side_effect_expr e
+          local_vars,is_side_effect_expr ~local_vars e
 
         (* this case aren't supposed to happen at toplevel, however they can appear
          * when looking at the body of a function *)
         | J.Js_return (_, None)
         | J.Js_break _
         | J.Js_continue _ ->
-            false
-
-        (*
-          The rest is currently not supposed to happens, because they are not toplevel elemts
-          generated by the js back-end, but may in the future be used (parsing and cleaning jsbsl)
-        *)
-        | J.Js_throw _ ->
-            true
+            local_vars,false
 
         | J.Js_comment _ ->
             (*
-              We want to keep all comments in debug mode, so we considerate them as root,
+              We want to keep all toplevel comments in debug mode, so we considerate them as root,
               the minimifier will removes comments anyway if the server is not in debug js.
             *)
-            true
-        | J.Js_switch _
-        | J.Js_if _
+            local_vars, toplevel
+
+        | J.Js_switch(_, e, cases, default) ->
+          let se_case (e,stmt) = se_stmt stmt
+                              || is_side_effect_expr ~local_vars e in
+          local_vars,
+          se_opt_stmt default
+          || is_side_effect_expr ~local_vars e
+          || List.exists se_case cases
+
+        | J.Js_if(_, e, then_, opt_else) ->
+          local_vars,
+          is_side_effect_expr ~local_vars e
+          || snd_ (is_side_effect_stmt ~toplevel ~local_vars then_)
+          || se_opt_stmt opt_else
+
+        | J.Js_dowhile(_, stmt, e)
+        | J.Js_while(_, e ,stmt)
+        | J.Js_with(_, e ,stmt) ->
+          local_vars,
+          is_side_effect_expr ~local_vars e
+          || snd_ (is_side_effect_stmt ~toplevel ~local_vars stmt)
+
+        | J.Js_for(_, oe1, oe2, oe3, stmt) ->
+          local_vars,
+          se_opt_expr oe1
+          || se_opt_expr oe2
+          || se_opt_expr oe3
+          || snd_ (is_side_effect_stmt ~toplevel ~local_vars stmt)
+
+
+        | J.Js_forin(_, e1, e2, stmt) ->
+          local_vars,
+          is_side_effect_expr ~local_vars e1
+          || is_side_effect_expr ~local_vars e2
+          || snd_ (is_side_effect_stmt ~toplevel ~local_vars stmt)
+
+        | J.Js_block(_, stmt_list) -> local_vars, List.exists se_stmt stmt_list
+
+        | J.Js_label _ -> local_vars, false
+
+        (*
+          The rest is currently not supposed to happens, because they are not elemts
+          generated by the js back-end, but may in the future be used (parsing and cleaning jsbsl)
+        *)
+        | J.Js_throw _
         | J.Js_trycatch _
-        | J.Js_for _
-        | J.Js_forin _
-        | J.Js_dowhile _
-        | J.Js_while _
-        | J.Js_block _
-        | J.Js_with _
-        | J.Js_label _
           ->
-            (* the problem is that when you have {var x = 1; var y = 2}
-             * then in the ast, you do not say that it defines x
-             * (you can't even say it, you have only one definition for per code element in the ast)
-             * so these blocks look like they are never used, and get cleaned
-             * FIXME: a better criteria for roots would be:
-             * - if there is a Js_var, then it is a root (precisely because we can't track
-             *   the dependency on this var)
-             * - if there is no Js_var, then it is a root only if it contains an expression doing
-             *   side effects
-                 (*
-                    We need to iter nonrec only on expr contained at toplevel of the statement.
-                  *)
-                JsWalk.ExprInStatement.exists_nonrec is_side_effect_expr stmt || tra stmt
-             *)
-            true
-    ) elt
+            (* TODO *)
+            local_vars,true
+
+  (* side effect on local vars are ignored *)
+  and is_side_effect ?(toplevel=false) ?(local_vars=IdentSet.empty) (elt:J.statement list) =
+    try
+      let (_,bool) = List.fold_left (fun (local_vars,bool) stmt -> if bool then raise Return_true
+        else is_side_effect_stmt ~toplevel ~local_vars stmt
+      ) (local_vars,false) elt
+      in bool
+    with Return_true -> true
 
   let serialize
       ~client_roots
@@ -354,10 +410,11 @@ struct
               | Verbatim _ -> def_kind in
             aux def_kind (h :: acc) t in
       aux `Nothing [] rev_list in
+    (* registering a type name of a rpc doesn't count as a side effect or else you can't clean anything
+     * the runtime cleaning looks for more detailed dependencies to see if it will be kept or not *)
     let root =
-      IdentSet.mem exprident client_roots || definition = `Nothing && is_side_effect elt
+      IdentSet.mem exprident client_roots || (definition = `Nothing && (is_side_effect ~toplevel:true [elt]) && not(is_register_element elt))
     in
-
     (*
       Adding key unicity for registration
     *)
