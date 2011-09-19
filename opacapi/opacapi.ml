@@ -425,12 +425,13 @@ struct
       let (!!) s = !! ("Json." ^ s)
       let json = !! "json"
     end
-    module Bson =
-    struct
-      let (!!) s = !! ("Bson." ^ s)
-      let document = !! "document"
-      let element = !! "element"
-    end
+  end
+
+  module Bson =
+  struct
+    let (!!) s = !! ("Bson." ^ s)
+    let document = !! "document"
+    let element = !! "element"
   end
 
   module ThreadContext =

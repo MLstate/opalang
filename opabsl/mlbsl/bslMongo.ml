@@ -19,7 +19,7 @@
 module C = QmlCpsServerLib
 open C.Ops
 
-##opa-type RPC.Bson.document
+##opa-type Bson.document
 ##extern-type bson_buf = Bson.buf
 ##extern-type mongo_buf = Mongo.mongo_buf
 ##extern-type cursorID = int64
@@ -80,13 +80,13 @@ let serialize bsons b =
                    (match BslNativeLib.ocaml_tuple_2 v with
                     | (key, value) ->
                         Bson.Append.start_object b key;
-                        aux (unwrap_opa_rpc_bson_document value);
+                        aux (unwrap_opa_bson_document value);
                         Bson.Append.finish_object b)
                | Some "Array" ->
                    (match BslNativeLib.ocaml_tuple_2 v with
                     | (key, value) ->
                         Bson.Append.start_array b key;
-                        aux (unwrap_opa_rpc_bson_document value);
+                        aux (unwrap_opa_bson_document value);
                         Bson.Append.finish_array b)
                | Some "Binary" ->
                    (match BslNativeLib.ocaml_tuple_2 v with
@@ -147,7 +147,7 @@ let serialize bsons b =
     in
     aux3 bsons
   in
-  aux (unwrap_opa_rpc_bson_document bsons)
+  aux (unwrap_opa_bson_document bsons)
 
 let field_fst       = ServerLib.static_field_of_name "f1"
 let field_snd       = ServerLib.static_field_of_name "f2"
@@ -236,9 +236,9 @@ let deserialize s =
      | c ->
          Printf.eprintf "Unknown Bson code: %c\n%!" c;
          assert false)
-  and auxn e i = make_cons (wrap_opa_rpc_bson_document e) (aux i (Bson.IteratorSS.next i))
+  and auxn e i = make_cons (wrap_opa_bson_document e) (aux i (Bson.IteratorSS.next i))
   in
-  wrap_opa_rpc_bson_document (aux i (Bson.IteratorSS.next i))
+  wrap_opa_bson_document (aux i (Bson.IteratorSS.next i))
 
 ##endmodule
 
@@ -247,11 +247,11 @@ let deserialize s =
 ##register create: int -> mongo_buf
 let create = Mongo.create
 
-(* AAAAAAARGHHHHHHH!!!!!! OPA just can't equate opa_rpc_bson_document with ServerLib.ty_record *)
+(* AAAAAAARGHHHHHHH!!!!!! OPA just can't equate opa_bson_document with ServerLib.ty_record *)
 
 ##register insert: mongo_buf, int, string, 'a -> void
 let insert m f ns (bson:'a) =
-  let (bson:opa_rpc_bson_document) = Obj.magic bson in
+  let (bson:opa_bson_document) = Obj.magic bson in
   Mongo.start_insert m 0l f ns;
   Mongo.bson_init m;
   Bson.serialize bson m;
@@ -260,7 +260,7 @@ let insert m f ns (bson:'a) =
 
 ##register insert_batch: mongo_buf, int, string, opa[list('a)] -> void
 let insert_batch m f ns (bsons:'a) =
-  let (bsons:opa_rpc_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
+  let (bsons:opa_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
   Mongo.start_insert m 0l f ns;
   List.iter (fun bson ->
                Mongo.bson_init m;
@@ -270,8 +270,8 @@ let insert_batch m f ns (bsons:'a) =
 
 ##register update: mongo_buf, int, string, 'a, 'a -> void
 let update m flags ns selector update =
-  let (selector:opa_rpc_bson_document) = Obj.magic selector in
-  let (update:opa_rpc_bson_document) = Obj.magic update in
+  let (selector:opa_bson_document) = Obj.magic selector in
+  let (update:opa_bson_document) = Obj.magic update in
   Mongo.start_update m 0l flags ns;
   Mongo.bson_init m;
   Bson.serialize selector m;
@@ -283,8 +283,8 @@ let update m flags ns selector update =
 
 ##register query: mongo_buf, int, string, int, int, 'a, option('a) -> void
 let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
-  let (query:opa_rpc_bson_document) = Obj.magic query in
-  let (returnFieldSelector_opt:opa_rpc_bson_document option) = Obj.magic returnFieldSelector_opt in
+  let (query:opa_bson_document) = Obj.magic query in
+  let (returnFieldSelector_opt:opa_bson_document option) = Obj.magic returnFieldSelector_opt in
   Mongo.start_query m 0l flags ns numberToSkip numberToReturn;
   Mongo.bson_init m;
   Bson.serialize query m;
@@ -304,7 +304,7 @@ let get_more m ns numberToReturn cursorID =
 
 ##register delete: mongo_buf, int, string, 'a -> void
 let delete m flags ns selector =
-  let (selector:opa_rpc_bson_document) = Obj.magic selector in
+  let (selector:opa_bson_document) = Obj.magic selector in
   Mongo.start_delete m 0l flags ns;
   Mongo.bson_init m;
   Bson.serialize selector m;
@@ -380,7 +380,7 @@ let reply_startingFrom = Mongo.reply_startingFrom
 ##register reply_numberReturned : reply -> int
 let reply_numberReturned = Mongo.reply_numberReturned 
 
-##register reply_document : reply, int -> option(RPC.Bson.document)
+##register reply_document : reply, int -> option(Bson.document)
 let reply_document (b,s,l) n =
   match Mongo.reply_document_pos (b,s,l) n with
   | Some (pos, size) -> Some (Bson.deserialize (BaseStringSlice.import (b.Buf.str,pos,size)))

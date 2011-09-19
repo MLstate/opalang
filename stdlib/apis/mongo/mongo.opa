@@ -58,11 +58,11 @@ type reply = external
  * These are called elements in BSON terminology.
  **/
 @opacapi
-type RPC.Bson.element =
+type Bson.element =
     { Double: (string, float) }
   / { String: (string, string) }
-  / { Document: (string, RPC.Bson.document) }
-  / { Array: (string, RPC.Bson.document) }
+  / { Document: (string, Bson.document) }
+  / { Array: (string, Bson.document) }
   / { Binary: (string, string) }
   / { ObjectID: (string, string) }
   / { Boolean: (string, bool) }
@@ -71,7 +71,7 @@ type RPC.Bson.element =
   / { Regexp: (string, (string, string)) }
   / { Code: (string, string) }
   / { Symbol: (string, string) }
-  / { CodeScope: (string, (string, RPC.Bson.document)) }
+  / { CodeScope: (string, (string, Bson.document)) }
   / { Int32: (string, int) }
   / { Timestamp: (string, (int, int)) }
   / { Int64: (string, int) }
@@ -80,7 +80,7 @@ type RPC.Bson.element =
  * The main exported type, a document is just a list of elements.
  */
 @opacapi
-type RPC.Bson.document = list(RPC.Bson.element)
+type Bson.document = list(Bson.element)
 
 @abstract type Mongo.db = {
      conn : Socket.connection;
@@ -91,9 +91,9 @@ type RPC.Bson.document = list(RPC.Bson.element)
 
 type Mongo.failure =
     {Error : string}
-  / {DocError : RPC.Bson.document}
+  / {DocError : Bson.document}
 
-type Mongo.success = RPC.Bson.document
+type Mongo.success = Bson.document
 
 type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
@@ -136,7 +136,7 @@ Bson = {{
   /**
    * Return the type number (BSON) of an element.
    **/
-  etype(b0:RPC.Bson.element): int =
+  etype(b0:Bson.element): int =
     match b0 with
     | {Double=(_, _)} -> tDouble
     | {String=(_, _)} -> tString
@@ -158,7 +158,7 @@ Bson = {{
   /**
    * Return the key of an element.
    **/
-  key(b0:RPC.Bson.element): string =
+  key(b0:Bson.element): string =
     match b0 with
     | { Double=(key, _) } -> key
     | { String=(key, _) } -> key
@@ -180,7 +180,7 @@ Bson = {{
   /**
    * Find an element by key in a bson object.
    **/
-  find_element(bson:RPC.Bson.document, name:string): option(RPC.Bson.element) =
+  find_element(bson:Bson.document, name:string): option(Bson.element) =
     List.find((b0 -> key(b0) == name),bson)
 
   /**
@@ -188,7 +188,7 @@ Bson = {{
    * We only look at the current level, mostly it's for finding
    * "ok" or "errval" etc. in replies.
    **/
-  find(bson:RPC.Bson.document, name:string): option(RPC.Bson.document) =
+  find(bson:Bson.document, name:string): option(Bson.document) =
     Option.map((b -> [b]),find_element(bson, name))
 
   /**
@@ -198,24 +198,24 @@ Bson = {{
    * then you will still get [\{none\}].
    **/
 
-  find_bool(bson:RPC.Bson.document, name:string): option(bool) =
+  find_bool(bson:Bson.document, name:string): option(bool) =
     match find(bson, name) with
     | {some=[{Boolean=(_,tf)}]} -> {some=tf}
     | _ -> {none}
 
-  find_int(bson:RPC.Bson.document, name:string): option(int) =
+  find_int(bson:Bson.document, name:string): option(int) =
     match find(bson, name) with
     | {some=[{Int32=(_,i)}]} -> {some=i}
     | {some=[{Int64=(_,i)}]} -> {some=i}
     | {some=[{Double=(_,d)}]} -> {some=Float.to_int(d)}
     | _ -> {none}
 
-  find_string(bson:RPC.Bson.document, name:string): option(string) =
+  find_string(bson:Bson.document, name:string): option(string) =
     match find(bson, name) with
     | {some=[{String=(_,str)}]} -> {some=str}
     | _ -> {none}
 
-  find_doc(bson:RPC.Bson.document, name:string): option(RPC.Bson.document) =
+  find_doc(bson:Bson.document, name:string): option(Bson.document) =
     match find(bson, name) with
     | {some=[{Document=(_,doc)}]} -> {some=doc}
     | _ -> {none}
@@ -223,29 +223,29 @@ Bson = {{
   /**
    * Return the type of a matching Bson key.
    **/
-  find_type(bson:RPC.Bson.document, name:string): option(int) = Option.map(etype,find_element(bson,name))
+  find_type(bson:Bson.document, name:string): option(int) = Option.map(etype,find_element(bson,name))
 
   /**
    * Return a list of the keys in a bson object.
    **/
-  keys(bson:RPC.Bson.document): list(string) = List.map(key, bson)
+  keys(bson:Bson.document): list(string) = List.map(key, bson)
 
   /**
    * Iterate over the elements in a bson object.
    **/
-  iter(f:(RPC.Bson.element -> void), bson:RPC.Bson.document) : void =
+  iter(f:(Bson.element -> void), bson:Bson.document) : void =
     List.iter((b0 -> f(b0)),bson)
 
   /**
    * Map over the elements in a bson object.
    **/
-  map(f:(RPC.Bson.element -> RPC.Bson.element), bson:RPC.Bson.document) : RPC.Bson.document =
+  map(f:(Bson.element -> Bson.element), bson:Bson.document) : Bson.document =
     List.map((b0 -> f(b0)),bson)
 
   /**
    * Fold over the elements in a bson object.
    **/
-  fold(f:(RPC.Bson.element, 'a -> 'a), bson:RPC.Bson.document, acc:'a) : 'a =
+  fold(f:(Bson.element, 'a -> 'a), bson:Bson.document, acc:'a) : 'a =
     List.fold((b0, acc -> f(b0, acc)),bson,acc)
 
   /**
@@ -253,7 +253,7 @@ Bson = {{
    * the mongo shell syntax.
    * Note: still only partial.
    **/
-  rec string_of_element(element:RPC.Bson.element): string =
+  rec string_of_element(element:Bson.element): string =
     match element with
     | {Double=(k, v)} -> "\{ \"{k}\" : Double {v} \}"
     | {String=(k, v)} -> "\{ \"{k}\" : String {v} \}"
@@ -275,7 +275,7 @@ Bson = {{
   /**
    * Same for a bson object (just a list of elements).
    **/
-  string_of_bson(bson:RPC.Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
+  string_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
 
 }}
 
@@ -413,7 +413,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  insert(m:Mongo.db, flags:int, ns:string, documents:RPC.Bson.document): bool =
+  insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
     do insert_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
@@ -422,7 +422,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(RPC.Bson.document)): bool =
+  insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
     do insert_batch_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
@@ -431,7 +431,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  update(m:Mongo.db, flags:int, ns:string, selector:RPC.Bson.document, update:RPC.Bson.document): bool =
+  update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
     do update_(m.mbuf,flags,ns,selector,update)
     send_no_reply(m,"update")
 
@@ -439,7 +439,7 @@ Mongo = {{
    *  Send OP_QUERY and get reply:
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
-        query:RPC.Bson.document, returnFieldSelector_opt:option(RPC.Bson.document)): option(reply) =
+        query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(reply) =
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
 
@@ -455,7 +455,7 @@ Mongo = {{
    *    - no reply expected
    *    - returns a bool indicating success or failure
    **/
-  delete(m:Mongo.db, flags:int, ns:string, selector:RPC.Bson.document): bool =
+  delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
     do delete_(m.mbuf,flags,ns,selector)
     send_no_reply(m,"delete")
 
@@ -505,7 +505,7 @@ Mongo = {{
   reply_numberReturned = (%% BslMongo.Mongo.reply_numberReturned %% : reply -> int)
 
   /** Return the n'th document attached to the reply **/
-  reply_document = (%% BslMongo.Mongo.reply_document %% : reply, int -> option(RPC.Bson.document))
+  reply_document = (%% BslMongo.Mongo.reply_document %% : reply, int -> option(Bson.document))
 
   /** Debug routine, export the internal representation of the reply **/
   export_reply = (%% BslMongo.Mongo.export_reply %%: reply -> string)
@@ -537,14 +537,14 @@ type cursor = {
      flags : int;
      skip : int;
      limit : int;
-     query : option(RPC.Bson.document);
-     fields : option(RPC.Bson.document);
+     query : option(Bson.document);
+     fields : option(Bson.document);
      query_sent : bool;
      cid : cursorID;
      reply : option(reply);
      returned : int;
      current : int;
-     doc : RPC.Bson.document;
+     doc : Bson.document;
      killed : bool;
      error : string
 }
@@ -587,8 +587,8 @@ Cursor = {{
   set_flags(c:cursor, flags:int): cursor = { c with ~flags }
   set_skip(c:cursor, skip:int): cursor = { c with ~skip }
   set_limit(c:cursor, limit:int): cursor = { c with ~limit }
-  set_query(c:cursor, query:option(RPC.Bson.document)): cursor = { c with ~query }
-  set_fields(c:cursor, fields:option(RPC.Bson.document)): cursor = { c with ~fields }
+  set_query(c:cursor, query:option(Bson.document)): cursor = { c with ~query }
+  set_fields(c:cursor, fields:option(Bson.document)): cursor = { c with ~fields }
 
   @private
   set_error(c:cursor, error:string): cursor = { c with ~error; killed={true} }
@@ -652,7 +652,7 @@ Cursor = {{
   /**
    * Return all the documents in the reply stored in a cursor.
    **/
-  all_documents(c:cursor): outcome(list(RPC.Bson.document), Mongo.failure) =
+  all_documents(c:cursor): outcome(list(Bson.document), Mongo.failure) =
     match c.reply with
     | {some=reply} ->
       rec aux(n:int) =
@@ -729,7 +729,7 @@ Cursor = {{
    * Create and initialise cursor with given query and default options.
    * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
    **/
-  start(m:Mongo.db, ns:string, query:RPC.Bson.document): cursor =
+  start(m:Mongo.db, ns:string, query:Bson.document): cursor =
     c = Cursor.init(m,ns)
     c = Cursor.set_query(c,{some=query})
     Cursor.next(c)
@@ -748,7 +748,7 @@ Cursor = {{
    * The cursor value is then returned, you can then use [Cursor.next] to
    * scan along form there.
    **/
-  find(m:Mongo.db, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document),
+  find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document),
        limit:int, skip:int, flags:int): outcome(cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
@@ -762,7 +762,7 @@ Cursor = {{
     else {success=c}
 
   @private
-  check_err(b:RPC.Bson.document): Mongo.result =
+  check_err(b:Bson.document): Mongo.result =
     match Bson.find(b,"$err") with
     | {some=err_doc} -> {failure={DocError=err_doc}}
     | {none} -> {success=b}
@@ -782,7 +782,7 @@ Cursor = {{
    *
    * Creates and destroys a cursor.
    **/
-  find_one(m:Mongo.db, ns:string, query:RPC.Bson.document, fields:option(RPC.Bson.document)): Mongo.result =
+  find_one(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document)): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -793,7 +793,7 @@ Cursor = {{
     outcome
 
   @private
-  check_ok(bson:RPC.Bson.document): Mongo.result =
+  check_ok(bson:Bson.document): Mongo.result =
     match Bson.find(bson,"ok") with
     | {some=[{Double=("ok",ok)}]} ->
        if ok == 1.0
@@ -810,7 +810,7 @@ Cursor = {{
    * Normally you will get {ok: 0/1} as a reply but sometimes there
    * are other elements in the reply.
    **/
-  run_command(m:Mongo.db, ns:string, command:RPC.Bson.document): Mongo.result =
+  run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
     match find_one(m, ns^".$cmd", command, {none}) with
     | {success=bson} -> check_ok(bson)
     | {~failure} -> {~failure}
@@ -854,7 +854,7 @@ Cursor = {{
     simple_int_command(m, db, "reseterror", 1)
 
   @private
-  find_int(bson:RPC.Bson.document, name:string): outcome(int,Mongo.failure) =
+  find_int(bson:Bson.document, name:string): outcome(int,Mongo.failure) =
     match Bson.find(bson,name) with
     | {some=[{Int32=(_,n)}]} -> {success=n}
     | {some=[{Int64=(_,n)}]} -> {success=n}
@@ -871,7 +871,7 @@ Cursor = {{
    * a database will be able to overrun the OCaml restriction, so the value is
    * just an int.
    **/
-  count(m:Mongo.db, db:string, ns:string, query_opt:option(RPC.Bson.document)): outcome(int,Mongo.failure) =
+  count(m:Mongo.db, db:string, ns:string, query_opt:option(Bson.document)): outcome(int,Mongo.failure) =
     cmd = List.flatten([[{String=("count",ns)}],
                         (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
     match run_command(m, db, cmd) with
@@ -936,7 +936,7 @@ Indexes = {{
    *
    * [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
    **/
-  create_index(m:Mongo.db, ns:string, key:RPC.Bson.document, options:int): bool =
+  create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
     b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],
