@@ -144,7 +144,8 @@ Network = {{
     * the second addition is ignored.
     * @param network A network, possibly empty.
     */
-   add(channel: channel('a), network: Network.network('a)):  void    = send(network, {add = channel})
+   add(channel: channel('a), network: Network.network('a)): void =
+     Session.send(network, {add = channel})
 
    /**
     * Add an observer function to a network.
@@ -154,7 +155,8 @@ Network = {{
     * @param f A function to add to a network. This function will be called during each and any broadcast.
     * @param network A network, possibly empty.
     */
-   add_callback(f: 'a -> void, network: Network.network('a)): void = send(network, {add = Session.NonBlocking.make_callback(f)})
+   add_callback(f: 'a -> void, network: Network.network('a)): void =
+     Session.send(network, {add = Session.NonBlocking.make_callback(f)})
 
    /**
     * Add an observer function to a network.
@@ -203,7 +205,8 @@ Network = {{
     * this is ignored.
     * @param network A network, possibly empty.
     */
-   remove(channel: channel('a), network: Network.network('a)): void  = send(network, {remove = channel})
+   remove(channel: channel('a), network: Network.network('a)): void =
+     Session.send(network, {remove = channel})
 
    /**
     * Send a message to all channels of a network.
@@ -213,7 +216,8 @@ Network = {{
     * @param message A message to send to all channels.
     * @param network A network, possibly empty.
     */
-   broadcast(message: 'a, network: Network.network('a)): void        = send(network, {broadcast = message})
+   broadcast(message: 'a, network: Network.network('a)): void =
+     Session.send(network, {broadcast = message})
 
    /**
     * Warning: EXPERIMENTAL
