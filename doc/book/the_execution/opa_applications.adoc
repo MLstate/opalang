@@ -29,6 +29,29 @@ This section details the use of applications built with Opa, including:
 //////////////////////////////////////////////////////
 
 
+Accessing privileged system resources
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When developing your application, it is perfectly acceptable (and even
+recommended) to test it on user-allowed ports, as the default port
+8080. However, when your application is ready and you want to deploy it and show
+it to the world, you will probably need to allow it to use port 80, as well as
+some other privileged ports, depending on your application.
+
+There are basically two ways to do that:
+
+* Run your application with the root account. This will work, as with any other
+user, and Opa will not attempt to drop privileges. Although we did our best to
+make Opa as secure as possible, and you certainly did the same for your
+application, it is a bit uncomfortable to run a full application with
+administrative rights. Consequently, we do not advise this solution.
+* Run your application in user-land, and handle privileged actions with specific
+tools. This is much safer and often more flexible. There are at least two very
+different ways to do that:
+** use authbind to allow your application to access directly a privileged port;
+** or put a priviledged dispatcher in front of your application (e.g.  HAProxy or Nginx).
+
+
 Debugging resources
 ^^^^^^^^^^^^^^^^^^^
 
