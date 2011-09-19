@@ -301,6 +301,7 @@ icon16 = css
 .selected .icon.icon-archive, .icon.icon-archive, .icon.icon-archive:hover { background-position: -32px -144px; }
 .selected .icon.icon-reply, .icon.icon-reply, .icon.icon-reply:hover { background-position: -48px -144px; }
 .selected .icon.icon-sent, .icon.icon-sent, .icon.icon-sent:hover { background-position: -64px -144px; }
+.selected .icon.icon-attachement, .icon.icon-attachement, .icon.icon-attachement:hover { background-position: -80px -144px; }
 
 @private
 icon32 = css
@@ -528,7 +529,7 @@ icon32 = css
 .selected .icon32.icon-archive, .icon32.icon-archive, .icon32.icon-archive:hover { background-position: -64px -288px; }
 .selected .icon32.icon-reply, .icon32.icon-reply, .icon32.icon-reply:hover { background-position: -96px -288px; }
 .selected .icon32.icon-sent, .icon32.icon-sent, .icon32.icon-sent:hover { background-position: -128px -288px; }
-
+.selected .icon32.icon-attachement, .icon32.icon-attachement, .icon32.icon-attachement:hover { background-position: -160px -288px; }
 
 /* register resources */
 
