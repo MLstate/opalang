@@ -244,13 +244,10 @@ Session = {{
      * request a make_at.
      */
     @private accept_make_at =
-      toto_ref = Server_reference.create(false)
+      started_ref = Server_reference.create(false)
       ->
       /* Make sure that accept is called only one time */
-      started = @atomic(
-        r = Server_reference.get(toto_ref)
-        do Server_reference.set(toto_ref, true)
-        r)
+      started = @atomic(Server_reference.compare_and_swap(started_ref, false, true))
       if started then void
       else
         Hlnet.accept(Hlnet.default_endpoint, make_at_protocol.server_spec,
