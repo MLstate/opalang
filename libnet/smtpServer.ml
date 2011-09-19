@@ -31,7 +31,6 @@ type t = SCC.t
 type options =
     { opt_addr: string;
       opt_port: int;
-      opt_drop_privilege: bool;
       opt_ssl_cert : string;
       opt_ssl_key : string;
       opt_ssl_pass : string;
@@ -58,7 +57,6 @@ let handle_email { SCC.from=_from; dests=_dests; body=_body } =
 let default_options =
   { opt_addr = "0.0.0.0";
     opt_port = 2525;
-    opt_drop_privilege = true;
     opt_ssl_cert = "";
     opt_ssl_key = "";
     opt_ssl_pass = "";
@@ -89,10 +87,6 @@ let spec_args name =
     (*p"no-flood-prevention",
     ServerArg.func ServerArg.unit (fun o () -> { o with opt_dos_prevention = false }),
     "", "Disable the built-in protection against Denial-of-Service attacks";*)
-
-    p"no-drop-privilege",
-    ServerArg.func ServerArg.unit (fun o () -> { o with opt_drop_privilege = false }),
-      "", "Disable the drop of privilege on server start";
 
     p"ssl-cert",
     ServerArg.func ServerArg.string (fun o s -> { o with opt_ssl_cert = s }),
@@ -147,7 +141,6 @@ let handle_expand = function
   | _ -> [(551,"User not local")]
 
 let make (_name:string) (opt:options) (_sched:Scheduler.t) : t =
-  if opt.opt_drop_privilege then Systools.change_user ();
   let secure_mode = Network.secure_mode_from_params (make_ssl_cert opt) (make_ssl_verify opt) in
   let runtime = { SCC.rt_plim = 128;
                   rt_dialog_name = opt.opt_dialog;

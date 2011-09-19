@@ -509,7 +509,6 @@ type options =
       block_size : int;
       allowed_hosts : string list;
       dos_prevention : bool;
-      drop_privilege : bool;
       on_server_run : options -> Scheduler.t -> unit;
       on_server_close : Scheduler.t -> unit;
       get : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.get
@@ -596,7 +595,6 @@ let default_options =
     block_size = 4096; (* TODO: implement separate callbac blocksize *)
     allowed_hosts = [];
     dos_prevention = true;
-    drop_privilege = true;
     on_server_run = (fun _ _ -> ());
     on_server_close = (fun _ -> ());
     get = handle_get;
@@ -759,10 +757,6 @@ let spec_args name =
     ServerArg.func ServerArg.unit (fun o () -> { o with backtrace = false }),
       "", (sprintf "Disable backtrace printout for server exceptions" (*default_options.backtrace*));
 
-    p"no-drop-privilege",
-    ServerArg.func ServerArg.unit (fun o () -> { o with drop_privilege = false }),
-      "", (sprintf "Disable the drop of privilege on server start" (*default_options.drop_privilege*));
-
     p"ssl-cert",
     ServerArg.func ServerArg.string (fun o s -> { o with ssl_cert = s }),
     "<file>", (sprintf "Location of your SSL certificate (requires ssl-key) (default:'%s')" default_options.ssl_cert);
@@ -826,7 +820,6 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   #<If>Logger.debug "HttpServer.make: name=%s addr=%s port=%d ssl_cert=%s" name opt.addr opt.port opt.ssl_cert#<End>;
   let _ = Lazy.force m2 in
   Hashtbl.add options name opt;
-  (*if opt.drop_privilege then Systools.change_user ();*)
   let secure_mode = Network.secure_mode_from_params (make_ssl_cert opt) (make_ssl_verify opt) in
   let addr = Unix.inet_addr_of_string opt.addr in
   let server_info = HSCm.make_server_info addr opt.port (opt.ssl_cert <> "") in

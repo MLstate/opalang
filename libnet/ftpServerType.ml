@@ -86,7 +86,6 @@ type state = {
     default_folder: string;                           	  (** starting folder for new connections *)
     rename_string: string option;                         (** from path for RNFR verb *)
     timeout: Time.t;                                	  (** global connection timeout *)
-    drop_privilege: bool;
     ssl_cert: string;
     ssl_key: string;
     ssl_pass: string;

@@ -68,7 +68,6 @@ type options =
       opt_default_folder: string;                           	(** starting folder for new connections *)
       opt_rename_string: string option;                         (** from path for RNFR verb *)
       opt_timeout: Time.t;                                  	(** global connection timeout *)
-      opt_drop_privilege: bool;
       opt_ssl_cert : string;
       opt_ssl_key : string;
       opt_ssl_pass : string;
@@ -114,7 +113,6 @@ let default_options =
     opt_default_folder = initDir;
     opt_rename_string = None;
     opt_timeout = Time.seconds 300;
-    opt_drop_privilege = true;
     opt_ssl_cert = "";
     opt_ssl_key = "";
     opt_ssl_pass = "";
@@ -142,10 +140,6 @@ let spec_args name =
     (*p"no-flood-prevention",
     ServerArg.func ServerArg.unit (fun o () -> { o with opt_dos_prevention = false }),
     "", "Disable the built-in protection against Denial-of-Service attacks";*)
-
-    p"no-drop-privilege",
-    ServerArg.func ServerArg.unit (fun o () -> { o with opt_drop_privilege = false }),
-      "", "Disable the drop of privilege on server start";
 
     p"ssl-cert",
     ServerArg.func ServerArg.string (fun o s -> { o with opt_ssl_cert = s }),
@@ -184,7 +178,6 @@ let make_ssl_verify opt =
     None
 
 let make (_name:string) (opt:options) (_sched:Scheduler.t) : t =
-  if opt.opt_drop_privilege then Systools.change_user ();
   let secure_mode = Network.secure_mode_from_params (make_ssl_cert opt) (make_ssl_verify opt) in
   let runtime = { FSC.rt_plim = 128;
                   rt_dialog_name = opt.opt_dialog;
@@ -224,7 +217,6 @@ let make (_name:string) (opt:options) (_sched:Scheduler.t) : t =
                 default_folder = opt.opt_default_folder;
                 rename_string = opt.opt_rename_string;
 		timeout = opt.opt_timeout;
-                drop_privilege = opt.opt_drop_privilege;
                 ssl_cert = opt.opt_ssl_cert;
                 ssl_key = opt.opt_ssl_key;
                 ssl_pass = opt.opt_ssl_pass;
