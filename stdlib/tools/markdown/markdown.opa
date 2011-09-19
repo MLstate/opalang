@@ -785,16 +785,16 @@ with a linebreak
 
   @private @client do_expand(id) =
     do Dom.show(#{id})
-    bg_sel = "{id} > .markdown-bg"
-    content_sel = "{id} > .markdown"
-    body_sel = "{id} > .markdown-body"
+    bg_sel = "{id} .markdown-bg"
+    content_sel = "{id} .markdown"
+    body_sel = "{id} .markdown-body"
     win_width = Dom.get_outer_width(#{bg_sel})
     win_height = Dom.get_outer_height(#{bg_sel})
     left = (win_width - 560)/2
     height = win_height - 100
     style = [ {height={px=height}}, {left={px=left}} ]
     do Dom.set_style(#{content_sel}, style)
-    do Dom.set_style(#{body_sel}, [{height={px=(height-80)}}])
+    do Dom.set_style(#{body_sel}, [{height={px=(height-140)}}])
     void
 
  /**
