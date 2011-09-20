@@ -102,6 +102,7 @@ libbase/Terminal
 libbase/Wsdl2mlCommon
 # Bson
 libbase/Buf
+libbase/Endian
 libbase/Stuff
 libbase/Bson
 libbase/Mongo
