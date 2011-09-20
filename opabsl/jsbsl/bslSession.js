@@ -120,21 +120,43 @@ var LowLevelPingLoop = {};
         return random();
     }
 
+    var linked_with_server = true;
+
+    function break_ping_loop() {
+        linked_with_server = false;
+        jlog("Error: the connexion with the server seems to be lost. Please reload");
+        throw("Error: the connexion with the server seems to be lost. Please reload");
+    }
+
     function internal_ajax(settings){
-        settings.url = internal_url + settings.url;
-        if(to_register.length != 0){
-            var body = settings.data;
-            if (body == undefined) body="";
-            var data = {
-                to_register:to_register,
-                uri:settings.url,
-                body:body
-            };
-            settings.data = JSON.stringify(data);
-            settings.url = internal_url + "/chan/register";
-            to_register = new Array();
+        if(linked_with_server){
+            settings.url = internal_url + settings.url;
+            if(to_register.length != 0){
+                var body = settings.data;
+                if (body == undefined) body="";
+                var data = {
+                    to_register:to_register,
+                    uri:settings.url,
+                    body:body
+                };
+                settings.data = JSON.stringify(data);
+                settings.url = internal_url + "/chan/register";
+                to_register = new Array();
+                var success
+                if(settings.success){
+                    success = settings.success
+                    settings.success = function () {}
+                } else {
+                    success = function () {}
+                }
+                settings.statusCode = { 205: break_ping_loop,
+                                        200: success};
+            }
+            return jQuery.ajax(settings);
         }
-        return jQuery.ajax(settings);
+        else {
+            break_ping_loop();
+        }
     }
 
 
@@ -681,12 +703,12 @@ var LowLevelPingLoop = {};
                     // jlog("Don't launch ping loop :"+ nb +" vs "+cpt);
                 } else {
                     internal_ajax({
-                            type : 'POST',
-                            url : "/ping",
-                            data : JSON.stringify(cpt),
-                            success : function(r){success_ping_response(r, nb)},
-                            error : error_ping_response
-                        });
+                        type : 'POST',
+                        url : "/ping",
+                        data : JSON.stringify(cpt),
+                        success : function(r){success_ping_response(r, nb)},
+                        error : error_ping_response
+                    });
                 }
             };
             if(force==true){f();}else{setTimeout(f, 0);}

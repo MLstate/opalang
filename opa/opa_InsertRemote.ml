@@ -654,9 +654,11 @@ let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr =
   in
 
   (* Call to serialize function *)
-  let annotmap, call_ser =
-    let annotmap, ser = OpaSerialize.serialize ~side annotmap stdlib_gamma in
-    full_apply gamma annotmap ser [expr_tres] [fun_call] in
+  let annotmap, call_ser = match side with
+    | `server -> TypedExpr.opa_tuple_2 (annotmap,gamma) (expr_tres,fun_call)
+    | `client ->
+        let annotmap, ser = OpaSerialize.serialize ~side annotmap stdlib_gamma in
+        full_apply gamma annotmap ser [expr_tres] [fun_call] in
 
   (* Call to extract_values *)
   let annotmap, call_ext_val =

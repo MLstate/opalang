@@ -230,9 +230,15 @@ type OpaRPC.interface = {{
   send_to_server(fun_name, request, ty) =
     mr = %%BslSession.PingRegister.pang_request%% : string, string -> string
     url = "/rpc_call/" ^ fun_name
-    OpaSerialize.unserialize(mr(url, OpaRPC.serialize(request)), ty)
-    ? /* TODOK1 - One day we can manage request error??*/
-      error("OPARPC : Request on {url} has failed")
+    ty_success = [{label="success" ~ty}]
+    ty_failure = [{label="failure" ty={TyRecord_row = []}}]
+    ty = {TySum_col=[ty_failure,ty_success]}
+    match OpaSerialize.unserialize(mr(url, OpaRPC.serialize(request)), ty) with
+      | {some={~success}} -> success
+      | {some={failure}} -> error("OPARPC : Request on {url} has failed")
+      | {none} ->
+        /* TODOK1 - One day we can manage request error??*/
+        error("OPARPC : Request on {url} has failed")
 
   async_send_to_server(fun_name, request, _) =
     mr = %% BslSession.PingRegister.ping_async_call %%: string, string -> void
@@ -365,7 +371,7 @@ type OpaRPC.timeout = {
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
           end
       )
-    OpaSerialize.unserialize(serialized_return, ty) ? error("OPARPC : Request on client url {fun_name} has failed")
+    OpaSerialize.unserialize(serialized_return, ty) ? error("OPARPC : Request on client url {fun_name} has failed.")
 
   @private dummy_cont = Continuation.make((_:string) -> @fail("Dummy cont should't be called"))
   async_send_to_client(fun_name : string, request : OpaRPC.request, _) : 'a =
@@ -389,6 +395,12 @@ type OpaRPC.timeout = {
           {volatile}, winfo.http_request.request, status,
           "text/plain", msg)
       )
+    reply_error(winfo, msg) =
+      winfo.cont(
+        WebCoreExport.default_make_response(
+          {volatile}, winfo.http_request.request, {internal_server_error},
+          "text/plain", msg)
+      )
 
     register = %%BslRPC.Dispatcher.register%%
 
@@ -410,15 +422,20 @@ type OpaRPC.timeout = {
               error("RPC error")
 
             | {some = skeleton} ->
+              @catch(_ ->
+                ty = {TyRecord_row=[{label="failure" ty={TyRecord_row = []}}]}
+                serial = OpaSerialize.serialize_with_type(ty,{failure})
+                reply(winfo, serial, {success}),
               match skeleton(get_requested_post_content(winfo.http_request.request)) with
                 | {none} ->
                   _ = reply(winfo, "Bad formatted rpc request", {forbidden})
                   do Log.error("OpaRPC", "Call to the rpc \"{name}\" failed")
                   error("RPC error")
-
-                | {some = result} ->
-                  reply(winfo, result, {success})
-              end
+                | {some = (ty,result)} ->
+                  ty = {TyRecord_row=[{label="success" ~ty}]}
+                  serial = OpaSerialize.serialize_with_type(ty,{success=result})
+                  reply(winfo, serial, {success})
+              end)
           end
   }}
 }}
