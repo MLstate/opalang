@@ -94,9 +94,12 @@ import stdlib.core.rpc.hlnet
  * session created to handle a given HTTP request will retain the information on the user
  * performing that request, or the content of the request, even after the response to the
  * request. For traceability and security reasons, this is generally the desired behavior.
+ * As an exception, the default policy when no client context is available at creation of
+ * the session is to take the context of the message sender. *
  *
  * Some applications, however, need to be able to customize this behavior. For this purpose,
- * use function [Session.make_dynamic] instead of [Session.make].
+ * use functions [Session.make_dynamic], [Session.make_static] or [Session.make_generic]
+ * instead of [Session.make].
  */
 
 /**
@@ -213,9 +216,6 @@ Session = {{
      *
      * @return A channel which may be used to send messages to the session.
      *
-     * Note: [Session.make] uses the context of the creator of the session; if
-     * you need to use the context of the sender of the message, you should
-     * rather use [Session.make_dynamic] or [Session.make_generic].
      */
     make(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) : channel('message) =
       make_generic_default(state, {normal = on_message})
@@ -241,15 +241,21 @@ Session = {{
      */
     @private
     make_generic_default(state : 'state, message_handler : Session.handler('state, 'message)) : channel('message) =
-      make_generic(state, message_handler, {maker})
+      make_generic(state, message_handler, {mixed})
 
     /**
      * Like [Session.make] but the message handler of the session will be
-     * executed with the thread context of the message sender instead of the
-     * session creator's context.
+     * executed with the thread context of the message sender.
      */
     make_dynamic(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) : channel('message) =
       make_generic(state, {normal = on_message}, {sender})
+
+    /**
+     * Like [Session.make] but the message handler uses the context of the
+     * creator of the session.
+     */
+    make_static(state : 'state, on_message : ('state, 'message -> Session.instruction('state))) : channel('message) =
+      make_generic(state, {normal = on_message}, {maker})
 
     /**
      * As [Session.make] but without state.
