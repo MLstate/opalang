@@ -52,6 +52,7 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
   type event =
     | Connect (** Launched when a client connects to ping register. *)
     | Disconnect (** Launched when a client is disconnected to ping register. *)
+    | Inactive (** Launched when a client is inactive for a while *)
 
   (** Type of key binded to an event handler (see section Events). *)
   type event_key
@@ -73,7 +74,7 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
 
   (** [pang id winfo nb] Like as [ping id winfo nb] but you can reply
       to this specific [pang] with [return id nb response]. *)
-  val pang : C.key -> HttpServerTypes.web_info -> int -> unit
+  val pang : C.key -> HttpServerTypes.web_info -> int -> bool -> unit
 
   (** Returns a [pang]. *)
   val return : C.key -> int -> string -> unit
@@ -89,6 +90,9 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
   (** Remove callback event registered associated with [event_key]. *)
   val remove_event : event_key -> unit
 
+  (** Set delay before raising an Inactive even. *)
+  val set_inactive_delay : C.key option -> Time.t option -> unit
+
   (** {6 Utils} *)
 
   (** Check if the client is already connected to the ping
@@ -103,5 +107,7 @@ module Make (S : SCHEDULER) (C : CLIENT) : sig
 
   (** Return the number of connections. *)
   val size : unit -> int
+
+  val update_activity : ?nb:int -> ?is_ping:bool -> ?is_active:bool -> ?winfo:HttpServerTypes.web_info -> C.key -> bool
 
 end

@@ -19,6 +19,8 @@
     @author Francois Pessaux
 */
 
+import stdlib.core.date
+
 /**
   * This file provides the primitives to bind client events to callbacks.
   * This is especially important in order to keep trace of clients
@@ -47,7 +49,10 @@ ClientEvent = {{
    */
   disconnect = %% BslClientEvent.disconnect %% : ClientEvent.t
 
-
+  /**
+   * Event value representing a client inactivity.
+   */
+  inactive = %% BslClientEvent.inactive %% : ClientEvent.t
 
   /**
    * Register (binds) a function (callback) to call when an event occurs for a
@@ -116,4 +121,65 @@ ClientEvent = {{
   set_on_disconnect_client(callback : (ThreadContext.client -> void))
                           : ClientEventKey.t =
     register_client_event(disconnect, callback)
+
+  /**
+   * Register (binds) a function (callback) to call when the client of the
+   * current thread context is inactive. If the current thread context has
+   * no client, an error is raised.
+   * Returns the id of the event registration in order to be able to remove the
+   * binding of the inativity event to this function if needed.
+   * An inactive event is raised if there is no communication between client and server for a while.
+   * In this case the ping loop isn't considered as a communication.
+   *
+   * @param callback The function called when the inactive event arises.
+   * @return The id of the binding event/callback registration.
+   */
+  set_on_inactive_client(callback : (ThreadContext.client -> void))
+                          : ClientEventKey.t =
+    register_client_event(inactive, callback)
+
+  /**
+   * Set the duration before raising an "inactive" event.
+   *
+   * @param opt_client The id of the client affected by this setting or {!none} if global setting.
+   * @param delay The duration before raising an "inactive" event.
+   * @return void.
+   */
+  set_inactivity_delay(ctx : option(ThreadContext.client), delay : Duration.duration) : void =
+    time = Duration.in_milliseconds(delay)
+    (%% BslClientEvent.set_inactive_delay %%)(ctx,some(time))
+
+  /**
+   * Remove the duration before raising an "inactive" event.
+   *
+   * @param opt_client The id of the client affected by this setting or {!none} if global setting.
+   * @return void.
+   */
+  remove_inactivity_delay(ctx : option(ThreadContext.client)) : void =
+    (%% BslClientEvent.set_inactive_delay %%)(ctx,none)
+
+  // Commented because we miss some more feature to handle disconnection client side
+
+  // /**
+  //  * Disconnect the client corresponding to the ThreadContext.client
+  //  *
+  //  * @param ctx The id of the client to disconnect.
+  //  * @return void.
+  //  */
+  // disconnect_client(ctx : ThreadContext.client) : void =
+  //   (%%BslPingRegister.client_stop%%)(ctx)
+
+  // /**
+  //  * Disconnect the current client. If the current thread context
+  //  * has no client, an error is raised.
+  //  *
+  //  * @return void.
+  //  */
+  // disconnect_current() : void =
+  //   match ThreadContext.get({current}).key with
+  //   | { client = thread_ctxt_client } ->
+  //       disconnect_client(thread_ctxt_client)
+  //   | _ ->
+  //      @fail("disconnect_current: no client in the current context.")
+
 }}

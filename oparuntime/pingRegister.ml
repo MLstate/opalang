@@ -22,6 +22,7 @@ module RD = Requestdef
 module HS = HttpServer
 module HSC = HttpServerCore
 module HST = HttpServerTypes
+module Hashtbl = BaseHashtbl
 
 type json = JS.json
 
@@ -52,26 +53,27 @@ let ping_info level fmt =
 let ping_error level fmt =
   Logger.error ("[PING][%s] "^^fmt^^"%!") level
 
-let send_txt_response winfo txt =
+let send_txt_response winfo txt code =
   winfo.HST.cont (HS.make_response_modified_since
                 (Time.now ())
                 winfo.HST.request
-                Requestdef.SC_OK
+                code
                 "text/plain, charset=utf-8"
                 (Http_common.Result txt))
 
-let send_json_response winfo json =
+let send_json_response winfo json code =
   let txt = Json_utils.to_string json in
   #<If>
     ping_debug "SEND" "Sending json (%s)" txt;
   #<End>;
-  send_txt_response winfo txt
+  send_txt_response winfo txt code
 
 let send_unmodified winfo txt =
   winfo.HST.cont (HS.make_response ~req:winfo.HST.request Requestdef.SC_NotModified
                 "text/plain" (Http_common.Result txt))
 
-let disconnection_state_delay = 120 * 1000
+let disconnection_state_delay = ref (120 * 1000)
+let inactive_state_delay = ref None
 let ping_delay_client_msecond_rush = 3 * 1000
 let ping_delay_client_msecond_normal = 30 * 1000
 
@@ -83,6 +85,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
   type event =
     | Connect
     | Disconnect
+    | Inactive
 
   (** Type of a ping(/pang) loop response. *)
   type response =
@@ -95,6 +98,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
   let event_to_string = function
     | Connect         -> "Connect"
     | Disconnect      -> "Disconnect"
+    | Inactive        -> "Inactive"
 
   (** Make a json response which may be interpreted by client ping
       loop. *)
@@ -107,7 +111,10 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
                                         ("id", JS.Int id);]
 
   let send_response winfo response =
-    send_json_response winfo (response_to_json response)
+    send_json_response winfo (response_to_json response) Requestdef.SC_OK
+
+  let send_error winfo reason =
+    send_txt_response winfo reason Requestdef.SC_ResetContent
 
   (** Manage communications with clients *)
   module Entry : sig
@@ -153,6 +160,8 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
 
     (** Return a result of a pang. *)
     val return : C.key -> int -> string -> unit
+
+    val send_error : C.key -> string -> unit
 
   end = struct
 
@@ -287,7 +296,8 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
                 send_with_winfo key winfo q;
                 if (Queue.is_empty q) then remove key
               )
-        with Not_found -> add key (Ajax_call (winfo, nb, sleep_pong ()))
+        with Not_found ->
+          add key (Ajax_call (winfo, nb, sleep_pong ()))
       in
       if Hashtbl.mem pang_tbl key then
         let map = Hashtbl.find pang_tbl key in
@@ -334,6 +344,16 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
         | _ -> add_to_pang_tbl ()
       with Not_found -> add_to_pang_tbl ()
 
+    let send_error key msg =
+      try
+        match find key with
+        | Ajax_call (winfo, _, sk) ->
+            S.abort sk;
+            remove key;
+          send_error winfo msg
+        | _ -> remove key
+      with Not_found -> ()
+
   end
 
   (** Manage the status of connection with client *)
@@ -371,13 +391,25 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
     val ping : C.key -> HST.web_info -> int -> unit
 
     (** Like ping but allows to reply with [Entry.return] *)
-    val pang : C.key -> HST.web_info -> int -> unit
+    val pang : C.key -> HST.web_info -> int -> bool -> unit
 
     (** Broadcast the json message. *)
     val broadcast : C.msg -> unit
 
     (** Returns the number of connections. *)
     val size : unit -> int
+
+    (** Sending the json message on the given client connection
+        identifier. *)
+    val send : C.msg -> C.key -> unit
+
+    (** Return a result of a pang. *)
+    val return : C.key -> int -> string -> unit
+
+    val update_activity : ?nb:int -> ?is_ping:bool -> ?is_active:bool ->
+    ?winfo:HST.web_info -> C.key -> bool
+
+    val set_inactive_delay : C.key option -> Time.t option -> unit
 
   end = struct
 
@@ -390,7 +422,10 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
       end)
 
     (* Client identifier to last ping number. *)
-    let state_tbl : (C.key, (int * S.async_key * int (* delay *))) Hashtbl.t =
+    let state_tbl : (C.key,(int *
+      S.async_key * int * (* Disconnection key and delay *)
+      S.async_key option * int option (* Inactivity key and delay *)
+    )) Hashtbl.t =
       Hashtbl.create 512
 
     (* Client identifier to event map that contains list of
@@ -461,32 +496,58 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
         ping_debug "PING" "Remove the client %s" (C.key_to_string key);
       #<End>;
       raise_event key Disconnect;
-      Entry.remove key;
-      Hashtbl.remove state_tbl key;
+      Entry.send_error key "You've been disconnected by the server";
+      (* remove key; *)
+      (try
+        let (_, old_s, _,old_s2,_) = Hashtbl.find state_tbl key in
+        S.abort old_s;
+        Option.iter S.abort old_s2;
+        Hashtbl.remove state_tbl key;
+      with
+      | Not_found -> ());
       remove_events key
 
-    let update key (nb:int) =
-      let s =
-        S.sleep disconnection_state_delay
+    let update_activity ?(nb=0) ?(is_ping=false) ?(is_active=false) ?winfo key=
+      let will_disconnect t nb key =
+        S.sleep t
           (fun () ->
-             try
-               let (n, _, _) = Hashtbl.find state_tbl key in
-               if n=nb then delete key
-             with Not_found -> delete key
+            try
+              let (n, _, _, _, _) = Hashtbl.find state_tbl key in
+              if n=nb then delete key
+            with Not_found -> delete key
           ) in
-      try
-        let (_, old_s, d) = Hashtbl.find state_tbl key in
-        S.abort old_s; (* Abort the previous sleep *)
-        Hashtbl.replace state_tbl key (nb, s, d)
-      with
-      | Not_found ->
-          Hashtbl.add state_tbl key (nb, s, ping_delay_client_msecond_rush)
+      let will_raise_timeout t key =
+        S.sleep t (fun () -> raise_event key Inactive ) in
+      match Hashtbl.find_opt state_tbl key with
+        Some((_, old_s, d, old_s2, d2)) ->
+          let s =
+            if is_ping
+            then (S.abort old_s; will_disconnect !disconnection_state_delay nb key)
+            else old_s in
+          let s2 =
+            if is_active
+            then (Option.iter S.abort old_s2;
+            match Option.default (Option.default 0 !inactive_state_delay) d2  with
+            | 0 -> None
+            | n -> Some(will_raise_timeout n key))
+            else old_s2 in
+          Hashtbl.replace state_tbl key (nb, s, d, s2, d2);
+          true
+      | None ->
+          ignore(winfo);
+          let s = will_disconnect !disconnection_state_delay nb key in
+          let s2 =
+            match Option.default 0 !inactive_state_delay with
+            | 0 -> None
+            | n -> Some(will_raise_timeout n key) in
+          Hashtbl.add state_tbl key (nb, s, ping_delay_client_msecond_rush, s2, None);
+          true
 
-    let create key = update key 0
+    let create key = ignore(update_activity ~is_ping:true ~nb:1 key)
 
     let find_delay key =
       try
-        let (_, _, d) = Hashtbl.find state_tbl key in d
+        let (_, _, d, _, _) = Hashtbl.find state_tbl key in d
       with
       | Not_found ->
           #<If>
@@ -494,10 +555,23 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
           #<End>;
           ping_delay_client_msecond_normal
 
+    let set_inactive_delay key_opt time_opt =
+      match key_opt with
+      | None -> inactive_state_delay:=Option.map Time.in_milliseconds time_opt
+      | Some key ->
+          let will_raise_timeout t key =
+            S.sleep t (fun () -> raise_event key Inactive ) in
+          try
+            let (n,s,d,s2,_) = Hashtbl.find state_tbl key in
+            let time = Option.map Time.in_milliseconds time_opt in
+            Option.iter S.abort s2;
+            Hashtbl.replace state_tbl key (n, s, d, Option.map (fun t -> will_raise_timeout t key) time, time)
+          with Not_found -> ()
+
     let end_of_rush_delay key =
       try
-        let (n, s, _) = Hashtbl.find state_tbl key in
-        Hashtbl.replace state_tbl key (n, s, ping_delay_client_msecond_normal)
+        let (n, s, _, s2, d2) = Hashtbl.find state_tbl key in
+        Hashtbl.replace state_tbl key (n, s, ping_delay_client_msecond_normal, s2, d2)
       with
       | Not_found ->
           #<If>
@@ -521,17 +595,16 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
         ping_debug "PING"
         "PING(%d) received from %s" nb (C.key_to_string key);
       #<End>;
-      update key nb;
-      Entry.ping ~crush:(nb = 1) ~find_delay:find_delay ~pong_callback:end_of_rush_delay key winfo nb
+      if update_activity ~is_ping:true ~nb key ~winfo
+      then Entry.ping ~crush:(nb=1) ~find_delay:find_delay ~pong_callback:end_of_rush_delay key winfo nb
 
-
-    let pang key winfo nb =
+    let pang key winfo nb is_active =
       #<If>
         ping_debug "PING"
         "PANG (%d) received from %s" nb (C.key_to_string key);
       #<End>;
-      update key nb;
-      Entry.pang key winfo nb
+      if update_activity ~is_ping:true ~nb ~is_active key ~winfo
+      then Entry.pang key winfo nb
 
     let broadcast mess =
       #<If>
@@ -541,6 +614,13 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
 
     let size () = Hashtbl.length state_tbl
 
+    let send msg key =
+      ignore(update_activity ~is_active:true key);
+      Entry.send msg key
+
+    let return key nb result =
+      ignore(update_activity ~is_active:true key);
+      Entry.return key nb result
   end
 
   type event_key = Connection.event_key
@@ -551,7 +631,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
 
   let remove_event = Connection.remove_event
 
-  let send = Entry.send
+  let send = Connection.send
 
   let broadcast = Connection.broadcast
 
@@ -568,5 +648,9 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
   let create = Connection.create
 
   let size = Connection.size
+
+  let update_activity = Connection.update_activity
+
+  let set_inactive_delay = Connection.set_inactive_delay
 
 end

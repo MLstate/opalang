@@ -31,6 +31,9 @@ let connect = BslPingRegister.M.Connect
 ##register disconnect : ClientEvent.t
 let disconnect = BslPingRegister.M.Disconnect
 
+##register inactive : ClientEvent.t
+let inactive = BslPingRegister.M.Inactive
+
 (* ************************************************************************** *)
 (* Magic conversion of a [BslUtils.opa_threadcontext_client] into a
    [BslPingRegister.Client.key]. Used by [register_event] below.              *)
@@ -47,18 +50,32 @@ external bsl_pr_c_k_2_opa_tc_c :
     BslPingRegister.Client.key -> BslUtils.opa_threadcontext_client =
  "%identity"
 
-##register register_event : option(opa[ThreadContext.client]),     \
-                            ClientEvent.t,                         \
-                            (opa[ThreadContext.client] -> void) -> \
-                                ClientEventKey.t
-let register_event opt_tcc ce cb =
+module Ping = BslPingRegister.M
+module Client = BslPingRegister.Client
+
+##register remove_event : ClientEventKey.t -> void
+let remove_event = Ping.remove_event
+
+##register set_inactive_delay : option(opa[ThreadContext.client]),     \
+  option(int) -> void
+let set_inactive_delay opt_tcc opt_time =
+  let t = Option.map Time.milliseconds opt_time in
   let opt_tcc' =
     match opt_tcc with
     | None -> None
     | Some tcc -> Some (opa_tc_c_2_bsl_pr_c_k tcc) in
-  let cb' x = cb (bsl_pr_c_k_2_opa_tc_c x) in
-  BslPingRegister.M.register_event opt_tcc' ce cb'
+  Ping.set_inactive_delay opt_tcc' t
 
-##register remove_event : ClientEventKey.t -> void
-let remove_event = BslPingRegister.M.remove_event
 
+
+##register [cps-bypass] register_event : option(opa[ThreadContext.client])\
+  ,ClientEvent.t\
+  ,(opa[ThreadContext.client], continuation(opa[void]) -> void)\
+  ,continuation(ClientEventKey.t) -> void
+let register_event opt_tcc evt f k =
+  let opt_tcc' =
+    match opt_tcc with
+    | None -> None
+    | Some tcc -> Some (opa_tc_c_2_bsl_pr_c_k tcc) in
+  let f x = f (bsl_pr_c_k_2_opa_tc_c x) (QmlCpsServerLib.ccont_ml k (fun _ -> ())) in
+  QmlCpsServerLib.return k (Ping.register_event opt_tcc' evt f)

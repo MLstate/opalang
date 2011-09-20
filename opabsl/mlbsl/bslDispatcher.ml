@@ -132,6 +132,7 @@ let complete_dispatcher_cps base_url dispatcher k =
                 )
 
        | `internal "chan/send" ->
+           ignore(Ping.update_activity ~is_active:true key);
            Option.iter
              (fun () -> send_txt_response winfo "")
              (need_cpr (fun c p r -> WebChannel.send c p r (Some context)))
@@ -170,7 +171,7 @@ let complete_dispatcher_cps base_url dispatcher k =
                    | JS.Record [("ping", JS.Int nb);
                                 ("uri", JS.String uri);
                                 ("body", JS.String body)] ->
-                       Ping.pang key winfo nb;
+                       Ping.pang key winfo nb true;
                        let winfo = {
                          winfo with
                            HttpServerTypes.request = {
@@ -195,13 +196,14 @@ let complete_dispatcher_cps base_url dispatcher k =
                        } in
                        aux_complete_dispatcher winfo
                    | JS.Int nb ->
-                       Ping.pang key winfo nb
+                       Ping.pang key winfo nb false
                    | _ -> send_error winfo "Bad formatted pang"
                 )
              )
 
 
        | `internal str ->
+           ignore(Ping.update_activity ~is_active:true key);
            let get_id = Str.regexp "rpc_return/\\(.*\\)" in
            if ((Str.string_match get_id str 0) && ((Str.matched_string str) = str)) then
              let id = Str.matched_group 1 str in
@@ -214,7 +216,9 @@ let complete_dispatcher_cps base_url dispatcher k =
              BslScheduler.push (fun () -> dispatcher winfo cont_with_context)
 
        (* User urls *************************)
-       | `user -> BslScheduler.push (fun () -> dispatcher winfo cont_with_context)
+       | `user ->
+           ignore(Ping.update_activity ~is_active:true key);
+           BslScheduler.push (fun () -> dispatcher winfo cont_with_context)
 
   in QmlCpsServerLib.return k (QmlCpsServerLib.cont_ml aux_complete_dispatcher)
 
@@ -228,16 +232,3 @@ let complete_dispatcher base_url dispatcher winfo =
   match !r with
   | None -> failwith ("dispatcher was not computed - Do you use no cps?")
   | Some wcont -> QmlCpsServerLib.execute wcont winfo
-
-##register [cps-bypass] register_event_disconnect_cps : option('ctx), (void, continuation(opa[void]) -> void), continuation(opa[void]) -> void
-let register_event_disconnect_cps ctx f k =
-  let f _ = f () (QmlCpsServerLib.cont_ml (fun _ -> ())) in
-  ignore (Ping.register_event ((Obj.magic ctx):Client.key option)
-            Ping.Disconnect f);
-  QmlCpsServerLib.return k (ServerLib.void)
-
-##register register_event_disconnect : option('ctx), (-> void) -> void
-let register_event_disconnect ctx f =
-  let f _ = f () in
-  ignore(Ping.register_event ((Obj.magic ctx):Client.key option)
-           Ping.Disconnect f);

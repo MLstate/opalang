@@ -58,7 +58,8 @@ let qml_unit = ServerLib.make_record ServerLib.empty_record_constructor
 
 (* thread_context needs a projection because of the returned option *)
 ##register [opacapi, no-projection : cps] thread_context \ `QmlCpsServerLib.thread_context` : continuation('a) -> option(opa['thread_context])
-##register [opacapi, no-projection, restricted : cps] with_thread_context \ `QmlCpsServerLib.with_thread_context` : opa['b], continuation('a) -> continuation('a)
+##register [opacapi, no-projection, restricted : cps] with_thread_context \ `QmlCpsServerLib.with_thread_context` : opa['b]\
+    ,continuation('a) -> continuation('a)
 ##register [opacapi, no-projection, restricted : cps] handler_cont \ `QmlCpsServerLib.handler_cont` : continuation('a) -> continuation('c)
 ##register [opacapi, no-projection : cps, restricted : cps] catch_native \ `QmlCpsServerLib.catch_ml` : \
   (opa['c], continuation('a) -> _unit), continuation('a) -> continuation('a)
