@@ -355,9 +355,13 @@ type JsCleaning.marked = JsIdentSet.t
      stack = LowLevelArray.fold(ident,stack ->
         //do jlog("SERVER: {code_elt.ident} is using ident {ident}")
         [ident|stack], code_elt.ident_deps,stack)
-     stack = LowLevelArray.fold(type_,stack ->
-        //do jlog("SERVER: {code_elt.ident} is using type {type_}")
-        add_type_to_stack(infos, stack, type_), code_elt.type_deps,stack)
+     stack =
+         match code_elt.defines
+         {rpc=_} ->
+           LowLevelArray.fold(type_,stack ->
+           //do jlog("SERVER: {code_elt.ident} is using type {type_}")
+           add_type_to_stack(infos, stack, type_), code_elt.type_deps,stack)
+         _ -> stack
      stack = LowLevelArray.fold(rpc,stack ->
         //do jlog("SERVER: {code_elt.ident} is using rpc {rpc}")
         add_rpc_to_stack(infos, stack, rpc), code_elt.rpc_deps,stack)
