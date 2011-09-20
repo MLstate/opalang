@@ -639,6 +639,24 @@ Session = {{
         on_message_basic(_ : void, msg : 'message) = on_message(msg) : Session.basic_instruction
         make_generic_default(void, { concurrent = on_message_basic })
 
+      /**
+       * Concurrent version of the [map] combinator.
+       */
+      map(f:'b -> 'a, channel:channel('a)) =
+         make_callback(x -> send(channel, f(x))) : channel('b)
+
+      /**
+       * Concurrent version of the [filter] combinator.
+       */
+      filter(f:'a -> bool, channel: channel('a)) : channel('a) =
+         make_callback(message -> if f(message) then send(channel, message))
+
+      /**
+       * Concurrent version of the [filter_map] combinator.
+       */
+      filter_map(f:'a -> option('b), channel:channel('b)) : channel('a) =
+         make_callback(message -> Option.iter(send(channel, _), f(message)))
+
     }}
 
 
