@@ -203,9 +203,9 @@ WDatepicker = {{
         <input id=#{get_input_id(id)} type="text"
                value={to_formatted_string(config.format, init_date)}
                onclick={
-                 update_datepicker_mem((config, onchange, id, init_date, false))}
+                 update_datepicker_mem((config, onchange, id, init_date))}
                onkeyup={
-                 update_datepicker_mem((config, onchange, id, init_date, true))}
+                 update_datepicker_mem((config, onchange, id, init_date))}
              />
       (<div style={css {position: relative; display: inline;}}>
         {hidden_init}
@@ -249,7 +249,7 @@ WDatepicker = {{
   show_default(id, date) = show(default_config, id, date)
 
   update_datepicker((config: WDatepicker.config, onchange: Date.date -> void,
-      id: string, init_date: Date.date, key_pressed: bool))
+      id: string, init_date: Date.date))
       : Dom.event -> void = event ->
     // Parse the input field and update the calendar
     input_date_opt() = parse(config, id)
@@ -257,23 +257,19 @@ WDatepicker = {{
         /*if not(eq_day(new_date, init_date)) then*/
           do Dom.transform([#{get_picker_id(id)} <-
               date_picker((config, onchange, id, new_date, new_date))])
-          if key_pressed then
-            kc = event.key_code
-            kc = Option.lazy_default(
-                   -> error("Wdate : Error on getting the keyCode"),
-                  kc)
-            // from 48 to 57 are key from 0 to 9
-            // from 96 to 105 are key from numpad 0 to numpad 9
-            // key 8 => backspace
-            // key 13 => enter
-            // key 46 => delete
-            // key 111 => /
-            // key 127 => i dont know
-            is_edit_key = (kc >= 48 && kc <= 57)  || (kc >= 96 && kc <= 105) || List.mem(kc, [8,13,46,111,127])
-            do if is_edit_key then onchange(new_date)
-            kc
-          else 0
-      ), 0, input_date_opt())
+          kc = event.key_code
+          kc = Option.default(0, kc)
+          // from 48 to 57 are key from 0 to 9
+          // from 96 to 105 are key from numpad 0 to numpad 9
+          // key 8 => backspace
+          // key 13 => enter
+          // key 46 => delete
+          // key 111 => /
+          // key 127 => i dont know
+          is_edit_key = (kc >= 48 && kc <= 57)  || (kc >= 96 && kc <= 105) || List.mem(kc, [8,13,46,111,127])
+          do if is_edit_key then onchange(new_date)
+          kc
+    ), 0, input_date_opt())
       /*else 0), 0, input_date_opt())*/
     if not(is_open(config.open_class, id)) then
       do do_open(config.open_class, id)
@@ -854,7 +850,7 @@ WDatepicker = {{
       Int.compare(y1, y2)
 
   @private
-  update_datepicker_cmp((_, _, id1, d1, _), (_, _, id2, d2, _))
+  update_datepicker_cmp((_, _, id1, d1), (_, _, id2, d2))
       : Order.comparison =
     if String.equals(id1, id2) then
       compare_month(d1, d2)
@@ -863,7 +859,7 @@ WDatepicker = {{
 
   @private
   update_datepicker_order:
-      order((WDatepicker.config, (Date.date -> void), string, Date.date, bool),
+      order((WDatepicker.config, (Date.date -> void), string, Date.date),
         Order.default) =
     Order.make_unsafe(update_datepicker_cmp)
 
