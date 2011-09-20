@@ -455,14 +455,13 @@ struct
      successive jobs set *)
   let process priority =
     let rec aux nb_successive =
-      let nb_successive=nb_successive+1 in
       match BHeap.minimum priority.heap with
       | Some (tout_date, ref_cb) ->
           let t = Time.difference (Time.now ()) tout_date in
-          if (nb_successive <= Const.priority_max_successive) && not (Time.is_positive t) then begin
+          if (nb_successive > 0 ) && not (Time.is_positive t) then begin
             let _ = BHeap.remove priority.heap in
             let todo = !ref_cb in
-            if todo==nothing_todo then aux (nb_successive-1)
+            if todo==nothing_todo then aux nb_successive
             (* everything above is considered as no op *)
             else (
               begin
@@ -470,7 +469,7 @@ struct
                   todo
                   (L.error "priority process");
               end;
-              aux nb_successive
+              aux (nb_successive - 1)
             )
             (* +2 ms  to have a small upper value *)
             (* otherwise we could be called just to soon *)
@@ -478,7 +477,7 @@ struct
             let t = Time.max Time.zero (Time.add t (Time.milliseconds 2)) in
             Time.in_milliseconds t
         | None -> -1 (* special epoll parameter: infinite wait *)
-    in aux 0
+    in aux Const.priority_max_successive
 end
 
 
