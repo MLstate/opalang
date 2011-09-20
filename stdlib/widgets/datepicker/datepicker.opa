@@ -262,7 +262,14 @@ WDatepicker = {{
             kc = Option.lazy_default(
                    -> error("Wdate : Error on getting the keyCode"),
                   kc)
-            is_edit_key = (kc >= 48 && kc <= 57) || List.mem(kc, [8,13,127])
+            // from 48 to 57 are key from 0 to 9
+            // from 96 to 105 are key from numpad 0 to numpad 9
+            // key 8 => backspace
+            // key 13 => enter
+            // key 46 => delete
+            // key 111 => /
+            // key 127 => i dont know
+            is_edit_key = (kc >= 48 && kc <= 57)  || (kc >= 96 && kc <= 105) || List.mem(kc, [8,13,46,111,127])
             do if is_edit_key then onchange(new_date)
             kc
           else 0
@@ -271,11 +278,11 @@ WDatepicker = {{
     if not(is_open(config.open_class, id)) then
       do do_open(config.open_class, id)
       config.on_open(id)
-    else if kc == 13 then
+    else if kc == 13 then //enter
       do save_date(config, id)
       do hide_picker(config.open_class, id)
       config.on_close(id)
-    else if kc == 27 then
+    else if kc == 27 then //escape
       do do_close(config.open_class, id)
       _ = Dom.set_value(#{get_input_id(id)}, to_formatted_string(config.format, init_date))
       config.on_close(id)
@@ -320,6 +327,18 @@ WDatepicker = {{
    * @param id The identifier of the widget
    */
   do_close(open_class: string,  id: string): void =
+    do load_date(id)
+    hide_picker(open_class, id)
+
+  /**
+   * Hide the pop-up calendar of a date picker
+   *
+   * @param config The configuration of the widget
+   * @param open_class Class of a widget when it's open
+   * @param id The identifier of the widget
+   */
+  do_save_and_close(config, open_class: string,  id: string): void =
+    do save_date(config,id)
     do load_date(id)
     hide_picker(open_class, id)
 
