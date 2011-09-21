@@ -37,6 +37,7 @@
   For performance reason we group both @i18n and @string process, so everything is with uid
 
 *)
+let (|>) a f = f a
 
 let i18n_pkg_name = "stdlib.core.i18n"
 let default_pkg_ext = ".translation"
@@ -280,10 +281,6 @@ let generate_opa_file name collection target =
   let f = Format.formatter_of_out_channel target in
   Format.fprintf f "package %s\n" name;
   Format.fprintf f "import %s\n" i18n_pkg_name;
-  let collection =
-    let pos tf = FilePos.get_one_loc (QmlLoc.pos (snd tf.initial_expr)) in
-    List.sort (fun a b -> Pervasives.compare (pos a) (pos b)) collection
-  in
   List.iter (fun tf ->
     (* here should check for an already present definition in old file *)
     Format.fprintf f "\n";
@@ -377,7 +374,15 @@ let replace_directives__i18n__string ~i18n_dir ~i18n_pkg env =
 let collect_directives__i18n env =
   let acc = collect_directives__i18n []  env.SAP.lcodeNotUser in
   let acc = collect_directives__i18n acc env.SAP.lcodeUser    in
+  let cmp_id tf1 tf2 = Pervasives.compare tf1.id tf2.id in
+  let cmp_pos =
+    let pos tf = FilePos.get_one_loc (QmlLoc.pos (snd tf.initial_expr)) in
+    (fun tf1 tf2 -> Pervasives.compare (pos tf1) (pos tf2))
+  in
   acc
+  |> List.stable_sort cmp_id (* need determist order (wrt initial relative order) for equal elements *)
+  |> Base.List.uniq ~cmp:cmp_id (* TODO merge position *)
+  |> List.sort cmp_pos
 
 let process_directives__i18n__string ~options env =
   let open I18n.Type in (* for I18n fields *)
