@@ -46,6 +46,23 @@ type OpaTsc.quantifier = {types:list(OpaType.typevar); rows:list(OpaType.rowvar)
 type OpaTsc.t = {quantifier : OpaTsc.quantifier; body : OpaType.ty}
 type OpaTsc.instantiation = {types:list(OpaType.ty); rows:list(OpaType.row); cols:list(OpaType.col)}
 
+
+/* We do not have access in this package to slicing, so we use an updatable fallback for the OpaTsc.get function (client side only) */
+OpaTsc_get = {{
+  get : string -> option(OpaTsc.t) = %%BslValue.Tsc.get%%
+  @both_implem fallback = @sliced_expr({client=some(Reference.create(get)) server=none})
+  update_fallback(f)  = match fallback
+    {none} -> void
+    {some=ref} -> Reference.set(ref,f)
+  get_fallback(ident) = match fallback
+    {none} -> none
+    {some=ref} -> Reference.get(ref)(ident)
+  get_with_fallback(ident) = match OpaTsc_get.get(ident)
+    {none} -> OpaTsc_get.get_fallback(ident)
+    r -> r
+  final_get(ident) = @sliced_expr({client=get_with_fallback(ident) server=get(ident)})
+}}
+
 OpaTsc = {{
   /**
    * {2 Get type schemes}
@@ -54,7 +71,7 @@ OpaTsc = {{
   /**
    * Get a type scheme from a [name] if it exists, else return [none].
    */
-  get : string -> option(OpaTsc.t) = %%BslValue.Tsc.get%%
+  get(ident:string) : option(OpaTsc.t) = OpaTsc_get.final_get(ident)
 
   /**
    * Get a type scheme from a [name] if exists, else make an error.

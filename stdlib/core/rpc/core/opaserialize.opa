@@ -65,38 +65,11 @@ type OpaSerialize.options = {
 
 }
 
-@private
-Type_of_name = {{
-  @server server(ident,args) = OpaType.type_of_name(ident,args)
-  /* Remark: evaluating the pros (less request) and the cons (send too much or need client state) of pre-sending deps of the current asked type => don't do it */
-  @private @server ServerOpaTsc_get(ident) = OpaTsc.get(ident)
-  @private OpaTsc_add = %%BslValue.Tsc.add%%
-  @client client(ident,args) =
-    match OpaTsc.get(ident)
-    {some=def} -> OpaTsc.instantiate_type_only(args,def)
-    {none} -> match ServerOpaTsc_get(ident)
-      {some=def} ->
-         do println("Adding {ident}")
-         do OpaTsc_add(ident,def)
-         OpaTsc.instantiate_type_only(args,def)
-      {none} -> @fail("Type_of_name: unknonw type")
-      end
-}}
-
-
-
 /**
  * {1 Interface}
  */
+
 @both OpaSerialize = {{
-
-
-  @private
-  type_of_name(ident, args : list(OpaType.ty)) =
-      @sliced_expr({
-       client = Type_of_name.client(ident,args)
-       server = Type_of_name.server(ident,args)
-      })
 
   JsonTop = @toplevel.Json
 
@@ -686,7 +659,7 @@ Type_of_name = {{
                         %%BslValue.MagicContainer.serializer_get%%(ident))
           ),
           ident, args, (ty, x -> aux(x, ty)),
-          aux(_, type_of_name(ident, args)),
+          aux(_, OpaType.type_of_name(ident, args)),
           json)
       | (_, {TyForall_quant = _; TyForall_body = body}) ->
         aux(json, body)

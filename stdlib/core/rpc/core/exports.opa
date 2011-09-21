@@ -50,13 +50,13 @@
 
 @opacapi @both OpaRPC_serialize = OpaRPC.serialize
 @opacapi @both OpaRPC_empty_request = OpaRPC.empty_request
-@opacapi @both OpaRPC_add_args_with_type(p1,p2,p3) = OpaRPC.add_args_with_type(p1,p2,p3) // gets involved in a recusion because of compiler insert => eta expansion
-@opacapi @both OpaRPC_add_var_types =  OpaRPC.add_var_types
+@opacapi @both OpaRPC_add_args_with_type = OpaRPC.add_args_with_type
+@opacapi @both OpaRPC_add_var_types = OpaRPC.add_var_types
 @opacapi @both OpaRPC_add_row_types = OpaRPC.add_row_types
 @opacapi @both OpaRPC_add_col_types = OpaRPC.add_col_types
 
 /* Export module OpaRPC_Client*/
-@opacapi @client OpaRPC_Client_send_to_server(p1,p2,p3)    = OpaRPC_Client.send_to_server(p1,p2,p3) // gets involved in a recusion because of compiler insert => eta expansion
+@opacapi @client OpaRPC_Client_send_to_server              = OpaRPC_Client.send_to_server
 @opacapi @client OpaRPC_Client_try_cache                   = OpaRPC_Client.try_cache
 @opacapi @client OpaRPC_Client_async_send_to_server        = OpaRPC_Client.async_send_to_server
 @opacapi @client OpaRPC_Client_Dispatcher_register         = OpaRPC_Client.Dispatcher.register
