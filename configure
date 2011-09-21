@@ -176,6 +176,16 @@ if [ -n "${IS_MAC:-}" ]; then
     . ./platform_helper.sh
 fi
 
+if [ -n "${IS_FREEBSD:-}" ]; then
+    echo-check gmake
+    if which gmake >/dev/null 2>&1; then echo-ok ok
+    else
+        echo-err Not found
+        echo "Please install port devel/gmake."
+        exit 1
+    fi >&2
+fi
+
 # check ocaml version and location
 echo-check ocamlopt
 if OCAMLOPT=${OCAMLOPT:-$(which ocamlopt.opt)} || OCAMLOPT=${OCAMLOPT:-$(which ocamlopt)}
@@ -649,6 +659,12 @@ let os =
     elif [ -n "${IS_FREEBSD:-}" ]; then echo FreeBSD
     else echo 'match Sys.os_type with "Win32" -> Win32 | "Cygwin" -> Cygwin | _ -> assert false'
     fi)
+
+let makebinary =
+  $(if [ -n "${IS_FREEBSD:-}" ];
+   then echo '"gmake"'
+   else echo '"make"'
+   fi)
 
 module Libdir = struct
   let ssl = $(dir_opt "$CONFIG_LIB_OCAMLSSL")

@@ -703,7 +703,7 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     in
 
     let compilation_via_makefile =
-      let make = Printf.sprintf "make --makefile=%s -W %s -j %d %s" target_makefile target_makefile options.O.makefile_max_jobs
+      let make = Printf.sprintf "%s --makefile=%s -W %s -j %d %s" Config.makebinary target_makefile target_makefile options.O.makefile_max_jobs
         (match options.O.makefile_rule with
         | O.Bytecode ->
             (match ObjectFiles.compilation_mode () with

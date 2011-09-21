@@ -10,6 +10,8 @@
 include config.make
 
 INSTALL ?= cp -u -L
+MAKE ?= $_
+export MAKE
 
 ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += "--rebuild"
