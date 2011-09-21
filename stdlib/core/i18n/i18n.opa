@@ -144,7 +144,7 @@ debug(_) = void
 ServerI18n =
 {{
 
-  default_lang = {en} : I18n.language
+  default_lang = "en" : I18n.language
 
   get_system_lang() =
     // OS specific
