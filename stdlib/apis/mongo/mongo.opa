@@ -184,6 +184,20 @@ Bson = {{
     List.find((b0 -> key(b0) == name),bson)
 
   /**
+   * Find the first of one of a list of keys in a document.
+   **/
+  find_elements(bson:Bson.document, names:list(string)): option((string, Bson.element)) =
+    rec aux(d:list(Bson.element)) =
+      match d with
+      | {hd=e; tl=rest} ->
+        ekey = key(e)
+        (match List.find((n -> n == ekey),names) with
+         | {some=k} -> {some=(k,e)}
+         | {none} -> aux(rest))
+      | {nil} -> {none}
+    aux(bson)
+
+  /**
    * Find key of given name in bson object.
    * We only look at the current level, mostly it's for finding
    * "ok" or "errval" etc. in replies.
@@ -234,19 +248,25 @@ Bson = {{
    * Iterate over the elements in a bson object.
    **/
   iter(f:(Bson.element -> void), bson:Bson.document) : void =
-    List.iter((b0 -> f(b0)),bson)
+    List.iter(f,bson)
 
   /**
    * Map over the elements in a bson object.
    **/
   map(f:(Bson.element -> Bson.element), bson:Bson.document) : Bson.document =
-    List.map((b0 -> f(b0)),bson)
+    List.map(f,bson)
 
   /**
    * Fold over the elements in a bson object.
    **/
   fold(f:(Bson.element, 'a -> 'a), bson:Bson.document, acc:'a) : 'a =
-    List.fold((b0, acc -> f(b0, acc)),bson,acc)
+    List.fold(f,bson,acc)
+
+  /**
+   * Find a particular element.
+   **/
+  find_raw(f:(Bson.element -> bool), bson:Bson.document): option(Bson.element) =
+    List.find(f,bson)
 
   /**
    * Attempt to turn a bson element into a string which looks like
@@ -363,22 +383,15 @@ Mongo = {{
     match export_(m.mbuf) with
     | (str, len) ->
       s = String.substring(0,len,str)
-      //do println("{_name}: s=\n{dump(10,s)}")
+      //do println("{name}: s=\n{Bson.dump(16,s)}")
       cnt = Socket.write_len(m.conn,s,len)
-      //do println("cnt={cnt} len={len}")
       (cnt==len)
 
   @private
-  send_with_reply(m,_name): option(reply) =
-    match export_(m.mbuf) with
-    | (str, len) ->
-      s = String.substring(0,len,str)
-      //do println("{_name}: s=\n{dump(10,s)}")
-      cnt = Socket.write_len(m.conn,s,len)
-      //do println("cnt={cnt} len={len}")
-      if (cnt==len)
-      then {some=read_mongo_(m.conn,m.mailbox)}
-      else {none}
+  send_with_reply(m,name): option(reply) =
+    if send_no_reply(m,name)
+    then {some=read_mongo_(m.conn,m.mailbox)}
+    else {none}
 
   /**
    *  Create new mongo object:
@@ -414,6 +427,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do insert_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
@@ -423,6 +437,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do insert_batch_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
 
@@ -432,6 +447,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do update_(m.mbuf,flags,ns,selector,update)
     send_no_reply(m,"update")
 
@@ -440,6 +456,7 @@ Mongo = {{
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(reply) =
+    m = { m with mbuf = create_(m.bufsize) }
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
 
@@ -447,6 +464,7 @@ Mongo = {{
    *  Send OP_GETMORE and get reply:
    **/
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:cursorID): option(reply) =
+    m = { m with mbuf = create_(m.bufsize) }
     do get_more_(m.mbuf,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
 
@@ -456,6 +474,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do delete_(m.mbuf,flags,ns,selector)
     send_no_reply(m,"delete")
 
@@ -465,6 +484,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   kill_cursors(m:Mongo.db, cursors:list(cursorID)): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do kill_cursors_(m.mbuf,cursors)
     send_no_reply(m,"kill_cursors")
 
@@ -474,6 +494,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   msg(m:Mongo.db, msg:string): bool =
+    m = { m with mbuf = create_(m.bufsize) }
     do msg_(m.mbuf,msg)
     send_no_reply(m,"msg")
 
@@ -848,10 +869,22 @@ Cursor = {{
     simple_str_command(m, db, "drop", collection)
 
   /**
-   * Call a "reseterror" command.
+   * Return the last error from database.
+   **/
+  last_error(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "getlasterror", 1)
+
+  /**
+   * Reset database error status.
    **/
   reset_error(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "reseterror", 1)
+
+  /**
+   * Force a db error.
+   **/
+  force_error(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "forceerror", 1)
 
   @private
   find_int(bson:Bson.document, name:string): outcome(int,Mongo.failure) =
