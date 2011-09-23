@@ -404,6 +404,10 @@ let ty directive exprs tys =
   | `recval ->
       Ty.id ()
 
+  (* === *)
+  (* closure_instrumentation *)
+  | `public_env -> Ty.id ()
+
 (* utils *)
 
 let create_lazy_record_arguments = function
@@ -415,3 +419,98 @@ let create_lazy_record_exprs record info =
   match info with
   | Some info -> [ record ; info ]
   | None -> [ record ]
+
+module Format = Base.Format
+
+let to_string d =
+  match d with
+  | `deprecated -> "deprecated"
+  | `todo -> "todo"
+  | `at_init -> "at_init"
+  | `module_ -> "module"
+  | `module_field_lifting -> "module_field_lifting"
+  | `coerce -> "coerce"
+  | `nonexpansive -> "nonexpansive"
+  | `unsafe_cast -> "unsafe_cast"
+  | `opensums -> "opensums"
+  | `openrecord -> "openrecord"
+  | `assert_ -> "assert"
+  | `typeof -> "typeof"
+  | `atomic -> "atomic"
+  | `immovable -> "immovable"
+  | `thread_context -> "thread_context"
+  | `with_thread_context -> "with_thread_context"
+  | `js_ident -> "js_ident"
+  | `throw -> "throw"
+  | `catch -> "catch"
+  | `spawn -> "spawn"
+  | `wait -> "wait"
+  | `callcc -> "callcc"
+  | `restricted_bypass pass -> "restricted_bypass["^ pass ^ "]"
+  | `fail -> "fail"
+  | `create_lazy_record -> "create_lazy_record"
+  | `warncoerce -> "warncoerce"
+  | `apply_ty_arg _ -> "apply_ty_arg _"
+  | `abstract_ty_arg _ -> "abstract_ty_arg _"
+  | `closure_create _ -> "closure_create"
+  | `closure_apply -> "closure_apply"
+  | `closure_create_no_function _ -> "closure_create_no_function"
+  | `closure_define_function _ -> "closure_define_function"
+  | `ajax_publish b -> Printf.sprintf "ajax_publish(%s)" (match b with `sync -> "`sync" | `async -> "`async")
+  | `ajax_call b -> Printf.sprintf "ajax_call(%s)" (match b with `sync -> "`sync" | `async -> "`async")
+  | `comet_publish -> "comet_publish"
+  | `comet_call -> "comet_call"
+  | `insert_server_value i -> Printf.sprintf "insert_server_value(%s)" (Ident.to_string i)
+  | `doctype _ -> "doctype"
+  | `hybrid_value -> "hybrid_value"
+  | `backend_ident s -> Printf.sprintf "backend_ident[%s]" s
+  | `tracker _ -> "track"
+  | `expand _ -> "expand"
+  | `fun_action None -> "fun_action"
+  | `fun_action (Some Q.Client_id) -> "fun_action[Client_id]"
+  | `fun_action (Some Q.Deserialize) -> "fun_action[Deserialize]"
+  | `cps_stack_lambda _ -> "cps_stack_lambda"
+  | `cps_stack_apply _ -> "cps_stack_apply"
+  | `async -> "async"
+  | `sliced_expr -> "sliced_expr"
+  | `may_cps -> "may_cps"
+  | `stringifier -> "stringifier"
+  | `comparator -> "comparator"
+  | `serializer -> "serializer"
+  | `xmlizer -> "xmlizer"
+  | `llarray -> "llarray"
+  | `specialize variant -> Printf.sprintf "specialize%s" (match variant with `strict -> "_strict" | `polymorphic -> "")
+  | `partial_apply (None, ser) -> Printf.sprintf "partial_apply[ser:%B]" ser
+  | `partial_apply (Some i, ser) -> Printf.sprintf "partial_apply[missing:%d,ser:%B]" i ser
+  | `full_apply n -> Printf.sprintf "full_apply[env %d]" n
+  | `lifted_lambda (n,l) ->
+      Format.sprintf "lifted_lambda[env %d,[%a]]"
+        n
+        (Format.pp_list "@ " (fun f i -> Format.pp_print_string f (Ident.to_string i))) l
+  | `tagged_string (s, kind) ->
+      Printf.sprintf "tagged_string[%S, %s]" s
+        (match kind with
+         | Q.Rpc_use -> "rpc_use"
+         | Q.Rpc_def -> "rpc_def"
+         | Q.Type_def -> "type_def"
+         | Q.Type_use -> "type_use"
+         | Q.Client_closure_use -> "client_closure_use")
+  | `apply_cont -> "apply_cont"
+  | `recval -> "recval"
+  | `side_annotation a -> (
+      match a with
+      | `server -> "server"
+      | `client -> "client"
+      | `both -> "both"
+      | `prefer_server -> "prefer_server"
+      | `prefer_client -> "prefer_client"
+      | `prefer_both -> "prefer_both"
+      | `both_implem -> "both_implem"
+    )
+  | `visibility_annotation `private_ -> "server_private"
+  | `visibility_annotation (`public `sync) -> "publish"
+  | `visibility_annotation (`public `async) -> "publish_async"
+  | `visibility_annotation (`public `funaction) -> "publish_funaction"
+
+  | `public_env -> "public_env"
+

@@ -569,9 +569,12 @@ declaration_directive0 <-
   / "async" {{ `async }}
   / "opacapi" {{ `opacapi }}
   / "package" {{ `package }}
+  / "public_env" {{ `public_env }}
   / "private" {{ `private_ }}
   / "public" {{ `public }}
   / "expand" {{ `expand None }} (* not allowing anymore to give an integer to expand, could be put back *)
+  / slicing_directive0
+
 declaration_directive1_typ <-
   / "stringifier" {{ `stringifier }}
   / "comparator" {{ `comparator }}
@@ -581,7 +584,6 @@ declaration_directive1_typ <-
 /** toplevel directive **/
 declaration_directives <- (=deco(declaration_directive))*
 declaration_directive <-
-  / slicing_directive
   / "@" (=exact_ident(declaration_directive1)):v Opa_lexer.lpar_nosp expr:e rpar
     {{ (v, [e], []) }}
   / "@" (=exact_ident(declaration_directive0)):v !"("
@@ -603,11 +605,13 @@ slicing_directive0 <-
   / "server_private" {{ `visibility_annotation `private_ }}
   / "server" {{ `side_annotation `server }}
   / "no_client_calls" {{ `no_client_calls }}
-slicing_directives <- (=deco(slicing_directive))*
-slicing_directive <-
-  / "@" (=exact_ident(slicing_directive0)):v !"("
-    {{ (v, [], []) }}
 
+closure_instrumentation_directive <- "public_env" {{ `public_env }}
+
+local_binding_directive <-  "@" (=exact_ident(slicing_directive0
+                                             /closure_instrumentation_directive)):v !"("
+                           {{ (v, [], [])  }}
+local_binding_directives <- (=deco(local_binding_directive:v))*
 
 (**
    {7 Directives}
@@ -621,6 +625,7 @@ directive0 <-
   / "toplevel" {{ `toplevel }}
 
 directive1 <-
+  / closure_instrumentation_directive
   / "assert" {{ `assert_ }}
   / "atomic" {{ `atomic }}
   / "callcc" {{ `callcc }}
@@ -861,14 +866,14 @@ lambda <-
   Only identifiers on the left hand side of recursive values
 *)
 /** local binding **/
-letin <- pos:pos1 slicing_directives:dirs Opa_lexer.REC (=list1pos(rec_binding_pat, and)):l separator pos:pos_f expr:e
+letin <- pos:pos1 local_binding_directives:dirs Opa_lexer.REC (=list1pos(rec_binding_pat, and)):l separator pos:pos_f expr:e
           {{ let l,posl = l in
              push_hint (`same_indents ((pos1::posl) @ [pos_f]));
              let l = List.concat_map pat_in_to_simple_bindings l in
              let l = declaration_directive dirs l in
              LetIn (true, l, e)
            }}
-       / pos:pos1 slicing_directives:dirs (binding_pat / do_block):b separator:pos2 expr:e
+       / pos:pos1 local_binding_directives:dirs (binding_pat / do_block):b separator:pos2 expr:e
           {{ push_hint (`same_indent (pos1,pos2));
              bind_in_to_expr_in dirs b e
            }}

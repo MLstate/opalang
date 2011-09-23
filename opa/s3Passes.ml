@@ -55,6 +55,25 @@ type env_OcamlCompilation = {
   ocamlCompilation_returned_code : int ;
 }
 
+(* when propagating to all environment is overkill
+   ensures that their is no package mismatch, and no mutability of extra env *)
+let pass_extra_output_env (default:'extra_env option) =
+  let r = ref None in
+  (fun () -> match !r with
+  | Some((pack,extra_env)) when ObjectFiles.get_current_package_name() = pack ->
+    extra_env
+  | _ -> match default with
+    | None -> failwith "pass_extra_output_env:not initalized"
+    | Some d -> d
+  ),
+  (fun (extra_env:'extra_env) ->
+    let cur_pack = ObjectFiles.get_current_package_name() in
+    match !r with
+    | Some((pack,_)) when cur_pack = pack && cur_pack<>"" -> (* something wrong here *)
+      failwith ("pass_extra_output_env:no mutability in <<"^pack^">>")
+    | _ -> r:= Some(cur_pack,extra_env)
+   )
+
 (**********************************************************)
 (* Private module : Provides some utils for make **********)
 (* environnments ******************************************)
@@ -1074,13 +1093,19 @@ let pass_SimplifyMagic =
     )
     ~invariant:(global_invariant ())
 
+let pass_InstrumentForClosureSerialization_instrumented,
+    pass_InstrumentForClosureSerialization_define_instrumented
+  = pass_extra_output_env (None:IdentSet.t option)
+
 let pass_InstrumentForClosureSerialization =
   PassHandler.make_pass
     (fun e ->
        let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
        let {Passes.typerEnv = typerEnv; qmlAst = code} = env in
        let {QmlTypes.annotmap = annotmap; gamma = gamma} = typerEnv in
-       let gamma, annotmap, code = Pass_InstrumentForClosureSerialization.process_code gamma annotmap code in
+       let gamma, annotmap, code, instrumented =
+         Pass_InstrumentForClosureSerialization.process_code gamma annotmap code
+       in pass_InstrumentForClosureSerialization_define_instrumented instrumented;
        let typerEnv = {typerEnv with QmlTypes.annotmap = annotmap; gamma} in
        let env = {env with Passes.typerEnv = typerEnv; qmlAst = code} in
        {e with PH.env = env}
@@ -1679,6 +1704,12 @@ let pass_JavascriptCompilation =
           | Some id -> IdentSet.add id set
           | None -> set
       ) IdentSet.empty (Opa_Roots.roots_for_s3 ~no_server:false) in
+      (* instrumented closure should not be cleaned *)
+      let client_roots = IdentSet.fold (fun id set ->
+        let id = QmlRenamingMap.new_from_original client_finalenv.P.newFinalCompile_renaming_client id in
+        IdentSet.add id set
+      ) (pass_InstrumentForClosureSerialization_instrumented()) client_roots
+      in
       let typing = server_finalenv.P.newFinalCompile_qml_milkshake.QmlBlender.env in
       let bsl_client = client_finalenv.P.newFinalCompile_bsl in
       let server = server_finalenv.P.newFinalCompile_qml_milkshake in

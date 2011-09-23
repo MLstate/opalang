@@ -16,13 +16,152 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+(* @author Valentin Gatien-Baron
+   @author Rudy Sicard *)
+
+(* road map:
+   add instrumented function as root on client
+   add support of @public_env on function definition (see detect_candidate_def)
+   fix TODO in detect_candidate_call
+   add static dependencies analysis to detect env that contains informations linked to a server_private
+   add option to force having @public_env on all functions *)
+
 module Q = QmlAst
 module Cons = QmlAstCons.TypedExpr
 module List = BaseList
 
+let public_env_warn =
+  WarningClass.create
+    ~public:true
+    ~name:"public_env"
+    ~doc:"All public_env directive related warnings"
+    ~err:false
+    ~enable:true
+    ()
+
+let badarg_warn =
+  WarningClass.create
+    ~parent:public_env_warn
+    ~public:true
+    ~name:"badarg"
+    ~doc:"Warn if the argument of public_env is suspicious or incorrect"
+    ~err:false
+    ~enable:true
+    ()
+
+let badarg_unknownenv =
+  WarningClass.create
+    ~parent:badarg_warn
+    ~public:true
+    ~name:"unknownenv"
+    ~doc:"Warn if the argument of public_env is not a local definition or not a partial application or not a local function name"
+    ~err:true
+    ~enable:true
+    ()
+
+let badarg_emptyenv =
+  WarningClass.create
+    ~parent:badarg_warn
+    ~public:true
+    ~name:"emptyenv"
+    ~doc:"Warn if the argument of public_env is empty"
+    ~err:false
+    ~enable:true
+    ()
+
+let warning_set = WarningClass.Set.create_from_list [
+  public_env_warn;
+  badarg_warn;
+  badarg_unknownenv;
+  badarg_emptyenv
+]
+
+let warn_unknown annot =
+  QmlError.warning ~wclass:badarg_unknownenv (QmlError.Context.pos (Annot.pos annot))
+    "The argument of @@public_env is not a local function definition or not a partial application or not a local function name"
+
+let warn_empty annot =
+  QmlError.warning ~wclass:badarg_emptyenv (QmlError.Context.pos (Annot.pos annot))
+    "The argument of @@public_env has no real environment (toplevel or equivalent)"
+
 type env = Ident.t * (Q.ty,unit) QmlGenericScheme.tsc option IdentMap.t
 
 let empty = IdentMap.empty
+
+(* detect function declaration tagged with @public_env *)
+let rec is_public_env e = match e with
+  | Q.Directive (_, `public_env, _, _) -> true
+  | Q.Directive (_,_,[e],_) -> is_public_env e
+  | _ -> false
+
+let rec rm_top_public_env e =
+  match e with
+  | Q.Directive (_, `public_env, [e], _) -> e
+  | Q.Directive (a,b,[e],c) ->  Q.Directive (a,b,[rm_top_public_env e],c)
+  | e -> e
+
+let detect_candidate_def1 set def = match def with
+  | (Q.NewVal (label,iel) | Q.NewValRec (label,iel)) when List.exists (fun (_,e) -> is_public_env e) iel ->
+    let set = List.fold_left (fun set (i,e) -> if is_public_env e then IdentSet.add i set else set) set iel in
+    set, Q.NewValRec (label,List.map (fun (i,e) -> i,rm_top_public_env e) iel)
+  | _ -> set, def
+
+let detect_candidate_def code = List.fold_left_map detect_candidate_def1 IdentSet.empty code
+
+(* detect elligible call site, i.e. tagged with @publish_env or calling @publish_env function (see above)
+   also warn for bad use of the directive => not a partial call
+
+   to simplify the usability of the directive, ident on explicit and implicit toplevel construction are considered as partial call (but with a warning class):
+    first, some explicit partial application like f(1,_) are translated to toplevel functions because their environement is static (=> no env in the closure)
+    second, environement of toplevel construct is empty so the directive would have no effect anyway
+*)
+let detect_candidate_call always_serialize code =
+  let force_rewrite = ref false in
+  let _, set = QmlAstWalk.CodeExpr.fold
+    (QmlAstWalk.Expr.fold
+       (fun (local,need_instrumentation) e ->
+         match e with
+         (* partial apply cases *)
+         | Q.Directive (_, `partial_apply (_,false),
+                        [Q.Apply (_, Q.Ident (_, i), _args)]
+                          , _)
+             when IdentSet.mem i always_serialize
+           -> local,IdentSet.add i need_instrumentation
+
+         | Q.Directive (_, `public_env ,[
+           Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, Q.Ident (_, i), _args)], _)]
+           , _)
+           -> local,IdentSet.add i need_instrumentation
+
+
+         (* ident cases *)
+         | Q.Directive (a, `public_env , [Q.Ident(_, i)], _) ->
+           (if IdentSet.mem i local then warn_unknown else warn_empty) a;
+           force_rewrite:=true;
+           local,IdentSet.add i need_instrumentation
+
+         (* TODO bind in pattern are missing => bad warning class for some idents *)
+         | Q.LetIn(_, decl, _)
+         | Q.LetRecIn(_, decl, _) ->
+           let add local (id,_) = IdentSet.add id local in
+           (List.fold_left add local decl),need_instrumentation
+         | Q.Lambda(_ ,param, _ ) ->
+           let add local id = IdentSet.add id local in
+           (List.fold_left add local param),need_instrumentation
+
+         (* bad cases *)
+         | Q.Directive (a, `public_env , [_] , _) ->
+           warn_unknown a;
+           force_rewrite:=true;
+           local,need_instrumentation
+
+         | Q.Directive (a, `public_env , _ , _) -> (* should not parse *)
+           QmlError.error (QmlError.Context.pos (Annot.pos a)) "@publish_env with more than one parameter"
+
+         | _ -> local,need_instrumentation
+       )
+    ) (IdentSet.empty,IdentSet.empty) code
+  in set, !force_rewrite || not(IdentSet.is_empty set)
 
 let extract_env_type env_size gamma ty =
   match QmlTypesUtils.Inspect.get_arrow_through_alias_and_private gamma ty with
@@ -32,9 +171,14 @@ let extract_env_type env_size gamma ty =
       l1, Q.TypeArrow (l2, ret), l2, ret
   | None -> assert false
 
-let generate_typeofer gamma annotmap env (i,e) =
+(* generate instrumented version of the function
+   a(env,p1,p2) = expr
+   =>
+   a'(env) = `partial_call(a(env)) with extra ei annotation
+*)
+let generate_typeofer need_instrumentation gamma annotmap env (i,e) =
   match e with
-  | Q.Directive (_, `lifted_lambda (env_size, function_of_origin), [_], _) ->
+  | Q.Directive (_, `lifted_lambda (env_size, function_of_origin), [_], _) when IdentSet.mem i need_instrumentation ->
       let new_i = Ident.refreshf ~map:"%s_ser" i in
       let tsc_gen_opt = QmlAnnotMap.find_tsc_opt (Q.QAnnot.expr e) annotmap in
       let ty_i = QmlAnnotMap.find_ty (Q.QAnnot.expr e) annotmap in
@@ -84,53 +228,68 @@ let generate_typeofer gamma annotmap env (i,e) =
   | _ ->
       None
 
-let generate_new_binding (gamma, annotmap, env) iel =
+(* generate instrumented version of all declarations *)
+let generate_new_binding need_instrumentation (gamma, annotmap, env) iel =
   List.fold_left_filter_map
     (fun (gamma, annotmap, env) (i,e) ->
-       match generate_typeofer gamma annotmap env (i,e) with
+       match generate_typeofer need_instrumentation gamma annotmap env (i,e) with
        | None -> (gamma, annotmap, env), None
        | Some (gamma, annotmap, env, i, e) -> (gamma, annotmap, env), Some (i,e)
     ) (gamma, annotmap, env) iel
 
-let rewrite_identifiers env annotmap code =
+let generate_instrumented_functions need_instrumentation gamma annotmap code =
+  List.fold_left_collect
+    (fun acc code_elt ->
+      match code_elt with
+      | Q.NewVal (label,iel) ->
+        let acc, new_iel = generate_new_binding need_instrumentation acc iel in
+        let code =
+          if new_iel = [] then
+            [code_elt]
+          else
+            [code_elt; Q.NewVal (Annot.refresh label,new_iel)] in
+        acc, code
+      | Q.NewValRec (label,iel) ->
+        let acc, new_iel = generate_new_binding need_instrumentation acc iel in
+        let code = [Q.NewValRec (label,iel @ new_iel)] in
+        acc, code
+      | _ ->
+        assert false
+    ) (gamma, annotmap, empty) code
+
+(* update call elligible site *)
+let rewrite_identifiers always_serialize env annotmap code =
+  let new_call_site annotmap labelapply i labeli args =
+    let new_ident, tsc_opt = IdentMap.find i env in
+    let e = Q.Apply (labelapply, Q.Ident (labeli, new_ident), args) in
+    let annotmap = QmlAnnotMap.remove_tsc_inst_label labeli annotmap in
+    let annotmap = QmlAnnotMap.add_tsc_inst_opt_label labeli tsc_opt annotmap in
+    annotmap, e
+  in
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
        (fun annotmap e ->
           match e with
-          | Q.Directive (_, `partial_apply (_,false), [Q.Apply (label2, Q.Ident (label1, i), args)], _)
-              when IdentMap.mem i env ->
-              let new_ident, tsc_opt = IdentMap.find i env in
-              let e = Q.Apply (label2, Q.Ident (label1, new_ident), args) in
-              let annotmap = QmlAnnotMap.remove_tsc_inst_label label1 annotmap in
-              let annotmap = QmlAnnotMap.add_tsc_inst_opt_label label1 tsc_opt annotmap in
-              annotmap, e
+          | Q.Directive (_, `public_env ,[Q.Directive (_, `partial_apply (_,false), [Q.Apply (labela, Q.Ident (labeli, i), args)], _)],_) ->
+            new_call_site annotmap labela i labeli args
+
+          | Q.Directive (_, `partial_apply (_,false), [Q.Apply (labela, Q.Ident (labeli, i), args)], _) when IdentSet.mem i always_serialize ->
+            new_call_site annotmap labela i labeli args
+
+          | Q.Directive (_, `public_env,[e], _ ) -> annotmap, e
+          | Q.Directive (_, `public_env, _ , _ ) -> assert false (* see detect_candidate_call *)
           | _ ->
               annotmap, e
        )
     ) annotmap code
 
+
 let process_code gamma annotmap code =
-  if ObjectFiles.stdlib_packages (ObjectFiles.get_current_package ()) then
-    gamma, annotmap, code
-  else
-    let (gamma, annotmap, env), code =
-      List.fold_left_collect
-        (fun acc code_elt ->
-           match code_elt with
-           | Q.NewVal (label,iel) ->
-               let acc, new_iel = generate_new_binding acc iel in
-               let code =
-                 if new_iel = [] then
-                 [code_elt]
-                 else
-                   [code_elt; Q.NewVal (Annot.refresh label,new_iel)] in
-               acc, code
-           | Q.NewValRec (label,iel) ->
-               let acc, new_iel = generate_new_binding acc iel in
-               let code = [Q.NewValRec (label,iel @ new_iel)] in
-               acc, code
-           | _ ->
-               assert false
-        ) (gamma, annotmap, empty) code in
-    let annotmap, code = rewrite_identifiers env annotmap code in
-    gamma, annotmap, code
+  let always_serialize, code = detect_candidate_def code in
+  let need_instrumentation, need_rewrite = detect_candidate_call always_serialize code in
+  if not(need_rewrite) then (*return*) gamma, annotmap, code, IdentSet.empty  else
+  let (gamma, annotmap, env), code = if not(IdentSet.is_empty need_instrumentation)
+    then generate_instrumented_functions need_instrumentation gamma annotmap code
+    else (gamma, annotmap, empty), code in
+  let annotmap, code = rewrite_identifiers always_serialize env annotmap code in
+  gamma, annotmap, code, need_instrumentation

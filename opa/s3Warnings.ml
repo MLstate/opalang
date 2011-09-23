@@ -58,5 +58,7 @@ let warning_set =
 
   !++ SurfaceAstStaticInclude.warning_set ;
 
+  !++ Pass_InstrumentForClosureSerialization.warning_set;
+
   (* finally return the global warning_set *)
   s

@@ -152,11 +152,10 @@ struct
         | None -> `no_sugar
 end
 
-type userland_visibility_directive = QmlAst.userland_visibility_directive
 type all_directives = SurfaceAst.all_directives
 
 let userland_visibilities_to_whatever ds =
-    (ds : userland_visibility_directive list :> [> all_directives] list)
+    (ds : QmlAst.userland_visibility_directive list :> [> all_directives] list)
 
 class virtual ['ident] generic_printer =
 object (self)
@@ -470,6 +469,8 @@ object (self)
   | `specialize `strict -> Format.pp_print_string f "specialize_strict"
   | `specialize `polymorphic -> Format.pp_print_string f "specialize"
   | `recval -> Format.pp_print_string f "recval"
+  (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
+  | #QmlAst.closure_instrumentation_directive as d -> Format.pp_print_string f (QmlDirectives.to_string d)
 
   method string_elmt :  'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f (e,_) ->
     match e with

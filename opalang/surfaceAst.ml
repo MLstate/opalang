@@ -388,6 +388,8 @@ type opavalue_directive = [
 | `xmlizer
 ]
 
+type closure_instrumentation_directive = QmlAst.closure_instrumentation_directive
+
 type basic_directive =
     [ magic_directive
     | string_directive
@@ -404,6 +406,7 @@ type basic_directive =
     | opavalue_directive
     | `create_lazy_record
     | distribution_directive
+    | closure_instrumentation_directive
     ]
 (** these directives are the ones that are not taken care of in the surfaceAst
     they go straight to qml (or fail at the conversion when not implemented)

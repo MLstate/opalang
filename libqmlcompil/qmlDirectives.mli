@@ -70,3 +70,5 @@ val create_lazy_record_arguments :
 val create_lazy_record_exprs :
   QmlAst.expr -> QmlAst.expr option ->
   QmlAst.expr list
+
+val to_string : directive -> string

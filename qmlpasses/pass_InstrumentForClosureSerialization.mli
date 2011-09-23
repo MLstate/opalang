@@ -16,7 +16,9 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-val process_code : QmlTypes.gamma -> QmlAst.annotmap -> QmlAst.code -> QmlTypes.gamma * QmlAst.annotmap * QmlAst.code
+val warning_set : WarningClass.Set.t
+
+val process_code : QmlTypes.gamma -> QmlAst.annotmap -> QmlAst.code -> QmlTypes.gamma * QmlAst.annotmap * QmlAst.code * IdentSet.t
 
 (*
    The transformation related to closure serialization is as follows:

@@ -701,6 +701,10 @@ type slicer_directive =
     | visibility_directive
     ]
 
+type closure_instrumentation_directive = [
+  `public_env
+]
+
 (** Fun actions *)
 
 type fun_action_content =
@@ -822,6 +826,7 @@ type qml_directive = [
   | fun_action_directive
   | simple_slicer_directive
   | slicer_directive
+  | closure_instrumentation_directive
   | thread_context_directive
   | type_directive
 

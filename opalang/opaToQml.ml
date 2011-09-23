@@ -550,6 +550,7 @@ struct
       | #SA.opavalue_directive
       | #SA.distribution_directive
       | `llarray
+      | #QA.closure_instrumentation_directive
       ) as variant, el, tl ->
         let el =  List.map expr el in
         let tl = List.map ty tl in
