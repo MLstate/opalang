@@ -5,6 +5,7 @@ type path = external
 MongoDb = {{
 
   keyname = "key"
+  idxname = "index"
   valname = "value"
 
   path_to_string = (%% Mongolink.path_to_string %% : ref_path('a) -> string)
@@ -58,11 +59,11 @@ MongoDb = {{
       | {TyName_args=[lty]; TyName_ident="list"} ->
         list_to_bson(key, @unsafe_cast(v), lty)
       | {TyName_ident = "Bson.document"; TyName_args = _} ->
-        [{Document=(key,(@unsafe_cast(v)/*:Bson.document*/))}]
-      | _ -> @fail("MongoDb.opa_to_bson: unknown value {v} of type {ty}")
+        [{Document=(key,@unsafe_cast(v))}]
+      | _ -> @fail("MongoDb.opa_to_bson: unknown value {v} of type {OpaType.to_pretty(ty)}")
 
     ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
-    List.flatten([[{String=(keyname,key)}], opa_to_document(valname, v, ty)])
+    opa_to_document(key, v, ty)
 
   rec bson_to_opa(bson:Bson.document, ty:OpaType.ty): option('a) =
 
@@ -157,8 +158,8 @@ MongoDb = {{
          | element -> @fail("MongoDb.bson_to_opa: expected bool, got {element}"))
       | {TyName_args = [ty]; TyName_ident = "option"} ->
         (match element with
-         | {Document=(key,doc)} ->
-           do println("ty={ty} key={key} doc={doc}")
+         | {Document=(_key,doc)} ->
+           //do println("ty={OpaType.to_pretty(ty)} key={_key} doc={doc}")
            (match Bson.find_elements(doc,["some","none"]) with
             | {some=("some",element)} ->
               (match element_to_opa(element, ty) with
@@ -169,8 +170,8 @@ MongoDb = {{
          | element -> @fail("MongoDb.bson_to_opa: expected option, got {element}"))
       | {TyName_args = [ty]; TyName_ident = "list"} ->
         (match element with
-         | {Array=(key,doc)} ->
-           do println("ty={ty} key={key} doc={doc}")
+         | {Array=(_key,doc)} ->
+           //do println("ty={OpaType.to_pretty(ty)} key={_key} doc={doc}")
            len = List.length(doc) - 1
            l = List.fold_index(
                  (i, element, l ->
@@ -178,75 +179,110 @@ MongoDb = {{
                        then @fail("MongoDb.bson_to_opa: Array to list index mismatch {doc}")
                     match element_to_opa(element, ty) with
                     | {some=v} -> [v | l]
-                    | {none} -> @fail("MongoDb.bson_to_opa: failed for list element {element} type {ty}")),
+                    | {none} -> @fail("MongoDb.bson_to_opa: failed for list element {element} type {OpaType.to_pretty(ty)}")),
                  doc,[])
            {some=@unsafe_cast(l)}
          | element -> @fail("MongoDb.bson_to_opa: expected list, got {element}"))
       | {TyRecord_row = row}
       | {TyRecord_row = row; TyRecord_rowvar = _} ->
         (match element with
-         | {Document=(key,doc)} ->
-           do println("key={key} doc={doc} keys={Bson.keys(doc)}")
+         | {Document=(_key,doc)} ->
+           //do println("key={_key} doc={doc} keys={Bson.keys(doc)}")
            element_to_rec(doc, row)
          | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
-        do println("element={element} col={col}")
+        //do println("element={element} col={col}")
         (match element with
-         | {Document=(key,doc)} ->
-           do println("key={key} doc={doc} keys={Bson.keys(doc)}")
+         | {Document=(_key,doc)} ->
+           //do println("key={_key} doc={doc} keys={Bson.keys(doc)}")
            ltyfield = Bson.keys(doc)
            (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
             | {some=fields} ->
-              do println("fields={fields}")
+              //do println("fields={fields}")
               element_to_rec(doc, fields)
             | {none} -> @fail("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})"))
          | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
       | {TyName_args = tys; TyName_ident = tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys))
-      | _ -> @fail("MongoDb.bson_to_opa: unknown type {ty}")
+      | _ -> @fail("MongoDb.bson_to_opa: unknown type {OpaType.to_pretty(ty)}")
 
     and internal_document_to_opa(key:string, doc:Bson.document, ty:OpaType.ty): option('a) =
       match Bson.find_element(doc,key) with
-      | {some=element} -> do println("element={element}") element_to_opa(element, ty)
+      | {some=element} -> element_to_opa(element, ty)
       | {none} -> {none}
 
     match Bson.find_element(bson,valname) with
-    | {some=element} -> do println("element={element}") element_to_opa(element, ty)
+    | {some=element} -> element_to_opa(element, ty)
     | {none} -> {none}
 
-  write(path:ref_path('a), v:'a) =
+  get_select(key:string, index_opt:option(Bson.document)): Bson.document =
+    match index_opt with
+    | {some=index} -> List.flatten([[{String=(keyname,key)}], index])
+    | {none} -> [{String=(keyname,key)}]
+
+  write_(path:ref_path('a), index_opt:option(Bson.document), v:'a) =
     match path_to_mongo(path) with
     | (db, collection, key) ->
       ns = "db{db}.c{collection}"
-      v_bson = opa_to_bson(key,v,{none})
-      do println("MongoDb.write: v_bson={v_bson}")
+      select = get_select(key, index_opt)
+      update = List.flatten([select, opa_to_bson(valname,v,{none})])
+      //do println("MongoDb.write: update={update}")
       do println("MongoDb.write: db{db}.c{collection}({key})")
-      do if Mongo.update(mongo,Mongo._Upsert,ns,[{String=(keyname,key)}],v_bson)
-         then println("err={Cursor.last_error(mongo, db)}")
+      do if Mongo.update(mongo,Mongo._Upsert,ns,select,update)
+         then println("err={Bson.string_of_result(Cursor.last_error(mongo, db))}")
          else println("update failure")
       void
 
+  index(i:'a): Bson.document = opa_to_bson(idxname, i, {none})
+
+  writem(path:ref_path(map('a, 'b)), i:'a, v:'b) =
+    //do println("path={@typeof(path)}  i={@typeof(i)}  typeof={@typeof(v)}")
+    write_(@unsafe_cast(path),{some=index(i)},v)
+
+  write(path:ref_path('a), v:'a) =
+    write_(path, {none}, v)
+
   `<-`(d,a) = write(d,a)
 
-  read(path:ref_path('a)): 'a =
+  read_(path:ref_path('a), index_opt:option(Bson.document)): 'a =
     match path_to_mongo(path) with
     | (db, collection, key) ->
+      ns = "db{db}.c{collection}"
       (match @typeof(path) with
-       | {TyName_args=[ty]; TyName_ident="ref_path"} ->
-         do println("MongoDb.read: db{db}.c{collection}({key}) ty={ty}")
-         (match Cursor.find_one(mongo,("db{db}.c{collection}"),[{String=(keyname,key)}],{some=[{Int32=(valname,1)}]}) with
+       | {TyName_args=[ty]; TyName_ident="ref_path"}
+       | {TyName_args=[ty]; TyName_ident="val_path"} ->
+         do println("MongoDb.read: {ns}({key}) ty={OpaType.to_pretty(ty)}")
+         select = get_select(key, index_opt)
+         (match Cursor.find_one(mongo,ns,select,{some=[{Int32=(valname,1)}]}) with
           | {success=doc} ->
-            do println("doc={doc}")
+            //do println("doc={doc}")
             (match bson_to_opa(doc, ty) with
              | {some=v} -> v
              | {none} -> @fail("MongoDb.read: not found"))
           | {~failure} -> @fail("MongoDb.read: error from MongoDB: {failure}"))
-       | ty -> @fail("MongoDb.read: unknown db value {path} of path type {ty}"))
+       | ty -> @fail("MongoDb.read: unknown db value {path} of path type {OpaType.to_pretty(ty)}"))
+
+  readm(path:ref_path(map('a, 'b)), i:'a) =
+    //do println("path={@typeof(path)}  i={@typeof(i)}")
+    read_(@unsafe_cast(path),{some=index(i)})
+
+  read(path:ref_path('a)) =
+    read_(path, {none})
+
+  create_index(path:ref_path('a), index:Bson.document, flags:int): Mongo.result =
+    match path_to_mongo(path) with
+    | (db, collection, _) ->
+      ns = "db{db}.c{collection}"
+      if Indexes.create_index(mongo,ns,index,flags)
+      then Cursor.last_error(mongo, db)
+      else {failure={Error="command send failure"}}
+
+  create_standard_index(path:ref_path('a)): Mongo.result =
+    create_index(path,[{Int32=(idxname,1)}],(Indexes._Sparse+Indexes._Unique))
 
 }}
 
-/* Test code */
 /*
 type rtype = { rtInt:int } / { rtString:string } / { rtFloat:float } / { rtNull:void }
 type stype = { stInt:int; stString:string; stFloat:float; stNull:void }
@@ -266,9 +302,26 @@ db /path/bd/hd = { Null = ("null",void) }
 db /path/bd/hd/Boolean/f2 = { false }
 db /path2/p/v: void
 db /path2/p/i: int
+db /i0: int
+db /ism : map(int, string)
+db /ssm : map(string, string)
+//db /bsm : map(bool, string) /* Works but generates warnings */
+
+/* Some things from opa code to try... */
+//db /maps/im : intmap(int)
+//db /db3/mymap: intmap({ a: int; b: string })
+//db /opages/pages[_] = Page.empty
+//db /test/ii : map(int, int)
+//db /test/si : map(string, int)
+//db /test/ss : stringmap(string)
+//db /z[{a;b}] : { a : int; b : string; c : int }
+//db /wiki: stringmap(Template.default_content)
+//db /benchs/nobels : stringmap(stringmap(stringmap(string)))
+//db /session_data : intmap(map(string,string))
 
 _ =
   do println("dbMongo")
+  do MongoDb.write(@/i0,420)
   do MongoDb.write(@/path/i,42)
   do MongoDb.write(@/path/s,"forty two")
   do MongoDb.write(@/path/f,42.0)
@@ -281,6 +334,17 @@ _ =
   do MongoDb.write(@/path/bd,([{Int32=("int32",2424)}]:Bson.document))
   do MongoDb.write(@/path2/p/v,void)
   do MongoDb.write(@/path2/p/i,4224)
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ism))}")
+  do MongoDb.writem(@/ism,3,"three")
+  do MongoDb.writem(@/ism,5,"five")
+  do MongoDb.writem(@/ism,7,"seven")
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ssm))}")
+  do MongoDb.writem(@/ssm,"cat","moggy")
+  do MongoDb.writem(@/ssm,"rat","roland")
+  do MongoDb.writem(@/ssm,"hat","fedora")
+  //do MongoDb.writem(@/bsm,{true},"true")
+  //do MongoDb.writem(@/bsm,{false},"false")
+  do println("i0={(MongoDb.read(@/i0):int)}")
   do println("i={(MongoDb.read(@/path/i):int)}")
   do println("s={(MongoDb.read(@/path/s):string)}")
   do println("f={(MongoDb.read(@/path/f):float)}")
@@ -295,5 +359,13 @@ _ =
   do println("bd={(MongoDb.read(@/path/bd):Bson.document)}")
   do MongoDb.write(@/path/i,43)
   do println("i={(MongoDb.read(@/path/i):int)}")
+  do println("ism[3]={(MongoDb.readm(@/ism,3):string)}")
+  do println("ism[5]={(MongoDb.readm(@/ism,5):string)}")
+  do println("ism[7]={(MongoDb.readm(@/ism,7):string)}")
+  do println("ssm[cat]={(MongoDb.readm(@/ssm,"cat"):string)}")
+  do println("ssm[rat]={(MongoDb.readm(@/ssm,"rat"):string)}")
+  do println("ssm[hat]={(MongoDb.readm(@/ssm,"hat"):string)}")
+  //do println("bsm[true]={(MongoDb.readm(@/bsm,{true}):string)}")
+  //do println("bsm[false]={(MongoDb.readm(@/bsm,{false}):string)}")
   void
 */
