@@ -750,8 +750,12 @@ Cursor = {{
    * Create and initialise cursor with given query and default options.
    * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
    **/
-  start(m:Mongo.db, ns:string, query:Bson.document): cursor =
+  start(m:Mongo.db, ns:string, query:Bson.document, limit:int): cursor =
     c = Cursor.init(m,ns)
+    /* Note: MongoDB seems to interpret limit=1 as "just send me one document".
+     * If you want this loop to scan all the documents you can't use limit=1.
+     */
+    c = Cursor.set_limit(c,(max(2,limit)))
     c = Cursor.set_query(c,{some=query})
     Cursor.next(c)
 
