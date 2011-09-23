@@ -34,8 +34,8 @@ let path_to_mongo = function
       let db, collection, key =
         (match Badop.Path.to_list path with
          | [] -> assert false
-         | [k] -> (string_of_key_list [k], "collection", "key")
-         | [k1; k2] -> (string_of_key_list [k1;k2], "collection", "key")
+         | [k] -> (string_of_key_list [k], "ollection", "key")
+         | [k1; k2] -> (string_of_key_list [k1;k2], "ollection", "key")
          | [k1; k2; k3] -> (string_of_key_list [k1;k2], string_of_key_list [k3], "key")
          | (k1::k2::k3::rest) -> (string_of_key_list [k1;k2], string_of_key_list [k3], string_of_key_list rest))
       in

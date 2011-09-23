@@ -227,6 +227,7 @@ Bson = {{
   find_string(bson:Bson.document, name:string): option(string) =
     match find(bson, name) with
     | {some=[{String=(_,str)}]} -> {some=str}
+    | {some=[{Null=(_,{})}]} -> {some=""}
     | _ -> {none}
 
   find_doc(bson:Bson.document, name:string): option(Bson.document) =
@@ -296,6 +297,33 @@ Bson = {{
    * Same for a bson object (just a list of elements).
    **/
   string_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
+
+  /**
+   * Convert a result value into a more friendly string.
+   * Errors can be internal (just a string) or could be document
+   * returned by mongo.  Which may be an error even if the
+   * outcome is "success".
+   * TODO: Mongo send all sorts of rubbish here, need to parse all that stuff.
+   **/
+  @private
+  string_of_doc(doc:Bson.document): string =
+    match find_int(doc,"ok") with
+    | {some=1} -> "<ok>"
+    | {some=0} ->
+      (match find_string(doc, "err") with
+       | {some=err} -> err
+       | {none} ->
+         (match find_string(doc, "errmsg") with
+          | {some=errmsg} -> errmsg
+          | {none} -> "<not ok> No error message"))
+    | {some=n} -> "<not ok> Weird ok number {n}"
+    | {none} -> "<unknown error status>"
+
+  string_of_result(result:Mongo.result): string =
+    match result with
+    | {success=doc} -> string_of_doc(doc)
+    | {failure={Error=str}} -> str
+    | {failure={DocError=doc}} -> string_of_doc(doc)
 
 }}
 
