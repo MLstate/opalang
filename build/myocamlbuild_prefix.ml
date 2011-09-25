@@ -26,8 +26,10 @@ open Command
 
 let mlstate_platform = "mlstate_platform"
 let is_mac = Config.os = Config.Mac
+let is_fbsd = Config.os = Config.FreeBSD
 
-let sed = if is_mac then P"gsed" else P"sed"
+let sed = if is_mac  then P"gsed" else P"sed"
+let md5 = if is_fbsd then P"md5"  else P"md5sum"
 
 (**
  tools for which we call the windows version (and that need some call translation)
