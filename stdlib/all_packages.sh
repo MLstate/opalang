@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # script used to generate the list of packages
 
 DIRS=$(find . -type d | sed "s/.\///")

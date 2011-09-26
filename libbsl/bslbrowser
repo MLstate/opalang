@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 P=$MLSTATELIBS/lib/opa/static
 OPA=$P/opabslgen.bypass

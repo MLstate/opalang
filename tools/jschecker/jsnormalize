@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CC_DIR="$OPAGENERAL/tools/jschecker"
 CC="$CC_DIR/compiler.jar"

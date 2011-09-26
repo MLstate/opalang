@@ -10,6 +10,8 @@
 include config.make
 
 INSTALL ?= cp -u -L
+MAKE ?= $_
+export MAKE
 
 ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += "--rebuild"
@@ -152,7 +154,9 @@ uninstall:
 # Install our ocamlbuild-generation engine
 install-bld:
 	@mkdir -p $(INSTALL_DIR)/bin
-	@echo "#!/bin/bash -ue" > $(INSTALL_DIR)/bin/bld
+	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/bld
+	@echo "set -e" >> $(INSTALL_DIR)/bin/bld
+	@echo "set -u" >> $(INSTALL_DIR)/bin/bld
 	@chmod 755 $(INSTALL_DIR)/bin/bld
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
 	@echo "_build/myocamlbuild -no-plugin -j 6 \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
@@ -164,7 +168,9 @@ install-bld:
 install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
 	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
 	@$(INSTALL) $(BUILD_DIR)/opabsl/mlstatebsl/opabslgen_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
-	@echo "#!/bin/bash -ue" > $(INSTALL_DIR)/bin/qmlflat
+	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/qmlflat
+	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
+	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
 	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
 	@echo 'exec opa --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(shell sed "s%^[^# ]\+%$(PREFIX)/share/opa/mlstatebsl/opabslgen_&%; t OK; d; :OK" opabsl/mlstatebsl/bsl-sources); fi) "$$@"' \
 	>> $(INSTALL_DIR)/bin/qmlflat

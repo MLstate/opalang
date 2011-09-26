@@ -75,13 +75,11 @@ value ep_close(value fd)
     CAMLreturn(Val_int(close(fd)));
 }
 
-#ifdef __APPLE__
-#ifdef __MACH__
-#define __APPLE__MACH__
-#endif
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#define USE_KQUEUE
 #endif
 
-#ifdef __APPLE__MACH__
+#ifdef USE_KQUEUE
 
 #include <sys/types.h>
 #include <sys/event.h>
@@ -246,7 +244,7 @@ EXPORT(EPOLLHUP, EV_ERROR); // TODO with a hang up like event
 //TODO //EXPORT(EPOLLET);
 //TODO //EXPORT(EPOLLONESHOT);
 
-#else
+#else /* not USE_KQUEUE */
 
 #include <sys/epoll.h>
 
@@ -344,7 +342,7 @@ SIMPLE_EXPORT(EPOLLERR)
 SIMPLE_EXPORT(EPOLLET)
 SIMPLE_EXPORT(EPOLLONESHOT)*/
 
-#endif // __APPLE__MACH__ FALSE BRANCH
+#endif // USE_KQUEUE FALSE BRANCH
 
 #endif  // MLSTATE_UNIX
 

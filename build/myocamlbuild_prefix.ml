@@ -26,8 +26,10 @@ open Command
 
 let mlstate_platform = "mlstate_platform"
 let is_mac = Config.os = Config.Mac
+let is_fbsd = Config.os = Config.FreeBSD
 
-let sed = if is_mac then P"gsed" else P"sed"
+let sed = if is_mac  then P"gsed" else P"sed"
+let md5 = if is_fbsd then P"md5"  else P"md5sum"
 
 (**
  tools for which we call the windows version (and that need some call translation)
@@ -319,11 +321,11 @@ let _ = dispatch begin function
         ~dep:"%.mllibp"
         ~prod:"%.mllib"
         (fun env _build ->
-           let tags = String.uppercase (String.concat "\\|" Config.available) in
+           let tags = String.uppercase (String.concat "|" Config.available) in
            let sedexpr =
-             Printf.sprintf "s/^?HAS_\\(%s\\)://; t OK; /^?HAS_.*:/d; :OK" tags
+             Printf.sprintf "s/^\\?HAS_(%s)://; /HAS_.*:/d" tags
            in
-           Cmd(S[sed; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
+           Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
 
       (* Windows specific : redefinition of an existing rule in Ocaml_specific.ml,
          Louis please have a look to avoid the two copies at the end

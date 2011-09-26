@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script is used for generating opa files and packages dependency graphs
 # It is meant to be called from any directory containing some .opx/ directories

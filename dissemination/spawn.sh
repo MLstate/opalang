@@ -1,4 +1,7 @@
-#!/bin/bash -ue
+#!/usr/bin/env bash
+
+set -u
+set -e
 
 #
 #   Copyright © 2011 MLstate

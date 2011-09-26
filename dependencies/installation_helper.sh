@@ -1,4 +1,7 @@
-#!/bin/bash -ue
+#!/usr/bin/env bash
+
+set -u
+set -e
 
 SCRIPTDIR=$(dirname $0)
 cd $SCRIPTDIR
@@ -335,7 +338,7 @@ package_install (){
                 ./configure -prefix $PREFIX ${CYGOPT:-}
                 make world # clean world
                 make bootstrap
-                if [ $IS_LINUX ] || [ $IS_MAC ]; then
+                if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
                     make opt && make opt.opt
                 fi
                 PREFIX=$INSTALLDIR $SUDO make install -e

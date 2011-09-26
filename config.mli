@@ -60,8 +60,11 @@ val all_tags : string list
 val is_release : bool
 
 (** the target OS type *)
-type os = Linux | Mac | Win32 | Cygwin
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD
 val os : os
+
+(** the name of the  GNU make binary, gmake on fBSD, make on other platforms *)
+val makebinary : string
 
 (** the installation directory of external libraries, as in the ocamlopt '-I'
     command-line option ; None if no extra include directory is needed *)
