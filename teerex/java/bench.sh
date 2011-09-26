@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #java-bench.lst obtained with: 
 #   find /home/koper/soft/jdk-1_5_0-src-jrl/ -type f -name '*.java' ! -exec grep -q '#warn' {} \; -print > ./teerex/java/java-bench.lst 
 #we ignore files containing #warn as they need some preprocessing

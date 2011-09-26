@@ -1,4 +1,7 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -e
+set -u
 
 #PREFIX=/usr
 INSTALLDIR=$PWD/release_install_root
@@ -123,7 +126,10 @@ if [ -n "$AUTOINSTALL" ]; then
     AUTOINSTALL=${AUTOINSTALL//\{\}/$VERSION_STRING}
     msg "Making $AUTOINSTALL"
     cat >"$INSTALLDIR/install.sh" <<EOF
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -e
+set -u
 
 if [ -n "\${1:-}" ]; then
     echo "Installing in \$1"
@@ -164,7 +170,10 @@ EOF
     chmod a+x "$INSTALLDIR/install.sh"
 
     cat >"$INSTALLDIR/share/opa/uninstall.sh" <<"EOF"
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -e
+set -u
 
 SCRIPT="$0"
 if [ "${SCRIPT:0:1}" != "/" ]; then

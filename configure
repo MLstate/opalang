@@ -1,4 +1,7 @@
-#!/bin/bash -ue
+#!/usr/bin/env bash
+
+set -u
+set -e
 
 : ${OPA_SOURCE_DIR:=$(dirname $0)}
 if [ "${OPA_SOURCE_DIR#/}" = "$OPA_SOURCE_DIR" ]; then OPA_SOURCE_DIR=$PWD/$OPA_SOURCE_DIR; fi
@@ -112,9 +115,12 @@ case $(uname) in
     Darwin*)
         echo-ok MacOS
         IS_MAC=1;;
-    Linux*)
+    Linux*|GNU/kFreeBSD)
         echo-ok Linux
         IS_LINUX=1;;
+    FreeBSD)
+	echo-ok FreeBSD
+	IS_FREEBSD=1;;
     *)
         echo-err "Not sure, probably Unix / Linux"
         IS_LINUX=1
@@ -122,7 +128,7 @@ esac
 
 echo-check your architecture
 case $(uname -m) in
-    x86_64)
+    x86_64|amd64)
         echo-ok x86_64;;
     i?86)
         echo-ok ix86;;
@@ -168,6 +174,16 @@ if [ -n "${IS_MAC:-}" ]; then
         exit 1
     fi >&2
     . ./platform_helper.sh
+fi
+
+if [ -n "${IS_FREEBSD:-}" ]; then
+    echo-check gmake
+    if which gmake >/dev/null 2>&1; then echo-ok ok
+    else
+        echo-err Not found
+        echo "Please install port devel/gmake."
+        exit 1
+    fi >&2
 fi
 
 # check ocaml version and location
@@ -286,6 +302,15 @@ else
     echo "You need Perl v5 to build this package ; it's usually found in package perl-base"
     exit 1
 fi >&2
+
+# - checking for java
+echo-check for java
+if which java &>/dev/null; then
+    echo-ok found
+else
+    echo-err Not found
+    exit 1
+fi
 
 # - checking camlidl *
 echo-check for camlidl
@@ -627,12 +652,19 @@ let available = [ $TAGS_LIST]
 let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
-type os = Linux | Mac | Win32 | Cygwin
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD
 let os =
   $(if [ -n "${IS_LINUX:-}" ]; then echo Linux
     elif [ -n "${IS_MAC:-}" ]; then echo Mac
+    elif [ -n "${IS_FREEBSD:-}" ]; then echo FreeBSD
     else echo 'match Sys.os_type with "Win32" -> Win32 | "Cygwin" -> Cygwin | _ -> assert false'
     fi)
+
+let makebinary =
+  $(if [ -n "${IS_FREEBSD:-}" ];
+   then echo '"gmake"'
+   else echo '"make"'
+   fi)
 
 module Libdir = struct
   let ssl = $(dir_opt "$CONFIG_LIB_OCAMLSSL")
@@ -670,9 +702,11 @@ IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"
 IS_MAC="${IS_MAC:-}"
+IS_FREEBSD="${IS_FREEBSD:-}"
 OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      elif [ -n "${IS_MAC:-}" ]; then echo '"Mac"'
      elif [ -n "${IS_WINDOWS:-}" ]; then echo '"Win32"'
+     elif [ -n "${IS_FREEBSD:-}" ]; then echo '"FreeBSD"'
      else echo "Error: OS inconsistency" >&2; exit 2
      fi)
 
@@ -690,8 +724,11 @@ EOF
 
 sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
 if [ -n "${IS_MAC:-}" ]; then
-    echo "INSTALL := gcp -u -L"
-fi >>config.make
+    echo "INSTALL := gcp -u -L" >>config.make
+fi
+if [ -n "${IS_FREEBSD:-}" ]; then
+    echo "INSTALL := cp" >>config.make
+fi
 
 {
     echo

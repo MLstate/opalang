@@ -241,7 +241,7 @@ rule "opa parser version: opalang/syntax/* stdlib -> opalang/syntax/opaParserVer
     let files = List.map (fun s-> P s) parser_files in
     Seq[
       Cmd(S ( [Sh"echo let hash = \\\" > "; P (opaParserVersion)]));
-      Cmd(S ( [Sh"cat"] @ files @ [Sh"|";Sh"md5sum";Sh">>";P opaParserVersion]));
+      Cmd(S ( [Sh"cat"] @ files @ [Sh"|"; md5; Sh">>"; P opaParserVersion]));
       Cmd(S ( [Sh"echo \\\" >>"; P opaParserVersion ] ))
     ]
   );
@@ -650,8 +650,8 @@ rule "opadep: .opa -> .opa.depends"
   ~dep: "%.opa"
   ~prod: "%.opa.depends"
   (fun env build ->
-     let dep_regex = "^ *import \\+\\(.\\+\\)$" in
-     Cmd(S[sed; A("s%"^dep_regex^"%\\1.opx%; t OK; d; :OK s% %%g"); P(env "%.opa");
+     let dep_regex = "^ *import  \\*\\(.\\+\\) *$" in
+     Cmd(S[sed; A"-n"; A("s%"^dep_regex^"%\\1.opx%p"); P(env "%.opa");
            Sh">";P(env "%.opa.depends")]));
 
 rule "opacomp: .opa -> .native"
