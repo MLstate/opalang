@@ -61,10 +61,10 @@ type CCalendarControls.config('event) =
     }
 
   @private register_date_range_view(cal) =
-    update_date(_state, {NewMode=mode}) =
-      {re_render=<>{CCalendar.date_range_string(mode)}</>}
+    update_date(_state, {ViewChanged=~{first_weekday mode}}) =
+      {re_render=<>{CCalendar.date_range_string(first_weekday, mode)}</>}
     (date_range_xhtml, date_range_fragment) = CFragment.create(void, <></>, update_date)
-    ViewChanged(mode) = CFragment.notify(date_range_fragment, {NewMode=mode})
+    ViewChanged(vc) = CFragment.notify(date_range_fragment, {ViewChanged=vc})
     do CCalendar.perform(cal, {UpdateCallbacks=(callbacks -> {callbacks with ~ViewChanged })})
     date_range_xhtml
 

@@ -42,7 +42,7 @@ type CCalendar.config('event) =
    /** DOM id at which the calendar should be placed */
   id : string
    /** First day of the week; usually Sunday or Monday */
-  first_week_day : Date.weekday
+  first_weekday : Date.weekday
    // [?] How do we want to handle internationalization?
 
   style_config : CCalendar.Style.config
@@ -177,7 +177,8 @@ type CCalendar.msg('event) =
 type CCalendar.callbacks('event) =
 {
   /* the viewing mode or the visible date range has changed */
-   ViewChanged : CCalendar.mode -> void
+   ViewChanged : { mode : CCalendar.mode; first_weekday : Date.weekday } -> void
+    // FIXME, first_weekday above is a bit ugly...
   /* click in the calendar (depending on the view, the date may be rounded off to a day
    * at noon (week/month views), or more precise (day view) */
    DayClick : Date.date -> void
@@ -185,12 +186,13 @@ type CCalendar.callbacks('event) =
    EventClick : 'event -> void
 }
 
+@abstract
 type CCalendar.internal_msg('event) =
      CCalendar.msg('event)
    /
      {Startup redraw_handler : Dom.event_handler}
 
-type CCalendar.state('event) =
+@abstract type CCalendar.state('event) =
 {
   config : CCalendar.config('event)
   mode : CCalendar.mode
@@ -224,7 +226,7 @@ type CCalendar.state('event) =
 //      | ~{day} -> Date.advance(day, Duration.days(by))
 //      | {week} -> Date.advance(state.date, Duration.weeks(by))
       | {weeks=~{no start_at}} ->
-          {weeks={~no start_at=Date.advance(start_at, Duration.weeks(1))}}
+          {weeks={~no start_at=Date.advance(start_at, Duration.weeks(by))}}
       | ~{month} ->
           rec aux(x, date) =
             if x == 0 then
@@ -259,9 +261,6 @@ type CCalendar.state('event) =
       | {some=handler} -> Dom.unbind(Dom.select_window(), handler)
     {stop}
 
-  @private notify_ViewTypeChanged(state : CCalendar.state) =
-    state.callbacks.ViewChanged(state.mode)
-
   @private get_date(state) =
     match state.mode with
     | {month=~{month year}} ->
@@ -292,45 +291,53 @@ type CCalendar.state('event) =
      // restore current date
     set_date(new_state, date)
 
-  @private change_mode_to(state, new_state) =
-    do notify_ViewTypeChanged(new_state)
-    update_state_and_refresh(state, new_state)
-
   @private on_message(state : CCalendar.state, msg, channel) =
     upgrade = update_state_and_refresh(state, _)
-    match msg with
-    | {Next} -> on_message(state, {Move = 1}, channel)
-    | {Prev} -> on_message(state, {Move = -1}, channel)
-    | {Move = by} -> move_by(by, state)
-    | {GoToday} -> on_message(state, {SetDate = Date.now()}, channel)
-    | {SetDate = date} -> upgrade(set_date(state, date))
-    | {SetMode = mode} ->
-        new_state = {state with ~mode}
-        change_mode_to(state, new_state)
-    | {ChangeMode = mode} ->
-        new_state = change_mode(state, mode)
-        change_mode_to(state, new_state)
-    | {ChangeConfig = config} -> upgrade({ state with ~config })
-    | {Refresh} -> upgrade(state)
-    | {Startup ~redraw_handler} ->
-        upgrade({state with redraw_handler=some(redraw_handler)})
-    | {Shutdown} -> calendar_shutdown(state)
-    | {UpdateCallbacks=f} ->
-        upgrade({state with callbacks=f(state.callbacks)})
-    | {AddEvent=_}
-    | {RemoveEvent=_}
-    | {ModifyEvent=_}
-    | {AddCategory=_}
-    | {RemoveCategory=_} ->
-        error("on_message: {msg} not implemented")
+    rec process(msg) =
+      match msg with
+      | {Next} -> on_message(state, {Move = 1}, channel)
+      | {Prev} -> on_message(state, {Move = -1}, channel)
+      | {Move = by} -> move_by(by, state)
+      | {GoToday} -> on_message(state, {SetDate = Date.now()}, channel)
+      | {SetDate = date} -> upgrade(set_date(state, date))
+      | {SetMode = mode} -> upgrade({state with ~mode})
+      | {ChangeMode = mode} -> upgrade(change_mode(state, mode))
+      | {ChangeConfig = config} -> upgrade({ state with ~config })
+      | {Refresh} -> upgrade(state)
+      | {Startup ~redraw_handler} -> upgrade({state with redraw_handler=some(redraw_handler)})
+      | {Shutdown} -> calendar_shutdown(state)
+      | {UpdateCallbacks=f} -> upgrade({state with callbacks=f(state.callbacks)})
+      | {AddEvent=_}
+      | {RemoveEvent=_}
+      | {ModifyEvent=_}
+      | {AddCategory=_}
+      | {RemoveCategory=_} ->
+          error("on_message: {msg} not implemented")
+    result = process(msg)
+    do
+      // taking care of triggering the ViewChanged callback
+      match (msg, result) with
+      | ({Startup redraw_handler=_}, _)
+      | ({Refresh}, _) ->
+            state.callbacks.ViewChanged({mode=state.mode first_weekday=state.config.first_weekday})
+      | (_, {set=new_state}) ->
+          if state.mode == new_state.mode then
+            void
+          else
+            state.callbacks.ViewChanged({mode=new_state.mode first_weekday=state.config.first_weekday})
+      | _ -> void
+    result
+
+  @private roll_to_beg_of_the_week(state, date) =
+    Date.move_to_weekday(date, {backward}, state.config.first_weekday)
 
   @private render_weeks_view(state, weeks, size) =
-    date = Date.move_to_weekday(weeks.start_at, {backward}, state.config.first_week_day)
+    date = roll_to_beg_of_the_week(state, weeks.start_at)
     render_many_weeks_view(state, date, (_ -> none), size, weeks.no)
 
   @private render_month_view(state, date, size) =
     start_at = Date.build({year=date.year; month=date.month; day=1})
-            |> Date.move_to_weekday(_, {backward}, state.config.first_week_day)
+            |> roll_to_beg_of_the_week(state, _)
     week_no =
        /* assuming we show 5 weeks, let's check the first date that is not visible --
         * if it's still in the same month then we need to show 6 weeks to make
@@ -779,7 +786,7 @@ type CCalendar.state('event) =
                 , style_config : CCalendar.Style.config
                 ) : CCalendar.config =
   {
-    first_week_day = {monday}
+    first_weekday = {monday}
     ~id
     ~style_config
     ~event_config
@@ -845,21 +852,22 @@ type CCalendar.state('event) =
    * {2 Auxilary functions}
   **/
 // ***************************************************************************************
-   date_range_string(mode : CCalendar.mode) : string =
+   date_range_string(first_weekday : Date.weekday, mode : CCalendar.mode) : string =
      match mode with
      | ~{month} -> "{month.month} {month.year}"
      | {weeks=~{no start_at}} ->
-         end_at = Date.advance(start_at, Duration.weeks(no))
-               |> Date.advance(_, Duration.days(-1))
-         start_day = Date.get_day(start_at)
+         beg_date = Date.move_to_weekday(start_at, {backward}, first_weekday)
+         end_date = Date.advance(beg_date, Duration.weeks(no))
+                 |> Date.advance(_, Duration.days(-1))
+         beg_day = Date.get_day(beg_date)
          dont_repeat(f) =
-           if f(start_at) == f(end_at) then
+           if f(beg_date) == f(end_date) then
              ""
            else
-             "{f(start_at)} "
-         start_month = dont_repeat(Date.get_month)
-         start_year = dont_repeat(Date.get_year)
-         "{start_day} {start_month}{start_year}– {Date.to_string_date_only(end_at)}"
+             "{f(beg_date)} "
+         beg_month = dont_repeat(Date.get_month)
+         beg_year = dont_repeat(Date.get_year)
+         "{beg_day} {beg_month}{beg_year}– {Date.get_day(end_date)} {Date.get_month(end_date)} {Date.get_year(end_date)}"
 
 }}
 
