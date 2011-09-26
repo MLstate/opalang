@@ -70,7 +70,7 @@
 ##register select_id: string -> Dom.private.element
 ##args(name)
 {
-    return (new $("#"+name))
+    return (new $(document.getElementById(name)))
 }
 
 ##register select_class: string -> Dom.private.element
