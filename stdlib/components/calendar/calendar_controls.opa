@@ -74,10 +74,10 @@ type CCalendarControls.config('event) =
       goto = <span>{goto_ctrl}</>
           |> style_stl(WStyler.make_class(["ccalendar_ext_ctrl_goto"]))
        // right panel
-      day_view = button({SetMode={day}}, "{id}_day", <>Day</>)
-      week_view = button({SetMode={week}}, "{id}_week", <>Week</>)
-      two_weeks_view = button({SetMode={two_weeks}}, "{id}_two_weeks", <>2 Weeks</>)
-      month_view = button({SetMode={month}}, "{id}_month", <>Month</>)
+//      day_view = button({ChangeMode={day}}, "{id}_day", <>Day</>)
+//      week_view = button({ChangeMode={week}}, "{id}_week", <>Week</>)
+      two_weeks_view = button({ChangeMode={weeks=2}}, "{id}_two_weeks", <>2 Weeks</>)
+      month_view = button({ChangeMode={month}}, "{id}_month", <>Month</>)
        // style
       left_panel_style = css { float: left }
       right_panel_style = css { float: right }
@@ -94,7 +94,7 @@ type CCalendarControls.config('event) =
           {today}{prev}{next}{goto}
         </>
         <span style={right_panel_style}>
-          {day_view}{week_view}{two_weeks_view}{month_view}
+          {two_weeks_view}{month_view}
         </>
       </>
   }
@@ -113,10 +113,10 @@ type CCalendarControls.config('event) =
       next = blue_button({Next}, "{id}_next", <>»</>)
       prev = blue_button({Prev}, "{id}_prev", <>«</>)
        // right panel
-      day_view = gray_button({SetMode={day}}, "{id}_day", "Day")
-      week_view = gray_button({SetMode={week}}, "{id}_week", "Week")
-      two_weeks_view = gray_button({SetMode={two_weeks}}, "{id}_two_weeks", "2 Weeks")
-      month_view = gray_button({SetMode={month}}, "{id}_month", "Month")
+//      day_view = gray_button({ChangeMode={day}}, "{id}_day", "Day")
+//      week_view = gray_button({ChangeMode={week}}, "{id}_week", "Week")
+      two_weeks_view = gray_button({ChangeMode={weeks=2}}, "{id}_two_weeks", "2 Weeks")
+      month_view = gray_button({ChangeMode={month}}, "{id}_month", "Month")
       do WButton.set_toggled(buttons_config, "{id}_month")
        // styles
       left_panel_style = css { float: left }
@@ -134,7 +134,7 @@ type CCalendarControls.config('event) =
           {today}{prev}{next}
         </>
         <span style={right_panel_style}>
-          {day_view}{week_view}{month_view}{two_weeks_view}
+          {month_view}{two_weeks_view}
         </>
       </>
   }

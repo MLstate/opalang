@@ -25,7 +25,8 @@
 /* FIXME, after changing calendar style, there is some flickering;
           as if old one was still in the DOM? */
 
-import stdlib.widgets.{core, grid}
+import stdlib.core.date
+import stdlib.widgets.{core, button, grid}
 
 // ***************************************************************************************
 /**
@@ -123,11 +124,11 @@ type CCalendar.Event.config('event) =
 }
 
 type CCalendar.mode =
-    {day}
-  / {week}
-  / {two_weeks}
-  / {month}
-  // [?] what is exactly the special mode with one-line-per-user (category?)
+// TODO: Implement daily & weekly views for the calendar
+//    {day : Date.date}
+//  / {week : {start_at : Date.date}}
+  / {weeks : { no:int; start_at:Date.date }}
+  / {month : { month : Date.month; year : Date.year }}
 
 type CCalendar.msg('event) =
   /* changing configuration of a running calendar */
@@ -148,6 +149,8 @@ type CCalendar.msg('event) =
   // ---------------- presentation ----------------
   /* changes the view of the calendar */
  / { SetMode : CCalendar.mode }
+  /* changes the view of the calendar, while trying to retain the displayed date range */
+ / { ChangeMode : /*{ day } / { week } / */ { weeks : int } / { month } }
   /* moves the current date by a given number of units (forward if value positive,
    * backward if negative). The units depend on the view, i.e. are either days, weeks
    * or months (see CCalendar.mode) */
@@ -169,7 +172,7 @@ type CCalendar.msg('event) =
 
 type CCalendar.callbacks('event) =
 {
-  /* either the mode has changed or the date being viewed */
+  /* the viewing mode or the visible date range has changed */
    ViewChanged : CCalendar.mode -> void
   /* click in the calendar (depending on the view, the date may be rounded off to a day
    * at noon (week/month views), or more precise (day view) */
@@ -186,7 +189,6 @@ type CCalendar.internal_msg('event) =
 type CCalendar.state('event) =
 {
   config : CCalendar.config('event)
-  date : Date.date
   mode : CCalendar.mode
   callbacks : CCalendar.callbacks('event)
   redraw_handler : option(Dom.event_handler)
@@ -208,21 +210,43 @@ type CCalendar.state('event) =
   **/
 // ***************************************************************************************
 
-  @private monthly_view_date(d) : Date.date =
-    Date.build({year=d.year; month=d.month; day=1})
-
   @private update_state_and_refresh(old_state, new_state) =
     do draw_calendar(some(old_state), new_state)
     {set = new_state}
 
-  @private move_by(by, state) =
-    date =
+  @private move_by(by : int, state : CCalendar.state) =
+    mode =
       match state.mode with
-      | {day} -> Date.advance(state.date, Duration.days(by))
-      | {week} -> Date.advance(state.date, Duration.weeks(by))
-      | {two_weeks} -> Date.advance(state.date, Duration.weeks(2*by))
-      | {month} -> Date.calendar_advance(state.date, {Duration.zero with month=by})
-    update_state_and_refresh(state, {state with ~date})
+//      | ~{day} -> Date.advance(day, Duration.days(by))
+//      | {week} -> Date.advance(state.date, Duration.weeks(by))
+      | {weeks=~{no start_at}} ->
+          {weeks={~no start_at=Date.advance(start_at, Duration.weeks(1))}}
+      | ~{month} ->
+          rec aux(x, date) =
+            if x == 0 then
+              date
+            else
+              cfg =
+                if x > 0 then
+                  { next_month=Date.Month.next
+                    carry_month={january}
+                    next_year=_ + 1
+                    update_x = _ - 1
+                  }
+                else
+                  { next_month=Date.Month.prev
+                    carry_month={december}
+                    next_year=_ - 1
+                    update_x = _ + 1
+                  }
+              new_date =
+                match cfg.next_month(date.month) with
+                | {some=month} -> {date with ~month}
+                | {none} -> {date with month=cfg.carry_month year=cfg.next_year(date.year)}
+              new_x = cfg.update_x(x)
+              aux(new_x, new_date)
+          {month=aux(by, month)}
+    update_state_and_refresh(state, {state with ~mode})
 
   @private calendar_shutdown(state) =
     do
@@ -231,16 +255,56 @@ type CCalendar.state('event) =
       | {some=handler} -> Dom.unbind(Dom.select_window(), handler)
     {stop}
 
+  @private notify_ViewTypeChanged(state : CCalendar.state) =
+    state.callbacks.ViewChanged(state.mode)
+
+  @private get_date(state) =
+    match state.mode with
+    | {month=~{month year}} ->
+        Date.build(~{month year day=1})
+    | {weeks=~{start_at ...}} ->
+        start_at
+
+  @private set_date(state, date) =
+    mode =
+      match state.mode with
+      | {month=_} ->
+          {month = {year=Date.get_year(date); month=Date.get_month(date)}}
+      | {weeks=~{no start_at=_}} ->
+           // let's try to put the 'date' in the center of the visible date range.
+          start_at = Date.advance(date, Duration.weeks(-no/2))
+          {weeks=~{no start_at}}
+    {state with ~mode}
+
+  @private change_mode(state, change_to) =
+     // get current date
+    date = get_date(state)
+     // switch mode with dummy date
+    new_mode =
+      match change_to with
+      | {weeks=no} -> {weeks={~no start_at=Date.epoch}}
+      | {month} -> {month={month={january} year=1980}}
+    new_state = {state with mode=new_mode }
+     // restore current date
+    set_date(new_state, date)
+
+  @private change_mode_to(state, new_state) =
+    do notify_ViewTypeChanged(new_state)
+    update_state_and_refresh(state, new_state)
+
   @private on_message(state : CCalendar.state, msg, channel) =
     match msg with
     | {Next} -> on_message(state, {Move = 1}, channel)
     | {Prev} -> on_message(state, {Move = -1}, channel)
     | {Move = by} -> move_by(by, state)
     | {GoToday} -> on_message(state, {SetDate = Date.now()}, channel)
-    | {SetDate = date} -> update_state_and_refresh(state, {state with ~date})
+    | {SetDate = date} -> update_state_and_refresh(state, set_date(state, date))
     | {SetMode = mode} ->
-        do state.callbacks.ViewChanged(mode)
-        update_state_and_refresh(state, {state with ~mode})
+        new_state = {state with ~mode}
+        change_mode_to(state, new_state)
+    | {ChangeMode = mode} ->
+        new_state = change_mode(state, mode)
+        change_mode_to(state, new_state)
     | {ChangeConfig = config} -> update_state_and_refresh(state, { state with ~config })
     | {Refresh} -> update_state_and_refresh(state, state)
     | {Startup ~redraw_handler} ->
@@ -251,28 +315,14 @@ type CCalendar.state('event) =
     | {ModifyEvent=_}
     | {AddCategory=_}
     | {RemoveCategory=_} ->
-        error("unimplemented calendar operation {msg}")
+        error("on_message: {msg} not implemented")
 
-  @private unimplemented = css
-  {
-    color: red;
-    vertical-align: middle;
-    text-align: center;
-  }
+  @private render_weeks_view(state, weeks, size) =
+    date = Date.move_to_weekday(weeks.start_at, {backward}, state.config.first_week_day)
+    render_many_weeks_view(state, date, (_ -> none), size, weeks.no)
 
-  @private render_day_view(_state, _size) =
-    <div style={unimplemented}>Chill out, workin' on it...</>
-
-  @private render_week_view(_state, _size) =
-    <div style={unimplemented}>Chill out, workin' on it...</>
-
-  @private render_two_weeks_view(state, size) =
-    date = Date.move_to_weekday(state.date, {backward}, state.config.first_week_day)
-    render_weeks_view(state, date, (_ -> none), size, 2)
-
-  @private render_month_view(state, size) =
-    date = Date.to_human_readable(state.date)
-    start_at = monthly_view_date(date)
+  @private render_month_view(state, date, size) =
+    start_at = Date.build({year=date.year; month=date.month; day=1})
             |> Date.move_to_weekday(_, {backward}, state.config.first_week_day)
     week_no =
        /* assuming we show 5 weeks, let's check the first date that is not visible --
@@ -288,7 +338,7 @@ type CCalendar.state('event) =
         some(state.config.style_config.weeks_view.day_cells.inactive_cell_style)
       else
         none
-    render_weeks_view(state, start_at, day_style, size, week_no)
+    render_many_weeks_view(state, start_at, day_style, size, week_no)
 
   @private render_event(state, evt, event_style) =
     config = state.config
@@ -391,7 +441,7 @@ type CCalendar.state('event) =
          ; z-index: 1000
          })
 
-  @private render_weeks_view(state, start_date, day_style, size, week_no) =
+  @private render_many_weeks_view(state, start_date, day_style, size, week_no) =
     config = state.config
     cfg_wv = config.style_config.weeks_view
     get_date(week, day) =
@@ -517,10 +567,8 @@ type CCalendar.state('event) =
   @private render_calendar(state, size) =
     content =
       match state.mode with
-      | {day} -> render_day_view(state, size)
-      | {week} -> render_week_view(state, size)
-      | {two_weeks} -> render_two_weeks_view(state, size)
-      | {month} -> render_month_view(state, size)
+      | ~{weeks} -> render_weeks_view(state, weeks, size)
+      | ~{month} -> render_month_view(state, month, size)
     <div>
       {content}
     </> |> style_stl(state.config.style_config.calendar_style)
@@ -746,20 +794,22 @@ type CCalendar.state('event) =
   create( config : CCalendar.config('event)
         , callbacks : CCalendar.callbacks('event)
         ) : CCalendar.instance('event) =
-     // we initialize the calendar on the 1st day of present month
-     // (as it's initially in the monthly mode)
+     // we initialize the calendar on a monthly view with this current month
     start_at = Date.now()
-            |> Date.round_to_day(_)
-            |> Date.to_human_readable(_)
-            |> d -> {d with day = 1}
-            |> Date.of_human_readable(_)
-    init_state = { mode={month} date=start_at ~config ~callbacks redraw_handler=none}
+    init_mode = {month={month=Date.get_month(start_at) year=Date.get_year(start_at)}}
+    init_state = { mode=init_mode ~config ~callbacks redraw_handler=none}
     rec val chan = Session.make(init_state, on_message(_, _, chan))
     redraw(_) = perform(chan, {Refresh})
     redraw_handler = Dom.bind(Dom.select_window(), {resize}, redraw)
     do Session.send(chan, {Startup ~redraw_handler})
     do draw_calendar(none, init_state)
     chan
+
+// ***************************************************************************************
+  /**
+   * {2 Component manipulation}
+  **/
+// ***************************************************************************************
 
   shutdown(cal : CCalendar.instance) : void =
     perform(cal, {Shutdown})
@@ -773,6 +823,7 @@ type CCalendar.state('event) =
       | {~GoToday} -> {~GoToday}
       | {~Move} -> {~Move}
       | {~SetMode} -> {~SetMode}
+      | {~ChangeMode} -> {~ChangeMode}
       | {~SetDate} -> {~SetDate}
       | {~Refresh} -> {~Refresh}
       | {~Shutdown} -> {~Shutdown}
