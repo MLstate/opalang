@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-set -u
-
 # Include in your scripts to detect the host platform and have appropriate
 # aliases set for some commands (eg use the GNU versions on a mac)
 # Example:
