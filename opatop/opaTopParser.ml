@@ -22,5 +22,8 @@ type contents = string
 (* TODO: OpaToQml should use OManager, and this module can be removed *)
 
 let parse ?filename contents =
-  try OpaToQml.Parser.of_string ?filename contents
-  with OpaToQml.Parser.Exception s -> OManager.error "OpaToQml: %s@\n" s
+  try
+    OpaToQml.Parser.of_string ?filename contents
+  with
+  | OpaToQml.Parser.Exception s -> OManager.error "OpaToQml: %s@\n" s
+  | (Assert_failure _ | _) as e-> OManager.error "OpaToQml: %s@\n" (Printexc.to_string e)

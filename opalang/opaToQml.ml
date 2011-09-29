@@ -838,6 +838,15 @@ struct
       with
         (* An error message has been printed by the parseOpa function. *)
       | exn -> raise (Exception (Printexc.to_string exn)) in
+    let opa_code =
+      List.filter
+        (function
+        | (SA.Package _, _) as c ->
+            (try OManager.error "Ignoring package directive %a@\n" OpaPrint.string_and_pos#code_elt c
+            with _ -> false)
+        | _ -> true)
+        opa_code
+    in
     let _, qml_code =
       try NonuidOpaToQml.code ~options opa_code
       with exn -> raise (Exception (Printexc.to_string exn)) in
