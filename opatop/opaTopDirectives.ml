@@ -246,6 +246,11 @@ let types = "#types$", 0, types_action
 
 let help_action env _ =
   let pp spec doc = Format.fprintf !std "%-32s   %s@\n" spec doc in
+  Format.fprintf !std "@[<2>missing features:@\n";
+  Format.fprintf !std "servers, web, client code@\n";
+  Format.fprintf !std "separate compilation (packages)@\n";
+  Format.fprintf !std "very limited standard library (type '#env;;')";
+  Format.fprintf !std "@]@\n";
   Format.fprintf !std "---@\n";
   Format.fprintf !std "@[<2>opatop directives:@\n";
 

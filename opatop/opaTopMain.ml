@@ -266,6 +266,10 @@ let main () =
   P.greedy_set (not !fatal);
   (* input *)
   if MutableList.length user_files = 0 || !do_input then (
+    OManager.oformatter := Format.std_formatter;
+    OManager.this_is_tool ~force:true "opatop";
+    OManager.printf "This is an experimental top-level for opa, type '#help;;' to know more.@\n";
+    OManager.oformatter := Format.err_formatter;
     P.dump_set true;
     let env = OpaTopEnv.set_filename env "stdin" in
     let _ = OpaTopEnv.input_loop env stdin in
