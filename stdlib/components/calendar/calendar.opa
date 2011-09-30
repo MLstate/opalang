@@ -637,7 +637,7 @@ type CCalendar.internal_msg('event) =
   extensible_style_config : CCalendar.Style.config =
     extensible_style_date_format = Date.generate_printer("%l:%M%P")
   {
-    calendar_style = {class=["CCalendar_extensible"]}
+    calendar_style = {class=["CCalendar", "extensible"]}
     animation = {no_animation}
     weeks_view =
     {
@@ -712,10 +712,22 @@ type CCalendar.internal_msg('event) =
     }
   }
 
+  bootstrap_style_config : CCalendar.Style.config =
+    { extensible_style_config with
+        calendar_style = {class=["CCalendar", "bootstrap"]}
+        weeks_view = { extensible_style_config.weeks_view with
+          left_header = some(
+          {
+            cell_content(week) = <div class="week_hd">{if week < 10 then "0" else ""}{week}</>
+            width_px = 35
+          })
+        }
+    }
+
   google_style_config : CCalendar.Style.config =
     google_style_date_format = Date.generate_printer("%H:%M")
   {
-    calendar_style = {class=["CCalendar_google"]}
+    calendar_style = {class=["CCalendar", "google"]}
     animation = {no_animation}
     weeks_view =
     {
@@ -877,24 +889,94 @@ type CCalendar.internal_msg('event) =
   **/
 // ***************************************************************************************
 
-ccalendar_extensible_style_css = css
-   // FIXME, I don't want the style for 'td', but otherwise I get a syntax error
-  td {}
-  .CCalendar_extensible table.monthly {
+ccalendar_bootstrap_style_css = css
+  .CCalendar.bootstrap table.monthly {
     border-collapse: collapse;
     border-spacing: 0px;
   }
-  .CCalendar_extensible .monthly td {
-    border: 1px solid #BCF;
+  .CCalendar.bootstrap .monthly td {
+    border: 1px solid #DDD;
     padding: 0px;
     spacing: 0px;
   }
-  .CCalendar_extensible .monthly .events td {
+  .CCalendar.bootstrap .monthly .events {
+    border: none;
+  }
+  .CCalendar.bootstrap .monthly .events td {
     border: none;
     padding: 0px;
     spacing: 0px;
   }
-  .CCalendar_extensible .monthly .week_hd, .CCalendar_extensible .monthly .wday_hd {
+ .CCalendar.bootstrap .monthly .wday_hd { padding: 0px }
+ .CCalendar.bootstrap .monthly .week_hd { padding: 5px }
+ .CCalendar.bootstrap .monthly .week_hd, .CCalendar.bootstrap .monthly .wday_hd {
+    line-height: 20px;
+    text-align: center;
+    background-color: whitesmoke;
+    color: #404040;
+  }
+  .CCalendar.bootstrap .monthly .week_hd {
+    width: 25px;
+    height: 100%;
+  }
+  .CCalendar.bootstrap .monthly .day_hd {
+    color: #404040;
+    line-height: 14px;
+    text-align: right;
+    padding: 2px 4px 1px 4px
+  }
+  .CCalendar.bootstrap .monthly .inact {
+    background-color: #EEE
+  }
+  .CCalendar.bootstrap .monthly .today {
+    background-color: #FFF6D9;
+  }
+  .CCalendar.bootstrap .monthly .inact .day_hd {
+    color: #808080;
+  }
+  .CCalendar.bootstrap .monthly .today .day_hd {
+    color: #FFC40D
+  }
+  .CCalendar.bootstrap .monthly .events .event {
+    display: block;
+    width: 100%;
+    border: none;
+    background: none;
+    text-align: left;
+    white-space: nowrap;
+    padding: 1px 3px 2px;
+//    padding: 1px 1px 0px 2px; -- this should go on the parent
+    line-height: 14px;
+    cursor: pointer;
+  }
+  .CCalendar.bootstrap .monthly .events .event.multiday {
+    border-radius: 5px;
+  }
+  .CCalendar.bootstrap .monthly .events .event div {
+    overflow: hidden;
+  }
+  .CCalendar.bootstrap .monthly .events .event.over {
+    opacity: .8;
+  }
+
+ccalendar_extensible_style_css = css
+   // FIXME, I don't want the style for 'td', but otherwise I get a syntax error
+  td {}
+  .CCalendar.extensible table.monthly {
+    border-collapse: collapse;
+    border-spacing: 0px;
+  }
+  .CCalendar.extensible .monthly td {
+    border: 1px solid #BCF;
+    padding: 0px;
+    spacing: 0px;
+  }
+  .CCalendar.extensible .monthly .events td {
+    border: none;
+    padding: 0px;
+    spacing: 0px;
+  }
+  .CCalendar.extensible .monthly .week_hd, .CCalendar.extensible .monthly .wday_hd {
     line-height: 20px;
     text-align: center;
     font-family: helvetica, arial, sans-serif;
@@ -902,16 +984,16 @@ ccalendar_extensible_style_css = css
     font-size: 12px;
     background-color: #EFEFEF;
   }
-  .CCalendar_extensible .monthly .week_hd {
+  .CCalendar.extensible .monthly .week_hd {
     height: 100%;
   }
-  .CCalendar_extensible .monthly .week_hd {
+  .CCalendar.extensible .monthly .week_hd {
     color: #999
   }
-  .CCalendar_extensible .monthly .wday_hd {
+  .CCalendar.extensible .monthly .wday_hd {
     color: #555
   }
-  .CCalendar_extensible .monthly .day_hd {
+  .CCalendar.extensible .monthly .day_hd {
     color: #A7C6DF;
     font-family: helvetica, arial, sans-serif;
     font-size: 16px;
@@ -919,19 +1001,19 @@ ccalendar_extensible_style_css = css
     text-align: right;
     padding: 2px 4px 1px 4px
   }
-  .CCalendar_extensible .monthly .inact {
+  .CCalendar.extensible .monthly .inact {
     background-color: #EFEFEF
   }
-  .CCalendar_extensible .monthly .today {
+  .CCalendar.extensible .monthly .today {
     background-color: #FFF4BF
   }
-  .CCalendar_extensible .monthly .inact .day_hd {
+  .CCalendar.extensible .monthly .inact .day_hd {
     color: #BBB;
   }
-  .CCalendar_extensible .monthly .today .day_hd {
+  .CCalendar.extensible .monthly .today .day_hd {
     color: #BFA52F
   }
-  .CCalendar_extensible .monthly .events .event {
+  .CCalendar.extensible .monthly .events .event {
     display: block;
     width: 100%;
     border: none;
@@ -944,20 +1026,20 @@ ccalendar_extensible_style_css = css
     font-family: Verdana, sans-serif;
     cursor: pointer;
   }
-  .CCalendar_extensible .monthly .events .event.multiday {
+  .CCalendar.extensible .monthly .events .event.multiday {
     border-radius: 5px;
   }
-  .CCalendar_extensible .monthly .events .event div {
+  .CCalendar.extensible .monthly .events .event div {
     overflow: hidden;
   }
-  .CCalendar_extensible .monthly .events .event.over {
+  .CCalendar.extensible .monthly .events .event.over {
     opacity: .8;
   }
 
 ccalendar_google_style_css = css
    // FIXME, I don't want the style for 'td', but otherwise I get a syntax error
   td {}
-  .CCalendar_google table.monthly {
+  .CCalendar.google table.monthly {
     font-size: 11px;
     font-family: Arial, sans-serif;
     border-collapse: collapse;
@@ -966,21 +1048,21 @@ ccalendar_google_style_css = css
     border-bottom: 5px solid #BCF;
     border-spacing: 0px;
   }
-  .CCalendar_google .monthly tr td {
+  .CCalendar.google .monthly tr td {
     border: 1px solid #DDD;
     padding: 0px;
     spacing: 0px;
   }
-  .CCalendar_google .monthly td.today {
+  .CCalendar.google .monthly td.today {
     border: 1px solid #FAD163;
     background-color: #FFF7D7
   }
-  .CCalendar_google .monthly .events td {
+  .CCalendar.google .monthly .events td {
     border: none;
     padding: 0px;
     spacing: 0px;
   }
-  .CCalendar_google .monthly .wday_hd {
+  .CCalendar.google .monthly .wday_hd {
     color: #20C;
     padding-top: 2px;
     font-weight: normal;
@@ -989,20 +1071,20 @@ ccalendar_google_style_css = css
     text-align: center;
     border-bottom-color: #20C
   }
-  .CCalendar_google .monthly .day_hd {
+  .CCalendar.google .monthly .day_hd {
     line-height: 16px;
     color: #666;
     background-color: #F8F9FF;
     text-align: right;
     padding-right: 2px;
   }
-  .CCalendar_google .monthly .today .day_hd {
+  .CCalendar.google .monthly .today .day_hd {
     background-color: #FAD163
   }
-  .CCalendar_google .monthly .inact .day_hd {
+  .CCalendar.google .monthly .inact .day_hd {
     color: #AAA
   }
-  .CCalendar_google .monthly .events .event {
+  .CCalendar.google .monthly .events .event {
     display: block;
     width: 100%;
     border: none;
@@ -1014,17 +1096,17 @@ ccalendar_google_style_css = css
     font-family: Verdana, sans-serif;
     cursor: pointer;
   }
-  .CCalendar_google .monthly .events .event.multiday {
+  .CCalendar.google .monthly .events .event.multiday {
     border-radius: 5px;
   }
-  .CCalendar_google .monthly .events .event div {
+  .CCalendar.google .monthly .events .event div {
     overflow: hidden;
   }
-  .CCalendar_google .monthly .events .event .time {
+  .CCalendar.google .monthly .events .event .time {
     font-family: Arial, sans-serif;
     font-size: 10px;
     font-weight: bold;
   }
-  .CCalendar_google .monthly .events .event.over {
+  .CCalendar.google .monthly .events .event.over {
     opacity: .8;
   }

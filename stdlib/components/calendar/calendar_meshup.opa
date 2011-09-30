@@ -134,5 +134,6 @@ ccalendar_meshup_css =
   [ ccalendar_controls_css
   , ccalendar_extensible_style_css
   , ccalendar_google_style_css
+  , ccalendar_bootstrap_style_css
   , default_resizable
   ]

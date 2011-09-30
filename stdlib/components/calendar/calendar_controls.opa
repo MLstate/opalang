@@ -108,6 +108,9 @@ type CCalendarControls.config('event) =
       </>
   }
 
+  bootstrap_style_config =
+    extensible_style_config
+
   google_style_config =
   {
     generate(id, cal) =
