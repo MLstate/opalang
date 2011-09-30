@@ -215,11 +215,3 @@ let light_ident = function
   | FakeSource n
   | Source n -> n
   | Internal (_, id, n, _) -> Printf.sprintf "_v%d_%s" id n
-
-let is_universal_ident s =
-  (String.length s > 0)
-  && not (Char.is_digit s.[0])
-  && (
-    let valid c = Char.is_alpha c || Char.is_digit c || c = '_' in
-    String.for_all valid s
-  )

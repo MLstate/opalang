@@ -401,6 +401,14 @@ let is_float s =
   in
   aux false 0
 
+let is_universal_ident s =
+  (length s > 0)
+  && not (Char.is_digit s.[0])
+  && (
+    let valid c = Char.is_alpha c || Char.is_digit c || c = '_' in
+    for_all valid s
+  )
+
 (* s is a substring of s1 starting at position p1 *)
 let is_substring s s1 p1 =
   if p1 < 0 then invalid_arg "String.is_substring" else

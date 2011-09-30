@@ -160,7 +160,7 @@ let customize_lib_name name =
     String.remove_suffix_if_possible ("."^BslConvention.Extension.plugin) name
   in
   if
-    not (Ident.is_universal_ident name)
+    not (String.is_universal_ident name)
     || name.[0] = '_' (* an universal ident is not empty *)
   then
     OManager.error (

@@ -1370,7 +1370,7 @@ let parse_bypass_file options f =
 
 let check_ml_filename filename =
   let basename = File.chop_extension filename in
-  if not (Ident.is_universal_ident basename)
+  if not (String.is_universal_ident basename)
   then
     OManager.error (
       "Unsupported filename @{<bright>%S@}@\n"^^

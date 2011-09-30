@@ -316,6 +316,13 @@ val is_int : string -> bool
 val is_float : string -> bool
 
 (**
+   Tell if a string is a valid universal identifier, working on most of languages.
+   This means that it uses only alphanumeric char, and [_] but does not start with
+   a numeric char
+*)
+val is_universal_ident : string -> bool
+
+(**
    [is_substring "lo" "hello" 3] returns [true]
 
    Does not fail if the prefix or the offset is longuer than the string, simply returns [false].

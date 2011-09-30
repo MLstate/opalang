@@ -102,11 +102,4 @@ val get_package_name : t -> string
 (** returns none when the identifier is not internal *)
 val safe_get_package_name : t -> string option
 
-(**
-   Tell if a string is a valid universal identifier, working on most of languages.
-   This means that it uses only alphanumeric char, and [_] but does not start with
-   a numeric char
-*)
-val is_universal_ident : string -> bool
-
 val renaming_should_warn_when : t -> [`used | `unused | `never]
