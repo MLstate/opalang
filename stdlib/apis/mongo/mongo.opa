@@ -303,7 +303,7 @@ Bson = {{
    * Errors can be internal (just a string) or could be document
    * returned by mongo.  Which may be an error even if the
    * outcome is "success".
-   * TODO: Mongo send all sorts of rubbish here, need to parse all that stuff.
+   * TODO: Mongo sends all sorts of rubbish here, we need to parse all that stuff.
    **/
   @private
   string_of_doc(doc:Bson.document): string =
@@ -799,7 +799,7 @@ Cursor = {{
    * initiate communications.
    *
    * The cursor value is then returned, you can then use [Cursor.next] to
-   * scan along form there.
+   * scan along from there.
    **/
   find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document),
        limit:int, skip:int, flags:int): outcome(cursor,Mongo.failure) =

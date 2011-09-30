@@ -41,6 +41,32 @@ let path_to_mongo = function
       in
       BslNativeLib.opa_tuple_3 (ServerLib.wrap_string db, ServerLib.wrap_string collection, ServerLib.wrap_string key)
 
+##register path_length: Path.t('a,'b) -> opa[int]
+let path_length = function
+  | { Path.path; reader=_; kind=_; } ->
+      ServerLib.wrap_int(List.length(Badop.Path.to_list path))
+
+##opa-type MongoDb.key
+
+let field_intkey    = ServerLib.static_field_of_name "IntKey"
+let field_stringkey = ServerLib.static_field_of_name "StringKey"
+let make_val fld x = ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor fld x)
+let make_intkey = make_val field_intkey
+let make_stringkey = make_val field_stringkey
+
+##register get_path: Path.t('a,'b) -> opa[list(MongoDb.key)]
+let get_path = function
+  | { Path.path; reader=_; kind=_; } ->
+      let l = List.map (function
+                        | Badop.Key.IntKey i -> make_intkey i
+                        | Badop.Key.StringKey s -> make_stringkey s
+                        | Badop.Key.ListKey _ -> assert false
+                        | Badop.Key.VariableKey _ -> assert false) (Badop.Path.to_list path)
+      in
+      let l = List.fold_right (fun k l -> BslMongo.Bson.make_cons (wrap_opa_mongodb_key k) l) l BslMongo.Bson.shared_nil
+      in
+      BslNativeLib.wrap_opa_list l
+
 ##register escaped: string -> string
 let escaped = String.escaped
 
