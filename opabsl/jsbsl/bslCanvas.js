@@ -386,6 +386,13 @@ function bslcanvas_create_pattern(context, image, repeat)
     context.arcTo( x1, y1, x2, y2, radius)
 }
 
+##register arc: Canvas.context, int, int, int, float, float, bool -> void
+##args(context, centerX, centerY, radius, startingAngle, endingAngle, counterclockwise)
+{
+    context.arc(centerX, centerY, radius, startingAngle, 
+        endingAngle, counterclockwise);
+}
+
 ##register rect: Canvas.context, int, int, int, int -> void
 ##args(context, x, y, w, h)
 {

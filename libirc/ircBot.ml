@@ -33,7 +33,7 @@ let insert_bot (irc: IBC.irc) sched server port =
  * @param server The server to which the bot will connect.
  * @param port The port on which to connect.
  *)
-let create_bot username realname nickname password server channel port callback =
+let create_bot username realname nickname password server channel port callback onreceive =
     let parameters = {
         IBC.username = username;
         realname = realname;
@@ -41,7 +41,8 @@ let create_bot username realname nickname password server channel port callback 
         password = password;
         server = server;
         channel = channel;
-        callback = callback
+        callback = callback;
+        onreceive = onreceive
     } in
     let sched = Scheduler.default in
     insert_bot parameters sched server port

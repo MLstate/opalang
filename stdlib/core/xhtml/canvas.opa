@@ -394,7 +394,18 @@ Canvas = {{
   arc_to(context : Canvas.context, x1 : int, y1 : int, x2 : int, y2 : int, r : int) : void =
     %% BslCanvas.arc_to %%(context,x1,y1,x2,y2,r)
 
-  //todo arc
+  /**
+   * arc
+   * @param context : Canvas.context
+   * @param centerX : int 
+   * @param centerY : int
+   * @param radius : int
+   * @param startingAngle : float
+   * @param endinAngle : float
+   * @param counterclockwise : bool
+   */
+  arc(context : Canvas.context, centerX : int, centerY : int, radius : int, startingAngle : float, endingAngle : float, counterclockwise : bool) : void =
+    %% BslCanvas.arc %%(context, centerX, centerY, radius, startingAngle, endingAngle, counterclockwise)
 
   rect(context : Canvas.context, x : int, y : int, w : int, h : int) : void =
     %% BslCanvas.rect %%(context,x,y,w,h)
