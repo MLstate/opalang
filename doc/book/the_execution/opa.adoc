@@ -35,7 +35,7 @@ Other modes
 +++++++++++
 
 The low-level utilisation of _opa_ is comparable with standard compilers like _gcc_
-or _java_. It takes one of more opa files from the same package, compile them into
+or _java_. It takes one or more opa files from the same package, compile them into
 compiled packages, or link previous compiled packages and opa files, depending on
 the activated mode.
 
