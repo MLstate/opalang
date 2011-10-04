@@ -373,7 +373,8 @@ var LowLevelPingLoop = {};
                 delete client_stored[serialized.cl_id];
                 internal_ajax({ type : 'POST',
                             url : "/chan/remove",
-                            data : JSON.stringify(serialized)});
+                            data : JSON.stringify(serialized),
+                            async: async_rpc_return});
             }
         },
 
@@ -428,9 +429,10 @@ var LowLevelPingLoop = {};
             if (hsuccess != undefined) msg_to_post.hsuccess = serialize_uu(hsuccess);
             var serialized_msg = JSON.stringify(msg_to_post);
             internal_ajax({ type : 'POST',
-                          url : "/chan/send",
-                          data : serialized_msg
-                        });
+                            url : "/chan/send",
+                            data : serialized_msg,
+                            async: async_rpc_return
+                          });
         },
 
         #<Ifstatic:OPA_CPS_CLIENT>
@@ -762,7 +764,8 @@ var LowLevelPingLoop = {};
             var rep = internal_ajax({
                     type : 'POST',
                     async : false,
-                    url : "/chan/sharedaddr"
+                    url : "/chan/sharedaddr",
+                    async: async_rpc_return
                 });
             shared = JSON.parse(rep.responseText);
         }
