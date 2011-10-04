@@ -24,6 +24,7 @@ let write_msg conn msg = write_raw conn (IrcBotCore.string_of_msg msg)
 ##extern-type Irc.msg = IrcBotCore.msg
 
 ##register create_bot: string, string, string, string, string, string, int,\
-                       (Irc.connection -> void) -> void
+                       (Irc.connection -> void),\
+		       (Irc.connection, string, string, string -> void) -> void
 ##register write_raw: Irc.connection, string -> void
 ##register write_msg: Irc.connection, Irc.msg -> void

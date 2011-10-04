@@ -30,7 +30,8 @@
     password:string;
     server:string;
     channel:string;
-    callback: Scheduler.connection_info -> unit
+    callback: Scheduler.connection_info -> unit;
+    onreceive: Scheduler.connection_info -> string -> string -> string -> unit
 }
 
 -type payload = unit
@@ -51,6 +52,7 @@
 read_welcome_messages(irc):
     receive
         | Sns (_, "376", _) -> join_channels(irc)
+	| Sns (_, "422", _) -> join_channels(irc)
         | _ -> read_welcome_messages(irc)
 
 join_channels(irc):
@@ -70,6 +72,9 @@ read_channels(irc):
             % the outer application has no (clean) means of knowing
             % whether the connection is still alive.
             quit()
+	| SrvPrivmsg (header, dest, msg) ->
+	    {{ Scheduler.push sched (fun () -> (irc.onreceive conn header dest msg)) }}
+	    read_channels(irc)
         | Ping msg ->
             send (Pong msg);
             read_channels(irc)
