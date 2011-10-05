@@ -15,18 +15,65 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-type t = int
 
-(* FIXME, proper type for Time.tm *)
+#<Ifstatic:OCAML_WORD_SIZE 64>
+
+type t = int
 type tm = Unix.tm
+
+let infinity = max_int
 
 let of_unix_time t = int_of_float (t *. 1000.)
 let to_unix_time t = float_of_int t /. 1000.
 let fmi = float_of_int max_int
 let of_unix_time_inf t = let t1000 = t *. 1000.0 in if t1000 >= fmi then max_int else int_of_float t1000
 
+let adjust_mktime res ms =
+  if res < 0 then res - ms else res + ms
+
+let zero = 0
+let is_positive t = t > 0
+let add t1 t2 = if t1 = infinity || t2 = infinity then infinity else t1 + t2
+let difference t1 t2 = if t1 = infinity then zero else if t2 = infinity then infinity else t2 - t1
+
+let milliseconds v = v
+let in_milliseconds t = t
+let in_seconds t = float_of_int t /. 1000.
+let round_to_sec t = t - (t mod 1000)
+
+let gmt_msec time = (abs time) mod 1000
+let local_msec time = (abs time) mod 1000
+
+#<Else>
+
+type t = float
+type tm = Unix.tm
+
+let infinity = infinity
+
+let of_unix_time t = t
+let to_unix_time t = t
+let of_unix_time_inf t = t
+
+let adjust_mktime res ms =
+  (if res < 0. then (-.) else (+.)) res (float_of_int ms /. 1000.)
+
+let zero = 0.
+let is_positive t = t > 0.
+let add t1 t2 = t1 +. t2
+let difference t1 t2 = t2 -. t1
+
+let milliseconds v = float_of_int v /. 1000.
+let in_milliseconds t = int_of_float (t *. 1000.)
+let in_seconds t = t
+let round_to_sec t = floor t
+
+let gmt_msec time = int_of_float (snd (modf (abs_float time)) *. 1000.)
+let local_msec time = gmt_msec time
+
+#<End>
+
 let now () = of_unix_time (Unix.gettimeofday ())
-let infinity = max_int
 
 let process_utime () = of_unix_time (Unix.times ()).Unix.tms_utime
 let process_stime () = of_unix_time (Unix.times ()).Unix.tms_stime
@@ -38,8 +85,6 @@ let sleep = Unix.sleep
 let gmtime t = Unix.gmtime (to_unix_time t)
 let localtime t = Unix.localtime (to_unix_time t)
 
-(*let gmt_usec time = time mod 1000000 *)
-let gmt_msec time = (abs time) mod 1000
 let gmt_sec time = (gmtime time).Unix.tm_sec
 let gmt_min time = (gmtime time).Unix.tm_min
 let gmt_hour time = (gmtime time).Unix.tm_hour
@@ -50,8 +95,6 @@ let gmt_wday time = (gmtime time).Unix.tm_wday
 let gmt_yday time = (gmtime time).Unix.tm_yday
 let gmt_isdst time = (gmtime time).Unix.tm_isdst
 
-(*let local_usec time = (time * 1000000) mod 1000000*)
-let local_msec time = (abs time) mod 1000
 let local_sec time = (localtime time).Unix.tm_sec
 let local_min time = (localtime time).Unix.tm_min
 let local_hour time = (localtime time).Unix.tm_hour
@@ -80,35 +123,21 @@ let mktime ~year ~month ~day ~h ~min ~sec ~ms =
       )
     )
   in
-  if res < 0 then res - ms else res + ms
+  adjust_mktime res ms
 
 let bound = Chrono.bound
 
-let zero = 0
 
-let is_positive t = t > 0
 let is_infinite t = t = infinity
 
 let is_after t1 t2 = t1 > t2
 let is_before t1 t2 = t1 < t2
 
-let add t1 t2 = if t1 = infinity || t2 = infinity then infinity else t1 + t2
-
-let milliseconds v = v
 let seconds v = milliseconds (v * 1000)
 let seconds_float = of_unix_time
 let minutes v = seconds (v * 60)
 let hours v = minutes (v * 60)
 let days v = hours (v * 24)
-
-let in_seconds t =
-  float_of_int t /. 1000.
-
-let in_milliseconds t = t
-
-let round_to_sec t = t - (t mod 1000)
-
-let difference t1 t2 = if t1 = infinity then zero else if t2 = infinity then infinity else t2 - t1
 
 let max = Pervasives.max
 let min = Pervasives.min
