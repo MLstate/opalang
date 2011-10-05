@@ -1,18 +1,60 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+import stdlib.core.map
 import stdlib.system
 
 type path = external
 
-type MongoDb.key = { IntKey: int } / { StringKey: string }
+type MongoDb.key = { IntKey: int } / { StringKey: string } // { AbstractKey: 'a } <- for map(bool,int) etc.
 type MongoDb.path = list(MongoDb.key)
 
 /* We need access to this to do the embedding properly */
 type MongoDb.node = { name:string; typ:string; id:int; node:MongoDb.key; zubnodes:MongoDb.schema; }
 type MongoDb.schema = list(MongoDb.node)
 
-type sm = ordered_map(string, int, String.order)
+type tm = ordered_map(OpaType.ty,int,Order.default)
 type rm = ordered_map(int, bool, String.order)
+type dm = ordered_map(MongoDb.path, OpaType.ty, Order.default)
 
 Schema = {{
+
+  TypeMap = Map_make(Compare.order_ty)
+
+  order_path(pth1, pth2): Order.ordering =
+    match (pth1, pth2) with
+    | ([],[]) -> {eq}
+    | ([_|_],[]) -> {gt}
+    | ([],[_|_]) -> {lt}
+    | ([k1|r1],[k2|r2]) ->
+      (match (k1,k2) with
+       | ({IntKey=_},{StringKey=_}) -> {lt}
+       | ({StringKey=_},{IntKey=_}) -> {gt}
+       | ({IntKey=i1},{IntKey=i2}) ->
+         if i1 == i2
+         then order_path(r1,r2)
+         else Int.ordering(i1, i2)
+       | ({StringKey=s1},{StringKey=s2}) ->
+         if s1 == s2
+         then order_path(r1,r2)
+         else String.ordering(s1, s2))
+
+  DbtyMap = Map_make(((Order.make(order_path):order(MongoDb.path,Order.default))))
 
   get_path = (%% Mongolink.get_path %% : ref_path('a) -> MongoDb.path)
 
@@ -47,9 +89,12 @@ Schema = {{
     s = List.mapi((i, n -> {n with node={IntKey=i}}),s)
     schema.set(s)
 
+  dm = Mutable.make((DbtyMap.empty:dm))
+
   strip_ref(ty:OpaType.ty): OpaType.ty =
     match ty with
     | {TyName_args=[ty]; TyName_ident="ref_path"} -> ty
+    | {TyName_args=[ty]; TyName_ident="val_path"} -> ty
     | {TyName_args=[_,ty]; TyName_ident="path_t"} -> ty
     | ty -> /*do println("ty={ty}")*/ ty
 
@@ -81,24 +126,24 @@ Schema = {{
      {node={IntKey=1}; name=""; id=getid(); typ="RECORD";
       zubnodes=[{node={IntKey=0}; name="some"; id=getid(); ~typ; ~zubnodes}]}]
 
-  ptm(tm:sm): string = StringMap.fold((ty, id, s -> ("{ty} -> {id}\n"^s)),tm,"")
-  prm(rm:rm): string = IntMap.fold((id, isrec, s -> ("{id} -> {isrec}\n"^s)),rm,"")
+  ptm(tm:tm): string = TypeMap.fold((ty:OpaType.ty, id, s -> ("{OpaType.to_pretty(ty)} -> {id}\n"^s)),tm,"")
+  prm(rm:rm): string = IntMap.fold((id:int, isrec, s -> ("{id} -> {isrec}\n"^s)),rm,"")
 
-  schema_of_type(ty:OpaType.ty): MongoDb.schema =
+  schema_of_type(dbname:string, ty:OpaType.ty): MongoDb.schema =
 
     norec = (IntMap.empty:rm)
 
-    rec aux(depth:int, name:string, ty:OpaType.ty, n:MongoDb.key, tm:sm): (MongoDb.key, MongoDb.schema, rm) =
+    rec aux(depth:int, name:string, ty:OpaType.ty, n:MongoDb.key, tm:tm): (MongoDb.key, MongoDb.schema, rm) =
       //do println("schema_of_type: name={name}  ty={OpaType.to_pretty(ty)} n={n}")
       do if depth > 100 then @fail else void
       myid = getid()
-      tykey = OpaType.to_string(ty)
+      //do println("myid={myid}")
       ret(n,schema,rm) =
         //do println("ret: n={n}  schema={schema}")
         //do println("rm({myid})={prm(rm)}")
         match IntMap.get(myid-1,rm) with
         | {some=({true}:bool)} ->
-          do println("recursion point at {myid}")
+          //do println("recursion point at {myid}")
           (match schema with
            | [node] ->
              (n,
@@ -106,17 +151,18 @@ Schema = {{
                  zubnodes=([{node=n; name="*"; id=myid-1; typ=node.typ;
                              zubnodes=node.zubnodes}]:MongoDb.schema)}]:MongoDb.schema),
               IntMap.remove(myid-1,rm))
-             //(n,schema,rm)
            | _ -> @fail)
         | _ ->
           (n,schema,rm)
-      match StringMap.get(tykey,tm) with
+      //do println("getting id_opt: ty={OpaType.to_pretty(ty)} tm={ptm(tm)}")
+      //do println("id_opt={TypeMap.get(ty,tm)}")
+      match TypeMap.get(ty,tm) with
       | {some=id} ->
-         do println("recursive at {id}")
+         //do println("recursive at {id}")
          ret(incpe(n),[{node=n; ~name; ~id; typ="link"; zubnodes=[]}],IntMap.singleton(id,{true}))
       | {none} ->
-        (tm = StringMap.add(tykey,myid,tm)
-         //do println("tm={ptm(tm)}")
+        (tm = if depth == 1 then TypeMap.add(ty,myid,tm) else tm
+         //do println("depth={depth} tm={ptm(tm)}")
          match ty with
          | {TyName_args=[]; TyName_ident="void"} -> ret(incpe(n),[{node=n; ~name; id=myid; typ="RECORD"; zubnodes=[]}],norec)
          | {TyConst={TyInt={}}} -> ret(incpe(n),[{node=n; ~name; id=myid; typ="int"; zubnodes=[]}],norec)
@@ -129,8 +175,12 @@ Schema = {{
          | {TyName_args=[ty1]; TyName_ident="stringmap"} ->
             (_,st,rm) = aux(depth+1,"",ty1,{StringKey="string"},tm)
             ret(incpe(n),[{node=n; ~name; id=myid; typ="SET"; zubnodes=st}],rm)
+         | {TyName_args=[ty1,ty2]; TyName_ident="map"} ->
+            (_,st,rm) = aux(depth+1,"",ty2,{StringKey="{OpaType.to_pretty(ty1)}"},tm)
+            ret(incpe(n),[{node=n; ~name; id=myid; typ="SET"; zubnodes=st}],rm)
          | {TyRecord_row=row}
          | {TyRecord_row=row; TyRecord_rowvar=_} ->
+           //do println("row={OpaType.to_pretty(ty)}")
            (_,s,rm) =
              List.fold_left(((n, s, rm1), r ->
                              (nn,ss,rm2) = aux(depth+1,r.label,r.ty,n,tm)
@@ -163,28 +213,33 @@ Schema = {{
            aux(depth+1,name, OpaType.type_of_name(tyid, tys), n, tm)
          | _ -> @fail("Schema.schema_of_type: Can't deconstruct {/*OpaType.to_pretty*/(ty)}"))
 
-   dbkey = getdbkey()
-   dbnum = match dbkey with | {IntKey=n} -> n | _ -> @fail
-   (_,schema,_) = aux(1,"db_1_{dbnum}",strip_ref(ty),dbkey,StringMap.empty)
+   (_,schema,_) = aux(1,dbname,ty,getdbkey(),TypeMap.empty)
    schema
 
-  add_db_to_schema(path:ref_path('a)): void =
-    old_schema = schema.get()
-    schema.set(List.flatten([schema_of_type(@typeof(path)), old_schema]))
+  dbpath(pth:MongoDb.path): MongoDb.path = List.take(2,pth)
 
-  find_node0(key:MongoDb.key, schema:MongoDb.schema): MongoDb.node =
+  add_db_to_schema(dbname:string, path:ref_path('a)): void =
+    pth = dbpath(get_path(path))
+    ty = strip_ref(@typeof(path))
+    mydm = dm.get()
+    do dm.set(DbtyMap.add(pth,ty,mydm))
+    //do println("add_db_to_schema: pth={pth} ty={OpaType.to_pretty(ty)}")
+    old_schema = schema.get()
+    schema.set(List.flatten([schema_of_type(dbname,ty), old_schema]))
+
+  get_db_type(pth:MongoDb.path): OpaType.ty =
+    match DbtyMap.get(dbpath(pth),dm.get()) with
+    | {some=ty} ->
+      //do println("get_db_type: pth={pth} ty={OpaType.to_pretty(ty)}")
+      ty
+    | {none} ->
+      //do println("get_db_type: pth={pth} @fail")
+      @fail
+
+  find_node(key:MongoDb.key, schema:MongoDb.schema): MongoDb.node =
     match List.find((n -> n.node == key),schema) with
     | {some=node} -> node
     | {none} -> @fail("Schema.find_node: can't find key {key} in schema {schema}")
-
-  find_node(key:MongoDb.key, schema:MongoDb.schema): MongoDb.node =
-    match schema with
-    | [node] ->
-      // skip recursion points
-      if node.name == "*"
-      then find_node(key,node.zubnodes)
-      else find_node0(key, schema)
-    | _ -> find_node0(key, schema)
 
   find_db_schema(path:ref_path('a), schema:MongoDb.schema): (MongoDb.schema, MongoDb.path) =
     match get_path(path) with
@@ -194,7 +249,7 @@ Schema = {{
         (node.zubnodes, l)
     | _ -> @fail("Schema.find_db_schema: can't find db schema")
 
-  string_of_node(node:MongoDb.node, tab:string): string =
+  string_of_node0(node:MongoDb.node, tab:string): string =
     nn = match node.node with | {IntKey=i} -> "{i}" | {StringKey=s} -> "{s}"
     id =
       if node.name == "*"
@@ -207,8 +262,10 @@ Schema = {{
     sn = if node.zubnodes == [] then "" else "\n{tab}{string_of_schema0(node.zubnodes,(tab^" "))}"
     "[{id}]-{ty}{sn}"
 
+  string_of_node(node:MongoDb.node): string = string_of_node0(node, "")
+
   string_of_schema0(schema:MongoDb.schema, tab:string): string =
-    "["^(String.concat(",\n{tab}",List.map((n -> string_of_node(n,tab^"  ")),schema)))^"]"
+    "["^(String.concat(",\n{tab}",List.map((n -> string_of_node0(n,tab^"  ")),schema)))^"]"
 
   string_of_schema(schema:MongoDb.schema): string = string_of_schema0(schema, "  ")
 
@@ -238,12 +295,15 @@ MongoDb = {{
 
   rec opa_to_bson(key:string, v:'a, ty_opt:option(OpaType.ty)): Bson.document =
 
-    rec rec_to_bson(_key:string, v:'a, fields:OpaType.fields): Bson.document =
+    rec rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
       List.flatten(OpaValue.Record.fold_with_fields(
                                      (field, tyfield, value, bson ->
                                        name = OpaValue.Record.name_of_field_unsafe(field)
+                                       //do println("  tyfield={OpaType.to_pretty(tyfield)} name={name}")
                                        res = opa_to_document(name, value, tyfield)
-                                       [res | bson]),
+                                       //do println("rec_to_bson({name}): res={Bson.string_of_bson(res)}")
+                                       [res | bson]
+                                      ),
                                      v, fields, []))
 
     and list_to_bson(key:string, v:'a, ty:OpaType.ty): Bson.document =
@@ -252,31 +312,39 @@ MongoDb = {{
 
     and opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
       //do println("opa_to_document: key={key} ty={ty}")
+      ret(_n,bson) = /*do println("ret{n}({key},{Bson.string_of_bson(bson)})")*/ (bson:Bson.document)
       match ty with
-      | {TyName_args=[]; TyName_ident="void"} -> [{Null=(key,void)}]
-      | {TyConst={TyInt={}}} -> [{Int64=(key,(@unsafe_cast(v):int))}]
-      | {TyConst={TyString={}}} -> [{String=(key,(@unsafe_cast(v):string))}]
-      | {TyConst={TyFloat={}}} -> [{Double=(key,(@unsafe_cast(v):float))}]
-      | {TyName_args=[]; TyName_ident="bool"} -> [{Boolean=(key,(@unsafe_cast(v):bool))}]
+      | {TyName_args=[]; TyName_ident="void"} -> ret(1,[{Null=(key,void)}])
+      | {TyConst={TyInt={}}} -> ret(2,[{Int64=(key,(@unsafe_cast(v):int))}])
+      | {TyConst={TyString={}}} -> ret(3,[{String=(key,(@unsafe_cast(v):string))}])
+      | {TyConst={TyFloat={}}} -> ret(4,[{Double=(key,(@unsafe_cast(v):float))}])
+      | {TyName_args=[]; TyName_ident="bool"} -> ret(5,[{Boolean=(key,(@unsafe_cast(v):bool))}])
       | {TyRecord_row = row}
       | {TyRecord_row = row; TyRecord_rowvar = _} ->
+        //do println("opa_to_document: row={OpaType.to_pretty(ty)}")
         (match row with
          | [] -> [{Null=(key,void)}]
          | [{label=name; ty=ty}] ->
            if OpaType.is_void(ty)
-           then [{Document=(key,[{Null=(name,void)}])}]
-           else rec_to_bson(key, v, row)
+           then ret(6,[{Document=(key,[{Null=(name,void)}])}])
+           else ret(7,rec_to_bson(v, row))
          | _ ->
-           rec_to_bson(key, v, row))
+           //ret(8,[{Document=(key,rec_to_bson(v, row))}]))
+           ret(8,rec_to_bson(v, row)))
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
         if List.mem([{label="false"; ty={TyRecord_row=[]}}],col) // <-- ? ! :-(
-        then [{Boolean=(key,(@unsafe_cast(v):bool))}]
-        else rec_to_bson(key, v, OpaType.fields_of_fields_list(v, col).f1)
+        then ret(9,[{Boolean=(key,(@unsafe_cast(v):bool))}])
+        else
+          //do println("opa_to_document: col={OpaType.to_pretty(ty)}")
+          fields = OpaType.fields_of_fields_list(v, col).f1
+          //do println("fields={fields}")
+          ret(10,[{Document=(key,rec_to_bson(v, fields))}])
+      | {TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list"}
+      | {TyName_ident="Bson.document"; TyName_args=_} ->
+        ret(12,[{Document=(key,@unsafe_cast(v))}])
       | {TyName_args=[lty]; TyName_ident="list"} ->
-        list_to_bson(key, @unsafe_cast(v), lty)
-      | {TyName_ident = "Bson.document"; TyName_args = _} ->
-        [{Document=(key,@unsafe_cast(v))}]
+        ret(11,list_to_bson(key, @unsafe_cast(v), lty))
       | {TyName_args = tys; TyName_ident = tyid} ->
         opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
       | _ -> @fail("MongoDb.opa_to_bson: unknown value {v} of type {/*OpaType.to_pretty*/(ty)}")
@@ -284,7 +352,9 @@ MongoDb = {{
     ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
     opa_to_document(key, v, ty)
 
-  rec bson_to_opa(bson:Bson.document, ty:OpaType.ty): option('a) =
+  rec bson_to_opa(bson:Bson.document, ty:OpaType.ty, valname:string): option('a) =
+ 
+    //do println("bson_to_opa:\n  bson={Bson.string_of_bson(bson)}\n  ty={OpaType.to_pretty(ty)}\n  valname={valname}")
 
     error(str, v) =
       do Log.error("MongoDb.bson_to_opa", str)
@@ -313,6 +383,7 @@ MongoDb = {{
         List.foldr(
           (element, (acc, fields, err) ->
             name = Bson.key(element)
+            //do println("element_to_rec2:\n  element={Bson.string_of_element(element)}\n  name={name}\n  fields={fields}")
             if err
               then (acc, [], err)
             else
@@ -328,7 +399,7 @@ MongoDb = {{
                    (match OpaValue.Record.field_of_name(name) with
                     | {none} -> error("Missing field {name}", (acc, [], true))
                     | {some=field} -> (OpaValue.Record.add_field(acc, field, value), tl, err)))),
-          doc, (OpaValue.Record.empty_constructor(), fields, false))
+          List.rev(Bson.sort_document(doc)), (OpaValue.Record.empty_constructor(), fields, false))
       if res.f3
       then
         do Log.error("MongoDb.bson_to_opa: Failed with fields {OpaType.to_pretty_fields(fields)}", doc)
@@ -338,7 +409,8 @@ MongoDb = {{
 
     and element_to_opa(element:Bson.element, ty:OpaType.ty): option('a) =
       match ty with
-      | {TyName_ident = "Bson.document"; TyName_args = _} ->
+      | {TyName_args=[({TyName_args=[]; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list"}
+      | {TyName_args=_; TyName_ident="Bson.document"} ->
         (match element with
          | {Document=(_,doc)} -> {some=@unsafe_cast(doc)}
          | element -> @fail("MongoDb.bson_to_opa: expected Bson.document, got {element}"))
@@ -408,21 +480,23 @@ MongoDb = {{
          | element -> @fail("MongoDb.bson_to_opa: expected list, got {element}"))
       | {TyRecord_row = row}
       | {TyRecord_row = row; TyRecord_rowvar = _} ->
+        //do println("MongoDb.bson_to_opa: row={OpaType.to_pretty(ty)}")
         (match element with
-         | {Document=(_key,doc)} ->
-           //do println("key={_key} doc={doc} keys={Bson.keys(doc)}")
+         | {Document=(_,doc)} ->
+           doc = Bson.remove_id(doc)
+           //do println("  doc={doc}\n  keys={Bson.keys(doc)}")
            element_to_rec(doc, row)
          | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
-        //do println("element={element} col={col}")
+        //do println("element={element} col={OpaType.to_pretty(ty)}")
         (match element with
-         | {Document=(_key,doc)} ->
-           //do println("key={_key} doc={doc} keys={Bson.keys(doc)}")
-           ltyfield = Bson.keys(doc)
+         | {Document=(_,doc)} ->
+           //do println("doc={doc} keys={Bson.keys(doc)}")
+           ltyfield = List.sort(Bson.keys(doc)) // <-- We might get away with List.rev here???
            (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
             | {some=fields} ->
-              /*do println("fields={fields}")*/
+              //do println("fields={fields}")
               element_to_rec(doc, fields)
             | {none} -> @fail("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})"))
          | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
@@ -435,17 +509,17 @@ MongoDb = {{
       | {some=element} -> element_to_opa(element, ty)
       | {none} -> {none}
 
-    match Bson.find_element(bson,valname) with
-    | {some=element} -> element_to_opa(element, ty)
-    | {none} -> {none}
+    match Bson.remove_id(bson) with
+    | [element] ->
+       //do println("  element={Bson.string_of_element(element)}\n  ty={OpaType.to_pretty(ty)}")
+       element_to_opa(element, ty)
+    | bson ->
+       (match Bson.find_element(bson,valname) with
+        | {some=element} -> element_to_opa(element, ty)
+        | {none} -> element_to_opa({Document=(valname,Bson.remove_id(bson))}, ty)) // assume bare record
 
   index(indices:list('a)): Bson.document =
     List.flatten(List.mapi((n, index -> opa_to_bson((idxname^(Int.to_string(n))), index, {none})),indices))
-
-  get_select(key:string, indices:Bson.document): Bson.document =
-    match indices with
-    | [] -> [{String=(keyname,key)}]
-    | _ -> List.flatten([[{String=(keyname,key)}], indices])
 
   find_field(row:OpaType.fields, name:string): option(OpaType.field) =
     List.find((r -> match r with | {~label; ty=_} -> label == name),row)
@@ -458,14 +532,16 @@ MongoDb = {{
     | [{IntKey=i}|[{IntKey=j}|[{IntKey=k}|_]]] -> ("db_{i}_{j}", "c_{k}")
     | _ -> @fail("MongoDb.db_coll: bad path {pth}")
 
-  real_type(dbpath:ref_path('a), path:ref_path('b)): (Bson.document,OpaType.ty,OpaType.ty,string,string) =
+  real_type(path:ref_path('b)): (Bson.document,OpaType.ty,OpaType.ty,string,string) =
     (schema, pth) = Schema.find_db_schema(path, Schema.getschema())
+    //do println("\nreal_type: pth={pth}")
     pthlen = List.length(pth)
     full_path = Schema.get_path(path)
     (dbname, collname) = db_coll(full_path)
+    //do println("real_type: full_path={full_path}")
     rec aux(schema:MongoDb.schema, idx:int, pth:MongoDb.path, ty:OpaType.ty, ty2:OpaType.ty, select:Bson.document) =
       //do println("pth={pth}\nty={OpaType.to_pretty(ty)}\nty2={OpaType.to_pretty(ty2)}")
-      //do println("schema: {schema}")
+      //do println("schema:\n  {Schema.string_of_schema(schema)}")
       if pth == []
       then (select,ty,ty2)
       else
@@ -476,6 +552,7 @@ MongoDb = {{
           | {TyConst={TyFloat={}}}
           | {TyName_args=[]; TyName_ident="bool"} ->
             @fail("MongoDb.real_type: Can't deconstruct {OpaType.to_pretty(ty)}")
+          | {TyName_args=[{TyConst={TyInt={}}},ty]; TyName_ident="map"}
           | {TyName_args=[ty]; TyName_ident="intmap"} ->
             //do println("  hd(pth)={List.head(pth)}")
             (match List.head(pth) with
@@ -486,6 +563,7 @@ MongoDb = {{
                   ([{Int64=("index{idx}",i)}|select],ty,ty2)
                 | _ -> @fail("MongoDb.real_type: bad schema"))
              | k -> @fail("MongoDb.real_type: index missing for intmap {k}"))
+          | {TyName_args=[{TyConst={TyString={}}},ty]; TyName_ident="map"}
           | {TyName_args=[ty]; TyName_ident="stringmap"} ->
             //do println("  hd(pth)={List.head(pth)}")
             (match List.head(pth) with
@@ -496,12 +574,25 @@ MongoDb = {{
                   ([{String=("index{idx}",s)}|select],ty,ty2)
                 | _ -> @fail("MongoDb.real_type: bad schema"))
              | k -> @fail("MongoDb.real_type: index missing for stringmap {k}"))
+          /* We need to wait for the new syntax to use this...
+          | {TyName_args=[tya,ty]; TyName_ident="map"} ->
+            //do println("  hd(pth)={List.head(pth)}")
+            (match List.head(pth) with
+             | {AbstractKey=a} ->
+               (match schema with
+                | [node] ->
+                  (select,ty,ty2) = aux(node.zubnodes,idx+1,List.tail(pth),ty,ty,select)
+                  ([opa_to_bson("index{idx}",Magic.id(a),{none})|select],ty,ty2)
+                | _ -> @fail("MongoDb.real_type: bad schema"))
+             | k -> @fail("MongoDb.real_type: index missing for stringmap {k}"))
+          */
           | {TyRecord_row=row}
           | {TyRecord_row=row; TyRecord_rowvar=_} ->
-            //do println("  row={OpaType.to_pretty(ty)}")
-            //do println("head(pth)={List.head(pth)}")
+            //do println("\nrow={OpaType.to_pretty(ty)}")
+            //do println("  head(pth)={List.head(pth)}")
             node = Schema.find_node(List.head(pth),schema)
-            //do println("  subnode={node}")
+            //do println("  node.name={node.name}")
+            //do println("  subnode(row)=\n    {Schema.string_of_node(node)}")
             (match find_field(row,node.name) with
              | {some={~label; ty=ty2}} ->
                ty3 = {TyRecord_row=[{~label; ty=ty2}]}
@@ -514,66 +605,78 @@ MongoDb = {{
                then (select,ty3,ty2)
                else ([{String=("key",label)}|select],ty,ty2)
              | {none} -> @fail)
-          | {TySum_col = col}
-          | {TySum_col = col; TySum_colvar = _} ->
-            // TODO: Recursive types
-            // TODO: Sum types
-            // UNFINISHED{{
-            do println("  col={OpaType.to_pretty(ty)}")
-            do println("head(pth)={List.head(pth)}")
-            node = Schema.find_node(List.head(pth),schema)
-            do println("  subnode={node}")
-            s =
-            List.fold_left((s, row ->
-                             (ss,_ty,_ty2) = aux(schema,idx,pth,{TyRecord_row=row},{TyRecord_row=row},[])
-                             List.flatten([s, ss])
-                           ),[],col)
-            do println("s={s}")
-            @fail//rec_to_bson(key, v, OpaType.fields_of_fields_list(v, col).f1)
-            // }}UNFINISHED
-          | {TyName_args=[_lty]; TyName_ident="list"} ->
-            //do println("list:\n  pth={pth}\n  ty={OpaType.to_pretty(ty)}\n  ty2={OpaType.to_pretty(ty2)}")
+          | {TySum_col = _col}
+          | {TySum_col = _col; TySum_colvar = _} ->
+            ([{String=("key","SUM")}],ty,ty2) // <-- TODO: Check if this is right.
+          | {TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list"}
+          | {TyName_args=_; TyName_ident="Bson.document"} ->
             (select,ty,ty2)
-          // TODO: Write through of Bson.document (again)
-/*
-          | {TyName_ident = "Bson.document"; TyName_args = _} ->
-            [{Document=(key,@unsafe_cast(v))}]
-*/
+          | {TyName_args=[_]; TyName_ident="list"} ->
+            (select,ty,ty2)
           | {TyName_args = tys; TyName_ident = tyid} ->
-            aux(schema, idx, pth, OpaType.type_of_name(tyid, tys), ty2, select)
+            aux(schema, idx, pth, OpaType.type_of_name(tyid, tys), OpaType.type_of_name(tyid, tys), select)
           | _ -> @fail("MongoDb.real_type: unknown type {OpaType.to_pretty(ty)}")
 
-    ty = Schema.strip_ref(@typeof(dbpath))
+    ty = Schema.get_db_type(full_path)
     if pth == []
     then ([{String=(keyname,"key")}],ty,ty,dbname,collname)
     else (select,ty,ty2) = aux(schema,0,pth,ty,ty,[])
+         select = if select == [] then [{String=(keyname,"key")}] else select
          (select,ty,ty2,dbname,collname)
 
-  factor_types(ty0:OpaType.ty, v:'a): Bson.document =
-    v_ty = @typeof(v)
-    match ty0 with
-    | {TyRecord_row=[~{label; ty=_}]}
-    | {TyRecord_row=[~{label; ty=_}]; TyRecord_rowvar=_} ->
-      /*do if v_ty != ty
-         then @fail("MongoDb.factor_types:  mis-matching types {OpaType.to_pretty(ty)} and {OpaType.to_pretty(v_ty)}")*/
-      opa_to_bson(label,v,{some=v_ty})
-    | {TyName_args=[_lty]; TyName_ident="list"} ->
-      opa_to_bson(valname,v,{some=v_ty})
-    | _ -> @fail("MongoDb.factor_types:  mis-matching types {OpaType.to_pretty(ty0)} and {OpaType.to_pretty(v_ty)}")
+  unfactor_types(ty:OpaType.ty): Bson.document =
+    //do println("unfactor_types:\n  ty={ty}")
+    ret(doc) = /*do println("unfactor_types: result={Bson.string_of_bson(doc)}")*/ doc
+    match ty with
+    | {TyRecord_row=row}
+    | {TyRecord_row=row; TyRecord_rowvar=_} -> ret(List.flatten(List.map((r -> [{Int32=(r.label,1)}]),row)))
+    | _ -> ret([{Int32=(valname,1)}])
 
-  write(dbpath:ref_path('c), path:ref_path('a), v:'a) =
-    (select,ty,ty2,db,collection) = real_type(dbpath,path)
+  read(path:ref_path('a)): 'a =
+    (select,ty,_,db,collection) = real_type(path)
+    ns = "{db}.{collection}"
+    /*do println("read:\n  ns={ns}\n  select={select}")
+    do println("  ty={OpaType.to_pretty(ty)}")
+    do println("  ty2={OpaType.to_pretty(ty2)}")
+    do println("  ty==ty2: {ty==ty2}")*/
+    (match @typeof(path) with
+     | {TyName_args=[pty]; TyName_ident="ref_path"}
+     | {TyName_args=[pty]; TyName_ident="val_path"} ->
+       //key =
+       //  match Bson.find_element(select,"key") with
+       //  | {some={String=("key",key)}} -> key
+       //  | _ -> @fail
+       //do println("MongoDb.read: {ns}({key}) pty={OpaType.to_pretty(pty)}")
+       (match Cursor.find_one(mongo,ns,select,{some=unfactor_types(ty)}) with
+        | {success=doc} ->
+          //do println("doc={doc}")
+          (match bson_to_opa(doc, pty, valname) with
+           | {some=v} -> v
+           | {none} -> @fail("MongoDb.read: not found"))
+        | {~failure} -> @fail("MongoDb.read: error from MongoDB: {failure}"))
+     | ty -> @fail("MongoDb.read: unknown db value {path} of path type {OpaType.to_pretty(ty)}"))
+
+  factor_types(ty:OpaType.ty, ty2:OpaType.ty, v:'a): Bson.document =
+    v_ty = @typeof(v)
+    if ty == ty2
+    then opa_to_bson(valname,v,{some=v_ty})
+    else
+      match ty with
+      | {TyRecord_row=[~{label; ty=_}]}
+      | {TyRecord_row=[~{label; ty=_}]; TyRecord_rowvar=_} -> opa_to_bson(label,v,{some=v_ty})
+      | {TyName_args=[_lty]; TyName_ident="list"} -> opa_to_bson(valname,v,{some=v_ty})
+      | _ -> @fail("MongoDb.factor_types:  mis-matching types {OpaType.to_pretty(ty)} and {OpaType.to_pretty(v_ty)}")
+
+  write(path:ref_path('a), v:'a) =
+    (select,ty,ty2,db,collection) = real_type(path)
     ns = "{db}.{collection}"
     /*do println("v={v}\n  ns={ns}\n  select={select}")
     do println("  ty={OpaType.to_pretty(ty)}")
     do println("  ty2={OpaType.to_pretty(ty2)}")
     do println("  typeof(v)={OpaType.to_pretty(@typeof(v))}")
     do println("  ty==ty2: {ty==ty2}")*/
-    update =
-      [{Document=("$set",(if ty == ty2
-                          then opa_to_bson(valname,v,{none})
-                          else factor_types(ty,v)))}]
-    //do println("MongoDb.write: update={update}")
+    update = [{Document=("$set",factor_types(ty,ty2,v))}]
+    //do println("MongoDb.write: update={Bson.string_of_bson(update)}")
     key =
       match Bson.find_element(select,"key") with
       | {some={String=("key",key)}} -> key
@@ -584,32 +687,7 @@ MongoDb = {{
        else println("update failure")
     void
 
-  /*`<-`(d,t,a) = write(d,t,a)*/
-
-  // TODO: update read to match write
-  read_(path:ref_path('a), indices:Bson.document): 'a =
-    (db, collection, key) = path_to_mongo(path)
-    ns = "db{db}.c{collection}"
-    (match @typeof(path) with
-     | {TyName_args=[ty]; TyName_ident="ref_path"}
-     | {TyName_args=[ty]; TyName_ident="val_path"} ->
-       do println("MongoDb.read: {ns}({key}) ty={OpaType.to_pretty(ty)}")
-       select = get_select(key, indices)
-       (match Cursor.find_one(mongo,ns,select,{some=[{Int32=(valname,1)}]}) with
-        | {success=doc} ->
-          //do println("doc={doc}")
-          (match bson_to_opa(doc, ty) with
-           | {some=v} -> v
-           | {none} -> @fail("MongoDb.read: not found"))
-        | {~failure} -> @fail("MongoDb.read: error from MongoDB: {failure}"))
-     | ty -> @fail("MongoDb.read: unknown db value {path} of path type {OpaType.to_pretty(ty)}"))
-
-  readm(path:ref_path(map('a, 'b)), i:list('a)) =
-    //do println("path={@typeof(path)}  i={@typeof(i)}")
-    read_(@unsafe_cast(path),index(i))
-
-  read(path:ref_path('a)) =
-    read_(path, [])
+  /*`<-`(t,a) = write(t,a)*/
 
   create_index(path:ref_path('a), index:Bson.document, flags:int): Mongo.result =
     (db, collection, _) = path_to_mongo(path)
@@ -619,16 +697,13 @@ MongoDb = {{
     else {failure={Error="command send failure"}}
 
   create_standard_index(path:ref_path('a)): Mongo.result =
-    create_index(path,[{Int32=(idxname,1)}],(Indexes._Sparse+Indexes._Unique))
-
-  show_path(str:string, path:ref_path('a), ty:OpaType.ty): void =
-    (db, collection, key) = path_to_mongo(path)
-    len = path_length(path)
-    pth = Schema.get_path(path)
-    do println("{str}:\nlen={len}\npth={pth}\ndb={db}\ncollection={collection}\nkey={key}\nty={OpaType.to_pretty(ty)}\n")
-    void
+    (select,_,_,_,_) = real_type(path)
+    index = List.map((e -> {Int32=(Bson.key(e),1)}),select)
+    create_index(path,index,(Indexes._Sparse+Indexes._Unique))
 
 }}
+
+/* Test code */
 
 /*
 type rtype = { rtInt:int } / { rtString:string } / { rtFloat:float } / { rtNull:void }
@@ -646,308 +721,83 @@ db /path/rt: rtype = { rtNull=void }
 db /path/st: stype = { stInt=0; stString=""; stFloat=0.0; stNull=void }
 db /path/lt: list(int)
 db /path/tt: (string, int)
-/*db /path/bd: Bson.document = [{Null=("null",void)}]
-db /path/bd/hd = { Null = ("null",void) }
-db /path/bd/hd/Boolean/f2 = { false }*/
+db /bd: Bson.document = [{Null=("null",void)}]
+db /bd/hd = { Null = ("null",void) }
+db /bd/hd/Boolean/f2 = { false }
 db /path2/p/v: void
 db /path2/p/i: int
 db /i0: int
-//db /ism : map(int, string)
-db /ssm : map(string, string)
-//db /bsm : map(bool, string) /* Works but generates warnings */
+db /ism/ism : map(int, string) // Warning: at top level you get an index of collections!
+db /ssm/ssm : map(string, string)
+//db /bsm/bsm : map(bool, string) /* We can't put arbitrary values in the index through dbGen */
 db /db3/im: intmap({ a: int; b: string })
 db /db4/nm: intmap(intmap({ a: int; b: string }))
 db /db5/sm: stringmap({ a: int; b: string; c: bool })
 db /db5/sm[_]/c = { false }
 db /rct: rct
 
-/*
-[{id = 8; name = b; node = {IntKey = 0}; typ = SUM;
-  zubnodes = [{id = 9; name = ; node = {IntKey = 0}; typ = RECORD;
-               zubnodes = [{id = 10; name = false; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]},
-                           {id = 11; name = ; node = {IntKey = 1}; typ = RECORD;
-               zubnodes = [{id = 12; name = true; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]}]},
- {id = 13; name = f; node = {IntKey = 1}; typ = float; zubnodes = []},
- {id = 14; name = i; node = {IntKey = 2}; typ = int; zubnodes = []},
- {id = 16; name = *; node = {IntKey = 3}; typ = SUM;
-  zubnodes = [{id = 17; name = ; node = {IntKey = 0}; typ = RECORD;
-               zubnodes = [{id = 18; name = hd; node = {IntKey = 0}; typ = int; zubnodes = []},
-                           {id = 16; name = tl; node = {IntKey = 1}; typ = link; zubnodes = []}]},
-                           {id = 19; name = ; node = {IntKey = 1}; typ = RECORD;
-                            zubnodes = [{id = 20; name = nil; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]}]},
- {id = 21; name = nt; node = {IntKey = 3}; typ = SUM;
-  zubnodes = [{id = 22; name = ; node = {IntKey = 0}; typ = RECORD;
-               zubnodes = [{id = 23; name = none; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]},
-                           {id = 24; name = ; node = {IntKey = 1}; typ = RECORD;
-                            zubnodes = [{id = 25; name = some; node = {IntKey = 0}; typ = int; zubnodes = []}]}]},
- {id = 26; name = ot; node = {IntKey = 3}; typ = SUM;
-  zubnodes = [{id = 27; name = ; node = {IntKey = 0}; typ = RECORD;
-               zubnodes = [{id = 28; name = none; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]},
-                           {id = 29; name = ; node = {IntKey = 1}; typ = RECORD;
-                            zubnodes = [{id = 30; name = some; node = {IntKey = 0}; typ = int; zubnodes = []}]}]},
- {id = 31; name = rt; node = {IntKey = 3}; typ = SUM;
-  zubnodes = [{id = 32; name = ; node = {IntKey = 0}; typ = RECORD;
-               zubnodes = [{id = 33; name = rtFloat; node = {IntKey = 0}; typ = float; zubnodes = []}]},
-                           {id = 34; name = ; node = {IntKey = 1}; typ = RECORD;
-                            zubnodes = [{id = 35; name = rtInt; node = {IntKey = 0}; typ = int; zubnodes = []}]},
-                           {id = 36; name = ; node = {IntKey = 2}; typ = RECORD;
-                            zubnodes = [{id = 37; name = rtNull; node = {IntKey = 0}; typ = RECORD; zubnodes = []}]},
-                           {id = 38; name = ; node = {IntKey = 3}; typ = RECORD;
-                            zubnodes = [{id = 39; name = rtString; node = {IntKey = 0}; typ = text; zubnodes = []}]}]},
- {id = 40; name = s; node = {IntKey = 3}; typ = text; zubnodes = []},
- {id = 41; name = st; node = {IntKey = 4}; typ = RECORD;
-  zubnodes = [{id = 42; name = stFloat; node = {IntKey = 0}; typ = float; zubnodes = []},
-              {id = 43; name = stInt; node = {IntKey = 1}; typ = int; zubnodes = []},
-              {id = 44; name = stNull; node = {IntKey = 2}; typ = RECORD; zubnodes = []},
-              {id = 45; name = stString; node = {IntKey = 3}; typ = text; zubnodes = []}]},
- {id = 46; name = tt; node = {IntKey = 4}; typ = RECORD;
-  zubnodes = [{id = 47; name = f1; node = {IntKey = 0}; typ = text; zubnodes = []},
-              {id = 48; name = f2; node = {IntKey = 1}; typ = int; zubnodes = []}]}]
-*/
-
-/*
-bsn(n) =
-  [{node={IntKey=0}; name=""; id=(n+2); typ="RECORD";
-    zubnodes=[{node={IntKey=0}; name="false"; id=(n+3); typ="RECORD"; zubnodes=[]}]},
-   {node={IntKey=1}; name=""; id=n; typ="RECORD";
-    zubnodes=[{node={IntKey=0}; name="true"; id=(n+1); typ="RECORD"; zubnodes=[]}]}]
-
-osn(n,t) =
-  [{node={IntKey=0}; name=""; id=(n+2); typ="RECORD";
-    zubnodes=[{node={IntKey=0}; name="none"; id=(n+3); typ="RECORD"; zubnodes=[]}]},
-   {node={IntKey=1}; name=""; id=n; typ="RECORD";
-    zubnodes=[{node={IntKey=0}; name="some"; id=(n+1); typ=t; zubnodes=[]}]}]
-
-schema=([{node={IntKey=0}; name="i0"; id=45; typ="int"; zubnodes=[]},
-
-         {node={IntKey=5}; name="db3"; id=62; typ="RECORD";
-          zubnodes=[{node={IntKey=0}; name="im"; id=63; typ="SET";
-                     zubnodes=[{node={StringKey="int"}; name=""; id=64; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="a"; id=66; typ="int"; zubnodes=[]},
-                                          {node={IntKey=1}; name="b"; id=65; typ="text"; zubnodes=[]}
-                                         ]}
-                              ]}
-                   ]},
-
-         {node={IntKey=7}; name="db4"; id=56; typ="RECORD";
-          zubnodes=[{node={IntKey=0}; name="nm"; id=57; typ="SET";
-                     zubnodes=[{node={StringKey="int"}; name=""; id=58; typ="SET";
-                                zubnodes=[{node={StringKey="int"}; name=""; id=59; typ="RECORD";
-                                           zubnodes=[{node={IntKey=0}; name="a"; id=61; typ="int"; zubnodes=[]},
-                                                     {node={IntKey=1}; name="b"; id=60; typ="text"; zubnodes=[]}
-                                                    ]}
-                                         ]}
-                              ]}
-                   ]},
-
-         {node={IntKey=10}; name="db5"; id=46; typ="RECORD";
-          zubnodes=[{node={IntKey=0}; name="sm"; id=47; typ="SET";
-                     zubnodes=[{node={StringKey="string"}; name=""; id=48; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="a"; id=55; typ="int"; zubnodes=[]},
-                                          {node={IntKey=1}; name="b"; id=54; typ="text"; zubnodes=[]},
-                                          {node={IntKey=2}; name="c"; id=49; typ="SUM"; zubnodes=bsn(52)}
-                                         ]}
-                              ]}
-                   ]},
-         {node={IntKey=2}; name="path"; id=7; typ="RECORD";
-          zubnodes=[{node={IntKey=0}; name="b"; id=38; typ="SUM"; zubnodes=bsn(41)},
-                    {node={IntKey=2}; name="f"; id=37; typ="float"; zubnodes=[]},
-                    {node={IntKey=3}; name="i"; id=36; typ="int"; zubnodes=[]},
-                    {node={IntKey=14}; name="lt"; id=36; typ="RECURSIVE";
-                     zubnodes=[{node={IntKey=-1}; name="*"; id=37; typ="SUM";
-                                zubnodes=[{node={IntKey=0}; name=""; id=40; typ="RECORD";
-                                          zubnodes=[{node={IntKey=0}; name="hd"; id=41; typ="int"; zubnodes=[]},
-                                                    {node={IntKey=1}; name="tl"; id=37; typ="link"; zubnodes=[]}
-                                                   ]},
-                                          {node={IntKey=1}; name=""; id=38; typ="RECORD";
-                                          zubnodes=[{node={IntKey=0}; name="nil"; id=39; typ="RECORD"; zubnodes=[]}
-                                                   ]}
-                                         ]}
-                              ]},
-                    {node={IntKey=5}; name="nt"; id=31; typ="SUM"; zubnodes=osn(32,"int")},
-                    {node={IntKey=6}; name="ot"; id=26; typ="SUM"; zubnodes=osn(27,"int")},
-                    {node={IntKey=7}; name="rt"; id=17; typ="SUM";
-                     zubnodes=[{node={IntKey=0}; name=""; id=24; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="rtFloat"; id=25; typ="float"; zubnodes=[]}]},
-                               {node={IntKey=1}; name=""; id=22; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="rtInt"; id=23; typ="int"; zubnodes=[]}]},
-                               {node={IntKey=2}; name=""; id=20; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="rtNull"; id=21; typ="RECORD"; zubnodes=[]}]},
-                               {node={IntKey=3}; name=""; id=18; typ="RECORD";
-                                zubnodes=[{node={IntKey=0}; name="rtString"; id=19; typ="text"; zubnodes=[]}]}
-                              ]},
-                    {node={IntKey=8}; name="s"; id=16; typ="text"; zubnodes=[]},
-                    {node={IntKey=9}; name="st"; id=11; typ="RECORD";
-                     zubnodes=[{node={IntKey=0}; name="stFloat"; id=15; typ="float"; zubnodes=[]},
-                               {node={IntKey=1}; name="stInt"; id=14; typ="int"; zubnodes=[]},
-                               {node={IntKey=2}; name="stNull"; id=13; typ="RECORD"; zubnodes=[]},
-                               {node={IntKey=3}; name="stString"; id=12; typ="text"; zubnodes=[]}
-                              ]},
-                    {node={IntKey=10}; name="tt"; id=8; typ="RECORD";
-                     zubnodes=[{node={IntKey=0}; name="f1"; id=10; typ="text"; zubnodes=[]},
-                               {node={IntKey=1}; name="f2"; id=9; typ="int"; zubnodes=[]}
-                              ]}
-                   ]},
-         {node={IntKey=3}; name="path2"; id=3; typ="RECORD";
-          zubnodes=[{node={IntKey=0}; name="p"; id=4; typ="RECORD";
-                     zubnodes=[{node={IntKey=0}; name="i"; id=6; typ="int"; zubnodes=[]},
-                               {node={IntKey=1}; name="v"; id=5; typ="RECORD"; zubnodes=[]}
-                              ]}
-                   ]}
-        ]:MongoDb.schema)
-*/
-
-// Alphabetical order
-/*
-+-[0-db3]-(74-RECORD)-[0-im]-(75-SET)-[int]-(76-RECORD)-+-[0-a]-(78-int)
-|                                                       `-[1-b]-(77-text)
-|-[1-db4]-(68-RECORD)-[0-nm]-(69-SET)-[int]-(70-SET)-[int]-(71-RECORD)-+-[0-a]-(73-int)
-|                                                                      `-[1-b]-(72-text)
-|-[2-db5]-(58-RECORD)-[0-sm]-(59-SET)-[string]-(60-RECORD)-+-[0-a]-(67-int)
-|                                                          |-[1-b]-(66-text)
-|                                                          `-[2-c]-(61-SUM)-+-[0]-(64-RECORD)-[0-false]-(65-RECORD)
-|                                                                           `-[1]-(62-RECORD)-[0-true]-(63-RECORD)
-|-[3-i0]-(57-int)
-|-[4-ism]-(55-SET)-[int]-(56-text)
-|-[5-path]-(13-RECORD)-+-[0-b]-(50-SUM)-+-[0]-(53-RECORD)-[0-false]-(54-RECORD)
-|                      |                `-[1]-(51-RECORD)-[0-true]-(52-RECORD)
-|                      |-[1-f]-(49-float)
-|                      |-[2-i]-(48-int)
-|                      |-[3-lt]-(42-RECURSIVE)-[*]-(43-SUM)-+-[0]-(46-RECORD)-+-[0-hd]-(47-int)
-|                      |                                    |                 `-[1-tl]-->{43}
-|                      |                                    `-[1]-(44-RECORD)-[0-nil]-(45-RECORD)
-|                      |-[4-nt]-(37-SUM)-+-[0]-(40-RECORD)-[0-none]-(41-RECORD)
-|                      |                 `-[1]-(38-RECORD)-[0-some]-(39-int)
-|                      |-[5-ot]-(32-SUM)-+-[0]-(35-RECORD)-[0-none]-(36-RECORD)
-|                      |                 `-[1]-(33-RECORD)-[0-some]-(34-int)
-|                      |-[6-rt]-(23-SUM)-+-[0]-(30-RECORD)-[0-rtFloat]-(31-float)
-|                      |                 |-[1]-(28-RECORD)-[0-rtInt]-(29-int)
-|                      |                 |-[2]-(26-RECORD)-[0-rtNull]-(27-RECORD)
-|                      |                 `-[3]-(24-RECORD)-[0-rtString]-(25-text)
-|                      |-[7-s]-(22-text)
-|                      |-[8-st]-(17-RECORD)-+-[0-stFloat]-(21-float)
-|                      |                    |-[1-stInt]-(20-int)
-|                      |                    |-[2-stNull]-(19-RECORD)
-|                      |                    `-[3-stString]-(18-text)
-|                      `-[9-tt]-(14-RECORD)-+-[0-f1]-(16-text)
-|                                           `-[1-f2]-(15-int)
-|-[6-path2]-(9-RECORD)-[0-p]-(10-RECORD)-+-[0-i]-(12-int)
-|                                        `-[1-v]-(11-RECORD)
-|-[7-rct]-(3-RECURSIVE)-[*]-(4-SUM)-+-[0]-(7-RECORD)-+-[0-x]-(8-int)
-|                                   |                `-[1-y]-->{4}
-|                                   `-[1]-(5-RECORD)-[0-z]-(6-RECORD)
-`-[8-ssm]-(1-SET)-[string]-(2-text)
-*/
-
-/*
-db /maps/im : intmap(int)
-db /db3/im: intmap({ a: int; b: string })
+/* Things still to try...
 db /opages/pages[_] = Page.empty
-db /test/ii : map(int, int)
-db /test/si : map(string, int)
-db /test/ss : stringmap(string)
 db /z[{a;b}] : { a : int; b : string; c : int }
-db /wiki: stringmap(Template.default_content)
-db /benchs/nobels : stringmap(stringmap(stringmap(string)))
-db /session_data : intmap(map(string,string))
 */
-
-/*
-tstrt(name,dbpath,path) =
-  (select,ty,ty2,dbname,collname) = MongoDb.real_type(dbpath,path)
-  do println("{name}:\n  select={Bson.string_of_bson(select)}\n  ty={OpaType.to_pretty(ty)}\n  ty2={OpaType.to_pretty(ty2)}")
-  do println("  dbname={dbname}\n  collname={collname}\n")
-  void
-*/
-
-rctval = {x=1; y={x=2; y={x=3; y={z}}}}
 
 _ =
   do println("dbMongo")
-  //v = [1,2,3,4,5,6,7]
-  //v = rctval
-  //do println("opa_to_bson({v})={MongoDb.opa_to_bson(MongoDb.valname,v,{none})}")
-  /*do /db3/im[12] <- { a=123; b="abc" }
-  do println("/db3/im[12]={/db3/im[12]}")
-  do println("ty(int)={@typeof(/db3/im[12])}")*/
-/*
-  do MongoDb.show_path("@/i0",@/i0,@typeof(/i0))
-  do MongoDb.show_path("@/path/i",@/path/i,@typeof(/path/i))
-  do MongoDb.show_path("@/path2/p/v",@/path2/p/v,@typeof(/path2/p/v))
-  do MongoDb.show_path("@/ism",@/ism,@typeof(/ism))
-  do MongoDb.show_path("@/ism[3]",@/ism[3],@typeof(/ism[3]))
-  do MongoDb.show_path("@/path",@/path,@typeof(/path))
-  do MongoDb.show_path("@/db3",@/db3,@typeof(/db3))
-  do MongoDb.show_path("@/db3/im",@/db3/im,@typeof(/db3/im))
-  do MongoDb.show_path("@/db3/im[12]",@/db3/im[12],@typeof(/db3/im[12]))
-  do MongoDb.show_path("@/db3/im[12]/a",@/db3/im[12]/a,@typeof(/db3/im[12]/a))
-  do MongoDb.show_path("@/db3/im[12]/b",@/db3/im[12]/b,@typeof(/db3/im[12]/b))
-  do MongoDb.show_path("@/db4/nm",@/db4/nm,@typeof(/db4/nm))
-  do MongoDb.show_path("@/db4/nm[1]",@/db4/nm[1],@typeof(/db4/nm[1]))
-  do MongoDb.show_path("@/db4/nm[1][2]",@/db4/nm[1][2],@typeof(/db4/nm[1][2]))
-  do MongoDb.show_path("@/db4/nm[1][2]/a",@/db4/nm[1][2]/a,@typeof(/db4/nm[1][2]/a))
-  do MongoDb.show_path("@/db4/nm[1][2]/b",@/db4/nm[1][2]/b,@typeof(/db4/nm[1][2]/b))
-  do tstrt("@/db3/im[12]/a",@/db3,@/db3/im[12]/a)
-  do tstrt("@/db3/im[12]",@/db3,@/db3/im[12])
-  do tstrt("@/db4/nm[12][34]/b",@/db4,@/db4/nm[12][34]/b)
-  do tstrt("@/db4/nm[12][34]",@/db4,@/db4/nm[12][34])
-  do tstrt("@/db5/sm[\"here\"]/c",@/db5,@/db5/sm["here"]/c)
-  do tstrt("@/db5/sm[\"here\"]",@/db5,@/db5/sm["here"])
-  do tstrt("@/path/i",@/path,@/path/i)
-  do tstrt("@/path2/p/v",@/path2,@/path2/p/v)
-*/
-  do Schema.add_db_to_schema(@/db3)
-  do Schema.add_db_to_schema(@/db4)
-  do Schema.add_db_to_schema(@/db5)
-  do Schema.add_db_to_schema(@/i0)
-  //do Schema.add_db_to_schema(@/ism)
-  do Schema.add_db_to_schema(@/path)
-  do Schema.add_db_to_schema(@/path2)
-  do Schema.add_db_to_schema(@/rct)
-  //do Schema.add_db_to_schema(@/ssm)
+  do Schema.add_db_to_schema("db3",@/db3)
+  do Schema.add_db_to_schema("db4",@/db4)
+  do Schema.add_db_to_schema("db5",@/db5)
+  do Schema.add_db_to_schema("i0",@/i0)
+  do Schema.add_db_to_schema("path",@/path)
+  do Schema.add_db_to_schema("path2",@/path2)
+  do Schema.add_db_to_schema("rct",@/rct)
+  do Schema.add_db_to_schema("bd",@/bd)
+  do Schema.add_db_to_schema("ism",@/ism)
+  do Schema.add_db_to_schema("ssm",@/ssm)
+  //do Schema.add_db_to_schema("bsm",@/bsm)
   do Schema.sort_schema()
   do println("schema=\n{Schema.string_of_schema(Schema.getschema())}")
-  do MongoDb.write(@/i0,@/i0,420)
-  //do MongoDb.write(@/db3,@/db3/im,IntMap.empty)
-  do MongoDb.write(@/db3,@/db3/im[12],{a=123; b="abc"})
-  do MongoDb.write(@/db3,@/db3/im[12]/a,456)
-  do MongoDb.write(@/db3,@/db3/im[12]/b,"def")
-  do MongoDb.write(@/db4,@/db4/nm[12][34],{a=123; b="abc"})
-  do MongoDb.write(@/db4,@/db4/nm[12][34]/a,456)
-  do MongoDb.write(@/db4,@/db4/nm[12][34]/b,"def")
-  do MongoDb.write(@/db5,@/db5/sm["parasaurolophus"],{a=76500000; b="cyrtocristatus"; c={false}})
-  do MongoDb.write(@/db5,@/db5/sm["parasaurolophus"]/a,73000000)
-  do MongoDb.write(@/db5,@/db5/sm["parasaurolophus"]/c,{true})
-  do MongoDb.write(@/path,@/path/i,42)
-  do MongoDb.write(@/path,@/path/s,"forty two")
-  do MongoDb.write(@/path,@/path/f,42.24)
-  do MongoDb.write(@/path,@/path/b,true)
-  do MongoDb.write(@/path,@/path/ot,{some=4242})
-  do MongoDb.write(@/path,@/path/nt,{none})
-  do MongoDb.write(@/path,@/path/rt,{rtInt=4242})
-  do MongoDb.write(@/path,@/path/st,{stInt=424242; stString="forty two forty two"; stFloat=42.42; stNull=void})
-  do MongoDb.write(@/path,@/path/tt,("ghi",789))
-  do MongoDb.write(@/path,@/path/lt,[42,43])
-  //do MongoDb.write(@/path/bd,([{Int32=("int32",2424)}]:Bson.document))
-  do MongoDb.write(@/path2,@/path2/p/v,void)
-  do MongoDb.write(@/path2,@/path2/p/i,4224)
-  //do MongoDb.write(@/rct,@/rct,rctval)
-/*
-  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ism))}")
-  do MongoDb.write(@/ism[3],"three")
-  do MongoDb.write(@/ism[5],"five")
-  do MongoDb.write(@/ism[7],"seven")
-  do MongoDb.writem(@/ism,[3],"three")
-  do MongoDb.writem(@/ism,[5],"five")
-  do MongoDb.writem(@/ism,[7],"seven")
-  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ssm))}")
-  do MongoDb.writem(@/ssm,["cat"],"moggy")
-  do MongoDb.writem(@/ssm,["rat"],"roland")
-  do MongoDb.writem(@/ssm,["hat"],"fedora")
-  do MongoDb.writem(@/bsm,[{true}],"true")
-  do MongoDb.writem(@/bsm,[{false}],"false")
-  do MongoDb.write(@/db3/im[12]/b,"im")
+  do MongoDb.write(@/i0,420)
+  do MongoDb.write(@/path/i,42)
+  do MongoDb.write(@/path/s,"forty two")
+  do MongoDb.write(@/path/f,42.24)
+  do MongoDb.write(@/path/b,true)
+  do MongoDb.write(@/path/ot,{some=4242})
+  do MongoDb.write(@/path/nt,{none})
+  do MongoDb.write(@/path/rt,{rtInt=4242})
+  do MongoDb.write(@/path/st,{stInt=424242; stString="forty two forty two"; stFloat=42.42; stNull=void})
+  do MongoDb.write(@/path/tt,("ghi",789))
+  do MongoDb.write(@/path/lt,[42,43])
+  do MongoDb.write(@/path2/p/v,void)
+  do MongoDb.write(@/path2/p/i,4224)
+  do MongoDb.write(@/rct,{z})
+  do MongoDb.write(@/rct,{x=1; y={x=2; y={x=3; y={z}}}})
+  do MongoDb.write(@/bd,([{Int32=("int32",2424)}]:Bson.document))
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ism/ism[0]))}")
+  do MongoDb.write(@/ism/ism[3],"three")
+  do MongoDb.write(@/ism/ism[5],"five")
+  do MongoDb.write(@/ism/ism[7],"seven")
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ssm/ssm[""]))}")
+  do MongoDb.write(@/ssm/ssm["cat"],"moggy")
+  do MongoDb.write(@/ssm/ssm["rat"],"roland")
+  do MongoDb.write(@/ssm/ssm["hat"],"fedora")
+  //do MongoDb.write(Magic.id(@/bsm/bsm[(Magic.id({true}):map(bool,string))]),"true")
+  //do MongoDb.write(@/bsm/bsm[OpaSerialize.String.serialize({false})],"false")
+  //do MongoDb.write(@/db3/im,IntMap.empty)
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/db3/im[0]/a))}")
+  do MongoDb.write(@/db3/im[12],{a=123; b="abc"})
+  do MongoDb.write(@/db3/im[12]/a,456)
+  do MongoDb.write(@/db3/im[12]/b,"def")
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/db4/nm[0][0]/a))}")
+  do MongoDb.write(@/db4/nm[12][34],{a=123; b="abc"})
+  do MongoDb.write(@/db4/nm[12][34]/a,456)
+  do MongoDb.write(@/db4/nm[12][34]/b,"def")
+  do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/db5/sm[""]/a))}")
+  do MongoDb.write(@/db5/sm["parasaurolophus"],{a=76500000; b="cyrtocristatus"; c={false}})
+  do MongoDb.write(@/db5/sm["parasaurolophus"]/a,73000000)
+  do MongoDb.write(@/db5/sm["parasaurolophus"]/c,{true})
   do println("i0={(MongoDb.read(@/i0):int)}")
+  do println("i={(MongoDb.read(@/path/i):int)}")
+  do MongoDb.write(@/path/i,43)
   do println("i={(MongoDb.read(@/path/i):int)}")
   do println("s={(MongoDb.read(@/path/s):string)}")
   do println("f={(MongoDb.read(@/path/f):float)}")
@@ -956,21 +806,28 @@ _ =
   do println("nt={(MongoDb.read(@/path/nt):option(int))}")
   do println("rt={(MongoDb.read(@/path/rt):rtype)}")
   do println("st={(MongoDb.read(@/path/st):stype)}")
+  do println("tt={(MongoDb.read(@/path/tt):(string,int))}")
   do println("lt={(MongoDb.read(@/path/lt):list(int))}")
   do println("p/v={(MongoDb.read(@/path2/p/v):void)}")
   do println("p/i={(MongoDb.read(@/path2/p/i):int)}")
-  do println("bd={(MongoDb.read(@/path/bd):Bson.document)}")
-  do MongoDb.write(@/path/i,43)
-  do println("i={(MongoDb.read(@/path/i):int)}")
-  do println("ism[3]={(MongoDb.readm(@/ism,[3]):string)}")
-  do println("ism[5]={(MongoDb.readm(@/ism,[5]):string)}")
-  do println("ism[7]={(MongoDb.readm(@/ism,[7]):string)}")
-  do println("ssm[cat]={(MongoDb.readm(@/ssm,["cat"]):string)}")
-  do println("ssm[rat]={(MongoDb.readm(@/ssm,["rat"]):string)}")
-  do println("ssm[hat]={(MongoDb.readm(@/ssm,["hat"]):string)}")
-  do println("bsm[true]={(MongoDb.readm(@/bsm,[{true}]):string)}")
-  do println("bsm[false]={(MongoDb.readm(@/bsm,[{false}]):string)}")
+  do println("rct={(MongoDb.read(@/rct):rct)}")
+  do println("bd={(MongoDb.read(@/bd):Bson.document)}")
+  do println("ism[3]={(MongoDb.read(@/ism/ism[3]):string)}")
+  do println("ism[5]={(MongoDb.read(@/ism/ism[5]):string)}")
+  do println("ism[7]={(MongoDb.read(@/ism/ism[7]):string)}")
+  do println("ssm[cat]={(MongoDb.read(@/ssm/ssm["cat"]):string)}")
+  do println("ssm[rat]={(MongoDb.read(@/ssm/ssm["rat"]):string)}")
+  do println("ssm[hat]={(MongoDb.read(@/ssm/ssm["hat"]):string)}")
+  //do println("bsm[true]={(MongoDb.read(@/bsm/bsm[{true}]):string)}")
+  //do println("bsm[false]={(MongoDb.read(@/bsm/bsm[{false}]):string)}")
+  do println("db3/im[12]={(MongoDb.read(@/db3/im[12]):{a:int; b:string})}")
+  do println("db3/im[12]/a={(MongoDb.read(@/db3/im[12]/a):int)}")
   do println("db3/im[12]/b={(MongoDb.read(@/db3/im[12]/b):string)}")
-*/
+  do println("db4/nm[12][34]={(MongoDb.read(@/db4/nm[12][34]):{a:int; b:string})}")
+  do println("db4/nm[12][34]/a={(MongoDb.read(@/db4/nm[12][34]/a):int)}")
+  do println("db4/nm[12][34]/b={(MongoDb.read(@/db4/nm[12][34]/b):string)}")
+  do println("db5/sm[\"parasaurolophus\"]={(MongoDb.read(@/db5/sm["parasaurolophus"]):{a:int; b:string; c:bool})}")
+  do println("db5/sm[\"parasaurolophus\"]/a={(MongoDb.read(@/db5/sm["parasaurolophus"]/a):int)}")
+  do println("db5/sm[\"parasaurolophus\"]/c={(MongoDb.read(@/db5/sm["parasaurolophus"]/c):bool)}")
   void
 */

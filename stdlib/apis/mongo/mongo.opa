@@ -270,6 +270,17 @@ Bson = {{
     List.find(f,bson)
 
   /**
+   * Remove the ObjectID element from a document.
+   **/
+  remove_id(doc:Bson.document): Bson.document =
+    List.filter((e -> match e with | {ObjectID=_} -> {false} | _ -> {true}),doc)
+
+  /**
+   * Sort the elements in a document by lexicographic order on keys.
+   **/
+  sort_document(doc:Bson.document): Bson.document = List.sort_by(Bson.key,doc)
+
+  /**
    * Attempt to turn a bson element into a string which looks like
    * the mongo shell syntax.
    * Note: still only partial.
