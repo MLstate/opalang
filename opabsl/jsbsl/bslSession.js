@@ -171,12 +171,13 @@ var LowLevelPingLoop = {};
      */
     function LocalChannel(st, unserialize, fun_session, ctx, dfun, more,
                           cps_mode, concurrent) {
+        var tmp;
         this.lchan_id = generate_lchan_id();
         this.state = st;
         this.action = fun_session;
         this.unserialize = unserialize;
         this.messages = new Array() ;
-        this.on_delete = dfun;
+        this.on_delete = (tmp = dfun.some)?[tmp]:[];
         this.more = more;
         this.ctx = ctx;
         this.concurrent = concurrent;
@@ -361,8 +362,9 @@ var LowLevelPingLoop = {};
         kill: function(){
             this.killed = true;
             var on_delete = this.on_delete;
-            if ('some' in on_delete){
-                on_delete.some();
+            var n = on_delete.length;
+            for (var i = 0; i < n; i ++) {
+                on_delete[i]();
             }
             while(this.messages.length > 0){
                 var herror = this.messages.pop().herror;
@@ -392,6 +394,10 @@ var LowLevelPingLoop = {};
 
         owner: function(){
             return null;
+        },
+
+        on_remove: function(callback) {
+            this.on_delete.push(callback);
         }
 
     }
@@ -500,6 +506,10 @@ var LowLevelPingLoop = {};
             return this;
         },
 
+        on_remove: function(callback) {
+            return null;
+        },
+
        /**
          * Send a message along this channel
          *
@@ -557,6 +567,10 @@ var LowLevelPingLoop = {};
 
         owner: function(){
             return this;
+        },
+
+        on_remove: function(callback) {
+            return null;
         },
 
         /**
@@ -1023,8 +1037,7 @@ var LowLevelPingLoop = {};
 ##register on_remove : Session.private.native('msg, 'ctx), (-> void) -> void
 ##args(chan, callback)
 {
-    %%bslsyslog_warning%%("[Session.on_remove]", "client-side version not implemented");
-    return;
+    chan.on_remove(callback);
 }
 
 ##register is_remote : Session.private.native('msg, 'ctx) -> bool
@@ -1034,12 +1047,9 @@ var LowLevelPingLoop = {};
 }
 
 ##register is_local : Session.private.native('msg, 'ctx) -> bool
-##args(_)
+##args(chan)
 {
-    // This is incorrect, but unused yet.
-    // If we implement a feature about timeout for cell calls
-    // on the client side, this will probably need an update.
-    return false;
+    return (chan instanceof LocalChannel);
 }
 
 ##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)

@@ -687,13 +687,29 @@ Session = {{
     is_local = %%BslSession.is_local%% : channel -> bool
 
     /**
+     * [on_remove_server] For internal use.
+     */
+    @private @server on_remove_server(chan:channel('msg), f:-> void): void =
+      bp = @may_cps(%%BslSession.on_remove%%)
+      : Session.private.native('a, _), (-> void) -> void
+      bp(chan, f)
+
+    /**
+     * [on_remove_both] For internal use.
+     */
+    @private on_remove_both(chan:channel('msg), f:-> void): void =
+      bp = @may_cps(%%BslSession.on_remove%%)
+      : Session.private.native('a, _), (-> void) -> void
+      bp(chan, f)
+
+    /**
      * [on_remove channel f] Execute f when the [channel] is removed
      * of this server (no effect on the client).
      */
     on_remove(chan:channel('msg), f:-> void): void =
-      bp = @may_cps(%%BslSession.on_remove%%)
-      : Session.private.native('a, _), (-> void) -> void
-      bp(chan, f)
+      if is_local(chan)
+      then on_remove_both(chan, f)
+      else on_remove_server(chan, f)
 
     /**
      * Get options for message serialization for the given [channel].
