@@ -413,7 +413,7 @@ rule "Client lib JS validation"
          "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
          "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
          "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-         "opabsl/jsbsl/jquery_ext_1.6.1.externs.js" ::
+         "opabsl/jsbsl/jquery_extra.externs.js" ::
          (tool_deps "jschecker.jar") @
          (tool_deps "jschecker_externals.js") @
          (tool_deps "jschecker_clientliblib.js") @
@@ -437,7 +437,7 @@ rule "Client lib JS validation"
                 A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
                 A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
                 A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-                A"--js"             :: A "opabsl/jsbsl/jquery_ext_1.6.1.externs.js" ::
+                A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
                 A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
                 []
             ))
@@ -460,13 +460,13 @@ rule "opa-bslgenMLRuntime JS validation"
     @ [ "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ;
         "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ;
         "opabsl/jsbsl/selection_ext_bsldom.extern.js" ;
-        "opabsl/jsbsl/jquery_ext_1.6.1.externs.js" ;
+        "opabsl/jsbsl/jquery_extra.externs.js" ;
         "opabsl/opabslgenJSkeys.js" ]
   )
   ~prods: ["opabsl/js_validation/bsl.js"]
   (fun env build ->
      let arg_of_file file acc = match file with (*A very dumb filter to get rid of files that we just can't fix in the first place*)
-       | "opabsl/jsbsl/opabslgen_jquery-1.6.1.js.pp" -> acc
+       | "opabsl/jsbsl/opabslgen_jquery-1.6.4.js.pp" -> acc
        | "opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
        | _                 -> A "--js" :: A file :: acc
      in
@@ -483,7 +483,7 @@ rule "opa-bslgenMLRuntime JS validation"
                A"--externs"        :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
                A"--externs"        :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
                A"--externs"        :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-               A"--externs"        :: A "opabsl/jsbsl/jquery_ext_1.6.1.externs.js" ::
+               A"--externs"        :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
                A"--js_output_file" :: A"opabsl/js_validation/bsl.js" ::
                google_closure_compiler_options @
                (List.fold_right (fun s acc -> arg_of_file s acc) js_pp_bsl [])
