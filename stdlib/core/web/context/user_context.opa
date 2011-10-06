@@ -91,7 +91,7 @@ UserContext =
    * @return A UserContext
    */
   @server
-  make(default : 'state) =
+  make_generic(get_key: -> option(string), default : 'state) =
     init = (UserContextMap.empty: stringmap(UserContext.private.t('state)),default)
     rec val ctx = Cell.make(init, aux): UserContext.t('state)
     and aux2(state,msg) = match msg with
@@ -107,11 +107,7 @@ UserContext =
         match UserContextMap.get(client, state) with
           | {some=c} -> (c,false)
           | {none} -> (Cell.make(default,aux2),true)
-      client = match thread_context().key with
-        | {nothing} | {server=_server} ->
-          do Log.warning("UserContext","Cannot identify user. This execution is not attached to any user")
-          ""
-        | {~client} -> client.client
+      client = get_key() ? error("Boum")
       match msg with
       | {~exec} ->
         (c,new) = get_info(client, state)
@@ -136,6 +132,14 @@ UserContext =
         {return=none
          instruction={set=(state,set_default)}}
     ctx
+
+  make(default:'state) =
+    client() = match thread_context().key with
+      | {nothing} | {server=_server} ->
+        do Log.warning("UserContext","Cannot identify user. This execution is not attached to any user")
+        none
+      | {~client} -> some(client.client)
+    make_generic(client, default)
 
   /**
    * [change(f, context)] Change the state of a UserContext
