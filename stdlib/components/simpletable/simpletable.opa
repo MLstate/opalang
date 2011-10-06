@@ -156,7 +156,7 @@ CSimpleTable = {{
       | ~{title sort filter} ->
         id = Dom.fresh_id()
         sort_html = match sort with
-          | {some=f} -> <a onclick={_ -> CSimpleTable.send(channel,{SortRows=(f,some(id))})}><span class="icon icon-triangle-n"></span></a>
+          | {some=f} -> <a onclick={_ -> CSimpleTable.send(channel,{SortRows=(f,some(id))})}><span class="icon icon-carat-1-n"></span></a>
           | {none} -> <></>
         end
         filter_html = match filter with
