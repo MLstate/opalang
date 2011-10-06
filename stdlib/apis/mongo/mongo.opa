@@ -318,17 +318,17 @@ Bson = {{
    **/
   @private
   string_of_doc(doc:Bson.document): string =
-    match find_int(doc,"ok") with
-    | {some=1} -> "<ok>"
-    | {some=0} ->
-      (match find_string(doc, "err") with
-       | {some=err} -> err
-       | {none} ->
-         (match find_string(doc, "errmsg") with
-          | {some=errmsg} -> errmsg
-          | {none} -> "<not ok> No error message"))
-    | {some=n} -> "<not ok> Weird ok number {n}"
-    | {none} -> "<unknown error status>"
+    ok =
+      match find_int(doc,"ok") with
+      | {some=0} -> "<not ok>"
+      | {some=1} -> "<ok>"
+      | {some=n} -> "<not ok> (Weird ok number {n})"
+      | {none} -> "<unknown ok status>"
+    err = match find_string(doc, "err") with | {some=""} -> "" | {some=err} -> "<err=\"{err}\">" | {none} -> ""
+    code = match find_int(doc, "code") with | {some=code} -> "<code={code}>" | {none} -> ""
+    n = match find_int(doc, "n") with | {some=n} -> "<n={n}>" | {none} -> ""
+    errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
 
   string_of_result(result:Mongo.result): string =
     match result with
