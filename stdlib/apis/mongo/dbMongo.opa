@@ -21,7 +21,7 @@ import stdlib.system
 
 type path = external
 
-type MongoDb.key = { IntKey: int } / { StringKey: string } // { AbstractKey: 'a } <- for map(bool,int) etc.
+type MongoDb.key = { IntKey: int } / { StringKey: string } / { AbstractKey: Bson.document } // <- for map(bool,int) etc.
 type MongoDb.path = list(MongoDb.key)
 
 /* We need access to this to do the embedding properly */
@@ -43,8 +43,6 @@ Schema = {{
     | ([],[_|_]) -> {lt}
     | ([k1|r1],[k2|r2]) ->
       (match (k1,k2) with
-       | ({IntKey=_},{StringKey=_}) -> {lt}
-       | ({StringKey=_},{IntKey=_}) -> {gt}
        | ({IntKey=i1},{IntKey=i2}) ->
          if i1 == i2
          then order_path(r1,r2)
@@ -52,7 +50,17 @@ Schema = {{
        | ({StringKey=s1},{StringKey=s2}) ->
          if s1 == s2
          then order_path(r1,r2)
-         else String.ordering(s1, s2))
+         else String.ordering(s1, s2)
+       | ({AbstractKey=a1},{AbstractKey=a2}) ->
+         if a1 == a2
+         then order_path(r1,r2)
+         else Order.compare(a1, a2, Order.default)
+       | ({AbstractKey=_},_) -> {lt}
+       | (_,{AbstractKey=_}) -> {gt}
+       | ({StringKey=_},_) -> {lt}
+       | (_,{StringKey=_}) -> {gt}
+       | ({IntKey=_},_) -> {lt}
+       | (_,{IntKey=_}) -> {gt})
 
   DbtyMap = Map_make(((Order.make(order_path):order(MongoDb.path,Order.default))))
 
@@ -72,7 +80,7 @@ Schema = {{
   incpe(pe) =
     match pe with
     | {IntKey=n} -> {IntKey=(n+1)}
-    | {StringKey=_s} -> pe//@fail("StringKey({s}) inc")
+    | _ -> pe
 
   getdbkey() =
     mykey = dbkey.get()
@@ -250,7 +258,7 @@ Schema = {{
     | _ -> @fail("Schema.find_db_schema: can't find db schema")
 
   string_of_node0(node:MongoDb.node, tab:string): string =
-    nn = match node.node with | {IntKey=i} -> "{i}" | {StringKey=s} -> "{s}"
+    nn = match node.node with | {IntKey=i} -> "{i}" | {StringKey=s} -> "{s}" | {AbstractKey=a} -> "{Bson.string_of_bson(a)}"
     id =
       if node.name == "*"
       then "*"

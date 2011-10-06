@@ -106,65 +106,6 @@
  *
  **/
 
-type select('a) = /*either*/ //@abstract(whatever)
-                  /*or*/     //(MongoDb.path('a),'a)
-                  /*or*/     (Bson.document,'a)
-
-type Select = {{
-  /* Formalises the OPA view of the semantics of select documents 
-   * in order to facilitate expression and manipulation of select
-   * objects in OPA.
-   */
-  select_to_document : select('a) -> Bson.document // <-- might be Id(x)=x
-  path : MongoDb.path/*('a)*/, 'a -> select('a) // <-- need to generalize path
-  path_intrange : MongoDb.path/*(int)*/, option(int), option(int) -> select(int) 
-  and : select('a), select('a) -> select('a)
-  or : select('a), select('a) -> select('a)
-  diff : select('a), select('a) -> select('a) // <-- harder to implement, use "$ne"?
-  // etc.
-}}
-
-type collection('a) = { db: mongodb(Bson.document,'a);
-                        fields:option(Bson.document); // Bury these in here for convenience
-                        limit:int;
-                        skip:int;
-                        flags:int;
-                      }
-type collection_cursor('a) = {{ collection: collection('a); cursor: cursor }}
-
-type Collection = {{ 
-  /* Implements the collection type presented to the user and also the target
-   * for the new db syntax.  I would have preferred "Set" to "Collection"
-   * because it would have been easier to type but that name is already occupied
-   * in the namespace.
-   */
-  create : mongodb('key,'value) -> collection('value)
-  make : mongodb('key,'value), int, int, int, option(Bson.document) -> collection('value)
-  set_limit : collection('value), int -> collection('value)
-  set_skip : collection('value), int -> collection('value)
-  set_flags : collection('value), int -> collection('value)
-  set_fields : collection('value), option(Bson.document) -> collection('value)
-  destroy : collection('value) -> void
-  update : collection('value), select('value), 'value -> bool
-  delete : collection('value), select('value) -> bool
-  find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
-  query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
-  first : collection_cursor('value) -> outcome('value,Mongo.failure) // <-- will re-issue query
-  next : collection_cursor('value) -> outcome('value,Mongo.failure)
-  has_more : collection_cursor('value) -> bool
-  kill : collection_cursor('value) -> void
-}}
-
-/** Later:
-MongoMap = {{
-  // Implementation of map using underlying MongoDB.
-}}
-
-MongoArray = {{
-  // Implementation of Array using underlying MongoDB.
-}}
-**/
-
 /*
  * MDB {{ ... }}:
  *
@@ -350,6 +291,168 @@ do MDB.close(mongodb)
 do MDB.close(mongodb_)
 */
 
+@abstract type select('a) = Bson.document
+
+type Select = {{
+  /* Formalises the OPA view of the semantics of select documents 
+   * in order to facilitate expression and manipulation of select
+   * objects in OPA.
+   */
+  select_to_document : select('a) -> Bson.document // <-- might be Id(x)=x
+  path : MongoDb.path -> select('a)
+  path_intrange : MongoDb.path, option(int), option(int) -> select(int) 
+  and : select('a), select('a) -> select('a)
+  check_fst_arg_in_pair : select('a) -> select(('a,'b))
+  check_field_in_record : select('a), string -> select('b)
+}}
+
+Select = {{
+
+  select_to_document(select:select('a)): Bson.document = select
+
+  string_of_element(e:Bson.element): string =
+    match e with
+    | {Int32=(_,i)} -> Int.to_string(i)
+    | {Int64=(_,i)} -> Int.to_string(i)
+    | {String=(_,s)} -> s
+    | {Boolean=(_,b)} -> Bool.to_string(b)
+    | {Document=(_,d)} -> String.concat(".",List.map(string_of_element,d))
+    | {Array=(_,a)} -> String.concat("_",List.map(string_of_element,a))
+    | {Null=(_,_)} -> "" // <-- ???
+    | _ -> @fail
+
+  string_of_key(key:MongoDb.key): string =
+    match key with
+    | {IntKey=i} -> Int.to_string(i)
+    | {StringKey=s} -> s
+    | {AbstractKey=a} -> String.concat(".",List.map(string_of_element,a))
+
+  dot_path(path:MongoDb.path): string =
+    String.concat(".",List.map(string_of_key,path))
+
+/*
+    rec aux(p:list(MongoDb.key)) =
+      match p with
+      | [] -> []
+      | [k|t] ->
+        (match k with
+         | {IntKey=i} -> [{Int64=("key",i)}|aux(t)]
+         | {StringKey=s} -> [{String=("key",s)}|aux(t)]
+         | {AbstractKey=a} -> List.flatten([a,aux(t)]))
+    aux(path)
+*/
+
+}}
+
+/* Notes:
+
+ - If we map the whole path to a collection, where do we define the namespace in "db /path/x/y/z = ..."?
+
+*/
+
+/* Test code for select */
+mongo = Mongo.open(50*1024,"www.localhost.local",27017)
+do System.at_exit( -> do println("closing mongo") Mongo.close(mongo))
+ns = "db.collection"
+
+/* db /[0]/abc/[true] : int */
+path = ([{IntKey=0}, {StringKey="abc"}, {AbstractKey=[{Boolean=("key",{true})}]}]:MongoDb.path)
+vpath = (List.flatten([path,[{StringKey="value"}]]):MongoDb.path) // <-- need to add this according to the type
+select_name = Select.dot_path(vpath)
+select(n:int) = ([{Int32=(select_name,n)}]:Bson.document)
+update(n:int) = ([{Document=("$set",([{Int32=(select_name,n)}]:Bson.document))}]:Bson.document)
+query_name = Select.dot_path(path)
+query(v:string) = ([{String=(query_name,v)}]:Bson.document)
+do println("path={path}")
+do println("select = {Bson.string_of_bson(select(999))}")
+do println("update = {Bson.string_of_bson(update(111))}")
+do println("query() = {Bson.string_of_bson(query("value"))}")
+
+bson =
+  ([{Document=("0",
+     ([{Document=("abc",
+       ([{Document=("true",([{Int32=("value",999)}]:Bson.document))},
+         {Document=("false",([{Int32=("value",888)}]:Bson.document))}
+       ]:Bson.document))},
+      {Document=("def",
+       [{Document=("true",([{Int32=("value",777)}]:Bson.document))},
+        {Document=("false",([{Int32=("value",666)}]:Bson.document))}
+       ])}
+     ]:Bson.document))},
+    {Document=("1",
+     [{Document=("ghi",
+       [{Document=("true",([{Int32=("value",555)}]:Bson.document))},
+        {Document=("false",([{Int32=("value",444)}]:Bson.document))}
+       ])},
+      {Document=("jkl",
+       [{Document=("true",([{Int32=("value",333)}]:Bson.document))},
+        {Document=("false",([{Int32=("value",222)}]:Bson.document))}
+       ])}
+     ])}
+  ]:Bson.document)
+
+_ = Mongo.insert(mongo,Mongo._Upsert,ns,(bson:Bson.document))
+//update = ([{Document=("$set",([{Int32=("0.abc.true.value",111)}]:Bson.document))}]:Bson.document)
+_ = Mongo.update(mongo,Mongo._Upsert,ns,select(999),update(111))
+err = Cursor.last_error(mongo, "db")
+do println("err={Bson.string_of_result(err)}")
+do match Cursor.find_one(mongo,ns,query("value"),{none}) with
+   | {success=doc} -> println("err={Bson.string_of_bson(doc)}")
+   | err -> println("err={Bson.string_of_result(err)}")
+
+type collection('a) = {
+  db: mongodb(Bson.document,'a);
+  fields: option(Bson.document); // Bury these in here for convenience
+  limit: int;
+  skip: int;
+  flags: int;
+}
+
+type collection_cursor('a) = {
+  collection: collection('a);
+  cursor: cursor
+}
+
+type Collection = {{ 
+  /* Implements the collection type presented to the user and also the target
+   * for the new db syntax.  I would have preferred "Set" to "Collection"
+   * because it would have been easier to type but that name is already occupied
+   * in the namespace.
+   */
+  create : mongodb('key,'value) -> collection('value)
+  make : mongodb('key,'value), int, int, int, option(Bson.document) -> collection('value)
+  set_limit : collection('value), int -> collection('value)
+  set_skip : collection('value), int -> collection('value)
+  set_flags : collection('value), int -> collection('value)
+  set_fields : collection('value), option(Bson.document) -> collection('value)
+  destroy : collection('value) -> void
+  update : collection('value), select('value), 'value -> bool
+  delete : collection('value), select('value) -> bool
+  find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
+  query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
+  first : collection_cursor('value) -> outcome('value,Mongo.failure) // <-- will re-issue query
+  next : collection_cursor('value) -> outcome('value,Mongo.failure)
+  has_more : collection_cursor('value) -> bool
+  kill : collection_cursor('value) -> void
+}}
+
+/** Later:
+MongoMap = {{
+  // Implementation of map using underlying MongoDB.
+}}
+
+MongoArray = {{
+  // Implementation of Array using underlying MongoDB.
+}}
+
+MongoTree = {{
+  // Implementation of Tree using underlying MongoDB.
+  // Note that there is an interesting page on the MongoDB
+  // website on embedding trees in MongoDB:
+  // http://www.mongodb.org/display/DOCS/Trees+in+MongoDB
+}}
+**/
+
 /*
  * Mdb_make {{ ... }}:
  *
@@ -378,7 +481,13 @@ type Mdb('key,'value) = {{
  
      ISM = (MDB : Mdb(int, string))
 
-   for obvious reasons.
+   for obvious reasons.  A better choice is to type-specialise at the
+   expression level:
+
+     mongodb = (MDB.open(50*1024,"www.localhost.local",27017):mongodb(int,string))
+
+   but, as above, you need to Magic.id it in outer contexts if you want to avoid
+   value restriction.  Rank-2 polymorphism, what a waste of time.
 */
 Mdb_make(_default_key:'key, _default_value:'value) : Mdb = {{
   close(db:mongodb('key,'value)): void = MDB.close(db)
