@@ -1665,20 +1665,26 @@ CTable = {{
         <>
           {if not(i == pmin) then " - " else ""}
           {if i == current_page
-           then <>{i}</>
-           else <a onclick={goto(i)}>{i}</a>}
+           then <li><a href="#" class="active">{i}</a></li>
+           else <li><a href="#" onclick={goto(i)}>{i}</a></li>}
         </>
         , l)
       l = if pmin == 1 then l else [<><a onclick={goto(1)}>{1}</a> ... </>|l]
       l = if pmax == nb_pages then l else List.append(l,[<> ... <a onclick={goto(nb_pages)}>{nb_pages}</a></>])
       xhtml =
-        <div id={id}>
-          <button onclick={scroll(0 - nb_per_page)}>Prev</button>
-          <button onclick={scroll(nb_per_page)}>Next</button>
-          <span>{top+1} - {min(top+nb_shown,nb)}</span>
-          <span> / {nb_nofilter} (total : {nb}) </span>
-          <span>{l}</span>
-          <span><input id="page_size{id}" type=text onchange={page_size} value={nb_per_page}/></span>
+        <div id={id} class="pagination">
+          <ul>
+             <li class="prev"><a href="#" onclick={scroll(0 - nb_per_page)}>&larr; Previous</a></li>
+             <>{l}</>
+             <li class="next"><a href="#" onclick={scroll(nb_per_page)}>Next &rarr;</a></li>
+          </ul>
+          <div style="margin:0 5px; float:left; line-height:34px;">
+               <span>Rows: </span>
+               <span>{top+1} - {min(top+nb_shown,nb)}</span>
+               <span> / {nb_nofilter} (total : {nb}) </span>
+               <span>Per page: </span>
+               <span><input id="page_size{id}" type=text onchange={page_size} value={nb_per_page} style="width:50px;"/></span>
+          </div>
         </div>
       Dom.transform([#{id} <- xhtml])
     <div id={id} onready={_ -> Session.send(table,{GetSize=refresh})} />
