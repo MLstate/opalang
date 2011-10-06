@@ -592,7 +592,8 @@ WDatepicker = {{
     mkdate((y, m, d): (int, int, int)): option(Date.date) =
       if m >= 1 && m <= 12 && d >= 1 && d <= 31 then
         epoch_hr = Date.to_human_readable(Date.epoch)
-        { epoch_hr with year=y month=Date.Month.of_int(m - 1) day=d }
+        { epoch_hr with
+            year=y month=Date.Month.of_int(m - 1) day=d h=12 min=0 s=0 }
           |> Date.of_human_readable(_) |> some(_)
       else
         none
