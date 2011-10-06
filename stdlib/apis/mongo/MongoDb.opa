@@ -55,14 +55,122 @@
  * I am proposing to use the existing OPA to BSON module which currently only exists
  * in the dbMongo code but which could be factored out for use here.  An initial design
  * might be:
- */
+ *
+ * Revised design <Thu Oct  6 10:02:54 CEST 2011>
+ *
+ * Note:
+ *
+ *   A map is:
+ *     { label -> value; label2 -> value2; ... }
+ *
+ *   A set can be viewed as a degenerate map:
+ *     { label -> ; label2 -> ; ... }
+ *
+ *   A map can be implemented within a set:
+ *     { (label,value) -> ; (label2,value2) ->; ... }
+ *
+ *   An array can be viewed as a specialisation of a map:
+ *     { 0 -> value; 1 -> value2; ... }
+ *
+ *   A map can be implemented within an array:
+ *     { 0 -> (label,value); 1 -> (label2,value2); ... }
+ *
+ *   etc. etc. (set within array):
+ *     { 0 -> (label,()); 1 -> (label2,()); ... }
+ *
+ *   The main difference between these is the computational complexity of the basic ops.
+ *
+ *   Now MongoDB implements heterogeneous sets (collections) of (labeled) Bson documents:
+ *     { {"label":value}, {"label2":value2} }
+ *   (where value, value2 can be documents) which is, in effect, a map from keys to values
+ *
+ *   The current "standard" OPA type to Bson implementation is simple:
+ *     {a:'a; b:'b} -> { a: 'a, b: 'b }
+ *     'a -> { value: 'a }
+ *   where we use a "natural" mapping of constant types: int -> Int64, string -> String etc.
+ *   special cases:
+ *     list('a) -> { Array=(<label>,{ 0:'a; 1:'a; ... }) }
+ *     Bson.document -> Bson.document (verbatim, including labels)
+ *
+ *   An update is:
+ *     update(db,select,update)
+ *   where select defines the the values to be updated and update
+ *   specifies the new values.
+ *
+ *   A query is:
+ *     query(num_to_skip,num_to_return,select,field_select)
+ *   where select defines the values to return, field_select
+ *   says which fields in the value to return (_id is always included).
+ *
+ *   The new design for MongoDB high-level support should include:
+ *
+ **/
+
+type select('a) = /*either*/ //@abstract(whatever)
+                  /*or*/     //(MongoDb.path('a),'a)
+                  /*or*/     (Bson.document,'a)
+
+type Select = {{
+  /* Formalises the OPA view of the semantics of select documents 
+   * in order to facilitate expression and manipulation of select
+   * objects in OPA.
+   */
+  select_to_document : select('a) -> Bson.document // <-- might be Id(x)=x
+  path : MongoDb.path/*('a)*/, 'a -> select('a) // <-- need to generalize path
+  path_intrange : MongoDb.path/*(int)*/, option(int), option(int) -> select(int) 
+  and : select('a), select('a) -> select('a)
+  or : select('a), select('a) -> select('a)
+  diff : select('a), select('a) -> select('a) // <-- harder to implement, use "$ne"?
+  // etc.
+}}
+
+type collection('a) = { db: mongodb(Bson.document,'a);
+                        fields:option(Bson.document); // Bury these in here for convenience
+                        limit:int;
+                        skip:int;
+                        flags:int;
+                      }
+type collection_cursor('a) = {{ collection: collection('a); cursor: cursor }}
+
+type Collection = {{ 
+  /* Implements the collection type presented to the user and also the target
+   * for the new db syntax.  I would have preferred "Set" to "Collection"
+   * because it would have been easier to type but that name is already occupied
+   * in the namespace.
+   */
+  create : mongodb('key,'value) -> collection('value)
+  make : mongodb('key,'value), int, int, int, option(Bson.document) -> collection('value)
+  set_limit : collection('value), int -> collection('value)
+  set_skip : collection('value), int -> collection('value)
+  set_flags : collection('value), int -> collection('value)
+  set_fields : collection('value), option(Bson.document) -> collection('value)
+  destroy : collection('value) -> void
+  update : collection('value), select('value), 'value -> bool
+  delete : collection('value), select('value) -> bool
+  find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
+  query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
+  first : collection_cursor('value) -> outcome('value,Mongo.failure) // <-- will re-issue query
+  next : collection_cursor('value) -> outcome('value,Mongo.failure)
+  has_more : collection_cursor('value) -> bool
+  kill : collection_cursor('value) -> void
+}}
+
+/** Later:
+MongoMap = {{
+  // Implementation of map using underlying MongoDB.
+}}
+
+MongoArray = {{
+  // Implementation of Array using underlying MongoDB.
+}}
+**/
 
 /*
  * MDB {{ ... }}:
  *
  *   - A low-level module containing essentially the core of the implementation but
- *     allowing untyped versions of functions, for example, the most general write
- *     function would be write : mongodb, 'key, 'value -> void.  This is prefectly implementable
+ *     allowing untyped versions of functions, for example, the most general update
+ *     function would be update : mongodb, 'key, 'value -> void.  This is prefectly implementable
  *     using OPA's dynamic types and the OPA to BSON functions which are also type-abstract.
  *
  *   - However, there is plenty of possibility for mischief here.  For instance, we want a
@@ -98,7 +206,6 @@ MDB = {{
           Mongo.close(db.mongo)
         else void
       else void
-
   open(bufsize:int, addr:string, port:int): mongodb('key,'value) =
     mongo = Mongo.open(bufsize,addr,port)
     db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
@@ -117,19 +224,21 @@ MDB = {{
     do db.link_count.set(db.link_count.get()+1)
     { db with dbname=dbname; collection=collection }
 
-  select(db:mongodb('key,'value), indices:'key): Bson.document =
+  idxn(db:mongodb('key,'value), n:int): string = db.idxname^(if n == 0 then "" else Int.to_string(n))
+
+  make_select(db:mongodb('key,'value), indices:'key): Bson.document =
     //do println("index: ty={@typeof(indices)}")
     match @typeof(indices) with
-    | {TyName_args = [ty1,ty2]; TyName_ident = "tuple_2"} ->
+    | {TyName_args=[ty1,ty2]; TyName_ident="tuple_2"} ->
       indices = (Magic.id(indices):tuple_2('a,'b))
       List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
                     MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2})])
-    | {TyName_args = [ty1,ty2,ty3]; TyName_ident = "tuple_3"} ->
+    | {TyName_args=[ty1,ty2,ty3]; TyName_ident="tuple_3"} ->
       indices = (Magic.id(indices):tuple_3('a,'b,'c))
       List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
                     MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2}),
                     MongoDb.opa_to_bson(db.idxname^"2",indices.f3,{some=ty3})])
-    | {TyName_args = [ty1,ty2,ty3,ty4]; TyName_ident = "tuple_4"} ->
+    | {TyName_args=[ty1,ty2,ty3,ty4]; TyName_ident="tuple_4"} ->
       indices = (Magic.id(indices):tuple_4('a,'b,'c,'d))
       List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
                     MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2}),
@@ -138,56 +247,77 @@ MDB = {{
     | { TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list" }
     | { TyName_args=_; TyName_ident="Bson.document" } ->
       (Magic.id(indices):Bson.document)
-    | {TyName_args = [ty]; TyName_ident = "list"} ->
+    | {TyName_args=[ty]; TyName_ident="list"} ->
       indices = (Magic.id(indices):list('a))
-      List.flatten(List.mapi((n, index ->
-                               MongoDb.opa_to_bson((db.idxname^(if n == 0 then "" else Int.to_string(n))),
-                                                   index, {some=ty})),indices))
+      List.flatten(List.mapi((n, index -> MongoDb.opa_to_bson(idxn(db,n),index, {some=ty})),indices))
     | ty ->
       MongoDb.opa_to_bson(db.idxname,Magic.id(indices),{some=ty})
 
-  update(db:mongodb('key,'value), value:'value): Bson.document =
-    [{Document=("$set",
-      (match (@typeof(value):OpaType.ty) with
-       | { TyName_args=[({TyName_args=_; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list" }
-       | { TyName_args=_; TyName_ident="Bson.document" } ->
-         (Magic.id(value):Bson.document)
-       | ty -> MongoDb.opa_to_bson(db.valname,Magic.id(value),{some=ty})))}]
+  select_keys(db:mongodb('key,'value), indices:'key): list(string) =
+    match @typeof(indices) with
+    | {TyName_args=[_,_]; TyName_ident="tuple_2"} ->
+      [db.idxname^"0",db.idxname^"1"]
+    | {TyName_args=[_,_,_]; TyName_ident="tuple_3"} ->
+      [db.idxname^"0",db.idxname^"1",db.idxname^"2"]
+    | {TyName_args=[_,_,_,_]; TyName_ident="tuple_4"} ->
+      [db.idxname^"0",db.idxname^"1",db.idxname^"2",db.idxname^"3"]
+    | { TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list" }
+    | { TyName_args=_; TyName_ident="Bson.document" } ->
+      Bson.keys(Magic.id(indices):Bson.document)
+    | {TyName_args=[_]; TyName_ident="list"} ->
+      indices = (Magic.id(indices):list('a))
+      List.mapi((n, _ -> idxn(db,n)),indices)
+    | _ ->
+      [db.idxname]
 
-  write(db:mongodb('key,'value), key:'key, value:'value): bool =
-    ns = db.dbname^"."^db.collection
-    select = select(db, key)
-    update = update(db, value)
-    Mongo.update(db.mongo,Mongo._Upsert,ns,select,update)
-
-  /*fields(db:mongodb('key,'value), ty:OpaType.ty): Bson.document =
-    match ty with
+  make_insert(db:mongodb('key,'value), value:'value): Bson.document =
+    match (@typeof(value):OpaType.ty) with
     | { TyName_args=[({TyName_args=_; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list" }
-    | { TyName_args=_; TyName_ident="Bson.document" } -> []
-    | _ -> [{Int32=(db.valname,1)}]*/
+    | { TyName_args=_; TyName_ident="Bson.document" } ->
+      (Magic.id(value):Bson.document)
+    | ty -> MongoDb.opa_to_bson(db.valname,Magic.id(value),{some=ty})
 
-  read(db:mongodb('key,'value), key:'key): outcome('value,Mongo.failure) =
+  make_update(db:mongodb('key,'value), value:'value): Bson.document =
+    [{Document=("$set",make_insert(db, value))}]
+
+  insert(db:mongodb('key,'value), key:'key, value:'value): bool =
     ns = db.dbname^"."^db.collection
-    select = select(db, key)
+    select_doc = make_select(db, key)
+    insert_doc = make_insert(db, value)
+    Mongo.insert(db.mongo,0,ns,List.flatten([select_doc,insert_doc]))
+
+  update(db:mongodb('key,'value), key:'key, value:'value): bool =
+    ns = db.dbname^"."^db.collection
+    select_doc = make_select(db, key)
+    update_doc = make_update(db, value)
+    Mongo.update(db.mongo,Mongo._Upsert,ns,select_doc,update_doc)
+
+  find_one(db:mongodb('key,'value), key:'key): outcome('value,Mongo.failure) =
+    ns = db.dbname^"."^db.collection
+    select_doc = make_select(db, key)
     ty = @typeof(Magic.id(void):'value)
-    (match Cursor.find_one(db.mongo,ns,select,{some=List.map((f -> {Int32=(f,0)}),Bson.keys(select))}) with
+    (match Cursor.find_one(db.mongo,ns,select_doc,{some=List.map((f -> {Int32=(f,0)}),Bson.keys(select_doc))}) with
      | {success=doc} ->
-       do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
+       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
        (match MongoDb.bson_to_opa(doc, ty, db.valname) with
         | {some=v} -> {success=(Magic.id(v):'value)}
-        | {none} -> @fail("MDB.read: not found"))
-     | {~failure} -> @fail("MDB.read: error from MongoDB: {failure}"))
+        | {none} -> @fail("MDB.find_one: not found"))
+     | {~failure} -> @fail("MDB.find_one: error from MongoDB: {failure}"))
+
+  delete(db:mongodb('key,'value), key:'key): bool =
+    ns = db.dbname^"."^db.collection
+    select_doc = make_select(db, key)
+    Mongo.delete(db.mongo,Mongo._SingleRemove,ns,select_doc)
 
   ensure_index(db:mongodb('key,'value), key:'key, flags:int): Mongo.result =
     ns = db.dbname^"."^db.collection
-    select = select(db, key)
-    index = List.map((e -> {Int32=(Bson.key(e),1)}),select)
+    select = select_keys(db, key)
+    index = List.map((k -> {Int32=(k,1)}),select)
     if Indexes.create_index(db.mongo,ns,index,flags)
     then Cursor.last_error(db.mongo, db.dbname)
     else {failure={Error="ensure_index send failure"}}
 
   last_error(db:mongodb('key,'value)): Mongo.result = Cursor.last_error(db.mongo, db.dbname)
-
 }}
 
 /* Test code for MDB */
@@ -195,33 +325,95 @@ MDB = {{
 mongodb_ = (MDB.open(50*1024,"www.localhost.local",27017):mongodb(int,string))
 mongodb = MDB.namespace(mongodb_,"db","collection")
 
-tst(mongodb:mongodb('a,'b), idx:'a, val:'b) =
+tst(mongodb:mongodb('a,'b), idx:'a, val1:'b, val2:'b) =
   ns = mongodb.dbname^"."^mongodb.collection
   err = MDB.ensure_index(mongodb, idx, (Indexes._Sparse+Indexes._Unique))
   do println("err(ensure_index) = {Bson.string_of_result(err)}")
-  do if MDB.write(mongodb, idx, val)
-     then println("result(write({ns},{idx},{val}))={Bson.string_of_result(MDB.last_error(mongodb))}")
-     else println("write failure")
-  v = MDB.read(mongodb, idx)
+  do if MDB.insert(mongodb, idx, val1)
+     then println("result(insert({ns},{idx},{val1}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
+     else println("insert failure")
+  do if MDB.update(mongodb, idx, val2)
+     then println("result(update({ns},{idx},{val2}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
+     else println("update failure")
+  v = MDB.find_one(mongodb, idx)
   do println("v={v}")
+  do if MDB.delete(mongodb, idx)
+     then println("result(delete({ns},{idx}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
+     else println("delete failure")
   void
 
-do tst(Magic.id(mongodb):mongodb((int,int),string), (123,456), "abc")
-do tst(Magic.id(mongodb):mongodb(Bson.document,string), [{Int32=("key",123)}], "abc")
-do tst(Magic.id(mongodb):mongodb(Bson.document,Bson.document), [{Int32=("_key",456)}], [{String=("s","abc")},{Int32=("i",123)}])
+do tst(Magic.id(mongodb):mongodb((int,int),string), (123,456), "abc", "def")
+do tst(Magic.id(mongodb):mongodb(Bson.document,string), [{Int32=("key",789)}], "ghi", "jkl")
+do tst(Magic.id(mongodb):mongodb(Bson.document,Bson.document),
+        [{Int32=("_key",456)}], [{String=("s","mno")},{Int32=("i",234)}], [{String=("s","pqr")},{Int32=("i",567)}])
 do MDB.close(mongodb)
 do MDB.close(mongodb_)
 */
 
 /*
- * MongoDb {{ ... }}:
+ * Mdb_make {{ ... }}:
  *
  *   - The main module intended to be used by users.  Here we force type-safety on the
- *     low-level features:  make_db(MDB:{write:mongodb,int,string->void ...}):mongodb(int,string)
+ *     low-level features:  make_db(MDB:{update:mongodb,int,string->void ...}):mongodb(int,string)
  *     (using not very accurate OPA syntax).  This is essentially a null operation just restricting the
  *     types but I think it should be formalised here since we could do some logic on the
  *     given types, if necessary, for more complex operations.
  *
+ **/
+
+type Mdb('key,'value) = {{
+  // TODO: documentation in here
+  close: mongodb('key,'value) -> void
+  open: int, string, int -> mongodb('key,'value)
+  namespace: mongodb('key,'value), string, string -> mongodb('key,'value)
+  insert: mongodb('key,'value), 'key, 'value -> bool
+  update: mongodb('key,'value), 'key, 'value -> bool
+  find_one: mongodb('key,'value), 'key -> outcome('value,Mongo.failure)
+  delete: mongodb('key,'value), 'key -> bool
+  ensure_index: mongodb('key,'value), 'key, int -> Mongo.result
+  last_error: mongodb('key,'value) -> Mongo.result
+}}
+
+/* OK, OK, I know this is ridiculous but it won't let me say:
+ 
+     ISM = (MDB : Mdb(int, string))
+
+   for obvious reasons.
+*/
+Mdb_make(_default_key:'key, _default_value:'value) : Mdb = {{
+  close(db:mongodb('key,'value)): void = MDB.close(db)
+  open(bufsize:int, addr:string, port:int): mongodb('key,'value) = MDB.open(bufsize, addr, port)
+  namespace(db:mongodb('key,'value), dbname:string, collection:string): mongodb('key,'value) =
+    MDB.namespace(db, dbname, collection)
+  insert(db:mongodb('key,'value), key:'key, value:'value): bool = MDB.insert(db, key, value)
+  update(db:mongodb('key,'value), key:'key, value:'value): bool = MDB.update(db, key, value)
+  find_one(db:mongodb('key,'value), key:'key): outcome('value,Mongo.failure) = MDB.find_one(db, key)
+  delete(db:mongodb('key,'value), key:'key): bool = MDB.delete(db, key)
+  ensure_index(db:mongodb('key,'value), key:'key, flags:int): Mongo.result = MDB.ensure_index(db, key, flags)
+  last_error(db:mongodb('key,'value)): Mongo.result = MDB.last_error(db)
+}}
+
+/* Test code for Mdb_make */
+/*
+ISM = (Mdb_make(0,"") : Mdb(int,string))
+
+mongodb2_ = ISM.open(50*1024,"www.localhost.local",27017)
+mongodb2 = ISM.namespace(mongodb2_,"db","collection")
+err = ISM.ensure_index(mongodb2, 0, (Indexes._Sparse+Indexes._Unique))
+do println("err(ensure_index) = {Bson.string_of_result(err)}")
+ns = "db.collection"
+idx = 123
+val2 = "abc"
+do if ISM.update(mongodb2, idx, val2)
+   then println("result(update({ns},{idx},{val2}))=\n  {Bson.string_of_result(ISM.last_error(mongodb2))}")
+   else println("update failure")
+v = ISM.find_one(mongodb2, idx)
+do println("v={v}")
+do ISM.close(mongodb2)
+do ISM.close(mongodb2_)
+*/
+
+/** DEPRECATED
  * MongoMap {{ ... }}:
  *
  *   - We implement the indexing functionality here.  As a starting point we can
@@ -252,7 +444,9 @@ do MDB.close(mongodb_)
  *     to give a third database with the linking implemented: add_foreign(db1, db2, db1_key, db2_key),
  *     I'm not even attempting to write the types of these objects here, the idea would be to define
  *     maps on the new linked database.
- *
+ **/
+
+/**
  * Db {{ ... }}:
  *
  *   - This will look like the current Db module (as far as we can implement it).  Mostly you
