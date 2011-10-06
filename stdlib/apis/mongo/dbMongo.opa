@@ -509,14 +509,15 @@ MongoDb = {{
       | {some=element} -> element_to_opa(element, ty)
       | {none} -> {none}
 
-    match Bson.remove_id(bson) with
+    bson_noid = Bson.remove_id(bson)
+    match bson_noid with
     | [element] ->
        //do println("  element={Bson.string_of_element(element)}\n  ty={OpaType.to_pretty(ty)}")
        element_to_opa(element, ty)
     | bson ->
        (match Bson.find_element(bson,valname) with
         | {some=element} -> element_to_opa(element, ty)
-        | {none} -> element_to_opa({Document=(valname,Bson.remove_id(bson))}, ty)) // assume bare record
+        | {none} -> element_to_opa({Document=(valname,bson_noid)}, ty)) // assume bare record
 
   index(indices:list('a)): Bson.document =
     List.flatten(List.mapi((n, index -> opa_to_bson((idxname^(Int.to_string(n))), index, {none})),indices))
