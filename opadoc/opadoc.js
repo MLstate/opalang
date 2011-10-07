@@ -73,10 +73,9 @@ function open_parent_node(id, scroll) {
         open_node($('#' + id), $(e));
     });
     $("#"+id).jstree("deselect_all").jstree("select_node", node_anchor);
-    //$(node_anchor + " > a").addClass("selected");
     if (!scroll) return;
-    if (file.endsWith(".html"))
-        $("#doc").attr("src", file+"#"+node_id);
+//     if (file.endsWith(".html"))
+//         $("#doc").attr("src", file+"#"+node_id);
     try {
         $("#"+id).scrollTo(node_anchor);
     } catch(e) {}
@@ -114,7 +113,6 @@ function init_tree(id) {
         if ($(e).filter("[href^='\#']").length == 0) {
             $(e).bind("click", function(e) {
                 switchFile(file, anchor);
-                $("#doc").attr("src", href);
                 return false;
             });
         }
@@ -138,6 +136,8 @@ function make_tree(config, id, plugins, tab) {
             } else {
                 // restore the state from hash
                 open_parent_node(global_id, false);
+                doc_url = hash.replace(/\/!\//g, "#"); // transform parent anchor into frame url
+                setDoc(doc_url); // change document url
             }
         },
         { unescape: ",/" });
