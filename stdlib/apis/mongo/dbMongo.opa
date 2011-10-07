@@ -315,8 +315,17 @@ MongoDb = {{
                                      v, fields, []))
 
     and list_to_bson(key:string, v:'a, ty:OpaType.ty): Bson.document =
-      doc = List.flatten(List.fold_index((i, v, acc -> (opa_to_document("{i}", v, ty)) +> acc), @unsafe_cast(v), []))
-      [{Array = (key,doc)}]
+      //do println("list_to_bson\n  key={key}\n  ty={OpaType.to_pretty(ty)})")
+      doc = List.flatten(List.fold_index((i, v, acc ->
+                                           (doc =
+                                              //[{Document=("{i}",
+                                                 opa_to_document("{i}", v, ty)
+                                              //)}]
+                                            //do println("list_to_bson: doc={/*Bson.string_of_bson*/(doc)}")
+                                            ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
+      res = [{Array = (key,doc)}]
+      //do println("list_to_bson: res = {Bson.string_of_bson(res)}")
+      res
 
     and opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
       //do println("opa_to_document: key={key} ty={ty}")
@@ -335,10 +344,10 @@ MongoDb = {{
          | [{label=name; ty=ty}] ->
            if OpaType.is_void(ty)
            then ret(6,[{Document=(key,[{Null=(name,void)}])}])
-           else ret(7,rec_to_bson(v, row))
+           else ret(7,[{Document=(key,rec_to_bson(v, row))}])
          | _ ->
-           //ret(8,[{Document=(key,rec_to_bson(v, row))}]))
-           ret(8,rec_to_bson(v, row)))
+           ret(8,[{Document=(key,rec_to_bson(v, row))}])) // Check this!!! (doesn't work with dbMongo)
+           //ret(8,rec_to_bson(v, row))) // <-- is this right???
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
         if List.mem([{label="false"; ty={TyRecord_row=[]}}],col) // <-- ? ! :-(
