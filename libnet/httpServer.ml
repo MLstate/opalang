@@ -500,6 +500,7 @@ type options =
       cachetype : string;
       server_send_buffer_size: int;
       cookie_gc_period: int;
+      cookie_accept_client_values: bool;
       cookie_pool_size_min: int;
       cookie_pool_size_max: int;
       cookie_timer_interval: int;
@@ -587,6 +588,7 @@ let default_options =
     cachetype = "public";
     server_send_buffer_size = 1024;
     cookie_gc_period = 100;
+    cookie_accept_client_values = false;
     cookie_pool_size_min = 100;
     cookie_pool_size_max = 10000;
     cookie_timer_interval = 1;
@@ -690,6 +692,10 @@ let spec_args name =
     p"cookie-gc-period",
     ServerArg.func ServerArg.int (fun o i -> { o with cookie_gc_period = i }),
     "<int>", (sprintf "Cookie GC period in requests (default: %d)" default_options.cookie_gc_period);
+
+    p"cookie-accept-client-values",
+    ServerArg.func ServerArg.unit (fun o () -> { o with cookie_accept_client_values = true }),
+    "", (sprintf "WARNING: Only with long cookies. Accept cookie values provided by the client instead of generating new one when they aren't found on the server cookie table (default: %b)" default_options.cookie_accept_client_values);
 
     p"cookie-pool-size-min",
     ServerArg.func ServerArg.int (fun o i -> { o with cookie_pool_size_min = i }),
@@ -854,6 +860,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   HSCm.use_long_cookies := opt.long_cookies;
   (if !HSCm.use_long_cookies then CookieLong.init_cookies else Cookie2.init_cookies)
     ~sched ~gc_period:opt.cookie_gc_period
+    ~accept_client_values:opt.cookie_accept_client_values
     ~pool_min:opt.cookie_pool_size_min
     ~pool_max:opt.cookie_pool_size_max
     ~timer_interval:opt.cookie_timer_interval
