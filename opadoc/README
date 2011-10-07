@@ -34,3 +34,20 @@ open doc/index.html and enjoy !
 In general:
 # opadoc FILE.opa* DIR* -o directory
 # open directory/index.html
+
+
+
+
+HOW TO BUILD DOC:
+
+First you need to compile opalang with api files:
+      cd $(OPALANG)
+      make all packages-api
+
+Then generate the HTML documentation:
+- cd $(OPALANG)/opadoc
+- opa opadoc.opack
+- considering DOC_PATH=static_doc and DOCS=$(OPALANG)/_build/stdlib
+- _build/generator/opaDoc/opaDoc.exe -o $(DOC_PATH) $(DOCS)
+- your doc should be in $(DOC_PATH)
+- open $(DOC_PATH)/index.html in your favorite browser
