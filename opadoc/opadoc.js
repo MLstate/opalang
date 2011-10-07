@@ -268,16 +268,17 @@ function init() {
     });
 }
 
+// Initiliaze communication with #doc iframe
 function initMessage() {
     var iframe = document.getElementById('doc').contentWindow;
     iframe.postMessage("Hello", "*");
 }
 
-/**
-* A hack for avoiding an error, when opa generates static pages
-* Opa generates javascript code like this :
-*
-* $('#drorwaflpuhsioqawokdsealauvjlact').css({ 'color': 'rgb(0,0,0)'})
-*
-**/
-function $(){ return({ css : function() {} }); }
+// /**
+// * A hack for avoiding an error, when opa generates static pages
+// * Opa generates javascript code like this :
+// *
+// * $('#drorwaflpuhsioqawokdsealauvjlact').css({ 'color': 'rgb(0,0,0)'})
+// *
+// **/
+// function $(){ return({ css : function() {} }); }
