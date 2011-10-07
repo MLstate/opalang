@@ -2,10 +2,27 @@
 * Javascript for opadoc static pages
 **/
 
+// Generic functions
 String.prototype.endsWith = function(str){return (this.match(str+"$")==str)}
 
 // FIXME: do not use global vars !!!
 var global_config = "", global_id = "", global_plugins = "";
+var file_sep = "/!/";
+
+function setHash(h) {
+    window.location.hash = h;
+}
+
+function setDoc(url) {
+    var iframe = document.getElementById('doc').contentWindow;
+    iframe.location.replace(url);
+}
+
+function setCurrent(tabName) {
+    var current_class = "current";
+    $("ul.menu li").removeClass(current_class);
+    $("ul.menu li."+tabName+"_tab").addClass(current_class);
+}
 
 function switchTab(tabName) {
     //window.location.search = "?tab="+tabName;
@@ -14,10 +31,8 @@ function switchTab(tabName) {
 }
 
 function switchFile(fileName, nodeId) {
-    var sep = "/!/";
     if (nodeId === undefined) nodeId = "";
-    window.location.hash = "#"+fileName+sep+nodeId;
-    //open_parent_node(global_id);
+    setHash("#"+fileName+file_sep+nodeId);
 }
 
 function getUrlVars() {
@@ -48,7 +63,7 @@ function open_node(tree, node) {
 function open_parent_node(id, scroll) {
     var anchor = window.location.hash;
     if (anchor === "") return;
-    var last_part = anchor.lastIndexOf("/!/");
+    var last_part = anchor.lastIndexOf(file_sep);
     var file = anchor.slice(0, last_part).substr(1);
     var node_id = anchor.slice(last_part+3, anchor.length);
     if (node_id === "" && file.endsWith(".html"))
@@ -167,9 +182,7 @@ function make_tree(config, id, plugins, tab) {
             content = packages_tree_json();
         }
 
-        var current_class = "current";
-        $("ul.menu li").removeClass(current_class);
-        $("ul.menu li."+tab+"_tab").addClass(current_class);
+        setCurrent(tab);
 
         $("#" + id).bind("loaded.jstree", function (event, data) {
             init_tree(id);
