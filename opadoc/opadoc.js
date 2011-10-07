@@ -100,8 +100,8 @@ function init_tree(id) {
             $(e).bind("click", function(e) {
                 switchFile(file, anchor);
                 $("#doc").attr("src", href);
+                return false;
             });
-            $(e).attr("href", "javascript:void(0)");
         }
     });
 
