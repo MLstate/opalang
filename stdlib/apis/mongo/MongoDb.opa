@@ -330,18 +330,6 @@ Select = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
-/*
-    rec aux(p:list(MongoDb.key)) =
-      match p with
-      | [] -> []
-      | [k|t] ->
-        (match k with
-         | {IntKey=i} -> [{Int64=("key",i)}|aux(t)]
-         | {StringKey=s} -> [{String=("key",s)}|aux(t)]
-         | {AbstractKey=a} -> List.flatten([a,aux(t)]))
-    aux(path)
-*/
-
 }}
 
 /* Notes:
@@ -355,7 +343,72 @@ mongo = Mongo.open(50*1024,"www.localhost.local",27017)
 do System.at_exit( -> do println("closing mongo") Mongo.close(mongo))
 ns = "db.collection"
 
+/* Helper functions */
+dl(l:list(Bson.element)):Bson.document = l
+doc(n:string,d:Bson.document):Bson.element = {Document=(n,d)}
+dd(n:string,d:Bson.document):Bson.document = [{Document=(n,d)}]
+arr(n:string,l:list(Bson.document)):Bson.element = {Array=(n,List.mapi((i, d -> ({Document=("{i}",d)}:Bson.element)),l))}
+i32(n:string,i:int):Bson.element = {Int32=(n,i)}
+str(n:string,s:string):Bson.element = {String=(n,s)}
+bool(n:string,b:bool):Bson.element = {Boolean=(n,b)}
+vd(n:string):Bson.element = {Null=(n,void)}
+err(n:string):void =
+  err = Cursor.last_error(mongo, "db")
+  do println("err({n})={Bson.string_of_result(err)}")
+  void
+
 /* db /[0]/abc/[true] : int */
+/*
+path = ([{IntKey=0}, {StringKey="abc"}, {AbstractKey=[{Boolean=("key",{true})}]}]:MongoDb.path)
+vpath = (List.flatten([path,[{StringKey="value"}]]):MongoDb.path) // <-- need to add this according to the type
+select_name = Select.dot_path(vpath)
+select(n:int) = ([{Int32=(select_name,n)}]:Bson.document)
+update(n:int) = ([{Document=("$set",([{Int32=(select_name,n)}]:Bson.document))}]:Bson.document)
+query_name = Select.dot_path(path)
+query(v:string) = ([{String=(query_name,v)}]:Bson.document)
+do println("path={path}")
+do println("select = {Bson.string_of_bson(select(999))}")
+do println("update = {Bson.string_of_bson(update(111))}")
+do println("query() = {Bson.string_of_bson(query("value"))}")
+*/
+
+/* Second attempt: path is actually a document */
+/*
+db /a/b[_]/{c:int;d:string}
+db /a/b[_]/{f:bool;d:void}
+db /h:list(int)
+*/
+type t =
+  {a:
+    {b:
+      list({c:int;  d:string});
+     /*e:
+      {f:bool; g:void  }*/
+    };
+   /*h:
+    {i: list(int)}*/
+  }
+bson =
+  dl([doc("a",
+          dl([arr("b",[dl([i32("c",1), str("d","abc")]),
+                       dl([i32("c",2), str("d","def")])])]))])
+_ = Mongo.insert(mongo,0,ns,(bson:Bson.document)) do err("insert")
+select = dl([str("a.b.d","abc")])
+//update = dl([doc("$set",dl([i32("a.b.$.c",100)]))])
+update = dl([doc("$inc",dl([i32("a.b.$.c",1)]))])
+_ = Mongo.update(mongo,0/*Mongo._Upsert*/,ns,select,update) do err("update")
+query = dl([str("a.b.d","abc")])
+//fields = {none}
+//fields = {some=dl([i32("a.b.$.c",1)])} // <-- gives whole array
+fields = {some=dl([doc("a.b",dl([i32("$slice",1)])),
+                   i32("a.b.d",0),
+                   i32("_id",0)
+                  ])}
+do match Cursor.find_one(mongo,ns,query,fields) with
+   | {success=doc} -> println("doc={Bson.string_of_bson(doc)}")
+   | err -> println("err={Bson.string_of_result(err)}")
+
+/*
 path = ([{IntKey=0}, {StringKey="abc"}, {AbstractKey=[{Boolean=("key",{true})}]}]:MongoDb.path)
 vpath = (List.flatten([path,[{StringKey="value"}]]):MongoDb.path) // <-- need to add this according to the type
 select_name = Select.dot_path(vpath)
@@ -399,6 +452,7 @@ do println("err={Bson.string_of_result(err)}")
 do match Cursor.find_one(mongo,ns,query("value"),{none}) with
    | {success=doc} -> println("err={Bson.string_of_bson(doc)}")
    | err -> println("err={Bson.string_of_result(err)}")
+*/
 
 type collection('a) = {
   db: mongodb(Bson.document,'a);
