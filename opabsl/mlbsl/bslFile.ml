@@ -51,6 +51,8 @@ let copy a b force = ignore (File.copy ~force a b)
 ##register move: string, string, bool -> void
 let move a b force = ignore (File.mv ~force a b)
 
+##register remove_rec: string -> void
+let remove_rec file = ignore (File.remove_rec file)
 
 
 (**
