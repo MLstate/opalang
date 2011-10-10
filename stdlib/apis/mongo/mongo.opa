@@ -178,6 +178,28 @@ Bson = {{
     | { Int64=(key, _) } -> key
 
   /**
+   * Return the key of an element.
+   **/
+  set_key(b0:Bson.element, key:string): Bson.element =
+    match b0 with
+    | { Double=(_, value) } -> { Double=(key, value) }
+    | { String=(_, value) } -> { String=(key, value) }
+    | { Document=(_, value) } -> { Document=(key, value) }
+    | { Array=(_, value) } -> { Array=(key, value) }
+    | { Binary=(_, value) } -> { Binary=(key, value) }
+    | { ObjectID=(_, value) } -> { ObjectID=(key, value) }
+    | { Boolean=(_, value) } -> { Boolean=(key, value) }
+    | { Date=(_, value) } -> { Date=(key, value) }
+    | { Null=(_, value) } -> { Null=(key, value) }
+    | { Regexp=(_, value) } -> { Regexp=(key, value) }
+    | { Code=(_, value) } -> { Code=(key, value) }
+    | { Symbol=(_, value) } -> { Symbol=(key, value) }
+    | { CodeScope=(_, value) } -> { CodeScope=(key, value) }
+    | { Int32=(_, value) } -> { Int32=(key, value) }
+    | { Timestamp=(_, value) } -> { Timestamp=(key, value) }
+    | { Int64=(_, value) } -> { Int64=(key, value) }
+
+  /**
    * Find an element by key in a bson object.
    **/
   find_element(bson:Bson.document, name:string): option(Bson.element) =
@@ -330,11 +352,15 @@ Bson = {{
     errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
     String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
 
+  string_of_failure(failure:Mongo.failure): string =
+    match failure with
+    | {Error=str} -> str
+    | {DocError=doc} -> string_of_doc(doc)
+
   string_of_result(result:Mongo.result): string =
     match result with
     | {success=doc} -> string_of_doc(doc)
-    | {failure={Error=str}} -> str
-    | {failure={DocError=doc}} -> string_of_doc(doc)
+    | {~failure} -> string_of_failure(failure)
 
 }}
 

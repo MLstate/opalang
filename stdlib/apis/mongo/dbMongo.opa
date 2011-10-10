@@ -507,16 +507,18 @@ MongoDb = {{
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
         //do println("element={element} col={OpaType.to_pretty(ty)}")
-        (match element with
-         | {Document=(_,doc)} ->
-           //do println("doc={doc} keys={Bson.keys(doc)}")
-           ltyfield = List.sort(Bson.keys(doc)) // <-- We might get away with List.rev here???
-           (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
-            | {some=fields} ->
-              //do println("fields={fields}")
-              element_to_rec(doc, fields)
-            | {none} -> @fail("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})"))
-         | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
+        (ltyfield, doc) =
+          (match element with
+           | {Document=(_,doc)} ->
+             (List.sort(Bson.keys(doc)), doc) // <-- We might get away with List.rev here???
+           | _ ->
+             ([Bson.key(element)], [element]))
+        //do println("doc={doc} keys={Bson.keys(doc)}")
+        (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
+         | {some=fields} ->
+           //do println("fields={fields}")
+           element_to_rec(doc, fields)
+         | {none} -> @fail("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})"))
       | {TyName_args = tys; TyName_ident = tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys))
       | _ -> @fail("MongoDb.bson_to_opa: unknown type {OpaType.to_pretty(ty)}")

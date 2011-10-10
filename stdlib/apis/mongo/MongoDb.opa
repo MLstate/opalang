@@ -102,8 +102,27 @@
  *   where select defines the values to return, field_select
  *   says which fields in the value to return (_id is always included).
  *
- *   The new design for MongoDB high-level support should include:
+ *   The current schema for mapping dbGen syntax to MongoDB documents is:
  *
+ *     file: prog.opa
+ *     definitions:
+ *       db /coll/x : t
+ *       db /coll/y : u
+ *       db /coll/...
+ * 
+ *     Leads to:
+ * 
+ *     database name: "prog_exe" (or whatever is defined in the program)
+ *     collection name: "coll"
+ *     OPA type: {x:t} / {y:u} / ...
+ *     MongoDB: the OPA to Bson schema above.
+ * 
+ *  Notes:
+ *
+ *    - This is different from the existing dbGen syntax since
+ *      multiple db definitions at the root of the path now map to sum
+ *      types instead of records.  This allows storage of multiple types
+ *      in the same collection.
  **/
 
 /* Helper functions */
@@ -112,30 +131,23 @@ doc(n:string,d:Bson.document):Bson.element = {Document=(n,d)}
 dd(n:string,d:Bson.document):Bson.document = [{Document=(n,d)}]
 arr(n:string,l:list(Bson.document)):Bson.element = {Array=(n,List.mapi((i, d -> ({Document=("{i}",d)}:Bson.element)),l))}
 i32(n:string,i:int):Bson.element = {Int32=(n,i)}
+i64(n:string,i:int):Bson.element = {Int64=(n,i)}
+dbl(n:string,d:float):Bson.element = {Double=(n,d)}
 str(n:string,s:string):Bson.element = {String=(n,s)}
 bool(n:string,b:bool):Bson.element = {Boolean=(n,b)}
-vd(n:string):Bson.element = {Null=(n,void)}
-err(n:string):void =
-  err = Cursor.last_error(mongo, "db")
-  do println("err({n})={Bson.string_of_result(err)}")
-  void
-
+binary(n:string,b:string):Bson.element = {Binary=(n,b)}
+null(n:string):Bson.element = {Null=(n,void)}
 /*
  * MDB {{ ... }}:
- *
- *   - A low-level module containing essentially the core of the implementation but
- *     allowing untyped versions of functions, for example, the most general update
- *     function would be update : mongodb, 'key, 'value -> void.  This is prefectly implementable
- *     using OPA's dynamic types and the OPA to BSON functions which are also type-abstract.
- *
- *   - However, there is plenty of possibility for mischief here.  For instance, we want a
- *     unique mapping from keys to values whereas MongoDB would allow multiple values under
- *     the same key.  The best way of looking at the above abstract function is a low-level
- *     hook into: Mongo.update(db,flags,select,update) where select is defined by 'key and
- *     update is defined by 'value.
+ *   
+ *   A low-level module allowing management of connections to MongoDB
+ *   servers.  To be used by higher-level modules so that only one
+ *   connection is opened to a given server whereas several interfaces
+ *   such as those defined below can be attached to the open connection.
+ *   
  */
 
-type mongodb('key,'value) = {
+type mongodb = {
   mongo: Mongo.db;
   bufsize: int;
   addr: string;
@@ -146,11 +158,67 @@ type mongodb('key,'value) = {
   keyname: string;
   valname: string;
   idxname: string;
+  fields: option(Bson.document);
+  limit: int;
+  skip: int;
+  insert_flags: int;
+  update_flags: int;
+  delete_flags: int;
+  query_flags: int;
 }
 
-MDB = {{
+type MDB = {{
+  // TODO: Documentation
+  open : int, string, int -> mongodb
+  clone : mongodb -> mongodb
+  namespace : mongodb, string, string -> mongodb
+  close : mongodb -> void
+  last_error : mongodb -> Mongo.result
+  err : mongodb, string -> void
+  limit : mongodb, int -> mongodb
+  skip : mongodb, int -> mongodb
+  fields : mongodb, option(Bson.document) -> mongodb
+  continueOnError : mongodb -> mongodb
+  upsert : mongodb -> mongodb
+  multiUpdate : mongodb -> mongodb
+  singleRemove : mongodb -> mongodb
+  tailableCursor : mongodb -> mongodb
+  slaveOk : mongodb -> mongodb
+  oplogReplay : mongodb -> mongodb
+  noCursorTimeout : mongodb -> mongodb
+  awaitData : mongodb -> mongodb
+  exhaust : mongodb -> mongodb
+  partial : mongodb -> mongodb
+  opa2doc : 'a -> Bson.document
+}}
 
-  close(db:mongodb('key,'value)): void =
+MDB : MDB = {{
+
+  open(bufsize:int, addr:string, port:int): mongodb =
+    mongo = Mongo.open(bufsize,addr,port)
+    db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
+          keyname="key"; valname="value"; idxname="index";
+          dbname="db"; collection="collection";
+          fields={none}; limit=0; skip=0;
+          insert_flags=0; update_flags=0; delete_flags=0; query_flags=0;
+         }
+    do System.at_exit( ->
+                        if db.link_count.get() > 0
+                        then
+                          do println("closing mongo (exit) {db.link_count.get()}")
+                          Mongo.close(db.mongo) 
+                        else void)
+    db
+
+  clone(db:mongodb): mongodb =
+    do db.link_count.set(db.link_count.get()+1)
+    db
+
+  namespace(db:mongodb, dbname:string, collection:string): mongodb =
+    do db.link_count.set(db.link_count.get()+1)
+    { db with dbname=dbname; collection=collection }
+
+  close(db:mongodb): void =
     lc = db.link_count.get()
     if lc > 0
       then
@@ -161,169 +229,129 @@ MDB = {{
           Mongo.close(db.mongo)
         else void
       else void
-  open(bufsize:int, addr:string, port:int): mongodb('key,'value) =
-    mongo = Mongo.open(bufsize,addr,port)
-    db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
-          keyname="key"; valname="value"; idxname="index";
-          dbname="db"; collection="collection";
-         }
-    do System.at_exit( ->
-                        if db.link_count.get() > 0
-                        then
-                          do println("closing mongo (exit) {db.link_count.get()}")
-                          Mongo.close(db.mongo) 
-                        else void)
-    db
 
-  namespace(db:mongodb('key,'value), dbname:string, collection:string): mongodb('key,'value) =
-    do db.link_count.set(db.link_count.get()+1)
-    { db with dbname=dbname; collection=collection }
+  last_error(db:mongodb): Mongo.result = Cursor.last_error(db.mongo, db.dbname)
 
-  idxn(db:mongodb('key,'value), n:int): string = db.idxname^(if n == 0 then "" else Int.to_string(n))
+  err(db:mongodb, n:string): void =
+    err = Cursor.last_error(db.mongo, db.dbname)
+    do println("error({n})={Bson.string_of_result(err)}")
+    void
 
-  make_select(db:mongodb('key,'value), indices:'key): Bson.document =
-    //do println("index: ty={@typeof(indices)}")
-    match @typeof(indices) with
-    | {TyName_args=[ty1,ty2]; TyName_ident="tuple_2"} ->
-      indices = (Magic.id(indices):tuple_2('a,'b))
-      List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
-                    MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2})])
-    | {TyName_args=[ty1,ty2,ty3]; TyName_ident="tuple_3"} ->
-      indices = (Magic.id(indices):tuple_3('a,'b,'c))
-      List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
-                    MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2}),
-                    MongoDb.opa_to_bson(db.idxname^"2",indices.f3,{some=ty3})])
-    | {TyName_args=[ty1,ty2,ty3,ty4]; TyName_ident="tuple_4"} ->
-      indices = (Magic.id(indices):tuple_4('a,'b,'c,'d))
-      List.flatten([MongoDb.opa_to_bson(db.idxname^"0",indices.f1,{some=ty1}),
-                    MongoDb.opa_to_bson(db.idxname^"1",indices.f2,{some=ty2}),
-                    MongoDb.opa_to_bson(db.idxname^"2",indices.f3,{some=ty3}),
-                    MongoDb.opa_to_bson(db.idxname^"3",indices.f4,{some=ty4})])
-    | { TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list" }
-    | { TyName_args=_; TyName_ident="Bson.document" } ->
-      (Magic.id(indices):Bson.document)
-    | {TyName_args=[ty]; TyName_ident="list"} ->
-      indices = (Magic.id(indices):list('a))
-      List.flatten(List.mapi((n, index -> MongoDb.opa_to_bson(idxn(db,n),index, {some=ty})),indices))
-    | ty ->
-      MongoDb.opa_to_bson(db.idxname,Magic.id(indices),{some=ty})
+  skip(db:mongodb, skip:int): mongodb = { db with ~skip }
+  limit(db:mongodb, limit:int): mongodb = { db with ~limit }
+  fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
 
-  select_keys(db:mongodb('key,'value), indices:'key): list(string) =
-    match @typeof(indices) with
-    | {TyName_args=[_,_]; TyName_ident="tuple_2"} ->
-      [db.idxname^"0",db.idxname^"1"]
-    | {TyName_args=[_,_,_]; TyName_ident="tuple_3"} ->
-      [db.idxname^"0",db.idxname^"1",db.idxname^"2"]
-    | {TyName_args=[_,_,_,_]; TyName_ident="tuple_4"} ->
-      [db.idxname^"0",db.idxname^"1",db.idxname^"2",db.idxname^"3"]
-    | { TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list" }
-    | { TyName_args=_; TyName_ident="Bson.document" } ->
-      Bson.keys(Magic.id(indices):Bson.document)
-    | {TyName_args=[_]; TyName_ident="list"} ->
-      indices = (Magic.id(indices):list('a))
-      List.mapi((n, _ -> idxn(db,n)),indices)
-    | _ ->
-      [db.idxname]
+  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.land(db.insert_flags,Mongo._ContinueOnError) }
+  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo._Upsert) }
+  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo._MultiUpdate) }
+  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.land(db.delete_flags,Mongo._SingleRemove) }
+  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._TailableCursor) }
+  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._SlaveOk) }
+  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._OplogReplay) }
+  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._NoCursorTimeout) }
+  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._AwaitData) }
+  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._Exhaust) }
+  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._Partial) }
 
-  make_insert(db:mongodb('key,'value), value:'value): Bson.document =
-    match (@typeof(value):OpaType.ty) with
-    | { TyName_args=[({TyName_args=_; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list" }
-    | { TyName_args=_; TyName_ident="Bson.document" } ->
-      (Magic.id(value):Bson.document)
-    | ty -> MongoDb.opa_to_bson(db.valname,Magic.id(value),{some=ty})
+  /**
+   * opa2doc: We just need to strip off the dummy layer used by dbMongo
+   **/
+  opa2doc(v:'a): Bson.document =
+    match MongoDb.opa_to_bson("value",v,{none}) with
+    | [{Document=("value",doc)}] -> doc
+    | doc -> doc
 
-  make_update(db:mongodb('key,'value), value:'value): Bson.document =
-    [{Document=("$set",make_insert(db, value))}]
-
-  insert(db:mongodb('key,'value), key:'key, value:'value): bool =
-    ns = db.dbname^"."^db.collection
-    select_doc = make_select(db, key)
-    insert_doc = make_insert(db, value)
-    Mongo.insert(db.mongo,0,ns,List.flatten([select_doc,insert_doc]))
-
-  update(db:mongodb('key,'value), key:'key, value:'value): bool =
-    ns = db.dbname^"."^db.collection
-    select_doc = make_select(db, key)
-    update_doc = make_update(db, value)
-    Mongo.update(db.mongo,Mongo._Upsert,ns,select_doc,update_doc)
-
-  find_one(db:mongodb('key,'value), key:'key): outcome('value,Mongo.failure) =
-    ns = db.dbname^"."^db.collection
-    select_doc = make_select(db, key)
-    ty = @typeof(Magic.id(void):'value)
-    (match Cursor.find_one(db.mongo,ns,select_doc,{some=List.map((f -> {Int32=(f,0)}),Bson.keys(select_doc))}) with
-     | {success=doc} ->
-       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match MongoDb.bson_to_opa(doc, ty, db.valname) with
-        | {some=v} -> {success=(Magic.id(v):'value)}
-        | {none} -> @fail("MDB.find_one: not found"))
-     | {~failure} -> @fail("MDB.find_one: error from MongoDB: {failure}"))
-
-  delete(db:mongodb('key,'value), key:'key): bool =
-    ns = db.dbname^"."^db.collection
-    select_doc = make_select(db, key)
-    Mongo.delete(db.mongo,Mongo._SingleRemove,ns,select_doc)
-
-  ensure_index(db:mongodb('key,'value), key:'key, flags:int): Mongo.result =
-    ns = db.dbname^"."^db.collection
-    select = select_keys(db, key)
-    index = List.map((k -> {Int32=(k,1)}),select)
-    if Indexes.create_index(db.mongo,ns,index,flags)
-    then Cursor.last_error(db.mongo, db.dbname)
-    else {failure={Error="ensure_index send failure"}}
-
-  last_error(db:mongodb('key,'value)): Mongo.result = Cursor.last_error(db.mongo, db.dbname)
 }}
 
 /* Test code for MDB */
+
+mongodb = (Magic.id(MDB.open(50*1024,"www.localhost.local",27017)):mongodb)
+
 /*
-mongodb_ = (MDB.open(50*1024,"www.localhost.local",27017):mongodb(int,string))
-mongodb = MDB.namespace(mongodb_,"db","collection")
+ * Select {{ ... }}:
+ *   
+ *   A program-level method for constructing Bson documents for select
+ *   and update in a friendly manner.
+ *   
+ */
 
-tst(mongodb:mongodb('a,'b), idx:'a, val1:'b, val2:'b) =
-  ns = mongodb.dbname^"."^mongodb.collection
-  err = MDB.ensure_index(mongodb, idx, (Indexes._Sparse+Indexes._Unique))
-  do println("err(ensure_index) = {Bson.string_of_result(err)}")
-  do if MDB.insert(mongodb, idx, val1)
-     then println("result(insert({ns},{idx},{val1}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
-     else println("insert failure")
-  do if MDB.update(mongodb, idx, val2)
-     then println("result(update({ns},{idx},{val2}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
-     else println("update failure")
-  v = MDB.find_one(mongodb, idx)
-  do println("v={v}")
-  do if MDB.delete(mongodb, idx)
-     then println("result(delete({ns},{idx}))=\n  {Bson.string_of_result(MDB.last_error(mongodb))}")
-     else println("delete failure")
-  void
-
-do tst(Magic.id(mongodb):mongodb((int,int),string), (123,456), "abc", "def")
-do tst(Magic.id(mongodb):mongodb(Bson.document,string), [{Int32=("key",789)}], "ghi", "jkl")
-do tst(Magic.id(mongodb):mongodb(Bson.document,Bson.document),
-        [{Int32=("_key",456)}], [{String=("s","mno")},{Int32=("i",234)}], [{String=("s","pqr")},{Int32=("i",567)}])
-do MDB.close(mongodb)
-do MDB.close(mongodb_)
-*/
-
-@abstract type select('a) = Bson.document
+@abstract type select('a) = {
+  select:Bson.document;
+  default:option('a);
+}
 
 type Select = {{
-  /* Formalises the OPA view of the semantics of select documents 
-   * in order to facilitate expression and manipulation of select
-   * objects in OPA.
-   */
-  select_to_document : select('a) -> Bson.document // <-- might be Id(x)=x
+  // TODO: Documentation
+  select_to_document : select('a) -> Bson.document
+  select_to_default : select('a) -> option('a)
+
+  dot_path : MongoDb.path -> string
+
+/*
   path : MongoDb.path -> select('a)
-  path_intrange : MongoDb.path, option(int), option(int) -> select(int) 
+  path_intrange : MongoDb.path, option(int), option(int) -> select('a) 
+  check_fst_arg_in_pair : select('a) -> select('a)
+  check_field_in_record : select('a), string -> select('a)
+*/
+
+  empty : option('a) -> select('a)
+
+  key : string, select('a) -> select('a)
+
+  int32 : select('a), string, int -> select('a)
+  int64 : select('a), string, int -> select('a)
+  double : select('a), string, float -> select('a)
+  string : select('a), string, string -> select('a)
+
+  gti32 : int, select('a) -> select('a)
+  lti32 : int, select('a) -> select('a)
+  gtei32 : int, select('a) -> select('a)
+  ltei32 : int, select('a) -> select('a)
+
+  gti64 : int, select('a) -> select('a)
+  lti64 : int, select('a) -> select('a)
+  gtei64 : int, select('a) -> select('a)
+  ltei64 : int, select('a) -> select('a)
+
+  gtd : float, select('a) -> select('a)
+  ltd : float, select('a) -> select('a)
+  gted : float, select('a) -> select('a)
+  lted : float, select('a) -> select('a)
+
+  gts : string, select('a) -> select('a)
+  lts : string, select('a) -> select('a)
+  gtes : string, select('a) -> select('a)
+  ltes : string, select('a) -> select('a)
+
+  set_op : select('a), string -> select('a)
+
+  gt : select('a) -> select('a)
+  lt : select('a) -> select('a)
+  gte : select('a) -> select('a)
+  lte : select('a) -> select('a)
+
   and : select('a), select('a) -> select('a)
-  check_fst_arg_in_pair : select('a) -> select(('a,'b))
-  check_field_in_record : select('a), string -> select('b)
+  andalso : list(select('a)) -> select('a)
+
+  inc : select('a) -> select('a)
+  set : select('a) -> select('a)
+  unset : select('a) -> select('a)
+  push : select('a) -> select('a)
+  pushAll : select('a) -> select('a)
+  addToSet : select('a) -> select('a)
+  pop : select('a) -> select('a)
+  pull : select('a) -> select('a)
+  pullAll : select('a) -> select('a)
+  rename : select('a) -> select('a)
+  bit : select('a) -> select('a)
 }}
 
-Select = {{
+Select : Select = {{
 
-  select_to_document(select:select('a)): Bson.document = select
+  select_to_document(select:select): Bson.document = select.select
+  select_to_default(select:select('a)): option('a) = select.default
 
+  @private
   string_of_element(e:Bson.element): string =
     match e with
     | {Int32=(_,i)} -> Int.to_string(i)
@@ -335,6 +363,7 @@ Select = {{
     | {Null=(_,_)} -> "" // <-- ???
     | _ -> @fail
 
+  @private
   string_of_key(key:MongoDb.key): string =
     match key with
     | {IntKey=i} -> Int.to_string(i)
@@ -344,201 +373,272 @@ Select = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
-  /**
-   * opa2doc: We just need to strip off the dummy layer used by dbMongo
-   * TODO: degenerate case, v:int
-   **/
-  opa2doc(v:'a): Bson.document =
-    match MongoDb.opa_to_bson("value",v,{none}) with
-    | [{Document=("value",doc)}] -> doc
-    | _ -> @fail
+  empty(default:option('a)): select('a) = {select=[]; ~default}
 
-  bson_dot(doc:Bson.document, dollar:bool): (bool, Bson.document) =
+  key(name:string, s:select('a)): select('a) = { s with select=[{Document=(name,s.select)}] }
 
-    rec subkey(dt,e:Bson.element) =
-      match e with
-      | {Document=(_,d)} -> dot(dt,d)
-      | {Array=(_,_)} -> @fail
-      | _ -> @fail
+  int32(s:select('a), name:string, i:int): select('a) = { s with select=[{Int32=(name,i)}|s.select] }
+  int64(s:select('a), name:string, i:int): select('a) = { s with select=[{Int64=(name,i)}|s.select] }
+  double(s:select('a), name:string, d:float): select('a) = { s with select=[{Double=(name,d)}|s.select] }
+  string(s:select('a), name:string, str:string): select('a) = { s with select=[{String=(name,str)}|s.select] }
 
-    and dot(dt,doc) =
-      match doc with
-      | [{Document=(key,d)}] -> dot(dt^key^".",d)
-      | [{Array=(key,[e])}] -> // TODO: verify that all subkeys are the same
-        //subkeys = List.map((e -> subkey(e)),d)
-        //do println("subkeys={subkeys}")
-        //subkey = Option.get(List.nth(0,subkeys))
-        subkey(dt^"{key}."^(if dollar then "$." else ""),e)
-      | [{Int32=(key,i)}] -> (true,[{Int32=(dt^key,i)}])
-      | [{Int64=(key,i)}] -> (true,[{Int64=(dt^key,i)}])
-      | [{Double=(key,d)}] -> (true,[{Double=(dt^key,d)}])
-      | [{String=(key,s)}] -> (false,[{String=(dt^key,s)}])
-      | _ -> @fail("Unsuitable dot document {Bson.string_of_bson(doc)}")
+  gti32(i:int, s:select('a)): select('a) = int32(s, "$gt", i)
+  lti32(i:int, s:select('a)): select('a) = int32(s, "$lt", i)
+  gtei32(i:int, s:select('a)): select('a) = int32(s, "$gte", i)
+  ltei32(i:int, s:select('a)): select('a) = int32(s, "$lte", i)
 
-    dot("",doc)
+  gti64(i:int, s:select('a)): select('a) = int64(s, "$gt", i)
+  lti64(i:int, s:select('a)): select('a) = int64(s, "$lt", i)
+  gtei64(i:int, s:select('a)): select('a) = int64(s, "$gte", i)
+  ltei64(i:int, s:select('a)): select('a) = int64(s, "$lte", i)
 
-  make_select(v:'a): Bson.document = (bson_dot(opa2doc(v),false)).f2
+  gtd(d:float, s:select('a)): select('a) = double(s, "$gt", d)
+  ltd(d:float, s:select('a)): select('a) = double(s, "$lt", d)
+  gted(d:float, s:select('a)): select('a) = double(s, "$gte", d)
+  lted(d:float, s:select('a)): select('a) = double(s, "$lte", d)
 
-  make_set(v:'a): Bson.document = [{Document=("$set",(bson_dot(opa2doc(v),true)).f2)}]
+  gts(str:string, s:select('a)): select('a) = string(s, "$gt", str)
+  lts(str:string, s:select('a)): select('a) = string(s, "$lt", str)
+  gtes(str:string, s:select('a)): select('a) = string(s, "$gte", str)
+  ltes(str:string, s:select('a)): select('a) = string(s, "$lte", str)
 
-  make_inc(v:'a): Bson.document =
-    (numeric,doc) = bson_dot(opa2doc(v),true)
-    if numeric
-    then [{Document=("$inc",doc)}]
-    else @fail("Non-numeric $inc")
+  set_op(s:select('a), op:string): select('a) =
+    select =
+      ((match s.select with
+        | [] -> []
+        | [e] -> [{Document=(Bson.key(e),[Bson.set_key(e,op)])}]
+        | l -> List.map((e -> {Document=(Bson.key(e),[Bson.set_key(e,op)])}),l)):Bson.document)
+    { s with ~select }
+
+  gt(s:select('a)): select('a) = set_op(s, "$gt")
+  lt(s:select('a)): select('a) = set_op(s, "$lt")
+  gte(s:select('a)): select('a) = set_op(s, "$gte")
+  lte(s:select('a)): select('a) = set_op(s, "$lte")
+
+  and(s1:select('a), s2:select('a)): select('a) =
+    { select=([{Array=("$and",([{Document=("0",s1.select)},
+                                {Document=("1",s2.select)}]:Bson.document))}]:Bson.document);
+      default=s1.default }
+
+  andalso(ss:list(select('a))): select('a) =
+    match ss with
+    | [] -> empty({none})
+    | [s|t] -> { select=[{Array=("$and",(List.mapi((i, ss -> {Document=("{i}",ss.select)}),[s|t]):Bson.document))}];
+                 default=s.default }
+
+  inc(s:select('a)): select('a) = key("$inc",s)
+  set(s:select('a)): select('a) = key("$set",s)
+  unset(s:select('a)): select('a) = key("$unset",s)
+  push(s:select('a)): select('a) = key("$push",s)
+  pushAll(s:select('a)): select('a) = key("$pushAll",s)
+  addToSet(s:select('a)): select('a) = key("$addToSet",s)
+  pop(s:select('a)): select('a) = key("$pop",s)
+  pull(s:select('a)): select('a) = key("$pull",s)
+  pullAll(s:select('a)): select('a) = key("$pullAll",s)
+  rename(s:select('a)): select('a) = key("$rename",s)
+  bit(s:select('a)): select('a) = key("$rename",s)
 
 }}
 
-/* Notes:
-
- - If we map the whole path to a collection, where do we define the namespace in "db /path/x/y/z = ..."?
-
-*/
-
 /* Test code for select */
-mongo = Mongo.open(50*1024,"www.localhost.local",27017)
-do System.at_exit( -> do println("closing mongo") Mongo.close(mongo))
-ns = "db.collection"
-
-/* db /[0]/abc/[true] : int */
-/*
-path = ([{IntKey=0}, {StringKey="abc"}, {AbstractKey=[{Boolean=("key",{true})}]}]:MongoDb.path)
-vpath = (List.flatten([path,[{StringKey="value"}]]):MongoDb.path) // <-- need to add this according to the type
-select_name = Select.dot_path(vpath)
-select(n:int) = ([{Int32=(select_name,n)}]:Bson.document)
-update(n:int) = ([{Document=("$set",([{Int32=(select_name,n)}]:Bson.document))}]:Bson.document)
-query_name = Select.dot_path(path)
-query(v:string) = ([{String=(query_name,v)}]:Bson.document)
-do println("path={path}")
-do println("select = {Bson.string_of_bson(select(999))}")
-do println("update = {Bson.string_of_bson(update(111))}")
-do println("query() = {Bson.string_of_bson(query("value"))}")
-*/
-
-/* Second attempt: path is actually a document */
-/*
-db /a/b[_]/{c:int;d:string}
-db /a/b[_]/{f:bool;d:void}
-db /h:list(int)
-*/
-type t =
-  {a:
-    {b:
-      list({c:int;  d:string});
-     /*e:
-      {f:bool; g:void  }*/
-    };
-   /*h:
-    {i: list(int)}*/
-  }
-
-b1 = Select.opa2doc({a={b=[{c=123; d="abc"},{c=456; d="def"}]}})
-do println("b1={Bson.string_of_bson(b1)}")
-_ = Mongo.insert(mongo,0,ns,b1) do err("insert")
-
-select = Select.make_select({a={b=[{d="abc"}]}})
-do println("select=\"{Bson.string_of_bson(select)}\"")
-//update = Select.make_set({a={b=[{c=100}]}})
-//do println("update=\"{Bson.string_of_bson(update)}\"")
-update = Select.make_inc({a={b=[{c=1}]}})
-do println("update=\"{Bson.string_of_bson(update)}\"")
-_ = Mongo.update(mongo,0,ns,select,update) do err("update")
-
-query = dl([str("a.b.d","abc")])
-fields = {some=dl([i32("_id",0)])}
-//fields = {some=dl([i32("a.b.$.c",1)])} // <-- gives whole array
-/*
-fields = {some=dl([doc("a.b",dl([i32("$slice",1)])), // <-- gives element 0 of the list of arrays which have d=abc
-                   i32("a.b.d",0),
-                   i32("_id",0)
-                  ])}
-*/
-do match Cursor.find_one(mongo,ns,query,fields) with
-   | {success=doc} -> println("doc={Bson.string_of_bson(doc)}")
-   | err -> println("err={Bson.string_of_result(err)}")
-/**/
+// none
 
 /*
-path = ([{IntKey=0}, {StringKey="abc"}, {AbstractKey=[{Boolean=("key",{true})}]}]:MongoDb.path)
-vpath = (List.flatten([path,[{StringKey="value"}]]):MongoDb.path) // <-- need to add this according to the type
-select_name = Select.dot_path(vpath)
-select(n:int) = ([{Int32=(select_name,n)}]:Bson.document)
-update(n:int) = ([{Document=("$set",([{Int32=(select_name,n)}]:Bson.document))}]:Bson.document)
-query_name = Select.dot_path(path)
-query(v:string) = ([{String=(query_name,v)}]:Bson.document)
-do println("path={path}")
-do println("select = {Bson.string_of_bson(select(999))}")
-do println("update = {Bson.string_of_bson(update(111))}")
-do println("query() = {Bson.string_of_bson(query("value"))}")
+ * Collection {{ ... }}:
+ *   
+ * Implements the collection type presented to the user and also the target
+ * for the new db syntax.  I would have preferred "Set" to "Collection"
+ * because it would have been easier to type but that name is already occupied
+ * in the namespace.
+ *
+ **/
 
-bson =
-  ([{Document=("0",
-     ([{Document=("abc",
-       ([{Document=("true",([{Int32=("value",999)}]:Bson.document))},
-         {Document=("false",([{Int32=("value",888)}]:Bson.document))}
-       ]:Bson.document))},
-      {Document=("def",
-       [{Document=("true",([{Int32=("value",777)}]:Bson.document))},
-        {Document=("false",([{Int32=("value",666)}]:Bson.document))}
-       ])}
-     ]:Bson.document))},
-    {Document=("1",
-     [{Document=("ghi",
-       [{Document=("true",([{Int32=("value",555)}]:Bson.document))},
-        {Document=("false",([{Int32=("value",444)}]:Bson.document))}
-       ])},
-      {Document=("jkl",
-       [{Document=("true",([{Int32=("value",333)}]:Bson.document))},
-        {Document=("false",([{Int32=("value",222)}]:Bson.document))}
-       ])}
-     ])}
-  ]:Bson.document)
-
-_ = Mongo.insert(mongo,Mongo._Upsert,ns,(bson:Bson.document))
-//update = ([{Document=("$set",([{Int32=("0.abc.true.value",111)}]:Bson.document))}]:Bson.document)
-_ = Mongo.update(mongo,Mongo._Upsert,ns,select(999),update(111))
-err = Cursor.last_error(mongo, "db")
-do println("err={Bson.string_of_result(err)}")
-do match Cursor.find_one(mongo,ns,query("value"),{none}) with
-   | {success=doc} -> println("err={Bson.string_of_bson(doc)}")
-   | err -> println("err={Bson.string_of_result(err)}")
-*/
+type batch = list(Bson.document)
 
 type collection('a) = {
-  db: mongodb(Bson.document,'a);
-  fields: option(Bson.document); // Bury these in here for convenience
-  limit: int;
-  skip: int;
-  flags: int;
+  db: mongodb;
+  default: option('a);
 }
 
 type collection_cursor('a) = {
   collection: collection('a);
-  cursor: cursor
+  cursor: cursor;
+  query: select('a);
+  ty: OpaType.ty;
 }
 
-type Collection = {{ 
-  /* Implements the collection type presented to the user and also the target
-   * for the new db syntax.  I would have preferred "Set" to "Collection"
-   * because it would have been easier to type but that name is already occupied
-   * in the namespace.
-   */
-  create : mongodb('key,'value) -> collection('value)
-  make : mongodb('key,'value), int, int, int, option(Bson.document) -> collection('value)
-  set_limit : collection('value), int -> collection('value)
-  set_skip : collection('value), int -> collection('value)
-  set_flags : collection('value), int -> collection('value)
-  set_fields : collection('value), option(Bson.document) -> collection('value)
+type Collection = {{
+  // TODO: Documentation
+  create : mongodb, option('value) -> (select('value), collection('value))
+  limit : collection('value), int -> collection('value)
+  skip : collection('value), int -> collection('value)
+  fields : collection('value), option(Bson.document) -> collection('value)
+  continueOnError : collection('value) -> collection('value)
+  upsert : collection('value) -> collection('value)
+  multiUpdate : collection('value) -> collection('value)
+  singleRemove : collection('value) -> collection('value)
+  tailableCursor : collection('value) -> collection('value)
+  slaveOk : collection('value) -> collection('value)
+  oplogReplay : collection('value) -> collection('value)
+  noCursorTimeout : collection('value) -> collection('value)
+  awaitData : collection('value) -> collection('value)
+  exhaust : collection('value) -> collection('value)
+  partial : collection('value) -> collection('value)
   destroy : collection('value) -> void
-  update : collection('value), select('value), 'value -> bool
+  insert : collection('value), 'value -> bool
+  insert_batch : collection('value), batch -> bool
+  update : collection('value), select('value), select('value) -> bool
   delete : collection('value), select('value) -> bool
   find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
   query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
-  first : collection_cursor('value) -> outcome('value,Mongo.failure) // <-- will re-issue query
-  next : collection_cursor('value) -> outcome('value,Mongo.failure)
+  first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
+  next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   has_more : collection_cursor('value) -> bool
-  kill : collection_cursor('value) -> void
+  kill : collection_cursor('value) -> collection_cursor('value)
 }}
+
+Batch = {{
+  empty = ([]:batch)
+  add(b:batch, v:'a): batch = [MDB.opa2doc(v)|b]
+  add2(b:batch, (v1:'a, v2:'b)): batch = [MDB.opa2doc(v1)|[MDB.opa2doc(v2)|b]]
+  add3(b:batch, (v1:'a, v2:'b, v3:'c)): batch = [MDB.opa2doc(v1)|[MDB.opa2doc(v2)|[MDB.opa2doc(v3)|b]]]
+  list(b:batch, vs:list('a)): batch = List.flatten([List.map(MDB.opa2doc,vs),b])
+}}
+
+Collection : Collection = {{
+
+  create(db:mongodb, default:option('value)): (select('value), collection('value)) =
+    (Select.empty(default), { db=MDB.clone(db); ~default })
+
+  destroy(c:collection('value)): void = MDB.close(c.db)
+
+  skip(c:collection('value), skip:int): collection('value) = {c with db={ c.db with ~skip }}
+  limit(c:collection('value), limit:int): collection('value) = {c with db={ c.db with ~limit }}
+  fields(c:collection('value), fields:option(Bson.document)): collection('value) = {c with db={ c.db with ~fields }}
+
+  continueOnError(c:collection('value)): collection('value) =
+    {c with db={ c.db with insert_flags=Bitwise.land(c.db.insert_flags,Mongo._ContinueOnError) }}
+  upsert(c:collection('value)): collection('value)
+    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo._Upsert) }}
+  multiUpdate(c:collection('value)): collection('value)
+    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo._MultiUpdate) }}
+  singleRemove(c:collection('value)): collection('value)
+    = {c with db={ c.db with delete_flags=Bitwise.land(c.db.delete_flags,Mongo._SingleRemove) }}
+  tailableCursor(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._TailableCursor) }}
+  slaveOk(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._SlaveOk) }}
+  oplogReplay(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._OplogReplay) }}
+  noCursorTimeout(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._NoCursorTimeout) }}
+  awaitData(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._AwaitData) }}
+  exhaust(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._Exhaust) }}
+  partial(c:collection('value)): collection('value)
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._Partial) }}
+
+  insert(c:collection('value), v:'value): bool =
+    ns = c.db.dbname^"."^c.db.collection
+    b = MDB.opa2doc(v)
+    Mongo.insert(c.db.mongo,c.db.insert_flags,ns,b)
+
+  insert_batch(c:collection('value), b:batch): bool =
+    ns = c.db.dbname^"."^c.db.collection
+    Mongo.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
+
+  update(c:collection('value), select:select('value), update:select('value)): bool =
+    ns = c.db.dbname^"."^c.db.collection
+    Mongo.update(c.db.mongo,c.db.update_flags,ns,select.select,update.select)
+
+  delete(c:collection('value), select:select('value)): bool =
+    ns = c.db.dbname^"."^c.db.collection
+    Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select.select)
+
+  find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+    ns = c.db.dbname^"."^c.db.collection
+    (match Cursor.find_one(c.db.mongo,ns,select.select,c.db.fields) with
+     | {success=doc} ->
+       ty = @typeof(Magic.id(void):'value)
+       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
+       (match MongoDb.bson_to_opa(doc, ty, c.db.valname) with
+        | {some=v} -> {success=(Magic.id(v):'value)}
+        | {none} -> {failure={Error="Collection.find_one: not found"}})
+     | {~failure} -> {~failure})
+
+  query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+    ns = c.db.dbname^"."^c.db.collection
+    match Cursor.find(c.db.mongo,ns,select.select,c.db.fields,c.db.limit,c.db.skip,c.db.query_flags) with
+    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeof(Magic.id(void):'value) }}
+    | {~failure} -> {~failure}
+
+  first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
+    _ = Cursor.reset(cc.cursor)
+    query(cc.collection, cc.query)
+
+  next(cc:collection_cursor('value)): (collection_cursor('value),outcome('value,Mongo.failure)) =
+    cursor = Cursor.next(cc.cursor)
+    match Cursor.check_cursor_error(cursor) with
+    | {success=doc} ->
+       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
+       (match MongoDb.bson_to_opa(doc, cc.ty, cc.collection.db.valname) with
+        | {some=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
+        | {none} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}}))
+    | {~failure} ->
+       cursor = Cursor.reset(cursor)
+       ({cc with ~cursor},{~failure})
+
+  has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
+
+  kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=Cursor.reset(cc.cursor) }
+
+}}
+
+/* Test code for Collection */
+S = Select
+C = Collection
+do println("Collection:")
+type t = {i:int}
+(empty,(c_:collection(t))) = C.create(mongodb,{some={i=-1}})
+c1 = C.continueOnError(c_)
+// Caveat: bare values have to be magic'ed:
+//b = opa2doc(Magic.id(1):int) do println("b={Bson.string_of_bson(b)}")
+_ = C.insert(c1,{i=0}) do MDB.err(c1.db,"insert(c1,\{i=0\})")
+btch1 = List.fold_right(Batch.add,List.init((i -> {i=i+100}),9),Batch.empty)
+//do println("btch1={List.list_to_string(Bson.string_of_bson,btch1)}")
+_ = C.insert_batch(c1,btch1) do MDB.err(c1.db,"insert(c1,btch1)")
+i(i:int) = S.int64(empty,"i",i)
+do println("s={Bson.string_of_bson((i(1)).select)}")
+s = i(0)
+u = S.set(i(1))
+do println("u={Bson.string_of_bson(u.select)}")
+do println("u_ty={OpaType.to_pretty(@typeof(u))}")
+_ = C.update(c1,s,u) do MDB.err(c1.db,"update(c1,i(0),i(1))")
+_ = C.delete(C.singleRemove(c1),i(104)) do MDB.err(c1.db,"delete(c1,i(104))")
+q = S.key("i",S.gti32(102,S.lti32(106,empty)))
+do println("q={Bson.string_of_bson(q.select)}")
+v = C.find_one(c1,q) do MDB.err(c1.db,"find_one(c1,i>102,i<106)")
+do match v with
+   | {success=v} -> println("v={v}")
+   | {~failure} -> println("err={Bson.string_of_failure(failure)}")
+do match C.query(c1,q) with
+   | {success=cc1} ->
+      _ =
+      while(cc1,(cc1 ->
+                  match C.next(cc1) with
+                  | (cc1,{success=v}) ->
+                     do println("v={v}")
+                     if C.has_more(cc1)
+                     then (cc1,true)
+                     else (C.kill(cc1),false)
+                  | (_cc1,{~failure}) ->
+                     do println("err(query)={Bson.string_of_failure(failure)}")
+                     (C.kill(cc1),false)))
+      println("finished")
+   | {~failure} ->
+      println("err(query)={Bson.string_of_failure(failure)}")
+_ = C.destroy(c1)
 
 /** Later:
 MongoMap = {{
@@ -556,75 +656,6 @@ MongoTree = {{
   // http://www.mongodb.org/display/DOCS/Trees+in+MongoDB
 }}
 **/
-
-/*
- * Mdb_make {{ ... }}:
- *
- *   - The main module intended to be used by users.  Here we force type-safety on the
- *     low-level features:  make_db(MDB:{update:mongodb,int,string->void ...}):mongodb(int,string)
- *     (using not very accurate OPA syntax).  This is essentially a null operation just restricting the
- *     types but I think it should be formalised here since we could do some logic on the
- *     given types, if necessary, for more complex operations.
- *
- **/
-
-type Mdb('key,'value) = {{
-  // TODO: documentation in here
-  close: mongodb('key,'value) -> void
-  open: int, string, int -> mongodb('key,'value)
-  namespace: mongodb('key,'value), string, string -> mongodb('key,'value)
-  insert: mongodb('key,'value), 'key, 'value -> bool
-  update: mongodb('key,'value), 'key, 'value -> bool
-  find_one: mongodb('key,'value), 'key -> outcome('value,Mongo.failure)
-  delete: mongodb('key,'value), 'key -> bool
-  ensure_index: mongodb('key,'value), 'key, int -> Mongo.result
-  last_error: mongodb('key,'value) -> Mongo.result
-}}
-
-/* OK, OK, I know this is ridiculous but it won't let me say:
- 
-     ISM = (MDB : Mdb(int, string))
-
-   for obvious reasons.  A better choice is to type-specialise at the
-   expression level:
-
-     mongodb = (MDB.open(50*1024,"www.localhost.local",27017):mongodb(int,string))
-
-   but, as above, you need to Magic.id it in outer contexts if you want to avoid
-   value restriction.  Rank-2 polymorphism, what a waste of time.
-*/
-Mdb_make(_default_key:'key, _default_value:'value) : Mdb = {{
-  close(db:mongodb('key,'value)): void = MDB.close(db)
-  open(bufsize:int, addr:string, port:int): mongodb('key,'value) = MDB.open(bufsize, addr, port)
-  namespace(db:mongodb('key,'value), dbname:string, collection:string): mongodb('key,'value) =
-    MDB.namespace(db, dbname, collection)
-  insert(db:mongodb('key,'value), key:'key, value:'value): bool = MDB.insert(db, key, value)
-  update(db:mongodb('key,'value), key:'key, value:'value): bool = MDB.update(db, key, value)
-  find_one(db:mongodb('key,'value), key:'key): outcome('value,Mongo.failure) = MDB.find_one(db, key)
-  delete(db:mongodb('key,'value), key:'key): bool = MDB.delete(db, key)
-  ensure_index(db:mongodb('key,'value), key:'key, flags:int): Mongo.result = MDB.ensure_index(db, key, flags)
-  last_error(db:mongodb('key,'value)): Mongo.result = MDB.last_error(db)
-}}
-
-/* Test code for Mdb_make */
-/*
-ISM = (Mdb_make(0,"") : Mdb(int,string))
-
-mongodb2_ = ISM.open(50*1024,"www.localhost.local",27017)
-mongodb2 = ISM.namespace(mongodb2_,"db","collection")
-err = ISM.ensure_index(mongodb2, 0, (Indexes._Sparse+Indexes._Unique))
-do println("err(ensure_index) = {Bson.string_of_result(err)}")
-ns = "db.collection"
-idx = 123
-val2 = "abc"
-do if ISM.update(mongodb2, idx, val2)
-   then println("result(update({ns},{idx},{val2}))=\n  {Bson.string_of_result(ISM.last_error(mongodb2))}")
-   else println("update failure")
-v = ISM.find_one(mongodb2, idx)
-do println("v={v}")
-do ISM.close(mongodb2)
-do ISM.close(mongodb2_)
-*/
 
 /** DEPRECATED
  * MongoMap {{ ... }}:
