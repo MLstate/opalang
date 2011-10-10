@@ -899,7 +899,7 @@ export_resource(external_css_files: list(string),
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
           page_lang = ServerI18n.page_lang() // TODO by customizer
-          page_info = "var page_server = {num_page};var page_lang = \{{page_lang}:\{}};"
+          page_info = "var page_server = {num_page};var page_lang = \"{page_lang}\";"
           js_base_url = Option.switch(base -> "var base_url = \"{base}\";", "", base_url)
 
           global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info} {js_base_url}</script>"} : xhtml
