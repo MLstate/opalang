@@ -170,6 +170,7 @@ type JsFunction = external
   goto            = %% BslClient.Client.goto %%: string -> void
   alert           = %% BslClient.Client.alert %%: string -> void
   confirm         = %% BslClient.Client.confirm %%: string -> bool
+  prompt          = %% BslClient.Client.prompt %%: string, string -> option(string)
 
 
   /**

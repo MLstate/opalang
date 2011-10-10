@@ -53,6 +53,14 @@
     return confirm(str);
   }
 
+##register prompt : string, string -> option(string)
+  ##args(str, dft)
+  {
+    var res = window.prompt(str, dft);
+    if (res == null || res === "") return js_none
+    return js_some(res)
+  }
+
 ##register goto : string -> void
   ##args(str)
   {
