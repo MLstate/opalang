@@ -702,7 +702,7 @@ MongoDb = {{
       | {some={String=("key",key)}} -> key
       | _ -> @fail
     do println("MongoDb.write: {db}.{collection}({key})")
-    do if Mongo.update(mongo,Mongo._Upsert,ns,select,update)
+    do if Mongo.update(mongo,Mongo.UpsertBit,ns,select,update)
        then println("err={Bson.string_of_result(Cursor.last_error(mongo, db))}")
        else println("update failure")
     void

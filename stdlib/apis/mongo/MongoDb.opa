@@ -137,6 +137,7 @@ str(n:string,s:string):Bson.element = {String=(n,s)}
 bool(n:string,b:bool):Bson.element = {Boolean=(n,b)}
 binary(n:string,b:string):Bson.element = {Binary=(n,b)}
 null(n:string):Bson.element = {Null=(n,void)}
+
 /*
  * MDB {{ ... }}:
  *   
@@ -145,6 +146,7 @@ null(n:string):Bson.element = {Null=(n,void)}
  *   connection is opened to a given server whereas several interfaces
  *   such as those defined below can be attached to the open connection.
  *   
+ *   TODO: Possibly arrange a map of address:port values to connections?
  */
 
 type mongodb = {
@@ -241,17 +243,17 @@ MDB : MDB = {{
   limit(db:mongodb, limit:int): mongodb = { db with ~limit }
   fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
 
-  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.land(db.insert_flags,Mongo._ContinueOnError) }
-  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo._Upsert) }
-  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo._MultiUpdate) }
-  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.land(db.delete_flags,Mongo._SingleRemove) }
-  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._TailableCursor) }
-  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._SlaveOk) }
-  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._OplogReplay) }
-  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._NoCursorTimeout) }
-  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._AwaitData) }
-  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._Exhaust) }
-  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo._Partial) }
+  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.land(db.insert_flags,Mongo.ContinueOnErrorBit) }
+  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo.UpsertBit) }
+  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo.MultiUpdateBit) }
+  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.land(db.delete_flags,Mongo.SingleRemoveBit) }
+  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.TailableCursorBit) }
+  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.SlaveOkBit) }
+  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.OplogReplayBit) }
+  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.NoCursorTimeoutBit) }
+  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.AwaitDataBit) }
+  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.ExhaustBit) }
+  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.PartialBit) }
 
   /**
    * opa2doc: We just need to strip off the dummy layer used by dbMongo
@@ -307,21 +309,25 @@ type Select = {{
   lti32 : int, select('a) -> select('a)
   gtei32 : int, select('a) -> select('a)
   ltei32 : int, select('a) -> select('a)
+  nei32 : int, select('a) -> select('a)
 
   gti64 : int, select('a) -> select('a)
   lti64 : int, select('a) -> select('a)
   gtei64 : int, select('a) -> select('a)
   ltei64 : int, select('a) -> select('a)
+  nei64 : int, select('a) -> select('a)
 
   gtd : float, select('a) -> select('a)
   ltd : float, select('a) -> select('a)
   gted : float, select('a) -> select('a)
   lted : float, select('a) -> select('a)
+  ned : float, select('a) -> select('a)
 
   gts : string, select('a) -> select('a)
   lts : string, select('a) -> select('a)
   gtes : string, select('a) -> select('a)
   ltes : string, select('a) -> select('a)
+  nes : string, select('a) -> select('a)
 
   set_op : select('a), string -> select('a)
 
@@ -329,9 +335,14 @@ type Select = {{
   lt : select('a) -> select('a)
   gte : select('a) -> select('a)
   lte : select('a) -> select('a)
+  ne : select('a) -> select('a)
 
   and : select('a), select('a) -> select('a)
   andalso : list(select('a)) -> select('a)
+  or : select('a), select('a) -> select('a)
+  orelse : list(select('a)) -> select('a)
+  nor : select('a), select('a) -> select('a)
+  noreither : list(select('a)) -> select('a)
 
   inc : select('a) -> select('a)
   set : select('a) -> select('a)
@@ -386,21 +397,25 @@ Select : Select = {{
   lti32(i:int, s:select('a)): select('a) = int32(s, "$lt", i)
   gtei32(i:int, s:select('a)): select('a) = int32(s, "$gte", i)
   ltei32(i:int, s:select('a)): select('a) = int32(s, "$lte", i)
+  nei32(i:int, s:select('a)): select('a) = int32(s, "$ne", i)
 
   gti64(i:int, s:select('a)): select('a) = int64(s, "$gt", i)
   lti64(i:int, s:select('a)): select('a) = int64(s, "$lt", i)
   gtei64(i:int, s:select('a)): select('a) = int64(s, "$gte", i)
   ltei64(i:int, s:select('a)): select('a) = int64(s, "$lte", i)
+  nei64(i:int, s:select('a)): select('a) = int64(s, "$ne", i)
 
   gtd(d:float, s:select('a)): select('a) = double(s, "$gt", d)
   ltd(d:float, s:select('a)): select('a) = double(s, "$lt", d)
   gted(d:float, s:select('a)): select('a) = double(s, "$gte", d)
   lted(d:float, s:select('a)): select('a) = double(s, "$lte", d)
+  ned(d:float, s:select('a)): select('a) = double(s, "$ne", d)
 
   gts(str:string, s:select('a)): select('a) = string(s, "$gt", str)
   lts(str:string, s:select('a)): select('a) = string(s, "$lt", str)
   gtes(str:string, s:select('a)): select('a) = string(s, "$gte", str)
   ltes(str:string, s:select('a)): select('a) = string(s, "$lte", str)
+  nes(str:string, s:select('a)): select('a) = string(s, "$ne", str)
 
   set_op(s:select('a), op:string): select('a) =
     select =
@@ -414,17 +429,27 @@ Select : Select = {{
   lt(s:select('a)): select('a) = set_op(s, "$lt")
   gte(s:select('a)): select('a) = set_op(s, "$gte")
   lte(s:select('a)): select('a) = set_op(s, "$lte")
+  ne(s:select('a)): select('a) = set_op(s, "$ne")
 
-  and(s1:select('a), s2:select('a)): select('a) =
-    { select=([{Array=("$and",([{Document=("0",s1.select)},
-                                {Document=("1",s2.select)}]:Bson.document))}]:Bson.document);
+  @private
+  boolop(op:string, s1:select('a), s2:select('a)): select('a) =
+    { select=([{Array=(op,([{Document=("0",s1.select)},
+                            {Document=("1",s2.select)}]:Bson.document))}]:Bson.document);
       default=s1.default }
 
-  andalso(ss:list(select('a))): select('a) =
+  @private
+  lboolop(op:string, ss:list(select('a))): select('a) =
     match ss with
     | [] -> empty({none})
-    | [s|t] -> { select=[{Array=("$and",(List.mapi((i, ss -> {Document=("{i}",ss.select)}),[s|t]):Bson.document))}];
+    | [s|t] -> { select=[{Array=(op,(List.mapi((i, ss -> {Document=("{i}",ss.select)}),[s|t]):Bson.document))}];
                  default=s.default }
+
+  and(s1:select('a), s2:select('a)): select('a) = boolop("$and",s1,s2)
+  andalso(ss:list(select('a))): select('a) = lboolop("$and",ss)
+  or(s1:select('a), s2:select('a)): select('a) = boolop("$or",s1,s2)
+  orelse(ss:list(select('a))): select('a) = lboolop("$or",ss)
+  nor(s1:select('a), s2:select('a)): select('a) = boolop("$nor",s1,s2)
+  noreither(ss:list(select('a))): select('a) = lboolop("$nor",ss)
 
   inc(s:select('a)): select('a) = key("$inc",s)
   set(s:select('a)): select('a) = key("$set",s)
@@ -450,6 +475,13 @@ Select : Select = {{
  * for the new db syntax.  I would have preferred "Set" to "Collection"
  * because it would have been easier to type but that name is already occupied
  * in the namespace.
+ *
+ * Essentially, this datatype is simply a "typed" view of the low-level MongoDB
+ * driver routines.  The currency here is OPA values, not BSON documents hence
+ * we need to give a type to the collection.  We also attach a type to the select
+ * documents such that selects have to be built against a particular type of
+ * collection.  We help the user by returning an empty select value when the
+ * collection is created.
  *
  **/
 
@@ -517,27 +549,27 @@ Collection : Collection = {{
   fields(c:collection('value), fields:option(Bson.document)): collection('value) = {c with db={ c.db with ~fields }}
 
   continueOnError(c:collection('value)): collection('value) =
-    {c with db={ c.db with insert_flags=Bitwise.land(c.db.insert_flags,Mongo._ContinueOnError) }}
+    {c with db={ c.db with insert_flags=Bitwise.land(c.db.insert_flags,Mongo.ContinueOnErrorBit) }}
   upsert(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo._Upsert) }}
+    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo.UpsertBit) }}
   multiUpdate(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo._MultiUpdate) }}
+    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo.MultiUpdateBit) }}
   singleRemove(c:collection('value)): collection('value)
-    = {c with db={ c.db with delete_flags=Bitwise.land(c.db.delete_flags,Mongo._SingleRemove) }}
+    = {c with db={ c.db with delete_flags=Bitwise.land(c.db.delete_flags,Mongo.SingleRemoveBit) }}
   tailableCursor(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._TailableCursor) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.TailableCursorBit) }}
   slaveOk(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._SlaveOk) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.SlaveOkBit) }}
   oplogReplay(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._OplogReplay) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.OplogReplayBit) }}
   noCursorTimeout(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._NoCursorTimeout) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.NoCursorTimeoutBit) }}
   awaitData(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._AwaitData) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.AwaitDataBit) }}
   exhaust(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._Exhaust) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.ExhaustBit) }}
   partial(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo._Partial) }}
+    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.PartialBit) }}
 
   insert(c:collection('value), v:'value): bool =
     ns = c.db.dbname^"."^c.db.collection
@@ -603,41 +635,46 @@ type t = {i:int}
 (empty,(c_:collection(t))) = C.create(mongodb,{some={i=-1}})
 c1 = C.continueOnError(c_)
 // Caveat: bare values have to be magic'ed:
-//b = opa2doc(Magic.id(1):int) do println("b={Bson.string_of_bson(b)}")
+//b = opa2doc(Magic.id(1):int) do println("b={Bson.pretty_of_bson(b)}")
 _ = C.insert(c1,{i=0}) do MDB.err(c1.db,"insert(c1,\{i=0\})")
 btch1 = List.fold_right(Batch.add,List.init((i -> {i=i+100}),9),Batch.empty)
-//do println("btch1={List.list_to_string(Bson.string_of_bson,btch1)}")
+//do println("btch1={List.list_to_string(Bson.pretty_of_bson,btch1)}")
 _ = C.insert_batch(c1,btch1) do MDB.err(c1.db,"insert(c1,btch1)")
 i(i:int) = S.int64(empty,"i",i)
-do println("s={Bson.string_of_bson((i(1)).select)}")
+do println("s={Bson.pretty_of_bson((i(1)).select)}")
 s = i(0)
 u = S.set(i(1))
-do println("u={Bson.string_of_bson(u.select)}")
+do println("u={Bson.pretty_of_bson(u.select)}")
 do println("u_ty={OpaType.to_pretty(@typeof(u))}")
 _ = C.update(c1,s,u) do MDB.err(c1.db,"update(c1,i(0),i(1))")
 _ = C.delete(C.singleRemove(c1),i(104)) do MDB.err(c1.db,"delete(c1,i(104))")
-q = S.key("i",S.gti32(102,S.lti32(106,empty)))
-do println("q={Bson.string_of_bson(q.select)}")
-v = C.find_one(c1,q) do MDB.err(c1.db,"find_one(c1,i>102,i<106)")
+q1 = S.key("i",S.gti32(102,S.lti32(106,empty)))
+do println("q1={Bson.pretty_of_bson(q1.select)}")
+q2 = S.and(S.key("i",S.lti32(106,empty)),S.key("i",S.gti32(102,empty)))
+do println("q2={Bson.pretty_of_bson(q2.select)}")
+q = q1
+do println("find_one(c1,{Bson.pretty_of_bson(q.select)}):")
+v = C.find_one(c1,q)
 do match v with
-   | {success=v} -> println("v={v}")
-   | {~failure} -> println("err={Bson.string_of_failure(failure)}")
+   | {success=v} -> println("  v={v}")
+   | {~failure} -> println("  err={Bson.string_of_failure(failure)}")
+do println("query(c1,{Bson.pretty_of_bson(q.select)}):")
 do match C.query(c1,q) with
    | {success=cc1} ->
       _ =
       while(cc1,(cc1 ->
                   match C.next(cc1) with
                   | (cc1,{success=v}) ->
-                     do println("v={v}")
+                     do println("  v={v}")
                      if C.has_more(cc1)
                      then (cc1,true)
                      else (C.kill(cc1),false)
                   | (_cc1,{~failure}) ->
-                     do println("err(query)={Bson.string_of_failure(failure)}")
+                     do println("  err(query)={Bson.string_of_failure(failure)}")
                      (C.kill(cc1),false)))
-      println("finished")
+      println("  finished")
    | {~failure} ->
-      println("err(query)={Bson.string_of_failure(failure)}")
+      println("  err(query)={Bson.string_of_failure(failure)}")
 _ = C.destroy(c1)
 
 /** Later:

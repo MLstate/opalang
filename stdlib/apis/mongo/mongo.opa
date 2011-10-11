@@ -178,7 +178,7 @@ Bson = {{
     | { Int64=(key, _) } -> key
 
   /**
-   * Return the key of an element.
+   * Update the key of an element.
    **/
   set_key(b0:Bson.element, key:string): Bson.element =
     match b0 with
@@ -332,6 +332,37 @@ Bson = {{
   string_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
 
   /**
+   * Same as string_of_bson except we miss out the tags showing the
+   * actual name of the element.
+   **/
+  rec pretty_of_element_value(element:Bson.element): string =
+    match element with
+    | {Double=(_, v)} -> "{v}"
+    | {String=(_, v)} -> "\"{v}\""
+    | {Document=(_, v)} -> "{pretty_of_bson(v)}"
+    | {Array=(_, v)} -> "{pretty_of_array(v)}"
+    | {Binary=(_, _)} -> "<BINARY>"
+    | {ObjectID=(_, v)} -> "{oid_to_string(v)}"
+    | {Boolean=(_, v)} -> "{v}"
+    | {Date=(_, v)} -> "{v}" // <-- TODO: format this
+    | {Null=(_, _)} -> "null"
+    | {Regexp=(_, v)} -> "REGEXP({v})"
+    | {Code=(_, v)} -> "CODE({v})"
+    | {Symbol=(_, v)} -> "SYMBOL({v})"
+    | {CodeScope=(_, v)} -> "{v}"
+    | {Int32=(_, v)} -> "{v}"
+    | {Timestamp=(_, (t,i))} -> "\{ \"t\" : {t}, \"i\" : {i} \}"
+    | {Int64=(_, v)} -> "{v}L"
+
+  pretty_of_element(element:Bson.element): string =
+    "\"{key(element)}\" : {pretty_of_element_value(element)}"
+
+  pretty_of_array(a:Bson.document): string =
+    "["^(String.concat(", ",List.map(pretty_of_element_value,a)))^"]"
+
+  pretty_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
+
+  /**
    * Convert a result value into a more friendly string.
    * Errors can be internal (just a string) or could be document
    * returned by mongo.  Which may be an error even if the
@@ -364,83 +395,191 @@ Bson = {{
 
 }}
 
+/* Flag tags */
+
+/* OP_INSERT */
+type insert_tag =
+  {ContinueOnError}
+
+/* OP_UPDATE */
+type update_tag =
+  {Upsert} /
+  {MultiUpdate}
+
+/* OP_QUERY */
+type query_tag =
+  {TailableCursor} /
+  {SlaveOk} /
+  {OplogReplay} /
+  {NoCursorTimeout} /
+  {AwaitData} /
+  {Exhaust} /
+  {Partial}
+
+/* OP_DELETE */
+type delete_tag =
+  {SingleRemove}
+
+/* OP_REPLY */
+type reply_tag =
+  {CursorNotFound} /
+  {QueryFailure} /
+  {ShardConfigStale} /
+  {AwaitCapable}
+
+/**
+ *  We wrap the tags so that we can tell if it is an insert tag,
+ *  query tag etc.  We don't want to send SingleRemove to an update.
+ **/
+type mongo_tag =
+  {itag:insert_tag} /
+  {utag:update_tag} /
+  {qtag:query_tag} /
+  {dtag:delete_tag} /
+  {rtag:reply_tag}
+
 @server_private
 Mongo = {{
 
   /* Flags */
 
   /* OP_INSERT */
-  _ContinueOnError  = 0x00000001
+  ContinueOnErrorBit  = 0x00000001
 
   /* OP_UPDATE */
-  _Upsert           = 0x00000001
-  _MultiUpdate      = 0x00000002
+  UpsertBit           = 0x00000001
+  MultiUpdateBit      = 0x00000002
 
   /* OP_QUERY */
-  _TailableCursor   = 0x00000002
-  _SlaveOk          = 0x00000004
-  _OplogReplay      = 0x00000008
-  _NoCursorTimeout  = 0x00000010
-  _AwaitData        = 0x00000020
-  _Exhaust          = 0x00000040
-  _Partial          = 0x00000080
+  TailableCursorBit   = 0x00000002
+  SlaveOkBit          = 0x00000004
+  OplogReplayBit      = 0x00000008
+  NoCursorTimeoutBit  = 0x00000010
+  AwaitDataBit        = 0x00000020
+  ExhaustBit          = 0x00000040
+  PartialBit          = 0x00000080
 
   /* OP_DELETE */
-  _SingleRemove     = 0x00000001
+  SingleRemoveBit     = 0x00000001
 
   /* OP_REPLY */
-  _CursorNotFound   = 0x00000001
-  _QueryFailure     = 0x00000002
-  _ShardConfigStale = 0x00000003
-  _AwaitCapable     = 0x00000004
+  CursorNotFoundBit   = 0x00000001
+  QueryFailureBit     = 0x00000002
+  ShardConfigStaleBit = 0x00000003
+  AwaitCapableBit     = 0x00000004
 
-  /** Allocate new buffer of given size **/
+  /**
+   *  flag_of_tag:  Turn a list of tags into a bit-wise flag suitable
+   *  for sending to MongoDB.  We have an extra layer of types to allow
+   *  forcing of tags to belong to a particular operation.
+   **/
+  flag_of_tag(tag:mongo_tag): int =
+    match tag with
+      /* OP_INSERT */
+    | {itag={ContinueOnError}} -> ContinueOnErrorBit
+
+      /* OP_UPDATE */
+    | {utag={Upsert}} -> UpsertBit
+    | {utag={MultiUpdate}} -> MultiUpdateBit
+
+      /* OP_QUERY */
+    | {qtag={TailableCursor}} -> TailableCursorBit
+    | {qtag={SlaveOk}} -> SlaveOkBit
+    | {qtag={OplogReplay}} -> OplogReplayBit
+    | {qtag={NoCursorTimeout}} -> NoCursorTimeoutBit
+    | {qtag={AwaitData}} -> AwaitDataBit
+    | {qtag={Exhaust}} -> ExhaustBit
+    | {qtag={Partial}} -> PartialBit
+
+      /* OP_DELETE */
+    | {dtag={SingleRemove}} -> SingleRemoveBit
+
+      /* OP_REPLY */
+    | {rtag={CursorNotFound}} -> CursorNotFoundBit
+    | {rtag={QueryFailure}} -> QueryFailureBit
+    | {rtag={ShardConfigStale}} -> ShardConfigStaleBit
+    | {rtag={AwaitCapable}} -> AwaitCapableBit
+
+  flags(tags:list(mongo_tag)): int =
+    List.fold_left((flag, tag -> Bitwise.land(flag,flag_of_tag(tag))),0,tags)
+
+  /**
+   *  Extract the tags from a given bit-wise flag.  These are specific
+   *  to each operation, you need to know which operation the flag was for/from
+   *  before you can give meaning to the bits.
+   **/
+  insert_tags(flag:int): list(mongo_tag) =
+    if Bitwise.lor(flag,ContinueOnErrorBit) != 0 then [{itag={ContinueOnError}}] else []
+
+  update_tags(flag:int): list(mongo_tag) =
+    tags = if Bitwise.lor(flag,UpsertBit) != 0 then [{utag={Upsert}}] else []
+    if Bitwise.lor(flag,MultiUpdateBit) != 0 then [{utag={MultiUpdate}}|tags] else tags
+
+  query_tags(flag:int): list(mongo_tag) =
+    tags = if Bitwise.lor(flag,TailableCursorBit) != 0 then [{qtag={TailableCursor}}] else []
+    tags = if Bitwise.lor(flag,SlaveOkBit) != 0 then [{qtag={SlaveOk}}|tags] else tags
+    tags = if Bitwise.lor(flag,OplogReplayBit) != 0 then [{qtag={OplogReplay}}|tags] else tags
+    tags = if Bitwise.lor(flag,NoCursorTimeoutBit) != 0 then [{qtag={NoCursorTimeout}}|tags] else tags
+    tags = if Bitwise.lor(flag,AwaitDataBit) != 0 then [{qtag={AwaitData}}|tags] else tags
+    tags = if Bitwise.lor(flag,ExhaustBit) != 0 then [{qtag={Exhaust}}|tags] else tags
+    if Bitwise.lor(flag,PartialBit) != 0 then [{qtag={Partial}}|tags] else tags
+
+  delete_tags(flag:int): list(mongo_tag) =
+    if Bitwise.lor(flag,SingleRemoveBit) != 0 then [{dtag={SingleRemove}}] else []
+
+  reply_tags(flag:int): list(mongo_tag) =
+    tags = if Bitwise.lor(flag,CursorNotFoundBit) != 0 then [{rtag={CursorNotFound}}] else []
+    tags = if Bitwise.lor(flag,QueryFailureBit) != 0 then [{rtag={QueryFailure}}|tags] else tags
+    tags = if Bitwise.lor(flag,ShardConfigStaleBit) != 0 then [{rtag={ShardConfigStale}}|tags] else tags
+    if Bitwise.lor(flag,AwaitCapableBit) != 0 then [{rtag={AwaitCapable}}|tags] else tags
+
+  /* Allocate new buffer of given size */
   @private create_ = (%% BslMongo.Mongo.create %%: int -> mongo_buf)
 
-  /** Build OP_INSERT message in buffer **/
+  /* Build OP_INSERT message in buffer */
   @private insert_ = (%% BslMongo.Mongo.insert %%: mongo_buf, int, string, 'a -> void)
 
-  /** Build OP_INSERT message in buffer **/
+  /* Build OP_INSERT message in buffer */
   @private insert_batch_ = (%% BslMongo.Mongo.insert_batch %%: mongo_buf, int, string, list('a) -> void)
 
-  /** Build OP_UPDATE message in buffer **/
+  /* Build OP_UPDATE message in buffer */
   @private update_ = (%% BslMongo.Mongo.update %%: mongo_buf, int, string, 'a, 'a -> void)
 
-  /** Build OP_QUERY message in buffer **/
+  /* Build OP_QUERY message in buffer */
   @private query_ = (%% BslMongo.Mongo.query %%: mongo_buf, int, string, int, int, 'a, option('a) -> void)
 
-  /** Build OP_GET_MORE message in buffer **/
+  /* Build OP_GET_MORE message in buffer */
   @private get_more_ = (%% BslMongo.Mongo.get_more %%: mongo_buf, string, int, cursorID -> void)
 
-  /** Build OP_DELETE message in buffer **/
+  /* Build OP_DELETE message in buffer */
   @private delete_ = (%% BslMongo.Mongo.delete %%: mongo_buf, int, string, 'a -> void)
 
-  /** Build OP_KILL_CURSORS message in buffer **/
+  /* Build OP_KILL_CURSORS message in buffer */
   @private kill_cursors_ = (%% BslMongo.Mongo.kill_cursors %%: mongo_buf, list('a) -> void)
 
-  /** Build OP_MSG message in buffer **/
+  /* Build OP_MSG message in buffer */
   @private msg_ = (%% BslMongo.Mongo.msg %%: mongo_buf, string -> void)
 
-  /** Copies string out of buffer. **/
+  /* Copies string out of buffer. */
   @private get_ = (%% BslMongo.Mongo.get %%: mongo_buf -> string)
 
-  /** Access the raw string and length **/
+  /* Access the raw string and length */
   @private export_ = (%% BslMongo.Mongo.export %%: mongo_buf -> (string, int))
 
-  /** Clear out any data in the buffer, leave buffer allocated **/
+  /* Clear out any data in the buffer, leave buffer allocated */
   @private clear_ = (%% BslMongo.Mongo.clear %%: mongo_buf -> void)
 
-  /** Reset the buffer, unallocate storage **/
+  /* Reset the buffer, unallocate storage */
   @private reset_ = (%% BslMongo.Mongo.reset %%: mongo_buf -> void)
 
-  /** Mailbox so we can use the streaming parser **/
+  /* Mailbox so we can use the streaming parser */
   @private new_mailbox_ = (%% BslMongo.Mongo.new_mailbox %%: int -> mailbox)
   @private reset_mailbox_ = (%% BslMongo.Mongo.reset_mailbox %%: mailbox -> void)
 
-  /**
+  /*
    * Specialised read, read until the size equals the (little endian)
    * 4-byte int at the start of the reply.
-   **/
+   */
   @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, mailbox -> reply)
 
   @private
@@ -497,6 +636,13 @@ Mongo = {{
     send_no_reply(m,"insert")
 
   /**
+   *  insertf:  same as insert but using tags instead of bit-wise flags.
+   **/
+  insertf(m:Mongo.db, tags:list(insert_tag), ns:string, documents:Bson.document): bool =
+    flags = flags(List.map((t -> {itag=t}),tags))
+    insert(m,flags,ns,documents)
+
+  /**
    *  Send OP_INSERT with given collection name and multiple documents:
    *    - no reply expected
    *    - returns a bool indicating success or failure
@@ -505,6 +651,13 @@ Mongo = {{
     m = { m with mbuf = create_(m.bufsize) }
     do insert_batch_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
+
+  /**
+   *  insert_batchf:  same as insert_batch but using tags instead of bit-wise flags.
+   **/
+  insert_batchf(m:Mongo.db, tags:list(insert_tag), ns:string, documents:list(Bson.document)): bool =
+    flags = flags(List.map((t -> {itag=t}),tags))
+    insert_batch(m,flags,ns,documents)
 
   /**
    *  Send OP_UPDATE with given collection name:
@@ -517,6 +670,13 @@ Mongo = {{
     send_no_reply(m,"update")
 
   /**
+   *  updatef:  same as update but using tags instead of bit-wise flags.
+   **/
+  updatef(m:Mongo.db, tags:list(update_tag), ns:string, selector:Bson.document, update_doc:Bson.document): bool =
+    flags = flags(List.map((t -> {utag=t}),tags))
+    update(m,flags,ns,selector,update_doc)
+
+  /**
    *  Send OP_QUERY and get reply:
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
@@ -524,6 +684,14 @@ Mongo = {{
     m = { m with mbuf = create_(m.bufsize) }
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
+
+  /**
+   *  queryf:  same as query but using tags instead of bit-wise flags.
+   **/
+  queryf(m:Mongo.db, tags:list(query_tag), ns:string, numberToSkip:int, numberToReturn:int,
+         query_doc:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(reply) =
+    flags = flags(List.map((t -> {qtag=t}),tags))
+    query(m,flags,ns,numberToSkip,numberToReturn,query_doc,returnFieldSelector_opt)
 
   /**
    *  Send OP_GETMORE and get reply:
@@ -542,6 +710,13 @@ Mongo = {{
     m = { m with mbuf = create_(m.bufsize) }
     do delete_(m.mbuf,flags,ns,selector)
     send_no_reply(m,"delete")
+
+  /**
+   *  deletef:  same as delete but using tags instead of bit-wise flags.
+   **/
+  deletef(m:Mongo.db, tags:list(delete_tag), ns:string, selector:Bson.document): bool =
+    flags = flags(List.map((t -> {dtag=t}),tags))
+    delete(m,flags,ns,selector)
 
   /**
    *  Send OP_KILL_CURSORS:
@@ -827,7 +1002,8 @@ Cursor = {{
   /**
    * Test if there is still data in a cursor.
    **/
-  valid(c:cursor): bool = not(c.killed) && c.query_sent && (c.returned > 0 && (c.current <= c.returned))
+  valid(c:cursor): bool =
+    not(c.killed) && c.query_sent && ((c.returned > 0 && (c.current < c.returned)) /*|| not(Mongo.is_null_cursorID(c.cid))*/ )
 
   /**
    * Full find function with all parameters.
@@ -1001,7 +1177,7 @@ Cursor = {{
     digest = pass_digest(user,pass)
     bselector = [{String=("user",user)}]
     bupdate = [{Document=("$set",[{String=("pwd",digest)}])}]
-    Mongo.update(m,Mongo._Upsert,(db^".system.users"),bselector,bupdate)
+    Mongo.update(m,Mongo.UpsertBit,(db^".system.users"),bselector,bupdate)
 
   /**
    * Authenticate a user for the given database.
