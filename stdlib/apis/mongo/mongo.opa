@@ -1142,18 +1142,49 @@ Cursor = {{
   /**
    * Count the number of matching elements.
    *
-   * [count(mongo, "db", "ns", query_opt)] returns the number of elements
+   * [count(mongo, "db", "collection", query_opt)] returns the number of elements
    * matching [query] or the whole collection if [query_opt] is [\{none\}].
    *
    * Strictly speaking MongoDB returns an Int64 value but it is unlikely that
    * a database will be able to overrun the OCaml restriction, so the value is
    * just an int.
    **/
-  count(m:Mongo.db, db:string, ns:string, query_opt:option(Bson.document)): outcome(int,Mongo.failure) =
-    cmd = List.flatten([[{String=("count",ns)}],
+  count(m:Mongo.db, db:string, coll:string, query_opt:option(Bson.document)): outcome(int,Mongo.failure) =
+    cmd = List.flatten([[{String=("count",coll)}],
                         (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
     match run_command(m, db, cmd) with
-    | {success=bson} -> find_int(bson, "n")
+    | {success=bson} ->
+       //do println("Cursor.count: bson={Bson.pretty_of_bson(bson)}")
+       find_int(bson, "n")
+    | {~failure} -> {~failure}
+
+  distinct(m:Mongo.db, db:string, coll:string, key:string, query_opt:option(Bson.document)): Mongo.result =
+    cmd = List.flatten([[{String=("distinct",coll)}, {String=("key",key)}],
+                        (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
+    match run_command(m, db, cmd) with
+    | {success=bson} ->
+       //do println("Cursor.distinct: bson={Bson.pretty_of_bson(bson)}")
+       (match Bson.find(bson,"values") with
+        | {some=[{Array=(k,d)}]} -> {success=[{Array=(k,List.rev(d))}]}
+        | _ -> {failure={DocError=bson}})
+    | {~failure} -> {~failure}
+
+  group(m:Mongo.db, db:string, coll:string, key:Bson.document, reduce:string, initial:Bson.document,
+        cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
+    group =
+      [{Document=("group",
+         List.flatten([
+           [{String=("ns",coll)},
+            {Document=("key",key)},
+            {Code=("$reduce",reduce)},
+            {Document=("initial",initial)}],
+           (match cond_opt with | {some=cond} -> [{Document=("cond",cond)}] | {none} -> [{Null=("cond",void)}]),
+           (match finalize_opt with | {some=finalize} -> [{Code=("finalize",finalize)}] | {none} -> [])]))}]
+    do println("Cursor.group: group={Bson.pretty_of_bson(group)}")
+    match run_command(m, db, group) with
+    | {success=bson} ->
+       //do println("Cursor.group: bson={Bson.pretty_of_bson(bson)}")
+       {success=bson}
     | {~failure} -> {~failure}
 
   /**
@@ -1198,32 +1229,53 @@ Cursor = {{
 
 }}
 
+/* Tags for indices */
+type index_tag =
+  {Unique} /
+  {DropDups} /
+  {Background} /
+  {Sparse}
+
 @server_private
 Indexes = {{
 
   /**
    * Flags used by the index routines.
    **/
-  _Unique = 0x00000001
-  _DropDups = 0x00000002
-  _Background = 0x00000004
-  _Sparse = 0x00000008
+  UniqueBit     = 0x00000001
+  DropDupsBit   = 0x00000002
+  BackgroundBit = 0x00000004
+  SparseBit     = 0x00000008
 
   /**
    * [create_index(mongo, "ns", key, flags)] adds an index to a collection.
    *
    * [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
    **/
-  create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
+  @private create_index_(m:Mongo.db, ns:string, key:Bson.document, opts:Bson.document): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
-    b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],
-                      (if Bitwise.land(options,_Unique) != 0 then [{Boolean=("unique",true)}] else []),
-                      (if Bitwise.land(options,_DropDups) != 0 then [{Boolean=("dropDups",true)}] else []),
-                      (if Bitwise.land(options,_Background) != 0 then [{Boolean=("background",true)}] else []),
-                      (if Bitwise.land(options,_Sparse) != 0 then [{Boolean=("sparse",true)}] else [])])
+    b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],opts])
     idxns=(match String.index(".",ns) with | {some=p} -> String.substring(0,p,ns) | {none} -> ns)^".system.indexes"
     Mongo.insert(m,0,idxns,b)
+
+  create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
+    opts =
+      List.flatten([(if Bitwise.land(options,UniqueBit) != 0 then [{Boolean=("unique",true)}] else []),
+                    (if Bitwise.land(options,DropDupsBit) != 0 then [{Boolean=("dropDups",true)}] else []),
+                    (if Bitwise.land(options,BackgroundBit) != 0 then [{Boolean=("background",true)}] else []),
+                    (if Bitwise.land(options,SparseBit) != 0 then [{Boolean=("sparse",true)}] else [])])
+    create_index_(m, ns, key, opts)
+
+  create_indexf(m:Mongo.db, ns:string, key:Bson.document, tags:list(index_tag)): bool =
+    opts =
+      List.map((t ->
+                 match t with
+                 | {Unique} -> {Boolean=("unique",true)}
+                 | {DropDups} -> {Boolean=("dropDups",true)}
+                 | {Background} -> {Boolean=("background",true)}
+                 | {Sparse} -> {Boolean=("sparse",true)}),tags)
+    create_index_(m, ns, key, opts)
 
   /**
    * Simpler version of the [create_index] function, for a single named field.

@@ -299,11 +299,26 @@ type Select = {{
   empty : option('a) -> select('a)
 
   key : string, select('a) -> select('a)
+  path : list(string), select('a) -> select('a)
+  dot : MongoDb.path, select('a) -> select('a)
 
-  int32 : select('a), string, int -> select('a)
-  int64 : select('a), string, int -> select('a)
   double : select('a), string, float -> select('a)
   string : select('a), string, string -> select('a)
+  doc : select('a), string, Bson.document -> select('a)
+  array : select('a), string, list('b) -> select('a)
+  binary : select('a), string, string -> select('a)
+  id : select('a), string, string -> select('a)
+  newid : select('a), string -> select('a)
+  bool : select('a), string, bool -> select('a)
+  date : select('a), string, Date.date -> select('a)
+  null : select('a), string -> select('a)
+  regexp : select('a), string, string, string -> select('a)
+  code : select('a), string, string -> select('a)
+  symbol : select('a), string, string -> select('a)
+  codescope : select('a), string, string, Bson.document -> select('a)
+  int32 : select('a), string, int -> select('a)
+  ts : select('a), string, int, int -> select('a)
+  int64 : select('a), string, int -> select('a)
 
   gti32 : int, select('a) -> select('a)
   lti32 : int, select('a) -> select('a)
@@ -344,6 +359,19 @@ type Select = {{
   nor : select('a), select('a) -> select('a)
   noreither : list(select('a)) -> select('a)
 
+  all : select('a), list('b) -> select('a)
+  in : select('a), list('b) -> select('a)
+  nin : select('a), list('b) -> select('a)
+
+  exists : select('a), string, bool -> select('a)
+
+  mod : select('a), 'b, 'b -> select('a)
+
+  size : select('a), int -> select('a)
+  typ : select('a), int -> select('a)
+
+  regex : select('a), string, string -> select('a)
+
   inc : select('a) -> select('a)
   set : select('a) -> select('a)
   unset : select('a) -> select('a)
@@ -355,6 +383,24 @@ type Select = {{
   pullAll : select('a) -> select('a)
   rename : select('a) -> select('a)
   bit : select('a) -> select('a)
+
+  elemMatch : select('a) -> select('a)
+
+  not : select('a) -> select('a)
+
+  where : select('a), string -> select('a)
+
+  returnKey : select('a), bool -> select('a)
+  maxScan : select('a), int -> select('a)
+  query : select('a), Bson.document -> select('a)
+  orderby : select('a), Bson.document -> select('a)
+  explain : select('a), bool -> select('a)
+  snapshot : select('a), bool -> select('a)
+  min : select('a), Bson.document -> select('a)
+  max : select('a), Bson.document -> select('a)
+  showDiskLoc : select('a), bool -> select('a)
+  hint : select('a), Bson.document -> select('a)
+  comment : select('a), string -> select('a)
 }}
 
 Select : Select = {{
@@ -388,10 +434,33 @@ Select : Select = {{
 
   key(name:string, s:select('a)): select('a) = { s with select=[{Document=(name,s.select)}] }
 
-  int32(s:select('a), name:string, i:int): select('a) = { s with select=[{Int32=(name,i)}|s.select] }
-  int64(s:select('a), name:string, i:int): select('a) = { s with select=[{Int64=(name,i)}|s.select] }
+  path(path:list(string), s:select('a)): select('a) =
+    List.fold_right((s, name -> { s with select=[{Document=(name,s.select)}] }),path,s)
+
+  dot(mpath:MongoDb.path, s:select('a)): select('a) =
+    path(List.map(string_of_key,mpath), s)
+
   double(s:select('a), name:string, d:float): select('a) = { s with select=[{Double=(name,d)}|s.select] }
   string(s:select('a), name:string, str:string): select('a) = { s with select=[{String=(name,str)}|s.select] }
+  doc(s:select('a), name:string, d:Bson.document): select('a) = { s with select=[{Document=(name,d)}|s.select] }
+  array(s:select('a), name:string, l:list('b)): select('a) =
+    ty = @typeof((Magic.id(void):'b))
+    d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
+    { s with select=[{Array=(name,d)}|s.select] }
+  binary(s:select('a), name:string, bin:string): select('a) = { s with select=[{Binary=(name,bin)}|s.select] }
+  id(s:select('a), name:string, id:string): select('a) = { s with select=[{ObjectID=(name,Bson.oid_of_string(id))}|s.select] }
+  newid(s:select('a), name:string): select('a) = { s with select=[{ObjectID=(name,Bson.new_oid(void))}|s.select] }
+  bool(s:select('a), name:string, b:bool): select('a) = { s with select=[{Boolean=(name,b)}|s.select] }
+  date(s:select('a), name:string, d:Date.date): select('a) = { s with select=[{Date=(name,d)}|s.select] }
+  null(s:select('a), name:string): select('a) = { s with select=[{Null=(name,void)}|s.select] }
+  regexp(s:select('a), name:string, re:string, opts:string): select('a) = { s with select=[{Regexp=(name,(re,opts))}|s.select] }
+  code(s:select('a), name:string, c:string): select('a) = { s with select=[{Code=(name,c)}|s.select] }
+  symbol(s:select('a), name:string, sym:string): select('a) = { s with select=[{Symbol=(name,sym)}|s.select] }
+  codescope(s:select('a), name:string, c:string, sc:Bson.document): select('a) =
+    { s with select=[{CodeScope=(name,(c,sc))}|s.select] }
+  int32(s:select('a), name:string, i:int): select('a) = { s with select=[{Int32=(name,i)}|s.select] }
+  ts(s:select('a), name:string, t:int, i:int): select('a) = { s with select=[{Timestamp=(name,(t,i))}|s.select] }
+  int64(s:select('a), name:string, i:int): select('a) = { s with select=[{Int64=(name,i)}|s.select] }
 
   gti32(i:int, s:select('a)): select('a) = int32(s, "$gt", i)
   lti32(i:int, s:select('a)): select('a) = int32(s, "$lt", i)
@@ -451,6 +520,21 @@ Select : Select = {{
   nor(s1:select('a), s2:select('a)): select('a) = boolop("$nor",s1,s2)
   noreither(ss:list(select('a))): select('a) = lboolop("$nor",ss)
 
+  all(s:select('a), a:list('b)): select('a) = array(s, "$all", a)
+  in(s:select('a), a:list('b)): select('a) = array(s, "$in", a)
+  nin(s:select('a), a:list('b)): select('a) = array(s, "$nin", a)
+
+  @private docbool(s:select('a), name:string, op:string, tf:bool): select('a) = doc(s,name,[{Boolean=(op,tf)}])
+
+  exists(s:select('a), name:string, tf:bool): select('a) = docbool(s, name, "$exists", tf)
+
+  mod(s:select('a), x:'b, y:'b): select('a) = array(s, "$mod", [x,y])
+
+  size(s:select('a), x:int): select('a) = int64(s, "$size", x)
+  typ(s:select('a), t:int): select('a) = int64(s, "$type", t)
+
+  regex(s:select('a), re:string, opts:string): select('a) = { s with select=[{Regexp=("$regex",(re,opts))}|s.select] }
+
   inc(s:select('a)): select('a) = key("$inc",s)
   set(s:select('a)): select('a) = key("$set",s)
   unset(s:select('a)): select('a) = key("$unset",s)
@@ -461,7 +545,25 @@ Select : Select = {{
   pull(s:select('a)): select('a) = key("$pull",s)
   pullAll(s:select('a)): select('a) = key("$pullAll",s)
   rename(s:select('a)): select('a) = key("$rename",s)
-  bit(s:select('a)): select('a) = key("$rename",s)
+  bit(s:select('a)): select('a) = key("$bit",s)
+
+  elemMatch(s:select('a)): select('a) = key("$elemMatch",s)
+
+  not(s:select('a)): select('a) = key("$not",s)
+
+  where(s:select('a), whr:string): select('a) = { s with select=[{Code=("$where",whr)}|s.select] }
+
+  returnKey(s:select('a), tf:bool): select('a) = bool(s, "$returnKey", tf)
+  maxScan(s:select('a), i:int): select('a) = int64(s, "$maxScan", i)
+  query(s:select('a), d:Bson.document): select('a) = doc(s, "$query", d)
+  orderby(s:select('a), d:Bson.document): select('a) = doc(s, "$orderby", d)
+  explain(s:select('a), tf:bool): select('a) = bool(s, "$explain", tf)
+  snapshot(s:select('a), tf:bool): select('a) = bool(s, "$snapshot", tf)
+  min(s:select('a), d:Bson.document): select('a) = doc(s, "$min", d)
+  max(s:select('a), d:Bson.document): select('a) = doc(s, "$max", d)
+  showDiskLoc(s:select('a), tf:bool): select('a) = bool(s, "$showDiskLoc", tf)
+  hint(s:select('a), d:Bson.document): select('a) = doc(s, "$hint", d)
+  comment(s:select('a), c:string): select('a) = string(s, "$comment", c)
 
 }}
 
@@ -526,6 +628,10 @@ type Collection = {{
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   has_more : collection_cursor('value) -> bool
+  count : collection('value), option(select('a)) -> outcome(int,Mongo.failure)
+  distinct : collection('value), string, option(select('a)) -> outcome(list('b),Mongo.failure)
+  group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string)
+          -> outcome(list('b),Mongo.failure)
   kill : collection_cursor('value) -> collection_cursor('value)
 }}
 
@@ -623,6 +729,32 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
+  count(c:collection('value), query_opt:option(select('a))): outcome(int,Mongo.failure) =
+    Cursor.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s.select),query_opt)))
+
+  distinct(c:collection('value), key:string, query_opt:option(select('a))): outcome(list('b),Mongo.failure) =
+    match Cursor.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s.select),query_opt))) with
+    | {success=doc} ->
+       // possibly: get the type from 'value and get the key type out of there???
+       ty = {TyName_args=[@typeof(Magic.id(void):'b)]; TyName_ident="list"}
+       (match MongoDb.bson_to_opa(doc, ty, "values") with
+        | {some=v} -> {success=(Magic.id(v):list('b))}
+        | {none} -> {failure={Error="Collection.distinct: not found"}})
+    | {~failure} -> {~failure}
+
+  group(c:collection('value), key:Bson.document, reduce:string, initial:Bson.document,
+        cond_opt:option(Bson.document), finalize_opt:option(string)): outcome(list('b),Mongo.failure) =
+    match Cursor.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt) with
+    | {success=doc} ->
+       (match Bson.find(doc,"retval") with
+        | {some=[{Array=(k,arr)}]} ->
+           ty = {TyName_args=[@typeof(Magic.id(void):'b)]; TyName_ident="list"}
+           (match MongoDb.bson_to_opa([{Array=(k,List.rev(arr))}], ty, k) with
+            | {some=v} -> {success=(Magic.id(v):list('b))}
+            | {none} -> {failure={Error="Collection.group: not found"}})
+        | _ -> {failure={Error="Collection.group: no retval value in reply"}})
+    | {~failure} -> {~failure}
+
   kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=Cursor.reset(cc.cursor) }
 
 }}
@@ -650,9 +782,11 @@ _ = C.update(c1,s,u) do MDB.err(c1.db,"update(c1,i(0),i(1))")
 _ = C.delete(C.singleRemove(c1),i(104)) do MDB.err(c1.db,"delete(c1,i(104))")
 q1 = S.key("i",S.gti32(102,S.lti32(106,empty)))
 do println("q1={Bson.pretty_of_bson(q1.select)}")
-q2 = S.and(S.key("i",S.lti32(106,empty)),S.key("i",S.gti32(102,empty)))
+q2 = S.and(S.key("i",S.lti32(106,empty)),S.key("i",S.gti32(102,empty))) // <-- doesn't work, don't know why (I'm < 2.0?)
 do println("q2={Bson.pretty_of_bson(q2.select)}")
-q = q1
+q3 = S.where(empty,"this.i > 106")
+do println("q3={Bson.pretty_of_bson(q3.select)}")
+q = q3
 do println("find_one(c1,{Bson.pretty_of_bson(q.select)}):")
 v = C.find_one(c1,q)
 do match v with
@@ -675,6 +809,34 @@ do match C.query(c1,q) with
       println("  finished")
    | {~failure} ->
       println("  err(query)={Bson.string_of_failure(failure)}")
+a = S.key("i",S.all(empty,[1,2,3,4]))
+do println("a={Bson.pretty_of_bson(a.select)}")
+dot = S.dot([{StringKey="a"},{StringKey="b"},{IntKey=1}],i(123))
+do println("dot={Bson.pretty_of_bson(dot.select)}")
+exsts = S.exists(empty,"i",true)
+do println("exsts={Bson.pretty_of_bson(exsts.select)}")
+m1 = S.mod(empty,10,3)
+do println("m1={Bson.pretty_of_bson(m1.select)}")
+sz1 = S.size(empty,9)
+do println("sz1={Bson.pretty_of_bson(sz1.select)}")
+tp1 = S.typ(empty,Bson.tInt64)
+do println("tp1={Bson.pretty_of_bson(tp1.select)}")
+re1 = S.regex(empty,"acme.*corp","i")
+do println("re1={Bson.pretty_of_bson(re1.select)}")
+do match C.count(c1, {some=q3}) with
+   | {success=cnt} -> println("count({Bson.pretty_of_bson(q3.select)})={cnt}")
+   | {~failure} -> println("  err(count)={Bson.string_of_failure(failure)}")
+do match C.distinct(c1, "i", {none}) with
+   | {success=(il:list(int))} -> println("distinct(i)={il}")
+   | {~failure} -> println("  err(distinct)={Bson.string_of_failure(failure)}")
+key = [{Int64=("i",1)}]
+do println("key={key}")
+reduce = "function(obj,prev)\{prev.count++;\}"
+initial = [{Int32=("count",0)}]
+do println("initial={initial}")
+do match C.group(c1, key, reduce, initial, {none}, {none}) with
+   | {success=(l:list({i:int; count:float}))} -> println("group={l}")
+   | {~failure} -> println("  err(group)={Bson.string_of_failure(failure)}")
 _ = C.destroy(c1)
 
 /** Later:

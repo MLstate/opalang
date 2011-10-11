@@ -719,7 +719,7 @@ MongoDb = {{
   create_standard_index(path:ref_path('a)): Mongo.result =
     (select,_,_,_,_) = real_type(path)
     index = List.map((e -> {Int32=(Bson.key(e),1)}),select)
-    create_index(path,index,(Indexes._Sparse+Indexes._Unique))
+    create_index(path,index,(Indexes.SparseBit+Indexes.UniqueBit))
 
 }}
 
