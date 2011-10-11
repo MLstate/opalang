@@ -6,11 +6,12 @@ This section is about installation and configuration of Opa. If you
 want to learn more about Opa first, you can safely skip this section
 and come back later.
 
-At the time of this writing, Opa is available for MacOS X and Linux
-(both for 64 bits architectures; a 32 bits port is in progress). A
-Windows port is in the works and Opa should also work on a number of
-other operating systems (e.g. BSD) but these platforms are not
-supported for the moment.
+At the time of this writing, binary packages of Opa are available for MacOS X
+and Linux (Ubuntu/Debian-based, 64 bits architectures only). We do not provide
+binary packages for other Unixes, FreeBSD, and 32 bits variants, but you should
+be able to build Opa from sources on these systems (see below). A Windows port
+is in the works and Opa should also work on a number of other operating systems
+but these platforms are not supported for the moment.
 
 Installing Opa
 ~~~~~~~~~~~~~~
