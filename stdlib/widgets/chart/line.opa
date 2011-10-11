@@ -22,13 +22,18 @@
 
 
 type WLineChart.config = {
+  bg_style : Canvas.style
+  line_stroke_style : Canvas.style
   margin_px : int
 }
 
 WLineChart = {{
 
   default_config : WLineChart.config =
-    { margin_px = 3 }
+    { line_stroke_style = {color = Color.black}
+    ; bg_style = {color = Color.black}
+    ; margin_px = 3
+    }
 
 //  @private
   draw(config, data, canvas, w, h) =
@@ -45,6 +50,7 @@ WLineChart = {{
     posx(i) = fl(i) |> fx |> px
     posy(v) = h - (fy(v) |> px)
     draw(i, v) = Canvas.line_to(canvas, posx(i + 1), posy(v))
+    do Canvas.set_stroke_style(canvas, config.line_stroke_style)
     do Canvas.begin_path(canvas)
     do match data.data with
     | [] -> void

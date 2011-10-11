@@ -29,10 +29,10 @@ type WChart.config = {
 }
 
 @abstract
-type WChart.chart =
-  { config : WChart.config
-  ; id : string
-  }
+type WChart.chart = {
+  config : WChart.config
+  id : string
+}
 
 type WChart.failure = {canvas_not_found}
                     / {canvas_2d_context_not_found}
@@ -57,6 +57,7 @@ WChart = {{
       | {some=ctx} ->
           w = Dom.get_width(canvas_dom)
           h = Dom.get_height(canvas_dom)
+          do Canvas.set_fill_style(ctx, config.bg_style)
           do Canvas.clear_rect(ctx, 0, 0, w, h)
           draw_on(config, data, ctx, w, h)
 

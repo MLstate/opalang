@@ -22,6 +22,8 @@
 
 
 type WBarChart.config = {
+  bg_style : Canvas.style
+  bar_fill_style : Canvas.style
   margins : WChart.percentage
   bar_spacing : WChart.percentage
 }
@@ -29,7 +31,9 @@ type WBarChart.config = {
 WBarChart = {{
 
   default_config : WBarChart.config =
-    { margins = 0.1
+    { bg_style = {color = Color.black}
+    ; bar_fill_style = {color = Color.black}
+    ; margins = 0.1
     ; bar_spacing = 0.1
     }
 
@@ -52,6 +56,7 @@ WBarChart = {{
       y2 = hf * (1. - config.margins)
       px = Int.of_float
       Canvas.fill_rect(canvas, px(x1), px(y2 - ys), px(x2 - x1), px(y2))
+    do Canvas.set_fill_style(canvas, config.bar_fill_style)
     do List.iteri(generate_bar, data.data)
     {success}
 
