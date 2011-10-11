@@ -96,7 +96,7 @@ type Uri.mailto =
                 { address : string
                 ; query : list((string, string))
                 }
-                
+
 /**
  * For most purposes we treat URLs as synonyms to URIs, so [Url.url] is a synonym of {!Uri.uri}.
  */
@@ -295,7 +295,7 @@ Uri =
   default_absolute_domain(domain,path) =
    {default_absolute
       with ~domain ~path}
-      
+
   /**
    * Convert a string into a URI.
    *
@@ -359,6 +359,11 @@ Uri =
     /* email addresses are not ok */
     | {address=_ query=_} -> false
 
+
+  encode_path = List.map(encode_string, _)
+
+  path_to_string(path) = String.concat("/", encode_path(path))
+
   /**
    * Conversion from URIs to their string representation.
    *
@@ -373,7 +378,7 @@ Uri =
     match u with
       | ~{path query fragment is_from_root is_directory} ->
            beg_path = if is_from_root then "/" else ""
-           path_string = String.concat("/", path)
+           path_string = path_to_string(path)
            end_path = if is_directory then "/" else ""
            frag_string = match fragment with ~{some} -> "#{some}" | {none} -> ""
            query_string= query_to_string(query)
@@ -387,7 +392,8 @@ Uri =
                   credentials.username)
            domain_string= domain
            port_string  = Option.switch(port -> ":{port}", "", port)
-           path_string  = match path with [] -> "/" | _ -> String.concat("/", [""| path]) end
+           path_string  = match path with [] -> "/"
+                          | _ -> path_to_string([""| path]) end
            end_path     = if is_directory then "/" else ""
            query_string = query_to_string(query)
            frag_string  = Option.switch(frag -> "#{frag}", "", fragment)
