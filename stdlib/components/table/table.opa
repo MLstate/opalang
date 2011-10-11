@@ -1663,7 +1663,6 @@ CTable = {{
       l = List.init(i ->i+pmin ,pmax-pmin+1)
       l = List.map(i ->
         <>
-          {if not(i == pmin) then " - " else ""}
           {if i == current_page
            then <li><a href="#" class="active">{i}</a></li>
            else <li><a href="#" onclick={goto(i)}>{i}</a></li>}
