@@ -34,9 +34,9 @@ a client -- which does not need to be a browser anymore.
 If you are curious, this is the full source code of the REST wiki server:
 [source, opa]
 -------------
-include::hello_wiki_rest.opa[]
+include::hello_wiki_rest_client.opa[]
 -------------
-[run]#http://tutorials.opalang.org/hello_wiki_rest[Run]#
+[run]#http://tutorials.opalang.org/hello_wiki_rest_client[Run]#
 
 We will now walk through the concepts introduced in this listing.
 
@@ -593,8 +593,8 @@ To build a +Uri.absolute+, you can either construct a record manually or
 _derive_ one from +Uri.default_absolute+.
 ===================
 
-To match the API we have defined earlier, we need to place requests for topic +mytopic+
-at URI +http://myserver/\_rest_/mytopic+. In other words, we may write:
+To match the API we have defined earlier, we need to place requests for +topic+
+at URI +http://myserver/\_rest_/topic+. In other words, we may write:
 
 [source,opa]
 .uri_of_topic (first version)
@@ -604,7 +604,7 @@ uri_for_topic(topic) =
     credentials = {username = {none} password = {none}}
     domain      = "localhost"  //Assume server is launched locally
     port        = {some = 8080}//Assume server is launched on port 8080
-    path        = ["_rest_", mytopic]
+    path        = ["_rest_", topic]
     query       = []
     fragment    = {none}
   })
