@@ -252,10 +252,6 @@ MDB : MDB = {{
 
 }}
 
-/* Test code for MDB */
-
-mongodb = (Magic.id(MDB.open(50*1024,"www.localhost.local",27017)):mongodb)
-
 /*
  * Select {{ ... }}:
  *   
@@ -273,6 +269,8 @@ type Select = {{
   // TODO: Documentation
   select_to_document : select -> Bson.document
   //select_to_default : select -> option('a)
+
+  pretty_of_select : select -> string
 
   dot_path : MongoDb.path -> string
 
@@ -394,6 +392,8 @@ Select : Select = {{
 
   select_to_document(select:select): Bson.document = select.select
   //select_to_default(select:select): option('a) = select.default
+
+  pretty_of_select(select:select): string = Bson.pretty_of_bson(select.select)
 
   @private
   string_of_element(e:Bson.element): string =
@@ -553,9 +553,6 @@ Select : Select = {{
 
 }}
 
-/* Test code for select */
-// none
-
 /*
  * Collection {{ ... }}:
  *   
@@ -589,7 +586,7 @@ type group_result('a) = outcome(group('a),Mongo.failure)
 
 type Collection = {{
   // TODO: Documentation
-  create : mongodb, option('value) -> (select, collection('value))
+  create : mongodb, option('value) -> collection('value)
   limit : collection('value), int -> collection('value)
   skip : collection('value), int -> collection('value)
   fields : collection('value), option(Bson.document) -> collection('value)
@@ -631,8 +628,7 @@ Batch = {{
 
 Collection : Collection = {{
 
-  create(db:mongodb, default:option('value)): (select, collection('value)) =
-    (Select.empty(/*default*/), { db=MDB.clone(db); ~default })
+  create(db:mongodb, default:option('value)): collection('value) = { db=MDB.clone(db); ~default }
 
   destroy(c:collection('value)): void = MDB.close(c.db)
 
@@ -761,147 +757,31 @@ Collection : Collection = {{
 
 }}
 
-/* Test code for Collection */
-/*
-S = Select
-C = Collection
-do println("Collection:")
-type t = {i:int}
-(empty,(c_:collection(t))) = C.create(mongodb,{some={i=-1}})
-c1 = C.continueOnError(c_)
-// Caveat: bare values have to be magic'ed:
-//b = opa2doc(Magic.id(1):int) do println("b={Bson.pretty_of_bson(b)}")
-_ = C.insert(c1,{i=0}) do MDB.err(c1.db,"insert(c1,\{i=0\})")
-btch1 = List.fold_right(Batch.add,List.init((i -> {i=i+100}),9),Batch.empty)
-//do println("btch1={List.list_to_string(Bson.pretty_of_bson,btch1)}")
-_ = C.insert_batch(c1,btch1) do MDB.err(c1.db,"insert(c1,btch1)")
-i(i:int) = S.int64(empty,"i",i)
-do println("s={Bson.pretty_of_bson((i(1)).select)}")
-s = i(0)
-u = S.set(i(1))
-do println("u={Bson.pretty_of_bson(u.select)}")
-do println("u_ty={OpaType.to_pretty(@typeof(u))}")
-_ = C.update(c1,s,u) do MDB.err(c1.db,"update(c1,i(0),i(1))")
-_ = C.delete(C.singleRemove(c1),i(104)) do MDB.err(c1.db,"delete(c1,i(104))")
-q1 = S.key("i",S.gti32(102,S.lti32(106,empty)))
-do println("q1={Bson.pretty_of_bson(q1.select)}")
-q2 = S.and(S.key("i",S.lti32(106,empty)),S.key("i",S.gti32(102,empty))) // <-- doesn't work, don't know why (I'm < 2.0?)
-do println("q2={Bson.pretty_of_bson(q2.select)}")
-q3 = S.where(empty,"this.i > 106")
-do println("q3={Bson.pretty_of_bson(q3.select)}")
-q = q3
-do println("find_one(c1,{Bson.pretty_of_bson(q.select)}):")
-v = C.find_one(c1,q)
-do match v with
-   | {success=v} -> println("  v={v}")
-   | {~failure} -> println("  err={Bson.string_of_failure(failure)}")
-do println("query(c1,{Bson.pretty_of_bson(q.select)}):")
-do match C.query(c1,q) with
-   | {success=cc1} ->
-      _ =
-      while(cc1,(cc1 ->
-                  match C.next(cc1) with
-                  | (cc1,{success=v}) ->
-                     do println("  v={v}")
-                     if C.has_more(cc1)
-                     then (cc1,true)
-                     else (C.kill(cc1),false)
-                  | (_cc1,{~failure}) ->
-                     do println("  err(query)={Bson.string_of_failure(failure)}")
-                     (C.kill(cc1),false)))
-      println("  finished")
-   | {~failure} ->
-      println("  err(query)={Bson.string_of_failure(failure)}")
-a = S.key("i",S.all(empty,[1,2,3,4]))
-do println("a={Bson.pretty_of_bson(a.select)}")
-dot = S.dot([{StringKey="a"},{StringKey="b"},{IntKey=1}],i(123))
-do println("dot={Bson.pretty_of_bson(dot.select)}")
-exsts = S.exists(empty,"i",true)
-do println("exsts={Bson.pretty_of_bson(exsts.select)}")
-m1 = S.mod(empty,10,3)
-do println("m1={Bson.pretty_of_bson(m1.select)}")
-sz1 = S.size(empty,9)
-do println("sz1={Bson.pretty_of_bson(sz1.select)}")
-tp1 = S.typ(empty,Bson.tInt64)
-do println("tp1={Bson.pretty_of_bson(tp1.select)}")
-re1 = S.regex(empty,"acme.*corp","i")
-do println("re1={Bson.pretty_of_bson(re1.select)}")
-do match C.count(c1, {some=q3}) with
-   | {success=cnt} -> println("count({Bson.pretty_of_bson(q3.select)})={cnt}")
-   | {~failure} -> println("  err(count)={Bson.string_of_failure(failure)}")
-do match C.distinct(c1, "i", {none}) with
-   | {success=(il:list(int))} -> println("distinct(i)={il}")
-   | {~failure} -> println("  err(distinct)={Bson.string_of_failure(failure)}")
-key = [H.i64("i",1)]
-do println("key={key}")
-reduce = "function(obj,prev)\{prev.count++;\}"
-initial = [H.i32("count",0)]
-do println("initial={initial}")
-// Careful with group, the type of "retval" is a list of the key type with "count:float" added.
-do match C.analyze_group(C.group(c1, key, reduce, initial, {none}, {none})) with
-   | {success=(group:group({i:int; count:float}))} -> println("group={group}")
-   | {~failure} -> println("  err(group)={Bson.string_of_failure(failure)}")
-_ = C.destroy(c1)
-*/
-
 /** Later:
-MongoMap = {{
-  // Implementation of map using underlying MongoDB.
-}}
-
-MongoArray = {{
-  // Implementation of Array using underlying MongoDB.
-}}
-
-MongoTree = {{
-  // Implementation of Tree using underlying MongoDB.
-  // Note that there is an interesting page on the MongoDB
-  // website on embedding trees in MongoDB:
-  // http://www.mongodb.org/display/DOCS/Trees+in+MongoDB
-}}
-**/
-
-/** DEPRECATED
- * MongoMap {{ ... }}:
- *
- *   - We implement the indexing functionality here.  As a starting point we can
- *     define a pseudo-map using a (typed) MongoDb database plus a query object:
- *
- *       make_map(db:(int,string)mongodb, query:Bson.document): (int,string)map
- *
- *     Given the query string we can arrange for the creation (and deletion) of the correct
- *     indices which MongoDB needs for efficiency (only its ObjectID's have implicit and
- *     non-deletable indices generated for them).  We can then provide most (if not all)
- *     of the functionality of a standard OPA map datatype.
- *
- *     Note that we should be able to manipulate the query strings within these functions
- *     so that we can, for example, implement intersection/union maps by combining two queries.
- *
- *     In time we can do fancy things with map-reduce etc. but I view this as quite a powerful
- *     starting point.
- *
- *   - Foreign keys may need a bit of experimentation to get right.  Having read the MongoDB
- *     docs a bit more thoroughly on this issue, there are two ways it could be done.  Firstly,
- *     using the DBref mechanism where a hard reference is built into the database or, alternatively,
- *     using direct manual linking in the client.  The second alternative is the recommended
- *     method since it allows more flexibility and, additionally, can allow more efficient
- *     implementation under some circumstances (apparently).  In either case, the driver itself
- *     needs to be upgraded to support this feature.  Essentially, this has to remain under
- *     control of the client code but we need to support this feature in a more friendly manner,
- *     here.  The ideal method of operation would be to take two databases and add the foreign key
- *     to give a third database with the linking implemented: add_foreign(db1, db2, db1_key, db2_key),
- *     I'm not even attempting to write the types of these objects here, the idea would be to define
- *     maps on the new linked database.
- **/
-
-/**
- * Db {{ ... }}:
- *
+ * MongoMap = {{
+ *   // Implementation of map using underlying MongoDB.
+ * }}
+ * 
+ * MongoArray = {{
+ *   // Implementation of Array using underlying MongoDB.
+ * }}
+ * 
+ * MongoTree = {{
+ *   // Implementation of Tree using underlying MongoDB.
+ *   // Note that there is an interesting page on the MongoDB
+ *   // website on embedding trees in MongoDB:
+ *   // http://www.mongodb.org/display/DOCS/Trees+in+MongoDB
+ * }}
+ * 
+ * Db = {{
  *   - This will look like the current Db module (as far as we can implement it).  Mostly you
  *     will get: read/write/remove/{int/string}map_search/{int/string}map_fold_range.  Note that
  *     implementing history with MongoDB could prove heavy-weight and potentially disastrous
  *     for performance although I'm sure it could be done.  A primitive form of transaction,
  *     however, might be a good option.  Modification time could be handled low-level in
  *     the driver at the expense of some peformance.
- *
- */
+ * }}
+ *  
+ **/
+
+// End of file MongoDb.opa

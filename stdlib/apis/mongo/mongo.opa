@@ -42,6 +42,10 @@
  *
  **/
 
+/* Major TODOs, there are minor ones elsewhere. */
+// TODO: replica sets
+// TODO: backups
+
 import stdlib.core.{date}
 import stdlib.io.socket
 import stdlib.crypto
@@ -349,7 +353,7 @@ Bson = {{
     | {Boolean=v} -> "{v}"
     | {Date=v} -> "{v}" // <-- TODO: format this
     | {Null=_} -> "null"
-    | {Regexp=v} -> "REGEXP({v})"
+    | {Regexp=(re,opts)} -> "REGEXP(/{re}/{opts})"
     | {Code=v} -> "CODE({v})"
     | {Symbol=v} -> "SYMBOL({v})"
     | {CodeScope=v} -> "{v}"
@@ -1166,6 +1170,7 @@ Cursor = {{
     match run_command(m, db, cmd) with
     | {success=bson} ->
        //do println("Cursor.distinct: bson={Bson.pretty_of_bson(bson)}")
+       // TODO: stats
        (match Bson.find(bson,"values") with
         | {some=[{name=k; value={Array=d}}]} -> {success=[H.arr(k,List.rev(d))]}
         | _ -> {failure={DocError=bson}})
@@ -1284,87 +1289,4 @@ Indexes = {{
 
 }}
 
-  // TODO: replica sets
-  // TODO: backups
-
-
-/* Test code */
-/*
-_ =
-  mongo = Mongo.open(1024,"www.localhost.local",27017)
-  //b = [{ObjectID=("_id",Mongo.oid_of_string("333333333333333333333333"))}, {String=("name","Joe1")}, {Int32=("age",44)}]
-  //_success = Mongo.insert(mongo,0,"tutorial.people",b)
-  //b = [{ObjectID=("_id",Mongo.oid_of_string("343434343434343434343434"))}, {String=("name","Joe2")}, {Int32=("age",55)}]
-  //_success = Mongo.insert(mongo,0,"tutorial.people",b)
-  do println("mongo.opa")
-  // Check cursor concurrency
-  cursor = Cursor.init(mongo,"tutorial.people")
-  cursor1 = Cursor.init(mongo,"tutorial.people")
-  cursor = Cursor.set_query(cursor,{some=[H.str("name","Joe")]})
-  cursor1 = Cursor.set_query(cursor1,{some=[H.i32("age",55)]})
-  cursor = Cursor.set_limit(cursor,3)
-  cursor1 = Cursor.set_limit(cursor1,3)
-  cursor = Cursor.op_query(cursor)
-  cursor1 = Cursor.op_query(cursor1)
-  do println("cursor.cid={Mongo.string_of_cursorID(cursor.cid)}")
-  do println("cursor1.cid={Mongo.string_of_cursorID(cursor1.cid)}")
-  do println("error=\"{cursor.error}\" returned={cursor.returned}")
-  do println("error=\"{cursor1.error}\" returned={cursor1.returned}")
-  doc0 = Cursor.document(cursor, 0)
-  doc01 = Cursor.document(cursor1, 0)
-  do println("doc0={doc0}")
-  do println("doc01={doc01}")
-  docs = Cursor.all_documents(cursor)
-  do println("docs={docs}")
-  cursor = Cursor.next(cursor)
-  do println("0) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.next(cursor)
-  do println("1) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.next(cursor)
-  do println("2) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.next(cursor)
-  do println("3) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.next(cursor)
-  do println("4) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.next(cursor)
-  do println("5) error=\"{cursor.error}\" doc={cursor.doc}")
-  cursor = Cursor.reset(cursor)
-  cursor1 = Cursor.reset(cursor1)
-  do println("error=\"{cursor.error}\"")
-  do println("error1=\"{cursor1.error}\"")
-  doc1 = Cursor.find_one(mongo,"tutorial.people",[H.i32("age",44)],{none})
-  do println("doc1={doc1}")
-  res = Cursor.run_command(mongo, "test", [H.str("create","cursors"), H.bool("capped",true), H.i32("size",1000000)])
-  do println("res={res}")
-  b = [{name="_id"; value={ObjectID=Bson.oid_of_string("353535353535353535353535")}}, H.i32("a",0)]
-  _success = Mongo.insert(mongo,0,"test.cursors",b)
-  b = [{name="_id"; value={ObjectID=Bson.oid_of_string("363636363636363636363636")}}, H.i32("a",1)]
-  _success = Mongo.insert(mongo,0,"test.cursors",b)
-  res = Cursor.count(mongo,"test","cursors",{none})
-  do println("count={res}")
-  res = Cursor.count(mongo,"test","cursors",{some=[H.doc("a",[H.i32("$gt",0)])]})
-  do println("count={res}")
-  ismaster = Cursor.ismaster(mongo)
-  do println("ismaster={ismaster}")
-  success = Cursor.add_user(mongo,"test","norman","abc123")
-  do println("success={success}")
-  res = Cursor.authenticate(mongo,"test","norman","abc123")
-  do println("authenticate={res}")
-  drop = Cursor.drop_collection(mongo,"test","cursors")
-  do println("drop={drop}")
-  res = Cursor.check_connection(mongo)
-  do println("check_connection={res}")
-  key = [H.i32("age",1), H.i32("name",1)]
-  success = Indexes.create_index(mongo,"tutorial.people",key,0)
-  do println("create_index={success}")
-  doc = Cursor.find_one(mongo,"tutorial.system.indexes",[H.doc("key",key)],{none})
-  do println("doc={doc}")
-  key = [H.i32("fog",1)]
-  success = Indexes.create_index(mongo,"test.bar",key,(Indexes.SparseBit+Indexes.UniqueBit))
-  do println("create_index={success}")
-  doc = Cursor.find_one(mongo,"test.system.indexes",[H.doc("key",key)],{none})
-  do println("doc={doc}")
-  //do println("cursor={cursor}")
-  do Mongo.close(mongo)
-  void
-*/
+// End of file mongo.opa
