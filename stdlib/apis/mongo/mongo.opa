@@ -1131,7 +1131,6 @@ Cursor = {{
   force_error(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "forceerror", 1)
 
-  @private
   find_int(bson:Bson.document, name:string): outcome(int,Mongo.failure) =
     match Bson.find(bson,name) with
     | {some=[{Int32=(_,n)}]} -> {success=n}
@@ -1180,7 +1179,7 @@ Cursor = {{
             {Document=("initial",initial)}],
            (match cond_opt with | {some=cond} -> [{Document=("cond",cond)}] | {none} -> [{Null=("cond",void)}]),
            (match finalize_opt with | {some=finalize} -> [{Code=("finalize",finalize)}] | {none} -> [])]))}]
-    do println("Cursor.group: group={Bson.pretty_of_bson(group)}")
+    //do println("Cursor.group: group={Bson.pretty_of_bson(group)}")
     match run_command(m, db, group) with
     | {success=bson} ->
        //do println("Cursor.group: bson={Bson.pretty_of_bson(bson)}")

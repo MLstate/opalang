@@ -580,10 +580,7 @@ Select : Select = {{
  *
  * Essentially, this datatype is simply a "typed" view of the low-level MongoDB
  * driver routines.  The currency here is OPA values, not BSON documents hence
- * we need to give a type to the collection.  We also attach a type to the select
- * documents such that selects have to be built against a particular type of
- * collection.  We help the user by returning an empty select value when the
- * collection is created.
+ * we need to give a type to the collection.
  *
  **/
 
@@ -600,6 +597,9 @@ type collection_cursor('a) = {
   query: select;
   ty: OpaType.ty;
 }
+
+type group('a) = { retval:list('a); count:int; keys:int; ok:int }
+type group_result('a) = outcome(group('a),Mongo.failure)
 
 type Collection = {{
   // TODO: Documentation
@@ -630,8 +630,8 @@ type Collection = {{
   has_more : collection_cursor('value) -> bool
   count : collection('value), option(select) -> outcome(int,Mongo.failure)
   distinct : collection('value), string, option(select) -> outcome(list('b),Mongo.failure)
-  group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string)
-          -> outcome(list('b),Mongo.failure)
+  group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string) -> Mongo.result
+  analyze_group : Mongo.result -> group_result('a)
   kill : collection_cursor('value) -> collection_cursor('value)
 }}
 
@@ -745,16 +745,30 @@ Collection : Collection = {{
    * Note that for group to work ints have to match, Int32 will not match Int64!!!
    **/
   group(c:collection('value), key:Bson.document, reduce:string, initial:Bson.document,
-        cond_opt:option(Bson.document), finalize_opt:option(string)): outcome(list('b),Mongo.failure) =
-    match Cursor.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt) with
+        cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
+    Cursor.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
+
+  analyze_group(res:Mongo.result): group_result('a) =
+    match res with
     | {success=doc} ->
-       (match Bson.find(doc,"retval") with
-        | {some=[{Array=(k,arr)}]} ->
-           ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
-           (match MongoDb.bson_to_opa([{Array=(k,List.rev(arr))}], ty, k) with
-            | {some=v} -> {success=(Magic.id(v):list('b))}
-            | {none} -> {failure={Error="Collection.group: not found"}})
-        | _ -> {failure={Error="Collection.group: no retval value in reply"}})
+      (match Bson.find(doc,"retval") with
+       | {some=[{Array=(k,arr)}]} ->
+          ty = {TyName_args=[@typeval('a)]; TyName_ident="list"}
+          (match MongoDb.bson_to_opa([{Array=(k,List.rev(arr))}], ty, k) with
+           | {some=v} ->
+              retval = (Magic.id(v):list('a))
+              (match Cursor.find_int(doc, "count") with
+               | {success=count} ->
+                  (match Cursor.find_int(doc, "keys") with
+                   | {success=keys} ->
+                      (match Cursor.find_int(doc, "ok") with
+                       | {success=ok} ->
+                          {success=~{retval; count; keys; ok}}
+                       | {~failure} -> {~failure})
+                   | {~failure} -> {~failure})
+               | {~failure} -> {~failure})
+           | {none} -> {failure={Error="Collection.analyze_group: not found"}})
+       | _ -> {failure={Error="Collection.analyze_group: no retval value in reply"}})
     | {~failure} -> {~failure}
 
   kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=Cursor.reset(cc.cursor) }
@@ -836,8 +850,9 @@ do println("key={key}")
 reduce = "function(obj,prev)\{prev.count++;\}"
 initial = [{Int32=("count",0)}]
 do println("initial={initial}")
-do match C.group(c1, key, reduce, initial, {none}, {none}) with
-   | {success=(l:list({i:int; count:float}))} -> println("group={l}")
+// Careful with group, the type of "retval" is a list of the key type with "count:float" added.
+do match C.analyze_group(C.group(c1, key, reduce, initial, {none}, {none})) with
+   | {success=(group:group({i:int; count:float}))} -> println("group={group}")
    | {~failure} -> println("  err(group)={Bson.string_of_failure(failure)}")
 _ = C.destroy(c1)
 
