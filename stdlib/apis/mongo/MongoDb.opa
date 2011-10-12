@@ -698,9 +698,8 @@ Collection : Collection = {{
     ns = c.db.dbname^"."^c.db.collection
     (match Cursor.find_one(c.db.mongo,ns,select.select,c.db.fields) with
      | {success=doc} ->
-       ty = @typeof(Magic.id(void):'value)
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match MongoDb.bson_to_opa(doc, ty, c.db.valname) with
+       (match MongoDb.bson_to_opa(doc, @typeval('value), c.db.valname) with
         | {some=v} -> {success=(Magic.id(v):'value)}
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
@@ -708,7 +707,7 @@ Collection : Collection = {{
   query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     match Cursor.find(c.db.mongo,ns,select.select,c.db.fields,c.db.limit,c.db.skip,c.db.query_flags) with
-    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeof(Magic.id(void):'value) }}
+    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeval('value) }}
     | {~failure} -> {~failure}
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
@@ -736,19 +735,22 @@ Collection : Collection = {{
     match Cursor.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s.select),query_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
-       ty = {TyName_args=[@typeof(Magic.id(void):'b)]; TyName_ident="list"}
+       ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
        (match MongoDb.bson_to_opa(doc, ty, "values") with
         | {some=v} -> {success=(Magic.id(v):list('b))}
         | {none} -> {failure={Error="Collection.distinct: not found"}})
     | {~failure} -> {~failure}
 
+  /**
+   * Note that for group to work ints have to match, Int32 will not match Int64!!!
+   **/
   group(c:collection('value), key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): outcome(list('b),Mongo.failure) =
     match Cursor.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt) with
     | {success=doc} ->
        (match Bson.find(doc,"retval") with
         | {some=[{Array=(k,arr)}]} ->
-           ty = {TyName_args=[@typeof(Magic.id(void):'b)]; TyName_ident="list"}
+           ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
            (match MongoDb.bson_to_opa([{Array=(k,List.rev(arr))}], ty, k) with
             | {some=v} -> {success=(Magic.id(v):list('b))}
             | {none} -> {failure={Error="Collection.group: not found"}})
