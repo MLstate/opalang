@@ -25,7 +25,7 @@ type mlstate_platform = Unix | Cygwin | Windows
 (** the current platform value *)
 let mlstate_platform = match Sys.os_type with
                        | "Unix" -> Unix
-                       | "Cywin" -> Cygwin
+                       | "Cygwin" -> Cygwin
                        | "Windows"
                        | "Win32" -> Windows
                        | _ -> failwith ("mlstate_platform : unknown platform "^(Sys.os_type))
