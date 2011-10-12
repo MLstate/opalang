@@ -68,6 +68,14 @@ type Parser_private.range = { one : Unicode.character }
 Parser_private =
 {{
 
+  check_partial_lazy(partial, it, res) =
+    if partial then
+      some((it, res()))
+    else
+      match Itextrator.next(it) with
+      | {none} -> some((it, res()))
+      | {some=_} -> none
+
   check_partial(partial, result) =
     if partial then
       result

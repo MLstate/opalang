@@ -181,11 +181,10 @@ and translate_seq ~nested ~res_needed org_input (seq, loc) =
         else
           C.E.void ()
       in
-      let return_val = success_exp input result in
       if nested then
-        return_val
+        success_exp input result
       else
-        call_runtime_fun "check_partial" [!partial_flag_name; return_val]
+        call_runtime_fun "check_partial_lazy" [!partial_flag_name; input; (C.E.lambda []result)]
 
   | (x, loc)::xs ->
       let item_name = x.item_name in
