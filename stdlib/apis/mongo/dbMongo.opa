@@ -317,13 +317,10 @@ MongoDb = {{
     and list_to_bson(key:string, v:'a, ty:OpaType.ty): Bson.document =
       //do println("list_to_bson\n  key={key}\n  ty={OpaType.to_pretty(ty)})")
       doc = List.flatten(List.fold_index((i, v, acc ->
-                                           (doc =
-                                              //[{Document=("{i}",
-                                                 opa_to_document("{i}", v, ty)
-                                              //)}]
+                                           (doc = opa_to_document("{i}", v, ty)
                                             //do println("list_to_bson: doc={/*Bson.string_of_bson*/(doc)}")
                                             ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
-      res = [{Array = (key,doc)}]
+      res = [H.arr(key,doc)]
       //do println("list_to_bson: res = {Bson.string_of_bson(res)}")
       res
 
@@ -331,35 +328,35 @@ MongoDb = {{
       //do println("opa_to_document: key={key} ty={ty}")
       ret(_n,bson) = /*do println("ret{n}({key},{Bson.string_of_bson(bson)})")*/ (bson:Bson.document)
       match ty with
-      | {TyName_args=[]; TyName_ident="void"} -> ret(1,[{Null=(key,void)}])
-      | {TyConst={TyInt={}}} -> ret(2,[{Int64=(key,(@unsafe_cast(v):int))}])
-      | {TyConst={TyString={}}} -> ret(3,[{String=(key,(@unsafe_cast(v):string))}])
-      | {TyConst={TyFloat={}}} -> ret(4,[{Double=(key,(@unsafe_cast(v):float))}])
-      | {TyName_args=[]; TyName_ident="bool"} -> ret(5,[{Boolean=(key,(@unsafe_cast(v):bool))}])
+      | {TyName_args=[]; TyName_ident="void"} -> ret(1,[H.null(key)])
+      | {TyConst={TyInt={}}} -> ret(2,[H.i64(key,(@unsafe_cast(v):int))])
+      | {TyConst={TyString={}}} -> ret(3,[H.str(key,(@unsafe_cast(v):string))])
+      | {TyConst={TyFloat={}}} -> ret(4,[H.dbl(key,(@unsafe_cast(v):float))])
+      | {TyName_args=[]; TyName_ident="bool"} -> ret(5,[H.bool(key,(@unsafe_cast(v):bool))])
       | {TyRecord_row = row}
       | {TyRecord_row = row; TyRecord_rowvar = _} ->
         //do println("opa_to_document: row={OpaType.to_pretty(ty)}")
         (match row with
-         | [] -> [{Null=(key,void)}]
+         | [] -> [H.null(key)]
          | [{label=name; ty=ty}] ->
            if OpaType.is_void(ty)
-           then ret(6,[{Document=(key,[{Null=(name,void)}])}])
-           else ret(7,[{Document=(key,rec_to_bson(v, row))}])
+           then ret(6,[H.doc(key,[H.null(name)])])
+           else ret(7,[H.doc(key,rec_to_bson(v, row))])
          | _ ->
-           ret(8,[{Document=(key,rec_to_bson(v, row))}])) // Check this!!! (doesn't work with dbMongo)
+           ret(8,[H.doc(key,rec_to_bson(v, row))])) // Check this!!! (doesn't work with dbMongo)
            //ret(8,rec_to_bson(v, row))) // <-- is this right???
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
         if List.mem([{label="false"; ty={TyRecord_row=[]}}],col) // <-- ? ! :-(
-        then ret(9,[{Boolean=(key,(@unsafe_cast(v):bool))}])
+        then ret(9,[H.bool(key,(@unsafe_cast(v):bool))])
         else
           //do println("opa_to_document: col={OpaType.to_pretty(ty)}")
           fields = OpaType.fields_of_fields_list(v, col).f1
           //do println("fields={fields}")
-          ret(10,[{Document=(key,rec_to_bson(v, fields))}])
+          ret(10,[H.doc(key,rec_to_bson(v, fields))])
       | {TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list"}
       | {TyName_ident="Bson.document"; TyName_args=_} ->
-        ret(12,[{Document=(key,@unsafe_cast(v))}])
+        ret(12,[H.doc(key,@unsafe_cast(v))])
       | {TyName_args=[lty]; TyName_ident="list"} ->
         ret(11,list_to_bson(key, @unsafe_cast(v), lty))
       | {TyName_args = tys; TyName_ident = tyid} ->
@@ -429,48 +426,48 @@ MongoDb = {{
       | {TyName_args=[({TyName_args=[]; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list"}
       | {TyName_args=_; TyName_ident="Bson.document"} ->
         (match element with
-         | {Document=(_,doc)} -> {some=@unsafe_cast(doc)}
+         | {value={Document=doc} ...} -> {some=@unsafe_cast(doc)}
          | element -> @fail("MongoDb.bson_to_opa: expected Bson.document, got {element}"))
       | {TyName_args=[]; TyName_ident="void"} ->
         (match element with
-         | {Null=(_,{})} -> {some=@unsafe_cast(void)}
+         | {value={Null=_} ...} -> {some=@unsafe_cast(void)}
          | element -> @fail("MongoDb.bson_to_opa: expected void, got {element}"))
       | {TyConst={TyInt={}}} ->
         (match element with
-         | {Boolean=(_,tf)} -> {some=@unsafe_cast(if tf then 1 else 0)}
-         | {Int32=(_,i)} -> {some=@unsafe_cast(i)}
-         | {Int64=(_,i)} -> {some=@unsafe_cast(i)}
-         | {Double=(_,d)} -> {some=@unsafe_cast(Float.to_int(d))}
-         | {String=(_,s)} -> {some=@unsafe_cast(Int.of_string(s))}
+         | {value={Boolean=tf} ...} -> {some=@unsafe_cast(if tf then 1 else 0)}
+         | {value={Int32=i} ...} -> {some=@unsafe_cast(i)}
+         | {value={Int64=i} ...} -> {some=@unsafe_cast(i)}
+         | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_int(d))}
+         | {value={String=s} ...} -> {some=@unsafe_cast(Int.of_string(s))}
          | element -> @fail("MongoDb.bson_to_opa: expected int, got {element}"))
       | {TyConst={TyString={}}} ->
         (match element with
-         | {Boolean=(_,tf)} -> {some=@unsafe_cast(Bool.to_string(tf))}
-         | {Int32=(_,i)} -> {some=@unsafe_cast(Int.to_string(i))}
-         | {Int64=(_,i)} -> {some=@unsafe_cast(Int.to_string(i))}
-         | {Double=(_,d)} -> {some=@unsafe_cast(Float.to_string(d))}
-         | {String=(_,s)} -> {some=@unsafe_cast(s)}
+         | {value={Boolean=tf} ...} -> {some=@unsafe_cast(Bool.to_string(tf))}
+         | {value={Int32=i} ...} -> {some=@unsafe_cast(Int.to_string(i))}
+         | {value={Int64=i} ...} -> {some=@unsafe_cast(Int.to_string(i))}
+         | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_string(d))}
+         | {value={String=s} ...} -> {some=@unsafe_cast(s)}
          | element -> @fail("MongoDb.bson_to_opa: expected string, got {element}"))
       | {TyConst={TyFloat={}}} ->
         (match element with
-         | {Boolean=(_,tf)} -> {some=@unsafe_cast(if tf then 1.0 else 0.0)}
-         | {Int32=(_,i)} -> {some=@unsafe_cast(Float.of_int(i))}
-         | {Int64=(_,i)} -> {some=@unsafe_cast(Float.of_int(i))}
-         | {Double=(_,d)} -> {some=@unsafe_cast(d)}
-         | {String=(_,s)} -> {some=@unsafe_cast(Float.of_string(s))}
+         | {value={Boolean=tf} ...} -> {some=@unsafe_cast(if tf then 1.0 else 0.0)}
+         | {value={Int32=i} ...} -> {some=@unsafe_cast(Float.of_int(i))}
+         | {value={Int64=i} ...} -> {some=@unsafe_cast(Float.of_int(i))}
+         | {value={Double=d} ...} -> {some=@unsafe_cast(d)}
+         | {value={String=s} ...} -> {some=@unsafe_cast(Float.of_string(s))}
          | element -> @fail("MongoDb.bson_to_opa: expected float, got {element}"))
       | {TyName_args=[]; TyName_ident="bool"} ->
         (match element with
-         | {Boolean=(_,tf)} -> {some=@unsafe_cast(tf)}
-         | {Int32=(_,i)} -> {some=@unsafe_cast(i != 0)}
-         | {Int64=(_,i)} -> {some=@unsafe_cast(i != 0)}
-         | {Double=(_,d)} -> {some=@unsafe_cast(d != 0.0)}
-         | {String=(_,"true")} -> {some=@unsafe_cast(true)}
-         | {String=(_,"false")} -> {some=@unsafe_cast(false)}
+         | {value={Boolean=tf} ...} -> {some=@unsafe_cast(tf)}
+         | {value={Int32=i} ...} -> {some=@unsafe_cast(i != 0)}
+         | {value={Int64=i} ...} -> {some=@unsafe_cast(i != 0)}
+         | {value={Double=d} ...} -> {some=@unsafe_cast(d != 0.0)}
+         | {value={String="true"} ...} -> {some=@unsafe_cast(true)}
+         | {value={String="false"} ...} -> {some=@unsafe_cast(false)}
          | element -> @fail("MongoDb.bson_to_opa: expected bool, got {element}"))
       | {TyName_args = [ty]; TyName_ident = "option"} ->
         (match element with
-         | {Document=(_key,doc)} ->
+         | {name=_key; value={Document=doc}} ->
            //do println("ty={OpaType.to_pretty(ty)} key={_key} doc={doc}")
            (match Bson.find_elements(doc,["some","none"]) with
             | {some=("some",element)} ->
@@ -482,7 +479,7 @@ MongoDb = {{
          | element -> @fail("MongoDb.bson_to_opa: expected option, got {element}"))
       | {TyName_args = [ty]; TyName_ident = "list"} ->
         (match element with
-         | {Array=(_key,doc)} ->
+         | {name=_key; value={Array=doc}} ->
            //do println("ty={OpaType.to_pretty(ty)} key={_key} doc={doc}")
            len = List.length(doc) - 1
            l = List.fold_index(
@@ -499,7 +496,7 @@ MongoDb = {{
       | {TyRecord_row = row; TyRecord_rowvar = _} ->
         //do println("MongoDb.bson_to_opa: row={OpaType.to_pretty(ty)}")
         (match element with
-         | {Document=(_,doc)} ->
+         | {value={Document=doc} ...} ->
            doc = Bson.remove_id(doc)
            //do println("  doc={doc}\n  keys={Bson.keys(doc)}")
            element_to_rec(doc, row)
@@ -509,7 +506,7 @@ MongoDb = {{
         //do println("element={element} col={OpaType.to_pretty(ty)}")
         (ltyfield, doc) =
           (match element with
-           | {Document=(_,doc)} ->
+           | {value={Document=doc} ...}->
              (List.sort(Bson.keys(doc)), doc) // <-- We might get away with List.rev here???
            | _ ->
              ([Bson.key(element)], [element]))
@@ -536,7 +533,7 @@ MongoDb = {{
     | bson ->
        (match Bson.find_element(bson,valname) with
         | {some=element} -> element_to_opa(element, ty)
-        | {none} -> element_to_opa({Document=(valname,bson_noid)}, ty)) // assume bare record
+        | {none} -> element_to_opa(H.doc(valname,bson_noid), ty)) // assume bare record
 
   index(indices:list('a)): Bson.document =
     List.flatten(List.mapi((n, index -> opa_to_bson((idxname^(Int.to_string(n))), index, {none})),indices))
@@ -580,7 +577,7 @@ MongoDb = {{
                (match schema with
                 | [node] ->
                   (select,ty,ty2) = aux(node.zubnodes,idx+1,List.tail(pth),ty,ty,select)
-                  ([{Int64=("index{idx}",i)}|select],ty,ty2)
+                  ([H.i64("index{idx}",i)|select],ty,ty2)
                 | _ -> @fail("MongoDb.real_type: bad schema"))
              | k -> @fail("MongoDb.real_type: index missing for intmap {k}"))
           | {TyName_args=[{TyConst={TyString={}}},ty]; TyName_ident="map"}
@@ -591,7 +588,7 @@ MongoDb = {{
                (match schema with
                 | [node] ->
                   (select,ty,ty2) = aux(node.zubnodes,idx+1,List.tail(pth),ty,ty,select)
-                  ([{String=("index{idx}",s)}|select],ty,ty2)
+                  ([H.str("index{idx}",s)|select],ty,ty2)
                 | _ -> @fail("MongoDb.real_type: bad schema"))
              | k -> @fail("MongoDb.real_type: index missing for stringmap {k}"))
           /* We need to wait for the new syntax to use this...
@@ -620,14 +617,14 @@ MongoDb = {{
                //do println("  pth={pth}\n  ty={OpaType.to_pretty(ty)}")
                //do println("  ty2={OpaType.to_pretty(ty2)}\n  ty3={OpaType.to_pretty(ty3)}")
                (select,ty,ty2) = aux(node.zubnodes,idx,List.tail(pth),ty2,ty,select)
-               select = if select == [] && pthlen <= 1 then [{String=("key",label)}] else select
+               select = if select == [] && pthlen <= 1 then [H.str("key",label)] else select
                if List.length(pth) <= 1
                then (select,ty3,ty2)
-               else ([{String=("key",label)}|select],ty,ty2)
+               else ([H.str("key",label)|select],ty,ty2)
              | {none} -> @fail)
           | {TySum_col = _col}
           | {TySum_col = _col; TySum_colvar = _} ->
-            ([{String=("key","SUM")}],ty,ty2) // <-- TODO: Check if this is right.
+            ([H.str("key","SUM")],ty,ty2) // <-- TODO: Check if this is right.
           | {TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list"}
           | {TyName_args=_; TyName_ident="Bson.document"} ->
             (select,ty,ty2)
@@ -639,9 +636,9 @@ MongoDb = {{
 
     ty = Schema.get_db_type(full_path)
     if pth == []
-    then ([{String=(keyname,"key")}],ty,ty,dbname,collname)
+    then ([H.str(keyname,"key")],ty,ty,dbname,collname)
     else (select,ty,ty2) = aux(schema,0,pth,ty,ty,[])
-         select = if select == [] then [{String=(keyname,"key")}] else select
+         select = if select == [] then [H.str(keyname,"key")] else select
          (select,ty,ty2,dbname,collname)
 
   unfactor_types(ty:OpaType.ty): Bson.document =
@@ -649,8 +646,8 @@ MongoDb = {{
     ret(doc) = /*do println("unfactor_types: result={Bson.string_of_bson(doc)}")*/ doc
     match ty with
     | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} -> ret(List.flatten(List.map((r -> [{Int32=(r.label,1)}]),row)))
-    | _ -> ret([{Int32=(valname,1)}])
+    | {TyRecord_row=row; TyRecord_rowvar=_} -> ret(List.flatten(List.map((r -> [H.i32(r.label,1)]),row)))
+    | _ -> ret([H.i32(valname,1)])
 
   read(path:ref_path('a)): 'a =
     (select,ty,_,db,collection) = real_type(path)
@@ -664,7 +661,7 @@ MongoDb = {{
      | {TyName_args=[pty]; TyName_ident="val_path"} ->
        //key =
        //  match Bson.find_element(select,"key") with
-       //  | {some={String=("key",key)}} -> key
+       //  | {some={name="key"; value={String=key}}} -> key
        //  | _ -> @fail
        //do println("MongoDb.read: {ns}({key}) pty={OpaType.to_pretty(pty)}")
        (match Cursor.find_one(mongo,ns,select,{some=unfactor_types(ty)}) with
@@ -695,11 +692,11 @@ MongoDb = {{
     do println("  ty2={OpaType.to_pretty(ty2)}")
     do println("  typeof(v)={OpaType.to_pretty(@typeof(v))}")
     do println("  ty==ty2: {ty==ty2}")*/
-    update = [{Document=("$set",factor_types(ty,ty2,v))}]
+    update = [H.doc("$set",factor_types(ty,ty2,v))]
     //do println("MongoDb.write: update={Bson.string_of_bson(update)}")
     key =
       match Bson.find_element(select,"key") with
-      | {some={String=("key",key)}} -> key
+      | {some={name="key"; value={String=key}}} -> key
       | _ -> @fail
     do println("MongoDb.write: {db}.{collection}({key})")
     do if Mongo.update(mongo,Mongo.UpsertBit,ns,select,update)
@@ -718,7 +715,7 @@ MongoDb = {{
 
   create_standard_index(path:ref_path('a)): Mongo.result =
     (select,_,_,_,_) = real_type(path)
-    index = List.map((e -> {Int32=(Bson.key(e),1)}),select)
+    index = List.map((e -> H.i32(Bson.key(e),1)),select)
     create_index(path,index,(Indexes.SparseBit+Indexes.UniqueBit))
 
 }}
@@ -741,25 +738,25 @@ db /path/rt: rtype = { rtNull=void }
 db /path/st: stype = { stInt=0; stString=""; stFloat=0.0; stNull=void }
 db /path/lt: list(int)
 db /path/tt: (string, int)
-db /bd: Bson.document = [{Null=("null",void)}]
-db /bd/hd = { Null = ("null",void) }
-db /bd/hd/Boolean/f2 = { false }
+db /bd: Bson.document = [H.null("null")]
+db /bd/hd = H.null("null")
+db /bd/hd/value = { Null }
+db /bd/hd/value/Boolean = { false }
 db /path2/p/v: void
 db /path2/p/i: int
 db /i0: int
 db /ism/ism : map(int, string) // Warning: at top level you get an index of collections!
 db /ssm/ssm : map(string, string)
-//db /bsm/bsm : map(bool, string) /* We can't put arbitrary values in the index through dbGen */
+//db /bsm/bsm : map(bool, string) // We can't put arbitrary values in the index through dbGen
 db /db3/im: intmap({ a: int; b: string })
 db /db4/nm: intmap(intmap({ a: int; b: string }))
 db /db5/sm: stringmap({ a: int; b: string; c: bool })
 db /db5/sm[_]/c = { false }
 db /rct: rct
 
-/* Things still to try...
-db /opages/pages[_] = Page.empty
-db /z[{a;b}] : { a : int; b : string; c : int }
-*/
+// Things still to try...
+// db /opages/pages[_] = Page.empty
+// db /z[{a;b}] : { a : int; b : string; c : int }
 
 _ =
   do println("dbMongo")
@@ -791,7 +788,7 @@ _ =
   do MongoDb.write(@/path2/p/i,4224)
   do MongoDb.write(@/rct,{z})
   do MongoDb.write(@/rct,{x=1; y={x=2; y={x=3; y={z}}}})
-  do MongoDb.write(@/bd,([{Int32=("int32",2424)}]:Bson.document))
+  do MongoDb.write(@/bd,([H.i32("int32",2424)]:Bson.document))
   do println("index: {Bson.string_of_result(MongoDb.create_standard_index(@/ism/ism[0]))}")
   do MongoDb.write(@/ism/ism[3],"three")
   do MongoDb.write(@/ism/ism[5],"five")

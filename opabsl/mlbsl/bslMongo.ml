@@ -20,6 +20,7 @@ module C = QmlCpsServerLib
 open C.Ops
 
 ##opa-type Bson.document
+##opa-type Bson.element
 ##extern-type bson_buf = Bson.buf
 ##extern-type mongo_buf = Mongo.mongo_buf
 ##extern-type cursorID = int64
@@ -61,88 +62,67 @@ let oid_of_string = Bson.Oid.from_string
 ##register oid_to_string: string -> string
 let oid_to_string = Bson.Oid.to_string
 
+let field_name = ServerLib.static_field_of_name "name"
+let field_value = ServerLib.static_field_of_name "value"
+
+let ocaml_element opa =
+  let record = unwrap_opa_bson_element opa in
+  let name = ServerLib.unsafe_dot record field_name in
+  let value = ServerLib.unsafe_dot record field_value in
+  (name, value)
+
 let serialize bsons b =
   let rec aux bsons =
     let rec aux3 r =
       match ServerLib.dot r BslNativeLib.field_hd with
       | None -> ()
-      | Some bson ->
+      | Some element ->
+          let (name, value) = ocaml_element element in
           ServerLib.fold_record
-            (fun f v () ->
+            (fun f value () ->
+               let value = Obj.magic(value) in
                match ServerLib.name_of_field f with
-               | Some "Double" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.double b key (ServerLib.unwrap_float value))
-               | Some "String" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.string b key (ServerLib.unwrap_string value))
+               | Some "Double" -> Bson.Append.double b name (ServerLib.unwrap_float value)
+               | Some "String" -> Bson.Append.string b name (ServerLib.unwrap_string value)
                | Some "Document" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        Bson.Append.start_object b key;
-                        aux (unwrap_opa_bson_document value);
-                        Bson.Append.finish_object b)
+                   Bson.Append.start_object b name;
+                   aux (unwrap_opa_bson_document value);
+                   Bson.Append.finish_object b
                | Some "Array" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        Bson.Append.start_array b key;
-                        aux (unwrap_opa_bson_document value);
-                        Bson.Append.finish_array b)
+                   Bson.Append.start_array b name;
+                   aux (unwrap_opa_bson_document value);
+                   Bson.Append.finish_array b
                | Some "Binary" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        let bin = ServerLib.unwrap_string value in
-                        Bson.Append.binary b key Bson.st_bin_binary bin (String.length bin))
-               | Some "ObjectID" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.oid b key (ServerLib.unwrap_string value))
-               | Some "Boolean" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.bool b key (ServerLib.unwrap_bool value))
-               | Some "Date" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.date b key (ServerLib.unwrap_int value))
-               | Some "Null" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, _) -> Bson.Append.null b key)
+                   let bin = ServerLib.unwrap_string value in
+                   Bson.Append.binary b name Bson.st_bin_binary bin (String.length bin)
+               | Some "ObjectID" -> Bson.Append.oid b name (ServerLib.unwrap_string value)
+               | Some "Boolean" -> Bson.Append.bool b name (ServerLib.unwrap_bool value)
+               | Some "Date" ->Bson.Append.date b name (ServerLib.unwrap_int value)
+               | Some "Null" -> Bson.Append.null b name
                | Some "Regexp" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        (match BslNativeLib.ocaml_tuple_2 value with
-                         | (regexp, regexp_opts) ->
-                             Bson.Append.regex b key (ServerLib.unwrap_string regexp) (ServerLib.unwrap_string regexp_opts)))
-               | Some "Code" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.code b key (ServerLib.unwrap_string value))
-               | Some "Symbol" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.symbol b key (ServerLib.unwrap_string value))
+                   (match BslNativeLib.ocaml_tuple_2 value with
+                    | (regexp, regexp_opts) ->
+                        Bson.Append.regex b name (ServerLib.unwrap_string regexp) (ServerLib.unwrap_string regexp_opts))
+               | Some "Code" -> Bson.Append.code b name (ServerLib.unwrap_string value)
+               | Some "Symbol" -> Bson.Append.symbol b name (ServerLib.unwrap_string value)
                | Some "CodeScope" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        (match BslNativeLib.ocaml_tuple_2 value with
-                         | (code, scope) ->
-                             Bson.Append.start_codewscope b key code;
-                             aux scope;
-                             Bson.Append.finish_codewscope b code))
-               | Some "Int32" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.int b key (ServerLib.unwrap_int value))
+                   (match BslNativeLib.ocaml_tuple_2 value with
+                    | (code, scope) ->
+                        Bson.Append.start_codewscope b name code;
+                        aux scope;
+                        Bson.Append.finish_codewscope b code)
+               | Some "Int32" ->Bson.Append.int b name (ServerLib.unwrap_int value)
                | Some "Timestamp" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) ->
-                        (match BslNativeLib.ocaml_tuple_2 value with
-                         | (i, t) ->
-                             Bson.Append.timestamp b key ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t))))
-               | Some "Int64" ->
-                   (match BslNativeLib.ocaml_tuple_2 v with
-                    | (key, value) -> Bson.Append.long b key (ServerLib.unwrap_int value))
+                   (match BslNativeLib.ocaml_tuple_2 value with
+                    | (i, t) ->
+                        Bson.Append.timestamp b name ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t)))
+               | Some "Int64" -> Bson.Append.long b name (ServerLib.unwrap_int value)
                | Some str ->
                    Printf.eprintf "Unknown code: %s\n%!" str;
                    assert false
                | None ->
                    assert false)
-            bson ();
+            value ();
           aux3 (ServerLib.unsafe_dot r BslNativeLib.field_tl)
     in
     aux3 bsons
@@ -172,13 +152,18 @@ let field_codescope = ServerLib.static_field_of_name "CodeScope"
 let field_timestamp = ServerLib.static_field_of_name "Timestamp"
 
 let shared_nil     = ServerLib.make_simple_record field_nil
+let make_element name value =
+  ServerLib.make_record
+    (ServerLib.add_field
+       (ServerLib.add_field ServerLib.empty_record_constructor field_name name)
+       field_value value)
 let make_pair x y =
   ServerLib.make_record (ServerLib.add_field (ServerLib.add_field ServerLib.empty_record_constructor field_fst x) field_snd y)
 let make_cons hd tl =
   ServerLib.make_record (ServerLib.add_field (ServerLib.add_field ServerLib.empty_record_constructor field_hd hd) field_tl tl)
 
 let make_val fld n x =
-  ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor fld (make_pair n x))
+  make_element n (ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor fld x))
 
 let make_null = make_val field_null
 let make_int32 = make_val field_int32

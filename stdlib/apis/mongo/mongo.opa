@@ -57,24 +57,28 @@ type reply = external
  *
  * These are called elements in BSON terminology.
  **/
+
 @opacapi
-type Bson.element =
-    { Double: (string, float) }
-  / { String: (string, string) }
-  / { Document: (string, Bson.document) }
-  / { Array: (string, Bson.document) }
-  / { Binary: (string, string) }
-  / { ObjectID: (string, string) }
-  / { Boolean: (string, bool) }
-  / { Date: (string, Date.date) }
-  / { Null: (string, void) }
-  / { Regexp: (string, (string, string)) }
-  / { Code: (string, string) }
-  / { Symbol: (string, string) }
-  / { CodeScope: (string, (string, Bson.document)) }
-  / { Int32: (string, int) }
-  / { Timestamp: (string, (int, int)) }
-  / { Int64: (string, int) }
+type Bson.value =
+    { Double: float }
+  / { String: string }
+  / { Document: Bson.document }
+  / { Array: Bson.document }
+  / { Binary: string }
+  / { ObjectID: string }
+  / { Boolean: bool }
+  / { Date: Date.date }
+  / { Null: void } // TODO: ditch the void
+  / { Regexp: (string, string) }
+  / { Code: string }
+  / { Symbol: string }
+  / { CodeScope: (string, Bson.document) }
+  / { Int32: int }
+  / { Timestamp: (int, int) }
+  / { Int64: int }
+
+@opacapi
+type Bson.element = { name:string; value:Bson.value }
 
 /**
  * The main exported type, a document is just a list of elements.
@@ -96,6 +100,37 @@ type Mongo.failure =
 type Mongo.success = Bson.document
 
 type Mongo.result = outcome(Mongo.success, Mongo.failure)
+
+/**
+ * Helper functions for constructing Bson values.
+ *
+ * Short names intended to be abbreviations for {name=...; value={Xyz=...}}.
+ **/
+@server_private
+H = {{
+  v(n:string,v:Bson.value):Bson.element = {name=n; value=v}
+  dbl(n:string,d:float):Bson.element = {name=n; value={Double=d}}
+  str(n:string,s:string):Bson.element = {name=n; value={String=s}}
+  doc(n:string,d:Bson.document):Bson.element = {name=n; value={Document=d}}
+  arr(n:string,d:Bson.document):Bson.element = {name=n; value={Array=d}}
+  docarr(n:string,l:list(Bson.document)):Bson.element =
+    {name=n; value={Array=List.mapi((i, d -> ({name="{i}"; value={Document=d}}:Bson.element)),l)}}
+  binary(n:string,b:string):Bson.element = {name=n; value={Binary=b}}
+  oid(n:string,id:string):Bson.element = {name=n; value={ObjectID=id}}
+  bool(n:string,b:bool):Bson.element = {name=n; value={Boolean=b}}
+  date(n:string,d:Date.date):Bson.element = {name=n; value={Date=d}}
+  regexp(n:string,re:(string,string)):Bson.element = {name=n; value={Regexp=re}}
+  null(n:string):Bson.element = {name=n; value={Null=void}}
+  code(n:string,c:string):Bson.element = {name=n; value={Code=c}}
+  symbol(n:string,s:string):Bson.element = {name=n; value={Symbol=s}}
+  codescope(n:string,cs:(string,Bson.document)):Bson.element = {name=n; value={CodeScope=cs}}
+  i32(n:string,i:int):Bson.element = {name=n; value={Int32=i}}
+  timestamp(n:string,ts:(int,int)):Bson.element = {name=n; value={Timestamp=ts}}
+  i64(n:string,i:int):Bson.element = {name=n; value={Int64=i}}
+  de(e:Bson.element):Bson.document = [e]
+  dl(l:list(Bson.element)):Bson.document = l
+  dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
+}}
 
 @server_private
 Bson = {{
@@ -136,68 +171,34 @@ Bson = {{
   /**
    * Return the type number (BSON) of an element.
    **/
-  etype(b0:Bson.element): int =
-    match b0 with
-    | {Double=(_, _)} -> tDouble
-    | {String=(_, _)} -> tString
-    | {Document=(_, _)} -> tDocument
-    | {Array=(_, _)} -> tArray
-    | {Binary=(_, _)} -> tBinary
-    | {ObjectID=(_, _)} -> tObjectID
-    | {Boolean=(_, _)} -> tBoolean
-    | {Date=(_, _)} -> tDate
-    | {Null=(_, _)} -> tNull
-    | {Regexp=(_, _)} -> tRegexp
-    | {Code=(_, _)} -> tCode
-    | {Symbol=(_, _)} -> tSymbol
-    | {CodeScope=(_, _)} -> tCodeScope
-    | {Int32=(_, _)} -> tInt32
-    | {Timestamp=(_, _)} -> tTimestamp
-    | {Int64=(_, _)} -> tInt64
+  etype(element:Bson.element): int =
+    match element.value with
+    | {Double=_} -> tDouble
+    | {String=_} -> tString
+    | {Document=_} -> tDocument
+    | {Array=_} -> tArray
+    | {Binary=_} -> tBinary
+    | {ObjectID=_} -> tObjectID
+    | {Boolean=_} -> tBoolean
+    | {Date=_} -> tDate
+    | {Null=_} -> tNull
+    | {Regexp=_} -> tRegexp
+    | {Code=_} -> tCode
+    | {Symbol=_} -> tSymbol
+    | {CodeScope=_} -> tCodeScope
+    | {Int32=_} -> tInt32
+    | {Timestamp=_} -> tTimestamp
+    | {Int64=_} -> tInt64
 
   /**
    * Return the key of an element.
    **/
-  key(b0:Bson.element): string =
-    match b0 with
-    | { Double=(key, _) } -> key
-    | { String=(key, _) } -> key
-    | { Document=(key, _) } -> key
-    | { Array=(key, _) } -> key
-    | { Binary=(key, _) } -> key
-    | { ObjectID=(key, _) } -> key
-    | { Boolean=(key, _) } -> key
-    | { Date=(key, _) } -> key
-    | { Null=(key, _) } -> key
-    | { Regexp=(key, _) } -> key
-    | { Code=(key, _) } -> key
-    | { Symbol=(key, _) } -> key
-    | { CodeScope=(key, _) } -> key
-    | { Int32=(key, _) } -> key
-    | { Timestamp=(key, _) } -> key
-    | { Int64=(key, _) } -> key
+  key(element:Bson.element): string = element.name
 
   /**
    * Update the key of an element.
    **/
-  set_key(b0:Bson.element, key:string): Bson.element =
-    match b0 with
-    | { Double=(_, value) } -> { Double=(key, value) }
-    | { String=(_, value) } -> { String=(key, value) }
-    | { Document=(_, value) } -> { Document=(key, value) }
-    | { Array=(_, value) } -> { Array=(key, value) }
-    | { Binary=(_, value) } -> { Binary=(key, value) }
-    | { ObjectID=(_, value) } -> { ObjectID=(key, value) }
-    | { Boolean=(_, value) } -> { Boolean=(key, value) }
-    | { Date=(_, value) } -> { Date=(key, value) }
-    | { Null=(_, value) } -> { Null=(key, value) }
-    | { Regexp=(_, value) } -> { Regexp=(key, value) }
-    | { Code=(_, value) } -> { Code=(key, value) }
-    | { Symbol=(_, value) } -> { Symbol=(key, value) }
-    | { CodeScope=(_, value) } -> { CodeScope=(key, value) }
-    | { Int32=(_, value) } -> { Int32=(key, value) }
-    | { Timestamp=(_, value) } -> { Timestamp=(key, value) }
-    | { Int64=(_, value) } -> { Int64=(key, value) }
+  set_key(element:Bson.element, name:string): Bson.element = { element with ~name }
 
   /**
    * Find an element by key in a bson object.
@@ -235,26 +236,26 @@ Bson = {{
    **/
 
   find_bool(bson:Bson.document, name:string): option(bool) =
-    match find(bson, name) with
-    | {some=[{Boolean=(_,tf)}]} -> {some=tf}
+    match Option.map((e -> e.value),find_element(bson, name)) with
+    | {some={Boolean=tf}} -> {some=tf}
     | _ -> {none}
 
   find_int(bson:Bson.document, name:string): option(int) =
-    match find(bson, name) with
-    | {some=[{Int32=(_,i)}]} -> {some=i}
-    | {some=[{Int64=(_,i)}]} -> {some=i}
-    | {some=[{Double=(_,d)}]} -> {some=Float.to_int(d)}
+    match Option.map((e -> e.value),find_element(bson, name)) with
+    | {some={Int32=i}} -> {some=i}
+    | {some={Int64=i}} -> {some=i}
+    | {some={Double=d}} -> {some=Float.to_int(d)}
     | _ -> {none}
 
   find_string(bson:Bson.document, name:string): option(string) =
-    match find(bson, name) with
-    | {some=[{String=(_,str)}]} -> {some=str}
-    | {some=[{Null=(_,{})}]} -> {some=""}
+    match Option.map((e -> e.value),find_element(bson, name)) with
+    | {some={String=str}} -> {some=str}
+    | {some={Null=_}} -> {some=""}
     | _ -> {none}
 
   find_doc(bson:Bson.document, name:string): option(Bson.document) =
-    match find(bson, name) with
-    | {some=[{Document=(_,doc)}]} -> {some=doc}
+    match Option.map((e -> e.value),find_element(bson, name)) with
+    | {some={Document=doc}} -> {some=doc}
     | _ -> {none}
 
   /**
@@ -295,7 +296,7 @@ Bson = {{
    * Remove the ObjectID element from a document.
    **/
   remove_id(doc:Bson.document): Bson.document =
-    List.filter((e -> match e with | {ObjectID=_} -> {false} | _ -> {true}),doc)
+    List.filter((e -> match e.value with | {ObjectID=_} -> {false} | _ -> {true}),doc)
 
   /**
    * Sort the elements in a document by lexicographic order on keys.
@@ -307,24 +308,26 @@ Bson = {{
    * the mongo shell syntax.
    * Note: still only partial.
    **/
-  rec string_of_element(element:Bson.element): string =
-    match element with
-    | {Double=(k, v)} -> "\{ \"{k}\" : Double {v} \}"
-    | {String=(k, v)} -> "\{ \"{k}\" : String {v} \}"
-    | {Document=(k, v)} -> "\{ \"{k}\" : Document {string_of_bson(v)} \}"
-    | {Array=(k, v)} -> "\{ \"{k}\" : Array {string_of_bson(v)} \}"
-    | {Binary=(k, v)} -> "\{ \"{k}\" : Binary {v} \}"
-    | {ObjectID=(k, v)} -> "\{ \"{k}\" : ObjectID {oid_to_string(v)} \}"
-    | {Boolean=(k, v)} -> "\{ \"{k}\" : Boolean {v} \}"
-    | {Date=(k, v)} -> "\{ \"{k}\" : Date {v} \}"
-    | {Null=(k, v)} -> "\{ \"{k}\" : Null {v} \}"
-    | {Regexp=(k, v)} -> "\{ \"{k}\" : Regexp {v} \}"
-    | {Code=(k, v)} -> "\{ \"{k}\" : Code {v} \}"
-    | {Symbol=(k, v)} -> "\{ \"{k}\" : Symbol {v} \}"
-    | {CodeScope=(k, v)} -> "\{ \"{k}\" : CodeScope {v} \}"
-    | {Int32=(k, v)} -> "\{ \"{k}\" : Int32 {v} \}"
-    | {Timestamp=(k, (t,i))} -> "\{ \"{k}\" : Timestamp \{ \"t\" : {t}, \"i\" : {i} \}\}"
-    | {Int64=(k, v)} -> "\{ \"{k}\" : Int64 {v} \}"
+  rec string_of_value(value:Bson.value): string =
+    match value with
+    | {Double=v} -> "Double {v}"
+    | {String=v} -> "String {v}"
+    | {Document=v} -> "Document {string_of_bson(v)}"
+    | {Array=v} -> "Array {string_of_bson(v)}"
+    | {Binary=v} -> "Binary {v}"
+    | {ObjectID=v} -> "ObjectID {oid_to_string(v)}"
+    | {Boolean=v} -> "Boolean {v}"
+    | {Date=v} -> "Date {v}"
+    | {Null=_} -> "Null"
+    | {Regexp=v} -> "Regexp {v}"
+    | {Code=v} -> "Code {v}"
+    | {Symbol=v} -> "Symbol {v}"
+    | {CodeScope=v} -> "CodeScope {v}"
+    | {Int32=v} -> "Int32 {v}"
+    | {Timestamp=(t,i)} -> "Timestamp \{ \"t\" : {t}, \"i\" : {i}"
+    | {Int64=v} -> "Int64 {v}"
+
+  string_of_element(element:Bson.element): string = "\"{element.name}\" : {string_of_value(element.value)}"
 
   /**
    * Same for a bson object (just a list of elements).
@@ -335,30 +338,30 @@ Bson = {{
    * Same as string_of_bson except we miss out the tags showing the
    * actual name of the element.
    **/
-  rec pretty_of_element_value(element:Bson.element): string =
-    match element with
-    | {Double=(_, v)} -> "{v}"
-    | {String=(_, v)} -> "\"{v}\""
-    | {Document=(_, v)} -> "{pretty_of_bson(v)}"
-    | {Array=(_, v)} -> "{pretty_of_array(v)}"
-    | {Binary=(_, _)} -> "<BINARY>"
-    | {ObjectID=(_, v)} -> "{oid_to_string(v)}"
-    | {Boolean=(_, v)} -> "{v}"
-    | {Date=(_, v)} -> "{v}" // <-- TODO: format this
-    | {Null=(_, _)} -> "null"
-    | {Regexp=(_, v)} -> "REGEXP({v})"
-    | {Code=(_, v)} -> "CODE({v})"
-    | {Symbol=(_, v)} -> "SYMBOL({v})"
-    | {CodeScope=(_, v)} -> "{v}"
-    | {Int32=(_, v)} -> "{v}"
-    | {Timestamp=(_, (t,i))} -> "\{ \"t\" : {t}, \"i\" : {i} \}"
-    | {Int64=(_, v)} -> "{v}L"
+  rec pretty_of_value(value:Bson.value): string =
+    match value with
+    | {Double=v} -> "{v}"
+    | {String=v} -> "\"{v}\""
+    | {Document=v} -> "{pretty_of_bson(v)}"
+    | {Array=v} -> "{pretty_of_array(v)}"
+    | {Binary=_} -> "<BINARY>"
+    | {ObjectID=v} -> "{oid_to_string(v)}"
+    | {Boolean=v} -> "{v}"
+    | {Date=v} -> "{v}" // <-- TODO: format this
+    | {Null=_} -> "null"
+    | {Regexp=v} -> "REGEXP({v})"
+    | {Code=v} -> "CODE({v})"
+    | {Symbol=v} -> "SYMBOL({v})"
+    | {CodeScope=v} -> "{v}"
+    | {Int32=v} -> "{v}"
+    | {Timestamp=(t,i)} -> "\{ \"t\" : {t}, \"i\" : {i} \}"
+    | {Int64=v} -> "{v}L"
 
   pretty_of_element(element:Bson.element): string =
-    "\"{key(element)}\" : {pretty_of_element_value(element)}"
+    "\"{element.name}\" : {pretty_of_value(element.value)}"
 
   pretty_of_array(a:Bson.document): string =
-    "["^(String.concat(", ",List.map(pretty_of_element_value,a)))^"]"
+    "["^(String.concat(", ",List.map((e -> pretty_of_value(e.value)),a)))^"]"
 
   pretty_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
 
@@ -814,7 +817,7 @@ type cursor = {
 Cursor = {{
 
   @private
-  error_document(err:string, code:int) = [{String=("$err",err)}, {Int32=("code",code)}]
+  error_document(err:string, code:int): Bson.document = [H.str("$err",err), H.i32("code",code)]
 
   /**
    * Bare cursor initialize.
@@ -1061,12 +1064,12 @@ Cursor = {{
   @private
   check_ok(bson:Bson.document): Mongo.result =
     match Bson.find(bson,"ok") with
-    | {some=[{Double=("ok",ok)}]} ->
+    | {some=[{name="ok"; value={Double=ok}}]} ->
        if ok == 1.0
        then {success=bson}
        else
          (match Bson.find(bson,"errmsg") with
-          | {some=[{String=("errmsg",errmsg)}]} -> {failure={Error=errmsg}}
+          | {some=[{name="errmsg"; value={String=errmsg}}]} -> {failure={Error=errmsg}}
           | _ -> {failure={Error="ok:{ok}"}})
     | _ -> {success=bson}
 
@@ -1085,13 +1088,13 @@ Cursor = {{
    * Perform a simple integer command, eg. [{ ping : 1 }]
    **/
   simple_int_command(m:Mongo.db, ns:string, cmd:string, arg:int): Mongo.result =
-    run_command(m, ns, [{Int32=(cmd,arg)}])
+    run_command(m, ns, [H.i32(cmd,arg)])
 
   /**
    * Perform a simple integer command, eg. [{ drop : "collection" }]
    **/
   simple_str_command(m:Mongo.db, ns:string, cmd:string, arg:string): Mongo.result =
-    run_command(m, ns, [{String=(cmd,arg)}])
+    run_command(m, ns, [H.str(cmd,arg)])
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
@@ -1132,10 +1135,10 @@ Cursor = {{
     simple_int_command(m, db, "forceerror", 1)
 
   find_int(bson:Bson.document, name:string): outcome(int,Mongo.failure) =
-    match Bson.find(bson,name) with
-    | {some=[{Int32=(_,n)}]} -> {success=n}
-    | {some=[{Int64=(_,n)}]} -> {success=n}
-    | {some=[{Double=(_,n)}]} -> {success=Float.to_int(n)}
+    match Bson.find_element(bson,name) with
+    | {some={value={Int32=n} ...}} -> {success=n}
+    | {some={value={Int64=n} ...}} -> {success=n}
+    | {some={value={Double=n} ...}} -> {success=Float.to_int(n)}
     | _ -> {failure={Error="Missing {name} Int32/Int64/Double"}}
 
   /**
@@ -1149,8 +1152,8 @@ Cursor = {{
    * just an int.
    **/
   count(m:Mongo.db, db:string, coll:string, query_opt:option(Bson.document)): outcome(int,Mongo.failure) =
-    cmd = List.flatten([[{String=("count",coll)}],
-                        (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
+    cmd = List.flatten([[H.str("count",coll)],
+                        (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
        //do println("Cursor.count: bson={Bson.pretty_of_bson(bson)}")
@@ -1158,27 +1161,24 @@ Cursor = {{
     | {~failure} -> {~failure}
 
   distinct(m:Mongo.db, db:string, coll:string, key:string, query_opt:option(Bson.document)): Mongo.result =
-    cmd = List.flatten([[{String=("distinct",coll)}, {String=("key",key)}],
-                        (match query_opt with | {some=query} -> [{Document=("query",query)}] | {none} -> [])])
+    cmd = List.flatten([[H.str("distinct",coll), H.str("key",key)],
+                        (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
        //do println("Cursor.distinct: bson={Bson.pretty_of_bson(bson)}")
        (match Bson.find(bson,"values") with
-        | {some=[{Array=(k,d)}]} -> {success=[{Array=(k,List.rev(d))}]}
+        | {some=[{name=k; value={Array=d}}]} -> {success=[H.arr(k,List.rev(d))]}
         | _ -> {failure={DocError=bson}})
     | {~failure} -> {~failure}
 
   group(m:Mongo.db, db:string, coll:string, key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
     group =
-      [{Document=("group",
+      [H.doc("group",
          List.flatten([
-           [{String=("ns",coll)},
-            {Document=("key",key)},
-            {Code=("$reduce",reduce)},
-            {Document=("initial",initial)}],
-           (match cond_opt with | {some=cond} -> [{Document=("cond",cond)}] | {none} -> [{Null=("cond",void)}]),
-           (match finalize_opt with | {some=finalize} -> [{Code=("finalize",finalize)}] | {none} -> [])]))}]
+           [H.str("ns",coll), H.doc("key",key), H.code("$reduce",reduce), H.doc("initial",initial)],
+           (match cond_opt with | {some=cond} -> [H.doc("cond",cond)] | {none} -> [H.null("cond")]),
+           (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> [])]))]
     //do println("Cursor.group: group={Bson.pretty_of_bson(group)}")
     match run_command(m, db, group) with
     | {success=bson} ->
@@ -1193,7 +1193,7 @@ Cursor = {{
     match simple_int_command(m, "admin", "ismaster", 1) with
     | {success=bson} ->
       (match Bson.find(bson,"ismaster") with
-       | {some=[{Boolean=("ismaster",ismaster)}]} -> {success=ismaster}
+       | {some=[{name="ismaster"; value={Boolean=ismaster}}]} -> {success=ismaster}
        | _ -> {failure={Error="Missing ismaster Boolean"}})
     | {~failure} -> {~failure}
 
@@ -1205,8 +1205,8 @@ Cursor = {{
    **/
   add_user(m:Mongo.db, db:string, user:string, pass:string): bool =
     digest = pass_digest(user,pass)
-    bselector = [{String=("user",user)}]
-    bupdate = [{Document=("$set",[{String=("pwd",digest)}])}]
+    bselector = [H.str("user",user)]
+    bupdate = [H.doc("$set",[H.str("pwd",digest)])]
     Mongo.update(m,Mongo.UpsertBit,(db^".system.users"),bselector,bupdate)
 
   /**
@@ -1217,11 +1217,11 @@ Cursor = {{
   authenticate(m:Mongo.db, db:string, user:string, pass:string): Mongo.result =
     match simple_int_command(m, db, "getnonce", 1) with
     | {success=bson} ->
-      (match Bson.find(bson,"nonce") with
-       | {some=[{String=("nonce",nonce)}]} ->
+      (match Bson.find_element(bson,"nonce") with
+       | {some={name="nonce"; value={String=nonce}}} ->
          digest = pass_digest(user,pass)
          hash = Crypto.Hash.md5("{nonce}{user}{digest}")
-         cmd = [{Int32=("authenticate",1)}, {String=("user",user)}, {String=("nonce",nonce)}, {String=("key",hash)}]
+         cmd = [H.i32("authenticate",1), H.str("user",user), H.str("nonce",nonce), H.str("key",hash)]
          run_command(m,db,cmd)
        | _ -> {failure={Error="Missing nonce String"}})
     | {~failure} -> {~failure}
@@ -1254,33 +1254,33 @@ Indexes = {{
   @private create_index_(m:Mongo.db, ns:string, key:Bson.document, opts:Bson.document): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
-    b = List.flatten([[{Document=("key",key)}, {String=("ns",ns)}, {String=("name",name)}],opts])
+    b = List.flatten([[H.doc("key",key), H.str("ns",ns), H.str("name",name)],opts])
     idxns=(match String.index(".",ns) with | {some=p} -> String.substring(0,p,ns) | {none} -> ns)^".system.indexes"
     Mongo.insert(m,0,idxns,b)
 
   create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
     opts =
-      List.flatten([(if Bitwise.land(options,UniqueBit) != 0 then [{Boolean=("unique",true)}] else []),
-                    (if Bitwise.land(options,DropDupsBit) != 0 then [{Boolean=("dropDups",true)}] else []),
-                    (if Bitwise.land(options,BackgroundBit) != 0 then [{Boolean=("background",true)}] else []),
-                    (if Bitwise.land(options,SparseBit) != 0 then [{Boolean=("sparse",true)}] else [])])
+      List.flatten([(if Bitwise.land(options,UniqueBit) != 0 then [H.bool("unique",true)] else []),
+                    (if Bitwise.land(options,DropDupsBit) != 0 then [H.bool("dropDups",true)] else []),
+                    (if Bitwise.land(options,BackgroundBit) != 0 then [H.bool("background",true)] else []),
+                    (if Bitwise.land(options,SparseBit) != 0 then [H.bool("sparse",true)] else [])])
     create_index_(m, ns, key, opts)
 
   create_indexf(m:Mongo.db, ns:string, key:Bson.document, tags:list(index_tag)): bool =
     opts =
       List.map((t ->
                  match t with
-                 | {Unique} -> {Boolean=("unique",true)}
-                 | {DropDups} -> {Boolean=("dropDups",true)}
-                 | {Background} -> {Boolean=("background",true)}
-                 | {Sparse} -> {Boolean=("sparse",true)}),tags)
+                 | {Unique} -> H.bool("unique",true)
+                 | {DropDups} -> H.bool("dropDups",true)
+                 | {Background} -> H.bool("background",true)
+                 | {Sparse} -> H.bool("sparse",true)),tags)
     create_index_(m, ns, key, opts)
 
   /**
    * Simpler version of the [create_index] function, for a single named field.
    **/
   create_simple_index(m:Mongo.db, ns:string, field:string, options:int): bool =
-    create_index(m, ns, [{Int32=(field,1)}], options)
+    create_index(m, ns, [H.i32(field,1)], options)
 
 }}
 
@@ -1300,8 +1300,8 @@ _ =
   // Check cursor concurrency
   cursor = Cursor.init(mongo,"tutorial.people")
   cursor1 = Cursor.init(mongo,"tutorial.people")
-  cursor = Cursor.set_query(cursor,{some=[{String=("name","Joe")}]})
-  cursor1 = Cursor.set_query(cursor1,{some=[{Int32=("age",55)}]})
+  cursor = Cursor.set_query(cursor,{some=[H.str("name","Joe")]})
+  cursor1 = Cursor.set_query(cursor1,{some=[H.i32("age",55)]})
   cursor = Cursor.set_limit(cursor,3)
   cursor1 = Cursor.set_limit(cursor1,3)
   cursor = Cursor.op_query(cursor)
@@ -1332,17 +1332,17 @@ _ =
   cursor1 = Cursor.reset(cursor1)
   do println("error=\"{cursor.error}\"")
   do println("error1=\"{cursor1.error}\"")
-  doc1 = Cursor.find_one(mongo,"tutorial.people",[{Int32=("age",44)}],{none})
+  doc1 = Cursor.find_one(mongo,"tutorial.people",[H.i32("age",44)],{none})
   do println("doc1={doc1}")
-  res = Cursor.run_command(mongo, "test", [{String=("create","cursors")}, {Boolean=("capped",true)}, {Int32=("size",1000000)}])
+  res = Cursor.run_command(mongo, "test", [H.str("create","cursors"), H.bool("capped",true), H.i32("size",1000000)])
   do println("res={res}")
-  b = [{ObjectID=("_id",Bson.oid_of_string("353535353535353535353535"))}, {Int32=("a",0)}]
+  b = [{name="_id"; value={ObjectID=Bson.oid_of_string("353535353535353535353535")}}, H.i32("a",0)]
   _success = Mongo.insert(mongo,0,"test.cursors",b)
-  b = [{ObjectID=("_id",Bson.oid_of_string("363636363636363636363636"))}, {Int32=("a",1)}]
+  b = [{name="_id"; value={ObjectID=Bson.oid_of_string("363636363636363636363636")}}, H.i32("a",1)]
   _success = Mongo.insert(mongo,0,"test.cursors",b)
   res = Cursor.count(mongo,"test","cursors",{none})
   do println("count={res}")
-  res = Cursor.count(mongo,"test","cursors",{some=[{Document=("a",[{Int32=("$gt",0)}])}]})
+  res = Cursor.count(mongo,"test","cursors",{some=[H.doc("a",[H.i32("$gt",0)])]})
   do println("count={res}")
   ismaster = Cursor.ismaster(mongo)
   do println("ismaster={ismaster}")
@@ -1354,18 +1354,17 @@ _ =
   do println("drop={drop}")
   res = Cursor.check_connection(mongo)
   do println("check_connection={res}")
-  key = [{Int32=("age",1)}, {Int32=("name",1)}]
+  key = [H.i32("age",1), H.i32("name",1)]
   success = Indexes.create_index(mongo,"tutorial.people",key,0)
   do println("create_index={success}")
-  doc = Cursor.find_one(mongo,"tutorial.system.indexes",[{Document=("key",key)}],{none})
+  doc = Cursor.find_one(mongo,"tutorial.system.indexes",[H.doc("key",key)],{none})
   do println("doc={doc}")
-  key = [{Int32=("fog",1)}]
-  success = Indexes.create_index(mongo,"test.bar",key,(Indexes._Sparse+Indexes._Unique))
+  key = [H.i32("fog",1)]
+  success = Indexes.create_index(mongo,"test.bar",key,(Indexes.SparseBit+Indexes.UniqueBit))
   do println("create_index={success}")
-  doc = Cursor.find_one(mongo,"test.system.indexes",[{Document=("key",key)}],{none})
+  doc = Cursor.find_one(mongo,"test.system.indexes",[H.doc("key",key)],{none})
   do println("doc={doc}")
   //do println("cursor={cursor}")
   do Mongo.close(mongo)
   void
 */
-

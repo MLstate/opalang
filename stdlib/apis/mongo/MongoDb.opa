@@ -125,19 +125,6 @@
  *      in the same collection.
  **/
 
-/* Helper functions */
-dl(l:list(Bson.element)):Bson.document = l
-doc(n:string,d:Bson.document):Bson.element = {Document=(n,d)}
-dd(n:string,d:Bson.document):Bson.document = [{Document=(n,d)}]
-arr(n:string,l:list(Bson.document)):Bson.element = {Array=(n,List.mapi((i, d -> ({Document=("{i}",d)}:Bson.element)),l))}
-i32(n:string,i:int):Bson.element = {Int32=(n,i)}
-i64(n:string,i:int):Bson.element = {Int64=(n,i)}
-dbl(n:string,d:float):Bson.element = {Double=(n,d)}
-str(n:string,s:string):Bson.element = {String=(n,s)}
-bool(n:string,b:bool):Bson.element = {Boolean=(n,b)}
-binary(n:string,b:string):Bson.element = {Binary=(n,b)}
-null(n:string):Bson.element = {Null=(n,void)}
-
 /*
  * MDB {{ ... }}:
  *   
@@ -260,7 +247,7 @@ MDB : MDB = {{
    **/
   opa2doc(v:'a): Bson.document =
     match MongoDb.opa_to_bson("value",v,{none}) with
-    | [{Document=("value",doc)}] -> doc
+    | [{name="value"; value={Document=doc}}] -> doc
     | doc -> doc
 
 }}
@@ -411,13 +398,13 @@ Select : Select = {{
   @private
   string_of_element(e:Bson.element): string =
     match e with
-    | {Int32=(_,i)} -> Int.to_string(i)
-    | {Int64=(_,i)} -> Int.to_string(i)
-    | {String=(_,s)} -> s
-    | {Boolean=(_,b)} -> Bool.to_string(b)
-    | {Document=(_,d)} -> String.concat(".",List.map(string_of_element,d))
-    | {Array=(_,a)} -> String.concat("_",List.map(string_of_element,a))
-    | {Null=(_,_)} -> "" // <-- ???
+    | {value={Int32=i} ...} -> Int.to_string(i)
+    | {value={Int64=i} ...} -> Int.to_string(i)
+    | {value={String=s} ...} -> s
+    | {value={Boolean=b} ...} -> Bool.to_string(b)
+    | {value={Document=d} ...} -> String.concat(".",List.map(string_of_element,d))
+    | {value={Array=a} ...} -> String.concat("_",List.map(string_of_element,a))
+    | {value={Null=_} ...} -> "" // <-- ???
     | _ -> @fail
 
   @private
@@ -432,35 +419,35 @@ Select : Select = {{
 
   empty(/*default:option('a)*/): select = {select=[]; /*~default*/}
 
-  key(name:string, s:select): select = { s with select=[{Document=(name,s.select)}] }
+  key(name:string, s:select): select = { s with select=[H.doc(name,s.select)] }
 
   path(path:list(string), s:select): select =
-    List.fold_right((s, name -> { s with select=[{Document=(name,s.select)}] }),path,s)
+    List.fold_right((s, name -> { s with select=[H.doc(name,s.select)] }),path,s)
 
   dot(mpath:MongoDb.path, s:select): select =
     path(List.map(string_of_key,mpath), s)
 
-  double(s:select, name:string, d:float): select = { s with select=[{Double=(name,d)}|s.select] }
-  string(s:select, name:string, str:string): select = { s with select=[{String=(name,str)}|s.select] }
-  doc(s:select, name:string, d:Bson.document): select = { s with select=[{Document=(name,d)}|s.select] }
+  double(s:select, name:string, d:float): select = { s with select=[H.dbl(name,d)|s.select] }
+  string(s:select, name:string, str:string): select = { s with select=[H.str(name,str)|s.select] }
+  doc(s:select, name:string, d:Bson.document): select = { s with select=[H.doc(name,d)|s.select] }
   array(s:select, name:string, l:list('b)): select =
     ty = @typeof((Magic.id(void):'b))
     d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
-    { s with select=[{Array=(name,d)}|s.select] }
-  binary(s:select, name:string, bin:string): select = { s with select=[{Binary=(name,bin)}|s.select] }
-  id(s:select, name:string, id:string): select = { s with select=[{ObjectID=(name,Bson.oid_of_string(id))}|s.select] }
-  newid(s:select, name:string): select = { s with select=[{ObjectID=(name,Bson.new_oid(void))}|s.select] }
-  bool(s:select, name:string, b:bool): select = { s with select=[{Boolean=(name,b)}|s.select] }
-  date(s:select, name:string, d:Date.date): select = { s with select=[{Date=(name,d)}|s.select] }
-  null(s:select, name:string): select = { s with select=[{Null=(name,void)}|s.select] }
-  regexp(s:select, name:string, re:string, opts:string): select = { s with select=[{Regexp=(name,(re,opts))}|s.select] }
-  code(s:select, name:string, c:string): select = { s with select=[{Code=(name,c)}|s.select] }
-  symbol(s:select, name:string, sym:string): select = { s with select=[{Symbol=(name,sym)}|s.select] }
+    { s with select=[H.arr(name,d)|s.select] }
+  binary(s:select, name:string, bin:string): select = { s with select=[H.binary(name,bin)|s.select] }
+  id(s:select, name:string, id:string): select = { s with select=[H.oid(name,Bson.oid_of_string(id))|s.select] }
+  newid(s:select, name:string): select = { s with select=[H.oid(name,Bson.new_oid(void))|s.select] }
+  bool(s:select, name:string, b:bool): select = { s with select=[H.bool(name,b)|s.select] }
+  date(s:select, name:string, d:Date.date): select = { s with select=[H.date(name,d)|s.select] }
+  null(s:select, name:string): select = { s with select=[H.null(name)|s.select] }
+  regexp(s:select, name:string, re:string, opts:string): select = { s with select=[H.regexp(name,(re,opts))|s.select] }
+  code(s:select, name:string, c:string): select = { s with select=[H.code(name,c)|s.select] }
+  symbol(s:select, name:string, sym:string): select = { s with select=[H.symbol(name,sym)|s.select] }
   codescope(s:select, name:string, c:string, sc:Bson.document): select =
-    { s with select=[{CodeScope=(name,(c,sc))}|s.select] }
-  int32(s:select, name:string, i:int): select = { s with select=[{Int32=(name,i)}|s.select] }
-  ts(s:select, name:string, t:int, i:int): select = { s with select=[{Timestamp=(name,(t,i))}|s.select] }
-  int64(s:select, name:string, i:int): select = { s with select=[{Int64=(name,i)}|s.select] }
+    { s with select=[H.codescope(name,(c,sc))|s.select] }
+  int32(s:select, name:string, i:int): select = { s with select=[H.i32(name,i)|s.select] }
+  ts(s:select, name:string, t:int, i:int): select = { s with select=[H.timestamp(name,(t,i))|s.select] }
+  int64(s:select, name:string, i:int): select = { s with select=[H.i64(name,i)|s.select] }
 
   gti32(i:int, s:select): select = int32(s, "$gt", i)
   lti32(i:int, s:select): select = int32(s, "$lt", i)
@@ -490,8 +477,8 @@ Select : Select = {{
     select =
       ((match s.select with
         | [] -> []
-        | [e] -> [{Document=(Bson.key(e),[Bson.set_key(e,op)])}]
-        | l -> List.map((e -> {Document=(Bson.key(e),[Bson.set_key(e,op)])}),l)):Bson.document)
+        | [e] -> [H.doc(Bson.key(e),[Bson.set_key(e,op)])]
+        | l -> List.map((e -> H.doc(Bson.key(e),[Bson.set_key(e,op)])),l)):Bson.document)
     { s with ~select }
 
   gt(s:select): select = set_op(s, "$gt")
@@ -502,15 +489,14 @@ Select : Select = {{
 
   @private
   boolop(op:string, s1:select, s2:select): select =
-    { select=([{Array=(op,([{Document=("0",s1.select)},
-                            {Document=("1",s2.select)}]:Bson.document))}]:Bson.document);
+    { select=([H.arr(op,([H.doc("0",s1.select),H.doc("1",s2.select)]:Bson.document))]:Bson.document);
       /*default=s1.default*/ }
 
   @private
   lboolop(op:string, ss:list(select)): select =
     match ss with
     | [] -> empty(/*{none}*/)
-    | [s|t] -> { select=[{Array=(op,(List.mapi((i, ss -> {Document=("{i}",ss.select)}),[s|t]):Bson.document))}];
+    | [s|t] -> { select=[H.arr(op,(List.mapi((i, ss -> H.doc("{i}",ss.select)),[s|t]):Bson.document))];
                  /*default=s.default*/ }
 
   and(s1:select, s2:select): select = boolop("$and",s1,s2)
@@ -524,7 +510,7 @@ Select : Select = {{
   in(s:select, a:list('b)): select = array(s, "$in", a)
   nin(s:select, a:list('b)): select = array(s, "$nin", a)
 
-  @private docbool(s:select, name:string, op:string, tf:bool): select = doc(s,name,[{Boolean=(op,tf)}])
+  @private docbool(s:select, name:string, op:string, tf:bool): select = doc(s,name,[H.bool(op,tf)])
 
   exists(s:select, name:string, tf:bool): select = docbool(s, name, "$exists", tf)
 
@@ -533,7 +519,7 @@ Select : Select = {{
   size(s:select, x:int): select = int64(s, "$size", x)
   typ(s:select, t:int): select = int64(s, "$type", t)
 
-  regex(s:select, re:string, opts:string): select = { s with select=[{Regexp=("$regex",(re,opts))}|s.select] }
+  regex(s:select, re:string, opts:string): select = { s with select=[H.regexp("$regex",(re,opts))|s.select] }
 
   inc(s:select): select = key("$inc",s)
   set(s:select): select = key("$set",s)
@@ -551,7 +537,7 @@ Select : Select = {{
 
   not(s:select): select = key("$not",s)
 
-  where(s:select, whr:string): select = { s with select=[{Code=("$where",whr)}|s.select] }
+  where(s:select, whr:string): select = { s with select=[H.code("$where",whr)|s.select] }
 
   returnKey(s:select, tf:bool): select = bool(s, "$returnKey", tf)
   maxScan(s:select, i:int): select = int64(s, "$maxScan", i)
@@ -752,9 +738,9 @@ Collection : Collection = {{
     match res with
     | {success=doc} ->
       (match Bson.find(doc,"retval") with
-       | {some=[{Array=(k,arr)}]} ->
+       | {some=[{name=k; value={Array=arr}}]} ->
           ty = {TyName_args=[@typeval('a)]; TyName_ident="list"}
-          (match MongoDb.bson_to_opa([{Array=(k,List.rev(arr))}], ty, k) with
+          (match MongoDb.bson_to_opa([H.arr(k,List.rev(arr))], ty, k) with
            | {some=v} ->
               retval = (Magic.id(v):list('a))
               (match Cursor.find_int(doc, "count") with
@@ -776,6 +762,7 @@ Collection : Collection = {{
 }}
 
 /* Test code for Collection */
+/*
 S = Select
 C = Collection
 do println("Collection:")
@@ -845,16 +832,17 @@ do match C.count(c1, {some=q3}) with
 do match C.distinct(c1, "i", {none}) with
    | {success=(il:list(int))} -> println("distinct(i)={il}")
    | {~failure} -> println("  err(distinct)={Bson.string_of_failure(failure)}")
-key = [{Int64=("i",1)}]
+key = [H.i64("i",1)]
 do println("key={key}")
 reduce = "function(obj,prev)\{prev.count++;\}"
-initial = [{Int32=("count",0)}]
+initial = [H.i32("count",0)]
 do println("initial={initial}")
 // Careful with group, the type of "retval" is a list of the key type with "count:float" added.
 do match C.analyze_group(C.group(c1, key, reduce, initial, {none}, {none})) with
    | {success=(group:group({i:int; count:float}))} -> println("group={group}")
    | {~failure} -> println("  err(group)={Bson.string_of_failure(failure)}")
 _ = C.destroy(c1)
+*/
 
 /** Later:
 MongoMap = {{
