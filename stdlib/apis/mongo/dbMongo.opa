@@ -503,7 +503,7 @@ MongoDb = {{
            doc = Bson.remove_id(doc)
            //do println("  doc={doc}\n  keys={Bson.keys(doc)}")
            element_to_rec(doc, row)
-         | _ -> @fail("MongoDb.bson_to_opa: expected record, got {element}"))
+         | _ -> element_to_rec([element],row))
       | {TySum_col = col}
       | {TySum_col = col; TySum_colvar = _} ->
         //do println("element={element} col={OpaType.to_pretty(ty)}")

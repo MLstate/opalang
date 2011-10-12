@@ -277,136 +277,136 @@ mongodb = (Magic.id(MDB.open(50*1024,"www.localhost.local",27017)):mongodb)
  *   
  */
 
-@abstract type select('a) = {
+@abstract type select = {
   select:Bson.document;
-  default:option('a);
+  //default:option('a);
 }
 
 type Select = {{
   // TODO: Documentation
-  select_to_document : select('a) -> Bson.document
-  select_to_default : select('a) -> option('a)
+  select_to_document : select -> Bson.document
+  //select_to_default : select -> option('a)
 
   dot_path : MongoDb.path -> string
 
 /*
-  path : MongoDb.path -> select('a)
-  path_intrange : MongoDb.path, option(int), option(int) -> select('a) 
-  check_fst_arg_in_pair : select('a) -> select('a)
-  check_field_in_record : select('a), string -> select('a)
+  path : MongoDb.path -> select
+  path_intrange : MongoDb.path, option(int), option(int) -> select 
+  check_fst_arg_in_pair : select -> select
+  check_field_in_record : select, string -> select
 */
 
-  empty : option('a) -> select('a)
+  empty : /*option('a)*/ -> select
 
-  key : string, select('a) -> select('a)
-  path : list(string), select('a) -> select('a)
-  dot : MongoDb.path, select('a) -> select('a)
+  key : string, select -> select
+  path : list(string), select -> select
+  dot : MongoDb.path, select -> select
 
-  double : select('a), string, float -> select('a)
-  string : select('a), string, string -> select('a)
-  doc : select('a), string, Bson.document -> select('a)
-  array : select('a), string, list('b) -> select('a)
-  binary : select('a), string, string -> select('a)
-  id : select('a), string, string -> select('a)
-  newid : select('a), string -> select('a)
-  bool : select('a), string, bool -> select('a)
-  date : select('a), string, Date.date -> select('a)
-  null : select('a), string -> select('a)
-  regexp : select('a), string, string, string -> select('a)
-  code : select('a), string, string -> select('a)
-  symbol : select('a), string, string -> select('a)
-  codescope : select('a), string, string, Bson.document -> select('a)
-  int32 : select('a), string, int -> select('a)
-  ts : select('a), string, int, int -> select('a)
-  int64 : select('a), string, int -> select('a)
+  double : select, string, float -> select
+  string : select, string, string -> select
+  doc : select, string, Bson.document -> select
+  array : select, string, list('b) -> select
+  binary : select, string, string -> select
+  id : select, string, string -> select
+  newid : select, string -> select
+  bool : select, string, bool -> select
+  date : select, string, Date.date -> select
+  null : select, string -> select
+  regexp : select, string, string, string -> select
+  code : select, string, string -> select
+  symbol : select, string, string -> select
+  codescope : select, string, string, Bson.document -> select
+  int32 : select, string, int -> select
+  ts : select, string, int, int -> select
+  int64 : select, string, int -> select
 
-  gti32 : int, select('a) -> select('a)
-  lti32 : int, select('a) -> select('a)
-  gtei32 : int, select('a) -> select('a)
-  ltei32 : int, select('a) -> select('a)
-  nei32 : int, select('a) -> select('a)
+  gti32 : int, select -> select
+  lti32 : int, select -> select
+  gtei32 : int, select -> select
+  ltei32 : int, select -> select
+  nei32 : int, select -> select
 
-  gti64 : int, select('a) -> select('a)
-  lti64 : int, select('a) -> select('a)
-  gtei64 : int, select('a) -> select('a)
-  ltei64 : int, select('a) -> select('a)
-  nei64 : int, select('a) -> select('a)
+  gti64 : int, select -> select
+  lti64 : int, select -> select
+  gtei64 : int, select -> select
+  ltei64 : int, select -> select
+  nei64 : int, select -> select
 
-  gtd : float, select('a) -> select('a)
-  ltd : float, select('a) -> select('a)
-  gted : float, select('a) -> select('a)
-  lted : float, select('a) -> select('a)
-  ned : float, select('a) -> select('a)
+  gtd : float, select -> select
+  ltd : float, select -> select
+  gted : float, select -> select
+  lted : float, select -> select
+  ned : float, select -> select
 
-  gts : string, select('a) -> select('a)
-  lts : string, select('a) -> select('a)
-  gtes : string, select('a) -> select('a)
-  ltes : string, select('a) -> select('a)
-  nes : string, select('a) -> select('a)
+  gts : string, select -> select
+  lts : string, select -> select
+  gtes : string, select -> select
+  ltes : string, select -> select
+  nes : string, select -> select
 
-  set_op : select('a), string -> select('a)
+  set_op : select, string -> select
 
-  gt : select('a) -> select('a)
-  lt : select('a) -> select('a)
-  gte : select('a) -> select('a)
-  lte : select('a) -> select('a)
-  ne : select('a) -> select('a)
+  gt : select -> select
+  lt : select -> select
+  gte : select -> select
+  lte : select -> select
+  ne : select -> select
 
-  and : select('a), select('a) -> select('a)
-  andalso : list(select('a)) -> select('a)
-  or : select('a), select('a) -> select('a)
-  orelse : list(select('a)) -> select('a)
-  nor : select('a), select('a) -> select('a)
-  noreither : list(select('a)) -> select('a)
+  and : select, select -> select
+  andalso : list(select) -> select
+  or : select, select -> select
+  orelse : list(select) -> select
+  nor : select, select -> select
+  noreither : list(select) -> select
 
-  all : select('a), list('b) -> select('a)
-  in : select('a), list('b) -> select('a)
-  nin : select('a), list('b) -> select('a)
+  all : select, list('b) -> select
+  in : select, list('b) -> select
+  nin : select, list('b) -> select
 
-  exists : select('a), string, bool -> select('a)
+  exists : select, string, bool -> select
 
-  mod : select('a), 'b, 'b -> select('a)
+  mod : select, 'b, 'b -> select
 
-  size : select('a), int -> select('a)
-  typ : select('a), int -> select('a)
+  size : select, int -> select
+  typ : select, int -> select
 
-  regex : select('a), string, string -> select('a)
+  regex : select, string, string -> select
 
-  inc : select('a) -> select('a)
-  set : select('a) -> select('a)
-  unset : select('a) -> select('a)
-  push : select('a) -> select('a)
-  pushAll : select('a) -> select('a)
-  addToSet : select('a) -> select('a)
-  pop : select('a) -> select('a)
-  pull : select('a) -> select('a)
-  pullAll : select('a) -> select('a)
-  rename : select('a) -> select('a)
-  bit : select('a) -> select('a)
+  inc : select -> select
+  set : select -> select
+  unset : select -> select
+  push : select -> select
+  pushAll : select -> select
+  addToSet : select -> select
+  pop : select -> select
+  pull : select -> select
+  pullAll : select -> select
+  rename : select -> select
+  bit : select -> select
 
-  elemMatch : select('a) -> select('a)
+  elemMatch : select -> select
 
-  not : select('a) -> select('a)
+  not : select -> select
 
-  where : select('a), string -> select('a)
+  where : select, string -> select
 
-  returnKey : select('a), bool -> select('a)
-  maxScan : select('a), int -> select('a)
-  query : select('a), Bson.document -> select('a)
-  orderby : select('a), Bson.document -> select('a)
-  explain : select('a), bool -> select('a)
-  snapshot : select('a), bool -> select('a)
-  min : select('a), Bson.document -> select('a)
-  max : select('a), Bson.document -> select('a)
-  showDiskLoc : select('a), bool -> select('a)
-  hint : select('a), Bson.document -> select('a)
-  comment : select('a), string -> select('a)
+  returnKey : select, bool -> select
+  maxScan : select, int -> select
+  query : select, Bson.document -> select
+  orderby : select, Bson.document -> select
+  explain : select, bool -> select
+  snapshot : select, bool -> select
+  min : select, Bson.document -> select
+  max : select, Bson.document -> select
+  showDiskLoc : select, bool -> select
+  hint : select, Bson.document -> select
+  comment : select, string -> select
 }}
 
 Select : Select = {{
 
   select_to_document(select:select): Bson.document = select.select
-  select_to_default(select:select('a)): option('a) = select.default
+  //select_to_default(select:select): option('a) = select.default
 
   @private
   string_of_element(e:Bson.element): string =
@@ -430,63 +430,63 @@ Select : Select = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
-  empty(default:option('a)): select('a) = {select=[]; ~default}
+  empty(/*default:option('a)*/): select = {select=[]; /*~default*/}
 
-  key(name:string, s:select('a)): select('a) = { s with select=[{Document=(name,s.select)}] }
+  key(name:string, s:select): select = { s with select=[{Document=(name,s.select)}] }
 
-  path(path:list(string), s:select('a)): select('a) =
+  path(path:list(string), s:select): select =
     List.fold_right((s, name -> { s with select=[{Document=(name,s.select)}] }),path,s)
 
-  dot(mpath:MongoDb.path, s:select('a)): select('a) =
+  dot(mpath:MongoDb.path, s:select): select =
     path(List.map(string_of_key,mpath), s)
 
-  double(s:select('a), name:string, d:float): select('a) = { s with select=[{Double=(name,d)}|s.select] }
-  string(s:select('a), name:string, str:string): select('a) = { s with select=[{String=(name,str)}|s.select] }
-  doc(s:select('a), name:string, d:Bson.document): select('a) = { s with select=[{Document=(name,d)}|s.select] }
-  array(s:select('a), name:string, l:list('b)): select('a) =
+  double(s:select, name:string, d:float): select = { s with select=[{Double=(name,d)}|s.select] }
+  string(s:select, name:string, str:string): select = { s with select=[{String=(name,str)}|s.select] }
+  doc(s:select, name:string, d:Bson.document): select = { s with select=[{Document=(name,d)}|s.select] }
+  array(s:select, name:string, l:list('b)): select =
     ty = @typeof((Magic.id(void):'b))
     d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
     { s with select=[{Array=(name,d)}|s.select] }
-  binary(s:select('a), name:string, bin:string): select('a) = { s with select=[{Binary=(name,bin)}|s.select] }
-  id(s:select('a), name:string, id:string): select('a) = { s with select=[{ObjectID=(name,Bson.oid_of_string(id))}|s.select] }
-  newid(s:select('a), name:string): select('a) = { s with select=[{ObjectID=(name,Bson.new_oid(void))}|s.select] }
-  bool(s:select('a), name:string, b:bool): select('a) = { s with select=[{Boolean=(name,b)}|s.select] }
-  date(s:select('a), name:string, d:Date.date): select('a) = { s with select=[{Date=(name,d)}|s.select] }
-  null(s:select('a), name:string): select('a) = { s with select=[{Null=(name,void)}|s.select] }
-  regexp(s:select('a), name:string, re:string, opts:string): select('a) = { s with select=[{Regexp=(name,(re,opts))}|s.select] }
-  code(s:select('a), name:string, c:string): select('a) = { s with select=[{Code=(name,c)}|s.select] }
-  symbol(s:select('a), name:string, sym:string): select('a) = { s with select=[{Symbol=(name,sym)}|s.select] }
-  codescope(s:select('a), name:string, c:string, sc:Bson.document): select('a) =
+  binary(s:select, name:string, bin:string): select = { s with select=[{Binary=(name,bin)}|s.select] }
+  id(s:select, name:string, id:string): select = { s with select=[{ObjectID=(name,Bson.oid_of_string(id))}|s.select] }
+  newid(s:select, name:string): select = { s with select=[{ObjectID=(name,Bson.new_oid(void))}|s.select] }
+  bool(s:select, name:string, b:bool): select = { s with select=[{Boolean=(name,b)}|s.select] }
+  date(s:select, name:string, d:Date.date): select = { s with select=[{Date=(name,d)}|s.select] }
+  null(s:select, name:string): select = { s with select=[{Null=(name,void)}|s.select] }
+  regexp(s:select, name:string, re:string, opts:string): select = { s with select=[{Regexp=(name,(re,opts))}|s.select] }
+  code(s:select, name:string, c:string): select = { s with select=[{Code=(name,c)}|s.select] }
+  symbol(s:select, name:string, sym:string): select = { s with select=[{Symbol=(name,sym)}|s.select] }
+  codescope(s:select, name:string, c:string, sc:Bson.document): select =
     { s with select=[{CodeScope=(name,(c,sc))}|s.select] }
-  int32(s:select('a), name:string, i:int): select('a) = { s with select=[{Int32=(name,i)}|s.select] }
-  ts(s:select('a), name:string, t:int, i:int): select('a) = { s with select=[{Timestamp=(name,(t,i))}|s.select] }
-  int64(s:select('a), name:string, i:int): select('a) = { s with select=[{Int64=(name,i)}|s.select] }
+  int32(s:select, name:string, i:int): select = { s with select=[{Int32=(name,i)}|s.select] }
+  ts(s:select, name:string, t:int, i:int): select = { s with select=[{Timestamp=(name,(t,i))}|s.select] }
+  int64(s:select, name:string, i:int): select = { s with select=[{Int64=(name,i)}|s.select] }
 
-  gti32(i:int, s:select('a)): select('a) = int32(s, "$gt", i)
-  lti32(i:int, s:select('a)): select('a) = int32(s, "$lt", i)
-  gtei32(i:int, s:select('a)): select('a) = int32(s, "$gte", i)
-  ltei32(i:int, s:select('a)): select('a) = int32(s, "$lte", i)
-  nei32(i:int, s:select('a)): select('a) = int32(s, "$ne", i)
+  gti32(i:int, s:select): select = int32(s, "$gt", i)
+  lti32(i:int, s:select): select = int32(s, "$lt", i)
+  gtei32(i:int, s:select): select = int32(s, "$gte", i)
+  ltei32(i:int, s:select): select = int32(s, "$lte", i)
+  nei32(i:int, s:select): select = int32(s, "$ne", i)
 
-  gti64(i:int, s:select('a)): select('a) = int64(s, "$gt", i)
-  lti64(i:int, s:select('a)): select('a) = int64(s, "$lt", i)
-  gtei64(i:int, s:select('a)): select('a) = int64(s, "$gte", i)
-  ltei64(i:int, s:select('a)): select('a) = int64(s, "$lte", i)
-  nei64(i:int, s:select('a)): select('a) = int64(s, "$ne", i)
+  gti64(i:int, s:select): select = int64(s, "$gt", i)
+  lti64(i:int, s:select): select = int64(s, "$lt", i)
+  gtei64(i:int, s:select): select = int64(s, "$gte", i)
+  ltei64(i:int, s:select): select = int64(s, "$lte", i)
+  nei64(i:int, s:select): select = int64(s, "$ne", i)
 
-  gtd(d:float, s:select('a)): select('a) = double(s, "$gt", d)
-  ltd(d:float, s:select('a)): select('a) = double(s, "$lt", d)
-  gted(d:float, s:select('a)): select('a) = double(s, "$gte", d)
-  lted(d:float, s:select('a)): select('a) = double(s, "$lte", d)
-  ned(d:float, s:select('a)): select('a) = double(s, "$ne", d)
+  gtd(d:float, s:select): select = double(s, "$gt", d)
+  ltd(d:float, s:select): select = double(s, "$lt", d)
+  gted(d:float, s:select): select = double(s, "$gte", d)
+  lted(d:float, s:select): select = double(s, "$lte", d)
+  ned(d:float, s:select): select = double(s, "$ne", d)
 
-  gts(str:string, s:select('a)): select('a) = string(s, "$gt", str)
-  lts(str:string, s:select('a)): select('a) = string(s, "$lt", str)
-  gtes(str:string, s:select('a)): select('a) = string(s, "$gte", str)
-  ltes(str:string, s:select('a)): select('a) = string(s, "$lte", str)
-  nes(str:string, s:select('a)): select('a) = string(s, "$ne", str)
+  gts(str:string, s:select): select = string(s, "$gt", str)
+  lts(str:string, s:select): select = string(s, "$lt", str)
+  gtes(str:string, s:select): select = string(s, "$gte", str)
+  ltes(str:string, s:select): select = string(s, "$lte", str)
+  nes(str:string, s:select): select = string(s, "$ne", str)
 
-  set_op(s:select('a), op:string): select('a) =
+  set_op(s:select, op:string): select =
     select =
       ((match s.select with
         | [] -> []
@@ -494,76 +494,76 @@ Select : Select = {{
         | l -> List.map((e -> {Document=(Bson.key(e),[Bson.set_key(e,op)])}),l)):Bson.document)
     { s with ~select }
 
-  gt(s:select('a)): select('a) = set_op(s, "$gt")
-  lt(s:select('a)): select('a) = set_op(s, "$lt")
-  gte(s:select('a)): select('a) = set_op(s, "$gte")
-  lte(s:select('a)): select('a) = set_op(s, "$lte")
-  ne(s:select('a)): select('a) = set_op(s, "$ne")
+  gt(s:select): select = set_op(s, "$gt")
+  lt(s:select): select = set_op(s, "$lt")
+  gte(s:select): select = set_op(s, "$gte")
+  lte(s:select): select = set_op(s, "$lte")
+  ne(s:select): select = set_op(s, "$ne")
 
   @private
-  boolop(op:string, s1:select('a), s2:select('a)): select('a) =
+  boolop(op:string, s1:select, s2:select): select =
     { select=([{Array=(op,([{Document=("0",s1.select)},
                             {Document=("1",s2.select)}]:Bson.document))}]:Bson.document);
-      default=s1.default }
+      /*default=s1.default*/ }
 
   @private
-  lboolop(op:string, ss:list(select('a))): select('a) =
+  lboolop(op:string, ss:list(select)): select =
     match ss with
-    | [] -> empty({none})
+    | [] -> empty(/*{none}*/)
     | [s|t] -> { select=[{Array=(op,(List.mapi((i, ss -> {Document=("{i}",ss.select)}),[s|t]):Bson.document))}];
-                 default=s.default }
+                 /*default=s.default*/ }
 
-  and(s1:select('a), s2:select('a)): select('a) = boolop("$and",s1,s2)
-  andalso(ss:list(select('a))): select('a) = lboolop("$and",ss)
-  or(s1:select('a), s2:select('a)): select('a) = boolop("$or",s1,s2)
-  orelse(ss:list(select('a))): select('a) = lboolop("$or",ss)
-  nor(s1:select('a), s2:select('a)): select('a) = boolop("$nor",s1,s2)
-  noreither(ss:list(select('a))): select('a) = lboolop("$nor",ss)
+  and(s1:select, s2:select): select = boolop("$and",s1,s2)
+  andalso(ss:list(select)): select = lboolop("$and",ss)
+  or(s1:select, s2:select): select = boolop("$or",s1,s2)
+  orelse(ss:list(select)): select = lboolop("$or",ss)
+  nor(s1:select, s2:select): select = boolop("$nor",s1,s2)
+  noreither(ss:list(select)): select = lboolop("$nor",ss)
 
-  all(s:select('a), a:list('b)): select('a) = array(s, "$all", a)
-  in(s:select('a), a:list('b)): select('a) = array(s, "$in", a)
-  nin(s:select('a), a:list('b)): select('a) = array(s, "$nin", a)
+  all(s:select, a:list('b)): select = array(s, "$all", a)
+  in(s:select, a:list('b)): select = array(s, "$in", a)
+  nin(s:select, a:list('b)): select = array(s, "$nin", a)
 
-  @private docbool(s:select('a), name:string, op:string, tf:bool): select('a) = doc(s,name,[{Boolean=(op,tf)}])
+  @private docbool(s:select, name:string, op:string, tf:bool): select = doc(s,name,[{Boolean=(op,tf)}])
 
-  exists(s:select('a), name:string, tf:bool): select('a) = docbool(s, name, "$exists", tf)
+  exists(s:select, name:string, tf:bool): select = docbool(s, name, "$exists", tf)
 
-  mod(s:select('a), x:'b, y:'b): select('a) = array(s, "$mod", [x,y])
+  mod(s:select, x:'b, y:'b): select = array(s, "$mod", [x,y])
 
-  size(s:select('a), x:int): select('a) = int64(s, "$size", x)
-  typ(s:select('a), t:int): select('a) = int64(s, "$type", t)
+  size(s:select, x:int): select = int64(s, "$size", x)
+  typ(s:select, t:int): select = int64(s, "$type", t)
 
-  regex(s:select('a), re:string, opts:string): select('a) = { s with select=[{Regexp=("$regex",(re,opts))}|s.select] }
+  regex(s:select, re:string, opts:string): select = { s with select=[{Regexp=("$regex",(re,opts))}|s.select] }
 
-  inc(s:select('a)): select('a) = key("$inc",s)
-  set(s:select('a)): select('a) = key("$set",s)
-  unset(s:select('a)): select('a) = key("$unset",s)
-  push(s:select('a)): select('a) = key("$push",s)
-  pushAll(s:select('a)): select('a) = key("$pushAll",s)
-  addToSet(s:select('a)): select('a) = key("$addToSet",s)
-  pop(s:select('a)): select('a) = key("$pop",s)
-  pull(s:select('a)): select('a) = key("$pull",s)
-  pullAll(s:select('a)): select('a) = key("$pullAll",s)
-  rename(s:select('a)): select('a) = key("$rename",s)
-  bit(s:select('a)): select('a) = key("$bit",s)
+  inc(s:select): select = key("$inc",s)
+  set(s:select): select = key("$set",s)
+  unset(s:select): select = key("$unset",s)
+  push(s:select): select = key("$push",s)
+  pushAll(s:select): select = key("$pushAll",s)
+  addToSet(s:select): select = key("$addToSet",s)
+  pop(s:select): select = key("$pop",s)
+  pull(s:select): select = key("$pull",s)
+  pullAll(s:select): select = key("$pullAll",s)
+  rename(s:select): select = key("$rename",s)
+  bit(s:select): select = key("$bit",s)
 
-  elemMatch(s:select('a)): select('a) = key("$elemMatch",s)
+  elemMatch(s:select): select = key("$elemMatch",s)
 
-  not(s:select('a)): select('a) = key("$not",s)
+  not(s:select): select = key("$not",s)
 
-  where(s:select('a), whr:string): select('a) = { s with select=[{Code=("$where",whr)}|s.select] }
+  where(s:select, whr:string): select = { s with select=[{Code=("$where",whr)}|s.select] }
 
-  returnKey(s:select('a), tf:bool): select('a) = bool(s, "$returnKey", tf)
-  maxScan(s:select('a), i:int): select('a) = int64(s, "$maxScan", i)
-  query(s:select('a), d:Bson.document): select('a) = doc(s, "$query", d)
-  orderby(s:select('a), d:Bson.document): select('a) = doc(s, "$orderby", d)
-  explain(s:select('a), tf:bool): select('a) = bool(s, "$explain", tf)
-  snapshot(s:select('a), tf:bool): select('a) = bool(s, "$snapshot", tf)
-  min(s:select('a), d:Bson.document): select('a) = doc(s, "$min", d)
-  max(s:select('a), d:Bson.document): select('a) = doc(s, "$max", d)
-  showDiskLoc(s:select('a), tf:bool): select('a) = bool(s, "$showDiskLoc", tf)
-  hint(s:select('a), d:Bson.document): select('a) = doc(s, "$hint", d)
-  comment(s:select('a), c:string): select('a) = string(s, "$comment", c)
+  returnKey(s:select, tf:bool): select = bool(s, "$returnKey", tf)
+  maxScan(s:select, i:int): select = int64(s, "$maxScan", i)
+  query(s:select, d:Bson.document): select = doc(s, "$query", d)
+  orderby(s:select, d:Bson.document): select = doc(s, "$orderby", d)
+  explain(s:select, tf:bool): select = bool(s, "$explain", tf)
+  snapshot(s:select, tf:bool): select = bool(s, "$snapshot", tf)
+  min(s:select, d:Bson.document): select = doc(s, "$min", d)
+  max(s:select, d:Bson.document): select = doc(s, "$max", d)
+  showDiskLoc(s:select, tf:bool): select = bool(s, "$showDiskLoc", tf)
+  hint(s:select, d:Bson.document): select = doc(s, "$hint", d)
+  comment(s:select, c:string): select = string(s, "$comment", c)
 
 }}
 
@@ -597,13 +597,13 @@ type collection('a) = {
 type collection_cursor('a) = {
   collection: collection('a);
   cursor: cursor;
-  query: select('a);
+  query: select;
   ty: OpaType.ty;
 }
 
 type Collection = {{
   // TODO: Documentation
-  create : mongodb, option('value) -> (select('value), collection('value))
+  create : mongodb, option('value) -> (select, collection('value))
   limit : collection('value), int -> collection('value)
   skip : collection('value), int -> collection('value)
   fields : collection('value), option(Bson.document) -> collection('value)
@@ -621,15 +621,15 @@ type Collection = {{
   destroy : collection('value) -> void
   insert : collection('value), 'value -> bool
   insert_batch : collection('value), batch -> bool
-  update : collection('value), select('value), select('value) -> bool
-  delete : collection('value), select('value) -> bool
-  find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
-  query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
+  update : collection('value), select, select -> bool
+  delete : collection('value), select -> bool
+  find_one : collection('value), select -> outcome('value,Mongo.failure)
+  query : collection('value), select -> outcome(collection_cursor('value),Mongo.failure)
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   has_more : collection_cursor('value) -> bool
-  count : collection('value), option(select('a)) -> outcome(int,Mongo.failure)
-  distinct : collection('value), string, option(select('a)) -> outcome(list('b),Mongo.failure)
+  count : collection('value), option(select) -> outcome(int,Mongo.failure)
+  distinct : collection('value), string, option(select) -> outcome(list('b),Mongo.failure)
   group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string)
           -> outcome(list('b),Mongo.failure)
   kill : collection_cursor('value) -> collection_cursor('value)
@@ -645,8 +645,8 @@ Batch = {{
 
 Collection : Collection = {{
 
-  create(db:mongodb, default:option('value)): (select('value), collection('value)) =
-    (Select.empty(default), { db=MDB.clone(db); ~default })
+  create(db:mongodb, default:option('value)): (select, collection('value)) =
+    (Select.empty(/*default*/), { db=MDB.clone(db); ~default })
 
   destroy(c:collection('value)): void = MDB.close(c.db)
 
@@ -686,15 +686,15 @@ Collection : Collection = {{
     ns = c.db.dbname^"."^c.db.collection
     Mongo.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
-  update(c:collection('value), select:select('value), update:select('value)): bool =
+  update(c:collection('value), select:select, update:select): bool =
     ns = c.db.dbname^"."^c.db.collection
     Mongo.update(c.db.mongo,c.db.update_flags,ns,select.select,update.select)
 
-  delete(c:collection('value), select:select('value)): bool =
+  delete(c:collection('value), select:select): bool =
     ns = c.db.dbname^"."^c.db.collection
     Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select.select)
 
-  find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+  find_one(c:collection('value), select:select): outcome('value,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     (match Cursor.find_one(c.db.mongo,ns,select.select,c.db.fields) with
      | {success=doc} ->
@@ -704,7 +704,7 @@ Collection : Collection = {{
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
 
-  query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+  query(c:collection('value), select:select): outcome(collection_cursor('value),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     match Cursor.find(c.db.mongo,ns,select.select,c.db.fields,c.db.limit,c.db.skip,c.db.query_flags) with
     | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeval('value) }}
@@ -728,10 +728,10 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
-  count(c:collection('value), query_opt:option(select('a))): outcome(int,Mongo.failure) =
+  count(c:collection('value), query_opt:option(select)): outcome(int,Mongo.failure) =
     Cursor.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s.select),query_opt)))
 
-  distinct(c:collection('value), key:string, query_opt:option(select('a))): outcome(list('b),Mongo.failure) =
+  distinct(c:collection('value), key:string, query_opt:option(select)): outcome(list('b),Mongo.failure) =
     match Cursor.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s.select),query_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
