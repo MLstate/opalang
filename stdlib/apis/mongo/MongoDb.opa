@@ -262,13 +262,11 @@ MDB : MDB = {{
 
 @abstract type select = {
   select:Bson.document;
-  //default:option('a);
 }
 
 type Select = {{
   // TODO: Documentation
   select_to_document : select -> Bson.document
-  //select_to_default : select -> option('a)
 
   pretty_of_select : select -> string
 
@@ -391,7 +389,6 @@ type Select = {{
 Select : Select = {{
 
   select_to_document(select:select): Bson.document = select.select
-  //select_to_default(select:select): option('a) = select.default
 
   pretty_of_select(select:select): string = Bson.pretty_of_bson(select.select)
 
@@ -417,7 +414,7 @@ Select : Select = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
-  empty(/*default:option('a)*/): select = {select=[]; /*~default*/}
+  empty(): select = {select=[];}
 
   key(name:string, s:select): select = { s with select=[H.doc(name,s.select)] }
 
@@ -489,15 +486,13 @@ Select : Select = {{
 
   @private
   boolop(op:string, s1:select, s2:select): select =
-    { select=([H.arr(op,([H.doc("0",s1.select),H.doc("1",s2.select)]:Bson.document))]:Bson.document);
-      /*default=s1.default*/ }
+    { select=([H.arr(op,([H.doc("0",s1.select),H.doc("1",s2.select)]:Bson.document))]:Bson.document) }
 
   @private
   lboolop(op:string, ss:list(select)): select =
     match ss with
-    | [] -> empty(/*{none}*/)
-    | [s|t] -> { select=[H.arr(op,(List.mapi((i, ss -> H.doc("{i}",ss.select)),[s|t]):Bson.document))];
-                 /*default=s.default*/ }
+    | [] -> empty()
+    | [s|t] -> { select=[H.arr(op,(List.mapi((i, ss -> H.doc("{i}",ss.select)),[s|t]):Bson.document))] }
 
   and(s1:select, s2:select): select = boolop("$and",s1,s2)
   andalso(ss:list(select)): select = lboolop("$and",ss)
@@ -571,7 +566,6 @@ type batch = list(Bson.document)
 
 type collection('a) = {
   db: mongodb;
-  default: option('a);
 }
 
 type collection_cursor('a) = {
@@ -586,7 +580,7 @@ type group_result('a) = outcome(group('a),Mongo.failure)
 
 type Collection = {{
   // TODO: Documentation
-  create : mongodb, option('value) -> collection('value)
+  create : mongodb -> collection('value)
   limit : collection('value), int -> collection('value)
   skip : collection('value), int -> collection('value)
   fields : collection('value), option(Bson.document) -> collection('value)
@@ -628,7 +622,7 @@ Batch = {{
 
 Collection : Collection = {{
 
-  create(db:mongodb, default:option('value)): collection('value) = { db=MDB.clone(db); ~default }
+  create(db:mongodb): collection('value) = { db=MDB.clone(db) }
 
   destroy(c:collection('value)): void = MDB.close(c.db)
 

@@ -472,8 +472,8 @@ Mongo = {{
   /* OP_REPLY */
   CursorNotFoundBit   = 0x00000001
   QueryFailureBit     = 0x00000002
-  ShardConfigStaleBit = 0x00000003
-  AwaitCapableBit     = 0x00000004
+  ShardConfigStaleBit = 0x00000004
+  AwaitCapableBit     = 0x00000008
 
   /**
    *  flag_of_tag:  Turn a list of tags into a bit-wise flag suitable
@@ -1111,13 +1111,13 @@ Cursor = {{
   /**
    * Drop a database
    **/
-  drop_db(m:Mongo.db, db:string): Mongo.result =
+  dropDatabase(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "dropDatabase", 1)
 
   /**
    * Drop a collection from a database [drop_collection("db","collection")]
    **/
-  drop_collection(m:Mongo.db, db:string, collection:string): Mongo.result =
+  drop(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "drop", collection)
 
   /**
