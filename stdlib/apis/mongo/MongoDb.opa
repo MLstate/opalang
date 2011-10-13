@@ -262,6 +262,7 @@ MDB : MDB = {{
 
 @abstract type select = {
   select:Bson.document;
+  ty:OpaType.ty;
 }
 
 type Select = {{
@@ -279,20 +280,26 @@ type Select = {{
   check_field_in_record : select, string -> select
 */
 
-  empty : /*option('a)*/ -> select
+  empty : -> select
 
   key : string, select -> select
+  keyop : string, select -> select
   path : list(string), select -> select
   dot : MongoDb.path, select -> select
 
   double : select, string, float -> select
+  doubleop : select, string, float -> select
   string : select, string, string -> select
+  stringop : select, string, string -> select
   doc : select, string, Bson.document -> select
+  docop : select, string, Bson.document -> select
   array : select, string, list('b) -> select
+  arrayop : select, string, list('b) -> select
   binary : select, string, string -> select
   id : select, string, string -> select
   newid : select, string -> select
   bool : select, string, bool -> select
+  boolop : select, string, bool -> select
   date : select, string, Date.date -> select
   null : select, string -> select
   regexp : select, string, string, string -> select
@@ -300,8 +307,10 @@ type Select = {{
   symbol : select, string, string -> select
   codescope : select, string, string, Bson.document -> select
   int32 : select, string, int -> select
+  int32op : select, string, int -> select
   ts : select, string, int, int -> select
   int64 : select, string, int -> select
+  int64op : select, string, int -> select
 
   gti32 : int, select -> select
   lti32 : int, select -> select
@@ -390,7 +399,7 @@ Select : Select = {{
 
   select_to_document(select:select): Bson.document = select.select
 
-  pretty_of_select(select:select): string = Bson.pretty_of_bson(select.select)
+  pretty_of_select(select:select): string = "\{select={Bson.pretty_of_bson(select.select)}; ty={OpaType.to_pretty(select.ty)}\}"
 
   @private
   string_of_element(e:Bson.element): string =
@@ -414,9 +423,62 @@ Select : Select = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
-  empty(): select = {select=[];}
+/* Type support */
+  @private tempty = {TyRecord_row=[]}
+  @private tvar(tv) = {TyRecord_row=[]; TyRecord_rowvar=tv}
+  @private nottvar(ty) = match ty with | {TyRecord_row=[]; TyRecord_rowvar=_} -> true | _ -> false
+  @private tvoid = {TyName_args=[]; TyName_ident="void"}
+  @private tint = {TyConst={TyInt={}}}
+  @private tstring = {TyConst={TyString={}}}
+  @private tfloat = {TyConst={TyFloat={}}}
+  @private tbool = {TyName_args=[]; TyName_ident="bool"}
+  @private tdate = {TyName_args=[]; TyName_ident="Date.date"}
+  @private tdoc = {TyName_args=[]; TyName_ident="Bson.document"}
+  @private ttup2(ty1:OpaType.ty,ty2:OpaType.ty):OpaType.ty = {TyName_args=[ty1, ty2]; TyName_ident="tuple_2"}
+  @private tlist(ty:OpaType.ty):OpaType.ty = {TyName_args=[ty]; TyName_ident="list"}
+  @private trec(label, ty) = {TyRecord_row=[~{label; ty}]}
+  @private taddrec(rty,label,ty) =
+    match rty with
+    | {TyRecord_row=row} -> {TyRecord_row=List.sort_by((r -> r.label),[~{label; ty}|row])}
+    | _ -> @fail
+  @private order_field(f1, f2): Order.ordering = String.ordering(f1.label,f2.label)
+  @private FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
+  @private diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
+  @private tmrgrecs(rec1, rec2) =
+    //do println("rec1={OpaType.to_pretty(rec1)}\nrec2={OpaType.to_pretty(rec2)}")
+    if rec1 == rec2
+    then rec1
+    else
+      match (rec1,rec2) with
+      | ({TyRecord_row=row1},{TyRecord_row=row2}) ->
+        s1 = FieldSet.From.list(row1)
+        s2 = FieldSet.From.list(row2)
+        i = FieldSet.intersection(s1,s2)
+        //do println("  i={OpaType.to_pretty({TyRecord_row=FieldSet.To.list(i)})}")
+        if FieldSet.is_empty(i)
+        then {TyRecord_row=List.sort_by((r -> r.label),List.flatten([row1,row2]))}
+        else
+          ii = FieldSet.fold((f, l ->
+                                match (FieldSet.get(f,s1),FieldSet.get(f,s2)) with
+                                | ({some=f1},{some=f2}) ->
+                                   [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
+                                | _ -> @fail),i,[])
+          d = FieldSet.To.list(FieldSet.union(diff(s1,s2),diff(s2,s1)))
+          //do println("  ii={OpaType.to_pretty({TyRecord_row=ii})}")
+          //do println("  d={OpaType.to_pretty({TyRecord_row=d})}")
+          res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([ii,d]))}
+          //do println("  res={OpaType.to_pretty(res)}")
+          res
+      | _ -> @fail
+  @private taddcol(cty,row) =
+    match (cty,row) with
+    | ({TySum_col=cols},{TyRecord_row=row}) -> {TySum_col=[row|cols]}
+/* End of type support */
 
-  key(name:string, s:select): select = { s with select=[H.doc(name,s.select)] }
+  empty(): select = {select=[]; ty=tempty}
+
+  key(name:string, s:select): select = { select=[H.doc(name,s.select)]; ty=taddrec(tempty,name,s.ty) }
+  keyop(name:string, s:select): select = { select=[H.doc(name,s.select)]; ty=s.ty }
 
   path(path:list(string), s:select): select =
     List.fold_right((s, name -> { s with select=[H.doc(name,s.select)] }),path,s)
@@ -424,51 +486,81 @@ Select : Select = {{
   dot(mpath:MongoDb.path, s:select): select =
     path(List.map(string_of_key,mpath), s)
 
-  double(s:select, name:string, d:float): select = { s with select=[H.dbl(name,d)|s.select] }
-  string(s:select, name:string, str:string): select = { s with select=[H.str(name,str)|s.select] }
-  doc(s:select, name:string, d:Bson.document): select = { s with select=[H.doc(name,d)|s.select] }
+  double(s:select, name:string, d:float): select = { select=[H.dbl(name,d)|s.select]; ty=taddrec(s.ty,name,tfloat) }
+  doubleop(s:select, name:string, d:float): select =
+    if s.ty != tfloat && s.ty != tempty && nottvar(s.ty)
+    then @fail
+    else { select=[H.dbl(name,d)|s.select]; ty=tfloat }
+  string(s:select, name:string, str:string): select = { select=[H.str(name,str)|s.select]; ty=taddrec(s.ty,name,tstring) }
+  stringop(s:select, name:string, str:string): select =
+    if s.ty != tstring && s.ty != tempty && nottvar(s.ty)
+    then @fail
+    else { select=[H.str(name,str)|s.select]; ty=tstring }
+  doc(s:select, name:string, d:Bson.document): select = { s with select=[H.doc(name,d)|s.select] } //typeofdoc(d)!!!
+  docop(s:select, name:string, d:Bson.document): select = { select=[H.doc(name,d)|s.select]; ty=s.ty }
   array(s:select, name:string, l:list('b)): select =
-    ty = @typeof((Magic.id(void):'b))
+    ty = @typeval('b)
     d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
-    { s with select=[H.arr(name,d)|s.select] }
-  binary(s:select, name:string, bin:string): select = { s with select=[H.binary(name,bin)|s.select] }
-  id(s:select, name:string, id:string): select = { s with select=[H.oid(name,Bson.oid_of_string(id))|s.select] }
-  newid(s:select, name:string): select = { s with select=[H.oid(name,Bson.new_oid(void))|s.select] }
-  bool(s:select, name:string, b:bool): select = { s with select=[H.bool(name,b)|s.select] }
-  date(s:select, name:string, d:Date.date): select = { s with select=[H.date(name,d)|s.select] }
-  null(s:select, name:string): select = { s with select=[H.null(name)|s.select] }
-  regexp(s:select, name:string, re:string, opts:string): select = { s with select=[H.regexp(name,(re,opts))|s.select] }
-  code(s:select, name:string, c:string): select = { s with select=[H.code(name,c)|s.select] }
-  symbol(s:select, name:string, sym:string): select = { s with select=[H.symbol(name,sym)|s.select] }
+    { select=[H.arr(name,d)|s.select]; ty=taddrec(s.ty,name,tlist(ty)) }
+  arrayop(s:select, name:string, l:list('b)): select =
+    ty = @typeval('b)
+    if s.ty != tlist(ty) && s.ty != tempty && nottvar(s.ty) && nottvar(ty)
+    then @fail
+    else
+      d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
+      { select=[H.arr(name,d)|s.select]; ty=tlist(ty) }
+  binary(s:select, name:string, bin:string): select = { select=[H.binary(name,bin)|s.select]; ty=taddrec(s.ty,name,tstring) }
+  id(s:select, name:string, id:string): select =
+    { select=[H.oid(name,Bson.oid_of_string(id))|s.select]; ty=taddrec(s.ty,name,tstring) }
+  newid(s:select, name:string): select = { select=[H.oid(name,Bson.new_oid(void))|s.select]; ty=taddrec(s.ty,name,tstring) }
+  bool(s:select, name:string, b:bool): select = { select=[H.bool(name,b)|s.select]; ty=taddrec(s.ty,name,tbool) }
+  boolop(s:select, name:string, b:bool): select =
+    if s.ty != tbool && s.ty != tempty && nottvar(s.ty)
+    then @fail
+    else { select=[H.bool(name,b)|s.select]; ty=tbool }
+  date(s:select, name:string, d:Date.date): select = { select=[H.date(name,d)|s.select]; ty=taddrec(s.ty,name,tdate) }
+  null(s:select, name:string): select = { select=[H.null(name)|s.select]; ty=taddrec(s.ty,name,tvoid) }
+  regexp(s:select, name:string, re:string, opts:string): select =
+    { select=[H.regexp(name,(re,opts))|s.select]; ty=taddrec(s.ty,name,ttup2(tstring,tstring)) }
+  code(s:select, name:string, c:string): select = { select=[H.code(name,c)|s.select]; ty=taddrec(s.ty,name,tstring) }
+  symbol(s:select, name:string, sym:string): select = { select=[H.symbol(name,sym)|s.select]; ty=taddrec(s.ty,name,tstring) }
   codescope(s:select, name:string, c:string, sc:Bson.document): select =
-    { s with select=[H.codescope(name,(c,sc))|s.select] }
-  int32(s:select, name:string, i:int): select = { s with select=[H.i32(name,i)|s.select] }
+    { s with select=[H.codescope(name,(c,sc))|s.select]; ty=taddrec(s.ty,name,ttup2(tstring,tdoc)) }
+  int32(s:select, name:string, i:int): select = { select=[H.i32(name,i)|s.select]; ty=taddrec(s.ty,name,tint) }
+  int32op(s:select, name:string, i:int): select =
+    if s.ty != tint && s.ty != tempty && nottvar(s.ty)
+    then @fail
+    else { select=[H.i32(name,i)|s.select]; ty=tint }
   ts(s:select, name:string, t:int, i:int): select = { s with select=[H.timestamp(name,(t,i))|s.select] }
-  int64(s:select, name:string, i:int): select = { s with select=[H.i64(name,i)|s.select] }
+  int64(s:select, name:string, i:int): select = { select=[H.i64(name,i)|s.select]; ty=taddrec(s.ty,name,tint) }
+  int64op(s:select, name:string, i:int): select =
+    if s.ty != tint && s.ty != tempty && nottvar(s.ty)
+    then @fail
+    else { select=[H.i64(name,i)|s.select]; ty=tint }
 
-  gti32(i:int, s:select): select = int32(s, "$gt", i)
-  lti32(i:int, s:select): select = int32(s, "$lt", i)
-  gtei32(i:int, s:select): select = int32(s, "$gte", i)
-  ltei32(i:int, s:select): select = int32(s, "$lte", i)
-  nei32(i:int, s:select): select = int32(s, "$ne", i)
+  gti32(i:int, s:select): select = int32op(s, "$gt", i)
+  lti32(i:int, s:select): select = int32op(s, "$lt", i)
+  gtei32(i:int, s:select): select = int32op(s, "$gte", i)
+  ltei32(i:int, s:select): select = int32op(s, "$lte", i)
+  nei32(i:int, s:select): select = int32op(s, "$ne", i)
 
-  gti64(i:int, s:select): select = int64(s, "$gt", i)
-  lti64(i:int, s:select): select = int64(s, "$lt", i)
-  gtei64(i:int, s:select): select = int64(s, "$gte", i)
-  ltei64(i:int, s:select): select = int64(s, "$lte", i)
-  nei64(i:int, s:select): select = int64(s, "$ne", i)
+  gti64(i:int, s:select): select = int64op(s, "$gt", i)
+  lti64(i:int, s:select): select = int64op(s, "$lt", i)
+  gtei64(i:int, s:select): select = int64op(s, "$gte", i)
+  ltei64(i:int, s:select): select = int64op(s, "$lte", i)
+  nei64(i:int, s:select): select = int64op(s, "$ne", i)
 
-  gtd(d:float, s:select): select = double(s, "$gt", d)
-  ltd(d:float, s:select): select = double(s, "$lt", d)
-  gted(d:float, s:select): select = double(s, "$gte", d)
-  lted(d:float, s:select): select = double(s, "$lte", d)
-  ned(d:float, s:select): select = double(s, "$ne", d)
+  gtd(d:float, s:select): select = doubleop(s, "$gt", d)
+  ltd(d:float, s:select): select = doubleop(s, "$lt", d)
+  gted(d:float, s:select): select = doubleop(s, "$gte", d)
+  lted(d:float, s:select): select = doubleop(s, "$lte", d)
+  ned(d:float, s:select): select = doubleop(s, "$ne", d)
 
-  gts(str:string, s:select): select = string(s, "$gt", str)
-  lts(str:string, s:select): select = string(s, "$lt", str)
-  gtes(str:string, s:select): select = string(s, "$gte", str)
-  ltes(str:string, s:select): select = string(s, "$lte", str)
-  nes(str:string, s:select): select = string(s, "$ne", str)
+  gts(str:string, s:select): select = stringop(s, "$gt", str)
+  lts(str:string, s:select): select = stringop(s, "$lt", str)
+  gtes(str:string, s:select): select = stringop(s, "$gte", str)
+  ltes(str:string, s:select): select = stringop(s, "$lte", str)
+  nes(str:string, s:select): select = stringop(s, "$ne", str)
 
   set_op(s:select, op:string): select =
     select =
@@ -485,66 +577,69 @@ Select : Select = {{
   ne(s:select): select = set_op(s, "$ne")
 
   @private
-  boolop(op:string, s1:select, s2:select): select =
-    { select=([H.arr(op,([H.doc("0",s1.select),H.doc("1",s2.select)]:Bson.document))]:Bson.document) }
+  boolop_private(op:string, s1:select, s2:select): select =
+    { select=([H.arr(op,([H.doc("0",s1.select),H.doc("1",s2.select)]:Bson.document))]:Bson.document);
+      ty=tmrgrecs(s1.ty,s2.ty) }
 
   @private
-  lboolop(op:string, ss:list(select)): select =
+  lboolop_private(op:string, ss:list(select)): select =
     match ss with
     | [] -> empty()
-    | [s|t] -> { select=[H.arr(op,(List.mapi((i, ss -> H.doc("{i}",ss.select)),[s|t]):Bson.document))] }
+    | [s|t] ->
+       (doc,ty) = List.fold_index((i, ss, (doc,ty) -> ([H.doc("{i}",ss.select)|doc],tmrgrecs(ss.ty,ty))),[s|t],([],s.ty))
+       { select=[H.arr(op,(doc:Bson.document))]; ~ty }
 
-  and(s1:select, s2:select): select = boolop("$and",s1,s2)
-  andalso(ss:list(select)): select = lboolop("$and",ss)
-  or(s1:select, s2:select): select = boolop("$or",s1,s2)
-  orelse(ss:list(select)): select = lboolop("$or",ss)
-  nor(s1:select, s2:select): select = boolop("$nor",s1,s2)
-  noreither(ss:list(select)): select = lboolop("$nor",ss)
+  and(s1:select, s2:select): select = boolop_private("$and",s1,s2)
+  andalso(ss:list(select)): select = lboolop_private("$and",ss)
+  or(s1:select, s2:select): select = boolop_private("$or",s1,s2)
+  orelse(ss:list(select)): select = lboolop_private("$or",ss)
+  nor(s1:select, s2:select): select = boolop_private("$nor",s1,s2)
+  noreither(ss:list(select)): select = lboolop_private("$nor",ss)
 
-  all(s:select, a:list('b)): select = array(s, "$all", a)
-  in(s:select, a:list('b)): select = array(s, "$in", a)
-  nin(s:select, a:list('b)): select = array(s, "$nin", a)
+  all(s:select, a:list('b)): select = arrayop(s, "$all", a)
+  in(s:select, a:list('b)): select = arrayop(s, "$in", a)
+  nin(s:select, a:list('b)): select = arrayop(s, "$nin", a)
 
   @private docbool(s:select, name:string, op:string, tf:bool): select = doc(s,name,[H.bool(op,tf)])
 
   exists(s:select, name:string, tf:bool): select = docbool(s, name, "$exists", tf)
 
-  mod(s:select, x:'b, y:'b): select = array(s, "$mod", [x,y])
+  mod(s:select, x:'b, y:'b): select = arrayop(s, "$mod", [x,y])
 
-  size(s:select, x:int): select = int64(s, "$size", x)
-  typ(s:select, t:int): select = int64(s, "$type", t)
+  size(s:select, x:int): select = int64op(s, "$size", x)
+  typ(s:select, t:int): select = int64op(s, "$type", t)
 
   regex(s:select, re:string, opts:string): select = { s with select=[H.regexp("$regex",(re,opts))|s.select] }
 
-  inc(s:select): select = key("$inc",s)
-  set(s:select): select = key("$set",s)
-  unset(s:select): select = key("$unset",s)
-  push(s:select): select = key("$push",s)
-  pushAll(s:select): select = key("$pushAll",s)
-  addToSet(s:select): select = key("$addToSet",s)
-  pop(s:select): select = key("$pop",s)
-  pull(s:select): select = key("$pull",s)
-  pullAll(s:select): select = key("$pullAll",s)
-  rename(s:select): select = key("$rename",s)
-  bit(s:select): select = key("$bit",s)
+  inc(s:select): select = keyop("$inc",s)
+  set(s:select): select = keyop("$set",s)
+  unset(s:select): select = keyop("$unset",s)
+  push(s:select): select = keyop("$push",s)
+  pushAll(s:select): select = keyop("$pushAll",s)
+  addToSet(s:select): select = keyop("$addToSet",s)
+  pop(s:select): select = keyop("$pop",s)
+  pull(s:select): select = keyop("$pull",s)
+  pullAll(s:select): select = keyop("$pullAll",s)
+  rename(s:select): select = keyop("$rename",s)
+  bit(s:select): select = keyop("$bit",s)
 
-  elemMatch(s:select): select = key("$elemMatch",s)
+  elemMatch(s:select): select = keyop("$elemMatch",s)
 
-  not(s:select): select = key("$not",s)
+  not(s:select): select = keyop("$not",s)
 
   where(s:select, whr:string): select = { s with select=[H.code("$where",whr)|s.select] }
 
-  returnKey(s:select, tf:bool): select = bool(s, "$returnKey", tf)
-  maxScan(s:select, i:int): select = int64(s, "$maxScan", i)
-  query(s:select, d:Bson.document): select = doc(s, "$query", d)
-  orderby(s:select, d:Bson.document): select = doc(s, "$orderby", d)
-  explain(s:select, tf:bool): select = bool(s, "$explain", tf)
-  snapshot(s:select, tf:bool): select = bool(s, "$snapshot", tf)
-  min(s:select, d:Bson.document): select = doc(s, "$min", d)
-  max(s:select, d:Bson.document): select = doc(s, "$max", d)
-  showDiskLoc(s:select, tf:bool): select = bool(s, "$showDiskLoc", tf)
-  hint(s:select, d:Bson.document): select = doc(s, "$hint", d)
-  comment(s:select, c:string): select = string(s, "$comment", c)
+  returnKey(s:select, tf:bool): select = boolop(s, "$returnKey", tf)
+  maxScan(s:select, i:int): select = int64op(s, "$maxScan", i)
+  query(s:select, d:Bson.document): select = docop(s, "$query", d)
+  orderby(s:select, d:Bson.document): select = docop(s, "$orderby", d)
+  explain(s:select, tf:bool): select = boolop(s, "$explain", tf)
+  snapshot(s:select, tf:bool): select = boolop(s, "$snapshot", tf)
+  min(s:select, d:Bson.document): select = docop(s, "$min", d)
+  max(s:select, d:Bson.document): select = docop(s, "$max", d)
+  showDiskLoc(s:select, tf:bool): select = boolop(s, "$showDiskLoc", tf)
+  hint(s:select, d:Bson.document): select = docop(s, "$hint", d)
+  comment(s:select, c:string): select = stringop(s, "$comment", c)
 
 }}
 
@@ -604,6 +699,7 @@ type Collection = {{
   query : collection('value), select -> outcome(collection_cursor('value),Mongo.failure)
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
+  find_all : collection('value), select -> outcome(list('value),Mongo.failure)
   has_more : collection_cursor('value) -> bool
   count : collection('value), option(select) -> outcome(int,Mongo.failure)
   distinct : collection('value), string, option(select) -> outcome(list('b),Mongo.failure)
@@ -704,6 +800,26 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
+  find_all(c:collection('value), select:select): outcome(list('value),Mongo.failure) =
+    match query(c,select) with
+    | {success=cc} ->
+       (cc,l) =
+         while((cc,{success=[]}),
+               ((cc,l) ->
+                  match l with
+                  | {success=l} ->
+                     (match next(cc) with
+                      | (cc,{success=v}) ->
+                         //do println("  v={v}")
+                         ((cc,{success=[v|l]}),has_more(cc))
+                      | (cc,{~failure}) ->
+                         //do println("  err(query)={Bson.string_of_failure(failure)}")
+                         ((cc,{~failure}),false))
+                  | {~failure} -> ((cc,{~failure}),false)))
+       _ = kill(cc)
+       l
+    | {~failure} -> {~failure}
+
   count(c:collection('value), query_opt:option(select)): outcome(int,Mongo.failure) =
     Cursor.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s.select),query_opt)))
 
@@ -752,6 +868,7 @@ Collection : Collection = {{
 }}
 
 /** Later:
+ *
  * MongoMap = {{
  *   // Implementation of map using underlying MongoDB.
  * }}
