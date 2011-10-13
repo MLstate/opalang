@@ -105,13 +105,13 @@ OpaSerializeClosure = {{
     end
 
   to_intermediate(on_distant,clot:'cloture): option(OpaSerializeClosure.intermediate) =
-    if WebUtils.is_client() then none else // DISABLE CLIENT TO SERVER SEND
     match on_distant(clot) {none} -> none
     {some=func_name} ->
     opa_args = Closure.get_args(@unsafe_cast(clot))
     opa_ty_args = Closure.get_ty_args(@unsafe_cast(clot))
     nb_args = Closure.Args.length(opa_args)
     nb_types = Closure.Args.length(opa_ty_args)
+    if WebUtils.is_client() && nb_args!=0 then none else // DISABLE CLIENT TO SERVER SEND WITH NON EMPTY ENV
     if nb_args != nb_types then
 /*     do if nb_types == 0 then
       println("cannot serialize no type in closure")
@@ -133,7 +133,7 @@ OpaSerializeClosure = {{
 
   @private
   from_intermediate(~{func_name args ty_args} : OpaSerializeClosure.intermediate):option(Closure.t) =
-    /* SECURITY, DO NOT CHANGE */ if WebUtils.is_server() then none else // FORBID THE SERVER TO UNSERIALIZE A CLOSURE
+    /* SECURITY, DO NOT CHANGE */ if WebUtils.is_server() && List.length(args)!=0 then none else // FORBID THE SERVER TO UNSERIALIZE A CLOSURE WITH NON EMPTY ENV
     match Closure.get_local(func_name) {none} -> none
     {some=clot_empty} ->
     // TODO SHOULD CHECK THAT TYPES ARE OK FOR THE FUNCTION BEFORE ACCEPTING CLIENT TO SERVER TRANSFER
