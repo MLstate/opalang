@@ -349,7 +349,7 @@ Session = {{
       ) : channel('message)
 
 
-    @private @publish @server shared_mode =
+    @package @publish @server cloud_mode =
       commandline : CommandLine.family(bool) = {
         title = "Distribution of sessions"
         init = false
@@ -380,7 +380,7 @@ Session = {{
     * @param on_message As in [Session.make]
    **/
     @server cloud(key, state, handler) =
-      if shared_mode
+      if cloud_mode
       then make_shared(key, state, handler)
       else get_local_cloud(key, state, handler)
 
