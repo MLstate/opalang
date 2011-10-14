@@ -45,16 +45,30 @@
 /* Major TODOs, there are minor ones elsewhere. */
 // TODO: replica sets
 // TODO: backups
+// TODO: sort function for cursors
 
 import stdlib.core.{date}
 import stdlib.io.socket
 import stdlib.crypto
 import stdlib.system
 
+/** Some external types **/
+
 type mongo_buf = external
 type cursorID = external
 type mailbox = external
 type reply = external
+
+/** Some convenience types **/
+
+type Bson.numeric = int
+type Bson.oid = string
+type Bson.binary = string
+type Bson.regexp = (string, string)
+type Bson.code = string
+type Bson.symbol = string
+type Bson.codescope = (Bson.code, Bson.document)
+type Bson.timestamp = (int, int)
 
 /**
  * OPA representation of a BSON object.
