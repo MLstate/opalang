@@ -1016,7 +1016,7 @@ Cursor = {{
     /* Note: MongoDB seems to interpret limit=1 as "just send me one document".
      * If you want this loop to scan all the documents you can't use limit=1.
      */
-    c = Cursor.set_limit(c,(max(2,limit)))
+    c = Cursor.set_limit(c,(max(2,limit))) // FIXME: destroys order (-2 etc.)
     c = Cursor.set_query(c,{some=query})
     Cursor.next(c)
 

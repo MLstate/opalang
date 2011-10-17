@@ -342,13 +342,6 @@ type SU = {{
 
   dot_path : MongoDb.path -> string
 
-/*
-  path : MongoDb.path -> Bson.document
-  path_intrange : MongoDb.path, option(int), option(int) -> Bson.document 
-  check_fst_arg_in_pair : Bson.document -> Bson.document
-  check_field_in_record : Bson.document, string -> Bson.document
-*/
-
   empty : -> Bson.document
 
   key : string, Bson.document -> Bson.document
@@ -359,19 +352,21 @@ type SU = {{
   string : Bson.document, string, string -> Bson.document
   doc : Bson.document, string, Bson.document -> Bson.document
   array : Bson.document, string, list('b) -> Bson.document
-  binary : Bson.document, string, string -> Bson.document
-  id : Bson.document, string, string -> Bson.document
+  binary : Bson.document, string, Bson.binary -> Bson.document
+  id : Bson.document, string, Bson.oid -> Bson.document
   newid : Bson.document, string -> Bson.document
   bool : Bson.document, string, bool -> Bson.document
   date : Bson.document, string, Date.date -> Bson.document
   null : Bson.document, string -> Bson.document
-  regexp : Bson.document, string, string, string -> Bson.document
-  code : Bson.document, string, string -> Bson.document
-  symbol : Bson.document, string, string -> Bson.document
-  codescope : Bson.document, string, string, Bson.document -> Bson.document
+  regexp : Bson.document, string, Bson.regexp -> Bson.document
+  code : Bson.document, string, Bson.code -> Bson.document
+  symbol : Bson.document, string, Bson.symbol -> Bson.document
+  codescope : Bson.document, string, Bson.codescope -> Bson.document
   int32 : Bson.document, string, int -> Bson.document
-  ts : Bson.document, string, int, int -> Bson.document
+  timestamp : Bson.document, string, Bson.timestamp -> Bson.document
   int64 : Bson.document, string, int -> Bson.document
+
+  oppoly : 'a, Bson.document, string -> Bson.document
 
   gti32 : int, Bson.document -> Bson.document
   lti32 : int, Bson.document -> Bson.document
@@ -396,6 +391,18 @@ type SU = {{
   gtes : string, Bson.document -> Bson.document
   ltes : string, Bson.document -> Bson.document
   nes : string, Bson.document -> Bson.document
+
+  gtdate : Date.date, Bson.document -> Bson.document
+  ltdate : Date.date, Bson.document -> Bson.document
+  gtedate : Date.date, Bson.document -> Bson.document
+  ltedate : Date.date, Bson.document -> Bson.document
+  nedate : Date.date, Bson.document -> Bson.document
+
+  gtts : Bson.timestamp, Bson.document -> Bson.document
+  ltts : Bson.timestamp, Bson.document -> Bson.document
+  gtets : Bson.timestamp, Bson.document -> Bson.document
+  ltets : Bson.timestamp, Bson.document -> Bson.document
+  nets : Bson.timestamp, Bson.document -> Bson.document
 
   set_op : Bson.document, string -> Bson.document
 
@@ -497,19 +504,34 @@ SU : SU = {{
     ty = @typeval('b)
     d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
     [H.arr(name,d)|s]
-  binary(s:Bson.document, name:string, bin:string): Bson.document = [H.binary(name,bin)|s]
-  id(s:Bson.document, name:string, id:string): Bson.document = [H.oid(name,Bson.oid_of_string(id))|s]
+  binary(s:Bson.document, name:string, bin:Bson.binary): Bson.document = [H.binary(name,bin)|s]
+  id(s:Bson.document, name:string, id:Bson.oid): Bson.document = [H.oid(name,Bson.oid_of_string(id))|s]
   newid(s:Bson.document, name:string): Bson.document = [H.oid(name,Bson.new_oid(void))|s]
   bool(s:Bson.document, name:string, b:bool): Bson.document = [H.bool(name,b)|s]
   date(s:Bson.document, name:string, d:Date.date): Bson.document = [H.date(name,d)|s]
   null(s:Bson.document, name:string): Bson.document = [H.null(name)|s]
-  regexp(s:Bson.document, name:string, re:string, opts:string): Bson.document = [H.regexp(name,(re,opts))|s]
-  code(s:Bson.document, name:string, c:string): Bson.document = [H.code(name,c)|s]
-  symbol(s:Bson.document, name:string, sym:string): Bson.document = [H.symbol(name,sym)|s]
-  codescope(s:Bson.document, name:string, c:string, sc:Bson.document): Bson.document = [H.codescope(name,(c,sc))|s]
+  regexp(s:Bson.document, name:string, re:Bson.regexp): Bson.document = [H.regexp(name,re)|s]
+  code(s:Bson.document, name:string, c:Bson.code): Bson.document = [H.code(name,c)|s]
+  symbol(s:Bson.document, name:string, sym:Bson.symbol): Bson.document = [H.symbol(name,sym)|s]
+  codescope(s:Bson.document, name:string, cs:Bson.codescope): Bson.document = [H.codescope(name,cs)|s]
   int32(s:Bson.document, name:string, i:int): Bson.document = [H.i32(name,i)|s]
-  ts(s:Bson.document, name:string, t:int, i:int): Bson.document = [H.timestamp(name,(t,i))|s]
+  timestamp(s:Bson.document, name:string, ts:Bson.timestamp): Bson.document = [H.timestamp(name,ts)|s]
   int64(s:Bson.document, name:string, i:int): Bson.document = [H.i64(name,i)|s]
+
+  oppoly(v:'a, s:Bson.document, op:string): Bson.document =
+    rec aux(ty:OpaType.ty) =
+      match ty with
+      | {TyName_args=[]; TyName_ident="void"} -> null(s,op)
+      | {TyConst={TyInt={}}} -> int64(s,op,@unsafe_cast(v))
+      | {TyConst={TyString={}}} -> string(s,op,@unsafe_cast(v))
+      | {TyConst={TyFloat={}}} -> double(s,op,@unsafe_cast(v))
+      | {TyName_args=[]; TyName_ident="bool"} -> bool(s,op,@unsafe_cast(v))
+      | {TyName_args=[_]; TyName_ident="list"} -> array(s,op,@unsafe_cast(v))
+      | {TyName_args=[]; TyName_ident="Date.date"} -> date(s,op,@unsafe_cast(v))
+      | {TyName_args=[]; TyName_ident="Bson.timestamp"} -> timestamp(s,op,@unsafe_cast(v))
+      | {TyName_args = tys; TyName_ident = tyid} -> aux(OpaType.type_of_name(tyid,tys))
+      | _ -> doc(s,op,MDB.opa2doc(v))
+    aux(@typeval('a))
 
   gti32(i:int, s:Bson.document): Bson.document = int32(s, "$gt", i)
   lti32(i:int, s:Bson.document): Bson.document = int32(s, "$lt", i)
@@ -534,6 +556,18 @@ SU : SU = {{
   gtes(str:string, s:Bson.document): Bson.document = string(s, "$gte", str)
   ltes(str:string, s:Bson.document): Bson.document = string(s, "$lte", str)
   nes(str:string, s:Bson.document): Bson.document = string(s, "$ne", str)
+
+  gtdate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$gt", dt)
+  ltdate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$lt", dt)
+  gtedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$gte", dt)
+  ltedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$lte", dt)
+  nedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$ne", dt)
+
+  gtts(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$gt", ts)
+  ltts(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$lt", ts)
+  gtets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$gte", ts)
+  ltets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$lte", ts)
+  nets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$ne", ts)
 
   set_op(s:Bson.document, op:string): Bson.document =
     ((match s with
