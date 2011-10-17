@@ -24,6 +24,10 @@
 (** This type is concrete **)
 type buf = { mutable str : string; mutable i : int; }
 
+(** Global flag for resize **)
+type resize_mode = RM_stdout | RM_stderr | RM_custom of (string -> unit) | RM_failwith | RM_exit | RM_noresize
+val auto_resize : resize_mode ref
+
 (** Common to String and Buffer **)
 type t = buf
 val length : buf -> int
@@ -48,7 +52,7 @@ val add_substring : buf -> string -> int -> int -> unit
 val contents : buf -> string
 
 (** Specifics **)
-val empty : buf
+val empty : unit -> buf
 val append : buf -> string -> int -> unit
 val add_buf : buf -> buf -> unit
 val of_string : string -> buf
