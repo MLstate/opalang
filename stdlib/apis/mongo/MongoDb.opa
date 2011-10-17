@@ -178,7 +178,6 @@ type MDB = {{
   awaitData : mongodb -> mongodb
   exhaust : mongodb -> mongodb
   partial : mongodb -> mongodb
-  opa2doc : 'a -> Bson.document
 }}
 
 MDB : MDB = {{
@@ -241,14 +240,6 @@ MDB : MDB = {{
   awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.AwaitDataBit) }
   exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.ExhaustBit) }
   partial(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.PartialBit) }
-
-  /**
-   * opa2doc: We just need to strip off the dummy layer used by dbMongo
-   **/
-  opa2doc(v:'a): Bson.document =
-    match MongoDb.opa_to_bson("value",v,{none}) with
-    | [{name="value"; value={Document=doc}}] -> doc
-    | doc -> doc
 
 }}
 
@@ -340,13 +331,13 @@ type su_status =
 type SU = {{
   // TODO: Documentation
 
-  dot_path : MongoDb.path -> string
+  //dot_path : MongoDb.path -> string
+  //dot : MongoDb.path, Bson.document -> Bson.document
 
   empty : -> Bson.document
 
   key : string, Bson.document -> Bson.document
   path : list(string), Bson.document -> Bson.document
-  dot : MongoDb.path, Bson.document -> Bson.document
 
   double : Bson.document, string, float -> Bson.document
   string : Bson.document, string, string -> Bson.document
@@ -467,6 +458,7 @@ type SU = {{
 
 SU : SU = {{
 
+/*
   @private
   string_of_element(e:Bson.element): string =
     match e with
@@ -489,21 +481,19 @@ SU : SU = {{
   dot_path(path:MongoDb.path): string =
     String.concat(".",List.map(string_of_key,path))
 
+  dot(mpath:MongoDb.path, s:Bson.document): Bson.document = path(List.map(string_of_key,mpath), s)
+*/
+
   empty(): Bson.document = []
 
   key(name:string, s:Bson.document): Bson.document = [H.doc(name,s)]
 
   path(path:list(string), s:Bson.document): Bson.document = List.fold_right((s, name -> [H.doc(name,s)]),path,s)
 
-  dot(mpath:MongoDb.path, s:Bson.document): Bson.document = path(List.map(string_of_key,mpath), s)
-
   double(s:Bson.document, name:string, d:float): Bson.document = [H.dbl(name,d)|s]
   string(s:Bson.document, name:string, str:string): Bson.document = [H.str(name,str)|s]
   doc(s:Bson.document, name:string, d:Bson.document): Bson.document = [H.doc(name,d)|s]
-  array(s:Bson.document, name:string, l:list('b)): Bson.document =
-    ty = @typeval('b)
-    d = (List.flatten(List.mapi((i, v -> MongoDb.opa_to_bson("{i}",v,{some=ty})),l)):Bson.document)
-    [H.arr(name,d)|s]
+  array(s:Bson.document, name:string, l:list('b)): Bson.document = List.flatten([Bson.list_to_bson(name,l,@typeval('b)),s])
   binary(s:Bson.document, name:string, bin:Bson.binary): Bson.document = [H.binary(name,bin)|s]
   id(s:Bson.document, name:string, id:Bson.oid): Bson.document = [H.oid(name,Bson.oid_of_string(id))|s]
   newid(s:Bson.document, name:string): Bson.document = [H.oid(name,Bson.new_oid(void))|s]
@@ -530,7 +520,7 @@ SU : SU = {{
       | {TyName_args=[]; TyName_ident="Date.date"} -> date(s,op,@unsafe_cast(v))
       | {TyName_args=[]; TyName_ident="Bson.timestamp"} -> timestamp(s,op,@unsafe_cast(v))
       | {TyName_args = tys; TyName_ident = tyid} -> aux(OpaType.type_of_name(tyid,tys))
-      | _ -> doc(s,op,MDB.opa2doc(v))
+      | _ -> doc(s,op,Bson.opa2doc(v))
     aux(@typeval('a))
 
   gti32(i:int, s:Bson.document): Bson.document = int32(s, "$gt", i)
@@ -910,10 +900,10 @@ type Collection = {{
 
 Batch = {{
   empty = ([]:batch)
-  add(b:batch, v:'a): batch = [MDB.opa2doc(v)|b]
-  add2(b:batch, (v1:'a, v2:'b)): batch = [MDB.opa2doc(v1)|[MDB.opa2doc(v2)|b]]
-  add3(b:batch, (v1:'a, v2:'b, v3:'c)): batch = [MDB.opa2doc(v1)|[MDB.opa2doc(v2)|[MDB.opa2doc(v3)|b]]]
-  list(b:batch, vs:list('a)): batch = List.flatten([List.map(MDB.opa2doc,vs),b])
+  add(b:batch, v:'a): batch = [Bson.opa2doc(v)|b]
+  add2(b:batch, (v1:'a, v2:'b)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|b]]
+  add3(b:batch, (v1:'a, v2:'b, v3:'c)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|[Bson.opa2doc(v3)|b]]]
+  list(b:batch, vs:list('a)): batch = List.flatten([List.map(Bson.opa2doc,vs),b])
 }}
 
 Collection : Collection = {{
@@ -951,7 +941,7 @@ Collection : Collection = {{
 
   insert(c:collection('value), v:'value): bool =
     ns = c.db.dbname^"."^c.db.collection
-    b = MDB.opa2doc(v)
+    b = Bson.opa2doc(v)
     Mongo.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
   insert_batch(c:collection('value), b:batch): bool =
@@ -971,7 +961,7 @@ Collection : Collection = {{
     (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields) with
      | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match MongoDb.bson_to_opa(doc, @typeval('value), c.db.valname) with
+       (match Bson.bson_to_opa(doc, @typeval('value), c.db.valname) with
         | {some=v} -> {success=(Magic.id(v):'value)}
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
@@ -991,7 +981,7 @@ Collection : Collection = {{
     match Cursor.check_cursor_error(cursor) with
     | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
-       (match MongoDb.bson_to_opa(doc, cc.ty, cc.collection.db.valname) with
+       (match Bson.bson_to_opa(doc, cc.ty, cc.collection.db.valname) with
         | {some=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
         | {none} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}}))
     | {~failure} ->
@@ -1028,7 +1018,7 @@ Collection : Collection = {{
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
        ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
-       (match MongoDb.bson_to_opa(doc, ty, "values") with
+       (match Bson.bson_to_opa(doc, ty, "values") with
         | {some=v} -> {success=(Magic.id(v):list('b))}
         | {none} -> {failure={Error="Collection.distinct: not found"}})
     | {~failure} -> {~failure}
@@ -1046,7 +1036,7 @@ Collection : Collection = {{
       (match Bson.find(doc,"retval") with
        | {some=[{name=k; value={Array=arr}}]} ->
           ty = {TyName_args=[@typeval('a)]; TyName_ident="list"}
-          (match MongoDb.bson_to_opa([H.arr(k,List.rev(arr))], ty, k) with
+          (match Bson.bson_to_opa([H.arr(k,List.rev(arr))], ty, k) with
            | {some=v} ->
               retval = (Magic.id(v):list('a))
               (match Cursor.find_int(doc, "count") with
