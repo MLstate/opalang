@@ -200,6 +200,12 @@ struct
   let null b name =
     estart b el_null name
 
+  let minkey b name =
+    estart b el_minkey name
+
+  let maxkey b name =
+    estart b el_maxkey name
+
   let undefined b name =
     estart b el_undefined name
 
@@ -549,7 +555,7 @@ struct
     else
       let ds =
         match S.get i.ibuf i.pos with
-        | c when c = el_undefined || c = el_null ->
+        | c when c = el_undefined || c = el_null || c = el_minkey || c = el_minkey ->
             0
         | c when c = el_bool ->
             1
@@ -641,6 +647,8 @@ struct
          | c when c = el_bindata -> Printf.printf "el_bindata"
          | c when c = el_undefined -> Printf.printf "el_undefined"
          | c when c = el_null -> Printf.printf "el_null"
+         | c when c = el_minkey -> Printf.printf "el_minkey"
+         | c when c = el_maxkey -> Printf.printf "el_maxkey"
          | c when c = el_regex -> Printf.printf "el_regex: %s" (Iterator.regex i)
          | c when c = el_code -> Printf.printf "el_code: %s" (Iterator.code i)
          | c when c = el_codewscope ->

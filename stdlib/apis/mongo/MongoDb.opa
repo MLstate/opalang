@@ -726,6 +726,8 @@ SU : SU = {{
     | {Int32=_} -> ({su_either},T.tint)
     | {Timestamp=_} -> ({su_either},T.ttimestamp)
     | {Int64=_} -> ({su_either},T.tint)
+    | {Min=_} -> ({su_select},T.tvoid)
+    | {Max=_} -> ({su_select},T.tvoid)
 
   @private sutymrg((sut,ty), (asut,aty)) = (merge(sut,asut),T.tmrgrecs(ty,aty))
 

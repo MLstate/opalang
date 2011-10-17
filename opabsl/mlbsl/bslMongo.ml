@@ -99,6 +99,8 @@ let serialize bsons b =
                | Some "Boolean" -> Bson.Append.bool b name (ServerLib.unwrap_bool value)
                | Some "Date" ->Bson.Append.date b name (ServerLib.unwrap_int value)
                | Some "Null" -> Bson.Append.null b name
+               | Some "Min" -> Bson.Append.minkey b name
+               | Some "Max" -> Bson.Append.maxkey b name
                | Some "Regexp" ->
                    (match BslNativeLib.ocaml_tuple_2 value with
                     | (regexp, regexp_opts) ->
@@ -141,6 +143,8 @@ let field_bool      = ServerLib.static_field_of_name "Boolean"
 let field_string    = ServerLib.static_field_of_name "String"
 let field_document  = ServerLib.static_field_of_name "Document"
 let field_null      = ServerLib.static_field_of_name "Null"
+let field_minkey    = ServerLib.static_field_of_name "Min"
+let field_maxkey    = ServerLib.static_field_of_name "Max"
 let field_array     = ServerLib.static_field_of_name "Array"
 let field_binary    = ServerLib.static_field_of_name "Binary"
 let field_objectid  = ServerLib.static_field_of_name "ObjectID"
@@ -166,6 +170,8 @@ let make_val fld n x =
   make_element n (ServerLib.make_record (ServerLib.add_field ServerLib.empty_record_constructor fld x))
 
 let make_null = make_val field_null
+let make_minkey = make_val field_minkey
+let make_maxkey = make_val field_maxkey
 let make_int32 = make_val field_int32
 let make_int64 = make_val field_int64
 let make_double = make_val field_double
@@ -206,6 +212,8 @@ let deserialize s =
      | c when c = Bson.el_oid -> let e = make_objectid (Bson.IteratorSS.key i) (Bson.IteratorSS.oid i) in auxn e i
      | c when c = Bson.el_date -> let e = make_date (Bson.IteratorSS.key i) (Bson.IteratorSS.date i) in auxn e i
      | c when c = Bson.el_null -> let e = make_null (Bson.IteratorSS.key i) ServerLib.void in auxn e i
+     | c when c = Bson.el_minkey -> let e = make_minkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i
+     | c when c = Bson.el_maxkey -> let e = make_maxkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i
      | c when c = Bson.el_regex ->
          let e = make_regexp (Bson.IteratorSS.key i) (Bson.IteratorSS.regex i) (Bson.IteratorSS.regex_opts i) in auxn e i
      | c when c = Bson.el_code -> let e = make_code (Bson.IteratorSS.key i) (Bson.IteratorSS.code i) in auxn e i

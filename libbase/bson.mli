@@ -104,6 +104,8 @@ val el_oid : char
 val el_bool : char
 val el_date : char
 val el_null : char
+val el_minkey : char
+val el_maxkey : char
 val el_regex : char
 val el_dbref : char
 val el_code : char
@@ -147,6 +149,8 @@ module Append :
     val double : buf -> S.t -> float -> unit
     val bool : buf -> S.t -> bool -> unit
     val null : buf -> S.t -> unit
+    val minkey : buf -> S.t -> unit
+    val maxkey : buf -> S.t -> unit
     val undefined : buf -> S.t -> unit
     val string_base : buf -> S.t -> S.t -> int -> char -> unit
     val string : buf -> S.t -> S.t -> unit

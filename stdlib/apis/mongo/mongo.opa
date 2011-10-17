@@ -86,7 +86,7 @@ type Bson.value =
   / { ObjectID: string }
   / { Boolean: bool }
   / { Date: Date.date }
-  / { Null: void } // TODO: ditch the void
+  / { Null }
   / { Regexp: (string, string) }
   / { Code: string }
   / { Symbol: string }
@@ -94,6 +94,8 @@ type Bson.value =
   / { Int32: int }
   / { Timestamp: (int, int) }
   / { Int64: int }
+  / { Min }
+  / { Max }
 
 @opacapi
 type Bson.element = { name:string; value:Bson.value }
@@ -173,6 +175,8 @@ Bson = {{
   tInt32 = 0x10
   tTimestamp = 0x11
   tInt64 = 0x12
+  tMin = 0xff
+  tMax = 0x7f
 
   /** Convenience function, dump string as hex and ascii */
   dump = (%% BslMongo.Bson.dump %%: int, string -> string)
@@ -207,6 +211,8 @@ Bson = {{
     | {Int32=_} -> tInt32
     | {Timestamp=_} -> tTimestamp
     | {Int64=_} -> tInt64
+    | {Min=_} -> tMin
+    | {Max=_} -> tMax
 
   /**
    * Return the key of an element.
@@ -344,6 +350,8 @@ Bson = {{
     | {Int32=v} -> "Int32 {v}"
     | {Timestamp=(t,i)} -> "Timestamp \{ \"t\" : {t}, \"i\" : {i}"
     | {Int64=v} -> "Int64 {v}"
+    | {Min=_} -> "Min"
+    | {Max=_} -> "Max"
 
   string_of_element(element:Bson.element): string = "\"{element.name}\" : {string_of_value(element.value)}"
 
@@ -374,6 +382,8 @@ Bson = {{
     | {Int32=v} -> "{v}"
     | {Timestamp=(t,i)} -> "\{ \"t\" : {t}, \"i\" : {i} \}"
     | {Int64=v} -> "{v}L"
+    | {Min=_} -> "min"
+    | {Max=_} -> "max"
 
   pretty_of_element(element:Bson.element): string =
     "\"{element.name}\" : {pretty_of_value(element.value)}"
