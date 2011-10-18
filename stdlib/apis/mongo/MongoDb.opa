@@ -218,11 +218,11 @@ MDB : MDB = {{
         else void
       else void
 
-  getLastError(db:mongodb): Mongo.result = Cursor.getLastError(db.mongo, db.dbname)
+  getLastError(db:mongodb): Mongo.result = Commands.getLastError(db.mongo, db.dbname)
 
   err(db:mongodb, n:string): void =
-    err = Cursor.getLastError(db.mongo, db.dbname)
-    do println("error({n})={Bson.string_of_result(err)}")
+    err = Commands.getLastError(db.mongo, db.dbname)
+    do println("error({n})={Mongo.string_of_result(err)}")
     void
 
   skip(db:mongodb, skip:int): mongodb = { db with ~skip }
@@ -855,7 +855,7 @@ type collection('a) = {
 
 type collection_cursor('a) = {
   collection: collection('a);
-  cursor: cursor;
+  cursor: Cursor.cursor;
   query: select('a);
   ty: OpaType.ty;
 }
@@ -1011,10 +1011,10 @@ Collection : Collection = {{
     | {~failure} -> {~failure}
 
   count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
-    Cursor.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
+    Commands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
 
   distinct(c:collection('value), key:string, query_opt:option(select('value))): outcome(list('b),Mongo.failure) =
-    match Cursor.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),query_opt))) with
+    match Commands.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),query_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
        ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
@@ -1028,7 +1028,7 @@ Collection : Collection = {{
    **/
   group(c:collection('value), key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
-    Cursor.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
+    Commands.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
 
   analyze_group(res:Mongo.result): group_result('a) =
     match res with
