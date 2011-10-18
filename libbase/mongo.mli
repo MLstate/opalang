@@ -42,10 +42,13 @@ val get : mongo_buf -> string
 val export : mongo_buf -> string * int
 val set_header_len : mongo_buf -> int -> unit
 val set_header : mongo_buf -> int32 -> int -> int -> unit
+val get_buf : ?hint:int -> unit -> Buf.t
+val free_buf : Buf.t -> unit
 val create : int -> mongo_buf
 val init : ?hint:int -> int -> int32 -> int -> int -> mongo_buf
 val clear : mongo_buf -> unit
 val reset : mongo_buf -> unit
+val free : mongo_buf -> unit
 val start_insert : mongo_buf -> int32 -> int -> string -> unit
 val start_update : mongo_buf -> int32 -> int -> string -> unit
 val start_query : mongo_buf -> int32 -> int -> string -> int -> int -> unit

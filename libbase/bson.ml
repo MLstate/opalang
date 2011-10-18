@@ -16,6 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+#<Debugvar:MONGO_DEBUG>
+
 module type S_sig =
 sig
   type t

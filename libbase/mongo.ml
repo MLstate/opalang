@@ -1,3 +1,22 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+
+#<Debugvar:MONGO_DEBUG>
 
 module St = Stuff.StuffString
 
@@ -65,9 +84,23 @@ let set_header m requestId responseTo opCode =
   St.lei32 m.Bson.buf.Buf.str 12 opCode;
   m.Bson.buf.Buf.i <- 16
 
+let buflst = ref ([]:Buf.t list)
+let bufcnt = ref 0
+let buflog = ref (fun str -> Printf.eprintf "%s\n%!" str)
+
+let get_buf ?(hint=4096) () =
+  match !buflst with
+  | [] -> (#<If$minlevel 2>!buflog (Printf.sprintf "get_buf(%d): new" !bufcnt)#<End>; Buf.create hint)
+  | b::t -> (#<If$minlevel 2>!buflog (Printf.sprintf "get_buf(%d): old" !bufcnt)#<End>; buflst := t; decr bufcnt; Buf.clear b; b)
+
+let free_buf b =
+  if Buf.length b <= (10*1024*1024)
+  then (#<If$minlevel 2>!buflog (Printf.sprintf "free_buf(%d): return" !bufcnt)#<End>; buflst := b::(!buflst); incr bufcnt)
+  else (#<If$minlevel 2>!buflog (Printf.sprintf "free_buf(%d): reset" !bufcnt)#<End>; Buf.reset b)
+
 let create size =
   if size < 16 then raise (Failure "Mongo.create: ridiculous size value");
-  let b = { Bson.buf=Buf.create size; stack=[]; finished=false; } in
+  let b = { Bson.buf=get_buf ~hint:size (); stack=[]; finished=false; } in
   b.Bson.buf.Buf.i <- 16;
   b
 
@@ -80,6 +113,8 @@ let init ?(hint=100) messageLength requestId responseTo opCode =
 let clear m = m.Bson.buf.Buf.i <- 16
 
 let reset m = Buf.reset m.Bson.buf
+
+let free m = free_buf m.Bson.buf
 
 (*struct OP_INSERT {
     MsgHeader header;             // standard message header

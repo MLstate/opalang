@@ -329,11 +329,14 @@ let clear = Mongo.clear
 ##register reset: mongo_buf -> void
 let reset = Mongo.reset
 
+##register free: mongo_buf -> void
+let free = Mongo.free
+
 ##register new_mailbox: int -> mailbox
-let new_mailbox size = (Buf.create size, ref 0)
+let new_mailbox size = (Mongo.get_buf ~hint:size (), ref 0)
 
 ##register reset_mailbox: mailbox -> void
-let reset_mailbox (b,_) = Buf.reset b
+let reset_mailbox (b,_) = Mongo.free_buf b
 
 ##register [cps-bypass] read_mongo : Socket.connection, mailbox, continuation(reply) -> void
 let read_mongo conn mailbox k =

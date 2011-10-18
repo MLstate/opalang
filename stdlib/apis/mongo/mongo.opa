@@ -854,6 +854,9 @@ Mongo = {{
   /* Reset the buffer, unallocate storage */
   @private reset_ = (%% BslMongo.Mongo.reset %%: mongo_buf -> void)
 
+  /* Free the buffer, return buffer for later use */
+  @private free_ = (%% BslMongo.Mongo.free %%: mongo_buf -> void)
+
   /* Mailbox so we can use the streaming parser */
   @private new_mailbox_ = (%% BslMongo.Mongo.new_mailbox %%: int -> mailbox)
   @private reset_mailbox_ = (%% BslMongo.Mongo.reset_mailbox %%: mailbox -> void)
@@ -871,6 +874,7 @@ Mongo = {{
       s = String.substring(0,len,str)
       //do println("{name}: s=\n{Bson.dump(16,s)}")
       cnt = Socket.write_len(m.conn,s,len)
+      do free_(m.mbuf)
       (cnt==len)
 
   @private
@@ -886,6 +890,7 @@ Mongo = {{
    *    - Primitive error handling in case of mongo server malfunction
    **/
   open(bufsize:int, addr:string, port:int): Mongo.db =
+    //do println("Mongo.open")
     err_cont = Continuation.make((s:string ->
                                    do prerrln("Mongo.open: exn={s}")
                                    System.exit(-1)))
@@ -901,6 +906,7 @@ Mongo = {{
    * We need this to create a new buffer for each cursor.
    **/
   copy(m:Mongo.db): Mongo.db =
+    //do println("Mongo.copy")
     { conn=m.conn;
       mbuf = create_(m.bufsize);
       mailbox = new_mailbox_(m.bufsize);
@@ -913,6 +919,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
+    //do println("Mongo.insert")
     m = { m with mbuf = create_(m.bufsize) }
     do insert_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
@@ -930,6 +937,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
+    //do println("Mongo.insert_batch")
     m = { m with mbuf = create_(m.bufsize) }
     do insert_batch_(m.mbuf,flags,ns,documents)
     send_no_reply(m,"insert")
@@ -947,6 +955,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
+    //do println("Mongo.update")
     m = { m with mbuf = create_(m.bufsize) }
     do update_(m.mbuf,flags,ns,selector,update)
     send_no_reply(m,"update")
@@ -963,6 +972,7 @@ Mongo = {{
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(reply) =
+    //do println("Mongo.query")
     m = { m with mbuf = create_(m.bufsize) }
     do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
     send_with_reply(m,"query")
@@ -979,6 +989,7 @@ Mongo = {{
    *  Send OP_GETMORE and get reply:
    **/
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:cursorID): option(reply) =
+    //do println("Mongo.get_more")
     m = { m with mbuf = create_(m.bufsize) }
     do get_more_(m.mbuf,ns,numberToReturn,cursorID)
     send_with_reply(m,"getmore")
@@ -989,6 +1000,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
+    //do println("Mongo.delete")
     m = { m with mbuf = create_(m.bufsize) }
     do delete_(m.mbuf,flags,ns,selector)
     send_no_reply(m,"delete")
@@ -1006,6 +1018,7 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   kill_cursors(m:Mongo.db, cursors:list(cursorID)): bool =
+    //do println("Mongo.kill_cursors")
     m = { m with mbuf = create_(m.bufsize) }
     do kill_cursors_(m.mbuf,cursors)
     send_no_reply(m,"kill_cursors")
@@ -1024,8 +1037,9 @@ Mongo = {{
    *  Close mongo connection and deallocate buffer.
    **/
   close(m:Mongo.db) =
+    //do println("Mongo.close")
     do Socket.close(m.conn)
-    do reset_(m.mbuf)
+    do free_(m.mbuf)
     do reset_mailbox_(m.mailbox)
     void
 
@@ -1033,7 +1047,8 @@ Mongo = {{
    *  Close mongo copy, deallocate buffer but leave connection open.
    **/
   close_copy(m:Mongo.db) =
-    do reset_(m.mbuf)
+    //do println("Mongo.close_copy")
+    do free_(m.mbuf)
     do reset_mailbox_(m.mailbox)
     void
 
@@ -1370,10 +1385,22 @@ Cursor = {{
     run_command(m, ns, [H.i32(cmd,arg)])
 
   /**
+   * Same as simple integer command but with options, eg. [{ "getlasterror" : 1, w : 3, wtimeout : 10000 }]
+   **/
+  simple_int_command_opts(m:Mongo.db, ns:string, cmd:string, arg:int, opts:Bson.document): Mongo.result =
+    run_command(m, ns, List.flatten([[H.i32(cmd,arg)],opts]))
+
+  /**
    * Perform a simple integer command, eg. [{ drop : "collection" }]
    **/
   simple_str_command(m:Mongo.db, ns:string, cmd:string, arg:string): Mongo.result =
     run_command(m, ns, [H.str(cmd,arg)])
+
+  /**
+   * Perform a simple integer command, eg. [{ drop : "collection" }]
+   **/
+  simple_str_command_opts(m:Mongo.db, ns:string, cmd:string, arg:string, opts:Bson.document): Mongo.result =
+    run_command(m, ns, List.flatten([[H.str(cmd,arg)],opts]))
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
@@ -1400,6 +1427,13 @@ Cursor = {{
    **/
   last_error(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "getlasterror", 1)
+
+  /**
+   * Return the last error from database, with full options.
+   **/
+  last_error_full(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
+    simple_int_command_opts(m, db, "getlasterror", 1,
+                            [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
 
   /**
    * Reset database error status.

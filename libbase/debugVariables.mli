@@ -605,6 +605,12 @@ val low_level_db_log : debug_var
 val mimetype_debug : debug_var
 
 (**
+   {b MLSTATE_MONGO_DEBUG}
+   display the debug for MongoDB
+*)
+val mongo_debug : debug_var
+
+(**
    {b MLSTATE_NO_ACCESS_LOG}
 *)
 val no_access_log : debug_var
