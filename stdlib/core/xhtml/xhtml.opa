@@ -782,21 +782,37 @@ Xhtml =
           do Buf.add(html_buffer,tag)
 
           print_arg(~{name namespace=tagns value}) =
-            tagns = get_ns_prefix(tagns)
-            do Buf.add(html_buffer," ")
-            do if String.is_empty(tagns) then Buf.add(html_buffer,name)
-               else
-                 do Buf.add(html_buffer,tagns)
-                 do Buf.add(html_buffer,":")
-                 Buf.add(html_buffer,name)
-            do Buf.add(html_buffer,"=\"")
-            do Buf.add(html_buffer,String.escape_html(value))
-            Buf.add(html_buffer,"\"")
+              tagns = get_ns_prefix(tagns)
+              do Buf.add(html_buffer," ")
+              do if String.is_empty(tagns) then Buf.add(html_buffer,name)
+                 else
+                   do Buf.add(html_buffer,tagns)
+                   do Buf.add(html_buffer,":")
+                   Buf.add(html_buffer,name)
+              do Buf.add(html_buffer,"=\"")
+              do Buf.add(html_buffer,String.escape_html(value))
+              Buf.add(html_buffer,"\"")
+
+          print_arg_with_spec_filter(acc, ~{name namespace=tagns value}) =
+            if name == "class" then
+              { acc with class = [value|acc.class] }
+            else
+              do print_arg({~name namespace=tagns ~value})
+              acc
           //Handle regular attributes
-          do List.iter(print_arg,args)
+          xhtml_spec_attrs = List.fold_left(print_arg_with_spec_filter,Xhtml.default_attributes,args)
 
           do match specific_attributes with
-             | {none} -> void
+             | {none} ->
+               do match xhtml_spec_attrs.class with
+                  | [] -> void
+                  | [name|t] ->
+                    do Buf.add(html_buffer," class=\"")
+                    do Buf.add(html_buffer,name)
+                    do List.iter((name -> do Buf.add(html_buffer," ") Buf.add(html_buffer,name)),t)
+                    Buf.add(html_buffer,"\"")
+                  end
+               void
              | {some=~{class style events events_options href}} ->
           //Normalize tags
                do (
@@ -912,6 +928,7 @@ Xhtml =
                //Handle events and style: end
 
                //Handle classes
+               class = class ++ xhtml_spec_attrs.class
                do match class with
                   | [] -> void
                   | [name|t] ->
