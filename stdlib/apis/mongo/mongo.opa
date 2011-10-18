@@ -262,6 +262,12 @@ Bson = {{
   find_bool(bson:Bson.document, name:string): option(bool) =
     match Option.map((e -> e.value),find_element(bson, name)) with
     | {some={Boolean=tf}} -> {some=tf}
+    | {some={Int32=0}} -> {some=false}
+    | {some={Int32=_}} -> {some=true}
+    | {some={Int64=0}} -> {some=false}
+    | {some={Int64=_}} -> {some=true}
+    | {some={Double=0.0}} -> {some=false}
+    | {some={Double=_}} -> {some=true}
     | _ -> {none}
 
   find_int(bson:Bson.document, name:string): option(int) =
@@ -271,16 +277,44 @@ Bson = {{
     | {some={Double=d}} -> {some=Float.to_int(d)}
     | _ -> {none}
 
+  find_float(bson:Bson.document, name:string): option(float) =
+    match Option.map((e -> e.value),find_element(bson, name)) with
+    | {some={Int32=i}} -> {some=Float.of_int(i)}
+    | {some={Int64=i}} -> {some=Float.of_int(i)}
+    | {some={Double=d}} -> {some=d}
+    | _ -> {none}
+
   find_string(bson:Bson.document, name:string): option(string) =
     match Option.map((e -> e.value),find_element(bson, name)) with
     | {some={String=str}} -> {some=str}
+    | {some={Int32=i}} -> {some=Int.to_string(i)}
+    | {some={Int64=i}} -> {some=Int.to_string(i)}
+    | {some={Double=d}} -> {some=Float.to_string(d)}
     | {some={Null=_}} -> {some=""}
     | _ -> {none}
 
   find_doc(bson:Bson.document, name:string): option(Bson.document) =
     match Option.map((e -> e.value),find_element(bson, name)) with
     | {some={Document=doc}} -> {some=doc}
+    | {some=element} -> {some=[{~name; value=element}]}
     | _ -> {none}
+
+  find_dot(doc:Bson.document, dot:string, find:(Bson.document, string -> option('a))): option('a) =
+    rec aux(doc, l) =
+      match l with
+      | [] -> {none}
+      | [key] -> find(doc,key)
+      | [key|rest] ->
+         (match find_doc(doc,key) with
+          | {some=subdoc} -> aux(subdoc, rest)
+          | {none} -> {none})
+    aux(doc, String.explode(".",dot))
+
+  dot_bool(doc:Bson.document, dot:string): option(bool) = find_dot(doc, dot, find_bool)
+  dot_int(doc:Bson.document, dot:string): option(int) = find_dot(doc, dot, find_int)
+  dot_float(doc:Bson.document, dot:string): option(float) = find_dot(doc, dot, find_float)
+  dot_string(doc:Bson.document, dot:string): option(string) = find_dot(doc, dot, find_string)
+  dot_doc(doc:Bson.document, dot:string): option(Bson.document) = find_dot(doc, dot, find_doc)
 
   /**
    * Return the type of a matching Bson key.
@@ -328,16 +362,15 @@ Bson = {{
   sort_document(doc:Bson.document): Bson.document = List.sort_by(Bson.key,doc)
 
   /**
-   * Attempt to turn a bson element into a string which looks like
-   * the mongo shell syntax.
-   * Note: still only partial.
+   * Attempt to turn a bson document into a string which looks like
+   * the mongo shell syntax but with explicit element types.
    **/
-  rec string_of_value(value:Bson.value): string =
+  @private string_of_value(value:Bson.value): string =
     match value with
     | {Double=v} -> "Double {v}"
     | {String=v} -> "String {v}"
-    | {Document=v} -> "Document {string_of_bson(v)}"
-    | {Array=v} -> "Array {string_of_bson(v)}"
+    | {Document=v} -> "Document {to_string(v)}"
+    | {Array=v} -> "Array {to_string(v)}"
     | {Binary=v} -> "Binary {v}"
     | {ObjectID=v} -> "ObjectID {oid_to_string(v)}"
     | {Boolean=v} -> "Boolean {v}"
@@ -353,27 +386,24 @@ Bson = {{
     | {Min=_} -> "Min"
     | {Max=_} -> "Max"
 
-  string_of_element(element:Bson.element): string = "\"{element.name}\" : {string_of_value(element.value)}"
+  @private string_of_element(element:Bson.element): string = "\"{element.name}\" : {string_of_value(element.value)}"
+
+  to_string(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
 
   /**
-   * Same for a bson object (just a list of elements).
-   **/
-  string_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
-
-  /**
-   * Same as string_of_bson except we miss out the tags showing the
+   * Same as to_string except we miss out the tags showing the
    * actual name of the element.
    **/
-  rec pretty_of_value(value:Bson.value): string =
+  @private pretty_of_value(value:Bson.value): string =
     match value with
     | {Double=v} -> "{v}"
     | {String=v} -> "\"{v}\""
-    | {Document=v} -> "{pretty_of_bson(v)}"
+    | {Document=v} -> "{to_pretty(v)}"
     | {Array=v} -> "{pretty_of_array(v)}"
     | {Binary=_} -> "<BINARY>"
     | {ObjectID=v} -> "{oid_to_string(v)}"
     | {Boolean=v} -> "{v}"
-    | {Date=v} -> "{v}" // <-- TODO: format this
+    | {Date=v} -> "{v}"
     | {Null=_} -> "null"
     | {Regexp=(re,opts)} -> "REGEXP(/{re}/{opts})"
     | {Code=v} -> "CODE({v})"
@@ -385,20 +415,19 @@ Bson = {{
     | {Min=_} -> "min"
     | {Max=_} -> "max"
 
-  pretty_of_element(element:Bson.element): string =
+  @private pretty_of_element(element:Bson.element): string =
     "\"{element.name}\" : {pretty_of_value(element.value)}"
 
-  pretty_of_array(a:Bson.document): string =
+  @private pretty_of_array(a:Bson.document): string =
     "["^(String.concat(", ",List.map((e -> pretty_of_value(e.value)),a)))^"]"
 
-  pretty_of_bson(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
+  to_pretty(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
 
   /**
    * Convert a result value into a more friendly string.
    * Errors can be internal (just a string) or could be document
    * returned by mongo.  Which may be an error even if the
    * outcome is "success".
-   * TODO: Mongo sends all sorts of rubbish here, we need to parse all that stuff.
    **/
   @private
   string_of_doc(doc:Bson.document): string =
@@ -423,6 +452,48 @@ Bson = {{
     match result with
     | {success=doc} -> string_of_doc(doc)
     | {~failure} -> string_of_failure(failure)
+
+  pretty_of_result(result:Mongo.result): string =
+    match result with
+    | {success=doc} -> to_pretty(doc)
+    | {~failure} -> "\{failure={string_of_failure(failure)}\}"
+
+  /**
+   * outcome-wrapped versions of find_xxx etc.
+   **/
+  result_(result:Mongo.result,key:string,find:(Bson.document, string -> option('a))): option('a) =
+    match result with
+    | {success=doc} -> find(doc,key)
+    | {failure=_} -> {none}
+
+  result_bool(result:Mongo.result,key:string): option(bool) = result_(result, key, find_bool)
+  result_int(result:Mongo.result,key:string): option(int) = result_(result, key, find_int)
+  result_float(result:Mongo.result,key:string): option(float) = result_(result, key, find_float)
+  result_string(result:Mongo.result,key:string): option(string) = result_(result, key, find_string)
+  result_doc(result:Mongo.result,key:string): option(Bson.document) = result_(result, key, find_doc)
+
+  /**
+   * Same as outcome-wrapped versions but allowing dot notation.
+   **/
+  dotresult_(result:Mongo.result,key:string,find:(Bson.document, string -> option('a))): option('a) =
+    match result with
+    | {success=doc} -> find_dot(doc,key,find)
+    | {failure=_} -> {none}
+
+  dotresult_bool(result:Mongo.result,key:string): option(bool) = dotresult_(result, key, find_bool)
+  dotresult_int(result:Mongo.result,key:string): option(int) = dotresult_(result, key, find_int)
+  dotresult_float(result:Mongo.result,key:string): option(float) = dotresult_(result, key, find_float)
+  dotresult_string(result:Mongo.result,key:string): option(string) = dotresult_(result, key, find_string)
+  dotresult_doc(result:Mongo.result,key:string): option(Bson.document) = dotresult_(result, key, find_doc)
+
+  result_to_opa(result:Mongo.result): option('a) =
+    match result with
+    | {success=doc} -> (doc2opa(doc):option('a))
+    | {failure=_} -> {none}
+
+  /**
+   * OPA to Bson
+   **/
 
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
     List.flatten(OpaValue.Record.fold_with_fields((field, tyfield, value, bson ->
@@ -454,6 +525,7 @@ Bson = {{
           else [H.doc(key,rec_to_bson(v, row))]
        | _ ->
           [H.doc(key,rec_to_bson(v, row))])
+    | {TyName_args=[]; TyName_ident="Date.date"} -> [H.date(key,(@unsafe_cast(v):Date.date))]
     | {TyName_args=[]; TyName_ident="Bson.binary"} -> [H.binary(key,(@unsafe_cast(v):Bson.binary))]
     | {TyName_args=[]; TyName_ident="Bson.regexp"} -> [H.regexp(key,(@unsafe_cast(v):Bson.regexp))]
     | {TyName_args=[]; TyName_ident="Bson.code"} -> [H.code(key,(@unsafe_cast(v):Bson.code))]
@@ -492,6 +564,10 @@ Bson = {{
       opa_to_document("value", v, ty)
 
   opa2doc(v:'a): Bson.document = opa_to_bson(v,{some=@typeval('a)})
+
+  /**
+   * Bson to OPA
+   **/
 
   rec bson_to_opa(bson:Bson.document, ty:OpaType.ty, valname:string): option('a) =
  
@@ -614,6 +690,10 @@ Bson = {{
                  doc,[])
            {some=@unsafe_cast(l)}
          | element -> @fail("Bson.bson_to_opa: expected list, got {element}"))
+      | {TyName_args=[]; TyName_ident="Date.date"} ->
+        (match element with
+         | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
+         | element -> @fail("Bson.bson_to_opa: expected date, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.binary"} ->
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
@@ -1417,42 +1497,83 @@ Cursor = {{
     simple_int_command(m, db, "dropDatabase", 1)
 
   /**
-   * Drop a collection from a database [drop_collection("db","collection")]
+   * Drop a collection from a database [drop("db","collection")]
    **/
   drop(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "drop", collection)
 
   /**
+   * Drop an index from a collection [dropIndexes("db","collection","index")]
+   **/
+  dropIndexes(m:Mongo.db, db:string, collection:string, index:string): Mongo.result =
+    simple_str_command_opts(m, db, "drop", collection, [H.str("index",index)])
+
+  /**
+   * List valid commands for database.
+   **/
+  listCommands(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "listCommands", 1)
+
+  /**
+   * List all databases.
+   **/
+  listDatabases(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "listDatabases", 1)
+
+  /**
+   * Statistics for server.
+   **/
+  serverStatus(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "serverStatus", 1)
+
+  /**
+   * Rename a collection [renameCollection("db","collection","index")]
+   **/
+  renameCollection(m:Mongo.db, from:string, to:string): Mongo.result =
+    simple_str_command_opts(m, "admin", "renameCollection", from, [H.str("to",to)])
+
+  /**
+   * Repair the database (slow, write-locked).
+   **/
+  repairDatabase(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "repairDatabase", 1)
+
+  /**
    * Return the last error from database.
    **/
-  last_error(m:Mongo.db, db:string): Mongo.result =
-    simple_int_command(m, db, "getlasterror", 1)
+  getLastError(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "getLastError", 1)
 
   /**
    * Return the last error from database, with full options.
    **/
-  last_error_full(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
-    simple_int_command_opts(m, db, "getlasterror", 1,
+  getLastErrorFull(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
+    simple_int_command_opts(m, db, "getLastError", 1,
                             [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
 
   /**
    * Reset database error status.
    **/
-  reset_error(m:Mongo.db, db:string): Mongo.result =
-    simple_int_command(m, db, "reseterror", 1)
+  resetError(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "resetError", 1)
 
   /**
    * Force a db error.
    **/
-  force_error(m:Mongo.db, db:string): Mongo.result =
-    simple_int_command(m, db, "forceerror", 1)
+  forceError(m:Mongo.db, db:string): Mongo.result =
+    simple_int_command(m, db, "forceError", 1)
 
-  find_int(bson:Bson.document, name:string): outcome(int,Mongo.failure) =
-    match Bson.find_element(bson,name) with
-    | {some={value={Int32=n} ...}} -> {success=n}
-    | {some={value={Int64=n} ...}} -> {success=n}
-    | {some={value={Double=n} ...}} -> {success=Float.to_int(n)}
-    | _ -> {failure={Error="Missing {name} Int32/Int64/Double"}}
+  /**
+   * Return information about the server.
+   **/
+  buildInfo(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "buildInfo", 1)
+
+  /**
+   * Return collection statistics.
+   **/
+  collStats(m:Mongo.db, db:string, collection:string): Mongo.result =
+    simple_str_command(m, db, "collStats", collection)
 
   /**
    * Count the number of matching elements.
@@ -1469,8 +1590,9 @@ Cursor = {{
                         (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
-       //do println("Cursor.count: bson={Bson.pretty_of_bson(bson)}")
-       find_int(bson, "n")
+       (match Bson.find_int(bson, "n") with
+        | {some=n} -> {success=n} 
+        | {none} -> {failure={Error="Missing n value in count reply"}})
     | {~failure} -> {~failure}
 
   distinct(m:Mongo.db, db:string, coll:string, key:string, query_opt:option(Bson.document)): Mongo.result =
@@ -1478,7 +1600,7 @@ Cursor = {{
                         (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
-       //do println("Cursor.distinct: bson={Bson.pretty_of_bson(bson)}")
+       //do println("Cursor.distinct: bson={Bson.to_pretty(bson)}")
        // TODO: stats
        (match Bson.find(bson,"values") with
         | {some=[{name=k; value={Array=d}}]} -> {success=[H.arr(k,List.rev(d))]}
@@ -1493,10 +1615,10 @@ Cursor = {{
            [H.str("ns",coll), H.doc("key",key), H.code("$reduce",reduce), H.doc("initial",initial)],
            (match cond_opt with | {some=cond} -> [H.doc("cond",cond)] | {none} -> [H.null("cond")]),
            (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> [])]))]
-    //do println("Cursor.group: group={Bson.pretty_of_bson(group)}")
+    //do println("Cursor.group: group={Bson.to_pretty(group)}")
     match run_command(m, db, group) with
     | {success=bson} ->
-       //do println("Cursor.group: bson={Bson.pretty_of_bson(bson)}")
+       //do println("Cursor.group: bson={Bson.to_pretty(bson)}")
        {success=bson}
     | {~failure} -> {~failure}
 
@@ -1541,6 +1663,29 @@ Cursor = {{
     | {~failure} -> {~failure}
 
 }}
+
+type Mongo.serverStatusType = {
+  host : string;
+  version : string;
+  process : string;
+  uptime : float;
+  uptimeEstimate : float;
+  localTime : Date.date;
+  globalLock : { totalTime : float; lockTime : float; ratio : float;
+                 currentQueue : { total : int; readers : int; writers : int; }
+                 activeClients : { total : int; readers : int; writers : int; } };
+  mem : { bits : int; resident : int; virtual : int; supported : bool; mapped : int; };
+  connections : { current : int; available : int; };
+  extra_info : { note : string; heap_usage_bytes : int; page_faults : int; };
+  indexCounters : { btree : { accesses : int; hits : int; misses : int; resets : int; missRatio : float; } };
+  backgroundFlushing : { flushes : int; total_ms : int; average_ms : float; last_ms : int; last_finished : Date.date };
+  cursors : { totalOpen : int; clientCursors_size : int; timedOut : int; };
+  network : { bytesIn : int; bytesOut : int; numRequests : int; };
+  opcounters : { insert : int; query : int; update : int; delete : int; getmore : int; command : int; };
+  asserts : { regular : int; warning : int; msg : int; user : int; rollovers : int; };
+  writeBacksQueued : bool;
+  ok : int
+}
 
 /* Tags for indices */
 type index_tag =

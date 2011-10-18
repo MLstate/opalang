@@ -730,7 +730,7 @@ SU : SU = {{
     then
       match element.value with
       | {Array=adoc} -> List.fold(sutymrg,List.map(type_of_bson_value,List.map((e -> e.value),adoc)),(stat,T.tempty))
-      | _ -> @fail("type_of_bson_element: key {element.name} requires an array value, actually {Bson.pretty_of_element(element)}")
+      | _ -> @fail("type_of_bson_element: key {element.name} requires an array value, actually {Bson.to_pretty([element])}")
     else
       match element.name with
       | "$mod" -> (stat,T.tnumeric)
@@ -782,7 +782,7 @@ SU : SU = {{
 
   // Just print warnings for now, should we Log.warning/@fail/or what???
   check_strict_select_value_against_type(doc:Bson.document, ty:OpaType.ty, sut:su_status): void =
-    //do println("check_strict_select_value_against_type:\n  doc={Bson.pretty_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
+    //do println("check_strict_select_value_against_type:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
     //do println("  status={sut}")
     (dsut, dty) = type_of_bson_document(doc)
     //do println("  dsut={dsut}  dty={OpaType.to_pretty(dty)}")
@@ -805,7 +805,7 @@ SU : SU = {{
 
 Select = {{
 
-  to_pretty(select:select('a)): string = "{Bson.pretty_of_bson(select)}"
+  to_pretty(select:select('a)): string = "{Bson.to_pretty(select)}"
 
   unsafe_create(s : Bson.document) = s : select('a)
 
@@ -821,7 +821,7 @@ Select = {{
 
 Update = {{
 
-  to_pretty(update:update('a)): string = "{Bson.pretty_of_bson(update)}"
+  to_pretty(update:update('a)): string = "{Bson.to_pretty(update)}"
 
   unsafe_create(u : Bson.document) = u : update('a)
 
@@ -1039,17 +1039,17 @@ Collection : Collection = {{
           (match Bson.bson_to_opa([H.arr(k,List.rev(arr))], ty, k) with
            | {some=v} ->
               retval = (Magic.id(v):list('a))
-              (match Cursor.find_int(doc, "count") with
-               | {success=count} ->
-                  (match Cursor.find_int(doc, "keys") with
-                   | {success=keys} ->
-                      (match Cursor.find_int(doc, "ok") with
-                       | {success=ok} ->
+              (match Bson.find_int(doc, "count") with
+               | {some=count} ->
+                  (match Bson.find_int(doc, "keys") with
+                   | {some=keys} ->
+                      (match Bson.find_int(doc, "ok") with
+                       | {some=ok} ->
                           {success=~{retval; count; keys; ok}}
-                       | {~failure} -> {~failure})
-                   | {~failure} -> {~failure})
-               | {~failure} -> {~failure})
-           | {none} -> {failure={Error="Collection.analyze_group: not found"}})
+                       | {none} -> {failure={Error="Collection.analyze_group: ok not found"}})
+                   | {none} -> {failure={Error="Collection.analyze_group: keys not found"}})
+               | {none} -> {failure={Error="Collection.analyze_group: count not found"}})
+           | {none} -> {failure={Error="Collection.analyze_group: retval not found"}})
        | _ -> {failure={Error="Collection.analyze_group: no retval value in reply"}})
     | {~failure} -> {~failure}
 
