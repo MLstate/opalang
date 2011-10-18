@@ -1156,6 +1156,25 @@ Xhtml =
     aux(x)
 
   /**
+   * Update (by appending) an attribute to an xhtml node, add it if not already present
+   */
+  update_attribute(name: string, value: string, x:xhtml):xhtml =
+    rec aux(x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(x)
+    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+      args = match find_attr(name,args) with
+             {some=val} ->
+               value = "{val} {value}"
+               l = remove_attr(name,args)
+               [{~name namespace="" ~value}|l]
+             {none} -> [{~name namespace="" ~value}|args]
+      @opensums({x with ~args})
+    _ -> x
+    end
+    aux(x)
+
+  /**
    * Set an attribute to an xhtml node. Replace if already_exists
    */
   set_attribute(name: string, value: string, x:xhtml):xhtml =
