@@ -877,6 +877,8 @@ letin <- pos:pos1 local_binding_directives:dirs Opa_lexer.REC (=list1pos(rec_bin
           {{ push_hint (`same_indent (pos1,pos2));
              bind_in_to_expr_in dirs b e
            }}
+       / pos:pos1 Opa_lexer.OPEN (=list1(expr,Opa_lexer.comma)):l separator:pos2 expr:e
+          {{ push_hint (`same_indent (pos1,pos2)); undecorate (open_ l e) }}
 
 and <- spacing pos:p Opa_lexer.AND {{ p }}
 (* the ! here is here to prevent code such as {r=123x} to parse as {r=123 x}
