@@ -106,6 +106,9 @@ type finalized_t
 *)
 val finalize : session -> finalized_t
 
+(** check *)
+val js_validator : finalized_t -> unit
+
 (** {6 Files Production} *)
 
 (**

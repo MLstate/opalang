@@ -286,24 +286,9 @@ let files_generated = ref 0
 
 let js_files = MutableList.create ()
 
-let js_syntax_checker  = ref (Some "js")
-let js_syntax_checker_files = MutableList.create ()
-let js_syntax_checker_add_file s =
-  List.iter (fun f ->
-               if not (File.is_regular f)
-               then OManager.error "cannot find file %S (js-validation)" f
-               else MutableList.add js_syntax_checker_files f)
-    (spliter s)
-
-let js_syntax_checker_options = MutableList.create ()
-let js_syntax_checker_add_option o =
-  MutableList.add js_syntax_checker_options o
-
-
-
-
-let js_validator       = ref None
+let js_validator       = ref (Some "js")
 let js_validator_files = MutableList.create ()
+let js_validator_files_set = ref StringSet.empty
 let js_validator_add_file s =
   List.iter (fun f ->
                if not (File.is_regular f)
@@ -391,31 +376,6 @@ let spec = [
     " Add path to external librairies for the compilation" ;
 
   (* j *)
-
-
-  "--js-syntax-checker",
-  Arg.String (fun s -> js_syntax_checker := Some s),
-  !>
-    " Specify a js-syntax-checker (default is %a)" (Option.pp Format.pp_print_string) !js_syntax_checker ;
-
-
-  "--js-syntax-checker-file",
-  Arg.String js_syntax_checker_add_file,
-  !>
-    "<file> add an js init file for the js-syntax-checker only" ;
-
-
-  "--js-syntax-checker-off",
-  Arg.Unit (fun () -> js_syntax_checker := None),
-  !>
-    " Disable the js syntax checking (sad)" ;
-
-
-  "--js-syntax-checker-opt",
-  Arg.String js_syntax_checker_add_option,
-  !>
-    "<opt> Add an shell option for the the js-syntax-checker" ;
-
 
   "--js-validator",
   Arg.String (fun s -> js_validator := Some s),
@@ -533,8 +493,8 @@ let anon_fun file =
         (*
           The js files are indexed by their basename.
         *)
-        let file = Filename.basename file in
-        if MutableList.mem file js_files
+        let key = file in
+        if StringSet.mem key (!js_validator_files_set)
         then
           OManager.error (
             "Found several js files with the same basename : @{<bright>%s@}@\n"^^
@@ -544,6 +504,7 @@ let anon_fun file =
           )
             file
         ;
+        js_validator_files_set := StringSet.add key (!js_validator_files_set);
         MutableList.add js_files file
       ) ;
       MutableList.add files file
@@ -792,12 +753,6 @@ let bslregister_options ()=
 
   let js_files = MutableList.to_list js_files in
 
-  let js_syntax_checker =
-    Option.map (
-      fun js -> (js, MutableList.to_list js_syntax_checker_files), MutableList.to_list js_syntax_checker_options
-    ) (!js_syntax_checker)
-  in
-
   let js_validator =
     Option.map (
       fun js -> (js, MutableList.to_list js_validator_files), MutableList.to_list js_validator_options
@@ -820,7 +775,6 @@ let bslregister_options ()=
     check_style ;
 
     js_files ;
-    js_syntax_checker ;
     js_validator ;
 
     ml_plugin_filename ;
@@ -955,6 +909,8 @@ let _ =
     OManager.verbose "generating files ...";
     let finalized_t = BR.finalize session in
     files_generation finalized_t ;
+
+    BR.js_validator finalized_t;
 
     OManager.verbose "successfull generation of plugin files : @{<bright>%d@} files" !files_generated ;
 

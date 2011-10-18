@@ -895,7 +895,7 @@ let finalizing_ocaml session =
 let finalizing_js_code_conf s_js_confs s_js_code =
   let confs = BslJsConf.export s_js_confs in
   let map (filename, content) =
-    let index = Filename.basename filename in
+    let index = filename in
     match StringMap.find_opt index confs with
     | Some conf -> filename, content, conf
     | None ->
@@ -1043,6 +1043,32 @@ let finalize s =
   let _ = OManager.flush_errors () in
 
   finalized_t
+
+let js_validator finalized_t =
+  let name = finalized_t.f_options.BI.basename in
+  match finalized_t.f_options.BI.js_validator with
+  | Some ((executable,files),cmd_options) ->
+    let pp_str_list = Format.pp_list " " Format.pp_print_string in
+    let pp_file_list = Format.pp_list " " (
+      if true || (List.mem "jschecker.jar" cmd_options) then (fun  fmt v -> Format.fprintf fmt "--js %s" v) (* google compiler *)
+      else Format.pp_print_string
+    )
+    in
+    let command = Format.sprintf "%s %a %a %a"
+      executable
+      pp_str_list cmd_options
+      pp_str_list files
+      pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
+    in
+    Printf.printf "%s\n" command;
+    let r = Sys.command command in
+    if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
+      Printf.printf "Failure(%d) %s\n" r command;
+      exit r
+    ) else ()
+  | None -> ()
+;;
+
 
 
 (* Output *)
