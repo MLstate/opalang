@@ -162,7 +162,7 @@ type MDB = {{
   clone : mongodb -> mongodb
   namespace : mongodb, string, string -> mongodb
   close : mongodb -> void
-  last_error : mongodb -> Mongo.result
+  getLastError : mongodb -> Mongo.result
   err : mongodb, string -> void
   limit : mongodb, int -> mongodb
   skip : mongodb, int -> mongodb
@@ -218,10 +218,10 @@ MDB : MDB = {{
         else void
       else void
 
-  last_error(db:mongodb): Mongo.result = Cursor.last_error(db.mongo, db.dbname)
+  getLastError(db:mongodb): Mongo.result = Cursor.getLastError(db.mongo, db.dbname)
 
   err(db:mongodb, n:string): void =
-    err = Cursor.last_error(db.mongo, db.dbname)
+    err = Cursor.getLastError(db.mongo, db.dbname)
     do println("error({n})={Bson.string_of_result(err)}")
     void
 
