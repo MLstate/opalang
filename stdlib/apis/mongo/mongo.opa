@@ -241,29 +241,49 @@ Mongo = {{
    *  before you can give meaning to the bits.
    **/
   insert_tags(flag:int): list(mongo_tag) =
-    if Bitwise.lor(flag,ContinueOnErrorBit) != 0 then [{itag={ContinueOnError}}] else []
+    if Bitwise.land(flag,ContinueOnErrorBit) != 0 then [{itag={ContinueOnError}}] else []
 
   update_tags(flag:int): list(mongo_tag) =
-    tags = if Bitwise.lor(flag,UpsertBit) != 0 then [{utag={Upsert}}] else []
-    if Bitwise.lor(flag,MultiUpdateBit) != 0 then [{utag={MultiUpdate}}|tags] else tags
+    tags = if Bitwise.land(flag,UpsertBit) != 0 then [{utag={Upsert}}] else []
+    if Bitwise.land(flag,MultiUpdateBit) != 0 then [{utag={MultiUpdate}}|tags] else tags
 
   query_tags(flag:int): list(mongo_tag) =
-    tags = if Bitwise.lor(flag,TailableCursorBit) != 0 then [{qtag={TailableCursor}}] else []
-    tags = if Bitwise.lor(flag,SlaveOkBit) != 0 then [{qtag={SlaveOk}}|tags] else tags
-    tags = if Bitwise.lor(flag,OplogReplayBit) != 0 then [{qtag={OplogReplay}}|tags] else tags
-    tags = if Bitwise.lor(flag,NoCursorTimeoutBit) != 0 then [{qtag={NoCursorTimeout}}|tags] else tags
-    tags = if Bitwise.lor(flag,AwaitDataBit) != 0 then [{qtag={AwaitData}}|tags] else tags
-    tags = if Bitwise.lor(flag,ExhaustBit) != 0 then [{qtag={Exhaust}}|tags] else tags
-    if Bitwise.lor(flag,PartialBit) != 0 then [{qtag={Partial}}|tags] else tags
+    tags = if Bitwise.land(flag,TailableCursorBit) != 0 then [{qtag={TailableCursor}}] else []
+    tags = if Bitwise.land(flag,SlaveOkBit) != 0 then [{qtag={SlaveOk}}|tags] else tags
+    tags = if Bitwise.land(flag,OplogReplayBit) != 0 then [{qtag={OplogReplay}}|tags] else tags
+    tags = if Bitwise.land(flag,NoCursorTimeoutBit) != 0 then [{qtag={NoCursorTimeout}}|tags] else tags
+    tags = if Bitwise.land(flag,AwaitDataBit) != 0 then [{qtag={AwaitData}}|tags] else tags
+    tags = if Bitwise.land(flag,ExhaustBit) != 0 then [{qtag={Exhaust}}|tags] else tags
+    if Bitwise.land(flag,PartialBit) != 0 then [{qtag={Partial}}|tags] else tags
 
   delete_tags(flag:int): list(mongo_tag) =
-    if Bitwise.lor(flag,SingleRemoveBit) != 0 then [{dtag={SingleRemove}}] else []
+    if Bitwise.land(flag,SingleRemoveBit) != 0 then [{dtag={SingleRemove}}] else []
 
   reply_tags(flag:int): list(mongo_tag) =
-    tags = if Bitwise.lor(flag,CursorNotFoundBit) != 0 then [{rtag={CursorNotFound}}] else []
-    tags = if Bitwise.lor(flag,QueryFailureBit) != 0 then [{rtag={QueryFailure}}|tags] else tags
-    tags = if Bitwise.lor(flag,ShardConfigStaleBit) != 0 then [{rtag={ShardConfigStale}}|tags] else tags
-    if Bitwise.lor(flag,AwaitCapableBit) != 0 then [{rtag={AwaitCapable}}|tags] else tags
+    tags = if Bitwise.land(flag,CursorNotFoundBit) != 0 then [{rtag={CursorNotFound}}] else []
+    tags = if Bitwise.land(flag,QueryFailureBit) != 0 then [{rtag={QueryFailure}}|tags] else tags
+    tags = if Bitwise.land(flag,ShardConfigStaleBit) != 0 then [{rtag={ShardConfigStale}}|tags] else tags
+    if Bitwise.land(flag,AwaitCapableBit) != 0 then [{rtag={AwaitCapable}}|tags] else tags
+
+  string_of_tag(tag:mongo_tag): string =
+    match tag with
+    | {itag={ContinueOnError}} -> "ContinueOnError"
+    | {utag={Upsert}} -> "Upsert"
+    | {utag={MultiUpdate}} -> "MultiUpdate"
+    | {qtag={TailableCursor}} -> "TailableCursor"
+    | {qtag={SlaveOk}} -> "SlaveOk"
+    | {qtag={OplogReplay}} -> "OplogReplay"
+    | {qtag={NoCursorTimeout}} -> "NoCursorTimeout"
+    | {qtag={AwaitData}} -> "AwaitData"
+    | {qtag={Exhaust}} -> "Exhaust"
+    | {qtag={Partial}} -> "Partial"
+    | {dtag={SingleRemove}} -> "SingleRemove"
+    | {rtag={CursorNotFound}} -> "CursorNotFound"
+    | {rtag={QueryFailure}} -> "QueryFailure"
+    | {rtag={ShardConfigStale}} -> "ShardConfigStale"
+    | {rtag={AwaitCapable}} -> "AwaitCapable"
+
+  string_of_tags(tags:list(mongo_tag)): string = List.list_to_string(string_of_tag,tags)
 
   /* Allocate new buffer of given size */
   @private create_ = (%% BslMongo.Mongo.create %%: int -> mongo_buf)

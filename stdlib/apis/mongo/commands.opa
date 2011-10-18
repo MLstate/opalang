@@ -75,7 +75,7 @@ Commands = {{
    * are other elements in the reply.
    **/
   run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
-    match Cursor.find_one(m, ns^".$cmd", command, {none}) with
+    match Cursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
     | {success=bson} -> Cursor.check_ok(bson)
     | {~failure} -> {~failure}
 

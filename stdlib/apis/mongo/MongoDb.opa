@@ -148,6 +148,7 @@ type mongodb = {
   valname: string;
   idxname: string;
   fields: option(Bson.document);
+  orderby: option(Bson.document);
   limit: int;
   skip: int;
   insert_flags: int;
@@ -167,6 +168,7 @@ type MDB = {{
   limit : mongodb, int -> mongodb
   skip : mongodb, int -> mongodb
   fields : mongodb, option(Bson.document) -> mongodb
+  orderby : mongodb, option(Bson.document) -> mongodb
   continueOnError : mongodb -> mongodb
   upsert : mongodb -> mongodb
   multiUpdate : mongodb -> mongodb
@@ -187,7 +189,7 @@ MDB : MDB = {{
     db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
           keyname="key"; valname="value"; idxname="index";
           dbname="db"; collection="collection";
-          fields={none}; limit=0; skip=0;
+          fields={none}; orderby={none}; limit=0; skip=0;
           insert_flags=0; update_flags=0; delete_flags=0; query_flags=0;
          }
     do System.at_exit( ->
@@ -228,6 +230,7 @@ MDB : MDB = {{
   skip(db:mongodb, skip:int): mongodb = { db with ~skip }
   limit(db:mongodb, limit:int): mongodb = { db with ~limit }
   fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
+  orderby(db:mongodb, orderby:option(Bson.document)): mongodb = { db with ~orderby }
 
   continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.land(db.insert_flags,Mongo.ContinueOnErrorBit) }
   upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo.UpsertBit) }
@@ -869,6 +872,7 @@ type Collection = {{
   limit : collection('value), int -> collection('value)
   skip : collection('value), int -> collection('value)
   fields : collection('value), option(Bson.document) -> collection('value)
+  orderby : collection('value), option(Bson.document) -> collection('value)
   continueOnError : collection('value) -> collection('value)
   upsert : collection('value) -> collection('value)
   multiUpdate : collection('value) -> collection('value)
@@ -915,6 +919,7 @@ Collection : Collection = {{
   skip(c:collection('value), skip:int): collection('value) = {c with db={ c.db with ~skip }}
   limit(c:collection('value), limit:int): collection('value) = {c with db={ c.db with ~limit }}
   fields(c:collection('value), fields:option(Bson.document)): collection('value) = {c with db={ c.db with ~fields }}
+  orderby(c:collection('value), orderby:option(Bson.document)): collection('value) = {c with db={ c.db with ~orderby }}
 
   continueOnError(c:collection('value)): collection('value) =
     {c with db={ c.db with insert_flags=Bitwise.land(c.db.insert_flags,Mongo.ContinueOnErrorBit) }}
@@ -958,7 +963,7 @@ Collection : Collection = {{
 
   find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
-    (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields) with
+    (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
        (match Bson.bson_to_opa(doc, @typeval('value), c.db.valname) with
@@ -968,7 +973,7 @@ Collection : Collection = {{
 
   query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
-    match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.limit,c.db.skip,c.db.query_flags) with
+    match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
     | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeval('value) }}
     | {~failure} -> {~failure}
 

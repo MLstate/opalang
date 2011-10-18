@@ -55,6 +55,7 @@ type Cursor.cursor = {
      limit : int;
      query : option(Bson.document);
      fields : option(Bson.document);
+     orderby : option(Bson.document);
      query_sent : bool;
      cid : cursorID;
      reply : option(reply);
@@ -85,6 +86,7 @@ Cursor = {{
     limit = 1;
     query = {none};
     fields = {none};
+    orderby = {none};
     query_sent = {false};
     cid = Mongo.null_cursorID(void);
     reply = {none};
@@ -105,6 +107,7 @@ Cursor = {{
   set_limit(c:Cursor.cursor, limit:int): Cursor.cursor = { c with ~limit }
   set_query(c:Cursor.cursor, query:option(Bson.document)): Cursor.cursor = { c with ~query }
   set_fields(c:Cursor.cursor, fields:option(Bson.document)): Cursor.cursor = { c with ~fields }
+  set_orderby(c:Cursor.cursor, orderby:option(Bson.document)): Cursor.cursor = { c with ~orderby }
 
   @private
   set_error(c:Cursor.cursor, error:string): Cursor.cursor = { c with ~error; killed={true} }
@@ -135,7 +138,13 @@ Cursor = {{
    **/
   op_query(c:Cursor.cursor): Cursor.cursor =
     if not(c.killed) && Option.is_some(c.query)
-    then reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, Option.get(c.query), c.fields),"op_query",{true})
+    then
+      query = (match c.orderby with
+               | {some=orderby} -> List.flatten([[H.doc("$query",Option.get(c.query))],
+                                                 [H.doc("$orderby",orderby)]])
+               | {none} -> Option.get(c.query))
+      do println("op_query: query={Bson.to_pretty(query)}")
+      reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,(if c.killed
                       then "Cursor.op_query: already killed"
                       else "Cursor.op_query: no query"))
@@ -227,7 +236,9 @@ Cursor = {{
       // TODO: analyze return flags
       // TODO: tailable cursors
       if c.returned <= 0
-      then set_error(c,"Cursor.next: no data returned")
+      then
+        tags = Mongo.reply_tags(Mongo.reply_responseFlags(Option.get(c.reply)))
+        set_error(c,"Cursor.next: no data returned tags={Mongo.string_of_tags(tags)}")
       else
         if c.current >= c.returned
         then
@@ -269,11 +280,12 @@ Cursor = {{
    * The cursor value is then returned, you can then use [Cursor.next] to
    * scan along from there.
    **/
-  find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document),
+  find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document), orderby:option(Bson.document),
        limit:int, skip:int, flags:int): outcome(Cursor.cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
+    c = set_orderby(c, orderby)
     c = set_limit(c, limit)
     c = set_skip(c, skip)
     c = set_flags(c, flags)
@@ -303,10 +315,12 @@ Cursor = {{
    *
    * Creates and destroys a cursor.
    **/
-  find_one(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document)): Mongo.result =
+  find_one(m:Mongo.db, ns:string,
+           query:Bson.document, fields:option(Bson.document), orderby:option(Bson.document)): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
+    c = set_orderby(c, orderby)
     c = set_limit(c, 1)
     c = next(c)
     outcome = check_cursor_error(c)
