@@ -140,10 +140,9 @@ Cursor = {{
     if not(c.killed) && Option.is_some(c.query)
     then
       query = (match c.orderby with
-               | {some=orderby} -> List.flatten([[H.doc("$query",Option.get(c.query))],
-                                                 [H.doc("$orderby",orderby)]])
+               | {some=orderby} -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",orderby)]
                | {none} -> Option.get(c.query))
-      do println("op_query: query={Bson.to_pretty(query)}")
+      //do println("op_query: query={Bson.to_pretty(query)}") <-- redundant, we've got logging now
       reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,(if c.killed
                       then "Cursor.op_query: already killed"
