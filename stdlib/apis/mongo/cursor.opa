@@ -109,6 +109,8 @@ Cursor = {{
   set_fields(c:Cursor.cursor, fields:option(Bson.document)): Cursor.cursor = { c with ~fields }
   set_orderby(c:Cursor.cursor, orderby:option(Bson.document)): Cursor.cursor = { c with ~orderby }
 
+  tailable(c:Cursor.cursor): Cursor.cursor = { c with flags=Bitwise.lor(c.flags, Mongo.TailableCursorBit) }
+
   @private
   set_error(c:Cursor.cursor, error:string): Cursor.cursor = { c with ~error; killed={true} }
 

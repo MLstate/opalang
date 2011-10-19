@@ -236,17 +236,17 @@ MDB : MDB = {{
   fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
   orderby(db:mongodb, orderby:option(Bson.document)): mongodb = { db with ~orderby }
 
-  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.land(db.insert_flags,Mongo.ContinueOnErrorBit) }
-  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo.UpsertBit) }
-  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.land(db.update_flags,Mongo.MultiUpdateBit) }
-  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.land(db.delete_flags,Mongo.SingleRemoveBit) }
-  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.TailableCursorBit) }
-  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.SlaveOkBit) }
-  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.OplogReplayBit) }
-  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.NoCursorTimeoutBit) }
-  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.AwaitDataBit) }
-  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.ExhaustBit) }
-  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.land(db.query_flags,Mongo.PartialBit) }
+  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.lor(db.insert_flags,Mongo.ContinueOnErrorBit) }
+  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,Mongo.UpsertBit) }
+  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,Mongo.MultiUpdateBit) }
+  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.lor(db.delete_flags,Mongo.SingleRemoveBit) }
+  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.TailableCursorBit) }
+  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.SlaveOkBit) }
+  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.OplogReplayBit) }
+  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.NoCursorTimeoutBit) }
+  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.AwaitDataBit) }
+  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.ExhaustBit) }
+  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.PartialBit) }
 
 }}
 
@@ -928,27 +928,27 @@ Collection : Collection = {{
   orderby(c:collection('value), orderby:option(Bson.document)): collection('value) = {c with db={ c.db with ~orderby }}
 
   continueOnError(c:collection('value)): collection('value) =
-    {c with db={ c.db with insert_flags=Bitwise.land(c.db.insert_flags,Mongo.ContinueOnErrorBit) }}
+    {c with db={ c.db with insert_flags=Bitwise.lor(c.db.insert_flags,Mongo.ContinueOnErrorBit) }}
   upsert(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo.UpsertBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,Mongo.UpsertBit) }}
   multiUpdate(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.land(c.db.update_flags,Mongo.MultiUpdateBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,Mongo.MultiUpdateBit) }}
   singleRemove(c:collection('value)): collection('value)
-    = {c with db={ c.db with delete_flags=Bitwise.land(c.db.delete_flags,Mongo.SingleRemoveBit) }}
+    = {c with db={ c.db with delete_flags=Bitwise.lor(c.db.delete_flags,Mongo.SingleRemoveBit) }}
   tailableCursor(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.TailableCursorBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.TailableCursorBit) }}
   slaveOk(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.SlaveOkBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.SlaveOkBit) }}
   oplogReplay(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.OplogReplayBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.OplogReplayBit) }}
   noCursorTimeout(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.NoCursorTimeoutBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.NoCursorTimeoutBit) }}
   awaitData(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.AwaitDataBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.AwaitDataBit) }}
   exhaust(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.ExhaustBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.ExhaustBit) }}
   partial(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.land(c.db.query_flags,Mongo.PartialBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.PartialBit) }}
 
   insert(c:collection('value), v:'value): bool =
     ns = c.db.dbname^"."^c.db.collection
