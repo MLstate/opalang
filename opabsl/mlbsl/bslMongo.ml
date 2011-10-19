@@ -382,6 +382,12 @@ let reply_document (b,s,l) n =
   | Some (pos, size) -> Some (Bson.deserialize (BaseStringSlice.import (b.Buf.str,pos,size)))
   | None -> None
 
+##register string_of_message : string -> string
+let string_of_message = Mongo.string_of_message_str
+
+##register string_of_message_reply : reply -> string
+let string_of_message_reply = Mongo.string_of_message_reply
+
 ##register null_cursorID : void -> cursorID
 let null_cursorID () = 0L
 

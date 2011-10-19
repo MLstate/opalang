@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-#<Debugvar:MONGO_DEBUG>
+(*#<Debugvar:MONGO_DEBUG>*)
 
 module type S_sig =
 sig
@@ -672,6 +672,46 @@ struct
         aux ()
     in
     aux ()
+
+  let rec to_pretty b =
+    to_pretty_raw b.buf.Buf.str 0
+
+  and to_pretty_raw str i =
+    let i = { Iterator.ibuf = S.of_string str; pos = i+4; first = true; } in
+    let rec aux str =
+      ignore (Iterator.next i);
+      let t = Iterator.iterator_type i in
+      if t <> el_eoo
+      then
+        aux (str^(if str <> "" then ", " else "")^
+               (Iterator.key i)^" : "^
+               (match t with
+                | c when c = el_double -> Printf.sprintf "%f" (Iterator.double i)
+                | c when c = el_string -> Printf.sprintf "\"%s\"" (Iterator.string i)
+                | c when c = el_symbol -> Printf.sprintf "SYMBOL(%s)" (Iterator.string i)
+                | c when c = el_oid -> Printf.sprintf "ObjectId(\"%s\")" (Oid.to_string (Iterator.oid i))
+                | c when c = el_bool -> Printf.sprintf "%b" (Iterator.bool i)
+                | c when c = el_date -> Printf.sprintf "DATE(%d)" (Iterator.date i)
+                | c when c = el_bindata -> Printf.sprintf "BINARY"
+                | c when c = el_undefined -> Printf.sprintf "UNDEFINED"
+                | c when c = el_null -> Printf.sprintf "null"
+                | c when c = el_minkey -> Printf.sprintf "minkey"
+                | c when c = el_maxkey -> Printf.sprintf "maxkey"
+                | c when c = el_regex -> Printf.sprintf "REGEX(%s)" (Iterator.regex i)
+                | c when c = el_code -> Printf.sprintf "CODE(%s)" (Iterator.code i)
+                | c when c = el_codewscope ->
+                    Printf.sprintf "CODE_W_SCOPE({code=\"%s\", scope=%s})" (Iterator.code i) (to_pretty (Iterator.code_scope i))
+                | c when c = el_int -> Printf.sprintf "%d" (Iterator.int i)
+                | c when c = el_long -> Printf.sprintf "%d" (Iterator.long i)
+                | c when c = el_timestamp ->
+                    let (i,t) = Iterator.timestamp i in
+                    Printf.sprintf "{i: %d, t: %d}" i t
+                | c when c = el_object -> to_pretty_raw i.Iterator.ibuf (Iterator.value i)
+                | c when c = el_array -> "["^(to_pretty_raw i.Iterator.ibuf (Iterator.value i))^"]"
+                | _ -> Printf.sprintf "<unknown code>:%d" (Char.code t)))
+      else str
+    in
+    "{ "^aux ""^" }"
 
 end (* module Print *)
 

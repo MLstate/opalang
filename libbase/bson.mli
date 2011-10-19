@@ -230,5 +230,7 @@ module Print :
 sig
   val print : buf -> unit
   val print_raw : S.t -> int -> int -> unit
+  val to_pretty : buf -> string
+  val to_pretty_raw : S.t -> int -> string
 end
 

@@ -31,6 +31,37 @@ let _OP_GET_MORE      = 2005 (* Get more data from a query. See Cursors *)
 let _OP_DELETE        = 2006 (* Delete documents *)
 let _OP_KILL_CURSORS  = 2007 (* Tell database client is done with a cursor  *)
 
+let string_of_opcode = function
+  | 1    -> "OP_REPLY"
+  | 1000 -> "OP_MSG"
+  | 2001 -> "OP_UPDATE"
+  | 2002 -> "OP_INSERT"
+  | 2003 -> "RESERVED"
+  | 2004 -> "OP_QUERY"
+  | 2005 -> "OP_GET_MORE"
+  | 2006 -> "OP_DELETE"
+  | 2007 -> "OP_KILL_CURSORS"
+  | n -> Printf.sprintf "OP_UNKNOWN(%d)" n
+
+let geti32 b s = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0
+let geti64L b s = Stuff.StuffString.ldi64L (Buf.sub b s 8) 0
+let cstring b s =
+  let pos = ref 0 in
+  while Buf.get b (s + !pos) <> '\x00' do incr pos done;
+  (s + !pos + 1, Buf.sub b s !pos)
+
+let docmap b pos len num =
+  let rec aux i pos idxs =
+    if i >= num || len - pos < 4
+    then idxs
+    else 
+      let size = geti32 b pos in
+      if len - pos < size
+      then idxs
+      else aux (i+1) (pos+size) ((pos,size)::idxs)
+  in
+  aux 0 pos []
+
 (* Flags *)
 
 (* OP_INSERT *)
@@ -75,6 +106,16 @@ struct MsgHeader {
     int32   opCode;        // request type - see table below
 }
 *)
+
+let header_messageLength s = geti32 s 0
+let header_requestId s = geti32 s 4
+let header_responseTo s = geti32 s 8
+let header_opCode s = geti32 s 12
+
+let string_of_MsgHeader hdr =
+  Printf.sprintf "messageLength = %d\nrequestId = 0x%08x\nresponseTo = 0x%08x\nopCode = %s\n"
+    (header_messageLength hdr) (header_requestId hdr) (header_responseTo hdr) (string_of_opcode (header_opCode hdr))
+
 let set_header_len m messageLength =
   St.lei32 m.Bson.buf.Buf.str 0 messageLength
 
@@ -123,6 +164,20 @@ let free m = free_buf m.Bson.buf
     document* documents;          // one or more documents to insert into the collection
 }*)
 
+let string_of_insert_flags flags =
+  let l = if flags land 0x01 <> 0 then ["ContinueOnError "] else [] in
+  BaseList.to_string (fun s -> s) l
+
+let string_of_insert b =
+  let pos, cname = cstring b 20 in
+  let dm = docmap b pos (header_messageLength b) max_int in
+  let docs = BaseList.mapi (fun i (pos, size) ->
+                              "doc"^(string_of_int i)^" = "^
+                              (Bson.Print.to_pretty_raw (Buf.sub b pos size) 0)) dm in
+  (Printf.sprintf "  flags = %s\n  fullCollectionName = %s\n  "
+     (string_of_insert_flags (geti32 b 16)) cname)^
+  (String.concat "\n  " docs)
+
 let start_insert m rid flags ns =
   set_header m rid 0 _OP_INSERT;
   Stuff.add_le_int32 m.Bson.buf flags;
@@ -137,6 +192,21 @@ let start_insert m rid flags ns =
     document  selector;           // the query to select the document
     document  update;             // specification of the update to perform
 }*)
+
+let string_of_update_flags flags =
+  let l = if flags land 0x01 <> 0 then ["Upsert "] else [] in
+  let l = if flags land 0x02 <> 0 then "MultiUpdate"::l else l in
+  BaseList.to_string (fun s -> s) l
+
+let string_of_update b =
+  let pos, cname = cstring b 20 in
+  let dm = docmap b (pos+4) (header_messageLength b) 2 in
+  let docs = BaseList.mapi (fun i (pos, size) ->
+                             (match i with 0 -> "selector" | 1 -> "update" | _ -> "extraneous")^" = "^
+                             (Bson.Print.to_pretty_raw (Buf.sub b pos size) 0)) dm in
+  (Printf.sprintf "  fullCollectionName = %s\n  flags = %s\n  "
+     cname (string_of_update_flags (geti32 b pos)))^
+  (String.concat "\n  " docs)
 
 let start_update m rid flags ns =
   set_header m rid 0 _OP_UPDATE;
@@ -155,6 +225,27 @@ let start_update m rid flags ns =
   [ document  returnFieldSelector; ] // Optional. Selector indicating the fields to return.
 }*)
 
+let string_of_query_flags flags =
+  let l = if flags land 0x01 <> 0 then ["Reserved"] else [] in
+  let l = if flags land 0x02 <> 0 then "TailableCursor"::l else l in
+  let l = if flags land 0x04 <> 0 then "SlaveOk"::l else l in
+  let l = if flags land 0x08 <> 0 then "OplogReplay"::l else l in
+  let l = if flags land 0x10 <> 0 then "NoCursorTimeout"::l else l in
+  let l = if flags land 0x20 <> 0 then "AwaitData"::l else l in
+  let l = if flags land 0x40 <> 0 then "Exhaust"::l else l in
+  let l = if flags land 0x80 <> 0 then "Partial"::l else l in
+  BaseList.to_string (fun s -> s) l
+
+let string_of_query b =
+  let pos, cname = cstring b 20 in
+  let dm = docmap b (pos+8) (header_messageLength b) 2 in
+  let docs = BaseList.mapi (fun i (pos, size) ->
+                              (match i with 0 -> "query" | 1 -> "returnFieldSelector" | _ -> "extraneous")^" = "^
+                                (Bson.Print.to_pretty_raw (Buf.sub b pos size) 0)) dm in
+  (Printf.sprintf "  flags = %s\n  fullCollectionName = %s\n  numberToSkip = %d\n  numberToReturn = %d\n  "
+     (string_of_query_flags (geti32 b 16)) cname (geti32 b pos) (geti32 b (pos+4)))^
+  (String.concat "\n  " docs)
+
 let start_query m rid flags ns numberToSkip numberToReturn =
   set_header m rid 0 _OP_QUERY;
   Stuff.add_le_int32 m.Bson.buf flags;
@@ -170,6 +261,11 @@ let start_query m rid flags ns numberToSkip numberToReturn =
     int32     numberToReturn;     // number of documents to return
     int64     cursorID;           // cursorID from the OP_REPLY
 }*)
+
+let string_of_get_more b =
+  let pos, cname = cstring b 20 in
+  Printf.sprintf "  fullCollectionName = %s\n  numberToReturn = %d\n  cursorID = 0x%016Lx"
+    cname (geti32 b pos) (geti64L b (pos+4))
 
 let start_getmore m rid ns numberToReturn cursorID =
   set_header m rid 0 _OP_GET_MORE;
@@ -187,6 +283,20 @@ let start_getmore m rid ns numberToReturn cursorID =
     document  selector;           // query object.  See below for details.
 }*)
 
+let string_of_delete_flags flags =
+  let l = if flags land 0x01 <> 0 then ["SingleRemove "] else [] in
+  BaseList.to_string (fun s -> s) l
+
+let string_of_delete b =
+  let pos, cname = cstring b 20 in
+  let dm = docmap b (pos+4) (header_messageLength b) 1 in
+  let docs = BaseList.mapi (fun i (pos, size) ->
+                             (match i with 0 -> "selector" | _ -> "extraneous")^" = "^
+                             (Bson.Print.to_pretty_raw (Buf.sub b pos size) 0)) dm in
+  (Printf.sprintf "  fullCollectionName = %s\n  flags = %s\n  "
+     cname (string_of_delete_flags (geti32 b pos)))^
+  (String.concat "\n  " docs)
+
 let start_delete m rid flags ns =
   set_header m rid 0 _OP_DELETE;
   Stuff.add_le_int32 m.Bson.buf 0;
@@ -200,6 +310,13 @@ let start_delete m rid flags ns =
     int32     numberOfCursorIDs; // number of cursorIDs in message
     int64*    cursorIDs;         // sequence of cursorIDs to close
 }*)
+
+let string_of_kill_cursors b =
+  let numberOfCursorIDs = geti32 b 20 in
+  let cursors = BaseList.init numberOfCursorIDs (fun i -> geti64L b (24+i*8)) in
+  Printf.sprintf "  numberOfCursorIDs = %d\n  cursorIDs = %s\n  "
+    numberOfCursorIDs (BaseString.concat_map ~left:"[" ~right:"]" "; " (fun i -> Printf.sprintf "0x%016Lx" i) cursors)
+
 let start_kill_cursors m rid clist =
   set_header m rid 0 _OP_KILL_CURSORS;
   Stuff.add_le_int32 m.Bson.buf 0;
@@ -210,6 +327,11 @@ let start_kill_cursors m rid clist =
     MsgHeader header;  // standard message header
     cstring   message; // message for the database
 }*)
+
+let string_of_msg b =
+  let _, cname = cstring b 16 in
+  Printf.sprintf "  message = %s" cname
+
 let start_msg m rid msg =
   set_header m rid 0 _OP_MSG;
   Buf.add_string m.Bson.buf msg;
@@ -239,8 +361,20 @@ let finish m =
     document* documents;      // documents
 }*)
 
-let geti32 b s = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0
-let geti64L b s = Stuff.StuffString.ldi64L (Buf.sub b s 8) 0
+let string_of_response_flags flags =
+  let l = if flags land 0x01 <> 0 then ["CursorNotFound"] else [] in
+  let l = if flags land 0x02 <> 0 then "QueryFailure"::l else l in
+  let l = if flags land 0x04 <> 0 then "ShardConfigStale"::l else l in
+  let l = if flags land 0x08 <> 0 then "AwaitCapable"::l else l in
+  BaseList.to_string (fun s -> s) l
+
+let string_of_reply b =
+  let numberReturned = geti32 b 32 in
+  let dm = docmap b 36 (header_messageLength b) numberReturned in
+  let docs = List.map (fun (pos, size) -> (Bson.Print.to_pretty_raw (Buf.sub b pos size) 0)) dm in
+  (Printf.sprintf "  responseFlags = %s\n  cursorID=%016Lx\n  startingFrom=%d\n  numberReturned=%d\n  "
+     (string_of_response_flags (geti32 b 16)) (geti64L b 20) (geti32 b 28) numberReturned)^
+  (String.concat "\n  " docs)
 
 let reply_messageLength (_,_,l) = l + 4
 let reply_requestId (b,s,_) = geti32 b (s+0)
@@ -267,6 +401,28 @@ let reply_document_pos (b,s,l) n =
         else aux (i+1) (pos+size)
   in
   aux 0 (s+32)
+
+let string_of_message_buf msg =
+  (string_of_MsgHeader msg)^
+  (match header_opCode msg with
+   | c when c = _OP_REPLY        -> string_of_reply msg
+   | c when c = _OP_MSG          -> string_of_msg msg
+   | c when c = _OP_UPDATE       -> string_of_update msg
+   | c when c = _OP_INSERT       -> string_of_insert msg
+   | c when c = _RESERVED        -> "  reserved"
+   | c when c = _OP_QUERY        -> string_of_query msg
+   | c when c = _OP_GET_MORE     -> string_of_get_more msg
+   | c when c = _OP_DELETE       -> string_of_delete msg
+   | c when c = _OP_KILL_CURSORS -> string_of_kill_cursors msg
+   | c -> Printf.sprintf "  unknown (%d)" c)
+
+let string_of_message_str str = string_of_message_buf (Buf.of_string str)
+
+let string_of_message_reply (b,s,l) =
+  let buf = Buf.create (l+4) in
+  Stuff.add_le_int32 buf (l+4);
+  Buf.add_string buf (Buf.sub b s l);
+  string_of_message_buf buf
 
 (*
 (* Test code *)
@@ -303,9 +459,9 @@ let () = Bson.Append.string b "name" "Joe";;
 let () = Bson.Append.int b "age" 33;;
 let () = Bson.Append.finish b;;
 
-let m1 = create 100;;
+(*let m1 = create 100;;
 let () = insert m1 rid flags "tutorial.persons" [b];;
-let () = print_string (dump (get m1));;
+let () = print_string (dump (get m1));;*)
 
 let m2 = create 100;;
 let () = start_insert m2 rid flags "tutorial.persons";;
@@ -319,9 +475,9 @@ let () = print_string (dump (get m2));;
 let good = (get m1) = (get m2);;
 
 let reply_str = "\005\001\000\000\157\229\020\141\1554]F\001\000\000\000\b\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\005\000\000\000-\000\000\000\007_id\000Ni\219z\236\174\136e\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000\"\000\000\000\000-\000\000\000\007_id\000Nj\024}T\145\2385\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj\028\007\193K\175\012\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj!\006\249\179\222P\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000-\000\000\000\007_id\000Nj!H\020\003\186#\000\000\000\001\002name\000\004\000\000\000Joe\000\016age\000!\000\000\000\000";;
-let b = Buf.create (String.length reply_str);;
-Buf.add_string b reply_str;;
-let reply = (b,4,String.length reply_str - 4);;
+let reply_buf = Buf.create (String.length reply_str);;
+Buf.add_string reply_buf reply_str;;
+let reply = (reply_buf,4,String.length reply_str - 4);;
 let messageLength = reply_messageLength reply;;
 let requestId = reply_requestId reply;;
 let responseTo = reply_responseTo reply;;
@@ -335,6 +491,12 @@ let doc1 = reply_document_pos reply 1;;
 let doc2 = reply_document_pos reply 2;;
 let doc3 = reply_document_pos reply 3;;
 let doc4 = reply_document_pos reply 4;;
+
+let () = Printf.printf "reply=\n%s%!\n" (string_of_message reply_buf);;
+(*let () = Printf.printf "doc0_str = %s\n" (Print.to_pretty_raw (String.sub reply_str 36 45) 0);;*)
+let reply_str2 = "V\000\000\000\x0e\xf0\xa8\xa7\xff\xff\xff\xff\xd4\007\000\000\000\000\000\000db.collection2\000\000\000\000\000\000\000\000\000+\000\000\000\003query\000\005\000\000\000\000\003$orderby\000\x10\000\000\000\001a\000\000\000\000\000\000\000\xf0?\000\000";;
+let () = Printf.printf "query=\n%s%!\n" (string_of_message_str reply_str2);;
+let () = Printf.printf "reply=\n%s%!\n" (string_of_message_reply reply);;
 
 *)
 
