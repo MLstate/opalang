@@ -162,6 +162,7 @@ type MDB = {{
   open : int, string, int -> mongodb
   clone : mongodb -> mongodb
   namespace : mongodb, string, string -> mongodb
+  log : mongodb, bool -> mongodb
   close : mongodb -> void
   getLastError : mongodb -> Mongo.result
   err : mongodb, string -> void
@@ -185,7 +186,7 @@ type MDB = {{
 MDB : MDB = {{
 
   open(bufsize:int, addr:string, port:int): mongodb =
-    mongo = Mongo.open(bufsize,addr,port)
+    mongo = Mongo.open(bufsize,addr,port,false)
     db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
           keyname="key"; valname="value"; idxname="index";
           dbname="db"; collection="collection";
@@ -206,7 +207,10 @@ MDB : MDB = {{
 
   namespace(db:mongodb, dbname:string, collection:string): mongodb =
     do db.link_count.set(db.link_count.get()+1)
-    { db with dbname=dbname; collection=collection }
+    { db with ~dbname; ~collection }
+
+  log(db:mongodb, log:bool): mongodb =
+    { db with mongo={ db.mongo with ~log } }
 
   close(db:mongodb): void =
     lc = db.link_count.get()
@@ -455,6 +459,7 @@ type SU = {{
   showDiskLoc : Bson.document, bool -> Bson.document
   hint : Bson.document, Bson.document -> Bson.document
   comment : Bson.document, string -> Bson.document
+  natural : Bson.document, int -> Bson.document
 
   check_strict_select_value_against_type : Bson.document, OpaType.ty, su_status -> void
 }}
@@ -637,6 +642,7 @@ SU : SU = {{
   showDiskLoc(s:Bson.document, tf:bool): Bson.document = bool(s, "$showDiskLoc", tf)
   hint(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$hint", d)
   comment(s:Bson.document, c:string): Bson.document = string(s, "$comment", c)
+  natural(s:Bson.document, i:int): Bson.document = int32(s, "$natural", i)
 
   @private T = TypeSelect
 

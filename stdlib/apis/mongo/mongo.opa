@@ -57,7 +57,8 @@ type reply = external
   conn : Socket.connection;
   mbuf : mongo_buf;
   mailbox : mailbox;
-  bufsize : int
+  bufsize : int;
+  log : bool;
 }
 
 type Mongo.failure =
@@ -337,11 +338,17 @@ Mongo = {{
    */
   @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, mailbox -> reply)
 
+  /** Support for logging routines **/
+  @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
+  @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : reply -> string)
+
   @private
-  send_no_reply(m,_name): bool =
+  send_no_reply(m,name): bool =
     match export_(m.mbuf) with
     | (str, len) ->
       s = String.substring(0,len,str)
+      //do Log.debug("Mongo.send:",string_of_message(s))
+      do if m.log then do println("{name}:") println(string_of_message(s)) else void
       //do println("{name}: s=\n{Bson.dump(16,s)}")
       cnt = Socket.write_len(m.conn,s,len)
       do free_(m.mbuf)
@@ -350,7 +357,13 @@ Mongo = {{
   @private
   send_with_reply(m,name): option(reply) =
     if send_no_reply(m,name)
-    then {some=read_mongo_(m.conn,m.mailbox)}
+    then
+      m = { m with mailbox = new_mailbox_(m.bufsize) }
+      reply = read_mongo_(m.conn,m.mailbox)
+      do reset_mailbox_(m.mailbox)
+      //do Log.debug("Mongo.receive:",string_of_message_reply(reply))
+      do if m.log then do println("reply({name}):") println(string_of_message_reply(reply)) else void
+      {some=reply}
     else {none}
 
   /**
@@ -359,7 +372,7 @@ Mongo = {{
    *    - Allocate buffer of given size
    *    - Primitive error handling in case of mongo server malfunction
    **/
-  open(bufsize:int, addr:string, port:int): Mongo.db =
+  open(bufsize:int, addr:string, port:int, log:bool): Mongo.db =
     //do println("Mongo.open")
     err_cont = Continuation.make((s:string ->
                                    do prerrln("Mongo.open: exn={s}")
@@ -368,7 +381,8 @@ Mongo = {{
       conn = Socket.connect_with_err_cont(addr,port,err_cont);
       mbuf = create_(bufsize);
       mailbox = new_mailbox_(bufsize);
-      ~bufsize
+      ~bufsize;
+      ~log;
     }
 
   /**
@@ -380,7 +394,8 @@ Mongo = {{
     { conn=m.conn;
       mbuf = create_(m.bufsize);
       mailbox = new_mailbox_(m.bufsize);
-      bufsize = m.bufsize
+      bufsize = m.bufsize;
+      log = m.log;
     }
 
   /**
