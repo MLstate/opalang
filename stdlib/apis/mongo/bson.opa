@@ -603,16 +603,26 @@ Bson = {{
       | {TyName_args = [ty]; TyName_ident = "list"} ->
         (match element with
          | {name=_key; value={Array=doc}} ->
-           len = List.length(doc) - 1
-           l = List.fold_index(
-                 (i, element, l ->
-                    do if "{len-i}" != Bson.key(element)
-                       then @fail("Bson.bson_to_opa: Array to list index mismatch {doc}")
-                    match element_to_opa(element, ty) with
-                    | {some=v} -> [v | l]
-                    | {none} -> @fail("Bson.bson_to_opa: failed for list element {element} type {OpaType.to_pretty(ty)}")),
-                 doc,[])
-           {some=@unsafe_cast(l)}
+           if doc == []
+           then {some=@unsafe_cast([])}
+           else
+             /* We can't actually rely upon the order in which these
+              * array elements are stored, we could be at the mercy
+              * of user-defined values so we allow either storage order.
+              * We do insist upon consecutive values, however.
+              */
+             fi = match doc with | [e|_] -> e.name | _ -> @fail
+             doc = if fi == "0" then List.rev(doc) else doc // TODO: eliminate reverse and scan as left or right
+             len = List.length(doc) - 1
+             l = List.fold_index(
+                   (i, element, l ->
+                      do if "{len-i}" != Bson.key(element)
+                         then @fail("Bson.bson_to_opa: Array to list index mismatch {doc}")
+                      match element_to_opa(element, ty) with
+                      | {some=v} -> [v | l]
+                      | {none} -> @fail("Bson.bson_to_opa: failed for list element {element} type {OpaType.to_pretty(ty)}")),
+                   doc,[])
+             {some=@unsafe_cast(l)}
          | element -> @fail("Bson.bson_to_opa: expected list, got {element}"))
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
