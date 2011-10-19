@@ -39,6 +39,27 @@
  **/
 
 /* Major TODOs, there are minor ones elsewhere. */
+// TODO: Build up a complete set of result types
+
+/**
+ * Command types:
+ *   These are types which are intended to match the results of MongoDB
+ *   command results.  If we just want a single value out of the result,
+ *   then it is probably more efficient to use the dotresult functions.
+ *   If we want to manipulate the whole thing in OPA, however, we can just
+ *   doc2opa the result and cast to these types.  Note that these types
+ *   may vary between one MongoDB version and another, these are for 1.8.3.
+ *   Also, some of the results have floating elements which we can't
+ *   map to OPA types.
+ **/
+
+type Commands.dropDatabaseType = { dropped : string; ok : int; }
+
+type Commands.listDatabasesType = {
+  databases : list({ name : string; sizeOnDisk : float; empty : bool; })
+  totalSize : float;
+  ok : int;
+}
 
 type Commands.serverStatusType = {
   host : string;
@@ -63,6 +84,22 @@ type Commands.serverStatusType = {
   asserts : { regular : int; warning : int; msg : int; user : int; rollovers : int; };
   writeBacksQueued : bool;
   ok : int
+}
+
+type Commands.explainType =
+  { cursor : string;
+    nscanned : int;
+    nscannedObjects : int;
+    n : int;
+    scanAndOrder : bool;
+    millis : int;
+    nYields : int;
+    nChunkSkips : int;
+    isMultiKey : bool;
+    indexOnly : bool;
+    indexBounds : Bson.document; // This type is variable (key names)
+    allPlans : list({ cursor : string; indexBounds : Bson.document }) // and this
+    // oldPlan: ... sometimes present
 }
 
 @server_private
@@ -105,10 +142,12 @@ Commands = {{
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
+   * We insist upon a single {ok:1} reply, anything else results in false.
    **/
   check_connection(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ping", 1) with
-    | {success=_} -> {success=true}
+    | {success=[e]} -> {success=Option.default(false,Bson.find_bool([e],"ok"))}
+    | {success=doc} -> {failure={DocError=doc}}
     | {~failure} -> {~failure}
 
   /**
@@ -195,6 +234,23 @@ Commands = {{
    **/
   collStats(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "collStats", collection)
+
+  /**
+   * Create a collection.
+   * TODO:  There is no such command.  See how the mongo shell does it and copy...
+   **/
+  createCollection(m:Mongo.db, db:string, collection:string, capped:option({capped:bool; size:int;})): Mongo.result =
+    match capped with
+    | {some=~{capped; size}} ->
+       simple_str_command_opts(m, db, "createCollection", collection, [H.bool("capped",capped), H.i32("size",size)])
+    | {none} ->
+       simple_str_command(m, db, "createCollection", collection)
+
+  /**
+   * Cap a collection.
+   **/
+  convertToCapped(m:Mongo.db, db:string, collection:string, size:int): Mongo.result =
+    simple_str_command_opts(m, db, "convertToCapped", collection, [H.i32("size",size)])
 
   /**
    * Count the number of matching elements.
