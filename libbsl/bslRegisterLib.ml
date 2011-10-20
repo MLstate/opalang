@@ -1050,14 +1050,14 @@ let js_validator finalized_t =
   | Some ((executable,files),cmd_options) when finalized_t.f_js_code <> [] ->
     let pp_str_list = Format.pp_list " " Format.pp_print_string in
     let pp_file_list = Format.pp_list " " (
-      if true || (List.mem "jschecker.jar" cmd_options) then (fun  fmt v -> Format.fprintf fmt "--js %s" v) (* google compiler *)
-      else Format.pp_print_string
+      if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v) (* probably google compiler *)
+      else Format.pp_print_string (* probably js command *)
     )
     in
     let command = Format.sprintf "%s %a %a %a"
       executable
       pp_str_list cmd_options
-      pp_str_list files
+      pp_file_list files
       pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
     in
     Printf.printf "%s\n" command;
