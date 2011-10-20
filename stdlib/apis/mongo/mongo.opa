@@ -136,10 +136,15 @@ Mongo = {{
     | {success=doc} -> Bson.string_of_doc(doc)
     | {~failure} -> string_of_failure(failure)
 
-  pretty_of_result(result:Mongo.result): string =
+  string_of_outcome(result:outcome('a,'b), success_to_str:'a->string, failure_to_str:'b->string): string =
     match result with
-    | {success=doc} -> Bson.to_pretty(doc)
-    | {~failure} -> "\{failure={string_of_failure(failure)}\}"
+    | {~success} -> success_to_str(success)
+    | {~failure} -> failure_to_str(failure)
+
+  string_of_value_or_failure(result:outcome('a,Mongo.failure), success_to_str:'a->string): string =
+    string_of_outcome(result, success_to_str, (failure -> "\{failure={string_of_failure(failure)}\}"))
+
+  pretty_of_result(result:Mongo.result): string = string_of_value_or_failure(result,Bson.to_pretty)
 
   /**
    * outcome-wrapped versions of find_xxx etc.
