@@ -1130,7 +1130,7 @@ Xhtml =
     {text=_}{content_unsafe=_} -> <div class="{value}">{x}</div>
     {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
       specific_attributes = specific_attributes ? default_attributes
-      specific_attributes = some({ specific_attributes with class = List.add_uniq(String.ordering, value, specific_attributes.class) })
+      specific_attributes = some({ specific_attributes with class = specific_attributes.class ++ [value] })
       @opensums({x with ~specific_attributes})
     _ -> <div class="{value}">{x}</div>
     end
