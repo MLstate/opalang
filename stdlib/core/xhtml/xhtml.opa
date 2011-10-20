@@ -782,50 +782,22 @@ Xhtml =
           do Buf.add(html_buffer,tag)
 
           print_arg(~{name namespace=tagns value}) =
-              tagns = get_ns_prefix(tagns)
-              do Buf.add(html_buffer," ")
-              do if String.is_empty(tagns) then Buf.add(html_buffer,name)
-                 else
-                   do Buf.add(html_buffer,tagns)
-                   do Buf.add(html_buffer,":")
-                   Buf.add(html_buffer,name)
-              do Buf.add(html_buffer,"=\"")
-              do Buf.add(html_buffer,String.escape_html(value))
-              Buf.add(html_buffer,"\"")
+            tagns = get_ns_prefix(tagns)
+            do Buf.add(html_buffer," ")
+            do if String.is_empty(tagns) then Buf.add(html_buffer,name)
+               else
+                 do Buf.add(html_buffer,tagns)
+                 do Buf.add(html_buffer,":")
+                 Buf.add(html_buffer,name)
+            do Buf.add(html_buffer,"=\"")
+            do Buf.add(html_buffer,String.escape_html(value))
+            Buf.add(html_buffer,"\"")
 
-          print_arg_with_spec_filter(acc, ~{name namespace=tagns value}) =
-            if name == "class" then
-              { acc with class = [value|acc.class] }
-            else if name == "href" then
-              { acc with href = {untyped=value} }
-            else
-              do print_arg({~name namespace=tagns ~value})
-              acc
           //Handle regular attributes
-          xhtml_spec_attrs = List.fold_left(print_arg_with_spec_filter,Xhtml.default_attributes,args)
+          do List.iter(print_arg,args)
 
           do match specific_attributes with
-             | {none} ->
-               do match xhtml_spec_attrs.class with
-                  | [] -> void
-                  | [name|t] ->
-                    do Buf.add(html_buffer," class=\"")
-                    do Buf.add(html_buffer,name)
-                    do List.iter((name -> do Buf.add(html_buffer," ") Buf.add(html_buffer,name)),t)
-                    Buf.add(html_buffer,"\"")
-                  end
-               href_opt = match xhtml_spec_attrs.href with
-                          {none} -> none
-                          {~constant} -> some(constant)
-                          {~untyped} ->
-                            if Uri.is_secure(untyped) then some(untyped) //URI was accepted, return original URI
-                            else some(sanitized_uri) //URI was rejected, replace by default URI
-                          {~typed} -> some(Uri.to_string(typed))
-                          end
-               match href_opt
-               {some=href} -> print_arg({name="href" namespace="" value=href})
-               {none} -> void
-               end
+             | {none} -> void
              | {some=~{class style events events_options href}} ->
           //Normalize tags
                do (
@@ -941,7 +913,6 @@ Xhtml =
                //Handle events and style: end
 
                //Handle classes
-               class = class ++ xhtml_spec_attrs.class
                do match class with
                   | [] -> void
                   | [name|t] ->
@@ -1152,40 +1123,86 @@ Xhtml =
     end
     aux(id,x)
 
+  @private add_class(value: string, x:xhtml):xhtml =
+    rec aux(value,x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(value,x)
+    {text=_}{content_unsafe=_} -> <div class="{value}">{x}</div>
+    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+      specific_attributes = specific_attributes ? default_attributes
+      specific_attributes = some({ specific_attributes with class = List.add_uniq(String.ordering, value, specific_attributes.class) })
+      @opensums({x with ~specific_attributes})
+    _ -> <div class="{value}">{x}</div>
+    end
+    aux(value,x)
+
+  @private add_href(value: string, x:xhtml):xhtml =
+    rec aux(value,x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(value,x)
+    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+      specific_attributes = specific_attributes ? default_attributes
+      specific_attributes = some({ specific_attributes with href = {untyped=value} })
+      @opensums({x with ~specific_attributes})
+    _ -> x
+    end
+    aux(value,x)
+
+  @private add_style_from_string(value: string, x:xhtml):xhtml =
+    rec aux(value,x)=
+    match x : xhtml
+    {fragment=[x]} -> aux(value,x)
+    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+      aux2(acc, s) =
+        match String.explode(":", s)
+        [k,v] ->
+          key = String.strip(k)
+          value = String.strip(v)
+          [{not_typed=(key, value)}|acc]
+        _ -> acc
+        end
+      styles = List.fold_left(aux2, [], String.explode(";", value))
+      specific_attributes = specific_attributes ? default_attributes
+      specific_attributes = some({ specific_attributes with style = (specific_attributes.style ++ styles) })
+      @opensums({x with ~specific_attributes})
+    _ -> x
+    end
+    aux(value,x)
+
+  @private gen_add_attribute(name: string, value: string, x:xhtml, append:bool):xhtml =
+    match name
+    | "class" -> add_class(value, x)
+    | "href" -> add_href(value, x)
+    | "style" -> add_style_from_string(value, x)
+    | _ ->
+      rec aux(x)=
+      match x : xhtml
+      {fragment=[x]} -> aux(x)
+      {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+        args = match find_attr(name,args) with
+               {some=val} ->
+                 if not(append) then args
+                 else
+                   value = "{val} {value}"
+                   args = remove_attr(name,args)
+                   [{~name namespace="" ~value}|args]
+               {none} -> [{~name namespace="" ~value}|args]
+        @opensums({x with ~args})
+      _ -> x
+      end
+      aux(x)
+
   /**
    * Add an attribute to an xhtml node if not already defined
    */
   add_attribute(name: string, value: string, x:xhtml):xhtml =
-    // aux(id, x) with
-    rec aux(x)=
-    match x : xhtml
-    {fragment=[x]} -> aux(x)
-    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
-      args = if exists_attr(name,args) then args
-             else [{~name namespace="" ~value}|args]
-      @opensums({x with ~args})
-    _ -> x
-    end
-    aux(x)
+    gen_add_attribute(name, value, x, false)
 
   /**
    * Update (by appending) an attribute to an xhtml node, add it if not already present
    */
   update_attribute(name: string, value: string, x:xhtml):xhtml =
-    rec aux(x)=
-    match x : xhtml
-    {fragment=[x]} -> aux(x)
-    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
-      args = match find_attr(name,args) with
-             {some=val} ->
-               value = "{val} {value}"
-               l = remove_attr(name,args)
-               [{~name namespace="" ~value}|l]
-             {none} -> [{~name namespace="" ~value}|args]
-      @opensums({x with ~args})
-    _ -> x
-    end
-    aux(x)
+    gen_add_attribute(name, value, x, true)
 
   /**
    * Set an attribute to an xhtml node. Replace if already_exists
