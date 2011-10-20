@@ -202,13 +202,13 @@ Commands = {{
    * Return the last error from database.
    **/
   getLastError(m:Mongo.db, db:string): Mongo.result =
-    simple_int_command(m, db, "getLastError", 1)
+    simple_int_command(m, db, "getlasterror", 1)
 
   /**
    * Return the last error from database, with full options.
    **/
   getLastErrorFull(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
-    simple_int_command_opts(m, db, "getLastError", 1,
+    simple_int_command_opts(m, db, "getlasterror", 1,
                             [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
 
   /**
