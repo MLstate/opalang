@@ -1,4 +1,4 @@
-/*
+(*
     Copyright © 2011 MLstate
 
     This file is part of OPA.
@@ -14,15 +14,17 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
-*/
-package stdlib.apis.irc
-import-plugin irc
+*)
+let create_bot = IrcBot.create_bot
+let write_raw conn str = Scheduler.write (Scheduler.default) conn str
+                                          (fun _ -> ())
+let write_msg conn msg = write_raw conn (IrcBotCore.string_of_msg msg)
 
-type Irc.connection = external
-type Irc.msg = external
+##extern-type Irc.connection = Scheduler.connection_info
+##extern-type Irc.msg = IrcBotCore.msg
 
-Irc = {{
-    create_bot = (%%bslirc.create_bot%%)
-    write_raw = (%%bslirc.write_raw%%)
-    write_msg = (%%bslirc.write_msg%%)
-}}
+##register create_bot: string, string, string, string, string, string, int,\
+                       (Irc.connection -> void),\
+		       (Irc.connection, string, string, string -> void) -> void
+##register write_raw: Irc.connection, string -> void
+##register write_msg: Irc.connection, Irc.msg -> void

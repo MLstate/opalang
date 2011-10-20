@@ -34,6 +34,8 @@
  * {1 Interface}
  */
 
+import-plugin crypto
+
 Crypto = {{
 
   Base64 = {{

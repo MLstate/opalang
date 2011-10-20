@@ -20,8 +20,20 @@
    <!> Not for casual user
 *)
 
-(* refactoring in progress *)
-module BslNativeLib = BslNativeLib
+##opa-type tuple_2('a, 'b)
+##extern-type 'a caml_list = 'a list
+
+(* ugly duplication, need to have dependencies between plugin *)
+let f1 = ServerLib.static_field_of_name "f1"
+let f2 = ServerLib.static_field_of_name "f2"
+let opa_tuple_2 (a, b) =
+  let record =
+    let acc = ServerLib.empty_record_constructor in
+    let acc = ServerLib.add_field acc f1 a in
+    let acc = ServerLib.add_field acc f2 b in
+    ServerLib.make_record acc
+  in
+  wrap_opa_tuple_2 record
 
 ##opa-type System.process_status
 
@@ -50,7 +62,7 @@ let opa_status = function
 let return_pid_status (pid, status) =
   let pid = ServerLib.wrap_int pid in
   let status = opa_status status in
-  BslNativeLib.opa_tuple_2 (pid, status)
+  opa_tuple_2 (pid, status)
 
 ##register wait : -> opa[tuple_2(int, System.process_status)]
 let wait () =

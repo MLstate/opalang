@@ -19,6 +19,8 @@
 module C = QmlCpsServerLib
 open C.Ops
 
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##extern-type SSL.secure_type = SslAS.secure_type
 ##extern-type Socket.connection = Scheduler.connection_info
 
 let private_connect ?(secure_mode = Network.Unsecured) (addr: string) port

@@ -19,6 +19,7 @@
 /**
  * @author Adam Koprowski
  **/
+import stdlib.web.canvas
 
 
 type WBarChart.config = {

@@ -17,6 +17,7 @@
 */
 
 import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args, i18n}
+import-plugin crypto
 
 
 /**
