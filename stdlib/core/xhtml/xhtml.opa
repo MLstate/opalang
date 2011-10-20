@@ -796,6 +796,8 @@ Xhtml =
           print_arg_with_spec_filter(acc, ~{name namespace=tagns value}) =
             if name == "class" then
               { acc with class = [value|acc.class] }
+            else if name == "href" then
+              { acc with href = {untyped=value} }
             else
               do print_arg({~name namespace=tagns ~value})
               acc
@@ -812,7 +814,18 @@ Xhtml =
                     do List.iter((name -> do Buf.add(html_buffer," ") Buf.add(html_buffer,name)),t)
                     Buf.add(html_buffer,"\"")
                   end
-               void
+               href_opt = match xhtml_spec_attrs.href with
+                          {none} -> none
+                          {~constant} -> some(constant)
+                          {~untyped} ->
+                            if Uri.is_secure(untyped) then some(untyped) //URI was accepted, return original URI
+                            else some(sanitized_uri) //URI was rejected, replace by default URI
+                          {~typed} -> some(Uri.to_string(typed))
+                          end
+               match href_opt
+               {some=href} -> print_arg({name="href" namespace="" value=href})
+               {none} -> void
+               end
              | {some=~{class style events events_options href}} ->
           //Normalize tags
                do (
