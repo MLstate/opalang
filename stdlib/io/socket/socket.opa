@@ -41,6 +41,7 @@ Socket = {{
     connect: string, int -> Socket.connection = %%BslSocket.connect%%
 
     connect_with_err_cont: string, int, continuation(string) -> Socket.connection = %%BslSocket.connect_with_err_cont%%
+    connect_with_err_cont2: string, int -> outcome(Socket.connection,string) = %%BslSocket.connect_with_err_cont2%%
 
     /**
      * Connect to a server over an SSL encryption.

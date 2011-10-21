@@ -53,6 +53,16 @@
  *   map to OPA types.
  **/
 
+type Commands.isMaster = {
+  setName : string;
+  ismaster : bool;
+  secondary : bool;
+  hosts : list(string);
+  maxBsonObjectSize : int;
+  ok : int;
+}
+
+
 type Commands.dropDatabaseType = { dropped : string; ok : int; }
 
 type Commands.listDatabasesType = {

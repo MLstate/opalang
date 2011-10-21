@@ -584,11 +584,11 @@ Bson = {{
                   | {TyName_args=[_]; TyName_ident="option"} ->
                     (match OpaValue.Record.field_of_name(field.label) with
                      | {none} -> error("Missing field {name}", (acc, true))
-                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{none})|acc]))
+                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,@unsafe_cast({none}))|acc]))
                   | {TyName_args=[_]; TyName_ident="Bson.register"} ->
                     (match OpaValue.Record.field_of_name(field.label) with
                      | {none} -> error("Missing field {name}", (acc, true))
-                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{absent})|acc]))
+                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,@unsafe_cast({absent}))|acc]))
                   | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
               | {gt} -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
         | ([],[]) -> (acc,false)
@@ -682,7 +682,7 @@ Bson = {{
                  List.fold_index((i, element, l ->
                                   do if "{len-i}" != Bson.key(element)
                                      then fatal("Array to list index mismatch {doc}")
-                                  do println("list({i}): element={pretty_of_element(element)}")
+                                  //do println("list({i}): element={pretty_of_element(element)}")
                                   match element_to_opa(element, ty) with
                                   | {some=v} -> [v | l]
                                   | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}")),

@@ -159,7 +159,8 @@ type mongodb = {
 
 type MDB = {{
   // TODO: Documentation
-  open : int, string, int -> mongodb
+  open : int, string, int -> outcome(mongodb,Mongo.failure)
+  repl : string, int, list(mongo_host) -> outcome(mongodb,Mongo.failure)
   clone : mongodb -> mongodb
   namespace : mongodb, string, string -> mongodb
   log : mongodb, bool -> mongodb
@@ -185,21 +186,34 @@ type MDB = {{
 
 MDB : MDB = {{
 
-  open(bufsize:int, addr:string, port:int): mongodb =
-    mongo = Mongo.open(bufsize,addr,port,false)
-    db = {~mongo; ~bufsize; ~addr; ~port; link_count=Mutable.make(1);
-          keyname="key"; valname="value"; idxname="index";
-          dbname="db"; collection="collection";
-          fields={none}; orderby={none}; limit=0; skip=0;
-          insert_flags=0; update_flags=0; delete_flags=0; query_flags=0;
-         }
-    do System.at_exit( ->
-                        if db.link_count.get() > 0
-                        then
-                          do ML.info("MDB.open","closing mongo (exit) {db.link_count.get()}",void)
-                          Mongo.close(db.mongo) 
-                        else void)
-    db
+  @private
+  open_(dbo:outcome(Mongo.db,Mongo.failure)): outcome(mongodb,Mongo.failure) =
+    match dbo with
+    | {success=mongo} ->
+       (match mongo.primary with
+        | {some=(addr,port)} ->
+           db = {~mongo; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
+                 keyname="key"; valname="value"; idxname="index";
+                 dbname="db"; collection="collection";
+                 fields={none}; orderby={none}; limit=0; skip=0;
+                 insert_flags=0; update_flags=0; delete_flags=0; query_flags=0;
+                }
+           do System.at_exit( ->
+                               if db.link_count.get() > 0
+                               then
+                                 do ML.info("MDB.open","closing mongo (exit) {db.link_count.get()}",void)
+                                 _ = Mongo.close(db.mongo) 
+                                 void
+                               else void)
+           {success=db}
+        | {none} -> {failure={Error="MDB.open: no primary"}})
+    | {~failure} -> {~failure}
+
+  open(bufsize:int, addr:string, port:int): outcome(mongodb,Mongo.failure) =
+    open_(Mongo.open(bufsize,addr,port,false))
+
+  repl(name:string, bufsize:int, seeds:list(mongo_host)): outcome(mongodb,Mongo.failure) =
+    open_(ReplSet.connect(ReplSet.init(name,bufsize,false,seeds)))
 
   clone(db:mongodb): mongodb =
     do db.link_count.set(db.link_count.get()+1)
@@ -220,7 +234,8 @@ MDB : MDB = {{
         if lc <= 1
         then
           do ML.info("MDB.close","closing mongo (close) {db.link_count.get()}",void)
-          Mongo.close(db.mongo)
+          _ = Mongo.close(db.mongo)
+          void
         else void
       else void
 

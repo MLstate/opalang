@@ -53,10 +53,21 @@ type cursorID = external
 type mailbox = external
 type reply = external
 
-@abstract type Mongo.db = {
-  conn : Socket.connection;
+type mongo_host = (string, int)
+
+type Mongo.replica_set = {
+  seeds : list(mongo_host);
+  hosts : list(mongo_host);
+  name : string;
+  primary_connected : bool;
+}
+
+type Mongo.db = {
+  conn : option(Socket.connection);
   bufsize : int;
   log : bool;
+  replset : Mongo.replica_set;
+  primary : option(mongo_host);
 }
 
 type Mongo.failure =
@@ -347,49 +358,82 @@ Mongo = {{
 
   @private
   send_no_reply(m,mbuf,name): bool =
-    match export_(mbuf) with
-    | (str, len) ->
-      s = String.substring(0,len,str)
-      do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
-      cnt = Socket.write_len(m.conn,s,len)
-      do free_(mbuf)
-      (cnt==len)
+    match m.conn with
+    | {some=conn} ->
+       (match export_(mbuf) with
+        | (str, len) ->
+          s = String.substring(0,len,str)
+          do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
+          cnt = Socket.write_len(conn,s,len)
+          do free_(mbuf)
+          (cnt==len))
+    | {none} ->
+       ML.error("Mongo.send({name})","Attempt to write to unopened connection",false)
 
   @private
   send_with_reply(m,mbuf,name): option(reply) =
-    if send_no_reply(m,mbuf,name)
-    then
-      mailbox = new_mailbox_(m.bufsize)
-      reply = read_mongo_(m.conn,mailbox)
-      do reset_mailbox_(mailbox)
-      do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
-      {some=reply}
-    else {none}
+    match m.conn with
+    | {some=conn} ->
+       if send_no_reply(m,mbuf,name)
+       then
+         mailbox = new_mailbox_(m.bufsize)
+         reply = read_mongo_(conn,mailbox)
+         do reset_mailbox_(mailbox)
+         do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
+         {some=reply}
+       else {none}
+    | {none} ->
+       ML.error("Mongo.send({name})","Attempt to write to unopened connection",{none})
+
+  init(bufsize:int, log:bool): Mongo.db =
+    { conn={none}; ~bufsize; ~log; replset={seeds=[]; hosts=[]; name=""; primary_connected=false}; primary={none}; }
+
+  connect(db:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
+    do ML.info("Mongo.connect","bufsize={db.bufsize} addr={addr} port={port} log={db.log}",void)
+    do match db.conn with | {some=conn} -> Socket.close(conn) | {none} -> void
+    db = { db with conn={none}; primary={none} }
+    //err_cont = Continuation.make((s:string -> ML.fatal("Mongo.open","Got exception {s}",-1)))
+    //conn = {some=Socket.connect_with_err_cont(addr,port,err_cont)}
+    match Socket.connect_with_err_cont2(addr,port) with
+    | {success=conn} -> {success={ db with conn={some=conn}; primary={some=(addr,port)} }}
+    | {failure=str} -> {failure={Error="Got exception {str}"}}
 
   /**
    *  Create new mongo object:
    *    - Open connection to mongo server at addr:port
-   *    - Allocate buffer of given size
    *    - Primitive error handling in case of mongo server malfunction
+   * TODO: check ismaster
    **/
-  open(bufsize:int, addr:string, port:int, log:bool): Mongo.db =
-    //do println("Mongo.open")
-    err_cont = Continuation.make((s:string -> ML.fatal("Mongo.open","Got exception={s}",-1)))
-    {
-      conn = Socket.connect_with_err_cont(addr,port,err_cont);
-      ~bufsize;
-      ~log;
-    }
+  open(bufsize:int, addr:string, port:int, log:bool): outcome(Mongo.db,Mongo.failure) =
+    connect(init(bufsize,log),addr,port)
+
+  /**
+   *  Close mongo connection and deallocate buffer.
+   **/
+  close(m:Mongo.db): Mongo.db =
+    //do println("Mongo.close")
+    do if Option.is_some(m.conn) then Socket.close(Option.get(m.conn)) else void 
+    { m with conn={none}; primary={none} }
+
+  /**
+   *  Close mongo copy, deallocate buffer but leave connection open.
+   **/
+  close_copy(_m:Mongo.db) =
+    //do println("Mongo.close_copy")
+    void
 
   /**
    * We are only concurrent-safe within a connection.
    * We need this to create a new buffer for each cursor.
+   * TODO: this is now redundant
    **/
   copy(m:Mongo.db): Mongo.db =
     //do println("Mongo.copy")
     { conn=m.conn;
-      bufsize = m.bufsize;
+      bufsize=m.bufsize;
       log = m.log;
+      replset=m.replset;
+      primary=m.primary;
     }
 
   /**
@@ -511,21 +555,6 @@ Mongo = {{
     mbuf = create_(m.bufsize)
     do msg_(mbuf,msg)
     send_no_reply(m,mbuf,"msg")
-
-  /**
-   *  Close mongo connection and deallocate buffer.
-   **/
-  close(m:Mongo.db) =
-    //do println("Mongo.close")
-    do Socket.close(m.conn)
-    void
-
-  /**
-   *  Close mongo copy, deallocate buffer but leave connection open.
-   **/
-  close_copy(_m:Mongo.db) =
-    //do println("Mongo.close_copy")
-    void
 
   /** Access components of the reply value **/
   reply_messageLength = (%% BslMongo.Mongo.reply_messageLength %% : reply -> int)
