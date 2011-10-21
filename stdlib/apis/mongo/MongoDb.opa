@@ -196,7 +196,7 @@ MDB : MDB = {{
     do System.at_exit( ->
                         if db.link_count.get() > 0
                         then
-                          do println("closing mongo (exit) {db.link_count.get()}")
+                          do ML.info("MDB.open","closing mongo (exit) {db.link_count.get()}",void)
                           Mongo.close(db.mongo) 
                         else void)
     db
@@ -219,7 +219,7 @@ MDB : MDB = {{
         do db.link_count.set(lc-1)
         if lc <= 1
         then
-          do println("closing mongo (close) {db.link_count.get()}")
+          do ML.info("MDB.close","closing mongo (close) {db.link_count.get()}",void)
           Mongo.close(db.mongo)
         else void
       else void
@@ -280,10 +280,6 @@ TypeSelect = {{
     match ty with
     | {TyRecord_row=row; ...} -> {ty with TyRecord_row=List.sort_by((r -> r.label),row)}
     | ty -> ty
-  taddrec(rty,label,ty) =
-    match rty with
-    | {TyRecord_row=row} -> {TyRecord_row=List.sort_by((r -> r.label),[~{label; ty}|row])}
-    | _ -> @fail
   order_field(f1, f2): Order.ordering = String.ordering(f1.label,f2.label)
   FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
   diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
@@ -305,16 +301,18 @@ TypeSelect = {{
         else
           ii = FieldSet.fold((f, l ->
                                 match (FieldSet.get(f,s1),FieldSet.get(f,s2)) with
-                                | ({some=f1},{some=f2}) ->
-                                   [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
-                                | _ -> @fail),i,[])
+                                | ({some=f1},{some=f2}) -> [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
+                                | _ -> @fail/*Can't happen*/),i,[])
           d = FieldSet.To.list(FieldSet.union(diff(s1,s2),diff(s2,s1)))
           //do println("  ii={OpaType.to_pretty({TyRecord_row=ii})}")
           //do println("  d={OpaType.to_pretty({TyRecord_row=d})}")
           res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([ii,d]))}
           //do println("  res={OpaType.to_pretty(res)}")
           res
-      | _ -> @fail
+      | _ ->
+        rec1str = OpaType.to_pretty(rec1)
+        rec2str = OpaType.to_pretty(rec2)
+        ML.fatal("TypeSelect.tmrgrecs","Attempt to merge non-record types {rec1str} and {rec2str}",-1)
   taddcol(cty,row) =
     match (cty,row) with
     | ({TySum_col=cols},{TyRecord_row=row}) -> {TySum_col=[row|cols]}
@@ -739,7 +737,8 @@ SU : SU = {{
     then
       match element.value with
       | {Array=adoc} -> List.fold(sutymrg,List.map(type_of_bson_value,List.map((e -> e.value),adoc)),(stat,T.tempty))
-      | _ -> @fail("type_of_bson_element: key {element.name} requires an array value, actually {Bson.to_pretty([element])}")
+      | _ -> ML.fatal("SU.type_of_bson_element",
+                      "key {element.name} requires an array value, actually {Bson.to_pretty([element])}",-1)
     else
       match element.name with
       | "$mod" -> (stat,T.tnumeric)
@@ -789,7 +788,12 @@ SU : SU = {{
         do println("Warning: incomparable types: sty:{OpaType.to_pretty(sty)} ty:{OpaType.to_pretty(ty)}")
         false
 
-  // Just print warnings for now, should we Log.warning/@fail/or what???
+  /**
+   * Validate the given document agains the type of the document
+   * and the select/update status.
+   *
+   * Currently, we log a warning.
+   **/
   check_strict_select_value_against_type(doc:Bson.document, ty:OpaType.ty, sut:su_status): void =
     //do println("check_strict_select_value_against_type:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
     //do println("  status={sut}")
@@ -805,8 +809,8 @@ SU : SU = {{
         sutstr = string_of_su_status(sut)
         dtystr = OpaType.to_pretty(dty)
         tystr = OpaType.to_pretty(ty)
-        println("Warning: inappropriate {sutstr} type {dtystr} for collection({tystr})")
-    else println("Warning: applying {string_of_su_status(dsut)} to {string_of_su_status(sut)}")
+        ML.warning("SU.check","Inappropriate {sutstr} type {dtystr} for collection({tystr})",void)
+    else ML.warning("SU.check","Applying {string_of_su_status(dsut)} to {string_of_su_status(sut)}",void)
 
 }}
 
@@ -816,11 +820,15 @@ Select = {{
 
   to_pretty(select:select('a)): string = "{Bson.to_pretty(select)}"
 
-  unsafe_create(s : Bson.document) = s : select('a)
+  unsafe_create(s : Bson.document): select('a) = s
 
-  create(s : Bson.document) =
+  unsafe_make(x:'b): select('a) = unsafe_create(Bson.opa2doc(x))
+
+  create(s : Bson.document): select('a) =
     do SU.check_strict_select_value_against_type(s, @typeval('a), {su_select}) 
-    s : select('a)
+    s
+
+  make(x:'b): select('a) = create(Bson.opa2doc(x))
 
   empty() : select('a) = SU.empty()
 
@@ -832,11 +840,15 @@ Update = {{
 
   to_pretty(update:update('a)): string = "{Bson.to_pretty(update)}"
 
-  unsafe_create(u : Bson.document) = u : update('a)
+  unsafe_create(u : Bson.document): update('a) = u
 
-  create(u : Bson.document) =
+  unsafe_make(x:'b): update('a) = unsafe_create(Bson.opa2doc(x))
+
+  create(u : Bson.document): update('a) =
     do SU.check_strict_select_value_against_type(u, @typeval('a), {su_update}) 
-    u : update('a)
+    u
+
+  make(x:'b): update('a) = create(Bson.opa2doc(x))
 
   empty() : update('a) = SU.empty()
 
@@ -1097,9 +1109,6 @@ UtilsDb = {{
    safe_update(c,s,v) = safe_(c,((c,s,v) -> Collection.update(c,s,v)),(c,s,v),"Collection.update")
    safe_delete(c,s) = safe_(c,((c,s) -> Collection.delete(c,s)),(c,s),"Collection.delete")
 
-    // To use an opa record instead of writing bson by hand
-    create_select(r) = Select.create(Bson.opa2doc(r))
-
     // It's easier to deal with options
     find_result_to_opt(result) : option('a) =
        match result with
@@ -1112,11 +1121,11 @@ UtilsDb = {{
        | {success=v} -> v
        | _ -> []
 
-    find(c,r) = find_result_to_opt(Collection.find_one(c,create_select(r)))
-    find_all(c,r) = find_all_result_to_list(Collection.find_all(c,create_select(r)))
+    find(c,r) = find_result_to_opt(Collection.find_one(c,Select.unsafe_make(r)))
+    find_all(c,r) = find_all_result_to_list(Collection.find_all(c,Select.unsafe_make(r)))
 
     // Delete by id by default
-    delete(c,id) = Collection.delete(c,create_select({_id = id}))
+    delete(c,id) = Collection.delete(c,Select.unsafe_make({_id = id}))
 
 }}
 

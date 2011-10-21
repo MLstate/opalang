@@ -55,8 +55,6 @@ type reply = external
 
 @abstract type Mongo.db = {
   conn : Socket.connection;
-  mbuf : mongo_buf;
-  mailbox : mailbox;
   bufsize : int;
   log : bool;
 }
@@ -348,26 +346,23 @@ Mongo = {{
   @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : reply -> string)
 
   @private
-  send_no_reply(m,name): bool =
-    match export_(m.mbuf) with
+  send_no_reply(m,mbuf,name): bool =
+    match export_(mbuf) with
     | (str, len) ->
       s = String.substring(0,len,str)
-      //do Log.debug("Mongo.send:",string_of_message(s))
-      do if m.log then do println("{name}:") println(string_of_message(s)) else void
-      //do println("{name}: s=\n{Bson.dump(16,s)}")
+      do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
       cnt = Socket.write_len(m.conn,s,len)
-      do free_(m.mbuf)
+      do free_(mbuf)
       (cnt==len)
 
   @private
-  send_with_reply(m,name): option(reply) =
-    if send_no_reply(m,name)
+  send_with_reply(m,mbuf,name): option(reply) =
+    if send_no_reply(m,mbuf,name)
     then
-      m = { m with mailbox = new_mailbox_(m.bufsize) }
-      reply = read_mongo_(m.conn,m.mailbox)
-      do reset_mailbox_(m.mailbox)
-      //do Log.debug("Mongo.receive:",string_of_message_reply(reply))
-      do if m.log then do println("reply({name}):") println(string_of_message_reply(reply)) else void
+      mailbox = new_mailbox_(m.bufsize)
+      reply = read_mongo_(m.conn,mailbox)
+      do reset_mailbox_(mailbox)
+      do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
       {some=reply}
     else {none}
 
@@ -379,13 +374,9 @@ Mongo = {{
    **/
   open(bufsize:int, addr:string, port:int, log:bool): Mongo.db =
     //do println("Mongo.open")
-    err_cont = Continuation.make((s:string ->
-                                   do prerrln("Mongo.open: exn={s}")
-                                   System.exit(-1)))
+    err_cont = Continuation.make((s:string -> ML.fatal("Mongo.open","Got exception={s}",-1)))
     {
       conn = Socket.connect_with_err_cont(addr,port,err_cont);
-      mbuf = create_(bufsize);
-      mailbox = new_mailbox_(bufsize);
       ~bufsize;
       ~log;
     }
@@ -397,8 +388,6 @@ Mongo = {{
   copy(m:Mongo.db): Mongo.db =
     //do println("Mongo.copy")
     { conn=m.conn;
-      mbuf = create_(m.bufsize);
-      mailbox = new_mailbox_(m.bufsize);
       bufsize = m.bufsize;
       log = m.log;
     }
@@ -410,9 +399,9 @@ Mongo = {{
    **/
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
     //do println("Mongo.insert")
-    m = { m with mbuf = create_(m.bufsize) }
-    do insert_(m.mbuf,flags,ns,documents)
-    send_no_reply(m,"insert")
+    mbuf = create_(m.bufsize)
+    do insert_(mbuf,flags,ns,documents)
+    send_no_reply(m,mbuf,"insert")
 
   /**
    *  insertf:  same as insert but using tags instead of bit-wise flags.
@@ -428,9 +417,9 @@ Mongo = {{
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
     //do println("Mongo.insert_batch")
-    m = { m with mbuf = create_(m.bufsize) }
-    do insert_batch_(m.mbuf,flags,ns,documents)
-    send_no_reply(m,"insert")
+    mbuf = create_(m.bufsize)
+    do insert_batch_(mbuf,flags,ns,documents)
+    send_no_reply(m,mbuf,"insert")
 
   /**
    *  insert_batchf:  same as insert_batch but using tags instead of bit-wise flags.
@@ -446,9 +435,9 @@ Mongo = {{
    **/
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
     //do println("Mongo.update")
-    m = { m with mbuf = create_(m.bufsize) }
-    do update_(m.mbuf,flags,ns,selector,update)
-    send_no_reply(m,"update")
+    mbuf = create_(m.bufsize)
+    do update_(mbuf,flags,ns,selector,update)
+    send_no_reply(m,mbuf,"update")
 
   /**
    *  updatef:  same as update but using tags instead of bit-wise flags.
@@ -463,9 +452,9 @@ Mongo = {{
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(reply) =
     //do println("Mongo.query")
-    m = { m with mbuf = create_(m.bufsize) }
-    do query_(m.mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
-    send_with_reply(m,"query")
+    mbuf = create_(m.bufsize)
+    do query_(mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
+    send_with_reply(m,mbuf,"query")
 
   /**
    *  queryf:  same as query but using tags instead of bit-wise flags.
@@ -480,9 +469,9 @@ Mongo = {{
    **/
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:cursorID): option(reply) =
     //do println("Mongo.get_more")
-    m = { m with mbuf = create_(m.bufsize) }
-    do get_more_(m.mbuf,ns,numberToReturn,cursorID)
-    send_with_reply(m,"getmore")
+    mbuf = create_(m.bufsize)
+    do get_more_(mbuf,ns,numberToReturn,cursorID)
+    send_with_reply(m,mbuf,"getmore")
 
   /**
    *  Send OP_DELETE:
@@ -491,9 +480,9 @@ Mongo = {{
    **/
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
     //do println("Mongo.delete")
-    m = { m with mbuf = create_(m.bufsize) }
-    do delete_(m.mbuf,flags,ns,selector)
-    send_no_reply(m,"delete")
+    mbuf = create_(m.bufsize)
+    do delete_(mbuf,flags,ns,selector)
+    send_no_reply(m,mbuf,"delete")
 
   /**
    *  deletef:  same as delete but using tags instead of bit-wise flags.
@@ -509,9 +498,9 @@ Mongo = {{
    **/
   kill_cursors(m:Mongo.db, cursors:list(cursorID)): bool =
     //do println("Mongo.kill_cursors")
-    m = { m with mbuf = create_(m.bufsize) }
-    do kill_cursors_(m.mbuf,cursors)
-    send_no_reply(m,"kill_cursors")
+    mbuf = create_(m.bufsize)
+    do kill_cursors_(mbuf,cursors)
+    send_no_reply(m,mbuf,"kill_cursors")
 
   /**
    *  Send OP_MSG:
@@ -519,9 +508,9 @@ Mongo = {{
    *    - returns a bool indicating success or failure
    **/
   msg(m:Mongo.db, msg:string): bool =
-    m = { m with mbuf = create_(m.bufsize) }
-    do msg_(m.mbuf,msg)
-    send_no_reply(m,"msg")
+    mbuf = create_(m.bufsize)
+    do msg_(mbuf,msg)
+    send_no_reply(m,mbuf,"msg")
 
   /**
    *  Close mongo connection and deallocate buffer.
@@ -529,17 +518,13 @@ Mongo = {{
   close(m:Mongo.db) =
     //do println("Mongo.close")
     do Socket.close(m.conn)
-    do free_(m.mbuf)
-    do reset_mailbox_(m.mailbox)
     void
 
   /**
    *  Close mongo copy, deallocate buffer but leave connection open.
    **/
-  close_copy(m:Mongo.db) =
+  close_copy(_m:Mongo.db) =
     //do println("Mongo.close_copy")
-    do free_(m.mbuf)
-    do reset_mailbox_(m.mailbox)
     void
 
   /** Access components of the reply value **/

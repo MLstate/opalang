@@ -127,6 +127,44 @@ H = {{
   dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
 }}
 
+/**
+ * Log functions for MongoDB driver.
+ *
+ * We can choose various logging methods but these apply globally
+ * to all Mongo instances.
+ **/
+
+type Mongo.logtype = {stdout} / {stderr} / {logger} / {nomongolog}
+
+MongoLog = {{
+
+  logtype = Mutable.make({stdout})
+
+  @private log_(from, what, logfn, str, v) =
+    do match logtype.get() with
+      | {stdout} -> println("{from}({what}): {str}")
+      | {stderr} -> prerrln("{from}({what}): {str}")
+      | {logger} -> logfn(from,str)
+      | {nomongolog} -> void
+    v
+
+  info(from, str, v) = log_(from,"Info",Log.info,str,v)
+  debug(from, str, v) = log_(from,"Debug",Log.debug,str,v)
+  warning(from, str, v) = log_(from,"Warning",Log.warning,str,v)
+  error(from, str, v) = log_(from,"Error",Log.error,str,v)
+
+  fatal(from, str, v) =
+    do match logtype.get() with
+      | {stdout} -> println("{from}(Fatal): {str}")
+      | {stderr} -> prerrln("{from}(Fatal): {str}")
+      | {logger} -> Log.fatal(from,str)
+      | {nomongolog} -> void
+    System.exit(v)
+
+}}
+
+ML = MongoLog
+
 @server_private
 Bson = {{
 
@@ -472,14 +510,14 @@ Bson = {{
     | {TyName_ident="Bson.document"; TyName_args=_} -> [H.doc(key,@unsafe_cast(v))]
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args = tys; TyName_ident = tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
-    | _ -> @fail("Bson.opa_to_bson: unknown value {v} of type {OpaType.to_pretty(ty)}")
+    | _ -> ML.fatal("Bson.opa_to_bson","unknown value {v} of type {OpaType.to_pretty(ty)}",-1)
 
   opa_to_bson(v:'a, ty_opt:option(OpaType.ty)): Bson.document =
-    ty =
+    match
       (match (match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)) with
        | {TyName_args = tys; TyName_ident = tyid} -> OpaType.type_of_name(tyid, tys)
        | ty -> ty)
-    match ty with
+    with
     | {TyRecord_row=row}
     | {TyRecord_row=row; TyRecord_rowvar=_} ->
       (match row with
@@ -491,7 +529,7 @@ Bson = {{
       if List.mem([{label="false"; ty={TyRecord_row=[]}}],col)
       then [H.bool("value",(@unsafe_cast(v):bool))]
       else rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1)
-    | _ ->
+    | ty ->
       opa_to_document("value", v, ty)
 
   opa2doc(v:'a): Bson.document = opa_to_bson(v,{some=@typeval('a)})
@@ -503,23 +541,12 @@ Bson = {{
   rec bson_to_opa(bson:Bson.document, ty:OpaType.ty, valname:string): option('a) =
     //do println("bson_to_opa:\n  bson={Bson.to_pretty(bson)}\n  ty={OpaType.to_pretty(ty)}\n  valname={valname}")
 
-    error(str, v) =
-      do Log.error("Bson.bson_to_opa", str)
-      v
+    error(str, v) = ML.error("Bson.bson_to_opa", str, v)
+    fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
 
     isrcrdtype(ty:OpaType.ty): bool =
       match ty with
       | {TyName_args=[_]; TyName_ident="option"} -> true
-      | {TyName_args=[_]; TyName_ident="Bson.register"} -> true
-      | _ -> false
-
-    isoption(ty:OpaType.ty): bool =
-      match ty with
-      | {TyName_args=[_]; TyName_ident="option"} -> true
-      | _ -> false
-
-    isregister(ty:OpaType.ty): bool =
-      match ty with
       | {TyName_args=[_]; TyName_ident="Bson.register"} -> true
       | _ -> false
 
@@ -553,17 +580,16 @@ Bson = {{
                    | {none} -> error("Missing field {name}", (acc, true))
                    | {some=field} -> aux(erest,frest,[(field,value)|acc])))
               | {lt} ->
-                 if isoption(field.ty)
-                 then
-                   (match OpaValue.Record.field_of_name(field.label) with
-                    | {none} -> error("Missing field {name}", (acc, true))
-                    | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{none})|acc]))
-                 else if isregister(field.ty)
-                 then
-                   (match OpaValue.Record.field_of_name(field.label) with
-                    | {none} -> error("Missing field {name}", (acc, true))
-                    | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{absent})|acc]))
-                 else error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
+                 (match field.ty with
+                  | {TyName_args=[_]; TyName_ident="option"} ->
+                    (match OpaValue.Record.field_of_name(field.label) with
+                     | {none} -> error("Missing field {name}", (acc, true))
+                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{none})|acc]))
+                  | {TyName_args=[_]; TyName_ident="Bson.register"} ->
+                    (match OpaValue.Record.field_of_name(field.label) with
+                     | {none} -> error("Missing field {name}", (acc, true))
+                     | {some=fieldname} -> aux([element|erest],frest,[(fieldname,{absent})|acc]))
+                  | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
               | {gt} -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
         | ([],[]) -> (acc,false)
         | (_erest,_frest) -> (acc,true)
@@ -581,11 +607,11 @@ Bson = {{
       | {TyName_args=_; TyName_ident="Bson.document"} ->
         (match element with
          | {value={Document=doc} ...} -> {some=@unsafe_cast(doc)}
-         | element -> @fail("Bson.bson_to_opa: expected Bson.document, got {element}"))
+         | element -> error("expected Bson.document, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="void"} ->
         (match element with
          | {value={Null=_} ...} -> {some=@unsafe_cast(void)}
-         | element -> @fail("Bson.bson_to_opa: expected void, got {element}"))
+         | element -> error("expected void, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.int32"}
       | {TyConst={TyInt={}}} ->
         (match element with
@@ -594,7 +620,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(i)}
          | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_int(d))}
          | {value={String=s} ...} -> {some=@unsafe_cast(Int.of_string(s))}
-         | element -> @fail("Bson.bson_to_opa: expected int, got {element}"))
+         | element -> error("expected int, got {element}",{none}))
       | {TyConst={TyString={}}} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(Bool.to_string(tf))}
@@ -602,7 +628,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(Int.to_string(i))}
          | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_string(d))}
          | {value={String=s} ...} -> {some=@unsafe_cast(s)}
-         | element -> @fail("Bson.bson_to_opa: expected string, got {element}"))
+         | element -> error("expected string, got {element}",{none}))
       | {TyConst={TyFloat={}}} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(if tf then 1.0 else 0.0)}
@@ -610,7 +636,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(Float.of_int(i))}
          | {value={Double=d} ...} -> {some=@unsafe_cast(d)}
          | {value={String=s} ...} -> {some=@unsafe_cast(Float.of_string(s))}
-         | element -> @fail("Bson.bson_to_opa: expected float, got {element}"))
+         | element -> error("expected float, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="bool"} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(tf)}
@@ -619,7 +645,7 @@ Bson = {{
          | {value={Double=d} ...} -> {some=@unsafe_cast(d != 0.0)}
          | {value={String="true"} ...} -> {some=@unsafe_cast(true)}
          | {value={String="false"} ...} -> {some=@unsafe_cast(false)}
-         | element -> @fail("Bson.bson_to_opa: expected bool, got {element}"))
+         | element -> error("expected bool, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
          | {name=_key; value={Document=doc}} ->
@@ -632,7 +658,7 @@ Bson = {{
             | {some=("none",_)} -> {some=@unsafe_cast({none})}
             | _ -> {none}
            )
-         | element -> @fail("Bson.bson_to_opa: expected option, got {element}"))
+         | element -> error("expected option, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
         //do println("register: element={to_pretty([element])}")
         (match element_to_opa(element,ty) with
@@ -642,56 +668,55 @@ Bson = {{
         (match element with
          | {name=_key; value={Array=doc}} ->
            //do println("list:\n  ty={OpaType.to_pretty(ty)}\n  key={key}\n  doc={to_pretty(doc)}")
-           if doc == []
-           then {some=@unsafe_cast([])}
-           else
-             /* We can't actually rely upon the order in which these
-              * array elements are stored, we could be at the mercy
-              * of user-defined values so we allow either storage order.
-              * We do insist upon consecutive values, however.
-              */
-             fi = match doc with | [e|_] -> e.name | _ -> @fail
-             doc = if fi == "0" then List.rev(doc) else doc // TODO: eliminate reverse and scan as left or right
-             len = List.length(doc) - 1
-             l = List.fold_index(
-                   (i, element, l ->
-                      do if "{len-i}" != Bson.key(element)
-                         then @fail("Bson.bson_to_opa: Array to list index mismatch {doc}")
-                      do println("list({i}): element={pretty_of_element(element)}")
-                      match element_to_opa(element, ty) with
-                      | {some=v} -> [v | l]
-                      | {none} -> @fail("Bson.bson_to_opa: failed for list element {element} type {OpaType.to_pretty(ty)}")),
-                   doc,[])
-             {some=@unsafe_cast(l)}
-         | element -> @fail("Bson.bson_to_opa: expected list, got {element}"))
+           lst =
+             (match doc with
+              | [] -> []
+              | [e|_] ->
+                 /* We can't actually rely upon the order in which these
+                  * array elements are stored, we could be at the mercy
+                  * of user-defined values so we allow either storage order.
+                  * We do insist upon consecutive values, however.
+                  */
+                 doc = if e.name == "0" then List.rev(doc) else doc
+                 len = List.length(doc) - 1
+                 List.fold_index((i, element, l ->
+                                  do if "{len-i}" != Bson.key(element)
+                                     then fatal("Array to list index mismatch {doc}")
+                                  do println("list({i}): element={pretty_of_element(element)}")
+                                  match element_to_opa(element, ty) with
+                                  | {some=v} -> [v | l]
+                                  | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}")),
+                                 doc,[]))
+             {some=@unsafe_cast(lst)}
+         | element -> error("expected list, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
          | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
-         | element -> @fail("Bson.bson_to_opa: expected date, got {element}"))
+         | element -> error("expected date, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.binary"} ->
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
-         | element -> @fail("Bson.bson_to_opa: expected binary, got {element}"))
+         | element -> error("expected binary, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.regexp"} ->
         (match element with
          | {value={Regexp=re} ...} -> {some=@unsafe_cast(re)}
-         | element -> @fail("Bson.bson_to_opa: expected regexp, got {element}"))
+         | element -> error("expected regexp, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.code"} ->
         (match element with
          | {value={Code=c} ...} -> {some=@unsafe_cast(c)}
-         | element -> @fail("Bson.bson_to_opa: expected code, got {element}"))
+         | element -> error("expected code, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.symbol"} ->
         (match element with
          | {value={Symbol=s} ...} -> {some=@unsafe_cast(s)}
-         | element -> @fail("Bson.bson_to_opa: expected symbol, got {element}"))
+         | element -> error("expected symbol, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.codescope"} ->
         (match element with
          | {value={CodeScope=cs} ...} -> {some=@unsafe_cast(cs)}
-         | element -> @fail("Bson.bson_to_opa: expected codescope, got {element}"))
+         | element -> error("expected codescope, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.timestamp"} ->
         (match element with
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
-         | element -> @fail("Bson.bson_to_opa: expected timestamp, got {element}"))
+         | element -> error("expected timestamp, got {element}",{none}))
       | {TyRecord_row=row}
       | {TyRecord_row=row; TyRecord_rowvar=_} ->
           //do println("row:\n  row={OpaType.to_pretty(ty)}")
@@ -718,12 +743,11 @@ Bson = {{
            | {value={Document=doc} ...} -> (List.sort(Bson.keys(doc)), doc) // <-- We might get away with List.rev here???
            | _ -> ([Bson.key(element)], [element]))
         (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
-         | {some=fields} ->
-           element_to_rec(doc, fields)
-         | {none} -> @fail("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})"))
+         | {some=fields} -> element_to_rec(doc, fields)
+         | {none} -> error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none}))
       | {TyName_args = tys; TyName_ident = tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys))
-      | _ -> @fail("Bson.bson_to_opa: unknown type {OpaType.to_pretty(ty)}")
+      | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
 
     and _internal_document_to_opa(key:string, doc:Bson.document, ty:OpaType.ty): option('a) =
       match Bson.find_element(doc,key) with
