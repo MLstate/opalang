@@ -80,7 +80,7 @@ type caml_tuple_4('a,'b,'c,'d) = external
 Email = {{
 
   @private
-  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string ,  string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), (Email.send_status -> void) -> void
+  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string ,  string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), option(string), (Email.send_status -> void) -> void
 
   /**
    * {1 Parsing email addresses}
@@ -182,6 +182,7 @@ Email = {{
  * {1} Sending Email.
  */
 
+  @stringifier(Email.send_status)
   string_of_send_status( s : Email.send_status ) =
     match s with
     | { bad_sender } -> "bad sender"
@@ -191,7 +192,7 @@ Email = {{
     | { error=s } -> "error : {s}"
 
   @private
-  private_send_async(from : Email.email,to : Email.email, subject : string, mail_content : Email.content, files : option(Email.attachment),  k : (Email.send_status -> void)) : void =
+  private_send_async(from : Email.email,to : Email.email, subject : string, mail_content : Email.content, files : option(Email.attachment),  via : option(string), k : (Email.send_status -> void)) : void =
     caml_list(l) =
       rec aux(l,acc) =
         match l with
@@ -223,24 +224,43 @@ Email = {{
           ,list_files)
         caml_list(files)
         end
-    send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, k)
+    send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, via, k)
+
 
   try_send(from : Email.email,to : Email.email, subject : string, content : Email.content) : Email.send_status =
     k(cont)=
       f(r)= Continuation.return(cont,r)
-      private_send_async(from,to,subject,content,none,f)
+      private_send_async(from,to,subject,content,none,none,f)
     @callcc(k)
 
   try_send_async(from : Email.email,to : Email.email, subject : string, content :Email.content , k : (Email.send_status -> void)) : void =
-    private_send_async(from,to,subject,content,none,k)
+    private_send_async(from,to,subject,content,none,none,k)
 
   try_send_with_files(from : Email.email,to : Email.email, subject : string, content : Email.content, files : Email.attachment) : Email.send_status =
     k(cont)=
       f(r)= Continuation.return(cont,r)
-      private_send_async(from,to,subject,content,some(files),f)
+      private_send_async(from,to,subject,content,some(files),none,f)
     @callcc(k)
 
   try_send_with_files_async(from : Email.email,to : Email.email, subject : string, content :Email.content, files : Email.attachment, k : (Email.send_status -> void)) : void =
-    private_send_async(from,to,subject,content,some(files),k)
+    private_send_async(from,to,subject,content,some(files),none,k)
+
+  try_send_via(from : Email.email,to : Email.email, subject : string, content : Email.content, via : string) : Email.send_status =
+    k(cont)=
+      f(r)= Continuation.return(cont,r)
+      private_send_async(from,to,subject,content,none,some(via),f)
+    @callcc(k)
+
+  try_send_async_via(from : Email.email,to : Email.email, subject : string, content :Email.content ,via : string, k : (Email.send_status -> void)) : void =
+    private_send_async(from,to,subject,content,none,some(via),k)
+
+  try_send_with_files_via(from : Email.email,to : Email.email, subject : string, content : Email.content, files : Email.attachment, via : string) : Email.send_status =
+    k(cont)=
+      f(r)= Continuation.return(cont,r)
+      private_send_async(from,to,subject,content,some(files),some(via),f)
+    @callcc(k)
+
+  try_send_with_files_async_via(from : Email.email,to : Email.email, subject : string, content :Email.content, files : Email.attachment, via : string, k : (Email.send_status -> void)) : void =
+    private_send_async(from,to,subject,content,some(files),some(via),k)
 
 }}
