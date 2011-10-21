@@ -154,9 +154,8 @@ type time_t = external
   /**
    * The current time.
    *
-   * Note: the current time is generally not the same on the client and the server.
-   * To be certain that you are using the client time, use [Client.now] and to be
-   * certain that you are using the server time, use [Server.now].
+   * Note: depending on whether the function is executed on the client or on the
+   * server this function will return, respectively, the client/server time.
   **/
   now : -> Date.date = Date_private.time_now
 
