@@ -2072,6 +2072,9 @@ type Dom.Transformation.verb = { append } / {prepend} / {set}
 @opacapi type Dom.Transformation.subject = { value: string} / {content:xhtml} / {css:`Css.properties`} / {property : string ; value_p : string}
 @opacapi type Dom.transformation = { jq : dom ; subject : Dom.Transformation.subject ; verb : Dom.Transformation.verb} // TODO: turn into @abstract.
 
+@opacapi Dom_transform = Dom.transform
+
+
 /**
  * @deprecated
  */

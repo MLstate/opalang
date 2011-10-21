@@ -77,6 +77,7 @@ struct
   let (!!) s = !! ("Dom_" ^ s)
   let select_class = !! "select_class"
   let select_id = !! "select_id"
+  let transform = !! "transform"
 end
 
 module Core_server_code =
