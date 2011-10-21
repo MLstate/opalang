@@ -1070,6 +1070,56 @@ Collection : Collection = {{
 
 }}
 
+/**
+ * UtilsDb is a set of utility functions to make programming
+ * in Bson and Mongo easier.
+ **/
+
+UtilsDb = {{
+
+   /** A safe operation checking the error (still have to check if the
+    *  last error is really the last error, using eg. findAndModify).
+    **/
+   @private
+   safe_(c:collection('value),f:'a->bool,a:'a,msg:string): bool =
+     if not(f(a))
+     then (do println("{msg}: Fatal error message not sent to server") false)
+     else
+       (match MDB.getLastError(c.db) with
+        | {~success} ->
+           (match Bson.find_string(success, "err") with
+            | {some=""} | {none} -> true
+            | {some=err} -> do println("{msg}: {err}") false)
+        | {~failure} ->  do println("{msg}: fatal error {Mongo.string_of_failure(failure)}") false)
+
+   safe_insert(c,v) = safe_(c,((c,v) -> Collection.insert(c,v)),(c,v),"Collection.insert")
+   safe_insert_batch(c,b) = safe_(c,((c,b) -> Collection.insert_batch(c,b)),(c,b),"Collection.insert_batch")
+   safe_update(c,s,v) = safe_(c,((c,s,v) -> Collection.update(c,s,v)),(c,s,v),"Collection.update")
+   safe_delete(c,s) = safe_(c,((c,s) -> Collection.delete(c,s)),(c,s),"Collection.delete")
+
+    // To use an opa record instead of writing bson by hand
+    create_select(r) = Select.create(Bson.opa2doc(r))
+
+    // It's easier to deal with options
+    find_result_to_opt(result) : option('a) =
+       match result with
+       | {success=v} -> {some=v}
+       | _ -> {none}
+   
+    // Idem with list and empty list
+    find_all_result_to_list(result) : list('a) =
+       match result with
+       | {success=v} -> v
+       | _ -> []
+
+    find(c,r) = find_result_to_opt(Collection.find_one(c,create_select(r)))
+    find_all(c,r) = find_all_result_to_list(Collection.find_all(c,create_select(r)))
+
+    // Delete by id by default
+    delete(c,id) = Collection.delete(c,create_select({_id = id}))
+
+}}
+
 /** Later:
  *
  * MongoMap = {{
