@@ -390,7 +390,7 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options = [A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ js_validation @ files_lib in
+  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ js_validation @ files_lib in
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in
