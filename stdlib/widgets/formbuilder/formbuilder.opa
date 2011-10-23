@@ -78,11 +78,28 @@ type WFormBuilder.field_data =
   ; optionality : {optional} / {required : xhtml}
   }
 
+@abstract
 type WFormBuilder.field('ty) =
   { data : WFormBuilder.field_data
   ; initial_value : option('ty)
   ; converter : WFormBuilder.field_converter('ty)
   ; validator : WFormBuilder.field_validator('ty)
+  }
+
+@abstract
+type WFormBuilder.field_checker = -> bool
+
+@abstract
+type WFormBuilder.form =
+  { id : string
+  ; chan : Cell.cell(
+        {renderField
+         fldRender : WFormBuilder.field_builder, WFormBuilder.style -> xhtml
+         fldChecker : WFormBuilder.field_checker
+        }
+      /
+        {renderForm body : xhtml}
+    , xhtml)
   }
 
 type WFormBuilder.style =
@@ -326,9 +343,8 @@ WFormBuilder =
   /** {1 Fields/form construction} */
 
   field_data(label) =
-    id = Dom.fresh_id()
     {~label
-     ~id
+     id=Dom.fresh_id()
      optionality={optional}
      hint=none
     }
@@ -339,6 +355,32 @@ WFormBuilder =
     ; initial_value=none
     ; validator=empty_validator
     }
+
+  mk_form_with(id : string,
+               on_submit : WFormBuilder.form_data -> void,
+               builder, style
+              ) : WFormBuilder.form =
+    on_msg(state, msg) =
+      match msg with
+      | {renderField ~fldChecker ~fldRender} ->
+          new_state = [fldChecker | state]
+          xhtml = fldRender(builder, style)
+          { return = xhtml
+          ; instruction = {set=new_state}
+          }
+      | {renderForm ~body} ->
+           // FIXME, {Basic}/{Normal}
+          xhtml = form_html(id, state, {Basic}, body, on_submit)
+          { return = xhtml
+          ; instruction = {unchanged}
+          }
+    { ~id
+    ; chan = Cell.make([], on_msg)
+    }
+
+  mk_form(on_submit : WFormBuilder.form_data -> void)
+    : WFormBuilder.form =
+    mk_form_with(Dom.fresh_id(), on_submit, default_field_builder, empty_style)
 
   /** {1 Extending fields} */
 
@@ -402,56 +444,22 @@ WFormBuilder =
 
      }
 
-  field_html(field : WFormBuilder.field('ty), builder : WFormBuilder.field_builder, style : WFormBuilder.style) : xhtml =
-    hide(tag) = WStyler.add({style=css{display: none}}, tag)
-    ~{data initial_value converter ...} = field
-    ids = build_ids(data.id)
-    rdata = ~{data ids style}
-    label_xhtml = builder.mk_label(rdata)
-    onblur(_) =
-      _ = do_validate(field, style, ids)
-      do hide_hint(style, ids)
-      void
-    onfocus(_) =
-      do show_hint(style, ids)
-      void
-    bindings =
-      [ ({blur}, onblur)
-      , ({focus}, onfocus)
-      ]
-    input_xhtml = converter.render(~{data=rdata initial_value})
-               |> WCore.add_binds(bindings, _)
-               |> builder.mk_input(_, rdata)
-    hint_xhtml = builder.mk_hint(rdata) |> hide
-    err_xhtml = builder.mk_err(rdata) |> hide
-    builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml data=rdata})
+  render_field(form : WFormBuilder.form,
+               field : WFormBuilder.field('ty)) : xhtml =
+    fldChecker = mk_field_checker(field)
+    fldRender = field_html(field, _, _)
+    Cell.call(form.chan, {renderField ~fldChecker ~fldRender})
 
-  form_html( form_id : string
-           , form_type : {Basic} / {Normal}
-           , form_body : xhtml
-           , process_form : WFormBuilder.form_data -> void
-           ) : xhtml =
-    match form_type
-    | {Basic} ->
-        <form id={form_id} action="#" onsubmit={_ -> process_form({SimpleForm})}
-          method="get" options:onsubmit="prevent_default">
-          {form_body}
-        </form>
-    | {Normal} ->
-        process(data) =
-          do Scheduler.push( -> process_form({FileUploadForm=data}))
-          void
-        config = {Upload.default_config() with
-                    ~form_body ~process form_id=form_id}
-        Upload.html(config)
+  render_form(form : WFormBuilder.form, body : xhtml) : xhtml =
+    Cell.call(form.chan, {renderForm ~body})
 
   focus_on(field : WFormBuilder.field) : void =
     Dom.give_focus(#{build_ids(field.data.id).input_id})
 
-  submit_action(form_id : string) : (Dom.event -> void) =
+  submit_action(form : WFormBuilder.form) : (Dom.event -> void) =
     _ ->
        // submit the form
-      Dom.trigger(#{form_id}, {submit})
+      Dom.trigger(#{form.id}, {submit})
 
   get_field_value(field) =
     field.converter.accessor(field.data)
@@ -476,6 +484,23 @@ WFormBuilder =
        )
     void
 
+  @private check_field(field) =
+    input = get_field_value(field)
+    match (input, field.data.optionality) with
+    | ({conversion_error=err}, _) -> {failure=err}
+    | ({no_value}, {required=req_msg}) -> {failure=req_msg}
+    | ({no_value}, {optional}) -> {success=void}
+    | ({value=v}, _) ->
+        match field.validator(v) with
+        | {success=_} -> {success=void}
+        | {failure=err} -> {failure=err}
+
+  @private mk_field_checker(field) : WFormBuilder.field_checker =
+    ->
+      match check_field(field) with
+      | {success=_} -> true
+      | {failure=_} -> false
+
   @private do_validate(field : WFormBuilder.field('ty),
     style : WFormBuilder.style, ids) : bool =
     err_fld = #{ids.error_id}
@@ -485,17 +510,7 @@ WFormBuilder =
       do go(ids.field_id, style.field_style)
       do go(ids.input_id, style.input_style)
       void
-    input = get_field_value(field)
-    val_outcome =
-      match (input, field.data.optionality) with
-      | ({conversion_error=err}, _) -> {failure=err}
-      | ({no_value}, {required=req_msg}) -> {failure=req_msg}
-      | ({no_value}, {optional}) -> {success=void}
-      | ({value=v}, _) ->
-          match field.validator(v) with
-          | {success=_} -> {success=void}
-          | {failure=err} -> {failure=err}
-    match val_outcome with
+    match check_field(field) with
     | {success=_} ->
         do animate(style, err_fld, Dom.Effect.fade_out())
         do set_styles(true)
@@ -541,5 +556,61 @@ WFormBuilder =
     match initial_value with
     | {none} -> tag
     | {some=iv} -> Xhtml.add_attribute(attr, iv, tag)
+
+  @private
+  field_html( field : WFormBuilder.field
+            , builder : WFormBuilder.field_builder
+            , style : WFormBuilder.style
+            ) : xhtml =
+    hide(tag) = WStyler.add({style=css{display: none}}, tag)
+    ~{data initial_value converter ...} = field
+    ids = build_ids(data.id)
+    rdata = ~{data ids style}
+    label_xhtml = builder.mk_label(rdata)
+    onblur(_) =
+      _ = do_validate(field, style, ids)
+      do hide_hint(style, ids)
+      void
+    onfocus(_) =
+      do show_hint(style, ids)
+      void
+    bindings =
+      [ ({blur}, onblur)
+      , ({focus}, onfocus)
+      ]
+    input_xhtml = converter.render(~{data=rdata initial_value})
+               |> WCore.add_binds(bindings, _)
+               |> builder.mk_input(_, rdata)
+    hint_xhtml = builder.mk_hint(rdata) |> hide
+    err_xhtml = builder.mk_err(rdata) |> hide
+    builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml data=rdata})
+
+  @private
+  form_html( form_id : string
+           , fld_checkers : list(WFormBuilder.field_checker)
+           , form_type : {Basic} / {Normal}
+           , body : xhtml
+           , process_form : WFormBuilder.form_data -> void
+           ) : xhtml =
+    go(fd) =
+      all_ok = List.for_all((v -> v()), fld_checkers)
+      if all_ok then
+        process_form(fd)
+      else
+        void
+    form_body = <fieldset>{body}</>
+    match form_type
+    | {Basic} ->
+        <form id={form_id} action="#" onsubmit={_ -> go({SimpleForm})}
+          method="get" options:onsubmit="prevent_default">
+          {form_body}
+        </form>
+    | {Normal} ->
+        process(data) =
+          do Scheduler.push( -> go({FileUploadForm=data}))
+          void
+        config = {Upload.default_config() with
+                    ~form_body ~process form_id=form_id}
+        Upload.html(config)
 
 }}
