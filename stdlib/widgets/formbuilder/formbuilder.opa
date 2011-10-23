@@ -93,12 +93,15 @@ type WFormBuilder.field_checker = -> bool
 type WFormBuilder.form =
   { id : string
   ; chan : Cell.cell(
-        {renderField
-         fldRender : WFormBuilder.field_builder, WFormBuilder.style -> xhtml
-         fldChecker : WFormBuilder.field_checker
+        { renderField
+          fldRender : WFormBuilder.field_builder, WFormBuilder.style -> xhtml
+          fldChecker : WFormBuilder.field_checker
         }
       /
-        {renderForm body : xhtml}
+        { renderForm
+          body : xhtml
+          on_submit : WFormBuilder.form_data -> void
+        }
     , xhtml)
   }
 
@@ -243,7 +246,7 @@ WFormBuilder =
 
   equals_validator(fld : WFormBuilder.field('ty), error_msg : xhtml) : WFormBuilder.field_validator('ty) =
     input ->
-      if {value=input} == get_field_value(fld) then
+      if {value=input} == access_field(fld) then
         {success = input}
       else
         {failure = error_msg}
@@ -372,7 +375,6 @@ WFormBuilder =
     }
 
   mk_form_with(id : string,
-               on_submit : WFormBuilder.form_data -> void,
                builder, style
               ) : WFormBuilder.form =
     on_msg(state, msg) =
@@ -383,7 +385,7 @@ WFormBuilder =
           { return = xhtml
           ; instruction = {set=new_state}
           }
-      | {renderForm ~body} ->
+      | {renderForm ~body ~on_submit} ->
            // FIXME, {Basic}/{Normal}
           xhtml = form_html(id, state, {Basic}, body, on_submit)
           { return = xhtml
@@ -393,9 +395,8 @@ WFormBuilder =
     ; chan = Cell.make([], on_msg)
     }
 
-  mk_form(on_submit : WFormBuilder.form_data -> void)
-    : WFormBuilder.form =
-    mk_form_with(Dom.fresh_id(), on_submit, default_field_builder, bootstrap_style)
+  mk_form() : WFormBuilder.form =
+    mk_form_with(Dom.fresh_id(), default_field_builder, bootstrap_style)
 
   /** {1 Extending fields} */
 
@@ -470,8 +471,10 @@ WFormBuilder =
     fldRender = field_html(field, _, _)
     Cell.call(form.chan, {renderField ~fldChecker ~fldRender})
 
-  render_form(form : WFormBuilder.form, body : xhtml) : xhtml =
-    Cell.call(form.chan, {renderForm ~body})
+  render_form( form : WFormBuilder.form, body : xhtml
+             , on_submit : WFormBuilder.form_data -> void
+             ) : xhtml =
+    Cell.call(form.chan, {renderForm ~body ~on_submit})
 
   focus_on(field : WFormBuilder.field) : void =
     Dom.give_focus(#{build_ids(field.data.id).input_id})
@@ -481,13 +484,18 @@ WFormBuilder =
        // submit the form
       Dom.trigger(#{form.id}, {submit})
 
-  get_field_value(field) =
-    field.converter.accessor(field.data)
-
-  get_field_label(field) =
-    field.data.label
+  get_field_value(field : WFormBuilder.field('a)) : option('a) =
+    match access_field(field) with
+    | {value=v} -> some(v)
+    | _ -> none
 
   /* ---------- Private functions ---------- */
+
+  @private access_field(field : WFormBuilder.field) =
+    field.converter.accessor(field.data)
+
+  @private get_field_label(field : WFormBuilder.field) =
+    field.data.label
 
   @private add_style(style) = WStyler.add(style, _)
 
@@ -505,7 +513,7 @@ WFormBuilder =
     void
 
   @private check_field(field) =
-    input = get_field_value(field)
+    input = access_field(field)
     match (input, field.data.optionality) with
     | ({conversion_error=err}, _) -> {failure=err}
     | ({no_value}, {required=req_msg}) -> {failure=req_msg}
@@ -577,6 +585,15 @@ WFormBuilder =
     | {none} -> tag
     | {some=iv} -> Xhtml.add_attribute(attr, iv, tag)
 
+  @private field_onblur(field, style, ids, _evt) =
+    _ = do_validate(field, style, ids)
+    do hide_hint(style, ids)
+    void
+
+  @private field_onfocus(style, ids, _evt) =
+    do show_hint(style, ids)
+    void
+
   @private
   field_html( field : WFormBuilder.field
             , builder : WFormBuilder.field_builder
@@ -587,16 +604,9 @@ WFormBuilder =
     ids = build_ids(data.id)
     rdata = ~{data ids style}
     label_xhtml = builder.mk_label(rdata)
-    onblur(_) =
-      _ = do_validate(field, style, ids)
-      do hide_hint(style, ids)
-      void
-    onfocus(_) =
-      do show_hint(style, ids)
-      void
     bindings =
-      [ ({blur}, onblur)
-      , ({focus}, onfocus)
+      [ ({blur}, field_onblur(field, style, ids, _))
+      , ({focus}, field_onfocus(style, ids, _))
       ]
     input_xhtml = converter.render(~{data=rdata initial_value})
                |> WCore.add_binds(bindings, _)
