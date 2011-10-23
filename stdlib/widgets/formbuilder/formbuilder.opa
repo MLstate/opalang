@@ -95,7 +95,7 @@ type WFormBuilder.form =
   ; chan : Cell.cell(
         { renderField
           fldRender : WFormBuilder.field_builder, WFormBuilder.style -> xhtml
-          fldChecker : WFormBuilder.field_checker
+          fldChecker : WFormBuilder.style -> WFormBuilder.field_checker
         }
       /
         { renderForm
@@ -374,13 +374,11 @@ WFormBuilder =
     ; validator=empty_validator
     }
 
-  mk_form_with(id : string,
-               builder, style
-              ) : WFormBuilder.form =
+  mk_form_with(id : string, builder, style) : WFormBuilder.form =
     on_msg(state, msg) =
       match msg with
       | {renderField ~fldChecker ~fldRender} ->
-          new_state = [fldChecker | state]
+          new_state = [fldChecker(style) | state]
           xhtml = fldRender(builder, style)
           { return = xhtml
           ; instruction = {set=new_state}
@@ -467,7 +465,7 @@ WFormBuilder =
 
   render_field(form : WFormBuilder.form,
                field : WFormBuilder.field('ty)) : xhtml =
-    fldChecker = mk_field_checker(field)
+    fldChecker = mk_field_checker(field, _)
     fldRender = field_html(field, _, _)
     Cell.call(form.chan, {renderField ~fldChecker ~fldRender})
 
@@ -512,33 +510,31 @@ WFormBuilder =
        )
     void
 
-  @private check_field(field) =
+  @private mk_field_checker(field, style) : WFormBuilder.field_checker =
+    -> validate_field(field, style)
+
+  @private validate_field( field : WFormBuilder.field('ty)
+                         , style : WFormBuilder.style)
+                         : bool =
+    ids = build_ids(field.data.id)
     input = access_field(field)
-    match (input, field.data.optionality) with
-    | ({conversion_error=err}, _) -> {failure=err}
-    | ({no_value}, {required=req_msg}) -> {failure=req_msg}
-    | ({no_value}, {optional}) -> {success=void}
-    | ({value=v}, _) ->
-        match field.validator(v) with
-        | {success=_} -> {success=void}
-        | {failure=err} -> {failure=err}
-
-  @private mk_field_checker(field) : WFormBuilder.field_checker =
-    ->
-      match check_field(field) with
-      | {success=_} -> true
-      | {failure=_} -> false
-
-  @private do_validate(field : WFormBuilder.field('ty),
-    style : WFormBuilder.style, ids) : bool =
     err_fld = #{ids.error_id}
+    validation_result =
+      match (input, field.data.optionality) with
+      | ({conversion_error=err}, _) -> {failure=err}
+      | ({no_value}, {required=req_msg}) -> {failure=req_msg}
+      | ({no_value}, {optional}) -> {success=void}
+      | ({value=v}, _) ->
+          match field.validator(v) with
+          | {success=_} -> {success=void}
+          | {failure=err} -> {failure=err}
     set_styles(ok) =
       go(id, style) = WStyler.set_dom(style(ok), id)
       do go(ids.label_id, style.label_style)
       do go(ids.field_id, style.field_complete_style)
       do go(ids.input_id, style.input_style)
       void
-    match check_field(field) with
+    match validation_result  with
     | {success=_} ->
         do animate(style, err_fld, Dom.Effect.fade_out())
         do set_styles(true)
@@ -586,7 +582,7 @@ WFormBuilder =
     | {some=iv} -> Xhtml.add_attribute(attr, iv, tag)
 
   @private field_onblur(field, style, ids, _evt) =
-    _ = do_validate(field, style, ids)
+    _ = validate_field(field, style)
     do hide_hint(style, ids)
     void
 
@@ -622,8 +618,17 @@ WFormBuilder =
            , body : xhtml
            , process_form : WFormBuilder.form_data -> void
            ) : xhtml =
+    rec for_all_lazy(f, l) =
+      match l with
+      | [] -> true
+      | [hd | tl] ->
+          match (f(hd), for_all_lazy(f, tl)) with
+          | ({true}, {true}) -> true
+          | _ -> false
     go(fd) =
-      all_ok = List.for_all((v -> v()), fld_checkers)
+      // we don't use List.for_all, as we want to enforce evaluation of all fields
+      // (and not stop when the first error is found)
+      all_ok = for_all_lazy((v -> v()), fld_checkers)
       if all_ok then
         process_form(fd)
       else
