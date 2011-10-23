@@ -114,7 +114,7 @@ type WFormBuilder.style =
   ; error_style : WStyler.styler
   ; non_required_style : WStyler.styler
   ; required_style : WStyler.styler
-  ; hint_elt_type : {inline} / {block}
+  ; hint_elt_type : {always_visible} / {inline} / {block}
   ; error_elt_type : {inline} / {block}
   ; fade_duration : Dom.Effect.duration
   }
@@ -162,7 +162,7 @@ WFormBuilder =
     ; required_style = WStyler.empty
     ; fade_duration = {default}
     ; error_elt_type = {block}
-    ; hint_elt_type = {block}
+    ; hint_elt_type = {always_visible}
     }
 
   bootstrap_style : WFormBuilder.style =
@@ -176,7 +176,7 @@ WFormBuilder =
     ; required_style = WStyler.empty
     ; fade_duration = {default}
     ; error_elt_type = {inline}
-    ; hint_elt_type = {block}
+    ; hint_elt_type = {always_visible}
     }
 
   /** {1 Validators} */
@@ -374,7 +374,7 @@ WFormBuilder =
     ; validator=empty_validator
     }
 
-  mk_form_with(id : string, builder, style) : WFormBuilder.form =
+  @publish mk_form_with(id : string, builder, style) : WFormBuilder.form =
     on_msg(state, msg) =
       match msg with
       | {renderField ~fldChecker ~fldRender} ->
@@ -547,13 +547,20 @@ WFormBuilder =
         false
 
   @private show_hint(style, ids) : void =
-    hint_fld = #{ids.hint_id}
-    do animate(style, hint_fld, Dom.Effect.fade_in())
-    do set_block_type(hint_fld, style.hint_elt_type)
-    void
+    go(elt_type) =
+      hint_fld = #{ids.hint_id}
+      do animate(style, hint_fld, Dom.Effect.fade_in())
+      do set_block_type(hint_fld, elt_type)
+      void
+    match style.hint_elt_type with
+    | {always_visible} -> void
+    | {inline} -> go({inline})
+    | {block} -> go({block})
 
   @private hide_hint(style, ids) : void =
-    animate(style, #{ids.hint_id}, Dom.Effect.fade_out())
+    match style.hint_elt_type with
+    | {always_visible} -> void
+    | _ -> animate(style, #{ids.hint_id}, Dom.Effect.fade_out())
 
   @private get_val_string(id : string) =
     Dom.get_value(#{id})
@@ -607,7 +614,8 @@ WFormBuilder =
     input_xhtml = converter.render(~{data=rdata initial_value})
                |> WCore.add_binds(bindings, _)
                |> builder.mk_input(_, rdata)
-    hint_xhtml = builder.mk_hint(rdata) |> hide
+    hint_xhtml = builder.mk_hint(rdata) |>
+                 if style.hint_elt_type == {always_visible} then identity else hide
     err_xhtml = builder.mk_err(rdata) |> hide
     builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml data=rdata})
 
