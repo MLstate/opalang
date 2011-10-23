@@ -103,7 +103,8 @@ type WFormBuilder.form =
   }
 
 type WFormBuilder.style =
-  { field_style : bool -> WStyler.styler
+  { field_complete_style : bool -> WStyler.styler
+  ; field_right_col_style : WStyler.styler
   ; label_style : bool -> WStyler.styler
   ; input_style : bool -> WStyler.styler
   ; hint_style : WStyler.styler
@@ -148,15 +149,30 @@ WFormBuilder =
   /** {1 Styling} */
 
   empty_style : WFormBuilder.style =
-    { field_style(_) = WStyler.empty
+    { field_complete_style(_) = WStyler.empty
+    ; field_right_col_style = WStyler.empty
     ; label_style(_) = WStyler.empty
-    ; input_style(_) = WStyler.empty
+    ; input_style(ok) = if ok then WStyler.empty else {class=["error"]}
     ; hint_style = WStyler.empty
     ; error_style = WStyler.empty
     ; non_required_style = WStyler.empty
     ; required_style = WStyler.empty
     ; fade_duration = {default}
     ; error_elt_type = {block}
+    ; hint_elt_type = {block}
+    }
+
+  bootstrap_style : WFormBuilder.style =
+    { field_complete_style(ok) = {class=["clearfix"] ++ if ok then [] else ["error"]}
+    ; field_right_col_style = {class=["input"]}
+    ; label_style(_) = WStyler.empty
+    ; input_style(ok) = if ok then WStyler.empty else {class=["error"]}
+    ; hint_style = {class=["help-block"]}
+    ; error_style = WStyler.empty
+    ; non_required_style = WStyler.empty
+    ; required_style = WStyler.empty
+    ; fade_duration = {default}
+    ; error_elt_type = {inline}
     ; hint_elt_type = {block}
     }
 
@@ -281,7 +297,6 @@ WFormBuilder =
 
   render_text_area(~{data initial_value}, size) =
     // FIXME, resize:none should be in css{...}
-    do Log.error("FB", "render_text_area")
     <textarea onclick={_ -> void} style="resize: none;" type="text" id={data.ids.input_id}
       rows={size.rows} cols={size.cols}>
       {initial_value}
@@ -380,7 +395,7 @@ WFormBuilder =
 
   mk_form(on_submit : WFormBuilder.form_data -> void)
     : WFormBuilder.form =
-    mk_form_with(Dom.fresh_id(), on_submit, default_field_builder, empty_style)
+    mk_form_with(Dom.fresh_id(), on_submit, default_field_builder, bootstrap_style)
 
   /** {1 Extending fields} */
 
@@ -430,17 +445,22 @@ WFormBuilder =
             |> add_style(s.hint_style)
 
       mk_err(~{ids style=s ...}) =
-        <span id={ids.error_id} />
+        <span class=help-inline id={ids.error_id} />
         |> add_style(s.error_style)
 
       mk_field(~{label input hint err data}) =
+        right_col =
+          <div>
+            {input}
+            {err}
+            {hint}
+          </>
+          |> add_style(data.style.field_right_col_style)
         <div id={data.ids.field_id}>
           {label}
-          {input}
-          {hint}
-          {err}
+          {right_col}
         </>
-        |> add_style(data.style.field_style(true))
+        |> add_style(data.style.field_complete_style(true))
 
      }
 
@@ -507,7 +527,7 @@ WFormBuilder =
     set_styles(ok) =
       go(id, style) = WStyler.set_dom(style(ok), id)
       do go(ids.label_id, style.label_style)
-      do go(ids.field_id, style.field_style)
+      do go(ids.field_id, style.field_complete_style)
       do go(ids.input_id, style.input_style)
       void
     match check_field(field) with
