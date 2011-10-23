@@ -370,7 +370,7 @@ Uri =
    * @param u an URI to be converted
    * @return a string representation of [u].
    */
-  to_string(u : Uri.uri) =
+  @stringifier(Uri.uri) to_string(u : Uri.uri) =
     query_to_string(q) =
       match q : list with
       | [] -> ""

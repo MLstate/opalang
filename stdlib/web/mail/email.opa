@@ -169,10 +169,13 @@ Email = {{
     of_string_opt(s) ? error("Wrong email: {s}")
 
 
-  to_string(email) =
+  @stringifier(Email.email) to_string(email) =
     match email.name with
       | {~some} -> "\"{some}\" <{email.address.local}@{email.address.domain}>"
       | {none} -> "{email.address.local}@{email.address.domain}"
+
+  @xmlizer(Email.email) to_xml(email) =
+    <>{"{email}"}</>
 
   to_string_only_address(email) =
     "{email.address.local}@{email.address.domain}"

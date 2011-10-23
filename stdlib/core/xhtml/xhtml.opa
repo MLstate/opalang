@@ -1279,3 +1279,7 @@ Xhtml =
 @opacapi Xml_match_question = Xmlns.match_question
 @opacapi Xml_match_number = Xmlns.match_exact
 @opacapi Xml_match_range = Xmlns.match_range
+
+// Cannot be in Uri.uri module due to dependencies on this package
+@xmlizer(Uri.uri) uri_to_xml(u : Uri.uri) =
+  <>{"{u}"}</>
