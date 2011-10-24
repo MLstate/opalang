@@ -350,7 +350,7 @@ Mongo = {{
    * Specialised read, read until the size equals the (little endian)
    * 4-byte int at the start of the reply.
    */
-  @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, mailbox -> reply)
+  @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, int, mailbox -> outcome(reply,string))
 
   /** Support for logging routines **/
   @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
@@ -364,9 +364,12 @@ Mongo = {{
         | (str, len) ->
           s = String.substring(0,len,str)
           do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
-          cnt = Socket.write_len(conn,s,len)
-          do free_(mbuf)
-          (cnt==len))
+          (match Socket.write_len_with_err_cont(conn,3600000,s,len) with
+           | {success=cnt} ->
+              do free_(mbuf)
+              (cnt==len)
+           | {~failure} -> 
+              ML.fatal("Mongo.send({name}):","comms error ({failure})",-1))) // TODO: check for failover
     | {none} ->
        ML.error("Mongo.send({name})","Attempt to write to unopened connection",false)
 
@@ -377,10 +380,13 @@ Mongo = {{
        if send_no_reply(m,mbuf,name)
        then
          mailbox = new_mailbox_(m.bufsize)
-         reply = read_mongo_(conn,mailbox)
-         do reset_mailbox_(mailbox)
-         do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
-         {some=reply}
+         (match read_mongo_(conn,3600000,mailbox) with
+          | {success=reply} ->
+             do reset_mailbox_(mailbox)
+             do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
+             {some=reply}
+          | {~failure} ->
+             ML.fatal("Mongo.receive({name}):","comms error ({failure})",-1)) // TODO: check for failover
        else {none}
     | {none} ->
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
@@ -392,7 +398,7 @@ Mongo = {{
     do ML.info("Mongo.connect","bufsize={db.bufsize} addr={addr} port={port} log={db.log}",void)
     do match db.conn with | {some=conn} -> Socket.close(conn) | {none} -> void
     db = { db with conn={none}; primary={none} }
-    match Socket.connect_with_err_cont2(addr,port) with
+    match Socket.connect_with_err_cont(addr,port) with
     | {success=conn} -> {success={ db with conn={some=conn}; primary={some=(addr,port)} }}
     | {failure=str} -> {failure={Error="Got exception {str}"}}
 

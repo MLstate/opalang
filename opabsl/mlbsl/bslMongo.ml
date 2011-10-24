@@ -338,16 +338,24 @@ let new_mailbox size = (Mongo.get_buf ~hint:size (), ref 0)
 ##register reset_mailbox: mailbox -> void
 let reset_mailbox (b,_) = Mongo.free_buf b
 
-##register [cps-bypass] read_mongo : Socket.connection, mailbox, continuation(reply) -> void
-let read_mongo conn mailbox k =
+##register [cps-bypass] read_mongo : Socket.connection, int, mailbox, continuation(outcome(reply,string)) -> void
+let read_mongo conn timeout mailbox k =
+  let timeout = Time.milliseconds timeout in
   HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox 4 ()
+    ~err_cont:(fun exn -> BslUtils.create_outcome (`failure (Printexc.to_string exn)) |> k)
+    ~timeout
     (fun (b,s,l) ->
-       if l < 4 then raise (Failure "BslMongo.Mongo.read_mongo insufficient data");
-       let len = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0 in
-       HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox (len-4) ()
-         (fun (b,s,l) ->
-            if l < len - 4 then raise (Failure "BslMongo.Mongo.read_mongo insufficient data");
-            (b,s,l) |> k))
+       if l < 4
+       then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
+       else
+         let len = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0 in
+         HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox (len-4) ()
+           ~err_cont:(fun exn -> BslUtils.create_outcome (`failure (Printexc.to_string exn)) |> k)
+           ~timeout
+           (fun (b,s,l) ->
+              if l < len - 4
+              then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
+              else BslUtils.create_outcome (`success (b,s,l)) |> k))
 
 ##register export_reply: reply -> string
 let export_reply (b,s,l) = Buf.sub b s l
