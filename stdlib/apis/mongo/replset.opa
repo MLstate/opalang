@@ -75,13 +75,19 @@ ReplSet = {{
     match (Mongo.result_to_opa(Commands.simple_int_command(db,"admin","ismaster",1)):option(Commands.isMaster)) with
     | {some=ism} ->
        hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,ism.hosts)))
+       do println("check_seed: hosts={hosts}")
        {db with replset={db.replset with ~hosts}}
     | {none} -> db
 
   check_host(db:Mongo.db): option(Commands.isMaster) =
+    res =
     (Mongo.result_to_opa(Commands.simple_int_command(db,"admin","ismaster",1)):option(Commands.isMaster))
+    do println("check_host: res={res}")
+    res
 
   connect(db:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+    db = {db with log=false}
+    do println("ReplSet.connect: seeds={db.replset.seeds}")
     do if db.replset.seeds == [] then ML.fatal("ReplSet.connect","Tried to connect with no seeds",-1) else void
     rec aux(db, seeds) =
       match seeds with
@@ -97,6 +103,7 @@ ReplSet = {{
       | [] -> {failure={Error="ReplSet.connect: No connecting seeds"}}
     match aux(db, db.replset.seeds) with
     | {success=db} ->
+       do println("ReplSet.connect: hosts={db.replset.hosts}")
        rec aux2(db, hosts) =
          (match hosts with
           | [host|rest] ->
@@ -104,13 +111,14 @@ ReplSet = {{
              | {success=db} ->
                 (match check_host(db) with
                  | {some=ism} ->
+                    do println("ReplSet.connect: ism={ism}")
                     if ism.ismaster && (ism.setName == db.replset.name)
                     then {success=db}
-                    else aux(Mongo.close(db),rest)
+                    else aux2(Mongo.close(db),rest)
                  | {none} ->
-                    aux(Mongo.close(db),rest))
+                    aux2(Mongo.close(db),rest))
              | {failure=_} ->
-                aux(db,rest))
+                aux2(db,rest))
           | [] -> {failure={Error="ReplSet.connect: No master hosts"}})
        aux2(db, db.replset.hosts)
     | {~failure} -> {~failure}

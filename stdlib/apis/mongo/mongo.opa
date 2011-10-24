@@ -383,7 +383,7 @@ Mongo = {{
          {some=reply}
        else {none}
     | {none} ->
-       ML.error("Mongo.send({name})","Attempt to write to unopened connection",{none})
+       ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
   init(bufsize:int, log:bool): Mongo.db =
     { conn={none}; ~bufsize; ~log; replset={seeds=[]; hosts=[]; name=""; primary_connected=false}; primary={none}; }
@@ -392,8 +392,6 @@ Mongo = {{
     do ML.info("Mongo.connect","bufsize={db.bufsize} addr={addr} port={port} log={db.log}",void)
     do match db.conn with | {some=conn} -> Socket.close(conn) | {none} -> void
     db = { db with conn={none}; primary={none} }
-    //err_cont = Continuation.make((s:string -> ML.fatal("Mongo.open","Got exception {s}",-1)))
-    //conn = {some=Socket.connect_with_err_cont(addr,port,err_cont)}
     match Socket.connect_with_err_cont2(addr,port) with
     | {success=conn} -> {success={ db with conn={some=conn}; primary={some=(addr,port)} }}
     | {failure=str} -> {failure={Error="Got exception {str}"}}

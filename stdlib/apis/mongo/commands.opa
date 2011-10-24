@@ -56,6 +56,7 @@
 type Commands.isMaster = {
   setName : string;
   ismaster : bool;
+  primary : Bson.register(string);
   secondary : bool;
   hosts : list(string);
   maxBsonObjectSize : int;
