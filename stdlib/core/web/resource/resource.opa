@@ -651,6 +651,12 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
   get_uri_of_null =
     "{base_url ? ""}/_internal_/null"
 
+ /**
+  * {2 De-constructors}
+  */
+
+ get_content(resource:resource) : resource_private_content =
+   resource.rc_content
 
  /**
   * {2 Deprecated}
