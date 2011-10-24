@@ -114,11 +114,18 @@ ReplSet = {{
                     do println("ReplSet.connect: ism={ism}")
                     if ism.ismaster && (ism.setName == db.replset.name)
                     then {success=db}
-                    else aux2(Mongo.close(db),rest)
-                 | {none} ->
-                    aux2(Mongo.close(db),rest))
-             | {failure=_} ->
-                aux2(db,rest))
+                    else
+                      (match ism.primary with
+                       | {present=primary} ->
+                          primary_host = mongo_host_of_string(primary)
+                          (match List.extract_p((host -> host == primary_host),rest) with
+                           | ({some=p},rest) ->
+                              do println("ReplSet.connect: jump to primary")
+                              aux2(Mongo.close(db),[p|rest])
+                           | ({none},rest) -> aux2(Mongo.close(db),rest))
+                       | {absent} -> aux2(Mongo.close(db),rest))
+                 | {none} -> aux2(Mongo.close(db),rest))
+             | {failure=_} -> aux2(db,rest))
           | [] -> {failure={Error="ReplSet.connect: No master hosts"}})
        aux2(db, db.replset.hosts)
     | {~failure} -> {~failure}
