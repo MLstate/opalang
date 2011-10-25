@@ -265,16 +265,7 @@ OpaDocComment =
       content = file_content(fname)
 
       //do jlog(fname)
-      len = String.length(fname)
-      path = "_build/" // FIXME: VERY specific to build !!!
-      path_len = String.length(path)
-      fname = match String.index(path, fname)
-              {some=idx} ->
-                match String.get_suffix(len-idx-path_len, fname)
-                {some=s} -> s
-                {none} -> fname
-                end
-              {none} -> fname
+      fname = OpaDocUtils.relative_path(fname)
 
       match Parser.parse(private.extract, content) with
       | [] -> []

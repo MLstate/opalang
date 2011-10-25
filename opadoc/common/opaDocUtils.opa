@@ -98,4 +98,19 @@ OpaDocUtils = {{
     then String.replace(File.dir_sep, ".", p)
     else legacy_uri_of_path(p)
 
+  relative_path(fname) =
+    if not(OpaDocParameters.get().long_uris)
+    then fname
+    else
+      len = String.length(fname)
+      path = "_build/" // FIXME: VERY specific to build !!!
+      path_len = String.length(path)
+      match String.index(path, fname)
+      {some=idx} ->
+        match String.get_suffix(len-idx-path_len, fname)
+        {some=s} -> s
+        {none} -> fname
+        end
+      {none} -> fname
+
 }}

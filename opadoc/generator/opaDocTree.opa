@@ -280,6 +280,7 @@ OpaDocTree = {{
 
   of_files(files) =
     aux(acc, path) =
+      path = OpaDocUtils.relative_path(path)
       key  = {file = path}
       path_dot = OpaDocUtils.uri_of_path(path)
       node = {
