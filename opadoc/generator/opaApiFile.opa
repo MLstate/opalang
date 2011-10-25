@@ -40,6 +40,7 @@ OpaApiFile = {{
       path_name = String.concat(".", entry.path)
       path_html = OpaDocUtils.sanitize_path("{entry.pkg}.{path_name}")
       entry_html = (path_name, (entry, path_html, OpaDocUtils.uri_of_path(entry.fname))) : Entry.html
+      //do jlog("{entry_html.f2.f3}")
       type_table =
         match entry.code_elt with
         | { value = { ty = opatype ; ... } } ->
