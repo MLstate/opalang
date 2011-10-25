@@ -181,6 +181,22 @@ OpaDocHtml = {{
    * Generate all files
    **/
   gen_xhtml_final(output_path, mj:Join.final) =
+
+    legacy_map =
+      StringMap.fold(
+        f, _e, acc ->
+          match List.rev(String.explode(".", f))
+          [sfx, file | tl] ->
+            basefile = "{file}.{sfx}"
+            //do jlog(basefile)
+            tl = List.rev(tl)
+            match StringMap.get(basefile, acc)
+            {some=l} -> StringMap.add(basefile, [(f, tl)|l], acc)
+            _ -> StringMap.add(basefile, [(f, tl)], acc)
+            end
+          _ -> acc
+      , mj, StringMap.empty)
+
     hyperlink = build_hyperlink(mj)
 
        aux_group(res, lg : Join.group) =
@@ -243,7 +259,46 @@ OpaDocHtml = {{
                   (List.fold_left(aux_group, <></>, (List.rev(l_jj)))),
                   false
                 )
-        write("{output_path}/{fname}.html", (Xhtml.to_string(xhtml)))
+        x = Xhtml.to_string(xhtml)
+        do write("{output_path}/{fname}.html", x)
+
+        // legacy html file
+        match List.rev(String.explode(".", fname))
+        [sfx, file | _tl] ->
+          o_file = "{output_path}/{file}.{sfx}.html"
+          match StringMap.get("{file}.{sfx}", legacy_map)
+          {some=l} ->
+            content =
+              match l
+              | [(e, f)] ->
+                // only one file, no ambiguity, automatic redirection
+                f = String.concat(".", f)
+                <p>You will be automatically redirected to <a href="{e}.html#value_{f}">{e}</a>...</p>
+                <script>{Xhtml.of_string_unsafe(
+"window.addEventListener('message', function(e) \{
+  setTimeout('global_source.postMessage(\"{e}.html\"+window.location.hash, \"*\");', 100);
+\}, false);")}</script>
+              | _ ->
+                // many files, let the user choose
+                // FIXME: we lose the anchor the user wanted
+                <h2>Sorry this page does not exist anymore. Do you mean one of the following pages ?</h2>
+                <ul>{
+                  List.map((e, f) ->
+                    f = String.concat(".", f)
+                    <li><a href="{e}.html#value_{f}">{e}</a></li>
+                  , l)
+                }</ul>
+            xhtml = xhtml_encaps(
+                      xhtml_header(fname),
+                      content,
+                      false
+                    )
+            write(o_file, Xhtml.to_string(xhtml))
+          {none} -> void
+          end
+        _ -> void
+        end
+
       StringMap.iter(aux_final, mj)
 
   /* Generate the home page (index.html) */

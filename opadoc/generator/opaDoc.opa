@@ -179,7 +179,7 @@ walk_dir(path) =
         all_files_fun(fun4recup,[],path)
       all_files
     else // just a file
-       if is_opafile(path) && (check_api(path)) then
+       if is_opafile(path) && check_api(path) then
           some([path])
        else error("Not an .opa file or .api not found")
 

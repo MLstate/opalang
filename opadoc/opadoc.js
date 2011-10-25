@@ -242,6 +242,8 @@ function make_tree(config, id, plugins, tab) {
     });
 }
 
+var global_source;
+
 function init() {
     jQuery(document).ready(function() {
 
@@ -254,7 +256,6 @@ function init() {
             });
         });
 
-        var global_source;
         window.addEventListener('message', function(event) {
             global_source = event.source;
         }, false);

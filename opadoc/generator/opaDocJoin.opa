@@ -81,7 +81,10 @@ OpaDocJoin = {{
   /**
    * Build a list of mixed join element from the comments and apis
   **/
-  join_all(comments, apis) = from_comments(comments) ++  from_apis(apis)
+  join_all(comments, apis) =
+    lc = from_comments(comments)
+    lt = from_apis(apis)
+    lc ++ lt
 
   /**
    * {2 Utils: association}

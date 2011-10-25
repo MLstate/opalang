@@ -250,33 +250,48 @@ OpaDocComment =
   public = /*open private*/
   {{
 
+    lp = parser Rule.ws
+           "--" Rule.ws "begin" Rule.ws "LICENCE" Rule.ws
+           "(c)" Rule.ws d_beg=Rule.natural d_end_opt=(Rule.ws ([\-,] .) Rule.ws d_end=Rule.natural -> d_end)? (Rule.ws "," Rule.ws Rule.natural)? Rule.ws "MLstate" Rule.ws
+           "All rights reserved." Rule.ws
+           "This file is confidential and intended solely for the addressee(s)." Rule.ws
+           "Any unauthorized use or dissemination is prohibited." Rule.ws
+           "end" Rule.ws "LICENCE"? Rule.ws "--"? Rule.ws
+           l=private.Raw_comment.authors_opt
+           "*"? Rule.ws -> (d_beg, d_end_opt, l)
+
     from_opa_file(fname)=
       file_content = %% BslFile.content %% : string -> string
-      match Parser.parse(private.extract,file_content(fname)) with
-        | [] -> []
-        | [(cat, pos, c) | l] ->
-           (o, l) =
-             // TODO: parse multiple end dates
-             match Parser.try_parse(parser Rule.ws
-                "--" Rule.ws "begin" Rule.ws "LICENCE" Rule.ws
-                "(c)" Rule.ws d_beg=Rule.natural d_end_opt=(Rule.ws ([\-,] .) Rule.ws d_end=Rule.natural -> d_end)? (Rule.ws "," Rule.ws Rule.natural)? Rule.ws "MLstate" Rule.ws
-                "All rights reserved." Rule.ws
-                "This file is confidential and intended solely for the addressee(s)." Rule.ws
-                "Any unauthorized use or dissemination is prohibited." Rule.ws
-                "end" Rule.ws "LICENCE"? Rule.ws "--"? Rule.ws
-                l=private.Raw_comment.authors_opt
-                "*"? Rule.ws -> (d_beg, d_end_opt, l)
-              , c)
-            with
-              {none} -> _ = Parser.parse(b = parser "begin LICENCE" -> void parser (!b .)* b .* -> do jlog(c) void | .* -> void, c) ({none}, [(cat, pos, c) | l])
-              {some = (i1, i2_opt, l_auth)} ->
-                ({some = {~fname ~pos ~cat content = {l =
-                  [ {License = (i1, i2_opt)}
-                  , {Authors = l_auth } ]} }}, l)
-          l = List.map( (cat, pos,content)->{ ~fname ~pos ~cat content = private.Raw_comment.parse(content) }, l)
-          match o with
-            {none} -> l
-            {some = s} -> s +> l
+      content = file_content(fname)
+
+      //do jlog(fname)
+      len = String.length(fname)
+      path = "_build/" // FIXME: VERY specific to build !!!
+      path_len = String.length(path)
+      fname = match String.index(path, fname)
+              {some=idx} ->
+                match String.get_suffix(len-idx-path_len, fname)
+                {some=s} -> s
+                {none} -> fname
+                end
+              {none} -> fname
+
+      match Parser.parse(private.extract, content) with
+      | [] -> []
+      | [(cat, pos, c) | l] ->
+        (o, l) = // TODO: parse multiple end dates
+          match Parser.try_parse(lp, c) with
+           {none} -> _ = Parser.parse(b = parser "begin LICENCE" -> void parser (!b .)* b .* -> do jlog(c) void | .* -> void, c) ({none}, [(cat, pos, c) | l])
+           {some = (i1, i2_opt, l_auth)} ->
+             ({some = {~fname ~pos ~cat content = {l =
+               [ {License = (i1, i2_opt)}
+               , {Authors = l_auth } ]} }}, l)
+        l = List.map(
+              (cat, pos, content) -> { ~fname ~pos ~cat content = private.Raw_comment.parse(content) }
+            , l)
+        match o with
+        {none} -> l
+        {some = s} -> s +> l
 
     //to_file(fname,l) = JsonFile.to_file("{fname}.{private.extension}",l)
 

@@ -24,7 +24,7 @@ import stdlib.io.file
 OpaApiFile = {{
      extension = "api" // add to opa filename
      from_api_file(fname)=
-         JsonFile.open_api(fname):list(Api.entry)
+       JsonFile.open_api(fname):list(Api.entry)
 
      indent_api(api) =
        l = String.explode("\n", api)
