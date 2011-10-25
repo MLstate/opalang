@@ -79,7 +79,7 @@ Cursor = {{
    *   the MongoDB server.  Remember to cleanup cursor objects with [Cursor.reset].
    **/
   init(mongo:Mongo.db, ns:string): Cursor.cursor =
-  { mongo = Mongo.copy(mongo);
+  { ~mongo;
     ~ns;
     flags = 0;
     skip = 0;
@@ -192,7 +192,6 @@ Cursor = {{
 
   @private
   destroy(c:Cursor.cursor): Cursor.cursor =
-    do Mongo.close_copy(c.mongo)
     { c with
         error="<reset>";
         doc=error_document("Dead cursor",-1);

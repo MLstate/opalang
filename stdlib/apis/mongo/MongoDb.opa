@@ -190,7 +190,7 @@ MDB : MDB = {{
   open_(dbo:outcome(Mongo.db,Mongo.failure)): outcome(mongodb,Mongo.failure) =
     match dbo with
     | {success=mongo} ->
-       (match mongo.primary with
+       (match mongo.primary.get() with
         | {some=(addr,port)} ->
            db = {~mongo; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
                  keyname="key"; valname="value"; idxname="index";

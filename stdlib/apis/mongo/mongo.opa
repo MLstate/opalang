@@ -38,7 +38,6 @@
  **/
 
 /* Major TODOs, there are minor ones elsewhere. */
-// TODO: replica sets
 // TODO: backups
 
 import stdlib.core.{date}
@@ -55,19 +54,21 @@ type reply = external
 
 type mongo_host = (string, int)
 
-type Mongo.replica_set = {
-  seeds : list(mongo_host);
-  hosts : list(mongo_host);
-  name : string;
-  primary_connected : bool;
-}
-
+// TODO: we should really @abstract this type...
 type Mongo.db = {
-  conn : option(Socket.connection);
+  conn : Mutable.t(option(Socket.connection));
+  primary : Mutable.t(option(mongo_host));
   bufsize : int;
   log : bool;
-  replset : Mongo.replica_set;
-  primary : option(mongo_host);
+  name : string;
+  seeds : list(mongo_host);
+  hosts : Mutable.t(list(mongo_host));
+  reconnect_wait : int;
+  max_attempts : int;
+  comms_timeout : int;
+  reconnect : Mutable.t(option(Mongo.db -> outcome(Mongo.db,Mongo.failure)));
+  depth : Mutable.t(int);
+  max_depth : int;
 }
 
 type Mongo.failure =
@@ -130,6 +131,8 @@ type index_tag =
 
 @server_private
 Mongo = {{
+
+  default_port = 27017
 
   /**
    * Some routines for manipulating outcomes from Mongo commands.
@@ -333,6 +336,12 @@ Mongo = {{
   /* Access the raw string and length */
   @private export_ = (%% BslMongo.Mongo.export %%: mongo_buf -> (string, int))
 
+  /* Create a (finished) buffer from string */
+  @private import_ = (%% BslMongo.Mongo.import %%: string -> mongo_buf)
+
+  /* Make a copy of a buffer */
+  @private copy_ = (%% BslMongo.Mongo.copy %%: mongo_buf -> mongo_buf)
+
   /* Clear out any data in the buffer, leave buffer allocated */
   @private clear_ = (%% BslMongo.Mongo.clear %%: mongo_buf -> void)
 
@@ -356,50 +365,115 @@ Mongo = {{
   @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
   @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : reply -> string)
 
+  /**
+   * We have the possibility of unbounded recursion here since we
+   * call ReplSet.connect, which calls us for ismaster.  Probably
+   * won't ever be used but we limit the depth of the recursion.
+   **/
   @private
-  send_no_reply(m,mbuf,name): bool =
-    match m.conn with
+  reconnect(from:string, m:Mongo.db): bool =
+    if m.depth.get() > m.max_depth
+    then
+      do if m.log then ML.error("reconnect({from})","max depth exceeded",void)
+      false
+    else
+      ret(tf:bool) = do m.depth.set(m.depth.get()-1) tf
+      do m.depth.set(m.depth.get()+1)
+      match m.reconnect.get() with
+      | {some=reconnectfn} ->
+         rec aux(attempts) =
+           if attempts > m.max_attempts
+           then ret(false)
+           else
+             (match reconnectfn(m) with
+              | {success=_} ->
+                 do if m.log then ML.info("reconnect({from})","reconnected",void)
+                 ret(true)
+              | {~failure} ->
+                 do if m.log then ML.info("reconnect({from})","failure={string_of_failure(failure)}",void)
+                 do Scheduler.wait(m.reconnect_wait)
+                 aux(attempts+1))
+         aux(0)
+      | {none} ->
+         ret(false)
+
+  @private
+  send_no_reply_(m,mbuf,name,reply_expected): bool =
+    match m.conn.get() with
     | {some=conn} ->
-       (match export_(mbuf) with
-        | (str, len) ->
-          s = String.substring(0,len,str)
-          do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
-          (match Socket.write_len_with_err_cont(conn,3600000,s,len) with
-           | {success=cnt} ->
-              do free_(mbuf)
-              (cnt==len)
-           | {~failure} -> 
-              ML.fatal("Mongo.send({name}):","comms error ({failure})",-1))) // TODO: check for failover
+       (str, len) = export_(mbuf)
+       s = String.substring(0,len,str)
+       do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
+       (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
+        | {success=cnt} ->
+           do if not(reply_expected) then free_(mbuf) else void
+           //do println("Mongo.send: cnt={cnt} len={len}")
+           (cnt==len)
+        | {failure=_} -> 
+           // Awkward, we may be in the first part of a send_with_reply or in a simple send_no_reply.
+           if reply_expected
+           then false
+           else
+             if reconnect("send_no_reply",m)
+             then send_no_reply_(m,mbuf,name,reply_expected)
+             else ML.fatal("Mongo.send({name}):","comms error (Can't reconnect)",-1))
     | {none} ->
        ML.error("Mongo.send({name})","Attempt to write to unopened connection",false)
 
   @private
+  send_no_reply(m,mbuf,name): bool = send_no_reply_(m,mbuf,name,false)
+
+  @private
   send_with_reply(m,mbuf,name): option(reply) =
-    match m.conn with
+    //do println("send_with_reply: mbuf={Bson.dump(16,get_(mbuf))}")
+    myreconnect() =
+      if reconnect("send_with_reply",m)
+      then send_with_reply(m,mbuf,name)
+      else ML.fatal("Mongo.receive({name}):","comms error (Can't reconnect)",-1)
+    match m.conn.get() with
     | {some=conn} ->
-       if send_no_reply(m,mbuf,name)
+       if send_no_reply_(m,mbuf,name,true)
        then
          mailbox = new_mailbox_(m.bufsize)
-         (match read_mongo_(conn,3600000,mailbox) with
+         (match read_mongo_(conn,m.comms_timeout,mailbox) with
           | {success=reply} ->
              do reset_mailbox_(mailbox)
+             do free_(mbuf)
              do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
              {some=reply}
           | {~failure} ->
-             ML.fatal("Mongo.receive({name}):","comms error ({failure})",-1)) // TODO: check for failover
-       else {none}
+             do if m.log then ML.info("send_with_reply","failure={failure}",void)
+             do reset_mailbox_(mailbox)
+             myreconnect())
+       else myreconnect()
     | {none} ->
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
   init(bufsize:int, log:bool): Mongo.db =
-    { conn={none}; ~bufsize; ~log; replset={seeds=[]; hosts=[]; name=""; primary_connected=false}; primary={none}; }
+    { conn=Mutable.make({none}); ~bufsize; ~log;
+      seeds=[]; hosts=Mutable.make([]); name="";
+      primary=Mutable.make({none}); reconnect=Mutable.make({none});
+      reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
+      depth=Mutable.make(0); max_depth=2;
+    }
 
-  connect(db:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
-    do ML.info("Mongo.connect","bufsize={db.bufsize} addr={addr} port={port} log={db.log}",void)
-    do match db.conn with | {some=conn} -> Socket.close(conn) | {none} -> void
-    db = { db with conn={none}; primary={none} }
+  /**
+   * Connect to the given host:port.  Close any existing connection and
+   * set primary assuming that we are a master.
+   * We should really check if we are master but that would get complicated
+   * since this routine gets called from within reconnect.
+   * The caller should verify the master status.
+   **/
+  connect(m:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
+    do if m.log then ML.info("Mongo.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
+    do match m.conn.get() with | {some=conn} -> Socket.close(conn) | {none} -> void
+    do m.conn.set({none})
+    do m.primary.set({none})
     match Socket.connect_with_err_cont(addr,port) with
-    | {success=conn} -> {success={ db with conn={some=conn}; primary={some=(addr,port)} }}
+    | {success=conn} ->
+       do m.conn.set({some=conn})
+       do m.primary.set({some=(addr,port)})
+       {success=m}
     | {failure=str} -> {failure={Error="Got exception {str}"}}
 
   /**
@@ -412,33 +486,22 @@ Mongo = {{
     connect(init(bufsize,log),addr,port)
 
   /**
-   *  Close mongo connection and deallocate buffer.
+   *  Close mongo connection.
    **/
   close(m:Mongo.db): Mongo.db =
     //do println("Mongo.close")
-    do if Option.is_some(m.conn) then Socket.close(Option.get(m.conn)) else void 
-    { m with conn={none}; primary={none} }
+    do if Option.is_some(m.conn.get()) then Socket.close(Option.get(m.conn.get())) else void 
+    do m.conn.set({none})
+    do m.primary.set({none})
+    m
 
   /**
-   *  Close mongo copy, deallocate buffer but leave connection open.
+   * Allow the user to fiddle with the basic communications parameters.
    **/
-  close_copy(_m:Mongo.db) =
-    //do println("Mongo.close_copy")
-    void
-
-  /**
-   * We are only concurrent-safe within a connection.
-   * We need this to create a new buffer for each cursor.
-   * TODO: this is now redundant
-   **/
-  copy(m:Mongo.db): Mongo.db =
-    //do println("Mongo.copy")
-    { conn=m.conn;
-      bufsize=m.bufsize;
-      log = m.log;
-      replset=m.replset;
-      primary=m.primary;
-    }
+  set_log(m:Mongo.db, log:bool): Mongo.db = { m with ~log }
+  set_reconnect_wait(m:Mongo.db, reconnect_wait:int): Mongo.db = { m with ~reconnect_wait }
+  set_max_attempts(m:Mongo.db, max_attempts:int): Mongo.db = { m with ~max_attempts }
+  set_comms_timeout(m:Mongo.db, comms_timeout:int): Mongo.db = { m with ~comms_timeout }
 
   /**
    *  Send OP_INSERT with given collection name:

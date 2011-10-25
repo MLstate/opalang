@@ -53,16 +53,24 @@
  *   map to OPA types.
  **/
 
+type Commands.getLastErrorOptions = {
+  fsync : Bson.register(bool);
+  j : Bson.register(bool);
+  w : Bson.register(string); // Oh yes, use "1" for ints...
+  wtimeout : Bson.register(Bson.int32);
+}
+
 type Commands.isMaster = {
-  setName : string;
   ismaster : bool;
+  setName : Bson.register(string);
   primary : Bson.register(string);
-  secondary : bool;
-  hosts : list(string);
+  secondary : Bson.register(bool);
+  hosts : Bson.register(list(string));
+  passives : Bson.register(list(string));
+  arbiters : Bson.register(list(string));
   maxBsonObjectSize : int;
   ok : int;
 }
-
 
 type Commands.dropDatabaseType = { dropped : string; ok : int; }
 
@@ -313,13 +321,31 @@ Commands = {{
   /**
    * Predicate for master status.
    **/
-  ismaster(m:Mongo.db): outcome(bool,Mongo.failure) =
+  ismasterp(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ismaster", 1) with
     | {success=bson} ->
       (match Bson.find(bson,"ismaster") with
        | {some=[{name="ismaster"; value={Boolean=ismaster}}]} -> {success=ismaster}
        | _ -> {failure={Error="Missing ismaster Boolean"}})
     | {~failure} -> {~failure}
+
+  /**
+   * ismaster command as a Bson.document.
+   **/
+  isMaster(m:Mongo.db): Mongo.result = simple_int_command(m, "admin", "ismaster", 1)
+
+  adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) =
+    match Commands.simple_int_command(m,"admin",command,1) with
+    | {success=doc} ->
+       (match Mongo.result_to_opa({success=doc}) with
+        | {some=ism} -> {success=ism}
+        | {none} -> {failure={Error="Commands.{command}: invalid document ({Bson.to_pretty(doc)})"}})
+    | {~failure} -> {~failure}
+
+  /**
+   * Return the isMaster document as an OPA type.
+   **/
+  isMasterOpa(m:Mongo.db): outcome(Commands.isMaster,Mongo.failure) = adminToOpa(m,"ismaster")
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 

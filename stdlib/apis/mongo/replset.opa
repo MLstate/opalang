@@ -38,30 +38,99 @@
 
 /* Major TODOs, there are minor ones elsewhere. */
 
+type ReplSet.replSetGetStatus =
+{
+    set : string;
+    date : Date.date;
+    myState : Bson.int32;
+    members : list({_id : Bson.register(int);
+                    name : string;
+                    self : Bson.register(bool);
+                    errmsg : Bson.register(string);
+                    health : Bson.register(Bson.int32);
+                    state : Bson.register(Bson.int32);
+                    stateStr : Bson.register(string);
+                    uptime : Bson.register(Bson.int32);
+                    optime : Bson.register(Bson.timestamp);
+                    optimeDate : Bson.register(Date.date);
+                    lastHeartbeat : Bson.register(Date.date);
+                    pingMs : Bson.register(Bson.int32);
+                   });
+    ok : bool;
+    errmsg : Bson.register(string);
+}
+
+type ReplSet.member = {
+  _id : Bson.int32;
+  host : string;
+  arbiterOnly : Bson.register(bool);
+  buildIndexes : Bson.register(bool);
+  hidden : Bson.register(bool);
+  priority: Bson.register(float);
+  tags: Bson.register(Bson.document); // Aaarghh {"any":...; "tag":...;}
+  slaveDelay : Bson.register(Bson.int32);
+  votes : Bson.register(Bson.int32);
+}
+
+type ReplSet.replSetInitiate =
+{
+  _id : string;
+  members: list(ReplSet.member);
+  settings: Bson.register({
+    getLastErrorDefaults : Bson.register(Commands.getLastErrorOptions);
+    getlasterrormodes : Bson.register(Bson.document); // relates to tags
+  });
+}
+
 ReplSet = {{
 
-/*
-  init(db:Mongo.db, name:string): outcome(Mongo.db,Mongo.failure) =
-    if Option.is_some(db.replset)
-    then {failure={Error="Attempt to re-initialise a replica set"}}
-    else if Option.is_some(db.conn)
-    then {failure={Error="Attempt to make a connected mongodb a replica set"}}
-    else {success={db with replset={some={seeds=[]; hosts=[]; ~name; primary_connected=false;}}}}
+  /**
+   * Freeze in replica set (can't become primary for given number of seconds.
+   * Note unfreeze with 0.
+   **/
+  replSetFreeze(m:Mongo.db, seconds:int): Mongo.result =
+    Commands.simple_int_command(m, "admin", "replSetFreeze", seconds)
 
-  add_seed(db:Mongo.db, host:string, port:int): outcome(Mongo.db,Mongo.failure) =
-    match db.replset with
-    | {some=replset} -> {success={db with replset={some={replset with seeds=[(host,port)|replset.seeds]}}}}
-    | {none} -> {failure={Error="Attempt to add seed ({host},{port}) to unintialised replica set"}}
+  /**
+   * Step down from primary status.
+   **/
+  replSetStepDown(m:Mongo.db, seconds:int): Mongo.result =
+    Commands.simple_int_command(m, "admin", "replSetStepDown", seconds)
 
-  add_host(db:Mongo.db, host:string, port:int): outcome(Mongo.db,Mongo.failure) =
-    match db.replset with
-    | {some=replset} -> {success={db with replset={some={replset with hosts=[(host,port)|replset.hosts]}}}}
-    | {none} -> {failure={Error="Attempt to add host ({host},{port}) to unintialised replica set"}}
-*/
+  /**
+   * Get replica get status.
+   **/
+  replSetGetStatus(m:Mongo.db): Mongo.result = Commands.simple_int_command(m, "admin", "replSetGetStatus", 1)
+  replSetGetStatusOpa(m:Mongo.db): outcome(ReplSet.replSetGetStatus,Mongo.failure) = Commands.adminToOpa(m,"replSetGetStatus")
+
+  /**
+   * Initalise a replica set.
+   * TODO: test
+   **/
+  simpleConfig(id:int, host:string): ReplSet.member =
+    { _id=id; ~host;
+      arbiterOnly={absent}; buildIndexes={absent}; hidden={absent}; priority={absent};
+      tags={absent}; slaveDelay={absent}; votes={absent}
+    }
+
+  replSetInitiate(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
+    config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
+    Commands.run_command(m, "admin", [H.doc("replSetInitiate",config)])
+
+  /**
+   * This one will be tricky to implement, it closes the connection.
+   * TODO: implement a command_with_no_reply_and_reconnect() function.
+   **/
+  //replSetReconfig(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
+  //  config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
+  //  Commands.run_command(m, "admin", [H.doc("replSetReconfig",config)])
+
+  add_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=[(host,port)|mdb.seeds]}
+  remove_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=List.filter((s -> s != (host,port)),mdb.seeds)}
 
   init(name:string, bufsize:int, log:bool, seeds:list(mongo_host)): Mongo.db =
-    db = Mongo.init(bufsize, log)
-    {db with replset={~seeds; hosts=[]; ~name; primary_connected=false;}}
+    mdb = Mongo.init(bufsize, log)
+    {mdb with ~seeds; hosts=Mutable.make([]); ~name}
 
   init_single(name:string, bufsize:int, log:bool, seed:mongo_host): Mongo.db =
     init(name,bufsize,log,[seed])
@@ -71,63 +140,63 @@ ReplSet = {{
     | [host|[port|[]]] -> (host,Int.of_string(port))
     | _ -> (s,27017)
 
-  check_seed(db:Mongo.db): Mongo.db =
-    match (Mongo.result_to_opa(Commands.simple_int_command(db,"admin","ismaster",1)):option(Commands.isMaster)) with
-    | {some=ism} ->
-       hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,ism.hosts)))
-       do println("check_seed: hosts={hosts}")
-       {db with replset={db.replset with ~hosts}}
-    | {none} -> db
+  check_seed(mdb:Mongo.db): Mongo.db =
+    match Commands.isMasterOpa(mdb) with
+    | {success=ism} ->
+       (match ism.hosts with
+        | {present=hosts} ->
+           hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
+           do if mdb.log then ML.info("ReplSet.check_seed","hosts={hosts}",void)
+           do mdb.hosts.set(hosts)
+           mdb
+        | {absent} -> mdb)
+    | {failure=_} -> mdb
 
-  check_host(db:Mongo.db): option(Commands.isMaster) =
-    res =
-    (Mongo.result_to_opa(Commands.simple_int_command(db,"admin","ismaster",1)):option(Commands.isMaster))
-    do println("check_host: res={res}")
-    res
-
-  connect(db:Mongo.db): outcome(Mongo.db,Mongo.failure) =
-    db = {db with log=false}
-    do println("ReplSet.connect: seeds={db.replset.seeds}")
-    do if db.replset.seeds == [] then ML.fatal("ReplSet.connect","Tried to connect with no seeds",-1) else void
-    rec aux(db, seeds) =
+  connect(mdb:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+    mdb = {mdb with log=false}
+    //do println("ReplSet.connect: seeds={mdb.seeds}")
+    do if mdb.seeds == [] then ML.fatal("ReplSet.connect","Tried to connect with no seeds",-1) else void
+    rec aux(mdb, seeds) =
       match seeds with
       | [seed|rest] ->
-        (match Mongo.connect(db, seed.f1, seed.f2) with
-         | {success=db} ->
-            db = check_seed(db)
-            if db.replset.hosts == []
-            then aux(Mongo.close(db),rest)
-            else {success=Mongo.close(db)}
+        (match Mongo.connect(mdb, seed.f1, seed.f2) with
+         | {success=mdb} ->
+            mdb = check_seed(mdb)
+            if mdb.hosts.get() == []
+            then aux(Mongo.close(mdb),rest)
+            else {success=Mongo.close(mdb)}
          | {failure=_} ->
-            aux(db,rest))
+            aux(mdb,rest))
       | [] -> {failure={Error="ReplSet.connect: No connecting seeds"}}
-    match aux(db, db.replset.seeds) with
-    | {success=db} ->
-       do println("ReplSet.connect: hosts={db.replset.hosts}")
-       rec aux2(db, hosts) =
+    match aux(mdb, mdb.seeds) with
+    | {success=mdb} ->
+       //do println("ReplSet.connect: hosts={mdb.hosts.get()}")
+       rec aux2(mdb, hosts) =
          (match hosts with
           | [host|rest] ->
-            (match Mongo.connect(db, host.f1, host.f2) with
-             | {success=db} ->
-                (match check_host(db) with
-                 | {some=ism} ->
-                    do println("ReplSet.connect: ism={ism}")
-                    if ism.ismaster && (ism.setName == db.replset.name)
-                    then {success=db}
+            (match Mongo.connect(mdb, host.f1, host.f2) with
+             | {success=mdb} ->
+                (match Commands.isMasterOpa(mdb) with
+                 | {success=ism} ->
+                    //do println("ReplSet.connect: ism={ism}")
+                    if ism.ismaster && (Register.default("...",ism.setName) == mdb.name)
+                    then
+                      do mdb.reconnect.set({some=connect})
+                      {success=mdb}
                     else
                       (match ism.primary with
                        | {present=primary} ->
                           primary_host = mongo_host_of_string(primary)
                           (match List.extract_p((host -> host == primary_host),rest) with
                            | ({some=p},rest) ->
-                              do println("ReplSet.connect: jump to primary")
-                              aux2(Mongo.close(db),[p|rest])
-                           | ({none},rest) -> aux2(Mongo.close(db),rest))
-                       | {absent} -> aux2(Mongo.close(db),rest))
-                 | {none} -> aux2(Mongo.close(db),rest))
-             | {failure=_} -> aux2(db,rest))
+                              do if mdb.log then ML.info("ReplSet.connect","jump to primary",void)
+                              aux2(Mongo.close(mdb),[p|rest])
+                           | ({none},rest) -> aux2(Mongo.close(mdb),rest))
+                       | {absent} -> aux2(Mongo.close(mdb),rest))
+                 | {failure=_} -> aux2(Mongo.close(mdb),rest))
+             | {failure=_} -> aux2(mdb,rest))
           | [] -> {failure={Error="ReplSet.connect: No master hosts"}})
-       aux2(db, db.replset.hosts)
+       aux2(mdb, mdb.hosts.get())
     | {~failure} -> {~failure}
 
 }}
