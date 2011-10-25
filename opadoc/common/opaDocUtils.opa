@@ -87,8 +87,8 @@ OpaDocUtils = {{
       String.ordering(String.to_lower(p1), String.to_lower(p2))
     List.sort_with(aux, list)
 
-  uri_of_path =
+  uri_of_path(p) =
     if OpaDocParameters.get().long_uris
-    then String.replace(File.dir_sep, ".", _)
-    else File.basename
+    then String.replace(File.dir_sep, ".", p)
+    else File.basename(p)
 }}
