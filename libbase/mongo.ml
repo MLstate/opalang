@@ -98,6 +98,10 @@ let get m = Buf.to_string m.Bson.buf
 
 let export m = (m.Bson.buf.Buf.str, m.Bson.buf.Buf.i)
 
+let import s = { Bson.buf = Buf.of_string s; stack = []; finished = true }
+
+let copy m = { Bson.buf = Buf.copy m.Bson.buf; stack = m.Bson.stack; finished = m.Bson.finished }
+
 (*
 struct MsgHeader {
     int32   messageLength; // total message size, including this

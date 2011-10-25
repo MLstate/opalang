@@ -40,6 +40,8 @@ type mongo_buf = Bson.buf
 val add_bson : mongo_buf -> Bson.buf -> unit
 val get : mongo_buf -> string
 val export : mongo_buf -> string * int
+val import : string -> mongo_buf
+val copy : mongo_buf -> mongo_buf
 val set_header_len : mongo_buf -> int -> unit
 val set_header : mongo_buf -> int32 -> int -> int -> unit
 val get_buf : ?hint:int -> unit -> Buf.t

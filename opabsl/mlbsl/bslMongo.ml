@@ -323,6 +323,12 @@ let export m =
   let (str, i) = Mongo.export m in
   BslNativeLib.opa_tuple_2 (ServerLib.wrap_string str, ServerLib.wrap_int i)
 
+##register import: string -> mongo_buf
+let import = Mongo.import
+
+##register copy: mongo_buf -> mongo_buf
+let copy = Mongo.copy
+
 ##register clear: mongo_buf -> void
 let clear = Mongo.clear
 
