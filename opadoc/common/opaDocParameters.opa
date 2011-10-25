@@ -60,7 +60,7 @@ OpaDocParameters = {{
     help       = false
     output_dir = {none}
     private    = false
-    long_uris  = false
+    long_uris  = true
   }
 
   /**
