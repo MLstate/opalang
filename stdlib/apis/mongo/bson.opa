@@ -75,7 +75,6 @@ Register = {{
 /**
  * A value encasupates the types used by MongoDB.
  **/
-@opacapi
 type Bson.value =
     { Double: float }
   / { String: string }
@@ -99,13 +98,11 @@ type Bson.value =
 /**
  * An element is a named value.
  **/
-@opacapi
 type Bson.element = { name:string; value:Bson.value }
 
 /**
  * The main exported type, a document is just a list of elements.
  */
-@opacapi
 type Bson.document = list(Bson.element)
 
 /**

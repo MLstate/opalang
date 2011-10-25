@@ -427,13 +427,13 @@ struct
     end
   end
 
-  module Bson =
+  (*module Bson =
   struct
     let (!!) s = !! ("Bson." ^ s)
     let document = !! "document"
     let element = !! "element"
     let value = !! "value"
-  end
+  end*)
 
   module ThreadContext =
   struct
