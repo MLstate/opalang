@@ -146,6 +146,12 @@ type WFormBuilder.field_builder =
   ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml data:WFormBuilder.field_rendering_data} -> xhtml
   }
 
+type WFormBuilder.form_config =
+  { id : string
+  ; builder : WFormBuilder.field_builder
+  ; style : WFormBuilder.style
+  }
+
 WFormBuilder =
 {{
 
@@ -374,27 +380,33 @@ WFormBuilder =
     ; validator=empty_validator
     }
 
-  @publish mk_form_with(id : string, builder, style) : WFormBuilder.form =
+  mk_form_with(params : WFormBuilder.form_config) : WFormBuilder.form =
     on_msg(state, msg) =
       match msg with
       | {renderField ~fldChecker ~fldRender} ->
-          new_state = [fldChecker(style) | state]
-          xhtml = fldRender(builder, style)
+          new_state = [fldChecker(params.style) | state]
+          xhtml = fldRender(params.builder, params.style)
           { return = xhtml
           ; instruction = {set=new_state}
           }
       | {renderForm ~body ~on_submit} ->
            // FIXME, {Basic}/{Normal}
-          xhtml = form_html(id, state, {Basic}, body, on_submit)
+          xhtml = form_html(params.id, state, {Basic}, body, on_submit)
           { return = xhtml
           ; instruction = {unchanged}
           }
-    { ~id
+    { id=params.id
     ; chan = Cell.make([], on_msg)
     }
 
+  default_form_config() =
+    { id = Dom.fresh_id()
+    ; builder = default_field_builder
+    ; style = bootstrap_style
+    }
+
   mk_form() : WFormBuilder.form =
-    mk_form_with(Dom.fresh_id(), default_field_builder, bootstrap_style)
+    mk_form_with(default_form_config())
 
   /** {1 Extending fields} */
 
