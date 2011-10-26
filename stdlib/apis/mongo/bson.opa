@@ -39,7 +39,7 @@
 
 /* Major TODOs, there are minor ones elsewhere. */
 
-import stdlib.core.{date}
+import stdlib.core.{date,map}
 
 /** Some convenience types **/
 
@@ -56,6 +56,7 @@ type Bson.int64 = int
 type Bson.min = void
 type Bson.max = void
 type Bson.register('a) = {present:'a} / {absent}
+type Bson.intmap('a) = intmap('a)
 
 /**
  * Register.  Exactly like Option but for Bson.register.
@@ -495,8 +496,8 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="option"}
       | {TyName_args=[]; TyName_ident="bool"}
       | {TyName_args=[]; TyName_ident="void"}
-      | {TyName_args = [_]; TyName_ident = "list"} -> ty
-      | {TyName_args = tys; TyName_ident = tyid} -> OpaType.type_of_name(tyid, tys)
+      | {TyName_args=[_]; TyName_ident="list"} -> ty
+      | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
       | ty -> ty
     //do if ty != nty then println("name_type: named type {OpaType.to_pretty(ty)} to {OpaType.to_pretty(nty)}")
     nty
@@ -742,25 +743,37 @@ Bson = {{
              (match doc with
               | [] -> []
               | [e|_] ->
-                 /* We can't actually rely upon the order in which these
-                  * array elements are stored, we could be at the mercy
-                  * of user-defined values so we allow either storage order.
-                  * We do insist upon consecutive values, however.
+                 /* We now detect and sort non-consecutive arrays.
+                  * Note that the perofrmance of list arrays may get slow
+                  * if the user calls lots of $push operations.
                   */
+                 len = List.length(doc)
+                 //do println("len={len} e.name={e.name}")
+                 //do println("doc={to_pretty(doc)}")
                  doc = if e.name == "0" then List.rev(doc) else doc
-                 len = List.length(doc) - 1
-                 List.fold_index((i, element, l ->
-                                  do if "{len-i}" != Bson.key(element)
-                                     then fatal("Array to list index mismatch {doc}")
-                                  //do println("list({len-i}): element={pretty_of_element(element)}")
-                                  el =
-                                    match element with
-                                    | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
-                                    | _ -> element_to_opa(element, ty)
-                                  match el with
-                                  | {some=v} -> [v | l]
-                                  | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}")),
-                                 doc,[]))
+                 //do println("doc={to_pretty(doc)}")
+                 doc = if e.name != "{len-1}" then List.sort_by((e -> len - Int.of_string(e.name)),doc) else doc
+                 //do println("doc={to_pretty(doc)}")
+                 rec aux(last,elements,l) =
+                   (match elements with
+                    | [element|rest] ->
+                       enum = Int.of_string(element.name)
+                       if enum > last
+                       then
+                         elements = List.sort_by((e -> len - Int.of_string(e.name)),elements)
+                         //do println("elements={to_pretty(elements)}")
+                         aux(Int.of_string((List.head(elements)).name),elements,l)
+                       else
+                         //do println("list({enum}): element={pretty_of_element(element)}")
+                         el =
+                           match element with
+                           | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
+                           | _ -> element_to_opa(element, ty)
+                         (match el with
+                          | {some=v} -> aux(enum,rest,[v|l])
+                          | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}"))
+                    | [] -> l)
+                 aux(Int.of_string(e.name),doc,[]))
              {some=@unsafe_cast(lst)}
          | element -> error("expected list, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Date.date"} ->
