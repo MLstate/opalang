@@ -52,6 +52,9 @@ type Bson.symbol = string
 type Bson.codescope = (Bson.code, Bson.document)
 type Bson.int32 = int
 type Bson.timestamp = (int, int)
+type Bson.int64 = int
+type Bson.min = void
+type Bson.max = void
 type Bson.register('a) = {present:'a} / {absent}
 
 /**
@@ -131,9 +134,13 @@ H = {{
   i32(n:string,i:int):Bson.element = {name=n; value={Int32=i}}
   timestamp(n:string,ts:Bson.timestamp):Bson.element = {name=n; value={Timestamp=ts}}
   i64(n:string,i:int):Bson.element = {name=n; value={Int64=i}}
+  min(n:string):Bson.element = {name=n; value={Min}}
+  max(n:string):Bson.element = {name=n; value={Max}}
   de(e:Bson.element):Bson.document = [e]
   dl(l:list(Bson.element)):Bson.document = l
   dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
+  minval = (void:Bson.min)
+  maxval = (void:Bson.max)
 }}
 
 /**
@@ -376,7 +383,7 @@ Bson = {{
    * Remove the ObjectID element from a document.
    **/
   remove_id(doc:Bson.document): Bson.document =
-    List.filter((e -> match e.value with | {ObjectID=_} -> {false} | _ -> {true}),doc)
+    List.filter((e -> match e with | {name="_id"; value={ObjectID=_}} -> {false} | _ -> {true}),doc)
 
   /**
    * Sort the elements in a document by lexicographic order on keys.
@@ -423,7 +430,7 @@ Bson = {{
     | {Document=v} -> "{to_pretty(v)}"
     | {Array=v} -> "{pretty_of_array(v)}"
     | {Binary=_} -> "<BINARY>"
-    | {ObjectID=v} -> "{oid_to_string(v)}"
+    | {ObjectID=v} -> "ObjectId({oid_to_string(v)})"
     | {Boolean=v} -> "{v}"
     | {Date=v} -> "{v}"
     | {Null=_} -> "null"
@@ -468,6 +475,32 @@ Bson = {{
    * OPA to Bson
    **/
 
+  name_type(ty:OpaType.ty): OpaType.ty =
+    nty =
+      match ty with
+      | {TyName_args=[]; TyName_ident="Bson.document"}
+      | {TyName_args=[]; TyName_ident="Date.date"}
+      | {TyName_args=[]; TyName_ident="Bson.binary"}
+      | {TyName_args=[]; TyName_ident="Bson.oid"}
+      | {TyName_args=[]; TyName_ident="Bson.regexp"}
+      | {TyName_args=[]; TyName_ident="Bson.code"}
+      | {TyName_args=[]; TyName_ident="Bson.symbol"}
+      | {TyName_args=[]; TyName_ident="Bson.codescope"}
+      | {TyName_args=[]; TyName_ident="Bson.int32"}
+      | {TyName_args=[]; TyName_ident="Bson.timestamp"}
+      | {TyName_args=[]; TyName_ident="Bson.int64"}
+      | {TyName_args=[]; TyName_ident="Bson.min"}
+      | {TyName_args=[]; TyName_ident="Bson.max"}
+      | {TyName_args=[_]; TyName_ident="Bson.register"}
+      | {TyName_args=[_]; TyName_ident="option"}
+      | {TyName_args=[]; TyName_ident="bool"}
+      | {TyName_args=[]; TyName_ident="void"}
+      | {TyName_args = [_]; TyName_ident = "list"} -> ty
+      | {TyName_args = tys; TyName_ident = tyid} -> OpaType.type_of_name(tyid, tys)
+      | ty -> ty
+    //do if ty != nty then println("name_type: named type {OpaType.to_pretty(ty)} to {OpaType.to_pretty(nty)}")
+    nty
+
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
     List.flatten(OpaValue.Record.fold_with_fields((field, tyfield, value, bson ->
                                                     name = OpaValue.Record.name_of_field_unsafe(field)
@@ -487,8 +520,8 @@ Bson = {{
     | {TyConst={TyString={}}} -> [H.str(key,(@unsafe_cast(v):string))]
     | {TyConst={TyFloat={}}} -> [H.dbl(key,(@unsafe_cast(v):float))]
     | {TyName_args=[]; TyName_ident="bool"} -> [H.bool(key,(@unsafe_cast(v):bool))]
-    | {TyRecord_row = row}
-    | {TyRecord_row = row; TyRecord_rowvar = _} ->
+    | {TyRecord_row=row ...} ->
+      //do println("opa_to_document: row={OpaType.to_pretty(ty)}")
       (match row with
        | [] ->
           [H.null(key)]
@@ -500,41 +533,36 @@ Bson = {{
           [H.doc(key,rec_to_bson(v, row))])
     | {TyName_args=[]; TyName_ident="Date.date"} -> [H.date(key,(@unsafe_cast(v):Date.date))]
     | {TyName_args=[]; TyName_ident="Bson.binary"} -> [H.binary(key,(@unsafe_cast(v):Bson.binary))]
+    | {TyName_args=[]; TyName_ident="Bson.oid"} -> [H.oid(key,(@unsafe_cast(v):Bson.oid))]
     | {TyName_args=[]; TyName_ident="Bson.regexp"} -> [H.regexp(key,(@unsafe_cast(v):Bson.regexp))]
     | {TyName_args=[]; TyName_ident="Bson.code"} -> [H.code(key,(@unsafe_cast(v):Bson.code))]
     | {TyName_args=[]; TyName_ident="Bson.symbol"} -> [H.symbol(key,(@unsafe_cast(v):Bson.symbol))]
     | {TyName_args=[]; TyName_ident="Bson.codescope"} -> [H.codescope(key,(@unsafe_cast(v):Bson.codescope))]
     | {TyName_args=[]; TyName_ident="Bson.int32"} -> [H.i32(key,(@unsafe_cast(v):Bson.int32))]
     | {TyName_args=[]; TyName_ident="Bson.timestamp"} -> [H.timestamp(key,(@unsafe_cast(v):Bson.timestamp))]
+    | {TyName_args=[]; TyName_ident="Bson.int64"} -> [H.i64(key,(@unsafe_cast(v):Bson.int64))]
+    | {TyName_args=[]; TyName_ident="Bson.min"} -> [H.min(key)]
+    | {TyName_args=[]; TyName_ident="Bson.max"} -> [H.max(key)]
     | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
        (match (@unsafe_cast(v):Bson.register('a)) with
         | {present=sv} -> opa_to_document(key,sv,ty)
         | {absent} -> [])
-    | {TySum_col = col}
-    | {TySum_col = col; TySum_colvar = _} ->
-      if List.mem([{label="false"; ty={TyRecord_row=[]}}],col) // <-- ? ! :-(
-      then [H.bool(key,(@unsafe_cast(v):bool))]
-      else [H.doc(key,rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1))]
-    | {TyName_args=[{TyName_args=[]; TyName_ident="Bson.element"}]; TyName_ident="list"}
+    | {TySum_col=col ...} -> [H.doc(key,rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1))]
     | {TyName_ident="Bson.document"; TyName_args=_} -> [H.doc(key,@unsafe_cast(v))]
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args = tys; TyName_ident = tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
     | _ -> ML.fatal("Bson.opa_to_bson","unknown value {v} of type {OpaType.to_pretty(ty)}",-1)
 
   opa_to_bson(v:'a, ty_opt:option(OpaType.ty)): Bson.document =
-    match
-      (match (match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)) with
-       | {TyName_args = tys; TyName_ident = tyid} -> OpaType.type_of_name(tyid, tys)
-       | ty -> ty)
-    with
-    | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} ->
+    ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
+    match name_type(ty) with
+    | {TyRecord_row=row ...} ->
+      //do println("opa_to_bson: row={OpaType.to_pretty({TyRecord_row=row})}")
       (match row with
        | [] -> [H.null("value")]
        | [{label=name; ty=ty}] -> if OpaType.is_void(ty) then [H.null(name)] else rec_to_bson(v, row)
        | _ -> rec_to_bson(v, row))
-    | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} ->
+    | {TySum_col=col ...} ->
       if List.mem([{label="false"; ty={TyRecord_row=[]}}],col)
       then [H.bool("value",(@unsafe_cast(v):bool))]
       else rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1)
@@ -547,8 +575,8 @@ Bson = {{
    * Bson to OPA
    **/
 
-  rec bson_to_opa(bson:Bson.document, ty:OpaType.ty, valname:string): option('a) =
-    //do println("bson_to_opa:\n  bson={Bson.to_pretty(bson)}\n  ty={OpaType.to_pretty(ty)}\n  valname={valname}")
+  rec bson_to_opa(bson:Bson.document, ty:OpaType.ty): option('a) =
+    //do println("bson_to_opa:\n  bson={Bson.to_pretty(bson)}\n  ty={OpaType.to_pretty(ty)}")
 
     error(str, v) = ML.error("Bson.bson_to_opa", str, v)
     fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
@@ -592,11 +620,15 @@ Bson = {{
         match (elements, fields) with
         | ([element|erest],[field|frest]) ->
             name = Bson.key(element)
-            //do println("element_to_rec2:\n  element={pretty_of_element(element)}")
+            //do println("element_to_rec2(aux):\n  element={pretty_of_element(element)}")
             //do println("  name={name}\n  field={OpaType.to_pretty_fields([field])}")
             (match String.ordering(field.label,name) with
              | {eq} ->
-               (match element_to_opa(element, field.ty) with
+               val_opt =
+                 (match element with
+                  | {value={Document=doc} ...} -> bson_to_opa(doc, field.ty)
+                  | _ -> element_to_opa(element, field.ty))
+               (match val_opt with
                 | {none} ->
                   error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
                 | {some=value} ->
@@ -615,6 +647,29 @@ Bson = {{
       then error("Failed with fields {OpaType.to_pretty_fields(fields)} document {to_pretty(doc)}",{none})
       else {some=@unsafe_cast(OpaValue.Record.make_record(rcrd))}
 
+    and column_to_rec(doc:Bson.document, col) =
+      //do println("column_to_rec:\n  doc={Bson.to_pretty(doc)}\n  col={col}")
+      ltyfield = List.sort(Bson.keys(doc))
+      //do println("ltyfield={ltyfield}")
+      match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
+      | {some=fields} -> element_to_rec(doc, fields)
+      | {none} ->
+        allreg = List.for_all((r -> List.for_all((f -> isrcrdtype(f.ty)),r)),col)
+        //do println("  allreg={allreg}")
+        if allreg
+        then element_to_rec(doc, List.flatten(col))
+        else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none})
+
+    and make_register(vopt:option('a)): option('b) =
+      match vopt with
+      | {some=v} -> {some=@unsafe_cast({present=v})}
+      | {none} -> {some=@unsafe_cast({absent})}
+
+    and make_option(vopt:option('a)): option('b) =
+      match vopt with
+      | {some=v} -> {some=@unsafe_cast({some=v})}
+      | {none} -> {some=@unsafe_cast({none})}
+
     and element_to_opa(element:Bson.element, ty:OpaType.ty): option('a) =
       //do println("element_to_opa:\n  element={pretty_of_element(element)}\n  ty={OpaType.to_pretty(ty)}")
       match ty with
@@ -626,8 +681,11 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="void"} ->
         (match element with
          | {value={Null=_} ...} -> {some=@unsafe_cast(void)}
+         | {value={Min=_} ...} -> {some=@unsafe_cast(void)}
+         | {value={Max=_} ...} -> {some=@unsafe_cast(void)}
          | element -> error("expected void, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.int32"}
+      | {TyName_args=[]; TyName_ident="Bson.int64"}
       | {TyConst={TyInt={}}} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(if tf then 1 else 0)}
@@ -663,26 +721,23 @@ Bson = {{
          | element -> error("expected bool, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
-         | {name=_key; value={Document=doc}} ->
-           //do println("ty={OpaType.to_pretty(ty)} key={key} doc={doc}")
+         | {value={Document=doc} ...} ->
+           //do println("ty={OpaType.to_pretty(ty)} key={element.name} doc={doc}")
            (match Bson.find_elements(doc,["some","none"]) with
             | {some=("some",element)} ->
               (match element_to_opa(element, ty) with
-              | {some=v} -> {some=@unsafe_cast({some=v})}
-              | {none} -> {none})
+               | {some=v} -> {some=@unsafe_cast({some=v})}
+               | {none} -> {none})
             | {some=("none",_)} -> {some=@unsafe_cast({none})}
-            | _ -> {none}
-           )
+            | _ -> {none})
          | element -> error("expected option, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
         //do println("register: element={to_pretty([element])}")
-        (match element_to_opa(element,ty) with
-         | {some=v} -> {some=@unsafe_cast({present=v})}
-         | {none} -> {some=@unsafe_cast({absent})})
+        make_register(element_to_opa(element,ty))
       | {TyName_args=[ty]; TyName_ident="list"} ->
         (match element with
-         | {name=_key; value={Array=doc}} ->
-           //do println("list:\n  ty={OpaType.to_pretty(ty)}\n  key={key}\n  doc={to_pretty(doc)}")
+         | {value={Array=doc} ...} ->
+           //do println("list:\n  ty={OpaType.to_pretty(ty)}\n  key={element.name}\n  doc={to_pretty(doc)}")
            lst =
              (match doc with
               | [] -> []
@@ -697,8 +752,12 @@ Bson = {{
                  List.fold_index((i, element, l ->
                                   do if "{len-i}" != Bson.key(element)
                                      then fatal("Array to list index mismatch {doc}")
-                                  //do println("list({i}): element={pretty_of_element(element)}")
-                                  match element_to_opa(element, ty) with
+                                  //do println("list({len-i}): element={pretty_of_element(element)}")
+                                  el =
+                                    match element with
+                                    | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
+                                    | _ -> element_to_opa(element, ty)
+                                  match el with
                                   | {some=v} -> [v | l]
                                   | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}")),
                                  doc,[]))
@@ -712,6 +771,10 @@ Bson = {{
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
          | element -> error("expected binary, got {element}",{none}))
+      | {TyName_args=[]; TyName_ident="Bson.oid"} ->
+        (match element with
+         | {value={ObjectID=oid} ...} -> {some=@unsafe_cast(oid)}
+         | element -> error("expected ObjectId, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.regexp"} ->
         (match element with
          | {value={Regexp=re} ...} -> {some=@unsafe_cast(re)}
@@ -732,53 +795,34 @@ Bson = {{
         (match element with
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
          | element -> error("expected timestamp, got {element}",{none}))
-      | {TyRecord_row=row}
-      | {TyRecord_row=row; TyRecord_rowvar=_} ->
-          //do println("row:\n  row={OpaType.to_pretty(ty)}")
-          (match element with
-           | {value={Document=doc} ...} ->
-             /* Normally, nested values will be documents but some basic types,
-              * for example, options are also records so we need to specifically
-              * exclude them here.  Unfortunately, we have to go digging into the
-              * type to get the record's target type.
-              */
-             irt = (match (doc,ty) with
-                    | ([_],{TyRecord_row=[{~ty; ...}]; ...}) -> isrcrdtype(ty)
-                    | _ -> false)
-             doc = Bson.remove_id(doc)
-             //do println("  doc={to_pretty(doc)}\n  keys={Bson.keys(doc)} irt={irt}")
-             if irt
-             then element_to_rec([element],row)
-             else element_to_rec(Bson.remove_id(doc), row)
-           | _ -> element_to_rec([element],row))
-      | {TySum_col=col}
-      | {TySum_col=col; TySum_colvar=_} ->
-        (ltyfield, doc) =
-          (match element with
-           | {value={Document=doc} ...} -> (List.sort(Bson.keys(doc)), doc) // <-- We might get away with List.rev here???
-           | _ -> ([Bson.key(element)], [element]))
-        (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
-         | {some=fields} -> element_to_rec(doc, fields)
-         | {none} -> error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none}))
-      | {TyName_args = tys; TyName_ident = tyid} ->
+      | {TyRecord_row=row ...} ->
+        //do println("row:\n  row={OpaType.to_pretty(ty)}")
+        element_to_rec([element],row)
+      | {TySum_col=col ...} ->
+        //do println("col:\n  col={OpaType.to_pretty(ty)}")
+        column_to_rec([element], col)
+      | {TyName_args=tys; TyName_ident=tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys))
       | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
 
-    and _internal_document_to_opa(key:string, doc:Bson.document, ty:OpaType.ty): option('a) =
-      match Bson.find_element(doc,key) with
-      | {some=element} -> element_to_opa(element, ty)
-      | {none} -> {none}
-
     bson_noid = Bson.remove_id(bson)
-    match bson_noid with
-    | [element] ->
-       element_to_opa(element, ty)
-    | bson ->
-       (match Bson.find_element(bson,valname) with
-        | {some=element} -> element_to_opa(element, ty)
-        | {none} -> element_to_opa(H.doc(valname,bson_noid), ty)) // assume bare record
+    // TODO: Sort out id's once and for all
+    // TODO: We need to consider OPA values with _id fields
+    ty_name = name_type(ty)
+    match (bson_noid,ty_name) with
+    | ([],{TyName_args=[_]; TyName_ident="Bson.register"}) -> {some=@unsafe_cast({absent})}
+    | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="Bson.register"}) -> make_register(element_to_rec(bson_noid,row))
+    | ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
+    | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="option"}) -> make_option(element_to_rec(bson_noid,row))
+    | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid,row)
+    | (_,{TySum_col=col ...}) -> column_to_rec(bson_noid,col)
+    | ([],_) -> error("Empty document for non-register type",{none})
+    | _ ->
+       (match Bson.find_element(bson_noid,"value") with
+        | {some=element} -> element_to_opa(element, ty_name)
+        | {none} -> element_to_opa(H.doc("value",bson_noid), ty_name)) // assume bare type
 
-  doc2opa(doc:Bson.document): option('a) = bson_to_opa(doc,@typeval('a),"value")
+  doc2opa(doc:Bson.document): option('a) = bson_to_opa(doc,@typeval('a))
 
 }}
 

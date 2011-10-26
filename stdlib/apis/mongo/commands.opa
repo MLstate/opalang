@@ -49,8 +49,8 @@
  *   If we want to manipulate the whole thing in OPA, however, we can just
  *   doc2opa the result and cast to these types.  Note that these types
  *   may vary between one MongoDB version and another, these are for 1.8.3.
- *   Also, some of the results have floating elements which we can't
- *   map to OPA types.
+ *   Also, some of the results have floating elements which we 
+ *   map to the Bson.register type. 
  **/
 
 type Commands.getLastErrorOptions = {
@@ -102,7 +102,29 @@ type Commands.serverStatusType = {
   opcounters : { insert : int; query : int; update : int; delete : int; getmore : int; command : int; };
   asserts : { regular : int; warning : int; msg : int; user : int; rollovers : int; };
   writeBacksQueued : bool;
-  ok : int
+  repl : Bson.register({ setName : string;
+                         ismaster : bool;
+                         secondary : bool;
+                         hosts : list(string);
+                         primary : Bson.register(string);
+                       });
+  ok : int;
+}
+
+type Commands.collStatsType = {
+  ns : string;
+  count : Bson.int32;
+  size : Bson.int32;
+  avgObjSize : float;
+  storageSize : Bson.int32;
+  numExtents : Bson.int32;
+  nindexes : Bson.int32;
+  lastExtentSize : Bson.int32;
+  paddingFactor : float;
+  flags : Bson.int32;
+  totalIndexSize : Bson.int32;
+  indexSizes : { _id_ : Bson.int32; };
+  ok : int;
 }
 
 type Commands.explainType =
@@ -158,6 +180,14 @@ Commands = {{
    **/
   simple_str_command_opts(m:Mongo.db, ns:string, cmd:string, arg:string, opts:Bson.document): Mongo.result =
     run_command(m, ns, List.flatten([[H.str(cmd,arg)],opts]))
+
+  adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) =
+    match simple_int_command(m,"admin",command,1) with
+    | {success=doc} ->
+       (match Mongo.result_to_opa({success=doc}) with
+        | {some=ism} -> {success=ism}
+        | {none} -> {failure={Error="Commands.{command}: invalid document ({Bson.to_pretty(doc)})"}})
+    | {~failure} -> {~failure}
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
@@ -253,6 +283,8 @@ Commands = {{
    **/
   collStats(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "collStats", collection)
+  collStatsOpa(m:Mongo.db, db:string, collection:string): outcome(Commands.collStatsType,Mongo.failure) =
+    Mongo.resultToOpa(collStats(m, db, collection))
 
   /**
    * Create a collection.
@@ -333,14 +365,6 @@ Commands = {{
    * ismaster command as a Bson.document.
    **/
   isMaster(m:Mongo.db): Mongo.result = simple_int_command(m, "admin", "ismaster", 1)
-
-  adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) =
-    match Commands.simple_int_command(m,"admin",command,1) with
-    | {success=doc} ->
-       (match Mongo.result_to_opa({success=doc}) with
-        | {some=ism} -> {success=ism}
-        | {none} -> {failure={Error="Commands.{command}: invalid document ({Bson.to_pretty(doc)})"}})
-    | {~failure} -> {~failure}
 
   /**
    * Return the isMaster document as an OPA type.

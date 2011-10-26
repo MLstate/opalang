@@ -999,7 +999,7 @@ Collection : Collection = {{
     (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match Bson.bson_to_opa(doc, @typeval('value), c.db.valname) with
+       (match Bson.bson_to_opa(doc, @typeval('value)) with
         | {some=v} -> {success=(Magic.id(v):'value)}
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
@@ -1019,7 +1019,7 @@ Collection : Collection = {{
     match Cursor.check_cursor_error(cursor) with
     | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
-       (match Bson.bson_to_opa(doc, cc.ty, cc.collection.db.valname) with
+       (match Bson.bson_to_opa(doc, cc.ty) with
         | {some=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
         | {none} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}}))
     | {~failure} ->
@@ -1056,7 +1056,7 @@ Collection : Collection = {{
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
        ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
-       (match Bson.bson_to_opa(doc, ty, "values") with
+       (match Bson.bson_to_opa(doc, ty) with
         | {some=v} -> {success=(Magic.id(v):list('b))}
         | {none} -> {failure={Error="Collection.distinct: not found"}})
     | {~failure} -> {~failure}
@@ -1074,7 +1074,7 @@ Collection : Collection = {{
       (match Bson.find(doc,"retval") with
        | {some=[{name=k; value={Array=arr}}]} ->
           ty = {TyName_args=[@typeval('a)]; TyName_ident="list"}
-          (match Bson.bson_to_opa([H.arr(k,List.rev(arr))], ty, k) with
+          (match Bson.bson_to_opa([H.arr(k,List.rev(arr))], ty) with
            | {some=v} ->
               retval = (Magic.id(v):list('a))
               (match Bson.find_int(doc, "count") with

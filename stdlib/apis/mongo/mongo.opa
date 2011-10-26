@@ -191,6 +191,14 @@ Mongo = {{
     | {success=doc} -> (Bson.doc2opa(doc):option('a))
     | {failure=_} -> {none}
 
+  resultToOpa(result:Mongo.result): outcome('a,Mongo.failure) =
+    match result with
+    | {success=doc} ->
+       (match (Bson.doc2opa(doc):option('a)) with
+        | {some=a} -> {success=a}
+        | {none} -> {failure={Error="Mongo.resultToOpa: document conversion failure"}})
+    | {~failure} -> {~failure}
+
   /* Flags */
 
   /* OP_INSERT */
