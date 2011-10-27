@@ -56,7 +56,6 @@ type Bson.int64 = int
 type Bson.min = void
 type Bson.max = void
 type Bson.register('a) = {present:'a} / {absent}
-type Bson.intmap('a) = intmap('a)
 
 /**
  * Register.  Exactly like Option but for Bson.register.
@@ -142,6 +141,7 @@ H = {{
   dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
   minval = (void:Bson.min)
   maxval = (void:Bson.max)
+  empty = ([]:Bson.document)
 }}
 
 /**
@@ -476,6 +476,7 @@ Bson = {{
    * OPA to Bson
    **/
 
+  // TODO: a recursive version which names all types
   name_type(ty:OpaType.ty): OpaType.ty =
     nty =
       match ty with
@@ -496,6 +497,8 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="option"}
       | {TyName_args=[]; TyName_ident="bool"}
       | {TyName_args=[]; TyName_ident="void"}
+      | {TyName_args=[_]; TyName_ident="intmap"}
+      | {TyName_args=[{TyConst={TyInt={}}},_,_]; TyName_ident="ordered_map"}
       | {TyName_args=[_]; TyName_ident="list"} -> ty
       | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
       | ty -> ty
@@ -514,7 +517,14 @@ Bson = {{
                                           ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
     [H.arr(key,doc)]
 
+  intmap_to_bson(key:string, v:'a, ty:OpaType.ty): Bson.document =
+    doc = List.flatten(IntMap.fold((i, v, acc ->
+                                    (doc = opa_to_document("{i}", v, ty)
+                                     ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
+    [H.arr(key,doc)]
+
   opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
+    //do println("opa_to_document: ty={OpaType.to_pretty(ty)}")
     match ty with
     | {TyName_args=[]; TyName_ident="void"} -> [H.null(key)]
     | {TyConst={TyInt={}}} -> [H.i64(key,(@unsafe_cast(v):int))]
@@ -551,6 +561,8 @@ Bson = {{
     | {TySum_col=col ...} -> [H.doc(key,rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1))]
     | {TyName_ident="Bson.document"; TyName_args=_} -> [H.doc(key,@unsafe_cast(v))]
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
+    | {TyName_args=[{TyConst={TyInt={}}},lty,_]; TyName_ident="ordered_map"}
+    | {TyName_args=[lty]; TyName_ident="intmap"} -> intmap_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args = tys; TyName_ident = tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
     | _ -> ML.fatal("Bson.opa_to_bson","unknown value {v} of type {OpaType.to_pretty(ty)}",-1)
 
@@ -671,6 +683,11 @@ Bson = {{
       | {some=v} -> {some=@unsafe_cast({some=v})}
       | {none} -> {some=@unsafe_cast({none})}
 
+    and getel(element, ty) =
+      match element with
+      | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
+      | _ -> element_to_opa(element, ty)
+
     and element_to_opa(element:Bson.element, ty:OpaType.ty): option('a) =
       //do println("element_to_opa:\n  element={pretty_of_element(element)}\n  ty={OpaType.to_pretty(ty)}")
       match ty with
@@ -722,16 +739,9 @@ Bson = {{
          | element -> error("expected bool, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
-         | {value={Document=doc} ...} ->
-           //do println("ty={OpaType.to_pretty(ty)} key={element.name} doc={doc}")
-           (match Bson.find_elements(doc,["some","none"]) with
-            | {some=("some",element)} ->
-              (match element_to_opa(element, ty) with
-               | {some=v} -> {some=@unsafe_cast({some=v})}
-               | {none} -> {none})
-            | {some=("none",_)} -> {some=@unsafe_cast({none})}
-            | _ -> {none})
-         | element -> error("expected option, got {element}",{none}))
+         | {name="some"; ...} -> make_option(getel(element, ty))
+         | {name="none"; ...} -> {some=@unsafe_cast({none})}
+         | _ -> error("expected option, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
         //do println("register: element={to_pretty([element])}")
         make_register(element_to_opa(element,ty))
@@ -766,17 +776,26 @@ Bson = {{
                          aux(Int.of_string((List.head(doc)).name),doc,[])
                        else
                          //do println("list({enum}): element={pretty_of_element(element)}")
-                         el =
-                           match element with
-                           | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
-                           | _ -> element_to_opa(element, ty)
-                         (match el with
+                         (match getel(element,ty) with
                           | {some=v} -> aux(enum,rest,[v|l])
                           | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}"))
                     | [] -> l)
                  aux(Int.of_string(e.name),doc,[]))
              {some=@unsafe_cast(lst)}
          | element -> error("expected list, got {element}",{none}))
+      | {TyName_args=[{TyConst={TyInt={}}},ty,_]; TyName_ident="ordered_map"}
+      | {TyName_args=[ty]; TyName_ident="intmap"} ->
+        (match element with
+         | {value={Array=doc} ...} ->
+           //do println("intmap:\n  ty={OpaType.to_pretty(ty)}\n  doc={to_pretty(doc)}")
+           imap =
+             List.fold((element, im ->
+                         (match getel(element, ty) with
+                          | {some=v} -> IntMap.add(Int.of_string(element.name), v, im)
+                          | {none} -> fatal("Failed for intmap element {element} type {OpaType.to_pretty(ty)}"))),
+                        doc, IntMap.empty)
+           {some=@unsafe_cast(imap)}
+         | element -> error("expected intmap, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
          | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
@@ -824,17 +843,16 @@ Bson = {{
     // TODO: We need to consider OPA values with _id fields
     ty_name = name_type(ty)
     match (bson_noid,ty_name) with
+    | ([{name="value"; ...}],_) -> getel(List.head(bson_noid), ty_name)
     | ([],{TyName_args=[_]; TyName_ident="Bson.register"}) -> {some=@unsafe_cast({absent})}
     | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="Bson.register"}) -> make_register(element_to_rec(bson_noid,row))
     | ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
-    | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="option"}) -> make_option(element_to_rec(bson_noid,row))
+    | ([element],{TyName_args=[_]; TyName_ident="option"}) -> element_to_opa(element,ty_name)
+    | ([element],{TyName_args=[_]; TyName_ident="list"}) -> element_to_opa(element,ty_name)
     | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid,row)
     | (_,{TySum_col=col ...}) -> column_to_rec(bson_noid,col)
     | ([],_) -> error("Empty document for non-register type",{none})
-    | _ ->
-       (match Bson.find_element(bson_noid,"value") with
-        | {some=element} -> element_to_opa(element, ty_name)
-        | {none} -> element_to_opa(H.doc("value",bson_noid), ty_name)) // assume bare type
+    | _ -> element_to_opa(H.doc("value",bson_noid), ty_name) // assume bare type
 
   doc2opa(doc:Bson.document): option('a) = bson_to_opa(doc,@typeval('a))
 
