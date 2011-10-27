@@ -26,6 +26,7 @@ open C.Ops
 ##extern-type cursorID = int64
 ##extern-type mailbox = (Buf.t * int ref)
 ##extern-type reply = (Buf.t * int * int)
+##extern-type Socket.connection = Scheduler.connection_info
 
 ##module Bson
 
