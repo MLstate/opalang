@@ -528,7 +528,7 @@ WBootstrap = {{
       id = Dom.fresh_id()
       <div id=#{id}>
         {match closable
-         {true} -> <a class="close" onclick={_->Dom.remove(#{id})}>x</a>
+         {true} -> <a class="close" onclick={_->Dom.remove(#{id})}>&times;</a>
          {false} -> <></>}
         <p>
           {if content.title == "" then <></> else <strong>{content.title}</strong>}
