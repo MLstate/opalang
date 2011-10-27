@@ -744,7 +744,7 @@ Bson = {{
               | [] -> []
               | [e|_] ->
                  /* We now detect and sort non-consecutive arrays.
-                  * Note that the perofrmance of list arrays may get slow
+                  * Note that the performance of list arrays may get slow
                   * if the user calls lots of $push operations.
                   */
                  len = List.length(doc)
@@ -760,9 +760,10 @@ Bson = {{
                        enum = Int.of_string(element.name)
                        if enum > last
                        then
-                         elements = List.sort_by((e -> len - Int.of_string(e.name)),elements)
-                         //do println("elements={to_pretty(elements)}")
-                         aux(Int.of_string((List.head(elements)).name),elements,l)
+                         // Nassty little hobbitses.  We have to go back and start again.
+                         doc = List.sort_by((e -> len - Int.of_string(e.name)),doc)
+                         //do println("doc={to_pretty(doc)}")
+                         aux(Int.of_string((List.head(doc)).name),doc,[])
                        else
                          //do println("list({enum}): element={pretty_of_element(element)}")
                          el =
