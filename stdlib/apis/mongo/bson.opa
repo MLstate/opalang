@@ -659,6 +659,16 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="Bson.register"} -> true
       | _ -> false
 
+    make_register(vopt:option('a)): option('b) =
+      match vopt with
+      | {some=v} -> {some=@unsafe_cast({present=v})}
+      | {none} -> {some=@unsafe_cast({absent})}
+
+    make_option(vopt:option('a)): option('b) =
+      match vopt with
+      | {some=v} -> {some=@unsafe_cast({some=v})}
+      | {none} -> {some=@unsafe_cast({none})}
+
     rec element_to_rec(doc:Bson.document, fields:OpaType.fields): option('a) =
       match fields with
       | [{label=name; ty=ty}] ->
@@ -731,16 +741,6 @@ Bson = {{
         if allreg
         then element_to_rec(doc, List.flatten(col))
         else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none})
-
-    and make_register(vopt:option('a)): option('b) =
-      match vopt with
-      | {some=v} -> {some=@unsafe_cast({present=v})}
-      | {none} -> {some=@unsafe_cast({absent})}
-
-    and make_option(vopt:option('a)): option('b) =
-      match vopt with
-      | {some=v} -> {some=@unsafe_cast({some=v})}
-      | {none} -> {some=@unsafe_cast({none})}
 
     and getel(element, ty) =
       match element with

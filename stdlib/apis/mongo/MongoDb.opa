@@ -299,7 +299,7 @@ TypeSelect = {{
   FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
   diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
   tmrgrecs(rec1, rec2) =
-    //do println("rec1={OpaType.to_pretty(rec1)}\nrec2={OpaType.to_pretty(rec2)}")
+    //dbg do println("rec1={OpaType.to_pretty(rec1)}\nrec2={OpaType.to_pretty(rec2)}")
     if rec1 == rec2 || rec2 == tempty
     then rec1
     else if rec1 == tempty
@@ -310,7 +310,7 @@ TypeSelect = {{
         s1 = FieldSet.From.list(row1)
         s2 = FieldSet.From.list(row2)
         i = FieldSet.intersection(s1,s2)
-        //do println("  i={OpaType.to_pretty({TyRecord_row=FieldSet.To.list(i)})}")
+        //dbg do println("  i={OpaType.to_pretty({TyRecord_row=FieldSet.To.list(i)})}")
         if FieldSet.is_empty(i)
         then {TyRecord_row=List.sort_by((r -> r.label),List.flatten([row1,row2]))}
         else
@@ -319,10 +319,10 @@ TypeSelect = {{
                                 | ({some=f1},{some=f2}) -> [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
                                 | _ -> @fail/*Can't happen*/),i,[])
           d = FieldSet.To.list(FieldSet.union(diff(s1,s2),diff(s2,s1)))
-          //do println("  ii={OpaType.to_pretty({TyRecord_row=ii})}")
-          //do println("  d={OpaType.to_pretty({TyRecord_row=d})}")
+          //dbg do println("  ii={OpaType.to_pretty({TyRecord_row=ii})}")
+          //dbg do println("  d={OpaType.to_pretty({TyRecord_row=d})}")
           res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([ii,d]))}
-          //do println("  res={OpaType.to_pretty(res)}")
+          //dbg do println("  res={OpaType.to_pretty(res)}")
           res
       | _ ->
         rec1str = OpaType.to_pretty(rec1)
@@ -770,8 +770,31 @@ SU : SU = {{
 
   @private empty_ty(ty) = ty == T.tempty || T.istvar(ty)
 
+  @private
+  explode_dot(ty:OpaType.ty): OpaType.ty =
+    explode_row(row) =
+         List.map((f -> 
+                   match String.explode(".",f.label) with
+                   | [] | [_] -> f
+                   | [dot|dots] ->
+                      rec aux(dots) =
+                        match dots with
+                        | [] -> @fail
+                        | [label] -> {TyRecord_row=[{~label; ty=(f.ty:OpaType.ty)}]}
+                        | [label|dots] -> {TyRecord_row=[{~label; ty=aux(dots)}]}
+                      {label=dot; ty=aux(dots)}),row)
+    match ty with
+    | {TyRecord_row=row} -> {TyRecord_row=explode_row(row)}
+    | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
+    | _ -> ty
+
   @private /*improper*/subtype(sty:OpaType.ty, ty:OpaType.ty): bool =
-    //do println("subtype: sty={OpaType.to_pretty(sty)}\n        ty={OpaType.to_pretty(ty)}")
+    //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
+    missing_label(row, label) =
+      labels = List.list_to_string((s -> s),List.map((f -> f.label),row))
+      ML.warning("SU.subtype","Warning: missing label: {label} in {labels}",false)
+    sty = explode_dot(sty)
+    //dbg do println("explode={OpaType.to_pretty(sty)}")
     esty = empty_ty(sty)
     if sty == ty || esty
     then true
@@ -784,10 +807,7 @@ SU : SU = {{
                      isty &&
                      (match List.find((tf -> tf.label == stf.label),trow) with
                       | {some=tf} -> subtype(stf.ty,tf.ty)
-                      | {none} ->
-                         labels = List.list_to_string((s -> s),List.map((f -> f.label),trow))
-                         do println("Warning: missing label: {stf.label} in {labels}")
-                         false)),strow,true)
+                      | {none} -> missing_label(trow, stf.label))),strow,true)
       | ({TyName_args=_; TyName_ident="Bson.numeric"},{TyConst={TyInt={}}})
       | ({TyName_args=_; TyName_ident="Bson.numeric"},{TyConst={TyFloat={}}}) ->
          true // Some arithmetic ops, $mod
@@ -800,8 +820,7 @@ SU : SU = {{
       | (_,{TyName_args=tys; TyName_ident=tyid}) ->
          subtype(sty,OpaType.type_of_name(tyid, tys))
       | _ ->
-        do println("Warning: incomparable types: sty:{OpaType.to_pretty(sty)} ty:{OpaType.to_pretty(ty)}")
-        false
+        ML.warning("SU.subtype","Warning: incomparable types: {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
 
   /**
    * Validate the given document agains the type of the document
@@ -810,14 +829,14 @@ SU : SU = {{
    * Currently, we log a warning.
    **/
   check_strict_select_value_against_type(doc:Bson.document, ty:OpaType.ty, sut:su_status): void =
-    //do println("check_strict_select_value_against_type:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
-    //do println("  status={sut}")
+    //dbg do println("check_strict_select_value_against_type:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
+    //dbg do println("  status={sut}")
     (dsut, dty) = type_of_bson_document(doc)
-    //do println("  dsut={dsut}  dty={OpaType.to_pretty(dty)}")
+    //dbg do println("  dsut={dsut}  dty={OpaType.to_pretty(dty)}")
     if sutok(dsut,sut)
     then
       is_subtype = subtype(dty,ty)
-      //do println("is_subtype={is_subtype}")
+      //dbg do println("is_subtype={is_subtype}")
       if is_subtype
       then void
       else
@@ -1068,6 +1087,7 @@ Collection : Collection = {{
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
     Commands.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
 
+  // TODO: use Command types and doc2opa
   analyze_group(res:Mongo.result): group_result('a) =
     match res with
     | {success=doc} ->

@@ -79,6 +79,8 @@ type Mongo.success = Bson.document
 
 type Mongo.result = outcome(Mongo.success, Mongo.failure)
 
+type Mongo.error = outcome(Bson.error, Mongo.failure)
+
 /* Flag tags */
 
 /* OP_INSERT */
@@ -138,20 +140,32 @@ Mongo = {{
    * Some routines for manipulating outcomes from Mongo commands.
    **/
 
+  // Why aren't these in Outcome?
+  map_outcome(outcome:outcome('s,'f), sfn:'s->'t, ffn:'f->'g): outcome('t,'g) =
+    match outcome with
+    | {~success} -> {success=sfn(success)}
+    | {~failure} -> {failure=ffn(failure)}
+
+  map_success(outcome, sfn) = map_outcome(outcome, sfn, (f -> f))
+  map_failure(outcome, ffn) = map_outcome(outcome, (s -> s), ffn)
+
+  outcome_map(outcome:outcome('s,'f), sfn:'s->'r, ffn:'f->'r): 'r =
+    match outcome with
+    | {~success} -> sfn(success)
+    | {~failure} -> ffn(failure)
+
+  string_of_outcome = (outcome_map:outcome('s,'f), ('s->string), ('f->string) -> string)
+
+  error_of_result(result:Mongo.result): Mongo.error = map_success(result, Bson.error_of_document)
+
+  string_of_error(error:Mongo.error): string = outcome_map(error, Bson.string_of_error, string_of_failure)
+
   string_of_failure(failure:Mongo.failure): string =
     match failure with
     | {Error=str} -> str
     | {DocError=doc} -> Bson.string_of_doc_error(doc)
 
-  string_of_result(result:Mongo.result): string =
-    match result with
-    | {success=doc} -> Bson.string_of_doc_error(doc)
-    | {~failure} -> string_of_failure(failure)
-
-  string_of_outcome(result:outcome('a,'b), success_to_str:'a->string, failure_to_str:'b->string): string =
-    match result with
-    | {~success} -> success_to_str(success)
-    | {~failure} -> failure_to_str(failure)
+  string_of_result(result:Mongo.result): string = outcome_map(result, Bson.string_of_doc_error, string_of_failure)
 
   string_of_value_or_failure(result:outcome('a,Mongo.failure), success_to_str:'a->string): string =
     string_of_outcome(result, success_to_str, (failure -> "\{failure={string_of_failure(failure)}\}"))

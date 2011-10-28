@@ -250,8 +250,8 @@ Commands = {{
   /**
    * Return the last error from database.
    **/
-  getLastError(m:Mongo.db, db:string): Mongo.result =
-    simple_int_command(m, db, "getlasterror", 1)
+  getLastError(m:Mongo.db, db:string): Mongo.result = simple_int_command(m, db, "getlasterror", 1)
+  getLastErrorOpa(m:Mongo.db, db:string): Mongo.error = Mongo.error_of_result(getLastError(m, db))
 
   /**
    * Return the last error from database, with full options.
@@ -259,6 +259,8 @@ Commands = {{
   getLastErrorFull(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
     simple_int_command_opts(m, db, "getlasterror", 1,
                             [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
+  getLastErrorFullOpa(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.error =
+    Mongo.error_of_result(getLastErrorFull(m, db, fsync, j, w, wtimeout))
 
   /**
    * Reset database error status.
