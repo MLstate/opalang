@@ -723,7 +723,7 @@ SU : SU = {{
     | {String=_} -> ({su_either},T.tstring)
     | {Document=d} -> type_of_bson_document(d)
     | {Array=[]} -> ({su_either},T.tempty) // or maybe list('a) or list({})???
-    | {Array=[{name=_; ~value}|_]} -> // comes from an OPA list so all same type
+    | {Array=[{name=_; ~value}|_]} -> // comes from an OPA list or intmap so all same type
        (sut,ty) = type_of_bson_value(value)
        (sut,T.tlist(ty))
     | {Binary=_} -> ({su_either},T.tbinary)
@@ -788,11 +788,19 @@ SU : SU = {{
     | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
     | _ -> ty
 
+  @private
+  find_row_in_col(row,col) =
+    in(label,row) = List.exists((f -> f.label == label),row)
+    all_in_row(row1,row2) = List.for_all((f -> in(f.label,row2)),row1)
+    List.find((crow -> all_in_row(row,crow)),col)
+
   @private /*improper*/subtype(sty:OpaType.ty, ty:OpaType.ty): bool =
     //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
     missing_label(row, label) =
       labels = List.list_to_string((s -> s),List.map((f -> f.label),row))
-      ML.warning("SU.subtype","Warning: missing label: {label} in {labels}",false)
+      ML.warning("SU.subtype","Missing label {label} in row {labels}",false)
+    incomparable() =
+      ML.warning("SU.subtype","Incomparable types {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
     sty = explode_dot(sty)
     //dbg do println("explode={OpaType.to_pretty(sty)}")
     esty = empty_ty(sty)
@@ -802,6 +810,11 @@ SU : SU = {{
     then esty
     else
       match (sty,ty) with
+      | ({TyRecord_row=strow; ...},{TySum_col=tcol; ...}) ->
+         // We never get a sum type from type_of_bson_document
+         (match find_row_in_col(strow,tcol) with
+          | {some=trow} -> subtype(sty,{TyRecord_row=trow})
+          | {none} -> incomparable())
       | ({TyRecord_row=strow; ...},{TyRecord_row=trow; ...}) ->
          List.fold((stf, isty ->
                      isty &&
@@ -815,12 +828,9 @@ SU : SU = {{
       | ({TyName_args=[]; TyName_ident="Bson.code"},_)
       | ({TyName_args=[]; TyName_ident="Bson.codescope"},_) ->
          true // For now, until we get types from RE's and Javascript
-      | ({TyName_args=tys; TyName_ident=tyid},_) ->
-         subtype(OpaType.type_of_name(tyid, tys),ty)
-      | (_,{TyName_args=tys; TyName_ident=tyid}) ->
-         subtype(sty,OpaType.type_of_name(tyid, tys))
-      | _ ->
-        ML.warning("SU.subtype","Warning: incomparable types: {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
+      | ({TyName_args=tys; TyName_ident=tyid},_) -> subtype(OpaType.type_of_name(tyid, tys),ty)
+      | (_,{TyName_args=tys; TyName_ident=tyid}) -> subtype(sty,OpaType.type_of_name(tyid, tys))
+      | _ -> incomparable()
 
   /**
    * Validate the given document agains the type of the document

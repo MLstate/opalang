@@ -172,8 +172,8 @@ MongoLog = {{
 
   @private log_(from, what, logfn, str, v) =
     do match logtype.get() with
-      | {stdout} -> println("{from}({what}): {str}")
-      | {stderr} -> prerrln("{from}({what}): {str}")
+      | {stdout} -> println("{what}{if from=="" then "" else "({from})"}: {str}")
+      | {stderr} -> prerrln("{what}{if from=="" then "" else "({from})"}: {str}")
       | {logger} -> logfn(from,str)
       | {nomongolog} -> void
     v
@@ -185,8 +185,8 @@ MongoLog = {{
 
   fatal(from, str, v) =
     do match logtype.get() with
-      | {stdout} -> println("{from}(Fatal): {str}")
-      | {stderr} -> prerrln("{from}(Fatal): {str}")
+      | {stdout} -> println("Fatal{if from=="" then "" else "({from})"}: {str}")
+      | {stderr} -> prerrln("Fatal{if from=="" then "" else "({from})"}: {str}")
       | {logger} -> Log.fatal(from,str)
       | {nomongolog} -> void
     System.exit(v)
