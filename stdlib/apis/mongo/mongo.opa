@@ -141,11 +141,11 @@ Mongo = {{
   string_of_failure(failure:Mongo.failure): string =
     match failure with
     | {Error=str} -> str
-    | {DocError=doc} -> Bson.string_of_doc(doc)
+    | {DocError=doc} -> Bson.string_of_doc_error(doc)
 
   string_of_result(result:Mongo.result): string =
     match result with
-    | {success=doc} -> Bson.string_of_doc(doc)
+    | {success=doc} -> Bson.string_of_doc_error(doc)
     | {~failure} -> string_of_failure(failure)
 
   string_of_outcome(result:outcome('a,'b), success_to_str:'a->string, failure_to_str:'b->string): string =

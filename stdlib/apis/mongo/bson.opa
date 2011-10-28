@@ -109,6 +109,19 @@ type Bson.element = { name:string; value:Bson.value }
 type Bson.document = list(Bson.element)
 
 /**
+ * A generic error status type for OPA.
+ * Some commands will not be directly convertible into
+ * this, others will.  See [error_of_document].
+ **/
+type Bson.error = {
+  ok: Bson.register(Bson.int32);
+  err: Bson.register(string);
+  code: Bson.register(Bson.int32);
+  n: Bson.register(Bson.int32);
+  errmsg: Bson.register(string);
+}
+
+/**
  * Helper functions for constructing Bson values.
  *
  * Short names intended to be abbreviations for {name=...; value={Xyz=...}}.
@@ -459,7 +472,7 @@ Bson = {{
    * returned by mongo.  Which may be an error even if the
    * outcome is "success".
    **/
-  string_of_doc(doc:Bson.document): string =
+  string_of_doc_error(doc:Bson.document): string =
     ok =
       match find_int(doc,"ok") with
       | {some=0} -> "<not ok>"
@@ -471,6 +484,52 @@ Bson = {{
     n = match find_int(doc, "n") with | {some=n} -> "<n={n}>" | {none} -> ""
     errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
     String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
+
+  /**
+   * Same as [string_of_doc] but using an OPA type.
+   **/
+  string_of_error(error:Bson.error): string =
+    ok =
+      match error.ok with
+      | {present=0} -> "<not ok>"
+      | {present=1} -> "<ok>"
+      | {present=n} -> "<not ok> (Weird ok number {n})"
+      | {absent} -> "<unknown ok status>"
+    err = match error.err with | {present=""} -> "" | {present=err} -> "<err=\"{err}\">" | {absent} -> ""
+    code = match error.code with | {present=code} -> "<code={code}>" | {absent} -> ""
+    n = match error.n with | {present=n} -> "<n={n}>" | {absent} -> ""
+    errmsg = match error.errmsg with | {present=""} -> "" | {present=errmsg} -> "<errmsg=\"{errmsg}\">" | {absent} -> ""
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
+
+  /**
+   * We can't always use bson_to_opa to extract the error-relevant
+   * fields from a MongoDB reply document, there might be other
+   * arbitrary fields present.  Here we extract just those fields
+   * which are relevant to the error status.  Should work on any
+   * document.
+   **/
+  error_of_document(doc:Bson.document): Bson.error =
+    { ok=
+        match find_int(doc,"ok") with
+        | {some=n} -> {present=n}
+        | {none} -> {absent};
+      err=
+        match find_string(doc, "err") with
+        | {some=err} -> {present=err}
+        | {none} -> {absent};
+      code=
+        match find_int(doc,"code") with
+        | {some=code} -> {present=code}
+        | {none} -> {absent};
+      n=
+        match find_int(doc,"n") with
+        | {some=n} -> {present=n}
+        | {none} -> {absent};
+      errmsg=
+        match find_string(doc, "errmsg") with
+        | {some=errmsg} -> {present=errmsg}
+        | {none} -> {absent};
+    }
 
   /**
    * OPA to Bson
