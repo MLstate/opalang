@@ -221,17 +221,51 @@ let upgrade_options plugins options =
       extrapath ;
   }
 
+let resolve_entry search_path entry =
+  let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = entry in
+  match Filename.is_relative extrapath with
+  | false -> entry
+  | true  ->
+      (* Searching plugin in extra path... *)
+      let candidates = List.filter_map
+        (fun p ->
+           let fullname = Filename.concat p extrapath in
+           #<If:BSL_LOADING>
+             OManager.verbose "Seraching %s on %s => %s : %b" extrapath p fullname (File.is_directory fullname);
+           #<End>;
+           if File.is_directory fullname then Some fullname else None
+        ) search_path in
+      let aux extrapath =
+        OManager.verbose "Select %s" extrapath;
+        {S.plugin_name = basename; extralib; extrapath;
+         bypass = Filename.concat extrapath (Filename.basename bypass)} in
+      match candidates with
+      | [] -> entry
+      | [extrapath] -> aux extrapath
+      | extrapath::_ as places ->
+          OManager.warning ~wclass:WarningClass.bsl_loading
+            "@\nThe plugin @{<bright>%S@} is found in several places :\n(%s).@\nI will use @{<bright>%S@}"
+            basename
+            (String.concat "; " places)
+            extrapath ;
+          aux extrapath
 
 let process
     ~options
     ~code
     =
+  (* Pass *)
+  let plugins = options.O.bypass_plugin in
+  let back_end = options.O.back_end in
+  let js_back_end = options.O.js_back_end in
+  let cwd = Sys.getcwd () in
+  let search_path = cwd :: ObjectFiles.get_paths () in
 
   (* Separated compilation: loading *)
   let () =
     let iter (package_name, _) entries =
       let iter_entry entry =
-        let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = entry in
+        let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = resolve_entry search_path entry in
         if not (Hashtbl.mem already_seen_plugin basename)
         then (
           BslLib.declare_visibility package_name basename ;
@@ -246,12 +280,6 @@ let process
     R.iter_with_name ~packages:true ~deep:true iter
   in
   let separation = Separation.create () in
-
-  (* Pass *)
-  let plugins = options.O.bypass_plugin in
-  let extrapath = options.O.extrapath in
-  let back_end = options.O.back_end in
-  let js_back_end = options.O.js_back_end in
 
   let commandline = FilePos.nopos "command line" in
   let plugins = List.map (fun p -> (p, commandline)) plugins in
@@ -307,8 +335,6 @@ let process
   BslLib.declare_visibility package_name OpabslgenPlugin.Self.basename ;
 
   (* Search additional plug-ins.*)
-  let cwd = Sys.getcwd () in
-  let search_path = cwd :: extrapath in
   List.iter (
     fun (bypass_plugin, pos) ->
       (* the bypass_plugin is containing the extension opp *)
@@ -356,7 +382,8 @@ let process
         let () =
           if not (File.is_directory filename)
           then
-            OManager.error "%a@\nI/O error: cannot find @{<bright>%S@}" FilePos.pp pos filename
+            OManager.error "%a@\nI/O error: cannot find @{<bright>%S@} on %s" FilePos.pp pos filename
+              (String.concat "; " search_path);
         in
 
         let inclusion = BslConvention.inclusion ~cwd filename in
@@ -366,6 +393,10 @@ let process
         Hashtbl.add extralib_plugin basename extralib ;
         Hashtbl.add extrapath_plugin basename extrapath ;
         BslDynlink.load_bypass_plugin (BslDynlink.MarshalPlugin plugin) ;
+        let inclusion = BslConvention.inclusion ~cwd:"" bypass_plugin in
+        let extralib = inclusion.BslConvention.extralib in
+        let extrapath = inclusion.BslConvention.extrapath in
+        let plugin = inclusion.BslConvention.plugin in
         Separation.add separation (S.make basename extralib extrapath plugin) ;
       )
   ) plugins ;

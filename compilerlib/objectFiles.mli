@@ -89,6 +89,11 @@ val get_compilation_directory_or_current_dir : unit -> filename
 val set_extrapaths : no_stdlib:bool -> filename list -> unit
 
 (**
+   Get all paths where the compiler should search its objects
+*)
+val get_paths : unit -> filename list
+
+(**
    Set plugins version, from the loaded plugins
 *)
 val set_bsl_plugins : (basename * hash) list -> unit

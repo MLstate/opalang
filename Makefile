@@ -86,12 +86,8 @@ endef
 define install-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opp"
-@$(INSTALL) $(BUILD_DIR)/$*.opp/*.cmi "$(STDLIB_DIR)/$*.opp/";
-@$(INSTALL) $(BUILD_DIR)/$*.opp/*.cmx "$(STDLIB_DIR)/$*.opp/";
-@if [ -d "$(BUILD_DIR)/$*.opp/plugins/$*/" ]; then \
- mkdir -p "$(STDLIB_DIR)/$*.opp/plugins/$*/" ; \
- $(INSTALL) $(BUILD_DIR)/$*.opp/plugins/$*/*.js "$(STDLIB_DIR)/$*.opp/plugins/$*/" ; \
-fi
+@$(INSTALL) $(BUILD_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
+@$(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/";
 endef
 
 
