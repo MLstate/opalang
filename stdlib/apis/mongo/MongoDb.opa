@@ -16,6 +16,8 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import stdlib.core.{compare}
+
 /**
  *
  * Firstly, as an aside, note that we could very easily implement a MongoDB backend
@@ -243,8 +245,7 @@ MDB : MDB = {{
 
   err(db:mongodb, n:string): void =
     err = Commands.getLastError(db.mongo, db.dbname)
-    do println("error({n})={Mongo.string_of_result(err)}")
-    void
+    if Mongo.isError(err) then println("Error({n})={Mongo.string_of_result(err)}")
 
   skip(db:mongodb, skip:int): mongodb = { db with ~skip }
   limit(db:mongodb, limit:int): mongodb = { db with ~limit }
@@ -331,6 +332,37 @@ TypeSelect = {{
   taddcol(cty,row) =
     match (cty,row) with
     | ({TySum_col=cols},{TyRecord_row=row}) -> {TySum_col=[row|cols]}
+  in_row(label,row) =
+    List.exists((f -> f.label == label),row)
+  find_label_in_col(label,col) =
+    List.find((crow -> in_row(label,crow)),col)
+  find_row_in_col(row,col) =
+    all_in_row(row1,row2) = List.for_all((f -> in_row(f.label,row2)),row1)
+    List.find((crow -> all_in_row(row,crow)),col)
+  rec naive_type_compare(ty1:OpaType.ty, ty2:OpaType.ty): bool =
+    compare_consts(c1,c2) =
+      (match (c1,c2) with
+       | ({TyInt={}},{TyInt={}}) -> true
+       | ({TyString={}},{TyString={}}) -> true
+       | ({TyFloat={}},{TyFloat={}}) -> true
+       | _ -> false)
+    compare_rows(row1,row2) =
+       (match List.for_all2((f1, f2 -> f1.label == f2.label && naive_type_compare(f1.ty,f2.ty)),row1,row2) with
+        | {result=tf} -> tf
+        | _ -> false)
+    match (ty1,ty2) with
+    | ({TyConst=const1},{TyConst=const2}) -> compare_consts(const1,const2)
+    | ({TyName_args=[]; TyName_ident=i1},{TyName_args=[]; TyName_ident=i2}) -> i1 == i2
+    | ({TyName_args=a1; TyName_ident=i1},_) -> naive_type_compare(OpaType.type_of_name(i1, a1),ty2)
+    | (_,{TyName_args=a2; TyName_ident=i2}) -> naive_type_compare(ty1,OpaType.type_of_name(i2, a2))
+    | ({TyRecord_row=row1 ...},{TyRecord_row=row2 ...}) -> compare_rows(row1,row2)
+    | ({TySum_col=col1 ...},{TySum_col=col2 ...}) ->
+       (match List.for_all2((r1, r2 -> compare_rows(r1,r2)),col1,col2) with | {result=tf} -> tf | _ -> false)
+    | _ -> ML.fatal("TypeSelect.naive_type_compare","Can't compare {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+  name_type(ty:OpaType.ty): OpaType.ty =
+    match ty with
+    | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
+    | ty -> ty
 
 }} /* End of type support */
 
@@ -788,12 +820,6 @@ SU : SU = {{
     | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
     | _ -> ty
 
-  @private
-  find_row_in_col(row,col) =
-    in(label,row) = List.exists((f -> f.label == label),row)
-    all_in_row(row1,row2) = List.for_all((f -> in(f.label,row2)),row1)
-    List.find((crow -> all_in_row(row,crow)),col)
-
   @private /*improper*/subtype(sty:OpaType.ty, ty:OpaType.ty): bool =
     //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
     missing_label(row, label) =
@@ -812,7 +838,7 @@ SU : SU = {{
       match (sty,ty) with
       | ({TyRecord_row=strow; ...},{TySum_col=tcol; ...}) ->
          // We never get a sum type from type_of_bson_document
-         (match find_row_in_col(strow,tcol) with
+         (match T.find_row_in_col(strow,tcol) with
           | {some=trow} -> subtype(sty,{TyRecord_row=trow})
           | {none} -> incomparable())
       | ({TyRecord_row=strow; ...},{TyRecord_row=trow; ...}) ->
@@ -912,10 +938,52 @@ Update = {{
  *
  **/
 
-type batch = list(Bson.document)
+@abstract type batch = list(Bson.document)
+
+Batch = {{
+  empty = ([]:batch)
+  add(b:batch, v:'a): batch = [Bson.opa2doc(v)|b]
+  one(v:'a): batch = [Bson.opa2doc(v)]
+  add2(b:batch, (v1:'a, v2:'b)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|b]]
+  two(v1:'a, v2:'b): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)]]
+  add3(b:batch, (v1:'a, v2:'b, v3:'c)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|[Bson.opa2doc(v3)|b]]]
+  three(v1:'a, v2:'b, v3:'c): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|[Bson.opa2doc(v3)]]]
+  list(b:batch, vs:list('a)): batch = List.flatten([List.map(Bson.opa2doc,vs),b])
+  of_list(vs:list('a)) = list(empty,vs)
+  merge(b1:batch, b2:batch): batch = List.flatten([b1, b2])
+}}
+
+@abstract type fields = Bson.document
+
+Fields = {{
+  empty = ([]:fields)
+  add(f:fields, name:string, incexc:Bson.int32): fields = [H.i32(name,incexc)|f]
+  one(name:string, incexc:Bson.int32): fields = [H.i32(name,incexc)]
+  list(f:fields, fs:list((string,Bson.int32))): fields = List.flatten([List.map(((n,ie) -> H.i32(n,ie)),fs),f])
+  of_list(fs:list((string,Bson.int32))) = list(empty,fs)
+  merge(f1:fields, f2:fields): fields = List.flatten([f1, f2])
+  validate(fields:fields): bool =
+    (zeros, ones, others) = List.fold((e, (z, o, g) ->
+                                       if e.name == "_id"
+                                       then (z,o,g)
+                                       else
+                                         match Bson.int_of_element(e) with 
+                                         | {some=0} -> (z+1,o,g)
+                                         | {some=1} -> (z,o+1,g)
+                                         | {some=_} | {none} -> (z,o,g+1)),
+                                      fields,(0,0,0))
+    if zeros > 0 && ones > 0
+    then ML.warning("Fields.validate","Can't mix include and exclude fields {Bson.to_pretty(fields)}",false)
+    else if others > 0
+    then ML.warning("Fields.validate","Can only use 0 and 1 in fields {Bson.to_pretty(fields)}",false)
+    else true
+}}
 
 type collection('a) = {
   db: mongodb;
+  pty: OpaType.ty; // type of the parent collection
+  vty: OpaType.ty; // type of the view collection
+  view: bool; // flag for view status
 }
 
 type collection_cursor('a) = {
@@ -952,11 +1020,15 @@ type Collection = {{
   update : collection('value), select('value), update('value) -> bool
   delete : collection('value), select('value) -> bool
   find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
+  find_one_unsafe : collection('value), select('value) -> outcome('value,Mongo.failure)
   query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
+  query_unsafe : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   find_all : collection('value), select('value) -> outcome(list('value),Mongo.failure)
+  find_all_unsafe : collection('value), select('value) -> outcome(list('value),Mongo.failure)
   has_more : collection_cursor('value) -> bool
+  view : collection('value), Bson.document -> collection('newvalue)
   count : collection('value), option(select('value)) -> outcome(int,Mongo.failure)
   distinct : collection('value), string, option(select('value)) -> outcome(list('b),Mongo.failure)
   group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string) -> Mongo.result
@@ -964,17 +1036,14 @@ type Collection = {{
   kill : collection_cursor('value) -> collection_cursor('value)
 }}
 
-Batch = {{
-  empty = ([]:batch)
-  add(b:batch, v:'a): batch = [Bson.opa2doc(v)|b]
-  add2(b:batch, (v1:'a, v2:'b)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|b]]
-  add3(b:batch, (v1:'a, v2:'b, v3:'c)): batch = [Bson.opa2doc(v1)|[Bson.opa2doc(v2)|[Bson.opa2doc(v3)|b]]]
-  list(b:batch, vs:list('a)): batch = List.flatten([List.map(Bson.opa2doc,vs),b])
-}}
-
 Collection : Collection = {{
 
-  create(db:mongodb): collection('value) = { db=MDB.clone(db) }
+  create(db:mongodb): collection('value) =
+    { db=MDB.clone(db);
+      pty=@typeval('value);
+      vty=@typeval('value);
+      view=false;
+    }
 
   destroy(c:collection('value)): void = MDB.close(c.db)
 
@@ -1006,38 +1075,54 @@ Collection : Collection = {{
   partial(c:collection('value)): collection('value)
     = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.PartialBit) }}
 
+  @private
+  read_only(c:collection('value), from:string): void =
+    if c.view then ML.fatal("Collection.{from}","In order to prevent type inconsistencies, you can't write to a view",-1)
+
   insert(c:collection('value), v:'value): bool =
+    do read_only(c, "insert")
     ns = c.db.dbname^"."^c.db.collection
-    b = Bson.opa2doc(v)
+    b = Bson.opa_to_bson(v,{some=c.pty})
     Mongo.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
   insert_batch(c:collection('value), b:batch): bool =
+    do read_only(c, "insert_batch")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
   update(c:collection('value), select:select('value), update:update('value)): bool =
+    do read_only(c, "update")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
   delete(c:collection('value), select:select('value)): bool =
+    do read_only(c, "delete")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select)
 
-  find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+  find_one_unsafe(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match Bson.bson_to_opa(doc, @typeval('value)) with
+       (match Bson.bson_to_opa(doc, c.vty) with
         | {some=v} -> {success=(Magic.id(v):'value)}
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
 
-  query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+  find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.find_one","View type does not match return type")
+    find_one_unsafe(c, select)
+
+  query_unsafe(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
-    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=@typeval('value) }}
+    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=c.vty }}
     | {~failure} -> {~failure}
+
+  query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.query","View type does not match return type")
+    query_unsafe(c, select)
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
     _ = Cursor.reset(cc.cursor)
@@ -1047,7 +1132,7 @@ Collection : Collection = {{
     cursor = Cursor.next(cc.cursor)
     match Cursor.check_cursor_error(cursor) with
     | {success=doc} ->
-       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
+       //do println("next:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
        (match Bson.bson_to_opa(doc, cc.ty) with
         | {some=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
         | {none} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}}))
@@ -1057,8 +1142,9 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
-  find_all(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
-    match query(c,select) with
+  find_all_unsafe(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
+    //do println("find_all: 'value={OpaType.to_pretty(@typeval('value))}")
+    match query_unsafe(c,select) with
     | {success=cc} ->
        (cc,l) =
          while((cc,{success=[]}),
@@ -1067,15 +1153,76 @@ Collection : Collection = {{
                   | {success=l} ->
                      (match next(cc) with
                       | (cc,{success=v}) ->
-                         //do println("  v={v}")
-                         ((cc,{success=[v|l]}),has_more(cc))
+                         //do println("  v={(v:'value)}")
+                         ((cc,{success=[Magic.id(v):'value|l]}),has_more(cc))
                       | (cc,{~failure}) ->
-                         //do println("  err(query)={Bson.string_of_failure(failure)}")
+                         //do println("  err(query)={Mongo.string_of_failure(failure)}")
                          ((cc,{~failure}),false))
                   | {~failure} -> ((cc,{~failure}),false)))
        _ = kill(cc)
        l
     | {~failure} -> {~failure}
+
+  find_all(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
+    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.find_all","View type does not match return type")
+    find_all_unsafe(c, select)
+
+  @private
+  rec map_field(ty, f) =
+    map_row(row) = List.map((fld -> f({fld with ty=map_field(fld.ty, f)})),row)
+    match ty with
+    | {TyRecord_row=row}
+    | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=map_row(row)}
+    | {TySum_col=col}
+    | {TySum_col=col; TySum_colvar=_} -> {TySum_col=List.map(map_row,col)}
+    | {TyName_args=tys; TyName_ident=tyid} -> map_field(OpaType.type_of_name(tyid, tys), f)
+    | ty -> ty
+
+  @private
+  make_reg(fld) = {fld with ty={TyName_args=[fld.ty]; TyName_ident="Bson.register"}}
+
+  @private
+  type_from_fields(pty:OpaType.ty, fields:fields): OpaType.ty =
+    if not(Fields.validate(fields))
+    then ML.fatal("Collection.type_from_fields","Fields failed to validate",-1)
+    else
+      rec filter_field(pty, label, num) =
+        ie = match num with {some=0} -> (f -> f.label != label) | _ -> (f -> f.label == label)
+        filter_row(row) = List.filter(ie,row)
+        match pty with
+        | {TyRecord_row=row}
+        | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=filter_row(row)}
+        | {TySum_col=col}
+        | {TySum_col=col; TySum_colvar=_} -> 
+           (match List.filter((r -> r != []),List.map(filter_row,col)) with
+            | [] -> {TyRecord_row=[]}
+            | [r] -> {TyRecord_row=r}
+            | col -> {TySum_col=col})
+        | {TyName_args=tys; TyName_ident=tyid} -> filter_field(OpaType.type_of_name(tyid, tys), label, num)
+        | ty -> ty
+      List.fold((e, ty -> filter_field(ty, e.name, Bson.int_of_value(e.value))),fields,pty)
+
+  @private
+  verify_type_match(ty1:OpaType.ty, ty2:OpaType.ty, from:string, msg:string): void =
+    //do println("ty1={OpaType.to_pretty(TypeSelect.name_type(ty1))}")
+    //do println("ty2={OpaType.to_pretty(TypeSelect.name_type(ty2))}")
+    // We can't use the fancy caching in compare_ty since our altered types mess with the caching
+    if not(TypeSelect.naive_type_compare(ty1, ty2))
+    then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+    else void
+
+  view(c:collection('value), vfields:fields): collection('newvalue) =
+    v = fields(c, {some=vfields})
+    pty = @typeval('value)
+    do verify_type_match(pty, c.pty, "Collection.view","Attempt to create view from non-matching parent types")
+    fvty = type_from_fields(pty, vfields)
+    rfvty = map_field(fvty, make_reg)
+    cvty = @typeval('newvalue)
+    //do println("fvty={OpaType.to_pretty(fvty)}")
+    //do println("rfvty={OpaType.to_pretty(rfvty)}")
+    //do println("cvty={OpaType.to_pretty(cvty)}")
+    do verify_type_match(rfvty, cvty, "Collection.view","Attempt to create view with incompatible view types")
+    { v with vty=rfvty; view=true }
 
   count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
     Commands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))

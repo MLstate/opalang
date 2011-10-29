@@ -313,12 +313,23 @@ Bson = {{
     | {some={Double=_}} -> {some=true}
     | _ -> {none}
 
-  find_int(bson:Bson.document, name:string): option(int) =
-    match Option.map((e -> e.value),find_element(bson, name)) with
-    | {some={Int32=i}} -> {some=i}
-    | {some={Int64=i}} -> {some=i}
-    | {some={Double=d}} -> {some=Float.to_int(d)}
+  int_of_value(v:Bson.value): option(int) =
+    match v with
+    | {Int32=i} -> {some=i}
+    | {Int64=i} -> {some=i}
+    | {Double=d} -> {some=Float.to_int(d)}
     | _ -> {none}
+
+  int_of_element(e:Bson.element): option(int) = int_of_value(e.value)
+
+  Option_flatten(o:option(option('a))): option('a) =
+    match o with
+    | {some={some=a}} -> {some=a}
+    | {some={none}} -> {none}
+    | {none} -> none
+
+  find_int(bson:Bson.document, name:string): option(int) =
+    Option_flatten(Option.map(int_of_element,find_element(bson, name)))
 
   find_float(bson:Bson.document, name:string): option(float) =
     match Option.map((e -> e.value),find_element(bson, name)) with
@@ -486,6 +497,16 @@ Bson = {{
     String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
 
   /**
+   * Decide if a document contains an error or not.
+   **/
+  isError(doc:Bson.document): bool =
+    ok = match find_int(doc,"ok") with {some=ok} -> ok != 0 | {none} -> false
+    err = match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false
+    code = match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false
+    errmsg = match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false
+    ok || err || code || errmsg
+
+  /**
    * Same as [string_of_doc] but using an OPA type.
    **/
   string_of_error(error:Bson.error): string =
@@ -622,7 +643,7 @@ Bson = {{
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args=[{TyConst={TyInt={}}},lty,_]; TyName_ident="ordered_map"}
     | {TyName_args=[lty]; TyName_ident="intmap"} -> intmap_to_bson(key, @unsafe_cast(v), lty)
-    | {TyName_args = tys; TyName_ident = tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
+    | {TyName_args=tys; TyName_ident=tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
     | _ -> ML.fatal("Bson.opa_to_bson","unknown value {v} of type {OpaType.to_pretty(ty)}",-1)
 
   opa_to_bson(v:'a, ty_opt:option(OpaType.ty)): Bson.document =

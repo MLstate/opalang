@@ -172,6 +172,8 @@ Mongo = {{
 
   pretty_of_result(result:Mongo.result): string = string_of_value_or_failure(result,Bson.to_pretty)
 
+  isError(result:Mongo.result): bool = outcome_map(result, Bson.isError, (_ -> true))
+
   /**
    * outcome-wrapped versions of find_xxx etc.
    **/
