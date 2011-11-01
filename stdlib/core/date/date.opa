@@ -645,7 +645,7 @@ type time_t = external
      *
      * @param wday weekday to convert
      */
-    to_string : Date.weekday -> string =
+    @stringifier(Date.weekday) to_string : Date.weekday -> string =
       | {monday} -> "Monday"
       | {tuesday} -> "Tuesday"
       | {wednesday} -> "Wednesday"
@@ -727,7 +727,7 @@ type time_t = external
      *
      * @param month a month to convert
     **/
-    to_string : Date.month -> string =
+    @stringifier(Date.month) to_string : Date.month -> string =
       | {january} -> "January"
       | {february} -> "February"
       | {march} -> "March"
