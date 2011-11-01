@@ -21,10 +21,10 @@
  * @author Adam Koprowski, 2011
  */
 
-
 import stdlib.widgets.core
 import stdlib.widgets.button
 import stdlib.widgets.datepicker
+import stdlib.components.fragment
 
 // ***************************************************************************************
 /**
@@ -60,9 +60,18 @@ type CCalendarControls.config('event) =
       toggled_style = mk_button_stl("toggled")
     }
 
+  @private register_date_range_view(cal) =
+    update_date(_state, {NewMode=mode}) =
+      {re_render=<>{CCalendar.date_range_string(mode)}</>}
+    (date_range_xhtml, date_range_fragment) = CFragment.create(void, <></>, update_date)
+    ViewChanged(mode) = CFragment.notify(date_range_fragment, {NewMode=mode})
+    do CCalendar.perform(cal, {UpdateCallbacks=(callbacks -> {callbacks with ~ViewChanged })})
+    date_range_xhtml
+
   extensible_style_config =
   {
     generate(id, cal) =
+      date_range_xhtml = register_date_range_view(cal)
        // buttons
       button = generate_button(cal, make_buttons_style("ccalendar_ext_ctrl_btn"), _, _, _)
        // left panel
@@ -91,7 +100,7 @@ type CCalendarControls.config('event) =
        // html
       <div id={id} style={panel_style}>
         <span style={left_panel_style}>
-          {today}{prev}{next}{goto}
+          {today}{prev}{next}{date_range_xhtml}{goto}
         </>
         <span style={right_panel_style}>
           {two_weeks_view}{month_view}
@@ -102,6 +111,7 @@ type CCalendarControls.config('event) =
   google_style_config =
   {
     generate(id, cal) =
+      date_range_xhtml = register_date_range_view(cal)
        // buttons
       buttons_config = make_buttons_style("ccalendar_ext_ctrl_btn")
       blue_button = generate_button(cal, buttons_config, _, _, _)
@@ -131,7 +141,7 @@ type CCalendarControls.config('event) =
        // xhtml
       <div style={panel_style} id={id}>
         <span style={left_panel_style}>
-          {today}{prev}{next}
+          {today}{prev}{next}{date_range_xhtml}
         </>
         <span style={right_panel_style}>
           {month_view}{two_weeks_view}

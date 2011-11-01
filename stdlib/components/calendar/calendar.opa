@@ -171,6 +171,9 @@ type CCalendar.msg('event) =
   /* shutting down the calendar component */
  / { Shutdown }
 
+  // ------------------ callbacks -----------------
+ / { UpdateCallbacks : CCalendar.callbacks('event) -> CCalendar.callbacks('event) }
+
 type CCalendar.callbacks('event) =
 {
   /* the viewing mode or the visible date range has changed */
@@ -294,23 +297,26 @@ type CCalendar.state('event) =
     update_state_and_refresh(state, new_state)
 
   @private on_message(state : CCalendar.state, msg, channel) =
+    upgrade = update_state_and_refresh(state, _)
     match msg with
     | {Next} -> on_message(state, {Move = 1}, channel)
     | {Prev} -> on_message(state, {Move = -1}, channel)
     | {Move = by} -> move_by(by, state)
     | {GoToday} -> on_message(state, {SetDate = Date.now()}, channel)
-    | {SetDate = date} -> update_state_and_refresh(state, set_date(state, date))
+    | {SetDate = date} -> upgrade(set_date(state, date))
     | {SetMode = mode} ->
         new_state = {state with ~mode}
         change_mode_to(state, new_state)
     | {ChangeMode = mode} ->
         new_state = change_mode(state, mode)
         change_mode_to(state, new_state)
-    | {ChangeConfig = config} -> update_state_and_refresh(state, { state with ~config })
-    | {Refresh} -> update_state_and_refresh(state, state)
+    | {ChangeConfig = config} -> upgrade({ state with ~config })
+    | {Refresh} -> upgrade(state)
     | {Startup ~redraw_handler} ->
-        update_state_and_refresh(state, {state with redraw_handler=some(redraw_handler)})
+        upgrade({state with redraw_handler=some(redraw_handler)})
     | {Shutdown} -> calendar_shutdown(state)
+    | {UpdateCallbacks=f} ->
+        upgrade({state with callbacks=f(state.callbacks)})
     | {AddEvent=_}
     | {RemoveEvent=_}
     | {ModifyEvent=_}
@@ -828,10 +834,32 @@ type CCalendar.state('event) =
       | {~SetDate} -> {~SetDate}
       | {~Refresh} -> {~Refresh}
       | {~Shutdown} -> {~Shutdown}
+      | {~UpdateCallbacks} -> {~UpdateCallbacks}
     Session.send(c, msg)
 
   redraw(c : CCalendar.instance) : void =
     perform(c, {Refresh})
+
+// ***************************************************************************************
+  /**
+   * {2 Auxilary functions}
+  **/
+// ***************************************************************************************
+   date_range_string(mode : CCalendar.mode) : string =
+     match mode with
+     | ~{month} -> "{month.month} {month.year}"
+     | {weeks=~{no start_at}} ->
+         end_at = Date.advance(start_at, Duration.weeks(no))
+               |> Date.advance(_, Duration.days(-1))
+         start_day = Date.get_day(start_at)
+         dont_repeat(f) =
+           if f(start_at) == f(end_at) then
+             ""
+           else
+             "{f(start_at)} "
+         start_month = dont_repeat(Date.get_month)
+         start_year = dont_repeat(Date.get_year)
+         "{start_day} {start_month}{start_year}– {Date.to_string_date_only(end_at)}"
 
 }}
 
