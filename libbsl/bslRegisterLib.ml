@@ -1044,6 +1044,8 @@ let finalize s =
 
   finalized_t
 
+let command_not_found = 127
+
 let js_validator finalized_t =
   let name = finalized_t.f_options.BI.basename in
   match finalized_t.f_options.BI.js_validator with
@@ -1063,8 +1065,9 @@ let js_validator finalized_t =
     Printf.printf "%s\n" command;
     let r = Sys.command command in
     if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
-      Printf.printf "Failure(%d) %s\n" r command;
-      exit r
+      if r = command_not_found
+      then          warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
+      else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command
     ) else ()
   | _ -> ()
 ;;
