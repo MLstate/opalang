@@ -359,6 +359,7 @@ TypeSelect = {{
 
   /** Naive type compare.  No fancy caching but it works on broken types. **/
   rec naive_type_compare(ty1:OpaType.ty, ty2:OpaType.ty): bool =
+    //do println("TypeSelect.naive_type_compare: ty1={OpaType.to_pretty(ty1)} ty2={OpaType.to_pretty(ty2)}")
     compare_consts(c1,c2) =
       (match (c1,c2) with
        | ({TyInt={}},{TyInt={}}) -> true
@@ -395,6 +396,61 @@ TypeSelect = {{
     | {TySum_col=col; TySum_colvar=_} -> {TySum_col=List.map(map_row,col)}
     | {TyName_args=tys; TyName_ident=tyid} -> map_field(OpaType.type_of_name(tyid, tys), f)
     | ty -> ty
+
+  /** Filter the records in a type **/
+  @private
+  rec filter_field_(names:list(string), ty, f) =
+    rec ispfx(l1,l2) =
+      match (l1,l2) with
+      | ([e1|l1],[e2|l2]) -> e1 == e2 && ispfx(l1,l2)
+      | ([],_) -> true
+      | (_,[]) -> false
+    filter_row(row) =
+      rec aux(row) =
+        match row with
+        | [fld|rest] ->
+          flds = aux(rest)
+          names = List.flatten([names,[fld.label]])
+          (not_empty,ty) = filter_field_(names, fld.ty, f)
+          //do println("filter_field: not_empty={not_empty} names={names} f={f(names)}")
+          if not_empty || f(names) then [{fld with ~ty}|flds] else flds
+        | [] -> []
+      aux(row)
+    match ty with
+    | {TyRecord_row=row}
+    | {TyRecord_row=row; TyRecord_rowvar=_} ->
+       frow = filter_row(row)
+       (frow != [],{TyRecord_row=frow})
+    | {TySum_col=col}
+    | {TySum_col=col; TySum_colvar=_} -> 
+       (match List.filter((r -> r != []),List.map(filter_row,col)) with
+        | [] -> (true,{TyRecord_row=[]})
+        | [r] -> (false,{TyRecord_row=r})
+        | col -> (false,{TySum_col=col}))
+    | {TyName_args=tys; TyName_ident=tyid} -> filter_field_(names, OpaType.type_of_name(tyid, tys), f)
+    | ty -> (false,ty)
+
+  filter_field(ty, f) = (filter_field_([], ty, f)).f2
+
+  /** Expand all dot notation in a top-level record.
+   *  Does not recurse through named types.
+   **/
+  explode_dot(ty:OpaType.ty): OpaType.ty =
+    explode_row(row) =
+         List.map((f -> 
+                   match String.explode(".",f.label) with
+                   | [] | [_] -> f
+                   | [dot|dots] ->
+                      rec aux(dots) =
+                        match dots with
+                        | [] -> @fail // can't happen
+                        | [label] -> {TyRecord_row=[{~label; ty=(f.ty:OpaType.ty)}]}
+                        | [label|dots] -> {TyRecord_row=[{~label; ty=aux(dots)}]}
+                      {label=dot; ty=aux(dots)}),row)
+    match ty with
+    | {TyRecord_row=row} -> {TyRecord_row=explode_row(row)}
+    | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
+    | _ -> ty
 
 }} /* End of type support */
 
@@ -834,24 +890,6 @@ SU : SU = {{
 
   @private empty_ty(ty) = ty == T.tempty || T.istvar(ty)
 
-  @private
-  explode_dot(ty:OpaType.ty): OpaType.ty =
-    explode_row(row) =
-         List.map((f -> 
-                   match String.explode(".",f.label) with
-                   | [] | [_] -> f
-                   | [dot|dots] ->
-                      rec aux(dots) =
-                        match dots with
-                        | [] -> @fail
-                        | [label] -> {TyRecord_row=[{~label; ty=(f.ty:OpaType.ty)}]}
-                        | [label|dots] -> {TyRecord_row=[{~label; ty=aux(dots)}]}
-                      {label=dot; ty=aux(dots)}),row)
-    match ty with
-    | {TyRecord_row=row} -> {TyRecord_row=explode_row(row)}
-    | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
-    | _ -> ty
-
   @private /*improper*/subtype(sty:OpaType.ty, ty:OpaType.ty): bool =
     //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
     missing_label(row, label) =
@@ -859,7 +897,7 @@ SU : SU = {{
       ML.warning("SU.subtype","Missing label {label} in row {labels}",false)
     incomparable() =
       ML.warning("SU.subtype","Incomparable types {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
-    sty = explode_dot(sty)
+    sty = TypeSelect.explode_dot(sty)
     //dbg do println("explode={OpaType.to_pretty(sty)}")
     esty = empty_ty(sty)
     if sty == ty || esty
@@ -1269,23 +1307,14 @@ View = {{
   @private
   type_from_fields(pty:OpaType.ty, fields:fields): OpaType.ty =
     if not(Fields.validate(fields))
-    then ML.fatal("Collection.type_from_fields","Fields failed to validate",-1)
+    then ML.fatal("View.type_from_fields","Fields failed to validate",-1)
     else
-      rec filter_field(pty, label, num) =
-        ie = match num with {some=0} -> (f -> f.label != label) | _ -> (f -> f.label == label)
-        filter_row(row) = List.filter(ie,row)
-        match pty with
-        | {TyRecord_row=row}
-        | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=filter_row(row)}
-        | {TySum_col=col}
-        | {TySum_col=col; TySum_colvar=_} -> 
-           (match List.filter((r -> r != []),List.map(filter_row,col)) with
-            | [] -> {TyRecord_row=[]}
-            | [r] -> {TyRecord_row=r}
-            | col -> {TySum_col=col})
-        | {TyName_args=tys; TyName_ident=tyid} -> filter_field(OpaType.type_of_name(tyid, tys), label, num)
-        | ty -> ty
-      List.fold((e, ty -> filter_field(ty, e.name, Bson.int_of_value(e.value))),fields,pty)
+      tst =
+        match List.unique_list_of(List.map((e -> Bson.int_of_value(e.value)),fields)) with
+        | [{some=num}] -> (match num with 0 -> not | _ -> (tf -> tf))
+        | _ -> ML.fatal("View.type_from_fields","Bad fields value {fields}",-1)
+      dfields = List.map((e -> String.explode(".",e.name)),fields)
+      TypeSelect.filter_field(pty, (fs -> tst(List.mem(fs,dfields))))
 
   @private
   verify_type_match(ty1:OpaType.ty, ty2:OpaType.ty, from:string, msg:string): void =
@@ -1350,7 +1379,7 @@ UtilsDb = {{
            (match Bson.find_string(success, "err") with
             | {some=""} | {none} -> true
             | {some=err} -> do println("{msg}: {err}") false)
-        | {~failure} ->  do println("{msg}: fatal error {Mongo.string_of_failure(failure)}") false)
+        | {~failure} -> do println("{msg}: fatal error {Mongo.string_of_failure(failure)}") false)
 
    safe_insert(c,v) = safe_(c,((c,v) -> Collection.insert(c,v)),(c,v),"Collection.insert")
    safe_insert_batch(c,b) = safe_(c,((c,b) -> Collection.insert_batch(c,b)),(c,b),"Collection.insert_batch")
