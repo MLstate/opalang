@@ -269,6 +269,7 @@ MDB : MDB = {{
 /* Type support */
 TypeSelect = {{
 
+  /** Abbreviations for common types **/
   tempty = {TyRecord_row=[]}
   tvar(tv) = {TyRecord_row=[]; TyRecord_rowvar=tv}
   istvar(ty) = match ty with | {TyRecord_row=[]; TyRecord_rowvar=_} -> true | _ -> false
@@ -289,16 +290,26 @@ TypeSelect = {{
   tvalue = {TyName_args=[]; TyName_ident="Bson.value"}
   telement = {TyName_args=[]; TyName_ident="Bson.element"}
   tdoc = {TyName_args=[]; TyName_ident="Bson.document"}
+
+  /** Constructor for more complex types **/
   ttup2(ty1:OpaType.ty,ty2:OpaType.ty):OpaType.ty = {TyName_args=[ty1, ty2]; TyName_ident="tuple_2"}
   tlist(ty:OpaType.ty):OpaType.ty = {TyName_args=[ty]; TyName_ident="list"}
   trec(label, ty) = {TyRecord_row=[~{label; ty}]}
+
+  /** Sort a record by field name **/
   tsortrec(ty) =
     match ty with
     | {TyRecord_row=row; ...} -> {ty with TyRecord_row=List.sort_by((r -> r.label),row)}
     | ty -> ty
+
+  /** Field sets (used in following analysis **/
   order_field(f1, f2): Order.ordering = String.ordering(f1.label,f2.label)
   FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
+
+  /** Set difference, bizarrely missing from Set module. **/ 
   diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
+
+  /** Overlay two types, matching and merging sub-types **/
   tmrgrecs(rec1, rec2) =
     //dbg do println("rec1={OpaType.to_pretty(rec1)}\nrec2={OpaType.to_pretty(rec2)}")
     if rec1 == rec2 || rec2 == tempty
@@ -329,16 +340,24 @@ TypeSelect = {{
         rec1str = OpaType.to_pretty(rec1)
         rec2str = OpaType.to_pretty(rec2)
         ML.fatal("TypeSelect.tmrgrecs","Attempt to merge non-record types {rec1str} and {rec2str}",-1)
+
+  /** Add a row to a column **/
   taddcol(cty,row) =
     match (cty,row) with
     | ({TySum_col=cols},{TyRecord_row=row}) -> {TySum_col=[row|cols]}
-  in_row(label,row) =
-    List.exists((f -> f.label == label),row)
-  find_label_in_col(label,col) =
-    List.find((crow -> in_row(label,crow)),col)
+
+  /** Predicate for field included in row **/
+  in_row(label,row) = List.exists((f -> f.label == label),row)
+
+  /** Find a named label in a column **/
+  find_label_in_col(label,col) = List.find((crow -> in_row(label,crow)),col)
+
+  /** Find a row in column (all row fields must be present and in order) **/
   find_row_in_col(row,col) =
     all_in_row(row1,row2) = List.for_all((f -> in_row(f.label,row2)),row1)
     List.find((crow -> all_in_row(row,crow)),col)
+
+  /** Naive type compare.  No fancy caching but it works on broken types. **/
   rec naive_type_compare(ty1:OpaType.ty, ty2:OpaType.ty): bool =
     compare_consts(c1,c2) =
       (match (c1,c2) with
@@ -359,9 +378,22 @@ TypeSelect = {{
     | ({TySum_col=col1 ...},{TySum_col=col2 ...}) ->
        (match List.for_all2((r1, r2 -> compare_rows(r1,r2)),col1,col2) with | {result=tf} -> tf | _ -> false)
     | _ -> ML.fatal("TypeSelect.naive_type_compare","Can't compare {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+
+  /** Extract the type from a named type (not recursively) **/
   name_type(ty:OpaType.ty): OpaType.ty =
     match ty with
     | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
+    | ty -> ty
+
+  /** Map a function over the types of the fields in all records **/
+  rec map_field(ty, f) =
+    map_row(row) = List.map((fld -> f({fld with ty=map_field(fld.ty, f)})),row)
+    match ty with
+    | {TyRecord_row=row}
+    | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=map_row(row)}
+    | {TySum_col=col}
+    | {TySum_col=col; TySum_colvar=_} -> {TySum_col=List.map(map_row,col)}
+    | {TyName_args=tys; TyName_ident=tyid} -> map_field(OpaType.type_of_name(tyid, tys), f)
     | ty -> ty
 
 }} /* End of type support */
@@ -936,6 +968,9 @@ Update = {{
  * driver routines.  The currency here is OPA values, not BSON documents hence
  * we need to give a type to the collection.
  *
+ * Helper modules are Batch{{}} which allows building a list of documents for
+ * batch insert and Fields{{}} which is used to define field select documents.
+ *
  **/
 
 @abstract type batch = list(Bson.document)
@@ -981,9 +1016,12 @@ Fields = {{
 
 type collection('a) = {
   db: mongodb;
-  pty: OpaType.ty; // type of the parent collection
+  ty: OpaType.ty; // type of the collection
+}
+
+type view('a,'b) = {
+  coll: collection('a);
   vty: OpaType.ty; // type of the view collection
-  view: bool; // flag for view status
 }
 
 type collection_cursor('a) = {
@@ -1020,15 +1058,14 @@ type Collection = {{
   update : collection('value), select('value), update('value) -> bool
   delete : collection('value), select('value) -> bool
   find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
-  find_one_unsafe : collection('value), select('value) -> outcome('value,Mongo.failure)
+  find_one_unsafe : collection('value), select('value) -> outcome('result,Mongo.failure)
   query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
-  query_unsafe : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
+  query_unsafe : collection('value), select('value) -> outcome(collection_cursor('result),Mongo.failure)
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   find_all : collection('value), select('value) -> outcome(list('value),Mongo.failure)
-  find_all_unsafe : collection('value), select('value) -> outcome(list('value),Mongo.failure)
+  find_all_unsafe : collection('value), select('value) -> outcome(list('result),Mongo.failure)
   has_more : collection_cursor('value) -> bool
-  view : collection('value), Bson.document -> collection('newvalue)
   count : collection('value), option(select('value)) -> outcome(int,Mongo.failure)
   distinct : collection('value), string, option(select('value)) -> outcome(list('b),Mongo.failure)
   group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string) -> Mongo.result
@@ -1038,12 +1075,7 @@ type Collection = {{
 
 Collection : Collection = {{
 
-  create(db:mongodb): collection('value) =
-    { db=MDB.clone(db);
-      pty=@typeval('value);
-      vty=@typeval('value);
-      view=false;
-    }
+  create(db:mongodb): collection('value) = { db=MDB.clone(db); ty=@typeval('value); }
 
   destroy(c:collection('value)): void = MDB.close(c.db)
 
@@ -1075,53 +1107,44 @@ Collection : Collection = {{
   partial(c:collection('value)): collection('value)
     = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.PartialBit) }}
 
-  @private
-  read_only(c:collection('value), from:string): void =
-    if c.view then ML.fatal("Collection.{from}","In order to prevent type inconsistencies, you can't write to a view",-1)
-
   insert(c:collection('value), v:'value): bool =
-    do read_only(c, "insert")
     ns = c.db.dbname^"."^c.db.collection
-    b = Bson.opa_to_bson(v,{some=c.pty})
+    b = Bson.opa_to_bson(v,{some=@typeval('value)})
     Mongo.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
   insert_batch(c:collection('value), b:batch): bool =
-    do read_only(c, "insert_batch")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
   update(c:collection('value), select:select('value), update:update('value)): bool =
-    do read_only(c, "update")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
   delete(c:collection('value), select:select('value)): bool =
-    do read_only(c, "delete")
     ns = c.db.dbname^"."^c.db.collection
     Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select)
 
-  find_one_unsafe(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+  find_one_unsafe(c:collection('value), select:select('value)): outcome('result,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
        //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match Bson.bson_to_opa(doc, c.vty) with
-        | {some=v} -> {success=(Magic.id(v):'value)}
+       (match Bson.bson_to_opa(doc, @typeval('result)) with
+        | {some=v} -> {success=(Magic.id(v):'result)}
         | {none} -> {failure={Error="Collection.find_one: not found"}})
      | {~failure} -> {~failure})
 
   find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
-    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.find_one","View type does not match return type")
     find_one_unsafe(c, select)
 
-  query_unsafe(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+  query_unsafe(c:collection('value), select:select('value)): outcome(collection_cursor('result),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
+    //do println("query_unsafe:\n'value={OpaType.to_pretty(@typeval('value))}\n'result={OpaType.to_pretty(@typeval('result))}")
     match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
-    | {success=cursor} -> {success={collection=c; ~cursor; query=select; ty=c.vty }}
+    | {success=cursor} -> {success={collection=@unsafe_cast(c); ~cursor; query=@unsafe_cast(select); ty=@typeval('result)}}
     | {~failure} -> {~failure}
 
   query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
-    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.query","View type does not match return type")
     query_unsafe(c, select)
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
@@ -1142,9 +1165,9 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
-  find_all_unsafe(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
-    //do println("find_all: 'value={OpaType.to_pretty(@typeval('value))}")
-    match query_unsafe(c,select) with
+  find_all_unsafe(c:collection('value), select:select('value)): outcome(list('result),Mongo.failure) =
+    //do println("find_all:\n  'value={OpaType.to_pretty(@typeval('value))}\n  'result={OpaType.to_pretty(@typeval('result))}")
+    match (query_unsafe(c,select): outcome(collection_cursor('result),Mongo.failure)) with
     | {success=cc} ->
        (cc,l) =
          while((cc,{success=[]}),
@@ -1153,8 +1176,8 @@ Collection : Collection = {{
                   | {success=l} ->
                      (match next(cc) with
                       | (cc,{success=v}) ->
-                         //do println("  v={(v:'value)}")
-                         ((cc,{success=[Magic.id(v):'value|l]}),has_more(cc))
+                         //do println("  v={(v:'result)}")
+                         ((cc,{success=[Magic.id(v):'result|l]}),has_more(cc))
                       | (cc,{~failure}) ->
                          //do println("  err(query)={Mongo.string_of_failure(failure)}")
                          ((cc,{~failure}),false))
@@ -1164,65 +1187,7 @@ Collection : Collection = {{
     | {~failure} -> {~failure}
 
   find_all(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
-    do if c.view then verify_type_match(@typeval('value), c.vty, "Collection.find_all","View type does not match return type")
     find_all_unsafe(c, select)
-
-  @private
-  rec map_field(ty, f) =
-    map_row(row) = List.map((fld -> f({fld with ty=map_field(fld.ty, f)})),row)
-    match ty with
-    | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=map_row(row)}
-    | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} -> {TySum_col=List.map(map_row,col)}
-    | {TyName_args=tys; TyName_ident=tyid} -> map_field(OpaType.type_of_name(tyid, tys), f)
-    | ty -> ty
-
-  @private
-  make_reg(fld) = {fld with ty={TyName_args=[fld.ty]; TyName_ident="Bson.register"}}
-
-  @private
-  type_from_fields(pty:OpaType.ty, fields:fields): OpaType.ty =
-    if not(Fields.validate(fields))
-    then ML.fatal("Collection.type_from_fields","Fields failed to validate",-1)
-    else
-      rec filter_field(pty, label, num) =
-        ie = match num with {some=0} -> (f -> f.label != label) | _ -> (f -> f.label == label)
-        filter_row(row) = List.filter(ie,row)
-        match pty with
-        | {TyRecord_row=row}
-        | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=filter_row(row)}
-        | {TySum_col=col}
-        | {TySum_col=col; TySum_colvar=_} -> 
-           (match List.filter((r -> r != []),List.map(filter_row,col)) with
-            | [] -> {TyRecord_row=[]}
-            | [r] -> {TyRecord_row=r}
-            | col -> {TySum_col=col})
-        | {TyName_args=tys; TyName_ident=tyid} -> filter_field(OpaType.type_of_name(tyid, tys), label, num)
-        | ty -> ty
-      List.fold((e, ty -> filter_field(ty, e.name, Bson.int_of_value(e.value))),fields,pty)
-
-  @private
-  verify_type_match(ty1:OpaType.ty, ty2:OpaType.ty, from:string, msg:string): void =
-    //do println("ty1={OpaType.to_pretty(TypeSelect.name_type(ty1))}")
-    //do println("ty2={OpaType.to_pretty(TypeSelect.name_type(ty2))}")
-    // We can't use the fancy caching in compare_ty since our altered types mess with the caching
-    if not(TypeSelect.naive_type_compare(ty1, ty2))
-    then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
-    else void
-
-  view(c:collection('value), vfields:fields): collection('newvalue) =
-    v = fields(c, {some=vfields})
-    pty = @typeval('value)
-    do verify_type_match(pty, c.pty, "Collection.view","Attempt to create view from non-matching parent types")
-    fvty = type_from_fields(pty, vfields)
-    rfvty = map_field(fvty, make_reg)
-    cvty = @typeval('newvalue)
-    //do println("fvty={OpaType.to_pretty(fvty)}")
-    //do println("rfvty={OpaType.to_pretty(rfvty)}")
-    //do println("cvty={OpaType.to_pretty(cvty)}")
-    do verify_type_match(rfvty, cvty, "Collection.view","Attempt to create view with incompatible view types")
-    { v with vty=rfvty; view=true }
 
   count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
     Commands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
@@ -1271,6 +1236,97 @@ Collection : Collection = {{
   // TODO: map-reduce
 
   kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=Cursor.reset(cc.cursor) }
+
+}}
+
+/**
+ * View {{ ... }}:
+ *
+ *  Alternative way of handling queries, we allow the return type to be different
+ *  from, but a sub-type of, the parent collection's type.  We can't enforce
+ *  type-safety at compile time but we do insert runtime type-checks into the
+ *  view, both at creation time and at query time.  If you are 100% sure that your
+ *  types are correct, you can eliminate the run-time type-check by simply using
+ *  the Collection module "unsafe" operations.
+ *
+ *  The fields are selected by building a [fields] value using the Fields module.
+ *  The result has to be cast to the return type which is derived from the collection
+ *  type with the required fields included/excluded and turned into Bson.register values,
+ *  for example, collection type {a:int; b:string} and field selector {b:1} results in
+ *  the result type: {b:Bson.register(string)}.  This is checked at runtime.  Once the
+ *  view has been created, you simply substitute the View query functions for the
+ *  Collection functions.
+ *
+ *  Note that we are obliged to turn all the fields into Bson.register types because
+ *  MongoDB will return a record with missing fields for documents which match the query
+ *  but which do not have all of the fields selected.
+ *
+ **/
+View = {{
+
+  @private make_reg(fld) = {fld with ty={TyName_args=[fld.ty]; TyName_ident="Bson.register"}}
+
+  @private
+  type_from_fields(pty:OpaType.ty, fields:fields): OpaType.ty =
+    if not(Fields.validate(fields))
+    then ML.fatal("Collection.type_from_fields","Fields failed to validate",-1)
+    else
+      rec filter_field(pty, label, num) =
+        ie = match num with {some=0} -> (f -> f.label != label) | _ -> (f -> f.label == label)
+        filter_row(row) = List.filter(ie,row)
+        match pty with
+        | {TyRecord_row=row}
+        | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=filter_row(row)}
+        | {TySum_col=col}
+        | {TySum_col=col; TySum_colvar=_} -> 
+           (match List.filter((r -> r != []),List.map(filter_row,col)) with
+            | [] -> {TyRecord_row=[]}
+            | [r] -> {TyRecord_row=r}
+            | col -> {TySum_col=col})
+        | {TyName_args=tys; TyName_ident=tyid} -> filter_field(OpaType.type_of_name(tyid, tys), label, num)
+        | ty -> ty
+      List.fold((e, ty -> filter_field(ty, e.name, Bson.int_of_value(e.value))),fields,pty)
+
+  @private
+  verify_type_match(ty1:OpaType.ty, ty2:OpaType.ty, from:string, msg:string): void =
+    //do println("ty1={OpaType.to_pretty(TypeSelect.name_type(ty1))}")
+    //do println("ty2={OpaType.to_pretty(TypeSelect.name_type(ty2))}")
+    // We can't use the fancy caching in compare_ty since our altered types mess with the caching
+    if not(TypeSelect.naive_type_compare(ty1, ty2))
+    then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+    else void
+
+  create(c:collection('collection), vfields:fields): view('collection,'view) =
+    coll = Collection.fields(c, {some=vfields})
+    pty = @typeval('collection)
+    do verify_type_match(pty, coll.ty, "Collection.view","Attempt to create view from non-matching parent type")
+    fvty = type_from_fields(pty, vfields)
+    vty = TypeSelect.map_field(fvty, make_reg)
+    cvty = @typeval('view)
+    //do println("pty={OpaType.to_pretty(pty)}")
+    //do println("fvty={OpaType.to_pretty(fvty)}")
+    //do println("vty={OpaType.to_pretty(vty)}")
+    //do println("cvty={OpaType.to_pretty(cvty)}")
+    do verify_type_match(vty, cvty, "Collection.view","Attempt to create view with incompatible view types")
+    { ~coll; ~vty; }
+
+  @private
+  runtime_view_type_check(v:view('value,'view), from:string): void =
+    do verify_type_match(@typeval('value), v.coll.ty, from, "Collection type does not match view type")
+    do verify_type_match(@typeval('view), v.vty, from, "View type does not match result type")
+    void
+
+  find_one(v:view('value,'view), select:select('value)): outcome('view,Mongo.failure) =
+    do runtime_view_type_check(v, "View.find_one")
+    Collection.find_one_unsafe(v.coll, select)
+
+  query(v:view('value,'view), select:select('value)): outcome(collection_cursor('view),Mongo.failure) =
+    do runtime_view_type_check(v, "View.query")
+    Collection.query_unsafe(v.coll, select)
+
+  find_all(v:view('value,'view), select:select('value)): outcome(list('view),Mongo.failure) =
+    do runtime_view_type_check(v, "View.find_all")
+    Collection.find_all_unsafe(v.coll, select)
 
 }}
 
