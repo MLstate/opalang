@@ -369,6 +369,7 @@ Bson = {{
   dot_float(doc:Bson.document, dot:string): option(float) = find_dot(doc, dot, find_float)
   dot_string(doc:Bson.document, dot:string): option(string) = find_dot(doc, dot, find_string)
   dot_doc(doc:Bson.document, dot:string): option(Bson.document) = find_dot(doc, dot, find_doc)
+  dot_element(doc:Bson.document, dot:string): option(Bson.element) = find_dot(doc, dot, find_element)
 
   /**
    * Return the type of a matching Bson key.

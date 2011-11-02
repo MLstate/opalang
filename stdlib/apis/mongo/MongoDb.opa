@@ -452,6 +452,22 @@ TypeSelect = {{
     | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
     | _ -> ty
 
+  find_label_in_row(ty, label) =
+    match ty with
+    | {TyRecord_row=row}
+    | {TyRecord_row=row; TyRecord_rowvar=_} -> List.find((f -> f.label == label),row)
+    | {TySum_col=col}
+    | {TySum_col=col; TySum_colvar=_} ->
+      List.fold((r, a ->
+                 if Option.is_none(a)
+                 then
+                   match List.find((f -> f.label == label),r) with
+                   | {some=l} -> {some=l}
+                   | {none} -> a
+                 else a),col,{none})
+    | {TyName_args=tys; TyName_ident=tyid} -> find_label_in_row(OpaType.type_of_name(tyid, tys), label)
+    | _ -> {none}
+
 }} /* End of type support */
 
 /*
@@ -1062,6 +1078,13 @@ type view('a,'b) = {
   vty: OpaType.ty; // type of the view collection
 }
 
+type foreign('a,'b,'c,'d,'e) = {
+  primary: view('a,'b); // the parent view
+  foreign: view('c,'d); // the foreign view
+  pkey: string;
+  fkey: string;
+}
+
 type collection_cursor('a) = {
   collection: collection('a);
   cursor: Cursor.cursor;
@@ -1095,6 +1118,7 @@ type Collection = {{
   insert_batch : collection('value), batch -> bool
   update : collection('value), select('value), update('value) -> bool
   delete : collection('value), select('value) -> bool
+  find_one_doc : collection('value), select('value) -> Mongo.result
   find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
   find_one_unsafe : collection('value), select('value) -> outcome('result,Mongo.failure)
   query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
@@ -1161,6 +1185,10 @@ Collection : Collection = {{
   delete(c:collection('value), select:select('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
     Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select)
+
+  find_one_doc(c:collection('value), select:select('value)): Mongo.result =
+    ns = c.db.dbname^"."^c.db.collection
+    Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby)
 
   find_one_unsafe(c:collection('value), select:select('value)): outcome('result,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
@@ -1339,6 +1367,8 @@ View = {{
     do verify_type_match(vty, cvty, "Collection.view","Attempt to create view with incompatible view types")
     { ~coll; ~vty; }
 
+  of_collection(c:collection('collection)): view('collection,'collection) = { coll=c; vty=c.ty; }
+
   @private
   runtime_view_type_check(v:view('value,'view), from:string): void =
     do verify_type_match(@typeval('value), v.coll.ty, from, "Collection type does not match view type")
@@ -1356,6 +1386,44 @@ View = {{
   find_all(v:view('value,'view), select:select('value)): outcome(list('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.find_all")
     Collection.find_all_unsafe(v.coll, select)
+
+}}
+
+Foreign = {{
+
+  create(primary:view('ps,'pr), foreign:view('fs,'fr), pkey:string, fkey:string)
+       : foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =
+    pty = @typeval('ps)
+    pkt = TypeSelect.find_label_in_row(pty,pkey)
+    do if not(Option.is_some(pkt))
+       then ML.fatal("Foreign.create","Can't find primary key {pkey} in type {OpaType.to_pretty(pty)}",-1)
+    fty = @typeval('fs)
+    fkt = TypeSelect.find_label_in_row(fty,fkey)
+    do if not(Option.is_some(fkt))
+       then ML.fatal("Foreign.create","Can't find foreign key {fkey} in type {OpaType.to_pretty(fty)}",-1)
+    do if not(TypeSelect.naive_type_compare((Option.get(pkt)).ty,(Option.get(fkt)).ty))
+       then ML.fatal("Foreign.create","Mismatching primary {OpaType.to_pretty(pty)} and foreign {OpaType.to_pretty(fty)}",-1)
+    { ~primary; ~foreign; ~pkey; ~fkey }
+
+  find_one(f:foreign('ps,'pr,'fs,'fr,'view), select:select('ps)): outcome('view,Mongo.failure) =
+    match Collection.find_one_doc(f.primary.coll, select) with
+    | {success=pdoc} ->
+       (match Bson.bson_to_opa(pdoc, @typeval('pr)) with
+        | {some=pv} ->
+           pv = (Magic.id(pv):'pr)
+           (match Bson.dot_element(pdoc,f.pkey) with
+            | {some=e} ->
+               //do println("Foreign.find_one: e={Bson.to_pretty([e])}")
+               (match Collection.find_one_doc(f.foreign.coll, ([{e with name=f.fkey}]:select('fr))) with
+                | {success=fdoc} ->
+                   //do println("Foreign.find_one: fdoc={Bson.to_pretty(fdoc)}")
+                   (match Bson.bson_to_opa(fdoc, @typeval('fr)) with
+                    | {some=fv} -> {success=(pv,{present=Magic.id(fv):'fr})}
+                    | {none} -> {failure={Error="Foreign.find_one: Bson to OPA conversion error for foreign value"}})
+                | {failure=_} -> {success=(pv,{absent})})
+            | {none} -> {failure={Error="Foreign.find_one: Can't find primary key {f.pkey}"}})
+        | {none} -> {failure={Error="Foreign.find_one: Bson to OPA conversion error for primary value"}})
+    | {~failure} -> {~failure}
 
 }}
 
