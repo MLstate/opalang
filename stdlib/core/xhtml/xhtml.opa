@@ -1270,6 +1270,56 @@ Xhtml =
       @opensums({x with ~specific_attributes})
     _ -> <div onready={f}>{x}</div>
 
+  /**
+   * Serializer for xhtml data structures.
+   * Provides a standard serialization but on server side,
+   * unserialization checks and replaces unsafe fields by default
+   * values.
+   */
+  @both_implem @serializer(xhtml) serializer =
+    ximpl = OpaType.implementation(@typeval(xhtml))
+    {
+      f1 = OpaSerialize.partial_serialize_options(_, ximpl, _)
+      f2 = json -> @sliced_expr({
+        client = OpaSerialize.finish_unserialize(json, ximpl)
+
+        server =
+          check_args =
+            List.map({namespace=_ ~name ~value} as a ->
+              match String.has_prefix("on", name)
+              | {true} ->
+                do Log.warning("Xhtml",
+"Attribute {name} can be an event handler and contains an unsafe string :
+{value}
+Replaced by a default value.")
+                {a with value="/*unsafe attribute from a client*/"}
+              | _ -> a
+              , _)
+          check_sargs({class=_ style=_ ~events events_options=_ href=_} as a) =
+            { a with events = List.map(
+              | ~{name value=~{value}} ->
+                do Log.warning("Xhtml",
+"Receiving from a client an unsafe specific attribute {name} :
+{value}
+Replaced by a default value.")
+                ~{name value={value="/*unsafe specific attribute from a client*/"}}
+              | _ as a -> a
+              , events)
+            }
+          Option.map(
+            | ~{content_unsafe} ->
+              do Log.warning("Xhtml",
+"Receiving from client unsafe content of xhtml :
+{content_unsafe}.
+Replaced by a default value.")
+              {text = "unsafe content from a client"} : xhtml
+            | {namespace=_ tag=_ ~args content=_ ~specific_attributes} as e->
+              @opensums({e with args=check_args(args) specific_attributes=Option.map(check_sargs, specific_attributes)}) : xhtml
+            | _ as safe -> safe
+            ,  OpaSerialize.finish_unserialize(json, ximpl))
+        })
+    }
+
 }}
 
 /* Functions used by xml pattern matching */
