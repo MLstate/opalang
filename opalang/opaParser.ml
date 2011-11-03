@@ -26,6 +26,17 @@ type nonuid = SurfaceAst.nonuid
 (* meta-information *)
 let hash = OpaParserVersion.hash
 
+module Opa_parser = struct
+  module A = OpaSyntax.Args
+  let select ~js ~classic ?_filename ?_start v =
+    match (!A.r).A.parser with
+    | OpaSyntax.Classic -> classic ?_filename ?_start v
+    | OpaSyntax.Js      -> js ?_filename ?_start v
+  let parse_opa_parser_expr_eoi = select ~js:Opa_js_parser.parse_opa_parser_expr_eoi  ~classic:Opa_classic_parser.parse_opa_parser_expr_eoi
+  let parse_opa_parser_ty_eoi   = select ~js:Opa_js_parser.parse_opa_parser_ty_eoi    ~classic:Opa_classic_parser.parse_opa_parser_ty_eoi
+  let parse_opa_parser_main_eoi = select ~js:Opa_js_parser.parse_opa_parser_main_eoi  ~classic:Opa_classic_parser.parse_opa_parser_main_eoi
+end
+
 (* low level parsing *)
 let ll_factory parser_rule ?filename contents =
   let _filename = filename in
@@ -33,7 +44,7 @@ let ll_factory parser_rule ?filename contents =
   let _pos, result = parser_rule ?_filename ?_start contents in
   result
 
-let ll_expr = ll_factory Opa_parser.parse_opa_parser_expr_eoi
+let ll_expr = ll_factory Opa_classic_parser.parse_opa_parser_expr_eoi
 let ll_ty = ll_factory Opa_parser.parse_opa_parser_ty_eoi
 let ll_code = ll_factory Opa_parser.parse_opa_parser_main_eoi
 

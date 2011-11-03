@@ -70,6 +70,7 @@ val sort : (key * spec * doc) list -> (key * spec * doc) list
       only the first occurrence is keeped, while any other
       occurrence is simply removed (no error) *)
 
+val spec_fun_of_assoc : ('a -> unit) -> (string * 'a) list -> spec
 val spec_of_assoc : 'a ref -> (string * 'a) list -> spec
 val spec_opt_of_assoc : 'a option ref -> (string * 'a) list -> spec
 val spec_of_opt_assoc : 'a ref -> 'a -> (string * 'a) list -> spec

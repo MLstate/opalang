@@ -64,6 +64,14 @@ let (|>) = InfixOperator.(|>)
 type ('a,'b) coerced_expr = ('a, [> `coerce ] as 'b) expr
 type ('a,'b) coerced_expr_node = ('a, [> `coerce ] as 'b) expr_node
 
+(* Variant types are a nightmare without smart alias ;) *)
+
+(** An expression resulting of parsing *)
+type parsing_expr = (nonuid, parsing_directive) expr
+
+(** An node resulting of parsing *)
+type parsing_node = (nonuid, parsing_directive) expr_node
+
 (*
  * not specific
  *)
@@ -1000,6 +1008,26 @@ let action _filename jqs val_css verb e : (_,_) expr_node =
     in
       coerce_name record Opacapi.Types.Dom.transformation
 
+let action_verb verb =
+  let build s = simple_record_expr s (snd verb) in
+  match fst verb with
+  | `set -> build "set"
+  | `prepend -> build "prepend"
+  | `append -> build "append"
+
+let action_content selector verb expr =
+  let subject =
+    let expr = (magic_to_xml expr, label expr) in
+    record1 "content" expr
+  in
+  let verb = action_verb verb in
+  record [("jq", selector); ("subject", subject); ("verb", verb)]
+
+let action_css selector verb expr =
+  let subject = record1 "css" expr in
+  let verb = action_verb verb in
+  record [("jq", selector); ("subject", subject); ("verb", verb)]
+
 (*
  * xml
  *)
@@ -1397,3 +1425,5 @@ let dom_transform l =
   let ident = var_to_exprvar ("Dom_transform", nlabel l) in
   Apply(ident, encode_tuple_pos [l])
 
+let binding_to_pattern_binding (ident, expr) =
+  (var_to_patvar ident), expr

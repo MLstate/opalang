@@ -41,6 +41,8 @@ type spec =
   | Rest of (string -> unit)
   | Complete of spec * completion
 
+let spec_fun_of_assoc f assoc =
+  Symbol (List.map fst assoc, (fun s -> f (List.assoc s assoc)))
 let spec_of_assoc ref_ assoc =
   Symbol (List.map fst assoc, (fun s -> ref_ := List.assoc s assoc))
 let spec_opt_of_assoc ref_ assoc =

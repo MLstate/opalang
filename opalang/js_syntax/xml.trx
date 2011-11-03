@@ -1,0 +1,554 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+{{ open Parser_utils }}
+
+(** importing from the lexer/main parser
+ *  notice that deco in here is really careful_deco, so it doesn't parse spaces
+ *)
+let deco rule = (=Opa_parser.careful_deco(rule));
+pos <- Opa_parser.pos;
+read htmlentities.trx
+
+#####################################################################################
+## HTML TEXT ########################################################################
+#####################################################################################
+
+dquot              <- [\"]
+squot              <- [\']
+
+opa_expr           <- Opa_parser.opa_in_braces_nosp
+
+htmlentity         <-
+  / "&" Htmlentities.def:s ";"  {{ s }}
+  / "&#" ([0-9]+ $_):s ";"           {{ Utf8.string_of_int (int_of_string s) }}
+  / "&#x" (Opa_lexer.hexa:a {{ Char.hexa_value a }})+:l ";" {{ Utf8.string_of_int (List.fold_left (fun i acc -> acc * 16 + i) 0 l) }}
+  / "\\" htmlspecial:s {{s}}
+
+htmlspecial        <-
+  / "{" {{ "{" }}
+  / " " {{ "&nbsp;" }}
+  / "<" {{ "&lt;" }}
+  / ">" {{ "&gt;" }}
+  / "&" {{ "&amp;" }}
+  / "\\" {{ "\\" }}
+  / pos:pos . {{
+    error1 (Printf.sprintf "The char : %c is not a special char in xml." __2) pos
+  }}
+
+/** htmlchars **/
+htmlchars          <-
+  / htmlentity
+  / ((![{] ![<] !htmlentity .)+  $_)
+
+/** svaluechars **/
+svaluechars        <-
+  / htmlentity
+  / ((![\'&] .)+ $_)
+
+name                <- [a-zA-Z_0-9] [a-zA-Z_\-.0-9]*        $_
+sname               <- name
+ename               <- name
+tname               <- name
+#is the distinction really needed?
+#sname              <- [a-zA-Z]+                         $_
+#ename              <- [a-zA-Z0-9_\-]+                   $_
+#tname              <- [a-zA-Z0-9]+                      $__
+
+svalue             <- svaluechars*:s                    {{ String.concat "" s }}
+
+namespace_aux          <- (sname:ns spacing [:] {{ ns }})?:o {{ Option.default "" o }}
+namespace = deco namespace_aux
+
+/** xml comment **/
+comment            <- "<!--" (!"-->" .)* "-->"          $
+spacing            <- Opa_lexer.spacing
+spaces             <- Opa_lexer.spaces $_
+
+htmltext           <- htmlchars+:s                      {{ concat_xml_text s }}
+
+deco_sname         =  deco sname;
+deco_ename         =  deco ename;
+deco_tname         =  deco tname;
+deco_htmltext      =  deco htmltext;
+deco_svalue        =  deco svalue;
+deco_spaces        =  deco spaces;
+#####################################################################################
+## TAGS FORMAT ######################################################################
+#####################################################################################
+
+open_sign          <- "<" spacing
+close_sign         <- spacing ">"
+autoclose          <- spacing "/" close_sign
+
+begin_open_tag     <- open_sign namespace:ns deco_tname:tag spacing {{ push_tag (undecorate tag); (ns, tag) }}
+(* FIXME: factorisation of open_tag and autoclose_tag *)
+/** xml open tag **/
+open_tag           <- begin_open_tag:nstag args_option:args close_sign   {{ (nstag, arg_default args) }}
+/** xml close tag **/
+close_tag          <- open_sign "/" spacing namespace:ns deco_tname:tag close_sign {{ ignore (pop_tag()); (ns, tag) }}
+
+/** xml autoclose tag **/
+autoclose_tag      <- begin_open_tag:nstag args_option:args autoclose    {{ ignore (pop_tag()); (nstag, arg_default args) }}
+
+/** xml empty opening tag **/
+open_frag          <- open_sign close_sign
+/** xml empty closing tag **/
+close_frag         <- open_sign "/" spacing close_sign
+
+close_tag_or_frag <- close_tag:t {{ Some t }}
+                   / close_frag {{ None }}
+
+#####################################################################################
+## XHTML TYPES ######################################################################
+#####################################################################################
+/** xml text **/
+xhtml_text  <- deco_htmltext:v {{ create_textnode v }}
+
+;xhtml_node <-
+  / xhtml_tag / xhtml_text / xhtml_fragment
+  / opa_expr:e {{ wrap_e magic_to_xml e }}
+
+;/** xml tag **/
+xhtml_tag <-
+  / comment spacing xhtml_tag:tag {{ tag }}
+  / autoclose_tag:t {{ let nstag,args = t in create_element nstag args [] }}
+  / open_tag:open_tag just_xhtml_nodes:children close_tag_or_frag:close_tag
+    {{ let nstag, args = open_tag in
+         Option.iter (tag_mismatch nstag) close_tag;
+         create_element nstag args children }}
+
+;/** xml fragment **/
+xhtml_fragment <- open_frag xhtml_nodes:p close_frag {{ let (l,label) = p in create_fragment l label }}
+;xhtml_nodes = deco just_xhtml_nodes
+;just_xhtml_nodes <- xhtml_node*
+
+
+;xhtml_empty_frag = deco just_xhtml_empty_frag
+;just_xhtml_empty_frag <- open_frag spacing close_frag
+
+;xhtml_node_root    <-
+   / xhtml_empty_frag:p                                                              {{ create_empty_fragment (label p) }}
+   / (xhtml_tag / xhtml_fragment):t                                                  {{ t }}
+
+;xhtml_node_root_with_spaces_plus = deco just_xhtml_node_root_with_spaces_plus
+;just_xhtml_node_root_with_spaces_plus <- xhtml_node_root:v (deco_spaces:s xhtml_node_root:v
+                                          {{ if fst s = "" then (None,v) else (Some s,v) }})*:l {{ (None,v) :: l }}
+;unwrapped_xhtml             <- xhtml_node_root_with_spaces_plus:l             {{  create_fragment_with_spaces l  }}
+
+#####################################################################################
+## HTML ATTRIBUTES ##################################################################
+#####################################################################################
+
+#
+# Some specific attributes need special handling to prevent agains XSS
+#
+
+;attr_name_with_special_handling <- (*style_insensitive {{ Some () }}
+                                  /*) xhtml_specific tag_specific_a href_insensitive $
+
+#Ensure that [style] is always typed
+#Ensure that [a href] and [area href] are either static or checked dynamically
+
+href_insensitive  <- "href"~
+
+;args_option = deco just_args?;
+
+/** xml attribute **/
+just_args <-
+  / "xmlns:" deco_ename:e spacing arg_attr:v spacing args_option:tl {{
+       let old = arg_default tl in
+       let c = (fst e,v) in
+       {old with xmlns_declaration = c :: old.xmlns_declaration}
+    }}
+  / (=deco("xmlns")):xmlns spacing arg_attr:v spacing args_option:tl {{
+       let old = arg_default tl in
+       let c = ("",v) in
+       {old with xmlns_declaration = c :: old.xmlns_declaration}
+    }}
+  / xhtml_specific style_insensitive spacing "=" spacing style_value:v spacing args_option:tl               {{ {(arg_default tl) with style  = Some v} }}
+  / xhtml_specific class_insensitive spacing "=" spacing class_value:v spacing args_option:tl               {{ {(arg_default tl) with class_ = Some v} }}
+  / xhtml_specific event_insensitive deco_sname:s spacing "=" spacing event_value:ev spacing args_option:tl {{ add_event tl s ev }}
+  / xhtml_specific options_on_event_insensitive deco_sname:s spacing "=" spacing options_on_event_value:ev spacing args_option:tl  {{ add_event_option tl s ev }}
+  / xhtml_specific "events" spacing "=" spacing opa_expr:e spacing args_option:tl                           {{ add_events tl e }}
+  / xhtml_specific tag_specific_a href_insensitive spacing "=" spacing href_value:v spacing args_option:tl            {{ {(arg_default tl) with href = Some v } }}
+  / !"xmlns" namespace:ns (!attr_name_with_special_handling) deco_ename:attr_n spacing arg_attr?:attr_v spacing args_option:tl           {{ add_arg tl (ns,attr_n) attr_v }}
+
+
+arg_attr <- "=" spacing arg_value:v {{ v }}
+
+/** xml attribute value **/
+arg_value <-
+  / squot deco_svalue:s squot {{ string2 s }}
+  / String_expr.string_with_opa:e spacing {{ e }}
+  / opa_expr:e {{ wrap_e magic_to_string e }}
+  / deco_ename:s {{ string2 s }}
+  / xhtml_specific Opa_parser.naked_id:v {{ v }}
+
+(* handle the special case of [href] attribute, which could be used to inject scripts *)
+href_value <-
+   / squot deco_svalue:s squot     {{ record ["constant", string2 s] }}
+   / opa_expr:e                    {{ record ["typed",    e] }}
+   / String_expr.string_with_opa:e {{
+     match e with
+       | (Const (CString _), _)     -> record ["constant", e] (*This is a constant string, it needs no further checks*)
+       | _                          -> record ["untyped", e]  (*This is a dynamic string, we need to perform whitelist filtering*)
+   }}
+
+#####################################################################################
+## CSS INLINE ATTRIBUTES ############################################################
+#####################################################################################
+
+### See opa/opalib/lib/css.opa for the types used here
+### Almost each rule correspond to one type defined there
+### For concrete syntax examples, see opa/test/style.opa
+
+style_insensitive  <- "style"~
+
+style_sep          <- spacing ";" spacing
+style_delim        <- spacing ":" spacing
+
+
+css_size_units <- ("em"/"ex"/"px"/"in"/"cm"/"mm"/"pt"/"pc"/"%") $_
+
+css_size_number_with_expr = deco just_css_size_number_with_expr;
+just_css_size_number_with_expr <-
+  / just_css_size_number_without_expr:v {{ v }}
+  / opa_expr:v                     {{ `expr v }}
+
+css_size_number_without_expr = deco just_css_size_number_without_expr;
+just_css_size_number_without_expr <-
+  / Opa_lexer.float:v {{ `float v }}
+  / Opa_lexer.int:v   {{ `int v }}
+
+css_size_with_or_without_expr <-
+  / css_size_number_with_expr:e spacing css_size_units:u {{ (e, Some u) }}
+  / css_size_number_without_expr:e spacing css_size_units?:u {{ (e, u) }}
+
+css_size_value <- css_size_with_or_without_expr:e
+ {{ let ((value,pos),unit) = e in
+      match unit with
+        | None ->
+            if value = `float 0. || value = `int 0 then
+              (* zero is the only value that is allowed not to have a unit *)
+              record1 "em" (float 0. pos)
+            else
+              failwith "You have to give a unit for non-zero values in css lengths"
+        | Some "px" ->
+            record1 "px"
+              ( match value with
+                  | `int i -> int2 (i,pos)
+                  | `float f -> intfloat2 (f,pos)
+                  | `expr e -> e
+              )
+        | Some unit ->
+            record1
+              (match unit with "in" -> "inch" | "%" -> "percent" | unit -> unit)
+              (match value with
+                 | `int i -> floatint2 (i,pos)
+                 | `float f -> float2 (f,pos)
+                 | `expr e -> e
+              )
+  }}
+
+css_size <-
+  / css_size_value
+  / opa_expr:e {{ coerce_name_expr e Opacapi.Types.Css.size }}
+
+css_size_or_normal <-
+  / (=deco("normal")):s {{ simple_record_expr "normal" (label s) }}
+  / css_size_value:e {{ record1 "size" e }}
+  / opa_expr:e {{ coerce_name_expr e Opacapi.Types.Css.size_or_normal }}
+
+css_size_or_none <-
+  / (=deco("none")):s {{ simple_record_expr "none" (label s) }}
+  / css_size_value:e {{ record1 "size" e }}
+  / opa_expr:e {{ coerce_name_expr e Opacapi.Types.Css.size_or_none }}
+
+css_background_position_xy = deco just_css_background_position_xy;
+just_css_background_position_xy <- css_size {{ `size __1 }}
+                                 / "left" {{ `left }}
+                                 / "center" {{`center }}
+                                 / "right" {{ `right }}
+                                 / "top" {{ `top }}
+                                 / "bottom" {{ `bottom }}
+css_background_position <-
+  / css_background_position_xy:f css_background_position_xy?:s {{ background_position f s }}
+
+css_repeat <-
+  / (=deco( "repeat-x"
+          / "repeat-y"
+          / "no-repeat"
+          / "repeat")):s
+    {{ css_build (map_annot (fun s -> "background_"^hyphen_to_underscore s) s) [] }}
+
+css_background_unary <-
+  / opa_expr:e !css_size_units                                                        {{ coerce_name_expr e Opacapi.Types.Css.background }}
+  (* this is the first rule because css_background_position can also start with an opa expr *)
+  / Css.css_url:e                                                                     {{ css_build_unsafe "background_image" [e] }}
+  / css_background_position:e                                                         {{ css_build_unsafe "background_position" [fst e; snd e] }}
+  / css_repeat:e                                                                      {{ e }}
+  / Css.color:e                                                                       {{ css_build_unsafe "background_color" [e] }}
+  / (=deco("fixed")):p                                                                {{ css_build1' "background_attached" p }}
+
+css_background <-
+  / css_background_unary:v (spacing css_background_unary:v {{v}})*:l                  {{ list_expr_of_expr_list_unsafe (v :: l) }}
+
+css_border_style_elt <-
+  / (=deco("none"/"hidden"/"dotted"/"dashed"/"solid"/"double"/"groove"/"ridge"/"inset"/"outset")):v {{ css_build_with_prefix "border_" v }}
+
+css_border_width_elt <-
+  / (=deco("thin"/"medium"/"thick")):v {{ css_build_with_prefix "border_" v }}
+  / css_size:e {{ css_build_unsafe "border_size" [e] }}
+
+css_border_type <-
+  / css_border_style_elt
+  / css_border_width_elt
+  / Css.color:e {{ css_build_unsafe "border_color" [e] }}
+
+css_border_type_list <-
+  / css_border_type:v (spacing css_border_type:v {{v}})*:l {{ css_build_unsafe "border_type" [list_expr_of_expr_list_unsafe (v :: l)] }}
+
+css_default_cursor <-
+  / (=deco("auto"/"crosshair"/"default"/"pointer"/"move"/"text"/"wait"/"progress"/"help")):v {{ css_build_with_prefix "cursor_" v }}
+  / (=deco("e-resize"/"ne-resize"/"nw-resize"/"n-resize"/"se-resize"/"sw-resize"/"s-resize"/"w-resize")):v {{ let v' = map_annot (fun s -> fst (String.split_char '-' s)) v in
+                                                                                                              css_build_with_prefix "cursor_resize_" v' }}
+css_cursor <-
+  / (Css.css_url:url spacing Opa_lexer.comma {{url}})*:l css_default_cursor:e {{ css_build_unsafe "cursor2" [list_expr_of_expr_list l (label e);e] }}
+
+css_direction <-
+  / (=deco("ltr")):p {{ simple_record_expr "right_to_left" (label p) }}
+  / (=deco("rtl")):p {{ simple_record_expr "left_to_right" (label p) }}
+
+css_display <-
+  / (=deco("inline-block"/"none"/"block"/"inline")):v {{ css_simple_record_hyphen2 v }}
+
+css_float <-
+  / (=deco("none"/"left"/"right")):v {{ css_simple_record_hyphen2 v }}
+
+#text_decoration <-
+#  / (=deco("overline"/"underline"/"line-through"/"none")):v {{}}
+
+css_decoration <-
+  / (=deco("italic"/"bold"/"overline"/"underline"/"small-caps"/"line-through"/"normal")):v {{ css_simple_record_hyphen2 v }}
+
+css_font_family <-
+  / (=deco("TimesNewRoman"/"Georgia"/"Garamond"/"Helvetica"/"Verdana"/"Trebuchet"/"HeavyImpact"/"Monospace")):v {{ css_simple_record_hyphen2 v }}
+
+css_font_variant <-
+  / (=deco("normal" / "inherit" / "small-caps")):v {{ css_simple_record_hyphen2 v }}
+
+css_decoration_list1 <-
+  / css_decoration:v (spacing css_decoration:v {{v}})*:l {{ list_expr_of_expr_list_unsafe (v :: l) }}
+
+#text_decoration_list1 <-
+#  / text_decoration:v (spacing text_decoration:v {{v}})*:l {{ list_expr_of_expr_list_unsafe (v :: l) }}
+
+
+css_font <-
+  / css_decoration_list1?:dec pos:pos spacing css_size:size1 (spacing Opa_lexer.slash spacing css_size:size {{size}})?:size2 pos:pos2 spacing css_font_family:ff {{ css_build_unsafe "font2" [Option.default (list_nil pos) dec;size1;option_expr_of_expr_option size2 pos2; ff] }}
+
+css_list_style_position <- (=deco("inside" / "outside")):v {{ css_simple_record_hyphen2 v }}
+css_list_style_def <-
+  / Css.css_url:v {{ record1 "image" v }}
+  / (=deco(
+       /"disc"/"square"
+       /"decimal-leading-zero"
+       /"decimal"
+       /"lower-roman"
+       /"upper-roman"
+       /"lower-alpha"/"lower-latin"
+       /"upper-alpha"/"upper-latin"
+       /"lower-greek"
+     )):v                            {{ list_style_def v }}
+
+css_list_style <-
+  / css_list_style_position:p (spacing css_list_style_def:d {{d}})?:d pos:pos {{ css_build_unsafe "list_style2" [some p; option_expr_of_expr_option d pos] }}
+  / css_list_style_def:d (spacing css_list_style_position:p {{p}})?:p pos:pos {{ css_build_unsafe "list_style2" [option_expr_of_expr_option p pos; some d] }}
+
+css_block_size <-
+  / css_size (spacing css_size (spacing css_size (spacing css_size {{__2}})? {{ __2,__3 }})? {{ __2,__3 }})?
+    {{ let a = __1 in
+         match __2 with
+           | None -> a, a, a, a (* top, left, bottom, right *)
+           | Some (b, co) ->
+               match co with
+                 | None -> a, b, a, b
+                 | Some (c, do_) ->
+                     match do_ with
+                       | None -> a, b, c, b
+                       | Some d -> a, d, c, b
+    }}
+
+css_overflow <-
+  (=deco("hidden"/"scroll"/"visible"/"auto")):v {{ simple_record_expr2 v }}
+
+css_position <-
+  (=deco("absolute"/"relative"/"fixed"/"static")):v {{ simple_record_expr2 v }}
+
+css_align <-
+  (=deco("left"/"right"/"center"/"justify")):v {{ simple_record_expr2 v }}
+
+css_vertical_align <-
+  (=deco("baseline" / "middle")):v {{ simple_record_expr2 v }}
+
+css_visibility <-
+  (=deco("visible" / "hidden")):v {{ simple_record_expr2 v }}
+
+css_white_space <-
+  (=deco("normal"/"pre"/"nowrap")):v {{ simple_record_expr2 v }}
+
+css_z_index <-
+  / (=deco("auto")):p {{ none (label p) }}
+  / (=deco(Opa_lexer.int)):i {{ some (int2 i) }}
+
+css_opacity <-
+  (=deco(Opa_lexer.float)):v {{ float2 v }}
+
+css_border_collapse <-
+  (=deco("collapse" / "separate" / "inherit")):v {{ simple_record_expr2 v }}
+
+css_table_layout <-
+  (=deco("auto" / "fixed" / "inherit")):v {{ simple_record_expr2 v }}
+
+css_unary <-
+  / "background" style_delim css_background:v                                            {{ css_build_unsafe "background" [v] }}
+  / "border-collapse" style_delim css_border_collapse:v                                  {{ css_build_unsafe "border_collapse" [v] }}
+  / ("border-top"/"border-bottom"/"border-left"/"border-right"/"border"):s
+      style_delim (css_border_type_list / opa_expr ):e                                   {{ let s =
+                                                                                              match s with
+                                                                                                | "border" -> "border_all"
+                                                                                                   | s -> hyphen_to_underscore s
+                                                                                            in
+                                                                                              css_build_unsafe s [e] }}
+    # FIXME lack of support for separate horizontal/vertical spacing; should be similar to
+    #       block_size but with at most 2 (not 4) values
+  / "border-spacing" style_delim css_size                                                {{ css_build_unsafe "border_spacing" [__3] }}
+  / "border-radius" style_delim css_size                                                 {{ css_build_unsafe "border_radius" [__3] }}
+  / "bottom" style_delim css_size                                                        {{ css_build_unsafe "bottom" [__3] }}
+  / "color" style_delim (Css.color / opa_expr):v                                         {{ css_build_unsafe "color" [v] }}
+  / "cursor" style_delim (css_cursor / opa_expr:e {{css_build_unsafe "cursor" [e]}})     {{ __3 }}
+  / "direction" style_delim (css_direction / opa_expr)                                   {{ css_build_unsafe "direction" [__3] }}
+  / "display" style_delim (css_display / opa_expr)                                       {{ css_build_unsafe "display" [__3] }}
+  / "float" style_delim (css_float / opa_expr)                                           {{ css_build_unsafe "float" [__3] }}
+  / "font" style_delim (css_font / opa_expr:e {{ css_build_unsafe "font" [e] }})         {{ __3 }}
+  / "font-family" style_delim (css_font_family / opa_expr)                               {{ css_build_unsafe "font_family" [__3] }}
+  / "font-size" style_delim css_size                                                     {{ css_build_unsafe "font_size" [__3] }}
+  / "font-decoration" style_delim (css_decoration_list1 / opa_expr)                      {{ css_build_unsafe "font_decorations" [__3] }}
+  / "font-variant" style_delim (css_font_variant / opa_expr)                             {{ css_build_unsafe "font_variant" [__3] }}
+#  / "text-decoration" style_delim (text_decoration_list1 / opa_expr)                     {{ css_build_unsafe
+  / "height" style_delim css_size                                                        {{ css_build_unsafe "height" [__3] }}
+  / ("min-height" / "max-height"):s style_delim css_size_or_none                         {{ css_build_unsafe (hyphen_to_underscore s) [__3] }}
+  / "left" style_delim css_size                                                          {{ css_build_unsafe "left" [__3] }}
+  / "letter-spacing" style_delim css_size_or_normal                                      {{ css_build_unsafe "letter_spacing" [__3] }}
+  / "line-height" style_delim css_size                                                   {{ css_build_unsafe "line_height" [__3] }}
+  / "list-style" style_delim (css_list_style / opa_expr:e {{ css_build_unsafe "list_style" [e]}}) {{ __3 }}
+  / ("margin-top"/"margin-bottom"/"margin-left"/"margin-right") style_delim css_size     {{ css_build_unsafe (hyphen_to_underscore __1) [__3] }}
+  / "margin" style_delim css_block_size                                                  {{ let (a,b,c,d) = map_tuple4 some __3 in
+                                                                                              css_build_unsafe "margin" [a;b;c;d] }}
+  / "opacity" style_delim css_opacity                                                    {{ css_build_unsafe "opacity" [__3] }}
+  / "overflow" style_delim (css_overflow / opa_expr)                                     {{ css_build_unsafe "overflow" [__3] }}
+  / ("padding-top"/"padding-bottom"/"padding-left"/"padding-right") style_delim css_size {{ css_build_unsafe (hyphen_to_underscore __1) [__3] }}
+  / "padding" style_delim css_block_size                                                 {{ let (a,b,c,d) = map_tuple4 some __3 in
+                                                                                              css_build_unsafe "padding" [a;b;c;d] }}
+  / "position" style_delim (css_position / opa_expr)                                     {{ css_build_unsafe "position" [__3] }}
+  / "right" style_delim css_size                                                         {{ css_build_unsafe "right" [__3] }}
+  / "table-layout" style_delim css_table_layout                                          {{ css_build_unsafe "table_layout" [__3] }}
+  / "text-align" style_delim (css_align / opa_expr)                                      {{ css_build_unsafe "text_align" [__3] }}
+  / "top" style_delim css_size                                                           {{ css_build_unsafe "top" [__3] }}
+  / "vertical-align" style_delim css_vertical_align                                      {{ css_build_unsafe "vertical_align" [__3] }}
+  / "visibility" style_delim (css_visibility / opa_expr)                                 {{ css_build_unsafe "visibility" [__3] }}
+  / "width":s style_delim css_size                                                       {{ css_build_unsafe "width" [__3] }}
+  / ("min-width" / "max-width"):s style_delim css_size_or_none                           {{ css_build_unsafe (hyphen_to_underscore s) [__3] }}
+  / "white-space" style_delim (css_white_space / opa_expr)                               {{ css_build_unsafe "white_space" [__3] }}
+  / "z-index" style_delim (css_z_index / opa_expr)                                       {{ css_build_unsafe "z_index" [__3] }}
+
+# Produces a typed CSS style, as a OPA [Css.property]
+;css_properties <- (=deco(just_css_properties)):p {{ unc2 list_expr_of_expr_list p }}
+just_css_properties <-
+  / spacing css_unary:v spacing (style_sep spacing css_unary:v spacing {{ v }})*:l style_sep? spacing {{ v :: l }}
+
+/** inlined css **/
+style_value        <-
+  / squot css_properties:e squot                                                       {{ e }}
+  / dquot css_properties:e dquot                                                       {{ e }}
+  / opa_expr:e                                                                         {{ e }}
+
+#####################################################################################
+## CLASS ATTRIBUTE ##################################################################
+#####################################################################################
+
+class_insensitive  <- "class"~
+
+;class_attr = deco just_class_attr;
+just_class_attr    <-
+  / deco_sname:s spacing just_class_attr:l                                           {{ string2 s :: l  }}
+  / deco_sname:s spacing                                                             {{ string2 s :: [] }}
+
+/** xml class value **/
+class_value        <-
+  / squot class_attr:p squot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (l) pos }}
+  / dquot class_attr:p dquot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (l) pos }}
+  / deco_ename:e                                                                     {{ list_expr_of_expr_list [string2 e] (label e)}}
+  / opa_expr:e                                                                       {{ e }}
+
+#####################################################################################
+## HANDLERS ASSIGNATION #############################################################
+#####################################################################################
+
+event_insensitive  <- "on"~
+
+/** xml event value **/
+event_value        <- opa_expr:e                                                       {{ action_xml e }}
+
+options_on_event_insensitive <- "options:"event_insensitive
+options_on_event_value <- opa_expr:e
+                       / squot pos:pos spacing ((deco_ename:s spacing {{s}})*):l squot {{ list_constructors_of_string_list l pos }}
+                       / dquot pos:pos spacing ((deco_ename:s spacing {{s}})*):l dquot {{ list_constructors_of_string_list l pos }}
+                       / pos:pos                                                     {{ error1 "Incorrect use of options:event" pos }}
+
+#####################################################################################
+## MAIN RULE ########################################################################
+#####################################################################################
+(*; +xml*)
+;
+/** xhtml **/
+xhtml <- enter_xhtml unwrapped_xhtml:v leave_xhtml {{ around_xhtml v }}
+       / leave_xhtml {| None |}
+/** xmlns **/
+xmlns <- enter_xmlns unwrapped_xhtml:v leave_xmlns {{ around_xmlns v }}
+       / leave_xmlns {| None |}
+
+#####################################################################################
+## NEEDED BY ANOTHER FILE ###########################################################
+#####################################################################################
+
+just_name_no_sp         <- [a-zA-Z0-9_\-]+                                                $_
+;name_no_sp = deco just_name_no_sp;
+
+#####################################################################################
+# A FEW RULES TO DISTINGUISH XHTML AND XMLNS ########################################
+#####################################################################################
+enter_xhtml <- Opa_parser._succeed {{ push_xml Xhtml }}
+enter_xmlns <- Opa_parser._succeed {{ push_xml Xml }}
+leave_xhtml <- Opa_parser._succeed {{ pop_xml () }}
+leave_xmlns <- Opa_parser._succeed {{ pop_xml () }}
+
+xhtml_specific <- Opa_parser._succeed {| if xhtml_mode () then Some () else None |}
+## special treatment for href attribute in <a> and <area> to avoid XSS
+## not for <link> and <base> (only in header)
+tag_specific_a <- Opa_parser._succeed {| match get_tag() with "a" | "area" -> Some () | _ -> None |}

@@ -228,13 +228,13 @@ rule "buildinfos: buildinfos/* -> buildinfos/buildInfos.ml"
   );
 
 let parser_files =
-  let dir = ["opalang/syntax"] in
+  let dir = ["opalang/classic_syntax";"opalang/js_syntax"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
-let opaParserVersion = "opalang"/"syntax"/"opaParserVersion.ml"
+let opaParserVersion = "opalang"/"classic_syntax"/"opaParserVersion.ml"
 in
-rule "opa parser version: opalang/syntax/* stdlib -> opalang/syntax/opaParserVersion.ml"
+rule "opa parser version: opalang/*_syntax/* stdlib -> opalang/classic_syntax/opaParserVersion.ml"
   ~deps:parser_files
   ~prod:opaParserVersion
   (fun build env ->

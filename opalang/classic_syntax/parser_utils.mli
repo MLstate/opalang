@@ -54,6 +54,14 @@ open SurfaceAst
 type ('a,'b) coerced_expr = ('a, [> `coerce ] as 'b) expr
 type ('a,'b) coerced_expr_node = ('a, [> `coerce ] as 'b) expr_node
 
+(* Variant types are a nightmare without smart alias ;) *)
+
+(** An expression resulting of parsing *)
+type parsing_expr = (nonuid, parsing_directive) expr
+
+(** An node resulting of parsing *)
+type parsing_node = (nonuid, parsing_directive) expr_node
+
 (** General functions *)
 val cur2 : ('a * 'b -> 'c) -> 'a -> 'b -> 'c
 val unc2 : ('a -> 'b -> 'c) -> 'a * 'b -> 'c
@@ -268,6 +276,8 @@ val bind_in_to_expr_in :
   (string, parsing_directive) expr -> (string, parsing_directive) expr_node
 val pat_in_to_simple_bindings : (string pat * ((string, [< all_directives > `coerce `recval ]) expr as 'expr)) -> (string * 'expr) list
 
+val binding_to_pattern_binding : ('a * 'b) * 'c -> ('a SurfaceAst.pat_node * 'b) * 'c
+
 (** Utils on type definitions *)
 val merge_type_def_visibility:
   SurfaceAst.type_def_visibility list -> QmlLoc.annot ->
@@ -381,6 +391,12 @@ val action :
   (string * [< `identity | `magicToString | `magicToXml ] * (string * (string, 'a) expr) list option) * annot ->
   string * annot ->
   (string, 'a) expr -> (string, 'a) expr_node
+val action_content :
+  parsing_expr -> [< `append | `prepend | `set ] * QmlLoc.annot -> parsing_expr ->
+  parsing_expr
+val action_css :
+  parsing_expr -> [<`set] * QmlLoc.annot -> parsing_expr ->
+  parsing_expr
 val appendlo : (string, 'a) expr -> (string, 'a) expr option -> (string, 'a) expr
 val css_build : string * annot -> (string, 'a) expr list -> (string, 'a) expr
 val css_build_unsafe : string -> (string, 'a) expr list -> (string, 'a) expr

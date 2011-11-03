@@ -180,6 +180,8 @@ type opa_options = {
   publish_src_code : bool; (** if true, application source code will be published at [_internal_/src_code] *)
 
   i18n : I18n.options ;
+
+  parser_ : OpaSyntax.Args.options
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -439,6 +441,7 @@ where options are :
         WarningClass.Arg.options () @
         ObjectFiles.Arg.public_options @
         I18n.options @
+        OpaSyntax.Args.options @
         [
           (* a *)
           "--api",
@@ -815,7 +818,8 @@ where options are :
     js_local_renaming = !ArgParser.js_local_renaming;
     publish_src_code = !ArgParser.publish_src_code;
 
-    i18n = !I18n.r
+    i18n = !I18n.r;
+    parser_ = !OpaSyntax.Args.r
   }
 
   let echo_help () = ArgParser.do_print_help ()
