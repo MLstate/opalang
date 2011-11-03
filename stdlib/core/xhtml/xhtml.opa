@@ -556,9 +556,9 @@ XmlConvert = {{
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
-          ident, args, (ty, x -> aux(x, ty)),
+          ident, args, (ty -> aux(_, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
-          value)
+          value, [])
       | _ -> {text = "Can't make an xml with " ^ OpaType.to_pretty(original_ty)}
     aux(value, original_ty)
   : xml

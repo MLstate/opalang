@@ -411,25 +411,15 @@ OpaSerializeClosure = {{
 
       /* Encapsulated types ***********************/
       | {TyName_args = args; TyName_ident = ident} ->
-         match %%BslValue.MagicContainer.serializer_get%%(ident) with
-         | {none} -> aux(value, OpaType.type_of_name(ident, args))
-         | {some = serializer} ->
-           serializer = serializer.f1
-           nargs = List.length(args)
-           match nargs with
-           | 0 -> serializer(value)
-           | _ ->
-              clos_arg = OpaValue.Closure.Args.create(nargs + 2)
-              do List.iteri(
-                (i, ty ->
-                  OpaValue.Closure.Args.set(clos_arg, i,
-                    partial_serialize_options(_, ty, _))
-                ), args)
-              do Closure.Args.set(clos_arg, nargs, value)
-              do Closure.Args.set(clos_arg, nargs + 1, options)
-              OpaValue.Closure.apply(@unsafe_cast(serializer), clos_arg)
-           end
-         end
+         OpaValue.todo_magic_container(
+           (ident ->
+             Option.map((r -> r.f1),
+                        %%BslValue.MagicContainer.serializer_get%%(ident))
+           ),
+           ident, args, (ty -> partial_serialize_options(_, ty, _)),
+           aux(_, OpaType.type_of_name(ident, args)),
+           value, [options]
+         )
       | {TyForall_quant = _; TyForall_body = body} ->
         aux(value, body)
 
@@ -763,9 +753,9 @@ OpaSerializeClosure = {{
              Option.map((r -> r.f2),
                         %%BslValue.MagicContainer.serializer_get%%(ident))
           ),
-          ident, args, (ty, x -> aux(x, ty)),
+          ident, args, (ty -> aux(_, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
-          json)
+          json, [])
       | (_, {TyForall_quant = _; TyForall_body = body}) ->
         aux(json, body)
 
