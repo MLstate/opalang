@@ -111,7 +111,7 @@ end = struct
         QmlCpsServerLib.push_cont k response;
         true
       with Not_found ->
-        Logger.error "[RPC] Any continuation stored for %d" id;
+        Logger.error "[RPC] No continuation stored for %d" id;
         false
     with Failure "int_of_string" ->
       Logger.error "[RPC] Identifier %s isn't an int" id;
