@@ -74,6 +74,7 @@ type Mongo.db = {
 type Mongo.failure =
     {Error : string}
   / {DocError : Bson.document}
+  / {Incomplete}
 
 type Mongo.success = Bson.document
 
@@ -164,6 +165,7 @@ Mongo = {{
     match failure with
     | {Error=str} -> str
     | {DocError=doc} -> Bson.string_of_doc_error(doc)
+    | {Incomplete} -> "Incomplete"
 
   string_of_result(result:Mongo.result): string = outcome_map(result, Bson.string_of_doc_error, string_of_failure)
 

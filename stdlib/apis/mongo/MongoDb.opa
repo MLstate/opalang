@@ -400,11 +400,6 @@ TypeSelect = {{
   /** Filter the records in a type **/
   @private
   rec filter_field_(names:list(string), ty, f) =
-    rec ispfx(l1,l2) =
-      match (l1,l2) with
-      | ([e1|l1],[e2|l2]) -> e1 == e2 && ispfx(l1,l2)
-      | ([],_) -> true
-      | (_,[]) -> false
     filter_row(row) =
       rec aux(row) =
         match row with
@@ -452,6 +447,9 @@ TypeSelect = {{
     | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
     | _ -> ty
 
+  /**
+   * Find a label in either a record or a sum type, with name expansion.
+   **/
   find_label_in_row(ty, label) =
     match ty with
     | {TyRecord_row=row}
@@ -1076,6 +1074,7 @@ type collection('a) = {
 type view('a,'b) = {
   coll: collection('a);
   vty: OpaType.ty; // type of the view collection
+  is_opa: bool; // if true, we assume an OPA type and ignore incomplete documents
 }
 
 type foreign('a,'b,'c,'d,'e) = {
@@ -1090,6 +1089,7 @@ type collection_cursor('a) = {
   cursor: Cursor.cursor;
   query: select('a);
   ty: OpaType.ty;
+  ignore_incomplete: bool;
 }
 
 type group('a) = { retval:list('a); count:int; keys:int; ok:int }
@@ -1120,13 +1120,13 @@ type Collection = {{
   delete : collection('value), select('value) -> bool
   find_one_doc : collection('value), select('value) -> Mongo.result
   find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
-  find_one_unsafe : collection('value), select('value) -> outcome('result,Mongo.failure)
+  find_one_unsafe : collection('value), select('value), bool -> outcome('result,Mongo.failure)
   query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
-  query_unsafe : collection('value), select('value) -> outcome(collection_cursor('result),Mongo.failure)
+  query_unsafe : collection('value), select('value), bool -> outcome(collection_cursor('result),Mongo.failure)
   first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
   next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
   find_all : collection('value), select('value) -> outcome(list('value),Mongo.failure)
-  find_all_unsafe : collection('value), select('value) -> outcome(list('result),Mongo.failure)
+  find_all_unsafe : collection('value), select('value), bool -> outcome(list('result),Mongo.failure)
   has_more : collection_cursor('value) -> bool
   count : collection('value), option(select('value)) -> outcome(int,Mongo.failure)
   distinct : collection('value), string, option(select('value)) -> outcome(list('b),Mongo.failure)
@@ -1190,28 +1190,30 @@ Collection : Collection = {{
     ns = c.db.dbname^"."^c.db.collection
     Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby)
 
-  find_one_unsafe(c:collection('value), select:select('value)): outcome('result,Mongo.failure) =
+  find_one_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome('result,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
-       //do println("  doc={Bson.string_of_bson(doc)}\n  ty={OpaType.to_pretty(ty)}")
-       (match Bson.bson_to_opa(doc, @typeval('result)) with
-        | {some=v} -> {success=(Magic.id(v):'result)}
-        | {none} -> {failure={Error="Collection.find_one: not found"}})
+        (match Bson.b2o_incomplete(doc, @typeval('result), ignore_incomplete) with
+         | {found=v} -> {success=(Magic.id(v):'result)}
+         | {not_found} -> {failure={Error="Collection.find_one: not found"}}
+         | {incomplete} -> {failure={Incomplete}})
      | {~failure} -> {~failure})
 
   find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
-    find_one_unsafe(c, select)
+    find_one_unsafe(c, select, false)
 
-  query_unsafe(c:collection('value), select:select('value)): outcome(collection_cursor('result),Mongo.failure) =
+  query_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool)
+             : outcome(collection_cursor('result),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     //do println("query_unsafe:\n'value={OpaType.to_pretty(@typeval('value))}\n'result={OpaType.to_pretty(@typeval('result))}")
     match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
-    | {success=cursor} -> {success={collection=@unsafe_cast(c); ~cursor; query=@unsafe_cast(select); ty=@typeval('result)}}
+    | {success=cursor} ->
+       {success={collection=@unsafe_cast(c); ~cursor; query=@unsafe_cast(select); ty=@typeval('result); ~ignore_incomplete}}
     | {~failure} -> {~failure}
 
   query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
-    query_unsafe(c, select)
+    query_unsafe(c, select, false)
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
     _ = Cursor.reset(cc.cursor)
@@ -1222,18 +1224,19 @@ Collection : Collection = {{
     match Cursor.check_cursor_error(cursor) with
     | {success=doc} ->
        //do println("next:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
-       (match Bson.bson_to_opa(doc, cc.ty) with
-        | {some=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
-        | {none} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}}))
+       (match Bson.b2o_incomplete(doc, cc.ty, cc.ignore_incomplete) with
+        | {found=v} -> ({cc with ~cursor},{success=(Magic.id(v):'value)})
+        | {not_found} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}})
+        | {incomplete} ->  ({cc with ~cursor},{failure={Incomplete}}))
     | {~failure} ->
        cursor = Cursor.reset(cursor)
        ({cc with ~cursor},{~failure})
 
   has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
 
-  find_all_unsafe(c:collection('value), select:select('value)): outcome(list('result),Mongo.failure) =
+  find_all_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome(list('result),Mongo.failure) =
     //do println("find_all:\n  'value={OpaType.to_pretty(@typeval('value))}\n  'result={OpaType.to_pretty(@typeval('result))}")
-    match (query_unsafe(c,select): outcome(collection_cursor('result),Mongo.failure)) with
+    match (query_unsafe(c,select,ignore_incomplete): outcome(collection_cursor('result),Mongo.failure)) with
     | {success=cc} ->
        (cc,l) =
          while((cc,{success=[]}),
@@ -1244,6 +1247,7 @@ Collection : Collection = {{
                       | (cc,{success=v}) ->
                          //do println("  v={(v:'result)}")
                          ((cc,{success=[Magic.id(v):'result|l]}),has_more(cc))
+                      | (cc,{failure={Incomplete}}) -> ((cc,{success=l}),has_more(cc))
                       | (cc,{~failure}) ->
                          //do println("  err(query)={Mongo.string_of_failure(failure)}")
                          ((cc,{~failure}),false))
@@ -1253,7 +1257,7 @@ Collection : Collection = {{
     | {~failure} -> {~failure}
 
   find_all(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
-    find_all_unsafe(c, select)
+    find_all_unsafe(c, select, false)
 
   count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
     Commands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
@@ -1353,21 +1357,21 @@ View = {{
     then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
     else void
 
-  create(c:collection('collection), vfields:fields): view('collection,'view) =
+  create(c:collection('collection), vfields:fields, is_opa:bool): view('collection,'view) =
     coll = Collection.fields(c, {some=vfields})
     pty = @typeval('collection)
     do verify_type_match(pty, coll.ty, "Collection.view","Attempt to create view from non-matching parent type")
     fvty = type_from_fields(pty, vfields)
-    vty = TypeSelect.map_field(fvty, make_reg)
+    vty = if is_opa then fvty else TypeSelect.map_field(fvty, make_reg)
     cvty = @typeval('view)
     //do println("pty={OpaType.to_pretty(pty)}")
     //do println("fvty={OpaType.to_pretty(fvty)}")
     //do println("vty={OpaType.to_pretty(vty)}")
     //do println("cvty={OpaType.to_pretty(cvty)}")
     do verify_type_match(vty, cvty, "Collection.view","Attempt to create view with incompatible view types")
-    { ~coll; ~vty; }
+    { ~coll; ~vty; ~is_opa; }
 
-  of_collection(c:collection('collection)): view('collection,'collection) = { coll=c; vty=c.ty; }
+  of_collection(c:collection('collection), is_opa:bool): view('collection,'collection) = { coll=c; vty=c.ty; ~is_opa; }
 
   @private
   runtime_view_type_check(v:view('value,'view), from:string): void =
@@ -1377,15 +1381,15 @@ View = {{
 
   find_one(v:view('value,'view), select:select('value)): outcome('view,Mongo.failure) =
     do runtime_view_type_check(v, "View.find_one")
-    Collection.find_one_unsafe(v.coll, select)
+    Collection.find_one_unsafe(v.coll, select, v.is_opa)
 
   query(v:view('value,'view), select:select('value)): outcome(collection_cursor('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.query")
-    Collection.query_unsafe(v.coll, select)
+    Collection.query_unsafe(v.coll, select, v.is_opa)
 
   find_all(v:view('value,'view), select:select('value)): outcome(list('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.find_all")
-    Collection.find_all_unsafe(v.coll, select)
+    Collection.find_all_unsafe(v.coll, select, v.is_opa)
 
 }}
 

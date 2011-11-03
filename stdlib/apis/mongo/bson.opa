@@ -121,6 +121,8 @@ type Bson.error = {
   errmsg: Bson.register(string);
 }
 
+type Bson.incomplete('a) = {found:'a} / {not_found} / {incomplete}
+
 /**
  * Helper functions for constructing Bson values.
  *
@@ -272,6 +274,12 @@ Bson = {{
    **/
   find_element(bson:Bson.document, name:string): option(Bson.element) =
     List.find((b0 -> key(b0) == name),bson)
+
+  /**
+   * Find a value by key in a bson object.
+   **/
+  find_value(bson:Bson.document, name:string): option(Bson.value) =
+    Option.map((v -> v.value),List.find((b0 -> key(b0) == name),bson))
 
   /**
    * Find the first of one of a list of keys in a document.
@@ -936,6 +944,43 @@ Bson = {{
     | _ -> element_to_opa(H.doc("value",bson_noid), ty_name) // assume bare type
 
   doc2opa(doc:Bson.document): option('a) = bson_to_opa(doc,@typeval('a))
+
+  /**
+   * Given a document and a runtime type, we deduce if all the fields
+   * indicated by the type are present in the document.
+   **/
+  all_fields_present(doc:Bson.document, ty:OpaType.ty): bool =
+    //do println("all_fields_present:\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
+    all_in_row(doc, row) =
+      List.for_all((f ->
+        //do println("all_in_row({f.label}):\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
+        match find_value(doc,f.label) with
+        | {some={Document=doc}} -> all_fields_present(doc, f.ty)
+        | {some=_} -> true
+        | {none} -> false),row)
+    match ty with
+    | {TyRecord_row=row ...} -> all_in_row(doc, row)
+    | {TySum_col=col ...} -> List.exists((r -> all_in_row(doc,r)),col)
+    | {TyName_args=[_]; TyName_ident="Bson.register"} -> true
+    | {TyName_args=tys; TyName_ident=tyid} -> all_fields_present(doc, OpaType.type_of_name(tyid, tys))
+    | _ -> false //???
+
+  /**
+   * Same as [bson_to_opa] except that we have a flag for ignoring
+   * incomplete documents (in the sense of [all_fields_present]).
+   * We return a specialised type which allows [found], [not_found] and
+   * [incomplete] to allow the distinction between a conversion error
+   * and a missing field.
+   **/
+  b2o_incomplete(doc:Bson.document, ty:OpaType.ty, ignore_incomplete:bool): Bson.incomplete('a) =
+    //do println("Bson.b2o_incomplete:\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(TypeSelect.name_type(ty))}")
+    //do if ignore_incomplete then println("  all_fields_present(doc,ty) = {all_fields_present(doc,ty)}")
+    if ignore_incomplete && not(all_fields_present(doc,ty))
+    then {incomplete}
+    else
+      match bson_to_opa(doc, ty) with
+      | {some=v} -> {found=(Magic.id(v):'a)}
+      | {none} -> {not_found}
 
 }}
 
