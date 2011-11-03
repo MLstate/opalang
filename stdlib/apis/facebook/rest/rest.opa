@@ -34,7 +34,7 @@
  * @stability Work in progress
  */
 
-import stdlib.apis.{common, facebook.lib}
+import stdlib.apis.{common, facebook, facebook.lib}
 import stdlib.crypto
 
 /**
@@ -50,32 +50,6 @@ type FbRest.session = {
   expires     :int; /** The end of the session */
   secret      :string /** Secret assiciated to the session, used for desktop applications */
 }
-
-/**
- * Facebook permissions
- *
- * The names are quite explicit.
- * Note 1 : sms does not work in France (and in some other countries) since there is
- *   no agreement with local mobile operators [15 paril 2010]. To see if there is an
- *   agreement with an operator in your country, create a permission link with sms
- *   check that your country is in the list.
- * Note 2 : The permissions status_update, photo_upload, video_upload, create_note
- *   and share_item are included in publish_stream.
- */
-type FbRest.permission =
-     { publish_stream }
-   / { read_stream }
-   / { email }
-   / { read_mailbox }
-   / { offline_access }
-   / { create_event }
-   / { rsvp_event }
-   / { sms }
-   / { status_update }
-   / { photo_upload }
-   / { video_upload }
-   / { create_note }
-   / { share_item }
 
 /**
  * Facebook method
@@ -686,21 +660,7 @@ FbRest_private = {{
 /**
  * Basic explicit to_string functions
  */
-  _perm_to_string(p) =
-    match p :FbRest.permission
-    { publish_stream } -> "publish_stream"
-    { read_stream }    -> "read_stream"
-    { email }          -> "email"
-    { read_mailbox }   -> "read_mailbox"
-    { offline_access } -> "offline_access"
-    { create_event }   -> "create_event"
-    { rsvp_event }     -> "rsvp_event"
-    { sms }            -> "sms"
-    { status_update }  -> "status_update"
-    { photo_upload }   -> "photo_upload"
-    { video_upload }   -> "video_upload"
-    { create_note }    -> "create_note"
-    { share_item }     -> "share_item"
+  _perm_to_string(p) = Facebook.permission_to_string(p)
 
   _event_privacy_to_string(ep) =
     match ep :FbRest.event_privacy
@@ -1061,7 +1021,7 @@ FbRest = {{
  * Note: The use of this function is not required, the user can build his login link himself
  *
  * @param api_key The AI key of you application
- * @param permission A list of FbRest.permissions to request with the login
+ * @param permission A list of Facebook.permissions to request with the login
  * @param ok_url The url where the user should be redirected if he accepts to log in. Must start with the Connect url given to Facebook while registering the application.
  * @param cancel_url The url where the user should be redirected if he refuses to log in. Must start with the Connect url given to Facebook while registering the application.
  */
@@ -1080,7 +1040,7 @@ FbRest = {{
  * Note: The use of this function is not required, the user can build his extend permission link himself
  *
  * @param api_key The AI key of you application
- * @param permission A list of FbRest.permissions to request
+ * @param permission A list of Facebook.permissions to request
  * @param next_url The url where the user should be redirected after accepting or not the permissions. Must start with the Connect url given to Facebook while registering the application.
  */
   extend_permissions_url(api_key:string, permissions, next_url:string) =
@@ -1345,7 +1305,7 @@ FbRest = {{
       params = _add_user(uid_or_seskey, [])
       generic_call("auth.revokeAuthorization", params, _, _, _)
 
-    revokeExtendedPermission(perm:FbRest.permission, uid_or_seskey) =
+    revokeExtendedPermission(perm:Facebook.permission, uid_or_seskey) =
       params = [("perm", FbRest_private._perm_to_string(perm))]
                |>  _add_user(uid_or_seskey, _)
       generic_call("auth.revokeExtendedPermission", params, _, _, _)
