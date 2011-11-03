@@ -184,7 +184,7 @@ just_args <-
   / xhtml_specific class_insensitive spacing "=" spacing class_value:v spacing args_option:tl               {{ {(arg_default tl) with class_ = Some v} }}
   / xhtml_specific event_insensitive deco_sname:s spacing "=" spacing event_value:ev spacing args_option:tl {{ add_event tl s ev }}
   / xhtml_specific options_on_event_insensitive deco_sname:s spacing "=" spacing options_on_event_value:ev spacing args_option:tl  {{ add_event_option tl s ev }}
-  / xhtml_specific "events" spacing "=" spacing opa_expr:e spacing args_option:tl                           {{ add_events tl e }}
+  / xhtml_specific "events_unsafe" spacing "=" spacing opa_expr:e spacing args_option:tl                           {{ add_events tl e }}
   / xhtml_specific tag_specific_a href_insensitive spacing "=" spacing href_value:v spacing args_option:tl            {{ {(arg_default tl) with href = Some v } }}
   / !"xmlns" namespace:ns (!attr_name_with_special_handling) deco_ename:attr_n spacing arg_attr?:attr_v spacing args_option:tl           {{ add_arg tl (ns,attr_n) attr_v }}
 
@@ -513,7 +513,9 @@ class_value        <-
 event_insensitive  <- "on"~
 
 /** xml event value **/
-event_value        <- opa_expr:e                                                       {{ action_xml e }}
+event_value        <-
+  / opa_expr:e {{ action_xml e }}
+  / pos:pos {{ error1 (Printf.sprintf "Event value should be inside curly braces") pos }}
 
 options_on_event_insensitive <- "options:"event_insensitive
 options_on_event_value <- opa_expr:e
