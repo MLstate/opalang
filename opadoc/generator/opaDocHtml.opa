@@ -98,13 +98,13 @@ OpaDocHtml = {{
     <div class="sidebar">
       <ul class="menu">
         <li class="packages_tab">
-          <a href="javascript:void(0)" onclick="switchTab('packages')">Packages</a>
+          <a href="javascript:void(0)" events_unsafe={[{name={click} value={value="switchTab('packages')"}}]}>Packages</a>
         </li><li class="values_tab">
-          <a href="javascript:void(0)" onclick="switchTab('values')">Values</a>
+          <a href="javascript:void(0)" events_unsafe={[{name={click} value={value="switchTab('values')"}}]}>Values</a>
         </li><li class="types_tab">
-          <a href="javascript:void(0)" onclick="switchTab('types')">Types</a>
+          <a href="javascript:void(0)" events_unsafe={[{name={click} value={value="switchTab('types')"}}]}>Types</a>
         </li><li class="files_tab">
-          <a href="javascript:void(0)" onclick="switchTab('files')">Files</a>
+          <a href="javascript:void(0)" events_unsafe={[{name={click} value={value="switchTab('files')"}}]}>Files</a>
         </li>
       </ul>
       <div id="navigator"></div>
@@ -122,14 +122,14 @@ OpaDocHtml = {{
     js_init = "javascript:init()"
     <html>
       {header}
-      <body onload="{if sidebar then tree else js_init}">
+      <body events_unsafe={[{name={load} value={value="{if sidebar then tree else js_init}"}}]}>
         {if sidebar then
           <>
           {header_index}
           <div id="toggler"></div>
           </>
         else <></>}
-        { if sidebar then <div id="container"><iframe onload="javascript:initMessage()" src="welcome.html" id="doc"></iframe></div>
+        { if sidebar then <div id="container"><iframe events_unsafe={[{name={load} value={value="javascript:initMessage()"}}]} src="welcome.html" id="doc"></iframe></div>
           else
             <div class="main">
               <div class="content">
