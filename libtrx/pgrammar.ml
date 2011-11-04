@@ -219,12 +219,25 @@ let grammar_analysis pg =
             | `Success -> assert false
 
   and analyze_seq s prop ((seq, q1, q2) as seqf) =
+    let backtraceable =
+      match q2 with
+      | None -> false
+      | Some code ->
+        let (_, _, _, b) = code in
+        b
+    in
     match seq, prop with
     | _, `Success -> analyze_seq s `Empty seqf || analyze_seq s `NonEmpty seqf
     | [], `Empty -> true
     | [], `Fail
     | [], `NonEmpty -> false
-    | x::xs, `Empty -> analyze_item s `Empty x && analyze_seq s `Empty (xs, q1, q2)
+    | x::xs, `Empty ->
+        if backtraceable then
+          (* WARNING, we assume that a backtraceable expression will not admit an empty expression;
+                      this may not be true and hence it can lead to a non-terminating parser... *)
+          false
+        else
+          analyze_item s `Empty x && analyze_seq s `Empty (xs, q1, q2)
     | x::xs, `Fail -> analyze_item s `Fail x || (analyze_item s `Success x && analyze_seq s `Fail (xs, q1, q2))
     | x::xs, `NonEmpty ->
         (analyze_item s `NonEmpty x && analyze_seq s `Success (xs, q1, q2)) ||
