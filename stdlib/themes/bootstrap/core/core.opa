@@ -80,7 +80,7 @@ get_img(name) =
 @private
 icon16 = css
 /* Icons 16px */
-/*Default 16px gray icon for light backgrounds*/
+/*Default 16px gray icons for light backgrounds*/
 .icon {
   width: 16px;
   height: 16px;
@@ -88,16 +88,17 @@ icon16 = css
   display: inline-block;
   vertical-align: top;
 }
-.icon:hover {background: {get_img("icons16-darkGray.png")} no-repeat;}
+.icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background: {get_img("icons16-darkGray.png")} no-repeat;}
 
-/*Color icon for active, selected for light backgrounds*/
-.selected .icon {background: {get_img("icons16-color.png")} no-repeat;}
+/*Color icons for active, selected for light backgrounds*/
+.icon.icon-color, .icons-color .icon, .selected .icon {background: {get_img("icons16-color.png")} no-repeat;}
 
 /*White icons for vivid and dark backgrounds*/
-.icon.icon-white {background: {get_img("icons16-white.png")} no-repeat;}
+.icon.icon-white, .icons-white .icon {background: {get_img("icons16-white.png")} no-repeat;}
+.icon.icon-white:hover, .icons-white .icon:hover {background: {get_img("icons16-gray.png")} no-repeat;}
 
 /*Black icons for gray backgrounds*/
-.icon.icon-black {background: {get_img("icons16-black.png")} no-repeat;}
+.icon.icon-black, .icons-black .icon, .icon.icon-darkgray:hover {background: {get_img("icons16-black.png")} no-repeat;}
 
 /* positioning */
 /* triangle */
@@ -118,8 +119,8 @@ icon16 = css
 .selected .icon.icon-arrowstop-s, .icon.icon-arrowstop-s, .icon.icon-arrowstop-s:hover { background-position: -192px 0; }
 .selected .icon.icon-arrowstop-w, .icon.icon-arrowstop-w, .icon.icon-arrowstop-w:hover { background-position: -208px 0; }
 
-/* arrow transfert, shuffle */
-.selected .icon.icon-transefr-ew, .icon.icon-transefr-ew, .icon.icon-transefr-ew:hover { background-position: -224px 0; }
+/* arrow transfer, shuffle */
+.selected .icon.icon-transfer-ew, .icon.icon-transfer-ew, .icon.icon-transfer-ew:hover { background-position: -224px 0; }
 .selected .icon.icon-shuffle, .icon.icon-shuffle, .icon.icon-shuffle:hover { background-position: -240px 0; }
 
 /* carat */
@@ -144,7 +145,7 @@ icon16 = css
 
 /* arrow */
 .selected .icon.icon-arrow-n, .icon.icon-arrow-n, .icon.icon-arrow-n:hover { background-position: 0 -32px; }
-.selected .icon.icon-arrow-ne, .icon.icon-arrow-ne, .icon.icon-arrow-ne:hover { background-position: 16px -32px; }
+.selected .icon.icon-arrow-ne, .icon.icon-arrow-ne, .icon.icon-arrow-ne:hover { background-position: -16px -32px; }
 .selected .icon.icon-arrow-e, .icon.icon-arrow-e, .icon.icon-arrow-e:hover { background-position: -32px -32px; }
 .selected .icon.icon-arrow-se, .icon.icon-arrow-se, .icon.icon-arrow-se:hover { background-position: -48px -32px; }
 .selected .icon.icon-arrow-s, .icon.icon-arrow-s, .icon.icon-arrow-s:hover { background-position: -64px -32px; }
@@ -214,7 +215,7 @@ icon16 = css
 .selected .icon.icon-print, .icon.icon-print, .icon.icon-print:hover { background-position: -32px -80px; }
 .selected .icon.icon-save, .icon.icon-save, .icon.icon-save:hover { background-position: -48px -80px; }
 .selected .icon.icon-book, .icon.icon-book, .icon.icon-book:hover { background-position: -64px -80px; }
-.selected .icon.icon-book2, .icon.icon-book2, .icon.icon-book2:hover { background-position: -80px -80px; }
+.selected .icon.icon-book-empty, .icon.icon-book-empty, .icon.icon-book-empty:hover { background-position: -80px -80px; }
 .selected .icon.icon-folder-collapsed, .icon.icon-folder-collapsed, .icon.icon-folder-collapsed:hover { background-position: -96px -80px; }
 .selected .icon.icon-folder-open, .icon.icon-folder-open, .icon.icon-folder-open:hover { background-position: -112px -80px; }
 
@@ -252,22 +253,22 @@ icon16 = css
 .selected .icon.icon-document, .icon.icon-document, .icon.icon-document:hover { background-position: -224px -96px; }
 .selected .icon.icon-script, .icon.icon-script, .icon.icon-script:hover { background-position: -240px -96px; }
 
-.selected .icon.icon-calendar, .icon.icon-calendar, .icon.icon-calendar:hover { background-position: 0 -112px; }
-.selected .icon.icon-calendar2, .icon.icon-calendar2, .icon.icon-calendar2:hover { background-position: -16px -112px; }
+.selected .icon.icon-date, .icon.icon-date, .icon.icon-cdate:hover { background-position: 0 -112px; }
+.selected .icon.icon-calendar, .icon.icon-calendar, .icon.icon-calendar:hover { background-position: -16px -112px; }
 .selected .icon.icon-clock, .icon.icon-clock, .icon.icon-clock:hover { background-position: -32px -112px; }
-.selected .icon.icon-mail-closed, .icon.icon-mail-closed, .icon.icon-mail-closed:hover { background-position: -48px -112px; }
-.selected .icon.icon-mail-open, .icon.icon-mail-open, .icon.icon-mail-open:hover { background-position: -64px -112px; }
-.selected .icon.icon-mail2-closed, .icon.icon-mail2-closed, .icon.icon-mail2-closed:hover { background-position: -80px -112px; }
-.selected .icon.icon-mail2-open, .icon.icon-mail2-open, .icon.icon-mail2-open:hover { background-position: -96px -112px; }
+.selected .icon.icon-envelope-closed, .icon.icon-envelope-closed, .icon.icon-envelope-closed:hover { background-position: -48px -112px; }
+.selected .icon.icon-envelope-open, .icon.icon-envelope-open, .icon.icon-envelope-open:hover { background-position: -64px -112px; }
+.selected .icon.icon-mail-closed, .icon.icon-mail-closed, .icon.icon-mail-closed:hover { background-position: -80px -112px; }
+.selected .icon.icon-mail-open, .icon.icon-mail-open, .icon.icon-mail-open:hover { background-position: -96px -112px; }
 .selected .icon.icon-link, .icon.icon-link, .icon.icon-link:hover { background-position: -112px -112px; }
 .selected .icon.icon-unlink, .icon.icon-unlink, .icon.icon-unlink:hover { background-position: -128px -112px; }
 .selected .icon.icon-web, .icon.icon-web, .icon.icon-web:hover { background-position: -144px -112px; }
-.selected .icon.icon-web2, .icon.icon-web2, .icon.icon-web2:hover { background-position: -160px -112px; }
+.selected .icon.icon-globe, .icon.icon-globe, .icon.icon-globe:hover { background-position: -160px -112px; }
 .selected .icon.icon-contacts, .icon.icon-contacts, .icon.icon-contacts:hover { background-position: -176px -112px; }
 .selected .icon.icon-profile, .icon.icon-profile, .icon.icon-profile:hover { background-position: -192px -112px; }
 .selected .icon.icon-image, .icon.icon-image, .icon.icon-image:hover { background-position: -208px -112px; }
 .selected .icon.icon-suitcase, .icon.icon-suitcase, .icon.icon-suitcase:hover { background-position: -224px -112px; }
-.selected .icon.icon-suitcase2, .icon.icon-suitcase2, .icon.icon-suitcase2:hover { background-position: -240px -112px; }
+.selected .icon.icon-briefcase, .icon.icon-briefcase, .icon.icon-briefcase:hover { background-position: -240px -112px; }
 
 /* circle symbols */
 .selected .icon.icon-close, .icon.icon-close, .icon.icon-close:hover { background-position: 0 -128px; }
@@ -303,11 +304,19 @@ icon16 = css
 .selected .icon.icon-sent, .icon.icon-sent, .icon.icon-sent:hover { background-position: -64px -144px; }
 .selected .icon.icon-attachement, .icon.icon-attachement, .icon.icon-attachement:hover { background-position: -80px -144px; }
 
+/* treeview */
+.selected .icon.icon-square-plus, .icon.icon-square-plus, .icon.icon-square-plus:hover { background-position: -160px -240px; }
+.selected .icon.icon-square-minus, .icon.icon-square-minus, .icon.icon-square-minus:hover { background-position: -176px -240px; }
+.selected .icon.icon-treeview-corner-plus, .icon.icon-treeview-corner-plus, .icon.icon-treeview-corner-plus:hover { background-position: -192px -240px; }
+.selected .icon.icon-treeview-corner-minus, .icon.icon-treeview-corner-minus, .icon.icon-treeview-corner-minus:hover { background-position: -208px -240px; }
+.selected .icon.icon-treeview-corner, .icon.icon-treeview-corner, .icon.icon-treeview-corner:hover { background-position: -224px -240px; }
+.selected .icon.icon-treeview-vertical-line, .icon.icon-treeview-vertical-line, .icon.icon-treeview-vertical-line:hover { background-position: -240px -240px; }
+
 @private
 icon32 = css
 
 /* ---------------- Icons 32px ---------------- */
-/* Default 32px gray icon for light backgrounds */
+/* Default 32px gray icons for light backgrounds */
 .icon32 {
   width: 32px;
   height: 32px;
@@ -316,16 +325,17 @@ icon32 = css
   display: inline-block;
   vertical-align: top;
 }
-.icon32:hover {background: {get_img("icons32-darkGray.png")} no-repeat;}
+.icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background: {get_img("icons32-darkGray.png")} no-repeat;}
 
-/* Color icon for active, selected for light backgrounds */
-.selected .icon32 {background: {get_img("icons32-color.png")} no-repeat;}
+/* Color icons for active, selected for light backgrounds */
+.icon32.icon-color, .icons-color .icon32, .selected .icon32 {background: {get_img("icons32-color.png")} no-repeat;}
 
 /* White icons for vivid and dark backgrounds */
-.icon32.icon-white {background: {get_img("icons32-white.png")} no-repeat;}
+.icon32.icon-white, .icons-white .icon32 {background: {get_img("icons32-white.png")} no-repeat;}
+.icon32.icon-white:hover, .icons-white .icon32:hover {background: {get_img("icons32-gray.png")} no-repeat;}
 
 /* Black icons for gray backgrounds */
-.icon32.icon-black {background: {get_img("icons32-black.png")} no-repeat;}
+.icon32.icon-black, .icons-black .icon32, .icon32.icon-darkgray:hover {background: {get_img("icons32-black.png")} no-repeat;}
 
 /* positioning */
 /* triangle */
@@ -347,20 +357,20 @@ icon32 = css
 .selected .icon32.icon-arrowstop-w, .icon32.icon-arrowstop-w, .icon32.icon-arrowstop-w:hover { background-position: -416px 0; }
 
 /* arrow transfert, shuffle */
-.selected .icon32.icon-transefr-ew, .icon32.icon-transefr-ew, .icon32.icon-transefr-ew:hover { background-position: -448px 0; }
+.selected .icon32.icon-transfer-ew, .icon32.icon-transfer-ew, .icon32.icon-transfer-ew:hover { background-position: -448px 0; }
 .selected .icon32.icon-shuffle, .icon32.icon-shuffle, .icon32.icon-shuffle:hover { background-position: -480px 0; }
 
 /* carat */
-.selected .icon32.icon-carat-n, .icon32.icon-carat-n, .icon32.icon-carat-n:hover { background-position: 0 -32px; }
-.selected .icon32.icon-carat-ne, .icon32.icon-carat-ne, .icon32.icon-carat-ne:hover { background-position: -32px -32px; }
-.selected .icon32.icon-carat-e, .icon32.icon-carat-e, .icon32.icon-carat-e:hover { background-position: -64px -32px; }
-.selected .icon32.icon-carat-se, .icon32.icon-carat-se, .icon32.icon-carat-se:hover { background-position: -96px -32px; }
-.selected .icon32.icon-carat-s, .icon32.icon-carat-s, .icon32.icon-carat-s:hover { background-position: -128px -32px; }
-.selected .icon32.icon-carat-sw, .icon32.icon-carat-sw, .icon32.icon-carat-sw:hover { background-position: -160px -32px; }
-.selected .icon32.icon-carat-w, .icon32.icon-carat-w, .icon32.icon-carat-w:hover { background-position: -192px -32px; }
-.selected .icon32.icon-carat-nw, .icon32.icon-carat-nw, .icon32.icon-carat-nw:hover { background-position: -224px -32px; }
-.selected .icon32.icon-carat-ns, .icon32.icon-carat-ns, .icon32.icon-carat-ns:hover { background-position: -256px -32px; }
-.selected .icon32.icon-carat-ew , .icon32.icon-carat-ew , .icon32.icon-carat-ew :hover { background-position: -288px -32px; }
+.selected .icon32.icon-carat-1-n, .icon32.icon-carat-1-n, .icon32.icon-carat-1-n:hover { background-position: 0 -32px; }
+.selected .icon32.icon-carat-1-ne, .icon32.icon-carat-1-ne, .icon32.icon-carat-1-ne:hover { background-position: -32px -32px; }
+.selected .icon32.icon-carat-1-e, .icon32.icon-carat-1-e, .icon32.icon-carat-1-e:hover { background-position: -64px -32px; }
+.selected .icon32.icon-carat-1-se, .icon32.icon-carat-1-se, .icon32.icon-carat-1-se:hover { background-position: -96px -32px; }
+.selected .icon32.icon-carat-1-s, .icon32.icon-carat-1-s, .icon32.icon-carat-1-s:hover { background-position: -128px -32px; }
+.selected .icon32.icon-carat-1-sw, .icon32.icon-carat-1-sw, .icon32.icon-carat-1-sw:hover { background-position: -160px -32px; }
+.selected .icon32.icon-carat-1-w, .icon32.icon-carat-1-w, .icon32.icon-carat-1-w:hover { background-position: -192px -32px; }
+.selected .icon32.icon-carat-1-nw, .icon32.icon-carat-1-nw, .icon32.icon-carat-1-nw:hover { background-position: -224px -32px; }
+.selected .icon32.icon-carat-2-ns, .icon32.icon-carat-2-ns, .icon32.icon-carat-2-ns:hover { background-position: -256px -32px; }
+.selected .icon32.icon-carat-2-ew , .icon32.icon-carat-2-ew , .icon32.icon-carat-2-ew:hover { background-position: -288px -32px; }
 
 /* symbols */
 .selected .icon32.icon-plus, .icon32.icon-plus, .icon32.icon-plus:hover { background-position: -320px -32px; }
@@ -372,7 +382,7 @@ icon32 = css
 
 /* arrow */
 .selected .icon32.icon-arrow-n, .icon32.icon-arrow-n, .icon32.icon-arrow-n:hover { background-position: 0 -64px; }
-.selected .icon32.icon-arrow-ne, .icon32.icon-arrow-ne, .icon32.icon-arrow-ne:hover { background-position: 16px -64px; }
+.selected .icon32.icon-arrow-ne, .icon32.icon-arrow-ne, .icon32.icon-arrow-ne:hover { background-position: -32px -64px; }
 .selected .icon32.icon-arrow-e, .icon32.icon-arrow-e, .icon32.icon-arrow-e:hover { background-position: -64px -64px; }
 .selected .icon32.icon-arrow-se, .icon32.icon-arrow-se, .icon32.icon-arrow-se:hover { background-position: -96px -64px; }
 .selected .icon32.icon-arrow-s, .icon32.icon-arrow-s, .icon32.icon-arrow-s:hover { background-position: -128px -64px; }
@@ -442,7 +452,7 @@ icon32 = css
 .selected .icon32.icon-print, .icon32.icon-print, .icon32.icon-print:hover { background-position: -64px -160px; }
 .selected .icon32.icon-save, .icon32.icon-save, .icon32.icon-save:hover { background-position: -96px -160px; }
 .selected .icon32.icon-book, .icon32.icon-book, .icon32.icon-book:hover { background-position: -128px -160px; }
-.selected .icon32.icon-book2, .icon32.icon-book2, .icon32.icon-book2:hover { background-position: -160px -160px; }
+.selected .icon32.icon-book-empty, .icon32.icon-book-empty, .icon32.icon-book-empty:hover { background-position: -160px -160px; }
 .selected .icon32.icon-folder-collapsed, .icon32.icon-folder-collapsed, .icon32.icon-folder-collapsed:hover { background-position: -192px -160px; }
 .selected .icon32.icon-folder-open, .icon32.icon-folder-open, .icon32.icon-folder-open:hover { background-position: -224px -160px; }
 
@@ -480,22 +490,22 @@ icon32 = css
 .selected .icon32.icon-document, .icon32.icon-document, .icon32.icon-document:hover { background-position: -448px -192px; }
 .selected .icon32.icon-script, .icon32.icon-script, .icon32.icon-script:hover { background-position: -480px -192px; }
 
-.selected .icon32.icon-calendar, .icon32.icon-calendar, .icon32.icon-calendar:hover { background-position: 0 -224px; }
-.selected .icon32.icon-calendar2, .icon32.icon-calendar2, .icon32.icon-calendar2:hover { background-position: -32px -224px; }
+.selected .icon32.icon-date, .icon32.icon-date, .icon32.icon-date:hover { background-position: 0 -224px; }
+.selected .icon32.icon-calendar, .icon32.icon-calendar, .icon32.icon-calendar:hover { background-position: -32px -224px; }
 .selected .icon32.icon-clock, .icon32.icon-clock, .icon32.icon-clock:hover { background-position: -64px -224px; }
-.selected .icon32.icon-mail-closed, .icon32.icon-mail-closed, .icon32.icon-mail-closed:hover { background-position: -96px -224px; }
-.selected .icon32.icon-mail-open, .icon32.icon-mail-open, .icon32.icon-mail-open:hover { background-position: -128px -224px; }
-.selected .icon32.icon-mail2-closed, .icon32.icon-mail2-closed, .icon32.icon-mail2-closed:hover { background-position: -160px -224px; }
-.selected .icon32.icon-mail2-open, .icon32.icon-mail2-open, .icon32.icon-mail2-open:hover { background-position: -192px -224px; }
+.selected .icon32.icon-envelope-closed, .icon32.icon-envelope-closed, .icon32.icon-envelope-closed:hover { background-position: -96px -224px; }
+.selected .icon32.icon-envelope-open, .icon32.icon-envelope-open, .icon32.icon-envelope-open:hover { background-position: -128px -224px; }
+.selected .icon32.icon-mail-closed, .icon32.icon-mail-closed, .icon32.icon-mail-closed:hover { background-position: -160px -224px; }
+.selected .icon32.icon-mail-open, .icon32.icon-mail-open, .icon32.icon-mail-open:hover { background-position: -192px -224px; }
 .selected .icon32.icon-link, .icon32.icon-link, .icon32.icon-link:hover { background-position: -224px -224px; }
 .selected .icon32.icon-unlink, .icon32.icon-unlink, .icon32.icon-unlink:hover { background-position: -256px -224px; }
 .selected .icon32.icon-web, .icon32.icon-web, .icon32.icon-web:hover { background-position: -288px -224px; }
-.selected .icon32.icon-web2, .icon32.icon-web2, .icon32.icon-web2:hover { background-position: -320px -224px; }
+.selected .icon32.icon-globe, .icon32.icon-globe, .icon32.icon-globe:hover { background-position: -320px -224px; }
 .selected .icon32.icon-contacts, .icon32.icon-contacts, .icon32.icon-contacts:hover { background-position: -352px -224px; }
 .selected .icon32.icon-profile, .icon32.icon-profile, .icon32.icon-profile:hover { background-position: -384px -224px; }
 .selected .icon32.icon-image, .icon32.icon-image, .icon32.icon-image:hover { background-position: -416px -224px; }
 .selected .icon32.icon-suitcase, .icon32.icon-suitcase, .icon32.icon-suitcase:hover { background-position: -448px -224px; }
-.selected .icon32.icon-suitcase2, .icon32.icon-suitcase2, .icon32.icon-suitcase2:hover { background-position: -480px -224px; }
+.selected .icon32.icon-briefcase, .icon32.icon-briefcase, .icon32.icon-briefcase:hover { background-position: -480px -224px; }
 
 /* circle symbols */
 .selected .icon32.icon-close, .icon32.icon-close, .icon32.icon-close:hover { background-position: 0 -256px; }
@@ -530,6 +540,14 @@ icon32 = css
 .selected .icon32.icon-reply, .icon32.icon-reply, .icon32.icon-reply:hover { background-position: -96px -288px; }
 .selected .icon32.icon-sent, .icon32.icon-sent, .icon32.icon-sent:hover { background-position: -128px -288px; }
 .selected .icon32.icon-attachement, .icon32.icon-attachement, .icon32.icon-attachement:hover { background-position: -160px -288px; }
+
+/* treeview */
+.selected .icon32.icon-square-plus, .icon32.icon-square-plus, .icon32.icon-square-plus:hover { background-position: -320px -480px; }
+.selected .icon32.icon-square-minus, .icon32.icon-square-minus, .icon32.icon-square-minus:hover { background-position: -352px -480px; }
+.selected .icon32.icon-treeview-corner-plus, .icon32.icon-treeview-corner-plus, .icon32.icon-treeview-corner-plus:hover { background-position: -384px -480px; }
+.selected .icon32.icon-treeview-corner-minus, .icon32.icon-treeview-corner-minus, .icon32.icon-treeview-corner-minus:hover { background-position: -416px -480px; }
+.selected .icon32.icon-treeview-corner, .icon32.icon-treeview-corner, .icon32.icon-treeview-corner:hover { background-position: -448px -480px; }
+.selected .icon32.icon-treeview-vertical-line, .icon32.icon-treeview-vertical-line, .icon32.icon-treeview-vertical-line:hover { background-position: -480px -480px; }
 
 /* register resources */
 
