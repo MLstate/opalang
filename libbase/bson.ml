@@ -557,7 +557,7 @@ struct
     else
       let ds =
         match S.get i.ibuf i.pos with
-        | c when c = el_undefined || c = el_null || c = el_minkey || c = el_minkey ->
+        | c when c = el_undefined || c = el_null || c = el_minkey || c = el_maxkey ->
             0
         | c when c = el_bool ->
             1

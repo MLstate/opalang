@@ -485,6 +485,7 @@ Bson = {{
     "["^(String.concat(", ",List.map((e -> pretty_of_value(e.value)),a)))^"]"
 
   to_pretty(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
+  to_pretty_list(bsons:list(Bson.document)): string = List.list_to_string(to_pretty,bsons)
 
   /**
    * Convert a result value into a more friendly string.

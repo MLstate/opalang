@@ -251,10 +251,19 @@ Cursor = {{
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
 
+  /** Identical to for() except it allows update of the state in the conditional **/
+  for(init:'state, next:'state -> 'state, cond:'state -> ('state, bool)): 'state =
+    (v,continue) = cond(init)
+    if continue
+    then for(next(v),next,cond)
+    else v
 
   /**
    * Create and initialise cursor with given query and default options.
    * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
+   * Note: you can't actually use the OPA initial for() function with this idiom without
+   * missing the last element (you can't update the loop variable within the conditional for end of loop).
+   * Use the Cursor.for() function instead.
    **/
   start(m:Mongo.db, ns:string, query:Bson.document, limit:int): Cursor.cursor =
     c = Cursor.init(m,ns)
@@ -269,7 +278,9 @@ Cursor = {{
    * Test if there is still data in a cursor.
    **/
   valid(c:Cursor.cursor): bool =
-    not(c.killed) && c.query_sent && ((c.returned > 0 && (c.current < c.returned)) /*|| not(Mongo.is_null_cursorID(c.cid))*/ )
+    not(c.killed)
+    && ((not(c.query_sent) && Option.is_some(c.query)) // initialised but not run
+        || ((c.returned > 0 && (c.current < c.returned)))) // run and still has data
 
   /**
    * Full find function with all parameters.
@@ -327,16 +338,33 @@ Cursor = {{
     _ = Cursor.reset(c)
     outcome
 
-  check_ok(bson:Bson.document): Mongo.result =
-    match Bson.find(bson,"ok") with
-    | {some=[{name="ok"; value={Double=ok}}]} ->
-       if ok == 1.0
-       then {success=bson}
-       else
-         (match Bson.find(bson,"errmsg") with
-          | {some=[{name="errmsg"; value={String=errmsg}}]} -> {failure={Error=errmsg}}
-          | _ -> {failure={Error="ok:{ok}"}})
-    | _ -> {success=bson}
+  /**
+   * Find all matching documents for the given namespace.
+   *
+   * Creates and destroys a cursor.
+   **/
+  find_all(m:Mongo.db, ns:string, query:Bson.document, limit:int): Mongo.results =
+    cursor = set_query(set_limit(init(m,ns),limit),{some=query})
+    (cursor,results) =
+      for((cursor,{success=[]}),
+          ((cursor,results) ->
+            match results with
+            | {success=docs} ->
+               (match check_cursor_error(cursor) with
+                | {success=doc} -> (cursor,{success=[doc|docs]})
+                | {~failure} -> (cursor,{~failure}))
+            | {~failure} -> (cursor,{~failure})
+          ),
+          ((cursor,results) ->
+            match results with
+            | {success=_} ->
+               if valid(cursor)
+               then ((next(cursor),results),true)
+               else ((cursor,results),false)
+            | {failure=_} -> ((cursor,results),false)
+          ))
+    _ = reset(cursor)
+    results
 
 }}
 

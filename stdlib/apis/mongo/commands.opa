@@ -62,6 +62,7 @@ type Commands.getLastErrorOptions = {
 
 type Commands.isMaster = {
   ismaster : bool;
+  msg : Bson.register(string);
   setName : Bson.register(string);
   primary : Bson.register(string);
   secondary : Bson.register(bool);
@@ -154,7 +155,7 @@ Commands = {{
    **/
   run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
     match Cursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
-    | {success=bson} -> Cursor.check_ok(bson)
+    | {success=bson} -> Mongo.check_ok(bson)
     | {~failure} -> {~failure}
 
   /**
@@ -181,13 +182,16 @@ Commands = {{
   simple_str_command_opts(m:Mongo.db, ns:string, cmd:string, arg:string, opts:Bson.document): Mongo.result =
     run_command(m, ns, List.flatten([[H.str(cmd,arg)],opts]))
 
-  adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) =
-    match simple_int_command(m,"admin",command,1) with
+  dbToOpa(m:Mongo.db, dbname:string, command:string): outcome('a,Mongo.failure) =
+    match simple_int_command(m,dbname,command,1) with
     | {success=doc} ->
        (match Mongo.result_to_opa({success=doc}) with
         | {some=ism} -> {success=ism}
-        | {none} -> {failure={Error="Commands.{command}: invalid document ({Bson.to_pretty(doc)})"}})
+        | {none} -> {failure={Error="Commands.{command}: invalid document from db {dbname} ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}
+
+  adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) = dbToOpa(m,"admin",command)
+  configToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) = dbToOpa(m,"config",command)
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
@@ -372,6 +376,217 @@ Commands = {{
    * Return the isMaster document as an OPA type.
    **/
   isMasterOpa(m:Mongo.db): outcome(Commands.isMaster,Mongo.failure) = adminToOpa(m,"ismaster")
+
+  /**
+   * Query the config.shards database, gives a list of shards.
+   **/
+  findShards(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.shards", query, 100)
+
+  /**
+   * Query the config.databases database, gives a list of shard information about databases.
+   **/
+  findDatabases(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.databases", query, 100)
+
+  /**
+   * Query the config.locks database, gives information about the shard balancer.
+   **/
+  findBalancer(m:Mongo.db): Mongo.results = Cursor.find_all(m, "config.locks", [H.str("_id","balancer")], 100)
+
+  /**
+   * Low-level, set config.settings balancer value.  Valid objects are "stopped" and "start/stop".
+   **/
+  setBalancer(m:Mongo.db, param:Bson.document): bool =
+    Mongo.update(m,Mongo.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
+
+  /**
+   * Update the balancer settings, true=stopped
+   **/
+  pauseBalancer(m:Mongo.db, stopped:bool): bool =
+    setBalancer(m, [H.bool("stopped",stopped)])
+
+  /**
+   * Set balancer window (eg. start="09:00" stop="21:00")
+   **/
+  setBalancerWindow(m:Mongo.db, start:string, stop:string): bool =
+    setBalancer(m, [H.doc("activeWindow",[H.str("start",start), H.str("stop",stop)])])
+
+  /**
+   * Set chunksize in MB.
+   **/
+  setChunkSize(m:Mongo.db, size:int): bool =
+    Mongo.update(m,Mongo.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
+
+  /**
+   * Query the config.chunks database, gives a information about shard distribution.
+   **/
+  findChunks(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.chunks", query, 100)
+
+  /**
+   * Add a shard to a database.
+   * addShard(mongo, shard_address, optional_name, allowLocal, optional_maxSize).
+   **/
+  addShard(m:Mongo.db, shard:string, nameOpt:option(string), allowLocal:bool, maxSizeOpt:option(int)): Mongo.result =
+    opts = List.flatten([match nameOpt with {some=name} -> [H.str("name",name)] | _ -> [],
+                         if allowLocal then [H.bool("allowLocal",true)] else [],
+                         match maxSizeOpt with {some=maxSize} -> [H.i32("maxSize",maxSize)] | _ -> []])
+    simple_str_command_opts(m, "admin", "addShard", shard, opts)
+
+  /**
+   * Basic and practically useless remove shard command.
+   * Unless the shard happens to have no databases in it, you will
+   * just leave the shard in a "draining" state.  You have to
+   * manually move the  chunks on the shard to another shard before
+   * removal will complete.
+   **/
+  removeShard(m:Mongo.db, shard:string): Mongo.result =
+    simple_str_command(m, "admin", "removeShard", shard)
+
+  /** Map a list of outcomes onto an outcome of a list. **/
+  Outcome_map(f:'a->outcome('b,'c), l:list('a)): outcome(list('b),'c) =
+    rec aux(l) =
+      match l with
+      | [a|t] ->
+         (match f(a) with
+          | {success=b} ->
+             (match aux(t) with
+              | {success=l} -> {success=[b|l]}
+              | {~failure} -> {~failure})
+          | {~failure} -> {~failure})
+      | [] -> {success=[]}
+    aux(l)
+
+  /**
+   * Find a non-draining shard in a list of shards.
+   * You get the list of shards from config.shards.
+   **/
+  find_non_draining_shard(shards:list(Bson.document)): option(string) =
+    rec aux(shards) =
+      match shards with
+      | [shard|shards] ->
+         (match Bson.find_bool(shard,"draining") with 
+          | {some={true}} -> aux(shards)
+          | _ -> Bson.find_string(shard,"_id"))
+      | [] -> {none}
+   aux(shards)
+
+  /**
+   * Complicated and possibly dangerous routine.
+   * We remove a shard and detect whether it has completed or not.
+   * If there are databases still left associated with the shard
+   * we try to move them to a vacant shard.
+   * We have to wait in a loop, we define a retry time in milliseconds
+   * and a maximum number of retries.
+   * Warning, moving a large chunk might take a little time.
+   **/
+  reallyRemoveShard(m:Mongo.db, shard:string, retryTime:int, maxRetries:int): Mongo.result =
+    rec aux(time,retries) =
+      if retries > maxRetries
+      then {failure={Error="Commands.reallyRemoveShard: retry count exceeded"}}
+      else
+        do if time != 0 then Scheduler.wait(time)
+        match removeShard(m, shard) with
+        | {success=doc} ->
+           (match Bson.dot_string(doc,"state") with
+            | {some="started"} -> aux(retryTime,retries+1)
+            | {some="ongoing"} ->
+               (match Bson.dot_int(doc,"remaining.chunks") with
+                | {some=0} | {none} ->
+                   (match Bson.dot_int(doc,"remaining.dbs") with
+                    | {some=0} | {none} -> {success=doc}//??failure
+                    | _ ->
+                       (match Cursor.find_all(m, "config.databases", [H.str("primary",shard)], 100) with
+                        | {success=dbs} ->
+                           (match Cursor.find_all(m, "config.shards", [], 100) with
+                            | {success=[]} -> {failure={Error="No shards to move primary"}}
+                            | {success=shards} ->
+                               do println("dbs={Bson.to_pretty_list(dbs)}\nshards={Bson.to_pretty_list(shards)}")
+                               (match find_non_draining_shard(shards) with
+                                | {some=shardid} ->
+                                   do println("shardid={shardid}")
+                                   res = Outcome_map((dbdoc ->
+                                                      (match Bson.find_string(dbdoc,"_id") with
+                                                       | {some=dbname} -> movePrimary(m, dbname, shardid)
+                                                       | {none} -> {failure={Error="no db _id"}})),dbs)
+                                   (match res with
+                                    | {success=_} -> aux(retryTime,retries+1)
+                                    | {~failure} -> {~failure})
+                                | {none} -> {success=doc})
+                            | {~failure} -> {~failure})
+                        | {~failure} -> {~failure}))
+                | _ -> aux(retryTime,retries+1))
+            | {some="completed"} -> {success=doc}
+            | _ -> {success=doc})
+        | {~failure} -> {~failure}
+    aux(0,0)
+
+  /**
+   * Return the current shard version for this collection.
+   **/
+  getShardVersion(m:Mongo.db, collection:string): Mongo.result =
+    simple_str_command(m, "admin", "getShardVersion", collection)
+
+  /**
+   * Return a list of shards.
+   **/
+  listShards(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "listShards", 1)
+
+  /**
+   * Enable sharding on the given database.
+   **/
+  enableSharding(m:Mongo.db, dbname:string): Mongo.result =
+    simple_str_command(m, "admin", "enableSharding", dbname)
+
+  /**
+   * Enable sharding on a collection, giving the optional sharding key.
+   * The bool is the unique flag.
+   **/
+  shardCollection(m:Mongo.db, collection:string, keyOpt:option(Bson.document), unique:bool): Mongo.result =
+    opts = List.flatten([match keyOpt with {some=key} -> [H.doc("key",key)] | _ -> [],
+                         if unique then [H.bool("unique",true)] else []])
+    simple_str_command_opts(m, "admin", "shardCollection", collection, opts)
+
+  /**
+   * Actually split an existing chunk (does a split(find)).
+   **/
+  split(m:Mongo.db, collection:string, find:Bson.document): Mongo.result =
+    simple_str_command_opts(m, "admin", "split", collection, [H.doc("find",find)])
+
+  /**
+   * Presplit, we just define the split point (does a split(middle)).
+   **/
+  presplit(m:Mongo.db, collection:string, middle:Bson.document): Mongo.result =
+    simple_str_command_opts(m, "admin", "split", collection, [H.doc("middle",middle)])
+
+  /**
+   * Move a chunk from the given collection for which the select document would
+   * select a document from and move to the named shard.
+   **/
+  moveChunk(m:Mongo.db, collection:string, find:Bson.document, to:string): Mongo.result =
+    simple_str_command_opts(m, "admin", "moveChunk", collection, [H.doc("find",find), H.str("to",to)])
+
+  /**
+   * Move the primary for the given db name to the named shard.
+   **/
+  movePrimary(m:Mongo.db, dbname:string, to:string): Mongo.result =
+    simple_str_command_opts(m, "admin", "movePrimary", dbname, [H.str("to",to)])
+
+  /**
+   * Runs an "isdbgrid" command.  Can be used to tell if we are running mongos or mongod.
+   **/
+  isDBGrid(m:Mongo.db): Mongo.result =
+    simple_int_command(m, "admin", "isdbgrid", 1)
+
+  /**
+   * Boolean predicate for connection to a mongos (uses isDBGrid).
+   **/
+  isMongos(m:Mongo.db): bool =
+    match isDBGrid(m) with
+    | {success=doc} ->
+       (match Bson.find_int(doc,"isdbgrid") with
+        | {some=n} -> n != 0
+        | {none} -> false)
+    | _ -> false
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 

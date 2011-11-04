@@ -77,8 +77,10 @@ type Mongo.failure =
   / {Incomplete}
 
 type Mongo.success = Bson.document
+type Mongo.successes = list(Bson.document)
 
 type Mongo.result = outcome(Mongo.success, Mongo.failure)
+type Mongo.results = outcome(Mongo.successes, Mongo.failure)
 
 type Mongo.error = outcome(Bson.error, Mongo.failure)
 
@@ -168,13 +170,28 @@ Mongo = {{
     | {Incomplete} -> "Incomplete"
 
   string_of_result(result:Mongo.result): string = outcome_map(result, Bson.string_of_doc_error, string_of_failure)
+  string_of_results(results:Mongo.results): string =
+    outcome_map(results, (l -> List.list_to_string(Bson.string_of_doc_error,l)), string_of_failure)
 
   string_of_value_or_failure(result:outcome('a,Mongo.failure), success_to_str:'a->string): string =
     string_of_outcome(result, success_to_str, (failure -> "\{failure={string_of_failure(failure)}\}"))
 
   pretty_of_result(result:Mongo.result): string = string_of_value_or_failure(result,Bson.to_pretty)
+  pretty_of_results(results:Mongo.results): string =
+    string_of_value_or_failure(results,(l -> List.list_to_string(Bson.to_pretty,l)))
 
   isError(result:Mongo.result): bool = outcome_map(result, Bson.isError, (_ -> true))
+
+  check_ok(bson:Bson.document): Mongo.result =
+    match Bson.find_int(bson,"ok") with
+    | {some=ok} ->
+       if ok == 1
+       then {success=bson}
+       else
+         (match Bson.find_string(bson,"errmsg") with
+          | {some=errmsg} -> {failure={Error=errmsg}}
+          | _ -> {failure={Error="ok:{ok}"}})
+    | _ -> {success=bson}
 
   /**
    * outcome-wrapped versions of find_xxx etc.
