@@ -34,9 +34,30 @@ Random = {{
   random_init = %% BslNumber.Random.random_init %% : -> void
 
   /**
+   * [Random.generic_string(s, n)]
+   * returns a fresh string of length [n], composed of random char,
+   * picked in [s]
+  **/
+  generic_string = %% BslNumber.Random.generic_string %% : string, int -> string
+
+  /**
    * [Random.string(n)]
    * returns a fresh string of length [n], composed of random char,
    * picked in [['a'-'z']]
   **/
   string = %% BslNumber.Random.string %% : int -> string
+
+  /**
+   * [Random.base64(n)]
+   * returns a fresh string of length [n], composed of random char,
+   * picked in [['a'-'z','A'-'Z',0-9,+,/]]
+  **/
+  base64 = %% BslNumber.Random.base64 %% : int -> string
+
+  /**
+   * [Random.base64_url(n)]
+   * returns a fresh string of length [n], composed of random char,
+   * picked in [['a'-'z','A'-'Z',0-9,-,_]]
+  **/
+  base64_url = %% BslNumber.Random.base64_url %% : int -> string
 }}

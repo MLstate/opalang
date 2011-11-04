@@ -271,13 +271,38 @@
       return ;
   }
 
-##register string : int -> string
-  ##args(len)
-  {
+function makeStringFromChars(chars, len) {
     var s = "";
     for (var i = 0; i < len; ++i)
-      s += String.fromCharCode(97 + Math.floor(Math.random() * 26));
+	s += chars.charAt(Math.floor(Math.random() * chars.length));
     return s;
+}
+
+##register generic_string : string, int -> string
+    ##args(chars, len)
+{
+    return (makeStringFromChars(chars, len));
+}
+
+##register string : int -> string
+    ##args(len)
+{
+    var chars = "abcdefghijklmnopqrstuvwxyz";
+    return makeStringFromChars(chars, len);
+}
+
+##register base64 : int -> string
+    ##args(len)
+{
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    return makeStringFromChars(chars, len)
+  }
+
+##register base64_url : int -> string
+    ##args(len)
+{
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    return makeStringFromChars(chars, len)
   }
 
 ##endmodule
