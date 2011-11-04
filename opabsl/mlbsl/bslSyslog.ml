@@ -15,10 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 ##register debug:   string, 'a -> void
 ##register info:    string, 'a -> void
 ##register notice:  string, 'a -> void
-##register log\ notice:     string, 'a -> void
 ##register warning: string, 'a -> void
 ##register error:   string, 'a -> void
 ##register fatal\ critical:   string, 'a -> void
