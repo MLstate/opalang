@@ -157,7 +157,7 @@ Commands = {{
    **/
   run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
     match Cursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
-    | {success=bson} -> Mongo.check_ok(bson)
+    | {success=bson} -> MongoDriver.check_ok(bson)
     | {~failure} -> {~failure}
 
   /**
@@ -187,7 +187,7 @@ Commands = {{
   dbToOpa(m:Mongo.db, dbname:string, command:string): outcome('a,Mongo.failure) =
     match simple_int_command(m,dbname,command,1) with
     | {success=doc} ->
-       (match Mongo.result_to_opa({success=doc}) with
+       (match MongoDriver.result_to_opa({success=doc}) with
         | {some=ism} -> {success=ism}
         | {none} -> {failure={Error="Commands.{command}: invalid document from db {dbname} ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}
@@ -257,7 +257,7 @@ Commands = {{
    * Return the last error from database.
    **/
   getLastError(m:Mongo.db, db:string): Mongo.result = simple_int_command(m, db, "getlasterror", 1)
-  getLastErrorOpa(m:Mongo.db, db:string): Mongo.error = Mongo.error_of_result(getLastError(m, db))
+  getLastErrorOpa(m:Mongo.db, db:string): Mongo.error = MongoDriver.error_of_result(getLastError(m, db))
 
   /**
    * Return the last error from database, with full options.
@@ -266,7 +266,7 @@ Commands = {{
     simple_int_command_opts(m, db, "getlasterror", 1,
                             [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
   getLastErrorFullOpa(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.error =
-    Mongo.error_of_result(getLastErrorFull(m, db, fsync, j, w, wtimeout))
+    MongoDriver.error_of_result(getLastErrorFull(m, db, fsync, j, w, wtimeout))
 
   /**
    * Reset database error status.
@@ -292,7 +292,7 @@ Commands = {{
   collStats(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "collStats", collection)
   collStatsOpa(m:Mongo.db, db:string, collection:string): outcome(Commands.collStatsType,Mongo.failure) =
-    Mongo.resultToOpa(collStats(m, db, collection))
+    MongoDriver.resultToOpa(collStats(m, db, collection))
 
   /**
    * Create a collection.
@@ -398,7 +398,7 @@ Commands = {{
    * Low-level, set config.settings balancer value.  Valid objects are "stopped" and "start/stop".
    **/
   setBalancer(m:Mongo.db, param:Bson.document): bool =
-    Mongo.update(m,Mongo.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
+    MongoDriver.update(m,MongoDriver.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
 
   /**
    * Update the balancer settings, true=stopped
@@ -416,7 +416,7 @@ Commands = {{
    * Set chunksize in MB.
    **/
   setChunkSize(m:Mongo.db, size:int): bool =
-    Mongo.update(m,Mongo.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
+    MongoDriver.update(m,MongoDriver.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
 
   /**
    * Query the config.chunks database, gives a information about shard distribution.
@@ -600,7 +600,7 @@ Commands = {{
     digest = pass_digest(user,pass)
     bselector = [H.str("user",user)]
     bupdate = [H.doc("$set",[H.str("pwd",digest)])]
-    Mongo.update(m,Mongo.UpsertBit,(db^".system.users"),bselector,bupdate)
+    MongoDriver.update(m,MongoDriver.UpsertBit,(db^".system.users"),bselector,bupdate)
 
   /**
    * Authenticate a user for the given database.

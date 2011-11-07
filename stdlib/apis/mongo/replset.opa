@@ -85,6 +85,7 @@ type ReplSet.replSetInitiate =
 ReplSet = {{
 
   @private ML = MongoLog
+  @private H = Bson.Abbrevs
 
   /**
    * Freeze in replica set (can't become primary for given number of seconds.
@@ -130,14 +131,14 @@ ReplSet = {{
   add_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=[(host,port)|mdb.seeds]}
   remove_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=List.filter((s -> s != (host,port)),mdb.seeds)}
 
-  init(name:string, bufsize:int, log:bool, seeds:list(mongo_host)): Mongo.db =
-    mdb = Mongo.init(bufsize, log)
+  init(name:string, bufsize:int, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    mdb = MongoDriver.init(bufsize, log)
     {mdb with ~seeds; hosts=Mutable.make([]); ~name}
 
-  init_single(name:string, bufsize:int, log:bool, seed:mongo_host): Mongo.db =
+  init_single(name:string, bufsize:int, log:bool, seed:Mongo.mongo_host): Mongo.db =
     init(name,bufsize,log,[seed])
 
-  mongo_host_of_string(s:string): mongo_host =
+  mongo_host_of_string(s:string): Mongo.mongo_host =
     match String.explode(":",s) with
     | [host|[port|[]]] -> (host,Int.of_string(port))
     | _ -> (s,27017)
@@ -161,12 +162,12 @@ ReplSet = {{
     rec aux(mdb, seeds) =
       match seeds with
       | [seed|rest] ->
-        (match Mongo.connect(mdb, seed.f1, seed.f2) with
+        (match MongoDriver.connect(mdb, seed.f1, seed.f2) with
          | {success=mdb} ->
             mdb = check_seed(mdb)
             if mdb.hosts.get() == []
-            then aux(Mongo.close(mdb),rest)
-            else {success=Mongo.close(mdb)}
+            then aux(MongoDriver.close(mdb),rest)
+            else {success=MongoDriver.close(mdb)}
          | {failure=_} ->
             aux(mdb,rest))
       | [] -> {failure={Error="ReplSet.connect: No connecting seeds"}}
@@ -176,7 +177,7 @@ ReplSet = {{
        rec aux2(mdb, hosts) =
          (match hosts with
           | [host|rest] ->
-            (match Mongo.connect(mdb, host.f1, host.f2) with
+            (match MongoDriver.connect(mdb, host.f1, host.f2) with
              | {success=mdb} ->
                 (match Commands.isMasterOpa(mdb) with
                  | {success=ism} ->
@@ -192,10 +193,10 @@ ReplSet = {{
                           (match List.extract_p((host -> host == primary_host),rest) with
                            | ({some=p},rest) ->
                               do if mdb.log then ML.info("ReplSet.connect","jump to primary",void)
-                              aux2(Mongo.close(mdb),[p|rest])
-                           | ({none},rest) -> aux2(Mongo.close(mdb),rest))
-                       | {absent} -> aux2(Mongo.close(mdb),rest))
-                 | {failure=_} -> aux2(Mongo.close(mdb),rest))
+                              aux2(MongoDriver.close(mdb),[p|rest])
+                           | ({none},rest) -> aux2(MongoDriver.close(mdb),rest))
+                       | {absent} -> aux2(MongoDriver.close(mdb),rest))
+                 | {failure=_} -> aux2(MongoDriver.close(mdb),rest))
              | {failure=_} -> aux2(mdb,rest))
           | [] -> {failure={Error="ReplSet.connect: No master hosts"}})
        aux2(mdb, mdb.hosts.get())

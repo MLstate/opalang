@@ -162,7 +162,7 @@ type mongodb = {
 type MDB = {{
   // TODO: Documentation
   open : int, string, int -> outcome(mongodb,Mongo.failure)
-  repl : string, int, list(mongo_host) -> outcome(mongodb,Mongo.failure)
+  repl : string, int, list(Mongo.mongo_host) -> outcome(mongodb,Mongo.failure)
   clone : mongodb -> mongodb
   namespace : mongodb, string, string -> mongodb
   log : mongodb, bool -> mongodb
@@ -206,7 +206,7 @@ MDB : MDB = {{
                                if db.link_count.get() > 0
                                then
                                  do ML.info("MDB.open","closing mongo (exit) {db.link_count.get()}",void)
-                                 _ = Mongo.close(db.mongo) 
+                                 _ = MongoDriver.close(db.mongo) 
                                  void
                                else void)
            {success=db}
@@ -214,9 +214,9 @@ MDB : MDB = {{
     | {~failure} -> {~failure}
 
   open(bufsize:int, addr:string, port:int): outcome(mongodb,Mongo.failure) =
-    open_(Mongo.open(bufsize,addr,port,false))
+    open_(MongoDriver.open(bufsize,addr,port,false))
 
-  repl(name:string, bufsize:int, seeds:list(mongo_host)): outcome(mongodb,Mongo.failure) =
+  repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(mongodb,Mongo.failure) =
     open_(ReplSet.connect(ReplSet.init(name,bufsize,false,seeds)))
 
   clone(db:mongodb): mongodb =
@@ -238,7 +238,7 @@ MDB : MDB = {{
         if lc <= 1
         then
           do ML.info("MDB.close","closing mongo (close) {db.link_count.get()}",void)
-          _ = Mongo.close(db.mongo)
+          _ = MongoDriver.close(db.mongo)
           void
         else void
       else void
@@ -247,24 +247,24 @@ MDB : MDB = {{
 
   err(db:mongodb, n:string): void =
     err = Commands.getLastError(db.mongo, db.dbname)
-    if Mongo.isError(err) then println("Error({n})={Mongo.string_of_result(err)}")
+    if MongoDriver.isError(err) then println("Error({n})={MongoDriver.string_of_result(err)}")
 
   skip(db:mongodb, skip:int): mongodb = { db with ~skip }
   limit(db:mongodb, limit:int): mongodb = { db with ~limit }
   fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
   orderby(db:mongodb, orderby:option(Bson.document)): mongodb = { db with ~orderby }
 
-  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.lor(db.insert_flags,Mongo.ContinueOnErrorBit) }
-  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,Mongo.UpsertBit) }
-  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,Mongo.MultiUpdateBit) }
-  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.lor(db.delete_flags,Mongo.SingleRemoveBit) }
-  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.TailableCursorBit) }
-  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.SlaveOkBit) }
-  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.OplogReplayBit) }
-  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.NoCursorTimeoutBit) }
-  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.AwaitDataBit) }
-  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.ExhaustBit) }
-  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,Mongo.PartialBit) }
+  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.lor(db.insert_flags,MongoDriver.ContinueOnErrorBit) }
+  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.UpsertBit) }
+  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.MultiUpdateBit) }
+  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.lor(db.delete_flags,MongoDriver.SingleRemoveBit) }
+  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.TailableCursorBit) }
+  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.SlaveOkBit) }
+  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.OplogReplayBit) }
+  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.NoCursorTimeoutBit) }
+  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.AwaitDataBit) }
+  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.ExhaustBit) }
+  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.PartialBit) }
 
 }}
 
@@ -1158,44 +1158,44 @@ Collection : Collection = {{
   orderby(c:collection('value), orderby:option(Bson.document)): collection('value) = {c with db={ c.db with ~orderby }}
 
   continueOnError(c:collection('value)): collection('value) =
-    {c with db={ c.db with insert_flags=Bitwise.lor(c.db.insert_flags,Mongo.ContinueOnErrorBit) }}
+    {c with db={ c.db with insert_flags=Bitwise.lor(c.db.insert_flags,MongoDriver.ContinueOnErrorBit) }}
   upsert(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,Mongo.UpsertBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoDriver.UpsertBit) }}
   multiUpdate(c:collection('value)): collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,Mongo.MultiUpdateBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoDriver.MultiUpdateBit) }}
   singleRemove(c:collection('value)): collection('value)
-    = {c with db={ c.db with delete_flags=Bitwise.lor(c.db.delete_flags,Mongo.SingleRemoveBit) }}
+    = {c with db={ c.db with delete_flags=Bitwise.lor(c.db.delete_flags,MongoDriver.SingleRemoveBit) }}
   tailableCursor(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.TailableCursorBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.TailableCursorBit) }}
   slaveOk(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.SlaveOkBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.SlaveOkBit) }}
   oplogReplay(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.OplogReplayBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.OplogReplayBit) }}
   noCursorTimeout(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.NoCursorTimeoutBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.NoCursorTimeoutBit) }}
   awaitData(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.AwaitDataBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.AwaitDataBit) }}
   exhaust(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.ExhaustBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.ExhaustBit) }}
   partial(c:collection('value)): collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,Mongo.PartialBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.PartialBit) }}
 
   insert(c:collection('value), v:'value): bool =
     ns = c.db.dbname^"."^c.db.collection
     b = Bson.opa_to_bson(v,{some=@typeval('value)})
-    Mongo.insert(c.db.mongo,c.db.insert_flags,ns,b)
+    MongoDriver.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
   insert_batch(c:collection('value), b:batch): bool =
     ns = c.db.dbname^"."^c.db.collection
-    Mongo.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
+    MongoDriver.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
   update(c:collection('value), select:select('value), update:update('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
-    Mongo.update(c.db.mongo,c.db.update_flags,ns,select,update)
+    MongoDriver.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
   delete(c:collection('value), select:select('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
-    Mongo.delete(c.db.mongo,c.db.delete_flags,ns,select)
+    MongoDriver.delete(c.db.mongo,c.db.delete_flags,ns,select)
 
   find_one_doc(c:collection('value), select:select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
@@ -1260,7 +1260,7 @@ Collection : Collection = {{
                          ((cc,{success=[Magic.id(v):'result|l]}),has_more(cc))
                       | (cc,{failure={Incomplete}}) -> ((cc,{success=l}),has_more(cc))
                       | (cc,{~failure}) ->
-                         //do println("  err(query)={Mongo.string_of_failure(failure)}")
+                         //do println("  err(query)={MongoDriver.string_of_failure(failure)}")
                          ((cc,{~failure}),false))
                   | {~failure} -> ((cc,{~failure}),false)))
        _ = kill(cc)
@@ -1466,7 +1466,7 @@ UtilsDb = {{
            (match Bson.find_string(success, "err") with
             | {some=""} | {none} -> true
             | {some=err} -> do println("{msg}: {err}") false)
-        | {~failure} -> do println("{msg}: fatal error {Mongo.string_of_failure(failure)}") false)
+        | {~failure} -> do println("{msg}: fatal error {MongoDriver.string_of_failure(failure)}") false)
 
    safe_insert(c,v) = safe_(c,((c,v) -> Collection.insert(c,v)),(c,v),"Collection.insert")
    safe_insert_batch(c,b) = safe_(c,((c,b) -> Collection.insert_batch(c,b)),(c,b),"Collection.insert_batch")

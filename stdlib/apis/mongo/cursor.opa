@@ -57,8 +57,8 @@ type Cursor.cursor = {
      fields : option(Bson.document);
      orderby : option(Bson.document);
      query_sent : bool;
-     cid : cursorID;
-     reply : option(reply);
+     cid : Mongo.cursorID;
+     reply : option(Mongo.reply);
      returned : int;
      current : int;
      doc : Bson.document;
@@ -89,7 +89,7 @@ Cursor = {{
     fields = {none};
     orderby = {none};
     query_sent = {false};
-    cid = Mongo.null_cursorID(void);
+    cid = MongoDriver.null_cursorID(void);
     reply = {none};
     returned = 0;
     current = 0;
@@ -101,7 +101,7 @@ Cursor = {{
   /**
    * Set cursor parameters.
    *
-   * These are named as for the arguments to a [Mongo.query] call.
+   * These are named as for the arguments to a [MongoDriver.query] call.
    **/
   set_flags(c:Cursor.cursor, flags:int): Cursor.cursor = { c with ~flags }
   set_skip(c:Cursor.cursor, skip:int): Cursor.cursor = { c with ~skip }
@@ -110,21 +110,21 @@ Cursor = {{
   set_fields(c:Cursor.cursor, fields:option(Bson.document)): Cursor.cursor = { c with ~fields }
   set_orderby(c:Cursor.cursor, orderby:option(Bson.document)): Cursor.cursor = { c with ~orderby }
 
-  tailable(c:Cursor.cursor): Cursor.cursor = { c with flags=Bitwise.lor(c.flags, Mongo.TailableCursorBit) }
+  tailable(c:Cursor.cursor): Cursor.cursor = { c with flags=Bitwise.lor(c.flags, MongoDriver.TailableCursorBit) }
 
   @private
   set_error(c:Cursor.cursor, error:string): Cursor.cursor = { c with ~error; killed={true} }
 
   @private
-  reply(c:Cursor.cursor, reply_opt:option(reply), name:string, query_sent:bool): Cursor.cursor =
+  reply(c:Cursor.cursor, reply_opt:option(Mongo.reply), name:string, query_sent:bool): Cursor.cursor =
     match reply_opt with
     | {some=reply} ->
-      cursorID = Mongo.reply_cursorID(reply)
+      cursorID = MongoDriver.reply_cursorID(reply)
       { c with
           cid = cursorID;
           reply = {some=reply};
           ~query_sent;
-          returned = Mongo.reply_numberReturned(reply);
+          returned = MongoDriver.reply_numberReturned(reply);
           current = 0;
           doc = error_document("Uninitialised document",-1);
       }
@@ -146,7 +146,7 @@ Cursor = {{
                | {some=orderby} -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",orderby)]
                | {none} -> Option.get(c.query))
       //do println("op_query: query={Bson.to_pretty(query)}") <-- redundant, we've got logging now
-      reply(c,Mongo.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
+      reply(c,MongoDriver.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,(if c.killed
                       then "Cursor.op_query: already killed"
                       else "Cursor.op_query: no query"))
@@ -155,8 +155,8 @@ Cursor = {{
    * Perform an OP_GETMORE call, if a valid cursor ID exists in the cursor.
    **/
   get_more(c:Cursor.cursor): Cursor.cursor =
-    if not(c.killed) && not(Mongo.is_null_cursorID(c.cid))
-    then reply(c,Mongo.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
+    if not(c.killed) && not(MongoDriver.is_null_cursorID(c.cid))
+    then reply(c,MongoDriver.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
     else set_error(c,"Cursor.get_more: attempt to get more with dead cursor")
 
   /**
@@ -171,7 +171,7 @@ Cursor = {{
     else
       match c.reply with
       | {some=reply} ->
-        (match Mongo.reply_document(reply,n) with
+        (match MongoDriver.reply_document(reply,n) with
          | {some=doc} -> {success=doc}
          | {none} -> {failure={Error="Cursor.document: no document"}})
       | {none} -> {failure={Error="Cursor.document: no reply"}}
@@ -185,7 +185,7 @@ Cursor = {{
       rec aux(n:int) =
        if n >= c.returned
        then []
-       else (match Mongo.reply_document(reply,n) with
+       else (match MongoDriver.reply_document(reply,n) with
              | {some=doc} -> (doc +> (aux(n+1)))
              | {none} -> (aux(n+1)))
       {success=aux(0)}
@@ -197,7 +197,7 @@ Cursor = {{
         error="<reset>";
         doc=error_document("Dead cursor",-1);
         killed={true};
-        cid=Mongo.null_cursorID(void)
+        cid=MongoDriver.null_cursorID(void)
     }
 
   /**
@@ -207,9 +207,9 @@ Cursor = {{
    * ID still exists in the cursor.
    **/
   reset(c:Cursor.cursor): Cursor.cursor =
-    if not(Mongo.is_null_cursorID(c.cid))
+    if not(MongoDriver.is_null_cursorID(c.cid))
     then
-      if Mongo.kill_cursors(c.mongo, [c.cid])
+      if MongoDriver.kill_cursors(c.mongo, [c.cid])
       then destroy(c)
       else set_error(destroy(c),"Cursor.reset: error killing cursor")
     else destroy(c)
@@ -238,17 +238,17 @@ Cursor = {{
       // TODO: tailable cursors
       if c.returned <= 0
       then
-        tags = Mongo.reply_tags(Mongo.reply_responseFlags(Option.get(c.reply)))
-        set_error(c,"Cursor.next: no data returned tags={Mongo.string_of_tags(tags)}")
+        tags = MongoDriver.reply_tags(MongoDriver.reply_responseFlags(Option.get(c.reply)))
+        set_error(c,"Cursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}")
       else
         if c.current >= c.returned
         then
-          if Mongo.is_null_cursorID(c.cid)
+          if MongoDriver.is_null_cursorID(c.cid)
           then set_error({c with doc = error_document("Read past end of data",-1)},"Cursor.next: end of data")
           else next(get_more(c))
         else {c with
                 current=c.current+1;
-                doc=(match Mongo.reply_document(Option.get(c.reply),c.current) with
+                doc=(match MongoDriver.reply_document(Option.get(c.reply),c.current) with
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
 

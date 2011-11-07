@@ -22,10 +22,10 @@ open C.Ops
 ##opa-type Bson.document
 ##opa-type Bson.element
 ##extern-type bson_buf = Bson.buf
-##extern-type mongo_buf = Mongo.mongo_buf
-##extern-type cursorID = int64
-##extern-type mailbox = (Buf.t * int ref)
-##extern-type reply = (Buf.t * int * int)
+##extern-type Mongo.mongo_buf = Mongo.mongo_buf
+##extern-type Mongo.cursorID = int64
+##extern-type Mongo.mailbox = (Buf.t * int ref)
+##extern-type Mongo.reply = (Buf.t * int * int)
 ##extern-type Socket.connection = Scheduler.connection_info
 
 ##module Bson
@@ -238,12 +238,10 @@ let deserialize s =
 
 ##module Mongo
 
-##register create: int -> mongo_buf
+##register create: int -> Mongo.mongo_buf
 let create = Mongo.create
 
-(* AAAAAAARGHHHHHHH!!!!!! OPA just can't equate opa_bson_document with ServerLib.ty_record *)
-
-##register insert: mongo_buf, int, string, 'a -> void
+##register insert: Mongo.mongo_buf, int, string, 'a -> void
 let insert m f ns (bson:'a) =
   let (bson:opa_bson_document) = Obj.magic bson in
   Mongo.start_insert m 0l f ns;
@@ -252,7 +250,7 @@ let insert m f ns (bson:'a) =
   Mongo.bson_finish m;
   Mongo.finish m
 
-##register insert_batch: mongo_buf, int, string, opa[list('a)] -> void
+##register insert_batch: Mongo.mongo_buf, int, string, opa[list('a)] -> void
 let insert_batch m f ns (bsons:'a) =
   let (bsons:opa_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
   Mongo.start_insert m 0l f ns;
@@ -262,7 +260,7 @@ let insert_batch m f ns (bsons:'a) =
                Mongo.bson_finish m) bsons;
   Mongo.finish m
 
-##register update: mongo_buf, int, string, 'a, 'a -> void
+##register update: Mongo.mongo_buf, int, string, 'a, 'a -> void
 let update m flags ns selector update =
   let (selector:opa_bson_document) = Obj.magic selector in
   let (update:opa_bson_document) = Obj.magic update in
@@ -275,7 +273,7 @@ let update m flags ns selector update =
   Mongo.bson_finish m;
   Mongo.finish m
 
-##register query: mongo_buf, int, string, int, int, 'a, option('a) -> void
+##register query: Mongo.mongo_buf, int, string, int, int, 'a, option('a) -> void
 let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
   let (query:opa_bson_document) = Obj.magic query in
   let (returnFieldSelector_opt:opa_bson_document option) = Obj.magic returnFieldSelector_opt in
@@ -291,12 +289,12 @@ let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
    | None -> ());
   Mongo.finish m
 
-##register get_more: mongo_buf, string, int, cursorID -> void
+##register get_more: Mongo.mongo_buf, string, int, Mongo.cursorID -> void
 let get_more m ns numberToReturn cursorID =
   Mongo.start_getmore m 0l ns numberToReturn cursorID;
   Mongo.finish m
 
-##register delete: mongo_buf, int, string, 'a -> void
+##register delete: Mongo.mongo_buf, int, string, 'a -> void
 let delete m flags ns selector =
   let (selector:opa_bson_document) = Obj.magic selector in
   Mongo.start_delete m 0l flags ns;
@@ -305,47 +303,47 @@ let delete m flags ns selector =
   Mongo.bson_finish m;
   Mongo.finish m
 
-##register kill_cursors: mongo_buf, opa[list('a)] -> void
+##register kill_cursors: Mongo.mongo_buf, opa[list('a)] -> void
 let kill_cursors m clist =
   let clist = Obj.magic clist in
   Mongo.start_kill_cursors m 0l (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) clist);
   Mongo.finish m
 
-##register msg: mongo_buf, string -> void
+##register msg: Mongo.mongo_buf, string -> void
 let msg m msg =
   Mongo.start_msg m 0l msg;
   Mongo.finish m
 
-##register get: mongo_buf -> string
+##register get: Mongo.mongo_buf -> string
 let get = Mongo.get
 
-##register export: mongo_buf -> opa[tuple_2(string, int)]
+##register export: Mongo.mongo_buf -> opa[tuple_2(string, int)]
 let export m =
   let (str, i) = Mongo.export m in
   BslNativeLib.opa_tuple_2 (ServerLib.wrap_string str, ServerLib.wrap_int i)
 
-##register import: string -> mongo_buf
+##register import: string -> Mongo.mongo_buf
 let import = Mongo.import
 
-##register copy: mongo_buf -> mongo_buf
+##register copy: Mongo.mongo_buf -> Mongo.mongo_buf
 let copy = Mongo.copy
 
-##register clear: mongo_buf -> void
+##register clear: Mongo.mongo_buf -> void
 let clear = Mongo.clear
 
-##register reset: mongo_buf -> void
+##register reset: Mongo.mongo_buf -> void
 let reset = Mongo.reset
 
-##register free: mongo_buf -> void
+##register free: Mongo.mongo_buf -> void
 let free = Mongo.free
 
-##register new_mailbox: int -> mailbox
+##register new_mailbox: int -> Mongo.mailbox
 let new_mailbox size = (Mongo.get_buf ~hint:size (), ref 0)
 
-##register reset_mailbox: mailbox -> void
+##register reset_mailbox: Mongo.mailbox -> void
 let reset_mailbox (b,_) = Mongo.free_buf b
 
-##register [cps-bypass] read_mongo : Socket.connection, int, mailbox, continuation(outcome(reply,string)) -> void
+##register [cps-bypass] read_mongo : Socket.connection, int, Mongo.mailbox, continuation(outcome(Mongo.reply,string)) -> void
 let read_mongo conn timeout mailbox k =
   let timeout = Time.milliseconds timeout in
   HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox 4 ()
@@ -364,34 +362,34 @@ let read_mongo conn timeout mailbox k =
               then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
               else BslUtils.create_outcome (`success (b,s,l)) |> k))
 
-##register export_reply: reply -> string
+##register export_reply: Mongo.reply -> string
 let export_reply (b,s,l) = Buf.sub b s l
 
-##register reply_messageLength : reply -> int
+##register reply_messageLength : Mongo.reply -> int
 let reply_messageLength = Mongo.reply_messageLength 
 
-##register reply_requestId : reply -> int
+##register reply_requestId : Mongo.reply -> int
 let reply_requestId = Mongo.reply_requestId 
 
-##register reply_responseTo : reply -> int
+##register reply_responseTo : Mongo.reply -> int
 let reply_responseTo = Mongo.reply_responseTo 
 
-##register reply_opCode : reply -> int
+##register reply_opCode : Mongo.reply -> int
 let reply_opCode = Mongo.reply_opCode 
 
-##register reply_responseFlags : reply -> int
+##register reply_responseFlags : Mongo.reply -> int
 let reply_responseFlags = Mongo.reply_responseFlags 
 
-##register reply_cursorID : reply -> cursorID
+##register reply_cursorID : Mongo.reply -> Mongo.cursorID
 let reply_cursorID = Mongo.reply_cursorID 
 
-##register reply_startingFrom : reply -> int
+##register reply_startingFrom : Mongo.reply -> int
 let reply_startingFrom = Mongo.reply_startingFrom 
 
-##register reply_numberReturned : reply -> int
+##register reply_numberReturned : Mongo.reply -> int
 let reply_numberReturned = Mongo.reply_numberReturned 
 
-##register reply_document : reply, int -> option(Bson.document)
+##register reply_document : Mongo.reply, int -> option(Bson.document)
 let reply_document (b,s,l) n =
   match Mongo.reply_document_pos (b,s,l) n with
   | Some (pos, size) -> Some (Bson.deserialize (BaseStringSlice.import (b.Buf.str,pos,size)))
@@ -400,16 +398,16 @@ let reply_document (b,s,l) n =
 ##register string_of_message : string -> string
 let string_of_message = Mongo.string_of_message_str
 
-##register string_of_message_reply : reply -> string
+##register string_of_message_reply : Mongo.reply -> string
 let string_of_message_reply = Mongo.string_of_message_reply
 
-##register null_cursorID : void -> cursorID
+##register null_cursorID : void -> Mongo.cursorID
 let null_cursorID () = 0L
 
-##register string_of_cursorID : cursorID -> string
+##register string_of_cursorID : Mongo.cursorID -> string
 let string_of_cursorID cid = Printf.sprintf "%016Lx" cid
 
-##register is_null_cursorID : cursorID -> opa[bool]
+##register is_null_cursorID : Mongo.cursorID -> opa[bool]
 let is_null_cursorID cid = ServerLib.wrap_bool (cid = 0L)
 
 ##endmodule
