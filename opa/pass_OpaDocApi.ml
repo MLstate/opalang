@@ -257,6 +257,7 @@ struct
 
   type file = string
   type pos = int
+  type line = int
 
   type entry = {
     pkg : pkg ;
@@ -264,6 +265,7 @@ struct
     code_elt : code_elt ;
     fname : file ;
     pos : pos ;
+    line : line ;
   }
 
   module Entry :
@@ -301,12 +303,14 @@ struct
       let make ~path ~filepos ~code_elt =
         let fname = FilePos.get_file filepos in
         let pos = FilePos.get_first_char filepos in
+        let line = try snd(FilePos.get_line fname pos) with _ -> (-1) in
         let entry = {
           pkg ;
           path ;
           code_elt ;
           fname ;
           pos ;
+          line ;
         } in
         entry
       in
@@ -399,6 +403,7 @@ struct
   let pkg pkg = J.String pkg
   let file file = J.String file
   let pos pos = J.Int pos
+  let line line = J.Int line
   let path path = J.Array (List.map string path)
 
   (**
@@ -545,6 +550,7 @@ struct
         "pos", pos e.Api.pos ;
         "pkg", pkg e.Api.pkg ;
         "path", path e.Api.path ;
+        "line", line e.Api.line ;
         "fname", file e.Api.fname ;
         "code_elt", self#code_elt e.Api.code_elt ;
       ]
