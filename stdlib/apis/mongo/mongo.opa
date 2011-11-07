@@ -57,7 +57,9 @@ type mongo_host = (string, int)
 // TODO: we should really @abstract this type...
 type Mongo.db = {
   conn : Mutable.t(option(Socket.connection));
-  primary : Mutable.t(option(mongo_host));
+  lock : Mutable.t(bool);
+  mblock : Mutable.t(bool);
+  primary : Mutable.t(option(Mongo.mongo_host));
   bufsize : int;
   log : bool;
   name : string;
@@ -447,15 +449,19 @@ Mongo = {{
   send_no_reply_(m,mbuf,name,reply_expected): bool =
     match m.conn.get() with
     | {some=conn} ->
+       do if m.lock.get() then ML.warning("Mongo.send({name})","Double write on connection",void)
+       do m.lock.set(true)
        (str, len) = export_(mbuf)
        s = String.substring(0,len,str)
        do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
        (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
         | {success=cnt} ->
+           do m.lock.set(false)
            do if not(reply_expected) then free_(mbuf) else void
            //do println("Mongo.send: cnt={cnt} len={len}")
            (cnt==len)
         | {failure=_} -> 
+           do m.lock.set(false)
            // Awkward, we may be in the first part of a send_with_reply or in a simple send_no_reply.
            if reply_expected
            then false
@@ -481,13 +487,17 @@ Mongo = {{
        if send_no_reply_(m,mbuf,name,true)
        then
          mailbox = new_mailbox_(m.bufsize)
+         do if m.lock.get() then ML.warning("Mongo.receive({name})","Double read on connection",void)
+         do m.mblock.set(true)
          (match read_mongo_(conn,m.comms_timeout,mailbox) with
           | {success=reply} ->
+             do m.mblock.set(false)
              do reset_mailbox_(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
              {some=reply}
           | {~failure} ->
+             do m.mblock.set(false)
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
              do reset_mailbox_(mailbox)
              myreconnect())
@@ -496,7 +506,7 @@ Mongo = {{
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
   init(bufsize:int, log:bool): Mongo.db =
-    { conn=Mutable.make({none}); ~bufsize; ~log;
+    { conn=Mutable.make({none}); lock=Mutable.make(false); mblock=Mutable.make(false); ~bufsize; ~log;
       seeds=[]; hosts=Mutable.make([]); name="";
       primary=Mutable.make({none}); reconnect=Mutable.make({none});
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
