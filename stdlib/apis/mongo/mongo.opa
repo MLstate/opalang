@@ -28,7 +28,7 @@
  *
  * This is a binding for MongoDB for OPA, loosely based around the C drivers.
  *
- * Module [Mongo] has low-level routines to talk to the database server, the only
+ * Module [MongoDriver] has low-level routines to talk to the database server, the only
  * routines you should need are the [MongoDriver.open] and [MongoDriver.close] functions.
  *
  * {1 Where should I start?}

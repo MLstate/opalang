@@ -1095,7 +1095,7 @@ type foreign('a,'b,'c,'d,'e) = {
 
 type collection_cursor('a) = {
   collection: collection('a);
-  cursor: Cursor.cursor;
+  cursor: Mongo.cursor;
   query: select('a);
   ty: OpaType.ty;
   ignore_incomplete: bool;
@@ -1199,11 +1199,11 @@ Collection : Collection = {{
 
   find_one_doc(c:collection('value), select:select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby)
+    MongoCursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby)
 
   find_one_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome('result,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
-    (match Cursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
+    (match MongoCursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
         (match Bson.b2o_incomplete(doc, @typeval('result), ignore_incomplete) with
          | {found=v} -> {success=(Magic.id(v):'result)}
@@ -1218,7 +1218,7 @@ Collection : Collection = {{
              : outcome(collection_cursor('result),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     //do println("query_unsafe:\n'value={OpaType.to_pretty(@typeval('value))}\n'result={OpaType.to_pretty(@typeval('result))}")
-    match Cursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
+    match MongoCursor.find(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit,c.db.skip,c.db.query_flags) with
     | {success=cursor} ->
        {success={collection=@unsafe_cast(c); ~cursor; query=@unsafe_cast(select); ty=@typeval('result); ~ignore_incomplete}}
     | {~failure} -> {~failure}
@@ -1227,12 +1227,12 @@ Collection : Collection = {{
     query_unsafe(c, select, false)
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
-    _ = Cursor.reset(cc.cursor)
+    _ = MongoCursor.reset(cc.cursor)
     query(cc.collection, cc.query)
 
   next(cc:collection_cursor('value)): (collection_cursor('value),outcome('value,Mongo.failure)) =
-    cursor = Cursor.next(cc.cursor)
-    match Cursor.check_cursor_error(cursor) with
+    cursor = MongoCursor.next(cc.cursor)
+    match MongoCursor.check_cursor_error(cursor) with
     | {success=doc} ->
        //do println("next:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(cc.ty)}")
        (match Bson.b2o_incomplete(doc, cc.ty, cc.ignore_incomplete) with
@@ -1240,10 +1240,10 @@ Collection : Collection = {{
         | {not_found} -> ({cc with ~cursor},{failure={Error="Collection.next: not found"}})
         | {incomplete} ->  ({cc with ~cursor},{failure={Incomplete}}))
     | {~failure} ->
-       cursor = Cursor.reset(cursor)
+       cursor = MongoCursor.reset(cursor)
        ({cc with ~cursor},{~failure})
 
-  has_more(cc:collection_cursor('value)): bool = Cursor.valid(cc.cursor)
+  has_more(cc:collection_cursor('value)): bool = MongoCursor.valid(cc.cursor)
 
   find_all_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome(list('result),Mongo.failure) =
     //do println("find_all:\n  'value={OpaType.to_pretty(@typeval('value))}\n  'result={OpaType.to_pretty(@typeval('result))}")
@@ -1316,7 +1316,7 @@ Collection : Collection = {{
 
   // TODO: map-reduce
 
-  kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=Cursor.reset(cc.cursor) }
+  kill(cc:collection_cursor('value)): collection_cursor('value) = { cc with cursor=MongoCursor.reset(cc.cursor) }
 
 }}
 

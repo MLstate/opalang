@@ -26,7 +26,7 @@
 /**
  * {1 About this module}
  *
- * Module [Cursor] has the cursor handling routines.
+ * Module [MongoCursor] has the cursor handling routines.
  *
  * {1 Where should I start?}
  *
@@ -34,40 +34,43 @@
  *
  **/
 
-/* Major TODOs, there are minor ones elsewhere. */
-// TODO: sort function for cursors
-
 /**
- * type Cursor.cursor:
- *   - Contains all the parameters for an op_query call.
- *   - Stores the reply.
- *   - Handles indexes into the list of documents returned and
- *     keeps a note of the last document parsed.
- *   - Also handles the cursor ID.
- *   - Use Cursor.reset when not needed, this will generate a
- *     kill_cursors call to the server to clean up.
+ * type [Mongo.cursor]:
+ *
+ * Contains all the parameters for an OP_QUERY call.
+ *
+ * Stores the reply.
+ *
+ * Handles indexes into the list of documents returned and
+ * keeps a note of the last document parsed.
+ *
+ * Also handles the cursor ID.
+ *
+ * Use [MongoCursor.reset] when not needed, this will generate a
+ * [kill_cursors] call to the server to clean up.
  **/
-type Cursor.cursor = {
-     mongo : Mongo.db;
-     ns : string;
-     flags : int;
-     skip : int;
-     limit : int;
-     query : option(Bson.document);
-     fields : option(Bson.document);
-     orderby : option(Bson.document);
-     query_sent : bool;
-     cid : Mongo.cursorID;
-     reply : option(Mongo.reply);
-     returned : int;
-     current : int;
-     doc : Bson.document;
-     killed : bool;
-     error : string
+@abstract
+type Mongo.cursor = {
+  mongo : Mongo.db;
+  ns : string;
+  flags : int;
+  skip : int;
+  limit : int;
+  query : option(Bson.document);
+  fields : option(Bson.document);
+  orderby : option(Bson.document);
+  query_sent : bool;
+  cid : Mongo.cursorID;
+  reply : option(Mongo.reply);
+  returned : int;
+  current : int;
+  doc : Bson.document;
+  killed : bool;
+  error : string
 }
 
 @server_private
-Cursor = {{
+MongoCursor = {{
 
   @private H = Bson.Abbrevs
 
@@ -76,10 +79,9 @@ Cursor = {{
   /**
    * Bare cursor initialize.
    *
-   *   {b Warning:} Note that each time you create a cursor it generates buffers to talk to
-   *   the MongoDB server.  Remember to cleanup cursor objects with [Cursor.reset].
+   * {b Warning:} Remember to cleanup cursor objects with [MongoCursor.reset].
    **/
-  init(mongo:Mongo.db, ns:string): Cursor.cursor =
+  init(mongo:Mongo.db, ns:string): Mongo.cursor =
   { ~mongo;
     ~ns;
     flags = 0;
@@ -103,20 +105,20 @@ Cursor = {{
    *
    * These are named as for the arguments to a [MongoDriver.query] call.
    **/
-  set_flags(c:Cursor.cursor, flags:int): Cursor.cursor = { c with ~flags }
-  set_skip(c:Cursor.cursor, skip:int): Cursor.cursor = { c with ~skip }
-  set_limit(c:Cursor.cursor, limit:int): Cursor.cursor = { c with ~limit }
-  set_query(c:Cursor.cursor, query:option(Bson.document)): Cursor.cursor = { c with ~query }
-  set_fields(c:Cursor.cursor, fields:option(Bson.document)): Cursor.cursor = { c with ~fields }
-  set_orderby(c:Cursor.cursor, orderby:option(Bson.document)): Cursor.cursor = { c with ~orderby }
+  set_flags(c:Mongo.cursor, flags:int): Mongo.cursor = { c with ~flags }
+  set_skip(c:Mongo.cursor, skip:int): Mongo.cursor = { c with ~skip }
+  set_limit(c:Mongo.cursor, limit:int): Mongo.cursor = { c with ~limit }
+  set_query(c:Mongo.cursor, query:option(Bson.document)): Mongo.cursor = { c with ~query }
+  set_fields(c:Mongo.cursor, fields:option(Bson.document)): Mongo.cursor = { c with ~fields }
+  set_orderby(c:Mongo.cursor, orderby:option(Bson.document)): Mongo.cursor = { c with ~orderby }
 
-  tailable(c:Cursor.cursor): Cursor.cursor = { c with flags=Bitwise.lor(c.flags, MongoDriver.TailableCursorBit) }
-
-  @private
-  set_error(c:Cursor.cursor, error:string): Cursor.cursor = { c with ~error; killed={true} }
+  tailable(c:Mongo.cursor): Mongo.cursor = { c with flags=Bitwise.lor(c.flags, MongoDriver.TailableCursorBit) }
 
   @private
-  reply(c:Cursor.cursor, reply_opt:option(Mongo.reply), name:string, query_sent:bool): Cursor.cursor =
+  set_error(c:Mongo.cursor, error:string): Mongo.cursor = { c with ~error; killed={true} }
+
+  @private
+  reply(c:Mongo.cursor, reply_opt:option(Mongo.reply), name:string, query_sent:bool): Mongo.cursor =
     match reply_opt with
     | {some=reply} ->
       cursorID = MongoDriver.reply_cursorID(reply)
@@ -128,7 +130,7 @@ Cursor = {{
           current = 0;
           doc = error_document("Uninitialised document",-1);
       }
-    | {none} -> set_error(c,"Cursor.{name}: no reply")
+    | {none} -> set_error(c,"MongoCursor.{name}: no reply")
 
   /**
    * Perform an OP_QUERY call to the database server based on the parameters
@@ -139,7 +141,7 @@ Cursor = {{
    * Note that no tests are performed on the reply, there are other routines which
    * examine the content of the reply.  You may, however, get a comms error here.
    **/
-  op_query(c:Cursor.cursor): Cursor.cursor =
+  op_query(c:Mongo.cursor): Mongo.cursor =
     if not(c.killed) && Option.is_some(c.query)
     then
       query = (match c.orderby with
@@ -148,38 +150,38 @@ Cursor = {{
       //do println("op_query: query={Bson.to_pretty(query)}") <-- redundant, we've got logging now
       reply(c,MongoDriver.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,(if c.killed
-                      then "Cursor.op_query: already killed"
-                      else "Cursor.op_query: no query"))
+                      then "MongoCursor.op_query: already killed"
+                      else "MongoCursor.op_query: no query"))
 
   /**
    * Perform an OP_GETMORE call, if a valid cursor ID exists in the cursor.
    **/
-  get_more(c:Cursor.cursor): Cursor.cursor =
+  get_more(c:Mongo.cursor): Mongo.cursor =
     if not(c.killed) && not(MongoDriver.is_null_cursorID(c.cid))
     then reply(c,MongoDriver.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
-    else set_error(c,"Cursor.get_more: attempt to get more with dead cursor")
+    else set_error(c,"MongoCursor.get_more: attempt to get more with dead cursor")
 
   /**
    * Return the [n]'th document in the reply stored in a cursor.
    *
-   * This is a low-level routine, use [Cursor.next] to scan the returned values
+   * This is a low-level routine, use [MongoCursor.next] to scan the returned values
    * while sending additional OP_GETMORE calls when necessary.
    */
-  document(c:Cursor.cursor, n:int): Mongo.result =
+  document(c:Mongo.cursor, n:int): Mongo.result =
     if n >= c.returned
-    then {failure={Error="Cursor.document: document index out of range {n}"}}
+    then {failure={Error="MongoCursor.document: document index out of range {n}"}}
     else
       match c.reply with
       | {some=reply} ->
         (match MongoDriver.reply_document(reply,n) with
          | {some=doc} -> {success=doc}
-         | {none} -> {failure={Error="Cursor.document: no document"}})
-      | {none} -> {failure={Error="Cursor.document: no reply"}}
+         | {none} -> {failure={Error="MongoCursor.document: no document"}})
+      | {none} -> {failure={Error="MongoCursor.document: no reply"}}
 
   /**
    * Return all the documents in the reply stored in a cursor.
    **/
-  all_documents(c:Cursor.cursor): outcome(list(Bson.document), Mongo.failure) =
+  all_documents(c:Mongo.cursor): outcome(list(Bson.document), Mongo.failure) =
     match c.reply with
     | {some=reply} ->
       rec aux(n:int) =
@@ -189,10 +191,10 @@ Cursor = {{
              | {some=doc} -> (doc +> (aux(n+1)))
              | {none} -> (aux(n+1)))
       {success=aux(0)}
-    | {none} -> {failure={Error="Cursor.document: no reply"}}
+    | {none} -> {failure={Error="MongoCursor.document: no reply"}}
 
   @private
-  destroy(c:Cursor.cursor): Cursor.cursor =
+  destroy(c:Mongo.cursor): Mongo.cursor =
     { c with
         error="<reset>";
         doc=error_document("Dead cursor",-1);
@@ -206,12 +208,12 @@ Cursor = {{
    * Deletes buffer storage and sends a OP_KILL_CURSOR call if a valid cursor
    * ID still exists in the cursor.
    **/
-  reset(c:Cursor.cursor): Cursor.cursor =
+  reset(c:Mongo.cursor): Mongo.cursor =
     if not(MongoDriver.is_null_cursorID(c.cid))
     then
       if MongoDriver.kill_cursors(c.mongo, [c.cid])
       then destroy(c)
-      else set_error(destroy(c),"Cursor.reset: error killing cursor")
+      else set_error(destroy(c),"MongoCursor.reset: error killing cursor")
     else destroy(c)
 
   /**
@@ -229,22 +231,22 @@ Cursor = {{
    *
    * {b Warning:} Does not check the return flags.
    */
-  rec next(c:Cursor.cursor): Cursor.cursor =
+  rec next(c:Mongo.cursor): Mongo.cursor =
     c = if not(c.query_sent) then op_query(c) else c
     if Option.is_none(c.reply)
-    then set_error(c,"Cursor.next: no reply")
+    then set_error(c,"MongoCursor.next: no reply")
     else
       // TODO: analyze return flags
       // TODO: tailable cursors
       if c.returned <= 0
       then
         tags = MongoDriver.reply_tags(MongoDriver.reply_responseFlags(Option.get(c.reply)))
-        set_error(c,"Cursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}")
+        set_error(c,"MongoCursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}")
       else
         if c.current >= c.returned
         then
           if MongoDriver.is_null_cursorID(c.cid)
-          then set_error({c with doc = error_document("Read past end of data",-1)},"Cursor.next: end of data")
+          then set_error({c with doc = error_document("Read past end of data",-1)},"MongoCursor.next: end of data")
           else next(get_more(c))
         else {c with
                 current=c.current+1;
@@ -261,39 +263,46 @@ Cursor = {{
 
   /**
    * Create and initialise cursor with given query and default options.
+   *
+   * Example: [start(m, ns, query, limit)]
+   *
    * Intended to form a set of functions to enable the idiom: [for(start(...),(c -> ... next(c)),valid)].
+   *
    * Note: you can't actually use the OPA initial for() function with this idiom without
    * missing the last element (you can't update the loop variable within the conditional for end of loop).
-   * Use the Cursor.for() function instead.
+   * Use the MongoCursor.for() function instead.
+   *
+   * Note: MongoDB seems to interpret limit=1 as "just send me one document".
+   * If you want this loop to scan all the documents you can't use limit=1.
+   * This routine prints a warning message because if you only want one document you
+   * would be better using [MongoCursor.find_one].
    **/
-  start(m:Mongo.db, ns:string, query:Bson.document, limit:int): Cursor.cursor =
-    c = Cursor.init(m,ns)
-    /* Note: MongoDB seems to interpret limit=1 as "just send me one document".
-     * If you want this loop to scan all the documents you can't use limit=1.
-     */
-    c = Cursor.set_limit(c,(max(2,limit))) // FIXME: destroys order (-2 etc.)
-    c = Cursor.set_query(c,{some=query})
-    Cursor.next(c)
+  start(m:Mongo.db, ns:string, query:Bson.document, limit:int): Mongo.cursor =
+    c = init(m,ns)
+    do if limit == 1 then ML.warning("MongoCursor.start","Cursor with limit==1 will only return one document.",void)
+    c = set_limit(c,limit)
+    c = set_query(c,{some=query})
+    next(c)
 
   /**
    * Test if there is still data in a cursor.
    **/
-  valid(c:Cursor.cursor): bool =
+  valid(c:Mongo.cursor): bool =
     not(c.killed)
     && ((not(c.query_sent) && Option.is_some(c.query)) // initialised but not run
         || ((c.returned > 0 && (c.current < c.returned)))) // run and still has data
 
   /**
-   * Full find function with all parameters.
+   * Full [find] function with all parameters.
    *
    * Creates a cursor with the given parameters and calls OP_QUERY to
    * initiate communications.
    *
-   * The cursor value is then returned, you can then use [Cursor.next] to
+   * The cursor value is then returned, you can then use [MongoCursor.next] to
    * scan along from there.
    **/
   find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document), orderby:option(Bson.document),
-       limit:int, skip:int, flags:int): outcome(Cursor.cursor,Mongo.failure) =
+       limit:int, skip:int, flags:int): outcome(Mongo.cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -317,13 +326,15 @@ Cursor = {{
    * document.  Will return a [failure] document if "$err" exists in
    * the document.
    **/
-  check_cursor_error(c:Cursor.cursor): Mongo.result =
+  check_cursor_error(c:Mongo.cursor): Mongo.result =
     if not(c.killed)
     then check_err(c.doc)
     else {failure={Error=c.error}}
 
   /**
    * Find the first matching document for the given namespace.
+   *
+   * Example: [find_one(m, ns, query, fields, orderby)]
    *
    * Creates and destroys a cursor.
    **/
@@ -336,11 +347,13 @@ Cursor = {{
     c = set_limit(c, 1)
     c = next(c)
     outcome = check_cursor_error(c)
-    _ = Cursor.reset(c)
+    _ = reset(c)
     outcome
 
   /**
    * Find all matching documents for the given namespace.
+   *
+   * Example: [find_all(m, ns, query, limit)]
    *
    * Creates and destroys a cursor.
    **/

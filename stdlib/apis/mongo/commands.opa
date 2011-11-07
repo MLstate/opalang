@@ -156,7 +156,7 @@ Commands = {{
    * are other elements in the reply.
    **/
   run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
-    match Cursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
+    match MongoCursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
     | {success=bson} -> MongoDriver.check_ok(bson)
     | {~failure} -> {~failure}
 
@@ -336,7 +336,7 @@ Commands = {{
                         (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
-       //do println("Cursor.distinct: bson={Bson.to_pretty(bson)}")
+       //do println("MongoCursor.distinct: bson={Bson.to_pretty(bson)}")
        // TODO: stats
        (match Bson.find(bson,"values") with
         | {some=[{name=k; value={Array=d}}]} -> {success=[H.arr(k,List.rev(d))]}
@@ -351,10 +351,10 @@ Commands = {{
            [H.str("ns",coll), H.doc("key",key), H.code("$reduce",reduce), H.doc("initial",initial)],
            (match cond_opt with | {some=cond} -> [H.doc("cond",cond)] | {none} -> [H.null("cond")]),
            (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> [])]))]
-    //do println("Cursor.group: group={Bson.to_pretty(group)}")
+    //do println("MongoCursor.group: group={Bson.to_pretty(group)}")
     match run_command(m, db, group) with
     | {success=bson} ->
-       //do println("Cursor.group: bson={Bson.to_pretty(bson)}")
+       //do println("MongoCursor.group: bson={Bson.to_pretty(bson)}")
        {success=bson}
     | {~failure} -> {~failure}
 
@@ -382,17 +382,17 @@ Commands = {{
   /**
    * Query the config.shards database, gives a list of shards.
    **/
-  findShards(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.shards", query, 100)
+  findShards(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.shards", query, 100)
 
   /**
    * Query the config.databases database, gives a list of shard information about databases.
    **/
-  findDatabases(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.databases", query, 100)
+  findDatabases(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.databases", query, 100)
 
   /**
    * Query the config.locks database, gives information about the shard balancer.
    **/
-  findBalancer(m:Mongo.db): Mongo.results = Cursor.find_all(m, "config.locks", [H.str("_id","balancer")], 100)
+  findBalancer(m:Mongo.db): Mongo.results = MongoCursor.find_all(m, "config.locks", [H.str("_id","balancer")], 100)
 
   /**
    * Low-level, set config.settings balancer value.  Valid objects are "stopped" and "start/stop".
@@ -421,7 +421,7 @@ Commands = {{
   /**
    * Query the config.chunks database, gives a information about shard distribution.
    **/
-  findChunks(m:Mongo.db, query:Bson.document): Mongo.results = Cursor.find_all(m, "config.chunks", query, 100)
+  findChunks(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.chunks", query, 100)
 
   /**
    * Add a shard to a database.
@@ -496,9 +496,9 @@ Commands = {{
                    (match Bson.dot_int(doc,"remaining.dbs") with
                     | {some=0} | {none} -> {success=doc}//??failure
                     | _ ->
-                       (match Cursor.find_all(m, "config.databases", [H.str("primary",shard)], 100) with
+                       (match MongoCursor.find_all(m, "config.databases", [H.str("primary",shard)], 100) with
                         | {success=dbs} ->
-                           (match Cursor.find_all(m, "config.shards", [], 100) with
+                           (match MongoCursor.find_all(m, "config.shards", [], 100) with
                             | {success=[]} -> {failure={Error="No shards to move primary"}}
                             | {success=shards} ->
                                do println("dbs={Bson.to_pretty_list(dbs)}\nshards={Bson.to_pretty_list(shards)}")
