@@ -118,6 +118,8 @@ type Comment.file = string
 **/
 type Comment.position = int
 
+type Comment.line = int
+
 /**
  * Category of comment.
  * A comment may be global [{Glob}], meaning that it is not associated [{Assoc}]
@@ -226,6 +228,7 @@ type Api.entry = {
   code_elt : Api.code_elt
   fname    : Comment.file
   pos      : Comment.position
+  line     : Comment.line
 }
 
 /**
