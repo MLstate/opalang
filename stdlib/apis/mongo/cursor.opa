@@ -69,8 +69,9 @@ type Cursor.cursor = {
 @server_private
 Cursor = {{
 
-  @private
-  error_document(err:string, code:int): Bson.document = [H.str("$err",err), H.i32("code",code)]
+  @private H = Bson.Abbrevs
+
+  @private error_document(err:string, code:int): Bson.document = [H.str("$err",err), H.i32("code",code)]
 
   /**
    * Bare cursor initialize.

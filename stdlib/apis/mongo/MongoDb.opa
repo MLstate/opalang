@@ -188,6 +188,8 @@ type MDB = {{
 
 MDB : MDB = {{
 
+  @private ML = MongoLog
+
   @private
   open_(dbo:outcome(Mongo.db,Mongo.failure)): outcome(mongodb,Mongo.failure) =
     match dbo with
@@ -268,6 +270,8 @@ MDB : MDB = {{
 
 /* Type support */
 TypeSelect = {{
+
+  @private ML = MongoLog
 
   /** Abbreviations for common types **/
   tempty = {TyRecord_row=[]}
@@ -612,6 +616,9 @@ type SU = {{
 }}
 
 SU : SU = {{
+
+  @private ML = MongoLog
+  @private H = Bson.Abbrevs
 
 /*
   @private
@@ -1043,6 +1050,8 @@ Batch = {{
 @abstract type fields = Bson.document
 
 Fields = {{
+  @private ML = MongoLog
+  @private H = Bson.Abbrevs
   empty = ([]:fields)
   add(f:fields, name:string, incexc:Bson.int32): fields = [H.i32(name,incexc)|f]
   one(name:string, incexc:Bson.int32): fields = [H.i32(name,incexc)]
@@ -1136,6 +1145,8 @@ type Collection = {{
 }}
 
 Collection : Collection = {{
+
+  @private H = Bson.Abbrevs
 
   create(db:mongodb): collection('value) = { db=MDB.clone(db); ty=@typeval('value); }
 
@@ -1334,6 +1345,8 @@ Collection : Collection = {{
  **/
 View = {{
 
+  @private ML = MongoLog
+
   @private make_reg(fld) = {fld with ty={TyName_args=[fld.ty]; TyName_ident="Bson.register"}}
 
   @private
@@ -1394,6 +1407,8 @@ View = {{
 }}
 
 Foreign = {{
+
+  @private ML = MongoLog
 
   create(primary:view('ps,'pr), foreign:view('fs,'fr), pkey:string, fkey:string)
        : foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =

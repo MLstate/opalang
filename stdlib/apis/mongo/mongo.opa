@@ -137,6 +137,9 @@ type index_tag =
 @server_private
 Mongo = {{
 
+  @private ML = MongoLog
+  @private H = Bson.Abbrevs
+
   default_port = 27017
 
   /**

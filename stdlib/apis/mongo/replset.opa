@@ -84,6 +84,8 @@ type ReplSet.replSetInitiate =
 
 ReplSet = {{
 
+  @private ML = MongoLog
+
   /**
    * Freeze in replica set (can't become primary for given number of seconds.
    * Note unfreeze with 0.
@@ -179,7 +181,7 @@ ReplSet = {{
                 (match Commands.isMasterOpa(mdb) with
                  | {success=ism} ->
                     //do println("ReplSet.connect: ism={ism}")
-                    if ism.ismaster && (Register.default("...",ism.setName) == mdb.name)
+                    if ism.ismaster && (Bson.Register.default("...",ism.setName) == mdb.name)
                     then
                       do mdb.reconnect.set({some=connect})
                       {success=mdb}

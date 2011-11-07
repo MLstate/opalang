@@ -39,8 +39,14 @@
 
 import stdlib.core.{date,map}
 
-/** Some convenience types **/
-
+/**
+ * Some convenience types.
+ * To use these, just cast the OPA type to this type, for example,
+ * defining an int to be type Bson.int32 will cause the value to
+ * be represented in BSON as an Int32 value.  You have to make sure that
+ * the type of the value is known to the compiler at the point of calling
+ * [bson_to_opa] or [opa_to_bson].
+ **/
 type Bson.numeric = int
 type Bson.oid = string
 type Bson.binary = string
@@ -53,19 +59,14 @@ type Bson.timestamp = (int, int)
 type Bson.int64 = int
 type Bson.min = void
 type Bson.max = void
-type Bson.register('a) = {present:'a} / {absent}
 
 /**
- * Register.  Exactly like Option but for Bson.register.
+ * This is a type used to tell [bson_to_opa] and [opa_to_bson] to treat
+ * absent values by omitting them from the conversion.  It is used to
+ * handle the case where a Bson document is mapped to an OPA type where
+ * some of the elements (fields) can actually be missing.
  **/
-Register = {{
-  get(reg:Bson.register('a)): 'a = match reg with {present=a} -> a | {absent} -> error("Register.get called on \{absent}")
-  default(def:'a, reg:Bson.register('a)): 'a = match reg with {present=a} -> a | {absent} -> def
-  is_present(reg:Bson.register('a)): bool = match reg with {present=_} -> true | {absent} -> false
-  is_absent(reg:Bson.register('a)): bool = match reg with {present=_} -> false | {absent} -> true
-  map(f:'a->'b, reg:Bson.register('a)): Bson.register('b) = match reg with {present=a} -> {present=f(a)} | {absent} -> {absent}
-  iter(f:'a->void, reg:Bson.register('a)): void = match reg with {present=a} -> f(a) | {absent} -> void
-}}
+type Bson.register('a) = {present:'a} / {absent}
 
 /**
  * OPA representation of a BSON object.
@@ -74,7 +75,7 @@ Register = {{
  **/
 
 /**
- * A value encasupates the types used by MongoDB.
+ * A BSON value encapsulates the types used by MongoDB.
  **/
 type Bson.value =
     { Double: float }
@@ -97,18 +98,18 @@ type Bson.value =
   / { Max }
 
 /**
- * An element is a named value.
+ * A BSON element is a named value.
  **/
 type Bson.element = { name:string; value:Bson.value }
 
 /**
- * The main exported type, a document is just a list of elements.
+ * The main exported type, a BSON document is just a list of elements.
  */
 type Bson.document = list(Bson.element)
 
 /**
  * A generic error status type for OPA.
- * Some commands will not be directly convertible into
+ * Some command results will not be directly convertible into
  * this, others will.  See [error_of_document].
  **/
 type Bson.error = {
@@ -120,98 +121,63 @@ type Bson.error = {
 }
 
 /**
- * A locally-used type.  Basically it's some/none but with
- * an additional "incomplete" status.
+ * A locally-used type.  Basically it's [some]/[none] but with
+ * an additional "[incomplete]" status.
  **/
 type Bson.incomplete('a) = {found:'a} / {not_found} / {incomplete}
 
-/**
- * Helper functions for constructing Bson values.
- *
- * Short names intended to be abbreviations for [{name=...; value={Xyz=...}}].
- **/
-@server_private
-H = {{
-  v(n:string,v:Bson.value):Bson.element = {name=n; value=v}
-  dbl(n:string,d:float):Bson.element = {name=n; value={Double=d}}
-  str(n:string,s:string):Bson.element = {name=n; value={String=s}}
-  doc(n:string,d:Bson.document):Bson.element = {name=n; value={Document=d}}
-  arr(n:string,d:Bson.document):Bson.element = {name=n; value={Array=d}}
-  docarr(n:string,l:list(Bson.document)):Bson.element =
-    {name=n; value={Array=List.mapi((i, d -> ({name="{i}"; value={Document=d}}:Bson.element)),l)}}
-  binary(n:string,b:Bson.binary):Bson.element = {name=n; value={Binary=b}}
-  oid(n:string,id:string):Bson.element = {name=n; value={ObjectID=id}}
-  bool(n:string,b:bool):Bson.element = {name=n; value={Boolean=b}}
-  date(n:string,d:Date.date):Bson.element = {name=n; value={Date=d}}
-  regexp(n:string,re:Bson.regexp):Bson.element = {name=n; value={Regexp=re}}
-  null(n:string):Bson.element = {name=n; value={Null=void}}
-  code(n:string,c:Bson.code):Bson.element = {name=n; value={Code=c}}
-  symbol(n:string,s:Bson.symbol):Bson.element = {name=n; value={Symbol=s}}
-  codescope(n:string,cs:Bson.codescope):Bson.element = {name=n; value={CodeScope=cs}}
-  i32(n:string,i:int):Bson.element = {name=n; value={Int32=i}}
-  timestamp(n:string,ts:Bson.timestamp):Bson.element = {name=n; value={Timestamp=ts}}
-  i64(n:string,i:int):Bson.element = {name=n; value={Int64=i}}
-  min(n:string):Bson.element = {name=n; value={Min}}
-  max(n:string):Bson.element = {name=n; value={Max}}
-  de(e:Bson.element):Bson.document = [e]
-  dl(l:list(Bson.element)):Bson.document = l
-  dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
-  minval = (void:Bson.min)
-  maxval = (void:Bson.max)
-  empty = ([]:Bson.document)
-}}
-
-/**
- * Log functions for MongoDB driver.
- *
- * We can choose various logging methods but these apply globally
- * to all Mongo instances.
- **/
-
-/**
- * Type values for MongoLog, we can log to stdout, stderr or to
- * the OPA Logger functions, or we can switch logging off altogether.
- **/
-type Mongo.logtype = {stdout} / {stderr} / {logger} / {nomongolog}
-
-MongoLog = {{
-
-  /**
-   * This Mutable value defines globally throughout the running
-   * program which logging type we are using.
-   **/
-  logtype = Mutable.make({stdout})
-
-  @private log_(from, what, logfn, str, v) =
-    do match logtype.get() with
-      | {stdout} -> println("{what}{if from=="" then "" else "({from})"}: {str}")
-      | {stderr} -> prerrln("{what}{if from=="" then "" else "({from})"}: {str}")
-      | {logger} -> logfn(from,str)
-      | {nomongolog} -> void
-    v
-
-  /** The usual logging functions **/
-  info(from, str, v) = log_(from,"Info",Log.info,str,v)
-  debug(from, str, v) = log_(from,"Debug",Log.debug,str,v)
-  warning(from, str, v) = log_(from,"Warning",Log.warning,str,v)
-  error(from, str, v) = log_(from,"Error",Log.error,str,v)
-
-  /** A special fatal log which logs a message and terminates the running program. **/
-  fatal(from, str, v) =
-    do match logtype.get() with
-      | {stdout} -> println("Fatal{if from=="" then "" else "({from})"}: {str}")
-      | {stderr} -> prerrln("Fatal{if from=="" then "" else "({from})"}: {str}")
-      | {logger} -> Log.fatal(from,str)
-      | {nomongolog} -> void
-    System.exit(v)
-
-}}
-
-/** A convenient abbreviation for MongoLog **/
-ML = MongoLog
-
 @server_private
 Bson = {{
+
+  @private ML = MongoLog
+
+  /**
+   * [Register].  Exactly like [Option] but for [Bson.register].
+   **/
+  Register = {{
+    get(reg:Bson.register('a)): 'a = match reg with {present=a} -> a | {absent} -> error("Register.get called on \{absent}")
+    default(def:'a, reg:Bson.register('a)): 'a = match reg with {present=a} -> a | {absent} -> def
+    is_present(reg:Bson.register('a)): bool = match reg with {present=_} -> true | {absent} -> false
+    is_absent(reg:Bson.register('a)): bool = match reg with {present=_} -> false | {absent} -> true
+    map(f:'a->'b, reg:Bson.register('a)): Bson.register('b) = match reg with {present=a} -> {present=f(a)} | {absent} -> {absent}
+    iter(f:'a->void, reg:Bson.register('a)): void = match reg with {present=a} -> f(a) | {absent} -> void
+  }}
+
+  /**
+   * Helper functions for constructing Bson values.
+   *
+   * Short names intended to be abbreviations for [{name=...; value={Xyz=...}}].
+   **/
+  Abbrevs = {{
+    v(n:string,v:Bson.value):Bson.element = {name=n; value=v}
+    dbl(n:string,d:float):Bson.element = {name=n; value={Double=d}}
+    str(n:string,s:string):Bson.element = {name=n; value={String=s}}
+    doc(n:string,d:Bson.document):Bson.element = {name=n; value={Document=d}}
+    arr(n:string,d:Bson.document):Bson.element = {name=n; value={Array=d}}
+    docarr(n:string,l:list(Bson.document)):Bson.element =
+      {name=n; value={Array=List.mapi((i, d -> ({name="{i}"; value={Document=d}}:Bson.element)),l)}}
+    binary(n:string,b:Bson.binary):Bson.element = {name=n; value={Binary=b}}
+    oid(n:string,id:string):Bson.element = {name=n; value={ObjectID=id}}
+    bool(n:string,b:bool):Bson.element = {name=n; value={Boolean=b}}
+    date(n:string,d:Date.date):Bson.element = {name=n; value={Date=d}}
+    regexp(n:string,re:Bson.regexp):Bson.element = {name=n; value={Regexp=re}}
+    null(n:string):Bson.element = {name=n; value={Null=void}}
+    code(n:string,c:Bson.code):Bson.element = {name=n; value={Code=c}}
+    symbol(n:string,s:Bson.symbol):Bson.element = {name=n; value={Symbol=s}}
+    codescope(n:string,cs:Bson.codescope):Bson.element = {name=n; value={CodeScope=cs}}
+    i32(n:string,i:int):Bson.element = {name=n; value={Int32=i}}
+    timestamp(n:string,ts:Bson.timestamp):Bson.element = {name=n; value={Timestamp=ts}}
+    i64(n:string,i:int):Bson.element = {name=n; value={Int64=i}}
+    min(n:string):Bson.element = {name=n; value={Min}}
+    max(n:string):Bson.element = {name=n; value={Max}}
+    de(e:Bson.element):Bson.document = [e]
+    dl(l:list(Bson.element)):Bson.document = l
+    dd(n:string,d:Bson.document):Bson.document = [{name=n; value={Document=d}}]
+    minval = (void:Bson.min)
+    maxval = (void:Bson.max)
+    empty = ([]:Bson.document)
+  }}
+  @private H = Abbrevs
 
   /**
    * Type codes as per BSON spec.
@@ -318,10 +284,19 @@ Bson = {{
     Option.map((b -> [b]),find_element(bson, name))
 
   /**
-   * Some type-specific versions of [find], search for [key]
-   * in [bson] object and return required type, if possible.
+   * These are routines for manually digging out OPA values from
+   * BSON documents.  There are three types:
+   * [type_of_value] works on a bare BSON value, [type_of_element]
+   * works on a BSON element irrespective of the name of the element.
+   * The [find_type] variants are type-specific versions of [find], search for [key]
+   * in a BSON document and return the required type, if possible.
    * Note that if the key exists but is of the wrong type
    * then you will still get [\{none\}].
+   * Note also for these routines that an effort is made to convert the
+   * value of a found type into the required type.  If you request an [int]
+   * and the value is a [float] then the value will be converted to [int].
+   * If you want to be rigorous you should use [find_element] and handle
+   * the value yourself.
    **/
 
   @private // should be in Option
@@ -331,6 +306,7 @@ Bson = {{
     | {some={none}} -> {none}
     | {none} -> none
 
+  /** Boolean **/
   bool_of_value(v:Bson.value): option(bool) =
     match v with
     | {Boolean=tf} -> {some=tf}
@@ -347,6 +323,7 @@ Bson = {{
   find_bool(bson:Bson.document, name:string): option(bool) =
     Option_flatten(Option.map(bool_of_element,find_element(bson, name)))
 
+  /** Integer **/
   int_of_value(v:Bson.value): option(int) =
     match v with
     | {Int32=i} -> {some=i}
@@ -359,6 +336,7 @@ Bson = {{
   find_int(bson:Bson.document, name:string): option(int) =
     Option_flatten(Option.map(int_of_element,find_element(bson, name)))
 
+  /** Float **/
   float_of_value(v:Bson.value): option(float) =
     match v with
     | {Int32=i} -> {some=Float.of_int(i)}
@@ -371,6 +349,7 @@ Bson = {{
   find_float(bson:Bson.document, name:string): option(float) =
     Option_flatten(Option.map(float_of_element,find_element(bson, name)))
 
+  /** String **/
   string_of_value(v:Bson.value): option(string) =
     match v with
     | {String=str} -> {some=str}
@@ -398,9 +377,8 @@ Bson = {{
 
   /**
    * Same as the find_xyz functions for Bson documents except that
-   * we allow MongoDB dot notation for search for sub-documents.
+   * we allow MongoDB dot notation for searching for sub-documents.
    **/
-  @private
   find_dot(doc:Bson.document, dot:string, find:(Bson.document, string -> option('a))): option('a) =
     rec aux(doc, l) =
       match l with
@@ -455,6 +433,7 @@ Bson = {{
 
   /**
    * Remove the ObjectID element from a document.
+   * Note that we only remove [_id] values which are typed as [ObjectID].
    **/
   remove_id(doc:Bson.document): Bson.document =
     List.filter((e -> match e with | {name="_id"; value={ObjectID=_}} -> {false} | _ -> {true}),doc)
@@ -464,10 +443,6 @@ Bson = {{
    **/
   sort_document(doc:Bson.document): Bson.document = List.sort_by(Bson.key,doc)
 
-  /**
-   * Attempt to turn a bson document into a string which looks like
-   * the mongo shell syntax.
-   **/
   @private pretty_of_value(value:Bson.value): string =
     match value with
     | {Double=v} -> "{v}"
@@ -495,14 +470,22 @@ Bson = {{
   @private pretty_of_array(a:Bson.document): string =
     "["^(String.concat(", ",List.map((e -> pretty_of_value(e.value)),a)))^"]"
 
+  /**
+   * Attempt to turn a bson document into a string which looks like
+   * the mongo shell syntax.
+   **/
   to_pretty(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(pretty_of_element,bson)))^" \}"
+
+  /**
+   * Apply [to_pretty] to a list of documents.
+   **/
   to_pretty_list(bsons:list(Bson.document)): string = List.list_to_string(to_pretty,bsons)
 
   /**
    * Convert a result value into a more friendly string.
    * Errors can be internal (just a string) or could be document
-   * returned by mongo.  Which may be an error even if the
-   * outcome is "success".
+   * returned by MongoDB.  Which may be an error even if the
+   * outcome is "[success]".
    **/
   string_of_doc_error(doc:Bson.document): string =
     ok =
@@ -521,11 +504,10 @@ Bson = {{
    * Decide if a document contains an error or not.
    **/
   isError(doc:Bson.document): bool =
-    ok = match find_int(doc,"ok") with {some=ok} -> ok != 0 | {none} -> false
-    err = match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false
-    code = match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false
-    errmsg = match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false
-    ok || err || code || errmsg
+    (match find_int(doc,"ok") with {some=ok} -> ok != 0 | {none} -> false) ||
+    (match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false) ||
+    (match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false) ||
+    (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
 
   /**
    * Same as [string_of_doc] but using an OPA type.
@@ -544,7 +526,7 @@ Bson = {{
     String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
 
   /**
-   * We can't always use bson_to_opa to extract the error-relevant
+   * We can't always use [bson_to_opa] to extract the error-relevant
    * fields from a MongoDB reply document, there might be other
    * arbitrary fields present.  Here we extract just those fields
    * which are relevant to the error status.  Should work on any
@@ -603,7 +585,6 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="list"} -> ty
       | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
       | ty -> ty
-    //do if ty != nty then println("name_type: named type {OpaType.to_pretty(ty)} to {OpaType.to_pretty(nty)}")
     nty
 
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
@@ -625,7 +606,6 @@ Bson = {{
     [H.arr(key,doc)]
 
   opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
-    //do println("opa_to_document: ty={OpaType.to_pretty(ty)}")
     match ty with
     | {TyName_args=[]; TyName_ident="void"} -> [H.null(key)]
     | {TyConst={TyInt={}}} -> [H.i64(key,(@unsafe_cast(v):int))]
@@ -633,7 +613,6 @@ Bson = {{
     | {TyConst={TyFloat={}}} -> [H.dbl(key,(@unsafe_cast(v):float))]
     | {TyName_args=[]; TyName_ident="bool"} -> [H.bool(key,(@unsafe_cast(v):bool))]
     | {TyRecord_row=row ...} ->
-      //do println("opa_to_document: row={OpaType.to_pretty(ty)}")
       (match row with
        | [] ->
           [H.null(key)]
@@ -671,7 +650,6 @@ Bson = {{
     ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
     match name_type(ty) with
     | {TyRecord_row=row ...} ->
-      //do println("opa_to_bson: row={OpaType.to_pretty({TyRecord_row=row})}")
       (match row with
        | [] -> [H.null("value")]
        | [{label=name; ty=ty}] -> if OpaType.is_void(ty) then [H.null(name)] else rec_to_bson(v, row)
@@ -690,7 +668,6 @@ Bson = {{
    **/
 
   rec bson_to_opa(bson:Bson.document, ty:OpaType.ty): option('a) =
-    //do println("bson_to_opa:\n  bson={Bson.to_pretty(bson)}\n  ty={OpaType.to_pretty(ty)}")
 
     error(str, v) = ML.error("Bson.bson_to_opa", str, v)
     fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
@@ -724,7 +701,6 @@ Bson = {{
       | _ -> element_to_rec2(doc,fields)
 
     and element_to_rec2(doc:Bson.document, fields:OpaType.fields): option('a) =
-      //do println("element_to_rec2:\n  doc={to_pretty(doc)}\n  fields={OpaType.to_pretty_fields(fields)}")
 
       rec optreg(name, field, frest, elements, acc) =
         match field.ty with
@@ -739,13 +715,9 @@ Bson = {{
         | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
 
       and aux(elements, fields, acc) =
-        //do println("element_to_rec2(aux):\n  elements={to_pretty(elements)}")
-        //do println("  fields={OpaType.to_pretty_fields(fields)}")
         match (elements, fields) with
         | ([element|erest],[field|frest]) ->
             name = Bson.key(element)
-            //do println("element_to_rec2(aux):\n  element={pretty_of_element(element)}")
-            //do println("  name={name}\n  field={OpaType.to_pretty_fields([field])}")
             (match String.ordering(field.label,name) with
              | {eq} ->
                val_opt =
@@ -772,14 +744,11 @@ Bson = {{
       else {some=@unsafe_cast(OpaValue.Record.make_record(rcrd))}
 
     and column_to_rec(doc:Bson.document, col) =
-      //do println("column_to_rec:\n  doc={Bson.to_pretty(doc)}\n  col={col}")
       ltyfield = List.sort(Bson.keys(doc))
-      //do println("ltyfield={ltyfield}")
       match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
       | {some=fields} -> element_to_rec(doc, fields)
       | {none} ->
         allreg = List.for_all((r -> List.for_all((f -> isrcrdtype(f.ty)),r)),col)
-        //do println("  allreg={allreg}")
         if allreg
         then element_to_rec(doc, List.flatten(col))
         else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none})
@@ -790,7 +759,6 @@ Bson = {{
       | _ -> element_to_opa(element, ty)
 
     and element_to_opa(element:Bson.element, ty:OpaType.ty): option('a) =
-      //do println("element_to_opa:\n  element={pretty_of_element(element)}\n  ty={OpaType.to_pretty(ty)}")
       match ty with
       | {TyName_args=[({TyName_args=[]; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list"}
       | {TyName_args=_; TyName_ident="Bson.document"} ->
@@ -844,12 +812,10 @@ Bson = {{
          | {name="none"; ...} -> {some=@unsafe_cast({none})}
          | _ -> error("expected option, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
-        //do println("register: element={to_pretty([element])}")
         make_register(element_to_opa(element,ty))
       | {TyName_args=[ty]; TyName_ident="list"} ->
         (match element with
          | {value={Array=doc} ...} ->
-           //do println("list:\n  ty={OpaType.to_pretty(ty)}\n  key={element.name}\n  doc={to_pretty(doc)}")
            lst =
              (match doc with
               | [] -> []
@@ -859,12 +825,8 @@ Bson = {{
                   * if the user calls lots of $push operations.
                   */
                  len = List.length(doc)
-                 //do println("len={len} e.name={e.name}")
-                 //do println("doc={to_pretty(doc)}")
                  doc = if e.name == "0" then List.rev(doc) else doc
-                 //do println("doc={to_pretty(doc)}")
                  doc = if e.name != "{len-1}" then List.sort_by((e -> len - Int.of_string(e.name)),doc) else doc
-                 //do println("doc={to_pretty(doc)}")
                  rec aux(last,elements,l) =
                    (match elements with
                     | [element|rest] ->
@@ -873,10 +835,8 @@ Bson = {{
                        then
                          // Nassty little hobbitses.  We have to go back and start again.
                          doc = List.sort_by((e -> len - Int.of_string(e.name)),doc)
-                         //do println("doc={to_pretty(doc)}")
                          aux(Int.of_string((List.head(doc)).name),doc,[])
                        else
-                         //do println("list({enum}): element={pretty_of_element(element)}")
                          (match getel(element,ty) with
                           | {some=v} -> aux(enum,rest,[v|l])
                           | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}"))
@@ -888,7 +848,6 @@ Bson = {{
       | {TyName_args=[ty]; TyName_ident="intmap"} ->
         (match element with
          | {value={Array=doc} ...} ->
-           //do println("intmap:\n  ty={OpaType.to_pretty(ty)}\n  doc={to_pretty(doc)}")
            imap =
              List.fold((element, im ->
                          (match getel(element, ty) with
@@ -930,10 +889,8 @@ Bson = {{
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
          | element -> error("expected timestamp, got {element}",{none}))
       | {TyRecord_row=row ...} ->
-        //do println("row:\n  row={OpaType.to_pretty(ty)}")
         element_to_rec([element],row)
       | {TySum_col=col ...} ->
-        //do println("col:\n  col={OpaType.to_pretty(ty)}")
         column_to_rec([element], col)
       | {TyName_args=tys; TyName_ident=tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys))
@@ -962,10 +919,8 @@ Bson = {{
    * indicated by the type are present in the document.
    **/
   all_fields_present(doc:Bson.document, ty:OpaType.ty): bool =
-    //do println("all_fields_present:\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
     all_in_row(doc, row) =
       List.for_all((f ->
-        //do println("all_in_row({f.label}):\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
         match find_value(doc,f.label) with
         | {some={Document=doc}} -> all_fields_present(doc, f.ty)
         | {some=_} -> true
@@ -975,7 +930,7 @@ Bson = {{
     | {TySum_col=col ...} -> List.exists((r -> all_in_row(doc,r)),col)
     | {TyName_args=[_]; TyName_ident="Bson.register"} -> true
     | {TyName_args=tys; TyName_ident=tyid} -> all_fields_present(doc, OpaType.type_of_name(tyid, tys))
-    | _ -> false //???
+    | _ -> false
 
   /**
    * Same as [bson_to_opa] except that we have a flag for ignoring
@@ -985,8 +940,6 @@ Bson = {{
    * and a missing field.
    **/
   b2o_incomplete(doc:Bson.document, ty:OpaType.ty, ignore_incomplete:bool): Bson.incomplete('a) =
-    //do println("Bson.b2o_incomplete:\n  doc={to_pretty(doc)}\n  ty={OpaType.to_pretty(TypeSelect.name_type(ty))}")
-    //do if ignore_incomplete then println("  all_fields_present(doc,ty) = {all_fields_present(doc,ty)}")
     if ignore_incomplete && not(all_fields_present(doc,ty))
     then {incomplete}
     else

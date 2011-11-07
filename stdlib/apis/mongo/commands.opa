@@ -147,6 +147,8 @@ type Commands.explainType =
 @server_private
 Commands = {{
 
+  @private H = Bson.Abbrevs
+
   /**
    * Run a "$cmd" command.
    *
