@@ -294,6 +294,8 @@ Template =
     | { ~title } -> { ~title }
     | { meta; ~meta_attribute } -> { meta; ~meta_attribute }
     | { base; ~base_attribute } -> { base; ~base_attribute }
+    | { header; ~content; ~standard_attribute } -> { span; content=map_content(translation, content); ~standard_attribute }
+    | { footer; ~content; ~standard_attribute } -> { span; content=map_content(translation, content); ~standard_attribute }
 
   abstract_map_xmlns_parser(fun:(xmlns -> outcome(Template.content('a), Template.failure)), mapper:(Template.content('a) -> Template.content('b) )):(xmlns -> outcome(Template.content('b), Template.failure)) =
     xmlns -> match fun(xmlns) with

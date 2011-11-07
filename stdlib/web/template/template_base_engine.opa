@@ -606,6 +606,8 @@ import stdlib.web.client
       | "title" -> parse_title_tag(content)
       | "meta" -> parse_attributes(conf, args , meta_attrs,(meta_attribute -> { meta; ~meta_attribute } ))
       | "base" -> parse_attributes(conf, args , base_attrs,(base_attribute -> { base; ~base_attribute } ))
+      | "header" -> parse_standard_attributes(conf, args ,(standard_attribute -> { header ; ~content ; ~standard_attribute }) )
+      | "footer" -> parse_standard_attributes(conf, args ,(standard_attribute -> { footer ; ~content ; ~standard_attribute }) )
       | tag -> { failure = {unsupported_tag; ~tag; ns="" } }
       end
     | { ~failure } -> { ~failure }
@@ -637,7 +639,7 @@ import stdlib.web.client
     | {address; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <address>{child}</address> )
     | {acronym; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <acronym>{child}</acronym> )
     | {fieldset; content=_; ~standard_attribute }  -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <fieldset>{child}</fieldset> )
-    | {legend; content=_; ~standard_attribute }    -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <fieldset>{child}</fieldset> )
+    | {legend; content=_; ~standard_attribute }    -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <legend>{child}</legend> )
     | {pre; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <pre>{child}</pre> )
     | {sub; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <sub>{child}</sub> )
     | {sup; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <sup>{child}</sup> )
@@ -681,6 +683,8 @@ import stdlib.web.client
     | { meta; ~meta_attribute }                    -> add_attributes_to_xhtml(meta_attrs.export(meta_attribute), <meta /> )
     | { base; ~base_attribute }                    -> add_attributes_to_xhtml(base_attrs.export(base_attribute), <base /> )
     | {link; ~link_attribute }                     -> add_attributes_to_xhtml(link_attrs.export(link_attribute), <link />)
+    | {header; content=_; ~standard_attribute }    -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <header>{child}</header> )
+    | {footer; content=_; ~standard_attribute }    -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <footer>{child}</footer> )
     | {~text}                                      -> {success = <>{text}</> }
     | {~checked_text}                              -> {success = Xhtml.of_string_unsafe(checked_text) }
     | {fragment=_}                                 -> {success = child }
@@ -771,6 +775,8 @@ import stdlib.web.client
        | {base; ~base_attribute }                     -> print_html_tag("base", base_attrs.export(base_attribute), true)
        | {link; ~link_attribute }                     -> print_html_tag("link", link_attrs.export(link_attribute), true)
        | {head; content=_ }                           -> print_html_tag("head", [], false)
+       | {header; content=_; ~standard_attribute }    -> print_html_tag("header", std_attr.export(standard_attribute), false)
+       | {footer; content=_; ~standard_attribute }    -> print_html_tag("footer", std_attr.export(standard_attribute), false)
        | { ~title }                                  -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
        | {~text}                                      -> {success = (before, _ -> print_text_node(before, text)) }
        | {~checked_text}                                      -> {success = (before, _ -> print_text_node(before, checked_text)) }

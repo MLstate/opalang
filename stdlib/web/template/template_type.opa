@@ -332,6 +332,8 @@ type Template.public_content('a) =
 / { base; base_attribute:Template.base_attribute }
 / { link; link_attribute:Template.link_attribute }
 / { meta; meta_attribute:Template.meta_attribute }
+/ { header; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
+/ { footer; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 
 @abstract type Template.content('a) = Template.public_content('a)
 
