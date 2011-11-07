@@ -217,7 +217,7 @@ MDB : MDB = {{
     open_(MongoDriver.open(bufsize,addr,port,false))
 
   repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(mongodb,Mongo.failure) =
-    open_(ReplSet.connect(ReplSet.init(name,bufsize,false,seeds)))
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,false,seeds)))
 
   clone(db:mongodb): mongodb =
     do db.link_count.set(db.link_count.get()+1)

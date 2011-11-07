@@ -26,9 +26,7 @@
 /**
  * {1 About this module}
  *
- * This is a binding for MongoDB for OPA, loosely based around the C drivers.
- *
- * Module [ReplSet] allows the management of replica sets.
+ * Module [MongoReplicaSet] allows the management of replica sets.
  *
  * {1 Where should I start?}
  *
@@ -36,9 +34,12 @@
  *
  **/
 
-/* Major TODOs, there are minor ones elsewhere. */
+/**
+ * Some additional OPA types mapped to [Bson.document] values
+ * to help with interpreting MongoDB replies.
+ **/
 
-type ReplSet.replSetGetStatus =
+type Mongo.replSetGetStatus =
 {
     set : string;
     date : Date.date;
@@ -60,7 +61,7 @@ type ReplSet.replSetGetStatus =
     errmsg : Bson.register(string);
 }
 
-type ReplSet.member = {
+type Mongo.member = {
   _id : Bson.int32;
   host : string;
   arbiterOnly : Bson.register(bool);
@@ -72,30 +73,30 @@ type ReplSet.member = {
   votes : Bson.register(Bson.int32);
 }
 
-type ReplSet.replSetInitiate =
+type Mongo.replSetInitiate =
 {
   _id : string;
-  members: list(ReplSet.member);
+  members: list(Mongo.member);
   settings: Bson.register({
     getLastErrorDefaults : Bson.register(Mongo.getLastErrorOptions);
     getlasterrormodes : Bson.register(Bson.document); // relates to tags
   });
 }
 
-ReplSet = {{
+MongoReplicaSet = {{
 
   @private ML = MongoLog
   @private H = Bson.Abbrevs
 
   /**
-   * Freeze in replica set (can't become primary for given number of seconds.
-   * Note unfreeze with 0.
+   * Freeze a replica set (can't become primary for the given number of seconds).
+   * Note: unfreeze with 0.
    **/
   replSetFreeze(m:Mongo.db, seconds:int): Mongo.result =
     MongoCommands.simple_int_command(m, "admin", "replSetFreeze", seconds)
 
   /**
-   * Step down from primary status.
+   * Step down from primary status.  Same time value as for [replSetFreeze].
    **/
   replSetStepDown(m:Mongo.db, seconds:int): Mongo.result =
     MongoCommands.simple_int_command(m, "admin", "replSetStepDown", seconds)
@@ -104,103 +105,140 @@ ReplSet = {{
    * Get replica get status.
    **/
   replSetGetStatus(m:Mongo.db): Mongo.result = MongoCommands.simple_int_command(m, "admin", "replSetGetStatus", 1)
-  replSetGetStatusOpa(m:Mongo.db): outcome(ReplSet.replSetGetStatus,Mongo.failure) = MongoCommands.adminToOpa(m,"replSetGetStatus")
+  replSetGetStatusOpa(m:Mongo.db): outcome(Mongo.replSetGetStatus,Mongo.failure) = MongoCommands.adminToOpa(m,"replSetGetStatus")
 
   /**
    * Initalise a replica set.
-   * TODO: test
    **/
-  simpleConfig(id:int, host:string): ReplSet.member =
+  // TODO: test this function
+  simpleConfig(id:int, host:string): Mongo.member =
     { _id=id; ~host;
       arbiterOnly={absent}; buildIndexes={absent}; hidden={absent}; priority={absent};
       tags={absent}; slaveDelay={absent}; votes={absent}
     }
 
+  /**
+   * Initialize a replica set with the given list of members (host, port) pairs.
+   * Example: [replSetInitiate(m, id, members)]
+   **/
   replSetInitiate(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
     config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
     MongoCommands.run_command(m, "admin", [H.doc("replSetInitiate",config)])
 
-  /**
+  /*
    * This one will be tricky to implement, it closes the connection.
    * TODO: implement a command_with_no_reply_and_reconnect() function.
-   **/
+   */
   //replSetReconfig(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
   //  config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
   //  MongoCommands.run_command(m, "admin", [H.doc("replSetReconfig",config)])
 
-  add_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=[(host,port)|mdb.seeds]}
-  remove_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=List.filter((s -> s != (host,port)),mdb.seeds)}
+  /**
+   * Add a seed to a [Mongo.db] value.  Doesn't perform any communications.
+   * Example: [add_seed(m, host, port)]
+   **/
+  add_seed(m:Mongo.db, host:string, port:int): Mongo.db = {m with seeds=[(host,port)|m.seeds]}
 
+  /**
+   * Remove a seed from a [Mongo.db] value.  Doesn't perform any communications.
+   * Example: [remove_seed(m, host, port)]
+   **/
+  remove_seed(m:Mongo.db, host:string, port:int): Mongo.db = {m with seeds=List.filter((s -> s != (host,port)),m.seeds)}
+
+  /**
+   * Initialize a [Mongo.db] connection using the given list of seeds.
+   **/
   init(name:string, bufsize:int, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
-    mdb = MongoDriver.init(bufsize, log)
-    {mdb with ~seeds; hosts=Mutable.make([]); ~name}
+    m = MongoDriver.init(bufsize, log)
+    {m with ~seeds; hosts=Mutable.make([]); ~name}
 
+  /**
+   * Initialize a [Mongo.db] connection using a single seed.
+   **/
   init_single(name:string, bufsize:int, log:bool, seed:Mongo.mongo_host): Mongo.db =
     init(name,bufsize,log,[seed])
 
+  /**
+   * Generate a [Mongo.mongo_host] value from a string: "host:port".
+   * If the port is missing it will be set to [Mongo.default_port].
+   **/
   mongo_host_of_string(s:string): Mongo.mongo_host =
     match String.explode(":",s) with
     | [host|[port|[]]] -> (host,Int.of_string(port))
-    | _ -> (s,27017)
+    | _ -> (s,MongoDriver.default_port)
 
-  check_seed(mdb:Mongo.db): Mongo.db =
-    match MongoCommands.isMasterOpa(mdb) with
+  /**
+   * Try to get the list of hosts from a given list of seeds by connecting
+   * in turn to each seed until we find a live one.
+   **/
+  check_seed(m:Mongo.db): Mongo.db =
+    match MongoCommands.isMasterOpa(m) with
     | {success=ism} ->
        (match ism.hosts with
         | {present=hosts} ->
            hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
-           do if mdb.log then ML.info("ReplSet.check_seed","hosts={hosts}",void)
-           do mdb.hosts.set(hosts)
-           mdb
-        | {absent} -> mdb)
-    | {failure=_} -> mdb
+           do if m.log then ML.info("MongoReplicaSet.check_seed","hosts={hosts}",void)
+           do m.hosts.set(hosts)
+           m
+        | {absent} -> m)
+    | {failure=_} -> m
 
-  connect(mdb:Mongo.db): outcome(Mongo.db,Mongo.failure) =
-    mdb = {mdb with log=false}
-    //do println("ReplSet.connect: seeds={mdb.seeds}")
-    do if mdb.seeds == [] then ML.fatal("ReplSet.connect","Tried to connect with no seeds",-1) else void
-    rec aux(mdb, seeds) =
+  /**
+   * Connect (and reconnect) to a replica set.
+   *
+   * Follows the procedure indicated by the MongoDB website.  Try each seed
+   * in turn until a list of hosts is found.  Then try each host in turn until
+   * the primary server is found.  Non-primary hosts usually give you the name
+   * of the primary host so we can jump straight to it.
+   *
+   * Implementation note.  We recurse between this routine and [MongoDriver.reconnect].
+   * In theory, we could have unbounded recursion so the recursion depth is limited.
+   * In practice, this should never happen.
+   **/
+  connect(m:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+    m = {m with log=false}
+    do if m.seeds == [] then ML.fatal("MongoReplicaSet.connect","Tried to connect with no seeds",-1) else void
+    rec aux(m, seeds) =
       match seeds with
       | [seed|rest] ->
-        (match MongoDriver.connect(mdb, seed.f1, seed.f2) with
-         | {success=mdb} ->
-            mdb = check_seed(mdb)
-            if mdb.hosts.get() == []
-            then aux(MongoDriver.close(mdb),rest)
-            else {success=MongoDriver.close(mdb)}
+        (match MongoDriver.connect(m, seed.f1, seed.f2) with
+         | {success=m} ->
+            m = check_seed(m)
+            if m.hosts.get() == []
+            then aux(MongoDriver.close(m),rest)
+            else {success=MongoDriver.close(m)}
          | {failure=_} ->
-            aux(mdb,rest))
-      | [] -> {failure={Error="ReplSet.connect: No connecting seeds"}}
-    match aux(mdb, mdb.seeds) with
-    | {success=mdb} ->
-       //do println("ReplSet.connect: hosts={mdb.hosts.get()}")
-       rec aux2(mdb, hosts) =
+            aux(m,rest))
+      | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
+    match aux(m, m.seeds) with
+    | {success=m} ->
+       rec aux2(m, hosts) =
          (match hosts with
           | [host|rest] ->
-            (match MongoDriver.connect(mdb, host.f1, host.f2) with
-             | {success=mdb} ->
-                (match MongoCommands.isMasterOpa(mdb) with
+            (match MongoDriver.connect(m, host.f1, host.f2) with
+             | {success=m} ->
+                (match MongoCommands.isMasterOpa(m) with
                  | {success=ism} ->
-                    //do println("ReplSet.connect: ism={ism}")
-                    if ism.ismaster && (Bson.Register.default("...",ism.setName) == mdb.name)
+                    if ism.ismaster && (Bson.Register.default("...",ism.setName) == m.name)
                     then
-                      do mdb.reconnect.set({some=connect})
-                      {success=mdb}
+                      do m.reconnect.set({some=connect})
+                      {success=m}
                     else
                       (match ism.primary with
                        | {present=primary} ->
                           primary_host = mongo_host_of_string(primary)
                           (match List.extract_p((host -> host == primary_host),rest) with
                            | ({some=p},rest) ->
-                              do if mdb.log then ML.info("ReplSet.connect","jump to primary",void)
-                              aux2(MongoDriver.close(mdb),[p|rest])
-                           | ({none},rest) -> aux2(MongoDriver.close(mdb),rest))
-                       | {absent} -> aux2(MongoDriver.close(mdb),rest))
-                 | {failure=_} -> aux2(MongoDriver.close(mdb),rest))
-             | {failure=_} -> aux2(mdb,rest))
-          | [] -> {failure={Error="ReplSet.connect: No master hosts"}})
-       aux2(mdb, mdb.hosts.get())
+                              do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
+                              aux2(MongoDriver.close(m),[p|rest])
+                           | ({none},rest) -> aux2(MongoDriver.close(m),rest))
+                       | {absent} -> aux2(MongoDriver.close(m),rest))
+                 | {failure=_} -> aux2(MongoDriver.close(m),rest))
+             | {failure=_} -> aux2(m,rest))
+          | [] -> {failure={Error="MongoReplicaSet.connect: No master hosts"}})
+       aux2(m, m.hosts.get())
     | {~failure} -> {~failure}
 
 }}
 
+// End of file replset.opa
