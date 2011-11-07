@@ -37,8 +37,6 @@
  *
  **/
 
-/* Major TODOs, there are minor ones elsewhere. */
-
 import stdlib.core.{date,map}
 
 /** Some convenience types **/
@@ -121,12 +119,16 @@ type Bson.error = {
   errmsg: Bson.register(string);
 }
 
+/**
+ * A locally-used type.  Basically it's some/none but with
+ * an additional "incomplete" status.
+ **/
 type Bson.incomplete('a) = {found:'a} / {not_found} / {incomplete}
 
 /**
  * Helper functions for constructing Bson values.
  *
- * Short names intended to be abbreviations for {name=...; value={Xyz=...}}.
+ * Short names intended to be abbreviations for [{name=...; value={Xyz=...}}].
  **/
 @server_private
 H = {{
@@ -166,10 +168,18 @@ H = {{
  * to all Mongo instances.
  **/
 
+/**
+ * Type values for MongoLog, we can log to stdout, stderr or to
+ * the OPA Logger functions, or we can switch logging off altogether.
+ **/
 type Mongo.logtype = {stdout} / {stderr} / {logger} / {nomongolog}
 
 MongoLog = {{
 
+  /**
+   * This Mutable value defines globally throughout the running
+   * program which logging type we are using.
+   **/
   logtype = Mutable.make({stdout})
 
   @private log_(from, what, logfn, str, v) =
@@ -180,11 +190,13 @@ MongoLog = {{
       | {nomongolog} -> void
     v
 
+  /** The usual logging functions **/
   info(from, str, v) = log_(from,"Info",Log.info,str,v)
   debug(from, str, v) = log_(from,"Debug",Log.debug,str,v)
   warning(from, str, v) = log_(from,"Warning",Log.warning,str,v)
   error(from, str, v) = log_(from,"Error",Log.error,str,v)
 
+  /** A special fatal log which logs a message and terminates the running program. **/
   fatal(from, str, v) =
     do match logtype.get() with
       | {stdout} -> println("Fatal{if from=="" then "" else "({from})"}: {str}")
@@ -195,6 +207,7 @@ MongoLog = {{
 
 }}
 
+/** A convenient abbreviation for MongoLog **/
 ML = MongoLog
 
 @server_private
@@ -202,6 +215,7 @@ Bson = {{
 
   /**
    * Type codes as per BSON spec.
+   * Note that you can use these with MongoDB "type" queries.
    **/
   tEoo = 0x00
   tDouble = 0x01
@@ -310,16 +324,28 @@ Bson = {{
    * then you will still get [\{none\}].
    **/
 
-  find_bool(bson:Bson.document, name:string): option(bool) =
-    match Option.map((e -> e.value),find_element(bson, name)) with
-    | {some={Boolean=tf}} -> {some=tf}
-    | {some={Int32=0}} -> {some=false}
-    | {some={Int32=_}} -> {some=true}
-    | {some={Int64=0}} -> {some=false}
-    | {some={Int64=_}} -> {some=true}
-    | {some={Double=0.0}} -> {some=false}
-    | {some={Double=_}} -> {some=true}
+  @private // should be in Option
+  Option_flatten(o:option(option('a))): option('a) =
+    match o with
+    | {some={some=a}} -> {some=a}
+    | {some={none}} -> {none}
+    | {none} -> none
+
+  bool_of_value(v:Bson.value): option(bool) =
+    match v with
+    | {Boolean=tf} -> {some=tf}
+    | {Int32=0} -> {some=false}
+    | {Int32=_} -> {some=true}
+    | {Int64=0} -> {some=false}
+    | {Int64=_} -> {some=true}
+    | {Double=0.0} -> {some=false}
+    | {Double=_} -> {some=true}
     | _ -> {none}
+
+  bool_of_element(e:Bson.element): option(bool) = bool_of_value(e.value)
+
+  find_bool(bson:Bson.document, name:string): option(bool) =
+    Option_flatten(Option.map(bool_of_element,find_element(bson, name)))
 
   int_of_value(v:Bson.value): option(int) =
     match v with
@@ -330,37 +356,51 @@ Bson = {{
 
   int_of_element(e:Bson.element): option(int) = int_of_value(e.value)
 
-  Option_flatten(o:option(option('a))): option('a) =
-    match o with
-    | {some={some=a}} -> {some=a}
-    | {some={none}} -> {none}
-    | {none} -> none
-
   find_int(bson:Bson.document, name:string): option(int) =
     Option_flatten(Option.map(int_of_element,find_element(bson, name)))
 
-  find_float(bson:Bson.document, name:string): option(float) =
-    match Option.map((e -> e.value),find_element(bson, name)) with
-    | {some={Int32=i}} -> {some=Float.of_int(i)}
-    | {some={Int64=i}} -> {some=Float.of_int(i)}
-    | {some={Double=d}} -> {some=d}
+  float_of_value(v:Bson.value): option(float) =
+    match v with
+    | {Int32=i} -> {some=Float.of_int(i)}
+    | {Int64=i} -> {some=Float.of_int(i)}
+    | {Double=d} -> {some=d}
     | _ -> {none}
+
+  float_of_element(e:Bson.element): option(float) = float_of_value(e.value)
+
+  find_float(bson:Bson.document, name:string): option(float) =
+    Option_flatten(Option.map(float_of_element,find_element(bson, name)))
+
+  string_of_value(v:Bson.value): option(string) =
+    match v with
+    | {String=str} -> {some=str}
+    | {Int32=i} -> {some=Int.to_string(i)}
+    | {Int64=i} -> {some=Int.to_string(i)}
+    | {Double=d} -> {some=Float.to_string(d)}
+    | {Null=_} -> {some=""}
+    | _ -> {none}
+
+  string_of_element(e:Bson.element): option(string) = string_of_value(e.value)
 
   find_string(bson:Bson.document, name:string): option(string) =
-    match Option.map((e -> e.value),find_element(bson, name)) with
-    | {some={String=str}} -> {some=str}
-    | {some={Int32=i}} -> {some=Int.to_string(i)}
-    | {some={Int64=i}} -> {some=Int.to_string(i)}
-    | {some={Double=d}} -> {some=Float.to_string(d)}
-    | {some={Null=_}} -> {some=""}
-    | _ -> {none}
+    Option_flatten(Option.map(string_of_element,find_element(bson, name)))
 
+  /**
+   * Slightly specialised version, we look for a document in a document.
+   * If we find an element of the given name, we turn it into a singleton
+   * document.
+   **/
   find_doc(bson:Bson.document, name:string): option(Bson.document) =
     match Option.map((e -> e.value),find_element(bson, name)) with
     | {some={Document=doc}} -> {some=doc}
     | {some=element} -> {some=[{~name; value=element}]}
     | _ -> {none}
 
+  /**
+   * Same as the find_xyz functions for Bson documents except that
+   * we allow MongoDB dot notation for search for sub-documents.
+   **/
+  @private
   find_dot(doc:Bson.document, dot:string, find:(Bson.document, string -> option('a))): option('a) =
     rec aux(doc, l) =
       match l with
@@ -426,36 +466,7 @@ Bson = {{
 
   /**
    * Attempt to turn a bson document into a string which looks like
-   * the mongo shell syntax but with explicit element types.
-   **/
-  @private string_of_value(value:Bson.value): string =
-    match value with
-    | {Double=v} -> "Double {v}"
-    | {String=v} -> "String {v}"
-    | {Document=v} -> "Document {to_string(v)}"
-    | {Array=v} -> "Array {to_string(v)}"
-    | {Binary=v} -> "Binary {v}"
-    | {ObjectID=v} -> "ObjectID {oid_to_string(v)}"
-    | {Boolean=v} -> "Boolean {v}"
-    | {Date=v} -> "Date {v}"
-    | {Null=_} -> "Null"
-    | {Regexp=v} -> "Regexp {v}"
-    | {Code=v} -> "Code {v}"
-    | {Symbol=v} -> "Symbol {v}"
-    | {CodeScope=v} -> "CodeScope {v}"
-    | {Int32=v} -> "Int32 {v}"
-    | {Timestamp=(t,i)} -> "Timestamp \{ \"t\" : {t}, \"i\" : {i}"
-    | {Int64=v} -> "Int64 {v}"
-    | {Min=_} -> "Min"
-    | {Max=_} -> "Max"
-
-  @private string_of_element(element:Bson.element): string = "\"{element.name}\" : {string_of_value(element.value)}"
-
-  to_string(bson:Bson.document): string = "\{ "^(String.concat(", ",List.map(string_of_element,bson)))^" \}"
-
-  /**
-   * Same as to_string except we miss out the tags showing the
-   * actual name of the element.
+   * the mongo shell syntax.
    **/
   @private pretty_of_value(value:Bson.value): string =
     match value with
