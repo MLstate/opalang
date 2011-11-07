@@ -77,7 +77,7 @@ type ReplSet.replSetInitiate =
   _id : string;
   members: list(ReplSet.member);
   settings: Bson.register({
-    getLastErrorDefaults : Bson.register(Commands.getLastErrorOptions);
+    getLastErrorDefaults : Bson.register(Mongo.getLastErrorOptions);
     getlasterrormodes : Bson.register(Bson.document); // relates to tags
   });
 }
@@ -92,19 +92,19 @@ ReplSet = {{
    * Note unfreeze with 0.
    **/
   replSetFreeze(m:Mongo.db, seconds:int): Mongo.result =
-    Commands.simple_int_command(m, "admin", "replSetFreeze", seconds)
+    MongoCommands.simple_int_command(m, "admin", "replSetFreeze", seconds)
 
   /**
    * Step down from primary status.
    **/
   replSetStepDown(m:Mongo.db, seconds:int): Mongo.result =
-    Commands.simple_int_command(m, "admin", "replSetStepDown", seconds)
+    MongoCommands.simple_int_command(m, "admin", "replSetStepDown", seconds)
 
   /**
    * Get replica get status.
    **/
-  replSetGetStatus(m:Mongo.db): Mongo.result = Commands.simple_int_command(m, "admin", "replSetGetStatus", 1)
-  replSetGetStatusOpa(m:Mongo.db): outcome(ReplSet.replSetGetStatus,Mongo.failure) = Commands.adminToOpa(m,"replSetGetStatus")
+  replSetGetStatus(m:Mongo.db): Mongo.result = MongoCommands.simple_int_command(m, "admin", "replSetGetStatus", 1)
+  replSetGetStatusOpa(m:Mongo.db): outcome(ReplSet.replSetGetStatus,Mongo.failure) = MongoCommands.adminToOpa(m,"replSetGetStatus")
 
   /**
    * Initalise a replica set.
@@ -118,7 +118,7 @@ ReplSet = {{
 
   replSetInitiate(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
     config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
-    Commands.run_command(m, "admin", [H.doc("replSetInitiate",config)])
+    MongoCommands.run_command(m, "admin", [H.doc("replSetInitiate",config)])
 
   /**
    * This one will be tricky to implement, it closes the connection.
@@ -126,7 +126,7 @@ ReplSet = {{
    **/
   //replSetReconfig(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
   //  config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
-  //  Commands.run_command(m, "admin", [H.doc("replSetReconfig",config)])
+  //  MongoCommands.run_command(m, "admin", [H.doc("replSetReconfig",config)])
 
   add_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=[(host,port)|mdb.seeds]}
   remove_seed(mdb:Mongo.db, host:string, port:int): Mongo.db = {mdb with seeds=List.filter((s -> s != (host,port)),mdb.seeds)}
@@ -144,7 +144,7 @@ ReplSet = {{
     | _ -> (s,27017)
 
   check_seed(mdb:Mongo.db): Mongo.db =
-    match Commands.isMasterOpa(mdb) with
+    match MongoCommands.isMasterOpa(mdb) with
     | {success=ism} ->
        (match ism.hosts with
         | {present=hosts} ->
@@ -179,7 +179,7 @@ ReplSet = {{
           | [host|rest] ->
             (match MongoDriver.connect(mdb, host.f1, host.f2) with
              | {success=mdb} ->
-                (match Commands.isMasterOpa(mdb) with
+                (match MongoCommands.isMasterOpa(mdb) with
                  | {success=ism} ->
                     //do println("ReplSet.connect: ism={ism}")
                     if ism.ismaster && (Bson.Register.default("...",ism.setName) == mdb.name)

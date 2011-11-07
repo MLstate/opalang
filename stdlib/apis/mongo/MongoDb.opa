@@ -243,10 +243,10 @@ MDB : MDB = {{
         else void
       else void
 
-  getLastError(db:mongodb): Mongo.result = Commands.getLastError(db.mongo, db.dbname)
+  getLastError(db:mongodb): Mongo.result = MongoCommands.getLastError(db.mongo, db.dbname)
 
   err(db:mongodb, n:string): void =
-    err = Commands.getLastError(db.mongo, db.dbname)
+    err = MongoCommands.getLastError(db.mongo, db.dbname)
     if MongoDriver.isError(err) then println("Error({n})={MongoDriver.string_of_result(err)}")
 
   skip(db:mongodb, skip:int): mongodb = { db with ~skip }
@@ -1271,10 +1271,10 @@ Collection : Collection = {{
     find_all_unsafe(c, select, false)
 
   count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
-    Commands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
+    MongoCommands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
 
   distinct(c:collection('value), key:string, query_opt:option(select('value))): outcome(list('b),Mongo.failure) =
-    match Commands.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),query_opt))) with
+    match MongoCommands.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),query_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
        ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
@@ -1288,7 +1288,7 @@ Collection : Collection = {{
    **/
   group(c:collection('value), key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
-    Commands.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
+    MongoCommands.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
 
   // TODO: use Command types and doc2opa
   analyze_group(res:Mongo.result): group_result('a) =

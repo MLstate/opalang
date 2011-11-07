@@ -26,11 +26,16 @@
 /**
  * {1 About this module}
  *
- * Module [Commands] has a set of command implementations to make MongoDB
+ * Module [MongoCommands] has a set of command implementations to make MongoDB
  * management easier.  We also have some OPA types which match the structure
  * of some of the values returned by the commands.  You just have to cast
- * the result of doc2opa to these types to get OPA values which have all the
+ * the result of [Bson.doc2opa] to these types to get OPA values which have all the
  * command reply data in them.
+ *
+ * Some of the functions occur as "fn" and "fnOpa" variants, the latter are
+ * just pre-cast to the relevant return type.
+ *
+ * Currently, this list of commands is incomplete and the types even more so.
  *
  * {1 Where should I start?}
  *
@@ -38,29 +43,33 @@
  *
  **/
 
-/* Major TODOs, there are minor ones elsewhere. */
-// TODO: Build up a complete set of result types
-
 /**
- * Command types:
+ * MongoCommand types:
+ *
  *   These are types which are intended to match the results of MongoDB
- *   command results.  If we just want a single value out of the result,
- *   then it is probably more efficient to use the dotresult functions.
+ *   command results.  The names of the types match the names of the
+ *   MongoDB server commands.
+ *
+ *   If we just want a single value out of the result,
+ *   then it is probably more efficient to use the [Bson.dot_result] functions.
  *   If we want to manipulate the whole thing in OPA, however, we can just
- *   doc2opa the result and cast to these types.  Note that these types
+ *   [Bosn.doc2opa] the result and cast to these types.
+ *
+ *   Note that these types
  *   may vary between one MongoDB version and another, these are for 1.8.3.
- *   Also, some of the results have floating elements which we 
+ *
+ *   Note also that some of the results have floating elements which we 
  *   map to the Bson.register type. 
  **/
 
-type Commands.getLastErrorOptions = {
+type Mongo.getLastErrorOptions = {
   fsync : Bson.register(bool);
   j : Bson.register(bool);
   w : Bson.register(string); // Oh yes, use "1" for ints...
   wtimeout : Bson.register(Bson.int32);
 }
 
-type Commands.isMaster = {
+type Mongo.isMaster = {
   ismaster : bool;
   msg : Bson.register(string);
   setName : Bson.register(string);
@@ -73,15 +82,15 @@ type Commands.isMaster = {
   ok : int;
 }
 
-type Commands.dropDatabaseType = { dropped : string; ok : int; }
+type Mongo.dropDatabaseType = { dropped : string; ok : int; }
 
-type Commands.listDatabasesType = {
+type Mongo.listDatabasesType = {
   databases : list({ name : string; sizeOnDisk : float; empty : bool; })
   totalSize : float;
   ok : int;
 }
 
-type Commands.serverStatusType = {
+type Mongo.serverStatusType = {
   host : string;
   version : string;
   process : string;
@@ -112,7 +121,7 @@ type Commands.serverStatusType = {
   ok : int;
 }
 
-type Commands.collStatsType = {
+type Mongo.collStatsType = {
   ns : string;
   count : Bson.int32;
   size : Bson.int32;
@@ -128,7 +137,7 @@ type Commands.collStatsType = {
   ok : int;
 }
 
-type Commands.explainType =
+type Mongo.explainType =
   { cursor : string;
     nscanned : int;
     nscannedObjects : int;
@@ -145,14 +154,14 @@ type Commands.explainType =
 }
 
 @server_private
-Commands = {{
+MongoCommands = {{
 
   @private H = Bson.Abbrevs
 
   /**
    * Run a "$cmd" command.
    *
-   * Normally you will get {ok: 0/1} as a reply but sometimes there
+   * Normally you will get [\{ok: 0/1\}] as a reply but sometimes there
    * are other elements in the reply.
    **/
   run_command(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
@@ -161,43 +170,50 @@ Commands = {{
     | {~failure} -> {~failure}
 
   /**
-   * Perform a simple integer command, eg. [{ ping : 1 }]
+   * Perform a simple integer command, eg. [\{ ping : 1 \}]
    **/
   simple_int_command(m:Mongo.db, ns:string, cmd:string, arg:int): Mongo.result =
     run_command(m, ns, [H.i32(cmd,arg)])
 
   /**
-   * Same as simple integer command but with options, eg. [{ "getlasterror" : 1, w : 3, wtimeout : 10000 }]
+   * Same as simple integer command but with options, eg. [\{ "getlasterror" : 1, w : 3, wtimeout : 10000 \}]
    **/
   simple_int_command_opts(m:Mongo.db, ns:string, cmd:string, arg:int, opts:Bson.document): Mongo.result =
     run_command(m, ns, List.flatten([[H.i32(cmd,arg)],opts]))
 
   /**
-   * Perform a simple integer command, eg. [{ drop : "collection" }]
+   * Perform a simple integer command, eg. [\{ drop : "collection" \}]
    **/
   simple_str_command(m:Mongo.db, ns:string, cmd:string, arg:string): Mongo.result =
     run_command(m, ns, [H.str(cmd,arg)])
 
   /**
-   * Perform a simple integer command, eg. [{ drop : "collection" }]
+   * Perform a simple integer command, eg. [\{ drop : "collection" \}]
    **/
   simple_str_command_opts(m:Mongo.db, ns:string, cmd:string, arg:string, opts:Bson.document): Mongo.result =
     run_command(m, ns, List.flatten([[H.str(cmd,arg)],opts]))
 
+  /**
+   * Run a [simple_int_command] but pass the result through [Bson.doc2opa],
+   * using the type that this function is cast to at the point of call.
+   **/
   dbToOpa(m:Mongo.db, dbname:string, command:string): outcome('a,Mongo.failure) =
     match simple_int_command(m,dbname,command,1) with
     | {success=doc} ->
        (match MongoDriver.result_to_opa({success=doc}) with
         | {some=ism} -> {success=ism}
-        | {none} -> {failure={Error="Commands.{command}: invalid document from db {dbname} ({Bson.to_pretty(doc)})"}})
+        | {none} -> {failure={Error="Mongo.{command}: invalid document from db {dbname} ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}
 
+  /** Perform [dbToOpa] on the "admin" database. **/
   adminToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) = dbToOpa(m,"admin",command)
+
+  /** Perform [dbToOpa] on the "config" database. **/
   configToOpa(m:Mongo.db, command:string): outcome('a,Mongo.failure) = dbToOpa(m,"config",command)
 
   /**
    * Predicate for connection alive.  Peforms an admin "ping" command.
-   * We insist upon a single {ok:1} reply, anything else results in false.
+   * We insist upon a single [\{ok:1\}] reply, anything else results in [false].
    **/
   check_connection(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ping", 1) with
@@ -206,7 +222,7 @@ Commands = {{
     | {~failure} -> {~failure}
 
   /**
-   * Drop a database
+   * Drop a database.
    **/
   dropDatabase(m:Mongo.db, db:string): Mongo.result =
     simple_int_command(m, db, "dropDatabase", 1)
@@ -261,6 +277,8 @@ Commands = {{
 
   /**
    * Return the last error from database, with full options.
+   *
+   * Example: [getLastErrorFull(m, db, fsync, j, w, wtimeout)]
    **/
   getLastErrorFull(m:Mongo.db, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.result =
     simple_int_command_opts(m, db, "getlasterror", 1,
@@ -288,25 +306,29 @@ Commands = {{
 
   /**
    * Return collection statistics.
+   *
+   * Example: [collStats(m, db, collection)]
    **/
   collStats(m:Mongo.db, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "collStats", collection)
-  collStatsOpa(m:Mongo.db, db:string, collection:string): outcome(Commands.collStatsType,Mongo.failure) =
+  collStatsOpa(m:Mongo.db, db:string, collection:string): outcome(Mongo.collStatsType,Mongo.failure) =
     MongoDriver.resultToOpa(collStats(m, db, collection))
 
   /**
    * Create a collection.
-   * TODO:  There is no such command.  See how the mongo shell does it and copy...
    **/
+  // TODO:  There is no such command.  See how the mongo shell does it and copy...
+  /*
   createCollection(m:Mongo.db, db:string, collection:string, capped:option({capped:bool; size:int;})): Mongo.result =
     match capped with
     | {some=~{capped; size}} ->
        simple_str_command_opts(m, db, "createCollection", collection, [H.bool("capped",capped), H.i32("size",size)])
     | {none} ->
        simple_str_command(m, db, "createCollection", collection)
+  */
 
   /**
-   * Cap a collection.
+   * Cap a collection.  Example: [convertToCapped(m, db, collection, size)]
    **/
   convertToCapped(m:Mongo.db, db:string, collection:string, size:int): Mongo.result =
     simple_str_command_opts(m, db, "convertToCapped", collection, [H.i32("size",size)])
@@ -320,6 +342,8 @@ Commands = {{
    * Strictly speaking MongoDB returns an Int64 value but it is unlikely that
    * a database will be able to overrun the OCaml restriction, so the value is
    * just an int.
+   *
+   * Example: [count(m, db, coll, query_opt)]
    **/
   count(m:Mongo.db, db:string, coll:string, query_opt:option(Bson.document)): outcome(int,Mongo.failure) =
     cmd = List.flatten([[H.str("count",coll)],
@@ -331,18 +355,32 @@ Commands = {{
         | {none} -> {failure={Error="Missing n value in count reply"}})
     | {~failure} -> {~failure}
 
+  /**
+   * MongoDB aggregation.
+   *
+   * Example: [distinct(m, db, collection, key, query_opt)]
+   * @return An array document with the list of values.
+   *
+   * Currently, the [stats] field is ignored.
+   **/
   distinct(m:Mongo.db, db:string, coll:string, key:string, query_opt:option(Bson.document)): Mongo.result =
     cmd = List.flatten([[H.str("distinct",coll), H.str("key",key)],
                         (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> [])])
     match run_command(m, db, cmd) with
     | {success=bson} ->
-       //do println("MongoCursor.distinct: bson={Bson.to_pretty(bson)}")
        // TODO: stats
        (match Bson.find(bson,"values") with
         | {some=[{name=k; value={Array=d}}]} -> {success=[H.arr(k,List.rev(d))]}
         | _ -> {failure={DocError=bson}})
     | {~failure} -> {~failure}
 
+  /**
+   * A more advanced aggregation function.
+   *
+   * Example: [group(m, db, collection, key, reduce, initial, cond_opt, finalize_opt)]
+   * @param reduce is Javascript in the form of a string
+   * @param finalize_opt as is finalize.
+   **/
   group(m:Mongo.db, db:string, coll:string, key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
     group =
@@ -351,15 +389,10 @@ Commands = {{
            [H.str("ns",coll), H.doc("key",key), H.code("$reduce",reduce), H.doc("initial",initial)],
            (match cond_opt with | {some=cond} -> [H.doc("cond",cond)] | {none} -> [H.null("cond")]),
            (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> [])]))]
-    //do println("MongoCursor.group: group={Bson.to_pretty(group)}")
-    match run_command(m, db, group) with
-    | {success=bson} ->
-       //do println("MongoCursor.group: bson={Bson.to_pretty(bson)}")
-       {success=bson}
-    | {~failure} -> {~failure}
+    run_command(m, db, group)
 
   /**
-   * Predicate for master status.
+   * Predicate for master status.  Runs an "ismaster" command.
    **/
   ismasterp(m:Mongo.db): outcome(bool,Mongo.failure) =
     match simple_int_command(m, "admin", "ismaster", 1) with
@@ -370,38 +403,38 @@ Commands = {{
     | {~failure} -> {~failure}
 
   /**
-   * ismaster command as a Bson.document.
+   * [ismaster] command result as a [Bson.document].
    **/
   isMaster(m:Mongo.db): Mongo.result = simple_int_command(m, "admin", "ismaster", 1)
 
   /**
-   * Return the isMaster document as an OPA type.
+   * Return the [isMaster] document as an OPA type.
    **/
-  isMasterOpa(m:Mongo.db): outcome(Commands.isMaster,Mongo.failure) = adminToOpa(m,"ismaster")
+  isMasterOpa(m:Mongo.db): outcome(Mongo.isMaster,Mongo.failure) = adminToOpa(m,"ismaster")
 
   /**
-   * Query the config.shards database, gives a list of shards.
+   * Query the "config.shards" database, gives a list of shards.
    **/
   findShards(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.shards", query, 100)
 
   /**
-   * Query the config.databases database, gives a list of shard information about databases.
+   * Query the "config.databases" database, gives a list of shard information about databases.
    **/
   findDatabases(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.databases", query, 100)
 
   /**
-   * Query the config.locks database, gives information about the shard balancer.
+   * Query the "config.locks" database, gives information about the shard balancer.
    **/
   findBalancer(m:Mongo.db): Mongo.results = MongoCursor.find_all(m, "config.locks", [H.str("_id","balancer")], 100)
 
   /**
-   * Low-level, set config.settings balancer value.  Valid objects are "stopped" and "start/stop".
+   * Low-level, set "config.settings" balancer value.  Valid objects are "stopped" and "start/stop".
    **/
   setBalancer(m:Mongo.db, param:Bson.document): bool =
     MongoDriver.update(m,MongoDriver.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
 
   /**
-   * Update the balancer settings, true=stopped
+   * Update the balancer settings, [true]=stopped
    **/
   pauseBalancer(m:Mongo.db, stopped:bool): bool =
     setBalancer(m, [H.bool("stopped",stopped)])
@@ -419,13 +452,14 @@ Commands = {{
     MongoDriver.update(m,MongoDriver.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
 
   /**
-   * Query the config.chunks database, gives a information about shard distribution.
+   * Query the "config.chunks" database, gives a information about shard distribution.
    **/
   findChunks(m:Mongo.db, query:Bson.document): Mongo.results = MongoCursor.find_all(m, "config.chunks", query, 100)
 
   /**
    * Add a shard to a database.
-   * addShard(mongo, shard_address, optional_name, allowLocal, optional_maxSize).
+   *
+   * Example: [addShard(mongo, shard_address, name_opt, allowLocal, maxSizeOpt)].
    **/
   addShard(m:Mongo.db, shard:string, nameOpt:option(string), allowLocal:bool, maxSizeOpt:option(int)): Mongo.result =
     opts = List.flatten([match nameOpt with {some=name} -> [H.str("name",name)] | _ -> [],
@@ -444,6 +478,7 @@ Commands = {{
     simple_str_command(m, "admin", "removeShard", shard)
 
   /** Map a list of outcomes onto an outcome of a list. **/
+  @private
   Outcome_map(f:'a->outcome('b,'c), l:list('a)): outcome(list('b),'c) =
     rec aux(l) =
       match l with
@@ -459,7 +494,7 @@ Commands = {{
 
   /**
    * Find a non-draining shard in a list of shards.
-   * You get the list of shards from config.shards.
+   * You get the list of shards from the "config.shards" collection.
    **/
   find_non_draining_shard(shards:list(Bson.document)): option(string) =
     rec aux(shards) =
@@ -476,14 +511,17 @@ Commands = {{
    * We remove a shard and detect whether it has completed or not.
    * If there are databases still left associated with the shard
    * we try to move them to a vacant shard.
-   * We have to wait in a loop, we define a retry time in milliseconds
+   * Since we have to wait in a loop, we define a retry time in milliseconds
    * and a maximum number of retries.
-   * Warning, moving a large chunk might take a little time.
+   *
+   * {b Warning, moving a large chunk might take a little time.}
+   *
+   * Example: [reallyRemoveShard(m, db, shard, retryTime, maxRetries)]
    **/
   reallyRemoveShard(m:Mongo.db, shard:string, retryTime:int, maxRetries:int): Mongo.result =
     rec aux(time,retries) =
       if retries > maxRetries
-      then {failure={Error="Commands.reallyRemoveShard: retry count exceeded"}}
+      then {failure={Error="Mongo.reallyRemoveShard: retry count exceeded"}}
       else
         do if time != 0 then Scheduler.wait(time)
         match removeShard(m, shard) with
@@ -542,6 +580,8 @@ Commands = {{
   /**
    * Enable sharding on a collection, giving the optional sharding key.
    * The bool is the unique flag.
+   *
+   * Example: [shardCollection(m, collection, keyOpt, unique)]
    **/
   shardCollection(m:Mongo.db, collection:string, keyOpt:option(Bson.document), unique:bool): Mongo.result =
     opts = List.flatten([match keyOpt with {some=key} -> [H.doc("key",key)] | _ -> [],
@@ -550,12 +590,14 @@ Commands = {{
 
   /**
    * Actually split an existing chunk (does a split(find)).
+   * Example: [split(m, collection, find)]
    **/
   split(m:Mongo.db, collection:string, find:Bson.document): Mongo.result =
     simple_str_command_opts(m, "admin", "split", collection, [H.doc("find",find)])
 
   /**
    * Presplit, we just define the split point (does a split(middle)).
+   * Example: [split(m, collection, middle)]
    **/
   presplit(m:Mongo.db, collection:string, middle:Bson.document): Mongo.result =
     simple_str_command_opts(m, "admin", "split", collection, [H.doc("middle",middle)])
@@ -563,12 +605,14 @@ Commands = {{
   /**
    * Move a chunk from the given collection for which the select document would
    * select a document from and move to the named shard.
+   * Example: [moveChunk(m, collection, find, to)]
    **/
   moveChunk(m:Mongo.db, collection:string, find:Bson.document, to:string): Mongo.result =
     simple_str_command_opts(m, "admin", "moveChunk", collection, [H.doc("find",find), H.str("to",to)])
 
   /**
    * Move the primary for the given db name to the named shard.
+   * Example: [movePrimary(m, dbname, to)]
    **/
   movePrimary(m:Mongo.db, dbname:string, to:string): Mongo.result =
     simple_str_command_opts(m, "admin", "movePrimary", dbname, [H.str("to",to)])
@@ -580,7 +624,7 @@ Commands = {{
     simple_int_command(m, "admin", "isdbgrid", 1)
 
   /**
-   * Boolean predicate for connection to a mongos (uses isDBGrid).
+   * Boolean predicate for connection to a mongos (uses [isDBGrid]).
    **/
   isMongos(m:Mongo.db): bool =
     match isDBGrid(m) with
