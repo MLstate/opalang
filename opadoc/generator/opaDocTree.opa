@@ -214,7 +214,7 @@ OpaDocTree = {{
     | [] -> leaf
     | [hd|tl] ->
       key = {module = hd}
-      /* If a value with the same name (case insensitive) exists, suffix it 
+      /* If a value with the same name (case insensitive) exists, suffix it
        * with '_bis' */
       /*(hd, path_name) =*/
       /*  if OpaDocTree.Map.exists((k, _ -> key_equals(k, key)), tree) then*/
@@ -280,6 +280,7 @@ OpaDocTree = {{
 
   of_files(files) =
     aux(acc, path) =
+      path = OpaDocUtils.relative_path(path)
       key  = {file = path}
       path_dot = OpaDocUtils.uri_of_path(path)
       node = {
@@ -345,6 +346,7 @@ OpaDocTree = {{
   @private
   json_of_node(label: OpaDocTree.node_kind, node: OpaDocTree.node)
       : RPC.Json.json =
+    idify = identity // String.replace(".", "-", _)
     json_children =
       match node.tree with
       | {none} -> []
@@ -359,7 +361,7 @@ OpaDocTree = {{
           ] }:RPC.Json.json)
         ]}:RPC.Json.json),
         ("attr", { Record = [
-          ("id", { String = node.id }:RPC.Json.json),
+          ("id", { String = idify(node.id) }:RPC.Json.json),
           ("rel", { String = string_of_kind(node.kind) }:RPC.Json.json),
         ] }:RPC.Json.json)
         ] ++ json_children

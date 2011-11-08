@@ -445,8 +445,8 @@ pattern = deco just_pattern_as_coerce
 *)
 
 ;/** expression **/
-expr <- expr_1
-;expr_1 = deco just_expr_1;
+expr <- top_expr
+;top_expr = deco just_top_expr;
 ;expr0 = deco just_expr0;
 ;expr7 = deco just_expr7;
 ;expr8 = deco just_expr8;
@@ -472,17 +472,44 @@ let ident_careful_deco rule = (=careful_deco(rule)):t {{let (i,label) = t in (Id
 ;NegOp  = ident_careful_deco( "-." !OpCont {{ Opacapi.unary_minus_dot }}
                             / "-" !OpCont  {{ Opacapi.unary_minus }})
 
+
 (**
    {7 The different levels of expressions }
 *)
-just_expr_1 <- (=deco(Parser_path.path_write)):pa (=deco(larrow)):p expr:e
-                {{ let (path,pos) = pa in
-                   let ident = var_to_exprvar ("<-",label p) in
-                     Apply (ident,encode_tuple_pos [(DBPath (path,QmlAst.Db.Ref),pos);e]) }}
-             / expr0:e1 (=deco(larrow)):p expr:e2
-                {{ let ident = var_to_exprvar ("<-",label p) in
-                     Apply (ident, encode_tuple_pos [e1;e2]) }}
-             / just_expr0
+
+/** db path write destination **/
+db_path_write <- (=deco(Parser_path.path_write)):pa
+{{
+  let (path,pos) = pa in (DBPath (path,QmlAst.Db.Ref),pos)
+}}
+
+/** db path write **/
+write_expr <- (=deco(larrow)):p expr0:e2 {{ e2 }}
+
+/** side effect expr **/
+se_expr = deco just_se_expr;
+
+just_se_expr <-
+             (* on dom *)
+             / pos:p Action.action:a
+               {{
+                 let l = list_expr_of_expr_list [a] p in
+                 dom_transform l
+               }}
+             (* dbpath write *)
+             / db_path_write:e1 write_expr:e2 {{ db_write e1 e2 }}
+
+/** top expr **/
+just_top_expr <-
+             / just_se_expr
+
+             / expr0:e1 write_expr?:e2 (* normal expr + dbpath write *)
+               {{
+                 match e2 with
+                 | Some e2 -> db_write e1 e2
+                 | None -> undecorate e1
+               }}
+
 just_expr0 <- expr1:e (=exact_symbol("%"))?:o
               {{ match o with
                    | None -> undecorate e
@@ -877,11 +904,14 @@ letin <- pos:pos1 local_binding_directives:dirs Opa_lexer.REC (=list1pos(rec_bin
           {{ push_hint (`same_indent (pos1,pos2));
              bind_in_to_expr_in dirs b e
            }}
+       / pos:pos1 Opa_lexer.OPEN (=list1(expr,Opa_lexer.comma)):l separator:pos2 expr:e
+          {{ push_hint (`same_indent (pos1,pos2)); undecorate (open_ l e) }}
 
 and <- spacing pos:p Opa_lexer.AND {{ p }}
 (* the ! here is here to prevent code such as {r=123x} to parse as {r=123 x}
  * because the user then have ununderstandable type errors *)
-separator <-  (spacing semic / not_assign ![~a-zA-Z`_]) pos:p {{ p }}
+strict_separator <- spacing semic
+separator <-  (strict_separator / not_assign ![~a-zA-Z`_]) pos:p {{ p }}
 not_assign <- !(spacing may_coerce assign)
 
 (**

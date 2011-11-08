@@ -38,7 +38,7 @@ package stdlib.tools.markdown
  * What you can do:
  * - Create titles (both styles)
  * - Insert links (both styles)
- * - Insert images (both styles) 
+ * - Insert images (both styles)
  * - Make an simple or a strong emphasis (both ways: _ or *)
  * - Make simple emphasis inside a strong one
  * - Make strong emphasis inside a simple one
@@ -161,7 +161,7 @@ Markdown = {{
     link = parser
       | lnk=("http://" chr*)  -> create_link(lnk)
       | lnk=("https://" chr*) -> create_link(lnk)
-      | lnk=("ftp://" chr*)   -> create_link(lnk) 
+      | lnk=("ftp://" chr*)   -> create_link(lnk)
     text = parser t=((!link .)*) -> <>{t}</>
     link_text = parser l=link t=text -> <>{l}{t}</>
     main_parse = parser
@@ -447,14 +447,14 @@ Markdown = {{
 You can enter a message using a Markdown-like syntax.
 Here is a list of all elements recognized.
 
-## Paragraphe
+## Paragraph
 
 A group of text isolated by two or more linebreaks will be put
-in a HTML paragraph<p>.
+in a HTML paragraph <p>.
 
 ## Titles
 
-You can enter titles using various syntaxes :
+You can enter titles using various syntax:
 
     First level title
     =================
@@ -474,7 +474,7 @@ will create:
 Second level title
 -----------------
 
-You can also create titles by preceding som text with as many `#` as the
+You can also create titles by preceding text with as many `#` as the
 level of the title, so
 
     #### Title 4
@@ -500,7 +500,7 @@ __a _simple emphasis_ inside a strong one__.
 
 You can insert simple bullet lists simply by putting each element in
 a line starting by a `-`, a `+` or a `*`. Mixing symbols will not create
-different lists unless there is a blanck line in the middle:
+different lists unless there is a blank line in the middle:
 
     - one
     - two
@@ -560,7 +560,7 @@ You can insert links inside your text in two ways:
     some text [Reference-style][mlstate] some random text
     [mlstate]: https://mlstate.com  \"MLstate\"
 
-In both cases, the title `(\"MLstate\")` is optional. The result of above is:
+In both cases, the title `(\"MLstate\")` is optional. The result of the above is:
 
 some text [Inline-style](https://mlstate.com \"MLstate\") more text
 or
@@ -583,16 +583,16 @@ both result in:
 ![HTML5][html5]
 [html5]: http://www.w3.org/html/logo/badge/html5-badge-h-solo.png \"HTML5\"
 
-You can use a same reference for a link and an image (if it links to one).
+You can use the same reference for a link and an image (referencing the same URL).
 
 ## Code
 
 There are two ways of inserting code inside your text.
 
-You can first use surround it with `\\``, so `\\`some code\\`` will
+Firstly, you can surround it with `\\``, so `\\`some code\\`` will
 result in `some code`.
 
-You can also indent a paragraph it with at least four spaces or a tabulation:
+You can also indent a paragraph with at least four spaces or a tabulation:
 
         rec fact(x) =
           if x < 1 then 1
@@ -609,21 +609,21 @@ will result in:
 You can insert a quote in you texts by preceding it with `>`. You
 can put a quote inside a quote:
 
-    > > I don't eat filthy animals.
-    > Shit just got real.
+    > > An indented quote
+    > A standard quote
 
 will result in:
 
-> > I don't eat filthy animals.
-> Shit just got real.
+> > An indented quote
+> A standard quote
 
-## Various
+## Other
 
-You can insert an html linebreack (`<br/>`) by putting two spaces at
-the end of a line.
-You can insert an horizontal line by writing a line containing only
-the character `-` preceded by an empty line (else it would put a `<h2>` on
-the content of that line).
+You can insert an html line break (`<br/>`) by putting two spaces at
+the end of the line.
+You can insert a horizontal line by writing a line containing only
+the character `-` preceded by an empty line (otherwise it would result
+in a second-level header).
 
     --------------
     Some text
@@ -726,6 +726,7 @@ with a linebreak
   //   - Open dialog: 16 requests
   //   - Close dialog: 42 request
   //   Manually: 0 request to open or close the dialog \o/
+  // Adam says: no reason for \o/, we should improve WNotification widget instead of not using it!
 
  /**
   * Main element of the Markdown help display
@@ -771,12 +772,12 @@ with a linebreak
       <div class="markdown-bg" style={bg_style} onclick={_->Dom.hide(#{id})}></div>
       <div style={help_style} class="markdown">
         <div class="markdown-header" style={header_style}>
-             <h3>Markdown Syntax Help</h3> 
-             <p>This help is written using this syntax. 
-             To toggle between source and result <a onclick={toggle_help(src_id, res_id)}>click here</a>. 
+             <h3>Markdown Syntax Help</h3>
+             <p>This help is written using this syntax.
+             To toggle between source and result <a onclick={toggle_help(src_id, res_id)}>click here</a>.
              <br/>To close this help click outside.</p>
         </div>
-        <div class="markdown-body" style={body_style}> 
+        <div class="markdown-body" style={body_style}>
              <div id=#{res_id}>{help_xhtml}</div>
              <pre style="display:none;" id=#{src_id}>{help_string}</pre>
         </div>

@@ -83,7 +83,17 @@ define install-package
 @$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.cmxa "$(STDLIB_DIR)/$*.opx/_build/"
 endef
 
+define install-plugin
+@printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
+@mkdir -p "$(STDLIB_DIR)/$*.opp"
+@$(INSTALL) $(BUILD_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
+@$(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/";
+endef
+
+
+
 OPA_PACKAGES := $(shell cd stdlib && ./all_packages.sh)
+OPA_PLUGINS  := $(shell cd stdlib && ./all_plugins.sh)
 
 # Rules installing everything that has been compiled
 #
@@ -108,6 +118,20 @@ install-packages: $(addprefix install-packageopt-,$(OPA_PACKAGES))
 
 install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
 	@printf "Installation to $(STDLIB_DIR) done.[K\n"
+
+install-pluginopt-%:
+	$(if $(wildcard $(BUILD_DIR)/$*.opp/),$(install-plugin))
+
+install-plugin-%:
+	$(install-plugin)
+
+install-plugins: $(addprefix install-pluginopt-,$(OPA_PLUGINS))
+	@printf "Installation to $(STDLIB_DIR) done.[K\n"
+
+install-all-plugins: $(addprefix install-plugin-,$(OPA_PLUGINS))
+	@printf "Installation to $(STDLIB_DIR) done.[K\n"
+
+
 
 install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
@@ -136,7 +160,7 @@ install-doc:
 	fi
 	@printf "Installation to $(INSTALL_DIR)/share/doc/opa done.[K\n"
 
-install: install-bin install-lib install-share install-packages install-doc
+install: install-bin install-lib install-share install-plugins install-packages install-doc
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall

@@ -299,9 +299,110 @@ rule "mlidl: mlidl -> types.ml & types.mli"
          ; P (env "%.mlidl")
          ]));
 
+(* -- js validation  -- *)
+(*
+  TODO: enable all of them as soon as possible.
+*)
+let google_closure_compiler_options =
+  A"--warning_level"  :: A"VERBOSE"::
+    (*
+      Turn on every available warning as errors.
+      Keep synchronized with the checker.
+    *)
+    (
+      List.fold_left (fun acc s -> A"--jscomp_error" :: A s :: acc)
+        [] [
+          "accessControls" ;
+          "checkRegExp" ;
+          (* "checkTypes" ; *)
+          "checkVars" ;
+          "deprecated" ;
+          "fileoverviewTags" ;
+          "invalidCasts" ;
+          "missingProperties" ;
+          (* "nonStandardJsDocs" ; *)
+          "strictModuleDepCheck" ;
+          "undefinedVars" ;
+          "unknownDefines" ;
+          "visibility" ;
+        ]
+    )
+in
+
+let js_checker =
+  let local = windows_mode in
+  A"java" :: A"-jar"  :: (get_tool ~local "jschecker.jar") ::
+(*    A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
+    A"--externs"        :: (get_tool ~local "jschecker_jquery.js") ::
+    A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
+    A"--js_output_file" :: A output_file :: *)
+    google_closure_compiler_options (*@
+    A"--js"             :: A clientlib ::
+    A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+    A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+    A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+    A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
+    A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
+    []*)
+in
+
+(* -- opa plugin -- *)
+(* -- plugin that fails to validate -- *)
+let accept_js_validation_failure = []
+in
+(* -- file that are only needed for validation process -- *)
+let jschecker_file s =
+  let prefix = "jschecker_" in
+  try String.sub (Pathname.basename s) 0 (String.length prefix) = prefix with _ -> false
+in
+let use_tag s =
+  let lenp = String.length "use_" in
+  let t = try String.sub s 0 lenp = "use_" with _ -> false in
+  if t then Some(String.sub s lenp ((String.length s) -lenp))
+  else None
+in
+let opa_plugin_builder_name = "opa-plugin-builder-bin" in
+let opa_plugin_builder = get_tool opa_plugin_builder_name in
+let opp_build opa_plugin opp oppf env build =
+  let dir = Pathname.dirname (env opa_plugin) in
+  let path = let p = Pathname.to_string dir in if p = "." then "" else p^"/" in
+  let files = string_list_of_file (env "%.opa_plugin") in
+  let caml_use_lib = Tags.fold (fun tag list ->
+    match use_tag tag with
+    | None -> list
+    | Some dep -> dep::list
+  ) (tags_of_pathname (env "%.opa_plugin")) []
+  in
+  let lib_dir s = [A"--ml";A"-I";A"--ml";P (if Pathname.exists s then ".." / s else ("+"^s))] in
+  let include_dirs = List.flatten (List.map lib_dir caml_use_lib) in
+  let files = List.map ((^) path) files in
+  build_list build files;
+  let files_validation, files_lib = List.partition jschecker_file files in
+  let files_lib = List.map (fun s -> P s) files_lib in
+  let plugin_name = Pathname.basename (env "%") in
+  let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
+  let js_validation = if files_js=[]
+    then [A"--js-validator-off"]
+    else (
+      let files_validation = List.flatten (List.map (fun s -> [A"--js-validator-file";P s]) files_validation) in
+      let unsafe_js = if List.mem plugin_name accept_js_validation_failure then [A"--unsafe-js"] else [] in
+      let js_checker = List.tl (List.flatten (List.map (fun opt -> [A"--js-validator-opt";opt]) js_checker)) in
+      unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
+    )
+  in
+  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ js_validation @ files_lib in
+  Seq[Cmd(S(opa_plugin_builder::options));
+      Cmd(S[A"touch"; P(env oppf) ] )]
+in
+rule "opa_plugin_dir: opa_plugin -> oppf"
+  ~deps:("%.opa_plugin" :: (tool_deps opa_plugin_builder_name))
+  ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
+  (opp_build "%.opa_plugin" "%" "%oppf")
+;
+
+
+
 (* -- BSL compilation (using bslregister) -- *)
-
-
 let ml_sources_bsl = dir_sources_bsl "opabsl/mlbsl" in
 let js_sources_bsl = dir_sources_bsl "opabsl/jsbsl" in
 let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/jsbsl" in
@@ -377,35 +478,6 @@ rule "preprocess JS files for validation"
     Cmd(S (ppjs::A"--output-suffix"::A ".pp"::List.map (fun x -> A x) js_dest_bsl))
  );
 
-(*
-  TODO: enable all of them as soon as possible.
-*)
-let google_closure_compiler_options =
-  A"--warning_level"  :: A"VERBOSE"::
-    (*
-      Turn on every available warning as errors.
-      Keep synchronized with the checker.
-    *)
-    (
-      List.fold_left (fun acc s -> A"--jscomp_error" :: A s :: acc)
-        [] [
-          "accessControls" ;
-          "checkRegExp" ;
-          (* "checkTypes" ; *)
-          "checkVars" ;
-          "deprecated" ;
-          "fileoverviewTags" ;
-          "invalidCasts" ;
-          "missingProperties" ;
-          (* "nonStandardJsDocs" ; *)
-          "strictModuleDepCheck" ;
-          "undefinedVars" ;
-          "unknownDefines" ;
-          "visibility" ;
-        ]
-    ) in
-
-
 rule "Client lib JS validation"
   ~deps: (
          "qmljsimp/qmlJsImpClientLib.js" ::
@@ -427,20 +499,19 @@ rule "Client lib JS validation"
       [
         Cmd(S [Sh"mkdir"; A"-p";P "opabsl/js_validation"]);
         Cmd(S(
-              A"java" :: A"-jar"  :: (get_tool ~local "jschecker.jar") ::
-                A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
-                A"--externs"        :: (get_tool ~local "jschecker_jquery.js") ::
-                A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
-                A"--js_output_file" :: A output_file ::
-                google_closure_compiler_options @
-                A"--js"             :: A clientlib ::
-                A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-                A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-                A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-                A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
-                A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
-                []
-            ))
+          js_checker @
+            A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
+            A"--externs"        :: (get_tool ~local "jschecker_jquery.js") ::
+            A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
+            A"--js_output_file" :: A output_file ::
+            A"--js"             :: A clientlib ::
+            A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+            A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+            A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+            A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
+            A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
+            []
+        ))
       ]
    in
     Seq (
@@ -484,7 +555,7 @@ rule "opa-bslgenMLRuntime JS validation"
                A"--externs"        :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
                A"--externs"        :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
                A"--externs"        :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
-               A"--js_output_file" :: A"opabsl/js_validation/bsl.js" ::
+               A"--js_output_file" :: A "opabsl/js_validation/bsl.js" ::
                google_closure_compiler_options @
                (List.fold_right (fun s acc -> arg_of_file s acc) js_pp_bsl [])
                @ [ A"--js" ; A "opabsl/opabslgenJSkeys.js" ]
@@ -650,9 +721,15 @@ rule "opadep: .opa -> .opa.depends"
   ~dep: "%.opa"
   ~prod: "%.opa.depends"
   (fun env build ->
-     let dep_regex = "^ *import  \\*\\(.\\+\\) *$" in
-     Cmd(S[sed; A"-n"; A("s%"^dep_regex^"%\\1.opx%p"); P(env "%.opa");
-           Sh">";P(env "%.opa.depends")]));
+     let dep_opx_regex = "^ *import  \\*\\(.\\+\\) *$" in
+     let dep_opp_regex = "^ *import-plugin  \\*\\(.\\+\\) *$" in
+     let sed_dep dep_regex redir dest = S[sed; A"-n"; A("s%"^dep_regex^"%\\1.opx%p"); P(env "%.opa"); Sh redir; P dest] in
+     Seq[
+       Cmd(sed_dep dep_opp_regex ">" (env "%.opa.depends"));
+       Cmd(sed_dep dep_opx_regex ">>" (env "%.opa.depends"))
+     ]
+  )
+;
 
 rule "opacomp: .opa -> .native"
   ~deps: ("%.opa"::"%.opa.depends"::"opacomp.stamp"::[])
@@ -733,13 +810,31 @@ rule "all.packages"
          ])
   );
 
+let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
+let all_plugins_file = stdlib_packages_dir/"all.plugins" in
+
+rule "all.plugins"
+  ~dep: make_all_plugins
+  ~prod: all_plugins_file
+  (fun env build ->
+     Cmd(S[
+           Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
+           P"./all_plugins.sh"; Sh">"; P (Pathname.pwd / !Options.build_dir / all_plugins_file);
+         ])
+  );
+
+
+
 let package_building ~name ~stamp ~stdlib_only ~rebuild =
   rule name
-    ~deps:[opacapi_validation;all_packages_file;"opacomp.stamp"]
+    ~deps:[opacapi_validation;all_plugins_file;all_packages_file;"opacomp.stamp"]
     ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
      try
+       let plugins = string_list_of_file all_plugins_file in
+       let plugins = List.map (fun f -> "plugins" /  f / f -.- "oppf") plugins in
+       build_list build plugins;
        let packages = string_list_of_file all_packages_file in
        let packages =
          if stdlib_only

@@ -25,6 +25,7 @@
  */
 
 import stdlib.core.{web.core}
+import-plugin browser_canvas
 
 /**
  * {1 About this module}
@@ -118,8 +119,8 @@ Canvas = {{
         You cannot see this image because your browser is not fully
         compatible with the latest web standard, HTML5.
         Please consider upgrading or switching to a more modern browser.
-      </>;
-    create_with(id, width, height, err_msg)
+      </p> ;
+     create_with(id, width, height, err_msg)
 
   get(dom : dom) : option(Canvas.canvas) =
     %% BslCanvas.get %%(Dom.of_selection(dom))

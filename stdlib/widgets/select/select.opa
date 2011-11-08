@@ -382,3 +382,27 @@ WSelect = {{
       | {none} -> <></>
 
 }}
+
+SimpleSelect = {{
+
+  /**
+    * This function is a thin wrapper over <select><option .../>...</>
+    * @param options the options to be displayed, as a list of pairs:
+    *                xhtml to be displayed and a value
+    * @param callback the callback to be invoked when a new value is selected
+    * @return the xhtml of the selection component
+    */
+  xhtml(options : list((xhtml, 'a)), callback : 'a -> void, selected : option('a)) : xhtml =
+    id = Dom.fresh_id()
+    getval() = List.unsafe_get(String.to_int(Dom.get_value(#{id})), options).f2;
+    mk_opt(i, (x, v)) =
+      opt = <option value={i} selected=selected>{x}</>
+      if some(v) == selected then
+         Xhtml.add_attribute("selected", "selected", opt)
+      else
+        opt
+    <select class=span2 id={id} onchange={ _ -> callback(getval())}>
+      {List.mapi(mk_opt, options)}
+    </select>
+
+}}

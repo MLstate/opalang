@@ -431,6 +431,7 @@ let _ = dispatch begin function
         ~prods:["%.ml"; "%.mli"]
         (trx_build "%" N);
 
+
       (* -- Macro-rules generating ML files -- *)
 
       (* aspell custom dictionnary *)
@@ -476,11 +477,11 @@ let _ = dispatch begin function
                  | Not_found -> false
               ) in
           (if cond then (A a)::acc else acc) in
-        List.fold_left fold []
+        List.fold_left fold [A"--js-validator-off"] (* until bsl is a standard plugin *)
           [
             ("bsl_debug", "-debug");
             ("bsl_unsafe", "-unsafe") ;
-            ("bsl_no_js_validator", "--no-js-validator");
+            ("bsl_no_js_validator", "--js-validator-off");
           ]
       in
 

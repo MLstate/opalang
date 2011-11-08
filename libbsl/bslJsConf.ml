@@ -287,7 +287,7 @@ let parse_line pos files line =
                     FilePos.pp pos
                     message
             in
-            let filter s = Str.string_match regexp s 0 in
+            let filter s = Str.string_match regexp (Filename.basename s) 0 in
             let files = List.rev_filter filter files in
             if files = [] then
               OManager.warning ~wclass:WarningClass.bsl_register (

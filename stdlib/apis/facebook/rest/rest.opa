@@ -932,11 +932,7 @@ FbRest = {{
                 expires     = loc_int("expires");
                 secret      = loc_string("secret");
               } :FbRest.session
-    perms = API_libs_private.parse_json(perms)
-    perms = JsonOpa.to_list(perms) ? []
-    aux(elt) = JsonOpa.to_string(elt) ? ""
-    perms = List.map(aux, perms)
-
+    perms = String.explode(",", perms)
     (session, perms)
 
 /**

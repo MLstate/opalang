@@ -87,8 +87,30 @@ OpaDocUtils = {{
       String.ordering(String.to_lower(p1), String.to_lower(p2))
     List.sort_with(aux, list)
 
-  uri_of_path =
+  /**
+   * Kept for compatibility with old URIs
+   */
+  legacy_uri_of_path(p) =
+    File.basename(p)
+
+  uri_of_path(p) =
     if OpaDocParameters.get().long_uris
-    then String.replace(File.dir_sep, ".", _)
-    else File.basename
+    then String.replace(File.dir_sep, ".", p)
+    else legacy_uri_of_path(p)
+
+  relative_path(fname) =
+    if not(OpaDocParameters.get().long_uris)
+    then fname
+    else
+      len = String.length(fname)
+      path = "_build/" // FIXME: VERY specific to build !!!
+      path_len = String.length(path)
+      match String.index(path, fname)
+      {some=idx} ->
+        match String.get_suffix(len-idx-path_len, fname)
+        {some=s} -> s
+        {none} -> fname
+        end
+      {none} -> fname
+
 }}

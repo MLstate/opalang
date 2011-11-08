@@ -21,10 +21,10 @@
  * @author Adam Koprowski, 2011
  */
 
-
 import stdlib.widgets.core
 import stdlib.widgets.button
 import stdlib.widgets.datepicker
+import stdlib.components.fragment
 
 // ***************************************************************************************
 /**
@@ -60,9 +60,18 @@ type CCalendarControls.config('event) =
       toggled_style = mk_button_stl("toggled")
     }
 
+  @private register_date_range_view(cal) =
+    update_date(_state, {ViewChanged=~{first_weekday mode}}) =
+      {re_render=<>{CCalendar.date_range_string(first_weekday, mode)}</>}
+    (date_range_xhtml, date_range_fragment) = CFragment.create(void, <></>, update_date)
+    ViewChanged(vc) = CFragment.notify(date_range_fragment, {ViewChanged=vc})
+    do CCalendar.perform(cal, {UpdateCallbacks=(callbacks -> {callbacks with ~ViewChanged })})
+    date_range_xhtml
+
   extensible_style_config =
   {
     generate(id, cal) =
+      date_range_xhtml = register_date_range_view(cal)
        // buttons
       button = generate_button(cal, make_buttons_style("ccalendar_ext_ctrl_btn"), _, _, _)
        // left panel
@@ -74,10 +83,10 @@ type CCalendarControls.config('event) =
       goto = <span>{goto_ctrl}</>
           |> style_stl(WStyler.make_class(["ccalendar_ext_ctrl_goto"]))
        // right panel
-      day_view = button({SetMode={day}}, "{id}_day", <>Day</>)
-      week_view = button({SetMode={week}}, "{id}_week", <>Week</>)
-      two_weeks_view = button({SetMode={two_weeks}}, "{id}_two_weeks", <>2 Weeks</>)
-      month_view = button({SetMode={month}}, "{id}_month", <>Month</>)
+//      day_view = button({ChangeMode={day}}, "{id}_day", <>Day</>)
+//      week_view = button({ChangeMode={week}}, "{id}_week", <>Week</>)
+      two_weeks_view = button({ChangeMode={weeks=2}}, "{id}_two_weeks", <>2 Weeks</>)
+      month_view = button({ChangeMode={month}}, "{id}_month", <>Month</>)
        // style
       left_panel_style = css { float: left }
       right_panel_style = css { float: right }
@@ -91,17 +100,21 @@ type CCalendarControls.config('event) =
        // html
       <div id={id} style={panel_style}>
         <span style={left_panel_style}>
-          {today}{prev}{next}{goto}
+          {today}{prev}{next}{date_range_xhtml}{goto}
         </>
         <span style={right_panel_style}>
-          {day_view}{week_view}{two_weeks_view}{month_view}
+          {two_weeks_view}{month_view}
         </>
       </>
   }
 
+  bootstrap_style_config =
+    extensible_style_config
+
   google_style_config =
   {
     generate(id, cal) =
+      date_range_xhtml = register_date_range_view(cal)
        // buttons
       buttons_config = make_buttons_style("ccalendar_ext_ctrl_btn")
       blue_button = generate_button(cal, buttons_config, _, _, _)
@@ -113,10 +126,10 @@ type CCalendarControls.config('event) =
       next = blue_button({Next}, "{id}_next", <>»</>)
       prev = blue_button({Prev}, "{id}_prev", <>«</>)
        // right panel
-      day_view = gray_button({SetMode={day}}, "{id}_day", "Day")
-      week_view = gray_button({SetMode={week}}, "{id}_week", "Week")
-      two_weeks_view = gray_button({SetMode={two_weeks}}, "{id}_two_weeks", "2 Weeks")
-      month_view = gray_button({SetMode={month}}, "{id}_month", "Month")
+//      day_view = gray_button({ChangeMode={day}}, "{id}_day", "Day")
+//      week_view = gray_button({ChangeMode={week}}, "{id}_week", "Week")
+      two_weeks_view = gray_button({ChangeMode={weeks=2}}, "{id}_two_weeks", "2 Weeks")
+      month_view = gray_button({ChangeMode={month}}, "{id}_month", "Month")
       do WButton.set_toggled(buttons_config, "{id}_month")
        // styles
       left_panel_style = css { float: left }
@@ -131,10 +144,10 @@ type CCalendarControls.config('event) =
        // xhtml
       <div style={panel_style} id={id}>
         <span style={left_panel_style}>
-          {today}{prev}{next}
+          {today}{prev}{next}{date_range_xhtml}
         </>
         <span style={right_panel_style}>
-          {day_view}{week_view}{month_view}{two_weeks_view}
+          {month_view}{two_weeks_view}
         </>
       </>
   }

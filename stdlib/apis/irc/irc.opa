@@ -16,6 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 */
 package stdlib.apis.irc
+import-plugin irc
 
 type Irc.connection = external
 type Irc.msg = external

@@ -190,7 +190,7 @@ sources () {
         camlidl) echo "http://caml.inria.fr/pub/old_caml_site/distrib/bazar-ocaml/camlidl-1.05.tar.gz";;
         libnatpmp) echo "http://miniupnp.free.fr/files/download.php?file=libnatpmp-20110103.tar.gz";;
         miniupnpc) echo "http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.5.20110418.tar.gz";;
-        cairo-ocaml) echo "http://cgit.freedesktop.org/cairo-ocaml/snapshot/cairo-ocaml-master.tar.gz";;
+        cairo-ocaml) echo "http://cgit.freedesktop.org/cairo-ocaml/snapshot/cairo-ocaml-1.2.0.tar.gz";;
         *) msg_red "Error: don't know about package $1" >&2; exit 2
     esac
 }

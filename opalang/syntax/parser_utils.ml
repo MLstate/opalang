@@ -764,6 +764,9 @@ let cssentrymap_empty label = dots ["Css_private";"Entry_map_empty"] label
 let stringmap_add pos k v map = dots ["StringMap";"add"] pos & [k;v;map]
 let cssentrymap_add pos k v map = dots ["Css_private";"Entry_map_add"] pos & [k;v;map]
 let map_add_merge pos k data map = ident Opacapi.internal__add_css_entry pos & [k;data;map]
+let db_write e1 e2 =
+  let ident = var_to_exprvar ("<-",label e2) in
+  Apply (ident, encode_tuple_pos [e1;e2])
 
 (*
  * Utils on patterns
@@ -1386,3 +1389,11 @@ and rewrite_record_update (e:(_,_) expr) (ts:tree list) =
 let rewrite_long_extend_record fields expr =
   let trees = make_record_tree fields in
   rewrite_record_update expr trees
+
+(*
+ * Functions that are expected to be defined later
+ *)
+let dom_transform l =
+  let ident = var_to_exprvar ("Dom_transform", nlabel l) in
+  Apply(ident, encode_tuple_pos [l])
+

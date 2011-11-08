@@ -69,6 +69,7 @@ function open_parent_node(id, scroll) {
     if (node_id === "" && file.endsWith(".html"))
         node_id = file.substr(0, file.length-5);
     var node_anchor = "#node_"+node_id.replace(/\./g, "\\.");
+    //node_anchor = node_anchor.replace(/\\./g, "-");
     $(node_anchor).parents().each(function(i, e) {
         open_node($('#' + id), $(e));
     });
@@ -241,6 +242,8 @@ function make_tree(config, id, plugins, tab) {
     });
 }
 
+var global_source;
+
 function init() {
     jQuery(document).ready(function() {
 
@@ -253,7 +256,6 @@ function init() {
             });
         });
 
-        var global_source;
         window.addEventListener('message', function(event) {
             global_source = event.source;
         }, false);

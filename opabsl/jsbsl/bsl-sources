@@ -13,7 +13,6 @@ bslNumber.js
 bslTime.js
 bslReference.js
 bslScheduler.js
-bslCrypto.js
 bslBuffer.js
 fbuffer.js
 json2.js
@@ -28,7 +27,6 @@ bslSession.js
 bslValue.js
 bslClosure.js
 bslDom.js
-bslCanvas.js
 bslDomSupport.js
 bool.js
 

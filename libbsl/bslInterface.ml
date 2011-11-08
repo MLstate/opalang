@@ -709,11 +709,9 @@ type options = {
      of jsconf files.
   *)
 
-  js_syntax_checker : ( (executable * shell_options) * filename list ) option ;
   js_validator      : ( (executable * shell_options) * filename list ) option ;
   (**
-     The executable for performing syntax check.
-     TODO(maxime) merge them both. Not in one year please.
+     The executable for performing js validation (syntax at least).
   *)
 
   ml_plugin_filename  : filename ;

@@ -256,6 +256,8 @@ val cssentrymap_empty : annot -> (string, 'a) expr
 val stringmap_add : annot -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr
 val cssentrymap_add : annot -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr
 val map_add_merge : annot -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr
+val db_write : (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr_node
+val dom_transform : (string, [> `coerce ] as 'a) expr -> (string, 'a) expr_node
 
 (** Utilities on patterns *)
 val if_then_else : ('a, 'b) coerced_expr -> ('a, 'b) expr -> ('a, 'b) expr option -> ('a, 'b) expr_node

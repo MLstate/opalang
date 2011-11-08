@@ -895,7 +895,7 @@ let finalizing_ocaml session =
 let finalizing_js_code_conf s_js_confs s_js_code =
   let confs = BslJsConf.export s_js_confs in
   let map (filename, content) =
-    let index = Filename.basename filename in
+    let index = filename in
     match StringMap.find_opt index confs with
     | Some conf -> filename, content, conf
     | None ->
@@ -1043,6 +1043,35 @@ let finalize s =
   let _ = OManager.flush_errors () in
 
   finalized_t
+
+let command_not_found = 127
+
+let js_validator finalized_t =
+  let name = finalized_t.f_options.BI.basename in
+  match finalized_t.f_options.BI.js_validator with
+  | Some ((executable,files),cmd_options) when finalized_t.f_js_code <> [] ->
+    let pp_str_list = Format.pp_list " " Format.pp_print_string in
+    let pp_file_list = Format.pp_list " " (
+      if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v) (* probably google compiler *)
+      else Format.pp_print_string (* probably js command *)
+    )
+    in
+    let command = Format.sprintf "%s %a %a %a"
+      executable
+      pp_str_list cmd_options
+      pp_file_list files
+      pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
+    in
+    Printf.printf "%s\n" command;
+    let r = Sys.command command in
+    if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
+      if r = command_not_found
+      then          warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
+      else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command
+    ) else ()
+  | _ -> ()
+;;
+
 
 
 (* Output *)

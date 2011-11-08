@@ -1754,6 +1754,8 @@ let stdlib_package_names name =
 
 let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
 
+let get_paths () = !extrapaths
+
 module Arg =
 struct
   module Arg = Base.Arg

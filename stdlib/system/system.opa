@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+import-plugin unix
+
 /**
    Binding with module System
    <!> Not for casual user
@@ -120,5 +122,17 @@ gethostsbyname = %%BslSys.gethostsbyname%% : string -> list(ip)
  * @return the memory usage in bytes
  */
 get_memory_usage = %%bslSys.get_memory_usage%% : -> int
+
+/**
+ * [exec(command, input)]
+ * acts like: echo input | command > output
+ *
+ * Primitive for calling an external command, and returning the string
+ * built from the resulting stdout of the command, given an input to
+ * produce on the stdin of the process.
+ * In case of error, return the error message instead of the process output.
+ * @return raw result
+ */
+exec = %%bslSys.process.exec%% : string, string -> string
 
 }}
