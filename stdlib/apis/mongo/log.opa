@@ -76,7 +76,7 @@ MongoLog = {{
       | {stderr} -> prerrln("Fatal{if from=="" then "" else "({from})"}: {str}")
       | {logger} -> Log.fatal(from,str)
       | {nomongolog} -> void
-    System.exit(v)
+    @fail("{v}")
 
 }}
 

@@ -29,9 +29,9 @@
  * [MongoView] provides a way of handling field selects in queries while
  * retaining some run-time type-safety.
  *
- * Alternative way of handling queries, we allow the return type to be different
- * from, but a sub-type of, the parent collection's type.  We can't enforce
- * type-safety at compile time but we do insert runtime type-checks into the
+ * We do this by allowing the return type to be different
+ * from, but a sub-type of (in the sense of field exclusion), the parent collection's type.
+ * We can't enforce type-safety at compile time but we do insert runtime type-checks into the
  * view, both at creation time and at query time.  If you are 100% sure that your
  * types are correct, you can eliminate the run-time type-check by simply using
  * the MongoCollection module "unsafe" operations.
@@ -45,14 +45,20 @@
  *
  * If [is_opa] is [false] then the return type has to be the included/excluded sub-type
  * but with all fields turned into Bson.register values,
- * for example, collection type {a:int; b:string} and field selector {b:1} results in
- * the result type: {b:Bson.register(string)}.  This is checked at runtime.  Once the
- * view has been created, you simply substitute the View query functions for the
- * MongoCollection functions.
+ * for example, collection type [\{a:int; b:string\}] and field selector [\{b:1\}] result in
+ * the result type: [\{b:Bson.register(string)\}].  This is checked at runtime.
  *
- * Note that we are obliged to turn all the fields into Bson.register types because
+ * Note that, for this case, we are obliged to turn all the fields into [Bson.register] types because
  * MongoDB will return a record with missing fields for documents which match the query
  * but which do not have all of the fields selected.
+ *
+ * If [is_opa] is [true] then the return type does not need the [Bson.register] transformation
+ * but note that any values returned which have missing fields will be ignored.
+ *
+ * Once the view has been created, you simply substitute the [MongoView] query functions for the
+ * [MongoCollection] functions.
+ *
+ * [MongoForeign] is a simple effort at managing foreign keys in client space.
  *
  * {1 Where should I start?}
  *
@@ -60,21 +66,25 @@
  *
  **/
 
-
-type view('a,'b) = {
+/**
+ *
+ **/
+@abstract
+type Mongo.view('a,'b) = {
   coll: Mongo.collection('a);
   vty: OpaType.ty; // type of the view collection
   is_opa: bool; // if true, we assume an OPA type and ignore incomplete documents
 }
 
-type foreign('a,'b,'c,'d,'e) = {
-  primary: view('a,'b); // the parent view
-  foreign: view('c,'d); // the foreign view
+@abstract
+type Mongo.foreign('a,'b,'c,'d,'e) = {
+  primary: Mongo.view('a,'b); // the parent view
+  foreign: Mongo.view('c,'d); // the foreign view
   pkey: string;
   fkey: string;
 }
 
-View = {{
+MongoView = {{
 
   @private ML = MongoLog
 
@@ -101,7 +111,7 @@ View = {{
     then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
     else void
 
-  create(c:Mongo.collection('collection), vfields:Mongo.fields, is_opa:bool): view('collection,'view) =
+  create(c:Mongo.collection('collection), vfields:Mongo.fields, is_opa:bool): Mongo.view('collection,'view) =
     coll = MongoCollection.fields(c, {some=vfields})
     pty = @typeval('collection)
     do verify_type_match(pty, coll.ty, "View.create","Attempt to create view from non-matching parent type")
@@ -115,34 +125,34 @@ View = {{
     do verify_type_match(vty, cvty, "View.create","Attempt to create view with incompatible view types")
     { ~coll; ~vty; ~is_opa; }
 
-  of_collection(c:Mongo.collection('collection), is_opa:bool): view('collection,'collection) = { coll=c; vty=c.ty; ~is_opa; }
+  of_collection(c:Mongo.collection('collection), is_opa:bool): Mongo.view('collection,'collection) = { coll=c; vty=c.ty; ~is_opa; }
 
   @private
-  runtime_view_type_check(v:view('value,'view), from:string): void =
+  runtime_view_type_check(v:Mongo.view('value,'view), from:string): void =
     do verify_type_match(@typeval('value), v.coll.ty, from, "Collection type does not match view type")
     do verify_type_match(@typeval('view), v.vty, from, "View type does not match result type")
     void
 
-  find_one(v:view('value,'view), select:Mongo.select('value)): outcome('view,Mongo.failure) =
+  find_one(v:Mongo.view('value,'view), select:Mongo.select('value)): outcome('view,Mongo.failure) =
     do runtime_view_type_check(v, "View.find_one")
     MongoCollection.find_one_unsafe(v.coll, select, v.is_opa)
 
-  query(v:view('value,'view), select:Mongo.select('value)): outcome(Mongo.collection_cursor('view),Mongo.failure) =
+  query(v:Mongo.view('value,'view), select:Mongo.select('value)): outcome(Mongo.collection_cursor('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.query")
     MongoCollection.query_unsafe(v.coll, select, v.is_opa)
 
-  find_all(v:view('value,'view), select:Mongo.select('value)): outcome(list('view),Mongo.failure) =
+  find_all(v:Mongo.view('value,'view), select:Mongo.select('value)): outcome(list('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.find_all")
     MongoCollection.find_all_unsafe(v.coll, select, v.is_opa)
 
 }}
 
-Foreign = {{
+MongoForeign = {{
 
   @private ML = MongoLog
 
-  create(primary:view('ps,'pr), foreign:view('fs,'fr), pkey:string, fkey:string)
-       : foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =
+  create(primary:Mongo.view('ps,'pr), foreign:Mongo.view('fs,'fr), pkey:string, fkey:string)
+       : Mongo.foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =
     pty = @typeval('ps)
     pkt = MongoTypeSelect.find_label_in_row(pty,pkey)
     do if not(Option.is_some(pkt))
@@ -155,7 +165,7 @@ Foreign = {{
        then ML.fatal("Foreign.create","Mismatching primary {OpaType.to_pretty(pty)} and foreign {OpaType.to_pretty(fty)}",-1)
     { ~primary; ~foreign; ~pkey; ~fkey }
 
-  find_one(f:foreign('ps,'pr,'fs,'fr,'view), select:Mongo.select('ps)): outcome('view,Mongo.failure) =
+  find_one(f:Mongo.foreign('ps,'pr,'fs,'fr,'view), select:Mongo.select('ps)): outcome('view,Mongo.failure) =
     match MongoCollection.find_one_doc(f.primary.coll, select) with
     | {success=pdoc} ->
        (match Bson.bson_to_opa(pdoc, @typeval('pr)) with

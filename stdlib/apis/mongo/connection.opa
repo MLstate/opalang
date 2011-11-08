@@ -45,6 +45,7 @@
  * of a MongoDB query built in.
  **/
 // TODO: Possibly arrange a map of address:port values to connections?
+@abstract
 type Mongo.mongodb = {
   mongo: Mongo.db;
   bufsize: int;
@@ -93,23 +94,54 @@ MongoConnection = {{
         | {none} -> {failure={Error="MongoConnection.open: no primary"}})
     | {~failure} -> {~failure}
 
+  /**
+   * Open a connection to a single server.  No check for primary status is
+   * carried out and no reconnection is attempted.
+   *
+   * Example: [open(bufsize, host, port)]
+   **/
   open(bufsize:int, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
     open_(MongoDriver.open(bufsize,addr,port,false))
 
+  /**
+   * Open a connection to a replica set starting from the given list of seeds.
+   *
+   * Example: [open(name, bufsize, seeds)]
+   *
+   * This routine causes a serach for the current host list among the seeds
+   * and then seraches for the primary among the hosts.  Rconnection logic
+   * is enabled.
+   **/
   repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(Mongo.mongodb,Mongo.failure) =
     open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,false,seeds)))
 
+  /**
+   * Clone a connection.  We actually just bump the link count.  On close
+   * the connection itself is only closed once the link count drops to zero.
+   **/
   clone(db:Mongo.mongodb): Mongo.mongodb =
     do db.link_count.set(db.link_count.get()+1)
     db
 
+  /**
+   * Change the namespace built into the connection.  The defaults are:
+   * db="db" and collection="collection".  Chemging the namespace bumps
+   * the link count.
+   **/
   namespace(db:Mongo.mongodb, dbname:string, collection:string): Mongo.mongodb =
     do db.link_count.set(db.link_count.get()+1)
     { db with ~dbname; ~collection }
 
+  /**
+   * Enable/disable logging for the given connection.  Only applies to
+   * the connection returned.
+   **/
   log(db:Mongo.mongodb, log:bool): Mongo.mongodb =
     { db with mongo={ db.mongo with ~log } }
 
+  /**
+   * Decrement the link count on a connection and close when zero.
+   **/
   close(db:Mongo.mongodb): void =
     lc = db.link_count.get()
     if lc > 0
@@ -123,37 +155,75 @@ MongoConnection = {{
         else void
       else void
 
+  /**
+   * Return the last error on the given connection.
+   **/
   getLastError(db:Mongo.mongodb): Mongo.result = MongoCommands.getLastError(db.mongo, db.dbname)
 
-  err(db:Mongo.mongodb, n:string): void =
+  /**
+   * A simple error report.  Check the last error on the given database and log an error
+   * if the reply is an actual error.
+   **/
+  err(db:Mongo.mongodb, msg:string): bool =
     err = MongoCommands.getLastError(db.mongo, db.dbname)
-    if MongoDriver.isError(err) then println("Error({n})={MongoDriver.string_of_result(err)}")
+    status = MongoDriver.isError(err)
+    do if db.mongo.log && status
+       then ML.error("MongoConnection.err({db})","msg={msg}) err={MongoDriver.string_of_result(err)}",void)
+    status
 
+  /** Set the "skip" number on the given connection. **/
   skip(db:Mongo.mongodb, skip:int): Mongo.mongodb = { db with ~skip }
+
+  /** Set the "limit" number on the given connection. **/
   limit(db:Mongo.mongodb, limit:int): Mongo.mongodb = { db with ~limit }
+
+  /** Set the "fields" document on the given connection. **/
   fields(db:Mongo.mongodb, fields:option(Bson.document)): Mongo.mongodb = { db with ~fields }
+
+  /** Set the "orderby" document on the given connection. **/
   orderby(db:Mongo.mongodb, orderby:option(Bson.document)): Mongo.mongodb = { db with ~orderby }
 
+  /** Set the "continueOnError" flag for all [insert] calls. **/
   continueOnError(db:Mongo.mongodb): Mongo.mongodb =
     { db with insert_flags=Bitwise.lor(db.insert_flags,MongoDriver.ContinueOnErrorBit) }
+
+  /** Set the "Upsert" flag for all [update] calls. **/
   upsert(db:Mongo.mongodb): Mongo.mongodb =
     { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.UpsertBit) }
+
+  /** Set the "multiUpdate" flag for all [update] calls. **/
   multiUpdate(db:Mongo.mongodb): Mongo.mongodb =
     { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.MultiUpdateBit) }
+
+  /** Set the "singleRemove" flag for all [delete] calls. **/
   singleRemove(db:Mongo.mongodb): Mongo.mongodb =
     { db with delete_flags=Bitwise.lor(db.delete_flags,MongoDriver.SingleRemoveBit) }
+
+  /** Set the "tailableCursor" flag for all [query] calls. **/
   tailableCursor(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.TailableCursorBit) }
+
+  /** Set the "slaveOk" flag for all [query] calls. **/
   slaveOk(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.SlaveOkBit) }
+
+  /** Set the "oplogReplay" flag for all [query] calls. **/
   oplogReplay(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.OplogReplayBit) }
+
+  /** Set the "noCursorTimeout" flag for all [query] calls. **/
   noCursorTimeout(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.NoCursorTimeoutBit) }
+
+  /** Set the "awaitData" flag for all [query] calls. **/
   awaitData(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.AwaitDataBit) }
+
+  /** Set the "exhaust" flag for all [query] calls. **/
   exhaust(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.ExhaustBit) }
+
+  /** Set the "partial" flag for all [query] calls. **/
   partial(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.PartialBit) }
 
