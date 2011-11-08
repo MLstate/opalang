@@ -434,7 +434,42 @@ function bslcanvas_create_pattern(context, image, repeat)
 //todo
 
 // text
-//todo
+
+##register set_font: Canvas.context, string -> void
+##args(context, fontText)
+{
+    context.font = fontText
+}
+
+##register set_text_align: Canvas.context, string -> void
+##args(context, alignText)
+{
+    context.textAlign = alignText
+}
+
+##register set_text_baseline: Canvas.context, string -> void
+##args(context, baselineText)
+{
+    context.textBaseline = baselineText
+}
+
+##register stroke_text: Canvas.context, string, int, int -> void
+##args(context, text, x, y)
+{
+    context.strokeText(text, x, y)
+}
+
+##register fill_text: Canvas.context, string, int, int -> void
+##args(context, text, x, y)
+{
+    context.fillText(text, x, y)
+}
+
+##register measure_text: Canvas.context, string -> int
+##args(context, text)
+{
+    return context.measureText(text).width
+}
 
 // drawing images
 
