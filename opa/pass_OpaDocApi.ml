@@ -179,7 +179,7 @@ let process_opa ~(options : E.opa_options) env =
    with there label (so that we can find their types and position)
 *)
 let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
-    (QmlAst.annotmap * (string list * Annot.label * QmlAst.doctype_access_directive) list) * QmlAst.code
+    (QmlAst.annotmap * (string list * QmlAst.expr * QmlAst.doctype_access_directive) list) * QmlAst.code
     =
   let rec remove_expr_doctype (annotmap, acc) e =
     match e with
@@ -207,7 +207,7 @@ let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
           QmlAnnotMap.add_tsc_opt annot_sube tsc_opt annotmap in
         let annotmap =
           QmlAnnotMap.add_tsc_inst_opt annot_sube tsc_inst_opt annotmap in
-        ((annotmap, (path, (QmlAst.Label.expr sube), access) :: acc), sube)
+        ((annotmap, (path, sube, access) :: acc), sube)
     | _ -> ((annotmap, acc), e) in
   let remove_patt_doctype acc e =
     QmlAstWalk.Expr.foldmap_down remove_expr_doctype acc e
@@ -238,6 +238,7 @@ struct
      <!> The fields are there prefixed by ["value_"] but not in opa
   *)
   type value = {
+    value_args : string list;
     value_ty : ty ;
     value_visibility : QmlAst.doctype_access_directive ;
   }
@@ -281,7 +282,7 @@ struct
     val value :
       gamma:QmlTypes.gamma ->
       annotmap:QmlAst.annotmap ->
-      (string list * Annot.label * QmlAst.doctype_access_directive -> entry)
+      (string list * QmlAst.expr * QmlAst.doctype_access_directive -> entry)
 
     (**
        Types definitions
@@ -318,11 +319,23 @@ struct
 
     let value ~gamma:_ ~annotmap =
       let make_entry = make_entry () in
-      let value (path, label, visibility) =
+      let value (path, expr, visibility) =
+        let label = QmlAst.Label.expr expr in
         let filepos = Annot.pos label in
         let annot = Annot.annot label in
         let ty = QmlAnnotMap.find_ty annot annotmap in
+        let args =
+          match ty with
+          | Q.TypeArrow(_, _) ->
+              begin match expr with
+              | Q.Lambda(_, args, _) ->
+                  List.map Ident.original_name args
+              | _ -> []
+              end
+          | _ -> []
+        in
         let code_elt = Value {
+          value_args = args ;
           value_ty = ty ;
           value_visibility = visibility ;
         } in
@@ -463,6 +476,8 @@ struct
       let ty = ty_to_opaty_for_opadoc typevar_scope rowvar_scope colvar_scope ty in
       opaty_to_json ty
 
+    method args args = J.Array (List.map string args)
+
     method visibility (vis : QmlAst.doctype_access_directive) =
       (*
         <!> keep synchronized with opa names, cf OpaDocTy
@@ -484,6 +499,7 @@ struct
       J.Record [
         "visibility", self#visibility v.Api.value_visibility ;
         "ty", self#ty v.Api.value_ty ;
+        "args", self#args v.Api.value_args ;
       ]
 
     (*
@@ -618,7 +634,8 @@ let process_qml ~(options : E.opa_options)
     *)
     let byfile =
       List.fold_left
-        (fun byfile ((_, label, _) as value) ->
+        (fun byfile ((_, expr, _) as value) ->
+           let label = QmlAst.Label.expr expr in
            let filename = FilePos.get_file (Annot.pos label) in
            let entry = make_value value in
            FileMap.append filename entry byfile)
