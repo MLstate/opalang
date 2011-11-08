@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 /**
  * Common API libraries module
  *
@@ -28,6 +29,9 @@
 
 import stdlib.web.client
 
+/**
+ * Private API Libs module
+ */
 API_libs_private = {{
 
  /**
@@ -158,7 +162,6 @@ API_libs_private = {{
 
 /**
  * Public functions common to all APIs
- *
  */
 
 /**
@@ -176,6 +179,9 @@ type API_libs.answer =
   / { api_void }
 
 
+/**
+ * Public API Libs module
+ */
 API_libs = {{
 /**
  * Extracts the result from an API answer
