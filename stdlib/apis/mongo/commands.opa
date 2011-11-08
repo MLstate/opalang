@@ -634,6 +634,64 @@ MongoCommands = {{
         | {none} -> false)
     | _ -> false
 
+  @private
+  fAM(m:Mongo.db, dbname:string, collection:string, query:Bson.document,
+      update_opt:option(Bson.document), new_opt:option(bool),
+      remove_opt:option(bool), sort_opt:option(Bson.document)): Mongo.result =
+    cmd = List.flatten([[H.str("findAndModify",collection), H.doc("query",query)],
+                        (match update_opt with | {some=update} -> [H.doc("update",update)] | {none} -> []),
+                        (match new_opt with | {some=new} -> [H.bool("new",new)] | {none} -> []),
+                        (match remove_opt with | {some=remove} -> [H.bool("remove",remove)] | {none} -> []),
+                        (match sort_opt with | {some=sort} -> [H.doc("sort",sort)] | {none} -> [])])
+    match run_command(m, dbname, cmd) with
+    | {success=doc} ->
+       if (match Bson.find_int(doc,"ok") with | {some=ok} -> ok == 1 | {none} -> false)
+       then
+         (match Bson.find_doc(doc,"value") with
+          | {some=value} -> {success=value}
+          | _ -> {failure={Error="MongoCommands.findAndModify: No value field in reply"}})
+       else {failure={DocError=doc}}
+    | {~failure} -> {~failure}
+
+  /**
+   * Atomic operation, perform query and update document if found.
+   * This is a generic version, you can only have either "update" or "remove".
+   * @param dbname name of the database
+   * @param collection name of the collection
+   * @param query query document
+   * @param update optional update document
+   * @param new optional bool, when [true] return the updated document, otherwise the pre-updated document
+   * @param remove if [true], delete the selected document
+   * @param sort optional sort document
+   * @return an outcome of either failure or the "value" field in the reply
+   **/
+  findAndModify(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt) =
+    if Option.is_some(update_opt) && Option.is_some(remove_opt)
+    then {failure={Error="MongoCommands.findAndModify: Can't have both update and remove"}}
+    else if Option.is_none(update_opt) && Option.is_none(remove_opt)
+    then {failure={Error="MongoCommands.findAndModify: Either update or remove are required"}}
+    else fAM(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt)
+
+  /** Same as [findAndModify] but convert to OPA type **/
+  findAndModifyOpa(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt): outcome('a,Mongo.failure) =
+    MongoDriver.resultToOpa(findAndModify(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt))
+
+  /** Update-specific version of the [findAndModify] command **/
+  findAndUpdate(m,dbname,collection,query,update,new_opt,sort_opt) =
+    fAM(m,dbname,collection,query,{some=update},new_opt,{none},sort_opt)
+
+  /** Same as [findAndUpdate] but convert to OPA type **/
+  findAndUpdateOpa(m,dbname,collection,query,update,new_opt,sort_opt) =
+    MongoDriver.resultToOpa(findAndUpdate(m,dbname,collection,query,update,new_opt,sort_opt))
+
+  /** Remove-specific version of the [findAndModify] command **/
+  findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt) =
+    fAM(m,dbname,collection,query,{none},new_opt,{some=remove},sort_opt)
+
+  /** Same as [findAndRemove] but convert to OPA type **/
+  findAndRemoveOpa(m,dbname,collection,query,remove,new_opt,sort_opt) =
+    MongoDriver.resultToOpa(findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt))
+
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
   /**
