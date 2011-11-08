@@ -208,7 +208,7 @@ OpaDocHtml = {{
          | {support={some= { ~path ~code_elt ; ... } as entry } ~comment} ->
          */
 
-         | {support={some= { ~path ~code_elt ; ~pkg ; fname=_ ; pos=_ } as entry } ~comment} ->
+         | {support={some= { ~path ~code_elt ; ~pkg ; fname=_ ; pos=_ ; line=_ } as entry } ~comment} ->
          // End of FIXME
            if OpaDocUtils.is_private(entry)
            then
