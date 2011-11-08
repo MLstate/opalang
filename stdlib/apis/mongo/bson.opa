@@ -566,6 +566,7 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="Bson.document"}
       | {TyName_args=[]; TyName_ident="Date.date"}
       | {TyName_args=[]; TyName_ident="Bson.binary"}
+      | {TyName_args=[]; TyName_ident="binary"}
       | {TyName_args=[]; TyName_ident="Bson.oid"}
       | {TyName_args=[]; TyName_ident="Bson.regexp"}
       | {TyName_args=[]; TyName_ident="Bson.code"}
@@ -623,6 +624,7 @@ Bson = {{
        | _ ->
           [H.doc(key,rec_to_bson(v, row))])
     | {TyName_args=[]; TyName_ident="Date.date"} -> [H.date(key,(@unsafe_cast(v):Date.date))]
+    | {TyName_args=[]; TyName_ident="binary"}
     | {TyName_args=[]; TyName_ident="Bson.binary"} -> [H.binary(key,(@unsafe_cast(v):Bson.binary))]
     | {TyName_args=[]; TyName_ident="Bson.oid"} -> [H.oid(key,(@unsafe_cast(v):Bson.oid))]
     | {TyName_args=[]; TyName_ident="Bson.regexp"} -> [H.regexp(key,(@unsafe_cast(v):Bson.regexp))]
@@ -860,6 +862,7 @@ Bson = {{
         (match element with
          | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
          | element -> error("expected date, got {element}",{none}))
+      | {TyName_args=[]; TyName_ident="binary"}
       | {TyName_args=[]; TyName_ident="Bson.binary"} ->
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
