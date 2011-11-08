@@ -128,894 +128,6 @@ import stdlib.core.{compare}
  **/
 
 /*
- * MDB {{ ... }}:
- *   
- *   A low-level module allowing management of connections to MongoDB
- *   servers.  To be used by higher-level modules so that only one
- *   connection is opened to a given server whereas several interfaces
- *   such as those defined below can be attached to the open connection.
- *   
- *   TODO: Possibly arrange a map of address:port values to connections?
- */
-
-type mongodb = {
-  mongo: Mongo.db;
-  bufsize: int;
-  addr: string;
-  port: int;
-  dbname: string;
-  collection: string;
-  link_count: Mutable.t(int);
-  keyname: string;
-  valname: string;
-  idxname: string;
-  fields: option(Bson.document);
-  orderby: option(Bson.document);
-  limit: int;
-  skip: int;
-  insert_flags: int;
-  update_flags: int;
-  delete_flags: int;
-  query_flags: int;
-}
-
-type MDB = {{
-  // TODO: Documentation
-  open : int, string, int -> outcome(mongodb,Mongo.failure)
-  repl : string, int, list(Mongo.mongo_host) -> outcome(mongodb,Mongo.failure)
-  clone : mongodb -> mongodb
-  namespace : mongodb, string, string -> mongodb
-  log : mongodb, bool -> mongodb
-  close : mongodb -> void
-  getLastError : mongodb -> Mongo.result
-  err : mongodb, string -> void
-  limit : mongodb, int -> mongodb
-  skip : mongodb, int -> mongodb
-  fields : mongodb, option(Bson.document) -> mongodb
-  orderby : mongodb, option(Bson.document) -> mongodb
-  continueOnError : mongodb -> mongodb
-  upsert : mongodb -> mongodb
-  multiUpdate : mongodb -> mongodb
-  singleRemove : mongodb -> mongodb
-  tailableCursor : mongodb -> mongodb
-  slaveOk : mongodb -> mongodb
-  oplogReplay : mongodb -> mongodb
-  noCursorTimeout : mongodb -> mongodb
-  awaitData : mongodb -> mongodb
-  exhaust : mongodb -> mongodb
-  partial : mongodb -> mongodb
-}}
-
-MDB : MDB = {{
-
-  @private ML = MongoLog
-
-  @private
-  open_(dbo:outcome(Mongo.db,Mongo.failure)): outcome(mongodb,Mongo.failure) =
-    match dbo with
-    | {success=mongo} ->
-       (match mongo.primary.get() with
-        | {some=(addr,port)} ->
-           db = {~mongo; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
-                 keyname="key"; valname="value"; idxname="index";
-                 dbname="db"; collection="collection";
-                 fields={none}; orderby={none}; limit=0; skip=0;
-                 insert_flags=0; update_flags=0; delete_flags=0; query_flags=0;
-                }
-           do System.at_exit( ->
-                               if db.link_count.get() > 0
-                               then
-                                 do ML.info("MDB.open","closing mongo (exit) {db.link_count.get()}",void)
-                                 _ = MongoDriver.close(db.mongo) 
-                                 void
-                               else void)
-           {success=db}
-        | {none} -> {failure={Error="MDB.open: no primary"}})
-    | {~failure} -> {~failure}
-
-  open(bufsize:int, addr:string, port:int): outcome(mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,addr,port,false))
-
-  repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,false,seeds)))
-
-  clone(db:mongodb): mongodb =
-    do db.link_count.set(db.link_count.get()+1)
-    db
-
-  namespace(db:mongodb, dbname:string, collection:string): mongodb =
-    do db.link_count.set(db.link_count.get()+1)
-    { db with ~dbname; ~collection }
-
-  log(db:mongodb, log:bool): mongodb =
-    { db with mongo={ db.mongo with ~log } }
-
-  close(db:mongodb): void =
-    lc = db.link_count.get()
-    if lc > 0
-      then
-        do db.link_count.set(lc-1)
-        if lc <= 1
-        then
-          do ML.info("MDB.close","closing mongo (close) {db.link_count.get()}",void)
-          _ = MongoDriver.close(db.mongo)
-          void
-        else void
-      else void
-
-  getLastError(db:mongodb): Mongo.result = MongoCommands.getLastError(db.mongo, db.dbname)
-
-  err(db:mongodb, n:string): void =
-    err = MongoCommands.getLastError(db.mongo, db.dbname)
-    if MongoDriver.isError(err) then println("Error({n})={MongoDriver.string_of_result(err)}")
-
-  skip(db:mongodb, skip:int): mongodb = { db with ~skip }
-  limit(db:mongodb, limit:int): mongodb = { db with ~limit }
-  fields(db:mongodb, fields:option(Bson.document)): mongodb = { db with ~fields }
-  orderby(db:mongodb, orderby:option(Bson.document)): mongodb = { db with ~orderby }
-
-  continueOnError(db:mongodb): mongodb = { db with insert_flags=Bitwise.lor(db.insert_flags,MongoDriver.ContinueOnErrorBit) }
-  upsert(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.UpsertBit) }
-  multiUpdate(db:mongodb): mongodb = { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.MultiUpdateBit) }
-  singleRemove(db:mongodb): mongodb = { db with delete_flags=Bitwise.lor(db.delete_flags,MongoDriver.SingleRemoveBit) }
-  tailableCursor(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.TailableCursorBit) }
-  slaveOk(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.SlaveOkBit) }
-  oplogReplay(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.OplogReplayBit) }
-  noCursorTimeout(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.NoCursorTimeoutBit) }
-  awaitData(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.AwaitDataBit) }
-  exhaust(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.ExhaustBit) }
-  partial(db:mongodb): mongodb = { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.PartialBit) }
-
-}}
-
-/* Type support */
-TypeSelect = {{
-
-  @private ML = MongoLog
-
-  /** Abbreviations for common types **/
-  tempty = {TyRecord_row=[]}
-  tvar(tv) = {TyRecord_row=[]; TyRecord_rowvar=tv}
-  istvar(ty) = match ty with | {TyRecord_row=[]; TyRecord_rowvar=_} -> true | _ -> false
-  tvoid = {TyName_args=[]; TyName_ident="void"}
-  tint = {TyConst={TyInt={}}}
-  tstring = {TyConst={TyString={}}}
-  tfloat = {TyConst={TyFloat={}}}
-  tbool = {TyName_args=[]; TyName_ident="bool"}
-  tnumeric = {TyName_args=[]; TyName_ident="Bson.numeric"} // pseudo type
-  tdate = {TyName_args=[]; TyName_ident="Date.date"}
-  toid = {TyName_args=[]; TyName_ident="Bson.oid"}
-  tbinary = {TyName_args=[]; TyName_ident="Bson.binary"}
-  tregexp = {TyName_args=[]; TyName_ident="Bson.regexp"}
-  tcode = {TyName_args=[]; TyName_ident="Bson.code"}
-  tsymbol = {TyName_args=[]; TyName_ident="Bson.symbol"}
-  tcodescope = {TyName_args=[]; TyName_ident="Bson.codescope"}
-  ttimestamp = {TyName_args=[]; TyName_ident="Bson.timestamp"}
-  tvalue = {TyName_args=[]; TyName_ident="Bson.value"}
-  telement = {TyName_args=[]; TyName_ident="Bson.element"}
-  tdoc = {TyName_args=[]; TyName_ident="Bson.document"}
-
-  /** Constructor for more complex types **/
-  ttup2(ty1:OpaType.ty,ty2:OpaType.ty):OpaType.ty = {TyName_args=[ty1, ty2]; TyName_ident="tuple_2"}
-  tlist(ty:OpaType.ty):OpaType.ty = {TyName_args=[ty]; TyName_ident="list"}
-  trec(label, ty) = {TyRecord_row=[~{label; ty}]}
-
-  /** Sort a record by field name **/
-  tsortrec(ty) =
-    match ty with
-    | {TyRecord_row=row; ...} -> {ty with TyRecord_row=List.sort_by((r -> r.label),row)}
-    | ty -> ty
-
-  /** Field sets (used in following analysis **/
-  order_field(f1, f2): Order.ordering = String.ordering(f1.label,f2.label)
-  FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
-
-  /** Set difference, bizarrely missing from Set module. **/ 
-  diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
-
-  /** Overlay two types, matching and merging sub-types **/
-  tmrgrecs(rec1, rec2) =
-    //dbg do println("rec1={OpaType.to_pretty(rec1)}\nrec2={OpaType.to_pretty(rec2)}")
-    if rec1 == rec2 || rec2 == tempty
-    then rec1
-    else if rec1 == tempty
-    then rec2
-    else
-      match (rec1,rec2) with
-      | ({TyRecord_row=row1},{TyRecord_row=row2}) ->
-        s1 = FieldSet.From.list(row1)
-        s2 = FieldSet.From.list(row2)
-        i = FieldSet.intersection(s1,s2)
-        //dbg do println("  i={OpaType.to_pretty({TyRecord_row=FieldSet.To.list(i)})}")
-        if FieldSet.is_empty(i)
-        then {TyRecord_row=List.sort_by((r -> r.label),List.flatten([row1,row2]))}
-        else
-          ii = FieldSet.fold((f, l ->
-                                match (FieldSet.get(f,s1),FieldSet.get(f,s2)) with
-                                | ({some=f1},{some=f2}) -> [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
-                                | _ -> @fail/*Can't happen*/),i,[])
-          d = FieldSet.To.list(FieldSet.union(diff(s1,s2),diff(s2,s1)))
-          //dbg do println("  ii={OpaType.to_pretty({TyRecord_row=ii})}")
-          //dbg do println("  d={OpaType.to_pretty({TyRecord_row=d})}")
-          res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([ii,d]))}
-          //dbg do println("  res={OpaType.to_pretty(res)}")
-          res
-      | _ ->
-        rec1str = OpaType.to_pretty(rec1)
-        rec2str = OpaType.to_pretty(rec2)
-        ML.fatal("TypeSelect.tmrgrecs","Attempt to merge non-record types {rec1str} and {rec2str}",-1)
-
-  /** Add a row to a column **/
-  taddcol(cty,row) =
-    match (cty,row) with
-    | ({TySum_col=cols},{TyRecord_row=row}) -> {TySum_col=[row|cols]}
-
-  /** Predicate for field included in row **/
-  in_row(label,row) = List.exists((f -> f.label == label),row)
-
-  /** Find a named label in a column **/
-  find_label_in_col(label,col) = List.find((crow -> in_row(label,crow)),col)
-
-  /** Find a row in column (all row fields must be present and in order) **/
-  find_row_in_col(row,col) =
-    all_in_row(row1,row2) = List.for_all((f -> in_row(f.label,row2)),row1)
-    List.find((crow -> all_in_row(row,crow)),col)
-
-  /** Naive type compare.  No fancy caching but it works on broken types. **/
-  rec naive_type_compare(ty1:OpaType.ty, ty2:OpaType.ty): bool =
-    //do println("TypeSelect.naive_type_compare: ty1={OpaType.to_pretty(ty1)} ty2={OpaType.to_pretty(ty2)}")
-    compare_consts(c1,c2) =
-      (match (c1,c2) with
-       | ({TyInt={}},{TyInt={}}) -> true
-       | ({TyString={}},{TyString={}}) -> true
-       | ({TyFloat={}},{TyFloat={}}) -> true
-       | _ -> false)
-    compare_rows(row1,row2) =
-       (match List.for_all2((f1, f2 -> f1.label == f2.label && naive_type_compare(f1.ty,f2.ty)),row1,row2) with
-        | {result=tf} -> tf
-        | _ -> false)
-    match (ty1,ty2) with
-    | ({TyConst=const1},{TyConst=const2}) -> compare_consts(const1,const2)
-    | ({TyName_args=[]; TyName_ident=i1},{TyName_args=[]; TyName_ident=i2}) -> i1 == i2
-    | ({TyName_args=a1; TyName_ident=i1},_) -> naive_type_compare(OpaType.type_of_name(i1, a1),ty2)
-    | (_,{TyName_args=a2; TyName_ident=i2}) -> naive_type_compare(ty1,OpaType.type_of_name(i2, a2))
-    | ({TyRecord_row=row1 ...},{TyRecord_row=row2 ...}) -> compare_rows(row1,row2)
-    | ({TySum_col=col1 ...},{TySum_col=col2 ...}) ->
-       (match List.for_all2((r1, r2 -> compare_rows(r1,r2)),col1,col2) with | {result=tf} -> tf | _ -> false)
-    | _ -> ML.fatal("TypeSelect.naive_type_compare","Can't compare {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
-
-  /** Extract the type from a named type (not recursively) **/
-  name_type(ty:OpaType.ty): OpaType.ty =
-    match ty with
-    | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
-    | ty -> ty
-
-  /** Map a function over the types of the fields in all records **/
-  rec map_field(ty, f) =
-    map_row(row) = List.map((fld -> f({fld with ty=map_field(fld.ty, f)})),row)
-    match ty with
-    | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} -> {TyRecord_row=map_row(row)}
-    | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} -> {TySum_col=List.map(map_row,col)}
-    | {TyName_args=tys; TyName_ident=tyid} -> map_field(OpaType.type_of_name(tyid, tys), f)
-    | ty -> ty
-
-  /** Filter the records in a type **/
-  @private
-  rec filter_field_(names:list(string), ty, f) =
-    filter_row(row) =
-      rec aux(row) =
-        match row with
-        | [fld|rest] ->
-          flds = aux(rest)
-          names = List.flatten([names,[fld.label]])
-          (not_empty,ty) = filter_field_(names, fld.ty, f)
-          //do println("filter_field: not_empty={not_empty} names={names} f={f(names)}")
-          if not_empty || f(names) then [{fld with ~ty}|flds] else flds
-        | [] -> []
-      aux(row)
-    match ty with
-    | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} ->
-       frow = filter_row(row)
-       (frow != [],{TyRecord_row=frow})
-    | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} -> 
-       (match List.filter((r -> r != []),List.map(filter_row,col)) with
-        | [] -> (true,{TyRecord_row=[]})
-        | [r] -> (false,{TyRecord_row=r})
-        | col -> (false,{TySum_col=col}))
-    | {TyName_args=tys; TyName_ident=tyid} -> filter_field_(names, OpaType.type_of_name(tyid, tys), f)
-    | ty -> (false,ty)
-
-  filter_field(ty, f) = (filter_field_([], ty, f)).f2
-
-  /** Expand all dot notation in a top-level record.
-   *  Does not recurse through named types.
-   **/
-  explode_dot(ty:OpaType.ty): OpaType.ty =
-    explode_row(row) =
-         List.map((f -> 
-                   match String.explode(".",f.label) with
-                   | [] | [_] -> f
-                   | [dot|dots] ->
-                      rec aux(dots) =
-                        match dots with
-                        | [] -> @fail // can't happen
-                        | [label] -> {TyRecord_row=[{~label; ty=(f.ty:OpaType.ty)}]}
-                        | [label|dots] -> {TyRecord_row=[{~label; ty=aux(dots)}]}
-                      {label=dot; ty=aux(dots)}),row)
-    match ty with
-    | {TyRecord_row=row} -> {TyRecord_row=explode_row(row)}
-    | {TyRecord_row=row; TyRecord_rowvar=rowvar} -> {TyRecord_row=explode_row(row); TyRecord_rowvar=rowvar}
-    | _ -> ty
-
-  /**
-   * Find a label in either a record or a sum type, with name expansion.
-   **/
-  find_label_in_row(ty, label) =
-    match ty with
-    | {TyRecord_row=row}
-    | {TyRecord_row=row; TyRecord_rowvar=_} -> List.find((f -> f.label == label),row)
-    | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} ->
-      List.fold((r, a ->
-                 if Option.is_none(a)
-                 then
-                   match List.find((f -> f.label == label),r) with
-                   | {some=l} -> {some=l}
-                   | {none} -> a
-                 else a),col,{none})
-    | {TyName_args=tys; TyName_ident=tyid} -> find_label_in_row(OpaType.type_of_name(tyid, tys), label)
-    | _ -> {none}
-
-}} /* End of type support */
-
-/*
- * SU {{ ... }}:
- *   
- *   A program-level method for constructing Bson documents for select
- *   and update in a friendly manner.
- *   
- */
-
-type su_status =
-    {su_select} // specific to select, $gt
-  / {su_update} // specific to update, $inc
-  / {su_either} // applies to either select or update, $comment
-  / {su_key}    // neither, a valid key, "a"
-
-type SU = {{
-  // TODO: Documentation
-
-  //dot_path : MongoDb.path -> string
-  //dot : MongoDb.path, Bson.document -> Bson.document
-
-  empty : -> Bson.document
-
-  key : string, Bson.document -> Bson.document
-  path : list(string), Bson.document -> Bson.document
-
-  double : Bson.document, string, float -> Bson.document
-  string : Bson.document, string, string -> Bson.document
-  doc : Bson.document, string, Bson.document -> Bson.document
-  array : Bson.document, string, list('b) -> Bson.document
-  binary : Bson.document, string, Bson.binary -> Bson.document
-  id : Bson.document, string, Bson.oid -> Bson.document
-  newid : Bson.document, string -> Bson.document
-  bool : Bson.document, string, bool -> Bson.document
-  date : Bson.document, string, Date.date -> Bson.document
-  null : Bson.document, string -> Bson.document
-  regexp : Bson.document, string, Bson.regexp -> Bson.document
-  code : Bson.document, string, Bson.code -> Bson.document
-  symbol : Bson.document, string, Bson.symbol -> Bson.document
-  codescope : Bson.document, string, Bson.codescope -> Bson.document
-  int32 : Bson.document, string, int -> Bson.document
-  timestamp : Bson.document, string, Bson.timestamp -> Bson.document
-  int64 : Bson.document, string, int -> Bson.document
-
-  oppoly : 'a, Bson.document, string -> Bson.document
-
-  gti32 : int, Bson.document -> Bson.document
-  lti32 : int, Bson.document -> Bson.document
-  gtei32 : int, Bson.document -> Bson.document
-  ltei32 : int, Bson.document -> Bson.document
-  nei32 : int, Bson.document -> Bson.document
-
-  gti64 : int, Bson.document -> Bson.document
-  lti64 : int, Bson.document -> Bson.document
-  gtei64 : int, Bson.document -> Bson.document
-  ltei64 : int, Bson.document -> Bson.document
-  nei64 : int, Bson.document -> Bson.document
-
-  gtd : float, Bson.document -> Bson.document
-  ltd : float, Bson.document -> Bson.document
-  gted : float, Bson.document -> Bson.document
-  lted : float, Bson.document -> Bson.document
-  ned : float, Bson.document -> Bson.document
-
-  gts : string, Bson.document -> Bson.document
-  lts : string, Bson.document -> Bson.document
-  gtes : string, Bson.document -> Bson.document
-  ltes : string, Bson.document -> Bson.document
-  nes : string, Bson.document -> Bson.document
-
-  gtdate : Date.date, Bson.document -> Bson.document
-  ltdate : Date.date, Bson.document -> Bson.document
-  gtedate : Date.date, Bson.document -> Bson.document
-  ltedate : Date.date, Bson.document -> Bson.document
-  nedate : Date.date, Bson.document -> Bson.document
-
-  gtts : Bson.timestamp, Bson.document -> Bson.document
-  ltts : Bson.timestamp, Bson.document -> Bson.document
-  gtets : Bson.timestamp, Bson.document -> Bson.document
-  ltets : Bson.timestamp, Bson.document -> Bson.document
-  nets : Bson.timestamp, Bson.document -> Bson.document
-
-  set_op : Bson.document, string -> Bson.document
-
-  gt : Bson.document -> Bson.document
-  lt : Bson.document -> Bson.document
-  gte : Bson.document -> Bson.document
-  lte : Bson.document -> Bson.document
-  ne : Bson.document -> Bson.document
-
-  and : Bson.document, Bson.document -> Bson.document
-  andalso : list(Bson.document) -> Bson.document
-  or : Bson.document, Bson.document -> Bson.document
-  orelse : list(Bson.document) -> Bson.document
-  nor : Bson.document, Bson.document -> Bson.document
-  noreither : list(Bson.document) -> Bson.document
-
-  all : Bson.document, list('b) -> Bson.document
-  in : Bson.document, list('b) -> Bson.document
-  nin : Bson.document, list('b) -> Bson.document
-
-  exists : Bson.document, string, bool -> Bson.document
-
-  mod : Bson.document, 'b, 'b -> Bson.document
-
-  size : Bson.document, int -> Bson.document
-  typ : Bson.document, int -> Bson.document
-
-  regex : Bson.document, string, string -> Bson.document
-
-  inc : Bson.document -> Bson.document
-  set : Bson.document -> Bson.document
-  unset : Bson.document -> Bson.document
-  push : Bson.document -> Bson.document
-  pushAll : Bson.document -> Bson.document
-  addToSet : Bson.document -> Bson.document
-  pop : Bson.document -> Bson.document
-  pull : Bson.document -> Bson.document
-  pullAll : Bson.document -> Bson.document
-  rename : Bson.document -> Bson.document
-  bit : Bson.document -> Bson.document
-
-  elemMatch : Bson.document -> Bson.document
-
-  not : Bson.document -> Bson.document
-
-  where : Bson.document, string -> Bson.document
-
-  returnKey : Bson.document, bool -> Bson.document
-  maxScan : Bson.document, int -> Bson.document
-  query : Bson.document, Bson.document -> Bson.document
-  orderby : Bson.document, Bson.document -> Bson.document
-  explain : Bson.document, bool -> Bson.document
-  snapshot : Bson.document, bool -> Bson.document
-  min : Bson.document, Bson.document -> Bson.document
-  max : Bson.document, Bson.document -> Bson.document
-  showDiskLoc : Bson.document, bool -> Bson.document
-  hint : Bson.document, Bson.document -> Bson.document
-  comment : Bson.document, string -> Bson.document
-  natural : Bson.document, int -> Bson.document
-
-  check_strict_select_value_against_type : Bson.document, OpaType.ty, su_status -> void
-}}
-
-SU : SU = {{
-
-  @private ML = MongoLog
-  @private H = Bson.Abbrevs
-
-/*
-  @private
-  string_of_element(e:Bson.element): string =
-    match e with
-    | {value={Int32=i} ...} -> Int.to_string(i)
-    | {value={Int64=i} ...} -> Int.to_string(i)
-    | {value={String=s} ...} -> s
-    | {value={Boolean=b} ...} -> Bool.to_string(b)
-    | {value={Document=d} ...} -> String.concat(".",List.map(string_of_element,d))
-    | {value={Array=a} ...} -> String.concat("_",List.map(string_of_element,a))
-    | {value={Null=_} ...} -> "" // <-- ???
-    | _ -> @fail
-
-  @private
-  string_of_key(key:MongoDb.key): string =
-    match key with
-    | {IntKey=i} -> Int.to_string(i)
-    | {StringKey=s} -> s
-    | {AbstractKey=a} -> String.concat(".",List.map(string_of_element,a))
-
-  dot_path(path:MongoDb.path): string =
-    String.concat(".",List.map(string_of_key,path))
-
-  dot(mpath:MongoDb.path, s:Bson.document): Bson.document = path(List.map(string_of_key,mpath), s)
-*/
-
-  empty(): Bson.document = []
-
-  key(name:string, s:Bson.document): Bson.document = [H.doc(name,s)]
-
-  path(path:list(string), s:Bson.document): Bson.document = List.fold_right((s, name -> [H.doc(name,s)]),path,s)
-
-  double(s:Bson.document, name:string, d:float): Bson.document = [H.dbl(name,d)|s]
-  string(s:Bson.document, name:string, str:string): Bson.document = [H.str(name,str)|s]
-  doc(s:Bson.document, name:string, d:Bson.document): Bson.document = [H.doc(name,d)|s]
-  array(s:Bson.document, name:string, l:list('b)): Bson.document = List.flatten([Bson.list_to_bson(name,l,@typeval('b)),s])
-  binary(s:Bson.document, name:string, bin:Bson.binary): Bson.document = [H.binary(name,bin)|s]
-  id(s:Bson.document, name:string, id:Bson.oid): Bson.document = [H.oid(name,Bson.oid_of_string(id))|s]
-  newid(s:Bson.document, name:string): Bson.document = [H.oid(name,Bson.new_oid(void))|s]
-  bool(s:Bson.document, name:string, b:bool): Bson.document = [H.bool(name,b)|s]
-  date(s:Bson.document, name:string, d:Date.date): Bson.document = [H.date(name,d)|s]
-  null(s:Bson.document, name:string): Bson.document = [H.null(name)|s]
-  regexp(s:Bson.document, name:string, re:Bson.regexp): Bson.document = [H.regexp(name,re)|s]
-  code(s:Bson.document, name:string, c:Bson.code): Bson.document = [H.code(name,c)|s]
-  symbol(s:Bson.document, name:string, sym:Bson.symbol): Bson.document = [H.symbol(name,sym)|s]
-  codescope(s:Bson.document, name:string, cs:Bson.codescope): Bson.document = [H.codescope(name,cs)|s]
-  int32(s:Bson.document, name:string, i:int): Bson.document = [H.i32(name,i)|s]
-  timestamp(s:Bson.document, name:string, ts:Bson.timestamp): Bson.document = [H.timestamp(name,ts)|s]
-  int64(s:Bson.document, name:string, i:int): Bson.document = [H.i64(name,i)|s]
-
-  oppoly(v:'a, s:Bson.document, op:string): Bson.document =
-    rec aux(ty:OpaType.ty) =
-      match ty with
-      | {TyName_args=[]; TyName_ident="void"} -> null(s,op)
-      | {TyConst={TyInt={}}} -> int64(s,op,@unsafe_cast(v))
-      | {TyConst={TyString={}}} -> string(s,op,@unsafe_cast(v))
-      | {TyConst={TyFloat={}}} -> double(s,op,@unsafe_cast(v))
-      | {TyName_args=[]; TyName_ident="bool"} -> bool(s,op,@unsafe_cast(v))
-      | {TyName_args=[_]; TyName_ident="list"} -> array(s,op,@unsafe_cast(v))
-      | {TyName_args=[]; TyName_ident="Date.date"} -> date(s,op,@unsafe_cast(v))
-      | {TyName_args=[]; TyName_ident="Bson.timestamp"} -> timestamp(s,op,@unsafe_cast(v))
-      | {TyName_args = tys; TyName_ident = tyid} -> aux(OpaType.type_of_name(tyid,tys))
-      | _ -> doc(s,op,Bson.opa2doc(v))
-    aux(@typeval('a))
-
-  gti32(i:int, s:Bson.document): Bson.document = int32(s, "$gt", i)
-  lti32(i:int, s:Bson.document): Bson.document = int32(s, "$lt", i)
-  gtei32(i:int, s:Bson.document): Bson.document = int32(s, "$gte", i)
-  ltei32(i:int, s:Bson.document): Bson.document = int32(s, "$lte", i)
-  nei32(i:int, s:Bson.document): Bson.document = int32(s, "$ne", i)
-
-  gti64(i:int, s:Bson.document): Bson.document = int64(s, "$gt", i)
-  lti64(i:int, s:Bson.document): Bson.document = int64(s, "$lt", i)
-  gtei64(i:int, s:Bson.document): Bson.document = int64(s, "$gte", i)
-  ltei64(i:int, s:Bson.document): Bson.document = int64(s, "$lte", i)
-  nei64(i:int, s:Bson.document): Bson.document = int64(s, "$ne", i)
-
-  gtd(d:float, s:Bson.document): Bson.document = double(s, "$gt", d)
-  ltd(d:float, s:Bson.document): Bson.document = double(s, "$lt", d)
-  gted(d:float, s:Bson.document): Bson.document = double(s, "$gte", d)
-  lted(d:float, s:Bson.document): Bson.document = double(s, "$lte", d)
-  ned(d:float, s:Bson.document): Bson.document = double(s, "$ne", d)
-
-  gts(str:string, s:Bson.document): Bson.document = string(s, "$gt", str)
-  lts(str:string, s:Bson.document): Bson.document = string(s, "$lt", str)
-  gtes(str:string, s:Bson.document): Bson.document = string(s, "$gte", str)
-  ltes(str:string, s:Bson.document): Bson.document = string(s, "$lte", str)
-  nes(str:string, s:Bson.document): Bson.document = string(s, "$ne", str)
-
-  gtdate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$gt", dt)
-  ltdate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$lt", dt)
-  gtedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$gte", dt)
-  ltedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$lte", dt)
-  nedate(dt:Date.date, s:Bson.document): Bson.document = date(s, "$ne", dt)
-
-  gtts(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$gt", ts)
-  ltts(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$lt", ts)
-  gtets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$gte", ts)
-  ltets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$lte", ts)
-  nets(ts:Bson.timestamp, s:Bson.document): Bson.document = timestamp(s, "$ne", ts)
-
-  set_op(s:Bson.document, op:string): Bson.document =
-    ((match s with
-      | [] -> []
-      | [e] -> [H.doc(Bson.key(e),[Bson.set_key(e,op)])]
-      | l -> List.map((e -> H.doc(Bson.key(e),[Bson.set_key(e,op)])),l)):Bson.document)
-
-  gt(s:Bson.document): Bson.document = set_op(s, "$gt")
-  lt(s:Bson.document): Bson.document = set_op(s, "$lt")
-  gte(s:Bson.document): Bson.document = set_op(s, "$gte")
-  lte(s:Bson.document): Bson.document = set_op(s, "$lte")
-  ne(s:Bson.document): Bson.document = set_op(s, "$ne")
-
-  @private
-  boolop_private(op:string, s1:Bson.document, s2:Bson.document): Bson.document =
-    [H.arr(op,([H.doc("0",s1),H.doc("1",s2)]:Bson.document))]
-
-  @private
-  lboolop_private(op:string, ss:list(Bson.document)): Bson.document =
-    match ss with
-    | [] -> empty()
-    | [s|t] ->
-       doc = List.fold_index((i, ss, doc -> [H.doc("{i}",ss)|doc]),[s|t],[])
-       [H.arr(op,(doc:Bson.document))]
-
-  and(s1:Bson.document, s2:Bson.document): Bson.document = boolop_private("$and",s1,s2)
-  andalso(ss:list(Bson.document)): Bson.document = lboolop_private("$and",ss)
-  or(s1:Bson.document, s2:Bson.document): Bson.document = boolop_private("$or",s1,s2)
-  orelse(ss:list(Bson.document)): Bson.document = lboolop_private("$or",ss)
-  nor(s1:Bson.document, s2:Bson.document): Bson.document = boolop_private("$nor",s1,s2)
-  noreither(ss:list(Bson.document)): Bson.document = lboolop_private("$nor",ss)
-
-  all(s:Bson.document, a:list('b)): Bson.document = array(s, "$all", a)
-  in(s:Bson.document, a:list('b)): Bson.document = array(s, "$in", a)
-  nin(s:Bson.document, a:list('b)): Bson.document = array(s, "$nin", a)
-
-  @private docbool(s:Bson.document, name:string, op:string, tf:bool): Bson.document = doc(s,name,[H.bool(op,tf)])
-
-  exists(s:Bson.document, name:string, tf:bool): Bson.document = docbool(s, name, "$exists", tf)
-
-  mod(s:Bson.document, x:'b, y:'b): Bson.document = array(s, "$mod", [x,y])
-
-  size(s:Bson.document, x:int): Bson.document = int64(s, "$size", x)
-  typ(s:Bson.document, t:int): Bson.document = int64(s, "$type", t)
-
-  regex(s:Bson.document, re:string, opts:string): Bson.document = [H.regexp("$regex",(re,opts))|s]
-
-  inc(s:Bson.document): Bson.document = key("$inc",s)
-  set(s:Bson.document): Bson.document = key("$set",s)
-  unset(s:Bson.document): Bson.document = key("$unset",s)
-  push(s:Bson.document): Bson.document = key("$push",s)
-  pushAll(s:Bson.document): Bson.document = key("$pushAll",s)
-  addToSet(s:Bson.document): Bson.document = key("$addToSet",s)
-  pop(s:Bson.document): Bson.document = key("$pop",s)
-  pull(s:Bson.document): Bson.document = key("$pull",s)
-  pullAll(s:Bson.document): Bson.document = key("$pullAll",s)
-  rename(s:Bson.document): Bson.document = key("$rename",s)
-  bit(s:Bson.document): Bson.document = key("$bit",s)
-
-  elemMatch(s:Bson.document): Bson.document = key("$elemMatch",s)
-
-  not(s:Bson.document): Bson.document = key("$not",s)
-
-  where(s:Bson.document, whr:string): Bson.document = [H.code("$where",whr)|s]
-
-  returnKey(s:Bson.document, tf:bool): Bson.document = bool(s, "$returnKey", tf)
-  maxScan(s:Bson.document, i:int): Bson.document = int64(s, "$maxScan", i)
-  query(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$query", d)
-  orderby(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$orderby", d)
-  explain(s:Bson.document, tf:bool): Bson.document = bool(s, "$explain", tf)
-  snapshot(s:Bson.document, tf:bool): Bson.document = bool(s, "$snapshot", tf)
-  min(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$min", d)
-  max(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$max", d)
-  showDiskLoc(s:Bson.document, tf:bool): Bson.document = bool(s, "$showDiskLoc", tf)
-  hint(s:Bson.document, d:Bson.document): Bson.document = doc(s, "$hint", d)
-  comment(s:Bson.document, c:string): Bson.document = string(s, "$comment", c)
-  natural(s:Bson.document, i:int): Bson.document = int32(s, "$natural", i)
-
-  @private T = TypeSelect
-
-  @private union(ss) = List.fold(StringSet.union,ss,StringSet.empty)
-  // I'm not guaranteeing that all of these have been classified correctly!!!
-  @private update_names =
-    StringSet.From.list(["$inc", "$set", "$unset", "$push", "$pushAll", "$addToSet",
-                         "$pop", "$pull", "$pullAll", "$rename", "$bit"])
-  @private no_array_select_names =
-    StringSet.From.list(["$gt", "$lt", "$gte", "$lte", "$ne",
-                         "$regex", "$mod",
-                         "$not", "$elemMatch",
-                         "$where",
-                         "$query", "$orderby"])
-  @private transparent_select_names =
-    StringSet.From.list(["$exists", "$type", "$size", ])
-  @private array_select_names =
-    StringSet.From.list(["$and", "$or", "$nor", "$all", "$in", "$nin"])
-  @private select_names = union([no_array_select_names,transparent_select_names,array_select_names])
-  @private select_or_update_names =
-    StringSet.From.list(["$returnKey", "$maxScan", "$explain", "$snapshot",
-                         "$min", "$max", "$showDiskLoc", "$hint", "$comment"])
-  //@private all_names = union([update_names,select_names,select_or_update_names])
-  //@private string_of_set(set) = "[{String.concat(", ",StringSet.fold((s, strs -> [s|strs]),set,[]))}]"
-
-  @private string_of_su_status(sut:su_status): string =
-    match sut with
-    | {su_select} -> "select"
-    | {su_update} -> "update"
-    | {su_either} -> "either"
-    | {su_key} -> "key"
-
-  // Note there will be shenanigans here, you can get both reduce and $reduce!!!
-  @private status(name:string): su_status =
-    if StringSet.mem(name,select_names)
-    then {su_select}
-    else if StringSet.mem(name,update_names)
-    then {su_update}
-    else if StringSet.mem(name,select_or_update_names)
-    then {su_either}
-    else {su_key}
-
-  // Ordering update >> select >> anything else
-  @private merge(sus1:su_status, sus2:su_status): su_status =
-    match (sus1, sus2) with
-    | ({su_update},_) -> {su_update}
-    | (_,{su_update}) -> {su_update}
-    | ({su_select},_) -> {su_select}
-    | (_,{su_select}) -> {su_select}
-    | (_,_) -> {su_either}
-
-  // We should have removed keys before calling this
-  @private sutok(sus1:su_status, sus2:su_status): bool =
-    match (sus1, sus2) with
-    | ({su_either},_) -> true
-    | (_,{su_either}) -> true
-    | ({su_select},{su_select}) -> true
-    | ({su_update},{su_update}) -> true
-    | _ -> false // we don't get su_key here
-
-  @private
-  type_of_bson_value(value:Bson.value): (su_status, OpaType.ty) =
-    match value with
-    | {Double=_} -> ({su_either},T.tfloat)
-    | {String=_} -> ({su_either},T.tstring)
-    | {Document=d} -> type_of_bson_document(d)
-    | {Array=[]} -> ({su_either},T.tempty) // or maybe list('a) or list({})???
-    | {Array=[{name=_; ~value}|_]} -> // comes from an OPA list or intmap so all same type
-       (sut,ty) = type_of_bson_value(value)
-       (sut,T.tlist(ty))
-    | {Binary=_} -> ({su_either},T.tbinary)
-    | {ObjectID=_} -> ({su_either},T.toid)
-    | {Boolean=_} -> ({su_either},T.tbool)
-    | {Date=_} -> ({su_either},T.tdate)
-    | {Null=_} -> ({su_either},T.tvoid)
-    | {Regexp=_} -> ({su_either},T.tregexp)
-    | {Code=_} -> ({su_either},T.tcode)
-    | {Symbol=_} -> ({su_either},T.tsymbol)
-    | {CodeScope=_} -> ({su_either},T.tcodescope)
-    | {Int32=_} -> ({su_either},T.tint)
-    | {Timestamp=_} -> ({su_either},T.ttimestamp)
-    | {Int64=_} -> ({su_either},T.tint)
-    | {Min=_} -> ({su_select},T.tvoid)
-    | {Max=_} -> ({su_select},T.tvoid)
-
-  @private sutymrg((sut,ty), (asut,aty)) = (merge(sut,asut),T.tmrgrecs(ty,aty))
-
-  @private
-  type_of_bson_element(element:Bson.element): (su_status, OpaType.ty) =
-    stat = status(element.name)
-    if StringSet.mem(element.name,transparent_select_names)
-    then (stat,T.tempty)
-    else if StringSet.mem(element.name,array_select_names)
-    then
-      match element.value with
-      | {Array=adoc} -> List.fold(sutymrg,List.map(type_of_bson_value,List.map((e -> e.value),adoc)),(stat,T.tempty))
-      | _ -> ML.fatal("SU.type_of_bson_element",
-                      "key {element.name} requires an array value, actually {Bson.to_pretty([element])}",-1)
-    else
-      match element.name with
-      | "$mod" -> (stat,T.tnumeric)
-      | _ ->
-         (sut,ty) = type_of_bson_value(element.value)
-         sut1 = merge(sut,stat)
-         if stat == {su_key}
-         then (sut1,{TyRecord_row=[{label=element.name; ~ty}]})
-         else (sut1,ty)
-
-  @private
-  type_of_bson_document(doc:Bson.document): (su_status, OpaType.ty) =
-    List.fold(sutymrg,List.map(type_of_bson_element,doc),({su_either},T.tempty))
-
-  @private empty_ty(ty) = ty == T.tempty || T.istvar(ty)
-
-  @private /*improper*/subtype(sty:OpaType.ty, ty:OpaType.ty): bool =
-    //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
-    missing_label(row, label) =
-      labels = List.list_to_string((s -> s),List.map((f -> f.label),row))
-      ML.warning("SU.subtype","Missing label {label} in row {labels}",false)
-    incomparable() =
-      ML.warning("SU.subtype","Incomparable types {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
-    sty = TypeSelect.explode_dot(sty)
-    //dbg do println("explode={OpaType.to_pretty(sty)}")
-    esty = empty_ty(sty)
-    if sty == ty || esty
-    then true
-    else if empty_ty(ty)
-    then esty
-    else
-      match (sty,ty) with
-      | ({TyRecord_row=strow; ...},{TySum_col=tcol; ...}) ->
-         // We never get a sum type from type_of_bson_document
-         (match T.find_row_in_col(strow,tcol) with
-          | {some=trow} -> subtype(sty,{TyRecord_row=trow})
-          | {none} -> incomparable())
-      | ({TyRecord_row=strow; ...},{TyRecord_row=trow; ...}) ->
-         List.fold((stf, isty ->
-                     isty &&
-                     (match List.find((tf -> tf.label == stf.label),trow) with
-                      | {some=tf} -> subtype(stf.ty,tf.ty)
-                      | {none} -> missing_label(trow, stf.label))),strow,true)
-      | ({TyName_args=_; TyName_ident="Bson.numeric"},{TyConst={TyInt={}}})
-      | ({TyName_args=_; TyName_ident="Bson.numeric"},{TyConst={TyFloat={}}}) ->
-         true // Some arithmetic ops, $mod
-      | ({TyName_args=[]; TyName_ident="Bson.regexp"},_)
-      | ({TyName_args=[]; TyName_ident="Bson.code"},_)
-      | ({TyName_args=[]; TyName_ident="Bson.codescope"},_) ->
-         true // For now, until we get types from RE's and Javascript
-      | ({TyName_args=tys; TyName_ident=tyid},_) -> subtype(OpaType.type_of_name(tyid, tys),ty)
-      | (_,{TyName_args=tys; TyName_ident=tyid}) -> subtype(sty,OpaType.type_of_name(tyid, tys))
-      | _ -> incomparable()
-
-  /**
-   * Validate the given document agains the type of the document
-   * and the select/update status.
-   *
-   * Currently, we log a warning.
-   **/
-  check_strict_select_value_against_type(doc:Bson.document, ty:OpaType.ty, sut:su_status): void =
-    //dbg do println("check_strict_select_value_against_type:\n  doc={Bson.to_pretty(doc)}\n  ty={OpaType.to_pretty(ty)}")
-    //dbg do println("  status={sut}")
-    (dsut, dty) = type_of_bson_document(doc)
-    //dbg do println("  dsut={dsut}  dty={OpaType.to_pretty(dty)}")
-    if sutok(dsut,sut)
-    then
-      is_subtype = subtype(dty,ty)
-      //dbg do println("is_subtype={is_subtype}")
-      if is_subtype
-      then void
-      else
-        sutstr = string_of_su_status(sut)
-        dtystr = OpaType.to_pretty(dty)
-        tystr = OpaType.to_pretty(ty)
-        ML.warning("SU.check","Inappropriate {sutstr} type {dtystr} for collection({tystr})",void)
-    else ML.warning("SU.check","Applying {string_of_su_status(dsut)} to {string_of_su_status(sut)}",void)
-
-}}
-
-@abstract type select('a) = Bson.document
-
-Select = {{
-
-  to_pretty(select:select('a)): string = "{Bson.to_pretty(select)}"
-
-  unsafe_create(s : Bson.document): select('a) = s
-
-  unsafe_make(x:'b): select('a) = unsafe_create(Bson.opa2doc(x))
-
-  create(s : Bson.document): select('a) =
-    do SU.check_strict_select_value_against_type(s, @typeval('a), {su_select}) 
-    s
-
-  make(x:'b): select('a) = create(Bson.opa2doc(x))
-
-  empty() : select('a) = SU.empty()
-
-}}
-
-@abstract type update('a) = Bson.document
-
-Update = {{
-
-  to_pretty(update:update('a)): string = "{Bson.to_pretty(update)}"
-
-  unsafe_create(u : Bson.document): update('a) = u
-
-  unsafe_make(x:'b): update('a) = unsafe_create(Bson.opa2doc(x))
-
-  create(u : Bson.document): update('a) =
-    do SU.check_strict_select_value_against_type(u, @typeval('a), {su_update}) 
-    u
-
-  make(x:'b): update('a) = create(Bson.opa2doc(x))
-
-  empty() : update('a) = SU.empty()
-
-}}
-
-/*
  * Collection {{ ... }}:
  *   
  * Implements the collection type presented to the user and also the target
@@ -1076,7 +188,7 @@ Fields = {{
 }}
 
 type collection('a) = {
-  db: mongodb;
+  db: Mongo.mongodb;
   ty: OpaType.ty; // type of the collection
 }
 
@@ -1096,7 +208,7 @@ type foreign('a,'b,'c,'d,'e) = {
 type collection_cursor('a) = {
   collection: collection('a);
   cursor: Mongo.cursor;
-  query: select('a);
+  query: Mongo.select('a);
   ty: OpaType.ty;
   ignore_incomplete: bool;
 }
@@ -1104,53 +216,13 @@ type collection_cursor('a) = {
 type group('a) = { retval:list('a); count:int; keys:int; ok:int }
 type group_result('a) = outcome(group('a),Mongo.failure)
 
-type Collection = {{
-  // TODO: Documentation
-  create : mongodb -> collection('value)
-  limit : collection('value), int -> collection('value)
-  skip : collection('value), int -> collection('value)
-  fields : collection('value), option(Bson.document) -> collection('value)
-  orderby : collection('value), option(Bson.document) -> collection('value)
-  continueOnError : collection('value) -> collection('value)
-  upsert : collection('value) -> collection('value)
-  multiUpdate : collection('value) -> collection('value)
-  singleRemove : collection('value) -> collection('value)
-  tailableCursor : collection('value) -> collection('value)
-  slaveOk : collection('value) -> collection('value)
-  oplogReplay : collection('value) -> collection('value)
-  noCursorTimeout : collection('value) -> collection('value)
-  awaitData : collection('value) -> collection('value)
-  exhaust : collection('value) -> collection('value)
-  partial : collection('value) -> collection('value)
-  destroy : collection('value) -> void
-  insert : collection('value), 'value -> bool
-  insert_batch : collection('value), batch -> bool
-  update : collection('value), select('value), update('value) -> bool
-  delete : collection('value), select('value) -> bool
-  find_one_doc : collection('value), select('value) -> Mongo.result
-  find_one : collection('value), select('value) -> outcome('value,Mongo.failure)
-  find_one_unsafe : collection('value), select('value), bool -> outcome('result,Mongo.failure)
-  query : collection('value), select('value) -> outcome(collection_cursor('value),Mongo.failure)
-  query_unsafe : collection('value), select('value), bool -> outcome(collection_cursor('result),Mongo.failure)
-  first : collection_cursor('value) -> outcome(collection_cursor('value),Mongo.failure)
-  next : collection_cursor('value) -> (collection_cursor('value),outcome('value,Mongo.failure))
-  find_all : collection('value), select('value) -> outcome(list('value),Mongo.failure)
-  find_all_unsafe : collection('value), select('value), bool -> outcome(list('result),Mongo.failure)
-  has_more : collection_cursor('value) -> bool
-  count : collection('value), option(select('value)) -> outcome(int,Mongo.failure)
-  distinct : collection('value), string, option(select('value)) -> outcome(list('b),Mongo.failure)
-  group : collection('value), Bson.document, string, Bson.document, option(Bson.document), option(string) -> Mongo.result
-  analyze_group : Mongo.result -> group_result('a)
-  kill : collection_cursor('value) -> collection_cursor('value)
-}}
-
-Collection : Collection = {{
+Collection = {{
 
   @private H = Bson.Abbrevs
 
-  create(db:mongodb): collection('value) = { db=MDB.clone(db); ty=@typeval('value); }
+  create(db:Mongo.mongodb): collection('value) = { db=MongoConnection.clone(db); ty=@typeval('value); }
 
-  destroy(c:collection('value)): void = MDB.close(c.db)
+  destroy(c:collection('value)): void = MongoConnection.close(c.db)
 
   skip(c:collection('value), skip:int): collection('value) = {c with db={ c.db with ~skip }}
   limit(c:collection('value), limit:int): collection('value) = {c with db={ c.db with ~limit }}
@@ -1189,19 +261,19 @@ Collection : Collection = {{
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
-  update(c:collection('value), select:select('value), update:update('value)): bool =
+  update(c:collection('value), select:Mongo.select('value), update:Mongo.update('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
-  delete(c:collection('value), select:select('value)): bool =
+  delete(c:collection('value), select:Mongo.select('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.delete(c.db.mongo,c.db.delete_flags,ns,select)
 
-  find_one_doc(c:collection('value), select:select('value)): Mongo.result =
+  find_one_doc(c:collection('value), select:Mongo.select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     MongoCursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby)
 
-  find_one_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome('result,Mongo.failure) =
+  find_one_unsafe(c:collection('value), select:Mongo.select('value), ignore_incomplete:bool): outcome('result,Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     (match MongoCursor.find_one(c.db.mongo,ns,select,c.db.fields,c.db.orderby) with
      | {success=doc} ->
@@ -1211,10 +283,10 @@ Collection : Collection = {{
          | {incomplete} -> {failure={Incomplete}})
      | {~failure} -> {~failure})
 
-  find_one(c:collection('value), select:select('value)): outcome('value,Mongo.failure) =
+  find_one(c:collection('value), select:Mongo.select('value)): outcome('value,Mongo.failure) =
     find_one_unsafe(c, select, false)
 
-  query_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool)
+  query_unsafe(c:collection('value), select:Mongo.select('value), ignore_incomplete:bool)
              : outcome(collection_cursor('result),Mongo.failure) =
     ns = c.db.dbname^"."^c.db.collection
     //do println("query_unsafe:\n'value={OpaType.to_pretty(@typeval('value))}\n'result={OpaType.to_pretty(@typeval('result))}")
@@ -1223,7 +295,7 @@ Collection : Collection = {{
        {success={collection=@unsafe_cast(c); ~cursor; query=@unsafe_cast(select); ty=@typeval('result); ~ignore_incomplete}}
     | {~failure} -> {~failure}
 
-  query(c:collection('value), select:select('value)): outcome(collection_cursor('value),Mongo.failure) =
+  query(c:collection('value), select:Mongo.select('value)): outcome(collection_cursor('value),Mongo.failure) =
     query_unsafe(c, select, false)
 
   first(cc:collection_cursor('value)): outcome(collection_cursor('value),Mongo.failure) =
@@ -1245,7 +317,7 @@ Collection : Collection = {{
 
   has_more(cc:collection_cursor('value)): bool = MongoCursor.valid(cc.cursor)
 
-  find_all_unsafe(c:collection('value), select:select('value), ignore_incomplete:bool): outcome(list('result),Mongo.failure) =
+  find_all_unsafe(c:collection('value), select:Mongo.select('value), ignore_incomplete:bool): outcome(list('result),Mongo.failure) =
     //do println("find_all:\n  'value={OpaType.to_pretty(@typeval('value))}\n  'result={OpaType.to_pretty(@typeval('result))}")
     match (query_unsafe(c,select,ignore_incomplete): outcome(collection_cursor('result),Mongo.failure)) with
     | {success=cc} ->
@@ -1267,13 +339,13 @@ Collection : Collection = {{
        l
     | {~failure} -> {~failure}
 
-  find_all(c:collection('value), select:select('value)): outcome(list('value),Mongo.failure) =
+  find_all(c:collection('value), select:Mongo.select('value)): outcome(list('value),Mongo.failure) =
     find_all_unsafe(c, select, false)
 
-  count(c:collection('value), query_opt:option(select('value))): outcome(int,Mongo.failure) =
+  count(c:collection('value), query_opt:option(Mongo.select('value))): outcome(int,Mongo.failure) =
     MongoCommands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),query_opt)))
 
-  distinct(c:collection('value), key:string, query_opt:option(select('value))): outcome(list('b),Mongo.failure) =
+  distinct(c:collection('value), key:string, query_opt:option(Mongo.select('value))): outcome(list('b),Mongo.failure) =
     match MongoCommands.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),query_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
@@ -1359,14 +431,14 @@ View = {{
         | [{some=num}] -> (match num with 0 -> not | _ -> (tf -> tf))
         | _ -> ML.fatal("View.type_from_fields","Bad fields value {fields}",-1)
       dfields = List.map((e -> String.explode(".",e.name)),fields)
-      TypeSelect.filter_field(pty, (fs -> tst(List.mem(fs,dfields))))
+      MongoTypeSelect.filter_field(pty, (fs -> tst(List.mem(fs,dfields))))
 
   @private
   verify_type_match(ty1:OpaType.ty, ty2:OpaType.ty, from:string, msg:string): void =
-    //do println("ty1={OpaType.to_pretty(TypeSelect.name_type(ty1))}")
-    //do println("ty2={OpaType.to_pretty(TypeSelect.name_type(ty2))}")
+    //do println("ty1={OpaType.to_pretty(MongoTypeSelect.name_type(ty1))}")
+    //do println("ty2={OpaType.to_pretty(MongoTypeSelect.name_type(ty2))}")
     // We can't use the fancy caching in compare_ty since our altered types mess with the caching
-    if not(TypeSelect.naive_type_compare(ty1, ty2))
+    if not(MongoTypeSelect.naive_type_compare(ty1, ty2))
     then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
     else void
 
@@ -1375,7 +447,7 @@ View = {{
     pty = @typeval('collection)
     do verify_type_match(pty, coll.ty, "Collection.view","Attempt to create view from non-matching parent type")
     fvty = type_from_fields(pty, vfields)
-    vty = if is_opa then fvty else TypeSelect.map_field(fvty, make_reg)
+    vty = if is_opa then fvty else MongoTypeSelect.map_field(fvty, make_reg)
     cvty = @typeval('view)
     //do println("pty={OpaType.to_pretty(pty)}")
     //do println("fvty={OpaType.to_pretty(fvty)}")
@@ -1392,15 +464,15 @@ View = {{
     do verify_type_match(@typeval('view), v.vty, from, "View type does not match result type")
     void
 
-  find_one(v:view('value,'view), select:select('value)): outcome('view,Mongo.failure) =
+  find_one(v:view('value,'view), select:Mongo.select('value)): outcome('view,Mongo.failure) =
     do runtime_view_type_check(v, "View.find_one")
     Collection.find_one_unsafe(v.coll, select, v.is_opa)
 
-  query(v:view('value,'view), select:select('value)): outcome(collection_cursor('view),Mongo.failure) =
+  query(v:view('value,'view), select:Mongo.select('value)): outcome(collection_cursor('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.query")
     Collection.query_unsafe(v.coll, select, v.is_opa)
 
-  find_all(v:view('value,'view), select:select('value)): outcome(list('view),Mongo.failure) =
+  find_all(v:view('value,'view), select:Mongo.select('value)): outcome(list('view),Mongo.failure) =
     do runtime_view_type_check(v, "View.find_all")
     Collection.find_all_unsafe(v.coll, select, v.is_opa)
 
@@ -1413,18 +485,18 @@ Foreign = {{
   create(primary:view('ps,'pr), foreign:view('fs,'fr), pkey:string, fkey:string)
        : foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =
     pty = @typeval('ps)
-    pkt = TypeSelect.find_label_in_row(pty,pkey)
+    pkt = MongoTypeSelect.find_label_in_row(pty,pkey)
     do if not(Option.is_some(pkt))
        then ML.fatal("Foreign.create","Can't find primary key {pkey} in type {OpaType.to_pretty(pty)}",-1)
     fty = @typeval('fs)
-    fkt = TypeSelect.find_label_in_row(fty,fkey)
+    fkt = MongoTypeSelect.find_label_in_row(fty,fkey)
     do if not(Option.is_some(fkt))
        then ML.fatal("Foreign.create","Can't find foreign key {fkey} in type {OpaType.to_pretty(fty)}",-1)
-    do if not(TypeSelect.naive_type_compare((Option.get(pkt)).ty,(Option.get(fkt)).ty))
+    do if not(MongoTypeSelect.naive_type_compare((Option.get(pkt)).ty,(Option.get(fkt)).ty))
        then ML.fatal("Foreign.create","Mismatching primary {OpaType.to_pretty(pty)} and foreign {OpaType.to_pretty(fty)}",-1)
     { ~primary; ~foreign; ~pkey; ~fkey }
 
-  find_one(f:foreign('ps,'pr,'fs,'fr,'view), select:select('ps)): outcome('view,Mongo.failure) =
+  find_one(f:foreign('ps,'pr,'fs,'fr,'view), select:Mongo.select('ps)): outcome('view,Mongo.failure) =
     match Collection.find_one_doc(f.primary.coll, select) with
     | {success=pdoc} ->
        (match Bson.bson_to_opa(pdoc, @typeval('pr)) with
@@ -1433,7 +505,7 @@ Foreign = {{
            (match Bson.dot_element(pdoc,f.pkey) with
             | {some=e} ->
                //do println("Foreign.find_one: e={Bson.to_pretty([e])}")
-               (match Collection.find_one_doc(f.foreign.coll, ([{e with name=f.fkey}]:select('fr))) with
+               (match Collection.find_one_doc(f.foreign.coll, ([{e with name=f.fkey}]:Mongo.select('fr))) with
                 | {success=fdoc} ->
                    //do println("Foreign.find_one: fdoc={Bson.to_pretty(fdoc)}")
                    (match Bson.bson_to_opa(fdoc, @typeval('fr)) with
@@ -1461,7 +533,7 @@ UtilsDb = {{
      if not(f(a))
      then (do println("{msg}: Fatal error message not sent to server") false)
      else
-       (match MDB.getLastError(c.db) with
+       (match MongoConnection.getLastError(c.db) with
         | {~success} ->
            (match Bson.find_string(success, "err") with
             | {some=""} | {none} -> true
@@ -1485,11 +557,11 @@ UtilsDb = {{
        | {success=v} -> v
        | _ -> []
 
-    find(c,r) = find_result_to_opt(Collection.find_one(c,Select.unsafe_make(r)))
-    find_all(c,r) = find_all_result_to_list(Collection.find_all(c,Select.unsafe_make(r)))
+    find(c,r) = find_result_to_opt(Collection.find_one(c,MongoSelect.unsafe_make(r)))
+    find_all(c,r) = find_all_result_to_list(Collection.find_all(c,MongoSelect.unsafe_make(r)))
 
     // Delete by id by default
-    delete(c,id) = Collection.delete(c,Select.unsafe_make({_id = id}))
+    delete(c,id) = Collection.delete(c,MongoSelect.unsafe_make({_id = id}))
 
 }}
 
