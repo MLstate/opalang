@@ -180,11 +180,14 @@ type Api.value_visibility =
  / { private }
  / { package_ }
 
+type Api.args = list(string)
+
 /**
  * The infos attached to a documented value.
  * Currently only the type and the visibility of the value are exported
 **/
 type Api.value = {
+  args : Api.args
   ty : Api.ty
   visibility : Api.value_visibility
 }
