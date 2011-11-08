@@ -72,6 +72,7 @@ type Mongo.cursor = {
 @server_private
 MongoCursor = {{
 
+  @private ML = MongoLog
   @private H = Bson.Abbrevs
 
   @private error_document(err:string, code:int): Bson.document = [H.str("$err",err), H.i32("code",code)]
