@@ -51,7 +51,7 @@
  *   MongoDB server commands.
  *
  *   If we just want a single value out of the result,
- *   then it is probably more efficient to use the [Bson.dot_result] functions.
+ *   then it is probably more efficient to use the [MongoDriver.dotresult_type] functions.
  *   If we want to manipulate the whole thing in OPA, however, we can just
  *   [Bosn.doc2opa] the result and cast to these types.
  *
@@ -477,7 +477,7 @@ MongoCommands = {{
   removeShard(m:Mongo.db, shard:string): Mongo.result =
     simple_str_command(m, "admin", "removeShard", shard)
 
-  /** Map a list of outcomes onto an outcome of a list. **/
+  /* Map a list of outcomes onto an outcome of a list. */
   @private
   Outcome_map(f:'a->outcome('b,'c), l:list('a)): outcome(list('b),'c) =
     rec aux(l) =

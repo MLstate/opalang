@@ -42,10 +42,10 @@
  **/
 
 type Mongo.su_status =
-    {su_select} // specific to select, $gt
-  / {su_update} // specific to update, $inc
-  / {su_either} // applies to either select or update, $comment
-  / {su_key}    // neither, a valid key, "a"
+    {su_select} /** specific to select, $gt **/
+  / {su_update} /** specific to update, $inc **/
+  / {su_either} /** applies to either select or update, $comment **/
+  / {su_key}    /** neither, a valid key, "a" **/
 
 MongoSelectUpdate = {{
 
@@ -385,18 +385,24 @@ MongoSelectUpdate = {{
 
 MongoSelect = {{
 
+  /** Pretty-print a select document **/
   to_pretty(select:Mongo.select('a)): string = "{Bson.to_pretty(select)}"
 
+  /** Create a select wityout any type-checks **/
   unsafe_create(s : Bson.document): Mongo.select('a) = s
 
+  /** Make a select from an arbitrary OPA type **/
   unsafe_make(x:'b): Mongo.select('a) = unsafe_create(Bson.opa2doc(x))
 
+  /** Create a select but enforcing run-time type checks **/
   create(s : Bson.document): Mongo.select('a) =
     do MongoSelectUpdate.check_strict_select_value_against_type(s, @typeval('a), {su_select}) 
     s
 
+  /** Make a select from an OPA type with type checking **/
   make(x:'b): Mongo.select('a) = create(Bson.opa2doc(x))
 
+  /** An empty select document **/
   empty() : Mongo.select('a) = MongoSelectUpdate.empty()
 
 }}
@@ -405,18 +411,24 @@ MongoSelect = {{
 
 MongoUpdate = {{
 
+  /** Pretty-print a update document **/
   to_pretty(update:Mongo.update('a)): string = "{Bson.to_pretty(update)}"
 
+  /** Create a update wityout any type-checks **/
   unsafe_create(u : Bson.document): Mongo.update('a) = u
 
+  /** Make a update from an arbitrary OPA type **/
   unsafe_make(x:'b): Mongo.update('a) = unsafe_create(Bson.opa2doc(x))
 
+  /** Create a update but enforcing run-time type checks **/
   create(u : Bson.document): Mongo.update('a) =
     do MongoSelectUpdate.check_strict_select_value_against_type(u, @typeval('a), {su_update}) 
     u
 
+  /** Make a update from an OPA type with type checking **/
   make(x:'b): Mongo.update('a) = create(Bson.opa2doc(x))
 
+  /** An empty update document **/
   empty() : Mongo.update('a) = MongoSelectUpdate.empty()
 
 }}

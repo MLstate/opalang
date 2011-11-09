@@ -110,16 +110,16 @@ type Mongo.error = outcome(Bson.error, Mongo.failure)
 
 /* Flag tags */
 
-/* OP_INSERT */
+/** OP_INSERT **/
 type Mongo.insert_tag =
   {ContinueOnError}
 
-/* OP_UPDATE */
+/** OP_UPDATE **/
 type Mongo.update_tag =
   {Upsert} /
   {MultiUpdate}
 
-/* OP_QUERY */
+/** OP_QUERY **/
 type Mongo.query_tag =
   {TailableCursor} /
   {SlaveOk} /
@@ -129,11 +129,11 @@ type Mongo.query_tag =
   {Exhaust} /
   {Partial}
 
-/* OP_DELETE */
+/** OP_DELETE **/
 type Mongo.delete_tag =
   {SingleRemove}
 
-/* OP_REPLY */
+/** OP_REPLY **/
 type Mongo.reply_tag =
   {CursorNotFound} /
   {QueryFailure} /
@@ -151,7 +151,7 @@ type Mongo.mongo_tag =
   {dtag:Mongo.delete_tag} /
   {rtag:Mongo.reply_tag}
 
-/* Tags for indices */
+/** Tags for indices **/
 type Mongo.index_tag =
   {Unique} /
   {DropDups} /
@@ -164,6 +164,7 @@ MongoDriver = {{
   @private ML = MongoLog
   @private H = Bson.Abbrevs
 
+  /** The MongoDB default port number **/
   default_port = 27017
 
   /**
@@ -287,7 +288,7 @@ MongoDriver = {{
         | {none} -> {failure={Error="Mongo.resultToOpa: document conversion failure"}})
     | {~failure} -> {~failure}
 
-  /* Flags */
+  /** Flag bitmasks **/
 
   /* OP_INSERT */
   ContinueOnErrorBit  = 0x00000001
@@ -464,15 +465,15 @@ MongoDriver = {{
    */
   @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, int, Mongo.mailbox -> outcome(Mongo.reply,string))
 
-  /** Support for logging routines **/
+  /* Support for logging routines */
   @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
   @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : Mongo.reply -> string)
 
-  /**
+  /*
    * We have the possibility of unbounded recursion here since we
    * call ReplSet.connect, which calls us for ismaster.  Probably
    * won't ever be used but we limit the depth of the recursion.
-   **/
+   */
   @private
   reconnect(from:string, m:Mongo.db): bool =
     if m.depth.get() > m.max_depth

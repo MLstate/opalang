@@ -37,20 +37,22 @@
 
 MongoUtils = {{
 
+  @private ML = MongoLog
+
    /** A safe operation checking the error (still have to check if the
     *  last error is really the last error, using eg. findAndModify).
     **/
    @private
    safe_(c:Mongo.collection('value),f:'a->bool,a:'a,msg:string): bool =
      if not(f(a))
-     then (do println("{msg}: Fatal error message not sent to server") false)
+     then ML.error("{msg}","Fatal error message not sent to server",false)
      else
        (match MongoConnection.getLastError(c.db) with
         | {~success} ->
            (match Bson.find_string(success, "err") with
             | {some=""} | {none} -> true
-            | {some=err} -> do println("{msg}: {err}") false)
-        | {~failure} -> do println("{msg}: fatal error {MongoDriver.string_of_failure(failure)}") false)
+            | {some=err} -> ML.error("{msg}","{err}",false))
+        | {~failure} -> ML.error("{msg}","fatal error {MongoDriver.string_of_failure(failure)}",false))
 
    safe_insert(c,v) = safe_(c,((c,v) -> MongoCollection.insert(c,v)),(c,v),"Collection.insert")
    safe_insert_batch(c,b) = safe_(c,((c,b) -> MongoCollection.insert_batch(c,b)),(c,b),"Collection.insert_batch")

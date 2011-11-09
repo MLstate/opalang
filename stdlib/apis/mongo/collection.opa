@@ -68,7 +68,7 @@
  * connection object plus the (run-time) type of the collection.
  * The type is itself parametrised by the collection type but
  * this has to be cast by the user to the type of the collection.
- * {b Warning: If this type incorrectly cast then serious problems
+ * {b Warning: If this type is incorrectly cast then serious problems
  * will result.  SegFaults will be the least of your worries.}
  **/
 @abstract

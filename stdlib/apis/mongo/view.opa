@@ -67,8 +67,9 @@
  **/
 
 /**
- *
+ * This module is work in progress.
  **/
+
 @abstract
 type Mongo.view('a,'b) = {
   coll: Mongo.collection('a);
@@ -125,7 +126,8 @@ MongoView = {{
     do verify_type_match(vty, cvty, "View.create","Attempt to create view with incompatible view types")
     { ~coll; ~vty; ~is_opa; }
 
-  of_collection(c:Mongo.collection('collection), is_opa:bool): Mongo.view('collection,'collection) = { coll=c; vty=c.ty; ~is_opa; }
+  of_collection(c:Mongo.collection('collection), is_opa:bool): Mongo.view('collection,'collection) =
+    { coll=c; vty=c.ty; ~is_opa; }
 
   @private
   runtime_view_type_check(v:Mongo.view('value,'view), from:string): void =

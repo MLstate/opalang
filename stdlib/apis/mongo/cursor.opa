@@ -148,7 +148,6 @@ MongoCursor = {{
       query = (match c.orderby with
                | {some=orderby} -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",orderby)]
                | {none} -> Option.get(c.query))
-      //do println("op_query: query={Bson.to_pretty(query)}") <-- redundant, we've got logging now
       reply(c,MongoDriver.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,(if c.killed
                       then "MongoCursor.op_query: already killed"

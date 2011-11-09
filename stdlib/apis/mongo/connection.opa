@@ -109,7 +109,7 @@ MongoConnection = {{
    * Example: [open(name, bufsize, seeds)]
    *
    * This routine causes a serach for the current host list among the seeds
-   * and then seraches for the primary among the hosts.  Rconnection logic
+   * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
   repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(Mongo.mongodb,Mongo.failure) =
@@ -125,7 +125,7 @@ MongoConnection = {{
 
   /**
    * Change the namespace built into the connection.  The defaults are:
-   * db="db" and collection="collection".  Chemging the namespace bumps
+   * db="db" and collection="collection".  Changing the namespace bumps
    * the link count.
    **/
   namespace(db:Mongo.mongodb, dbname:string, collection:string): Mongo.mongodb =
