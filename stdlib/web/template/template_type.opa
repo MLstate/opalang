@@ -270,70 +270,42 @@ type Template.anchor_attribute = {
   ; standard_attribute : Template.standard_attribute
 }
 
+type Template.standard_tag =
+  {div} / {address} / {acronym} / {fieldset} / {legend} / {pre} / {sub} / {sup} /
+  {abbr} / {ins} / {del} / {dd} / {dt} / {dl} / {h1} / {h2} / {h3} / {h4} / {h5} /
+  {h6} / {open} / {span} / {menu} / {ul} / {ol} / {li} / {paragraph} / {caption} /
+  {table} / {thead} / {tbody} / {tr} / {tfoot} / {header} / {footer}
+
 /**
  * An AST which represents a typed tree of
  * a xml. It can be extended to support more tags.
  */
 type Template.public_content('a) =
   { anchor; content:Template.public_content('a); anchor_attribute:Template.anchor_attribute }
-/ { div; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { address; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
+/ { standard_tag:Template.standard_tag; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { blockquote; content:Template.public_content('a); quote_attribute:Template.quote_attribute }
 / { quote; content:Template.public_content('a); quote_attribute:Template.quote_attribute }
-/ { acronym; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { fieldset; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { legend; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { pre; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { sub; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { sup; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { abbr; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { ins; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { del; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { dd; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { dt; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { dl; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { img; img_attribute:Template.img_attribute }
-/ { h1; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { h2; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { h3; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { h4; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { h5; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { h6; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { hr; standard_attribute:Template.standard_attribute }
-/ { open; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { br; standard_attribute:Template.standard_attribute }
-/ { span; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
+/ { img; img_attribute:Template.img_attribute }
 / { label; content:Template.public_content('a); label_attribute:Template.label_attribute }
-/ { menu; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { ul; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { ol; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { li; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { form; content:Template.public_content('a); form_attribute:Template.form_attribute }
 / { input; input_attribute:Template.input_attribute }
 / { textarea; content:Template.public_content('a); textarea_attribute:Template.textarea_attribute }
 / { option; content:Template.public_content('a); option_attribute:Template.option_attribute }
 / { optgroup; content:Template.public_content('a); optgroup_attribute:Template.optgroup_attribute }
 / { select; content:Template.public_content('a); select_attribute:Template.select_attribute }
-/ { paragraph; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { fragment:list(Template.public_content('a)) }
 / { text : string }
 / { checked_text : string }
-/ { caption; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { table; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { thead; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { tbody; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { tr; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { th; content:Template.public_content('a); th_attribute:Template.td_attribute }
 / { td; content:Template.public_content('a); td_attribute:Template.td_attribute }
-/ { tfoot; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 / { extension: 'a }
 / { head; content:Template.public_content('a) }
 / { title:string }
 / { base; base_attribute:Template.base_attribute }
 / { link; link_attribute:Template.link_attribute }
 / { meta; meta_attribute:Template.meta_attribute }
-/ { header; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
-/ { footer; content:Template.public_content('a); standard_attribute:Template.standard_attribute }
 
 @abstract type Template.content('a) = Template.public_content('a)
 
