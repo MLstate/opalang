@@ -123,6 +123,9 @@ for repo in $REPOS ; do
     if [ "$MLSTATE_DIFFING" = 1 ] ; then
         echo "let ${repo}_git_version = 0"
         echo "let ${repo}_git_sha = \"diffing\""
+    elif ! is_git_root $repo; then
+        echo "let ${repo}_git_version = 0"
+        echo "let ${repo}_git_sha = \"\""
     else
         if [ "$repo" = "$ROOT_REPO" ] ; then
             echo "let ${repo}_git_version = $(in_repo $repo git_opalang_version_cmd)"
