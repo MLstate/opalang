@@ -37,7 +37,7 @@
  *
  **/
 
-import stdlib.core.{date}
+import stdlib.core.{date,rpc.core}
 import stdlib.io.socket
 import stdlib.crypto
 import stdlib.system
@@ -61,6 +61,8 @@ type Mongo.mongo_host = (string, int)
 @abstract
 type Mongo.db = {
   conn : Mutable.t(option(Socket.connection));
+  conncell : Cell.cell(Mongo.rw,Mongo.rwr);
+  conncell2 : Cell.cell(Mongo.sr,Mongo.srr);
   lock : Mutable.t(bool);
   mblock : Mutable.t(bool);
   primary : Mutable.t(option(Mongo.mongo_host));
@@ -76,6 +78,12 @@ type Mongo.db = {
   depth : Mutable.t(int);
   max_depth : int;
 }
+
+type Mongo.rw = {read:(Mongo.db,Mongo.mailbox)} / {write:(Mongo.db,string,int)}
+type Mongo.rwr = {readresult:outcome(Mongo.reply,string)} / {writeresult:outcome(int,string)}
+
+type Mongo.sr = {send:(Mongo.db,Mongo.mongo_buf,string)} / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} / {stop}
+type Mongo.srr = {sendresult:bool} / {sndrcvresult:option(Mongo.reply)} / {stopresult}
 
 /**
  * Mongo driver failure status.
@@ -502,6 +510,42 @@ MongoDriver = {{
          ret(false)
 
   @private
+  rw(_, msg) =
+    match msg with
+    | {write=(m,s,len)} ->
+       //do println("write")
+       (match m.conn.get() with
+        | {some=conn} ->
+           {return={writeresult=Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len)};
+            instruction={unchanged}}
+        | {none} ->
+           do ML.error("Mongo.send","Unopened connection",void)
+           {return={writeresult={failure="Write to unopened connection"}};
+            instruction={unchanged}})
+    | {read=(m,mailbox)} ->
+       //do println("read")
+       (match m.conn.get() with
+        | {some=conn} ->
+           {return={readresult=read_mongo_(conn,m.comms_timeout,mailbox)};
+            instruction={unchanged}}
+        | {none} ->
+           do ML.error("Mongo.receive","Unopened connection",void)
+           {return={readresult={failure="Read from unopened connection"}};
+            instruction={unchanged}})
+
+  @private
+  write(m,s,len) =
+    match (Cell.call(m.conncell,({write=((m,s,len))}:Mongo.rw)):Mongo.rwr) with
+    | {~writeresult} -> writeresult
+    | _ -> @fail
+
+  @private
+  read(m,mailbox) =
+    match Cell.call(m.conncell,({read=(m,mailbox)}:Mongo.rw)):Mongo.rwr with
+    | {~readresult} -> readresult
+    | _ -> @fail
+
+  @private
   send_no_reply_(m,mbuf,name,reply_expected): bool =
     match m.conn.get() with
     | {some=conn} ->
@@ -511,6 +555,7 @@ MongoDriver = {{
        s = String.substring(0,len,str)
        do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
        (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
+       //(match write(m,s,len) with
         | {success=cnt} ->
            do m.lock.set(false)
            do if not(reply_expected) then free_(mbuf) else void
@@ -544,6 +589,7 @@ MongoDriver = {{
          do if m.lock.get() then ML.warning("Mongo.receive({name})","Double read on connection",void)
          do m.mblock.set(true)
          (match read_mongo_(conn,m.comms_timeout,mailbox) with
+         //(match read(m,mailbox) with
           | {success=reply} ->
              do m.mblock.set(false)
              do reset_mailbox_(mailbox)
@@ -559,6 +605,52 @@ MongoDriver = {{
     | {none} ->
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
+  @private
+  sr(_, msg) =
+    match msg with
+    | {send=(m,mbuf,name)} ->
+       //do println("send")
+       (match m.conn.get() with
+        | {some=_conn} ->
+           {return={sendresult=send_no_reply(m,mbuf,name)};
+            instruction={unchanged}}
+        | {none} ->
+           do ML.error("Mongo.send","Unopened connection",void)
+           {return={sendresult=false};
+            instruction={unchanged}})
+    | {sendrecv=(m,mbuf,name)} ->
+       //do println("sendrecv")
+       (match m.conn.get() with
+        | {some=_conn} ->
+           {return={sndrcvresult=send_with_reply(m,mbuf,name)};
+            instruction={unchanged}}
+        | {none} ->
+           do ML.error("Mongo.sendrecv","Unopened connection",void)
+           {return={sndrcvresult={none}};
+            instruction={unchanged}})
+    | {stop} ->
+       //do println("stop")
+       {return={stopresult};
+        instruction={stop}}
+
+  @private
+  snd(m,mbuf,name) =
+    match (Cell.call(m.conncell2,({send=((m,mbuf,name))}:Mongo.sr)):Mongo.srr) with
+    | {~sendresult} -> sendresult
+    | _ -> @fail
+
+  @private
+  sndrcv(m,mbuf,name) =
+    match Cell.call(m.conncell2,({sendrecv=(m,mbuf,name)}:Mongo.sr)):Mongo.srr with
+    | {~sndrcvresult} -> sndrcvresult
+    | _ -> @fail
+
+  @private
+  stop(m) =
+    match Cell.call(m.conncell2,({stop}:Mongo.sr)):Mongo.srr with
+    | {stopresult} -> void
+    | _ -> @fail
+
   /**
    * Due to the number of parameters we have a separate [init] routine
    * from [connect].  This feature is mostly used by replica set connection
@@ -568,7 +660,11 @@ MongoDriver = {{
    * @param log Whether to enable logging for the driver.
    **/
   init(bufsize:int, log:bool): Mongo.db =
-    { conn=Mutable.make({none}); lock=Mutable.make(false); mblock=Mutable.make(false); ~bufsize; ~log;
+    conn = Mutable.make({none})
+    { ~conn;
+      conncell=Cell.make(conn, rw);
+      conncell2=(Cell.make(conn, sr):Cell.cell(Mongo.sr,Mongo.srr));
+      lock=Mutable.make(false); mblock=Mutable.make(false); ~bufsize; ~log;
       seeds=[]; hosts=Mutable.make([]); name="";
       primary=Mutable.make({none}); reconnect=Mutable.make({none});
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
@@ -608,7 +704,11 @@ MongoDriver = {{
    *  Close mongo connection.
    **/
   close(m:Mongo.db): Mongo.db =
-    do if Option.is_some(m.conn.get()) then Socket.close(Option.get(m.conn.get())) else void 
+    //do println("MongoDriver.close")
+    do if Option.is_some(m.conn.get())
+       then
+         do stop(m)
+         Socket.close(Option.get(m.conn.get()))
     do m.conn.set({none})
     do m.primary.set({none})
     m
@@ -634,7 +734,7 @@ MongoDriver = {{
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
     mbuf = create_(m.bufsize)
     do insert_(mbuf,flags,ns,documents)
-    send_no_reply(m,mbuf,"insert")
+    snd(m,mbuf,"insert")
 
   /**
    *  [insertf]:  same as [insert] but using tags instead of bit-wise flags.
@@ -650,7 +750,7 @@ MongoDriver = {{
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
     mbuf = create_(m.bufsize)
     do insert_batch_(mbuf,flags,ns,documents)
-    send_no_reply(m,mbuf,"insert")
+    snd(m,mbuf,"insert")
 
   /**
    *  [insert_batchf]:  same as [insert_batch] but using tags instead of bit-wise flags.
@@ -668,7 +768,7 @@ MongoDriver = {{
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
     mbuf = create_(m.bufsize)
     do update_(mbuf,flags,ns,selector,update)
-    send_no_reply(m,mbuf,"update")
+    snd(m,mbuf,"update")
 
   /**
    *  [updatef]:  same as [update] but using tags instead of bit-wise flags.
@@ -687,7 +787,7 @@ MongoDriver = {{
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
     mbuf = create_(m.bufsize)
     do query_(mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
-    send_with_reply(m,mbuf,"query")
+    sndrcv(m,mbuf,"query")
 
   /**
    *  [queryf]:  same as [query] but using tags instead of bit-wise flags.
@@ -706,7 +806,7 @@ MongoDriver = {{
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:Mongo.cursorID): option(Mongo.reply) =
     mbuf = create_(m.bufsize)
     do get_more_(mbuf,ns,numberToReturn,cursorID)
-    send_with_reply(m,mbuf,"getmore")
+    sndrcv(m,mbuf,"getmore")
 
   /**
    *  Send OP_DELETE.
@@ -716,7 +816,7 @@ MongoDriver = {{
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
     mbuf = create_(m.bufsize)
     do delete_(mbuf,flags,ns,selector)
-    send_no_reply(m,mbuf,"delete")
+    snd(m,mbuf,"delete")
 
   /**
    *  [deletef]:  same as [delete] but using tags instead of bit-wise flags.
@@ -732,7 +832,7 @@ MongoDriver = {{
   kill_cursors(m:Mongo.db, cursors:list(Mongo.cursorID)): bool =
     mbuf = create_(m.bufsize)
     do kill_cursors_(mbuf,cursors)
-    send_no_reply(m,mbuf,"kill_cursors")
+    snd(m,mbuf,"kill_cursors")
 
   /**
    *  Send OP_MSG.
@@ -741,7 +841,7 @@ MongoDriver = {{
   msg(m:Mongo.db, msg:string): bool =
     mbuf = create_(m.bufsize)
     do msg_(mbuf,msg)
-    send_no_reply(m,mbuf,"msg")
+    snd(m,mbuf,"msg")
 
   /** Access components of the reply value **/
   reply_messageLength = (%% BslMongo.Mongo.reply_messageLength %% : Mongo.reply -> int)

@@ -144,6 +144,7 @@ MongoConnection = {{
    **/
   close(db:Mongo.mongodb): void =
     lc = db.link_count.get()
+    //do println("close: lc={lc}")
     if lc > 0
       then
         do db.link_count.set(lc-1)
@@ -168,7 +169,7 @@ MongoConnection = {{
     err = MongoCommands.getLastError(db.mongo, db.dbname)
     status = MongoDriver.isError(err)
     do if db.mongo.log && status
-       then ML.error("MongoConnection.err({db})","msg={msg}) err={MongoDriver.string_of_result(err)}",void)
+       then ML.error("MongoConnection.err({db.dbname}.{db.collection})","msg={msg} err={MongoDriver.string_of_result(err)}",void)
     status
 
   /** Set the "skip" number on the given connection. **/
