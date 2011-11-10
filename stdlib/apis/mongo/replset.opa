@@ -196,7 +196,6 @@ MongoReplicaSet = {{
    * In practice, this should never happen.
    **/
   connect(m:Mongo.db): outcome(Mongo.db,Mongo.failure) =
-    m = {m with log=false}
     do if m.seeds == [] then ML.fatal("MongoReplicaSet.connect","Tried to connect with no seeds",-1) else void
     rec aux(m, seeds) =
       match seeds with
@@ -205,8 +204,8 @@ MongoReplicaSet = {{
          | {success=m} ->
             m = check_seed(m)
             if m.hosts.get() == []
-            then aux(/*MongoDriver.close*/(m),rest)
-            else {success=/*MongoDriver.close*/(m)}
+            then aux(m,rest)
+            else {success=m}
          | {failure=_} ->
             aux(m,rest))
       | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
@@ -230,10 +229,10 @@ MongoReplicaSet = {{
                           (match List.extract_p((host -> host == primary_host),rest) with
                            | ({some=p},rest) ->
                               do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
-                              aux2(/*MongoDriver.close*/(m),[p|rest])
-                           | ({none},rest) -> aux2(/*MongoDriver.close*/(m),rest))
-                       | {absent} -> aux2(/*MongoDriver.close*/(m),rest))
-                 | {failure=_} -> aux2(/*MongoDriver.close*/(m),rest))
+                              aux2(m,[p|rest])
+                           | ({none},rest) -> aux2(m,rest))
+                       | {absent} -> aux2(m,rest))
+                 | {failure=_} -> aux2(m,rest))
              | {failure=_} -> aux2(m,rest))
           | [] -> {failure={Error="MongoReplicaSet.connect: No master hosts"}})
        aux2(m, m.hosts.get())

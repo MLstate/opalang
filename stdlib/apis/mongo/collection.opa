@@ -71,7 +71,7 @@
  * {b Warning: If this type is incorrectly cast then serious problems
  * will result.  SegFaults will be the least of your worries.}
  **/
-@abstract
+//@abstract
 type Mongo.collection('a) = {
   db: Mongo.mongodb;
   ty: OpaType.ty; // type of the collection
@@ -84,7 +84,7 @@ type Mongo.collection('a) = {
  * additional information which enables run-time type checks upon
  * data as it is received from the MongoDB server.
  **/
-@abstract
+//@abstract
 type Mongo.collection_cursor('a) = {
   collection: Mongo.collection('a);
   cursor: Mongo.cursor;

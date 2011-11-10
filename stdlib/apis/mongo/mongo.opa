@@ -61,8 +61,7 @@ type Mongo.mongo_host = (string, int)
 @abstract
 type Mongo.db = {
   conn : Mutable.t(option(Socket.connection));
-  conncell : Cell.cell(Mongo.rw,Mongo.rwr);
-  conncell2 : Cell.cell(Mongo.sr,Mongo.srr);
+  conncell : Cell.cell(Mongo.sr,Mongo.srr);
   lock : Mutable.t(bool);
   mblock : Mutable.t(bool);
   primary : Mutable.t(option(Mongo.mongo_host));
@@ -78,9 +77,6 @@ type Mongo.db = {
   depth : Mutable.t(int);
   max_depth : int;
 }
-
-type Mongo.rw = {read:(Mongo.db,Mongo.mailbox)} / {write:(Mongo.db,string,int)}
-type Mongo.rwr = {readresult:outcome(Mongo.reply,string)} / {writeresult:outcome(int,string)}
 
 type Mongo.sr = {send:(Mongo.db,Mongo.mongo_buf,string)} / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} / {stop}
 type Mongo.srr = {sendresult:bool} / {sndrcvresult:option(Mongo.reply)} / {stopresult}
@@ -510,42 +506,6 @@ MongoDriver = {{
          ret(false)
 
   @private
-  rw(_, msg) =
-    match msg with
-    | {write=(m,s,len)} ->
-       //do println("write")
-       (match m.conn.get() with
-        | {some=conn} ->
-           {return={writeresult=Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len)};
-            instruction={unchanged}}
-        | {none} ->
-           do ML.error("Mongo.send","Unopened connection",void)
-           {return={writeresult={failure="Write to unopened connection"}};
-            instruction={unchanged}})
-    | {read=(m,mailbox)} ->
-       //do println("read")
-       (match m.conn.get() with
-        | {some=conn} ->
-           {return={readresult=read_mongo_(conn,m.comms_timeout,mailbox)};
-            instruction={unchanged}}
-        | {none} ->
-           do ML.error("Mongo.receive","Unopened connection",void)
-           {return={readresult={failure="Read from unopened connection"}};
-            instruction={unchanged}})
-
-  @private
-  write(m,s,len) =
-    match (Cell.call(m.conncell,({write=((m,s,len))}:Mongo.rw)):Mongo.rwr) with
-    | {~writeresult} -> writeresult
-    | _ -> @fail
-
-  @private
-  read(m,mailbox) =
-    match Cell.call(m.conncell,({read=(m,mailbox)}:Mongo.rw)):Mongo.rwr with
-    | {~readresult} -> readresult
-    | _ -> @fail
-
-  @private
   send_no_reply_(m,mbuf,name,reply_expected): bool =
     match m.conn.get() with
     | {some=conn} ->
@@ -609,45 +569,37 @@ MongoDriver = {{
   sr(_, msg) =
     match msg with
     | {send=(m,mbuf,name)} ->
-       //do println("send")
        (match m.conn.get() with
         | {some=_conn} ->
-           {return={sendresult=send_no_reply(m,mbuf,name)};
-            instruction={unchanged}}
+           {return={sendresult=send_no_reply(m,mbuf,name)}; instruction={unchanged}}
         | {none} ->
            do ML.error("Mongo.send","Unopened connection",void)
-           {return={sendresult=false};
-            instruction={unchanged}})
+           {return={sendresult=false}; instruction={unchanged}})
     | {sendrecv=(m,mbuf,name)} ->
-       //do println("sendrecv")
        (match m.conn.get() with
         | {some=_conn} ->
-           {return={sndrcvresult=send_with_reply(m,mbuf,name)};
-            instruction={unchanged}}
+           {return={sndrcvresult=send_with_reply(m,mbuf,name)}; instruction={unchanged}}
         | {none} ->
            do ML.error("Mongo.sendrecv","Unopened connection",void)
-           {return={sndrcvresult={none}};
-            instruction={unchanged}})
+           {return={sndrcvresult={none}}; instruction={unchanged}})
     | {stop} ->
-       //do println("stop")
-       {return={stopresult};
-        instruction={stop}}
+       {return={stopresult}; instruction={stop}}
 
   @private
   snd(m,mbuf,name) =
-    match (Cell.call(m.conncell2,({send=((m,mbuf,name))}:Mongo.sr)):Mongo.srr) with
+    match (Cell.call(m.conncell,({send=((m,mbuf,name))}:Mongo.sr)):Mongo.srr) with
     | {~sendresult} -> sendresult
     | _ -> @fail
 
   @private
   sndrcv(m,mbuf,name) =
-    match Cell.call(m.conncell2,({sendrecv=(m,mbuf,name)}:Mongo.sr)):Mongo.srr with
+    match Cell.call(m.conncell,({sendrecv=(m,mbuf,name)}:Mongo.sr)):Mongo.srr with
     | {~sndrcvresult} -> sndrcvresult
     | _ -> @fail
 
   @private
   stop(m) =
-    match Cell.call(m.conncell2,({stop}:Mongo.sr)):Mongo.srr with
+    match Cell.call(m.conncell,({stop}:Mongo.sr)):Mongo.srr with
     | {stopresult} -> void
     | _ -> @fail
 
@@ -662,8 +614,7 @@ MongoDriver = {{
   init(bufsize:int, log:bool): Mongo.db =
     conn = Mutable.make({none})
     { ~conn;
-      conncell=Cell.make(conn, rw);
-      conncell2=(Cell.make(conn, sr):Cell.cell(Mongo.sr,Mongo.srr));
+      conncell=(Cell.make(conn, sr):Cell.cell(Mongo.sr,Mongo.srr));
       lock=Mutable.make(false); mblock=Mutable.make(false); ~bufsize; ~log;
       seeds=[]; hosts=Mutable.make([]); name="";
       primary=Mutable.make({none}); reconnect=Mutable.make({none});
@@ -704,7 +655,6 @@ MongoDriver = {{
    *  Close mongo connection.
    **/
   close(m:Mongo.db): Mongo.db =
-    //do println("MongoDriver.close")
     do if Option.is_some(m.conn.get())
        then
          do stop(m)

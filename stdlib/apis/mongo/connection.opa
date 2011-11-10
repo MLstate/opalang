@@ -45,7 +45,7 @@
  * of a MongoDB query built in.
  **/
 // TODO: Possibly arrange a map of address:port values to connections?
-
+//@abstract
 type Mongo.mongodb = {
   mongo: Mongo.db;
   bufsize: int;
@@ -144,13 +144,12 @@ MongoConnection = {{
    **/
   close(db:Mongo.mongodb): void =
     lc = db.link_count.get()
-    //do println("close: lc={lc}")
     if lc > 0
       then
         do db.link_count.set(lc-1)
         if lc <= 1
         then
-          do ML.info("MongoConnection.close","closing mongo (close) {db.link_count.get()}",void)
+          do ML.info("MongoConnection.close","closing mongo (close) link_count={db.link_count.get()}",void)
           _ = MongoDriver.close(db.mongo)
           void
         else void
