@@ -181,11 +181,55 @@ let compress_content_cps sched gzip deflate compression_level cache_response con
     with exn -> (Logger.error "compress_content: got exception %s" (Printexc.to_string exn);
                  cont(false, content))
 
+let compress_content_no_cps _sched gzip deflate compression_level cache_response content content_len =
+  if (not gzip && not deflate) || compression_level < 1 || size_from_to_cache > content_len then (
+    (* Logger.log "CACHE: DO NOT COMPRESS"; *)
+    (false, content)
+  ) else (** COMPRESS CONTENT **)
+    try
+      let cache = (* We give priority to deflate *)
+        if deflate then ((* Logger.log "DEFLATE"; *) server_cache.deflate_response_cache)
+        else if gzip then ((* Logger.log "GZIP"; *) server_cache.gzip_response_cache)
+        else raise (Gzip.Error "invalid encoding method")
+      in
+      let key = Digest.to_hex (Digest.string content) in
+      match QuickCache.get key cache with
+      | Some (Some v) ->
+          (* Logger.log "CACHE: FROM CACHE"; *)
+          (true, v)
+      | Some (None) ->
+          (* Logger.log "CACHE: NO NEED TO COMPRESS"; *)
+          (false, content)
+      | _ ->
+          let oc = Sgzip.open_out ~level:compression_level ~only_deflate:deflate () in
+          let return () =
+            Sgzip.close_out oc;
+            let c_len, f_res = (String.length oc.Sgzip.out_string), oc.Sgzip.out_string in
+            (* Logger.log (sprintf "CACHE: OLD LEN %d : NEW LEN %d" content_len c_len); *)
+            if content_len > c_len then (
+              if cache_response then
+                QuickCache.add key (Some f_res) cache;
+              (true, f_res)
+            ) else (
+              if cache_response then
+                QuickCache.add key None cache;
+              (false, content)) in
+          let rec aux (pos) =
+            if pos < content_len
+            then
+              let t = min !max_chunk (content_len - pos) in
+              Sgzip.output oc content pos t;
+              aux(pos+t)
+            else return ()
+          in aux 0
+    with exn -> (Logger.error "compress_content: got exception %s" (Printexc.to_string exn);
+                 (false, content))
+
 let compress_content sched gzip deflate compression_level cache_response content content_len =
-  let res = ref (false, content) in
-  compress_content_cps sched gzip deflate compression_level cache_response content content_len
-                       (fun rres -> res := rres);
-  !res
+  (* let res = ref (false, content) in *)
+  compress_content_no_cps sched gzip deflate compression_level cache_response content content_len
+    (* (fun rres -> res := rres); *)
+  (* !res *)
 
 let compress_file_cps sched gzip deflate compression_level cache_response file fstat_opt file_len cont =
   if (not gzip && not deflate) || compression_level < 1 || size_from_to_cache > file_len then (
