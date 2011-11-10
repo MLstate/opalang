@@ -413,7 +413,7 @@ MongoCollection = {{
    * count all documents.
    **/
   count(c:Mongo.collection('value), select_opt:option(Mongo.select('value))): outcome(int,Mongo.failure) =
-    MongoCommands.count(c.db.mongo, c.db.dbname, c.db.collection, (Option.map((s -> s),select_opt)))
+    MongoCommands.count(c.db, c.db.dbname, c.db.collection, (Option.map((s -> s),select_opt)))
 
   /**
    * List the distinct values matching the optional select.
@@ -422,7 +422,7 @@ MongoCollection = {{
    * by the [key] parameter.
    **/
   distinct(c:Mongo.collection('value), key:string, select_opt:option(Mongo.select('value))): outcome(list('b),Mongo.failure) =
-    match MongoCommands.distinct(c.db.mongo, c.db.dbname, c.db.collection, key, (Option.map((s -> s),select_opt))) with
+    match MongoCommands.distinct(c.db, c.db.dbname, c.db.collection, key, (Option.map((s -> s),select_opt))) with
     | {success=doc} ->
        // possibly: get the type from 'value and get the key type out of there???
        ty = {TyName_args=[@typeval('b)]; TyName_ident="list"}
@@ -447,7 +447,7 @@ MongoCollection = {{
    **/
   group(c:Mongo.collection('value), key:Bson.document, reduce:string, initial:Bson.document,
         cond_opt:option(Bson.document), finalize_opt:option(string)): Mongo.result =
-    MongoCommands.group(c.db.mongo, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
+    MongoCommands.group(c.db, c.db.dbname, c.db.collection, key, reduce, initial, cond_opt, finalize_opt)
 
   /**
    * Analyze the result of a [group] call.  The result is returned as a [Mongo.group_result]

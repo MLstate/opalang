@@ -92,20 +92,22 @@ MongoReplicaSet = {{
    * Freeze a replica set (can't become primary for the given number of seconds).
    * Note: unfreeze with 0.
    **/
-  replSetFreeze(m:Mongo.db, seconds:int): Mongo.result =
+  replSetFreeze(m:Mongo.mongodb, seconds:int): Mongo.result =
     MongoCommands.simple_int_command(m, "admin", "replSetFreeze", seconds)
 
   /**
    * Step down from primary status.  Same time value as for [replSetFreeze].
    **/
-  replSetStepDown(m:Mongo.db, seconds:int): Mongo.result =
+  replSetStepDown(m:Mongo.mongodb, seconds:int): Mongo.result =
     MongoCommands.simple_int_command(m, "admin", "replSetStepDown", seconds)
 
   /**
    * Get replica get status.
    **/
-  replSetGetStatus(m:Mongo.db): Mongo.result = MongoCommands.simple_int_command(m, "admin", "replSetGetStatus", 1)
-  replSetGetStatusOpa(m:Mongo.db): outcome(Mongo.replSetGetStatus,Mongo.failure) = MongoCommands.adminToOpa(m,"replSetGetStatus")
+  replSetGetStatus(m:Mongo.mongodb): Mongo.result =
+    MongoCommands.simple_int_command(m, "admin", "replSetGetStatus", 1)
+  replSetGetStatusOpa(m:Mongo.mongodb): outcome(Mongo.replSetGetStatus,Mongo.failure) =
+    MongoCommands.adminToOpa(m,"replSetGetStatus")
 
   /**
    * Initalise a replica set.
@@ -121,7 +123,7 @@ MongoReplicaSet = {{
    * Initialize a replica set with the given list of members (host, port) pairs.
    * Example: [replSetInitiate(m, id, members)]
    **/
-  replSetInitiate(m:Mongo.db, id:string, members:list((int,string))): Mongo.result =
+  replSetInitiate(m:Mongo.mongodb, id:string, members:list((int,string))): Mongo.result =
     config = Bson.opa2doc({ _id=id; members=List.map(((id,host) -> simpleConfig(id,host)),members); settings={absent} })
     MongoCommands.run_command(m, "admin", [H.doc("replSetInitiate",config)])
 
@@ -167,12 +169,21 @@ MongoReplicaSet = {{
     | [host|[port|[]]] -> (host,Int.of_string(port))
     | _ -> (s,MongoDriver.default_port)
 
+  @private
+  isMasterOpaLL(m:Mongo.db): outcome(Mongo.isMaster,Mongo.failure) =
+    match MongoCommands.simple_int_command_ll(m,"admin","ismaster",1) with
+    | {success=doc} ->
+       (match MongoDriver.result_to_opa({success=doc}) with
+        | {some=ism} -> {success=ism}
+        | {none} -> {failure={Error="MongoReplicaSet.isMasterOpaLL: invalid document from db admin ({Bson.to_pretty(doc)})"}})
+    | {~failure} -> {~failure}
+
   /**
    * Try to get the list of hosts from a given list of seeds by connecting
    * in turn to each seed until we find a live one.
    **/
   check_seed(m:Mongo.db): Mongo.db =
-    match MongoCommands.isMasterOpa(m) with
+    match isMasterOpaLL(m) with
     | {success=ism} ->
        (match ism.hosts with
         | {present=hosts} ->
@@ -216,7 +227,7 @@ MongoReplicaSet = {{
           | [host|rest] ->
             (match MongoDriver.connect(m, host.f1, host.f2) with
              | {success=m} ->
-                (match MongoCommands.isMasterOpa(m) with
+                (match isMasterOpaLL(m) with
                  | {success=ism} ->
                     if ism.ismaster && (Bson.Register.default("...",ism.setName) == m.name)
                     then

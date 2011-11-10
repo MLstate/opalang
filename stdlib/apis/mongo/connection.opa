@@ -45,7 +45,7 @@
  * of a MongoDB query built in.
  **/
 // TODO: Possibly arrange a map of address:port values to connections?
-//@abstract
+@abstract
 type Mongo.mongodb = {
   mongo: Mongo.db;
   bufsize: int;
@@ -93,6 +93,12 @@ MongoConnection = {{
            {success=db}
         | {none} -> {failure={Error="MongoConnection.open: no primary"}})
     | {~failure} -> {~failure}
+
+  /** Return the name of the inbuilt db **/
+  dbname(m:Mongo.mongodb): string = m.dbname
+
+  /** Return the name of the inbuilt collection **/
+  collection(m:Mongo.mongodb): string = m.collection
 
   /**
    * Open a connection to a single server.  No check for primary status is
@@ -158,14 +164,14 @@ MongoConnection = {{
   /**
    * Return the last error on the given connection.
    **/
-  getLastError(db:Mongo.mongodb): Mongo.result = MongoCommands.getLastError(db.mongo, db.dbname)
+  getLastError(db:Mongo.mongodb): Mongo.result = MongoCommands.getLastError(db, db.dbname)
 
   /**
    * A simple error report.  Check the last error on the given database and log an error
    * if the reply is an actual error.
    **/
   err(db:Mongo.mongodb, msg:string): bool =
-    err = MongoCommands.getLastError(db.mongo, db.dbname)
+    err = MongoCommands.getLastError(db, db.dbname)
     status = MongoDriver.isError(err)
     do if db.mongo.log && status
        then ML.error("MongoConnection.err({db.dbname}.{db.collection})","msg={msg} err={MongoDriver.string_of_result(err)}",void)
