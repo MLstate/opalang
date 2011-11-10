@@ -45,7 +45,7 @@
  * of a MongoDB query built in.
  **/
 // TODO: Possibly arrange a map of address:port values to connections?
-@abstract
+
 type Mongo.mongodb = {
   mongo: Mongo.db;
   bufsize: int;
