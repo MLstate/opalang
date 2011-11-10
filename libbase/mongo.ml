@@ -111,6 +111,9 @@ struct MsgHeader {
 }
 *)
 
+let mongo_buf_requestId mb = geti32 mb.Bson.buf 4
+let mongo_buf_responseTo mb = geti32 mb.Bson.buf 8
+
 let header_messageLength s = geti32 s 0
 let header_requestId s = geti32 s 4
 let header_responseTo s = geti32 s 8

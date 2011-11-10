@@ -75,3 +75,6 @@ val reply_document_pos : (Buf.buf * int * int) -> int -> (int * int) option
 val string_of_message_buf : Buf.buf -> string
 val string_of_message_str : string -> string
 val string_of_message_reply : Buf.buf * int * int -> string
+
+val mongo_buf_requestId : mongo_buf -> int
+val mongo_buf_responseTo : mongo_buf -> int

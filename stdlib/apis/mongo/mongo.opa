@@ -471,6 +471,12 @@ MongoDriver = {{
   @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
   @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : Mongo.reply -> string)
 
+  /* Get requestId from Mongo.mongo_buf */
+  @private mongo_buf_requestId = (%% BslMongo.Mongo.mongo_buf_requestId %%: Mongo.mongo_buf -> int)
+
+  /* Get responseTo from Mongo.mongo_buf */
+  @private mongo_buf_responseTo = (%% BslMongo.Mongo.mongo_buf_responseTo %%: Mongo.mongo_buf -> int)
+
   /*
    * We have the possibility of unbounded recursion here since we
    * call ReplSet.connect, which calls us for ismaster.  Probably
@@ -530,6 +536,7 @@ MongoDriver = {{
 
   @private
   send_with_reply(m,mbuf,name): option(Mongo.reply) =
+    mrid = mongo_buf_requestId(mbuf)
     myreconnect() =
       if reconnect("send_with_reply",m)
       then send_with_reply(m,mbuf,name)
@@ -541,10 +548,13 @@ MongoDriver = {{
          mailbox = new_mailbox_(m.bufsize)
          (match read_mongo_(conn,m.comms_timeout,mailbox) with
           | {success=reply} ->
+             rrt = reply_responseTo(reply)
              do reset_mailbox_(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
-             {some=reply}
+             if mrid != rrt
+             then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",{none})
+             else {some=reply}
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
              do reset_mailbox_(mailbox)

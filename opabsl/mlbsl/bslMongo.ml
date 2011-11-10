@@ -413,4 +413,10 @@ let string_of_cursorID cid = Printf.sprintf "%016Lx" cid
 ##register is_null_cursorID : Mongo.cursorID -> opa[bool]
 let is_null_cursorID cid = ServerLib.wrap_bool (cid = 0L)
 
+##register mongo_buf_requestId : Mongo.mongo_buf -> int
+let mongo_buf_requestId = Mongo.mongo_buf_requestId 
+
+##register mongo_buf_responseTo : Mongo.mongo_buf -> int
+let mongo_buf_responseTo = Mongo.mongo_buf_responseTo 
+
 ##endmodule
