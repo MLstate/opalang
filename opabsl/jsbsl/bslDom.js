@@ -457,6 +457,19 @@
     dom.offset({top: offset.y_px, left:offset.x_px})
 }
 
+##register get_position: Dom.private.element -> Dom.dimensions
+##args(dom)
+{
+    var position = dom.position();
+    return normalize_obj({x_px: Math.round(position.left || 0), y_px: Math.round(position.top || 0)})
+}
+
+##register set_position: Dom.private.element, Dom.dimensions -> void
+##args(dom, position)
+{
+    dom.position({top: position.y_px, left:position.x_px})
+}
+
 ##register get_size: Dom.private.element -> Dom.dimensions
 ##args(dom)
 {
