@@ -238,13 +238,16 @@ let deserialize s =
 
 ##module Mongo
 
+let rid = ref(Random.int32(Int32.max_int))
+let nextrid() = let id = !rid in rid := Int32.add id 1l; id
+
 ##register create: int -> Mongo.mongo_buf
 let create = Mongo.create
 
 ##register insert: Mongo.mongo_buf, int, string, 'a -> void
 let insert m f ns (bson:'a) =
   let (bson:opa_bson_document) = Obj.magic bson in
-  Mongo.start_insert m 0l f ns;
+  Mongo.start_insert m (nextrid()) f ns;
   Mongo.bson_init m;
   Bson.serialize bson m;
   Mongo.bson_finish m;
@@ -253,7 +256,7 @@ let insert m f ns (bson:'a) =
 ##register insert_batch: Mongo.mongo_buf, int, string, opa[list('a)] -> void
 let insert_batch m f ns (bsons:'a) =
   let (bsons:opa_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
-  Mongo.start_insert m 0l f ns;
+  Mongo.start_insert m (nextrid()) f ns;
   List.iter (fun bson ->
                Mongo.bson_init m;
                Bson.serialize bson m;
@@ -264,7 +267,7 @@ let insert_batch m f ns (bsons:'a) =
 let update m flags ns selector update =
   let (selector:opa_bson_document) = Obj.magic selector in
   let (update:opa_bson_document) = Obj.magic update in
-  Mongo.start_update m 0l flags ns;
+  Mongo.start_update m (nextrid()) flags ns;
   Mongo.bson_init m;
   Bson.serialize selector m;
   Mongo.bson_finish m;
@@ -277,7 +280,7 @@ let update m flags ns selector update =
 let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
   let (query:opa_bson_document) = Obj.magic query in
   let (returnFieldSelector_opt:opa_bson_document option) = Obj.magic returnFieldSelector_opt in
-  Mongo.start_query m 0l flags ns numberToSkip numberToReturn;
+  Mongo.start_query m (nextrid()) flags ns numberToSkip numberToReturn;
   Mongo.bson_init m;
   Bson.serialize query m;
   Mongo.bson_finish m;
@@ -291,13 +294,13 @@ let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
 
 ##register get_more: Mongo.mongo_buf, string, int, Mongo.cursorID -> void
 let get_more m ns numberToReturn cursorID =
-  Mongo.start_getmore m 0l ns numberToReturn cursorID;
+  Mongo.start_getmore m (nextrid()) ns numberToReturn cursorID;
   Mongo.finish m
 
 ##register delete: Mongo.mongo_buf, int, string, 'a -> void
 let delete m flags ns selector =
   let (selector:opa_bson_document) = Obj.magic selector in
-  Mongo.start_delete m 0l flags ns;
+  Mongo.start_delete m (nextrid()) flags ns;
   Mongo.bson_init m;
   Bson.serialize selector m;
   Mongo.bson_finish m;
@@ -306,12 +309,12 @@ let delete m flags ns selector =
 ##register kill_cursors: Mongo.mongo_buf, opa[list('a)] -> void
 let kill_cursors m clist =
   let clist = Obj.magic clist in
-  Mongo.start_kill_cursors m 0l (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) clist);
+  Mongo.start_kill_cursors m (nextrid()) (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) clist);
   Mongo.finish m
 
 ##register msg: Mongo.mongo_buf, string -> void
 let msg m msg =
-  Mongo.start_msg m 0l msg;
+  Mongo.start_msg m (nextrid()) msg;
   Mongo.finish m
 
 ##register get: Mongo.mongo_buf -> string
