@@ -58,7 +58,7 @@ let send_txt_response winfo txt code =
                 (Time.now ())
                 winfo.HST.request
                 code
-                "text/plain, charset=utf-8"
+                "text/plain; charset=utf-8"
                 (Http_common.Result txt))
 
 let send_json_response winfo json code =

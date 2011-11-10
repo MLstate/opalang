@@ -37,7 +37,7 @@ let send_txt_response winfo txt =
                 (Time.now ())
                 winfo.HttpServerTypes.request
                 Requestdef.SC_OK
-                "text/plain, charset=utf-8"
+                "text/plain; charset=utf-8"
                 (Http_common.Result txt))
 
 let send_json_response winfo json =
