@@ -1,4 +1,18 @@
 MongoDB driver for OPA
 ======================
 
+Driver for MongoDB in OPA.
+
+Currently only:
+
+level 0
+-------
+
+Basic low-level access using MongoDB wire protocol.
+
+level 1
+-------
+
+Run-time typed versions of level 0 commands.
+
 
