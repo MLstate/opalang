@@ -157,40 +157,40 @@ let default_scheduler = BslScheduler.opa
 
 
   (** {6 Make weblib response} *)
-  ##register make_response : \
+  ##register [cps-bypass] make_response : \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       caml_list(WebInfo.private.native_http_header), \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response ms req stat headers s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response ms req stat headers s1 s2 k =
     let modified_since = Option.map Time.milliseconds ms in
     HttpServer.make_response_with_headers ~modified_since ~req headers stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_modified_since : \
+  ##register [cps-bypass] make_response_modified_since : \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response_modified_since modified_since req stat s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response_modified_since modified_since req stat s1 s2 k =
     let ms = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~modified_since:ms ~expires:Time.zero ~req stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_expires_at : \
+  ##register [cps-bypass] make_response_expires_at : \
       option(time_t), \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response_expires_at expires_at modified_since req stat s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response_expires_at expires_at modified_since req stat s1 s2 k =
     let expires =
       match expires_at with
       | None -> Time.infinity
@@ -198,24 +198,25 @@ let default_scheduler = BslScheduler.opa
     in
     let modified_since = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~expires ~modified_since ~req stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_req : time_t, WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response
-  let make_response_req expires r stat s1 s2 =
-    HttpServer.make_response_req (Time.milliseconds expires) r stat s1 (Http_common.Result s2)
+  ##register [cps-bypass] make_response_req : time_t, WebInfo.private.native_request, web_server_status, string, string, \
+    continuation(WebInfo.private.native_response) -> void
+  let make_response_req expires r stat s1 s2 k =
+    HttpServer.make_response_req (Time.milliseconds expires) r stat s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_req_loc : \
-      time_t, string, WebInfo.private.native_request, web_server_status, string, string \
-        -> WebInfo.private.native_response
-  let make_response_req_loc expires url r stat s1 s2 =
-    HttpServer.make_response_req_loc (Time.milliseconds expires) url r stat s1 (Http_common.Result s2)
+  ##register [cps-bypass] make_response_req_loc : \
+      time_t, string, WebInfo.private.native_request, web_server_status, string, string, \
+        continuation(WebInfo.private.native_response) -> void
+  let make_response_req_loc expires url r stat s1 s2 k =
+    HttpServer.make_response_req_loc (Time.milliseconds expires) url r stat s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register direct_expires : WebInfo.private.native_request, string, string -> WebInfo.private.native_response
-  let direct_expires wr s1 s2 =
-    HttpServer.direct ~expires:Time.zero wr s1 (Http_common.Result s2)
+  ##register [cps-bypass] direct_expires : WebInfo.private.native_request, string, string, continuation(WebInfo.private.native_response) -> void
+  let direct_expires wr s1 s2 k =
+    HttpServer.direct ~expires:Time.zero wr s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register direct : WebInfo.private.native_request, string, string -> WebInfo.private.native_response
-  let direct wr s1 s2 = HttpServer.direct wr s1 (Http_common.Result s2)
+  ##register [cps-bypass] direct : WebInfo.private.native_request, string, string, continuation(WebInfo.private.native_response) -> void
+  let direct wr s1 s2 k = HttpServer.direct wr s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
 
 

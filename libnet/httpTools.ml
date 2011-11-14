@@ -345,7 +345,7 @@ let upto_mark_stream_cps2 ?(inclusive=true) sched conn (buf,pos) mark
       | End_of_file -> (Logger.debug "upto_mark_stream_cps2(%d): End_of_file Remaining='%s'"
                                      conn.Scheduler.conn_id (String.limit 128 (Buffer.sub buf start ((!pos)-start)));
                         cont (buf,start,(!pos)-start))
-      | exn -> (Logger.debug "upto_mark_stream_cps2(%d): exn=%s Remaining='%s'" 
+      | exn -> (Logger.debug "upto_mark_stream_cps2(%d): exn=%s Remaining='%s'"
                              conn.Scheduler.conn_id (Printexc.to_string exn)
                              (String.limit 128 (Buffer.sub buf start ((!pos)-start)));
                 raise exn)
@@ -536,24 +536,24 @@ let upto_mark_lws_ci = upto_mark_lws_ (fun str n -> Char.lowercase (ug str n))
 
 (* Had to move this in here because of dependencies. *)
 
-let content_compress sched gzip deflate compression_level cache_response content content_len =
-  match content with
-  | Rcontent.ContentString str ->
-      (match Compression.compress_content sched gzip deflate compression_level cache_response str content_len with
-         compressed, str -> compressed, Rcontent.ContentString str)
-  | Rcontent.ContentBuffer buf ->
-      (match Compression.compress_content sched gzip deflate compression_level cache_response
-                                          (Buffer.contents buf) content_len with
-         compressed, str -> compressed, Rcontent.ContentString str)
-  | Rcontent.ContentFBuffer buf ->
-      (match Compression.compress_content sched gzip deflate compression_level cache_response
-                                          (FBuffer.contents buf) content_len with
-         compressed, str -> compressed, Rcontent.ContentString str)
-  | Rcontent.ContentFile (file,ic_opt,oc_opt,fstat_opt,unlinkable) ->
-      (match Compression.compress_file sched gzip deflate compression_level cache_response file fstat_opt content_len with
-         compressed, file, fstat_opt -> compressed, Rcontent.ContentFile (file,ic_opt,oc_opt,fstat_opt,unlinkable))
-  | Rcontent.ContentNone ->
-      (false, Rcontent.ContentNone)
+let content_compress sched gzip deflate compression_level cache_response content content_len cont =
+    match content with
+    | Rcontent.ContentString str ->
+        Compression.compress_content sched gzip deflate compression_level cache_response str content_len
+          (function (compressed, str) -> cont (compressed, Rcontent.ContentString str))
+    | Rcontent.ContentBuffer buf ->
+        Compression.compress_content sched gzip deflate compression_level cache_response
+          (Buffer.contents buf) content_len
+          (function (compressed, str) -> cont (compressed, Rcontent.ContentString str))
+    | Rcontent.ContentFBuffer buf ->
+        Compression.compress_content sched gzip deflate compression_level cache_response
+          (FBuffer.contents buf) content_len
+          (function compressed, str -> cont (compressed, Rcontent.ContentString str))
+    | Rcontent.ContentFile (file,ic_opt,oc_opt,fstat_opt,unlinkable) ->
+        Compression.compress_file sched gzip deflate compression_level cache_response file fstat_opt content_len
+          (function compressed, file, fstat_opt -> cont (compressed, Rcontent.ContentFile (file,ic_opt,oc_opt,fstat_opt,unlinkable)))
+    | Rcontent.ContentNone ->
+        cont (false, Rcontent.ContentNone)
 
 let make_ssl_cert ssl_cert ssl_key ssl_pass =
   if ssl_cert <> "" then

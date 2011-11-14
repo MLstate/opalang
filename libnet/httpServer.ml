@@ -215,8 +215,8 @@ let str_of_result = function
   | _ -> "<html><head><title>Error</title></head><body>Error.</body></html>"
 
 let make_response_with_headers ?(modified_since=None) ?(compression_level=6)
-        ?(cache_response=true) ?(delcookies=false) ?req
-        headers_out status_line _type content =
+    ?(cache_response=true) ?(delcookies=false) ?req
+    headers_out status_line _type content cont =
   #<If$minlevel 20>Logger.debug "make_response"#<End>;
   let code = Rd.status_code status_line in
   let reason = Rd.reason_phrase code in
@@ -231,20 +231,22 @@ let make_response_with_headers ?(modified_since=None) ?(compression_level=6)
                    req.HST.request_header,
                    (match req.HST.request_line.HST._method with HSCp.Head _ -> false | _ -> true))
     | _ -> (Scheduler.default,None,"",[],true) in
-  let processed =
-    HSCm.process_content_with_headers sched ~modified_since ~compression_level
-      ~cache_response ~_delcookies:delcookies ~_type hr_opt uri
-      (Rc.ContentString content) headers_in headers_out include_body
-  in match processed with
-    Some (headers_out,body,len) -> {
-        HST.sl = sl;
-        HST.headers = HSCp.Content_Length len :: headers_out;
-        HST.body = body;
-      }
-  | None -> _not_modified ()
+  HSCm.process_content_with_headers sched ~modified_since ~compression_level
+    ~cache_response ~_delcookies:delcookies ~_type hr_opt uri
+    (Rc.ContentString content) headers_in headers_out include_body
+    (function processed ->
+       let r =
+         match processed with
+           Some (headers_out,body,len) -> {
+             HST.sl = sl;
+             HST.headers = HSCp.Content_Length len :: headers_out;
+             HST.body = body;
+           }
+         | None -> _not_modified ()
+       in cont r)
 
 let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero) ?(cache=true)
-                  ?(delcookies=false) ?location ?req status_line _type ?content_dispo content =
+    ?(delcookies=false) ?location ?req status_line _type ?content_dispo content cont =
   #<If$minlevel 20>Logger.debug "make_response"#<End>;
   let code = Rd.status_code status_line in
   let reason = Rd.reason_phrase code in
@@ -259,15 +261,19 @@ let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response
                    req.HST.request_header,
                    (match req.HST.request_line.HST._method with HSCp.Head _ -> false | _ -> true))
     | _ -> (Scheduler.default,None,"",[],true) in
-  match HSCm.process_content sched ~modified_since ~compression_level ~cache_response ~expires
-                                   ~cache ~_delcookies:delcookies ~_type ?content_dispo
-                        hr_opt uri (Rc.ContentString content) headers_in include_body with
-    Some (headers_out,body,len) ->
-      let headers_out = match location with
-        | Some url -> (HSCp.Location url)::headers_out
-        | None -> headers_out in
-      { HST.sl = sl; HST.headers = HSCp.Content_Length len::headers_out; HST.body = body }
-  | None -> _not_modified ()
+  HSCm.process_content sched ~modified_since ~compression_level ~cache_response ~expires
+    ~cache ~_delcookies:delcookies ~_type ?content_dispo
+    hr_opt uri (Rc.ContentString content) headers_in include_body (
+      function e ->
+        let r = match e with
+            Some (headers_out,body,len) ->
+              let headers_out = match location with
+                | Some url -> (HSCp.Location url)::headers_out
+                | None -> headers_out in
+              { HST.sl = sl; HST.headers = HSCp.Content_Length len::headers_out; HST.body = body }
+          | None -> _not_modified ()
+        in cont r
+    )
 
 let make_response_result ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero)
     ?(cache=true) ?(delcookies=false) ?location ?req status _type ?content_dispo content =
@@ -383,11 +389,13 @@ let post_headers hr request_type headers_in headers_out =
 
 let handle_special sched _runtime _method hr body_value headers _conn k =
   let include_body = match _method with HSCp.Head _ -> false | _ -> true in
-  match HSCm.get_body_from_value sched hr body_value headers include_body with
-    Some (ceheader,body,len) ->
-      k { HST.sl=HSCp.Sl ("1.0", 200, "OK"); headers=[HSCp.Content_Length len]@ceheader; body=body }
-  | None ->
-      k (_not_modified ())
+  HSCm.get_body_from_value sched hr body_value headers include_body (
+    function res -> match res with
+    | Some (ceheader,body,len) ->
+        k { HST.sl=HSCp.Sl ("1.0", 200, "OK"); headers=[HSCp.Content_Length len]@ceheader; body=body }
+    | None ->
+        k (_not_modified ())
+  )
 
 let handle_get sched runtime _method hr (uri, headers) conn k =
   #<If>Logger.debug "handle_get: uri=%s" uri#<End>;

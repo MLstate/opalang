@@ -54,12 +54,13 @@ let ping_error level fmt =
   Logger.error ("[PING][%s] "^^fmt^^"%!") level
 
 let send_txt_response winfo txt code =
-  winfo.HST.cont (HS.make_response_modified_since
-                (Time.now ())
-                winfo.HST.request
-                code
-                "text/plain; charset=utf-8"
-                (Http_common.Result txt))
+   HS.make_response_modified_since
+     (Time.now ())
+     winfo.HST.request
+     code
+     "text/plain; charset=utf-8"
+     (Http_common.Result txt)
+     winfo.HST.cont
 
 let send_json_response winfo json code =
   let txt = Json_utils.to_string json in
@@ -69,8 +70,8 @@ let send_json_response winfo json code =
   send_txt_response winfo txt code
 
 let send_unmodified winfo txt =
-  winfo.HST.cont (HS.make_response ~req:winfo.HST.request Requestdef.SC_NotModified
-                "text/plain" (Http_common.Result txt))
+  HS.make_response ~req:winfo.HST.request Requestdef.SC_NotModified
+    "text/plain" (Http_common.Result txt) winfo.HST.cont
 
 let disconnection_state_delay = ref (120 * 1000)
 let inactive_state_delay = ref None

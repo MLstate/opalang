@@ -123,7 +123,8 @@ val upto_mark_lws_ci : string -> int -> string -> int -> int -> int * int * stri
     Compress file content according to gzip/deflate flags (deflate has priority).
     Does not read file in if file content, writes from/to disc.
 *)
-val content_compress : Scheduler.t -> bool -> bool -> int -> bool -> Rcontent.content -> int -> bool * Rcontent.content
+val content_compress : Scheduler.t -> bool -> bool -> int -> bool -> Rcontent.content -> int ->
+  ((bool * Rcontent.content) -> unit) -> unit
 
 (** Simple buffer management *)
 

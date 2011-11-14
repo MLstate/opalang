@@ -825,7 +825,7 @@ export_resource(external_css_files: list(string),
                 make_response_with_headers: (
                     WebInfo.private.native_request, web_response,
                     list(Resource.http_header), string, string
-                      -> WebInfo.private.native_response
+                    -> WebInfo.private.native_response
                   )
                 ) =
     /**
@@ -957,7 +957,8 @@ export_resource(external_css_files: list(string),
       | {~json} -> handle_utf(Json.to_string(json),"text/plain")
 
       | {~mimetype ~source} ->
-          (r -> winfo.cont(
+          (r ->
+            winfo.cont(
               make_plain_response_with_headers(mimetype, source, status, r, resource_pr.rc_headers) // should it not be in utf ?
             ))
 

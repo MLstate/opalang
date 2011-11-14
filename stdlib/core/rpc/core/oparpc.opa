@@ -395,6 +395,7 @@ type OpaRPC.timeout = {
           {volatile}, winfo.http_request.request, status,
           "text/plain", msg)
       )
+
     reply_error(winfo, msg) =
       winfo.cont(
         WebCoreExport.default_make_response(

@@ -137,8 +137,7 @@ let is_gzip_deflate = function
 
 let max_chunk = ref (512*1024)
 
-let compress_content_cps sched gzip deflate compression_level cache_response content
-                         content_len cont =
+let compress_content sched gzip deflate compression_level cache_response content content_len cont =
   if (not gzip && not deflate) || compression_level < 1 || size_from_to_cache > content_len then (
     (* Logger.log "CACHE: DO NOT COMPRESS"; *)
     cont(false, content)
@@ -225,13 +224,13 @@ let compress_content_no_cps _sched gzip deflate compression_level cache_response
     with exn -> (Logger.error "compress_content: got exception %s" (Printexc.to_string exn);
                  (false, content))
 
-let compress_content sched gzip deflate compression_level cache_response content content_len =
-  (* let res = ref (false, content) in *)
-  compress_content_no_cps sched gzip deflate compression_level cache_response content content_len
-    (* (fun rres -> res := rres); *)
-  (* !res *)
+(* let compress_content sched gzip deflate compression_level cache_response content content_len cont = *)
+(*   (\* let res = ref (false, content) in *\) *)
+(*   compress_content_cps sched gzip deflate compression_level cache_response content content_len cont *)
+(*     (\* (fun rres -> res := rres); *\) *)
+(*   (\* !res *\) *)
 
-let compress_file_cps sched gzip deflate compression_level cache_response file fstat_opt file_len cont =
+let compress_file sched gzip deflate compression_level cache_response file fstat_opt file_len cont =
   if (not gzip && not deflate) || compression_level < 1 || size_from_to_cache > file_len then (
     (*Logger.log "CACHE: DO NOT COMPRESS";*)
     cont (false, file, fstat_opt)
@@ -292,8 +291,8 @@ let compress_file_cps sched gzip deflate compression_level cache_response file f
        with exn -> (Logger.error "compress_file: got exception %s" (Printexc.to_string exn);
                  cont (false, file, fstat_opt))
 
-let compress_file sched gzip deflate compression_level cache_response file fstat_opt file_len =
-  let res = ref (false, file, fstat_opt) in
-  compress_file_cps sched gzip deflate compression_level cache_response file fstat_opt file_len
-                    (fun rres -> res := rres);
-  !res
+(* let compress_file sched gzip deflate compression_level cache_response file fstat_opt file_len = *)
+(*   let res = ref (false, file, fstat_opt) in *)
+(*   compress_file_cps sched gzip deflate compression_level cache_response file fstat_opt file_len *)
+(*                     (fun rres -> res := rres); *)
+(*   !res *)
