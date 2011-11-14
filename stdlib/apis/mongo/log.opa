@@ -53,7 +53,7 @@ MongoLog = {{
    * This Mutable value defines globally throughout the running
    * program which logging type we are using.
    **/
-  logtype = Mutable.make({logger})
+  logtype = Mutable.make({stderr})
 
   @private log_(from, what, logfn, str, v) =
     do match logtype.get() with

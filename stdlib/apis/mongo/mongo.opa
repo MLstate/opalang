@@ -77,7 +77,7 @@ type Mongo.db = {
 }
 
 type Mongo.sr = {send:(Mongo.db,Mongo.mongo_buf,string)} / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} / {stop}
-type Mongo.srr = {sendresult:bool} / {sndrcvresult:option(Mongo.reply)} / {stopresult}
+type Mongo.srr = {sendresult:bool} / {sndrcvresult:option(Mongo.reply)} / {stopresult} / {reconnect}
 
 /**
  * Mongo driver failure status.
@@ -520,14 +520,7 @@ MongoDriver = {{
         | {success=cnt} ->
            do if not(reply_expected) then free_(mbuf) else void
            (cnt==len)
-        | {failure=_} -> 
-           // Awkward, we may be in the first part of a send_with_reply or in a simple send_no_reply.
-           if reply_expected
-           then false
-           else
-             if reconnect("send_no_reply",m)
-             then send_no_reply_(m,mbuf,name,reply_expected)
-             else ML.fatal("Mongo.send({name}):","comms error (Can't reconnect)",-1))
+        | {failure=_} -> false)
     | {none} ->
        ML.error("Mongo.send({name})","Attempt to write to unopened connection",false)
 
@@ -537,10 +530,6 @@ MongoDriver = {{
   @private
   send_with_reply(m,mbuf,name): option(Mongo.reply) =
     mrid = mongo_buf_requestId(mbuf)
-    myreconnect() =
-      if reconnect("send_with_reply",m)
-      then send_with_reply(m,mbuf,name)
-      else ML.fatal("Mongo.receive({name}):","comms error (Can't reconnect)",-1)
     match m.conn.get() with
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
@@ -558,8 +547,8 @@ MongoDriver = {{
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
              do reset_mailbox_(mailbox)
-             myreconnect())
-       else myreconnect()
+             {none})
+       else {none}
     | {none} ->
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
@@ -569,14 +558,16 @@ MongoDriver = {{
     | {send=(m,mbuf,name)} ->
        (match m.conn.get() with
         | {some=_conn} ->
-           {return={sendresult=send_no_reply(m,mbuf,name)}; instruction={unchanged}}
+           sr = send_no_reply(m,mbuf,name)
+           {return=if sr then {sendresult=sr} else {reconnect}; instruction={unchanged}}
         | {none} ->
            do ML.error("Mongo.send","Unopened connection",void)
            {return={sendresult=false}; instruction={unchanged}})
     | {sendrecv=(m,mbuf,name)} ->
        (match m.conn.get() with
         | {some=_conn} ->
-           {return={sndrcvresult=send_with_reply(m,mbuf,name)}; instruction={unchanged}}
+           swr = send_with_reply(m,mbuf,name)
+           {return=if Option.is_some(swr) then {sndrcvresult=swr} else {reconnect}; instruction={unchanged}}
         | {none} ->
            do ML.error("Mongo.sendrecv","Unopened connection",void)
            {return={sndrcvresult={none}}; instruction={unchanged}})
@@ -586,12 +577,20 @@ MongoDriver = {{
   @private
   snd(m,mbuf,name) =
     match (Cell.call(m.conncell,({send=((m,mbuf,name))}:Mongo.sr)):Mongo.srr) with
+    | {reconnect} ->
+      if reconnect("send_no_reply",m)
+      then snd(m,mbuf,name)
+      else ML.fatal("Mongo.send({name}):","comms error (Can't reconnect)",-1)
     | {~sendresult} -> sendresult
     | _ -> @fail
 
   @private
   sndrcv(m,mbuf,name) =
     match Cell.call(m.conncell,({sendrecv=(m,mbuf,name)}:Mongo.sr)):Mongo.srr with
+    | {reconnect} ->
+      if reconnect("send_with_reply",m)
+      then sndrcv(m,mbuf,name)
+      else ML.fatal("Mongo.receive({name}):","comms error (Can't reconnect)",-1)
     | {~sndrcvresult} -> sndrcvresult
     | _ -> @fail
 
