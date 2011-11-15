@@ -826,9 +826,47 @@ a comparison is a boolean. We write that the type of function
 ========================
 In Opa, booleans are values +{true = void}+ and +{false = void}+, or, more
 concisely but equivalently, +\{true\}+ and +\{false\}+.
-You can check whether boolean +b+ is true or false by using +if b then ... else ...+ or,
-equivalently, +match b with \{true\} -> ... | \{false\} -> ...+.
+
+Their type declaration looks as follow: +type bool = \{true\} / \{false\}+.
+Such types, admitting one of a number of variants, are called sum types.
 ========================
+
+[TIP]
+.About sum types
+========================
+A value has a _sum type_ +t / u+, meaning that the values of this type are either
+of the two variants: either a value of type +t+ or a value of type +u+.
+
+A good example of sum type are the aforementioned boolean values, which are defined
+as +type bool = \{false\}/\{true\}+.
+
+Another good example of sum type is the type +list+ of linked lists; its definition
+can be summed up as +\{nil\} / \{hd: ...; tl: list\}+.
+
+Note that sum types are not limited to two cases. Sum types with tens of cases
+are not uncommon in real applications.
+=======================
+
+Safely determining which variant was used to construct a value of a sum type
+can be accomplished with pattern matching.
+
+[TIP]
+.About pattern-matching
+========================
+The operation used to branch according to the case of a sum type
+is called _pattern-matching_. A good example of pattern-matching
+is +if ... then ... else ...+ . The more general syntax for pattern matching is
++match ... with | case_1 \-> ... | case_2 \-> ... | case_3 \-> ...+
+
+The operation is actually more powerful than just determining which case of a
+sum type is used. Indeed, if we use the vocabulary of languages such as Java or
+C#, pattern-matching combines features of +if+, +switch+, +instanceof+/+is+,
+multiple assignment and dereferenciation, but without the possible safety issues
+of +instanceof+/+is+ and with fewer chances of misuse than +switch+.
+
+As an example, you can check whether boolean +b+ is true or false by using
++if b then ... else ...+ or, equivalently, +match b with \{true\} -> ... | \{false\} -> ...+.
+=======================
 
 Distinguishing messages between users
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
