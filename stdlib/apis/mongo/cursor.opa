@@ -356,7 +356,10 @@ MongoCursor = {{
    * Example: [find_all(m, ns, query, limit)]
    *
    * Creates and destroys a cursor.
+   *
+   * {b NOTE: reverses the order.}
    **/
+  // TODO: fields and orderby here
   find_all(m:Mongo.db, ns:string, query:Bson.document, limit:int): Mongo.results =
     cursor = set_query(set_limit(init(m,ns),limit),{some=query})
     (cursor,results) =

@@ -86,7 +86,9 @@ MongoConnection = {{
            do System.at_exit( ->
                                if db.link_count.get() > 0
                                then
-                                 do ML.info("MongoConnection.open","closing mongo (exit) {db.link_count.get()}",void)
+                                 do if db.mongo.log
+                                    then ML.info("MongoConnection.open",
+                                                 "closing mongo (exit) link_count={db.link_count.get()}",void)
                                  _ = MongoDriver.close(db.mongo) 
                                  void
                                else void)
@@ -155,7 +157,8 @@ MongoConnection = {{
         do db.link_count.set(lc-1)
         if lc <= 1
         then
-          do ML.info("MongoConnection.close","closing mongo (close) link_count={db.link_count.get()}",void)
+          do if db.mongo.log
+             then ML.info("MongoConnection.close","closing mongo (close) link_count={db.link_count.get()}",void)
           _ = MongoDriver.close(db.mongo)
           void
         else void
