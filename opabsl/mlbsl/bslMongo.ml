@@ -331,6 +331,12 @@ let import = Mongo.import
 ##register copy: Mongo.mongo_buf -> Mongo.mongo_buf
 let copy = Mongo.copy
 
+##register concat: Mongo.mongo_buf, Mongo.mongo_buf -> Mongo.mongo_buf
+let concat = Mongo.concat
+
+##register append: Mongo.mongo_buf, Mongo.mongo_buf -> void
+let append = Mongo.append
+
 ##register clear: Mongo.mongo_buf -> void
 let clear = Mongo.clear
 

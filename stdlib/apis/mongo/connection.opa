@@ -175,7 +175,7 @@ MongoConnection = {{
    **/
   err(db:Mongo.mongodb, msg:string): bool =
     err = MongoCommands.getLastError(db, db.dbname)
-    status = MongoDriver.isError(err)
+    status = MongoDriver.is_error(err)
     do if db.mongo.log && status
        then ML.error("MongoConnection.err({db.dbname}.{db.collection})","msg={msg} err={MongoDriver.string_of_result(err)}",void)
     status

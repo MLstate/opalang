@@ -102,6 +102,10 @@ let import s = { Bson.buf = Buf.of_string s; stack = []; finished = true }
 
 let copy m = { Bson.buf = Buf.copy m.Bson.buf; stack = m.Bson.stack; finished = m.Bson.finished }
 
+let concat m1 m2 = { Bson.buf = Buf.of_string(m1.Bson.buf.Buf.str^m2.Bson.buf.Buf.str); stack = []; finished = true }
+
+let append m1 m2 = Buf.add_buf m1.Bson.buf m2.Bson.buf
+
 (*
 struct MsgHeader {
     int32   messageLength; // total message size, including this

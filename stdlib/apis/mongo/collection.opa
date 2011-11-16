@@ -240,6 +240,14 @@ MongoCollection = {{
   partial(c:Mongo.collection('value)): Mongo.collection('value)
     = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.PartialBit) }}
 
+  @private reply_to_result(from:string, reply_opt: option(Mongo.reply)): Mongo.result =
+    match reply_opt with
+    | {some=reply} ->
+       (match MongoDriver.reply_document(reply,0) with
+        | {some=doc} -> {success=doc}
+        | {none} -> {failure={Error="{from}: no document in reply"}})
+    | {none} -> {failure={Error="{from}: no reply"}}
+
   /**
    * Insert an OPA value into a collection.
    **/
@@ -248,12 +256,23 @@ MongoCollection = {{
     b = Bson.opa_to_bson(v,{some=@typeval('value)})
     MongoDriver.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
+  /** insert with getlasterror **/
+  inserte(c:Mongo.collection('value), v:'value): Mongo.result =
+    ns = c.db.dbname^"."^c.db.collection
+    b = Bson.opa_to_bson(v,{some=@typeval('value)})
+    reply_to_result("MongoConnection.insert",MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
+
   /**
    * Batch insert, you need to build the batch using the [Batch] module.
    **/
   insert_batch(c:Mongo.collection('value), b:Mongo.batch('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
+
+  /** insert_batch with getlasterror **/
+  insert_batche(c:Mongo.collection('value), b:Mongo.batch('value)): Mongo.result =
+    ns = c.db.dbname^"."^c.db.collection
+    reply_to_result("MongoConnection.insert_barch",MongoDriver.insert_batche(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
 
   /**
    * Update a value in a collection.
@@ -270,12 +289,22 @@ MongoCollection = {{
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
+  /** update with getlasterror **/
+  updatee(c:Mongo.collection('value), select:Mongo.select('value), update:Mongo.update('value)): Mongo.result =
+    ns = c.db.dbname^"."^c.db.collection
+    reply_to_result("MongoConnection.update",MongoDriver.updatee(c.db.mongo,c.db.update_flags,ns,c.db.dbname,select,update))
+
   /**
    * Delete values in a collection according to a select value.
    **/
   delete(c:Mongo.collection('value), select:Mongo.select('value)): bool =
     ns = c.db.dbname^"."^c.db.collection
     MongoDriver.delete(c.db.mongo,c.db.delete_flags,ns,select)
+
+  /** delete with getlasterror **/
+  deletee(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.result =
+    ns = c.db.dbname^"."^c.db.collection
+    reply_to_result("MongoConnection.delete",MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,c.db.dbname,select))
 
   /**
    * Return the [Bson.document] representation of a single value selected from

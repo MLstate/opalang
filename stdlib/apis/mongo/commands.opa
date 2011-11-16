@@ -61,6 +61,7 @@
  *   Note also that some of the results have floating elements which we 
  *   map to the Bson.register type. 
  **/
+//TODO: missing commands [currentOp, killOp]
 
 type Mongo.getLastErrorOptions = {
   fsync : Bson.register(bool);

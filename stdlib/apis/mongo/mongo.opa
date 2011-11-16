@@ -76,8 +76,20 @@ type Mongo.db = {
   max_depth : int;
 }
 
-type Mongo.sr = {send:(Mongo.db,Mongo.mongo_buf,string)} / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} / {stop}
-type Mongo.srr = {sendresult:bool} / {sndrcvresult:option(Mongo.reply)} / {stopresult} / {reconnect}
+/** Outgoing Cell messages **/
+type Mongo.sr =
+    {send:(Mongo.db,Mongo.mongo_buf,string)} // Send and forget
+  / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} // Send and expect reply
+  / {senderror:(Mongo.db,Mongo.mongo_buf,string,string)} // Send and call getlasterror
+  / {stop} // Stop the cell
+
+/** Incoming Cell messages **/
+type Mongo.srr =
+    {sendresult:bool}
+  / {sndrcvresult:option(Mongo.reply)}
+  / {snderrresult:option(Mongo.reply)}
+  / {stopresult}
+  / {reconnect}
 
 /**
  * Mongo driver failure status.
@@ -223,7 +235,10 @@ MongoDriver = {{
     string_of_value_or_failure(results,(l -> List.list_to_string(Bson.to_pretty,l)))
 
   /** Predicate for error status of a [Mongo.result] value. **/
-  isError(result:Mongo.result): bool = outcome_map(result, Bson.isError, (_ -> true))
+  is_error(result:Mongo.result): bool = outcome_map(result, Bson.is_error, (_ -> true))
+
+  /** Predicate for error status of a [Mongo.result] value. **/
+  isError(error:Mongo.error): bool = outcome_map(error, Bson.isError, (_ -> true))
 
   /**
    * Validate a BSON document by turning it into a [Mongo.result] value.
@@ -448,6 +463,12 @@ MongoDriver = {{
   /* Make a copy of a buffer */
   @private copy_ = (%% BslMongo.Mongo.copy %%: Mongo.mongo_buf -> Mongo.mongo_buf)
 
+  /* Concatenate two buffers */
+  @private concat_ = (%% BslMongo.Mongo.concat %%: Mongo.mongo_buf, Mongo.mongo_buf -> Mongo.mongo_buf)
+
+  /* Append two buffers */
+  @private append_ = (%% BslMongo.Mongo.append %%: Mongo.mongo_buf, Mongo.mongo_buf -> void)
+
   /* Clear out any data in the buffer, leave buffer allocated */
   @private clear_ = (%% BslMongo.Mongo.clear %%: Mongo.mongo_buf -> void)
 
@@ -553,6 +574,35 @@ MongoDriver = {{
        ML.error("Mongo.receive({name})","Attempt to write to unopened connection",{none})
 
   @private
+  send_with_error(m,mbuf,name,ns): option(Mongo.reply) =
+    mbuf2 = create_(m.bufsize)
+    do query_(mbuf2,0,ns^".$cmd",0,1,[H.i32("getlasterror",1)],{none})
+    mrid = mongo_buf_requestId(mbuf2)
+    do append_(mbuf,mbuf2)
+    do free_(mbuf2)
+    match m.conn.get() with
+    | {some=conn} ->
+       if send_no_reply_(m,mbuf,name,true)
+       then
+         mailbox = new_mailbox_(m.bufsize)
+         (match read_mongo_(conn,m.comms_timeout,mailbox) with
+          | {success=reply} ->
+             rrt = reply_responseTo(reply)
+             do reset_mailbox_(mailbox)
+             do free_(mbuf)
+             do if m.log then ML.debug("Mongo.send_with_error({name})","\n{string_of_message_reply(reply)}",void)
+             if mrid != rrt
+             then ML.error("MongoDriver.send_with_error","RequestId mismatch, expected {mrid}, got {rrt}",{none})
+             else {some=reply}
+          | {~failure} ->
+             do if m.log then ML.info("send_with_error","failure={failure}",void)
+             do reset_mailbox_(mailbox)
+             {none})
+       else {none}
+    | {none} ->
+       ML.error("Mongo.send_with_error({name})","Attempt to write to unopened connection",{none})
+
+  @private
   sr(_, msg) =
     match msg with
     | {send=(m,mbuf,name)} ->
@@ -571,6 +621,14 @@ MongoDriver = {{
         | {none} ->
            do ML.error("Mongo.sendrecv","Unopened connection",void)
            {return={sndrcvresult={none}}; instruction={unchanged}})
+    | {senderror=(m,mbuf,name,ns)} ->
+       (match m.conn.get() with
+        | {some=_conn} ->
+           swe = send_with_error(m,mbuf,name,ns)
+           {return=if Option.is_some(swe) then {snderrresult=swe} else {reconnect}; instruction={unchanged}}
+        | {none} ->
+           do ML.error("Mongo.senderror","Unopened connection",void)
+           {return={snderrresult={none}}; instruction={unchanged}})
     | {stop} ->
        {return={stopresult}; instruction={stop}}
 
@@ -592,6 +650,16 @@ MongoDriver = {{
       then sndrcv(m,mbuf,name)
       else ML.fatal("Mongo.receive({name}):","comms error (Can't reconnect)",-1)
     | {~sndrcvresult} -> sndrcvresult
+    | _ -> @fail
+
+  @private
+  snderr(m,mbuf,name,ns) =
+    match Cell.call(m.conncell,({senderror=(m,mbuf,name,ns)}:Mongo.sr)):Mongo.srr with
+    | {reconnect} ->
+      if reconnect("send_with_error",m)
+      then snderr(m,mbuf,name,ns)
+      else ML.fatal("Mongo.snderr({name}):","comms error (Can't reconnect)",-1)
+    | {~snderrresult} -> snderrresult
     | _ -> @fail
 
   @private
@@ -684,6 +752,14 @@ MongoDriver = {{
     snd(m,mbuf,"insert")
 
   /**
+   * Same as insert but piggyback a getlasterror command.
+   **/
+  inserte(m:Mongo.db, flags:int, ns:string, dbname:string, documents:Bson.document): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do insert_(mbuf,flags,ns,documents)
+    snderr(m,mbuf,"insert",dbname)
+
+  /**
    *  [insertf]:  same as [insert] but using tags instead of bit-wise flags.
    **/
   insertf(m:Mongo.db, tags:list(Mongo.insert_tag), ns:string, documents:Bson.document): bool =
@@ -698,6 +774,12 @@ MongoDriver = {{
     mbuf = create_(m.bufsize)
     do insert_batch_(mbuf,flags,ns,documents)
     snd(m,mbuf,"insert")
+
+  /** insert_batch with added getlasterror query **/
+  insert_batche(m:Mongo.db, flags:int, ns:string, dbname:string, documents:list(Bson.document)): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do insert_batch_(mbuf,flags,ns,documents)
+    snderr(m,mbuf,"insert",dbname)
 
   /**
    *  [insert_batchf]:  same as [insert_batch] but using tags instead of bit-wise flags.
@@ -716,6 +798,12 @@ MongoDriver = {{
     mbuf = create_(m.bufsize)
     do update_(mbuf,flags,ns,selector,update)
     snd(m,mbuf,"update")
+
+  /** update with added getlasterror query **/
+  updatee(m:Mongo.db, flags:int, ns:string, dbname:string, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do update_(mbuf,flags,ns,selector,update)
+    snderr(m,mbuf,"update",dbname)
 
   /**
    *  [updatef]:  same as [update] but using tags instead of bit-wise flags.
@@ -765,6 +853,12 @@ MongoDriver = {{
     do delete_(mbuf,flags,ns,selector)
     snd(m,mbuf,"delete")
 
+  /** delete with added getlasterror query **/
+  deletee(m:Mongo.db, flags:int, ns:string, dbname:string, selector:Bson.document): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do delete_(mbuf,flags,ns,selector)
+    snderr(m,mbuf,"delete",dbname)
+
   /**
    *  [deletef]:  same as [delete] but using tags instead of bit-wise flags.
    **/
@@ -781,6 +875,12 @@ MongoDriver = {{
     do kill_cursors_(mbuf,cursors)
     snd(m,mbuf,"kill_cursors")
 
+  /** kill_cursors with added getlasterror query **/
+  kill_cursorse(m:Mongo.db, dbname:string, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do kill_cursors_(mbuf,cursors)
+    snderr(m,mbuf,"kill_cursors",dbname)
+
   /**
    *  Send OP_MSG.
    *  @return a bool indicating whether the message was successfully sent or not.
@@ -789,6 +889,12 @@ MongoDriver = {{
     mbuf = create_(m.bufsize)
     do msg_(mbuf,msg)
     snd(m,mbuf,"msg")
+
+  /** kill_cursors with added getlasterror query **/
+  msge(m:Mongo.db, dbname:string, msg:string): option(Mongo.reply) =
+    mbuf = create_(m.bufsize)
+    do msg_(mbuf,msg)
+    snderr(m,mbuf,"msg",dbname)
 
   /** Access components of the reply value **/
   reply_messageLength = (%% BslMongo.Mongo.reply_messageLength %% : Mongo.reply -> int)

@@ -503,11 +503,20 @@ Bson = {{
   /**
    * Decide if a document contains an error or not.
    **/
-  isError(doc:Bson.document): bool =
-    (match find_int(doc,"ok") with {some=ok} -> ok != 0 | {none} -> false) ||
+  is_error(doc:Bson.document): bool =
+    (match find_int(doc,"ok") with {some=ok} -> ok != 1 | {none} -> false) ||
     (match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false) ||
     (match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false) ||
     (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
+
+  /**
+   * Same as is_error but for a [Mongo.error] type.
+   **/
+  isError(err:Bson.error): bool =
+    (match err.ok with {present=ok} -> ok != 1 | {absent} -> false) ||
+    (match err.err with {present=err} -> err != "" | {absent} -> false) ||
+    (match err.code with {present=code} -> code != 0 | {absent} -> false) ||
+    (match err.errmsg with {present=errmsg} -> errmsg != "" | {absent} -> false)
 
   /**
    * Same as [string_of_doc] but using an OPA type.
