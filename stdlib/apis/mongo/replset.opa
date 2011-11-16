@@ -150,15 +150,15 @@ MongoReplicaSet = {{
   /**
    * Initialize a [Mongo.db] connection using the given list of seeds.
    **/
-  init(name:string, bufsize:int, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(bufsize, log)
+  init(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    m = MongoDriver.init(bufsize, close_socket, log)
     {m with ~seeds; hosts=Mutable.make([]); ~name}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
    **/
-  init_single(name:string, bufsize:int, log:bool, seed:Mongo.mongo_host): Mongo.db =
-    init(name,bufsize,log,[seed])
+  init_single(name:string, bufsize:int, close_socket:bool, log:bool, seed:Mongo.mongo_host): Mongo.db =
+    init(name,bufsize,close_socket,log,[seed])
 
   /**
    * Generate a [Mongo.mongo_host] value from a string: "host:port".

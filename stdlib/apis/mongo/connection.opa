@@ -108,8 +108,8 @@ MongoConnection = {{
    *
    * Example: [open(bufsize, host, port)]
    **/
-  open(bufsize:int, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,addr,port,false))
+  open(bufsize:int, close_socket:bool, log:bool, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
+    open_(MongoDriver.open(bufsize,close_socket,addr,port,log))
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
@@ -120,8 +120,9 @@ MongoConnection = {{
    * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
-  repl(name:string, bufsize:int, seeds:list(Mongo.mongo_host)): outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,false,seeds)))
+  repl(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
+      : outcome(Mongo.mongodb,Mongo.failure) =
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,close_socket,log,seeds)))
 
   /**
    * Clone a connection.  We actually just bump the link count.  On close
