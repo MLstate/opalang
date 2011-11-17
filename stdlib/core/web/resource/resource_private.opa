@@ -705,7 +705,7 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
       end }
 
   compute_everything(customizers, body:xhtml, user_agent) =
-     do jlog("RECOMPUTE")
+     //do jlog("RECOMPUTE")
      customizations  = compute_customization(customizers, user_agent)
      compiled_result = compute_result(body, customizations)
      compiled_result

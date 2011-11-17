@@ -105,7 +105,7 @@ type OpaRPC.interface = {{
         (rows,error_row) = unserialize_aux(@typeval(OpaType.row), rows)
         (cols,error_col) = unserialize_aux(@typeval(OpaType.col), cols)
         if error_var || error_row || error_col then
-          do jlog("[oparpc unserialize] Type|Row|Col value isn't a OpaType.ty|row|col")
+          do Log.error("oparpc unserialize","Type|Row|Col value isn't a OpaType.ty|row|col")
           none
         else
           some(~{types; rows; cols; values}) : option(OpaRPC.request)
@@ -139,7 +139,7 @@ type OpaRPC.interface = {{
           else
             match OpaSerialize.finish_unserialize(value, ty) with
             | {none} ->
-              do jlog("OPARPC : extract_values -> Value doesn't match given ty")
+              do Log.error("OPARPC","extract_values -> Value doesn't match given ty")
               ([], true)
             | {some = value} -> ((value +> acc), err)
         ),request.values, types, ([], false)

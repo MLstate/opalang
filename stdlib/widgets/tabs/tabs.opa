@@ -230,7 +230,7 @@ WTabs = {{
   print_pos(pos:option(int)) =
     if DEBUG then
       match pos with
-      | ~{some} -> jlog("{some}")
+      | ~{some} -> Log.info("DEBUG","{some}")
       | {none} -> void
     else void
 

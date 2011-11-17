@@ -312,13 +312,13 @@ type DynamicResource.message =
         match visibility with
         | { none } -> true
         | { some = filter_client } ->
-          do jlog("filter_client of resource is {filter_client}")
+          do Log.info("DynamicResource","filter_client of resource is {filter_client}")
           match thread_context().key with
           | { client = { ~client ; page = _ } } ->
-            do jlog("accessor of client is {client}")
+            do Log.info("DynamicResource","accessor of client is {client}")
             String.equals(client, filter_client)
           | _ ->
-            do jlog("no client context there !!")
+            do Log.info("DynamicResource","no client context there !!")
             false
       )
       then (

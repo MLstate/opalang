@@ -430,8 +430,8 @@ OpaSerializeClosure = {{
       /* Error case *****************************/
       | {TyAbstract}
       | {TyVar = _} ->
-        do jlog(error_message("OpaSerialize.partial_serialize", original_ty, ty))
-        do jlog("value: {Debug.dump(value)}")
+        do Log.error("partial_serialize_options", error_message("OpaSerialize.partial_serialize", original_ty, ty))
+        do Log.error("partial_serialize_options", "value: {Debug.dump(value)}")
         error("OpaSerialize.partial_serialize")
   aux(value, ty)
 
@@ -462,7 +462,7 @@ OpaSerializeClosure = {{
   unserialize(str, ty) =
     match partial_unserialize(str) with
     | {none} ->
-      do jlog("[OpaSerialize.unserialize] Failed to unserialize from a string")
+      do Log.error("OpaSerialize.unserialize","Failed to unserialize from a string")
       {none}
     | {some = unser} ->
       finish_unserialize(unser, ty)
@@ -772,7 +772,7 @@ OpaSerializeClosure = {{
 
       /* Error case *****************************/
       | (a,b) ->
-        do jlog("[OpaSerialize.finish_unserialize] Type doesn't match value :\nvalue : {to_string(a)}\n on type : {to_string(b)}\n inside the main type {OpaType.to_pretty(original_ty)}")
+        do Log.error("OpaSerialize.finish_unserialize","Type doesn't match value :\nvalue : {to_string(a)}\n on type : {to_string(b)}\n inside the main type {OpaType.to_pretty(original_ty)}")
         {none}
     aux(unser, ty)
 
