@@ -113,10 +113,10 @@ type Mongo.serverStatusType = {
   opcounters : { insert : int; query : int; update : int; delete : int; getmore : int; command : int; };
   asserts : { regular : int; warning : int; msg : int; user : int; rollovers : int; };
   writeBacksQueued : bool;
-  repl : Bson.register({ setName : string;
+  repl : Bson.register({ setName : Bson.register(string);
                          ismaster : bool;
-                         secondary : bool;
-                         hosts : list(string);
+                         secondary : Bson.register(bool);
+                         hosts : Bson.register(list(string));
                          primary : Bson.register(string);
                        });
   ok : int;
@@ -323,15 +323,10 @@ MongoCommands = {{
   /**
    * Create a collection.
    **/
-  // TODO:  There is no such command.  See how the mongo shell does it and copy...
-  /*
-  createCollection(m:Mongo.mongodb, db:string, collection:string, capped:option({capped:bool; size:int;})): Mongo.result =
-    match capped with
-    | {some=~{capped; size}} ->
-       simple_str_command_opts(m, db, "createCollection", collection, [H.bool("capped",capped), H.i32("size",size)])
-    | {none} ->
-       simple_str_command(m, db, "createCollection", collection)
-  */
+  createCollection(m:Mongo.mongodb, dbname:string, collection:string, capped:option(bool), size:option(int)): Mongo.result =
+    opts = List.flatten([match capped with {some=tf} -> [H.bool("capped",tf)] | _ -> [],
+                         match size with {some=size} -> [H.i32("size",size)] | _ -> []])
+    simple_str_command_opts(m, dbname, "create", collection, opts)
 
   /**
    * Cap a collection.  Example: [convertToCapped(m, db, collection, size)]

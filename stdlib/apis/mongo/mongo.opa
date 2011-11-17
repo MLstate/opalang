@@ -304,7 +304,7 @@ MongoDriver = {{
     | {success=doc} ->
        (match (Bson.doc2opa(doc):option('a)) with
         | {some=a} -> {success=a}
-        | {none} -> {failure={Error="Mongo.resultToOpa: document conversion failure"}})
+        | {none} -> {failure={Error="MongoDriver.resultToOpa: document conversion failure"}})
     | {~failure} -> {~failure}
 
   /** Flag bitmasks **/
@@ -509,7 +509,7 @@ MongoDriver = {{
   reconnect(from:string, m:Mongo.db): bool =
     if m.depth.get() > m.max_depth
     then
-      do if m.log then ML.error("reconnect({from})","max depth exceeded",void)
+      do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
       false
     else
       ret(tf:bool) = do m.depth.set(m.depth.get()-1) tf
@@ -522,10 +522,10 @@ MongoDriver = {{
            else
              (match reconnectfn(m) with
               | {success=_} ->
-                 do if m.log then ML.info("reconnect({from})","reconnected",void)
+                 do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
                  ret(true)
               | {~failure} ->
-                 do if m.log then ML.info("reconnect({from})","failure={string_of_failure(failure)}",void)
+                 do if m.log then ML.info("MongoDriver.reconnect({from})","failure={string_of_failure(failure)}",void)
                  do Scheduler.wait(m.reconnect_wait)
                  aux(attempts+1))
          aux(0)
@@ -533,6 +533,8 @@ MongoDriver = {{
          ret(false)
 
   @private
+  // Rule: for every open_socket which returns success we must call close_socket
+  // Property: we can stack opens and the socket will only close once the last is closed
   open_socket(m:Mongo.db): outcome(Socket.connection,Mongo.failure) =
     match m.conn.get() with
     | {some=conn} ->
@@ -570,7 +572,7 @@ MongoDriver = {{
     | {success=conn} ->
        (str, len) = export_(mbuf)
        s = String.substring(0,len,str)
-       do if m.log then ML.debug("Mongo.send({name})","\n{string_of_message(s)}",void)
+       do if m.log then ML.debug("MongoDriver.send({name})","\n{string_of_message(s)}",void)
        (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
         | {success=cnt} ->
            do if not(reply_expected) then free_(mbuf) else void
@@ -580,7 +582,7 @@ MongoDriver = {{
            do close_socket(m)
            false)
     | {~failure} ->
-       ML.error("Mongo.send({name})","{string_of_failure(failure)}",false)
+       ML.error("MongoDriver.send({name})","{string_of_failure(failure)}",false)
 
   @private
   send_no_reply(m,mbuf,name): bool = send_no_reply_(m,mbuf,name,false)
@@ -598,7 +600,7 @@ MongoDriver = {{
              rrt = reply_responseTo(reply)
              do reset_mailbox_(mailbox)
              do free_(mbuf)
-             do if m.log then ML.debug("Mongo.receive({name})","\n{string_of_message_reply(reply)}",void)
+             do if m.log then ML.debug("MongoDriver.receive({name})","\n{string_of_message_reply(reply)}",void)
              do close_socket(m)
              if mrid != rrt
              then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",{none})
@@ -612,7 +614,7 @@ MongoDriver = {{
          do close_socket(m)
          {none}
     | {~failure} ->
-       ML.error("Mongo.receive({name})","{string_of_failure(failure)}",{none})
+       ML.error("MongoDriver.receive({name})","{string_of_failure(failure)}",{none})
 
   @private
   send_with_error(m,mbuf,name,ns): option(Mongo.reply) =
@@ -631,7 +633,7 @@ MongoDriver = {{
              rrt = reply_responseTo(reply)
              do reset_mailbox_(mailbox)
              do free_(mbuf)
-             do if m.log then ML.debug("Mongo.send_with_error({name})","\n{string_of_message_reply(reply)}",void)
+             do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{string_of_message_reply(reply)}",void)
              do close_socket(m)
              if mrid != rrt
              then ML.error("MongoDriver.send_with_error","RequestId mismatch, expected {mrid}, got {rrt}",{none})
@@ -645,7 +647,7 @@ MongoDriver = {{
          do close_socket(m)
          {none}
     | {~failure} ->
-       ML.error("Mongo.send_with_error({name})","{string_of_failure(failure)}",{none})
+       ML.error("MongoDriver.send_with_error({name})","{string_of_failure(failure)}",{none})
 
   @private
   sr(_, msg) =
@@ -668,7 +670,7 @@ MongoDriver = {{
     | {reconnect} ->
       if reconnect("send_no_reply",m)
       then snd(m,mbuf,name)
-      else ML.fatal("Mongo.send({name}):","comms error (Can't reconnect)",-1)
+      else ML.fatal("MongoDriver.send({name}):","comms error (Can't reconnect)",-1)
     | {~sendresult} -> sendresult
     | _ -> @fail
 
@@ -678,7 +680,7 @@ MongoDriver = {{
     | {reconnect} ->
       if reconnect("send_with_reply",m)
       then sndrcv(m,mbuf,name)
-      else ML.fatal("Mongo.receive({name}):","comms error (Can't reconnect)",-1)
+      else ML.fatal("MongoDriver.receive({name}):","comms error (Can't reconnect)",-1)
     | {~sndrcvresult} -> sndrcvresult
     | _ -> @fail
 
@@ -688,7 +690,7 @@ MongoDriver = {{
     | {reconnect} ->
       if reconnect("send_with_error",m)
       then snderr(m,mbuf,name,ns)
-      else ML.fatal("Mongo.snderr({name}):","comms error (Can't reconnect)",-1)
+      else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
     | {~snderrresult} -> snderrresult
     | _ -> @fail
 
@@ -729,7 +731,7 @@ MongoDriver = {{
    * @param port Port number for the MongoDB server.
    **/
   connect(m:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
-    do if m.log then ML.info("Mongo.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
+    do if m.log then ML.info("MongoDriver.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
     do match m.conn.get() with | {some=conn} -> Socket.close(conn) | {none} -> void
     do m.conn.set({none})
     do m.primary.set({none})
@@ -749,6 +751,7 @@ MongoDriver = {{
    *  Convenience function, initialise and connect at the same time.
    **/
   open(bufsize:int, close_socket:bool, addr:string, port:int, log:bool): outcome(Mongo.db,Mongo.failure) =
+    do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
     connect(init(bufsize,close_socket,log),addr,port)
 
   /**
@@ -760,6 +763,7 @@ MongoDriver = {{
   close(m:Mongo.db): Mongo.db =
     do match m.conn.get() with
        | {some=conn} ->
+          do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
           do stop(m)
           Socket.close(conn)
        | {none} ->

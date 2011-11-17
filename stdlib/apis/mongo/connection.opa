@@ -30,8 +30,14 @@
  * servers.  To be used by higher-level modules so that only one
  * connection is opened to a given server whereas several interfaces can be attached to the open connection.
  *
- * Note that you have to be careful with concurrency, here.  This mechanism is not intended
- * to block access to shared resources.
+ * We also handle the command line arguments here.  When we call [open] we parse (one time)
+ * the command line which sets up the variable [params].  We implement a system of named
+ * connections and we build up a description of each named connection:
+ *
+ * [prog.exe -mn conn_name -mr replname -ms localhost:12345 -ms localhost:54321]
+ *
+ * We can then open connections by name: [MongoConnection.open("conn_name")], the default
+ * connection name is "default".
  *
  * {1 Where should I start?}
  *
@@ -48,6 +54,7 @@
 @abstract
 type Mongo.mongodb = {
   mongo: Mongo.db;
+  name: string;
   bufsize: int;
   addr: string;
   port: int;
@@ -67,17 +74,151 @@ type Mongo.mongodb = {
   query_flags: int;
 }
 
+type Mongo.param = {
+  name:string;
+  replname:option(string);
+  bufsize:int;
+  close_socket:bool;
+  log:bool;
+  seeds:list(Mongo.mongo_host);
+}
+type Mongo.params = list(Mongo.param)
+
 MongoConnection = {{
 
   @private ML = MongoLog
 
+  @private default_seeds = ([("localhost",MongoDriver.default_port)]:list(Mongo.mongo_host))
+
+  @private init_param = ({
+    name = "default";
+    replname = {none};
+    bufsize = 50*1024;
+    close_socket = false;
+    log = false;
+    seeds = default_seeds;
+  }:Mongo.param)
+
+  @private last_name = Mutable.make("default")
+
+  @private params = Mutable.make(([init_param]:Mongo.params))
+
+  @private params_done = Mutable.make(false)
+
+  /**
+   * Add a named connection to the list of named connections.
+   * If this function is called {b before} the first call to [MongoConnection.open]
+   * then the command line parameters can update the value we add here.  If it is
+   * called {b after} the first [open] call then we override the command line parameters
+   * and set them here.
+   **/
+  add_named_connection(p:Mongo.param): void =
+    rec add(l) =
+      match l with
+      | [] -> [p]
+      | [h|t] ->
+         if h.name == p.name
+         then [p|t]
+         else [h|add(t)]
+    params.set(add(params.get()))
+
   @private
-  open_(dbo:outcome(Mongo.db,Mongo.failure)): outcome(Mongo.mongodb,Mongo.failure) =
+  add_param(f,p:Mongo.params) =
+    ln = last_name.get()
+    rec updt(l) =
+      match l with
+      | [p|rest] ->
+         if p.name == ln
+         then [f(p)|rest]
+         else [p|updt(rest)]
+      | [] -> [f({ init_param with name=ln })]
+    updt(p)
+
+  @private
+  get_params = ->
+    do if not(params_done.get())
+       then params.set(CommandLine.filter({
+         title = "MongoDB connection parameters";
+         init = params.get() : Mongo.params;
+         anonymous = [];
+         parsers = [
+           {CommandLine.default_parser with
+              names = ["--mongoname", "-mn"]
+              description = "Name for the MongoDB server connection"
+              param_doc = "<string>"
+              on_param(p) = parser name={Rule.consume} ->
+                do last_name.set(name)
+                {no_params = add_param((p -> { p with ~name }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongoreplname", "-mr"]
+              description = "Replica set name for the MongoDB server"
+              param_doc = "<string>"
+              on_param(p) = parser s={Rule.consume} ->
+                {no_params = add_param((p -> { p with replname={some=s} }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongobufsize", "-mb"]
+              description = "Hint for initial MongoDB connection buffer size"
+              param_doc = "<int>"
+              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize = n }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongoclosesocket", "-mc"]
+              description = "Maintain MongoDB server sockets in a closed state"
+              param_doc = "<bool>"
+              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with close_socket = b }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongolog", "-ml"]
+              description = "Enable MongoLog logging"
+              param_doc = "<bool>"
+              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with log = b }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongoseed", "-ms"]
+              description = "Add a seed to a replica set, allows multiple seeds"
+              param_doc = "<host>\{:<port>\}"
+              on_param(p) =
+                parser s={Rule.consume} ->
+                  {no_params = add_param((p ->
+                    seeds = if p.seeds == default_seeds then [] else p.seeds
+                    { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)|seeds] }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongohost", "-mh"]
+              description = "Host name of a MongoDB server, overwrites any previous addresses for this name"
+              param_doc = "<host>\{:<port>\}"
+              on_param(p) =
+                parser s={Rule.consume} ->
+                  {no_params = add_param((p ->
+                    { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)] }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongologtype", "-mt"]
+              description = "Type of logging: stdout, stderr, logger, none"
+              param_doc = "<string>"
+              on_param(p) = parser s={Rule.consume} ->
+                logtype =
+                  ((match s with
+                    | "stdout" -> {stdout}
+                    | "stderr" -> {stderr}
+                    | "logger" -> {logger}
+                    | "none" | "nomongolog" -> {nomongolog}
+                    | _ -> ML.fatal("MongoConnection.get_params","Unknown Mongo log type string {s}",-1)):Mongo.logtype)
+                {no_params = add_param((p -> do MongoLog.logtype.set(logtype) p),p)}
+           },
+         ];
+       }))
+  params_done.set(true)
+
+  @private
+  open_(dbo:outcome(Mongo.db,Mongo.failure),name:string): outcome(Mongo.mongodb,Mongo.failure) =
     match dbo with
     | {success=mongo} ->
        (match mongo.primary.get() with
         | {some=(addr,port)} ->
-           db = {~mongo; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
+           db = {~mongo; ~name; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
                  keyname="key"; valname="value"; idxname="index";
                  dbname="db"; collection="collection";
                  fields={none}; orderby={none}; limit=0; skip=0;
@@ -96,33 +237,61 @@ MongoConnection = {{
         | {none} -> {failure={Error="MongoConnection.open: no primary"}})
     | {~failure} -> {~failure}
 
-  /** Return the name of the inbuilt db **/
-  dbname(m:Mongo.mongodb): string = m.dbname
-
-  /** Return the name of the inbuilt collection **/
-  collection(m:Mongo.mongodb): string = m.collection
-
   /**
    * Open a connection to a single server.  No check for primary status is
-   * carried out and no reconnection is attempted.
+   * carried out and no reconnection is attempted.  Note that we need to
+   * give a name to the connection even though it is dissociated from the
+   * list of named connections.
    *
-   * Example: [open(bufsize, host, port)]
+   * Example: [openraw(name, bufsize, close_socket, log, host, port)]
    **/
-  open(bufsize:int, close_socket:bool, log:bool, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,close_socket,addr,port,log))
+  openraw(name:string, bufsize:int, close_socket:bool, log:bool, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
+    open_(MongoDriver.open(bufsize,close_socket,addr,port,log),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
    *
-   * Example: [open(name, bufsize, seeds)]
+   * Example: [replraw(name, bufsize, close_socket, log, seeds)]
    *
    * This routine causes a serach for the current host list among the seeds
    * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
-  repl(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,close_socket,log,seeds)))
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,close_socket,log,seeds)),name)
+
+  /**
+   * Open a connection according to the named parameters.
+   *
+   * Parameters are defined on the command line and can define any number
+   * of connections:
+   *
+   * [prog.exe -ms localhost:27017 -mn blort -mr blort -ms localhost:10001 -mc true]
+   *
+   * The [-mn] option defines the name, following options apply to the most recent
+   * name on the command line (the default name is "default").
+   **/
+  open(name:string): outcome(Mongo.mongodb,Mongo.failure) =
+    do get_params()
+    match List.find((p -> p.name == name),params.get()) with
+    | {some=p} ->
+       (match p.replname with
+        | {some=rn} -> replraw(rn,p.bufsize,p.close_socket,p.log,p.seeds)
+        | {none} ->
+           (match p.seeds with
+            | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
+            | [(host,port)] -> openraw(name,p.bufsize,p.close_socket,p.log,host,port)
+            | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
+    | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
+
+  /**
+   * Open a named connection but cause a fatal error if a connection cannot be found.
+   **/
+  openfatal(name:string): Mongo.mongodb =
+    match open(name) with
+    | {success=rs} -> rs
+    | {~failure} -> ML.fatal("MongoConnection.openfatal","Can't connect: {MongoDriver.string_of_failure(failure)}",-1)
 
   /**
    * Clone a connection.  We actually just bump the link count.  On close
@@ -134,11 +303,11 @@ MongoConnection = {{
 
   /**
    * Change the namespace built into the connection.  The defaults are:
-   * db="db" and collection="collection".  Changing the namespace bumps
-   * the link count.
+   * db="db" and collection="collection".
    **/
+   //* Changing the namespace {b no longer} bumps the link count.
   namespace(db:Mongo.mongodb, dbname:string, collection:string): Mongo.mongodb =
-    do db.link_count.set(db.link_count.get()+1)
+    //do db.link_count.set(db.link_count.get()+1)
     { db with ~dbname; ~collection }
 
   /**
@@ -164,6 +333,12 @@ MongoConnection = {{
           void
         else void
       else void
+
+  /** Return the name of the inbuilt db **/
+  dbname(m:Mongo.mongodb): string = m.dbname
+
+  /** Return the name of the inbuilt collection **/
+  collection(m:Mongo.mongodb): string = m.collection
 
   /**
    * Return the last error on the given connection.

@@ -99,6 +99,16 @@ type Mongo.collection_cursor('a) = {
 type Mongo.group('a) = { retval:list('a); count:int; keys:int; ok:int }
 type Mongo.group_result('a) = outcome(Mongo.group('a),Mongo.failure)
 
+/**
+ * Return a package of pre-typed values.
+ **/
+type Mongo.pkg('value) =
+  (Mongo.collection('value),
+   {select:(Bson.document -> Mongo.select('value));
+    update:(Bson.document -> Mongo.update('value));
+    sempty:Mongo.select('value);
+    uempty:Mongo.update('value)})
+
 MongoCollection = {{
 
   @private ML = MongoLog
@@ -159,10 +169,41 @@ MongoCollection = {{
    * Create a collection from a [Mongo.mongodb] connection.  The type of the connection
    * is remembered here and used to check the types of values returned from the MongoDB server.
    * Note, however, that we clone the connection so that we will be using the same connection
-   * to the server as the parent connection.  For concurrent access to collections you should
-   * have a fresh connection for each thread.
+   * to the server as the parent connection.
    **/
   create(db:Mongo.mongodb): Mongo.collection('value) = { db=MongoConnection.clone(db); ty=@typeval('value); }
+
+  /**
+   * Open a connection and create a collection on top of it.  Unlike [create] the connection
+   * is encapsulated in the collection object so that when the collection is destroyed the
+   * connection is closed.
+   **/
+  open(name:string, dbname:string, collection:string): outcome(Mongo.collection('value),Mongo.failure) =
+    match MongoConnection.open(name) with
+    | {success=mongo} -> {success={ db=MongoConnection.namespace(mongo,dbname,collection); ty=@typeval('value); }}
+    | {~failure} -> {~failure}
+
+  /** Same as [open] but treat a failure to open the connection as a fatal error. **/
+  openfatal(name:string, dbname:string, collection:string): Mongo.collection('value) =
+    match open(name, dbname, collection) with
+    | {success=coll} -> coll
+    | {~failure} -> ML.fatal("MongoCollection.openfatal","Can't connect: {MongoDriver.string_of_failure(failure)}",-1)
+
+  /** Supply a set of useful values associated with a collection **/
+  makepkg(c:Mongo.collection('value)): Mongo.pkg('value) =
+    (c,
+     {select=MongoSelect.create;
+      update=MongoUpdate.create;
+      sempty=(MongoSelect.create(MongoSelectUpdate.empty()));
+      uempty=(MongoUpdate.create(MongoSelectUpdate.empty()))})
+
+  /** Same as [open] but returning pre-typed select and update functions **/
+  openpkg(name:string, dbname:string, collection:string): outcome(Mongo.pkg('value),Mongo.failure) =
+    MongoDriver.map_success(open(name,dbname,collection),makepkg)
+
+  /** Same as [openfatal] but returning pre-typed select and update functions **/
+  openpkgfatal(name:string, dbname:string, collection:string) : Mongo.pkg('value) =
+    makepkg(openfatal(name,dbname,collection))
 
   /**
    * Destroy a collection.  Actually just close the cloned connection.
