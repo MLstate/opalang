@@ -100,9 +100,11 @@ type Mongo.srr =
  * which signals that expected fields were missing from a reply.
  **/
 type Mongo.failure =
-    {Error : string}
+    {OK}
+  / {Error : string}
   / {DocError : Bson.document}
   / {Incomplete}
+  / {NotFound}
 
 /**
  * Mongo success status, just a document.
@@ -216,7 +218,9 @@ MongoDriver = {{
     match failure with
     | {Error=str} -> str
     | {DocError=doc} -> Bson.string_of_doc_error(doc)
+    | {OK} -> "Ok"
     | {Incomplete} -> "Incomplete"
+    | {NotFound} -> "NotFound"
 
   /** Make an error report string out of a [Mongo.result] value, will print "<ok>" if no error. **/
   string_of_result(result:Mongo.result): string = outcome_map(result, Bson.string_of_doc_error, string_of_failure)
@@ -973,6 +977,7 @@ MongoDriver = {{
   BackgroundBit = 0x00000004
   SparseBit     = 0x00000008
 
+  // TODO: create_indexe with getlasterror
   @private create_index_(m:Mongo.db, ns:string, key:Bson.document, opts:Bson.document): bool =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))

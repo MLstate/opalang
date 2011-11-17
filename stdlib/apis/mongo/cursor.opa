@@ -66,7 +66,7 @@ type Mongo.cursor = {
   current : int;
   doc : Bson.document;
   killed : bool;
-  error : string
+  error : Mongo.failure;
 }
 
 @server_private
@@ -98,7 +98,7 @@ MongoCursor = {{
     current = 0;
     doc = error_document("Uninitialised document",-1);
     killed = {false};
-    error = "<ok>"
+    error = {OK}
   }
 
   /**
@@ -116,7 +116,7 @@ MongoCursor = {{
   tailable(c:Mongo.cursor): Mongo.cursor = { c with flags=Bitwise.lor(c.flags, MongoDriver.TailableCursorBit) }
 
   @private
-  set_error(c:Mongo.cursor, error:string): Mongo.cursor = { c with ~error; killed={true} }
+  set_error(c:Mongo.cursor, error:Mongo.failure): Mongo.cursor = { c with ~error; killed={true} }
 
   @private
   reply(c:Mongo.cursor, reply_opt:option(Mongo.reply), name:string, query_sent:bool): Mongo.cursor =
@@ -131,7 +131,7 @@ MongoCursor = {{
           current = 0;
           doc = error_document("Uninitialised document",-1);
       }
-    | {none} -> set_error(c,"MongoCursor.{name}: no reply")
+    | {none} -> set_error(c,{Error="MongoCursor.{name}: no reply"})
 
   /**
    * Perform an OP_QUERY call to the database server based on the parameters
@@ -149,9 +149,9 @@ MongoCursor = {{
                | {some=orderby} -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",orderby)]
                | {none} -> Option.get(c.query))
       reply(c,MongoDriver.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
-    else set_error(c,(if c.killed
-                      then "MongoCursor.op_query: already killed"
-                      else "MongoCursor.op_query: no query"))
+    else set_error(c,{Error=(if c.killed
+                             then "MongoCursor.op_query: already killed"
+                             else "MongoCursor.op_query: no query")})
 
   /**
    * Perform an OP_GETMORE call, if a valid cursor ID exists in the cursor.
@@ -159,7 +159,7 @@ MongoCursor = {{
   get_more(c:Mongo.cursor): Mongo.cursor =
     if not(c.killed) && not(MongoDriver.is_null_cursorID(c.cid))
     then reply(c,MongoDriver.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
-    else set_error(c,"MongoCursor.get_more: attempt to get more with dead cursor")
+    else set_error(c,{Error="MongoCursor.get_more: attempt to get more with dead cursor"})
 
   /**
    * Return the [n]'th document in the reply stored in a cursor.
@@ -196,7 +196,7 @@ MongoCursor = {{
   @private
   destroy(c:Mongo.cursor): Mongo.cursor =
     { c with
-        error="<reset>";
+        error={Error="reset"};
         doc=error_document("Dead cursor",-1);
         killed={true};
         cid=MongoDriver.null_cursorID(void)
@@ -213,7 +213,7 @@ MongoCursor = {{
     then
       if MongoDriver.kill_cursors(c.mongo, [c.cid])
       then destroy(c)
-      else set_error(destroy(c),"MongoCursor.reset: error killing cursor")
+      else set_error(destroy(c),{Error="MongoCursor.reset: error killing cursor"})
     else destroy(c)
 
   /**
@@ -234,19 +234,22 @@ MongoCursor = {{
   rec next(c:Mongo.cursor): Mongo.cursor =
     c = if not(c.query_sent) then op_query(c) else c
     if Option.is_none(c.reply)
-    then set_error(c,"MongoCursor.next: no reply")
+    then set_error(c,{Error="MongoCursor.next: no reply"})
     else
       // TODO: analyze return flags
       // TODO: tailable cursors
       if c.returned <= 0
       then
         tags = MongoDriver.reply_tags(MongoDriver.reply_responseFlags(Option.get(c.reply)))
-        set_error(c,"MongoCursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}")
+        tags = List.filter((tag -> tag != {rtag={AwaitCapable}}),tags)
+        if List.is_empty(tags)
+        then set_error(c,{NotFound})
+        else set_error(c,{Error="MongoCursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}"})
       else
         if c.current >= c.returned
         then
           if MongoDriver.is_null_cursorID(c.cid)
-          then set_error({c with doc = error_document("Read past end of data",-1)},"MongoCursor.next: end of data")
+          then set_error({c with doc = error_document("Read past end of data",-1)},{Error="MongoCursor.next: end of data"})
           else next(get_more(c))
         else {c with
                 current=c.current+1;
@@ -329,7 +332,7 @@ MongoCursor = {{
   check_cursor_error(c:Mongo.cursor): Mongo.result =
     if not(c.killed)
     then check_err(c.doc)
-    else {failure={Error=c.error}}
+    else {failure=c.error}
 
   /**
    * Find the first matching document for the given namespace.

@@ -479,6 +479,26 @@ MongoCollection = {{
     find_all_unsafe(c, select, false)
 
   /**
+   * Add an index to a collection.
+   * Example: [create_index(collection, "ns", key, flags)]
+   * @param [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
+   **/
+  create_index(c:Mongo.collection('value), ns:string, key:Bson.document, options:int): bool =
+    MongoDriver.create_index(c.db.mongo,ns,key,options)
+
+  /**
+   * [create_indexf]:  same as [create_index] but using tags instead of bit-wise flags.
+   **/
+  create_indexf(c:Mongo.collection('value), ns:string, key:Bson.document, tags:list(Mongo.index_tag)): bool =
+    MongoDriver.create_indexf(c.db.mongo,ns,key,tags)
+
+  /**
+   * Simpler version of the [create_index] function, for a single named field.
+   **/
+  create_simple_index(c:Mongo.collection('value), ns:string, field:string, options:int): bool =
+    MongoDriver.create_simple_index(c.db.mongo,ns,field,options)
+
+  /**
    * Count the number of documents matching the given optional select value (\{none\} means
    * count all documents.
    **/
