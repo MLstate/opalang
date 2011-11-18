@@ -16,6 +16,15 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 @abstract type Client.Anchor.handler = -> void
+type Client.location = {
+  host : string
+  hostname : string
+  href : string
+  origin : string
+  pathname : string
+  port : string
+  protocol : string
+}
 
 type position = {x:int y:int} // FIXME: MOVE or KILL
 
@@ -148,7 +157,7 @@ type JsFunction = external
   setInterval = %%BslClientOnly.setInterval%%
   clearTimeout = %%BslClientOnly.clearTimeout%%
   clearInterval = %%BslClientOnly.clearInterval%%
-
+  get_location = %%BslClientOnly.get_location%%
   /*
    * Deprecated zone: start
    */
