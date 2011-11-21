@@ -39,6 +39,12 @@ type request = HST.request
 
 let make_status = HSC.make_status
 
+let remote_logs_params = ref None
+
+(* Warning: it only returns the last defined remote-logs server option *)
+(* TODO: getter for a specific http server name *)
+let get_remote_logs_params() = !remote_logs_params
+
 (* Private tools *)
 
 let get_content_length req = Int64.to_int (Option.default 0L (HSC.get_Content_Length req.HST.request_header))
@@ -508,6 +514,7 @@ type options =
       maximum_number_of_connections: int;
       maximum_content_length: int;
       maximum_number_of_headers: int;
+      remote_logs: HST.remote_logs option;
       favicon_ico: HSC.body_value;
       favicon_gif: HSC.body_value;
       backtrace: bool;
@@ -594,6 +601,7 @@ let default_options =
     maximum_number_of_connections = max_int;
     maximum_content_length = (50*1024*1024);
     maximum_number_of_headers = 200;
+    remote_logs = None;
     favicon_ico = null_body_value (*(body_value_from_home ~log:true ".favicon.ico")*);
     favicon_gif = null_body_value (*(body_value_from_home ~log:true ".favicon.gif")*);
     backtrace = true;
@@ -728,6 +736,21 @@ let spec_args name =
     p"write-timeout",
     ServerArg.func ServerArg.float (fun o f -> { o with server_write_timeout = Time.seconds_float f }),
     "<float>", (sprintf "Timeout while writing data (default: %6.1f)" (Time.in_seconds default_options.server_write_timeout));
+
+    p"remote-logs",
+    ServerArg.func ServerArg.string (fun o s ->
+       try
+         let (hostname,port_appkey) = Base.String.split_char ':' s in
+         let (port,appkey) = Base.String.split_char '/' port_appkey in
+         let port = int_of_string port in
+         let remote_logs = Some {HST.hostname=hostname; HST.port=port; HST.appkey=appkey} in
+         remote_logs_params := remote_logs;
+         {o with remote_logs = remote_logs}
+       with
+       | Not_found -> let _ = prerr_endline ("Bad option \""^s^"\" for --remote-logs") in o
+       | Failure s -> let _ = prerr_endline ("Invalid port for --remote-logs."^s) in o
+        ),
+    "<hostname:port/appkey>", "Log access to a remote server (WARNING: this is experimental) (default: no log server).";
 
     (*(p"max-connections")@["-C"],
     ServerArg.func ServerArg.int (fun o i -> { o with maximum_number_of_connections = i }),
@@ -865,6 +888,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
         rt_maximum_content_length = opt.maximum_content_length;
         rt_maximum_number_of_headers = opt.maximum_number_of_headers;
         rt_log_accesses = (!log_accesses);
+        rt_remote_logs = opt.remote_logs;
         rt_time_diff = !(HST.time_diff);
         rt_plim = 128;
       };

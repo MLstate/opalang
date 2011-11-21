@@ -32,6 +32,7 @@ let default_scheduler = BslScheduler.opa
 ##extern-type HttpRequest.payload = HttpServerCore.payload
 ##extern-type HttpRequest.msg_list = HttpServerCore_parse.msg list
 ##extern-type HttpRequest.request = HttpServerTypes.request
+##extern-type remote_logs = HttpServerTypes.remote_logs option
 ##opa-type HttpRequest.part
 
 
@@ -383,6 +384,13 @@ let default_scheduler = BslScheduler.opa
     match Unix.getsockname socket with
     | Unix.ADDR_INET(addr,_port) -> Unix.string_of_inet_addr(addr)
     | _ -> assert false
+
+  ##register get_remote_logs_params :  -> opa[option(tuple_3(string, int, string))]
+  let get_remote_logs_params _ =
+    match HttpServer.get_remote_logs_params () with
+    | None -> ServerLib.none
+    | Some p -> ServerLib.some (BslNativeLib.opa_tuple_3
+            (p.HttpServerTypes.hostname, p.HttpServerTypes.port, p.HttpServerTypes.appkey))
 
 ##endmodule
 

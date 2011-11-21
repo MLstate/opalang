@@ -70,5 +70,7 @@ type web_info = { cont : response -> unit;
                   certificate : Ssl.certificate option;
                 }
 
+type remote_logs = {port : int; hostname : string; appkey : string}
+
 val current_time_string : string ref
 val time_diff : string ref
