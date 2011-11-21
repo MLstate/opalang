@@ -443,7 +443,7 @@ Markdown = {{
     main = generic_multiple(elt, (t->{text=t}))
     Parser.parse(main,src):Markdown.private.content
 
-  @private help_string = "
+  help_string = "
 You can enter a message using a Markdown-like syntax.
 Here is a list of all elements recognized.
 
@@ -638,7 +638,7 @@ with a linebreak
 
 "
 
-  @private help_xhtml = xhtml_of_string(default_options, help_string)
+  help_xhtml = xhtml_of_string(default_options, help_string)
 
   @private @client toggle_help(src_id, res_id)(_) =
     do Dom.toggle(#{src_id})

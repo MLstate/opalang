@@ -84,21 +84,22 @@ icon16 = css
 .icon {
   width: 16px;
   height: 16px;
-  background: {get_img("icons16-gray.png")} no-repeat;
+  background-image: {get_img("icons16-gray.png")} ;
+  background-repeat: no-repeat;
   display: inline-block;
   vertical-align: top;
 }
-.icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background: {get_img("icons16-darkGray.png")} no-repeat;}
+.icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background-image: {get_img("icons16-darkGray.png")};}
 
 /*Color icons for active, active for light backgrounds*/
-.icon.icon-color, .icons-color .icon, .active .icon {background: {get_img("icons16-color.png")} no-repeat;}
+.icon.icon-color, .icons-color .icon, .active .icon {background-image: {get_img("icons16-color.png")};}
 
 /*White icons for vivid and dark backgrounds*/
-.icon.icon-white, .icons-white .icon {background: {get_img("icons16-white.png")} no-repeat;}
-.icon.icon-white:hover, .icons-white .icon:hover {background: {get_img("icons16-gray.png")} no-repeat;}
+.icon.icon-white, .icons-white .icon {background-image: {get_img("icons16-white.png")};}
+.icon.icon-white:hover, .icons-white .icon:hover {background-image: {get_img("icons16-gray.png")};}
 
 /*Black icons for gray backgrounds*/
-.icon.icon-black, .icons-black .icon, .icon.icon-darkgray:hover {background: {get_img("icons16-black.png")} no-repeat;}
+.icon.icon-black, .icons-black .icon, .icon.icon-darkgray:hover {background-image: {get_img("icons16-black.png")};}
 
 /* positioning */
 /* triangle */
@@ -320,22 +321,22 @@ icon32 = css
 .icon32 {
   width: 32px;
   height: 32px;
-  background: {get_img("icons32-gray.png")} no-repeat;
+  background-image: {get_img("icons32-gray.png")};
   background-repeat: no-repeat;
   display: inline-block;
   vertical-align: top;
 }
-.icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background: {get_img("icons32-darkGray.png")} no-repeat;}
+.icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background-image: {get_img("icons32-darkGray.png")};}
 
 /* Color icons for active, active for light backgrounds */
-.icon32.icon-color, .icons-color .icon32, .active .icon32 {background: {get_img("icons32-color.png")} no-repeat;}
+.icon32.icon-color, .icons-color .icon32, .active .icon32 {background-image: {get_img("icons32-color.png")};}
 
 /* White icons for vivid and dark backgrounds */
-.icon32.icon-white, .icons-white .icon32 {background: {get_img("icons32-white.png")} no-repeat;}
-.icon32.icon-white:hover, .icons-white .icon32:hover {background: {get_img("icons32-gray.png")} no-repeat;}
+.icon32.icon-white, .icons-white .icon32 {background-image: {get_img("icons32-white.png")};}
+.icon32.icon-white:hover, .icons-white .icon32:hover {background-image: {get_img("icons32-gray.png")};}
 
 /* Black icons for gray backgrounds */
-.icon32.icon-black, .icons-black .icon32, .icon32.icon-darkgray:hover {background: {get_img("icons32-black.png")} no-repeat;}
+.icon32.icon-black, .icons-black .icon32, .icon32.icon-darkgray:hover {background-image: {get_img("icons32-black.png")};}
 
 /* positioning */
 /* triangle */

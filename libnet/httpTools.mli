@@ -91,6 +91,10 @@ val read_fixed_stream_cps :
   Scheduler.t ->
   ?err_cont:(exn -> unit) -> ?timeout:Time.t -> (string -> unit) -> unit
 
+val fixed_stream_cps2_buf :
+  (*?oc_opt:out_channel option ->*) Scheduler.t -> Scheduler.connection_info -> (Buf.t * int ref) -> int ->
+  ?callback:('a -> int -> Buf.t -> bool) -> 'a -> ?blocksize:int ->
+  ?err_cont:(exn -> unit) -> ?timeout:Time.t -> (Buf.t * int * int -> unit) -> unit
 val fixed_stream_cps2 :
   (*?oc_opt:out_channel option ->*) Scheduler.t -> Scheduler.connection_info -> (Buffer.t * int ref) -> int ->
   ?callback:('a -> int -> Buffer.t -> bool) -> 'a -> ?blocksize:int ->
@@ -123,7 +127,8 @@ val upto_mark_lws_ci : string -> int -> string -> int -> int -> int * int * stri
     Compress file content according to gzip/deflate flags (deflate has priority).
     Does not read file in if file content, writes from/to disc.
 *)
-val content_compress : Scheduler.t -> bool -> bool -> int -> bool -> Rcontent.content -> int -> bool * Rcontent.content
+val content_compress : Scheduler.t -> bool -> bool -> int -> bool -> Rcontent.content -> int ->
+  ((bool * Rcontent.content) -> unit) -> unit
 
 (** Simple buffer management *)
 

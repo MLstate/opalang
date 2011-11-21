@@ -118,6 +118,8 @@ type Comment.file = string
 **/
 type Comment.position = int
 
+type Comment.line = int
+
 /**
  * Category of comment.
  * A comment may be global [{Glob}], meaning that it is not associated [{Assoc}]
@@ -178,11 +180,14 @@ type Api.value_visibility =
  / { private }
  / { package_ }
 
+type Api.args = list(string)
+
 /**
  * The infos attached to a documented value.
  * Currently only the type and the visibility of the value are exported
 **/
 type Api.value = {
+  args : Api.args
   ty : Api.ty
   visibility : Api.value_visibility
 }
@@ -226,6 +231,7 @@ type Api.entry = {
   code_elt : Api.code_elt
   fname    : Comment.file
   pos      : Comment.position
+  line     : Comment.line
 }
 
 /**

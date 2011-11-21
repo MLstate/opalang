@@ -670,7 +670,7 @@ Dom = {{
    */
 
   /**
-   * {3 Position}
+   * {3 Offset}
    */
 
   get_offset(dom:dom): Dom.dimensions =
@@ -681,6 +681,21 @@ Dom = {{
   set_offset(dom:dom, offset:Dom.dimensions): void =
   (
         do %% BslDom.set_offset %%(of_selection(dom), offset)
+        void
+  )
+
+  /**
+   * {3 Position}
+   */
+
+  get_position(dom:dom): Dom.dimensions =
+  (
+        %% BslDom.get_position %%(of_selection(dom))
+  )
+
+  set_position(dom:dom, position:Dom.dimensions): void =
+  (
+        do %% BslDom.set_position %%(of_selection(dom), position)
         void
   )
 
@@ -1002,7 +1017,7 @@ Dom = {{
    * A special event sent when the user attempts to navigate away from a page
    *
    * @param cb a function returning either [{none}] if there is no objection to navigating away or [{some = s}], where [s]
-   * is a message which the browser will display. It is not possible to cancel this action. 
+   * is a message which the browser will display. It is not possible to cancel this action.
    *
    * Compatibility note: [Dom.bind_unload_confirmation] has no effect on Opera <= 11
    */

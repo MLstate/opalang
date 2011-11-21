@@ -26,6 +26,7 @@ bslReference.ml
 bslNumber.ml
 
 bslJson.ml
+bslMongo.ml
 bslMinJs.ml
 bslValue.ml
 bslSyslog.ml
@@ -49,6 +50,7 @@ badoplink.ml
 opa_transaction.ml
 path.ml
 dbser.ml
+mongolink.ml
 
 bslCommandLine.ml
 bslXmlm.ml

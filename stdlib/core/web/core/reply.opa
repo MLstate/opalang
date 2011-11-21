@@ -230,6 +230,7 @@ make_response_with_headers(request : WebInfo.private.native_request,
         end
 
     respond = %% BslNet.Http_server.make_response %%
+            : option(time_t), WebInfo.private.native_request, web_server_status, caml_list(WebInfo.private.native_http_header), string, string -> WebInfo.private.native_response
     to_caml_list : (WebInfo.private.native_http_header
                       -> WebInfo.private.native_http_header),
                    list(WebInfo.private.native_http_header)
@@ -240,7 +241,7 @@ make_response_with_headers(request : WebInfo.private.native_request,
     respond(cache_control, request, answer, ll_headers, mime_type, content)
 )
 
-default_make_response(cache_control: web_cache_control, request: WebInfo.private.native_request, status: web_response, mime_type: string, content: string): WebInfo.private.native_response =
+default_make_response(cache_control: web_cache_control, request: WebInfo.private.native_request, status: web_response, mime_type: string, content: string) : WebInfo.private.native_response =
 (
      make_response_modified_since = %% BslNet.Http_server.make_response_modified_since %%
                               : option(time_t), WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response

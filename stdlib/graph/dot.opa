@@ -72,7 +72,7 @@ Dot = {{
     exec = %%BslSys.Process.exec%%
     format = format_to_string(format)
     command = "dot -T{format}"
-    do jlog("calling external dot tool")
+    do Log.info("Dot","calling external dot tool")
     exec(command, source)
 
   /**

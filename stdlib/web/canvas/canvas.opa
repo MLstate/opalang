@@ -83,6 +83,21 @@ type Image.image = external
 type Video.video = external
 type Image.data = external
 
+type Canvas.textalign = 
+  {align_start}
+/ {align_end}
+/ {align_left}
+/ {align_right}
+/ {align_center}
+
+type Canvas.textbaseline = 
+  {top}
+/ {hanging}
+/ {middle}
+/ {alphabetic}
+/ {ideographic}
+/ {bottom}
+
 /**
  * {1 Interface}
  */
@@ -433,7 +448,37 @@ Canvas = {{
    * {2 Text}
   **/
 
-  // TODO
+  // TODO: type font
+  set_font(context:Canvas.context, font:string) : void =
+    %% BslCanvas.set_font %%(context,font)
+
+  set_text_align(context:Canvas.context, align:Canvas.textalign) : void =
+    align_text = match align with
+      | {align_start}  -> "start"
+      | {align_end}    -> "end"
+      | {align_left}   -> "left"
+      | {align_right}  -> "right"
+      | {align_center} -> "center"
+    %% BslCanvas.set_text_align %%(context,align_text)
+
+  set_text_baseline(context:Canvas.context, baseline:Canvas.textbaseline) : void =
+    baseline_text = match baseline with
+      | {top}         -> "top"
+      | {hanging}     -> "hanging"
+      | {middle}      -> "middle"
+      | {alphabetic}  -> "alphabetic"
+      | {ideographic} -> "ideographic"
+      | {bottom}      -> "bottom"
+    %% BslCanvas.set_text_baseline %%(context,baseline_text)
+
+  stroke_text(context:Canvas.context, text:string, x:int, y:int) : void =
+    %% BslCanvas.stroke_text %%(context,text,x,y)
+
+  fill_text(context:Canvas.context, text:string, x:int, y:int) : void =
+    %% BslCanvas.fill_text %%(context,text,x,y)
+
+  measure_text(context:Canvas.context, text:string) : int =
+    %% BslCanvas.measure_text %%(context,text)
 
   /**
    * {2 Drawing images}

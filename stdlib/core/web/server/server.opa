@@ -448,7 +448,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
      certificate = "cert.pem"
      private_key = "privkey.pem"
      password    = "change this password"
-   }
+   } : Server.encryption
 
   /**
     * Return the port of the corresponding server

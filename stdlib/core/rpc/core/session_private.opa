@@ -239,7 +239,7 @@ type Session.how_send('message) =
       aux = @may_cps(%%BslSession.unserialize%%)
               : option(ThreadContext.t), RPC.Json.private.native -> option(Session.private.native('msg, _))
       match aux(ThreadContext.get_opt({current}), Json.to_ll_json(x)) with
-      | {none} -> do jlog("[Session][unserialize] fail") {none}
+      | {none} -> do Log.error("[Session][unserialize]","fail") {none}
       | {some = r}-> {some = r}
 
 }}
