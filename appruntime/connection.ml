@@ -109,6 +109,11 @@ let read_more2 conn buf =
   let () = Buffer.add_substring buf read_buff 0 nread in
   nread, buf
 
+let read_more4 conn buf =
+  let nread, _ = read_aux conn read_buff read_buff_length in
+  let () = Buf.add_substring buf read_buff 0 nread in
+  nread, buf
+
 let read_from conn =
   let nread, addr = read_aux conn read_buff read_buff_length in
   let get_peer = lazy (Unix.getpeername (NA.get_fd conn)) in

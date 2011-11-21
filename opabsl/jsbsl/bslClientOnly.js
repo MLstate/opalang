@@ -20,6 +20,7 @@
 ##extern-type style_constructor
 ##extern-type insertion_handlers
 ##extern-type dom_element
+##extern-type Client.location
 ##extern-type Dom.event
 ##extern-type dom
 ##extern-type Xhtml.private_dom_element_list
@@ -417,4 +418,42 @@ function getStableCookie()
     var tmp = full_cookie.match(reg);
     if (tmp != null) return js_some(tmp[1]);
     return js_none;//What does this case cover, exactly?
+}
+
+##register get_location : -> Client.location
+##args()
+{
+    var host = "";
+    var hostname = "";
+    var href = "";
+    var origin = "";
+    var pathname = "";
+    var protocol = "";
+    var port = "";
+    if(window && window.location){
+	var l = window.location;
+	if(l.host) host=l.host;
+	if(l.hostname) hostname=l.hostname;
+	if(l.href) href=l.href;
+	if(l.origin) origin=l.origin;
+	if(l.pathname) pathname=l.pathname;
+	if(l.port) port = l.port;
+	if(l.protocol) protocol = l.protocol;
+    }
+    var fhost = static_field_of_name("host");
+    var fhostname = static_field_of_name("hostname");
+    var fhref = static_field_of_name("href");
+    var forigin = static_field_of_name("origin");
+    var fpathname = static_field_of_name("pathname");
+    var fprotocol = static_field_of_name("protocol");
+    var fport = static_field_of_name("port");
+    var r = empty_constructor();
+    r = add_field(r,fhost,host);
+    r = add_field(r,fhostname,hostname);
+    r = add_field(r,fhref,href);
+    r = add_field(r,forigin,origin);
+    r = add_field(r,fpathname,pathname);
+    r = add_field(r,fprotocol,protocol);
+    r = add_field(r,fport,port);
+    return r;
 }

@@ -18,8 +18,8 @@ Let us start with a picture of the wiki application we will develop in this chap
 
 image::hello_wiki/result.png[]
 
-This web application stores pages and lets users edit them, using a HTML-like syntax
-that supports paragraphs, tables, etc.
+This web application stores pages and lets users edit them, using http://en.wikipedia.org/wiki/Markdown[Markdown syntax],
+which is a popular markup language that supports headings, links, lists, images etc.
 
 If you are curious, this is the full source code of the application.
 
@@ -29,8 +29,8 @@ include::hello_wiki.opa[]
 ------------------------
 [run]#http://tutorials.opalang.org/hello_wiki[Run]#
 
-In this listing, we define a database for storing the content of the pages in a
-safe format, we define the user interface and finally, the main application.  In
+In this listing, we define a database for storing the content of the pages in the
+Markdown syntax format, we define the user interface and finally, the main application.  In
 the rest of the chapter, we will walk you through all the concepts and
 constructions introduced.
 
@@ -45,13 +45,13 @@ need to set up some storage to receive these pages, as follows:
 
 [source,opa]
 -----------------
-db /wiki: stringmap(Template.default_content)
+db /wiki: stringmap(string)
 -----------------
 
 This defines a _database path_, i.e. a place where we can store information, and specifies the type
-of information that will be stored there. Here, we use type +stringmap(Template.default_content)+.
+of information that will be stored there. Here, we use type +stringmap(string)+.
 This is a +stringmap+ (i.e. an association from +string+ keys to values) containing values of type
-+Template.default_content+.
++string+ (used to denote Markdown code).
 
 [TIP]
 .About database paths
@@ -67,21 +67,24 @@ subtle incompatibilities between successive versions of an application, the type
 must be given during the definition of the path.
 =====================
 
-In turn, +Template.default_content+ is the default content format for templates,
-i.e. the default method of representing rich text that can be modified by the user.
-
 [TIP]
-.About template
+.HTML VS markup
 =====================
-On the web, letting users write HTML code that can be seen at a later stage by
-other users is a very bad idea, as it opens the way for numerous forms of
-attacks, sometimes quite subtle and hard to detect. Opa's _templating_ mechanism
-is a manner of representing rich text that can be provided by a user, stored in
-the database and displayed to other users, without compromising security.
+On the web, letting users directly write HTML code that can be seen at a later
+stage by other users is not a good idea, as it opens the way for numerous forms of
+attacks, sometimes quite subtle and hard to detect.
 
-Although this topic is not covered by this chapter, the templating mechanism
-is designed for full extensibility - indeed, http://opalang.org[our website] is
-assembled using this mechanism, including our own on-line editor.
+Opa offers at least two ways to circumvent this problem. Firstly, there is
+a _templating_ mechanism (see package +stdlib.web.template+), which is an
+XML-based markup that covers a safe subset of HTML. Moreover this templating
+mechanism is designed for full extensibility -- indeed, http://opalang.org[our website],
+including our own on-line editor, is developed using templating.
+
+Another, more lightweight approach, and one that we are using here, is to
+use Markdown (package +stdlib.tools.markdown+), which is a very popular
+markup language that convers easy to read and write plain text format
+into structurally valid and completely safe XHTML (and supports headings,
+links, images, code snippets etc.).
 =====================
 
 It is generally a good idea to associate a default value to each path, as this
@@ -89,20 +92,18 @@ makes manipulation of data easier:
 
 [source,opa]
 -----------------
-db /wiki[_] = Template.text("This page is empty. Double-click to edit.")
+db /wiki[_] = "This page is empty. Double-click to edit."
 -----------------
 
 The square brackets +[_]+ are a convention to specify that we are talking about
 the contents of a map and, more precisely, providing a default value. Here, the
-default value is +Template.text("This page is empty. Double-click to edit.")+,
-i.e. a simple text in our templating system. As expected, it has type
-+Template.default_content+.
+default value is +"This page is empty. Double-click to edit."+, i.e. a simple text
+in Markdown syntax (here it's just plain text).
 
 With these two lines, the database is set. Any data written to the database will
-be kept persistent, versioned and with regular snapshots. Should you stop and
-restart your application, the data will be checked and made available. If the
-data has been corrupted or is somehow incompatible with your application, you
-will be informed.
+be kept persistent. Should you stop and restart your application, the data will
+be checked and made accessible to your application as it was at the point you
+stopped it.
 
 Loading, parsing and writing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,130 +116,30 @@ present it as +xhtml+ that can be displayed immediately:
 
 [source,opa]
 -----------------
-load_source(topic)   = Template.to_source(Template.default, /wiki[topic])
-load_rendered(topic) = Template.to_xhtml( Template.default, /wiki[topic])
+load_source(topic) = /wiki[topic]
+load_rendered(topic) =
+  source = load_source(topic)
+  Markdown.xhtml_of_string(Markdown.default_options, source)
 -----------------
 
 In this extract, +topic+ is the topic we wish to display or edit -- i.e. the name
-of the page. Both functions use +Template.default+, the default template engine.
-This engine uses as source language a safe subset of HTML and produces content with
-type +Template.default_content+. The content associated with +topic+ can be found
-in the database at path +/wiki[topic]+. Once we have this content, depending on
-our needs, we convert it to source code, as a +string+, or to a +xhtml+ data
-structure used for display.
+of the page. The content associated with +topic+ can be found in the database at path +/wiki[topic]+.
+Once we have this content, depending on our needs, we just return it as a +string+,
+or convert to +xhtml+ data structure for display, using the +Markdown.xhtml_of_string+
+function, which parses the string and builds its corresponding +xhtml+ representation,
+with respect to the Markdown syntax.
 
-For parsing and saving data, the logic is slightly more complicated:
+Saving data is equally simple:
 [source,opa]
 -----------------
 save_source(topic, source) =
-(
-   match Template.try_parse(Template.default, source) with
-    | {success = x} ->
-    (
-           do /wiki[topic] <- x
-           Template.to_xhtml(Template.default, x)
-    )
-    | {failure = _} ->
-    (
-           do /wiki[topic] <- Template.text(source)
-           <>Syntax error<br/>: {source}</>
-    )
-)
+  do /wiki[topic] <- source
+  load_rendered(topic)
 -----------------
 
 This function takes two arguments: a +topic+, with the same meaning as above,
-and a +source+, i.e. a +string+ meant to be understood by our templating engine.
-The call to function +Template.try_parse+ submits this +source+ to the default
-templating engine, which may either accept it (if the syntax was correct) or
-reject it (otherwise). For this wiki, we do not try to fix the syntax
-automatically or to fallback to an approximate syntax.
-
-Function +Template.try_parse+ can produce two kinds of results: _success_ results and
-_failure_ results. More precisely, by definition, the value returned by this function
-is always either a record +\{ success = something \}+ or +\{ failure = something\}+. We
-call this a _sum_ of records, and it has type +\{ success = ... \} /\{ failure = ...\}+ --
-we will fill in the dots later.
-
-[TIP]
-.About sum types
-========================
-A value has a _sum type_ +t/u+ if, depending on the execution path, it can
-have either values of type +t+ or values of type +u+ . A good example of sum type
-is booleans, which are defined as +\{false\}/\{true\}+ . Another good example of
-sum type is the type +list+ of linked lists, whose definition can be summed up
-as +\{nil\} / \{hd: ...; tl: list\}+.
-
-Note that sum types are not limited to two cases. Advanced applications commonly
-manipulate sum types with ten cases or more.
-=======================
-
-As you can see, we apply a +match ... with ...+ operation to this result. This
-operation is known as _pattern-matching_, and it lets us determine safely whether
-the result was a _success_ or a _failure_.
-
-[TIP]
-.About pattern-matching
-========================
-The operation used to branch according to the case of a sum type
-is called _pattern-matching_. A good example of pattern-matching
-is +if ... then ... else ...+ . The more general syntax for pattern matching is
-+match ... with | case_1 \-> ... | case_2 \-> ... | case_3 \-> ...+
-
-The operation is actually more powerful than just determining which case of a
-sum type is used. Indeed, if we use the vocabulary of languages such as Java or
-C#, pattern-matching combines features of +if+, +switch+, +instanceof+/+is+,
-multiple assignment and dereferenciation, but without the possible safety issues
-of +instanceof+/+is+ and with fewer chances of misuse than +switch+.
-=======================
-
-This pattern-matching has two cases. Let us concentrate on the first one:
-
-[source,opa]
------------------
-    | {success = x} ->
-    (
-           do /wiki[topic] <- x
-           Template.to_xhtml(Template.default, x)
-    )
------------------
-
-The items between the pipe (+|+) and the arrow (+\->+) are known as the
-_pattern_. The corresponding case is executed if the _pattern_ _matches_ the
-value. Here, we have a pattern that accepts all records containing exactly one
-field called +success+. When our pattern-matching encounters such a record, it calls
-+x+ the contents of field and executes everything that appears after the arrow
-(the _body_).
-
-The first instruction writes +x+ to the database at path +/wiki[topic]+.
-The second instruction produces a +xhtml+-formatted version of +x+, which
-is the result of our function.
-
-Let us now examine the second case of our pattern-matching:
-[source,opa]
------------------
-    | {failure = _} ->
-    (
-           do /wiki[topic] <- Template.text(source)
-           <>Syntax error<br/>: {source}</>
-    )
------------------
-
-By definition, cases are executed in order.  Here, the pattern matches all
-records containing exactly one field called +failure+. When our pattern-matching
-encounters such a record, it ignores the contents of the field -- recall that
-+_+ is pronounced "I don't care" -- and executes the body.
-
-Here, we are in the error case, i.e. the user has entered a syntactically
-incorrect text. We could decide to perform sophisticated error reporting, but
-that goes beyond the scope of this chapter. We will rather employ an alternative
-strategy: we store the text entered by the user, but as source code,
-so that it can be modified at a later stage. For this purpose, we again call
-function +Template.text+ to adopt the source code as immediate text,
-we write this to the database at path +/wiki[topic]+ and then we produce
-a message stating that there was a syntax error.
-
-With this, we have covered everything related to database, parsing or rendering.
-We can now move to the user interface.
+and a +source+, i.e. a +string+, which is a representation of the page with Markdown syntax.
+The instruction after +do+ writes +source+ to the database at path +/wiki[topic]+.
 
 User interface
 ~~~~~~~~~~~~~~
@@ -407,20 +308,6 @@ This is a total of 30 effective lines of code + CSS.
 
 Questions
 ~~~~~~~~~
-What about the wiki syntax?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For this tutorial chapter, we have used the default syntax provided by +Template+, which
-we have not detailed. That is because you already know this syntax: +Template+ uses a subset
-of the syntax of HTML, without JavaScript. As mentioned earlier, this syntax can be extended.
-The general idea is to plug new _engines_ into +Template+ which can interpret new namespaces.
-We will discuss the specifics in another chapter, or you can already look at the documentation
-of module +Template+.
-
-Opa also features a powerful mechanism for parsing simple or complex syntaxes,
-which you can easily use to replace the default syntax of +Template+ with
-something closer to the usual Wiki syntax. We will introduce this mechanism
-in another chapter.
-
 
 What about user security?
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -435,8 +322,8 @@ stealing identities.
 You may attempt to reproduce this with the wiki, the chat, or any other Opa
 application. This will fail. Indeed, while lower-level web technologies make no
 difference between JavaScript code, text, or structured data, Opa does, and
-ensures that data that has been provided as the one can never be interpreted
-as one of the others.
+ensures that data that has been provided as one can never be interpreted
+as the other one.
 
 [CAUTION]
 .Careful with the +<script>+
@@ -461,7 +348,7 @@ What about database security?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Now that we have a database, it is high time to think about _what_ can be
-modified and _in which circumstances_. By default, Opa takes a conservative
+modified and _under what circumstances_. By default, Opa takes a conservative
 approach and ensures that malicious clients have access to as few entry points
 as possible -- we call this _publishing_ a function.  By default, the only
 published functions are functions that users could trigger themselves by
@@ -485,11 +372,8 @@ By default, Opa will _automatically_ publish event handlers.
 ================
 
 Here, this means functions +edit+ and +save+. In our listing, no other functions
-are _published_. Consequently, the +Template+ mechanism is invoked only on the
-server. A direct consequence is that we can be certain that the +stringmap+ is
-always well-formed and that +/wiki[x]+ can only ever contain well-formed
-template content.
-
+are _published_. Consequently, the +Markdown+ syntax analysis is invoked only on the
+server.
 
 What about client-server performance?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -514,8 +398,8 @@ compiler, namely to let it know that +load_source+, +load_rendered+ and
 +save_source+ have been designed to handle anything that can be thrown at them,
 and thus do not need to be kept hidden.
 
-For this purpose, Opa offers a _publication_ primitive: +@publish+.
-To apply it to our three functions, we simply add this directive where needed:
+For this purpose, Opa offers a special directive: +@publish+.
+To apply it to our three functions, we simply add it where needed:
 
 [source,opa]
 ------------------------
@@ -526,7 +410,7 @@ To apply it to our three functions, we simply add this directive where needed:
 
 And we are done!
 
-With this simple modification, saving is now just one request.  We will discuss
+With this simple modification, saving now requires only one request.  We will discuss
 +@publish+ and the details of client-server _slicing_ in a later chapter.
 
 Once again, we may take a look at the complete application:
@@ -537,44 +421,15 @@ Once again, we may take a look at the complete application:
 include::hello_wiki.opa[]
 ------------------------
 
-What about database performance?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Generally speaking, the Opa database is very fast. In particular, in our
-experience, a +stringmap+ or an +intmap+ is as fast as an _indexed_ table in a
-relational database, sometimes much faster.
-
-Of course, you do not have to restrict yourself to a +map+ indexed by a +string+
-or an +int+. Indeed, any type that can be stored in the database can be used as
-an index. The chapter dedicated to the database will detail how you can do this
-and how to ensure that the performance of your database remains optimal.
-
 Exercises
 ~~~~~~~~~
 Time to put your new knowledge to the test.
 
-Better handling of errors
-^^^^^^^^^^^^^^^^^^^^^^^^^
-When the user attempts to save content containing an error, instead of saving the result:
-
-* keep editing;
-* change the background color of +edit_content+ to red;
-* show a message informing that the user can simply reload the page to cancel changes.
-
-You will need to use a CSS class for setting the background color. You may also wish
-to use the following functions:
-
-[source, opa]
------------------
-Dom.add_class:    dom, /*class*/string -> void
-Dom.remove_class: dom, /*class*/string -> void
------------------
-
 Changing the default content
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Customize the wiki so that the database contains not a +Template.default_content+ but
-a +option(Template.default_content)+, i.e. a value that can be either +\{none\}+
-or +\{some = x\}+, where +x+ is a +Template.default_content+.
+Customize the wiki so that the database contains not a +string+ but
+a +option(string)+, i.e. a value that can be either +\{none\}+
+or +\{some = x\}+, where +x+ is a +string+.
 
 Use this change to ensure that the default content of a page with topic _topic_ is
 "We have no idea about _topic_. Could you please enter some information?".

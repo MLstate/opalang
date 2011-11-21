@@ -767,7 +767,7 @@ Xhtml =
                   do Buf.add(html_buffer,html_code_unsafe)
                   Buf.add(js_buffer,js_code_unsafe)
             | _ ->
-                  jlog("[Xhtml.to_serialize_string] Incorrect XHTML extensions")
+                  Log.error("Xhtml.to_serialize_string","Incorrect XHTML extensions")
                   //This should never happen, by type guarantees -- however, I've spotted a [Magic.id] somewhere in this file
         end
       | ~{ namespace tag args content specific_attributes } ->

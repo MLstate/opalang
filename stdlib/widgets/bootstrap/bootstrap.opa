@@ -585,9 +585,9 @@ WBootstrap = {{
 
     page_header(level:int, title:string, subtitle:option(string)) =
       sub = match subtitle
-            {some=s} -> <>{" "}</><small>{s}</small>
-            {none} -> <></>;
-      <div>{Typography.header(level, some(sub), <>{title}</>)}</div>
+            {some=s} -> some(<>{s}</>)
+            {none} -> none
+      <div>{Typography.header(level, sub, <>{title}</>)}</div>
       |> update_class("page-header", _)
 
     inner(content:xhtml) =

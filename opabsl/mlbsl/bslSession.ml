@@ -787,7 +787,10 @@ end = struct
          | _ -> raise Malformed
         )
     | _ -> raise Malformed
-  ) with Malformed -> None |> k
+  ) with
+      (* We catch all exceptions so we can answer the client and close the
+         current connection *)
+    | e -> Logger.error "unserialize error: (%s)" (Printexc.to_string e); (None |> k)
 
 
   let registers cookie page request =
