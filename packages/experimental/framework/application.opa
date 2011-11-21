@@ -23,7 +23,7 @@
  * Framework 
  */
 
-package framework
+//package framework
 
 /**
  * @author Hugo Heuzard
@@ -57,10 +57,8 @@ package framework
 @private
 type Application.State.msg =
   {register path:string page:Page.Private.page}
-/ {create path:string}
 / {get}
-/ {check}
-
+ 
 /**
  * The name of an application. This is mostly use for information purpose.
 **/
@@ -132,8 +130,6 @@ Application = {{
         content_parser = parser state=handler.param_parser -> page.content(appl,appl.get_cred(appl.state),state)
       }
       ignore(Cell.call(appl.pages, {register path=handler.path page=black_page}))
-    create(appl,handler) = ignore(Cell.call(appl.pages, {create path=handler.path}))
-    check(appl) = ignore(Cell.call(appl.pages, {check}))
     msg_handler(state,msg) = match msg with
       | {get} -> {return=some(Map.filter_map(x -> x,state)) instruction={unchanged}}
       | {register ~path ~page} -> {return=none instruction={set=
@@ -144,11 +140,6 @@ Application = {{
             do Log.warning("Application.register", "Page already registered ({path})")
             state
         }}
-      | {create ~path} -> {return={none} instruction={set=Map.add(path,{none},state) }}
-      | {check} ->
-        check(k,v) = if Option.is_none(v) then Log.warning("Application.register", "Page handler not registered ({k})")
-        do Map.iter(check,state)
-        {return={none} instruction={unchanged}}
   }}
 
   /** Defautl application option. **/
@@ -161,6 +152,9 @@ Application = {{
     js_uris = []
     headers = []
   }
+
+  @private @client
+  client_handler = Mutable.make((_:string) ->void)
 
   /**
    * Make an application.
@@ -178,27 +172,31 @@ Application = {{
    * Make an application with custom options. See [make]
   **/
   @server
-  make_with(name : string, title : Application.title, frame_maker : Application.frame_maker,
+  make_with(name : string, title : Application.title, the_frame_maker : Application.frame_maker,
             option : Application.option, state ,get_cred) : Application.t =
     id = Random.string(10)
+    pages=Cell.make(Map.empty,State.msg_handler)
+    option={option with not_found.title=->title(option.not_found.title())}
     frame_maker =
       if option.single_page
       then
-        fm(appl, x : xhtml,id : string) = <div onready={_ ->
-          get_page_async(s) = get_page_async(appl,s)
-          f(s) = get_page_async(s)
-          do ignore(Client.Anchor.add_handler(f))
+        fm(appl, x : xhtml,id : string) =
+          ss = Session.make_callback(get_page_async(id,appl,_))
+          <div onready={_ ->
+          do client_handler.set(Session.send(ss,_))
+          do ignore(Client.Anchor.add_handler(Session.send(ss,_)))//get_page_async(appl,_)))
           anchor = Client.Anchor.get_anchor()
           s = if (String.length(anchor)>=1 && String.get(0,anchor)=="#")
               then String.drop_left(1,anchor)
               else if (String.length(anchor)>=3 && (String.get_prefix(3,anchor)?"")=="%23")
               then String.drop_left(3,anchor)
               else anchor
-          f(s)}>{frame_maker(appl, x, id)}</div>
+          Session.send(ss,s)//get_page_async(appl,s)
+          }>{the_frame_maker(appl, x, id)}</div>
         fm
-      else frame_maker
-    {~frame_maker ~title pages=Cell.make(Map.empty,State.msg_handler)
-            option={option with not_found.title=->title(option.not_found.title())} ~id ~state ~get_cred ~name}
+      else the_frame_maker
+    appl = {~frame_maker ~title ~pages ~id ~state ~get_cred ~option ~name}
+    appl
 
   /**
    * Register a page
@@ -229,7 +227,7 @@ Application = {{
     ~{content page}
 
   @server @private
-  get_page(appl : Application.t, path) : {title : string content : 'a } =
+  get_page(appl : Application.t, path) : {title : string ; content : 'a } =
     cred = appl.get_cred(appl.state)
     match Parser.try_parse(get_parser(appl), path) with
       | {some={~page ~content}} ->
@@ -246,9 +244,9 @@ Application = {{
                    content=appl.option.not_found.content(appl,cred,path)}
 
   @private @server @publish @async
-  get_page_async(appl : Application.t, path) =
+  get_page_async(appl_id, appl : Application.t, path) =
     page = get_page(appl, path)
-    update_dom(appl.id,page)
+    update_dom(appl_id,page)
 
   @server @private
   make_header(appl)=
@@ -259,7 +257,7 @@ Application = {{
     </>
 
   /** Generate the parser of an application **/
-  @server
+  @server_private
   make_parser(appl : Application.t) =
     page(content : Page.Content.return,title : ->string) = (_ ->
       match content with
@@ -270,10 +268,11 @@ Application = {{
       end)
     if appl.option.single_page
     then parser "/" -> page({xhtml=<></>},->"")
+              | "/" x=(.*) -> page({redirection="/#{Text.to_string(x)}"},->"")
     else parser "/" x={get_parser(appl)} -> page(x.content,x.page.title)
 
   /** Generate the server of an application **/
-  @server
+  @server_private
   make_server(appl : Application.t) =
     Server.make(make_parser(appl))
 
@@ -298,20 +297,22 @@ Application = {{
       then String.drop_left(1,anchor)
       else ""
     if appl.option.single_page
-    then get_page_async(appl,s)
+    then client_handler.get()(s) //Scheduler.push(->get_page_async(appl.id,appl,s))
     else Client.reload()
 
   @client
-  is_page(appl : Application.t ,handler : Page.Handler.t) =
-    s = if appl.option.single_page
-    then
+  is_page(handler : Page.Handler.t) : bool =
+    s =
       anchor = Client.Anchor.get_anchor()
       if (String.length(anchor)>=1)
       then String.drop_left(1,anchor)
       else ""
-    else Client.get_location().pathname
+    s2 = Client.get_location().pathname
     p=parser {Rule.of_string(handler.path)} handler.param_parser -> true
-    Parser.try_parse(p,s) ? false
+    Parser.try_parse(p,s) ? Parser.try_parse(p,s2) ? false
+
+  is_pages(handlers : list(Page.Handler.t)) : bool =
+    List.exists(is_page,handlers)
 
   /** Client side function to go to a page with default arguments. **/
   @client
@@ -334,6 +335,18 @@ Application = {{
   make_uri_with(appl : Application.t, handler : Page.Handler.t('param) , param : 'param) : string =
     uri = make_path_with(handler, param)
     if appl.option.single_page then "#{uri}" else uri
+
+
+  /** Generate an uri of a page. To be use in href. **/
+  make_static_uri(handler : Page.Handler.t) : string =
+    make_static_uri_with(handler, handler.default_param)
+
+  /** Generate an uri of a page with custom arguments. **/
+  make_static_uri_with(handler : Page.Handler.t('param) , param : 'param) : string =
+    make_path_with(handler, param)
+
+
+
 
   /** Check that all Page.Handler.t have a Page.Content.t registered to it.
    * It prints logs if error
@@ -437,12 +450,14 @@ Page = {{
 
     }}
     /** Make a page handler **/
+    @server
     make(path : list(string)) : Page.Handler.t(void) =
       void_parser = parser "" -> void
       void_serializer(_) = ""
       make_with( path, void_parser, void_serializer, void)
 
     /** Make a page handler that handle arguments **/
+    @server
     make_with(path : list(string), param_parser, param_serializer, default_param : 'param) : Page.Handler.t('param) =
       path=String.concat("/",path)
       handler = ~{name_prefix="" path default_param param_serializer param_parser}
@@ -461,26 +476,26 @@ Page = {{
 
   Content = {{
     /** Make a page that take arguments and return xhtml **/
-    @server
+    @server_private
     make_with(title : -> string, content : (Application.t('state,'cred),'cred,'param -> xhtml)) : Page.Content.t('state,'cred,'param) =
       ~{title content=(a,cred,p -> {xhtml=content(a,cred,p)}) }
     /** Make a page that return xhtml **/
-    @server
+    @server_private
     make(title :-> string, content : (Application.t('state,'cred),'cred -> xhtml)) : Page.Content.t('state,'cred, void) =
       make_with(title, (appl,cred,{} -> content(appl,cred)))
     /** Make a page that return xhtml or redirect to another page **/
-    @server
+    @server_private
     make_or_redir(title :-> string, content : (Application.t('state,'cred),'cred -> Page.Content.return)) : Page.Content.t('state,'cred,void) =
       make_or_redir_with(title, (appl,cred,{} -> content(appl,cred)))
     /** Make a page that take arguments and return xhtml or redirect to another page */
-    @server
+    @server_private
     make_or_redir_with(title :-> string, content : (Application.t('state,'cred),'cred,'param -> Page.Content.return)) : Page.Content.t('state,'cred, 'param) =
       ~{title content}
     /** Return xhtml content **/
-    @server
+    @server_private
     return(xhtml : xhtml) : Page.Content.return = {~xhtml}
     /** Redirect to a page **/
-    @server
+    @server_private
     redirect(redirection : string) : Page.Content.return = {~redirection}
   }}
 }}
