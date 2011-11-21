@@ -11,13 +11,20 @@ function genericDynamicLoad(id, pack, str_data, str_opts, gfun) {
     google.load("visualization", "1", options);
 }
 
-
 ##register draw_area_chart : string, string, string -> void
 ##args(id, str_data, str_opts)
 {
     genericDynamicLoad(
 	id, ["corechart"], str_data, str_opts,
 	function(v){return new google.visualization.AreaChart(v)});
+}
+
+##register draw_bar_chart : string, string, string -> void
+##args(id, str_data, str_opts)
+{
+    genericDynamicLoad(
+	id, ["imagebarchart"], str_data, str_opts,
+	function(v){return new google.visualization.ImageBarChart(v)});
 }
 
 ##register draw_column_chart : string, string, string -> void

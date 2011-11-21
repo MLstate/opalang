@@ -19,6 +19,9 @@ google.prototype = {
 	IntensityMap : {
 	    draw : null
 	},
+	ImageBarChart : {
+	    draw : null
+	},
 	LineChart    : {
 	    draw : null
 	},

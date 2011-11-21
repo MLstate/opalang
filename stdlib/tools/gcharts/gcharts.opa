@@ -43,6 +43,7 @@ type json = RPC.Json.json
 
 type GCharts.chart_type =
     { area_chart }
+  / { bar_chart }
   / { column_chart }
   / { combo_chart }
   / { geo_chart }
@@ -281,6 +282,9 @@ GCharts = {{
       GCJson.DataTable.data(data)
       |> Json.to_string
 
+    /**
+     * Create a DataTable object from its labels and a (key, value) list
+     */
     make_simple(labels:(string,string), data:list((string, int))) =
       cols = [
         {col_id=Dom.fresh_id() col_type={string} col_label=labels.f1},
@@ -350,6 +354,7 @@ GCharts = {{
   draw(t:GCharts.chart_type, id:string, data:GCharts.DataTable.t, options:list(GCharts.option)) =
     bsl_fun = match t with
       | {area_chart} -> %% gcharts.draw_area_chart %%
+      | {bar_chart} -> %% gcharts.draw_bar_chart %%
       | {column_chart} -> %% gcharts.draw_column_chart %%
       | {combo_chart} -> %% gcharts.draw_column_chart %%
       | {geo_chart} -> %% gcharts.draw_geo_chart %%
