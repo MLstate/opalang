@@ -284,10 +284,12 @@ let rewrite_identifiers always_serialize env annotmap code =
     | _ -> None
   in
   let identity annotmap e = (annotmap,e) in
-  let rec rw_call_site ~has_public_env e = match e with
+  let rm_public_env e = match e with
     | Q.Directive (_, `public_env, ([]|_::_::_) , _ ) -> assert false (* see detect_candidate_call *)
-    | Q.Directive (_, `public_env, [e], _ ) -> rw_call_site ~has_public_env:true e
-
+    | Q.Directive (_, `public_env, [e], _ ) -> true,e
+    | _ -> false,e
+  in
+  let rec rw_call_site ~has_public_env e = match e with
     | Q.Ident _ as id
     | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ )], _)
         -> begin match get_ident id with
@@ -300,7 +302,10 @@ let rewrite_identifiers always_serialize env annotmap code =
 
     | _ -> identity
   in
-  let rw annotmap e = (rw_call_site ~has_public_env:false e) annotmap e in
+  let rw annotmap e =
+    let has_public_env, e = rm_public_env e in
+    (rw_call_site ~has_public_env e) annotmap e
+  in
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
        rw
