@@ -164,6 +164,13 @@ type Mongo.reply_tag =
   {ShardConfigStale} /
   {AwaitCapable}
 
+/** Tags for indices **/
+type Mongo.index_tag =
+  {Unique} /
+  {DropDups} /
+  {Background} /
+  {Sparse}
+
 /**
  *  We wrap the tags so that we can tell if it is an insert tag,
  *  query tag etc.  We don't want to send SingleRemove to an update.
@@ -173,14 +180,8 @@ type Mongo.mongo_tag =
   {utag:Mongo.update_tag} /
   {qtag:Mongo.query_tag} /
   {dtag:Mongo.delete_tag} /
-  {rtag:Mongo.reply_tag}
-
-/** Tags for indices **/
-type Mongo.index_tag =
-  {Unique} /
-  {DropDups} /
-  {Background} /
-  {Sparse}
+  {rtag:Mongo.reply_tag} /
+  {xtag:Mongo.index_tag}
 
 @server_private
 MongoDriver = {{
@@ -347,6 +348,12 @@ MongoDriver = {{
   ShardConfigStaleBit = 0x00000004
   AwaitCapableBit     = 0x00000008
 
+  /* Flags used by the index routines. */
+  UniqueBit     = 0x00000001
+  DropDupsBit   = 0x00000002
+  BackgroundBit = 0x00000004
+  SparseBit     = 0x00000008
+
   /**
    *  [flag_of_tag]:  Turn a list of tags into a bit-wise flag suitable
    *  for sending to MongoDB.  We have an extra layer of types to allow
@@ -378,6 +385,12 @@ MongoDriver = {{
     | {rtag={QueryFailure}} -> QueryFailureBit
     | {rtag={ShardConfigStale}} -> ShardConfigStaleBit
     | {rtag={AwaitCapable}} -> AwaitCapableBit
+
+      /* Index tags */
+    | {xtag={Unique}} -> UniqueBit
+    | {xtag={DropDups}} -> DropDupsBit
+    | {xtag={Background}} -> BackgroundBit
+    | {xtag={Sparse}} -> SparseBit
 
   /**
    * Turn a list of tags into a single MongoDB-compatible int.
@@ -415,6 +428,12 @@ MongoDriver = {{
     tags = if Bitwise.land(flag,ShardConfigStaleBit) != 0 then [{rtag={ShardConfigStale}}|tags] else tags
     if Bitwise.land(flag,AwaitCapableBit) != 0 then [{rtag={AwaitCapable}}|tags] else tags
 
+  index_tags(flag:int): list(Mongo.mongo_tag) =
+    tags = if Bitwise.land(flag,UniqueBit) != 0 then [{xtag={Unique}}] else []
+    tags = if Bitwise.land(flag,DropDupsBit) != 0 then [{xtag={DropDups}}|tags] else tags
+    tags = if Bitwise.land(flag,BackgroundBit) != 0 then [{xtag={Background}}|tags] else tags
+    if Bitwise.land(flag,SparseBit) != 0 then [{xtag={Sparse}}|tags] else tags
+
   /**
    * A string representation of a [Mongo.mongo_tag] value.
    **/
@@ -435,6 +454,10 @@ MongoDriver = {{
     | {rtag={QueryFailure}} -> "QueryFailure"
     | {rtag={ShardConfigStale}} -> "ShardConfigStale"
     | {rtag={AwaitCapable}} -> "AwaitCapable"
+    | {xtag={Unique}} -> "Unique"
+    | {xtag={DropDups}} -> "DropDups"
+    | {xtag={Background}} -> "Background"
+    | {xtag={Sparse}} -> "Sparse"
 
   /** String of a list of tags. **/
   string_of_tags(tags:list(Mongo.mongo_tag)): string = List.list_to_string(string_of_tag,tags)
@@ -881,7 +904,13 @@ MongoDriver = {{
   /**
    * Allow the user to update with the basic communications parameters.
    **/
+  set_concurrency(m:Mongo.db, concurrency:Mongo.concurrency): Mongo.db = { m with ~concurrency }
+  set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with ~pool_max }
+  set_close_socket(m:Mongo.db, close_socket:bool): Mongo.db = { m with ~close_socket }
+  set_bufsize(m:Mongo.db, bufsize:int): Mongo.db = { m with ~bufsize }
   set_log(m:Mongo.db, log:bool): Mongo.db = { m with ~log }
+  add_seed(m:Mongo.db, seed:Mongo.mongo_host): Mongo.db = { m with seeds=seed +> m.seeds }
+  remove_seed(m:Mongo.db, seed:Mongo.mongo_host): Mongo.db = { m with seeds=List.filter((s -> s != seed),m.seeds) }
   set_reconnect_wait(m:Mongo.db, reconnect_wait:int): Mongo.db = { m with ~reconnect_wait }
   set_max_attempts(m:Mongo.db, max_attempts:int): Mongo.db = { m with ~max_attempts }
   set_comms_timeout(m:Mongo.db, comms_timeout:int): Mongo.db = { m with ~comms_timeout }
@@ -1083,21 +1112,19 @@ MongoDriver = {{
           | {none} -> failErr("{from}: no document in reply"))
     | {none} -> failErr("{from}: no reply")
 
-  /**
-   * Flags used by the index routines.
-   **/
-  UniqueBit     = 0x00000001
-  DropDupsBit   = 0x00000002
-  BackgroundBit = 0x00000004
-  SparseBit     = 0x00000008
+  @private get_index_opts(options:int): Bson.document =
+    List.flatten([(if Bitwise.land(options,UniqueBit) != 0 then [H.bool("unique",true)] else []),
+                  (if Bitwise.land(options,DropDupsBit) != 0 then [H.bool("dropDups",true)] else []),
+                  (if Bitwise.land(options,BackgroundBit) != 0 then [H.bool("background",true)] else []),
+                  (if Bitwise.land(options,SparseBit) != 0 then [H.bool("sparse",true)] else [])])
 
   // TODO: create_indexe with getlasterror
-  @private create_index_(m:Mongo.db, ns:string, key:Bson.document, opts:Bson.document): bool =
+  @private create_index_(ns:string, key:Bson.document, opts:Bson.document) =
     keys = Bson.keys(key)
     name = "_"^(String.concat("",keys))
     b = List.flatten([[H.doc("key",key), H.str("ns",ns), H.str("name",name)],opts])
     idxns=(match String.index(".",ns) with | {some=p} -> String.substring(0,p,ns) | {none} -> ns)^".system.indexes"
-    insert(m,0,idxns,b)
+    (b,idxns)
 
   /**
    * Add an index to a collection.
@@ -1105,12 +1132,15 @@ MongoDriver = {{
    * @param [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
    **/
   create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
-    opts =
-      List.flatten([(if Bitwise.land(options,UniqueBit) != 0 then [H.bool("unique",true)] else []),
-                    (if Bitwise.land(options,DropDupsBit) != 0 then [H.bool("dropDups",true)] else []),
-                    (if Bitwise.land(options,BackgroundBit) != 0 then [H.bool("background",true)] else []),
-                    (if Bitwise.land(options,SparseBit) != 0 then [H.bool("sparse",true)] else [])])
-    create_index_(m, ns, key, opts)
+    opts = get_index_opts(options)
+    (b,idxns) = create_index_(ns, key, opts)
+    insert(m,0,idxns,b)
+
+  /** Add an index to a collection with follow-up getlasterror **/
+  create_indexe(m:Mongo.db, ns:string, dbname:string, key:Bson.document, options:int): option(Mongo.reply) =
+    opts = get_index_opts(options)
+    (b,idxns) = create_index_(ns, key, opts)
+    inserte(m,0,idxns,dbname,b)
 
   /**
    * [create_indexf]:  same as [create_index] but using tags instead of bit-wise flags.
@@ -1123,7 +1153,8 @@ MongoDriver = {{
                  | {DropDups} -> H.bool("dropDups",true)
                  | {Background} -> H.bool("background",true)
                  | {Sparse} -> H.bool("sparse",true)),tags)
-    create_index_(m, ns, key, opts)
+    (b,idxns) = create_index_(ns, key, opts)
+    insert(m,0,idxns,b)
 
   /**
    * Simpler version of the [create_index] function, for a single named field.

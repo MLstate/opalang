@@ -362,9 +362,13 @@ MongoCursor = {{
    *
    * {b NOTE: reverses the order.}
    **/
-  // TODO: fields and orderby here
-  find_all(m:Mongo.db, ns:string, query:Bson.document, limit:int): Mongo.results =
-    cursor = set_query(set_limit(init(m,ns),limit),{some=query})
+  find_all(m:Mongo.db, ns:string, query:Bson.document,
+           fields:option(Bson.document), orderby:option(Bson.document), limit:int): Mongo.results =
+    cursor = init(m, ns)
+    cursor = set_query(cursor, {some=query})
+    cursor = set_fields(cursor, fields)
+    cursor = set_orderby(cursor, orderby)
+    cursor = set_limit(cursor, limit)
     (cursor,results) =
       for((cursor,{success=[]}),
           ((cursor,results) ->
