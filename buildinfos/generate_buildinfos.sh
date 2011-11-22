@@ -87,7 +87,19 @@ git_opalang_version_cmd () {
 
 is_git_root () {
     LOOKED_FOR_REPO=$1
-    [ -d .git ] && git remote show -n origin | grep -q 'URL:.*'$LOOKED_FOR_REPO
+    P=`pwd`
+    # in case we are in another sub-dir, for instance _buuild...
+    cd $ROOTDIR
+    if [ "$LOOKED_FOR_REPO" != "$ROOT_REPO" ]; then
+        cd $PATH_TO_REPOS/$LOOKED_FOR_REPO
+    fi
+    if [ -d .git ] && git remote show -n origin | grep -q 'URL:.*'$LOOKED_FOR_REPO; then
+        cd $P
+        return 0
+    else
+        cd $P
+        return 1
+    fi
 }
 
 in_repo () {
