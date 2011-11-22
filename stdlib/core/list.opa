@@ -478,7 +478,7 @@ List = {{
    *
    * [
    *   is_even(x) = x mod 2 == 0
-   *   partition(is_odd, [1,2,3,4,5,6,7,8])
+   *   partition(is_even, [1,2,3,4,5,6,7,8])
    * ] returns [([2,4,6,8], [1,3,5,7])]
    *
    * @param f A function deciding in which lists elements will end. Items for which
