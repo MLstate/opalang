@@ -268,35 +268,42 @@ let generate_instrumented_functions need_instrumentation gamma annotmap code =
 
 (* update call elligible site *)
 let rewrite_identifiers always_serialize env annotmap code =
-  let new_call_site annotmap call labeli i =
+  let new_call_site labeli i =
     let new_ident, tsc_opt = IdentMap.find i env in
     let rw_ident e = match e with | Q.Ident (label, _) when label=labeli -> Q.Ident (labeli, new_ident)
                                   | _-> e in
-    let call = QmlAstWalk.Expr.map rw_ident call in
+    fun annotmap e ->
+    let e = QmlAstWalk.Expr.map rw_ident e in
     let annotmap = QmlAnnotMap.remove_tsc_inst_label labeli annotmap in
     let annotmap = QmlAnnotMap.add_tsc_inst_opt_label labeli tsc_opt annotmap in
-    annotmap, call
+    annotmap, e
   in
   let rec get_ident e = match e with
     | Q.Ident (labeli, i) -> Some((labeli,i))
     | Q.Directive (_,#ignored_directive,[e],_) -> get_ident e
     | _ -> None
   in
-  let rec rw_call_site ~has_public_env annotmap e = match e with
+  let identity annotmap e = (annotmap,e) in
+  let rec rw_call_site ~has_public_env e = match e with
     | Q.Directive (_, `public_env, ([]|_::_::_) , _ ) -> assert false (* see detect_candidate_call *)
-    | Q.Directive (_, `public_env, [e], _ ) -> rw_call_site ~has_public_env:true annotmap e
-    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ ) as call], _)
+    | Q.Directive (_, `public_env, [e], _ ) -> rw_call_site ~has_public_env:true e
+
+    | Q.Ident _ as id
+    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ )], _)
         -> begin match get_ident id with
             | Some((labeli,id)) when has_public_env || IdentSet.mem id always_serialize ->
-              new_call_site annotmap call labeli id
-            | _ -> annotmap,e
+              new_call_site labeli id
+            | _ -> identity
         end
-    | Q.Directive (_,#ignored_directive,[e],_) -> rw_call_site ~has_public_env annotmap e
-    | _ -> annotmap,e
+
+    | Q.Directive (_,#ignored_directive,[e],_) -> rw_call_site ~has_public_env e
+
+    | _ -> identity
   in
+  let rw annotmap e = (rw_call_site ~has_public_env:false e) annotmap e in
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
-       (rw_call_site ~has_public_env:false)
+       rw
     ) annotmap code
 
 
