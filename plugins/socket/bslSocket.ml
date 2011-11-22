@@ -29,12 +29,6 @@ open OpabslgenMLRuntime
 
 ##extern-type Socket.connection = Scheduler.connection_info
 
-(*let temporary_hack o = wrap_opa_outcome (BslUtils.unwrap_opa_outcome o)
-
-# # register [cps-bypass] test : string, continuation(outcome(string, int)) \
-  -> void
-let test (s:string) k = QmlCpsServerLib.return k (temporary_hack (BslUtils.create_outcome (`success s)))*)
-
 let create_outcome outcome k =
   QmlCpsServerLib.return k (wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
 
@@ -108,3 +102,6 @@ let read_with_err_cont connection_info timeout cont =
   Scheduler.read Scheduler.default connection_info ~timeout:(Time.milliseconds timeout)
                  ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                  (fun (_,str) -> create_outcome (`success str) cont)
+
+##register conn_id : Socket.connection -> int
+let conn_id conn = conn.Scheduler.conn_id

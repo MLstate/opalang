@@ -78,6 +78,8 @@ type Mongo.param = {
   name:string;
   replname:option(string);
   bufsize:int;
+  concurrency:Mongo.concurrency;
+  pool_max:int;
   close_socket:bool;
   log:bool;
   seeds:list(Mongo.mongo_host);
@@ -91,12 +93,14 @@ MongoConnection = {{
   @private default_seeds = ([("localhost",MongoDriver.default_port)]:list(Mongo.mongo_host))
 
   @private init_param = ({
-    name = "default";
-    replname = {none};
-    bufsize = 50*1024;
-    close_socket = false;
-    log = false;
-    seeds = default_seeds;
+    name="default";
+    replname={none};
+    bufsize=50*1024;
+    concurrency={pool};
+    pool_max=2;
+    close_socket=false;
+    log=false;
+    seeds=default_seeds;
   }:Mongo.param)
 
   @private last_name = Mutable.make("default")
@@ -143,7 +147,7 @@ MongoConnection = {{
          anonymous = [];
          parsers = [
            {CommandLine.default_parser with
-              names = ["--mongoname", "-mn"]
+              names = ["--mongo-name", "--mongoname", "-mn"]
               description = "Name for the MongoDB server connection"
               param_doc = "<string>"
               on_param(p) = parser name={Rule.consume} ->
@@ -151,32 +155,51 @@ MongoConnection = {{
                 {no_params = add_param((p -> { p with ~name }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongoreplname", "-mr"]
+              names = ["--mongo-repl-name", "--mongoreplname", "-mr"]
               description = "Replica set name for the MongoDB server"
               param_doc = "<string>"
               on_param(p) = parser s={Rule.consume} ->
                 {no_params = add_param((p -> { p with replname={some=s} }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongobufsize", "-mb"]
+              names = ["--mongo-buf-size", "--mongobufsize", "-mb"]
               description = "Hint for initial MongoDB connection buffer size"
               param_doc = "<int>"
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize = n }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongoclosesocket", "-mc"]
+              names = ["--mongo-concurrency", "--mongoconcurrency", "-mx"]
+              description = "Concurrency type, 'pool', 'cell' or 'singlethreaded'"
+              param_doc = "<string>"
+              on_param(p) = parser s={Rule.consume} ->
+                concurrency =
+                  ((match s with
+                    | "pool" -> {pool}
+                    | "cell" -> {cell}
+                    | "singlethreaded" -> {singlethreaded}
+                    | _ -> ML.fatal("MongoConnection.get_params","Unknown Mongo concurrency string {s}",-1)):Mongo.concurrency)
+                {no_params = add_param((p -> { p with ~concurrency }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongo-socket-pool", "--mongosocketpool", "-mp"]
+              description = "Number of sockets in socket pool (>=2 enables socket pool)"
+              param_doc = "<int>"
+              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max = n }),p)}
+           },
+           {CommandLine.default_parser with
+              names = ["--mongo-close-socket", "--mongoclosesocket", "-mc"]
               description = "Maintain MongoDB server sockets in a closed state"
               param_doc = "<bool>"
               on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with close_socket = b }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongolog", "-ml"]
+              names = ["--mongo-log", "--mongolog", "-ml"]
               description = "Enable MongoLog logging"
               param_doc = "<bool>"
               on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with log = b }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongoseed", "-ms"]
+              names = ["--mongo-seed", "--mongoseed", "-ms"]
               description = "Add a seed to a replica set, allows multiple seeds"
               param_doc = "<host>\{:<port>\}"
               on_param(p) =
@@ -186,7 +209,7 @@ MongoConnection = {{
                     { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)|seeds] }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongohost", "-mh"]
+              names = ["--mongo-host", "--mongohost", "-mh"]
               description = "Host name of a MongoDB server, overwrites any previous addresses for this name"
               param_doc = "<host>\{:<port>\}"
               on_param(p) =
@@ -195,7 +218,7 @@ MongoConnection = {{
                     { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)] }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongologtype", "-mt"]
+              names = ["--mongo-log-type", "--mongologtype", "-mt"]
               description = "Type of logging: stdout, stderr, logger, none"
               param_doc = "<string>"
               on_param(p) = parser s={Rule.consume} ->
@@ -245,8 +268,10 @@ MongoConnection = {{
    *
    * Example: [openraw(name, bufsize, close_socket, log, host, port)]
    **/
-  openraw(name:string, bufsize:int, close_socket:bool, log:bool, addr:string, port:int): outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,close_socket,addr,port,log),name)
+  openraw(name:string, bufsize:int, concurrency:Mongo.concurrency,
+          pool_max:int, close_socket:bool, log:bool, addr:string, port:int)
+        : outcome(Mongo.mongodb,Mongo.failure) =
+    open_(MongoDriver.open(bufsize,concurrency,pool_max,close_socket,addr,port,log),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
@@ -257,9 +282,10 @@ MongoConnection = {{
    * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
-  replraw(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, concurrency:Mongo.concurrency,
+          pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,close_socket,log,seeds)),name)
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,concurrency,pool_max,close_socket,log,seeds)),name)
 
   /**
    * Open a connection according to the named parameters.
@@ -277,11 +303,11 @@ MongoConnection = {{
     match List.find((p -> p.name == name),params.get()) with
     | {some=p} ->
        (match p.replname with
-        | {some=rn} -> replraw(rn,p.bufsize,p.close_socket,p.log,p.seeds)
+        | {some=rn} -> replraw(rn,p.bufsize,p.concurrency,p.pool_max,p.close_socket,p.log,p.seeds)
         | {none} ->
            (match p.seeds with
             | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
-            | [(host,port)] -> openraw(name,p.bufsize,p.close_socket,p.log,host,port)
+            | [(host,port)] -> openraw(name,p.bufsize,p.concurrency,p.pool_max,p.close_socket,p.log,host,port)
             | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
     | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
 
@@ -411,6 +437,11 @@ MongoConnection = {{
   /** Set the "partial" flag for all [query] calls. **/
   partial(db:Mongo.mongodb): Mongo.mongodb =
     { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.PartialBit) }
+
+  insert(m:Mongo.mongodb, flags:int, ns:string, documents:Bson.document): bool =
+    MongoDriver.insert(m.mongo, flags, ns, documents)
+  inserte(m:Mongo.mongodb, flags:int, ns:string, dbname:string, documents:Bson.document): option(Mongo.reply) =
+    MongoDriver.inserte(m.mongo, flags, ns, dbname, documents)
 
 }}
 

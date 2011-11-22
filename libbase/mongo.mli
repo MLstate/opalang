@@ -44,6 +44,8 @@ val import : string -> mongo_buf
 val copy : mongo_buf -> mongo_buf
 val concat : mongo_buf -> mongo_buf -> mongo_buf
 val append : mongo_buf -> mongo_buf -> unit
+val length : mongo_buf -> int
+val clip : mongo_buf -> int -> unit
 val set_header_len : mongo_buf -> int -> unit
 val set_header : mongo_buf -> int32 -> int -> int -> unit
 val get_buf : ?hint:int -> unit -> Buf.t
@@ -79,4 +81,5 @@ val string_of_message_str : string -> string
 val string_of_message_reply : Buf.buf * int * int -> string
 
 val mongo_buf_requestId : mongo_buf -> int
+val mongo_buf_refresh_requestId : mongo_buf -> int32 -> unit
 val mongo_buf_responseTo : mongo_buf -> int

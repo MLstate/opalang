@@ -99,4 +99,6 @@ Socket = {{
     read_with_err_cont: Socket.connection, int -> outcome(string,string) =
       %%BslSocket.read_with_err_cont%%
 
+    conn_id: Socket.connection -> int = %%BslSocket.conn_id%%
+
 }}

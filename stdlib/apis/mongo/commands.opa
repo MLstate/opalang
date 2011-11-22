@@ -70,6 +70,19 @@ type Mongo.getLastErrorOptions = {
   wtimeout : Bson.register(Bson.int32);
 }
 
+type Mongo.lastError = {
+  ok : int; //- true indicates the getLastError command completed successfully. This does NOT indicate there wasn't a last error.
+  err : Bson.register(string); //- if non-null, indicates an error occurred. Value is a textual description of the error.
+  code : Bson.register(int); //- if set, indicates the error code which occurred.
+  connectionId : Bson.register(int); //- the id of the connection
+  lastOp : Bson.register(Bson.document); //- the op-id from the last operation (varies, not always just an int)
+  n : Bson.register(int);
+}
+
+type Mongo.ok = {
+  ok : int;
+}
+
 type Mongo.isMaster = {
   ismaster : bool;
   msg : Bson.register(string);

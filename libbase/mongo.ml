@@ -106,6 +106,10 @@ let concat m1 m2 = { Bson.buf = Buf.of_string(m1.Bson.buf.Buf.str^m2.Bson.buf.Bu
 
 let append m1 m2 = Buf.add_buf m1.Bson.buf m2.Bson.buf
 
+let length m = Buf.length m.Bson.buf
+
+let clip m len = m.Bson.buf.Buf.i <- len
+
 (*
 struct MsgHeader {
     int32   messageLength; // total message size, including this
@@ -116,6 +120,7 @@ struct MsgHeader {
 *)
 
 let mongo_buf_requestId mb = geti32 mb.Bson.buf 4
+let mongo_buf_refresh_requestId mb rid = St.lei32l mb.Bson.buf.Buf.str 4 rid
 let mongo_buf_responseTo mb = geti32 mb.Bson.buf 8
 
 let header_messageLength s = geti32 s 0

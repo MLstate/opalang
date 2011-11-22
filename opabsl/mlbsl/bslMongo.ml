@@ -337,6 +337,12 @@ let concat = Mongo.concat
 ##register append: Mongo.mongo_buf, Mongo.mongo_buf -> void
 let append = Mongo.append
 
+##register length: Mongo.mongo_buf -> int
+let length = Mongo.length
+
+##register clip: Mongo.mongo_buf, int -> void
+let clip = Mongo.clip
+
 ##register clear: Mongo.mongo_buf -> void
 let clear = Mongo.clear
 
@@ -421,6 +427,9 @@ let is_null_cursorID cid = ServerLib.wrap_bool (cid = 0L)
 
 ##register mongo_buf_requestId : Mongo.mongo_buf -> int
 let mongo_buf_requestId = Mongo.mongo_buf_requestId 
+
+##register mongo_buf_refresh_requestId : Mongo.mongo_buf -> void
+let mongo_buf_refresh_requestId m = Mongo.mongo_buf_refresh_requestId m (nextrid())
 
 ##register mongo_buf_responseTo : Mongo.mongo_buf -> int
 let mongo_buf_responseTo = Mongo.mongo_buf_responseTo 

@@ -150,15 +150,17 @@ MongoReplicaSet = {{
   /**
    * Initialize a [Mongo.db] connection using the given list of seeds.
    **/
-  init(name:string, bufsize:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(bufsize, close_socket, log)
+  init(name:string, bufsize:int, concurrency:Mongo.concurrency,
+       pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    m = MongoDriver.init(bufsize, concurrency, pool_max, close_socket, log)
     {m with ~seeds; hosts=Mutable.make([]); ~name}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
    **/
-  init_single(name:string, bufsize:int, close_socket:bool, log:bool, seed:Mongo.mongo_host): Mongo.db =
-    init(name,bufsize,close_socket,log,[seed])
+  init_single(name:string, bufsize:int, concurrency:Mongo.concurrency,
+              pool_max:int, close_socket:bool, log:bool, seed:Mongo.mongo_host): Mongo.db =
+    init(name,bufsize,concurrency,pool_max,close_socket,log,[seed])
 
   /**
    * Generate a [Mongo.mongo_host] value from a string: "host:port".
@@ -170,13 +172,22 @@ MongoReplicaSet = {{
     | _ -> (s,MongoDriver.default_port)
 
   @private
-  isMasterOpaLL(m:Mongo.db): outcome(Mongo.isMaster,Mongo.failure) =
-    match MongoCommands.simple_int_command_ll(m,"admin","ismaster",1) with
+  adminCommandOpaLL(m:Mongo.db, cmd:string): outcome('a,Mongo.failure) =
+    match MongoCommands.simple_int_command_ll(m,"admin",cmd,1) with
     | {success=doc} ->
        (match MongoDriver.result_to_opa({success=doc}) with
-        | {some=ism} -> {success=ism}
-        | {none} -> {failure={Error="MongoReplicaSet.isMasterOpaLL: invalid document from db admin ({Bson.to_pretty(doc)})"}})
+        | {some=a} -> {success=a}
+        | {none} -> {failure={Error="MongoReplicaSet.adminCommandOpaLL: invalid document from db admin ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}
+
+  @private
+  adminCommandLL(m:Mongo.db, cmd:string): Mongo.result =
+    MongoCommands.simple_int_command_ll(m,"admin",cmd,1)
+
+  isMasterOpaLL(m:Mongo.db): outcome(Mongo.isMaster,Mongo.failure) = adminCommandOpaLL(m,"ismaster")
+  resetErrorOpaLL(m:Mongo.db): outcome(Mongo.ok,Mongo.failure) = adminCommandOpaLL(m,"reseterror")
+  getLastErrorOpaLL(m:Mongo.db): outcome(Mongo.lastError,Mongo.failure) = adminCommandOpaLL(m,"getlasterror")
+  getLastErrorLL(m:Mongo.db): Mongo.result = adminCommandLL(m,"getlasterror")
 
   /**
    * Try to get the list of hosts from a given list of seeds by connecting
