@@ -109,6 +109,7 @@ type non_expansive = [
   | `module_
   | `recval
   | Q.slicer_directive
+  | Q.closure_instrumentation_directive
 ]
 
 let rec is_expansive e =
