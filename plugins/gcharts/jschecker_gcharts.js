@@ -7,6 +7,9 @@ google.prototype = {
 	AreaChart    : {
 	    draw : null
 	},
+	BarChart : {
+	    draw : null
+	},
 	ColumnChart  : {
 	    draw : null
 	},
@@ -17,9 +20,6 @@ google.prototype = {
 	    draw : null
 	},
 	IntensityMap : {
-	    draw : null
-	},
-	ImageBarChart : {
 	    draw : null
 	},
 	LineChart    : {

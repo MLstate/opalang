@@ -139,6 +139,7 @@ type GCharts.option =
   / { header_height : int }
   / { font_color : color }
   / { show_scale : bool }
+  / { curve_type : {none}/{function} }
 
   / { default_series_type : GCharts.series_type }
   / { series : list((int, list(GCharts.series_options))) } // (Affected series, options)
@@ -228,6 +229,10 @@ type GCharts.option =
       | ~{header_height} -> ("headerHeight", {Int=header_height})
       | ~{font_color} -> ("fontColor", aux_color(font_color))
       | ~{show_scale} -> ("showScale", {Bool=show_scale})
+      | ~{curve_type} ->
+        ("curveType", match curve_type with
+          | {none} -> {String="none"}
+          | {function} -> {String="function"})
 
       | ~{default_series_type} -> ("seriesType", aux_series_type(default_series_type))
       | ~{series} -> ("series", {Record=List.map(

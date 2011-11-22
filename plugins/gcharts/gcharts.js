@@ -23,8 +23,8 @@ function genericDynamicLoad(id, pack, str_data, str_opts, gfun) {
 ##args(id, str_data, str_opts)
 {
     genericDynamicLoad(
-	id, ["imagebarchart"], str_data, str_opts,
-	function(v){return new google.visualization.ImageBarChart(v)});
+	id, ["corechart"], str_data, str_opts,
+	function(v){return new google.visualization.BarChart(v)});
 }
 
 ##register draw_column_chart : string, string, string -> void
