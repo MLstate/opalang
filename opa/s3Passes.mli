@@ -97,6 +97,18 @@ val pass_Parse :
   )
   opa_pass
 
+val pass_Print :
+  (
+    ((
+      ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+      * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+      )
+    )
+    * env_OpenFiles) as 'parsed_files
+  ,
+    'parsed_files
+  ) opa_pass
+
 val pass_RegisterAppSrcCode :
   (
     (
@@ -108,6 +120,7 @@ val pass_RegisterAppSrcCode :
   ,
     'parsed_files
   ) opa_pass
+
 
 val pass_BslLoading :
   ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)

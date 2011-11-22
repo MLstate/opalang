@@ -460,6 +460,26 @@ let pass_RegisterAppSrcCode =
         PassHandler.make_env options (special_files, user_files)
     )
 
+let pass_Print =
+  PassHandler.make_pass
+    (fun e ->
+       let options = e.PH.options in
+       let module Printer = (val OpaPrint.getDefaultFamilly () : OpaPrint.Familly) in
+       if not (File.exists options.O.build_dir) then Unix.mkdir options.O.build_dir 0o740;
+       List.iter
+         (function pfile ->
+            let fn = Filename.concat options.O.build_dir
+              pfile.SurfaceAstPassesTypes.parsedFile_filename in
+            OManager.verbose "Convert %s to %s"
+              pfile.SurfaceAstPassesTypes.parsedFile_filename fn;
+            let oc = open_out fn in
+            let fmt = Format.formatter_of_out_channel oc in
+            Printer.string#code fmt pfile.SurfaceAstPassesTypes.parsedFile_lcode;
+            ignore (close_out oc)
+         ) (snd (fst e.PH.env));
+       e
+    )
+
 let pass_LoadObjects k =
   PH.make_pass
     (fun env ->
@@ -2187,3 +2207,6 @@ let () =
      | "ByeBye" -> None
 
      | _ -> None)
+
+
+
