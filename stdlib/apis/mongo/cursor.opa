@@ -181,7 +181,7 @@ MongoCursor = {{
   /**
    * Return all the documents in the reply stored in a cursor.
    **/
-  all_documents(c:Mongo.cursor): outcome(list(Bson.document), Mongo.failure) =
+  all_documents(c:Mongo.cursor): Mongo.results =
     match c.reply with
     | {some=reply} ->
       rec aux(n:int) =

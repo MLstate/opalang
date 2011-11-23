@@ -558,17 +558,46 @@ MongoConnection = {{
   create_indexe(m:Mongo.mongodb, key:Bson.document): option(Mongo.reply) =
     MongoDriver.create_indexe(m.mongo, "{m.dbname}.{m.collection}", m.dbname, key, m.index_flags)
 
-  /** Perform a query according to inbuilt parameters, return cursor **/
-  find(m:Mongo.mongodb, query:Bson.document): outcome(Mongo.cursor,Mongo.failure) =
-    MongoCursor.find(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby, m.limit, m.skip, m.query_flags)
+  Cursor = {{
 
-  /** Perform a query according to inbuilt parameters, return first match **/
-  find_one(m:Mongo.mongodb, query:Bson.document): Mongo.result =
-    MongoCursor.find_one(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby)
+     /** Initialise bare cursor **/
+     init(m:Mongo.mongodb): Mongo.cursor =
+       MongoCursor.init(m.mongo, "{m.dbname}.{m.collection}")
 
-  /** Perform a query according to inbuilt parameters, return up to [limit] matches **/
-  find_all(m:Mongo.mongodb, query:Bson.document): Mongo.results =
-    MongoCursor.find_all(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby, m.limit)
+     set_flags(c:Mongo.cursor, flags:int): Mongo.cursor = MongoCursor.set_flags(c,flags)
+     set_skip(c:Mongo.cursor, skip:int): Mongo.cursor = MongoCursor.set_skip(c,skip)
+     set_limit(c:Mongo.cursor, limit:int): Mongo.cursor = MongoCursor.set_limit(c,limit)
+     set_query(c:Mongo.cursor, query:option(Bson.document)): Mongo.cursor = MongoCursor.set_query(c,query)
+     set_fields(c:Mongo.cursor, fields:option(Bson.document)): Mongo.cursor = MongoCursor.set_fields(c,fields)
+     set_orderby(c:Mongo.cursor, orderby:option(Bson.document)): Mongo.cursor = MongoCursor.set_orderby(c,orderby)
+     tailable(c:Mongo.cursor): Mongo.cursor = MongoCursor.tailable(c)
+     op_query(c:Mongo.cursor): Mongo.cursor = MongoCursor.op_query(c)
+     get_more(c:Mongo.cursor): Mongo.cursor = MongoCursor.get_more(c)
+     document(c:Mongo.cursor, n:int): Mongo.result = MongoCursor.document(c,n)
+     all_documents(c:Mongo.cursor): Mongo.results = MongoCursor.all_documents(c)
+     reset(c:Mongo.cursor): Mongo.cursor = MongoCursor.reset(c)
+     next(c:Mongo.cursor): Mongo.cursor = MongoCursor.next(c)
+     for(init:'state, next:'state -> 'state, cond:'state -> ('state, bool)): 'state = MongoCursor.for(init,next,cond)
+     valid(c:Mongo.cursor): bool = MongoCursor.valid(c)
+     check_cursor_error(c:Mongo.cursor): Mongo.result = MongoCursor.check_cursor_error(c)
+
+     /** Start a simple cursor query **/
+     start(m:Mongo.mongodb, query:Bson.document): Mongo.cursor =
+       MongoCursor.start(m.mongo, "{m.dbname}.{m.collection}", query, m.limit)
+
+     /** Perform a query according to inbuilt parameters, return cursor **/
+     find(m:Mongo.mongodb, query:Bson.document): outcome(Mongo.cursor,Mongo.failure) =
+       MongoCursor.find(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby, m.limit, m.skip, m.query_flags)
+
+     /** Perform a query according to inbuilt parameters, return first match **/
+     find_one(m:Mongo.mongodb, query:Bson.document): Mongo.result =
+       MongoCursor.find_one(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby)
+
+     /** Perform a query according to inbuilt parameters, return up to [limit] matches **/
+     find_all(m:Mongo.mongodb, query:Bson.document): Mongo.results =
+       MongoCursor.find_all(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby, m.limit)
+
+  }} // Cursor
 
 }}
 
