@@ -175,7 +175,7 @@ MongoReplicaSet = {{
   adminCommandOpaLL(m:Mongo.db, cmd:string): outcome('a,Mongo.failure) =
     match MongoCommands.simple_int_command_ll(m,"admin",cmd,1) with
     | {success=doc} ->
-       (match MongoDriver.result_to_opa({success=doc}) with
+       (match MongoCommon.result_to_opa({success=doc}) with
         | {some=a} -> {success=a}
         | {none} -> {failure={Error="MongoReplicaSet.adminCommandOpaLL: invalid document from db admin ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}

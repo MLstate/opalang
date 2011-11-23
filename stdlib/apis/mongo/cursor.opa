@@ -92,7 +92,7 @@ MongoCursor = {{
     fields = {none};
     orderby = {none};
     query_sent = {false};
-    cid = MongoDriver.null_cursorID(void);
+    cid = MongoCommon.null_cursorID(void);
     reply = {none};
     returned = 0;
     current = 0;
@@ -113,7 +113,7 @@ MongoCursor = {{
   set_fields(c:Mongo.cursor, fields:option(Bson.document)): Mongo.cursor = { c with ~fields }
   set_orderby(c:Mongo.cursor, orderby:option(Bson.document)): Mongo.cursor = { c with ~orderby }
 
-  tailable(c:Mongo.cursor): Mongo.cursor = { c with flags=Bitwise.lor(c.flags, MongoDriver.TailableCursorBit) }
+  tailable(c:Mongo.cursor): Mongo.cursor = { c with flags=Bitwise.lor(c.flags, MongoCommon.TailableCursorBit) }
 
   @private
   set_error(c:Mongo.cursor, error:Mongo.failure): Mongo.cursor = { c with ~error; killed={true} }
@@ -122,12 +122,12 @@ MongoCursor = {{
   reply(c:Mongo.cursor, reply_opt:option(Mongo.reply), name:string, query_sent:bool): Mongo.cursor =
     match reply_opt with
     | {some=reply} ->
-      cursorID = MongoDriver.reply_cursorID(reply)
+      cursorID = MongoCommon.reply_cursorID(reply)
       { c with
           cid = cursorID;
           reply = {some=reply};
           ~query_sent;
-          returned = MongoDriver.reply_numberReturned(reply);
+          returned = MongoCommon.reply_numberReturned(reply);
           current = 0;
           doc = error_document("Uninitialised document",-1);
       }
@@ -157,7 +157,7 @@ MongoCursor = {{
    * Perform an OP_GETMORE call, if a valid cursor ID exists in the cursor.
    **/
   get_more(c:Mongo.cursor): Mongo.cursor =
-    if not(c.killed) && not(MongoDriver.is_null_cursorID(c.cid))
+    if not(c.killed) && not(MongoCommon.is_null_cursorID(c.cid))
     then reply(c,MongoDriver.get_more(c.mongo, c.ns, c.limit, c.cid),"get_more",c.query_sent)
     else set_error(c,{Error="MongoCursor.get_more: attempt to get more with dead cursor"})
 
@@ -173,7 +173,7 @@ MongoCursor = {{
     else
       match c.reply with
       | {some=reply} ->
-        (match MongoDriver.reply_document(reply,n) with
+        (match MongoCommon.reply_document(reply,n) with
          | {some=doc} -> {success=doc}
          | {none} -> {failure={Error="MongoCursor.document: no document"}})
       | {none} -> {failure={Error="MongoCursor.document: no reply"}}
@@ -187,7 +187,7 @@ MongoCursor = {{
       rec aux(n:int) =
        if n >= c.returned
        then []
-       else (match MongoDriver.reply_document(reply,n) with
+       else (match MongoCommon.reply_document(reply,n) with
              | {some=doc} -> (doc +> (aux(n+1)))
              | {none} -> (aux(n+1)))
       {success=aux(0)}
@@ -199,7 +199,7 @@ MongoCursor = {{
         error={Error="reset"};
         doc=error_document("Dead cursor",-1);
         killed={true};
-        cid=MongoDriver.null_cursorID(void)
+        cid=MongoCommon.null_cursorID(void)
     }
 
   /**
@@ -209,7 +209,7 @@ MongoCursor = {{
    * ID still exists in the cursor.
    **/
   reset(c:Mongo.cursor): Mongo.cursor =
-    if not(MongoDriver.is_null_cursorID(c.cid))
+    if not(MongoCommon.is_null_cursorID(c.cid))
     then
       if MongoDriver.kill_cursors(c.mongo, [c.cid])
       then destroy(c)
@@ -240,20 +240,20 @@ MongoCursor = {{
       // TODO: tailable cursors
       if c.returned <= 0
       then
-        tags = MongoDriver.reply_tags(MongoDriver.reply_responseFlags(Option.get(c.reply)))
+        tags = MongoCommon.reply_tags(MongoCommon.reply_responseFlags(Option.get(c.reply)))
         tags = List.filter((tag -> tag != {rtag={AwaitCapable}}),tags)
         if List.is_empty(tags)
         then set_error(c,{NotFound})
-        else set_error(c,{Error="MongoCursor.next: no data returned tags={MongoDriver.string_of_tags(tags)}"})
+        else set_error(c,{Error="MongoCursor.next: no data returned tags={MongoCommon.string_of_tags(tags)}"})
       else
         if c.current >= c.returned
         then
-          if MongoDriver.is_null_cursorID(c.cid)
+          if MongoCommon.is_null_cursorID(c.cid)
           then set_error({c with doc = error_document("Read past end of data",-1)},{Error="MongoCursor.next: end of data"})
           else next(get_more(c))
         else {c with
                 current=c.current+1;
-                doc=(match MongoDriver.reply_document(Option.get(c.reply),c.current) with
+                doc=(match MongoCommon.reply_document(Option.get(c.reply),c.current) with
                      | {some=doc} -> doc
                      | {none} -> error_document("Reply parse error",-1))}
 

@@ -187,7 +187,7 @@ MongoCollection = {{
   openfatal(name:string, dbname:string, collection:string): Mongo.collection('value) =
     match open(name, dbname, collection) with
     | {success=coll} -> coll
-    | {~failure} -> ML.fatal("MongoCollection.openfatal","Can't connect: {MongoDriver.string_of_failure(failure)}",-1)
+    | {~failure} -> ML.fatal("MongoCollection.openfatal","Can't connect: {MongoCommon.string_of_failure(failure)}",-1)
 
   /** Supply a set of useful values associated with a collection **/
   makepkg(c:Mongo.collection('value)): Mongo.pkg('value) =
@@ -199,7 +199,7 @@ MongoCollection = {{
 
   /** Same as [open] but returning pre-typed select and update functions **/
   openpkg(name:string, dbname:string, collection:string): outcome(Mongo.pkg('value),Mongo.failure) =
-    MongoDriver.map_success(open(name,dbname,collection),makepkg)
+    MongoCommon.map_success(open(name,dbname,collection),makepkg)
 
   /** Same as [openfatal] but returning pre-typed select and update functions **/
   openpkgfatal(name:string, dbname:string, collection:string) : Mongo.pkg('value) =
@@ -239,47 +239,47 @@ MongoCollection = {{
 
   /** Set the "continueOnError" flag for all [insert] calls. **/
   continueOnError(c:Mongo.collection('value)): Mongo.collection('value) =
-    {c with db={ c.db with insert_flags=Bitwise.lor(c.db.insert_flags,MongoDriver.ContinueOnErrorBit) }}
+    {c with db={ c.db with insert_flags=Bitwise.lor(c.db.insert_flags,MongoCommon.ContinueOnErrorBit) }}
 
   /** Set the "Upsert" flag for all [update] calls. **/
   upsert(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoDriver.UpsertBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoCommon.UpsertBit) }}
 
   /** Set the "multiUpdate" flag for all [update] calls. **/
   multiUpdate(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoDriver.MultiUpdateBit) }}
+    = {c with db={ c.db with update_flags=Bitwise.lor(c.db.update_flags,MongoCommon.MultiUpdateBit) }}
 
   /** Set the "singleRemove" flag for all [delete] calls. **/
   singleRemove(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with delete_flags=Bitwise.lor(c.db.delete_flags,MongoDriver.SingleRemoveBit) }}
+    = {c with db={ c.db with delete_flags=Bitwise.lor(c.db.delete_flags,MongoCommon.SingleRemoveBit) }}
 
   /** Set the "tailableCursor" flag for all [query] calls. **/
   tailableCursor(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.TailableCursorBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.TailableCursorBit) }}
 
   /** Set the "slaveOk" flag for all [query] calls. **/
   slaveOk(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.SlaveOkBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.SlaveOkBit) }}
 
   /** Set the "oplogReplay" flag for all [query] calls. **/
   oplogReplay(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.OplogReplayBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.OplogReplayBit) }}
 
   /** Set the "noCursorTimeout" flag for all [query] calls. **/
   noCursorTimeout(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.NoCursorTimeoutBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.NoCursorTimeoutBit) }}
 
   /** Set the "awaitData" flag for all [query] calls. **/
   awaitData(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.AwaitDataBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.AwaitDataBit) }}
 
   /** Set the "exhaust" flag for all [query] calls. **/
   exhaust(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.ExhaustBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.ExhaustBit) }}
 
   /** Set the "partial" flag for all [query] calls. **/
   partial(c:Mongo.collection('value)): Mongo.collection('value)
-    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoDriver.PartialBit) }}
+    = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.PartialBit) }}
 
   /**
    * Insert an OPA value into a collection.
@@ -293,7 +293,7 @@ MongoCollection = {{
   inserte(c:Mongo.collection('value), v:'value): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     b = Bson.opa_to_bson(v,{some=@typeval('value)})
-    MongoDriver.reply_to_result("MongoConnection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
+    MongoCommon.reply_to_result("MongoConnection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
 
   /**
    * Batch insert, you need to build the batch using the [Batch] module.
@@ -305,7 +305,7 @@ MongoCollection = {{
   /** insert_batch with getlasterror **/
   insert_batche(c:Mongo.collection('value), b:Mongo.batch('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoDriver.reply_to_result("MongoConnection.insert_batch",0,
+    MongoCommon.reply_to_result("MongoConnection.insert_batch",0,
                                 MongoDriver.insert_batche(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
 
   /**
@@ -326,7 +326,7 @@ MongoCollection = {{
   /** update with getlasterror **/
   updatee(c:Mongo.collection('value), select:Mongo.select('value), update:Mongo.update('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoDriver.reply_to_result("MongoConnection.update",0,
+    MongoCommon.reply_to_result("MongoConnection.update",0,
                                 MongoDriver.updatee(c.db.mongo,c.db.update_flags,ns,c.db.dbname,select,update))
 
   /**
@@ -339,7 +339,7 @@ MongoCollection = {{
   /** delete with getlasterror **/
   deletee(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoDriver.reply_to_result("MongoConnection.delete",0,
+    MongoCommon.reply_to_result("MongoConnection.delete",0,
                                 MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,c.db.dbname,select))
 
   /**

@@ -90,6 +90,7 @@ type Mongo.params = list(Mongo.param)
 MongoConnection = {{
 
   @private ML = MongoLog
+  @private H = Bson.Abbrevs
 
   @private default_seeds = ([("localhost",MongoDriver.default_port)]:list(Mongo.mongo_host))
 
@@ -318,7 +319,7 @@ MongoConnection = {{
   openfatal(name:string): Mongo.mongodb =
     match open(name) with
     | {success=rs} -> rs
-    | {~failure} -> ML.fatal("MongoConnection.openfatal","Can't connect: {MongoDriver.string_of_failure(failure)}",-1)
+    | {~failure} -> ML.fatal("MongoConnection.openfatal","Can't connect: {MongoCommon.string_of_failure(failure)}",-1)
 
   /**
    * Clone a connection.  We actually just bump the link count.  On close
@@ -411,9 +412,9 @@ MongoConnection = {{
    **/
   err(db:Mongo.mongodb, msg:string): bool =
     err = MongoCommands.getLastError(db, db.dbname)
-    status = MongoDriver.is_error(err)
+    status = MongoCommon.is_error(err)
     do if db.mongo.log && status
-       then ML.error("MongoConnection.err({db.dbname}.{db.collection})","msg={msg} err={MongoDriver.string_of_result(err)}",void)
+       then ML.error("MongoConnection.err({db.dbname}.{db.collection})","msg={msg} err={MongoCommon.string_of_result(err)}",void)
     status
 
   /** Set the "skip" number on the given connection. **/
@@ -430,63 +431,63 @@ MongoConnection = {{
 
   /** Set the "continueOnError" flag for all [insert] calls. **/
   continueOnError(db:Mongo.mongodb): Mongo.mongodb =
-    { db with insert_flags=Bitwise.lor(db.insert_flags,MongoDriver.ContinueOnErrorBit) }
+    { db with insert_flags=Bitwise.lor(db.insert_flags,MongoCommon.ContinueOnErrorBit) }
 
   /** Set the "Upsert" flag for all [update] calls. **/
   upsert(db:Mongo.mongodb): Mongo.mongodb =
-    { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.UpsertBit) }
+    { db with update_flags=Bitwise.lor(db.update_flags,MongoCommon.UpsertBit) }
 
   /** Set the "multiUpdate" flag for all [update] calls. **/
   multiUpdate(db:Mongo.mongodb): Mongo.mongodb =
-    { db with update_flags=Bitwise.lor(db.update_flags,MongoDriver.MultiUpdateBit) }
+    { db with update_flags=Bitwise.lor(db.update_flags,MongoCommon.MultiUpdateBit) }
 
   /** Set the "singleRemove" flag for all [delete] calls. **/
   singleRemove(db:Mongo.mongodb): Mongo.mongodb =
-    { db with delete_flags=Bitwise.lor(db.delete_flags,MongoDriver.SingleRemoveBit) }
+    { db with delete_flags=Bitwise.lor(db.delete_flags,MongoCommon.SingleRemoveBit) }
 
   /** Set the "tailableCursor" flag for all [query] calls. **/
   tailableCursor(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.TailableCursorBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.TailableCursorBit) }
 
   /** Set the "slaveOk" flag for all [query] calls. **/
   slaveOk(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.SlaveOkBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.SlaveOkBit) }
 
   /** Set the "oplogReplay" flag for all [query] calls. **/
   oplogReplay(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.OplogReplayBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.OplogReplayBit) }
 
   /** Set the "noCursorTimeout" flag for all [query] calls. **/
   noCursorTimeout(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.NoCursorTimeoutBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.NoCursorTimeoutBit) }
 
   /** Set the "awaitData" flag for all [query] calls. **/
   awaitData(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.AwaitDataBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.AwaitDataBit) }
 
   /** Set the "exhaust" flag for all [query] calls. **/
   exhaust(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.ExhaustBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.ExhaustBit) }
 
   /** Set the "partial" flag for all [query] calls. **/
   partial(db:Mongo.mongodb): Mongo.mongodb =
-    { db with query_flags=Bitwise.lor(db.query_flags,MongoDriver.PartialBit) }
+    { db with query_flags=Bitwise.lor(db.query_flags,MongoCommon.PartialBit) }
 
   /** Set the "unique" flag for all [index] calls. **/
   unique(db:Mongo.mongodb): Mongo.mongodb =
-    { db with index_flags=Bitwise.lor(db.index_flags,MongoDriver.UniqueBit) }
+    { db with index_flags=Bitwise.lor(db.index_flags,MongoCommon.UniqueBit) }
 
   /** Set the "dropdups" flag for all [index] calls. **/
   dropDups(db:Mongo.mongodb): Mongo.mongodb =
-    { db with index_flags=Bitwise.lor(db.index_flags,MongoDriver.DropDupsBit) }
+    { db with index_flags=Bitwise.lor(db.index_flags,MongoCommon.DropDupsBit) }
 
   /** Set the "background" flag for all [index] calls. **/
   background(db:Mongo.mongodb): Mongo.mongodb =
-    { db with index_flags=Bitwise.lor(db.index_flags,MongoDriver.BackgroundBit) }
+    { db with index_flags=Bitwise.lor(db.index_flags,MongoCommon.BackgroundBit) }
 
   /** Set the "sparse" flag for all [index] calls. **/
   sparse(db:Mongo.mongodb): Mongo.mongodb =
-    { db with index_flags=Bitwise.lor(db.index_flags,MongoDriver.SparseBit) }
+    { db with index_flags=Bitwise.lor(db.index_flags,MongoCommon.SparseBit) }
 
   /** Insert document into the defined database with inbuilt flags **/
   insert(m:Mongo.mongodb, documents:Bson.document): bool =

@@ -52,7 +52,7 @@ MongoUtils = {{
            (match Bson.find_string(success, "err") with
             | {some=""} | {none} -> true
             | {some=err} -> ML.error("{msg}","{err}",false))
-        | {~failure} -> ML.error("{msg}","fatal error {MongoDriver.string_of_failure(failure)}",false))
+        | {~failure} -> ML.error("{msg}","fatal error {MongoCommon.string_of_failure(failure)}",false))
 
    safe_insert(c,v) = safe_(c,((c,v) -> MongoCollection.insert(c,v)),(c,v),"Collection.insert")
    safe_insert_batch(c,b) = safe_(c,((c,b) -> MongoCollection.insert_batch(c,b)),(c,b),"Collection.insert_batch")

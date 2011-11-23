@@ -51,7 +51,7 @@
  *   MongoDB server commands.
  *
  *   If we just want a single value out of the result,
- *   then it is probably more efficient to use the [MongoDriver.dotresult_type] functions.
+ *   then it is probably more efficient to use the [MongoCommon.dotresult_type] functions.
  *   If we want to manipulate the whole thing in OPA, however, we can just
  *   [Bosn.doc2opa] the result and cast to these types.
  *
@@ -180,7 +180,7 @@ MongoCommands = {{
    **/
   run_command_ll(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
     match MongoCursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
-    | {success=bson} -> MongoDriver.check_ok(bson)
+    | {success=bson} -> MongoCommon.check_ok(bson)
     | {~failure} -> {~failure}
 
   run_command(m:Mongo.mongodb, ns:string, command:Bson.document): Mongo.result =
@@ -219,7 +219,7 @@ MongoCommands = {{
   dbToOpa(m:Mongo.mongodb, dbname:string, command:string): outcome('a,Mongo.failure) =
     match simple_int_command(m,dbname,command,1) with
     | {success=doc} ->
-       (match MongoDriver.result_to_opa({success=doc}) with
+       (match MongoCommon.result_to_opa({success=doc}) with
         | {some=ism} -> {success=ism}
         | {none} -> {failure={Error="Mongo.{command}: invalid document from db {dbname} ({Bson.to_pretty(doc)})"}})
     | {~failure} -> {~failure}
@@ -292,7 +292,7 @@ MongoCommands = {{
    * Return the last error from database.
    **/
   getLastError(m:Mongo.mongodb, db:string): Mongo.result = simple_int_command(m, db, "getlasterror", 1)
-  getLastErrorOpa(m:Mongo.mongodb, db:string): Mongo.error = MongoDriver.error_of_result(getLastError(m, db))
+  getLastErrorOpa(m:Mongo.mongodb, db:string): Mongo.error = MongoCommon.error_of_result(getLastError(m, db))
 
   /**
    * Return the last error from database, with full options.
@@ -303,7 +303,7 @@ MongoCommands = {{
     simple_int_command_opts(m, db, "getlasterror", 1,
                             [H.bool("fsync",fsync), H.bool("j",j), H.i32("w",w), H.i32("wtimeout",wtimeout)])
   getLastErrorFullOpa(m:Mongo.mongodb, db:string, fsync:bool, j:bool, w:int, wtimeout:int): Mongo.error =
-    MongoDriver.error_of_result(getLastErrorFull(m, db, fsync, j, w, wtimeout))
+    MongoCommon.error_of_result(getLastErrorFull(m, db, fsync, j, w, wtimeout))
 
   /**
    * Reset database error status.
@@ -331,7 +331,7 @@ MongoCommands = {{
   collStats(m:Mongo.mongodb, db:string, collection:string): Mongo.result =
     simple_str_command(m, db, "collStats", collection)
   collStatsOpa(m:Mongo.mongodb, db:string, collection:string): outcome(Mongo.collStatsType,Mongo.failure) =
-    MongoDriver.resultToOpa(collStats(m, db, collection))
+    MongoCommon.resultToOpa(collStats(m, db, collection))
 
   /**
    * Create a collection.
@@ -448,7 +448,7 @@ MongoCommands = {{
    * Low-level, set "config.settings" balancer value.  Valid objects are "stopped" and "start/stop".
    **/
   setBalancer(m:Mongo.mongodb, param:Bson.document): bool =
-    MongoDriver.update(m.mongo,MongoDriver.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
+    MongoDriver.update(m.mongo,MongoCommon.UpsertBit,"config.settings",[H.str("_id","balancer")],[H.doc("$set",param)])
 
   /**
    * Update the balancer settings, [true]=stopped
@@ -466,7 +466,7 @@ MongoCommands = {{
    * Set chunksize in MB.
    **/
   setChunkSize(m:Mongo.mongodb, size:int): bool =
-    MongoDriver.update(m.mongo,MongoDriver.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
+    MongoDriver.update(m.mongo,MongoCommon.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
 
   /**
    * Query the "config.chunks" database, gives a information about shard distribution.
@@ -693,7 +693,7 @@ MongoCommands = {{
 
   /** Same as [findAndModify] but convert to OPA type **/
   findAndModifyOpa(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt): outcome('a,Mongo.failure) =
-    MongoDriver.resultToOpa(findAndModify(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt))
+    MongoCommon.resultToOpa(findAndModify(m,dbname,collection,query,update_opt,new_opt,remove_opt,sort_opt))
 
   /** Update-specific version of the [findAndModify] command **/
   findAndUpdate(m,dbname,collection,query,update,new_opt,sort_opt) =
@@ -701,7 +701,7 @@ MongoCommands = {{
 
   /** Same as [findAndUpdate] but convert to OPA type **/
   findAndUpdateOpa(m,dbname,collection,query,update,new_opt,sort_opt) =
-    MongoDriver.resultToOpa(findAndUpdate(m,dbname,collection,query,update,new_opt,sort_opt))
+    MongoCommon.resultToOpa(findAndUpdate(m,dbname,collection,query,update,new_opt,sort_opt))
 
   /** Remove-specific version of the [findAndModify] command **/
   findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt) =
@@ -709,7 +709,7 @@ MongoCommands = {{
 
   /** Same as [findAndRemove] but convert to OPA type **/
   findAndRemoveOpa(m,dbname,collection,query,remove,new_opt,sort_opt) =
-    MongoDriver.resultToOpa(findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt))
+    MongoCommon.resultToOpa(findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt))
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
@@ -721,7 +721,7 @@ MongoCommands = {{
     digest = pass_digest(user,pass)
     bselector = [H.str("user",user)]
     bupdate = [H.doc("$set",[H.str("pwd",digest)])]
-    MongoDriver.update(m.mongo,MongoDriver.UpsertBit,(db^".system.users"),bselector,bupdate)
+    MongoDriver.update(m.mongo,MongoCommon.UpsertBit,(db^".system.users"),bselector,bupdate)
 
   /**
    * Authenticate a user for the given database.
