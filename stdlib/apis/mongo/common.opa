@@ -198,19 +198,16 @@ MongoCommon = {{
 
   /**
    * Validate a BSON document by turning it into a [Mongo.result] value.
-   * If [ok] is not 1 or there is an [errmsg] value then turn it into a [Mongo.failure] value.
+   * If [ok] is not 1 then turn it into a [Mongo.failure] value.
    * Note that if there is no "ok" element then we assume success.
    **/
-  check_ok(bson:Bson.document): Mongo.result =
-    match Bson.find_int(bson,"ok") with
+  check_ok(doc:Bson.document): Mongo.result =
+    match Bson.find_int(doc,"ok") with
     | {some=ok} ->
        if ok == 1
-       then {success=bson}
-       else
-         (match Bson.find_string(bson,"errmsg") with
-          | {some=errmsg} -> failErr(errmsg)
-          | _ -> failErr("ok:{ok}"))
-    | _ -> {success=bson}
+       then {success=doc}
+       else {failure={DocError=doc}}
+    | _ -> {success=doc}
 
   /**
    * Outcome-wrapped versions of Bson.find_xxx etc.

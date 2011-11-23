@@ -116,6 +116,8 @@ type Bson.error = {
   ok: Bson.register(Bson.int32);
   err: Bson.register(string);
   code: Bson.register(Bson.int32);
+  assertion: Bson.register(string);
+  assertionCode: Bson.register(Bson.int32);
   n: Bson.register(Bson.int32);
   errmsg: Bson.register(string);
 }
@@ -498,10 +500,20 @@ Bson = {{
     code = match find_int(doc, "code") with | {some=code} -> "<code={code}>" | {none} -> ""
     n = match find_int(doc, "n") with | {some=n} -> "<n={n}>" | {none} -> ""
     errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
-    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
+    assertion =
+      match find_string(doc, "assertion") with
+      | {some=""} -> ""
+      | {some=assertion} -> "<assertion=\"{assertion}\">"
+      | {none} -> ""
+    assertionCode =
+      match find_int(doc, "assertionCode") with
+      | {some=assertionCode} -> "<assertionCode={assertionCode}>"
+      | {none} -> ""
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg,assertion,assertionCode]))
 
   /**
    * Decide if a document contains an error or not.
+   * Note, we don't need to check for assertions because we always get an errmsg in that case.
    **/
   is_error(doc:Bson.document): bool =
     (match find_int(doc,"ok") with {some=ok} -> ok != 1 | {none} -> false) ||
@@ -530,9 +542,12 @@ Bson = {{
       | {absent} -> "<unknown ok status>"
     err = match error.err with | {present=""} -> "" | {present=err} -> "<err=\"{err}\">" | {absent} -> ""
     code = match error.code with | {present=code} -> "<code={code}>" | {absent} -> ""
+    assertion =
+      match error.assertion with | {present=""} -> "" | {present=assertion} -> "<assertion=\"{assertion}\">" | {absent} -> ""
+    assertionCode = match error.assertionCode with | {present=assertionCode} -> "<assertionCode={assertionCode}>" | {absent} -> ""
     n = match error.n with | {present=n} -> "<n={n}>" | {absent} -> ""
     errmsg = match error.errmsg with | {present=""} -> "" | {present=errmsg} -> "<errmsg=\"{errmsg}\">" | {absent} -> ""
-    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg]))
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,assertion,assertionCode,n,errmsg]))
 
   /**
    * We can't always use [bson_to_opa] to extract the error-relevant
@@ -553,6 +568,14 @@ Bson = {{
       code=
         match find_int(doc,"code") with
         | {some=code} -> {present=code}
+        | {none} -> {absent};
+      assertion=
+        match find_string(doc, "assertion") with
+        | {some=assertion} -> {present=assertion}
+        | {none} -> {absent};
+      assertionCode=
+        match find_int(doc,"assertionCode") with
+        | {some=assertionCode} -> {present=assertionCode}
         | {none} -> {absent};
       n=
         match find_int(doc,"n") with

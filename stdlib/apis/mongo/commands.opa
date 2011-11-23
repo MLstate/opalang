@@ -167,6 +167,10 @@ type Mongo.explainType =
     // oldPlan: ... sometimes present
 }
 
+type Mongo.string_or_document =
+    {string : string}
+  / {document : Bson.document}
+
 @server_private
 MongoCommands = {{
 
@@ -466,7 +470,8 @@ MongoCommands = {{
    * Set chunksize in MB.
    **/
   setChunkSize(m:Mongo.mongodb, size:int): bool =
-    MongoDriver.update(m.mongo,MongoCommon.UpsertBit,"config.settings",[H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
+    MongoDriver.update(m.mongo,MongoCommon.UpsertBit,"config.settings",
+                       [H.str("_id","chunksize")],[H.doc("$set",[H.i32("value",size)])])
 
   /**
    * Query the "config.chunks" database, gives a information about shard distribution.
@@ -534,7 +539,7 @@ MongoCommands = {{
    *
    * {b Warning, moving a large chunk might take a little time.}
    *
-   * Example: [reallyRemoveShard(m, db, shard, retryTime, maxRetries)]
+   * Example: [reallyRemoveShard(m, shard, retryTime, maxRetries)]
    **/
   reallyRemoveShard(m:Mongo.mongodb, shard:string, retryTime:int, maxRetries:int): Mongo.result =
     rec aux(time,retries) =
@@ -710,6 +715,43 @@ MongoCommands = {{
   /** Same as [findAndRemove] but convert to OPA type **/
   findAndRemoveOpa(m,dbname,collection,query,remove,new_opt,sort_opt) =
     MongoCommon.resultToOpa(findAndRemove(m,dbname,collection,query,remove,new_opt,sort_opt))
+
+  /**
+   * A bare no-frills mapReduce function.  We ask for all of the options, including
+   * the complicated "out" option and we do minimal processing on the result, basically
+   * if [ok] is "1" then we return the entire reply as a success, otherwise we return
+   * the whole document as a failure.  Some processing on the options and results may
+   * be added later.
+   **/
+  mapReduce(m:Mongo.mongodb, map:string, reduce:string,
+            query_opt:option(Bson.document),
+            sort_opt:option(Bson.document),
+            limit_opt:option(int),
+            out_opt:option(Mongo.string_or_document),
+            keeptemp_opt:option(bool),
+            finalize_opt:option(string),
+            scope_opt:option(Bson.document),
+            jsMode_opt:option(bool),
+            verbose_opt:option(bool)): Mongo.result =
+    cmd = List.flatten([[H.str("mapReduce",m.collection), H.code("map",map), H.code("reduce",reduce) ],
+                        (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> []),
+                        (match sort_opt with | {some=sort} -> [H.doc("sort",sort)] | {none} -> []),
+                        (match limit_opt with | {some=limit} -> [H.i32("limit",limit)] | {none} -> []),
+                        (match out_opt with
+                         | {some={string=out}} -> [H.str("out",out)]
+                         | {some={document=out}} -> [H.doc("out",out)]
+                         | {none} -> []),
+                        (match keeptemp_opt with | {some=keeptemp} -> [H.bool("keeptemp",keeptemp)] | {none} -> []),
+                        (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> []),
+                        (match scope_opt with | {some=scope} -> [H.doc("scope",scope)] | {none} -> []),
+                        (match jsMode_opt with | {some=jsMode} -> [H.bool("jsMode",jsMode)] | {none} -> []),
+                        (match verbose_opt with | {some=verbose} -> [H.bool("verbose",verbose)] | {none} -> [])])
+    match run_command(m, m.dbname, cmd) with
+    | {success=doc} ->
+       if (match Bson.find_int(doc,"ok") with | {some=ok} -> ok == 1 | {none} -> false)
+       then {success=doc}
+       else {failure={DocError=doc}}
+    | {~failure} -> {~failure}
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
