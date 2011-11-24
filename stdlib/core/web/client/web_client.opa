@@ -262,8 +262,8 @@ WebClient =
         * Usage suggestion: use [try_get_async] and [try_get_with_options_async] when your code is very concurrent
         * and you intend to send messages on completion of requests.
         */
-       try_get_async(location:Uri.uri, options:WebClient.Get.options, on_result: WebClient.result(string) -> void): void =
-           try_get_with_options_async(location, options, on_result)
+       try_get_async(location:Uri.uri, on_result: WebClient.result(string) -> void): void =
+           try_get_with_options_async(location, default_options, on_result)
        try_get_with_options_async(location:Uri.uri, options:WebClient.Get.options, on_result: WebClient.result(string) -> void): void =
            on_success(x) = on_result({success = x})
            on_failure(x) = on_result({failure = x})
