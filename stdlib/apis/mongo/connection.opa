@@ -149,7 +149,7 @@ MongoConnection = {{
          anonymous = [];
          parsers = [
            {CommandLine.default_parser with
-              names = ["--mongo-name", "--mongoname", "-mn"]
+              names = ["--mongo-name", "--mongoname", "--mn", "-mn"]
               description = "Name for the MongoDB server connection"
               param_doc = "<string>"
               on_param(p) = parser name={Rule.consume} ->
@@ -157,20 +157,20 @@ MongoConnection = {{
                 {no_params = add_param((p -> { p with ~name }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-repl-name", "--mongoreplname", "-mr"]
+              names = ["--mongo-repl-name", "--mongoreplname", "--mr", "-mr"]
               description = "Replica set name for the MongoDB server"
               param_doc = "<string>"
               on_param(p) = parser s={Rule.consume} ->
                 {no_params = add_param((p -> { p with replname={some=s} }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-buf-size", "--mongobufsize", "-mb"]
+              names = ["--mongo-buf-size", "--mongobufsize", "--mb", "-mb"]
               description = "Hint for initial MongoDB connection buffer size"
               param_doc = "<int>"
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize = n }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-concurrency", "--mongoconcurrency", "-mx"]
+              names = ["--mongo-concurrency", "--mongoconcurrency", "--mx", "-mx"]
               description = "Concurrency type, 'pool', 'cell' or 'singlethreaded'"
               param_doc = "<string>"
               on_param(p) = parser s={Rule.consume} ->
@@ -183,25 +183,25 @@ MongoConnection = {{
                 {no_params = add_param((p -> { p with ~concurrency }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-socket-pool", "--mongosocketpool", "-mp"]
+              names = ["--mongo-socket-pool", "--mongosocketpool", "--mp", "-mp"]
               description = "Number of sockets in socket pool (>=2 enables socket pool)"
               param_doc = "<int>"
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max = n }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-close-socket", "--mongoclosesocket", "-mc"]
+              names = ["--mongo-close-socket", "--mongoclosesocket", "--mc", "-mc"]
               description = "Maintain MongoDB server sockets in a closed state"
               param_doc = "<bool>"
               on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with close_socket = b }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-log", "--mongolog", "-ml"]
+              names = ["--mongo-log", "--mongolog", "--ml", "-ml"]
               description = "Enable MongoLog logging"
               param_doc = "<bool>"
               on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with log = b }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-seed", "--mongoseed", "-ms"]
+              names = ["--mongo-seed", "--mongoseed", "--ms", "-ms"]
               description = "Add a seed to a replica set, allows multiple seeds"
               param_doc = "<host>\{:<port>\}"
               on_param(p) =
@@ -211,7 +211,7 @@ MongoConnection = {{
                     { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)|seeds] }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-host", "--mongohost", "-mh"]
+              names = ["--mongo-host", "--mongohost", "--mh", "-mh"]
               description = "Host name of a MongoDB server, overwrites any previous addresses for this name"
               param_doc = "<host>\{:<port>\}"
               on_param(p) =
@@ -220,7 +220,7 @@ MongoConnection = {{
                     { p with seeds=[MongoReplicaSet.mongo_host_of_string(s)] }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-log-type", "--mongologtype", "-mt"]
+              names = ["--mongo-log-type", "--mongologtype", "--mt", "-mt"]
               description = "Type of logging: stdout, stderr, logger, none"
               param_doc = "<string>"
               on_param(p) = parser s={Rule.consume} ->
@@ -504,6 +504,11 @@ MongoConnection = {{
   inserte(m:Mongo.mongodb, documents:Bson.document): option(Mongo.reply) =
     MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents)
 
+  /** Insert document with getlasterror converted into a result into the defined database with inbuilt flags **/
+  insert_result(m:Mongo.mongodb, documents:Bson.document): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.insert_result",0,
+                                MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents))
+
   /** Insert batch of documents into the defined database with inbuilt flags **/
   insert_batch(m:Mongo.mongodb, documents:list(Bson.document)): bool =
     MongoDriver.insert_batch(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", documents)
@@ -512,6 +517,12 @@ MongoConnection = {{
   insert_batche(m:Mongo.mongodb, documents:list(Bson.document)): option(Mongo.reply) =
     MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents)
 
+  /** Insert batch of documents with getlasterror converted into a result into the defined database with inbuilt flags **/
+  insert_batch_result(m:Mongo.mongodb, documents:list(Bson.document)): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.insert_batch_result",0,
+                                MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}",
+                                                          m.dbname, documents))
+
   /** Update document in the defined database with inbuilt flags **/
   update(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): bool =
     MongoDriver.update(m.mongo, m.update_flags, "{m.dbname}.{m.collection}", selector, update)
@@ -519,6 +530,12 @@ MongoConnection = {{
   /** Update document with getlasterror in the defined database with inbuilt flags **/
   updatee(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
     MongoDriver.updatee(m.mongo, m.update_flags, "{m.dbname}.{m.collection}", m.dbname, selector, update)
+
+  /** Update document with getlasterror converted into a result in the defined database with inbuilt flags **/
+  update_result(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.update_result",0,
+                                MongoDriver.updatee(m.mongo, m.update_flags, "{m.dbname}.{m.collection}",
+                                                    m.dbname, selector, update))
 
   /** Perform a query using inbuilt parameters.
    *  The functions to handle [Mongo.reply] are in [MongoDriver].
@@ -541,6 +558,11 @@ MongoConnection = {{
   deletee(m:Mongo.mongodb, selector:Bson.document): option(Mongo.reply) =
     MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", m.dbname, selector)
 
+  /** Delete documents with getlasterror converted into a result from the defined database with inbuilt flags **/
+  delete_result(m:Mongo.mongodb, selector:Bson.document): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.delete_result",0,
+                                MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", m.dbname, selector))
+
   /** Perform a kill_cursors operation **/
   kill_cursors(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): bool =
     MongoDriver.kill_cursors(m.mongo, cursors)
@@ -549,6 +571,11 @@ MongoConnection = {{
   kill_cursorse(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
     MongoDriver.kill_cursorse(m.mongo, m.dbname, cursors)
 
+  /** Perform a kill_cursors operation with getlasterror converted into a result **/
+  kill_cursors_result(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.kill_cursors_result",0,
+                                MongoDriver.kill_cursorse(m.mongo, m.dbname, cursors))
+
   /** Perform a msg operation **/
   msg(m:Mongo.mongodb, msg:string): bool =
     MongoDriver.msg(m.mongo, msg)
@@ -556,6 +583,11 @@ MongoConnection = {{
   /** Perform a msg operation with getlasterror **/
   msge(m:Mongo.mongodb, msg:string): option(Mongo.reply) =
     MongoDriver.msge(m.mongo, m.dbname, msg)
+
+  /** Perform a msg operation with getlasterror converted into a result **/
+  msg_result(m:Mongo.mongodb, msg:string): Mongo.result =
+    MongoCommon.reply_to_result("MongoConnection.msg_result",0,
+                                MongoDriver.msge(m.mongo, m.dbname, msg))
 
   /** Add an index to the inbuilt collection **/
   create_index(m:Mongo.mongodb, key:Bson.document): bool =
@@ -605,6 +637,18 @@ MongoConnection = {{
        MongoCursor.find_all(m.mongo, "{m.dbname}.{m.collection}", query, m.fields, m.orderby, m.limit)
 
   }} // Cursor
+
+  /**
+   * Save a function into the system.js collection for the named database.
+   *
+   * Example: [save_function(mongodb, dbname, name, code)]
+   * @param mongodb The mongo connection
+   * @param dbname The name of the database
+   * @param name The name of the function
+   * @param code The code for the function
+   **/
+  save_function(m:Mongo.mongodb, dbname:string, name:string, code:Bson.code): Mongo.result =
+    insert_result(namespace(m,dbname,"system.js"),Bson.opa2doc({_id=name; value=code}))
 
 }}
 

@@ -116,6 +116,7 @@ type Bson.error = {
   ok: Bson.register(Bson.int32);
   err: Bson.register(string);
   code: Bson.register(Bson.int32);
+  errno: Bson.register(Bson.int32);
   assertion: Bson.register(string);
   assertionCode: Bson.register(Bson.int32);
   n: Bson.register(Bson.int32);
@@ -158,6 +159,8 @@ Bson = {{
     arr(n:string,d:Bson.document):Bson.element = {name=n; value={Array=d}}
     docarr(n:string,l:list(Bson.document)):Bson.element =
       {name=n; value={Array=List.mapi((i, d -> ({name="{i}"; value={Document=d}}:Bson.element)),l)}}
+    valarr(n:string,l:list(Bson.value)):Bson.element =
+      {name=n; value={Array=List.mapi((i, value -> ({name="{i}"; ~value}:Bson.element)),l)}}
     binary(n:string,b:Bson.binary):Bson.element = {name=n; value={Binary=b}}
     oid(n:string,id:string):Bson.element = {name=n; value={ObjectID=id}}
     bool(n:string,b:bool):Bson.element = {name=n; value={Boolean=b}}
@@ -498,6 +501,7 @@ Bson = {{
       | {none} -> "<unknown ok status>"
     err = match find_string(doc, "err") with | {some=""} -> "" | {some=err} -> "<err=\"{err}\">" | {none} -> ""
     code = match find_int(doc, "code") with | {some=code} -> "<code={code}>" | {none} -> ""
+    errno = match find_int(doc, "errno") with | {some=errno} -> "<errno={errno}>" | {none} -> ""
     n = match find_int(doc, "n") with | {some=n} -> "<n={n}>" | {none} -> ""
     errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
     assertion =
@@ -509,7 +513,7 @@ Bson = {{
       match find_int(doc, "assertionCode") with
       | {some=assertionCode} -> "<assertionCode={assertionCode}>"
       | {none} -> ""
-    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,n,errmsg,assertion,assertionCode]))
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,errno,n,errmsg,assertion,assertionCode]))
 
   /**
    * Decide if a document contains an error or not.
@@ -519,6 +523,7 @@ Bson = {{
     (match find_int(doc,"ok") with {some=ok} -> ok != 1 | {none} -> false) ||
     (match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false) ||
     (match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false) ||
+    (match find_int(doc, "errno") with {some=errno} -> errno != 0 | {none} -> false) ||
     (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
 
   /**
@@ -528,6 +533,7 @@ Bson = {{
     (match err.ok with {present=ok} -> ok != 1 | {absent} -> false) ||
     (match err.err with {present=err} -> err != "" | {absent} -> false) ||
     (match err.code with {present=code} -> code != 0 | {absent} -> false) ||
+    (match err.errno with {present=errno} -> errno != 0 | {absent} -> false) ||
     (match err.errmsg with {present=errmsg} -> errmsg != "" | {absent} -> false)
 
   /**
@@ -542,12 +548,13 @@ Bson = {{
       | {absent} -> "<unknown ok status>"
     err = match error.err with | {present=""} -> "" | {present=err} -> "<err=\"{err}\">" | {absent} -> ""
     code = match error.code with | {present=code} -> "<code={code}>" | {absent} -> ""
+    errno = match error.errno with | {present=errno} -> "<errno={errno}>" | {absent} -> ""
     assertion =
       match error.assertion with | {present=""} -> "" | {present=assertion} -> "<assertion=\"{assertion}\">" | {absent} -> ""
     assertionCode = match error.assertionCode with | {present=assertionCode} -> "<assertionCode={assertionCode}>" | {absent} -> ""
     n = match error.n with | {present=n} -> "<n={n}>" | {absent} -> ""
     errmsg = match error.errmsg with | {present=""} -> "" | {present=errmsg} -> "<errmsg=\"{errmsg}\">" | {absent} -> ""
-    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,assertion,assertionCode,n,errmsg]))
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,errno,assertion,assertionCode,n,errmsg]))
 
   /**
    * We can't always use [bson_to_opa] to extract the error-relevant
@@ -568,6 +575,10 @@ Bson = {{
       code=
         match find_int(doc,"code") with
         | {some=code} -> {present=code}
+        | {none} -> {absent};
+      errno=
+        match find_int(doc,"errno") with
+        | {some=errno} -> {present=errno}
         | {none} -> {absent};
       assertion=
         match find_string(doc, "assertion") with

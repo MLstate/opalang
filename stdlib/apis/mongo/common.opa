@@ -154,6 +154,20 @@ MongoCommon = {{
     | {~success} -> sfn(success)
     | {~failure} -> ffn(failure)
 
+  /* Map a list of outcomes onto an outcome of a list. */
+  Outcome_list(f:'a->outcome('b,'c), l:list('a)): outcome(list('b),'c) =
+    rec aux(l) =
+      match l with
+      | [a|t] ->
+         (match f(a) with
+          | {success=b} ->
+             (match aux(t) with
+              | {success=l} -> {success=[b|l]}
+              | {~failure} -> {~failure})
+          | {~failure} -> {~failure})
+      | [] -> {success=[]}
+    aux(l)
+
   /** Same as [outcome_map] but coerced to string **/
   string_of_outcome = (outcome_map:outcome('s,'f), ('s->string), ('f->string) -> string)
 
@@ -444,6 +458,24 @@ MongoCommon = {{
          (match reply_document(reply,n) with
           | {some=doc} -> {success=doc}
           | {none} -> failErr("{from}: no document in reply"))
+    | {none} -> failErr("{from}: no reply")
+
+  /**
+   * Extract all documents from a reply.
+   *
+   * Example: [reply_to_results(from, reply_opt)]
+   *
+   * @param from A string included in failure messages.
+   * @param reply_opt The optional reply (this is what most query operations return).
+   **/
+  reply_to_results(from:string, reply_opt: option(Mongo.reply)): Mongo.results =
+    match reply_opt with
+    | {some=reply} ->
+       Outcome_list((n ->
+                     match reply_document(reply,n) with
+                     | {some=doc} -> {success=doc}
+                     | {none} -> failErr("{from}: no document in reply")),
+                    List.init((n -> n),reply_numberReturned(reply)))
     | {none} -> failErr("{from}: no reply")
 
 }}

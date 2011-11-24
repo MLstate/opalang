@@ -500,21 +500,6 @@ MongoCommands = {{
   removeShard(m:Mongo.mongodb, shard:string): Mongo.result =
     simple_str_command(m, "admin", "removeShard", shard)
 
-  /* Map a list of outcomes onto an outcome of a list. */
-  @private
-  Outcome_map(f:'a->outcome('b,'c), l:list('a)): outcome(list('b),'c) =
-    rec aux(l) =
-      match l with
-      | [a|t] ->
-         (match f(a) with
-          | {success=b} ->
-             (match aux(t) with
-              | {success=l} -> {success=[b|l]}
-              | {~failure} -> {~failure})
-          | {~failure} -> {~failure})
-      | [] -> {success=[]}
-    aux(l)
-
   /**
    * Find a non-draining shard in a list of shards.
    * You get the list of shards from the "config.shards" collection.
@@ -567,10 +552,10 @@ MongoCommands = {{
                                (match find_non_draining_shard(shards) with
                                 | {some=shardid} ->
                                    do println("shardid={shardid}")
-                                   res = Outcome_map((dbdoc ->
-                                                      (match Bson.find_string(dbdoc,"_id") with
-                                                       | {some=dbname} -> movePrimary(m, dbname, shardid)
-                                                       | {none} -> {failure={Error="no db _id"}})),dbs)
+                                   res = MongoCommon.Outcome_list((dbdoc ->
+                                                                   (match Bson.find_string(dbdoc,"_id") with
+                                                                    | {some=dbname} -> movePrimary(m, dbname, shardid)
+                                                                    | {none} -> {failure={Error="no db _id"}})),dbs)
                                    (match res with
                                     | {success=_} -> aux(retryTime,retries+1)
                                     | {~failure} -> {~failure})
@@ -747,6 +732,18 @@ MongoCommands = {{
                         (match jsMode_opt with | {some=jsMode} -> [H.bool("jsMode",jsMode)] | {none} -> []),
                         (match verbose_opt with | {some=verbose} -> [H.bool("verbose",verbose)] | {none} -> [])])
     run_command(m, m.dbname, cmd)
+
+  /**
+   * Evaluate Javascript code.
+   *
+   * Example: [eval(mongodb, dbname, code, args_opt, nolock_opt)]
+   **/
+  eval(m:Mongo.mongodb, dbname:string, code:Bson.code, args_opt:option(list(Bson.value)), nolock_opt:option(bool))
+     : Mongo.result =
+    cmd = List.flatten([[H.code("$eval",code)],
+                        (match args_opt with | {some=args} -> [H.valarr("args",args)] | {none} -> []),
+                        (match nolock_opt with | {some=nolock} -> [H.bool("nolock",nolock)] | {none} -> [])])
+    run_command(m, dbname, cmd)
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 
