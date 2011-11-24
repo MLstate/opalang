@@ -456,6 +456,9 @@ MongoDriver = {{
    * and re-connection.
    * Example: [init(bufsize, concurrency, pool_max, close_socket, log)]
    * @param bufsize A hint to the driver for the initial buffer size.
+   * @param concurrency The type of concurrency handling (pool, cell or singlethreaded).
+   * @param pool_max For pool concurrency, the number of open sockets per pool.
+   * @param close_socket For cell and singlethreaded, maintain sockets in a closed state.
    * @param log Whether to enable logging for the driver.
    **/
   init(bufsize:int, concurrency:Mongo.concurrency, pool_max:int, close_socket:bool, log:bool): Mongo.db =
@@ -516,7 +519,23 @@ MongoDriver = {{
          | {failure=str} -> C.failErr("Got exception {str}")
 
   /**
+   * Force a reconnection.  Should only be needed if the basic parameters have changed.
+   *
+   * Note that we can only reconnect to a replica set and that a failed reconnect is considered a fatal error.
+   **/
+  force_reconnect(m:Mongo.db): void =
+    match m.reconnect.get() with
+    | {none} ->
+       ML.warning("MongoDriver.force_reconnect","connection is not reconnectable",void)
+    | {some=_} ->
+       do if m.log then ML.info("MongoDriver.force_reconnect","{m.primary.get()}",void)
+       if not(reconnect("force_reconnect",m))
+       then ML.fatal("MongoDriver.force_reconnect:","comms error (Can't reconnect)",-1)
+
+  /**
    *  Convenience function, initialise and connect at the same time.
+   *
+   *  Example: [open(bufsize, concurrency, pool_max, close_socket, addr, port, log)]
    **/
   open(bufsize:int, concurrency:Mongo.concurrency, pool_max:int, close_socket:bool, addr:string, port:int, log:bool)
      : outcome(Mongo.db,Mongo.failure) =
@@ -530,17 +549,16 @@ MongoDriver = {{
    * have to be careful how we access the connection value.
    */
   close(m:Mongo.db): Mongo.db =
+    do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
     do match m.concurrency with
        | {pool} ->
           (match m.pool.get() with
            | {some=pool} ->
-              do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
               SocketPool.stop(pool)
            | {none} -> void)
        | {cell} | {singlethreaded} ->
           (match m.conn.get() with
            | {some=conn} ->
-              do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
               do if m.concurrency != {singlethreaded} then stop(m)
               Socket.close(conn)
            | {none} -> void)
@@ -550,6 +568,8 @@ MongoDriver = {{
 
   /**
    * Allow the user to update with the basic communications parameters.
+   *
+   * Note that some of these will have no effect until reconnection.
    **/
   set_concurrency(m:Mongo.db, concurrency:Mongo.concurrency): Mongo.db = { m with ~concurrency }
   set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with ~pool_max }

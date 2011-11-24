@@ -746,12 +746,7 @@ MongoCommands = {{
                         (match scope_opt with | {some=scope} -> [H.doc("scope",scope)] | {none} -> []),
                         (match jsMode_opt with | {some=jsMode} -> [H.bool("jsMode",jsMode)] | {none} -> []),
                         (match verbose_opt with | {some=verbose} -> [H.bool("verbose",verbose)] | {none} -> [])])
-    match run_command(m, m.dbname, cmd) with
-    | {success=doc} ->
-       if (match Bson.find_int(doc,"ok") with | {some=ok} -> ok == 1 | {none} -> false)
-       then {success=doc}
-       else {failure={DocError=doc}}
-    | {~failure} -> {~failure}
+    run_command(m, m.dbname, cmd)
 
   @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
 

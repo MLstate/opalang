@@ -290,6 +290,13 @@ MongoConnection = {{
     open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,concurrency,pool_max,close_socket,log,seeds)),name)
 
   /**
+   * Force a reconnection.
+   *
+   * {b Warning}: a failed reconnection is considered fatal.
+   **/
+  force_reconnect(m:Mongo.mongodb): void = MongoDriver.force_reconnect(m.mongo)
+
+  /**
    * Open a connection according to the named parameters.
    *
    * Parameters are defined on the command line and can define any number

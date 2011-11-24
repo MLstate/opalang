@@ -39,7 +39,8 @@ type SocketPool.result = outcome(Socket.connection,Mongo.failure)
 
 @abstract type SocketPool.t = channel(SocketPool.msg)
 
-@server SocketPool = {{
+@server @private
+SocketPool = {{
 
   @private ML = MongoLog
 
