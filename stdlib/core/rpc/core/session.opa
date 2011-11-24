@@ -473,7 +473,7 @@ Session = {{
       Session_private.llsend(channel, ~{serialize; message; herror; hsuccess})
 
     /**
-     * Like [send_then] but with [hsuccess = -> void].
+     * Like [try_send] but with [hsuccess = -> void].
      */
     send_or_error(channel:channel('message), message: 'message, herror) =
       try_send(channel, message, herror, (-> void))
