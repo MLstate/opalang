@@ -63,7 +63,7 @@
  * my_engine = { Template.empty with
  *   // Parse function. It takes the xmlns, and a xmlns parse which is able to process xmlns into Template.content.
  *   // If the current engine is able to process the current, it should create a Template.content. Otherwise, it should fail.
- *   parse(_conf, {xmlns_parse=_; ~xmlns }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
+ *   parse(_conf, {xmlns_parser=_; ~xmlns }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
  *   match xmlns with
  *   // We check if the node namespace is correct
  *   | { ~tag; namespace="http://response.xsd" ... } ->
