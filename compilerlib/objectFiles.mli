@@ -286,3 +286,8 @@ val compilation_is_successfull : unit -> unit
    and not using the standard Arg of this module.
 *)
 val turn_separated_off : unit -> unit
+
+(**
+   Force a package importation.
+*)
+val import_package : string -> FilePos.pos -> unit

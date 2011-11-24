@@ -1756,6 +1756,9 @@ let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
 
 let get_paths () = !extrapaths
 
+let import_package packname pos =
+  MutableList.add more_import_package_names (packname, pos)
+
 module Arg =
 struct
   module Arg = Base.Arg
