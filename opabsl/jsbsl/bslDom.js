@@ -540,19 +540,13 @@
 ##register bind: Dom.private.element, string, (Dom.event -> void) -> Dom.event_handler
 ##args(dom, event, f)
 {
-    return dom.opabind(event, f);
+    return dom.opabind(event, f, false, false);
 }
 
 ##register bind_with_options: Dom.private.element, string, (Dom.event -> void), bool, bool -> Dom.event_handler
 ##args(dom, event, f, stop_propagation, prevent_default)
 {
-    var g = function(e)
-    {
-        return f(dom_event_to_opa_event(e))
-    }
-    var h = stop_propagation?function(event) { event.stopPropagation(); g(event)}:g;
-    var i = prevent_default ?function(event) { event.preventDefault();  h(event)}:h;
-    return dom.opabind(event, i);
+    return dom.opabind(event, f, stop_propagation, prevent_default);
 }
 
 ##register unbind_event\ bsldom_unbind: Dom.private.element, string -> void

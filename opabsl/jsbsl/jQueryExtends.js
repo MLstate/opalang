@@ -185,14 +185,16 @@ $.fn.extend({
      * @param {function(Object)} fn The event handler
      * @return {string} An abstract value which can be passed to [opaunbind] for unbinding at a later stage.
      */
-    opabind:function(name, fn)
+    opabind:function(name, fn, stop_propagation, prevent_default)
     {
         var ns = name + "." + Math.random()
         function f(e)
         {
             return fn(dom_event_to_opa_event(e))
         }
-        this.special_bind(name, ns, f)
+        var g = stop_propagation?function(event) { event.stopPropagation(); f(event)}:f;
+        var h = prevent_default ?function(event) { event.preventDefault();  g(event)}:g;
+        this.special_bind(name, ns, h)
         return ns
     },
 
