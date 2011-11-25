@@ -497,20 +497,21 @@ struct
 
   (*let ti ?(modul="badoplink") ?(param=[]) s =
     Q.TypeName (param, Q.TypeIdent.of_string*)
-  let ti ?(param=[]) s =
-    Q.TypeName (param, Q.TypeIdent.of_string s)
+  let ti ?(param=[]) s () =
+    Q.TypeName (param, DbGen_common.typ s)
 
   (* These type idents are defined in the mlBSL. Do they need type_of_type ? *)
   (* beware, there is also the types from mlbsl/path.ml in DbGen_common (since
      they may be used by Schema) *)
   let typath = ti Opacapi.Types.badoplink_path
   let tytrans = ti Opacapi.Types.badoplink_transaction
-  let tydbset ty = Q.TypeName ([ty], Q.TypeIdent.of_string Opacapi.Types.dbset)
+  let tydbset ty =
+    ti ~param:[ty] Opacapi.Types.dbset ()
   let tykey = ti Opacapi.Types.badoplink_db_path_key
   let typartialkey = ti Opacapi.Types.badoplink_db_partial_key
   let tydata = ti Opacapi.Types.badoplink_data_d
   let tyhltrans ty =
-    ti ~param:[ty] Opacapi.Types.transactions_t
+    ti ~param:[ty] Opacapi.Types.transactions_t ()
   let tydiff = ti Opacapi.Types.dbgraph_diff
   let ty_lazy_data = ti Opacapi.Types.path_embed_info
   let tyobj = ti Opacapi.Types.path_embedded_obj
@@ -545,13 +546,13 @@ struct
       func (Badoplink.error) [tystring;ty]
 
     let db_prefix tydb = func (Badoplink.db_prefix) [tydb; tystring]
-    let make_engine() = func (BadopEngine.get) [tyoptions; tyengine]
+    let make_engine() = func (BadopEngine.get) [(tyoptions ()); (tyengine ())]
 
     let local_options() =
-      func (BadopEngine.local_options) [typeoption tystring; typeoption tystring; tyoptions]
+      func (BadopEngine.local_options) [typeoption tystring; typeoption tystring; (tyoptions ())]
     let light_options =
       #<Ifstatic:HAS_DBM 1>
-        fun () -> func (BadopEngine.light_options) [typeoption tystring; typeoption tystring; tyoptions]
+        fun () -> func (BadopEngine.light_options) [typeoption tystring; typeoption tystring; (tyoptions ())]
       #<Else>
         let haswarn = ref false in
         fun () ->
@@ -565,29 +566,29 @@ struct
           local_options()
       #<End>
     let client_options() =
-      func (BadopEngine.client_options) [typeoption tystring; typeoption tystring; typeoption tyint; tyoptions]
+      func (BadopEngine.client_options) [typeoption tystring; typeoption tystring; typeoption tyint; (tyoptions ())]
     let check_remaining_arguments() =
       func (BadopEngine.check_remaining_arguments) [ tyunit ]
 
     let open_db() =
-      func (Badoplink.open_db) [tyengine; DbGen_common.tydb]
+      func (Badoplink.open_db) [(tyengine ()); DbGen_common.tydb ()]
 
     let node_properties() =
-      func (Badoplink.node_properties) [DbGen_common.tydb; tynodeconfig; tyunit]
+      func (Badoplink.node_properties) [DbGen_common.tydb (); (tynodeconfig ()); tyunit]
 
     let node_config_construct() =
-      func (Badoplink.node_config_construct) [tystring; tynodeconfig]
+      func (Badoplink.node_config_construct) [tystring; (tynodeconfig ())]
 
     let is_db_new() =
-      func (Badoplink.is_db_new) [DbGen_common.tydb; tyint]
+      func (Badoplink.is_db_new) [DbGen_common.tydb (); tyint]
 
-    let key_int() = func (Badoplink.key_int) [tyint;tykey]
+    let key_int() = func (Badoplink.key_int) [tyint;(tykey ())]
 
-    let key_string() = func (Badoplink.key_string) [tystring;tykey]
+    let key_string() = func (Badoplink.key_string) [tystring;(tykey ())]
 
-    let key_value_int() = func (Badoplink.key_value_int) [tykey;tyint]
+    let key_value_int() = func (Badoplink.key_value_int) [(tykey ());tyint]
 
-    let key_value_string() = func (Badoplink.key_value_string) [tykey;tystring]
+    let key_value_string() = func (Badoplink.key_value_string) [(tykey ());tystring]
 
     let make_ocaml_list l ty =
       let make_nil () = expr BslNativeLib.empty_list (tycaml_list ty) in
@@ -599,43 +600,43 @@ struct
       in
       make_list l
 
-    let key_list() = func (Badoplink.key_list) [tycaml_list tykey;tykey]
+    let key_list() = func (Badoplink.key_list) [tycaml_list (tykey ());(tykey ())]
 
     let empty_partial_key () =
-      expr (Badoplink.empty_partial_key) typartialkey
+      expr (Badoplink.empty_partial_key) (typartialkey ())
 
-    let add_hole () = func (Badoplink.add_hole) [typartialkey; typartialkey]
+    let add_hole () = func (Badoplink.add_hole) [(typartialkey ()); (typartialkey ())]
 
-    let add_key () = func (Badoplink.add_key) [typartialkey; tykey; typartialkey]
+    let add_key () = func (Badoplink.add_key) [(typartialkey ()); (tykey ()); (typartialkey ())]
 
 
 
-    let dbpath_root() = expr (Badoplink.dbpath_root) typath
+    let dbpath_root() = expr (Badoplink.dbpath_root) (typath ())
 
-    let dbpath_add() = func (Badoplink.dbpath_add) [typath;tykey;typath]
+    let dbpath_add() = func (Badoplink.dbpath_add) [(typath ());(tykey ());(typath ())]
 
     let trans_start() =
-      func (Badoplink.trans_start) [DbGen_common.tydb; tytrans]
+      func (Badoplink.trans_start) [DbGen_common.tydb (); (tytrans ())]
 
     let trans_commit() =
-      func (Badoplink.trans_commit) [tytrans;tyunit]
+      func (Badoplink.trans_commit) [(tytrans ());tyunit]
 
     let trans_abort() =
-      func (Badoplink.trans_abort) [tytrans;tyunit]
+      func (Badoplink.trans_abort) [(tytrans ());tyunit]
 
-    let data_int() = func (Badoplink.data_int) [tyint;tydata]
+    let data_int() = func (Badoplink.data_int) [tyint;(tydata ())]
 
     let data_text() =
-      func (Badoplink.data_text) [tystring;tydata]
+      func (Badoplink.data_text) [tystring;(tydata ())]
 
     let data_binary() =
-      func (Badoplink.data_binary) [tystring;tydata]
+      func (Badoplink.data_binary) [tystring;(tydata ())]
 
     let data_float() =
-      func (Badoplink.data_float) [tyfloat;tydata]
+      func (Badoplink.data_float) [tyfloat;(tydata ())]
 
     let data_unit() =
-      func (Badoplink.data_unit) [tydata]
+      func (Badoplink.data_unit) [(tydata ())]
 
 
     let proj_dbtype leaf_t =
@@ -644,51 +645,51 @@ struct
         | DbGen_common.Leaf_float -> (Badoplink.data_obj_float), tyfloat
         | DbGen_common.Leaf_text -> (Badoplink.data_obj_text), tystring
         | DbGen_common.Leaf_binary -> (Badoplink.data_obj_binary), tystring
-      in func proj_fun [tydata;ty]
+      in func proj_fun [(tydata ());ty]
 
     let get_opt() =
-      func (Badoplink.get_opt) [tytrans; typath; typeoption tydata]
+      func (Badoplink.get_opt) [(tytrans ()); (typath ()); typeoption (tydata ())]
 
     let get_new_key() =
-      func(Badoplink.get_new_key) [tytrans; typath; tyint]
+      func(Badoplink.get_new_key) [(tytrans ()); (typath ()); tyint]
 
     let exists() =
-      func (Badoplink.exists) [tytrans; typath; tyint]
+      func (Badoplink.exists) [(tytrans ()); (typath ()); tyint]
 
     let uppath() =
-      func (Badoplink.uppath) [tytrans; typath; typath]
+      func (Badoplink.uppath) [(tytrans ()); (typath ()); (typath ())]
 
     let set() =
-      func (Badoplink.set) [tytrans; typath; tydata; tytrans]
+      func (Badoplink.set) [(tytrans ()); (typath ()); (tydata ()); (tytrans ())]
 
     let clear() =
-      func (Badoplink.clear) [tytrans; typath; tytrans]
+      func (Badoplink.clear) [(tytrans ()); (typath ()); (tytrans ())]
 
     let remove_children () =
-      func (Badoplink.remove_children) [tytrans; typath; tytrans]
+      func (Badoplink.remove_children) [(tytrans ()); (typath ()); (tytrans ())]
 
     let set_link() =
-      func (Badoplink.set_link) [tytrans; typath; typath; tytrans]
+      func (Badoplink.set_link) [(tytrans ()); (typath ()); (typath ()); (tytrans ())]
 
     let set_current_copy() =
-      func (Badoplink.set_current_copy) [tytrans; typath; typath; tytrans]
+      func (Badoplink.set_current_copy) [(tytrans ()); (typath ()); (typath ()); (tytrans ())]
 
     let fold_children ty tyacc =
       func Badoplink.fold_children [
-        tytrans; typath;
-        tyfun [tytrans;typath;ty];
-        tyfun [tyacc;tykey;ty;tyacc];
+        (tytrans ()); (typath ());
+        tyfun [(tytrans ());(typath ());ty];
+        tyfun [tyacc;(tykey ());ty;tyacc];
         tyacc;
         tyacc;
       ]
 (*
     let fold_int_keys ty =
       func (Badoplink.fold_int_keys)
-        [tytrans;typath;tyfun [tyint;ty;ty];ty;typeoption ty]
+        [(tytrans ());(typath ());tyfun [tyint;ty;ty];ty;typeoption ty]
 
     let fold_string_keys ty =
       func (Badoplink.fold_string_keys)
-        [tytrans;typath;tyfun [tystring;ty;ty];ty;typeoption ty]
+        [(tytrans ());(typath ());tyfun [tystring;ty;ty];ty;typeoption ty]
 *)
     let compare ty = func Opacapi.Opabsl.BslPervasives.compare_raw [ty;ty;tyint]
 
@@ -717,74 +718,74 @@ struct
       func (Transactions.commit) [tyhltrans ty; ty]
 
     let get_global_transaction_opt() =
-      func (Transactions.get_global_transaction_opt) [DbGen_common.tydb; typeoption tytrans]
+      func (Transactions.get_global_transaction_opt) [DbGen_common.tydb (); typeoption (tytrans ())]
 
     let set_global_transaction() =
       func (Transactions.set_global_transaction)
-        [DbGen_common.tydb; tytrans; tyunit]
+        [DbGen_common.tydb (); (tytrans ()); tyunit]
 
     let fail ty = func (Transactions.fail) [tystring; ty; ty]
 
     (** -- Bypasses from mlbsl/path --*)
 
     let embedded_path () =
-      func (Path.embedded_path) [tytrans; typath; tyobj]
+      func (Path.embedded_path) [(tytrans ()); (typath ()); (tyobj ())]
 
     let get_ref_path ty =
       func (Path.get_ref_path)
-        [DbGen_common.tydb;
-         typath;
-         tyfun [tytrans; ty];
-         tyfun [tytrans; ty; tytrans];
+        [DbGen_common.tydb ();
+         (typath ());
+         tyfun [(tytrans ()); ty];
+         tyfun [(tytrans ()); ty; (tytrans ())];
          DbGen_common.ref_path_ty ty]
 
     let get_val_path ty =
       func (Path.get_val_path)
-        [tytrans;
-         typath;
-         tyfun [tytrans; ty];
+        [(tytrans ());
+         (typath ());
+         tyfun [(tytrans ()); ty];
          DbGen_common.val_path_ty ty]
 
     let create_dbset ty =
       func (Badoplink.create_dbset)
-        [tytrans;
-         typath;
-         tyfun [tytrans; typath; ty];
+        [(tytrans ());
+         (typath ());
+         tyfun [(tytrans ()); (typath ()); ty];
          tydbset ty]
 
     let set_dbset_keys dbsetty =
       func (Badoplink.set_dbset_keys)
         [dbsetty;
-         typartialkey;
+         (typartialkey ());
          dbsetty]
 
 
     let copy ty =
       func (Path.copy)
-        [tytrans; DbGen_common.val_path_ty ty; typath; tytrans]
+        [(tytrans ()); DbGen_common.val_path_ty ty; (typath ()); (tytrans ())]
 
-    let get_lazy_info_opt ty = func (Path.get_lazy_info_opt) [ty; typeoption ty_lazy_data]
+    let get_lazy_info_opt ty = func (Path.get_lazy_info_opt) [ty; typeoption (ty_lazy_data ())]
 
-    let embed_record_data ty = func (Path.embed_record_data) [ty; typeoption tyobj; ty]
+    let embed_record_data ty = func (Path.embed_record_data) [ty; typeoption (tyobj ()); ty]
 
-    let inject_record_data ty = func (Path.inject_record_data) [ty; typeoption tyobj; tyunit]
+    let inject_record_data ty = func (Path.inject_record_data) [ty; typeoption (tyobj ()); tyunit]
 
     (** -- Bypasses from mlbsl/dbgraph *)
 
-    let matching_edge() = func (Dbgraph.matching_edge) [tydiff;tystring;tyint;tyint]
+    let matching_edge() = func (Dbgraph.matching_edge) [(tydiff ());tystring;tyint;tyint]
 
-    let diff() = func (Dbgraph.diff) [tystring;tystring;tydiff]
+    let diff() = func (Dbgraph.diff) [tystring;tystring;(tydiff ())]
 
-    let empty_diff() = expr (Dbgraph.empty_diff) tydiff
+    let empty_diff() = expr (Dbgraph.empty_diff) (tydiff ())
 
-    let diff_status() = func (Dbgraph.diff_status) [tydiff;tyint]
+    let diff_status() = func (Dbgraph.diff_status) [(tydiff ());tyint]
 
-    let diff_message() = func (Dbgraph.diff_message) [tystring;tydiff;tystring]
+    let diff_message() = func (Dbgraph.diff_message) [tystring;(tydiff ());tystring]
 
-    let get_diffed_schema() = func (Dbgraph.get_diffed_schema) [tydiff;tystring]
+    let get_diffed_schema() = func (Dbgraph.get_diffed_schema) [(tydiff ());tystring]
 
     let print_tree() = func (Dbgraph.print_tree) [tystring;tyunit]
 
-    let shall_i_upgrade() = func (Badoplink.shall_i_upgrade) [DbGen_common.tydb;tybool]
+    let shall_i_upgrade() = func (Badoplink.shall_i_upgrade) [DbGen_common.tydb ();tybool]
   end
 end

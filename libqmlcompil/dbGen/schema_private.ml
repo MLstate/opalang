@@ -740,7 +740,7 @@ let register_db_declaration t gamma (label, ident, p, opts) =
   let error msg =
     QmlError.i_error None context msg
   in
-  let (database_type, _) = QmlTypes.type_of_type gamma C.tydb in
+  let (database_type, _) = QmlTypes.type_of_type gamma (C.tydb ()) in
   let gamma =
     QmlTypes.Env.Ident.add ident (QmlTypes.Scheme.quantify database_type) gamma
   in

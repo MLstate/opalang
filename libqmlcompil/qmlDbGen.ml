@@ -21,7 +21,8 @@
 
 (* Exported module with reduced interface *)
 
-(* Because of a lack of functionality in OCaml module handling, we can't use include *)
+
+let settyp = DbGen_common.settyp
 
 module Sch = Schema_private
 module Schema = struct

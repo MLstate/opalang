@@ -17,6 +17,11 @@
 *)
 (* Exported module: reduced interface *)
 
+(** {6} Initialization **)
+
+(** Set the translation function beetween string and renamed type
+    ident.*)
+val settyp : (string -> QmlAst.typeident) -> unit
 
 (* =============== *)
 (** DbGen Main API *)

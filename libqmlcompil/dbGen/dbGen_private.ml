@@ -159,7 +159,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       key_of (fn,fty)
     | _ -> error ("Set keys containing fields of type [%a] are not supported yet.") QmlPrint.pp#ty fty in
     let l_key = List.map key_of l_fields in
-    H.make_letin (id, e) (H.apply_lambda (Bypass.key_list()) (Bypass.make_ocaml_list l_key tykey))
+    H.make_letin (id, e) (H.apply_lambda (Bypass.key_list()) (Bypass.make_ocaml_list l_key (tykey ())))
   let dbpath_add path key = H.apply_lambda' (Bypass.dbpath_add()) [path;key]
 
   let path_of_intkeylist () = List.fold_left (fun acc i -> dbpath_add acc (key_const_int i)) (Bypass.dbpath_root())
@@ -198,7 +198,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
   let get_code tr path leaf_t =
     apply_inside_opt (Bypass.proj_dbtype leaf_t)
       (H.apply_lambda' (Bypass.get_opt())
-         [tr @: tytrans; path])
+         [tr @: (tytrans()); path])
 
   let get_code_noopt tr path leaf_t =
     let id = H.new_ident "x" in
@@ -210,23 +210,23 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           [H.const_string "Impossible to read structure data from the database";H.const_string "";H.const_string""] ]
 
   let set_code tr path value leaf_t =
-    H.apply_lambda' (Bypass.set()) [tr @: tytrans; path; leaf_data leaf_t value]
+    H.apply_lambda' (Bypass.set()) [tr @: (tytrans()); path; leaf_data leaf_t value]
 
   let set_unit_code tr path =
-    H.apply_lambda' (Bypass.set()) [tr @: tytrans; path; H.apply_lambda' (Bypass.data_unit()) []]
+    H.apply_lambda' (Bypass.set()) [tr @: (tytrans()); path; H.apply_lambda' (Bypass.data_unit()) []]
 
   let enter_transaction_expr db =
     debugverbose_in "ENTER TRANSACTION" (
-    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb))
+    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb ()))
       (fun tr -> tr)
-      (H.apply_lambda (Bypass.trans_start()) (db @: C.tydb))
+      (H.apply_lambda (Bypass.trans_start()) (db @: C.tydb ()))
     )
 
   let leave_transaction_expr db tr =
     debugverbose_in "LEAVE TRANSACTION" (
-    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb))
-      (fun _ -> H.apply_lambda' (Bypass.set_global_transaction()) [db @: C.tydb; tr @: tytrans])
-      (H.apply_lambda' (Bypass.trans_commit()) [tr @: tytrans])
+    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb ()))
+      (fun _ -> H.apply_lambda' (Bypass.set_global_transaction()) [db @: C.tydb (); tr @: (tytrans())])
+      (H.apply_lambda' (Bypass.trans_commit()) [tr @: (tytrans())])
     )
 
   (* Label of keys inside the edge-map, which is a record containing the
@@ -291,7 +291,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     in
     let up, down = find_shortest [] (List.rev up) down in
     let up_expr =
-      List.fold_left (fun path _ -> H.apply_lambda' (Bypass.uppath()) [tr @: tytrans; path]) dbpath up in
+      List.fold_left (fun path _ -> H.apply_lambda' (Bypass.uppath()) [tr @: (tytrans()); path]) dbpath up in
     let _, updown_expr =
       List.fold_left
         (fun (nprev, path) n ->
@@ -299,7 +299,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             match (V.label nprev).C.nlabel with
               | C.Multi ->
                   (match SchemaGraphLib.multi_key sch nprev with
-                     | C.Kint -> dbpath_add path (newkey_expr (tr @: tytrans) path)
+                     | C.Kint -> dbpath_add path (newkey_expr (tr @: (tytrans())) path)
                      | C.Kfields _ ->
                          error "linking to within a set not handled yet" (* todo *)
                      | C.Kstring -> fail())
@@ -490,22 +490,22 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     module Type = struct
       let generic_reader leaf =
         let ty = SchemaGraphLib.type_of_leaf leaf in
-        H.tyfun [ty; tytrans; typath; H.over_valpath_ty ty]
+        H.tyfun [ty; (tytrans()); (typath()); H.over_valpath_ty ty]
           (* == ty -> reader *)
       let reader n =
-        H.tyfun [tytrans; typath; H.over_valpath_ty (SchemaGraphLib.type_of_node n)]
+        H.tyfun [(tytrans()); (typath()); H.over_valpath_ty (SchemaGraphLib.type_of_node n)]
 
       let generic_writer leaf =
         let ty = SchemaGraphLib.type_of_leaf leaf in (* == db_writer_type *)
-        H.tyfun [tytrans; typath; ty; tytrans]
+        H.tyfun [(tytrans()); (typath()); ty; (tytrans())]
       let writer n =
-        H.tyfun [tytrans; typath; SchemaGraphLib.type_of_node n; tytrans]
+        H.tyfun [(tytrans()); (typath()); SchemaGraphLib.type_of_node n; (tytrans())]
 
     end
 
     let make_embedded_path _node tr path =
       H.apply_lambda' (Bypass.embedded_path ())
-        [tr @: tytrans; path ]
+        [tr @: (tytrans()); path ]
 
     let edge_map_infos sch db_ident db_diff_id =
 (*       let oc1 = open_out ("schema") in *)
@@ -529,7 +529,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                in
                (edge_fld_label e,
                 H.apply_lambda' (Bypass.matching_edge())
-                  [ db_diff_id @: tydiff; H.const_string nodeid; edgeid_expr ])
+                  [ db_diff_id @: (tydiff ()); H.const_string nodeid; edgeid_expr ])
                :: acc
            | _ -> acc)
         sch [] in
@@ -587,11 +587,11 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           let dflt = H.new_ident "default" in
           let tr = H.new_ident "tr" in
           let path = H.new_ident "curpath" in
-          H.make_lambda' [dflt, ty; tr, tytrans; path, typath]
+          H.make_lambda' [dflt, ty; tr, (tytrans()); path, (typath())]
             (let res = H.new_ident "res" in
              H.make_letin
                (res,
-                get_code tr (path @: typath) leaf)
+                get_code tr (path @: (typath())) leaf)
                (match_option_expr (res @: H.typeoption ty)
                   (fun x -> x)
                   (dflt @: ty)))
@@ -622,25 +622,25 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           H.apply_lambda'
             (Bypass.fold_children tychld ty)
             [
-              tr @: tytrans;
-              path @: typath;
+              tr @: (tytrans());
+              path @: (typath());
               (let tr, path = H.new_ident "tr", H.new_ident "path" in
-               H.make_lambda' [tr, tytrans; path, typath]
-                 (expr sch idents nextnode (tr @: tytrans) (path @: typath)));
+               H.make_lambda' [tr, (tytrans()); path, (typath())]
+                 (expr sch idents nextnode (tr @: (tytrans())) (path @: (typath()))));
               (let acc, key, value = H.new_ident "acc", H.new_ident "key", H.new_ident "value" in
                H.make_lambda'
-                 [acc, ty; key, tykey; value, tychld]
+                 [acc, ty; key, (tykey ()); value, tychld]
                  (match SchemaGraphLib.multi_key sch n with
                   | C.Kint ->
                       H.apply_lambda'
                         (Helpers_gen.expr_stringmap_add H.tyint tychld)
-                        [ H.apply_lambda (Bypass.key_value_int()) (key @: tykey);
+                        [ H.apply_lambda (Bypass.key_value_int()) (key @: (tykey ()));
                           value @: tychld;
                           acc @: ty ]
                   | C.Kstring ->
                       H.apply_lambda'
                         (Helpers_gen.expr_stringmap_add H.tystring tychld)
-                        [ H.apply_lambda (Bypass.key_value_string()) (key @: tykey);
+                        [ H.apply_lambda (Bypass.key_value_string()) (key @: (tykey ()));
                           value @: tychld;
                           acc @: ty ]
                   | _ -> assert false));
@@ -654,7 +654,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                (value @: ty)
                (H.apply_lambda'
                   (Bypass.embed_record_data ty)
-                  [ value @: ty; make_some (make_embedded_path n tr (path @: typath))]))
+                  [ value @: ty; make_some (make_embedded_path n tr (path @: (typath())))]))
         #<Else>
           expr_read
         #<End>
@@ -669,7 +669,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           | None -> OManager.i_error "Child reader of a dbset not found"
           | Some reader -> reader @: Type.reader child in
         H.apply_lambda' (Bypass.create_dbset ty)
-          [tr @: tytrans; path @: typath; reader]
+          [tr @: (tytrans()); path @: (typath()); reader]
 
       let def sch idents =
         let make_accessor n =
@@ -681,41 +681,41 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           let tr = H.new_ident "tr" in
           let path = H.new_ident "curpath" in
           let r = H.make_lambda'
-            [ tr, tytrans;
-              path, typath ]
+            [ tr, (tytrans());
+              path, (typath()) ]
             (H.make_coerce ~ty
                (match (V.label n).C.nlabel with
                 | C.Multi when SchemaGraphLib.is_node_set sch n ->
                     get_dbset sch idents tr path n ty0
                 | C.Multi -> get_multi sch idents tr path n ty0
                 | C.Hidden ->
-                    expr sch idents (SchemaGraph.unique_next sch n) (tr @: tytrans)
-                      (dbpath_add (path @: typath) (key_const_int 0))
+                    expr sch idents (SchemaGraph.unique_next sch n) (tr @: (tytrans()))
+                      (dbpath_add (path @: (typath())) (key_const_int 0))
                 | C.Sum ->
                     expr_switch
-                      (get_code tr (path @: typath) C.Leaf_int)
+                      (get_code tr (path @: (typath())) C.Leaf_int)
                       (List.map
                          (fun e ->
                             let edgenum() = edge_num_expr idents.Idents.edge_map_ids e in
                             make_some (edgenum()),
                             H.make_coerce
                               (H.convert_case_to_sum
-                                 ~lazy_param:(Some (make_embedded_path n tr (path @: typath)))
+                                 ~lazy_param:(Some (make_embedded_path n tr (path @: (typath()))))
                                  ty0
-                                 (expr sch idents (E.dst e) (tr @: tytrans)
-                                    (dbpath_add (path @: typath) (key_int (edgenum()))))))
+                                 (expr sch idents (E.dst e) (tr @: (tytrans()))
+                                    (dbpath_add (path @: (typath())) (key_int (edgenum()))))))
                          (SchemaGraph0.succ_e sch n))
                       (Default.expr sch idents n)
                 | C.Product ->
                     H.make_coerce
                       (H.make_lazyrecord
-                         (make_embedded_path n tr (path @: typath))
+                         (make_embedded_path n tr (path @: (typath())))
                          (List.map
                             (fun e ->
                                let f = SchemaGraphLib.fieldname_of_edge e in
                                f,
-                               expr sch idents (E.dst e) (tr @: tytrans)
-                                 (dbpath_add (path @: typath) (key_int (edge_num_expr idents.Idents.edge_map_ids e))))
+                               expr sch idents (E.dst e) (tr @: (tytrans()))
+                                 (dbpath_add (path @: (typath())) (key_int (edge_num_expr idents.Idents.edge_map_ids e))))
                             (SchemaGraph0.succ_e sch n))
                          ty0)
                 | C.Leaf _ -> assert false)) (* handled by accessors_generic *)
@@ -738,8 +738,8 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           let tr = H.new_ident "tr" in
           let path = H.new_ident "curpath" in
           let value = H.new_ident "value" in
-          H.make_lambda' [tr, tytrans; path, typath; value, ty]
-            (set_code tr (path @: typath) (value @: ty) leaf)
+          H.make_lambda' [tr, (tytrans()); path, (typath()); value, ty]
+            (set_code tr (path @: (typath())) (value @: ty) leaf)
       end
 
       let expr sch idents n =
@@ -754,13 +754,13 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       let apply_writer sch idents node tr path_expr value =
         H.apply_lambda'
           (expr sch idents node)
-          [tr @: tytrans; path_expr; H.make_coerce (H.newexpr_annot value (SchemaGraphLib.type_of_node node))]
+          [tr @: (tytrans()); path_expr; H.make_coerce (H.newexpr_annot value (SchemaGraphLib.type_of_node node))]
 
 
       let write_child sch idents tr parent_path key edge value =
         let n = E.dst edge in
         if (E.label edge).C.is_main then
-          apply_writer sch idents n tr (dbpath_add (parent_path @: typath) key) value
+          apply_writer sch idents n tr (dbpath_add (parent_path @: (typath())) key) value
         else
           (* Write a recursive structure:
              (1) create node with new key at the link-to point
@@ -780,17 +780,17 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           in
           H.make_letin'
             [ dbpath_dest,
-              dbpath_from_link_expr sch (edge_num_expr idents.Idents.edge_map_ids) tr edge (parent_path @: typath);
+              dbpath_from_link_expr sch (edge_num_expr idents.Idents.edge_map_ids) tr edge (parent_path @: (typath()));
               newkey,
-              newkey_expr (tr @: tytrans) (dbpath_dest @: typath);
+              newkey_expr (tr @: (tytrans())) (dbpath_dest @: (typath()));
               newpath_dest,
-              dbpath_add (dbpath_dest @: typath) (newkey @: tykey);
+              dbpath_add (dbpath_dest @: (typath())) (newkey @: (tykey ()));
               tr1,
-              apply_writer sch idents n tr (newpath_dest @: typath) value ]
+              apply_writer sch idents n tr (newpath_dest @: (typath())) value ]
             (H.apply_lambda' by_link_or_copy
-               [ tr1 @: tytrans;
-                 dbpath_add (parent_path @: typath) key;
-                 newpath_dest @: typath ])
+               [ tr1 @: (tytrans());
+                 dbpath_add (parent_path @: (typath())) key;
+                 newpath_dest @: (typath()) ])
 
       let write_multi sch idents tr path n _ty value =
         let tykeys, key_make = match SchemaGraphLib.multi_key sch n with
@@ -805,19 +805,19 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         H.make_letin'
           [tr2, H.apply_lambda' (Bypass.clear())
              (* warn: that would break a link: we should not allow maps as destinations of links in the schema *)
-             [tr @: tytrans; path @: typath];
-           tr1, set_unit_code tr2 (path @: typath)]
+             [tr @: (tytrans()); path @: (typath())];
+           tr1, set_unit_code tr2 (path @: (typath()))]
           (* Cleanup the node before re-setting *)
           (H.apply_lambda'
              (match SchemaGraphLib.multi_key sch n with
-              | C.Kint -> Helpers_gen.expr_intmap_fold tykeys tychld tytrans
-              | C.Kstring -> Helpers_gen.expr_stringmap_fold tykeys tychld tytrans
+              | C.Kint -> Helpers_gen.expr_intmap_fold tykeys tychld (tytrans())
+              | C.Kstring -> Helpers_gen.expr_stringmap_fold tykeys tychld (tytrans())
               | _ -> assert false)
              [ (let k,x,acc = H.new_ident "k", H.new_ident "x", H.new_ident "trans_acc" in
-                H.make_lambda' [k, tykeys; x, tychld; acc, tytrans]
+                H.make_lambda' [k, tykeys; x, tychld; acc, (tytrans())]
                   (write_child sch idents acc path (key_make (k @: tykeys)) edge (QC.ident x)));
                value;
-               tr1 @: tytrans ])
+               tr1 @: (tytrans()) ])
 
       let set_dbset sch idents tr path value node dbsetty =
         (* Extract type inside dbset *)
@@ -829,7 +829,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           | None -> OManager.i_error "Child writer of a dbset not found"
           | Some writer -> writer @: Type.writer child in
         H.apply_lambda' writer
-          [tr @: tytrans; path @: typath; value @: ty]
+          [tr @: (tytrans()); path @: (typath()); value @: ty]
 
       let def sch idents =
         let make_writer n =
@@ -845,10 +845,10 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               (H.make_match
                  (H.apply_lambda (Bypass.get_lazy_info_opt ty) (value @: ty))
                  [ (let ldata = H.new_ident "lazy_data" in
-                    H.patt_some_var ldata Helpers_gen.ty_lazy_data,
+                    H.patt_some_var ldata (Helpers_gen.ty_lazy_data ()),
                     debug_in "This data is already in the DB: mark as copy instead of write"
                       (H.apply_lambda' (Bypass.copy ty)
-                         [ tr @: tytrans; ldata @: Helpers_gen.ty_lazy_data; path @: typath ]));
+                         [ tr @: (tytrans()); ldata @: Helpers_gen.ty_lazy_data (); path @: (typath()) ]));
                    H.patt_none (C.val_path_ty ty),
                    debug_in "Marking your data with DB info (for later sharing)"
                      (let tr = H.new_ident "tr" in
@@ -859,14 +859,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                              [ value @: ty;
                                make_some
                                  (H.apply_lambda' (Bypass.embedded_path ())
-                                    [tr @: tytrans; path @: typath]) ]) ]
-                        (tr @: tytrans)) ])
+                                    [tr @: (tytrans()); path @: (typath())]) ]) ]
+                        (tr @: (tytrans()))) ])
               #<Else> e
               #<End>
           in
           let r = H.make_lambda'
-            [ tr, tytrans;
-              path, typath;
+            [ tr, (tytrans());
+              path, (typath());
               value, ty ]
             (* Writes belong to one of three cases:
                (1) paths that always lead to a recursive call (eg rectypes == multi with a default case)
@@ -883,13 +883,13 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                      (* we don't copy in these cases, which are hidden to the user: no valpath can point here *)
                      let tr1 = H.new_ident "tr1" in
                      H.make_letin
-                       (tr1, H.apply_lambda' (Bypass.remove_children()) [tr @: tytrans; (path @: typath)])
+                       (tr1, H.apply_lambda' (Bypass.remove_children()) [tr @: (tytrans()); (path @: (typath()))])
                        (write_child sch idents tr1 path (key_const_int 0) (SchemaGraph.out_edge sch n) (QC.ident value))
                  | C.Sum ->
                      let tr1 = H.new_ident "tr1" in
                      attempt_to_copy
                        (H.make_letin
-                          (tr1, H.apply_lambda' (Bypass.remove_children()) [tr @: tytrans; (path @: typath)])
+                          (tr1, H.apply_lambda' (Bypass.remove_children()) [tr @: (tytrans()); (path @: (typath()))])
                           (H.make_match (value @: ty)
                              (List.map
                                 (fun e ->
@@ -898,7 +898,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                                    let tr2 = H.new_ident "tr2" in
                                    patt,
                                    H.make_letin
-                                     (tr2, set_code tr1 (path @: typath) (edgenum()) C.Leaf_int)
+                                     (tr2, set_code tr1 (path @: (typath())) (edgenum()) C.Leaf_int)
                                      (write_child sch idents tr2 path (key_int (edgenum())) e
                                         (* (value @: ty).e *)
                                         (QC.record (* = (value @: ty).e, only useful for typing/conversion *)
@@ -909,8 +909,8 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                  | C.Product -> attempt_to_copy
                      (let tr_expr = (* record presence of empty records: *)
                         if SchemaGraph0.succ_e sch n = []
-                        then set_unit_code tr (path @: typath)
-                        else (tr @: tytrans)
+                        then set_unit_code tr (path @: (typath()))
+                        else (tr @: (tytrans()))
                       in
                       SchemaGraph0.fold_succ_e
                         (fun e acc ->
@@ -979,7 +979,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     in
     let get_expr n tr path =
       assert ((V.label n).C.nlabel <> C.Hidden);
-      apply_accessor n (tr @: tytrans) path
+      apply_accessor n (tr @: (tytrans())) path
     in
     let write_expr n tr path value =
       assert ((V.label n).C.nlabel <> C.Hidden);
@@ -992,13 +992,13 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     (* Io.Compr.compress_string @* *) Schema_io.to_gml_string schema
   (* let compute_hash = Digest.to_hex @* Digest.string @* Schema_io.to_gml_string *)
 
-  let init_ret_ty =
-    Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false ["trans", tytrans; "diff", tydiff])
+  let init_ret_ty () =
+    Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false ["trans", (tytrans()); "diff", (tydiff ())])
 
   let set_init_code serial_sch tr =
     let tr' = H.new_ident "tr" in
     debug_in (Printf.sprintf "Initialising database, hash=%S" (Digest.to_hex (Digest.string serial_sch)))
-    (let tr_df_ty = H.tyrecord ["trans",Helpers_gen.tytrans; "diff",Helpers_gen.tydiff] in
+    (let tr_df_ty = H.tyrecord ["trans",Helpers_gen.(tytrans()); "diff",Helpers_gen.(tydiff ())] in
     let schema_id = H.new_ident "schema" in
     let tr_df_diff = H.new_ident "tr_df" in
     (H.make_letin'
@@ -1017,7 +1017,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       #<If:TESTING>
         H.const_string "the database files"
       #<Else>
-        H.apply_lambda (Bypass.db_prefix C.tydb) (db_ident @: C.tydb)
+        H.apply_lambda (Bypass.db_prefix (C.tydb ())) (db_ident @: C.tydb ())
       #<End> in
     let msg_error =
       [ H.const_string "Can't recognise the meta-data in this database. You can clear it by removing \"";
@@ -1039,7 +1039,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let read_schema_id = H.new_ident "read_schema" in
     let diff_id = H.new_ident "diff" in
     let tr_df_id = H.new_ident "tr_df" in
-    let tr_df_ty = H.tyrecord ["trans",tytrans; "diff",tydiff] in
+    let tr_df_ty = H.tyrecord ["trans",(tytrans()); "diff",(tydiff ())] in
     let ret_ty = H.tytuple H.tystring tr_df_ty in
     let diffedsch =(H.new_ident "diffed_schema") in
     H.make_letin'
@@ -1059,10 +1059,10 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                H.apply_lambda' (Bypass.diff())
                  [read_schema_id @: H.tystring; schema_id @: H.tystring])
             (H.make_match
-               (H.apply_lambda (Bypass.diff_status()) (diff_id @: tydiff))
+               (H.apply_lambda (Bypass.diff_status()) (diff_id @: (tydiff ())))
                [ H.patt_const_int 0, (* See codes in mlbsl/dbgraph.ml ! 0 is no difference *)
                    (H.make_letin
-                     (tr_df_id, H.make_record ["trans", tr @: tytrans; "diff", diff_id @: tydiff])
+                     (tr_df_id, H.make_record ["trans", tr @: (tytrans()); "diff", diff_id @: (tydiff ())])
                      (H.make_tuple (schema_id @: H.tystring) (tr_df_id @: tr_df_ty)));
                  H.patt_const_int 2048, (* this means we can't migrate *)
                    H.apply_lambda' (Bypass.fatal_error ret_ty) msg_sch;
@@ -1073,19 +1073,19 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                           (H.apply_lambda' (Bypass.diff_message())
                              [H.const_string
                                 "The structure of this database doesn't match the current program.\nIt differs by ";
-                              (diff_id @: tydiff)]))
-                     (H.make_ifthenelse (H.apply_lambda' (Bypass.shall_i_upgrade()) [db_ident @: C.tydb])
+                              (diff_id @: (tydiff ()))]))
+                     (H.make_ifthenelse (H.apply_lambda' (Bypass.shall_i_upgrade()) [db_ident @: C.tydb ()])
                         (H.make_letin
                            (H.new_ident "_",
                             H.apply_lambda (Bypass.jlog()) (H.const_string "Automatic update done. Saving..."))
                            (H.make_letin
                              (diffedsch,
-                              (H.apply_lambda (Bypass.get_diffed_schema()) (diff_id @: tydiff)))
+                              (H.apply_lambda (Bypass.get_diffed_schema()) (diff_id @: (tydiff ()))))
                              (H.make_letin
                                (tr_df_id,
                                 (H.make_record
                                    ["trans", set_code tr (config_key_path `schema) (diffedsch @: H.tystring) C.Leaf_binary;
-                                    "diff", diff_id @: tydiff]))
+                                    "diff", diff_id @: (tydiff ())]))
                                 (H.make_tuple (diffedsch @: H.tystring) (tr_df_id @: tr_df_ty)))))
                         (H.make_letin
                            (H.new_ident "_",
@@ -1105,14 +1105,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let db_id = H.new_ident db_name in
     let db_exp = H.apply_lambda' (Bypass.open_db()) [engine_id @: engine_type] in
     let tr1_id = H.new_ident "tr1" in
-    let tr1_exp = H.apply_lambda (Bypass.trans_start()) (db_id @: C.tydb) in
-    let rec_ty = H.tyrecord ["trans",Helpers_gen.tytrans; "diff",Helpers_gen.tydiff] in
+    let tr1_exp = H.apply_lambda (Bypass.trans_start()) (db_id @: C.tydb ()) in
+    let rec_ty = H.tyrecord ["trans",Helpers_gen.(tytrans()); "diff",Helpers_gen.(tydiff ())] in
     let init_tuple_ty = H.tytuple H.tystring rec_ty in
     let init_tuple_id = H.new_ident "init_tuple" in
     let serial_sch = serial_schema schema in
     let init_tuple_exp =
       H.make_match
-        (H.apply_lambda (Bypass.is_db_new()) (db_id @: C.tydb))
+        (H.apply_lambda (Bypass.is_db_new()) (db_id @: C.tydb ()))
         [
           (H.newpatt_annot (QC.patconst (Q.Int 1)) H.tyint,
           set_init_code serial_sch tr1_id);
@@ -1125,19 +1125,19 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let schema_exp = H.make_fst (init_tuple_id @: init_tuple_ty) in
     let config_id = H.new_ident "node_config" in
     let config_exp = H.apply_lambda (Bypass.node_config_construct()) (schema_id @: H.tystring) in
-    let properties = H.apply_lambda' (Bypass.node_properties()) [db_id @: C.tydb; config_id @: Helpers_gen.tynodeconfig] in
+    let properties = H.apply_lambda' (Bypass.node_properties()) [db_id @: C.tydb (); config_id @: Helpers_gen.tynodeconfig ()] in
 
     let init_record_id = H.new_ident "init_record" in
     let init_record_exp = H.make_snd (init_tuple_id @: init_tuple_ty) in
     let tr2_id = H.new_ident "tr2" in
-    let tr2_exp = H.make_dot (init_record_id @: init_ret_ty) "trans" in
+    let tr2_exp = H.make_dot (init_record_id @: (init_ret_ty ())) "trans" in
     let trans_commit_exp =
       H.apply_lambda'
-        (Bypass.trans_commit()) [tr2_id @: tytrans]
+        (Bypass.trans_commit()) [tr2_id @: (tytrans())]
     in
-    let database_field = db_id @: C.tydb in
+    let database_field = db_id @: C.tydb () in
     let diff_field =
-      let diff = H.make_dot (init_record_id @: init_ret_ty) "diff" in
+      let diff = H.make_dot (init_record_id @: (init_ret_ty ())) "diff" in
       #<If>
         let diff_id = H.new_ident "diff" in
         H.make_letin'
@@ -1147,9 +1147,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             H.apply_lambda (Bypass.jlog())
               (H.apply_lambda (Bypass.print_tree())
                 (H.apply_lambda
-                  (Bypass.get_diffed_schema()) (diff_id @: tydiff))))
+                  (Bypass.get_diffed_schema()) (diff_id @: (tydiff ())))))
           ]
-          (diff_id @: tydiff)
+          (diff_id @: (tydiff ()))
           #<Else>
           diff
           #<End>
@@ -1172,7 +1172,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let dbinit_ty =
       Q.TypeRecord
         (QmlAstCons.Type.Row.make
-           ~extend:false ["database", C.tydb; "diff", tydiff])
+           ~extend:false ["database", C.tydb (); "diff", (tydiff ())])
     in
     let register_db_init =
       H.apply_lambda'
@@ -1184,11 +1184,11 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let init_decl = Q.NewVal (label, [ H.new_ident "_", register_db_init ]) in
     let gamma =
       QmlTypes.Env.Ident.add
-        db_ident (QmlTypes.Scheme.quantify C.tydb) gamma
+        db_ident (QmlTypes.Scheme.quantify (C.tydb ())) gamma
     in
     let gamma =
       QmlTypes.Env.Ident.add
-        db_diff_id (QmlTypes.Scheme.quantify tydiff) gamma
+        db_diff_id (QmlTypes.Scheme.quantify (tydiff ())) gamma
     in
     (gamma, engine_decl, init_decl)
 
@@ -1259,7 +1259,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let dbinit_ty =
       Q.TypeRecord
         (QmlAstCons.Type.Row.make
-           ~extend:false ["database", C.tydb; "diff", tydiff])
+           ~extend:false ["database", C.tydb (); "diff", (tydiff ())])
     in
     let init =
       H.apply_lambda
@@ -1316,7 +1316,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               let sch = Schema_private.renumber_root_edges db_def.Schema_private.schema in
               let (gamma, engine_decl, init_decl) =
                 gen_dbinit db_ident db_diff_id point sch gamma
-                  engine_id engine_expr engine_type
+                  engine_id engine_expr (engine_type())
               in
               let gamma, db_decls = gen_db_decl gamma db_ident db_diff_id in
               let root_edge_map_decl =
@@ -1379,9 +1379,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let tr, res = H.new_ident "tr", H.new_ident "res" in
     H.make_letin'
       [ tr, enter_transaction_expr dbinfo.db_ident;
-        res, newkey_expr (tr @: tytrans) path;
+        res, newkey_expr (tr @: (tytrans())) path;
         H.new_ident "_", leave_transaction_expr dbinfo.db_ident tr ]
-      (res @: tykey)
+      (res @: (tykey ()))
 
   (* /!\ Synchronise with find_exprpath in Schema_private /!\ *)
 
@@ -1398,11 +1398,11 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           H.make_letin'
             [ tr2, wr_expr tr;
               pathid, H.copy_expr path;
-              chldpath, dbpath_add (pathid @: typath) key_expr ]
-            (H.make_ifthenelse (H.apply_lambda' (Bypass.exists()) [tr @: tytrans; chldpath @: typath])
+              chldpath, dbpath_add (pathid @: (typath())) key_expr ]
+            (H.make_ifthenelse (H.apply_lambda' (Bypass.exists()) [tr @: (tytrans()); chldpath @: (typath())])
                ( (* The link already exists, nothing to do *)
                  debug_in "> ok, it's there"
-                   (tr2 @: tytrans))
+                   (tr2 @: (tytrans())))
                ( (* Nothing there, we have to dynamically link to a fresh key to keep things correct
                     (cf write_child) *)
                  let dbpath_dest = H.new_ident "dbpath_dest"
@@ -1412,15 +1412,15 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                  debug_in "> I have to make the link" (
                  H.make_letin'
                    [ dbpath_dest,
-                     dbpath_from_link_expr sch dbinfo.edge_num_expr tr2 edge (pathid @: typath);
+                     dbpath_from_link_expr sch dbinfo.edge_num_expr tr2 edge (pathid @: (typath()));
                      newkey,
-                     newkey_expr (tr2 @: tytrans) (dbpath_dest @: typath);
+                     newkey_expr (tr2 @: (tytrans())) (dbpath_dest @: (typath()));
                      newpath_dest,
-                     dbpath_add (dbpath_dest @: typath) (newkey @: tykey) ]
+                     dbpath_add (dbpath_dest @: (typath())) (newkey @: (tykey ())) ]
                    (H.apply_lambda' by_link_or_copy
-                      [ tr2 @: tytrans;
-                        chldpath @: typath;
-                        newpath_dest @: typath ]) ) ))
+                      [ tr2 @: (tytrans());
+                        chldpath @: (typath());
+                        newpath_dest @: (typath()) ]) ) ))
           )
     in
     let rec aux (accpath,wr_expr) node path =
@@ -1447,18 +1447,18 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               fun tr ->
               H.make_letin' [tr2, wr_expr tr; pathid, H.copy_expr accpath]
                 (H.make_match
-                   (get_code tr2 (pathid @: typath) C.Leaf_int)
+                   (get_code tr2 (pathid @: (typath())) C.Leaf_int)
                    [ H.patt_some_var current_edge_id H.tyint,
                        H.make_ifthenelse (expr_equals (current_edge_id @: H.tyint) (e_num_expr()))
-                         (tr2 @: tytrans)
+                         (tr2 @: (tytrans()))
                          (H.make_letin
                             (tr3,
                              H.apply_lambda' (Bypass.remove_children())
-                               [ tr2 @: tytrans;
-                                 dbpath_add (pathid @: typath) (key_int (current_edge_id @: H.tyint)) ])
-                            (set_code  tr3 (pathid @: typath) (e_num_expr()) C.Leaf_int));
+                               [ tr2 @: (tytrans());
+                                 dbpath_add (pathid @: (typath())) (key_int (current_edge_id @: H.tyint)) ])
+                            (set_code  tr3 (pathid @: (typath())) (e_num_expr()) C.Leaf_int));
                      H.patt_none H.tyint,
-                       (set_code  tr2 (pathid @: typath) (e_num_expr()) C.Leaf_int) ])
+                       (set_code  tr2 (pathid @: (typath())) (e_num_expr()) C.Leaf_int) ])
             in
             let accpath = dbpath_add accpath (key_int (e_num_expr())) in
             aux (accpath, wr_expr) (E.dst e) path
@@ -1481,7 +1481,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             let pathid = H.new_ident "path" in
             let accpath =
               H.make_letin (pathid, accpath)
-                (dbpath_add (pathid @: typath) (magic_newkey_expr dbinfo (pathid @: typath))) in
+                (dbpath_add (pathid @: (typath())) (magic_newkey_expr dbinfo (pathid @: (typath())))) in
             aux (accpath, wr_expr) nextnode subpath
         | (Q.FldKey s)::subpath, C.Product ->
             let edge = SchemaGraphLib.find_field_edge sch node s in
@@ -1494,7 +1494,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         | _, _ -> assert false (* inconsistency in path wrt to schema *)
     in
     let res, writer, _node =
-      aux (dbpath, (fun tr -> tr @: C.tydb)) node0 path0 in
+      aux (dbpath, (fun tr -> tr @: C.tydb ())) node0 path0 in
     (* assert(node = fst (find_exprpath sch ~node:node0 path0)); *)
     res, writer
 
@@ -1502,23 +1502,23 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     match kind with
       | Db.Option ->
           let pathid = H.new_ident "path" in
-          let access_code = dbinfo.access_fun node tr (pathid @: typath) in
+          let access_code = dbinfo.access_fun node tr (pathid @: (typath())) in
           let access_code = transget access_code in
           let ty = H.type_from_annot access_code in
           H.make_letin (pathid, dbpath)
             (H.make_ifthenelse
-               (H.apply_lambda' (Bypass.exists()) [tr @: tytrans; pathid @: typath])
+               (H.apply_lambda' (Bypass.exists()) [tr @: (tytrans()); pathid @: (typath())])
                (make_some access_code)
                (Helpers_gen.expr_none ty))
       | Db.Default ->
           transget (dbinfo.access_fun node tr dbpath)
       | Db.Valpath ->
           let pathid = H.new_ident "path" in
-          let access_code = dbinfo.access_fun node tr(pathid @: typath) in
+          let access_code = dbinfo.access_fun node tr(pathid @: (typath())) in
           let access_code = transget access_code in
           let access_fun =
             let tr = H.new_ident "trans" in
-            H.make_lambda (tr, tytrans) access_code
+            H.make_lambda (tr, (tytrans())) access_code
           in
           let ty = H.type_from_annot access_code in
           let fun_id = H.new_ident "access_fun" in
@@ -1526,7 +1526,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             [ pathid, dbpath;
               fun_id, access_fun ]
             (H.apply_lambda' (Bypass.get_val_path ty)
-               [tr @: tytrans; pathid @: typath; fun_id @: H.type_from_annot access_fun])
+               [tr @: (tytrans()); pathid @: (typath()); fun_id @: H.type_from_annot access_fun])
       | Db.Ref ->
           assert false
 
@@ -1552,18 +1552,18 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let dbpath, wr_expr = pathcode_of_qmlpath sch dbinfo gamma path in
     let to_val_path_expr =
       let tr = H.new_ident "tr" in
-      H.make_lambda (tr, tytrans)
-        (get_path_expr_aux ?transget node dbinfo tr (pathid @: typath) Db.Default)
+      H.make_lambda (tr, (tytrans()))
+        (get_path_expr_aux ?transget node dbinfo tr (pathid @: (typath())) Db.Default)
     in
-    let writer = dbinfo.writer node (wr_expr tr) (pathid @: typath) (x @: ty) in
+    let writer = dbinfo.writer node (wr_expr tr) (pathid @: (typath())) (x @: ty) in
     let writer = transset pathid (x,ty) writer in
     let ref_path =
     H.make_letin (pathid, dbpath)
       (H.apply_lambda' (Bypass.get_ref_path ty)
-         [ dbinfo.db_ident @: C.tydb;
-           pathid @: typath;
+         [ dbinfo.db_ident @: C.tydb ();
+           pathid @: (typath());
            to_val_path_expr;
-           H.make_lambda' [tr, tytrans; x, ty] writer])
+           H.make_lambda' [tr, (tytrans()); x, ty] writer])
     in
     debug_in
       (Format.sprintf "Build ref path at %s (%a)" (SchemaGraphLib.string_path_of_node sch node)
@@ -1703,7 +1703,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           let kl = key_list gamma fields (data @: ty) in
           let path =
             H.apply_lambda' (Bypass.dbpath_add ())
-              [(pathid @: typath); kl] in
+              [(pathid @: (typath())); kl] in
           H.make_letin (pathid, path) writer
         in
         let ref_path =

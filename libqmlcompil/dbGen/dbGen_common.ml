@@ -57,8 +57,14 @@ type schema_node = {
   context : QmlError.context;
 }
 
+let settyp, typ =
+  let typ = ref (function _ ->
+                   OManager.i_error "Function for name -> TypeIdent.t translation is not initialized") in
+  (function f -> typ := f),
+  (function s -> !typ s)
+
 (* type of sets stored in the database *)
-let tydbset ty = QmlAst.TypeName ([ty], QmlAst.TypeIdent.of_string Opacapi.Types.dbset)
+let tydbset ty = QmlAst.TypeName ([ty], typ Opacapi.Types.dbset)
 
 (** Extract the type inside a dbset type [get_dbset_ty(dbset(t)) = t]. *)
 let get_dbset_ty = function
@@ -66,15 +72,15 @@ let get_dbset_ty = function
       assert(QmlAst.TypeIdent.to_string id = "dbset"); x
   | ty -> OManager.i_error "Wait a dbset type receive : %a" QmlPrint.pp#ty ty
 
-let firstclass_path_tyid =
-  QmlAst.TypeIdent.of_string Opacapi.Types.path_t
-let val_p_tyid =
-  QmlAst.TypeIdent.of_string Opacapi.Types.path_val_p
-let ref_p_tyid =
-  QmlAst.TypeIdent.of_string Opacapi.Types.path_ref_p
+let firstclass_path_tyid () =
+  typ Opacapi.Types.path_t
+let val_p_tyid () =
+  typ Opacapi.Types.path_val_p
+let ref_p_tyid () =
+  typ Opacapi.Types.path_ref_p
 let val_path_ty ty =
-  QmlAst.TypeName ([QmlAst.TypeName ([],val_p_tyid); ty],
-                   firstclass_path_tyid)
+  QmlAst.TypeName ([QmlAst.TypeName ([],val_p_tyid ()); ty],
+                   firstclass_path_tyid ())
 
 let get_val_path_ty = function
   | QmlAst.TypeName ([_; rty], _) -> rty
@@ -82,25 +88,25 @@ let get_val_path_ty = function
       QmlPrint.pp#ty ty
 
 let ref_path_ty ty =
-  QmlAst.TypeName ([QmlAst.TypeName ([],ref_p_tyid); ty],
-                   firstclass_path_tyid)
-let val_v_tyid =
-  QmlAst.TypeIdent.of_string Opacapi.Types.virtual_val_path
-let ref_v_tyid =
-  QmlAst.TypeIdent.of_string Opacapi.Types.virtual_ref_path
+  QmlAst.TypeName ([QmlAst.TypeName ([],ref_p_tyid ()); ty],
+                   firstclass_path_tyid ())
+let val_v_tyid () =
+  typ Opacapi.Types.virtual_val_path
+let ref_v_tyid () =
+  typ Opacapi.Types.virtual_ref_path
 
 (** Construct type [virtual_val_path('a, rty)]*)
 let virtual_val_path_ty rty =
-  QmlAst.TypeName ([rty], val_v_tyid)
+  QmlAst.TypeName ([rty], val_v_tyid ())
 
 (** Construct type [virtual_ref_path('a, rty, wty)]*)
 let virtual_ref_path_ty rty wty =
-  QmlAst.TypeName ([rty; wty], ref_v_tyid)
+  QmlAst.TypeName ([rty; wty], ref_v_tyid ())
 
 (* Warning: the names (including prefixes) of the types are hardcoded
    in the three definitions below. *)
-let tydb =
-  QmlAst.TypeName ([], QmlAst.TypeIdent.of_string Opacapi.Types.badoplink_database)
+let tydb () =
+  QmlAst.TypeName ([], typ Opacapi.Types.badoplink_database)
 
 let engine_opt opts =
   match Base.List.filter_map (function `engine e -> Some e | _ -> None) opts with
