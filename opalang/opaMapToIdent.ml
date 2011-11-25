@@ -168,3 +168,9 @@ let reset () =
   set_val_map ~side:`client StringMap.empty;
   set_typ_map StringMap.empty;
   start_server := None
+
+let pp fmt () =
+  Format.fprintf fmt
+  "OpaMapToIdent (types) contains:@\n%a@\n"
+    pp_stringmap
+    !r_type

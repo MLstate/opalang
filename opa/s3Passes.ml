@@ -442,10 +442,29 @@ let pass_Parse =
        PassHandler.make_env options ((special_parsed_files, user_parsed_files), env)
     )
 
+let parsed_files_printers extract =
+  function opt ->
+    List.map
+      (function (pid, printer) ->
+         (pid, (fun fmt env ->
+                  List.iter
+                    (function pfile ->
+                       Format.fprintf fmt "/** Code from %s**/@\n%a"
+                         pfile.SurfaceAstPassesTypes.parsedFile_filename
+                         printer pfile.SurfaceAstPassesTypes.parsedFile_lcode)
+                    (extract env)
+               )
+         )
+      )
+      (OpaTracker.printers_nonuid (fun a -> a) opt)
+
 let pass_RegisterAppSrcCode =
   PassHandler.make_pass
     (fun e ->
       let options = e.PH.options in
+      let make_env =
+        let printers = parsed_files_printers (fun (_, files) -> files) in
+        PassHandler.make_env ~printers options in
       let ((special_files, user_files), (special_sources, user_sources)) = e.PH.env in
        (* FIXME for now we only not register the source code if option publish_src_code
           is not set, ideally we should not generate the _internal_/src_code page at
@@ -455,9 +474,9 @@ let pass_RegisterAppSrcCode =
           special_files special_sources in
         let user_files' = Pass_RegisterAppSrcCode.register_code ~special:false
           user_files user_sources in
-        PassHandler.make_env options (special_files', user_files')
+         make_env (special_files', user_files')
       else
-        PassHandler.make_env options (special_files, user_files)
+        make_env (special_files, user_files)
     )
 
 let pass_Print =

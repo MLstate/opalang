@@ -116,3 +116,5 @@ val filter : (Ident.t -> bool) -> unit
    Clears the state of this module
 *)
 val reset : unit -> unit
+
+val pp : unit BaseFormat.pprinter
