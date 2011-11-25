@@ -104,7 +104,7 @@ type Bson.element = { name:string; value:Bson.value }
 
 /**
  * The main exported type, a BSON document is just a list of elements.
- */
+ **/
 type Bson.document = list(Bson.element)
 
 /**

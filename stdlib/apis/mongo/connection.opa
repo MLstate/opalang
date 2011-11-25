@@ -142,6 +142,7 @@ MongoConnection = {{
 
   @private
   get_params = ->
+    // TODO: put in options for reconnection times etc.
     do if not(params_done.get())
        then params.set(CommandLine.filter({
          title = "MongoDB connection parameters";

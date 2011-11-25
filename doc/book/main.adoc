@@ -52,6 +52,8 @@ include::the_web_language/the_web_language.adoc[]
 
 include::the_database/the_database.adoc[]
 
+include::the_database/mongo.adoc[]
+
 //TO WRITE:
 // include::the_modularity/the_modularity.adoc[]
 
