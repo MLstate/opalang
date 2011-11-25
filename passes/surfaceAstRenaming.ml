@@ -1233,7 +1233,7 @@ and f_bindings ~rec_ all_env hierar iel =
     List.fold_left_map
       (fun all_env (i,e) ->
         let all_env, _pat_env, {SurfaceAst.ident=ident ; directives=_} =
-          f_pat_var_ext (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i;directives=[]} 
+          f_pat_var_ext (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i;directives=[]}
         in
         (update_all_env_with i ident e all_env, (ident,e))
       ) all_env iel
@@ -1781,7 +1781,7 @@ let save_env env =
   ObjectExpr.save map;
   let map = extract_types_in_scope_except_tuple env in
   ObjectType.save map;
-  let my_val,my_typ =
+  let val_,typ =
     if ObjectFiles.stdlib_packages (ObjectFiles.get_current_package ()) then
       env.maptoident_val, env.maptoident_typ
     else
@@ -1789,12 +1789,7 @@ let save_env env =
       (* only saving the local maptoident for the stdlib packages *)
       env.maptoident_val, env.maptoident_typ
   in
-  ObjectOpaMapToIdent.save (my_val,my_typ);
-  let val_,typ =
-    ObjectOpaMapToIdent.fold
-      (fun (val1,typ1) (val2,typ2) ->
-         (StringMap.safe_merge val1 val2, stringmap_safe_merge typ1 typ2))
-      (my_val,my_typ) in
+  ObjectOpaMapToIdent.save (val_,typ);
   OpaMapToIdent.set_val_map val_;
   OpaMapToIdent.set_typ_map typ
 
@@ -1816,10 +1811,16 @@ let load_type_env all_env map =
   {all_env with t = {all_env.t with ttypes = ttypes}}
 
 let load_env env =
-  let all_env = env.all_envs in
-  let all_env = ObjectExpr.fold load_expr_env all_env in
-  let all_env = ObjectType.fold load_type_env all_env in
-  {env with all_envs = all_env}
+  let options_packages = ObjectFiles.compilation_mode() = `init in
+  let all_envs = env.all_envs in
+  let all_envs = ObjectExpr.fold load_expr_env all_envs in
+  let all_envs = ObjectType.fold load_type_env all_envs in
+  let maptoident_val, maptoident_typ =
+    ObjectOpaMapToIdent.fold ~packages:options_packages ~deep:true
+      (fun (val1,typ1) (val2,typ2) ->
+         (stringmap_safe_merge val1 val2, stringmap_safe_merge typ1 typ2))
+      (StringMap.empty, StringMap.empty) in
+  {all_envs; maptoident_val; maptoident_typ}
 
 
 let get_exported_values env =
