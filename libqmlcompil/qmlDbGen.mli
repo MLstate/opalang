@@ -15,7 +15,23 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(* Exported module: reduced interface *)
+
+(** {6} Command line arguments.*)
+
+(** Describes different backend that dbgen handle. *)
+type engine = Db3 | Mongo
+
+(** Command line specification provides necessary options for switch
+    database backend. *)
+module Args : sig
+
+  (** The command line specifications. *)
+  val options : (string * Base.Arg.spec * string) list
+
+  (** Get selected backend.*)
+  val get_engine : unit -> engine
+
+end
 
 (** {6} Initialization **)
 

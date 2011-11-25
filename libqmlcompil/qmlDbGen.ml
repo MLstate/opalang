@@ -19,8 +19,36 @@
     @author Louis Gesbert
 **)
 
-(* Exported module with reduced interface *)
+module Arg = Base.Arg
 
+type engine = Db3 | Mongo
+
+module Args = struct
+
+  type options = {
+    engine : engine
+  }
+
+  let default = {
+    engine = Db3
+  }
+
+  let descr = function
+    | Db3   -> "Db3"
+    | Mongo -> "Mongo"
+
+  let assoc = [("mongo", Mongo); ("db3"), Db3]
+
+  let r = ref default
+
+  let options = [
+    ("--database", Arg.spec_fun_of_assoc (fun s -> r := {engine=s}) assoc,
+     "Select kind of database (db3|mongo)");
+  ]
+
+  let get_engine() = !r.engine
+
+end
 
 let settyp = DbGen_common.settyp
 

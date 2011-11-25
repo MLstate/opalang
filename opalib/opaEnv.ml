@@ -442,6 +442,7 @@ struct
         ObjectFiles.Arg.public_options @
         I18n.options @
         OpaSyntax.Args.options @
+        QmlDbGen.Args.options @
         [
           (* a *)
           "--api",
