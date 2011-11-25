@@ -1448,7 +1448,7 @@ CTable = {{
     end
 
   /*
-   * init the session, return the table object and the xhtml
+   * create a table object, install the xhtml in the DOM and return the object
    */
   @private @client
   create_private(simple : bool,
