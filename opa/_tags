@@ -35,6 +35,7 @@
 <pass_JavascriptCompilation.{ml,mli}>: use_libqmlcompil, use_libbsl, use_opalib, use_qml2js, use_opalang, use_jslang, use_qml2ocaml, use_qmljsimp
 <pass_RegisterAppSrcCode.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
 <pass_TreatNoClientCalls.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
+<pass_DbEngineImportation.{ml,mli}>: use_libqmlcompil, use_opalang
 
 <reordering.{ml,mli}>: use_graph, use_libqmlcompil, use_opalib
 

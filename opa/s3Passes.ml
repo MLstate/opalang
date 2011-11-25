@@ -489,6 +489,20 @@ let pass_Print =
        e
     )
 
+let pass_DbEngineImportation =
+  PassHandler.make_pass
+    (fun e ->
+       let (a, user_files) = e.PH.env in
+       let user_files = List.map
+         (fun pfile ->
+            {pfile with SurfaceAstPassesTypes.parsedFile_lcode =
+                Pass_DbEngineImportation.process_code
+                  pfile.SurfaceAstPassesTypes.parsedFile_lcode}
+         ) user_files in
+       { e with PH.env = (a, user_files) }
+    )
+
+
 let pass_LoadObjects k =
   PH.make_pass
     (fun env ->
@@ -875,6 +889,7 @@ let pass_DbSchemaGeneration =
   in
   PassHandler.make_pass ~precond ~postcond ~invariant
     (fun e ->
+       QmlDbGen.settyp OpaMapToIdent.typ;
        let env = ( e.PH.env : 'tmp_env Passes.env_Gen ) in
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in

@@ -121,6 +121,14 @@ val pass_RegisterAppSrcCode :
     'parsed_files
   ) opa_pass
 
+val pass_DbEngineImportation :
+  ((
+     ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+       * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+     ) as 'parsed_files)
+     ,
+   'parsed_files)
+  opa_pass
 
 val pass_BslLoading :
   ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
