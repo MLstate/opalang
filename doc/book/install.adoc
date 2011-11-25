@@ -112,7 +112,7 @@ Once these dependencies are satisfied, take the following steps:
 - Grab the sources from http://github.com/MLstate/opalang[GitHub] by entering in a terminal:
 
 ------
-git clone git@github.com:MLstate/opalang.git
+git clone https://github.com/MLstate/opalang.git
 ------
 
   - In the same terminal, enter
