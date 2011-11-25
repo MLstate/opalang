@@ -1195,7 +1195,12 @@ Dom = {{
         void
   )
 
-
+  /**
+   * Get the value of an attribute for the first element in the set of matched elements.
+   * /!\ Different from get_attribute
+   *
+   * @see http://api.jquery.com/prop/
+   */
   get_property(dom: dom, string: string): option(string) =
   (
         %% BslDom.get_property %%(of_selection(dom), string)
@@ -1209,6 +1214,28 @@ Dom = {{
   set_property_unsafe(dom:dom, name:string, value:string): void =
   (
         do %% BslDom.set_property_unsafe %%(of_selection(dom), name, value)
+        void
+  )
+
+  /**
+   * Get the value of an attribute for the first element in the set of matched elements.
+   * /!\ Different from get_property
+   *
+   * @see http://api.jquery.com/attr/
+   */
+  get_attribute(dom: dom, string: string): option(string) =
+  (
+        %% BslDom.get_attribute %%(of_selection(dom), string)
+  )
+
+  get_attribute_unsafe(dom:dom, string:string): string = //return "" when the attribute is undefined
+  (
+        %% BslDom.get_attribute_unsafe %%(of_selection(dom), string)
+  )
+
+  set_attribute_unsafe(dom:dom, name:string, value:string): void =
+  (
+        do %% BslDom.set_attribute_unsafe %%(of_selection(dom), name, value)
         void
   )
 

@@ -575,6 +575,12 @@ function bsldom_unbind(dom, handler)
     dom.prop(name, value);
 }
 
+##register set_attribute_unsafe: Dom.private.element, string, string -> void
+##args(dom, name, value)
+{
+    dom.attr(name, value);
+}
+
 ##register set_style_property_unsafe: Dom.private.element, string, string -> void
 ##args(dom, name, value)
 {
@@ -632,6 +638,18 @@ function bsldom_unbind(dom, handler)
 ##args(dom, name)
 {
     return dom.prop(name) || ""
+}
+
+##register get_attribute: Dom.private.element, string -> opa[option(string)]
+##args(dom, name)
+{
+    return js2option(dom.attr(name))
+}
+
+##register get_attribute_unsafe: Dom.private.element, string -> string
+##args(dom, name)
+{
+    return dom.attr(name) || ""
 }
 
 ##register add_class: Dom.private.element, string -> void
