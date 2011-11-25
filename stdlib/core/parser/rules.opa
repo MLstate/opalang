@@ -262,6 +262,11 @@ Rule =
   ws = parser white_space* -> void;
 
   /**
+   * @return A parser recognizing end of a line
+   */
+  eol = parser [\n] -> void
+
+  /**
    * A parser for a non zero number of white space character.
    *
    * @return parser of type [Parser.general_parser(void)]
@@ -313,6 +318,11 @@ Rule =
   **/
   consume = parser v=(.*) -> Text.to_string(v)
     // FIXME: inefficient, see low level implementation of opa parser
+
+  /**
+   * @return A parser that consumes (and returns) the rest of the line
+   */
+  full_line = parser txt=((!eol .)*) eol? -> Text.to_string(txt)
 
   /**
    * A parser combinator that succeed without consuming any input
