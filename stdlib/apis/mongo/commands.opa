@@ -163,7 +163,8 @@ type Mongo.explainType =
     isMultiKey : bool;
     indexOnly : bool;
     indexBounds : Bson.document; // This type is variable (key names)
-    allPlans : list({ cursor : string; indexBounds : Bson.document }) // and this
+    allPlans : list({ cursor : string; indexBounds : Bson.document }); // and this
+    shards : Bson.register(Bson.document);
     // oldPlan: ... sometimes present
 }
 

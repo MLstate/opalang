@@ -65,7 +65,7 @@ get_content(docid) =
   | {failure={NotFound}} ->
      default
   | {~failure} ->
-     do jlog("hello_wiki_mongo: failure={MongoDriver.string_of_failure(failure)}")
+     do jlog("hello_wiki_mongo: failure={MongoCommon.string_of_failure(failure)}")
      default
 
 /**
@@ -109,9 +109,9 @@ get_content(docid) =
   select = pageselect({_id=topic})
   update = pageupdate({`$set`={content=source}; `$inc`={_rev=(1:Bson.int32)}})
   // Upsert this so we create it if it isn't there
-  result = MongoCollection.updatee(MongoCollection.upsert(wiki_collection),select,update)
-  if MongoDriver.is_error(result)
-  then <>Error: {MongoDriver.pretty_of_result(result)}</>
+  result = MongoCollection.update_result(MongoCollection.upsert(wiki_collection),select,update)
+  if MongoCommon.is_error(result)
+  then <>Error: {MongoCommon.pretty_of_result(result)}</>
   else
     match Template.try_parse(Template.default, source) with
     | ~{success}    -> Template.to_xhtml(Template.default, success)

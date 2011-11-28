@@ -715,13 +715,282 @@ A simple dialog for creating and manipulating a collection might be as follows:
 type t = {i:int}
 
 // Create a collection of type t
-c1 = (C.openfatal("default","db","collection"):Mongo.collection(t))
+c1 = (MongoCollection.openfatal("default","db","collection"):Mongo.collection(t))
 
 // Put a single value into the collection
 result = MongoCollection.insert_result(c1,{i=0})
+
+// Finally, destroy the collection
+_ = MongoCollection.destroy(c1)
 -------------------------
 
+We define a type for the collection (+type t+) so that when we open a connection
+to the database we can cast the resulting collection object and thus install the
+correct run-time representation of the type.
+The +openfatal+ function returns a collection and treats a connection failure as
+fatal.
+There are several variants of the +open+ function.
 
-//Exemplar: hello_wiki_mongo
-//~~~~~~~~~~~~~~~~~~~~~~~~~~
+A collection is a pointer to a specific collection in the database (here,
++db.collection+) and we create a connection to the MongoDB server using the
+connection name (in this instance, +default+).
+
+Inserting a value into the collection is trivial, the value is simply passed as
+it is to the +insert+ function (here we use the safe +insert_result+ function
+which also returns the result of a +getlasterror+ call).
+The insert has exactly the same effect as a call to +MongoConnection.insert+ but
+with the value automatically converted into a BSON document using the scheme
+outlined above.
+
+The call to +MongoCollection.destroy+ should not be forgotten because this
+closes the underlying connection.
+
+While the +insert+ function is trivial, we need more care with +update+ and
++delete+.
+The problem is that to maintain our level of type-safety we need to match select
+(and update) documents with the type of the collection they are applied to.
+We do this with a system of run-time type-checks applied to the select
+documents.
+For example:
+[source,opa]
+-------------------------
+// Create pre-typed select and update generation functions
+createst = (MongoSelect.create:Bson.document -> Mongo.select(t))
+createut = (MongoUpdate.create:Bson.document -> Mongo.update(t))
+
+// Generate the select documents
+select = createst(MongoSelectUpdate.int64(MongoSelectUpdate.empty(),"i",0))
+update = createut(MongoSelectUpdate.inc(MongoSelectUpdate.int64(MongoSelectUpdate.empty(),"i",1)))
+
+// We can now apply update to these documents
+result = MongoCollection.update_result(c1,select,update)
+-------------------------
+
+Firstly, we use the +MongoSelectUpdate+ module to generate the basic documents.
+Note that we could also have used the +Bson.opa2doc+ function to achieve the
+same result:
+[source,opa]
+-------------------------
+select = createst(Bson.opa2doc({i=0}))
+update = createut(Bson.opa2doc({`$inc`={i=1}}))
+-------------------------
+
+The choice between these two styles may depend upon the type of document being
+generated.
+The OPA type-based versions are more readable but the +MongoSelectUpdate+ ones
+are much faster since no conversion is required.
+
+The select documents have to be correctly typed for the collection they apply to
+so we generate a couple of convenience functions +createst+ and +createut+ to do
+the casting for us.
+
+Secondly, once we have these documents we can apply the +update+ function to
+them but note that although a select document is just a typed +Bson.document+ it
+triggers a set of suitability tests.
+These tests are complex and probably do not cover all possible MongoDB
+operations but briefly, the select document is scanned by a knowledge-base of
+the types of MongoDB field types, for example +$inc+ only applies to updates,
++$and+ only applies to selects whereas +$comment+ can apply to both.
+Once the status (select/update/both) is determined, the type of the resulting
+values is determined from the select document and is verified to be a subtype of
+the type of the collection.
+// TODO: how do I get this to come out in asciidoc??????
+So, for example, +\{a\:int\}+ is a subtype of +\{a\:int\; b\:string\}+ but +\{a\:int\; c\:bool\}+
+is not.
+Presently, we only print a suitable warning but in future, once these routines
+have fully matured we may return an error value.
+
+All of the basic database write operations occur in both send-and-forget and in
+send-with-getlasterror forms: +insert+, +insert_result+, +insert_batch+,
++insert_batch_result+, +update+, +update_result+, +delete+ and +delete_result+.
+
+As an aside, notice that we use a similar functional interface for flags as for
+the low-level code:
+[source,opa]
+-------------------------
+MongoCollection.delete(MongoCollection.singleRemove(c1),createst(Bson.opa2doc({i=104})))
+-------------------------
+
+The select mechanism applies to queries as well but in this case we have to be
+careful what types we return from the database:
+[source,opa]
+-------------------------
+result = MongoCollection.find_one(c1,createst(Bson.op12doc({`$where`=("this.i > 106":Bson.code)})))
+do match result with
+   | {success={~i}} -> println("i={i}")
+   | {~failure} -> println("error={MongoCommon.string_of_failure(failure)}")
+-------------------------
+
+This example returns the first value in the collection for which +i+ is greater
+than 106, it expresses the select as a Javascript expression.
+Many of the MongoDB query methods are perfectly safe with collections such as
+the +$where+ example here but some methods are not safe in that they return
+documents which contain fields other than those in the OPA type, a good example
+being the http://www.mongodb.org/display/DOCS/Explain[+$explain+] documents
+which are a set of statistical data concerning the given query (see the
++Mongo.explainType+ type in +MongoCommands+).
+In general, we attempt to support such features with special purpose functions
+rather than via the normal database operations.
+
+The usual simplified query functions are present in +MongoCollection+,
++find_one+ and +find_all+.
+There are also two functions which return the bare +Bson.document+
+representation of the result, +find_one_doc+ and +find_all_doc+ which may be
+useful in the above situation where the result of the query is not compatible
+with OPA types.
+For more general query scanning, the cursor-based routines are available.
+For example, the following code scans the results of a +MongoCollection+ query
+[source,opa]
+-------------------------
+query = createst(Bson.opa2doc({i={`$gt`:102; `$lt`=106}}))
+do match MongoCollection.query(MongoCollection.limit(c1,0),query) with
+   | {success=cc1} ->
+      cc1 =
+        while(cc1,(cc1 ->
+                    match MongoCollection.next(cc1) with
+                    | (cc1,{success={~i}}) ->
+                       do println("i={v}")
+                       (cc1,MongoCollection.has_more(cc1))
+                    | (cc1,{~failure}) ->
+                       do println("error={MongoCommon.string_of_failure(failure)}")
+                       (cc1,false)))
+      _ = MongoCollection.kill(cc1)
+   | {~failure} ->
+      println("error={MongoCommon.string_of_failure(failure)}")
+-------------------------
+
+In this code, we create a +Mongo.collection_cursor+ object using
++MongoCollection.query+ to which we can then apply the collection-specific cursor
+functions +MongoCollection.next+ and +MongoCollection.has_more+.
+This allows arbitrary processing of collection queries.
+Remember, as with the low-level cursors above, that the +MongoCollection.kill+
+function does not just end the scan, it also sends a +kill_cursors+ message to
+the MongoDB server to tell it to destroy the cursor.
+
+Another aside in this code is that we set the +limit+ value to +0+ which means
+``use the default number of documents per reply''.
+If we had set this to +1+ we would only ever get one document in the reply
+because MongoDB treats this as a special case, ie. ``just return one document''.
+
+Again, to help with the situation where return values may be incompatible with
+OPA types, we provide the +_unsafe+ variants of the query functions.
+These, for example +query_unsafe+, take an additional boolean flag,
++ignore_incomplete+ which instructs the driver to simply ignore any return
+documents which have missing fields and are thus not compatible with OPA types.
+MongoDB will actually return partial documents if the document meets the query
+document but does not contain all of the fields (an exception is the +_id+ field
+which is always returned unless specifically excluded with the return field
+selector document).
+These functions should be used with care.
+
+Apart from the support described here the +MongoCollection+ module also provides
+a few convenience functions such as creating indexes using collection objects
+and some direct support for some of the aggregation functions (+count+,
++distinct+ and +group+).
+Finally, one of the variants of the +open+ function, +openpkg+ and
++openpkgfatal+ supplies a set of pre-cast versions of +MongoSelect.create+ and
++MongoUpdate.create+.
+
+Exemplar: hello_wiki_mongo
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this section, we describe how to convert the +hello_wiki+ example described
+above to using the MongoDB database.
+This is actually a simple process and uses MongoDB as a simple key-value storage
+database.
+// TODO: more realistic example
+
+The first task is to open a connection to the database.
+We are going to use collections and in fact, we will use the version of +open+
+which also gives us the casting functions for selects:
+[source,opa]
+-------------------------
+/**
+ * The basic info. about the database and table location.
+ */
+type page = {
+  _id : string;
+  _rev : Bson.int32;
+  content : string;
+}
+
+/**
+ * We work at level 1, run-time type-checked storage of a collection of OPA values.
+ * The Mongo.pkg type provides convenience functions for building select and update documents.
+ **/
+(wiki_collection,wiki_pkg) = (MongoCollection.openpkgfatal("default","db","wiki"):Mongo.pkg(page))
+pageselect(v) = wiki_pkg.select(Bson.opa2doc(v))
+pageupdate(v) = wiki_pkg.update(Bson.opa2doc(v))
+-------------------------
+
+The +_rev+ field has been cast to +Bson.int32+ so we can use 32-bit integers for
+this field (it is unlikely we will ever have more than 4 giga-revisions of any
+value in the database!).
+We then open our connection using the default named connection and connect to
+the collection +db.wiki+.
+This returns a collection object plus a package of values which we use to build
+our select documents.
+
+Next we are actually going to search for documents including the +_rev+ field so
+we can't just use the default index for our collection (the +_id+ field):
+[source,opa]
+-------------------------
+/**
+ * Indexes aren't automatic in MongoDB apart from the non-removable _id index.
+ * Since we're searching on _rev as well, we need a separate index.
+ **/
+_ = MongoCollection.create_index(wiki_collection, "db.wiki", Bson.opa2doc({_id=1; _rev=1}), 0)
+-------------------------
+
+The +get_content+ function can then be modified using a simple call to
++MongoCollection.find_one+:
+[source,opa]
+-------------------------
+get_content(docid) =
+  default = Template.text("This page is empty. Double-click to edit.")
+  extract_content(record:page) = record.content
+  // Order by reverse _rev to get highest numbered _rev.
+  orderby = {some=Bson.opa2doc({_rev=-1})}
+  match MongoCollection.find_one(MongoCollection.orderby(wiki_collection,orderby),pageselect({_id=docid})) with
+  | {success=page} ->
+     source = extract_content(page)
+     (match Template.try_parse(Template.default, source) with
+      | {~success} -> success
+      | {failure=_} -> Template.text(source))
+  | {failure={NotFound}} ->
+     default
+  | {~failure} ->
+     do jlog("hello_wiki_mongo: failure={MongoCommon.string_of_failure(failure)}")
+     default
+-------------------------
+
+We search the database for the given +_id+ value but we want the
+highest-numbered +_rev+ field so we sort by inverse order on that field (the
+default ordering for numerical fields is in increasing order).
+A missing document is signalled by the +NotFound+ failure condition, other
++failure+ values are errors.
+
+Finally, the +save_source+ function becomes a call to
++MongoCollection.update_result+:
+[source,opa]
+-------------------------
+@publish save_source(topic, source) =
+  select = pageselect({_id=topic})
+  update = pageupdate({`$set`={content=source}; `$inc`={_rev=(1:Bson.int32)}})
+  // Upsert this so we create it if it isn't there
+  result = MongoCollection.update_result(MongoCollection.upsert(wiki_collection),select,update)
+  if MongoCommon.is_error(result)
+  then <>Error: {MongoCommon.pretty_of_result(result)}</>
+  else
+    match Template.try_parse(Template.default, source) with
+    | ~{success}    -> Template.to_xhtml(Template.default, success)
+    | {failure = _} -> <>Error: {source}</>
+-------------------------
+
+In this case, we select only the +_id+ field and we update the document by
+setting the +content+ field and incrementing the +_rev+ field.
+Note that we use the +Upsert+ flag which tells MongoDB to insert the document if
+it isn't already present in the collection.
+We test the result for errors using the safe update operation but apart from
+that the code is identical to the existing ``Hello wiki'' example.
 

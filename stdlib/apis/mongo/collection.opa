@@ -474,6 +474,13 @@ MongoCollection = {{
     find_all_unsafe(c, select, false)
 
   /**
+   * Return all the [Bson.document] representations selected from a collection.
+   **/
+  find_all_doc(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.results =
+    ns = c.db.dbname^"."^c.db.collection
+    MongoCursor.find_all(c.db.mongo,ns,select,c.db.fields,c.db.orderby,c.db.limit)
+
+  /**
    * Add an index to a collection.
    * Example: [create_index(collection, "ns", key, flags)]
    * @param [key] is a bson object defining the fields to be indexed, eg. [\[\{Int32=("age",1)\}, \{Int32=("name",1)\}\]]
