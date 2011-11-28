@@ -290,10 +290,10 @@ MongoCollection = {{
     MongoDriver.insert(c.db.mongo,c.db.insert_flags,ns,b)
 
   /** insert with getlasterror **/
-  inserte(c:Mongo.collection('value), v:'value): Mongo.result =
+  insert_result(c:Mongo.collection('value), v:'value): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     b = Bson.opa_to_bson(v,{some=@typeval('value)})
-    MongoCommon.reply_to_result("MongoConnection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
+    MongoCommon.reply_to_result("MongoCollection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
 
   /**
    * Batch insert, you need to build the batch using the [Batch] module.
@@ -303,9 +303,9 @@ MongoCollection = {{
     MongoDriver.insert_batch(c.db.mongo,c.db.insert_flags,ns,b)
 
   /** insert_batch with getlasterror **/
-  insert_batche(c:Mongo.collection('value), b:Mongo.batch('value)): Mongo.result =
+  insert_batch_result(c:Mongo.collection('value), b:Mongo.batch('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoCommon.reply_to_result("MongoConnection.insert_batch",0,
+    MongoCommon.reply_to_result("MongoCollection.insert_batch",0,
                                 MongoDriver.insert_batche(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
 
   /**
@@ -324,9 +324,9 @@ MongoCollection = {{
     MongoDriver.update(c.db.mongo,c.db.update_flags,ns,select,update)
 
   /** update with getlasterror **/
-  updatee(c:Mongo.collection('value), select:Mongo.select('value), update:Mongo.update('value)): Mongo.result =
+  update_result(c:Mongo.collection('value), select:Mongo.select('value), update:Mongo.update('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoCommon.reply_to_result("MongoConnection.update",0,
+    MongoCommon.reply_to_result("MongoCollection.update",0,
                                 MongoDriver.updatee(c.db.mongo,c.db.update_flags,ns,c.db.dbname,select,update))
 
   /**
@@ -337,9 +337,9 @@ MongoCollection = {{
     MongoDriver.delete(c.db.mongo,c.db.delete_flags,ns,select)
 
   /** delete with getlasterror **/
-  deletee(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.result =
+  delete_result(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
-    MongoCommon.reply_to_result("MongoConnection.delete",0,
+    MongoCommon.reply_to_result("MongoCollection.delete",0,
                                 MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,c.db.dbname,select))
 
   /**
