@@ -60,6 +60,7 @@ type Mongo.db = {
   concurrency : Mongo.concurrency;
   conn : Mutable.t(option(Socket.connection));
   conncell : option(Cell.cell(Mongo.sr,Mongo.srr));
+  reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
   pool : Mutable.t(option(SocketPool.t));
   pool_max : int;
   close_socket : bool;
@@ -94,6 +95,9 @@ type Mongo.srr =
   / {snderrresult:option(Mongo.reply)}
   / {stopresult}
   / {reconnect}
+
+@private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {stop}
+@private type Mongo.reconnectresult = {reconnectresult:bool} / {stopresult}
 
 @private
 MongoDriver = {{
@@ -194,7 +198,7 @@ MongoDriver = {{
    * won't ever be used but we limit the depth of the recursion.
    */
   @private
-  reconnect(from:string, m:Mongo.db): bool =
+  doreconnect(from:string, m:Mongo.db): bool =
     if m.depth.get() > m.max_depth
     then
       do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
@@ -219,6 +223,24 @@ MongoDriver = {{
          aux(0)
       | {none} ->
          ret(false)
+
+  @private
+  reconfn(_, msg) =
+    match msg with
+    | {reconnect=(from,m)} -> {return={reconnectresult=doreconnect(from,m)}; instruction={unchanged}}
+    | {stop} -> {return={stopresult}; instruction={stop}}
+
+  @private
+  reconnect(from, m) =
+    match (Cell.call(m.reconncell,({reconnect=((from,m))}:Mongo.reconnectmsg)):Mongo.reconnectresult) with
+    | {reconnectresult=tf} -> tf
+    | _ -> @fail
+
+  @private
+  stoprecon(m) =
+    match Cell.call(m.reconncell,({stop}:Mongo.reconnectmsg)):Mongo.reconnectresult with
+    | {stopresult} -> void
+    | _ -> @fail
 
   @private
   // Rule: for every open_socket which returns success we must call close_socket
@@ -466,6 +488,7 @@ MongoDriver = {{
     { ~concurrency;
       ~conn;
       conncell=if concurrency == {cell} then {some=(Cell.make(conn, sr):Cell.cell(Mongo.sr,Mongo.srr))} else {none};
+      reconncell=(Cell.make(void, reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=Mutable.make({none}); ~pool_max;
       ~bufsize; ~close_socket; ~log; socket_link=Mutable.make(0);
       seeds=[]; hosts=Mutable.make([]); name="";
