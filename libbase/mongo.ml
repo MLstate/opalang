@@ -57,7 +57,7 @@ let docmap b pos len num =
     else 
       let size = geti32 b pos in
       if len - pos < size
-      then idxs
+      then List.rev idxs
       else aux (i+1) (pos+size) ((pos,size)::idxs)
   in
   aux 0 pos []
