@@ -79,7 +79,6 @@ type Mongo.param = {
   name:string;
   replname:option(string);
   bufsize:int;
-  concurrency:Mongo.concurrency;
   pool_max:int;
   close_socket:bool;
   log:bool;
@@ -98,7 +97,6 @@ MongoConnection = {{
     name="default";
     replname={none};
     bufsize=50*1024;
-    concurrency={pool};
     pool_max=2;
     close_socket=false;
     log=false;
@@ -169,19 +167,6 @@ MongoConnection = {{
               description = "Hint for initial MongoDB connection buffer size"
               param_doc = "<int>"
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize = n }),p)}
-           },
-           {CommandLine.default_parser with
-              names = ["--mongo-concurrency", "--mongoconcurrency", "--mx", "-mx"]
-              description = "Concurrency type, 'pool', 'cell' or 'singlethreaded'"
-              param_doc = "<string>"
-              on_param(p) = parser s={Rule.consume} ->
-                concurrency =
-                  ((match s with
-                    | "pool" -> {pool}
-                    | "cell" -> {cell}
-                    | "singlethreaded" -> {singlethreaded}
-                    | _ -> ML.fatal("MongoConnection.get_params","Unknown Mongo concurrency string {s}",-1)):Mongo.concurrency)
-                {no_params = add_param((p -> { p with ~concurrency }),p)}
            },
            {CommandLine.default_parser with
               names = ["--mongo-socket-pool", "--mongosocketpool", "--mp", "-mp"]
@@ -269,26 +254,24 @@ MongoConnection = {{
    * give a name to the connection even though it is dissociated from the
    * list of named connections.
    *
-   * Example: [openraw(name, bufsize, concurrency, pool_max, close_socket, log, host, port)]
+   * Example: [openraw(name, bufsize, pool_max, close_socket, log, host, port)]
    **/
-  openraw(name:string, bufsize:int, concurrency:Mongo.concurrency,
-          pool_max:int, close_socket:bool, log:bool, addr:string, port:int)
+  openraw(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,concurrency,pool_max,close_socket,addr,port,log),name)
+    open_(MongoDriver.open(bufsize,pool_max,close_socket,addr,port,log),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
    *
-   * Example: [replraw(name, bufsize, concurrency, pool_max, close_socket, log, seeds)]
+   * Example: [replraw(name, bufsize, pool_max, close_socket, log, seeds)]
    *
    * This routine causes a serach for the current host list among the seeds
    * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
-  replraw(name:string, bufsize:int, concurrency:Mongo.concurrency,
-          pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,concurrency,pool_max,close_socket,log,seeds)),name)
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,close_socket,log,seeds)),name)
 
   /**
    * Force a reconnection.
@@ -313,11 +296,11 @@ MongoConnection = {{
     match List.find((p -> p.name == name),params.get()) with
     | {some=p} ->
        (match p.replname with
-        | {some=rn} -> replraw(rn,p.bufsize,p.concurrency,p.pool_max,p.close_socket,p.log,p.seeds)
+        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.close_socket,p.log,p.seeds)
         | {none} ->
            (match p.seeds with
             | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
-            | [(host,port)] -> openraw(name,p.bufsize,p.concurrency,p.pool_max,p.close_socket,p.log,host,port)
+            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.close_socket,p.log,host,port)
             | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
     | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
 
@@ -362,10 +345,6 @@ MongoConnection = {{
   namespace(db:Mongo.mongodb, dbname:string, collection:string): Mongo.mongodb =
     //do db.link_count.set(db.link_count.get()+1)
     { db with ~dbname; ~collection }
-
-  /** Change the concurrency type (won't take effect until reconnect **/
-  concurrency(db:Mongo.mongodb, concurrency:Mongo.concurrency): Mongo.mongodb =
-    { db with mongo={ db.mongo with ~concurrency } }
 
   /** Change the pool size **/
   pool_max(db:Mongo.mongodb, pool_max:int): Mongo.mongodb =

@@ -359,7 +359,6 @@ Option               Abbrev Type              Description
 --mongo-name         (--mn) <string>          Name for the MongoDB server connection
 --mongo-repl-name    (--mr) <string>          Replica set name for the MongoDB server
 --mongo-buf-size     (--mb) <int>             Hint for initial MongoDB connection buffer size
---mongo-concurrency  (--mx) <string>          Concurrency type, 'pool', 'cell' or 'singlethreaded'
 --mongo-socket-pool  (--mp) <int>             Number of sockets in socket pool (>=2 enables socket pool)
 --mongo-close-socket (--mc) <bool>            Maintain MongoDB server sockets in a closed state
 --mongo-seed         (--ms) <host>\{:<port>\} Add a seed to a replica set, allows multiple seeds
@@ -395,28 +394,14 @@ still retains the default connection.
 Note also that you can clone a connection such that the connection itself will
 not be closed until all clones have already been closed.
 
-Handling concurrency within an OPA program can be done in three ways:
+Handling concurrency within an OPA program is done by a socket pool.
+This means that a pool of open connections is maintained to the same server such
+that blocking only occurs if there are no more available connections in the pool
+(set with +--mp 2+, for example).
+If you ensure that the pool size is at least as big as the number of threads in
+your code then no blocking will occur.
 
- - Socket pool mode, set with +--mx pool+, means that a pool of open connections
-   is maintained to the same server such that blocking only occurs if there are
-   no more available connections in the pool (set with +--mp 2+, for example).
-   If you ensure that the pool size is at least as big as the number of threads
-   in your code then no blocking will occur.
-   This method is quite expensive on resources, however.
-
- - Cell mode, set with +--mx cell+, is where one connection is opened but it
-   protected by a
-   http://doc.opalang.org/api/#stdlib.core.rpc.core.cell.opa.html/!/value_stdlib.core.rpc.core.Cell[cell].
-   This means that you can have mulitple threads but they will always block if
-   more than one thread requires the socket at the same time.
-
- - Single-threaded mode, set with +--mx singlethreaded+.
-   In this case, no blocking is performed and the program is not thread safe.
-   If, however, you can guarantee that only one thread will ever attempt to use
-   the socket then MongoDB database operations should be significantly faster.
-
-In addition, for +cell+ and +singlethreaded+ modes, you can optionally maintain
-the socket in a closed state.
+In addition, you can optionally maintain the socket in a closed state.
 This has specialised use, will degrade the performance of the connection and is
 not recommended.
 
@@ -427,7 +412,6 @@ do MongoConnection.add_named_connection({
   name="blort";
   replname={some="blort"};
   bufsize=50*1024;
-  concurrency={pool};
   pool_max=2;
   close_socket=false;
   log=false;

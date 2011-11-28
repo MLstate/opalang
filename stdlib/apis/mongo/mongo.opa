@@ -57,9 +57,7 @@ type Mongo.reply = external
  **/
 @abstract
 type Mongo.db = {
-  concurrency : Mongo.concurrency;
   conn : Mutable.t(option(Socket.connection));
-  conncell : option(Cell.cell(Mongo.sr,Mongo.srr));
   reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
   pool : Mutable.t(option(SocketPool.t));
   pool_max : int;
@@ -420,11 +418,7 @@ MongoDriver = {{
         do mongo_buf_refresh_requestId(mbuf) // Probably not necessary but we don't want unnecessary confusion
         snd(m,mbuf,name)
       else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
-    srr =
-      (match m.concurrency with
-       | {pool} -> srpool(m,{send=((m,mbuf,name))})
-       | {cell} -> (Cell.call(Option.get(m.conncell),({send=((m,mbuf,name))}:Mongo.sr)):Mongo.srr)
-       | {singlethreaded} -> sr_snr(m,mbuf,name))
+    srr = srpool(m,{send=((m,mbuf,name))})
     match srr with
     | {reconnect} -> recon()
     | {~sendresult} -> sendresult
@@ -438,11 +432,7 @@ MongoDriver = {{
         do mongo_buf_refresh_requestId(mbuf)
         sndrcv(m,mbuf,name)
       else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
-    srr =
-      (match m.concurrency with
-       | {pool} -> srpool(m,{sendrecv=((m,mbuf,name))})
-       | {cell} -> (Cell.call(Option.get(m.conncell),({sendrecv=((m,mbuf,name))}:Mongo.sr)):Mongo.srr)
-       | {singlethreaded} -> sr_swr(m,mbuf,name))
+    srr = srpool(m,{sendrecv=((m,mbuf,name))})
     match srr with
     | {reconnect} -> recon()
     | {~sndrcvresult} -> sndrcvresult
@@ -456,38 +446,25 @@ MongoDriver = {{
         do mongo_buf_refresh_requestId(mbuf)
         snderr(m,mbuf,name,ns)
       else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
-    srr =
-      (match m.concurrency with
-       | {pool} -> srpool(m,{senderror=((m,mbuf,name,ns))})
-       | {cell} -> (Cell.call(Option.get(m.conncell),({senderror=((m,mbuf,name,ns))}:Mongo.sr)):Mongo.srr)
-       | {singlethreaded} -> sr_swe(m,mbuf,name,ns))
+    srr = srpool(m,{senderror=((m,mbuf,name,ns))})
     match srr with
     | {reconnect} -> recon()
     | {~snderrresult} -> snderrresult
-    | _ -> @fail
-
-  @private
-  stop(m) =
-    match Cell.call(Option.get(m.conncell),({stop}:Mongo.sr)):Mongo.srr with
-    | {stopresult} -> void
     | _ -> @fail
 
   /**
    * Due to the number of parameters we have a separate [init] routine
    * from [connect].  This feature is mostly used by replica set connection
    * and re-connection.
-   * Example: [init(bufsize, concurrency, pool_max, close_socket, log)]
+   * Example: [init(bufsize, pool_max, close_socket, log)]
    * @param bufsize A hint to the driver for the initial buffer size.
-   * @param concurrency The type of concurrency handling (pool, cell or singlethreaded).
-   * @param pool_max For pool concurrency, the number of open sockets per pool.
-   * @param close_socket For cell and singlethreaded, maintain sockets in a closed state.
+   * @param pool_max For pool the number of open sockets per pool.
+   * @param close_socket Maintain sockets in a closed state.
    * @param log Whether to enable logging for the driver.
    **/
-  init(bufsize:int, concurrency:Mongo.concurrency, pool_max:int, close_socket:bool, log:bool): Mongo.db =
+  init(bufsize:int, pool_max:int, close_socket:bool, log:bool): Mongo.db =
     conn = Mutable.make({none})
-    { ~concurrency;
-      ~conn;
-      conncell=if concurrency == {cell} then {some=(Cell.make(conn, sr):Cell.cell(Mongo.sr,Mongo.srr))} else {none};
+    { ~conn;
       reconncell=(Cell.make(void, reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=Mutable.make({none}); ~pool_max;
       ~bufsize; ~close_socket; ~log; socket_link=Mutable.make(0);
@@ -513,33 +490,19 @@ MongoDriver = {{
     do match m.conn.get() with | {some=conn} -> Socket.close(conn) | {none} -> void
     do m.conn.set({none})
     do m.primary.set({none})
-    match m.concurrency with
-    | {pool} ->
-      if m.pool_max > 1
-      then
-        (match m.pool.get() with
-         | {none} ->
-            do m.pool.set({some=SocketPool.make((addr,port),m.pool_max,m.log)})
-            do m.primary.set({some=(addr,port)})
-            {success=m}
-         | {some=pool} ->
-            do SocketPool.reconnect(pool,(addr,port))
-            do m.primary.set({some=(addr,port)})
-            {success=m})
-      else
-        C.failErr("MongoDriver.connect: Pool concurrency requires pool_max > 1 (actually: {m.pool_max})")
-    | {cell} | {singlethreaded} ->
-       if m.close_socket
-       then
-         do m.primary.set({some=(addr,port)})
-         {success=m}
-       else
-         match Socket.connect_with_err_cont(addr,port) with
-         | {success=conn} ->
-            do m.conn.set({some=conn})
-            do m.primary.set({some=(addr,port)})
-            {success=m}
-         | {failure=str} -> C.failErr("Got exception {str}")
+    if m.pool_max > 1
+    then
+      (match m.pool.get() with
+       | {none} ->
+          do m.pool.set({some=SocketPool.make((addr,port),m.pool_max,m.log)})
+          do m.primary.set({some=(addr,port)})
+          {success=m}
+       | {some=pool} ->
+          do SocketPool.reconnect(pool,(addr,port))
+          do m.primary.set({some=(addr,port)})
+          {success=m})
+    else
+      C.failErr("MongoDriver.connect: Pool requires pool_max > 1 (actually: {m.pool_max})")
 
   /**
    * Force a reconnection.  Should only be needed if the basic parameters have changed.
@@ -558,12 +521,12 @@ MongoDriver = {{
   /**
    *  Convenience function, initialise and connect at the same time.
    *
-   *  Example: [open(bufsize, concurrency, pool_max, close_socket, addr, port, log)]
+   *  Example: [open(bufsize, pool_max, close_socket, addr, port, log)]
    **/
-  open(bufsize:int, concurrency:Mongo.concurrency, pool_max:int, close_socket:bool, addr:string, port:int, log:bool)
+  open(bufsize:int, pool_max:int, close_socket:bool, addr:string, port:int, log:bool)
      : outcome(Mongo.db,Mongo.failure) =
     do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
-    connect(init(bufsize,concurrency,pool_max,close_socket,log),addr,port)
+    connect(init(bufsize,pool_max,close_socket,log),addr,port)
 
   /**
    *  Close mongo connection.
@@ -573,18 +536,9 @@ MongoDriver = {{
    */
   close(m:Mongo.db): Mongo.db =
     do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
-    do match m.concurrency with
-       | {pool} ->
-          (match m.pool.get() with
-           | {some=pool} ->
-              SocketPool.stop(pool)
-           | {none} -> void)
-       | {cell} | {singlethreaded} ->
-          (match m.conn.get() with
-           | {some=conn} ->
-              do if m.concurrency != {singlethreaded} then stop(m)
-              Socket.close(conn)
-           | {none} -> void)
+    do (match m.pool.get() with
+        | {some=pool} -> SocketPool.stop(pool)
+        | {none} -> void)
     do m.conn.set({none})
     do m.primary.set({none})
     m
@@ -594,7 +548,6 @@ MongoDriver = {{
    *
    * Note that some of these will have no effect until reconnection.
    **/
-  set_concurrency(m:Mongo.db, concurrency:Mongo.concurrency): Mongo.db = { m with ~concurrency }
   set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with ~pool_max }
   set_close_socket(m:Mongo.db, close_socket:bool): Mongo.db = { m with ~close_socket }
   set_bufsize(m:Mongo.db, bufsize:int): Mongo.db = { m with ~bufsize }
