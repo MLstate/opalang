@@ -783,7 +783,7 @@ CTable = {{
      */
     add_row(row, cols, nb_rows, row_map) =
       row_html = gen_row_html(row, cols)
-      do Dom.transform([#{"{table_id}_table tbody"} +<- row_html])
+      do Dom.transform([{Dom.select_raw("#{table_id}_table tbody")} +<- row_html])
       // Check if the added row is in the display scope
       (bottom,nb_rows) =
         if nb_rows < row_page_size && not(is_filtered(row))
@@ -845,7 +845,7 @@ CTable = {{
             do match config.headers with
               | {some=f} ->
                  h_html = gen_col_header(simple,table_id, config, channel, f, col)
-                 do Dom.transform([#{"{table_id}_table thead tr"} +<- h_html])
+                 do Dom.transform([{Dom.select_raw("#{table_id}_table thead tr")} +<- h_html])
                  h_id = gen_col_header_id(table_id,config,col)
                  if col_page_size > (col_table_size - col_header_size)
                  then dom_show_cell(0, #{h_id}, simple)
