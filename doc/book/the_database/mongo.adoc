@@ -494,7 +494,7 @@ The basic write operations come in three types:
    +getlasterror+ query piggy-backed onto it and then the raw optional reply is
    returned.
 
- - +insert_reply+ does an +inserte+ and then analyses the reply, turning it into
+ - +insert_result+ does an +inserte+ and then analyses the reply, turning it into
    a standard +Mongo.result+ type.
 
 All of the basic write operations have these three forms.
@@ -520,7 +520,7 @@ been used).
 Post-processing of results may include checking for errors:
 [source,opa]
 -------------------------
-error = MongoConnection.insert_reply(MongoConnection.upsert(mongodb),[H.i32("i",n)])
+error = MongoConnection.insert_result(MongoConnection.upsert(mongodb),[H.i32("i",n)])
 do println("insert error={MongoCommon.is_error(error)}")
 -------------------------
 
@@ -630,8 +630,97 @@ document in the list of matches).
 //Commands
 //~~~~~~~~
 
-//Collections
-//~~~~~~~~~~~
+Collections
+~~~~~~~~~~~
+
+While you can achieve anything that MongoDB is capable of using the low-level
+drivers, there are no guarantees of type safety while converting between BSON
+documents and OPA values.
+You can of course base your entire project around BSON values and eliminate
+the need for converting between MongoDB's documents and OPA types altogether but
+this may not be very convenient depending upon what is happening elsewhere in
+your application.
+Secondly, to use the low-level drivers requires an investment in learning
+MongoDB's powerful but rather complex interface (which may be new to users of
+relational databases) in order to exploit what MongoDB has to offer.
+Finally, basing your application on MongoDB's API will tie your application to
+MongoDB and you may at some point in the future wish to migrate to other
+database solutions.
+
+Ultimately, the intention is to provide an abstract view of the database which
+is general enough to encompass several of the existing database solutions, of
+which MongoDB is an important player, and support this with compiler-generated
+syntax in the manner of the OPA inbuilt database.
+This support is still not available but we can offer an intermediate layer of
+programming MongoDB whereby we assume collections of OPA types and support
+type-safety by performing run-time type-checks on operations over these
+collections.
+This support is in the form of the +MongoCollection+ module plus some support
+modules for generating values suitable to be applied to these functions.
+
+The +collection+ type
+^^^^^^^^^^^^^^^^^^^^^
+
+The central idea in the +MongoCollection+ module is a collection (in the MongoDB
+terminology sense) of OPA values.
+This is embodied in the +Mongo.collection+ type which is extremely simple, it's
+just a +MongoConnection+ value plus a run-time representation of the type of
+values to be stored in the collection:
+[source,opa]
+-------------------------
+type Mongo.collection('a) = {
+  db: Mongo.mongodb; // the mongodb connection
+  ty: OpaType.ty; // type of the collection
+}
+-------------------------
+
+When a value is stored in the collection it is automatically converted from its
+OPA type into a matching BSON document and _vice versa_ for queries.
+Note, however, that the +collection+ type is also parametrised with the
+compile-time type of the collection.
+It is *imperative* that the types +'a+ and +ty+ represent the same type and for
+this reason, we derive +ty+ from the type of the collection _at the point of
+creating the collection object_.
+
+While this sounds simple there are a number of pitfalls to watch out for.
+We assume that any offline modifications of the collection will not
+create any incompatible values.
+If, for example, we add or delete a field from a record then the entry can no
+longer be represented as an OPA type.
+
+To overcome this problem we place checks in the code to verify the suitability
+of documents read from the collection and an error will be generated if any such
+values are found.
+We also provide features to allow handling of this situation in some specific
+circumstances, for example, if you type a field in the collection as
++Bson.register+ it will allow you to successfully read in values with missing
+fields but this is not recommended for collections.
+Ultimately, it is up to the maintainer of the database to ensure that the values
+stored there are consistent with the application's usage of the collection.
+
+Despite these provisos, using a collection is very simple and gives the
+programmer the ability to integrate OPA types with the MongoDB system without
+having to understand the underlying complexity of the database and with a modest
+level of type-safety.
+The cost, for the moment, is the overhead of the run-time type-checks which will
+slow down database operations.
+
+Programming with collections
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A simple dialog for creating and manipulating a collection might be as follows:
+[source,opa]
+-------------------------
+// The type of our first collection
+type t = {i:int}
+
+// Create a collection of type t
+c1 = (C.openfatal("default","db","collection"):Mongo.collection(t))
+
+// Put a single value into the collection
+result = MongoCollection.insert_result(c1,{i=0})
+-------------------------
+
 
 //Exemplar: hello_wiki_mongo
 //~~~~~~~~~~~~~~~~~~~~~~~~~~
