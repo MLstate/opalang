@@ -108,7 +108,6 @@ EXT_SHARED="so"
 case $(uname) in
     CYGWIN*)
         echo-ok Windows/cygwin
-        EXT_LIB="lib"
         EXT_SHARED="dll"
         IS_WINDOWS=1;;
     Darwin*)
