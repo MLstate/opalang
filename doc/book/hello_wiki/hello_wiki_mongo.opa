@@ -13,9 +13,9 @@ import stdlib.apis.{mongo}
 import stdlib.themes.bootstrap
 
 /**
- * {1 Import templates}
+ * {1 Import markdown syntax}
  */
-import stdlib.web.template
+import stdlib.tools.markdown
 
 /**
  * {1 Database and database interaction}
@@ -46,22 +46,18 @@ pageupdate(v) = wiki_pkg.update(Bson.opa2doc(v))
 _ = MongoCollection.create_index(wiki_collection, "db.wiki", Bson.opa2doc({_id=1; _rev=1}), 0)
 
 /**
- * Retrieves a json document from the database
+ * Retrieves a document from the database
  *
  * @param docid The id of the document to retrieve (arbitrary string)
- * @return A Template.content
+ * @return content
  */
 get_content(docid) =
-  default = Template.text("This page is empty. Double-click to edit.")
+  default = "This page is empty. Double-click to edit."
   extract_content(record:page) = record.content
   // Order by reverse _rev to get highest numbered _rev.
   orderby = {some=Bson.opa2doc({_rev=-1})}
   match MongoCollection.find_one(MongoCollection.orderby(wiki_collection,orderby),pageselect({_id=docid})) with
-  | {success=page} ->
-     source = extract_content(page)
-     (match Template.try_parse(Template.default, source) with
-      | {~success} -> success
-      | {failure=_} -> Template.text(source))
+  | {success=page} -> extract_content(page)
   | {failure={NotFound}} ->
      default
   | {~failure} ->
@@ -70,14 +66,14 @@ get_content(docid) =
 
 /**
  * Read the content associated to a topic from the database and return the
- * corresponding source code.
+ * corresponding Markdown source.
  *
  * @param topic A topic (arbitrary string).
  * @return If a page has been saved in for [topic], the source code for this
  * page. Otherwise, the source code for the default page.
  */
 @publish load_source(topic) =
-  Template.to_source(Template.default, get_content(topic))
+  get_content(topic)
 
 /**
  * Read the content associated to a topic from the database and return the
@@ -90,18 +86,13 @@ get_content(docid) =
  * Note: This function does not perform any caching.
  */
 @publish load_rendered(topic) =
-  Template.to_xhtml(Template.default, get_content(topic))
+  Markdown.xhtml_of_string(Markdown.default_options, load_source(topic))
 
 /**
  * Accept source code, save the corresponding document in the database.
  *
  * @param topic A topic (arbitrary string).
- * @param source Source code to store at this topic. If this source code
- * is syntactically valid, store the template datastructure
- * corresponding to its content [Template.content].
- * Otherwise, the source code is implicitly replaced by the document
- * representing this raw code and this document is saved in the database.
- *
+ * @param source Markdown source to store at this topic.
  * @return In case of success, the xhtml for the page that has just been
  * saved. In case of failure, an error message.
  */
@@ -112,10 +103,7 @@ get_content(docid) =
   result = MongoCollection.update_result(MongoCollection.upsert(wiki_collection),select,update)
   if MongoCommon.is_error(result)
   then <>Error: {MongoCommon.pretty_of_result(result)}</>
-  else
-    match Template.try_parse(Template.default, source) with
-    | ~{success}    -> Template.to_xhtml(Template.default, success)
-    | {failure = _} -> <>Error: {source}</>
+  else load_rendered(topic)
 
 /**
  * {1 User interface}
@@ -124,7 +112,8 @@ get_content(docid) =
 /**
  * Set the user interface in edition mode.
  *
- * Load the source code for a topic, display an editable zone for this source code.
+ * Load the Markdown source for a topic, display an editable zone
+ * for this markdown.
  *
  * @param topic The topic to edit.
  */
@@ -138,7 +127,7 @@ edit(topic) =
 /**
  * Set the user interface in reading mode.
  *
- * Save the source code for a topic (extracted from [#edit_content]),
+ * Save the Markdown source for a topic (extracted from [#edit_content]),
  * display the rendered version.
  *
  * @param topic The topic to save.

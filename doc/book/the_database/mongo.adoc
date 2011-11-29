@@ -925,16 +925,12 @@ The +get_content+ function can then be modified using a simple call to
 [source,opa]
 -------------------------
 get_content(docid) =
-  default = Template.text("This page is empty. Double-click to edit.")
+  default = "This page is empty. Double-click to edit."
   extract_content(record:page) = record.content
   // Order by reverse _rev to get highest numbered _rev.
   orderby = {some=Bson.opa2doc({_rev=-1})}
   match MongoCollection.find_one(MongoCollection.orderby(wiki_collection,orderby),pageselect({_id=docid})) with
-  | {success=page} ->
-     source = extract_content(page)
-     (match Template.try_parse(Template.default, source) with
-      | {~success} -> success
-      | {failure=_} -> Template.text(source))
+  | {success=page} -> extract_content(page)
   | {failure={NotFound}} ->
      default
   | {~failure} ->
@@ -959,10 +955,7 @@ Finally, the +save_source+ function becomes a call to
   result = MongoCollection.update_result(MongoCollection.upsert(wiki_collection),select,update)
   if MongoCommon.is_error(result)
   then <>Error: {MongoCommon.pretty_of_result(result)}</>
-  else
-    match Template.try_parse(Template.default, source) with
-    | ~{success}    -> Template.to_xhtml(Template.default, success)
-    | {failure = _} -> <>Error: {source}</>
+  else load_rendered(topic)
 -------------------------
 
 In this case, we select only the +_id+ field and we update the document by
