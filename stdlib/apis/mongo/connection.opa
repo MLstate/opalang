@@ -164,19 +164,19 @@ MongoConnection = {{
               names = ["--mongo-buf-size", "--mongobufsize", "--mb", "-mb"]
               description = "Hint for initial MongoDB connection buffer size"
               param_doc = "<int>"
-              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize = n }),p)}
+              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with bufsize=n }),p)}
            },
            {CommandLine.default_parser with
               names = ["--mongo-socket-pool", "--mongosocketpool", "--mp", "-mp"]
               description = "Number of sockets in socket pool (>=2 enables socket pool)"
               param_doc = "<int>"
-              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max = n }),p)}
+              on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max=Int.max(n,1) }),p)}
            },
            {CommandLine.default_parser with
               names = ["--mongo-log", "--mongolog", "--ml", "-ml"]
               description = "Enable MongoLog logging"
               param_doc = "<bool>"
-              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with log = b }),p)}
+              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with log=b }),p)}
            },
            {CommandLine.default_parser with
               names = ["--mongo-seed", "--mongoseed", "--ms", "-ms"]
@@ -339,7 +339,7 @@ MongoConnection = {{
 
   /** Change the pool size **/
   pool_max(db:Mongo.mongodb, pool_max:int): Mongo.mongodb =
-    { db with mongo={ db.mongo with ~pool_max } }
+    { db with mongo={ db.mongo with pool_max=Int.max(pool_max,1) } }
 
   /** Chenge the bufsize hint (only applies to newly created buffers) **/
   bufsize(db:Mongo.mongodb, bufsize:int): Mongo.mongodb =

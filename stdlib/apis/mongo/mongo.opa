@@ -405,7 +405,7 @@ MongoDriver = {{
     { conn={none};
       reconncell=(Cell.make(void, reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=SocketPool.make(("localhost",default_port),pool_max,log);
-      ~pool_max; ~bufsize; ~log;
+      pool_max=Int.max(pool_max,1); ~bufsize; ~log;
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
       depth=0; max_depth=2;
@@ -424,12 +424,8 @@ MongoDriver = {{
    **/
   connect(m:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
     do if m.log then ML.info("MongoDriver.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
-    if m.pool_max > 1
-    then
-      do SocketPool.reconnect(m.pool,(addr,port))
-      {success=m}
-    else
-      C.failErr("MongoDriver.connect: Pool requires pool_max > 1 (actually: {m.pool_max})")
+    do SocketPool.reconnect(m.pool,(addr,port))
+    {success=m}
 
   /**
    * Force a reconnection.  Should only be needed if the basic parameters have changed.
@@ -470,7 +466,7 @@ MongoDriver = {{
    *
    * Note that some of these will have no effect until reconnection.
    **/
-  set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with ~pool_max }
+  set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with pool_max=Int.max(pool_max,1) }
   set_bufsize(m:Mongo.db, bufsize:int): Mongo.db = { m with ~bufsize }
   set_log(m:Mongo.db, log:bool): Mongo.db = { m with ~log }
   add_seed(m:Mongo.db, seed:Mongo.mongo_host): Mongo.db = { m with seeds=seed +> m.seeds }
