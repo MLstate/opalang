@@ -52,28 +52,23 @@ type Mongo.reply = external
 /**
  * Main connection type.
  * Stores the socket connection plus other parameters such as
- * the seeds and primary status for a replica set, timing
- * parameters for reconnection and a limiter for recursion depth.
+ * the seeds, timing parameters for reconnection and a limiter for recursion depth.
  **/
 @abstract
 type Mongo.db = {
-  conn : Mutable.t(option(Socket.connection));
+  conn : option(Socket.connection);
   reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
-  pool : Mutable.t(option(SocketPool.t));
+  pool : SocketPool.t;
   pool_max : int;
-  close_socket : bool;
-  socket_link : Mutable.t(int);
-  primary : Mutable.t(option(Mongo.mongo_host));
   bufsize : int;
   log : bool;
   name : string;
   seeds : list(Mongo.mongo_host);
-  hosts : Mutable.t(list(Mongo.mongo_host));
   reconnect_wait : int;
   max_attempts : int;
   comms_timeout : int;
-  reconnect : Mutable.t(option(Mongo.db -> outcome(Mongo.db,Mongo.failure)));
-  depth : Mutable.t(int);
+  reconnectable : bool;
+  depth : int;
   max_depth : int;
 }
 
@@ -94,6 +89,7 @@ type Mongo.srr =
   / {stopresult}
   / {reconnect}
 
+/** Messages for socket pool **/
 @private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {stop}
 @private type Mongo.reconnectresult = {reconnectresult:bool} / {stopresult}
 
@@ -197,30 +193,29 @@ MongoDriver = {{
    */
   @private
   doreconnect(from:string, m:Mongo.db): bool =
-    if m.depth.get() > m.max_depth
+    if m.depth > m.max_depth
     then
       do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
       false
     else
-      ret(tf:bool) = do m.depth.set(m.depth.get()-1) tf
-      do m.depth.set(m.depth.get()+1)
-      match m.reconnect.get() with
-      | {some=reconnectfn} ->
-         rec aux(attempts) =
-           if attempts > m.max_attempts
-           then ret(false)
-           else
-             (match reconnectfn(m) with
-              | {success=_} ->
-                 do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
-                 ret(true)
-              | {~failure} ->
-                 do if m.log then ML.info("MongoDriver.reconnect({from})","failure={C.string_of_failure(failure)}",void)
-                 do Scheduler.wait(m.reconnect_wait)
-                 aux(attempts+1))
-         aux(0)
-      | {none} ->
-         ret(false)
+      m = {m with depth=m.depth+1}
+      if m.reconnectable
+      then
+        rec aux(attempts) =
+          if attempts > m.max_attempts
+          then false
+          else
+            (match MongoReplicaSet.connect(m) with
+             | {success=_} ->
+                do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
+                true
+             | {~failure} ->
+                do if m.log then ML.info("MongoDriver.reconnect({from})","failure={C.string_of_failure(failure)}",void)
+                do Scheduler.wait(m.reconnect_wait)
+                aux(attempts+1))
+        aux(0)
+      else
+        false
 
   @private
   reconfn(_, msg) =
@@ -241,56 +236,20 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  // Rule: for every open_socket which returns success we must call close_socket
-  // Property: we can stack opens and the socket will only close once the last is closed
-  open_socket(m:Mongo.db): outcome(Socket.connection,Mongo.failure) =
-    match m.conn.get() with
-    | {some=conn} ->
-       do m.socket_link.set(m.socket_link.get()+1)
-       {success=conn}
-    | {none} ->
-       (match m.primary.get() with
-        | {some=(host,port)} ->
-           (match Socket.connect_with_err_cont(host,port) with
-            | {success=conn} ->
-               do m.conn.set({some=conn})
-               do m.socket_link.set(m.socket_link.get()+1)
-               {success=conn}
-            | {failure=str} ->
-               C.failErr("MongoDriver.open_socket: Got exception {str}"))
-        | {none} -> C.failErr("MongoDriver.open_socket: no primary"))
-
-  @private
-  close_socket(m:Mongo.db): void =
-    do m.socket_link.set(m.socket_link.get()-1)
-    if m.close_socket
-    then
-      if m.socket_link.get() <= 0
-      then
-        do match m.conn.get() with
-           | {some=conn} ->
-              do Socket.close(conn)
-              m.conn.set({none})
-           | {none} -> void
-        m.socket_link.set(0)
-
-  @private
   send_no_reply_(m,mbuf,name,reply_expected): bool =
-    match open_socket(m) with
-    | {success=conn} ->
+    match m.conn with
+    | {some=conn} ->
        (str, len) = export_(mbuf)
        s = String.substring(0,len,str)
        do if m.log then ML.debug("MongoDriver.send({name})","\n{string_of_message(s)}",void)
        (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
         | {success=cnt} ->
            do if not(reply_expected) then free_(mbuf) else void
-           do close_socket(m)
            (cnt==len)
         | {failure=_} ->
-           do close_socket(m)
            false)
-    | {~failure} ->
-       ML.error("MongoDriver.send({name})","{C.string_of_failure(failure)}",false)
+    | {none} ->
+       ML.error("MongoDriver.send({name})","No socket",false)
 
   @private
   send_no_reply(m,mbuf,name): bool = send_no_reply_(m,mbuf,name,false)
@@ -298,8 +257,8 @@ MongoDriver = {{
   @private
   send_with_reply(m,mbuf,name): option(Mongo.reply) =
     mrid = mongo_buf_requestId(mbuf)
-    match open_socket(m) with
-    | {success=conn} ->
+    match m.conn with
+    | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
          mailbox = new_mailbox_(m.bufsize)
@@ -309,25 +268,22 @@ MongoDriver = {{
              do reset_mailbox_(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.receive({name})","\n{string_of_message_reply(reply)}",void)
-             do close_socket(m)
              if mrid != rrt
              then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",{none})
              else {some=reply}
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
              do reset_mailbox_(mailbox)
-             do close_socket(m)
              {none})
        else
-         do close_socket(m)
          {none}
-    | {~failure} ->
-       ML.error("MongoDriver.receive({name})","{C.string_of_failure(failure)}",{none})
+    | {none} ->
+       ML.error("MongoDriver.receive({name})","No socket",{none})
 
   @private
   send_with_error(m,mbuf,name,ns): option(Mongo.reply) =
-    match open_socket(m) with
-    | {success=conn} ->
+    match m.conn with
+    | {some=conn} ->
        mbuf2 = create_(m.bufsize)
        do query_(mbuf2,0,ns^".$cmd",0,1,[H.i32("getlasterror",1)],{none})
        mrid = mongo_buf_requestId(mbuf2)
@@ -344,7 +300,6 @@ MongoDriver = {{
              do reset_mailbox_(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{string_of_message_reply(reply)}",void)
-             do close_socket(m)
              if mrid != rrt
              then
                do ML.error("MongoDriver.send_with_error",
@@ -354,14 +309,12 @@ MongoDriver = {{
           | {~failure} ->
              do if m.log then ML.info("send_with_error","failure={failure}",void)
              do reset_mailbox_(mailbox)
-             do close_socket(m)
              {none})
        else
          do clip_(mbuf,len)
-         do close_socket(m)
          {none}
-    | {~failure} ->
-       ML.error("MongoDriver.send_with_error({name})","{C.string_of_failure(failure)}",{none})
+    | {none} ->
+       ML.error("MongoDriver.send_with_error({name})","No socket",{none})
 
 
   @private
@@ -381,34 +334,20 @@ MongoDriver = {{
 
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
-    match m.pool.get() with
-    | {some=pool} ->
-       (match SocketPool.get(pool) with
-        | {success=conn} ->
-           do m.conn.set({some=conn})
-           result =
-             (match msg with
-              | {send=(m,mbuf,name)} -> sr_snr(m,mbuf,name)
-              | {sendrecv=(m,mbuf,name)} -> sr_swr(m,mbuf,name)
-              | {senderror=(m,mbuf,name,ns)} -> sr_swe(m,mbuf,name,ns)
-              | {stop} -> @fail)
-           do SocketPool.release(pool,conn)
-           do m.conn.set({none})
-           result
-        | {~failure} ->
-           do if m.log then ML.error("MongoDriver.srpool","Can't get pool {C.string_of_failure(failure)}",void)
-           {reconnect})
-    | {none} ->
-       do if m.log then ML.error("MongoDriver.srpool","No pool",void)
+    match SocketPool.get(m.pool) with
+    | {success=connection} ->
+       conn = {some=connection}
+       result =
+         (match msg with
+          | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},mbuf,name)
+          | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},mbuf,name)
+          | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},mbuf,name,ns)
+          | {stop} -> @fail)
+       do SocketPool.release(m.pool,connection)
+       result
+    | {~failure} ->
+       do if m.log then ML.error("MongoDriver.srpool","Can't get pool {C.string_of_failure(failure)}",void)
        {reconnect}
-
-  @private
-  sr(_, msg) =
-    match msg with
-    | {send=(m,mbuf,name)} -> {return=sr_snr(m,mbuf,name); instruction={unchanged}}
-    | {sendrecv=(m,mbuf,name)} -> {return=sr_swr(m,mbuf,name); instruction={unchanged}}
-    | {senderror=(m,mbuf,name,ns)} -> {return=sr_swe(m,mbuf,name,ns); instruction={unchanged}}
-    | {stop} -> {return={stopresult}; instruction={stop}}
 
   @private
   snd(m,mbuf,name) =
@@ -456,27 +395,25 @@ MongoDriver = {{
    * Due to the number of parameters we have a separate [init] routine
    * from [connect].  This feature is mostly used by replica set connection
    * and re-connection.
-   * Example: [init(bufsize, pool_max, close_socket, log)]
+   * Example: [init(bufsize, pool_max, reconnectable, log)]
    * @param bufsize A hint to the driver for the initial buffer size.
    * @param pool_max For pool the number of open sockets per pool.
-   * @param close_socket Maintain sockets in a closed state.
+   * @param reconnectable Flag to enable reconnection logic.
    * @param log Whether to enable logging for the driver.
    **/
-  init(bufsize:int, pool_max:int, close_socket:bool, log:bool): Mongo.db =
-    conn = Mutable.make({none})
-    { ~conn;
+  init(bufsize:int, pool_max:int, reconnectable:bool, log:bool): Mongo.db =
+    { conn={none};
       reconncell=(Cell.make(void, reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
-      pool=Mutable.make({none}); ~pool_max;
-      ~bufsize; ~close_socket; ~log; socket_link=Mutable.make(0);
-      seeds=[]; hosts=Mutable.make([]); name="";
-      primary=Mutable.make({none}); reconnect=Mutable.make({none});
+      pool=SocketPool.make(("localhost",default_port),pool_max,log);
+      ~pool_max; ~bufsize; ~log;
+      seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
-      depth=Mutable.make(0); max_depth=2;
+      depth=0; max_depth=2;
     }
 
   /**
    * Connect to the MongoDB server on [host:port].
-   * Close any existing connection and set primary assuming that we are a master.
+   * Close any existing connection.
    * We should really check if we are master but that would get complicated
    * since this routine gets called from within reconnect.
    * The caller should verify the master status.
@@ -487,20 +424,10 @@ MongoDriver = {{
    **/
   connect(m:Mongo.db, addr:string, port:int): outcome(Mongo.db,Mongo.failure) =
     do if m.log then ML.info("MongoDriver.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
-    do match m.conn.get() with | {some=conn} -> Socket.close(conn) | {none} -> void
-    do m.conn.set({none})
-    do m.primary.set({none})
     if m.pool_max > 1
     then
-      (match m.pool.get() with
-       | {none} ->
-          do m.pool.set({some=SocketPool.make((addr,port),m.pool_max,m.log)})
-          do m.primary.set({some=(addr,port)})
-          {success=m}
-       | {some=pool} ->
-          do SocketPool.reconnect(pool,(addr,port))
-          do m.primary.set({some=(addr,port)})
-          {success=m})
+      do SocketPool.reconnect(m.pool,(addr,port))
+      {success=m}
     else
       C.failErr("MongoDriver.connect: Pool requires pool_max > 1 (actually: {m.pool_max})")
 
@@ -510,23 +437,22 @@ MongoDriver = {{
    * Note that we can only reconnect to a replica set and that a failed reconnect is considered a fatal error.
    **/
   force_reconnect(m:Mongo.db): void =
-    match m.reconnect.get() with
-    | {none} ->
-       ML.warning("MongoDriver.force_reconnect","connection is not reconnectable",void)
-    | {some=_} ->
-       do if m.log then ML.info("MongoDriver.force_reconnect","{m.primary.get()}",void)
-       if not(reconnect("force_reconnect",m))
-       then ML.fatal("MongoDriver.force_reconnect:","comms error (Can't reconnect)",-1)
+    if m.reconnectable
+    then
+      do if m.log then ML.info("MongoDriver.force_reconnect","{SocketPool.gethost(m.pool)}",void)
+      if not(reconnect("force_reconnect",m))
+      then ML.fatal("MongoDriver.force_reconnect:","comms error (Can't reconnect)",-1)
+    else
+      ML.warning("MongoDriver.force_reconnect","connection is not reconnectable",void)
 
   /**
    *  Convenience function, initialise and connect at the same time.
    *
-   *  Example: [open(bufsize, pool_max, close_socket, addr, port, log)]
+   *  Example: [open(bufsize, pool_max, reconnectable, addr, port, log)]
    **/
-  open(bufsize:int, pool_max:int, close_socket:bool, addr:string, port:int, log:bool)
-     : outcome(Mongo.db,Mongo.failure) =
+  open(bufsize:int, pool_max:int, reconnectable:bool, addr:string, port:int, log:bool): outcome(Mongo.db,Mongo.failure) =
     do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
-    connect(init(bufsize,pool_max,close_socket,log),addr,port)
+    connect(init(bufsize,pool_max,reconnectable,log),addr,port)
 
   /**
    *  Close mongo connection.
@@ -535,12 +461,8 @@ MongoDriver = {{
    * have to be careful how we access the connection value.
    */
   close(m:Mongo.db): Mongo.db =
-    do if m.log then ML.info("MongoDriver.close","{m.primary.get()}",void)
-    do (match m.pool.get() with
-        | {some=pool} -> SocketPool.stop(pool)
-        | {none} -> void)
-    do m.conn.set({none})
-    do m.primary.set({none})
+    do if m.log then ML.info("MongoDriver.close","{SocketPool.gethost(m.pool)}",void)
+    do SocketPool.stop(m.pool)
     m
 
   /**
@@ -549,7 +471,6 @@ MongoDriver = {{
    * Note that some of these will have no effect until reconnection.
    **/
   set_pool_max(m:Mongo.db, pool_max:int): Mongo.db = { m with ~pool_max }
-  set_close_socket(m:Mongo.db, close_socket:bool): Mongo.db = { m with ~close_socket }
   set_bufsize(m:Mongo.db, bufsize:int): Mongo.db = { m with ~bufsize }
   set_log(m:Mongo.db, log:bool): Mongo.db = { m with ~log }
   add_seed(m:Mongo.db, seed:Mongo.mongo_host): Mongo.db = { m with seeds=seed +> m.seeds }

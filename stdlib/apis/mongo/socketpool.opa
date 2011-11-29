@@ -34,6 +34,7 @@ type SocketPool.result = outcome(Socket.connection,Mongo.failure)
     {get : continuation(SocketPool.result)}
   / {release : Socket.connection}
   / {reconnect : Mongo.mongo_host}
+  / {gethost : continuation(Mongo.mongo_host)}
   / {close}
   / {stop}
 
@@ -98,6 +99,9 @@ SocketPool = {{
        do List.iter(Socket_close(state.log),state.sockets)
        do List.iter(Socket_close(state.log),state.allocated)
        {set={state with ~host; cnt=0; sockets=[]; allocated=[]}}
+    | {gethost=k} ->
+       do Continuation.return(k, state.host)
+       {unchanged}
     | {close} ->
        do if state.log then ML.debug("SocketPool.handler","close socket pool",void)
        do List.iter(Socket_close(state.log),state.sockets)
@@ -120,6 +124,9 @@ SocketPool = {{
 
   reconnect(pool:SocketPool.t, host:Mongo.mongo_host) : void =
     Session.send(pool, {reconnect=host})
+
+  gethost(pool:SocketPool.t) : Mongo.mongo_host =
+    @callcc(k -> Session.send(pool, {gethost=k}))
 
   close(pool:SocketPool.t) : void =
     Session.send(pool, {close})

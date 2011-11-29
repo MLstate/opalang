@@ -150,15 +150,15 @@ MongoReplicaSet = {{
   /**
    * Initialize a [Mongo.db] connection using the given list of seeds.
    **/
-  init(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(bufsize, pool_max, close_socket, log)
-    {m with ~seeds; hosts=Mutable.make([]); ~name}
+  init(name:string, bufsize:int, pool_max:int, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    m = MongoDriver.init(bufsize, pool_max, true, log)
+    {m with ~seeds; ~name}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
    **/
-  init_single(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, seed:Mongo.mongo_host): Mongo.db =
-    init(name,bufsize,pool_max,close_socket,log,[seed])
+  init_single(name:string, bufsize:int, pool_max:int, log:bool, seed:Mongo.mongo_host): Mongo.db =
+    init(name,bufsize,pool_max,log,[seed])
 
   /**
    * Generate a [Mongo.mongo_host] value from a string: "host:port".
@@ -191,17 +191,16 @@ MongoReplicaSet = {{
    * Try to get the list of hosts from a given list of seeds by connecting
    * in turn to each seed until we find a live one.
    **/
-  check_seed(m:Mongo.db): Mongo.db =
+  check_seed(m:Mongo.db): (Mongo.db,list(Mongo.mongo_host)) =
     match isMasterOpaLL(m) with
     | {success=ism} ->
        (match ism.hosts with
         | {present=hosts} ->
            hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
            do if m.log then ML.info("MongoReplicaSet.check_seed","hosts={hosts}",void)
-           do m.hosts.set(hosts)
-           m
-        | {absent} -> m)
-    | {failure=_} -> m
+           (m,hosts)
+        | {absent} -> (m,[]))
+    | {failure=_} -> (m,[])
 
   /**
    * Connect (and reconnect) to a replica set.
@@ -222,15 +221,15 @@ MongoReplicaSet = {{
       | [seed|rest] ->
         (match MongoDriver.connect(m, seed.f1, seed.f2) with
          | {success=m} ->
-            m = check_seed(m)
-            if m.hosts.get() == []
+            (m,hosts) = check_seed(m)
+            if hosts == []
             then aux(m,rest)
-            else {success=m}
+            else {success=(m,hosts)}
          | {failure=_} ->
             aux(m,rest))
       | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
     match aux(m, m.seeds) with
-    | {success=m} ->
+    | {success=(m,hosts)} ->
        rec aux2(m, hosts) =
          (match hosts with
           | [host|rest] ->
@@ -240,7 +239,6 @@ MongoReplicaSet = {{
                  | {success=ism} ->
                     if ism.ismaster && (Bson.Register.default("...",ism.setName) == m.name)
                     then
-                      do m.reconnect.set({some=connect})
                       {success=m}
                     else
                       (match ism.primary with
@@ -255,7 +253,7 @@ MongoReplicaSet = {{
                  | {failure=_} -> aux2(m,rest))
              | {failure=_} -> aux2(m,rest))
           | [] -> {failure={Error="MongoReplicaSet.connect: No master hosts"}})
-       aux2(m, m.hosts.get())
+       aux2(m, hosts)
     | {~failure} -> {~failure}
 
 }}

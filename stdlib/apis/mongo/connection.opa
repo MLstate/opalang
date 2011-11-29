@@ -80,7 +80,6 @@ type Mongo.param = {
   replname:option(string);
   bufsize:int;
   pool_max:int;
-  close_socket:bool;
   log:bool;
   seeds:list(Mongo.mongo_host);
 }
@@ -98,7 +97,6 @@ MongoConnection = {{
     replname={none};
     bufsize=50*1024;
     pool_max=2;
-    close_socket=false;
     log=false;
     seeds=default_seeds;
   }:Mongo.param)
@@ -175,12 +173,6 @@ MongoConnection = {{
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max = n }),p)}
            },
            {CommandLine.default_parser with
-              names = ["--mongo-close-socket", "--mongoclosesocket", "--mc", "-mc"]
-              description = "Maintain MongoDB server sockets in a closed state"
-              param_doc = "<bool>"
-              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with close_socket = b }),p)}
-           },
-           {CommandLine.default_parser with
               names = ["--mongo-log", "--mongolog", "--ml", "-ml"]
               description = "Enable MongoLog logging"
               param_doc = "<bool>"
@@ -227,8 +219,8 @@ MongoConnection = {{
   open_(dbo:outcome(Mongo.db,Mongo.failure),name:string): outcome(Mongo.mongodb,Mongo.failure) =
     match dbo with
     | {success=mongo} ->
-       (match mongo.primary.get() with
-        | {some=(addr,port)} ->
+       (match SocketPool.gethost(mongo.pool) with
+        | (addr,port) ->
            db = {~mongo; ~name; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
                  keyname="key"; valname="value"; idxname="index";
                  dbname="db"; collection="collection";
@@ -244,8 +236,7 @@ MongoConnection = {{
                                  _ = MongoDriver.close(db.mongo) 
                                  void
                                else void)
-           {success=db}
-        | {none} -> {failure={Error="MongoConnection.open: no primary"}})
+           {success=db})
     | {~failure} -> {~failure}
 
   /**
@@ -254,24 +245,24 @@ MongoConnection = {{
    * give a name to the connection even though it is dissociated from the
    * list of named connections.
    *
-   * Example: [openraw(name, bufsize, pool_max, close_socket, log, host, port)]
+   * Example: [openraw(name, bufsize, pool_max, log, host, port)]
    **/
-  openraw(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, addr:string, port:int)
+  openraw(name:string, bufsize:int, pool_max:int, log:bool, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,pool_max,close_socket,addr,port,log),name)
+    open_(MongoDriver.open(bufsize,pool_max,false,addr,port,log),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
    *
-   * Example: [replraw(name, bufsize, pool_max, close_socket, log, seeds)]
+   * Example: [replraw(name, bufsize, pool_max, log, seeds)]
    *
    * This routine causes a serach for the current host list among the seeds
    * and then searches for the primary among the hosts.  Rconnection logic
    * is enabled.
    **/
-  replraw(name:string, bufsize:int, pool_max:int, close_socket:bool, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, pool_max:int, log:bool, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,close_socket,log,seeds)),name)
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,log,seeds)),name)
 
   /**
    * Force a reconnection.
@@ -296,11 +287,11 @@ MongoConnection = {{
     match List.find((p -> p.name == name),params.get()) with
     | {some=p} ->
        (match p.replname with
-        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.close_socket,p.log,p.seeds)
+        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.log,p.seeds)
         | {none} ->
            (match p.seeds with
             | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
-            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.close_socket,p.log,host,port)
+            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.log,host,port)
             | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
     | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
 
@@ -349,10 +340,6 @@ MongoConnection = {{
   /** Change the pool size **/
   pool_max(db:Mongo.mongodb, pool_max:int): Mongo.mongodb =
     { db with mongo={ db.mongo with ~pool_max } }
-
-  /** Change the socket close status (only for singlethreaded and cell) **/
-  close_socket(db:Mongo.mongodb, close_socket:bool): Mongo.mongodb =
-    { db with mongo={ db.mongo with ~close_socket } }
 
   /** Chenge the bufsize hint (only applies to newly created buffers) **/
   bufsize(db:Mongo.mongodb, bufsize:int): Mongo.mongodb =
