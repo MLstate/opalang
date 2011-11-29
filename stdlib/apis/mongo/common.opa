@@ -171,6 +171,12 @@ MongoCommon = {{
   /** Same as [outcome_map] but coerced to string **/
   string_of_outcome = (outcome_map:outcome('s,'f), ('s->string), ('f->string) -> string)
 
+  /** Turn a result into an option **/
+  result_to_option(result:outcome('a,'b)) : option('a) = match result with | {success=v} -> {some=v} | _ -> {none}
+
+  /** Turn result into a list **/
+  results_to_list(result:outcome(list('a),'b)) : list('a) = match result with | {success=v} -> v | _ -> []
+
   /** Turn a result into a [Mongo.error] value **/
   error_of_result(result:Mongo.result): Mongo.error = map_success(result, Bson.error_of_document)
 

@@ -342,6 +342,12 @@ MongoCollection = {{
     MongoCommon.reply_to_result("MongoCollection.delete",0,
                                 MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,c.db.dbname,select))
 
+  /** Delete by _id field **/
+  delete_by_id(c:Mongo.collection('value),id) = delete(c,[H.str("_id",id)])
+
+  /** Delete by _id field with error result **/
+  delete_by_id_result(c:Mongo.collection('value),id) = delete_result(c,[H.str("_id",id)])
+
   /**
    * Return the [Bson.document] representation of a single value selected from
    * a collection.  This might facilitate more efficient handling of values
