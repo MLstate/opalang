@@ -360,7 +360,6 @@ Option               Abbrev Type              Description
 --mongo-repl-name    (--mr) <string>          Replica set name for the MongoDB server
 --mongo-buf-size     (--mb) <int>             Hint for initial MongoDB connection buffer size
 --mongo-socket-pool  (--mp) <int>             Number of sockets in socket pool (>=2 enables socket pool)
---mongo-close-socket (--mc) <bool>            Maintain MongoDB server sockets in a closed state
 --mongo-seed         (--ms) <host>\{:<port>\} Add a seed to a replica set, allows multiple seeds
 --mongo-host         (--mh) <host>\{:<port>\} Host name of a MongoDB server, overwrites any previous hosts
 --mongo-log          (--ml) <bool>            Enable MongoLog logging
@@ -401,10 +400,6 @@ that blocking only occurs if there are no more available connections in the pool
 If you ensure that the pool size is at least as big as the number of threads in
 your code then no blocking will occur.
 
-In addition, you can optionally maintain the socket in a closed state.
-This has specialised use, will degrade the performance of the connection and is
-not recommended.
-
 Named connections can also be defined within the program:
 [source,opa]
 -------------------------
@@ -413,7 +408,6 @@ do MongoConnection.add_named_connection({
   replname={some="blort"};
   bufsize=50*1024;
   pool_max=2;
-  close_socket=false;
   log=false;
   seeds=[("localhost",10001),("localhost",10002)];
 })
