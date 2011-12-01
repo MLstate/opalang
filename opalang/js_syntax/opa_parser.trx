@@ -1008,12 +1008,12 @@ record_fields <- (=list0(record_element, record_fields_separator)):l record_fiel
 record_fields_separator <- spacing comma
 
 record_element <-
-   / (=type_maybe(ml_identifier:i colon expr:e
+   / (=type_maybe(field_identifier:i colon expr:e
        {{ function t -> `binding (i,may_coerce_expr e t) }}
      ))
    / (binding_lambda / binding_module):b
      {{ `binding (undecorate (fst b), snd b) }}
-   / tilda:tilda deco_ml_identifier:p
+   / tilda:tilda deco_field_identifier:p
      {{ let rhs = if tilda then `value (var_to_exprvar p) else `novalue p in
         `noassign (undecorate p, rhs, None)
      }}
@@ -1040,7 +1040,7 @@ record_with_element <-
    / (binding_lambda / binding_module):b
      {{ `binding ([fst b], snd b) }}
 
-record_long_ident_nosp <- deco_ml_identifier_nosp:i ('.' deco_ml_identifier_nosp:i {{i}})*:l {{ i :: l }}
+record_long_ident_nosp <- deco_ml_identifier_nosp:i ('.' deco_field_identifier_nosp:i {{i}})*:l {{ i :: l }}
 record_long_ident <- spacing record_long_ident_nosp:i {{i}}
 record_long_binding <-
   / record_long_ident:i colon expr:e {{ (i, e) }}
@@ -1369,7 +1369,7 @@ function_arguments <- function_arguments_nosp
 ;function_arguments_dot_method_nosp = careful_deco(just_function_arguments_dot_method_nosp)
 ;just_function_arguments_dot_method_nosp <-
   / function_arguments_nosp2:args {{ `function_call args }}
-  / "." Opa_lexer.ml_identifier_nosp:i {{ `dot i }}
+  / "." Opa_lexer.field_identifier_nosp:i {{ `dot i }}
   / ".." Opa_lexer.ml_identifier_nosp:i {{ `double_dot i }}
 
 (**
@@ -1389,6 +1389,8 @@ opa_in_braces <- lbrace expr:e rbrace {{ e }}
  *)
 ;deco_ml_identifier_nosp = careful_deco ml_identifier_nosp
 ;deco_ml_identifier = deco ml_identifier
+;deco_field_identifier_nosp = careful_deco field_identifier_nosp
+;deco_field_identifier = deco field_identifier
 ;deco_underscore <- (=deco(Opa_lexer.UNDERSCORE)):p {{ label p }}
 ;deco_underscore_nosp <- (=careful_deco(Opa_lexer.UNDERSCORE)):p {{ label p }}
 ;let deco_option rule = (=deco(rule ?))
@@ -1432,6 +1434,8 @@ spacing<- Opa_lexer.spacing
 strict_spacing<- Opa_lexer.strict_spacing
 ml_identifier <- spacing Opa_lexer.ml_identifier {{ __2 }}
 ml_identifier_nosp <- spacing Opa_lexer.ml_identifier_nosp {{ __2 }}
+field_identifier <- spacing Opa_lexer.field_identifier {{ __2 }}
+field_identifier_nosp <- spacing Opa_lexer.field_identifier_nosp {{ __2 }}
 type_identifier <- spacing Opa_lexer.type_identifier {{ __2 }}
 type_identifier_nosp <- spacing Opa_lexer.type_identifier_nosp {{ __2 }}
 
