@@ -363,13 +363,17 @@ value error_epoll_cygwin(char* mess,char* fun){
   return ( (value)0 );
 }
 
+CAMLprim value on_mac(){
+    CAMLparam0();
+    CAMLreturn(Val_false);
+}
 
-/* value ep_create(value size){return error_epoll_cygwin("ep_create","");}; */
-/* value ep_add(value epfd, value fd, value flags){return error_epoll_cygwin("ep_add","");}; */
-/* value ep_del(value epfd, value fd, value flags){return error_epoll_cygwin("ep_del","");}; */
-/* value ep_mod(value epfd, value fd, value flags){return error_epoll_cygwin("ep_mod","");}; */
-/* value ep_wait(value v_epfd, value v_maxevents, value v_timeout){return error_epoll_cygwin("ep_wait","");}; */
-/* value ep_close(value fd){return error_epoll_cygwin("ep_close","");}; */
+value ep_create(value size){return error_epoll_cygwin("ep_create","");};
+value ep_add(value epfd, value fd, value flags){return error_epoll_cygwin("ep_add","");};
+value ep_del(value epfd, value fd, value flags){return error_epoll_cygwin("ep_del","");};
+value ep_mod(value epfd, value fd, value flags){return error_epoll_cygwin("ep_mod","");};
+value ep_wait(value v_epfd, value v_maxevents, value v_timeout){return error_epoll_cygwin("ep_wait","");};
+value ep_close(value fd){return error_epoll_cygwin("ep_close","");};
 
 DUMMY_EXPORT(EPOLLIN,"epollin")
 DUMMY_EXPORT(EPOLLOUT,"epollout")
