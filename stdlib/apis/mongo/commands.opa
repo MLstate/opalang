@@ -168,9 +168,27 @@ type Mongo.explainType =
     // oldPlan: ... sometimes present
 }
 
+type Mongo.mapReduceType =
+  { result : string; // TODO: read back string_or_document from doc2opa
+    timeMillis : int;
+    counts : { input : int; emit : int; output : int };
+    ok : int
+  }
+
 type Mongo.string_or_document =
     {string : string}
   / {document : Bson.document}
+
+type Mongo.mapReduceOptions = {
+  query: option(Bson.document);
+  sort: option(Bson.document);
+  limit: option(int);
+  keeptemp: option(bool);
+  finalize: option(string);
+  scope: option(Bson.document);
+  jsMode: option(bool);
+  verbose: option(bool)
+}
 
 @server_private
 MongoCommands = {{
@@ -733,6 +751,67 @@ MongoCommands = {{
                         (match jsMode_opt with | {some=jsMode} -> [H.bool("jsMode",jsMode)] | {none} -> []),
                         (match verbose_opt with | {some=verbose} -> [H.bool("verbose",verbose)] | {none} -> [])])
     run_command(m, m.dbname, cmd)
+
+  /**
+   * Default options for [mapReduce], all [\{none\}].
+   **/
+  mapReduceOptions =
+    ({ query={none};
+       sort={none};
+       limit={none};
+       keeptemp={none};
+       finalize={none};
+       scope={none};
+       jsMode={none};
+       verbose={none};
+     }:Mongo.mapReduceOptions)
+
+  /** Abbreviation for mapReduceOpts **/
+  mRO = mapReduceOptions
+
+  /**
+   * Full mapReduce but handling options with the [Mongo.mapReduceOpts] type.
+   **/
+  mapReduceOpts(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document, opts:Mongo.mapReduceOptions)
+              : Mongo.result =
+    mapReduce(m, map, reduce,
+              opts.query, opts.sort, opts.limit,
+              {some=out}, opts.keeptemp, opts.finalize, opts.scope, opts.jsMode, opts.verbose)
+
+  /**
+   * Simplest possible mapReduce, only define [map], [reduce] and [out].
+   **/
+  mapReduceSimple(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document): Mongo.result =
+    mapReduceOpts(m, map, reduce, out, mapReduceOptions)
+
+  /**
+   * Convert the return value from mapReduce into an OPA type.
+   * Probably not very useful since mapReduce only returns "ok", "result" (where
+   * the output was placed) and some statistics.
+   **/
+  mapReduceOpa(m, map, reduce,
+               query_opt, sort_opt, limit_opt, out_opt, keeptemp_opt,
+               finalize_opt, scope_opt, jsMode_opt, verbose_opt): Mongo.valresult(Mongo.mapReduceType) =
+    match mapReduce(m, map, reduce,
+                    query_opt, sort_opt, limit_opt, out_opt, keeptemp_opt,
+                    finalize_opt, scope_opt, jsMode_opt, verbose_opt) with
+    | {success=doc} ->
+       (match MongoCommon.result_to_opa({success=doc}) with
+        | {some=mRT} -> {success=mRT}
+        | {none} -> {failure={Error="Mongo.mapReduceOpa: invalid document ({Bson.to_pretty(doc)})"}})
+    | {~failure} -> {~failure}
+
+  /** Same as [mapReduceOpts] but returns OPA type. **/
+  mapReduceOptsOpa(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document, opts:Mongo.mapReduceOptions)
+                 : Mongo.valresult(Mongo.mapReduceType) =
+    mapReduceOpa(m, map, reduce,
+              opts.query, opts.sort, opts.limit,
+              {some=out}, opts.keeptemp, opts.finalize, opts.scope, opts.jsMode, opts.verbose)
+
+  /** Same as [mapReduceSimple] but returns OPA type. **/
+  mapReduceSimpleOpa(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document)
+                   : Mongo.valresult(Mongo.mapReduceType) =
+    mapReduceOptsOpa(m, map, reduce, out, mapReduceOptions)
 
   /**
    * Evaluate Javascript code.

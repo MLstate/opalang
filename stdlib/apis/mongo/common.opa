@@ -70,6 +70,12 @@ type Mongo.result = outcome(Mongo.success, Mongo.failure)
 type Mongo.results = outcome(Mongo.successes, Mongo.failure)
 
 /**
+ * Many Mongo driver functions return OPA types or failures.
+ **/
+type Mongo.valresult('a) = outcome('a,Mongo.failure)
+type Mongo.valresults('a) = outcome(list('a),Mongo.failure)
+
+/**
  * A Mongo error is either an error value which is an OPA
  * value containing the error information from a [Bson.document]
  * or a [Mongo.failure] value.
