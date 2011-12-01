@@ -433,16 +433,16 @@ Rule =
   (
      f(key, result, acc) =  [(parser {Rule.of_string(key)} -> result) | acc]
      of_parsers(StringMap.fold(f,map,[]))
-/*
-     test(key)(_,itextrator) =
-       do jlog("Attempting to get \"{key}\" in {List.to_string(StringMap.To.key_list(map))}")
-       match StringMap.get(key, map) with
-       | {none} -> {none}
-       | ~{some}-> {some = (itextrator, some)}
-     test_parser(key) : Parser.general_parser('a) = @wrap(test(key))
-     parser result=&(key=(.*) -> test_parser(Text.to_string(key))) -> result
-*/
   )
+
+  /**
+   * Transform an ['a] parser to an ['b] parser using the map function [f].
+   */
+  map(p:Parser.general_parser('a), f):Parser.general_parser('b) = i, b ->
+    match p(i, b) with
+    | {none} -> none
+    | {some = (i, r)} -> {some = (i, f(r))}
+
 }}
 
 /*
