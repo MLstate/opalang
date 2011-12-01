@@ -82,12 +82,12 @@ declaration <- (=deco(just_declaration)):p
 
 just_declaration <-
   / (_succeed {{ clear_hints () }}) _fail {{ assert false }}
-  / declaration_binding
-  / declaration_binding_rec
   / declaration_package
   / declaration_database
-  / declaration_css
   / declaration_type
+  / declaration_binding
+  / declaration_binding_rec
+  / declaration_css
   / declaration_do
   / (&. {{ print_hints () }}) _fail {{ assert false }}
 
