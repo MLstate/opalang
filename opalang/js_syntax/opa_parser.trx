@@ -922,9 +922,9 @@ lambda <- Opa_lexer.FUNCTION (=type_maybe(lambda_no_function:lambda {{lambda}}))
 /** List **/
 list <-
   / lbracket (=list0(Action.action,comma)):l pos:p comma? (Opa_lexer.BAR expr:e {{e}})?:tl rbracket
-  {{ undecorate (list_expr_of_expr_list ?tl l p) }}
+  {{ undecorate (list_expr_of_expr_list_no_coerce ?tl l p) }}
   / lbracket (=list0(expr,         comma)):l pos:p comma? (Opa_lexer.BAR expr:e {{e}})?:tl rbracket
-  {{ undecorate (list_expr_of_expr_list ?tl l p) }}
+  {{ undecorate (list_expr_of_expr_list_no_coerce ?tl l p) }}
 
 
 (* ******************************************************************)

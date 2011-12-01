@@ -905,8 +905,10 @@ let computed_string l = directive `string l
  * stuff on list put here because they need coerce_name_expr
  *)
 let list_nil label = coerce_name_expr (record [("nil",void label)]) Opacapi.Types.list
+let list_nil_no_coerce label = (record [("nil",void label)])
 let list_nil_pat label = coerce_name_pat (record_pat [("nil",void_pat label)]) Opacapi.Types.list
 let list_cons e1 e2 = coerce_name_expr (record [("hd",e1);("tl",e2)]) Opacapi.Types.list
+let list_cons_no_coerce e1 e2 =  (record [("hd",e1);("tl",e2)])
 let list_cons_pat e1 e2 = coerce_name_pat (record_pat [("hd",e1);("tl",e2)]) Opacapi.Types.list
 let list_pat_of_pat_list ?tl l label : string pat =
   let tl = match tl with None -> list_nil_pat label | Some tl -> tl in
@@ -914,6 +916,9 @@ let list_pat_of_pat_list ?tl l label : string pat =
 let list_expr_of_expr_list ?tl l label =
   let tl = match tl with None -> list_nil label | Some tl -> tl in
   List.fold_right list_cons l tl
+let list_expr_of_expr_list_no_coerce ?tl l label =
+  let tl = match tl with None -> list_nil_no_coerce label | Some tl -> tl in
+  List.fold_right list_cons_no_coerce l tl
 let list_expr_of_expr_list_unsafe l =
   assert (l <> []);
   let pos = union_annot_list l in list_expr_of_expr_list l pos
