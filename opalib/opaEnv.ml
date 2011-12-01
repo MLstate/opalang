@@ -233,7 +233,7 @@ struct
     (* n *)
 
     let no_assert = ref false
-    let no_server = ref None
+    let no_server = ref (Some false)
 
     let stdlib = ref true
     let show_compilation = ref false
