@@ -70,6 +70,49 @@ import stdlib.core.{security.ssl, parser, map, rpc.core, web.{core,context,resou
  * {1 Types defined in this module}
  */
 
+/**
+ * Configuration of the server.
+ */
+type Server.conf = {
+  port       : int;
+  netmask    : ip;
+  encryption : Server.encryption;
+  name       : string;
+}
+
+/**
+ * Different types of request handler.
+ */
+type Server.handler =
+
+  /** The most simple request handler. It replies to all incoming
+      request. With a title page [title] and given body by the [page]
+      function. Then add a set of [resources] typically with the
+      directive [@static_include_directory] and define default [css]
+      paths. */
+  / {title: string; page: -> xhtml; resources: stringmap(resource); css:list(string)}
+
+  /** The most configurable request handler. The [custom] parser takes
+      as input the non-decoded uri from incoming requests and should
+      compute corresponding resource. */
+  / {custom : Parser.general_parser(resource)}
+
+  /** Request handler on decoded incoming uri. This handler takes as
+      input the decoded uri from incoming requests which through the
+      [filter]. */
+  / {filter : Server.filter; dispatch : Uri.relative -> resource}
+
+  /** Request handler which performs on non-decoded uri. Returns
+      resource which uri matches into the [bundle] map. */
+  / {bundle : stringmap(resource)}
+
+  /** Request handler which aggregates several request handlers. On
+      incomming request all handlers (in the order of list) are tested
+      until one succeed and returns a resource. */
+  / {hd : Server.handler; tl : list(Server.handler)}
+
+  / {nil}
+
 
 /**
  * The encryption used for the connexion
@@ -86,6 +129,7 @@ type Server.encryption =
     password:    string/**A full-text password*/
  }
 / { secure_type: SSL.secure_type}
+
 
 /**
  * Specification of a service.
@@ -139,41 +183,109 @@ type service =
  */
 Server = {{
 
-/**
- * {2 Starting a server}
- */
+  /**
+   * Convert a Server.handler to an url parser
+   */
+  @private handler_to_parser(handler:Server.handler) =
+    simple_to_parser(handler) = (
+      match handler with
+      | ~{custom} -> custom
+      | ~{title page resources css} -> (
+        do List.iter(Resource.register_external_css, css)
+        parser
+        | "/" r={Rule.of_map(resources)} -> r
+        | .* -> Resource.page(title, page())
+      )
+      | ~{filter dispatch} -> (parser
+        | u0=UriParser.uri u1={
+            match u0 with
+            | ~{path=_ fragment=_ query=_ is_directory=_ is_from_root=_} as u0 ->
+              Rule.succeed_opt(@unsafe_cast(filter)(u0))
+            | _ -> Rule.fail
+          } -> dispatch(u1)
+      )
+      | ~{bundle} -> (parser
+        | "/" r={Rule.of_map(bundle)} -> r
+      )
+    )
+    rec flatten({hd=h0 tl=t0} : {hd : Server.handler; tl : list(Server.handler)}) = (
+      head = match h0 with
+        | {hd=_ tl=_} as e -> flatten(e)
+        | _ as e -> [e]
+      match t0 with
+      | ~{hd=_ tl=_} as e -> flatten(e)
+      | {nil} -> head
+    )
+    match handler with
+    | ~{hd; tl} -> (
+      all = List.map(handler_to_parser, hd+>tl)
+      Rule.of_parsers(all)
+    )
+    | {nil} -> Rule.fail
+    | {custom=_} as e
+    | {title=_; page=_; resources=_; css=_} as e
+    | {filter=_ dispatch=_} as e
+    | {bundle=_} as e -> simple_to_parser(e)
 
+
+  /**
+   * {2 Starting a server}
+   */
 
   /**
    * Start a server.
    *
-   * Use this to add web entry points to your application.
-   *
    * @param s A server
    */
-   start(s:service): void =
-     Server_private.add_service(s)
+  start(~{port netmask encryption name}:Server.conf, handler:Server.handler): void =
+    url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
+    service = ~{server_name=name port netmask encryption url_handler}
+    Server_private.add_service(service)
 
+  /**
+   * A shorthand for build a server handler.
+   */
+  simple =
+    default = {
+      title = "Opa application"
+      page = -> <h1>Opa default server</h1>
+      resources = StringMap.empty
+      css = [] : list(string)
+    }
+    | ~{page} -> @opensums({default with ~page}) : Server.handler
+    | ~{page title} -> @opensums({default with ~title ~page}) : Server.handler
 
-/**
- * {2 Constructing a server}
- */
+  /**
+   * {2 Server configuration}
+   */
 
-/**
- * An application displayed purely as one web page.
- *
- * This function is used primarily for quick-testing. Most applications require several pages,
- * images, etc. For this purpose, use rather [simple_server] or the more powerful [make].
- *
- * @param title The title of the page.
- * @param content A function producing the contents of the page.
- */
-one_page_server(title: string, content: -> xhtml): service =
-(
-   urls = parser x={Server_private.overridable_handlers} -> x/*avoid capturing favicon, etc.*/
-              | .* -> Resource.page(title, content())
-   simple_server(urls)
-)
+  /**
+   * Default [http] configuration with port equals to 8080 and the server name is "http".
+   */
+  http = { port = 8080; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
+
+  /**
+
+   * Default [http] configuration with port equals to 4343, the server
+   * name is "https". SSL certificate should be at ./service.crt and
+   * SSL key should be at ./service.key.
+   */
+  https = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "http"}
+
+  /**
+   * {2 Constructing a server}
+   */
+
+  /**
+   * An application displayed purely as one web page.
+   *
+   * This function is used primarily for quick-testing. Most applications require several pages,
+   * images, etc. For this purpose, use rather [simple_server] or the more powerful [make].
+   *
+   * @param title The title of the page.
+   * @param page A function producing the contents of the page.
+   */
+  one_page_server(title: string, page: -> xhtml): service = simple_server(handler_to_parser(Server.simple(~{title page})))
 
 
    /**
