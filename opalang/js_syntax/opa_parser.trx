@@ -1058,7 +1058,7 @@ declaration_directive0_keyword <-
 / declaration_directive0_slicing
 
 declaration_directive0_visibility <-
-  / "package" {{ `package }}
+  / "@package" {{ `package }}
   / "private" {{ `private_ }}
   / "public" {{ `public }}
 
