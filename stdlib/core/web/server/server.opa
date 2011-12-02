@@ -90,7 +90,7 @@ type Server.handler =
       function. Then add a set of [resources] typically with the
       directive [@static_include_directory] and define default [css]
       paths. */
-  / {title: string; page: -> xhtml; resources: stringmap(resource); css:list(string)}
+  / {title: string; page: -> xhtml}
 
   /** The most configurable request handler. The [custom] parser takes
       as input the non-decoded uri from incoming requests and should
@@ -107,14 +107,16 @@ type Server.handler =
 
   /** Request handler which performs on non-decoded uri. Returns
       resource which uri matches into the [bundle] map. */
-  / {bundle : stringmap(resource)}
+  / {resources : stringmap(resource)}
+
+  /** An empty request handler but useful for external resources
+      registering. */
+  / {register : list(string)}
 
   /** Request handler which aggregates several request handlers. On
       incomming request all handlers (in the order of list) are tested
       until one succeed and returns a resource. */
-  / {hd : Server.handler; tl : list(Server.handler)}
-
-  / {nil}
+  / list(Server.handler)
 
 
 /**
@@ -193,10 +195,8 @@ Server = {{
     rec simple_to_parser(handler) = (
       match handler with
       | ~{custom} -> custom
-      | ~{title page resources css} -> (
-        do List.iter(Resource.register_external_css, css)
+      | ~{title page} -> (
         parser
-        | "/" r={Rule.of_map(resources)} -> r
         | .* -> Resource.page(title, page())
       )
       | ~{dispatch} -> simple_to_parser({~dispatch filter=Filter.anywhere})
@@ -208,8 +208,8 @@ Server = {{
             | _ -> Rule.fail
           } -> dispatch(u1)
       )
-      | ~{bundle} -> (parser
-        | "/" r={Rule.of_map(bundle)} -> r
+      | ~{resources} -> (parser
+        | "/" r={Rule.of_map(resources)} -> r
       )
     )
     rec flatten({hd=h0 tl=t0} : {hd : Server.handler; tl : list(Server.handler)}) = (
@@ -226,11 +226,21 @@ Server = {{
       Rule.of_parsers(all)
     )
     | {nil} -> Rule.fail
+    | ~{register} ->
+      do List.iter(file ->
+        if String.has_suffix(".css", file) then
+          Resource.register_external_css(file)
+        else if String.has_suffix(".js", file) then
+          Resource.register_external_js(file)
+        else
+          Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
+      , register)
+      Rule.fail
     | {custom=_} as e
-    | {title=_; page=_; resources=_; css=_} as e
+    | {title=_; page=_} as e
     | {dispatch=_} as e
     | {filter=_ dispatch=_} as e
-    | {bundle=_} as e -> simple_to_parser(e)
+    | {resources=_} as e -> simple_to_parser(e)
 
 
   /**
@@ -246,19 +256,6 @@ Server = {{
     url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
     service = ~{server_name=name port netmask encryption url_handler}
     Server_private.add_service(service)
-
-  /**
-   * A shorthand for build a server handler.
-   */
-  simple =
-    default = {
-      title = "Opa application"
-      page = -> <h1>Opa default server</h1>
-      resources = StringMap.empty
-      css = [] : list(string)
-    }
-    | ~{page} -> @opensums({default with ~page}) : Server.handler
-    | ~{page title} -> @opensums({default with ~title ~page}) : Server.handler
 
   /**
    * {2 Server configuration}
@@ -290,7 +287,7 @@ Server = {{
    * @param title The title of the page.
    * @param page A function producing the contents of the page.
    */
-  one_page_server(title: string, page: -> xhtml): service = simple_server(handler_to_parser(Server.simple(~{title page})))
+  one_page_server(title: string, page: -> xhtml): service = simple_server(handler_to_parser(~{title page}))
 
 
    /**
