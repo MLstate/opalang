@@ -97,6 +97,9 @@ type Server.handler =
       compute corresponding resource. */
   / {custom : Parser.general_parser(resource)}
 
+  /** Request handler that gives a resource for a given uri */
+  / {dispatch : Uri.relative -> resource}
+
   /** Request handler on decoded incoming uri. This handler takes as
       input the decoded uri from incoming requests which through the
       [filter]. */
@@ -187,7 +190,7 @@ Server = {{
    * Convert a Server.handler to an url parser
    */
   @private handler_to_parser(handler:Server.handler) =
-    simple_to_parser(handler) = (
+    rec simple_to_parser(handler) = (
       match handler with
       | ~{custom} -> custom
       | ~{title page resources css} -> (
@@ -196,6 +199,7 @@ Server = {{
         | "/" r={Rule.of_map(resources)} -> r
         | .* -> Resource.page(title, page())
       )
+      | ~{dispatch} -> simple_to_parser({~dispatch filter=Filter.anywhere})
       | ~{filter dispatch} -> (parser
         | u0=UriParser.uri u1={
             match u0 with
@@ -224,6 +228,7 @@ Server = {{
     | {nil} -> Rule.fail
     | {custom=_} as e
     | {title=_; page=_; resources=_; css=_} as e
+    | {dispatch=_} as e
     | {filter=_ dispatch=_} as e
     | {bundle=_} as e -> simple_to_parser(e)
 
