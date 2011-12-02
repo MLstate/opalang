@@ -561,10 +561,10 @@ WebClient =
           length  = match options.content with
              | {none} -> 0
              | ~{some} -> String.length(some)
-          post_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
+          post_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}"
           headers = match options.custom_headers with
             | {none}  -> post_headers
-            | ~{some} -> "{post_headers}{some}"
+            | ~{some} -> "{post_headers}\r\n{some}"
           generic_options = {
             operation        = "POST"
             auth             = options.auth
@@ -719,10 +719,10 @@ WebClient =
           try_put_with_options_async(location, content, default_options, on_result)
       try_put_with_options_async(location:Uri.uri, content:string, options:WebClient.Put.options, on_result: WebClient.result(string) -> void): void =
           length  = String.length(content)
-          put_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
+          put_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}"
           headers = match options.custom_headers with
             | {none}  -> put_headers
-            | ~{some} -> "{put_headers}{some}"
+            | ~{some} -> "{put_headers}\r\n{some}"
           generic_options = {
             operation        = "PUT"
             auth             = options.auth
