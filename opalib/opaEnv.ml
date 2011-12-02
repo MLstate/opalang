@@ -233,7 +233,7 @@ struct
     (* n *)
 
     let no_assert = ref false
-    let no_server = ref (Some false)
+    let no_server = ref None
 
     let stdlib = ref true
     let show_compilation = ref false
@@ -774,7 +774,11 @@ where options are :
     (* n *)
 
     no_assert = !ArgParser.no_assert ;
-    no_server = !ArgParser.no_server ;
+    no_server =
+      (match !ArgParser.no_server with
+       | None when (!OpaSyntax.Args.r).OpaSyntax.Args.parser = OpaSyntax.Js -> Some false
+       | x -> x)
+    ;
 
     stdlib = !ArgParser.stdlib ;
     embedded_opa = !ArgParser.embedded_opa ;
