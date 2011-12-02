@@ -107,14 +107,35 @@ type GCharts.region =
 
 type GCharts.series_type = {line} / {bars} / {area}
 
-type GCharts.series_options =
+type GCharts.series_option =
     { series_type : GCharts.series_type }
   / { color : color }
-  / { right_axis : bool } // targetAxisIndex 
+  / { right_axis : bool } // targetAxisIndex = 1
+  / { target_axis_index : int }
   / { point_size : int }
   / { line_width : int }
   / { area_opacity : float } // in [0.0 : 1.0]
   / { visible_in_legend : bool }
+
+type GCharts.text_style = {
+  color : color
+  font_name : string
+  font_size : int
+}
+
+type GCharts.axis_option =
+    { baseline : int }
+  / { baseline_color : color }
+  / { reverse_direction : bool }
+  / { format : string }
+  / { gridline_color : color }
+  / { log_scale : bool }
+  / { text_style : GCharts.text_style }
+  / { text_position : {out}/{in}/{none} }
+  / { title : string }
+  / { title_text_style : GCharts.text_style }
+  / { max_value : int }
+  / { min_value : int }
 
 /**
  * Various options for charts
@@ -137,12 +158,17 @@ type GCharts.option =
   / { mid_color : color }
   / { max_color : color }
   / { header_height : int }
+  / { font_name : string }
+  / { font_size : int }
   / { font_color : color }
   / { show_scale : bool }
   / { curve_type : {none}/{function} }
 
+  / { h_axis : list(GCharts.axis_option) }
+  / { v_axis : list(GCharts.axis_option) }
+
   / { default_series_type : GCharts.series_type }
-  / { series : list((int, list(GCharts.series_options))) } // (Affected series, options)
+  / { series : list((int, list(GCharts.series_option))) } // (Affected series, options)
 
   / { legend : {left}/{right}/{top}/{bottom}/{in}/{none} }
   / { region : GCharts.region }
@@ -200,12 +226,38 @@ type GCharts.option =
     | {bars} -> {String="bars"}
     | {area} -> {String="area"}
 
-  aux_series_options(opt:GCharts.series_options):(string, json) =
+  aux_text_style(ts:GCharts.text_style):json =
+    {Record=[
+      ("color", aux_color(ts.color)),
+      ("fontName", {String=ts.font_name}),
+      ("fontSize", {Int=ts.font_size})]}
+
+  aux_axis_option(opt:GCharts.axis_option):(string, json) =
+    match opt with
+    | ~{baseline} -> ("baseline", {Int=baseline})
+    | ~{baseline_color} -> ("baselineColor", aux_color(baseline_color))
+    | ~{reverse_direction} -> ("direction", if reverse_direction then {Int=-1} else {Int=1})
+    | ~{format} -> ("format", {String=format})
+    | ~{gridline_color} -> ("gridlineColor", aux_color(gridline_color))
+    | ~{log_scale} -> ("logScale", {Bool=log_scale})
+    | ~{text_style} -> ("textStyle", aux_text_style(text_style))
+    | ~{text_position} ->
+      ("textPosition", match text_position with
+        | {out} -> {String="out"}
+        | {in} -> {String="in"}
+        | {none} -> {String="none"})
+    | ~{title} -> ("title", {String=title})
+    | ~{title_text_style} -> ("titleTextStyle", aux_text_style(title_text_style))
+    | ~{max_value} -> ("maxValue", {Int=max_value})
+    | ~{min_value} -> ("minValue", {Int=min_value})
+
+  aux_series_option(opt:GCharts.series_option):(string, json) =
     match opt with
     | ~{series_type} -> ("type", aux_series_type(series_type))
     | ~{color} -> ("color", aux_color(color))
     | ~{right_axis} -> ("targetAxisIndex",
                         (if right_axis then {Int=1} else {Int=0}))
+    | ~{target_axis_index} -> ("targetAxisIndex", {Int=target_axis_index})
     | ~{point_size} -> ("pointSize", {Int=point_size})
     | ~{line_width} -> ("lineSize", {Int=line_width})
     | ~{area_opacity} -> ("areaOpacity", {Float=area_opacity})
@@ -227,6 +279,8 @@ type GCharts.option =
       | ~{mid_color} -> ("midColor", aux_color(mid_color))
       | ~{max_color} -> ("maxColor", aux_color(max_color))
       | ~{header_height} -> ("headerHeight", {Int=header_height})
+      | ~{font_name} -> ("fontName", {String=font_name})
+      | ~{font_size} -> ("fontSize", {Int=font_size})
       | ~{font_color} -> ("fontColor", aux_color(font_color))
       | ~{show_scale} -> ("showScale", {Bool=show_scale})
       | ~{curve_type} ->
@@ -234,10 +288,13 @@ type GCharts.option =
           | {none} -> {String="none"}
           | {function} -> {String="function"})
 
+      | ~{h_axis} -> ("hAxis", {Record=List.map(aux_axis_option, h_axis)})
+      | ~{v_axis} -> ("vAxis", {Record=List.map(aux_axis_option, v_axis)})
+
       | ~{default_series_type} -> ("seriesType", aux_series_type(default_series_type))
       | ~{series} -> ("series", {Record=List.map(
           (num, opts) ->
-            opts = {Record=List.map(aux_series_options, opts)}
+            opts = {Record=List.map(aux_series_option, opts)}
             (Int.to_string(num), opts),
           series
         )})
