@@ -240,6 +240,7 @@ keyword <- (
   / "with"
   / "css"
   / "server" / "client" / "exposed" / "protected"
+  / "_"
 )
 
 (* Keywords : Bindings *)
