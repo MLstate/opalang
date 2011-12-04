@@ -20,11 +20,13 @@ let md5 = (fun x -> Digest.to_hex (Digest.string x))
 
 ##register base64_encode : string -> string
 let base64_encode str =
-  Cryptokit.transform_string (Cryptokit.Base64.encode_multiline ()) str
+  BaseString.base64encode str
+  (* Cryptokit.transform_string (Cryptokit.Base64.encode_compact ()) str *)
 
 ##register base64_decode : string -> string
 let base64_decode str =
-  Cryptokit.transform_string (Cryptokit.Base64.decode ()) str
+  BaseString.base64decode str
+  (* Cryptokit.transform_string (Cryptokit.Base64.decode ()) str *)
 
 ##register hmac_sha1 : string, string -> string
 let hmac_sha1 key text =
