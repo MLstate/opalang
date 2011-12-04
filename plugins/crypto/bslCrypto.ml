@@ -20,7 +20,7 @@ let md5 = (fun x -> Digest.to_hex (Digest.string x))
 
 ##register base64_encode : string -> string
 let base64_encode str =
-  Cryptokit.transform_string (Cryptokit.Base64.encode_compact ()) str
+  Cryptokit.transform_string (Cryptokit.Base64.encode_multiline ()) str
 
 ##register base64_decode : string -> string
 let base64_decode str =
