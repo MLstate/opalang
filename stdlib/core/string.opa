@@ -127,6 +127,12 @@ String =
   index = %% BslString.index %%
 
   /**
+   * [contains(string, substring)] checks if a string contains a substring
+   */
+  contains(string:string, substring:string) =
+    Option.is_some(index(substring, string))
+
+  /**
    * [init(f, n)] creates a string which consists of the flattening of
    * [f(0)],[f(1)], ..., [f(n-1)]
    * Efficiency note: as the length of [f(0)] ... [f(n-1)] are not known in
