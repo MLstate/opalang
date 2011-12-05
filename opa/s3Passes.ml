@@ -91,10 +91,11 @@ module Extract = struct
     let code env = env.P.qmlAst
     let annotmap env = env.P.typerEnv.QmlTypes.annotmap
     let gamma env = env.P.typerEnv.QmlTypes.gamma
+    let stdlib_gamma env = env.P.stdlib_gamma
 
     (** Return (annotmap, code).*)
     let ac env = (annotmap env, code env)
-    let agc env = (annotmap env, gamma env, code env)
+    let agc env = (annotmap env, (gamma env, stdlib_gamma env), code env)
     let bymap env =  env.P.bsl.BslLib.bymap
     let bypass_typer env s = BslLib.BSL.ByPassMap.bypass_typer (bymap env) s
 
@@ -109,14 +110,15 @@ module Extract = struct
     let code_server env = env.P.sliced_env.P.server.P.code
     let annotmap env = EnvGen.annotmap (get_env_gen env)
     let gamma env = EnvGen.gamma (get_env_gen env)
+    let stdlib_gamma env = EnvGen.stdlib_gamma (get_env_gen env)
 
     (** Return (annotmap, code) for client *)
     let a_client env = (annotmap env, code_client env)
-    let ag_client env = (annotmap env, gamma env, code_client env)
+    let ag_client env = (annotmap env, (gamma env, stdlib_gamma env), code_client env)
 
     (** Return (annotmap, server) for server *)
     let a_server env = (annotmap env, code_server env)
-    let ag_server env = (annotmap env, gamma env, code_server env)
+    let ag_server env = (annotmap env, (gamma env, stdlib_gamma env), code_server env)
     let bymap env =  EnvGen.bymap (get_env_gen env)
     let bypass_typer env = EnvGen.bypass_typer (get_env_gen env)
     let gamma env = EnvGen.gamma (get_env_gen env)
@@ -1682,11 +1684,13 @@ let pass_FunActionJsCallGeneration =
 
 let extract_client_agc (_, cenv) =
   (cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.annotmap,
-   cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   (cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   QmlTypes.Env.empty),
    cenv.P.newFinalCompile_qml_milkshake.QmlBlender.code)
 let extract_server_agc (senv, _) =
   (senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.annotmap,
-   senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   (senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   QmlTypes.Env.empty),
    senv.P.newFinalCompile_qml_milkshake.QmlBlender.code)
 let extract_client (_, cenv) = cenv.P.newFinalCompile_qml_milkshake.QmlBlender.code
 let extract_server (senv, _) = senv.P.newFinalCompile_qml_milkshake.QmlBlender.code
@@ -1745,7 +1749,11 @@ let pass_JavascriptCompilation =
      env.P.newFinalCompile_qml_milkshake.QmlBlender.code) in
   let make_extract_agc make env =
     let env = make env in
-    let gamma = env.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma in
+    let gamma = (
+      env.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+      QmlTypes.Env.empty
+    )
+    in
     let annotmap, code = make_extract_ac make env in
     annotmap, gamma, code in
   let pass pass_env =

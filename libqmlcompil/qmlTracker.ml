@@ -122,6 +122,7 @@ let annotation_id = define "annotation"
 let position_id = define "position"
 let tracked_id = define "tracked"
 let gamma_id = define "gamma"
+let stdlib_gamma_id = define "stdlib_gamma"
 
 let printers extract _ =
   let make_code fct fmt env =
@@ -131,8 +132,11 @@ let printers extract _ =
     let annotmap, _, code = extract env in
     fct fmt annotmap code in
   let make_gamma fct fmt env =
-    let _, gamma, _ = extract env in
+    let _, (gamma, _), _ = extract env in
     fct fmt gamma in
+  let make_stdlib_gamma fct fmt env =
+    let _, (_, stdlib_gamma), _ = extract env in
+    fct fmt stdlib_gamma in
   [
     code_id, make_code Printer.code ;
     light_ident_id, make_code Printer.light_ident ;
@@ -145,6 +149,7 @@ let printers extract _ =
     with_type_id, make_ac Printer.code_with_type;
     for_ei_id, make_ac Printer.code_for_ei;
     gamma_id, make_gamma Printer.gamma;
+    gamma_id, make_stdlib_gamma Printer.gamma;
     (* waiting for flexibility in passhander options *)
     (* tracked_id, make Printer.tracked ; *)
   ]

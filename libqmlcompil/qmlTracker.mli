@@ -50,7 +50,7 @@ val contains_tracker : QmlAst.expr -> bool
     in this list douzen of specific printers without risking that they will
     all be printed with a --print-all.
 *)
-val printers : ('env -> QmlAst.annotmap * QmlTypes.gamma * QmlAst.code) -> 'opt -> (PassHandler.printer_id * 'env PassHandler.printer) list
+val printers : ('env -> QmlAst.annotmap * (QmlTypes.gamma * QmlTypes.gamma) * QmlAst.code) -> 'opt -> (PassHandler.printer_id * 'env PassHandler.printer) list
 
 module Printer :
 sig
