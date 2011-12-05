@@ -189,7 +189,7 @@ struct
 
   let long b name l =
     estart b el_long name;
-    Stuff.add_le_int64 b.buf l
+    Stuff.add_le_int64L b.buf l
 
   let double b name d =
     estart b el_double name;
@@ -312,10 +312,10 @@ struct
 
   let date b name millis =
     estart b el_date name;
-    Stuff.add_le_int64 b.buf millis
+    Stuff.add_le_int64L b.buf millis
 
   let time_t b name t =
-    date b name (Time.in_milliseconds t)
+    date b name (Int64.of_int (Time.in_milliseconds t))
 
   let start_object b name =
     estart b el_object name;
@@ -358,7 +358,7 @@ sig
   val key : iter -> string
   val value : iter -> int
   val int_raw : iter -> int
-  val long_raw : iter -> int
+  val long_raw : iter -> int64
   val double_raw : iter -> float
   val bool_raw : iter -> bool
   val oid : iter -> string
@@ -367,13 +367,13 @@ sig
   val cstring : ?offset:int -> iter -> string
   val string_len : iter -> int
   val int : iter -> int
-  val long : iter -> int
+  val long : iter -> int64
   val double : iter -> float
   val timestamp : iter -> int * int
   val bool : iter -> bool
   val code : iter -> string
   val code_scope : iter -> buf
-  val date : iter -> int
+  val date : iter -> int64
   val time_t : iter -> Time.t
   val bin_type : iter -> char
   val bin_len : iter -> int
@@ -426,7 +426,7 @@ struct
     St.ldi32 i.ibuf (value i)
 
   let long_raw i =
-    St.ldi64 i.ibuf (value i)
+    St.ldi64L i.ibuf (value i)
 
   let double_raw i =
     St.ldd i.ibuf (value i)
@@ -460,16 +460,21 @@ struct
   let int i =
     match S.get i.ibuf (i.pos) with
     | c when c = el_int -> int_raw i
-    | c when c = el_long -> long_raw i
+    | c when c = el_long -> Int64.to_int (long_raw i)
     | c when c = el_double -> int_of_float (double_raw i)
     | _ -> 0
 
-  let long = int
+  let long i =
+    match S.get i.ibuf (i.pos) with
+    | c when c = el_int -> Int64.of_int(int_raw i)
+    | c when c = el_long -> long_raw i
+    | c when c = el_double -> Int64.of_float (double_raw i)
+    | _ -> 0L
 
   let double i =
     match S.get i.ibuf (i.pos) with
     | c when c = el_int -> float_of_int (int_raw i)
-    | c when c = el_long -> float_of_int (long_raw i)
+    | c when c = el_long -> Int64.to_float (long_raw i)
     | c when c = el_double -> double_raw i
     | _ -> 0.0
 
@@ -481,7 +486,7 @@ struct
     match S.get i.ibuf (i.pos) with
     | c when c = el_bool -> bool_raw i
     | c when c = el_int -> int_raw i <> 0
-    | c when c = el_long -> long_raw i <> 0
+    | c when c = el_long -> long_raw i <> 0L
     | c when c = el_double -> double_raw i <> 0.0
     | c when c = el_eoo || c = el_null -> false
     | _ -> true
@@ -512,7 +517,7 @@ struct
     long_raw i
 
   let time_t i =
-    Time.milliseconds (date i)
+    Time.milliseconds (Int64.to_int (date i))
 
   let bin_type i =
     S.get i.ibuf (value i + 4)
@@ -645,7 +650,7 @@ struct
          | c when c = el_symbol -> Printf.printf "SYMBOL: %s" (Iterator.string i)
          | c when c = el_oid -> Printf.printf "%s" (Oid.to_string (Iterator.oid i))
          | c when c = el_bool -> Printf.printf "%b" (Iterator.bool i)
-         | c when c = el_date -> Printf.printf "%d" (Iterator.date i)
+         | c when c = el_date -> Printf.printf "%Ld" (Iterator.date i)
          | c when c = el_bindata -> Printf.printf "el_bindata"
          | c when c = el_undefined -> Printf.printf "el_undefined"
          | c when c = el_null -> Printf.printf "el_null"
@@ -659,7 +664,7 @@ struct
              Printf.printf "\n\t SCOPE: ";
              print scope
          | c when c = el_int -> Printf.printf "%d" (Iterator.int i)
-         | c when c = el_long -> Printf.printf "%d" (Iterator.long i)
+         | c when c = el_long -> Printf.printf "%Ld" (Iterator.long i)
          | c when c = el_timestamp ->
              let (i,t) = Iterator.timestamp i in
              Printf.printf "i: %d, t: %d" i t
@@ -691,7 +696,7 @@ struct
                 | c when c = el_symbol -> Printf.sprintf "SYMBOL(%s)" (Iterator.string i)
                 | c when c = el_oid -> Printf.sprintf "ObjectId(\"%s\")" (Oid.to_string (Iterator.oid i))
                 | c when c = el_bool -> Printf.sprintf "%b" (Iterator.bool i)
-                | c when c = el_date -> Printf.sprintf "DATE(%d)" (Iterator.date i)
+                | c when c = el_date -> Printf.sprintf "DATE(%Ld)" (Iterator.date i)
                 | c when c = el_bindata -> Printf.sprintf "BINARY"
                 | c when c = el_undefined -> Printf.sprintf "UNDEFINED"
                 | c when c = el_null -> Printf.sprintf "null"
@@ -702,7 +707,7 @@ struct
                 | c when c = el_codewscope ->
                     Printf.sprintf "CODE_W_SCOPE({code=\"%s\", scope=%s})" (Iterator.code i) (to_pretty (Iterator.code_scope i))
                 | c when c = el_int -> Printf.sprintf "%d" (Iterator.int i)
-                | c when c = el_long -> Printf.sprintf "%d" (Iterator.long i)
+                | c when c = el_long -> Printf.sprintf "%Ld" (Iterator.long i)
                 | c when c = el_timestamp ->
                     let (i,t) = Iterator.timestamp i in
                     Printf.sprintf "{i: %d, t: %d}" i t

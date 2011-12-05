@@ -49,6 +49,7 @@ struct
     S.set s (pos+2) (Char.chr ((i lsr 8 ) land 0xff));
     S.set s (pos+3) (Char.chr ( i         land 0xff))
 
+(*
   let lei64 s pos i =
     S.set s (pos+7) (Char.chr ((i lsr 56) land 0xff));
     S.set s (pos+6) (Char.chr ((i lsr 48) land 0xff));
@@ -68,6 +69,7 @@ struct
     S.set s (pos+5) (Char.chr ((i lsr 16) land 0xff));
     S.set s (pos+6) (Char.chr ((i lsr 8 ) land 0xff));
     S.set s (pos+7) (Char.chr ( i         land 0xff))
+*)
 
   let led s pos f =
     let b = Int64.bits_of_float f in
@@ -135,6 +137,7 @@ struct
     (((Char.code (S.get (s) (i+2))) lsl  8) land 0x0000ff00) lor
     (((Char.code (S.get (s) (i+3)))       ) land 0x000000ff)
 
+(*
   let ldi64 s i =
     (((Char.code (S.get (s) (i+7))) lsl 56) land 0x7f00000000000000) lor
     (((Char.code (S.get (s) (i+6))) lsl 48) land 0x00ff000000000000) lor
@@ -155,6 +158,7 @@ struct
     (((Char.code (S.get (s) (i+5))) lsl 16) land 0x0000000000ff0000) lor
     (((Char.code (S.get (s) (i+6))) lsl  8) land 0x000000000000ff00) lor
     (((Char.code (S.get (s) (i+7)))       ) land 0x00000000000000ff)
+*)
 
   let ldi64L s i =
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+7)))) 56) 0xff00000000000000L)
@@ -193,6 +197,7 @@ let add_be_int32 b i =
   StuffString.bei32 b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 4
 
+(*
 let add_le_int64 b i =
   if Buf.spare b <= 8 then raise (Failure "add_le_int64");
   StuffString.lei64 b.Buf.str b.Buf.i i;
@@ -202,6 +207,7 @@ let add_be_int64 b i =
   if Buf.spare b <= 8 then raise (Failure "add_be_int64");
   StuffString.bei64 b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 8
+*)
 
 let add_le_d b i =
   if Buf.spare b <= 8 then raise (Failure "add_le_d");

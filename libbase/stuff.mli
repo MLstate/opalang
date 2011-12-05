@@ -28,8 +28,8 @@ module StuffF :
     sig
       val lei32 : S.t -> int -> int -> unit
       val bei32 : S.t -> int -> int -> unit
-      val lei64 : S.t -> int -> int -> unit
-      val bei64 : S.t -> int -> int -> unit
+      (*val lei64 : S.t -> int -> int -> unit
+      val bei64 : S.t -> int -> int -> unit*)
       val led : S.t -> int -> float -> unit
       val bed : S.t -> int -> float -> unit
       val lei32l : S.t -> int -> int32 -> unit
@@ -38,8 +38,8 @@ module StuffF :
       val bei64L : S.t -> int -> int64 -> unit
       val ldi32 : S.t -> int -> int
       val bdi32 : S.t -> int -> int
-      val ldi64 : S.t -> int -> int
-      val bdi64 : S.t -> int -> int
+      (*val ldi64 : S.t -> int -> int
+      val bdi64 : S.t -> int -> int*)
       val ldi64L : S.t -> int -> int64
       val bdi64L : S.t -> int -> int64
       val ldd : S.t -> int -> float
@@ -50,8 +50,8 @@ module StuffString :
   sig
     val lei32 : string -> int -> int -> unit
     val bei32 : string -> int -> int -> unit
-    val lei64 : string -> int -> int -> unit
-    val bei64 : string -> int -> int -> unit
+    (*val lei64 : string -> int -> int -> unit
+    val bei64 : string -> int -> int -> unit*)
     val led : string -> int -> float -> unit
     val bed : string -> int -> float -> unit
     val lei32l : string -> int -> int32 -> unit
@@ -60,8 +60,8 @@ module StuffString :
     val bei64L : string -> int -> int64 -> unit
     val ldi32 : string -> int -> int
     val bdi32 : string -> int -> int
-    val ldi64 : string -> int -> int
-    val bdi64 : string -> int -> int
+    (*val ldi64 : string -> int -> int
+    val bdi64 : string -> int -> int*)
     val ldi64L : string -> int -> int64
     val bdi64L : string -> int -> int64
     val ldd : string -> int -> float
@@ -70,8 +70,8 @@ module StuffString :
 
 val add_le_int32 : Buf.buf -> int -> unit
 val add_be_int32 : Buf.buf -> int -> unit
-val add_le_int64 : Buf.buf -> int -> unit
-val add_be_int64 : Buf.buf -> int -> unit
+(*val add_le_int64 : Buf.buf -> int -> unit
+val add_be_int64 : Buf.buf -> int -> unit*)
 val add_le_d : Buf.buf -> float -> unit
 val add_be_d : Buf.buf -> float -> unit
 val add_le_int32l : Buf.buf -> int32 -> unit

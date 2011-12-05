@@ -145,7 +145,7 @@ module Append :
     val size : buf -> int
     val estart : buf -> char -> S.t -> unit
     val int : buf -> S.t -> int -> unit
-    val long : buf -> S.t -> int -> unit
+    val long : buf -> S.t -> int64 -> unit
     val double : buf -> S.t -> float -> unit
     val bool : buf -> S.t -> bool -> unit
     val null : buf -> S.t -> unit
@@ -169,7 +169,7 @@ module Append :
     val regex : buf -> S.t -> S.t -> S.t -> unit
     val bson : buf -> S.t -> buf -> unit
     val timestamp : buf -> S.t -> int * int -> unit
-    val date : buf -> S.t -> int -> unit
+    val date : buf -> S.t -> int64 -> unit
     val time_t : buf -> S.t -> Time.t -> unit
     val start_object : buf -> S.t -> unit
     val start_array : buf -> S.t -> unit
@@ -189,7 +189,7 @@ module type Iterator_sig =
     val key : iter -> string
     val value : iter -> int
     val int_raw : iter -> int
-    val long_raw : iter -> int
+    val long_raw : iter -> int64
     val double_raw : iter -> float
     val bool_raw : iter -> bool
     val oid : iter -> string
@@ -198,13 +198,13 @@ module type Iterator_sig =
     val cstring : ?offset:int -> iter -> string
     val string_len : iter -> int
     val int : iter -> int
-    val long : iter -> int
+    val long : iter -> int64
     val double : iter -> float
     val timestamp : iter -> int * int
     val bool : iter -> bool
     val code : iter -> string
     val code_scope : iter -> buf
-    val date : iter -> int
+    val date : iter -> int64
     val time_t : iter -> Time.t
     val bin_type : iter -> char
     val bin_len : iter -> int

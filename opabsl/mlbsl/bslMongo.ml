@@ -98,7 +98,7 @@ let serialize bsons b =
                    Bson.Append.binary b name Bson.st_bin_binary bin (String.length bin)
                | Some "ObjectID" -> Bson.Append.oid b name (ServerLib.unwrap_string value)
                | Some "Boolean" -> Bson.Append.bool b name (ServerLib.unwrap_bool value)
-               | Some "Date" ->Bson.Append.date b name (ServerLib.unwrap_int value)
+               | Some "Date" -> Bson.Append.date b name (Int64.of_int (ServerLib.unwrap_int value))
                | Some "Null" -> Bson.Append.null b name
                | Some "Min" -> Bson.Append.minkey b name
                | Some "Max" -> Bson.Append.maxkey b name
@@ -119,7 +119,7 @@ let serialize bsons b =
                    (match BslNativeLib.ocaml_tuple_2 value with
                     | (i, t) ->
                         Bson.Append.timestamp b name ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t)))
-               | Some "Int64" -> Bson.Append.long b name (ServerLib.unwrap_int value)
+               | Some "Int64" -> Bson.Append.long b name (Int64.of_int (ServerLib.unwrap_int value))
                | Some str ->
                    Printf.eprintf "Unknown code: %s\n%!" str;
                    assert false
@@ -195,7 +195,7 @@ let deserialize s =
     (function
      | c when c = Bson.el_eoo -> shared_nil
      | c when c = Bson.el_int -> let e = make_int32 (Bson.IteratorSS.key i) (Bson.IteratorSS.int i) in auxn e i
-     | c when c = Bson.el_long -> let e = make_int64 (Bson.IteratorSS.key i) (Bson.IteratorSS.long i) in auxn e i
+     | c when c = Bson.el_long -> let e = make_int64 (Bson.IteratorSS.key i) (Int64.to_int (Bson.IteratorSS.long i)) in auxn e i
      | c when c = Bson.el_double -> let e = make_double (Bson.IteratorSS.key i) (Bson.IteratorSS.double i) in auxn e i
      | c when c = Bson.el_bool -> let e = make_bool (Bson.IteratorSS.key i) (Bson.IteratorSS.bool i) in auxn e i
      | c when c = Bson.el_string -> let e = make_string (Bson.IteratorSS.key i) (Bson.IteratorSS.string i) in auxn e i
@@ -211,7 +211,7 @@ let deserialize s =
          let e = make_array key bsons in auxn e i
      | c when c = Bson.el_bindata -> let e = make_binary (Bson.IteratorSS.key i) (Bson.IteratorSS.bin_data i) in auxn e i
      | c when c = Bson.el_oid -> let e = make_objectid (Bson.IteratorSS.key i) (Bson.IteratorSS.oid i) in auxn e i
-     | c when c = Bson.el_date -> let e = make_date (Bson.IteratorSS.key i) (Bson.IteratorSS.date i) in auxn e i
+     | c when c = Bson.el_date -> let e = make_date (Bson.IteratorSS.key i) (Int64.to_int (Bson.IteratorSS.date i)) in auxn e i
      | c when c = Bson.el_null -> let e = make_null (Bson.IteratorSS.key i) ServerLib.void in auxn e i
      | c when c = Bson.el_minkey -> let e = make_minkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i
      | c when c = Bson.el_maxkey -> let e = make_maxkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i
