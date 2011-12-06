@@ -118,9 +118,9 @@ type GCharts.series_option =
   / { visible_in_legend : bool }
 
 type GCharts.text_style = {
-  color : color
-  font_name : string
-  font_size : int
+  color : option(color)
+  font_name : option(string)
+  font_size : option(int)
 }
 
 type GCharts.axis_option =
@@ -166,6 +166,7 @@ type GCharts.option =
 
   / { h_axis : list(GCharts.axis_option) }
   / { v_axis : list(GCharts.axis_option) }
+  / { v_axes : list((int, list(GCharts.axis_option))) }
 
   / { default_series_type : GCharts.series_type }
   / { series : list((int, list(GCharts.series_option))) } // (Affected series, options)
@@ -228,9 +229,12 @@ type GCharts.option =
 
   aux_text_style(ts:GCharts.text_style):json =
     {Record=[
-      ("color", aux_color(ts.color)),
-      ("fontName", {String=ts.font_name}),
-      ("fontSize", {Int=ts.font_size})]}
+      ("color", aux_color((ts.color?Color.black))),
+      ("fontName", {String=(ts.font_name?"<global-font-name>")}),
+      ("fontSize",
+       match ts.font_size with
+       | {some=s} -> {Int=s}
+       | {none} -> {String="<global-font-size>"})]}
 
   aux_axis_option(opt:GCharts.axis_option):(string, json) =
     match opt with
@@ -290,6 +294,13 @@ type GCharts.option =
 
       | ~{h_axis} -> ("hAxis", {Record=List.map(aux_axis_option, h_axis)})
       | ~{v_axis} -> ("vAxis", {Record=List.map(aux_axis_option, v_axis)})
+
+      | ~{v_axes} -> ("vAxes", {Record=List.map(
+          (num, opts) ->
+            opts = {Record=List.map(aux_axis_option, opts)}
+            (Int.to_string(num), opts),
+          v_axes
+        )})
 
       | ~{default_series_type} -> ("seriesType", aux_series_type(default_series_type))
       | ~{series} -> ("series", {Record=List.map(
