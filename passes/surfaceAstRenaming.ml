@@ -375,6 +375,14 @@ and tree_option_of_expr name e =
 (*----------------------------------*)
 (*---- error/warning management ----*)
 (*----------------------------------*)
+let typ_merge_error i j =
+  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
+  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define type @{<bright>%s@}" p1 p2 (Ident.original_name i)
+
+let val_merge_error i j =
+  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
+  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define value @{<bright>%s@}" p1 p2 (Ident.original_name i)
+
 (* Gives you an advice when you have an unbound variable *)
 let filter_closest name li =
   let dist = (float_of_int (String.length name)) *. 2. /. 3. in
@@ -1658,13 +1666,13 @@ let f_code_elt envs (code_elt_node,label) : _ * (_, _) code_elt list =
 (*----------------------------*)
 (*---- Interface to stdlib ---*)
 (*----------------------------*)
-let stringmap_safe_merge acc names =
+let stringmap_safe_merge ?(error=fun _ _ -> raise Exit) acc names =
   (* should be really a safe_merge, not a merge that checks that the values
    * are the same when the keys are the same but the renaming is called once for
    * user code and once for stdlib code in s2 so that doesn't work *)
   try StringMap.merge
     (fun i j ->
-       if not (Ident.equal i j) then raise Exit;
+       if not (Ident.equal i j) then error i j;
        i) acc names
   with Exit ->
     let intersection = StringMap.filter_keys (fun k -> StringMap.mem k acc) names in
@@ -1688,7 +1696,8 @@ let merge_maptoident_val infos acc toplevel_names =
             * (everything should be defined as an alias with @opacapi
             * so no open *)
        | _  -> None) toplevel_names in
-  stringmap_safe_merge acc names
+
+  stringmap_safe_merge ~error:val_merge_error acc names
 let merge_maptoident_typ infos acc toplevel_types =
   let types =
     stringmap_filter_map
@@ -1696,7 +1705,7 @@ let merge_maptoident_typ infos acc toplevel_types =
        | [(i,_)] when is_exported i infos -> Some i
        | [_] -> None
        | _ -> assert false) toplevel_types in
-  stringmap_safe_merge acc (stringmap_safe_merge (get_tuple_string_map ()) types)
+  stringmap_safe_merge ~error:typ_merge_error acc (stringmap_safe_merge (get_tuple_string_map ()) types)
 
 (*------------------------------*)
 (*------- main function --------*)
@@ -1816,9 +1825,10 @@ let load_env env =
   let all_envs = ObjectExpr.fold load_expr_env all_envs in
   let all_envs = ObjectType.fold load_type_env all_envs in
   let maptoident_val, maptoident_typ =
-    ObjectOpaMapToIdent.fold ~packages:options_packages ~deep:true
-      (fun (val1,typ1) (val2,typ2) ->
-         (stringmap_safe_merge val1 val2, stringmap_safe_merge typ1 typ2))
+    ObjectOpaMapToIdent.fold_with_name ~packages:options_packages ~deep:false
+      (fun packname (val1,typ1) (val2,typ2) ->
+         (stringmap_safe_merge ~error:val_merge_error val1 val2,
+          stringmap_safe_merge ~error:typ_merge_error typ1 typ2))
       (StringMap.empty, StringMap.empty) in
   {all_envs; maptoident_val; maptoident_typ}
 
