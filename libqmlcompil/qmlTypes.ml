@@ -71,8 +71,6 @@ type gamma = {
   ident : typescheme IdentMap.t ;
   type_ident :
     (typescheme * abbrev_height * QmlAst.type_def_visibility) TypeIdentMap.t ;
-  field_map : ImplFieldMap.t ;
-  field_map_quick : ImplFieldMapQuick.t ;
 }
 
 
@@ -104,8 +102,6 @@ end
 let gamma_empty = {
   ident = IdentMap.empty ;
   type_ident = TypeIdentMap.empty ;
-  field_map = ImplFieldMap.empty ;
-  field_map_quick = ImplFieldMapQuick.empty ;
 }
 
 let rec ty_ty ~with_forall ~free = function
@@ -623,28 +619,9 @@ struct
       in handle_ty [] t
 
     let add id (s, abbrev_height, visibility) g =
-      let field_map =
-        (* Update field map : only in the case of type sum and type record.
-           Abstract type are obviously skipped. *)
-        let fields =
-          let (_, ty) = Scheme.export s in
-          records_field_names ty in
-        List.fold_left
-          (fun map f -> ImplFieldMap.add f id map) g.field_map fields in
-      let field_map_quick =
-        (* Update field map : only in the case of type sum and type record. *)
-        let fields =
-          let (_, ty) = Scheme.export s in
-          records_field_names_quick ty in
-        let fields = List.map StringSet.from_list fields in
-        List.fold_left
-          (fun map f -> ImplFieldMapQuick.add f id map)
-          g.field_map_quick fields in
       let type_ident =
         TypeIdentMap.add id (s, abbrev_height, visibility) g.type_ident in
-      { g with
-        type_ident = type_ident ; field_map = field_map ;
-        field_map_quick = field_map_quick }
+      { g with type_ident = type_ident ; }
 
     let mem id g = TypeIdentMap.mem id g.type_ident
 
@@ -666,17 +643,9 @@ struct
       iter
         (fun typeident (tsc, _, _) ->
            Format.fprintf f "@[<2>%s -> %a@]@\n"
-             (TypeIdent.to_string typeident) QmlPrint.pp#tsc tsc)
+             (TypeIdent.to_debug_string typeident) QmlPrint.pp#tsc tsc)
         gamma
   end
-
-  module FieldMap =
-  struct
-    let find s g =
-      let s = ImplFieldMap.find s g.field_map in
-      ImplFieldMap.S.elements s
-  end
-
 
 
   let pp f gamma =
@@ -684,12 +653,10 @@ struct
 
   (* Appends the definition in g2 to those of g1 *)
   let append g1 g2 =
-    let ident = IdentMap.merge (fun _ x -> x) g1.ident g2.ident
-    and type_ident = TypeIdentMap.merge (fun _ x -> x) g1.type_ident g2.type_ident
-    and field_map = ImplFieldMap.M.merge ImplFieldMap.S.union g1.field_map g2.field_map
-    and field_map_quick = ImplFieldMapQuick.M.merge ImplFieldMapQuick.S.union g1.field_map_quick g2.field_map_quick in
-    { ident = ident ; type_ident = type_ident ; field_map = field_map ;
-      field_map_quick = field_map_quick }
+    let ident = IdentMap.merge (fun _ x -> x) g1.ident g2.ident in
+    let type_ident = TypeIdentMap.merge (fun _ x -> x) g1.type_ident g2.type_ident in
+    { ident = ident ; type_ident = type_ident ;}
+
 
 end
 

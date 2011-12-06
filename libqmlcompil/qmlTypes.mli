@@ -328,13 +328,6 @@ sig
     val pp : Format.formatter -> gamma -> unit
   end
 
-  (** a map of field which update with every TypeIdent.add in gamma
-      Given a field, return the TypeIdentSet of every type containing such a field *)
-  module FieldMap :
-  sig
-    val find : string -> gamma -> QmlAst.typeident list
-  end
-
   val pp : Format.formatter -> gamma -> unit
 
   (** Appends the definition in g2 to those of g1 *)
