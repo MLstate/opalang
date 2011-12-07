@@ -1195,19 +1195,19 @@ Xhtml =
   /**
    * Add an attribute to an xhtml node if not already defined
    */
-  add_attribute(name: string, value: string, x:xhtml):xhtml =
+  add_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     gen_add_attribute(name, value, x, false)
 
   /**
    * Update (by appending) an attribute to an xhtml node, add it if not already present
    */
-  update_attribute(name: string, value: string, x:xhtml):xhtml =
+  update_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     gen_add_attribute(name, value, x, true)
 
   /**
    * Set an attribute to an xhtml node. Replace if already_exists
    */
-  set_attribute(name: string, value: string, x:xhtml):xhtml =
+  set_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     // aux(id, x) with
     rec aux(x)=
     match x : xhtml
