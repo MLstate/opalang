@@ -90,13 +90,13 @@ WBootstrap = {{
    * Add a title attribute to an xhtml chunk.
    * No verification on wether the xhtml supports title attribute
    */
-  add_title(t:string, x:xhtml) = Xhtml.add_attribute("title", t, x)
+  add_title(t:string, x:xhtml) = Xhtml.add_attribute_unsafe("title", t, x)
 
   /**
    * Add/Update ths class attribute of an xhtml chunk, by appending a certain class.
    * No verification on wether the xhtml supports class attribute
    */
-  update_class(c:string, x:xhtml) = Xhtml.update_attribute("class", c, x)
+  update_class(c:string, x:xhtml) = Xhtml.update_attribute_unsafe("class", c, x)
 
   /**
    * Add a pull-right class to an xhtml chunk
@@ -108,7 +108,7 @@ WBootstrap = {{
    */
   @private add_href_opt(href:option(string), x:xhtml) =
     match href
-    {some=h} -> Xhtml.add_attribute("href", h, x)
+    {some=h} -> Xhtml.add_attribute_unsafe("href", h, x)
     {none} -> x
 
   Grid = {{
@@ -423,7 +423,7 @@ WBootstrap = {{
            {true} ->
              match bt_type
              {link=_ ...} -> bt |> disabled(_)
-             _ -> bt |> disabled(_) |> Xhtml.update_attribute("disabled", "disabled", _)
+             _ -> bt |> disabled(_) |> Xhtml.update_attribute_unsafe("disabled", "disabled", _)
              end
 
       bt
@@ -486,8 +486,8 @@ WBootstrap = {{
       }</ul> |> update_class(cl, _)
 
     nav(l) = make_tabs("nav", l)
-    tabs(l) = make_tabs("tabs", l) |> Xhtml.add_attribute("data-tabs", "tabs", _)
-    pills(l) = make_tabs("pills", l) |> Xhtml.add_attribute("data-pills", "pills", _)
+    tabs(l) = make_tabs("tabs", l) |> Xhtml.add_attribute_unsafe("data-tabs", "tabs", _)
+    pills(l) = make_tabs("pills", l) |> Xhtml.add_attribute_unsafe("data-pills", "pills", _)
 
     /**
      * Create a breadcrumb
