@@ -175,11 +175,11 @@ sources () {
         openssl) echo "http://www.openssl.org/source/openssl-1.0.0a.tar.gz";;
         ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-3.12/ocaml-3.12.0.tar.gz" ;;
         # Sources obtained thanks to "apt-get --print-uris source <package>"
-        findlib) echo "http://ftp.fr.debian.org/debian/pool/main/f/findlib/findlib_1.2.5+debian.orig.tar.gz";;
-        ocaml-ssl) echo "http://ftp.fr.debian.org/debian/pool/main/o/ocaml-ssl/ocaml-ssl_0.4.5.orig.tar.gz";;
-        cryptokit) echo "http://ftp.fr.debian.org/debian/pool/main/c/cryptokit/cryptokit_1.3.orig.tar.gz";;
-        ocamlgraph) echo "http://ftp.fr.debian.org/debian/pool/main/o/ocamlgraph/ocamlgraph_1.5.orig.tar.gz";;
-        camlzip) echo "http://ftp.fr.debian.org/debian/pool/main/c/camlzip/camlzip_1.04.orig.tar.gz";;
+        findlib) echo "http://download.camlcity.org/download/findlib-1.2.5.tar.gz";;
+        ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.5/ocaml-ssl-0.4.5.tar.gz";;
+        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/326/cryptokit-1.3.tar.gz";;
+        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.5.tar.gz";;
+        camlzip) echo "http://forge.ocamlcore.org/frs/download.php/328/camlzip-1.04.tar.gz";;
         camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
         ulex) echo "http://www.cduce.org/download/ulex-1.1.tar.gz";;
         syslog) echo "http://homepage.mac.com/letaris/syslog-1.4.tar.gz";;
