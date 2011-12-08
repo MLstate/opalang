@@ -612,6 +612,8 @@ import stdlib.web.client
       | "base" -> parse_with(base_attrs, (base_attribute -> { base; ~base_attribute }))
       | "header" -> standard_tag({header})
       | "footer" -> standard_tag({footer})
+      | "em" -> standard_tag({em})
+      | "strong" -> standard_tag({strong})
       | tag -> { failure = {unsupported_tag; ~tag; ns="" } }
       end
     | { ~failure } -> { ~failure }
@@ -663,6 +665,8 @@ import stdlib.web.client
     | {tfoot} -> <tfoot>{children}</>
     | {header} -> <header>{children}</>
     | {footer} -> <footer>{children}</>
+    | {em} -> <em>{children}</>
+    | {strong} -> <strong>{children}</>
 
   @private standard_tag_to_string(tag : Template.standard_tag) =
     match tag with
@@ -701,6 +705,8 @@ import stdlib.web.client
     | {tfoot} -> "tfoot"
     | {header} -> "header"
     | {footer} -> "footer"
+    | {em} -> "em"
+    | {strong} -> "strong"
 
   /**
   * The default engine : It can process default tags like div or span.

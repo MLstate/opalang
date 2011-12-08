@@ -270,11 +270,21 @@ type Template.anchor_attribute = {
   ; standard_attribute : Template.standard_attribute
 }
 
+/* missing tags from http://www.w3schools.com/tags/default.asp
+   Tags that we certainly do not want to support in templates:
+     <applet>, <frame>, <frameset>, <iframe>, <noframes>, <noscript>,
+     <object>, <script>
+   Tags that we may want to include at some point:
+     <area>, <b>, <bdo>, <big>, <button>, <cite>, <code>, <col />,
+     <colgroup>, <dfn>, <i>, <kbd>, <map>, <param>, <samp>, <small>
+     <style>, <tt>, <var>
+ */
+
 type Template.standard_tag =
   {div} / {address} / {acronym} / {fieldset} / {legend} / {pre} / {sub} / {sup} /
   {abbr} / {ins} / {del} / {dd} / {dt} / {dl} / {h1} / {h2} / {h3} / {h4} / {h5} /
   {h6} / {open} / {span} / {menu} / {ul} / {ol} / {li} / {paragraph} / {caption} /
-  {table} / {thead} / {tbody} / {tr} / {tfoot} / {header} / {footer}
+  {table} / {thead} / {tbody} / {tr} / {tfoot} / {header} / {footer} / {em} / {strong}
 
 /**
  * An AST which represents a typed tree of
