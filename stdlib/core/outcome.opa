@@ -66,7 +66,7 @@ Outcome =
    */
   get_msg = (fun_msg, s -> match s : outcome with
     | { ~success } -> success
-    | { failure = _ } -> error(fun_msg())
+    | { failure = e } -> error("{fun_msg()}\nReason: {e}")
   ) : (-> string), outcome('a, 'b) -> 'a
 
   /**
