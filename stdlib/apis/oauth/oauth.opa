@@ -112,8 +112,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     do API_libs_private.apijlog("Base string: {base_string}")
     key = "{p.consumer_secret}&{secret}"
     res = Crypto.Base64.encode(Crypto.Hash.hmac_sha1(key, base_string))
-    res = API_libs_private.url_encoder("{res}=")
-       |> String.replace("+", "%2B", _);
+    res = API_libs_private.url_encoder(res)
     do API_libs_private.apijlog("Signature: {res}")
     res
 
