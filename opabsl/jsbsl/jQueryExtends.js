@@ -496,14 +496,15 @@ function opa_event_to_dom_event(event, name)
         }
     }
 
-
     //4. Handle value change
-    var value_change = record2obj(record.value_change);
-    if(value_change.none != null)
+    var value_change = record.value_change;
+    if(value_change != null)
     {
-        var change = record2obj(value_change.some);
-        result.prevVal = change.from;
-        result.newVal  = change.to;
+        var change = option2js(value_change);
+        if (change != null) {
+            result.prevVal = change.from;
+            result.newVal  = change.to;
+        }
     }
 
     return result;
