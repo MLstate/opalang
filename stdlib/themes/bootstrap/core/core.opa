@@ -272,7 +272,7 @@ icon16 = css
 .active .icon.icon-briefcase, .icon.icon-briefcase, .icon.icon-briefcase:hover { background-position: -240px -112px; }
 
 /* circle symbols */
-.active .icon.icon-close, .icon.icon-close, .icon.icon-close:hover { background-position: 0 -128px; }
+.active .icon.icon-cross, .icon.icon-cross, .icon.icon-cross:hover { background-position: 0 -128px; }
 .active .icon.icon-add, .icon.icon-add, .icon.icon-add:hover { background-position: -16px -128px; }
 .active .icon.icon-remove, .icon.icon-remove, .icon.icon-remove:hover { background-position: -32px -128px; }
 .active .icon.icon-info, .icon.icon-info, .icon.icon-info:hover { background-position: -48px -128px; }
@@ -509,7 +509,7 @@ icon32 = css
 .active .icon32.icon-briefcase, .icon32.icon-briefcase, .icon32.icon-briefcase:hover { background-position: -480px -224px; }
 
 /* circle symbols */
-.active .icon32.icon-close, .icon32.icon-close, .icon32.icon-close:hover { background-position: 0 -256px; }
+.active .icon32.icon-cross, .icon32.icon-cross, .icon32.icon-cross:hover { background-position: 0 -256px; }
 .active .icon32.icon-add, .icon32.icon-add, .icon32.icon-add:hover { background-position: -32px -256px; }
 .active .icon32.icon-remove, .icon32.icon-remove, .icon32.icon-remove:hover { background-position: -64px -256px; }
 .active .icon32.icon-info, .icon32.icon-info, .icon32.icon-info:hover { background-position: -96px -256px; }
