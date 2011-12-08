@@ -183,13 +183,19 @@ $.fn.extend({
      *
      * @param {string} name The name of the event (e.g. "click")
      * @param {function(Object)} fn The event handler
+     * @param {function(Object)} prop_fun The event propagation handler
      * @return {string} An abstract value which can be passed to [opaunbind] for unbinding at a later stage.
      */
-    opabind:function(name, fn, stop_propagation, prevent_default)
+    opabind:function(name, fn, prop_fn, stop_propagation, prevent_default)
     {
         var ns = name + "." + Math.random()
         function f(e)
         {
+            var prop =  prop_fn(dom_event_to_opa_event(e))
+            if (prop != null) {
+                if (prop.stop_propagation) e.stopPropagation()
+                if (prop.prevent_default) e.preventDefault()
+            }
             return fn(dom_event_to_opa_event(e))
         }
         var g = stop_propagation?function(event) { event.stopPropagation(); f(event)}:f;

@@ -995,10 +995,10 @@ Dom = {{
         llbind(of_selection(dom), Event.get_name(event), handler)
   )
 
-  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), propagation_handler:(Dom.event -> Dom.propagation), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
   (
         //warning: names "stop_propagation" and "prevent_default" are hardcoded in JS
-        llbind_with_options(of_selection(dom), Event.get_name(event), handler, options)
+        llbind_with_options(of_selection(dom), Event.get_name(event), handler, propagation_handler, options)
   )
 
   unbind(dom:dom, handler: Dom.event_handler): void =
@@ -1703,11 +1703,11 @@ Dom = {{
         %% BslDom.bind %%(dom, event, handler)
   )
 
-  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), propagation_handler:(Dom.event -> Dom.propagation), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
   (
         stop_propagation = List.mem({stop_propagation}, options)
         prevent_default = List.mem({prevent_default}, options)
-        %% BslDom.bind_with_options %%(dom, event, handler, stop_propagation, prevent_default)
+        %% BslDom.bind_with_options %%(dom, event, handler, propagation_handler, stop_propagation, prevent_default)
   )
 
 

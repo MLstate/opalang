@@ -22,6 +22,7 @@
 ##extern-type dom_element
 ##extern-type Client.location
 ##extern-type Dom.event
+##extern-type Dom.propagation
 ##extern-type dom
 ##extern-type Xhtml.private_dom_element_list
    //equal to [private(list(dom_element))]
