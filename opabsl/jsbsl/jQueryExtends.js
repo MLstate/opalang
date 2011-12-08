@@ -191,10 +191,12 @@ $.fn.extend({
         var ns = name + "." + Math.random()
         function f(e)
         {
-            var prop =  prop_fn(dom_event_to_opa_event(e))
-            if (prop != null) {
-                if (prop.stop_propagation) e.stopPropagation()
-                if (prop.prevent_default) e.preventDefault()
+            if (prop_fn != null) {
+                var prop =  prop_fn(dom_event_to_opa_event(e))
+                if (prop != null) {
+                    if (prop.stop_propagation) e.stopPropagation()
+                    if (prop.prevent_default) e.preventDefault()
+                }
             }
             return fn(dom_event_to_opa_event(e))
         }

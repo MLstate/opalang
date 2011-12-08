@@ -540,7 +540,7 @@
 ##register bind: Dom.private.element, string, (Dom.event -> void) -> Dom.event_handler
 ##args(dom, event, f)
 {
-    return dom.opabind(event, f, function(e){return null}, false, false);
+    return dom.opabind(event, f, null, false, false);
 }
 
 ##register bind_with_options: Dom.private.element, string, (Dom.event -> void), option(Dom.event -> Dom.event_propagation), bool, bool -> Dom.event_handler
