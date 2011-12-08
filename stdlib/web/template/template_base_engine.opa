@@ -732,15 +732,15 @@ import stdlib.web.client
     | {td; content=_; ~td_attribute}             -> do_export(td_attrs, td_attribute, <td>{child}</>)
     | {th; content=_; ~th_attribute}             -> do_export(td_attrs, th_attribute, <th>{child}</>)
     | {img; ~img_attribute}                      -> do_export(img_attrs, img_attribute, <img />)
-    | { meta; ~meta_attribute}                   -> do_export(meta_attrs, meta_attribute, <meta /> )
-    | { base; ~base_attribute}                   -> do_export(base_attrs, base_attribute, <base /> )
+    | {meta; ~meta_attribute}                    -> do_export(meta_attrs, meta_attribute, <meta /> )
+    | {base; ~base_attribute}                    -> do_export(base_attrs, base_attribute, <base /> )
     | {link; ~link_attribute}                    -> do_export(link_attrs, link_attribute, <link />)
     | {~text}                                    -> {success = <>{text}</>}
     | {~checked_text}                            -> {success = Xhtml.of_string_unsafe(checked_text) }
     | {fragment=_}                               -> {success = child }
-    | { head; content=_ }                        -> {success = <head>{child}</> }
-    | { ~title; }                                -> {success = <title>{title}</> }
-    | tag                                        -> {failure = {unknown_tag = "{tag}" } }
+    | {head; content=_}                          -> {success = <head>{child}</> }
+    | {~title}                                   -> {success = <title>{title}</> }
+    | {extension=_}                              -> {failure = {unknown_tag = "{content}" } }
     )
 
    ; source(content:Template.content('a), exporter, _xmlns_binding, printer, depth) : outcome(string, Template.export_failure) =
@@ -783,6 +783,8 @@ import stdlib.web.client
        | {anchor; content=_; ~anchor_attribute }         -> print_tag("a", anchor_attrs, anchor_attribute)
        | {blockquote; content=_; ~quote_attribute }      -> print_tag("blockquote", quote_attrs, quote_attribute)
        | {quote; content=_; ~quote_attribute }           -> print_tag("q", quote_attrs, quote_attribute)
+       | {hr; ~standard_attribute}                       -> print_tag_auto_close("hr", std_attr, standard_attribute)
+       | {br; ~standard_attribute}                       -> print_tag_auto_close("br", std_attr, standard_attribute)
        | {label; content=_; ~label_attribute }           -> print_tag("label", label_attrs, label_attribute)
        | {form; content=_; ~form_attribute }             -> print_tag("form", form_attr, form_attribute)
        | {input; ~input_attribute }                      -> print_tag_auto_close("input", input_attrs, input_attribute)
@@ -797,11 +799,11 @@ import stdlib.web.client
        | {base; ~base_attribute }                        -> print_tag_auto_close("base", base_attrs, base_attribute)
        | {link; ~link_attribute }                        -> print_tag_auto_close("link", link_attrs, link_attribute)
        | {head; content=_ }                              -> print_html_tag("head", [], false)
-       | { ~title }                                      -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
+       | {~title}                                        -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
        | {~text}                                         -> {success = (before, _ -> print_text_node(before, text)) }
        | {~checked_text}                                 -> {success = (before, _ -> print_text_node(before, checked_text)) }
        | {fragment=_}                                    -> {success = (_, _  -> "{child}") }
-       | tag                                             -> {failure = { unknown_tag = "{tag}" } }
+       | {extension=_}                                   -> {failure = {unknown_tag = "{content}"}}
        match res with
        | { ~success }                                      -> { success = printer(depth)(success) }
        | { ~failure }                                      -> { ~failure }
