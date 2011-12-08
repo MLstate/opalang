@@ -157,7 +157,7 @@ var load_js_files = {}
   ##register bind : dom_element, string, ('a -> 'b) -> void
   ##args(element, name, f)
   {
-    (new $(element)).opabind(name, f, false, false);
+    (new $(element)).opabind(name, f, null, false, false);
   }
 
 
@@ -178,7 +178,7 @@ var load_js_files = {}
 
     //It would be nicer to do [var f = eval("function ...")]. Unfortunately, tests on FF 3.6 show that it doesn't work.
     eval("var f = function(event) { " + value + " }");
-    (new $(element)).opabind(name, f, false, false);
+    (new $(element)).opabind(name, f, null, false, false);
   }
 
   ##register bind_stop_propagation : dom_element, string -> void
