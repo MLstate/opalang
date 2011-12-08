@@ -145,7 +145,6 @@ type Dom.private.animation =
      /**Compose a sequence of transitions. Each transition will be called as soon as the previous
         one has been terminated.*/
 
-
 type @abstract Dom.transition = Dom.private.element
 
 `$` = Dom.select_id
@@ -995,10 +994,21 @@ Dom = {{
         llbind(of_selection(dom), Event.get_name(event), handler)
   )
 
-  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), propagation_handler:(Dom.event -> Dom.propagation), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  /**
+   * Bind an event handler to an event
+   *
+   * @param dom Where to bind the event.
+   * @param event The name of the event, e.g. "click", "dblclick", etc. You are not limited to standard browser events.
+   * @param handler The event handler
+   * @param options the list of bind options
+   *        - {stop_propagation} always stops propagation of the event after handling
+   *        - {prevent_default} always prevents browser default behaviour of the event after handling
+   *        - {propagation_handler} [Client only] provide a custom propagation handler, allowing to stop/prevent the event or not, given the event.
+   */
+  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), options:list(Dom.event_option) ): Dom.event_handler =
   (
         //warning: names "stop_propagation" and "prevent_default" are hardcoded in JS
-        llbind_with_options(of_selection(dom), Event.get_name(event), handler, propagation_handler, options)
+        llbind_with_options(of_selection(dom), Event.get_name(event), handler, options)
   )
 
   unbind(dom:dom, handler: Dom.event_handler): void =
@@ -1703,10 +1713,14 @@ Dom = {{
         %% BslDom.bind %%(dom, event, handler)
   )
 
-  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), propagation_handler:(Dom.event -> Dom.propagation), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), options:list(Dom.event_option)): Dom.event_handler =
   (
         stop_propagation = List.mem({stop_propagation}, options)
         prevent_default = List.mem({prevent_default}, options)
+        propagation_handler =
+          match List.find((e->match e {propagation_handler=_} -> true _ -> false), options)
+          {some={propagation_handler=ph}} -> some(ph)
+          _ -> none
         %% BslDom.bind_with_options %%(dom, event, handler, propagation_handler, stop_propagation, prevent_default)
   )
 

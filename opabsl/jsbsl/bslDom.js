@@ -543,9 +543,10 @@
     return dom.opabind(event, f, function(e){return null}, false, false);
 }
 
-##register bind_with_options: Dom.private.element, string, (Dom.event -> void), (Dom.event -> Dom.propagation), bool, bool -> Dom.event_handler
-##args(dom, event, f, p, stop_propagation, prevent_default)
+##register bind_with_options: Dom.private.element, string, (Dom.event -> void), option(Dom.event -> Dom.event_propagation), bool, bool -> Dom.event_handler
+##args(dom, event, f, p_opt, stop_propagation, prevent_default)
 {
+    var p = option2js(p_opt);
     return dom.opabind(event, f, p, stop_propagation, prevent_default);
 }
 

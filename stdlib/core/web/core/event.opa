@@ -44,12 +44,15 @@ type Dom.event =
   value_change:   option({from:string; to:string})
 }
 
-type Dom.propagation = {
+type Dom.event_propagation = {
   stop_propagation: bool
   prevent_default: bool
 }
 
-type Dom.event_option = {stop_propagation}/{prevent_default}
+type Dom.event_option =
+  {propagation_handler:(Dom.event -> Dom.event_propagation)}
+/ {stop_propagation}
+/ {prevent_default}
 
 @opacapi
 type Dom.event.kind =
