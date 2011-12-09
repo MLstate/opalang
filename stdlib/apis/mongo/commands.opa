@@ -203,7 +203,7 @@ MongoCommands = {{
    * are other elements in the reply.
    **/
   run_command_ll(m:Mongo.db, ns:string, command:Bson.document): Mongo.result =
-    match MongoCursor.find_one(m, ns^".$cmd", command, {none}, {none}) with
+    match MongoCursor.find_one(m, ns^".$cmd", command, {none}, []) with
     | {success=bson} -> MongoCommon.check_ok(bson)
     | {~failure} -> {~failure}
 
@@ -454,19 +454,19 @@ MongoCommands = {{
    * Query the "config.shards" database, gives a list of shards.
    **/
   findShards(m:Mongo.mongodb, query:Bson.document, limit:int): Mongo.results =
-    MongoCursor.find_all(m.mongo, "config.shards", query, {none}, {none}, limit)
+    MongoCursor.find_all(m.mongo, "config.shards", query, {none}, [], limit)
 
   /**
    * Query the "config.databases" database, gives a list of shard information about databases.
    **/
   findDatabases(m:Mongo.mongodb, query:Bson.document, limit:int): Mongo.results =
-    MongoCursor.find_all(m.mongo, "config.databases", query, {none}, {none}, limit)
+    MongoCursor.find_all(m.mongo, "config.databases", query, {none}, [], limit)
 
   /**
    * Query the "config.locks" database, gives information about the shard balancer.
    **/
   findBalancer(m:Mongo.mongodb, limit:int): Mongo.results =
-    MongoCursor.find_all(m.mongo, "config.locks", [H.str("_id","balancer")], {none}, {none}, limit)
+    MongoCursor.find_all(m.mongo, "config.locks", [H.str("_id","balancer")], {none}, [], limit)
 
   /**
    * Low-level, set "config.settings" balancer value.  Valid objects are "stopped" and "start/stop".
@@ -497,7 +497,7 @@ MongoCommands = {{
    * Query the "config.chunks" database, gives a information about shard distribution.
    **/
   findChunks(m:Mongo.mongodb, query:Bson.document, limit:int): Mongo.results =
-    MongoCursor.find_all(m.mongo, "config.chunks", query, {none}, {none}, limit)
+    MongoCursor.find_all(m.mongo, "config.chunks", query, {none}, [], limit)
 
   /**
    * Add a shard to a database.
@@ -563,9 +563,9 @@ MongoCommands = {{
                     | {some=0} | {none} -> {success=doc}//??failure
                     | _ ->
                        (match MongoCursor.find_all(m.mongo, "config.databases",
-                                                   [H.str("primary",shard)], {none}, {none}, 100) with
+                                                   [H.str("primary",shard)], {none}, [], 100) with
                         | {success=dbs} ->
-                           (match MongoCursor.find_all(m.mongo, "config.shards", [], {none}, {none}, 100) with
+                           (match MongoCursor.find_all(m.mongo, "config.shards", [], {none}, [], 100) with
                             | {success=[]} -> {failure={Error="No shards to move primary"}}
                             | {success=shards} ->
                                do println("dbs={Bson.to_pretty_list(dbs)}\nshards={Bson.to_pretty_list(shards)}")

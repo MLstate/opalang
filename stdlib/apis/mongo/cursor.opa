@@ -58,7 +58,7 @@ type Mongo.cursor = {
   limit : int;
   query : option(Bson.document);
   fields : option(Bson.document);
-  orderby : option(Bson.document);
+  orderby : list((string,int));
   query_sent : bool;
   cid : Mongo.cursorID;
   reply : option(Mongo.reply);
@@ -90,7 +90,7 @@ MongoCursor = {{
     limit = 1;
     query = {none};
     fields = {none};
-    orderby = {none};
+    orderby = [];
     query_sent = {false};
     cid = MongoCommon.null_cursorID(void);
     reply = {none};
@@ -111,7 +111,7 @@ MongoCursor = {{
   set_limit(c:Mongo.cursor, limit:int): Mongo.cursor = { c with ~limit }
   set_query(c:Mongo.cursor, query:option(Bson.document)): Mongo.cursor = { c with ~query }
   set_fields(c:Mongo.cursor, fields:option(Bson.document)): Mongo.cursor = { c with ~fields }
-  set_orderby(c:Mongo.cursor, orderby:option(Bson.document)): Mongo.cursor = { c with ~orderby }
+  set_orderby(c:Mongo.cursor, orderby:list((string,int))): Mongo.cursor = { c with ~orderby }
 
   tailable(c:Mongo.cursor): Mongo.cursor = { c with flags=Bitwise.lor(c.flags, MongoCommon.TailableCursorBit) }
 
@@ -146,8 +146,8 @@ MongoCursor = {{
     if not(c.killed) && Option.is_some(c.query)
     then
       query = (match c.orderby with
-               | {some=orderby} -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",orderby)]
-               | {none} -> Option.get(c.query))
+               | [] -> Option.get(c.query)
+               | orderby -> [H.doc("$query",Option.get(c.query)), H.doc("$orderby",List.map(((f,o) -> H.i32(f,o)),orderby))])
       reply(c,MongoDriver.query(c.mongo, c.flags, c.ns, c.skip, c.limit, query, c.fields),"op_query",{true})
     else set_error(c,{Error=(if c.killed
                              then "MongoCursor.op_query: already killed"
@@ -304,7 +304,7 @@ MongoCursor = {{
    * The cursor value is then returned, you can then use [MongoCursor.next] to
    * scan along from there.
    **/
-  find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document), orderby:option(Bson.document),
+  find(m:Mongo.db, ns:string, query:Bson.document, fields:option(Bson.document), orderby:list((string,int)),
        limit:int, skip:int, flags:int): outcome(Mongo.cursor,Mongo.failure) =
     c = init(m, ns)
     c = set_query(c, {some=query})
@@ -342,7 +342,7 @@ MongoCursor = {{
    * Creates and destroys a cursor.
    **/
   find_one(m:Mongo.db, ns:string,
-           query:Bson.document, fields:option(Bson.document), orderby:option(Bson.document)): Mongo.result =
+           query:Bson.document, fields:option(Bson.document), orderby:list((string,int))): Mongo.result =
     c = init(m, ns)
     c = set_query(c, {some=query})
     c = set_fields(c, fields)
@@ -363,7 +363,7 @@ MongoCursor = {{
    * {b NOTE: reverses the order.}
    **/
   find_all(m:Mongo.db, ns:string, query:Bson.document,
-           fields:option(Bson.document), orderby:option(Bson.document), limit:int): Mongo.results =
+           fields:option(Bson.document), orderby:list((string,int)), limit:int): Mongo.results =
     cursor = init(m, ns)
     cursor = set_query(cursor, {some=query})
     cursor = set_fields(cursor, fields)

@@ -65,7 +65,7 @@ type Mongo.mongodb = {
   valname: string;
   idxname: string;
   fields: option(Bson.document);
-  orderby: option(Bson.document);
+  orderby: list((string,int));
   limit: int;
   skip: int;
   insert_flags: int;
@@ -224,7 +224,7 @@ MongoConnection = {{
            db = {~mongo; ~name; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
                  keyname="key"; valname="value"; idxname="index";
                  dbname="db"; collection="collection";
-                 fields={none}; orderby={none}; limit=0; skip=0;
+                 fields={none}; orderby=[]; limit=0; skip=0;
                  insert_flags=0; update_flags=0; delete_flags=0; query_flags=0; index_flags=0;
                 }
            do System.at_exit( ->
@@ -401,7 +401,7 @@ MongoConnection = {{
   fields(db:Mongo.mongodb, fields:option(Bson.document)): Mongo.mongodb = { db with ~fields }
 
   /** Set the "orderby" document on the given connection. **/
-  orderby(db:Mongo.mongodb, orderby:option(Bson.document)): Mongo.mongodb = { db with ~orderby }
+  orderby(db:Mongo.mongodb, orderby:list((string,int))): Mongo.mongodb = { db with ~orderby }
 
   /** Set the "continueOnError" flag for all [insert] calls. **/
   continueOnError(db:Mongo.mongodb): Mongo.mongodb =
@@ -509,8 +509,8 @@ MongoConnection = {{
    **/
   query(m:Mongo.mongodb, query:Bson.document): option(Mongo.reply) =
     query = (match m.orderby with
-             | {some=orderby} -> [H.doc("$query",query), H.doc("$orderby",orderby)]
-             | {none} -> query)
+             | [] -> query
+             | orderby -> [H.doc("$query",query), H.doc("$orderby",List.map(((f,o) -> H.i32(f,o)),orderby))])
     MongoDriver.query(m.mongo, m.query_flags, "{m.dbname}.{m.collection}", m.skip, m.limit, query, m.fields)
 
   /** Perform a get_more using inbuilt parameters **/
@@ -575,7 +575,7 @@ MongoConnection = {{
      set_limit(c:Mongo.cursor, limit:int): Mongo.cursor = MongoCursor.set_limit(c,limit)
      set_query(c:Mongo.cursor, query:option(Bson.document)): Mongo.cursor = MongoCursor.set_query(c,query)
      set_fields(c:Mongo.cursor, fields:option(Bson.document)): Mongo.cursor = MongoCursor.set_fields(c,fields)
-     set_orderby(c:Mongo.cursor, orderby:option(Bson.document)): Mongo.cursor = MongoCursor.set_orderby(c,orderby)
+     set_orderby(c:Mongo.cursor, orderby:list((string,int))): Mongo.cursor = MongoCursor.set_orderby(c,orderby)
      tailable(c:Mongo.cursor): Mongo.cursor = MongoCursor.tailable(c)
      op_query(c:Mongo.cursor): Mongo.cursor = MongoCursor.op_query(c)
      get_more(c:Mongo.cursor): Mongo.cursor = MongoCursor.get_more(c)

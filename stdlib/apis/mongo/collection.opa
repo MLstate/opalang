@@ -234,7 +234,7 @@ MongoCollection = {{
     {c with db={ c.db with ~fields }}
 
   /** Set the "orderby" document in the collection. **/
-  orderby(c:Mongo.collection('value), orderby:option(Bson.document)): Mongo.collection('value) =
+  orderby(c:Mongo.collection('value), orderby:list((string,int))): Mongo.collection('value) =
     {c with db={ c.db with ~orderby }}
 
   /** Set the "continueOnError" flag for all [insert] calls. **/
