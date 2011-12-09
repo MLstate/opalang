@@ -86,6 +86,7 @@ type Mongo.ok = {
 type Mongo.isMaster = {
   ismaster : bool;
   msg : Bson.register(string);
+  me : Bson.register(string);
   setName : Bson.register(string);
   primary : Bson.register(string);
   secondary : Bson.register(bool);

@@ -169,37 +169,25 @@ MongoReplicaSet = {{
     | [host|[port|[]]] -> (host,Int.of_string(port))
     | _ -> (s,MongoDriver.default_port)
 
-  @private
-  adminCommandOpaLL(m:Mongo.db, cmd:string): outcome('a,Mongo.failure) =
-    match MongoCommands.simple_int_command_ll(m,"admin",cmd,1) with
-    | {success=doc} ->
-       (match MongoCommon.result_to_opa({success=doc}) with
-        | {some=a} -> {success=a}
-        | {none} -> {failure={Error="MongoReplicaSet.adminCommandOpaLL: invalid document from db admin ({Bson.to_pretty(doc)})"}})
-    | {~failure} -> {~failure}
-
-  @private
-  adminCommandLL(m:Mongo.db, cmd:string): Mongo.result =
-    MongoCommands.simple_int_command_ll(m,"admin",cmd,1)
-
-  isMasterOpaLL(m:Mongo.db): outcome(Mongo.isMaster,Mongo.failure) = adminCommandOpaLL(m,"ismaster")
-  resetErrorOpaLL(m:Mongo.db): outcome(Mongo.ok,Mongo.failure) = adminCommandOpaLL(m,"reseterror")
-  getLastErrorOpaLL(m:Mongo.db): outcome(Mongo.lastError,Mongo.failure) = adminCommandOpaLL(m,"getlasterror")
-  getLastErrorLL(m:Mongo.db): Mongo.result = adminCommandLL(m,"getlasterror")
+  @private adminCommandLL(m:Mongo.db, cmd:string): Mongo.result = MongoCommands.simple_int_command_ll(m,"admin",cmd,1)
+  @private isMasterLL(m:Mongo.db): Mongo.result = adminCommandLL(m,"ismaster")
 
   /**
    * Try to get the list of hosts from a given list of seeds by connecting
    * in turn to each seed until we find a live one.
    **/
   check_seed(m:Mongo.db): (Mongo.db,list(Mongo.mongo_host)) =
-    match isMasterOpaLL(m) with
-    | {success=ism} ->
-       (match ism.hosts with
-        | {present=hosts} ->
-           hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
-           do if m.log then ML.info("MongoReplicaSet.check_seed","hosts={hosts}",void)
-           (m,hosts)
-        | {absent} -> (m,[]))
+    match isMasterLL(m) with
+    | {success=doc} ->
+       (match Bson.find(doc,"hosts") with
+        | {some=hosts_doc} ->
+           (match (Bson.doc2opa(hosts_doc):option({hosts:list(string)})) with
+            | {some={~hosts}} ->
+               hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
+               do if m.log then ML.info("MongoReplicaSet.check_seed","hosts={hosts}",void)
+               (m,hosts)
+            | {none} -> (m,[]))
+        | {none} -> (m,[]))
     | {failure=_} -> (m,[])
 
   /**
@@ -235,21 +223,24 @@ MongoReplicaSet = {{
           | [host|rest] ->
             (match MongoDriver.connect(m, host.f1, host.f2) with
              | {success=m} ->
-                (match isMasterOpaLL(m) with
-                 | {success=ism} ->
-                    if ism.ismaster && (Bson.Register.default("...",ism.setName) == m.name)
-                    then
-                      {success=m}
-                    else
-                      (match ism.primary with
-                       | {present=primary} ->
-                          primary_host = mongo_host_of_string(primary)
-                          (match List.extract_p((host -> host == primary_host),rest) with
-                           | ({some=p},rest) ->
-                              do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
-                              aux2(m,[p|rest])
-                           | ({none},rest) -> aux2(m,rest))
-                       | {absent} -> aux2(m,rest))
+                (match isMasterLL(m) with
+                 | {success=doc} ->
+                    (match (Bson.find_bool(doc,"ismaster"),Bson.find_string(doc,"setName")) with
+                     | ({some=ismaster},setName) ->
+                        if ismaster && (Option.default("...",setName) == m.name)
+                        then
+                          {success=m}
+                        else
+                          (match Bson.find_string(doc,"primary") with
+                           | {some=primary} ->
+                              primary_host = mongo_host_of_string(primary)
+                              (match List.extract_p((host -> host == primary_host),rest) with
+                               | ({some=p},rest) ->
+                                  do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
+                                  aux2(m,[p|rest])
+                               | ({none},rest) -> aux2(m,rest))
+                           | {none} -> aux2(m,rest))
+                     | _ -> aux2(m,rest))
                  | {failure=_} -> aux2(m,rest))
              | {failure=_} -> aux2(m,rest))
           | [] -> {failure={Error="MongoReplicaSet.connect: No master hosts"}})
