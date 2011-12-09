@@ -125,6 +125,7 @@ struct
     S.set s (pos+6) (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
     S.set s (pos+7) (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)))
 
+(*
   let ldi32 s i =
     (((Char.code (S.get (s) (i+3))) lsl 24) land 0xff000000) lor
     (((Char.code (S.get (s) (i+2))) lsl 16) land 0x00ff0000) lor
@@ -136,6 +137,7 @@ struct
     (((Char.code (S.get (s) (i+1))) lsl 16) land 0x00ff0000) lor
     (((Char.code (S.get (s) (i+2))) lsl  8) land 0x0000ff00) lor
     (((Char.code (S.get (s) (i+3)))       ) land 0x000000ff)
+*)
 
 (*
   let ldi64 s i =
@@ -159,6 +161,21 @@ struct
     (((Char.code (S.get (s) (i+6))) lsl  8) land 0x000000000000ff00) lor
     (((Char.code (S.get (s) (i+7)))       ) land 0x00000000000000ff)
 *)
+
+  let ldi32l s i =
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+3)))) 24) 0x00000000ff000000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+2)))) 16) 0x0000000000ff0000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+1))))  8) 0x000000000000ff00l)
+                 (Int32.logand (                 (Int32.of_int (Char.code (S.get (s) (i+0))))   ) 0x00000000000000ffl))))
+
+  let bdi32l s i =
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+0)))) 24) 0x00000000ff000000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+1)))) 16) 0x0000000000ff0000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (S.get (s) (i+2))))  8) 0x000000000000ff00l)
+                 (Int32.logand (                 (Int32.of_int (Char.code (S.get (s) (i+3))))   ) 0x00000000000000ffl))))
+
+  let ldi32 s i = Int32.to_int(ldi32l s i)
+  let bdi32 s i = Int32.to_int(bdi32l s i)
 
   let ldi64L s i =
     (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (S.get (s) (i+7)))) 56) 0xff00000000000000L)

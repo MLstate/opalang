@@ -30,6 +30,29 @@ open C.Ops
 
 ##module Bson
 
+exception Overflow
+let imax64 = Int64.of_int max_int
+let imin64 = Int64.of_int min_int
+let i64toi i64 =
+  if i64 > imax64 || i64 < imin64 then raise Overflow;
+  Int64.to_int i64
+let itoi64 = Int64.of_int
+#<Ifstatic:OCAML_WORD_SIZE 64>
+let i32toi = Int32.to_int
+let i32max = Int32.to_int Int32.max_int
+let i32min = Int32.to_int Int32.min_int
+let itoi32 i =
+  if i > i32max || i < i32min then raise Overflow;
+  Int32.of_int i
+#<Else>
+let imax32 = Int32.of_int max_int
+let imin32 = Int32.of_int min_int
+let i32toi i32 =
+  if i32 > imax32 || i32 < imin32 then raise Overflow;
+  Int32.to_int i32
+let itoi32 = Int32.of_int
+#<End>
+
 ##register dump: int, string -> string
 let dump base s =
   let bb = Buffer.create 1024 in
@@ -98,7 +121,7 @@ let serialize bsons b =
                    Bson.Append.binary b name Bson.st_bin_binary bin (String.length bin)
                | Some "ObjectID" -> Bson.Append.oid b name (ServerLib.unwrap_string value)
                | Some "Boolean" -> Bson.Append.bool b name (ServerLib.unwrap_bool value)
-               | Some "Date" -> Bson.Append.date b name (Int64.of_int (ServerLib.unwrap_int value))
+               | Some "Date" -> Bson.Append.date b name (itoi64 (ServerLib.unwrap_int value))
                | Some "Null" -> Bson.Append.null b name
                | Some "Min" -> Bson.Append.minkey b name
                | Some "Max" -> Bson.Append.maxkey b name
@@ -114,12 +137,12 @@ let serialize bsons b =
                         Bson.Append.start_codewscope b name code;
                         aux scope;
                         Bson.Append.finish_codewscope b code)
-               | Some "Int32" ->Bson.Append.int b name (ServerLib.unwrap_int value)
+               | Some "Int32" -> Bson.Append.int b name (itoi32 (ServerLib.unwrap_int value))
                | Some "Timestamp" ->
                    (match BslNativeLib.ocaml_tuple_2 value with
                     | (i, t) ->
-                        Bson.Append.timestamp b name ((ServerLib.unwrap_int i), (ServerLib.unwrap_int t)))
-               | Some "Int64" -> Bson.Append.long b name (Int64.of_int (ServerLib.unwrap_int value))
+                        Bson.Append.timestamp b name ((itoi32 (ServerLib.unwrap_int i)), (itoi32 (ServerLib.unwrap_int t))))
+               | Some "Int64" -> Bson.Append.long b name (itoi64 (ServerLib.unwrap_int value))
                | Some str ->
                    Printf.eprintf "Unknown code: %s\n%!" str;
                    assert false
@@ -187,15 +210,15 @@ let make_regexp n r ro = make_val field_regexp n (make_pair r ro)
 let make_code = make_val field_code
 let make_symbol = make_val field_symbol
 let make_codescope n c s = make_val field_codescope n (make_pair c s)
-let make_timestamp n (i,t) = make_val field_timestamp n (make_pair i t)
+let make_timestamp n (i,t) = make_val field_timestamp n (make_pair (i32toi i) (i32toi t))
 
 let deserialize s =
   let i = Bson.IteratorSS.from_buffer s in
   let rec aux i =
     (function
      | c when c = Bson.el_eoo -> shared_nil
-     | c when c = Bson.el_int -> let e = make_int32 (Bson.IteratorSS.key i) (Bson.IteratorSS.int i) in auxn e i
-     | c when c = Bson.el_long -> let e = make_int64 (Bson.IteratorSS.key i) (Int64.to_int (Bson.IteratorSS.long i)) in auxn e i
+     | c when c = Bson.el_int -> let e = make_int32 (Bson.IteratorSS.key i) (i32toi (Bson.IteratorSS.int i)) in auxn e i
+     | c when c = Bson.el_long -> let e = make_int64 (Bson.IteratorSS.key i) (i64toi (Bson.IteratorSS.long i)) in auxn e i
      | c when c = Bson.el_double -> let e = make_double (Bson.IteratorSS.key i) (Bson.IteratorSS.double i) in auxn e i
      | c when c = Bson.el_bool -> let e = make_bool (Bson.IteratorSS.key i) (Bson.IteratorSS.bool i) in auxn e i
      | c when c = Bson.el_string -> let e = make_string (Bson.IteratorSS.key i) (Bson.IteratorSS.string i) in auxn e i
@@ -211,7 +234,7 @@ let deserialize s =
          let e = make_array key bsons in auxn e i
      | c when c = Bson.el_bindata -> let e = make_binary (Bson.IteratorSS.key i) (Bson.IteratorSS.bin_data i) in auxn e i
      | c when c = Bson.el_oid -> let e = make_objectid (Bson.IteratorSS.key i) (Bson.IteratorSS.oid i) in auxn e i
-     | c when c = Bson.el_date -> let e = make_date (Bson.IteratorSS.key i) (Int64.to_int (Bson.IteratorSS.date i)) in auxn e i
+     | c when c = Bson.el_date -> let e = make_date (Bson.IteratorSS.key i) (i64toi (Bson.IteratorSS.date i)) in auxn e i
      | c when c = Bson.el_null -> let e = make_null (Bson.IteratorSS.key i) ServerLib.void in auxn e i
      | c when c = Bson.el_minkey -> let e = make_minkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i
      | c when c = Bson.el_maxkey -> let e = make_maxkey (Bson.IteratorSS.key i) ServerLib.void in auxn e i

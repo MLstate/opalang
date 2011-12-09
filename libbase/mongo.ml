@@ -43,7 +43,8 @@ let string_of_opcode = function
   | 2007 -> "OP_KILL_CURSORS"
   | n -> Printf.sprintf "OP_UNKNOWN(%d)" n
 
-let geti32 b s = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0
+let geti32 b s = Int32.to_int(Stuff.StuffString.ldi32l (Buf.sub b s 4) 0)
+let geti32l b s = Stuff.StuffString.ldi32l (Buf.sub b s 4) 0
 let geti64L b s = Stuff.StuffString.ldi64L (Buf.sub b s 8) 0
 let cstring b s =
   let pos = ref 0 in
@@ -226,7 +227,7 @@ let string_of_update b =
 
 let start_update m rid flags ns =
   set_header m rid 0 _OP_UPDATE;
-  Stuff.add_le_int32 m.Bson.buf 0;
+  Stuff.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
   Stuff.add_le_int32 m.Bson.buf flags
@@ -285,7 +286,7 @@ let string_of_get_more b =
 
 let start_getmore m rid ns numberToReturn cursorID =
   set_header m rid 0 _OP_GET_MORE;
-  Stuff.add_le_int32 m.Bson.buf 0;
+  Stuff.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
   Stuff.add_le_int32 m.Bson.buf numberToReturn;
@@ -315,7 +316,7 @@ let string_of_delete b =
 
 let start_delete m rid flags ns =
   set_header m rid 0 _OP_DELETE;
-  Stuff.add_le_int32 m.Bson.buf 0;
+  Stuff.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
   Stuff.add_le_int32 m.Bson.buf flags
@@ -335,7 +336,7 @@ let string_of_kill_cursors b =
 
 let start_kill_cursors m rid clist =
   set_header m rid 0 _OP_KILL_CURSORS;
-  Stuff.add_le_int32 m.Bson.buf 0;
+  Stuff.add_le_int32l m.Bson.buf 0l;
   Stuff.add_le_int32 m.Bson.buf (List.length clist);
   List.iter (fun cursorID -> Stuff.add_le_int64L m.Bson.buf cursorID) clist
 

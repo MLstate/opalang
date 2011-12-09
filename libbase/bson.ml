@@ -152,7 +152,7 @@ struct
     s
 
   let generated_time oid =
-    Time.seconds (St.bdi32 oid 0)
+    Time.seconds_float (Int32.to_float (St.bdi32l oid 0))
 
 end (* module Oid *)
 
@@ -185,7 +185,7 @@ struct
 
   let int b name i =
     estart b el_int name;
-    Stuff.add_le_int32 b.buf i
+    Stuff.add_le_int32l b.buf i
 
   let long b name l =
     estart b el_long name;
@@ -307,8 +307,8 @@ struct
 
   let timestamp b name (i,t) =
     estart b el_timestamp name;
-    Stuff.add_le_int32 b.buf i;
-    Stuff.add_le_int32 b.buf t
+    Stuff.add_le_int32l b.buf i;
+    Stuff.add_le_int32l b.buf t
 
   let date b name millis =
     estart b el_date name;
@@ -357,7 +357,7 @@ sig
   val iterator_type : iter -> char
   val key : iter -> string
   val value : iter -> int
-  val int_raw : iter -> int
+  val int_raw : iter -> int32
   val long_raw : iter -> int64
   val double_raw : iter -> float
   val bool_raw : iter -> bool
@@ -366,10 +366,10 @@ sig
   val symbol : ?offset:int -> iter -> string
   val cstring : ?offset:int -> iter -> string
   val string_len : iter -> int
-  val int : iter -> int
+  val int : iter -> int32
   val long : iter -> int64
   val double : iter -> float
-  val timestamp : iter -> int * int
+  val timestamp : iter -> int32 * int32
   val bool : iter -> bool
   val code : iter -> string
   val code_scope : iter -> buf
@@ -423,7 +423,7 @@ struct
     with Not_found -> S.length i.ibuf
 
   let int_raw i =
-    St.ldi32 i.ibuf (value i)
+    St.ldi32l i.ibuf (value i)
 
   let long_raw i =
     St.ldi64L i.ibuf (value i)
@@ -455,37 +455,37 @@ struct
     S.to_string (S.sub i.ibuf (v+offset) ((bslen i.ibuf (v+offset))-1))
 
   let string_len i =
-    int_raw i - 1
+    Int32.to_int(int_raw i) - 1
 
   let int i =
     match S.get i.ibuf (i.pos) with
     | c when c = el_int -> int_raw i
-    | c when c = el_long -> Int64.to_int (long_raw i)
-    | c when c = el_double -> int_of_float (double_raw i)
-    | _ -> 0
+    | c when c = el_long -> Int64.to_int32 (long_raw i)
+    | c when c = el_double -> Int32.of_float (double_raw i)
+    | _ -> 0l
 
   let long i =
     match S.get i.ibuf (i.pos) with
-    | c when c = el_int -> Int64.of_int(int_raw i)
+    | c when c = el_int -> Int64.of_int32(int_raw i)
     | c when c = el_long -> long_raw i
     | c when c = el_double -> Int64.of_float (double_raw i)
     | _ -> 0L
 
   let double i =
     match S.get i.ibuf (i.pos) with
-    | c when c = el_int -> float_of_int (int_raw i)
+    | c when c = el_int -> Int32.to_float (int_raw i)
     | c when c = el_long -> Int64.to_float (long_raw i)
     | c when c = el_double -> double_raw i
     | _ -> 0.0
 
   let timestamp i =
     let v = value i in
-    (St.ldi32 i.ibuf v, St.ldi32 i.ibuf (v+4))
+    (St.ldi32l i.ibuf v, St.ldi32l i.ibuf (v+4))
 
   let bool i =
     match S.get i.ibuf (i.pos) with
     | c when c = el_bool -> bool_raw i
-    | c when c = el_int -> int_raw i <> 0
+    | c when c = el_int -> int_raw i <> 0l
     | c when c = el_long -> long_raw i <> 0L
     | c when c = el_double -> double_raw i <> 0.0
     | c when c = el_eoo || c = el_null -> false
@@ -524,8 +524,8 @@ struct
 
   let bin_len i =
     if bin_type i = st_bin_binary_old
-    then int_raw i - 4
-    else int_raw i
+    then Int32.to_int(int_raw i) - 4
+    else Int32.to_int(int_raw i)
 
   let bin_data i =
     let v = value i in
@@ -573,13 +573,13 @@ struct
         | c when c = el_oid ->
             12
         | c when c = el_string || c = el_symbol || c = el_code ->
-            4 + int_raw i
+            4 + Int32.to_int(int_raw i)
         | c when c = el_bindata ->
-            5 + int_raw i
+            5 + Int32.to_int(int_raw i)
         | c when c = el_object || c = el_array || c = el_codewscope ->
-            int_raw i
+            Int32.to_int(int_raw i)
         | c when c = el_dbref ->
-            16 + int_raw i
+            16 + Int32.to_int(int_raw i)
         | c when c = el_regex ->
             let s = value i in
             let p = (S.index_from i.ibuf s '\x00') + 1 in
@@ -663,11 +663,11 @@ struct
              let scope = Iterator.code_scope i in
              Printf.printf "\n\t SCOPE: ";
              print scope
-         | c when c = el_int -> Printf.printf "%d" (Iterator.int i)
+         | c when c = el_int -> Printf.printf "%ld" (Iterator.int i)
          | c when c = el_long -> Printf.printf "%Ld" (Iterator.long i)
          | c when c = el_timestamp ->
              let (i,t) = Iterator.timestamp i in
-             Printf.printf "i: %d, t: %d" i t
+             Printf.printf "i: %ld, t: %ld" i t
          | c when c = el_object || c = el_array ->
              Printf.printf "\n";
              print_raw i.Iterator.ibuf (Iterator.value i) (depth + 1)
@@ -706,11 +706,11 @@ struct
                 | c when c = el_code -> Printf.sprintf "CODE(%s)" (Iterator.code i)
                 | c when c = el_codewscope ->
                     Printf.sprintf "CODE_W_SCOPE({code=\"%s\", scope=%s})" (Iterator.code i) (to_pretty (Iterator.code_scope i))
-                | c when c = el_int -> Printf.sprintf "%d" (Iterator.int i)
+                | c when c = el_int -> Printf.sprintf "%ld" (Iterator.int i)
                 | c when c = el_long -> Printf.sprintf "%Ld" (Iterator.long i)
                 | c when c = el_timestamp ->
                     let (i,t) = Iterator.timestamp i in
-                    Printf.sprintf "{i: %d, t: %d}" i t
+                    Printf.sprintf "{i: %ld, t: %ld}" i t
                 | c when c = el_object -> to_pretty_raw i.Iterator.ibuf (Iterator.value i)
                 | c when c = el_array -> "["^(to_pretty_raw i.Iterator.ibuf (Iterator.value i))^"]"
                 | _ -> Printf.sprintf "<unknown code>:%d" (Char.code t)))
@@ -722,7 +722,6 @@ end (* module Print *)
 
 (*
 (* Test code *)
-
 let hex s =
   let len = S.length s in
   let hs = S.create (len * 3) in
@@ -765,7 +764,7 @@ let dump ?(base=10) s =
 let b1 = Append.init ();;
 let () = Append.new_oid b1 "_id";;
 let () = Append.string b1 "name" "Joe";;
-let () = Append.int b1 "age" 33;;
+let () = Append.int b1 "age" (-1l);;
 let () = Append.finish b1;;
 let s1 = hex (Append.get b1);;
 let () = print_string (dump (Append.get b1));;
@@ -778,7 +777,7 @@ let fv2 = Iterator.int fi2;;
 let fv2d = Iterator.double fi2;;
 let fv2b = Iterator.bool fi2;;
 let good1 = (fc1,fv1,fv1l,fc2,fv2,fv2d,fv2b)
-  = ('\002', "Joe", 3, '\016', 33, 33.0, true);;
+  = ('\002', "Joe", 3, '\016', (-1l), -1.0, true);;
 
 let i = Iterator.init b1;;
 let c1 = Iterator.next i;;
@@ -793,7 +792,7 @@ let v3 = Iterator.int i;;
 let good2 = (c1,k1,c2,k2,v2,c3,k3,v3)
   = ('\007', "_id",
      '\002', "name", "Joe",
-     '\016', "age", 33);;
+     '\016', "age", -1l);;
 
 let b2 = Append.init ();;
 let () = Append.string b2 "hello" "world";;
@@ -831,7 +830,7 @@ let bson = Append.init ();;
 let () = Append.string bson "bson" "bson_text";;
 let () = Append.finish bson;;
 let () = Append.bson b4 "bson" bson;;
-let () = Append.timestamp b4 "timestamp" (1234,123456789);;
+let () = Append.timestamp b4 "timestamp" (1234l,123456789l);;
 let () = Append.date b4 "date" 123456789;;
 let () = Append.time_t b4 "time_t" (Time.seconds 1234);;
 let () = Append.finish_array b4;;
@@ -916,7 +915,7 @@ let good3 =
    '\015', "code", "test", "<--scope-->", '\002', "scope", "<--scope-->",
    '\005', "binary", '\000', 4, "test", '\005', "binary", '\002', 8,
    "test_old", '\011', "regex", "regex_pat", "regex_opts", '\003', "bson",
-   '\002', "bson", "bson_text", '\017', "timestamp", (1234, 123456789), '\t',
+   '\002', "bson", "bson_text", '\017', "timestamp", (1234l, 123456789l), '\t',
    "date", 123456789, '\t', "time_t", 1234.);;
 
 let i4ss = IteratorSS.init b4;;

@@ -40,6 +40,8 @@ module StuffF :
       val bdi32 : S.t -> int -> int
       (*val ldi64 : S.t -> int -> int
       val bdi64 : S.t -> int -> int*)
+      val ldi32l : S.t -> int -> int32
+      val bdi32l : S.t -> int -> int32
       val ldi64L : S.t -> int -> int64
       val bdi64L : S.t -> int -> int64
       val ldd : S.t -> int -> float
@@ -62,6 +64,8 @@ module StuffString :
     val bdi32 : string -> int -> int
     (*val ldi64 : string -> int -> int
     val bdi64 : string -> int -> int*)
+    val ldi32l : string -> int -> int32
+    val bdi32l : string -> int -> int32
     val ldi64L : string -> int -> int64
     val bdi64L : string -> int -> int64
     val ldd : string -> int -> float

@@ -144,7 +144,7 @@ module Append :
     val empty : buf
     val size : buf -> int
     val estart : buf -> char -> S.t -> unit
-    val int : buf -> S.t -> int -> unit
+    val int : buf -> S.t -> int32 -> unit
     val long : buf -> S.t -> int64 -> unit
     val double : buf -> S.t -> float -> unit
     val bool : buf -> S.t -> bool -> unit
@@ -168,7 +168,7 @@ module Append :
     val new_oid : buf -> S.t -> unit
     val regex : buf -> S.t -> S.t -> S.t -> unit
     val bson : buf -> S.t -> buf -> unit
-    val timestamp : buf -> S.t -> int * int -> unit
+    val timestamp : buf -> S.t -> int32 * int32 -> unit
     val date : buf -> S.t -> int64 -> unit
     val time_t : buf -> S.t -> Time.t -> unit
     val start_object : buf -> S.t -> unit
@@ -188,7 +188,7 @@ module type Iterator_sig =
     val iterator_type : iter -> char
     val key : iter -> string
     val value : iter -> int
-    val int_raw : iter -> int
+    val int_raw : iter -> int32
     val long_raw : iter -> int64
     val double_raw : iter -> float
     val bool_raw : iter -> bool
@@ -197,10 +197,10 @@ module type Iterator_sig =
     val symbol : ?offset:int -> iter -> string
     val cstring : ?offset:int -> iter -> string
     val string_len : iter -> int
-    val int : iter -> int
+    val int : iter -> int32
     val long : iter -> int64
     val double : iter -> float
-    val timestamp : iter -> int * int
+    val timestamp : iter -> int32 * int32
     val bool : iter -> bool
     val code : iter -> string
     val code_scope : iter -> buf
