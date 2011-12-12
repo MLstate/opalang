@@ -61,6 +61,7 @@ type Bson.int64 = int
 type Bson.realint64 = int64
 type Bson.min = void
 type Bson.max = void
+type Bson.meta = Bson.value
 
 /**
  * This is a type used to tell [bson_to_opa] and [opa_to_bson] to treat
@@ -632,6 +633,7 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="Bson.realint64"}
       | {TyName_args=[]; TyName_ident="Bson.min"}
       | {TyName_args=[]; TyName_ident="Bson.max"}
+      | {TyName_args=[]; TyName_ident="Bson.meta"}
       | {TyName_args=[_]; TyName_ident="Bson.register"}
       | {TyName_args=[_]; TyName_ident="option"}
       | {TyName_args=[]; TyName_ident="bool"}
@@ -695,6 +697,28 @@ Bson = {{
     | {TyName_args=[]; TyName_ident="Bson.realint64"} -> [H.ri64(key,(@unsafe_cast(v):Bson.realint64))]
     | {TyName_args=[]; TyName_ident="Bson.min"} -> [H.min(key)]
     | {TyName_args=[]; TyName_ident="Bson.max"} -> [H.max(key)]
+    | {TyName_args=[]; TyName_ident="Bson.meta"} ->
+       (match (@unsafe_cast(v):Bson.value) with
+        | {Double=v} -> [H.dbl(key,v)]
+        | {String=v} -> [H.str(key,v)]
+        | {Document=v} -> [H.doc(key,v)]
+        | {Array=v} -> [H.arr(key,v)]
+        | {Binary=v} -> [H.binary(key,v)]
+        | {ObjectID=v} -> [H.oid(key,v)]
+        | {Boolean=v} -> [H.bool(key,v)]
+        | {Date=v} -> [H.date(key,v)]
+        | {Null=_} -> [H.null(key)]
+        | {Regexp=(re,opts)} -> [H.regexp(key,(re,opts))]
+        | {Code=v} -> [H.code(key,v)]
+        | {Symbol=v} -> [H.symbol(key,v)]
+        | {CodeScope=v} -> [H.codescope(key,v)]
+        | {Int32=v} -> [H.i32(key,v)]
+        | {RealInt32=v} -> [H.ri32(key,v)]
+        | {Timestamp=(t,i)} -> [H.timestamp(key,(t,i))]
+        | {Int64=v} -> [H.i64(key,v)]
+        | {RealInt64=v} -> [H.ri64(key,v)]
+        | {Min=_} -> [H.min(key)]
+        | {Max=_} -> [H.max(key)])
     | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
        (match (@unsafe_cast(v):Bson.register('a)) with
         | {present=sv} -> opa_to_document(key,sv,ty)
@@ -877,6 +901,10 @@ Bson = {{
          | {value={String="true"} ...} -> {some=@unsafe_cast(true)}
          | {value={String="false"} ...} -> {some=@unsafe_cast(false)}
          | element -> error("expected bool, got {element}",{none}))
+      | {TyName_args=[]; TyName_ident="Bson.meta"} ->
+        (match element with
+         | {~value ...} -> {some=@unsafe_cast(value)}
+         | element -> error("expected Bson.meta, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
          | {name="some"; ...} -> make_option(getel(element, ty))

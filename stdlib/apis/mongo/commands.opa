@@ -170,15 +170,11 @@ type Mongo.explainType =
 }
 
 type Mongo.mapReduceType =
-  { result : string; // TODO: read back string_or_document from doc2opa
+  { result : Bson.meta;
     timeMillis : int;
-    counts : { input : int; emit : int; output : int };
+    counts : { input : int; emit : int; output : int; reduce : Bson.register(int) };
     ok : int
   }
-
-type Mongo.string_or_document =
-    {string : string}
-  / {document : Bson.document}
 
 type Mongo.mapReduceOptions = {
   query: option(Bson.document);
@@ -732,7 +728,7 @@ MongoCommands = {{
             query_opt:option(Bson.document),
             sort_opt:option(Bson.document),
             limit_opt:option(int),
-            out_opt:option(Mongo.string_or_document),
+            out_opt:option(Bson.meta),
             keeptemp_opt:option(bool),
             finalize_opt:option(string),
             scope_opt:option(Bson.document),
@@ -742,10 +738,7 @@ MongoCommands = {{
                         (match query_opt with | {some=query} -> [H.doc("query",query)] | {none} -> []),
                         (match sort_opt with | {some=sort} -> [H.doc("sort",sort)] | {none} -> []),
                         (match limit_opt with | {some=limit} -> [H.i32("limit",limit)] | {none} -> []),
-                        (match out_opt with
-                         | {some={string=out}} -> [H.str("out",out)]
-                         | {some={document=out}} -> [H.doc("out",out)]
-                         | {none} -> []),
+                        (match out_opt with | {some=value} -> [H.v("out",value)] | {none} -> []),
                         (match keeptemp_opt with | {some=keeptemp} -> [H.bool("keeptemp",keeptemp)] | {none} -> []),
                         (match finalize_opt with | {some=finalize} -> [H.code("finalize",finalize)] | {none} -> []),
                         (match scope_opt with | {some=scope} -> [H.doc("scope",scope)] | {none} -> []),
@@ -773,7 +766,7 @@ MongoCommands = {{
   /**
    * Full mapReduce but handling options with the [Mongo.mapReduceOpts] type.
    **/
-  mapReduceOpts(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document, opts:Mongo.mapReduceOptions)
+  mapReduceOpts(m:Mongo.mongodb, map:string, reduce:string, out:Bson.meta, opts:Mongo.mapReduceOptions)
               : Mongo.result =
     mapReduce(m, map, reduce,
               opts.query, opts.sort, opts.limit,
@@ -782,7 +775,7 @@ MongoCommands = {{
   /**
    * Simplest possible mapReduce, only define [map], [reduce] and [out].
    **/
-  mapReduceSimple(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document): Mongo.result =
+  mapReduceSimple(m:Mongo.mongodb, map:string, reduce:string, out:Bson.meta): Mongo.result =
     mapReduceOpts(m, map, reduce, out, mapReduceOptions)
 
   /**
@@ -803,14 +796,14 @@ MongoCommands = {{
     | {~failure} -> {~failure}
 
   /** Same as [mapReduceOpts] but returns OPA type. **/
-  mapReduceOptsOpa(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document, opts:Mongo.mapReduceOptions)
+  mapReduceOptsOpa(m:Mongo.mongodb, map:string, reduce:string, out:Bson.meta, opts:Mongo.mapReduceOptions)
                  : Mongo.valresult(Mongo.mapReduceType) =
     mapReduceOpa(m, map, reduce,
               opts.query, opts.sort, opts.limit,
               {some=out}, opts.keeptemp, opts.finalize, opts.scope, opts.jsMode, opts.verbose)
 
   /** Same as [mapReduceSimple] but returns OPA type. **/
-  mapReduceSimpleOpa(m:Mongo.mongodb, map:string, reduce:string, out:Mongo.string_or_document)
+  mapReduceSimpleOpa(m:Mongo.mongodb, map:string, reduce:string, out:Bson.meta)
                    : Mongo.valresult(Mongo.mapReduceType) =
     mapReduceOptsOpa(m, map, reduce, out, mapReduceOptions)
 
