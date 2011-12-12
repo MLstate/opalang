@@ -18,7 +18,7 @@
 
 #<Debugvar:MONGO_DEBUG>
 
-module St = Stuff.StuffString
+module St = Bson.FillbufString
 
 (* OP codes *)
 let _OP_REPLY         = 1    (* Reply to a client request. responseTo is set *)
@@ -43,9 +43,9 @@ let string_of_opcode = function
   | 2007 -> "OP_KILL_CURSORS"
   | n -> Printf.sprintf "OP_UNKNOWN(%d)" n
 
-let geti32 b s = Int32.to_int(Stuff.StuffString.ldi32l (Buf.sub b s 4) 0)
-let geti32l b s = Stuff.StuffString.ldi32l (Buf.sub b s 4) 0
-let geti64L b s = Stuff.StuffString.ldi64L (Buf.sub b s 8) 0
+let geti32 b s = Int32.to_int(Bson.FillbufString.ldi32l (Buf.sub b s 4) 0)
+let geti32l b s = Bson.FillbufString.ldi32l (Buf.sub b s 4) 0
+let geti64L b s = Bson.FillbufString.ldi64L (Buf.sub b s 8) 0
 let cstring b s =
   let pos = ref 0 in
   while Buf.get b (s + !pos) <> '\x00' do incr pos done;
@@ -197,7 +197,7 @@ let string_of_insert b =
 
 let start_insert m rid flags ns =
   set_header m rid 0 _OP_INSERT;
-  Stuff.add_le_int32 m.Bson.buf flags;
+  Bson.add_le_int32 m.Bson.buf flags;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00'
 
@@ -227,10 +227,10 @@ let string_of_update b =
 
 let start_update m rid flags ns =
   set_header m rid 0 _OP_UPDATE;
-  Stuff.add_le_int32l m.Bson.buf 0l;
+  Bson.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
-  Stuff.add_le_int32 m.Bson.buf flags
+  Bson.add_le_int32 m.Bson.buf flags
 
 (*struct OP_QUERY {
     MsgHeader header;                // standard message header
@@ -265,11 +265,11 @@ let string_of_query b =
 
 let start_query m rid flags ns numberToSkip numberToReturn =
   set_header m rid 0 _OP_QUERY;
-  Stuff.add_le_int32 m.Bson.buf flags;
+  Bson.add_le_int32 m.Bson.buf flags;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
-  Stuff.add_le_int32 m.Bson.buf numberToSkip;
-  Stuff.add_le_int32 m.Bson.buf numberToReturn
+  Bson.add_le_int32 m.Bson.buf numberToSkip;
+  Bson.add_le_int32 m.Bson.buf numberToReturn
 
 (*struct OP_GETMORE {
     MsgHeader header;             // standard message header
@@ -286,11 +286,11 @@ let string_of_get_more b =
 
 let start_getmore m rid ns numberToReturn cursorID =
   set_header m rid 0 _OP_GET_MORE;
-  Stuff.add_le_int32l m.Bson.buf 0l;
+  Bson.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
-  Stuff.add_le_int32 m.Bson.buf numberToReturn;
-  Stuff.add_le_int64L m.Bson.buf cursorID
+  Bson.add_le_int32 m.Bson.buf numberToReturn;
+  Bson.add_le_int64L m.Bson.buf cursorID
 
 (*struct OP_DELETE {
     MsgHeader header;             // standard message header
@@ -316,10 +316,10 @@ let string_of_delete b =
 
 let start_delete m rid flags ns =
   set_header m rid 0 _OP_DELETE;
-  Stuff.add_le_int32l m.Bson.buf 0l;
+  Bson.add_le_int32l m.Bson.buf 0l;
   Buf.add_string m.Bson.buf ns;
   Buf.add_char m.Bson.buf '\x00';
-  Stuff.add_le_int32 m.Bson.buf flags
+  Bson.add_le_int32 m.Bson.buf flags
 
 (*struct OP_KILL_CURSORS {
     MsgHeader header;            // standard message header
@@ -336,9 +336,9 @@ let string_of_kill_cursors b =
 
 let start_kill_cursors m rid clist =
   set_header m rid 0 _OP_KILL_CURSORS;
-  Stuff.add_le_int32l m.Bson.buf 0l;
-  Stuff.add_le_int32 m.Bson.buf (List.length clist);
-  List.iter (fun cursorID -> Stuff.add_le_int64L m.Bson.buf cursorID) clist
+  Bson.add_le_int32l m.Bson.buf 0l;
+  Bson.add_le_int32 m.Bson.buf (List.length clist);
+  List.iter (fun cursorID -> Bson.add_le_int64L m.Bson.buf cursorID) clist
 
 (*struct OP_MSG {
     MsgHeader header;  // standard message header
@@ -437,7 +437,7 @@ let string_of_message_str str = string_of_message_buf (Buf.of_string str)
 
 let string_of_message_reply (b,s,l) =
   let buf = Buf.create (l+4) in
-  Stuff.add_le_int32 buf (l+4);
+  Bson.add_le_int32 buf (l+4);
   Buf.add_string buf (Buf.sub b s l);
   string_of_message_buf buf
 

@@ -283,8 +283,10 @@ MongoSelectUpdate = {{
     | {Symbol=_} -> ({su_either},T.tsymbol)
     | {CodeScope=_} -> ({su_either},T.tcodescope)
     | {Int32=_} -> ({su_either},T.tint)
+    | {RealInt32=_} -> ({su_either},T.tint32)
     | {Timestamp=_} -> ({su_either},T.ttimestamp)
     | {Int64=_} -> ({su_either},T.tint)
+    | {RealInt64=_} -> ({su_either},T.tint64)
     | {Min=_} -> ({su_select},T.tvoid)
     | {Max=_} -> ({su_select},T.tvoid)
 

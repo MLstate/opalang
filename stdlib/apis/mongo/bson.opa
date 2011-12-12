@@ -55,8 +55,10 @@ type Bson.code = string
 type Bson.symbol = string
 type Bson.codescope = (Bson.code, Bson.document)
 type Bson.int32 = int
+type Bson.realint32 = int32
 type Bson.timestamp = (int, int)
 type Bson.int64 = int
+type Bson.realint64 = int64
 type Bson.min = void
 type Bson.max = void
 
@@ -92,8 +94,10 @@ type Bson.value =
   / { Symbol: string }
   / { CodeScope: (string, Bson.document) }
   / { Int32: int }
+  / { RealInt32: int32 }
   / { Timestamp: (int, int) }
   / { Int64: int }
+  / { RealInt64: int64 }
   / { Min }
   / { Max }
 
@@ -171,8 +175,10 @@ Bson = {{
     symbol(n:string,s:Bson.symbol):Bson.element = {name=n; value={Symbol=s}}
     codescope(n:string,cs:Bson.codescope):Bson.element = {name=n; value={CodeScope=cs}}
     i32(n:string,i:int):Bson.element = {name=n; value={Int32=i}}
+    ri32(n:string,i:int32):Bson.element = {name=n; value={RealInt32=i}}
     timestamp(n:string,ts:Bson.timestamp):Bson.element = {name=n; value={Timestamp=ts}}
     i64(n:string,i:int):Bson.element = {name=n; value={Int64=i}}
+    ri64(n:string,i:int64):Bson.element = {name=n; value={RealInt64=i}}
     min(n:string):Bson.element = {name=n; value={Min}}
     max(n:string):Bson.element = {name=n; value={Max}}
     de(e:Bson.element):Bson.document = [e]
@@ -239,8 +245,10 @@ Bson = {{
     | {Symbol=_} -> tSymbol
     | {CodeScope=_} -> tCodeScope
     | {Int32=_} -> tInt32
+    | {RealInt32=_} -> tInt32
     | {Timestamp=_} -> tTimestamp
     | {Int64=_} -> tInt64
+    | {RealInt64=_} -> tInt64
     | {Min=_} -> tMin
     | {Max=_} -> tMax
 
@@ -464,8 +472,10 @@ Bson = {{
     | {Symbol=v} -> "SYMBOL({v})"
     | {CodeScope=v} -> "{v}"
     | {Int32=v} -> "{v}"
+    | {RealInt32=_v} -> "external_type"
     | {Timestamp=(t,i)} -> "\{ \"t\" : {t}, \"i\" : {i} \}"
     | {Int64=v} -> "{v}L"
+    | {RealInt64=_v} -> "external_type"
     | {Min=_} -> "min"
     | {Max=_} -> "max"
 
@@ -616,8 +626,10 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="Bson.symbol"}
       | {TyName_args=[]; TyName_ident="Bson.codescope"}
       | {TyName_args=[]; TyName_ident="Bson.int32"}
+      | {TyName_args=[]; TyName_ident="Bson.realint32"}
       | {TyName_args=[]; TyName_ident="Bson.timestamp"}
       | {TyName_args=[]; TyName_ident="Bson.int64"}
+      | {TyName_args=[]; TyName_ident="Bson.realint64"}
       | {TyName_args=[]; TyName_ident="Bson.min"}
       | {TyName_args=[]; TyName_ident="Bson.max"}
       | {TyName_args=[_]; TyName_ident="Bson.register"}
@@ -625,6 +637,8 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="bool"}
       | {TyName_args=[]; TyName_ident="void"}
       | {TyName_args=[_]; TyName_ident="intmap"}
+      | {TyName_args=[_]; TyName_ident="int32"}
+      | {TyName_args=[_]; TyName_ident="int64"}
       | {TyName_args=[{TyConst={TyInt={}}},_,_]; TyName_ident="ordered_map"}
       | {TyName_args=[_]; TyName_ident="list"} -> ty
       | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
@@ -675,8 +689,10 @@ Bson = {{
     | {TyName_args=[]; TyName_ident="Bson.symbol"} -> [H.symbol(key,(@unsafe_cast(v):Bson.symbol))]
     | {TyName_args=[]; TyName_ident="Bson.codescope"} -> [H.codescope(key,(@unsafe_cast(v):Bson.codescope))]
     | {TyName_args=[]; TyName_ident="Bson.int32"} -> [H.i32(key,(@unsafe_cast(v):Bson.int32))]
+    | {TyName_args=[]; TyName_ident="Bson.realint32"} -> [H.ri32(key,(@unsafe_cast(v):Bson.realint32))]
     | {TyName_args=[]; TyName_ident="Bson.timestamp"} -> [H.timestamp(key,(@unsafe_cast(v):Bson.timestamp))]
     | {TyName_args=[]; TyName_ident="Bson.int64"} -> [H.i64(key,(@unsafe_cast(v):Bson.int64))]
+    | {TyName_args=[]; TyName_ident="Bson.realint64"} -> [H.ri64(key,(@unsafe_cast(v):Bson.realint64))]
     | {TyName_args=[]; TyName_ident="Bson.min"} -> [H.min(key)]
     | {TyName_args=[]; TyName_ident="Bson.max"} -> [H.max(key)]
     | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
@@ -816,6 +832,16 @@ Bson = {{
          | {value={Min=_} ...} -> {some=@unsafe_cast(void)}
          | {value={Max=_} ...} -> {some=@unsafe_cast(void)}
          | element -> error("expected void, got {element}",{none}))
+      | {TyName_args=[]; TyName_ident="int32"}
+      | {TyName_args=[]; TyName_ident="Bson.realint32"} ->
+        (match element with
+         | {value={RealInt32=i} ...} -> {some=@unsafe_cast(i)}
+         | element -> error("expected int32, got {element}",{none}))
+      | {TyName_args=[]; TyName_ident="int64"}
+      | {TyName_args=[]; TyName_ident="Bson.realint64"} ->
+        (match element with
+         | {value={RealInt64=i} ...} -> {some=@unsafe_cast(i)}
+         | element -> error("expected int64, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.int32"}
       | {TyName_args=[]; TyName_ident="Bson.int64"}
       | {TyConst={TyInt={}}} ->

@@ -18,6 +18,7 @@
 
 module C = QmlCpsServerLib
 open C.Ops
+module FillbufString = Bson.FillbufString
 
 ##opa-type Bson.document
 ##opa-type Bson.element
@@ -30,11 +31,11 @@ open C.Ops
 
 ##module Bson
 
-exception Overflow
+exception Overflow of string
 let imax64 = Int64.of_int max_int
 let imin64 = Int64.of_int min_int
 let i64toi i64 =
-  if i64 > imax64 || i64 < imin64 then raise Overflow;
+  if i64 > imax64 || i64 < imin64 then raise (Overflow (Printf.sprintf "i64toi(%Ld)" i64));
   Int64.to_int i64
 let itoi64 = Int64.of_int
 #<Ifstatic:OCAML_WORD_SIZE 64>
@@ -42,13 +43,13 @@ let i32toi = Int32.to_int
 let i32max = Int32.to_int Int32.max_int
 let i32min = Int32.to_int Int32.min_int
 let itoi32 i =
-  if i > i32max || i < i32min then raise Overflow;
+  if i > i32max || i < i32min then raise (Overflow (Printf.sprintf "itoi32(%d)" i));
   Int32.of_int i
 #<Else>
 let imax32 = Int32.of_int max_int
 let imin32 = Int32.of_int min_int
 let i32toi i32 =
-  if i32 > imax32 || i32 < imin32 then raise Overflow;
+  if i32 > imax32 || i32 < imin32 then raise (Overflow (Printf.sprintf "i32toi(%ld)" i32));
   Int32.to_int i32
 let itoi32 = Int32.of_int
 #<End>
@@ -161,7 +162,9 @@ let field_hd        = ServerLib.static_field_of_name "hd"
 let field_tl        = ServerLib.static_field_of_name "tl"
 let field_nil       = ServerLib.static_field_of_name "nil"
 let field_int32     = ServerLib.static_field_of_name "Int32"
+let field_realint32 = ServerLib.static_field_of_name "RealInt32"
 let field_int64     = ServerLib.static_field_of_name "Int64"
+let field_realint64 = ServerLib.static_field_of_name "RealInt64"
 let field_double    = ServerLib.static_field_of_name "Double"
 let field_bool      = ServerLib.static_field_of_name "Boolean"
 let field_string    = ServerLib.static_field_of_name "String"
@@ -197,7 +200,9 @@ let make_null = make_val field_null
 let make_minkey = make_val field_minkey
 let make_maxkey = make_val field_maxkey
 let make_int32 = make_val field_int32
+let make_realint32 = make_val field_realint32
 let make_int64 = make_val field_int64
+let make_realint64 = make_val field_realint64
 let make_double = make_val field_double
 let make_bool n x = make_val field_bool n (ServerLib.wrap_bool x)
 let make_string = make_val field_string
@@ -217,8 +222,20 @@ let deserialize s =
   let rec aux i =
     (function
      | c when c = Bson.el_eoo -> shared_nil
-     | c when c = Bson.el_int -> let e = make_int32 (Bson.IteratorSS.key i) (i32toi (Bson.IteratorSS.int i)) in auxn e i
-     | c when c = Bson.el_long -> let e = make_int64 (Bson.IteratorSS.key i) (i64toi (Bson.IteratorSS.long i)) in auxn e i
+     | c when c = Bson.el_int ->
+         let i32 = Bson.IteratorSS.int i in
+         let e =
+           try make_int32 (Bson.IteratorSS.key i) (i32toi i32)
+           with (Overflow _) -> make_realint32 (Bson.IteratorSS.key i) i32
+         in
+         auxn e i
+     | c when c = Bson.el_long ->
+         let i64 = Bson.IteratorSS.long i in
+         let e =
+           try make_int64 (Bson.IteratorSS.key i) (i64toi i64)
+           with (Overflow _) -> make_realint64 (Bson.IteratorSS.key i) i64
+         in
+         auxn e i
      | c when c = Bson.el_double -> let e = make_double (Bson.IteratorSS.key i) (Bson.IteratorSS.double i) in auxn e i
      | c when c = Bson.el_bool -> let e = make_bool (Bson.IteratorSS.key i) (Bson.IteratorSS.bool i) in auxn e i
      | c when c = Bson.el_string -> let e = make_string (Bson.IteratorSS.key i) (Bson.IteratorSS.string i) in auxn e i
@@ -391,7 +408,7 @@ let read_mongo conn timeout mailbox k =
        if l < 4
        then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
        else
-         let len = Stuff.StuffString.ldi32 (Buf.sub b s 4) 0 in
+         let len = FillbufString.ldi32 (Buf.sub b s 4) 0 in
          HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox (len-4) ()
            ~err_cont:(fun exn -> BslUtils.create_outcome (`failure (Printexc.to_string exn)) |> k)
            ~timeout

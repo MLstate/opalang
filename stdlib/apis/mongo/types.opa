@@ -51,6 +51,8 @@ MongoTypeSelect = {{
   istvar(ty) = match ty with | {TyRecord_row=[]; TyRecord_rowvar=_} -> true | _ -> false
   tvoid = {TyName_args=[]; TyName_ident="void"}
   tint = {TyConst={TyInt={}}}
+  tint32 = {TyName_args=[]; TyName_ident="int32"}
+  tint64 = {TyName_args=[]; TyName_ident="int64"}
   tstring = {TyConst={TyString={}}}
   tfloat = {TyConst={TyFloat={}}}
   tbool = {TyName_args=[]; TyName_ident="bool"}
