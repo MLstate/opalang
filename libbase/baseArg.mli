@@ -60,6 +60,18 @@ val parse_argv : ?current:int ref -> string array ->
   (key * spec * doc) list -> anon_fun -> usage_msg -> unit
 val usage : (key * spec * doc) list -> usage_msg -> unit
 
+val write_simple_manpage :
+  cmdname:string ->
+  section:int ->
+  ?centerfooter:string ->
+  ?leftfooter:string ->
+  ?centerheader:string ->
+  summary:string ->
+  ?synopsis:string ->
+  ?description:string ->
+  ?options:(string * spec * string) list ->
+  ?other:(string * string) list -> out_channel -> unit
+
 val align : (key * spec * doc) list -> (key * spec * doc) list
   (** beware, if you wish to call [add_bash_completion], you should do it before calling [align] *)
 val current : int ref
