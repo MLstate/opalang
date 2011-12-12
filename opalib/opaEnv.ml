@@ -438,7 +438,7 @@ where options are :
     let parse () =
       let standard = (* Please preverse the alphabetical order for lisibility *)
         OManager.Arg.options @
-        WarningClass.Arg.options () @
+        WarningClass.Arg.options @
         ObjectFiles.Arg.public_options @
         I18n.options @
         OpaSyntax.Args.options @

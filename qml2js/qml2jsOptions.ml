@@ -245,7 +245,7 @@ struct
     ]
     @ OManager.Arg.options
     @ PassHandler.Arg.options
-    @ WarningClass.Arg.options ()
+    @ WarningClass.Arg.options
     @ Qml2jsBackendOptions.Arg.options
 
   let speclist () =

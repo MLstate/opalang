@@ -207,7 +207,7 @@ let spec = [
 ]
   @ ( Sa.import_arg_options OManager.Arg.options )
   @ ( Sa.import_arg_options [OManager.Arg.version "opatop"] )
-  @ ( Sa.import_arg_options (WarningClass.Arg.options ()) )
+  @ ( Sa.import_arg_options WarningClass.Arg.options )
 
 (**
    Anon function for non --option arguments

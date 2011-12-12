@@ -736,7 +736,7 @@ let _ =
           @ ObjectFiles.Arg.public_options
           @ ObjectFiles.Arg.private_options
           @ PassHandler.Arg.options
-          @ WarningClass.Arg.options ()
+          @ WarningClass.Arg.options
           @ OManager.Arg.options
          ))
       ignore "passdesign" in

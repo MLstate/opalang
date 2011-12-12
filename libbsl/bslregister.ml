@@ -518,7 +518,7 @@ let usage_msg =
 
 let parse () =
   let spec = (
-    WarningClass.Arg.options () @
+    WarningClass.Arg.options @
     (OManager.Arg.version "bslregister" :: OManager.Arg.options) @
     BslLib.Arg.options @
     spec

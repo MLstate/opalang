@@ -151,7 +151,7 @@ module Arg : sig
       The unit is there so that the warning class of this module have time
       to be loaded and registered before returning the options list
   *)
-  val options : unit -> (Base.Arg.key * Base.Arg.spec * Base.Arg.doc) list
+  val options : (Base.Arg.key * Base.Arg.spec * Base.Arg.doc) list
 
 end
 

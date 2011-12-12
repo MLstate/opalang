@@ -183,9 +183,7 @@ struct
     List.iter iter sorted ;
     exit 0
 
-  (* type unit because we are waiting that the all module is loaded before
-     reading in global mutable tables *)
-  let options () = [
+  let options = [
     ("--warn", A.String (warn true), "<wclass> Activate a warning class");
     ("--no-warn", A.String (warn false), "<wclass> Deactivate a warning class");
     ("--warn-error", A.String (warn_error true), "<wclass> Warnings of the class will be considered as errors");
