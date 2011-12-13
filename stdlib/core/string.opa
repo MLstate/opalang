@@ -470,16 +470,19 @@ String =
   : string
 
   /**
-   * iter on each character of [source] and call the function [callback] with the current character
+   * map each unicode character of [source] using the given character mapping function
    */
-  map(callback: string -> string, source: string)=
-    len= length(source)
-    rec aux= offset, accu ->
-        if offset < len
-        then aux(offset+1,accu^callback(get(offset, source)))
-        else accu
-    aux(0, "")
-  : string
+  map(f: string -> string, source: string):string=
+    len=length(source)
+    if len > 0 then
+      buffer=Buffer.create(len*2)
+      rec aux(byte) =
+        do Buffer.append(buffer, f(Cactutf.cons(Cactutf.look(source,byte))))
+        byte=Cactutf.next(source,byte)
+        if byte < len then aux(byte)
+      do aux(0) // we know len>0
+      Buffer.contents(buffer)
+    else source
 
   /**
    * iter on each character of [source] and call the function [callback] with the current character
@@ -520,13 +523,10 @@ String =
    */
   flatten(list: list(string)): string=
   (
-    llcreate   = %% BslBuffer.create %%
-    llappend   = %% BslBuffer.append %%
-    llcontents = %% BslBuffer.contents %%
-    size = List.fold(((x:string),(acc:int) -> String.length(x) + acc),  list, 0)//Compute buffer length -- may not be useful
-    llbuff     = llcreate(size)
-    do List.iter(s -> llappend(llbuff, s), list)
-    llcontents(llbuff)
+    size = List.fold(((x:string),(acc:int) -> String.length(x) + acc),  list, 0)
+    llbuff     = Buffer.create(size)
+    do List.iter(Buffer.append(llbuff, _), list)
+    Buffer.contents(llbuff)
   )
 
   /**
@@ -651,6 +651,12 @@ String =
  * FIXME: Used ? if, @opacapi else, remove
 */
 type Buffer_private.buffer = external//Low-level buffers, used internally to speed-up serialization
+
+@private Buffer = {{
+  create   = %% BslBuffer.create %%
+  append   = %% BslBuffer.append %%
+  contents = %% BslBuffer.contents %%
+}}
 
 @opacapi
 String_flatten = String.flatten
