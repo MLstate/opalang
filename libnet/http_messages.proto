@@ -68,6 +68,7 @@
 -define Referer str = "Referer: " str "\r\n"
 -define TE str = "TE: " str "\r\n"
 -define User_Agent str = "User-Agent: " str "\r\n"
+-define X_Forwarded_For str = "X-Forwarded-For: " str "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% Response headers %%%
