@@ -70,7 +70,7 @@ init <- _succeed {{ Parser_utils.filename := _filename }}
    {6 Declarations}
 *)
 
-declarations <- spacing (=list0(declaration,semic?)):l semic? spacing
+declarations <- spacing (=list0(declaration,separator)):l separator spacing
   {{ List.flatten l }}
 
 /** Declaration **/
