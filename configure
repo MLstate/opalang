@@ -17,7 +17,7 @@ opalang configure script. Options:
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
         -camlidl		enable features based on camlidl
-        -no-dbm  		disable features based on dbm
+        -dbm        		enable features based on dbm
         -help			shows this message
 EOF
 # --no-<lib> if available
