@@ -205,7 +205,7 @@ assign_nosp    <- '='  ![=] $
 
 /* value identifier */
 ml_identifier      <- spacing ml_identifier_nosp {{ __2 }}
-ml_identifier_nosp <- not_a_keyword field_identifier_nosp $_
+ml_identifier_nosp <- not_a_keyword field_identifier_nosp {{ __2 }}
 
 field_identifier <- spacing field_identifier_nosp {{ __2 }}
 field_identifier_nosp <-  ml_identifier_first_letter ml_following_letter* $_
@@ -216,7 +216,7 @@ type_identifier <- spacing type_identifier_nosp {{ __2 }}
 type_identifier_nosp <- not_a_keyword ml_identifier_first_letter (ml_following_letter $/ '.' $)* $_
                       / arbitrary_identifier_nosp
 
-arbitrary_identifier <- spacing arbitrary_identifier_nosp
+arbitrary_identifier <- spacing arbitrary_identifier_nosp {{ __2 }}
 arbitrary_identifier_nosp <- bquote_nosp ((![`\n] .)* $_) bquote_nosp {{ __2 }}
 
 ml_identifier_first_letter <- [a-zA-Z_]
