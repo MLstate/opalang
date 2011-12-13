@@ -195,6 +195,7 @@ sig
   (** Fill a pprocess environment from opa options. *)
   val to_ppenv : opa_options -> Pprocess.env -> Pprocess.env
 
+  val write_manpage : out_channel -> unit
 end
 =
 struct
@@ -411,15 +412,14 @@ struct
     (** Options which refers to (and so depends on, ...) options *)
     let full_help = ref (fun () -> ())
 
+    let command_name = "opa" (* TODO: use buildInfos to know if we are on windows and should add .exe *)
+
+    let synopsis = command_name ^ " [options] source1.opa [source2.opa ...]"
+
     let help_menu speclist () =
-      let head = Printf.sprintf
-                    "---- OPA Compiler Help ----
-Syntax is :
-
-  \"opa.exe [options] source1.opa [source2.opa ...]\"
-
-where options are :
-" in
+      let head =
+	Printf.sprintf "Usage: %s\nwhere options are :\n" synopsis
+      in
       Arg.usage speclist head;
       if not BuildInfos.is_release
       then (
@@ -435,7 +435,7 @@ where options are :
        (the function is updated just after the definition of the options list) *)
       (* ===== *)
 
-    let parse () =
+    let speclist =
       let standard = (* Please preverse the alphabetical order for lisibility *)
         OManager.Arg.options @
         WarningClass.Arg.options @
@@ -614,16 +614,16 @@ where options are :
                                                                        "strict", `strict],
                                               " Restrict definition of polymorphic values")
         ] in
-      let speclist =
         Arg.sort (
           Arg.align (
             Arg.add_bash_completion
-              ~names:["opa";"opa.exe"]
+	      ~name:command_name
               ~default:(Arg.File "@(opa|cm@(o|a|x|xa|xs)|js|bypass|opack)")
               (standard @ (if BuildInfos.is_release then [] else non_release))
           )
-        ) in
+        )
 
+  let parse () =
     let anon_fun arg =
         let ext = File.extension arg in
         match ext with
@@ -848,4 +848,16 @@ where options are :
       let module JsCC = (val options.js_back_end : Qml2jsOptions.JsBackend) in
       Pprocess.add_env "OPA_JS_COMPILER" JsCC.name env
     in env
+
+  let write_manpage file =
+    Arg.write_simple_manpage
+      ~cmdname:ArgParser.command_name
+      ~summary:"The Opa compiler"
+      ~section:1
+      ~centerheader:"Opa Manual"
+      ~synopsis:ArgParser.synopsis
+      ~description:"The Opa compiler allows you to compile Opa projects into execute files. Please refer to the online manual on http://opalang.org for a detailed description of the language and its tools.\n"
+      ~options:ArgParser.speclist
+      ~other:[("VERSION", ArgParser.str_version)]
+      file
 end
