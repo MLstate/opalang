@@ -1432,12 +1432,12 @@ int <- Opa_lexer.int
 float  <- Opa_lexer.float
 spacing<- Opa_lexer.spacing
 strict_spacing<- Opa_lexer.strict_spacing
-ml_identifier <- spacing Opa_lexer.ml_identifier {{ __2 }}
-ml_identifier_nosp <- spacing Opa_lexer.ml_identifier_nosp {{ __2 }}
-field_identifier <- spacing Opa_lexer.field_identifier {{ __2 }}
-field_identifier_nosp <- spacing Opa_lexer.field_identifier_nosp {{ __2 }}
-type_identifier <- spacing Opa_lexer.type_identifier {{ __2 }}
-type_identifier_nosp <- spacing Opa_lexer.type_identifier_nosp {{ __2 }}
+ml_identifier <- Opa_lexer.ml_identifier
+ml_identifier_nosp <-  Opa_lexer.ml_identifier_nosp
+field_identifier <- Opa_lexer.field_identifier
+field_identifier_nosp <- Opa_lexer.field_identifier_nosp
+type_identifier <- Opa_lexer.type_identifier
+type_identifier_nosp <- Opa_lexer.type_identifier_nosp
 
 
 larrow   <- Opa_lexer.larrow $
