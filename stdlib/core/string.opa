@@ -321,15 +321,23 @@ String =
     * Very slow: replace or improve
    **/
   escape_non_utf8_special(v) =
-    rpl_list = [
-             ( "\\" , "\\\\"),
-             ( "\n" , "\\n" ),
-             ( "\r" , "\\r" ),
-             ( "\t" , "\\t" ),
-             ( "\000" , "\\000" ),
-             ( "\"" , "\\\"" )
-     ]
-     List.foldl((pat, rpl), str -> String.replace(pat, rpl, str) , rpl_list, v)
+    /* see json.org */
+    transform =
+    | "\"" -> "\\\""
+    | "\\" -> "\\\\"
+/*   | "\/" -> "\\\/"
+    | "\b" -> "\\n"
+    | "\f" -> "\\f" include in fallback*/
+    | "\n" -> "\\n"
+    | "\r" -> "\\r"
+    | "\t" -> "\\t"
+    | c ->
+      i = Cactutf.look(c,0)
+      if i < 32 then
+        if i < 10 then "\\u000{i}"
+        else "\\u00{i}"
+      else c
+    String.map(transform,v)
 
   /**
    * {2 Additional functions}
