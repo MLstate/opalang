@@ -241,6 +241,38 @@ let doc_string title speclist =
     speclist;
   Format.flush_str_formatter ()
 
+let write_simple_manpage
+    ?(nohelp=false)
+    ~cmdname ~section
+    ?centerfooter
+    ?leftfooter ?centerheader
+    ~summary ?synopsis ?description ?options ?(other=[])
+    file
+    =
+  let print_spec buf (names,_,params_doc,doc) =
+    let names_str = List.fold_left (fun str name -> str ^ (BaseString.replace name "-" "\\-") ^ " ") "" names
+    in
+    Printf.bprintf buf ".TP\n%s%s\n%s\n" names_str params_doc doc
+  in
+  let help_dummy_spec = (["--help"; "-help"; "-h"; "-?"], (fun _ -> failwith "help_dummy_spec"), "", "Print this help")
+  in
+  let options_str =
+    begin match options with
+      None -> None
+    | Some(speclist) ->
+      let buf = Buffer.create 10
+      in
+      List.iter (print_spec buf) (if nohelp then speclist else speclist@[help_dummy_spec]);
+      Some(Buffer.contents buf)
+    end
+  in
+  BaseArg.write_simple_manpage
+    ~cmdname ~section
+    ?centerfooter
+    ?leftfooter ?centerheader
+    ~summary ?synopsis ?description ~other:(match options_str with None -> other | Some(str) -> ("OPTIONS", str)::other)
+    file
+
 let make_parser ?(final=false) ?(nohelp=false) title speclist acc0 args0 =
   let rec do_args (acc,rev_args) = function
     | [] -> (Some acc, List.rev rev_args, [])

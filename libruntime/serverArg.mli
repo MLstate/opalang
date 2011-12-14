@@ -162,6 +162,20 @@ type 'a arg_parser = string list * ('a -> 'a param_parser) * string * string
 val doc_string: string -> 'a arg_parser list -> string
   (** Doc string as printed by --help. The first argument is the title. *)
 
+val write_simple_manpage :
+  ?nohelp:bool ->
+  cmdname:string ->
+  section:int ->
+  ?centerfooter:string ->
+  ?leftfooter:string ->
+  ?centerheader:string ->
+  summary:string ->
+  ?synopsis:string ->
+  ?description:string ->
+  ?options:'a arg_parser list ->
+  ?other:(string * string) list -> out_channel -> unit
+  (** Create a simple manpage. *)
+
 val make_parser: ?final:bool -> ?nohelp:bool -> string -> 'a arg_parser list -> 'a -> 'a param_parser
   (** Makes a param_parser from a list of arg_parsers. The '-help' and '--help'
       options have a default handler that turns off handling of other options,
