@@ -88,6 +88,7 @@ type Twitter.timeline_options = {
   page     : int
   since_id : int
   max_id   : int
+  include_rts : bool
 }
 
 /**
@@ -539,6 +540,9 @@ type Twitter.rate_limit = {
       |> add_if("page", p.page, (_>0))
       |> add_if("since_id", p.since_id, (_>0))
       |> add_if("max_id", p.max_id, (_>0))
+    params =
+      if p.include_rts then [("include_rts", "true")|params]
+      else params
     _get_res(path, params, credentials, TwitParse._build_timeline_response)
 
   _get_generic_socgraph(name, id, cursor, graphtype:string, credentials) =
@@ -739,6 +743,7 @@ Twitter(conf:Twitter.configuration) = {{
     page     = 0
     since_id = 0
     max_id   = 0
+    include_rts = true
   } : Twitter.timeline_options
 
 /**
