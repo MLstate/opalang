@@ -268,7 +268,7 @@ let main () =
   if MutableList.length user_files = 0 || !do_input then (
     OManager.oformatter := Format.std_formatter;
     OManager.this_is_tool ~force:true "opatop";
-    OManager.printf "This is an experimental top-level for opa, type '#help;;' to know more.@\n";
+    OManager.printf "This is an experimental interpretation loop for opa. Type '#help;;' to know more.@\n";
     OManager.oformatter := Format.err_formatter;
     P.dump_set true;
     let env = OpaTopEnv.set_filename env "stdin" in
@@ -277,3 +277,17 @@ let main () =
   ) else (
     ()
   )
+
+(** Output a manpage file *)
+let write_manpage file =
+  ServerArg.write_simple_manpage
+    ~cmdname:"opatop"
+    ~summary:"The Opa top-level"
+    ~section:1
+    ~centerheader:"Opa Manual"
+    ~synopsis:"opatop [options]"
+    ~description:"Opatop is an experimental interpretation loop for opa. Type '#help;;' to know more."
+    ~options:spec
+    ~other:["NOTE","Opatop also accept some options inherited from the Opa platform. Run 'opatop --help' for details."]
+    file
+
