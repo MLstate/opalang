@@ -283,28 +283,31 @@ let rewrite_identifiers always_serialize env annotmap code =
     | Q.Directive (_,#ignored_directive,[e],_) -> get_ident e
     | _ -> None
   in
-  let identity annotmap e = (annotmap,e) in
   let rm_public_env e = match e with
     | Q.Directive (_, `public_env, ([]|_::_::_) , _ ) -> assert false (* see detect_candidate_call *)
     | Q.Directive (_, `public_env, [e], _ ) -> true,e
     | _ -> false,e
   in
-  let rec rw_call_site ~has_public_env e = match e with
-    | Q.Ident _ as id
-    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ )], _)
+  let rec rw_call_site ~has_public_env annotmap e =
+    let no_changes = e in
+    match e with
+    | (Q.Ident _ as id) as e
+    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ ) as e], _)
         -> begin match get_ident id with
             | Some((labeli,id)) when has_public_env || IdentSet.mem id always_serialize ->
-              new_call_site labeli id
-            | _ -> identity
+              new_call_site labeli id annotmap e
+            | _ -> (annotmap,no_changes)
         end
 
-    | Q.Directive (_,#ignored_directive,[e],_) -> rw_call_site ~has_public_env e
+    | Q.Directive (a,(#ignored_directive as b),[e],c) ->
+      let annotmap,e = rw_call_site ~has_public_env annotmap e in
+      annotmap, Q.Directive (a,b,[e],c)
 
-    | _ -> identity
+    | _ -> (annotmap,no_changes)
   in
   let rw annotmap e =
     let has_public_env, e = rm_public_env e in
-    (rw_call_site ~has_public_env e) annotmap e
+    rw_call_site ~has_public_env annotmap e
   in
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
