@@ -379,6 +379,13 @@
     return dom;
 }
 
+##register give_blur: Dom.private.element -> Dom.private.element
+##args(dom)
+{
+    dom.blur();
+    return dom;
+}
+
 ##register get_value: Dom.private.element -> string
 ##args(dom)
 {

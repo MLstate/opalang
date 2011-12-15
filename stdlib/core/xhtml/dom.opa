@@ -583,6 +583,12 @@ Dom = {{
         void
   )
 
+  give_blur(dom:dom): void =
+  (
+        _ = %% BslDom.give_blur %%(of_selection(dom))
+        void
+  )
+
   /**
    * Get the [id] of an item.
    *
