@@ -228,22 +228,26 @@ Email = {{
         end
     send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, k)
 
-  try_send(from : Email.email,to : Email.email, subject : string, content : Email.content) : Email.send_status =
+  /** Try to send a mail synchronously */
+  try_send(from : Email.email, to : Email.email, subject : string, content : Email.content) : Email.send_status =
     k(cont)=
-      f(r)= Continuation.return(cont,r)
-      private_send_async(from,to,subject,content,none,f)
+      f(r)= Continuation.return(cont, r)
+      private_send_async(from, to, subject, content, none, f)
     @callcc(k)
 
-  try_send_async(from : Email.email,to : Email.email, subject : string, content :Email.content , k : (Email.send_status -> void)) : void =
-    private_send_async(from,to,subject,content,none,k)
+  /** Try to send a mail asynchronously */
+  try_send_async(from : Email.email, to : Email.email, subject : string, content :Email.content, k : (Email.send_status -> void)) : void =
+    private_send_async(from, to, subject, content, none, k)
 
+  /** Try to send a mail containing files synchronously */
   try_send_with_files(from : Email.email,to : Email.email, subject : string, content : Email.content, files : Email.attachment) : Email.send_status =
     k(cont)=
-      f(r)= Continuation.return(cont,r)
-      private_send_async(from,to,subject,content,some(files),f)
+      f(r)= Continuation.return(cont, r)
+      private_send_async(from, to, subject, content, some(files), f)
     @callcc(k)
 
-  try_send_with_files_async(from : Email.email,to : Email.email, subject : string, content :Email.content, files : Email.attachment, k : (Email.send_status -> void)) : void =
-    private_send_async(from,to,subject,content,some(files),k)
+  /** Try to send a mail containing files asynchronously */
+  try_send_with_files_async(from : Email.email, to : Email.email, subject : string, content :Email.content, files : Email.attachment, k : (Email.send_status -> void)) : void =
+    private_send_async(from, to, subject, content, some(files), k)
 
 }}
