@@ -405,14 +405,11 @@ var LowLevelPingLoop = {};
     /* ************************************************** */
     /* Distant Channel ********************************** */
     /**
-     * A common ancestor for [ServerChannel] and [CousinChannel]
+     * A common prototype for [ServerChannel] and [CousinChannel]
      *
      * @constructor
      */
-    function DistantChannel()
-    {
-    }
-    DistantChannel.prototype = {
+    distantChannelprototype = {
         message_to_post: function(message){
             var ser = this.serialize();
             return {to:ser,
@@ -518,11 +515,11 @@ var LowLevelPingLoop = {};
          * @param msg The message, unserialized
          * @param ctx Ignored
          */
-        send: DistantChannel.prototype.send,
+        send: distantChannelprototype.send,
 
-        call_no_cps: DistantChannel.prototype.call_no_cps,
+        call_no_cps: distantChannelprototype.call_no_cps,
 
-        message_to_post: DistantChannel.prototype.message_to_post
+        message_to_post: distantChannelprototype.message_to_post
 
     }
 
@@ -581,13 +578,13 @@ var LowLevelPingLoop = {};
          * @param The message, unserialized
          * @param ctx Ignored
          */
-        send: DistantChannel.prototype.send,
+        send: distantChannelprototype.send,
 
         call_no_cps: function(){
             throw Error("Not yet implemented");
         },
 
-        message_to_post: DistantChannel.prototype.message_to_post
+        message_to_post: distantChannelprototype.message_to_post
 
     }
 
