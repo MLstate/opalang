@@ -1,0 +1,3 @@
+# -*- conf -*- (for emacs)
+
+<genman.{ml,byte,native}>: use_unix, use_str, use_libbase
