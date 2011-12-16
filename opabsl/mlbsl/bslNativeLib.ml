@@ -106,6 +106,7 @@ let unwrap_option proj opa =
 (**
    caml_tuple_* as known by OCaml
 *)
+##extern-type caml_tuple_2('a,'b) = ('a*'b)
 ##extern-type caml_tuple_4('a,'b,'c,'d) = ('a*'b*'c*'d)
 
 (**
@@ -122,6 +123,7 @@ let f4 = ServerLib.static_field_of_name "f4"
 
 
 
+##register ocaml_tuple_2 : opa[tuple_2('a,'b)] -> caml_tuple_2('a,'b)
 let ocaml_tuple_2 opa =
   let record = unwrap_opa_tuple_2 opa in
   let a = ServerLib.unsafe_dot record f1 in

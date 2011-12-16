@@ -70,6 +70,11 @@ type Email.send_status =
  / { ok }
  / { error : string }
 
+type Email.options = {
+  custom_headers : list((string, string))
+}
+
+type caml_tuple_2('a,'b) = external
 type caml_tuple_4('a,'b,'c,'d) = external
 
 /**
@@ -77,8 +82,12 @@ type caml_tuple_4('a,'b,'c,'d) = external
  */
 Email = {{
 
+  default_options = {
+    custom_headers = []
+  } : Email.options
+
   @private
-  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string ,  string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), (Email.send_status -> void) -> void
+  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), (Email.send_status -> void) -> void
 
   /**
    * {1 Parsing email addresses}
@@ -191,8 +200,21 @@ Email = {{
     | { error=e } -> "error : {e}"
 
   @private
-  private_send_async(from : Email.email, to : Email.email, subject : string, mail_content : Email.content, files : option(Email.attachments), k : (Email.send_status -> void)) : void =
-    caml_list(l) =
+  private_send_async(
+    from : Email.email,
+    to : Email.email,
+    subject : string,
+    mail_content : Email.content,
+    files : option(Email.attachments),
+    options : Email.options,
+    k : (Email.send_status -> void)) : void =
+    caml_list2(l) =
+      rec aux(l,acc) =
+        match l with
+          | [] -> acc
+          | [hd|tl] -> aux(tl, %%BslNativeLib.cons%%(%%BslNativeLib.ocaml_tuple_2%%(hd),acc))
+      aux(List.rev(l),%%BslNativeLib.empty_list%%)
+    caml_list4(l) =
       rec aux(l,acc) =
         match l with
           | [] -> acc
@@ -204,7 +226,7 @@ Email = {{
       | {~html} -> (Xhtml.to_readable_string(html),Xhtml.serialize_as_standalone_html(html))
     end
     files = match files with
-      | {none} -> caml_list([])
+      | {none} -> caml_list4([])
       | {some=list_files} ->
         files = List.filter_map((x -> match x with
           | ~{filename content mime_type} ->
@@ -221,30 +243,31 @@ Email = {{
                | {none} -> {none}
              end))
           ,list_files)
-        caml_list(files)
+        caml_list4(files)
         end
-    send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, k)
+    custom_headers = caml_list2(options.custom_headers)
+    send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, custom_headers, k)
 
   /** Try to send a mail synchronously */
-  try_send(from : Email.email, to : Email.email, subject : string, content : Email.content) : Email.send_status =
-    k(cont)=
-      f(r)= Continuation.return(cont, r)
-      private_send_async(from, to, subject, content, none, f)
+  try_send(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options) : Email.send_status =
+    k(cont) =
+      f(r) = Continuation.return(cont, r)
+      private_send_async(from, to, subject, content, none, options, f)
     @callcc(k)
 
   /** Try to send a mail asynchronously */
-  try_send_async(from : Email.email, to : Email.email, subject : string, content :Email.content, continuation : (Email.send_status -> void)) : void =
-    private_send_async(from, to, subject, content, none, k)
+  try_send_async(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options, continuation : (Email.send_status -> void)) : void =
+    private_send_async(from, to, subject, content, none, options, continuation)
 
   /** Try to send a mail containing files synchronously */
-  try_send_with_files(from : Email.email,to : Email.email, subject : string, content : Email.content, files : Email.attachments) : Email.send_status =
-    k(cont)=
-      f(r)= Continuation.return(cont, r)
-      private_send_async(from, to, subject, content, some(files), f)
+  try_send_with_files(from : Email.email, to : Email.email, subject : string, content : Email.content, files : Email.attachments, options : Email.options) : Email.send_status =
+    k(cont) =
+      f(r) = Continuation.return(cont, r)
+      private_send_async(from, to, subject, content, some(files), options, f)
     @callcc(k)
 
   /** Try to send a mail containing files asynchronously */
-  try_send_with_files_async(from : Email.email, to : Email.email, subject : string, content :Email.content, files : Email.attachments, continuation : (Email.send_status -> void)) : void =
-    private_send_async(from, to, subject, content, some(files), continuation)
+  try_send_with_files_async(from : Email.email, to : Email.email, subject : string, content : Email.content, files : Email.attachments, options : Email.options, continuation : (Email.send_status -> void)) : void =
+    private_send_async(from, to, subject, content, some(files), options, continuation)
 
 }}
