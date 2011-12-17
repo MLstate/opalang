@@ -538,7 +538,7 @@ shared_xhtml1_1_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"
 
 shared_html5_header =
-  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>"
+  "<!DOCTYPE html>"
 
 shared_xml_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -928,10 +928,12 @@ export_resource(external_css_files: list(string),
               <></>, base_url)
           ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
-          doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
+          html_doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
 
-          page= Xhtml.of_string_unsafe(doctype) <+>
-            <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
+          page = Xhtml.of_string_unsafe(html_doctype) <+>
+            (match doctype
+             {some={html5}} -> <html>{ready_head}{ready_body}</html>
+             _ -> <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>)
 
           //Serialize and send
           data = Xhtml.serialize_to_string(page)
