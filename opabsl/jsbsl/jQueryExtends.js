@@ -478,12 +478,11 @@ function opa_event_to_dom_event(event, name)
             if(some_mb.left) result.which = 1;
             else if(some_mb.middle) result.which = 3;
             else if(some_mb.right)  result.which = 2;
-            else
-            {
+            else if (some_mb.delta) {
                 var delta = some_mb.delta || 0;
                 result.wheelDelta = delta * 120;
                 result.detail     = - delta * 3;
-            }
+	    }
         }
     } else {
         result.which = record2obj(key_code).some;
@@ -509,7 +508,7 @@ function opa_event_to_dom_event(event, name)
     if(value_change != null)
     {
         var change = option2js(value_change);
-        if (change != null) {
+        if (change != null && change.from && change.to) {
             result.prevVal = change.from;
             result.newVal  = change.to;
         }
@@ -546,14 +545,14 @@ function tn_encaps(tn, fun){
   var types = ['DOMMouseScroll', 'mousewheel'];
   function handler (event) {
     var args = [].slice.call(arguments, 1), delta = 0, returnValue = true;
-    event = $.event.fix(event || window.event);
+    event = jQuery.event.fix(event || window.event);
     event.type = "mousewheel";
     if (event.wheelDelta) delta = event.wheelDelta / 120;
     if (event.detail) delta = - event.detail / 3;
     args.unshift(event, delta);
     event.wheelDelta = delta; // hack
-    return $.event.handle.apply(this, args); }
-  $.event.special.mousewheel = {
+    return jQuery.event.handle.apply(this, args); }
+  jQuery.event.special.mousewheel = {
     setup: function () {
       if (this.addEventListener) for (var i = types.length; i; ) this.addEventListener(types[--i], handler, false);
       else this.onmousewheel = handler; },

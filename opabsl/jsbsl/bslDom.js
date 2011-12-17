@@ -893,7 +893,7 @@ function bsldom_do_slide_out(dom, maybe_duration, maybe_easing, maybe_cb)
        var length = range.text.length;
        return normalize_obj({
            start_in:     document.elementFromPoint(range.boundingLeft, range.boundingTop),
-           finish_in:    document.elementFromPoint(range.boundingLeft + range.boundingWidth, range.boundingTop + range.offsetHeight),
+           finish_in:    document.elementFromPoint(range.boundingLeft + range.boundingWidth, range.boundingTop + range.boundingHeight),
            start_at:     offset,
            finish_at:    offset + length,
            is_collapsed: length == 0
