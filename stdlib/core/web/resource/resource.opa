@@ -28,24 +28,6 @@ import stdlib.core.{parser, map, web.core, xhtml, rpc.maxint}
  */
 
 /**
- * {1 About this module}
- *
- * This modules provides the necessary functions to define and export resources, such as images,
- * web pages, error pages, etc. as well as customizing pages for display on platforms with specific
- * needs (e.g. PDAs, iPhone, etc.)
- *
- * {1 Where do I start?}
- *
- * To create a web page, use function [Resource.page] or its shortcut [html]. To create an image,
- * use function [Resource.image]. OPA will handle the details.
- *
- * {1 What if I need more?}
- *
- * To add new kinds of resources, such as videos or mp3, use [Resource.binary] or its cousin
- * [Resource.source]. To customize pages, use [Resource.full_page].
- */
-
-/**
  * {1 Types defined in this module}
  */
 
@@ -65,13 +47,13 @@ type Resource.cache = {volatile}    /** The resource changes at each request, re
                                         This setting is always safe, but often suboptimal.
                                         Used mostly when defining real-time web services.*/
 
-                    / {modified_on : Date.date}/** The resource may change at a future date. The client should remember it, but should also ask
-                                                   the server if the resource has changed, just in case.
+                    / {modified_on : Date.date} /** The resource may change at a future date. The client should remember it, but should also ask
+                                                    the server if the resource has changed, just in case.
 
-                                                   This setting is generally safe, and generally a good compromise between performance and safety.
-                                                   This is the default setting for all resources for which it is known to be safe.
+                                                    This setting is generally safe, and generally a good compromise between performance and safety.
+                                                    This is the default setting for all resources for which it is known to be safe.
 
-                                                   Used generally in combination of [Dynamic_resource].*/
+                                                    Used generally in combination of [Dynamic_resource].*/
 
                     / {check_for_changes_after: Duration.duration}
                                     /** The resource changes, but not very often. It can be remembered by the client for a limited time,
@@ -131,6 +113,23 @@ type resource_content = external
 
 
 
+/**
+ * {1 About this module}
+ *
+ * This modules provides the necessary functions to define and export resources, such as images,
+ * web pages, error pages, etc. as well as customizing pages for display on platforms with specific
+ * needs (e.g. PDAs, iPhone, etc.)
+ *
+ * {1 Where do I start?}
+ *
+ * To create a web page, use function [Resource.page] or its shortcut [html]. To create an image,
+ * use function [Resource.image]. OPA will handle the details.
+ *
+ * {1 What if I need more?}
+ *
+ * To add new kinds of resources, such as videos or mp3, use [Resource.binary] or its cousin
+ * [Resource.source]. To customize pages, use [Resource.full_page].
+ */
 Resource = {{
 
 add_header(r : resource, h : Resource.http_header) =
@@ -655,8 +654,8 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
   * {2 De-constructors}
   */
 
- get_content(resource:resource) : resource_private_content =
-   resource.rc_content
+  get_content(resource:resource) : resource_private_content =
+    resource.rc_content
 
  /**
   * {2 Deprecated}
@@ -690,17 +689,36 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
     Resource_private.add_auto(filemap, user_parser, return_resource, "/")
 
   /**
-   * Adds an external javascript file (identified by its url) to the default_customizers of all resources.
+   * Adds an external javascript file (identified by its url) to the default_customizers of ALL resources.
+   * Will be appended to the end of the page.
    * @param url An url (as a string) to a javascript file
    * @usage This should be used in modules of the standard library not loaded by default (so not stdlib.*)
    * (Its interest is very limited in user code, since it's easier to customize resources directly)
    */
   register_external_js(url : string) : void = Resource_private.register_external_js(url)
-  register_external_css(url : string) : void = Resource_private.register_external_css(url)
-  unregister_external_js(url : string) : void = Resource_private.unregister_external_js(url)
-  unregister_external_css(url : string) : void = Resource_private.unregister_external_css(url)
-}}
 
+  /**
+   * Adds an external css file (identified by its url) to the default_customizers of ALL resources.
+   * Will be appended to the end of the page.
+   * @param url An url (as a string) to a css file
+   * @usage This should be used in modules of the standard library not loaded by default (so not stdlib.*)
+   * (Its interest is very limited in user code, since it's easier to customize resources directly)
+   */
+  register_external_css(url : string) : void = Resource_private.register_external_css(url)
+
+  /**
+   * Removes an external javascript file (identified by its url) to the default_customizers of ALL resources if it exists.
+   * @param url An url (as a string) to a javascript file
+   */
+  unregister_external_js(url : string) : void = Resource_private.unregister_external_js(url)
+
+  /**
+   * Removes an external css file (identified by its url) to the default_customizers of ALL resources if it exists.
+   * @param url An url (as a string) to a css file
+   */
+  unregister_external_css(url : string) : void = Resource_private.unregister_external_css(url)
+
+}}
 
 /**
  * {1 Functions exported to the global namespace}
@@ -716,4 +734,4 @@ html(title:string, body:xhtml) = Resource.page(title:string, body: xhtml)
  *
  * [a <+> b] is the same thing as <>{a}{b}</>
  */
-`<+>`(a:xhtml, b:xhtml)=<>{a}{b}</>
+`<+>`(left_chunk:xhtml, right_chunk:xhtml) = <>{left_chunk}{right_chunk}</>
