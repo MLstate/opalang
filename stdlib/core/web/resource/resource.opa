@@ -517,7 +517,7 @@ error_page(title: string, body: xhtml, status: web_response) =
  * page for nicer error reporting, for instance with [error_page].
  */
 default_error_page(status: web_response) =
-   error_page("Error", <>Error: {WebCoreExport.web_err_description_of_web_response(status)}</>, status) : resource
+   error_page("Error", <p>Error: {WebCoreExport.web_err_description_of_web_response(status)}</p>, status) : resource
 
 /**
  * Build a redirection page.
@@ -526,6 +526,17 @@ default_error_page(status: web_response) =
  */
 redirection_page(title: string, body: xhtml, status: web_response, delay: int, redirect_to: string) =
    full_page(title, body, <meta http-equiv="refresh" content={"{delay}; url={redirect_to}"}></meta>, status, []) : resource
+
+/**
+ * Build the default web page for redirecting the user to another address.
+ *
+ * Note that this page is rather ugly. You should rather consider building your own
+ * page for nicer redirection reporting, for instance with [redirection_page].
+ */
+ default_redirection_page(redirect_to: string) =
+   redirection_page("Redirection", <p>This resource has moved to:{redirect_to}. You will be redirected automatically in a few seconds</p>,
+                    {address_moved}, 5, redirect_to)
+   |> add_header(_, {location=redirect_to})
 
 
 /**
@@ -551,8 +562,8 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
         body= <body id="Body">{html}</body>
         head = <head>{headers}</head>
         doctype = match doctype with {some=d} -> Resource_private.html_doctype_to_string(d) {none} -> Resource_private.shared_xhtml1_1_header
-        page= Xhtml.of_string_unsafe(doctype) <+>
-          <html xmlns="http://www.w3.org/1999/xhtml">{head}{body}</html>
+        page = Xhtml.of_string_unsafe(doctype) <+>
+          <html>{head}{body}</html>
         data=Xhtml.serialize_as_standalone_html(page)
         some({~data mimetype="text/html"})
       | ~{xml} ->
@@ -572,6 +583,7 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
       | ~{override_mime_type resource} -> Option.map(r -> {r with mimetype=override_mime_type}, aux(resource))
       | _ -> none
   aux(rc_content)
+
 /*
 
    /**
@@ -622,15 +634,6 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
      result
 
 */
-  /**
-   * Build the default web page for redirecting the user to another address.
-   *
-   * Note that this page is rather ugly. You should rather consider building your own
-   * page for nicer redirection reporting, for instance with [redirection_page].
-   */
-   default_redirection_page(redirect_to: string) =
-     redirection_page("Redirection", <>This resource has moved to:{redirect_to}. You will be redirected automatically in a few seconds</>,
-                      {address_moved}, 5, redirect_to) : resource
 
 
   /**
