@@ -293,7 +293,8 @@ MongoCursor = {{
   valid(c:Mongo.cursor): bool =
     not(c.killed)
     && ((not(c.query_sent) && Option.is_some(c.query)) // initialised but not run
-        || ((c.returned > 0 && (c.current < c.returned)))) // run and still has data
+        || ((c.returned > 0 && (c.current < c.returned))) // run and still has data
+        || not(MongoCommon.is_null_cursorID(c.cid))) // non-zero cursor, more data on server
 
   /**
    * Full [find] function with all parameters.
