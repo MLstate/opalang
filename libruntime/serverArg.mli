@@ -169,7 +169,7 @@ val write_simple_manpage :
   ?centerfooter:string ->
   ?leftfooter:string ->
   ?centerheader:string ->
-  summary:string ->
+  ?summary:string ->
   ?synopsis:string ->
   ?description:string ->
   ?options:'a arg_parser list ->

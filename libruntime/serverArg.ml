@@ -241,12 +241,14 @@ let doc_string title speclist =
     speclist;
   Format.flush_str_formatter ()
 
+(** write a simple manpage from serverArg specs *)
+(* CAVEAT: unfortunately many Opa programs install _several_ arg parsers by top-level side effects. This function should be generalized to allow several sections of options to reflect this fact. *)
 let write_simple_manpage
     ?(nohelp=false)
     ~cmdname ~section
     ?centerfooter
     ?leftfooter ?centerheader
-    ~summary ?synopsis ?description ?options ?(other=[])
+    ?summary ?synopsis ?description ?options ?(other=[])
     file
     =
   let print_spec buf (names,_,params_doc,doc) =
@@ -270,7 +272,7 @@ let write_simple_manpage
     ~cmdname ~section
     ?centerfooter
     ?leftfooter ?centerheader
-    ~summary ?synopsis ?description ~other:(match options_str with None -> other | Some(str) -> ("OPTIONS", str)::other)
+    ?summary ?synopsis ?description ~other:(match options_str with None -> other | Some(str) -> ("OPTIONS", str)::other)
     file
 
 let make_parser ?(final=false) ?(nohelp=false) title speclist acc0 args0 =

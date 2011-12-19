@@ -152,12 +152,15 @@ let write_simple_manpage
     ~cmdname ~section
     ?(centerfooter=(date_manpage ()))
     ?(leftfooter="") ?(centerheader="")
-    ~summary ?synopsis ?description ?options ?(other=[])
+    ?(summary="") ?(synopsis="") ?(description="") ?options ?(other=[])
     file =
   Printf.fprintf file ".TH \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"\n" cmdname (string_of_int section) centerfooter leftfooter centerheader;
-  Printf.fprintf file ".SH NAME\n%s \\- %s\n" cmdname summary;
-  begin match synopsis with None -> ()| Some(text) -> Printf.fprintf file ".SH SYNOPSIS\n%s\n" text end;
-  begin match description with None -> ()| Some(text) -> Printf.fprintf file ".SH DESCRIPTION\n%s\n" text end;
+  if summary <> "" then
+    Printf.fprintf file ".SH NAME\n%s \\- %s\n" cmdname summary
+  else
+    Printf.fprintf file ".SH NAME\n%s\n" cmdname;
+  if synopsis <> "" then Printf.fprintf file ".SH SYNOPSIS\n%s\n" synopsis;
+  if description <> "" then Printf.fprintf file ".SH DESCRIPTION\n%s\n" description;
   begin match options with None -> () | Some(speclist) -> begin
     Printf.fprintf file ".SH OPTIONS\n";
     List.iter (print_spec file) (add_help speclist);
