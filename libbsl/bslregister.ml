@@ -534,7 +534,7 @@ let parse () =
 
 
 (* ======================================================================= *)
-(** {6 Makefile Geneation} *)
+(** {6 Makefile Generation} *)
 (* ======================================================================= *)
 module Makefile :
 sig
@@ -545,7 +545,7 @@ sig
 end =
 struct
   (**
-     For lisibility of this generation there, we uses the add_substitute function
+     For lisibility of this generation there, we use the add_substitute function
      of the [Buffer] module. This means that we use a list of binding for inserting
      dynamic parts into this generated makefile.
      As we generating a Makefile, we need to generate the $ character, in this case,
