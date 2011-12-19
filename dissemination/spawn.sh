@@ -116,24 +116,40 @@ a single local database server, and provides a local load-balancing front-end
 to access them via HTTP.
 
 Options:
-	--help -h				Displays the current help and exits
-	--host <[user@]host[:port]>[,n]		Specifies a host to use for distribution.
-						The user will be used for login, your service will be run on
-						the given port. n specifies the number of instances you want,
-						each running on port 'port+n'.
-	--host-pem <[user@]host[:port]>[,n]	Specifies a host to use for distribution with public-key.
-						The user will be used for login, your service will be run on
-						the given port. n specifies the number of instances you want,
-						each running on port 'port+n'. (see '--pem' option)
-	--pem <path>				Specify a public-key to connect to host. Will be used with
-						hosts declared with '--host-pem' option.
-	--opa-port <port>			Use the given http port by default on the
-						opa services (default: $DEFAULT_PORT)
-	--haproxy <path>			The path to your haproxy binary (default: $HAPROXY_BIN)
-	--port <port>				The main port to listen on (default: $HAPROXY_PORT)
-	--opa-db-server <path>			Specifies the path to the Opa database server binary
-	--no-db					Does not set up any remote database server
+  --help -h
+                Displays the current help and exits
 
+  --host <[user@]host[:port]>[,n]
+                Specifies a host to use for distribution.
+                The user will be used for login, your service will be run on
+                the given port. n specifies the number of instances you want,
+                each running on port 'port+n'.
+
+  --host-pem <[user@]host[:port]>[,n]
+                Specifies a host to use for distribution with public-key.
+                The user will be used for login, your service will be run on
+                the given port. n specifies the number of instances you want,
+                each running on port 'port+n'. (see '--pem' option)
+
+  --pem <path>
+                Specify a public-key to connect to host. Will be used with
+                hosts declared with '--host-pem' option.
+
+  --opa-port <port>
+                Use the given http port by default on the
+                opa services (default: $DEFAULT_PORT)
+
+  --haproxy <path>
+                The path to your haproxy binary (default: $HAPROXY_BIN)
+
+  --port <port>
+               The main port to listen on (default: $HAPROXY_PORT)
+
+  --opa-db-server <path>
+               Specifies the path to the Opa database server binary
+
+  --no-db
+               Does not set up any remote database server
 EOF
 }
 

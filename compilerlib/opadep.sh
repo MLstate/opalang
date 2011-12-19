@@ -14,7 +14,8 @@ OPA_PACKAGES='lib/opa/stdlib'
 
 help() {
     cat <<EOF
-opadep.sh: generate OPA packages dependency graphs.
+opadep: generate OPA packages dependency graphs.
+Usage: opadep [options]
 Packages are expected to be found in the following folders :
   .                            all packages previously compiled in the current path
   MLSTATELIBS/$OPA_PACKAGES    all installed packages

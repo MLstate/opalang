@@ -729,6 +729,8 @@ let _ =
 
     ] in
 
+  let usage_msg = Printf.sprintf "%s: Testing tool and code example on the internals of the Opa compiler.\nUsage: %s [options]\n" Sys.argv.(0) Sys.argv.(0) in
+
   let _ =
     Arg.parse
       (Arg.align
@@ -739,5 +741,5 @@ let _ =
           @ WarningClass.Arg.options
           @ OManager.Arg.options
          ))
-      ignore "passdesign" in
+      ignore (usage_msg^"Options:") in
   Main.binop ()

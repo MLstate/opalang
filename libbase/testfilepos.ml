@@ -96,7 +96,7 @@ let positions, options =
 
    ]))
     (fun _ -> prerr_endline "anonymous argument not allowed\ntry --help"; exit 2)
-   "citation extractor"
+   (Printf.sprintf "%s: citation extractor\nUsage: %s [options]\nOptions:" Sys.argv.(0) Sys.argv.(0))
   in
   let options = { FilePos.
     truncate_lines = !truncate_lines ;

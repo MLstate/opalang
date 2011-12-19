@@ -108,7 +108,7 @@ let spec = [
 let anon_fun file = MutableList.add files file
 
 let usage_msg =
-  !> "@{<bright>%s@} <Opa Compiler Interface Validator> %s\nuse: %s [options] stdlib-files"
+  !> "@{<bright>%s@}: Opa Compiler Interface Validator %s\nUsage: %s [options] stdlib-files\n"
     Sys.argv.(0) BuildInfos.version_id
     Sys.argv.(0)
 
@@ -123,7 +123,7 @@ let parse () =
   |> Arg.align
 
   in
-  Arg.parse spec anon_fun usage_msg
+  Arg.parse spec anon_fun (usage_msg^"Options:")
 
 (**
    Folding input file, and applying a fold on the parsed code

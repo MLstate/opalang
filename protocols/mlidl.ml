@@ -3451,7 +3451,7 @@ let process_inbuilt_options = List.iter (function
   | _ -> assert false)
 
 let files = ref ([]:string list)
-let usage = "mlidl {options} <mlidl file>\n"
+let usage = Printf.sprintf "%s: generation tool for Opalang low-level IDL\nUsage: %s [options] <file>\n" Sys.argv.(0) Sys.argv.(0)
 
 let translate_file file =
   let tynames, exts, idls, sars, opns, lets = read_idl_file file in
@@ -3507,9 +3507,9 @@ let _ =
         "\tDebug (currently does nothing).");
       ]
       (fun str -> files := (!files)@[str])
-      (usage^"Options:\n");
+      (usage^"Options:");
     if !files = []
-    then printf "%s\n" usage
+    then printf "%s" usage
     else List.iter (fun file ->
       restore_opts !default_opts;
       bslmns := prefixmodname !bsl_prefix ".mlidl" file;

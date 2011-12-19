@@ -369,6 +369,8 @@ let str2memo = function
   | "full" -> T.MemoFull
   | s -> failwith (pr "Unknown memoization option: '%s' (should be: 'none', 'fail', 'success' or 'full')" s)
 
+let usage_msg = Printf.sprintf "%s: parser interpreter for the Opa project\nUsage: %s [options] syntax_file.[trx|prx]\n" Sys.argv.(0) Sys.argv.(0)
+
 let parse_args () =
   let anon_fun s =
     if !grammarFile = None then
@@ -412,7 +414,7 @@ let parse_args () =
     " default memoization level for rules with no annotations [none | fail | success | full]");
 
   ]) anon_fun
-    (Printf.sprintf "%s <options> syntax_file.[trx|prx] input_file" Sys.argv.(0))
+    (usage_msg^"Options:")
 
 let load_grammar grammarFn =
   let peg, _ = Pgrammar.read_grammar ?memo_default:!memo_default ~verbose:true None grammarFn in

@@ -1409,6 +1409,8 @@ let optimize_memoization peg =
 (* ============================================ Cmd. line + main ============================================= *)
 (* =========================================================================================================== *)
 
+let usage_msg = Printf.sprintf "%s: Ocaml parser generator for the Opa project\nUsage: %s [options] syntax_file.[trx|prx]\n" Sys.argv.(0) Sys.argv.(0)
+
 let parse_args () =
   let anon_fun s = grammarFn := Some s in
   Arg.parse (Arg.align [
@@ -1501,7 +1503,7 @@ let parse_args () =
     " RULE produces parser with 'main' function parsing with given production")
 
   ]) anon_fun
-    (Printf.sprintf "%s <options> syntax_file.[trx|prx]" Sys.argv.(0))
+    (usage_msg^"Options:")
 
 let set_bool_option opt v var =
   match v with

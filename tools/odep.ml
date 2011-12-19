@@ -554,7 +554,7 @@ let spec = [
 
 ]
 
-let usage_msg = Printf.sprintf "bld ocaml dependencies graphs generator\nuse: %s *.mllib *.depends\n" Sys.argv.(0)
+let usage_msg = Printf.sprintf "%s: graphs generator for ocaml dependencies\nUsage: %s *.mllib *.depends\n" Sys.argv.(0) Sys.argv.(0)
 
 let anon_fun file =
   match File.extension file with
@@ -567,7 +567,7 @@ let anon_fun file =
       exit 1
 
 let parse () =
-  Arg.parse spec anon_fun usage_msg
+  Arg.parse spec anon_fun (usage_msg^"Options:")
 
 let _ =
   parse ();

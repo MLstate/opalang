@@ -511,9 +511,8 @@ let anon_fun file =
 
 
 let usage_msg =
-  !> "@{<bright>%s@} <Opa External Libraries Register> %s\nuse: %s [options] files"
-    Sys.argv.(0) BuildInfos.version_id
-    Sys.argv.(0)
+  !> "@{<bright>%s@}: Opa External Libraries Register\nUsage: %s [options] files\n"
+    Sys.argv.(0) Sys.argv.(0)
 
 
 let parse () =
@@ -529,7 +528,7 @@ let parse () =
   |> Arg.align
 
   in
-  Arg.parse spec anon_fun usage_msg ;
+  Arg.parse spec anon_fun (usage_msg^"Options:") ;
   finalize_options ()
 
 
