@@ -1040,8 +1040,7 @@ let action_css selector verb expr =
 (**
    Reset default namespace to that of xhtml
 *)
-let around_xhtml expr =
-  letin "xmlns:" (dot (ident "Xhtml" (nlabel expr)) "ns_uri") expr
+let around_xhtml expr = expr
 
 (**
    Reset default namespace to that of xmlns, i.e. no namespace
@@ -1158,18 +1157,18 @@ let empty_event_handler label =
   record ["value", (string "" label)]
 (*  args_expr_to_lambda [PatAny, label] (void label)*)
 
-let sassoc (ns,name) (value:(_,_) expr) : (_,_) expr =
-  coerce_name_expr (record [("namespace", unc2 ident ns);
+let sassoc ((ns:(_,_) expr),name) (value:(_,_) expr) : (_,_) expr =
+  coerce_name_expr (record [("namespace", ns);
                             ("name", unc2 string name);
                             ("value", value)]) Opacapi.Types.Xml.attribute
 
 let create_element (ns,tag) args children =
   (* Adapt tag and attributes *)
+  let xmlns s annot =   if s="" then string s annot else ident ("xmlns:"^s) annot in
   let tag_ns : (string, 'a) SurfaceAst.expr =
-    let (name, annot) = ns in
-      ident ("xmlns:"^name) annot in (* Note: [name] can be empty, it's ok *)
-  let other_attributes = List.map (fun (prefix, name, value) -> sassoc (("xmlns:"^prefix, nlabel tag), (name, nlabel tag)) value) args.args in
-
+    let (name, annot) = ns in xmlns name annot
+  in (* Note: [name] can be empty, it's ok *)
+  let other_attributes = List.map (fun (prefix, name, value) -> sassoc (xmlns prefix (nlabel tag), (name, nlabel tag)) value) args.args in
   (* Create element *)
   let record =
     if xhtml_mode () && not (is_empty_args args) then (
