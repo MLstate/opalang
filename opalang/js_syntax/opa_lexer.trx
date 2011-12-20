@@ -232,15 +232,19 @@ not_a_keyword      <- !(keyword end_of_ident_nosp)
    time is multiply *)
 keyword <- (
   Opa_parser.declaration_directive0_keyword $_
-  / "recursive" / "and"
   / "function" / "module"
-  / "match" / "if" / "as" / "case" / "default"
+  / "with" / "type"
+
+  / "recursive" / "and"
+
+  / "match" / "if" / "as" / "case" / "default" / "else"
+
   / "database"
-  / "type"
-  / "with"
-  / "css"
-  / "server" / "client" / "exposed" / "protected"
+  / "parser"
   / "_"
+  / "css"
+
+  / "server" / "client" / "exposed" / "protected" (* see directive without @ *)
 )
 
 (* Keywords : Bindings *)
@@ -259,23 +263,13 @@ IF <- (=Opa_lexer.exact_keyword("if"))
 AS <- (=Opa_lexer.exact_keyword("as"))
 CASE <- (=Opa_lexer.exact_keyword("case"))
 DEFAULT <- (=Opa_lexer.exact_keyword("default"))
+ELSE <- (=Opa_lexer.exact_keyword("else"))
 
 (* Keywords : Database *)
 DATABASE <- (=Opa_lexer.exact_keyword("database"))
-
-
-
-
-WITH <- spacing 'with' end_of_ident_nosp $
-TYPE <- spacing 'type' end_of_ident_nosp $
-DO <- spacing 'do' end_of_ident_nosp $ (* TODO REMOVE *)
-IF <- spacing 'if' end_of_ident_nosp $
-THEN <- spacing 'then' end_of_ident_nosp $ (* TODO REMOVE *)
-ELSE <- spacing 'else' end_of_ident_nosp $(* TODO REMOVE *)
-PARSER <- spacing 'parser' end_of_ident_nosp $
-UNDERSCORE <- spacing '_' end_of_ident_nosp $
-SESSION <- spacing 'session' end_of_ident_nosp $
-CSS <- spacing 'css' end_of_ident_nosp $
+PARSER <- (=Opa_lexer.exact_keyword("parser"))
+UNDERSCORE <- (=Opa_lexer.exact_keyword("_"))
+CSS <- (=Opa_lexer.exact_keyword("css"))
 
 
 #
