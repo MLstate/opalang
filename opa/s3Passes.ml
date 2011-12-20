@@ -468,14 +468,23 @@ let pass_Print =
        if not (File.exists options.O.build_dir) then Unix.mkdir options.O.build_dir 0o740;
        List.iter
          (function pfile ->
+            if not (File.exists options.O.build_dir) then Unix.mkdir options.O.build_dir 0o740;
             let fn = Filename.concat options.O.build_dir
-              pfile.SurfaceAstPassesTypes.parsedFile_filename in
+              (Filename.basename pfile.SurfaceAstPassesTypes.parsedFile_filename) in
             OManager.verbose "Convert %s to %s"
               pfile.SurfaceAstPassesTypes.parsedFile_filename fn;
             let oc = open_out fn in
             let fmt = Format.formatter_of_out_channel oc in
             Printer.string#code fmt pfile.SurfaceAstPassesTypes.parsedFile_lcode;
-            ignore (close_out oc)
+            Format.pp_print_flush fmt ();
+            ignore (close_out oc);
+            ignore (try (* verification that we can reparse *)
+              OpaParser.code
+                ~parser_:(!OpaSyntax.Args.r.OpaSyntax.Args.printer)
+                ~cache:false
+                ~filename:fn
+                (File.content fn)
+            with _ -> assert false)
          ) (snd (fst e.PH.env));
        e
     )

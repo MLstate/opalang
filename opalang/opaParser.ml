@@ -215,11 +215,16 @@ let hl_factory parser_rule name ?filename contents =
 let expr = hl_factory Opa_parser.parse_opa_parser_expr_eoi "Expression"
 let ty = hl_factory Opa_parser.parse_opa_parser_ty_eoi "Type"
 
-let code ?(cache=false) ?(filename="") content =
+module OA = OpaSyntax.Args
+
+let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") content =
   (*print_string content;*)
   FilePos.add_file filename content;
   match if cache then CacheParse.get filename content else None with
   | None ->
+      let r = OA.r in
+      let old = (!r).OA.parser in
+      r := {!r with OA.parser=parser_} ;
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<red>miss@} for %s@." filename#<End>;
       let res =
         try
@@ -245,6 +250,7 @@ let code ?(cache=false) ?(filename="") content =
       in
       OManager.flush_errors (); (* make sure that if someone threw errors, then we stop before saving the cache *)
       if cache then CacheParse.set filename content res;
+      r := {!r with OA.parser=old} ;
       res
   | Some l ->
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<green>hit@} for %s@." filename#<End>;
