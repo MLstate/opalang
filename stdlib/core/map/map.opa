@@ -837,6 +837,7 @@ Map_make(order: order('key,'order) ) : Map =
    * If a key appears in both maps with distinct values, one of the values
    * is chosen arbitrarily.
    *
+   * @TODO optimize
    */
   intersection(map1, map2) =
     rec aux(m1: Map_private.map('key, 'val),
@@ -850,13 +851,10 @@ Map_make(order: order('key,'order) ) : Map =
             if mem(key : 'key, m2) then add(key : 'key, value : 'val, acc)
             else acc
 
-    match (is_empty(map1), is_empty(map2)) with
-    | ({ true }, { false }) -> map2
-    | ({ false }, { true }) -> map1
-    | _ ->
-        if height(map1) < height(map2) then aux(map1, map2, empty)
-       else aux(map2, map1, empty)
-
+    if is_empty(map1) || is_empty(map2) then empty
+    else
+      if height(map1) < height(map2) then aux(map1, map2, empty)
+      else aux(map2, map1, empty)
 
 
   From = {{
