@@ -41,6 +41,7 @@ type 'ident printer =
   typevar : 'ident SurfaceAst.typevar LangPrint.pprinter;
   typeident : 'ident SurfaceAst.typeident LangPrint.pprinter;
   ident : 'ident LangPrint.pprinter;
+  keyword : string -> bool
   >
 
 module type Familly = sig
@@ -67,16 +68,44 @@ let keyword = function
 let basic_type = function
   | "int" | "string" | "float" -> true
   | _ -> false
-let operator_regexp = Str.regexp "[-.+\\^*/<>=@|&!]+"
-let classify_string s =
+
+let operator_regexp = Str.regexp "[-.+\\^*/<>=@|&!$]+"
+let unary_minus = "unary_minus"
+let unary_minus_float = "unary_minus_float"
+
+let operator_image s =
+  if s = unary_minus then "-"
+  else if s = unary_minus_float then "-."
+  else s
+
+let is_operator s =
+  if s=unary_minus || s = unary_minus_float then true
+  else string_complete_match operator_regexp s
+
+let is_ident s =
+  (string_complete_match regular_ident_regexp) s && not (is_operator s)
+
+let classify_string keyword s =
   if keyword s then `backquote
-  else if string_complete_match regular_ident_regexp s then `ident
-  else if string_complete_match operator_regexp s then `operator
+  else if is_ident s then `ident
+  else if is_operator s then `operator
   else `backquote
+
 let classify_typeident s =
   if keyword s || basic_type s then `backquote
-  else if string_complete_match regular_ident_regexp s then `ident
+  else if is_ident s then `ident
   else `backquote
+
+type ident_kind = [
+| `ident
+| `backquote
+| `operator
+]
+
+let is_letin e = match fst e with
+  | LetIn _ -> true
+  | _ -> false
+
 
 
 module ExprSugar =
@@ -92,9 +121,9 @@ struct
         sugar_list original_name (hd :: acc) tl
     | Some ((Record ["nil",_],_),
             (TypeNamed (Typeident list,_),_)) when original_name list = "list" ->
-        Some (List.rev acc, None) (* [1,2] *)
+        `list (List.rev acc, None) (* [1,2] *)
     | _ ->
-        if acc = [] then None else Some (List.rev acc, Some e) (* [1,2|e] *)
+        if acc = [] then `no_sugar else `list (List.rev acc, Some e) (* [1,2|e] *)
 
   let sugar_tuple original_name e =
     match extract_coercion e with
@@ -104,33 +133,55 @@ struct
            if n = List.length l && n <> 0 then
              let l = List.sort (fun (s1,_) (s2,_) -> String.compare s1 s2) l in
              if List.for_alli (fun i (f,_) -> f = "f"^string_of_int (i+1)) l then
-               Some (List.map snd l)
+               `tuple (List.map snd l)
              else
-               None
+               `no_sugar
            else
-             None
+             `no_sugar
          with
          | End_of_file
-         | Scanf.Scan_failure _ -> None)
-    | _ -> None
+         | Scanf.Scan_failure _ -> `no_sugar)
+    | _ -> `no_sugar
 
   let sugar_if = function
     | Match (e1,[
                ((PatRecord ([("true", _)], `closed), _)  | (PatCoerce ((PatRecord ([("true", _)], `closed), _), _), _)), e2 ;
                ((PatRecord ([("false", _)], `closed), _) | (PatCoerce ((PatRecord ([("false", _)], `closed), _), _), _)), e3 ;
-             ]), _ -> Some (e1,e2,e3)
-    | _ -> None
+             ]), _ -> `if_(e1,e2,e3)
+    | _ -> `no_sugar
+
+
+  let sugar_xhtml original_name e =
+    match extract_coercion e with
+    | Some (_, (TypeNamed (Typeident name,_),_)) when original_name name = "xhtml" -> `xhtml e
+    | _ -> `no_sugar
+
+  let sugar_dom_transformation original_name e =
+    match extract_coercion e with
+    | Some (_, (TypeNamed (Typeident name,_),_)) when original_name name = "Dom.transformation" -> `action e
+    | _ -> `no_sugar
+
+ let sugar_css_properties original_name e =
+    match extract_coercion e with
+    | Some (_, (TypeNamed (Typeident name,_),_)) when original_name name = "Css.properties" -> `css_props e
+    | _ -> `no_sugar
+
+  let rec select e l= match l with
+    | [] -> `no_sugar
+    | hd :: tl -> match hd e with
+      | `no_sugar -> select e tl
+      | r -> r
+
 
   let resugarer original_name e =
-    match sugar_list original_name [] e with
-    | Some (head,rest) -> `list (head,rest)
-    | None ->
-        match sugar_tuple original_name e with
-        | Some l -> `tuple l
-        | None ->
-            match sugar_if e with
-            | Some (e1,e2,e3) -> `if_ (e1,e2,e3)
-            | None -> `no_sugar
+    select e [
+      sugar_list original_name [];
+      sugar_tuple original_name;
+      sugar_if;
+      sugar_xhtml original_name;
+      sugar_dom_transformation original_name;
+(*      sugar_css_properties original_name;  *)
+    ]
 end
 
 module PatSugar =
@@ -182,7 +233,269 @@ type all_directives = SurfaceAst.all_directives
 let userland_visibilities_to_whatever ds =
   (ds : QmlAst.userland_visibility_directive list :> [> all_directives] list)
 
+module Sugar = struct
+  exception Fallback
+  exception NotARecord
 
+  let rec clear_directives e =  match fst e with
+    | Directive(_,[e],_) -> clear_directives e
+    | _ -> e
+
+  let clear_magic e = match fst e with
+    | Directive(`magic_to_xml,[e],_) -> e
+    | _ -> e
+
+  let rec fields_list e = match fst (clear_directives e) with
+    | Record fields -> fields
+    | _ -> raise NotARecord
+
+  let dot_ f e =
+    try List.assoc f (fields_list e)
+    with Not_found -> failwith ("dot on "^f)
+
+  let (@) e f = dot_ f e
+
+  let is_string e =  match fst e with
+    | Const(CString(_)) -> true
+    | _ -> false
+
+  let string e = match fst e with
+    | Const(CString(s)) -> s
+    | _ -> assert false
+
+  let is_empty_string e = match fst e with
+    | Const(CString(s)) -> s=""
+    | _ -> false
+
+  (* record pattern are never closed *)
+  let iF ?notrecord e l =
+    try
+      let fs = (fields_list e) in
+      try
+        snd (
+          Base.List.find (fun (pat,_) ->
+            List.for_all (fun f -> List.mem_assoc f fs) pat
+          ) l
+        )
+      with Not_found -> raise Fallback
+    with NotARecord when notrecord <> None -> (Option.get notrecord)
+
+  let is_nil e = iF e [
+    ["nil"],(fun _ -> true);
+    [],(fun _ -> false)
+  ] e
+
+  let rec list ~map e =
+    iF e [
+      ["hd";"tl"],(fun e -> (map (e@"hd")) :: (list ~map (e@"tl")));
+      ["nil"]    ,(fun _e -> []);
+    ] e
+
+  let _1st_char e = FilePos.get_first_char (QmlLoc.pos (snd e))
+  let cmp_attr (_,_,e1) (_,_,e2) = Pervasives.compare (_1st_char e1) (_1st_char e2)
+
+  (* insert an expr into braces *)
+  let pp_insert_expr ?(sugar=true) ppe f e =
+    pp f "{%a}" (ppe sugar) e
+
+  module String = struct
+
+    (* insert an attribute into braces or dquote if needed *)
+    let rec pp_expr_or_string ?(quote=true) ppe f e =
+      match fst (clear_directives e) with
+      | Const(CString(s)) when quote -> pp f "\"%s\"" (QmlPrint.escaped_string s)
+      | Const(CString(s)) -> pp f "%s" s
+      | Directive(`string,l,_) ->  pp_expr ppe f l
+      | Directive((#all_directives : [< all_directives]) ,_,_)
+      | _ -> pp_insert_expr ppe f e
+
+    and string_elmt ppe f e = pp_expr_or_string ~quote:false ppe f e
+
+    and pp_expr ppe f l = pp f "\"%a\"" (Format.pp_list "" (string_elmt ppe)) l
+  end
+
+  module Xhtml = struct
+
+  let pp_namespace ppe f ns =
+    if is_empty_string ns then pp f ""
+    else pp f "@ namespace=%a" (String.pp_expr_or_string ppe) ns
+
+  let str_empty = Const(CString("")),{QmlLoc.pos=FilePos.nopos "tmp";notes=0}
+
+  let (++) = List.append
+
+  let class_concat e = (* TODO computed string *)
+    let l = list ~map:(fun x->x) e in
+    if List.for_all is_string l then (
+      Const(CString(Base.String.concat " " (List.map string l))),{QmlLoc.pos=FilePos.nopos "tmp";notes=0}
+    ) else e
+
+
+  (* xhtml specific *)
+  let collect_spec_attr e =
+    let class_ = e@"class" in
+    let style  = e@"style" in
+    let class_ = if is_nil class_ then [] else [str_empty,"class",class_concat class_] in
+    let style  = if is_nil style  then [] else [str_empty,"style",style ] in
+    let events = list ~map:(fun e->
+      let event = e@"value" in
+      str_empty,
+      "on" ^ (fst (List.hd (fields_list (e@"name")))),
+      iF event [
+        ["expr"], (fun e -> clear_directives (e@"expr"));
+        [],(fun e-> e);
+      ] event
+    ) (e@"events") in
+    let events_options = list ~map:(fun e->
+      str_empty,
+      fst (List.hd (fields_list (e@"name")))^":options",
+      e@"value"
+    ) (e@"events_options") in
+    let href =
+      let e = e@"href" in
+      iF e [
+        ["none"],   (fun _ -> []);
+        ["untyped"],(fun _ -> [str_empty,"href",e@"untyped"]);
+        []         ,(fun _ -> [str_empty,"href",e])
+      ] ()
+    in
+    List.flatten [class_;style;events;events_options;href]
+
+  let collect_args = list ~map:(
+    fun e -> (e@"namespace"),string (e@"name"),(e@"value")
+  )
+
+  let rec pp_tag ppe f e =
+    let tag = string (e@"tag") in
+    let pp_attributes f l =
+      if l = [] then pp f "" else
+      pp f "%a" (Format.pp_list "@ " (pp_attribute ppe)) l
+    in
+    let args = collect_args (e@"args") in
+    let spec_att = e@"specific_attributes" in
+    let spec_att = iF spec_att [
+      ["none"],(fun _ -> []);
+      ["some"],(fun e -> collect_spec_attr (e@"some"))
+      ] spec_att
+    in
+    (* group all attribute and sort by position retrieve original order *)
+    let attributes = args ++ spec_att in
+    let attributes = List.sort cmp_attr attributes in
+    let content = list ~map:(fun x->x) (e@"content") in
+    (if content = [] then pp f "<%s%a%a/>" else pp f "@[<hov 2><%s%a%a>")
+      tag
+      (pp_namespace ppe) (e@"namespace")
+      pp_attributes attributes;
+    if content <> [] then pp f "%a@]</%s>"
+      (Format.pp_list "" (pp_xml ppe)) content
+      tag
+    else ()
+
+  and pp_attribute ppe f (ns,name,e) =
+    if is_empty_string ns then
+      pp f "@ %s=%a"
+        name
+        (String.pp_expr_or_string ppe) e
+    else
+      pp f "@%a:%s=%a"
+        (String.pp_expr_or_string ~quote:true ppe) ns
+        name
+        (String.pp_expr_or_string ppe) e
+
+  and pp_fragment ?(enclosed=true) ppe f e =
+    let l = list ~map:(fun x->x) (e@"fragment") in
+    if l = [] then (
+      if enclosed then pp f ""
+      else pp f "<></>"
+    ) else pp f "@[<hov 1><>@,%a</>@]" (Format.pp_list "@," (pp_xml ppe)) l
+
+  and pp_text ?(enclosed=true) _ppe f e =
+    (if enclosed then pp f "%s"
+     else pp f "<>%s</>") (string (e@"text"))
+
+  and pp_xml ?(enclosed=true) (ppe : bool -> ('a,'b) expr pprinter) f e = iF e [
+    ["namespace";"tag";"args";"content";"specific_attributes"] , pp_tag;
+    ["fragment"] , pp_fragment ~enclosed;
+    ["text"] , pp_text ~enclosed;
+    [] , (fun ppe f e -> ppe false f e)
+  ] ~notrecord:(fun ppe f e -> if enclosed then pp_insert_expr ppe f (clear_magic e) else ppe false f e)
+    ppe f e
+
+
+  let pp_xml : (bool -> ('ident,[< all_directives ] as 'dir) expr pprinter) ->  ('ident,[< all_directives ] as 'dir) expr pprinter
+    =
+    fun ppe f e -> pp_xml ~enclosed:false ppe f e
+
+  let magie = Obj.magic pp_xml
+
+  let pp_xml : 'dir. (bool -> ('ident,[< all_directives ] as 'dir) expr pprinter) ->  ('ident,[< all_directives ] as 'dir) expr pprinter
+      = magie (* Obj.magic pp_xml WTF . *)
+
+  end
+
+  module Action = struct
+
+    let fallback ppe f e _ = ppe false f e
+
+    let pp_dst original_name ppe e =
+      match clear_directives e with
+      | Apply((Ident(id),_),([_,e],_)),_  ->
+        let op = match original_name id with
+          | "Dom_select_id" -> "#"
+          | "Dom_select_class" -> "."
+          | _ ->  raise Fallback
+        in
+        fun f () ->
+          pp f "%s%a" op (String.pp_expr_or_string ~quote:false ppe) e
+      | _ -> raise Fallback
+
+    let str s f () = pp f "%s" s
+
+    let pp_op e =
+      iF e [
+        ["set"]    , str "=";
+        ["prepend"], str "+=";
+        ["append"] , str "=+"
+      ]
+
+    let pp_content ppe f e =
+      let fallback = fallback ppe f e in
+      iF e [
+        ["content"], (fun ()-> ppe true f (clear_magic (e@"content")));
+        [], fallback
+      ] ~notrecord:fallback ()
+
+    let pp original_name ppe f e =
+      let fallback = fallback ppe f e in
+      try
+      iF e [
+        ["jq";"subject";"verb"], (fun () ->
+          (* TODO op before start printing *)
+          let pp_op =  pp_op (e@"verb") in
+          let pp_dst = pp_dst original_name ppe (e@"jq") in
+          pp f "%a %a %a"
+            pp_dst ()
+            pp_op ()
+            (pp_content ppe) (e@"subject")
+        );
+        [],  fallback
+      ] ()
+      with Fallback -> fallback ()
+
+
+    type ('ident,'dir) printer = ('ident -> string) ->
+        (bool -> ('ident,[< all_directives ] as 'dir) expr pprinter) ->  ('ident,[< all_directives ] as 'dir) expr pprinter
+    let magie = Obj.magic (pp:('ident,'dir) printer)
+
+    let pp :  'dir. ('ident,'dir) printer = magie
+
+  end
+
+  module Css = struct
+    let pp ppe f e = ppe f e
+  end
+
+end
 
 
 
@@ -214,6 +527,10 @@ module Classic = struct
                       colon = false;
                       op = false >}
 
+    method keyword = function
+    | "match" | "with" | "type" | "do" | "if" | "then" | "else" | "as" | "_" | "<-" -> true
+    | _ -> false
+
     method label : 'a. 'a pprinter -> 'a QmlLoc.label pprinter = fun p f v -> p f (fst v)
 
     method private const_expr f = function
@@ -223,7 +540,7 @@ module Classic = struct
 
     method private field f s =
       Format.pp_print_string f (
-        match classify_string s with
+        match classify_string self#keyword s with
         | `ident -> s
         | `operator | `backquote -> "`"^s^"`"
       )
@@ -373,14 +690,17 @@ module Classic = struct
     method virtual to_unprotected_ident : 'ident -> string
     method ident f i = Format.pp_print_string f (self#to_protected_ident i)
     method private unprotected_ident f i = Format.pp_print_string f (self#to_unprotected_ident i)
-    method expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f e ->
-
-      match ExprSugar.resugarer self#typeident_original_name e with
+    method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
+      if not sugar then self#label self#expr_node f e
+      else  match ExprSugar.resugarer self#typeident_original_name e with
       | `list (head,None) -> pp f "@[<2>[%a]@]" (list ",@ " self#expr) head
       | `list (head,Some rest) -> pp f "@[<2>[%a@ |@ %a]@]" (list ",@ " self#expr) head self#expr rest
       | `tuple el -> pp f "@[<1>(%a)@]" (list ",@ " self#expr) el
       | `if_ (e1,e2,e3) -> pp f "@[<2>if %a@;<1 -2>then@ %a@;<1 -2>else@ %a@]" self#expr e1 self#expr e2 self#expr e3
+      | `xhtml  e -> Sugar.Xhtml.pp_xml self#expr_sugar f e
+      | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
       | `no_sugar -> self#label self#expr_node f e
+    method expr : 'dir . ('ident,[< all_directives ] as 'dir) expr pprinter  = self#expr_sugar true
     method expr_node : 'dir. ('ident,[< all_directives ] as 'dir) expr_node pprinter = fun f -> function
         (*| Directive ((`coerce:[< all_directives]),_,_) as e when comma -> pp f "(%a)" self#expr_node e*)
       | Lambda _ | Match _ | LetIn _ as e when op -> pp f "(%a)" self#reset#expr_node e
@@ -459,7 +779,10 @@ module Classic = struct
       | `no_client_calls -> Format.pp_print_string f "no_client_calls"
       | `async -> Format.pp_print_string f "async"
       | `side_annotation _ -> Format.pp_print_string f "side_annotation"
-      | `visibility_annotation _ -> Format.pp_print_string f "visibility_annotation"
+      | `visibility_annotation (`public `sync) -> Format.pp_print_string f "exposed"
+      | `visibility_annotation (`public `async) -> Format.pp_print_string f "exposed @async"
+      | `visibility_annotation (`public `funaction) -> Format.pp_print_string f "exposed"
+      | `visibility_annotation `private_ -> Format.pp_print_string f "protected"
       | `static_content (s, eval) -> pp f "static_content[%s][%b]" s eval
       | `static_content_directory (s, eval) -> pp f "static_content_directory[%s][%b]" s eval
       | `static_resource s -> pp f "static_resource[%s]" s
@@ -623,28 +946,27 @@ module Classic = struct
               pp f "@[<v>@[<2>type %a@]@]"
                 (list "@]@ and @[" (self#typedef ~print_visibility: true)) typedefs
         )
-      | NewVal ([bnd],false) -> pp f "@[<2>%a@] "self#pat_binding bnd
-      | NewVal (pel,false) ->
-          pp f "/* encoding of a let and */@\n%a" self#pat_bindings pel
-      | NewVal (pel,true) ->
-          pp f "@[<v>@[<2>rec %a@]@]" (list "@]@ and @[" self#pat_binding) pel
+      | NewVal ([bnd],_) -> pp f "%a" self#pat_binding bnd
+      | NewVal (pel,_) ->
+          pp f "%a" self#pat_bindings pel
       | Package (`import,s) ->
-          pp f "import %s" s
+          pp f "import %s" (String.sub s 1 (String.length s - 2))
       | Package (`import_plugin, s) ->
-          pp f "import-plugin %s" s
+          pp f "import-plugin %s" (String.sub s 1 (String.length s - 2))
       | Package (`declaration,s) ->
           pp f "package %s" s
     method private pat_binding : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun f (p,e) ->
       match p, e with
-      | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) -> self#lambda_binding self#ident f (i.SurfaceAst.ident,r,e)
+      | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) ->
+        self#lambda_binding self#ident f (i.SurfaceAst.ident,r,e)
       | _, (Directive ((`visibility_annotation `public b : [< all_directives ]),[e],_),_) -> (
           match b with
-          | `async -> pp f "publish %a" self#pat_binding (p,e)
-          | `sync -> pp f "publish_async %a" self#pat_binding (p, e)
+          | `async -> pp f "@publish_async %a" self#pat_binding (p,e)
+          | `sync -> pp f "@publish %a" self#pat_binding (p, e)
           | `funaction -> assert false
         )
       | _, (Directive (`side_annotation side,[e],_),_) -> pp f "%a %a" self#side side self#pat_binding (p,e)
-      | _ -> pp f "@[<2>%a =@ %a@]" self#pat p self#expr e
+      | _ -> pp f "%a =@ %a" self#pat p self#expr e
     method private pat_bindings : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) list pprinter = fun f pel ->
       let pl,el = List.split pel in
       pp f "@[<2>(%a) =@ (%a)@]" (list ",@ " self#pat) pl (list ",@ " self#expr) el
@@ -688,6 +1010,7 @@ module Js = struct
     val arrow = false
     val colon = false
     val op = false
+    val function_ = "function"
     method under_typesum = {< typesum = true >}
     method under_comma = {< comma = true >}
     method private under_forall = {< forall = true >}
@@ -702,6 +1025,31 @@ module Js = struct
                       op = false;
                            >}
 
+    method keyword = function
+    | "recursive" | "and"
+    | "function" | "module"
+    | "match" | "if" | "as" | "case" | "default"
+    | "database"
+    | "type"
+    | "with"
+    | "css"
+    | "server" | "client" | "exposed" | "protected" -> true
+    | _ -> false
+
+    method private variant_has_at : 'dir. ([< all_directives ] as 'dir) -> bool = function
+    | `public
+    | `private_
+    | `visibility_annotation _ | `side_annotation _ -> false
+    | (_ : [< all_directives ]) -> true
+
+    method private binding_directives : 'dir. ([< all_directives ] as 'dir) -> bool  = function
+    | a when not(self#variant_has_at a) -> true
+    | `specialize _ | `async
+    | #QmlAst.slicer_directive | #QmlAst.closure_instrumentation_directive
+    | #S.coding_directive | #S.access_directive -> true
+    | (_ : [< all_directives ]) -> false
+
+
     method label : 'a. 'a pprinter -> 'a QmlLoc.label pprinter = fun p f v -> p f (fst v)
 
     method private const_expr f = function
@@ -711,7 +1059,7 @@ module Js = struct
 
     method private field f s =
       Format.pp_print_string f (
-        match classify_string s with
+        match classify_string self#keyword s with
         | `ident -> s
         | `operator | `backquote -> "`"^s^"`"
       )
@@ -863,20 +1211,20 @@ module Js = struct
     (*----- expr printer ------*)
     (*-------------------------*)
     method private flatten_letin : 'dir.
-      bool * ('a * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) list * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr_node
+      bool * ('a * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) list * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr
       -> ((bool * ('a * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) list)) list
-      * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr_node =
+      * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr =
       fun (isrec, binds, expr) ->
       let rec aux expr acc =
-        match expr with
-        | LetIn (isrec, binds, next) -> aux (fst next) ((isrec, binds) :: acc)
-        | final -> (List.rev acc, final)
+        match fst expr with
+        | LetIn (isrec, binds, next) -> aux next ((isrec, binds) :: acc)
+        | _ -> (List.rev acc, expr)
       in aux expr [(isrec, binds)]
 
 
-    method private print_binds : 'dir. (((bool * ('a * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) list)) list  * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr_node) pprinter
+    method private print_binds : 'dir. (((bool * ('a * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) list)) list  * ('a,  [< all_directives ] as 'dir) SurfaceAst.expr) pprinter
       = fun f (binds, final) ->
-        pp f "{@\n@[<v>%a@]@\n%a@\n}" (list "@\n" self#print_group) binds self#expr_node final;
+        pp f "%a@\n%a" (list "@\n" self#print_group) binds self#expr final;
 
     method private print_group : 'dir. (bool * ('ident * ('ident, [< all_directives ] as 'dir) expr) list) pprinter = fun f (isrec, group) ->
       if isrec then pp f "recursive ";
@@ -888,30 +1236,50 @@ module Js = struct
     method virtual to_unprotected_ident : 'ident -> string
     method ident f i = Format.pp_print_string f (self#to_protected_ident i)
     method private unprotected_ident f i = Format.pp_print_string f (self#to_unprotected_ident i)
-    method expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f e ->
-      match ExprSugar.resugarer self#typeident_original_name e with
+    method private expr_need_block : 'dir . ('ident,[< all_directives ] as 'dir) expr -> bool = fun e ->
+      match fst e with
+      | Apply _ | Ident _ | Const _ | Directive _  -> false
+      | _ -> true
+    method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
+      if not sugar then self#label self#expr_node f e
+      else match ExprSugar.resugarer self#typeident_original_name e with
       | `list (head,None) -> pp f "@[<2>[%a]@]" (list ",@ " self#expr) head
       | `list (head,Some rest) -> pp f "@[<2>[%a@ |@ %a]@]" (list ",@ " self#expr) head self#expr rest
       | `tuple el -> pp f "@[<1>(%a)@]" (list ",@ " self#expr) el
-      | `if_ (e1,e2,e3) -> pp f "if(%a){%a}else{%a}" self#expr e1 self#expr e2 self#expr e3
+      | `if_ (e1,e2,e3) ->
+        (if self#expr_need_block e2 then
+          pp f "@[<hov 2>if (%a) {@\n%a@]@\n@[<hov 2>} "
+        else
+          pp f "if (%a) %a @[<hov 2> ") self#expr e1 self#expr e2;
+        (if self#expr_need_block e3 then
+          pp f "else {@\n%a@]@\n}"
+        else
+          pp f "else %a@]") self#expr e3;
+
+      | `xhtml e  -> Sugar.Xhtml.pp_xml self#expr_sugar f e
+      | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
       | `no_sugar -> self#label self#expr_node f e
+    method expr : 'dir . ('ident,[< all_directives ] as 'dir) expr pprinter  = self#expr_sugar true
     method expr_node : 'dir. ('ident,[< all_directives ] as 'dir) expr_node pprinter = fun f -> function
         (*| Directive ((`coerce:[< all_directives]),_,_) as e when comma -> pp f "(%a)" self#expr_node e*)
       | Lambda _ | Match _ | LetIn _ as e when op -> pp f "(%a)" self#reset#expr_node e
       | Lambda _ as e when comma -> pp f "(%a)" self#reset#expr_node e
       | Apply ((Ident oper,_LABEL1),([(_,e1);(_,e2)],_LABEL2)) as e when self#is_operator oper ->
           if op || colon then pp f "(%a)" self#reset#expr_node e else
-            pp f "@[<2>%a %s@ %a@]" self#under_op#expr e1 (self#to_unprotected_ident oper) self#under_op#expr e2
+            pp f "@[<2>%a %s@ %a@]" self#under_op#expr e1 (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e2
+      | Apply ((Ident oper,_LABEL1),([(_,e1)],_LABEL2)) as e when self#is_operator oper ->
+          if op || colon then pp f "(%a)" self#reset#expr_node e else
+            pp f "@[<2>%s%a@]" (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e1
       | Apply (e,(r,_LABEL)) -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " (fun f (_,e) -> self#reset#under_comma#expr f e)) r
       | Lambda (r, ((LetIn _, _) as e)) ->
-          pp f "@[<h>function(%a)@[%a@]@]"
+          pp f "@[<h 2>function(%a){@[%a@]@]}"
             (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r
             self#expr e
-      | Lambda (r,e) -> pp f "@[<h>function(%a){@ %a}@]" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
+      | Lambda (r,e) -> pp f "@[function(%a){%a}" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
       | Const c -> self#const_expr f c
       | Ident ident -> self#ident f ident
       | LetIn (isrec, binds, expr) ->
-          let (binds, final) = self#flatten_letin (isrec, binds, (fst expr)) in
+          let (binds, final) = self#flatten_letin (isrec, binds, expr) in
           pp f "%a" self#print_binds (binds, final)
       (* | LetIn (true,iel,e) -> *)
       (*     pp f "@[<v>@[<2>rec %a@]@ %a@]" (list "@]@ and @[" self#binding) iel self#expr e *)
@@ -920,7 +1288,7 @@ module Js = struct
       (* | LetIn (false,iel,e) -> *)
       (*     pp f "/* encoded let and */@\n@[<v>%a@ %a@]" self#bindings iel self#expr e *)
       | Match (e,pel) ->
-          pp f "match(%a){@\n@[<v>%a@]@\n}"
+          pp f "match (%a) {@\n%a@\n}"
             self#reset#expr e
             (list "@\n" self#rule_) pel
       | Record fields -> self#record f fields
@@ -978,8 +1346,17 @@ module Js = struct
       | `with_thread_context -> Format.pp_print_string f "with_thread_context"
       | `no_client_calls -> Format.pp_print_string f "no_client_calls"
       | `async -> Format.pp_print_string f "async"
-      | `side_annotation _ -> Format.pp_print_string f "side_annotation"
-      | `visibility_annotation _ -> Format.pp_print_string f "visibility_annotation"
+      | `side_annotation `client -> Format.pp_print_string f "client"
+      | `side_annotation `server -> Format.pp_print_string f "server"
+      | `side_annotation `both -> Format.pp_print_string f "both"
+      | `side_annotation `prefer_client -> Format.pp_print_string f "prefer_client"
+      | `side_annotation `prefer_server -> Format.pp_print_string f "prefer_server"
+      | `side_annotation `both_implem -> Format.pp_print_string f "both_implem"
+      | `side_annotation `prefer_both -> Format.pp_print_string f "prefer_both"
+      | `visibility_annotation (`public `sync) -> Format.pp_print_string f "exposed"
+      | `visibility_annotation (`public `async) -> Format.pp_print_string f "exposed @async"
+      | `visibility_annotation (`public `funaction) -> Format.pp_print_string f "exposed"
+      | `visibility_annotation `private_ -> Format.pp_print_string f "protected"
       | `static_content (s, _eval) -> pp f "static_source_content(\"%s\")" s
       | `static_content_directory (s, eval) -> pp f "static_content_directory[%s][%b]" s eval
       | `static_resource s -> pp f "static_resource[%s]" s
@@ -996,7 +1373,7 @@ module Js = struct
       | `nonexpansive -> Format.pp_print_string f "nonexpansive"
       | `opensums -> Format.pp_print_string f "opensums"
       | `openrecord -> Format.pp_print_string f "openrecord"
-      | `module_ -> Format.pp_print_string f "module_"
+      | `module_ -> Format.pp_print_string f "module"
       | `module_field_lifting -> Format.pp_print_string f "module_field_lifting"
       | `warncoerce -> Format.pp_print_string f "warncoerce"
       | `js_ident -> Format.pp_print_string f "js_ident"
@@ -1034,13 +1411,12 @@ module Js = struct
     method directive : 'dir. ('ident,[< all_directives ] as 'dir) directive pprinter =
       fun f (variant, exprs, tys) ->
         match variant, exprs, tys with
-        | `coerce, [e], [ty] -> (* TODO COERCE *)
-            pp f "@[<h>%a (%a)@]" self#ty ty self#under_colon#expr e
-        | `module_, [(Record r,_)], _ ->
-            pp f "module {@\n@[<hov> @[@{<v2>%a@ @]@]@\n}"
-              (list "@\n" (self#binding_aux (fun f s -> pp f "%s" s))) r
-        | `string, l, _ ->
-            pp f "\"%a\"" (list "" self#string_elmt) l
+        | `coerce, [e], [ty] ->
+            pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
+        | `module_, [(Record _r,_)], _ -> assert false
+(*            pp f "@[hov 1>module {@\n%a@\n@]}@\n"
+              (list "@\n" (self#binding_aux (fun f s -> pp f "%s" s))) r *)
+        | `string, l, _ -> Sugar.String.pp_expr self#expr_sugar f l
         | `magic_to_string, [e], _ -> self#expr f e
         | `fun_action, [e], _ -> self#expr f e
         | `magic_to_xml, [e], _ -> pp f "XmlConvert.of_alpha(%a)" self#expr e
@@ -1092,24 +1468,53 @@ module Js = struct
             else
               pp f "@[<hv>{ %a }@]" (Format.pp_list ",@ " self#record_binding) l
 
-
+    (* start box indentation is handled via binding_aux or pat_binding *)
     method private lambda_binding : 'a 'dir. 'a pprinter -> ('a * (string * 'ident pat) list * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,r,e) ->
       match fst e with
-      | LetIn _ ->
-          pp f "function %a(%a)%a@\n" p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
-      | _ -> pp f "function %a(%a){@\n @[@{<v2>%a@ @]@]@\n}" p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
+      | LetIn _
+      | Record _
+      | ExtendRecord _
+      | Match _ ->
+          pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
+      | _  -> pp f "%s %a(%a){@\n%a@]\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
 
 
-    method private binding_aux : 'id 'dir. 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun ipp f (i,e) ->
-      match e with
-      | (Directive ((#binding_directives : [< all_directives]) as dir, [expr] , _),_) ->
-          pp f "%a %a" self#variant dir (self#binding_aux ipp) (i, expr)
-      | (Directive ((`magic_do : [< all_directives ]), [e], _),_) -> pp f "@[<2>%a@]" self#expr e
-      | (Lambda (r,e),_LABEL) -> self#lambda_binding ipp f (i,r,e)
-      | _ -> pp f "@[<hov>%a =@ %a@]" ipp i self#expr e
+    method private module_binding : 'id 'dir. 'a pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
+      let p = Obj.magic p in (* WTF *)
+      match fst e with
+      | Lambda (r,e)-> self#lambda_binding p f (s,r,e)
+      | Record r ->
+        pp f "module %a {@\n%a@]@\n}" p s
+          (list "@\n" (self#binding_aux false (fun f s -> pp f "%s" s))) r
+      | _ -> pp f "%a = module %a" p s self#expr e
+
+    method private binding_aux : 'id 'dir. bool -> 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun semic ipp f (i,e) ->
+      let ipp = Obj.magic ipp in (* WTF *)
+      let semic = if semic then ";" else "" in
+      let rec aux e =
+        match e with
+(*        | (Directive ((`coerce: [< all_directives ]), [e], [ty]),_) ->
+            pp f "(%a)" self#ty ty;
+            aux e *) (* sync with sugar *)
+        | (Directive (v,[e],_),_) when self#binding_directives v ->
+          let at = if self#variant_has_at v then "@" else "" in
+          pp f "%s%a " at self#variant v;
+          aux e
+        | _ ->
+          match e with
+          | (Lambda (r,e),_LABEL) -> self#lambda_binding ipp f (i,r,e)
+          | (Directive ((`module_ : [< all_directives ]), [e], _),_) ->
+            self#module_binding ipp f (i,e)
+          | (Directive ((`magic_do : [< all_directives ]), [e], _),_) -> pp f "%a%s@]" self#expr e semic
+          | _ ->
+            if is_letin e then pp f "%a = {@\n%a@]@\n}" ipp i self#expr e
+            else pp f "%a =@ %a%s@]" ipp i self#expr e semic
+      in
+      pp f "@[<hov 4>";
+      aux e
 
     method private binding : 'dir. ('ident * ('ident, [< all_directives ] as 'dir) expr) pprinter =
-      self#binding_aux self#ident
+      self#binding_aux true self#ident
 
     method bindings : 'dir. ('ident * ('ident, [< all_directives ] as 'dir) expr) list pprinter = fun f iel ->
       let il,el = List.split iel in
@@ -1119,7 +1524,7 @@ module Js = struct
       (match p with
        | (PatAny, _) -> pp f "default"
        | p -> pp f "case %a" self#under_arrow#pat p);
-      pp f " :@ %a@]" self#expr e
+      pp f ":@ %a@]" self#expr e
     method private side f = function
       | `server -> Format.pp_print_string f "server"
       | `client -> Format.pp_print_string f "client"
@@ -1166,29 +1571,42 @@ module Js = struct
               pp f "@[<v>@[<2>type %a@]@]"
                 (list "@]@ and @[" (self#typedef ~print_visibility: true)) typedefs
         )
-      | NewVal ([bnd],false) -> pp f "@[<2>%a@] "self#pat_binding bnd
+      | NewVal ([bnd],false) -> pp f "%a" self#pat_binding bnd
       | NewVal (pel,false) ->
           pp f "/* encoding of a let and */@\n%a" self#pat_bindings pel
       | NewVal (pel,true) ->
           pp f "@[<v>@[<2>rec %a@]@]" (list "@]@ and @[" self#pat_binding) pel
       | Package (`import,s) ->
-          pp f "import %s" s
+          pp f "import %s" (String.sub s 1 (String.length s - 2))
       | Package (`import_plugin, s) ->
-          pp f "import-plugin %s" s
+          pp f "import-plugin %s" (String.sub s 1 (String.length s - 2))
       | Package (`declaration,s) ->
           pp f "package %s" s
+    (* TODO merge with binding_aux *)
     method private pat_binding : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun f (p,e) ->
-      match p, e with
-      | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) -> self#lambda_binding self#ident f (i.SurfaceAst.ident,r,e)
-      | _, (Directive ((`visibility_annotation `public b : [< all_directives ]),[e],_),_) -> (
-          match b with
-          | `async -> pp f "publish %a" self#pat_binding (p,e)
-          | `sync -> pp f "publish_async %a" self#pat_binding (p,e)
-          | `funaction -> assert false
-        )
-      | _, (Directive (`side_annotation side,[e],_),_) -> pp f "%a %a" self#side side self#pat_binding (p,e)
-      | _, (Directive (`magic_do,[e],_),_) -> self#expr f e
-      | _ -> pp f "@[<2>%a =@ %a@]" self#pat p self#expr e
+      let rec aux e =
+        match e with
+        | (Directive (v,[e],_),_) when self#binding_directives v ->
+          let at = if self#variant_has_at v then "@" else "" in
+          pp f "%s%a " at self#variant v;
+          aux e
+(*        | (Directive ((`coerce: [< all_directives ]), [e], [ty]),_) ->
+            pp f "(%a)" self#ty ty;
+            aux e *) (* make sync with sugar *)
+        | _ ->
+          match p, e with
+          | (PatVar i,_LABEL1), (Lambda (r,e),_LABEL2) ->
+            self#lambda_binding self#ident f (i.SurfaceAst.ident,r,e)
+          | (PatVar i,_LABEL1), (Directive ((`module_ : [< all_directives ]), [e], _),_) ->
+            self#module_binding self#ident f (i.SurfaceAst.ident,e)
+          | _, (Directive ((`magic_do : [< all_directives ]),[e],_),_) ->  pp f "%a;@]" self#expr e
+
+          | _,e -> (if is_letin e then pp f "%a = {@\n%a@]@\n}"
+            else pp f "%a =@ %a@]") self#pat p self#expr e
+      in
+      pp f "@[<hov 4>";
+      aux e
+
     method private pat_bindings : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) list pprinter = fun f pel ->
       let pl,el = List.split pel in
       pp f "@[<2>(%a) =@ (%a)@]" (list ",@ " self#pat) pl (list ",@ " self#expr) el
@@ -1241,6 +1659,7 @@ module type SGeneric = sig
     method ty : 'a SurfaceAst.ty_node QmlLoc.label Format.pprinter
     method ty_node : 'a SurfaceAst.ty_node pprinter
     method variant : ([< all_directives ]) pprinter
+    method keyword : string -> bool
 
     method arrow_row_t : Format.formatter -> 'a SurfaceAst.row_t -> unit
     method sum_t : 'a SurfaceAst.sum_t_node QmlLoc.label Format.pprinter
@@ -1265,14 +1684,17 @@ let makeFamilly syntax =
     class string_class =
     object (self)
       inherit [string] Generic.printer as super
-      method is_operator s = classify_string s = `operator
+
+      method classify_string  s = classify_string self#keyword s
+
+      method is_operator s = self#classify_string s = `operator
       method to_protected_ident s =
-        match classify_string s with
+        match classify_string self#keyword s with
         | `operator
         | `backquote -> "`"^s^"`"
         | `ident -> s
       method to_unprotected_ident s =
-        assert (classify_string s <> `backquote);
+        assert (self#classify_string s <> (`backquote :> ident_kind ));
         s
 
       method typeident f (Typeident s) = Format.pp_print_string f s
@@ -1318,9 +1740,12 @@ let makeFamilly syntax =
         | {namespace=ns; name=name} -> pp f "%a:%a" self#expr ns self#string_label name
       method string_label f p = self#label Format.pp_print_string f p
 
-      method trx_expr f c = self#label self#trx_expr_node f c
-      method trx_expr_node f (Trx_ast.Expr l) =
-        pp f "@[<v2>parser@ @[<2>| %a@]@]" (list "@]@ @[<2>| " self#trx_seq) l
+      method trx_expr ?(sub=false) f c = self#label (self#trx_expr_node ~sub) f c
+      method trx_expr_node ~sub f (Trx_ast.Expr l) =
+        match l with
+        | p :: [] when sub -> pp f "%a" self#trx_seq p
+        | p :: []          -> pp f "parser@ %a" self#trx_seq p
+        | _  -> pp f "@[<v 0>parser@ %a" (list "@]@ @[<2>| " self#trx_seq) l
       method trx_seq f l = self#label self#trx_seq_node f l
       method trx_seq_node f {Trx_ast.seq_items=seq_items; Trx_ast.seq_code=seq_code} =
         match seq_code with
@@ -1333,7 +1758,7 @@ let makeFamilly syntax =
         | Some name -> pp f "%s = %a%a%a" name self#trx_prefix pref self#trx_primary prim self#trx_suffix suff
       method trx_primary f p = self#label self#trx_primary_node f p
       method trx_primary_node f = function
-        | Trx_ast.Parens e -> pp f "(%a)" self#trx_expr e
+        | Trx_ast.Parens e -> pp f "(%a)" (self#trx_expr ~sub:true) e
         | Trx_ast.Literal (name,case) -> pp f "%S%s" name (if case then "" else "~")
         | Trx_ast.DynamicLiteral e -> pp f "\"{%a}\"" self#expr e
         | Trx_ast.Code e -> pp f "{%a}" self#expr e

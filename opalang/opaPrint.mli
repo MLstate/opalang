@@ -30,6 +30,7 @@ type 'ident printer =
   typevar : 'ident SurfaceAst.typevar LangPrint.pprinter;
   typeident : 'ident SurfaceAst.typeident LangPrint.pprinter;
   ident : 'ident LangPrint.pprinter;
+  keyword : string -> bool
   >
 
 module type Familly = sig
