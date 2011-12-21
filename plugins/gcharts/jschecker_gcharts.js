@@ -16,6 +16,9 @@ google.prototype = {
 	ComboChart   : {
 	    draw : null
 	},
+	Gauge        : {
+	    draw : null
+	},
 	GeoChart     : {
 	    draw : null
 	},

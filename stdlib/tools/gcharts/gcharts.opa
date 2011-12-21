@@ -46,6 +46,7 @@ type GCharts.chart_type =
   / { bar_chart }
   / { column_chart }
   / { combo_chart }
+  / { gauge_chart }
   / { geo_chart }
   / { line_chart }
   / { intensity_map } /**  Note: Keys MUST ALL be uppercase ISO3166 codes. One incorrect key breaks the whole graph */
@@ -163,6 +164,22 @@ type GCharts.option =
   / { font_color : color }
   / { show_scale : bool }
   / { curve_type : {none}/{function} }
+
+  // Gauge options
+  / { min : int }
+  / { max : int }
+  / { green_color : color }
+  / { green_from : int }
+  / { green_to : int }
+  / { yellow_color : color }
+  / { yellow_to : int }
+  / { yellow_from : int }
+  / { red_color : color }
+  / { red_from : int }
+  / { red_to : int }
+  / { minor_ticks : int }
+  / { major_ticks : list(string) }
+  / { pie_slice_text_style : GCharts.text_style }
 
   / { h_axis : list(GCharts.axis_option) }
   / { v_axis : list(GCharts.axis_option) }
@@ -291,6 +308,22 @@ type GCharts.option =
         ("curveType", match curve_type with
           | {none} -> {String="none"}
           | {function} -> {String="function"})
+
+      | ~{min} -> ("min", {Int=min})
+      | ~{max} -> ("max", {Int=max})
+      | ~{green_color} -> ("greenColor", aux_color(green_color))
+      | ~{green_from} -> ("greenFrom", {Int=green_from})
+      | ~{green_to} -> ("greenTo", {Int=green_to})
+      | ~{yellow_color} -> ("yellowColor", aux_color(yellow_color))
+      | ~{yellow_to} -> ("yellowTo", {Int=yellow_to})
+      | ~{yellow_from} -> ("yellowFrom", {Int=yellow_from})
+      | ~{red_color} -> ("redColor", aux_color(red_color))
+      | ~{red_from} -> ("redFrom", {Int=red_from})
+      | ~{red_to} -> ("redTo", {Int=red_to})
+      | ~{minor_ticks} -> ("minorticks", {Int=minor_ticks})
+      | ~{major_ticks} ->
+        ("majorTicks", {List=List.map(s->{String=s}, major_ticks)})
+      | {pie_slice_text_style=t} -> ("pieSliceTextStyle", aux_text_style(t))
 
       | ~{h_axis} -> ("hAxis", {Record=List.map(aux_axis_option, h_axis)})
       | ~{v_axis} -> ("vAxis", {Record=List.map(aux_axis_option, v_axis)})
@@ -430,6 +463,7 @@ GCharts = {{
       | {bar_chart} -> %% gcharts.draw_bar_chart %%
       | {column_chart} -> %% gcharts.draw_column_chart %%
       | {combo_chart} -> %% gcharts.draw_column_chart %%
+      | {gauge_chart} -> %% gcharts.draw_gauge_chart %%
       | {geo_chart} -> %% gcharts.draw_geo_chart %%
       | {line_chart} -> %% gcharts.draw_line_chart %%
       | {intensity_map} -> %% gcharts.draw_intensity_map %%

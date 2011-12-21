@@ -43,6 +43,14 @@ function genericDynamicLoad(id, pack, str_data, str_opts, gfun) {
 	function(v){return new google.visualization.ComboChart(v)});
 }
 
+##register draw_gauge_chart : string, string, string -> void
+##args(id, str_data, str_opts)
+{
+    genericDynamicLoad(
+	id, ["gauge"], str_data, str_opts,
+	function(v){return new google.visualization.Gauge(v)});
+}
+
 ##register draw_geo_chart : string, string, string -> void
 ##args(id, str_data, str_opts)
 {
