@@ -48,6 +48,7 @@ internal odeplink tools/odeplink.native
 # from opa
 internal opa2opa              opalang/opa2opa.native
 internal ofile                tools/ofile.native
+internal opa-translate        opa/syntaxHelper.native
 
 # The name of opa raw executable, following unix guidelines (e.g. firefox distrib)
 # when there is a wraper used to call a raw exe
