@@ -1034,6 +1034,7 @@ function_arguments2 <- function_arguments_nosp2
 ;function_arguments_dot_method_nosp = careful_deco(just_function_arguments_dot_method_nosp)
 ;just_function_arguments_dot_method_nosp <-
   / function_arguments_nosp2:args {{ `function_call args }}
+  / lbrace_nosp (=careful_deco(lambda)):e rbrace {{ `function_call [`expr e] }}
   / "." Opa_lexer.ml_identifier_nosp:i {{ `dot i }}
   / ".." Opa_lexer.ml_identifier_nosp:i {{ `double_dot i }}
 
