@@ -1389,6 +1389,7 @@ function_arguments <- function_arguments_nosp
 ;function_arguments_dot_method_nosp = careful_deco(just_function_arguments_dot_method_nosp)
 ;just_function_arguments_dot_method_nosp <-
   / function_arguments_nosp2:args {{ `function_call args }}
+  / (=careful_deco(lambda_as_block)):e {{ `function_call [`expr e] }}
   / "." Opa_lexer.field_identifier_nosp:i {{ `dot i }}
   / ".." Opa_lexer.ml_identifier_nosp:i {{ `double_dot i }}
 
