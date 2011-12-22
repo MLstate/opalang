@@ -115,7 +115,7 @@ MongoView = {{
   create(c:Mongo.collection('collection), vfields:Mongo.fields, is_opa:bool): Mongo.view('collection,'view) =
     coll = MongoCollection.fields(c, {some=vfields})
     pty = @typeval('collection)
-    do verify_type_match(pty, coll.ty, "View.create","Attempt to create view from non-matching parent type")
+    //do verify_type_match(pty, coll.ty, "View.create","Attempt to create view from non-matching parent type")
     fvty = type_from_fields(pty, vfields)
     vty = if is_opa then fvty else MongoTypeSelect.map_field(fvty, make_reg)
     cvty = @typeval('view)
@@ -127,11 +127,11 @@ MongoView = {{
     { ~coll; ~vty; ~is_opa; }
 
   of_collection(c:Mongo.collection('collection), is_opa:bool): Mongo.view('collection,'collection) =
-    { coll=c; vty=c.ty; ~is_opa; }
+    { coll=c; vty=@typeval('collection)/*c.ty*/; ~is_opa; }
 
   @private
   runtime_view_type_check(v:Mongo.view('value,'view), from:string): void =
-    do verify_type_match(@typeval('value), v.coll.ty, from, "Collection type does not match view type")
+    //do verify_type_match(@typeval('value), v.coll.ty, from, "Collection type does not match view type")
     do verify_type_match(@typeval('view), v.vty, from, "View type does not match result type")
     void
 

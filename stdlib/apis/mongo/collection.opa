@@ -74,7 +74,7 @@
 //@abstract
 type Mongo.collection('a) = {
   db: Mongo.mongodb;
-  ty: OpaType.ty; // type of the collection
+  //ty: OpaType.ty; // type of the collection
 }
 
 /**
@@ -171,7 +171,7 @@ MongoCollection = {{
    * Note, however, that we clone the connection so that we will be using the same connection
    * to the server as the parent connection.
    **/
-  create(db:Mongo.mongodb): Mongo.collection('value) = { db=MongoConnection.clone(db); ty=@typeval('value); }
+  create(db:Mongo.mongodb): Mongo.collection('value) = { db=MongoConnection.clone(db); /*ty=@typeval('value);*/ }
 
   /**
    * Open a connection and create a collection on top of it.  Unlike [create] the connection
@@ -180,7 +180,7 @@ MongoCollection = {{
    **/
   open(name:string, dbname:string, collection:string): outcome(Mongo.collection('value),Mongo.failure) =
     match MongoConnection.open(name) with
-    | {success=mongo} -> {success={ db=MongoConnection.namespace(mongo,dbname,collection); ty=@typeval('value); }}
+    | {success=mongo} -> {success={ db=MongoConnection.namespace(mongo,dbname,collection); /*ty=@typeval('value);*/ }}
     | {~failure} -> {~failure}
 
   /** Same as [open] but treat a failure to open the connection as a fatal error. **/
