@@ -693,6 +693,7 @@ pattern_list <-
 block <- lbrace block_inner:e rbrace
   {{ e }}
 
+/** Block inner **/
 block_inner <- (=list1((=deco(block_elmt)), block_separator)):l block_separator?
   {{
     (*TODO : Move into parser utils *)
@@ -900,8 +901,18 @@ match_end <- (Opa_lexer.END $ / (=exact_ident("|_")) $)? (* use by xml_parser *)
 (**
    {7 Lambda}
 *)
-lambda_no_function <- lpar (=list0(pattern,comma)):args rpar (=deco(block)):e
-  {{ function t -> Lambda (encode_args_as_record args, may_coerce_expr e t) }}
+/** Function block arguments **/
+lambda_args <- Opa_lexer.lpar_nosp (=list0(pattern,comma)):args rpar {{args}}
+
+/** Function multi block arguments **/
+lambda_argss <- spacing (=careful_deco(lambda_args))+:argss
+{{
+  fun e t-> undecorate (List.fold_right (fun (args,label) acc -> args_expr_to_lambda ~zero_ary:label args acc) argss (may_coerce_expr e t))
+}}
+
+/** Function definition **/
+lambda_no_function <- lambda_argss:lambda (=deco(block)):e {{ lambda e }}
+
 
 lambda_with_name <-
   Opa_lexer.FUNCTION spacing
