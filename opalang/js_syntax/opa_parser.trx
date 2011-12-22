@@ -913,6 +913,8 @@ lambda_argss <- spacing (=careful_deco(lambda_args))+:argss
 /** Function definition **/
 lambda_no_function <- lambda_argss:lambda (=deco(block)):e {{ lambda e }}
 
+/** Anonymoys function definition **/
+lambda_no_function_no_braces <- lambda_argss:lambda (=deco(block_inner)):e {{ lambda e }}
 
 lambda_with_name <-
   Opa_lexer.FUNCTION spacing
@@ -921,8 +923,15 @@ lambda_with_name <-
     ):coerced_lambda
   {{ coerced_lambda }}
 
-lambda <- Opa_lexer.FUNCTION (=type_maybe(lambda_no_function:lambda {{lambda}})):coerced_lambda
+lambda_braces <- Opa_lexer.FUNCTION (=type_maybe(lambda_no_function:lambda {{lambda}})):coerced_lambda
   {{coerced_lambda}}
+
+lambda_no_braces <- Opa_lexer.FUNCTION (=type_maybe(lambda_no_function_no_braces:lambda {{lambda}})):coerced_lambda
+  {{coerced_lambda}}
+
+lambda_as_block <- lbrace lambda_no_braces:e rbrace {{ e }}
+
+lambda <- lambda_braces / lambda_as_block
 
 
 (* ******************************************************************)
