@@ -224,7 +224,7 @@ type Session.how_send('message) =
           | {server = _} | {nothing} ->
             // This case is on toplelvel javascript serialization.
             // Use a client identity which can't be collected.
-            {client="_internal_" page=-1}
+            ThreadContext.Client.fake
           | ~{client} -> client
         aux(x, ctx)
       | {some = entity} ->

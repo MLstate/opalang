@@ -43,9 +43,14 @@ import stdlib.core.{web.core, js}
      */
     session(s:channel('a)):option(RPC.Json.js_code) =
       get_server_id = %%BslSession.get_server_id%%
-      match get_server_id(s) with
-      | {some = id} -> some({Direct = "new {JsInterface.ServerChannel}({id})"})
-      | {none} -> {none}
+      context = match ThreadContext.get({current}).key
+                {~client} -> some(client)
+                _ -> some(ThreadContext.Client.fake)
+                     // NOT none until OpaNetwork corrections
+                end
+      match get_server_id(s,context)
+      {some = id} -> some({Direct = "new {JsInterface.ServerChannel}({id})"})
+      {none} -> {none}
 
   }}
 
