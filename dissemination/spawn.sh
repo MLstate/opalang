@@ -387,7 +387,7 @@ copy_host () (
     echo "echo \"[036mUploading $src[0m\"" >> ${fifos[id]}
     hostname=$(echo "$(uname -n)" | tr '[:upper:]' '[:lower:]')
     if [ ! "$DEBUG" = "0" ] ; then echo "echo \"[035m= Copying $src -> $dst on $hostname[0m\"" >> ${fifos[id]}; fi
-    if [ ${HOSTS[id]} == "localhost" ] || [ ${HOSTS[id]} == "127.0.0.1" ] || [ ${HOSTS[id]} == $hostname ] || [ ${HOSTS[id]} == $hostname".local" ] ; then
+    if [ ${HOSTS[id]} = "localhost" ] || [ ${HOSTS[id]} = "127.0.0.1" ] || [ ${HOSTS[id]} = $hostname ] || [ ${HOSTS[id]} = $hostname".local" ] ; then
         # In case it hasn't been done yet, we create the tmp dir.
         mkdir -p $(dirname $dst)
         cp $src "$dst"
