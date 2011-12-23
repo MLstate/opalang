@@ -1237,6 +1237,18 @@ Xhtml =
     aux(x)
 
   /**
+   * Add a title attribute to an xhtml node.
+   * No verification on wether the xhtml supports title attribute is made
+   */
+  add_title(t:string, x:xhtml) : xhtml = Xhtml.add_attribute_unsafe("title", t, x)
+
+  /**
+   * Add/Update ths class attribute of an xhtml node, by appending a certain class.
+   * No verification on wether the xhtml supports class attribute is made
+   */
+  update_class(c:string, x:xhtml) : xhtml = Xhtml.update_attribute_unsafe("class", c, x)
+
+  /**
    * Add style to the xhtml (added to pre-exiting style)
    * When the future position of the style is not clear (several possible node), it encapsulated everything in a div
    */

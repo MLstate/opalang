@@ -19,22 +19,14 @@
 /**
  * Bootstrapped widgets library.
  *
- * @author Frederic Ye 2010
+ * @author Frederic Ye 2011
  * @category WIDGET
  * @destination PUBLIC
- * @stability STABLE
+ * @stability EXPERIMENTAL
  * @version 0.9
  */
 
 /**
- * {1 About this module}
- *
- * This module is for generating Bootstrapped HTML chunks.
- *
- * {1 Where should I start?}
- *
- * You can find documentation and examples at http://bootstrap.opalang.org
- *
  * {1 TODO}
  *
  * - Forms
@@ -44,8 +36,10 @@
 package stdlib.widgets.bootstrap
 
 /**
- * {1 Types defined in this module}
+ * {1 Types definition}
  */
+
+// Grid
 
 type WBootstrap.Grid.column =
   { span: int // 1-16
@@ -55,15 +49,21 @@ type WBootstrap.Grid.column =
     offset: option(int) // 1-2
     content: xhtml }
 
+// List
+
 type WBootstrap.List.description =
   {title: xhtml} /
   {description: xhtml}
+
+// Media
 
 type WBootstrap.Media.media = {
   href: option(string)
   onclick: Dom.event -> void
   content: xhtml
 }
+
+// Navigation
 
 type WBootstrap.Navigation.elt =
   {active: xhtml onclick: (Dom.event -> void) href: option(string)} /
@@ -72,36 +72,73 @@ type WBootstrap.Navigation.elt =
   {custom_li: xhtml} /
   {divider}
 
+type WBootstrap.Navigation.page_nav_elt = WBootstrap.Media.media
+
+// Table
+
 type WBootstrap.Table.elt = xhtml
 
-type WBootstrap.Navigation.page_nav_elt = WBootstrap.Media.media
+// Button
+
+type WBootstrap.Button.type =
+  {button:xhtml callback:(Dom.event -> void)}
+/ {link:xhtml href:option(string) callback:(Dom.event -> void)}
+/ {input:string callback:(Dom.event -> void)}
 
 type WBootstrap.Button.size =
   {normal} / {small} / {large}
+
+type WBootstrap.Button.importance =
+  {default}
+/ {primary}
+/ {info}
+/ {success}
+/ {danger}
+
+type WBootstrap.Button.status = {enabled} / {disabled}
+
+type WBootstrap.Button.option =
+  WBootstrap.Button.size
+/ WBootstrap.Button.importance
+/ WBootstrap.Button.status
+
+// Message
+
+type WBootstrap.Message.type =
+  {alert:WBootstrap.Message.content closable:bool}
+/ {block:WBootstrap.Message.content actions:option(xhtml) closable:bool}
+
+type WBootstrap.Message.importance =
+  {default}
+/ {warning}
+/ {error}
+/ {success}
+/ {info}
 
 type WBootstrap.Message.content = {
   title: string
   description: xhtml
 }
 
+/**
+ * {1 About this module}
+ *
+ * This module is for generating Bootstrapped HTML chunks.
+ *
+ * {1 Where should I start?}
+ *
+ * You can find documentation and examples at http://bootstrap.opalang.org.
+ *
+ * {1 Compatibility?}
+ *
+ * It should be compatible with Bootstrap <= 1.4.0
+ */
 WBootstrap = {{
-
-  /**
-   * Add a title attribute to an xhtml chunk.
-   * No verification on wether the xhtml supports title attribute
-   */
-  add_title(t:string, x:xhtml) = Xhtml.add_attribute_unsafe("title", t, x)
-
-  /**
-   * Add/Update ths class attribute of an xhtml chunk, by appending a certain class.
-   * No verification on wether the xhtml supports class attribute
-   */
-  update_class(c:string, x:xhtml) = Xhtml.update_attribute_unsafe("class", c, x)
 
   /**
    * Add a pull-right class to an xhtml chunk
    */
-  pull_right(x:xhtml) = update_class("pull-right", x)
+  pull_right(x:xhtml) = Xhtml.update_class("pull-right", x)
 
   /**
    * Add an optional href attribute to an xhtml
@@ -117,7 +154,7 @@ WBootstrap = {{
      * Create a row
      *
      * @param columns a list of WBootstrap.Grid.column
-     * @see WBootstrap.Grid.column for column restrictions
+     * @see {!WBootstrap.Grid.column} for column restrictions
      */
     row(columns:list(WBootstrap.Grid.column)) =
       <div>{
@@ -138,7 +175,7 @@ WBootstrap = {{
             2 -> <div class="span-two-thirds{offset}">{content}</div>
             _ -> <></>
         , columns)
-      }</div> |> update_class("row", _)
+      }</div> |> Xhtml.update_class("row", _)
 
   }}
 
@@ -208,10 +245,10 @@ WBootstrap = {{
              {some=l} -> " lang-{l}"
              {none} -> ""
       <pre>{Xhtml.of_string(s)}</pre>
-      |> update_class("prettyprint{lang}", _)
+      |> Xhtml.update_class("prettyprint{lang}", _)
       |> (match linenums
           {false} -> identity
-          {true} -> update_class("linenums", _))
+          {true} -> Xhtml.update_class("linenums", _))
 
   }}
 
@@ -229,7 +266,7 @@ WBootstrap = {{
      * Create an unordered and unstyled list
      */
     unstyled(list:list(xhtml)) =
-      unordered(list) |> update_class("unstyled", _)
+      unordered(list) |> Xhtml.update_class("unstyled", _)
 
     /**
      * Create an ordered list
@@ -255,12 +292,12 @@ WBootstrap = {{
   Label = {{
 
     make_label(content:string) =
-      <span>{content}</span> |> update_class("label", _)
+      <span>{content}</span> |> Xhtml.update_class("label", _)
 
-    success = update_class("success", _)
-    warning = update_class("warning", _)
-    important = update_class("important", _)
-    notice = update_class("notice",_)
+    success = Xhtml.update_class("success", _)
+    warning = Xhtml.update_class("warning", _)
+    important = Xhtml.update_class("important", _)
+    notice = Xhtml.update_class("notice",_)
 
     /**
      * Create a label
@@ -291,7 +328,7 @@ WBootstrap = {{
               {content}
             </a> |> add_href_opt(media.href, _)
         , imgs)
-      List.unordered(list) |> update_class("media-grid", _)
+      List.unordered(list) |> Xhtml.update_class("media-grid", _)
 
   }}
 
@@ -326,7 +363,7 @@ WBootstrap = {{
     /**
      * Create a zebra stripped table
      */
-    zebra_stripped(h, b) = table(h, b) |> update_class("zebra-striped", _)
+    zebra_stripped(h, b) = table(h, b) |> Xhtml.update_class("zebra-striped", _)
 
   }}
 
@@ -356,35 +393,35 @@ WBootstrap = {{
 
   Button = {{
 
-    make_button(text:string, callback:(Dom.event -> void)) =
-      <button onclick={callback}>{text}</button>
-      |> update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
+    make_button(content:xhtml, callback:(Dom.event -> void)) =
+      <button onclick={callback}>{content}</button>
+      |> Xhtml.update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
 
-    make_no_propagation_button(text:string, callback:(Dom.event -> void)) =
-      <button onclick={callback} options:onclick={[{stop_propagation}]}>{text}</button>
-      |> update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
+    make_no_propagation_button(content:xhtml, callback:(Dom.event -> void)) =
+      <button onclick={callback} options:onclick={[{stop_propagation}]}>{content}</button>
+      |> Xhtml.update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
 
-    make_link(text:string, href:option(string), callback:(Dom.event -> void)) =
-      <a onclick={callback}>{text}</a>
-      |> update_class("btn", _)
+    make_link(content:xhtml, href:option(string), callback:(Dom.event -> void)) =
+      <a onclick={callback}>{content}</a>
+      |> Xhtml.update_class("btn", _)
       |> add_href_opt(href, _)
 
     make_input(text:string, callback:(Dom.event -> void)) =
       <input type="button" value="{text}" onclick={callback}/>
-      |> update_class("btn", _)
+      |> Xhtml.update_class("btn", _)
 
-    primary = update_class("primary", _)
-    info = update_class("info", _)
-    success = update_class("success", _)
-    danger = update_class("danger",_)
-    large = update_class("large", _)
-    small = update_class("small", _)
-    disabled = update_class("disabled", _) // FIXME: incomplete on buttons and inputs (see below)
+    primary = Xhtml.update_class("primary", _)
+    info = Xhtml.update_class("info", _)
+    success = Xhtml.update_class("success", _)
+    danger = Xhtml.update_class("danger",_)
+    large = Xhtml.update_class("large", _)
+    small = Xhtml.update_class("small", _)
+    disabled = Xhtml.update_class("disabled", _) // FIXME: incomplete on buttons and inputs (see below)
 
     /**
      * Create a button
      */
-    make(bt_type, bt_options_list) =
+    make(bt_type:WBootstrap.Button.type, bt_options_list:list(WBootstrap.Button.option)) =
 
       bt = match bt_type
            ~{button callback} ->
@@ -397,14 +434,15 @@ WBootstrap = {{
       bt_options = @toplevel.List.fold_right(
                      opts, opt ->
                        match opt
-                       {primary} -> {opts with class={primary}}
-                       {info} -> {opts with class={info}}
-                       {success} -> {opts with class={success}}
-                       {danger} -> {opts with class={danger}}
+                       {primary} -> { opts with class={primary} }
+                       {info} -> { opts with class={info} }
+                       {success} -> { opts with class={success} }
+                       {danger} -> { opts with class={danger} }
                        {small} -> { opts with size={small} }
                        {large} -> { opts with size={large} }
                        {disabled} -> { opts with disabled=true }
-                   , bt_options_list, {class={default} size={normal}:WBootstrap.Button.size disabled=false})
+                       _ -> opts
+                   , bt_options_list, {class={default} size={normal} disabled=false})
 
       bt = match bt_options.class
           {default} -> bt
@@ -458,7 +496,7 @@ WBootstrap = {{
     topbar(content:xhtml) =
       <div data-scrollspy="scrollspy">
         <div class="topbar-inner">{content}</div>
-      </div> |> update_class("topbar", _)
+      </div> |> Xhtml.update_class("topbar", _)
 
     /**
      * Create a brand link
@@ -483,7 +521,7 @@ WBootstrap = {{
     @private make_tabs(cl:string, tabs:list(WBootstrap.Navigation.elt)) =
       <ul>{
         @toplevel.List.map(nav_elt_to_xhtml, tabs)
-      }</ul> |> update_class(cl, _)
+      }</ul> |> Xhtml.update_class(cl, _)
 
     nav(l) = make_tabs("nav", l)
     tabs(l) = make_tabs("tabs", l) |> Xhtml.add_attribute_unsafe("data-tabs", "tabs", _)
@@ -495,7 +533,7 @@ WBootstrap = {{
     breadcrumb(path:list(WBootstrap.Navigation.elt), sep:xhtml) =
       <ul class="breadcrumb">{
         list = @toplevel.List.map(nav_elt_to_xhtml, path)
-        XmlConvert.of_list_using(<></>, <></>, <span class="divider">{sep}</span>, list)
+        XmlConvert.of_list_using(<></>, <></>, Span.divider(sep), list)
       }</ul>
 
     /**
@@ -526,36 +564,34 @@ WBootstrap = {{
 
     @private gen_make_alert(closable:bool, content:WBootstrap.Message.content, more:xhtml) =
       id = Dom.fresh_id()
-      <div id=#{id}>
-        {match closable
-         {true} -> <a class="close" onclick={_->Dom.remove(#{id})}>&times;</a>
-         {false} -> <></>}
+      <div id=#{id} class="alert-message">
+        {if not(closable) then <></>
+         else <a class="close" onclick={_->Dom.remove(#{id})}>&times;</a>}
         <p>
           {if content.title == "" then <></> else <strong>{content.title}</strong>}
           {content.description}
         </p>
         {more}
-      </div> |> update_class("alert-message", _)
+      </div>
 
     make_alert(closable:bool, content:WBootstrap.Message.content) =
       gen_make_alert(closable, content, <></>)
 
-    // TODO: handle alert-actions
     make_block(closable:bool, actions:option(xhtml), content:WBootstrap.Message.content) =
       more = match actions
              {some=a} -> <div class="alert-actions">{a}</div>
              {none} -> <></>
-      gen_make_alert(closable, content, more) |> update_class("block-message", _)
+      gen_make_alert(closable, content, more) |> Xhtml.update_class("block-message", _)
 
-    warning = update_class("warning", _)
-    error = update_class("error", _)
-    success = update_class("success", _)
-    info = update_class("info", _)
+    warning = Xhtml.update_class("warning", _)
+    error = Xhtml.update_class("error", _)
+    success = Xhtml.update_class("success", _)
+    info = Xhtml.update_class("info", _)
 
     /**
      * Create a message (alert or block)
      */
-    make(msg_type, msg_class) =
+    make(msg_type:WBootstrap.Message.type, msg_class:WBootstrap.Message.importance) =
 
       msg = match msg_type
             ~{alert closable} -> make_alert(closable, alert)
@@ -575,30 +611,32 @@ WBootstrap = {{
   Div = {{
 
     container(content:xhtml) =
-      <div>{content}</div> |> update_class("container", _)
+      <div class="container">{content}</div>
 
     container_fluid(content:xhtml) =
-      <div>{content}</div> |> update_class("container-fluid", _)
+      <div class="container-fluid">{content}</div>
 
     content(content:xhtml) =
-      <div>{content}</div> |> update_class("content", _)
+      <div class="content">{content}</div>
 
     page_header(level:int, title:string, subtitle:option(string)) =
       sub = match subtitle
             {some=s} -> some(<>{s}</>)
             {none} -> none
-      <div>{Typography.header(level, sub, <>{title}</>)}</div>
-      |> update_class("page-header", _)
+      <div class="page-header">{Typography.header(level, sub, <>{title}</>)}</div>
 
     inner(content:xhtml) =
-      <div>{content}</div> |> update_class("inner", _)
+      <div class="inner">{content}</div>
 
     well(content:xhtml) =
-      <div>{content}</div> |> update_class("well", _)
+      <div class="well">{content}</div>
 
   }}
 
   Span = {{
+
+    divider(content:xhtml) =
+      <span class="divider">{content}</span>
 
   }}
 
