@@ -44,7 +44,7 @@
 
 import stdlib.themes.bootstrap.core
 
-current_bootstrap_version = "1.3.0"
+current_bootstrap_version = "1.4.0"
 current_bootstrap_url = "http://twitter.github.com/bootstrap/{current_bootstrap_version}/bootstrap.min.css"
 
 do Resource.register_external_css(current_bootstrap_url)
