@@ -246,7 +246,7 @@ Email = {{
         caml_list4(files)
         end
     custom_headers = caml_list2(options.custom_headers)
-    send_mail(to_string_only_address(from), to_string_only_address(to), subject, text, html, files, custom_headers, k)
+    send_mail(to_string(from), to_string_only_address(to), subject, text, html, files, custom_headers, k)
 
   /** Try to send a mail synchronously */
   try_send(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options) : Email.send_status =
