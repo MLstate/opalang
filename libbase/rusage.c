@@ -18,7 +18,7 @@
 
 #include <caml/memory.h>
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) /* MAC */
+#if (defined(__APPLE__) && defined(__MACH__)) /* MAC */
 
 #include <mach/task.h>
 #include <mach/mach.h>
