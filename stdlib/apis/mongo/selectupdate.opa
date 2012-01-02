@@ -335,8 +335,11 @@ MongoSelectUpdate = {{
     then esty
     else
       match (sty,ty) with
+         // TODO: We do get sum types from type_of_bson_document, patched for lists, we need to generalise this...
+      | ({TySum_col=[[{label="hd"; ty=shdty}, {label="tl"; ty=stlty}], [{label="nil"; ty=snilty}]]},
+         {TySum_col=[[{label="hd"; ty=hdty}, {label="tl"; ty=tlty}], [{label="nil"; ty=nilty}]]}) ->
+         subtype(shdty,hdty) && subtype(stlty,tlty) && subtype(snilty,nilty)
       | ({TyRecord_row=strow; ...},{TySum_col=tcol; ...}) ->
-         // We never get a sum type from type_of_bson_document
          (match T.find_row_in_col(strow,tcol) with
           | {some=trow} -> subtype(sty,{TyRecord_row=trow})
           | {none} -> incomparable())
@@ -353,9 +356,18 @@ MongoSelectUpdate = {{
       | ({TyName_args=[]; TyName_ident="Bson.code"},_)
       | ({TyName_args=[]; TyName_ident="Bson.codescope"},_) ->
          true // For now, until we get types from RE's and Javascript
+      | ({TyName_args=stys; TyName_ident=styid},{TyName_args=tys; TyName_ident=tyid}) ->
+         if styid == tyid
+         then subtypes(stys,tys)
+         else subtype(OpaType.type_of_name(styid, stys),OpaType.type_of_name(tyid, tys))
       | ({TyName_args=tys; TyName_ident=tyid},_) -> subtype(OpaType.type_of_name(tyid, tys),ty)
       | (_,{TyName_args=tys; TyName_ident=tyid}) -> subtype(sty,OpaType.type_of_name(tyid, tys))
       | _ -> incomparable()
+
+  @private subtypes(stys:list(OpaType.ty), tys:list(OpaType.ty)): bool =
+    match List.for_all2((sty, ty -> subtype(sty,ty)),stys,tys) with
+    | {result=tf} -> tf
+    | _ -> false
 
   /**
    * Validate the given document agains the type of the document
