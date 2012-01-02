@@ -29,25 +29,36 @@ import stdlib.crypto
  * {1 Types}
  */
 
-type Email.address = {local: string ; domain: string}
+/**
+ * This type represents an email address. It contains two fields: [local] and [domain].
+ * [local] is the local part of the address (before the @), usually the username.
+ * [domain] is the fully qualified address domain name (after the @).
+ */
+type Email.address = {
+  local : string
+  domain : string
+}
 
 /**
- * This type represents an email address, it contains two fields [name] and [address],
- * where [name] is a optional user-friendly name (string) and [address] is an email address.
+ * This type represents a rich email address. It contains two fields: [name] and [address].
+ * [name] is a optional user-friendly name (string) and [address] is an [Email.address].
  * For instance
  * "John Smith" <john.smith@some.server.com>
  * will give the following data instance:
  * [{ name = some("John Smith"); address = john.smith@some.server.com }].
  */
-type Email.email = { name : option(string) ; address : Email.address }
+type Email.email = {
+  name : option(string)
+  address : Email.address
+}
 
 /**
  * Type of a file attachment
  */
 type Email.file =
-  {filename : string content: string mime_type: string}
-/ {filename : string content: string mime_type: string encoding:string}
-/ {filename : string resource: resource}
+  { filename:string content:string mime_type:string }
+/ { filename:string content:string mime_type:string encoding:string }
+/ { filename:string resource:resource }
 
 /**
  * A list of file attachments
@@ -64,6 +75,9 @@ type Email.content =
 / {html:xhtml}
 / {text:string html:xhtml}
 
+/**
+ * Return status of an email sending.
+ */
 type Email.send_status =
    { bad_sender }
  / { bad_recipient }
@@ -128,7 +142,7 @@ Email = {{
    */
   @private
   local = Rule.parse_list_sep_min_length(1, false, word, parser "." -> void)
-   // full RFC compilant list of special characters: ! # $ % & ' * + - / = ? ^ _ ` { | }
+   // full RFC compliant list of special characters: ! # $ % & ' * + - / = ? ^ _ ` { | }
 
   /**
    * A parser for an email address, i.e. a local part of the
