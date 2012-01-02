@@ -207,29 +207,39 @@ let resolve_mx name =
     Logger.error "resolve_mx: parsing failed!" ; []
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
-    ?subject mfrom mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) cont () =
+    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) cont () =
+  let mto = match mto with
+    | Some tos -> tos
+    | None -> mdst in
   let wait_and_retry x k = ignore(Scheduler.sleep sched x k) in
   let mdata = full_email ?subject mfrom mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset () in
   #<If:PROTOCOL_DEBUG$minlevel 10>Logger.debug "mdata='%s'" mdata#<End>;
   let from = split_email mfrom
-  and dst = split_email mto in
+  and dst = split_email mdst in
   match from, dst with
   | None,_ -> cont SCC.Bad_Sender
   | _,None -> cont SCC.Bad_Recipient
   | (Some (_,domain_from)),(Some (_,dst)) ->
-      let ip_list = resolve_mx dst in
-      let mail = { SCC.from = simple_mail mfrom ; dests = [mto] ; body = mdata } in
-      let rec try_mx mail attempt cont = function
+      let mail = { SCC.from = simple_mail mfrom ; dests = [mdst] ; body = mdata } in
+      let rec try_mx mail attempt ?ip_list cont =
+        let ip_list =
+          match ip_list with
+          | Some list -> list
+          | None -> resolve_mx dst in
+        match ip_list with
         | [] ->
-            Logger.warning "No working MX server found - can't send mail to %s" mto;
-            cont SCC.Error_MX
+            if attempt < 0 then
+              let _ = Logger.warning "No working MX server found - can't send mail to %s" mdst in
+              cont SCC.Error_MX
+            else
+              wait_and_retry (Time.seconds 60) (fun () -> try_mx mail (pred attempt) cont)
         | _ when attempt < 0 -> Logger.error "Too many failures" ; cont SCC.Error_MX
         | dst_ip :: mx_servers as ips ->
             let tools = {
               SCC.log = _log " " ;
               elog = _log "-" ;
               k = (function
-              | SCC.Error_MX -> try_mx mail (pred attempt) cont mx_servers
+              | SCC.Error_MX -> try_mx mail (pred attempt) ~ip_list:mx_servers cont
               | SCC.Error msg ->
                   ( prerr_endline ("ERROR: " ^ msg) ;
                   try
@@ -238,18 +248,18 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                     | Mailerror.GreylistedSec x ->
                         let x = if x < 90 then 90 else x in
                         Logger.debug "::: greylisted (%d secs)" x;
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) cont ips)
+                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
                     | Mailerror.GreylistedMin x ->
                         Logger.debug "::: greylisted (%d mins)" x;
                         let x = x * 60 in
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) cont ips)
+                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
                     | Mailerror.Add_cc s ->
                         let new_mail = { mail with SCC.body = Printf.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
-                        wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) cont ips)
+                        wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) ~ip_list:ips cont)
                     | _ when fst (read_code msg) = 451 ->
                         let x = 60 * attempt * attempt in
                         Logger.debug "::: waiting (%d sec)" x;
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) cont ips)
+                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
                     | _ -> cont (SCC.Error msg)
                   with Not_found | Failure _ | Trx_runtime.SyntaxError _ -> cont (SCC.Error msg))
               | res -> cont res) ;
@@ -272,10 +282,10 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
               else Network.Unsecured
             in
             SCC.connect client ~secure_mode sched dst_string port
-      in try_mx mail nb_attempt cont ip_list
+      in try_mx mail nb_attempt cont
 
 let mail_send ?client_certificate ?verify_params ?secure sched
-    ?subject mfrom mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
+    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
     ?port cont () =
   let files = match files with
     | Some l -> Some(List.map (fun (file,filename) ->
@@ -284,6 +294,6 @@ let mail_send ?client_certificate ?verify_params ?secure sched
       (filename,content_type,base,content)) l)
     | None -> None in
   mail_send_aux ?client_certificate ?verify_params ?secure sched
-    ?subject mfrom mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
+    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
     ?port cont ()
 
