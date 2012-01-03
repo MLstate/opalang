@@ -212,7 +212,8 @@ let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) cont () =
-  let mto = match mto with
+  let mto =
+    match mto with
     | Some tos -> tos
     | None -> mdst in
   let wait_and_retry x k = ignore(Scheduler.sleep sched x k) in
@@ -241,51 +242,56 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
         | dst_ip :: mx_servers as ips ->
             let tools = {
               SCC.log = _log " " ;
-              elog = _log "-" ;
-              k = (function
-              | SCC.Error_MX -> try_mx mail (pred attempt) ~ip_list:mx_servers cont
-              | SCC.Error msg ->
-                  ( prerr_endline ("ERROR: " ^ msg) ;
-                  try
-                    let _pos, res = analyze_error msg in
-                    match res with
-                    | Mailerror.GreylistedSec x ->
-                        let x = if x < 90 then 90 else x in
-                        Logger.debug "::: greylisted (%d secs)" x;
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
-                    | Mailerror.GreylistedMin x ->
-                        Logger.debug "::: greylisted (%d mins)" x;
-                        let x = x * 60 in
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
-                    | Mailerror.Add_cc s ->
-                        let new_mail = { mail with SCC.body = Printf.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
-                        wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) ~ip_list:ips cont)
-                    | _ when fst (read_code msg) = 451 ->
-                        let x = 60 * attempt * attempt in
-                        Logger.debug "::: waiting (%d sec)" x;
-                        wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
-                    | _ -> cont (SCC.Error msg)
-                  with Not_found | Failure _ | Trx_runtime.SyntaxError _ -> cont (SCC.Error msg))
-              | res -> cont res) ;
+              SCC.elog = _log "-" ;
+              SCC.k = (function
+                | SCC.Error_MX -> try_mx mail (pred attempt) ~ip_list:mx_servers cont
+                | SCC.Error msg ->
+                    ( prerr_endline ("ERROR: " ^ msg) ;
+                      try
+                        let _pos, res = analyze_error msg in
+                        match res with
+                        | Mailerror.GreylistedSec x ->
+                            let x = if x < 90 then 90 else x in
+                            Logger.debug "::: greylisted (%d secs)" x;
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                        | Mailerror.GreylistedMin x ->
+                            Logger.debug "::: greylisted (%d mins)" x;
+                            let x = x * 60 in
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                        | Mailerror.Add_cc s ->
+                            let new_mail = { mail with SCC.body = Printf.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
+                            wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) ~ip_list:ips cont)
+                        | _ when fst (read_code msg) = 451 ->
+                            let x = 60 * attempt * attempt in
+                            Logger.debug "::: waiting (%d sec)" x;
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                        | _ -> cont (SCC.Error msg)
+                      with Not_found | Failure _ | Trx_runtime.SyntaxError _ -> cont (SCC.Error msg))
+                | res -> cont res) ;
             } in
-            let client = { SCC.runtime = { SCC.rt_plim = 128; rt_proto = { SCC.rt_name = "";
-                                                                           rt_addr = "";
-                                                                           rt_port = 0;
-                                                                           rt_secure_mode = Network.Unsecured;
-                                                                           rt_block_size = 4096;
-                                                                           rt_backtrace = true;
-                                                                           rt_server_write_timeout = Time.hours 2;
-                                                                           rt_payload = ();
-                                                                         }; };
-                           err_cont = None;
-                           extra_params = (mail,domain_from,tools) } in
+            let client = {
+              SCC.runtime = {
+                SCC.rt_plim = 128;
+                SCC.rt_proto = {
+                  SCC.rt_name = "";
+                  rt_addr = "";
+                  rt_port = 0;
+                  rt_secure_mode = Network.Unsecured;
+                  rt_block_size = 4096;
+                  rt_backtrace = true;
+                  rt_server_write_timeout = Time.hours 2;
+                  rt_payload = ();
+                };
+              };
+              SCC.err_cont = None;
+              SCC.extra_params = (mail,domain_from,tools)
+            } in
             let dst_string = Network.string_of_ipv4 dst_ip in
             let secure_mode =
               if secure
               then Network.Secured (client_certificate, verify_params)
               else Network.Unsecured
-            in
-            SCC.connect client ~secure_mode sched dst_string port
+            in SCC.connect client ~secure_mode sched dst_string port
       in try_mx mail nb_attempt cont
 
 let mail_send ?client_certificate ?verify_params ?secure sched
