@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 module SCC = SmtpClientCore
 module List = Base.List
 module String = Base.String
@@ -149,13 +150,6 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
     then mdata
     else attach_files files mdata ?charset ())
 
-let analyze_error = Mailerror.parse_mailerror_error
-let read_code s =
-  let get i = int_of_char (String.unsafe_get s i) - 48 in
-  let l = String.length s in
-  if l > 3 then 100 * get 0 + 10 * get 1 + get 2, String.sub s 4 (4 - 3)
-  else 0, "unknown server answer"
-
 let resolve_UNIX name =
   try
     (Unix.gethostbyname name).Unix.h_addr_list.(0)
@@ -163,7 +157,7 @@ let resolve_UNIX name =
      |> String.slice '.'
      |> List.map int_of_string
      |> function [a;b;c;d] -> Some (a,b,c,d) | _ -> None
-  with Not_found | Failure _ -> None
+  with Not_found | Failure _ | Unix.Unix_error _ -> None
 
 let resolve_additional r n =
   let rec aux = function
@@ -177,12 +171,14 @@ let resolve_additional r n =
   in
   aux (List.assoc "ADDITIONAL" r)
 
-(*
-  Mathieu Wed Feb  9 11:28:54 CET 2011
-  FIXME:
+external get_mx_dns : string -> (string * int) array = "get_mx_dns"
 
-  2) The following code is duplicated in mailserver.ml
-*)
+let get_mx name : string list =
+  let arr = get_mx_dns name in
+  Array.sort (fun x y -> compare (snd x) (snd y)) arr;
+  arr
+   |> Array.to_list
+   |> List.map fst
 
 (* FIXME: il faut en sortie une iterateur IntMapSort d'IP, triée par priorité
    ensuite, on doit tenter les IP une à une... *)
@@ -205,6 +201,14 @@ let resolve_mx name =
           )
   with Not_found | Failure _ ->
     Logger.error "resolve_mx: parsing failed!" ; []
+
+let read_code s =
+  let get i = int_of_char (String.unsafe_get s i) - 48 in
+  let l = String.length s in
+  if l > 3 then 100 * get 0 + 10 * get 1 + get 2, String.sub s 4 (4 - 3)
+  else 0, "unknown server answer"
+
+let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) cont () =
