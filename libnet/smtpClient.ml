@@ -16,6 +16,9 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+(** This is a module for handling smtp mail sending.
+    It is NOT really RFC compliant. *)
+
 module SCC = SmtpClientCore
 module List = Base.List
 module String = Base.String
@@ -48,16 +51,24 @@ let simple_mail s =
 let mail_content ?(charset="ISO-8859-1") ?(cte="7bit") body =
   sprintf "Content-Type: text/plain; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
+Content-Disposition: inline\r\n\
 \r\n%s\r\n" charset cte body
 
+(*
+  FIXME:
+  - we should produce quoted-printable content for html.
+  - we should handle Content-ID for inline content.
+*)
 let mail_content_html ?(charset="ISO-8859-1") ?(cte="7bit") ~ascii_part body =
   let ascii_part = sprintf
     "Content-Type: text/plain; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
+Content-Disposition: inline\r\n\
 \r\n%s\r\n" charset cte ascii_part in
   let html_part = sprintf
     "Content-Type: text/html; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
+Content-Disposition: inline\r\n\
 \r\n%s\r\n" charset cte body in
   let boundary = String.random 30 in
   sprintf "Content-Type: multipart/alternative;\
@@ -110,7 +121,8 @@ let attach_one_file boundary content_type filename charset cte content =
 Content-Type: %s; name=\"%s\"; charset=%s\r\n\
 Content-Disposition: attachment; filename=\"%s\"\r\n\
 Content-Transfer-Encoding: %s\r\n\
-X-Attachment-Id: %s\r\n\r\n%s\r\n" boundary content_type filename
+X-Attachment-Id: %s\r\n\
+\r\n%s\r\n" boundary content_type filename
     charset filename cte xid (
       if cte = "base64"
       then split_encode content 76 "\r\n"
@@ -141,14 +153,23 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
     match return_path with
     | Some return_path -> return_path
     | None -> mfrom
-  in
-  (sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s%s"
-                mfrom return_path mto (String.random 10) return_path (Date.rfc1123 (Time.gmtime (Time.now())))
-                (if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
-                (attach_custom_headers custom_headers))
-  ^(if files = []
-    then mdata
-    else attach_files files mdata ?charset ())
+  in sprintf
+"From: %s\r\n\
+To: %s\r\n\
+Return-Path:<%s>\r\n\
+Message-ID: <%s.%s>\r\n\
+X-Mailer: MLstate mailclient\r\n\
+Date: %s\r\n\
+Mime-Version: 1.0\r\n\
+%s\
+%s\
+%s"
+mfrom mto return_path (String.random 10) return_path (Date.rfc1123 (Time.gmtime (Time.now())))
+(if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
+(attach_custom_headers custom_headers)
+(if files = []
+ then mdata
+ else attach_files files mdata ?charset ())
 
 let resolve_UNIX name =
   try
@@ -180,8 +201,10 @@ let get_mx name : string list =
    |> Array.to_list
    |> List.map fst
 
-(* FIXME: il faut en sortie une iterateur IntMapSort d'IP, triée par priorité
-   ensuite, on doit tenter les IP une à une... *)
+(* FIXME:
+   - we should use native mx query, instead of calling a command line !!!
+   - il faut en sortie une iterateur IntMapSort d'IP, triée par priorité
+     ensuite, on doit tenter les IP une à une... *)
 let resolve_mx name =
   let output = File.process_output (sprintf "dig %s MX" name) in
   try

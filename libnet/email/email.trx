@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -15,19 +15,21 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-{{ }}
 
-+email : {string * (string * string)} 
-    <- name [<] spacing address [>] spacing {{ __1, __4 }} 
+(* Merge with email.opa ? *)
+
++email : {string * (string * string)}
+    <- name [<] spacing address [>] spacing {{ __1, __4 }}
      / address {{ "", __1 }}
 name <- (![<] .)+ $_
-address <- id [@] domain {{ __1, __3 }}
+      / ["] (!["] .)+ ["] $_
+address <- local [@] domain {{ __1, __3 }}
 
-id <- char+ ([.] id)? $_
+local <- char+ ([.] local)? $_
 domain <- domainpart [.] (domain / domainpart) $_
-domainpart <- 
+domainpart <-
 	   char [\-] domainpart $_
-	   / char domainpart? $_ 
+	   / char domainpart? $_
 
 (* special characters we should authorize ! # $ % & ' * + - / = ? ^ _ ` { | } ~ *)
 char <- [A-Za-z0-9_\-+!#$%&'*/=?^_`{|}~]
