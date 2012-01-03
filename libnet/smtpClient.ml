@@ -42,25 +42,25 @@ let valid_email s =
 let simple_mail s =
   try
     let _, (_, (user, domain)) = Email.parse_email_email s in
-    Printf.sprintf "%s@%s" user domain
+    sprintf "%s@%s" user domain
   with Trx_runtime.SyntaxError _ -> raise (Bad_address s)
 
 let mail_content ?(charset="ISO-8859-1") ?(cte="7bit") body =
-  Printf.sprintf "Content-Type: text/plain; charset=%s\r\n\
+  sprintf "Content-Type: text/plain; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
 \r\n%s\r\n" charset cte body
 
 let mail_content_html ?(charset="ISO-8859-1") ?(cte="7bit") ~ascii_part body =
-  let ascii_part = Printf.sprintf
+  let ascii_part = sprintf
     "Content-Type: text/plain; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
 \r\n%s\r\n" charset cte ascii_part in
-  let html_part = Printf.sprintf
+  let html_part = sprintf
     "Content-Type: text/html; charset=%s\r\n\
 Content-Transfer-Encoding: %s\r\n\
 \r\n%s\r\n" charset cte body in
   let boundary = String.random 30 in
-  Printf.sprintf "Content-Type: multipart/alternative;\
+  sprintf "Content-Type: multipart/alternative;\
 boundary=%s\r\n\r\n\
 --%s\r\n\
 %s\r\n\
@@ -130,7 +130,7 @@ let attach_files files mdata ?(charset="UTF-8") () =
   attach_content boundary mdata fs
 
 let attach_custom_headers(custom_headers) =
-  List.fold_left (fun acc (name, value) -> Printf.sprintf "%s%s: %s\r\n" acc name value) "" custom_headers
+  List.fold_left (fun acc (name, value) -> sprintf "%s%s: %s\r\n" acc name value) "" custom_headers
 
 let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(custom_headers=[]) ?cte ?charset () =
   let mdata = match html with
@@ -142,7 +142,7 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
     | Some return_path -> return_path
     | None -> mfrom
   in
-  (Printf.sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s%s"
+  (sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s%s"
                 mfrom return_path mto (String.random 10) return_path (Date.rfc1123 (Time.gmtime (Time.now())))
                 (if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
                 (attach_custom_headers custom_headers))
@@ -167,7 +167,7 @@ let resolve_additional r n =
           | Dig.Ip i -> Some i
           | _ -> aux tl
         else aux tl
-    | _ -> resolve_UNIX (List.fold_left (fun acc x -> Printf.sprintf "%s.%s" acc x) (List.hd n) (List.tl n))
+    | _ -> resolve_UNIX (List.fold_left (fun acc x -> sprintf "%s.%s" acc x) (List.hd n) (List.tl n))
   in
   aux (List.assoc "ADDITIONAL" r)
 
@@ -183,7 +183,7 @@ let get_mx name : string list =
 (* FIXME: il faut en sortie une iterateur IntMapSort d'IP, triée par priorité
    ensuite, on doit tenter les IP une à une... *)
 let resolve_mx name =
-  let output = File.process_output (Printf.sprintf "dig %s MX" name) in
+  let output = File.process_output (sprintf "dig %s MX" name) in
   try
     let _pos, r = Dig.parse_dig_dig output in
       List.assoc "ANSWER" r
@@ -259,7 +259,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                             let x = x * 60 in
                             wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
                         | Mailerror.Add_cc s ->
-                            let new_mail = { mail with SCC.body = Printf.sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
+                            let new_mail = { mail with SCC.body = sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
                             wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) ~ip_list:ips cont)
                         | _ when fst (read_code msg) = 451 ->
                             let x = 60 * attempt * attempt in
