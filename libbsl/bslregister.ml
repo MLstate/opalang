@@ -915,7 +915,7 @@ let _ =
 
     if !auto_build then (
       OManager.verbose "building plugin...";
-      let ret = Sys.command (Printf.sprintf "make -C %s -f %s" !opp_dir (Filename.basename !makefile)) in
+      let ret = Sys.command (Printf.sprintf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile)) in
       if ret <> 0
       then
         OManager.error "building failure due to error(s) in source files@\n"
