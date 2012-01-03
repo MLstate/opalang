@@ -292,10 +292,13 @@ let mail_send ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
     ?port cont () =
   let files = match files with
-    | Some l -> Some(List.map (fun (file,filename) ->
-        let content_type = HttpServer.mime_type file in
-        let base, content = get_cte content_type (File.content file) in
-      (filename,content_type,base,content)) l)
+    | Some l ->
+        let res =
+          List.map (fun (file,filename) ->
+                      let content_type = HttpServer.mime_type file in
+                      let base, content = get_cte content_type (File.content file) in
+                      (filename,content_type,base,content)) l in
+        Some res
     | None -> None in
   mail_send_aux ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
