@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -142,7 +142,7 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
     | None -> mfrom
   in
   (Printf.sprintf "From: %s\r\nReturn-Path:<%s>\r\nTo: %s\r\nMessage-ID: <%s.%s>\r\nX-Mailer: MLstate mailclient\r\nDate: %s\r\nMime-Version: 1.0\r\n%s%s"
-                mfrom return_path mto (String.random 10) mfrom (Date.rfc1123 (Time.gmtime (Time.now())))
+                mfrom return_path mto (String.random 10) return_path (Date.rfc1123 (Time.gmtime (Time.now())))
                 (if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
                 (attach_custom_headers custom_headers))
   ^(if files = []
