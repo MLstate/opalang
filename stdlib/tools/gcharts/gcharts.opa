@@ -320,7 +320,7 @@ type GCharts.option =
       | ~{red_color} -> ("redColor", aux_color(red_color))
       | ~{red_from} -> ("redFrom", {Int=red_from})
       | ~{red_to} -> ("redTo", {Int=red_to})
-      | ~{minor_ticks} -> ("minorticks", {Int=minor_ticks})
+      | ~{minor_ticks} -> ("minorTicks", {Int=minor_ticks})
       | ~{major_ticks} ->
         ("majorTicks", {List=List.map(s->{String=s}, major_ticks)})
       | {pie_slice_text_style=t} -> ("pieSliceTextStyle", aux_text_style(t))
