@@ -68,8 +68,8 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 
 .PHONY: manpages
-manpages:
-	make -C manpages BLDDIR=../$(BUILD_DIR)
+manpages: $(MYOCAMLBUILD)
+	make -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
 
 ##
 ## INSTALLATION

@@ -5,6 +5,8 @@
 #   bin/* and lib/opa/bin/* together with inclusions and exclusions
 # --
 BLDDIR ?= ../_build
+OCAMLBUILD ?= bld
+
 BINDIR=$(BLDDIR)/bin
 EXCLUDE=opa-bin mlstate_platform genproto ocamlbase.top ppdebug-opa ppjs
 INCLUDE=opa
@@ -35,14 +37,14 @@ $(TARGETDIR)/%.1: %.man
 # second run specific manpage generation programs
 # --
 $(BLDDIR)/opa/gen_opa_manpage.native: ../opa/gen_opa_manpage.ml
-	cd ..; bld opa/gen_opa_manpage.native
+	cd ..; $(OCAMLBUILD) opa/gen_opa_manpage.native
 
 $(TARGETDIR)/opa.1: $(BLDDIR)/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 
 $(BLDDIR)/opatop/gen_opatop_manpage.native: ../opatop/gen_opatop_manpage.ml
-	cd ..; bld opatop/gen_opatop_manpage.native
+	cd ..; $(OCAMLBUILD) opatop/gen_opatop_manpage.native
 
 $(TARGETDIR)/opatop.1: $(BLDDIR)/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)
@@ -54,7 +56,7 @@ $(TARGETDIR)/opatop.1: $(BLDDIR)/opatop/gen_opatop_manpage.native
 GENMAN=$(BLDDIR)/manpages/genman.native
 
 $(GENMAN): genman.ml
-	cd ..; bld -cflags "-w -14" manpages/genman.native
+	cd ..; $(OCAMLBUILD) -cflags "-w -14" manpages/genman.native
 
 $(TARGETDIR)/%.help: $(BLDDIR)/bin/%
 	@mkdir -p $(TARGETDIR)
