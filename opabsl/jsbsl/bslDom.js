@@ -97,6 +97,12 @@
     return dom.children()
 }
 
+##register select_contents: Dom.private.element -> Dom.private.element
+##args(dom)
+{
+    return dom.contents()
+}
+
 ##register select_parent: Dom.private.element -> Dom.private.element
 ##args(dom)
 {
