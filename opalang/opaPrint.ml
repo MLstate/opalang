@@ -1,5 +1,5 @@
 (*
-  Copyright © 2011 MLstate
+  Copyright © 2011, 2012 MLstate
 
   This file is part of OPA.
 
@@ -1476,7 +1476,7 @@ module Js = struct
       | ExtendRecord _
       | Match _ ->
           pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
-      | _  -> pp f "%s %a(%a){@\n%a@]\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
+      | _  -> pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
 
 
     method private module_binding : 'id 'dir. 'a pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
