@@ -19,6 +19,10 @@ use it (e.g. this is the case for the compiler 'opa')
 - XX.options
 and the output of 'XX --help' to build a default manpage.
 
+.Directories
+
+The given Makefile will try to output files in $(BLDDIR)/man/man1
+where BLDDIR evals to ../_build (unless otherwise specified).
 
 .How to live with the default manpage generation
 

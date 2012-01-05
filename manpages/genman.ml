@@ -22,9 +22,15 @@ let cmdname =
   try
     Sys.argv.(1)
   with
-    _ -> (Printf.eprintf ("Usage: genman %s <cmdname> [summary]\n") Sys.argv.(0); exit 1)
+    _ -> (Printf.eprintf ("Usage: %s <cmdname> [sectionbasename]\n") Sys.argv.(0); exit 1)
 
-let read_section name = File.content_opt (cmdname ^ "." ^ name)
+let sectionbasename =
+  try
+    Sys.argv.(2)
+  with
+    _ -> cmdname
+
+let read_section name = File.content_opt (sectionbasename ^ "." ^ name)
 
 let help_summary, help_synopsis, help_description, help_options =
   match read_section "help" with
@@ -84,21 +90,15 @@ let help_summary, help_synopsis, help_description, help_options =
     in
     summary, synopsis, description, options    
 
-let summary = try
-   Some(Sys.argv.(2))
-  with _ ->
-    begin match read_section "summary", help_summary with
-      None, s when s <> "" -> Some(s)
-    | x, _ -> x
-    end
+let summary = 
+  match read_section "summary", help_summary with
+    None, s when s <> "" -> Some(s)
+  | x, _ -> x
 
 let synopsis =
   match read_section "synopsis", help_synopsis with
   | None, s when s <> "" -> Some(s)
   | x, _ -> x
-(*  | Some(s), _ -> Some(s)
-  | _, _ -> Some(Printf.sprintf "%s [options]" cmdname)
-*)
 
 let description =
   match read_section "description", help_description with
