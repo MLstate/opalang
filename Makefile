@@ -264,8 +264,8 @@ examples: $(MYOCAMLBUILD)
 book-clean:
 	$(MAKE) -C doc/book clean
 
-.PHONY: clean
-clean: book-clean
+#see also target clean in included Makefile build/Makefile.bld
+clean:: book-clean
 
 .PHONY: doc
 doc: doc.html opadoc/doc book
