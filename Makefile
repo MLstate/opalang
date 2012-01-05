@@ -48,7 +48,7 @@ runtime-libs: $(MYOCAMLBUILD)
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
-	@utils/install.sh --quiet --dir $(PWD)/$(BUILD_DIR) --ocaml-prefix $(OCAMLLIB)/../..
+	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
@@ -255,9 +255,9 @@ book:
 examples: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,opa-bin opa-plugin-builder-bin) opa-packages.stamp
 	$(call copy-tools,opa-bin opa-plugin-builder-bin)
-	MLSTATELIBS=`pwd`/$(BUILD_DIR) \
-	OPA="`pwd`/$(BUILD_DIR)/lib/opa/bin/opa-bin -I `pwd`/$(BUILD_DIR)" \
-	OPA_PLUGIN_BUILDER=`pwd`/$(BUILD_DIR)/lib/opa/bin/opa-plugin-builder-bin \
+	MLSTATELIBS=$(realpath $(BUILD_DIR)) \
+	OPA="$(realpath $(BUILD_DIR))/lib/opa/bin/opa-bin -I $(realpath $(BUILD_DIR))" \
+	OPA_PLUGIN_BUILDER=$(realpath $(BUILD_DIR))/lib/opa/bin/opa-plugin-builder-bin \
 	$(MAKE) -C doc/book examples
 
 .PHONY: book-clean
