@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -127,7 +127,7 @@ type JsFunction = external
      )
 
      /**
-      * Get the current anchor
+      * Get the current anchor (with # included)
       */
      get_anchor = %% BslAnchors.get_anchor %% : -> string
 
