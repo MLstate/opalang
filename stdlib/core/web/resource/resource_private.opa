@@ -607,7 +607,7 @@ incompatible_browser_message =
   because it lacks some critical features.
     </div>
     <div style="margin:2pt">For a better experience, please consider using this application with a <a style="text-decoration:none;color:green"
-    href="http://www.mlstate.com/opa/documentation_-_supported_browsers">supported
+    href="http://opalang.org/supported_browsers.xmlt">supported
   browser</a>.
   </div>
   </div>) : xhtml // value restriction ... restrictions
