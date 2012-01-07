@@ -1,3 +1,21 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 type SmtpServer.failure = {dont_exist}
                         / {undisponible}
                         / {stopped}
@@ -11,8 +29,9 @@ type SmtpServer.result = { success }
 type SmtpServer.handler = string, list(string), string -> SmtpServer.result
 
 SmtpServer= {{
-  @private
-  init_server = %% BslMail.Mailserver.init_server %%
+
+  @private init_server = %% BslMail.Mailserver.init_server %%
+
   start(ip : ip ,port : int, ssl : option(SSL.secure_type), handler : SmtpServer.handler)=
     new_handler(f,t,c) = match handler(f,t,c) with
                          | {success} -> (250,"done!")
@@ -28,8 +47,5 @@ SmtpServer= {{
       | {none} -> SSL.make_secure_type({none},{none})
 
     init_server(port, IPv4.string_of_ip(ip), st, new_handler)
-
-
-
 
 }}
