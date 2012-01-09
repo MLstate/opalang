@@ -22,6 +22,14 @@
    Post condition: all recursive bindings contains only lambdas
 *)
 
+module Warning : sig
+  val recval : WarningClass.wclass
+
+  val recval_lambda : WarningClass.wclass
+
+  val set : WarningClass.Set.t
+end
+
 val process_code :
  val_ : (string -> Ident.t) ->
  QmlTypes.gamma ->
