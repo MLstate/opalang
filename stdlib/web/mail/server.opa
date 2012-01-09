@@ -16,36 +16,37 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-type SmtpServer.failure = {dont_exist}
-                        / {undisponible}
-                        / {stopped}
-                        / {unfound}
-                        / {forbidden}
-                        / {error : string}
+type SmtpServer.failure =
+  {unavailable}
+/ {aborted}
+/ {not_found}
+/ {forbidden}
+/ {error : string}
 
-type SmtpServer.result = { success }
-                       / { failure : SmtpServer.failure}
+type SmtpServer.result =
+  { success }
+/ { failure : SmtpServer.failure }
 
 type SmtpServer.handler = string, list(string), string -> SmtpServer.result
 
-SmtpServer= {{
+SmtpServer = {{
 
   @private init_server = %% BslMail.Mailserver.init_server %%
 
-  start(ip : ip ,port : int, ssl : option(SSL.secure_type), handler : SmtpServer.handler)=
-    new_handler(f,t,c) = match handler(f,t,c) with
-                         | {success} -> (250,"done!")
-                         | {failure = {undisponible}} -> (450,"undone because mail box not disponible")
-                         | {failure = {stopped}} -> (451,"treatment error")
-                         | {failure = {unfound}} -> (550,"No access to mail box => unfound")
-                         | {failure = {dont_exist}} -> (553,"mail box's name is not allowed")
-                         | {failure = {forbidden}} -> (553,"mail box's name is not allowed")
-                         | {failure = {error = txt}} -> (503,txt)
+  start(ip : ip, port : int, ssl : option(SSL.secure_type), handler : SmtpServer.handler) =
 
-    st = match ssl with
-      | {~some} -> some
-      | {none} -> SSL.make_secure_type({none},{none})
+    // Partially from http://www.greenend.org.uk/rjk/2000/05/21/smtp-replies.html
+    handler_wrapper(f,t,c) =
+      match handler(f,t,c) with
+      | {success} -> (250,"done!")
+      | {failure = {unavailable}} -> (450,"Requested mail action not taken: mailbox unavailable")
+      | {failure = {aborted}} -> (451,"Requested action aborted: local error in processing")
+      | {failure = {not_found}} -> (550,"Requested action not taken: mailbox unavailable")
+      | {failure = {forbidden}} -> (553,"Requested action not taken: mailbox name not allowed")
+      | {failure = {error = txt}} -> (503,txt)
 
-    init_server(port, IPv4.string_of_ip(ip), st, new_handler)
+    st = ssl ? SSL.make_secure_type({none},{none})
+
+    init_server(port, IPv4.string_of_ip(ip), st, handler_wrapper)
 
 }}
