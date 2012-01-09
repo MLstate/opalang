@@ -207,7 +207,7 @@ EOF
   cat >>"$INSTALLDIR/share/opa/uninstall.sh" <<"EOF"
 cd $P
 
-for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/opa"; do
+for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/man" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/opa"; do
   R=0
   find $DIR \( -type d -empty \) -delete || R=$?
   if [ $R -ne 0 ] || [ -d $DIR ]; then
@@ -216,6 +216,7 @@ for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/
 done
 
 set +e
+rmdir "$INSTALLDIR/share/man" 2>/dev/null
 rmdir "$INSTALLDIR/share/doc" 2>/dev/null
 rmdir "$INSTALLDIR/share" 2>/dev/null
 rmdir "$INSTALLDIR/lib" 2>/dev/null
