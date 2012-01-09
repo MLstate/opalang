@@ -96,6 +96,7 @@ type Email.options = {
   cc : list(Email.email)
   custom_headers : list((string, string))
   files : Email.attachments
+  via : option(string)
 }
 
 type caml_tuple_2('a,'b) = external
@@ -111,6 +112,7 @@ Email = {{
     cc = []
     custom_headers = []
     files = []
+    via = none
   } : Email.options
 
   /**
@@ -257,7 +259,7 @@ Email = {{
     aux(List.rev(l),%%BslNativeLib.empty_list%%)
 
   @private
-  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), (Email.send_status -> void) -> void
+  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), (Email.send_status -> void) -> void
 
   @private
   send_async(
@@ -302,7 +304,10 @@ Email = {{
               if i == 0 then to_string(e)
               else acc ^ ", " ^ to_string(e)
             , options.to, "")
-    send_mail(to_string(from), to_string_only_address(from), to_string_only_address(to), mto, subject, text, html, files, custom_headers, k)
+    send_mail(
+      to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
+      subject, text, html, files, custom_headers, options.via, k
+    )
 
   /**
    * Try to send a mail {b synchronously}

@@ -234,7 +234,7 @@ let read_code s =
 let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
-    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) cont () =
+    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) ?via cont () =
   let mto =
     match mto with
     | Some tos -> tos
@@ -309,7 +309,9 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
               SCC.err_cont = None;
               SCC.extra_params = (mail,domain_from,tools)
             } in
-            let dst_string = Network.string_of_ipv4 dst_ip in
+            let dst_string = match via with
+              | Some str_server -> str_server
+              | None -> Network.string_of_ipv4 dst_ip in
             let secure_mode =
               if secure
               then Network.Secured (client_certificate, verify_params)

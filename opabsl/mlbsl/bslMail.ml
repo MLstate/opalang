@@ -28,9 +28,10 @@
   ##register [cps-bypass] mail_send_fun : string, string, string, string, string, string, string,\
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
+    option(string), \
     (opa[email_send_status], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
-  let mail_send_fun mfrom mfrom_address_only mdst mto subject mdata html files custom_headers cont k =
+  let mail_send_fun mfrom mfrom_address_only mdst mto subject mdata html files custom_headers via cont k =
     let cont = BslUtils.proj_cps k cont in
     let cont x =
       let res =
@@ -54,7 +55,7 @@
     in
     let html = if html = "" then None else Some html
     and mto = if mto = "" then None else Some mto in
-    SmtpClient.mail_send_aux BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 cont ();
+    SmtpClient.mail_send_aux BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via cont ();
     QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule
