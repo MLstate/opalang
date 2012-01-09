@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -332,6 +332,12 @@ Dom = {{
   (
       position = of_selection(dom)
       {concrete = %% BslDom.select_parent_several %%(position)}
+  )
+
+  select(dom:dom): void =
+  (
+      position = of_selection(dom)
+      %% BslDom.select %%(position)
   )
 
   /**

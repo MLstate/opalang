@@ -193,6 +193,13 @@
     return dom.parents();
 }
 
+##register select: Dom.private.element -> void
+##args(dom)
+{
+    dom.select();
+    return js_void;
+}
+
 ##register compose: opa[list(Dom.private.element)] -> Dom.private.element
 ##args(dom)
 {
