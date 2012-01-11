@@ -1186,11 +1186,11 @@ module Js = struct
           if List.for_all is_tilde_field fields
           then
             let pp_field f (field, _) = self#field f field in
-            pp f "@[<hv2>~{ %a%s }@]"
+            pp f "@[<hv2>~{ %a%s @,}@]"
               (Format.pp_list "@, " pp_field) fields
               rowvar
           else
-            pp f "@[<hv2>{ %a%s }@]"
+            pp f "@[<hv2>{ %a%s @,}@]"
               (Format.pp_list ",@ " self#pat_record_binding) fields
               rowvar
 
@@ -1236,11 +1236,11 @@ module Js = struct
       | `tuple el -> pp f "@[<1>(%a)@]" (list ",@ " self#expr) el
       | `if_ (e1,e2,e3) ->
         (if self#expr_need_block e2 then
-          pp f "@[<hov 2>if (%a) {@\n%a@]@\n@[<hov 2>} "
+          pp f "@[<2>if (%a) {@\n%a@]@\n@[<2>} " (* TODO ?? *)
         else
-          pp f "if (%a) %a @[<hov 2> ") self#expr e1 self#expr e2;
+          pp f "if (%a) %a @[<2>") self#expr e1 self#expr e2;
         (if self#expr_need_block e3 then
-          pp f "else {@\n%a@]@\n}"
+          pp f "else {@\n%a@]@\n}" (* TODO ?? *)
         else
           pp f "else %a@]") self#expr e3;
 
@@ -1261,11 +1261,12 @@ module Js = struct
           if op || colon then pp f "(%a)" self#reset#expr_node e else
             pp f "@[<2>%s%a@]" (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e1
       | Apply (e,(r,_LABEL)) -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " (fun f (_,e) -> self#reset#under_comma#expr f e)) r
+(*self#apply (fun f (_,e) -> self#reset#under_comma#expr f e) r f e *)
       | Lambda (r, ((LetIn _, _) as e)) ->
-          pp f "@[<h 2>function(%a){@[%a@]@]}"
+          pp f "@[<h 2>function(%a) {@,@[%a@]@]}"
             (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r
             self#expr e
-      | Lambda (r,e) -> pp f "@[function(%a){%a}" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
+      | Lambda (r,e) -> pp f "@[function(%a) {@,@[%a@]@]}" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
       | Const c -> self#const_expr f c
       | Ident ident -> self#ident f ident
       | LetIn (isrec, binds, expr) ->
@@ -1278,7 +1279,7 @@ module Js = struct
       (* | LetIn (false,iel,e) -> *)
       (*     pp f "/* encoded let and */@\n@[<v>%a@ %a@]" self#bindings iel self#expr e *)
       | Match (e,pel) ->
-          pp f "match (%a) {@\n%a@\n}"
+          pp f "match (%a) {@\n@[%a@]@\n}@,"
             self#reset#expr e
             (list "@\n" self#rule_) pel
       | Record fields -> self#record f fields
@@ -1438,9 +1439,9 @@ module Js = struct
             if List.for_all is_tilde_field l
             then
               let pp_field f (field, _) = self#field f field in
-              pp f "@[<hv>~{ %a }@]" (Format.pp_list ",@ " pp_field) l
+              pp f "@[<hv>~{ %a @,}@]" (Format.pp_list ",@ " pp_field) l
             else
-              pp f "@[<hv>{ %a }@]" (Format.pp_list ",@ " self#record_binding) l
+              pp f "@[<hv>{ %a @,}@]" (Format.pp_list ",@ " self#record_binding) l
 
     (* start box indentation is handled via binding_aux or pat_binding *)
     method private lambda_binding : 'a 'dir. 'a pprinter -> ('a * (string * 'ident pat) list * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,r,e) ->
@@ -1449,8 +1450,8 @@ module Js = struct
       | Record _
       | ExtendRecord _
       | Match _ ->
-          pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
-      | _  -> pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
+          pp f "%s %a(%a) {@,%a@,@]}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
+      | _  -> pp f "%s %a(%a) {@,%a@]@,}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
 
 
     method private module_binding : 'id 'dir. 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
@@ -1483,7 +1484,7 @@ module Js = struct
             if is_letin e then pp f "%a = {@\n%a@]@\n}" ipp i self#expr e
             else pp f "%a =@ %a%s@]" ipp i self#expr e semic
       in
-      pp f "@[<hov 4>";
+      pp f "@[<4>";
       aux e
 
     method private binding : 'dir. ('ident * ('ident, [< all_directives ] as 'dir) expr) pprinter =
@@ -1575,7 +1576,7 @@ module Js = struct
           | _,e -> (if is_letin e then pp f "%a = {@\n%a@]@\n}"
             else pp f "%a =@ %a@]") self#pat p self#expr e
       in
-      pp f "@[<hov 4>";
+      pp f "@[<hv 4>";
       aux e
 
     method private pat_bindings : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) list pprinter = fun f pel ->
@@ -1799,5 +1800,3 @@ let getDefaultFamilly () =
   (module (val (makeFamilly !(OpaSyntax.Args.r).OpaSyntax.Args.printer) : Familly) : Familly)
 
 include (val (makeFamilly OpaSyntax.Js) : Familly)
-
-
