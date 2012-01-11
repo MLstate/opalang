@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -59,7 +59,9 @@ let unwrap_option proj opa =
 (**
    Type ['a list], as known by OCaml
 *)
+##property[mli]
 ##extern-type caml_list('a) = 'a list
+##property[endmli]
 
 
 ##register [opacapi] cons : 'a, caml_list('a) -> caml_list('a)
