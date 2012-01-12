@@ -987,6 +987,8 @@ let pass_CompileRecursiveValues =
        let annotmap = typerEnv.QmlTypes.annotmap in
        let code = env.Passes.qmlAst in
        let val_ = OpaMapToIdent.val_ in
+       if !(OpaSyntax.Args.r).OpaSyntax.Args.parser == OpaSyntax.Js then
+         WarningClass.set_warn Pass_CompileRecursiveValues.Warning.recval_lambda false;
        let gamma, annotmap, code = Pass_CompileRecursiveValues.process_code ~val_ gamma annotmap code in
        let typerEnv = {typerEnv with QmlTypes.gamma; annotmap} in
        let env = {env with P.typerEnv; qmlAst = code} in

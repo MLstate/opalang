@@ -212,6 +212,11 @@ Email = {{
     | {~some} -> "\"{some}\" <{email.address.local}@{email.address.domain}>"
     | {none} -> "{email.address.local}@{email.address.domain}"
 
+  @stringifier(Email.email) to_name(email:Email.email) =
+    match email.name with
+    | {~some} -> some
+    | {none} -> "{email.address.local}@{email.address.domain}"
+
   @xmlizer(Email.email) to_xml(email) =
     <>{"{email}"}</>
 

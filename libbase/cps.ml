@@ -38,7 +38,7 @@ module List = struct
 end
 
 module Option = struct
-  let rec map f opt k = match opt with
+  let map f opt k = match opt with
     | None -> None |> k
     | Some x -> f x @> fun x -> Some x |> k
 end

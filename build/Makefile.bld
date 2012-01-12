@@ -47,7 +47,7 @@ INSTALL_DIR = $(DESTDIR)$(PREFIX)
 LIB_INSTALL_DIR = $(INSTALL_DIR)/lib/opa/static
 
 .PHONY: clean
-clean:
+clean::
 	rm -rf _build
 
 .PHONY: distclean

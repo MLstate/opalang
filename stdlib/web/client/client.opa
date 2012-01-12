@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -127,7 +127,7 @@ type JsFunction = external
      )
 
      /**
-      * Get the current anchor
+      * Get the current anchor (with # included)
       */
      get_anchor = %% BslAnchors.get_anchor %% : -> string
 
@@ -137,7 +137,12 @@ type JsFunction = external
      set_anchor(anchor) = (%% BslAnchors.set_anchor %%)(anchor)
 
   }}
-  reload          = %% BslClient.Client.reload %%: -> void
+
+  /** Reload the page, may re-submit the form depending on the browser */
+  reload()              = (%% BslClient.Client.reload %%)(false) : void
+
+  /** Reload the page, by choosing if we want to force the GET method */
+  do_reload = %% BslClient.Client.reload %% : bool -> void
 
   get_cookie() =
     get_cookie = %%BslClientOnly.get_cookie%%

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -123,6 +123,7 @@ type Dom.private.selection =
  / { inside: Dom.private.selection; select: Dom.private.selection }
  / { selector: string } /**A literal CSS selector*/
  / { shallow }          /**Select everything at this level*/
+ / { contents }          /** Select contents */
  / { concrete: Dom.private.element }/**The concrete client-side representation of a selection.*/
 //Note: in the future, we will certainly add new selectors
 
@@ -244,6 +245,16 @@ Dom = {{
   )
 
   /**
+   * Select content of a selection
+   * Use this to access the content of an iframe
+   */
+  select_contents(container: dom): dom =
+  (
+     {inside = container
+      select = {contents}}
+  )
+
+  /**
    * Perform a selection using CSS syntax
    */
   select_raw(selector: string): dom =
@@ -321,6 +332,12 @@ Dom = {{
   (
       position = of_selection(dom)
       {concrete = %% BslDom.select_parent_several %%(position)}
+  )
+
+  select(dom:dom): void =
+  (
+      position = of_selection(dom)
+      %% BslDom.select %%(position)
   )
 
   /**
@@ -448,6 +465,7 @@ Dom = {{
        | ~{selector}      -> selector
        | ~{inside select} -> "{aux(inside)} {aux(select)}"
        |  {shallow}       -> ":parent:children"
+       | {contents}       -> ":children"
      }}
      Rec.aux(dom)
 
@@ -1618,6 +1636,15 @@ Dom = {{
   )
 
   /**
+   * Select content of a selected [{dom}]
+   * Use this to access the content of an iframe
+   */
+  select_contents(parent:Dom.private.element): Dom.private.element =
+  (
+        %% BslDom.select_contents %%(parent)
+  )
+
+  /**
    * Select all the descendants of a given [{dom}]
    */
   select_all_in(parent: Dom.private.element): Dom.private.element =
@@ -1686,6 +1713,7 @@ Dom = {{
             container = top(inside)
             depth(container, select)
          | ~{concrete}  -> concrete
+         | {contents}   -> Select.document()
          | {shallow}    -> Select.document()
         depth(container:Dom.private.element, selection:Dom.private.selection):Dom.private.element = match selection with
          | { document } -> Select.empty()
@@ -1698,6 +1726,7 @@ Dom = {{
          | ~{inside select} ->
                container = depth(container, inside)
                depth(container, select)
+         | {contents}   -> Select.select_contents(container)
          | {shallow}    -> Select.select_children(container)
       }}
       Rec.top(selection)

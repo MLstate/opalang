@@ -202,7 +202,7 @@ OPADOCGEN=$OPAGENERAL/_build/opadoc/doc # the generated API doc
 
 ./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release -no-dbm
 
-make clean distrib install
+make clean distrib manpages install
 
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
