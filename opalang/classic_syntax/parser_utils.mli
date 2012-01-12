@@ -181,19 +181,20 @@ val function_ : (string pat * (string, 'a) expr) list -> annot -> (string, 'a) e
 val lambda_to_lambda : ((string, 'a) expr -> (string, 'b) expr) -> annot -> (string, 'b) expr
 val lambda : string -> (string, 'a) expr -> (string, 'a) expr_node
 val make_function2 :
-  ((string * (string, 'a) expr) list ->
-   (string, 'a) expr -> 'b * 'c) ->
-  ((string, 'a) expr ->
-   'd -> (string, 'a) expr_node * 'e) ->
-  [< `expr of (string, 'a) expr | `hole of annot ] ->
+  ((string * (string, parsing_directive) expr) list ->
+  (string, parsing_directive) expr -> (string, parsing_directive) expr) ->
+  ((string, parsing_directive) expr ->
+   string -> (string, parsing_directive) expr) ->
+  [< `expr of (string, parsing_directive) expr | `hole of annot ] ->
   ([< `dot of string
-    | `double_dot of 'd
+    | `double_dot of string
     | `function_call of
-        [< `expr of (string, 'a) expr | `hole of annot ]
+        [< `expr of (string, parsing_directive) expr | `hole of annot ]
         list &
-        [< `expr of (string, 'a) expr | `hole of 'f ] list ] *
+        [< `expr of (string, parsing_directive) expr | `hole of annot ] list ] *
    annot)
-  list -> 'b
+  list ->  (string, parsing_directive) expr_node
+
 val apply_operators :
   [< `left | `nonassoc | `right ] ->
   [ `expr of (string, 'a) expr | `hole of annot ] *

@@ -423,10 +423,20 @@ type renaming_directive =
     [ access_directive
     | basic_directive
     | alpha_renaming_directive ]
+
+
+type ('ident,'dir) expr_or_hole = [`expr of ('ident,'dir) expr | `hole of QmlLoc.annot ]
+
+type ('ident,'dir) sugar_directive =
+    [ `sugar of ('ident, 'dir) expr
+    ]
+
 type parsing_directive =
     [ `xml_parser of (string, parsing_directive) expr xml_parser
     | `parser_ of (string, parsing_directive) expr Trx_ast.expr
-    | renaming_directive ]
+    | renaming_directive
+    | (string, parsing_directive) sugar_directive
+    ]
 
 type all_directives =
     [ parsing_directive

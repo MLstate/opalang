@@ -817,7 +817,8 @@ module Classic = struct
       | `specialize `strict -> Format.pp_print_string f "specialize_strict"
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
       | `recval -> Format.pp_print_string f "recval"
-          (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
+      | `sugar _ -> Format.pp_print_string f "sugar"
+      (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
       | #QmlAst.closure_instrumentation_directive as d -> Format.pp_print_string f (QmlDirectives.to_string d)
 
     method private string_elmt :  'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f (e,_) ->
@@ -1224,6 +1225,7 @@ module Js = struct
     method virtual to_unprotected_ident : 'ident -> string
     method ident f i = Format.pp_print_string f (self#to_protected_ident i)
     method private unprotected_ident f i = Format.pp_print_string f (self#to_unprotected_ident i)
+    method private apply : 'dir 'a. 'a pprinter -> 'a list -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun f_arg arg f e -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " f_arg) arg
     method private expr_need_block : 'dir . ('ident,[< all_directives ] as 'dir) expr -> bool = fun e ->
       match fst e with
       | Apply _ | Ident _ | Const _ | Directive _  -> false
@@ -1248,6 +1250,7 @@ module Js = struct
       | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
       | `no_sugar -> self#label self#expr_node f e
     method expr : 'dir . ('ident,[< all_directives ] as 'dir) expr pprinter  = self#expr_sugar true
+    method private expr_string : 'dir . (string,[< all_directives ] as 'dir) expr pprinter  = Obj.magic self#expr
     method expr_node : 'dir. ('ident,[< all_directives ] as 'dir) expr_node pprinter = fun f -> function
         (*| Directive ((`coerce:[< all_directives]),_,_) as e when comma -> pp f "(%a)" self#expr_node e*)
       | Lambda _ | Match _ | LetIn _ as e when op -> pp f "(%a)" self#reset#expr_node e
@@ -1261,7 +1264,6 @@ module Js = struct
           if op || colon then pp f "(%a)" self#reset#expr_node e else
             pp f "@[<2>%s%a@]" (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e1
       | Apply (e,(r,_LABEL)) -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " (fun f (_,e) -> self#reset#under_comma#expr f e)) r
-(*self#apply (fun f (_,e) -> self#reset#under_comma#expr f e) r f e *)
       | Lambda (r, ((LetIn _, _) as e)) ->
           pp f "@[<h 2>function(%a) {@,@[%a@]@]}"
             (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r
@@ -1376,6 +1378,7 @@ module Js = struct
       | `specialize `strict -> Format.pp_print_string f "specialize_strict"
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
       | `recval -> Format.pp_print_string f "recval"
+      | `sugar _ -> Format.pp_print_string f "sugar"
           (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
       | #QmlAst.closure_instrumentation_directive as d -> Format.pp_print_string f (QmlDirectives.to_string d)
 
@@ -1395,6 +1398,8 @@ module Js = struct
         | `magic_to_string, [e], _ -> self#expr f e
         | `fun_action, [e], _ -> self#expr f e
         | `magic_to_xml, [e], _ -> pp f "XmlConvert.of_alpha(%a)" self#expr e
+        | `sugar expr, [_], [] -> self#expr_string f expr
+(* self#apply (fun f -> function | `hole -> pp f "_" | `expr e -> self#reset#under_comma#expr f e) args f e*)
         | #all_directives,[]   , []  -> pp f "@[<2>@@%a@]" self#variant variant
         | #all_directives,exprs, []  -> pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
         | #all_directives,exprs, tys -> pp f "@[<2>@@%a(%a ; %a)@]" self#variant variant (list ",@ " self#reset#expr) exprs (list ",@ " self#ty) tys

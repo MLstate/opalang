@@ -348,7 +348,7 @@ let ident s label = (Ident s, label)
 let fresh_ident_pat label =
   let n = fresh_name () in
     (var_to_exprvar (n, copy_label label), var_to_patvar (n, copy_label label))
-
+let ident_hole = Ident "_", builtin()
 
 (*
  * Utils on types
@@ -546,6 +546,8 @@ let (&.) f args =
     let new_args = encode_args_as_record_pos args in
       Apply (f, new_args)
 
+
+
 let apply_f_with_holes f args : (_,_) expr =
   let args2,vars =
     let rec aux args vars = function
@@ -558,7 +560,7 @@ let apply_f_with_holes f args : (_,_) expr =
             | `expr e ->
                 aux (e :: args) vars t
     in
-      aux [] [] args
+    aux [] [] args
   in
     if vars = [] then
       f & args2
@@ -618,13 +620,15 @@ let global_hole_processing l =
   in
     aux [] [] [] l
 
+let make_function_body double_dot e el =
+  List.fold_left
+    (fun acc -> function
+     | (`dot i,pos) -> (Dot(acc,i), pos)
+     | (`double_dot i,pos) -> (undecorate (double_dot acc i), pos)
+     | (`expr el,pos) -> Apply (acc, (encode_tuple el,pos)), pos) e el
+
 let make_function letins double_dot vars e el bindings =
-  let body =
-    List.fold_left
-      (fun acc -> function
-         | (`dot i,pos) -> (Dot(acc,i), pos)
-         | (`double_dot i,pos) -> (undecorate (double_dot acc i), pos)
-         | (`expr el,pos) -> Apply (acc, (encode_tuple el,pos)), pos) e el in
+  let body = make_function_body double_dot e el in
   let func = args_expr_to_lambda vars body in
     undecorate (letins bindings func)
 
@@ -634,29 +638,39 @@ let make_function letins double_dot vars e el bindings =
  *   fresh2 -> f(fresh2,fresh) ]
  *)
 let make_function2 letins double_dot e el =
-  let exprs,vars,bindings =
-    try
-      List.map
-        (fun e ->
-           map_annot
-             (function
+  let map_el f_hole el =
+    List.map (fun e -> map_annot (
+                function
                 | `function_call a ->
                     `expr
                       (List.map
                          (function
-                            | `hole _ -> raise Exit
-                            | `expr v -> v
+                          | `hole _ -> f_hole ()
+                          | `expr v -> v
                          ) a)
-                | `dot _ | `double_dot _ as v -> v) e) el, [], []
+                | `dot _ | `double_dot _ as v -> v) e) el
+  in
+  let exprs,vars,bindings =
+    try
+      (map_el (function _ -> raise Exit) el), [], []
     with
-      | Exit -> global_hole_processing el
+    | Exit -> global_hole_processing el
+  in
+  let el_sugar = map_el (function _ -> ident_hole) el in
+  let sugar_directive e_sugar e =
+    let expr_sugar = make_function_body double_dot e_sugar el_sugar in
+    let dir_node = Directive (`sugar expr_sugar, [e,builtin()], []) in
+    dir_node
   in
     match e with
-      | `hole p ->
-          let (ident,var) = fresh_ident_pat p in
-          make_function letins double_dot (var :: vars) ident exprs bindings
-      | `expr e ->
-          make_function letins double_dot vars e exprs bindings
+      | `hole p_sugar ->
+          let (ident,var) = fresh_ident_pat p_sugar in
+          let e = make_function letins double_dot (var :: vars) ident exprs bindings in
+          sugar_directive ident_hole e
+      | `expr e_sugar ->
+          let e = make_function letins double_dot vars e_sugar exprs bindings in
+          sugar_directive e_sugar e
+
 (*
  * Utils on operators
  *)
