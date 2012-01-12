@@ -853,17 +853,21 @@ let create_letins ~label dirs l e2 =
  *)
 let rec bind_in_to_expr_in dirs binding e2 =
   let (p,e1) = binding in
+  let pat_in_sugar_directive e label = Directive (`sugar_pat_in (p,e1,e2), [e], []), label in
   undecorate (
     match p with
       | (PatVar v, label) ->
         assert( v.directives = [] );
         (LetIn (false,declaration_directive dirs [(v.ident,e1)],e2),copy_label label)
-      | (PatAny, label) -> (LetIn (false,declaration_directive dirs [(fresh_name (),e1)],e2),copy_label label)
+      | (PatAny, label) ->
+          let e = LetIn (false,declaration_directive dirs [(fresh_name(),e1)],e2),copy_label label in
+          pat_in_sugar_directive e (copy_label label)
       | (PatCoerce (p,ty),label) -> (bind_in_to_expr_in dirs (p,Cons.E.coerce ~label e1 ty) e2,label)
       | (_,label) ->
           let n = fresh_name () in
           let bindings = `one (n,e1) :: List.rev (bind n [] p) in
-          create_letins ~label dirs bindings e2
+          let e = create_letins ~label dirs bindings e2 in
+          pat_in_sugar_directive e (copy_label label)
   )
 
 let add_recval ~is_recval label (i,e) =

@@ -203,21 +203,25 @@ struct
         if acc = [] then None else Some (List.rev acc, Some p) (* [1,2|e] *)
 
   let sugar_tuple original_name e =
-    match extract_coercion e with
-    | Some ((PatRecord (l, `closed), _), (TypeNamed (Typeident name,_),_)) ->
+    let record_tuple l =
+      let l = List.sort (fun (s1,_) (s2,_) -> String.compare s1 s2) l in
+      if List.for_alli (fun i (f,_) -> f = "f"^string_of_int (i+1)) l then
+        Some (List.map snd l)
+      else
+        None
+    in
+    match e with
+    | PatCoerce ((PatRecord (l, `closed), _), (TypeNamed (Typeident name,_),_)),_ ->
         (try
            let n = Scanf.sscanf (original_name name) "tuple_%d" (fun x -> x) in
            if n = List.length l && n <> 0 then
-             let l = List.sort (fun (s1,_) (s2,_) -> String.compare s1 s2) l in
-             if List.for_alli (fun i (f,_) -> f = "f"^string_of_int (i+1)) l then
-               Some (List.map snd l)
-             else
-               None
+             record_tuple l
            else
              None
          with
          | End_of_file
          | Scanf.Scan_failure _ -> None)
+    | PatRecord (l, `closed), _ -> record_tuple l
     | _ -> None
 
   let resugarer original_name p =
@@ -818,6 +822,7 @@ module Classic = struct
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
       | `recval -> Format.pp_print_string f "recval"
       | `sugar _ -> Format.pp_print_string f "sugar"
+      | `sugar_pat_in _ -> Format.pp_print_string f "sugar_pat_in"
       (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
       | #QmlAst.closure_instrumentation_directive as d -> Format.pp_print_string f (QmlDirectives.to_string d)
 
@@ -1379,6 +1384,7 @@ module Js = struct
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
       | `recval -> Format.pp_print_string f "recval"
       | `sugar _ -> Format.pp_print_string f "sugar"
+      | `sugar_pat_in _ -> Format.pp_print_string f "sugar_pat_in"
           (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
       | #QmlAst.closure_instrumentation_directive as d -> Format.pp_print_string f (QmlDirectives.to_string d)
 
@@ -1399,6 +1405,7 @@ module Js = struct
         | `fun_action, [e], _ -> self#expr f e
         | `magic_to_xml, [e], _ -> pp f "XmlConvert.of_alpha(%a)" self#expr e
         | `sugar expr, [_], [] -> self#expr_string f expr
+        | `sugar_pat_in (pat,e1,e2), [_], [] -> pp f "%a@\n%a" self#pat_binding_string (pat,e1) self#expr_string e2
 (* self#apply (fun f -> function | `hole -> pp f "_" | `expr e -> self#reset#under_comma#expr f e) args f e*)
         | #all_directives,[]   , []  -> pp f "@[<2>@@%a@]" self#variant variant
         | #all_directives,exprs, []  -> pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
@@ -1583,7 +1590,7 @@ module Js = struct
       in
       pp f "@[<hv 4>";
       aux e
-
+    method private pat_binding_string : 'dir. (string pat * (string, [< all_directives ] as 'dir) expr) pprinter = Obj.magic self#pat_binding
     method private pat_bindings : 'dir. ('ident pat * ('ident, [< all_directives ] as 'dir) expr) list pprinter = fun f pel ->
       let pl,el = List.split pel in
       pp f "@[<2>(%a) =@ (%a)@]" (list ",@ " self#pat) pl (list ",@ " self#expr) el

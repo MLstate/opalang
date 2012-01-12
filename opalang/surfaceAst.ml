@@ -429,6 +429,7 @@ type ('ident,'dir) expr_or_hole = [`expr of ('ident,'dir) expr | `hole of QmlLoc
 
 type ('ident,'dir) sugar_directive =
     [ `sugar of ('ident, 'dir) expr
+    | `sugar_pat_in of 'ident pat * ('ident, 'dir) expr * ('ident, 'dir) expr
     ]
 
 type parsing_directive =
