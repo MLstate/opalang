@@ -194,9 +194,11 @@ else
     echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
     false
 fi
+OCAMLOPT_DIR=$(dirname $(which $OCAMLOPT))
+
 
 echo-check ocamlbuild
-: ${OCAMLBUILD:=$(dirname $OCAMLOPT)/ocamlbuild}
+: ${OCAMLBUILD:=$OCAMLOPT_DIR/ocamlbuild}
 if [ -n "$IS_RELEASE" ]; then
     OCAMLBUILD_FLAGS="${OCAMLBUILD_FLAGS:-} -tag release -tag noassert"
 else
@@ -279,8 +281,8 @@ EOF
 check-ocaml
 
 echo-check for camlp4
-: ${CAMLP4O:=$(dirname $OCAMLOPT)/camlp4o}
-: ${CAMLP4ORF:=$(dirname $OCAMLOPT)/camlp4orf}
+: ${CAMLP4O:=$OCAMLOPT_DIR/camlp4o}
+: ${CAMLP4ORF:=$OCAMLOPT_DIR/camlp4orf}
 if [ -x "$CAMLP4O" ] && [ -x "$CAMLP4ORF" ]
 then echo-ok $CAMLP4O
 else
@@ -319,7 +321,7 @@ if [ "X$NO_CAMLIDL" = "X1" ]; then
     echo-ok Disabled
 elif
     [ -e $OCAMLLIB/libcamlidl.a ] &&
-    CAMLIDL=${CAMLIDL:-$(dirname "$OCAMLOPT")/camlidl} && [ -x "$CAMLIDL" ] ||
+    CAMLIDL=${CAMLIDL:-$OCAMLOPT_DIR)/camlidl} && [ -x "$CAMLIDL" ] ||
     CAMLIDL=$(which camlidl)
 then
     HAS_CAMLIDL=1
@@ -423,7 +425,7 @@ if [ -n "${NO_OCAMLFIND:-}" ]; then
     OCAMLFIND=
     echo-skip Disabled
 elif  [ -z "${OCAMLFIND:-}" ]; then
-    OCAMLFIND=$(dirname $OCAMLOPT)/ocamlfind
+    OCAMLFIND=$OCAMLOPT_DIR/ocamlfind
     if [ ! -x "$OCAMLFIND" ]; then
         OCAMLFIND=$OCAMLLIB/../../bin/ocamlfind
     fi
