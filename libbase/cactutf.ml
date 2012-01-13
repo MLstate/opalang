@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -349,6 +349,7 @@ let csize n =
 *)
 (*##register cons : int -> string*)
 let cons c =
+  let c = if c < 0 then 0 else c in
   let s = csize c in
   let str = String.create s in
   if (s = 1) then
@@ -369,7 +370,6 @@ let cons c =
     str.[2] <- char_of_int(n3 + 128);
     str
   else
-
     let n1 = c / 262144 in
     let n2 = (c - (n1 * 262144)) / 4096 in
     let n3 = (c - (n1 * 262144) - (n2 * 4096)) / 64 in
