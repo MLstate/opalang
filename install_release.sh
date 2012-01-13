@@ -170,30 +170,34 @@ else
         else
             $OPAGENERAL/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml --installdir $INSTALLDIR_LIBOPAOCAML
         fi
-    fi
-    if [ -n "$IS_MAC" ] ; then
-        export OCAMLLIB=$INSTALLDIR/lib/ocaml
-        export PATH=$INSTALLDIR/bin:$PATH
-    else
-        export OCAMLLIB=$INSTALLDIR_LIBOPAOCAML/lib/ocaml
-        export PATH=$INSTALLDIR_LIBOPAOCAML/bin:$PATH
+	if [ -n "$IS_MAC" ] ; then
+            export OCAMLLIB=$INSTALLDIR/lib/ocaml
+            export PATH=$INSTALLDIR/bin:$PATH
+	else
+            export OCAMLLIB=$INSTALLDIR_LIBOPAOCAML/lib/ocaml
+            export PATH=$INSTALLDIR_LIBOPAOCAML/bin:$PATH
+	fi
     fi
 fi
 
 # mlstate libs and tools (generic)
 msg Installing mlstate stuff
 
-if [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPAOCAML/lib/ocaml" ]; then
+if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPAOCAML/lib/ocaml" ]; then
     msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR_LIBOPAOCAML/lib/ocaml"
     exit 1
 fi
 
 export MLSTATELIBS=$INSTALLDIR
 # in order to build opa with the ocaml freshly built
-if [ -n "$IS_MAC" ] ; then
-    export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
+if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
+    if [ -n "$IS_MAC" ] ; then
+	export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
+    else
+	export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
+    fi
 else
-    export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
+    OCAMLOPT=ocamlopt.opt
 fi
 cd $OPAGENERAL
 SRCDIR=$OPAGENERAL
