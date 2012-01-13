@@ -10,6 +10,7 @@ PREFIX=/usr
 INSTALLDIR=$PWD/release_install_root
 
 NODOC="false"
+NOMAN="false"
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
 # (MAJORNAME if BUILD is empty)
@@ -54,6 +55,8 @@ while [ $# -gt 0 ]; do
     case $1 in
         -no-doc)
             NODOC="true";;
+        -no-man)
+            NOMAN="true";;
         -force-doc)
             NODOC="false";;
         -fetch-git)
@@ -206,7 +209,13 @@ OPADOCGEN=$OPAGENERAL/_build/opadoc/doc # the generated API doc
 
 ./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release -no-dbm
 
-make clean distrib manpages install
+
+TARGETS="distrib"
+if [ $NOMAN = "false" ]; then
+    TARGETS="$TARGETS manpages"
+fi
+
+make clean $TARGETS install
 
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
