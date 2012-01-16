@@ -76,6 +76,7 @@ let unary_minus_float = "unary_minus_float"
 let operator_image s =
   if s = unary_minus then "-"
   else if s = unary_minus_float then "-."
+  else if s = "$" then "#"
   else s
 
 let is_operator s =
@@ -1267,6 +1268,8 @@ module Js = struct
       | Apply ((Ident oper,_LABEL1),([(_,e1);(_,e2)],_LABEL2)) as e when self#is_operator oper ->
           if op || colon then pp f "(%a)" self#reset#expr_node e else
             pp f "@[<2>%a %s@ %a@]" self#under_op#expr e1 (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e2
+      | Apply ((Ident oper,_LABEL1),([(_,(Const (CString s), _))],_LABEL2)) when (Obj.magic oper="$") ->
+          pp f "#%a" Format.pp_print_string (self#to_protected_ident (Obj.magic s))
       | Apply ((Ident oper,_LABEL1),([(_,e1)],_LABEL2)) as e when self#is_operator oper ->
           if op || colon then pp f "(%a)" self#reset#expr_node e else
             pp f "@[<2>%s%a@]" (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e1
