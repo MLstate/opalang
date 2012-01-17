@@ -80,7 +80,7 @@ get_img(name) =
 @private
 icon16 = css
 /* Icons 16px */
-/*Default 16px gray icons for light backgrounds*/
+/* Default 16px gray icons for light backgrounds */
 .icon {
   width: 16px;
   height: 16px;
@@ -89,17 +89,31 @@ icon16 = css
   display: inline-block;
   vertical-align: top;
 }
+/* Dark gray icons, default hover style */
 .icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background-image: {get_img("icons16-darkGray.png")};}
 
-/*Color icons for active, active for light backgrounds*/
+/* Color icons for light backgrounds, used for default active style */
 .icon.icon-color, .icons-color .icon, .active .icon {background-image: {get_img("icons16-color.png")};}
 
-/*White icons for vivid and dark backgrounds*/
+/* White icons for vivid and dark backgrounds */
 .icon.icon-white, .icons-white .icon {background-image: {get_img("icons16-white.png")};}
-.icon.icon-white:hover, .icons-white .icon:hover {background-image: {get_img("icons16-gray.png")};}
+.icon.icon-white:hover, .icons-white .icon:hover, .icons-gray .icon {background-image: {get_img("icons16-gray.png")};}
 
-/*Black icons for gray backgrounds*/
+/* Black icons for gray backgrounds */
 .icon.icon-black, .icons-black .icon, .icon.icon-darkgray:hover {background-image: {get_img("icons16-black.png")};}
+
+/* Blue icons */
+.icon.icon-blue, .icons-blue .icon {background-image: {get_img("icons16-blue.png")};}
+
+/* Green icons */
+.icon.icon-green, .icons-green .icon {background-image: {get_img("icons16-green.png")};}
+
+/* Red icons */
+.icon.icon-red, .icons-red .icon {background-image: {get_img("icons16-red.png")};}
+
+/* Orange icons */
+.icon.icon-orange, .icons-orange .icon {background-image: {get_img("icons16-orange.png")};}
+
 
 /* positioning */
 /* triangle */
@@ -303,7 +317,7 @@ icon16 = css
 .active .icon.icon-archive, .icon.icon-archive, .icon.icon-archive:hover { background-position: -32px -144px; }
 .active .icon.icon-reply, .icon.icon-reply, .icon.icon-reply:hover { background-position: -48px -144px; }
 .active .icon.icon-sent, .icon.icon-sent, .icon.icon-sent:hover { background-position: -64px -144px; }
-.active .icon.icon-attachement, .icon.icon-attachement, .icon.icon-attachement:hover { background-position: -80px -144px; }
+.active .icon.icon-attachment, .icon.icon-attachment, .icon.icon-attachment:hover { background-position: -80px -144px; }
 
 /* treeview */
 .active .icon.icon-square-plus, .icon.icon-square-plus, .icon.icon-square-plus:hover { background-position: -160px -240px; }
@@ -326,17 +340,31 @@ icon32 = css
   display: inline-block;
   vertical-align: top;
 }
+/* Dark gray icons, default hover style */
 .icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background-image: {get_img("icons32-darkGray.png")};}
 
-/* Color icons for active, active for light backgrounds */
+/* Color icons for light backgrounds, used for default active style */
 .icon32.icon-color, .icons-color .icon32, .active .icon32 {background-image: {get_img("icons32-color.png")};}
 
 /* White icons for vivid and dark backgrounds */
 .icon32.icon-white, .icons-white .icon32 {background-image: {get_img("icons32-white.png")};}
-.icon32.icon-white:hover, .icons-white .icon32:hover {background-image: {get_img("icons32-gray.png")};}
+.icon32.icon-white:hover, .icons-white .icon32:hover, icons-gray .icon32 {background-image: {get_img("icons32-gray.png")};}
 
 /* Black icons for gray backgrounds */
 .icon32.icon-black, .icons-black .icon32, .icon32.icon-darkgray:hover {background-image: {get_img("icons32-black.png")};}
+
+/* Blue icons */
+.icon32.icon-blue, .icons-blue .icon32 {background-image: {get_img("icons32-blue.png")};}
+
+/* Green icons */
+.icon32.icon-green, .icons-green .icon32 {background-image: {get_img("icons32-green.png")};}
+
+/* Red icons */
+.icon32.icon-red, .icons-red .icon32 {background-image: {get_img("icons32-red.png")};}
+
+/* Orange icons */
+.icon32.icon-orange, .icons-orange .icon32 {background-image: {get_img("icons32-orange.png")};}
+
 
 /* positioning */
 /* triangle */
@@ -540,7 +568,7 @@ icon32 = css
 .active .icon32.icon-archive, .icon32.icon-archive, .icon32.icon-archive:hover { background-position: -64px -288px; }
 .active .icon32.icon-reply, .icon32.icon-reply, .icon32.icon-reply:hover { background-position: -96px -288px; }
 .active .icon32.icon-sent, .icon32.icon-sent, .icon32.icon-sent:hover { background-position: -128px -288px; }
-.active .icon32.icon-attachement, .icon32.icon-attachement, .icon32.icon-attachement:hover { background-position: -160px -288px; }
+.active .icon32.icon-attachment, .icon32.icon-attachment, .icon32.icon-attachment:hover { background-position: -160px -288px; }
 
 /* treeview */
 .active .icon32.icon-square-plus, .icon32.icon-square-plus, .icon32.icon-square-plus:hover { background-position: -320px -480px; }
