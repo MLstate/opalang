@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -179,7 +179,6 @@ Db = {{
    * @param [filter] which keys are accepted for the fold. (x -> {true}) is all the keys of the map
    * are accepted.
    */
-
   intmap_fold_range = %%path_intmap_fold_range%%
 
   stringmap_fold_range = %%path_stringmap_fold_range%%
