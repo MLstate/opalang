@@ -888,9 +888,9 @@ let pass_TypesDefinitions =
        let env = ( e.PH.env : 'tmp_env Passes.env_Gen ) in
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in
-       let local_typedefs, typerEnv, code = Pass_TypeDefinition.process_code
+       let local_typedefs, typerEnv, code, stdlib_gamma = Pass_TypeDefinition.process_code
          (register_fields e.PH.options) typerEnv code in
-       let env = { env with Passes.typerEnv = typerEnv ; qmlAst = code; local_typedefs = local_typedefs } in
+       let env = { env with Passes.typerEnv; local_typedefs; stdlib_gamma; qmlAst = code; } in
        { e with PH.env = env }
     )
 

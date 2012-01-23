@@ -287,6 +287,7 @@ type compilation_mode = [
 ]
 let compilation_mode_state = ref `prelude
 let compilation_mode () = !compilation_mode_state
+let compiler_packages = MutableList.create ()
 
 (* m *)
 
@@ -1754,10 +1755,17 @@ let stdlib_package_names name =
 
 let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
 
+let compiler_package (package_name,_pos) =
+  stdlib_package_names package_name ||
+    MutableList.mem package_name compiler_packages
+
 let get_paths () = !extrapaths
 
 let import_package packname pos =
   MutableList.add more_import_package_names (packname, pos)
+
+let add_compiler_package packname =
+  MutableList.add compiler_packages packname
 
 module Arg =
 struct

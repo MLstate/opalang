@@ -21,4 +21,4 @@
    The first argument is a function for fields registering.
 *)
 
-val process_code : (string -> unit) -> QmlTyper.OfficialTyper.env -> QmlAst.code -> QmlAst.TypeIdentSet.t * QmlTyper.OfficialTyper.env * QmlAst.code
+val process_code : (string -> unit) -> QmlTyper.OfficialTyper.env -> QmlAst.code -> QmlAst.TypeIdentSet.t * QmlTyper.OfficialTyper.env * QmlAst.code * QmlTypes.gamma

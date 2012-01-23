@@ -268,6 +268,9 @@ val warning_set : WarningClass.Set.t
 val stdlib_packages : package -> bool
 val stdlib_package_names : package_name -> bool
 
+
+val compiler_package : package -> bool
+
 (**
    Loads the js extra lib with the given basename
 *)
@@ -290,4 +293,9 @@ val turn_separated_off : unit -> unit
 (**
    Force a package importation.
 *)
-val import_package : string -> FilePos.pos -> unit
+val import_package : package_name -> FilePos.pos -> unit
+
+(**
+   Use given package as a compiler package.
+*)
+val add_compiler_package : package_name -> unit

@@ -202,16 +202,17 @@ let stdlib acc code =
 (**
    Check strict equality between 2 StringSet, with errors reporting.
 *)
-let report elt name present absent =
+let report elt name present absent set =
   validation_ok := false ;
   OManager.printf (
-    "[!] The %s @{<bright>%s@} is present in @{<bright>%s@} but not in @{<bright>%s@}@."
+    "[!] The %s @{<bright>%s@} is present in @{<bright>%s@} but not in @{<bright>%s@}@\n@{<bright>%s@} set: %a@.@."
   )
-    elt name present absent
+    elt name present absent absent
+    (StringSet.pp "," Format.pp_print_string) set
 
 let strict_equality elt name1 name2 set1 set2 =
   let iter name1 name2 set1 set2 =
-    let error name = report elt name name1 name2 in
+    let error name = report elt name name1 name2 set2 in
     StringSet.iter (fun s -> if not (StringSet.mem s set2) then error s) set1
   in
   iter name1 name2 set1 set2;

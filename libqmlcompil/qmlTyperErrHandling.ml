@@ -90,7 +90,7 @@ let pp_typer_error ~type_printer ?(highlight_printer = Base.identity)
   | TExc.TypeIdentNotFound tid ->
       Format.fprintf ppf
         "The type@  @{<red>%a@} @ is@ not@ defined.@\n"
-        QmlPrint.pp#typeident tid
+        QmlPrint.pp_base#typeident tid
   | TExc.DuplicateTypeDefinitions s ->
       Format.fprintf ppf
         "There@ are@ duplicate@ definitions@ for@ type@  @{<red>%s@} .@\n" s

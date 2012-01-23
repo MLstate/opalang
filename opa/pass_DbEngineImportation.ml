@@ -27,11 +27,13 @@ let process_code code =
     (function
        | (S.Database _), _ | (S.NewDbDef _), _ -> true
        | _ -> false)
-    code then
-      ObjectFiles.import_package
-        (match QmlDbGen.Args.get_engine () with
-         | Db.Db3   -> "stdlib.database.db3"
-         | Db.Mongo -> "stdlib.database.mongo")
-        builtinpos
+    code then (
+      let package = match QmlDbGen.Args.get_engine () with
+      | Db.Db3   -> "stdlib.database.db3"
+      | Db.Mongo -> "stdlib.database.mongo"
+      in
+      ObjectFiles.import_package package builtinpos;
+      ObjectFiles.add_compiler_package package;
+    )
   ;
   code

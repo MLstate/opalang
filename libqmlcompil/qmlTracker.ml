@@ -149,7 +149,7 @@ let printers extract _ =
     with_type_id, make_ac Printer.code_with_type;
     for_ei_id, make_ac Printer.code_for_ei;
     gamma_id, make_gamma Printer.gamma;
-    gamma_id, make_stdlib_gamma Printer.gamma;
+    stdlib_gamma_id, make_stdlib_gamma Printer.gamma;
     (* waiting for flexibility in passhander options *)
     (* tracked_id, make Printer.tracked ; *)
   ]
