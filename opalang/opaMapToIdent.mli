@@ -56,6 +56,17 @@ val val_ : ?side:side -> string -> QmlAst.ident
      of raising an exception
   *)
 
+(**
+   same as [val_], but return an expr corresponding to the typed ident
+*)
+val typed_val :
+  ?label:Annot.label -> ?side:side ->
+  ?ty:QmlAst.ty list ->
+  ?ty_row:QmlAst.ty_row list ->
+  string -> QmlAst.annotmap -> QmlTypes.gamma ->
+  QmlAst.annotmap * QmlAst.expr
+
+
 (** Get the optional ident of the value originally named by the
     given [string]. *)
 val val_opt : ?side:side -> string -> QmlAst.ident option
@@ -87,6 +98,11 @@ val val_start_server : unit -> QmlAst.ident option
     [string]. Throw [Not_found] if the name doesn't exists on the
     corresponding [side]. *)
 val typ : string -> QmlAst.ident
+
+(** Like [typ] but search type scheme in gamma and specilize it
+*)
+val specialized_typ : ?ty:QmlAst.ty list -> ?ty_row:QmlAst.ty_row list -> string -> QmlTypes.gamma
+  -> QmlAst.ty
 
 (** {6 Map setter & getter}*)
 (** Directly get the map of values *)

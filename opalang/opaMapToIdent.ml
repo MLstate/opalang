@@ -99,6 +99,23 @@ let val_ ?(side=`server) s =
       pp_stringmap
       !(get_rmap side)
 
+let default_pos ?(label=Annot.nolabel "OpaMapToIdent") name =
+  QmlAst.Ident (label, Ident.source name)
+
+
+let typed_val ?(label=Annot.nolabel "OpaMapToIdent") ?(side=`server) ?(ty=[]) ?(ty_row=[]) name annotmap gamma =
+  try
+    let ident = val_ ~side name in
+    let tsc = QmlTypes.Env.Ident.find ident gamma in
+    let ty = QmlTypes.Scheme.specialize ~typeident:ident ~ty ~ty_row tsc in
+    let (annotmap, ident) = QmlAstCons.TypedExpr.ident annotmap ident ty in
+    let annotmap = QmlAnnotMap.add_tsc_inst (QmlAst.QAnnot.expr ident) tsc annotmap in
+    (annotmap, ident)
+  with Not_found ->
+    let context = QmlError.Context.annoted_expr annotmap (default_pos ~label name) in
+    QmlError.cond_violation QmlAlphaConv.Check.unbound_id context
+      "Missing ident"
+
 let typ s =
   opacapi_check s ;
   try StringMap.find s !r_type
@@ -108,6 +125,11 @@ let typ s =
       s
       pp_stringmap
       !r_type
+
+let specialized_typ ?(ty = []) ?(ty_row = []) name gamma =
+  let typeident = typ name in
+  let (scheme, _) = QmlTypes.Env.TypeIdent.find ~visibility_applies:false typeident gamma in
+  QmlTypes.Scheme.specialize ~typeident ~ty ~ty_row scheme
 
 let val_opt ?(side=`server) s =
   opacapi_check s ;
