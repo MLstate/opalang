@@ -805,12 +805,7 @@ side_effect_expr <-
       let l = list_expr_of_expr_list [a] p in
       dom_transform l
     }}
-  / "@"? (=deco(Parser_path.path_write)):path (=deco(larrow)) expr:e2
-    {{
-       let (path,pos) = path in
-       let path = (DBPath (path, QmlAst.Db.Ref),pos) in
-       db_write path e2
-    }}
+  / Parser_path.path_update
 
 
 (* ******************************************************************)
@@ -844,7 +839,7 @@ expr_noop_simple <-
   / record / block (* Becareful : Keep this order for keep single fields record *)
   / tuple_expr
   / binding
-  / Parser_path.query:v {{ let (p, k) = v in DBPath (p, k) }}
+  / Parser_path.path_kind:v {{ let (p, k) = v in DBPath (p, k) }}
   (* FIXME: useful? / paths_opa_expr / props_aux*)
   / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
   / Trx.ExpressionAsFunction:e {{ parser_ e }}

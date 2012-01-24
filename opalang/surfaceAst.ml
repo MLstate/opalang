@@ -141,10 +141,7 @@ and ('ident, 'dir) dbelt      = ('ident, 'dir) dbelt_node label
 and ('ident, 'dir) dbelt_node = ('ident, 'dir) preprocessed_db_element list
 
 and ('ident, 'dir) preprocessed_db_element = ('ident, 'dir) preprocessed_db_element_node label
-and ('ident, 'dir) preprocessed_db_element_node =
-  | FldKey  of string
-  | ExprKey of ('ident, 'dir) expr (* not [expr_node], because consecutive labels, but unequal positions, because of brackets *)
-  | NewKey
+and ('ident, 'dir) preprocessed_db_element_node = ('ident, 'dir) expr QmlAst.Db.path_elt
 
 (**
    {6 Pattern}

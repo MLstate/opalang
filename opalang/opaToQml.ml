@@ -505,12 +505,13 @@ struct
 
   and kind k = match k with
   | QA.Db.Update update ->
-      let rec aux_update = function
-        | QA.Db.UExpr sa -> QA.Db.UExpr (expr sa)
-        | QA.Db.UIncr _i as u -> u
-        | QA.Db.UFields fields ->
-            QA.Db.UFields (List.map (fun (f, u) -> (f, aux_update u)) fields)
-      in QA.Db.Update (aux_update update)
+      let rebuild, exprs =
+        QmlAst.Db.sub_db_update
+          Traverse.Utils.sub_current
+          Traverse.Utils.sub_ignore
+          update in
+      let exprs' = List.map expr exprs in
+      QA.Db.Update (rebuild exprs')
   | QA.Db.Default -> QA.Db.Default
   | QA.Db.Option -> QA.Db.Option
   | QA.Db.Valpath -> QA.Db.Valpath
@@ -627,11 +628,13 @@ struct
 
 
   and db_path path =
-    match path with
-    | SA.FldKey s -> QA.Db.FldKey s
-    | SA.ExprKey e -> QA.Db.ExprKey (expr e)
-    | SA.NewKey -> QA.Db.NewKey
-
+    let rebuild, exprs =
+      QmlAst.Db.sub_path_elt
+        Traverse.Utils.sub_current
+        Traverse.Utils.sub_ignore
+        path in
+    let exprs' = List.map expr exprs in
+    rebuild exprs'
 
 
   module DbConv =

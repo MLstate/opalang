@@ -173,7 +173,7 @@ type Map('key,'order) =
         rev_fold: ('key,'val,'acc -> 'acc), ordered_map('key,'val,'order), 'acc -> 'acc
 
         filter_map : (('value -> option('new_value)), ordered_map('key, 'value, 'order) -> ordered_map('key, 'new_value, 'order))
-        
+
      /**
       * Change all values of the map
       * by applying a change function to all values stored in the map

@@ -248,7 +248,16 @@ struct
                  List.fold_left_map_stable
                    (fun acc db_elt ->
                       foldmap_1_stable
-                        (fun acc -> function
+                        (fun acc elt ->
+                           let rebuild, exprs =
+                             QmlAst.Db.sub_path_elt
+                               Traverse.Utils.sub_current
+                               Traverse.Utils.sub_ignore
+                               elt in
+                           let acc, exprs' = List.fold_left_map_stable tra acc exprs in
+                           acc, rebuild exprs'
+                        )
+                        (*fun acc -> function
                            | FldKey _
                            | NewKey as v -> acc, v
                            | ExprKey e as v ->
@@ -256,7 +265,7 @@ struct
                                acc,
                                if e == e' then v else
                                  ExprKey e'
-                        ) acc db_elt
+                        *) acc db_elt
                    ) acc node
               ) acc dbelt in
           acc,

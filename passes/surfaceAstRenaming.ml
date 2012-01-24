@@ -1226,29 +1226,17 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
       f_env, Directive d
 
 and f_kind all_env hierar kind =
-  match kind with
-  | QmlAst.Db.Default
-  | QmlAst.Db.Option
-  | QmlAst.Db.Valpath
-  | QmlAst.Db.Ref as e -> (all_env.f, e)
-  | QmlAst.Db.Update u ->
-      let rec update f_env hierar u =
-        match u with
-        | QmlAst.Db.UExpr e ->
-            let f_env, e = f_expr all_env hierar e in
-            f_env, QmlAst.Db.UExpr e
-        | QmlAst.Db.UIncr _i as u -> f_env, u
-        | QmlAst.Db.UFields fields ->
-            let f_env, fields =
-              List.fold_left_map
-                (fun f_env (f,u) ->
-                   let f_env, u = update f_env hierar u in
-                   f_env, (f, u))
-                f_env fields
-            in f_env, QmlAst.Db.UFields fields
-      in
-      let f_env, u = update all_env.f hierar u in
-      f_env, QmlAst.Db.Update u
+  let rebuild, exprs =
+    QmlAst.Db.sub_db_kind
+      Traverse.Utils.sub_current
+      Traverse.Utils.sub_ignore
+      kind in
+  let f_expr all_env expr =
+    let (f, expr) = f_expr all_env hierar expr in
+    {all_env with f}, expr
+  in
+  let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
+  all_env.f, rebuild exprs'
 
 
 and update_all_env_with str ident e all_env =
@@ -1324,12 +1312,18 @@ and f_preprocessed_db_element all_env hierar (e, label) =
   let f_env, e = f_preprocessed_db_element_node all_env hierar e in
   f_env, (e, label)
 
-and f_preprocessed_db_element_node all_env hierar = function
-  | NewKey
-  | FldKey _ as v -> all_env.f, v
-  | ExprKey e ->
-      let f_env, e = f_expr all_env hierar e in
-      f_env, ExprKey e
+and f_preprocessed_db_element_node all_env hierar elt =
+  let rebuild, exprs =
+    QmlAst.Db.sub_path_elt
+      Traverse.Utils.sub_current
+      Traverse.Utils.sub_ignore
+      elt in
+  let f_expr all_env expr =
+    let (f, expr) = f_expr all_env hierar expr in
+    {all_env with f}, expr
+  in
+  let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
+  all_env.f, rebuild exprs'
 
 and f_expr_list all_env hierar el =
   f_list_aux f_expr all_env hierar el

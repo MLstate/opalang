@@ -497,11 +497,8 @@ just_se_expr <-
 just_top_expr <-
              / just_se_expr
 
-             / expr0:e1 write_expr?:e2 (* e1 <- e2 => e1 <- e2 normal expr + dbpath write *)
-               {{
-                 match e2 with
-                 | Some e2 -> db_write e1 e2
-                 | None -> undecorate e1
+             / expr0:e1
+               {{ undecorate e1
                }}
 
 just_expr0 <- expr1:e (=exact_symbol("%"))?:o
@@ -550,7 +547,7 @@ just_expr10 <-
        / match
        / lambda
        / letin
-       / Parser_path.query:v {{ let (path,access_kind) = v in DBPath (path, access_kind)}}
+       / Parser_path.path_kind:v {{ let (path,access_kind) = v in DBPath (path, access_kind)}}
        (* FIXME: useful? / paths_opa_expr / props_aux*)
        / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
        / Trx.ExpressionAsFunction:e {{ parser_ e }}
@@ -987,6 +984,8 @@ just_record <- tilda:tilda lbrace record_fields:f rbrace {{
 record_fields_separator <- separator
 
 record_fields_assign <- assign
+
+record_long_ident <- long_ident
 
 extend_record_element <-
    / long_binding:b {{ `binding b }}

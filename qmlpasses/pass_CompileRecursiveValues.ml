@@ -85,6 +85,7 @@ let is_a_val_binding idents (_i, e) =
   let rec is_a_val = function
     | Q.Lambda _ -> None
     | Q.Directive (_, `recval, [e], _) ->
+        (* TODO *)
         (* checking that you don't put a val rec on a function *)
         (try match is_a_val e with
          | None ->

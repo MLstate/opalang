@@ -103,6 +103,6 @@ DbSet = {{
   /**
    * [DbSet.fold(dbset, acc, folder)] Fold on a [dbset].
    */
-  fold = %%badoplink_fold_dbset%% : dbset('a), 'acc, ('acc, 'a -> 'acc) -> 'acc
+  fold = %%badoplink_fold_dbset%% : 'acc, dbset('a), ('acc, 'a -> 'acc) -> 'acc
 
 }}

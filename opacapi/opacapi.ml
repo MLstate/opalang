@@ -150,6 +150,7 @@ struct
   let opa2doc = !! "opa2doc"
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"
+  let to_map = !! "to_map"
 end
 
 module Opa2Js =

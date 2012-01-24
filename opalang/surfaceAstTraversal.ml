@@ -126,10 +126,7 @@ struct
   let sub_record_node l = sub_list (sub_2 sub_ignore sub_e) l
   let sub_record r = unannot sub_record_node r
   let sub_pattern x = sub_ignore x
-  let sub_db_elt = function
-    | FldKey _
-    | NewKey as v -> sub_ignore v
-    | ExprKey e -> wrap (fun x -> ExprKey x) (sub_e e)
+  let sub_db_elt x = QmlAst.Db.sub_path_elt sub_e sub_ty x
 
   let sub_db_def x = QmlAst.Db.sub_db_def sub_e sub_ty x
 

@@ -454,8 +454,8 @@ let rec partial_match partial keylist =
 ##register [opacapi;restricted:dbgen,cps-bypass] set_dbset_keys : dbset('a), db_partial_key, continuation(dbset('a)) -> void
 let set_dbset_keys dbset keys k = { dbset with keys = Array.of_list keys } |> k
 
-##register[cps-bypass] fold_dbset : dbset('a), 'acc, ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
-let fold_dbset dbset acc folder k =
+##register[cps-bypass] fold_dbset : 'acc, dbset('a), ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
+let fold_dbset acc dbset folder k =
   let tr = dbset.transaction in
   tr.tr_engine.E.read tr.tr dbset.path (Badop.Children (D.query (None, 0))) @>
     function
