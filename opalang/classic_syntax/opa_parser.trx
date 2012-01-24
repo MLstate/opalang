@@ -477,12 +477,6 @@ let ident_careful_deco rule = (=careful_deco(rule)):t {{let (i,label) = t in (Id
    {7 The different levels of expressions }
 *)
 
-/** db path write destination **/
-db_path_write <- (=deco(Parser_path.path_write)):pa
-{{
-  let (path,pos) = pa in (DBPath (path,QmlAst.Db.Ref),pos)
-}}
-
 /** db path write **/
 write_expr <- (=deco(larrow)):p expr0:e2 {{ e2 }}
 
@@ -490,20 +484,23 @@ write_expr <- (=deco(larrow)):p expr0:e2 {{ e2 }}
 se_expr = deco just_se_expr;
 
 just_se_expr <-
-             (* on dom *)
-             / pos:p Action.action:a
-               {{
-                 let l = list_expr_of_expr_list [a] p in
-                 dom_transform l
-               }}
-             (* dbpath write *)
-             / db_path_write:e1 write_expr:e2 {{ db_write e1 e2 }}
+  (* on dom *)
+  / pos:p Action.action:a
+  {{
+     let l = list_expr_of_expr_list [a] p in
+     dom_transform l
+   }}
+  (* dbpath write *)
+  / pos:p Parser_path.path_write:pa write_expr:e2
+  {{
+     DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e2))
+  }}
 
 /** top expr **/
 just_top_expr <-
              / just_se_expr
 
-             / expr0:e1 write_expr?:e2 (* normal expr + dbpath write *)
+             / expr0:e1 write_expr?:e2 (* e1 <- e2 => e1 <- e2 normal expr + dbpath write *)
                {{
                  match e2 with
                  | Some e2 -> db_write e1 e2
