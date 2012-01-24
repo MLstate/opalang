@@ -73,6 +73,7 @@ module String = BaseString
 
 (* shorthands *)
 module Q = QmlAst
+module Db = QmlAst.Db
 
 (* -- *)
 
@@ -436,9 +437,9 @@ object (self)
     pp f "@[<2>%a ->@ %a@]" self#pat p self#expr e
   method path_elt f =
     function
-    | Q.FldKey (s) -> pp f "/%s" s
-    | Q.ExprKey e -> pp f "[@[<hv>%a@]]" self#reset#expr e
-    | Q.NewKey -> pp f "[?]"
+    | Db.FldKey (s) -> pp f "/%s" s
+    | Db.ExprKey e -> pp f "[@[<hv>%a@]]" self#reset#expr e
+    | Db.NewKey -> pp f "[?]"
 
   (*---------------------*)
   (*---- code printer ---*)

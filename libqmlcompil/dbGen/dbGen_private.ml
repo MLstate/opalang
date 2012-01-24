@@ -35,6 +35,8 @@ module H = DbGenHelpers
 module AnnotTable = H.AnnotTable
 module ExprIdent = Ident
 module QC = QmlAstCons.UntypedExpr
+module V = Schema_private.V
+module E = Schema_private.E
 module SchemaGraph = SchemaGraphLib.SchemaGraph
 module SchemaGraph0 = SchemaGraphLib.SchemaGraph0
 
@@ -80,12 +82,57 @@ let db_internal_keylist = [3] (* for the licencing hacks; temporarily unused *)
 let config_keys = [`schema, 0; `version, -1]
 let (@:) a b = H.(@:) a b
 
+module Default = struct
+
+  let rec expr_aux sch n =
+    H.copy_expr (H.newexpr_annot (expr_for_def sch n) (SchemaGraphLib.type_of_node n))
+
+  and expr_for_def sch n =
+    let ty = SchemaGraphLib.type_of_node n in
+    let _ =
+      let pos = QmlError.Context.get_pos ((V.label n).C.context) in
+      H.start_built_pos pos in
+    let r =
+      match (V.label n).C.default with
+      | Some e -> e
+      | None ->
+          if Schema_private.has_dflt_in_parents sch n then
+            let e = SchemaGraphLib.get_parent_edge sch n in
+            H.make_dot ~ty (expr_aux sch (E.src e)) (SchemaGraphLib.fieldname_of_edge e)
+          else
+            match (V.label n).C.nlabel with
+            | C.Multi -> (match SchemaGraphLib.multi_key sch n with
+                          | C.Kint -> assert false
+                          | C.Kstring -> assert false
+                          | C.Kfields _ -> H.make_record ["empty", H.make_record []]
+                              (* TODO - ... *))
+            | C.Hidden -> expr_aux sch (SchemaGraph.unique_next sch n)
+            | C.Sum -> H.convert_case_to_sum ty (expr_aux sch (E.dst (Schema_private.find_nonrec_child_edge sch n)))
+            | C.Product ->
+                H.newexpr_annot
+                  (QC.record
+                     (List.map (fun e -> SchemaGraphLib.fieldname_of_edge e, expr_aux sch (E.dst e)) (SchemaGraph0.succ_e sch n)))
+                  ty
+            | C.Leaf C.Leaf_int -> H.const_int 0
+            | C.Leaf C.Leaf_text -> H.const_string ""
+            | C.Leaf C.Leaf_binary -> H.const_string ""
+            | C.Leaf C.Leaf_float -> H.newexpr_annot (QC.const (Q.Float 0.)) ty
+    in H.end_built_pos ();
+    r
+
+  let expr annotmap sch n =
+    let () = H.AnnotTable.open_table ~annotmap:(Some annotmap) () in
+    let e = expr_aux sch n in
+    (match H.AnnotTable.close_table () with
+     | None -> assert false
+     | Some a -> a, e)
+
+end
+
 module CodeGenerator ( Arg : DbGenByPass.S ) = struct
   (* aliases *)
   module Helpers_gen = H.Helpers_gen (Arg)
   module Bypass = Helpers_gen.Bypass
-  module V = Schema_private.V
-  module E = Schema_private.E
   module Db = Schema_private.Db
 
   let typath = Helpers_gen.typath
@@ -1182,10 +1229,10 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     in
     let label = Annot.nolabel "DbGen_private.gen_node_accessors" in
     let init_decl = Q.NewVal (label, [ H.new_ident "_", register_db_init ]) in
-    let gamma =
-      QmlTypes.Env.Ident.add
-        db_ident (QmlTypes.Scheme.quantify (C.tydb ())) gamma
-    in
+    (* let gamma = *)
+    (*   QmlTypes.Env.Ident.add *)
+    (*     db_ident (QmlTypes.Scheme.quantify (C.tydb ())) gamma *)
+    (* in *)
     let gamma =
       QmlTypes.Env.Ident.add
         db_diff_id (QmlTypes.Scheme.quantify (tydiff ())) gamma
@@ -1276,7 +1323,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
          gamma, Q.NewVal (label, [dec])
       ) gamma [dec1; dec2; dec3]
 
-  let initialize ?(annotmap=None) ?(valinitial_env=Arg.ValInitial.empty) sch =
+  let initialize ?(annotmap=None) ?(valinitial_env=Arg.ValInitial.empty) gamma sch =
     let number_of_dbs = StringListMap.size sch in
     let _ = AnnotTable.open_table ~annotmap () in
     let _ =
@@ -1286,7 +1333,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     in
     if number_of_dbs = 0 then
       let _ = R.save StringListMap.empty in
-      (StringListMap.empty, QmlTypes.Env.empty, AnnotTable.close_table (), [], [])
+      (StringListMap.empty, gamma, AnnotTable.close_table (), [], [])
     else try
       (* engine defs need to be put before for options parsing *)
       let dbinfo_map, gamma, engine_defs, db_defs, defs, idents_to_store =
@@ -1297,19 +1344,12 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           let engine = C.engine_opt db_def.Schema_private.options in
           let engine_id =
             H.new_ident (Printf.sprintf "engine_%s"
-                         (Option.default_map ""
-                            ExprIdent.original_name db_def.Schema_private.ident))
+                         (ExprIdent.original_name db_def.Schema_private.ident))
           in
-          let engine_expr,engine_type = gen_engine engine db_def.Schema_private.ident ~is_multi:(number_of_dbs > 1) in
+          let engine_expr,engine_type = gen_engine engine (Some db_def.Schema_private.ident) ~is_multi:(number_of_dbs > 1) in
           let db_diff_name = String.concat "_" ("db_diff" :: point) in
           let db_diff_id = H.new_ident db_diff_name in
-          let db_ident =
-            match db_def.Schema_private.ident with
-            | Some id -> id
-            | None ->
-                let db_name = String.concat "_" ("_inaccessible_db_ident" :: point) in
-                H.new_ident db_name
-          in
+          let db_ident = db_def.Schema_private.ident in
           let new_map, gamma, engine_defs, db_decls, more_defs, idents_to_store =
             if ObjectFiles.compilation_mode() = `init
             then
@@ -1360,7 +1400,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           in
           (new_map, gamma, engine_defs, db_defs @ db_decls, defs @ more_defs, idents_to_store)
         in
-        let init = StringListMap.empty, QmlTypes.Env.empty, [], [], [], StringListMap.empty in
+        let init = StringListMap.empty, gamma, [], [], [], StringListMap.empty in
         StringListMap.fold setup_dbs sch init
       in
       let check_args =
@@ -1438,7 +1478,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         | [], _ ->
             accpath, wr_expr, node
         | k::_, C.Sum ->
-            let e = SchemaGraphLib.find_field_edge sch node (match k with Q.FldKey f -> f | _ -> assert false) in
+            let e = SchemaGraphLib.find_field_edge sch node (match k with Db.FldKey f -> f | _ -> assert false) in
             let e_num_expr() = dbinfo.edge_num_expr e in
             let wr_expr =
               let tr2 = H.new_ident "tr" and tr3 = H.new_ident "tr" in
@@ -1463,19 +1503,19 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             let accpath = dbpath_add accpath (key_int (e_num_expr())) in
             aux (accpath, wr_expr) (E.dst e) path
         (* Cases consuming the key *)
-        | (Q.ExprKey (Q.Coerce (_, e, Q.TypeConst ty)))::subpath, C.Multi ->
+        | (Db.ExprKey (Q.Coerce (_, e, Q.TypeConst ty)))::subpath, C.Multi ->
             let nextnode = SchemaGraph.unique_next sch node in
             let k () = match ty with Q.TyInt -> key_int e | Q.TyString -> key_string e | _ -> assert false in
             let wr_expr = write_link_if_necessary wr_expr accpath (SchemaGraph.out_edge sch node) (k()) in
             aux (dbpath_add accpath (k()), wr_expr) nextnode subpath
-        | (Q.ExprKey (Q.Coerce (_, e, Q.TypeRecord (Q.TyRow(l_fields,_)))))::subpath, C.Multi ->
+        | (Db.ExprKey (Q.Coerce (_, e, Q.TypeRecord (Q.TyRow(l_fields,_)))))::subpath, C.Multi ->
             let nextnode = SchemaGraph.unique_next sch node in
             let k () = key_list gamma l_fields e in
             let wr_expr = write_link_if_necessary wr_expr accpath (SchemaGraph.out_edge sch node) (k()) in
             aux (dbpath_add accpath (k()), wr_expr) nextnode subpath
-        | (Q.ExprKey (Q.Coerce _))::_, C.Multi -> error "this type of key is not handled in paths yet"
-        | (Q.ExprKey _)::_, C.Multi -> error "Uncoerced key found in path. Did you preprocess ?"
-        | Q.NewKey::subpath, C.Multi ->
+        | (Db.ExprKey (Q.Coerce _))::_, C.Multi -> error "this type of key is not handled in paths yet"
+        | (Db.ExprKey _)::_, C.Multi -> error "Uncoerced key found in path. Did you preprocess ?"
+        | Db.NewKey::subpath, C.Multi ->
             assert (SchemaGraphLib.multi_key sch node = C.Kint);
             let nextnode = SchemaGraph.unique_next sch node in
             let pathid = H.new_ident "path" in
@@ -1483,14 +1523,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               H.make_letin (pathid, accpath)
                 (dbpath_add (pathid @: (typath())) (magic_newkey_expr dbinfo (pathid @: (typath())))) in
             aux (accpath, wr_expr) nextnode subpath
-        | (Q.FldKey s)::subpath, C.Product ->
+        | (Db.FldKey s)::subpath, C.Product ->
             let edge = SchemaGraphLib.find_field_edge sch node s in
             let k () = key_int (dbinfo.edge_num_expr edge) in
             let wr_expr = write_link_if_necessary wr_expr accpath edge (k()) in
             aux
               (dbpath_add accpath (k()), wr_expr)
               (E.dst edge) subpath
-        | (Q.ExprKey _)::_, C.Product -> error "Unhandled sugar in path"
+        | (Db.ExprKey _)::_, C.Product -> error "Unhandled sugar in path"
         | _, _ -> assert false (* inconsistency in path wrt to schema *)
     in
     let res, writer, _node =
@@ -1527,8 +1567,8 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               fun_id, access_fun ]
             (H.apply_lambda' (Bypass.get_val_path ty)
                [tr @: (tytrans()); pathid @: (typath()); fun_id @: H.type_from_annot access_fun])
-      | Db.Ref ->
-          assert false
+      | Db.Ref -> assert false
+      | Db.Update _ -> assert false
 
 
   let get_path_expr ?transget sch dbinfo gamma node path kind =
@@ -1588,11 +1628,11 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         let record_key = H.new_ident "record_key" in
         let path, record =
           let rec aux acc = function
-            | [Q.ExprKey record] ->
+            | [Db.ExprKey record] ->
                 let ty = H.type_from_annot record in
                 let rk = record_key @: ty in
                 let rk = H.make_coerce ~ty rk in
-                let rpath = (Q.ExprKey rk)::acc in
+                let rpath = (Db.ExprKey rk)::acc in
                 (List.rev rpath), record
             | t::q -> aux (t::acc) q
             | _ -> assert false
@@ -1635,6 +1675,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
 
     | Db.Option | Db.Default ->
         get_path_expr sch dbinfo gamma node path kind
+    | _ -> assert false (* TODO - ... *)
 
   let create_partial_key sch node fields record =
     match SchemaGraphLib.multi_key sch node with
@@ -1739,6 +1780,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         let make_virt_path = Helpers_gen.expr_make_virtual_ref data_ty data_ty wty in
         let virt_path = H.apply_lambda' make_virt_path [ref_path; read; write] in
         virt_path
+    | _ -> assert false (* TODO - ... *)
     )
 
   let make_virtualpath sch dbinfo gamma node path kind ihandler rty wty =
@@ -1768,6 +1810,16 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         let write = H.make_dot handler "write" in
         let make_virt_path = Helpers_gen.expr_make_virtual_ref realty rty wty in
         H.apply_lambda' make_virt_path [e; read; write]
+    | _ -> assert false (* TODO - ... *)
+
+  let make_update_path ~context sch dbinfo gamma node path update =
+    ignore (context);
+    match update with
+    | Db.UExpr expr ->
+        let rpath = make_ref_path sch dbinfo gamma node path in
+        let dbwrite = Helpers_gen.expr_write node.C.ty in
+        H.apply_lambda' dbwrite [rpath; expr]
+    (* | _ -> QmlError.error context "This update operation was not yet handled by db3 generator" *)
 
   let get_expr ~context t dbinfo_map gamma path kind =
     let _ =
@@ -1780,13 +1832,21 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     | `virtualset (_, wty, false, _) ->
         make_virtualset_fullpath db_def.Schema_private.schema dbinfo gamma node path kind wty
     | `virtualset (_, wty, true, record) ->
+        let record = match record with
+        | Some record -> record
+        | None -> assert false
+        in
         make_virtualset_partialpath db_def.Schema_private.schema dbinfo gamma node path kind wty record
     | `virtualpath (ident, rty, wty) ->
         make_virtualpath db_def.Schema_private.schema dbinfo gamma node path kind ident rty wty
     | `realpath ->
         match kind with
-        | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
-        | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
+        | Db.Ref ->
+            make_ref_path db_def.Schema_private.schema dbinfo gamma node path
+        | Db.Update update ->
+            make_update_path ~context db_def.Schema_private.schema dbinfo gamma node path update
+        | _ ->
+            get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
     in H.end_built_pos (); r
 end
 
@@ -1830,9 +1890,7 @@ module DatabaseAccess ( Arg : DbGenByPass.S ) = struct
     (* ugly hack alpha converting db idents ... will be removed *)
     let refresh_db_id =
       let fold_fun _point db_def acc =
-        match db_def.Schema_private.ident with
-        | None -> acc
-        | Some id -> (id, Ident.refresh id)::acc
+        let id = db_def.Schema_private.ident in (id, Ident.refresh id)::acc
       in
       let db_idents = StringListMap.fold fold_fun t [] in
       fun id -> try List.assoc id db_idents with Not_found -> id

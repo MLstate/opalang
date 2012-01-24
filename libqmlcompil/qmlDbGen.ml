@@ -21,6 +21,12 @@
 
 module Arg = Base.Arg
 
+module Graph = SchemaGraphLib.SchemaGraph.SchemaGraph0
+
+module DbAst = QmlAst.Db
+
+module C = DbGen_common
+
 type engine = Db3 | Mongo
 
 module Args = struct
@@ -54,7 +60,58 @@ let settyp = DbGen_common.settyp
 
 module Sch = Schema_private
 module Schema = struct
+
   type t = Sch.meta_schema
+
+  type database = {
+    name : string;
+    ident : Ident.t;
+    package : ObjectFiles.package_name;
+  }
+
+  type node = {
+    ty : QmlAst.ty;
+    kind : node_kind;
+    database : database;
+    default : QmlAst.expr;
+  }
+
+  and node_kind =
+    | Compose of (string * string list) list
+    | Plain
+    | Partial of string list * string list
+    | SetAccess of string list * bool * query
+
+  and query =
+    | Empty
+    | Expr of QmlAst.expr
+
+  let pp_query fmt e =
+    match e with
+    | Empty -> Format.fprintf fmt "empty"
+    | Expr e -> Format.fprintf fmt "{%a}" QmlPrint.pp#expr e
+
+
+  let pp_kind fmt kind =
+    let pp_path fmt p =
+      List.iter (Format.fprintf fmt "/%s") p;
+      Format.fprintf fmt "/";
+    in
+    match kind with
+    | Plain -> Format.fprintf fmt "plain"
+    | Partial (p0, p1) -> Format.fprintf fmt "partial (%a, %a)" pp_path p0 pp_path p1
+    | Compose _ -> Format.fprintf fmt "cmp (...)"
+    | SetAccess (path, full, query) ->
+        Format.fprintf fmt "@[<hov>%s access to %a with %a@]"
+          (if full then "full" else "partial")
+          pp_path path
+          pp_query query
+
+  let pp_node fmt node =
+    Format.fprintf fmt "{@[<hov>type : %a; kind : %a; ...@]}"
+      QmlPrint.pp#ty node.ty
+      pp_kind node.kind
+
   let mapi = Sch.mapi
   let initial = Sch.initial
   let is_empty = Sch.is_empty_or_unused
@@ -76,7 +133,8 @@ module Schema = struct
   let foldmap_expr = Sch.foldmap_expr
   let from_gml s =
     StringListMap.singleton []
-      ({ Sch.ident = None;
+      ({ Sch.ident = Ident.next "dummy_from_gml";
+         Sch.context = QmlError.Context.pos (FilePos.nopos "built from gml");
          Sch.path_aliases = [];
          Sch.options = [];
          Sch.schema = Schema_io.from_gml_string s;
@@ -96,7 +154,7 @@ module Schema = struct
     else
       StringListMap.min (* may raise Not_found *)
         (StringListMap.filter_val
-           (fun db_def -> db_ident_opt = Option.map Ident.original_name db_def.Sch.ident)
+           (fun db_def -> db_ident_opt = Some (Ident.original_name db_def.Sch.ident))
            t)
   let db_to_dot t db_ident_opt chan =
     let _, db_def = find_db_def t db_ident_opt in
@@ -104,6 +162,132 @@ module Schema = struct
   let db_to_gml t db_ident_opt chan =
     let _, db_def = find_db_def t db_ident_opt in
     Schema_io.to_gml db_def.Sch.schema chan
+
+  let get_db_declaration = Sch.get_db_declaration
+
+  let db_declaration = Sch.db_declaration
+
+  let get_database schema name =
+    let declaration = StringListMap.find [name] schema in
+    {
+      name;
+      ident = declaration.Sch.ident;
+      package = "todo" (*TODO*);
+    }
+
+  exception Vertex of Graph.vertex
+
+  let get_root schema = try
+    Graph.iter_vertex (fun v -> if SchemaGraphLib.is_root v then (raise (Vertex v))) schema;
+    OManager.i_error "Don't find the root node on database schema";
+  with Vertex v -> v
+
+
+  (** Get the next node on given [schema] according to the path
+      [fragment]. *)
+  let rec next schema node fragment =
+    let can_succ e =
+      match (fragment, e.C.label) with
+      | (DbAst.FldKey s0, C.Field (s1, _)) when s0 = s1 -> true
+      | (DbAst.FldKey _s0, _) -> false
+      | (DbAst.ExprKey _, C.Multi_edge _) -> true
+      | _ -> assert false (* TODO *)
+    in
+    let v = match (Graph.V.label node).C.nlabel with
+    | C.Sum ->
+        Graph.fold_succ
+          (fun node acc -> try
+             let e = next schema node fragment in
+             match acc with
+             | None -> Some e
+             | Some _ -> assert false
+           with Not_found -> acc)
+          schema node None
+    | _ ->
+        let edge = Graph.fold_succ_e
+          (fun edge ->
+             let (_, e, _) = edge in
+             function
+               | None when can_succ e -> Some edge
+               | Some _ when can_succ e -> assert false
+               | x -> x
+          ) schema node None
+        in Option.map Graph.E.dst edge
+    in
+    match v with
+    | None -> raise Not_found
+    | Some v -> (v : Graph.vertex)
+
+  let get_node annotmap (schema:t) path =
+    let dbname, path= match path with
+    | DbAst.FldKey k::path -> k, path
+    | _ -> assert false (* TODO *)
+    in
+    let declaration = StringListMap.find [dbname] schema in
+    let database = get_database schema dbname in
+    let f (node, kind, path) fragment =
+      let next = next declaration.Sch.schema node fragment in
+      match fragment with
+      | DbAst.ExprKey expr ->
+          let kind =
+            match kind with
+            | Compose _ -> SetAccess (path, false, Expr expr)
+            | _ -> assert false
+          in (next, kind, path)
+
+      | DbAst.FldKey key ->
+          let kind =
+            let nlabel = Graph.V.label next in
+            match nlabel.C.nlabel with
+            | C.Multi -> SetAccess (key::path, true, Empty)
+            | _ -> match kind, nlabel.C.plain with
+              | Compose _, true -> Plain
+              | Partial (path, part), false -> Partial (path, key::part)
+              | Plain, false -> Partial (path, key::[])
+              | Compose c, false -> Compose c
+              | Partial _, true -> assert false
+              | Plain, true -> assert false
+              | _, _ -> assert false
+          in let path = key::path
+          in (next, kind, path)
+      | _ -> assert false
+    in
+    let (node, kind, _path) =
+      List.fold_left f (get_root declaration.Sch.schema, Compose [], []) path in
+    let kind =
+      match kind with
+      | Compose _ -> (
+          match (Graph.V.label node).C.nlabel with
+          | C.Product ->
+              let path = List.map
+                (function
+                   | DbAst.FldKey k -> k
+                   | _ -> assert false) path in
+              Compose (List.map
+                         (fun edge ->
+                            let sname = SchemaGraphLib.fieldname_of_edge edge
+                            in sname, dbname::path @ [sname])
+                         (Graph.succ_e declaration.Sch.schema node)
+                      )
+          | _ -> assert false
+        )
+      | Partial (path, part) ->
+          Partial (List.rev path, List.rev part)
+      | SetAccess (path, full, query) ->
+          SetAccess (List.rev path, full, query)
+      | Plain -> Plain
+    in
+    let (annotmap, default) =
+      DbGen_private.Default.expr
+        annotmap
+        declaration.Sch.schema
+        node
+    in
+    annotmap,
+    {
+      database; kind; default;
+      ty = node.DbGen_common.ty;
+    }
 
   module HacksForPositions = Sch.HacksForPositions
 end
@@ -118,6 +302,7 @@ module DbGen ( Arg : DbGenByPass.S ) = struct
 
   module Access = DbGen_private.DatabaseAccess (Arg)
   let initialize = Access.initialize
+
   let replace_path_exprs = Access.replace_path_exprs
   let replace_path_code_elt = Access.replace_path_code_elt
   let replace_path_ast = Access.replace_path_ast

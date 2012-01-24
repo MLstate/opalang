@@ -277,7 +277,7 @@ let rec expr t e =
     | Q.ExtendRecord (label, f, e, n) -> Q.ExtendRecord (label, f, expr t e, expr t n)
     | (Q.Bypass _) as by -> by
     | Q.Coerce (label, e, ty) -> Q.Coerce (label, expr t e, ty)
-    | Q.Path (label, p,h) -> Q.Path (label, List.map (function Q.ExprKey e -> Q.ExprKey (expr t e) | k -> k) p, h)
+    | Q.Path (label, p,h) -> Q.Path (label, List.map (function Q.Db.ExprKey e -> Q.Db.ExprKey (expr t e) | k -> k) p, h)
 
     | Q.Directive (_, `backend_ident _,_,_) as e ->
         (* not going inside `backend_ident, because it does contain

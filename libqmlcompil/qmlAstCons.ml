@@ -609,7 +609,8 @@ struct
      Mikolaj says: Internal errors are OK for me, this really shoudn't happen.
   *)
 
-  let apply_gen gamma annotmap ~partial func params =
+  let apply_gen gamma annotmap ~partial ?ty func params =
+    let tyres = ty in
     let params_len = List.length params in
     let label = Q.Label.expr func in
     let pos = Annot.pos label in
@@ -619,6 +620,7 @@ struct
       let ty_func = ty_of_typename_no_loop gamma ty_func in
       match ty_func with
       | Q.TypeArrow (tparams, ty) ->
+          let ty = Option.default ty tyres in
           let arity = List.length tparams in
           if partial then (
             let tparams, ty =

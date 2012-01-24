@@ -333,7 +333,11 @@ sig
   (** Appends the definition in g2 to those of g1 *)
   val append : gamma -> gamma -> gamma
 
-  (** with let type in, gamma can be updated with abstract type *)
+  (** Appends the definition in g2 to those of g1, in conflicts case
+      use definition of g2. *)
+  val unsafe_append : gamma -> gamma -> gamma
+
+(** with let type in, gamma can be updated with abstract type *)
   (** in fact, this module should not be here because it is possibly used
       by the typers only, typing such expr :
 

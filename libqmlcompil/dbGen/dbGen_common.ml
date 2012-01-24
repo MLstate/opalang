@@ -55,6 +55,7 @@ type schema_node = {
   default : QmlAst.expr option;
   constraints : QmlAst.expr QmlAst.Db.db_constraint list;
   context : QmlError.context;
+  plain : bool;
 }
 
 let settyp, typ =

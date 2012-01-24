@@ -465,6 +465,8 @@ struct
   let id_some () = Arg.ValInitial.some !valinitial_env_ref
   let expr_some ty = id_expr (Arg.ValInitial.some !valinitial_env_ref) (tyfun [ty; typeoption ty])
 
+  let expr_dbset_empty ty =
+    id_expr (Arg.ValInitial.dbset_empty !valinitial_env_ref) ty
   let expr_intmap_empty ty =
     id_expr (Arg.ValInitial.intmap_empty !valinitial_env_ref) ty
   let expr_stringmap_empty ty =
@@ -492,6 +494,10 @@ struct
               tyfun [real_ty; vread_ty];
               tyfun [vwrite_ty; real_ty];
               DbGen_common.virtual_ref_path_ty vread_ty vwrite_ty])
+
+  let expr_write ty =
+    id_expr (Arg.ValInitial.write !valinitial_env_ref)
+      (tyfun [DbGen_common.ref_path_ty ty; ty; tyunit])
 
   (* Also used above: type-identifier option and field labels "some", "none" *)
 

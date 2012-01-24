@@ -261,9 +261,9 @@ let get_expr_dep_context ?filter e =
              let acc = Option.if_none filter (add_database acc) acc in
              (* taking the first elt of the path *)
              match List.hd dbelt with
-             | Q.FldKey s -> Option.if_none filter (add_root s acc) acc
-             | Q.NewKey
-             | Q.ExprKey _ ->
+             | Q.Db.FldKey s -> Option.if_none filter (add_root s acc) acc
+             | Q.Db.NewKey
+             | Q.Db.ExprKey _ ->
                  (* not possible, see the parser *)
                  assert false
            )

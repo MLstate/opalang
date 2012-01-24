@@ -128,8 +128,11 @@ end
 module Db =
 struct
 
+  type 'expr update =
+    | UExpr of 'expr
+
   (** The kind of a path, ie the type of access it is *)
-  type kind =
+  type 'expr kind =
     | Option
         (** Check if the path exists in the database, and return the lazy-read as
             option if it does. Errors while reading are still filled with
@@ -142,6 +145,7 @@ struct
     | Ref
         (** No operation is done, just build a pointer to the database.  used for
             operations on paths (like writes) *)
+    | Update of 'expr update
 
   (** The paths as specified in definitions (eg. with possible definition of keys) *)
   type path_decl_key =
@@ -155,6 +159,13 @@ struct
         (** Declares a set with unicity determined by list of keys
             (empty means whole element) *)
   type path_decl = path_decl_key list
+
+  type 'expr path_elt =
+    | FldKey of string
+    | ExprKey of 'expr
+    | NewKey
+
+  type 'expr path = 'expr path_elt list
 
   (** The extensible type for DB definitions (the "database xxx" level 0
       directive). For now, only used to specify the data storage location (any
@@ -204,6 +215,8 @@ struct
 
   let path_kind_to_string = function
     | Default -> "" | Option -> "?" | Valpath -> "!" | Ref -> "@"
+    | Update _ -> "Update TODO"
+
   let engine_to_string opt =
     match opt with
     | `db3 s -> "@local(" ^ Option.default "" s ^ ")"
@@ -281,6 +294,18 @@ struct
         TU.wrap (fun (p,c) -> Db_Constraint (p,c)) (TU.sub_2 TU.sub_ignore (sub_db_constraint sub_e sub_ty) (p,c))
     | Db_Virtual (p,e) ->
         TU.wrap (fun (p,e) -> Db_Virtual (p,e)) (TU.sub_2 TU.sub_ignore sub_e (p,e))
+
+  let sub_db_update sub_e _sub_ty = function
+    | UExpr expr ->
+        TU.wrap (fun e -> UExpr e) (sub_e expr)
+
+  let sub_db_kind sub_e sub_ty = function
+    | Default
+    | Option
+    | Valpath
+    | Ref as e -> TU.sub_ignore e
+    | Update update ->
+        TU.wrap (fun u -> Update u) (sub_db_update sub_e sub_ty update)
 
   let foldmap_expr f acc dbdef =
     let cons, subs = sub_db_def TU.sub_current TU.sub_ignore dbdef in
@@ -934,13 +959,11 @@ and expr =
   | ExtendRecord   of Annot.label * string * expr * expr
   | Bypass         of Annot.label * BslKey.t
   | Coerce         of Annot.label * expr * ty
-  | Path           of Annot.label * dbpath_expr_elt list * Db.kind
+  | Path           of Annot.label * path * expr Db.kind
   | Directive      of Annot.label * qml_directive * expr list * ty list
 
-and dbpath_expr_elt =
-  | FldKey of string
-  | ExprKey of expr
-  | NewKey
+and path = expr Db.path
+
 (*   | Unpreprocessed of Db.element *)
 
 (** First level of qml *)

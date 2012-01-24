@@ -159,7 +159,6 @@ let process_code gamma _annotmap schema code =
       sch
     else R.fold_with_name merge schema
   in
-
   (* registering Database definitions
      The construction of the schema needs to get
      Database nodes before NewDbValue.

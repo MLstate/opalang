@@ -71,10 +71,11 @@ let process_code gamma annotmap schema code alpha_opt =
   let code_after_newdbvalue = QmlAstSort.Get.new_val sorted_code in
 
   (* 2°: generate database accessors from the schema *)
-  let dbinfo, db_gamma, annotmap_opt, dbgen_init_code, dbgen_accessors_code =
+  let dbinfo, gamma, annotmap_opt, dbgen_init_code, dbgen_accessors_code =
     DbGen.initialize
       ~annotmap:(Some annotmap)
       ~valinitial_env:alpha_opt
+      gamma
       schema
   in
 
@@ -85,14 +86,7 @@ let process_code gamma annotmap schema code alpha_opt =
          annotmap) annotmap_opt
   in
 
-  (* 4°: post-processing dbGen type information *)
-  let gamma =
-    let db_gamma = QmlTypes.process_gamma ~gamma:gamma db_gamma in
-    let gamma = QmlTypes.Env.append gamma db_gamma in
-    gamma
-  in
-
-  (* 5°: inserting dbgen code *)
+  (* 4°: inserting dbgen code *)
   let code =
     code_before_dbdecl @ dbgen_init_code
     @ code_before_newdbvalue @ dbgen_accessors_code
@@ -103,5 +97,6 @@ let process_code gamma annotmap schema code alpha_opt =
 (*   let _ = Base.jlog(Base.sprintf "saving a dbinfo of size %d" (StringListMap.size dbinfo)) in *)
 (*   let _ = R.save dbinfo in *)
 (*   let dbinfo = R.fold (StringListMap.merge QmlDbGen.merge_dbinfo) dbinfo in *)
+  List.iter (function | Q.Database _ -> assert false | _ -> ()) code;
 
   dbinfo, gamma, annotmap, code

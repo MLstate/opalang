@@ -47,10 +47,40 @@ module Schema: sig
   (** The type of the database schema. Purely functional structure *)
   type t = Schema_private.meta_schema
 
+  type database = {
+    name : string;
+    ident : Ident.t;
+    package : ObjectFiles.package_name;
+  }
+
+  type node = {
+    ty : QmlAst.ty;
+    kind : node_kind;
+    database : database;
+    default : QmlAst.expr;
+  }
+
+  and node_kind =
+    | Compose of (string * string list) list
+
+    | Plain
+
+    (** Indicates that is a sub node of a Plain node. (plain node,
+        path of the plain node, sub path from plain node) *)
+    | Partial of string list * string list
+
+    | SetAccess of string list * bool * query
+
+  (** *)
+  and query =
+    | Empty
+    | Expr of QmlAst.expr
+
+
   (** Maps the idents of the different database schemas and their respective
       options in a multi-schema *)
   val mapi:
-    (string list -> QmlAst.ident option * QmlAst.Db.options list -> QmlAst.ident option * QmlAst.Db.options list)
+    (string list -> QmlAst.ident * QmlAst.Db.options list -> QmlAst.ident * QmlAst.Db.options list)
     -> t -> t
 
   (** Initial empty schema *)
@@ -153,6 +183,14 @@ module Schema: sig
   (** Parses a schema saved in the GML format (like in the run-time db) *)
   val from_gml: string -> t
 
+  val get_db_declaration: t -> (QmlAst.ident * string * QmlAst.Db.options list) list
+
+  val db_declaration: t -> string -> QmlAst.ident * QmlAst.Db.options list
+
+  val get_node: QmlAst.annotmap -> t -> QmlAst.path -> (QmlAst.annotmap * node)
+
+  val pp_node: node BaseFormat.pprinter
+
   (**
      Hackish module, should be removed after the refactoring of positions in the AST.
   *)
@@ -186,7 +224,7 @@ module DbGen: functor  ( Arg: S ) -> sig
 
       The returned code should be put _after_ declarations of these
       identifiers and _before_ any access to the DB *)
-  val initialize: ?annotmap:(QmlAst.annotmap option) -> ?valinitial_env:(Arg.ValInitial.env) -> Schema.t -> dbinfo StringListMap.t * QmlTypes.Env.t * (QmlAst.annotmap option) * QmlAst.code * QmlAst.code
+  val initialize: ?annotmap:(QmlAst.annotmap option) -> ?valinitial_env:(Arg.ValInitial.env) -> QmlTypes.gamma -> Schema.t -> dbinfo StringListMap.t * QmlTypes.Env.t * (QmlAst.annotmap option) * QmlAst.code * QmlAst.code
 
   (** Replaces all path accesses in an expression by calls to Db3. The resulting
       expression is guaranteed not to contain any Path or Transaction.

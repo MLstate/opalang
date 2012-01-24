@@ -23,6 +23,7 @@ module List = BaseList
 (* shorthands *)
 module Q = QmlAst
 module QTV = QmlTypeVars
+module I = Ident
 
 (* aliases *)
 module TypeIdent = QmlAst.TypeIdent
@@ -509,7 +510,7 @@ struct
     let to_map gamma = gamma.ident
     let pp f gamma =
       iter (fun ident tsc ->
-              Format.fprintf f "@[<2>%s -> %a@]@\n" (Ident.to_string ident) QmlPrint.pp#tsc tsc
+              Format.fprintf f "@[<2> %s -> %a@]@\n" (try Ident.to_uniq_string ident with _ -> "erro") QmlPrint.pp#tsc tsc
            ) gamma
   end
 
@@ -653,8 +654,26 @@ struct
 
   (* Appends the definition in g2 to those of g1 *)
   let append g1 g2 =
-    let ident = IdentMap.merge (fun _ x -> x) g1.ident g2.ident in
-    let type_ident = TypeIdentMap.merge (fun _ x -> x) g1.type_ident g2.type_ident in
+    let ident = IdentMap.merge_i
+      (fun i _ _ -> OManager.i_error
+         "Duplicate ident %s (CheckDuplication should catch it before)"
+         (I.to_string i)
+      )
+      g1.ident g2.ident in
+    let type_ident = TypeIdentMap.merge_i
+      (fun i _ x ->
+         assert (BaseString.is_prefix "tuple_" (I.original_name i));
+         x
+      ) g1.type_ident g2.type_ident in
+    { ident = ident ; type_ident = type_ident ;}
+
+  let unsafe_append g1 g2 =
+    let ident = IdentMap.merge_i
+      (fun _ _ x -> x)
+      g1.ident g2.ident in
+    let type_ident = TypeIdentMap.merge_i
+      (fun _ _ x -> x)
+      g1.type_ident g2.type_ident in
     { ident = ident ; type_ident = type_ident ;}
 
 

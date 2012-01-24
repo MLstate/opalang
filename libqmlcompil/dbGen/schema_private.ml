@@ -78,8 +78,9 @@ type vertex = SchemaGraphLib.SchemaGraph0.vertex
 type edge = SchemaGraphLib.SchemaGraph0.edge
 
 type database_def = {
-  ident: Q.ident option;
-  path_aliases: (Q.dbpath_expr_elt list * Q.dbpath_expr_elt list) list;
+  ident: Q.ident;
+  context: QmlError.context;
+  path_aliases: (Q.path * Q.path) list;
   (* eg. [(/a,/b); (/alias,/deep/data)] *)
   options: Db.options list;
   schema: t;
@@ -273,7 +274,7 @@ let find_nonrec_child_edge t n =
 
 (** Given a node in the graph, an edge label and a type, adds the subgrapgh
     corresponding to that type at that point *)
-let rec add_subgraph ~context ?(boundnames = []) gamma t parent edge ty =
+let rec add_subgraph ?(is_plain = false) ~context ?(boundnames = []) gamma t parent edge ty =
   (* aux goes down from an already added, childless node *)
   let rec aux boundnames t ?ty cur_node =
     assert (0 = SchemaGraph0.out_degree t cur_node);
@@ -377,6 +378,7 @@ let rec add_subgraph ~context ?(boundnames = []) gamma t parent edge ty =
   in
 
   let t, cur_node = SchemaGraphLib.add_unknown_node ~context ~ty t parent edge in
+  let t, cur_node = SchemaGraphLib.set_node_plain t cur_node is_plain in
   aux boundnames t cur_node
 
 (* Rq: invariants de l'arbre: 1 arc C.is_main entrant et un seul pour tout noeud (sauf la racine), les arcs Field sortant sont distincts *)
@@ -433,7 +435,7 @@ let add_path ~context gamma t path0 ty =
   let rec build t n path =
     match path with
       | (Db.Decl_fld str)::[] ->
-          let t = add_subgraph ~context gamma t n (C.Field (str,0)) ty in
+          let t = add_subgraph ~is_plain:true ~context gamma t n (C.Field (str,0)) ty in
           let n =
             try SchemaGraphLib.find_raw_path ~context t root path0
             with Not_found -> failwith (SchemaGraphLib.string_path_of_node t n ^ " || " ^ Db.path_decl_to_string path) (* the node may have changed, look it up again *)
@@ -447,7 +449,7 @@ let add_path ~context gamma t path0 ty =
       | (Db.Decl_set lidx)::[] ->
           let t,n = SchemaGraphLib.set_node_label t n C.Multi in
           let t,n = SchemaGraphLib.set_node_type t n (C.tydbset ty) in
-          add_subgraph ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty
+          add_subgraph ~is_plain:true ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty
       | (Db.Decl_set [])::_path ->
           QmlError.error context
             "Path specification inside sets unhandled yet (%s)"
@@ -488,7 +490,7 @@ let apply_aliases aliases path =
   let rec skip n l = if n <= 0 then l else match l with _::r -> skip (n-1) r | [] -> [] in
   let rec max_prefix = function
     | field::rest ->
-        (match field with Q.FldKey _ -> field :: max_prefix rest | _ -> [])
+        (match field with Db.FldKey _ -> field :: max_prefix rest | _ -> [])
     | [] -> []
   in
   let rec aux pfx sfx =
@@ -541,7 +543,7 @@ let database_def_of_path_def ~context t path =
   get_database_def ~context t (function Db.Decl_fld f -> Some f | _ -> None) path
 
 let database_def_of_path_expr ~context t path =
-  let pfx, def, path = get_database_def ~context t (function Q.FldKey f -> Some f | _ -> None) path in
+  let pfx, def, path = get_database_def ~context t (function Db.FldKey f -> Some f | _ -> None) path in
   pfx, def, path
 
 let map_database_def ~context f t path =
@@ -565,7 +567,7 @@ let find_path_manydb ~context t path =
 let rec path_decl2expr ~context path =
   let map_fun elt =
     match elt with
-      | Db.Decl_fld str -> Q.FldKey str
+      | Db.Decl_fld str -> Db.FldKey str
       | _ ->
         QmlError.error context
           "Path aliases can only contain record fields."
@@ -694,7 +696,8 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
     if StringListMap.is_empty t then
       (* No database declaration found, so add the schema for the default db.
          Note that the db identifier is then not user-accessible. *)
-      StringListMap.add [] { ident = None;
+      StringListMap.add [] { ident = Ident.next "database";
+                             context;
                              path_aliases = [];
                              options = [];
                              schema = SchemaGraphLib.initial_schema ~context;
@@ -746,14 +749,16 @@ let register_db_declaration t gamma (label, ident, p, opts) =
   in
   begin match p with
   | [] ->
-      (StringListMap.add [] { ident = Some ident;
+      (StringListMap.add [] { ident = ident;
+                              context = context;
                               path_aliases = [];
                               options = opts;
                               schema = SchemaGraphLib.initial_schema ~context;
                               virtual_path = PathMap.empty;
                             } t, gamma)
   | [Db.Decl_fld point] ->
-      (StringListMap.add [point] { ident = Some ident;
+      (StringListMap.add [point] { ident = ident;
+                                   context = context;
                                    path_aliases = [];
                                    options = opts;
                                    schema = SchemaGraphLib.initial_schema ~context;
@@ -761,6 +766,21 @@ let register_db_declaration t gamma (label, ident, p, opts) =
                                  } t, gamma)
   | _ -> error "Unhandled DB definition"
   end
+
+let get_error decl msg =
+  QmlError.i_error None decl.context msg
+
+let get_db_declaration t =
+  StringListMap.fold
+    (fun name decl acc ->
+       match name with
+       | [name] -> (decl.ident, name, decl.options)::acc
+       | _ -> get_error decl "Unhandled Db definition")
+    t []
+
+let db_declaration t name =
+  let decl = StringListMap.find [name] t in
+  (decl.ident, decl.options)
 
 (** @return (new_annots_list, pppath) *)
 let rec convert_dbpath ~context t node kind path0 path =
@@ -796,7 +816,7 @@ let rec convert_dbpath ~context t node kind path0 path =
   else
     match path with
     | [] -> [],[]
-    | (Q.FldKey fld)::path -> (
+    | (Db.FldKey fld)::path -> (
         let next =
           try E.dst (SchemaGraphLib.find_field_edge t node fld)
           with Not_found | Invalid_argument _ ->
@@ -809,15 +829,18 @@ let rec convert_dbpath ~context t node kind path0 path =
         match (V.label node).C.nlabel with
         | C.Product ->
             let new_annots, epath = convert_dbpath ~context t next kind path0 path in
-            new_annots, Q.FldKey fld :: epath
+            new_annots, Db.FldKey fld :: epath
         | C.Sum ->
-            let new_annots, epath = convert_dbpath ~context t next kind path0 ((Q.FldKey fld)::path) in
-            new_annots, epath
+            (* Format.eprintf "Sum case on %a => %a\n%!" QmlPrint.pp#path (path0, kind) QmlPrint.pp#path (path, kind); *)
+            if kind <> Q.Db.Ref then
+              convert_dbpath ~context t next kind path0 ((Db.FldKey fld)::path)
+            else
+            cerror "Direct write access to a sub node of a sum node is forbidden"
         | _ ->
             invalid_entry "field" fld
         )
 
-    | (Q.ExprKey e)::path ->
+    | (Db.ExprKey e)::path ->
         let _ = match (V.label node).C.nlabel with C.Multi -> ()
           | _ ->
               invalid_entry "key" (Format.to_string QmlPrint.pp#expr e)
@@ -835,18 +858,18 @@ let rec convert_dbpath ~context t node kind path0 path =
               let e' = QmlAstCons.UntypedExpr.coerce e keytyp in
               [Q.QAnnot.expr e'], e' in
         let new_annots', epath = convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path in
-        new_annots @ new_annots', Q.ExprKey e :: epath
+        new_annots @ new_annots', Db.ExprKey e :: epath
 
-    | Q.NewKey::path ->
+    | Db.NewKey::path ->
         assert (SchemaGraphLib.multi_key t node = C.Kint);
         let new_annots, epath = convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path in
-        new_annots, Q.NewKey :: epath
+        new_annots, Db.NewKey :: epath
 
 let get_virtual_path vpath epath =
   let rec aux acc = function
-    | ((Db.Decl_fld f1)::q1, ((Q.FldKey f2) as e)::q2) when f1 = f2 ->
+    | ((Db.Decl_fld f1)::q1, ((Db.FldKey f2) as e)::q2) when f1 = f2 ->
         aux (e::acc) (q1, q2)
-    | ((Db.Decl_int | Db.Decl_string | Db.Decl_set _)::q1, ((Q.ExprKey _) as e)::q2) ->
+    | ((Db.Decl_int | Db.Decl_string | Db.Decl_set _)::q1, ((Db.ExprKey _) as e)::q2) ->
         aux (e::acc) (q1, q2)
     | [], p -> Some (List.rev acc, p)
     | _ -> None
@@ -878,8 +901,14 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   match epath, (V.label node).C.nlabel with
   | path, C.Hidden ->
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath path
+  | [], C.Multi -> (
+      match node.C.ty with
+      | Q.TypeName ([setparam], name) as ty when Q.TypeIdent.to_string name = "dbset" ->
+          node, `virtualset (setparam, ty, true, None)
+      | _ -> node, `realpath
+    )
   | [],_ -> node, `realpath
-  | (Q.FldKey fld)::epath, C.Product ->
+  | (Db.FldKey fld)::epath, C.Product ->
       let next =
         try E.dst (List.find (SchemaGraphLib.edge_is_fld fld) (SchemaGraph0.succ_e t node))
         with Not_found ->
@@ -889,7 +918,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             QmlPrint.pp#path_elts epath0
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
-  | (Q.ExprKey e)::epath, C.Multi ->
+  | (Db.ExprKey e)::epath, C.Multi ->
       let setty = node.C.ty in
       let uncoerce = match e with
       | Q.Coerce (_, e, _) -> e
@@ -915,12 +944,12 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
                    fields tykeys in
                Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false wfields)
            | _ -> internal_error "Wront type on key typing (%a)" QmlPrint.pp#ty setparam in
-           node, `virtualset (tyread, tywrite, partial, e)
+           node, `virtualset (tyread, tywrite, partial, Some e)
        | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
-  | (Q.FldKey fld)::_rp, C.Sum ->
+  | (Db.FldKey fld)::_rp, C.Sum ->
       let e = SchemaGraphLib.find_field_edge t node fld in
       find_exprpath_aux ~context t ~node:(E.dst e) ~kind ~epath0 vpath epath
-  | Q.NewKey::epath, C.Multi when SchemaGraphLib.multi_key t node = C.Kint ->
+  | Db.NewKey::epath, C.Multi when SchemaGraphLib.multi_key t node = C.Kint ->
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
   | k::_,_ ->
       internal_error
@@ -947,6 +976,21 @@ let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option)
         QmlPrint.pp#path_elts p
   | _::_::_ -> assert false
 
+let preprocess_kind kind ty virtual_ =
+  match kind with
+  | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
+  | Db.Update u ->
+      let ty =
+        match virtual_ with
+        | `realpath -> ty
+        | `virtualset (r, _, _, _) -> r
+        | _ -> assert false
+      in
+      let rec update ty u =
+        match u with
+        | Db.UExpr e ->
+            Db.UExpr (QmlAstCons.UntypedExpr.coerce e ty)
+      in Db.Update (update ty u)
 
 let preprocess_path ~context t prepath kind =
   let prefix, db_def, prepath = database_def_of_path_expr ~context t prepath in
@@ -955,7 +999,11 @@ let preprocess_path ~context t prepath kind =
   let new_annots, epath = convert_dbpath ~context db_def.schema root kind prepath prepath in
   let n, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
-  new_annots, Q.Path (label, List.map (fun f -> Q.FldKey f) prefix @ epath, kind), SchemaGraphLib.type_of_node n, virtual_
+  let ty = SchemaGraphLib.type_of_node n in
+  let kind = preprocess_kind kind ty virtual_ in
+  new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind), ty, virtual_
+
+
 
 let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t e =
   QmlAstWalk.Expr.foldmap_up
@@ -971,11 +1019,13 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t e =
          | Db.Default, `virtualpath (_, r, _) -> r
          | Db.Default, _ -> realty
          | Db.Valpath, `realpath -> C.val_path_ty realty
-         | Db.Valpath, `virtualset (r, _, _, _) -> C.virtual_val_path_ty r
-         | Db.Valpath, `virtualpath (_, r, _) -> C.virtual_val_path_ty r
+         | Db.Valpath, `virtualset (r, _, _, _) -> C.val_path_ty r
+         | Db.Valpath, `virtualpath (_, r, _) -> C.val_path_ty r
          | Db.Ref, `realpath -> C.ref_path_ty realty
-         | Db.Ref, `virtualset (r, w, _, _) -> C.virtual_ref_path_ty r w
-         | Db.Ref, `virtualpath (_, r, w) -> C.virtual_ref_path_ty r w in
+         | Db.Ref, `virtualset (_, _, _, _) -> C.ref_path_ty realty
+         | Db.Ref, `virtualpath (_, _, _) -> C.ref_path_ty realty
+         | Db.Update _u, _ -> H.tyunit
+         in
          let e =
            (* Bind type variable of virtual path handler with virtual
               path expression... *)
@@ -986,7 +1036,9 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t e =
                  | Db.Default -> Opacapi.DbVirtual.hack_coerce_default
                  | Db.Option ->  Opacapi.DbVirtual.hack_coerce_option
                  | Db.Valpath -> Opacapi.DbVirtual.hack_coerce_vvpath
-                 | Db.Ref -> Opacapi.DbVirtual.hack_coerce_vrpath in
+                 | Db.Ref -> Opacapi.DbVirtual.hack_coerce_vrpath
+                 | _ -> assert false (* TODO - ...*)
+               in
                let coerce = QmlAstCons.UntypedExpr.ident (val_ coerce) in
                let id = QmlAstCons.UntypedExpr.ident id in
                QmlAstCons.UntypedExpr.apply coerce [id; e]

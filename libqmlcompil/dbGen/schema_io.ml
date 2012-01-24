@@ -55,8 +55,9 @@ module SchemaDot = struct
   let vertex_attributes n =
     let x = V.label n in
     let id = x.C.nodeid in
+    `Style (if x.C.plain then `Bold else `Solid) ::
       `Shape (if SchemaGraphLib.is_root n then `Doublecircle else match (V.label n).C.nlabel with C.Leaf _ -> `Box | _ -> `Circle) ::
-        (`Style (if SchemaGraphLib.is_node_abstract n then `Dotted else `Solid))::
+        (* (`Style (if SchemaGraphLib.is_node_abstract n then `Dotted else `Solid)):: *)
         (`Comment (String.escaped (Format.to_string QmlPrint.pp#ty x.C.ty)))::
         (match (V.label n).C.nlabel with
            | C.Multi -> [`Label (id ^ ": *")]
@@ -229,6 +230,7 @@ module Input = Graph.Gml.Parse
            C.default = None;
            C.constraints = [];
            C.context = QmlError.Context.pos (FilePos.nopos "input");
+           C.plain = false (*TODO*)
          }
 
      let edge vl =
@@ -268,6 +270,7 @@ let from_gml_string s =
         C.default = None;
         C.constraints = [];
         C.context = QmlError.Context.pos (FilePos.nopos "");
+        C.plain = false;
       }) in
     (* clear dead edges and the dummy hidden node they point to *)
   let sch = retype sch in
