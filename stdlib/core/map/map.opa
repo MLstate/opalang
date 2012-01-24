@@ -918,7 +918,18 @@ Map_make(order: order('key,'order) ) : Map =
          | (_, {none}) -> {gt}
        verif(To.iter(m1), To.iter(m2))
 
+
+
 }} //: Map_make
+
+@stringifier(ordered_map('key, 'val, 'order)) map_to_string(k2s, v2s, _o2s, map) =
+  tx = Map.fold(key, val, tx ->
+    Text.insert_right(tx, k2s(key)) |>
+    Text.insert_right(_, " => ")    |>
+    Text.insert_right(_, v2s(val))  |>
+    Text.insert_right(_, "\n")
+    , map, Text.cons(""))
+  Text.to_string(tx)
 
 /**
  * {1 Functions and modules exported to the global namespace}
