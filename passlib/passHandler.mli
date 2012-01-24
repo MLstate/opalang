@@ -311,6 +311,14 @@ val alt_handler :
   (string * (('opt, 'opt2, 'env, 'env2) pass)) ->
   ('opt, 'env) one_env -> ('opt2, 'env2) one_env
 
+(** [switch_handler select switch_pass] [select] should produce from
+    pass environment a value that be used by [switch_pass] to switch
+    to the wanted pass. *)
+val switch_handler :
+  (options:'opt -> 'env -> 'switch) ->
+  ('switch -> (string * (('opt, 'opt2, 'env, 'env2) pass))) ->
+  ('opt, 'env) one_env -> ('opt2, 'env2) one_env
+
 (** Compose if functions. The resulting function return true if all
     composed functions returns true.*)
 val and_if :
@@ -335,12 +343,19 @@ val (|?>) :
      passname * ('opt, 'opt, 'env, 'env) pass) ->
   ('opt, 'env) one_env
 
-(** A binary options for [alt_handler] *)
+(** A binary operator for [alt_handler] *)
 val (<?>) :
   ('opt, 'env) one_env ->
   ((options:'opt -> 'env -> bool)
    * (passname * (('opt, 'opt2, 'env, 'env2) pass))
    * (passname * (('opt, 'opt2, 'env, 'env2) pass))) ->
+  ('opt2, 'env2) one_env
+
+(** A binary operator for [switch_handler] *)
+val (|?|) :
+  ('opt, 'env) one_env ->
+  (options:'opt -> 'env -> 'switch) *
+  ('switch -> (string * (('opt, 'opt2, 'env, 'env2) pass))) ->
   ('opt2, 'env2) one_env
 
 (** A binary operator for make a pipe [a |> f] equals to [f a] *)
