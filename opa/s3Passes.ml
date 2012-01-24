@@ -948,9 +948,10 @@ let pass_DbPathCoercion =
        let typerEnv = env.Passes.typerEnv in
        let schema = typerEnv.QmlTypes.schema in
        let annotmap = typerEnv.QmlTypes.annotmap in
+       let gamma = typerEnv.QmlTypes.gamma in
        let code = env.Passes.qmlAst in
        let val_ = OpaMapToIdent.val_ in
-       let annotmap, code = Pass_DbPathCoercion.process_code ~val_ schema annotmap code in
+       let annotmap, code = Pass_DbPathCoercion.process_code ~val_ schema gamma annotmap code in
        let typerEnv = { typerEnv with QmlTypes.annotmap = annotmap } in
        let env = { env with Passes.typerEnv = typerEnv ; qmlAst = code } in
        { e with PH.env = env }

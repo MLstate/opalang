@@ -17,59 +17,52 @@ let label = Annot.nolabel "MongoAccessGeneration"
 
 module Generator = struct
 
+  let ty_is_const gamma ty =
+    match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+    | Q.TypeConst _ -> true
+    | _ -> false
+
   let ty_database = Q.TypeVar (QmlTypeVars.TypeVar.next ())
 
-  let open_database gamma annotmap host port =
-    let (annotmap, name) = C.string annotmap "test" in
+  let open_database gamma annotmap name host port =
+    let (annotmap, name) = C.string annotmap name in
     let (annotmap, host) = C.string annotmap host in
     let (annotmap, port) = C.int annotmap port in
     let (annotmap, open_) = OpaMapToIdent.typed_val ~label Opacapi.Db.open_ annotmap gamma in
     let (annotmap, open_) = C.apply gamma annotmap open_ [name; host; port] in
     (annotmap, open_)
 
-  let dbname_to_expr _gamma annotmap schema dbname =
-    let (database, _) =
-      try
-        QmlDbGen.Schema.db_declaration schema dbname
-      with Not_found ->
-        OManager.i_error "\"%s\" database declaration was not found on database schema" dbname
-    in C.ident annotmap database ty_database
+  let node_to_dbexpr _gamma annotmap node =
+    C.ident annotmap node.DbSchema.database.DbSchema.ident ty_database
 
   let rec compose_path gamma annotmap schema kind subs =
-    ignore (match kind with
-            | DbAst.Ref -> assert false
-            | _ -> kind);
-    let annotmap, subs =
-      List.fold_left_map
+    let subkind =
+      match kind with
+      | DbAst.Update _
+      | DbAst.Ref -> DbAst.Ref
+      | _ -> DbAst.Valpath
+    in
+    let annotmap, elements =
+      C.list_map
         (fun annotmap (field, sub) ->
-           let (annotmap, path) = string_path gamma annotmap schema (DbAst.Valpath, sub) in
-           annotmap, (field, path))
-        annotmap subs
+           let (annotmap, path) = string_path gamma annotmap schema (subkind, sub) in
+           let (annotmap, field) = C.string annotmap field in
+           C.opa_tuple_2 (annotmap, gamma) (field, path)
+        ) (annotmap, gamma) subs
     in
-    let annotmap, read =
-      let annotmap, res =
-        let (annotmap, subsread) = List.fold_left_map
-          (fun annotmap (field, subpath) ->
-             let (annotmap, read) =
-               OpaMapToIdent.typed_val ~label Api.Db.read annotmap gamma in
-             let (annotmap, read) = C.apply gamma annotmap read [subpath] in
-             annotmap, (field, read)
-          ) annotmap subs
-        in C.record annotmap subsread
-      in
-      let annotmap, res =  C.record annotmap [("some", res)] in
-      C.lambda annotmap [] res
+    let builder, pathty =
+      match subkind with
+      | DbAst.Ref -> Api.Db.build_rpath_compose, Api.Types.ref_path
+      | DbAst.Valpath -> Api.Db.build_vpath_compose, Api.Types.val_path
+      | _ -> assert false
     in
-    let annotmap, more = C.cheap_void annotmap gamma in
-    let pathty = Api.Types.val_path in
-    (annotmap, [read; more], Api.Db.build_path_raw, pathty)
+    (annotmap, [elements], builder, pathty)
 
     and string_path gamma annotmap schema (kind, strpath) =
     (* vv FIXME !?!?! vv *)
-    let (annotmap2, node) =
+    let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
-      DbSchema.get_node annotmap schema strpath in
-    let annotmap = QmlAnnotMap.merge annotmap annotmap2 in
+      DbSchema.get_node schema strpath in
     (* ^^ FIXME !?!?! ^^ *)
 
     let (annotmap, args, builder, pathty) =
@@ -82,19 +75,19 @@ module Generator = struct
             (fun annotmap fragment -> C.string annotmap fragment)
             (annotmap, gamma) partial
           in let annotmap, rpath = C.list_map
-            (fun annotmap fragment -> Printf.eprintf "%s\n%!" fragment; C.string annotmap fragment)
+            (fun annotmap fragment -> C.string annotmap fragment)
             (annotmap, gamma) rpath
-          in annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.val_path
+          in begin match kind with
+          | DbAst.Update _ | DbAst.Ref ->
+              annotmap, [rpath; partial], Api.Db.build_rpath_sub, Api.Types.ref_path
+          | _ ->
+              annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.val_path
+          end
       | DbSchema.Plain ->
           (match kind with
            | DbAst.Update _
            | DbAst.Ref -> (annotmap, [], Api.Db.build_rpath, Api.Types.ref_path)
            | _ -> (annotmap, [], Api.Db.build_vpath, Api.Types.val_path))
-      | _ -> assert false
-    in
-    let dbname, strpath =
-      match strpath with
-      | k::path -> (k, path)
       | _ -> assert false
     in
     let (annotmap, path) = List.fold_left
@@ -107,10 +100,11 @@ module Generator = struct
     let (annotmap, build) =
       OpaMapToIdent.typed_val ~label ~ty:[dataty] builder annotmap gamma in
     let (annotmap, path) = C.rev_list (annotmap, gamma) path in
-    let (annotmap, database) = dbname_to_expr gamma annotmap schema dbname in
+    let (annotmap, database) = node_to_dbexpr gamma annotmap node in
     let ty = OpaMapToIdent.specialized_typ ~ty:[dataty] pathty gamma in
+    let (annotmap, default) = node.DbSchema.default annotmap in
     let (annotmap, path) = C.apply ~ty gamma annotmap build
-      ([database; path; node.DbSchema.default] @ args) in
+      ([database; path; default] @ args) in
     let again =
       match kind with
       | DbAst.Default -> Some Api.Db.read
@@ -285,7 +279,7 @@ module Generator = struct
     let annotmap, uexpr =
       match set with
       | [] -> annotmap, uexpr
-      | ["", e] -> add_to_document gamma annotmap "$set" e uexpr
+      | ["", e] -> add_to_document gamma annotmap "value" e uexpr
       | _ ->
           let rec aux ((annotmap, doc) as acc) set =
             match set with
@@ -308,20 +302,31 @@ module Generator = struct
 
     (* assert false *)
 
-  let dbset_path gamma annotmap schema (kind, path) setkind node query =
+  let dbset_path ~context gamma annotmap (kind, path) setkind node query0 =
+    (* Restriction, we can't erase a database set *)
+    let () =
+      match kind, query0 with
+      | DbAst.Update _, None ->
+          QmlError.error context "Update on a full collection is forbidden"
+      | _ -> ()
+    in
     let ty = node.DbSchema.ty in
-    let dbname = node.DbSchema.database.DbSchema.name in
-    let query = Option.map
-      (function (partial, query) as x ->
-         match setkind with
-         | DbSchema.Map _ -> partial, DbAst.QFlds [(["_id"], query)]
-         | _ -> x)
-      query
+    let uniq, nb, query =
+      match query0 with
+      | None -> false, 0, None
+      | Some ((uniq, query) as x) ->
+          uniq,
+          (if uniq then 1 else 5000),
+          Some (
+            match setkind with
+            | DbSchema.Map _ -> uniq, DbAst.QFlds [(["_id"], query)]
+            | _ -> x)
     in
     (* DbSet.build *)
     let (annotmap, build, query, args) =
       (match kind with
-       | DbAst.Default ->
+       | DbAst.Default
+       | DbAst.Option ->
            let dataty =
              match setkind with
              | DbSchema.DbSet ty -> ty
@@ -331,10 +336,20 @@ module Generator = struct
              OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
            (* query *)
            let (annotmap, query) = query_to_expr gamma annotmap query in
-           (annotmap, build, query, [])
+           let (annotmap, nb) = C.int annotmap nb in
+           let (annotmap, default) = node.DbSchema.default annotmap in
+           (annotmap, build, query, [default; nb])
        | DbAst.Update u ->
            let (annotmap, query) = query_to_expr gamma annotmap query in
-           let (annotmap, update) = update_to_expr gamma annotmap u in
+           let (annotmap, update) =
+             let u =
+               (* Hack : When map value is simple, adding the "value" field *)
+               match setkind with
+               | DbSchema.Map (_, tyval) when ty_is_const gamma tyval -> DbAst.UFlds [["value"], u]
+               | _ -> u
+             in
+             update_to_expr gamma annotmap u
+           in
            let (annotmap, build) =
              OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
            in
@@ -342,7 +357,7 @@ module Generator = struct
        | _ -> assert false)
     in
     (* database *)
-    let (annotmap, database) = dbname_to_expr gamma annotmap schema dbname in
+    let (annotmap, database) = node_to_dbexpr gamma annotmap node in
     (* path : list(string) *)
     let (annotmap, path) =
       let (annotmap, path) = List.fold_left
@@ -352,33 +367,59 @@ module Generator = struct
         ) (annotmap, []) path
       in
       C.rev_list (annotmap, gamma) path in
-    (* dbset = DbSet.build(database, path, query) *)
-    let (annotmap, set) = C.apply ~ty gamma annotmap build ([database; path; query] @ args) in
-    (* if is a map convert *)
+    (* dbset = DbSet.build(database, path, query, ...) *)
+    let (annotmap, set) =
+      C.apply ~ty gamma annotmap build
+        ([database; path; query] @ args) in
+    (* Final convert *)
     let (annotmap, set) =
       match kind with
-      | DbAst.Default ->
-          begin match setkind with
-          | DbSchema.DbSet _ -> (annotmap, set)
-          | DbSchema.Map (keyty, dataty) ->
-              Format.eprintf "Instantiate with %a\n" QmlPrint.pp#ty dataty;
-              let (annotmap, to_map) =
-                OpaMapToIdent.typed_val ~label
-                  ~ty:[QmlAstCons.Type.next_var (); keyty; dataty]
-                  Api.DbSet.to_map annotmap gamma in
-              C.apply ~ty gamma annotmap to_map [set]
-          end
+      | DbAst.Default | DbAst.Option ->
+          (match setkind, uniq with
+           | DbSchema.DbSet _, false -> (annotmap, set)
+           | DbSchema.Map (keyty, dataty), false ->
+               let (annotmap, to_map) =
+                 OpaMapToIdent.typed_val ~label
+                   ~ty:[QmlAstCons.Type.next_var (); keyty; dataty]
+                   Api.DbSet.to_map annotmap gamma in
+               let (annotmap, map) =
+                 C.apply ~ty gamma annotmap to_map [set] in
+               begin match kind with
+               | DbAst.Option ->
+                   (* TODO - Actually we consider map already exists *)
+                   C.some annotmap gamma map
+               | _ -> (annotmap, map)
+               end
+           | DbSchema.DbSet dataty, true ->
+               let (annotmap, set_to_uniq) =
+                 let set_to_uniq = match kind with
+                 | DbAst.Default -> Api.DbSet.set_to_uniq_def
+                 | DbAst.Option -> Api.DbSet.set_to_uniq
+                 | _ -> assert false
+                 in
+                 OpaMapToIdent.typed_val ~label ~ty:[dataty] set_to_uniq annotmap gamma in
+               C.apply ~ty gamma annotmap set_to_uniq [set]
+           | DbSchema.Map (_keyty, dataty), true ->
+               let (annotmap, map_to_uniq) =
+                 let map_to_uniq = match kind with
+                 | DbAst.Default -> Api.DbSet.map_to_uniq_def
+                 | DbAst.Option -> Api.DbSet.map_to_uniq
+                 | _ -> assert false
+                 in
+                 OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                   map_to_uniq annotmap gamma in
+               C.apply ~ty gamma annotmap map_to_uniq [set])
       | _ -> (annotmap, set)
     in
     (annotmap, set)
 
 
-  let path gamma annotmap schema (kind, dbpath) =
-    let (_, node) = DbSchema.get_node annotmap schema dbpath in
-    Format.eprintf "%a\n%!" DbSchema.pp_node node;
+  let path ~context gamma annotmap schema (kind, dbpath) =
+    (* Format.eprintf "Path %a" QmlPrint.pp#path (dbpath, kind); *)
+    let node = DbSchema.get_node schema dbpath in
     match node.DbSchema.kind with
     | DbSchema.SetAccess (setkind, path, query) ->
-        dbset_path gamma annotmap schema (kind, path) setkind node query
+        dbset_path ~context gamma annotmap (kind, path) setkind node query
     | _ ->
         let strpath = List.map
           (function
@@ -387,9 +428,9 @@ module Generator = struct
           ) dbpath in
         string_path gamma annotmap schema (kind, strpath)
 
-  let indexes gamma annotmap schema dbname rpath lidx =
+  let indexes gamma annotmap _schema node rpath lidx =
     let (annotmap, database) =
-      dbname_to_expr gamma annotmap schema dbname in
+      node_to_dbexpr gamma annotmap node in
     let (annotmap, build) =
       OpaMapToIdent.typed_val ~label Api.DbSet.indexes annotmap gamma in
     let (annotmap, path) =
@@ -414,13 +455,13 @@ end
 
 let init_database gamma annotmap schema =
   List.fold_left
-    (fun (annotmap, newvals) (ident, _name, opts) ->
+    (fun (annotmap, newvals) (ident, name, opts) ->
        match opts with
        | [`engine (`client (Some host, Some port))] ->
-           let (annotmap, open_) = Generator.open_database gamma annotmap host port in
+           let (annotmap, open_) = Generator.open_database gamma annotmap name host port in
            (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
        | _ ->
-           let (annotmap, open_) = Generator.open_database gamma annotmap "localhost" 27017 in
+           let (annotmap, open_) = Generator.open_database gamma annotmap name "localhost" 27017 in
            (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
     )
     (annotmap, []) (QmlDbGen.Schema.get_db_declaration schema)
@@ -430,14 +471,19 @@ let clean_code gamma annotmap schema code =
     (fun annotmap -> function
        | Q.Database _ -> annotmap, None
        | Q.NewDbValue (_label, DbAst.Db_TypeDecl (p, _ty)) ->
+           let fake_path =
+             match p with
+             | DbAst.Decl_fld k::_ -> [DbAst.FldKey k]
+             | _ -> []
+           in
            begin match p with
-           | [] -> annotmap, None
-           | (DbAst.Decl_fld dbname)::p ->
+           | (DbAst.Decl_fld _)::p ->
                let rec aux rpath p =
                  match p with
                  | (DbAst.Decl_set lidx)::[] ->
                      let (annotmap, init) =
-                       Generator.indexes gamma annotmap schema dbname rpath lidx
+                       let fake_node = DbSchema.get_node schema fake_path in
+                       Generator.indexes gamma annotmap schema fake_node rpath lidx
                      in
                      let id = Ident.next "_index_setup" in
                      annotmap, Some (Q.NewVal (label, [id, init]))
@@ -446,7 +492,7 @@ let clean_code gamma annotmap schema code =
                  | [] -> annotmap, None
                  | _ -> assert false
                in aux [] p
-           | _ -> assert false
+           | _ -> annotmap, None
            end
        | Q.NewDbValue _ -> annotmap, None
        | elt -> annotmap, Some elt)
@@ -454,8 +500,10 @@ let clean_code gamma annotmap schema code =
 
 let process_path gamma annotmap schema code =
   let fmap tra annotmap = function
-    | Q.Path (_label, path, kind) ->
-        Generator.path gamma annotmap schema (kind, path)
+    | Q.Path (_label, path, kind) as expr ->
+        let context = QmlError.Context.annoted_expr annotmap expr in
+        let annotmap, result = Generator.path ~context gamma annotmap schema (kind, path) in
+        tra annotmap result
     | e -> tra annotmap e
   in
   QmlAstWalk.CodeExpr.fold_map

@@ -775,27 +775,48 @@ let get_db_declaration t =
     (fun name decl acc ->
        match name with
        | [name] -> (decl.ident, name, decl.options)::acc
-       | _ -> get_error decl "Unhandled Db definition")
+       | [] -> (decl.ident, "_no_name", decl.options)::acc
+       | _ -> get_error decl "Unhandled Db definition"
+    )
     t []
 
 let db_declaration t name =
-  let decl = StringListMap.find [name] t in
-  (decl.ident, decl.options)
+  let name =
+    match name with
+    | "_no_name" -> []
+    | _ -> [name] in
+  let decl = StringListMap.find name t in
+  decl
 
-let rec dots field ty =
+exception Formatted of unit Format.pprinter
+
+let rec dots gamma field ty =
   match field with
   | [] -> ty
   | f::t ->
-      match ty with
+      match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
       | Q.TypeRecord (Q.TyRow (row, _var) as tyrow) ->
           let ty =
             try List.assoc f row with Not_found ->
-              failwith (BaseFormat.sprintf "'%s' is not found inside row {%a}"
-                          f QmlPrint.pp#tyrow tyrow)
-          in dots t ty
-      | _ -> raise Not_found (* TODO error reporting *)
+              raise (Formatted (fun fmt () ->
+                       Format.fprintf fmt "@{<bright>'%s'@} is not found inside row @{<bright>{%a}@}"
+                         f QmlPrint.pp#tyrow tyrow))
+          in dots gamma t ty
+      | ty2 ->
+          raise (Formatted  (fun fmt () ->
+                   let more =
+                     match ty2 with
+                     | Q.TypeSum _ -> Some "Update inside a sum type is ambiguous."
+                     | _ -> None in
+                   Format.fprintf fmt
+                     "can't through type @{<bright>%a@} with field(s) @{<bright>'%a'@}%a"
+                     QmlPrint.pp#ty ty Db.pp_field field
+                     (fun fmt () -> match more with
+                      | None -> ()
+                      | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
+                )
 
-let coerce_query_element ~context ty query =
+let coerce_query_element ~context gamma ty query =
   let rec aux new_annots ty query =
     let coerce wrap ty expr =
       let e = QmlAstCons.UntypedExpr.coerce expr ty in
@@ -827,7 +848,7 @@ let coerce_query_element ~context ty query =
         let new_annots, flds =
           List.fold_left_map
             (fun acc (field, q) ->
-               let acc, q = aux acc (dots field ty) q in
+               let acc, q = aux acc (dots gamma field ty) q in
                acc, (field, q))
             new_annots flds
         in new_annots, Db.QFlds flds
@@ -835,7 +856,7 @@ let coerce_query_element ~context ty query =
   in aux [] ty query
 
 (** @return (new_annots_list, pppath) *)
-let rec convert_dbpath ~context t node kind path0 path =
+let rec convert_dbpath ~context t gamma node kind path0 path =
   let context = QmlError.Context.merge2 context (V.label node).C.context in
   let context = HacksForPositions.map context in
   let cerror fmt =
@@ -864,7 +885,7 @@ let rec convert_dbpath ~context t node kind path0 path =
       entry value (valid_keys())
   in
   if (V.label node).C.nlabel = C.Hidden
-  then convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path
+  then convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path
   else
     match path with
     | [] -> [],[]
@@ -880,12 +901,12 @@ let rec convert_dbpath ~context t node kind path0 path =
         in
         match (V.label node).C.nlabel with
         | C.Product ->
-            let new_annots, epath = convert_dbpath ~context t next kind path0 path in
+            let new_annots, epath = convert_dbpath ~context t gamma next kind path0 path in
             new_annots, Db.FldKey fld :: epath
         | C.Sum ->
             (* Format.eprintf "Sum case on %a => %a\n%!" QmlPrint.pp#path (path0, kind) QmlPrint.pp#path (path, kind); *)
             if kind <> Q.Db.Ref then
-              convert_dbpath ~context t next kind path0 ((Db.FldKey fld)::path)
+              convert_dbpath ~context t gamma next kind path0 ((Db.FldKey fld)::path)
             else
             cerror "Direct write access to a sub node of a sum node is forbidden"
         | _ ->
@@ -909,12 +930,12 @@ let rec convert_dbpath ~context t node kind path0 path =
           | e ->
               let e' = QmlAstCons.UntypedExpr.coerce e keytyp in
               [Q.QAnnot.expr e'], e' in
-        let new_annots', epath = convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path in
+        let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
         new_annots @ new_annots', Db.ExprKey e :: epath
 
     | Db.NewKey::path ->
         assert (SchemaGraphLib.multi_key t node = C.Kint);
-        let new_annots, epath = convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path in
+        let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
         new_annots, Db.NewKey :: epath
 
     | Db.Query query::[] ->
@@ -924,7 +945,7 @@ let rec convert_dbpath ~context t node kind path0 path =
             | Q.TypeName ([setparam], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
             | _ ->  SchemaGraphLib.type_of_key t node
           in
-          coerce_query_element ~context ty query
+          coerce_query_element ~context gamma ty query
         in
         new_annots, [Db.Query query]
 
@@ -969,10 +990,10 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   | [], C.Multi -> (
       match node.C.ty with
       | Q.TypeName ([setparam], name) as ty when Q.TypeIdent.to_string name = "dbset" ->
-          node, `virtualset (setparam, ty, true, None)
-      | _ -> node, `realpath
+          ty, node, `virtualset (setparam, ty, true, None)
+      | ty -> ty, node, `realpath
     )
-  | [],_ -> node, `realpath
+  | [],_ -> node.C.ty, node, `realpath
   | (Db.FldKey fld)::epath, C.Product ->
       let next =
         try E.dst (List.find (SchemaGraphLib.edge_is_fld fld) (SchemaGraph0.succ_e t node))
@@ -992,8 +1013,13 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             | [] -> ()
             | _ -> OManager.error "You can't extend a virtual path");
            let node, partial, tyread = node, true, setty in
-           node, `virtualset (tyread, tyread, partial, None)
-       | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
+           node.C.ty, node, `virtualset (tyread, tyread, partial, None)
+       | _ ->
+           let keyty = SchemaGraphLib.type_of_key t node in
+           let valty, node, x =
+             find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
+           in Q.TypeName ([keyty; valty], Q.TypeIdent.of_string Opacapi.Types.map), node, x
+      )
 
   | (Db.ExprKey e)::epath, C.Multi ->
       let setty = node.C.ty in
@@ -1021,7 +1047,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
                    fields tykeys in
                Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false wfields)
            | _ -> internal_error "Wront type on key typing (%a)" QmlPrint.pp#ty setparam in
-           node, `virtualset (tyread, tywrite, partial, Some e)
+           node.C.ty, node, `virtualset (tyread, tywrite, partial, Some e)
        | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
   | (Db.FldKey fld)::_rp, C.Sum ->
       let e = SchemaGraphLib.find_field_edge t node fld in
@@ -1043,8 +1069,8 @@ let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option)
   | [] -> find_exprpath_aux ~context t ~node ~kind vpath epath
   | [(_p, [], (ident, tyread, tywrite))] ->
       (match find_exprpath_aux ~context t ~node ~kind vpath epath with
-       | n, `realpath -> n, `virtualpath (ident, tyread, tywrite)
-       | _, `virtualset _ -> QmlError.error context
+       | ty, n, `realpath -> ty, n, `virtualpath (ident, tyread, tywrite)
+       | _, _, `virtualset _ -> QmlError.error context
            "Can't make a virtual path on a dbset"
       )
   | [(p, _l, _e)] ->
@@ -1053,7 +1079,7 @@ let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option)
         QmlPrint.pp#path_elts p
   | _::_::_ -> assert false
 
-let preprocess_kind ~context kind ty virtual_ =
+let preprocess_kind ~context gamma kind ty virtual_ =
   match kind with
   | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
   | Db.Update u ->
@@ -1072,29 +1098,21 @@ let preprocess_kind ~context kind ty virtual_ =
       in
       let rec update (ty:QmlAst.ty) u =
         let error fmt0 fmt =
-          QmlError.error context ("Can't update "^^fmt0^^" because "^^fmt)
+          QmlError.error context ("You can't update "^^fmt0^^" because "^^fmt)
         in
         match u with
         | Db.UExpr e -> Db.UExpr (coerce e ty)
         | Db.UFlds fields ->
-            let rec dots field ty =
-              let rec aux field ty =
-                match field with
-                | [] -> ty
-                | f::t ->
-                    match ty with
-                    | Q.TypeRecord Q.TyRow (row, _var) ->
-                        let ty =
-                          try List.assoc f row with Not_found ->
-
-                            error "todo" "%s is not found" f
-                        in aux t ty
-                    | _ -> error "tofo" "todo2"
-              in aux field ty
-            in
             Db.UFlds
               (List.map
-                 (function (field, u) -> (field, update (dots field ty) u))
+                 (function (field, u) ->
+                    let subty =
+                      try
+                        dots gamma field ty
+                      with Formatted prt ->
+                        error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
+                    in
+                    (field, update subty u))
                  fields)
         | Db.UAppend     e -> Db.UAppend (coerce_list e ty)
         | Db.UPrepend    e -> Db.UPrepend  (coerce_list e ty)
@@ -1115,27 +1133,27 @@ let preprocess_kind ~context kind ty virtual_ =
         | Db.UIncr _ -> error "" "incr is not avialable only on %a" QmlPrint.pp#ty ty
       in Db.Update (update ty u)
 
-let preprocess_path ~context t prepath kind =
+let preprocess_path ~context t gamma prepath kind =
   let prefix, db_def, prepath = database_def_of_path_expr ~context t prepath in
   let prepath = apply_aliases db_def.path_aliases prepath in
   let root = SchemaGraphLib.get_root db_def.schema in
-  let new_annots, epath = convert_dbpath ~context db_def.schema root kind prepath prepath in
-  let n, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
+  let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind prepath prepath in
+  let ty, _node, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
-  let ty = SchemaGraphLib.type_of_node n in
-  let kind = preprocess_kind ~context kind ty virtual_ in
+  (* let ty = SchemaGraphLib.type_of_node n in *)
+  let kind = preprocess_kind ~context gamma kind ty virtual_ in
   new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind), ty, virtual_
 
 
 
-let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t e =
+let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
   QmlAstWalk.Expr.foldmap_up
     (fun annottrack e -> match e with
      | Q.Path (label, p, kind)  ->
          let a = Annot.annot label in
          let context = QmlError.Context.expr e in (* FIXME: we don't get a valid position here. *)
          let context = HacksForPositions.map context in
-         let new_annots, p, realty, virtual_ = preprocess_path ~context t p kind in
+         let new_annots, p, realty, virtual_ = preprocess_path ~context t gamma p kind in
          let exprty = match kind, virtual_ with
          | Db.Option, `virtualpath (_, r, _) -> H.typeoption r
          | Db.Option, _ -> H.typeoption realty
@@ -1174,13 +1192,13 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t e =
      | e -> annottrack, e)
     [] e
 
-let preprocess_paths_code_elt ?(val_=(fun _ -> assert false)) annottrack t =
+let preprocess_paths_code_elt ?(val_=(fun _ -> assert false)) annottrack t gamma =
   QmlAstWalk.Top.fold_map_expr
-    (fun annottrack e -> let at, e = preprocess_paths_expr ~val_ t e in
+    (fun annottrack e -> let at, e = preprocess_paths_expr ~val_ t gamma e in
      List.rev_append at annottrack, e)
     annottrack
 
-let preprocess_paths_ast ?(val_=(fun _ -> assert false)) t =
+let preprocess_paths_ast ?(val_=(fun _ -> assert false)) t gamma =
   List.fold_left_map
     (fun annottrack elt ->
        let elt =
@@ -1200,7 +1218,7 @@ let preprocess_paths_ast ?(val_=(fun _ -> assert false)) t =
              Q.NewVal (label, [(Ident.next "dbvirtual", coerce)])
          | _ -> elt
        in
-       preprocess_paths_code_elt ~val_ annottrack t elt) []
+       preprocess_paths_code_elt ~val_ annottrack t gamma elt) []
 
 let preprocess_paths_code_elt ?(val_=(fun _ -> assert false)) t = preprocess_paths_code_elt ~val_ [] t
 

@@ -1828,7 +1828,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       H.start_built_pos pos in
     let prefix, db_def, path = Schema_private.database_def_of_path_expr ~context t path in
     let dbinfo = StringListMap.find prefix dbinfo_map in
-    let node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
+    let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
     let r = match virtual_ with
     | `virtualset (_, wty, false, _) ->
         make_virtualset_fullpath db_def.Schema_private.schema dbinfo gamma node path kind wty

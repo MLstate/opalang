@@ -753,7 +753,7 @@ Bson = {{
    * Bson to OPA
    **/
 
-  rec bson_to_opa(bson:Bson.document, ty:OpaType.ty): option('a) =
+  rec bson_to_opa_aux(bson:Bson.document, ty:OpaType.ty, default:option('a)): option('a) =
 
     error(str, v) = ML.error("Bson.bson_to_opa", str, v)
     fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
@@ -774,7 +774,8 @@ Bson = {{
       | {some=v} -> {some=@unsafe_cast({some=v})}
       | {none} -> {some=@unsafe_cast({none})}
 
-    rec element_to_rec(doc:Bson.document, fields:OpaType.fields): option('a) =
+    rec element_to_rec(doc:Bson.document, fields:OpaType.fields,
+                       default:option('a)): option('a) =
       match fields with
       | [{label=name; ty=ty}] ->
         if OpaType.is_void(ty)
@@ -783,22 +784,29 @@ Bson = {{
           | {none} -> {none}
           | {some=field} -> {some=@unsafe_cast(OpaValue.Record.make_simple_record(field))}
           end
-        else element_to_rec2(doc,fields)
-      | _ -> element_to_rec2(doc,fields)
+        else element_to_rec2(doc, fields, default)
+      | _ -> element_to_rec2(doc, fields, default)
 
-    and element_to_rec2(doc:Bson.document, fields:OpaType.fields): option('a) =
-
+    and element_to_rec2(doc:Bson.document, fields:OpaType.fields,
+                        default:option('a)): option('a) =
       rec optreg(name, field, frest, elements, acc) =
-        match field.ty with
-        | {TyName_args=[_]; TyName_ident="option"} ->
-          (match OpaValue.Record.field_of_name(field.label) with
-           | {none} -> error("Missing field {name}", (acc, true))
-           | {some=fieldname} -> aux(elements,frest,[(fieldname,@unsafe_cast({none}))|acc]))
-        | {TyName_args=[_]; TyName_ident="Bson.register"} ->
-          (match OpaValue.Record.field_of_name(field.label) with
-           | {none} -> error("Missing field {name}", (acc, true))
-           | {some=fieldname} -> aux(elements,frest,[(fieldname,@unsafe_cast({absent}))|acc]))
-        | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
+        match OpaValue.Record.field_of_name(field.label) with
+          | {none} -> error("Missing field {name}", (acc, true))
+          | {some=backfield} ->
+            match default with
+            | {none} ->
+              match field.ty with
+              | {TyName_args=[_]; TyName_ident="option"} ->
+                aux(elements,frest,[(backfield,@unsafe_cast({none}))|acc])
+              | {TyName_args=[_]; TyName_ident="Bson.register"} ->
+                aux(elements,frest,[(backfield,@unsafe_cast({absent}))|acc])
+              | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
+              end
+            | {some=default} ->
+              default = OpaValue.Record.unsafe_dot(default, backfield)
+              aux(elements, frest, [(backfield, default) | acc])
+            end
+          end
 
       and aux(elements, fields, acc) =
         match (elements, fields) with
@@ -806,17 +814,20 @@ Bson = {{
             name = Bson.key(element)
             (match String.ordering(field.label,name) with
              | {eq} ->
-               val_opt =
-                 (match element with
-                  | {value={Document=doc} ...} -> bson_to_opa(doc, field.ty)
-                  | _ -> element_to_opa(element, field.ty))
-               (match val_opt with
-                | {none} ->
-                  error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
-                | {some=value} ->
-                  (match OpaValue.Record.field_of_name(name) with
-                   | {none} -> error("Missing field {name}", (acc, true))
-                   | {some=field} -> aux(erest,frest,[(field,value)|acc])))
+               match OpaValue.Record.field_of_name(name) with
+               | {none} -> error("Missing field {name}", (acc, true))
+               | {some=backfield} ->
+                 default = Option.map(OpaValue.Record.unsafe_dot(_, backfield), default)
+                 val_opt =
+                   (match element with
+                    | {value={Document=doc} ...} -> bson_to_opa_aux(doc, field.ty, default)
+                    | _ -> element_to_opa(element, field.ty, default))
+                 match val_opt with
+                 | {none} ->
+                   error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
+                 | {some=value} -> aux(erest,frest,[(backfield,value)|acc])
+                 end
+               end
               | {lt} -> optreg(name, field, frest, [element|erest], acc)
               | {gt} -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
         | ([],[]) -> (acc,false)
@@ -832,19 +843,19 @@ Bson = {{
     and column_to_rec(doc:Bson.document, col) =
       ltyfield = List.sort(Bson.keys(doc))
       match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
-      | {some=fields} -> element_to_rec(doc, fields)
+      | {some=fields} -> element_to_rec(doc, fields, none)
       | {none} ->
         allreg = List.for_all((r -> List.for_all((f -> isrcrdtype(f.ty)),r)),col)
         if allreg
-        then element_to_rec(doc, List.flatten(col))
+        then element_to_rec(doc, List.flatten(col), none)
         else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none})
 
-    and getel(element, ty) =
+    and getel(element, ty, default) =
       match element with
-      | {value={Document=doc} ...} -> bson_to_opa(doc, ty)
-      | _ -> element_to_opa(element, ty)
+      | {value={Document=doc} ...} -> bson_to_opa_aux(doc, ty, default)
+      | _ -> element_to_opa(element, ty, default)
 
-    and element_to_opa(element:Bson.element, ty:OpaType.ty): option('a) =
+    and element_to_opa(element:Bson.element, ty:OpaType.ty, default:option('a)): option('a) =
       match ty with
       | {TyName_args=[({TyName_args=[]; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list"}
       | {TyName_args=_; TyName_ident="Bson.document"} ->
@@ -908,11 +919,11 @@ Bson = {{
          | element -> error("expected Bson.meta, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
-         | {name="some"; ...} -> make_option(getel(element, ty))
+         | {name="some"; ...} -> make_option(getel(element, ty, none))
          | {name="none"; ...} -> {some=@unsafe_cast({none})}
          | _ -> error("expected option, got {element}",{none}))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
-        make_register(element_to_opa(element,ty))
+        make_register(element_to_opa(element,ty, default))
       | {TyName_args=[ty]; TyName_ident="list"} ->
         (match element with
          | {value={Array=doc} ...} ->
@@ -937,7 +948,7 @@ Bson = {{
                          doc = List.sort_by((e -> len - Int.of_string(e.name)),doc)
                          aux(Int.of_string((List.head(doc)).name),doc,[])
                        else
-                         (match getel(element,ty) with
+                         (match getel(element, ty, none) with
                           | {some=v} -> aux(enum,rest,[v|l])
                           | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}"))
                     | [] -> l)
@@ -950,7 +961,7 @@ Bson = {{
          | {value={Array=doc} ...} ->
            imap =
              List.fold((element, im ->
-                         (match getel(element, ty) with
+                         (match getel(element, ty, none) with
                           | {some=v} -> IntMap.add(Int.of_string(element.name), v, im)
                           | {none} -> fatal("Failed for intmap element {element} type {OpaType.to_pretty(ty)}"))),
                         doc, IntMap.empty)
@@ -990,11 +1001,11 @@ Bson = {{
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
          | element -> error("expected timestamp, got {element}",{none}))
       | {TyRecord_row=row ...} ->
-        element_to_rec([element],row)
+        element_to_rec([element], row, default)
       | {TySum_col=col ...} ->
         column_to_rec([element], col)
       | {TyName_args=tys; TyName_ident=tyid} ->
-        element_to_opa(element, OpaType.type_of_name(tyid, tys))
+        element_to_opa(element, OpaType.type_of_name(tyid, tys), default)
       | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
 
     bson_noid = Bson.remove_id(bson)
@@ -1002,18 +1013,22 @@ Bson = {{
     // TODO: We need to consider OPA values with _id fields
     ty_name = name_type(ty)
     match (bson_noid,ty_name) with
-    | ([{name="value"; ...}],_) -> getel(List.head(bson_noid), ty_name)
+    | ([{name="value"; ...}],_) -> getel(List.head(bson_noid), ty_name, default)
     | ([],{TyName_args=[_]; TyName_ident="Bson.register"}) -> {some=@unsafe_cast({absent})}
-    | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="Bson.register"}) -> make_register(element_to_rec(bson_noid,row))
+    | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="Bson.register"}) -> make_register(element_to_rec(bson_noid,row, default))
     | ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
-    | ([element],{TyName_args=[_]; TyName_ident="option"}) -> element_to_opa(element,ty_name)
-    | ([element],{TyName_args=[_]; TyName_ident="list"}) -> element_to_opa(element,ty_name)
-    | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid,row)
+    | ([element],{TyName_args=[_]; TyName_ident="option"}) -> element_to_opa(element, ty_name, default)
+    | ([element],{TyName_args=[_]; TyName_ident="list"}) -> element_to_opa(element, ty_name, default)
+    | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid, row, default)
     | (_,{TySum_col=col ...}) -> column_to_rec(bson_noid,col)
     | ([],_) -> error("Empty document for non-register type",{none})
-    | _ -> element_to_opa(H.doc("value",bson_noid), ty_name) // assume bare type
+    | _ -> element_to_opa(H.doc("value", bson_noid), ty_name, default) // assume bare type
+
+  bson_to_opa(doc, ty) = bson_to_opa_aux(doc, ty, none)
 
   doc2opa(doc:Bson.document): option('a) = bson_to_opa(doc,@typeval('a))
+
+  doc2opa_default(doc:Bson.document, default:'a): option('a) = bson_to_opa_aux(doc, @typeval('a), some(default))
 
   /**
    * Given a document and a runtime type, we deduce if all the fields

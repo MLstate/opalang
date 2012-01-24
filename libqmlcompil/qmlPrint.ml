@@ -327,7 +327,7 @@ object (self)
   method path f (el, knd) =
     let pp_el fmt () = Format.fprintf fmt "%a" (pp_list "" self#path_elt) el in
     match knd with
-    | Q.Db.Update u -> pp f "%a <- %a" pp_el () (QmlAst.Db.pp_update self#expr) u
+    | Q.Db.Update u -> pp f "%a <- %a //update" pp_el () (QmlAst.Db.pp_update self#expr) u
     | _ ->
         pp f "%s%a" (
           match knd with

@@ -20,6 +20,7 @@
 **)
 
 module Arg = Base.Arg
+module Format = BaseFormat
 
 module Graph = SchemaGraphLib.SchemaGraph.SchemaGraph0
 
@@ -85,7 +86,7 @@ module Schema = struct
     ty : QmlAst.ty;
     kind : node_kind;
     database : database;
-    default : QmlAst.expr;
+    default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
   }
 
   let pp_query fmt _e = Format.fprintf fmt "todo query"
@@ -102,7 +103,9 @@ module Schema = struct
     match kind with
     | Plain -> Format.fprintf fmt "plain"
     | Partial (p0, p1) -> Format.fprintf fmt "partial (%a, %a)" pp_path p0 pp_path p1
-    | Compose _ -> Format.fprintf fmt "cmp (...)"
+    | Compose cmp ->
+        Format.fprintf fmt "compose(%a)"
+          (Format.pp_list "; " (fun fmt (f, p) -> Format.fprintf fmt "%s:[%a]" f pp_path p)) cmp
     | SetAccess (sk, path, query) ->
         Format.fprintf fmt "@[<hov>access to %a : %a with %a@]"
           pp_path path
@@ -170,7 +173,7 @@ module Schema = struct
   let db_declaration = Sch.db_declaration
 
   let get_database schema name =
-    let declaration = StringListMap.find [name] schema in
+    let declaration = db_declaration schema name in
     {
       name;
       ident = declaration.Sch.ident;
@@ -221,26 +224,35 @@ module Schema = struct
     | None -> raise Not_found
     | Some v -> (v : Graph.vertex)
 
-  let get_node annotmap (schema:t) path =
-    let dbname, path= match path with
-    | DbAst.FldKey k::path -> k, path
-    | _ -> assert false (* TODO *)
+
+  let get_node (schema:t) path =
+    (* Format.eprintf "Get node on %a\n%!" QmlPrint.pp#path_elts path; *)
+    let dbname, declaration, path =
+      try
+        let dbname, path= match path with
+        | DbAst.FldKey k::path -> k, path
+        | _ -> assert false (* TODO *)
+        in
+        dbname, db_declaration schema dbname, path
+      with Not_found ->
+        "_no_name", db_declaration schema "_no_name", path
     in
-    let declaration = StringListMap.find [dbname] schema in
     let database = get_database schema dbname in
     let llschema = declaration.Sch.schema in
     let f (node, kind, path) fragment =
       let next = next llschema node fragment in
       let get_setkind schema node =
         match Graph.succ_e schema node with
-        | [edge] -> begin match (Graph.E.label edge).C.label with
-          | C.Multi_edge C.Kint ->
-              Map (QmlAst.TypeConst QmlAst.TyInt, next.C.ty)
-          | C.Multi_edge C.Kstring ->
-              Map (QmlAst.TypeConst QmlAst.TyString, next.C.ty)
-          | C.Multi_edge (C.Kfields _) -> DbSet next.C.ty
-          | _ -> assert false
-          end
+        | [edge] ->
+            let next = Graph.E.dst edge in
+            begin match (Graph.E.label edge).C.label with
+            | C.Multi_edge C.Kint ->
+                Map (QmlAst.TypeConst QmlAst.TyInt, next.C.ty)
+            | C.Multi_edge C.Kstring ->
+                Map (QmlAst.TypeConst QmlAst.TyString, next.C.ty)
+            | C.Multi_edge (C.Kfields _) -> DbSet next.C.ty
+            | _ -> assert false
+            end
         | [] -> raise Not_found
         | _ -> raise Not_found
       in
@@ -290,7 +302,7 @@ module Schema = struct
               Compose (List.map
                          (fun edge ->
                             let sname = SchemaGraphLib.fieldname_of_edge edge
-                            in sname, dbname::path @ [sname])
+                            in sname, path @ [sname])
                          (Graph.succ_e llschema node)
                       )
           | _ -> assert false
@@ -301,17 +313,22 @@ module Schema = struct
           SetAccess (k, List.rev path, query)
       | Plain -> Plain
     in
-    let (annotmap, default) =
-      DbGen_private.Default.expr
-        annotmap
-        llschema
-        node
+    let default = fun annotmap ->
+      let (annotmap2, expr) =
+        DbGen_private.Default.expr
+          annotmap
+          llschema
+          node
+      in
+      QmlAnnotMap.merge annotmap annotmap2, expr
     in
-    annotmap,
-    {
+    let r = {
       database; kind; default;
       ty = node.DbGen_common.ty;
-    }
+    } in
+    (* Format.eprintf "Got node %a\n%!" pp_node r; *)
+    r
+
 
   module HacksForPositions = Sch.HacksForPositions
 end

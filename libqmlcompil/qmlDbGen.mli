@@ -69,7 +69,7 @@ module Schema: sig
     ty : QmlAst.ty;
     kind : node_kind;
     database : database;
-    default : QmlAst.expr;
+    default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
   }
 
 
@@ -132,9 +132,9 @@ module Schema: sig
   (** Map any prepath to its coerced expression equivalent within the
       expressions. Additionally, returns a assoc list of old annots to new
       generated annots that can be used eg. to keep track of positions *)
-  val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr
-  val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt
-  val preprocess_paths_ast: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt list -> (Annot.t * Annot.t) list * QmlAst.code_elt list
+  (* val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr *)
+  (* val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt *)
+  val preprocess_paths_ast: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma -> QmlAst.code_elt list -> (Annot.t * Annot.t) list * QmlAst.code_elt list
 
   (** Finalization of the schema, to use before initialisation below, and before
       code generation. Returns None if no database content is actually defined.
@@ -181,9 +181,7 @@ module Schema: sig
 
   val get_db_declaration: t -> (QmlAst.ident * string * QmlAst.Db.options list) list
 
-  val db_declaration: t -> string -> QmlAst.ident * QmlAst.Db.options list
-
-  val get_node: QmlAst.annotmap -> t -> QmlAst.path -> (QmlAst.annotmap * node)
+  val get_node: t -> QmlAst.path -> node
 
   val pp_node: node BaseFormat.pprinter
 

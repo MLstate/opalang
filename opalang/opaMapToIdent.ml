@@ -118,10 +118,8 @@ let typed_val ?(label=Annot.nolabel "OpaMapToIdent") ?(side=`server) ?(ty=[]) ?(
 
 let typ s =
   opacapi_check s ;
-  Printf.eprintf "Lookup for %s%!\n" s;
-  try let x = StringMap.find s !r_type in
-  Format.eprintf " found %s\n%!" (QmlAst.TypeIdent.to_debug_string x);
-  x
+  try
+    StringMap.find s !r_type
   with Not_found ->
     OManager.i_error
       "OpaMapToIdent: Type not found: %S\nIt contains:@\n%a@\n"

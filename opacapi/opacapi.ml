@@ -132,10 +132,12 @@ module Db =
 struct
   let (!!) s = !! ("Db_" ^ s)
   let open_ = !! "open"
-  let build_path_raw = !! "build_path_raw"
   let build_vpath = !! "build_vpath"
-  let build_vpath_sub = !! "build_vpath_sub"
   let build_rpath = !! "build_rpath"
+  let build_vpath_sub = !! "build_vpath_sub"
+  let build_rpath_sub = !! "build_rpath_sub"
+  let build_rpath_compose = !! "build_rpath_compose"
+  let build_vpath_compose = !! "build_vpath_compose"
   let option = !! "option"
   let read = !! "read"
   let write = !! "write"
@@ -151,6 +153,11 @@ struct
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"
   let to_map = !! "to_map"
+  let map_to_uniq = !! "map_to_uniq"
+  let set_to_uniq = !! "set_to_uniq"
+  let map_to_uniq_def = !! "map_to_uniq_def"
+  let set_to_uniq_def = !! "set_to_uniq_def"
+  let default = !! "default"
 end
 
 module Opa2Js =

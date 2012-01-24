@@ -32,5 +32,5 @@
 
 val process_code :
   val_:(string -> QmlAst.ident) ->
-  QmlDbGen.Schema.t -> QmlAst.annotmap -> QmlAst.code ->
+  QmlDbGen.Schema.t -> QmlTypes.gamma -> QmlAst.annotmap -> QmlAst.code ->
   QmlAst.annotmap * QmlAst.code
