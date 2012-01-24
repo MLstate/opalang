@@ -495,6 +495,16 @@ struct
               tyfun [vwrite_ty; real_ty];
               DbGen_common.virtual_ref_path_ty vread_ty vwrite_ty])
 
+  let expr_val_to_val ty =
+    let tydb3path = DbGen_common.ref_path_ty ty in
+    id_expr (Arg.ValInitial.val_to_val !valinitial_env_ref)
+      (tyfun [tydb3path; DbGen_common.Db.val_path_ty ty])
+
+  let expr_ref_to_ref ty =
+    let tydb3path = DbGen_common.ref_path_ty ty in
+    id_expr (Arg.ValInitial.ref_to_ref !valinitial_env_ref)
+      (tyfun [tydb3path; DbGen_common.Db.ref_path_ty ty])
+
   let expr_write ty =
     id_expr (Arg.ValInitial.write !valinitial_env_ref)
       (tyfun [DbGen_common.ref_path_ty ty; ty; tyunit])

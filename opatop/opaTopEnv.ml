@@ -400,7 +400,7 @@ let initialize_dbgen env val_list =
           in
           let annotmap = env.env_types.QmlTypes.annotmap in
           let dbinfo, dbgen_gamma, dbgen_annotmap, dbgen_init_code, dbgen_accessors_code =
-            DbGen.initialize ~annotmap:(Some annotmap) (schema env)
+            DbGen.initialize ~annotmap:(Some annotmap) env.env_types.QmlTypes.gamma (schema env)
           in
           let dbgen_code = dbgen_init_code @ dbgen_accessors_code in
           let dbgen_annotmap = match dbgen_annotmap with Some a -> a | None -> assert false in
@@ -491,7 +491,7 @@ let input_code_elt_Values env code_elt =
 
       (* dbgen 2: path preprocessing for helping the typer *)
       let _, code_elt =
-        Schema.preprocess_paths_code_elt (schema env) code_elt
+        Schema.preprocess_paths_code_elt (schema env) env.env_types.QmlTypes.gamma code_elt
       in
 
       let _ =

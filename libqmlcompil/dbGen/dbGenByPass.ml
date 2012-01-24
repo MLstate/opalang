@@ -51,6 +51,9 @@ sig
 
   val make_virtual_val : string
   val make_virtual_ref : string
+
+  val val_to_val : string
+  val ref_to_ref : string
 end
 
 module QmlInterface : SourceInterface =
@@ -72,6 +75,9 @@ struct
 
   let make_virtual_val = "make_virtual_val"
   let make_virtual_ref = "make_virtual_ref"
+
+  let val_to_val = Opacapi.Db3.val_to_val
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
 end
 
 (* ======================================================================================================== *)
@@ -107,6 +113,9 @@ sig
         above (used by the code splitter in the blender *)
     val list_of_idents : env -> ExprIdent.t list
     val list_of_typeidents : env -> TypeIdent.t list
+
+    val val_to_val : env -> ExprIdent.t
+    val ref_to_ref : env -> ExprIdent.t
   end
 
 end
@@ -150,6 +159,9 @@ struct
 
     let make_virtual_val env = I.conv env (ExprIdent.source N.make_virtual_val)
     let make_virtual_ref env = I.conv env (ExprIdent.source N.make_virtual_ref)
+
+    let val_to_val env = I.conv env (ExprIdent.source N.val_to_val)
+    let ref_to_ref env = I.conv env (ExprIdent.source N.ref_to_ref)
 
     let list_of_idents env = [ none env; some env; intmap_empty env; intmap_add env; intmap_fold env; stringmap_empty env; stringmap_add env; stringmap_fold env]
     let list_of_typeidents _ = [TypeIdent.of_string N.type_option; TypeIdent.of_string N.type_map;]
@@ -204,6 +216,9 @@ struct
 
   let make_virtual_val = Opacapi.DbVirtual.make_val
   let make_virtual_ref = Opacapi.DbVirtual.make_ref
+
+  let val_to_val = Opacapi.Db3.val_to_val
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
 end
 
 module BSLDbGenAlphaOpa = MakeS ( DbOpaInterface )  ( I_Alpha )

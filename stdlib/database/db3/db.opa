@@ -101,7 +101,9 @@ type badoplink_revision = external
  * the value at the time of the binding, just like with [p = /path] and then [x = p].
  *
  */
-type val_path('a) = path_t(path_val_p, 'a)
+type Db3.val_path('a) = Db.val_path('a, path_t(path_val_p, 'a))
+@opacapi type val_path('a) = Db3.val_path('a)
+
 
 /**
  * Reference paths
@@ -115,62 +117,30 @@ type val_path('a) = path_t(path_val_p, 'a)
  * performed in the meantime, possibly concurrently by another user.
  *
  */
-type ref_path('a) = path_t(path_ref_p, 'a)
+type Db3.ref_path('a) = Db.ref_path('a, path_t(path_ref_p, 'a))
+@opacapi type ref_path('a) = Db3.ref_path('a)
 
 /**
  * {1 Interface}
  */
 
-Db = {{
+Db3 = {{
 
-  /**
-   * Writes data at the given path in the database.
-   * [do write(@/path,42)] is equivalent to [do /path <- 42]
-   *
-   * @example [write(@/path,42)] initializes or updates the data at path [/path]
-   */
-  write = %%path_write%%
-
-  `<-`(d,a) = write(d,a)
-
-  /**
-   * Reads the data currently held at a reference path.
-   *
-   * @example [read(@/path)] is equivalent to [/path]
-   */
-  read = %%path_read%%
-
-  /**
-   * Turns a reference-path into a value-path, in fact taking a snapshot.
-   *
-   * @example [get_val(@/path)] is equivalent to [!/path]
-   */
-  get_val = %%path_ref_to_val%%
-
-  /**
-   * Removes the data held at a path in the database. It won't be visible in the
-   * current revision anymore, but will still be present in the history.
-   */
-  remove = %%path_remove%%
+  @private unwrap(path) = Db.get_engine(path)
 
   /**
    * Given an intmap from the database, returns a key that is guaranteed not to be used
    * in that intmap. Successive calls return different results. */
-  fresh_key = %%path_fresh_key%%
-
-  /**
-   * Checks a path for existence in the low-level db.
-   */
-  exists = %%path_exists%%
+  fresh_key(p) = %%path_fresh_key%%(unwrap(p))
 
   /**
    * Searches words in all data held in a database map ; returns a list of keys in that map.
    * Only reference paths are accepted as arguments: searches in the past are not possible
    * in the current version of the database.
    */
-  intmap_search = %%path_intmap_search%%
+  intmap_search(p, word) = %%path_intmap_search%%(unwrap(p), word)
 
-  stringmap_search = %%path_stringmap_search%%
+  stringmap_search(p, word) = %%path_stringmap_search%%(unwrap(p), word)
 
   /**
    * Folds on a map with a range and a filter;
@@ -181,9 +151,11 @@ Db = {{
    * @param [filter] which keys are accepted for the fold. (x -> {true}) is all the keys of the map
    * are accepted.
    */
-  intmap_fold_range = %%path_intmap_fold_range%%
+  intmap_fold_range(p, f, init, start, ending, filter) =
+    %%path_intmap_fold_range%%(unwrap(p), f, init, start, ending, filter)
 
-  stringmap_fold_range = %%path_stringmap_fold_range%%
+  stringmap_fold_range(p, f, init, start, ending, filter) =
+    %%path_stringmap_fold_range%%(unwrap(p), f, init, start, ending, filter)
 
   /**
    * Queries the history of data that have been present at a path.
@@ -195,7 +167,7 @@ Db = {{
    * @example [history(@/p, -9, 10)] returns the last 10 revisions in chronological order.
    * @example [history(@/p, 1, 0)] returns all revisions in chronological order.
    */
-  history = %%path_history%%
+  history(p, from, length) = %%path_history%%(unwrap(p), from, length)
 
   /**
    * Queries the history by timestamps.
@@ -204,14 +176,14 @@ Db = {{
    */
   history_time(path, from : Date.date, to : Date.date) =
     bp = %%path_history_time%%
-    r = bp(path, Date.ll_export(from), Date.ll_export(to))
+    r = bp(unwrap(path), Date.ll_export(from), Date.ll_export(to))
     List.map((val, time) -> (Date.ll_import(time), val), r)
 
   /**
    * Returns the last modification date of a path.
    */
   modification_time(path) : Date.date =
-    bp = %%path_modification_time%%
+    bp(p) = %%path_modification_time%%(unwrap(p))
     Date.ll_import(bp(path))
 
   /**
@@ -247,6 +219,7 @@ Db = {{
    * - sets are unsupported at the moment
    */
   export_to_xml = %%dbser.dump_db%%
+
 }}
 
 
@@ -317,3 +290,24 @@ Transaction = {{
     the inner transaction does'nt have an effect on the database.
   */
 }}
+
+
+
+@opacapi Db3_val_to_val(db3path:path_t(path_val_p, 'a)) = Db.build({
+  id = "db3path";
+  read() = %%path_read%%(db3path)
+  exists() = %%path_exists%%(db3path)
+  more = void
+  engine = db3path;
+}) : val_path('a)
+
+@opacapi Db3_ref_to_ref(db3path:path_t(path_ref_p, 'a)) = Db.build({
+  id = "db3path";
+  read() = %%path_read%%(db3path)
+  exists() = %%path_exists%%(db3path)
+  more = {
+    remove()    = %%path_remove%%(db3path)
+    write(data) = do %%path_write%%(db3path, data) true
+  }
+  engine = db3path;
+}) : ref_path('a)

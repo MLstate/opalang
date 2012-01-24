@@ -39,84 +39,49 @@ import stdlib.system
  * {1 Types defined in this module}
  */
 
-@opacapi type badoplink_database = Db.mongo
-@opacapi type badoplink_transaction = external
-type badoplink_revision = external
-@opacapi type badoplink_db_path_key = external
-@opacapi type badoplink_data_d = external
-@opacapi type badoplink_db_partial_key = external
-
-@opacapi type badoplink_node_config = external
-
-@opacapi type badop_engine_database_options = external
-@opacapi type badop_engine_t = external
-
-@opacapi type path_t('kind, 'data) = {
-  id : string;
-  read : -> option('data);
-  default : 'data;
-  more : 'kind;
-}
-@opacapi type path_embedded_obj = external
-@opacapi type path_embed_info = external
-
-@abstract @opacapi type path_val_p = void
-@abstract @opacapi type path_ref_p('data) = {
-  write : 'data -> bool
-  remove : -> void
-}
-
-@opacapi type opa_transaction_t('a) = external
-@opacapi type dbgraph_diff = external
-
-type Db.mongo = {
+@abstract type Db.mongo = {
   name : string;
   db : Mongo.db;
   cols : list(string)
 }
 
+@opacapi @abstract type DbMongo.engine = void
 
-/**
- * Value paths
- *
- * Value paths are obtained with the syntax [!/path/to/data]. They are used by most
- * read operations present in this interface, and are bound to a point in time and to
- * the currently running transaction, if any -- this is by opposition to reference
- * paths.
- *
- * That means that binding [p = !/path] and later on [x = Db.read(p)] will give you
- * the value at the time of the binding, just like with [p = /path] and then [x = p].
- *
- */
-@opacapi type val_path('a) = path_t(path_val_p, 'a)
+type DbMongo.val_path('a) = Db.val_path('a, DbMongo.engine)
 
-/**
- * Reference paths
- *
- * A reference path is obtained with the syntax [@/path/to/data]. In itself, this syntax
- * just builds a pointer to the database without performing any database operations.
- *
- * Reference paths are not bound to any time or transaction, and reading them gives the
- * result at the time of the read: by opposition to value paths, [p = @/path] followed
- * later on by [x = Db.read(p)] will show any change on the value stored in the database
- * performed in the meantime, possibly concurrently by another user.
- *
- */
-@opacapi type ref_path('a) = path_t(path_ref_p('a), 'a)
+type DbMongo.ref_path('a) = Db.ref_path('a, DbMongo.engine)
+
+// Private type
+type DbMongo.private.path_t('kind, 'data) = {
+  id : string;
+  read : -> option('data);
+  default : 'data;
+  more : 'kind;
+}
+
+@opacapi type DbMongo.private.val_path('a) = DbMongo.private.path_t(void, 'a)
+
+@opacapi type DbMongo.private.ref_path('a) = DbMongo.private.path_t({
+  write : 'a -> bool
+  remove : -> void
+}, 'a)
 
 /**
  * {1 Interface}
  */
 
-S = MongoSelectUpdate
+DbMongo = {{
 
-Db = {{
+   /**
+    * {2 Utils}
+    */
 
-
-   gen_read(id, query, uncap, default:'a) =
+   @package gen_read(id, query, uncap, default:'a) =
      // TODO - ...
      value2opa(value:Bson.value):option('a) =
-       Bson.doc2opa_default([{name="value"; ~value}], default)
+       match value with
+       | {Document = doc} -> Bson.doc2opa_default(doc, default)
+       | _ -> Bson.doc2opa_default([{name="value"; ~value}], default)
      match query with
          | {none} ->
            do Log.error("DbGen/Mongo", "(failure) read to {id} doesn't returns anything")
@@ -151,7 +116,7 @@ Db = {{
            end
          end
 
-   undotdoc(doc:Bson.document, next:Bson.document -> option('a)):option('a) =
+   @package undotdoc(doc:Bson.document, next:Bson.document -> option('a)):option('a) =
      match doc with
      | [~{name value}] ->
        match Parser.try_parse(
@@ -177,14 +142,17 @@ Db = {{
        none
      end
 
-  defaultns(db:Db.mongo) = "{db.name}._default"
+  @package defaultns(db:Db.mongo) = "{db.name}._default"
+
+  @package path_to_id(path:list(string)) =
+    Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
 
    /* ********************************************
     * {3 Builder of composed path}
     * *******************************************/
-   build_vpath_compose(_:Db.mongo, path:list(string), default:'data,
-                       elements:list((string, path_t(black, 'data)))):val_path('data) =
-     id = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
+   @package build_vpath_compose(_:Db.mongo, path:list(string), default:'data,
+                       elements:list((string, DbMongo.private.path_t(black, 'data)))):DbMongo.private.val_path('data) =
+     id = path_to_id(path)
      read() = (
        #<Ifstatic:DBGEN_DEBUG>
        do Log.notice("DbGen/Mongo", "Db.build_vpath_compose : Start reading")
@@ -197,7 +165,7 @@ Db = {{
                   "Db.build_vpath_compose : field {field} start reading")
              #<End>
              backfield = OpaValue.Record.field_of_name_unsafe(field)
-             match Db.option(path) with
+             match path.read() with
              | {none} ->
                data = OpaValue.Record.unsafe_dot(default, backfield)
                (OpaValue.Record.add_field(acc, backfield, data), nothing)
@@ -209,33 +177,32 @@ Db = {{
      )
      {~id ~default ~read more}
 
-   build_rpath_compose(db:Db.mongo, path:list(string), default:'data,
-                       elements:list((string, ref_path(black)))):ref_path('data) =
+   @package build_rpath_compose(db:Db.mongo, path:list(string), default:'data,
+                       elements:list((string, DbMongo.private.ref_path(black)))):DbMongo.private.ref_path('data) =
      vpath = build_vpath_compose(db, path, default, @unsafe_cast(elements))
      write(data) =
        List.fold(
          (field, path), b ->
            backfield = OpaValue.Record.field_of_name_unsafe(field)
            data = OpaValue.Record.unsafe_dot(data, backfield)
-           b && Db.write_option(path, data)
+           b && path.more.write(data)
          , elements, true
        )
-     remove() = List.iter((_field, path) -> Db.remove(path), elements)
+     remove() = List.iter((_field, path) -> path.more.remove(), elements)
      { vpath with more=~{write remove} }
 
    /* ********************************************
     * {3 Builder of sub path}
     * *******************************************/
-   build_vpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string))
-   : val_path('data) =
+   @package build_vpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string))
+   : DbMongo.private.val_path('data) =
      ns = defaultns(db)
-     rid = Uri.to_string(~{path=rpath fragment=none query=[] is_directory=false is_from_root=true})
-     id = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
-     docpath = "value" +> partial
+     rid = path_to_id(rpath)
+     id = path_to_id(path)
      selector = [{name = "_id"; value = {String = rid}}]
      filter = [
        {name = "_id"; value = {Boolean = false}},
-       {name = List.to_string_using("", "", ".", docpath); value = {Boolean = true}}
+       {name = List.to_string_using("", "", ".", partial); value = {Boolean = true}}
      ]
      rec uncap(doc:Bson.document) =
        rec aux(path, value:Bson.value) =
@@ -252,25 +219,26 @@ Db = {{
              none
            end
          end
-       match doc with
-       | [{name = "value"; ~value}] -> aux(partial, value)
-       | _ -> undotdoc(doc, uncap)
-       end
+         aux(partial, {Document = doc})
      {
        ~id ~default
        more = void
        read() =
+         #<Ifstatic:DBGEN_DEBUG>
+         do Log.notice("DbGen/Mongo", "Db.build_vpath_sub : Selector {selector}")
+         do Log.notice("DbGen/Mongo", "Db.build_vpath_sub : Filter {filter}")
+         #<End>
          query = MongoDriver.query(db.db, 0, ns, 0, 1, selector, some(filter))
          gen_read(id, query, uncap, default)
      }
 
-   build_rpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string)) : ref_path('data) =
+   @package build_rpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string)) : DbMongo.private.ref_path('data) =
      ns = defaultns(db)
-     rid = Uri.to_string(~{path=rpath fragment=none query=[] is_directory=false is_from_root=true})
+     rid = path_to_id(rpath)
      vpath = build_vpath_sub(db, path, default, rpath, partial)
      selector = [{name = "_id"; value = {String = rid}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
-     field = "data.{List.to_string_using("", "", ".", partial)}"
+     field = List.to_string_using("", "", ".", partial)
      write(data) =
        update = Bson.opa_to_document(field, data, @typeof(default))
        update = [{name="$set"; value={Document = update}}]
@@ -292,22 +260,29 @@ Db = {{
    /* ********************************************
     * {3 Builder of declared path}
     * *******************************************/
-   build_vpath(db:Db.mongo, path:list(string), default:'data):val_path('data) =
+   @package build_vpath(db:Db.mongo, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
      ns = defaultns(db)
-     id = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
+     id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
      filter = [{name = "_id"; value = {Boolean = false}}]
+     uncap =
+       if const then (
+         rec uncap(doc:Bson.document) = match doc with
+           | [{name = "value"; ~value}] -> some(value)
+           | _ -> undotdoc(doc, uncap)
+         uncap
+       ) else (
+         doc ->
+           some({Document = doc})
+       )
      read() =
-       rec uncap(doc) = match doc with
-         | [{name = "value"; ~value}] -> some(value)
-         | _ -> undotdoc(doc, uncap)
        query = MongoDriver.query(db.db, 0, ns, 0, 1, selector, some(filter))
        gen_read(id, query, uncap, default)
      ~{id read default more=void}
 
-   build_rpath(db, path:list(string), default:'data):ref_path('data) =
+   @package build_rpath(db, path:list(string), default:'data, const:bool):DbMongo.private.ref_path('data) =
      ns = defaultns(db)
-     vpath = build_vpath(db, path, default) : val_path('data)
+     vpath = build_vpath(db, path, default, const) : DbMongo.private.val_path('data)
      selector = [{name = "_id"; value = {String = vpath.id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      write(data:'data) =
@@ -321,12 +296,16 @@ Db = {{
        #<End>
      { vpath with more=~{write remove} }
 
-   update_path(db:Db.mongo, path:list(string), update) =
+   @package update_path(db:Db.mongo, path:list(string), update) =
      ns = defaultns(db)
-     id = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
+     id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
-     MongoDriver.update(db.db, tags, ns, selector, update)
+     if not(MongoDriver.update(db.db, tags, ns, selector, update)) then
+       Log.error("DbGen/Mongo", "(failure) An error occurs while updating path '{path}' with {update}")
+     #<Ifstatic:DBGEN_DEBUG>
+     else Log.notice("DbGen/Mongo", "(success) path '{path}' updated with {update}")
+     #<End>
 
 
   /**
@@ -335,149 +314,86 @@ Db = {{
    *
    * @example [write(@/path,42)] initializes or updates the data at path [/path]
    */
-  write(path:ref_path('data), data:'data) =
-    if not((path.more:path_ref_p('data)).write(data)) then
+  @package write(path:DbMongo.private.ref_path('data), data:'data) =
+    if not((path.more).write(data)) then
       Log.error("DbGen/Mongo", "Write error on path {path.id}")
 
-  write_option(path, data) =
-    (path.more:path_ref_p('data)).write(data)
+  @package write_option(path:DbMongo.private.ref_path('data), data) =
+    (path.more).write(data)
 
-  `<-`(d,a) = write(d,a)
-
-  /**
-   * Reads the data currently held at a reference path.
-   *
-   * @example [read(@/path)] is equivalent to [/path]
-   */
-  read(path:path_t('any, 'data)):'data = path.read() ? path.default
+  @package `<-`(d,a) = write(d,a)
 
   /**
    * Reads the data currently held at a reference path.
    *
    * @example [read(@/path)] is equivalent to [/path]
    */
-  option(path:path_t('any, 'data)):option('data) = path.read()
+  @package read(path:DbMongo.private.path_t('any, 'data)):'data = path.read() ? path.default
+
+  /**
+   * Reads the data currently held at a reference path.
+   *
+   * @example [read(@/path)] is equivalent to [/path]
+   */
+  @package option(path:DbMongo.private.path_t('any, 'data)):option('data) = path.read()
 
   /**
    * Turns a reference-path into a value-path, in fact taking a snapshot.
    *
    * @example [get_val(@/path)] is equivalent to [!/path]
    */
-  get_val(rpath:ref_path('data)):val_path('data) =
+  @package get_val(rpath:DbMongo.private.ref_path('data)):DbMongo.private.val_path('data) =
     {rpath with more = void}
 
   /**
    * Removes the data held at a path in the database. It won't be visible in the
    * current revision anymore, but will still be present in the history.
    */
-  remove(rpath:ref_path('data)):void =
+  @package remove(rpath:DbMongo.private.ref_path('data)):void =
     rpath.more.remove()
 
-  // /**
-  //  * Given an intmap from the database, returns a key that is guaranteed not to be used
-  //  * in that intmap. Successive calls return different results. */
-  // fresh_key = %%path_fresh_key%%
+  @package open(name:string, host, port) =
+    seed = (host ? "localhost", port ? 27017)
+    args = CommandLine.filter({
+      title = "Options for database \"{name}\" (mongo):"
+      init = {
+        seeds=[]
+        bufsize = 50*1024
+        poolsize = 2
+        log = true
+      }
+      anonymous = []
+      parsers = [
+        {CommandLine.default_parser with
+          names = ["--db-remote:{name}"]
+          description = "Use remote mongo database(s), (default: {seed.f1}:{seed.f2})"
+          param_doc = "host[:<port>][,host[:<port>]]*"
+          on_param(acc) =
+            seed_parser = parser
+              host=((![:] .)*)[:] port={Rule.natural} -> (Text.to_string(host), port)
+            parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} ->
+              {params = {acc with seeds = List.append(acc.seeds, seeds)}}
+        }
+      ]
 
-  // /**
-  //  * Checks a path for existence in the low-level db.
-  //  */
-  // exists = %%path_exists%%
-
-  // /**
-  //  * Searches words in all data held in a database map ; returns a list of keys in that map.
-  //  * Only reference paths are accepted as arguments: searches in the past are not possible
-  //  * in the current version of the database.
-  //  */
-  // intmap_search = %%path_intmap_search%%
-
-  // stringmap_search = %%path_stringmap_search%%
-
-  // /**
-  //  * Folds on a map with a range and a filter;
-  //  * @param [f] function to be applied to every element of the map.
-  //  * @param [start] where to start the fold, boundary included. 0 is the first key of the map.
-  //  * @param [ending] where to stop, boundary not included. [none] is ending at the last key of the map,
-  //  * [some(3)] is stopping at the second key of the map.
-  //  * @param [filter] which keys are accepted for the fold. (x -> {true}) is all the keys of the map
-  //  * are accepted.
-  //  */
-
-  // intmap_fold_range = %%path_intmap_fold_range%%
-
-  // stringmap_fold_range = %%path_stringmap_fold_range%%
-
-  // /**
-  //  * Queries the history of data that have been present at a path.
-  //  * @param [from] where to start the history. 0 and negative is in the past from the
-  //  * current revision, 1 and forward is from the first revision.
-  //  * @param [length] how many revisions to return, from then on if positive, from then
-  //  * backwards if negative. If 0, return all revisions from [from].
-  //  * @example [history(@/p, 0, -10)] returns the last 10 revisions in reverse order.
-  //  * @example [history(@/p, -9, 10)] returns the last 10 revisions in chronological order.
-  //  * @example [history(@/p, 1, 0)] returns all revisions in chronological order.
-  //  */
-  // history = %%path_history%%
-
-  // /**
-  //  * Queries the history by timestamps.
-  //  * returns a list of pairs [(timestamp, value)] with the values that have been held at
-  //  * a path between the two given timestamps.
-  //  */
-  // history_time(path, from : Date.date, to : Date.date) =
-  //   bp = %%path_history_time%%
-  //   r = bp(path, Date.ll_export(from), Date.ll_export(to))
-  //   List.map((val, time) -> (Date.ll_import(time), val), r)
-
-  // /**
-  //  * Returns the last modification date of a path.
-  //  */
-  // modification_time(path) : Date.date =
-  //   bp = %%path_modification_time%%
-  //   Date.ll_import(bp(path))
-
-  // /**
-  //  * Simple transaction handling: db-atomic execution of a function.
-  //  * @param [db] the database to run the transaction in.
-  //  * @param [f] a function that will be executed within a single transaction.
-  //  * @return the return value of f as option, or [{none}] if the transaction commit failed.
-  //  */
-  // transaction(_f) = error("")
-  //   // tr = Transaction.new()
-  //   // r = tr.try(-> some(f()), -> none)
-  //   // match tr.commit() with {success} -> r | {failure} -> none
-
-  // /**
-  //  * Dumps the contents of the whole database into an XML file.
-  //  * @param [db] the database to dump.
-  //  * @param [file] a file name to dump to.
-  //  *
-  //  * {2 XML format specification:}
-  //  * - the database contents are exported inside a [<opa_database_root version="1.0"/>] node
-  //  * - ints and floats are exported as strings representing their values
-  //  * - text is in exported to escaped XML strings, in double-quotes, or the same way as binary
-  //  *   data if it contains null characters.
-  //  * - binary data is converted to base64 and inserted into a [<base64/>] node
-  //  * - records [r] with fields [f1...fn] are exported as [<f1>r.f1</f1>...<fn>r.fn</fn>]
-  //  * - maps [m] are exported as [<map></map>] nodes, containing a list of nodes of the form
-  //  *   [<entry><key>k</key><value>v</value></entry>] for each key-value pair [k], [v].
-  //  *
-  //  * The resulting file can be used for import in another database with [opa-db-tool --import]
-  //  * (note that the export can also be done from [opa-db-tool]).
-  //  */
-  // /* todo when we make them available:
-  //  * - sets are unsupported at the moment
-  //  */
-  // export_to_xml(file:string) =
-
-
-  open(name, host, port) =
-    match MongoDriver.open(50*1024, 2, true, host, port, true) with
+    })
+    args = match args.seeds with
+      | [] -> {args with seeds = [seed]}
+      | _ -> args
+    connect() =
+      match args.seeds with
+      | [(host, port)] ->
+        MongoDriver.open(args.bufsize, args.poolsize, true, host, port, args.log)
+      | seeds ->
+        mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, args.log, seeds)
+        MongoReplicaSet.connect(mdb)
+    match connect() with
     | {success = db} -> ~{db name cols=["default"]}
     | ~{failure} ->
-      do Log.error("Database", "Error on openning mongo database \"{host}\"\n{failure}")
+      do Log.error("DbGen/Mongo", "Error on openning database \"{name}\"\n{failure}")
       System.exit(1)
 
-  drop(db:Db.mongo) =
+  @package drop(db:Db.mongo) =
     List.iter(
       col ->
         if MongoDriver.delete(db.db, 0, "{db.name}.{col}", []) then
@@ -489,8 +405,6 @@ Db = {{
 }}
 
 
-`<-` = Db.`<-`
-
 
 @opacapi
 @abstract
@@ -501,7 +415,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
  * {1 Interface}
  */
 
-DbSet = {{
+@package DbSet = {{
 
   index(db:Db.mongo, path:list(string), idx) =
     id = List.to_string_using("", "", ".", path)
@@ -534,17 +448,33 @@ DbSet = {{
   update(db:Db.mongo, path:list(string), selector, update) =
     id = List.to_string_using("", "", ".", path)
     tag = Bitwise.lor(0, MongoCommon.UpsertBit)
-    //tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
+    tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
     #<Ifstatic:DBGEN_DEBUG>
-    do Log.notice("DbGen/Mongo", "DbSet.update : Selector {selector}")
-    do Log.notice("DbGen/Mongo", "DbSet.update : Update {update}")
+    do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Selector {selector}")
+    do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Update {update}")
     #<End>
     reply=MongoDriver.update(db.db, tag, "{db.name}.{id}", selector, update)
     match reply with
     | {false} ->
       do Log.error("DbGen/Query", "(failure) Read tn {id} set doesn't returns anything")
       error("DbSet update error")
-    | {true} -> void
+    | {true} ->
+      #<Ifstatic:DBGEN_DEBUG>
+      do Log.notice("DbGen/Mongo", "(success) DbSet.update")
+      #<End>
+      void
+    // TODO - Needed for error reporting
+    // reply=MongoDriver.updatee(db.db, tag, ns, db.name, selector, update)
+    // match MongoCommon.reply_to_result("DbGen/Mongo", 0, reply) with
+    // | ~{success} ->
+    //   #<Ifstatic:DBGEN_DEBUG>
+    //   do Log.notice("DbGen/Mongo", "(success) DbSet.update \"{ns}\" {success}")
+    //   #<End>
+    //   void
+    // | ~{failure} ->
+    //   Log.error("DbGen/Mongo", "(failure) DbSet.update \"{ns}\" {failure}")
+    // end
+
 
   @private fold_doc(init, dbset:dbset, f) =
     match dbset with
@@ -630,29 +560,62 @@ DbSet = {{
     | {none} -> dbset.default
     | {some = uniq} -> uniq
 
-
-
   add_to_document(doc, name, value, ty):Bson.document =
     List.append(doc, Bson.opa_to_document(name, value, ty))
+
+  build_vpath(db:Db.mongo, path:list(string), selector, default:'b, nb,
+              read_map:dbset('a) -> option('b)):DbMongo.private.val_path('b) =
+    {
+      id = DbMongo.path_to_id(path)
+      read() = read_map(build(db, path, selector, @unsafe_cast(default), nb)):option('b)
+      default = default
+      more = void
+    }
+  // [selector |
+  build_rpath(db:Db.mongo, path:list(string), selector, default:'b, nb,
+              read_map:dbset('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
+    vpath = build_vpath(db, path, selector, default, nb, read_map)
+    write(data) =
+      do update(db, path, selector,
+           [{name="$set"; value={Document = write_map(data)}}]
+         )
+      true
+    remove() =
+      if not(MongoDriver.delete(db.db, 0, "{db.name}.{vpath.id}", selector)) then
+        Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
+      #<Ifstatic:DBGEN_DEBUG>
+      else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
+      #<End>
+    {vpath with more=~{write remove}}
+
 
 
 }}
 
+@opacapi DbMongo_path_to_path(mongopath:DbMongo.private.path_t('kind, 'a)) = Db.build({
+  id = mongopath.id;
+  read() = mongopath.read() ? mongopath.default
+  exists() = Option.is_some(mongopath.read())
+  more = mongopath.more
+  engine = void;
+})
+
 @opacapi @abstract type DbSet.query = Bson.document
 
-@opacapi Db_open = Db.open
-@opacapi Db_update_path = Db.update_path
-@opacapi Db_build_vpath = Db.build_vpath
-@opacapi Db_build_rpath = Db.build_rpath
+@opacapi DbMongo_open = DbMongo.open
 
-@opacapi Db_build_rpath_compose = Db.build_rpath_compose
-@opacapi Db_build_vpath_compose = Db.build_vpath_compose
+@opacapi DbMongo_update_path = DbMongo.update_path
+@opacapi DbMongo_build_vpath = DbMongo.build_vpath
+@opacapi DbMongo_build_rpath = DbMongo.build_rpath
 
-@opacapi Db_build_vpath_sub = Db.build_vpath_sub
-@opacapi Db_build_rpath_sub = Db.build_rpath_sub
-@opacapi Db_read = Db.read
-@opacapi Db_write = Db.write
-@opacapi Db_option = Db.option
+@opacapi DbMongo_build_rpath_compose = DbMongo.build_rpath_compose
+@opacapi DbMongo_build_vpath_compose = DbMongo.build_vpath_compose
+
+@opacapi DbMongo_build_vpath_sub = DbMongo.build_vpath_sub
+@opacapi DbMongo_build_rpath_sub = DbMongo.build_rpath_sub
+@opacapi DbMongo_read = DbMongo.read
+@opacapi DbMongo_write = DbMongo.write
+@opacapi DbMongo_option = DbMongo.option
 @opacapi DbSet_build = DbSet.build
 @opacapi DbSet_update = DbSet.update
 @opacapi DbSet_opa2doc = Bson.opa2doc
@@ -663,6 +626,8 @@ DbSet = {{
 @opacapi DbSet_map_to_uniq_def = DbSet.map_to_uniq_def
 @opacapi DbSet_set_to_uniq = DbSet.set_to_uniq
 @opacapi DbSet_set_to_uniq_def = DbSet.set_to_uniq_def
+@opacapi DbSet_build_vpath = DbSet.build_vpath
+@opacapi DbSet_build_rpath = DbSet.build_rpath
 @opacapi DbSet_default = Option.default
 @opacapi DbSet_empty = {empty}
 

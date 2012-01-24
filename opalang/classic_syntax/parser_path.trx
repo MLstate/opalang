@@ -57,13 +57,13 @@ path_kind <- querytype:qt path:p {{ p, qt }}
 
 ; /** database update path **/
 path_update <-
-  / '@'? slash_nosp path:pa Opa_lexer.larrow Opa_parser.expr:e
-    {{
-       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
-    }}
   / '@'? slash_nosp path:pa (Opa_lexer.larrow update:u {{u}} / update_simple):u
     {{
        DBPath (pa, QmlAst.Db.Update u)
+    }}
+  / '@'? slash_nosp path:pa Opa_lexer.larrow Opa_parser.expr:e
+    {{
+       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
     }}
 
 (* ******************************************************************)
@@ -139,8 +139,8 @@ query_simple_builder <-
 query_simple <- query_simple_builder:b query_expr:e {{ b e }}
 
 query_keywords <-
-  / (=Opa_lexer.exact_ident("and"))
-  / (=Opa_lexer.exact_ident("or"))
+  / (=Opa_lexer.exact_keyword("and"))
+  / (=Opa_lexer.exact_keyword("or"))
 
 query_nokeywords <-
   / !query_keywords
@@ -151,8 +151,8 @@ query_nokeywords <-
   (*   }} *)
 
 query_double_builder <-
-  / (=Opa_lexer.exact_ident("and")) {{ fun q1 q2 -> QmlAst.Db.QAnd (q1, q2) }}
-  / (=Opa_lexer.exact_ident("or"))  {{ fun q1 q2 -> QmlAst.Db.QOr (q1, q2) }}
+  / (=Opa_lexer.exact_keyword("and")) {{ fun q1 q2 -> QmlAst.Db.QAnd (q1, q2) }}
+  / (=Opa_lexer.exact_keyword("or"))  {{ fun q1 q2 -> QmlAst.Db.QOr (q1, q2) }}
 
 query_expr <- Opa_parser.expr
 

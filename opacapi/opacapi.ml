@@ -61,6 +61,13 @@ struct
   let register_js_code_elt = !! "register_js_code_elt"
 end
 
+module Db3 =
+struct
+  let (!!) s = !! ("Db3_" ^ s)
+  let val_to_val = !! "val_to_val"
+  let ref_to_ref = !! "ref_to_ref"
+end
+
 module DbVirtual =
 struct
   let (!!) s = !! ("DbVirtual_" ^ s)
@@ -131,7 +138,14 @@ end
 module Db =
 struct
   let (!!) s = !! ("Db_" ^ s)
+  let write = !! "write"
+end
+
+module DbMongo =
+struct
+  let (!!) s = !! ("DbMongo_" ^ s)
   let open_ = !! "open"
+  let path_to_path = !! "path_to_path"
   let build_vpath = !! "build_vpath"
   let build_rpath = !! "build_rpath"
   let update_path = !! "update_path"
@@ -158,6 +172,8 @@ struct
   let set_to_uniq = !! "set_to_uniq"
   let map_to_uniq_def = !! "map_to_uniq_def"
   let set_to_uniq_def = !! "set_to_uniq_def"
+  let build_vpath = !! "build_vpath"
+  let build_rpath = !! "build_rpath"
   let default = !! "default"
 end
 
@@ -347,6 +363,21 @@ struct
   (*   let (!!) s = !! ("Bson." ^ s) *)
   (*   let document = !! "document" *)
   (* end *)
+
+  module Db =
+  struct
+    let (!!) s = !! ("Db." ^ s)
+    let ref_path = !! "ref_path"
+    let val_path = !! "val_path"
+  end
+
+  module DbMongo =
+  struct
+    let (!!) s = !! ("DbMongo." ^ s)
+    let engine  = !! "engine"
+    let val_path = !! "private.val_path"
+    let ref_path = !! "private.ref_path"
+  end
 
   module Cell =
   struct

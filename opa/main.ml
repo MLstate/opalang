@@ -155,8 +155,8 @@ let () =
     (*|+> ("Retyping", S3.pass_Retyping)*)
 
     |?| ( Switch.database, function
-            | QmlDbGen.Db3   -> ("BadopCodeGeneration", S3.pass_BadopCodeGeneration)
-            | QmlDbGen.Mongo -> ("MongoCodeGeneration", S3.pass_MongoCodeGeneration)
+            | `db3   -> ("BadopCodeGeneration", S3.pass_BadopCodeGeneration)
+            | `mongo -> ("MongoCodeGeneration", S3.pass_MongoCodeGeneration)
         )
 
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)

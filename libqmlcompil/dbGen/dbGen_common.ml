@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+module Arg = Base.Arg
 let version = 9 (* Should be the same as in db3/Dbgraph *)
 
 type path = string list
@@ -57,6 +58,35 @@ type schema_node = {
   context : QmlError.context;
   plain : bool;
 }
+
+type engine = [ `db3 | `mongo]
+
+module Args = struct
+
+  type options = {
+    engine : engine
+  }
+
+  let default = {
+    engine = `db3
+  }
+
+  let descr = function
+    | `db3   -> "Db3"
+    | `mongo -> "Mongo"
+
+  let assoc = [("mongo", `mongo); ("db3"), `db3]
+
+  let r = ref default
+
+  let options = [
+    ("--database", Arg.spec_fun_of_assoc (fun s -> r := {engine=s}) assoc,
+     "Select kind of database (db3|mongo)");
+  ]
+
+  let get_engine() = !r.engine
+
+end
 
 let settyp, typ =
   let typ = ref (function _ ->
@@ -114,3 +144,32 @@ let engine_opt opts =
   | [engine] -> engine
   | [] -> `db3 None (* default engine, if any requested *)
   | _::_ -> failwith "Ambiguous database engine specification"
+
+
+(* Common database type beetween different backends *)
+module Db = struct
+
+  let mongo_engine () =
+    QmlAst.TypeName ([], typ Opacapi.Types.DbMongo.engine)
+
+  let ref_path_ty tydata =
+    let tyengine =
+      match Args.get_engine() with
+      | `db3 -> ref_path_ty tydata
+      | `mongo -> mongo_engine ()
+    in
+    QmlAst.TypeName ([tydata; tyengine],
+                     (* typ don't use typ with type defined inside stdlib.core*)
+                     QmlAst.TypeIdent.of_string Opacapi.Types.Db.ref_path
+                    )
+  let val_path_ty tydata =
+    let tyengine =
+      match Args.get_engine() with
+      | `db3 -> val_path_ty tydata
+      | `mongo -> mongo_engine ()
+    in
+    QmlAst.TypeName ([tydata; tyengine],
+                     (* typ don't use typ with type defined inside stdlib.core*)
+                     QmlAst.TypeIdent.of_string Opacapi.Types.Db.val_path
+                    )
+end

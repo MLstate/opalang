@@ -67,7 +67,7 @@ type env_final = {
 }
 
 let extract_final_ac env = env.env_typer.QmlTypes.annotmap, env.code
-let extract_final_agc env = env.env_typer.QmlTypes.annotmap, env.env_typer.QmlTypes.gamma, env.code
+let extract_final_agc env = env.env_typer.QmlTypes.annotmap, (env.env_typer.QmlTypes.gamma, env.env_typer.QmlTypes.gamma) , env.code
 let extract_final_code env = env.code
 let extract_final_bypass_typer env = env.env_typer.QmlTypes.bypass_typer
 let extract_final_bypass_typer_code env = extract_final_bypass_typer env, extract_final_code env
@@ -206,7 +206,7 @@ struct
   (* ======================================================================= *)
 
   let env_Parse_extract_code (_,env) = (Option.default [] env.init_code) @ env.user_code
-  let env_Parse_extract_ac env = (QmlAnnotMap.empty, QmlTypes.Env.empty, env_Parse_extract_code env)
+  let env_Parse_extract_ac env = (QmlAnnotMap.empty, (QmlTypes.Env.empty, QmlTypes.Env.empty), env_Parse_extract_code env)
 
   let pass_Parse =
     let transform pass_env =

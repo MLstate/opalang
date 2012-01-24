@@ -1562,11 +1562,12 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           in
           let ty = H.type_from_annot access_code in
           let fun_id = H.new_ident "access_fun" in
-          H.make_letin'
+          let valpath = H.make_letin'
             [ pathid, dbpath;
               fun_id, access_fun ]
             (H.apply_lambda' (Bypass.get_val_path ty)
                [tr @: (tytrans()); pathid @: (typath()); fun_id @: H.type_from_annot access_fun])
+          in H.apply_lambda' (Helpers_gen.expr_val_to_val ty) [valpath]
       | Db.Ref -> assert false
       | Db.Update _ -> assert false
 
@@ -1605,6 +1606,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
            to_val_path_expr;
            H.make_lambda' [tr, (tytrans()); x, ty] writer])
     in
+    let ref_path = H.apply_lambda' (Helpers_gen.expr_ref_to_ref ty) [ref_path] in
     debug_in
       (Format.sprintf "Build ref path at %s (%a)" (SchemaGraphLib.string_path_of_node sch node)
          QmlPrint.pp#ty (match H.type_from_annot ref_path with Q.TypeName (ty::_, _) -> ty | _ -> assert false))
@@ -1812,15 +1814,71 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         H.apply_lambda' make_virt_path [e; read; write]
     | _ -> assert false (* TODO - ... *)
 
+  (* let make_update_value value update = *)
+  (*   match update with *)
+  (*   | UFlds flds  ->  *)
+  (*   | UExpr e     -> *)
+  (*   | UIncr i     -> H.const_int i *)
+  (*   | UAppend     -> *)
+  (*   | UAppendAll  -> *)
+  (*   | UPrepend    -> *)
+  (*   | UPrependAll ->  *)
+  (*   | UPop        -> *)
+  (*   | UShift      -> *)
+
   let make_update_path ~context sch dbinfo gamma node path update =
-    ignore (context);
-    match update with
-    | Db.UExpr expr ->
-        let rpath = make_ref_path sch dbinfo gamma node path in
-        let dbwrite = Helpers_gen.expr_write node.C.ty in
-        H.apply_lambda' dbwrite [rpath; expr]
-    | _ -> assert false
-    (* | _ -> QmlError.error context "This update operation was not yet handled by db3 generator" *)
+    let error () =
+      QmlError.error context "This update operation is not yet handled by db3 generator\n"
+    in
+    let rec aux update =
+      match update with
+      | Db.UExpr expr ->
+          let rpath = make_ref_path sch dbinfo gamma node path in
+          let dbwrite = Helpers_gen.expr_write node.C.ty in
+          H.apply_lambda' dbwrite [rpath; expr]
+      | Db.UFlds flds ->
+          let rec build_record flds ty =
+            let flds =
+              List.map
+                (function
+                   | [f], Db.UExpr expr -> f, expr
+                   | [f], Db.UFlds flds ->
+                       f, build_record flds (Schema_private.dots gamma [f] ty)
+                   | _ -> error ()
+                )
+                flds
+            in
+            let flds = List.sort (fun (f1,_) (f2,_) -> String.compare f1 f2) flds in
+            let _check =
+              let aux_check tyflds =
+                List.iter2 (fun (f1,_) (f2,_) -> if String.compare f1 f2 <> 0 then error ())
+                  tyflds flds
+              in
+              match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+              | Q.TypeRecord ty_row ->
+                  begin match QmlAstCons.Type.Row.sort ty_row with
+                  | Q.TyRow (tyflds, _) -> aux_check tyflds
+                  end
+              | Q.TypeSum ty_sum ->
+                  begin match QmlAstCons.Type.Col.sort ty_sum with
+                  | Q.TyCol (cols, _) ->
+                      let ismatch col =
+                        (List.make_compare (fun x y -> String.compare (fst x) (fst y))
+                           col flds)
+                        = 0
+                      in
+                      let col =
+                        try
+                          List.find ismatch cols
+                        with Not_found -> error ()
+                      in
+                      aux_check col
+                  end
+              | _ -> error ()
+            in H.make_record flds
+          in aux (Db.UExpr (build_record flds node.C.ty))
+      | _ -> error ()
+    in aux update
 
   let get_expr ~context t dbinfo_map gamma path kind =
     let _ =

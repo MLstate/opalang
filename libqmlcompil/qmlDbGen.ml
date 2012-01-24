@@ -19,7 +19,6 @@
     @author Louis Gesbert
 **)
 
-module Arg = Base.Arg
 module Format = BaseFormat
 
 module Graph = SchemaGraphLib.SchemaGraph.SchemaGraph0
@@ -28,36 +27,11 @@ module DbAst = QmlAst.Db
 
 module C = DbGen_common
 
-type engine = Db3 | Mongo
-
-module Args = struct
-
-  type options = {
-    engine : engine
-  }
-
-  let default = {
-    engine = Db3
-  }
-
-  let descr = function
-    | Db3   -> "Db3"
-    | Mongo -> "Mongo"
-
-  let assoc = [("mongo", Mongo); ("db3"), Db3]
-
-  let r = ref default
-
-  let options = [
-    ("--database", Arg.spec_fun_of_assoc (fun s -> r := {engine=s}) assoc,
-     "Select kind of database (db3|mongo)");
-  ]
-
-  let get_engine() = !r.engine
-
-end
+type engine = [`db3 | `mongo]
 
 let settyp = DbGen_common.settyp
+
+module Args = C.Args
 
 module Sch = Schema_private
 module Schema = struct
@@ -197,6 +171,7 @@ module Schema = struct
       | (DbAst.FldKey _s0, _) -> false
       | (DbAst.ExprKey _, C.Multi_edge _) -> true
       | (DbAst.Query _, C.Multi_edge _) -> true
+      | (DbAst.NewKey, _) -> true
       | _ -> assert false (* TODO *)
     in
     let v = match (Graph.V.label node).C.nlabel with
@@ -292,8 +267,7 @@ module Schema = struct
           | SetAccess (_, _path, Some _) -> assert false
           | _ -> assert false
           end
-      | _ -> assert false
-
+      | DbAst.NewKey -> OManager.error "new key is not yep supported"
     in
     let (node, kind, _path) =
       List.fold_left f (get_root llschema, Compose [], []) path in

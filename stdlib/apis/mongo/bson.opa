@@ -39,6 +39,8 @@
 
 import stdlib.core.{date,map}
 
+package stdlib.apis.mongo
+
 /**
  * Some convenience types.
  * To use these, just cast the OPA type to this type, for example,
@@ -643,7 +645,7 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="int64"}
       | {TyName_args=[{TyConst={TyInt={}}},_,_]; TyName_ident="ordered_map"}
       | {TyName_args=[_]; TyName_ident="list"} -> ty
-      | {TyName_args=tys; TyName_ident=tyid} -> OpaType.type_of_name(tyid, tys)
+      | {TyName_args=tys; TyName_ident=tyid} -> name_type(OpaType.type_of_name(tyid, tys))
       | ty -> ty
     nty
 

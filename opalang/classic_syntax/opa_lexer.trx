@@ -242,6 +242,7 @@ end_of_ident_nosp <- !ml_following_letter $
 let exact_ident string = spacing not_a_keyword string:s end_of_ident_nosp {{ s }};
   # not_a_keyword really useful ?
 let exact_symbol string = spacing string:s ![%.+\-^*/<>=@|&!] {{ s }};
+let exact_keyword string = spacing string:s end_of_ident_nosp {{ s }};
 
 VOID = exact_ident "void";
 OPEN = exact_ident "open";

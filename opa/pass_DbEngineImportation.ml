@@ -29,8 +29,8 @@ let process_code code =
        | _ -> false)
     code then (
       let package = match QmlDbGen.Args.get_engine () with
-      | Db.Db3   -> "stdlib.database.db3"
-      | Db.Mongo -> "stdlib.database.mongo"
+      | `db3   -> "stdlib.database.db3"
+      | `mongo -> "stdlib.database.mongo"
       in
       ObjectFiles.import_package package builtinpos;
       ObjectFiles.add_compiler_package package;

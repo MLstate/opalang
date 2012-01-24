@@ -19,7 +19,7 @@
 (** {6} Command line arguments.*)
 
 (** Describes different backend that dbgen handle. *)
-type engine = Db3 | Mongo
+type engine = [`db3 | `mongo]
 
 (** Command line specification provides necessary options for switch
     database backend. *)
@@ -132,8 +132,8 @@ module Schema: sig
   (** Map any prepath to its coerced expression equivalent within the
       expressions. Additionally, returns a assoc list of old annots to new
       generated annots that can be used eg. to keep track of positions *)
-  (* val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr *)
-  (* val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt *)
+  val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr
+  val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma ->QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt
   val preprocess_paths_ast: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma -> QmlAst.code_elt list -> (Annot.t * Annot.t) list * QmlAst.code_elt list
 
   (** Finalization of the schema, to use before initialisation below, and before

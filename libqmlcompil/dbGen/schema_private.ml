@@ -802,6 +802,17 @@ let rec dots gamma field ty =
                        Format.fprintf fmt "@{<bright>'%s'@} is not found inside row @{<bright>{%a}@}"
                          f QmlPrint.pp#tyrow tyrow))
           in dots gamma t ty
+      | Q.TypeSum (Q.TyCol (flds, _) as tysum) ->
+          begin match List.find_map (List.assoc_opt f) flds with
+          | Some ty -> ty
+          | None ->
+              raise (Formatted
+                       (fun fmt () ->
+                          Format.fprintf fmt
+                            "@{<bright>'%s'@} is not found inside sum @{<bright>{%a}@}"
+                            f QmlPrint.pp#tysum tysum)
+                    )
+          end
       | ty2 ->
           raise (Formatted  (fun fmt () ->
                    let more =
@@ -845,13 +856,16 @@ let coerce_query_element ~context gamma ty query =
     | Db.QMod _ when ty = Q.TypeConst Q.TyInt -> new_annots, query
     | Db.QMod _ -> QmlError.error context "mod is avialable only on integers"
     | Db.QFlds flds ->
-        let new_annots, flds =
-          List.fold_left_map
-            (fun acc (field, q) ->
-               let acc, q = aux acc (dots gamma field ty) q in
-               acc, (field, q))
-            new_annots flds
-        in new_annots, Db.QFlds flds
+        try
+          let new_annots, flds =
+            List.fold_left_map
+              (fun acc (field, q) ->
+                 let acc, q = aux acc (dots gamma field ty) q in
+                 acc, (field, q))
+              new_annots flds
+          in new_annots, Db.QFlds flds
+        with Formatted p ->
+          QmlError.error context "This querying is invalid because %a\n%!" p ()
 
   in aux [] ty query
 
@@ -1007,13 +1021,13 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   | (Db.Query _q)::epath, C.Multi ->
       let setty = node.C.ty in
       (match setty with
-       | Q.TypeName ([_], name)
+       | Q.TypeName ([setparam], name)
            when Q.TypeIdent.to_string name = "dbset" ->
            (match epath with
             | [] -> ()
             | _ -> OManager.error "You can't extend a virtual path");
            let node, partial, tyread = node, true, setty in
-           node.C.ty, node, `virtualset (tyread, tyread, partial, None)
+           node.C.ty, node, `virtualset (setparam, tyread, partial, None)
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
            let valty, node, x =
@@ -1140,7 +1154,6 @@ let preprocess_path ~context t gamma prepath kind =
   let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind prepath prepath in
   let ty, _node, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
-  (* let ty = SchemaGraphLib.type_of_node n in *)
   let kind = preprocess_kind ~context gamma kind ty virtual_ in
   new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind), ty, virtual_
 
@@ -1159,12 +1172,12 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
          | Db.Option, _ -> H.typeoption realty
          | Db.Default, `virtualpath (_, r, _) -> r
          | Db.Default, _ -> realty
-         | Db.Valpath, `realpath -> C.val_path_ty realty
-         | Db.Valpath, `virtualset (r, _, _, _) -> C.val_path_ty r
-         | Db.Valpath, `virtualpath (_, r, _) -> C.val_path_ty r
-         | Db.Ref, `realpath -> C.ref_path_ty realty
-         | Db.Ref, `virtualset (_, _, _, _) -> C.ref_path_ty realty
-         | Db.Ref, `virtualpath (_, _, _) -> C.ref_path_ty realty
+         | Db.Valpath, `realpath -> C.Db.val_path_ty realty
+         | Db.Valpath, `virtualset (_, _, _, _) -> C.Db.val_path_ty realty
+         | Db.Valpath, `virtualpath (_, r, _) -> C.Db.val_path_ty r
+         | Db.Ref, `realpath -> C.Db.ref_path_ty realty
+         | Db.Ref, `virtualset (_, _, _, _) -> C.Db.ref_path_ty realty
+         | Db.Ref, `virtualpath (_, _, _) -> C.Db.ref_path_ty realty
          | Db.Update _u, _ -> H.tyunit
          in
          let e =
