@@ -268,11 +268,11 @@ Server = {{
 
   /**
 
-   * Default [http] configuration with port equals to 4343, the server
+   * Default [https] configuration with port equals to 4343, the server
    * name is "https". SSL certificate should be at ./service.crt and
    * SSL key should be at ./service.key.
    */
-  https = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "http"}
+  https = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
 
   /**
    * {2 Constructing a server}
