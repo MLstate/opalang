@@ -93,7 +93,6 @@ type Mongo.srr =
 @private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {stop}
 @private type Mongo.reconnectresult = {reconnectresult:bool} / {stopresult}
 
-@private
 MongoDriver = {{
 
   @private ML = MongoLog

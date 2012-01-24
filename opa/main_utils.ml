@@ -69,5 +69,12 @@ struct
   let i18n_template ~options _env = E.i18n_template options
 end
 
+module Switch =
+struct
+  let database ~options _env =
+    ignore options;
+    QmlDbGen.Args.get_engine ()
+end
+
 let if_not f_cond ~options env = not (f_cond ~options env)
 let if_and f_cond1 f_cond2 ~options env = (f_cond1 ~options env) && (f_cond2 ~options env)

@@ -128,6 +128,30 @@ struct
   let set = !! "set"
 end
 
+module Db =
+struct
+  let (!!) s = !! ("Db_" ^ s)
+  let open_ = !! "open"
+  let build_path_raw = !! "build_path_raw"
+  let build_vpath = !! "build_vpath"
+  let build_vpath_sub = !! "build_vpath_sub"
+  let build_rpath = !! "build_rpath"
+  let option = !! "option"
+  let read = !! "read"
+  let write = !! "write"
+end
+
+module DbSet =
+struct
+  let (!!) s = !! ("DbSet_" ^ s)
+  let build = !! "build"
+  let update = !! "update"
+  let empty = !! "empty"
+  let opa2doc = !! "opa2doc"
+  let add_to_document = !! "add_to_document"
+  let indexes = !! "indexes"
+end
+
 module Opa2Js =
 struct
   let (!!) s = !! ("Opa2Js_" ^ s)
@@ -291,6 +315,8 @@ struct
   let path_ref_p = !! "path_ref_p"
   let path_t = !! "path_t"
   let path_val_p = !! "path_val_p"
+  let val_path = !! "val_path"
+  let ref_path = !! "ref_path"
 
   let string = !! "string"
   let stringmap = !! "stringmap"
@@ -306,6 +332,12 @@ struct
   let xhtml_event = !! "xhtml_event"
   let xhtml_href   = !! "xhtml_href"
   let xml = !! "xml"
+
+  (* module Bson = *)
+  (* struct *)
+  (*   let (!!) s = !! ("Bson." ^ s) *)
+  (*   let document = !! "document" *)
+  (* end *)
 
   module Cell =
   struct
@@ -331,6 +363,12 @@ struct
   struct
     let (!!) s = !! ("Cps." ^ s)
     let future = !! "future"
+  end
+
+  module DbSet =
+  struct
+    let (!!) s = !! ("DbSet." ^ s)
+    let query = !! "query"
   end
 
   module Deprecated =
@@ -426,14 +464,6 @@ struct
       let json = !! "json"
     end
   end
-
-  (*module Bson =
-  struct
-    let (!!) s = !! ("Bson." ^ s)
-    let document = !! "document"
-    let element = !! "element"
-    let value = !! "value"
-  end*)
 
   module ThreadContext =
   struct

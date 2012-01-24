@@ -275,11 +275,11 @@ val pass_Retyping :
 val pass_PurgeTypeDirectiveAfterTyping :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
-val pass_DbAccessorsGeneration :
-  (unit Passes.env_Gen, (QmlDbGen.dbinfo StringListMap.t * QmlAlphaConv.t option) Passes.env_Gen) opa_pass
+val pass_BadopCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
-val pass_DbCodeGeneration :
-  ((QmlDbGen.dbinfo StringListMap.t * QmlAlphaConv.t option) Passes.env_Gen, unit Passes.env_Gen) opa_pass
+val pass_MongoCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_DocApiGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass

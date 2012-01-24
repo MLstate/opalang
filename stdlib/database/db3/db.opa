@@ -86,6 +86,8 @@ type badoplink_revision = external
 @opacapi type opa_transaction_t('a) = external
 @opacapi type dbgraph_diff = external
 
+@opacapi Db_write = Db.write
+
 
 /**
  * Value paths

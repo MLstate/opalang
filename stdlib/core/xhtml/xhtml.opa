@@ -863,6 +863,9 @@ Xhtml =
                                   do Buf.add(js_buffer,"\n.css(\{  ")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
                                     do Buf.add(js_buffer,"'")
+
+
+
                                     do Buf.add(js_buffer,name)
                                     do Buf.add(js_buffer,"': '")
                                     do Buf.add(js_buffer,value)

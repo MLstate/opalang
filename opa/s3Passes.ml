@@ -910,7 +910,7 @@ let pass_DbSchemaGeneration =
   in
   PassHandler.make_pass ~precond ~postcond ~invariant
     (fun e ->
-       QmlDbGen.settyp OpaMapToIdent.typ;
+        QmlDbGen.settyp OpaMapToIdent.typ;
        let env = ( e.PH.env : 'tmp_env Passes.env_Gen ) in
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in
@@ -1015,7 +1015,7 @@ let pass_WarnCoerce =
     )
 
 let pass_CompileRecursiveValues =
-  PassHandler.make_pass
+  PassHandler.make_pass ~invariant
     (fun e ->
        let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
        let typerEnv = env.Passes.typerEnv in
@@ -1032,7 +1032,7 @@ let pass_CompileRecursiveValues =
     )
 
 let pass_RewriteAsyncLambda =
-  PassHandler.make_pass
+  PassHandler.make_pass ~invariant
     (fun e ->
        let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
        let typerEnv = env.Passes.typerEnv in
@@ -1046,32 +1046,38 @@ let pass_RewriteAsyncLambda =
        {e with PH.env = env}
     )
 
-let pass_DbAccessorsGeneration =
-  let invariant = global_invariant () in
-  let precond = [
-  ] in
-  let postcond = [
-    QmlCheck.Annot.find Extract.EnvGen.ac ;
-  ] in
-  make_pass_raw_env_refresh Passes.pass_DbAccessorsGeneration
-    ~invariant
-    ~precond
-    ~postcond
-    ()
-
-let pass_DbCodeGeneration =
-  let invariant = global_invariant () in
+let pass_BadopCodeGeneration =
   let precond = [
   ] in
   let postcond = [
     CodeContents.only_NewVal Extract.EnvGen.ac ;
     QmlCheck.Annot.find Extract.EnvGen.ac ;
   ] in
-  make_pass_raw_env_refresh Passes.pass_DbCodeGeneration
+  let pass ~options e =
+    Passes.pass_DbCodeGeneration ~options (Passes.pass_DbAccessorsGeneration ~options e) in
+  make_pass_raw_env_refresh pass
     ~invariant
     ~precond
     ~postcond
     ()
+
+let pass_MongoCodeGeneration =
+  PassHandler.make_pass ~invariant
+    (fun e ->
+       let env = e.PH.env in
+       let typerEnv = env.Passes.typerEnv in
+       let gamma = typerEnv.QmlTypes.gamma in
+       let stdlib_gamma = env.Passes.stdlib_gamma in
+       let annotmap = typerEnv.QmlTypes.annotmap in
+       let schema = typerEnv.QmlTypes.schema in
+       let code = env.Passes.qmlAst in
+       let (nannotmap, code) =
+         Pass_MongoAccessGeneration.process_code ~stdlib_gamma gamma annotmap schema code in
+       let typerEnv = { typerEnv with QmlTypes.
+                          gamma = gamma;
+                          annotmap = nannotmap} in
+       { e with PH.env = {env with Passes.qmlAst = code; typerEnv = typerEnv;} }
+    )
 
 let pass_DocApiGeneration =
   make_pass_raw_env Pass_OpaDocApi.process_qml

@@ -28,10 +28,12 @@ let (|>) = PH.(|>)
 let (<?>) = PH.(<?>)
 let (&) = PH.(&)
 let (|?>) = PH.(|?>)
+let (|?|) = PH.(|?|)
 let (or) = PH.(or)
 
 (* Shorthands for accessing options of compilation *)
 module If = Main_utils.If
+module Switch = Main_utils.Switch
 
 (* The deprecated passes *)
 (* FIXME: adapt to the new PassHandler *)
@@ -152,9 +154,10 @@ let () =
 
     (*|+> ("Retyping", S3.pass_Retyping)*)
 
-      |+> ("DbAccessorsGeneration", S3.pass_DbAccessorsGeneration)
-
-      |+> ("DbCodeGeneration", S3.pass_DbCodeGeneration)
+    |?| ( Switch.database, function
+            | QmlDbGen.Db3   -> ("BadopCodeGeneration", S3.pass_BadopCodeGeneration)
+            | QmlDbGen.Mongo -> ("MongoCodeGeneration", S3.pass_MongoCodeGeneration)
+        )
 
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
     |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)

@@ -148,7 +148,7 @@ MongoCollection = {{
                                          if e.name == "_id"
                                          then (z,o,g)
                                          else
-                                           match Bson.int_of_element(e) with 
+                                           match Bson.int_of_element(e) with
                                            | {some=0} -> (z+1,o,g)
                                            | {some=1} -> (z,o+1,g)
                                            | {some=_} | {none} -> (z,o,g+1)),

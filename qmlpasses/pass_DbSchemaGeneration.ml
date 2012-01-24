@@ -53,22 +53,22 @@ struct
 
   let options = [
 
-    "--database",
-    A.String (fun s ->
-                try
-                  let (name, opt_string) = BaseString.split_char '@' s in
-                  let point =
-                    if name = "" then []
-                    else [BaseString.remove_suffix ":" name]
-                  in
-                  let opts = parse_opts opt_string in
-                  commandline_override :=
-                    StringListMap.add point opts !commandline_override;
-                  ()
-                with
-                | Not_found -> failwith "Separate the name of the database and the options with a colon, e.g., --database 'db1:\"@shared(:4849)\"'."
-             ),
-    " Override options of a database";
+    (* "--database", *)
+    (* A.String (fun s -> *)
+    (*             try *)
+    (*               let (name, opt_string) = BaseString.split_char '@' s in *)
+    (*               let point = *)
+    (*                 if name = "" then [] *)
+    (*                 else [BaseString.remove_suffix ":" name] *)
+    (*               in *)
+    (*               let opts = parse_opts opt_string in *)
+    (*               commandline_override := *)
+    (*                 StringListMap.add point opts !commandline_override; *)
+    (*               () *)
+    (*             with *)
+    (*             | Not_found -> failwith "Separate the name of the database and the options with a colon, e.g., --database 'db1:\"@shared(:4849)\"'." *)
+    (*          ), *)
+    (* " Override options of a database"; *)
 
     "--export-db-schema",
     A.String (fun s ->
