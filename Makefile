@@ -69,7 +69,7 @@ distrib: $(MYOCAMLBUILD)
 
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
-	make -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
+	$(MAKE) -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
 
 ##
 ## INSTALLATION
