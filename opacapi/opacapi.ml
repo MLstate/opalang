@@ -371,9 +371,16 @@ struct
     let val_path = !! "val_path"
   end
 
+  module Db3 =
+  struct
+    let (!!) s = !! ("Db3." ^ s)
+    let t  = !! "t"
+  end
+
   module DbMongo =
   struct
     let (!!) s = !! ("DbMongo." ^ s)
+    let t  = !! "t"
     let engine  = !! "engine"
     let val_path = !! "private.val_path"
     let ref_path = !! "private.ref_path"

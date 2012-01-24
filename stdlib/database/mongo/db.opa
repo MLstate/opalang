@@ -39,7 +39,7 @@ import stdlib.system
  * {1 Types defined in this module}
  */
 
-@abstract type Db.mongo = {
+@opacapi @abstract type DbMongo.t = {
   name : string;
   db : Mongo.db;
   cols : list(string)
@@ -142,7 +142,7 @@ DbMongo = {{
        none
      end
 
-  @package defaultns(db:Db.mongo) = "{db.name}._default"
+  @package defaultns(db:DbMongo.t) = "{db.name}._default"
 
   @package path_to_id(path:list(string)) =
     Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
@@ -150,7 +150,7 @@ DbMongo = {{
    /* ********************************************
     * {3 Builder of composed path}
     * *******************************************/
-   @package build_vpath_compose(_:Db.mongo, path:list(string), default:'data,
+   @package build_vpath_compose(_:DbMongo.t, path:list(string), default:'data,
                        elements:list((string, DbMongo.private.path_t(black, 'data)))):DbMongo.private.val_path('data) =
      id = path_to_id(path)
      read() = (
@@ -177,7 +177,7 @@ DbMongo = {{
      )
      {~id ~default ~read more}
 
-   @package build_rpath_compose(db:Db.mongo, path:list(string), default:'data,
+   @package build_rpath_compose(db:DbMongo.t, path:list(string), default:'data,
                        elements:list((string, DbMongo.private.ref_path(black)))):DbMongo.private.ref_path('data) =
      vpath = build_vpath_compose(db, path, default, @unsafe_cast(elements))
      write(data) =
@@ -194,7 +194,7 @@ DbMongo = {{
    /* ********************************************
     * {3 Builder of sub path}
     * *******************************************/
-   @package build_vpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string))
+   @package build_vpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string))
    : DbMongo.private.val_path('data) =
      ns = defaultns(db)
      rid = path_to_id(rpath)
@@ -232,7 +232,7 @@ DbMongo = {{
          gen_read(id, query, uncap, default)
      }
 
-   @package build_rpath_sub(db:Db.mongo, path:list(string), default:'data, rpath:list(string), partial:list(string)) : DbMongo.private.ref_path('data) =
+   @package build_rpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string)) : DbMongo.private.ref_path('data) =
      ns = defaultns(db)
      rid = path_to_id(rpath)
      vpath = build_vpath_sub(db, path, default, rpath, partial)
@@ -260,7 +260,7 @@ DbMongo = {{
    /* ********************************************
     * {3 Builder of declared path}
     * *******************************************/
-   @package build_vpath(db:Db.mongo, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
+   @package build_vpath(db:DbMongo.t, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
      ns = defaultns(db)
      id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
@@ -296,7 +296,7 @@ DbMongo = {{
        #<End>
      { vpath with more=~{write remove} }
 
-   @package update_path(db:Db.mongo, path:list(string), update) =
+   @package update_path(db:DbMongo.t, path:list(string), update) =
      ns = defaultns(db)
      id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
@@ -393,7 +393,7 @@ DbMongo = {{
       do Log.error("DbGen/Mongo", "Error on openning database \"{name}\"\n{failure}")
       System.exit(1)
 
-  @package drop(db:Db.mongo) =
+  @package drop(db:DbMongo.t) =
     List.iter(
       col ->
         if MongoDriver.delete(db.db, 0, "{db.name}.{col}", []) then
@@ -417,7 +417,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
 
 @package DbSet = {{
 
-  index(db:Db.mongo, path:list(string), idx) =
+  index(db:DbMongo.t, path:list(string), idx) =
     id = List.to_string_using("", "", ".", path)
     key = List.map((name -> ~{name value={Int32=1}}), idx)
     opt = 0
@@ -430,10 +430,10 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       do Log.error("DbGen/Mongo", "(failure) Error when creating index {idx} at {path}")
       error("Error when creating index")
 
-  indexes(db:Db.mongo, path:list(string), idxs) =
+  indexes(db:DbMongo.t, path:list(string), idxs) =
     List.iter(index(db, path, _), idxs)
 
-  build(db:Db.mongo, path:list(string), selector, default:'a, nb):dbset('a) =
+  build(db:DbMongo.t, path:list(string), selector, default:'a, nb):dbset('a) =
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     #<End>
@@ -445,7 +445,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       error("DbSet build error")
     | {some=reply} -> ~{reply default}
 
-  update(db:Db.mongo, path:list(string), selector, update) =
+  update(db:DbMongo.t, path:list(string), selector, update) =
     id = List.to_string_using("", "", ".", path)
     tag = Bitwise.lor(0, MongoCommon.UpsertBit)
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
@@ -563,7 +563,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
   add_to_document(doc, name, value, ty):Bson.document =
     List.append(doc, Bson.opa_to_document(name, value, ty))
 
-  build_vpath(db:Db.mongo, path:list(string), selector, default:'b, nb,
+  build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, nb,
               read_map:dbset('a) -> option('b)):DbMongo.private.val_path('b) =
     {
       id = DbMongo.path_to_id(path)
@@ -572,7 +572,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       more = void
     }
   // [selector |
-  build_rpath(db:Db.mongo, path:list(string), selector, default:'b, nb,
+  build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, nb,
               read_map:dbset('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
     vpath = build_vpath(db, path, selector, default, nb, read_map)
     write(data) =

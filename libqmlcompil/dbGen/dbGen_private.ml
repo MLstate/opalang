@@ -264,15 +264,15 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
 
   let enter_transaction_expr db =
     debugverbose_in "ENTER TRANSACTION" (
-    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb ()))
+    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.Db.t ()))
       (fun tr -> tr)
-      (H.apply_lambda (Bypass.trans_start()) (db @: C.tydb ()))
+      (H.apply_lambda (Bypass.trans_start()) (db @: C.Db.t ()))
     )
 
   let leave_transaction_expr db tr =
     debugverbose_in "LEAVE TRANSACTION" (
-    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.tydb ()))
-      (fun _ -> H.apply_lambda' (Bypass.set_global_transaction()) [db @: C.tydb (); tr @: (tytrans())])
+    match_option_expr (H.apply_lambda (Bypass.get_global_transaction_opt()) (db @: C.Db.t ()))
+      (fun _ -> H.apply_lambda' (Bypass.set_global_transaction()) [db @: C.Db.t (); tr @: (tytrans())])
       (H.apply_lambda' (Bypass.trans_commit()) [tr @: (tytrans())])
     )
 
@@ -1064,7 +1064,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       #<If:TESTING>
         H.const_string "the database files"
       #<Else>
-        H.apply_lambda (Bypass.db_prefix (C.tydb ())) (db_ident @: C.tydb ())
+        H.apply_lambda (Bypass.db_prefix (C.Db.t ())) (db_ident @: C.Db.t ())
       #<End> in
     let msg_error =
       [ H.const_string "Can't recognise the meta-data in this database. You can clear it by removing \"";
@@ -1121,7 +1121,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
                              [H.const_string
                                 "The structure of this database doesn't match the current program.\nIt differs by ";
                               (diff_id @: (tydiff ()))]))
-                     (H.make_ifthenelse (H.apply_lambda' (Bypass.shall_i_upgrade()) [db_ident @: C.tydb ()])
+                     (H.make_ifthenelse (H.apply_lambda' (Bypass.shall_i_upgrade()) [db_ident @: C.Db.t ()])
                         (H.make_letin
                            (H.new_ident "_",
                             H.apply_lambda (Bypass.jlog()) (H.const_string "Automatic update done. Saving..."))
@@ -1152,14 +1152,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let db_id = H.new_ident db_name in
     let db_exp = H.apply_lambda' (Bypass.open_db()) [engine_id @: engine_type] in
     let tr1_id = H.new_ident "tr1" in
-    let tr1_exp = H.apply_lambda (Bypass.trans_start()) (db_id @: C.tydb ()) in
+    let tr1_exp = H.apply_lambda (Bypass.trans_start()) (db_id @: C.Db.t ()) in
     let rec_ty = H.tyrecord ["trans",Helpers_gen.(tytrans()); "diff",Helpers_gen.(tydiff ())] in
     let init_tuple_ty = H.tytuple H.tystring rec_ty in
     let init_tuple_id = H.new_ident "init_tuple" in
     let serial_sch = serial_schema schema in
     let init_tuple_exp =
       H.make_match
-        (H.apply_lambda (Bypass.is_db_new()) (db_id @: C.tydb ()))
+        (H.apply_lambda (Bypass.is_db_new()) (db_id @: C.Db.t ()))
         [
           (H.newpatt_annot (QC.patconst (Q.Int 1)) H.tyint,
           set_init_code serial_sch tr1_id);
@@ -1172,7 +1172,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let schema_exp = H.make_fst (init_tuple_id @: init_tuple_ty) in
     let config_id = H.new_ident "node_config" in
     let config_exp = H.apply_lambda (Bypass.node_config_construct()) (schema_id @: H.tystring) in
-    let properties = H.apply_lambda' (Bypass.node_properties()) [db_id @: C.tydb (); config_id @: Helpers_gen.tynodeconfig ()] in
+    let properties = H.apply_lambda' (Bypass.node_properties()) [db_id @: C.Db.t (); config_id @: Helpers_gen.tynodeconfig ()] in
 
     let init_record_id = H.new_ident "init_record" in
     let init_record_exp = H.make_snd (init_tuple_id @: init_tuple_ty) in
@@ -1182,7 +1182,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       H.apply_lambda'
         (Bypass.trans_commit()) [tr2_id @: (tytrans())]
     in
-    let database_field = db_id @: C.tydb () in
+    let database_field = db_id @: C.Db.t () in
     let diff_field =
       let diff = H.make_dot (init_record_id @: (init_ret_ty ())) "diff" in
       #<If>
@@ -1219,7 +1219,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let dbinit_ty =
       Q.TypeRecord
         (QmlAstCons.Type.Row.make
-           ~extend:false ["database", C.tydb (); "diff", (tydiff ())])
+           ~extend:false ["database", C.Db.t (); "diff", (tydiff ())])
     in
     let register_db_init =
       H.apply_lambda'
@@ -1231,7 +1231,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let init_decl = Q.NewVal (label, [ H.new_ident "_", register_db_init ]) in
     (* let gamma = *)
     (*   QmlTypes.Env.Ident.add *)
-    (*     db_ident (QmlTypes.Scheme.quantify (C.tydb ())) gamma *)
+    (*     db_ident (QmlTypes.Scheme.quantify (C.Db.t ())) gamma *)
     (* in *)
     let gamma =
       QmlTypes.Env.Ident.add
@@ -1306,7 +1306,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let dbinit_ty =
       Q.TypeRecord
         (QmlAstCons.Type.Row.make
-           ~extend:false ["database", C.tydb (); "diff", (tydiff ())])
+           ~extend:false ["database", C.Db.t (); "diff", (tydiff ())])
     in
     let init =
       H.apply_lambda
@@ -1534,7 +1534,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         | _, _ -> assert false (* inconsistency in path wrt to schema *)
     in
     let res, writer, _node =
-      aux (dbpath, (fun tr -> tr @: C.tydb ())) node0 path0 in
+      aux (dbpath, (fun tr -> tr @: C.Db.t ())) node0 path0 in
     (* assert(node = fst (find_exprpath sch ~node:node0 path0)); *)
     res, writer
 
@@ -1601,7 +1601,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let ref_path =
     H.make_letin (pathid, dbpath)
       (H.apply_lambda' (Bypass.get_ref_path ty)
-         [ dbinfo.db_ident @: C.tydb ();
+         [ dbinfo.db_ident @: C.Db.t ();
            pathid @: (typath());
            to_val_path_expr;
            H.make_lambda' [tr, (tytrans()); x, ty] writer])

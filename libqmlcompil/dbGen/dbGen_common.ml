@@ -134,11 +134,6 @@ let virtual_val_path_ty rty =
 let virtual_ref_path_ty rty wty =
   QmlAst.TypeName ([rty; wty], ref_v_tyid ())
 
-(* Warning: the names (including prefixes) of the types are hardcoded
-   in the three definitions below. *)
-let tydb () =
-  QmlAst.TypeName ([], typ Opacapi.Types.badoplink_database)
-
 let engine_opt opts =
   match Base.List.filter_map (function `engine e -> Some e | _ -> None) opts with
   | [engine] -> engine
@@ -148,6 +143,14 @@ let engine_opt opts =
 
 (* Common database type beetween different backends *)
 module Db = struct
+
+  let t () =
+    let ident =
+      match Args.get_engine() with
+      | `db3 -> Opacapi.Types.Db3.t
+      | `mongo -> Opacapi.Types.DbMongo.t
+    in
+    QmlAst.TypeName ([], typ ident)
 
   let mongo_engine () =
     QmlAst.TypeName ([], typ Opacapi.Types.DbMongo.engine)

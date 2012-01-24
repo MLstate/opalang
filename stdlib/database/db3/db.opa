@@ -63,6 +63,7 @@ import stdlib.core.{date,map,parser}
 
   Not to be used by hand.
 */
+@opacapi type Db3.t = badoplink_database
 @opacapi type badoplink_database = external
 @opacapi type badoplink_transaction = external
 type badoplink_revision = external
@@ -221,9 +222,6 @@ Db3 = {{
   export_to_xml = %%dbser.dump_db%%
 
 }}
-
-
-`<-` = Db.`<-`
 
 
 /* ideally, we don't want the 'a parameter, and try should be a type-forall('a).

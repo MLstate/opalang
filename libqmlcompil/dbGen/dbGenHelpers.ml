@@ -587,16 +587,16 @@ struct
       func (BadopEngine.check_remaining_arguments) [ tyunit ]
 
     let open_db() =
-      func (Badoplink.open_db) [(tyengine ()); DbGen_common.tydb ()]
+      func (Badoplink.open_db) [(tyengine ()); DbGen_common.Db.t ()]
 
     let node_properties() =
-      func (Badoplink.node_properties) [DbGen_common.tydb (); (tynodeconfig ()); tyunit]
+      func (Badoplink.node_properties) [DbGen_common.Db.t (); (tynodeconfig ()); tyunit]
 
     let node_config_construct() =
       func (Badoplink.node_config_construct) [tystring; (tynodeconfig ())]
 
     let is_db_new() =
-      func (Badoplink.is_db_new) [DbGen_common.tydb (); tyint]
+      func (Badoplink.is_db_new) [DbGen_common.Db.t (); tyint]
 
     let key_int() = func (Badoplink.key_int) [tyint;(tykey ())]
 
@@ -632,7 +632,7 @@ struct
     let dbpath_add() = func (Badoplink.dbpath_add) [(typath ());(tykey ());(typath ())]
 
     let trans_start() =
-      func (Badoplink.trans_start) [DbGen_common.tydb (); (tytrans ())]
+      func (Badoplink.trans_start) [DbGen_common.Db.t (); (tytrans ())]
 
     let trans_commit() =
       func (Badoplink.trans_commit) [(tytrans ());tyunit]
@@ -734,11 +734,11 @@ struct
       func (Transactions.commit) [tyhltrans ty; ty]
 
     let get_global_transaction_opt() =
-      func (Transactions.get_global_transaction_opt) [DbGen_common.tydb (); typeoption (tytrans ())]
+      func (Transactions.get_global_transaction_opt) [DbGen_common.Db.t (); typeoption (tytrans ())]
 
     let set_global_transaction() =
       func (Transactions.set_global_transaction)
-        [DbGen_common.tydb (); (tytrans ()); tyunit]
+        [DbGen_common.Db.t (); (tytrans ()); tyunit]
 
     let fail ty = func (Transactions.fail) [tystring; ty; ty]
 
@@ -749,7 +749,7 @@ struct
 
     let get_ref_path ty =
       func (Path.get_ref_path)
-        [DbGen_common.tydb ();
+        [DbGen_common.Db.t ();
          (typath ());
          tyfun [(tytrans ()); ty];
          tyfun [(tytrans ()); ty; (tytrans ())];
@@ -802,6 +802,6 @@ struct
 
     let print_tree() = func (Dbgraph.print_tree) [tystring;tyunit]
 
-    let shall_i_upgrade() = func (Badoplink.shall_i_upgrade) [DbGen_common.tydb ();tybool]
+    let shall_i_upgrade() = func (Badoplink.shall_i_upgrade) [DbGen_common.Db.t ();tybool]
   end
 end
