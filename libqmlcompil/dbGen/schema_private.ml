@@ -782,6 +782,58 @@ let db_declaration t name =
   let decl = StringListMap.find [name] t in
   (decl.ident, decl.options)
 
+let rec dots field ty =
+  match field with
+  | [] -> ty
+  | f::t ->
+      match ty with
+      | Q.TypeRecord (Q.TyRow (row, _var) as tyrow) ->
+          let ty =
+            try List.assoc f row with Not_found ->
+              failwith (BaseFormat.sprintf "'%s' is not found inside row {%a}"
+                          f QmlPrint.pp#tyrow tyrow)
+          in dots t ty
+      | _ -> raise Not_found (* TODO error reporting *)
+
+let coerce_query_element ~context ty query =
+  let rec aux new_annots ty query =
+    let coerce wrap ty expr =
+      let e = QmlAstCons.UntypedExpr.coerce expr ty in
+      Q.QAnnot.expr e::new_annots, wrap e
+    in
+    let aux2 wrap ty (q1, q2) =
+      let new_annots, q1 = aux new_annots ty q1 in
+      let new_annots, q2 = aux new_annots ty q2 in
+      new_annots, wrap (q1, q2)
+    in
+    match query with
+    | Db.QEq  expr -> coerce (fun e -> Db.QEq  e) ty expr
+    | Db.QGt  expr -> coerce (fun e -> Db.QGt  e) ty expr
+    | Db.QLt  expr -> coerce (fun e -> Db.QLt  e) ty expr
+    | Db.QGte expr -> coerce (fun e -> Db.QGte e) ty expr
+    | Db.QLte expr -> coerce (fun e -> Db.QLte e) ty expr
+    | Db.QNe  expr -> coerce (fun e -> Db.QNe  e) ty expr
+    | Db.QIn  expr ->
+        let ty = QmlAst.TypeName ([ty], Q.TypeIdent.of_string Opacapi.Types.list) in
+        coerce (fun e -> Db.QIn e) ty expr
+    | Db.QOr  (q1, q2)  -> aux2 (fun (q1, q2) -> Db.QOr  (q1, q2)) ty (q1, q2)
+    | Db.QAnd (q1, q2)  -> aux2 (fun (q1, q2) -> Db.QAnd (q1, q2)) ty (q1, q2)
+    | Db.QNot query ->
+        let new_annots, query = aux new_annots ty query in
+        new_annots, (Db.QNot query)
+    | Db.QMod _ when ty = Q.TypeConst Q.TyInt -> new_annots, query
+    | Db.QMod _ -> QmlError.error context "mod is avialable only on integers"
+    | Db.QFlds flds ->
+        let new_annots, flds =
+          List.fold_left_map
+            (fun acc (field, q) ->
+               let acc, q = aux acc (dots field ty) q in
+               acc, (field, q))
+            new_annots flds
+        in new_annots, Db.QFlds flds
+
+  in aux [] ty query
+
 (** @return (new_annots_list, pppath) *)
 let rec convert_dbpath ~context t node kind path0 path =
   let context = QmlError.Context.merge2 context (V.label node).C.context in
@@ -865,6 +917,19 @@ let rec convert_dbpath ~context t node kind path0 path =
         let new_annots, epath = convert_dbpath ~context t (SchemaGraph.unique_next t node) kind path0 path in
         new_annots, Db.NewKey :: epath
 
+    | Db.Query query::[] ->
+        let new_annots, query =
+          let ty =
+            match SchemaGraphLib.type_of_node node with
+            | Q.TypeName ([setparam], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
+            | _ ->  SchemaGraphLib.type_of_key t node
+          in
+          coerce_query_element ~context ty query
+        in
+        new_annots, [Db.Query query]
+
+    | Db.Query _::_path -> QmlError.error context "sub path after query is not handler yet"
+
 let get_virtual_path vpath epath =
   let rec aux acc = function
     | ((Db.Decl_fld f1)::q1, ((Db.FldKey f2) as e)::q2) when f1 = f2 ->
@@ -918,6 +983,18 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             QmlPrint.pp#path_elts epath0
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
+  | (Db.Query _q)::epath, C.Multi ->
+      let setty = node.C.ty in
+      (match setty with
+       | Q.TypeName ([_], name)
+           when Q.TypeIdent.to_string name = "dbset" ->
+           (match epath with
+            | [] -> ()
+            | _ -> OManager.error "You can't extend a virtual path");
+           let node, partial, tyread = node, true, setty in
+           node, `virtualset (tyread, tyread, partial, None)
+       | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
+
   | (Db.ExprKey e)::epath, C.Multi ->
       let setty = node.C.ty in
       let uncoerce = match e with
@@ -986,14 +1063,20 @@ let preprocess_kind ~context kind ty virtual_ =
         | `virtualset (r, _, _, _) -> r
         | _ -> assert false
       in
-      let rec update ty u =
+      let coerce e ty = QmlAstCons.UntypedExpr.coerce e ty in
+      let coerce_list e ty =
+        match ty with
+        | Q.TypeName ([param], name) when Q.TypeIdent.to_string name = "list" ->
+            coerce e param
+        | _ -> assert false
+      in
+      let rec update (ty:QmlAst.ty) u =
         let error fmt0 fmt =
           QmlError.error context ("Can't update "^^fmt0^^" because "^^fmt)
         in
         match u with
-        | Db.UExpr e ->
-            Db.UExpr (QmlAstCons.UntypedExpr.coerce e ty)
-        | Db.UFields fields ->
+        | Db.UExpr e -> Db.UExpr (coerce e ty)
+        | Db.UFlds fields ->
             let rec dots field ty =
               let rec aux field ty =
                 match field with
@@ -1009,12 +1092,26 @@ let preprocess_kind ~context kind ty virtual_ =
                     | _ -> error "tofo" "todo2"
               in aux field ty
             in
-            Db.UFields (List.map (function (field, u) -> (field, update (dots field ty) u)) fields)
+            Db.UFlds
+              (List.map
+                 (function (field, u) -> (field, update (dots field ty) u))
+                 fields)
+        | Db.UAppend     e -> Db.UAppend (coerce_list e ty)
+        | Db.UPrepend    e -> Db.UPrepend  (coerce_list e ty)
+        | Db.UAppendAll  e -> Db.UAppendAll  (coerce e ty)
+        | Db.UPrependAll e -> Db.UPrependAll (coerce e ty)
         | Db.UIncr _ when (
-            match ty with
+            match ty with (* TODO - unify! *)
             | Q.TypeConst Q.TyInt -> true
             | _ -> false
           ) -> u
+        | (Db.UPop | Db.UShift) when (
+            match ty with (* TODO - unify???! *)
+            | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
+            | _ -> false
+          ) -> u
+        | Db.UPop -> error "" "pop is not avialable on %a" QmlPrint.pp#ty ty
+        | Db.UShift -> error "" "shift is not avialable on %a" QmlPrint.pp#ty ty
         | Db.UIncr _ -> error "" "incr is not avialable only on %a" QmlPrint.pp#ty ty
       in Db.Update (update ty u)
 

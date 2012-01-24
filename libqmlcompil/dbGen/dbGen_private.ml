@@ -102,8 +102,8 @@ module Default = struct
           else
             match (V.label n).C.nlabel with
             | C.Multi -> (match SchemaGraphLib.multi_key sch n with
-                          | C.Kint -> assert false
-                          | C.Kstring -> assert false
+                          | C.Kint -> H.make_record ["empty", H.make_record []]
+                          | C.Kstring -> H.make_record ["empty", H.make_record []]
                           | C.Kfields _ -> H.make_record ["empty", H.make_record []]
                               (* TODO - ... *))
             | C.Hidden -> expr_aux sch (SchemaGraph.unique_next sch n)

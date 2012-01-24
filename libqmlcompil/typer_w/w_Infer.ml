@@ -1021,6 +1021,26 @@ and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys kind =
              let (_e_ty, e_annotmap) =
                infer_expr_type ~bypass_typer typing_env e in
              QmlAnnotMap.merge annotmap_accu e_annotmap
+         | QmlAst.Db.Query q ->
+             let rec aux annotmap_accu = function
+               | QmlAst.Db.QMod  _ -> annotmap_accu
+               | QmlAst.Db.QEq   e
+               | QmlAst.Db.QGt   e
+               | QmlAst.Db.QLt   e
+               | QmlAst.Db.QGte  e
+               | QmlAst.Db.QLte  e
+               | QmlAst.Db.QNe   e
+               | QmlAst.Db.QIn   e ->
+                   let (_e_ty, e_annotmap) =
+                     infer_expr_type ~bypass_typer typing_env e in
+                   QmlAnnotMap.merge annotmap_accu e_annotmap
+               | QmlAst.Db.QOr   (q1, q2)
+               | QmlAst.Db.QAnd  (q1, q2) ->
+                   aux (aux annotmap_accu q1) q2
+               | QmlAst.Db.QNot  q -> aux annotmap_accu q
+               | QmlAst.Db.QFlds flds ->
+                   List.fold_left (fun a (_, q) -> aux a q) annotmap_accu flds
+             in aux annotmap_accu q
          | _ -> annotmap_accu)
       keys W_AnnotMap.empty_annotmap in
   (* Typecheck update ast and recover the updated annotation map. *)
@@ -1028,13 +1048,18 @@ and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys kind =
   | QmlAst.Db.Default | QmlAst.Db.Option | QmlAst.Db.Valpath | QmlAst.Db.Ref -> annotmap'
   | QmlAst.Db.Update u ->
       let rec aux annotmap_accu = function
+        | QmlAst.Db.UPop | QmlAst.Db.UShift
+        | QmlAst.Db.UIncr _ -> annotmap_accu
+        | QmlAst.Db.UAppend     e
+        | QmlAst.Db.UPrepend    e
+        | QmlAst.Db.UAppendAll  e
+        | QmlAst.Db.UPrependAll e
         | QmlAst.Db.UExpr e ->
             (* [TODO] check [_e_ty] against something somehow ? *)
             let (_e_ty, e_annotmap) =
               infer_expr_type ~bypass_typer typing_env e in
             QmlAnnotMap.merge annotmap_accu e_annotmap
-        | QmlAst.Db.UIncr _i -> annotmap_accu
-        | QmlAst.Db.UFields fields ->
+        | QmlAst.Db.UFlds fields ->
             List.fold_left (fun a (_,u) -> aux a u) annotmap_accu fields
       in aux annotmap' u
   in

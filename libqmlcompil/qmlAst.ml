@@ -128,22 +128,36 @@ end
 module Db =
 struct
 
+  type 'expr fields = (string list * 'expr) list
+
   type 'expr query =
-    | QGt  of 'expr
-    | QLt  of 'expr
-    | QGte of 'expr
-    | QLte of 'expr
-    | QNe  of 'expr
-    | QMod of int
-    | QIn  of 'expr
-    | QOr  of 'expr
-    | QAnd of 'expr
-    | QNot of 'expr query
+    | QEq   of 'expr
+    | QGt   of 'expr
+    | QLt   of 'expr
+    | QGte  of 'expr
+    | QLte  of 'expr
+    | QNe   of 'expr
+    | QMod  of int
+    | QIn   of 'expr
+    | QOr   of 'expr query * 'expr query
+    | QAnd  of 'expr query * 'expr query
+    | QNot  of 'expr query
+    | QFlds of 'expr query fields
 
   type 'expr update =
-    | UFields of (string list * 'expr update) list
+    (* Record updating*)
+    | UFlds of 'expr update fields
+
+    (* Simple updating*)
     | UExpr of 'expr
-    | UIncr of int
+    | UIncr of int (* TODO : expr*)
+
+    (* List updating *)
+    | UAppend     of 'expr
+    | UAppendAll  of 'expr
+    | UPrepend    of 'expr
+    | UPrependAll of 'expr
+    | UPop | UShift
 
   (** The kind of a path, ie the type of access it is *)
   type 'expr kind =
@@ -228,21 +242,47 @@ struct
     | Db_Constraint of path_decl * 'expr db_constraint
     | Db_Virtual of path_decl * 'expr
 
+  let pp = BaseFormat.fprintf
+
   let rec pp_field fmt = function
-    | t0::((_::_) as q) -> Format.fprintf fmt "%s.%a" t0 pp_field q
-    | t0::[] -> Format.fprintf fmt "%s" t0
-    | [] -> Format.fprintf fmt ""
+    | t0::((_::_) as q) -> pp fmt "%s.%a" t0 pp_field q
+    | t0::[] -> pp fmt "%s" t0
+    | [] -> pp fmt ""
 
-  let update_to_string = function
-    | UExpr _ -> "uexpr"
-    | UFields fields ->
-        Printf.sprintf "fields %s;"
-          (List.to_string (fun (f,_) -> List.to_string (fun x -> x) f) fields)
-    | UIncr i -> Printf.sprintf "+=%i" i
+  let rec pp_update pp_expr fmt = function
+    | UExpr e -> pp fmt ": %a" pp_expr e
+    | UFlds fields ->
+        pp fmt "(";
+        List.iter
+          (function (f, u) ->
+             pp fmt "%a %a" pp_field f (pp_update pp_expr) u) fields;
+        pp fmt ")";
+    | UIncr i -> pp fmt "+=%i" i
+    | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
+    | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
+    | UPrepend    expr -> pp fmt "+> %a"  pp_expr expr
+    | UPrependAll expr -> pp fmt "++> %a" pp_expr expr
+    | UPop   -> pp fmt "pop"
+    | UShift -> pp fmt "shift"
 
-  let path_kind_to_string = function
-    | Default -> "" | Option -> "?" | Valpath -> "!" | Ref -> "@"
-    | Update u -> Printf.sprintf "<- %s" (update_to_string u)
+  let pp_path_elt pp_expr f =
+    function
+    | FldKey (s) -> pp f "/%s" s
+    | ExprKey e -> pp f "[@[<hv>%a@]]" pp_expr e
+    | NewKey -> pp f "[?]"
+    | Query _ -> pp f "query TODO"
+
+  let pp_path pp_expr f (el, knd) =
+    let pp_el fmt () = pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) el in
+    match knd with
+    | Update u -> pp f "%a <- %a" pp_el () (pp_update pp_expr) u
+    | _ ->
+        pp f "%s%a" (
+          match knd with
+          | Default -> "" | Option -> "?"
+          | Valpath -> "!" | Ref -> "@"
+          | Update _ -> assert false
+        ) pp_el ()
 
   let engine_to_string opt =
     match opt with
@@ -323,11 +363,16 @@ struct
         TU.wrap (fun (p,e) -> Db_Virtual (p,e)) (TU.sub_2 TU.sub_ignore sub_e (p,e))
 
   let rec sub_db_update sub_e sub_ty = function
-    | UExpr expr ->
-        TU.wrap (fun e -> UExpr e) (sub_e expr)
-    | UIncr _ as e -> TU.sub_ignore e
-    | UFields fields ->
-        TU.wrap (fun fields -> UFields fields) (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
+    | (UPop | UShift | UIncr _) as e -> TU.sub_ignore e
+    | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
+    | UAppend     expr -> TU.wrap (fun e -> UAppend e) (sub_e expr)
+    | UAppendAll  expr -> TU.wrap (fun e -> UAppendAll e) (sub_e expr)
+    | UPrepend    expr -> TU.wrap (fun e -> UPrepend e) (sub_e expr)
+    | UPrependAll expr -> TU.wrap (fun e -> UPrependAll e) (sub_e expr)
+    | UFlds fields ->
+        TU.wrap
+          (fun fields -> UFlds fields)
+          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
 
   let sub_db_kind sub_e sub_ty = function
     | Default
@@ -336,6 +381,36 @@ struct
     | Ref as e -> TU.sub_ignore e
     | Update update ->
         TU.wrap (fun u -> Update u) (sub_db_update sub_e sub_ty update)
+
+  let rec sub_db_query sub_e sub_ty = function
+    | QMod  _ as e -> TU.sub_ignore e
+    | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
+    | QGt   e -> TU.wrap (fun e -> QGt e) (sub_e e)
+    | QLt   e -> TU.wrap (fun e -> QLt e) (sub_e e)
+    | QGte  e -> TU.wrap (fun e -> QGte e) (sub_e e)
+    | QLte  e -> TU.wrap (fun e -> QLte e) (sub_e e)
+    | QNe   e -> TU.wrap (fun e -> QNe e) (sub_e e)
+    | QIn   e -> TU.wrap (fun e -> QIn e) (sub_e e)
+    | QOr   (q1, q2) ->
+        TU.wrap
+          (fun (q1,q2) -> QOr (q1,q2))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
+    | QAnd (q1, q2) ->
+        TU.wrap
+          (fun (q1,q2) -> QAnd (q1,q2))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
+    | QNot  q -> TU.wrap (fun e -> QNot e) (sub_db_query sub_e sub_ty q)
+
+    | QFlds flds ->
+        TU.wrap
+          (fun fields -> QFlds fields)
+          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_query sub_e sub_ty)) flds)
+
+  let sub_path_elt sub_e sub_ty = function
+    | FldKey _
+    | NewKey as v -> TU.sub_ignore v
+    | ExprKey e -> TU.wrap (fun x -> ExprKey x) (sub_e e)
+    | Query query -> TU.wrap (fun q -> Query q) (sub_db_query sub_e sub_ty query)
 
   let foldmap_expr f acc dbdef =
     let cons, subs = sub_db_def TU.sub_current TU.sub_ignore dbdef in

@@ -53,28 +53,24 @@ module Schema: sig
     package : ObjectFiles.package_name;
   }
 
+  type query = QmlAst.expr QmlAst.Db.query
+
+  type set_kind =
+    | Map of QmlAst.ty * QmlAst.ty
+    | DbSet of QmlAst.ty
+
+  type node_kind =
+    | Compose of (string * string list) list
+    | Plain
+    | Partial of string list * string list
+    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
+
   type node = {
     ty : QmlAst.ty;
     kind : node_kind;
     database : database;
     default : QmlAst.expr;
   }
-
-  and node_kind =
-    | Compose of (string * string list) list
-
-    | Plain
-
-    (** Indicates that is a sub node of a Plain node. (plain node,
-        path of the plain node, sub path from plain node) *)
-    | Partial of string list * string list
-
-    | SetAccess of string list * bool * query
-
-  (** *)
-  and query =
-    | Empty
-    | Expr of QmlAst.expr
 
 
   (** Maps the idents of the different database schemas and their respective

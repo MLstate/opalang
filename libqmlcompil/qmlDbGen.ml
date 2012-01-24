@@ -69,6 +69,18 @@ module Schema = struct
     package : ObjectFiles.package_name;
   }
 
+  type query = QmlAst.expr QmlAst.Db.query
+
+  type set_kind =
+    | Map of QmlAst.ty * QmlAst.ty
+    | DbSet of QmlAst.ty
+
+  type node_kind =
+    | Compose of (string * string list) list
+    | Plain
+    | Partial of string list * string list
+    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
+
   type node = {
     ty : QmlAst.ty;
     kind : node_kind;
@@ -76,21 +88,11 @@ module Schema = struct
     default : QmlAst.expr;
   }
 
-  and node_kind =
-    | Compose of (string * string list) list
-    | Plain
-    | Partial of string list * string list
-    | SetAccess of string list * bool * query
+  let pp_query fmt _e = Format.fprintf fmt "todo query"
 
-  and query =
-    | Empty
-    | Expr of QmlAst.expr
-
-  let pp_query fmt e =
-    match e with
-    | Empty -> Format.fprintf fmt "empty"
-    | Expr e -> Format.fprintf fmt "{%a}" QmlPrint.pp#expr e
-
+  let pp_set_kind fmt = function
+    | DbSet ty -> Format.fprintf fmt "dbset(%a)" QmlPrint.pp#ty ty
+    | Map (kt, vt) -> Format.fprintf fmt "map(%a, %a)" QmlPrint.pp#ty kt QmlPrint.pp#ty vt
 
   let pp_kind fmt kind =
     let pp_path fmt p =
@@ -101,11 +103,11 @@ module Schema = struct
     | Plain -> Format.fprintf fmt "plain"
     | Partial (p0, p1) -> Format.fprintf fmt "partial (%a, %a)" pp_path p0 pp_path p1
     | Compose _ -> Format.fprintf fmt "cmp (...)"
-    | SetAccess (path, full, query) ->
-        Format.fprintf fmt "@[<hov>%s access to %a with %a@]"
-          (if full then "full" else "partial")
+    | SetAccess (sk, path, query) ->
+        Format.fprintf fmt "@[<hov>access to %a : %a with %a@]"
           pp_path path
-          pp_query query
+          pp_set_kind sk
+          (Option.pp_none pp_query) query
 
   let pp_node fmt node =
     Format.fprintf fmt "{@[<hov>type : %a; kind : %a; ...@]}"
@@ -142,9 +144,9 @@ module Schema = struct
        })
   let to_dot t chan =
     StringListMap.iter
-      (fun key db_def ->
-         output_string chan (String.concat "/" key);
-         output_char chan '\n';
+      (fun _key db_def ->
+         (* output_string chan (String.concat "/" key); *)
+         (* output_char chan '\n'; *)
          Schema_io.to_dot db_def.Sch.schema chan)
       t
 
@@ -191,6 +193,7 @@ module Schema = struct
       | (DbAst.FldKey s0, C.Field (s1, _)) when s0 = s1 -> true
       | (DbAst.FldKey _s0, _) -> false
       | (DbAst.ExprKey _, C.Multi_edge _) -> true
+      | (DbAst.Query _, C.Multi_edge _) -> true
       | _ -> assert false (* TODO *)
     in
     let v = match (Graph.V.label node).C.nlabel with
@@ -225,18 +228,33 @@ module Schema = struct
     in
     let declaration = StringListMap.find [dbname] schema in
     let database = get_database schema dbname in
+    let llschema = declaration.Sch.schema in
     let f (node, kind, path) fragment =
-      let next = next declaration.Sch.schema node fragment in
+      let next = next llschema node fragment in
+      let get_setkind schema node =
+        match Graph.succ_e schema node with
+        | [edge] -> begin match (Graph.E.label edge).C.label with
+          | C.Multi_edge C.Kint ->
+              Map (QmlAst.TypeConst QmlAst.TyInt, next.C.ty)
+          | C.Multi_edge C.Kstring ->
+              Map (QmlAst.TypeConst QmlAst.TyString, next.C.ty)
+          | C.Multi_edge (C.Kfields _) -> DbSet next.C.ty
+          | _ -> assert false
+          end
+        | [] -> raise Not_found
+        | _ -> raise Not_found
+      in
       match fragment with
       | DbAst.ExprKey expr ->
-          let kind = SetAccess (path, false, Expr expr) in
+          let setkind = get_setkind llschema node in
+          let kind = SetAccess (setkind, path, Some (true, DbAst.QEq expr)) in
           (next, kind, path)
 
       | DbAst.FldKey key ->
           let kind =
             let nlabel = Graph.V.label next in
             match nlabel.C.nlabel with
-            | C.Multi -> SetAccess (key::path, true, Empty)
+            | C.Multi -> SetAccess (get_setkind llschema next, key::path, None)
             | _ -> match kind, nlabel.C.plain with
               | Compose _, true -> Plain
               | Partial (path, part), false -> Partial (path, key::part)
@@ -247,10 +265,19 @@ module Schema = struct
               | _, _ -> assert false
           in let path = key::path
           in (next, kind, path)
+      | DbAst.Query query ->
+          begin match kind with
+          | SetAccess (_k, path, None) ->
+              let kind = SetAccess (get_setkind llschema node, path, Some (false, query)) in
+              (next, kind, path)
+          | SetAccess (_, _path, Some _) -> assert false
+          | _ -> assert false
+          end
       | _ -> assert false
+
     in
     let (node, kind, _path) =
-      List.fold_left f (get_root declaration.Sch.schema, Compose [], []) path in
+      List.fold_left f (get_root llschema, Compose [], []) path in
     let kind =
       match kind with
       | Compose _ -> (
@@ -264,20 +291,20 @@ module Schema = struct
                          (fun edge ->
                             let sname = SchemaGraphLib.fieldname_of_edge edge
                             in sname, dbname::path @ [sname])
-                         (Graph.succ_e declaration.Sch.schema node)
+                         (Graph.succ_e llschema node)
                       )
           | _ -> assert false
         )
       | Partial (path, part) ->
           Partial (List.rev path, List.rev part)
-      | SetAccess (path, full, query) ->
-          SetAccess (List.rev path, full, query)
+      | SetAccess (k, path, query) ->
+          SetAccess (k, List.rev path, query)
       | Plain -> Plain
     in
     let (annotmap, default) =
       DbGen_private.Default.expr
         annotmap
-        declaration.Sch.schema
+        llschema
         node
     in
     annotmap,

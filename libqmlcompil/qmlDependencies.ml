@@ -263,7 +263,8 @@ let get_expr_dep_context ?filter e =
              match List.hd dbelt with
              | Q.Db.FldKey s -> Option.if_none filter (add_root s acc) acc
              | Q.Db.NewKey
-             | Q.Db.ExprKey _ ->
+             | Q.Db.ExprKey _
+             | Q.Db.Query _ ->
                  (* not possible, see the parser *)
                  assert false
            )

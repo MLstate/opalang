@@ -507,6 +507,7 @@ struct
   module S2 =
   struct
     type 'a t = QmlAst.expr constraint 'a = _ * _ * _
+
     let foldmap tra acc input_e =
       match input_e with
       | Q.Directive (label, `hybrid_value, [e_client;e_server], z) ->
@@ -618,12 +619,29 @@ struct
             | Q.Db.Update u ->
                 let rec update acc u =
                   match u with
+                  | QmlAst.Db.UPop | QmlAst.Db.UShift
+                  | QmlAst.Db.UIncr _ -> acc, u
+                  | QmlAst.Db.UAppend     e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UAppend e'
+                  | QmlAst.Db.UPrepend    e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UPrepend e'
+                  | QmlAst.Db.UAppendAll  e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UAppendAll e'
+                  | QmlAst.Db.UPrependAll e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UPrependAll e'
                   | QmlAst.Db.UExpr e ->
                       let acc, e' = tra acc e in
                       acc,
                       if e == e' then u else QmlAst.Db.UExpr e'
-                  | QmlAst.Db.UIncr _i -> acc, u
-                  | QmlAst.Db.UFields fields ->
+                  | QmlAst.Db.UFlds fields ->
                       let acc, fields' =
                         List.fold_left_map_stable
                           (fun acc ((f,u) as bnd) ->
@@ -632,7 +650,7 @@ struct
                              if u == u' then bnd else (f, u')
                           ) acc fields in
                       acc,
-                      if fields == fields' then u else QmlAst.Db.UFields fields'
+                      if fields == fields' then u else QmlAst.Db.UFlds fields'
                 in
                 let acc, u' = update acc u in
                 acc,
@@ -684,9 +702,13 @@ struct
           | Q.Db.Update u ->
               let rec update acc u =
                 match u with
+                | QmlAst.Db.UPop | QmlAst.Db.UShift | QmlAst.Db.UIncr _ -> acc
+                | QmlAst.Db.UAppend     e
+                | QmlAst.Db.UPrepend    e
+                | QmlAst.Db.UAppendAll  e
+                | QmlAst.Db.UPrependAll e
                 | QmlAst.Db.UExpr e -> tra acc e
-                | QmlAst.Db.UIncr _i -> acc
-                | QmlAst.Db.UFields fields ->
+                | QmlAst.Db.UFlds fields ->
                     List.fold_left
                       (fun acc (_,u) -> update acc u)
                       acc fields
