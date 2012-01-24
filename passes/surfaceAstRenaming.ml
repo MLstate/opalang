@@ -1202,6 +1202,7 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
       f_env, ExtendRecord (r, e)
   | DBPath (dbelt, d) ->
       let f_env, dbelt = f_dbelt all_env hierar dbelt in
+      let f_env, d = f_kind {all_env with f = f_env} hierar d in
       f_env, DBPath (dbelt, d)
   | Directive (`open_, l, _) ->
       ( match l with
@@ -1223,6 +1224,23 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
   | Directive (((#basic_directive | #access_directive) as v,_,_) as d) ->
       let f_env, d = f_directive all_env (if v = `coerce then hierar else "DIR" +> hierar) d in
       f_env, Directive d
+
+and f_kind all_env hierar kind =
+  match kind with
+  | QmlAst.Db.Default
+  | QmlAst.Db.Option
+  | QmlAst.Db.Valpath
+  | QmlAst.Db.Ref as e -> (all_env.f, e)
+  | QmlAst.Db.Update u ->
+      let rec update all_env hierar u =
+        match u with
+        | QmlAst.Db.UExpr e ->
+            let f_env, e = f_expr all_env hierar e in
+            f_env, QmlAst.Db.UExpr e
+      in
+      let f_env, u = update all_env hierar u in
+      f_env, QmlAst.Db.Update u
+
 
 and update_all_env_with str ident e all_env =
   match tree_option_of_expr str e with
@@ -1825,8 +1843,8 @@ let load_env env =
   let all_envs = ObjectExpr.fold load_expr_env all_envs in
   let all_envs = ObjectType.fold load_type_env all_envs in
   let maptoident_val, maptoident_typ =
-    ObjectOpaMapToIdent.fold_with_name ~packages:options_packages ~deep:false
-      (fun packname (val1,typ1) (val2,typ2) ->
+    ObjectOpaMapToIdent.fold ~packages:options_packages ~deep:false
+      (fun (val1,typ1) (val2,typ2) ->
          (stringmap_safe_merge ~error:val_merge_error val1 val2,
           stringmap_safe_merge ~error:typ_merge_error typ1 typ2))
       (StringMap.empty, StringMap.empty) in

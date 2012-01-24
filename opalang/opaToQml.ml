@@ -448,7 +448,7 @@ struct
       match x with
       | SA.DBPath (path, access_kind) ->
           let path = List.map (fun (elt, _) -> db_path elt) (fst path) in
-          QA.Path ((make_label_from_opa_annot opa_annot), path, access_kind)
+          QA.Path ((make_label_from_opa_annot opa_annot), path, kind (access_kind))
       | SA.Apply (e, r) ->
           let e = aux e in
           let args = List.map (fun (_, e') -> aux e') (fst r) in
@@ -503,7 +503,15 @@ struct
     (* Effective body of the function [expr] dealing with expressions. *)
     aux original_expr
 
-
+  and kind k = match k with
+  | QA.Db.Update update ->
+      let aux_update = function
+        | QA.Db.UExpr sa -> QA.Db.UExpr (expr sa)
+      in QA.Db.Update (aux_update update)
+  | QA.Db.Default -> QA.Db.Default
+  | QA.Db.Option -> QA.Db.Option
+  | QA.Db.Valpath -> QA.Db.Valpath
+  | QA.Db.Ref -> QA.Db.Ref
 
   and expr_of_record e =
     expr (SA.Record ((Parser_utils.encode_tuple [e])), Parser_utils.nlabel e)
@@ -617,9 +625,9 @@ struct
 
   and db_path path =
     match path with
-    | SA.FldKey s -> QA.FldKey s
-    | SA.ExprKey e -> QA.ExprKey (expr e)
-    | SA.NewKey -> QA.NewKey
+    | SA.FldKey s -> QA.Db.FldKey s
+    | SA.ExprKey e -> QA.Db.ExprKey (expr e)
+    | SA.NewKey -> QA.Db.NewKey
 
 
 
