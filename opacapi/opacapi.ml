@@ -134,6 +134,7 @@ struct
   let open_ = !! "open"
   let build_vpath = !! "build_vpath"
   let build_rpath = !! "build_rpath"
+  let update_path = !! "update_path"
   let build_vpath_sub = !! "build_vpath_sub"
   let build_rpath_sub = !! "build_rpath_sub"
   let build_rpath_compose = !! "build_rpath_compose"

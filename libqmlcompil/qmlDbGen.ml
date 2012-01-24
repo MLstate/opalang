@@ -79,7 +79,7 @@ module Schema = struct
   type node_kind =
     | Compose of (string * string list) list
     | Plain
-    | Partial of string list * string list
+    | Partial of bool (* Inside sum*) * string list * string list
     | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
 
   type node = {
@@ -102,7 +102,7 @@ module Schema = struct
     in
     match kind with
     | Plain -> Format.fprintf fmt "plain"
-    | Partial (p0, p1) -> Format.fprintf fmt "partial (%a, %a)" pp_path p0 pp_path p1
+    | Partial (b, p0, p1) -> Format.fprintf fmt "partial (%b, %a, %a)" b pp_path p0 pp_path p1
     | Compose cmp ->
         Format.fprintf fmt "compose(%a)"
           (Format.pp_list "; " (fun fmt (f, p) -> Format.fprintf fmt "%s:[%a]" f pp_path p)) cmp
@@ -222,8 +222,15 @@ module Schema = struct
     in
     match v with
     | None -> raise Not_found
-    | Some v -> (v : Graph.vertex)
+    | Some v ->
+        match (Graph.V.label v).C.nlabel with
+        | C.Hidden -> SchemaGraphLib.SchemaGraph.unique_next schema v
+        | _ -> v
 
+  let is_sum node =
+    match (Graph.V.label node).C.nlabel with
+    | C.Sum -> true
+    | _ -> false
 
   let get_node (schema:t) path =
     (* Format.eprintf "Get node on %a\n%!" QmlPrint.pp#path_elts path; *)
@@ -267,14 +274,14 @@ module Schema = struct
             let nlabel = Graph.V.label next in
             match nlabel.C.nlabel with
             | C.Multi -> SetAccess (get_setkind llschema next, key::path, None)
-            | _ -> match kind, nlabel.C.plain with
-              | Compose _, true -> Plain
-              | Partial (path, part), false -> Partial (path, key::part)
-              | Plain, false -> Partial (path, key::[])
-              | Compose c, false -> Compose c
-              | Partial _, true -> assert false
-              | Plain, true -> assert false
-              | _, _ -> assert false
+            | _ ->
+                match kind, nlabel.C.plain with
+                | Compose _, true -> Plain
+                | Partial (sum, path, part), _ ->
+                    Partial (sum && is_sum node, path, key::part)
+                | Plain, _ -> Partial (is_sum node, path, key::[])
+                | Compose c, false -> Compose c
+                | _, _ -> assert false
           in let path = key::path
           in (next, kind, path)
       | DbAst.Query query ->
@@ -291,6 +298,7 @@ module Schema = struct
     let (node, kind, _path) =
       List.fold_left f (get_root llschema, Compose [], []) path in
     let kind =
+      (* Format.eprintf "%a" pp_kind kind; *)
       match kind with
       | Compose _ -> (
           match (Graph.V.label node).C.nlabel with
@@ -307,8 +315,8 @@ module Schema = struct
                       )
           | _ -> assert false
         )
-      | Partial (path, part) ->
-          Partial (List.rev path, List.rev part)
+      | Partial (sum, path, part) ->
+          Partial (sum, List.rev path, List.rev part)
       | SetAccess (k, path, query) ->
           SetAccess (k, List.rev path, query)
       | Plain -> Plain

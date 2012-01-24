@@ -62,7 +62,7 @@ module Schema: sig
   type node_kind =
     | Compose of (string * string list) list
     | Plain
-    | Partial of string list * string list
+    | Partial of bool * string list * string list
     | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
 
   type node = {

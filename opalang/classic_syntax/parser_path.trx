@@ -61,7 +61,7 @@ path_update <-
     {{
        DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
     }}
-  / '@'? slash_nosp path:pa Opa_lexer.larrow update:u
+  / '@'? slash_nosp path:pa (Opa_lexer.larrow update:u {{u}} / update_simple):u
     {{
        DBPath (pa, QmlAst.Db.Update u)
     }}
@@ -75,12 +75,14 @@ update <-
   / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
 
 update_field <-
-  Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_incr / update_list):e
+  Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_simple):e
   {{ (List.map undecorate i, e) }}
 
 update_fields <-
   (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
   {{ QmlAst.Db.UFlds l }}
+
+update_simple <- update_incr / update_list
 
 update_incr <-
   / (=Opa_lexer.exact_symbol("++"))
