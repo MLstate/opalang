@@ -660,7 +660,7 @@ struct
                let tparams = List.map (fun param -> QmlAnnotMap.find_ty param.annot annotmap) params in
           *)
           let tparams = List.map (fun _ -> Q.TypeVar (TypeVar.next ())) params in
-          let t_body = Q.TypeVar (TypeVar.next ()) in
+          let t_body = Option.default (Q.TypeVar (TypeVar.next ())) tyres in
           let t_func = Q.TypeArrow (tparams, t_body) in
           let annotmap, func = coerce annotmap func t_func in
           let annotmap, label = typed_label ~pos annotmap t_body in
@@ -670,7 +670,7 @@ struct
           (* FIXME: this may happen in overloads; check if in any other case. *)
     aux ty_func
 
-  let apply gamma annotmap func params =  apply_gen gamma annotmap ~partial:false func params
+  let apply ?ty gamma annotmap func params =  apply_gen ?ty gamma annotmap ~partial:false func params
   let apply_partial gamma annotmap func params = apply_gen gamma annotmap ~partial:true func params
 
   (**
