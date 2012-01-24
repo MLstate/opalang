@@ -729,7 +729,7 @@ module Classic = struct
           pp f "@[<1>{%a with@ %a}@]" self#expr e (list ";@ " self#record_binding) r
       | Dot (e,s) -> pp f "%a.%a" self#apply_expr e self#field s
       | Bypass s -> pp f "%%%%%s%%%%" (BslKey.to_string s)
-      | DBPath (elt,kind) -> pp f "%a%a" self#db_kind kind self#db_elt elt
+      | DBPath (elt,kind) -> pp f "%a" (QmlAst.Db.pp_path self#expr) (List.map fst (fst elt), kind)
       | Directive d -> self#directive f d
     method private apply_expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f -> function
       | (Ident _,_)
@@ -737,24 +737,13 @@ module Classic = struct
       | (Directive _ ,_)
       | (Dot _, _) as e -> self#expr f e
       | e -> pp f "(%a)" self#reset#expr e
-    method private db_kind f kind =
-      Format.pp_print_string f (
-        match kind with
-        | QmlAst.Db.Option -> "?"
-        | QmlAst.Db.Default -> ""
-        | QmlAst.Db.Valpath -> "!"
-        | QmlAst.Db.Ref -> "@"
-      )
     method private db_elt : 'dir. ('ident,[< all_directives ] as 'dir) dbelt pprinter = fun f e ->
       self#label self#db_elt_node f e
     method private db_elt_node : 'dir. ('ident,[< all_directives ] as 'dir) dbelt_node pprinter = fun f l ->
       list "" self#db_element f l
     method private db_element : 'dir. ('ident,[< all_directives ] as 'dir) preprocessed_db_element pprinter = fun f e ->
       self#label self#db_element_node f e
-    method private db_element_node : 'dir. ('ident,[< all_directives ] as 'dir) preprocessed_db_element_node pprinter = fun f -> function
-      | FldKey s -> pp f "/%a" self#field s
-      | ExprKey e -> pp f "[%a]" self#reset#expr e
-      | NewKey -> Format.pp_print_string f "[?]"
+    method private db_element_node : 'dir. ('ident,[< all_directives ] as 'dir) preprocessed_db_element_node pprinter = QmlAst.Db.pp_path_elt self#expr
     method variant : 'dir. ([< all_directives ] as 'dir) pprinter = fun f -> function
       | `magic_to_string -> Format.pp_print_string f "magic_to_string"
       | `magic_to_xml -> Format.pp_print_string f "magic_to_xml"
@@ -1299,7 +1288,8 @@ module Js = struct
           pp f "@[<1>{%a with@ %a}@]" self#expr e (list ",@ " self#record_binding) r
       | Dot (e,s) -> pp f "%a.%a" self#apply_expr e self#field s
       | Bypass s -> pp f "%%%%%s%%%%" (BslKey.to_string s)
-      | DBPath (elt,kind) -> pp f "%a%a" self#db_kind kind self#db_elt elt
+      | DBPath (elt,kind) ->
+          QmlAst.Db.pp_path self#expr f (List.map fst (fst elt), kind)
       | Directive d -> self#directive f d
     method private apply_expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f -> function
       | (Ident _,_)
@@ -1307,24 +1297,7 @@ module Js = struct
       | (Directive _ ,_)
       | (Dot _, _) as e -> self#expr f e
       | e -> pp f "(%a)" self#reset#expr e
-    method private db_kind f kind =
-      Format.pp_print_string f (
-        match kind with
-        | QmlAst.Db.Option -> "?"
-        | QmlAst.Db.Default -> ""
-        | QmlAst.Db.Valpath -> "!"
-        | QmlAst.Db.Ref -> "@"
-      )
-    method private db_elt : 'dir. ('ident,[< all_directives ] as 'dir) dbelt pprinter = fun f e ->
-      self#label self#db_elt_node f e
-    method private db_elt_node : 'dir. ('ident,[< all_directives ] as 'dir) dbelt_node pprinter = fun f l ->
-      list "" self#db_element f l
-    method private db_element : 'dir. ('ident,[< all_directives ] as 'dir) preprocessed_db_element pprinter = fun f e ->
-      self#label self#db_element_node f e
-    method private db_element_node : 'dir. ('ident,[< all_directives ] as 'dir) preprocessed_db_element_node pprinter = fun f -> function
-      | FldKey s -> pp f "/%a" self#field s
-      | ExprKey e -> pp f "[%a]" self#reset#expr e
-      | NewKey -> Format.pp_print_string f "[?]"
+
     method variant : 'dir. ([< all_directives ] as 'dir) pprinter = fun f -> function
       | `magic_to_string -> Format.pp_print_string f "magic_to_string"
       | `magic_to_xml -> Format.pp_print_string f "magic_to_xml"
