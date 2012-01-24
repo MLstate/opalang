@@ -666,6 +666,7 @@ Bson = {{
     [H.arr(key,doc)]
 
   opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
+    v = Magic.id(v)
     match ty with
     | {TyName_args=[]; TyName_ident="void"} -> [H.null(key)]
     | {TyConst={TyInt={}}} -> [H.i64(key,(@unsafe_cast(v):int))]

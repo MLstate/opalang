@@ -1033,6 +1033,9 @@ and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys kind =
             let (_e_ty, e_annotmap) =
               infer_expr_type ~bypass_typer typing_env e in
             QmlAnnotMap.merge annotmap_accu e_annotmap
+        | QmlAst.Db.UIncr _i -> annotmap_accu
+        | QmlAst.Db.UFields fields ->
+            List.fold_left (fun a (_,u) -> aux a u) annotmap_accu fields
       in aux annotmap' u
   in
   perform_infer_expr_type_postlude surrounding_path_expr annotmap' ty

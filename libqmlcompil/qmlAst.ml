@@ -128,8 +128,22 @@ end
 module Db =
 struct
 
+  type 'expr query =
+    | QGt  of 'expr
+    | QLt  of 'expr
+    | QGte of 'expr
+    | QLte of 'expr
+    | QNe  of 'expr
+    | QMod of int
+    | QIn  of 'expr
+    | QOr  of 'expr
+    | QAnd of 'expr
+    | QNot of 'expr query
+
   type 'expr update =
+    | UFields of (string list * 'expr update) list
     | UExpr of 'expr
+    | UIncr of int
 
   (** The kind of a path, ie the type of access it is *)
   type 'expr kind =
@@ -164,6 +178,7 @@ struct
     | FldKey of string
     | ExprKey of 'expr
     | NewKey
+    | Query of 'expr query
 
   type 'expr path = 'expr path_elt list
 
@@ -213,9 +228,21 @@ struct
     | Db_Constraint of path_decl * 'expr db_constraint
     | Db_Virtual of path_decl * 'expr
 
+  let rec pp_field fmt = function
+    | t0::((_::_) as q) -> Format.fprintf fmt "%s.%a" t0 pp_field q
+    | t0::[] -> Format.fprintf fmt "%s" t0
+    | [] -> Format.fprintf fmt ""
+
+  let update_to_string = function
+    | UExpr _ -> "uexpr"
+    | UFields fields ->
+        Printf.sprintf "fields %s;"
+          (List.to_string (fun (f,_) -> List.to_string (fun x -> x) f) fields)
+    | UIncr i -> Printf.sprintf "+=%i" i
+
   let path_kind_to_string = function
     | Default -> "" | Option -> "?" | Valpath -> "!" | Ref -> "@"
-    | Update _ -> "Update TODO"
+    | Update u -> Printf.sprintf "<- %s" (update_to_string u)
 
   let engine_to_string opt =
     match opt with
@@ -295,9 +322,12 @@ struct
     | Db_Virtual (p,e) ->
         TU.wrap (fun (p,e) -> Db_Virtual (p,e)) (TU.sub_2 TU.sub_ignore sub_e (p,e))
 
-  let sub_db_update sub_e _sub_ty = function
+  let rec sub_db_update sub_e sub_ty = function
     | UExpr expr ->
         TU.wrap (fun e -> UExpr e) (sub_e expr)
+    | UIncr _ as e -> TU.sub_ignore e
+    | UFields fields ->
+        TU.wrap (fun fields -> UFields fields) (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
 
   let sub_db_kind sub_e sub_ty = function
     | Default

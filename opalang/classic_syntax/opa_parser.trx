@@ -490,11 +490,8 @@ just_se_expr <-
      let l = list_expr_of_expr_list [a] p in
      dom_transform l
    }}
-  (* dbpath write *)
-  / pos:p Parser_path.path_write:pa write_expr:e2
-  {{
-     DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e2))
-  }}
+  (* dbpath update *)
+  / Parser_path.path_update
 
 /** top expr **/
 just_top_expr <-
@@ -986,6 +983,10 @@ just_record <- tilda:tilda lbrace record_fields:f rbrace {{
                  }}
 ;record_fields <- (=list0(record_element,separator)):l separator {{ l }}
 ;extend_record_fields <- (=list0(extend_record_element,separator)):l separator {{ l }}
+
+record_fields_separator <- separator
+
+record_fields_assign <- assign
 
 extend_record_element <-
    / long_binding:b {{ `binding b }}

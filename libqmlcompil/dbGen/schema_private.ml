@@ -976,7 +976,7 @@ let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option)
         QmlPrint.pp#path_elts p
   | _::_::_ -> assert false
 
-let preprocess_kind kind ty virtual_ =
+let preprocess_kind ~context kind ty virtual_ =
   match kind with
   | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
   | Db.Update u ->
@@ -987,9 +987,35 @@ let preprocess_kind kind ty virtual_ =
         | _ -> assert false
       in
       let rec update ty u =
+        let error fmt0 fmt =
+          QmlError.error context ("Can't update "^^fmt0^^" because "^^fmt)
+        in
         match u with
         | Db.UExpr e ->
             Db.UExpr (QmlAstCons.UntypedExpr.coerce e ty)
+        | Db.UFields fields ->
+            let rec dots field ty =
+              let rec aux field ty =
+                match field with
+                | [] -> ty
+                | f::t ->
+                    match ty with
+                    | Q.TypeRecord Q.TyRow (row, _var) ->
+                        let ty =
+                          try List.assoc f row with Not_found ->
+
+                            error "todo" "%s is not found" f
+                        in aux t ty
+                    | _ -> error "tofo" "todo2"
+              in aux field ty
+            in
+            Db.UFields (List.map (function (field, u) -> (field, update (dots field ty) u)) fields)
+        | Db.UIncr _ when (
+            match ty with
+            | Q.TypeConst Q.TyInt -> true
+            | _ -> false
+          ) -> u
+        | Db.UIncr _ -> error "" "incr is not avialable only on %a" QmlPrint.pp#ty ty
       in Db.Update (update ty u)
 
 let preprocess_path ~context t prepath kind =
@@ -1000,7 +1026,7 @@ let preprocess_path ~context t prepath kind =
   let n, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
   let ty = SchemaGraphLib.type_of_node n in
-  let kind = preprocess_kind kind ty virtual_ in
+  let kind = preprocess_kind ~context kind ty virtual_ in
   new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind), ty, virtual_
 
 

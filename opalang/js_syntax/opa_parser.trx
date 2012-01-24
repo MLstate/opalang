@@ -1027,8 +1027,10 @@ record_fields <- (=list0(record_element, record_fields_separator)):l record_fiel
 
 record_fields_separator <- spacing comma
 
+record_fields_assign <- colon
+
 record_element <-
-   / (=type_maybe(field_identifier:i colon expr:e
+   / (=type_maybe(field_identifier:i record_fields_assign expr:e
        {{ function t -> `binding (i,may_coerce_expr e t) }}
      ))
    / (binding_lambda / binding_module):b
@@ -1063,7 +1065,7 @@ record_with_element <-
 record_long_ident_nosp <- deco_ml_identifier_nosp:i ('.' deco_field_identifier_nosp:i {{i}})*:l {{ i :: l }}
 record_long_ident <- spacing record_long_ident_nosp:i {{i}}
 record_long_binding <-
-  / record_long_ident:i colon expr:e {{ (i, e) }}
+  / record_long_ident:i record_fields_assign expr:e {{ (i, e) }}
 
 
 (* ******************************************************************)

@@ -621,8 +621,18 @@ struct
                   | QmlAst.Db.UExpr e ->
                       let acc, e' = tra acc e in
                       acc,
-                      if e == e' then u else
-                        QmlAst.Db.UExpr e'
+                      if e == e' then u else QmlAst.Db.UExpr e'
+                  | QmlAst.Db.UIncr _i -> acc, u
+                  | QmlAst.Db.UFields fields ->
+                      let acc, fields' =
+                        List.fold_left_map_stable
+                          (fun acc ((f,u) as bnd) ->
+                             let acc, u' = update acc u in
+                             acc,
+                             if u == u' then bnd else (f, u')
+                          ) acc fields in
+                      acc,
+                      if fields == fields' then u else QmlAst.Db.UFields fields'
                 in
                 let acc, u' = update acc u in
                 acc,
@@ -675,6 +685,11 @@ struct
               let rec update acc u =
                 match u with
                 | QmlAst.Db.UExpr e -> tra acc e
+                | QmlAst.Db.UIncr _i -> acc
+                | QmlAst.Db.UFields fields ->
+                    List.fold_left
+                      (fun acc (_,u) -> update acc u)
+                      acc fields
               in update acc u
           | _ -> acc
           in acc

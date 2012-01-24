@@ -229,11 +229,8 @@ module Schema = struct
       let next = next declaration.Sch.schema node fragment in
       match fragment with
       | DbAst.ExprKey expr ->
-          let kind =
-            match kind with
-            | Compose _ -> SetAccess (path, false, Expr expr)
-            | _ -> assert false
-          in (next, kind, path)
+          let kind = SetAccess (path, false, Expr expr) in
+          (next, kind, path)
 
       | DbAst.FldKey key ->
           let kind =

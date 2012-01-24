@@ -1232,13 +1232,22 @@ and f_kind all_env hierar kind =
   | QmlAst.Db.Valpath
   | QmlAst.Db.Ref as e -> (all_env.f, e)
   | QmlAst.Db.Update u ->
-      let rec update all_env hierar u =
+      let rec update f_env hierar u =
         match u with
         | QmlAst.Db.UExpr e ->
             let f_env, e = f_expr all_env hierar e in
             f_env, QmlAst.Db.UExpr e
+        | QmlAst.Db.UIncr _i as u -> f_env, u
+        | QmlAst.Db.UFields fields ->
+            let f_env, fields =
+              List.fold_left_map
+                (fun f_env (f,u) ->
+                   let f_env, u = update f_env hierar u in
+                   f_env, (f, u))
+                f_env fields
+            in f_env, QmlAst.Db.UFields fields
       in
-      let f_env, u = update all_env hierar u in
+      let f_env, u = update all_env.f hierar u in
       f_env, QmlAst.Db.Update u
 
 

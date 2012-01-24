@@ -505,8 +505,11 @@ struct
 
   and kind k = match k with
   | QA.Db.Update update ->
-      let aux_update = function
+      let rec aux_update = function
         | QA.Db.UExpr sa -> QA.Db.UExpr (expr sa)
+        | QA.Db.UIncr _i as u -> u
+        | QA.Db.UFields fields ->
+            QA.Db.UFields (List.map (fun (f, u) -> (f, aux_update u)) fields)
       in QA.Db.Update (aux_update update)
   | QA.Db.Default -> QA.Db.Default
   | QA.Db.Option -> QA.Db.Option

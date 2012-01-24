@@ -1819,6 +1819,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         let rpath = make_ref_path sch dbinfo gamma node path in
         let dbwrite = Helpers_gen.expr_write node.C.ty in
         H.apply_lambda' dbwrite [rpath; expr]
+    | _ -> assert false
     (* | _ -> QmlError.error context "This update operation was not yet handled by db3 generator" *)
 
   let get_expr ~context t dbinfo_map gamma path kind =

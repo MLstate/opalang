@@ -55,9 +55,38 @@ pathdef_type <- spacing pathdef_type_nosp:v {{ v }}
 ;/** database query **/
 query <- querytype:qt path:p {{ p, qt }}
 
-(* path for writing (no leading !,@ etc.) *)
-; /** database write path **/
-path_write <- slash_nosp path:p {{ p }}
+; /** database update path **/
+path_update <-
+  / slash_nosp path:pa Opa_lexer.larrow Opa_parser.expr:e
+    {{
+       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
+    }}
+  / slash_nosp path:pa Opa_lexer.larrow update_expr:u
+    {{
+       DBPath (pa, QmlAst.Db.Update u)
+    }}
+
+update_expr <-
+  / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
+  / lbrace update_fields:u rbrace {{ u }}
+
+update_field <-
+  / Opa_parser.long_ident:i (Opa_parser.record_fields_assign update_expr:e {{e}} / update_incr):e
+    {{ (List.map undecorate i, e) }}
+
+update_fields <-
+  (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+  {{ QmlAst.Db.UFields l }}
+
+update_incr <-
+  / (=Opa_lexer.exact_symbol("++"))
+    {{ QmlAst.Db.UIncr 1 }}
+  / (=Opa_lexer.exact_symbol("+=")) Opa_lexer.spacing Opa_lexer.int:i
+    {{ QmlAst.Db.UIncr i }}
+  / (=Opa_lexer.exact_symbol("--"))
+    {{ QmlAst.Db.UIncr (-1) }}
+  / (=Opa_lexer.exact_symbol("-=")) Opa_lexer.spacing Opa_lexer.int:i
+    {{ QmlAst.Db.UIncr (-i) }}
 
 ;querytype <- [?] slash_nosp {{ QmlAst.Db.Option }}
             / [!] slash_nosp {{ QmlAst.Db.Valpath }}
