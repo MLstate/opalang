@@ -25,3 +25,4 @@ libbsl/BslDirectives
 libbsl/BslIncludeFormats
 libbsl/BslRegisterParserState
 libbsl/BslError
+libbsl/BslArgs

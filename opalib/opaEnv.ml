@@ -442,6 +442,7 @@ struct
         ObjectFiles.Arg.public_options @
         I18n.options @
         OpaSyntax.Args.options @
+        BslArgs.options @
         QmlDbGen.Args.options @
         [
           (* a *)
