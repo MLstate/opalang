@@ -430,13 +430,13 @@ module Generator = struct
     let uniq, nb, query =
       match query0 with
       | None -> false, 0, None
-      | Some ((uniq, query) as x) ->
+      | Some ((uniq, (query, _opt)) as _x) ->
           uniq,
           (if uniq then 1 else 5000),
           Some (
             match setkind with
             | DbSchema.Map _ -> uniq, DbAst.QFlds [(["_id"], query)]
-            | _ -> x)
+            | _ -> uniq, query)
     in
     (* DbSet.build *)
     let (annotmap, build, query, args) =

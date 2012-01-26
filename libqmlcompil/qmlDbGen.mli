@@ -53,7 +53,7 @@ module Schema: sig
     package : ObjectFiles.package_name;
   }
 
-  type query = QmlAst.expr QmlAst.Db.query
+  type query = QmlAst.expr QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
 
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty

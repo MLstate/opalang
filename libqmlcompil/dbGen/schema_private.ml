@@ -827,12 +827,45 @@ let rec dots gamma field ty =
                       | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
                 )
 
-let coerce_query_element ~context gamma ty query =
-  let rec aux new_annots ty query =
-    let coerce wrap ty expr =
-      let e = QmlAstCons.UntypedExpr.coerce expr ty in
-      Q.QAnnot.expr e::new_annots, wrap e
+let coerce_query_element ~context gamma ty (query, options) =
+  let coerce new_annots wrap ty expr =
+    let e = QmlAstCons.UntypedExpr.coerce expr ty in
+    Q.QAnnot.expr e::new_annots, wrap e
+  in
+  let a, options =
+    let a = [] in
+    let optmap f a o = match o with
+    | None -> a, None
+    | Some o -> let x, y = f a o in x, Some y in
+    let a, limit =
+      optmap
+        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        a options.Db.limit
+    in let a, skip =
+      optmap
+        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        a options.Db.skip
+    in let a, sort =
+      let ty =
+        Q.TypeRecord (
+          let void = Q.TypeRecord (QmlAstCons.Type.Row.make []) in
+          QmlAstCons.Type.Row.make [
+            ("up", void);
+            ("down", void);
+          ]
+        )
+      in
+      optmap
+        (fun a fields ->
+           List.fold_left_map
+             (fun a (flds, e) -> coerce a (fun e -> (flds, e)) ty e)
+             a fields
+        ) a options.Db.sort
     in
+    (a, {Db.limit; skip; sort})
+  in
+  let rec aux new_annots ty query =
+    let coerce = coerce new_annots in
     let aux2 wrap ty (q1, q2) =
       let new_annots, q1 = aux new_annots ty q1 in
       let new_annots, q2 = aux new_annots ty q2 in
@@ -867,7 +900,8 @@ let coerce_query_element ~context gamma ty query =
         with Formatted p ->
           QmlError.error context "This querying is invalid because %a\n%!" p ()
 
-  in aux [] ty query
+  in let a, query = aux a ty query in
+  a, (query, options)
 
 (** @return (new_annots_list, pppath) *)
 let rec convert_dbpath ~context t gamma node kind path0 path =
@@ -952,16 +986,16 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
         let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
         new_annots, Db.NewKey :: epath
 
-    | Db.Query query::[] ->
-        let new_annots, query =
+    | Db.Query (query, options)::[] ->
+        let new_annots, (query, options) =
           let ty =
             match SchemaGraphLib.type_of_node node with
             | Q.TypeName ([setparam], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
             | _ ->  SchemaGraphLib.type_of_key t node
           in
-          coerce_query_element ~context gamma ty query
+          coerce_query_element ~context gamma ty (query, options)
         in
-        new_annots, [Db.Query query]
+        new_annots, [Db.Query (query, options)]
 
     | Db.Query _::_path -> QmlError.error context "sub path after query is not handler yet"
 
@@ -1018,7 +1052,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             QmlPrint.pp#path_elts epath0
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
-  | (Db.Query _q)::epath, C.Multi ->
+  | (Db.Query (_, _))::epath, C.Multi ->
       let setty = node.C.ty in
       (match setty with
        | Q.TypeName ([setparam], name)
