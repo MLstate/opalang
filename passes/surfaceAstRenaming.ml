@@ -1819,9 +1819,13 @@ let save_env env =
       (* only saving the local maptoident for the stdlib packages *)
       env.maptoident_val, env.maptoident_typ
   in
-  ObjectOpaMapToIdent.save (val_,typ);
   OpaMapToIdent.set_val_map val_;
-  OpaMapToIdent.set_typ_map typ
+  OpaMapToIdent.set_typ_map typ;
+  let val_ =
+    let filter i = is_exported i all_env.f.fglobal in
+    StringMap.filter_val filter val_
+  in
+  ObjectOpaMapToIdent.save (val_,typ)
 
 let load_expr_env all_env map =
   let tnames =
