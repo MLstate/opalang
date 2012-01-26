@@ -69,6 +69,7 @@ module Utils : sig
    val sub_3 : ('a1, 'at, 'bt, 'b1) sub -> ('a2, 'at, 'bt, 'b2) sub -> ('a3, 'at, 'bt, 'b3) sub -> ('a1 * 'a2 * 'a3, 'at, 'bt, 'b1 * 'b2 * 'b3) sub
    val sub_4 : ('a1, 'at, 'bt, 'b1) sub -> ('a2, 'at, 'bt, 'b2) sub -> ('a3, 'at, 'bt, 'b3) sub -> ('a4, 'at, 'bt, 'b4) sub -> ('a1 * 'a2 * 'a3 * 'a4, 'at, 'bt, 'b1 * 'b2 * 'b3 * 'b4) sub
    val sub_list : ('a, 'at, 'bt, 'b) sub -> ('a list, 'at, 'bt, 'b list) sub
+   val sub_option : ('a, 'at, 'bt, 'b) sub -> ('a option, 'at, 'bt, 'b option) sub
    val sub_current : ('a, 'a, 'b, 'b) sub
    val sub_ignore : ('a, _, _, 'a) sub
 
