@@ -57,6 +57,16 @@ let rec msglst = function
 | ((c,s)::rest) -> (ENs (c,s))::(msglst rest)
 }}
 
+[[
+let unstuff(last_was_crlf, str) =
+  let str =
+    if last_was_crlf && String.length(str) >= 2 && str.[0] = '.' && str.[1] = '.'
+    then String.sub str 1 (String.length(str) - 1)
+    else str
+  in
+  String.replace str "\r\n.." "\r\n.";;
+]]
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      Messages envoyés/reçus                    %%
 %%  Different structure between server and client %%
@@ -141,6 +151,7 @@ get_data(state : state, email : email, last_was_crlf : bool):
 %%   process_email(state, email)
   receive
   | RawInput str ->
+    let str = {{ unstuff(last_was_crlf,str) }}
     debug {{ eprintf "get_data: RawInput='%s'\n" (String.escaped str); Pervasives.flush stderr }}
     let email = {{ { email with body = content_add str email.body } }}
     get_data(state, email, {{ String.is_suffix "\r\n" str }})
