@@ -44,6 +44,7 @@ type Mongo.replSetGetStatus =
     set : string;
     date : Date.date;
     myState : Bson.int32;
+    syncingTo : Bson.register(string);
     members : list({_id : Bson.register(int);
                     name : string;
                     self : Bson.register(bool);

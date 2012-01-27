@@ -419,19 +419,25 @@ let reply_document_pos (b,s,l) n =
   in
   aux 0 (s+32)
 
-let string_of_message_buf msg =
-  (string_of_MsgHeader msg)^
-  (match header_opCode msg with
-   | c when c = _OP_REPLY        -> string_of_reply msg
-   | c when c = _OP_MSG          -> string_of_msg msg
-   | c when c = _OP_UPDATE       -> string_of_update msg
-   | c when c = _OP_INSERT       -> string_of_insert msg
-   | c when c = _RESERVED        -> "  reserved"
-   | c when c = _OP_QUERY        -> string_of_query msg
-   | c when c = _OP_GET_MORE     -> string_of_get_more msg
-   | c when c = _OP_DELETE       -> string_of_delete msg
-   | c when c = _OP_KILL_CURSORS -> string_of_kill_cursors msg
-   | c -> Printf.sprintf "  unknown (%d)" c)
+let rec string_of_message_buf msg =
+  let len = header_messageLength msg in
+  let str1 = (string_of_MsgHeader msg)^
+             (match header_opCode msg with
+              | c when c = _OP_REPLY        -> string_of_reply msg
+              | c when c = _OP_MSG          -> string_of_msg msg
+              | c when c = _OP_UPDATE       -> string_of_update msg
+              | c when c = _OP_INSERT       -> string_of_insert msg
+              | c when c = _RESERVED        -> "  reserved"
+              | c when c = _OP_QUERY        -> string_of_query msg
+              | c when c = _OP_GET_MORE     -> string_of_get_more msg
+              | c when c = _OP_DELETE       -> string_of_delete msg
+              | c when c = _OP_KILL_CURSORS -> string_of_kill_cursors msg
+              | c -> Printf.sprintf "  unknown (%d)" c)
+  in
+  let blen = Buf.length msg in
+  if blen <= len
+  then str1
+  else str1^"\n"^(string_of_message_buf (Buf.of_string (Buf.sub msg len (blen - len))))
 
 let string_of_message_str str = string_of_message_buf (Buf.of_string str)
 

@@ -539,6 +539,9 @@ Bson = {{
     (match find_int(doc, "errno") with {some=errno} -> errno != 0 | {none} -> false) ||
     (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
 
+  is_not_master(doc:Bson.document): bool =
+    match find_string(doc, "err") with {some=err} -> err == "not master" | {none} -> false
+
   /**
    * Same as is_error but for a [Mongo.error] type.
    **/

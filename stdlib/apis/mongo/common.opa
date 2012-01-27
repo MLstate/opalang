@@ -218,6 +218,7 @@ MongoCommon = {{
 
   /** Predicate for error status of a [Mongo.result] value. **/
   is_error(result:Mongo.result): bool = outcome_map(result, Bson.is_error, (_ -> true))
+  is_not_master(result:Mongo.result): bool = outcome_map(result, Bson.is_not_master, (_ -> false))
 
   /** Predicate for error status of a [Mongo.result] value. **/
   isError(error:Mongo.error): bool = outcome_map(error, Bson.isError, (_ -> true))
@@ -471,6 +472,18 @@ MongoCommon = {{
           | {some=doc} -> {success=doc}
           | {none} -> failErr("{from}: no document in reply"))
     | {none} -> failErr("{from}: no reply")
+
+  reply_is_not_master(reply_opt: option(Mongo.reply)): bool =
+    match reply_opt with
+    | {some=reply} ->
+       numberReturned = reply_numberReturned(reply)
+       if numberReturned != 1
+       then false
+       else
+         (match reply_document(reply,0) with
+          | {some=doc} -> Bson.is_not_master(doc)
+          | {none} -> false)
+    | {none} -> false
 
   /**
    * Extract all documents from a reply.

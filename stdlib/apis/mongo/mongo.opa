@@ -234,6 +234,14 @@ MongoDriver = {{
     | {stopresult} -> void
     | _ -> @fail
 
+/*
+  @private
+  print_mbuf(txt,mbuf) =
+    (str, len) = export_(mbuf)
+    s = String.substring(0,len,str)
+    ML.debug(txt,"\n{string_of_message(s)}",void)
+*/
+
   @private
   send_no_reply_(m,mbuf,name,reply_expected): bool =
     match m.conn with
@@ -324,12 +332,12 @@ MongoDriver = {{
   @private
   sr_swr(m,mbuf,name) =
     swr = send_with_reply(m,mbuf,name)
-    if Option.is_some(swr) then {sndrcvresult=swr} else {reconnect}
+    if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect}
 
   @private
   sr_swe(m,mbuf,name,ns) =
     swe = send_with_error(m,mbuf,name,ns)
-    if Option.is_some(swe) then {snderrresult=swe} else {reconnect}
+    if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect}
 
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
@@ -351,10 +359,11 @@ MongoDriver = {{
   @private
   snd(m,mbuf,name) =
     recon() =
+      mbuf2 = copy_(mbuf)
       if reconnect("send_no_reply",m)
       then
-        do mongo_buf_refresh_requestId(mbuf) // Probably not necessary but we don't want unnecessary confusion
-        snd(m,mbuf,name)
+        do mongo_buf_refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
+        snd(m,mbuf2,name)
       else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{send=((m,mbuf,name))})
     match srr with
@@ -365,10 +374,11 @@ MongoDriver = {{
   @private
   sndrcv(m,mbuf,name) =
     recon() =
+      mbuf2 = copy_(mbuf)
       if reconnect("send_with_reply",m)
       then
-        do mongo_buf_refresh_requestId(mbuf)
-        sndrcv(m,mbuf,name)
+        do mongo_buf_refresh_requestId(mbuf2)
+        sndrcv(m,mbuf2,name)
       else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{sendrecv=((m,mbuf,name))})
     match srr with
@@ -379,10 +389,11 @@ MongoDriver = {{
   @private
   snderr(m,mbuf,name,ns) =
     recon() =
+      mbuf2 = copy_(mbuf)
       if reconnect("send_with_error",m)
       then
-        do mongo_buf_refresh_requestId(mbuf)
-        snderr(m,mbuf,name,ns)
+        do mongo_buf_refresh_requestId(mbuf2)
+        snderr(m,mbuf2,name,ns)
       else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{senderror=((m,mbuf,name,ns))})
     match srr with
@@ -437,6 +448,7 @@ MongoDriver = {{
       do if m.log then ML.info("MongoDriver.force_reconnect","{SocketPool.gethost(m.pool)}",void)
       if not(reconnect("force_reconnect",m))
       then ML.fatal("MongoDriver.force_reconnect:","comms error (Can't reconnect)",-1)
+      else void
     else
       ML.warning("MongoDriver.force_reconnect","connection is not reconnectable",void)
 
