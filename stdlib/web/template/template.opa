@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -106,33 +106,33 @@
  * the date format as an attribute.
  *
  *  {[
- *   
+ *
  *   // Our engine type
  *   type DateEngine.tag = { date; format:string }
- *   
+ *
  *   default_date_format : string = "%d/%m/%y"
- *   
+ *
  *   date_attribute = "format"
- *   
+ *
  *   // Parse function for date tag. It seeks if a "format" attribute exists and fetch its value.
  *   parse_date_tag(args:Template.args) : DateEngine.tag =
  *     match List.find( { namespace=_; ~name; value=_ } -> name == date_attribute, args) with
  *     | {some = {value=format ... } } -> { date; ~format }
  *     | { none } -> { date; format=default_date_format }
- *   
+ *
  *   // The export to xhtml function
  *   date_html(date_format)=
  *     match Date.try_generate_printer(date_format) with
  *     | { success=date_printer } -> <>{Date.to_formatted_string(date_printer, Date.now())}</>
  *     | { ~failure } -> <>Incorrect date format {failure}</>
- *   
+ *
  *   // The engine implementation.
  *   date_engine = { Template.empty with
  *     parse(_conf, {~xmlns; xmlns_parser=_}) =
  *       match xmlns with
  *       | {tag="date"; ~args; namespace=_; content=_; specific_attributes=_ } -> { success = Template.to_extension(parse_date_tag(args)) }
  *       | _ -> { failure = { unsupported_node=xmlns } }
- *   
+ *
  *    export(content, _) =
  *      match Template.from_extension(content) with
  *      | { none } -> { failure = { unknown_tag = "Expected extension" } }
@@ -165,16 +165,16 @@
  * }
  *
  * {[
- * 
+ *
  *    head_foot_engine : Template.engine(head_foot_tag('a), 'a) = { Template.empty with
  *      // Parse the tag. This time, we put the children passed in argument in the record.
  *      parse(_conf, {~xmlns; ~xmlns_parser} ) =
  *       match xmlns with
- *       | {tag="headfoot"; ~content ... } -> 
+ *       | {tag="headfoot"; ~content ... } ->
  *          children = Template.parse_list_xmlns(content, xmlns_parser)
  *          {success = Template.to_extension( { header_footer; ~children } ) }
  *       | _ -> { failure = { unsupported_node=xmlns } }
- *                           
+ *
  *      // Export the tag in xhtml. The children is already transformed in xhtml and
  *      // provided as an argument. We just need to wrap our child in a header/footer
  *      export(content, child) =
@@ -222,13 +222,11 @@
  *   | { some={header_footer; ~children } } ->
  *     child = Outcome.get(content_exporter(children) )
  *     res = Template.print_tag("headfoot", none, "", false, true, some(child) )
- *     { success = printer(depth)(res) }   
+ *     { success = printer(depth)(res) }
  * }
  * With this, a {[ Template.to_source(head_foot_engine, content) } will be able to print the headfoot tags correctly.
  *
  */
-
-
 Template =
 {{
 

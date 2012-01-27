@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -323,8 +323,10 @@ Server = {{
     * The following extract defines a simple server, running on default port 8080,
     * which displays a message depending on the address it receives.
     *
-    * [server = Server.make_dispatch(Server.Filter.path(["root", "application"]),
-    *    | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>))]
+    * {[
+    * server = Server.make_dispatch(Server.Filter.path(["root", "application"]),
+    *          | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>))
+    * }
     *
     * This server will only respond to paths starting with "/root/application".
     *
