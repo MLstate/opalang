@@ -38,7 +38,36 @@ int get_mem (unsigned int *rss)
     return 0;
 }
 
-#else /* not MAC */
+#elif (defined(__FreeBSD__) || defined(__FreeBSD_kernel__)) /* FreeBSD */
+
+#include <kvm.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+
+int get_mem (unsigned int *rss)
+{
+    kvm_t *kv;
+    int cnt,pagesize,pid;
+
+    pagesize = getpagesize();
+    pid = getpid();
+    kv = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, NULL);
+
+    if (kv != NULL) {
+        struct kinfo_proc *kproc;
+        kproc = kvm_getprocs(kv, KERN_PROC_PID, pid, &cnt);
+        if (kproc && cnt > 0)
+            *rss = kproc->ki_rssize * pagesize;
+        else *rss = 0;
+        kvm_close(kv);
+        return 0;
+    } else return -1;
+}
+
+#else /* not MAC and FreeBSD */
 
 #include <stdio.h>
 #include <unistd.h>
