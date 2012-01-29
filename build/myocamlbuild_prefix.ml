@@ -541,9 +541,12 @@ let _ = dispatch begin function
         let file = dir / "lib" ^ name -.- !Options.ext_lib in
         dep ["ocaml"; tag] [file];
         flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]);
-        flag ["ocaml"; "native"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name)])
+        flag ["ocaml"; "native"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name)]);
       in
 
+      (* In the memory.c in FreeBSD part that uses kvm_getprocs() required link with -lkvm. *)
+      if is_fbsd then
+        flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm"]);
 
 (* -- Don't forget that the rest of the "mlstate build stdlib" is in --
    -- myocamlbuild_suffix.ml. The rest comes from the build_rules*.ml in each repo -- *)
