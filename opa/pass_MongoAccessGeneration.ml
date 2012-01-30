@@ -264,6 +264,13 @@ module Generator = struct
           fields
     | _ -> None
 
+  let get_node ~context schema path =
+    try
+      DbSchema.get_node schema path
+    with Base.NotImplemented s ->
+      QmlError.error context
+        "Can't generates mongo access because : %s is not yet implemented"
+        s
 
   let rec compose_path ~context gamma annotmap schema kind subs =
     let subkind =
@@ -292,7 +299,7 @@ module Generator = struct
     (* vv FIXME !?!?! vv *)
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
-      DbSchema.get_node schema strpath in
+      get_node ~context schema strpath in
     (* ^^ FIXME !?!?! ^^ *)
     let dataty = node.DbSchema.ty in
     match kind with
@@ -560,7 +567,7 @@ module Generator = struct
 
   let path ~context gamma annotmap schema (kind, dbpath) =
     (* Format.eprintf "Path %a" QmlPrint.pp#path (dbpath, kind); *)
-    let node = DbSchema.get_node schema dbpath in
+    let node = get_node ~context schema dbpath in
     match node.DbSchema.kind with
     | DbSchema.SetAccess (setkind, path, query) ->
         dbset_path ~context gamma annotmap (kind, path) setkind node query

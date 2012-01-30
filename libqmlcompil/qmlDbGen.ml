@@ -235,8 +235,8 @@ module Schema = struct
             | C.Multi_edge (C.Kfields _) -> DbSet next.C.ty
             | _ -> assert false
             end
-        | [] -> raise Not_found
-        | _ -> raise Not_found
+        | [] -> OManager.i_error "Found any successors from a multi node"
+        | _ -> OManager.i_error "Found multiple successors from a multi node"
       in
       match fragment with
       | DbAst.ExprKey expr ->
@@ -252,11 +252,11 @@ module Schema = struct
             | _ ->
                 match kind, nlabel.C.plain with
                 | Compose _, true -> Plain
+                | Compose c, false -> Compose c
                 | Partial (sum, path, part), _ ->
                     Partial (sum && is_sum node, path, key::part)
                 | Plain, _ -> Partial (is_sum node, path, key::[])
-                | Compose c, false -> Compose c
-                | _, _ -> assert false
+                | SetAccess _, _ -> raise (Base.NotImplemented "Selection inside a multi node")
           in let path = key::path
           in (next, kind, path)
       | DbAst.Query query ->
@@ -264,10 +264,12 @@ module Schema = struct
           | SetAccess (_k, path, None) ->
               let kind = SetAccess (get_setkind llschema node, path, Some (false, query)) in
               (next, kind, path)
-          | SetAccess (_, _path, Some _) -> assert false
-          | _ -> assert false
+          | SetAccess (_, _path, Some _) ->
+              raise (Base.NotImplemented "Selection inside a multi node")
+          | _ ->
+              raise (Base.NotImplemented "Query in a non multi node")
           end
-      | DbAst.NewKey -> OManager.error "new key is not yep supported"
+      | DbAst.NewKey -> raise (Base.NotImplemented "New key")
     in
     let (node, kind, _path) =
       List.fold_left f (get_root llschema, Compose [], []) path in
