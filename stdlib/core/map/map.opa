@@ -190,6 +190,8 @@ type Map('key,'order) =
 
         min_binding: ordered_map('key,'val,'order) -> ('key, 'val)
 
+        max_binding: ordered_map('key,'val,'order) -> ('key, 'val)
+
         /**
          * Determine if a key appears in a map.
          *
@@ -449,6 +451,14 @@ Map_private =
       | { left = ({ empty } : map) ~key ~value right = _ ... } -> (key, value)
       | { ~left key = _ value = _ right = _ ... } -> aux(left)
       | { empty } -> error("Map.min_binding: Not Found")
+    aux(m)
+
+  max_binding(m : Map_private.map) =
+   rec aux(a_map : Map_private.map) =
+     match a_map with
+      | { left = _ ~key ~value right = ({ empty } : map) ... } -> (key, value)
+      | { left = _ key = _ value = _ ~right ... } -> aux(right)
+      | { empty } -> error("Map.max_binding: Not Found")
     aux(m)
 
   remove_min_binding(m : Map_private.map) =
@@ -726,6 +736,9 @@ Map_make(order: order('key,'order) ) : Map =
 
   min_binding(m : ordered_map('key, 'val, 'order)) =
     Map_private.min_binding(m)
+
+  max_binding(m : ordered_map('key, 'val, 'order)) =
+    Map_private.max_binding(m)
 
 //  remove_min_binding(m) = @wrap(_remove_min_binding(@unwrap(m)))
 
