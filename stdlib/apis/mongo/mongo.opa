@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+package stdlib.apis.mongo
 
 /**
  * MongoDB binding for OPA.
@@ -88,6 +89,7 @@ type Mongo.srr =
   / {snderrresult:option(Mongo.reply)}
   / {stopresult}
   / {reconnect}
+  / {noconnection}
 
 /** Messages for socket pool **/
 @private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {stop}
@@ -192,6 +194,7 @@ MongoDriver = {{
    */
   @private
   doreconnect(from:string, m:Mongo.db): bool =
+    do if m.log then ML.debug("MongoDriver.doreconnect","depth={m.depth}",void)
     if m.depth > m.max_depth
     then
       do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
@@ -224,9 +227,10 @@ MongoDriver = {{
 
   @private
   reconnect(from, m) =
+    do if m.log then ML.debug("MongoDriver.reconnect","m={m}",void)
     match (Cell.call(m.reconncell,({reconnect=((from,m))}:Mongo.reconnectmsg)):Mongo.reconnectresult) with
     | {reconnectresult=tf} -> tf
-    | _ -> @fail
+    | _ -> do ML.debug("MongoDriver.reconnect","fail",void) @fail
 
   @private
   stoprecon(m) =
@@ -349,12 +353,14 @@ MongoDriver = {{
           | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},mbuf,name)
           | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},mbuf,name)
           | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},mbuf,name,ns)
-          | {stop} -> @fail)
+          | {stop} -> do ML.debug("MongoDriver.srpool","stop",void) @fail)
        do SocketPool.release(m.pool,connection)
        result
     | {~failure} ->
        do if m.log then ML.error("MongoDriver.srpool","Can't get pool {C.string_of_failure(failure)}",void)
-       {reconnect}
+       if (failure == {Error="Got exception Scheduler.Connection_closed"})
+       then {noconnection}
+       else {reconnect}
 
   @private
   snd(m,mbuf,name) =
@@ -367,6 +373,7 @@ MongoDriver = {{
       else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{send=((m,mbuf,name))})
     match srr with
+    | {noconnection} -> false
     | {reconnect} -> recon()
     | {~sendresult} -> sendresult
     | _ -> @fail
@@ -382,6 +389,7 @@ MongoDriver = {{
       else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{sendrecv=((m,mbuf,name))})
     match srr with
+    | {noconnection} -> none
     | {reconnect} -> recon()
     | {~sndrcvresult} -> sndrcvresult
     | _ -> @fail
@@ -397,6 +405,7 @@ MongoDriver = {{
       else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{senderror=((m,mbuf,name,ns))})
     match srr with
+    | {noconnection} -> none
     | {reconnect} -> recon()
     | {~snderrresult} -> snderrresult
     | _ -> @fail

@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+package stdlib.apis.mongo
 
 /**
  * MongoDB binding for OPA.
@@ -204,6 +205,8 @@ MongoReplicaSet = {{
    * In practice, this should never happen.
    **/
   connect(m:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+    //m = {m with log=true}
+    do if m.log then ML.debug("MongoReplicaSet.connect","depth={m.depth}",void)
     do if m.seeds == [] then ML.fatal("MongoReplicaSet.connect","Tried to connect with no seeds",-1) else void
     rec aux(m, seeds) =
       match seeds with
