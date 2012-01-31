@@ -847,11 +847,11 @@ let coerce_query_element ~context gamma ty (query, options) =
         a options.Db.skip
     in let a, sort =
       let ty =
-        Q.TypeRecord (
+        Q.TypeSum (
           let void = Q.TypeRecord (QmlAstCons.Type.Row.make []) in
-          QmlAstCons.Type.Row.make [
-            ("up", void);
-            ("down", void);
+          QmlAstCons.Type.Col.make [
+            [("down", void)];
+            [("up", void)];
           ]
         )
       in
@@ -1094,7 +1094,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
                    (fun acc key -> List.remove_assoc (fst key) acc)
                    fields tykeys in
                Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false wfields)
-           | _ -> internal_error "Wront type on key typing (%a)" QmlPrint.pp#ty setparam in
+           | _ -> internal_error "Wrong type on key typing (%a)" QmlPrint.pp#ty setparam in
            node.C.ty, node, `virtualset (tyread, tywrite, partial, Some e)
        | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
   | (Db.FldKey fld)::_rp, C.Sum ->
