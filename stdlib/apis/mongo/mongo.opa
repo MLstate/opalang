@@ -92,8 +92,8 @@ type Mongo.srr =
   / {noconnection}
 
 /** Messages for socket pool **/
-@private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {stop}
-@private type Mongo.reconnectresult = {reconnectresult:bool} / {stopresult}
+@private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {getseeds} / {stop}
+@private type Mongo.reconnectresult = {reconnectresult:option(Mongo.db)} / {getseedsresult:list(Mongo.mongo_host)} / {stopresult}
 
 MongoDriver = {{
 
@@ -193,44 +193,55 @@ MongoDriver = {{
    * won't ever be used but we limit the depth of the recursion.
    */
   @private
-  doreconnect(from:string, m:Mongo.db): bool =
+  doreconnect(from:string, m:Mongo.db): option(Mongo.db) =
     do if m.log then ML.debug("MongoDriver.doreconnect","depth={m.depth}",void)
     if m.depth > m.max_depth
     then
       do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
-      false
+      none
     else
       m = {m with depth=m.depth+1}
       if m.reconnectable
       then
         rec aux(attempts) =
           if attempts > m.max_attempts
-          then false
+          then none
           else
             (match MongoReplicaSet.connect(m) with
-             | {success=_} ->
+             | {success=m} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
-                true
+                {some=m}
              | {~failure} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","failure={C.string_of_failure(failure)}",void)
                 do Scheduler.wait(m.reconnect_wait)
                 aux(attempts+1))
         aux(0)
       else
-        false
+        none
 
   @private
-  reconfn(_, msg) =
+  reconfn(seeds, msg) =
     match msg with
-    | {reconnect=(from,m)} -> {return={reconnectresult=doreconnect(from,m)}; instruction={unchanged}}
+    | {reconnect=(from,m)} ->
+       match doreconnect(from,m) with
+       | {some=nm} -> {return={reconnectresult={some=nm}}; instruction={set=nm.seeds}}
+       | {none} -> {return={reconnectresult={none}}; instruction={unchanged}}
+       end
+    | {getseeds} -> {return={getseedsresult=seeds}; instruction={unchanged}}
     | {stop} -> {return={stopresult}; instruction={stop}}
 
   @private
   reconnect(from, m) =
+    m =
+      match (Cell.call(m.reconncell,({getseeds}:Mongo.reconnectmsg)):Mongo.reconnectresult) with
+      | {getseedsresult=seeds} -> {m with seeds=MongoReplicaSet.mrg(seeds,m.seeds)}
+      | res -> do ML.debug("MongoDriver.reconnect","weird cell result {res}",void) m
+      end
     do if m.log then ML.debug("MongoDriver.reconnect","m={m}",void)
     match (Cell.call(m.reconncell,({reconnect=((from,m))}:Mongo.reconnectmsg)):Mongo.reconnectresult) with
-    | {reconnectresult=tf} -> tf
-    | _ -> do ML.debug("MongoDriver.reconnect","fail",void) @fail
+    | {reconnectresult={none}} -> false
+    | {reconnectresult={some=_}} -> true
+    | res -> do ML.debug("MongoDriver.reconnect","fail (result={res})",void) @fail
 
   @private
   stoprecon(m) =
@@ -422,7 +433,7 @@ MongoDriver = {{
    **/
   init(bufsize:int, pool_max:int, reconnectable:bool, log:bool): Mongo.db =
     { conn={none};
-      reconncell=(Cell.make(void, reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
+      reconncell=(Cell.make([], reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=SocketPool.make(("localhost",default_port),pool_max,log);
       pool_max=Int.max(pool_max,1); ~bufsize; ~log;
       seeds=[]; name=""; ~reconnectable;

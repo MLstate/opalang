@@ -192,6 +192,22 @@ MongoReplicaSet = {{
         | {none} -> (m,[]))
     | {failure=_} -> (m,[])
 
+  hostname = System.gethostname()
+  is_localhost(h:string) : bool = match h with | "localhost" -> true | "127.0.0.1" -> true | _ -> h == hostname
+  same_host(h1,h2) : bool = (is_localhost(h1) && is_localhost(h2)) || System.gethostbyname(h1) == System.gethostbyname(h2)
+  same_mongo_host((h1,p1):Mongo.mongo_host)((h2,p2):Mongo.mongo_host) = p1 == p2 && same_host(h1,h2)
+
+  mrg(l1:list(Mongo.mongo_host), l2:list(Mongo.mongo_host)) : list(Mongo.mongo_host) =
+    rec aux(l1:list(Mongo.mongo_host), l2:list(Mongo.mongo_host)) =
+      match (l2:list(Mongo.mongo_host)) with
+      | [] -> (l1:list(Mongo.mongo_host))
+      | [h|t] ->
+        match List.index_p(same_mongo_host(h), l1) with
+        | {some=_} -> (aux(l1, t):list(Mongo.mongo_host))
+        | {none} -> (aux([h|l1], t):list(Mongo.mongo_host))
+        end
+    aux(l1, l2)
+
   /**
    * Connect (and reconnect) to a replica set.
    *
@@ -216,7 +232,7 @@ MongoReplicaSet = {{
             (m,hosts) = check_seed(m)
             if hosts == []
             then aux(m,rest)
-            else {success=(m,hosts)}
+            else {success=({m with seeds=mrg(hosts,seeds)},hosts)}
          | {failure=_} ->
             aux(m,rest))
       | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
