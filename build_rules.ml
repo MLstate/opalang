@@ -700,7 +700,7 @@ rule "opacomp: .opack -> .native"
      );
      build_list build (List.map ((/) dir) (string_list_of_file (env "%.opack.depends")));
      opacomp build (env "%.opack") "native"
-       (S[ A"-I" ; P stdlib_packages_dir ; A"--project-root" ; P dir]));
+       (S[ A"-I" ; P stdlib_packages_dir ; A"--project-root" ; P dir; A"--parser"; A"classic";]));
 
 rule "opacomp: .opack -> .byte"
   ~deps: ("%.opack"::"%.opack.depends"::"opa-packages.stamp"::"opacomp-byte.stamp"::[])
@@ -890,6 +890,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                 A"--warn-error"; A"root";
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
+                A"--parser"; A"classic";
                 opaopt;
                 S all_files;
                ] @ rebuild_opt));

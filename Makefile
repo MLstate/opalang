@@ -240,7 +240,7 @@ doc.odocl:
 
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
-	OPAOPT="$(OPAOPT) --rebuild --api" $(OCAMLBUILD) opa-packages.stamp
+	OPAOPT="$(OPAOPT) --rebuild --api --parser classic" $(OCAMLBUILD) opa-packages.stamp
 
 .PHONY: opadoc/doc
 opadoc/doc: opadoc packages-api

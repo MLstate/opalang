@@ -10,8 +10,8 @@ module Args = struct
   }
 
   let default_options = {
-    parser = Classic;
-    printer = Classic;
+    parser = Js;
+    printer = Js;
   }
 
   let is_default t = if default_options.parser = t then " (default)" else ""
