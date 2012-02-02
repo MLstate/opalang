@@ -838,7 +838,7 @@ Xhtml =
                          end
                          //Now, generate jQuery-specific code in the jsbuffer, as a chain of JS dot calls on the item
                          do Buf.add(js_buffer,"\n$('#")
-                         do Buf.add(js_buffer,id)
+                         do Buf.add(js_buffer,Dom.escape_selector(id))
                          do Buf.add(js_buffer,"')")
 
                          //Handle style -- generate a call to jQuery function [css]

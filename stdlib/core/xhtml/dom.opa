@@ -257,8 +257,19 @@ Dom = {{
   /**
    * Perform a selection using CSS syntax
    */
-  select_raw(selector: string): dom =
-  (
+  @deprecated({use = "select_raw_unsafe"}) select_raw(selector: string): dom = (
+      ~{selector}
+  )
+
+  /**
+   * Perform a selection using CSS syntax. This function is unsafe
+   * because doesn't control [selector] argument. You can use [escape_selector] to escape
+   *
+   * {[xss = ", #toto"
+   *   select_raw_unsafe(".class_{xss}")
+   * ]}
+   */
+  select_raw_unsafe(selector: string): dom = (
       ~{selector}
   )
 
@@ -891,7 +902,7 @@ Dom = {{
            (scroll_x, scroll_y)
         )
 
-        _ = Dom.transition(select_raw("html, body")/*For some reason, it doesn't work with the window itself*/,
+        _ = Dom.transition(select_raw_unsafe("html, body")/*For some reason, it doesn't work with the window itself*/,
               Effect.scroll_to_xy(scroll_x, scroll_y))
         void
   )
@@ -1542,10 +1553,23 @@ Dom = {{
   INSERT:    Dom.key_code = 45
   }}
 
+  /**
+   * Escaping for jQuery selectors !"#$%&'()*+,./:;<=>?@[\]^`{|}~.
+   * To use for raw selection.
+   * @see http://api.jquery.com/category/selectors/
+   */
+  escape_selector(str) =
+    String.map(c ->
+        match c with
+        | "!" | "\"" | "#" | "$" | "%" | "&" | "'" | "(" | ")" | "*"
+        | "+" | ","  | "." | "/" | ":" | ";" | "<" | "=" | ">" | "?"
+        | "@" | "[" | "\\" | "]" | "^" | "`" | "\{" | "|"| "}" | "~" | " " -> "\\\\" ^ c
+        | _ -> c
+      , str)
+
   /*
    * {2 Select module}
    */
-
   @private Select =
   {{
 
@@ -1597,7 +1621,7 @@ Dom = {{
    */
   select_id(name: string): Dom.private.element =
   (
-        %% BslDom.select_id %%(name)
+        %% BslDom.select_id %%(escape_selector(name))
   )
 
   /**
@@ -1606,7 +1630,7 @@ Dom = {{
    */
   select_class(class: string): Dom.private.element =
   (
-        %% BslDom.select_class %%(class)
+        %% BslDom.select_class %%(escape_selector(class))
   )
 
   /**
@@ -1624,7 +1648,7 @@ Dom = {{
    */
   select_tag(tag: string): Dom.private.element =
   (
-        %% BslDom.select_tag %%(tag)
+        %% BslDom.select_tag %%(escape_selector(tag))
   )
 
   /**
@@ -1657,7 +1681,7 @@ Dom = {{
    */
   select_id_in(name: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_id_in %%(name, parent)
+        %% BslDom.select_id_in %%(escape_selector(name), parent)
   )
 
   /**
@@ -1665,7 +1689,7 @@ Dom = {{
    */
   select_class_in(class: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_class_in %%(class, parent)
+        %% BslDom.select_class_in %%(escape_selector(class), parent)
   )
 
   /**
@@ -1673,7 +1697,7 @@ Dom = {{
    */
   select_tag_in(tag: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_tag_in %%(tag, parent)
+        %% BslDom.select_tag_in %%(escape_selector(tag), parent)
   )
 
   /**

@@ -57,7 +57,7 @@ AppSources =
     app_files = %%BslAppSrcCode.get_file_list%%()
     init() =
       Dom.set_style(
-        Dom.select_raw("html, body"),
+        Dom.select_raw_unsafe("html, body"),
         css {height: 100%; margin: 0px}
       )
     files =
