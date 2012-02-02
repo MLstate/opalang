@@ -1388,9 +1388,8 @@ module Js = struct
         match variant, exprs, tys with
         | `coerce, [e], [ty] ->
             pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
-        | `module_, [(Record _r,_)], _ -> assert false
-(*            pp f "@[hov 1>module {@\n%a@\n@]}@\n"
-              (list "@\n" (self#binding_aux (fun f s -> pp f "%s" s))) r *)
+        | `module_, [m], _ ->
+            self#module_binding (fun _ _ -> ()) f ((), m)
         | `string, l, _ -> Sugar.String.pp_expr self#expr_sugar f l
         | `magic_to_string, [e], _ -> self#expr f e
         | `fun_action, [e], _ -> self#expr f e
@@ -1454,8 +1453,7 @@ module Js = struct
       | _  -> pp f "%s %a(%a){@\n%a@]@\n}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
 
 
-    method private module_binding : 'id 'dir. 'a pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
-      let p = Obj.magic p in (* WTF *)
+    method private module_binding : 'id 'dir. 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
       match fst e with
       | Lambda (r,e)-> self#lambda_binding p f (s,r,e)
       | Record r ->
