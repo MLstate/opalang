@@ -54,17 +54,7 @@ Crypto = {{
 
   Hash = {{
 
-    /**
-     * Produces a HMAC_SHA1 for the given key and message. The first argument
-     * is the key, the second is the message.
-     */
     hmac_sha1 = %% BslCrypto.hmac_sha1 %% : string, string -> string
-
-    /**
-     * Produces a HMAC_SHA256 for the given key and message. The first argument
-     * is the key, the second is the message.
-     */
-    hmac_sha256 = %% BslCrypto.hmac_sha256 %% : string, string -> string
 
     md5 = %% BslCrypto.md5 %% : string -> string
 

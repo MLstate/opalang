@@ -42,10 +42,6 @@ let base64_decode2 str =
 let hmac_sha1 key text =
   Cryptokit.hash_string (Cryptokit.MAC.hmac_sha1 key) text
 
-##register hmac_sha256 : string, string -> string
-let hmac_sha256 key text =
-  Cryptokit.hash_string (Cryptokit.MAC.hmac_sha256 key) text
-
 ##register sha2 : string -> string
 let sha2 s =
   let hashobj = Cryptokit.Hash.sha256 () in
