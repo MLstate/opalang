@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -1330,11 +1330,7 @@ let sort_edges t el =
   in
   List.sort compare_edges el
 
-(** Assuming nodes belonging to other packages have already been cleaned up:
-    @post All field or sumcase edges going out of a single node hold different indices
-    @post The root has id "root"
-    @post The numberings are canonical (after cleanup, two equivalent graphs are equal) *)
-let cleanup t =
+let cleanup_nonempty t =
   let package_name = ObjectFiles.get_current_package_name() in
   (* Create a canonical renumbering of nodes *)
   let rec get_ids ids n =
@@ -1359,7 +1355,7 @@ let cleanup t =
   (* in *)
   (* Copy all edges (renumbered) to the new graph *)
   let new_t =
-    SchemaGraph0.fold_vertex
+      SchemaGraph0.fold_vertex
       (fun n new_t ->
          let eid = ref 0 in
          let es =
@@ -1382,6 +1378,16 @@ let cleanup t =
 (*                            | ty -> ty }) t *)
 (*   in *)
   new_t
+
+(** Assuming nodes belonging to other packages have already been cleaned up:
+    @post All field or sumcase edges going out of a single node hold different indices
+    @post The root has id "root"
+    @post The numberings are canonical (after cleanup, two equivalent graphs are equal) *)
+let cleanup t =
+  if SchemaGraph0.is_empty t then
+    t
+  else
+    cleanup_nonempty t
 
 (* replace e by e' in t *)
 let replace_edge_e t e e' =
