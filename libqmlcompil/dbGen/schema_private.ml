@@ -1176,9 +1176,9 @@ let preprocess_kind ~context gamma kind ty virtual_ =
             | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
             | _ -> false
           ) -> u
-        | Db.UPop -> error "" "pop is not avialable on %a" QmlPrint.pp#ty ty
-        | Db.UShift -> error "" "shift is not avialable on %a" QmlPrint.pp#ty ty
-        | Db.UIncr _ -> error "" "incr is not avialable only on %a" QmlPrint.pp#ty ty
+        | Db.UPop -> error "" "pop is not available on %a" QmlPrint.pp#ty ty
+        | Db.UShift -> error "" "shift is not available on %a" QmlPrint.pp#ty ty
+        | Db.UIncr _ -> error "" "incr is not available on %a (only on int)" QmlPrint.pp#ty ty
       in Db.Update (update ty u)
 
 let preprocess_path ~context t gamma prepath kind =
