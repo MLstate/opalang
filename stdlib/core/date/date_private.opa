@@ -105,6 +105,9 @@ import stdlib.core.parser
   time_local_hour : Date.date -> int =
     date_in(%%BslTime.local_hour%% : time_t -> int)   // Hours 0..23
 
+  time_local_timezone_offset : Date.date -> int =
+    date_in(%%BslTime.local_timezone_offset%% : time_t -> int)
+
   time_local_mday : Date.date -> int =
     date_in(%%BslTime.local_mday%% : time_t -> int)   // Day of month 1..31
 
@@ -181,6 +184,7 @@ import stdlib.core.parser
       , ("x", true,  ((p, d) -> pad(Date.get_msec(d), p, {pad_with_zeros}, 3)))
       , ("y", false, ((_, d) -> pad(mod(Date.get_year(d), 100), {pad_with_zeros}, {pad_with_zeros}, 2)))
       , ("Y", true,  ((p, d) -> pad(Date.get_year(d), p, {pad_with_spaces}, 4)))
+      , ("z", true, ((_, _) -> Date.get_local_timezone()))
       ]
 
     padding_flag_parser = parser
@@ -328,6 +332,7 @@ import stdlib.core.parser
       , ("x", parse_num(v -> d -> {d with ms = v}))
       , ("y", parse_num(v -> d -> {d with year=if v < 70 then 2000 + v else 1900 + v}))
       , ("Y", parse_num(v -> d -> {d with year=v}))
+//      , ("z", *not supported for parsing*
       ]
 
     parse_directive_with((d, p)) =

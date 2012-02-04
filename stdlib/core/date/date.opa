@@ -424,6 +424,29 @@ type time_t = external
   get_hour : Date.date -> int = Date_private.time_local_hour
 
   /**
+   * Returns the local timezone (+hhmm or -hhmm).
+   *
+   * On the server side, this will be a constant. On the client side
+   * it will depend on whatever the user has set on their system.
+   *
+   * @return The local timezone (+hhmm or -hhmm).
+  **/
+  get_local_timezone : -> string = -> (
+    t : Date.date = Date.now()
+    delta : int = Date_private.time_local_timezone_offset(t)
+    // delta is the timezone in minutes, so we need to convert it into
+    // +hhmm or -hhmm. If delta is positive, the timezone is -hhmm. Otherwise
+    // the timezone is +hhmm.
+    h : int = Int.abs(delta) / 60
+    m : int = mod(Int.abs(delta), 60)
+    s : string = if delta > 0 then "-" else "+"
+    p = {pad_with_zeros}
+    h_str : string = Date_private.ToString.pad(h, p, p, 2)
+    m_str : string = Date_private.ToString.pad(m, p, p, 2)
+    "{s}{h_str}{m_str}"
+  )
+
+  /**
    * Returns the weekday represented by this date interpreted in the local
    * time zone.
    * If you need to completely decompose a date consider using {!Date.to_human_readable}.
@@ -833,6 +856,7 @@ type time_t = external
    * - [%w] day of week (0..6); 0 is Sunday
    * - [%y] last two digits of year (00..99)
    * - [%Y] year (ex. 2010)
+   * - [%z] +hhmm numeric timezone (e.g., -0400)
    *
    * By default, numeric fields are padded with zeroes. The following optional flags
    * may follow `%':
@@ -849,7 +873,6 @@ type time_t = external
    * - [%U] week number of year with Sunday as first day of week (00..53)
    * - [%V] week number of year with Monday as first day of week (01..53)
    * - [%W] week number of year with Monday as first day of week (00..53)
-   * - [%z] +hhmm numeric timezone (e.g., -0400)
    * - [%:z] +hh:mm numeric timezone (e.g., -04:00)
    *
    * Also the padding directives are not supported:
@@ -975,7 +998,7 @@ type time_t = external
    *
    * For the purpose of parsing there are few differences in the interpretations
    * of the format, compared to the format used for printing, see {!Date.try_generate_printer}:
-   * - the directives '%C', '%u' and '%w' are not recognized,
+   * - the directives '%C', '%u', '%w' and '%z' are not recognized,
    * - a non-empty sequence of spaces in the [format] can be matched by any (non-empty)
    *   sequence of spaces in the input.
    * - the padding flags ('_', '-' and '0') are ignored and all numerical values

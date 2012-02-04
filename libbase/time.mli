@@ -52,6 +52,7 @@ val local_year : t -> int
 val local_wday : t -> int
 val local_yday : t -> int
 val local_isdst : t -> bool
+val local_timezone_offset : unit -> int
 
 val mktime : year:int -> month:int -> day:int -> h:int -> min:int -> sec:int -> ms:int -> t
 
