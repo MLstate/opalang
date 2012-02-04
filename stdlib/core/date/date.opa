@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -167,14 +167,21 @@ type time_t = external
   **/
   build(date : {year : Date.year; month : Date.month; day : Date.day; h : int; min : int; s : int; ms : int}
              / {year : Date.year; month : Date.month; day : Date.day; h : int; min : int; s : int}
-             / {year : Date.year; month : Date.month; day : Date.day}) : Date.date =
+             / {year : Date.year; month : Date.month; day : Date.day}
+             / {year : Date.year; week : int; weekday : Date.weekday}
+       ) : Date.date =
     dummy_date = {year=1970 month={january} day=1 h=0 min=0 s=0 ms=0 wday={monday}}
-    dhr =
-      match date with
-      | ~{year month day h min s ms} -> ~{dummy_date with year month day h min s ms}
-      | ~{year month day h min s} -> ~{dummy_date with year month day h min s}
-      | ~{year month day} -> ~{dummy_date with year month day}
-    of_human_readable(dhr)
+    match date with
+    | ~{year month day h min s ms} ->
+        ~{dummy_date with year month day h min s ms} |> of_human_readable
+    | ~{year month day h min s} ->
+        ~{dummy_date with year month day h min s} |> of_human_readable
+    | ~{year month day} ->
+        ~{dummy_date with year month day} |> of_human_readable
+    | ~{year week weekday} ->
+        get_first_week(year)
+        |> advance(_, Duration.weeks(week-1))
+        |> move_to_weekday(_, {forward}, weekday)
 
   /**
    * Converts a low-level representation into a Date.
@@ -487,6 +494,21 @@ type time_t = external
   get_year : Date.date -> Date.year = Date_private.time_local_year
 
   /**
+   * Returns the Monday of the first week of a given year.
+   *
+   * This routine follows ISO 8601 and hence assumes that "the first week of a year
+   * is the week that contains the first Thursday of the year" and that "weeks start
+   * with Monday". See {{:http://en.wikipedia.org/wiki/ISO_week_date} for more details}.
+   *
+   * @param year A year
+   * @return The date on Monday of the first week of the year [year].
+  **/
+  get_first_week(year : Date.year) : Date.date =
+    build({~year month={january} day=1}) |>
+    move_to_weekday(_, {forward}, {thursday}) |>
+    move_to_weekday(_, {backward}, {monday})
+
+  /**
    * Returns the week number corresponding to the given date.
    *
    * This routine follows ISO 8601 and hence assumes that "the first week of a year
@@ -497,13 +519,11 @@ type time_t = external
    * @return The week number of the [date].
   **/
   get_week_number(d : Date.date) : int =
-    dhr = to_human_readable(d)
-    first_week =
-      build({year=dhr.year month={january} day=1}) |>
-      move_to_weekday(_, {forward}, {thursday}) |>
-      move_to_weekday(_, {backward}, {monday})
-    Duration.between(first_week, d) |>
-      Duration.in_days(_) |>
+    to_human_readable(d) |>
+      _.year |>
+      get_first_week |>
+      Duration.between(_, d) |>
+      Duration.in_days |>
       _ / 7. |>
       Float.floor |>
       Float.to_int |>
