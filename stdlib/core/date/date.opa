@@ -152,12 +152,28 @@ type time_t = external
     0
 
   /**
-   * The current time.
+   * The current *local* time.
    *
    * Note: depending on whether the function is executed on the client or on the
    * server this function will return, respectively, the client/server time.
+   *
+   * If instead of local time you want GMT time, please consult {!Date.now_gmt}
+   *
   **/
   now : -> Date.date = Date_private.time_now
+
+  /**
+   * The current GMT time.
+   *
+   * Note: depending on whether the function is executed on the client or on the
+   * server this function will return, respectively, the client/server time.
+   *
+   * If instead of GMT time you want local time, please consult {!Date.now_gmt}
+  **/
+  now_gmt() : Date.date =
+    t = now()
+    offset = Date_private.time_local_timezone_offset() |> Duration.min
+    Date.advance(t, offset)
 
   /**
    * Constructs a specific date.
