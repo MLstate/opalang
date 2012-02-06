@@ -61,6 +61,7 @@ type Mongo.db = {
   reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
   pool : SocketPool.t;
   pool_max : int;
+  allow_slaveok : bool;
   bufsize : int;
   log : bool;
   name : string;
@@ -92,8 +93,14 @@ type Mongo.srr =
   / {noconnection}
 
 /** Messages for socket pool **/
-@private type Mongo.reconnectmsg = {reconnect:(string,Mongo.db)} / {getseeds} / {stop}
-@private type Mongo.reconnectresult = {reconnectresult:option(Mongo.db)} / {getseedsresult:list(Mongo.mongo_host)} / {stopresult}
+@private type Mongo.reconnectmsg =
+   {reconnect:(string,Mongo.db)}
+ / {getseeds}
+ / {stop}
+@private type Mongo.reconnectresult =
+   {reconnectresult:option((bool,Mongo.db))}
+ / {getseedsresult:list(Mongo.mongo_host)}
+ / {stopresult}
 
 MongoDriver = {{
 
@@ -118,6 +125,12 @@ MongoDriver = {{
 
   /* Build OP_QUERY message in buffer */
   @private query_ = (%% BslMongo.Mongo.query %%: Mongo.mongo_buf, int, string, int, int, 'a, option('a) -> void)
+
+  /* Update OP_QUERY flags */
+  @private set_query_flags_ = (%% BslMongo.Mongo.set_query_flags %%: Mongo.mongo_buf, int -> void)
+
+  /* Get buffer opCode */
+  @private get_opCode_ = (%% BslMongo.Mongo.get_opCode %%: Mongo.mongo_buf -> int)
 
   /* Build OP_GET_MORE message in buffer */
   @private get_more_ = (%% BslMongo.Mongo.get_more %%: Mongo.mongo_buf, string, int, Mongo.cursorID -> void)
@@ -189,12 +202,12 @@ MongoDriver = {{
 
   /*
    * We have the possibility of unbounded recursion here since we
-   * call ReplSet.connect, which calls us for ismaster.  Probably
+   * call MongoReplicaSet.connect, which calls us for ismaster.  Probably
    * won't ever be used but we limit the depth of the recursion.
    */
   @private
-  doreconnect(from:string, m:Mongo.db): option(Mongo.db) =
-    do if m.log then ML.debug("MongoDriver.doreconnect","depth={m.depth}",void)
+  doreconnect(from:string, m:Mongo.db): option((bool,Mongo.db)) =
+    do if m.log then ML.debug("MongoDriver.doreconnect","depth={m.depth} allowslaveok={m.allow_slaveok}",void)
     if m.depth > m.max_depth
     then
       do if m.log then ML.error("MongoDriver.reconnect({from})","max depth exceeded",void)
@@ -208,9 +221,9 @@ MongoDriver = {{
           then none
           else
             (match MongoReplicaSet.connect(m) with
-             | {success=m} ->
+             | {success=(slaveok,m)} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
-                {some=m}
+                {some=(slaveok,m)}
              | {~failure} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","failure={C.string_of_failure(failure)}",void)
                 do Scheduler.wait(m.reconnect_wait)
@@ -224,7 +237,7 @@ MongoDriver = {{
     match msg with
     | {reconnect=(from,m)} ->
        match doreconnect(from,m) with
-       | {some=nm} -> {return={reconnectresult={some=nm}}; instruction={set=nm.seeds}}
+       | {some=(slaveok,nm)} -> {return={reconnectresult={some=(slaveok,nm)}}; instruction={set=nm.seeds}}
        | {none} -> {return={reconnectresult={none}}; instruction={unchanged}}
        end
     | {getseeds} -> {return={getseedsresult=seeds}; instruction={unchanged}}
@@ -239,8 +252,10 @@ MongoDriver = {{
       end
     do if m.log then ML.debug("MongoDriver.reconnect","m={m}",void)
     match (Cell.call(m.reconncell,({reconnect=((from,m))}:Mongo.reconnectmsg)):Mongo.reconnectresult) with
-    | {reconnectresult={none}} -> false
-    | {reconnectresult={some=_}} -> true
+    | {reconnectresult={none}} -> (false,false)
+    | {reconnectresult={some=(slaveok,_)}} ->
+       do SocketPool.setslaveok(m.pool,slaveok)
+       (slaveok,true)
     | res -> do ML.debug("MongoDriver.reconnect","fail (result={res})",void) @fail
 
   @private
@@ -249,13 +264,11 @@ MongoDriver = {{
     | {stopresult} -> void
     | _ -> @fail
 
-/*
-  @private
+  /*@private
   print_mbuf(txt,mbuf) =
     (str, len) = export_(mbuf)
     s = String.substring(0,len,str)
-    ML.debug(txt,"\n{string_of_message(s)}",void)
-*/
+    ML.debug(txt,"\n{string_of_message(s)}",void)*/
 
   @private
   send_no_reply_(m,mbuf,name,reply_expected): bool =
@@ -303,11 +316,12 @@ MongoDriver = {{
        ML.error("MongoDriver.receive({name})","No socket",{none})
 
   @private
-  send_with_error(m,mbuf,name,ns): option(Mongo.reply) =
+  send_with_error(m,mbuf,name,ns,slaveok): option(Mongo.reply) =
     match m.conn with
     | {some=conn} ->
        mbuf2 = create_(m.bufsize)
        do query_(mbuf2,0,ns^".$cmd",0,1,[H.i32("getlasterror",1)],{none})
+       do if slaveok then set_query_flags_(mbuf2,MongoCommon.SlaveOkBit) else void
        mrid = mongo_buf_requestId(mbuf2)
        len = length_(mbuf)
        do append_(mbuf,mbuf2)
@@ -350,20 +364,23 @@ MongoDriver = {{
     if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect}
 
   @private
-  sr_swe(m,mbuf,name,ns) =
-    swe = send_with_error(m,mbuf,name,ns)
+  sr_swe(m,mbuf,name,ns,slaveok) =
+    swe = send_with_error(m,mbuf,name,ns,slaveok)
     if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect}
 
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
     match SocketPool.get(m.pool) with
-    | {success=connection} ->
+    | {success=(slaveok,connection)} ->
        conn = {some=connection}
+       ssok(mbuf) =
+         do if slaveok then set_query_flags_(mbuf,MongoCommon.SlaveOkBit) else void
+         mbuf
        result =
          (match msg with
-          | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},mbuf,name)
-          | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},mbuf,name)
-          | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},mbuf,name,ns)
+          | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},ssok(mbuf),name)
+          | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},ssok(mbuf),name)
+          | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},ssok(mbuf),name,ns,slaveok)
           | {stop} -> do ML.debug("MongoDriver.srpool","stop",void) @fail)
        do SocketPool.release(m.pool,connection)
        result
@@ -377,10 +394,14 @@ MongoDriver = {{
   snd(m,mbuf,name) =
     recon() =
       mbuf2 = copy_(mbuf)
-      if reconnect("send_no_reply",m)
+      (slaveok,connectok) = reconnect("send_no_reply",m)
+      if connectok
       then
-        do mongo_buf_refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
-        snd(m,mbuf2,name)
+        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        then
+          do mongo_buf_refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
+          snd(m,mbuf2,name)
+        else false
       else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{send=((m,mbuf,name))})
     match srr with
@@ -393,10 +414,14 @@ MongoDriver = {{
   sndrcv(m,mbuf,name) =
     recon() =
       mbuf2 = copy_(mbuf)
-      if reconnect("send_with_reply",m)
+      (slaveok,connectok) = reconnect("send_with_reply",m)
+      if connectok
       then
-        do mongo_buf_refresh_requestId(mbuf2)
-        sndrcv(m,mbuf2,name)
+        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        then
+          do mongo_buf_refresh_requestId(mbuf2)
+          sndrcv(m,mbuf2,name)
+        else none
       else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{sendrecv=((m,mbuf,name))})
     match srr with
@@ -409,10 +434,14 @@ MongoDriver = {{
   snderr(m,mbuf,name,ns) =
     recon() =
       mbuf2 = copy_(mbuf)
-      if reconnect("send_with_error",m)
+      (slaveok,connectok) = reconnect("send_with_error",m)
+      if connectok
       then
-        do mongo_buf_refresh_requestId(mbuf2)
-        snderr(m,mbuf2,name,ns)
+        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        then
+          do mongo_buf_refresh_requestId(mbuf2)
+          snderr(m,mbuf2,name,ns)
+        else none
       else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
     srr = srpool(m,{senderror=((m,mbuf,name,ns))})
     match srr with
@@ -431,11 +460,11 @@ MongoDriver = {{
    * @param reconnectable Flag to enable reconnection logic.
    * @param log Whether to enable logging for the driver.
    **/
-  init(bufsize:int, pool_max:int, reconnectable:bool, log:bool): Mongo.db =
+  init(bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool): Mongo.db =
     { conn={none};
       reconncell=(Cell.make([], reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=SocketPool.make(("localhost",default_port),pool_max,log);
-      pool_max=Int.max(pool_max,1); ~bufsize; ~log;
+      pool_max=Int.max(pool_max,1); ~allow_slaveok; ~bufsize; ~log;
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
       depth=0; max_depth=2;
@@ -458,6 +487,11 @@ MongoDriver = {{
     {success=m}
 
   /**
+   * Get the current SlaveOK status.
+   **/
+  get_slaveok(m:Mongo.db): bool = SocketPool.getslaveok(m.pool)
+
+  /**
    * Force a reconnection.  Should only be needed if the basic parameters have changed.
    *
    * Note that we can only reconnect to a replica set and that a failed reconnect is considered a fatal error.
@@ -466,7 +500,8 @@ MongoDriver = {{
     if m.reconnectable
     then
       do if m.log then ML.info("MongoDriver.force_reconnect","{SocketPool.gethost(m.pool)}",void)
-      if not(reconnect("force_reconnect",m))
+      (_slaveok, connectok) = reconnect("force_reconnect",m)
+      if not(connectok)
       then ML.fatal("MongoDriver.force_reconnect:","comms error (Can't reconnect)",-1)
       else void
     else
@@ -477,9 +512,10 @@ MongoDriver = {{
    *
    *  Example: [open(bufsize, pool_max, reconnectable, addr, port, log)]
    **/
-  open(bufsize:int, pool_max:int, reconnectable:bool, addr:string, port:int, log:bool): outcome(Mongo.db,Mongo.failure) =
+  open(bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool)
+     : outcome(Mongo.db,Mongo.failure) =
     do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
-    connect(init(bufsize,pool_max,reconnectable,log),addr,port)
+    connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log),addr,port)
 
   /**
    *  Close mongo connection.

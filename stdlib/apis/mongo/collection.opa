@@ -278,6 +278,11 @@ MongoCollection = {{
     = {c with db={ c.db with query_flags=Bitwise.lor(c.db.query_flags,MongoCommon.PartialBit) }}
 
   /**
+   * Get the current SlaveOK status.
+   **/
+  get_slaveok(c:Mongo.collection('value)): bool = MongoDriver.get_slaveok(c.db.mongo)
+
+  /**
    * Insert an OPA value into a collection.
    **/
   insert(c:Mongo.collection('value), v:'value): bool =

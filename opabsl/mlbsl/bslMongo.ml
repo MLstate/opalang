@@ -332,6 +332,12 @@ let query m flags ns numberToSkip numberToReturn query returnFieldSelector_opt =
    | None -> ());
   Mongo.finish m
 
+##register set_query_flags: Mongo.mongo_buf, int -> void
+let set_query_flags m flags = Mongo.set_query_flags m flags
+
+##register get_opCode: Mongo.mongo_buf -> int
+let get_opCode m = Mongo.get_opCode m
+
 ##register get_more: Mongo.mongo_buf, string, int, Mongo.cursorID -> void
 let get_more m ns numberToReturn cursorID =
   Mongo.start_getmore m (nextrid()) ns numberToReturn cursorID;

@@ -58,6 +58,8 @@ val free : mongo_buf -> unit
 val start_insert : mongo_buf -> int32 -> int -> string -> unit
 val start_update : mongo_buf -> int32 -> int -> string -> unit
 val start_query : mongo_buf -> int32 -> int -> string -> int -> int -> unit
+val set_query_flags : mongo_buf -> int -> unit
+val get_opCode : mongo_buf -> int
 val start_getmore : mongo_buf -> int32 -> string -> int -> int64 -> unit
 val start_delete : mongo_buf -> int32 -> int -> string -> unit
 val start_kill_cursors : mongo_buf -> int32 -> int64 list -> unit

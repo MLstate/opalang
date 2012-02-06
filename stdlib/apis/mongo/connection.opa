@@ -81,6 +81,7 @@ type Mongo.param = {
   replname:option(string);
   bufsize:int;
   pool_max:int;
+  allow_slaveok:bool;
   log:bool;
   seeds:list(Mongo.mongo_host);
 }
@@ -98,6 +99,7 @@ MongoConnection = {{
     replname={none};
     bufsize=50*1024;
     pool_max=2;
+    allow_slaveok=false;
     log=false;
     seeds=default_seeds;
   }:Mongo.param)
@@ -174,6 +176,12 @@ MongoConnection = {{
               on_param(p) = parser n={Rule.natural} -> {no_params = add_param((p -> { p with pool_max=Int.max(n,1) }),p)}
            },
            {CommandLine.default_parser with
+              names = ["--mongo-allow-slaveok", "--mongoallowslaveok", "--mk", "-mk"]
+              description = "Allow SlaveOK mode (ReplSet only)"
+              param_doc = "<bool>"
+              on_param(p) = parser b={Rule.bool} -> {no_params = add_param((p -> { p with allow_slaveok=b }),p)}
+           },
+           {CommandLine.default_parser with
               names = ["--mongo-log", "--mongolog", "--ml", "-ml"]
               description = "Enable MongoLog logging"
               param_doc = "<bool>"
@@ -217,9 +225,10 @@ MongoConnection = {{
   params_done.set(true)
 
   @private
-  open_(dbo:outcome(Mongo.db,Mongo.failure),name:string): outcome(Mongo.mongodb,Mongo.failure) =
+  open_(dbo:outcome((bool,Mongo.db),Mongo.failure),name:string): outcome(Mongo.mongodb,Mongo.failure) =
     match dbo with
-    | {success=mongo} ->
+    | {success=(slaveok,mongo)} ->
+       do SocketPool.setslaveok(mongo.pool,slaveok)
        (match SocketPool.gethost(mongo.pool) with
         | (addr,port) ->
            db = {~mongo; ~name; bufsize=mongo.bufsize; ~addr; ~port; link_count=Mutable.make(1);
@@ -248,9 +257,11 @@ MongoConnection = {{
    *
    * Example: [openraw(name, bufsize, pool_max, log, host, port)]
    **/
-  openraw(name:string, bufsize:int, pool_max:int, log:bool, addr:string, port:int)
+  openraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoDriver.open(bufsize,pool_max,false,addr,port,log),name)
+    open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log) with
+           | {success=m} -> {success=(false,m)}
+           | {~failure} -> {~failure}),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
@@ -258,12 +269,17 @@ MongoConnection = {{
    * Example: [replraw(name, bufsize, pool_max, log, seeds)]
    *
    * This routine causes a serach for the current host list among the seeds
-   * and then searches for the primary among the hosts.  Rconnection logic
+   * and then searches for the primary among the hosts.  Reconnection logic
    * is enabled.
    **/
-  replraw(name:string, bufsize:int, pool_max:int, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,log,seeds)),name)
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,allow_slaveok,log,seeds)),name)
+
+  /**
+   * Get the current SlaveOK status.
+   **/
+  get_slaveok(m:Mongo.mongodb): bool = MongoDriver.get_slaveok(m.mongo)
 
   /**
    * Force a reconnection.
@@ -288,11 +304,11 @@ MongoConnection = {{
     match List.find((p -> p.name == name),params.get()) with
     | {some=p} ->
        (match p.replname with
-        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.log,p.seeds)
+        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.allow_slaveok,p.log,p.seeds)
         | {none} ->
            (match p.seeds with
             | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
-            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.log,host,port)
+            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.allow_slaveok,p.log,host,port)
             | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
     | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
 
@@ -342,7 +358,11 @@ MongoConnection = {{
   pool_max(db:Mongo.mongodb, pool_max:int): Mongo.mongodb =
     { db with mongo={ db.mongo with pool_max=Int.max(pool_max,1) } }
 
-  /** Chenge the bufsize hint (only applies to newly created buffers) **/
+  /** Change the SlaveOk allowed status **/
+  allow_slaveok(db:Mongo.mongodb, allow_slaveok:bool): Mongo.mongodb =
+    { db with mongo={ db.mongo with ~allow_slaveok } }
+
+  /** Change the bufsize hint (only applies to newly created buffers) **/
   bufsize(db:Mongo.mongodb, bufsize:int): Mongo.mongodb =
     { db with mongo={ db.mongo with ~bufsize } }
 

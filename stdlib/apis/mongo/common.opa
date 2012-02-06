@@ -56,6 +56,7 @@ type Mongo.failure =
   / {DocError : Bson.document}
   / {Incomplete}
   / {NotFound}
+  / {SlaveOK}
 
 /**
  * Mongo success status, just a document.
@@ -140,6 +141,9 @@ MongoCommon = {{
   @private ML = MongoLog
   @private H = Bson.Abbrevs
 
+  /** Code for query operations */
+  _OP_QUERY = 2004
+
   /** Generate a driver error message outcome **/
   failErr(msg:string): outcome('a,Mongo.failure) = {failure={Error=msg}}
 
@@ -198,6 +202,7 @@ MongoCommon = {{
     | {OK} -> "Ok"
     | {Incomplete} -> "Incomplete"
     | {NotFound} -> "NotFound"
+    | {SlaveOK} -> "SlaveOK"
 
   /** Make an error report string out of a [Mongo.result] value, will print "<ok>" if no error. **/
   string_of_result(result:Mongo.result): string = outcome_map(result, Bson.string_of_doc_error, string_of_failure)

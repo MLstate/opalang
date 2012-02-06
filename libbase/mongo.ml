@@ -271,6 +271,12 @@ let start_query m rid flags ns numberToSkip numberToReturn =
   Bson.add_le_int32 m.Bson.buf numberToSkip;
   Bson.add_le_int32 m.Bson.buf numberToReturn
 
+let set_query_flags m flags =
+  if (geti32 m.Bson.buf 12) = _OP_QUERY
+  then Bson.FillbufString.lei32 m.Bson.buf.Buf.str 16 ((geti32 m.Bson.buf 16) lor flags)
+
+let get_opCode m = geti32 m.Bson.buf 12
+
 (*struct OP_GETMORE {
     MsgHeader header;             // standard message header
     int32     ZERO;               // 0 - reserved for future use

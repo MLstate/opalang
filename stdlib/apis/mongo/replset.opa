@@ -152,15 +152,15 @@ MongoReplicaSet = {{
   /**
    * Initialize a [Mongo.db] connection using the given list of seeds.
    **/
-  init(name:string, bufsize:int, pool_max:int, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(bufsize, pool_max, true, log)
+  init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    m = MongoDriver.init(bufsize, pool_max, allow_slaveok, true, log)
     {m with ~seeds; ~name}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
    **/
-  init_single(name:string, bufsize:int, pool_max:int, log:bool, seed:Mongo.mongo_host): Mongo.db =
-    init(name,bufsize,pool_max,log,[seed])
+  init_single(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, seed:Mongo.mongo_host): Mongo.db =
+    init(name,bufsize,pool_max,allow_slaveok,log,[seed])
 
   /**
    * Generate a [Mongo.mongo_host] value from a string: "host:port".
@@ -220,9 +220,9 @@ MongoReplicaSet = {{
    * In theory, we could have unbounded recursion so the recursion depth is limited.
    * In practice, this should never happen.
    **/
-  connect(m:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+  connect(m:Mongo.db): outcome((bool,Mongo.db),Mongo.failure) =
     //m = {m with log=true}
-    do if m.log then ML.debug("MongoReplicaSet.connect","depth={m.depth}",void)
+    do if m.log then ML.debug("MongoReplicaSet.connect","depth={m.depth} allowslaveok={m.allow_slaveok}",void)
     do if m.seeds == [] then ML.fatal("MongoReplicaSet.connect","Tried to connect with no seeds",-1) else void
     rec aux(m, seeds) =
       match seeds with
@@ -249,7 +249,7 @@ MongoReplicaSet = {{
                      | ({some=ismaster},setName) ->
                         if ismaster && (Option.default("...",setName) == m.name)
                         then
-                          {success=m}
+                          {success=(false,m)}
                         else
                           (match Bson.find_string(doc,"primary") with
                            | {some=primary} ->
@@ -259,7 +259,14 @@ MongoReplicaSet = {{
                                   do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
                                   aux2(m,[p|rest])
                                | ({none},rest) -> aux2(m,rest))
-                           | {none} -> aux2(m,rest))
+                           | {none} ->
+                              do if m.log then ML.info("MongoReplicaSet.connect","no primary",void)
+                              if m.allow_slaveok
+                              then
+                                do if m.log then ML.info("MongoReplicaSet.connect","using secondary",void)
+                                {success=(true,m)}
+                              else aux2(m,rest)
+                          )
                      | _ -> aux2(m,rest))
                  | {failure=_} -> aux2(m,rest))
              | {failure=_} -> aux2(m,rest))

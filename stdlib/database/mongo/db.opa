@@ -383,10 +383,13 @@ DbMongo = {{
     connect() =
       match args.seeds with
       | [(host, port)] ->
-        MongoDriver.open(args.bufsize, args.poolsize, true, host, port, args.log)
+        MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log)
       | seeds ->
-        mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, args.log, seeds)
-        MongoReplicaSet.connect(mdb)
+        mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, seeds)
+        match MongoReplicaSet.connect(mdb) with
+        | {success=(_/*slaveok*/,m)} -> {success=m}
+        | {~failure} -> {~failure}
+        end
     match connect() with
     | {success = db} -> ~{db name cols=["default"]}
     | ~{failure} ->
