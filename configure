@@ -552,13 +552,55 @@ lib-not-found () {
     LIBS_NOT_FOUND[${#LIBS_NOT_FOUND[@]}]="$lib (might be found in package $package)"
 }
 
+check-cryptokit () {
+    local OPTIONAL=""
+    if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
+    local MODULE=$1; shift # one module that the lib contains, to check
+    [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
+
+    echo-check for $(basename $1)
+
+    local LIBDIR=""
+    local VERSION=""
+    local LIB
+    local LIB_NAMES=("$@")
+    while [ $# -gt 0 ] && [ -z "$LIBDIR" ]; do
+        LIB=$(basename $1)
+        USUAL_DIR=$(dirname $1)
+        [ "$USUAL_DIR" = "." ] && USUAL_DIR=$LIB
+        if [ -n "$OCAMLFIND" ] &&
+           LIBDIR=$("$OCAMLFIND" query "$LIB" 2>/dev/null) &&
+	   VERSION=$("$OCAMLFIND" query -format %v "$LIB" 2>/dev/null)
+        then
+            LIB=$(check-cmxa $LIBDIR $LIB "${LIB_NAMES[@]}") || return 1
+            echo-ok -n "ocamlfind:$LIBDIR, "
+	else
+	    echo-err "We need ocamlfind in order to check cryptokit version"
+        fi
+        shift
+    done
+    if [ -z "$LIBDIR" ]; then
+        echo-err "Not found"
+        return 1
+    elif CHECK_VERSION=$(echo "1.5" | tr -d '.') &&
+	CURRENT_VERSION=$(echo "$VERSION" | tr -d '.') &&
+	[ "$CURRENT_VERSION" -lt "$CHECK_VERSION" ]
+    then
+        echo-err "Invalid cryptokit version, must be >= 1.5"
+        return 1
+    fi
+
+    check-ocaml-lib "$MODULE" "$LIB" "$LIBDIR" || return 1
+    echo "$LIBDIR/$LIB"
+}
+
 # - checking ocaml-ssl
 if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
 then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
 fi
 
 # - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-ocaml-lib "Cryptokit" "cryptokit")
+if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" check-cryptokit "Cryptokit" "cryptokit")
 then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
 fi
 
