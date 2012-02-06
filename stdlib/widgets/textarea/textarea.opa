@@ -375,7 +375,7 @@ WTextarea =
   /* Return a selector containing the [WTextarea] lines */
   @private
   get_lines(editor_id: string): dom =
-    /*Dom.select_raw(".{get_line_class(editor_id)}")*/
+    /*Dom.select_raw_unsafe(".{get_line_class(editor_id)}")*/
     Dom.select_class(get_line_class(editor_id))
     /*tmp = Dom.select_class(get_line_class(editor_id))*/
     /*  |> Dom.select_inside(Dom.select_children(#{editor_id}), _)*/
@@ -434,7 +434,7 @@ WTextarea =
   @private
   is_current_line(editor_id: string, element: dom): bool =
     /*sel_caret =*/
-      /*Dom.select_raw(".{get_line_class(editor_id)}")*/
+      /*Dom.select_raw_unsafe(".{get_line_class(editor_id)}")*/
       /*Dom.select_class(get_line_class(editor_id))*/
         /*|> Dom.select_inside(Dom.select_children(element), _)*/
     /*  Dom.select_inside(Dom.select_children(element),*/
@@ -600,7 +600,7 @@ WTextarea =
   /* Get the line following the one designated by the given selector. */
   @private
   next_line(_editor_id: string, line: dom): option(dom) =
-    /*Dom.select_raw(".{get_line_class(editor_id)}")*/
+    /*Dom.select_raw_unsafe(".{get_line_class(editor_id)}")*/
     /*Dom.select_class(get_line_class(editor_id))*/
     /*  |> Dom.select_inside(_, Dom.select_next_one(line))*/
     /*  |> sel_opt(_)*/
@@ -610,7 +610,7 @@ WTextarea =
   /* Get the line preceding the one designated by the given selector. */
   @private
   prev_line(_editor_id: string, line: dom): option(dom) =
-    /*Dom.select_raw(".{get_line_class(editor_id)}")*/
+    /*Dom.select_raw_unsafe(".{get_line_class(editor_id)}")*/
     /*Dom.select_class(get_line_class(editor_id))*/
     /*  |> Dom.select_inside(Dom.select_previous_one(line), _)*/
     /*  |> sel_opt(_)*/

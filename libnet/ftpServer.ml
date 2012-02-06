@@ -82,7 +82,7 @@ type options =
       opt_name: string;
     }
 
-let initDir = Filename.concat (Lazy.force File.mlstate_dir) "ftp"
+let initDir = "./ftp" (* Filename.concat (Lazy.force File.mlstate_dir) "ftp" *)
 let folder = Folder.empty initDir
 
 let default_options =

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -172,6 +172,8 @@ let parse_error_flag =
     let _ = Str.search_forward search_for lang 0 in "⚐"
   with Not_found -> "-->"
 
+module OA = OpaSyntax.Args
+
 (* FIXME, use FilePos for obtaining citations etc. *)
 let show_parse_error file_name content error_summary error_details pos =
   let n = max 0 (min pos (String.length content-1)) in
@@ -188,6 +190,15 @@ let show_parse_error file_name content error_summary error_details pos =
       let line_int, col_int = FilePos.get_pos file_name pos in
       string_of_int line_int, string_of_int col_int, string_of_int pos
   in
+  let syntax_old = "classical ('old') syntax " in
+  let syntax_new = "revised ('new') syntax" in
+  let option_old = "--parser classic" in
+  let option_new = "--parser js-like" in
+  let used, other, hint_option =
+    match !OA.r.OA.parser with
+    | OpaSyntax.Classic -> syntax_old, syntax_new, option_new
+    | OpaSyntax.Js -> syntax_new, syntax_old, option_old
+  in
   (* FIXME: use really format *)
   OManager.printf "%s" (
     (Printf.sprintf "In %s [%s:%s-%s:%s | global chars=%s-%s]\n%s at line %s, column %s\n"
@@ -198,7 +209,10 @@ let show_parse_error file_name content error_summary error_details pos =
     ^ (Printf.sprintf "\n<<%s%s>>\n"
          (green (String.sub content begin_citation    length_citation  ))
          (red   (parse_error_flag^(String.sub content begin_error_zone  length_error_zone))))
-    ^ (Printf.sprintf "Hint: %s\n" error_details)
+    ^ (Printf.sprintf "%s: %s\n" (red "Hint") error_details)
+    ^ (Printf.sprintf "%s: You are now using the parser for the %s; if the source uses %s syntax then you should compile with %s option\n"
+         (red "Another hint") (red used) (red other) (red hint_option)
+      )
   ) ;
   OManager.error "Syntax error"
 (* ====================================================================================== *)
@@ -214,8 +228,6 @@ let hl_factory parser_rule name ?filename contents =
 
 let expr = hl_factory Opa_parser.parse_opa_parser_expr_eoi "Expression"
 let ty = hl_factory Opa_parser.parse_opa_parser_ty_eoi "Type"
-
-module OA = OpaSyntax.Args
 
 let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") content =
   (*print_string content;*)

@@ -50,6 +50,13 @@ struct
   let sub_current e = (function [e] -> e | _ ->  assert false), [e]
   let sub_ignore x = (function [] -> x | _ -> assert false), []
 
+  let sub_option sub_e opt =
+    match opt with
+    | None -> (fun x -> assert (List.is_empty x); None), []
+    | Some e ->
+        let usub, l = sub_e e in
+        (fun l -> Some (usub l)), l
+
   let wrap cons (unsub,l) = (fun l -> cons (unsub l)), l
 end
 

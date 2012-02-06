@@ -46,8 +46,13 @@ let send_json_response winfo json =
   send_txt_response winfo txt
 
 let send_error winfo txt =
+  let txt = #<If:PING_DEBUG> txt #<Else>
+    let _ = txt in  "Unauthorized request"
+    #<End>
+  in
   make_response ~req:winfo.HttpServerTypes.request Requestdef.SC_Unauthorized
-    "text/plain" (Http_common.Result txt)
+    "text/plain"
+    (Http_common.Result txt)
     winfo.HttpServerTypes.cont
 
 let string2json str =

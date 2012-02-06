@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -827,12 +827,45 @@ let rec dots gamma field ty =
                       | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
                 )
 
-let coerce_query_element ~context gamma ty query =
-  let rec aux new_annots ty query =
-    let coerce wrap ty expr =
-      let e = QmlAstCons.UntypedExpr.coerce expr ty in
-      Q.QAnnot.expr e::new_annots, wrap e
+let coerce_query_element ~context gamma ty (query, options) =
+  let coerce new_annots wrap ty expr =
+    let e = QmlAstCons.UntypedExpr.coerce expr ty in
+    Q.QAnnot.expr e::new_annots, wrap e
+  in
+  let a, options =
+    let a = [] in
+    let optmap f a o = match o with
+    | None -> a, None
+    | Some o -> let x, y = f a o in x, Some y in
+    let a, limit =
+      optmap
+        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        a options.Db.limit
+    in let a, skip =
+      optmap
+        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        a options.Db.skip
+    in let a, sort =
+      let ty =
+        Q.TypeSum (
+          let void = Q.TypeRecord (QmlAstCons.Type.Row.make []) in
+          QmlAstCons.Type.Col.make [
+            [("down", void)];
+            [("up", void)];
+          ]
+        )
+      in
+      optmap
+        (fun a fields ->
+           List.fold_left_map
+             (fun a (flds, e) -> coerce a (fun e -> (flds, e)) ty e)
+             a fields
+        ) a options.Db.sort
     in
+    (a, {Db.limit; skip; sort})
+  in
+  let rec aux new_annots ty query =
+    let coerce = coerce new_annots in
     let aux2 wrap ty (q1, q2) =
       let new_annots, q1 = aux new_annots ty q1 in
       let new_annots, q2 = aux new_annots ty q2 in
@@ -867,7 +900,8 @@ let coerce_query_element ~context gamma ty query =
         with Formatted p ->
           QmlError.error context "This querying is invalid because %a\n%!" p ()
 
-  in aux [] ty query
+  in let a, query = aux a ty query in
+  a, (query, options)
 
 (** @return (new_annots_list, pppath) *)
 let rec convert_dbpath ~context t gamma node kind path0 path =
@@ -952,16 +986,16 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
         let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
         new_annots, Db.NewKey :: epath
 
-    | Db.Query query::[] ->
-        let new_annots, query =
+    | Db.Query (query, options)::[] ->
+        let new_annots, (query, options) =
           let ty =
             match SchemaGraphLib.type_of_node node with
             | Q.TypeName ([setparam], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
             | _ ->  SchemaGraphLib.type_of_key t node
           in
-          coerce_query_element ~context gamma ty query
+          coerce_query_element ~context gamma ty (query, options)
         in
-        new_annots, [Db.Query query]
+        new_annots, [Db.Query (query, options)]
 
     | Db.Query _::_path -> QmlError.error context "sub path after query is not handler yet"
 
@@ -1018,7 +1052,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             QmlPrint.pp#path_elts epath0
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
-  | (Db.Query _q)::epath, C.Multi ->
+  | (Db.Query (_, _))::epath, C.Multi ->
       let setty = node.C.ty in
       (match setty with
        | Q.TypeName ([setparam], name)
@@ -1060,7 +1094,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
                    (fun acc key -> List.remove_assoc (fst key) acc)
                    fields tykeys in
                Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false wfields)
-           | _ -> internal_error "Wront type on key typing (%a)" QmlPrint.pp#ty setparam in
+           | _ -> internal_error "Wrong type on key typing (%a)" QmlPrint.pp#ty setparam in
            node.C.ty, node, `virtualset (tyread, tywrite, partial, Some e)
        | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
   | (Db.FldKey fld)::_rp, C.Sum ->
@@ -1142,9 +1176,9 @@ let preprocess_kind ~context gamma kind ty virtual_ =
             | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
             | _ -> false
           ) -> u
-        | Db.UPop -> error "" "pop is not avialable on %a" QmlPrint.pp#ty ty
-        | Db.UShift -> error "" "shift is not avialable on %a" QmlPrint.pp#ty ty
-        | Db.UIncr _ -> error "" "incr is not avialable only on %a" QmlPrint.pp#ty ty
+        | Db.UPop -> error "" "pop is not available on %a" QmlPrint.pp#ty ty
+        | Db.UShift -> error "" "shift is not available on %a" QmlPrint.pp#ty ty
+        | Db.UIncr _ -> error "" "incr is not available on %a (only on int)" QmlPrint.pp#ty ty
       in Db.Update (update ty u)
 
 let preprocess_path ~context t gamma prepath kind =
@@ -1296,11 +1330,7 @@ let sort_edges t el =
   in
   List.sort compare_edges el
 
-(** Assuming nodes belonging to other packages have already been cleaned up:
-    @post All field or sumcase edges going out of a single node hold different indices
-    @post The root has id "root"
-    @post The numberings are canonical (after cleanup, two equivalent graphs are equal) *)
-let cleanup t =
+let cleanup_nonempty t =
   let package_name = ObjectFiles.get_current_package_name() in
   (* Create a canonical renumbering of nodes *)
   let rec get_ids ids n =
@@ -1325,7 +1355,7 @@ let cleanup t =
   (* in *)
   (* Copy all edges (renumbered) to the new graph *)
   let new_t =
-    SchemaGraph0.fold_vertex
+      SchemaGraph0.fold_vertex
       (fun n new_t ->
          let eid = ref 0 in
          let es =
@@ -1348,6 +1378,16 @@ let cleanup t =
 (*                            | ty -> ty }) t *)
 (*   in *)
   new_t
+
+(** Assuming nodes belonging to other packages have already been cleaned up:
+    @post All field or sumcase edges going out of a single node hold different indices
+    @post The root has id "root"
+    @post The numberings are canonical (after cleanup, two equivalent graphs are equal) *)
+let cleanup t =
+  if SchemaGraph0.is_empty t then
+    t
+  else
+    cleanup_nonempty t
 
 (* replace e by e' in t *)
 let replace_edge_e t e e' =

@@ -397,9 +397,14 @@ type OpaRPC.timeout = {
       )
 
     reply_error(winfo, msg) =
+      #<Ifstatic:MLSTATE_PING_DEBUG>
+      #<Else>
+      _ = msg
+      msg = "Unauthorized request"
+      #<End>
       winfo.cont(
         WebCoreExport.default_make_response(
-          {volatile}, winfo.http_request.request, {internal_server_error},
+          {volatile}, winfo.http_request.request, {unauthorized},
           "text/plain", msg)
       )
 
@@ -418,7 +423,7 @@ type OpaRPC.timeout = {
           do Log.info("OpaRPC", "RPC call identified by {name}")
           match get(name) with
             | {none} ->
-              _ = reply(winfo, "RPC not found", {wrong_address})
+              _ = reply_error(winfo, "RPC not found")
               do Log.error("OpaRPC", "Call to the rpc \"{name}\" that doesn't exist")
               error("RPC error")
 
@@ -429,7 +434,7 @@ type OpaRPC.timeout = {
                 reply(winfo, serial, {success}),
               match skeleton(get_requested_post_content(winfo.http_request.request)) with
                 | {none} ->
-                  _ = reply(winfo, "Bad formatted rpc request", {forbidden})
+                  _ = reply_error(winfo, "Bad formatted rpc request")
                   do Log.error("OpaRPC", "Call to the rpc \"{name}\" failed")
                   error("RPC error")
                 | {some = (ty,result)} ->

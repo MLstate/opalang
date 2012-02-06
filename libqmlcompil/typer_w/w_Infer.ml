@@ -1015,33 +1015,17 @@ and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys kind =
   let annotmap' =
     List.fold_right
       (fun key annotmap_accu ->
-         match key with
-         | QmlAst.Db.ExprKey e ->
-             (* [TODO] check [_e_ty] against something somehow ? *)
-             let (_e_ty, e_annotmap) =
-               infer_expr_type ~bypass_typer typing_env e in
-             QmlAnnotMap.merge annotmap_accu e_annotmap
-         | QmlAst.Db.Query q ->
-             let rec aux annotmap_accu = function
-               | QmlAst.Db.QMod  _ -> annotmap_accu
-               | QmlAst.Db.QEq   e
-               | QmlAst.Db.QGt   e
-               | QmlAst.Db.QLt   e
-               | QmlAst.Db.QGte  e
-               | QmlAst.Db.QLte  e
-               | QmlAst.Db.QNe   e
-               | QmlAst.Db.QIn   e ->
-                   let (_e_ty, e_annotmap) =
-                     infer_expr_type ~bypass_typer typing_env e in
-                   QmlAnnotMap.merge annotmap_accu e_annotmap
-               | QmlAst.Db.QOr   (q1, q2)
-               | QmlAst.Db.QAnd  (q1, q2) ->
-                   aux (aux annotmap_accu q1) q2
-               | QmlAst.Db.QNot  q -> aux annotmap_accu q
-               | QmlAst.Db.QFlds flds ->
-                   List.fold_left (fun a (_, q) -> aux a q) annotmap_accu flds
-             in aux annotmap_accu q
-         | _ -> annotmap_accu)
+         let _rebuild, exprs =
+           let open Traverse.Utils in
+           QmlAst.Db.sub_path_elt sub_current sub_current key
+         in
+         List.fold_left
+           (fun annotmap_accu e ->
+              (* [TODO] check [_e_ty] against something somehow ? *)
+              let (_e_ty, e_annotmap) =
+                infer_expr_type ~bypass_typer typing_env e  in
+              QmlAnnotMap.merge annotmap_accu e_annotmap)
+           annotmap_accu exprs)
       keys W_AnnotMap.empty_annotmap in
   (* Typecheck update ast and recover the updated annotation map. *)
   let annotmap' = match kind with

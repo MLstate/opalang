@@ -132,7 +132,7 @@ let m2 =
     (fun () ->
        let mime_types_file_content =
          try
-           let res = File.content ((Lazy.force File.mlstate_dir)^"/.mime.types") in
+           let res = "./mime.types" (* File.content ((Lazy.force File.mlstate_dir)^"/.mime.types")  *)in
            Logger.info "Loaded .mime.types file";
            res
          with Unix.Unix_error _ -> "" in

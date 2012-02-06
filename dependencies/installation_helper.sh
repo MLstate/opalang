@@ -177,7 +177,7 @@ sources () {
         # Sources obtained thanks to "apt-get --print-uris source <package>"
         findlib) echo "http://download.camlcity.org/download/findlib-1.2.5.tar.gz";;
         ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.5/ocaml-ssl-0.4.5.tar.gz";;
-        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/326/cryptokit-1.3.tar.gz";;
+        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/639/cryptokit-1.5.tar.gz";;
         ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.5.tar.gz";;
         camlzip) echo "http://forge.ocamlcore.org/frs/download.php/328/camlzip-1.04.tar.gz";;
         camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
@@ -352,6 +352,17 @@ package_install (){
                 $SUDO $INSTALLDIR/bin/ocamlfind remove -destdir $INSTALLDIR/lib/ocaml ssl || true
                 install_generic
                 ;;
+	    cryptokit)
+		# very ugly way to uninstall previous cryptokit...
+		msg_yellow "Uninstalling potential previous cryptokit (moving it..)"
+		$SUDO mkdir -pv $INSTALLDIR/lib/ocaml/cryptokit.bak
+		$SUDO mv -v $INSTALLDIR/lib/ocaml/cryptokit.* $INSTALLDIR/lib/ocaml/cryptokit.bak/ || true
+		$SUDO mv -v $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so.bak  || true
+		$SUDO ocaml setup.ml -configure
+		$SUDO ocaml setup.ml -build
+		$SUDO ocaml setup.ml -uninstall
+		$SUDO ocaml setup.ml -install
+		;;
             findlib)
                 install_generic -sitelib $INSTALLDIR/lib/ocaml
                 ;;

@@ -415,9 +415,9 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
  * {1 Interface}
  */
 
-@package DbSet = {{
+DbSet = {{
 
-  index(db:DbMongo.t, path:list(string), idx) =
+  @package index(db:DbMongo.t, path:list(string), idx) =
     id = List.to_string_using("", "", ".", path)
     key = List.map((name -> ~{name value={Int32=1}}), idx)
     opt = 0
@@ -430,22 +430,22 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       do Log.error("DbGen/Mongo", "(failure) Error when creating index {idx} at {path}")
       error("Error when creating index")
 
-  indexes(db:DbMongo.t, path:list(string), idxs) =
+  @package indexes(db:DbMongo.t, path:list(string), idxs) =
     List.iter(index(db, path, _), idxs)
 
-  build(db:DbMongo.t, path:list(string), selector, default:'a, nb):dbset('a) =
+  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit):dbset('a) =
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     #<End>
     id = List.to_string_using("", "", ".", path)
-    reply=MongoDriver.query(db.db, 0, "{db.name}.{id}", 0, nb, selector, none)
+    reply=MongoDriver.query(db.db, 0, "{db.name}.{id}", skip, limit, selector, none)
     match reply with
     | {none} ->
       do Log.error("DbGen/Query", "(failure) Read tn {id} set doesn't returns anything")
       error("DbSet build error")
     | {some=reply} -> ~{reply default}
 
-  update(db:DbMongo.t, path:list(string), selector, update) =
+  @package update(db:DbMongo.t, path:list(string), selector, update) =
     id = List.to_string_using("", "", ".", path)
     tag = Bitwise.lor(0, MongoCommon.UpsertBit)
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
@@ -501,7 +501,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
 
   to_list(dbset:dbset('a)) = fold([], dbset)(acc, a -> a +> acc)
 
-  to_map(dbset:dbset('a)):map('key, 'value) =
+  @package to_map(dbset:dbset('a)):map('key, 'value) =
     fold_doc(Map.empty, dbset, (map:map('key, 'value), doc:Bson.document ->
         match List.extract_p(x -> x.name == "_id", doc) with
         | ({some=kdoc}, vdoc) ->
@@ -529,7 +529,7 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       )
     )
 
-  map_to_uniq(dbset:dbset('a)):option('value) =
+  @package map_to_uniq(dbset:dbset('a)):option('value) =
     fold_doc(none, dbset, (opt, doc ->
         do @assert(Option.is_none(opt))
         match List.extract_p(x -> x.name == "_id", doc) with
@@ -544,37 +544,37 @@ type dbset('a) = { reply: Mongo.reply default : 'a}
       )
     )
 
-  map_to_uniq_def(dbset:dbset('a)):'value =
+  @package map_to_uniq_def(dbset:dbset('a)):'value =
     match map_to_uniq(dbset) with
     | {some=v:'value} -> v
     | {none} -> @unsafe_cast(dbset.default)
 
-  set_to_uniq(dbset:dbset('a)):option('a) =
+  @package set_to_uniq(dbset:dbset('a)):option('a) =
     match to_list(dbset) with
     | [] -> none
     | [uniq] -> some(uniq)
     | _ -> do @assert(false) error("___")
 
-  set_to_uniq_def(dbset:dbset('a)):'a =
+  @package set_to_uniq_def(dbset:dbset('a)):'a =
     match set_to_uniq(dbset) with
     | {none} -> dbset.default
     | {some = uniq} -> uniq
 
-  add_to_document(doc, name, value, ty):Bson.document =
+  @package add_to_document(doc, name, value, ty):Bson.document =
     List.append(doc, Bson.opa_to_document(name, value, ty))
 
-  build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, nb,
+  @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
               read_map:dbset('a) -> option('b)):DbMongo.private.val_path('b) =
     {
       id = DbMongo.path_to_id(path)
-      read() = read_map(build(db, path, selector, @unsafe_cast(default), nb)):option('b)
+      read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit)):option('b)
       default = default
       more = void
     }
   // [selector |
-  build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, nb,
+  @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
               read_map:dbset('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
-    vpath = build_vpath(db, path, selector, default, nb, read_map)
+    vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
     write(data) =
       do update(db, path, selector,
            [{name="$set"; value={Document = write_map(data)}}]

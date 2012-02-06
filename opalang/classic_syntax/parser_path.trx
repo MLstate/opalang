@@ -156,11 +156,56 @@ query_double_builder <-
 
 query_expr <- Opa_parser.expr
 
-query_field <- query_nokeywords Opa_parser.record_long_ident:i query_simple:q
-  {{ (List.map undecorate i, q) }}
+query_long_ident <- Opa_parser.record_long_ident:i {{List.map undecorate i}}
 
-query_fields <- (=list0(query_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+query_field <- query_nokeywords query_long_ident:i query_simple:q
+  {{ (i, q) }}
+
+query_fields <- (=list1(query_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
   {{ QmlAst.Db.QFlds l }}
+
+query_options_limit <-
+  (=Opa_lexer.exact_keyword("limit")) query_expr:limit
+  {{ fun opt -> {opt with QmlAst.Db.limit = Some limit} }}
+
+query_options_skip <-
+  (=Opa_lexer.exact_keyword("skip")) query_expr:skip
+  {{ fun opt -> {opt with QmlAst.Db.skip = Some skip} }}
+
+query_options_order_label <-
+  / (=Opa_lexer.exact_symbol("-")) {{"down"}}
+  / (=Opa_lexer.exact_symbol("+")) {{"up"}}
+
+query_options_order_field <-
+  / query_long_ident:i (=Opa_lexer.exact_symbol("=")) query_expr:e {{ (i, e) }}
+  / query_options_order_label?:ordlbl (=Opa_lexer.careful_deco(query_long_ident)):i
+    {{
+       let i, label = i in
+       let ordlbl = Option.default "up" ordlbl in
+       (i, (Parser_utils.simple_record ordlbl label, label))
+     }}
+
+query_options_order <-
+  (=Opa_lexer.exact_keyword("order"))
+  (=list1(query_options_order_field, Opa_parser.record_fields_separator)):order
+  {{ fun opt -> {opt with QmlAst.Db.sort = Some order} }}
+
+query_options <-
+  (=list0((query_options_limit / query_options_skip / query_options_order), Opa_parser.separator)):l
+  {{
+     let options = {QmlAst.Db.limit = None; skip = None; sort = None} in
+     List.fold_left (fun opt f -> f opt) options l
+  }}
+
+query_with_options <-
+  / query:q (Opa_parser.separator query_options:o {{o}})?:o
+    {{
+       let options =
+         Option.default {QmlAst.Db.limit = None; skip = None; sort = None} o
+       in
+       QmlAst.Db.Query (q, options)
+    }}
+  / query_options:o {{ QmlAst.Db.Query (QmlAst.Db.QFlds [], o) }}
 
 
 ;querytype <- [?] slash_nosp {{ QmlAst.Db.Option }}
@@ -173,7 +218,7 @@ query_fields <- (=list0(query_field, Opa_parser.record_fields_separator)):l Opa_
 
 ;path_elem = Opa_parser.careful_deco just_path_elem
 ;just_path_elem <- slash_nosp ml_identifier_nosp:i   {{ QmlAst.Db.FldKey i }}
-                 / lbracket_nosp query:q rbracket {{ QmlAst.Db.Query q }}
+                 / lbracket_nosp query_with_options:q rbracket {{ q }}
                  / lbracket_nosp Opa_parser.expr:e rbracket {{ QmlAst.Db.ExprKey e }}
                  / lbracket_nosp spacing [?] rbracket {{ QmlAst.Db.NewKey }}
 

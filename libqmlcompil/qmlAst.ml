@@ -144,6 +144,12 @@ struct
     | QNot  of 'expr query
     | QFlds of 'expr query fields
 
+  type 'expr query_options = {
+    limit : 'expr option;
+    skip  : 'expr option;
+    sort  : 'expr fields option;
+  }
+
   type 'expr update =
     (* Record updating*)
     | UFlds of 'expr update fields
@@ -192,7 +198,7 @@ struct
     | FldKey of string
     | ExprKey of 'expr
     | NewKey
-    | Query of 'expr query
+    | Query of 'expr query * 'expr query_options
 
   type 'expr path = 'expr path_elt list
 
@@ -406,11 +412,28 @@ struct
           (fun fields -> QFlds fields)
           (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_query sub_e sub_ty)) flds)
 
+  let sub_db_query_options sub_e _sub_ty opt =
+    let (sub_fields: ('a fields, _, _, 'b fields) TU.sub) = fun flds ->
+      TU.wrap
+        (fun fields -> fields)
+        (TU.sub_list (TU.sub_2 TU.sub_ignore sub_e) flds)
+    in
+    TU.wrap
+      (fun (limit, skip, sort) -> {limit; skip; sort})
+      (TU.sub_3 (TU.sub_option sub_e) (TU.sub_option sub_e) (TU.sub_option sub_fields)
+         (opt.limit, opt.skip, (opt.sort : 'expr fields option))
+      )
+
   let sub_path_elt sub_e sub_ty = function
     | FldKey _
     | NewKey as v -> TU.sub_ignore v
     | ExprKey e -> TU.wrap (fun x -> ExprKey x) (sub_e e)
-    | Query query -> TU.wrap (fun q -> Query q) (sub_db_query sub_e sub_ty query)
+    | Query (q, o) ->
+        TU.wrap
+          (fun (q, o) -> Query (q, o))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
+             (q, o)
+          )
 
   let foldmap_expr f acc dbdef =
     let cons, subs = sub_db_def TU.sub_current TU.sub_ignore dbdef in

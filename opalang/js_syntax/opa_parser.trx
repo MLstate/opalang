@@ -435,32 +435,27 @@ database_network_port <- Opa_lexer.colon_nosp Opa_lexer.int:p {{ p }}
 declaration_database <-
   / Opa_lexer.DATABASE database_pathdef:def
     {{ List.map (function e -> NewDbDef e) def }}
-  / Opa_lexer.DATABASE spacing (ml_identifier:id spacing db_options?:opt {{id, opt}})?:decl
+  / Opa_lexer.DATABASE spacing ml_identifier:id spacing db_options?:opt
              spacing database_body:body
     {{
-       let decl_ = match decl with
-       | None -> []
-       | Some (id, opt) ->
-           let opt = match opt with
-           | None -> []
-           | Some opt -> opt in
-           [Database (id, [], opt)]
+       let decl_ =
+         let opt = match opt with
+         | None -> []
+         | Some opt -> opt in
+         [Database (id, [id], opt)]
        in
        let bodymap =
          let construct e = NewDbDef e in
-         match decl with
-         | None -> construct
-         | Some (id, _) ->
-             let prefix p = QmlAst.Db.Decl_fld id :: p in
-             function e ->
-               construct
-                 (match e with
-                    | QmlAst.Db.Db_TypeDecl (p, a) -> QmlAst.Db.Db_TypeDecl (prefix p, a)
-                    | QmlAst.Db.Db_Default (p, a) -> QmlAst.Db.Db_Default (prefix p, a)
-                    | QmlAst.Db.Db_Alias (p, a) -> QmlAst.Db.Db_Alias (prefix p, a)
-                    | QmlAst.Db.Db_Constraint (p, a) -> QmlAst.Db.Db_Constraint (prefix p, a)
-                    | QmlAst.Db.Db_Virtual (p, a) -> QmlAst.Db.Db_Virtual (prefix p, a)
-                 )
+         let prefix p = QmlAst.Db.Decl_fld id :: p in
+         function e ->
+           construct
+             (match e with
+              | QmlAst.Db.Db_TypeDecl (p, a) -> QmlAst.Db.Db_TypeDecl (prefix p, a)
+              | QmlAst.Db.Db_Default (p, a) -> QmlAst.Db.Db_Default (prefix p, a)
+              | QmlAst.Db.Db_Alias (p, a) -> QmlAst.Db.Db_Alias (prefix p, a)
+              | QmlAst.Db.Db_Constraint (p, a) -> QmlAst.Db.Db_Constraint (prefix p, a)
+              | QmlAst.Db.Db_Virtual (p, a) -> QmlAst.Db.Db_Virtual (prefix p, a)
+             )
        in
        decl_ @ List.map bodymap body
     }}

@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** {6} Command line arguments.*)
+(** {6 Command line arguments } *)
 
 (** Describes different backend that dbgen handle. *)
 type engine = [`db3 | `mongo]
@@ -33,7 +33,7 @@ module Args : sig
 
 end
 
-(** {6} Initialization **)
+(** {6 Initialization } **)
 
 (** Set the translation function beetween string and renamed type
     ident.*)
@@ -53,7 +53,7 @@ module Schema: sig
     package : ObjectFiles.package_name;
   }
 
-  type query = QmlAst.expr QmlAst.Db.query
+  type query = QmlAst.expr QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
 
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty

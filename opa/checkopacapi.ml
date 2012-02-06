@@ -82,6 +82,8 @@ module SA = SurfaceAst
 
 (* -- *)
 
+let _ = OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser = OpaSyntax.Classic}
+
 let validation_ok = ref true
 
 (* f *)

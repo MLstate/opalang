@@ -121,10 +121,11 @@ module Generator = struct
     | DbAst.QNot (DbAst.QAnd (q1, q2)) ->
         DbAst.QOr (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
 
+  let empty_query gamma annotmap = C.list (annotmap, gamma) []
+
   let query_to_expr gamma annotmap query =
-    let empty_query annotmap = C.list (annotmap, gamma) [] in
     match query with
-    | None -> empty_query annotmap
+    | None -> empty_query gamma annotmap
     | Some (_todo, query) ->
         let query = prepare_query query in
         let rec aux annotmap query =
@@ -144,7 +145,7 @@ module Generator = struct
                 | DbAst.QIn _  -> "$in"
                 | _ -> assert false
               in
-              let annotmap, query = empty_query annotmap in
+              let annotmap, query = empty_query gamma annotmap in
               add_to_document gamma annotmap name e query
           | DbAst.QFlds flds ->
               List.fold_left
@@ -156,11 +157,11 @@ module Generator = struct
                        let annotmap, query = aux annotmap query in
                        add_to_document gamma annotmap name query acc
                 )
-                (empty_query annotmap)
+                (empty_query gamma annotmap)
                 flds
           | DbAst.QNot query ->
               let annotmap, query = aux annotmap query in
-              let annotmap, empty = empty_query annotmap in
+              let annotmap, empty = empty_query gamma annotmap in
               add_to_document gamma annotmap "$not" query empty
           | DbAst.QAnd (q1, q2)
           | DbAst.QOr  (q1, q2) ->
@@ -176,9 +177,34 @@ module Generator = struct
                 QmlAnnotMap.find_ty (Annot.annot (QmlAst.Label.expr q1)) annotmap
               in
               let annotmap, query = C.list ~ty (annotmap, gamma) [q1; q2] in
-              let annotmap, empty = empty_query annotmap in
+              let annotmap, empty = empty_query gamma annotmap in
               add_to_document gamma annotmap name query empty
         in aux annotmap query
+
+  let query_add_order gamma annotmap order query =
+    match order with
+    | None -> annotmap, query
+    | Some order ->
+        let annotmap, eorder =
+          List.fold_left
+            (fun (annotmap, acc) (fld, expr) ->
+               let name = BaseFormat.sprintf "%a" QmlAst.Db.pp_field fld in
+               let annotmap, expr =
+                 let annotmap, up = C.int annotmap 1 in
+                 let annotmap, pup =
+                   let annotmap, any = QmlAstCons.TypedPat.any annotmap in
+                   QmlAstCons.TypedPat.record annotmap ["up", any] in
+                 let annotmap, down = C.int annotmap (-1) in
+                 let annotmap, pdown =
+                   let annotmap, any = QmlAstCons.TypedPat.any annotmap in
+                 QmlAstCons.TypedPat.record annotmap ["down", any] in
+                 C.match_ annotmap expr [(pup, up); (pdown, down)]
+               in add_to_document gamma annotmap name expr acc)
+            (empty_query gamma annotmap) order
+        in
+        let annotmap, metaquery = empty_query gamma annotmap in
+        let annotmap, metaquery = add_to_document gamma annotmap "$query" query metaquery in
+        add_to_document gamma annotmap "$orderby" eorder metaquery
 
   let update_to_expr ?(set=true) gamma annotmap = function
     | DbAst.UExpr e ->
@@ -427,16 +453,28 @@ module Generator = struct
       | _ -> ()
     in
     let ty = node.DbSchema.ty in
-    let uniq, nb, query =
+    let annotmap, skip, limit, query, order, uniq =
       match query0 with
-      | None -> false, 0, None
-      | Some ((uniq, query) as x) ->
-          uniq,
-          (if uniq then 1 else 5000),
-          Some (
+      | None ->
+          let annotmap, limit = C.int annotmap 1 in
+          let annotmap, skip  = C.int annotmap 0 in
+          annotmap, skip, limit, None, None, false
+      | Some ((uniq, (query, opt)) as _x) ->
+          let annotmap, limit =
+            match opt.DbAst.limit with
+            | None -> C.int annotmap 0
+            | Some i -> annotmap, i
+          in let annotmap, skip =
+            match opt.DbAst.skip with
+            | None -> C.int annotmap 0
+            | Some i -> annotmap, i
+          in let query = Some (
             match setkind with
             | DbSchema.Map _ -> uniq, DbAst.QFlds [(["_id"], query)]
-            | _ -> x)
+            | _ -> uniq, query
+          )
+          in
+          annotmap, skip, limit, query, opt.DbAst.sort, uniq
     in
     (* DbSet.build *)
     let (annotmap, build, query, args) =
@@ -448,23 +486,24 @@ module Generator = struct
           let dataty =
             match setkind with
             | DbSchema.DbSet ty -> ty
-            | DbSchema.Map _ -> QmlAstCons.Type.next_var () (* Dummy type variable, should never use*)
+            | DbSchema.Map _ -> QmlAstCons.Type.next_var ()
+                (* Dummy type variable, should never use*)
           in
           (* query *)
-          let (annotmap, query) = query_to_expr gamma annotmap query in
-          let (annotmap, nb) = C.int annotmap nb in
-          let (annotmap, default) = node.DbSchema.default annotmap in
+          let annotmap, query = query_to_expr gamma annotmap query in
+          let annotmap, query = query_add_order gamma annotmap order query in
+          let annotmap, default = node.DbSchema.default annotmap in
           begin match kind with
           | DbAst.Default | DbAst.Option ->
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
-              (annotmap, build, query, [default; nb])
+              (annotmap, build, query, [default; skip; limit])
           | DbAst.Valpath ->
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty] Api.DbSet.build_vpath annotmap gamma
               in
               let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
-              (annotmap, build, query, [default; nb; read_map])
+              (annotmap, build, query, [default; skip; limit; read_map])
           | DbAst.Ref ->
               let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
               let wty, (annotmap, write_map) =
@@ -487,7 +526,7 @@ module Generator = struct
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[wty; dataty] Api.DbSet.build_rpath annotmap gamma
               in
-              (annotmap, build, query, [default; nb; read_map; write_map])
+              (annotmap, build, query, [default; skip; limit; read_map; write_map])
           | _ -> assert false
           end
 

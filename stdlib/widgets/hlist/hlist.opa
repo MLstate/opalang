@@ -332,7 +332,7 @@ WHList = {{
    */
   current_pos(current_id:string) =
     if Dom.length(#{current_id}) > 0 then
-      some(Dom.length(Dom.select_inside(Dom.select_previous_several(#{current_id}), Dom.select_raw("li"))) + 1)
+      some(Dom.length(Dom.select_inside(Dom.select_previous_several(#{current_id}), Dom.select_raw_unsafe("li"))) + 1)
     else none
 
   /*
@@ -479,7 +479,7 @@ WHList = {{
     prefix_class = compute_prefix_class(config)
     // If the item (it's key) already exists, do not insert_item
     // TODO: configurable? replace item?
-    if Dom.length(#{current_id}) > 0 || Dom.length(Dom.select_raw(father_sel)) == 0 then none
+    if Dom.length(#{current_id}) > 0 || Dom.length(Dom.select_raw_unsafe(father_sel)) == 0 then none
     else
       xhtml_item = create_item_node(config, key, item)
       dom_item = Dom.of_xhtml(xhtml_item) : dom
@@ -488,24 +488,24 @@ WHList = {{
         | {none} -> "{father_sel} > li.{item_selected_class(prefix_class)}:last"
       do match config.insert_pos with
         | {at_begin} ->
-          _ = Dom.put_at_start(Dom.select_raw(father_sel), dom_item)
+          _ = Dom.put_at_start(Dom.select_raw_unsafe(father_sel), dom_item)
           void
         | {at_select} ->
-          if Dom.length(Dom.select_raw(selected)) == 0 then
-            _ = Dom.put_at_start(Dom.select_raw(father_sel), dom_item)
+          if Dom.length(Dom.select_raw_unsafe(selected)) == 0 then
+            _ = Dom.put_at_start(Dom.select_raw_unsafe(father_sel), dom_item)
             void
           else
-            _ = Dom.put_before(Dom.select_raw(selected), dom_item)
+            _ = Dom.put_before(Dom.select_raw_unsafe(selected), dom_item)
             void
         | {after_select} ->
-          if Dom.length(Dom.select_raw(selected)) == 0 then
-            _ = Dom.put_at_end(Dom.select_raw(father_sel), dom_item)
+          if Dom.length(Dom.select_raw_unsafe(selected)) == 0 then
+            _ = Dom.put_at_end(Dom.select_raw_unsafe(father_sel), dom_item)
             void
           else
-            _ = Dom.put_after(Dom.select_raw(selected), dom_item)
+            _ = Dom.put_after(Dom.select_raw_unsafe(selected), dom_item)
             void
         | {at_end} ->
-          _ = Dom.put_at_end(Dom.select_raw(father_sel), dom_item)
+          _ = Dom.put_at_end(Dom.select_raw_unsafe(father_sel), dom_item)
           void
         | { fixed=_ } -> void // TO IMPLEMENT
       do if item.state.selected then
@@ -605,7 +605,7 @@ WHList = {{
         | {fixed=_} -> ""
       if (id != "") && (Dom.length(#{id}) > 0)
       then
-        _ = Dom.trigger(Dom.select_raw("#{id} > ul > li.{item_content_class(prefix_class)} > a"), {click})
+        _ = Dom.trigger(Dom.select_raw_unsafe("#{id} > ul > li.{item_content_class(prefix_class)} > a"), {click})
         current_pos
       else
         _ = unselect_all(config)

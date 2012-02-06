@@ -44,7 +44,7 @@ module Schema = struct
     package : ObjectFiles.package_name;
   }
 
-  type query = QmlAst.expr QmlAst.Db.query
+  type query = QmlAst.expr DbAst.query * QmlAst.expr DbAst.query_options
 
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty
@@ -54,7 +54,7 @@ module Schema = struct
     | Compose of (string * string list) list
     | Plain
     | Partial of bool (* Inside sum*) * string list * string list
-    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
+    | SetAccess of set_kind * string list * (bool (*is_unique*) * query) option
 
   type node = {
     ty : QmlAst.ty;
@@ -241,7 +241,8 @@ module Schema = struct
       match fragment with
       | DbAst.ExprKey expr ->
           let setkind = get_setkind llschema node in
-          let kind = SetAccess (setkind, path, Some (true, DbAst.QEq expr)) in
+          let options = {DbAst.limit = None; skip = None; sort = None} in
+          let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq expr, options))) in
           (next, kind, path)
 
       | DbAst.FldKey key ->
@@ -259,10 +260,10 @@ module Schema = struct
                 | SetAccess _, _ -> raise (Base.NotImplemented "Selection inside a multi node")
           in let path = key::path
           in (next, kind, path)
-      | DbAst.Query query ->
+      | DbAst.Query (query, options) ->
           begin match kind with
           | SetAccess (_k, path, None) ->
-              let kind = SetAccess (get_setkind llschema node, path, Some (false, query)) in
+              let kind = SetAccess (get_setkind llschema node, path, Some (false, (query, options))) in
               (next, kind, path)
           | SetAccess (_, _path, Some _) ->
               raise (Base.NotImplemented "Selection inside a multi node")

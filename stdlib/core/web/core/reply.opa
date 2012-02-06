@@ -165,11 +165,53 @@ WebCoreExport =
 @private ll_cdisp_attachment : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.cdisp_attachment%%
 @private ll_location : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.location%%
 
+/**
+ * Escape header field content.
+ *
+ * @note : According to RFC2616 CTL characters can be escaped if it are
+ * inside quoted string. But in real and cruel world, browsers
+ * doesn't take care CTL escaping. Therefore just remove it from content
+ */
+@private escape_string_header(h) =
+  // Remove CTLS see above note
+  CTL = parser c=. -> if c > 31 && c != 127 then Text.from_character(c)
+                       else Text.cons("")
+  LWS = parser x=([\r][\n] ([ ]|[\t])+) -> x
+  TEXT = parser | ~LWS -> LWS
+                | ~CTL -> CTL
+  field_content = parser x=TEXT* -> Text.ltconcat(x)
+  Option.map(Text.to_string, Parser.try_parse(field_content, h))
+  ? "unsafe field content - should never happends"
+
 @private add_ll_header(header : Resource.http_header, lst : list(WebInfo.private.native_http_header)) =
+  // /////////////////////////////////////////////////////////////////
+  // /!\ BEWARE - IF YOU ADD AN HEADER CASE KEEP IN MIND THAT VALUE //
+  // /!\ MUST BE ESCAPED                                            //
+  // /////////////////////////////////////////////////////////////////
   match header with
-  | ~{set_cookie} -> [ ll_setcookie(cookie_def_to_string(set_cookie)) | lst ]
-  | ~{location} -> [ ll_location(location) | lst ]
-  | {content_disposition = ~{attachment}} -> [ ll_cdisp_attachment(attachment) | lst ]
+  | ~{set_cookie} ->
+    // Escape
+    escape_set_cookie(sc) = { sc with
+      name=escape_string_header(sc.name)
+      value=escape_string_header(sc.value)
+      attributes=List.map(
+          | ~{comment} -> {comment = escape_string_header(comment)}
+          | ~{domain} -> {domain = escape_string_header(domain)}
+          | ~{path} -> {path = escape_string_header(path)}
+          | e -> e
+        , sc.attributes)
+    }
+    set_cookie = escape_set_cookie(set_cookie)
+    [ ll_setcookie(cookie_def_to_string(set_cookie)) | lst ]
+
+  | ~{location} ->
+    // Escape
+    [ ll_location(escape_string_header(location)) | lst ]
+
+  | {content_disposition = ~{attachment}} ->
+    // Escape
+    [ ll_cdisp_attachment(escape_string_header(attachment)) | lst ]
+
   | ~{lastm} ->
       match lastm with
       | {volatile} -> [ ll_cache_control("no-cache") , ll_pragma("no-cache") | lst ]
@@ -188,6 +230,7 @@ WebCoreExport =
            [ ll_expires_at({some = te(expiry)}), ll_cache_control("public") ,
               ll_lastm(te(now)) | lst ]
       end
+  // TODO - WHY THESE CASES ARE IGNORED??
   | _ -> lst
 
 @private cookie_def_to_string(cd) =
