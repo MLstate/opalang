@@ -105,8 +105,8 @@ import stdlib.core.parser
   time_local_hour : Date.date -> int =
     date_in(%%BslTime.local_hour%% : time_t -> int)   // Hours 0..23
 
-  time_local_timezone_offset : Date.date -> int =
-    date_in(%%BslTime.local_timezone_offset%% : time_t -> int)
+  time_local_timezone_offset : -> int =
+    %%BslTime.local_timezone_offset%% : -> int
 
   time_local_mday : Date.date -> int =
     date_in(%%BslTime.local_mday%% : time_t -> int)   // Day of month 1..31

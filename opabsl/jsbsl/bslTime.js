@@ -159,10 +159,10 @@ function now()
     return t.getHours();
 }
 
-##register local_timezone_offset : time_t -> int
-    ##args(f)
+##register local_timezone_offset : -> int
+    ##args()
 {
-    var t = new Date(); t.setTime(f)
+    var t = new Date();
     return t.getTimezoneOffset();
 }
 

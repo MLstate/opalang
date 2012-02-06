@@ -432,8 +432,7 @@ type time_t = external
    * @return The local timezone (+hhmm or -hhmm).
   **/
   get_local_timezone : -> string = -> (
-    t : Date.date = Date.now()
-    delta : int = Date_private.time_local_timezone_offset(t)
+    delta : int = Date_private.time_local_timezone_offset()
     // delta is the timezone in minutes, so we need to convert it into
     // +hhmm or -hhmm. If delta is positive, the timezone is -hhmm. Otherwise
     // the timezone is +hhmm.

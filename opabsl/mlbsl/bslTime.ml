@@ -83,7 +83,7 @@
    ##register local_hour : time_t -> int
    let local_hour t = Time.local_hour (wrap t)
 
-   ##register local_timezone_offset : time_t -> int
+   ##register local_timezone_offset : -> int
    let local_timezone_offset _ = Time.local_timezone_offset()
 
    ##register local_mday : time_t -> int
