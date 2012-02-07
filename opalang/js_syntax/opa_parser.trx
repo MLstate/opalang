@@ -546,13 +546,15 @@ binding_ident <-
   / binding_simple
   / binding_module
 
+binding_expr <- (=deco(block_inner))
+
 binding <-
-  / Opa_lexer.REC spacing (=list1(binding_pattern_rec, Opa_lexer.AND)):binds expr:expr
+  / Opa_lexer.REC spacing (=list1(binding_pattern_rec, Opa_lexer.AND)):binds binding_expr:expr
     {{
       let binds = List.concat_map pat_in_to_simple_bindings binds in
       LetIn (true, binds, expr)
     }}
-  / (=list1(binding_pattern, Opa_lexer.AND)):binds expr:expr
+  / (=list1(binding_pattern, Opa_lexer.AND)):binds binding_expr:expr
     {{
       let binds = List.concat_map pat_in_to_simple_bindings binds in
       LetIn (true, binds, expr)
