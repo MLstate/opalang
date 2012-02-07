@@ -23,6 +23,7 @@ set -e
 
 #     Author: Louis Gesbert
 #     Author: Hugo Venturini
+#     Author: Frederic Ye (minor maintenance)
 
 DEBUG=${DEBUG:-0}
 
@@ -73,6 +74,7 @@ if ! HAPROXY_BIN=$(which haproxy); then
 fi
 
 OS=$(uname -s)
+OS_REL=$(uname -r | tr -d '.')
 TMP_DIR=""
 SEQ=""
 
@@ -89,7 +91,12 @@ case $OS in
         else
             MDNS="$MDNS -G v4"
         fi
-        SEQ="gseq"
+	if [ $OS_REL -gt $(echo "11.0.0" | tr -d '.') ]; then
+            SEQ="seq"
+	else
+	    SEQ="gseq"
+	fi
+	echo_debug "using $SEQ"
         ;;
     Linux|*)
         # no no no ... it does NOT mean the same thing !
