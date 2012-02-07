@@ -373,6 +373,9 @@ val double_dot : (string, 'a) expr -> string -> (string, 'a) expr
 val declaration_directive :
   (parsing_directive * (string, parsing_directive) expr list * string ty list) label list ->
   ((_ * (string, parsing_directive) expr) list as 'a) -> 'a
+val declaration_directive_1 :
+  (parsing_directive * (string, parsing_directive) expr list * string ty list) label list ->
+  ((_ * (string, parsing_directive) expr) as 'a) -> 'a
 
 
 (** Utils for parser_xml *)

@@ -504,6 +504,8 @@ let one_declaration_directive (((dir:parsing_directive),l,lt), label) bindings =
        (p,e)) bindings
 let declaration_directive dirs bindings =
   List.fold_right one_declaration_directive dirs bindings
+let declaration_directive_1 dirs binding =
+  List.hd (declaration_directive dirs [binding])
 
 
 (*

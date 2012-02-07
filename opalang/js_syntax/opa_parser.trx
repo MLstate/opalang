@@ -510,9 +510,8 @@ db_options <-
    Bindings or assimilated (like do)
 *)
 binding_pattern <-
-  / binding_pattern_simple
-  / binding_pattern_lambda
-  / binding_pattern_module
+  local_binding_directives:dirs (binding_pattern_simple / binding_pattern_lambda / binding_pattern_module):bnd
+  {{ declaration_directive_1 dirs bnd }}
 
 binding_pattern_simple <-
   'var'? spacing pattern:p assign expr:e {{ (p,e) }}
@@ -539,9 +538,8 @@ binding_pattern_simple_rec <- binding_pattern_simple:b
   }}
 
 binding_pattern_rec <-
-  / binding_pattern_module
-  / binding_pattern_simple_rec
-  / binding_pattern_lambda
+  local_binding_directives:dirs (binding_pattern_module / binding_pattern_simple_rec / binding_pattern_lambda):bnd
+  {{ declaration_directive_1 dirs bnd }}
 
 binding_ident <-
   / binding_lambda
@@ -1125,10 +1123,10 @@ slicing_directive0 <-
 
 closure_instrumentation_directive <- "public_env" {{ `public_env }}
 
-local_binding_directive <-  "@" (=exact_ident(slicing_directive0
-                                             /closure_instrumentation_directive)):v !"("
-                           {{ (v, [], [])  }}
-local_binding_directives <- (=deco(local_binding_directive:v))*
+local_binding_directive <-
+  / declaration_directive0_slicing:v  {{ (v, [], [])  }}
+  / "@" (=exact_ident(closure_instrumentation_directive)):v !"(" {{ (v, [], [])  }}
+local_binding_directives <- (=deco(local_binding_directive))*:v spacing {{ v }}
 
 (**
    {7 Directives}
