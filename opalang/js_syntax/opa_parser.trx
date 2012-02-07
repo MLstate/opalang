@@ -1390,7 +1390,9 @@ function_arguments <- function_arguments_nosp
   Used for embedding opa in texts like string or xhtml
 *)
 /** embedded opa **/
-opa_in_braces_nosp <- lbrace_nosp expr:e rbrace {{ e }}
+opa_in_braces_nosp <-
+  / lbrace_nosp expr:e rbrace {{ e }}
+  / lbrace_nosp (=deco(block_inner)):e rbrace {{ e }}
 /** embedded opa **/
 opa_in_braces <- lbrace expr:e rbrace {{ e }}
 
