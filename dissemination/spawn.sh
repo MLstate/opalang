@@ -445,7 +445,7 @@ for i in $hostids; do
     else
         OPTIONS="$OPTIONS --chan-directory $MAIN_HOST:1086"
     fi
-    on_host $i "$TMP_DIR.%hostid%/server $DB_OPTIONS "${OPA_SERVER[@]:1}" $OPTIONS --pidfile $TMP_DIR.%hostid%/server.pid --opa-server-port ${PORTS[i]} &"
+    on_host $i "$TMP_DIR.%hostid%/server $DB_OPTIONS "${OPA_SERVER[@]:1}" $OPTIONS --pidfile $TMP_DIR.%hostid%/server.pid --http-port ${PORTS[i]} &"
 done
 
 echo "[32m== All launched ==[0m"
