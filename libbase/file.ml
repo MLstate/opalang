@@ -382,14 +382,18 @@ exception NoMLstateDir
 let mlstate_dir = lazy (
   try
     let path = match Sys.os_type with
-      | "Unix"
-      | "Cygwin" -> Filename.concat (Sys.getenv "HOME") ".mlstate/"
+      | "Unix" ->
+	  (* begin match Config.os with *)
+	  (* | Config.Mac -> Filename.concat (Sys.getenv "HOME") "Library/Application Support/Opa/" *)
+	  (* | _ ->  *) Filename.concat (Sys.getenv "HOME") ".opa/"
+	  (* end *)
+      | "Cygwin" -> Filename.concat (Sys.getenv "HOME") ".opa/"
       | "Win32" -> Filename.concat (Sys.getenv "USERPROFILE") "AppData\\Local\\MLstate\\"
       | s -> failwith (Printf.sprintf "Base.ml_state_dir : this platform (%s) is yet unsupported" s) in
     (* assert (check_create_path ~rights:0o700 path) ; *)
     if check_create_path ~rights:0o700 path then path
-    else ".mlstate/" (* raise NoMLstateDir *)
-  with Not_found -> ".mlstate/"
+    else ".opa/" (* raise NoMLstateDir *)
+  with Not_found -> ".opa/"
 )
 
 let mlstatelibs =

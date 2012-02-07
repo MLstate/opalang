@@ -26,7 +26,7 @@ let default_file ?(name="db") () =
     try
       let id = Unix.geteuid() in
       (Unix.getpwuid id).Unix.pw_dir /
-        (if id = 0 || id >= 500 then ".mlstate" else "mlstate")
+        (if id = 0 || id >= 500 then ".opa" else "opa")
     with Not_found ->
       Lazy.force File.mlstate_dir (* Useful on windows (getpwuid raises that) *)
   in
