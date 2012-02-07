@@ -24,7 +24,7 @@ syn keyword  opaCss            css
 
 syn region   opaCodeinString   matchgroup=opaKeywords start=+[^\\]{+ matchgroup=opaKeywords end=+}+ containedin=opaString,opaHtml contains=ALL
 syn region   opaString         start=+"+ skip=+\\"+ end=+"+
-syn region   opaHtml           start=+<\S+ skip=+->+ end=+>+ contains=opaColor,opaString
+syn region   opaHtml           start=+<[^:]\S+ skip=+->+ end=+>+ contains=opaColor,opaString
 
 syn match    opaConstructor    "\[\s*\]"
 syn match    opaBypass         "%%"
