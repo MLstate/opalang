@@ -406,7 +406,7 @@ MAIN_HOST=""
     hp=${HOSTS[0]}
     TRAILING_DOMAIN=${hp##*.}
     echo_debug "... $hp has domain '$TRAILING_DOMAIN'"
-    if [ $TRAILING_DOMAIN = "local" ] ; then
+    if [ $TRAILING_DOMAIN = "local" ] || [ $TRAILING_DOMAIN = "localhost" ] ; then
         FILE=$(mktemp $TMP_DIR/dns-sd-XXXXX)
         echo_debug "... Creating temporary file: '$FILE'"
         case $OS in
