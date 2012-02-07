@@ -105,6 +105,14 @@ let local_wday time = (localtime time).Unix.tm_wday
 let local_yday time = (localtime time).Unix.tm_yday
 let local_isdst time = (localtime time).Unix.tm_isdst
 
+let local_timezone_offset () =
+  let t = Unix.time() in
+  let gmt = Unix.gmtime(t) in
+  let local = Unix.localtime(t) in
+  let (gmt_s, _) = Unix.mktime(gmt) in
+  let (local_s, _) = Unix.mktime(local) in
+  int_of_float((gmt_s -. local_s) /. 60.0);;
+
 let mktime ~year ~month ~day ~h ~min ~sec ~ms =
   let res =
     of_unix_time (
