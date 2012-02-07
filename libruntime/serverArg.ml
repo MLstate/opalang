@@ -378,6 +378,7 @@ let import_arg_spec = function
   | A.Set_int r -> !> int (fun i -> r := i)
   | A.Float f -> !> float f
   | A.Set_float r -> !> float (fun f -> r := f)
+  | A.Symbol (_l, f) -> !> string f
 
   (* The rest is not implemented, you can add it if you need *)
   | _ -> assert false

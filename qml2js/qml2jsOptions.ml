@@ -247,6 +247,7 @@ struct
     @ PassHandler.Arg.options
     @ WarningClass.Arg.options
     @ Qml2jsBackendOptions.Arg.options
+    @ OpaSyntax.Args.options
 
   let speclist () =
     Arg.sort
