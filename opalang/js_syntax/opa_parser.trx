@@ -907,11 +907,15 @@ lambda_no_function <- lambda_argss:lambda (=deco(block)):e {{ lambda e }}
 lambda_no_function_no_braces <- lambda_argss:lambda (=deco(block_inner)):e {{ lambda e }}
 
 lambda_with_name <-
-  Opa_lexer.FUNCTION spacing
-    (=type_maybe(deco_ml_identifier_nosp:ident !Opa_lexer.whitespace (=careful_deco(lambda_no_function)):lambda
-      {{function t -> (ident, ((fst lambda) t, snd lambda))}})
-    ):coerced_lambda
-  {{ coerced_lambda }}
+  (=type_maybe(
+    Opa_lexer.FUNCTION spacing
+      (=type_maybe(deco_ml_identifier_nosp:ident !Opa_lexer.whitespace (=careful_deco(lambda_no_function)):lambda
+        {{function t -> (ident, ((fst lambda) t, snd lambda))}})
+      ):coerced_body
+    {{ function t -> let i, e = coerced_body in
+       i, may_coerce_expr e t
+    }})
+   )
 
 lambda_braces <- Opa_lexer.FUNCTION (=type_maybe(lambda_no_function:lambda {{lambda}})):coerced_lambda
   {{coerced_lambda}}
