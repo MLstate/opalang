@@ -20,7 +20,7 @@ oparuntime.cmxa
 libnet.cmxa
 libsecurity.cmxa
 libtools.cmxa
-protocols.cmxa
+#protocols.cmxa
 libsession.cmxa
 libnet/runtimeMain.cmx
 libnet/runtimeMain.o
