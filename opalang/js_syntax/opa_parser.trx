@@ -838,6 +838,7 @@ expr_noop_simple <-
   (* FIXME: useful? / paths_opa_expr / props_aux*)
   / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
   / Trx.ExpressionAsFunction:e {{ parser_ e }}
+  / Xml_parser.xml_parser
   / Xml.xhtml:v {{ undecorate v }}
   / ip
   / __position__
