@@ -233,7 +233,7 @@ not_a_keyword      <- !(keyword end_of_ident_nosp)
 keyword <- (
   Opa_parser.declaration_directive0_keyword $_
   / "function" / "module"
-  / "with" / "type"
+  / "with" / "type" / "abstract"
 
   / "recursive" / "and"
 

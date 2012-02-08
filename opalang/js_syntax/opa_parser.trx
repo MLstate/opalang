@@ -193,32 +193,32 @@ declaration_type <- type_directives:dirs Opa_lexer.TYPE (=list1((=deco(type_bind
        [NewType updated_typedefs]
   }}
 
+type_directive <-
+  / "private" {{ `priv }}
+  / "abstract" {{ `abst  }}
+  / "@opacapi" {{ `oapi  }}
+
 /** Directive of type declaration **/
 type_directives <-
-  / ("@" !strict_spacing deco_ml_identifier_nosp:v spacing {{ undecorate v }})*:list
-    {|
-      Return.set_checkpoint_none (
-        fun label ->
-          let parse_error () = Return.return label () in
-          let rec fold (ty_def_options, visibility_dirs) = function
-            | "abstract" ->
-                let visibility_dirs = SurfaceAst.TDV_abstract :: visibility_dirs in
-                ty_def_options, visibility_dirs
-            | "private" ->
-                let visibility_dirs = SurfaceAst.TDV_private :: visibility_dirs in
-                ty_def_options, visibility_dirs
-            | "opacapi" ->
-                let ty_def_options =
-                  { ty_def_options with QmlAst.
-                      opacapi = true ;
-                  } in
-                ty_def_options, visibility_dirs
-            | _ -> parse_error ()
-          in
-          let ty_def_options = QmlAst.ty_def_options in
-          List.fold_left fold (ty_def_options, []) list
-      )
-    |}
+  / (type_directive:v spacing {{ v }})*:list
+    {{
+       let rec fold (ty_def_options, visibility_dirs) = function
+         | `abst ->
+             let visibility_dirs = SurfaceAst.TDV_abstract :: visibility_dirs in
+             ty_def_options, visibility_dirs
+         | `priv ->
+             let visibility_dirs = SurfaceAst.TDV_private :: visibility_dirs in
+             ty_def_options, visibility_dirs
+         | `oapi ->
+             let ty_def_options =
+               { ty_def_options with QmlAst.
+                   opacapi = true ;
+               } in
+             ty_def_options, visibility_dirs
+       in
+       let ty_def_options = QmlAst.ty_def_options in
+       List.fold_left fold (ty_def_options, []) list
+    }}
 
 type_binding <-
   / type_const:s {{ error_redefinition_basic_type s }}
