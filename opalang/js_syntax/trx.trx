@@ -32,10 +32,15 @@ deco_ml_identifier <- Opa_parser.deco_ml_identifier
    {6 Main grammar}
 *)
 
-;Expression = deco(Expression_aux)
-Expression_aux <- Opa_lexer.BAR? ParserSeq:e (Opa_lexer.BAR ParserSeq:e {{e}})*:l {{ Trx_ast.Expr (e::l) }}
+lbrace   <- Opa_lexer.lbrace  $
+rbrace   <- Opa_lexer.rbrace  $
 
-ExpressionAsFunction <-  Opa_lexer.PARSER Expression:expr Opa_lexer.END? {{ expr }}
+;Expression = deco(Expression_aux)
+Expression_aux <-
+  (Opa_parser.match_case ParserSeq:e {{e}})+:l
+  {{ Trx_ast.Expr l }}
+
+ExpressionAsFunction <-  Opa_lexer.PARSER lbrace Expression:expr rbrace {{ expr }}
 
 Item = deco(Item_aux)
 Item_aux <-
@@ -49,7 +54,7 @@ Item_aux <-
 ParserSeq = deco(ParserSeq_aux)
 ParserSeq_aux <- pos:pos Item+:items ParserCode?:pc {{ {Trx_ast.seq_items=items; Trx_ast.seq_code=pc} }}
 
-ParserCode <- Opa_lexer.rarrow Opa_parser.expr:e {{ e }}
+ParserCode <- Opa_parser.match_prod:e {{ e }}
 
 SubruleName <- ml_identifier:v EQUAL {{ v }}
 

@@ -25,23 +25,27 @@
  }}
 
 spacing <- Xml.spacing;
+lbrace   <- Opa_lexer.lbrace  $
+rbrace   <- Opa_lexer.rbrace  $
 
 let deco rule = (=Opa_lexer.deco(rule));
 let careful_deco rule = (=Opa_lexer.careful_deco(rule));
 let exact_ident rule = (=Opa_parser.exact_ident(rule));
 
 /** xml parser **/
-xml_parser <- (=Opa_lexer.exact_ident("xml_parser")) spacing xml_parser_no_keyword:v {{ v }}
+xml_parser <-
+  / (=Opa_lexer.exact_ident("xml_parser")) lbrace spacing xml_parser_no_keyword:v rbrace
+    {{ v }}
 
 ;deco_xml_parser_no_keyword = deco xml_parser_no_keyword;
 xml_parser_no_keyword <-
-                Opa_lexer.BAR? xml_rule:v (Opa_lexer.BAR xml_rule:v {{v}})*:l
-                Opa_parser.match_end {{ (xml_parser (v::l : _ xml_parser) : (_,_) expr_node) }}
+  / (Opa_parser.match_case xml_rule:v {{v}})+:l
+    {{ (xml_parser (l : _ xml_parser) : (_,_) expr_node) }}
 
 trx_parser <- Opa_lexer.PARSER? Trx.Item+:l (*Trx.ParserSeq:e*) {{ l }}
 
 /** xml parser rule **/
-xml_rule <- spacing xml_named_pattern+:pl Opa_lexer.rarrow Opa_parser.expr:e {{ ((pl,e) : _ xml_rule) }}
+xml_rule <- spacing xml_named_pattern+:pl Opa_parser.match_prod:e {{ ((pl,e) : _ xml_rule) }}
 
 ident_except_parser <- !("parser" Opa_lexer.end_of_ident_nosp) Opa_lexer.ml_identifier:i {{ i }}
 

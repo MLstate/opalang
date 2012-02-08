@@ -884,17 +884,21 @@ match_case <- (Opa_lexer.CASE / match_sep)
 
 match_end_case <- (match_case $ / match_default_case $ / rbrace $)
 
-match_prod <-  ( ((=deco(block_inner)):e &match_end_case {{e}}) / (expr:e &match_end_case {{e}}))
+match_expr <- (((=deco(block_inner)):e &match_end_case {{e}}) / (expr:e &match_end_case {{e}}))
 
-match_rule <- pattern:p colon match_prod:e
+match_prod <-  match_right_separator match_expr:e {{e}}
+
+match_rule <- pattern:p match_prod:e
   {{(p, e)}}
 
 match_default_case <- Opa_lexer.DEFAULT $
 
-match_rule_default <- (=deco(match_default_case)):d colon match_prod:e
+match_rule_default <- (=deco(match_default_case)):d match_prod:e
   {{(PatAny, snd d), e}}
 
 match_sep  <- Opa_lexer.BAR
+
+match_right_separator <- (colon / rarrow)
 
 (* TODO REMOVE?*)
 match_end <- (Opa_lexer.END $ / (=exact_ident("|_")) $)? (* use by xml_parser *)
