@@ -855,15 +855,27 @@ expr_noop_simple <-
 (**
    {7 Pattern matching}
 *)
-/** pattern/if then else **/
-match <- Opa_lexer.MATCH lpar expr:e rpar lbrace
+/** pattern/if then else/function as pattern **/
+match <- (=deco(Opa_lexer.MATCH lpar expr:e rpar {{Some (e:(_, _) SurfaceAst.expr)}} / Opa_lexer.FUNCTION {{None}})):e
+         lbrace
            (=list0_strict(match_case, match_rule)):l
            match_rule_default?:default
          rbrace
          {{
-           match default with
-           | None -> Match (e, l)
-           | Some d -> Match (e, l @ [d])
+            let e, a = e in
+            let rec aux (e:(_, _) SurfaceAst.expr option) =
+              match e with
+              | Some e ->
+                  begin match default with
+                  | None -> Match (e, l)
+                  | Some d -> Match (e, l @ [d])
+                  end
+              | None ->
+                  let n = fresh_name ~name:"x" () in
+                  let i = ident n a in
+                  let m = aux (Some i) in
+                  lambda n (m, a)
+            in aux e
          }}
        / Opa_lexer.IF lpar expr:e1 rpar expr:e2 (Opa_lexer.ELSE expr:e {{ e }})?:o
         {{ if_then_else e1 e2 o }}
