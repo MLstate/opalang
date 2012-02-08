@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -871,7 +871,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                       then ""
                       else
                         (* subdirectory of stdlib.core import stdlib.core *)
-                        "import stdlib.core"
+                         "  import stdlib.core\n"
                     )
                     else "  import stdlib.core\n  import stdlib.core.*\n"
                   ) ::
