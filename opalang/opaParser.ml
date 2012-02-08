@@ -154,14 +154,14 @@ end
 
 let rec get_index_N_lines_before s i nl =
   if nl=0 then i else
-    let i' = try String.rindex_from s i '\n' with Not_found -> 0 in
+    let i' = try String.rindex_from s i '\n' with Not_found | Invalid_argument _ -> 0 in
     if i' = 0 then 0 else get_index_N_lines_before s (i'-1) (nl-1)
 
 let get_index_N_lines_after s i nl =
   let len = String.length s - 1 in
   let rec get i nl =
     if nl=0 then i else
-      let i' = try String.index_from s i '\n' with Not_found -> len in
+      let i' = try String.index_from s i '\n' with Not_found | Invalid_argument _ -> len in
       if i' = len then len else get (i'+1) (nl-1)
   in get i nl
 
