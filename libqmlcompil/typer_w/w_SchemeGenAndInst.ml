@@ -308,7 +308,7 @@ let __generalize ~forbid_non_gen_vars ~extra_variables initial_ty =
                future type scheme. So, mark now the variable as generalized. *)
             var.W_Algebra.cv_level <- W_CoreTypes.generic_binding_level ;
             (* Normally, since this variable was not yet generalized, it
-               should not always be in the list. *)
+               should always not be in the list. *)
             assert (not (List.memq var !found_column_parameters)) ;
             found_column_parameters := var :: !found_column_parameters
           )
