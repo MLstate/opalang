@@ -448,13 +448,16 @@ check-ocaml-lib () {
     local MODULE=$1; shift
     local LIB=$1; shift
     local LIBDIR=$1; shift
-    [ $# -eq 0 ]
+    MORE=""
+    if [ $# -gt 0 ]; then
+	MORE=$1; shift
+    fi
 
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
     trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
 
-    echo "module M = $MODULE" >check_${LIB}.ml
+    echo "module M = $MODULE $MORE" >check_${LIB}.ml
 
     local libdir_ins=""
     if [ "$LIBDIR" != "$OCAMLLIB" ]; then libdir_ins=' ~dir:"'$LIBDIR'"'; fi
@@ -502,6 +505,11 @@ check-cmxa () {
 locate-ocaml-lib () {
     local OPTIONAL=""
     if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
+    if [ "$1" = "-crypto" ]; then
+	CHECK=check-cryptokit; shift
+    else
+	CHECK=check-ocaml-lib
+    fi
     local MODULE=$1; shift # one module that the lib contains, to check
     [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
 
@@ -541,7 +549,7 @@ locate-ocaml-lib () {
         return 1
     fi
 
-    check-ocaml-lib "$MODULE" "$LIB" "$LIBDIR" || return 1
+    $CHECK "$MODULE" "$LIB" "$LIBDIR" || return 1
     echo "$LIBDIR/$LIB"
 }
 # for libs which are needed (fatal warning)
@@ -553,46 +561,13 @@ lib-not-found () {
 }
 
 check-cryptokit () {
-    local OPTIONAL=""
-    if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
-    local MODULE=$1; shift # one module that the lib contains, to check
-    [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
-
-    echo-check for $(basename $1)
-
-    local LIBDIR=""
-    local VERSION=""
-    local LIB
-    local LIB_NAMES=("$@")
-    while [ $# -gt 0 ] && [ -z "$LIBDIR" ]; do
-        LIB=$(basename $1)
-        USUAL_DIR=$(dirname $1)
-        [ "$USUAL_DIR" = "." ] && USUAL_DIR=$LIB
-        if [ -n "$OCAMLFIND" ] &&
-           LIBDIR=$("$OCAMLFIND" query "$LIB" 2>/dev/null) &&
-	   VERSION=$("$OCAMLFIND" query -format %v "$LIB" 2>/dev/null)
-        then
-            LIB=$(check-cmxa $LIBDIR $LIB "${LIB_NAMES[@]}") || return 1
-            echo-ok -n "ocamlfind:$LIBDIR, "
-	else
-	    echo-err "We need ocamlfind in order to check cryptokit version"
-        fi
-        shift
-    done
-    local CRYPTO_VERSION="1.4"
-    if [ -z "$LIBDIR" ]; then
-        echo-err "Not found"
-        return 1
-    elif CHECK_VERSION=$(echo $CRYPTO_VERSION | tr -d '.') &&
-	CURRENT_VERSION=$(echo "$VERSION" | tr -d '.') &&
-	[ "$CURRENT_VERSION" -lt "$CHECK_VERSION" ]
-    then
-        echo-err "Invalid cryptokit version, must be >= $CRYPTO_VERSION"
-        return 1
+    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"OPA\""); then
+	echo-err "You need cryptokit >= 1.4"
     fi
+}
 
-    check-ocaml-lib "$MODULE" "$LIB" "$LIBDIR" || return 1
-    echo "$LIBDIR/$LIB"
+locate-and-check-cryptokit () {
+    locate-ocaml-lib -crypto "Cryptokit" "cryptokit"
 }
 
 # - checking ocaml-ssl
@@ -601,7 +576,7 @@ then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
 fi
 
 # - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" check-cryptokit "Cryptokit" "cryptokit")
+if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
 then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
 fi
 
