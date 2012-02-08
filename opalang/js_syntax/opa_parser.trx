@@ -380,7 +380,7 @@ type_without_arrow = deco(just_type_without_arrow)
 just_type_without_arrow <- type_sum
                           / just_type_without_sum
 
-type_sum <- (=infix(Opa_lexer.or))? (=list1(type_sum_element,(=infix(Opa_lexer.or)))):l end_of_type_sum:o
+type_sum <- Opa_lexer.or? (=list1(type_sum_element,Opa_lexer.or)):l end_of_type_sum:o
             {{ match l,o with
                  | [h], None ->
                      ( match undecorate h with
