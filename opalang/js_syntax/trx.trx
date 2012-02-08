@@ -40,6 +40,11 @@ Expression_aux <-
   (Opa_parser.match_case ParserSeq:e {{e}})+:l
   {{ Trx_ast.Expr l }}
 
+;SubExpression = deco(SubExpression_aux)
+SubExpression_aux <-
+  Opa_parser.match_case? ParserSeq:e (Opa_parser.match_case ParserSeq:e {{e}})*:l
+  {{ Trx_ast.Expr (e::l) }}
+
 ExpressionAsFunction <-  Opa_lexer.PARSER lbrace Expression:expr rbrace {{ expr }}
 
 Item = deco(Item_aux)
@@ -72,7 +77,7 @@ Primary = deco(Primary_aux)
 Primary_aux <-
         / Opa_parser.opa_in_braces:e                {{ Trx_ast.Code e }}
         / IdentifierCall:e                          {{ Trx_ast.Rule e }}
-        / OPEN Expression:exp CLOSE                 {{ Trx_ast.Parens exp }}
+        / OPEN SubExpression:exp CLOSE                 {{ Trx_ast.Parens exp }}
         / Literal:lit TILDE?:cs                     {{ Trx_ast.Literal(lit, cs=None) }}
         / String_expr.string_with_opa:e             {{ Trx_ast.DynamicLiteral e }}
         / Class:cls                                 {{ Trx_ast.Class cls }}
