@@ -579,14 +579,15 @@ check-cryptokit () {
         fi
         shift
     done
+    local CRYPTO_VERSION="1.4"
     if [ -z "$LIBDIR" ]; then
         echo-err "Not found"
         return 1
-    elif CHECK_VERSION=$(echo "1.5" | tr -d '.') &&
+    elif CHECK_VERSION=$(echo $CRYPTO_VERSION | tr -d '.') &&
 	CURRENT_VERSION=$(echo "$VERSION" | tr -d '.') &&
 	[ "$CURRENT_VERSION" -lt "$CHECK_VERSION" ]
     then
-        echo-err "Invalid cryptokit version, must be >= 1.5"
+        echo-err "Invalid cryptokit version, must be >= $CRYPTO_VERSION"
         return 1
     fi
 
