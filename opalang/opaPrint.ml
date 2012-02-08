@@ -309,7 +309,7 @@ module Sugar = struct
     let rec pp_expr_or_string ?(quote=true) ppe f e =
       match fst (clear_directives e) with
       | Const(CString(s)) when quote -> pp f "\"%s\"" (QmlPrint.escaped_string s)
-      | Const(CString(s)) -> pp f "%s" s
+      | Const(CString(s)) -> pp f "%s" (QmlPrint.escaped_string s)
       | Directive(`string,l,_) ->  pp_expr ppe f l
       | Directive((#all_directives : [< all_directives]) ,_,_)
       | _ -> pp_insert_expr ppe f e
@@ -1233,7 +1233,7 @@ module Js = struct
     method private apply : 'dir 'a. 'a pprinter -> 'a list -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun f_arg arg f e -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " f_arg) arg
     method private expr_need_block : 'dir . ('ident,[< all_directives ] as 'dir) expr -> bool = fun e ->
       match fst e with
-      | Apply _ | Ident _ | Const _ | Directive _  -> false
+      | Apply _ | Ident _ | Const _ -> false
       | _ -> true
     method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
       if not sugar then self#label self#expr_node f e
