@@ -103,11 +103,6 @@ type ident_kind = [
 | `operator
 ]
 
-let is_letin e = match fst e with
-  | LetIn _ -> true
-  | _ -> false
-
-
 
 module ExprSugar =
 struct
@@ -1493,7 +1488,7 @@ module Js = struct
             self#module_binding ipp f (i,e)
           | (Directive ((`magic_do : [< all_directives ]), [e], _),_) -> pp f "%a%s@]" self#expr e semic
           | _ ->
-            if is_letin e then pp f "%a = {@\n%a@]@\n}" ipp i self#expr e
+            if self#expr_need_block e then pp f "%a = {@\n%a@]@\n}" ipp i self#expr e
             else pp f "%a =@ %a%s@]" ipp i self#expr e semic
       in
       pp f "@[<4>";
@@ -1585,7 +1580,7 @@ module Js = struct
             self#module_binding self#ident f (i.SurfaceAst.ident,e)
           | _, (Directive ((`magic_do : [< all_directives ]),[e],_),_) ->  pp f "%a;@]" self#expr e
 
-          | _,e -> (if is_letin e then pp f "%a = {@\n%a@]@\n}"
+          | _,e -> (if self#expr_need_block e then pp f "%a = {@\n%a@]@\n}"
             else pp f "%a =@ %a@]") self#pat p self#expr e
       in
       pp f "@[<hv 4>";
