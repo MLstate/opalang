@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -447,7 +447,7 @@ static_styled_page(title:string, styles:list(string), body: xmlns): resource =
         </body>
       </html>
     )
-  string_content = Xmlns.serialize_to_string_with_nsmap([], "http://www.w3.org/1999/xhtml", xml_content)
+  string_content = Xmlns.serialize_to_string(xml_content)
   raw_response(string_content, "text/html", {success})
 
 static_page(title:string, body: xmlns): resource =
