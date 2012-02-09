@@ -97,8 +97,9 @@
   (flyspell-prog-mode)
 )
 
-;; Enable spell-checking on OPA comments and strings
-(add-hook 'opa-mode-hook 'enable_flyspell)
+;; Enable spell-checking on OPA CLASSIC comments and strings
+;; Note that flyspell has not been tested on OPA JS mode, yet.
+(add-hook 'opa-classic-mode-hook 'enable_flyspell)
 
 ;; Enable spell-checking on Caml comments and strings
 (add-hook 'tuareg-mode-hook 'enable_flyspell)

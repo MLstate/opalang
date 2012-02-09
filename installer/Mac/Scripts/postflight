@@ -33,6 +33,7 @@ done
 logger -t "OPA" "Installing Emacs plug-in"
 sudo mkdir -p "$DEST_EMACS"
 sudo install $MLSTATELIBS/share/opa/emacs/opa-mode.el "$DEST_EMACS/"
+sudo install $MLSTATELIBS/share/opa/emacs/opa-js-mode.el "$DEST_EMACS/"
 sudo install $MLSTATELIBS/share/opa/emacs/site-start.el "$DEST_EMACS/"
 
 logger -t "OPA" "Set ownership to 'root'"

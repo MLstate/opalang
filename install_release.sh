@@ -238,7 +238,7 @@ fi
 $SRCDIR/utils/install.sh --uninstall --dir $INSTALLDIR
 install -m 0755 -v $SRCDIR/utils/install.sh $INSTALLDIR/share/opa
 mkdir -p $INSTALLDIR/share/opa/emacs
-install -m 0644 -v $SRCDIR/utils/emacs/{opa-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
+install -m 0644 -v $SRCDIR/utils/emacs/{opa-mode.el,opa-js-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
 mkdir -p $INSTALLDIR/share/opa/vim
 cp -r $SRCDIR/utils/vim/* $INSTALLDIR/share/opa/vim/
 
