@@ -87,7 +87,7 @@ icon16 = css
   background-image: {get_img("icons16-gray.png")} ;
   background-repeat: no-repeat;
   display: inline-block;
-  vertical-align: top;
+  vertical-align: text-top;
 }
 /* Dark gray icons, default hover style */
 .icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background-image: {get_img("icons16-darkGray.png")};}
@@ -338,7 +338,7 @@ icon32 = css
   background-image: {get_img("icons32-gray.png")};
   background-repeat: no-repeat;
   display: inline-block;
-  vertical-align: top;
+  vertical-align: text-top;
 }
 /* Dark gray icons, default hover style */
 .icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background-image: {get_img("icons32-darkGray.png")};}
