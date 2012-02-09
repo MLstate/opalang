@@ -335,8 +335,10 @@ module Sugar = struct
   let collect_spec_attr e =
     let class_ = e@"class" in
     let style  = e@"style" in
-    let class_ = if is_nil class_ then [] else [str_empty,"class",class_concat class_] in
-    let style  = if is_nil style  then [] else [str_empty,"style",style ] in
+    let class_att v =  [str_empty,"class",v] in
+    let style_att v = [str_empty,"style",v] in
+    let class_ = try if is_nil class_ then [] else class_att (class_concat class_) with NotARecord -> class_att class_ in
+    let style  = try if is_nil style  then [] else style_att style with NotARecord -> style_att style in
     let events = list ~map:(fun e->
       let event = e@"value" in
       str_empty,
