@@ -75,7 +75,7 @@ spacing_nonl <- (whitespace$ / opacomment$)* $
 (* opacomment_slash can succeed without parsing a final newline, because
  * it happens if your final line is a comment and your file doesn't end with
  * a newline *)
-opacomment_slash <- "/" (!newline . $)* newline? $
+opacomment_slash <- "/" (!newline . $)* $
 opacomment_star  <- "*"
                     (!"*/" ("/" opacomment_star / . $))*
                     (=or_eof("*/")):b {{ if not b then error_comment (pos_only _filename _pos_beg _pos_end) }}

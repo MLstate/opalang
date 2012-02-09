@@ -238,7 +238,7 @@ type_binding <-
      } : string typedef_node
    }}
 
-let type_maybe rule = (=backtrack(typ:t Opa_lexer.whitespace {{t}}, rule))
+let type_maybe rule = (=backtrack(typ:t Opa_lexer.whitespace !separator {{t}}, rule))
 
 (**
    {7 Type constants}
@@ -1438,7 +1438,7 @@ _fail <- &. &(!.) . $
 ;hint_end_of_callable <- (=careful_deco(& " (")):p {{ push_hint (`function_call (label p)); () }}
                        / !"(" $
 
-separator <- Opa_lexer.maybe_whitespace (semic / Opa_lexer.newline / Opa_lexer.opacomment) pos:p {{ p }}
+separator <- (Opa_lexer.whitespace / Opa_lexer.opacomment)* (semic / Opa_lexer.newline) pos:p {{ p }}
 
 (**
    {7 Importing the lexer}
