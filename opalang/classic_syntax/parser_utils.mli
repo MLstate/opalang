@@ -517,3 +517,6 @@ val rewrite_long_extend_record :
   ((string * annot) list * (string, SurfaceAst.parsing_directive) SurfaceAst.expr) list ->
   (string, SurfaceAst.parsing_directive) SurfaceAst.expr ->
   (string, SurfaceAst.parsing_directive) SurfaceAst.expr
+
+val rewrite_letin: bool -> (nonuid * parsing_expr) list -> parsing_expr -> parsing_node
+val rewrite_add_recval : parsing_expr -> parsing_expr

@@ -86,7 +86,6 @@ just_declaration <-
   / declaration_database
   / declaration_type
   / declaration_binding
-  / declaration_binding_rec
   / declaration_css
   / declaration_do
   / (&. {{ print_hints () }}) _fail {{ assert false }}
@@ -98,13 +97,6 @@ declaration_binding <-
     let bindings = [b] in
     let bindings = declaration_directive dirs bindings in
     [NewVal (bindings,false)]
-  }}
-
-declaration_binding_rec <-
-  declaration_directives:dirs Opa_lexer.REC binding_pattern_simple_rec:b
-  {{
-    let bindings = declaration_directive dirs [b] in
-    [NewVal (bindings,true)]
   }}
 
 declaration_do <- expr:e
@@ -513,53 +505,37 @@ binding_pattern <-
   local_binding_directives:dirs (binding_pattern_simple / binding_pattern_lambda / binding_pattern_module):bnd
   {{ declaration_directive_1 dirs bnd }}
 
-binding_pattern_simple <-
-  'var'? spacing pattern:p assign expr:e {{ (p,e) }}
-
-binding_simple <-
-  (=type_maybe(deco_ml_identifier:i assign expr:e
-    {{ function t -> (i,may_coerce_expr e t) }}
-  ))
-
 binding_pattern_lambda <- binding_lambda:b {{binding_to_pattern_binding b }}
-
-binding_lambda <- lambda_with_name:lwn {{ lwn }}
 
 binding_pattern_module <- binding_module:b {{binding_to_pattern_binding b }}
 
-binding_module <-
-  (=type_maybe(Opa_lexer.MODULE spacing deco_ml_identifier_nosp:ident (=deco(module_no_keyword)):m
-  {{ function t -> (ident, may_coerce_expr m t) }}))
-
-binding_pattern_simple_rec <- binding_pattern_simple:b
-  {{
-    let (i, e) = b in
-    (i, ((Directive (`recval, [e], [])), snd e))
-  }}
-
-binding_pattern_rec <-
-  local_binding_directives:dirs (binding_pattern_module / binding_pattern_simple_rec / binding_pattern_lambda):bnd
-  {{ declaration_directive_1 dirs bnd }}
+binding_pattern_simple <- pattern:p assign expr:e {{ p, e }}
 
 binding_ident <-
   / binding_lambda
   / binding_simple
   / binding_module
 
+binding_simple <-
+  (=type_maybe(deco_ml_identifier:i assign expr:e
+    {{ function t -> (i,may_coerce_expr e t) }}
+  ))
+
+binding_lambda <- lambda_with_name:lwn {{ lwn }}
+
+binding_module <-
+  (=type_maybe(Opa_lexer.MODULE spacing deco_ml_identifier_nosp:ident (=deco(module_no_keyword)):m
+  {{ function t -> (ident, may_coerce_expr m t) }}))
+
+
 binding_expr <- (=deco(block_inner))
 
 binding <-
-  / Opa_lexer.REC spacing (=list1(binding_pattern_rec, Opa_lexer.AND)):binds binding_expr:expr
+  / Opa_lexer.REC?:r (=list1(binding_pattern, Opa_lexer.AND)):binds expr:expr
     {{
       let binds = List.concat_map pat_in_to_simple_bindings binds in
-      LetIn (true, binds, expr)
+      rewrite_letin (Option.is_some r) binds expr
     }}
-  / (=list1(binding_pattern, Opa_lexer.AND)):binds binding_expr:expr
-    {{
-      let binds = List.concat_map pat_in_to_simple_bindings binds in
-      LetIn (true, binds, expr)
-    }}
-
 
 
 
@@ -991,9 +967,14 @@ bypass <- Opa_lexer.BYPASS ((!Opa_lexer.BYPASS .)* $_):content Opa_lexer.BYPASS
    {7 Module expression}
 *)
 module_element <-
-  declaration_directives:dirs spacing (binding_ident):b
+  Opa_lexer.REC?:r declaration_directives:dirs spacing (binding_ident):b
   {{
-    let ((ident, l1), (expr, l2)) = b in
+    let ((ident, l1), expr) = b in
+    let (expr, l2) =
+      if Option.is_some r then
+        rewrite_add_recval expr
+      else expr
+    in
     List.hd (declaration_directive dirs [(ident, (expr, (union_annot l1 l2)))])
   }}
 

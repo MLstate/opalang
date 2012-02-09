@@ -1420,6 +1420,21 @@ and rewrite_record_update (e:(_,_) expr) (ts:tree list) =
     )
   )
 
+let rewrite_add_recval x =
+  let rec aux (e, l) =
+    (match e with
+     | Directive (d, [e], tys) -> Directive (d, [aux e], tys)
+     | Lambda (_, _) as e -> e
+     | e -> Directive (`recval, [(e, copy_label l)], [])), l
+  in aux x
+
+let rewrite_letin is_rec binds expr =
+  let binds =
+    if is_rec then
+      List.map (function (i, e) -> (i, rewrite_add_recval e)) binds
+    else binds in
+  LetIn (is_rec, binds, expr)
+
 let rewrite_long_extend_record fields expr =
   let trees = make_record_tree fields in
   rewrite_record_update expr trees
