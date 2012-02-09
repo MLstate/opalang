@@ -174,7 +174,6 @@ quote     <- spacing quote_nosp $
 ampersand <- spacing ampersand_nosp $
 underscore<- spacing underscore_nosp $
 alias     <- spacing alias_nosp $
-or     <- spacing or_nosp $
 dots      <- spacing dots_nosp $
 assign    <- spacing assign_nosp $
 
@@ -248,6 +247,7 @@ keyword <- (
 )
 
 (* Keywords : Bindings *)
+OR     <- (=Opa_lexer.exact_keyword("or"))
 FUNCTION <- (=Opa_lexer.exact_keyword("function"))
 MODULE <- (=Opa_lexer.exact_keyword("module"))
 WITH <- (=Opa_lexer.exact_keyword("with"))
