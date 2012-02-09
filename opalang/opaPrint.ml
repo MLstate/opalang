@@ -1188,7 +1188,7 @@ module Js = struct
           then
             let pp_field f (field, _) = self#field f field in
             pp f "@[<hv2>~{ %a%s @,}@]"
-              (Format.pp_list "@, " pp_field) fields
+              (Format.pp_list ",@ " pp_field) fields
               rowvar
           else
             pp f "@[<hv2>{ %a%s @,}@]"
