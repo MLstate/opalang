@@ -1377,7 +1377,7 @@ module Js = struct
       | `llarray -> Format.pp_print_string f "llarray"
       | `specialize `strict -> Format.pp_print_string f "specialize_strict"
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
-      | `recval -> Format.pp_print_string f "recval"
+      | `recval -> Format.pp_print_string f "recursive"
       | `sugar _ -> Format.pp_print_string f "sugar"
       | `sugar_pat_in _ -> Format.pp_print_string f "sugar_pat_in"
           (* TODO add more qml directive type here instead of duplicating with QmlDirectives.to_string above *)
@@ -1402,6 +1402,7 @@ module Js = struct
         | `sugar expr, [_], [] -> self#expr_string f expr
         | `sugar_pat_in (pat,e1,e2), [_], [] -> pp f "%a@\n%a" self#pat_binding_string (pat,e1) self#expr_string e2
 (* self#apply (fun f -> function | `hole -> pp f "_" | `expr e -> self#reset#under_comma#expr f e) args f e*)
+        | `recval, exprs, [] -> pp f "recursive %a" (list ",@ " self#reset#expr) exprs
         | #all_directives,[]   , []  -> pp f "@[<2>@@%a@]" self#variant variant
         | #all_directives,exprs, []  -> pp f "@[<2>@@%a(%a)@]" self#variant variant (list ",@ " self#reset#expr) exprs
         | #all_directives,exprs, tys -> pp f "@[<2>@@%a(%a ; %a)@]" self#variant variant (list ",@ " self#reset#expr) exprs (list ",@ " self#ty) tys
@@ -1487,9 +1488,14 @@ module Js = struct
           | (Directive ((`module_ : [< all_directives ]), [e], _),_) ->
             self#module_binding ipp f (i,e)
           | (Directive ((`magic_do : [< all_directives ]), [e], _),_) -> pp f "%a%s@]" self#expr e semic
-          | _ ->
-            if self#expr_need_block e then pp f "%a = {@\n%a@]@\n}" ipp i self#expr e
-            else pp f "%a =@ %a%s@]" ipp i self#expr e semic
+          | e ->
+              let recursive, e = match e with
+                | (Directive ((`recval : [< all_directives ]), [e], []), _) -> "recursive", e
+                | _ -> "", e
+              in
+              if self#expr_need_block e then pp f "%s %a = {@\n%a@]@\n}" recursive ipp i self#expr e
+              else pp f "%a =@ %a%s@]" ipp i self#expr e semic
+
       in
       pp f "@[<4>";
       aux e
@@ -1554,7 +1560,7 @@ module Js = struct
       | NewVal (pel,false) ->
           pp f "/* encoding of a let and */@\n%a" self#pat_bindings pel
       | NewVal (pel,true) ->
-          pp f "@[<v>@[<2>rec %a@]@]" (list "@]@ and @[" self#pat_binding) pel
+          pp f "@[<v>@[<2>recursive %a@]@]" (list "@]@ and @[" self#pat_binding) pel
       | Package (`import,s) ->
           pp f "import %s" (String.sub s 1 (String.length s - 2))
       | Package (`import_plugin, s) ->
