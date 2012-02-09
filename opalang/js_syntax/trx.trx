@@ -37,13 +37,12 @@ rbrace   <- Opa_lexer.rbrace  $
 
 ;Expression = deco(Expression_aux)
 Expression_aux <-
-  (Opa_parser.match_case ParserSeq:e {{e}})+:l
-  {{ Trx_ast.Expr l }}
-
-;SubExpression = deco(SubExpression_aux)
-SubExpression_aux <-
   Opa_parser.match_case? ParserSeq:e (Opa_parser.match_case ParserSeq:e {{e}})*:l
   {{ Trx_ast.Expr (e::l) }}
+
+;SubExpression = deco(SubExpression_aux)
+SubExpression_aux <- Expression_aux
+
 
 ExpressionAsFunction <-  Opa_lexer.PARSER lbrace Expression:expr rbrace {{ expr }}
 
