@@ -533,8 +533,16 @@ binding_expr <- (=deco(block_inner))
 binding <-
   / Opa_lexer.REC?:r (=list1(binding_pattern, Opa_lexer.AND)):binds expr:expr
     {{
-      let binds = List.concat_map pat_in_to_simple_bindings binds in
-      rewrite_letin (Option.is_some r) binds expr
+      let heads, tails =
+        List.fold_right
+          (fun bind (heads, tails) ->
+             match pat_in_to_simple_bindings bind with
+             | [] -> assert false
+             | h::t -> h::heads, t::tails) binds ([], [])
+      in
+      let tails = rewrite_letin (Option.is_some r) (List.flatten tails) expr in
+      let heads = rewrite_letin (Option.is_some r) heads (tails, copy_label (label expr)) in
+      heads
     }}
 
 
