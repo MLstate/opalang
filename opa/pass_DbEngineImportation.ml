@@ -22,12 +22,8 @@ module Db = QmlDbGen
 
 let builtinpos = FilePos.nopos "Built in pass DbEngineImportation"
 
-let process_code code =
-  if List.exists
-    (function
-       | (S.Database _), _ | (S.NewDbDef _), _ -> true
-       | _ -> false)
-    code then (
+let process_code ~stdlib code =
+  if stdlib then (
       let package = match QmlDbGen.Args.get_engine () with
       | `db3   -> "stdlib.database.db3"
       | `mongo -> "stdlib.database.mongo"

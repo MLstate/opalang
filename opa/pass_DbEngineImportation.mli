@@ -19,4 +19,4 @@
 (**
    This pass import the database runtime if needed.
 *)
-val process_code : ('ident, 'dir) SurfaceAst.code -> ('ident, 'dir) SurfaceAst.code
+val process_code : stdlib:bool -> ('ident, 'dir) SurfaceAst.code -> ('ident, 'dir) SurfaceAst.code
