@@ -358,8 +358,6 @@ package_install (){
 		$SUDO mkdir -pv $INSTALLDIR/lib/ocaml/cryptokit.bak
 		$SUDO mv -v $INSTALLDIR/lib/ocaml/cryptokit.* $INSTALLDIR/lib/ocaml/cryptokit.bak/ || true
 		$SUDO mv -v $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so.bak  || true
-                which ocamlc
-                echo $PATH
 		ocaml setup.ml -configure
 		ocaml setup.ml -build
 		$SUDO ocaml setup.ml -uninstall
