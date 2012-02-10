@@ -812,12 +812,12 @@ expr_noop_coerced <- (=type_maybe((=deco(expr_noop_simple)):e
 expr_noop_simple <-
   / side_effect_expr
   / function_call_dot (* also contains directives, ids and bypasses *)
+  / binding
   / match
   / lambda
   / module
   / record / block (* Becareful : Keep this order for keep single fields record *)
   / tuple_expr
-  / binding
   / Parser_path.path_kind:v {{ let (p, k) = v in DBPath (p, k) }}
   (* FIXME: useful? / paths_opa_expr / props_aux*)
   / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
