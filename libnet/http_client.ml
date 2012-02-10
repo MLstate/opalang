@@ -83,7 +83,7 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
         else           Network.Unsecured
       in
       let port_spec = Network.make_port_spec ~protocol:http machine port in
-      let command = Printf.sprintf "%s %s %s%s%sHost: %s%sUser-Agent: %s%s%s%s%s"
+      let command = Printf.sprintf "%s %s %s%s%sHost: %s%sUser-Agent: %s%s%s%s"
         request_kind
         path
         http_version
@@ -93,9 +93,8 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
         Base.crlf
         client_name
         Base.crlf
-        (if more_headers = "" then ""
+        (if more_headers = "" then Base.crlf
 	 else Printf.sprintf "%s%s" more_headers Base.crlf)
-        Base.crlf
         data
       in
       let start conn =
