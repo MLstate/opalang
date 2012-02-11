@@ -24,3 +24,14 @@ Git commits:
 *	[tag] context: message
 * where allowed tags are:
 *       cleanup, contrib, debug, doc, enhance, feature, fix, layout, revert.
+
+ChangeLog conventions:
+
+YEAR.MONTH.DAY, Version SEMVER (stability), GIT_HASH
+
+* change 1
+  - description
+
+* change 2
+
+* change 3
