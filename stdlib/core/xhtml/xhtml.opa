@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011 MLstate
 
     This file is part of OPA.
 
@@ -66,7 +66,7 @@ type xml('attributes,'extensions) =
   { text : string }         /**Text meant to be escaped before any insertion*/
 / { content_unsafe: string } /**Text meant to be inserted without any check or escaping. Absolutely unsafe, of course.*/
 / { fragment : list(xml('attributes,'extensions)) }
-/ { namespace : string /** The namespace name */
+/ { namespace : string /** A unique URI characterizing the namespace */
     tag : string
     args : list(Xml.attribute)
     content : list(xml('attributes,'extensions))
@@ -163,6 +163,7 @@ Xmlns =
     * Convert a xmlns structure into a string
     */
    to_string : xmlns -> string = serialize_to_string
+   to_string_with_nsmap : list((string,string)), string, xmlns -> string = serialize_to_string_with_nsmap
 
    /**
     * Convert a xhtml structure into a xmlns
@@ -386,6 +387,11 @@ Xmlns =
     do @assert(js_code == "")
     html_code
 
+  serialize_to_string_with_nsmap(ns_map,default_ns,xmlns: xmlns): string =
+    xhtml = to_xhtml(xmlns)
+    ~{js_code html_code} = Xhtml.prepare_for_export_with_map(ns_map,default_ns,xhtml,false)
+    do @assert(js_code == "")
+    html_code
 }}
 
 verbatim_expr(_)=""
@@ -708,7 +714,8 @@ Xhtml =
   )
 
   @private Buf = Buffer2_private
-  prepare_for_export(_default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+  prepare_for_export(default_ns_uri,xhtml,style_inline) = prepare_for_export_with_map([],default_ns_uri,xhtml,style_inline)
+  prepare_for_export_with_map(namespace_map:list((string,string)), default_ns_uri:string, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
     js_buffer   = Buf.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
@@ -717,6 +724,32 @@ Xhtml =
         | { ~value } -> value
         | { ~expr  } -> FunAction.serialize(expr)
       Buf.add(js_buffer,code)
+    ns_counter = Mutable.make(0)
+    ns_bindings = Mutable.make([("","")|namespace_map])
+    ns_buffer = Buf.create(1024)
+    do if default_ns_uri != "" then
+      do Buf.add(ns_buffer, " xmlns=\"")
+      do Buf.add(ns_buffer, default_ns_uri)
+      Buf.add(ns_buffer, "\"")
+    bind_namespace(uri,name) =
+      do Buf.add(ns_buffer, " xmlns:")
+      do Buf.add(ns_buffer, name)
+      do Buf.add(ns_buffer, "=\"")
+      do Buf.add(ns_buffer, uri)
+      Buf.add(ns_buffer, "\"")
+    do List.iter((x,y) -> bind_namespace(x,y),namespace_map)
+    get_ns_prefix(ns_uri) = (
+      if ns_uri == default_ns_uri then "" else
+      match find_assoc(ns_uri,ns_bindings.get()) with
+      | ~{some} -> some
+      | _ ->
+        counter = ns_counter.get()
+        do ns_counter.set(counter + 1)
+        prefix = "ns{counter}"
+        do ns_bindings.set([(ns_uri, prefix)|ns_bindings.get()])
+        do bind_namespace(ns_uri,prefix)
+        prefix
+    )
 
     /**
      * @param depth The current depth in the tree. Used both for pretty-printing and to insert scripts at the correct place
@@ -740,6 +773,7 @@ Xhtml =
       | ~{ namespace tag args content specific_attributes } ->
 
           tag =
+            namespace = get_ns_prefix(namespace)
             if String.is_empty(namespace) then tag else
             namespace ^ ":" ^ tag
 
@@ -748,6 +782,7 @@ Xhtml =
           do Buf.add(html_buffer,tag)
 
           print_arg(~{name namespace=tagns value}) =
+            tagns = get_ns_prefix(tagns)
             do Buf.add(html_buffer," ")
             do if String.is_empty(tagns) then Buf.add(html_buffer,name)
                else
@@ -897,6 +932,8 @@ Xhtml =
                 | "abbr" | "br" | "col" | "img" | "input" | "link" | "meta" | "param" | "hr" | "area" | "embed" -> true
                 | _ -> false)
              then
+               do if depth == 0 then
+                 Buf.add(html_buffer,Buf.contents(ns_buffer))
                Buf.add(html_buffer,"/>")
              else
                do if depth == 0 then
@@ -910,6 +947,7 @@ Xhtml =
                  do Buf.reset(html_buffer,1024)
                  // putting back everything into the buffer
                  do Buf.add(html_buffer,start)
+                 do Buf.add(html_buffer,Buf.contents(ns_buffer))
                  do Buf.add(html_buffer,">")
                  Buf.add(html_buffer,content)
                else

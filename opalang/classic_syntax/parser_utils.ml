@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011 MLstate
 
     This file is part of OPA.
 
@@ -1166,21 +1166,11 @@ let sassoc ((ns:(_,_) expr),name) (value:(_,_) expr) : (_,_) expr =
 
 let create_element (ns,tag) args children =
   (* Adapt tag and attributes *)
-  let bind_xmlns_check = false in
-  let tag_ns =
-    (* Use namespace.
-       Use [<name:div/>] is converted into a binding <`xmlns:name`:div/>. *)
-    let (prefix,annot) = ns in
-    if bind_xmlns_check && prefix<>"" then ident ("xmlns:"^prefix) annot
-    else string prefix annot
+  let xmlns s annot =   if s="" then string s annot else ident ("xmlns:"^s) annot in
+  let tag_ns : (string, 'a) SurfaceAst.expr =
+    let (name, annot) = ns in xmlns name annot
   in (* Note: [name] can be empty, it's ok *)
-
-  let other_attributes = List.map (fun (prefix, name, value) -> sassoc (string prefix (nlabel tag), (name, nlabel tag)) value) args.args in
-  let xmlns_attributes = List.map (fun (prefix, value) ->
-    let name = (if prefix = "" then "xmlns" else "xmlns:"^prefix),nlabel tag in
-    let prefix = string "" (nlabel tag) in
-    sassoc (prefix,name) value
-  ) args.xmlns_declaration in
+  let other_attributes = List.map (fun (prefix, name, value) -> sassoc (xmlns prefix (nlabel tag), (name, nlabel tag)) value) args.args in
   (* Create element *)
   let record =
     if xhtml_mode () && not (is_empty_args args) then (
@@ -1205,14 +1195,14 @@ let create_element (ns,tag) args children =
                ] in
       record [("namespace",tag_ns);
               ("tag",unc2 string tag);
-              ("args", list_expr_of_expr_list (xmlns_attributes@other_attributes) (label tag));
+              ("args", list_expr_of_expr_list other_attributes (label tag));
               ("specific_attributes", some specific_attributes);
               ("content",list_expr_of_expr_list children (label tag));
              ]
     ) else (
       record [("namespace",tag_ns);
               ("tag",unc2 string tag);
-              ("args", list_expr_of_expr_list (xmlns_attributes@other_attributes) (label tag));
+              ("args", list_expr_of_expr_list other_attributes (label tag));
               ("content",list_expr_of_expr_list children (label tag));
               ("specific_attributes", none (label tag));
              ]
@@ -1220,13 +1210,11 @@ let create_element (ns,tag) args children =
 
 
   (* Declare namespaces.
-     Declaration [xmlns:name = "foo"] is converted into a binding <<`xmlns:name` = name>. *)
-  let record = if bind_xmlns_check then
-    List.fold_left
-      (fun record (prefix, uri) -> letin ("xmlns:"^prefix) (string prefix (nlabel uri)) record) record
-      args.xmlns_declaration
-    else record
-  in
+     Declaration [xmlns = "foo"] is converted into a binding <<`xmlns:` = foo>. *)
+  let record = List.fold_left
+    (fun record (prefix, uri) -> letin ("xmlns:"^prefix) uri record) record
+    args.xmlns_declaration in
+
   coerce_name_expr record (xml_typename ())
 
 let nstag_to_string ns tag =
