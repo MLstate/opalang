@@ -482,9 +482,9 @@ Xml =
       | { content_unsafe=_ }
       | { xml_dialect=_ } -> fun(elt)
       | { ~fragment } -> {fragment = List.map(aux, fragment) }
-      | { ~content ... } as r ->
+      | { ~tag; ~namespace; ~args; ~content; ~specific_attributes } ->
         content = List.map(aux, content) ;
-        fun({r with content=content} <: xml )
+        fun({ ~tag; ~namespace; ~args; content=content; ~specific_attributes } : xml)
     aux(element)
 
 }}
@@ -733,6 +733,9 @@ Xhtml =
             | {some = ~{js_code_unsafe html_code_unsafe}} ->
                   do Buf.add(html_buffer,html_code_unsafe)
                   Buf.add(js_buffer,js_code_unsafe)
+            | _ ->
+                  Log.error("Xhtml.to_serialize_string","Incorrect XHTML extensions")
+                  //This should never happen, by type guarantees -- however, I've spotted a [Magic.id] somewhere in this file
         end
       | ~{ namespace tag args content specific_attributes } ->
 
@@ -825,6 +828,9 @@ Xhtml =
                                   do Buf.add(js_buffer,"\n.css(\{  ")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
                                     do Buf.add(js_buffer,"'")
+
+
+
                                     do Buf.add(js_buffer,name)
                                     do Buf.add(js_buffer,"': '")
                                     do Buf.add(js_buffer,value)
