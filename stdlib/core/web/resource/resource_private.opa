@@ -659,7 +659,7 @@ customizer_autoloaded : platform_customization =
       custom_css     = List.rev(autoloaded_css.get())
     })
 
-default_customizers = [customizer_for_icon,customizer_for_google_frame,required_customizer_for_incompatible_browsers, customizer_autoloaded]
+default_customizers = [customizer_for_google_frame,required_customizer_for_incompatible_browsers, customizer_autoloaded]
 
 @private cache_xhtml_options = CommandLine.filter({
       title = "Server xhtml resource cache"
