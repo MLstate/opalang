@@ -1114,7 +1114,7 @@ declaration_directive1_typ <-
 /** toplevel directive **/
 declaration_directives <- (=deco(declaration_directive))*
 declaration_directive <-
-  / declaration_directive0_keyword:d
+  / declaration_directive0_keyword:d !Opa_lexer.ml_following_letter
     {{ (d, [], []) }}
   / "@" (=exact_ident(declaration_directive0)):d !"("
     {{ (d, [], []) }}
@@ -1136,7 +1136,7 @@ slicing_directive0 <-
 closure_instrumentation_directive <- "public_env" {{ `public_env }}
 
 local_binding_directive <-
-  / declaration_directive0_slicing:v  {{ (v, [], [])  }}
+  / declaration_directive0_slicing:v !Opa_lexer.ml_following_letter {{ (v, [], [])  }}
   / "@" (=exact_ident(closure_instrumentation_directive)):v !"(" {{ (v, [], [])  }}
 local_binding_directives <- (=deco(local_binding_directive))*:v spacing {{ v }}
 
