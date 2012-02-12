@@ -106,9 +106,13 @@ EXT_LIB="a"
 EXT_OBJ="o"
 EXT_SHARED="so"
 case $(uname) in
+    MINGW*)
+        echo-ok Windows/Mingw
+        EXT_SHARED="dll"
+		IS_MINGW=1;
+        IS_WINDOWS=1;;
     CYGWIN*)
         echo-ok Windows/cygwin
-        EXT_LIB="lib"
         EXT_SHARED="dll"
         IS_WINDOWS=1;;
     Darwin*)
@@ -274,9 +278,9 @@ EOF
             echo "Your ocaml seems to be neither a 64bit or a 32bit version. Please install a native 64 bit package."
             false
     esac >&2
+    cd "$OPA_SOURCE_DIR"
     rm -rf /tmp/${DIR#/tmp/}
     trap - EXIT
-    cd "$OPA_SOURCE_DIR"
 }
 check-ocaml
 
@@ -365,8 +369,8 @@ check-c-lib () (
 
     # Now checking compile, link & run
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
-    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
+    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
 
     {
         for i in "${INCLUDES[@]}"; do echo '#include <'$i'>'; done
@@ -454,8 +458,8 @@ check-ocaml-lib () {
     fi
 
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
-    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
+    trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
 
     echo "module M = $MODULE $MORE" >check_${LIB}.ml
 
@@ -484,9 +488,9 @@ EOF
     else
         echo-ok-tag
     fi >&2
+    cd "$OPA_SOURCE_DIR"
     rm -rf /tmp/${DIR#/tmp/}
     trap - EXIT
-    cd "$OPA_SOURCE_DIR"
 }
 
 check-cmxa () {
@@ -671,11 +675,12 @@ let available = [ $TAGS_LIST]
 let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
-type os = Linux | Mac | Win32 | Cygwin | FreeBSD
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD | Mingw
 let os =
   $(if [ -n "${IS_LINUX:-}" ]; then echo Linux
     elif [ -n "${IS_MAC:-}" ]; then echo Mac
     elif [ -n "${IS_FREEBSD:-}" ]; then echo FreeBSD
+	elif [ -n "${IS_MINGW:-}" ]; then echo Mingw
     else echo 'match Sys.os_type with "Win32" -> Win32 | "Cygwin" -> Cygwin | _ -> assert false'
     fi)
 
@@ -722,8 +727,10 @@ IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"
 IS_MAC="${IS_MAC:-}"
 IS_FREEBSD="${IS_FREEBSD:-}"
+IS_MINGW="${IS_MINGW:-}"
 OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      elif [ -n "${IS_MAC:-}" ]; then echo '"Mac"'
+     #elif [ -n "${IS_MINGW:-}" ]; then echo '"Mingw"'
      elif [ -n "${IS_WINDOWS:-}" ]; then echo '"Win32"'
      elif [ -n "${IS_FREEBSD:-}" ]; then echo '"FreeBSD"'
      else echo "Error: OS inconsistency" >&2; exit 2

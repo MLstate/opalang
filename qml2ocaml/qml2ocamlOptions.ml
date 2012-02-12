@@ -45,7 +45,8 @@ struct
   let options_linker =
     ["-w a"]
     @ (if Base.is_windows then
-         ["-cclib"; "Dnsapi.lib"; "-cclib"; "libeay32.lib"; "-cclib"; "ssleay32.lib" (*; "ssl_stubs.obj" *)]
+        (* ["-cclib"; "Dnsapi.lib"; "-cclib"; "libeay32.lib"; "-cclib"; "ssleay32.lib"] *)
+         [ "-cclib"; "'-link -Wl,--stack,16777216'"]
        else [])
 
   (**
@@ -66,21 +67,7 @@ struct
      Like [server_include_dir] but the path is not absolute, but relative to MLSTATELIBS directory.
      The following directories will be prefixed by MLSTATELIBS before passing to ocaml compiler with -I
   *)
-  let server_include_mlstate_dir =
-    InstallDir.lib_opa ::
-    (
-      if Base.is_windows
-      then
-        (*
-          FIXME
-          What is the purpose of this ?
-          This will be concatenated with a Filename.concat anyway
-        *)
-        if BuildInfos.is_release
-        then ["windows_libs/openssl/lib"]
-        else ["/windows_libs/openssl/lib"]
-      else []
-    )
+  let server_include_mlstate_dir = [InstallDir.lib_opa]
 
   (**
      The list of ocaml libraries. Will be suffixed by ".cma" or ".cmxa" depending of the option --bytecode.

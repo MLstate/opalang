@@ -139,10 +139,14 @@ let generate_ocamldep_rule ml_or_mli =
     ~insert:`top (* need to be inserted before the real ocamldep rule *)
     (fun env build ->
        let ml = env "%." ^ ml_or_mli in
-       if Tags.mem "with_mlstate_debug" (tags_of_pathname ml) &&
-         Sys.command ("grep -q '#<Ifstatic:' " ^ Pathname.to_string ml) = 0
+       if Tags.mem "with_mlstate_debug" (tags_of_pathname ml)
        then
          tag_file ml ["with_static_preprocessing"];
+		 
+(*       if Tags.mem "with_mlstate_debug" (tags_of_pathname ml) &&
+         Sys.command ("grep -q '#<Ifstatic:' " ^ Pathname.to_string ml) = 0
+       then
+         tag_file ml ["with_static_preprocessing"];  *) (* TODO get back optimization *)
        fail_rule build (* failing to that ocamlbuild calls the real ocamldep rule *)
     ) in
 generate_ocamldep_rule "ml";
