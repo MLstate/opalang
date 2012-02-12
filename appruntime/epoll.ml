@@ -27,7 +27,7 @@ exception Error of error
 (* epoll descriptor *)
 type epoll_descriptor = int
 
-#<Ifstatic:MLSTATE_WINDOWS .*>
+#<Ifstatic:OS Win.*>
 let last_error_message _ = assert false
 let last_error_code _ = assert false
 let ep_create _ = assert false
@@ -110,7 +110,7 @@ let event_list_to_mask event_list =
 (* requests *)
 
 (* low level : private *)
-#<Ifstatic:MLSTATE_WINDOWS .*>
+#<Ifstatic:OS Win.*>
 let ep_add _ _ _ = assert false
 let ep_del _ _ _ = assert false
 let ep_mod _ _ _ = assert false

@@ -133,7 +133,7 @@ struct
           assert (d = O.In)
       | e -> raise e
     end
-
+(*
   let test_wait () =
     (* Nothing to wait for *)
     let a = wait () in
@@ -173,7 +173,7 @@ struct
     print "Nothing to process...";
     process_all a;
     print "Nothing to process: OK";
-
+*)
 end
 module Priority =
 struct

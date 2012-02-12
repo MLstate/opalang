@@ -120,6 +120,70 @@ let get_err_cont sched conn err_cont =
      | Timeout | _ -> ()
     ) err_cont
 
+#<Ifstatic:OS Win.*>
+let write sched conn ?block_size:(_b=32768) ?timeout buf ?(len=0) ?err_cont finalize =
+  (* block_size is ignored on Windows *)
+  #<If> L.info_conn "write" conn.addr #<End>;
+  let error = get_err_cont sched conn err_cont in
+  let buflen = if len = 0 then String.length buf else len in
+  let decide is_first =
+    if is_first then 
+	  begin
+      C.write_async_WINDOWS conn.addr buf buflen;
+      NetStats.register_send ~size:buflen ~conn:conn.addr sched.stats;
+	  Job.Execute ()
+	  end
+    else Job.Finalize buflen
+  in
+  let execute () = false in (* directly finalize *)
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    ~force_polling:true
+    (NA.get_fd conn.addr)
+    K.Operation.Out
+    timeout
+    decide
+    execute
+    error
+    finalize
+    true
+  in
+  ()
+
+let write_to sched conn addr ?block_size:(_b=4096) ?timeout buf ?err_cont finalize =
+  (* block_size is ignored on Windows *)
+  #<If> L.info_conn "write_to" conn.addr #<End>;
+  let error = get_err_cont sched conn err_cont in
+  let buflen = String.length buf in
+  let decide is_first =
+    if is_first then 
+	  begin
+      C.write_to_async_WINDOWS conn.addr addr buf buflen;
+      NetStats.register_send ~size:buflen ~conn:conn.addr sched.stats;
+	  Job.Execute ()
+	  end
+    else Job.Finalize buflen
+  in
+  let execute () = false in (* directly finalize *)
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.Out
+    timeout
+    decide
+    execute
+    error
+    finalize
+    true
+  in
+  ()
+#<Else>
 let write sched conn ?(block_size=32768) ?timeout buf ?(len=0) ?err_cont finalize =
   #<If> L.info_conn "write" conn.addr #<End>;
   let error = get_err_cont sched conn err_cont in
@@ -196,8 +260,9 @@ let write_to sched conn addr ?(block_size=4096) ?timeout buf ?err_cont finalize 
     (-1, 0)
   in
   ()
+#<End>
 
-let read_more sched conn ?read_max ?(block_size=32768) ?timeout buf ?(size_max=(-1)) ?err_cont finalize =
+(* let read_more sched conn ?read_max ?(block_size=32768) ?timeout buf ?(size_max=(-1)) ?err_cont finalize =
   (* TODO: read_max and size_max (windows) unused *)
   #<If> L.info_conn "read_more" conn.addr #<End>;
   let _ = read_max in
@@ -233,8 +298,130 @@ let read_more sched conn ?read_max ?(block_size=32768) ?timeout buf ?(size_max=(
     finalize
     (-1, buf)
   in
+  () *)
+
+#<Ifstatic:OS Win.*>
+let read_content sched conn ?read_max ?(block_size=32768) ?timeout content ?(size_max=(-1)) ?err_cont finalize =
+  (* TODO: read_max and size_max (windows) unused *)
+  #<If> L.info_conn "read_content" conn.addr #<End>;
+  let _ = read_max in
+  let _ = size_max in
+  let decide (nb_read, content) =
+    if nb_read = -1 then begin C.read_async_WINDOWS ~to_read:block_size conn.addr; Job.Execute content end
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, content)
+  in
+  let execute content =
+    let nread, content =
+      C.read_content_buffer_WINDOWS conn.addr content in
+	  if (nread > 0) then
+	    NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, content
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (-1, content)
+  in
   ()
 
+let read_more2 sched conn ?read_max ?timeout buf ?(size_max=(-1)) ?err_cont finalize =
+  (* TODO: read_max and size_max (windows) unused *)
+  #<If> L.info_conn "read_more2" conn.addr #<End>;
+  let _ = read_max in
+  let _ = size_max in
+  (* Logger.error "scheduler:read_more2 fd=%d" (Iocp.int_of_filedescr (NA.get_fd conn.addr)); *)
+  let decide (nb_read, buf) =
+    (* Logger.error "scheduler:read decide (nb_read=%d)" nb_read; *)
+    if nb_read = -1 then begin 
+	  try
+	    C.read_async_WINDOWS conn.addr; Job.Execute buf
+      with
+	  | Unix.Unix_error((Unix.ECONNABORTED | Unix.ECONNRESET | Unix.EPIPE), _, _) -> Job.Error Connection_closed (* Job.Finalize (nb_read, buf) *)
+	  | e -> raise e
+	  end
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, buf)
+  in
+  let execute buf =
+    (* Logger.error "scheduler:read execute()"; *)
+    let nread, buf =
+      C.read_more2_buffer_WINDOWS conn.addr buf in
+	  if (nread > 0) then
+	    NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, buf
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (-1, buf)
+  in
+  ()
+ 
+let read_more4 sched conn ?read_max ?timeout buf ?(size_max=(-1)) ?err_cont finalize =
+  (* TODO: read_max and size_max (windows) unused *)
+  #<If> L.info_conn "read_more2" conn.addr #<End>;
+  let _ = read_max in
+  let _ = size_max in
+  (* Logger.error "scheduler:read_more2 fd=%d" (Iocp.int_of_filedescr (NA.get_fd conn.addr)); *)
+  let decide (nb_read, buf) =
+    (* Logger.error "scheduler:read decide (nb_read=%d)" nb_read; *)
+    if nb_read = -1 then begin 
+	  try
+	    C.read_async_WINDOWS conn.addr; Job.Execute buf
+      with
+	  | Unix.Unix_error((Unix.ECONNABORTED | Unix.ECONNRESET | Unix.EPIPE), _, _) -> Job.Error Connection_closed (* Job.Finalize (nb_read, buf) *)
+	  | e -> raise e
+	  end
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, buf)
+  in
+  let execute buf =
+    (* Logger.error "scheduler:read execute()"; *)
+    let nread, buf =
+      C.read_more4_buffer_WINDOWS conn.addr buf in
+	  if (nread > 0) then
+	    NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, buf
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (-1, buf)
+  in
+  ()
+
+#<Else>
 let read_content sched conn ?read_max ?(block_size=32768) ?timeout content ?(size_max=(-1)) ?err_cont finalize =
   (* TODO: read_max and size_max (windows) unused *)
   #<If> L.info_conn "read_content" conn.addr #<End>;
@@ -348,7 +535,77 @@ let read_more4 sched conn ?read_max ?timeout buf ?(size_max=(-1)) ?err_cont fina
     (-1, buf)
   in
   ()
+#<End>
 
+#<Ifstatic:OS Win.*>
+let read sched conn ?timeout ?err_cont finalize =
+  #<If> L.info_conn "read" conn.addr #<End>;
+  let decide (nb_read, str) =
+    if nb_read = -1 then begin 
+	  try
+	    C.read_async_WINDOWS conn.addr; Job.Execute ()
+      with
+	  | Unix.Unix_error((Unix.ECONNABORTED | Unix.ECONNRESET | Unix.EPIPE), _, _) -> Job.Error Connection_closed (* Job.Finalize (nb_read, buf) *)
+	  | e -> raise e
+	  end
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, str)
+  in
+  let execute () =
+    let nread, buf =
+      C.read_buffer_WINDOWS conn.addr in
+	  if (nread > 0) then
+	    NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, buf
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (-1, "")
+  in
+  ()
+
+let read_from sched conn ?timeout ?err_cont finalize =
+  #<If> L.info_conn "read_from" conn.addr #<End>;
+  let no_result = (-1, Unix.ADDR_UNIX "[no source]", "") (* FIXME: what should be the non-existant value for the address? *) in
+  let decide (nb_read, addr, str) =
+    if nb_read = -1 then begin C.read_async_WINDOWS conn.addr; Job.Execute () end
+    else if nb_read = 0 then Job.Error Connection_closed
+    else Job.Finalize (nb_read, addr, str)
+  in
+  let execute () =
+    let nread, addr, buf = C.read_from_buffer_WINDOWS conn.addr in
+	  if (nread > 0) then
+	    NetStats.register_recv ~size:nread ~conn:conn.addr sched.stats;
+      nread, addr, buf
+  in
+  let error = get_err_cont sched conn err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    no_result
+  in
+  ()
+#<Else>
 let read sched conn ?timeout ?err_cont finalize =
   #<If> L.info_conn "read" conn.addr #<End>;
   let decide (nb_read, str) =
@@ -418,8 +675,9 @@ let read_from sched conn ?timeout ?err_cont finalize =
     no_result
   in
   ()
-
-let read_until sched conn read_cond ?(block_size=32768) ?timeout ?err_cont finalize =
+#<End>
+  
+(* let read_until sched conn read_cond ?(block_size=32768) ?timeout ?err_cont finalize =
   #<If> L.info_conn "read_until" conn.addr #<End>;
   let rec aux_more (_, buff) =
     let nb_read = FBuffer.length buff in
@@ -438,21 +696,68 @@ let read_until sched conn read_cond ?(block_size=32768) ?timeout ?err_cont final
       read_more sched conn ?timeout ~block_size ?err_cont buff aux_more
     end
   in
-  read sched conn ?timeout ?err_cont aux
+  read sched conn ?timeout ?err_cont aux *)
 
-let read_min sched conn read_min  =
+(* let read_min sched conn read_min  =
   #<If> L.info_conn "read_min" conn.addr #<End>;
   let read_cond (nb_read, _) = nb_read >= read_min in
-  read_until sched conn read_cond
+  read_until sched conn read_cond *)
 
-let read_lines sched conn =
+(* let read_lines sched conn =
   #<If> L.info_conn "read_lines" conn.addr #<End>;
   let read_cond (_, str) =
     let l = String.length str in
     str.[l - 2] = '\r' && str.[l - 1] = '\n'
   in
-  read_until sched conn read_cond
+  read_until sched conn read_cond *)
 
+#<Ifstatic:OS Win.*>
+let read_all sched conn ?(read_max=Some max_int) ?(block_size=32768) ?timeout ?(buf=FBuffer.make 0) ?(size_max=(-1)) ?err_cont finalize =
+  let decide (nb_read, nb_part_read, buf) =
+    #<If> L.info_conn "read_all" conn.addr #<End>;
+    let to_read = min block_size (Option.default max_int read_max - nb_read) in
+    let buf_len = FBuffer.length buf in
+    if size_max > 0 && buf_len > size_max then
+      raise LimitExceeded
+    else
+      if (nb_part_read = -1)
+        || (read_max <> None && nb_part_read > 0 && nb_read < Option.default max_int read_max)
+      then begin
+	    (* start reading *)
+        #<If> L.info_conn "read_all" ~s:(Printf.sprintf "%d" nb_read) conn.addr #<End>;
+		C.read_async_WINDOWS ~to_read conn.addr; 
+        Job.Execute (nb_read, to_read, buf)
+      end else begin
+        #<If> L.info_conn "read_all" ~s:"finalize" conn.addr #<End>;
+        Job.Finalize (nb_read, buf)
+      end
+  in
+  let execute (nb_read_before, _to_read, buf) =
+    let (nb_read, buf) = C.read_more_buffer_WINDOWS conn.addr buf in
+    NetStats.register_recv ~size:nb_read ~conn:conn.addr sched.stats;
+    nb_read_before + nb_read, nb_read, buf
+  in
+  let finalize v =
+    finalize v;
+    remove_connection sched conn
+  in
+  let error = Option.default (fun _ -> ()) err_cont in
+  let _ =
+  Job.make
+    sched.operation
+    sched.priority
+    sched.counter
+    (NA.get_fd conn.addr)
+    K.Operation.In
+    timeout
+    decide
+    execute
+    error
+    finalize
+    (0, -1, buf)
+  in
+  ()
+#<Else>
 let read_all sched conn ?(read_max=Some max_int) ?(block_size=32768) ?timeout ?(buf=FBuffer.make 0) ?(size_max=(-1)) ?err_cont finalize =
   let decide (nb_read, nb_part_read, buf) =
     #<If> L.info_conn "read_all" conn.addr #<End>;
@@ -501,7 +806,8 @@ let read_all sched conn ?(read_max=Some max_int) ?(block_size=32768) ?timeout ?(
     (0, -1, buf)
   in
   ()
-
+#<End>
+  
 let listen sched conn ?timeout ?err_cont execute =
   #<If> L.info_conn "listen" conn.addr #<End>;
   let decide () = Job.Execute () in
@@ -547,7 +853,7 @@ let poll direction _label sched conn ?timeout ?err_cont finalize =
     true
   in
   ()
-
+  
 let listen_once = poll K.Operation.In "listen_once"
 let connect = poll K.Operation.Out "connect"
 
@@ -602,6 +908,13 @@ let abort sched key =
     K.Operation.remove sched.operation key
   end
 
+(* FIXME change IOCP event code into SchedulerKer direction *)
+let kop_of_event event =
+  match event
+  with Iocp.Read  -> K.Operation.In
+  |    Iocp.Write -> K.Operation.Out
+  |    _          -> K.Operation.In
+
 let do_wait sched ~block =
 
   if not (K.Finalise.is_empty sched.finalise) then begin
@@ -627,7 +940,6 @@ let do_wait sched ~block =
     #<If> L.info "priority" ~s:(Printf.sprintf "%d ms" tout) #<End>;
     let ids = K.Operation.wait sched.operation tout in
     #<If> L.info "operation" ~s:(Printf.sprintf "%d event(s)" (Array.length ids)) #<End>;
-
     let errors = K.Operation.process_all sched.operation ids in
     let nb_errors = List.length errors in
     if nb_errors != 0 then begin

@@ -11,6 +11,7 @@ true: warn_A, warn_e, warn_error_A
 
 <http_common.ml>: use_buildinfos
 <httpServerCore.ml>: use_buildinfos
+<network.ml>: with_mlstate_debug
 
 <http*.ml>: with_mlstate_debug
 <hlnet.*>: with_mlstate_debug

@@ -22,10 +22,7 @@
 #include <caml/alloc.h>
 #include <caml/fail.h>
 
-
-#include "../../libbase/mlstate_platform.h"
-
-#ifdef MLSTATE_WINDOWS
+#ifdef WIN32
 
 #include <Windows.h>
 #include <Windns.h>

@@ -67,6 +67,19 @@ let write conn ?(pos=0) buf len =
       | `Ssl s -> Ssl.write s buf pos len
    ) 0
 
+let write_async_WINDOWS conn buf len =
+  match NA.get_type_and_fd conn with
+    | `File _fd -> assert false (* Unix.write fd buf pos len *)
+    | `Tcp fd -> Iocp.async_write fd buf len
+    | `Udp _fd -> assert false (* Unix.sendto fd buf pos len [] (Unix.getpeername fd) *)
+    | `Ssl _s -> assert false (* Ssl.write s buf pos len *)
+
+let write_status_WINDOWS conn =
+  let buf = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length buf in
+  if nread = 0 then -1
+  else nread
+
 (* FIXME, should that really only work for UDP sockets? *)
 let write_to conn addr ?(pos=0) buf len =
   nonblocking_try (
@@ -75,6 +88,11 @@ let write_to conn addr ?(pos=0) buf len =
       | `Udp fd -> Unix.sendto fd buf pos len [] addr
       | _ -> failwith "[Connection] write_to used on a non-UDP socket"
    ) 0
+
+let write_to_async_WINDOWS conn addr buf len =
+  match NA.get_type_and_fd conn with
+  | `Udp fd -> Iocp.async_write_to fd buf len addr
+  | _ -> failwith "[Connection] write_to used on a non-UDP socket"
 
 let read_aux conn tmp to_read : int * Unix.sockaddr option =
   let no_addr res = res, None in
@@ -124,29 +142,61 @@ let read conn =
   let nread, _ = read_aux conn read_buff read_buff_length in
   nread, (String.sub read_buff 0 nread)
 
-let _ =
-    MP.on_windows Iocp.async_init;
+let read_async_WINDOWS ?(to_read=read_buff_length) conn =
+  (* Logger.error "read_async_WINDOWS(%d)" (Iocp.int_of_filedescr (NA.get_fd conn)); *)
+  Iocp.async_read (NA.get_fd conn) to_read
+
+let read_from_buffer_WINDOWS conn =
+  let tmp = Iocp.get_last_buffer (NA.get_fd conn) in
+  let addr = Iocp.get_last_addr (NA.get_fd conn) in
+  let nread = String.length tmp in
+  nread, addr, tmp
+
+let read_content_buffer_WINDOWS conn content =
+  let tmp = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length tmp in
+  let content = Rcontent.content_add tmp content in
+  nread, content
+
+let read_more_buffer_WINDOWS conn buf =
+  let tmp = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length tmp in
+  let buf = FBuffer.add_substring buf tmp 0 nread in
+  nread, buf
+  
+let read_buffer_WINDOWS conn =
+  (* Logger.error "read_buffer_WINDOWS(%d)" (Iocp.int_of_filedescr (NA.get_fd conn)); *)
+  let buf = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length buf in
+  (* Logger.error "read_buffer_WINDOWS nread=%d" nread; *)
+  nread, buf
+
+let read_more2_buffer_WINDOWS conn buf_in =
+  let buf = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length buf in
+  let () = Buffer.add_substring buf_in buf 0 nread in
+  nread, buf_in
+
+let read_more4_buffer_WINDOWS conn buf_in =
+  let buf = Iocp.get_last_buffer (NA.get_fd conn) in
+  let nread = String.length buf in
+  let () = Buf.add_substring buf_in buf 0 nread in
+  nread, buf_in
 
 exception PermissionDenied
 exception UnixError
 
+#<Ifstatic:OS Win.*>
 (* Private function *)
 let make_socket ?(socket_flags=([] : Unix.socket_bool_option list)) socket_type =
   let sock =
     match socket_type with
-    | TCP ->
-        MP.platform_dependent
-          ~unix:   (fun()-> Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0)
-          ~windows:(fun()-> Iocp.socket())
-          () ()
-    | UDP ->
-        MP.platform_dependent
-          ~unix:   (fun()-> Unix.socket Unix.PF_INET Unix.SOCK_DGRAM 0)
-          ~windows:(fun()-> assert false)
-          () ()
+    | TCP -> Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0
+    | UDP -> Unix.socket Unix.PF_INET Unix.SOCK_DGRAM 0
   in
   Unix.set_nonblock sock;
   List.iter (fun opt -> Unix.setsockopt sock opt true)  socket_flags;
+  Iocp.associate_iocp sock;		(* it is vital to associate the newly created socket to the iocp port *)
   sock
 
 let accept sock =
@@ -168,6 +218,50 @@ let connect ?(socket_type = TCP) ?socket_flags addr =
   let sock = make_socket ?socket_flags socket_type in
   try
     begin
+      try Iocp.async_connect sock addr
+        (* Use iocp to be warned when connect is finished *)
+      with Unix.Unix_error (Unix.EINPROGRESS, _, _) -> ()
+    end;
+    sock
+  with
+  | Unix.Unix_error(e, fct, arg) as exn ->
+      Logger.error "Unix error opening connection: %s for %s %s" (Unix.error_message e) fct arg;
+      raise exn
+  | e ->
+      Logger.error "Fatal error opening connection. Closing socket...";
+      Unix.close sock ;
+      raise e
+#<Else>
+(* Private function *)
+let make_socket ?(socket_flags=([] : Unix.socket_bool_option list)) socket_type =
+  let sock =
+    match socket_type with
+    | TCP -> Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0
+    | UDP -> Unix.socket Unix.PF_INET Unix.SOCK_DGRAM 0
+  in
+  Unix.set_nonblock sock;
+  List.iter (fun opt -> Unix.setsockopt sock opt true)  socket_flags;
+  sock
+
+let accept sock =
+  try
+    let (sd, sa) = Unix.accept sock in
+    match sa with
+    | Unix.ADDR_INET (host, _) ->
+        Unix.set_nonblock sd;
+        sd, host
+    | _ ->
+        Logger.error "Connection refused (unknown client)";
+        (try Unix.close sd with Unix.Unix_error _ -> ()); raise Error
+  with
+    Unix.Unix_error _ as e ->
+      Logger.error "Impossible to accept connection: (%s)" (Printexc.to_string e);
+      raise Error
+  
+let connect ?(socket_type = TCP) ?socket_flags addr =
+  let sock = make_socket ?socket_flags socket_type in
+  try
+    begin
       try Unix.connect sock addr
         (* Use epoll to be warned when connect is finished *)
       with Unix.Unix_error (Unix.EINPROGRESS, _, _) -> ()
@@ -181,6 +275,8 @@ let connect ?(socket_type = TCP) ?socket_flags addr =
       Logger.error "Fatal error opening connection. Closing socket...";
       Unix.close sock ;
       raise e
+#<End>
+
 
 let listen ?(socket_type = TCP) ?socket_flags addr =
   let sock = make_socket ?socket_flags socket_type in
@@ -207,6 +303,7 @@ let listen ?(socket_type = TCP) ?socket_flags addr =
   | TCP -> Unix.listen sock Const.unix_max_pending_requests
   | UDP -> () (* we don't call listen for UDP, binding the socket is enough *)
   end;
+  (* Logger.error("connection:listen() ok"); *)
   sock
 
 (* ============================== *)
