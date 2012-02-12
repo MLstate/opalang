@@ -67,6 +67,7 @@ let write conn ?(pos=0) buf len =
       | `Ssl s -> Ssl.write s buf pos len
    ) 0
 
+#<Ifstatic:OS Win.*>
 let write_async_WINDOWS conn buf len =
   match NA.get_type_and_fd conn with
     | `File _fd -> assert false (* Unix.write fd buf pos len *)
@@ -80,6 +81,12 @@ let write_status_WINDOWS conn =
   if nread = 0 then -1
   else nread
 
+  let write_to_async_WINDOWS conn addr buf len =
+  match NA.get_type_and_fd conn with
+  | `Udp fd -> Iocp.async_write_to fd buf len addr
+  | _ -> failwith "[Connection] write_to used on a non-UDP socket"
+#<End>
+
 (* FIXME, should that really only work for UDP sockets? *)
 let write_to conn addr ?(pos=0) buf len =
   nonblocking_try (
@@ -88,11 +95,6 @@ let write_to conn addr ?(pos=0) buf len =
       | `Udp fd -> Unix.sendto fd buf pos len [] addr
       | _ -> failwith "[Connection] write_to used on a non-UDP socket"
    ) 0
-
-let write_to_async_WINDOWS conn addr buf len =
-  match NA.get_type_and_fd conn with
-  | `Udp fd -> Iocp.async_write_to fd buf len addr
-  | _ -> failwith "[Connection] write_to used on a non-UDP socket"
 
 let read_aux conn tmp to_read : int * Unix.sockaddr option =
   let no_addr res = res, None in
@@ -142,6 +144,7 @@ let read conn =
   let nread, _ = read_aux conn read_buff read_buff_length in
   nread, (String.sub read_buff 0 nread)
 
+#<Ifstatic:OS Win.*>
 let read_async_WINDOWS ?(to_read=read_buff_length) conn =
   (* Logger.error "read_async_WINDOWS(%d)" (Iocp.int_of_filedescr (NA.get_fd conn)); *)
   Iocp.async_read (NA.get_fd conn) to_read
@@ -182,6 +185,7 @@ let read_more4_buffer_WINDOWS conn buf_in =
   let nread = String.length buf in
   let () = Buf.add_substring buf_in buf 0 nread in
   nread, buf_in
+#<End>
 
 exception PermissionDenied
 exception UnixError
