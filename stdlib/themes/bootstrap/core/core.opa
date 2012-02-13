@@ -584,10 +584,12 @@ _ = Client_code.register_css_declaration([icon16,icon32])
 
 @private
 compute_version_url(v:string) =
-  // Old URL
-  if String.le(v, "1.2.0") then "http://twitter.github.com/bootstrap/assets/css/bootstrap-{v}.min.css"
-  // New URL
-  else "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
+  if String.le(v, "1.2.0") then
+    "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
+  else if String.le(v, "1.4.0") then
+    "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
+  else
+    "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
 @private
 version = ServerReference.create("1.1.1") : reference(string)
