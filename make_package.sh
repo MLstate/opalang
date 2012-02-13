@@ -7,9 +7,9 @@ set -u
 INSTALLDIR=$PWD/release_install_root
 
 # VERSION_MAJOR must be a version number, not text !!
-VERSION_MAJOR=1.0
+VERSION_MAJOR=$(cat buildinfos/version_major.txt)
 # VERSION_NAME shall be a string of alphanumeric characters or . + ~ (Debian guidelines)
-VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version.txt)
+VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version_name.txt)
 VERSION_BUILD=build
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number

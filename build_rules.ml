@@ -205,7 +205,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
 
 (* TODO: probably same bugs than mlstate_platform *)
 let generate_buildinfos = "buildinfos/generate_buildinfos.sh" in
-let version_buildinfos = "buildinfos/version.txt" in
+let version_buildinfos = "buildinfos/version_major.txt" in
 let pre_buildinfos = "buildinfos/buildInfos.ml.pre" in
 let post_buildinfos = "buildinfos/buildInfos.ml.post" in
 let buildinfos = "buildinfos/buildInfos.ml" in
