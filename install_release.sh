@@ -9,7 +9,7 @@ set -u
 PREFIX=/usr
 INSTALLDIR=$PWD/release_install_root
 
-NODOC="false"
+NODOC="true"
 NOMAN="false"
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
@@ -222,12 +222,12 @@ mkdir -p $INSTALLDIR/share/doc/opa/
 
 # generating the book
 if [ $NODOC = "false" ]; then
-    make opadoc/doc install-doc
-    if ! make book-clean book; then
-        msg "Error: could not build the doc in $OPABOOK."
-        msg "You may want to fix and re-run with -keep-install-sys -keep-build"
-        exit 1
-    fi
+#    make opadoc/doc install-doc
+#    if ! make book-clean book; then
+#        msg "Error: could not build the doc in $OPABOOK."
+#        msg "You may want to fix and re-run with -keep-install-sys -keep-build"
+#        exit 1
+#    fi
 fi
 # installing the book
 if [ $NODOC = "false" ] && [ -z "$IS_WINDOWS" ]; then
