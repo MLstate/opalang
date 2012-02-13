@@ -135,7 +135,6 @@ let parse () =
    pplib specification
 *)
 let pplib_spec = [
-  "OPA_VERSION", "S3" ;
   "OPA_CPS", "" ;
   "OPA_BADOP", "1" ;
 ]

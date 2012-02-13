@@ -349,7 +349,6 @@ let register_fields options =
 let pass_Welcome =
   PassHandler.make_pass
     (fun {PH.env=()} ->
-       Unix.putenv "OPA_VERSION" "S3"; (* this is a hack, probably deprecated (FIXME:remove) *)
        OpaEnv.Options.parse_options ();
        let options = OpaEnv.Options.get_options () in
        OManager.verbose "OPA version %s" BuildInfos.opa_version_name ;
@@ -407,8 +406,6 @@ let pass_PreProcess =
        let (files, ufiles) = e.PH.env in
        let ppenv =
          Pprocess.fill_with_sysenv Pprocess.empty_env in
-       let ppenv =
-         Pprocess.add_env "OPA_VERSION" "S3" ppenv in
        let ppenv =
          OpaEnv.Options.to_ppenv e.PH.options ppenv in
        let ppopt = Pprocess.default_options ppenv in

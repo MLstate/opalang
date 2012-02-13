@@ -38,7 +38,6 @@ let () =
   let code = ref 0 in
   let printer = if !show_pos then OpaPrint.string_and_pos else OpaPrint.string in
   let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
-  let ppenv = Pprocess.add_env "OPA_VERSION" "S3" ppenv in
   let ppopt = Pprocess.default_options ppenv in
   let process = (Pprocess.process Pplang.opa_description ppopt) in
   List.iter
