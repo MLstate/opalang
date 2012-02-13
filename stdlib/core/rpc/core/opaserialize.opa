@@ -876,7 +876,7 @@ OpaSerializeClosure = {{
 
   }}
 
-}} /* disabled for S3: : OpaValue.interface */
+}} /* disabled : OpaValue.interface */
 
 /**
   * Deprecated, [un]serialize

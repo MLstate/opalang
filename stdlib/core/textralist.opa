@@ -51,7 +51,7 @@
 
 type textralist = list(textavl)
 
-/* disabled for S3:
+/* disabled :
 type Textralist('a,'b,'c,'d) =
 {{
   Internal_module : Textavl('a,'b,'c,'d)
@@ -505,7 +505,7 @@ rstart(l) =
   | [_|_] ->
       rstart_aux(l, [], Textavl.empty)
 
-}} /* disabled for S3: : Textralist */
+}} /* disabled for : Textralist */
 
 /*
 ** Ascii_textralist : RA lists of Ascii-nodes AVLs.

@@ -60,7 +60,7 @@ var LowLevelPingLoop = {};
     }
     /**
      * Set the page number of this client ([page_server] is inserted by
-     * the server on S3)
+     * the server)
      */
     var page_index = -1;
     if (typeof(page_server) != 'undefined') {

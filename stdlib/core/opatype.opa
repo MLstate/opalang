@@ -165,7 +165,7 @@ OpaTsc = {{
 /**
  * {1 Interface for module OpaType}
  */
-/* disabled for S3:
+/* disabled until module type specialisation on coercion works:
 type OpaType.interface = {{
   /* 1 - String representation */
   to_string : OpaType.ty -> string
@@ -502,7 +502,7 @@ OpaType = {{
     | {TySum_col = fieldss2} ->
       {TySum_col = merge_fieldss(fieldss1,fieldss2)}
 
-}} /* disabled for S3: : OpaType.interface */
+}} /* disabled : OpaType.interface */
 
 @opacapi OpaType_instantiate_row = OpaType.instantiate_row
 @opacapi OpaType_instantiate_col = OpaType.instantiate_col

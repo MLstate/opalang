@@ -415,10 +415,10 @@ unfold = for
 /**
  *
  * Short cut operators : &&,  ||
+ * They have usual lazy usual semantics on first-order call.
  *
  */
 
-/* They are implemented as macro in S3 (see the @expand) */
 @expand
 `&&`(a,b) =
   if a then b

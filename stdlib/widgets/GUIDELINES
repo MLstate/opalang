@@ -43,7 +43,7 @@ The creation of the initial xhtml must be feasible on both sides.
 Once they are installed (unless they are provided with server-only functions) widgets should be entirely run on the client-side.
 
 Default configurations must be available on both sides and the functions that they contain must be serializable.
-=> In current version of OPA S3, this means that the functions must be defined at top-level and themselves available on both sides.
+=> This means that the functions must be defined at top-level and themselves available on both sides or that they should be obtained with @public_env.
 
 CAUTION: Please ensure these properties by testing your widget, e.g. by deconnecting the server after the page is loaded. For maximum coverability, test examples must generate the xhtml on the server's side. OPA experts may also use the compiler option +--dump-slicer+.
 

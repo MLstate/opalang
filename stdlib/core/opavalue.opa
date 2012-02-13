@@ -36,7 +36,7 @@
 /**
  * {1 Interface for module OpaValue}
  */
-/* disabled for S3:
+/* disabled :
 type OpaValue.interface = {{
   /* Some magic functions */
   typeof : 'a -> OpaType.ty

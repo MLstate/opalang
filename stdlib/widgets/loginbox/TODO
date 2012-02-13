@@ -5,7 +5,7 @@ asciidoc format: use 'asciidoc TODO' to compile into HTML (or not)
 ////////////////////
 
 .Next tasks
-- Make html(..) efficiently sliceable on both sides in OPA S3 (lambda-lift the local functions so that they are server-side)
+- Make html(..) efficiently sliceable on both sides in OPA (lambda-lift the local functions so that they are server-side or public_env them)
 
 .Short term
 - Make the login box actually look like a box (ask for the design)

@@ -37,7 +37,7 @@
  * {1 What if I need more?}
  */
 
-/* disabled for S3:
+/* disabled
 type OpaRPC.interface = {{
   /* Unserialize */
   unserialize : string -> option(OpaRPC.request)
@@ -189,7 +189,7 @@ type OpaRPC.interface = {{
       {List=[{List=types},{List=rows},{List=cols},{List=List.rev(request.values)}]} : RPC.Json.json
     )
 
-}} /* disabled for S3: : OpaRPC.interface */
+}} /* disabled : OpaRPC.interface */
 
 
 
