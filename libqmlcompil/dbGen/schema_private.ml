@@ -1142,7 +1142,9 @@ let preprocess_kind ~context gamma kind ty virtual_ =
         match ty with
         | Q.TypeName ([param], name) when Q.TypeIdent.to_string name = "list" ->
             coerce e param
-        | _ -> assert false
+        | _ ->
+            QmlError.error context "You use a database update operator which performs on 'list', but you used it on a path of '%a'"
+              QmlPrint.pp#ty  ty
       in
       let rec update (ty:QmlAst.ty) u =
         let error fmt0 fmt =
