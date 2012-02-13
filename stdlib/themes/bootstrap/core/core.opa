@@ -582,25 +582,26 @@ icon32 = css
 
 _ = Client_code.register_css_declaration([icon16,icon32])
 
-@private
-compute_version_url(v:string) =
-  if String.le(v, "1.2.0") then
-    "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
-  else if String.le(v, "1.4.0") then
-    "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
-  else
-    "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
-
-@private
-version = ServerReference.create("1.4.0") : reference(string)
-
 Bootstrap = {{
+
+  version = ServerReference.create("1.4.0") : reference(string)
+
+  compute_version_url(v:string) =
+    if String.le(v, "1.2.0") then
+      "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
+    else if String.le(v, "1.4.0") then
+      "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
+    else
+      "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
+
   unimport() =
     Resource.unregister_external_css(compute_version_url(Reference.get(version)))
+
   import(v:string) =
     // unregister the previous registered version
     do unimport()
     // set and register the new version to import
     do Reference.set(version, v)
     Resource.register_external_css(compute_version_url(v))
+
 }}
