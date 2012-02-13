@@ -220,6 +220,7 @@ make clean $TARGETS install
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
 
+make packages-api
 # generating the book
 # if [ $NODOC = "false" ]; then
 #    make opadoc/doc install-doc
