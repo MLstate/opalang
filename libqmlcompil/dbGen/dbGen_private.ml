@@ -1893,7 +1893,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     | `virtualset (_, wty, true, record) ->
         let record = match record with
         | Some record -> record
-        | None -> assert false
+        | None ->
+            QmlError.error context
+              "This kind of dbset access is not yet implemented by Db3"
         in
         make_virtualset_partialpath db_def.Schema_private.schema dbinfo gamma node path kind wty record
     | `virtualpath (ident, rty, wty) ->

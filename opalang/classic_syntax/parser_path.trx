@@ -99,10 +99,10 @@ update_list <-
     {{ QmlAst.Db.UAppend e }}
   / (=Opa_lexer.exact_symbol("<++")) spacing Opa_parser.expr:e
     {{ QmlAst.Db.UAppendAll e }}
-  / (=Opa_lexer.exact_symbol("+>")) spacing Opa_parser.expr:e
+(*  / (=Opa_lexer.exact_symbol("+>")) spacing Opa_parser.expr:e
     {{ QmlAst.Db.UPrepend e }}
   / (=Opa_lexer.exact_symbol("++>")) spacing Opa_parser.expr:e
-    {{ QmlAst.Db.UPrependAll e }}
+    {{ QmlAst.Db.UPrependAll e }} *)
   / (=Opa_lexer.exact_ident("pop")) {{ QmlAst.Db.UPop }}
   / (=Opa_lexer.exact_ident("shift")) {{ QmlAst.Db.UShift }}
 
