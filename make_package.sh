@@ -278,7 +278,7 @@ fi
 #############################
 
 if [ "$DEB" = "true" ]; then
-    MAINTAINER="Louis Gesbert <louis.gesbert@mlstate.com>"
+    MAINTAINER="package.maintainer@opalang.org"
     PREFIX=/usr
     WORKDIR=$(mktemp -d /tmp/mkdeb.XXXXX)
     cd $WORKDIR
@@ -311,7 +311,7 @@ EOF
 
     mkdir -p $DEBROOT$PREFIX/share/lintian/overrides
     cat > $DEBROOT$PREFIX/share/lintian/overrides/opa <<EOF
-# The package itself is in AGPL, but includes other software and lists their licenses
+# The package itself is in AGPL & APACHE, but includes other software and lists their licenses
 # in the copyright file
 opa binary: copyright-should-refer-to-common-license-file-for-lgpl
 EOF
