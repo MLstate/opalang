@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -229,6 +229,15 @@ let anon_fun opafile =
 
 (** {6 Main} *)
 
+
+let with_classic_syntax f =
+  let opa_parser = (!OpaSyntax.Args.r).OpaSyntax.Args.parser in
+  (* the libs of opatop are still in classic syntax *)
+  OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser=OpaSyntax.Classic};
+  let v = f () in
+  OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser=opa_parser};
+  v
+
 (**
    The main of the console tool.
 *)
@@ -243,7 +252,8 @@ let main () =
   P.dump_set !dump_stdlib;
   (* init *)
   let env =
-    if !do_init then (
+    (* the libs of opatop are still in classic syntax *)
+    if !do_init then with_classic_syntax (fun () ->
       let loaders = Option.default [] (BslPluginTable.last_finalize ()) in
       let fold env loader =
         let fold env (filename, contents) =
