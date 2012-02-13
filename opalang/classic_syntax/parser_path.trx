@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,7 +61,7 @@ path_update <-
     {{
        DBPath (pa, QmlAst.Db.Update u)
     }}
-  / '@'? slash_nosp path:pa Opa_lexer.larrow Opa_parser.expr:e
+  / '@'? slash_nosp path:pa (Opa_lexer.larrow|Opa_lexer.equal) Opa_parser.expr:e
     {{
        DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
     }}
