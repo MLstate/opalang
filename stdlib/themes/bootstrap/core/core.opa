@@ -592,7 +592,7 @@ compute_version_url(v:string) =
     "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
 @private
-version = ServerReference.create("1.1.1") : reference(string)
+version = ServerReference.create("1.4.0") : reference(string)
 
 Bootstrap = {{
   unimport() =
