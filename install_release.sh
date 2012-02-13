@@ -267,6 +267,7 @@ install -m 0644 -v $SRCDIR/copyright/copyright $INSTALLDIR/share/doc/opa/
 } > $INSTALLDIR/share/doc/opa/other_licenses
 chmod 644 $INSTALLDIR/share/doc/opa/other_licenses
 install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/AGPL
+install -m 0644 -v $SRCDIR/RUNTIME_LICENSE $INSTALLDIR/share/doc/opa/APACHE
 
 # Cleaning up:
 msg Removing unneeded ocaml executables

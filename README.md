@@ -73,6 +73,9 @@ files are put in `_build`, following the same hierarchy as the source directory.
 OPA is Copyright 2011, MLstate; it is distributed under the terms of the GNU
 Affero General Public License, version 3. See file LICENSE for details.
 
+The run-time libraries and standard library (stdlib) are distributed under
+the terms of the Apache License, version 2. See file RUNTIME_LICENSE for details.
+
 The repository opalang is currently versioning 2 external tools in tools/
 used only during the build process of Opa :
 

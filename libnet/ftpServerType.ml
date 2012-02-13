@@ -3,17 +3,17 @@
 
     This file is part of OPA.
 
-    OPA is free software: you can redistribute it and/or modify it under the
-    terms of the GNU Affero General Public License, version 3, as published by
-    the Free Software Foundation.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
-    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
-    more details.
+       http://www.apache.org/licenses/LICENSE-2.0
 
-    You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
 *)
 (* ftpServerType.ml:
  * Support code for ftpServerCore.proto.
@@ -156,7 +156,7 @@ let set_port state str =
 	    (state',true)
       | _ -> (state,false)
   with Failure _ -> (state,false)
-    
+
 (** set_type:
  *  Initially, we only have ASCII non-printable.
  *  We need three outcomes, success, failure and not implemented.
@@ -228,7 +228,7 @@ let set_structure_code state str =
       prerr_endline ("Setting STRU to "^str_of_structure_code sc);
 	(state',"200")
     else raise (Failure "501")
-  with 
+  with
     | Failure "504" -> (state,"504")
     | Failure _ -> (state,"501")
 
@@ -249,7 +249,7 @@ let set_transfer_mode state str =
       prerr_endline ("Setting MODE to "^str_of_transfer_mode tm);
 	(state',"200")
     else raise (Failure "501")
-  with 
+  with
     | Failure "504" -> (state,"504")
     | Failure _ -> (state,"501")
 
@@ -438,7 +438,7 @@ let get_hello_message state = (List.fold_left (fun ss s -> ss^"220-"^s^"\r\n") "
 
 let set_start_position state str =
   try
-    let pos = int_of_string str in
+let pos = int_of_string str in
     if pos > 0
     then ({state with start_position = pos },string_of_int pos)
     else ({state with start_position = 0 },"0")
