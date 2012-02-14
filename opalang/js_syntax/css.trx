@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -167,7 +167,7 @@ bloc_css <- paths:paths props_aux:props bloc_css?:o
            map_add_merge pos paths props bloc_css
        }}
 
-css_map <- Opa_lexer.CSS spacing bloc_css:v spacing {{ v }}
+css_map <- Opa_lexer.CSS Opa_lexer.lbrace spacing bloc_css:v Opa_lexer.rbrace spacing {{ v }}
 
 /** global css definition **/
 css <- (=deco(Opa_lexer.CSS)):p Opa_lexer.assign css_map:v
