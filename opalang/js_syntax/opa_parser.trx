@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -86,7 +86,6 @@ just_declaration <-
   / declaration_database
   / declaration_type
   / declaration_binding
-  / declaration_css
   / declaration_do
   / (&. {{ print_hints () }}) _fail {{ assert false }}
 
@@ -105,8 +104,6 @@ declaration_do <- expr:e
     let p = (PatAny, nlabel e) in
     [NewVal ([(p,e)],false) ]
   }}
-
-declaration_css <- Css.css:d {{ [d] }}
 
 
 
