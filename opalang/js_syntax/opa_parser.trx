@@ -451,6 +451,7 @@ declaration_database <-
        in
        decl_ @ List.map bodymap body
     }}
+  / Opa_lexer.DATABASE (=deco(spacing)):d !ml_identifier {{ error1 "The database name is missing"  (snd d)}}
 
 database_body <- database_block
 
