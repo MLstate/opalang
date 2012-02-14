@@ -8,6 +8,7 @@ INSTALLDIR=$PWD/release_install_root
 
 # VERSION_MAJOR must be a version number, not text !!
 VERSION_MAJOR=$(cat buildinfos/version_major.txt)
+OFFICIAL_VERSION_NAME=$(cat<buildinfos/version_name.txt)
 # VERSION_NAME shall be a string of alphanumeric characters or . + ~ (Debian guidelines)
 VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version_name.txt)
 VERSION_BUILD=build
@@ -236,9 +237,9 @@ fi
 #############################
 if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
-    PKG_NAME="Opa $VERSION_MAJOR $VERSION_NAME - Build $BUILDNUM for Mac OS X (64-bit)"
+    PKG_NAME="Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-   /Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $VERSION_NAME"
+   /Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME"
    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
    hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
