@@ -35,7 +35,7 @@ PKG="false"
 WINPKG="false"
 
 help() {
-    echo "Makes an installation package from an installed OPA (installation"
+    echo "Makes an installation package from an installed Opa (installation"
     echo "should be done through install_release.sh)."
     echo "Options"
     # echo "	-prefix <dir>			Prefix where the package should install opa by"
@@ -109,7 +109,7 @@ fi
 BUILDNUM=$($INSTALLDIR/lib/opa/bin/opa-bin --version 2>&1 | sed 's/.*build \([0-9]\+\).*/\1/')
 VERSION_STRING=${VERSION_MAJOR}${VERSION_NAME}$(if [ -n "$VERSION_BUILD" ]; then echo "+$VERSION_BUILD$BUILDNUM"; fi)
 
-msg "Making package from installation in $INSTALLDIR, with OPA version $VERSION_STRING."
+msg "Making package from installation in $INSTALLDIR, with Opa version $VERSION_STRING."
 
 if [ -n "$TBZ2" ]; then
     msg "Making $TBZ2 (to be decompressed at the installation prefix)"
@@ -193,7 +193,7 @@ else
   trap "rm -f $0" EXIT
 fi
 
-echo -n "Going to remove OPA from $INSTALLDIR. Proceed ? "
+echo -n "Going to remove Opa from $INSTALLDIR. Proceed ? "
 read yesno
 if [ "${yesno:0:1}" != "y" ]; then exit 0; fi
 
@@ -236,9 +236,9 @@ fi
 #############################
 if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
-    PKG_NAME="OPA $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM for MacOS $OS_VARIANT"
+    PKG_NAME="Opa $VERSION_MAJOR $VERSION_NAME - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-   /Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "OPA $VERSION_MAJOR $VERSION_NAME"
+   /Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $VERSION_NAME"
    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
    hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
@@ -248,7 +248,7 @@ fi
 # MsWindows package generation #
 ################################
 if [ "$WINPKG" = "true" ]; then
-   PKG_NAME="OPA $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM"
+   PKG_NAME="Opa $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM"
    rm -rf pkg_ms_windows
    mkdir -p pkg_ms_windows
    # Copy
@@ -300,8 +300,8 @@ Pre-Depends: debconf
 Depends: libc6 (>= 2.3.2), libgdbm3, libssl0.9.8, libssl-dev, zlib1g, zlib1g-dev, libjpeg62, libpng12-0, libgif4
 Maintainer: $MAINTAINER
 Description: The unified language for web 2.0 development
- OPA is a unified programming language for web development. This self-contained
- package contains the OPA compiler, that compiles stand-alone web servers
+ Opa is a unified programming language for web development. This self-contained
+ package contains the Opa compiler, that compiles stand-alone web servers
  including AJAX features, database, etc. from single source files.
 EOF
 
