@@ -1,3 +1,61 @@
+2012.02.14, Version 0.9.0 (stable), v1300
+
+Major features:
+
+  * js-like syntax
+    - new parser for a syntax close to JavaScript
+    - this is now the default syntax (use --parser classic to the the previous syntax)
+    - emacs mode and vim mode have been updated for this syntax
+
+  * MongoDB support
+    - new db backend based on MongoDB (not default)
+    - fully integrated with the langage db syntactic construction
+    - replica sets are supported using SlaveOk mode
+    - db syntactic construction extension to support queries with multiple ranges
+
+Other features:
+
+  * i18n
+    - new @i18n directive
+    - it supports generic value that depends on the language
+    - more concise and simpler support for string
+
+  * directive @public_env
+    - instructs the compiler that it is legal to serialize a closure
+    - helps constructing functions on the server side that will be used later on the client side
+
+New APIs:
+
+  * Mime, WBootstrap, Bootstrap, Dropbox, GCharts, Markdown, IRC, XlsExport, CsvExport, ...
+
+Updated APIs :
+
+  * Email, SmtpClient, SmtpServer, Dom, Resource, OAuth, Canvas, Facebook, Twitter, GitHub, ...
+
+Bug fixes:
+
+  * json string escaping: escape all control characters
+
+  * many other minor and major bug fixes
+
+  * Mongo replica sets now detect unsolicited change in primary due to new
+    priority feature for replica set nodes
+
+  * System.get_memory_usage(() on FreeBSD
+
+Other changes:
+
+  * versioning number to semantic versioning (http://semver.org/)
+    - 1.0s4 => v0.9.0
+
+  * no automatic include of the favicon link
+
+  * .mlstate renamed into .opa, and no un-necessary creation at runtime
+
+  * HTML5 doctype added
+
+
 opa (1.0s3.4) unstable; urgency=low
   * initial open-source release
  -- Louis Gesbert <louis.gesbert@mlstate.com>  Fri, 10 Jun 2011 15:44:20 +0200
+
