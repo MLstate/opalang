@@ -653,8 +653,10 @@ end
 
 let init_database gamma annotmap schema =
   List.fold_left
-    (fun (annotmap, newvals) (ident, name, opts) ->
-       match opts with
+    (fun (annotmap, newvals) database ->
+       let ident = database.DbSchema.ident in
+       let name = database.DbSchema.name in
+       match database.DbSchema.options with
        | [`engine (`client (host, port))] ->
            let (annotmap, open_) = Generator.open_database gamma annotmap name host port in
            (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
@@ -662,7 +664,7 @@ let init_database gamma annotmap schema =
            let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
            (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
     )
-    (annotmap, []) (QmlDbGen.Schema.get_db_declaration schema)
+    (annotmap, []) (DbSchema.get_db_declaration schema)
 
 let clean_code gamma annotmap schema code =
   List.fold_left_filter_map

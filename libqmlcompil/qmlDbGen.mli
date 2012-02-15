@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -50,6 +50,8 @@ module Schema: sig
   type database = {
     name : string;
     ident : Ident.t;
+    dbty : QmlAst.ty;
+    options : QmlAst.Db.options list;
     package : ObjectFiles.package_name;
   }
 
@@ -115,9 +117,8 @@ module Schema: sig
 
   (** Registers database declarations *)
   val register_db_declaration:
-    t -> QmlTypes.Env.t
-    -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options list
-    -> t * QmlTypes.Env.t
+    t -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options list
+    -> t
 
   (** Registers db-related declarations (paths & default & constraints)
       See register_default for the meaning of the name_default_values parameter
@@ -179,7 +180,7 @@ module Schema: sig
   (** Parses a schema saved in the GML format (like in the run-time db) *)
   val from_gml: string -> t
 
-  val get_db_declaration: t -> (QmlAst.ident * string * QmlAst.Db.options list) list
+  val get_db_declaration: t -> database list
 
   val get_node: t -> QmlAst.path -> node
 

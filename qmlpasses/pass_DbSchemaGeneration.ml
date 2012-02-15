@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,6 +18,8 @@
 (* CF mli *)
 
 module List = BaseList
+
+module DbSchema = QmlDbGen.Schema
 
 module Arg =
 struct
@@ -163,16 +165,14 @@ let process_code gamma _annotmap schema code =
      The construction of the schema needs to get
      Database nodes before NewDbValue.
   *)
-  let (schema, gamma) =
+  let schema =
     List.fold_left
-      (fun ((schema, gamma) as acc) code_elt ->
+      (fun schema code_elt ->
          match code_elt with
          | QmlAst.Database (label, ident, p, opts) ->
-             QmlDbGen.Schema.register_db_declaration
-               schema gamma (label, ident, p, opts)
-         | _ -> acc
-      ) (schema, gamma) code in
-
+             QmlDbGen.Schema.register_db_declaration schema (label, ident, p, opts)
+         | _ -> schema
+      ) schema code in
   (* registering NewDbValue definitions *)
   let schema, code =
     List.fold_left_collect (
@@ -224,6 +224,25 @@ let process_code gamma _annotmap schema code =
         schema,
         QmlDbGen.Schema.of_package schema (ObjectFiles.get_current_package_name())
     | None -> schema, schema (* empty schemas *)
+  in
+
+  (* updating gamma with registered databases *)
+  let gamma =
+  match ObjectFiles.compilation_mode () with
+  | `init -> gamma
+  | _ ->
+    List.fold_left
+      (fun gamma database ->
+         let ty = fst (QmlTypes.type_of_type gamma (database.DbSchema.dbty)) in
+         let _ =
+           #<If:DBGEN_DEBUG>
+             OManager.printf "Adding database (%a) %a to gamma\n%!"
+             QmlPrint.pp#ty ty
+             QmlPrint.pp#ident database.DbSchema.ident
+           #<End>;
+         in
+         QmlTypes.Env.Ident.add database.DbSchema.ident (QmlTypes.Scheme.quantify ty) gamma)
+      gamma (DbSchema.get_db_declaration schema)
   in
 
   let _ = R.save partial_schema in

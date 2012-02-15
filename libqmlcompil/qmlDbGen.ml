@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -41,6 +41,8 @@ module Schema = struct
   type database = {
     name : string;
     ident : Ident.t;
+    dbty : QmlAst.ty;
+    options : QmlAst.Db.options list;
     package : ObjectFiles.package_name;
   }
 
@@ -113,6 +115,7 @@ module Schema = struct
   let from_gml s =
     StringListMap.singleton []
       ({ Sch.ident = Ident.next "dummy_from_gml";
+         Sch.ty = C.Db.t ();
          Sch.context = QmlError.Context.pos (FilePos.nopos "built from gml");
          Sch.path_aliases = [];
          Sch.options = [];
@@ -142,17 +145,24 @@ module Schema = struct
     let _, db_def = find_db_def t db_ident_opt in
     Schema_io.to_gml db_def.Sch.schema chan
 
-  let get_db_declaration = Sch.get_db_declaration
-
   let db_declaration = Sch.db_declaration
+
+  let decl_to_db name decl =
+    {
+      name;
+      ident = decl.Sch.ident;
+      dbty = decl.Sch.ty;
+      options = decl.Sch.options;
+      package = "todo" (*TODO*);
+    }
+
+  let get_db_declaration schema =
+    let decls = Sch.get_db_declaration schema in
+    List.map (fun (decl, name) -> decl_to_db name decl) decls
 
   let get_database schema name =
     let declaration = db_declaration schema name in
-    {
-      name;
-      ident = declaration.Sch.ident;
-      package = "todo" (*TODO*);
-    }
+    decl_to_db name declaration
 
   exception Vertex of Graph.vertex
 

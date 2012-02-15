@@ -79,6 +79,7 @@ type edge = SchemaGraphLib.SchemaGraph0.edge
 
 type database_def = {
   ident: Q.ident;
+  ty:Q.ty;
   context: QmlError.context;
   path_aliases: (Q.path * Q.path) list;
   (* eg. [(/a,/b); (/alias,/deep/data)] *)
@@ -697,6 +698,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
       (* No database declaration found, so add the schema for the default db.
          Note that the db identifier is then not user-accessible. *)
       StringListMap.add [] { ident = Ident.next "database";
+                             ty = C.Db.t ();
                              context;
                              path_aliases = [];
                              options = [];
@@ -737,33 +739,31 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
             Some (binding, Db.Db_Virtual (p, e)) in
       s, new_value
 
-let register_db_declaration t gamma (label, ident, p, opts) =
+let register_db_declaration t (label, ident, p, opts) =
   let context = QmlError.Context.code_elt (Q.Database (label, ident, p, opts)) in
   let context = HacksForPositions.map context in
   let error msg =
     QmlError.i_error None context msg
   in
-  let (database_type, _) = QmlTypes.type_of_type gamma (C.Db.t ()) in
-  let gamma =
-    QmlTypes.Env.Ident.add ident (QmlTypes.Scheme.quantify database_type) gamma
-  in
   begin match p with
   | [] ->
       (StringListMap.add [] { ident = ident;
+                              ty = C.Db.t ();
                               context = context;
                               path_aliases = [];
                               options = opts;
                               schema = SchemaGraphLib.initial_schema ~context;
                               virtual_path = PathMap.empty;
-                            } t, gamma)
+                            } t)
   | [Db.Decl_fld point] ->
       (StringListMap.add [point] { ident = ident;
+                                   ty = C.Db.t ();
                                    context = context;
                                    path_aliases = [];
                                    options = opts;
                                    schema = SchemaGraphLib.initial_schema ~context;
                                    virtual_path = PathMap.empty;
-                                 } t, gamma)
+                                 } t)
   | _ -> error "Unhandled DB definition"
   end
 
@@ -774,8 +774,8 @@ let get_db_declaration t =
   StringListMap.fold
     (fun name decl acc ->
        match name with
-       | [name] -> (decl.ident, name, decl.options)::acc
-       | [] -> (decl.ident, "_no_name", decl.options)::acc
+       | [name] -> (decl, name)::acc
+       | [] -> (decl, "_no_name")::acc
        | _ -> get_error decl "Unhandled Db definition"
     )
     t []

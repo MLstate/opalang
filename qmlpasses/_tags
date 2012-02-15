@@ -11,3 +11,4 @@
 <pass_Closure.{ml,mli}>: with_mlstate_debug, use_jslang
 <pass_ConstantSharing.ml>: with_mlstate_debug
 <pass_GenerateServerAst.ml>: with_mlstate_debug, use_jslang
+<pass_DbSchemaGeneration.ml> : with_mlstate_debug

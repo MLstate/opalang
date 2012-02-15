@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -255,13 +255,12 @@ let input_code_elt_Database env database =
   | Q.Database (label, ident, p, opts) -> (
       match env.schema with
       | Building schema ->
-          let (schema, gamma) =
-            Schema.register_db_declaration schema env.env_types.QmlTypes.gamma (label, ident, p, opts)
+          let schema =
+            Schema.register_db_declaration schema (label, ident, p, opts)
           in
           { env with
               schema = Building schema ;
               open_db = true ;
-              env_types = { env.env_types with QmlTypes.gamma = gamma } ;
           }
       | _ ->
           OManager.error
