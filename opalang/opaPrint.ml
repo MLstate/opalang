@@ -1131,7 +1131,7 @@ module Js = struct
       | SumVar c -> self#colvar f c
     method private arrow_t f v = self#label self#arrow_t_node f v
     method private arrow_t_node f (row_t,ty) =
-      pp f "@[<2>%a ->@ %a@]" self#under_comma#arrow_row_t row_t self#under_arrow#ty ty
+      pp f "@[<2>(%a ->@ %a)@]" self#under_comma#arrow_row_t row_t self#under_arrow#ty ty
     method arrow_row_t f v = self#label self#arrow_row_t_node f v
     method private arrow_row_t_node f (TyRow (l,row)) =
       assert (row = None);
