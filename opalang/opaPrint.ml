@@ -1258,10 +1258,16 @@ module Js = struct
     method ident f i = Format.pp_print_string f (self#to_protected_ident i)
     method private unprotected_ident f i = Format.pp_print_string f (self#to_unprotected_ident i)
     method private apply : 'dir 'a. 'a pprinter -> 'a list -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun f_arg arg f e -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " f_arg) arg
+
     method private expr_need_block : 'dir . ('ident,[< all_directives ] as 'dir) expr -> bool = fun e ->
-      match fst e with
-      | Apply _ | Ident _ | Const _ -> false
-      | _ -> true
+      let e = fst e in
+      let rec aux = function
+        | Directive (_, [e], _) -> aux (fst e)
+        | Directive _ | LetIn _ -> true
+        | _ -> false
+      in
+      aux e
+
     method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
       if not sugar then self#label self#expr_node f e
       else match ExprSugar.resugarer self#typeident_original_name e with
