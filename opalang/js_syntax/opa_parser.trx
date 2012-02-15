@@ -507,7 +507,10 @@ binding_pattern_lambda <- binding_lambda:b {{binding_to_pattern_binding b }}
 
 binding_pattern_module <- binding_module:b {{binding_to_pattern_binding b }}
 
-binding_pattern_simple <- pattern:p assign expr:e {{ p, e }}
+binding_pattern_simple <-
+  (=type_maybe(
+     pattern:p assign expr:e {{ function t -> p, may_coerce_expr e t }}
+   ))
 
 binding_ident <-
   / binding_lambda
