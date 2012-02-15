@@ -366,7 +366,8 @@ module Sugar = struct
     ) (e@"events") in
     let events_options = list ~map:(fun e->
       str_empty,
-      fst (List.hd (fields_list (e@"name")))^":options",
+      (* hack to fix the "onAction" on options: *)
+      "options:on"^(fst (List.hd (fields_list (e@"name")))),
       e@"value"
     ) (e@"events_options") in
     let href =
