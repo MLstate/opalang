@@ -1758,7 +1758,7 @@ let makeFamilly syntax =
         | d -> super#directive f d
 
       method xml_parser f l =
-        pp f "@[<v>xml_parser@ | %a@ end@]" (list "@ | " self#xml_rule) l
+        pp f "@[<v>xml_parser{@ | %a@ end@]" (list "@ | " self#xml_rule) l
       method xml_rule f (pl,e) =
         pp f "@[<2>%a -> @ %a@]" (list "@ " self#xml_named_pattern) pl self#expr e
       method xml_named_pattern f (nameo,p,s) =
@@ -1795,13 +1795,13 @@ let makeFamilly syntax =
       method trx_expr_node ~sub f (Trx_ast.Expr l) =
         match l with
         | p :: [] when sub -> pp f "%a" self#trx_seq p
-        | p :: []          -> pp f "parser@ %a" self#trx_seq p
-        | _  -> pp f "@[<v 0>parser@ %a" (list "@]@ @[<2>| " self#trx_seq) l
+        | p :: []          -> pp f "parser{@ %a}" self#trx_seq p
+        | _  -> pp f "@[<v 0>parser{@ %a}" (list "@]@ @[<2>case " self#trx_seq) l
       method trx_seq f l = self#label self#trx_seq_node f l
       method trx_seq_node f {Trx_ast.seq_items=seq_items; Trx_ast.seq_code=seq_code} =
         match seq_code with
         | None -> list "@ " self#trx_item f seq_items
-        | Some e -> pp f "%a ->@ %a" (list "@ " self#trx_item) seq_items self#expr e
+        | Some e -> pp f "%a :@ %a" (list "@ " self#trx_item) seq_items self#expr e
       method trx_item f i = self#label self#trx_item_node f i
       method trx_item_node f {Trx_ast.item_name=nameo; Trx_ast.item_prefix=pref; Trx_ast.item_primary=prim; Trx_ast.item_suffix=suff} =
         match nameo with
