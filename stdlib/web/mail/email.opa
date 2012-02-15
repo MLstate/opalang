@@ -127,13 +127,11 @@ Email = {{
    * address, that is:
    *  - small and capital letters,
    *  - digits,
-   *  - characters: underscore (_), hyphen (-)
-   * Here we are more restrictive than the RFC specification, but
-   * are in accordance with common practice (for instance HotMail's
-   * requirements on email addresses).
+   *  - characters: !#$%&'*+\-/=?^_`{|}~
+   * See: http://en.wikipedia.org/wiki/Email_address#Local_part
    */
   @private
-  char = parser [A-Za-z0-9_\-];
+  char = parser [A-Za-z0-9!#$%&'*+\-/=?^_`{|}~];
 
   @private
   word = parser w=char+ -> Text.to_string(Text.ltconcat(w))
