@@ -532,7 +532,7 @@ binding_module <-
 binding_expr <- (=deco(block_inner))
 
 binding <-
-  / Opa_lexer.REC?:r (=list1(binding_pattern:b separator {{b}}, Opa_lexer.AND)):binds expr:expr
+  / Opa_lexer.REC?:r (=list1(binding_pattern:b separator {{b}}, Opa_lexer.AND)):binds ((=deco(binding)) / expr):expr
     {{
       let heads, tails =
         List.fold_right
