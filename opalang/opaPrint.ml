@@ -371,7 +371,7 @@ module Sugar = struct
     let tag = string (e@"tag") in
     let pp_attributes f l =
       if l = [] then pp f "" else
-      pp f "%a" (Format.pp_list "@ " (pp_attribute ppe)) l
+      pp f "%a" (Format.pp_list "" (pp_attribute ppe)) l
     in
     let args = collect_args (e@"args") in
     let spec_att = e@"specific_attributes" in
@@ -384,18 +384,18 @@ module Sugar = struct
     let attributes = args ++ spec_att in
     let attributes = List.sort cmp_attr attributes in
     let content = list ~map:(fun x->x) (e@"content") in
-    (if content = [] then pp f "<%s%a%a/>" else pp f "@[<hov 2><%s%a%a>")
+    (if content = [] then pp f "<%s%a%a/>" else pp f "<%s%a%a>")
       tag
       (pp_namespace ppe) (e@"namespace")
       pp_attributes attributes;
-    if content <> [] then pp f "%a@]</%s>"
+    if content <> [] then pp f "%a</%s>"
       (Format.pp_list "" (pp_xml ppe)) content
       tag
     else ()
 
   and pp_attribute ppe f (ns,name,e) =
     if is_empty_string ns then
-      pp f "@ %s=%a"
+      pp f " %s=%a"
         name
         (String.pp_expr_or_string ppe) e
     else
@@ -409,7 +409,7 @@ module Sugar = struct
     if l = [] then (
       if enclosed then pp f ""
       else pp f "<></>"
-    ) else pp f "@[<hov 1><>@,%a</>@]" (Format.pp_list "@," (pp_xml ppe)) l
+    ) else pp f "@[<1><>@,%a</>@]" (Format.pp_list "@," (pp_xml ppe)) l
 
   and pp_text ?(enclosed=true) _ppe f e =
     (if enclosed then pp f "%s"
