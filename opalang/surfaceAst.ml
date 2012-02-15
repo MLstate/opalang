@@ -435,7 +435,6 @@ type all_directives =
 
 (** Type defined for convenience : Directives that may be encountered on binding *)
 type binding_directive = [
-| access_directive
 | distribution_directive
 | documentation_directive
 | `opacapi
