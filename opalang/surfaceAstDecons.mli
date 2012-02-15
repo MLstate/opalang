@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -27,6 +27,7 @@ module Remove :
         val access_directive:('a, [< all_directives > `private_ `package `public ]) through
         val access_not_public:('a, [< all_directives > `private_ `package `public ]) through
         val async :          ('a, [< all_directives > `async ]) through
+        val binding_directive:('a, [> binding_directive ]) through
         val coerce :         ('a, [< all_directives > `coerce ]) through
         val deprecated :         ('a, [< all_directives > `deprecated ]) through
         val directive :      ('a, 'b) through
@@ -90,6 +91,7 @@ module Context :
         val slicer_directive :
           ('a, [< all_directives > `side_annotation `visibility_annotation] as 'b, 'b)
           through_with_context
+        val binding_directive: ('a, [> binding_directive] as 'b, 'b) through_with_context
         val side_annotation :
           ('a, [< all_directives > `side_annotation] as 'b, 'b)
           through_with_context

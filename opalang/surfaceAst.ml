@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -431,3 +431,13 @@ type all_directives =
     [ parsing_directive
     | dependency_directive
     | renaming_directive ]
+
+
+(** Type defined for convenience : Directives that may be encountered on binding *)
+type binding_directive = [
+| access_directive
+| distribution_directive
+| documentation_directive
+| `opacapi
+| `async
+]
