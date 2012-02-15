@@ -178,6 +178,16 @@ struct
       sugar_dom_transformation original_name;
 (*      sugar_css_properties original_name;  *)
     ]
+
+  let handle_coerce_directive print_coerce print_no_coerce typeident_original_name make_expr default = function
+    | (Directive ((`coerce : [< all_directives ]), [e2], [ty])), _  as e ->
+      let e3 = match resugarer typeident_original_name e with
+        | `no_sugar -> make_expr e2
+        | _ -> default  (* coerce will be removed later by resugarer *)
+      in
+      print_coerce ty e3
+    | _ -> print_no_coerce default
+
 end
 
 module PatSugar =
@@ -243,6 +253,10 @@ module Sugar = struct
 
   let clear_magic e = match fst e with
     | Directive(`magic_to_xml,[e],_) -> e
+    | _ -> e
+
+  let clear_coerce e = match fst e with
+    | Directive(`coerce,[e],_) -> e
     | _ -> e
 
   let rec fields_list e = match fst (clear_directives e) with
@@ -420,7 +434,7 @@ module Sugar = struct
     ["fragment"] , pp_fragment ~enclosed;
     ["text"] , pp_text ~enclosed;
     [] , (fun ppe f e -> ppe false f e)
-  ] ~notrecord:(fun ppe f e -> if enclosed then pp_insert_expr ppe f (clear_magic e) else ppe false f e)
+  ] ~notrecord:(fun ppe f e -> if enclosed then pp_insert_expr ppe f (clear_coerce (clear_magic e)) else ppe false f (clear_coerce e))
     ppe f e
 
 
@@ -1449,20 +1463,28 @@ module Js = struct
             if List.for_all is_tilde_field l
             then
               let pp_field f (field, _) = self#field f field in
-              pp f "@[<hv>~{ %a @,}@]" (Format.pp_list ",@ " pp_field) l
+              pp f "~{@[<hv>@,%a@,@]}" (Format.pp_list ",@ " pp_field) l
             else
-              pp f "@[<hv>{ %a @,}@]" (Format.pp_list ",@ " self#record_binding) l
+              pp f "{@[<hv>@,%a@,@]}" (Format.pp_list ",@ " self#record_binding) l
 
     (* start box indentation is handled via binding_aux or pat_binding *)
     method private lambda_binding : 'a 'dir. 'a pprinter -> ('a * (string * 'ident pat) list * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,r,e) ->
+      let print_no_coerce e =
+        pp f "%s %a(%a) {@\n%a@]@\n}" function_ p s (list ", " self#reset#under_comma#pat) (List.map snd r) self#expr e
+      in
+      let print_coerce ty e =
+        pp f "%s %a %a(%a) {@\n%a@]@\n}" function_ self#ty ty p s (list ", " self#reset#under_comma#pat) (List.map snd r) self#expr e
+      in
+      let handle_coerce_directive =
+        ExprSugar.handle_coerce_directive print_coerce print_no_coerce self#typeident_original_name
+      in
       match fst e with
-      | LetIn _
+      | LetIn (isrec, i, e2) ->
+        handle_coerce_directive (fun e -> Obj.magic (LetIn (isrec, i,  Obj.magic e)), (snd e2)) e (Obj.magic e2)
       | Record _
       | ExtendRecord _
-      | Match _ ->
-          pp f "%s %a(%a) {@,%a@,@]}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
-      | _  -> pp f "%s %a(%a) {@,%a@]@,}" function_ p s (list "," self#reset#under_comma#pat) (List.map snd r) self#expr e
-
+      | Match _ -> print_no_coerce e
+      | _ -> handle_coerce_directive (fun e -> Obj.magic e) e (Obj.magic e)
 
     method private module_binding : 'id 'dir. 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
       match fst e with
@@ -1495,9 +1517,18 @@ module Js = struct
                 | (Directive ((`recval : [< all_directives ]), [e], []), _) -> "recursive", e
                 | _ -> "", e
               in
-              if self#expr_need_block e then pp f "%s %a = {@\n%a@]@\n}" recursive ipp i self#expr e
-              else pp f "%a =@ %a%s@]" ipp i self#expr e semic
-
+              let print_coerce ty e =
+                if self#expr_need_block e then pp f "%s %a %a = {@\n%a@]@\n}" recursive self#ty ty ipp i self#expr e
+                else pp f "%a %a =@ %a%s@]" self#ty ty ipp i self#expr e semic
+              in
+              let print_no_coerce e =
+                if self#expr_need_block e then pp f "%s %a = {@\n%a@]@\n}" recursive ipp i self#expr e
+                else pp f "%a =@ %a%s@]" ipp i self#expr e semic
+              in
+              ExprSugar.handle_coerce_directive
+                print_coerce print_no_coerce
+                self#typeident_original_name
+                (fun e -> Obj.magic e) e (Obj.magic e)
       in
       pp f "@[<4>";
       aux e
