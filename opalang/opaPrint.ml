@@ -1278,11 +1278,11 @@ module Js = struct
         (if self#expr_need_block e2 then
           pp f "@[<2>if (%a) {@\n%a@]@\n@[<2>} " (* TODO ?? *)
         else
-          pp f "if (%a) %a @[<2>") self#expr e1 self#expr e2;
+          pp f "@[<2>if (%a)@ %a@]@ @[<2>") self#expr e1 self#expr e2;
         (if self#expr_need_block e3 then
           pp f "else {@\n%a@]@\n}" (* TODO ?? *)
         else
-          pp f "else %a@]") self#expr e3;
+          pp f "else@ %a@]") self#expr e3;
 
       | `xhtml e  -> Sugar.Xhtml.pp_xml self#expr_sugar f e
       | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
