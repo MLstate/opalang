@@ -458,14 +458,18 @@ module Sugar = struct
 
     let pp_dst original_name ppe e =
       match clear_directives e with
-      | Apply((Ident(id),_),([_,e],_)),_  ->
-        let op = match original_name id with
-          | "Dom_select_id" -> "#"
-          | "Dom_select_class" -> "."
-          | _ ->  raise Fallback
-        in
-        fun f () ->
-          pp f "%s%a" op (String.pp_expr_or_string ~quote:false ppe) e
+      | Apply((Ident(id),_),([_,e],_)),_  -> (
+          let op = match original_name id with
+            | "Dom_select_id" -> "#"
+            | "Dom_select_class" -> "."
+            | _ ->  raise Fallback
+          in
+          fun f () -> (
+            match fst e with
+            | Directive(`string,l,_) -> pp f "%s{%a}" op (String.pp_expr ppe) l
+            | _ ->  pp f "%s%a" op (String.pp_expr_or_string ~quote:false ppe) e
+          )
+        )
       | _ -> raise Fallback
 
     let str s f () = pp f "%s" s
