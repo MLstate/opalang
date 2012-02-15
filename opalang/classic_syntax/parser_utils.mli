@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -245,6 +245,8 @@ val list_pat_of_pat_list :
 val list_expr_of_expr_list :
   ?tl:(string,'a) expr -> (string, [> `coerce ] as 'a) expr list -> annot -> (string, 'a) expr
 val list_expr_of_expr_list_no_coerce :
+  ?tl:(string,'a) expr -> (string, [> `coerce ] as 'a) expr list -> annot -> (string, 'a) expr
+val list_expr_of_expr_list_tail_coerce :
   ?tl:(string,'a) expr -> (string, [> `coerce ] as 'a) expr list -> annot -> (string, 'a) expr
 val list_expr_of_expr_list_unsafe : (string, [> `coerce ] as 'a) expr list -> (string, 'a) expr(**Fails if the list is empty*)
 val list_constructors_of_string_list: (string * annot) list -> annot -> (string, [> `coerce ]) expr
