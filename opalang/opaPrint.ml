@@ -310,7 +310,9 @@ module Sugar = struct
 
   (* insert an expr into braces *)
   let pp_insert_expr ?(sugar=true) ppe f e =
-    pp f "{%a}" (ppe sugar) e
+    match fst e with
+    | Directive((`string : [< all_directives]),[_],_) ->   pp f "%a" (ppe sugar) e
+    | _ -> pp f "{%a}" (ppe sugar) e
 
   module String = struct
 
