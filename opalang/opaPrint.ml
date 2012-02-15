@@ -1305,10 +1305,10 @@ module Js = struct
             pp f "@[<2>%s%a@]" (operator_image (self#to_unprotected_ident oper)) self#under_op#expr e1
       | Apply (e,(r,_LABEL)) -> pp f "@[<2>%a(%a)@]" self#apply_expr e (list ",@ " (fun f (_,e) -> self#reset#under_comma#expr f e)) r
       | Lambda (r, ((LetIn _, _) as e)) ->
-          pp f "@[<h 2>function(%a) {@,@[%a@]@]}"
+          pp f "@[<h 2>function(%a) {@\n@[%a@]@]@\n}"
             (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r
             self#expr e
-      | Lambda (r,e) -> pp f "@[function(%a) {@,@[%a@]@]}" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
+      | Lambda (r,e) -> pp f "@[function(%a) {@\n@[%a@]@]@\n}" (list ",@ " (fun f (_,p) -> self#under_comma#pat f p)) r self#expr e
       | Const c -> self#const_expr f c
       | Ident ident -> self#ident f ident
       | LetIn (isrec, binds, expr) ->
