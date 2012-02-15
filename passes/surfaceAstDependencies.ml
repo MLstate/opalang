@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -616,10 +616,9 @@ let extract_field_ident_expr_from_module e =
   let reannotate = OpaToQml.propagate_slicer_annotation e in
   let e, acc, coercer =
     D.FoldContext.letin
-      ~through:[D.Context.Basic.slicer_directive;
-                D.Context.Basic.opacapi;
+      ~through:[D.Context.Basic.binding_directive;
                 D.Context.Basic.coerce;
-                D.Context.Basic.doctype] e in
+               ] e in
   let acc = List.map (fun (i,e) -> (i, reannotate e)) acc in
   match e with
     | (Directive (`module_, [(Record l,label_record)], b),c) ->
@@ -648,7 +647,8 @@ let extract_field_ident_expr_from_module e =
    gives a mapping from field to the ident bound to its content
    (see comment above for more details)
 *)
-let is_private e = D.Look.private_ ~through:[D.Remove.Basic.doctype; D.Remove.Basic.opacapi; D.Remove.Basic.slicer_directive] e
+let is_private e = D.Look.private_
+  ~through:[D.Remove.Basic.binding_directive] e
 type access =
   | Possible (* normal module field *)
   | Forbidden (* field tagged as private *)
@@ -745,10 +745,10 @@ let rewrite_path map e =
 
 let rec remove_access_directive e =
   match e with
-  | (Directive ((`doctype _ | #distribution_directive as variant), [e], b), c) ->
-      (Directive (variant, [remove_access_directive e], b), c)
   | (Directive (#access_directive, [e], _),_) ->
-      e
+      remove_access_directive e
+  | (Directive ((`doctype _ | #binding_directive as variant), [e], b), c) ->
+      (Directive (variant, [remove_access_directive e], b), c)
   | _ -> e
   (*if D.Look.access_directive ~through:[D.Remove.Basic.doctype] e then
     let e, rebuild =
