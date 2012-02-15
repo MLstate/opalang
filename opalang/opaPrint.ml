@@ -1141,7 +1141,16 @@ module Js = struct
     method private typeinstancenode f (ident,params) =
       match params with
       | [] -> self#typeident f ident
-      | _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
+      | _ -> (
+        match ident with
+        | Typeident s ->
+          let ss : string = Obj.magic s in
+          try
+            let _ = Scanf.sscanf ss "tuple_%d" (fun x -> x) in
+            pp f "@[@[<2>(%a)@]@]" (list ",@ " self#under_comma#ty) params
+          with
+          | Scanf.Scan_failure _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
+      )
     method private typeforall f (vars,ty) =
       pp f "@[<2>forall(@[<h>%a@]). %a@]" (list ",@ " self#typevar) vars self#under_forall#ty ty
     method private typesumsugar f l =
@@ -1409,15 +1418,24 @@ module Js = struct
     method private string_elmt :  'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f (e,_) ->
       match e with
       | Const(CString(s)) -> pp f "%s" (QmlPrint.escaped_string s)
-      | e -> pp f "{%a}" self#expr_node e
+      | e -> pp f "%a" self#expr_node e
 
     method directive : 'dir. ('ident,[< all_directives ] as 'dir) directive pprinter =
       fun f (variant, exprs, tys) ->
         match variant, exprs, tys with
-        | `coerce, [e], [ty] ->
-            pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
+        | `coerce, [e], [ty] -> (
+          match ty with
+          | (TypeNamed (Typeident tyname, []), _) -> (
+            try
+              let tyname : string = Obj.magic tyname in
+              let _ = Scanf.sscanf tyname "tuple_%d" (fun x -> x) in
+              pp f "@[<h>%a@]" self#under_colon#expr e
+            with | Scanf.Scan_failure _ -> pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
+          )
+          | _ ->  pp f "@[<h>%a %a@]" self#ty ty self#under_colon#expr e
+        )
         | `module_, [m], _ ->
-            self#module_binding (fun _ _ -> ()) f ((), m)
+          self#module_binding (fun _ _ -> ()) f ((), m)
         | `string, l, _ -> Sugar.String.pp_expr self#expr_sugar f l
         | `magic_to_string, [e], _ -> self#expr f e
         | `fun_action, [e], _ -> self#expr f e
