@@ -357,6 +357,7 @@ let report_unification_conflict_with_context
   | W_InferErrors.UCC_pattern_coerce (pat, pat_ty, coercing_ty) ->
       let err_ctxt =
         QmlError.Context.annoted_pat public_annotmap_with_locs pat in
+      W_PrintTypes.pp_simple_type_prepare_sequence [pat_ty; coercing_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
         ("@[Pattern@ has@ type@ @{<red>%a@}@ but@ is@ coerced@ into@ " ^^
          "@{<red>%a@}.@]%a%a@.")
@@ -368,6 +369,7 @@ let report_unification_conflict_with_context
   | W_InferErrors.UCC_apply (expr, fun_pat_ty, tmp_fun_ty) ->
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      W_PrintTypes.pp_simple_type_prepare_sequence [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
         ("@[Function@ was@ found@ of@ type@ @{<red>%a@}@ but@ " ^^
          "application@ expects@ it@ to@ be@ of@ type@ @{<red>%a@}.@]%a%a@.")
@@ -380,6 +382,7 @@ let report_unification_conflict_with_context
       (expr, previous_left_ty, current_left_ty) ->
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      W_PrintTypes.pp_simple_type_prepare_sequence [previous_left_ty; current_left_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
         ("@[Matched@ expression@ or@ previous@ patterns@ have@ type@ " ^^
          "@{<red>%a@}@ but@ new@ pattern@ is@ found@ of@ type@ " ^^
@@ -393,6 +396,7 @@ let report_unification_conflict_with_context
         (expr, ty_right_parts, ty_branch) ->
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      W_PrintTypes.pp_simple_type_prepare_sequence [ty_right_parts; ty_branch; err_ty1; err_ty2];
       QmlError.error err_ctxt
         ("@[Previous@ right-side@ parts@ of@ the@ pattern@ matching@ " ^^
            "return@ type@ @{<red>%a@}@ but@ current@ one@ returns@ " ^^

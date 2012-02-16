@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -219,6 +219,7 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
             W_ReportErrors.get_annotmap_for_error_report () in
           let err_ctxt =
             QmlError.Context.annoted_expr annotmap_for_err_report expr in
+          W_PrintTypes.pp_simple_type_prepare_sequence [ty1; ty2];
           QmlError.error err_ctxt
             "@[Types@ @{<red>%a@}@ and@ @{<red>%a@}@ are@ not@ compatible@]%a"
             W_PrintTypes.pp_simple_type_start_sequence ty1
