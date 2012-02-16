@@ -931,9 +931,7 @@ export_resource(external_css_files: list(string),
           html_doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
 
           page = Xhtml.of_string_unsafe(html_doctype) <+>
-            (match doctype
-             {some={html5}} -> <html>{ready_head}{ready_body}</html>
-             _ -> <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>)
+                 <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
 
           //Serialize and send
           data = Xhtml.serialize_to_string(page)
