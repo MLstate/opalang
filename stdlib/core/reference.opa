@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -17,23 +17,19 @@
 */
 
 /**
- * {1 About this module}
- *
- * {1 Where should I start ?}
- *
- * {1 What if I need more?}
- */
-
-/**
  * {1 Types defined in this module}
+ * CAUTION : Being a memory location, this type cannot exchanged between client and server.
+ *           Consider using a Mutable.t of the Mutable module instead.
  */
-
 type reference('a) = external
 
 /**
- * {1 Interface}
+ * {1 About this module}
+ *
+ * It provides a way to have a mutable state.
+ *
+ * But please consider using module Mutable instead or at least read the description of the type reference.
  */
-
 Reference =
 {{
   create = %% BslReference.create %% : 'a -> reference('a)
