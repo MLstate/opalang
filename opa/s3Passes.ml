@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -681,10 +681,21 @@ let pass_SaToQml =
          let options = OpaToQml.options in
          OpaToQml.UidsOpaToQml.code ~options env.P.sa_lcode
        in
-       let type_renaming = SurfaceAstRenaming.ObjectType.fold StringMap.safe_merge env.P.sa_type_renaming in
-       let type_renaming = StringMap.map (fun (i,_) -> OpaToQml.UidsOpaToQml.typeident_aux ~check:false i) type_renaming in
+       let duplicated = Hashtbl.create 16 in
+       let type_renaming =
+         SurfaceAstRenaming.ObjectType.fold
+           (StringMap.merge_i
+              (fun i x y -> Hashtbl.add duplicated i y; x)
+           )
+           env.P.sa_type_renaming in
+       let type_renaming = StringMap.map
+         (fun (i,_) -> OpaToQml.UidsOpaToQml.typeident_aux ~check:false i)
+         type_renaming in
        let type_renamer ?(check=true) str =
-         try StringMap.find str type_renaming
+         try let x = StringMap.find str type_renaming in
+         match Hashtbl.find_all duplicated str with
+         | [] -> x
+         | _ -> OManager.error "Duplicated type ident is found %s\n" str
          with Not_found ->
            (* need to do that because the db uses bypasses with type [embed_info]
             * but this type is not defined in the code because the bypasses can only

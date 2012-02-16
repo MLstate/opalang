@@ -796,6 +796,7 @@ module Classic = struct
       | `open_ -> Format.pp_print_string f "open_"
       | `toplevel_open -> Format.pp_print_string f "toplevel_open"
       | `toplevel -> Format.pp_print_string f "toplevel"
+      | `from s -> Format.fprintf f "from(%s)" s
       | `local s -> pp f "local[%s]" (Ident.to_string s)
       | `doctype (sl, access) ->
           pp f "doctype([%a], %a)" (list ",@ " Format.pp_print_string) sl self#variant access
@@ -1356,6 +1357,7 @@ module Js = struct
       | `open_ -> Format.pp_print_string f "open_"
       | `toplevel_open -> Format.pp_print_string f "toplevel_open"
       | `toplevel -> Format.pp_print_string f "toplevel"
+      | `from s -> Format.fprintf f "from(%s)" s
       | `local s -> pp f "local[%s]" (Ident.to_string s)
       | `doctype (sl, access) ->
           pp f "doctype([%a], %a)" (list ",@ " Format.pp_print_string) sl self#variant access

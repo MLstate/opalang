@@ -370,6 +370,7 @@ type alpha_renaming_directive =
     | `toplevel_open
     | `module_
     | `toplevel
+    | `from of string (* to manage conflicts beetween packages *)
     ]
 
 (**
