@@ -120,6 +120,7 @@ module Schema = struct
          Sch.path_aliases = [];
          Sch.options = [];
          Sch.schema = Schema_io.from_gml_string s;
+         Sch.package = "dummy_from_gml";
          Sch.virtual_path = Sch.PathMap.empty;
        })
   let to_dot t chan =
@@ -153,7 +154,7 @@ module Schema = struct
       ident = decl.Sch.ident;
       dbty = decl.Sch.ty;
       options = decl.Sch.options;
-      package = "todo" (*TODO*);
+      package = decl.Sch.package;
     }
 
   let get_db_declaration schema =

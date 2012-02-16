@@ -85,6 +85,7 @@ type database_def = {
   (* eg. [(/a,/b); (/alias,/deep/data)] *)
   options: Db.options list;
   schema: t;
+  package : ObjectFiles.package_name;
   virtual_path : (Q.ident * Q.ty * Q.ty) PathMap.t;
 }
 type meta_schema = database_def StringListMap.t
@@ -703,6 +704,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
                              path_aliases = [];
                              options = [];
                              schema = SchemaGraphLib.initial_schema ~context;
+                             package = ObjectFiles.get_current_package_name ();
                              virtual_path = PathMap.empty } t
     else
       t
@@ -753,6 +755,7 @@ let register_db_declaration t (label, ident, p, opts) =
                               path_aliases = [];
                               options = opts;
                               schema = SchemaGraphLib.initial_schema ~context;
+                              package = ObjectFiles.get_current_package_name ();
                               virtual_path = PathMap.empty;
                             } t)
   | [Db.Decl_fld point] ->
@@ -762,6 +765,7 @@ let register_db_declaration t (label, ident, p, opts) =
                                    path_aliases = [];
                                    options = opts;
                                    schema = SchemaGraphLib.initial_schema ~context;
+                                   package = ObjectFiles.get_current_package_name ();
                                    virtual_path = PathMap.empty;
                                  } t)
   | _ -> error "Unhandled DB definition"

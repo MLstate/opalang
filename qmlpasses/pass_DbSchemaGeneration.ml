@@ -231,18 +231,21 @@ let process_code gamma _annotmap schema code =
   match ObjectFiles.compilation_mode () with
   | `init -> gamma
   | _ ->
-    List.fold_left
-      (fun gamma database ->
-         let ty = fst (QmlTypes.type_of_type gamma (database.DbSchema.dbty)) in
-         let _ =
-           #<If:DBGEN_DEBUG>
-             OManager.printf "Adding database (%a) %a to gamma\n%!"
-             QmlPrint.pp#ty ty
-             QmlPrint.pp#ident database.DbSchema.ident
-           #<End>;
-         in
-         QmlTypes.Env.Ident.add database.DbSchema.ident (QmlTypes.Scheme.quantify ty) gamma)
-      gamma (DbSchema.get_db_declaration schema)
+      let current = ObjectFiles.get_current_package_name () in
+      List.fold_left
+        (fun gamma database ->
+           if database.DbSchema.package = current then
+             let ty = fst (QmlTypes.type_of_type gamma (database.DbSchema.dbty)) in
+             let _ =
+               #<If:DBGEN_DEBUG>
+                 OManager.printf "Adding database (%a) %a to gamma\n%!"
+                 QmlPrint.pp#ty ty
+                 QmlPrint.pp#ident database.DbSchema.ident
+               #<End>;
+             in
+             QmlTypes.Env.Ident.add database.DbSchema.ident (QmlTypes.Scheme.quantify ty) gamma
+           else gamma
+        ) gamma (DbSchema.get_db_declaration schema)
   in
 
   let _ = R.save partial_schema in
