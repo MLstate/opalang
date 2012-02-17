@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -648,7 +648,20 @@ Bson = {{
       | {TyName_args=[{TyConst={TyInt={}}},_,_]; TyName_ident="ordered_map"}
       | {TyName_args=[_]; TyName_ident="list"} -> ty
       | {TyName_args=tys; TyName_ident=tyid} -> name_type(OpaType.type_of_name(tyid, tys))
-      | ty -> ty
+      | ty ->
+        /* If I well saw name_type is used before all match on type. Bson
+           optimize some operation on list. We try if the current type is
+           unifiable with list, if it's then function returns the type list
+           (well instantiated). */
+        match OpaTypeUnification.unify(@typeval(list), ty) with
+        | {success = {~var ...}} ->
+          (var, ins) = StringMap.extract_min_binding(var)
+          if StringMap.is_empty(var) then
+            match ins with
+            | {some = lty} -> {TyName_args=[lty.f2]; TyName_ident="list"}
+            | {none} -> ty
+          else ty
+        | {failure=_} -> ty
     nty
 
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
@@ -678,15 +691,16 @@ Bson = {{
     | {TyConst={TyFloat={}}} -> [H.dbl(key,(@unsafe_cast(v):float))]
     | {TyName_args=[]; TyName_ident="bool"} -> [H.bool(key,(@unsafe_cast(v):bool))]
     | {TyRecord_row=row ...} ->
-      (match row with
-       | [] ->
-          [H.null(key)]
+       match row with
+       | [] -> [H.null(key)]
        | [{label=name; ty=ty}] ->
           if OpaType.is_void(ty)
           then [H.doc(key,[H.null(name)])]
           else [H.doc(key,rec_to_bson(v, row))]
-       | _ ->
-          [H.doc(key,rec_to_bson(v, row))])
+       | _ -> [H.doc(key,rec_to_bson(v, row))]
+       end
+
+
     | {TyName_args=[]; TyName_ident="Date.date"} -> [H.date(key,(@unsafe_cast(v):Date.date))]
     | {TyName_args=[]; TyName_ident="binary"}
     | {TyName_args=[]; TyName_ident="Bson.binary"} -> [H.binary(key,(@unsafe_cast(v):Bson.binary))]
