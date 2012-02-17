@@ -681,7 +681,13 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
  */
 @private cache_for_xhtml : resource_cache_entry -> {body:xhtml; head:xhtml; mime_type:string} =
   compute_result(body:xhtml, customizations):{body:xhtml head:xhtml mime_type:string} =
-     {html=body_content js=raw_js_content} = Xhtml.prepare_for_export_as_xml_blocks(body)
+     {html=body_content js=raw_js_content} =
+       #<Ifstatic:BENCH_SERVER>
+         print_t(t) = Log.notice("Resource Private", "resource computed in {t}s")
+         CoreProfiler.instrument(1, print_t){->Xhtml.prepare_for_export_as_xml_blocks(body)}
+       #<Else>
+         Xhtml.prepare_for_export_as_xml_blocks(body)
+       #<End>
 
      {body     = {html=body_custom  js=raw_js_body_custom}
       head     = {html=head_custom  js=raw_js_head_custom}
