@@ -500,7 +500,7 @@ let check_for_toplevel_duplicates val_map type_map =
 
 let is_exported i infos =
   try (IdentMap.find i infos).exported
-    && ObjectFiles.get_current_package_name () = Ident.get_package_name i
+    && (ObjectFiles.get_current_package_name () = Ident.get_package_name i || not (ObjectFiles.Arg.is_separated ()))
   with Not_found -> false
 let exported_var global_env l =
   let rec aux o = function
