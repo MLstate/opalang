@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -326,7 +326,7 @@ OpaType = {{
    * Returns a pretty string representation of [ty].
    * do not use magic_to_string and other magic functions, or we get a cycle
    */
-  to_pretty(ty : OpaType.ty)=
+  @stringifier(OpaType.ty) to_pretty(ty : OpaType.ty)=
     rec aux_ty_const(ty_const : OpaType.ty_const) =
       match ty_const with
       | {TyInt} -> "int"
