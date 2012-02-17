@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -1070,6 +1070,12 @@ type qml_directive = [
           to have a recursive expression that is not a lambda
           (and the validity of the recursion is checked at runtime)
       *)
+]
+
+type binding_directive = [
+| slicer_directive
+| `async
+| opavalue_directive
 ]
 
 (* TODO: remove Coerce form AST and use this instead; same for Parser; maybe others ? *)

@@ -99,7 +99,7 @@ let is_a_val_binding idents (_i, e) =
     | Q.Coerce (_, e, _)
     (* BEWARE before editing: keep this set of directive in sync with the one
      * in remove_toplevel_directives *)
-    | Q.Directive (_, (#Q.type_directive | #Q.slicer_directive | `async), [e], _) -> is_a_val e
+    | Q.Directive (_, (#Q.type_directive | #Q.binding_directive), [e], _) -> is_a_val e
     | _ -> raise InvalidRecursion in
   is_a_val e
 
@@ -192,7 +192,7 @@ let remove_toplevel_directives annotmap e =
     | Q.Directive (label, #Q.type_directive, [e], _) ->
         let annotmap = move_ei_tsc_gen label annotmap e in
         aux dirs annotmap e
-    | Q.Directive (label, (#Q.slicer_directive | `async as v), [e], []) ->
+    | Q.Directive (label, (#Q.binding_directive as v), [e], []) ->
         let annotmap = move_ei_tsc_gen label annotmap e in
         aux (v :: dirs) annotmap e
     | Q.Directive (_, #Q.slicer_directive, _, _) -> assert false
