@@ -341,6 +341,14 @@ Server_private = {{
 
         /* Make dispatcher */
         url_dispatcher = make_dispatcher(service)
+        url_dispatcher(x) =
+          #<Ifstatic:BENCH_SERVER>
+            print_t(t) = Log.notice("Server", "responded in {t}s")
+            CoreProfiler.instrument(1, print_t){->url_dispatcher(x)}
+          #<Else>
+            url_dispatcher(x)
+          #<End>
+
         dispatcher =
           // CAUTION     : The url_dispatcher called is delayed (via push) by complete_dispatcher for one important reason :
           //               It introduces a new execution task in the scheduler.
