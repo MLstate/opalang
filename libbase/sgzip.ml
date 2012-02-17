@@ -33,13 +33,13 @@ type out_channel =
     mutable out_pos: int;
     mutable out_avail: int;
     out_stream: Zlib.stream;
-    mutable out_string: string;
+    out_string: Buffer.t;
     mutable out_size: int32;
     mutable out_crc: int32;
     only_deflate : bool }
 
 let output_byte oz b =
-  oz.out_string <- Printf.sprintf "%s%c" oz.out_string (Char.unsafe_chr b)
+  Buffer.add_char oz.out_string (Char.unsafe_chr b)
 
 let open_out ?(level = 6) ?(only_deflate=false) () =
   if level < 1 || level > 9 then invalid_arg "Gzip.open_out: bad level";
@@ -48,7 +48,7 @@ let open_out ?(level = 6) ?(only_deflate=false) () =
     out_pos = 0;
     out_avail = buffer_size;
     out_stream = Zlib.deflate_init level false;
-    out_string = "";
+    out_string = Buffer.create buffer_size;
     out_size = Int32.zero;
     out_crc = Int32.zero;
     only_deflate = only_deflate } in
@@ -69,7 +69,7 @@ let rec output oz buf pos len =
     invalid_arg "Gzip.output";
   (* If output buffer is full, flush it *)
   if oz.out_avail = 0 then begin
-    oz.out_string <- Printf.sprintf "%s%s" oz.out_string (String.sub oz.out_buffer 0 oz.out_pos);
+    Buffer.add_substring oz.out_string oz.out_buffer 0 oz.out_pos;
     oz.out_pos <- 0;
     oz.out_avail <- String.length oz.out_buffer
   end;
@@ -98,7 +98,7 @@ let output_byte oz b =
 let write_int32 oz n =
   let r = ref n in
   for i = 1 to 4 do
-    oz.out_string <- Printf.sprintf "%s%c" oz.out_string (Char.unsafe_chr (Int32.to_int !r));
+    Buffer.add_char oz.out_string (Char.unsafe_chr (Int32.to_int !r));
     r := Int32.shift_right_logical !r 8
   done
 
@@ -106,7 +106,7 @@ let flush oz =
   let rec do_flush () =
     (* If output buffer is full, flush it *)
     if oz.out_avail = 0 then begin
-      oz.out_string <- Printf.sprintf "%s%s" oz.out_string (String.sub oz.out_buffer 0 oz.out_pos);
+      Buffer.add_substring oz.out_string oz.out_buffer 0 oz.out_pos;
       oz.out_pos <- 0;
       oz.out_avail <- String.length oz.out_buffer
     end;
@@ -120,7 +120,7 @@ let flush oz =
   do_flush();
   (* Final data flush *)
   if oz.out_pos > 0 then
-    oz.out_string <- Printf.sprintf "%s%s" oz.out_string (String.sub oz.out_buffer 0 oz.out_pos);
+    Buffer.add_substring oz.out_string oz.out_buffer 0 oz.out_pos;
   (* Write CRC and size *)
   if not oz.only_deflate then (
     write_int32 oz oz.out_crc;

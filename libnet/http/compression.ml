@@ -160,7 +160,8 @@ let compress_content sched gzip deflate compression_level cache_response content
           let oc = Sgzip.open_out ~level:compression_level ~only_deflate:deflate () in
           let return () =
             Sgzip.close_out oc;
-            let c_len, f_res = (String.length oc.Sgzip.out_string), oc.Sgzip.out_string in
+	    let s = Buffer.contents oc.Sgzip.out_string in
+            let c_len, f_res = (String.length s), s in
             (* Logger.log (sprintf "CACHE: OLD LEN %d : NEW LEN %d" content_len c_len); *)
             if content_len > c_len then (
               if cache_response then
