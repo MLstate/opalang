@@ -137,7 +137,10 @@ let pp_simple_type_prepare_sequence tys =
          | W_Algebra.SType_arrow (args, bd) ->
              List.iter aux args; aux bd
          | W_Algebra.SType_named n ->
-             Hashtbl.add original_ident (Ident.original_name n.W_Algebra.nst_name) n.W_Algebra.nst_name;
+             begin try
+               Hashtbl.add original_ident (Ident.original_name n.W_Algebra.nst_name)
+                 (Ident.get_package_name n.W_Algebra.nst_name)
+             with _ -> () end
          | W_Algebra.SType_sum_of_records {W_Algebra.ct_value = (ct, _)} ->
              List.iter
                (function {W_Algebra.rt_value = (rt, _)} -> List.iter (fun (_, st) -> aux st) rt)
@@ -150,9 +153,9 @@ let pp_simple_type_prepare_sequence tys =
 
 let pp_type_ident fmt ident =
   let o = (Ident.original_name ident) in
-  match Hashtbl.find_all original_ident o with
+  match BaseList.uniq (Hashtbl.find_all original_ident o) with
   | [] | [_] -> Format.fprintf fmt "%s" o
-  | _ ->
+  | _l ->
       try
         Format.fprintf fmt "%s from package %s" o (Ident.get_package_name ident)
       with _ -> Format.fprintf fmt "%s" o
