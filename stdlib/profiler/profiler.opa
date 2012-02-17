@@ -106,27 +106,4 @@ client Client_profiler = {{
 /*
  * TODO fix the previous module and merge with this one
  */
-Profile = {{
-
-  /** [measure(n)(f)] returns a pair: f() and the float representing the number of
-      seconds needed to execute f, n times. The timing information should have
-      better than millisecond precision, hence making it suitable for execution
-      profiling. */
-  measure(n)(f)=
-    get_time = %%BslTime.get_accurate_time%% :  -> float
-    t_beg = get_time()
-    rec aux(n, v) =
-      if n == 0 then
-        t_end = get_time()
-        (t_end - t_beg, v)
-      else
-        aux(n-1, f())
-     aux(n-1, f())
-
-  /** [instrument(n,report)(f)] returns the value of f() and call report with the time needed to execute f, n times */
-  instrument(n, report)(f)=
-    (t, r) = measure(n)(f)
-    do report(t) : void
-    r
-
-}}
+Profile = CoreProfiler
