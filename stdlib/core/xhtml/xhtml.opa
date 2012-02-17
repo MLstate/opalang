@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer}
+import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer, unification}
 
 /**
  * {1 About this module}
@@ -536,10 +536,6 @@ XmlConvert = {{
     original_ty = @typeof(value)
     rec aux(value, ty : OpaType.ty) =
       match ty with
-      | {TyName_ident = "list";
-         TyName_args =
-           [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
-          Xml.create_fragment(Magic.id(value))
       | {TyName_ident = "xml"; ...} | {TyName_ident = "xhtml"; ...} ->
           Magic.id(value)
       | {TyName_ident = "text"; ...} ->
@@ -547,13 +543,20 @@ XmlConvert = {{
       | {TyConst = {TyInt}} -> XmlConvert.of_int(Magic.id(value))
       | {TyConst = {TyFloat}} -> XmlConvert.of_float(Magic.id(value))
       | {TyConst = {TyString}} -> XmlConvert.of_string(Magic.id(value))
+      | {TyName_ident = "list";
+         TyName_args =
+           [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
+          Xml.create_fragment(Magic.id(value))
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
           ident, args, (ty -> aux(_, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
           value, [])
-      | _ -> {text = "Can't make an xml with " ^ OpaType.to_pretty(original_ty)}
+      | ty ->
+        if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+          Xml.create_fragment(Magic.id(value))
+        else {text = "Can't make an xml with {ty}"}
     aux(value, original_ty)
   : xml
 
