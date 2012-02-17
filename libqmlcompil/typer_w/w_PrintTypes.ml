@@ -24,32 +24,6 @@
 (* depends *)
 module Format = Base.Format
 
-let original_ident = Hashtbl.create 16
-
-let pp_simple_type_prepare_sequence tys =
-  List.iter
-    (fun ty ->
-       let rec aux ty =
-         match ty.W_Algebra.sty_desc with
-         | W_Algebra.SType_var _ -> ()
-         | W_Algebra.SType_arrow (args, bd) ->
-             List.iter aux args; aux bd
-         | W_Algebra.SType_named n ->
-             Hashtbl.add original_ident (Ident.original_name n.W_Algebra.nst_name) n.W_Algebra.nst_name;
-         | W_Algebra.SType_sum_of_records {W_Algebra.ct_value = (ct, _)} ->
-             List.iter
-               (function {W_Algebra.rt_value = (rt, _)} -> List.iter (fun (_, st) -> aux st) rt)
-               ct
-         | W_Algebra.SType_forall _tsh -> (* TODO *) ()
-       in aux ty
-    ) tys
-
-let pp_type_ident fmt ident =
-  let o = (Ident.original_name ident) in
-  match Hashtbl.find_all original_ident o with
-  | [] | [_] -> Format.fprintf fmt "%s" o
-  | _ -> Format.fprintf fmt "%s from package %s" o (Ident.get_package_name ident)
-
 
 let type_variables_counter = ref 0
 let row_variables_counter = ref 0
@@ -144,6 +118,44 @@ let create_column_variable_name _is_generalized =
   incr column_variables_counter ;
   name
 
+
+(* ************************************************************************** *)
+(** {b Descr}: Function that prepares the final pretty-printing of a sequence of
+    [simple_type]. Since we allows several type definition with the same
+    original ident (but different package) we should print type name with their
+    packages if several name from different packages will be printed.
+    {b Visibility}: Exported outside this module.  *)
+(* ************************************************************************** *)
+let original_ident = Hashtbl.create 16
+
+let pp_simple_type_prepare_sequence tys =
+  List.iter
+    (fun ty ->
+       let rec aux ty =
+         match ty.W_Algebra.sty_desc with
+         | W_Algebra.SType_var _ -> ()
+         | W_Algebra.SType_arrow (args, bd) ->
+             List.iter aux args; aux bd
+         | W_Algebra.SType_named n ->
+             Hashtbl.add original_ident (Ident.original_name n.W_Algebra.nst_name) n.W_Algebra.nst_name;
+         | W_Algebra.SType_sum_of_records {W_Algebra.ct_value = (ct, _)} ->
+             List.iter
+               (function {W_Algebra.rt_value = (rt, _)} -> List.iter (fun (_, st) -> aux st) rt)
+               ct
+         | W_Algebra.SType_forall tsh ->
+             List.iter aux tsh.W_Algebra.ty_parameters;
+             aux tsh.W_Algebra.body
+       in aux ty
+    ) tys
+
+let pp_type_ident fmt ident =
+  let o = (Ident.original_name ident) in
+  match Hashtbl.find_all original_ident o with
+  | [] | [_] -> Format.fprintf fmt "%s" o
+  | _ ->
+      try
+        Format.fprintf fmt "%s from package %s" o (Ident.get_package_name ident)
+      with _ -> Format.fprintf fmt "%s" o
 
 
 (* ************************************************************************** *)
