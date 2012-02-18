@@ -478,7 +478,7 @@ let default_scheduler = BslScheduler.opa
       option(SSL.policy), \
       option(time_t), \
       option(string), \
-      option(string), \
+      opa[list(string)], \
       (string, \
        int, \
        string, \
@@ -524,10 +524,11 @@ let default_scheduler = BslScheduler.opa
               ServerLib.make_record cons
       in QmlCpsServerLib.return cont_failure opa_e
     in
+    let more_headers = BslNativeLib.opa_list_to_ocaml_list (fun h -> h) more_headers in
     let _ = Http_client.place_request default_scheduler ~request_kind ?data ~hostname ~port ~path
       ~secure:is_secure  ?auth ?client_certificate:private_key ?verify_params:policy
       ?timeout:(Option.map Time.milliseconds timeout)
-      ?client_name:custom_agent ?more_headers ~err_cont
+      ?client_name:custom_agent ~more_headers ~err_cont
        ~success
        ~failure
       ()

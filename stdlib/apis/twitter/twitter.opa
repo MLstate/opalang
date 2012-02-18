@@ -476,7 +476,7 @@ type Twitter.rate_limit = {
     access_token_uri  = "https://api.twitter.com/oauth/access_token"
     http_method       = http_method
     inlined_auth      = false
-    custom_headers    = none
+    custom_headers    = []
   } : OAuth.parameters)
 
 
@@ -619,7 +619,7 @@ Twitter(conf:Twitter.configuration) = {{
     access_token_uri  = "https://api.twitter.com/oauth/access_token"
     http_method       = {POST}
     inlined_auth      = false
-    custom_headers    = none
+    custom_headers    = []
   } : OAuth.parameters
 
 

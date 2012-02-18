@@ -57,7 +57,7 @@ type OAuth.parameters = {
   authorize_uri     : string
   http_method       : OAuth.method
   inlined_auth      : bool
-  custom_headers    : option(string)
+  custom_headers    : list(string)
 }
 
 type OAuth.token = {

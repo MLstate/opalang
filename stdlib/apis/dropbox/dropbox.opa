@@ -80,7 +80,7 @@ type Dropbox.metadata = {
 
 /**
  * Type of an element in a Dropbox folder
- * 
+ *
  * Note that an empty folder will have its [content] field
  * to [some([])] and that [none] for this field just means
  * that there was no information about the folder files.
@@ -130,7 +130,7 @@ type Dropbox.file = {
     do_shift(forward,h,min) =
       d = { Duration.zero with ~forward ~h ~min }
         |> Duration.of_human_readable
-      Date.advance(_, d)      
+      Date.advance(_, d)
     shift(forward,h,m) =
       do_shift(forward,int_of_text(h),int_of_text(m))
     tmz = parser
@@ -254,7 +254,7 @@ type Dropbox.file = {
     access_token_uri  = "https://api.dropbox.com/1/oauth/access_token"
     http_method       = http_method
     inlined_auth      = false
-    custom_headers    = none
+    custom_headers    = []
   } : OAuth.parameters)
 
   wget(host, path, params, creds:Dropbox.creds, parse_fun) =
