@@ -68,7 +68,7 @@ type OpaTypeUnification.result = outcome(OpaTypeUnification.subst,OpaTypeUnifica
   /* same as above but also return a global substitution optimised (for tv only) */
   substitute_var(tv,ty,subst) =
     match StringMap.get(tv,subst.var)
-    {none} -> (ty,subst)
+    {none} -> (ty, unify_var_ty(tv,ty,subst))
     {some=ty} ->
       final_ty = substitute_no_opti(ty,subst)
       if final_ty==ty then (ty,subst)
