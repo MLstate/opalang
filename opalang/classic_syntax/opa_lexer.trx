@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -173,6 +173,7 @@ underscore<- spacing underscore_nosp $
 alias     <- spacing alias_nosp $
 dots      <- spacing dots_nosp $
 assign    <- spacing assign_nosp $
+sharp     <- spacing sharp_nosp $
 
 larrow_nosp    <- "<-" $
 rarrow_nosp    <- "->" $
@@ -193,6 +194,7 @@ underscore_nosp<- '_'  $
 alias_nosp     <- "as" $
 dots_nosp      <- "..."$
 assign_nosp    <- '='  ![=] $
+sharp_nosp <- '#' $
 
 #
 # Identifiers

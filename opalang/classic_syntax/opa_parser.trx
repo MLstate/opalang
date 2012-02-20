@@ -805,15 +805,13 @@ just_expr_before_possible_function_call <-
 (**
    {7 Id}
 *)
-id <-  (=careful_deco("#")):p deco_ml_identifier_nosp:s
-         {{ undecorate ((Ident "$",label p) & [string2 s]) }}
-     / (=careful_deco("#")):p opa_in_braces_nosp:e
-         {{ undecorate ((Ident "$",label p) & [e]) }}
-naked_id <-
-       (=careful_deco("#")):p deco_ml_identifier_nosp:s
-         {{ string2 s }}
-     / (=careful_deco("#")):p opa_in_braces_nosp:e
-         {{ e }}
+id <- (=deco(naked_id)):i
+{{ let (id,_) = i in undecorate ((Ident "$",label i) & [id]) }}
+
+naked_id <- sharp (
+         / (=careful_deco(Xml.sname)):s {{ string2 s }}
+         / opa_in_braces_nosp:e {{ e }}
+        ):id {{ id }}
 
 (**
   {7 Pattern matching}
@@ -1269,6 +1267,7 @@ underscore <- Opa_lexer.underscore $
 alias <- Opa_lexer.alias $
 dots <- Opa_lexer.dots $
 assign <- Opa_lexer.assign $
+sharp <- Opa_lexer.sharp $
 
 (**
    {6 Meta-rules}

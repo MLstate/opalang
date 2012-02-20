@@ -176,6 +176,7 @@ underscore<- spacing underscore_nosp $
 alias     <- spacing alias_nosp $
 dots      <- spacing dots_nosp $
 assign    <- spacing assign_nosp $
+sharp     <- spacing sharp_nosp $
 
 larrow_nosp    <- "<-" $
 rarrow_nosp    <- "->" $
@@ -197,6 +198,7 @@ alias_nosp     <- "as" $
 or_nosp     <- "or" $
 dots_nosp      <- "..."$
 assign_nosp    <- '='  ![=] $
+sharp_nosp <- '#' $
 
 #
 # Identifiers
