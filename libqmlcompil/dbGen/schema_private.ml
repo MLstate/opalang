@@ -831,6 +831,29 @@ let rec dots gamma field ty =
                       | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
                 )
 
+let is_uniq t node query =
+  let keyty = SchemaGraphLib.type_of_key t node in
+  let rec aux query ty =
+    match ty with
+    | Q.TypeRecord (Q.TyRow (rows, _)) ->
+        begin match query with
+        | Q.Db.QFlds (flds) ->
+            let (flds : string list) =
+              List.filter_map
+                (fun (f, q) -> match f, q with | [f], Q.Db.QEq _ -> Some f | _ -> None)
+                flds
+            in
+            List.for_all
+              (fun (f, _) ->
+                 List.exists (fun fs -> f = fs) flds
+              ) rows
+        | _ -> false
+        end
+    | Q.TypeConst _ -> true
+    | _ -> false
+  in aux query keyty
+
+
 let coerce_query_element ~context gamma ty (query, options) =
   let coerce new_annots wrap ty expr =
     let e = QmlAstCons.UntypedExpr.coerce expr ty in
@@ -1056,21 +1079,24 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             QmlPrint.pp#path_elts epath0
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
-  | (Db.Query (_, _))::epath, C.Multi ->
+  | (Db.Query (query, _))::epath, C.Multi ->
       let setty = node.C.ty in
+      (match epath with
+       | [] -> ()
+       | _ -> QmlError.error context "Path after queries is not yet allowed");
       (match setty with
        | Q.TypeName ([setparam], name)
            when Q.TypeIdent.to_string name = "dbset" ->
-           (match epath with
-            | [] -> ()
-            | _ -> OManager.error "You can't extend a virtual path");
-           let node, partial, tyread = node, true, setty in
+           let node, partial, tyread = node, not (is_uniq t node query), setty in
            node.C.ty, node, `virtualset (setparam, tyread, partial, None)
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
-           let valty, node, x =
-             find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
-           in Q.TypeName ([keyty; valty], Q.TypeIdent.of_string Opacapi.Types.map), node, x
+           let partial = not (is_uniq t node query) in
+           let valty, node, _x =
+             find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
+               ~kind ~epath0 vpath []
+           in Q.TypeName ([keyty; valty], Q.TypeIdent.of_string Opacapi.Types.map), node,
+           `virtualset (valty, valty, partial, None)
       )
 
   | (Db.ExprKey _e)::epath, C.Multi ->
@@ -1181,18 +1207,19 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
          let context = QmlError.Context.expr e in (* FIXME: we don't get a valid position here. *)
          let context = HacksForPositions.map context in
          let new_annots, p, realty, virtual_ = preprocess_path ~context t gamma p kind in
-         let exprty = match kind, virtual_ with
-         | Db.Option, `virtualpath (_, r, _) -> H.typeoption r
-         | Db.Option, _ -> H.typeoption realty
-         | Db.Default, `virtualpath (_, r, _) -> r
-         | Db.Default, _ -> realty
-         | Db.Valpath, `realpath -> C.Db.val_path_ty realty
-         | Db.Valpath, `virtualset (_, _, _, _) -> C.Db.val_path_ty realty
-         | Db.Valpath, `virtualpath (_, r, _) -> C.Db.val_path_ty r
-         | Db.Ref, `realpath -> C.Db.ref_path_ty realty
-         | Db.Ref, `virtualset (_, _, _, _) -> C.Db.ref_path_ty realty
-         | Db.Ref, `virtualpath (_, _, _) -> C.Db.ref_path_ty realty
-         | Db.Update _u, _ -> H.tyunit
+         let exprty =
+           let dataty = match virtual_ with
+             |`realpath -> realty
+             |`virtualset (_, _, true, _) -> realty
+             |`virtualset (d, _, false, _) -> d
+             | _ -> OManager.i_error "Virtual path are NYI"
+           in
+           match kind with
+           | Db.Option -> H.typeoption dataty
+           | Db.Default -> dataty
+           | Db.Valpath -> C.Db.val_path_ty dataty
+           | Db.Ref -> C.Db.ref_path_ty dataty
+           | Db.Update _u -> H.tyunit
          in
          let e =
            (* Bind type variable of virtual path handler with virtual

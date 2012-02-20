@@ -274,7 +274,9 @@ module Schema = struct
       | DbAst.Query (query, options) ->
           begin match kind with
           | SetAccess (_k, path, None) ->
-              let kind = SetAccess (get_setkind llschema node, path, Some (false, (query, options))) in
+              let partial = Sch.is_uniq llschema node query in
+              let kind = SetAccess (get_setkind llschema node, path,
+                                    Some (partial, (query, options))) in
               (next, kind, path)
           | SetAccess (_, _path, Some _) ->
               raise (Base.NotImplemented "Selection inside a multi node")
