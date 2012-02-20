@@ -39,7 +39,7 @@
                 / "[_]" {{ QmlAst.Db.Decl_set [] }})*:l
                {{ (QmlAst.Db.Decl_fld i)::l }}
 ;/** todo: extend to multiple index **/
-setindex_def <- lbrace (=list1(ml_identifier,semic)):i rbrace
+setindex_def <- lbrace (=list1(ml_identifier,Opa_parser.record_fields_separator)):i rbrace
   {{ QmlAst.Db.Decl_set [List.sort String.compare i] }}
 ;pathdef_type_nosp <- slash_nosp ml_identifier_nosp:i
                      (slash_nosp ml_identifier_nosp:i {{QmlAst.Db.Decl_fld i}}
