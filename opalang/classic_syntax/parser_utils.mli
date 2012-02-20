@@ -248,6 +248,8 @@ val list_expr_of_expr_list_no_coerce :
   ?tl:(string,'a) expr -> (string, [> `coerce ] as 'a) expr list -> annot -> (string, 'a) expr
 val list_expr_of_expr_list_tail_coerce :
   ?tl:(string,'a) expr -> (string, [> `coerce ] as 'a) expr list -> annot -> (string, 'a) expr
+val list_expr_of_expr_openlist :
+  ?tl:(string,'a) expr -> (string, [> `coerce | `opensums] as 'a) expr list -> annot -> (string, 'a) expr
 val list_expr_of_expr_list_unsafe : (string, [> `coerce ] as 'a) expr list -> (string, 'a) expr(**Fails if the list is empty*)
 val list_constructors_of_string_list: (string * annot) list -> annot -> (string, [> `coerce ]) expr
 

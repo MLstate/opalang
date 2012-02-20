@@ -919,6 +919,10 @@ let list_pat_of_pat_list ?tl l label : string pat =
 let list_expr_of_expr_list ?tl l label =
   let tl = match tl with None -> list_nil label | Some tl -> tl in
   List.fold_right list_cons l tl
+let list_expr_of_expr_openlist ?tl l label =
+  let tl = match tl with None -> list_nil label | Some tl -> tl in
+  let e = List.fold_right list_cons l tl in
+  (directive1 `opensums e, snd e)
 let list_expr_of_expr_list_no_coerce ?tl l label =
   let tl = match tl with None -> list_nil_no_coerce label | Some tl -> tl in
   List.fold_right list_cons_no_coerce l tl
