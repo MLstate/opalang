@@ -1073,34 +1073,8 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
            in Q.TypeName ([keyty; valty], Q.TypeIdent.of_string Opacapi.Types.map), node, x
       )
 
-  | (Db.ExprKey e)::epath, C.Multi ->
-      let setty = node.C.ty in
-      let uncoerce = match e with
-      | Q.Coerce (_, e, _) -> e
-      | _ -> e in
-      (match uncoerce, setty with
-       | Q.Record (_, rkeys), Q.TypeName ([setparam], name)
-           when Q.TypeIdent.to_string name = "dbset" ->
-           (match epath with
-            | [] -> ()
-            | _ -> OManager.error "You can't extend a virtual path");
-           (* This node is a dbset, translate to virtual *)
-           let tykeys, tyfreekeys = SchemaGraphLib.type_of_partial_key rkeys t node in
-           (* Read type is a dbset if there are freekeys *)
-           let node, partial, tyread = match tyfreekeys with
-           | [] -> SchemaGraph.unique_next t node, false, setparam
-           | _ -> node, true, setty in
-           (* Write keys is all of keys unless already binded keys. *)
-           let tywrite = match setparam with
-           | Q.TypeRecord (Q.TyRow (fields, _)) ->
-               let wfields =
-                 List.fold_left
-                   (fun acc key -> List.remove_assoc (fst key) acc)
-                   fields tykeys in
-               Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false wfields)
-           | _ -> internal_error "Wrong type on key typing (%a)" QmlPrint.pp#ty setparam in
-           node.C.ty, node, `virtualset (tyread, tywrite, partial, Some e)
-       | _ -> find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath)
+  | (Db.ExprKey _e)::epath, C.Multi ->
+      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
   | (Db.FldKey fld)::_rp, C.Sum ->
       let e = SchemaGraphLib.find_field_edge t node fld in
       find_exprpath_aux ~context t ~node:(E.dst e) ~kind ~epath0 vpath epath
