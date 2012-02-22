@@ -584,8 +584,7 @@ _ = Client_code.register_css_declaration([icon16,icon32])
 
 Bootstrap = {{
 
-  version = ServerReference.create("2.0.1") : reference(string)
-
+  @private
   compute_version_url(v:string) =
     if String.le(v, "1.2.0") then
       "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
@@ -594,16 +593,36 @@ Bootstrap = {{
     else
       "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
-  @deprecated
-  unimport() =
-    Resource.unregister_external_css(compute_version_url(Reference.get(version)))
+  @private
+  option : DynamicResource.config = {
+    sufix=some("bootstrap.min.css")
+    prefix=none
+    onaccess=none
+  }
 
-  @deprecated
+  @private
+  param = {
+    expiration={none}
+    consumption={unlimited}
+    visibility={shared}
+  }
+
+  @private
+  publish_css(name) = DynamicResource.publish_extend(name, param, option)
+
+  @private
+  files_css = @static_include_directory("stdlib/themes/bootstrap/css")
+
+  @private
+  uri_css = Map.map(publish_css, files_css)
+
+  url(v:string) =
+    Map.get("stdlib/themes/bootstrap/css/{v}/bootstrap.min.css", uri_css) ?
+    compute_version_url(v)
+
   import(v:string) =
-    // unregister the previous registered version
-    do unimport()
-    // set and register the new version to import
-    do Reference.set(version, v)
-    Resource.register_external_css(compute_version_url(v))
+    Resource.register_external_css(
+      url(v)
+    )
 
 }}

@@ -24,9 +24,9 @@
  * It also includes several sets of icons.
  *
  * {2 Where should I start}
- * If you want to use the current version (1.3.0), just import this package.
- * Otherwise, import stdlib.themes.bootstrap.core and call: Bootstrap.import(VERSION)
- * before launching your server (note: no check is performed), or import  stdlib.themes.bootstrap-VERSION.
+ * If you want to use the latest version, just import this package (stdlib.themes.bootstrap).
+ * Otherwise, import stdlib.themes.bootstrap.v{X_Y_Z}.
+ * /!\ If the version you are looking for is not embed in Opa, it will reference GitHub's URL.
  *
  * {3 How to use icons}
  * There are different sizes:
@@ -44,36 +44,4 @@
 
 import stdlib.themes.bootstrap.core
 
-@private
-option : DynamicResource.config = {
-  sufix=some("bootstrap.min.css")
-  prefix=none
-  onaccess=none
-}
-
-@private
-param = {
-  expiration={none}
-  consumption={unlimited}
-  visibility={shared}
-}
-
-@private
-publish_css(name) = DynamicResource.publish_extend(name, param, option)
-
-/* resources */
-@private
-files_css = @static_include_directory("stdlib/themes/bootstrap/css")
-
-@private
-uri_css = Map.map(publish_css, files_css)
-
-@private
-current_bootstrap_url =
-  Bootstrap.compute_version_url(Reference.get(Bootstrap.version))
-
-@private
-url(name) =
-  Map.get("stdlib/themes/bootstrap/css/{name}", uri_css) ? current_bootstrap_url
-
-do Resource.register_external_css(url("{Reference.get(Bootstrap.version)}/bootstrap.min.css"))
+do Bootstrap.import("2.0.1")
