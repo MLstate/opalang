@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -113,7 +113,7 @@ sig
     bypass_typer : bypass_typer ->
     gamma : gamma ->
     QmlAst.expr ->
-    gamma * QmlAst.annotmap * QmlAst.ty
+    (gamma * gamma) * QmlAst.annotmap * QmlAst.ty
 end
 
 

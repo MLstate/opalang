@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -44,7 +44,12 @@ exception Ill_formed_column_type of
 
 exception Cyclic_type of W_Algebra.simple_type
 
+(** Function prepare multiples exporting. *)
+val prepare_export : unit -> unit
 
+(** Function finalize a sequence of exporting and returns a gamma
+    which contains definition for the cyclic types. *)
+val finalize_export : unit -> QmlTypes.gamma
 
 (** val type_scheme_to_qml_type_scheme:
      W_Algebra.types_scheme -> QmlTypes.typescheme

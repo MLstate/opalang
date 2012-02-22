@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -375,18 +375,32 @@ struct
       let typer =
         type_of_expr
           ~options ~annotmap: initial_annotmap_with_locs  ~bypass_typer ~gamma in
-      let (gamma, annotmap, t) = typer letrec in
+      let ((gamma, cyclic_gamma), annotmap, t) = typer letrec in
+      let gamma = QmlTypes.Env.append gamma cyclic_gamma in
+      let check_cyclic =
+        if QmlTypes.Env.empty <> cyclic_gamma then
+          (fun context ty ->
+            if QmlAstWalk.Type.exists (function
+             | QmlAst.TypeName (_, ident) -> QmlTypes.Env.TypeIdent.mem ident cyclic_gamma
+             | _ -> false) ty then
+              QmlError.warning ~wclass:QmlTyperWarnings.cyclic
+                context
+                "Cyclic type %a" QmlPrint.pp#ty ty
+          )
+        else fun _ _ -> ()
+      in
       let fold_map gamma (ident, exp) (s, _, _) =
         let ty = get_let_component s t annotmap ident letrec in
         (* Ensure that if the bound ident is exported outside the package, then
            its type doesn't make any reference to a type private to the
            package. *)
+        let getctx () =
+          QmlError.Context.annoted_expr initial_annotmap_with_locs exp
+        in
         if IdentSet.mem ident exported_values_idents then (
           try QmlTypesUtils.Inspect.check_no_private_type_escaping gamma ty with
           | QmlTypesUtils.Inspect.Escaping_private_type prv_ty ->
-              let err_ctxt =
-                QmlError.Context.annoted_expr initial_annotmap_with_locs exp in
-              QmlError.error err_ctxt
+              QmlError.error (getctx ())
                 ("@[Definition@ of@ @{<red>%a@}@ is@ not@ private@ but@ its@ type@ "^^
                  "contains@ a@ type@ private@ to@ the@ package.@ Type@ %a@ must@ " ^^
                  "not@ escape@ its@ scope.@]@\n" ^^
@@ -394,6 +408,7 @@ struct
                  "definition.@]@\n")
                 QmlPrint.pp#ident ident QmlPrint.pp#ty prv_ty
         ) ;
+        check_cyclic (getctx ()) ty;
         (* If interface printing is requested, then print the type of the bound
            value. *)
         if env.QT.display then (

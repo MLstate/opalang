@@ -179,9 +179,11 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
     #<End> ; (* <---------- END DEBUG *)
     (* Now, convert the obtained type and the annotations map obtained after
        inference into a QML type and annotations map. *)
+    W_PublicExport.prepare_export ();
     let (qml_ty, qml_infered_annotmap) =
       convert_to_qml
         ~expr ~inferred_ty: ty ~inference_result_annotmap: infered_annotmap in
+    let qml_more_gamma = W_PublicExport.finalize_export () in
     #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
     OManager.printf "typer_w: annotmap export stop@." ;
     #<End> ; (* <---------- END DEBUG *)
@@ -197,7 +199,7 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
     #<If:TYPER $minlevel 12> (* <---------- DEBUG *)
     QmlPrint.debug_QmlAst_annotmap qml_infered_annotmap ;
     #<End> ; (* <---------- END DEBUG *)
-    (gamma, result_qml_annotmap, qml_ty)
+    ((gamma, qml_more_gamma), result_qml_annotmap, qml_ty)
   with killed_by ->
     (
       (* First, to allows opatop to continue after the error was reported, we
@@ -297,5 +299,5 @@ struct
          ?annotmap: QmlAst.annotmap ->
            bypass_typer: QmlTypes.bypass_typer ->
              gamma: QmlTypes.gamma ->
-               QmlAst.expr -> (QmlTypes.gamma * QmlAst.annotmap * QmlAst.ty))
+               QmlAst.expr -> ((QmlTypes.gamma * QmlTypes.gamma) * QmlAst.annotmap * QmlAst.ty))
 end

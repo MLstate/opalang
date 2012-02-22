@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -42,7 +42,23 @@ exception Ill_formed_column_type of
 
 exception Cyclic_type of W_Algebra.simple_type
 
+let cyclic_type = ref QmlTypes.Env.empty
 
+(* ************************************************************************** *)
+(** {b Descr}: Function prepare multiples exporting
+    {b Visibility}: Exported outside this module.                             *)
+(* ************************************************************************** *)
+let prepare_export () = cyclic_type := QmlTypes.Env.empty
+
+(* ************************************************************************** *)
+(** {b Descr}: Function finalize a sequence of exporting and returns a gamma
+    which contains definition for the cyclic types.
+    {b Visibility}: Exported outside this module.                             *)
+(* ************************************************************************** *)
+let finalize_export() =
+  let gamma = !cyclic_type in
+  cyclic_type := QmlTypes.Env.empty;
+  gamma
 
 (* ************************************************************************** *)
  (** {b Descr}: Function exporting a [simple_type] to a QML type. This function
@@ -71,8 +87,11 @@ let simple_type_to_qml_type initial_ty =
            We must cleanup the type in order to be able to print it in an error
            message. If we don't clean it, we will get assertion failures because
            the exportation set its own markers. *)
-        W_CoreTypes.cleanup_simple_type initial_ty ;
-        raise (Cyclic_type initial_ty)
+        let ident = Ident.next "cyclic" in
+        ty.W_Algebra.sty_mark <- W_Algebra.TM_export_cyclic ident;
+        QmlAst.TypeName ([], ident)
+    | W_Algebra.TM_export_cyclic ident ->
+        QmlAst.TypeName ([], ident)
     | W_Algebra.TM_not_seen
     | W_Algebra.TM_export_seen_not_rec -> (
         (* The type was never seen of just seen but as non-recursive. We will
@@ -148,6 +167,9 @@ let simple_type_to_qml_type initial_ty =
            If no, then we turn back its marker as "seen but non
            recursive" (i.e. [TM_export_seen_not_rec]). *)
         (match ty.W_Algebra.sty_mark with
+         | W_Algebra.TM_export_cyclic ident ->
+             let sch = QmlTypes.Scheme.definition ident exported_ty in
+             cyclic_type := QmlTypes.Env.TypeIdent.add ident (sch, 0, QmlAst.TDV_public) !cyclic_type;
          | W_Algebra.TM_export_seen xtimes' ->
              if !xtimes' = 1 then
                ty.W_Algebra.sty_mark <- W_Algebra.TM_export_seen_not_rec
@@ -285,7 +307,10 @@ let simple_type_to_qml_type initial_ty =
   try
     let exported_ty = rec_export_simple_type initial_ty in
     (* Don't forget to cleanup the type structure. *)
-    W_CoreTypes.cleanup_simple_type initial_ty ;
+    begin match initial_ty.W_Algebra.sty_mark with
+    | W_Algebra.TM_export_cyclic _ident -> () (* We won't cleanup cyclic mark*)
+    | _ -> W_CoreTypes.cleanup_simple_type initial_ty
+    end;
     exported_ty
   with killed_by ->
     (* In any case, even if an error occurred, don't forget to cleanuo the type

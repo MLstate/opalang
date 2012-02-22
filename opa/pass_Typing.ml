@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -128,7 +128,7 @@ let process_code ?(save = true) env =
     else stdlib_map in
   let stdlib_gamma =
     QmlTypes.Env.Ident.from_map stdlib_map env.P.stdlib_gamma in
-  let diff_gamma = QmlTypes.Env.Ident.from_map diff_map initial_gamma in
+  let diff_gamma = QmlTypes.Env.Ident.from_map diff_map final_gamma in
   let typerEnv = { typerEnv with QmlTypes.gamma = diff_gamma } in
   { env with
       P.typerEnv = typerEnv ; qmlAst = code ; stdlib_gamma = stdlib_gamma }
