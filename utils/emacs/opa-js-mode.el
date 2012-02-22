@@ -135,7 +135,9 @@ bound to KEY in the global keymap and indents the current line."
 (defvar js-ident-as-word-syntax-table
   (let ((table (copy-syntax-table opa-js-mode-syntax-table)))
     (modify-syntax-entry ?$ "w" table)
+    (modify-syntax-entry ?% "w" table)
     (modify-syntax-entry ?_ "w" table)
+    (modify-syntax-entry ?\' "w" table)
     table)
   "Alternative syntax table used internally to simplify detection
   of identifiers and keywords and its boundaries.")
@@ -482,9 +484,9 @@ comments have been removed."
         e
         )))
 
-(defun pnt (str) (message (concat str ": point=\"" (buffer-substring (point) (+ (point) 20)) "\"")))
-(defun mtch (str) (message (concat str ": match=\"" (buffer-substring (match-beginning 0) (match-end 0)) "\"")))
-(defun mtch-ft (str from to) (message (concat str ": match=\"" (buffer-substring from to) "\"")))
+(defun pnt (str) (message "%s" (concat str ": point=\"" (buffer-substring (point) (+ (point) 20)) "\"")))
+(defun mtch (str) (message "%s" (concat str ": match=\"" (buffer-substring (match-beginning 0) (match-end 0)) "\"")))
+(defun mtch-ft (str from to) (message "%s" (concat str ": match=\"" (buffer-substring from to) "\"")))
 
 (defun match-opa-record-type-element (limit)
   (when (match-opa-type limit)
@@ -699,10 +701,10 @@ comments have been removed."
     ;; ppdebug
     (cons "#<[^>]*>" '(0 'opa-font-ppdebug-face))
 
-    ;; var declarations with types
+    ;; var declarations with types: var typ nam = ...
     '(match-variable-declaration . '((0 font-lock-type-face) (1 font-lock-variable-name-face)))
 
-    ;; assignments with types
+    ;; assignments with types (typ) name = ...
     '(match-variable-assign . '((0 font-lock-type-face) (1 font-lock-variable-name-face)))
 
     ;; subrule name (parser)
@@ -773,33 +775,37 @@ comments have been removed."
 
 (defconst js-possibly-braceless-keyword-re
   (regexp-opt
-   '("catch" "do" "else" "finally" "for" "if" "try" "while" "with")
+   '("else" "if" "try" "with")
    'words)
   "Regular expression matching keywords that are optionally
   followed by an opening brace.")
 
 (defconst js-indent-operator-re
-  (concat "[-+*/%<>=&^|?:.]\\([^-+*/]\\|$\\)\\|"
-          (regexp-opt '("in" "instanceof") 'words))
+  (concat "[-+*/<>=&^|?:.]\\([^-+*/]\\|$\\)")
   "Regular expression matching operators that affect indentation
   of continued expressions.")
 
 
 (defun js-looking-at-operator-p ()
-  "Return non-nil if text after point is an operator (that is not
-a comma)."
-  (save-match-data
-    (and (looking-at js-indent-operator-re)
-         (or (not (looking-at ":"))
-             (save-excursion
-               (and (js-re-search-backward "[?:{]\\|\\<case\\>" nil t)
-                    (looking-at "?")))))))
+  "Return non-nil if text after point is an operator (that is not a comma)."
+  (let ((res
+         (progn
+           ;(pnt "js-looking-at-operator-p")
+           (save-match-data
+             (and (looking-at js-indent-operator-re)
+                  (or (not (looking-at ":"))
+                      (save-excursion
+                        (and (js-re-search-backward "[?:{]\\|\\<case\\>" nil t)
+                             (looking-at "?")))))))))
+    ;(message (concat "js-looking-at-operator-p" " res " (if res "t" "nil")))
+    res))
 
 
 (defun js-continued-expression-p ()
   "Returns non-nil if the current line continues an expression."
   (save-excursion
     (back-to-indentation)
+    ;(pnt "js-continued-expression-p 1")
     (or (js-looking-at-operator-p)
         (and (js-re-search-backward "\n" nil t)
 	     (progn 
@@ -842,6 +848,7 @@ indented to the same column as the current line."
 starts the body of a control statement without braces, else
 returns nil."
   (save-excursion
+    ;(message "start js-ctrl-statement-indentation")
     (back-to-indentation)
     (when (save-excursion
             (and (not (looking-at "[{]"))
@@ -854,6 +861,7 @@ returns nil."
                    (looking-at js-possibly-braceless-keyword-re))
                  (not (js-end-of-do-while-loop-p))))
       (save-excursion
+        ;(message "js-ctrl-statement-indentation succeed")
         (goto-char (match-beginning 0))
         (+ (current-indentation) opa-js-indent-level)))))
 
@@ -861,6 +869,7 @@ returns nil."
 (defun js-proper-indentation (parse-status)
   "Return the proper indentation for the current line."
   (save-excursion
+    ;(message "js-proper-indentation")
     (back-to-indentation)
     (let ((ctrl-stmt-indent (js-ctrl-statement-indentation))
           (same-indent-p (looking-at "[]})]\\|\\<case\\>\\|\\<default\\>"))
@@ -870,35 +879,67 @@ returns nil."
              (goto-char (nth 1 parse-status))
              (if (looking-at "[({[][ \t]*\\(/[/*]\\|$\\)")
                  (progn
+                   ;(pnt "open bracket at end of line")
                    (skip-syntax-backward " ")
                    (when (= (char-before) ?\)) (backward-list))
                    (back-to-indentation)
                    (cond (same-indent-p
+                          ;(pnt "current column 1")
                           (current-column))
                          (continued-expr-p
+                          ;(pnt "continued expr")
                           (+ (current-column) (* 2 opa-js-indent-level)
                              opa-js-expr-indent-offset))
                          (t
+                          ;(pnt "not continued expr")
+                          ;(message (concat "currentcol " (int-to-string (current-column))))
                           (+ (current-column) opa-js-indent-level))))
                (unless same-indent-p
                  (forward-char)
                  (skip-chars-forward " \t"))
+               ;(pnt "current column 1")
                (current-column)))
 	    (continued-expr-p (+ opa-js-indent-level 
                                  opa-js-expr-indent-offset))
             (t 0)))))
 
 
+(defun b2s (s)
+  (cond ((booleanp s) (if s "t" "nil"))
+        ((numberp s) (int-to-string s))
+        ((stringp s) s)
+        ((sequencep s) "sequence")
+        (t (type-of s))))
+
 (defun opa-js-indent-line ()
   "Indent the current line as Opa-Js source text."
   (interactive)
+  ;(message "opa-js-indent-line")
   (with-syntax-table js-ident-as-word-syntax-table
     (let ((parse-status 
 	   (save-excursion (parse-partial-sexp (point-min) (point-at-bol))))
 	  (offset (- (current-column) (current-indentation))))
-      (when (not (nth 8 parse-status))
-	(indent-line-to (js-proper-indentation parse-status))
-	(when (> offset 0) (forward-char offset))))))
+      (cond ((nth 4 parse-status)
+              (let ((base (save-excursion
+                            (re-search-backward "/\\*" (point-min) t)
+                            (current-column))))
+                (indent-line-to (+ base 1)))
+	      (when (> offset 0) (forward-char offset)))
+            ((not (nth 8 parse-status))
+;              (message (concat "indent"
+;                               " depth " (b2s (nth 0 parse-status))
+;                               " innerlist " (b2s (nth 1 parse-status))
+;                               " sexplast " (b2s (nth 2 parse-status))
+;                               " instring " (b2s (nth 3 parse-status))
+;                               " incomment " (b2s (nth 4 parse-status))
+;                               " afterquote " (b2s (nth 5 parse-status))
+;                               " minparen " (b2s (nth 6 parse-status))
+;                               " abcomment " (b2s (nth 7 parse-status))
+;                               " lstcomstr " (b2s (nth 8 parse-status))
+;                               " intdata " (b2s (nth 9 parse-status))
+;                               ))
+             (indent-line-to (js-proper-indentation parse-status))
+             (when (> offset 0) (forward-char offset)))))))
   
 
 ;; --- Filling ---
