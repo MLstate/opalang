@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -44,7 +44,36 @@
 
 import stdlib.themes.bootstrap.core
 
+@private
+option : DynamicResource.config = {
+  sufix=some("bootstrap.min.css")
+  prefix=none
+  onaccess=none
+}
+
+@private
+param = {
+  expiration={none}
+  consumption={unlimited}
+  visibility={shared}
+}
+
+@private
+publish_css(name) = DynamicResource.publish_extend(name, param, option)
+
+/* resources */
+@private
+files_css = @static_include_directory("stdlib/themes/bootstrap/css")
+
+@private
+uri_css = Map.map(publish_css, files_css)
+
+@private
 current_bootstrap_url =
   Bootstrap.compute_version_url(Reference.get(Bootstrap.version))
 
-do Resource.register_external_css(current_bootstrap_url)
+@private
+url(name) =
+  Map.get("stdlib/themes/bootstrap/css/{name}", uri_css) ? current_bootstrap_url
+
+do Resource.register_external_css(url("{Reference.get(Bootstrap.version)}/bootstrap.min.css"))
