@@ -584,7 +584,7 @@ _ = Client_code.register_css_declaration([icon16,icon32])
 
 Bootstrap = {{
 
-  version = ServerReference.create("1.4.0") : reference(string)
+  version = ServerReference.create("2.0.1") : reference(string)
 
   compute_version_url(v:string) =
     if String.le(v, "1.2.0") then
@@ -594,9 +594,11 @@ Bootstrap = {{
     else
       "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
+  @deprecated
   unimport() =
     Resource.unregister_external_css(compute_version_url(Reference.get(version)))
 
+  @deprecated
   import(v:string) =
     // unregister the previous registered version
     do unimport()
