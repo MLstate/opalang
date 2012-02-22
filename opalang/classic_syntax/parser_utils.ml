@@ -1450,11 +1450,15 @@ let rewrite_add_recval x =
   in aux x
 
 let rewrite_letin is_rec binds expr =
-  let binds =
-    if is_rec then
-      List.map (function (i, e) -> (i, rewrite_add_recval e)) binds
-    else binds in
-  LetIn (is_rec, binds, expr)
+  match binds with
+  | [] -> undecorate expr
+  | _ ->
+      let binds =
+        if is_rec then
+          List.map (function (i, e) -> (i, rewrite_add_recval e)) binds
+        else binds in
+      LetIn (is_rec, binds, expr)
+
 
 let rewrite_long_extend_record fields expr =
   let trees = make_record_tree fields in
