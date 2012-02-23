@@ -383,9 +383,10 @@ struct
             if QmlAstWalk.Type.exists (function
              | QmlAst.TypeName (_, ident) -> QmlTypes.Env.TypeIdent.mem ident cyclic_gamma
              | _ -> false) ty then
+              let printer = new QmlTypes.pp_with_gamma cyclic_gamma in
               QmlError.warning ~wclass:QmlTyperWarnings.cyclic
                 context
-                "Cyclic type %a" QmlPrint.pp#ty ty
+                "@[This expression has type %a@ which contains cyclic types:@ %a@]" printer#ty ty printer#flush ()
           )
         else fun _ _ -> ()
       in

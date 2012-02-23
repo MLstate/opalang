@@ -441,3 +441,14 @@ val process_typenames_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotm
 
 (** fails if there are duplicate type definitions *)
 val check_no_duplicate_type_defs : QmlAst.code -> unit
+
+
+(** A class of printer which collects type identifiers printed in types and
+    present on the given [gamma]. Then the flush method prints definitions
+    corresponding to the collected identifiers. *)
+class pp_with_gamma :
+  gamma -> object
+    inherit QmlPrint.opa_printer
+    method flush : unit BaseFormat.pprinter
+  end
+

@@ -888,3 +888,33 @@ let check_no_duplicate_type_defs =
     (List.concat_map
        (function Q.NewType (_, l) ->
           List.map (fun ty_def -> ty_def.QmlAst.ty_def_name) l | _ -> []))
+
+
+class pp_with_gamma gamma =
+  let to_flush = ref IdentMap.empty in
+  let flushed = ref IdentMap.empty in
+object(self)
+  inherit QmlPrint.opa_printer as super
+  method typeident f t =
+    if Env.TypeIdent.mem t gamma
+      && not (IdentMap.mem t !flushed ) then
+        to_flush := IdentMap.add t (Env.TypeIdent.find ~visibility_applies:false t gamma) !to_flush;
+    super#typeident f t
+
+  method flush f () =
+    Format.fprintf f "@[<v>";
+    let rec aux s =
+      if IdentMap.is_empty !to_flush then ()
+      else
+        let (t, (sch,_)) = IdentMap.min !to_flush in
+        to_flush := IdentMap.remove t !to_flush;
+        flushed := IdentMap.add t sch !flushed ;
+        let ty = Scheme.instantiate sch in
+        Format.fprintf f "@[%s %a = %a @]" s self#typeident t self#ty ty;
+        if IdentMap.is_empty !to_flush then ()
+        else aux "and"
+    in aux "type";
+    to_flush := IdentMap.empty;
+    flushed := IdentMap.empty;
+    Format.fprintf f "@]"
+end
