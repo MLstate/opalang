@@ -684,6 +684,60 @@ Xhtml =
 
   to_string = serialize_to_string
  
+  @private
+  JsEvent = {{
+
+    filter_unsafe_inline(f)(v) =
+      if is_safe_inline_event(v.name)
+      then
+        str = inline_content(v.value)
+        if is_safe_inline_content(str) then
+             do f(Dom.Event.get_name(v.name),str):void
+             false
+        else
+             true
+      else
+        true
+
+    inline_handler(eventname,content) = " on{eventname}='{content}'"
+
+    inline_content =
+    | ~{value} -> value
+    | ~{expr}  -> FunAction.serialize(expr)
+
+    /* stay sync with jquery.(mlstate)bind */
+    is_safe_inline_event =
+    | {click} -> true
+    | {keydown} -> false // jquery normalisation
+    | _ -> false
+
+    /*
+      false = {}
+      true  = {v}
+      none = {}
+      some(a)  = {v:a}
+    */
+    is_safe_inline_content(s) =
+     match Parser.try_parse(check,s)
+     {some} ->
+       // do println("is_safe_inline_content ACCEPTED")
+       true
+     {none} ->
+       // do println("is_safe_inline_content REJECTED {s} at {Parser.partial_parse(debug_check,s)}\n")
+       false
+
+    // CAUTION: the check accept only a very restricted set of chars, take care when extending to not introduce security problem
+    // the checked string is delimited by ', hence ' is not in the accepted chars set
+    // e.g. the string f("\"'onready=\"alert(\"toto\")\"") could cause a js injection on some browser
+    // < and > should not be in the set
+    // typical event handler is a function call with args that are only datatype (no code)
+    // * / are here in case of comments
+    check = parser
+    | [-_A-Za-z()\"0-9:.,\n\t{}*/]* -> void
+    debug_check = parser s=(check) -> s
+
+  }}
+
   @publish new_server_id =
    nid = (%% bslIdentGen.create %%)("I8")
    nid
@@ -728,7 +782,6 @@ Xhtml =
         | { ~value } -> value
         | { ~expr  } -> FunAction.serialize(expr)
       Buf.add(js_buffer,code)
-
     /**
      * @param depth The current depth in the tree. Used both for pretty-printing and to insert scripts at the correct place
      */
@@ -797,8 +850,15 @@ Xhtml =
                    | _ -> void
                )
 
-               (load_events, other_events) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events)
-               (_,   other_events_options) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events_options)
+
+               other_events = // take care of event handler that can be inlined in html attribute
+                 if XhtmlOptions.options.enable_inlined_event then
+                   safe_inline(eventname,content) =
+                     Buf.add(html_buffer,JsEvent.inline_handler(eventname,content))
+                   List.filter(JsEvent.filter_unsafe_inline(safe_inline), other_events)
+                 else
+                   other_events
+
                //Handle events and style: start
                do (if other_events == [] && other_events_options == [] && style == [] then void
                       else  //We need an ID for this node, to be able to attach event handlers
@@ -812,7 +872,7 @@ Xhtml =
                          //Now, generate jQuery-specific code in the jsbuffer, as a chain of JS dot calls on the item
                          do Buf.add(js_buffer,"\n$('#")
                          do Buf.add(js_buffer,Dom.escape_selector(id))
-                         do Buf.add(js_buffer,"')")
+                         do Buf.add(js_buffer,"')\n")
 
                          //Handle style -- generate a call to jQuery function [css]
                          do if style == [] then void
@@ -833,40 +893,37 @@ Xhtml =
                                   )
 
                                 else
-                                  do Buf.add(js_buffer,"\n.css(\{  ")
+                                  do Buf.add(js_buffer,".css(\{  ")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
                                     do Buf.add(js_buffer,"'")
                                     do Buf.add(js_buffer,name)
                                     do Buf.add(js_buffer,"': '")
                                     do Buf.add(js_buffer,value)
-                                    if last then Buf.add(js_buffer,"'})")
+                                    if last then Buf.add(js_buffer,"'})\n")
                                     else Buf.add(js_buffer,"', ")),
                                     css_as_list
                                   )
 
-                         //Handle non-load events
-                         do List.iter(~{name value} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
-                            do Buf.add(js_buffer,"\n.opachbind('")
-                            do Buf.add(js_buffer,Dom.Event.get_name(name))
-                            do Buf.add(js_buffer,"', (function(event)\{")
-                            do jsappend_event_handler(value)
-                            do Buf.add(js_buffer,"\}))")
-                            void,
-                            other_events)
-
-                         //Handle non-load events options
-                         do List.iter({name=handle value=options} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
+                         //Handle non-inlined, non-ready events
+                         do (List.iter(_,other_events)){
+                            ~{name value} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
+                            name = Dom.Event.get_name(name)
+                            content = JsEvent.inline_content(value)
+                            add = ".bind('{name}',(function(event)\{{content}\}))\n"
+                            Buf.add(js_buffer,add)
+                         }
+                         //Handle non-inlined non-ready events options
+                         do (List.iter(_,other_events_options)){
+                            {name=handle value=options} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
                             stop_propagation = List.exists(_ == {stop_propagation}, options)
                             prevent_default  = List.exists(_ == {prevent_default},  options)
                             if(stop_propagation || prevent_default) then
-                               do Buf.add(js_buffer,"\n\t.bind('")//Note: here, using [bind], which is faster than [opabind] because it doesn't perform JS -> OPA event conversion
-                               do Buf.add(js_buffer,Dom.Event.get_name(handle))
-                               do Buf.add(js_buffer,"', (function(event)\{")
-                               do if stop_propagation then Buf.add(js_buffer,"event.stopPropagation();")
-                               do if prevent_default  then Buf.add(js_buffer,"event.preventDefault();")
-                               do Buf.add(js_buffer,"\}))")
-                               void,
-                               other_events_options)
+                               name = Dom.Event.get_name(handle)
+                               stop_propagation = if stop_propagation then "event.stopPropagation();" else ""
+                               prevent_default  = if prevent_default  then "event.preventDefault();"  else ""
+                               add = ".bind('{name}',(function(event)\{{stop_propagation}{prevent_default}\}))\n"
+                               Buf.add(js_buffer,add)
+                         }
 
                          //Finally, return args with id
                          void

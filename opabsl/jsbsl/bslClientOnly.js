@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,6 +22,7 @@
 ##extern-type dom_element
 ##extern-type Client.location
 ##extern-type Dom.event
+##extern-type native_event
 ##extern-type Dom.event_propagation
 ##extern-type dom
 ##extern-type Xhtml.private_dom_element_list
@@ -51,6 +52,7 @@
   return default_opa_event
 }
 
+##register dom_event_to_opa_event \ `dom_event_to_opa_event` : Dom.event -> native_event
 
 /**
  * {1 Dynamic loading of JavaScript}
