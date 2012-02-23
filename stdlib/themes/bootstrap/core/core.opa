@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -348,7 +348,7 @@ icon32 = css
 
 /* White icons for vivid and dark backgrounds */
 .icon32.icon-white, .icons-white .icon32 {background-image: {get_img("icons32-white.png")};}
-.icon32.icon-white:hover, .icons-white .icon32:hover, icons-gray .icon32 {background-image: {get_img("icons32-gray.png")};}
+.icon32.icon-white:hover, .icons-white .icon32:hover, .icons-gray .icon32 {background-image: {get_img("icons32-gray.png")};}
 
 /* Black icons for gray backgrounds */
 .icon32.icon-black, .icons-black .icon32, .icon32.icon-darkgray:hover {background-image: {get_img("icons32-black.png")};}
