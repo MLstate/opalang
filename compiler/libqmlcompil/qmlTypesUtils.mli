@@ -91,6 +91,9 @@ sig
   (** Returns the type of data of the [ty] map. If the given [ty] is not a type
       of map (or an alias) throws [Not_found].*)
   val get_data_type_of_map : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
+
+  (** Returns all types inside the given type that could be in a mutable container *)
+  val get_type_potentially_in_non_pure_type : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty list
 end
 
 (** Utils for arrow types *)

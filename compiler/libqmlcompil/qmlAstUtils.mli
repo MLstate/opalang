@@ -114,6 +114,7 @@ val collect_annot : Annot.t -> QmlAst.expr -> QmlAst.expr list
 val is_expansive : QmlAst.expr -> bool
 val is_expansive_strict : QmlAst.expr -> bool
 val is_expansive_with_options : [`disabled|`normal|`strict] -> (QmlAst.expr -> bool)
+val expansive_nodes_related_to_type_with_options : [`disabled|`normal|`strict] -> (QmlAst.expr -> Annot.label list)
 
 module App : sig
   (**

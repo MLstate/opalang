@@ -423,10 +423,35 @@ struct
             e.g. due to value restriction, then use [generalize]
             instead of [quantify] *)
         let sch =
+          (* do the dumb check (for efficiency) *)
+          (* collect id of expansives elements that influence the type of the expression *)
+          (* collect type var of expansiv elements *)
+          (* intersect with var of main type *)
+          (* if intersection is not empty say something *)
           let is_expansive = QmlAstUtils.is_expansive_with_options options.QT.value_restriction in
-          if not (QT.FreeVars.is_type_empty (QT.freevars_of_ty ty)) && is_expansive exp
-          then (
+          let mutable_vars ty =
+            List.fold_left (fun acc ty -> QT.FreeVars.union (QT.freevars_of_ty ty) acc) QT.FreeVars.empty
+              (QmlTypesUtils.Inspect.get_type_potentially_in_non_pure_type gamma ty)
+          in
+          let expansive_nodes_interacts set1 exp =
+            let expansive_nodes = QmlAstUtils.expansive_nodes_related_to_type_with_options options.QT.value_restriction exp in
+            List.fold_left (fun ((set_acc,l_acc) as acc) label->
+              let ty = QmlAnnotMap.find_ty (Annot.annot label) annotmap in
+              let set2 = mutable_vars ty in
+              if QmlTypeVars.FreeVars.is_empty set2 then acc
+              else
+                let inter = QmlTypeVars.FreeVars.inter set1 set2 in
+                if QmlTypeVars.FreeVars.is_empty inter then acc
+                else (QmlTypeVars.FreeVars.union set_acc inter,label::l_acc)
+            ) (QmlTypeVars.FreeVars.empty,[]) expansive_nodes
+          in
+          if is_expansive exp then (
+            let mutable_freevars_ty = mutable_vars ty in
+            if not (QT.FreeVars.is_type_empty mutable_freevars_ty) then
+              let (freevars_expansive,labels) = expansive_nodes_interacts mutable_freevars_ty exp in
+              if not (QT.FreeVars.is_type_empty freevars_expansive) then
             let context = QmlError.Context.annoted_expr annotmap exp in
+                let context = QmlError.Context.merge context (List.map QmlError.Context.label labels) in
             QmlError.serror context
               "Value restriction error@\n@[<2>This expression is not generalizable but it has type@ %a .@]"
               QmlPrint.pp_value_restriction#ty_new_scope ty

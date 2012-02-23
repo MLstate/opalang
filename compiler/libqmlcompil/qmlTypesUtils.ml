@@ -255,6 +255,29 @@ struct
     match follow_alias_noopt_private ~until:"ordered_map" gamma ty with
     | Q.TypeName ([_; dty; _], _) -> dty
     | _ -> raise Not_found
+
+  let get_type_potentially_in_non_pure_type gamma ty=
+    let rec aux memo ty acc =
+      QmlAstWalk.Type.traverse_fold (fun tra acc ty ->
+        match ty with
+        | Q.TypeArrow (args, res) ->
+          (* TODO see if return type really need to be here *)
+          (res::args) @ acc (* potentially hidden by partial application *)
+        | Q.TypeName (params, _) ->
+          let ty = get_deeper_typename gamma ty in
+          (match follow_alias gamma ty with
+          | Some Q.TypeAbstract
+          | None -> params@acc (* no type name implementation => potentially not pure *)
+          | Some implem -> if List.mem ty memo then acc else aux (ty::memo) implem acc
+          )
+        | Q.TypeAbstract -> assert false
+        | Q.TypeForall (q1, q2, q3, body) -> (*ty::acc*) (* TODO do not ignore for all quantification *)
+          let acc1 = aux memo body [] in
+          (List.map (fun ty -> Q.TypeForall(q1,q2,q3,ty)) acc1)@acc
+        | ty -> tra acc ty (* recurse in type components *)
+      ) acc ty
+    in
+    aux [] ty []
 end
 
 module TypeArrow =

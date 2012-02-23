@@ -153,10 +153,41 @@ let is_expansive_strict =
     | e -> tra e
     )
 
+(* only elements taking part in the expression type counts *)
+let expansive_nodes_related_to_type ?(strict=false) =
+  QmlAstWalk.Expr.traverse_fold
+    (fun tra acc -> function
+    | Q.Const _
+    | Q.Ident _
+    | Q.Lambda _
+    | Q.Bypass _ -> acc
+
+    | Q.Directive (_, `llarray, [], _) when not(strict) ->
+      acc   (* the empty array is the only one that is not expansive
+             * because it is not mutable *)
+
+    | Q.Directive (_, #stop_expansiveness, _, _) when not(strict) ->
+      acc
+
+    | Q.Directive (_, #non_expansive, _exprs, _) as d when not(strict) ->
+      tra acc d
+
+    | Q.Directive (_, #strictly_non_expansive, _exprs, _) as d
+      -> tra acc d
+
+    | (Q.Directive(a, _, _, _)
+    | Q.Apply(a, _, _)) as e ->
+      tra (a::acc) e
+
+    | e -> tra acc e) []
 let is_expansive_with_options = function
   | `disabled -> (fun _ -> false)
   | `normal -> is_expansive
   | `strict -> is_expansive_strict
+let expansive_nodes_related_to_type_with_options = function
+  | `disabled -> (fun _ -> [])
+  | `normal -> expansive_nodes_related_to_type ~strict:false
+  | `strict -> expansive_nodes_related_to_type ~strict:true
 
 module App =
 struct
