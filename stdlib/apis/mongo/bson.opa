@@ -661,8 +661,14 @@ Bson = {{
             | {some = lty} -> {TyName_args=[lty.f2]; TyName_ident="list"}
             | {none} -> ty
           else ty
-        | {failure=_} -> ty
+        | ~{failure} -> ty
     nty
+
+  check_list(ty, f, f2) =
+    // To check list!!
+    nty = name_type(ty)
+    if nty === ty then f()
+    else f2(nty)
 
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
     List.flatten(OpaValue.Record.fold_with_fields((field, tyfield, value, bson ->
@@ -684,6 +690,7 @@ Bson = {{
 
   opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
     v = Magic.id(v)
+    check_list = check_list(ty, _, opa_to_document(key, v, _))
     match ty with
     | {TyName_args=[]; TyName_ident="void"} -> [H.null(key)]
     | {TyConst={TyInt={}}} -> [H.i64(key,(@unsafe_cast(v):int))]
@@ -691,15 +698,20 @@ Bson = {{
     | {TyConst={TyFloat={}}} -> [H.dbl(key,(@unsafe_cast(v):float))]
     | {TyName_args=[]; TyName_ident="bool"} -> [H.bool(key,(@unsafe_cast(v):bool))]
     | {TyRecord_row=row ...} ->
-       match row with
-       | [] -> [H.null(key)]
-       | [{label=name; ty=ty}] ->
-          if OpaType.is_void(ty)
-          then [H.doc(key,[H.null(name)])]
-          else [H.doc(key,rec_to_bson(v, row))]
-       | _ -> [H.doc(key,rec_to_bson(v, row))]
-       end
-
+      check_list( ->
+        match row with
+        | [] -> [H.null(key)]
+        | [{label=name; ty=ty}] ->
+           if OpaType.is_void(ty)
+           then [H.doc(key,[H.null(name)])]
+           else [H.doc(key,rec_to_bson(v, row))]
+        | _ -> [H.doc(key,rec_to_bson(v, row))]
+        end
+      )
+    | {TySum_col=col ...} ->
+       check_list(->
+         [H.doc(key,rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1))]
+       )
 
     | {TyName_args=[]; TyName_ident="Date.date"} -> [H.date(key,(@unsafe_cast(v):Date.date))]
     | {TyName_args=[]; TyName_ident="binary"}
@@ -742,7 +754,6 @@ Bson = {{
        (match (@unsafe_cast(v):Bson.register('a)) with
         | {present=sv} -> opa_to_document(key,sv,ty)
         | {absent} -> [])
-    | {TySum_col=col ...} -> [H.doc(key,rec_to_bson(v, OpaType.fields_of_fields_list(v, col).f1))]
     | {TyName_ident="Bson.document"; TyName_args=_} -> [H.doc(key,@unsafe_cast(v))]
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args=[{TyConst={TyInt={}}},lty,_]; TyName_ident="ordered_map"}
@@ -874,6 +885,7 @@ Bson = {{
       | _ -> element_to_opa(element, ty, default)
 
     and element_to_opa(element:Bson.element, ty:OpaType.ty, default:option('a)): option('a) =
+      check_list = check_list(ty, _, (element_to_opa(element, _, default)))
       match ty with
       | {TyName_args=[({TyName_args=[]; TyName_ident="Bson.element"}:OpaType.ty)]; TyName_ident="list"}
       | {TyName_args=_; TyName_ident="Bson.document"} ->
@@ -1019,9 +1031,9 @@ Bson = {{
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
          | element -> error("expected timestamp, got {element}",{none}))
       | {TyRecord_row=row ...} ->
-        element_to_rec([element], row, default)
+        check_list( -> element_to_rec([element], row, default))
       | {TySum_col=col ...} ->
-        column_to_rec([element], col)
+        check_list( -> column_to_rec([element], col))
       | {TyName_args=tys; TyName_ident=tyid} ->
         element_to_opa(element, OpaType.type_of_name(tyid, tys), default)
       | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
