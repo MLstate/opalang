@@ -683,7 +683,10 @@ Xhtml =
   @private sassoc_full(namespace, name, value) : Xml.attribute = ~{ namespace name value }
 
   to_string = serialize_to_string
-  /**
+ 
+ @private Buf = Buffer2_private
+
+ /**
    * Convert a [xhtml] subtree to a pair of strings containing the html proper and the corresponding JS code.
    *
    * Note that event handlers and inline styles are extracted from the html and inserted as JS code, as this
@@ -703,14 +706,6 @@ Xhtml =
    * (i.e. the tags) and [js_code] contains the event handlers and the style information as a JS
    * string.
    */
-  find_assoc(s:string,l:list((string,'a))) : option('a) = (
-    match l with
-    | [h|t] -> // trying to write a code that should be reasonable compiled by qmlflat
-      if h.f1 == s then {some=h.f2} else find_assoc(s,t)
-    | _ -> {none}
-  )
-
-  @private Buf = Buffer2_private
   prepare_for_export(_default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
