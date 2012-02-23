@@ -684,6 +684,19 @@ Xhtml =
 
   to_string = serialize_to_string
  
+  @publish new_server_id =
+   nid = (%% bslIdentGen.create %%)("I8")
+   nid
+
+  new_id: -> string =
+     @sliced_expr(
+      {
+        client() = Random.string(16)
+        server = new_server_id
+      }
+     )
+
+
  @private Buf = Buffer2_private
 
  /**
@@ -792,7 +805,7 @@ Xhtml =
                          id = match find_attr("id", args) with
                             | ~{some} -> some
                             | {none}  ->
-                               id = Random.string(32) //Generate a random ID
+                               id = new_id()
                                do print_arg(sassoc("id", id))
                                id
                          end
@@ -1066,7 +1079,7 @@ Xhtml =
    * When the future position of the id is not clear (several possible node), it encapsulated everything in a div
    */
   add_id(id,x:xhtml):xhtml =
-    id = id ? Random.string(16)
+    id = id ? new_id()
     // aux(id, x) with
     rec aux(id,x)=
     match x : xhtml

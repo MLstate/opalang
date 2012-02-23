@@ -42,6 +42,8 @@ bslInit.ml
 bslClientCode.ml
 bslClientEvent.ml
 
+bslIdentGen.ml # xhtml ident
+
 bslServer_event.ml
 
 # Database handling
