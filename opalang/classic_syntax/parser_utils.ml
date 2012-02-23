@@ -1143,9 +1143,10 @@ let arg_default (o,label) =
     | Some o -> o
 
 let create_fragment l label =
+  coerce_name_expr (
   match l with
     | [h] -> h
-    | l -> coerce_name_expr (record [("fragment", list_expr_of_expr_list l label)]) (xml_typename ())
+    | l -> (record [("fragment", list_expr_of_expr_list l label)])) (xml_typename ())
 
 let create_textnode str =
   coerce_name_expr (record [("text", string2 str)]) (xml_typename ())
