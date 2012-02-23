@@ -210,6 +210,20 @@ let spec = [
   @ ( Sa.import_arg_options WarningClass.Arg.options )
   @ ( Sa.import_arg_options OpaSyntax.Args.options )
 
+
+(**
+    Loading opatop warnings
+*)
+let _ =
+  let warning_set =
+    let s = WarningClass.Set.create () in
+    (* let (!+) w = WarningClass.Set.add s w in *)
+    let (!++) s' = WarningClass.Set.add_set s s' in
+    !++ QmlTyperWarnings.warning_set;
+    s
+  in
+  WarningClass.load_set warning_set
+
 (**
    Anon function for non --option arguments
 *)
