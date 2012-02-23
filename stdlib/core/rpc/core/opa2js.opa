@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -30,7 +30,7 @@ import stdlib.core.{web.core, js}
  * {1 Interface}
  */
 
-@server Opa2Js = {{
+@server_private Opa2Js = {{
 
   /**
    * A common transformation. No back-end dependent, but JavaScript
