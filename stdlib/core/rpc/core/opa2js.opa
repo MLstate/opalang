@@ -180,5 +180,6 @@ import stdlib.core.{web.core, js}
         | {none} -> ignore
         | {some=refs} -> ident -> ServerReference.set(refs,[ident|ServerReference.get(refs)])
       txt = Json.to_text_in_js_ll(to_json_with_type(serialize_closure_callback, ty, value))
-      "/*OPA2JS*/" ^ Text.to_string(txt)
+      // "/*OPA2JS*/" ^ TODO keep in debug mode
+      Text.to_string(txt)
 }}
