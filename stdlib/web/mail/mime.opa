@@ -198,9 +198,9 @@ Mime = {{
 
     parser(b:string) =
       delimiter =
-        parser crlf_parser "--" Parser.of_string(b) -> void
+        parser (!"--" .)* "--" Parser.of_string(b) -> void
       close_delimiter =
-        parser delimiter "--" -> void
+        parser crlf_parser delimiter "--" -> void
       body_part =
         parser bp=(!(delimiter|close_delimiter) .)* ->
           Text.to_string(Text.ltconcat(bp))
