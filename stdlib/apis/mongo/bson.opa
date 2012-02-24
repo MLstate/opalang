@@ -661,7 +661,7 @@ Bson = {{
             | {some = lty} -> {TyName_args=[lty.f2]; TyName_ident="list"}
             | {none} -> ty
           else ty
-        | ~{failure} -> ty
+        | {failure=_} -> ty
     nty
 
   check_list(ty, f, f2) =
