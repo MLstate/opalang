@@ -61,6 +61,87 @@
 ##endmodule
 
 
+##module imap
+
+  ##opa-type Email.imap_command
+  ##opa-type Email.imap_result
+
+  let ok = ServerLib.static_field_of_name "Ok"
+  let searchresult = ServerLib.static_field_of_name "SearchResult"
+  let fetchresult = ServerLib.static_field_of_name "FetchResult"
+  let no = ServerLib.static_field_of_name "No"
+  let bad = ServerLib.static_field_of_name "Bad"
+  let error = ServerLib.static_field_of_name "Error"
+
+  ##register [cps-bypass] command : int, string, SSL.secure_type, \
+    string, string, string, opa[email_imap_command], \
+    (opa[email_imap_result], continuation(opa[void]) -> void), \
+    continuation(opa[void]) -> void
+
+  let command port addr secure_type mailbox username password command cont k =
+    let cont = BslUtils.proj_cps k cont in
+
+    let wrap_is (i,s) = BslNativeLib.opa_tuple_2 (ServerLib.wrap_int i, ServerLib.wrap_string s) in
+
+    let cont x =
+      let res =
+        match x with
+        | ImapClientCore.Ok str ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc ok (ServerLib.wrap_string str) in
+            ServerLib.make_record rc
+        | ImapClientCore.No str ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc no (ServerLib.wrap_string str) in
+            ServerLib.make_record rc
+        | ImapClientCore.Bad str ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc bad (ServerLib.wrap_string str) in
+            ServerLib.make_record rc
+        | ImapClientCore.Error err ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc error (ServerLib.wrap_string err) in
+            ServerLib.make_record rc
+        | ImapClientCore.SearchResult il ->
+            let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc searchresult opa_il in
+            ServerLib.make_record rc
+        | ImapClientCore.FetchResult isl ->
+            let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc fetchresult opa_isl in
+            ServerLib.make_record rc
+      in cont (wrap_opa_email_imap_result res)
+    in
+
+    let command = unwrap_opa_email_imap_command command in
+    let command =
+      ServerLib.fold_record
+        (fun f value _cmd ->
+           let value = Obj.magic(value) in
+           match ServerLib.name_of_field f with
+           | Some "ImapNoop" -> ImapClientCore.ImapNoop
+           | Some "ImapSearch" -> ImapClientCore.ImapSearch (ServerLib.unwrap_string value)
+           | Some "ImapSearchCs" ->
+               let charset, params = BslNativeLib.ocaml_tuple_2 value in
+               ImapClientCore.ImapSearchCs (ServerLib.unwrap_string charset, ServerLib.unwrap_string params)
+           | Some "ImapFetch" ->
+               let seq, items = BslNativeLib.ocaml_tuple_2 value in
+               ImapClientCore.ImapFetch (ServerLib.unwrap_string seq, ServerLib.unwrap_string items)
+           | _ -> assert false)
+        command ImapClientCore.ImapNoop
+    in
+
+    let client_certificate, verify_params = secure_type in
+
+    ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~addr ~port
+      ~mailbox ~username ~password ~command (cont:ImapClientCore.result -> unit) ();
+    QmlCpsServerLib.return k ServerLib.void
+
+##endmodule
+
+
 ##module mailserver
 
   ##register [cps-bypass] init_server : int, string, SSL.secure_type, \
@@ -86,3 +167,4 @@
     } in QmlCpsServerLib.return cvoid ServerLib.void
 
 ##endmodule
+

@@ -99,6 +99,20 @@ type Email.options = {
   via : option(string)
 }
 
+type Email.imap_command =
+    { ImapNoop }
+  / { ImapFetch : (string, string) }
+  / { ImapSearch : string }
+  / { ImapSearchCs : (string, string) }
+
+type Email.imap_result =
+    { Ok : string }
+  / { No : string }
+  / { Bad : string }
+  / { SearchResult : list(int) }
+  / { FetchResult : list((int, string)) }
+  / { Error of string }
+
 type caml_tuple_2('a,'b) = external
 type caml_tuple_4('a,'b,'c,'d) = external
 
@@ -323,3 +337,10 @@ Email = {{
     send_async(from, to, subject, content, options, continuation)
 
 }}
+
+Imap = {{
+
+  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , string , string, Email.imap_command, (Email.imap_result -> void) -> void
+
+}}
+

@@ -6,6 +6,9 @@ libnet/Http_client
 libnet/SmtpClient
 libnet/SmtpClientCore
 libnet/SmtpClientCore_parse
+libnet/ImapClient
+libnet/ImapClientCore
+libnet/ImapClientCore_parse
 libnet/Hlnet
 libnet/Http_common
 libnet/HttpTools

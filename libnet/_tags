@@ -19,6 +19,7 @@ true: warn_A, warn_e, warn_error_A
 <http_server.ml>: with_mlstate_debug
 <httpServer.ml>: with_mlstate_debug
 <smtp*.ml>: with_mlstate_debug
+<imap*.ml>: with_mlstate_debug
 <httpServerCommon.ml>: with_mlstate_debug
 <httpServerStandalone.ml>: with_mlstate_debug
 <httpServerCore.ml>: with_mlstate_debug
