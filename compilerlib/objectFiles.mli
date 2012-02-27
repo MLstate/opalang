@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -115,6 +115,11 @@ val expand_glob :
    refactoring and packaging of big projects.
 *)
 val load_conf : filename -> unit
+
+(**
+   [conf_opa_files ()] returns all opa file present the loaded conf files
+*)
+val conf_opa_files : unit -> filename list
 
 (**
    [load filename content code]

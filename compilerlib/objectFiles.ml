@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -98,6 +98,8 @@ type package = Package.t
   a package. Loading conf files leads to a side effect on this table.
 *)
 let conftable : (filename, package) Hashtbl.t = Hashtbl.create 10
+
+let conf_opa_files_state = ref ([] : string list)
 
 (*
   Extra import specified in conf files
@@ -231,6 +233,7 @@ let load_conf conffile =
                   #<End>
                 in
                 Hashtbl.add conftable filename (package_name, position) ;
+                conf_opa_files_state := filename :: (!conf_opa_files_state) ;
             ) filenames ;
             List.iter (
               fun import ->
@@ -269,6 +272,11 @@ let load_conf conffile =
   in
   let _ = File.lines_foldi_offset process_line None conffile in
   ()
+
+let conf_opa_files () = List.rev (!conf_opa_files_state)
+
+
+
 (*------------------------------*)
 (*---- command line options ----*)
 (*------------------------------*)

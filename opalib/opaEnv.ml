@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -480,6 +480,14 @@ struct
           ("--constant-sharing-client", Arg.Set constant_sharing, " Activate the constant sharing pass on javascript code");
           ("--no-constant-sharing", Arg.Clear constant_sharing, " Deactivate the constant sharing pass");
           ("--no-constant-sharing-client", Arg.Clear constant_sharing, " Deactivate the constant sharing pass on javascript code");
+
+
+          ("--conf-opa-files",
+           Arg.Unit (fun () -> List.iter add_any_file (ObjectFiles.conf_opa_files ())),
+           "Use conf content to determine opa files"
+          );
+
+
           ("--dump-dbgen-schema", Arg.Set dump_dbgen_schema, " Dump the inferred dbgen schema (to files %.dot and %.png)");
           ("--extra-lib",         Arg.String add_full_extra_lib, "\"*.cm*,*.js,...\" Add lib(s) to link the generated server");
           ("--extra-path",        Arg.String add_full_extra_path, "\"dir,...\" Add path(s) to link the generated server");
