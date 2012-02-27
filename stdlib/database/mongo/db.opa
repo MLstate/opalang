@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -352,49 +352,166 @@ DbMongo = {{
   @package remove(rpath:DbMongo.private.ref_path('data)):void =
     rpath.more.remove()
 
-  @package open(name:string, host, port) =
-    seed = (host ? "localhost", port ? 27017)
-    args = CommandLine.filter({
-      title = "Options for database \"{name}\" (mongo):"
-      init = {
-        seeds=[]
-        bufsize = 50*1024
-        poolsize = 2
-        log = true
-      }
-      anonymous = []
-      parsers = [
-        {CommandLine.default_parser with
-          names = ["--db-remote:{name}"]
-          description = "Use remote mongo database(s), (default: {seed.f1}:{seed.f2})"
-          param_doc = "host[:<port>][,host[:<port>]]*"
-          on_param(acc) =
-            seed_parser = parser
-              host=((![:] .)*)[:] port={Rule.natural} -> (Text.to_string(host), port)
-            parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} ->
-              {params = {acc with seeds = List.append(acc.seeds, seeds)}}
-        }
-      ]
+  @private Init = {{
 
-    })
-    args = match args.seeds with
-      | [] -> {args with seeds = [seed]}
-      | _ -> args
-    connect() =
-      match args.seeds with
-      | [(host, port)] ->
-        MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log)
-      | seeds ->
-        mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, seeds)
-        match MongoReplicaSet.connect(mdb) with
-        | {success=(_/*slaveok*/,m)} -> {success=m}
-        | {~failure} -> {~failure}
-        end
-    match connect() with
-    | {success = db} -> ~{db name cols=["default"]}
-    | ~{failure} ->
-      do Log.error("DbGen/Mongo", "Error on openning database \"{name}\"\n{failure}")
-      System.exit(1)
+    error(msg) = do Log.error("DbGen/Mongo", msg) System.exit(1)
+
+    platform_error() =
+      error("Can't auto initialize MongoDB is your platform.
+Please download and init MongoDB yourself.
+Download : http://www.mongodb.org/downloads
+Quick start: http://www.mongodb.org/display/DOCS/Quickstart
+Then use option --db-remote instead of --db-local.
+")
+
+    jlog(msg) = Log.notice("DbGen/Mongo", msg)
+
+    default_archive =
+      #<Ifstatic:IS_LINUX 1>
+        some("mongodb-linux-i686-2.0.2")
+      #<Else>#<Ifstatic:IS_MAC 1>
+        some("mongodb-osx-x86_64-2.0.2")
+      #<Else>
+        none
+      #<End>#<End>
+
+    default_url =
+      Option.map(default_archive ->
+        "http://fastdl.mongodb.org/linux/{default_archive}.tgz",
+        default_archive)
+
+    default_remote = {
+      seeds=[] : list((string, int))
+      bufsize = 50*1024
+      poolsize = 2
+      log = true
+    }
+
+    default_local() = "{%%BslFile.mlstate_dir%%(void)}/mongo"
+
+    open_remote(name, args, default_seed) =
+      args = match args.seeds with
+        | [] -> {args with seeds = [default_seed]}
+        | _ -> args
+      connect() =
+        match args.seeds with
+        | [(host, port)] ->
+          MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log)
+        | seeds ->
+          mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, seeds)
+          match MongoReplicaSet.connect(mdb) with
+          | {success=(_/*slaveok*/,m)} -> {success=m}
+          | {~failure} -> {~failure}
+          end
+      match connect() with
+      | {success = db} -> ~{db name cols=["default"]}
+      | ~{failure} ->
+        do Log.error("DbGen/Mongo", "Error on openning database \"{name}\"\n{failure}")
+        System.exit(1)
+
+
+    open_local(name, args, seed) =
+      match default_archive with
+      | {none} -> platform_error()
+      | {some=default_archive} ->
+        default_url = default_url ? platform_error()
+        path = args.path
+        /* Check the given path */
+        do (
+          if %%BslFile.exists%%(path) then (
+            if not(%%BslFile.is_directory%%(path)) then
+              error("File \'{path}\' exists but is not a directory")
+          ) else if not(%%BslFile.make_dir%%(path)) then
+              error("Can not create directory \'{path}\'")
+        )
+        /* Check for MongoDB binary */
+        do jlog("Looking for MongoDB in directory \'{path}\'")
+        binpath = "{args.path}/{default_archive}/bin"
+        tgzpath = "{args.path}/mongo.tgz"
+        do (
+          if %%BslFile.exists%%(binpath) then (
+            if not(%%BslFile.is_directory%%(binpath)) then
+              error("File \'{path}\' exists but is not a directory")
+          ) else (
+            do jlog("MongoDB seems not already installed in '{path}'")
+            do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
+            _ = System.exec("wget {default_url} -O {tgzpath}", "")
+            do jlog("MongoDB was downloaded ({tgzpath})")
+            tarcmd = "tar -xvzf {tgzpath} -C {path}"
+            do jlog("Uncompressing of MongoDB archive... ({tarcmd})")
+            _ = System.exec(tarcmd, "")
+            void
+          )
+        )
+        /*Check for MongoDB server */
+        pidpath = "/tmp/opaMongo.pid"
+        datpath = "{path}/data"
+        mngpath = "{binpath}/mongod"
+        logpath = "{path}/mongo.log"
+        mngargs = "--pidfilepath {pidpath} --noprealloc --bind_ip 0.0.0.0 --dbpath {datpath} --fork --logpath {logpath}"
+        _ = %%BslFile.make_dir%%(datpath)
+        do (
+          rec aux(launch) =
+            pid = %%BslFile.content_opt%%(pidpath)
+            pid = Option.bind(x -> Parser.try_parse(Rule.natural, String.trim(x)), pid)
+            match pid with
+            | {some = pid} -> jlog("MongoDB seems launched (pid:{pid})")
+            | {none} ->
+              if launch then (
+                do jlog("Launching MongoDB with {mngargs}")
+                _ = System.exec("{mngpath} {mngargs}", "")
+                aux(false)
+              ) else (
+                do Scheduler.wait(1000)
+                aux(false)
+              )
+          aux(true)
+        )
+        open_remote(name, default_remote, seed)
+
+
+    open(name:string, host, port) =
+      seed = (host ? "localhost", port ? 27017)
+      (suffix, msg) = match name with
+      | "_no_name" -> ("", "")
+      | _ -> (":{name}", "\"{name}\"")
+      args = CommandLine.filter({
+        title = "Options for Mongo database {msg}"
+        init = { remote = default_remote }
+        anonymous = []
+        parsers = [
+          {CommandLine.default_parser with
+            names = ["--db-remote{suffix}"]
+            description = "Use a remote mongo database(s), (default: {seed.f1}:{seed.f2})"
+            param_doc = "host[:<port>][,host[:<port>]]*"
+            on_param(acc) =
+              do jlog("Hello")
+              seed_parser = parser
+                host=((![:] .)*)[:] port={Rule.natural} -> (Text.to_string(host), port)
+              parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} ->
+                acc = match acc with
+                  | {remote = acc} -> acc
+                  | _ -> default_remote
+                do jlog("Parsing seeds {seeds}")
+                {no_params = {remote = {acc with seeds = List.append(acc.seeds, seeds)}}}
+          },
+          {CommandLine.default_parser with
+            names = ["--db-local{suffix}"]
+            description = "Use a local mongo database, (default: {default_local()})"
+            param_doc = "path"
+            on_encounter(_acc) =
+              {opt_params = {local = {path = default_local()}}}
+            on_param(_acc) =
+              parser path=(.*) -> {no_params = {local = {path = Text.to_string(path)}}}
+          },
+        ]
+      })
+      match args with
+      | ~{remote} -> open_remote(name, remote, seed)
+      | ~{local} -> open_local(name, local, seed)
+  }}
+
+  open = Init.open
 
   @package drop(db:DbMongo.t) =
     List.iter(
