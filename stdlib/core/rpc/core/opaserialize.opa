@@ -498,7 +498,7 @@ OpaSerializeClosure = {{
     //do jlog("Try to unserialize {Json.to_string(unser)} with {OpaType.to_pretty(ty)}")
     original_ty = ty
     error_ret(str, v) =
-      do Log.error("Finish unserialize", str)
+      do Log.error("Finish unserialize", "{str}")
       v
     magic_some(v) = some(Magic.id(v))
     /* Function for continuation ****************/
@@ -612,7 +612,7 @@ OpaSerializeClosure = {{
                             (acc, [], true))
                 | [hd | tl] ->
                   do (if hd.label != name then
-                         do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", json)
+                      do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", "{json}")
                          @fail("Deserialization error")  // if it breaks, you are generating
                                 // json that is not ordered properly
                      else void)
@@ -627,7 +627,8 @@ OpaSerializeClosure = {{
                       (Record.add_field(acc, field, value), tl, err)
             ), js_lst, (Record.empty_constructor(), fields, false))
         if res.f3 then
-          do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}", js_lst)
+          do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}",
+                       "{js_lst}")
           none
         else some(Record.make_record(res.f1))
 

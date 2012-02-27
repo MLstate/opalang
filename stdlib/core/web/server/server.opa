@@ -375,7 +375,7 @@ Server = {{
      path(path: list(string)): Server.filter =
      (
         filter(u) =
-          do Log.info("Path filter", path)
+          do Log.info("Path filter", "{path}")
           match List.for_all2(`==`, path, u.path) with
             | {result={true}} | {different_length={longest_second}} -> {some = u}
             | _ -> {none}

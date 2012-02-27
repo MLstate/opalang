@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -118,7 +118,7 @@ type Session.how_send('message) =
         @with_thread_context(
           Option.default(ThreadContext.default, ctx),
           tmp =  Json.from_ll_json(x)
-          unserialize(match tmp with ~{some} -> some | {none} -> do Log.error("Session", x) error("Malformed JSON object"))
+            unserialize(match tmp with ~{some} -> some | {none} -> do Log.error("Session", "{x}") error("Malformed JSON object"))
         )
       ctx =
         match selector with

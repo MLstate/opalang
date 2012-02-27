@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -17,20 +17,20 @@
 *)
 
 ##register debug:   string, 'a -> void
-##register info:    string, 'a -> void
-##register notice:  string, 'a -> void
-##register warning: string, 'a -> void
-##register error:   string, 'a -> void
-##register fatal\ critical:   string, 'a -> void
+##register info:    string, string -> void
+##register notice:  string, string -> void
+##register warning: string, string -> void
+##register error:   string, string -> void
+##register fatal\ critical:   string, string -> void
 
-let error       topic x = Logger.error     "%s %s" topic (DebugPrint.simple_print x)
-let warning     topic x = Logger.warning   "%s %s" topic (DebugPrint.simple_print x)
-let notice      topic x = Logger.notice    "%s %s" topic (DebugPrint.simple_print x)
-let info        topic x = Logger.info      "%s %s" topic (DebugPrint.simple_print x)
+let error       topic x = Logger.error     "%s %s" topic x
+let warning     topic x = Logger.warning   "%s %s" topic x
+let notice      topic x = Logger.notice    "%s %s" topic x
+let info        topic x = Logger.info      "%s %s" topic x
 let debug       topic x = Logger.debug     "%s %s" topic (DebugPrint.simple_print x)
-let emergency   topic x = Logger.emergency "%s %s" topic (DebugPrint.simple_print x)
-let alert       topic x = Logger.alert     "%s %s" topic (DebugPrint.simple_print x)
-let critical    topic x = Logger.critical  "%s %s" topic (DebugPrint.simple_print x)
+let emergency   topic x = Logger.emergency "%s %s" topic x
+let alert       topic x = Logger.alert     "%s %s" topic x
+let critical    topic x = Logger.critical  "%s %s" topic x
 
 (**
    int is in microseconds
