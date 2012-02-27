@@ -878,7 +878,10 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                   List.map (fun file -> "  " ^ file ^ "\n") files)
              list_package_files
          ) in
-       let all_files = List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files) in
+       let all_files =
+         (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
+         [A"--conf-opa-files"]
+       in
        let rebuild_opt = if rebuild then [A"--rebuild"] else [] in
        Seq[
          Echo(conf, "conf");
