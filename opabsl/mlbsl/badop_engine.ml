@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -85,9 +85,6 @@ end = struct
 
 end
 
-let arguments = ref (ServerArg.extract_prefix "--db-")
-let general_arguments_left = ref [] (* for testing that everything has been consumed at the end *)
-
 (* -- Parsing the command-line options -- *)
 module A = ServerArg
 
@@ -127,12 +124,10 @@ let db_options =
     let parse_generic =
       A.make_parser ~nohelp:(ident <> None) "database options (generic)" arg_parse_generic
     in
-    let options, rest_generic =
-      try A.filter_functional !arguments default parse_generic
+    let options =
+      try A.filter default parse_generic
       with Exit -> exit 1
     in
-    general_arguments_left := rest_generic :: !general_arguments_left
-    ;
     (* A second parse, using the results of the first as default, for options specific to this engine *)
     let db_name = Option.default "database" ident in
     let arg_parse_specific =
@@ -145,12 +140,10 @@ let db_options =
         (Printf.sprintf "options for database \"%s\"" db_name)
         arg_parse_specific
     in
-    let options,rest =
-      try A.filter_functional !arguments options parse_specific
+    let options =
+      try A.filter options parse_specific
       with Exit -> exit 1
     in
-    arguments := rest (* consume the specific arguments, not the generic ones *)
-    ;
     (* check for conflicting options with previous settings *)
     try
       let conflicting_db =
@@ -172,24 +165,7 @@ let db_options =
 
 (* Run once after parsers have been applied for all databases *)
 ##register [opacapi] check_remaining_arguments: -> void
-let check_remaining_arguments () =
-  let rec intersec l1 l2 = match l1,l2 with
-    | x1::r1, x2::r2 ->
-        if x1 == x2 then x1 :: intersec r1 r2
-        else if x1 < x2 then intersec r1 l2
-        else intersec l1 r2
-    | _ -> []
-  in
-  let tosl args = List.stable_sort compare (A.to_list args) in
-  let args = tosl !arguments in
-  let general_args_left = List.map tosl !general_arguments_left in
-  let rem_args = List.fold_left intersec args general_args_left in
-  if rem_args <> [] && not (List.mem "--help" rem_args) then
-      (Printf.fprintf stderr
-         "Error: bad db argument%s: %s\n"
-         (match rem_args with _::_::_ -> "s" | _ -> "")
-         (String.concat " " rem_args);
-       exit 1)
+let check_remaining_arguments () = ()
 
 ##register [restricted: dbgen; opacapi] local_options: option(string), option(string) -> database_options
 let local_options name file_opt =
