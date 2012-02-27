@@ -198,9 +198,9 @@ Mime = {{
 
     parser(b:string) =
       delimiter =
-        parser (!"--" .)* "--" Parser.of_string(b) -> void
+        parser crlf_parser (!("--"|crlf_parser) .)* "--" Parser.of_string(b) -> void
       close_delimiter =
-        parser crlf_parser delimiter "--" -> void
+        parser delimiter "--" -> void
       body_part =
         parser bp=(!(delimiter|close_delimiter) .)* ->
           Text.to_string(Text.ltconcat(bp))
@@ -211,8 +211,7 @@ Mime = {{
         List.map(content ->
           match parse_entity(content)
           {some=part} -> part
-          {none} ->
-          { headers=[] body={multipart=[]} }
+          {none} -> { headers=[] body={multipart=[]} }
         , parts) |> some
       | .* -> none
 
