@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,7 +22,7 @@ module Db = QmlDbGen
 
 let builtinpos = FilePos.nopos "Built in pass DbEngineImportation"
 
-let process_code ~stdlib code =
+let process_code ~stdlib =
   if stdlib then (
       let package = match QmlDbGen.Args.get_engine () with
       | `db3   -> "stdlib.database.db3"
@@ -32,4 +32,3 @@ let process_code ~stdlib code =
       ObjectFiles.add_compiler_package package;
     )
   ;
-  code

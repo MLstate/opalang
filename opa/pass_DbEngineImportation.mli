@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,4 +19,4 @@
 (**
    This pass import the database runtime if needed.
 *)
-val process_code : stdlib:bool -> ('ident, 'dir) SurfaceAst.code -> ('ident, 'dir) SurfaceAst.code
+val process_code : stdlib:bool -> unit
