@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -83,8 +83,9 @@ var LowLevelPingLoop = {};
     var internal_url = base_url_client+"/_internal_/"+page_index;
 
     var async_rpc_return = true;
-    /* If client is dumb, we must force rpc to be synchronous */
-    if (!command_line_execution && 'safari' in jQuery.browser){
+    /* If client is safari, we must force rpc to be synchronous */
+    var desactivate_safari_hack;
+    if (desactivate_safari_hack != true && !command_line_execution && 'safari' in jQuery.browser){
         async_rpc_return = !jQuery.browser.safari;
     }
 

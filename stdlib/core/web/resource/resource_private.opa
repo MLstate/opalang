@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -386,19 +386,7 @@ Resource_private =
                                        | {all}  -> {all}
                                        | ~{js css files} -> {~js ~css files=StringSet.add("{x}", files)}
                                  }
-        }
-  /*,
-        {
-          names       = ["--debug-editable-directory"]
-          param_doc   = "directory*"
-          description = "Export some directories embedded with static_source_content, so that they can be viewed and edited during execution of the application"
-          on_encounter(state) = {params = state}
-          on_param(state) = parser x = (.*) -> {no_params = match state with
-                                       | {all}  -> {all}
-                                       | ~{js css files dirs} -> {~js ~css dirs=StringSet.add(dirs, "{x}") ~files}
-                                 }
-        }
-  */
+        },
    ]}
 
    @private debug_editable_show_resources =
@@ -809,6 +797,21 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
    js_links = Xhtml.compile(js_links)
    ~user_compat}
 
+   @private safari_fix = CommandLine.filter({
+      title = "Safari fix"
+      init = true
+      anonymous = []
+      parsers = [
+        {
+          names       = ["--no-safari-fix"]
+          param_doc   = ""
+          description = "(temporary)"
+          on_encounter(_) = {no_params = false}
+          on_param    = CommandLine.no_params
+        },
+      ]
+    })
+
 
 /**
  * Prepare a resource for sending to the user.
@@ -913,8 +916,8 @@ export_resource(external_css_files: list(string),
           page_lang = ServerI18n.page_lang() // TODO by customizer
           page_info = "var page_server = {num_page}; var page_lang = \"{page_lang}\";"
           js_base_url = Option.switch(base -> " var base_url = \"{base}\";", "", base_url)
-
-          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info}{js_base_url}</script>"} : xhtml
+          safari_hack = if not(safari_fix) then "var desactivate_safari_hack = true;" else ""
+          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info}{js_base_url}{safari_hack}</script>"} : xhtml
           {body = ready_body
            head = head_without_id
            mime_type= mime_type} = cache_for_xhtml(
