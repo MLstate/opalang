@@ -236,7 +236,8 @@ let read_code s =
 let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
-    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25) ?via cont () =
+    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25)
+    ?via ?addr ?auth ?user ?pass cont () =
   let mto =
     match mto with
     | Some tos -> tos
@@ -250,12 +251,24 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
   | None,_ -> cont SCC.Bad_Sender
   | _,None -> cont SCC.Bad_Recipient
   | (Some (_,domain_from)),(Some (_,dst)) ->
-      let mail = { SCC.from = simple_mail mfrom ; dests = [mdst] ; body = mdata } in
+      let mail = { SCC.from = simple_mail mfrom;
+                   dests = [mdst];
+                   body = mdata;
+                   auth = Option.default "" auth; user = Option.default "" user; pass = Option.default "" pass;
+                 }
+      in
       let rec try_mx mail attempt ?ip_list cont =
         let ip_list =
           match ip_list with
           | Some list -> list
-          | None -> resolve_mx dst in
+          | None ->
+              (match addr with
+               | Some dst ->
+                   (match resolve_UNIX dst with
+                    | Some ip -> [ip]
+                    | None -> [])
+               | None -> resolve_mx dst)
+        in
         match ip_list with
         | [] ->
             if attempt < 0 then
@@ -323,7 +336,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
 
 let mail_send ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
-    ?port cont () =
+    ?port ?via ?addr ?auth ?user ?pass cont () =
   let files = match files with
     | Some l ->
         let res =
@@ -335,5 +348,5 @@ let mail_send ?client_certificate ?verify_params ?secure sched
     | None -> None in
   mail_send_aux ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
-    ?port cont ()
+    ?port ?via ?addr ?auth ?user ?pass cont ()
 

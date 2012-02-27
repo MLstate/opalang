@@ -97,6 +97,12 @@ type Email.options = {
   custom_headers : list((string, string))
   files : Email.attachments
   via : option(string)
+  server_addr : option(string)
+  server_port : option(int)
+  auth : option(string)
+  user : option(string)
+  pass : option(string)
+  secure_type : option(SSL.secure_type)
 }
 
 type Email.imap_command =
@@ -127,6 +133,12 @@ Email = {{
     custom_headers = []
     files = []
     via = none
+    server_addr = none
+    server_port = none
+    auth = none
+    user = none
+    pass = none
+    secure_type = none
   } : Email.options
 
   /**
@@ -271,7 +283,10 @@ Email = {{
     aux(List.rev(l),%%BslNativeLib.empty_list%%)
 
   @private
-  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), (Email.send_status -> void) -> void
+  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), option(string), option(string), option(string), option(string), (Email.send_status -> void) -> void
+
+  @private
+  send_mail_secure = %% BslMail.Mailserve.mail_send_fun_secure %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), option(string), option(int), option(string), option(string), option(string), SSL.secure_type, (Email.send_status -> void) -> void
 
   @private
   send_async(
@@ -316,10 +331,19 @@ Email = {{
               if i == 0 then to_string(e)
               else acc ^ ", " ^ to_string(e)
             , options.to, "")
-    send_mail(
-      to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
-      subject, text, html, files, custom_headers, options.via, k
-    )
+    match options.secure_type with
+    | {some=secure_type} ->
+      send_mail_secure(
+        to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
+        subject, text, html, files, custom_headers,
+        options.via, options.server_addr, options.server_port, options.auth, options.user, options.pass, secure_type, k
+      )
+    | {none} ->
+      send_mail(
+        to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
+        subject, text, html, files, custom_headers,
+        options.via, options.server_addr, options.auth, options.user, options.pass, k
+      )
 
   /**
    * Try to send a mail {b synchronously}
