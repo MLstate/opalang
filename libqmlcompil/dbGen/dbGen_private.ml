@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -28,6 +28,7 @@ module List = BaseList
 
 (* shorthands *)
 module Q = QmlAst
+module DbAst = QmlAst.Db
 module C = DbGen_common
 module H = DbGenHelpers
 
@@ -1341,7 +1342,8 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
 (*           if Schema_private.package_name_of_def db_def <> ObjectFiles.get_current_package_name() *)
 (*           then (dbinfo_map, gamma, defs) *)
 (*           else *)
-          let engine = C.engine_opt db_def.Schema_private.options in
+          assert (db_def.Schema_private.options.DbAst.backend = `db3);
+          let engine = `meta in
           let engine_id =
             H.new_ident (Printf.sprintf "engine_%s"
                          (ExprIdent.original_name db_def.Schema_private.ident))

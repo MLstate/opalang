@@ -206,18 +206,14 @@ struct
       directive). For now, only used to specify the data storage location (any
       path, absolute or relative, ending with the filename prefix). DbGen sets
       this to [~/.mlstate/<progname>/default] by default (based on argv.(0)) *)
-  type engine =
-      [
-      |`db3 of string option (* path *)
-      |`db3light of string option (* path *)
-      |`meta
-      |`client of string option * int option (* server:port *)
-      ]
-  type options =
-      [
-      |`engine of engine
-      |`mountpoint of string list
-      ]
+  type engine = [
+  |`db3
+  |`mongo
+  ]
+
+  type options = {
+    backend : engine
+  }
 
   type 'expr db_constraint =  (** The type of DB constraints as specified by the user. To be extended *)
       (* /!\ this is WIP, and most of it is dummy for now *)
@@ -299,12 +295,10 @@ struct
         let h = Option.default "" h in
         let p = match p with None -> "" | Some p -> ":" ^ string_of_int p in
         "@shared(" ^ h ^ p ^ ")"
-  let options_to_string opts =
-    String.concat_map " "
-      (function
-       | `engine s -> engine_to_string s
-       | `mountpoint _sl -> ""
-      ) opts
+  let options_to_string opt = match opt.backend with
+    | `db3 -> "@db3"
+    | `mongo -> "@mongo"
+
   let path_decl_key_to_string = function
     | Decl_fld s -> "/"^s
     | Decl_int -> "[_]" (* "[]" in qml. This is only valid for default defs. Should be "[int]" once available in OPA *)
@@ -1142,7 +1136,7 @@ let comb l x = List.fold_left (fun b f -> f x || b) false l
 
 type code_elt =
   | Database of Annot.label * Ident.t * (** The name of the database*)
-                Db.path_decl * Db.options list
+                Db.path_decl * Db.options
   | NewDbValue  of Annot.label * (expr,ty) Db.db_def
   | NewType     of Annot.label * typedef list
   | NewVal      of Annot.label * (Ident.t * expr) list
@@ -1314,7 +1308,7 @@ let map_code = List.map
 *)
 type ('a, 'b) maped_code_elt =
   | M_Failure of code_elt * (exn * exn list) (** exn list : for NewVal for example *)
-  | M_Database of Ident.t * Db.path_decl * (Db.options list)
+  | M_Database of Ident.t * Db.path_decl * Db.options
   | M_NewDbValue of Db.path_decl * 'a
   | M_DbAlias of Db.path_decl * Db.path_decl
   | M_DbDefault of Db.path_decl

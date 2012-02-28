@@ -211,7 +211,7 @@ and 'ident colvar        = Colvar of 'ident
 
 and ('ident, 'dir) code_elt = ('ident, 'dir) code_elt_node label
 and ('ident, 'dir) code_elt_node =
-  | Database   of 'ident * string list * QmlAst.Db.options list
+  | Database   of 'ident * string list * QmlAst.Db.options
   | NewDbDef   of (('ident, 'dir) expr, 'ident ty) QmlAst.Db.db_def
   | NewType    of 'ident typedef list
   | NewVal     of ('ident pat * ('ident, 'dir) expr) list * bool (* rec *)

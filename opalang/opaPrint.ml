@@ -921,10 +921,7 @@ module Classic = struct
     method code_elt : 'dir. ('ident, [< all_directives ] as 'dir) code_elt pprinter = fun f c ->
       self#label self#code_elt_node f c
     method code_elt_node : 'dir. ('ident, [< all_directives ] as 'dir) code_elt_node pprinter = fun f -> function
-      | Database (ident,[name],[`engine (`db3 (Some s))]) -> pp f "database /* %a */ %s %s" self#ident ident name s
-      | Database (ident,[],[`engine (`db3 (Some s))]) -> pp f "database /* %a */ %s" self#ident ident s
-      | Database (ident,[name],[`engine (`db3light (Some s))]) -> pp f "database /* %a */ %s %s" self#ident ident name s
-      | Database (ident,[],[`engine (`db3light (Some s))]) -> pp f "database /* %a */ %s" self#ident ident s
+      | Database (ident,[],options) -> pp f "database /* %a */ %s" self#ident ident (QmlAst.Db.options_to_string options)
       | Database _ -> pp f "@@fixme<database>"
       | NewDbDef db_def -> pp f "@[<2>db %a@]" self#db_def db_def
       | NewType typedefs -> (
@@ -1533,10 +1530,8 @@ module Js = struct
     method code_elt : 'dir. ('ident, [< all_directives ] as 'dir) code_elt pprinter = fun f c ->
       self#label self#code_elt_node f c
     method code_elt_node : 'dir. ('ident, [< all_directives ] as 'dir) code_elt_node pprinter = fun f -> function
-      | Database (ident,[name],[`engine (`db3 (Some s))]) -> pp f "database /* %a */ %s %s" self#ident ident name s
-      | Database (ident,[],[`engine (`db3 (Some s))]) -> pp f "database /* %a */ %s" self#ident ident s
-      | Database (ident,[name],[`engine (`db3light (Some s))]) -> pp f "database /* %a */ %s %s" self#ident ident name s
-      | Database (ident,[],[`engine (`db3light (Some s))]) -> pp f "database /* %a */ %s" self#ident ident s
+      | Database (ident,[name],options) -> pp f "database /* %a */ %s %s" self#ident ident name (QmlAst.Db.options_to_string options)
+      | Database (ident,[],options) -> pp f "database /* %a */ %s" self#ident ident (QmlAst.Db.options_to_string options)
       | Database _ -> pp f "@@fixme<database>"
       | NewDbDef db_def -> pp f "@[<2>database %a@]" self#db_def db_def
       | NewType typedefs -> (

@@ -27,7 +27,7 @@ struct
 
   (* overriding db options *)
   let commandline_override =
-    ref (StringListMap.empty : QmlAst.Db.options list StringListMap.t)
+    ref (StringListMap.empty : QmlAst.Db.options StringListMap.t)
 
   let parse_opts s =
     try

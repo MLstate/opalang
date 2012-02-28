@@ -51,7 +51,7 @@ module Schema: sig
     name : string;
     ident : Ident.t;
     dbty : QmlAst.ty;
-    options : QmlAst.Db.options list;
+    options : QmlAst.Db.options;
     package : ObjectFiles.package_name;
   }
 
@@ -78,7 +78,7 @@ module Schema: sig
   (** Maps the idents of the different database schemas and their respective
       options in a multi-schema *)
   val mapi:
-    (string list -> QmlAst.ident * QmlAst.Db.options list -> QmlAst.ident * QmlAst.Db.options list)
+    (string list -> QmlAst.ident * QmlAst.Db.options -> QmlAst.ident * QmlAst.Db.options)
     -> t -> t
 
   (** Initial empty schema *)
@@ -117,7 +117,7 @@ module Schema: sig
 
   (** Registers database declarations *)
   val register_db_declaration:
-    t -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options list
+    t -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options
     -> t
 
   (** Registers db-related declarations (paths & default & constraints)

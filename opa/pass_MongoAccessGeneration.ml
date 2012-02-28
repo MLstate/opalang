@@ -656,13 +656,9 @@ let init_database gamma annotmap schema =
     (fun (annotmap, newvals) database ->
        let ident = database.DbSchema.ident in
        let name = database.DbSchema.name in
-       match database.DbSchema.options with
-       | [`engine (`client (host, port))] ->
-           let (annotmap, open_) = Generator.open_database gamma annotmap name host port in
-           (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
-       | _ ->
-           let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
-           (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
+       assert(database.DbSchema.options.DbAst.backend == `mongo);
+       let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
+       (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
     )
     (annotmap, []) (DbSchema.get_db_declaration schema)
 

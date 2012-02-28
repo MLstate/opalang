@@ -429,7 +429,7 @@ declaration_database <-
     {{
        let decl_ =
          let opt = match opt with
-         | None -> []
+         | None -> {QmlAst.Db.backend = `db3}
          | Some opt -> opt in
          [Database (id, [id], opt)]
        in
@@ -481,13 +481,8 @@ db_virtual <-
 
 /** database options **/
 db_options <-
-  / "@" "local" Opa_lexer.lpar_nosp spacing '"' database_file_path:s '"' rpar {{ [`engine (`db3 (Some s))] }}
-  / "@" "local" {{ [`engine (`db3 None)] }}
-  / "@" "light" Opa_lexer.lpar_nosp spacing '"' database_file_path:s '"' rpar {{ [`engine (`db3light (Some s))] }}
-  / "@" "light" {{ [`engine (`db3light None)] }}
-  / "@" "meta" {{ [`engine (`meta)] }}
-  / "@" "shared" Opa_lexer.lpar_nosp spacing '"' database_network_hostname?:h database_network_port?:p '"' rpar {{ [`engine (`client (h, p))] }}
-  / "@" "shared" {{ [`engine (`client (None, None))] }}
+  / "@" "db3" {{ {QmlAst.Db.backend = `db3} }}
+  / "@" "mongo" {{ {QmlAst.Db.backend = `mongo} }}
 
 
 

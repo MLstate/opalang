@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -199,7 +199,6 @@ network_port <- Opa_lexer.colon_nosp Opa_lexer.int:p {{ p }}
 *)/** database declaration **/
 database <-
   (* single database, short form and full form *)
-  / Opa_lexer.DATABASE spacing file_path:s {{ [Database ("database", [], [`engine (`db3 (Some s))])] }}
   / Opa_lexer.DATABASE spacing db_options:dbo {{ [Database ("database", [], dbo)] }}
   (* many-db or one, but named, db *)
   / Opa_lexer.DATABASE ml_identifier:i assign spacing db_options:dbo {{ [Database (i, [i], dbo)] }}
@@ -245,13 +244,7 @@ db_virtual <-
 
 /** database options **/
 db_options <-
-  / "@" "local" Opa_lexer.lpar_nosp spacing '"' file_path:s '"' rpar {{ [`engine (`db3 (Some s))] }}
-  / "@" "local" {{ [`engine (`db3 None)] }}
-  / "@" "light" Opa_lexer.lpar_nosp spacing '"' file_path:s '"' rpar {{ [`engine (`db3light (Some s))] }}
-  / "@" "light" {{ [`engine (`db3light None)] }}
-  / "@" "meta" {{ [`engine (`meta)] }}
-  / "@" "shared" Opa_lexer.lpar_nosp spacing '"' network_hostname?:h network_port?:p '"' rpar {{ [`engine (`client (h, p))] }}
-  / "@" "shared" {{ [`engine (`client (None, None))] }}
+  / "@" "meta" {{ {QmlAst.Db.backend = `db3} }}
 
 (**
    {6 Bindings}

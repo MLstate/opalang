@@ -83,7 +83,7 @@ type database_def = {
   context: QmlError.context;
   path_aliases: (Q.path * Q.path) list;
   (* eg. [(/a,/b); (/alias,/deep/data)] *)
-  options: Db.options list;
+  options: Db.options;
   schema: t;
   package : ObjectFiles.package_name;
   virtual_path : (Q.ident * Q.ty * Q.ty) PathMap.t;
@@ -702,7 +702,9 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
                              ty = C.Db.t ();
                              context;
                              path_aliases = [];
-                             options = [];
+                             options = {
+                               Q.Db.backend = C.Args.get_engine ();
+                             };
                              schema = SchemaGraphLib.initial_schema ~context;
                              package = ObjectFiles.get_current_package_name ();
                              virtual_path = PathMap.empty } t

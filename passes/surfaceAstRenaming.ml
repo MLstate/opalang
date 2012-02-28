@@ -1480,7 +1480,7 @@ type 'b common_code_elt_node =
 (* the toplevel declaration after toplevel renaming and before renaming in the rhs *)
 type 'b tmp_code_elt_node =
   [ 'b common_code_elt_node
-  | `Database of Ident.t * string list * QmlAst.Db.options list
+  | `Database of Ident.t * string list * QmlAst.Db.options
   | `NewVal of (Ident.t StringMap.t * Ident.t pat * (string, 'b) expr) list * bool ]
 type 'b tmp_code_elt = 'b tmp_code_elt_node QmlLoc.label
 type 'b tmp_code = 'b tmp_code_elt list
@@ -1488,7 +1488,7 @@ type 'b tmp_code = 'b tmp_code_elt list
 (* the toplevel declaration after toplevel renaming of types only *)
 type 'b tmp_code_elt_node_only_types =
   [ 'b common_code_elt_node
-  | `Database of string * string list * QmlAst.Db.options list
+  | `Database of string * string list * QmlAst.Db.options
   | `NewVal of (string pat * (string, 'b) expr) list * bool ]
 type 'b tmp_code_elt_only_types = 'b tmp_code_elt_node_only_types QmlLoc.label
 type 'b tmp_code_only_types = 'b tmp_code_elt_only_types list

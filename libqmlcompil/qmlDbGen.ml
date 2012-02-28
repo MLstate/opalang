@@ -42,7 +42,7 @@ module Schema = struct
     name : string;
     ident : Ident.t;
     dbty : QmlAst.ty;
-    options : QmlAst.Db.options list;
+    options : QmlAst.Db.options;
     package : ObjectFiles.package_name;
   }
 
@@ -118,7 +118,7 @@ module Schema = struct
          Sch.ty = C.Db.t ();
          Sch.context = QmlError.Context.pos (FilePos.nopos "built from gml");
          Sch.path_aliases = [];
-         Sch.options = [];
+         Sch.options = {DbAst.backend = `db3};
          Sch.schema = Schema_io.from_gml_string s;
          Sch.package = "dummy_from_gml";
          Sch.virtual_path = Sch.PathMap.empty;
