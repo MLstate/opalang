@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -84,7 +84,9 @@ module Args = struct
      "Select kind of database (db3|mongo)");
   ]
 
-  let get_engine() = !r.engine
+  let get_engine () = !r.engine
+
+  let set_engine e = r := { engine = e }
 
 end
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -263,7 +263,7 @@ let compile_expr_to_expr env private_env expr =
       let context = QmlError.Context.annoted_expr env.E.annotmap expr in
       QmlError.i_error None context ("@[<2>Unimplemented compile_expr_to_expr@\n"^^fmt^^"@]") in
     match expr with
-    | Q.Path _ -> assert false (* slicing error *)
+    | Q.Path _ -> OManager.i_error "A database path was encountered on js compilation" (* slicing error *)
     (* impossible cases with simplified code *)
     | Q.Coerce (_,_, _) -> assert false
     | Q.Directive (_, #ignored_directive, [_], _) -> assert false

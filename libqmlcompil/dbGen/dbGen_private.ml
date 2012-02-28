@@ -1338,11 +1338,13 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     else try
       (* engine defs need to be put before for options parsing *)
       let dbinfo_map, gamma, engine_defs, db_defs, defs, idents_to_store =
-        let setup_dbs point db_def (dbinfo_map, gamma, engine_defs, db_defs, defs, idents_to_store) =
+        let setup_dbs point db_def ((dbinfo_map, gamma, engine_defs, db_defs, defs, idents_to_store) as acc) =
 (*           if Schema_private.package_name_of_def db_def <> ObjectFiles.get_current_package_name() *)
 (*           then (dbinfo_map, gamma, defs) *)
 (*           else *)
-          assert (db_def.Schema_private.options.DbAst.backend = `db3);
+          if db_def.Schema_private.options.DbAst.backend != `db3 then
+            acc
+          else
           let engine = `meta in
           let engine_id =
             H.new_ident (Printf.sprintf "engine_%s"
@@ -1882,11 +1884,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       | _ -> error ()
     in aux update
 
-  let get_expr ~context t dbinfo_map gamma path kind =
+  let get_expr ~context t dbinfo_map gamma (label, path0, kind) =
     let _ =
       let pos = QmlError.Context.get_pos context in
       H.start_built_pos pos in
-    let prefix, db_def, path = Schema_private.database_def_of_path_expr ~context t path in
+    let prefix, db_def, path = Schema_private.database_def_of_path_expr ~context t path0 in
+    if db_def.Schema_private.options.DbAst.backend != `db3 then
+      Q.Path (label, path0, kind)
+    else
     let dbinfo = StringListMap.find prefix dbinfo_map in
     let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
     let r = match virtual_ with
@@ -1924,9 +1929,9 @@ module DatabaseAccess ( Arg : DbGenByPass.S ) = struct
     let context = QmlError.Context.expr e in
     let context = Schema_private.HacksForPositions.map context in
     let f tra = function
-      | Q.Coerce (_, Q.Path (_, p, kind), _)
-      | Q.Path (_, p, kind) ->
-          let e = CodeGenerator.get_expr ~context t dbinfo_map gamma p kind in
+      | Q.Coerce (_, Q.Path (label, p, kind), _)
+      | Q.Path (label, p, kind) ->
+          let e = CodeGenerator.get_expr ~context t dbinfo_map gamma (label, p, kind) in
           (* needs to be traversed again because db idents may be introduced *)
           tra e
       | Q.Ident (label, id) ->

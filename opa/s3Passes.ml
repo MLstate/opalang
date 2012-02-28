@@ -510,8 +510,13 @@ let pass_Print =
 let pass_DbEngineImportation =
   PassHandler.make_pass
     (fun e ->
+       let (_, user_files) = e.PH.env in
        let stdlib = e.PH.options.O.stdlib in
-       Pass_DbEngineImportation.process_code ~stdlib;
+       List.iter
+         (fun pfile ->
+            Pass_DbEngineImportation.process_code ~stdlib
+              pfile.SurfaceAstPassesTypes.parsedFile_lcode
+         ) user_files;
        e
     )
 

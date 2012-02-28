@@ -15,20 +15,60 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+(* depends *)
+module List = BaseList
 
 (* shorthands *)
-module S = SurfaceAst
+module SA = SurfaceAst
 module Db = QmlDbGen
+module DbAst = QmlAst.Db
 
-let builtinpos = FilePos.nopos "Built in pass DbEngineImportation"
+(* ******************************************************************)
+(* Separated compilation ********************************************)
+(* ******************************************************************)
+module S =
+struct
+  (* Original ident * stub ident, stub type, expanded stub *)
+  type t = DbAst.engine list
 
-let process_code ~stdlib =
-  if stdlib then (
-      let package = match QmlDbGen.Args.get_engine () with
-      | `db3   -> "stdlib.database.db3"
-      | `mongo -> "stdlib.database.mongo"
-      in
-      ObjectFiles.import_package package builtinpos;
-      ObjectFiles.add_compiler_package package;
-    )
-  ;
+  let pass = "ResolveRemoteCalls"
+  let pp f _ = Format.pp_print_string f "<dummy>"
+end
+
+module R = struct
+  include ObjectFiles.Make(S)
+  let save backends = save backends
+end
+
+let label = FilePos.nopos "Built in pass DbEngineImportation"
+
+let r = ref []
+
+let import_packages engine =
+  let package = match engine with
+    | `db3   -> "stdlib.database.db3"
+    | `mongo -> "stdlib.database.mongo"
+  in
+  ObjectFiles.import_package package label;
+  ObjectFiles.add_compiler_package package
+
+let process_code ~stdlib code =
+  if stdlib then
+    let engines =
+      R.fold_with_name ~deep:true
+        (fun _ acc t -> t@acc)
+        []
+    in
+    let engines = List.fold_left
+      (fun acc -> function
+       | (SA.Database (_, _, opt), _) -> opt.DbAst.backend :: acc
+       | _ -> acc
+      ) engines code
+    in
+    let engines = List.uniq_unsorted engines in
+    r := engines;
+    List.iter import_packages engines;
+    R.save engines
+
+let get_engines () = !r
+

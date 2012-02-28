@@ -19,4 +19,6 @@
 (**
    This pass import the database runtime if needed.
 *)
-val process_code : stdlib:bool -> unit
+val process_code : stdlib:bool -> ('ident, 'dir) SurfaceAst.code -> unit
+
+val get_engines : unit -> QmlAst.Db.engine list

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -154,10 +154,10 @@ let () =
 
     (*|+> ("Retyping", S3.pass_Retyping)*)
 
-    |?| ( Switch.database, function
-            | `db3   -> ("BadopCodeGeneration", S3.pass_BadopCodeGeneration)
-            | `mongo -> ("MongoCodeGeneration", S3.pass_MongoCodeGeneration)
-        )
+    |?> (If.database `db3,
+         "BadopCodeGeneration", S3.pass_BadopCodeGeneration)
+    |?> (If.database `mongo,
+         "MongoCodeGeneration", S3.pass_MongoCodeGeneration)
 
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
     |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)

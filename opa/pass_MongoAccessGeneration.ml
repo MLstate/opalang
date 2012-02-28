@@ -604,27 +604,30 @@ module Generator = struct
     (annotmap, set)
 
 
-  let path ~context gamma annotmap schema (kind, dbpath) =
-    (* Format.eprintf "Path %a" QmlPrint.pp#path (dbpath, kind); *)
+  let path ~context gamma annotmap schema (label, dbpath, kind) =
     let node = get_node ~context schema dbpath in
-    match node.DbSchema.kind with
-    | DbSchema.SetAccess (setkind, path, query) ->
-        dbset_path ~context gamma annotmap (kind, path) setkind node query
-    | _ ->
-        let strpath = List.map
-          (function
-             | DbAst.FldKey k -> k
-             | _ -> assert false
-          ) dbpath in
-        let annotmap, mongopath = string_path ~context gamma annotmap schema (kind, strpath) in
-        match kind with
-        | DbAst.Ref | DbAst.Valpath ->
-            let annotmap, p2p =
-              OpaMapToIdent.typed_val ~label
-                ~ty:[QmlAstCons.Type.next_var (); node.DbSchema.ty]
-                Api.Db.path_to_path annotmap gamma in
-            C.apply gamma annotmap p2p [mongopath]
-        | _ -> annotmap, mongopath
+    match node.DbSchema.database.DbSchema.options.DbAst.backend with
+    | `mongo -> (
+        match node.DbSchema.kind with
+        | DbSchema.SetAccess (setkind, path, query) ->
+            dbset_path ~context gamma annotmap (kind, path) setkind node query
+        | _ ->
+            let strpath = List.map
+              (function
+               | DbAst.FldKey k -> k
+               | _ -> assert false
+              ) dbpath in
+            let annotmap, mongopath = string_path ~context gamma annotmap schema (kind, strpath) in
+            match kind with
+            | DbAst.Ref | DbAst.Valpath ->
+                let annotmap, p2p =
+                  OpaMapToIdent.typed_val ~label
+                    ~ty:[QmlAstCons.Type.next_var (); node.DbSchema.ty]
+                    Api.Db.path_to_path annotmap gamma in
+                C.apply gamma annotmap p2p [mongopath]
+            | _ -> annotmap, mongopath
+      )
+    | `db3 -> annotmap, Q.Path (label, dbpath, kind)
 
   let indexes gamma annotmap _schema node rpath lidx =
     let (annotmap, database) =
@@ -654,11 +657,12 @@ end
 let init_database gamma annotmap schema =
   List.fold_left
     (fun (annotmap, newvals) database ->
-       let ident = database.DbSchema.ident in
-       let name = database.DbSchema.name in
-       assert(database.DbSchema.options.DbAst.backend == `mongo);
-       let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
-       (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
+       if database.DbSchema.options.DbAst.backend = `mongo then
+         let ident = database.DbSchema.ident in
+         let name = database.DbSchema.name in
+         let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
+         (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
+       else (annotmap, newvals)
     )
     (annotmap, []) (DbSchema.get_db_declaration schema)
 
@@ -696,9 +700,10 @@ let clean_code gamma annotmap schema code =
 
 let process_path gamma annotmap schema code =
   let fmap tra annotmap = function
-    | Q.Path (_label, path, kind) as expr ->
+    | Q.Path (label, path, kind) as expr ->
         let context = QmlError.Context.annoted_expr annotmap expr in
-        let annotmap, result = Generator.path ~context gamma annotmap schema (kind, path) in
+        let annotmap, result =
+          Generator.path ~context gamma annotmap schema (label, path, kind) in
         tra annotmap result
     | e -> tra annotmap e
   in

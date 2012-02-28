@@ -1191,6 +1191,7 @@ let preprocess_kind ~context gamma kind ty virtual_ =
 
 let preprocess_path ~context t gamma prepath kind =
   let prefix, db_def, prepath = database_def_of_path_expr ~context t prepath in
+  C.Args.set_engine db_def.options.Db.backend;
   let prepath = apply_aliases db_def.path_aliases prepath in
   let root = SchemaGraphLib.get_root db_def.schema in
   let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind prepath prepath in
