@@ -109,19 +109,23 @@ let unwrap_option proj opa =
    caml_tuple_* as known by OCaml
 *)
 ##extern-type caml_tuple_2('a,'b) = ('a*'b)
+##extern-type caml_tuple_3('a,'b,'c) = ('a*'b*'c)
 ##extern-type caml_tuple_4('a,'b,'c,'d) = ('a*'b*'c*'d)
+##extern-type caml_tuple_5('a,'b,'c,'d,'e) = ('a*'b*'c*'d*'e)
 
 (**
    tuple_* as known by OPA
 *)
-##opa-type tuple_2('a, 'b)
-##opa-type tuple_3('a, 'b, 'c)
+##opa-type tuple_2('a,'b)
+##opa-type tuple_3('a,'b,'c)
 ##opa-type tuple_4('a,'b,'c,'d)
+##opa-type tuple_5('a,'b,'c,'d,'e)
 
 let f1 = ServerLib.static_field_of_name "f1"
 let f2 = ServerLib.static_field_of_name "f2"
 let f3 = ServerLib.static_field_of_name "f3"
 let f4 = ServerLib.static_field_of_name "f4"
+let f5 = ServerLib.static_field_of_name "f5"
 
 
 
@@ -177,6 +181,28 @@ let opa_tuple_4 (a, b, c, d) =
     ServerLib.make_record acc
   in
   wrap_opa_tuple_4 record
+
+##register ocaml_tuple_5 : opa[tuple_5('a,'b,'c,'d,'e)] -> caml_tuple_5('a,'b,'c,'d,'e)
+let ocaml_tuple_5 opa =
+  let record = unwrap_opa_tuple_5 opa in
+  let a = ServerLib.unsafe_dot record f1 in
+  let b = ServerLib.unsafe_dot record f2 in
+  let c = ServerLib.unsafe_dot record f3 in
+  let d = ServerLib.unsafe_dot record f4 in
+  let e = ServerLib.unsafe_dot record f5 in
+  (a, b, c, d, e)
+
+let opa_tuple_5 (a, b, c, d, e) =
+  let record =
+    let acc = ServerLib.empty_record_constructor in
+    let acc = ServerLib.add_field acc f1 a in
+    let acc = ServerLib.add_field acc f2 b in
+    let acc = ServerLib.add_field acc f3 c in
+    let acc = ServerLib.add_field acc f4 d in
+    let acc = ServerLib.add_field acc f5 e in
+    ServerLib.make_record acc
+  in
+  wrap_opa_tuple_5 record
 
 (**
    {1 Continuations}

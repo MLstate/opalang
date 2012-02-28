@@ -20,37 +20,20 @@
     It is NOT really RFC compliant. *)
 
 module ICC = ImapClientCore
-module List = Base.List
-module String = Base.String
-let (<|) f a = f a
-let (|>) a f = f a
-let ( @* ) g f x = g(f(x))
-
-let sprintf = Printf.sprintf
-
-exception Bad_address of string
-exception Too_much_try
-exception Unknown_address of string
-
-let read_code s =
-  let get i = int_of_char (String.unsafe_get s i) - 48 in
-  let l = String.length s in
-  if l > 3 then 100 * get 0 + 10 * get 1 + get 2, String.sub s 4 (4 - 3)
-  else 0, "unknown server answer"
-
-let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
                   ~addr ?(port=993)
-                  ~mailbox ~username ~password
-                  ?(command=ICC.ImapNoop) cont () =
+                  ~mailbox ?readonly ~username ~password
+                  ?(commands=[]) cont ?err_cont () =
   let mail = { ICC.mailbox=mailbox;
+               readonly=Option.default false readonly;
                username=username;
                password=password;
-               command=command;
-               fetched=[];
-               result=(ICC.Ok "nothing happened");
-               from = ""; dests = []; data = "" } in
+               commands=commands;
+               status={ ICC.flags=""; exists=(-1); recent=(-1); oks=[]; rwstatus="" };
+               fetched=[]; list=[]; expunged=[];
+               results=[];
+               from=""; dests=[]; data="" } in
   let rec try_mx mail cont =
     let tools = {
       ICC.k = (function res -> cont res);
@@ -69,21 +52,25 @@ let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
           rt_payload = ();
         };
       };
-      ICC.err_cont = None;
+      ICC.err_cont = err_cont;
       ICC.extra_params = (mail,tools)
     } in
     let secure_mode =
       if secure
       then Network.Secured (client_certificate, verify_params)
       else Network.Unsecured
-    in ICC.connect client ~secure_mode sched addr port
-  in try_mx mail cont
+    in
+    try
+      ICC.connect client ~secure_mode sched addr port
+    with exn -> cont ([ICC.Error (Printf.sprintf "Got connection exception: %s" (Printexc.to_string exn))])
+  in
+  try_mx mail cont
 
 let mail_recv ?client_certificate ?verify_params ?secure sched
               ~addr ?port
-              ~mailbox ~username ~password ?command
-              (cont:ICC.result -> unit) () =
+              ~mailbox ?readonly ~username ~password ?commands
+              (cont:ICC.results -> unit) ?err_cont () =
   mail_recv_aux ?client_certificate ?verify_params ?secure sched
                 ~addr ?port
-                ~mailbox ~username ~password ?command
-                cont ()
+                ~mailbox ?readonly ~username ~password ?commands
+                cont ?err_cont ()

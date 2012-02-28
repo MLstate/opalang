@@ -28,30 +28,56 @@
 -type command =
   | ImapNoop
   | ImapFetch of (string * string)
+  | ImapStore of (string * string * string)
   | ImapSearch of string
   | ImapSearchCs of (string * string)
+  | ImapList of (string * string)
+  | ImapCreate of string
+  | ImapDelete of string
+  | ImapRename of (string * string)
+  | ImapExpunge
+
+-type commands = command list
+
+-type status = {
+  flags : string;
+  exists : int;
+  recent : int;
+  oks : string list;
+  rwstatus : string;
+}
 
 -type result =
   | Ok of string
   | No of string
   | Bad of string
+  | NoopResult of status
   | SearchResult of int list
   | FetchResult of (int * string) list
+  | StoreResult of (int * string) list
+  | ListResult of (string * string * string) list
+  | ExpungeResult of int list
   | Error of string
+
+-type results = result list
 
 -type mail = {
   mailbox : string;
+  readonly : bool;
   username : string;
   password : string;
-  command : command;
+  commands : commands;
+  status : status;
   fetched : (int * string) list;
-  result : result;
+  list : (string * string * string) list;
+  expunged : int list;
+  results : results;
   from : string;
   dests : string list;
   data : string
 }
 
--type cont = result -> unit
+-type cont = result list -> unit
 
 -type imports = {
   k : cont
@@ -75,8 +101,14 @@ let get_tag() = Printf.sprintf "A%05d" (Random.int(65535-4096)+4096)
 let string_of_command = function
   | ImapNoop -> "NOOP"
   | ImapFetch (seq,items) -> sprintf "FETCH %s %s" seq items
+  | ImapStore (seq,din,dinval) -> sprintf "STORE %s %s %s" seq din dinval
   | ImapSearch s -> sprintf "SEARCH %s" s
   | ImapSearchCs (cs,s) -> sprintf "SEARCH CHARSET %s %s" cs s
+  | ImapList (r,m) -> sprintf "LIST %s %s" r m
+  | ImapCreate s -> sprintf "CREATE %s" s
+  | ImapDelete s -> sprintf "DELETE %s" s
+  | ImapRename (f,t) -> sprintf "RENAME %s %s" f t
+  | ImapExpunge -> "EXPUNGE"
 let add_fetched str fetched =
   match fetched with
   | [] -> [(0,str)]
@@ -86,39 +118,53 @@ let add_fetched str fetched =
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      Messages envoyés/reçus        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--define (Noop tag)                     = tag " NOOP\r\n"
--define (Login (tag, name, pass))      = tag " LOGIN " name " " pass "\r\n"
--define (Select (tag, mailbox))        = tag " SELECT " mailbox "\r\n"
--define (Exists num:int)               = "* " num " EXISTS\r\n"
--define (Recent num:int)               = "* " num " RECENT\r\n"
--define (Flags str)                    = "* FLAGS (" str ")\r\n"
--define (StarSearch result)            = "* SEARCH " result "\r\n"
--define (StarFetch (num:int, result))  = "* " num " FETCH " result "\r\n"
--define (Search (tag, params))         = tag " SEARCH " params "\r\n"
--define (SearchCs (tag, cs, params))   = tag " SEARCH CHARSET " cs " " params "\r\n"
--define (Fetch (tag, seq, items))      = tag " FETCH " seq " " items "\r\n"
--define (Close tag)                    = tag " CLOSE\r\n"
+-define (Noop tag)                        = tag " NOOP\r\n"
+-define (Login (tag, name, pass))         = tag " LOGIN " name " " pass "\r\n"
+-define (Select (tag, mailbox))           = tag " SELECT " mailbox "\r\n"
+-define (Examine (tag, mailbox))          = tag " EXAMINE " mailbox "\r\n"
+-define (Exists num:int)                  = "* " num " EXISTS\r\n"
+-define (Recent num:int)                  = "* " num " RECENT\r\n"
+-define (Flags str)                       = "* FLAGS (" str ")\r\n"
+-define (StarSearch result)               = "* SEARCH " result "\r\n"
+-define (StarExpunge num:int)             = "* " num " EXPUNGE\r\n"
+-define (StarFetch (num:int, result))     = "* " num " FETCH " result "\r\n"
+-define (StarList (flags,rf,mailbox))     = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
+-define (Search (tag, params))            = tag " SEARCH " params "\r\n"
+-define (SearchCs (tag, cs, params))      = tag " SEARCH CHARSET " cs " " params "\r\n"
+-define (Fetch (tag, seq, items))         = tag " FETCH " seq " " items "\r\n"
+-define (Store (tag, seq, din, dinval))   = tag " STORE " seq " " din " " dinval "\r\n"
+-define (List (tag, rf, mailbox))         = tag " LIST " rf " " mailbox "\r\n"
+-define (Create (tag, mailbox))           = tag " CREATE " mailbox "\r\n"
+-define (Delete (tag, mailbox))           = tag " DELETE " mailbox "\r\n"
+-define (Rename (tag, frommb, tomb))      = tag " RENAME " frommb " " tomb "\r\n"
+-define (Expunge tag)                     = tag " EXPUNGE\r\n"
+-define (Close tag)                       = tag " CLOSE\r\n"
 
--define (NoopOk (tag,str))             = tag " OK NOOP "~ str "\r\n"
--define (FetchOk (tag,str))            = tag " OK FETCH "~ str "\r\n"
--define (CloseOk (tag,str))            = tag " OK CLOSE "~ str "\r\n"
--define (StarOk str)                   = "* OK " str "\r\n"
--define (FlagsOk (tag, flags, str))    = tag " OK [" flags "] " str "\r\n"
--define (JustOk (tag, str))            = tag " OK " str "\r\n"
+-define (NoopOk (tag,str))                = tag " OK NOOP "~ str "\r\n"
+-define (FetchOk (tag,str))               = tag " OK FETCH "~ str "\r\n"
+-define (StoreOk (tag,str))               = tag " OK STORE "~ str "\r\n"
+-define (ListOk (tag,str))                = tag " OK LIST "~ str "\r\n"
+-define (CreateOk (tag,str))              = tag " OK CREATE "~ str "\r\n"
+-define (DeleteOk (tag,str))              = tag " OK DELETE "~ str "\r\n"
+-define (RenameOk (tag,str))              = tag " OK RENAME "~ str "\r\n"
+-define (ExpungeOk (tag,str))             = tag " OK EXPUNGE "~ str "\r\n"
+-define (CloseOk (tag,str))               = tag " OK CLOSE "~ str "\r\n"
+-define (StarOk str)                      = "* OK " str "\r\n"
+-define (FlagsOk (tag, flags, str))       = tag " OK [" flags "] " str "\r\n"
+-define (JustOk (tag, str))               = tag " OK " str "\r\n"
 
--define (JustNo (tag,str))             = tag " NO " str "\r\n"
--define (JustBad (tag,str))            = tag " BAD " str "\r\n"
+-define (JustNo (tag,str))                = tag " NO " str "\r\n"
+-define (JustBad (tag,str))               = tag " BAD " str "\r\n"
 
--define RawInput str                   = str
+-define RawInput str                      = str
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%            L'automate              %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 +imap(mail : mail, tools : imports):
   debug {{ Printexc.record_backtrace true }}
-  debug {{ eprintf "imapClientCore: mailbox=%s command=%s\n%!" mail.mailbox (string_of_command mail.command) }}
+  debug {{ eprintf "imapClientCore: Started connection with mailbox=%s\n%!" mail.mailbox }}
   let tag = {{ get_tag() }}
-  debug {{ eprintf "imapClientCore: Started connection with tag %s\n%!" tag }}
   send (Login (tag, mail.username, mail.password));
   login(mail, tools, tag)
 
@@ -135,8 +181,13 @@ login(mail, tools, tag):
     else
       debug {{ eprintf "login received LOGIN OK: tag=%s flags=%s str=%s\n%!" tag flags str }}
       let tag = {{ get_tag() }}
-      send (Select (tag, mail.mailbox));
-      select(mail, tools, tag)
+      if {{ mail.readonly }}
+      then
+        send (Examine (tag, mail.mailbox));
+        select(mail, tools, tag, {{"EXAMINE"}})
+      else
+        send (Select (tag, mail.mailbox));
+        select(mail, tools, tag, {{"SELECT"}})
   | err ->
     debug {{ eprintf "ImapClientCore.login received err: %s\n%!" (string_of_msg err) }}
     error({{ string_of_msg err }}, tools)
@@ -144,7 +195,7 @@ login(mail, tools, tag):
   | exn ->
     {{ eprintf "ImapClientCore.login: exn=%s\n%!" (Printexc.to_string exn) }}
     debug {{ Printexc.print_backtrace stderr; Pervasives.flush stderr }}
-    {{ tools.k (Ok (Printexc.to_string exn)) }}
+    {{ tools.k [Error (Printexc.to_string exn)] }}
 
 got_nobad(mail, tools, name, nobad, tag, rtag, str, result):
   if {{ rtag <> tag }}
@@ -153,7 +204,7 @@ got_nobad(mail, tools, name, nobad, tag, rtag, str, result):
     error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
   else
     debug {{ eprintf "Received %s %s: tag=%s str=%s\n" name nobad tag str }}
-    let mail = {{ { mail with result = result } }}
+    let mail = {{ { mail with results = (result::mail.results) } }}
     quit(mail, tools)
 
 check_error(mail, tools, name, tag, err):
@@ -170,68 +221,118 @@ check_exception(_mail, tools, name, _tag, exn):
   let _ = {{ (conn, sched) }}
   {{ eprintf "ImapClientCore.%s: exn=%s\n" name (Printexc.to_string exn) }}
   debug {{ Printexc.print_backtrace stderr; Pervasives.flush stderr }}
-  {{ tools.k (Error (Printexc.to_string exn)) }}
+  {{ tools.k [Error (Printexc.to_string exn)] }}
 
-select(mail, tools, tag):
+select(mail, tools, tag, selex):
   receive
   | StarOk str ->
     debug {{ eprintf "select received * OK: %s\n" str }}
-    select(mail, tools, tag)
+    let mail = [[ {mail with status={mail.status with oks=str::mail.status.oks}} ]]
+    select(mail, tools, tag, selex)
   | Exists num ->
     debug {{ eprintf "select received * EXISTS: %d\n" num }}
-    select(mail, tools, tag)
+    let mail = [[ {mail with status={mail.status with exists=num}} ]]
+    select(mail, tools, tag, selex)
   | Recent num ->
     debug {{ eprintf "select received * RECENT: %d\n" num }}
-    select(mail, tools, tag)
+    let mail = [[ {mail with status={mail.status with recent=num}} ]]
+    select(mail, tools, tag, selex)
   | Flags str ->
     debug {{ eprintf "select received * FLAGS: %s\n" str }}
-    select(mail, tools, tag)
+    let mail = [[ {mail with status={mail.status with flags=str}} ]]
+    select(mail, tools, tag, selex)
   | FlagsOk (rtag,flags,str) ->
     if {{ rtag <> tag }}
     then
-      debug {{ eprintf "select received mismatched SELECT OK: rtag=%s tag=%s str=%s\n" rtag tag str }}
+      debug {{ eprintf "select received mismatched %s OK: rtag=%s tag=%s str=%s\n" selex rtag tag str }}
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
-      debug {{ eprintf "select received SELECT OK: tag=%s flags=%s str=%s\n" tag flags str }}
-      let tag = {{ get_tag() }}
-      match !"ImapClientCore.select" {{ mail.command }} with
-      | ImapNoop ->
-        send (Noop tag);
-        noop(mail, tools, tag)
-      | ImapFetch (seq, items) ->
-        send (Fetch (tag, seq, items));
-        fetch(mail, tools, tag)
-      | ImapSearchCs (charset, params) ->
-        send (SearchCs (tag, charset, params));
-        search(mail, tools, tag)
-      | ImapSearch params ->
-        send (Search (tag, params));
-        search(mail, tools, tag)
-      end
+      debug {{ eprintf "select received %s OK: tag=%s flags=%s str=%s\n" selex tag flags str }}
+      let mail = [[ {mail with status={mail.status with rwstatus=flags}} ]]
+      commands(mail, tools)
   | err ->
-    check_error(mail, tools, {{"SELECT"}}, tag, err)
+    check_error(mail, tools, selex, tag, err)
   catch
   | exn ->
-    check_exception(mail, tools, {{"select"}}, tag, exn)
+    check_exception(mail, tools, {{String.lowercase selex}}, tag, exn)
 
-noop(mail, tools, tag):
+commands(mail, tools):
+  let mail = {{ { mail with fetched=[]; list=[]; expunged=[] } }}
+  if {{ mail.commands = [] }}
+  then
+    close(mail, tools)
+  else
+    let tag = {{ get_tag() }}
+    let command = {{ List.hd mail.commands }}
+    debug {{ eprintf "imapClientCore: command=%s\n%!" (string_of_command command) }}
+    let commands = {{ List.tl mail.commands }}
+    let mail = {{ { mail with commands = commands} }}
+    match {{ command }} with
+    | ImapNoop ->
+      send (Noop tag);
+      wait_for_ok(mail, tools, tag, {{"noop"}}, {{"NOOP"}},
+                  {{function NoopOk (rt,s) -> Some (rt,s) | _ -> None}}, {{NoopResult mail.status}})
+    | ImapFetch (seq, items) ->
+      send (Fetch (tag, seq, items));
+      fetch(mail, tools, tag)
+    | ImapStore (seq, din, dinval) ->
+      send (Store (tag, seq, din, dinval));
+      store(mail, tools, tag)
+    | ImapSearchCs (charset, params) ->
+      send (SearchCs (tag, charset, params));
+      search(mail, tools, tag)
+    | ImapSearch params ->
+      send (Search (tag, params));
+      search(mail, tools, tag)
+    | ImapList (rf, mailbox) ->
+      if {{ rf = "" || mailbox = "" }}
+      then
+        error({{ "Empty strings would make LIST command invalid, use \"\" instead" }}, tools)
+      else
+        send (List (tag, rf, mailbox));
+        list(mail, tools, tag)
+      end
+    | ImapCreate mailbox ->
+      send (Create (tag, mailbox));
+      wait_for_ok(mail, tools, tag, {{"create"}}, {{"CREATE"}},
+                  {{function CreateOk (rt,s) -> Some (rt,s) | _ -> None}}, {{Ok "created"}})
+    | ImapDelete mailbox ->
+      send (Delete (tag, mailbox));
+      wait_for_ok(mail, tools, tag, {{"delete"}}, {{"DELETE"}},
+                  {{function DeleteOk (rt,s) -> Some (rt,s) | _ -> None}}, {{Ok "deleted"}})
+    | ImapRename (frommb, tomb) ->
+      send (Rename (tag, frommb, tomb));
+      wait_for_ok(mail, tools, tag, {{"rename"}}, {{"RENAME"}},
+                  {{function RenameOk (rt,s) -> Some (rt,s) | _ -> None}}, {{Ok "renamed"}})
+    | ImapExpunge ->
+      send (Expunge tag);
+      expunge(mail, tools, tag)
+
+wait_for_ok(mail, tools, tag, name, _NAME, fn, result):
   receive
   | StarOk str ->
-    debug {{ eprintf "noop received * OK: %s\n%!" str }}
-    noop(mail, tools, tag)
-  | NoopOk (rtag,str) ->
-    if {{ rtag <> tag }}
-    then
-      debug {{ eprintf "noop received mismatched NOOP OK: rtag=%s tag=%s str=%s\n%!" rtag tag str }}
-      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
-    else
-      debug {{ eprintf "noop received NOOP OK: tag=%s str=%s\n%!" tag str }}
-      bye(mail, tools)
+    debug {{ eprintf "%s received * OK: %s\n%!" name str }}
+    wait_for_ok(mail, tools, tag, name, _NAME, fn, result)
   | err ->
-    check_error(mail, tools, {{"NOOP"}}, tag, err)
+    match {{ fn err }} with
+    | Some (rtag, str) ->
+      if {{ rtag <> tag }}
+      then
+        debug {{ eprintf "%s received mismatched %s OK: rtag=%s tag=%s str=%s\n%!" name _NAME rtag tag str }}
+        error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+      else
+        debug {{ eprintf "%s received %s OK: tag=%s str=%s\n%!" name _NAME tag str }}
+        bye(mail, tools, result)
+      end
+    | None ->
+      check_error(mail, tools, _NAME, tag, err)
   catch
   | exn ->
-    check_exception(mail, tools, {{"noop"}}, tag, exn)
+    check_exception(mail, tools, name, tag, exn)
+
+bye(mail, tools, result):
+  let mail = {{ { mail with results = (result::mail.results) } }}
+  commands(mail, tools)
 
 search(mail, tools, tag):
   receive
@@ -241,7 +342,7 @@ search(mail, tools, tag):
   | StarSearch str ->
     debug {{ eprintf "search received * SEARCH: %s\n" str }}
     let il = {{ List.map (fun s -> try int_of_string s with _ -> -1) (String.slice ' ' str) }}
-    let mail = {{ { mail with result = (SearchResult il) } }}
+    let mail = {{ { mail with results = ((SearchResult il)::mail.results) } }}
     search(mail, tools, tag)
   | JustOk (rtag,str) ->
     if {{ rtag <> tag }}
@@ -250,7 +351,7 @@ search(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "search received SEARCH OK: tag=%s str=%s\n" tag str }}
-      close(mail, tools)
+      commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"SEARCH"}}, tag, err)
   catch
@@ -273,8 +374,8 @@ fetch(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "fetch received FETCH OK: tag=%s str=%s\n" tag str }}
-      let mail = {{ { mail with result = (FetchResult (List.rev (add_fetched str mail.fetched))) } }}
-      close(mail, tools)
+      let mail = {{ { mail with results = ((FetchResult (List.rev mail.fetched))::mail.results) } }}
+      commands(mail, tools)
   | RawInput str ->
     %debug {{ eprintf "fetch received RawInput: str=%s\n" str }}
     let mail = {{ { mail with fetched = (add_fetched str mail.fetched) } }}
@@ -285,9 +386,71 @@ fetch(mail, tools, tag):
   | exn ->
     check_exception(mail, tools, {{"fetch"}}, tag, exn)
 
-bye(mail, tools):
-  let mail = {{ { mail with result = (Ok "bye") } }}
-  close(mail, tools)
+store(mail, tools, tag):
+  receive
+  | StarFetch (num, str) ->
+    debug {{ eprintf "store received * FETCH: %d %s\n" num (String.limit 50 str) }}
+    let mail = {{ { mail with fetched = ((num,str)::mail.fetched) } }}
+    store(mail, tools, tag)
+  | StoreOk (rtag,str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "store received mismatched STORE OK: rtag=%s tag=%s str=%s\n" rtag tag str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "store received STORE OK: tag=%s str=%s\n" tag str }}
+      let mail = {{ { mail with results = ((StoreResult (List.rev mail.fetched))::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"STORE"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"store"}}, tag, exn)
+
+list(mail, tools, tag):
+  receive
+  | StarOk str ->
+    debug {{ eprintf "list received * OK: %s\n" str }}
+    list(mail, tools, tag)
+  | StarList (flags, rf, mailbox) ->
+    debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
+    let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
+    list(mail, tools, tag)
+  | ListOk (rtag,str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "list received mismatched LIST OK: rtag=%s tag=%s str=%s\n" rtag tag str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "list received LIST OK: tag=%s str=%s\n" tag str }}
+      let mail = {{ { mail with results = ((ListResult (List.rev mail.list))::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"LIST"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"list"}}, tag, exn)
+
+expunge(mail, tools, tag):
+  receive
+  | StarExpunge num ->
+    debug {{ eprintf "expunge received * EXPUNGE: %d\n" num }}
+    let mail = {{ { mail with expunged = (num::mail.expunged) } }}
+    expunge(mail, tools, tag)
+  | ExpungeOk (rtag,str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "expunge received mismatched EXPUNGE OK: rtag=%s tag=%s str=%s\n" rtag tag str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "expunge received EXPUNGE OK: tag=%s str=%s\n" tag str }}
+      let mail = {{ { mail with results = ((ExpungeResult (List.rev mail.expunged))::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"EXPUNGE"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"expunge"}}, tag, exn)
 
 close(mail, tools):
   let tag = {{ get_tag() }}
@@ -318,12 +481,12 @@ wait_close(mail, tools, tag):
 
 quit(mail, tools):
   -!-
-  {{ tools.k mail.result }}
+  {{ tools.k (List.rev mail.results) }}
 
 error(msg : string, tools : imports):
   debug {{ eprintf "error: %s\n%!" msg }}
   -!-
   {{ Logger.error "Error: %s" msg;
-     tools.k (Error msg) }}
+     tools.k [Error msg] }}
 
 % End of file imapClientCore.proto

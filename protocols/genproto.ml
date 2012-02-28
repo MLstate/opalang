@@ -161,6 +161,7 @@ let gen_functor_sign has_raw arg lst =
                [ O.Val (Ident.source "number_of_connections", O.TypeVerbatim "int ref");
                  O.Val (Ident.source "connect",
                         O.TypeVerbatim ("t -> ?secure_mode:Network.secure_mode -> Scheduler.t -> string -> int -> unit"));
+                 O.Val (Ident.source "close_conn", O.TypeVerbatim ("Scheduler.t -> Scheduler.connection_info -> Buffer.t * int ref -> unit"));
                  O.Val (Ident.source "run_client", O.TypeVerbatim ("Scheduler.t -> unit"));
                  O.Val (Ident.source funame, O.TypeVerbatim ("t -> string -> int -> unit"));
                  O.Val (Ident.source "protocol", O.TypeVerbatim "NetAddr.protocol");

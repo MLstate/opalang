@@ -101,78 +101,150 @@
 
   ##opa-type Email.imap_command
   ##opa-type Email.imap_result
+  ##opa-type Email.imap_status
 
   let ok = ServerLib.static_field_of_name "Ok"
+  let noopresult = ServerLib.static_field_of_name "NoopResult"
   let searchresult = ServerLib.static_field_of_name "SearchResult"
   let fetchresult = ServerLib.static_field_of_name "FetchResult"
+  let storeresult = ServerLib.static_field_of_name "StoreResult"
+  let listresult = ServerLib.static_field_of_name "ListResult"
+  let expungeresult = ServerLib.static_field_of_name "ExpungeResult"
   let no = ServerLib.static_field_of_name "No"
   let bad = ServerLib.static_field_of_name "Bad"
   let error = ServerLib.static_field_of_name "Error"
 
+  let flags = ServerLib.static_field_of_name "flags"
+  let exists = ServerLib.static_field_of_name "exists"
+  let recent = ServerLib.static_field_of_name "recent"
+  let oks = ServerLib.static_field_of_name "oks"
+  let rwstatus = ServerLib.static_field_of_name "rwstatus"
+
   ##register [cps-bypass] command : int, string, SSL.secure_type, \
-    string, string, string, opa[email_imap_command], \
-    (opa[email_imap_result], continuation(opa[void]) -> void), \
+    string, opa[bool], string, string, opa[list(email_imap_command)], \
+    (opa[list(email_imap_result)], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
 
-  let command port addr secure_type mailbox username password command cont k =
+  let command port addr secure_type mailbox readonly username password commands cont k =
     let cont = BslUtils.proj_cps k cont in
 
-    let wrap_is (i,s) = BslNativeLib.opa_tuple_2 (ServerLib.wrap_int i, ServerLib.wrap_string s) in
+    let wrap_s fld s =
+      let rc = ServerLib.empty_record_constructor in
+      let rc = ServerLib.add_field rc fld (ServerLib.wrap_string s) in
+      ServerLib.make_record rc
+    in
+    let wrap_is (i,s) =
+      BslNativeLib.opa_tuple_2 (ServerLib.wrap_int i, ServerLib.wrap_string s) in
+    let wrap_sss (s1,s2,s3) =
+      BslNativeLib.opa_tuple_3 (ServerLib.wrap_string s1, ServerLib.wrap_string s2, ServerLib.wrap_string s3) in
 
-    let cont x =
-      let res =
-        match x with
-        | ImapClientCore.Ok str ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc ok (ServerLib.wrap_string str) in
-            ServerLib.make_record rc
-        | ImapClientCore.No str ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc no (ServerLib.wrap_string str) in
-            ServerLib.make_record rc
-        | ImapClientCore.Bad str ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc bad (ServerLib.wrap_string str) in
-            ServerLib.make_record rc
-        | ImapClientCore.Error err ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc error (ServerLib.wrap_string err) in
-            ServerLib.make_record rc
-        | ImapClientCore.SearchResult il ->
-            let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc searchresult opa_il in
-            ServerLib.make_record rc
-        | ImapClientCore.FetchResult isl ->
-            let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc fetchresult opa_isl in
-            ServerLib.make_record rc
-      in cont (wrap_opa_email_imap_result res)
+    let wrap_sl sl = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_string sl in
+
+(*  This segfaults...
+    let wrap_status (status:ImapClientCore.status) =
+      let rc = ServerLib.empty_record_constructor in
+      let rc = ServerLib.add_field rc flags (ServerLib.wrap_string status.ImapClientCore.flags) in
+      let rc = ServerLib.add_field rc exists (ServerLib.wrap_int status.ImapClientCore.exists) in
+      let rc = ServerLib.add_field rc recent (ServerLib.wrap_int status.ImapClientCore.recent) in
+      let rc = ServerLib.add_field rc oks (BslNativeLib.caml_list_to_opa_list ServerLib.wrap_string status.ImapClientCore.oks) in
+      let rc = ServerLib.add_field rc rwstatus (ServerLib.wrap_string status.ImapClientCore.rwstatus) in
+      wrap_opa_email_imap_status (ServerLib.make_record rc)
+    in
+*)
+
+    let wrap_status (status:ImapClientCore.status) =
+      BslNativeLib.opa_tuple_5 (ServerLib.wrap_string status.ImapClientCore.flags,
+                                ServerLib.wrap_int status.ImapClientCore.exists,
+                                ServerLib.wrap_int status.ImapClientCore.recent,
+                                wrap_sl status.ImapClientCore.oks,
+                                ServerLib.wrap_string status.ImapClientCore.rwstatus)
     in
 
-    let command = unwrap_opa_email_imap_command command in
-    let command =
-      ServerLib.fold_record
-        (fun f value _cmd ->
-           let value = Obj.magic(value) in
-           match ServerLib.name_of_field f with
-           | Some "ImapNoop" -> ImapClientCore.ImapNoop
-           | Some "ImapSearch" -> ImapClientCore.ImapSearch (ServerLib.unwrap_string value)
-           | Some "ImapSearchCs" ->
-               let charset, params = BslNativeLib.ocaml_tuple_2 value in
-               ImapClientCore.ImapSearchCs (ServerLib.unwrap_string charset, ServerLib.unwrap_string params)
-           | Some "ImapFetch" ->
-               let seq, items = BslNativeLib.ocaml_tuple_2 value in
-               ImapClientCore.ImapFetch (ServerLib.unwrap_string seq, ServerLib.unwrap_string items)
-           | _ -> assert false)
-        command ImapClientCore.ImapNoop
+    let cont results =
+      let results =
+        BslNativeLib.caml_list_to_opa_list
+          (fun result ->
+             wrap_opa_email_imap_result
+               (match result with
+                | ImapClientCore.Ok str -> wrap_s ok str
+                | ImapClientCore.No str -> wrap_s no str
+                | ImapClientCore.Bad str -> wrap_s bad str
+                | ImapClientCore.Error str -> wrap_s error str
+                | ImapClientCore.NoopResult status ->
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc noopresult (wrap_status status) in
+                    ServerLib.make_record rc
+                | ImapClientCore.SearchResult il ->
+                    let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc searchresult opa_il in
+                    ServerLib.make_record rc
+                | ImapClientCore.ExpungeResult il ->
+                    let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc expungeresult opa_il in
+                    ServerLib.make_record rc
+                | ImapClientCore.FetchResult isl ->
+                    let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc fetchresult opa_isl in
+                    ServerLib.make_record rc
+                | ImapClientCore.StoreResult isl ->
+                    let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc storeresult opa_isl in
+                    ServerLib.make_record rc
+                | ImapClientCore.ListResult sssl ->
+                    let opa_sssl = BslNativeLib.caml_list_to_opa_list wrap_sss sssl in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc listresult opa_sssl in
+                    ServerLib.make_record rc))
+          results
+      in
+      cont results
+    in
+
+    let unwrap_ss value = 
+      let s1, s2 = BslNativeLib.ocaml_tuple_2 value in
+      ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
+    in
+    let unwrap_sss value = 
+      let s1, s2, s3 = BslNativeLib.ocaml_tuple_3 value in
+      ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3
+    in
+    let commands =
+      BslNativeLib.opa_list_to_ocaml_list
+        (fun command ->
+           ServerLib.fold_record
+             (fun f value _cmd ->
+                let value = Obj.magic(value) in
+                match ServerLib.name_of_field f with
+                | Some "ImapNoop" -> ImapClientCore.ImapNoop
+                | Some "ImapFetch" -> ImapClientCore.ImapFetch (unwrap_ss value)
+                | Some "ImapStore" -> ImapClientCore.ImapStore (unwrap_sss value)
+                | Some "ImapSearch" -> ImapClientCore.ImapSearch (ServerLib.unwrap_string value)
+                | Some "ImapSearchCs" -> ImapClientCore.ImapSearchCs (unwrap_ss value)
+                | Some "ImapList" -> ImapClientCore.ImapList (unwrap_ss value)
+                | Some "ImapCreate" -> ImapClientCore.ImapCreate (ServerLib.unwrap_string value)
+                | Some "ImapDelete" -> ImapClientCore.ImapDelete (ServerLib.unwrap_string value)
+                | Some "ImapRename" -> ImapClientCore.ImapRename (unwrap_ss value)
+                | Some "ImapExpunge" -> ImapClientCore.ImapExpunge
+                | _ -> assert false)
+             (unwrap_opa_email_imap_command command) ImapClientCore.ImapNoop)
+        commands
     in
 
     let client_certificate, verify_params = secure_type in
 
+    let (err_cont:ImapClientCore.ecsa) =
+      fun (exn,name,_bt_opt) _runtime sched conn mailbox _ec ->
+        ImapClientCore.close_conn sched conn mailbox;
+        cont [ImapClientCore.Error (Printf.sprintf "Exception(at %s): %s" name (Printexc.to_string exn))]
+    in
+
     ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~addr ~port
-      ~mailbox ~username ~password ~command (cont:ImapClientCore.result -> unit) ();
+      ~mailbox ~readonly:(ServerLib.unwrap_bool readonly) ~username ~password ~commands
+      (cont:ImapClientCore.results -> unit) ~err_cont ();
     QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule

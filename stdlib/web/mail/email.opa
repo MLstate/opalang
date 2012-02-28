@@ -108,15 +108,34 @@ type Email.options = {
 type Email.imap_command =
     { ImapNoop }
   / { ImapFetch : (string, string) }
+  / { ImapStore : (string, string, string) }
   / { ImapSearch : string }
   / { ImapSearchCs : (string, string) }
+  / { ImapList : (string, string) }
+  / { ImapCreate : string }
+  / { ImapDelete : string }
+  / { ImapRename : (string, string) }
+  / { ImapExpunge }
+
+type Email.imap_status = {
+  flags : string
+  exists : int
+  recent : int
+  oks : string list
+  rwstatus : string
+}
 
 type Email.imap_result =
     { Ok : string }
   / { No : string }
   / { Bad : string }
+  // { NoopResult : Email.imap_status }
+  / { NoopResult : (string,int,int,list(string),string) }
   / { SearchResult : list(int) }
   / { FetchResult : list((int, string)) }
+  / { StoreResult : list((int, string)) }
+  / { ListResult : list((string, string, string)) }
+  / { ExpungeResult : list(int) }
   / { Error of string }
 
 type caml_tuple_2('a,'b) = external
@@ -364,7 +383,7 @@ Email = {{
 
 Imap = {{
 
-  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , string , string, Email.imap_command, (Email.imap_result -> void) -> void
+  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , bool, string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
 
 }}
 
