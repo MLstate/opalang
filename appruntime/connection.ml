@@ -70,9 +70,9 @@ let write conn ?(pos=0) buf len =
 #<Ifstatic:OS Win.*>
 let write_async_WINDOWS conn buf len =
   match NA.get_type_and_fd conn with
-    | `File _fd -> assert false (* Unix.write fd buf pos len *)
+    | `File fd -> Iocp.async_write fd buf len
     | `Tcp fd -> Iocp.async_write fd buf len
-    | `Udp _fd -> assert false (* Unix.sendto fd buf pos len [] (Unix.getpeername fd) *)
+    | `Udp fd -> Iocp.async_write_to fd buf len (Unix.getpeername fd)
     | `Ssl _s -> assert false (* Ssl.write s buf pos len *)
 
 let write_status_WINDOWS conn =
@@ -81,7 +81,7 @@ let write_status_WINDOWS conn =
   if nread = 0 then -1
   else nread
 
-  let write_to_async_WINDOWS conn addr buf len =
+let write_to_async_WINDOWS conn addr buf len =
   match NA.get_type_and_fd conn with
   | `Udp fd -> Iocp.async_write_to fd buf len addr
   | _ -> failwith "[Connection] write_to used on a non-UDP socket"
@@ -146,7 +146,6 @@ let read conn =
 
 #<Ifstatic:OS Win.*>
 let read_async_WINDOWS ?(to_read=read_buff_length) conn =
-  (* Logger.error "read_async_WINDOWS(%d)" (Iocp.int_of_filedescr (NA.get_fd conn)); *)
   Iocp.async_read (NA.get_fd conn) to_read
 
 let read_from_buffer_WINDOWS conn =
@@ -168,10 +167,8 @@ let read_more_buffer_WINDOWS conn buf =
   nread, buf
   
 let read_buffer_WINDOWS conn =
-  (* Logger.error "read_buffer_WINDOWS(%d)" (Iocp.int_of_filedescr (NA.get_fd conn)); *)
   let buf = Iocp.get_last_buffer (NA.get_fd conn) in
   let nread = String.length buf in
-  (* Logger.error "read_buffer_WINDOWS nread=%d" nread; *)
   nread, buf
 
 let read_more2_buffer_WINDOWS conn buf_in =
@@ -223,7 +220,6 @@ let connect ?(socket_type = TCP) ?socket_flags addr =
   try
     begin
       try Iocp.async_connect sock addr
-        (* Use iocp to be warned when connect is finished *)
       with Unix.Unix_error (Unix.EINPROGRESS, _, _) -> ()
     end;
     sock
