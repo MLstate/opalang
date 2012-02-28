@@ -84,8 +84,8 @@ var LowLevelPingLoop = {};
 
     var async_rpc_return = true;
     /* If client is safari, we must force rpc to be synchronous */
-    var desactivate_safari_hack;
-    if (desactivate_safari_hack != true && !command_line_execution && 'safari' in jQuery.browser){
+    var hack = typeof(desactivate_safari_hack) == 'undefined' || !desactivate_safari_hack
+    if (hack && !command_line_execution && 'safari' in jQuery.browser){
         async_rpc_return = !jQuery.browser.safari;
     }
 
