@@ -137,7 +137,7 @@ type Email.imap_result =
   / { StoreResult : list((int, string)) }
   / { ListResult : list((string, string, string)) }
   / { ExpungeResult : list(int) }
-  / { Error of string }
+  / { Error : string }
 
 type caml_tuple_2('a,'b) = external
 type caml_tuple_4('a,'b,'c,'d) = external
