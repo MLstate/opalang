@@ -129,10 +129,14 @@ let add_fetched str fetched =
 -define (StarExpunge num:int)                = "* " num " EXPUNGE\r\n"
 -define (StarFetch (num:int, result))        = "* " num " FETCH " result "\r\n"
 -define (StarList (flags,rf,mailbox))        = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
--define (Search (tag, uid, params))          = tag " " uid " SEARCH " params "\r\n"
--define (SearchCs (tag, uid, cs, params))    = tag " " uid " SEARCH CHARSET " cs " " params "\r\n"
--define (Fetch (tag, uid, seq, items))       = tag " " uid " FETCH " seq " " items "\r\n"
--define (Store (tag, uid, seq, din, dinval)) = tag " " uid " STORE " seq " " din " " dinval "\r\n"
+-define (Search (tag, params))               = tag " SEARCH " params "\r\n"
+-define (UidSearch (tag, params))            = tag " UID SEARCH " params "\r\n"
+-define (SearchCs (tag, cs, params))         = tag " SEARCH CHARSET " cs " " params "\r\n"
+-define (UidSearchCs (tag, cs, params))      = tag " UID SEARCH CHARSET " cs " " params "\r\n"
+-define (Fetch (tag, seq, items))            = tag " FETCH " seq " " items "\r\n"
+-define (UidFetch (tag, seq, items))         = tag " UID FETCH " seq " " items "\r\n"
+-define (Store (tag, seq, din, dinval))      = tag " STORE " seq " " din " " dinval "\r\n"
+-define (UidStore (tag, seq, din, dinval))   = tag " UID STORE " seq " " din " " dinval "\r\n"
 -define (List (tag, rf, mailbox))            = tag " LIST " rf " " mailbox "\r\n"
 -define (Create (tag, mailbox))              = tag " CREATE " mailbox "\r\n"
 -define (Delete (tag, mailbox))              = tag " DELETE " mailbox "\r\n"
@@ -273,17 +277,37 @@ commands(mail, tools):
       wait_for_ok(mail, tools, tag, {{"noop"}}, {{"NOOP"}},
                   {{function NoopOk (rt,s) -> Some (rt,s) | _ -> None}}, {{NoopResult mail.status}})
     | ImapFetch (uid, seq, items) ->
-      send (Fetch (tag, (if uid then "UID" else ""), seq, items));
-      fetch(mail, tools, tag)
+      if {{ uid }}
+      then
+        send (UidFetch (tag, seq, items));
+        fetch(mail, tools, tag)
+      else
+        send (Fetch (tag, seq, items));
+        fetch(mail, tools, tag)
     | ImapStore (uid, seq, din, dinval) ->
-      send (Store (tag, (if uid then "UID" else ""), seq, din, dinval));
-      store(mail, tools, tag)
+      if {{ uid }}
+      then
+        send (UidStore (tag, seq, din, dinval));
+        store(mail, tools, tag)
+      else
+        send (Store (tag, seq, din, dinval));
+        store(mail, tools, tag)
     | ImapSearchCs (uid, charset, params) ->
-      send (SearchCs (tag, (if uid then "UID" else ""), charset, params));
-      search(mail, tools, tag)
+      if {{ uid }}
+      then
+        send (UidSearchCs (tag, charset, params));
+        search(mail, tools, tag)
+      else
+        send (SearchCs (tag, charset, params));
+        search(mail, tools, tag)
     | ImapSearch (uid, params) ->
-      send (Search (tag, (if uid then "UID" else ""), params));
-      search(mail, tools, tag)
+      if {{ uid }}
+      then
+        send (UidSearch (tag, params));
+        search(mail, tools, tag)
+      else
+        send (Search (tag, params));
+        search(mail, tools, tag)
     | ImapList (rf, mailbox) ->
       if {{ rf = "" || mailbox = "" }}
       then
@@ -376,12 +400,12 @@ fetch(mail, tools, tag):
       debug {{ eprintf "fetch received FETCH OK: tag=%s str=%s\n" tag str }}
       let mail = {{ { mail with results = ((FetchResult (List.rev mail.fetched))::mail.results) } }}
       commands(mail, tools)
-  | RawInput str ->
-    %debug {{ eprintf "fetch received RawInput: str=%s\n" str }}
+  | msg ->
+    % This is ridiculous and dangerous, we should parse the initial header and use fixed to read in the data.
+    let str = {{ string_of_msg msg }}
+    %debug {{ eprintf "fetch received raw input: str=%s\n" str }}
     let mail = {{ { mail with fetched = (add_fetched str mail.fetched) } }}
     fetch(mail, tools, tag)
-  | err ->
-    check_error(mail, tools, {{"FETCH"}}, tag, err)
   catch
   | exn ->
     check_exception(mail, tools, {{"fetch"}}, tag, exn)
