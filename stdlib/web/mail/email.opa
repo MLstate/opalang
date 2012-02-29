@@ -133,7 +133,7 @@ type Email.imap_result =
   // { NoopResult : Email.imap_status }
   / { NoopResult : (string,int,int,list(string),string) }
   / { SearchResult : list(int) }
-  / { FetchResult : list((int, string)) }
+  / { FetchResult : list((int, string, string)) }
   / { StoreResult : list((int, string)) }
   / { ListResult : list((string, string, string)) }
   / { ExpungeResult : list(int) }

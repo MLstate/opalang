@@ -139,6 +139,8 @@
     in
     let wrap_is (i,s) =
       BslNativeLib.opa_tuple_2 (ServerLib.wrap_int i, ServerLib.wrap_string s) in
+    let wrap_iss (i1,s2,s3) =
+      BslNativeLib.opa_tuple_3 (ServerLib.wrap_int i1, ServerLib.wrap_string s2, ServerLib.wrap_string s3) in
     let wrap_sss (s1,s2,s3) =
       BslNativeLib.opa_tuple_3 (ServerLib.wrap_string s1, ServerLib.wrap_string s2, ServerLib.wrap_string s3) in
 
@@ -188,10 +190,10 @@
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc expungeresult opa_il in
                     ServerLib.make_record rc
-                | ImapClientCore.FetchResult isl ->
-                    let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
+                | ImapClientCore.FetchResult issl ->
+                    let opa_issl = BslNativeLib.caml_list_to_opa_list wrap_iss issl in
                     let rc = ServerLib.empty_record_constructor in
-                    let rc = ServerLib.add_field rc fetchresult opa_isl in
+                    let rc = ServerLib.add_field rc fetchresult opa_issl in
                     ServerLib.make_record rc
                 | ImapClientCore.StoreResult isl ->
                     let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in

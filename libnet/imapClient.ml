@@ -51,6 +51,9 @@ let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
           rt_server_write_timeout = Time.hours 2;
           rt_payload = ();
         };
+        ICC.rt_tmp =
+          { ICC.rt_callback = None;
+          };
       };
       ICC.err_cont = err_cont;
       ICC.extra_params = (mail,tools)

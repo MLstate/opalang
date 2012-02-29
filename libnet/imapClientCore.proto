@@ -53,7 +53,7 @@
   | Bad of string
   | NoopResult of status
   | SearchResult of int list
-  | FetchResult of (int * string) list
+  | FetchResult of (int * string * string) list
   | StoreResult of (int * string) list
   | ListResult of (string * string * string) list
   | ExpungeResult of int list
@@ -68,7 +68,7 @@
   password : string;
   commands : commands;
   status : status;
-  fetched : (int * string) list;
+  fetched : (int * string * string) list;
   list : (string * string * string) list;
   expunged : int list;
   results : results;
@@ -91,9 +91,15 @@
 %  rt_server_write_timeout : Time.t;
 %}
 
+-type rt_tmp =
+  {
+    rt_callback : (payload -> int -> Buffer.t -> bool) option;
+  }
+
 -type runtime = {
   rt_plim : int;
   rt_proto : rt_proto;
+  rt_tmp : rt_tmp;
 }
 
 {{
@@ -111,56 +117,57 @@ let string_of_command = function
   | ImapExpunge -> "EXPUNGE"
 let add_fetched str fetched =
   match fetched with
-  | [] -> [(0,str)]
-  | ((i,ss)::t) -> ((i,ss^str)::t) (* todo: bufferise this *)
+  | [] -> [(0,"",str)]
+  | ((i,what,ss)::t) -> ((i,what,ss^str)::t) (* todo: bufferise this *)
 }}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      Messages envoyés/reçus        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--define (Noop tag)                           = tag " NOOP\r\n"
--define (Login (tag, name, pass))            = tag " LOGIN " name " " pass "\r\n"
--define (Select (tag, mailbox))              = tag " SELECT " mailbox "\r\n"
--define (Examine (tag, mailbox))             = tag " EXAMINE " mailbox "\r\n"
--define (Exists num:int)                     = "* " num " EXISTS\r\n"
--define (Recent num:int)                     = "* " num " RECENT\r\n"
--define (Flags str)                          = "* FLAGS (" str ")\r\n"
--define (StarSearch result)                  = "* SEARCH " result "\r\n"
--define (StarExpunge num:int)                = "* " num " EXPUNGE\r\n"
--define (StarFetch (num:int, result))        = "* " num " FETCH " result "\r\n"
--define (StarList (flags,rf,mailbox))        = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
--define (Search (tag, params))               = tag " SEARCH " params "\r\n"
--define (UidSearch (tag, params))            = tag " UID SEARCH " params "\r\n"
--define (SearchCs (tag, cs, params))         = tag " SEARCH CHARSET " cs " " params "\r\n"
--define (UidSearchCs (tag, cs, params))      = tag " UID SEARCH CHARSET " cs " " params "\r\n"
--define (Fetch (tag, seq, items))            = tag " FETCH " seq " " items "\r\n"
--define (UidFetch (tag, seq, items))         = tag " UID FETCH " seq " " items "\r\n"
--define (Store (tag, seq, din, dinval))      = tag " STORE " seq " " din " " dinval "\r\n"
--define (UidStore (tag, seq, din, dinval))   = tag " UID STORE " seq " " din " " dinval "\r\n"
--define (List (tag, rf, mailbox))            = tag " LIST " rf " " mailbox "\r\n"
--define (Create (tag, mailbox))              = tag " CREATE " mailbox "\r\n"
--define (Delete (tag, mailbox))              = tag " DELETE " mailbox "\r\n"
--define (Rename (tag, frommb, tomb))         = tag " RENAME " frommb " " tomb "\r\n"
--define (Expunge tag)                        = tag " EXPUNGE\r\n"
--define (Close tag)                          = tag " CLOSE\r\n"
+-define (Noop tag)                              = tag " NOOP\r\n"
+-define (Login (tag, name, pass))               = tag " LOGIN " name " " pass "\r\n"
+-define (Select (tag, mailbox))                 = tag " SELECT " mailbox "\r\n"
+-define (Examine (tag, mailbox))                = tag " EXAMINE " mailbox "\r\n"
+-define (Exists num:int)                        = "* " num " EXISTS\r\n"
+-define (Recent num:int)                        = "* " num " RECENT\r\n"
+-define (Flags str)                             = "* FLAGS (" str ")\r\n"
+-define (StarSearch result)                     = "* SEARCH " result "\r\n"
+-define (StarExpunge num:int)                   = "* " num " EXPUNGE\r\n"
+-define (StarFetchLen (num:int, what, len:int)) = "* " num " FETCH (" what " {" len "}\r\n"
+-define (StarFetch (num:int, result))           = "* " num " FETCH " result "\r\n"
+-define (StarList (flags,rf,mailbox))           = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
+-define (Search (tag, params))                  = tag " SEARCH " params "\r\n"
+-define (UidSearch (tag, params))               = tag " UID SEARCH " params "\r\n"
+-define (SearchCs (tag, cs, params))            = tag " SEARCH CHARSET " cs " " params "\r\n"
+-define (UidSearchCs (tag, cs, params))         = tag " UID SEARCH CHARSET " cs " " params "\r\n"
+-define (Fetch (tag, seq, items))               = tag " FETCH " seq " " items "\r\n"
+-define (UidFetch (tag, seq, items))            = tag " UID FETCH " seq " " items "\r\n"
+-define (Store (tag, seq, din, dinval))         = tag " STORE " seq " " din " " dinval "\r\n"
+-define (UidStore (tag, seq, din, dinval))      = tag " UID STORE " seq " " din " " dinval "\r\n"
+-define (List (tag, rf, mailbox))               = tag " LIST " rf " " mailbox "\r\n"
+-define (Create (tag, mailbox))                 = tag " CREATE " mailbox "\r\n"
+-define (Delete (tag, mailbox))                 = tag " DELETE " mailbox "\r\n"
+-define (Rename (tag, frommb, tomb))            = tag " RENAME " frommb " " tomb "\r\n"
+-define (Expunge tag)                           = tag " EXPUNGE\r\n"
+-define (Close tag)                             = tag " CLOSE\r\n"
 
--define (NoopOk (tag,str))                   = tag " OK NOOP "~ str "\r\n"
--define (FetchOk (tag,str))                  = tag " OK " "UID "? "FETCH "~ str "\r\n"
--define (StoreOk (tag,str))                  = tag " OK " "UID "? "STORE "~ str "\r\n"
--define (ListOk (tag,str))                   = tag " OK LIST "~ str "\r\n"
--define (CreateOk (tag,str))                 = tag " OK CREATE "~ str "\r\n"
--define (DeleteOk (tag,str))                 = tag " OK DELETE "~ str "\r\n"
--define (RenameOk (tag,str))                 = tag " OK RENAME "~ str "\r\n"
--define (ExpungeOk (tag,str))                = tag " OK EXPUNGE "~ str "\r\n"
--define (CloseOk (tag,str))                  = tag " OK CLOSE "~ str "\r\n"
--define (StarOk str)                         = "* OK " str "\r\n"
--define (FlagsOk (tag, flags, str))          = tag " OK [" flags "] " str "\r\n"
--define (JustOk (tag, str))                  = tag " OK " str "\r\n"
+-define (NoopOk (tag,str))                      = tag " OK NOOP "~ str "\r\n"
+-define (FetchOk (tag,str))                     = tag " OK " "UID "? "FETCH "~ str "\r\n"
+-define (StoreOk (tag,str))                     = tag " OK " "UID "? "STORE "~ str "\r\n"
+-define (ListOk (tag,str))                      = tag " OK LIST "~ str "\r\n"
+-define (CreateOk (tag,str))                    = tag " OK CREATE "~ str "\r\n"
+-define (DeleteOk (tag,str))                    = tag " OK DELETE "~ str "\r\n"
+-define (RenameOk (tag,str))                    = tag " OK RENAME "~ str "\r\n"
+-define (ExpungeOk (tag,str))                   = tag " OK EXPUNGE "~ str "\r\n"
+-define (CloseOk (tag,str))                     = tag " OK CLOSE "~ str "\r\n"
+-define (StarOk str)                            = "* OK " str "\r\n"
+-define (FlagsOk (tag, flags, str))             = tag " OK [" flags "] " str "\r\n"
+-define (JustOk (tag, str))                     = tag " OK " str "\r\n"
 
--define (JustNo (tag,str))                   = tag " NO " str "\r\n"
--define (JustBad (tag,str))                  = tag " BAD " str "\r\n"
+-define (JustNo (tag,str))                      = tag " NO " str "\r\n"
+-define (JustBad (tag,str))                     = tag " BAD " str "\r\n"
 
--define RawInput str                      = str
+-define RawInput str                            = str
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%            L'automate              %%
@@ -384,12 +391,13 @@ search(mail, tools, tag):
 
 fetch(mail, tools, tag):
   receive
-  | StarOk str ->
-    debug {{ eprintf "fetch received * OK: %s\n" str }}
-    fetch(mail, tools, tag)
+  | StarFetchLen (num, what, len) ->
+    debug {{ eprintf "fetch received * FETCH: %d %d\n" num len }}
+    let mail = {{ { mail with fetched = ((num,what,"")::mail.fetched) } }}
+    fetch_data(mail, tools, tag, len)
   | StarFetch (num, str) ->
     debug {{ eprintf "fetch received * FETCH: %d %s\n" num (String.limit 50 str) }}
-    let mail = {{ { mail with fetched = ((num,str)::mail.fetched) } }}
+    let mail = {{ { mail with fetched = ((num,"",str)::mail.fetched) } }}
     fetch(mail, tools, tag)
   | FetchOk (rtag,str) ->
     if {{ rtag <> tag }}
@@ -402,6 +410,7 @@ fetch(mail, tools, tag):
       commands(mail, tools)
   | msg ->
     % This is ridiculous and dangerous, we should parse the initial header and use fixed to read in the data.
+    % For the moment it's just a fallback in case the StarFetchLen pattern fails
     let str = {{ string_of_msg msg }}
     %debug {{ eprintf "fetch received raw input: str=%s\n" str }}
     let mail = {{ { mail with fetched = (add_fetched str mail.fetched) } }}
@@ -410,11 +419,30 @@ fetch(mail, tools, tag):
   | exn ->
     check_exception(mail, tools, {{"fetch"}}, tag, exn)
 
+fetch_data(mail, tools, tag, len):
+  debug {{ eprintf "fetch_data: getting %d bytes\n%!" len }}
+  fixed {{ len }}
+  | data ->
+    debug {{ eprintf "fetch_data: data='%s'\n%!" (String.escaped (String.limit 50 data)) }}
+    let mail = {{ { mail with fetched = (add_fetched data mail.fetched) } }}
+    end_fetched_data(mail, tools, tag)
+
+end_fetched_data(mail, tools, tag):
+  fixed {{ 3 }}
+  | data ->
+    if {{ data = ")\r\n" }}
+    then
+      debug {{ eprintf "fetch_data: ok\n%!" }}
+      fetch(mail, tools, tag)
+    else
+      debug {{ eprintf "fetch_data: error\n%!" }}
+      error({{ sprintf "Bad end of fetch data: %s" (String.escaped data) }}, tools)
+
 store(mail, tools, tag):
   receive
   | StarFetch (num, str) ->
     debug {{ eprintf "store received * FETCH: %d %s\n" num (String.limit 50 str) }}
-    let mail = {{ { mail with fetched = ((num,str)::mail.fetched) } }}
+    let mail = {{ { mail with fetched = ((num,"",str)::mail.fetched) } }}
     store(mail, tools, tag)
   | StoreOk (rtag,str) ->
     if {{ rtag <> tag }}
@@ -423,7 +451,7 @@ store(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "store received STORE OK: tag=%s str=%s\n" tag str }}
-      let mail = {{ { mail with results = ((StoreResult (List.rev mail.fetched))::mail.results) } }}
+      let mail = {{ { mail with results = ((StoreResult (List.rev (List.map (function (x,_,z) -> (x,z)) mail.fetched)))::mail.results) } }}
       commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"STORE"}}, tag, err)
