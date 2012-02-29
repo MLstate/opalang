@@ -237,7 +237,7 @@ let analyze_error = Mailerror.parse_mailerror_error
 
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25)
-    ?via ?addr ?auth ?user ?pass cont () =
+    ?via ?addr ?auth ?user ?pass ?dryrun cont () =
   let mto =
     match mto with
     | Some tos -> tos
@@ -255,6 +255,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                    dests = [mdst];
                    body = mdata;
                    auth = Option.default "" auth; user = Option.default "" user; pass = Option.default "" pass;
+                   dryrun = Option.default false dryrun;
                  }
       in
       let rec try_mx mail attempt ?ip_list cont =
@@ -336,7 +337,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
 
 let mail_send ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
-    ?port ?via ?addr ?auth ?user ?pass cont () =
+    ?port ?via ?addr ?auth ?user ?pass ?dryrun cont () =
   let files = match files with
     | Some l ->
         let res =
@@ -348,5 +349,5 @@ let mail_send ?client_certificate ?verify_params ?secure sched
     | None -> None in
   mail_send_aux ?client_certificate ?verify_params ?secure sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?cte ?charset nb_attempt
-    ?port ?via ?addr ?auth ?user ?pass cont ()
+    ?port ?via ?addr ?auth ?user ?pass ?dryrun cont ()
 

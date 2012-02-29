@@ -1,4 +1,4 @@
-% -*-erlang-*-
+% -*-proto-*-
 
 %
 %   Copyright © 2011 MLstate
@@ -31,7 +31,8 @@
   body : string;
   auth : string;
   user : string;
-  pass : string
+  pass : string;
+  dryrun : bool
 }
 
 -type result =
@@ -166,8 +167,12 @@ from(mail, tools):
   receive
   | ENs (250, _) -> from(mail, tools)
   | Ns (250, _) ->
-      send (From mail.from);
-      to(mail, tools)
+      if {{ mail.dryrun }}
+      then
+        quit(tools)
+      else
+        send (From mail.from);
+        to(mail, tools)
   | ENs (a, b) ->
     debug {{ eprintf "from received ENs: %d %s\n" a b }}
     {{ tools.elog a b }} finish_error(tools)

@@ -28,11 +28,11 @@
   ##register [cps-bypass] mail_send_fun : string, string, string, string, string, string, string, \
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
-    option(string), option(string), option(string), option(string), option(string), \
+    option(string), option(string), option(string), option(string), option(string), opa[bool], \
     (opa[email_send_status], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
   let mail_send_fun mfrom mfrom_address_only mdst mto subject mdata html files custom_headers
-                    via addr auth user pass cont k =
+                    via addr auth user pass dryrun cont k =
     let cont = BslUtils.proj_cps k cont in
     let cont x =
       let res =
@@ -55,18 +55,20 @@
       in cont (wrap_opa_email_send_status res)
     in
     let html = if html = "" then None else Some html
-    and mto = if mto = "" then None else Some mto in
-    SmtpClient.mail_send_aux BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass cont ();
+    and mto = if mto = "" then None else Some mto
+    and dryrun = Some (ServerLib.unwrap_bool dryrun)
+    in
+    SmtpClient.mail_send_aux BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
     QmlCpsServerLib.return k ServerLib.void
 
   ##register [cps-bypass] mail_send_fun_secure : string, string, string, string, string, string, string, \
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
-    option(string), option(string), option(int), option(string), option(string), option(string), SSL.secure_type, \
+    option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], SSL.secure_type, \
     (opa[email_send_status], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
   let mail_send_fun_secure mfrom mfrom_address_only mdst mto subject mdata html files custom_headers
-                           via addr port auth user pass secure_type cont k =
+                           via addr port auth user pass dryrun secure_type cont k =
     let cont = BslUtils.proj_cps k cont in
     let cont x =
       let res =
@@ -89,9 +91,11 @@
       in cont (wrap_opa_email_send_status res)
     in
     let html = if html = "" then None else Some html
-    and mto = if mto = "" then None else Some mto in
+    and mto = if mto = "" then None else Some mto
+    and dryrun = Some (ServerLib.unwrap_bool dryrun)
+    in
     let client_certificate, verify_params = secure_type in
-    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?port:port ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass cont ();
+    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?port:port ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
     QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule
