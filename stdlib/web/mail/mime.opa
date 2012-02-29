@@ -55,6 +55,7 @@ type Mime.attachment = {
 
 type Mime.body_part =
   { plain : string }
+/ { html : xhtml }
 / { attachment : Mime.attachment }
 / { multipart : list(Mime.entity) }
 
@@ -294,7 +295,11 @@ Mime = {{
       | "multipart/mixed" ->
         boundary = Header.extract_value("boundary", content_type_list)
         multipart(body, boundary)
+      | "multipart/alternative" ->
+        boundary = Header.extract_value("boundary", content_type_list)
+        multipart(body, boundary)
       | "text/plain" -> {plain=decoded_body}
+      | "text/html" -> {html=Xhtml.of_string(decoded_body)}
       | _ ->
         match Header.find("Content-Disposition", headers)
         {none} -> {plain=decoded_body}
@@ -338,6 +343,7 @@ Mime = {{
   body_to_string(body:Mime.body_part) : string =
     match body
     {~plain} -> plain
+    {html=_} -> ""
     {attachment=_} -> ""
     {multipart=parts} ->
       List.map(get_text_aux, parts)
@@ -353,12 +359,35 @@ Mime = {{
   get_text(message:Mime.message) =
     get_text_aux(message.content)
 
+  // HTML
+
+  @private
+  body_to_xhtml(body:Mime.body_part) : xhtml =
+    match body
+    {plain=_} -> <></>
+    {~html} -> html
+    {attachment=_} -> <></>
+    {multipart=parts} ->
+      List.map(get_xhtml_aux, parts)
+      |> Xhtml.createFragment(_)
+
+  @private
+  get_xhtml_aux(entity:Mime.entity) =
+    body_to_xhtml(entity.body)
+
+  /**
+   * Get the xhtml content of a MIME message
+   */
+  get_xhtml(message:Mime.message) =
+    get_xhtml_aux(message.content)
+
   // Attachments
 
   @private
   content_to_attachments(body:Mime.body_part, acc) =
     match body
     {plain=_} -> acc
+    {html=_} -> acc
     {~attachment} -> [attachment|acc]
     {multipart=parts} ->
       List.fold(get_attachments_aux, parts, acc)
