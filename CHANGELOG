@@ -1,3 +1,19 @@
+2012.XX.YY, Version 0.9.1 (stable), v1300
+
+API:
+
+  * changed WebClient API concerning additional headers
+  * improved / fixed MIME library
+
+STDLIB:
+
+  * included Twitter's Bootstrap CSS inside the stdlib, and improved the import system (see doc)
+
+PERFS:
+
+  * Improved HTTP gzip compression time
+
+
 2012.02.14, Version 0.9.0 (stable), v1300
 
 Major features:
