@@ -208,13 +208,21 @@
       cont results
     in
 
+    let unwrap_bs value = 
+      let b1, s2 = BslNativeLib.ocaml_tuple_2 value in
+      ServerLib.unwrap_bool b1, ServerLib.unwrap_string s2
+    in
     let unwrap_ss value = 
       let s1, s2 = BslNativeLib.ocaml_tuple_2 value in
       ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
     in
-    let unwrap_sss value = 
-      let s1, s2, s3 = BslNativeLib.ocaml_tuple_3 value in
-      ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3
+    let unwrap_bss value = 
+      let b, s1, s2 = BslNativeLib.ocaml_tuple_3 value in
+      ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
+    in
+    let unwrap_bsss value = 
+      let b, s1, s2, s3 = BslNativeLib.ocaml_tuple_4 value in
+      ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3
     in
     let commands =
       BslNativeLib.opa_list_to_ocaml_list
@@ -224,10 +232,10 @@
                 let value = Obj.magic(value) in
                 match ServerLib.name_of_field f with
                 | Some "ImapNoop" -> ImapClientCore.ImapNoop
-                | Some "ImapFetch" -> ImapClientCore.ImapFetch (unwrap_ss value)
-                | Some "ImapStore" -> ImapClientCore.ImapStore (unwrap_sss value)
-                | Some "ImapSearch" -> ImapClientCore.ImapSearch (ServerLib.unwrap_string value)
-                | Some "ImapSearchCs" -> ImapClientCore.ImapSearchCs (unwrap_ss value)
+                | Some "ImapFetch" -> ImapClientCore.ImapFetch (unwrap_bss value)
+                | Some "ImapStore" -> ImapClientCore.ImapStore (unwrap_bsss value)
+                | Some "ImapSearch" -> ImapClientCore.ImapSearch (unwrap_bs value)
+                | Some "ImapSearchCs" -> ImapClientCore.ImapSearchCs (unwrap_bss value)
                 | Some "ImapList" -> ImapClientCore.ImapList (unwrap_ss value)
                 | Some "ImapCreate" -> ImapClientCore.ImapCreate (ServerLib.unwrap_string value)
                 | Some "ImapDelete" -> ImapClientCore.ImapDelete (ServerLib.unwrap_string value)

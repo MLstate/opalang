@@ -108,10 +108,10 @@ type Email.options = {
 
 type Email.imap_command =
     { ImapNoop }
-  / { ImapFetch : (string, string) }
-  / { ImapStore : (string, string, string) }
-  / { ImapSearch : string }
-  / { ImapSearchCs : (string, string) }
+  / { ImapFetch : (bool, string, string) }
+  / { ImapStore : (bool, string, string, string) }
+  / { ImapSearch : (bool, string) }
+  / { ImapSearchCs : (bool, string, string) }
   / { ImapList : (string, string) }
   / { ImapCreate : string }
   / { ImapDelete : string }
