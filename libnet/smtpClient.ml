@@ -26,6 +26,8 @@ let (<|) f a = f a
 let (|>) a f = f a
 let ( @* ) g f x = g(f(x))
 
+let mailer_name = Printf.sprintf "Opa-mailclient/%d" BuildInfos.git_version_counter
+
 let sprintf = Printf.sprintf
 
 let _log sep code reason = Logger.warning "%d%s%s" code sep reason
@@ -158,13 +160,13 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
 To: %s\r\n\
 Return-Path:<%s>\r\n\
 Message-ID: <%s.%s>\r\n\
-X-Mailer: MLstate mailclient\r\n\
+X-Mailer: %s\r\n\
 Date: %s\r\n\
 Mime-Version: 1.0\r\n\
 %s\
 %s\
 %s"
-mfrom mto return_path (String.random 10) return_path (Date.rfc1123 (Time.gmtime (Time.now())))
+mfrom mto return_path (String.random 10) return_path mailer_name (Date.rfc1123 (Time.gmtime (Time.now())))
 (if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
 (attach_custom_headers custom_headers)
 (if files = []
