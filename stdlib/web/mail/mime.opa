@@ -198,7 +198,7 @@ Mime = {{
 
     parser(b:string) =
       delimiter =
-        parser crlf_parser (!("--"|crlf_parser) .)* "--" Parser.of_string(b) -> void
+        parser crlf_parser? (!("--"|crlf_parser) .)* "--" Parser.of_string(b) -> void
       close_delimiter =
         parser delimiter "--" -> void
       body_part =
