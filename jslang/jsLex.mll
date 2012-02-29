@@ -307,6 +307,7 @@ and string double = parse
 | "\\u" (hexa hexa hexa hexa as s) { Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d)); string double lexbuf }
 | "\\x" (hexa hexa as s) { Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d)); string double lexbuf }
 | eof { raise (Stream.Error "unterminated string literal comment") }
+| "\\" { Buffer.add_char b '\\'; string double lexbuf }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in a string literal" c)) }
 
 (* [newline] is true when a newline has been parsed in the comment *)
