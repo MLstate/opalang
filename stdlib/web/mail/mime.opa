@@ -298,6 +298,9 @@ Mime = {{
       | "multipart/alternative" ->
         boundary = Header.extract_value("boundary", content_type_list)
         multipart(body, boundary)
+      | "multipart/related" ->
+        boundary = Header.extract_value("boundary", content_type_list)
+        multipart(body, boundary)
       | "text/plain" -> {plain=decoded_body}
       | "text/html" -> {html=Xhtml.of_string(decoded_body)}
       | _ ->
