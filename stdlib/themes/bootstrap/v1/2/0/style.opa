@@ -18,6 +18,13 @@
 
 /*Author: Ida Swarczewskaja, MLstate */
 
+/**
+ * {1 About this module}
+ * This module allows you to use version 1.2.0 of Twitter's Bootstrap style
+ * (http://twitter.github.com/bootstrap/) directly in your application.
+ * It also includes several sets of icons.
+ */
+
 import stdlib.themes.bootstrap.core
 
-do Bootstrap.import("2.0.1")
+do Bootstrap.import("1.2.0")

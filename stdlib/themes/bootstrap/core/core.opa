@@ -18,30 +18,6 @@
 
 /*Author: Ida Swarczewskaja, MLstate */
 
-/**
- * {1 About this module}
- * This module allows you to use Twitter's bootstrap style (http://twitter.github.com/bootstrap/) directly in your application.
- * It also includes several sets of icons.
- *
- * {2 Where should I start}
- * If you want to use the legacy version (1.1.1), just import this package.
- * Otherwise, call : Bootstrap.import(A_CERTAIN_VERSION) before launching your server.
- * /!\ We do not check if the version you gave is correct or not /!\
- *
- * {3 How to use icons}
- * There are different sizes:
- * - to use 16x16 pixels icon, set class "icon"
- * - to use 32x32 pixels icon, set class "icon32"
- * There are different colors:
- * - gray is the default
- * - to use black color, set class "icon-white"
- * - to use white color, set class "icon-black"
- * There are different icons:
- * - triangle (icon-triangle-n,icon-triangle-e, ...)
- * - arrow (icon-arrow-n, icon-arrowthick-n, icon-arrowreturn-se, ...)
- * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
- */
-
 /* Publish resources */
 
 @private
@@ -582,11 +558,37 @@ icon32 = css
 
 _ = Client_code.register_css_declaration([icon16,icon32])
 
+/**
+ * {1 About this module}
+ *
+ * This module allows you to use Twitter's Bootstrap style (http://twitter.github.com/bootstrap/) directly in your application.
+ * It also includes several sets of icons.
+ *
+ * {1 Where should I start}
+ *
+ * If you want to use the latest version, just import this package (stdlib.themes.bootstrap).
+ * Otherwise, import stdlib.themes.bootstrap.v{X.Y.Z}.
+ * /!\ If the version you are looking for is not embed in Opa, it will reference GitHub's URL.
+ *
+ * {1 How to use icons}
+ *
+ * There are different sizes:
+ * - to use 16x16 pixels icon, set class "icon"
+ * - to use 32x32 pixels icon, set class "icon32"
+ * There are different colors:
+ * - gray is the default
+ * - to use black color, set class "icon-white"
+ * - to use white color, set class "icon-black"
+ * There are different icons:
+ * - triangle (icon-triangle-n,icon-triangle-e, ...)
+ * - arrow (icon-arrow-n, icon-arrowthick-n, icon-arrowreturn-se, ...)
+ * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
+ */
 Bootstrap = {{
 
   @private
   compute_version_url(v:string) =
-    if String.le(v, "1.2.0") then
+    if String.le(v, "1.2.0") then // Does not work
       "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
     else if String.le(v, "1.4.0") then
       "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
@@ -618,11 +620,13 @@ Bootstrap = {{
 
   url(v:string) =
     Map.get("stdlib/themes/bootstrap/css/{v}/bootstrap.min.css", uri_css) ?
-    compute_version_url(v)
+    compute_version_url(v) // fallback
 
   import(v:string) =
-    Resource.register_external_css(
-      url(v)
-    )
+    do Resource.register_external_css(url(v))
+    if String.lt(v, "2.0.0") then void
+    else match Map.get("stdlib/themes/bootstrap/css/{v}/bootstrap-responsive.min.css", uri_css)
+         {some=url} -> Resource.register_external_css(url)
+         {none} -> void
 
 }}
