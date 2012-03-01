@@ -48,6 +48,18 @@
     return js_none
 }
 
+##register get_width: Canvas.canvas -> int
+##args(canvas)
+{
+    return canvas.width;
+}
+
+##register get_height: Canvas.canvas -> int
+##args(canvas)
+{
+    return canvas.height;
+}
+
 // Context
 
 ##register get_context: Canvas.canvas, string -> opa[option(Canvas.context)]

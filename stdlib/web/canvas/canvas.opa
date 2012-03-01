@@ -64,9 +64,7 @@ type Canvas.linejoin =
 / {miter}
 
 type Canvas.imagedata =
-  {width:int
-   height:int
-   }
+  {width: int; height: int}
 
 type Canvas.image =
   {image : Image.image}
@@ -157,6 +155,16 @@ Canvas = {{
 
   get_context_2d(canvas : Canvas.canvas) : option(Canvas.context) =
     get_context(canvas,"2d")
+
+  /**
+   * {2 Canvas size}
+  **/
+
+  get_width(canvas : Canvas.canvas) : int =
+    %%BslCanvas.get_width%%(canvas)
+
+  get_height(canvas : Canvas.canvas) : int =
+    %%BslCanvas.get_height%%(canvas)
 
   /**
    * {2 Canvas state}
