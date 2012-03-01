@@ -210,7 +210,7 @@ let load_conf conffile =
     match process_line ~position line with
     | None -> package
     | Some (Package package_name) ->
-        if package_name = "" || not ( List.for_all String.is_universal_ident (String.slice '.' package_name ) )
+        if package_name = ""
         then
           OManager.error (
             "%a@\n" ^^
