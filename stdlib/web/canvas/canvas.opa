@@ -109,6 +109,7 @@ Canvas = {{
    * {2 Canvas}
   **/
 
+  @both_implem
   create_with(id : string, width : Css.size, height : Css.size,
               error_msg : xhtml) : xhtml =
     get_size(x:Css.size):string = match x
@@ -128,6 +129,7 @@ Canvas = {{
       {error_msg}
     </canvas>
 
+  @both_implem
   create(id : string, width: Css.size, height : Css.size) : xhtml =
     err_msg =
       <p>
