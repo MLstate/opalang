@@ -456,7 +456,7 @@ module Generator = struct
     let annotmap, skip, limit, query, order, uniq =
       match query0 with
       | None ->
-          let annotmap, limit = C.int annotmap 1 in
+          let annotmap, limit = C.int annotmap 0 in
           let annotmap, skip  = C.int annotmap 0 in
           annotmap, skip, limit, None, None, false
       | Some ((uniq, (query, opt)) as _x) ->

@@ -311,7 +311,13 @@ module Schema = struct
           SetAccess (k, List.rev path, query)
       | Plain -> Plain
     in
-    let default = fun annotmap ->
+    let default =
+      let node =
+        match kind with
+        | SetAccess (_, _, None) -> SchemaGraphLib.SchemaGraph.unique_next llschema node
+        | _ -> node
+      in
+      fun annotmap ->
       let (annotmap2, expr) =
         DbGen_private.Default.expr
           annotmap
