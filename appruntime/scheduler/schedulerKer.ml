@@ -26,6 +26,12 @@
 
 #<Debugvar:SCHEDULER_DEBUG>
 
+#<Ifstatic:OS Win.*>
+let int_of_filedescr = Iocp.int_of_filedescr
+#<Else>
+let int_of_filedescr = Epoll.Debug.int_of_filedescr
+#<End>
+
 module E = SchedulerExc
 module L = SchedulerLog
 module MP = Mlstate_platform
@@ -36,7 +42,7 @@ struct
   let epoll_max_events = 1000
   let fd_hash_size = 1000
   let tout_cb_size = 1000
-  let client_hash_size = 1024
+  let client_hash_size = 1000
   let init_keys_size = 1024
   let priority_max_successive = 1
   let compute_max_successive = 10000
@@ -63,8 +69,8 @@ struct
   module RA = ResArray
 
   type t = {
-    op_in : (key Queue.t) RA.t;
-    op_out : (key Queue.t) RA.t;
+    op_in : (int, (key Queue.t)) Hashtbl.t;
+    op_out : (int, (key Queue.t)) Hashtbl.t;
     op_cb : callback RA.t;
     mutable op_n : int;
     mutable guard : int;
@@ -74,11 +80,15 @@ struct
   (* Private module *)
   module S =
   struct
+  
+	  let direction_to_string = function
+		| In -> "In"
+		| Out -> "Out"
 
     let null_cb = Obj.magic None
     let null_q = Obj.magic None
 
-    let make_q () = RA.make Const.client_hash_size null_q
+    let make_q () = Hashtbl.create Const.client_hash_size
 
     let make_cb () = RA.make Const.init_keys_size null_cb
 
@@ -86,15 +96,15 @@ struct
       | In -> operation.op_in
       | Out -> operation.op_out
 
-    (* unix.ml : type Unix.file_descr = int *)
+    (* unix.ml : type Unix.file_descr = int, warning it's not an int on Windows *)
     let get_q operation id direction =
-      RA.get (op_dir operation direction) (Obj.magic id)
+      Hashtbl.find (op_dir operation direction) (int_of_filedescr id)
 
     let set_q operation id direction q =
-      RA.set (op_dir operation direction) (Obj.magic id) q
+      Hashtbl.replace (op_dir operation direction) (int_of_filedescr id) q
 
     let remove_q operation id direction =
-      RA.set (op_dir operation direction) (Obj.magic id) null_q
+      Hashtbl.remove (op_dir operation direction) (int_of_filedescr id)
 
     let get_cb operation key =
       RA.get operation.op_cb key
@@ -107,10 +117,7 @@ struct
 
     (* **Physical** test with null_x *)
     let mem operation id direction =
-      try
-        (get_q operation (Obj.magic id) direction) != null_q
-      with
-        RA.UnknownCell -> false
+      Hashtbl.mem (op_dir operation direction) (int_of_filedescr id)
 
     let mem_key operation key =
       try
@@ -130,9 +137,8 @@ struct
     | Out -> "Out"
 
   let raise_operation_not_found id direction =
- (*    Logger.error "Operation not found: (%d, %s)" (Epoll.Debug.int_of_filedescr id) (direction_to_string direction); *)
     raise (Not_found (id, direction))
-
+	
   let make () =
     let unix () = Epoll.create Const.epoll_size and dummy () = Obj.magic 42 in
     {op_in = S.make_q ();
@@ -150,6 +156,14 @@ struct
 
   let is_empty operation = (length operation = 0)
 
+#<Ifstatic:OS Win.*>
+  let register _ _ _ =
+    ()
+	
+ (*  Private function  *)
+  let unregister _ _ _ =
+    ()
+#<Else>
  (*  Private function  *)
   let register operation fd direction =
     let exist d = mem operation fd d in
@@ -179,6 +193,7 @@ struct
           Epoll.listen_in_only operation.epoll false fd
           ) else (
           Epoll.del operation.epoll fd)
+#<End>
 
   (* Private function *)
   (* Return an non-empty queue, raise Operation_not_found otherwise *)
@@ -277,7 +292,8 @@ struct
       else begin
         (* The operation was removed, try to find another *)
         remove_candidate operation id direction;
-        clean operation id direction
+        clean operation id direction;
+		()
       end
     with
     | Not_found _ -> ()
@@ -332,7 +348,10 @@ struct
     end
 
   let wait operation tout =
-    E.execute_wait (fun () -> Epoll.wait ~tout operation.epoll Const.epoll_max_events)
+    match MP.mlstate_platform with
+      | MP.Unix ->     E.execute_wait (fun () -> Epoll.wait ~tout operation.epoll Const.epoll_max_events)
+	  | MP.Windows ->  E.execute_wait (fun () -> Iocp.async_wait tout)
+      | _ -> assert false
 
   let process operation id direction =
     let key = find_key operation id direction in
@@ -353,7 +372,7 @@ struct
   let process_all operation fds =
     let exec errors (fd, event_list) =
       let callback d =
-        #<If> L.ker_info "process" ~s:(Printf.sprintf "%d, %s" (L.int_of_fd fd) (direction_to_string d)) #<End>;
+        #<If> L.ker_info "process" ~s:(Printf.sprintf "%d, %s" (int_of_filedescr fd) (direction_to_string d)) #<End>;
         #<If> L.incr_level () #<End>;
         (try process operation fd d
          with Not_found(_) -> Logger.warning "SchedulerKer.Operation.Not_found");
@@ -486,7 +505,7 @@ end
 module Descriptor =
 struct
 
-  type t = (Unix.file_descr, int) Hashtbl.t
+  type t = (int, int) Hashtbl.t
   type id = Unix.file_descr
   type key = int
   type mem_response = Alive | Replaced | Closed
@@ -495,20 +514,20 @@ struct
   let length = Hashtbl.length
   let is_empty descriptor = length descriptor = 0
 
-  let remove  = Hashtbl.remove
+  let remove descriptor id = Hashtbl.remove descriptor (int_of_filedescr id)
 
   let add descriptor id =
     let key = Random.bits () in
-    if Hashtbl.mem descriptor id then
+    if Hashtbl.mem descriptor (int_of_filedescr id) then
       remove descriptor id
     else
       ();
-    Hashtbl.add descriptor id key;
+    Hashtbl.add descriptor (int_of_filedescr id) key;
     key
 
   let mem descriptor id key =
-    if Hashtbl.mem descriptor id then
-      if (Hashtbl.find descriptor id) = key then
+    if Hashtbl.mem descriptor (int_of_filedescr id) then
+      if (Hashtbl.find descriptor (int_of_filedescr id)) = key then
         Alive
       else
         Replaced

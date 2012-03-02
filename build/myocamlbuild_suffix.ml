@@ -33,13 +33,9 @@
           P (pp_script "mlstate_nodebug"),
           P (pp_script "pa_ulex")
         else
-          P (Pathname.pwd/"utils"/"ppdebug.pl"),
-          S [ P (Pathname.pwd/"utils"/"ppdebug.pl"); A "-r" ],
-          S [ P Config.camlp4o;
-              (match Config.Libdir.ulex with
-               | Some dir -> S [A "-I"; P dir]
-               | None -> N);
-              P "pa_ulex.cma"; P "pr_o.cmo" ]
+          S [ P "perl"; P (".."/"utils"/"ppdebug.pl") ],
+          S [ P "perl"; P (".."/"utils"/"ppdebug.pl"); A "-r" ],
+          S [ P "bash"; P (".."/"utils"/"camlp4o-ulex.sh") ; P "pa_ulex.cma"; P "pr_o.cmo" ]
       in
 
       flag ["ocaml"; "pp"; "with_mlstate_debug"]

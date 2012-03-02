@@ -11,6 +11,7 @@ IS_MAC=""
 IS_WINDOWS=""
 
 case $(uname) in
+	MINGW*) IS_WINDOWS=1;;
     CYGWIN*) IS_WINDOWS=1;;
     Darwin*) IS_MAC=1;;
     Linux*|GNU/kFreeBSD) IS_LINUX=1;;

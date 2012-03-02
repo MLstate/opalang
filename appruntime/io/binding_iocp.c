@@ -17,33 +17,20 @@
 */
 /*
   @author Laurent Le Brun
+  @author Stephan Hadinger
 **/
 
-/** 
-    socket : unit -> Unix.file_descr = "iocp_ml_socket"
-    async_wait : int -> int = "wait"
-    async_accept : Unix.file_descr -> int = "iocp_ml_accept"
-    async_init : unit -> unit = "async_init"
-    async_read : Unix.file_descr -> int -> int = "iocp_ml_read"
-    async_write : Unix.file_descr -> string -> int -> int = "iocp_ml_write"
-
-    get_socket : unit -> Unix.file_descr = "get_socket"
-    get_buffer : unit -> string = "get_buffer"
-
-*/
-
-
+// TODO: check errors in AcceptEx for aborted connections
+// TODO: after accept, update origin address
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "libbase/mlstate_platform.h"
 
-#ifdef MLSTATE_WINDOWS
+#ifdef WIN32
 #include <Winsock2.h>
-#include <windows.h>
 #include <mswsock.h>
-#endif
 
 #include <assert.h>
 
@@ -53,396 +40,573 @@
 #include <caml/compatibility.h>
 #include <caml/fail.h>
 #include <caml/unixsupport.h>
+#include <caml/socketaddr.h>
 
-//#include "iocp.h"
+#define SIMPLE_EXPORT(name)                             \
+  CAMLprim value io_##name()				\
+  { return Val_int(name); }			        \
+  CAMLprim value io_has_##name(value flag)		\
+  { return Val_bool((Int_val(flag) & flag) == flag); }
 
-#ifdef MLSTATE_WINDOWS
-// For some unknown reason, this macro was not available on my Windows
-#define my_offsetof(s,m)   (size_t)&(((s *)0)->m)
+//#define DEBUG_IOCP
 
-enum kind {Read, Write, Listen};
+#ifdef DEBUG_IOCP
+#define DEBUGMESS printf
+#else
+#define DEBUGMESS quiet
+#endif
+void quiet(char* toto, ...){}
 
-struct io_context
+enum kind {IOCP_READ, IOCP_WRITE, IOCP_ACCEPT, IOCP_CONNECT, IOCP_ERR};
+
+typedef struct io_context
 {
-  OVERLAPPED ovl;
+  WSAOVERLAPPED ovl;
   int id;
   int kind;
+  value fd;		// ocaml internal Unix.file_descr
   char *buf;
-  SOCKET sock;
-};
+  int   buf_size;
+  SOCKET socket;
+  SOCKET listen_socket;				// so that AcceptEx retains the listening socket context
+  struct sockaddr_in senderAddr;	// holds the sender's addr - primarily for UDP
+  int senderAddrSize;
+} io_context;
 
-typedef struct io_context io_context;
 
-struct connection_context
+io_context* make_context(value fd, enum kind k, int buf_size)
 {
-  HANDLE file;
-  SOCKET sock;
+static intnat g_count = 1;
 
-  WSABUF readbuf;
-  WSABUF sendbuf;
-
-  struct io_context readctx;
-  struct io_context sendctx;
-};
-
-#define BUFFER_SIZE 4096
-
-
-void read_finished(DWORD error, DWORD transferred,
-                   struct io_context *ioctx);
-void send_finished(DWORD error, DWORD transferred,
-                   struct io_context *ioctx);
-void begin_send(struct connection_context *ctx);
-int async_read(SOCKET s, int len);
-int async_write(SOCKET so, char *str, int len);
-
-
-
-
-
-typedef struct sockaddr_in sockaddr_in;
-typedef struct hostent hostent;
-
-// The handle to the completion port
-HANDLE iocp;
-
-// Pointer to the system accept function
-LPFN_ACCEPTEX lpfnAcceptEx = NULL;
-
-// Warning: This is NOT thread-safe
-int count = 1;
-io_context *g_last_context = NULL;
-
-
-io_context* make_overlap(enum kind k)
-{
   io_context *ctx = malloc(sizeof(io_context));
   memset(ctx, 0, sizeof(*ctx));
-  ctx->id = count++;
+  ctx->senderAddrSize = sizeof(ctx->senderAddr);
+  ctx->id = g_count++;
   ctx->kind = k;
+  if (buf_size > 0) {
+    ctx->buf = malloc(buf_size);
+	ctx->buf_size = buf_size;
+  }
+  ctx->fd = fd;
+  if (fd)
+	caml_register_global_root(&ctx->fd);		// register global pointer to file_descr
   return ctx;
 }
 
+void free_context(io_context* ctx) {
+  DEBUGMESS("free_overlap %p\n", (void*)ctx);
+  if (ctx->fd)
+    caml_remove_global_root(&ctx->fd);			// unregister global
+  if (ctx != NULL) {
+    if (ctx->buf != NULL) {
+      free(ctx->buf);
+    }
+  free(ctx);
+  }
+}
 
-void debug(char* toto, ...){}
+// Warning: This is NOT thread-safe, but don't care. opalang is not threaded.
+io_context *_g_last_context = NULL;
 
-#define DEBUG_IOCP
+void set_last_context(io_context *ctx) {
+  if (_g_last_context != NULL) {
+    free_context(_g_last_context);
+  }
+  _g_last_context = ctx;
+}
 
-#ifdef DEBUG_IOCP
-#define DEBUGMESS debug
-#else
-#define DEBUGMESS printf
-#endif
+io_context* get_last_context() {
+  return _g_last_context;
+}
 
+void clear_last_context() {
+  set_last_context(NULL);
+}
+
+#define fail_err(where, what)  { \
+  win32_maperr(what);          \
+  uerror(where, Nothing); }
+
+/* ************************************************************ */
+/* Simply convert the fd address to an ocaml int, for printing  */
+/* ************************************************************ */
+value fd_to_int(value file_desc) {
+CAMLparam1(file_desc);
+intnat res = -1;
+
+  if (file_desc)
+    res = (intnat) Socket_val(file_desc);
+  CAMLreturn(Val_long(res));
+}
+
+
+/* ************************************************************ */
+/* Init once the iocp port at first call                        */
+/* ************************************************************ */
+HANDLE get_or_init_iocp() {
+// The handle to the completion port
+static HANDLE g_iocp = NULL;  
+
+  if (g_iocp == NULL) {
+    g_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    DEBUGMESS("Initializing IOCP 0x%p\n", (void*) g_iocp);
+    if (g_iocp == NULL)
+      fail_err("CreateIoCompletionPort", GetLastError());
+  }
+  return g_iocp;
+}
+
+/* ************************************************************ */
+/* Explicitly clears the last context to free buffers memory    */
+/* ************************************************************ */
+CAMLprim value iocp_ml_clear_last_context() {
+  clear_last_context();
+  return Val_unit;
+}
+
+/* ************************************************************ */
+/* Retrieves the buffer after a READ completion                 */
+/* ************************************************************ */
+CAMLprim value iocp_ml_get_last_buffer(value fd)
+{
+  CAMLparam1(fd);
+  CAMLlocal1(buffer);
+  io_context *ctx;
+
+  ctx = get_last_context();
+  if (ctx == NULL) {                DEBUGMESS("get_last_buffer: context is null\n");
+  } else {
+    if (ctx->fd != fd)				DEBUGMESS("get_last_buffer: bad fd\n");
+    if (ctx->kind != IOCP_READ)     DEBUGMESS("get_last_buffer: Bad context, expected IOCP_READ\n");
+    if (ctx->buf == NULL)           DEBUGMESS("get_last_buffer: buffer is null\n");
+  }
+
+  if ((ctx != NULL) && (ctx->fd == fd) && (ctx->buf != NULL) && (ctx->buf_size > 0)) {
+    DEBUGMESS("reading buffer: adr=%p len=%d\n", (void*) ctx->buf, (int) ctx->buf_size);
+    buffer = caml_alloc_string(ctx->buf_size);
+	memcpy(String_val(buffer), ctx->buf, ctx->buf_size);
+  } else {
+    DEBUGMESS("reading buffer: empty buffer");
+    buffer = caml_copy_string("");	// empty string
+  }
+  CAMLreturn(buffer);
+}
+
+/* ************************************************************ */
+/* Retrieves the last sender address (only for UDP)             */
+/* ************************************************************ */
+CAMLprim value iocp_ml_get_socket_addr(value fd)
+{
+  CAMLparam1(fd);
+  CAMLlocal1(addr);
+  io_context *ctx;
+
+  ctx = get_last_context();
+  if (ctx == NULL) {                DEBUGMESS("get_last_buffer: context is null\n");
+  } else {
+    if (ctx->fd != fd)				DEBUGMESS("get_last_buffer: bad fd\n");
+    if (ctx->kind != IOCP_READ)     DEBUGMESS("get_last_buffer: Bad context, expected IOCP_READ\n");
+  }
+
+  if ((ctx != NULL) && (ctx->fd == fd)) {
+    addr = alloc_sockaddr( (union sock_addr_union *) &ctx->senderAddr, ctx->senderAddrSize, -1);
+  } else {
+    caml_failwith("iocp_ml_get_socket_addr: no addr available");
+  }
+  CAMLreturn(addr);
+}
+
+
+
+/* ************************************************************ */
+/* Wait for an IO Completion event                              */
+/* ************************************************************ */
 CAMLprim value iocp_ml_wait(value vtime)
 {
   CAMLparam1(vtime);
-  CAMLlocal1(res);
-  int time = Long_val(vtime);
-  OVERLAPPED *ovl;
+  CAMLlocal2(v_res, v_ev);
+  intnat time = Long_val(vtime);
+  io_context *ctx;
   ULONG_PTR completionkey;
   DWORD transferred;
-  BOOL ret;
-  int event;
-  value v_ev;
+  HANDLE iocp;
+  intnat res_fd;
+  int res_op;
 
+  DEBUGMESS("wait(%Ii)...\n", time);
   if (time < 0) time = INFINITE;
-  if (iocp == NULL) printf("iocp not initialized\n");
-  if (iocp == INVALID_HANDLE_VALUE) printf("iocp badly initialized\n");
-  debug("wait...\n");
-  ret = GetQueuedCompletionStatus(iocp, &transferred,
-				  &completionkey, &ovl, time);
-
-  if(ret)
-    {
-      struct io_context *ctx = (struct io_context*)ovl;
-      g_last_context = ctx;
-      if (ctx->kind == Listen) {
-	event = 0;
-	/* async_read(ctx->sock, 20); */
-	/* async_write(ctx->sock, "Bienvenue sur cat!\n", 0); */
+  iocp = get_or_init_iocp();
+  if (GetQueuedCompletionStatus(iocp, &transferred, &completionkey, (OVERLAPPED**) &ctx, time)) {
+  	set_last_context(ctx);		// freeing is automatic
+    res_fd = ctx->fd;
+	res_op = ctx->kind;
+    if (ctx->kind == IOCP_ACCEPT) {
+	    DEBUGMESS("wait: ACCEPT received\n");
+		// update the accepting socket with the context of the listening socket
+		if (setsockopt(ctx->socket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&ctx->listen_socket, sizeof(ctx->listen_socket))) {
+		  fail_err("iocp_ml_wait/setsockopt(SO_UPDATE_ACCEPT_CONTEXT)", WSAGetLastError());
+	    }
+		// now getpeername() will work normally, so update the sender addr
+		if (getpeername(ctx->socket, (struct sockaddr *) &ctx->senderAddr, &ctx->senderAddrSize)) {
+		  fail_err("iocp_ml_wait/getpeername", WSAGetLastError());
+	    }
+		DEBUGMESS("addr(sin_family)=%d\n", ctx->senderAddr.sin_family);
+		DEBUGMESS("addr(port)=%d\n", ctx->senderAddr.sin_port);
+		DEBUGMESS("addr(ip)=%d.%d.%d.%d\n", ctx->senderAddr.sin_addr.S_un.S_un_b.s_b1, ctx->senderAddr.sin_addr.S_un.S_un_b.s_b2,
+											ctx->senderAddr.sin_addr.S_un.S_un_b.s_b3, ctx->senderAddr.sin_addr.S_un.S_un_b.s_b4);
+      } else if (ctx->kind == IOCP_CONNECT) {
+	    DEBUGMESS("wait: CONNECT received\n");
+      } else if (ctx->kind == IOCP_READ) {
+	    DEBUGMESS("wait: READ received, fd=%d transferred=%d\n", (int) ctx->fd, (int) transferred);
+		ctx->buf_size = transferred;		// update the real buffer size
+      } else if (ctx->kind == IOCP_WRITE) {
+	    DEBUGMESS("wait: WRITE received, transferred=%d\n", (int) transferred);
+		ctx->buf_size = transferred;		// update the real buffer size
+      } else {
+	    DEBUGMESS("Unknown kind: %d?!\n", ctx->kind);
       }
-      else if (ctx->kind == Read) {
-	event = 0;
-	DEBUGMESS("recv buf: `%s'\n", ctx->buf);
-	ctx->buf[transferred] = '\0';
-	/* async_read(ctx->sock, 20); */
-	/* async_write(ctx->sock, "Tu as écrit : ", 0); */
-	/* async_write(ctx->sock, ctx->buf, transferred); */
-      }
-      else if (ctx->kind == Write) {
-	event = 1;
-	DEBUGMESS("Write end.\n");
-      }else{
-        event = -1;
-	printf("Unknown kind: %d?!\n", ctx->kind);
-      }
-      res = Val_int(ctx->id);
+	  
+	v_res = caml_alloc_small(1, 0);
+	v_ev = caml_alloc_small(2, 0);
+	Field(v_ev, 0) = res_fd;
+	Field(v_ev, 1) = Val_int(res_op); // v_flags replaced with ev->events
+	Store_field(v_res, 0, v_ev);
     }
-  else if(ovl)
-    {
-      DWORD err = GetLastError();
-      struct io_context *ctx = (struct io_context*)ovl;
-      event = -1;
-      printf("IO failed on %d\n", ctx->id);
-      res = Val_int(-1);
-    }
-  else
-    {
-      DWORD err = GetLastError();
-      printf("Wait error %d\n", err);
-      event = -1;
-      res = Val_int(-1);
-      // error out
-    }
-  v_ev = caml_alloc_small(2, 0);
-  Field(v_ev, 0) = /* Val_int */(res);
-  Field(v_ev, 1) = Val_int(event);
-  CAMLreturn(v_ev);
+  else if (ctx) {
+	set_last_context(ctx);		// freeing is automatic
+    res_fd = ctx->fd;
+	res_op = IOCP_ERR;
+    DWORD err = GetLastError();
+    DEBUGMESS("IO failed on %p, err=%lu\n", (void*)ctx->fd, err);
+	set_last_context(NULL);		// freeing is automatic
+	ctx = NULL;
+	
+	v_res = caml_alloc_small(1, 0);
+	v_ev = caml_alloc_small(2, 0);
+	Field(v_ev, 0) = res_fd;
+	Field(v_ev, 1) = Val_int(res_op); // v_flags replaced with ev->events
+	Store_field(v_res, 0, v_ev);
+  } else {
+    DWORD err = GetLastError();
+	if (err == WAIT_TIMEOUT) {
+	  DEBUGMESS("GetQueuedCompletionStatus timeout");
+	  res_fd = 0;
+	  res_op = IOCP_ERR;
+	  v_res = caml_alloc(0, 0);
+	} else {
+	  fail_err("GetQueuedCompletionStatus", err);
+	}
+  }
+
+  CAMLreturn(v_res);
 }
 
-CAMLprim value iocp_ml_get_socket(value _)
+/* ************************************************************ */
+/* Trigger an async write on a socket                           */
+/* ************************************************************ */
+CAMLprim value iocp_ml_write(value fd, value vbuf, value vlen, value vaddr)
 {
-  CAMLparam1(_);
-  CAMLlocal1(ret);
-
-  if (g_last_context == NULL) printf("context is null\n");
-  if (g_last_context->kind != Listen)
-    printf("Bad context, expect Listen, got %d\n", g_last_context->kind);
-  ret = win_alloc_socket(g_last_context->sock);
-  free(g_last_context);
-  g_last_context = NULL;
-  CAMLreturn(ret);
-  /* return ret; */
-}
-
-CAMLprim value iocp_ml_get_buffer(value _)
-{
-  CAMLparam1(_);
-  CAMLlocal1(ret);
-
-  if (g_last_context == NULL) printf("context is null\n");
-  if (g_last_context->kind != Read)
-    printf("Bad context, expect Read, got %d\n", g_last_context->kind);
-
-  ret = caml_copy_string(g_last_context->buf);
-  free(g_last_context->buf);
-  free(g_last_context);
-  g_last_context = NULL;
-  CAMLreturn(ret);
-}
-
-int async_write(SOCKET so, char *str, int len)
-{
-  int ret;
-  WSABUF buf;
-  io_context *ctx = make_overlap(Write);
-
-  CreateIoCompletionPort((HANDLE)so, iocp, 1, 0);
-  buf.buf = str;
-  if (len == 0) len = strlen(str);
-  buf.len = len;
-
-  //  memset(&ovl, 0, sizeof(ovl));
-  ret = WSASend(so, &buf, 1, NULL, 0, (OVERLAPPED*)ctx, NULL);
-
-  if(ret)
-    {
-      int writeerr = WSAGetLastError();
-
-      if (writeerr == WSAENOTSOCK)
-	printf("THIS IS NOT A SOCK%$#!\n");
-      else if(writeerr != WSA_IO_PENDING)
-	printf("error sending (%d)\n", writeerr);
-      else
-	DEBUGMESS("ok, pending\n");
-    }
-  else
-    DEBUGMESS("write success!\n");
-
-  return ctx->id;
-}
-
-int async_write_new(SOCKET s, char *str, int len)
-{
-  char *iobuf = malloc(sizeof(char) * len); // remove the stupid [UNIX_BUFFER_SIZE];
-  int ret;
-  io_context *ctx = make_overlap(Write);
-  WSABUF buf;
-
-  iobuf[0] = 'W';
-  iobuf[1] = '\0';
-  buf.buf = iobuf;
-  buf.len = len;
-  ctx->buf = iobuf;
-  ctx->sock = s;
-
-  CreateIoCompletionPort((HANDLE)s, iocp, 1, 0);
-  ret = WriteFile((HANDLE)s, iobuf, len, NULL, &ctx->ovl);
-
-  if(ret)
-    {
-      int writeerr = GetLastError();
-
-      if (writeerr == ERROR_IO_PENDING)
-	printf("Begin read error %d\n", writeerr);
-      else
-	printf("write pending\n");
-    }
-  else
-    DEBUGMESS("write success!\n");
-
-  return ctx->id;
-}
-
-
-/* Create an overlapped socket */
-SOCKET async_socket(void)
-{
-  SOCKET s = WSASocket(AF_INET, SOCK_STREAM, 0,
-		       NULL, 0,  WSA_FLAG_OVERLAPPED);
-
-  if (s == INVALID_SOCKET)
-    printf("ERROR: Invalid socket!\n");
-
-  CreateIoCompletionPort((HANDLE)s, iocp, (u_long)0, 0);
-
-  return s;
-}
-
-CAMLprim value iocp_ml_socket(value unit)
-{
-  CAMLparam1(unit);
+  CAMLparam4(fd, vbuf, vlen, vaddr);
   CAMLlocal1(res);
-  res = win_alloc_socket(async_socket());
-  CAMLreturn(res);
+  intnat len = Long_val(vlen);
+  intnat vbuf_len = caml_string_length(vbuf);
+  SOCKET socket = Socket_val(fd);
+  union sock_addr_union addr;
+  socklen_param_type addr_len;
+  io_context *ctx;
+  DWORD flags = 0;
+  WSABUF wsabuf;
+  int wsasend_err;
+  
+  DEBUGMESS("async_write(fd=%d, len=%d)\n", (int) fd, (int) len);
+  assert(Descr_kind_val(fd) == KIND_SOCKET);
+  if ((len <= 0) || (len > vbuf_len))							// if len is negative, use the string length
+    len = vbuf_len;
+
+  ctx = make_context(fd, IOCP_WRITE, len);
+  ctx->socket = socket;
+  char *vbuf_str = String_val(vbuf);
+  memcpy(ctx->buf, vbuf_str, len);			// make a copy of the buffer in our own structure to avoid ocaml to free it too soon
+  
+  wsabuf.buf = ctx->buf;
+  wsabuf.len = ctx->buf_size;
+  
+  DEBUGMESS("vaddr=%d\n", (int) vaddr);
+  if (vaddr != Val_int(0)) {
+    get_sockaddr(vaddr, &addr, &addr_len);
+    wsasend_err = WSASendTo(socket,
+              &wsabuf,			// wsabuf is allowed to be allocated on stack
+              1,				// only one buffer
+              NULL,				// don't accept sync completion, force iocp notification
+              flags,
+			  (struct sockaddr *) &addr,
+			  addr_len,
+              &ctx->ovl,
+              NULL);
+  } else {
+    wsasend_err = WSASend(socket,
+              &wsabuf,			// wsabuf is allowed to be allocated on stack
+              1,				// only one buffer
+              NULL,				// don't accept sync completion, force iocp notification
+              flags,
+              &ctx->ovl,
+              NULL);
+  }
+  
+  if (wsasend_err) {
+    DWORD err = WSAGetLastError();
+	if (err == WSA_IO_PENDING) {
+	  // OK, the async read is pending
+	  DEBUGMESS("WSASend WSA_IO_PENDING fd=%d\n", (int) fd);
+	} else {
+	  fail_err("WSASend", err);
+	}
+  } else {
+    DEBUGMESS("WSASend: WSASend sync success, this is not normal!!!\n");
+  }
+  
+  CAMLreturn(Val_unit);
 }
 
-CAMLprim value iocp_ml_async_init(value unit)
+
+/* ************************************************************ */
+/* Trigger an async read on a socket                            */
+/* ************************************************************ */
+CAMLprim value iocp_ml_read(value fd, value vlen, value vudp)
 {
-  printf("IOCP INITIALIZED\n");
-  iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+  CAMLparam3(fd, vlen, vudp);
+  CAMLlocal1(res);
+  intnat len = Long_val(vlen);
+  SOCKET socket = Socket_val(fd);
+  int udp = Bool_val(vudp);
+  io_context *ctx;
+  //HANDLE iocp;
+  DWORD flags = 0;
+  WSABUF wsabuf;
+  int wsarecv_err;
+  
+  DEBUGMESS("async_read(fd=%d, len=%d)\n", (int) fd, (int) len);
+  assert(Descr_kind_val(fd) == KIND_SOCKET);
+
+  ctx = make_context(fd, IOCP_READ, len);
+  ctx->socket = socket;
+  
+  wsabuf.buf = ctx->buf;
+  wsabuf.len = ctx->buf_size;
+  
+  if (udp) {
+    wsarecv_err = WSARecvFrom(socket,
+              &wsabuf,
+              1,				// only one buffer
+              NULL,				// don't accept sync completion, force iocp notification
+              &flags,
+			  (SOCKADDR*) &ctx->senderAddr,	// catch receiver's address
+			  &ctx->senderAddrSize,
+              &ctx->ovl,
+              NULL);			// no completion callback
+  } else {
+    wsarecv_err = WSARecv(socket,
+              &wsabuf,
+              1,				// only one buffer
+              NULL,				// don't accept sync completion, force iocp notification
+              &flags,
+              &ctx->ovl,
+              NULL);			// no completion callback
+  }
+  
+  if (wsarecv_err) {
+    DWORD err = WSAGetLastError();
+	if (err == WSA_IO_PENDING) {
+	  // OK, the async read is pending
+	  DEBUGMESS("WSARecv WSA_IO_PENDING fd=%d\n", (int) fd);
+	} else {
+	  DEBUGMESS("WSARecv WSAGetLastError=%d\n", (int) err);
+	  fail_err("WSARecv", err);
+	}
+  } else {
+    // a buffer is already available, but we simply ignore it
+	// it will anyways trigger an io completion event at the next polling
+    DEBUGMESS("WARNING: WSARecv sync success, this is not normal!!!\n");
+  }
+
+  CAMLreturn(Val_unit);
 }
 
-int async_accept(SOCKET ListenSocket)
+/* ************************************************************ */
+/* Associate a socket to the iocp port                          */
+/* ************************************************************ */
+CAMLprim value iocp_associate_iocp(value vfd)
 {
-  SOCKET AcceptSocket;
-  char lpOutputBuf[1024];
-  //  WSAOVERLAPPED olOverlap;
-  io_context *ctx = make_overlap(Listen);
-  DWORD dwBytes;
-  GUID GuidAcceptEx = WSAID_ACCEPTEX;
+CAMLparam1(vfd);
+SOCKET socket = Socket_val(vfd);
+  
+  HANDLE iocp = get_or_init_iocp();
+  DEBUGMESS("iocp_associate_iocp>CreateIoCompletionPort, socket=%p, iocp=%p\n", (void*) socket, (void*) iocp);
+  if (CreateIoCompletionPort((HANDLE)socket, iocp, 1, 0) == NULL) {		// XXX why 1 ?
+    DEBUGMESS("iocp_associate_iocp>CreateIoCompletionPort err=%d\n", (int) GetLastError());
+	fail_err("CreateIoCompletionPort", GetLastError());
+  }
 
+  CAMLreturn(Val_unit);
+}
+
+
+/* ************************************************************ */
+/* Async accept                                                 */
+/* ************************************************************ */
+value iocp_ml_accept(value listen_file_descr)
+{
+CAMLparam1(listen_file_descr);
+CAMLlocal1(accept_file_descr);
+SOCKET listen_socket = Socket_val(listen_file_descr);
+SOCKET accept_socket = (SOCKET) NULL;
+io_context *ctx = NULL;
+DWORD dwBytes;
+// dummy variable needed to pass a valid pointer for an unsued variable (AcceptEx)
+static DWORD g_dummy;
+
+LPFN_ACCEPTEX lpfnAcceptEx;
+GUID GuidAcceptEx = WSAID_ACCEPTEX;
+  
+  DEBUGMESS("iocp_ml_accept file_descr=%d\n", (int) listen_file_descr);
   //----------------------------------------
   // Create an accepting socket
-  /* AcceptSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); */
-  AcceptSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP,
-			   NULL, 0,  WSA_FLAG_OVERLAPPED);
+  accept_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0,  WSA_FLAG_OVERLAPPED);
+  DEBUGMESS("iocp_ml_accept: allocated socket 0x%p\n", (void*) accept_socket);
 
-  if (AcceptSocket == INVALID_SOCKET) {
-    printf("Error creating accept socket.\n");
-    WSACleanup();
-    return -1;
+  if (accept_socket == INVALID_SOCKET) {
+    fail_err("WSASocket", WSAGetLastError());
   }
 
   //----------------------------------------
   // Empty our overlapped structure and accept connections.
-  memset((OVERLAPPED*)ctx, 0, sizeof(OVERLAPPED));
+  // Load the AcceptEx function
+  WSAIoctl(listen_socket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+					   &GuidAcceptEx, sizeof(GuidAcceptEx),
+					   &lpfnAcceptEx, sizeof(lpfnAcceptEx),
+					   &dwBytes,
+					   NULL,
+					   NULL
+					   );
+    
+  ctx = make_context(listen_file_descr, IOCP_ACCEPT, (sizeof(SOCKADDR_IN) + 16) * 2);	// will update target fd later
+  ctx->socket = accept_socket;
+  ctx->listen_socket = listen_socket;
+  if (!lpfnAcceptEx(listen_socket, 
+					accept_socket,
+					ctx->buf,
+					0,
+					sizeof(SOCKADDR_IN) + 16, 
+					sizeof(SOCKADDR_IN) + 16, 
+					&g_dummy, 					// need to pass a valid pointer to a dummy unused variable, 
+												// see: http://support.microsoft.com/default.aspx?scid=kb;en-us;Q192800
+					&ctx->ovl)) {
+    DWORD err = WSAGetLastError();
+	if (err != WSA_IO_PENDING) {
+      clear_last_context();		// freeing is automatic
+	  fail_err("AcceptEx", WSAGetLastError());
+	}
+	if (err)
+	  DEBUGMESS("AcceptEx: WSA_IO_PENDING\n");
+	else
+	  DEBUGMESS("AcceptEx: NO_ERR");
+  }
 
+  // Associate the newly allocated socket to the iocp port
+  HANDLE iocp = get_or_init_iocp();
+  DEBUGMESS("Before CreateIoCompletionPort, socket=%p, iocp=%p\n", (void*) accept_socket, (void*) iocp);
+  if (CreateIoCompletionPort((HANDLE)accept_socket, iocp, 1, 0) == NULL) {		// XXX why 1 ?
+	fail_err("CreateIoCompletionPort", GetLastError());
+  }
+  
+  accept_file_descr = win_alloc_socket(accept_socket);
+  DEBUGMESS("iocp_ml_accept -> %Id\n", (intnat)accept_file_descr);
+  ctx->fd = accept_file_descr;		// fd updated to the target one, no need to re-register global pointer
+  CAMLreturn(accept_file_descr);
+}
 
-  WSAIoctl(ListenSocket, 
-    SIO_GET_EXTENSION_FUNCTION_POINTER, 
-    &GuidAcceptEx, 
-    sizeof(GuidAcceptEx),
-    &lpfnAcceptEx, 
-    sizeof(lpfnAcceptEx), 
-    &dwBytes, 
-    NULL, 
-    NULL);
+/* ************************************************************ */
+/* Async connect                                                */
+/* ************************************************************ */
+value iocp_ml_connect(value connect_file_descr, value vaddr)
+{
+CAMLparam2(connect_file_descr, vaddr);
+SOCKET connect_socket = Socket_val(connect_file_descr);
+union sock_addr_union addr;
+socklen_param_type addr_len;
+io_context *ctx = NULL;
+DWORD dwBytes;
+// dummy variable needed to pass a valid pointer for an unsued variable (AcceptEx)
+static DWORD g_dummy;
 
+LPFN_CONNECTEX lpfnConnectEx;
+GUID GuidConnectEx = WSAID_CONNECTEX;
+  
+  get_sockaddr(vaddr, &addr, &addr_len);
+  struct sockaddr_in *debug_addr = (struct sockaddr_in*) &addr;
+  DEBUGMESS("iocp_ml_connect ip=%d.%d.%d.%d ", debug_addr->sin_addr.S_un.S_un_b.s_b1, debug_addr->sin_addr.S_un.S_un_b.s_b2,
+							   debug_addr->sin_addr.S_un.S_un_b.s_b3, debug_addr->sin_addr.S_un.S_un_b.s_b4);
+  DEBUGMESS("port=%d\n", debug_addr->sin_port);
 
-  lpfnAcceptEx(ListenSocket, 
-    AcceptSocket,
-    lpOutputBuf,
-    0,
-    sizeof(sockaddr_in) + 16, 
-    sizeof(sockaddr_in) + 16, 
-    &dwBytes, 
-    (OVERLAPPED*)ctx);
-
+  // first bind the socket to default address
+  struct sockaddr_in connect_orig_addr;
+  connect_orig_addr.sin_family = AF_INET;
+  connect_orig_addr.sin_addr.S_un.S_addr = INADDR_ANY;
+  connect_orig_addr.sin_port = 0;
+  if (bind(connect_socket, (struct sockaddr *) &connect_orig_addr, sizeof(connect_orig_addr))) {
+    fail_err("bind", GetLastError());
+  }
+  
   //----------------------------------------
-  // Associate the accept socket with the completion port
-  CreateIoCompletionPort((HANDLE)AcceptSocket, iocp, (u_long)0, 0);
-  ctx->sock = AcceptSocket;
-  return ctx->id;
+  // Empty our overlapped structure and accept connections.
+  // Load the AcceptEx function
+  WSAIoctl(connect_socket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+					   &GuidConnectEx, sizeof(GuidConnectEx),
+					   &lpfnConnectEx, sizeof(lpfnConnectEx),
+					   &dwBytes,
+					   NULL,
+					   NULL
+					   );
+    
+//  connect_file_descr = win_alloc_socket(connect_socket);
+  ctx = make_context(connect_file_descr, IOCP_CONNECT, 0);	// don't need any buffer here
+  ctx->socket = connect_socket;
+  DEBUGMESS("lpfnConnectEx=%p\n", (void*) lpfnConnectEx);
+  if (!lpfnConnectEx(connect_socket,
+                     (struct sockaddr *) &addr,
+					 addr_len,
+					 NULL,			// don't send any data yet
+					 0,				// size of data = 0
+					 &g_dummy,		// need a pointer here, unused
+					 &ctx->ovl)) {
+    DWORD err = WSAGetLastError();
+	if (err != WSA_IO_PENDING) {
+      clear_last_context();		// freeing is automatic
+	  DEBUGMESS("ConnectEx err=%d\n", (int)err);
+	  fail_err("ConnectEx", err);
+	}
+	if (err)
+	  DEBUGMESS("ConnectEx: WSA_IO_PENDING\n");
+	else
+	  DEBUGMESS("ConnectEx: NO_ERR");
+  }
+
+  DEBUGMESS("iocp_ml_connect -> %Id\n", (intnat)connect_file_descr);
+  CAMLreturn(Val_unit);
 }
 
-value iocp_ml_accept(value ListenSocket)
-{
-  CAMLparam1(ListenSocket);
-  CAMLlocal1(res);
-  SOCKET so = Socket_val(ListenSocket);
-  res = Val_int(async_accept(so));
-  CAMLreturn(res);
-}
 
-int async_read(SOCKET s, int len)
-{
-  char *iobuf = malloc(sizeof(char) * len); // remove the stupid [UNIX_BUFFER_SIZE];
-  int ret;
-  io_context *ctx = make_overlap(Read);
-  WSABUF buf;
+SIMPLE_EXPORT(IOCP_READ)
+SIMPLE_EXPORT(IOCP_WRITE)
+SIMPLE_EXPORT(IOCP_ACCEPT)
+SIMPLE_EXPORT(IOCP_CONNECT)
+SIMPLE_EXPORT(IOCP_ERR)
 
-  iobuf[0] = 'W';
-  iobuf[1] = '\0';
-  buf.buf = iobuf;
-  buf.len = len;
-  ctx->buf = iobuf;
-  ctx->sock = s;
-  CreateIoCompletionPort((HANDLE)s, iocp, 1, 0);
-  ret = ReadFile((HANDLE)s, iobuf, len, NULL, &ctx->ovl);
 
-  if(!ret)
-    {
-      DWORD readerr = GetLastError();
-
-      if(readerr != ERROR_IO_PENDING)
-	printf("Begin read error %d\n", readerr);
-      else
-	printf("read pending\n");
-    }
-  else DEBUGMESS("read: no error\n");
-
-  return ctx->id;
-}
-
-CAMLprim value iocp_ml_read(value fd, value vlen)
-{
-  CAMLparam2(fd, vlen);
-  CAMLlocal1(res);
-  intnat len = Long_val(vlen);
-  SOCKET s = Socket_val(fd);
-  assert(Descr_kind_val(fd) == KIND_SOCKET);
-  res = Val_int(async_read(s, len));
-
-  CAMLreturn(res);
-}
-
-CAMLprim value iocp_ml_write(value fd, value vbuf, value vlen)
-{
-  CAMLparam3(fd, vbuf, vlen);
-  CAMLlocal1(res);
-  intnat len = Long_val(vlen);
-  SOCKET s = Socket_val(fd);
-  char *buf = String_val(vbuf);
-  assert(Descr_kind_val(fd) == KIND_SOCKET);
-  res =  Val_int(async_write(s, buf, len));
-  CAMLreturn(res);
-  /* async_write(s, buf, len); */
-  /* return Val_unit; */
-}
 #else
 //#if defined( MLSATE_CYGWIN ) || defined( MLSATE_UNIX )
+
+#include <caml/mlvalues.h>
 
 value ep_error_cygwin(char* mess){
   printf("Iocp : error_unix_or_cywin :%s",mess);
@@ -455,7 +619,5 @@ CAMLprim value iocp_ml_wait(value int_){ return ep_error_cygwin("Iocp.ml_wait");
 CAMLprim value iocp_ml_accept(value fd){ return ep_error_cygwin("Iocp.ml_accept");}
 CAMLprim value iocp_ml_async_init(){ return ep_error_cygwin("Iocp.ml_async_init");}
 CAMLprim value iocp_ml_async_read(value fd, value _0, value _1){ return ep_error_cygwin("Iocp.ml_async_read");}
-CAMLprim value iocp_ml_get_socket(value _){ return ep_error_cygwin("Iocp.ml_getsocket");}
-CAMLprim value iocp_ml_get_buffer(value _){ return ep_error_cygwin("Iocp.ml_getsocket");}
 
 #endif

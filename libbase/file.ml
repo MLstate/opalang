@@ -327,7 +327,7 @@ let check_create_path ?(rights=0o755) path =
   let path =
     if Filename.basename path = "." then path
     else path ^ "/" in
-  let path = remove_all_symlinks path in
+  let path = Mlstate_platform.platform_dependent ~unix:remove_all_symlinks ~windows:(fun x->x) () path in
   let rec aux1 = function
       [] -> aux1 [Filename.dirname path]
     | (hd :: tl) as l ->

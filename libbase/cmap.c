@@ -21,10 +21,14 @@
 
 value stack_pointer (value v) {
   int x[1]; /* don't use 0, some compilers don't like 0-sized arrays */
-  return (Val_long((long int)x));
+  return (Val_long(x));
 }
 
 value immediate_exit (value v) {
-  _exit (Long_val(v));
+ #ifdef WIN32
+   exit(Long_val(v));
+ #else
+   _exit (Long_val(v));
+ #endif
   return Val_unit;
 }

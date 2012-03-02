@@ -87,9 +87,45 @@ let get_socket_type p =
 
 let listen_port port_spec = Connection.listen ~socket_type:port_spec.stype (Unix.ADDR_INET (port_spec.addr, port_spec.port))
 
+#<Ifstatic:OS Win.*>
+let listen_async_accept sched server_conn  =
+  let sock = Scheduler.get_connection_fd server_conn in
+  let client_sock = Iocp.async_accept sock in
+  let addr = NA.mk_tcp
+    ~protocol:(NA.get_protocol server_conn.Scheduler.addr)
+    ~fd:client_sock
+	~addr:Unix.inet_addr_any (* will be populated when connection is done *)
+  in
+  Scheduler.make_connection sched addr
+  
+let update_async_accept_sender sched client_conn =
+  (* update the client_conn with the newly received address from the sender *)
+  let new_addr = NA.mk_tcp ~protocol:(NA.get_protocol client_conn)
+                           ~fd:(NA.get_fd client_conn)
+			               ~addr:(Iocp.get_last_addr_inet (NA.get_fd client_conn))   (* retrieve the new address *)
+  in
+  Scheduler.make_connection sched new_addr		(* re-instantiate the connection, the older is automatically discarded, I guess *)
+  
+let rec new_client sched server_conn (server_fun: Scheduler.connection_info -> unit) conn () =
+  try
+    (* Scheduler.remove_connection sched conn; *)
+    (* listen for other clients *)
+    let client_conn = listen_async_accept sched server_conn in
+    Scheduler.listen_once sched client_conn (new_client sched server_conn server_fun client_conn);
+	(* launch the server function with the updated connection_info containing the sender address *)
+    server_fun (update_async_accept_sender sched (Scheduler.get_connection_addr conn))
+  with Connection.Error -> ()
+      (* Unix.Unix_error _ as e -> *)
+      (*   Logger.error "Net.server: can't accept connection (%s)" (Printexc.to_string e) *)
+
+let listen_normal sched server_conn server_fun =
+  let client_conn = listen_async_accept sched server_conn in
+    Scheduler.listen_once sched client_conn (new_client sched server_conn server_fun client_conn)
+
+#<Else>
   (* Only used by a normal connection (listen_normal),
      but listen_ssl uses listen_normal *)
-let new_client_UNIX sched _conn (server_fun: Scheduler.connection_info -> unit) conn () =
+let new_client sched _conn (server_fun: Scheduler.connection_info -> unit) conn () =
   try
     let sock = Scheduler.get_connection_fd conn in
     let client_sock, host =  Connection.accept sock in
@@ -100,47 +136,10 @@ let new_client_UNIX sched _conn (server_fun: Scheduler.connection_info -> unit) 
     let conn = Scheduler.make_connection sched addr in
     server_fun conn
   with Connection.Error -> ()
-
-(* let rec new_client_WINDOWS sched _unused_conn (server_fun: Scheduler.connection_info -> unit) (\*sock*\) conn () = *)
-(*   try *)
-(*     (\* listen for other clients *\) *)
-(*     (\* let _id = Iocp.async_accept sock in *\) *)
-(*     (\* _SUSPICIOUS_ "What is that self#new_clien callback IN the new_client method ????" ; *\) *)
-(*     let callback () = () *)
-(*       (\* new_client_WINDOWS conn server_fun sock () *\) *)
-(*     in *)
-(*     ignore(Scheduler.listen sched conn (\* TODO ~async_id:id *\) callback); *)
-(*     let sd = Iocp.get_socket() in *)
-(*     let host = Unix.inet_addr_loopback in (\*FIXME*\) *)
-(*     let conn = Scheduler.make_connection sched (Scheduler.Normal (sd, host)) in *)
-(*     server_fun conn *)
-(*   with Connection.Error -> () *)
-(*       (\* Unix.Unix_error _ as e -> *\) *)
-(*       (\*   Logger.warning "Net.server: can't accept connection (%s)" (Printexc.to_string e) *\) *)
-
-
-let new_client_WINDOWS sched _conn (server_fun: Scheduler.connection_info -> unit) conn () =
-  try
-    let sock = Scheduler.get_connection_fd conn in
-    let client_sock, host =  Connection.accept sock in
-    let addr = NA.mk_tcp
-      ~protocol:(NA.get_protocol conn.Scheduler.addr)
-      ~fd:client_sock ~addr:host
-    in
-    let conn = Scheduler.make_connection sched addr in
-    server_fun conn
-  with Connection.Error -> ()
-
-let new_client = Mlstate_platform.platform_dependent ~unix:new_client_UNIX ~windows:new_client_WINDOWS ()
 
 let listen_normal sched conn server_fun =
   Scheduler.listen sched conn (new_client sched conn server_fun conn)
-(*     platform_dependent *)
-(*       ~unix:(fun ()-> Scheduler.listen sched conn (new_client sched conn server_fun conn)) *)
-(*       ~windows:(fun ()-> *)
-(*                   let _id = Iocp.async_accept sock in *)
-(*                   Scheduler.listen (\* TODO ~async_id:id *\) sched conn (new_client sched conn server_fun conn)) () () *)
-
+#<End>
 
 (* == Public functions == *)
 
@@ -150,7 +149,7 @@ let listen sched port_spec secure_mode ?socket_flags server_fun =
     ~fd:socket ~addr:Unix.inet_addr_loopback
   in
   let conn = Scheduler.make_connection sched addr in
-  let listen_key =
+  let _listen_key =
     match secure_mode with
     | Unsecured ->
         listen_normal sched conn (server_fun SslAS.UnsecuredRes)
@@ -158,7 +157,7 @@ let listen sched port_spec secure_mode ?socket_flags server_fun =
         listen_normal sched conn (SslAS.get_listen_callback sched params server_fun)
   in
   (fun () ->
-     Scheduler.abort sched listen_key;
+     (* Scheduler.abort sched listen_key; *)	(* no abort on Windows *)
      Scheduler.remove_connection sched conn
   )
 
@@ -190,8 +189,8 @@ let secure_mode_from_params certificate verify_params =
 
 
 let loop sched =
-  (* Printexc.record_backtrace true; (\* for get_backtrace below *\) *)
-  Sys.catch_break true; (* turn on handlig of Ctrl-c in async *)
+  Printexc.record_backtrace true; (* for get_backtrace below *)
+  Sys.catch_break true; (* turn on handling of Ctrl-c in async *)
   let loop = ref true in
   while !loop do
     try

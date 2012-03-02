@@ -191,7 +191,7 @@ val connect :
     Connect on a given connection.
 *)
 
-val read_more :
+(* val read_more :
   t ->
   connection_info ->
   ?read_max:int ->
@@ -203,7 +203,7 @@ val read_more :
   (int * FBuffer.t -> unit) -> unit
 (** Reads more data over a [connection_info], appending those new data in the providing buffer
     @raise Busy_direction exception is raised when another callback is already waiting
-    for datas on that [connection_info] *)
+    for datas on that [connection_info] *) *)
 
 val read_content :
   t ->
@@ -258,7 +258,7 @@ val read_from :
     @raise Busy_direction exception is raised when another callback is already waiting
     for data on that [connection_info] *)
 
-val read_until :
+(* val read_until :
   t ->
   connection_info ->
   (int * string -> bool) ->
@@ -271,9 +271,9 @@ val read_until :
     It can be used, for example, to read a minimum number of characters or for your callback
     to be called only if the data ends with certain characters.
     @raise Busy_direction exception is raised when another callback is already waiting
-    for datas on that [connection_info] *)
+    for datas on that [connection_info] *) *)
 
-val read_min :
+(* val read_min :
   t ->
   connection_info ->
   int ->
@@ -284,9 +284,9 @@ val read_min :
 (** [read_min sched conn read_min cont] reads over a [connection_info],
     a minimum of [read_min] characters.
     @raise Busy_direction exception is raised when another callback is already waiting
-    for datas on that [connection_info] *)
+    for datas on that [connection_info] *) *)
 
-val read_lines :
+(* val read_lines :
   t ->
   connection_info ->
   ?block_size:int ->
@@ -297,7 +297,7 @@ val read_lines :
     and call you callback only if last characters are "\r\n",
     it means only when the data is a line or a set of lines.
     @raise Busy_direction exception is raised when another callback is already waiting
-    for datas on that [connection_info] *)
+    for datas on that [connection_info] *) *)
 
 val read_all :
   t ->

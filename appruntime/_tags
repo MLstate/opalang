@@ -11,6 +11,7 @@ true: warn_A, warn_e, warn_error_A
 
 <iocp.ml>: with_mlstate_debug
 <epoll.ml>: with_mlstate_debug
+<connection.ml>: with_mlstate_debug
 <scheduler.ml>: with_mlstate_debug
 <resourceTracker.ml>: with_mlstate_debug
 <netStats.ml>: with_mlstate_debug

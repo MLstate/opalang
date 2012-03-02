@@ -60,7 +60,7 @@ val all_tags : string list
 val is_release : bool
 
 (** the target OS type *)
-type os = Linux | Mac | Win32 | Cygwin | FreeBSD
+type os = Linux | Mac | Win32 | Cygwin | FreeBSD | Mingw
 val os : os
 
 (** the name of the  GNU make binary, gmake on fBSD, make on other platforms *)

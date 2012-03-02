@@ -69,6 +69,25 @@ int get_mem (unsigned int *rss)
 
 #else /* not MAC and FreeBSD */
 
+#ifdef WIN32
+#include <windows.h>
+#include <Psapi.h>
+int get_mem (unsigned int *rss)
+{
+HANDLE pHandle;
+PROCESS_MEMORY_COUNTERS pmc;
+
+  pHandle = GetCurrentProcess();
+  if (GetProcessMemoryInfo(pHandle, &pmc, sizeof(pmc))) {
+    *rss = pmc.WorkingSetSize;
+  } else {
+    *rss =-1;
+  }
+  return 0;
+}
+
+#else /* not WIN32 */
+
 #include <stdio.h>
 #include <unistd.h>
 
@@ -84,7 +103,8 @@ int get_mem (unsigned int *rss)
     return 0;
 }
 
-#endif
+#endif /* WIN32 */
+#endif /* MAC */
 
 long usage() {
   unsigned int rss = -1;

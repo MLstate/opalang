@@ -1,14 +1,17 @@
 #! /bin/sh
 CYG=$(uname | grep CYGWIN)
+MING=$(uname | grep MINGW)
 [ "$1" = "WIN" ] && WINDOWS=1
 [ -n "$CYG" ] && CYGWIN=1
-[ -z "$CYG" ] && UNIX=1
+[ -n "$MING" ] && MINGW=1
+[ -z "$CYG" ] && [ -z "$MING" ] && UNIX=1
 FILE="mlstate_platform.h"
-echo "// generated C $CYGWIN L $UNIX W $WINDOWS" > $FILE
-echo "// can define  MLSTATE_WINDOWS MLSTATE_UNIX MLSTATE_CYGWIN" >> $FILE
+echo "// generated C $CYGWIN L $UNIX W $WINDOWS M $MINGW" > $FILE
+echo "// can define  MLSTATE_WINDOWS MLSTATE_UNIX MLSTATE_CYGWIN MLSTATE_MINGW" >> $FILE
 echo "#ifndef MLSTATE_PLATFORM_H" >> $FILE
 echo "#define MLSTATE_PLATFORM_H" >> $FILE
 [ -n "$WINDOWS" ] && echo "#define MLSTATE_WINDOWS 1" >> $FILE
 [ -n "$UNIX"   ] && echo "#define MLSTATE_UNIX   1" >> $FILE
 [ -n "$CYGWIN"  ] && echo "#define MLSTATE_CYGWIN  1" >> $FILE
+[ -n "$MINGW"  ] && echo "#define MLSTATE_MINGW  1" >> $FILE
 echo "#endif" >> $FILE

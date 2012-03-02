@@ -27,6 +27,7 @@ open Command
 let mlstate_platform = "mlstate_platform"
 let is_mac = Config.os = Config.Mac
 let is_fbsd = Config.os = Config.FreeBSD
+let is_mingw = Config.os = Config.Mingw
 
 let sed = if is_mac  then P"gsed" else P"sed"
 let md5 = if is_fbsd then P"md5"  else P"md5sum"
@@ -38,8 +39,7 @@ let md5 = if is_fbsd then P"md5"  else P"md5sum"
 let windows_mode = (os = Win32)
 
 let c_wall,c_werror =
-  if windows_mode (*&& compiler=microsoft*) then "/Wall","/Wall"
-  else if is_mac then "-Wall","-Wall"
+  if is_mac then "-Wall","-Wall"
   else "-Wall","-Werror"
 
 let winocamldir   = Pathname.pwd /  "ms_windows"
@@ -54,18 +54,10 @@ let winocamldoc   = winocamldir / "windows_ocamldoc"
 
 let as_wintools = [ ("trx", "") ; ("bslregister", "") ; ("opa.exe", windows_opa) ]
 
-let _ = if windows_mode then Printf.printf "MYOCAMLBUILD WINDOWS MODE\n" else ()
-
 let _ =
   Options.ext_lib := Config.ext_lib;
   Options.ext_obj := Config.ext_obj;
   Options.ext_dll := Config.ext_shared
-
-let _ = if windows_mode then (
-  Options.ocamlmklib := P winocamlmklib;
-  Options.ocamlmktop := P winocamlmktop;
-  Options.ocamldoc := P winocamldoc
-) else ()
 
 let run_and_read s =
   let output = run_and_read s in
@@ -78,13 +70,13 @@ let debug_getenv_toggle var = try Sys.getenv var = "1" with Not_found -> false
 *)
 
 let rec trx_deps dep prod env build =
-  Cmd(S[A"grep"; A"^\\s*\\(read\\|include\\)"; P(env dep);
+
+  Cmd(S[Sh"grep"; Sh"'^\\s*\\(read\\|include\\)'"; P(env dep);
         Sh("| perl -p -e 's/^ *(read|include) +([^ ]+).*/\\2/'");
         Sh("> "^(env prod))])
 
 let proto_deps dep prod env build =
-  Cmd(S[A"grep"; A"^-include"; P(env dep);
-        Sh("| perl -p -e 's/^ *([-]include) +\"([^ ]+)\".*/\\2/'");
+  Cmd(S[Sh"bash"; Sh"../utils/protodeps.sh"; P(env dep);
         Sh("> "^(env prod))])
 
 let build_list build targets = List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
@@ -118,7 +110,7 @@ let get_tool ?local:(local=false) name =
           true, (if c <> "" then c else (wingate f))
           with Not_found -> false, ""
         in
-        if windows_mode && wintools_b then (Sh winf) else (P f)
+          P f
       | External f -> P f)
   with Not_found -> failwith ("Build tool not found: "^name)
 
@@ -388,8 +380,7 @@ let _ = dispatch begin function
         ~dep: "%.c"
         ~prod: "%.c.depends"
         (fun env build ->
-           Cmd(S[P"perl"; A"-n"; A"-e";
-                 A("if (/^ *(#include) +\"(\\.\\.\\/)*([^\"]+)\".*/) { print \"$3\\n\"; }");
+           Cmd(S[ Sh"sh"; Sh"../utils/cdeps.sh";
                  P(env "%.c"); Sh">"; P(env "%.c.depends")]));
 
       rule "cc: c & c.depends -> o"
@@ -496,7 +487,6 @@ let _ = dispatch begin function
       flag ["ocaml"; "compile"; "noassert"] (A"-noassert");
       flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
 
-
       (* PB WITH libcrypto.obj MISSING ??? *)
       if windows_mode then (
         (* openssl *)
@@ -543,6 +533,10 @@ let _ = dispatch begin function
         flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]);
         flag ["ocaml"; "native"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name)]);
       in
+
+      (* When compiling memory.c on Mingw we need to link to the psapi and dnsapi lib *)
+	  if is_mingw then
+	    flag ["use_stubs"; "link"] (S[A"-cclib";A"-lpsapi";A"-cclib";A"-ldnsapi";A"-cclib";A"-lmswsock"]);
 
       (* In the memory.c in FreeBSD part that uses kvm_getprocs() required link with -lkvm. *)
       if is_fbsd then
