@@ -713,6 +713,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         (* The dbset reader is the reader that read a child node *)
         let reader =
           let child = SchemaGraph.unique_next sch node in
+          let child = {child with C.ty = C.Db.set ty} in
           match Idents.get_reader idents child with
           | None -> OManager.i_error "Child reader of a dbset not found"
           | Some reader -> reader @: Type.reader child in
@@ -873,6 +874,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         (* The dbset writer is the child writer *)
         let writer =
           let child = SchemaGraph.unique_next sch node in
+          let child = {child with C.ty = C.Db.set ty} in
           match Idents.get_writer idents child with
           | None -> OManager.i_error "Child writer of a dbset not found"
           | Some writer -> writer @: Type.writer child in
