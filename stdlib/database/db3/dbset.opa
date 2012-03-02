@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -91,18 +91,19 @@
 /**
  * A database set that contains ['a] values
 **/
+
+@abstract
+type Db3Set.engine('a) = external
+
 @opacapi
-type dbset('a) = external
+type Db3Set.t('a) = dbset('a, Db3Set.engine('a))
 
 /**
  * {1 Interface}
  */
 
-DbSet = {{
+Db3Set = {{
 
-  /**
-   * [DbSet.fold(dbset, acc, folder)] Fold on a [dbset].
-   */
-  fold = %%badoplink_fold_dbset%% : 'acc, dbset('a), ('acc, 'a -> 'acc) -> 'acc
+
 
 }}

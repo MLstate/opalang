@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -50,7 +50,7 @@ let abort_transaction k =
 ##extern-type [normalize] database = { db_engine: Badop_engine.t; db: Badop_engine.db }
 ##extern-type [normalize] transaction = { tr_engine: Badop_engine.t; tr: Badop_engine.tr }
 ##extern-type [normalize] revision = Badop_engine.rv
-##extern-type dbset('a) = {     \
+##extern-type Db3Set.t('a) = {     \
   transaction : transaction ;   \
   path : path ;                 \
   reader : transaction -> path -> 'a QmlCpsServerLib.continuation -> unit ;  \
@@ -422,7 +422,7 @@ let fold_string_keys tr path f acc k =
     transaction, \
     path, \
     (transaction, path, continuation('a) -> void), \
-    continuation(dbset('a)) -> \
+    continuation(Db3Set.t('a)) -> \
     void
 let create_dbset tr path reader k = {
   transaction = tr;
@@ -451,10 +451,10 @@ let rec partial_match partial keylist =
   in aux (Array.length partial - 1)
 
 
-##register [opacapi;restricted:dbgen,cps-bypass] set_dbset_keys : dbset('a), db_partial_key, continuation(dbset('a)) -> void
+##register [opacapi;restricted:dbgen,cps-bypass] set_dbset_keys : Db3Set.t('a), db_partial_key, continuation(Db3Set.t('a)) -> void
 let set_dbset_keys dbset keys k = { dbset with keys = Array.of_list keys } |> k
 
-##register[cps-bypass] fold_dbset : 'acc, dbset('a), ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
+##register[cps-bypass] fold_dbset : 'acc, Db3Set.t('a), ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
 let fold_dbset acc dbset folder k =
   let tr = dbset.transaction in
   tr.tr_engine.E.read tr.tr dbset.path (Badop.Children (D.query (None, 0))) @>

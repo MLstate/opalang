@@ -526,9 +526,11 @@ Then use option --db-remote instead of --db-local.
 
 
 
-@opacapi
 @abstract
-type dbset('a) = { reply: Mongo.reply default : 'a}
+type DbMongoSet.engine('a) = { reply: Mongo.reply default : 'a}
+
+@opacapi
+type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
 
 
 /**
@@ -553,7 +555,7 @@ DbSet = {{
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
     List.iter(index(db, path, _), idxs)
 
-  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit):dbset('a) =
+  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit):DbMongoSet.engine('a) =
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     #<End>
@@ -596,7 +598,7 @@ DbSet = {{
     // end
 
 
-  @private fold_doc(init, dbset:dbset, f) =
+  @private fold_doc(init, dbset:DbMongoSet.engine, f) =
     match dbset with
     | ~{reply default=_} ->
       size = MongoCommon.reply_numberReturned(reply)
@@ -610,18 +612,35 @@ DbSet = {{
           | {some=doc} -> aux(i+1, f(acc, doc))
       aux(0, init)
 
-  fold(init:'acc, dbset:dbset('a))(f:'acc, 'a -> 'acc) =
-    fopa(acc, doc, f) =
-      match Bson.doc2opa_default(doc, dbset.default) with
-      | {none} ->
-        do Log.error("DbGen/Mongo", "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
-        acc
-      | {some=opa} -> f(acc, opa:'a)
-    fold_doc(init, dbset, fopa(_, _, f))
+  @package iterator(dbset:DbMongoSet.engine('a)):iter('a) =
+    match dbset with
+    | ~{reply default=_} ->
+      size = MongoCommon.reply_numberReturned(reply)
+      rec aux(i) =
+        if i == size then none
+        else
+          match MongoCommon.reply_document(reply, i) with
+          | {none} ->
+            do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
+            aux(i+1)
+          | {some=doc} ->
+            match Bson.doc2opa_default(doc, dbset.default) with
+            | {none} ->
+              do Log.error("DbGen/Mongo",
+                   "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
+              aux(i+1)
 
-  to_list(dbset:dbset('a)) = fold([], dbset)(acc, a -> a +> acc)
+            | {some=opa} -> {some = (opa, {next=->aux(i+1)})}
+            end
+          end
+      {next= -> aux(0)}
 
-  @package to_map(dbset:dbset('a)):map('key, 'value) =
+  @private fold(init, dbset, f) =
+    Iter.fold(f, iterator(dbset), init)
+
+  @package to_list(dbset:DbMongoSet.engine('a)) = fold([], dbset, (a, acc -> a +> acc))
+
+  @package to_map(dbset:DbMongoSet.engine('a)):map('key, 'value) =
     fold_doc(Map.empty, dbset, (map:map('key, 'value), doc:Bson.document ->
         match List.extract_p(x -> x.name == "_id", doc) with
         | ({some=kdoc}, vdoc) ->
@@ -649,7 +668,7 @@ DbSet = {{
       )
     )
 
-  @package map_to_uniq(dbset:dbset('a)):option('value) =
+  @package map_to_uniq(dbset:DbMongoSet.engine('a)):option('value) =
     fold_doc(none, dbset, (opt, doc ->
         do @assert(Option.is_none(opt))
         match List.extract_p(x -> x.name == "_id", doc) with
@@ -664,18 +683,18 @@ DbSet = {{
       )
     )
 
-  @package map_to_uniq_def(dbset:dbset('a)):'value =
+  @package map_to_uniq_def(dbset:DbMongoSet.engine('a)):'value =
     match map_to_uniq(dbset) with
     | {some=v:'value} -> v
     | {none} -> @unsafe_cast(dbset.default)
 
-  @package set_to_uniq(dbset:dbset('a)):option('a) =
+  @package set_to_uniq(dbset:DbMongoSet.engine('a)):option('a) =
     match to_list(dbset) with
     | [] -> none
     | [uniq] -> some(uniq)
     | _ -> do @assert(false) error("___")
 
-  @package set_to_uniq_def(dbset:dbset('a)):'a =
+  @package set_to_uniq_def(dbset:DbMongoSet.engine('a)):'a =
     match set_to_uniq(dbset) with
     | {none} -> dbset.default
     | {some = uniq} -> uniq
@@ -684,7 +703,7 @@ DbSet = {{
     List.append(doc, Bson.opa_to_document(name, value, ty))
 
   @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
-              read_map:dbset('a) -> option('b)):DbMongo.private.val_path('b) =
+              read_map:DbMongoSet.engine('a) -> option('b)):DbMongo.private.val_path('b) =
     {
       id = DbMongo.path_to_id(path)
       read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit)):option('b)
@@ -693,7 +712,7 @@ DbSet = {{
     }
   // [selector |
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
-              read_map:dbset('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
+              read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
     vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
     write(data) =
       do update(db, path, selector,
@@ -742,6 +761,7 @@ DbSet = {{
 @opacapi DbSet_add_to_document = DbSet.add_to_document
 @opacapi DbSet_indexes = DbSet.indexes
 @opacapi DbSet_to_map = DbSet.to_map
+@opacapi DbSet_iterator = DbSet.iterator
 @opacapi DbSet_map_to_uniq = DbSet.map_to_uniq
 @opacapi DbSet_map_to_uniq_def = DbSet.map_to_uniq_def
 @opacapi DbSet_set_to_uniq = DbSet.set_to_uniq
