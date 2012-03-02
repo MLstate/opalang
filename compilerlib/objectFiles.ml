@@ -802,12 +802,12 @@ sig
   type 'a wrapper
   type t
 
-  val iter_with_name : (?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
-  val fold_with_name : (?packages:bool -> ?deep:bool -> (package -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter_with_dir : (?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
-  val fold_with_dir : (?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter : (?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
-  val fold : (?packages:bool -> ?deep:bool -> ('a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
+  val fold_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
+  val fold_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter : (?optional:bool -> ?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
+  val fold : (?optional:bool -> ?packages:bool -> ?deep:bool -> ('a -> t -> 'a) -> 'a -> 'a) wrapper
   val save : (t -> unit) wrapper
 end
 
@@ -828,6 +828,7 @@ struct
   let load1_no_memo ((package_name,pos) as package) =
     let name = filename_from_dir (find_dir package) S.pass in
     try
+      if not(File.exists name) then raise Not_found else
       let channel = open_in_bin name in
       let l1 = input_line channel in
       #<If$contains "noerror"> () #<Else>
@@ -848,8 +849,14 @@ struct
   let load1_exn x = with_exn (fun () -> load1 x)
 
   let ref_for_partial_sep = ref None
-  let load_values ?packages ?deep () =
-    let l = List.map (fun (package_pos) -> (package_pos, load1 package_pos)) (get_deps ?packages ?deep ()) in
+  let load_values ?(optional=false) ?packages ?deep () =
+    let deps = (get_deps ?packages ?deep ()) in
+    let load =
+      match optional with
+      | true -> List.filter_map
+          (fun (package_pos) -> try Some (package_pos, load1_exn package_pos) with No_exit _ -> None)
+      | false -> List.map (fun (package_pos) -> (package_pos, load1 package_pos))  in
+    let l = load deps in
     match compilation_mode () with
     | `init ->
         (match !ref_for_partial_sep with
@@ -857,20 +864,20 @@ struct
          | Some v -> l @ [(linking_package,v)])
     | `linking | `compilation | `prelude -> l
 
-  let iter_with_name ?packages ?deep f =
-    List.iter (fun (package_name, value) -> f package_name value) (load_values ?packages ?deep ())
-  let iter_with_dir ?packages ?deep f =
+  let iter_with_name ?optional ?packages ?deep f =
+    List.iter (fun (package_name, value) -> f package_name value) (load_values ?optional ?packages ?deep ())
+  let iter_with_dir ?optional ?packages ?deep f =
     assert (compilation_mode () <> `init);
-    iter_with_name ?packages ?deep (fun package value -> f (find_dir package) value)
-  let iter ?packages ?deep f =
-    List.iter (fun (_, value) -> f value) (load_values ?packages ?deep ())
-  let fold_with_name ?packages ?deep f acc =
-    List.fold_left (fun acc (package_name,value) -> f package_name acc value) acc (load_values ?packages ?deep ())
-  let fold_with_dir ?packages ?deep f acc =
+    iter_with_name ?optional ?packages ?deep (fun package value -> f (find_dir package) value)
+  let iter ?optional ?packages ?deep f =
+    List.iter (fun (_, value) -> f value) (load_values ?optional ?packages ?deep ())
+  let fold_with_name ?optional ?packages ?deep f acc =
+    List.fold_left (fun acc (package_name,value) -> f package_name acc value) acc (load_values ?optional ?packages ?deep ())
+  let fold_with_dir ?optional ?packages ?deep f acc =
     assert (compilation_mode () <> `init);
-    fold_with_name ?packages ?deep (fun package acc value -> f (find_dir package) acc value) acc
-  let fold ?packages ?deep f acc =
-    List.fold_left (fun acc (_,value) -> f acc value) acc (load_values ?packages ?deep ())
+    fold_with_name ?optional ?packages ?deep (fun package acc value -> f (find_dir package) acc value) acc
+  let fold ?optional ?packages ?deep f acc =
+    List.fold_left (fun acc (_,value) -> f acc value) acc (load_values ?optional ?packages ?deep ())
 
   (* save the given content in the current package, or raise SaveError if it failed
    * (because you have no 'write' rights for instance) *)

@@ -186,12 +186,12 @@ sig
      deep: transitive dependencies
   *)
 
-  val iter_with_name : (?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
-  val fold_with_name : (?packages:bool -> ?deep:bool -> (package -> 'acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
-  val iter_with_dir : (?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
-  val fold_with_dir : (?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter : (?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
-  val fold : (?packages:bool -> ?deep:bool -> ('acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
+  val iter_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
+  val fold_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> 'acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
+  val iter_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
+  val fold_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter : (?optional:bool -> ?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
+  val fold : (?optional:bool -> ?packages:bool -> ?deep:bool -> ('acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
 
   (**
      Save the current information to the disk
