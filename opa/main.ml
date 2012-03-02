@@ -156,6 +156,7 @@ let () =
 
     |?> (If.database `db3,
          "BadopCodeGeneration", S3.pass_BadopCodeGeneration)
+
     |?> (If.database `mongo,
          "MongoCodeGeneration", S3.pass_MongoCodeGeneration)
 

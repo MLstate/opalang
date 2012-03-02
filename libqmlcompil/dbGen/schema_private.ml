@@ -450,7 +450,8 @@ let add_path ~context gamma t path0 ty =
           build t next_node path
       | (Db.Decl_set lidx)::[] ->
           let t,n = SchemaGraphLib.set_node_label t n C.Multi in
-          let t,n = SchemaGraphLib.set_node_type t n (C.tydbset ty) in
+          let t,n = SchemaGraphLib.set_node_type t n
+            (C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))) in
           add_subgraph ~is_plain:true ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty
       | (Db.Decl_set [])::_path ->
           QmlError.error context
@@ -703,7 +704,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
                              context;
                              path_aliases = [];
                              options = {
-                               Q.Db.backend = C.Args.get_engine ();
+                               Q.Db.backend= C.get_default ();
                              };
                              schema = SchemaGraphLib.initial_schema ~context;
                              package = ObjectFiles.get_current_package_name ();
@@ -995,13 +996,7 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
           | _ ->
               invalid_entry "key" (Format.to_string QmlPrint.pp#expr e)
         in
-        let keytyp = match e with
-        | Q.Record (_, keys) ->
-            (* Keys can be partial on syntaxical record. *)
-            let tykeys = fst (SchemaGraphLib.type_of_partial_key keys t node) in
-            Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false tykeys)
-        | _ -> SchemaGraphLib.type_of_key t node in
-
+        let keytyp = SchemaGraphLib.type_of_key t node in
         let new_annots, e = match e with
           | Q.Coerce (_, _,ty) when ty = keytyp -> [], e
           | e ->
@@ -1066,7 +1061,8 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath path
   | [], C.Multi -> (
       match node.C.ty with
-      | Q.TypeName ([setparam], name) as ty when Q.TypeIdent.to_string name = "dbset" ->
+      | Q.TypeName ([setparam;_], name) when Q.TypeIdent.to_string name = "dbset" ->
+          let ty = C.Db.set setparam in
           ty, node, `virtualset (setparam, ty, true, None)
       | ty -> ty, node, `realpath
     )
@@ -1087,10 +1083,10 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
        | [] -> ()
        | _ -> QmlError.error context "Path after queries is not yet allowed");
       (match setty with
-       | Q.TypeName ([setparam], name)
-           when Q.TypeIdent.to_string name = "dbset" ->
+       | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+           let setty = C.Db.set setparam in
            let node, partial, tyread = node, not (is_uniq t node query), setty in
-           node.C.ty, node, `virtualset (setparam, tyread, partial, None)
+           setty, node, `virtualset (setparam, tyread, partial, None)
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
            let partial = not (is_uniq t node query) in
@@ -1191,7 +1187,7 @@ let preprocess_kind ~context gamma kind ty virtual_ =
 
 let preprocess_path ~context t gamma prepath kind =
   let prefix, db_def, prepath = database_def_of_path_expr ~context t prepath in
-  C.Args.set_engine db_def.options.Db.backend;
+  C.set_engine db_def.options.Db.backend;
   let prepath = apply_aliases db_def.path_aliases prepath in
   let root = SchemaGraphLib.get_root db_def.schema in
   let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind prepath prepath in

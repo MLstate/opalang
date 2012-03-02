@@ -77,18 +77,25 @@ module Args = struct
 
   let assoc = [("mongo", `mongo); ("db3"), `db3]
 
-  let r = ref default
+  let r = ref None
 
   let options = [
-    ("--database", Arg.spec_fun_of_assoc (fun s -> r := {engine=s}) assoc,
+    ("--database", Arg.spec_fun_of_assoc
+       (fun s -> r := Some {engine=s}) assoc,
      "Select kind of database (db3|mongo)");
   ]
 
-  let get_engine () = !r.engine
-
-  let set_engine e = r := { engine = e }
+  let get_engine () = Option.map (fun r -> r.engine) !r
 
 end
+
+let get_default () =
+  (Option.default {Args.engine = Args.default.Args.engine} !Args.r).Args.engine
+
+let get_engine, set_engine =
+  let engine = ref None in
+  (fun () -> Option.default (get_default ()) !engine),
+  (fun e -> engine := Some e)
 
 let settyp, typ =
   let typ = ref (function _ ->
@@ -97,12 +104,12 @@ let settyp, typ =
   (function s -> !typ s)
 
 (* type of sets stored in the database *)
-let tydbset ty = QmlAst.TypeName ([ty], typ Opacapi.Types.dbset)
+let tydbset ty tyengine = QmlAst.TypeName ([ty; tyengine], Ident.source(Opacapi.Types.dbset))
 
 (** Extract the type inside a dbset type [get_dbset_ty(dbset(t)) = t]. *)
 let get_dbset_ty = function
-  | QmlAst.TypeName ([x], id) ->
-      assert(QmlAst.TypeIdent.to_string id = "dbset"); x
+  | QmlAst.TypeName ([x; _], _id) ->
+      x
   | ty -> OManager.i_error "Wait a dbset type receive : %a" QmlPrint.pp#ty ty
 
 let firstclass_path_tyid () =
@@ -148,18 +155,26 @@ module Db = struct
 
   let t () =
     let ident =
-      match Args.get_engine() with
+      match get_engine() with
       | `db3 -> Opacapi.Types.Db3.t
       | `mongo -> Opacapi.Types.DbMongo.t
     in
     QmlAst.TypeName ([], typ ident)
+
+  let set ty =
+    let ident =
+      match get_engine() with
+      | `db3 -> Opacapi.Types.db3set
+      | `mongo -> Opacapi.Types.dbmongoset
+    in
+    QmlAst.TypeName ([ty], typ ident)
 
   let mongo_engine () =
     QmlAst.TypeName ([], typ Opacapi.Types.DbMongo.engine)
 
   let ref_path_ty tydata =
     let tyengine =
-      match Args.get_engine() with
+      match get_engine() with
       | `db3 -> ref_path_ty tydata
       | `mongo -> mongo_engine ()
     in
@@ -169,7 +184,7 @@ module Db = struct
                     )
   let val_path_ty tydata =
     let tyengine =
-      match Args.get_engine() with
+      match get_engine() with
       | `db3 -> val_path_ty tydata
       | `mongo -> mongo_engine ()
     in

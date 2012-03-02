@@ -28,8 +28,8 @@ module Args : sig
   (** The command line specifications. *)
   val options : (string * Base.Arg.spec * string) list
 
-  (** Get selected backend.*)
-  val get_engine : unit -> engine
+  (** Get command line backend.*)
+  val get_engine : unit -> engine option
 
 end
 

@@ -566,7 +566,14 @@ module Generator = struct
       match kind with
       | DbAst.Default | DbAst.Option ->
           (match setkind, uniq with
-           | DbSchema.DbSet _, false -> (annotmap, set)
+           | DbSchema.DbSet ty, false ->
+               let annotmap, iterator =
+                 OpaMapToIdent.typed_val ~label
+                   ~ty:[ty]
+                   Api.DbSet.iterator annotmap gamma in
+               let annotmap, iterator =
+                 C.apply ~ty gamma annotmap iterator [set] in
+               C.record annotmap [("iter", iterator); ("engine", set)]
            | DbSchema.Map (keyty, dataty), false ->
                let (annotmap, to_map) =
                  OpaMapToIdent.typed_val ~label

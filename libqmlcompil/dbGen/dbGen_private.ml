@@ -1392,7 +1392,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               in
               let merge_with_idents idents =
                 StringListMap.find point
-                  (R.fold merge (StringListMap.singleton point idents))
+                  (R.fold ~optional:true merge (StringListMap.singleton point idents))
               in
               let dbinfo, gamma, more_defs, partial_idents =
                 setup_db_accessors gamma db_def.Schema_private.schema db_ident db_diff_id merge_with_idents

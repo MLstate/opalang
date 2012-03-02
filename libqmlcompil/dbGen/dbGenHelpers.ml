@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -522,7 +522,7 @@ struct
   let typath = ti Opacapi.Types.badoplink_path
   let tytrans = ti Opacapi.Types.badoplink_transaction
   let tydbset ty =
-    ti ~param:[ty] Opacapi.Types.dbset ()
+    ti ~param:[ty] Opacapi.Types.db3set ()
   let tykey = ti Opacapi.Types.badoplink_db_path_key
   let typartialkey = ti Opacapi.Types.badoplink_db_partial_key
   let tydata = ti Opacapi.Types.badoplink_data_d

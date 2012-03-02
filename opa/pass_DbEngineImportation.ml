@@ -55,9 +55,14 @@ let import_packages engine =
 let process_code ~stdlib code =
   if stdlib then
     let engines =
+      match QmlDbGen.Args.get_engine () with
+      | None -> []
+      | Some engine -> [engine]
+    in
+    let engines =
       R.fold_with_name ~deep:true
         (fun _ acc t -> t@acc)
-        []
+        engines
     in
     let engines = List.fold_left
       (fun acc -> function

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -168,6 +168,7 @@ struct
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"
   let to_map = !! "to_map"
+  let iterator = !! "iterator"
   let map_to_uniq = !! "map_to_uniq"
   let set_to_uniq = !! "set_to_uniq"
   let map_to_uniq_def = !! "map_to_uniq_def"
@@ -322,6 +323,8 @@ struct
   let continuation = !! "continuation"
   let dbgraph_diff = !! "dbgraph_diff"
   let dbset = !! "dbset"
+  let db3set = !! "Db3Set.t"
+  let dbmongoset = !! "DbMongoSet.t"
   let dom = !! "dom"
   let finite_single_thread_lazy = !! "finite_single_thread_lazy"
   let float = !! "float"
