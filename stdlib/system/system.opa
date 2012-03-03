@@ -18,12 +18,6 @@
 import-plugin unix
 
 /**
-   Binding with module System
-   <!> Not for casual user
-*/
-
-
-/**
  * {1 Types defined in this file}
 **/
 
@@ -49,6 +43,10 @@ type System.wait_flag = external
 
 type System.pid = int
 
+/**
+ * Binding with module System
+ * <!> Not for casual user
+**/
 System = {{
 
 /**
