@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -120,6 +120,12 @@ gethostsbyname = %%BslSys.gethostsbyname%% : string -> list(ip)
  * @return the memory usage in bytes
  */
 get_memory_usage = %%bslSys.get_memory_usage%% : -> int
+
+/**
+ * Get the curent process launch date.
+ * @return the GMT launch date of the application
+ */
+gmt_launch_date = Date.now_gmt()
 
 /**
  * [exec(command, input)]
