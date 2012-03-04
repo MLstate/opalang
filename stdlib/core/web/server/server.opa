@@ -113,6 +113,9 @@ type Server.handler =
       registering. */
   / {register : list(string)}
 
+  /** An empty request handler but useful for favicon registering. */
+  / {favicon : list(Favicon.t)}
+
   /** Request handler which aggregates several request handlers. On
       incomming request all handlers (in the order of list) are tested
       until one succeed and returns a resource. */
@@ -235,6 +238,9 @@ Server = {{
         else
           Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
       , register)
+      Rule.fail
+    | ~{favicon} ->
+      do List.iter(f -> Resource.register_external_favicon(f), favicon)
       Rule.fail
     | {custom=_} as e
     | {title=_; page=_} as e

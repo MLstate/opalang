@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -89,17 +89,7 @@ Server_private = {{
     launch_date: Date.date = Date.now()
     some_launch_date = {some = launch_date} //Provided for functions that would otherwise need to box [launch_date] all the time
 
-    /**
-     * Resources defined by the standard library but which can be overridden by the user
-     */
-    @private provide_default_favicon_ico   = @static_resource("stdlib/core/web/server/resources/favicon.ico") //Default favicon
-    @private provide_default_favicon_gif   = @static_resource("stdlib/core/web/server/resources/favicon.gif") //Default favicon
-    @private provide_default_touchicon     = @static_resource("stdlib/core/web/server/resources/opa-logo-iOS.png")
-
     overridable_handlers = parser
-       | "/favicon.ico"          -> provide_default_favicon_ico
-       | "/favicon." .*          -> provide_default_favicon_gif
-       | "/apple-touch-icon.png" -> provide_default_touchicon
        | "/about/opa"            -> page_version
 
 

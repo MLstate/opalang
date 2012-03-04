@@ -710,6 +710,15 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
   register_external_css(url : string) : void = Resource_private.register_external_css(url)
 
   /**
+   * Adds an favicon link to the default_customizers of ALL resources.
+   * Will be appended in the headers of the page.
+   * @param favicon A favicon item
+   * @usage This should be used in modules of the standard library not loaded by default (so not stdlib.*)
+   * (Its interest is very limited in user code, since it's easier to customize resources directly)
+   */
+  register_external_favicon(favicon : Favicon.t) : void = Resource_private.register_external_favicon(favicon)
+
+  /**
    * Removes an external javascript file (identified by its url) to the default_customizers of ALL resources if it exists.
    * @param url An url (as a string) to a javascript file
    */

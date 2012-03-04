@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -740,14 +740,6 @@ let spec_args name =
     p"maximum-number-of-headers",
     ServerArg.func ServerArg.int (fun o i -> { o with maximum_number_of_headers = i }),
     "<int>", (sprintf "Maximum number of request headers (default: %d)" default_options.maximum_number_of_headers);
-
-    p"favicon-ico",
-    ServerArg.func ServerArg.string (fun o s -> { o with favicon_ico = body_value_from_file ~log:true s }),
-    "<string>", (sprintf "Favicon.ico file (default: %s)" (bv_file default_options.favicon_ico));
-
-    p"favicon-gif",
-    ServerArg.func ServerArg.string (fun o s -> { o with favicon_gif = body_value_from_file ~log:true s }),
-    "<string>", (sprintf "Favicon.gif file (default: %s)" (bv_file default_options.favicon_gif));
 
     p"no-print-log-info",
     ServerArg.func ServerArg.unit (fun o () -> { o with print_log_info = false }),

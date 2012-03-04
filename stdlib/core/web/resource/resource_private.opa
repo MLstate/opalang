@@ -634,15 +634,20 @@ required_customizer_for_opa_ad =
 
 @private autoloaded_js = Mutable.make([] : list(string))
 @private autoloaded_css = Mutable.make([] : list(string))
+@private autoloaded_favicon = Mutable.make([] : list(Favicon.t))
 @package register_external_js(url : string) = autoloaded_js.set([url | autoloaded_js.get()])
 @package unregister_external_js(url : string) = autoloaded_js.set(List.remove(url, autoloaded_js.get()))
 @package register_external_css(url : string) = autoloaded_css.set([url | autoloaded_css.get()])
 @package unregister_external_css(url : string) = autoloaded_css.set(List.remove(url, autoloaded_css.get()))
+@package register_external_favicon(f:Favicon.t) = autoloaded_favicon.set([f | autoloaded_favicon.get()])
 
 customizer_autoloaded : platform_customization =
   _ -> some(
     { custom_body = none
-      custom_headers = none
+      custom_headers =
+        favicons = autoloaded_favicon.get()
+        if List.is_empty(favicons) then none
+        else some(Xhtml.createFragment(List.map(f->Favicon.to_html(f), favicons)))
       custom_js      = List.rev(autoloaded_js.get())
       custom_css     = List.rev(autoloaded_css.get())
     })
