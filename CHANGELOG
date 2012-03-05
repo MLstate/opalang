@@ -8,6 +8,7 @@ API:
 STDLIB:
 
   * included Twitter's Bootstrap CSS inside the stdlib, and improved the import system (see doc)
+  * added a way to register favicons (like css and js)
 
 PERFS:
 

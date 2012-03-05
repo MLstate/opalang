@@ -111,10 +111,10 @@ type Server.handler =
 
   /** An empty request handler but useful for external resources
       registering. */
-  / {register : list(string)}
-
-  /** An empty request handler but useful for favicon registering. */
-  / {favicon : list(Favicon.t)}
+  / {register : list(string)
+              / {favicon : list(Favicon.t)}
+              / {js : list(string)}
+              / {css : list(string)}}
 
   /** Request handler which aggregates several request handlers. On
       incomming request all handlers (in the order of list) are tested
@@ -230,17 +230,20 @@ Server = {{
     )
     | {nil} -> Rule.fail
     | ~{register} ->
-      do List.iter(file ->
-        if String.has_suffix(".css", file) then
-          Resource.register_external_css(file)
-        else if String.has_suffix(".js", file) then
-          Resource.register_external_js(file)
-        else
-          Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
-      , register)
-      Rule.fail
-    | ~{favicon} ->
-      do List.iter(f -> Resource.register_external_favicon(f), favicon)
+      do match register
+      | ~{favicon} -> List.iter(f -> Resource.register_external_favicon(f), favicon)
+      | ~{js} -> List.iter(f -> Resource.register_external_js(f), js)
+      | ~{css} -> List.iter(f -> Resource.register_external_css(f), css)
+      | ~{hd tl} ->
+        List.iter(file ->
+          if String.has_suffix(".css", file) then
+            Resource.register_external_css(file)
+          else if String.has_suffix(".js", file) then
+            Resource.register_external_js(file)
+          else
+            Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
+        , ~{hd tl})
+      | {nil} -> void
       Rule.fail
     | {custom=_} as e
     | {title=_; page=_} as e
