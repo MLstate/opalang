@@ -302,7 +302,7 @@ comments have been removed."
     "expand" "spawn" "wait" "server" "unsafe_cast" "toplevel" "assert" "opensums" "publish" "both" "prefer_client"
     "prefer_server" "prefer_both" "both_implem" "private" "public" "package" "nonexpansive" "asynchronous"
     "compiletime" "sliced_expr" "may_cps" "llarray" "specialize" "server_private" "opacapi" "stringifier"
-    "xmlizer" "serializer" "comparator" "abstract"))
+    "xmlizer" "serializer" "comparator" "abstract" "exposed" "protected" "deprecated" "i18n"))
 
 (defconst opa-all-directives
     (mapcar (function (lambda (s) (concat "@" s))) opa-directives))
