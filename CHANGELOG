@@ -1,18 +1,51 @@
-2012.XX.YY, Version 0.9.1 (stable), v1300
+2012.03.05, Version 0.9.1 (stable), v13??
 
-API:
+Other features:
 
-  * changed WebClient API concerning additional headers
-  * improved / fixed MIME library
+  * directive @from
+    - new @from directive to resolve importation conflicts
+    - In case of conflicts beetween two types with same original names, error message includes packages.
 
-STDLIB:
+  * cyclic types
+    - exportation of cyclic types
+    - typer.cyclic warnings when (non local) cyclic type exportation
+
+  * mixing database backends
+    - Added @db3 and @mongo database options on database schema declaration.
+
+New APIs:
+
+  * Unification of runtime types (and fix 'magic' functions)
+
+Updated APIs:
 
   * included Twitter's Bootstrap CSS inside the stdlib, and improved the import system (see doc)
+
   * added a way to register favicons (like css and js)
 
-PERFS:
+  * changed WebClient API concerning additional headers
+
+  * improved / fixed MIME library
+
+Bug fixes:
 
   * Improved HTTP gzip compression time
+
+  * Parser fixes : bindinds, declaration directives, sugared list
+
+  * Checking of recursives values
+
+  * Database queries on primary keys
+
+  * Events handler in new syntax
+
+  * Coercion on Xhmtl fragment
+
+Other changes:
+
+  * Log.* functions take a strings instead of 'alpha
+
+  * --db-local options with mongo databases: download, install and launch a mongo database if needed.
 
 
 2012.02.14, Version 0.9.0 (stable), v1300
