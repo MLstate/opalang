@@ -126,7 +126,9 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
       #<If:TESTING $minlevel 0>
         Printf.printf "%s\n" command;
       #<End>;
+      #<If:HTTP_CLIENT_DEBUG>
       Logger.info "[http_client] %s" command;
+      #<End>;
       if has_port then
         Logger.warning "[Http_client] hostname contains ':' but it shouldn't, please check";
       Network.connect sched port_spec secure_mode ~err_cont start

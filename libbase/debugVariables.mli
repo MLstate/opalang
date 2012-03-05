@@ -540,6 +540,10 @@ val http_debug : debug_var
 *)
 val http_no_cookie : debug_var
 
+(**
+   {b MLSTATE_HTTP_CLIENT_DEBUG}
+*)
+val http_client_debug : debug_var
 
 (**
    {b Javascript Compilation}
@@ -600,7 +604,7 @@ val low_level_db_log : debug_var
 
 (**
    {b MLSTATE_MIMETYPE_DEBUG}
-   display the debug on mimetype resolution 
+   display the debug on mimetype resolution
 *)
 val mimetype_debug : debug_var
 
