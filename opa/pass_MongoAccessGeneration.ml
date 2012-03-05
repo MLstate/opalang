@@ -567,13 +567,24 @@ module Generator = struct
       | DbAst.Default | DbAst.Option ->
           (match setkind, uniq with
            | DbSchema.DbSet ty, false ->
+               let setident = Ident.next "mongoset" in
+               let annotmap, identset =
+                 let tyset = OpaMapToIdent.specialized_typ ~ty:[ty]
+                   Api.Types.Db3Set.engine gamma in
+                 C.ident annotmap setident tyset
+               in
                let annotmap, iterator =
-                 OpaMapToIdent.typed_val ~label
-                   ~ty:[ty]
-                   Api.DbSet.iterator annotmap gamma in
-               let annotmap, iterator =
-                 C.apply ~ty gamma annotmap iterator [set] in
-               C.record annotmap [("iter", iterator); ("engine", set)]
+                 let annotmap, iterator =
+                   OpaMapToIdent.typed_val ~label ~ty:[ty]
+                     Api.DbSet.iterator annotmap gamma
+                 in
+                 C.apply ~ty gamma annotmap iterator [identset]
+               in
+               let annotmap, genset =
+                 let annotmap, identset = C.copy annotmap identset in
+                 C.record annotmap [("iter", iterator); ("engine", identset)]
+               in
+               C.letin annotmap [setident, set] genset
            | DbSchema.Map (keyty, dataty), false ->
                let (annotmap, to_map) =
                  OpaMapToIdent.typed_val ~label
