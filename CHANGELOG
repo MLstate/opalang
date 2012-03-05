@@ -13,6 +13,10 @@ Other features:
   * mixing database backends
     - Added @db3 and @mongo database options on database schema declaration.
 
+  * new exprimental --remote-logs option to send logs to a remote web server
+
+  * new --cookie-accept-client-values to use cookie ec/ic values provided by the client instead of generating new ones
+
 New APIs:
 
   * Unification of runtime types (and fix 'magic' functions)
@@ -44,6 +48,8 @@ Bug fixes:
 Other changes:
 
   * Log.* functions take a strings instead of 'alpha
+
+  * Http client doesn't log by default (use the new HTTP_CLIENT_DEBUG debug variable if needed)
 
   * --db-local options with mongo databases: download, install and launch a mongo database if needed.
 
