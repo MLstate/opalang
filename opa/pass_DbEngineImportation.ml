@@ -73,7 +73,7 @@ let process_code ~stdlib code =
     let engines = List.uniq_unsorted engines in
     r := engines;
     List.iter import_packages engines;
-    R.save engines
+    if ObjectFiles.compilation_mode() = `compilation then R.save engines
 
 let get_engines () = !r
 
