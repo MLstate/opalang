@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -54,6 +54,9 @@ sig
 
   val val_to_val : string
   val ref_to_ref : string
+
+  val dbset_genbuild : string
+  val db3set_iterator : string
 end
 
 module QmlInterface : SourceInterface =
@@ -72,12 +75,15 @@ struct
   let stringmap_add     = "stringmap_add"
   let stringmap_fold    = "stringmap_fold"
   let dbset_empty   = Opacapi.DbSet.empty
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
 
   let make_virtual_val = "make_virtual_val"
   let make_virtual_ref = "make_virtual_ref"
 
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
+  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
 (* ======================================================================================================== *)
@@ -116,6 +122,8 @@ sig
 
     val val_to_val : env -> ExprIdent.t
     val ref_to_ref : env -> ExprIdent.t
+    val dbset_genbuild : env -> ExprIdent.t
+    val db3set_iterator : env -> ExprIdent.t
   end
 
 end
@@ -162,6 +170,9 @@ struct
 
     let val_to_val env = I.conv env (ExprIdent.source N.val_to_val)
     let ref_to_ref env = I.conv env (ExprIdent.source N.ref_to_ref)
+
+    let dbset_genbuild env = I.conv env (ExprIdent.source N.dbset_genbuild)
+    let db3set_iterator env = I.conv env (ExprIdent.source N.db3set_iterator)
 
     let list_of_idents env = [ none env; some env; intmap_empty env; intmap_add env; intmap_fold env; stringmap_empty env; stringmap_add env; stringmap_fold env]
     let list_of_typeidents _ = [TypeIdent.of_string N.type_option; TypeIdent.of_string N.type_map;]
@@ -219,6 +230,9 @@ struct
 
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
+
+  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
 module BSLDbGenAlphaOpa = MakeS ( DbOpaInterface )  ( I_Alpha )

@@ -93,6 +93,7 @@
 **/
 
 @abstract
+@opacapi
 type Db3Set.engine('a) = external
 
 @opacapi
@@ -104,6 +105,10 @@ type Db3Set.t('a) = dbset('a, Db3Set.engine('a))
 
 Db3Set = {{
 
+  iterator(d:Db3Set.engine('a)) =
+    Iter.of_list(List.rev(%%Badoplink.fold_dbset%%([], d, (l, a -> List.add(a, l)))))
 
 
 }}
+
+@opacapi Db3Set_iterator = Db3Set.iterator

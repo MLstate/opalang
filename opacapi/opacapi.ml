@@ -141,6 +141,12 @@ struct
   let write = !! "write"
 end
 
+module Db3Set =
+struct
+  let (!!) s = !! ("Db3Set_" ^ s)
+  let iterator = !! "iterator"
+end
+
 module DbMongo =
 struct
   let (!!) s = !! ("DbMongo_" ^ s)
@@ -162,6 +168,7 @@ module DbSet =
 struct
   let (!!) s = !! ("DbSet_" ^ s)
   let build = !! "build"
+  let genbuild = !! "genbuild"
   let update = !! "update"
   let empty = !! "empty"
   let opa2doc = !! "opa2doc"
@@ -349,6 +356,7 @@ struct
   let string = !! "string"
   let stringmap = !! "stringmap"
   let text = !! "text"
+  let iter = !! "iter"
 
   let transactions_t = !! "opa_transaction_t"
   let tuple_2 = !! "tuple_2"
@@ -378,6 +386,12 @@ struct
   struct
     let (!!) s = !! ("Db3." ^ s)
     let t  = !! "t"
+  end
+
+  module Db3Set =
+  struct
+    let (!!) s = !! ("Db3Set." ^ s)
+    let engine  = !! "engine"
   end
 
   module DbMongo =

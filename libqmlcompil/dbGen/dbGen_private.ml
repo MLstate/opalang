@@ -140,6 +140,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
   let tytrans = Helpers_gen.tytrans
   let tykey = Helpers_gen.tykey
   let tydiff = Helpers_gen.tydiff
+  let tydbset = Helpers_gen.tydbset
 
   (* -------- DB parameters and access auxiliaries ---------- *)
 
@@ -717,8 +718,17 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           match Idents.get_reader idents child with
           | None -> OManager.i_error "Child reader of a dbset not found"
           | Some reader -> reader @: Type.reader child in
-        H.apply_lambda' (Bypass.create_dbset ty)
-          [tr @: (tytrans()); path @: (typath()); reader]
+        let setident = Ident.next "db3set" in
+        let db3set = H.apply_lambda'
+          (Bypass.create_dbset ty) [tr @: (tytrans()); path @: (typath()); reader]
+        in let iterator = H.apply_lambda'
+          (Helpers_gen.expr_db3set_iterator ty) [setident @: (tydbset ty)]
+        in let genset = H.apply_lambda'
+          (Helpers_gen.expr_dbset_genbuild ty) [iterator; setident @: (tydbset ty)]
+        in H.make_letin (setident, db3set) genset
+
+
+
 
       let def sch idents =
         let make_accessor n =
@@ -1721,7 +1731,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       let fields =
         match record with
         | Q.Coerce (_, Q.Record (_, fields), _) -> fields
-        | _ -> assert false in
+        | _ -> [] in
       let partial_key = create_partial_key sch node fields
         (rident @: (H.type_from_annot record)) in
       let set_dbset_keys = Bypass.set_dbset_keys (H.type_from_annot dbset) in
@@ -1886,7 +1896,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       | _ -> error ()
     in aux update
 
-  let get_expr ~context t dbinfo_map gamma (label, path0, kind) =
+  let rec get_expr ~context t dbinfo_map gamma (label, path0, kind) =
     let _ =
       let pos = QmlError.Context.get_pos context in
       H.start_built_pos pos in
@@ -1900,13 +1910,14 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     | `virtualset (_, wty, false, _) ->
         make_virtualset_fullpath db_def.Schema_private.schema dbinfo gamma node path kind wty
     | `virtualset (_, wty, true, record) ->
-        let record = match record with
-        | Some record -> record
+        begin match record with
+        | Some record -> make_virtualset_partialpath
+            db_def.Schema_private.schema dbinfo gamma node path kind wty record
         | None ->
-            QmlError.error context
-              "This kind of dbset access is not yet implemented by Db3"
-        in
-        make_virtualset_partialpath db_def.Schema_private.schema dbinfo gamma node path kind wty record
+            match kind with
+            | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
+            | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
+        end
     | `virtualpath (ident, rty, wty) ->
         make_virtualpath db_def.Schema_private.schema dbinfo gamma node path kind ident rty wty
     | `realpath ->

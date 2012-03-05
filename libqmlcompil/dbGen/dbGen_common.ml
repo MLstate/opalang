@@ -130,6 +130,10 @@ let get_val_path_ty = function
 let ref_path_ty ty =
   QmlAst.TypeName ([QmlAst.TypeName ([],ref_p_tyid ()); ty],
                    firstclass_path_tyid ())
+let db3set_engine_ty ty =
+  QmlAst.TypeName ([ty], typ Opacapi.Types.Db3Set.engine)
+let iter ty =
+  QmlAst.TypeName ([ty], Ident.source Opacapi.Types.iter)
 let val_v_tyid () =
   typ Opacapi.Types.virtual_val_path
 let ref_v_tyid () =

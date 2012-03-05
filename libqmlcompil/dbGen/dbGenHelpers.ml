@@ -505,6 +505,18 @@ struct
     id_expr (Arg.ValInitial.ref_to_ref !valinitial_env_ref)
       (tyfun [tydb3path; DbGen_common.Db.ref_path_ty ty])
 
+  let expr_dbset_genbuild ty =
+    let iter = DbGen_common.iter ty in
+    let tydb3 = DbGen_common.db3set_engine_ty ty in
+    id_expr (Arg.ValInitial.dbset_genbuild !valinitial_env_ref)
+      (tyfun [iter; tydb3; DbGen_common.Db.set ty])
+
+  let expr_db3set_iterator ty =
+    let tydb3 = DbGen_common.db3set_engine_ty ty in
+    id_expr (Arg.ValInitial.db3set_iterator !valinitial_env_ref)
+      (tyfun [tydb3; DbGen_common.iter ty])
+
+
   let expr_write ty =
     id_expr (Arg.ValInitial.write !valinitial_env_ref)
       (tyfun [DbGen_common.ref_path_ty ty; ty; tyunit])

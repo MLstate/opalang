@@ -39,6 +39,7 @@
  * {1 Types defined in this module}
  */
 
+@opacapi
 type iter('a) =
   { next: -> option(('a, iter('a))) }
 
