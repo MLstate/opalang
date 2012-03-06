@@ -507,20 +507,6 @@ let pass_Print =
        e
     )
 
-let pass_DbEngineImportation =
-  PassHandler.make_pass
-    (fun e ->
-       let (_, user_files) = e.PH.env in
-       let stdlib = e.PH.options.O.stdlib in
-       List.iter
-         (fun pfile ->
-            Pass_DbEngineImportation.process_code ~stdlib
-              pfile.SurfaceAstPassesTypes.parsedFile_lcode
-         ) user_files;
-       e
-    )
-
-
 let pass_LoadObjects k =
   PH.make_pass
     (fun env ->
@@ -555,6 +541,19 @@ let pass_CheckDuplication =
        let options = env.PH.options in
        let both_env = SurfaceAstPasses.pass_check_duplication [] [] ~options env.PH.env in
        EnvUtils.create_sa_both_env_uids env both_env
+    )
+
+let pass_DbEngineImportation =
+  PassHandler.make_pass
+    (fun e ->
+       let files = e.PH.env in
+       let stdlib = e.PH.options.O.stdlib in
+       List.iter
+         (fun (_, _, pfile) ->
+            Pass_DbEngineImportation.process_code ~stdlib pfile
+         ) files;
+       Pass_DbEngineImportation.finalize ~stdlib;
+       e
     )
 
 let pass_BslLoading =

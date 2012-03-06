@@ -31,7 +31,7 @@ struct
   (* Original ident * stub ident, stub type, expanded stub *)
   type t = DbAst.engine list
 
-  let pass = "ResolveRemoteCalls"
+  let pass = "DbEngineImporation"
   let pp f _ = Format.pp_print_string f "<dummy>"
 end
 
@@ -49,7 +49,6 @@ let import_packages engine =
     | `db3   -> "stdlib.database.db3"
     | `mongo -> "stdlib.database.mongo"
   in
-  ObjectFiles.import_package package label;
   ObjectFiles.add_compiler_package package
 
 let process_code ~stdlib code =
@@ -60,20 +59,42 @@ let process_code ~stdlib code =
       | Some engine -> [engine]
     in
     let engines =
-      R.fold_with_name ~deep:true
-        (fun _ acc t -> t@acc)
+      R.fold_with_name ~optional:true ~deep:true
+        (fun _name acc t -> t@acc)
         engines
     in
-    let engines = List.fold_left
-      (fun acc -> function
-       | (SA.Database (_, _, opt), _) -> opt.DbAst.backend :: acc
-       | _ -> acc
-      ) engines code
+    let engines = engines @ !r in
+    let padecl, dbdecl, engines = List.fold_left
+      (fun (padecl, dbdecl, engines) -> function
+       | (SA.Database (_, id::_, opt), _) ->
+           padecl,
+           Option.map (fun dbdecl -> StringSet.add id dbdecl) dbdecl,
+           (opt.DbAst.backend :: engines)
+       | (SA.Database (_, _, opt), _) ->
+           padecl, None, opt.DbAst.backend :: engines
+       | (SA.NewDbDef (DbAst.Db_TypeDecl ((DbAst.Decl_fld p::_), _)), _) ->
+           StringSet.add p padecl, dbdecl, engines
+       | _ -> padecl, dbdecl, engines
+      ) (StringSet.empty, Some StringSet.empty, engines) code
+    in
+    let engines =
+      match dbdecl with
+      | None -> engines (* Case if default database *)
+      | Some dbdecl ->
+          if StringSet.is_empty (StringSet.diff padecl dbdecl) then engines
+          else `db3 :: engines (* Some path are not included in a database,
+                                  load default engine. *)
     in
     let engines = List.uniq_unsorted engines in
-    r := engines;
-    List.iter import_packages engines;
-    if ObjectFiles.compilation_mode() = `compilation then R.save engines
+    r := engines
+
+let finalize ~stdlib =
+  if stdlib then (
+    List.iter import_packages !r;
+    match ObjectFiles.compilation_mode() with
+    | `compilation -> R.save !r
+    | _ -> ()
+  )
 
 let get_engines () = !r
 

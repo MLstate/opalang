@@ -21,4 +21,6 @@
 *)
 val process_code : stdlib:bool -> ('ident, 'dir) SurfaceAst.code -> unit
 
+val finalize : stdlib:bool -> unit
+
 val get_engines : unit -> QmlAst.Db.engine list

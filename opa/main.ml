@@ -69,11 +69,11 @@ let () =
 
   |+> ("RegisterAppSrcCode", S3.pass_RegisterAppSrcCode)
 
-  |+> ("DbEngineImportation", S3.pass_DbEngineImportation)
-
   (**********************************************)
   (* SURFACE AST PASSES *************************)
   |> PH.handler ~count_time:false "LoadObjects" (S3.pass_LoadObjects (fun e -> e
+
+    |+> ("DbEngineImportation", S3.pass_DbEngineImportation)
 
     |+> ("BslLoading", S3.pass_BslLoading)
 
