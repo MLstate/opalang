@@ -199,7 +199,7 @@ sig
      whole environment that results from merging the environment of the dependencies with
      the current environment
   *)
-  val save : (t -> unit) wrapper
+  val save : ?overwrite:bool -> (t -> unit) wrapper
 end
 
 module Make : functor (S:S) -> R with type t = S.t and type 'a wrapper = 'a
@@ -276,6 +276,8 @@ val stdlib_package_names : package_name -> bool
 
 val compiler_package : package -> bool
 
+val resave : unit -> unit
+
 (**
    Loads the js extra lib with the given basename
 *)
@@ -296,11 +298,6 @@ val compilation_is_successfull : unit -> unit
 val turn_separated_off : unit -> unit
 
 (**
-   Force a package importation.
-*)
-val import_package : package_name -> FilePos.pos -> unit
-
-(**
    Use given package as a compiler package.
 *)
-val add_compiler_package : package_name -> unit
+val add_compiler_packages : package_name list -> unit

@@ -771,6 +771,7 @@ let get_deps ?(packages=false) ?(deep=false) () =
             | false, true -> !package_deep_names
             | false, false -> !package_names) @ (MutableList.to_list compiler_packages))
 
+
 let fold_dir_name ?packages ?deep f acc =
   List.fold_left (fun acc package -> f acc (find_dir package) package) acc (get_deps ?packages ?deep ())
 let iter_dir_name ?packages ?deep f =
@@ -811,7 +812,7 @@ sig
   val fold_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
   val iter : (?optional:bool -> ?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
   val fold : (?optional:bool -> ?packages:bool -> ?deep:bool -> ('a -> t -> 'a) -> 'a -> 'a) wrapper
-  val save : (t -> unit) wrapper
+  val save : ?overwrite:bool -> (t -> unit) wrapper
 end
 
 module Make(S:S) :
@@ -884,7 +885,7 @@ struct
 
   (* save the given content in the current package, or raise SaveError if it failed
    * (because you have no 'write' rights for instance) *)
-  let save t =
+  let save ?(overwrite=false) t =
     match compilation_mode () with
     | `linking | `prelude ->
         assert (!ref_for_partial_sep = None);
@@ -897,9 +898,11 @@ struct
       if not (File.check_create_path file) then
         OManager.error "An error occurred while trying to create the object file %s." file;
       let filename = filename_from_package !current_package S.pass in
-      assert (not (File.exists filename)); (* this would break only if the compiler doesn't clean an existing
-                                            * object file before compiling it or if someone tries to
-                                            * save several times for the same pass *)
+      if not overwrite then assert (not (File.exists filename));
+      (* this would break only if the compiler doesn't clean an existing
+       * object file before compiling it or if someone tries to
+       * save several times for the same pass *)
+
       let channel = open_out_bin filename in
       try
         Printf.fprintf channel "%s\n" this_file_version;
@@ -952,7 +955,7 @@ module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`
   let fold_with_dir ~side = select side Client.fold_with_dir Server.fold_with_dir
   let iter ~side = select side Client.iter Server.iter
   let fold ~side = select side Client.fold Server.fold
-  let save ~side = select side Client.save Server.save
+  let save ?overwrite ~side = select side (Client.save ?overwrite) (Server.save ?overwrite)
 
 end
 
@@ -1288,7 +1291,7 @@ let reorder :
   extract_more_deps:('code_elt list -> float option StringMap.t) ->
   'code_elt block_dep list ListPackageMap.t ->
   'code_elt block_dep list option ->
-    (package -> bool) *
+    (?overwrite:bool -> package -> bool) *
     (package list -> package list) *
     (package -> package -> int) *
     (package * 'code_elt block list * package list) list *
@@ -1400,12 +1403,15 @@ let reorder :
       | Some (name,pos) ->
           OManager.error "%a@\n  Cyclic dependency on the package %s." FilePos.pp_pos pos name in
   let transitive_closure_one package =
-    if ListPackageMap.mem package map then
-      projects (S.transitive_dependencies cache (inject package))
-    else
-      ConsistencyCheckR.load_deps package in
+    List.uniq_unsorted ~cmp:Package.compare
+      ((if ListPackageMap.mem package map then
+          projects (S.transitive_dependencies cache (inject package))
+        else
+          ConsistencyCheckR.load_deps package)
+       @ MutableList.to_list compiler_packages)
+  in
   let transitive_closure packages =
-    let r = List.uniq_unsorted ~cmp:Package.compare (packages @ List.concat_map transitive_closure_one packages) in
+    let r = List.uniq_unsorted ~cmp:Package.compare (packages @ List.concat_map transitive_closure_one packages ) in
     #<If$minlevel 3>
       Format.printf "transitive_closure: [%a] -> [%a]@."
         (Format.pp_list ";" Package.pp) packages (Format.pp_list ";" Package.pp) r
@@ -1569,7 +1575,7 @@ let reorder :
            Unix.Unix_error _ -> ());
         true in
 
-  let save_if_need_recompilation package =
+  let save_if_need_recompilation ?overwrite package =
     let block_deps : 'code_elt block_dep list = ListPackageMap.find package map in
     let filename_content_codes = List.map fst block_deps in
     let filename_content_codes =
@@ -1594,7 +1600,7 @@ let reorder :
         | `partial | `full as v -> v in
       let conf_import = ListHashtbl.find_list confimport (fst package) in
       let static_include_deps = more_deps_of_package package in
-      ConsistencyCheckR.save {
+      ConsistencyCheckR.save ?overwrite {
         sources = my_digest;
         separated_mode = restricted_separated_mode;
         dependencies = my_deeps_deps;
@@ -1668,6 +1674,10 @@ let setup compare transitive_closure ?package_name direct_deps =
     Format.printf "package_names_and_more_names: %a@." (Format.pp_list ";" Package.pp) !package_names_and_more_names
   #<End>
 
+let trclosure = ref ((fun _ -> assert (not (is_separated ())); []) : package list -> package list)
+
+let resave =  ref (fun _ -> assert (not (is_separated ())); false)
+
 let load ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filename_content_lcodes (k : 'code_elt block list -> unit) =
   if not (is_separated ()) then (
     (* when not in separated mode, no check is done on packages declaration or imports *)
@@ -1722,6 +1732,8 @@ let load ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filenam
             map, Some anon in
     #<If$minlevel 2> Printf.printf "map: %s\n%!" (DebugPrint.print map) #<End>;
     let save_if_need_recompilation, transitive_closure, compare, list, anon = reorder ~extrajs ~extract_more_deps map anon in
+    trclosure := transitive_closure;
+    resave := save_if_need_recompilation ~overwrite:true;
     #<If$minlevel 2> Printf.printf "list: %s\n%!" (DebugPrint.print list) #<End>;
 
     OManager.flush_errors (); (* not compiling (nor saving) anything if there was an error before *)
@@ -1779,11 +1791,19 @@ let compiler_package (package_name,pos) =
 
 let get_paths () = !extrapaths
 
-let import_package packname pos =
-  MutableList.add more_import_package_names (packname, pos)
+let add_compiler_packages packs =
+  let packs = List.map (fun packname -> (packname, FilePos.nopos "Compiler Package")) packs in
+  MutableList.append compiler_packages packs;
+  #<If> Printf.printf "compiler packages \n%!" #<End>;
+  let unique l = List.uniq_unsorted ~cmp:Package.compare l in
+  package_names := unique (!package_names @ packs);
+  let deeps = !trclosure packs in
+  package_deep_names := unique (!package_deep_names @ deeps);
+  package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps);
+  package_names_and_more_names := unique (!package_names_and_more_names @ deeps)
 
-let add_compiler_package packname =
-  MutableList.add compiler_packages (packname, FilePos.nopos "Compiler Package")
+let resave () =
+  let _ = !resave !current_package in ()
 
 module Arg =
 struct
