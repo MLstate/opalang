@@ -755,18 +755,21 @@ let get_deps ?(packages=false) ?(deep=false) () =
   match compilation_mode () with
   | `init ->
       if packages && deep then
-        !package_deep_names_and_more_deeps_names
+        List.uniq_unsorted ~cmp:Package.compare
+          (!package_deep_names_and_more_deeps_names
+           @ (MutableList.to_list compiler_packages))
       else
         []
   | `compilation | `linking | `prelude ->
       if !after_end_of_separate_compilation then
         []
       else
-        (match packages, deep with
-         | true, true -> !package_deep_names_and_more_deeps_names
-         | true, false -> !package_names_and_more_names
-         | false, true -> !package_deep_names
-         | false, false -> !package_names)
+        List.uniq_unsorted ~cmp:Package.compare
+          ((match packages, deep with
+            | true, true -> !package_deep_names_and_more_deeps_names
+            | true, false -> !package_names_and_more_names
+            | false, true -> !package_deep_names
+            | false, false -> !package_names) @ (MutableList.to_list compiler_packages))
 
 let fold_dir_name ?packages ?deep f acc =
   List.fold_left (fun acc package -> f acc (find_dir package) package) acc (get_deps ?packages ?deep ())
@@ -1770,9 +1773,9 @@ let stdlib_package_names name =
 
 let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
 
-let compiler_package (package_name,_pos) =
+let compiler_package (package_name,pos) =
   stdlib_package_names package_name ||
-    MutableList.mem package_name compiler_packages
+    List.mem_eq ~eq:Package.equal (package_name, pos) (MutableList.to_list compiler_packages)
 
 let get_paths () = !extrapaths
 
@@ -1780,7 +1783,7 @@ let import_package packname pos =
   MutableList.add more_import_package_names (packname, pos)
 
 let add_compiler_package packname =
-  MutableList.add compiler_packages packname
+  MutableList.add compiler_packages (packname, FilePos.nopos "Compiler Package")
 
 module Arg =
 struct
