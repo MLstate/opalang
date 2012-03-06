@@ -17,6 +17,7 @@
 *)
 (* depends *)
 module List = BaseList
+module Format = BaseFormat
 
 (* shorthands *)
 module SA = SurfaceAst
@@ -32,7 +33,12 @@ struct
   type t = DbAst.engine list
 
   let pass = "DbEngineImporation"
-  let pp f _ = Format.pp_print_string f "<dummy>"
+  let pp f l =
+    let aux = function
+      |`db3 -> "db3"
+      |`mongo -> "mongo"
+    in
+    List.iter (fun x -> Format.fprintf f "%s;" (aux x)) l
 end
 
 module R = struct
@@ -44,12 +50,15 @@ let label = FilePos.nopos "Built in pass DbEngineImportation"
 
 let r = ref []
 
-let import_packages engine =
-  let package = match engine with
-    | `db3   -> "stdlib.database.db3"
-    | `mongo -> "stdlib.database.mongo"
+let import_packages engines =
+  let packages =
+    List.map
+      (function
+       | `db3   -> "stdlib.database.db3"
+       | `mongo -> "stdlib.database.mongo")
+      engines
   in
-  ObjectFiles.add_compiler_package package
+  ObjectFiles.add_compiler_packages packages
 
 let process_code ~stdlib code =
   if stdlib then
@@ -72,7 +81,10 @@ let process_code ~stdlib code =
            (opt.DbAst.backend :: engines)
        | (SA.Database (_, _, opt), _) ->
            padecl, None, opt.DbAst.backend :: engines
-       | (SA.NewDbDef (DbAst.Db_TypeDecl ((DbAst.Decl_fld p::_), _)), _) ->
+       | (SA.NewDbDef
+            ( DbAst.Db_TypeDecl ((DbAst.Decl_fld p::_), _)
+            | DbAst.Db_Default ((DbAst.Decl_fld p::_), _)
+            | DbAst.Db_Constraint ((DbAst.Decl_fld p::_), _)), _) ->
            StringSet.add p padecl, dbdecl, engines
        | _ -> padecl, dbdecl, engines
       ) (StringSet.empty, Some StringSet.empty, engines) code
@@ -90,9 +102,11 @@ let process_code ~stdlib code =
 
 let finalize ~stdlib =
   if stdlib then (
-    List.iter import_packages !r;
+    import_packages !r;
     match ObjectFiles.compilation_mode() with
-    | `compilation -> R.save !r
+    | `compilation ->
+        ObjectFiles.resave ();
+        R.save !r
     | _ -> ()
   )
 
