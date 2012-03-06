@@ -81,6 +81,21 @@ type Server.conf = {
 }
 
 /**
+ * Server resgitrable resources, that can be registered for all the web pages inside a server applications.
+ * Warning: It will be imported for ALL applications inside the server.
+ *
+ * favicon: a list of favicons to register
+ * css: a list of css files to register
+ * js: a list of js files to register
+ * or a list of string that will be guessed depending on the extension.
+ */
+type Server.registrable_resource =
+  {favicon : list(Favicon.t)}
+/ {css : list(string)}
+/ {js : list(string)}
+/ list(string)
+
+/**
  * Different types of request handler.
  */
 type Server.handler =
@@ -111,10 +126,7 @@ type Server.handler =
 
   /** An empty request handler but useful for external resources
       registering. */
-  / {register : list(string)
-              / {favicon : list(Favicon.t)}
-              / {js : list(string)}
-              / {css : list(string)}}
+  / {register : Server.registrable_resource}
 
   /** Request handler which aggregates several request handlers. On
       incomming request all handlers (in the order of list) are tested
