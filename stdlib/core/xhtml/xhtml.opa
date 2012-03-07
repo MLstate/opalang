@@ -850,6 +850,8 @@ Xhtml =
                    | _ -> void
                )
 
+               (load_events, other_events) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events)
+               (_,   other_events_options) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events_options)
 
                other_events = // take care of event handler that can be inlined in html attribute
                  if XhtmlOptions.options.enable_inlined_event then
@@ -998,7 +1000,7 @@ Xhtml =
      str
    {js_code = js_code;
     html_code = Buf.contents(html_buffer)}
-  )
+ )
 
  /**
   * Convert xhtml to a readable text
