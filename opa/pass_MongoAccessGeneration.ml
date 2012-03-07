@@ -626,17 +626,19 @@ module Generator = struct
     let node = get_node ~context schema dbpath in
     match node.DbSchema.database.DbSchema.options.DbAst.backend with
     | `mongo -> (
-        match node.DbSchema.kind with
-        | DbSchema.SetAccess (setkind, path, query) ->
-            dbset_path ~context gamma annotmap (kind, path) setkind node query
-        | _ ->
-            let strpath = List.map
-              (function
-               | DbAst.FldKey k -> k
-               | _ -> assert false
-              ) dbpath in
-            let annotmap, mongopath = string_path ~context gamma annotmap schema (kind, strpath) in
-            match kind with
+        let annotmap, mongopath =
+          match node.DbSchema.kind with
+          | DbSchema.SetAccess (setkind, path, query) ->
+              dbset_path ~context gamma annotmap (kind, path) setkind node query
+          | _ ->
+              let strpath = List.map
+                (function
+                 | DbAst.FldKey k -> k
+                 | _ -> assert false
+                ) dbpath in
+              string_path ~context gamma annotmap schema (kind, strpath)
+        in
+        match kind with
             | DbAst.Ref | DbAst.Valpath ->
                 let annotmap, p2p =
                   OpaMapToIdent.typed_val ~label
