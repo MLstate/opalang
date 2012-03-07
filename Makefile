@@ -60,7 +60,7 @@ opa-packages: $(MYOCAMLBUILD)
 .PHONY: stdlib
 stdlib: opa-packages
 
-DISTRIB_TOOLS = opa-bin opadoc opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
+DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
@@ -156,14 +156,6 @@ install-share:
 	@$(if $(wildcard $(BUILD_DIR)/share/opa/*),$(INSTALL) -r $(BUILD_DIR)/share/opa/* $(INSTALL_DIR)/share/opa/)
 	@printf "Installation to $(INSTALL_DIR)/share/opa done.[K\n"
 
-install-doc:
-	@printf "Installing into $(INSTALL_DIR)/share/doc/opa[K\r"
-	@if [ -d $(BUILD_DIR)/opadoc/doc/ ]; then \
-	  mkdir -p $(INSTALL_DIR)/share/doc/opa/api; \
-	  $(INSTALL) -r $(BUILD_DIR)/opadoc/doc/* $(INSTALL_DIR)/share/doc/opa/api; \
-	fi
-	@printf "Installation to $(INSTALL_DIR)/share/doc/opa done.[K\n"
-
 install-man:
 	@printf "Installing into $(INSTALL_DIR)/share/man[K\r"
 	@if [ -d $(BUILD_DIR)/man/man1 ]; then \
@@ -242,11 +234,6 @@ doc.odocl:
 packages-api: $(MYOCAMLBUILD)
 	OPAOPT="$(OPAOPT) --rebuild --api --parser classic" $(OCAMLBUILD) opa-packages.stamp
 
-.PHONY: opadoc/doc
-opadoc/doc: opadoc packages-api
-	@mkdir -p $(BUILD_DIR)/$@
-	cd $(BUILD_DIR) && ./bin/opadoc -o $@ stdlib && cd -
-
 .PHONY: book
 book:
 	$(MAKE) -C doc/book
@@ -268,4 +255,4 @@ book-clean:
 clean:: book-clean
 
 .PHONY: doc
-doc: doc.html opadoc/doc book
+doc: doc.html

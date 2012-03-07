@@ -56,8 +56,6 @@ internal opa-bin              opa/main.native lib/opa/bin
 
 internal opa_bash_completion  bash_completion share/opa
 
-internal opadoc               opadoc/opadoc.native
-
 # for now, these can't be built cleanly from opageneral
 internal opabslgen.bypass     opabsl/opabslgen.bypass lib/opa/static
 internal serverLib.cmi        opabsl/serverLib.cmi lib/opa/static

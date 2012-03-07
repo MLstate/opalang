@@ -205,7 +205,6 @@ fi
 cd $OPAGENERAL
 SRCDIR=$OPAGENERAL
 OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
-OPADOCGEN=$OPAGENERAL/_build/opadoc/doc # the generated API doc
 
 ./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release -no-dbm
 
@@ -223,7 +222,6 @@ mkdir -p $INSTALLDIR/share/doc/opa/
 make packages-api
 # generating the book
 # if [ $NODOC = "false" ]; then
-#    make opadoc/doc install-doc
 #    if ! make book-clean book; then
 #        msg "Error: could not build the doc in $OPABOOK."
 #        msg "You may want to fix and re-run with -keep-install-sys -keep-build"
