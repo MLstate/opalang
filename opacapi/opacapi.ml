@@ -395,6 +395,12 @@ struct
     let engine  = !! "engine"
   end
 
+  module DbMongoSet =
+  struct
+    let (!!) s = !! ("DbMongoSet." ^ s)
+    let engine  = !! "engine"
+  end
+
   module DbMongo =
   struct
     let (!!) s = !! ("DbMongo." ^ s)

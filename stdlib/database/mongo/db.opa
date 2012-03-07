@@ -527,6 +527,7 @@ Then use option --db-remote instead of --db-local.
 
 
 @abstract
+@opacapi
 type DbMongoSet.engine('a) = { reply: Mongo.reply default : 'a}
 
 @opacapi

@@ -570,7 +570,7 @@ module Generator = struct
                let setident = Ident.next "mongoset" in
                let annotmap, identset =
                  let tyset = OpaMapToIdent.specialized_typ ~ty:[ty]
-                   Api.Types.Db3Set.engine gamma in
+                   Api.Types.DbMongoSet.engine gamma in
                  C.ident annotmap setident tyset
                in
                let annotmap, iterator =
@@ -639,13 +639,13 @@ module Generator = struct
               string_path ~context gamma annotmap schema (kind, strpath)
         in
         match kind with
-            | DbAst.Ref | DbAst.Valpath ->
-                let annotmap, p2p =
-                  OpaMapToIdent.typed_val ~label
-                    ~ty:[QmlAstCons.Type.next_var (); node.DbSchema.ty]
-                    Api.Db.path_to_path annotmap gamma in
-                C.apply gamma annotmap p2p [mongopath]
-            | _ -> annotmap, mongopath
+        | DbAst.Ref | DbAst.Valpath ->
+            let annotmap, p2p =
+              OpaMapToIdent.typed_val ~label
+                ~ty:[QmlAstCons.Type.next_var (); node.DbSchema.ty]
+                Api.Db.path_to_path annotmap gamma in
+            C.apply gamma annotmap p2p [mongopath]
+        | _ -> annotmap, mongopath
       )
     | `db3 -> annotmap, Q.Path (label, dbpath, kind)
 
