@@ -164,7 +164,7 @@ install-man:
 	fi
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
-install: install-bin install-lib install-share install-plugins install-packages install-doc install-man
+install: install-bin install-lib install-share install-plugins install-packages install-man
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
