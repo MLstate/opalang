@@ -225,7 +225,7 @@ let petit_boutiste value =
 let to_byte s =
   String.make 1 (Char.chr (int_of_string s))
 
-  
+
 
 
 let mise_enforme v = function
@@ -269,6 +269,7 @@ let get_mimetype_aux filename database =
   let length = in_channel_length file in
   let content = String.make length ' ' in
   really_input file content 0 length;
+  close_in_noerr file;
 
   let rec check_mime_list accumulator mimelist =
     match mimelist with
@@ -463,7 +464,7 @@ let build_mimetype_database database =
 
                (* replace escaped chars by them real values *)
                let m_value =
-                 let res = 
+                 let res =
                    Str.global_substitute (Str.regexp "\\\\\\([0-9][0-9][0-9]\\)")
                      (fun x -> String.make 1 (Char.chr (int_of_string (Str.matched_group 1 x)))) m_value
                  in mise_enforme res m_type
@@ -484,6 +485,7 @@ let build_mimetype_database database =
     | _ -> raise Malformed
   in
   let db = continue [] in
+  close_in_noerr ic;
 
 (*  let mimetypes_by_hierarchie =
     let premium, others = List.partition (fun x -> match x.ai_subclassof with None -> true | _ -> false) db in
