@@ -1026,6 +1026,12 @@ struct
   let load_static_include_deps package = get_static_include_deps (load1 package)
 end
 
+let trclosure = ref ((fun _ -> assert (not (is_separated ())); []) : package list -> package list)
+
+let reorder_packages = ref ((fun p -> assert (not (is_separated ())); p))
+
+let resave =  ref (fun _ -> assert (not (is_separated ())); false)
+
 (* checks that a package agrees with other packages
  * it should fail using [error] and [serror] only so that
  * the compiler can recover in autobuild
@@ -1417,6 +1423,7 @@ let reorder :
         (Format.pp_list ";" Package.pp) packages (Format.pp_list ";" Package.pp) r
     #<End>;
     r in
+  let _ = reorder_packages := fun packages -> fst (S.get_order (S.compute packages)) in
   let sorted_packages, remaining = S.get_order cache in
   if remaining <> [] then (
     Format.printf "@[all_packages:[%a]@\npackages:%a@\nsorted:[%a]@\nremaining: [%a]@]@."
@@ -1674,10 +1681,6 @@ let setup compare transitive_closure ?package_name direct_deps =
     Format.printf "package_names_and_more_names: %a@." (Format.pp_list ";" Package.pp) !package_names_and_more_names
   #<End>
 
-let trclosure = ref ((fun _ -> assert (not (is_separated ())); []) : package list -> package list)
-
-let resave =  ref (fun _ -> assert (not (is_separated ())); false)
-
 let load ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filename_content_lcodes (k : 'code_elt block list -> unit) =
   if not (is_separated ()) then (
     (* when not in separated mode, no check is done on packages declaration or imports *)
@@ -1793,14 +1796,15 @@ let get_paths () = !extrapaths
 
 let add_compiler_packages packs =
   let packs = List.map (fun packname -> (packname, FilePos.nopos "Compiler Package")) packs in
-  MutableList.append compiler_packages packs;
+  let deeps = !reorder_packages (List.map (fun x -> Some x) (!trclosure packs)) in
+  let deeps = List.filter_map (fun x -> x ) deeps in
+  MutableList.append compiler_packages deeps;
   #<If> Printf.printf "compiler packages \n%!" #<End>;
   let unique l = List.uniq_unsorted ~cmp:Package.compare l in
   package_names := unique (!package_names @ packs);
-  let deeps = !trclosure packs in
-  package_deep_names := unique (!package_deep_names @ deeps);
-  package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps);
-  package_names_and_more_names := unique (!package_names_and_more_names @ deeps)
+  package_deep_names := unique (!package_deep_names @ deeps @ packs);
+  package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs);
+  package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs )
 
 let resave () =
   let _ = !resave !current_package in ()
