@@ -539,8 +539,10 @@ type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
 
 DbSet = {{
 
+  @package path_to_id(path) = List.to_string_using("", "", ".", path)
+
   @package index(db:DbMongo.t, path:list(string), idx) =
-    id = List.to_string_using("", "", ".", path)
+    id = DbSet.path_to_id(path)
     key = List.map((name -> ~{name value={Int32=1}}), idx)
     opt = 0
     opt = Bitwise.lor(opt, MongoCommon.UniqueBit)
@@ -559,7 +561,7 @@ DbSet = {{
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     #<End>
-    id = List.to_string_using("", "", ".", path)
+    id = DbSet.path_to_id(path)
     reply=MongoDriver.query(db.db, 0, "{db.name}.{id}", skip, limit, selector, none)
     match reply with
     | {none} ->
@@ -568,7 +570,7 @@ DbSet = {{
     | {some=reply} -> ~{reply default}
 
   @package update(db:DbMongo.t, path:list(string), selector, update) =
-    id = List.to_string_using("", "", ".", path)
+    id = DbSet.path_to_id(path)
     tag = Bitwise.lor(0, MongoCommon.UpsertBit)
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
     #<Ifstatic:DBGEN_DEBUG>
@@ -705,7 +707,7 @@ DbSet = {{
   @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
               read_map:DbMongoSet.engine('a) -> option('b)):DbMongo.private.val_path('b) =
     {
-      id = DbMongo.path_to_id(path)
+      id = DbSet.path_to_id(path)
       read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit)):option('b)
       default = default
       more = void
@@ -713,6 +715,7 @@ DbSet = {{
   // [selector |
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
               read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
+    id = DbSet.path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
     write(data) =
       do update(db, path, selector,
@@ -720,7 +723,7 @@ DbSet = {{
          )
       true
     remove() =
-      if not(MongoDriver.delete(db.db, 0, "{db.name}.{vpath.id}", selector)) then
+      if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
         Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
       #<Ifstatic:DBGEN_DEBUG>
       else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
