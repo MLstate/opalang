@@ -157,17 +157,17 @@ let engine_opt opts =
 (* Common database type beetween different backends *)
 module Db = struct
 
-  let t () =
+  let t ?(engine=get_engine()) () =
     let ident =
-      match get_engine() with
+      match engine with
       | `db3 -> Opacapi.Types.Db3.t
       | `mongo -> Opacapi.Types.DbMongo.t
     in
     QmlAst.TypeName ([], typ ident)
 
-  let set ty =
+  let set ?(engine=get_engine()) ty =
     let ident =
-      match get_engine() with
+      match engine with
       | `db3 -> Opacapi.Types.db3set
       | `mongo -> Opacapi.Types.dbmongoset
     in

@@ -763,7 +763,7 @@ let register_db_declaration t (label, ident, p, opts) =
                             } t)
   | [Db.Decl_fld point] ->
       (StringListMap.add [point] { ident = ident;
-                                   ty = C.Db.t ();
+                                   ty = C.Db.t ~engine:opts.Db.backend ();
                                    context = context;
                                    path_aliases = [];
                                    options = opts;
