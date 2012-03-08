@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -572,7 +572,7 @@ String =
   padding_left(padder: string, len: int, source: string)=
     src_len= length(source)
     pad_len= length(padder)
-    if len < src_len || pad_len < 1 then error("padding left failure")
+    if len < src_len || pad_len < 1 then source
     else sub(0, len - src_len, repeat(((len - src_len) / pad_len) + 1, padder))^source
   : string
 
@@ -582,7 +582,7 @@ String =
   padding_right(padder: string, len: int, source: string)=
     src_len= length(source)
     pad_len= length(padder)
-    if len < src_len || pad_len < 1 then error("padding right failure")
+    if len < src_len || pad_len < 1 then source
     else source^sub(0, len - src_len, repeat(((len - src_len) / pad_len) + 1, padder))
   : string
 
