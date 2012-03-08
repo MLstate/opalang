@@ -30,6 +30,9 @@ module Q = QmlAst
 
 let (|>) = InfixOperator.(|>)
 
+let sugar_mode = ref false
+let set_sugar_mode() = sugar_mode := true
+
 (* cf mli *)
 
 (*
@@ -658,9 +661,13 @@ let make_function2 letins double_dot e el =
   in
   let el_sugar = map_el (function _ -> ident_hole) el in
   let sugar_directive e_sugar e =
-    let expr_sugar = make_function_body double_dot e_sugar el_sugar in
-    let dir_node = Directive (`sugar expr_sugar, [e,builtin()], []) in
-    dir_node
+    let l = [e,builtin()] in
+    if !sugar_mode then
+      let expr_sugar = make_function_body double_dot e_sugar el_sugar in
+      let dir_node = Directive (`sugar expr_sugar, l, []) in
+      dir_node
+    else
+      e
   in
     match e with
       | `hole p_sugar ->
@@ -853,7 +860,12 @@ let create_letins ~label dirs l e2 =
  *)
 let rec bind_in_to_expr_in dirs binding e2 =
   let (p,e1) = binding in
-  let pat_in_sugar_directive e label = Directive (`sugar_pat_in (p,e1,e2), [e], []), label in
+  let pat_in_sugar_directive e label =
+    if !sugar_mode then
+      Directive (`sugar_pat_in (p,e1,e2), [e], []), label
+    else
+      e
+  in
   undecorate (
     match p with
       | (PatVar v, label) ->

@@ -61,7 +61,7 @@ let _ =
 
   |+> ("PreProcess", S3.pass_PreProcess)
 
-  |+> ("Parse", S3.pass_Parse)
+  |+> ("Parse", S3.pass_ParseSugar)
 
   |+> ("Print", S3.pass_Print)
 

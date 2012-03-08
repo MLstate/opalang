@@ -229,8 +229,9 @@ let hl_factory parser_rule name ?filename contents =
 let expr = hl_factory Opa_parser.parse_opa_parser_expr_eoi "Expression"
 let ty = hl_factory Opa_parser.parse_opa_parser_ty_eoi "Type"
 
-let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") content =
+let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=false) content =
   (*print_string content;*)
+  if sugar then Parser_utils.set_sugar_mode();
   FilePos.add_file filename content;
   match if cache then CacheParse.get filename content else None with
   | None ->

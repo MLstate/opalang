@@ -417,7 +417,7 @@ let pass_PreProcess =
        in
        { e with PH.env = (process files, process ufiles) })
 
-let pass_Parse =
+let make_pass_Parse sugar =
   PassHandler.make_pass
     (fun e ->
        let options = e.PH.options in
@@ -428,6 +428,7 @@ let pass_Parse =
            OpaParser.code
              ~cache:(not options.O.no_cache_parse)
              ~filename:input_file.P.inputFile_basename
+             ~sugar
              input_file.P.inputFile_content
          in
          { SurfaceAstPassesTypes.
@@ -440,6 +441,9 @@ let pass_Parse =
        let user_parsed_files = List.map parsed_of_input_file user_files in
        PassHandler.make_env options ((special_parsed_files, user_parsed_files), env)
     )
+
+let pass_Parse = make_pass_Parse false
+let pass_ParseSugar = make_pass_Parse true
 
 let parsed_files_printers extract =
   function opt ->

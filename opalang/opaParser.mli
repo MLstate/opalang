@@ -73,7 +73,7 @@ val ty :  ?filename:filename -> contents -> nonuid SurfaceAst.ty
    [{mlstate_dir}/opa/cache/parser].
    (Default is [cache:false])
 *)
-val code : ?parser_:OpaSyntax.t -> ?cache:bool -> ?filename:filename -> contents -> (nonuid, SurfaceAst.parsing_directive) SurfaceAst.code
+val code : ?parser_:OpaSyntax.t -> ?cache:bool -> ?filename:filename -> ?sugar:bool -> contents -> (nonuid, SurfaceAst.parsing_directive) SurfaceAst.code
 
 (** {6 Deprecated API} *)
 

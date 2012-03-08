@@ -62,6 +62,9 @@ type parsing_expr = (nonuid, parsing_directive) expr
 (** An node resulting of parsing *)
 type parsing_node = (nonuid, parsing_directive) expr_node
 
+(** Activate sugar mode to preserve syntactic sugar inside a parsing directive *)
+val set_sugar_mode : unit -> unit
+
 (** General functions *)
 val cur2 : ('a * 'b -> 'c) -> 'a -> 'b -> 'c
 val unc2 : ('a -> 'b -> 'c) -> 'a * 'b -> 'c
