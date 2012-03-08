@@ -298,7 +298,7 @@ module Generator = struct
         "Can't generates mongo access because : %s is not yet implemented"
         s
 
-  let rec compose_path ~context gamma annotmap schema kind subs =
+  let rec compose_path ~context gamma annotmap schema dbname kind subs =
     let subkind =
       match kind with
       | DbAst.Update _
@@ -308,7 +308,7 @@ module Generator = struct
     let annotmap, elements =
       C.list_map
         (fun annotmap (field, sub) ->
-           let (annotmap, path) = string_path ~context gamma annotmap schema (subkind, sub) in
+           let (annotmap, path) = string_path ~context gamma annotmap schema (subkind, dbname::sub) in
            let (annotmap, field) = C.string annotmap field in
            C.opa_tuple_2 (annotmap, gamma) (field, path)
         ) (annotmap, gamma) subs
@@ -328,6 +328,7 @@ module Generator = struct
       get_node ~context schema strpath in
     (* ^^ FIXME !?!?! ^^ *)
     let dataty = node.DbSchema.ty in
+    let dbname = node.DbSchema.database.DbSchema.name in
     match kind with
     | DbAst.Update u ->
         begin match node.DbSchema.kind with
@@ -353,7 +354,7 @@ module Generator = struct
             C.apply gamma annotmap update [database; path; uexpr]
         | DbSchema.Partial (sum, rpath, partial) ->
             if sum then QmlError.serror context "Update inside a sum path is forbidden";
-            let annotmap, path = expr_of_strpath gamma annotmap rpath in
+            let annotmap, path = expr_of_strpath gamma annotmap (dbname::rpath) in
             let annotmap, uexpr = update_to_expr gamma annotmap (DbAst.UFlds [partial, u]) in
             let annotmap, database = node_to_dbexpr gamma annotmap node in
             let annotmap, update =
@@ -367,7 +368,8 @@ module Generator = struct
                    match dot_update gamma annotmap field u with
                    | Some (annotmap, subu) ->
                        let annotmap, sube =
-                         string_path ~context gamma annotmap schema (DbAst.Update subu, subpath)
+                         string_path ~context gamma annotmap schema
+                           (DbAst.Update subu, dbname::subpath)
                        in (annotmap, Some (Ident.next "_", sube))
                    | None -> annotmap, None
                 ) annotmap c
@@ -382,21 +384,21 @@ module Generator = struct
         let (annotmap, args, builder, pathty) =
           match node.DbSchema.kind with
           | DbSchema.Compose subs ->
-              compose_path ~context gamma annotmap schema kind subs
+              compose_path ~context gamma annotmap schema dbname kind subs
 
           | DbSchema.Partial (sum, rpath, partial) ->
               let annotmap, partial = C.list_map
-            (fun annotmap fragment -> C.string annotmap fragment)
-            (annotmap, gamma) partial
-          in let annotmap, rpath = C.list_map
-            (fun annotmap fragment -> C.string annotmap fragment)
-            (annotmap, gamma) rpath
-          in begin match kind with
-          | DbAst.Ref ->
-              if sum then QmlError.serror context "Update inside a sum path is forbidden";
-              annotmap, [rpath; partial], Api.Db.build_rpath_sub, Api.Types.DbMongo.ref_path
-          | _ ->
-              annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.DbMongo.val_path
+                (fun annotmap fragment -> C.string annotmap fragment)
+                (annotmap, gamma) partial
+              in let annotmap, rpath = C.list_map
+                (fun annotmap fragment -> C.string annotmap fragment)
+                (annotmap, gamma) (dbname::rpath)
+              in begin match kind with
+              | DbAst.Ref ->
+                  if sum then QmlError.serror context "Update inside a sum path is forbidden";
+                  annotmap, [rpath; partial], Api.Db.build_rpath_sub, Api.Types.DbMongo.ref_path
+              | _ ->
+                  annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.DbMongo.val_path
               end
           | DbSchema.Plain ->
               let annotmap, const = C.bool (annotmap, gamma) (ty_is_const gamma dataty) in

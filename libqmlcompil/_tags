@@ -21,6 +21,7 @@
 <qmlTypesUtils.ml>: with_mlstate_debug
 <qmlDependencies.ml> : with_mlstate_debug, use_graph
 <qmlTyper.ml> : with_mlstate_debug
+<qmlDbGen.ml> : with_mlstate_debug
 <typer_w.ml> : with_mlstate_debug
 <typer_w/w_TypingEnv.ml> : with_mlstate_debug
 <typer_w/w_Infer.ml> : with_mlstate_debug

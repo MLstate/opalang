@@ -19,6 +19,8 @@
     @author Louis Gesbert
 **)
 
+#<Debugvar:DBGEN_DEBUG>
+
 module Format = BaseFormat
 
 module Graph = SchemaGraphLib.SchemaGraph.SchemaGraph0
@@ -221,7 +223,9 @@ module Schema = struct
     | _ -> false
 
   let get_node (schema:t) path =
-    (* Format.eprintf "Get node on %a\n%!" QmlPrint.pp#path_elts path; *)
+    #<If>
+      Format.eprintf "Get node : @[with path %a@]@\n" QmlPrint.pp#path_elts path;
+    #<End>;
     let dbname, declaration, path =
       try
         let dbname, path= match path with
@@ -290,7 +294,6 @@ module Schema = struct
     let (node, kind, _path) =
       List.fold_left f (get_root llschema, Compose [], []) path in
     let kind =
-      (* Format.eprintf "%a" pp_kind kind; *)
       match kind with
       | Compose _ -> (
           match (Graph.V.label node).C.nlabel with
@@ -332,7 +335,9 @@ module Schema = struct
       database; kind; default;
       ty = node.DbGen_common.ty;
     } in
-    (* Format.eprintf "Got node %a\n%!" pp_node r; *)
+    #<If>
+      Format.eprintf "@[Got : %a@]@\n" pp_node r;
+    #<End>;
     r
 
 
