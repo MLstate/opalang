@@ -252,7 +252,7 @@ struct
     | [] -> pp fmt ""
 
   let rec pp_update pp_expr fmt = function
-    | UExpr e -> pp fmt ": %a" pp_expr e
+    | UExpr e -> pp fmt "%a" pp_expr e
     | UFlds fields ->
         pp fmt "(";
         List.iter
