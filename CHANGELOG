@@ -2,6 +2,9 @@
 
 Other features:
 
+  * opa-translate tool updated for classic to js-like syntax translation
+    with support of syntactic sugar, prettier printer and various enhancements and bugfixes
+
   * directive @from
     - new @from directive to resolve importation conflicts
     - In case of conflicts beetween two types with same original names, error message includes packages.
@@ -34,6 +37,8 @@ Updated APIs:
 Bug fixes:
 
   * Improved HTTP gzip compression time
+
+  * Various fixes on http client response parser
 
   * Parser fixes : bindinds, declaration directives, sugared list
 
