@@ -33,6 +33,8 @@ let settyp = DbGen_common.settyp
 
 module Args = C.Args
 
+let get_engine = C.get_default
+
 module Sch = Schema_private
 module Schema = struct
 

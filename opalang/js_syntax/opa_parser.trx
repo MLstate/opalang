@@ -429,7 +429,7 @@ declaration_database <-
     {{
        let decl_ =
          let opt = match opt with
-         | None -> {QmlAst.Db.backend = `db3}
+         | None -> {QmlAst.Db.backend = QmlDbGen.get_engine()}
          | Some opt -> opt in
          [Database (id, [id], opt)]
        in

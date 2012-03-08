@@ -1547,6 +1547,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
               (dbpath_add accpath (k()), wr_expr)
               (E.dst edge) subpath
         | (Db.ExprKey _)::_, C.Product -> error "Unhandled sugar in path"
+        | (Db.Query _)::_, _ -> error "Queries are not yet supported by db3 backend"
         | _, _ -> assert false (* inconsistency in path wrt to schema *)
     in
     let res, writer, _node =

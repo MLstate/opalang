@@ -245,6 +245,8 @@ db_virtual <-
 /** database options **/
 db_options <-
   / "@" "meta" {{ {QmlAst.Db.backend = `db3} }}
+  / "@" "db3" {{ {QmlAst.Db.backend = `db3} }}
+  / "@" "mongo" {{ {QmlAst.Db.backend = `mongo} }}
 
 (**
    {6 Bindings}

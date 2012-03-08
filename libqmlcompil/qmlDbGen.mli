@@ -33,6 +33,9 @@ module Args : sig
 
 end
 
+(** Get command line backend or default*)
+val get_engine : unit -> engine
+
 (** {6 Initialization } **)
 
 (** Set the translation function beetween string and renamed type
