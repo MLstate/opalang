@@ -19,7 +19,7 @@
 /*
  *  RemoteLog module
  *
- *  @author: Cedric Soulas, 2011
+ *  @author: Cedric Soulas, 2011, 2012
  */
 
 /**
@@ -62,7 +62,7 @@ RemoteLog = {{
    */
   info(event_list) =
     match remote_uri_prefix() with
-    | {none} -> Log.error("Remote log server","Bad uri prefix: {remote_uri_prefix}")
+    | {none} -> void
     | {some=uri} -> (
       uri = List.fold(((key,value), acc ->
         value = Uri.encode_string(value)
