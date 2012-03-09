@@ -214,6 +214,7 @@ module Generator = struct
           add_to_document gamma annotmap "$set" uexpr empty
         else annotmap, uexpr
     | update ->
+        let addset = set in
         let rec collect fld (inc, set, other, annotmap) update =
           let rfld = if fld = "" then "value" else fld in
           match update with
@@ -265,8 +266,12 @@ module Generator = struct
                 | (field, value)::q ->
                     aux (add_to_document gamma annotmap field value doc) q
               in
-              let annotmap, sexpr = aux (C.list (annotmap, gamma) []) set in
-              add_to_document gamma annotmap "$set" sexpr uexpr
+              if addset then (
+                let annotmap, sexpr = aux (C.list (annotmap, gamma) []) set in
+                add_to_document gamma annotmap "$set" sexpr uexpr
+              ) else (
+                aux (C.list (annotmap, gamma) []) set
+              )
         in
         let annotmap, uexpr =
           List.fold_left
