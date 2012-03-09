@@ -403,8 +403,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
           SchemaGraph0.fold_vertex
             (fun n (d_acc,r_acc,w_acc) -> let nodeid = (V.label n).C.nodeid in
              let d,r,w =
-               if SchemaGraphLib.is_root n then None, None, None
-               else match (V.label n).C.nlabel with
+               match (V.label n).C.nlabel with
                | C.Leaf _l -> None, None, None
                    (* No accessors for leaves, they use the generic ones *)
                | C.Multi when SchemaGraphLib.is_node_set sch n ->
