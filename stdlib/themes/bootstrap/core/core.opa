@@ -57,14 +57,22 @@ get_img(name) =
 icon16 = css
 /* Icons 16px */
 /* Default 16px gray icons for light backgrounds */
+/* .icon should be replaced by: [class^="icon-"],[class*=" icon-"] */
 .icon {
-  width: 16px;
-  height: 16px;
-  background-image: {get_img("icons16-gray.png")} ;
-  background-repeat: no-repeat;
-  display: inline-block;
-  vertical-align: text-top;
+  display:inline-block;
+  width:16px;
+  height:16px;
+  line-height:16px;
+  vertical-align:text-top;
+  background-image:{get_img("icons16-gray.png")};
+  background-position:16px 16px;
+  background-repeat:no-repeat;
+  margin-right:0.3em; /* should be replaced by *margin-right */
 }
+/*
+[class^="icon-"]:last-child,[class*=" icon-"]:last-child {
+  *margin-left:0;
+}*/
 /* Dark gray icons, default hover style */
 .icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background-image: {get_img("icons16-darkGray.png")};}
 
@@ -308,14 +316,22 @@ icon32 = css
 
 /* ---------------- Icons 32px ---------------- */
 /* Default 32px gray icons for light backgrounds */
+/* .icon32 should be replaced by: [class^="icon32-"],[class*=" icon32-"] */
 .icon32 {
-  width: 32px;
-  height: 32px;
-  background-image: {get_img("icons32-gray.png")};
-  background-repeat: no-repeat;
-  display: inline-block;
-  vertical-align: text-top;
+  display:inline-block;
+  width:32px;
+  height:32px;
+  line-height:32px;
+  vertical-align:text-top;
+  background-image:{get_img("icons32-gray.png")};
+  background-position:32px 32px;
+  background-repeat:no-repeat;
+  margin-right:0.3em; /* should be replaced by *margin-right */
 }
+/*
+[class^="icon32-"]:last-child,[class*=" icon32-"]:last-child {
+  *margin-left:0;
+}*/
 /* Dark gray icons, default hover style */
 .icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background-image: {get_img("icons32-darkGray.png")};}
 
