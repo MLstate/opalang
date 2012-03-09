@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -257,6 +257,9 @@ let dbgen =
 
 let dbgen_schema =
   create ~parent:dbgen ~name:"schema" ~doc:"Database Schemas" ~err:false ~enable:true ()
+
+let dbgen_mongo =
+  create ~parent:dbgen ~name:"mongo" ~doc:"Database MongoDb code generation" ~err:false ~enable:true ()
 
 (* Explicit instantiation *************)
 let ei =
