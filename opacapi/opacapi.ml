@@ -181,8 +181,11 @@ struct
   let set_to_uniq = !! "set_to_uniq"
   let map_to_uniq_def = !! "map_to_uniq_def"
   let set_to_uniq_def = !! "set_to_uniq_def"
+  let map_to_docs = !! "map_to_docs"
+  let set_to_docs = !! "set_to_docs"
   let build_vpath = !! "build_vpath"
   let build_rpath = !! "build_rpath"
+  let build_rpath_collection = !! "build_rpath_collection"
   let default = !! "default"
 end
 

@@ -303,6 +303,18 @@ module Generator = struct
         "Can't generates mongo access because : %s is not yet implemented"
         s
 
+  let get_read_map setkind uniq annotmap gamma =
+    let dataty = QmlAstCons.Type.next_var () in
+    match setkind, uniq with
+    | DbSchema.Map (_kty, dty), true ->
+        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
+    | DbSchema.Map (_kty, dty), false ->
+        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
+    | DbSchema.DbSet dty, true ->
+        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
+    | DbSchema.DbSet dty, false ->
+        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.some annotmap gamma
+
   let rec compose_path ~context gamma annotmap schema dbname kind subs =
     let subkind =
       match kind with
@@ -327,138 +339,118 @@ module Generator = struct
     (annotmap, [elements], builder, pathty)
 
     and string_path ~context gamma annotmap schema (kind, strpath) =
-    (* vv FIXME !?!?! vv *)
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
       get_node ~context schema strpath in
-    (* ^^ FIXME !?!?! ^^ *)
-    let dataty = node.DbSchema.ty in
-    let dbname = node.DbSchema.database.DbSchema.name in
-    match kind with
-    | DbAst.Update u ->
-        begin match node.DbSchema.kind with
-        | DbSchema.Plain ->
-            let annotmap, path = expr_of_strpath gamma annotmap strpath in
-            let annotmap, uexpr =
-              if ty_is_sum gamma dataty then
-                let annotmap, uexpr = update_to_expr ~set:false gamma annotmap u in
-                let annotmap, _id =
-                  C.string annotmap (Format.sprintf "/%a" (Format.pp_list "/" Format.pp_print_string) strpath)
-                in
-                add_to_document gamma annotmap "_id" _id uexpr
-              else
-                let u =
-                  if ty_is_const gamma dataty then DbAst.UFlds [["value"], u]
-                  else u
-                in
-                update_to_expr gamma annotmap u
-            in
-            let annotmap, database = node_to_dbexpr gamma annotmap node in
-            let annotmap, update =
-              OpaMapToIdent.typed_val ~label Api.Db.update_path annotmap gamma in
-            C.apply gamma annotmap update [database; path; uexpr]
-        | DbSchema.Partial (sum, rpath, partial) ->
-            if sum then QmlError.serror context "Update inside a sum path is forbidden";
-            let annotmap, path = expr_of_strpath gamma annotmap (dbname::rpath) in
-            let annotmap, uexpr = update_to_expr gamma annotmap (DbAst.UFlds [partial, u]) in
-            let annotmap, database = node_to_dbexpr gamma annotmap node in
-            let annotmap, update =
-              OpaMapToIdent.typed_val ~label Api.Db.update_path annotmap gamma in
-            C.apply gamma annotmap update [database; path; uexpr]
-        | DbSchema.Compose c ->
-            (* TODO - Warning non atocmic update ??*)
-            let annotmap, sub =
-              List.fold_left_filter_map
-                (fun annotmap (field, subpath) ->
-                   match dot_update gamma annotmap field u with
-                   | Some (annotmap, subu) ->
-                       let annotmap, sube =
-                         string_path ~context gamma annotmap schema
-                           (DbAst.Update subu, dbname::subpath)
-                       in (annotmap, Some (Ident.next "_", sube))
-                   | None -> annotmap, None
-                ) annotmap c
-            in
-            let annotmap, unit = C.unit annotmap in
-            C.letin annotmap sub unit
-        | _ -> assert false
-        end
+    match node.DbSchema.kind with
+    | DbSchema.SetAccess (setkind, path, query) ->
+        dbset_path ~context gamma annotmap (kind, path) setkind node query
     | _ ->
-        (* All other kind access are factorized bellow *)
-        let annotmap, path = expr_of_strpath gamma annotmap strpath in
-        let (annotmap, args, builder, pathty) =
-          match node.DbSchema.kind with
-          | DbSchema.Compose subs ->
-              compose_path ~context gamma annotmap schema dbname kind subs
+        let dataty = node.DbSchema.ty in
+        let dbname = node.DbSchema.database.DbSchema.name in
+        match kind with
+        | DbAst.Update u ->
+            begin match node.DbSchema.kind with
+            | DbSchema.Plain ->
+                let annotmap, path = expr_of_strpath gamma annotmap strpath in
+                let annotmap, uexpr =
+                  if ty_is_sum gamma dataty then (
+                    let annotmap, uexpr = update_to_expr ~set:false gamma annotmap u in
+                    let annotmap, _id =
+                      C.string annotmap (Format.sprintf "/%a" (Format.pp_list "/" Format.pp_print_string) strpath)
+                    in
+                    add_to_document gamma annotmap "_id" _id uexpr
+                  ) else (
+                    let u =
+                      if ty_is_const gamma dataty then DbAst.UFlds [["value"], u]
+                      else u
+                    in
+                    update_to_expr gamma annotmap u)
+                in
+                let annotmap, database = node_to_dbexpr gamma annotmap node in
+                let annotmap, update =
+                  OpaMapToIdent.typed_val ~label Api.Db.update_path annotmap gamma in
+                C.apply gamma annotmap update [database; path; uexpr]
+            | DbSchema.Partial (sum, rpath, partial) ->
+                if sum then QmlError.serror context "Update inside a sum path is forbidden";
+                let annotmap, path = expr_of_strpath gamma annotmap (dbname::rpath) in
+                let annotmap, uexpr = update_to_expr gamma annotmap (DbAst.UFlds [partial, u]) in
+                let annotmap, database = node_to_dbexpr gamma annotmap node in
+                let annotmap, update =
+                  OpaMapToIdent.typed_val ~label Api.Db.update_path annotmap gamma in
+                C.apply gamma annotmap update [database; path; uexpr]
+            | DbSchema.Compose c ->
+                (* TODO - Warning non atocmic update ??*)
+                let annotmap, sub =
+                  List.fold_left_filter_map
+                    (fun annotmap (field, subpath) ->
+                       match dot_update gamma annotmap field u with
+                       | Some (annotmap, subu) ->
+                           let annotmap, sube =
+                             string_path ~context gamma annotmap schema
+                               (DbAst.Update subu, dbname::subpath)
+                           in (annotmap, Some (Ident.next "_", sube))
+                       | None -> annotmap, None
+                    ) annotmap c
+                in
+                let annotmap, unit = C.unit annotmap in
+                C.letin annotmap sub unit
+            | _ -> assert false
+            end
+        | _ ->
+            (* All other kind access are factorized bellow *)
+            let annotmap, path = expr_of_strpath gamma annotmap strpath in
+            let (annotmap, args, builder, pathty) =
+              match node.DbSchema.kind with
+              | DbSchema.Compose subs ->
+                  compose_path ~context gamma annotmap schema dbname kind subs
 
-          | DbSchema.Partial (sum, rpath, partial) ->
-              let annotmap, partial = C.list_map
-                (fun annotmap fragment -> C.string annotmap fragment)
-                (annotmap, gamma) partial
-              in let annotmap, rpath = C.list_map
-                (fun annotmap fragment -> C.string annotmap fragment)
-                (annotmap, gamma) (dbname::rpath)
-              in begin match kind with
-              | DbAst.Ref ->
-                  if sum then QmlError.serror context "Update inside a sum path is forbidden";
-                  annotmap, [rpath; partial], Api.Db.build_rpath_sub, Api.Types.DbMongo.ref_path
-              | _ ->
-                  annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.DbMongo.val_path
-              end
-          | DbSchema.Plain ->
-              let annotmap, const = C.bool (annotmap, gamma) (ty_is_const gamma dataty) in
-              (match kind with
-               | DbAst.Update _
-               | DbAst.Ref -> (annotmap, [const], Api.Db.build_rpath, Api.Types.DbMongo.ref_path)
-               | _ -> (annotmap, [const], Api.Db.build_vpath, Api.Types.DbMongo.val_path))
-          | _ -> assert false
-        in
-        let (annotmap, build) =
-          OpaMapToIdent.typed_val ~label ~ty:[dataty] builder annotmap gamma in
-        let (annotmap, database) = node_to_dbexpr gamma annotmap node in
-        let ty = OpaMapToIdent.specialized_typ ~ty:[dataty] pathty gamma in
-        let (annotmap, default) = node.DbSchema.default annotmap in
-        let (annotmap, path) = C.apply ~ty gamma annotmap build
-          ([database; path; default] @ args) in
-        let again =
-          match kind with
-          | DbAst.Default -> Some Api.Db.read
-          | DbAst.Option -> Some Api.Db.option
-          | _ -> None
-        in
-        let (annotmap, path) =
-          match again with
-          | None -> (annotmap, path)
-          | Some again ->
-              let (annotmap, again) =
-                OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
-                  again annotmap gamma in
-              C.apply gamma annotmap again [path]
-        in annotmap, path
-          (* let *)
+              | DbSchema.Partial (sum, rpath, partial) ->
+                  let annotmap, partial = C.list_map
+                    (fun annotmap fragment -> C.string annotmap fragment)
+                    (annotmap, gamma) partial
+                  in let annotmap, rpath = C.list_map
+                    (fun annotmap fragment -> C.string annotmap fragment)
+                    (annotmap, gamma) (dbname::rpath)
+                  in begin match kind with
+                  | DbAst.Ref ->
+                      if sum then QmlError.serror context "Update inside a sum path is forbidden";
+                      annotmap, [rpath; partial], Api.Db.build_rpath_sub, Api.Types.DbMongo.ref_path
+                  | _ ->
+                      annotmap, [rpath; partial], Api.Db.build_vpath_sub, Api.Types.DbMongo.val_path
+                  end
+              | DbSchema.Plain ->
+                  let annotmap, const = C.bool (annotmap, gamma) (ty_is_const gamma dataty) in
+                  (match kind with
+                   | DbAst.Update _
+                   | DbAst.Ref -> (annotmap, [const], Api.Db.build_rpath, Api.Types.DbMongo.ref_path)
+                   | _ -> (annotmap, [const], Api.Db.build_vpath, Api.Types.DbMongo.val_path))
+              | _ -> assert false
+            in
+            let (annotmap, build) =
+              OpaMapToIdent.typed_val ~label ~ty:[dataty] builder annotmap gamma in
+            let (annotmap, database) = node_to_dbexpr gamma annotmap node in
+            let ty = OpaMapToIdent.specialized_typ ~ty:[dataty] pathty gamma in
+            let (annotmap, default) = node.DbSchema.default annotmap in
+            let (annotmap, path) = C.apply ~ty gamma annotmap build
+              ([database; path; default] @ args) in
+            let again =
+              match kind with
+              | DbAst.Default -> Some Api.Db.read
+              | DbAst.Option -> Some Api.Db.option
+              | _ -> None
+            in
+            let (annotmap, path) =
+              match again with
+              | None -> (annotmap, path)
+              | Some again ->
+                  let (annotmap, again) =
+                    OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                      again annotmap gamma in
+                  C.apply gamma annotmap again [path]
+            in annotmap, path
 
-    (* assert false *)
-
-  let get_read_map setkind uniq annotmap gamma =
-    let dataty = QmlAstCons.Type.next_var () in
-    match setkind, uniq with
-    | DbSchema.Map (_kty, dty), true ->
-        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
-    | DbSchema.Map (_kty, dty), false ->
-        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
-    | DbSchema.DbSet dty, true ->
-        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
-    | DbSchema.DbSet dty, false ->
-        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.some annotmap gamma
-
-  let dbset_path ~context gamma annotmap (kind, path) setkind node query0 =
-    (* Restriction, we can't erase a database set *)
-    let () =
-      match kind, query0 with
-      | DbAst.Update _, None ->
-          QmlError.error context "Update on a full collection is forbidden"
-      | _ -> ()
-    in
+    and dbset_path ~context gamma annotmap (kind, path) setkind node query0 =
     let ty = node.DbSchema.ty in
     let annotmap, skip, limit, query, order, uniq =
       match query0 with
@@ -483,6 +475,21 @@ module Generator = struct
           in
           annotmap, skip, limit, query, opt.DbAst.sort, uniq
     in
+    match query0, kind with
+    | None, DbAst.Update DbAst.UExpr e ->
+        (* Just reuse ref path on collections if 0 query *)
+        let annotmap, refpath =
+          dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 in
+        let annotmap, more = C.dot gamma annotmap refpath "more" in
+        let annotmap, write = C.dot gamma annotmap more "write" in
+        let annotmap, apply = C.apply gamma annotmap write [e] in
+        let annotmap, ignore =
+          let i = Ident.next "_ignore" in
+          let annotmap, v = C.cheap_void annotmap gamma in
+          C.letin annotmap [(i, apply)] v
+        in annotmap, ignore
+
+    | _ ->
     (* DbSet.build *)
     let (annotmap, build, query, args) =
       match kind with
@@ -513,25 +520,34 @@ module Generator = struct
               (annotmap, build, query, [default; skip; limit; read_map])
           | DbAst.Ref ->
               let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
-              let wty, (annotmap, write_map) =
+              let build_rpath, wty, (annotmap, write_map) =
                 match setkind, uniq with
                 | DbSchema.DbSet dty, true ->
                     let iarg  = Ident.next "data" in
                     let annotmap, earg = C.ident annotmap iarg dty in
                     let annotmap, doc = opa2doc ~ty:dty gamma annotmap earg () in
-                    dty, C.lambda annotmap [(iarg, dty)] doc
+                    Api.DbSet.build_rpath, dty, C.lambda annotmap [(iarg, dty)] doc
                 | DbSchema.Map (_kty, dty), true ->
                     let iarg  = Ident.next "data" in
                     let annotmap, earg = C.ident annotmap iarg dty in
                     let annotmap, doc = opa2doc ~ty:dty gamma annotmap earg () in
-                    dty, C.lambda annotmap [(iarg, dty)] doc
-                | DbSchema.DbSet _dty, false ->
-                    QmlError.error context "Reference path on database set is forbidden"
-                | DbSchema.Map (_kty, _dty), false ->
-                    QmlError.error context "Reference path on database map is forbidden"
+                    Api.DbSet.build_rpath, dty, C.lambda annotmap [(iarg, dty)] doc
+                | DbSchema.DbSet dty, false ->
+                    QmlError.warning ~wclass:WarningClass.dbgen_mongo
+                      context "Reference path on database set is not advised";
+                    Api.DbSet.build_rpath_collection, dataty,
+                    OpaMapToIdent.typed_val ~label ~ty:[dty]
+                      Api.DbSet.set_to_docs annotmap gamma
+
+                | DbSchema.Map (kty, dty), false ->
+                    QmlError.warning ~wclass:WarningClass.dbgen_mongo
+                      context "Reference path on database map is not advised";
+                    Api.DbSet.build_rpath_collection, dataty,
+                    OpaMapToIdent.typed_val ~label ~ty:[kty; dty]
+                      Api.DbSet.map_to_docs annotmap gamma
               in
               let annotmap, build =
-                OpaMapToIdent.typed_val ~label ~ty:[wty; dataty] Api.DbSet.build_rpath annotmap gamma
+                OpaMapToIdent.typed_val ~label ~ty:[wty; dataty] build_rpath annotmap gamma
               in
               (annotmap, build, query, [default; skip; limit; read_map; write_map])
           | _ -> assert false
@@ -566,7 +582,7 @@ module Generator = struct
       C.rev_list (annotmap, gamma) path in
     (* dbset = DbSet.build(database, path, query, ...) *)
     let (annotmap, set) =
-      C.apply ~ty gamma annotmap build
+      C.apply  gamma annotmap build
         ([database; path; query] @ args) in
     (* Final convert *)
     let (annotmap, set) =

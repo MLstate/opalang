@@ -686,6 +686,16 @@ DbSet = {{
       )
     )
 
+  @package map_to_docs(map:map('key, 'value)):list(Bson.document) =
+    Map.fold(k, v, docs ->
+      {hd = List.append(
+        Bson.opa_to_document("_id", k, @typeval('key)),
+        Bson.opa2doc(v))
+       tl = docs}, map, [])
+
+  @package set_to_docs(dbset:DbMongoSet.engine('a)):list(Bson.document) =
+    fold_doc([], dbset, (l, d -> {hd=d tl=l}))
+
   @package map_to_uniq_def(dbset:DbMongoSet.engine('a)):'value =
     match map_to_uniq(dbset) with
     | {some=v:'value} -> v
@@ -713,7 +723,7 @@ DbSet = {{
       default = default
       more = void
     }
-  // [selector |
+
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
               read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
@@ -729,6 +739,31 @@ DbSet = {{
       #<Ifstatic:DBGEN_DEBUG>
       else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
       #<End>
+    {vpath with more=~{write remove}}
+
+  @package build_rpath_collection(
+             db:DbMongo.t,
+             path:list(string),
+             selector,
+             default:'b,
+             skip,
+             limit,
+             read_map:DbMongoSet.engine('a) -> option('b),
+             write_map:'b -> list(Bson.document)):DbMongo.private.ref_path('b) =
+    id = DbSet.path_to_id(path)
+    vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
+    remove() =
+      if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
+        Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
+      #<Ifstatic:DBGEN_DEBUG>
+      else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
+      #<End>
+    write(datas) =
+      do remove()
+      #<Ifstatic:DBGEN_DEBUG>
+      do Log.notice("DbGen/Mongo", "Write in collection {db.name}.{id}")
+      #<End>
+      MongoDriver.insert_batch(db.db, 0, "{db.name}.{id}", write_map(datas))
     {vpath with more=~{write remove}}
 
 
@@ -768,10 +803,13 @@ DbSet = {{
 @opacapi DbSet_iterator = DbSet.iterator
 @opacapi DbSet_map_to_uniq = DbSet.map_to_uniq
 @opacapi DbSet_map_to_uniq_def = DbSet.map_to_uniq_def
+@opacapi DbSet_map_to_docs = DbSet.map_to_docs
 @opacapi DbSet_set_to_uniq = DbSet.set_to_uniq
 @opacapi DbSet_set_to_uniq_def = DbSet.set_to_uniq_def
+@opacapi DbSet_set_to_docs = DbSet.set_to_docs
 @opacapi DbSet_build_vpath = DbSet.build_vpath
 @opacapi DbSet_build_rpath = DbSet.build_rpath
+@opacapi DbSet_build_rpath_collection = DbSet.build_rpath_collection
 @opacapi DbSet_default = Option.default
 @opacapi DbSet_empty = {empty}
 
