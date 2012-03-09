@@ -1,4 +1,4 @@
-2012.03.05, Version 0.9.1 (stable), v1417
+2012.03.09, Version 0.9.1 (stable), v1466
 
 Other features:
 
@@ -49,6 +49,8 @@ Bug fixes:
   * Events handler in new syntax
 
   * Coercion on Xhmtl fragment
+
+  * File descriptors leak when embedding static files
 
 Other changes:
 
