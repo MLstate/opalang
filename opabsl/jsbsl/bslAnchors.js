@@ -47,7 +47,7 @@
 
                     var listener;
                     var i;
-                    var len = keys.length
+                    var len = keys.length;
                     for(i = 0; i < len; ++i)
                     {
                         listener = implems[keys[i]];
@@ -66,10 +66,10 @@
                     }, false);
                 } else {
                     //console.log("Browser offers no support for history");
-                    var history = { hash: null }
+                    var history = { hash: null };
                     function poll_changes()
                     {
-                        var old_hash     = history.hash
+                        var old_hash     = history.hash;
                         var current_hash = window.location.hash || location.hash;
                         if(old_hash != current_hash)
                         {
@@ -91,8 +91,8 @@
             return function() {
                 var index = keys.indexOf(name);
                 if(index == -1) return;//We have already removed the handler
-                keys.splice(index, 1)
-                delete implems[name]
+                keys.splice(index, 1);
+                delete implems[name];
             };
         },
 
@@ -119,18 +119,18 @@
                     var handler = implems[anchor];
                     if(handler == null) return;
                     handler(anchor);
-                })
+                });
             }
 
             var name = "position_"+ (%%BslNumber.Random.string%%)(32);
             //window.history.go(name);
-            window.location.hash = name
+            window.location.hash = name;
 
             $(window).trigger("hashchange");
             implems[name] = callback;
             return name;
         }
-    })
+    });
 
 })(jQuery);
 
