@@ -141,11 +141,17 @@ Bootstrap = {{
        {none} -> void
     void
 
+  /**
+   * Import a specific version of Bootstrap, with its icons
+   */
   import(v:string) =
     do import_css(v)
     do import_icons(v)
     void
 
+  /**
+   * Latest version of Bootstrap included in Opa
+   */
   latest = "2.0.1"
 
 }}
