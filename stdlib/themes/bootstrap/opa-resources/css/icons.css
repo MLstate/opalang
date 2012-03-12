@@ -23,7 +23,7 @@
 .icon:hover, .icon.icon-darkgray, .icons-darkgray .icon {background-image:url("../img/icons16-darkGray.png");}
 
 /* Color icons for light backgrounds, used for default active style */
-.icon.icon-color, .icons-color .icon, .active .icon {background-image:url("../img/icons16-color.png");}
+.icon.icon-color, .icons-color .icon, .icons-color .active .icon {background-image:url("../img/icons16-color.png");}
 
 /* White icons for vivid and dark backgrounds */
 .icon.icon-white, .icons-white .icon {background-image:url("../img/icons16-white.png");}
@@ -281,7 +281,7 @@
 .icon32:hover, .icon32.icon-darkgray, .icons-darkgray .icon32 {background-image:url("../img/icons32-darkGray.png");}
 
 /* Color icons for light backgrounds, used for default active style */
-.icon32.icon-color, .icons-color .icon32, .active .icon32 {background-image:url("../img/icons32-color.png");}
+.icon32.icon-color, .icons-color .icon32, .icons-color .active .icon32 {background-image:url("../img/icons32-color.png");}
 
 /* White icons for vivid and dark backgrounds */
 .icon32.icon-white, .icons-white .icon32 {background-image:url("../img/icons32-white.png");}

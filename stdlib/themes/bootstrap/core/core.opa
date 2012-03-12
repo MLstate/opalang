@@ -30,7 +30,7 @@
  *
  * {1 How to use Opa icons}
  *
- * import stdlib.bootstrap.css and stdlib.bootstrap.opa-icons only (not the whole package)
+ * import stdlib.bootstrap.css and stdlib.bootstrap.opa-icons only (not the whole package).
  *
  * There are different sizes:
  * - to use 16x16 pixels icon, set class "icon"
