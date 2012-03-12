@@ -28,7 +28,9 @@
  * Otherwise, import stdlib.themes.bootstrap.v{X.Y.Z}.
  * /!\ If the version you are looking for is not embed in Opa, it will reference GitHub's URL.
  *
- * {1 How to use icons}
+ * {1 How to use Opa icons}
+ *
+ * import stdlib.bootstrap.css and stdlib.bootstrap.opa-icons only (not the whole package)
  *
  * There are different sizes:
  * - to use 16x16 pixels icon, set class "icon"
@@ -41,6 +43,13 @@
  * - triangle (icon-triangle-n,icon-triangle-e, ...)
  * - arrow (icon-arrow-n, icon-arrowthick-n, icon-arrowreturn-se, ...)
  * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
+ *
+ * {1 Examples}
+ *
+ * import stdlib.themes.bootstrap.css // just import bootstrap css
+ * import stdlib.themes.bootstrap.icons // just import bootstrap icons
+ * import stdlib.themes.bootstrap.opa-icons // just import opa icons for bootstrap
+ * import stdlib.themes.bootstrap // import bootstrap css and icons
  */
 Bootstrap = {{
 
@@ -66,6 +75,7 @@ Bootstrap = {{
   @private
   uri_opa = Map.mapi(publish, opa_resources)
 
+  @package
   import_opa_icons() =
     match Map.get("stdlib/themes/bootstrap/opa-resources/css/icons.css", uri_opa)
     {none} -> void
@@ -93,6 +103,7 @@ Bootstrap = {{
     Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap.min.css", uri_bs) ?
     compute_version_url(v) // fallback
 
+  @package
   import_css(v:string) =
     do Resource.register_external_css(bs_url(v))
     if String.lt(v, "2.0.0") then void
@@ -100,6 +111,7 @@ Bootstrap = {{
          {some=url} -> Resource.register_external_css(url)
          {none} -> void
 
+  @package
   import_icons(v:string) =
     do if String.lt(v, "2.0.0") then void
     do match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-glyphicons.min.css", uri_bs)
