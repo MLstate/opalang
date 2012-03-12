@@ -1,3 +1,20 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 type Themes.state = stringmap(stringmap(finite_single_thread_lazy(string)))
 
@@ -24,8 +41,8 @@ Themes = {{
         parameters = {expiration={none}
                       consumption={unlimited}
                       visibility={shared}}
-        config = {prefix=some(theme_name) sufix=none onaccess=none}
-        DynamicResource.publish_extend(resource, parameters, config)
+        config = { prefix=some(theme_name) sufix=none onaccess=none randomize=true }
+        DynamicResource.publish_extend("", resource, parameters, config)
       )
     map_resource = Map.fold(k,v,map ->
       name = String.replace_first("{dir}{theme_name}/", "", k)

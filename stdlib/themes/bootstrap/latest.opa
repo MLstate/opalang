@@ -20,4 +20,4 @@
 
 import stdlib.themes.bootstrap.core
 
-do Bootstrap.import("2.0.1")
+do Bootstrap.import(Bootstrap.latest)

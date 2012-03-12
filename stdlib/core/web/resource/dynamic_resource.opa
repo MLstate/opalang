@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -123,6 +123,9 @@ type DynamicResource.config = {
 
   /** A callback that be called at each url access. */
   onaccess : option(-> void)
+
+  /** Randomize the URL. */
+  randomize : bool
 }
 
 /**
@@ -227,6 +230,7 @@ type DynamicResource.message =
    * @param namespace An optional namespace used to organize resources.
   **/
   custom_publish(
+    name : string,
     resource : resource,
     config : DynamicResource.config,
     state : 'state,
@@ -236,8 +240,11 @@ type DynamicResource.message =
     access = Option.switch((onaccess -> (state -> do onaccess() access(state))),
                            access, config.onaccess)
     on_message(state, context) = @with_thread_context(context, access(state))
-    key = next_key(match config.prefix with {none} -> "" | ~{some} -> "{some}/",
-                   match config.sufix with {none} -> "" | ~{some} -> "/{some}")
+    key =
+      if config.randomize then
+        next_key(match config.prefix with {none} -> "" | ~{some} -> "{some}/",
+                 match config.sufix with {none} -> name | ~{some} -> "/{some}")
+      else name
     expire(state) = if expire(state) then some(ResourceTracker.Signal.EXPIRATION) else none
     collect(_, _) =
       _ = Cell.call(resourceCell, { remove = key })
@@ -359,21 +366,22 @@ type DynamicResource.message =
     prefix = none
     sufix = none
     onaccess = none
+    randomize = true
   }
 
   /**
    * Publishing a dynamic resource with the standard parameters.
   **/
-  publish(resource, parameters: DynamicResource.parameters) =
-    publish_extend(resource, parameters, default_config)
+  publish(name, resource, parameters:DynamicResource.parameters) =
+    publish_extend(name, resource, parameters, default_config)
 
   /**
    * Like {!DynamicResource.publish} but you can provide more configuration.
    * see type {!DynamicResource.config}
    */
-  publish_extend(resource, parameters, config) =
+  publish_extend(name, resource, parameters, config) =
     parameters_state = state_of_parameters(parameters)
-    custom_publish(resource, config, parameters_state, access_parameters_state, expire_parameters_state)
+    custom_publish(name, resource, config, parameters_state, access_parameters_state, expire_parameters_state)
 
   /**
    * The parser for dynamic resources.

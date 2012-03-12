@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -192,10 +192,10 @@ CChat = {{
     @static_resource("stdlib/components/chat/resources/close_icg_16.png")
 
   @private @publish url_search_icon =
-    DynamicResource.publish(search_icon, resource_parameters)
+    DynamicResource.publish("", search_icon, resource_parameters)
 
   @private @publish url_clear_icon =
-    DynamicResource.publish(clear_icon, resource_parameters)
+    DynamicResource.publish("", clear_icon, resource_parameters)
 
 /**
  * {1 Configuration}
