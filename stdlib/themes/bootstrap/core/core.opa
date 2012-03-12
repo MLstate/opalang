@@ -54,6 +54,7 @@
  * import stdlib.themes.bootstrap.icons // just import bootstrap icons
  * import stdlib.themes.bootstrap.opa-icons // just import opa icons for bootstrap
  * import stdlib.themes.bootstrap // import bootstrap css and icons
+ * import stdlib.themes.font-awesome // import font awesome icons
  */
 Bootstrap = {{
 
