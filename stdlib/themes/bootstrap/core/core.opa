@@ -44,6 +44,10 @@
  * - arrow (icon-arrow-n, icon-arrowthick-n, icon-arrowreturn-se, ...)
  * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
  *
+ * {1 How to use Font Awesome icons}
+ *
+ * Font Awesome - http://fortawesome.github.com/Font-Awesome
+ *
  * {1 Examples}
  *
  * import stdlib.themes.bootstrap.css // just import bootstrap css
@@ -78,6 +82,20 @@ Bootstrap = {{
   @package
   import_opa_icons() =
     match Map.get("stdlib/themes/bootstrap/opa-resources/css/icons.css", uri_opa)
+    {none} -> void
+    {some=uri} -> Resource.register_external_css(uri)
+
+  /** Font Awesome resources **/
+
+  @private
+  font_awesome_resources = @static_include_directory("stdlib/themes/bootstrap/font-awesome")
+
+  @private
+  uri_font_awesome = Map.mapi(publish, font_awesome_resources)
+
+  @package
+  import_font_awesome() =
+    match Map.get("stdlib/themes/bootstrap/font-awesome/css/font-awesome.css", uri_font_awesome)
     {none} -> void
     {some=uri} -> Resource.register_external_css(uri)
 
