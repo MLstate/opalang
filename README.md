@@ -1,4 +1,4 @@
-# OPA #
+# Opa #
 
 
 ## Overview ##
@@ -8,7 +8,7 @@ language, a new web server, a new database and a new distributed execution
 engine, all of them tightly integrated to provide a great experience for cloud
 developers.
 
-This repository contains all the sources of the OPA compiler and libraries.
+This repository contains all the sources of the Opa compiler and libraries.
 
 
 ## Quick build instructions ##
@@ -21,7 +21,7 @@ should get you there `./configure` should report any missing dependencies and
 point you to the packages you may install to fix them (although those may depend
 on your distribution). make needs to be GNU make.
 
-The main dependency of OPA is OCaml 3.12. In case your distribution doesn't
+The main dependency of Opa is OCaml 3.12. In case your distribution doesn't
 provide a recent enough version, or if you miss some other dependencies, you can
 use the `installation_helper.sh` script, which automates the download and
 installation of our dependencies. Try
@@ -38,20 +38,20 @@ installation of our dependencies. Try
 * dependencies: contains the dependency installation helper
 * dissemination: contains helper programs to run on the cloud (transitional)
 * installer: auxiliary files used to build binary packages
-* plugins: additional OPA library modules (work in progress)
-* stdlib: the OPA standard library
+* plugins: additional Opa library modules (work in progress)
+* stdlib: the Opa standard library
 * tools: contains external checking tools; see Credits below
 * utils: some auxiliary, independent tools like bash completion, syntax
   highlighting for popular editors, etc.
 
-The other directories contain the source of the OPA libraries, compiler, and
+The other directories contain the source of the Opa libraries, compiler, and
 tools.
 
 Files at the root of the repository:
 
 * `*.mllib`: ocamlbuild target declaration for building an ocaml lib
 * `*.itarget`: ocamlbuild target declaration for building a set of targets
-* `install_release.sh`: builds a full OPA runtime in order to make a binary
+* `install_release.sh`: builds a full Opa runtime in order to make a binary
   package
 * `platform_helper.sh`: some helpers to guarantee script compatibility, mostly
   between Linux and MacOS
@@ -70,7 +70,7 @@ files are put in `_build`, following the same hierarchy as the source directory.
 
 ## License & Credits ##
 
-OPA is Copyright 2011, MLstate; it is distributed under the terms of the GNU
+Opa is Copyright 2011, MLstate; it is distributed under the terms of the GNU
 Affero General Public License, version 3. See file LICENSE for details.
 
 The repository opalang is currently versioning 2 external tools in tools/
@@ -90,9 +90,14 @@ Part of the jslang library, has been closely inspired by ocamljs/jslib:
 * ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
 
 Files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules
-found in ocamljs, specialized for OPA specific needs.
+found in ocamljs, specialized for Opa specific needs.
 We would like to thank the authors of the ocamljs/jslib.
 
+Opa also includes external libraries :
+
+* Bootstrap, from Twitter - http://twitter.github.com/bootstrap
+
+* Font Awesome - http://fortawesome.github.com/Font-Awesome
 
 Contact
 -------
