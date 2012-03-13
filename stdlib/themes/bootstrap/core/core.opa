@@ -124,11 +124,7 @@ Bootstrap = {{
 
   @package
   import_css(v:string) =
-    do Resource.register_external_css(bs_url(v))
-    if String.lt(v, "2.0.0") then void
-    else match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-responsive.min.css", uri_bs)
-         {some=url} -> Resource.register_external_css(url)
-         {none} -> void
+    Resource.register_external_css(bs_url(v))
 
   @package
   import_icons(v:string) =
@@ -152,6 +148,6 @@ Bootstrap = {{
   /**
    * Latest version of Bootstrap included in Opa
    */
-  latest = "2.0.1"
+  latest = "2.0.2"
 
 }}
