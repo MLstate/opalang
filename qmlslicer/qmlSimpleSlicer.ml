@@ -268,7 +268,7 @@ let rec slicer_annots_of_expr visibility both_implem side_annot async annotmap e
       let e' = slicer_annots_of_expr visibility both_implem side_annot async annotmap e in
       (*if e == e' then expr else*) Q.Directive (label, d, [e'], ty)
   | Q.Directive (label, (`visibility_annotation _ | `side_annotation _ as v), [e], _) ->
-      (match v, !visibility, !side_annot with
+    begin match v, !visibility, !side_annot with
        | `visibility_annotation v, None, _ ->
            visibility := Some (
              match v with
@@ -297,13 +297,16 @@ let rec slicer_annots_of_expr visibility both_implem side_annot async annotmap e
              | `prefer_server -> {side=Server;wish=Prefer}
              | `prefer_both -> {side=Both;wish=Prefer}
            )
-       | `visibility_annotation _, Some _, _
+       | `visibility_annotation _, Some _, _ ->
+         let context = QmlError.Context.expr expr in
+           QmlError.serror context "You have conflicting security annotations (protected,exposed) on the same declaration."
        | `side_annotation _,       _, Some _ ->
            let context = QmlError.Context.expr expr in
-           QmlError.serror context "You have several slicing annotations on the same declaration.");
-      let tsc_gen = QmlAnnotMap.find_tsc_opt_label label !annotmap in
-      annotmap := QmlAnnotMap.add_tsc_opt_label (Q.Label.expr e) tsc_gen !annotmap;
-      slicer_annots_of_expr visibility both_implem side_annot async annotmap e
+           QmlError.serror context "You have conflicting side annotations (server,client) on the same declaration."
+    end;
+    let tsc_gen = QmlAnnotMap.find_tsc_opt_label label !annotmap in
+    annotmap := QmlAnnotMap.add_tsc_opt_label (Q.Label.expr e) tsc_gen !annotmap;
+    slicer_annots_of_expr visibility both_implem side_annot async annotmap e
   | _ -> expr
 
 let default_information ~env ~annotmap (ident,expr) =
@@ -548,7 +551,7 @@ let pp_private_path pp_pos f info =
   let pp_end f = function
     | `key key -> Format.fprintf f "%%%%%a%%%% which is a server bypass" BslKey.pp key
     | `package package -> Format.fprintf f "from package %a" Package.pp_full package
-    | `annot -> Format.fprintf f "which is annotated as @@server_private" in
+    | `annot -> Format.fprintf f "which is annotated as 'protected'" in
   if l = [] then
     Format.fprintf f "@[<v>%a@]"
       pp_end end_
@@ -622,13 +625,13 @@ let look_at_user_annotation env pp_pos node annot =
             match node.privacy with
             | Published -> ()
             | _ ->
-                OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as @@both but it uses server private values:@\n%a@]"
+                OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both' but it uses a 'protected' values:@\n%a@]"
                   pp_pos node
                   (Ident.original_name node.ident)
                   (pp_private_path pp_pos) node
             );
             if node.implemented_both then
-              OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as @@both_implem but it uses server private values:@\n%a@]"
+              OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both_implem' but it uses 'protected' values:@\n%a@]"
                 pp_pos node
                 (Ident.original_name node.ident)
                 (pp_private_path pp_pos) node;
@@ -637,7 +640,7 @@ let look_at_user_annotation env pp_pos node annot =
             match node.calls_client_bypass with
             | Some key ->
                 if node.implemented_both then (
-                  OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as @@both_implem but it uses the client bypass %s@]"
+                  OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both_implem' but it uses the client bypass %s@]"
                     pp_pos node
                     (Ident.original_name node.ident)
                     (BslKey.to_string key)
@@ -649,7 +652,7 @@ let look_at_user_annotation env pp_pos node annot =
           if fake_server then
             let functional_type = has_functional_type env.gamma env.annotmap (get_expr node) in
             if not functional_type then
-              OManager.serror "@[<v>%a@]@\n@[<2>  %s is annotated as @@both but it contains a client bypass (%%%%%a%%%%) and it is not a function.@]"
+              OManager.serror "@[<v>%a@]@\n@[<2>  %s is tagged as 'both' but it contains a client bypass (%%%%%a%%%%) and it is not a function.@]"
                 pp_pos node
                 (Ident.original_name node.ident)
                 BslKey.pp (Option.get node.calls_client_bypass);
@@ -680,13 +683,16 @@ let look_at_user_annotation env pp_pos node annot =
           (match on_the_client with
            | `expression -> ()
            | `alias | `insert_server_value ->
-               OManager.warning ~wclass:wclass_sliced_expr "@[<v>%a@]@\n@[<2>  This declaration contains a sliced_expr but the client code will not be executed.@]"
-                 pp_pos node);
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  %s contains a 'sliced_expr' but the client code will not be executed.@]"
+                 pp_pos node
+                 (Ident.original_name node.ident)
+          );
           (match on_the_server with
            | `expression -> ()
            | `alias ->
-               OManager.warning ~wclass:wclass_sliced_expr "@[<v>%a@]@\n@[<2>  This declaration contains a sliced_expr but the server code will not be executed.@]"
-                 pp_pos node)
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  %s contains a 'sliced_expr' but the server code will not be executed.@]"
+                 pp_pos node
+                 (Ident.original_name node.ident))
         );
         node.on_the_server <- Some (Some on_the_server);
         node.on_the_client <- Some (Some on_the_client);
