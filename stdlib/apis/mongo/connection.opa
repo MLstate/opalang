@@ -76,6 +76,14 @@ type Mongo.mongodb = {
   index_flags: int;
 }
 
+type Mongo.auth = {
+  dbname:string;
+  user:string;
+  password:string;
+}
+
+type Mongo.auths = list(Mongo.auth)
+
 type Mongo.param = {
   name:string;
   replname:option(string);
@@ -84,6 +92,7 @@ type Mongo.param = {
   allow_slaveok:bool;
   log:bool;
   seeds:list(Mongo.mongo_host);
+  auth:Mongo.auths;
 }
 type Mongo.params = list(Mongo.param)
 
@@ -102,6 +111,7 @@ MongoConnection = {{
     allow_slaveok=false;
     log=false;
     seeds=default_seeds;
+    auth=[];
   }:Mongo.param)
 
   @private last_name = Mutable.make("default")
@@ -138,6 +148,14 @@ MongoConnection = {{
          else [p|updt(rest)]
       | [] -> [f({ init_param with name=ln })]
     updt(p)
+
+  @private char = parser i1=. -> Text.from_character(i1)
+  @private
+  auth_parser = parser
+  | user=(!"@" char)+ "@" dbname=(!":" char)+ ":" password=char+ ->
+    {user=Text.to_string(Text.ltconcat(user));
+     dbname=Text.to_string(Text.ltconcat(dbname));
+     password=Text.to_string(Text.ltconcat(password))}:Mongo.auth
 
   @private
   get_params = ->
@@ -220,6 +238,18 @@ MongoConnection = {{
                     | _ -> ML.fatal("MongoConnection.get_params","Unknown Mongo log type string {s}",-1)):Mongo.logtype)
                 {no_params = add_param((p -> do MongoLog.logtype.set(logtype) p),p)}
            },
+           {CommandLine.default_parser with
+              names = ["--mongo-auth", "--mongoauth", "--ma", "-ma"]
+              description = "MongoDB user authentication (user@dbname:password)"
+              param_doc = "<string>"
+              on_param(p) = parser s={Rule.consume} ->
+                  match Parser.try_parse(auth_parser,s) with
+                  | {some=auth} ->
+                     do jlog("auth={auth}")
+                     {no_params = add_param((p -> {p with auth=[auth|p.auth]}),p)}
+                  | {none} ->
+                     ML.fatal("MongoConnection.get_params","Invalid auth string {s}",{no_params=add_param((p -> p),p)})
+           },
          ];
        }))
   params_done.set(true)
@@ -249,6 +279,18 @@ MongoConnection = {{
            {success=db})
     | {~failure} -> {~failure}
 
+  @private
+  do_authenticate(db:Mongo.mongodb, auth:Mongo.auths) =
+    List.fold((auth, outcome ->
+                match outcome with
+                | {success=_} ->
+                   match MongoCommands.authenticate(db, auth.dbname, auth.user, auth.password) with
+                   | {success=_} -> do jlog("authenticate success") outcome
+                   | {~failure} -> do jlog("authenticate fail {failure}") {~failure}
+                   end
+                | {~failure} -> {~failure}
+              ),auth,{success=db})
+
   /**
    * Open a connection to a single server.  No check for primary status is
    * carried out and no reconnection is attempted.  Note that we need to
@@ -257,11 +299,16 @@ MongoConnection = {{
    *
    * Example: [openraw(name, bufsize, pool_max, log, host, port)]
    **/
-  openraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, addr:string, port:int)
+  openraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log) with
-           | {success=m} -> {success=(false,m)}
-           | {~failure} -> {~failure}),name)
+    match
+      ((open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log,auth) with
+               | {success=m} -> {success=(false,m)}
+               | {~failure} -> {~failure}),name),auth))
+    with
+    | ({~success},[]) -> {~success}
+    | ({~success},_) -> do_authenticate(success, auth)
+    | ({~failure},_) -> {~failure}
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
@@ -272,9 +319,14 @@ MongoConnection = {{
    * and then searches for the primary among the hosts.  Reconnection logic
    * is enabled.
    **/
-  replraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, seeds:list(Mongo.mongo_host))
+  replraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,allow_slaveok,log,seeds)),name)
+    match
+      ((open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,allow_slaveok,log,auth,seeds)),name),auth))
+    with
+    | ({~success},[]) -> {~success}
+    | ({~success},_) -> do_authenticate(success, auth)
+    | ({~failure},_) -> {~failure}
 
   /**
    * Get the current SlaveOK status.
@@ -304,11 +356,11 @@ MongoConnection = {{
     match List.find((p -> p.name == name),params.get()) with
     | {some=p} ->
        (match p.replname with
-        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.allow_slaveok,p.log,p.seeds)
+        | {some=rn} -> replraw(rn,p.bufsize,p.pool_max,p.allow_slaveok,p.log,p.auth,p.seeds)
         | {none} ->
            (match p.seeds with
             | [] -> {failure={Error="MongoConnection.open: No host for plain connection"}}
-            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.allow_slaveok,p.log,host,port)
+            | [(host,port)] -> openraw(name,p.bufsize,p.pool_max,p.allow_slaveok,p.log,p.auth,host,port)
             | _ -> {failure={Error="MongoConnection.open: Multiple hosts for plain connection"}}))
     | {none} -> {failure={Error="MongoConnection.open: No such replica name {name}"}}
 

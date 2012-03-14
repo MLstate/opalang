@@ -72,6 +72,7 @@ type Mongo.db = {
   reconnectable : bool;
   depth : int;
   max_depth : int;
+  auth : Mongo.auths;
 }
 
 /** Outgoing Cell messages **/
@@ -200,6 +201,25 @@ MongoDriver = {{
   /* Get responseTo from Mongo.mongo_buf */
   @private mongo_buf_responseTo = (%% BslMongo.Mongo.mongo_buf_responseTo %%: Mongo.mongo_buf -> int)
 
+  @private
+  do_authenticate_ll(db:outcome((bool,Mongo.db),Mongo.failure)) =
+    match db with
+    | {success=(slaveok,m)} ->
+      List.fold((auth, outcome ->
+                  match outcome with
+                  | {success=_} ->
+                     match MongoCommands.authenticate_ll(m, auth.dbname, auth.user, auth.password) with
+                     | {success=_} ->
+                        do if m.log then ML.info("MongoDriver.authenticate","authenticate success",void)
+                        outcome
+                     | {~failure} ->
+                        do if m.log then ML.info("MongoDriver.authenticate","authenticate fail {failure}",void)
+                        {~failure}
+                     end
+                  | {~failure} -> {~failure}
+                ),m.auth,{success=(slaveok,m)})
+    | {~failure} -> {~failure}
+
   /*
    * We have the possibility of unbounded recursion here since we
    * call MongoReplicaSet.connect, which calls us for ismaster.  Probably
@@ -220,7 +240,7 @@ MongoDriver = {{
           if attempts > m.max_attempts
           then none
           else
-            (match MongoReplicaSet.connect(m) with
+            (match do_authenticate_ll(MongoReplicaSet.connect(m)) with
              | {success=(slaveok,m)} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
                 {some=(slaveok,m)}
@@ -460,14 +480,14 @@ MongoDriver = {{
    * @param reconnectable Flag to enable reconnection logic.
    * @param log Whether to enable logging for the driver.
    **/
-  init(bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool): Mongo.db =
+  init(bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool, auth:Mongo.auths): Mongo.db =
     { conn={none};
       reconncell=(Cell.make([], reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=SocketPool.make(("localhost",default_port),pool_max,log);
       pool_max=Int.max(pool_max,1); ~allow_slaveok; ~bufsize; ~log;
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
-      depth=0; max_depth=2;
+      depth=0; max_depth=2; ~auth;
     }
 
   /**
@@ -512,10 +532,10 @@ MongoDriver = {{
    *
    *  Example: [open(bufsize, pool_max, reconnectable, addr, port, log)]
    **/
-  open(bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool)
+  open(bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, auth:Mongo.auths)
      : outcome(Mongo.db,Mongo.failure) =
     do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
-    connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log),addr,port)
+    connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log,auth),addr,port)
 
   /**
    *  Close mongo connection.

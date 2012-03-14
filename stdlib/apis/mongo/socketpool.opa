@@ -58,7 +58,7 @@ SocketPool = {{
     do Socket.close(conn)
     {state with open_connections=IntSet.remove(conn_id,state.open_connections)}
 
-  @private montor(from, state) =
+  @private monitor(from, state) =
     if state.monitor_connections
     then
      do ML.debug("SocketPool.handler({from})",

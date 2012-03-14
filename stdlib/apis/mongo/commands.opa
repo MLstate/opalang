@@ -849,6 +849,21 @@ MongoCommands = {{
        | _ -> {failure={Error="Missing nonce String"}})
     | {~failure} -> {~failure}
 
+  /**
+   * Authenticate low-level, needed by the driver during reconnect (and reauthenticate).
+   **/
+  authenticate_ll(m:Mongo.db, db:string, user:string, pass:string): Mongo.result =
+    match simple_int_command_ll(m, db, "getnonce", 1) with
+    | {success=bson} ->
+      (match Bson.find_element(bson,"nonce") with
+       | {some={name="nonce"; value={String=nonce}}} ->
+         digest = pass_digest(user,pass)
+         hash = Crypto.Hash.md5("{nonce}{user}{digest}")
+         cmd = [H.i32("authenticate",1), H.str("user",user), H.str("nonce",nonce), H.str("key",hash)]
+         run_command_ll(m,db,cmd)
+       | _ -> {failure={Error="Missing nonce String"}})
+    | {~failure} -> {~failure}
+
 }}
 
 // End of file commands.opa
