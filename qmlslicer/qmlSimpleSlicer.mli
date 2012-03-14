@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -30,6 +30,11 @@ type splitted_code = {
 
   renaming : QmlRenamingMap.t ;
 }
+
+module Options : sig
+  (** command line options specs for the slicer *)
+  val list : (string * Base.Arg.spec * string) list
+end
 
 val process_code :
   test_mode:bool ->

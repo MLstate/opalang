@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,28 +21,216 @@ module String = Base.String
 module Q = QmlAst
 module Package = ObjectFiles.Package
 
-let wclass_slicer =
-  WarningClass.create
-    ~public:true
-    ~name:"slicer"
-    ~doc:"All the warnings of the slicer"
-    ~err:true
-    ~enable:true
-    ()
-let wclass_sliced_expr =
-  WarningClass.create
-    ~parent:wclass_slicer
-    ~public:true
-    ~name:"sliced_expr"
-    ~doc:"Warns when a declaration with a @sliced_expr is not defined on both sides"
-    ~err:true
-    ~enable:true
-    ()
-let warning_set =
-  WarningClass.Set.create_from_list [
-    wclass_slicer;
-    wclass_sliced_expr;
+module WClass = struct
+
+  let all =
+    WarningClass.create
+      ~public:true
+      ~name:"slicer"
+      ~doc:"All the warnings of the slicer"
+      ~err:true
+      ~enable:true
+      ()
+
+  let sliced_expr =
+    WarningClass.create
+      ~parent:all
+      ~public:true
+      ~name:"sliced_expr"
+      ~doc:"Warns when a declaration with a @sliced_expr is not defined on both sides"
+      ~err:true
+      ~enable:true
+      ()
+
+  module Server = struct
+    (* can only be checked at link time *)
+    (** when a server directive has no purpose, TODO *)
+    let useless =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"server.useless"
+        ~doc:"Warns when a declaration with a server directive is never called from the client (i.e. remove it)"
+        ~err:false
+        ~enable:true
+        ()
+
+    (** when a server directive is ignored *)
+    let meaningless =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"server.meaningless"
+        ~doc:"Warns when a declaration with a server directive is using a protected (or server_private) value"
+        ~err:false
+        ~enable:true
+        ()
+
+    (** when a server directive is generating first order call back to the client *)
+    let misleading =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"server.misleading"
+        ~doc:"Warns when a declaration with a server directive is calling the client called"
+        ~err:false
+        ~enable:true
+        ()
+  end
+
+  module Protected = struct
+    (** when a protected directive is generating first order call back to the client *)
+    let misleading =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"protected.misleading"
+        ~doc:"Warns when a declaration with a protected directive is calling the client called"
+        ~err:false
+        ~enable:true
+        ()
+
+    (** when a exposed directive is generating first order call back to the client *)
+    let implicit_access =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"protected.implicit.expose"
+        ~doc:"Warns when a xhtml event is giving access to a protected value by being implicitly exposed but completly server side (safe in most cases)"
+        ~err:false
+        ~enable:true
+        ()
+  end
+
+  module Exposed = struct
+    (** when an exposed directive is not exposing a protected value *)
+    let meaningless =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"exposed.meaningless"
+        ~doc:"Warns when a declaration is asked to be exposed but it is not using any protected value"
+        ~err:false
+        ~enable:true
+        ()
+    (** when an exposed directive is adding an entry point uselessly TODO *)
+    let useless =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"exposed.useless"
+        ~doc:"Warns when a declaration with an exposed directive is never called from client"
+        ~err:false
+        ~enable:true
+        ()
+    (** when a exposed directive is generating first order call back to the client *)
+    let misleading =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"exposed.misleading"
+        ~doc:"Warns when a declaration with an exposed directive is calling the client"
+        ~err:false
+        ~enable:true
+        ()
+  end
+
+  let as_ignored l = List.iter (fun wclass -> WarningClass.set_warn       wclass false;
+                                              WarningClass.set_warn_error wclass false) l
+  let as_warning l = List.iter (fun wclass -> WarningClass.set_warn       wclass true;
+                                              WarningClass.set_warn_error wclass false) l
+  let as_error li lw all = List.iter (fun wclass ->
+    if not(List.mem wclass li) && not(List.mem wclass lw) then (
+      WarningClass.set_warn       wclass true;
+      WarningClass.set_warn_error wclass true
+    )
+  ) all
+
+  (* first list => ignored
+     second list => warning
+     otherwise error *)
+  let all_swclass = [ Server.meaningless ; Server.useless  ; Server.misleading    ;
+                      Exposed.meaningless; Exposed.useless ; Exposed.misleading   ;
+                      (*TODO*)            (* TODO *)         Protected.misleading ; Protected.implicit_access]
+  let security_levels_warnings = [
+    "low", (
+      all_swclass,
+      []
+    );
+    "warnall", (
+      [],
+      all_swclass
+    );
+    "normal", (
+      [Exposed.misleading],
+      [Server.useless; Server.meaningless; Protected.misleading;Protected.implicit_access]
+    );
+    "high", (
+      [],
+      [Exposed.misleading;Protected.implicit_access]
+    );
+    "higher", (
+      [],
+      [Protected.implicit_access]
+    );
+    "pedantic", (
+      [],
+      []
+    )
   ]
+
+  let select_security_level level =
+    let ignored, warn = List.assoc level security_levels_warnings
+    in
+    as_ignored ignored;
+    as_warning warn;
+    as_error ignored warn all_swclass
+
+  let security_levels = List.map fst security_levels_warnings
+
+  let warning_set = WarningClass.Set.create_from_list ([
+    all;
+    sliced_expr;
+  ] @ all_swclass)
+
+end
+
+let warning_set = WClass.warning_set
+
+module Options = struct
+
+  module Arg = Base.Arg
+
+  module Type = struct
+    type options = {
+      check_level : string;
+    }
+  end
+
+  include Type
+
+  let default_options = {
+    check_level = "warnall"
+  }
+  let _ = WClass.select_security_level default_options.check_level
+
+  let r = ref default_options
+
+  let list =
+  [
+    "--slicer-check",
+    Arg.Symbol (WClass.security_levels, (fun level ->
+      r := { check_level = level };
+      WClass.select_security_level level;
+    )),
+    Format.sprintf " Level of security of the slicing checks (%a) [%s]"
+      (Format.pp_list "@ " Format.pp_print_string) WClass.security_levels
+      default_options.check_level
+    ;
+  ]
+
+end
+
 
 type splitted_code = {
   code : QmlAst.code ;
@@ -73,7 +261,7 @@ type publication = [ `Published of [`sync | `async | `funaction ]
                    | `Private ]
 
 type privacy =
-  | Published
+  | Published of bool (* the bool indicate that the publish was implicit *)
   | Private
   | Visible
 
@@ -155,7 +343,7 @@ let pp_value pp_a f = function
   | External p -> Format.fprintf f "External %a" Package.pp p
 let pp_info_ident f {ident; _} = Format.pp_print_string f (Ident.to_string ident)
 let pp_privacy f = function
-  | Published -> Format.pp_print_string f "Published"
+  | Published _ -> Format.pp_print_string f "Published"
   | Private -> Format.pp_print_string f "Private"
   | Visible -> Format.pp_print_string f "Visible"
 let pp_info f {ident; server_ident; client_ident;
@@ -274,9 +462,9 @@ let rec slicer_annots_of_expr visibility both_implem side_annot async annotmap e
              match v with
              | `public (`sync | `async as sync) ->
                  (async := match sync with `async -> true | `sync -> !async);
-                 Published
+                 Published false
              | `private_ -> Private
-             | `public `funaction -> Published (* `sync*)
+             | `public `funaction -> Published true (* `sync*)
                  (* problem: since fun actions are lambda lifting with two groups
                   * of lambda, the funaction is onclick="f(env)(arg)"
                   * and the remote call f(env) does not return void
@@ -449,11 +637,11 @@ module G_for_server_private =
 struct
   include G
   let iter_succ f graph node =
-    iter_succ (fun node -> match node.privacy with Published -> () | _ -> f node) graph node
+    iter_succ (fun node -> match node.privacy with Published _ -> () | _ -> f node) graph node
   let exists_succ f graph node =
-    exists_succ (fun node -> match node.privacy with Published -> false | _ -> f node) graph node
+    exists_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node) graph node
   let find_succ f graph node =
-    find_succ (fun node -> match node.privacy with Published -> false | _ -> f node)  graph node
+    find_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node)  graph node
   let find_opt_succ f graph node =
     try Some (find_succ f graph node) with Not_found -> None
 end
@@ -532,7 +720,7 @@ let rec find_private_path acc info =
   let acc = info :: acc in
   match info.privacy with
   | Private -> List.rev acc, `annot
-  | Published | Visible ->
+  | Published _ | Visible ->
       match info.calls_server_bypass with
       | Some key -> List.tl (List.rev acc), `key key
       | None ->
@@ -586,44 +774,136 @@ let direct_dep_on_the_server env node =
     | e -> tra bnds e in
   not (QmlAstWalk.Expr.traverse_forall_context_down aux IdentSet.empty (get_expr node))
 
+type faulty = Private_path | No
+
+let warn_tagged_but_use node ~wclass ~tagged ~use (faulty:faulty) consequence=
+  OManager.warning ~wclass
+    "@[<v>%a@]@\n@[<2>  %s is tagged as '%s' but it uses '%s' values%a%s@]"
+    pp_pos node
+    (Ident.original_name node.ident)
+    tagged
+    use
+    (fun b node -> match faulty with
+    | No -> Format.fprintf b "%s" ". "
+    | Private_path -> Format.fprintf b ":@\n%a@\n" (pp_private_path pp_pos) node
+    )
+    node
+    consequence
+
+let may_warn_tagged_but_use ~emit node ~wclass ~tagged ~use faulty consequence =
+  if emit then (
+    warn_tagged_but_use node ~wclass ~tagged ~use faulty consequence;
+    false
+  ) else false
+
+let check_privacy ~emit_error:_ ~emit node =
+  let may_warn ~wclass ~tagged ~use faulty consequence =
+    ignore(may_warn_tagged_but_use ~emit node ~wclass ~tagged ~use faulty consequence)
+  in
+  match node.privacy with
+  | Published implicit ->
+    (* an explicit exposed value is giving access to nothing protected *)
+    let c1 = node.calls_private = None && not(implicit) in
+    if c1 then may_warn ~wclass:WClass.Exposed.meaningless
+      ~tagged:"exposed" ~use:"only non protected" No
+      "The directive will be ignored"
+    ;
+    (* an implict exposed value is giving access to a protected value *)
+    let c2 = node.calls_private <> None && implicit in
+    if c2 then may_warn ~wclass:WClass.Protected.implicit_access
+      ~tagged:"implicit exposed" ~use:"protected" Private_path
+      "The access to these value is guaranteed to be safe, but they can be accessed."
+    ;
+    let c3 = node.needs_the_client && not(implicit) in
+    if c3 then may_warn ~wclass:WClass.Exposed.misleading
+      ~tagged:"exposed" ~use:"client" No
+      "This is can be inefficient and may be a security threat."
+    ;
+    c1 && c2 && c3
+  | Visible -> true
+  | Private ->
+    let c1 = node.needs_the_client in
+    if c1 then may_warn ~wclass:WClass.Protected.misleading
+      ~tagged:"protected" ~use:"client" No
+      "This is probably a security threat."
+    ;
+    c1
+
+let check_side ~emit_error ~emit node =
+  let side_str = function
+    | Server -> "server"
+    | Both -> "both"
+    | Client -> "client"
+  in
+  let c1 = if node.calls_private <> None then (
+    match node.user_annotation with
+    | Some {wish=Force; side=Server} ->
+      may_warn_tagged_but_use ~emit node ~wclass:WClass.Server.meaningless
+        ~tagged:"server" ~use:"protected" Private_path
+        "The directive will be ignored.";
+    | Some {wish=Force; side=(Client|Both) as side} ->
+      if emit || emit_error then (
+      OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as '%s' but it uses 'protected' values:@\n%a@]"
+        pp_pos node
+        (Ident.original_name node.ident)
+        (side_str side)
+        (pp_private_path pp_pos) node;
+        false
+      ) else true
+    | _ -> true
+  ) else true
+  in
+  let c2 = if node.needs_the_client then (
+    match node.user_annotation with
+    | Some {wish=Force; side=Server} ->
+      may_warn_tagged_but_use ~emit node ~wclass:WClass.Server.misleading
+        ~tagged:"server" ~use:"client" No
+        "This can be inefficient.";
+    | _ -> true
+  ) else true
+  in
+  let c3 = if node.has_sliced_expr then (
+    match node.user_annotation with
+    | Some {wish=Force; side=(Client|Server) as side} ->
+      may_warn_tagged_but_use ~emit node ~wclass:WClass.sliced_expr
+        ~tagged:(side_str side) ~use:"sliced_expr" No
+        "This is unusual."
+    | _ -> true
+  ) else true
+  in c1 && c2 && c3
+
+let check_node ?(emit_error=false) ~emit node =
+  let c1 = check_privacy ~emit_error ~emit node in
+  let c2 = check_side ~emit_error ~emit node in
+  c1 && c2
 
 let look_at_user_annotation env pp_pos node annot =
   let rec aux node annot =
+    ignore( check_node ~emit_error:true ~emit:false node); (* only to catch errors *)
     match annot with
     | Some {wish=Force; side=Client} ->
-        if node.calls_private <> None (* subsumes calls_server_bypass *) then
-          OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as @@client but it uses server private values:@\n%a@]"
-            pp_pos node
-            (Ident.original_name node.ident)
-            (pp_private_path pp_pos) node;
-        if node.has_sliced_expr then
-          OManager.warning ~wclass:wclass_sliced_expr "@[<v>%a@]@\n@[<2>  This declaration is tagged as @@client but it contains a @@sliced_expr.@]"
-            pp_pos node;
         node.on_the_server <- Some None;
         node.on_the_client <- Some (Some `expression);
         node.publish_on_the_server <- false;
         node.publish_on_the_client <- true
     | Some {wish=Force; side=Server} ->
-        (match node.calls_client_bypass with
-         | Some key ->
+      (match node.calls_client_bypass with
+        | Some key ->
              OManager.serror "@[<v>%a@]@\n@[<2>  %s is tagged as @@server but it contains a client bypass (%%%%%a%%%%).@]"
              pp_pos node
                (Ident.original_name node.ident)
                BslKey.pp key
-         | None -> ());
-        if node.has_sliced_expr then
-          OManager.warning ~wclass:wclass_sliced_expr "@[<v>%a@]@\n@[<2>  This declaration is tagged as @@server but it contains a @@sliced_expr.@]"
-            pp_pos node;
+        | None -> ());
         node.on_the_server <- Some (Some `expression);
         node.on_the_client <- Some None;
-        node.publish_on_the_server <- node.calls_private = None || node.privacy = Published;
+        node.publish_on_the_server <- node.calls_private = None || (match node.privacy with Published _-> true | _-> false);
         node.publish_on_the_client <- false
     | Some {wish=Force; side=Both} ->
         let fake_server, fake_client =
           if node.calls_private <> None then (
             (
             match node.privacy with
-            | Published -> ()
+            | Published _ -> ()
             | _ ->
                 OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both' but it uses a 'protected' values:@\n%a@]"
                   pp_pos node
@@ -1391,6 +1671,14 @@ let show_annotations env =
   Format.printf "Client:\n"; show_map pp_constraint_ client;
   Format.printf "%!"
 
+let whole_check env code =
+  let check_binding (i,_) =
+     let node = IdentTable.find env.informations i in
+     let _ = check_node ~emit:true node in
+     ()
+  in
+  QmlAstWalk.Code.iter_binding check_binding code
+
 let dump_annotations env code =
   match ObjectFiles.compilation_mode () with
   | `init -> ()
@@ -1563,6 +1851,7 @@ let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma ~bymap ~code =
   #<If:SLICER_TIME> Printf.printf "analyse_side_effects: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   choose_sides env;
   #<If:SLICER_TIME> Printf.printf "choose_sides: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
+  whole_check env code;
   if dump then (
     dump_annotations env code
   );

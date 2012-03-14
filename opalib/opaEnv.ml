@@ -444,6 +444,7 @@ struct
         OpaSyntax.Args.options @
         BslArgs.options @
         QmlDbGen.Args.options @
+        QmlSimpleSlicer.Options.list @
         [
           (* a *)
           "--api",
