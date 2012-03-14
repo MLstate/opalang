@@ -98,7 +98,7 @@ MongoView = {{
     then ML.fatal("View.type_from_fields","Fields failed to validate",-1)
     else
       tst =
-        match List.unique_list_of(List.map((e -> Bson.int_of_value(e.value)),fields)) with
+        match List.unique_list_of(List.map((e -> Bson.int_of_value(e.value)),List.filter((e -> e.name != "_id"),fields))) with
         | [{some=num}] -> (match num with 0 -> not | _ -> (tf -> tf))
         | _ -> ML.fatal("View.type_from_fields","Bad fields value {fields}",-1)
       dfields = List.map((e -> String.explode(".",e.name)),fields)
