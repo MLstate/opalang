@@ -33,9 +33,10 @@ export
 ##
 
 .PHONY: all
-all: $(MYOCAMLBUILD) manpages
+all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
+	make manpages
 
 .PHONY: build
 build: all
