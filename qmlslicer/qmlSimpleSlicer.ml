@@ -1395,7 +1395,14 @@ let dump_annotations env code =
   let f = Format.formatter_of_out_channel channel in
   QmlAstWalk.Code.iter_binding (fun (i,_) ->
     let info = IdentTable.find env.informations i in
-    Format.fprintf f "@[<v>%a@]@\n@[<2>  %s is %s@]@\n"
+    let both = match info with
+      | {on_the_server = Some (Some `expression); on_the_client = Some (Some `expression); _} -> true
+      | _ -> false
+    in
+    let fprintf form = Format.fprintf f form in
+    (* if boring (i.e. both) we print nothing *)
+    (if both then () else
+      fprintf "@[<v>%a@]@\n@[<2>  %s is %s@]@\n"
       pp_pos info
       (Ident.original_name i)
       (match info with
@@ -1418,6 +1425,60 @@ let dump_annotations env code =
            | `expression, `alias -> "server and client(alias)"
            | `expression, `insert_server_value -> "server and client(insert_server_value)")
       (* TODO: reimplement the printing of the distant calls *)
+      (*
+        name , location , ...
+        [name , side , ...]
+        [name , server_api]
+        [name , client_api]
+        [name , remote_call , ...]
+        [name , private_call, ...]
+      *)
+    );
+    let (|>) a f = f a in
+    let side_of info =  match Option.get(info.on_the_server),Option.get(info.on_the_client) with
+      | Some `expression, Some `expression -> "both"
+      | _ , Some `expression  -> "client"
+      | Some `expression, None -> "server"
+      | _ -> "unknown"
+    in
+    let name i =
+      Printf.sprintf "%s[%s]"
+        (Ident.original_name i)
+        (Ident.get_package_name i)
+    in
+    let side = side_of info in
+    let remote_call =
+      G.succ env.call_graph info
+      |> List.filter (fun (i:information) ->
+        let side_of_i = side_of i in side_of_i <> side && side_of_i <> "both"
+        )
+      |> List.map (fun i->name i.ident)
+    in
+    if side<>"both" || remote_call <> [] then (
+      let get_bypass o = match o with
+        | None -> []
+        | Some bp -> [Format.sprintf "%a" BslKey.pp bp]
+      in
+      let get_private = match info.calls_private with
+        | Some (Local infobis) when not(Ident.equal infobis.ident info.ident)-> [name infobis.ident]
+        | Some (External _) -> ["EXTERNAL"]
+        | _ -> []
+      in
+      let private_call = get_private
+                       @ (get_bypass info.calls_client_bypass)
+                       @ (get_bypass info.calls_server_bypass)
+      in
+      let name =  name info.ident in
+      fprintf "%s , location , %a\n" name pp_pos info;
+      if side<>"both" then fprintf "%s , side , %s\n" name side;
+      if info.publish_on_the_server then  fprintf "%s , server_api\n" name;
+      if info.publish_on_the_client then  fprintf "%s , client_api\n" name;
+      if remote_call <> [] then
+      fprintf "%s , remote_call , %a\n" name (Format.pp_list " " Format.pp_print_string) remote_call;
+      if private_call <> [] then
+      fprintf "%s , private_call, %a\n" name (Format.pp_list " " Format.pp_print_string) private_call;
+      ()
+      )
   ) code;
   Format.pp_print_flush f ();
   close_out channel
