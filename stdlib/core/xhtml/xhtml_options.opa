@@ -50,10 +50,10 @@ XhtmlOptions = {{
     init = default
     parsers = [
       CommandLine.switch(
-        ["--xhtml-enable-inlined-event"],
-        "Enable inlined event handler in xhtml when it is possible"
+        ["--xhtml-disable-inlined-event"],
+        "Disable inlined event handler in xhtml"
        ){
-         options -> {options with enable_inlined_event = true}
+         options -> {options with enable_inlined_event = false}
        }
     ]
     anonymous = []
