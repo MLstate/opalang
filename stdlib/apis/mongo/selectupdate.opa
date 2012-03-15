@@ -271,7 +271,8 @@ MongoSelectUpdate = {{
     | {String=_} -> ({su_either},T.tstring)
     | {Document=d} -> type_of_bson_document(d)
     | {Array=[]} -> ({su_either},T.tempty) // or maybe list('a) or list({})???
-    | {Array=[{name=_; ~value}|_]} -> // comes from an OPA list or intmap so all same type
+    | {Array=[{name=name; ~value}|_]} -> // comes from an OPA list or intmap so all same type
+       //dbg do println("type_of_bson_value: Array({name}) value={value}")
        (sut,ty) = type_of_bson_value(value)
        (sut,T.tlist(ty))
     | {Binary=_} -> ({su_either},T.tbinary)
@@ -301,7 +302,10 @@ MongoSelectUpdate = {{
     else if StringSet.mem(element.name,array_select_names)
     then
       match element.value with
-      | {Array=adoc} -> List.fold(sutymrg,List.map(type_of_bson_value,List.map((e -> e.value),adoc)),(stat,T.tempty))
+      | {Array=adoc} ->
+         tys = List.map(type_of_bson_value,List.map((e -> e.value),adoc))
+         //dbg do println("type_of_bson_element: Array({element.name}) tys={List.list_to_string((_,ty) -> OpaType.to_pretty(ty),tys)}")
+         List.fold(sutymrg,tys,(stat,T.tempty))
       | _ -> ML.fatal("MongoSelectUpdate.type_of_bson_element",
                       "key {element.name} requires an array value, actually {Bson.to_pretty([element])}",-1)
     else
@@ -316,6 +320,7 @@ MongoSelectUpdate = {{
 
   @private
   type_of_bson_document(doc:Bson.document): (Mongo.su_status, OpaType.ty) =
+    //dbg do println("type_of_bson_document: doc={Bson.to_pretty(doc)}")
     List.fold(sutymrg,List.map(type_of_bson_element,doc),({su_either},T.tempty))
 
   @private empty_ty(ty) = ty == T.tempty || T.istvar(ty)

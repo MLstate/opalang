@@ -90,6 +90,7 @@ MongoTypeSelect = {{
 
   /** Overlay two types, matching and merging sub-types **/
   tmrgrecs(rec1, rec2) =
+    //dbg do println("tmrgrecs: rec1={OpaType.to_pretty(rec1)} rec2={OpaType.to_pretty(rec2)}")
     if rec1 == rec2 || rec2 == tempty
     then rec1
     else if rec1 == tempty
@@ -101,14 +102,27 @@ MongoTypeSelect = {{
         s2 = FieldSet.From.list(row2)
         i = FieldSet.intersection(s1,s2)
         if FieldSet.is_empty(i)
-        then {TyRecord_row=List.sort_by((r -> r.label),List.flatten([row1,row2]))}
+        then
+          //dbg do println("tmrgrecs: empty intersection")
+          res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([row1,row2]))}
+          //dbg do println("tmrgrecs: res={OpaType.to_pretty(res)}")
+          res
         else
           ii = FieldSet.fold((f, l ->
                                 match (FieldSet.get(f,s1),FieldSet.get(f,s2)) with
-                                | ({some=f1},{some=f2}) -> [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
+                                | ({some={~label; ty={TyRecord_row=row1; ...}}},{some={ty={TyRecord_row=row2; ...}; ...}}) ->
+                                   [{~label; ty={TySum_col=[row1, row2]}}]
+                                | ({some=f1},{some=f2}) ->
+                                   [{label=f1.label; ty=tmrgrecs(f1.ty,f2.ty)}|l]
                                 | _ -> @fail/*Can't happen*/),i,[])
           d = FieldSet.To.list(FieldSet.union(diff(s1,s2),diff(s2,s1)))
+          //dbg do println("tmrgrecs: ii={ii}")
+          //dbg do println("tmrgrecs: d={d}")
+          //row1 = List.sort_by((r -> r.label),ii)
+          //row2 = List.sort_by((r -> r.label),d)
+          //res = {TySum_col=[row1, row2]}
           res = {TyRecord_row=List.sort_by((r -> r.label),List.flatten([ii,d]))}
+          //dbg do println("tmrgrecs: res={OpaType.to_pretty(res)}")
           res
       | _ ->
         rec1str = OpaType.to_pretty(rec1)
