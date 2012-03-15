@@ -149,13 +149,10 @@ MongoConnection = {{
       | [] -> [f({ init_param with name=ln })]
     updt(p)
 
-  @private char = parser i1=. -> Text.from_character(i1)
   @private
   auth_parser = parser
-  | user=(!"@" char)+ "@" dbname=(!":" char)+ ":" password=char+ ->
-    {user=Text.to_string(Text.ltconcat(user));
-     dbname=Text.to_string(Text.ltconcat(dbname));
-     password=Text.to_string(Text.ltconcat(password))}:Mongo.auth
+  | user=((![@] .)+)[@] dbname=((![:] .)+) [:] password=(.+) ->
+    {user=Text.to_string(user); dbname=Text.to_string(dbname); password=Text.to_string(password)}:Mongo.auth
 
   @private
   get_params = ->
@@ -245,7 +242,6 @@ MongoConnection = {{
               on_param(p) = parser s={Rule.consume} ->
                   match Parser.try_parse(auth_parser,s) with
                   | {some=auth} ->
-                     do jlog("auth={auth}")
                      {no_params = add_param((p -> {p with auth=[auth|p.auth]}),p)}
                   | {none} ->
                      ML.fatal("MongoConnection.get_params","Invalid auth string {s}",{no_params=add_param((p -> p),p)})
@@ -285,8 +281,14 @@ MongoConnection = {{
                 match outcome with
                 | {success=_} ->
                    match MongoCommands.authenticate(db, auth.dbname, auth.user, auth.password) with
-                   | {success=_} -> do jlog("authenticate success") outcome
-                   | {~failure} -> do jlog("authenticate fail {failure}") {~failure}
+                   | {success=_} ->
+                      do if db.mongo.log
+                         then ML.info("MongoConnection.authenticate","success",void)
+                      outcome
+                   | {~failure} ->
+                      do if db.mongo.log
+                         then ML.info("MongoConnection.authenticate","failure {failure}",void)
+                      {~failure}
                    end
                 | {~failure} -> {~failure}
               ),auth,{success=db})

@@ -357,7 +357,7 @@ DbMongo = {{
     error(msg) = do Log.error("DbGen/Mongo", msg) System.exit(1)
 
     platform_error() =
-      error("Can't auto initialize MongoDB is your platform.
+      error("Can't auto initialize MongoDB for your platform.
 Please download and init MongoDB yourself.
 Download : http://www.mongodb.org/downloads
 Quick start: http://www.mongodb.org/display/DOCS/Quickstart
@@ -385,6 +385,7 @@ Then use option --db-remote instead of --db-local.
       bufsize = 50*1024
       poolsize = 2
       log = true
+      auth = [] : Mongo.auths
     }
 
     default_local() = "{%%BslFile.mlstate_dir%%(void)}/mongo"
@@ -396,9 +397,9 @@ Then use option --db-remote instead of --db-local.
       connect() =
         match args.seeds with
         | [(host, port)] ->
-          MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log)
+          MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log, args.auth)
         | seeds ->
-          mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, seeds)
+          mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, args.auth, seeds)
           match MongoReplicaSet.connect(mdb) with
           | {success=(_/*slaveok*/,m)} -> {success=m}
           | {~failure} -> {~failure}
@@ -433,7 +434,7 @@ Then use option --db-remote instead of --db-local.
             if not(%%BslFile.is_directory%%(binpath)) then
               error("File \'{path}\' exists but is not a directory")
           ) else (
-            do jlog("MongoDB seems not already installed in '{path}'")
+            do jlog("MongoDB does not seem to be installed in '{path}'")
             do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
             _ = System.exec("wget {default_url} -O {tgzpath}", "")
             do jlog("MongoDB was downloaded ({tgzpath})")
@@ -494,6 +495,19 @@ Then use option --db-remote instead of --db-local.
                   | _ -> default_remote
                 do jlog("Parsing seeds {seeds}")
                 {no_params = {remote = {acc with seeds = List.append(acc.seeds, seeds)}}}
+          },
+          {CommandLine.default_parser with
+            names = ["--db-remote-auth{suffix}"]
+            description = "Set authorisation for databases"
+            param_doc = "<user>@<dbname>:<password> (Note: no '@' in <user> and no ':' in <dbname>)"
+            on_param(acc) =
+              parser user=((![@] .)+)[@] dbname=((![:] .)+) [:] password=(.+) ->
+                auth = {user=Text.to_string(user); dbname=Text.to_string(dbname); password=Text.to_string(password)}:Mongo.auth
+                acc = match acc with
+                  | {remote = acc} -> acc
+                  | _ -> default_remote
+                do jlog("Parsing auth {auth}")
+                {no_params = {remote = {acc with auth = List.append(acc.auth, [auth])}}}
           },
           {CommandLine.default_parser with
             names = ["--db-local{suffix}"]
