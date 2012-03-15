@@ -237,8 +237,8 @@ MongoConnection = {{
            },
            {CommandLine.default_parser with
               names = ["--mongo-auth", "--mongoauth", "--ma", "-ma"]
-              description = "MongoDB user authentication (user@dbname:password)"
-              param_doc = "<string>"
+              description = "MongoDB user authentication"
+              param_doc = "user@dbname:password"
               on_param(p) = parser s={Rule.consume} ->
                   match Parser.try_parse(auth_parser,s) with
                   | {some=auth} ->
