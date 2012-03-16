@@ -890,6 +890,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                 A"--autocompile";
                 (* A"--verbose-build"; *)
                 A"--conf";P "conf";
+                A"--slicer-check"; A "low";
                 A"--warn-error"; A"root";
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
