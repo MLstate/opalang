@@ -25,6 +25,7 @@
 -define Trace (uri, v) = "TRACE " uri " HTTP/" v "\r\n"
 -define Conn (uri, v) = "CONNECT " uri " HTTP/" v "\r\n"
 -define Opts (uri, v) = "OPTIONS " uri " HTTP/" v "\r\n"
+-define Ptch (uri, v) = "PATCH " uri " HTTP/" v "\r\n"
 
 %%% Reponse <- Status line (header crlf)* crlf (Message body)?
 %% Status-Line, v) = HTTP-Version SP Status-Code SP Reason-Phrase CRLF :

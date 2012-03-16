@@ -450,6 +450,23 @@ let handle_post sched runtime _method hr = function
   | HST.Simple (uri, headers, body) -> handle_simple_post sched runtime _method hr uri headers body
   | HST.Multipart record -> handle_multipart_post sched runtime _method hr record
 
+let handle_put sched runtime _method hr (uri, headers, body) conn k =
+  #<If>Logger.debug "handle_put: uri=%s" uri#<End>;
+  let req = { HST.request_scheduler=sched;
+              HST.request_line = { HST._method = _method ; request_uri = uri ; http_version = HSC.http_version_number };
+              request_header = headers; request_message_body = body; request_post_body = [];
+              server_info = hr.HST.hr_server_info; is_multipart = false; handle_request = hr} in
+  (HD.body runtime.HSC.rt_server.HSC.rt_dialog_content sched) { HST.cont=k; request=req; connection=conn; certificate=None }
+
+let handle_delete sched runtime _method hr (uri, headers) conn k =
+  #<If>Logger.debug "handle_delete: uri=%s" uri#<End>;
+  HSCm.check_host headers;
+  let req = { HST.request_scheduler=sched;
+              HST.request_line = { HST._method=_method; request_uri=uri; http_version=HSC.http_version_number };
+              request_header = headers; request_message_body = Rc.ContentNone; request_post_body = [];
+              server_info = hr.HST.hr_server_info; is_multipart = false; handle_request = hr } in
+  (HD.body runtime.HSC.rt_server.HSC.rt_dialog_content sched) { HST.cont=k; request=req; connection=conn; certificate=None }
+
 let handle_request ?(cachetype="public") ?(is_secure=false) server_info tm lc =
   { HST.hr_delcookies = false;
     hr_cachetype = cachetype;
@@ -531,6 +548,10 @@ type options =
             -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
       post : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.post
              -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
+      put : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.put
+            -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
+      delete : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.delete
+               -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
       pre_headers : HST.handle_request -> HSCp.msg -> HST.header list -> (HST.handle_request * HST.header list);
       post_headers : HST.handle_request -> HSCp.msg -> HST.header list -> HST.header list
                      -> (HST.handle_request * HST.header list * bool);
@@ -617,6 +638,8 @@ let default_options =
     on_server_close = (fun _ -> ());
     get = handle_get;
     post = handle_post;
+    put = handle_put;
+    delete = handle_delete;
     pre_headers = pre_headers;
     post_headers = post_headers;
     callback = Some null_callback;
@@ -885,6 +908,8 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   let runtime = {
     HSC.rt_get = opt.get;
     rt_post = opt.post;
+    rt_put = opt.put;
+    rt_delete = opt.delete;
     rt_core =
       { HSC.rt_pre_headers = opt.pre_headers;
         rt_post_headers = opt.post_headers;

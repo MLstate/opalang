@@ -1,4 +1,4 @@
-% -*-erlang-*-
+% -*-proto-*-
 
 %
 %   Copyright © 2011, 2012 MLstate
@@ -89,11 +89,17 @@
                          -> Scheduler.connection_info -> (response -> unit) -> unit;
     rt_post : Scheduler.t -> runtime -> msg -> handle_request -> post
                           -> Scheduler.connection_info -> (response -> unit) -> unit;
+    rt_put : Scheduler.t -> runtime -> msg -> handle_request -> put
+                         -> Scheduler.connection_info -> (response -> unit) -> unit;
+    rt_delete : Scheduler.t -> runtime -> msg -> handle_request -> delete
+                            -> Scheduler.connection_info -> (response -> unit) -> unit;
     rt_tmp : rt_tmp;
     rt_server : rt_server;
     rt_proto : rt_proto;
     rt_core : rt_core;
   }
+
+-type allocated_resource = SomePost of post | SomePut of put | NoResource
 
 -val allowed_hosts : string list ref
 -val http_version_number : string
@@ -126,6 +132,7 @@ let request_type_http_version = function
  | Del (_,v) -> v
  | Trace (_,v) -> v
  | Conn (_,v) -> v
+ | Ptch (_,v) -> v
  | _ -> "1.0"
 let request_type_uri = function
  | Get (uri,_) -> uri
@@ -135,6 +142,7 @@ let request_type_uri = function
  | Del (uri,_) -> uri
  | Trace (uri,_) -> uri
  | Conn (uri,_) -> uri
+ | Ptch (uri,_) -> uri
  | msg -> raise (Failure (Printf.sprintf "request_type_uri: %s not a request type" (string_of_msg msg)))
 let parse_content_disposition = function
   | Content_Disposition (s,l) -> List.map (fun s -> rmldtrsp2 (Base.String.split_char '=' s)) (s::l)
@@ -147,6 +155,7 @@ let unallocate_mpr mpr = List.iter (fun (_,content) -> content_unallocate conten
 let unallocate_post = function
   | Simple (_,_,body) -> content_unallocate body
   | Multipart mpr -> unallocate_mpr mpr
+let unallocate_put (_,_,body) = content_unallocate body
 let buffer_of_response sl headers body =
   let b = HttpTools.get_buf ~hint:(4096+content_length body) () in
   (*let b = OBuffer.create (4096+content_length body) in*)
@@ -264,7 +273,7 @@ send_res(res:response, hr, request_type, headers_in, post_opt):
 send_res_cont(hr, close, res, post_opt):
   debug {{ Logger.debug "Req-Resp time: %f\n%!"
                         (Time.in_seconds (Time.difference _runtime.rt_tmp.rt_hr.hr_timestamp (Time.now()))) }}
-  {{ match post_opt with Some post -> unallocate_post post | None -> () }}
+  {{ match post_opt with SomePost post -> unallocate_post post | SomePut put -> unallocate_put put | NoResource -> () }}
   {{ unallocate_response res }}
   if {{ close }}
   then
@@ -305,12 +314,18 @@ wait_for_request(hr, timeout):
     wait_for_headers0(uri, {{ [] }}, hr, {{ Get (uri,v) }}, {{ -1 }}, 0, timeout)
   | Post (uri, v) ->
     wait_for_headers0(uri, {{ [] }}, hr, {{ Post (uri,v) }}, {{ -1 }}, 0, timeout)
+  | Put (uri, v) ->
+    wait_for_headers0(uri, {{ [] }}, hr, {{ Put (uri,v) }}, {{ -1 }}, 0, timeout)
+  | Del (uri, v) ->
+    wait_for_headers0(uri, {{ [] }}, hr, {{ Del (uri,v) }}, {{ -1 }}, 0, timeout)
   % If we get a secure connection on a non-secure server we get lots of rubbish here
   % so we only respond with a bad request if it is actually a request.
-  | Put (uri, v) -> bad_request({{ Put (uri,v) }})
-  | Del (uri, v) -> bad_request({{ Del (uri,v) }})
+  %| Put (uri, v) -> bad_request({{ Put (uri,v) }})
+  %| Del (uri, v) -> bad_request({{ Del (uri,v) }})
   | Trace (uri, v) -> bad_request({{ Trace (uri,v) }})
   | Conn (uri, v) -> bad_request({{ Conn (uri,v) }})
+  | Opts (uri, v) -> bad_request({{ Opts (uri,v) }})
+  | Ptch (uri, v) -> bad_request({{ Ptch (uri,v) }})
   | msg ->
     let amount_of_rubbish = {{ String.length (string_of_msg msg) }}
     {{ Logger.error "HttpServerCore.wait_for_request: bad request (%d bytes of rubbish)" amount_of_rubbish }}
@@ -350,6 +365,8 @@ wait_for_headers(uri, headers, hr, request_type, contlen, hdrcnt, timeout):
           | Head _ -> handle_get(request_type, uri, headers, hr)
           | Get _ -> handle_get(request_type, uri, headers, hr)
           | Post _ -> handle_post(request_type, contlen, uri, headers, hr, timeout)
+          | Put _ -> handle_put(request_type, contlen, uri, headers, hr, timeout)
+          | Del _ -> handle_delete(request_type, uri, headers, hr)
           | rt -> bad_request(rt)
           ;
         end
@@ -397,8 +414,42 @@ handle_get(request_type, uri, headers, hr):
   then
     debug {{ Logger.debug "handle_get: uri=%s\n%!" uri }}
     let res = !"handle_get"<< _runtime.rt_get sched _runtime request_type hr (uri, headers) conn >>
-    send_res(res, hr, request_type, headers, None)
+    send_res(res, hr, request_type, headers, NoResource)
   else callback_abort({{"handle_get"}}, {{None}})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                      Handling PUT requests                         %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_put(request_type, contlen, uri, headers, hr, timeout):
+  debug 10 {{ Logger.debug "handle_put: uri=%s contlen=%d\n%!" uri contlen }}
+  let _runtime = {{ set_payload _runtime ((Printf.sprintf "FIXED:%d" contlen),headers) }}
+  if {{ http_server_callback _runtime _mailbox }}
+  then handle_put0(request_type, contlen, uri, headers, hr, timeout)
+  else callback_abort({{"handle_put"}}, {{None}})
+
+handle_put0(request_type, contlen, uri, headers, hr, timeout):
+  fixed {{ contlen }}
+  | body ->
+    debug {{ Logger.debug "handle_put: body='%s'\n%!" (String.escaped body) }}
+    let put = {{ (uri, headers, (Rcontent.ContentString body)) }}
+    let res = !"handle_put_cont"<< _runtime.rt_put sched _runtime request_type hr put conn >>
+    debug 2 {{ Logger.debug "handle_put_cont: back from rt_put\n%!" }}
+    send_res(res, hr, request_type, headers, {{ SomePut put }})
+  catch | exn -> exnerr ({{"handle_put"}}, {{ None }}, exn,
+                         {{ if _runtime.rt_proto.rt_backtrace then (Some (Printexc.get_backtrace())) else None }})
+  after timeout -> timeouterr ({{"handle_put"}}, {{ None }})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                      Handling DELETE requests                      %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_delete(request_type, uri, headers, hr):
+  let _runtime = {{ set_payload _runtime ("DELETE",headers) }}
+  if {{ http_server_callback _runtime _mailbox }}
+  then
+    debug {{ Logger.debug "handle_delete: uri=%s\n%!" uri }}
+    let res = !"handle_delete"<< _runtime.rt_delete sched _runtime request_type hr (uri, headers) conn >>
+    send_res(res, hr, request_type, headers, NoResource)
+  else callback_abort({{"handle_delete"}}, {{None}})
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%                      Handling POST requests                        %%%%
@@ -431,7 +482,7 @@ handle_simple_post0(request_type, uri, headers, hr, body, len, contlen, timeout)
     let post = {{ Simple (uri, headers, ContentNone) }}
     let res = !"handle_simple_post0"<< _runtime.rt_post sched _runtime request_type hr post conn >>
     debug 2 {{ Logger.debug "handle_simple_post0: back from rt_post\n%!" }}
-    send_res(res, hr, request_type, headers, {{ Some post }})
+    send_res(res, hr, request_type, headers, {{ SomePost post }})
   else
     handle_simple_post(request_type, uri, headers, hr, body, len, contlen, timeout)
 
@@ -447,7 +498,7 @@ handle_simple_post_cont(request_type, uri, headers, hr, body, len, contlen, time
     let post = {{ Simple (uri, headers, body) }}
     let res = !"handle_simple_post_cont"<< _runtime.rt_post sched _runtime request_type hr post conn >>
     debug 2 {{ Logger.debug "handle_simple_post_cont: back from rt_post\n%!" }}
-    send_res(res, hr, request_type, headers, {{ Some post }})
+    send_res(res, hr, request_type, headers, {{ SomePost post }})
   else
     handle_simple_post(request_type, uri, headers, hr, body, len, contlen, timeout)
 
@@ -533,7 +584,7 @@ read_multipart_body2(request_type, req, hr, bound, mime_list, acc, _len, contlen
       let new_req = {{ { req with request_body = (mime_list, content) :: req.request_body } }}
       let post = {{ Multipart new_req }}
       let res = !"read_multipart_body2"<< _runtime.rt_post sched _runtime request_type hr post conn >>
-      send_res(res, hr, request_type, {{ req.request_headers }}, {{ Some post }})
+      send_res(res, hr, request_type, {{ req.request_headers }}, {{ SomePost post }})
     else
       !"read_multipart_body2"[[
          if mm.[0] = '\r' && mm.[1] = '\n'
