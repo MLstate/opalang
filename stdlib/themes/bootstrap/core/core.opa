@@ -128,7 +128,7 @@ Bootstrap = {{
 
   @package
   import_icons(v:string) =
-    do if String.lt(v, "2.0.0") then void
+    do if String.lt(v, "2.0.0") then import_opa_icons()
     do match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-glyphicons.min.css", uri_bs)
        {some=url} -> Resource.register_external_css(url)
        {none} -> void
