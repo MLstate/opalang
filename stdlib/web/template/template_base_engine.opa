@@ -551,61 +551,69 @@ import stdlib.web.client
   parse_node(conf, tag, args, children, _xmlns, xmlns_parser) =
     match Template.merge_outcome_content(List.map(xmlns_parser, children)) /* : outcome(Template.content(either(void, 'b)), Template.failure) */ with
     | { success = content } ->
+      standard_tag(tag) =
+        parse_standard_attributes(conf, args, (standard_attribute -> { standard_tag=tag; ~content; ~standard_attribute }))
+      parse_with(attrs, f) =
+        parse_attributes(conf, args, attrs, f)
       match tag with
-      | "a" -> parse_attributes(conf, args , anchor_attrs,(anchor_attribute -> { anchor; ~anchor_attribute; ~content } ) )
-      | "div" -> parse_standard_attributes(conf, args ,(standard_attribute -> { div ; ~content ; ~standard_attribute }) )
-      | "blockquote" -> parse_attributes(conf, args , quote_attrs,(quote_attribute -> { blockquote ; ~content ; ~quote_attribute }) )
-      | "q" -> parse_attributes(conf, args , quote_attrs,(quote_attribute -> { quote ; ~content ; ~quote_attribute }) )
-      | "address" -> parse_standard_attributes(conf, args ,(standard_attribute -> { address ; ~content ; ~standard_attribute }) )
-      | "acronym" -> parse_standard_attributes(conf, args ,(standard_attribute -> { acronym ; ~content ; ~standard_attribute }) )
-      | "fieldset" -> parse_standard_attributes(conf, args ,(standard_attribute -> { fieldset ; ~content ; ~standard_attribute }) )
-      | "legend" -> parse_standard_attributes(conf, args ,(standard_attribute -> { legend ; ~content ; ~standard_attribute }) )
-      | "pre" -> parse_standard_attributes(conf, args ,(standard_attribute -> { pre ; ~content ; ~standard_attribute }) )
-      | "sub" -> parse_standard_attributes(conf, args ,(standard_attribute -> { sub ; ~content ; ~standard_attribute }) )
-      | "sup" -> parse_standard_attributes(conf, args ,(standard_attribute -> { sup ; ~content ; ~standard_attribute }) )
-      | "p" -> parse_standard_attributes(conf, args ,(standard_attribute -> { paragraph ; ~content ; ~standard_attribute }) )
-      | "hr" -> parse_standard_attributes(conf, args ,(standard_attribute -> { hr ; ~standard_attribute }) )
-      | "br" -> parse_standard_attributes(conf, args ,(standard_attribute -> { br ; ~standard_attribute }) )
-      | "h1" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h1 ; ~content ; ~standard_attribute }) )
-      | "h2" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h2 ; ~content ; ~standard_attribute }) )
-      | "h3" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h3 ; ~content ; ~standard_attribute }) )
-      | "h4" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h4 ; ~content ; ~standard_attribute }) )
-      | "h5" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h5 ; ~content ; ~standard_attribute }) )
-      | "h6" -> parse_standard_attributes(conf, args ,(standard_attribute -> { h6 ; ~content ; ~standard_attribute }) )
-      | "abbr" -> parse_standard_attributes(conf, args ,(standard_attribute -> { abbr ; ~content ; ~standard_attribute }) )
-      | "del" -> parse_standard_attributes(conf, args ,(standard_attribute -> { del ; ~content ; ~standard_attribute }) )
-      | "ins" -> parse_standard_attributes(conf, args ,(standard_attribute -> { ins ; ~content ; ~standard_attribute }) )
-      | "dd" -> parse_standard_attributes(conf, args ,(standard_attribute -> { dd ; ~content ; ~standard_attribute }) )
-      | "dt" -> parse_standard_attributes(conf, args ,(standard_attribute -> { dt ; ~content ; ~standard_attribute }) )
-      | "dl" -> parse_standard_attributes(conf, args ,(standard_attribute -> { dl ; ~content ; ~standard_attribute }) )
-      | "label" -> parse_attributes(conf, args , label_attrs,(label_attribute -> { label ; ~content ; ~label_attribute }) )
-      | "ul" -> parse_standard_attributes(conf, args ,(standard_attribute -> { ul ; ~content ; ~standard_attribute }) )
-      | "menu" -> parse_standard_attributes(conf, args ,(standard_attribute -> { menu ; ~content ; ~standard_attribute }) )
-      | "open" -> parse_standard_attributes(conf, args ,(standard_attribute -> { open ; ~content ; ~standard_attribute }) )
-      | "ol" -> parse_standard_attributes(conf, args ,(standard_attribute -> { ol ; ~content ; ~standard_attribute }) )
-      | "li" -> parse_standard_attributes(conf, args ,(standard_attribute -> { li ; ~content ; ~standard_attribute }) )
-      | "span" -> parse_standard_attributes(conf, args ,(standard_attribute -> { span ; ~content ; ~standard_attribute }) )
-      | "form" -> parse_form_attributes(conf, args ,(form_attribute -> { form ; ~content ; ~form_attribute }) )
-      | "input" -> parse_attributes(conf, args , input_attrs,(input_attribute -> { input; ~input_attribute } ))
-      | "select" -> parse_attributes(conf, args , select_attrs,(select_attribute -> { select; ~content; ~select_attribute } ))
-      | "option" -> parse_attributes(conf, args , option_attrs,(option_attribute -> { option; ~content; ~option_attribute } ))
-      | "optgroup" -> parse_attributes(conf, args , optgroup_attrs,(optgroup_attribute -> { optgroup; ~content; ~optgroup_attribute } ))
-      | "textarea" -> parse_attributes(conf, args , textarea_attrs,(textarea_attribute -> { textarea; ~content; ~textarea_attribute } ))
-      | "table" -> parse_standard_attributes(conf, args ,(standard_attribute -> { table; ~content; ~standard_attribute } ))
-      | "caption" -> parse_standard_attributes(conf, args ,(standard_attribute -> { caption; ~content; ~standard_attribute } ))
-      | "thead" -> parse_standard_attributes(conf, args ,(standard_attribute -> { thead; ~content; ~standard_attribute } ))
-      | "tbody" -> parse_standard_attributes(conf, args ,(standard_attribute -> { tbody; ~content; ~standard_attribute } ))
-      | "tfoot" -> parse_standard_attributes(conf, args ,(standard_attribute -> { tbody; ~content; ~standard_attribute } ))
-      | "tr" -> parse_standard_attributes(conf, args ,(standard_attribute -> { tr; ~content; ~standard_attribute } ))
-      | "td" -> parse_attributes(conf, args , td_attrs,(td_attribute -> { td; ~content; ~td_attribute } ))
-      | "th" -> parse_attributes(conf, args , td_attrs,(th_attribute -> { th; ~content; ~th_attribute } ))
-      | "img" -> parse_attributes(conf, args , img_attrs,(img_attribute -> { img; ~img_attribute } ))
+      | "a" -> parse_with(anchor_attrs, (anchor_attribute -> { anchor; ~anchor_attribute; ~content }))
+      | "div" -> standard_tag({div})
+      | "blockquote" -> parse_with(quote_attrs, (quote_attribute -> { blockquote; ~content; ~quote_attribute }))
+      | "q" -> parse_with(quote_attrs, (quote_attribute -> { quote; ~content; ~quote_attribute }))
+      | "address" -> standard_tag({address})
+      | "acronym" -> standard_tag({acronym})
+      | "fieldset" -> standard_tag({fieldset})
+      | "legend" -> standard_tag({legend})
+      | "pre" -> standard_tag({pre})
+      | "sub" -> standard_tag({sub})
+      | "sup" -> standard_tag({sup})
+      | "p" -> standard_tag({paragraph})
+      | "hr" -> parse_standard_attributes(conf, args, (standard_attribute -> { hr; ~standard_attribute }))
+      | "br" -> parse_standard_attributes(conf, args, (standard_attribute -> { br; ~standard_attribute }))
+      | "h1" -> standard_tag({h1})
+      | "h2" -> standard_tag({h2})
+      | "h3" -> standard_tag({h3})
+      | "h4" -> standard_tag({h4})
+      | "h5" -> standard_tag({h5})
+      | "h6" -> standard_tag({h6})
+      | "abbr" -> standard_tag({abbr})
+      | "del" -> standard_tag({del})
+      | "ins" -> standard_tag({ins})
+      | "dd" -> standard_tag({dd})
+      | "dt" -> standard_tag({dt})
+      | "dl" -> standard_tag({dl})
+      | "label" -> parse_with(label_attrs, (label_attribute -> { label; ~content; ~label_attribute }))
+      | "ul" -> standard_tag({ul})
+      | "menu" -> standard_tag({menu})
+      | "open" -> standard_tag({open})
+      | "ol" -> standard_tag({ol})
+      | "li" -> standard_tag({li})
+      | "span" -> standard_tag({span})
+      | "form" -> parse_form_attributes(conf, args, (form_attribute -> { form; ~content; ~form_attribute }) )
+      | "input" -> parse_with(input_attrs, (input_attribute -> { input; ~input_attribute }))
+      | "select" -> parse_with(select_attrs, (select_attribute -> { select; ~content; ~select_attribute }))
+      | "option" -> parse_with(option_attrs, (option_attribute -> { option; ~content; ~option_attribute }))
+      | "optgroup" -> parse_with(optgroup_attrs, (optgroup_attribute -> { optgroup; ~content; ~optgroup_attribute }))
+      | "textarea" -> parse_with(textarea_attrs, (textarea_attribute -> { textarea; ~content; ~textarea_attribute }))
+      | "table" -> standard_tag({table})
+      | "caption" -> standard_tag({caption})
+      | "thead" -> standard_tag({thead})
+      | "tbody" -> standard_tag({tbody})
+      | "tfoot" -> standard_tag({tfoot})
+      | "tr" -> standard_tag({tr})
+      | "td" -> parse_with(td_attrs, (td_attribute -> { td; ~content; ~td_attribute }))
+      | "th" -> parse_with(td_attrs, (th_attribute -> { th; ~content; ~th_attribute }))
+      | "img" -> parse_with(img_attrs, (img_attribute -> { img; ~img_attribute }))
       // Head
       | "head" -> {success = { head; ~content } }
-      | "link" -> parse_attributes(conf, args , link_attrs,(link_attribute -> { link; ~link_attribute } ))
+      | "link" -> parse_with(link_attrs, (link_attribute -> { link; ~link_attribute }))
       | "title" -> parse_title_tag(content)
-      | "meta" -> parse_attributes(conf, args , meta_attrs,(meta_attribute -> { meta; ~meta_attribute } ))
-      | "base" -> parse_attributes(conf, args , base_attrs,(base_attribute -> { base; ~base_attribute } ))
+      | "meta" -> parse_with(meta_attrs, (meta_attribute -> { meta; ~meta_attribute }))
+      | "base" -> parse_with(base_attrs, (base_attribute -> { base; ~base_attribute }))
+      | "header" -> standard_tag({header})
+      | "footer" -> standard_tag({footer})
+      | "em" -> standard_tag({em})
+      | "strong" -> standard_tag({strong})
       | tag -> { failure = {unsupported_tag; ~tag; ns="" } }
       end
     | { ~failure } -> { ~failure }
@@ -620,73 +628,125 @@ import stdlib.web.client
     end
   )
 
+  @private standard_tag_export(tag : Template.standard_tag, children) =
+    match tag with
+    | {div} -> <div>{children}</>
+    | {address} -> <address>{children}</>
+    | {acronym} -> <acronym>{children}</>
+    | {fieldset} -> <fieldset>{children}</>
+    | {legend} -> <legend>{children}</>
+    | {pre} -> <pre>{children}</>
+    | {sub} -> <sub>{children}</>
+    | {sup} -> <sup>{children}</>
+    | {abbr} -> <abbr>{children}</>
+    | {ins} -> <ins>{children}</>
+    | {del} -> <del>{children}</>
+    | {dd} -> <dd>{children}</>
+    | {dt} -> <dt>{children}</>
+    | {dl} -> <dl>{children}</>
+    | {h1} -> <h1>{children}</>
+    | {h2} -> <h2>{children}</>
+    | {h3} -> <h3>{children}</>
+    | {h4} -> <h4>{children}</>
+    | {h5} -> <h5>{children}</>
+    | {h6} -> <h6>{children}</>
+    | {open} -> <open>{children}</>
+    | {span} -> <span>{children}</>
+    | {menu} -> <menu>{children}</>
+    | {ul} -> <ul>{children}</>
+    | {ol} -> <ol>{children}</>
+    | {li} -> <li>{children}</>
+    | {paragraph} -> <p>{children}</>
+    | {caption} -> <caption>{children}</>
+    | {table} -> <table>{children}</>
+    | {thead} -> <thead>{children}</>
+    | {tbody} -> <tbody>{children}</>
+    | {tr} -> <tr>{children}</>
+    | {tfoot} -> <tfoot>{children}</>
+    | {header} -> <header>{children}</>
+    | {footer} -> <footer>{children}</>
+    | {em} -> <em>{children}</>
+    | {strong} -> <strong>{children}</>
+
+  @private standard_tag_to_string(tag : Template.standard_tag) =
+    match tag with
+    | {div} -> "div"
+    | {address} -> "address"
+    | {acronym} -> "acronym"
+    | {fieldset} -> "fieldset"
+    | {legend} -> "legend"
+    | {pre} -> "pre"
+    | {sub} -> "sub"
+    | {sup} -> "sup"
+    | {abbr} -> "abbr"
+    | {ins} -> "ins"
+    | {del} -> "del"
+    | {dd} -> "dd"
+    | {dt} -> "dt"
+    | {dl} -> "dl"
+    | {h1} -> "h1"
+    | {h2} -> "h2"
+    | {h3} -> "h3"
+    | {h4} -> "h4"
+    | {h5} -> "h5"
+    | {h6} -> "h6"
+    | {open} -> "open"
+    | {span} -> "span"
+    | {menu} -> "menu"
+    | {ul} -> "ul"
+    | {ol} -> "ol"
+    | {li} -> "li"
+    | {paragraph} -> "p"
+    | {caption} -> "caption"
+    | {table} -> "table"
+    | {thead} -> "thead"
+    | {tbody} -> "tbody"
+    | {tr} -> "tr"
+    | {tfoot} -> "tfoot"
+    | {header} -> "header"
+    | {footer} -> "footer"
+    | {em} -> "em"
+    | {strong} -> "strong"
+
   /**
   * The default engine : It can process default tags like div or span.
   */
   base_engine : Template.engine(void, 'b) = {
     parse(conf :Template.conf, import_args:Template.import_arg(void, 'b)): outcome(Template.content(either(void, 'b)), Template.failure) = private_parse(conf, import_args)
-
    ; export(content:Template.content('a), exporter):outcome(xhtml, Template.export_failure) = (
     content_children = base_extract_children(content)
     child = Template.export_list_content(content_children, exporter)
+    do_export(export_f, attrs, tag) =
+      add_attributes_to_xhtml(export_f.export(attrs), tag)
     match content with
-    | {anchor; content=_; ~anchor_attribute }       -> add_attributes_to_xhtml(anchor_attrs.export(anchor_attribute), <a>{child}</a> )
-    | {div; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <div>{child}</div> )
-    | {blockquote; content=_; ~quote_attribute }       -> add_attributes_to_xhtml(quote_attrs.export(quote_attribute), <blockquote>{child}</blockquote> )
-    | {quote; content=_; ~quote_attribute }       -> add_attributes_to_xhtml(quote_attrs.export(quote_attribute), <q>{child}</q> )
-    | {address; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <address>{child}</address> )
-    | {acronym; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <acronym>{child}</acronym> )
-    | {fieldset; content=_; ~standard_attribute }  -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <fieldset>{child}</fieldset> )
-    | {legend; content=_; ~standard_attribute }    -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <fieldset>{child}</fieldset> )
-    | {pre; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <pre>{child}</pre> )
-    | {sub; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <sub>{child}</sub> )
-    | {sup; content=_; ~standard_attribute }       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <sup>{child}</sup> )
-    | {h1; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h1>{child}</h1> )
-    | {h2; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h2>{child}</h2> )
-    | {h3; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h3>{child}</h3> )
-    | {h4; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h4>{child}</h4> )
-    | {h5; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h5>{child}</h5> )
-    | {h6; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <h6>{child}</h6> )
-    | {abbr; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <abbr>{child}</abbr> )
-    | {del; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <del>{child}</del> )
-    | {ins; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <ins>{child}</ins> )
-    | {dd; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <dd>{child}</dd> )
-    | {dt; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <dt>{child}</dt> )
-    | {dl; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <dl>{child}</dl> )
-    | {ol; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <ol>{child}</ol> )
-    | {hr; ~standard_attribute }                   -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <hr />)
-    | {br; ~standard_attribute }                   -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <br />)
-    | {ul; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <ul>{child}</ul>)
-    | {menu; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <menu>{child}</menu>)
-    | {open; content=_; standard_attribute=_ }        ->  {success = <>{child}</>}
-    | {li; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <li>{child}</li> )
-    | {paragraph; content=_; ~standard_attribute } -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <p>{child}</p> )
-    | {label; content=_; ~label_attribute }     -> add_attributes_to_xhtml(label_attrs.export(label_attribute), <label>{child}</label> )
-    | {span; content=_; ~standard_attribute}       -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <span>{child}</span> )
-    | {form; content=_; ~form_attribute }          -> add_attributes_to_xhtml(form_attr.export(form_attribute), <form>{child}</form>)
-    | {input; ~input_attribute }                   -> add_attributes_to_xhtml(input_attrs.export(input_attribute), <input/>)
-    | {textarea; content=_; ~textarea_attribute }  -> add_attributes_to_xhtml(textarea_attrs.export(textarea_attribute), <textarea>{child}</textarea>)
-    | {option; content=_; ~option_attribute }      -> add_attributes_to_xhtml(option_attrs.export(option_attribute), <option>{child}</option>)
-    | {select; content=_; ~select_attribute }      -> add_attributes_to_xhtml(select_attrs.export(select_attribute), <select>{child}</select>)
-    | {optgroup; content=_; ~optgroup_attribute }      -> add_attributes_to_xhtml(optgroup_attrs.export(optgroup_attribute), <optgroup>{child}</optgroup>)
-    | {caption; content=_; ~standard_attribute }     -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <caption>{child}</caption>)
-    | {table; content=_; ~standard_attribute }     -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <table>{child}</table>)
-    | {thead; content=_; ~standard_attribute }     -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <thead>{child}</thead>)
-    | {tbody; content=_; ~standard_attribute }     -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <tbody>{child}</tbody>)
-    | {tfoot; content=_; ~standard_attribute }     -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <tfoot>{child}</tfoot>)
-    | {tr; content=_; ~standard_attribute }        -> add_attributes_to_xhtml(std_attr.export(standard_attribute), <tr>{child}</tr>)
-    | {td; content=_; ~td_attribute }              -> add_attributes_to_xhtml(td_attrs.export(td_attribute), <td>{child}</td>)
-    | {th; content=_; ~th_attribute }              -> add_attributes_to_xhtml(td_attrs.export(th_attribute), <th>{child}</th>)
-    | {img; ~img_attribute }              -> add_attributes_to_xhtml(img_attrs.export(img_attribute), <img />)
-    | { meta; ~meta_attribute }                    -> add_attributes_to_xhtml(meta_attrs.export(meta_attribute), <meta /> )
-    | { base; ~base_attribute }                    -> add_attributes_to_xhtml(base_attrs.export(base_attribute), <base /> )
-    | {link; ~link_attribute }                     -> add_attributes_to_xhtml(link_attrs.export(link_attribute), <link />)
-    | {~text}                                      -> {success = <>{text}</> }
-    | {~checked_text}                              -> {success = Xhtml.of_string_unsafe(checked_text) }
-    | {fragment=_}                                 -> {success = child }
-    | { head; content=_ }                          -> {success = <head>{child}</head> }
-    | { ~title; }                                  -> {success = <title>{title}</title> }
-    | tag                                          -> {failure = {unknown_tag = "{tag}" } }
+    | {standard_tag={open}; content=_;
+       standard_attribute=_}                     -> {success = <>{child}</>}
+    | {~standard_tag; content=_;
+       ~standard_attribute}                      -> do_export(std_attr, standard_attribute, standard_tag_export(standard_tag, child))
+    | {anchor; content=_; ~anchor_attribute}     -> do_export(anchor_attrs, anchor_attribute, <a>{child}</> )
+    | {blockquote; content=_; ~quote_attribute}  -> do_export(quote_attrs, quote_attribute, <blockquote>{child}</> )
+    | {quote; content=_; ~quote_attribute}       -> do_export(quote_attrs, quote_attribute, <q>{child}</> )
+    | {hr; ~standard_attribute}                  -> do_export(std_attr, standard_attribute, <hr/>)
+    | {br; ~standard_attribute}                  -> do_export(std_attr, standard_attribute, <br/>)
+    | {label; content=_; ~label_attribute}       -> do_export(label_attrs, label_attribute, <label>{child}</> )
+    | {form; content=_; ~form_attribute}         -> do_export(form_attr, form_attribute, <form>{child}</>)
+    | {input; ~input_attribute}                  -> do_export(input_attrs, input_attribute, <input/>)
+    | {textarea; content=_; ~textarea_attribute} -> do_export(textarea_attrs, textarea_attribute, <textarea>{child}</>)
+    | {option; content=_; ~option_attribute}     -> do_export(option_attrs, option_attribute, <option>{child}</>)
+    | {select; content=_; ~select_attribute}     -> do_export(select_attrs, select_attribute, <select>{child}</>)
+    | {optgroup; content=_; ~optgroup_attribute} -> do_export(optgroup_attrs, optgroup_attribute, <optgroup>{child}</>)
+    | {td; content=_; ~td_attribute}             -> do_export(td_attrs, td_attribute, <td>{child}</>)
+    | {th; content=_; ~th_attribute}             -> do_export(td_attrs, th_attribute, <th>{child}</>)
+    | {img; ~img_attribute}                      -> do_export(img_attrs, img_attribute, <img />)
+    | {meta; ~meta_attribute}                    -> do_export(meta_attrs, meta_attribute, <meta /> )
+    | {base; ~base_attribute}                    -> do_export(base_attrs, base_attribute, <base /> )
+    | {link; ~link_attribute}                    -> do_export(link_attrs, link_attribute, <link />)
+    | {~text}                                    -> {success = <>{text}</>}
+    | {~checked_text}                            -> {success = Xhtml.of_string_unsafe(checked_text) }
+    | {fragment=_}                               -> {success = child }
+    | {head; content=_}                          -> {success = <head>{child}</> }
+    | {~title}                                   -> {success = <title>{title}</> }
+    | {extension=_}                              -> {failure = {unknown_tag = "{content}" } }
     )
 
    ; source(content:Template.content('a), exporter, _xmlns_binding, printer, depth) : outcome(string, Template.export_failure) =
@@ -704,7 +764,7 @@ import stdlib.web.client
         | lst -> match List.head(List.rev(lst) ) with
           | { checked_text=text }
           | { ~text } -> String.ws_length(String.reverse(text)) != 0
-          | { pre; ... } -> false
+          | { standard_tag={pre}; ... } -> false
           | other -> should_print_after(other)
           end
         end
@@ -718,64 +778,38 @@ import stdlib.web.client
          if String.ws_length(text) > 0
            then "{before}{text}"
            else text
+
+       print_tag(name, attr_f, attrs) =
+         print_html_tag(name, attr_f.export(attrs), false)
+       print_tag_auto_close(name, attr_f, attrs) =
+         print_html_tag(name, attr_f.export(attrs), true)
+
        res = match content with
-       | {anchor; content=_; ~anchor_attribute }       -> print_html_tag("a", anchor_attrs.export(anchor_attribute), false)
-       | {div; content=_; ~standard_attribute }       -> print_html_tag("div", std_attr.export(standard_attribute), false)
-       | {blockquote; content=_; ~quote_attribute }       -> print_html_tag("blockquote", quote_attrs.export(quote_attribute), false)
-       | {quote; content=_; ~quote_attribute }       -> print_html_tag("q", quote_attrs.export(quote_attribute), false)
-       | {address; content=_; ~standard_attribute }       -> print_html_tag("address", std_attr.export(standard_attribute), false)
-       | {acronym; content=_; ~standard_attribute }       -> print_html_tag("acronym", std_attr.export(standard_attribute), false)
-       | {fieldset; content=_; ~standard_attribute }  -> print_html_tag("fieldset", std_attr.export(standard_attribute), false)
-       | {legend; content=_; ~standard_attribute }    -> print_html_tag("legend", std_attr.export(standard_attribute), false)
-       | {pre; content=_; ~standard_attribute }       -> print_html_tag("pre", std_attr.export(standard_attribute), false)
-       | {sub; content=_; ~standard_attribute }       -> print_html_tag("sub", std_attr.export(standard_attribute), false)
-       | {sup; content=_; ~standard_attribute }       -> print_html_tag("sup", std_attr.export(standard_attribute), false)
-       | {h1; content=_; ~standard_attribute }        -> print_html_tag("h1", std_attr.export(standard_attribute), false)
-       | {h2; content=_; ~standard_attribute }        -> print_html_tag("h2", std_attr.export(standard_attribute), false)
-       | {h3; content=_; ~standard_attribute }        -> print_html_tag("h3", std_attr.export(standard_attribute), false)
-       | {h4; content=_; ~standard_attribute }        -> print_html_tag("h4", std_attr.export(standard_attribute), false)
-       | {h5; content=_; ~standard_attribute }        -> print_html_tag("h5", std_attr.export(standard_attribute), false)
-       | {h6; content=_; ~standard_attribute }        -> print_html_tag("h6", std_attr.export(standard_attribute), false)
-       | {abbr; content=_; ~standard_attribute }        -> print_html_tag("abbr", std_attr.export(standard_attribute), false)
-       | {del; content=_; ~standard_attribute }        -> print_html_tag("del", std_attr.export(standard_attribute), false)
-       | {ins; content=_; ~standard_attribute }        -> print_html_tag("ins", std_attr.export(standard_attribute), false)
-       | {dd; content=_; ~standard_attribute }        -> print_html_tag("dd", std_attr.export(standard_attribute), false)
-       | {dt; content=_; ~standard_attribute }        -> print_html_tag("dt", std_attr.export(standard_attribute), false)
-       | {dl; content=_; ~standard_attribute }        -> print_html_tag("dl", std_attr.export(standard_attribute), false)
-       | {ol; content=_; ~standard_attribute }        -> print_html_tag("ol", std_attr.export(standard_attribute), false)
-       | {hr; ~standard_attribute }                   -> print_html_tag("hr", std_attr.export(standard_attribute), true)
-       | {br; ~standard_attribute }                   -> print_html_tag("br", std_attr.export(standard_attribute), true)
-       | {ul; content=_; ~standard_attribute }        -> print_html_tag("ul", std_attr.export(standard_attribute), false)
-       | {menu; content=_; ~standard_attribute }      -> print_html_tag("menu", std_attr.export(standard_attribute), false)
-       | {open; content=_; ~standard_attribute }      -> print_html_tag("open", std_attr.export(standard_attribute), false)
-       | {li; content=_; ~standard_attribute }        -> print_html_tag("li", std_attr.export(standard_attribute), false)
-       | {paragraph; content=_; ~standard_attribute } -> print_html_tag("p", std_attr.export(standard_attribute), false)
-       | {label; content=_; ~label_attribute }        -> print_html_tag("label", label_attrs.export(label_attribute), false)
-       | {span; content=_; ~standard_attribute}       -> print_html_tag("span", std_attr.export(standard_attribute), false)
-       | {form; content=_; ~form_attribute }          -> print_html_tag("form", form_attr.export(form_attribute), false)
-       | {input; ~input_attribute }                   -> print_html_tag("input", input_attrs.export(input_attribute), true)
-       | {textarea; content=_; ~textarea_attribute }  -> print_html_tag("textarea", textarea_attrs.export(textarea_attribute), false)
-       | {option; content=_; ~option_attribute }      -> print_html_tag("option", option_attrs.export(option_attribute), false)
-       | {select; content=_; ~select_attribute }      -> print_html_tag("select", select_attrs.export(select_attribute), false)
-       | {optgroup; content=_; ~optgroup_attribute }  -> print_html_tag("optgroup", optgroup_attrs.export(optgroup_attribute), false)
-       | {table; content=_; ~standard_attribute }     -> print_html_tag("table", std_attr.export(standard_attribute), false)
-       | {caption; content=_; ~standard_attribute }   -> print_html_tag("caption", std_attr.export(standard_attribute), false)
-       | {thead; content=_; ~standard_attribute }     -> print_html_tag("thead", std_attr.export(standard_attribute), false)
-       | {tbody; content=_; ~standard_attribute }     -> print_html_tag("tbody", std_attr.export(standard_attribute), false)
-       | {tfoot; content=_; ~standard_attribute }     -> print_html_tag("tfoot", std_attr.export(standard_attribute), false)
-       | {tr; content=_; ~standard_attribute }        -> print_html_tag("tr", std_attr.export(standard_attribute), false)
-       | {td; content=_; ~td_attribute }              -> print_html_tag("td", td_attrs.export(td_attribute), false)
-       | {th; content=_; ~th_attribute }              -> print_html_tag("th", td_attrs.export(th_attribute), false)
-       | {img; ~img_attribute }                       -> print_html_tag("img", img_attrs.export(img_attribute), false)
-       | {meta; ~meta_attribute }                     -> print_html_tag("meta", meta_attrs.export(meta_attribute), true)
-       | {base; ~base_attribute }                     -> print_html_tag("base", base_attrs.export(base_attribute), true)
-       | {link; ~link_attribute }                     -> print_html_tag("link", link_attrs.export(link_attribute), true)
-       | {head; content=_ }                           -> print_html_tag("head", [], false)
-       | { ~title }                                  -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
-       | {~text}                                      -> {success = (before, _ -> print_text_node(before, text)) }
-       | {~checked_text}                                      -> {success = (before, _ -> print_text_node(before, checked_text)) }
-       | {fragment=_}                                 -> {success = (_, _  -> "{child}") }
-       | tag                                          -> {failure = { unknown_tag = "{tag}" } }
+       | {~standard_tag; content=_; ~standard_attribute} -> print_tag(standard_tag_to_string(standard_tag), std_attr, standard_attribute)
+       | {anchor; content=_; ~anchor_attribute }         -> print_tag("a", anchor_attrs, anchor_attribute)
+       | {blockquote; content=_; ~quote_attribute }      -> print_tag("blockquote", quote_attrs, quote_attribute)
+       | {quote; content=_; ~quote_attribute }           -> print_tag("q", quote_attrs, quote_attribute)
+       | {hr; ~standard_attribute}                       -> print_tag_auto_close("hr", std_attr, standard_attribute)
+       | {br; ~standard_attribute}                       -> print_tag_auto_close("br", std_attr, standard_attribute)
+       | {label; content=_; ~label_attribute }           -> print_tag("label", label_attrs, label_attribute)
+       | {form; content=_; ~form_attribute }             -> print_tag("form", form_attr, form_attribute)
+       | {input; ~input_attribute }                      -> print_tag_auto_close("input", input_attrs, input_attribute)
+       | {textarea; content=_; ~textarea_attribute }     -> print_tag("textarea", textarea_attrs, textarea_attribute)
+       | {option; content=_; ~option_attribute }         -> print_tag("option", option_attrs, option_attribute)
+       | {select; content=_; ~select_attribute }         -> print_tag("select", select_attrs, select_attribute)
+       | {optgroup; content=_; ~optgroup_attribute }     -> print_tag("optgroup", optgroup_attrs, optgroup_attribute)
+       | {td; content=_; ~td_attribute }                 -> print_tag("td", td_attrs, td_attribute)
+       | {th; content=_; ~th_attribute }                 -> print_tag("th", td_attrs, th_attribute)
+       | {img; ~img_attribute }                          -> print_tag("img", img_attrs, img_attribute)
+       | {meta; ~meta_attribute }                        -> print_tag_auto_close("meta", meta_attrs, meta_attribute)
+       | {base; ~base_attribute }                        -> print_tag_auto_close("base", base_attrs, base_attribute)
+       | {link; ~link_attribute }                        -> print_tag_auto_close("link", link_attrs, link_attribute)
+       | {head; content=_ }                              -> print_html_tag("head", [], false)
+       | {~title}                                        -> {success = Template.print_tag("title", none, "", false, true,some(title)) }
+       | {~text}                                         -> {success = (before, _ -> print_text_node(before, text)) }
+       | {~checked_text}                                 -> {success = (before, _ -> print_text_node(before, checked_text)) }
+       | {fragment=_}                                    -> {success = (_, _  -> "{child}") }
+       | {extension=_}                                   -> {failure = {unknown_tag = "{content}"}}
        match res with
        | { ~success }                                      -> { success = printer(depth)(success) }
        | { ~failure }                                      -> { ~failure }

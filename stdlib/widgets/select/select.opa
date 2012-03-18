@@ -398,7 +398,7 @@ SimpleSelect = {{
     mk_opt(i, (x, v)) =
       opt = <option value={i} selected=selected>{x}</>
       if some(v) == selected then
-         Xhtml.add_attribute("selected", "selected", opt)
+         Xhtml.add_attribute_unsafe("selected", "selected", opt)
       else
         opt
     <select class=span2 id={id} onchange={ _ -> callback(getval())}>

@@ -27,6 +27,11 @@ type Socket.connection = external
     This module helps you to do some low-level networking. You can
     connect to a server, and write and read raw data to/from it.
 
+    The err_cont functions are exactly the same as the non-err_cont
+    functions except you get an outcome of either the success result or
+    a failure with the exception turned into a string.  Timeouts are
+    ints as milliseconds.
+
     {b Warning:} This module is still experimental.
 */
 Socket = {{
@@ -38,7 +43,11 @@ Socket = {{
      *
      * @return A connection.
      */
-    connect: string, int -> Socket.connection = %%BslSocket.connect%%
+    connect: string, int -> Socket.connection =
+      %%BslSocket.connect%%
+
+    connect_with_err_cont: string, int -> outcome(Socket.connection,string) =
+      %%BslSocket.connect_with_err_cont%%
 
     /**
      * Connect to a server over an SSL encryption.
@@ -49,7 +58,10 @@ Socket = {{
      * @return A connection.
      */
     secure_connect: string, int, SSL.secure_type -> Socket.connection =
-        %%BslSocket.secure_connect%%
+      %%BslSocket.secure_connect%%
+
+    secure_connect_with_err_cont: string, int, SSL.secure_type -> outcome(Socket.connection,string) =
+      %%BslSocket.secure_connect_with_err_cont%%
 
     /** Close the connection. */
     close: Socket.connection -> void = %%BslSocket.close%%
@@ -57,14 +69,36 @@ Socket = {{
     /**
      * Write data to a connection.
      *
-     * @return The amount of bytes read.
+     * @return The amount of bytes written.
      */
-    write: Socket.connection, string -> int = %%BslSocket.write%%
+    write: Socket.connection, string -> int =
+      %%BslSocket.write%%
+
+    write_with_err_cont: Socket.connection, int, string -> outcome(int,string) =
+      %%BslSocket.write_with_err_cont%%
+
+    /**
+     * Write partial data to a connection.
+     *
+     * @return The amount of bytes written.
+     */
+    write_len: Socket.connection, string, int -> int =
+      %%BslSocket.write_len%%
+
+    write_len_with_err_cont: Socket.connection, int, string, int -> outcome(int,string) =
+      %%BslSocket.write_len_with_err_cont%%
 
     /**
      * Read data from a connection.
      *
      * @return The data read.
      */
-    read: Socket.connection -> string = %%BslSocket.read%%
+    read: Socket.connection -> string =
+      %%BslSocket.read%%
+
+    read_with_err_cont: Socket.connection, int -> outcome(string,string) =
+      %%BslSocket.read_with_err_cont%%
+
+    conn_id: Socket.connection -> int = %%BslSocket.conn_id%%
+
 }}

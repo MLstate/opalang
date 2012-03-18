@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{rpc.core, map, db, web.core}
+import stdlib.core.{rpc.core, map, web.core}
 
 
 /**

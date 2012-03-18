@@ -39,25 +39,25 @@
  * {1 Interface}
  */
 
-Log = {{
-  /**
-   * All parameters are the same:
-   * @param topic
-   * @param message
-   * Example:
-   * [Log.fatal("topic", "message")]
-  **/
+/**
+ * All parameters are the same:
+ * @param topic
+ * @param message
+ * Example:
+ * [Log.fatal("topic", "message")]
+ */
 
+Log = {{
   fatal   = %% BslSyslog.fatal %%
   error   = %% BslSyslog.error %%
   warning = %% BslSyslog.warning %%
-  notice  = %% BslSyslog.log %%
+  notice  = %% BslSyslog.notice %%
   info    = %% BslSyslog.info %%
   debug   = %% BslSyslog.debug %%
 }}
 
 /**
  * {1 Deprecated. Use Log.}
-**/
+ */
 
 @deprecated({use="Log"}) Syslog = Log

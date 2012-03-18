@@ -109,6 +109,7 @@ type non_expansive = [
   | `module_
   | `recval
   | Q.slicer_directive
+  | Q.closure_instrumentation_directive
 ]
 
 let rec is_expansive e =
@@ -163,7 +164,7 @@ let rec is_expansive e =
 
 and is_expansive_dbpath_expr_elt e =
   match e with
-  | Q.ExprKey e -> is_expansive e
+  | Q.Db.ExprKey e -> is_expansive e
   | _ -> false
 
 let rec is_expansive_strict e =
@@ -199,7 +200,7 @@ let rec is_expansive_strict e =
 
 and is_expansive_strict_dbpath_expr_elt e =
   match e with
-  | Q.ExprKey e -> is_expansive_strict e
+  | Q.Db.ExprKey e -> is_expansive_strict e
   | _ -> false
 
 let is_expansive_with_options = function

@@ -19,6 +19,7 @@
 
 (* depends *)
 module List = Base.List
+module String = BaseString
 
 (* shorthands *)
 module J = JsAst
@@ -39,6 +40,16 @@ let def_label = label
   ]}
 *)
 external rlabel : Annot.label -> Annot.label = "%identity"
+
+
+let object_prototype = StringSet.add_list [
+  "constructor"; "eval"; "hasOwnProperty"; "isPrototypeOf"; "propertyIsEnumerable";
+  "toSource"; "toLocalString"; "toString"; "unwatch"; "valueOf"; "watch";
+] StringSet.empty
+
+let can_object_field field =
+  StringSet.mem field object_prototype ||
+    String.is_prefix "__" field
 
 let stmt_def ?(label=def_label()) ident =
   J.Js_var (label, ident, None)
@@ -75,7 +86,20 @@ struct
     J.Je_cond (label, cond, then_, else_)
 
   let dot ?(label=def_label()) expr field =
-    J.Je_dot (label, expr, field)
+    (* Check if the field can be an inherit field from Object, in this
+       case use hasOwnProperty to ensure the field is really owned by the
+       object.
+       Credit: Bug reported by Erling Ellingsen <reg.opa@alf.nu>
+    *)
+    if can_object_field field then
+      (* (e.hasOwnProperty("field") && e.field) || undefined *)
+      let check = J.Je_dot (label, expr, "hasOwnProperty") in
+      let check = J.Je_call (label, check, [J.Je_string (label, field, true)], true) in
+      let realldot = J.Je_dot (label, expr, field) in
+      let checkanddot = J.Je_binop (label, J.Jb_land, check, realldot) in
+      J.Je_binop (label, J.Jb_lor, checkanddot, J.Je_undefined label)
+    else
+      J.Je_dot (label, expr, field)
 
   let equality ?(label=def_label()) e = binop ~label J.Jb_eq e
 

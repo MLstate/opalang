@@ -262,6 +262,11 @@ Rule =
   ws = parser white_space* -> void;
 
   /**
+   * @return A parser recognizing end of a line
+   */
+  eol = parser [\n] -> void
+
+  /**
    * A parser for a non zero number of white space character.
    *
    * @return parser of type [Parser.general_parser(void)]
@@ -313,6 +318,11 @@ Rule =
   **/
   consume = parser v=(.*) -> Text.to_string(v)
     // FIXME: inefficient, see low level implementation of opa parser
+
+  /**
+   * @return A parser that consumes (and returns) the rest of the line
+   */
+  full_line = parser txt=((!eol .)*) eol? -> Text.to_string(txt)
 
   /**
    * A parser combinator that succeed without consuming any input
@@ -423,16 +433,16 @@ Rule =
   (
      f(key, result, acc) =  [(parser {Rule.of_string(key)} -> result) | acc]
      of_parsers(StringMap.fold(f,map,[]))
-/*
-     test(key)(_,itextrator) =
-       do jlog("Attempting to get \"{key}\" in {List.to_string(StringMap.To.key_list(map))}")
-       match StringMap.get(key, map) with
-       | {none} -> {none}
-       | ~{some}-> {some = (itextrator, some)}
-     test_parser(key) : Parser.general_parser('a) = @wrap(test(key))
-     parser result=&(key=(.*) -> test_parser(Text.to_string(key))) -> result
-*/
   )
+
+  /**
+   * Transform an ['a] parser to an ['b] parser using the map function [f].
+   */
+  map(p:Parser.general_parser('a), f):Parser.general_parser('b) = i, b ->
+    match p(i, b) with
+    | {none} -> none
+    | {some = (i, r)} -> {some = (i, f(r))}
+
 }}
 
 /*

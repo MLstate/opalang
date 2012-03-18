@@ -295,10 +295,12 @@ module Exe = struct
      "Output to files using the given suffix instead of stdout")
   ]
 
+  let usage_msg = Printf.sprintf "%s: Simple preprocessor for the needs of the Opa compiler \nUsage: %s [options] <files>\n" Sys.argv.(0) Sys.argv.(0)
+
   let parse () =
     Arg.parse speclist
       (fun file -> files := file::!files)
-      "pprocess"
+      (usage_msg^"Options:")
 
   (* Get a file content (cc from File) *)
   let content f =

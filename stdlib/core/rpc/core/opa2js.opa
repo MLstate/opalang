@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -30,7 +30,7 @@ import stdlib.core.{web.core, js}
  * {1 Interface}
  */
 
-@server Opa2Js = {{
+@server_private Opa2Js = {{
 
   /**
    * A common transformation. No back-end dependent, but JavaScript
@@ -43,9 +43,14 @@ import stdlib.core.{web.core, js}
      */
     session(s:channel('a)):option(RPC.Json.js_code) =
       get_server_id = %%BslSession.get_server_id%%
-      match get_server_id(s) with
-      | {some = id} -> some({Direct = "new {JsInterface.ServerChannel}({id})"})
-      | {none} -> {none}
+      context = match ThreadContext.get({current}).key
+                {~client} -> some(client)
+                _ -> some(ThreadContext.Client.fake)
+                     // NOT none until OpaNetwork corrections
+                end
+      match get_server_id(s,context)
+      {some = id} -> some({Direct = "new {JsInterface.ServerChannel}({id})"})
+      {none} -> {none}
 
   }}
 
@@ -175,5 +180,6 @@ import stdlib.core.{web.core, js}
         | {none} -> ignore
         | {some=refs} -> ident -> ServerReference.set(refs,[ident|ServerReference.get(refs)])
       txt = Json.to_text_in_js_ll(to_json_with_type(serialize_closure_callback, ty, value))
-      "/*OPA2JS*/" ^ Text.to_string(txt)
+      // "/*OPA2JS*/" ^ TODO keep in debug mode
+      Text.to_string(txt)
 }}

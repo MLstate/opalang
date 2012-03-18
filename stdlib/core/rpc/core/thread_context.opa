@@ -153,6 +153,15 @@ ThreadContext = {{
     {ThreadContext.get({current}) with constraint={no_client_calls}}
 
 
+  Client = {{
+    /**
+     * If you use it, it means you don't need the documentation.
+     */
+    fake = {client="_internal_" page=-1}
+    // use when you need a ThreadContext.client that you can't get
+    // only here for avoiding duplication of code
+    // TODO: remove all use
+  }}
 }}
 
 /**

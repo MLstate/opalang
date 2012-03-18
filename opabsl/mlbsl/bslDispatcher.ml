@@ -33,20 +33,27 @@ type json = JS.json
 
 
 let send_txt_response winfo txt =
-  winfo.HttpServerTypes.cont (make_response_modified_since
-                (Time.now ())
-                winfo.HttpServerTypes.request
-                Requestdef.SC_OK
-                "text/plain, charset=utf-8"
-                (Http_common.Result txt))
+   make_response_modified_since
+     (Time.now ())
+     winfo.HttpServerTypes.request
+     Requestdef.SC_OK
+     "text/plain; charset=utf-8"
+     (Http_common.Result txt)
+     winfo.HttpServerTypes.cont
 
 let send_json_response winfo json =
   let txt = Json_utils.to_string json in
   send_txt_response winfo txt
 
 let send_error winfo txt =
-  winfo.HttpServerTypes.cont (make_response ~req:winfo.HttpServerTypes.request Requestdef.SC_Unauthorized
-                "text/plain" (Http_common.Result txt))
+  let txt = #<If:PING_DEBUG> txt #<Else>
+    let _ = txt in  "Unauthorized request"
+    #<End>
+  in
+  make_response ~req:winfo.HttpServerTypes.request Requestdef.SC_Unauthorized
+    "text/plain"
+    (Http_common.Result txt)
+    winfo.HttpServerTypes.cont
 
 let string2json str =
   try

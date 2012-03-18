@@ -22,6 +22,7 @@
 
 
 val pp_simple_type: Format.formatter -> W_Algebra.simple_type -> unit
+val pp_simple_type_prepare_sequence: W_Algebra.simple_type list -> unit
 val pp_simple_type_start_sequence:
   Format.formatter -> W_Algebra.simple_type -> unit
 val pp_simple_type_continue_sequence:

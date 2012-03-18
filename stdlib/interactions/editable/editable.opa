@@ -235,7 +235,7 @@ IEditable = {{
 
   focus_action(prefix_id:string, _) =
     // FIXME: we suppose the son is an input...
-    _ = Dom.give_focus(Dom.select_raw("#{editable_id(prefix_id)} > input:first"))
+    _ = Dom.give_focus(Dom.select_raw_unsafe("#{editable_id(prefix_id)} > input:first"))
     void
 
   parse_content(prefix_id:string, parse_fun:string->option('a)) =

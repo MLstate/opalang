@@ -22,6 +22,24 @@ module IdentAssoc = List.MakeAssoc(Ident)
 
 exception InvalidRecursion
 
+module Warning = struct
+
+  let recval =
+    let doc = "Recursive values" in
+    WarningClass.create ~name:"recval" ~doc ~err:true ~enable:true ()
+
+  let recval_lambda =
+    let doc = "Recursive value as a lambda - deprecated in js-like syntax (S4)" in
+    WarningClass.create ~parent:recval ~name:"lambda" ~doc ~err:true ~enable:true ()
+
+  let set = WarningClass.Set.create_from_list [
+    recval;
+    recval_lambda;
+  ]
+end
+
+let warning_set = Warning.set
+
 let map_intersection merge_value map1 map2 =
   IdentMap.fold
     (fun k v1 acc ->
@@ -67,21 +85,21 @@ let is_a_val_binding idents (_i, e) =
   let rec is_a_val = function
     | Q.Lambda _ -> None
     | Q.Directive (_, `recval, [e], _) ->
+        (* TODO *)
         (* checking that you don't put a val rec on a function *)
         (try match is_a_val e with
          | None ->
-             (* FIXME: should be a warning *)
              let context = QmlError.Context.expr e in
-             QmlError.error context
-               "This expression is a function, it can be recursive without being tagged with 'val'."
-         | Some _ -> () (* could be an assert failure? *)
-         with InvalidRecursion -> ());
-        Some (find_deps e)
+             QmlError.warning ~wclass:Warning.recval_lambda context
+               "This expression is a function, it can be recursive without being tagged with 'val'.";
+             Some (find_deps e)
+         | Some _ -> Some (find_deps e)
+         with InvalidRecursion -> Some (find_deps e));
     | Q.Directive (_, `recval, _, _) -> assert false
     | Q.Coerce (_, e, _)
     (* BEWARE before editing: keep this set of directive in sync with the one
      * in remove_toplevel_directives *)
-    | Q.Directive (_, (#Q.type_directive | #Q.slicer_directive | `async), [e], _) -> is_a_val e
+    | Q.Directive (_, (#Q.type_directive | #Q.binding_directive), [e], _) -> is_a_val e
     | _ -> raise InvalidRecursion in
   is_a_val e
 
@@ -174,7 +192,7 @@ let remove_toplevel_directives annotmap e =
     | Q.Directive (label, #Q.type_directive, [e], _) ->
         let annotmap = move_ei_tsc_gen label annotmap e in
         aux dirs annotmap e
-    | Q.Directive (label, (#Q.slicer_directive | `async as v), [e], []) ->
+    | Q.Directive (label, (#Q.binding_directive as v), [e], []) ->
         let annotmap = move_ei_tsc_gen label annotmap e in
         aux (v :: dirs) annotmap e
     | Q.Directive (_, #Q.slicer_directive, _, _) -> assert false

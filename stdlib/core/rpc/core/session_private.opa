@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -118,7 +118,7 @@ type Session.how_send('message) =
         @with_thread_context(
           Option.default(ThreadContext.default, ctx),
           tmp =  Json.from_ll_json(x)
-          unserialize(match tmp with ~{some} -> some | {none} -> do Log.error("Session", x) error("Malformed JSON object"))
+            unserialize(match tmp with ~{some} -> some | {none} -> do Log.error("Session", "{x}") error("Malformed JSON object"))
         )
       ctx =
         match selector with
@@ -224,7 +224,7 @@ type Session.how_send('message) =
           | {server = _} | {nothing} ->
             // This case is on toplelvel javascript serialization.
             // Use a client identity which can't be collected.
-            {client="_internal_" page=-1}
+            ThreadContext.Client.fake
           | ~{client} -> client
         aux(x, ctx)
       | {some = entity} ->
@@ -239,7 +239,7 @@ type Session.how_send('message) =
       aux = @may_cps(%%BslSession.unserialize%%)
               : option(ThreadContext.t), RPC.Json.private.native -> option(Session.private.native('msg, _))
       match aux(ThreadContext.get_opt({current}), Json.to_ll_json(x)) with
-      | {none} -> do jlog("[Session][unserialize] fail") {none}
+      | {none} -> do Log.error("[Session][unserialize]","fail") {none}
       | {some = r}-> {some = r}
 
 }}

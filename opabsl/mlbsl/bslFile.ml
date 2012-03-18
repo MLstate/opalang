@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,6 +16,9 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 module U = Unix
+
+##register mlstate_dir : void -> string
+let mlstate_dir () = Lazy.force File.mlstate_dir
 
 ##register exists : string -> bool
 let exists n = try ignore (Unix.stat n) ; true with _ -> false

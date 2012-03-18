@@ -230,65 +230,6 @@ if (command_line_execution) {
 ##endmodule
 
 
-/*
-function argspush(arg, oldargs){
-    var length = arg.length;
-    for (var i=0; i < length; i++) oldargs.push(arg[i]);
-}
-
-
-var uncps1 = function(f){
-  return function(arg){
-    var b = make_barrier();
-    cps_apply(f, arg, new Continuation(b.release, b));
-    var out = blocking_wait(b);//NOTE: This will fail if function [f] is asynchronous
-    return out;
-  }
-}
-
-var uncps = function(n, f){
-  if (n == 1){
-    return uncps1(f);
-  }else{
-    return function(){
-      var args = [];
-      argspush(arguments, args);
-      var a = args.pop();
-      var f1 = uncps(n - 1, f);
-      var f2 = f1.apply(this, args);
-      var out = uncps1(f2)(a);
-      return out;
-    }
-  }
-}
-
-
-var cps1 = function(f){
-  return function(arg, k){
-    k._payload(f(arg));
-    return js_void;
-  }
-}
-
-var cps = function(n, f){
-  if (n == 1){
-    return cps1(f);
-  }else{
-    return function_wrapper(
-    function(arg, k)
-    {
-      k._payload(cps(n - 1, f(arg)));
-    }, 2, "cps ??")
-  }
-}
-*/
-//S2Hack - This dirty hack should be remove for S3. QmlJs compiler
-//should be rewrite this, but it is so dirty and I do not want fix it
-//proprely.
-
-// Mathieu Thu Sep 30 20:05:45 CEST 2010
-// This hack is deprecated, Maxime, please don't you WANT to remove this, properly ?
-
 var _directive_thread_context_ = %%BslCps.Notcps_compatibility.thread_context%%;
 var _directive_with_thread_context_ = function(context, expression){
     return expression

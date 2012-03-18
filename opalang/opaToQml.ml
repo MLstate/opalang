@@ -93,30 +93,32 @@ struct
   let same_pos v (_, label) = (v, copy_label label)
 
   let simplify_lambda (r,e) =
+    let (res, (a, _)) =
     List.fold_right_map
-      (fun (s,p) e ->
+      (fun (s,p) (e, n) ->
          SurfaceAstCons.with_same_pos p (fun () -> let label = snd p in
          match fst p with
            | SA.PatAny
            | SA.PatVar _ ->
-               (s,p), e
+               (s,p), (e, n-1)
            | SA.PatCoerce ((SA.PatRecord ([], `closed), _), _) ->
                (* special case for void so that the code is more readable *)
                let i = next ~label "remove_void" in
                let void = next ~label "void" in
                (s, C.P.var void),
-               same_pos (SA.LetIn (false,[(i, C.T.coerce (same_pos (SA.Ident void) p) (C.T.void ()))], e)) p
+               (same_pos (SA.LetIn (false,[(i, C.T.coerce (same_pos (SA.Ident void) p) (C.T.void ()))], e)) p, n-1)
            | SA.PatCoerce ((SA.PatVar v, l) as p, ty) ->
                let v = v.SA.ident in
                let i = next ~label "remove_coerce" in
                (s, p),
-               (same_pos (SA.LetIn (false,[(i,C.T.coerce (SA.Ident v,l) ty)], e)) e)
+               ((same_pos (SA.LetIn (false,[(i,C.T.coerce (SA.Ident v,l) ty)], e)) e), n-1)
            | _ ->
-               let i = next ~label "simplify_lambda" in
+               let i = next ~label (Printf.sprintf "arg%i" n) in
                (s, same_pos (SA.PatVar {SA.ident=i;SA.directives=[]}) p),
-               (same_pos (SA.Match (same_pos (SA.Ident i) p, [(p, e)])) e)
-         )
-      ) r e
+               ((same_pos (SA.Match (same_pos (SA.Ident i) p, [(p, e)])) e), n-1)
+           )
+      ) r (e, List.length r)
+    in res, a
 
   (* FIXME: move me *)
   let map2_2 f (x,y) = (x, f y)
@@ -448,7 +450,7 @@ struct
       match x with
       | SA.DBPath (path, access_kind) ->
           let path = List.map (fun (elt, _) -> db_path elt) (fst path) in
-          QA.Path ((make_label_from_opa_annot opa_annot), path, access_kind)
+          QA.Path ((make_label_from_opa_annot opa_annot), path, kind (access_kind))
       | SA.Apply (e, r) ->
           let e = aux e in
           let args = List.map (fun (_, e') -> aux e') (fst r) in
@@ -503,7 +505,19 @@ struct
     (* Effective body of the function [expr] dealing with expressions. *)
     aux original_expr
 
-
+  and kind k = match k with
+  | QA.Db.Update update ->
+      let rebuild, exprs =
+        QmlAst.Db.sub_db_update
+          Traverse.Utils.sub_current
+          Traverse.Utils.sub_ignore
+          update in
+      let exprs' = List.map expr exprs in
+      QA.Db.Update (rebuild exprs')
+  | QA.Db.Default -> QA.Db.Default
+  | QA.Db.Option -> QA.Db.Option
+  | QA.Db.Valpath -> QA.Db.Valpath
+  | QA.Db.Ref -> QA.Db.Ref
 
   and expr_of_record e =
     expr (SA.Record ((Parser_utils.encode_tuple [e])), Parser_utils.nlabel e)
@@ -616,11 +630,13 @@ struct
 
 
   and db_path path =
-    match path with
-    | SA.FldKey s -> QA.FldKey s
-    | SA.ExprKey e -> QA.ExprKey (expr e)
-    | SA.NewKey -> QA.NewKey
-
+    let rebuild, exprs =
+      QmlAst.Db.sub_path_elt
+        Traverse.Utils.sub_current
+        Traverse.Utils.sub_ignore
+        path in
+    let exprs' = List.map expr exprs in
+    rebuild exprs'
 
 
   module DbConv =

@@ -17,6 +17,7 @@
 %   You should have received a copy of the GNU Affero General Public License
 %   along with OPA. If not, see <http://www.gnu.org/licenses/>.
 %
+%   IMPORTANT NOTE: It's a trap! You should change http_messages.proto
 
 %% Request lines :
 -raw RGet = "GET"i uri "HTTP/"it v "\r\n"

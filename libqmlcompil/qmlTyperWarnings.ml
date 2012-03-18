@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -42,6 +42,15 @@ let typer =
 let warncoerce =
   let doc = "Unexpected type for an expression" in
   WarningClass.create ~parent:typer ~name:"warncoerce" ~doc ~err:false ~enable:true ()
+
+(**
+   The class of warning for @@warncoerce directive.
+   Principally used for ensuring that the expression after a [do]
+   has type void.
+*)
+let cyclic =
+  let doc = "Cyclic type in an expression" in
+  WarningClass.create ~parent:typer ~name:"cyclic" ~doc ~err:false ~enable:true ()
 
 (**
    Regrouping all previous classes.

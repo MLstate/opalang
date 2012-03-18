@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -78,7 +78,7 @@ let process_code ?(save = true) env =
              IdentMap.map (QmlRefresh.refresh_typevars_from_tsc package) map in
            let acc_map = IdentMap.safe_merge acc_map map in
            let acc_stdlib =
-             if ObjectFiles.stdlib_packages package then
+             if ObjectFiles.compiler_package package then
                IdentMap.safe_merge acc_stdlib map
              else acc_stdlib in
            (acc_map, acc_stdlib))
@@ -127,8 +127,8 @@ let process_code ?(save = true) env =
       QmlTypes.Env.Ident.to_map final_gamma
     else stdlib_map in
   let stdlib_gamma =
-    QmlTypes.Env.Ident.from_map stdlib_map QmlTypes.Env.empty in
-  let diff_gamma = QmlTypes.Env.Ident.from_map diff_map initial_gamma in
+    QmlTypes.Env.Ident.from_map stdlib_map env.P.stdlib_gamma in
+  let diff_gamma = QmlTypes.Env.Ident.from_map diff_map final_gamma in
   let typerEnv = { typerEnv with QmlTypes.gamma = diff_gamma } in
   { env with
       P.typerEnv = typerEnv ; qmlAst = code ; stdlib_gamma = stdlib_gamma }

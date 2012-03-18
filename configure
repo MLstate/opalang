@@ -17,7 +17,7 @@ opalang configure script. Options:
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
         -camlidl		enable features based on camlidl
-        -no-dbm  		disable features based on dbm
+        -dbm        		enable features based on dbm
         -help			shows this message
 EOF
 # --no-<lib> if available
@@ -109,7 +109,6 @@ case $(uname) in
     CYGWIN*)
         echo-ok Windows/cygwin
         EXT_LIB="lib"
-        EXT_OBJ="obj"
         EXT_SHARED="dll"
         IS_WINDOWS=1;;
     Darwin*)
@@ -195,9 +194,11 @@ else
     echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
     false
 fi
+OCAMLOPT_DIR=$(dirname $(which $OCAMLOPT))
+
 
 echo-check ocamlbuild
-: ${OCAMLBUILD:=$(dirname $OCAMLOPT)/ocamlbuild}
+: ${OCAMLBUILD:=$OCAMLOPT_DIR/ocamlbuild}
 if [ -n "$IS_RELEASE" ]; then
     OCAMLBUILD_FLAGS="${OCAMLBUILD_FLAGS:-} -tag release -tag noassert"
 else
@@ -280,8 +281,8 @@ EOF
 check-ocaml
 
 echo-check for camlp4
-: ${CAMLP4O:=$(dirname $OCAMLOPT)/camlp4o}
-: ${CAMLP4ORF:=$(dirname $OCAMLOPT)/camlp4orf}
+: ${CAMLP4O:=$OCAMLOPT_DIR/camlp4o}
+: ${CAMLP4ORF:=$OCAMLOPT_DIR/camlp4orf}
 if [ -x "$CAMLP4O" ] && [ -x "$CAMLP4ORF" ]
 then echo-ok $CAMLP4O
 else
@@ -320,7 +321,7 @@ if [ "X$NO_CAMLIDL" = "X1" ]; then
     echo-ok Disabled
 elif
     [ -e $OCAMLLIB/libcamlidl.a ] &&
-    CAMLIDL=${CAMLIDL:-$(dirname "$OCAMLOPT")/camlidl} && [ -x "$CAMLIDL" ] ||
+    CAMLIDL=${CAMLIDL:-$OCAMLOPT_DIR)/camlidl} && [ -x "$CAMLIDL" ] ||
     CAMLIDL=$(which camlidl)
 then
     HAS_CAMLIDL=1
@@ -424,7 +425,7 @@ if [ -n "${NO_OCAMLFIND:-}" ]; then
     OCAMLFIND=
     echo-skip Disabled
 elif  [ -z "${OCAMLFIND:-}" ]; then
-    OCAMLFIND=$(dirname $OCAMLOPT)/ocamlfind
+    OCAMLFIND=$OCAMLOPT_DIR/ocamlfind
     if [ ! -x "$OCAMLFIND" ]; then
         OCAMLFIND=$OCAMLLIB/../../bin/ocamlfind
     fi
@@ -447,13 +448,16 @@ check-ocaml-lib () {
     local MODULE=$1; shift
     local LIB=$1; shift
     local LIBDIR=$1; shift
-    [ $# -eq 0 ]
+    MORE=""
+    if [ $# -gt 0 ]; then
+	MORE=$1; shift
+    fi
 
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
     trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
 
-    echo "module M = $MODULE" >check_${LIB}.ml
+    echo "module M = $MODULE $MORE" >check_${LIB}.ml
 
     local libdir_ins=""
     if [ "$LIBDIR" != "$OCAMLLIB" ]; then libdir_ins=' ~dir:"'$LIBDIR'"'; fi
@@ -501,6 +505,11 @@ check-cmxa () {
 locate-ocaml-lib () {
     local OPTIONAL=""
     if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
+    if [ "$1" = "-crypto" ]; then
+	CHECK=check-cryptokit; shift
+    else
+	CHECK=check-ocaml-lib
+    fi
     local MODULE=$1; shift # one module that the lib contains, to check
     [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
 
@@ -540,7 +549,7 @@ locate-ocaml-lib () {
         return 1
     fi
 
-    check-ocaml-lib "$MODULE" "$LIB" "$LIBDIR" || return 1
+    $CHECK "$MODULE" "$LIB" "$LIBDIR" || return 1
     echo "$LIBDIR/$LIB"
 }
 # for libs which are needed (fatal warning)
@@ -551,13 +560,23 @@ lib-not-found () {
     LIBS_NOT_FOUND[${#LIBS_NOT_FOUND[@]}]="$lib (might be found in package $package)"
 }
 
+check-cryptokit () {
+    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"OPA\""); then
+	echo-err "You need cryptokit >= 1.4"
+    fi
+}
+
+locate-and-check-cryptokit () {
+    locate-ocaml-lib -crypto "Cryptokit" "cryptokit"
+}
+
 # - checking ocaml-ssl
 if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
 then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
 fi
 
 # - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-ocaml-lib "Cryptokit" "cryptokit")
+if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
 then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
 fi
 

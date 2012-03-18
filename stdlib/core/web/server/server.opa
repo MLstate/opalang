@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -70,6 +70,69 @@ import stdlib.core.{security.ssl, parser, map, rpc.core, web.{core,context,resou
  * {1 Types defined in this module}
  */
 
+/**
+ * Configuration of the server.
+ */
+type Server.conf = {
+  port       : int;
+  netmask    : ip;
+  encryption : Server.encryption;
+  name       : string;
+}
+
+/**
+ * Server resgitrable resources, that can be registered for all the web pages inside a server applications.
+ * Warning: It will be imported for ALL applications inside the server.
+ *
+ * favicon: a list of favicons to register
+ * css: a list of css files to register
+ * js: a list of js files to register
+ * or a list of string that will be guessed depending on the extension.
+ */
+type Server.registrable_resource =
+  {favicon : list(Favicon.t)}
+/ {css : list(string)}
+/ {js : list(string)}
+/ list(string)
+
+/**
+ * Different types of request handler.
+ */
+type Server.handler =
+
+  /** The most simple request handler. It replies to all incoming
+      request. With a title page [title] and given body by the [page]
+      function. Then add a set of [resources] typically with the
+      directive [@static_include_directory] and define default [css]
+      paths. */
+  / {title: string; page: -> xhtml}
+
+  /** The most configurable request handler. The [custom] parser takes
+      as input the non-decoded uri from incoming requests and should
+      compute corresponding resource. */
+  / {custom : Parser.general_parser(resource)}
+
+  /** Request handler that gives a resource for a given uri */
+  / {dispatch : Uri.relative -> resource}
+
+  /** Request handler on decoded incoming uri. This handler takes as
+      input the decoded uri from incoming requests which through the
+      [filter]. */
+  / {filter : Server.filter; dispatch : Uri.relative -> resource}
+
+  /** Request handler which performs on non-decoded uri. Returns
+      resource which uri matches into the [bundle] map. */
+  / {resources : stringmap(resource)}
+
+  /** An empty request handler but useful for external resources
+      registering. */
+  / {register : Server.registrable_resource}
+
+  /** Request handler which aggregates several request handlers. On
+      incomming request all handlers (in the order of list) are tested
+      until one succeed and returns a resource. */
+  / list(Server.handler)
+
 
 /**
  * The encryption used for the connexion
@@ -86,6 +149,7 @@ type Server.encryption =
     password:    string/**A full-text password*/
  }
 / { secure_type: SSL.secure_type}
+
 
 /**
  * Specification of a service.
@@ -139,41 +203,112 @@ type service =
  */
 Server = {{
 
-/**
- * {2 Starting a server}
- */
+  /**
+   * Convert a Server.handler to an url parser
+   */
+  @private handler_to_parser(handler:Server.handler) =
+    rec simple_to_parser(handler) = (
+      match handler with
+      | ~{custom} -> custom
+      | ~{title page} -> (
+        parser
+        | .* -> Resource.page(title, page())
+      )
+      | ~{dispatch} -> simple_to_parser({~dispatch filter=Filter.anywhere})
+      | ~{filter dispatch} -> (parser
+        | u0=UriParser.uri u1={
+            match u0 with
+            | ~{path=_ fragment=_ query=_ is_directory=_ is_from_root=_} as u0 ->
+              Rule.succeed_opt(@unsafe_cast(filter)(u0))
+            | _ -> Rule.fail
+          } -> dispatch(u1)
+      )
+      | ~{resources} -> (parser
+        | "/" r={Rule.of_map(resources)} -> r
+      )
+    )
+    rec flatten({hd=h0 tl=t0} : {hd : Server.handler; tl : list(Server.handler)}) = (
+      head = match h0 with
+        | {hd=_ tl=_} as e -> flatten(e)
+        | _ as e -> [e]
+      match t0 with
+      | ~{hd=_ tl=_} as e -> flatten(e)
+      | {nil} -> head
+    )
+    match handler with
+    | ~{hd; tl} -> (
+      all = List.map(handler_to_parser, hd+>tl)
+      Rule.of_parsers(all)
+    )
+    | {nil} -> Rule.fail
+    | ~{register} ->
+      do match register
+      | ~{favicon} -> List.iter(f -> Resource.register_external_favicon(f), favicon)
+      | ~{js} -> List.iter(f -> Resource.register_external_js(f), js)
+      | ~{css} -> List.iter(f -> Resource.register_external_css(f), css)
+      | ~{hd tl} ->
+        List.iter(file ->
+          if String.has_suffix(".css", file) then
+            Resource.register_external_css(file)
+          else if String.has_suffix(".js", file) then
+            Resource.register_external_js(file)
+          else
+            Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
+        , ~{hd tl})
+      | {nil} -> void
+      Rule.fail
+    | {custom=_} as e
+    | {title=_; page=_} as e
+    | {dispatch=_} as e
+    | {filter=_ dispatch=_} as e
+    | {resources=_} as e -> simple_to_parser(e)
 
+
+  /**
+   * {2 Starting a server}
+   */
 
   /**
    * Start a server.
    *
-   * Use this to add web entry points to your application.
-   *
    * @param s A server
    */
-   start(s:service): void =
-     Server_private.add_service(s)
+  start(~{port netmask encryption name}:Server.conf, handler:Server.handler): void =
+    url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
+    service = ~{server_name=name port netmask encryption url_handler}
+    Server_private.add_service(service)
 
+  /**
+   * {2 Server configuration}
+   */
 
-/**
- * {2 Constructing a server}
- */
+  /**
+   * Default [http] configuration with port equals to 8080 and the server name is "http".
+   */
+  http = { port = 8080; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
 
-/**
- * An application displayed purely as one web page.
- *
- * This function is used primarily for quick-testing. Most applications require several pages,
- * images, etc. For this purpose, use rather [simple_server] or the more powerful [make].
- *
- * @param title The title of the page.
- * @param content A function producing the contents of the page.
- */
-one_page_server(title: string, content: -> xhtml): service =
-(
-   urls = parser x={Server_private.overridable_handlers} -> x/*avoid capturing favicon, etc.*/
-              | .* -> Resource.page(title, content())
-   simple_server(urls)
-)
+  /**
+
+   * Default [https] configuration with port equals to 4343, the server
+   * name is "https". SSL certificate should be at ./service.crt and
+   * SSL key should be at ./service.key.
+   */
+  https = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
+
+  /**
+   * {2 Constructing a server}
+   */
+
+  /**
+   * An application displayed purely as one web page.
+   *
+   * This function is used primarily for quick-testing. Most applications require several pages,
+   * images, etc. For this purpose, use rather [simple_server] or the more powerful [make].
+   *
+   * @param title The title of the page.
+   * @param page A function producing the contents of the page.
+   */
+  one_page_server(title: string, page: -> xhtml): service = simple_server(handler_to_parser(~{title page}))
 
 
    /**
@@ -209,8 +344,10 @@ one_page_server(title: string, content: -> xhtml): service =
     * The following extract defines a simple server, running on default port 8080,
     * which displays a message depending on the address it receives.
     *
-    * [server = Server.make_dispatch(Server.Filter.path(["root", "application"]),
-    *    | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>))]
+    * {[
+    * server = Server.make_dispatch(Server.Filter.path(["root", "application"]),
+    *          | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>)
+    * }
     *
     * This server will only respond to paths starting with "/root/application".
     *
@@ -259,7 +396,7 @@ one_page_server(title: string, content: -> xhtml): service =
      path(path: list(string)): Server.filter =
      (
         filter(u) =
-          do Log.info("Path filter", path)
+          do Log.info("Path filter", "{path}")
           match List.for_all2(`==`, path, u.path) with
             | {result={true}} | {different_length={longest_second}} -> {some = u}
             | _ -> {none}
@@ -448,7 +585,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
      certificate = "cert.pem"
      private_key = "privkey.pem"
      password    = "change this password"
-   }
+   } : Server.encryption
 
   /**
     * Return the port of the corresponding server

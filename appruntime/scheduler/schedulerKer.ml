@@ -471,13 +471,15 @@ struct
               end;
               aux (nb_successive - 1)
             )
+          end else if priority.n == 0 then -1
+          else
             (* +2 ms  to have a small upper value *)
             (* otherwise we could be called just to soon *)
-          end else
             let t = Time.max Time.zero (Time.add t (Time.milliseconds 2)) in
             Time.in_milliseconds t
         | None -> -1 (* special epoll parameter: infinite wait *)
     in aux Const.priority_max_successive
+
 end
 
 

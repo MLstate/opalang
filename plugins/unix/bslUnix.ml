@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,7 +21,7 @@
 *)
 
 ##opa-type tuple_2('a, 'b)
-##extern-type 'a caml_list = 'a list
+##extern-type caml_list('a) = 'a list
 
 (* ugly duplication, need to have dependencies between plugin *)
 let f1 = ServerLib.static_field_of_name "f1"

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -164,8 +164,8 @@ type 'a all_envs =
 
 type env = {
   all_envs : unit all_envs; (* the environment for renaming *)
-  maptoident_val : Ident.t StringMap.t;
-  maptoident_typ : Ident.t StringMap.t;
+  maptoident_val : Ident.t list StringMap.t;
+  maptoident_typ : Ident.t list StringMap.t;
 }
 
 
@@ -375,6 +375,14 @@ and tree_option_of_expr name e =
 (*----------------------------------*)
 (*---- error/warning management ----*)
 (*----------------------------------*)
+let typ_merge_error i j =
+  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
+  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define type @{<bright>%s@}" p1 p2 (Ident.original_name i)
+
+let val_merge_error i j =
+  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
+  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define value @{<bright>%s@}" p1 p2 (Ident.original_name i)
+
 (* Gives you an advice when you have an unbound variable *)
 let filter_closest name li =
   let dist = (float_of_int (String.length name)) *. 2. /. 3. in
@@ -433,43 +441,66 @@ let invalid_coerced_open label =
 
 let check_for_toplevel_duplicates val_map type_map =
   exists_duplicatesL0 := false;
+  let cmp (a,_) (b, _) =
+    let gident = function | (OpenedIdent (_,i,_)) | Normal i -> i in
+    let a = gident a and b = gident b in
+    match String.compare (Ident.original_name a) (Ident.original_name b) with
+    | 0 -> String.compare (Ident.get_package_name a) (Ident.get_package_name b)
+    | v -> v
+  in
   StringMap.iter (fun name l ->
     match l with
       | [] -> invalid_arg "SurfaceAstRenaming.check_for_toplevel_duplicates"
       | [_] -> ()
       | _ ->
-          let positions = List.map snd l in
-          exists_duplicatesL0 := true;
-          let origins = List.filter_map
-            (function
+          if List.length l ==
+            List.length (List.uniq ~cmp l ) then
+              ()
+          else (
+            let positions = List.map snd l in
+            exists_duplicatesL0 := true;
+            let origins = List.filter_map
+              (function
                | (OpenedIdent (_,ident,(_ :: _ as path)),_) ->
                    Some (String.concat_map "." Base.identity (Ident.original_name ident :: path))
                | _ ->
                    None
-            ) l in
-          let n1 = List.length l in
-          let n2 = List.length origins in
-          OManager.warning ~wclass:warn_duplicateL0
-            "%a@\n@[<2>  @{<bright>%s@} is defined @{<bright>%d@} times at the toplevel%s.@]"
-            (Format.pp_list "@\n" FilePos.pp_pos) positions
-            name n1 (if n2 = 0 then "" else Printf.sprintf " (%d of which by an 'open' statement)" n2)
-                 ) val_map;
+              ) l in
+            let n1 = List.length l in
+            let n2 = List.length origins in
+            OManager.warning ~wclass:warn_duplicateL0
+              "%a@\n@[<2>  @{<bright>%s@} is defined @{<bright>%d@} times at the toplevel%s.@]"
+              (Format.pp_list "@\n" FilePos.pp_pos) positions
+              name n1 (if n2 = 0 then "" else Printf.sprintf " (%d of which by an 'open' statement)" n2)
+          )
+  ) val_map;
+  let cmp (a,_) (b, _) =
+    match String.compare (Ident.original_name a) (Ident.original_name b) with
+    | 0 -> String.compare (Ident.get_package_name a) (Ident.get_package_name b)
+    | v -> v
+  in
   StringMap.iter (fun name l ->
     match l with
     | [] -> assert false
     | [_] -> ()
     | _ ->
-        duplicate_type_declarations := true;
-        let positions = List.map snd l in
-        OManager.serror
-          "%a@\n@[<2>  The type @{<bright>%s@} is defined %d times."
-          (Format.pp_list "@\n" FilePos.pp_pos) positions
-          name
-          (List.length l)
+        if List.length l ==
+          List.length (List.uniq ~cmp l ) then
+            ()
+        else (
+          duplicate_type_declarations := true;
+          let positions = List.map snd l in
+          OManager.serror
+            "%a@\n@[<2>  The type @{<bright>%s@} is defined %d times.\n"
+            (Format.pp_list "@\n" FilePos.pp_pos) positions
+            name
+            (List.length l)
+        )
   ) type_map
 
 let is_exported i infos =
   try (IdentMap.find i infos).exported
+    && (ObjectFiles.get_current_package_name () = Ident.get_package_name i || not (ObjectFiles.Arg.is_separated ()))
   with Not_found -> false
 let exported_var global_env l =
   let rec aux o = function
@@ -710,6 +741,34 @@ let get_var_from_toplevel name all_env label =
     | Some [] ->
         (* not well formed toplevel environment *)
         failwith (Printf.sprintf "SurfaceAstRenaming: get_var: malformed environment: %s" name)
+    | None ->
+        (* unbound variable *)
+        all_env.f, Ident (unbound `var name all_env label)
+
+let is_imported pack =
+  try
+    ObjectFiles.iter_name ~deep:true
+      (fun (pck, _) -> if pack = pck then raise Not_found);
+    false
+  with Not_found -> true
+
+let get_var_from_packname labe pack name all_env label =
+  if not (is_imported pack) then error labe "package @{<bright>%s@} is not found" pack;
+  match StringMap.find_opt name all_env.t.tnames with
+    | Some (lst) ->
+        begin
+          match
+            List.find_map
+              (function
+                 | (Normal ident, _) ->
+                     if Ident.get_package_name ident = pack then Some ident
+                     else None
+                 | _ -> None)
+              lst
+          with
+          | Some ident -> (use_var ident all_env).f, Ident ident
+          | None -> all_env.f, Ident (unbound `var name all_env label)
+        end
     | None ->
         (* unbound variable *)
         all_env.f, Ident (unbound `var name all_env label)
@@ -1162,6 +1221,8 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
   | Ident name -> f_ident all_env hierar name label
   | Dot ((Directive (`toplevel,[],[]),_),s) ->
       get_var_from_toplevel s all_env label
+  | Dot ((Directive (`from packname,[],[]),_),s) ->
+      get_var_from_packname label packname s all_env label
   | Dot (e, s) ->
       let f_env, e = f_expr all_env hierar e in
       f_env, Dot (e,s)
@@ -1194,6 +1255,7 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
       f_env, ExtendRecord (r, e)
   | DBPath (dbelt, d) ->
       let f_env, dbelt = f_dbelt all_env hierar dbelt in
+      let f_env, d = f_kind {all_env with f = f_env} hierar d in
       f_env, DBPath (dbelt, d)
   | Directive (`open_, l, _) ->
       ( match l with
@@ -1212,9 +1274,25 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
       assert false
   | Directive (`toplevel,_,_) ->
       error label "the only valid use of @{<bright>@@toplevel@} is: @@toplevel.identifier."
+  | Directive (`from s,_,_) ->
+      error label "the only valid use of @{<bright>@@from@} is: @@from(%s).identifier." s
   | Directive (((#basic_directive | #access_directive) as v,_,_) as d) ->
       let f_env, d = f_directive all_env (if v = `coerce then hierar else "DIR" +> hierar) d in
       f_env, Directive d
+
+and f_kind all_env hierar kind =
+  let rebuild, exprs =
+    QmlAst.Db.sub_db_kind
+      Traverse.Utils.sub_current
+      Traverse.Utils.sub_ignore
+      kind in
+  let f_expr all_env expr =
+    let (f, expr) = f_expr all_env hierar expr in
+    {all_env with f}, expr
+  in
+  let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
+  all_env.f, rebuild exprs'
+
 
 and update_all_env_with str ident e all_env =
   match tree_option_of_expr str e with
@@ -1233,7 +1311,7 @@ and f_bindings ~rec_ all_env hierar iel =
     List.fold_left_map
       (fun all_env (i,e) ->
         let all_env, _pat_env, {SurfaceAst.ident=ident ; directives=_} =
-          f_pat_var_ext (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i;directives=[]} 
+          f_pat_var_ext (Parser_utils.label e) all_env hierar {SurfaceAst.ident=i;directives=[]}
         in
         (update_all_env_with i ident e all_env, (ident,e))
       ) all_env iel
@@ -1289,12 +1367,18 @@ and f_preprocessed_db_element all_env hierar (e, label) =
   let f_env, e = f_preprocessed_db_element_node all_env hierar e in
   f_env, (e, label)
 
-and f_preprocessed_db_element_node all_env hierar = function
-  | NewKey
-  | FldKey _ as v -> all_env.f, v
-  | ExprKey e ->
-      let f_env, e = f_expr all_env hierar e in
-      f_env, ExprKey e
+and f_preprocessed_db_element_node all_env hierar elt =
+  let rebuild, exprs =
+    QmlAst.Db.sub_path_elt
+      Traverse.Utils.sub_current
+      Traverse.Utils.sub_ignore
+      elt in
+  let f_expr all_env expr =
+    let (f, expr) = f_expr all_env hierar expr in
+    {all_env with f}, expr
+  in
+  let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
+  all_env.f, rebuild exprs'
 
 and f_expr_list all_env hierar el =
   f_list_aux f_expr all_env hierar el
@@ -1396,7 +1480,7 @@ type 'b common_code_elt_node =
 (* the toplevel declaration after toplevel renaming and before renaming in the rhs *)
 type 'b tmp_code_elt_node =
   [ 'b common_code_elt_node
-  | `Database of Ident.t * string list * QmlAst.Db.options list
+  | `Database of Ident.t * string list * QmlAst.Db.options
   | `NewVal of (Ident.t StringMap.t * Ident.t pat * (string, 'b) expr) list * bool ]
 type 'b tmp_code_elt = 'b tmp_code_elt_node QmlLoc.label
 type 'b tmp_code = 'b tmp_code_elt list
@@ -1404,7 +1488,7 @@ type 'b tmp_code = 'b tmp_code_elt list
 (* the toplevel declaration after toplevel renaming of types only *)
 type 'b tmp_code_elt_node_only_types =
   [ 'b common_code_elt_node
-  | `Database of string * string list * QmlAst.Db.options list
+  | `Database of string * string list * QmlAst.Db.options
   | `NewVal of (string pat * (string, 'b) expr) list * bool ]
 type 'b tmp_code_elt_only_types = 'b tmp_code_elt_node_only_types QmlLoc.label
 type 'b tmp_code_only_types = 'b tmp_code_elt_only_types list
@@ -1658,14 +1742,14 @@ let f_code_elt envs (code_elt_node,label) : _ * (_, _) code_elt list =
 (*----------------------------*)
 (*---- Interface to stdlib ---*)
 (*----------------------------*)
-let stringmap_safe_merge acc names =
+let stringmap_safe_merge ?(erase=false) acc names =
   (* should be really a safe_merge, not a merge that checks that the values
    * are the same when the keys are the same but the renaming is called once for
    * user code and once for stdlib code in s2 so that doesn't work *)
   try StringMap.merge
     (fun i j ->
-       if not (Ident.equal i j) then raise Exit;
-       i) acc names
+       if erase then i else List.uniq (List.sort Pervasives.compare (i @ j))
+    ) acc names
   with Exit ->
     let intersection = StringMap.filter_keys (fun k -> StringMap.mem k acc) names in
     Printf.printf "intersection:%s\nacc:%s\nnames:%s\n%!"
@@ -1682,21 +1766,26 @@ let merge_maptoident_val infos acc toplevel_names =
       (function
        | [] -> assert false
        | (Normal i,_) :: _
-       | (OpenedIdent (_, i, []),_) :: _ when is_exported i infos -> Some i
+       | (OpenedIdent (_, i, []),_) :: _ when is_exported i infos -> Some [i]
            (* it means that some value is first defined at toplevel by an open statement
             * it is possible but then the compiler won't access it
             * (everything should be defined as an alias with @opacapi
             * so no open *)
        | _  -> None) toplevel_names in
+
   stringmap_safe_merge acc names
 let merge_maptoident_typ infos acc toplevel_types =
   let types =
     stringmap_filter_map
-      (function
-       | [(i,_)] when is_exported i infos -> Some i
-       | [_] -> None
-       | _ -> assert false) toplevel_types in
-  stringmap_safe_merge acc (stringmap_safe_merge (get_tuple_string_map ()) types)
+      (function l ->
+         match List.filter_map (fun (i,_) ->
+                                  if is_exported i infos then Some i
+                                  else None) l with
+         | [] -> None
+         | l -> Some l) toplevel_types in
+  let tuple_map = get_tuple_string_map () in
+  let tuple_map = StringMap.map (fun i -> [i]) tuple_map in
+  stringmap_safe_merge acc (stringmap_safe_merge ~erase:true tuple_map types)
 
 (*------------------------------*)
 (*------- main function --------*)
@@ -1754,7 +1843,7 @@ module ObjectType =
                    end)
 module ObjectOpaMapToIdent =
   ObjectFiles.Make(struct
-                     type t = Ident.t StringMap.t * Ident.t StringMap.t
+                     type t = Ident.t list StringMap.t * Ident.t list StringMap.t
                      let pass = "renaming_opamaptoident"
                      let pp f _ = Format.pp_print_string f "<dummy>"
                    end)
@@ -1762,13 +1851,12 @@ module ObjectOpaMapToIdent =
 let extract_types_in_scope_except_tuple env =
   let all_env = env.all_envs in
   stringmap_filter_map
-    (function
-     | [(ident,pos)] ->
-         if is_exported ident all_env.f.fglobal then
-           Some (ident,pos)
-         else
-           None
-     | _ -> assert false) all_env.t.ttypes
+    (function l ->
+       match List.filter (fun (i, _) -> is_exported i all_env.f.fglobal) l with
+       | [] -> None
+       | [l] -> Some l
+       | _ -> assert false
+    ) all_env.t.ttypes
 
 let extract_types_in_scope env =
   let map = extract_types_in_scope_except_tuple env in
@@ -1781,7 +1869,7 @@ let save_env env =
   ObjectExpr.save map;
   let map = extract_types_in_scope_except_tuple env in
   ObjectType.save map;
-  let my_val,my_typ =
+  let val_,typ =
     if ObjectFiles.stdlib_packages (ObjectFiles.get_current_package ()) then
       env.maptoident_val, env.maptoident_typ
     else
@@ -1789,14 +1877,18 @@ let save_env env =
       (* only saving the local maptoident for the stdlib packages *)
       env.maptoident_val, env.maptoident_typ
   in
-  ObjectOpaMapToIdent.save (my_val,my_typ);
-  let val_,typ =
-    ObjectOpaMapToIdent.fold
-      (fun (val1,typ1) (val2,typ2) ->
-         (StringMap.safe_merge val1 val2, stringmap_safe_merge typ1 typ2))
-      (my_val,my_typ) in
   OpaMapToIdent.set_val_map val_;
-  OpaMapToIdent.set_typ_map typ
+  OpaMapToIdent.set_typ_map typ;
+  let val_ =
+    let filter i = is_exported i all_env.f.fglobal in
+    StringMap.fold
+      (fun s i acc ->
+         match List.filter filter i with
+         | [] -> acc
+         | l -> StringMap.add s l acc)
+      val_ StringMap.empty
+  in
+  ObjectOpaMapToIdent.save (val_,typ)
 
 let load_expr_env all_env map =
   let tnames =
@@ -1816,14 +1908,21 @@ let load_type_env all_env map =
   {all_env with t = {all_env.t with ttypes = ttypes}}
 
 let load_env env =
-  let all_env = env.all_envs in
-  let all_env = ObjectExpr.fold load_expr_env all_env in
-  let all_env = ObjectType.fold load_type_env all_env in
-  {env with all_envs = all_env}
+  let options_packages = ObjectFiles.compilation_mode() = `init in
+  let all_envs = env.all_envs in
+  let all_envs = ObjectExpr.fold load_expr_env all_envs in
+  let all_envs = ObjectType.fold load_type_env all_envs in
+  let maptoident_val, maptoident_typ =
+    ObjectOpaMapToIdent.fold ~packages:options_packages ~deep:false
+      (fun (val1,typ1) (val2,typ2) ->
+         (stringmap_safe_merge val1 val2,
+          stringmap_safe_merge typ1 typ2))
+      (StringMap.empty, StringMap.empty) in
+  {all_envs; maptoident_val; maptoident_typ}
 
 
 let get_exported_values env =
   StringMap.fold
-    (fun _ renamed_as accu -> IdentSet.add renamed_as accu)
+    (fun _ renamed_as accu -> IdentSet.add_list renamed_as accu)
     env.maptoident_val
     IdentSet.empty

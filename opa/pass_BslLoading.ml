@@ -393,7 +393,12 @@ let process
         Hashtbl.add extralib_plugin basename extralib ;
         Hashtbl.add extrapath_plugin basename extrapath ;
         BslDynlink.load_bypass_plugin (BslDynlink.MarshalPlugin plugin) ;
-        let inclusion = BslConvention.inclusion ~cwd:"" bypass_plugin in
+        let inclusion =
+          let bypass_plugin =
+            if (BslArgs.get ()).BslArgs.no_absolute then Filename.basename bypass_plugin
+            else bypass_plugin
+          in
+          BslConvention.inclusion ~cwd:"" bypass_plugin in
         let extralib = inclusion.BslConvention.extralib in
         let extrapath = inclusion.BslConvention.extrapath in
         let plugin = inclusion.BslConvention.plugin in

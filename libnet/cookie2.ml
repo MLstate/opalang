@@ -73,7 +73,7 @@ let rand4 () =
 let cookie_len = 32
 let random _ = String.init cookie_len (fun _ -> chars.[Random.int nchars])
 let randomd str =
-  let rec aux = function 
+  let rec aux = function
     | n when n < 0 -> str
     (*| n -> String.unsafe_set str n (String.unsafe_get chars (Random.int nchars)); aux (n-1)*)
     | 0 ->
@@ -344,12 +344,12 @@ let get_external ic =
   | exn -> Logger.warning "Cookie2.get_external: Unknown exception %s" (Printexc.to_string exn); Time.zero, "", ""
 
 let init_cookies ~sched
-                 ?(gc_period=100) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
+                 ?(gc_period=100) ?(accept_client_values=false) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
                  ?(rate_max=5.0) ?(period_max=5) ?(rate_ultimate=10.0) ?(period_ultimate=100)
                  ?(expires_short=Time.seconds 5) ?(expires_long=Time.seconds 50) ?(dt1=Time.days 10) ?(dt2=Time.infinity)
                  ?(max_external_cookies=25) ?(rotate_cookies=true) ?(cookies_filename="")
                  () =
-  let _, _, _ = dt1, dt2, cookies_filename in
+  let _, _, _, _ = dt1, dt2, cookies_filename, accept_client_values in
   cookie_gc_period := gc_period;
   cookie_pool_size_min := pool_min;
   cookie_pool_size_max := pool_max;

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -45,14 +45,14 @@ type options =
       opt_dialog: string;
       opt_on_server_close : Scheduler.t -> unit;
       opt_name: string;
-      opt_email_handler : SCC.email -> int * string
+      opt_email_handler : SCC.email -> ((int * string) -> unit) -> unit
     }
 
-let handle_email { SCC.from=_from; dests=_dests; body=_body } =
+let handle_email { SCC.from=_from; dests=_dests; body=_body } k =
   #<If$minlevel 10>Logger.debug "handle_email:\n";
   Logger.debug "FROM: %s TO: [%s]\n" _from (String.concat ", " _dests);
   Logger.debug "%s\n" (Rcontent.get_content _body)#<End>;
-  250, "Ok"
+  k (250, "Ok")
 
 let default_options =
   { opt_addr = "0.0.0.0";

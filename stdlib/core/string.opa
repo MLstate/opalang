@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -125,6 +125,12 @@ String =
    * sub-string otherwise
    */
   index = %% BslString.index %%
+
+  /**
+   * [contains(string, substring)] checks if a string contains a substring
+   */
+  contains(string:string, substring:string) =
+    Option.is_some(index(substring, string))
 
   /**
    * [init(f, n)] creates a string which consists of the flattening of
@@ -315,15 +321,23 @@ String =
     * Very slow: replace or improve
    **/
   escape_non_utf8_special(v) =
-    rpl_list = [
-             ( "\\" , "\\\\"),
-             ( "\n" , "\\n" ),
-             ( "\r" , "\\r" ),
-             ( "\t" , "\\t" ),
-             ( "\000" , "\\000" ),
-             ( "\"" , "\\\"" )
-     ]
-     List.foldl((pat, rpl), str -> String.replace(pat, rpl, str) , rpl_list, v)
+    /* see json.org */
+    transform =
+    | "\"" -> "\\\""
+    | "\\" -> "\\\\"
+/*   | "\/" -> "\\\/"
+    | "\b" -> "\\n"
+    | "\f" -> "\\f" include in fallback*/
+    | "\n" -> "\\n"
+    | "\r" -> "\\r"
+    | "\t" -> "\\t"
+    | c ->
+      i = Cactutf.look(c,0)
+      if i < 32 then
+        if i < 10 then "\\u000{i}"
+        else "\\u00{i}"
+      else c
+    String.map(transform,v)
 
   /**
    * {2 Additional functions}
@@ -464,16 +478,19 @@ String =
   : string
 
   /**
-   * iter on each character of [source] and call the function [callback] with the current character
+   * map each unicode character of [source] using the given character mapping function
    */
-  map(callback: string -> string, source: string)=
-    len= length(source)
-    rec aux= offset, accu ->
-        if offset < len
-        then aux(offset+1,accu^callback(get(offset, source)))
-        else accu
-    aux(0, "")
-  : string
+  map(f: string -> string, source: string):string=
+    len=length(source)
+    if len > 0 then
+      buffer=Buffer.create(len*2)
+      rec aux(byte) =
+        do Buffer.append(buffer, f(Cactutf.cons(Cactutf.look(source,byte))))
+        byte=Cactutf.next(source,byte)
+        if byte < len then aux(byte)
+      do aux(0) // we know len>0
+      Buffer.contents(buffer)
+    else source
 
   /**
    * iter on each character of [source] and call the function [callback] with the current character
@@ -514,13 +531,10 @@ String =
    */
   flatten(list: list(string)): string=
   (
-    llcreate   = %% BslBuffer.create %%
-    llappend   = %% BslBuffer.append %%
-    llcontents = %% BslBuffer.contents %%
-    size = List.fold(((x:string),(acc:int) -> String.length(x) + acc),  list, 0)//Compute buffer length -- may not be useful
-    llbuff     = llcreate(size)
-    do List.iter(s -> llappend(llbuff, s), list)
-    llcontents(llbuff)
+    size = List.fold(((x:string),(acc:int) -> String.length(x) + acc),  list, 0)
+    llbuff     = Buffer.create(size)
+    do List.iter(Buffer.append(llbuff, _), list)
+    Buffer.contents(llbuff)
   )
 
   /**
@@ -558,7 +572,7 @@ String =
   padding_left(padder: string, len: int, source: string)=
     src_len= length(source)
     pad_len= length(padder)
-    if len < src_len || pad_len < 1 then error("padding left failure")
+    if len < src_len || pad_len < 1 then source
     else sub(0, len - src_len, repeat(((len - src_len) / pad_len) + 1, padder))^source
   : string
 
@@ -568,7 +582,7 @@ String =
   padding_right(padder: string, len: int, source: string)=
     src_len= length(source)
     pad_len= length(padder)
-    if len < src_len || pad_len < 1 then error("padding right failure")
+    if len < src_len || pad_len < 1 then source
     else source^sub(0, len - src_len, repeat(((len - src_len) / pad_len) + 1, padder))
   : string
 
@@ -645,6 +659,12 @@ String =
  * FIXME: Used ? if, @opacapi else, remove
 */
 type Buffer_private.buffer = external//Low-level buffers, used internally to speed-up serialization
+
+@private Buffer = {{
+  create   = %% BslBuffer.create %%
+  append   = %% BslBuffer.append %%
+  contents = %% BslBuffer.contents %%
+}}
 
 @opacapi
 String_flatten = String.flatten

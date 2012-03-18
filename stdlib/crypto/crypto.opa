@@ -42,13 +42,29 @@ Crypto = {{
 
     encode =  %% BslCrypto.base64_encode %% : string -> string
 
+    encode_compact =  %% BslCrypto.base64_encode_compact %% : string -> string
+
+    encode_multiline =  %% BslCrypto.base64_encode_multiline %% : string -> string
+
     decode =  %% BslCrypto.base64_decode %% : string -> string
+
+    decode2 =  %% BslCrypto.base64_decode2 %% : string -> string
 
   }}
 
   Hash = {{
 
+    /**
+     * Produces a HMAC_SHA1 for the given key and message. The first argument
+     * is the key, the second is the message.
+     */
     hmac_sha1 = %% BslCrypto.hmac_sha1 %% : string, string -> string
+
+    /**
+     * Produces a HMAC_SHA256 for the given key and message. The first argument
+     * is the key, the second is the message.
+     */
+    hmac_sha256 = %% BslCrypto.hmac_sha256 %% : string, string -> string
 
     md5 = %% BslCrypto.md5 %% : string -> string
 

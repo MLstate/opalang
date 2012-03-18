@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -123,6 +123,7 @@ type Dom.private.selection =
  / { inside: Dom.private.selection; select: Dom.private.selection }
  / { selector: string } /**A literal CSS selector*/
  / { shallow }          /**Select everything at this level*/
+ / { contents }          /** Select contents */
  / { concrete: Dom.private.element }/**The concrete client-side representation of a selection.*/
 //Note: in the future, we will certainly add new selectors
 
@@ -144,7 +145,6 @@ type Dom.private.animation =
     / {sequence: list(Dom.private.animation)}
      /**Compose a sequence of transitions. Each transition will be called as soon as the previous
         one has been terminated.*/
-
 
 type @abstract Dom.transition = Dom.private.element
 
@@ -245,10 +245,31 @@ Dom = {{
   )
 
   /**
+   * Select content of a selection
+   * Use this to access the content of an iframe
+   */
+  select_contents(container: dom): dom =
+  (
+     {inside = container
+      select = {contents}}
+  )
+
+  /**
    * Perform a selection using CSS syntax
    */
-  select_raw(selector: string): dom =
-  (
+  @deprecated({use = "select_raw_unsafe"}) select_raw(selector: string): dom = (
+      ~{selector}
+  )
+
+  /**
+   * Perform a selection using CSS syntax. This function is unsafe
+   * because doesn't control [selector] argument. You can use [escape_selector] to escape
+   *
+   * {[xss = ", #toto"
+   *   select_raw_unsafe(".class_{xss}")
+   * ]}
+   */
+  select_raw_unsafe(selector: string): dom = (
       ~{selector}
   )
 
@@ -322,6 +343,12 @@ Dom = {{
   (
       position = of_selection(dom)
       {concrete = %% BslDom.select_parent_several %%(position)}
+  )
+
+  select(dom:dom): void =
+  (
+      position = of_selection(dom)
+      %% BslDom.select %%(position)
   )
 
   /**
@@ -449,6 +476,7 @@ Dom = {{
        | ~{selector}      -> selector
        | ~{inside select} -> "{aux(inside)} {aux(select)}"
        |  {shallow}       -> ":parent:children"
+       | {contents}       -> ":children"
      }}
      Rec.aux(dom)
 
@@ -584,6 +612,12 @@ Dom = {{
         void
   )
 
+  give_blur(dom:dom): void =
+  (
+        _ = %% BslDom.give_blur %%(of_selection(dom))
+        void
+  )
+
   /**
    * Get the [id] of an item.
    *
@@ -670,7 +704,7 @@ Dom = {{
    */
 
   /**
-   * {3 Position}
+   * {3 Offset}
    */
 
   get_offset(dom:dom): Dom.dimensions =
@@ -681,6 +715,21 @@ Dom = {{
   set_offset(dom:dom, offset:Dom.dimensions): void =
   (
         do %% BslDom.set_offset %%(of_selection(dom), offset)
+        void
+  )
+
+  /**
+   * {3 Position}
+   */
+
+  get_position(dom:dom): Dom.dimensions =
+  (
+        %% BslDom.get_position %%(of_selection(dom))
+  )
+
+  set_position(dom:dom, position:Dom.dimensions): void =
+  (
+        do %% BslDom.set_position %%(of_selection(dom), position)
         void
   )
 
@@ -853,7 +902,7 @@ Dom = {{
            (scroll_x, scroll_y)
         )
 
-        _ = Dom.transition(select_raw("html, body")/*For some reason, it doesn't work with the window itself*/,
+        _ = Dom.transition(select_raw_unsafe("html, body")/*For some reason, it doesn't work with the window itself*/,
               Effect.scroll_to_xy(scroll_x, scroll_y))
         void
   )
@@ -980,7 +1029,18 @@ Dom = {{
         llbind(of_selection(dom), Event.get_name(event), handler)
   )
 
-  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  /**
+   * Bind an event handler to an event
+   *
+   * @param dom Where to bind the event.
+   * @param event The name of the event, e.g. "click", "dblclick", etc. You are not limited to standard browser events.
+   * @param handler The event handler
+   * @param options the list of bind options
+   *        - {stop_propagation} always stops propagation of the event after handling
+   *        - {prevent_default} always prevents browser default behaviour of the event after handling
+   *        - {propagation_handler} [Client only] provide a custom propagation handler, allowing to stop/prevent the event or not, given the event.
+   */
+  bind_with_options(dom:dom, event:Dom.event.kind, handler:(Dom.event -> void), options:list(Dom.event_option) ): Dom.event_handler =
   (
         //warning: names "stop_propagation" and "prevent_default" are hardcoded in JS
         llbind_with_options(of_selection(dom), Event.get_name(event), handler, options)
@@ -1002,7 +1062,7 @@ Dom = {{
    * A special event sent when the user attempts to navigate away from a page
    *
    * @param cb a function returning either [{none}] if there is no objection to navigating away or [{some = s}], where [s]
-   * is a message which the browser will display. It is not possible to cancel this action. 
+   * is a message which the browser will display. It is not possible to cancel this action.
    *
    * Compatibility note: [Dom.bind_unload_confirmation] has no effect on Opera <= 11
    */
@@ -1180,7 +1240,12 @@ Dom = {{
         void
   )
 
-
+  /**
+   * Get the value of an attribute for the first element in the set of matched elements.
+   * /!\ Different from get_attribute
+   *
+   * @see http://api.jquery.com/prop/
+   */
   get_property(dom: dom, string: string): option(string) =
   (
         %% BslDom.get_property %%(of_selection(dom), string)
@@ -1194,6 +1259,28 @@ Dom = {{
   set_property_unsafe(dom:dom, name:string, value:string): void =
   (
         do %% BslDom.set_property_unsafe %%(of_selection(dom), name, value)
+        void
+  )
+
+  /**
+   * Get the value of an attribute for the first element in the set of matched elements.
+   * /!\ Different from get_property
+   *
+   * @see http://api.jquery.com/attr/
+   */
+  get_attribute(dom: dom, string: string): option(string) =
+  (
+        %% BslDom.get_attribute %%(of_selection(dom), string)
+  )
+
+  get_attribute_unsafe(dom:dom, string:string): string = //return "" when the attribute is undefined
+  (
+        %% BslDom.get_attribute_unsafe %%(of_selection(dom), string)
+  )
+
+  set_attribute_unsafe(dom:dom, name:string, value:string): void =
+  (
+        do %% BslDom.set_attribute_unsafe %%(of_selection(dom), name, value)
         void
   )
 
@@ -1466,10 +1553,23 @@ Dom = {{
   INSERT:    Dom.key_code = 45
   }}
 
+  /**
+   * Escaping for jQuery selectors !"#$%&'()*+,./:;<=>?@[\]^`{|}~.
+   * To use for raw selection.
+   * @see http://api.jquery.com/category/selectors/
+   */
+  escape_selector(str) =
+    String.map(c ->
+        match c with
+        | "!" | "\"" | "#" | "$" | "%" | "&" | "'" | "(" | ")" | "*"
+        | "+" | ","  | "." | "/" | ":" | ";" | "<" | "=" | ">" | "?"
+        | "@" | "[" | "\\" | "]" | "^" | "`" | "\{" | "|"| "}" | "~" | " " -> "\\\\" ^ c
+        | _ -> c
+      , str)
+
   /*
    * {2 Select module}
    */
-
   @private Select =
   {{
 
@@ -1521,7 +1621,7 @@ Dom = {{
    */
   select_id(name: string): Dom.private.element =
   (
-        %% BslDom.select_id %%(name)
+        %% BslDom.select_id %%(escape_selector(name))
   )
 
   /**
@@ -1530,7 +1630,7 @@ Dom = {{
    */
   select_class(class: string): Dom.private.element =
   (
-        %% BslDom.select_class %%(class)
+        %% BslDom.select_class %%(escape_selector(class))
   )
 
   /**
@@ -1548,7 +1648,7 @@ Dom = {{
    */
   select_tag(tag: string): Dom.private.element =
   (
-        %% BslDom.select_tag %%(tag)
+        %% BslDom.select_tag %%(escape_selector(tag))
   )
 
   /**
@@ -1557,6 +1657,15 @@ Dom = {{
   select_children(parent:Dom.private.element): Dom.private.element =
   (
         %% BslDom.select_children %%(parent)
+  )
+
+  /**
+   * Select content of a selected [{dom}]
+   * Use this to access the content of an iframe
+   */
+  select_contents(parent:Dom.private.element): Dom.private.element =
+  (
+        %% BslDom.select_contents %%(parent)
   )
 
   /**
@@ -1572,7 +1681,7 @@ Dom = {{
    */
   select_id_in(name: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_id_in %%(name, parent)
+        %% BslDom.select_id_in %%(escape_selector(name), parent)
   )
 
   /**
@@ -1580,7 +1689,7 @@ Dom = {{
    */
   select_class_in(class: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_class_in %%(class, parent)
+        %% BslDom.select_class_in %%(escape_selector(class), parent)
   )
 
   /**
@@ -1588,7 +1697,7 @@ Dom = {{
    */
   select_tag_in(tag: string, parent: Dom.private.element) =
   (
-        %% BslDom.select_tag_in %%(tag, parent)
+        %% BslDom.select_tag_in %%(escape_selector(tag), parent)
   )
 
   /**
@@ -1628,6 +1737,7 @@ Dom = {{
             container = top(inside)
             depth(container, select)
          | ~{concrete}  -> concrete
+         | {contents}   -> Select.document()
          | {shallow}    -> Select.document()
         depth(container:Dom.private.element, selection:Dom.private.selection):Dom.private.element = match selection with
          | { document } -> Select.empty()
@@ -1640,6 +1750,7 @@ Dom = {{
          | ~{inside select} ->
                container = depth(container, inside)
                depth(container, select)
+         | {contents}   -> Select.select_contents(container)
          | {shallow}    -> Select.select_children(container)
       }}
       Rec.top(selection)
@@ -1661,11 +1772,15 @@ Dom = {{
         %% BslDom.bind %%(dom, event, handler)
   )
 
-  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), options:list({stop_propagation} / {prevent_default}) ): Dom.event_handler =
+  @client @private llbind_with_options(dom:Dom.private.element, event:string, handler:(Dom.event -> void), options:list(Dom.event_option)): Dom.event_handler =
   (
         stop_propagation = List.mem({stop_propagation}, options)
         prevent_default = List.mem({prevent_default}, options)
-        %% BslDom.bind_with_options %%(dom, event, handler, stop_propagation, prevent_default)
+        propagation_handler =
+          match List.find((e->match e {propagation_handler=_} -> true _ -> false), options)
+          {some={propagation_handler=ph}} -> some(ph)
+          _ -> none
+        %% BslDom.bind_with_options %%(dom, event, handler, propagation_handler, stop_propagation, prevent_default)
   )
 
 

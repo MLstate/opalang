@@ -4,7 +4,7 @@
 <**/*.{ml,mli}>: use_libbase
 
 # specific tags, compilation
-<opaEnv.ml> : use_qml2ocaml, use_passlib, use_compilerlib, use_qmlflatcompiler, use_qmlpasses, use_qml2js, use_qmljsimp
+<opaEnv.ml> : use_qml2ocaml, use_passlib, use_compilerlib, use_qmlflatcompiler, use_qmlpasses, use_qml2js, use_qmljsimp, use_opalang, use_libqmlcompil
 <opaWalker.ml>: thread
 <opa_Common.{ml,mli}>: use_libqmlcompil, use_opalang
 

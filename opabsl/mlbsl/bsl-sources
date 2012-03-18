@@ -26,6 +26,7 @@ bslReference.ml
 bslNumber.ml
 
 bslJson.ml
+bslMongo.ml
 bslMinJs.ml
 bslValue.ml
 bslSyslog.ml
@@ -41,6 +42,8 @@ bslInit.ml
 bslClientCode.ml
 bslClientEvent.ml
 
+bslIdentGen.ml # xhtml ident
+
 bslServer_event.ml
 
 # Database handling
@@ -49,6 +52,7 @@ badoplink.ml
 opa_transaction.ml
 path.ml
 dbser.ml
+mongolink.ml
 
 bslCommandLine.ml
 bslXmlm.ml

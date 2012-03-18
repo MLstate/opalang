@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -151,7 +151,7 @@ module Arg : sig
       The unit is there so that the warning class of this module have time
       to be loaded and registered before returning the options list
   *)
-  val options : unit -> (Base.Arg.key * Base.Arg.spec * Base.Arg.doc) list
+  val options : (Base.Arg.key * Base.Arg.spec * Base.Arg.doc) list
 
 end
 
@@ -223,6 +223,8 @@ val cond : wclass
 val dbgen : wclass
 
 val dbgen_schema : wclass
+
+val dbgen_mongo : wclass
 
 (** {6 Explicit instantiation} *)
 

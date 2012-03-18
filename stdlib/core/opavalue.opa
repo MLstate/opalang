@@ -36,7 +36,7 @@
 /**
  * {1 Interface for module OpaValue}
  */
-/* disabled for S3:
+/* disabled :
 type OpaValue.interface = {{
   /* Some magic functions */
   typeof : 'a -> OpaType.ty
@@ -123,22 +123,24 @@ OpaValue = {{
     "[{fun_name}] on {OpaType.to_pretty(original_ty)} is impossible.\n" ^
     "Because contains a value of type {OpaType.to_pretty(ty)}."
 
-  todo_magic_container(get, ident, args, todo_with_type, alt, value) =
+  todo_magic_container(get, ident, args, todo_with_type, alt, value, extra) =
     match get(ident) with
     | {none} -> alt(value)
     | {some = f} ->
-      nargs = List.length(args)
-      match nargs with
-      | 0 -> f(value)
-      | _ ->
-        clos_arg = OpaValue.Closure.Args.create(nargs + 1)
-        do List.iteri(
-          (i, ty ->
-            OpaValue.Closure.Args.set(clos_arg, i,
-              todo_with_type(ty, _))
-          ), args)
-        do Closure.Args.set(clos_arg, nargs, value)
-        OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
+      nargs  = List.length(args)
+      nextra = List.length(extra)
+      clos_arg = OpaValue.Closure.Args.create(nargs + 1 + nextra)
+      do List.iteri(
+        (i, ty ->
+          OpaValue.Closure.Args.set(clos_arg, i,
+            todo_with_type(ty))
+        ), args)
+      do Closure.Args.set(clos_arg, nargs, value)
+      do List.iteri(
+        (i, e ->
+          OpaValue.Closure.Args.set(clos_arg, i + nargs + 1, e)
+        ), extra)
+      OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
 
 
   /**
@@ -191,9 +193,9 @@ OpaValue = {{
       | {TyName_args = args; TyName_ident = ident} ->
         todo_magic_container(
           %%BslValue.MagicContainer.to_string_get%%,
-          ident, args, to_string_with_type,
+          ident, args, (ty -> to_string_with_type(ty, _)),
           aux(_, OpaType.type_of_name(ident, args), text),
-          value)
+          value, [])
 
       /* Other case *****************************/
       | {TyVar = var} -> text ++ var

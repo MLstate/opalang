@@ -1828,7 +1828,8 @@ let translate_file debug filename =
   List.iter (make_service ctxt phargmap filename) svcs;
   close_out oc
 
-let usage = "wsdl2ml {options} <wsdl file>\n"
+let usage = Printf.sprintf "%s: code generation for WSDL stubs\nUsage: %s [options] <wsdl file>\n" Sys.argv.(0) Sys.argv.(0)
+
 let _ =
   Arg.parse
     [("--debug-name", (Arg.String (fun s -> myname := s)), "<string>\tPrint debug info for named type.");

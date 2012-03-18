@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -183,9 +183,7 @@ struct
     List.iter iter sorted ;
     exit 0
 
-  (* type unit because we are waiting that the all module is loaded before
-     reading in global mutable tables *)
-  let options () = [
+  let options = [
     ("--warn", A.String (warn true), "<wclass> Activate a warning class");
     ("--no-warn", A.String (warn false), "<wclass> Deactivate a warning class");
     ("--warn-error", A.String (warn_error true), "<wclass> Warnings of the class will be considered as errors");
@@ -259,6 +257,9 @@ let dbgen =
 
 let dbgen_schema =
   create ~parent:dbgen ~name:"schema" ~doc:"Database Schemas" ~err:false ~enable:true ()
+
+let dbgen_mongo =
+  create ~parent:dbgen ~name:"mongo" ~doc:"Database MongoDb code generation" ~err:false ~enable:true ()
 
 (* Explicit instantiation *************)
 let ei =

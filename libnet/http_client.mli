@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -56,7 +56,7 @@ val get :
   ?verify_params:SslAS.ssl_verify_params ->
   ?secure:bool ->
   ?auth:string ->
-  ?more_headers:string ->
+  ?more_headers:string list ->
   ?err_cont:(exn -> unit) ->
   ?failure:([ `Cannot_parse_response of string | `Timeout | `Unknown_machine of string ] -> unit) ->
   (Requestdef.Value.value Requestdef.ResponseHeader.t * string -> unit) ->
@@ -73,7 +73,7 @@ val place_request :
   ?secure:bool ->
   request_kind:string ->
   ?auth:string ->
-  ?more_headers:string ->
+  ?more_headers:string list ->
   ?data:string ->
   ?client_name:string ->
   ?timeout:Time.t ->

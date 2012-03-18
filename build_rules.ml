@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -205,7 +205,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
 
 (* TODO: probably same bugs than mlstate_platform *)
 let generate_buildinfos = "buildinfos/generate_buildinfos.sh" in
-let version_buildinfos = "buildinfos/version.txt" in
+let version_buildinfos = "buildinfos/version_major.txt" in
 let pre_buildinfos = "buildinfos/buildInfos.ml.pre" in
 let post_buildinfos = "buildinfos/buildInfos.ml.post" in
 let buildinfos = "buildinfos/buildInfos.ml" in
@@ -228,13 +228,13 @@ rule "buildinfos: buildinfos/* -> buildinfos/buildInfos.ml"
   );
 
 let parser_files =
-  let dir = ["opalang/syntax"] in
+  let dir = ["opalang/classic_syntax";"opalang/js_syntax"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
-let opaParserVersion = "opalang"/"syntax"/"opaParserVersion.ml"
+let opaParserVersion = "opalang"/"classic_syntax"/"opaParserVersion.ml"
 in
-rule "opa parser version: opalang/syntax/* stdlib -> opalang/syntax/opaParserVersion.ml"
+rule "opa parser version: opalang/*_syntax/* stdlib -> opalang/classic_syntax/opaParserVersion.ml"
   ~deps:parser_files
   ~prod:opaParserVersion
   (fun build env ->
@@ -537,7 +537,7 @@ rule "opa-bslgenMLRuntime JS validation"
   ~prods: ["opabsl/js_validation/bsl.js"]
   (fun env build ->
      let arg_of_file file acc = match file with (*A very dumb filter to get rid of files that we just can't fix in the first place*)
-       | "opabsl/jsbsl/opabslgen_jquery-1.6.4.js.pp" -> acc
+       | "opabsl/jsbsl/opabslgen_jquery-1.7.1.js.pp" -> acc
        | "opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
        | _                 -> A "--js" :: A file :: acc
      in
@@ -700,7 +700,7 @@ rule "opacomp: .opack -> .native"
      );
      build_list build (List.map ((/) dir) (string_list_of_file (env "%.opack.depends")));
      opacomp build (env "%.opack") "native"
-       (S[ A"-I" ; P stdlib_packages_dir ; A"--project-root" ; P dir]));
+       (S[ A"-I" ; P stdlib_packages_dir ; A"--project-root" ; P dir; A"--parser"; A"classic";]));
 
 rule "opacomp: .opack -> .byte"
   ~deps: ("%.opack"::"%.opack.depends"::"opa-packages.stamp"::"opacomp-byte.stamp"::[])
@@ -871,14 +871,17 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                       then ""
                       else
                         (* subdirectory of stdlib.core import stdlib.core *)
-                        "import stdlib.core"
+                         "  import stdlib.core\n"
                     )
                     else "  import stdlib.core\n  import stdlib.core.*\n"
                   ) ::
                   List.map (fun file -> "  " ^ file ^ "\n") files)
              list_package_files
          ) in
-       let all_files = List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files) in
+       let all_files =
+         (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
+         [A"--conf-opa-files"]
+       in
        let rebuild_opt = if rebuild then [A"--rebuild"] else [] in
        Seq[
          Echo(conf, "conf");
@@ -890,6 +893,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                 A"--warn-error"; A"root";
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
+                A"--parser"; A"classic";
                 opaopt;
                 S all_files;
                ] @ rebuild_opt));

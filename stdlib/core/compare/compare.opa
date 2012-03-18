@@ -115,6 +115,7 @@ compare = @nonexpansive(
 
 compare_ty = compare_prematch_ty(@typeval(OpaType.ty)):OpaType.ty,OpaType.ty->Order.comparison
 order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
+equal_ty(a,b) = ComparePrivate.equal_ty(a,b)
 
 @private compare_int_postenv_(_,   a,b) = compare_int(   a,b)
 @private compare_float_postenv_(_, a,b) = compare_float( a,b)
@@ -130,6 +131,7 @@ order_ty  = Order.make(@unsafe_cast(compare_ty)):order(OpaType.ty,Order.default)
 @private compare_string = @nonexpansive(Magic.id(@toplevel.compare_string) :'a,'a->Order.comparison)
 
 @private always_equal_postenv(_,_,_)   = {eq}
+@private always_not_equal_postenv(_,_,_)   = {neq}
 
 
 
@@ -343,7 +345,7 @@ compare_front(ty) =
       {TyVar = _} -> lazy_error(ty,preenv)
 
       /* Unimplemented case *********************/
-      {TyArrow_params = _; TyArrow_res = _} -> lazy_error(ty,preenv)
+      {TyArrow_params = _; TyArrow_res = _} -> (always_not_equal_postenv,preenv)
 
       /* Error case *****************************/
       {TyAbstract} -> lazy_error(ty,preenv)

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -15,8 +15,32 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(* Exported module: reduced interface *)
 
+(** {6 Command line arguments } *)
+
+(** Describes different backend that dbgen handle. *)
+type engine = [`db3 | `mongo]
+
+(** Command line specification provides necessary options for switch
+    database backend. *)
+module Args : sig
+
+  (** The command line specifications. *)
+  val options : (string * Base.Arg.spec * string) list
+
+  (** Get command line backend.*)
+  val get_engine : unit -> engine option
+
+end
+
+(** Get command line backend or default*)
+val get_engine : unit -> engine
+
+(** {6 Initialization } **)
+
+(** Set the translation function beetween string and renamed type
+    ident.*)
+val settyp : (string -> QmlAst.typeident) -> unit
 
 (* =============== *)
 (** DbGen Main API *)
@@ -26,10 +50,38 @@ module Schema: sig
   (** The type of the database schema. Purely functional structure *)
   type t = Schema_private.meta_schema
 
+  type database = {
+    name : string;
+    ident : Ident.t;
+    dbty : QmlAst.ty;
+    options : QmlAst.Db.options;
+    package : ObjectFiles.package_name;
+  }
+
+  type query = QmlAst.expr QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
+
+  type set_kind =
+    | Map of QmlAst.ty * QmlAst.ty
+    | DbSet of QmlAst.ty
+
+  type node_kind =
+    | Compose of (string * string list) list
+    | Plain
+    | Partial of bool * string list * string list
+    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
+
+  type node = {
+    ty : QmlAst.ty;
+    kind : node_kind;
+    database : database;
+    default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
+  }
+
+
   (** Maps the idents of the different database schemas and their respective
       options in a multi-schema *)
   val mapi:
-    (string list -> QmlAst.ident option * QmlAst.Db.options list -> QmlAst.ident option * QmlAst.Db.options list)
+    (string list -> QmlAst.ident * QmlAst.Db.options -> QmlAst.ident * QmlAst.Db.options)
     -> t -> t
 
   (** Initial empty schema *)
@@ -68,9 +120,8 @@ module Schema: sig
 
   (** Registers database declarations *)
   val register_db_declaration:
-    t -> QmlTypes.Env.t
-    -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options list
-    -> t * QmlTypes.Env.t
+    t -> Annot.label * Ident.t * QmlAst.Db.path_decl * QmlAst.Db.options
+    -> t
 
   (** Registers db-related declarations (paths & default & constraints)
       See register_default for the meaning of the name_default_values parameter
@@ -85,9 +136,9 @@ module Schema: sig
   (** Map any prepath to its coerced expression equivalent within the
       expressions. Additionally, returns a assoc list of old annots to new
       generated annots that can be used eg. to keep track of positions *)
-  val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr
-  val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt
-  val preprocess_paths_ast: ?val_:(string -> QmlAst.ident) -> t -> QmlAst.code_elt list -> (Annot.t * Annot.t) list * QmlAst.code_elt list
+  val preprocess_paths_expr: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma -> QmlAst.expr -> (Annot.t * Annot.t) list * QmlAst.expr
+  val preprocess_paths_code_elt: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma ->QmlAst.code_elt -> (Annot.t * Annot.t) list * QmlAst.code_elt
+  val preprocess_paths_ast: ?val_:(string -> QmlAst.ident) -> t -> QmlTypes.gamma -> QmlAst.code_elt list -> (Annot.t * Annot.t) list * QmlAst.code_elt list
 
   (** Finalization of the schema, to use before initialisation below, and before
       code generation. Returns None if no database content is actually defined.
@@ -132,6 +183,12 @@ module Schema: sig
   (** Parses a schema saved in the GML format (like in the run-time db) *)
   val from_gml: string -> t
 
+  val get_db_declaration: t -> database list
+
+  val get_node: t -> QmlAst.path -> node
+
+  val pp_node: node BaseFormat.pprinter
+
   (**
      Hackish module, should be removed after the refactoring of positions in the AST.
   *)
@@ -165,7 +222,7 @@ module DbGen: functor  ( Arg: S ) -> sig
 
       The returned code should be put _after_ declarations of these
       identifiers and _before_ any access to the DB *)
-  val initialize: ?annotmap:(QmlAst.annotmap option) -> ?valinitial_env:(Arg.ValInitial.env) -> Schema.t -> dbinfo StringListMap.t * QmlTypes.Env.t * (QmlAst.annotmap option) * QmlAst.code * QmlAst.code
+  val initialize: ?annotmap:(QmlAst.annotmap option) -> ?valinitial_env:(Arg.ValInitial.env) -> QmlTypes.gamma -> Schema.t -> dbinfo StringListMap.t * QmlTypes.Env.t * (QmlAst.annotmap option) * QmlAst.code * QmlAst.code
 
   (** Replaces all path accesses in an expression by calls to Db3. The resulting
       expression is guaranteed not to contain any Path or Transaction.

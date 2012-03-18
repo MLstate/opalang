@@ -1,9 +1,9 @@
-;;; opa-mode.el --- Major mode for editing OPA programs
+;;; opa-mode.el --- Major mode for editing Opa-Classic programs
 
 ;; To automatically use this mode on .opa files, add the following to your
 ;; .emacs:
-;;  (autoload 'opa-mode "/usr/share/opa/emacs/opa-mode.el" "OPA editing mode." t)
-;;  (add-to-list 'auto-mode-alist '("\\.opa$" . opa-mode))
+;;  (autoload 'opa-classic-mode "/usr/share/opa/emacs/opa-mode.el" "Opa-Classic editing mode." t)
+;;  (add-to-list 'auto-mode-alist '("\\.opa$" . opa-classic-mode))
 
 
 ;; user definable variables
@@ -265,8 +265,8 @@
 
 ;     (cons (concat (mapconcat 'identity '("[,.:=]") "\\|")) '(0 font-lock-builtin-face))
      )
-  "Additional expressions to highlight in OPA mode.")
-(put 'opa-mode 'font-lock-defaults '(opa-font-lock-keywords))
+  "Additional expressions to highlight in Opa-Classic mode.")
+(put 'opa-classic-mode 'font-lock-defaults '(opa-font-lock-keywords))
 
 (make-variable-buffer-local 'opa-indent-offset)
 
@@ -287,66 +287,66 @@
 (defmacro dec(a) (list 'setq a (list '1- a)))
 
 ;; define a mode-specific abbrev table for those who use such things
-(defvar opa-mode-abbrev-table nil
-  "Abbrev table in use in `opa-mode' buffers.")
-(define-abbrev-table 'opa-mode-abbrev-table nil)
+(defvar opa-classic-mode-abbrev-table nil
+  "Abbrev table in use in `opa-classic-mode' buffers.")
+(define-abbrev-table 'opa-classic-mode-abbrev-table nil)
 
-(defvar opa-mode-hook nil
-  "*Hook called by `opa-mode'.")
+(defvar opa-classic-mode-hook nil
+  "*Hook called by `opa-classic-mode'.")
 
-(defvar opa-mode-syntax-table nil
-  "Syntax table used in `opa-mode' buffers.")
-(if opa-mode-syntax-table
+(defvar opa-classic-mode-syntax-table nil
+  "Syntax table used in `opa-classic-mode' buffers.")
+(if opa-classic-mode-syntax-table
     nil
-  (setq opa-mode-syntax-table (make-syntax-table))
-  (modify-syntax-entry ?\( "()" opa-mode-syntax-table)
-  (modify-syntax-entry ?\) ")(" opa-mode-syntax-table)
-  (modify-syntax-entry ?\[ "(]" opa-mode-syntax-table)
-  (modify-syntax-entry ?\] ")[" opa-mode-syntax-table)
-  (modify-syntax-entry ?\{ "(}" opa-mode-syntax-table)
-  (modify-syntax-entry ?\} "){" opa-mode-syntax-table)
+  (setq opa-classic-mode-syntax-table (make-syntax-table))
+  (modify-syntax-entry ?\( "()" opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\) ")(" opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\[ "(]" opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\] ")[" opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\{ "(}" opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\} "){" opa-classic-mode-syntax-table)
   ;; double quote are string delimiters
-  (modify-syntax-entry ?\" "\"" opa-mode-syntax-table)
+  (modify-syntax-entry ?\" "\"" opa-classic-mode-syntax-table)
 
   ;; Add operator symbols misassigned in the std table
-  (modify-syntax-entry ?\* "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\+ "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\- "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\/ "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\< "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\= "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\> "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\| "."  opa-mode-syntax-table)
+  (modify-syntax-entry ?\* "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\+ "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\- "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\/ "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\< "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\= "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\> "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\| "."  opa-classic-mode-syntax-table)
 
-  (modify-syntax-entry ?\; "."  opa-mode-syntax-table)
-  (modify-syntax-entry ?\= "."  opa-mode-syntax-table)
+  (modify-syntax-entry ?\; "."  opa-classic-mode-syntax-table)
+  (modify-syntax-entry ?\= "."  opa-classic-mode-syntax-table)
 
   ; / is first character of comment start
   ; and last character of comment end
-  (modify-syntax-entry ?\/ ". 124b" opa-mode-syntax-table)
+  (modify-syntax-entry ?\/ ". 124b" opa-classic-mode-syntax-table)
   ; * is second character of comment start,
   ; and first character of comment end
-  (modify-syntax-entry ?*  ". 23n" opa-mode-syntax-table)
+  (modify-syntax-entry ?*  ". 23n" opa-classic-mode-syntax-table)
   ; end-of-line finishes // comment
-  (modify-syntax-entry 10  "> b" opa-mode-syntax-table)
+  (modify-syntax-entry 10  "> b" opa-classic-mode-syntax-table)
 
 
   )
 
-(defvar opa-mode-syntax-table-xhtml nil
-  "Syntax table used in `opa-mode' buffers for xhtml constructs.")
-(if opa-mode-syntax-table-xhtml
+(defvar opa-classic-mode-syntax-table-xhtml nil
+  "Syntax table used in `opa-classic-mode' buffers for xhtml constructs.")
+(if opa-classic-mode-syntax-table-xhtml
     nil
-  (setq opa-mode-syntax-table-xhtml (make-syntax-table))
+  (setq opa-classic-mode-syntax-table-xhtml (make-syntax-table))
   (setq i 0) (while (< i 256)
-               (modify-syntax-entry i "." opa-mode-syntax-table-xhtml)
+               (modify-syntax-entry i "." opa-classic-mode-syntax-table-xhtml)
                (inc i))
   )
 
 
 ;;;###autoload
-(defun opa-mode ()
-  "Major mode for editing OPA files"
+(defun opa-classic-mode ()
+  "Major mode for editing Opa-Classic files"
   (interactive)
   ;; set up local variables
   (kill-all-local-variables)
@@ -361,7 +361,7 @@
 ;  (make-local-variable 'indent-region-function)
 ;  (make-local-variable 'indent-line-function)
   ;;
-  (set-syntax-table opa-mode-syntax-table)
+  (set-syntax-table opa-classic-mode-syntax-table)
 
   ; don't know what this does exactly, but the javascript-mode does
   ; that and it seems to make ?_ a word constituent for the purpose of
@@ -370,9 +370,9 @@
        (list opa-font-lock-keywords
              nil nil '((?_ . "w")) nil))
 
-  (setq major-mode             'opa-mode
-        mode-name              "OPA"
-        local-abbrev-table     opa-mode-abbrev-table
+  (setq major-mode             'opa-classic-mode
+        mode-name              "Opa-Classic"
+        local-abbrev-table     opa-classic-mode-abbrev-table
         font-lock-syntactic-face-function 'opa-font-lock-syntactic-face-function
         paragraph-separate     "^[ \t]*$"
         paragraph-start        "^[ \t]*$"
@@ -385,9 +385,9 @@
 ;	indent-region-function 'opa-indent-region
 ;	indent-line-function   'opa-indent-line
         )
-  (use-local-map opa-mode-map)
+  (use-local-map opa-classic-mode-map)
   ;; Run the mode hook.
-  (if opa-mode-hook (run-hooks 'opa-mode-hook))
+  (if opa-classic-mode-hook (run-hooks 'opa-classic-mode-hook))
 )
 
 
@@ -399,7 +399,7 @@
   (buffer-substring pos (1+ pos)))
 
 (defun is-in-xhtml-zone ()
-  (eq (get-text-property (point) 'syntax-table) opa-mode-syntax-table-xhtml))
+  (eq (get-text-property (point) 'syntax-table) opa-classic-mode-syntax-table-xhtml))
 
 (defun is-in-ppdebug-zone ()
   (eq (get-text-property (point) 'face) 'opa-font-ppdebug-face))
@@ -503,7 +503,7 @@
     found))
 
 (defun set-xhtml-property (beg end)
-  (put-text-property beg end 'syntax-table opa-mode-syntax-table-xhtml)
+  (put-text-property beg end 'syntax-table opa-classic-mode-syntax-table-xhtml)
   (put-text-property beg end 'face 'opa-font-xhtml-face)
   (put-text-property beg end 'font-lock-multiline t)
 
@@ -569,20 +569,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; keymap
 
-(defvar opa-mode-map nil "Keymap for opa-mode")
+(defvar opa-classic-mode-map nil "Keymap for opa-classic-mode")
 
-(setq opa-mode-map (make-sparse-keymap))
-(define-key opa-mode-map "\C-c\C-c" 'compile)
+(setq opa-classic-mode-map (make-sparse-keymap))
+(define-key opa-classic-mode-map "\C-c\C-c" 'compile)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; menu
 
-(define-key opa-mode-map [menu-bar]
+(define-key opa-classic-mode-map [menu-bar]
     (make-sparse-keymap))
-  (let ((opa-menu-map (make-sparse-keymap "OPA")))
-    (define-key opa-mode-map [menu-bar opa]
-      (cons "OPA" opa-menu-map))
+  (let ((opa-menu-map (make-sparse-keymap "Opa-Classic")))
+    (define-key opa-classic-mode-map [menu-bar opa]
+      (cons "Opa-Classic" opa-menu-map))
     (define-key opa-menu-map [opa-kill]
       '("Stop application" . opa-stop))
     (define-key opa-menu-map [opa-start]
@@ -610,7 +610,7 @@
     ))
 
 (defun opa-indent-line (&optional arg)
-  "Fix the indentation of the current line according to OPA rules.
+  "Fix the indentation of the current line according to Opa-Classic rules.
 
 This function is normally bound to `indent-line-function' so
 \\[indent-for-tab-command] will call it."
@@ -784,7 +784,7 @@ This function is normally bound to `indent-line-function' so
 
 
 (defun opa-indent-region (start end &optional indent-offset)
-  "Reindent a region of OPA code.
+  "Reindent a region of Opa-Classic code.
 
 The lines from the line containing the start of the current region up
 to (but not including) the line containing the end of the region are
@@ -845,5 +845,5 @@ used.
   (set-marker end nil))
 
 
-(provide 'opa-mode)
+(provide 'opa-classic-mode)
 ;;; opa-mode.el ends here

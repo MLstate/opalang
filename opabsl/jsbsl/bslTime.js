@@ -159,6 +159,13 @@ function now()
     return t.getHours();
 }
 
+##register local_timezone_offset : -> int
+    ##args()
+{
+    var t = new Date();
+    return t.getTimezoneOffset();
+}
+
 ##register local_mday : time_t -> int
     ##args(f)
 {

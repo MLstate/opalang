@@ -73,6 +73,7 @@ module String = BaseString
 
 (* shorthands *)
 module Q = QmlAst
+module Db = QmlAst.Db
 
 (* -- *)
 
@@ -324,7 +325,16 @@ object (self)
   | c -> Format.pp_print_string f (Q.Const.string_of_expr c)
 
   method path f (el, knd) =
-    pp f "%s%a" (Q.Db.path_kind_to_string knd) (pp_list "" self#path_elt) el
+    let pp_el fmt () = Format.fprintf fmt "%a" (pp_list "" self#path_elt) el in
+    match knd with
+    | Q.Db.Update u -> pp f "%a <- %a //update" pp_el () (QmlAst.Db.pp_update self#expr) u
+    | _ ->
+        pp f "%s%a" (
+          match knd with
+          | Q.Db.Default -> "" | Q.Db.Option -> "?"
+          | Q.Db.Valpath -> "!" | Q.Db.Ref -> "@"
+          | Q.Db.Update _ -> assert false
+        ) pp_el ()
 
   method path_elts f el =
     pp f "%a" (pp_list "" self#path_elt) el
@@ -436,9 +446,10 @@ object (self)
     pp f "@[<2>%a ->@ %a@]" self#pat p self#expr e
   method path_elt f =
     function
-    | Q.FldKey (s) -> pp f "/%s" s
-    | Q.ExprKey e -> pp f "[@[<hv>%a@]]" self#reset#expr e
-    | Q.NewKey -> pp f "[?]"
+    | Db.FldKey (s) -> pp f "/%s" s
+    | Db.ExprKey e -> pp f "[@[<hv>%a@]]" self#reset#expr e
+    | Db.NewKey -> pp f "[?]"
+    | Db.Query _ -> pp f "query TODO"
 
   (*---------------------*)
   (*---- code printer ---*)

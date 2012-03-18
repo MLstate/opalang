@@ -245,8 +245,9 @@ struct
     ]
     @ OManager.Arg.options
     @ PassHandler.Arg.options
-    @ WarningClass.Arg.options ()
+    @ WarningClass.Arg.options
     @ Qml2jsBackendOptions.Arg.options
+    @ OpaSyntax.Args.options
 
   let speclist () =
     Arg.sort
@@ -307,10 +308,12 @@ struct
       target = target ;
     }
 
+  let usage_msg = Printf.sprintf "%s: command-line options for the Qml-to-JS compiler\nUsage: %s [options]\n" Sys.argv.(0) Sys.argv.(0)
+
   (** parse *)
   let parse () =
     reset () ;
-    Arg.parse (speclist ()) anon_fun "<qml2jslib>" ;
+    Arg.parse (speclist ()) anon_fun (usage_msg ^ "Options:");
     let o = build_argv_options () in
     let module M = (val (find_backend o.backend) : JsBackend) in
     {o with extra_lib = M.runtime_libs ~cps:o.cps }

@@ -358,7 +358,7 @@ struct
         infer bp env effect (level+1) e
     | Q.Path (_, el, _) ->
         List.iter (function
-                     | Q.ExprKey e -> ignore (infer bp env effect (level+1) e)
+                     | Q.Db.ExprKey e -> ignore (infer bp env effect (level+1) e)
                      | _ -> ()) el;
         Dontcare
     | Q.Directive (_, `fail, el, _) ->

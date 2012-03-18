@@ -54,7 +54,7 @@ let alphanum =
 
   assert(int_to_char zero_pos='0');
 
-  let rec name_of_int i =
+  let name_of_int i =
     let to_char_list i n =
       let rec aux i n acc =
         if n<=0 then acc

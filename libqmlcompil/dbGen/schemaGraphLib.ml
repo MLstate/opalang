@@ -270,6 +270,7 @@ let new_node label ty default constraints context =
     C.default = default;
     C.constraints = constraints;
     C.context = context;
+    C.plain = false;
   }
 
 
@@ -322,6 +323,10 @@ let set_node_cstrs t node cstrs =
   let nnode = V.create { (V.label node) with C.constraints = cstrs } in
     SchemaGraph.replace_node t node nnode, nnode
 
+let set_node_plain t node plain =
+  let nnode = V.create { (V.label node) with C.plain = plain } in
+  SchemaGraph.replace_node t node nnode, nnode
+
 let add_node_cstr t node cstr =
   (* fixme: check for duplicate/inconsistent constraints *)
   set_node_cstrs t node ((V.label node).C.constraints @ [cstr])
@@ -358,6 +363,7 @@ let initial_root ~context = V.create {
   C.default = None;
   C.constraints = [];
   C.context = context;
+  C.plain = false;
 }
 
 let initial_schema ~context = SchemaGraph0.add_vertex SchemaGraph0.empty (initial_root ~context)

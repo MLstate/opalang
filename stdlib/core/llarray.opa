@@ -226,7 +226,7 @@ LowLevelArray = {{
     rec aux(i) =
      if i==n then a
      else do set(a,i,f(i))
-          aux(i)
+          aux(i+1)
     aux(1)
 
 }}

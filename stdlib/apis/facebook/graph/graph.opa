@@ -817,6 +817,31 @@ FbGraph = {{
 
   }}
 
+  Fql = {{
+
+    /**
+     * Make a FQL Query
+     */
+    query(query:string, token) =
+      data = [("access_token", token), ("q", query)]
+      match FbLib.fb_get(graph_url, "/fql", data) with
+      | {none} -> { error = Facebook.network_error }
+      | {some=r} ->
+        match Json.of_string(r) with
+        | {none} -> { error = Facebook.parse_error(r) }
+        | {some={Record=r}} ->
+          on_ok(x:list((string,RPC.Json.json))) =
+            match List.assoc("data", x) with
+            | {none} -> { error = Facebook.data_error }
+            | {some=d} -> { success = d }
+            end
+          check_for_error(r, on_ok, (y -> { error = y }))
+        | _ -> { error = Facebook.data_error }
+        end
+      
+
+  }}
+
 }}
 
 /* to_string functions */

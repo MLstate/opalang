@@ -511,14 +511,13 @@ let anon_fun file =
 
 
 let usage_msg =
-  !> "@{<bright>%s@} <Opa External Libraries Register> %s\nuse: %s [options] files"
-    Sys.argv.(0) BuildInfos.version_id
-    Sys.argv.(0)
+  !> "@{<bright>%s@}: Opa External Libraries Register\nUsage: %s [options] files\n"
+    Sys.argv.(0) Sys.argv.(0)
 
 
 let parse () =
   let spec = (
-    WarningClass.Arg.options () @
+    WarningClass.Arg.options @
     (OManager.Arg.version "bslregister" :: OManager.Arg.options) @
     BslLib.Arg.options @
     spec
@@ -529,12 +528,12 @@ let parse () =
   |> Arg.align
 
   in
-  Arg.parse spec anon_fun usage_msg ;
+  Arg.parse spec anon_fun (usage_msg^"Options:") ;
   finalize_options ()
 
 
 (* ======================================================================= *)
-(** {6 Makefile Geneation} *)
+(** {6 Makefile Generation} *)
 (* ======================================================================= *)
 module Makefile :
 sig
@@ -545,7 +544,7 @@ sig
 end =
 struct
   (**
-     For lisibility of this generation there, we uses the add_substitute function
+     For lisibility of this generation there, we use the add_substitute function
      of the [Buffer] module. This means that we use a list of binding for inserting
      dynamic parts into this generated makefile.
      As we generating a Makefile, we need to generate the $ character, in this case,
@@ -916,7 +915,7 @@ let _ =
 
     if !auto_build then (
       OManager.verbose "building plugin...";
-      let ret = Sys.command (Printf.sprintf "make -C %s -f %s" !opp_dir (Filename.basename !makefile)) in
+      let ret = Sys.command (Printf.sprintf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile)) in
       if ret <> 0
       then
         OManager.error "building failure due to error(s) in source files@\n"

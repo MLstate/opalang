@@ -75,6 +75,6 @@ let _ =
       "-path", Arg.Set_string path, "<dir> prefix directory for files"
     ]
     (fun t -> iter_of !path t; empty := false)
-    (Printf.sprintf "%s : embedded file ocaml preprocessor" Sys.argv.(0));
+    (Printf.sprintf "%s: embedded file ocaml preprocessor\nUsage: %s [options]\nOptions:" Sys.argv.(0) Sys.argv.(0));
   if !empty
   then error (Printf.sprintf "no input files (give me some \"%s\" file)" extension)

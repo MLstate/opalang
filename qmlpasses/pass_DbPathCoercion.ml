@@ -17,7 +17,7 @@
 *)
 (* CF mli *)
 
-let process_code ~val_ schema annotmap code =
+let process_code ~val_ schema gamma annotmap code =
   let _, code =
-    QmlDbGen.Schema.preprocess_paths_ast ~val_ schema code in
+    QmlDbGen.Schema.preprocess_paths_ast ~val_ schema gamma code in
   annotmap, code

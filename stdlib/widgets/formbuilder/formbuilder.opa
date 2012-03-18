@@ -321,7 +321,7 @@ WFormBuilder =
           {to_label(opt)}
         </>
       if initial_value == some(opt) then
-        Xhtml.add_attribute("selected", "true", o)
+        Xhtml.add_attribute_unsafe("selected", "true", o)
       else
         o
     <select>
@@ -598,7 +598,7 @@ WFormBuilder =
   @private add_initial_value(tag, attr, initial_value) =
     match initial_value with
     | {none} -> tag
-    | {some=iv} -> Xhtml.add_attribute(attr, iv, tag)
+    | {some=iv} -> Xhtml.add_attribute_unsafe(attr, iv, tag)
 
   @private field_onblur(field, style, ids, _evt) =
     _ = validate_field(field, style)

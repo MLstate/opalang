@@ -507,6 +507,7 @@ struct
   module S2 =
   struct
     type 'a t = QmlAst.expr constraint 'a = _ * _ * _
+
     let foldmap tra acc input_e =
       match input_e with
       | Q.Directive (label, `hybrid_value, [e_client;e_server], z) ->
@@ -607,15 +608,58 @@ struct
             List.fold_left_map_stable
               (fun acc e1 ->
                  match e1 with
-                 | Q.ExprKey e2 ->
+                 | Q.Db.ExprKey e2 ->
                      let acc, e2' = tra acc e2 in
                      acc,
                      if e2 == e2' then e1 else
-                       Q.ExprKey e2'
+                       Q.Db.ExprKey e2'
                  | _ -> acc, e1) acc p in
+          let acc, kind' =
+            match kind with
+            | Q.Db.Update u ->
+                let rec update acc u =
+                  match u with
+                  | QmlAst.Db.UPop | QmlAst.Db.UShift
+                  | QmlAst.Db.UIncr _ -> acc, u
+                  | QmlAst.Db.UAppend     e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UAppend e'
+                  | QmlAst.Db.UPrepend    e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UPrepend e'
+                  | QmlAst.Db.UAppendAll  e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UAppendAll e'
+                  | QmlAst.Db.UPrependAll e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UPrependAll e'
+                  | QmlAst.Db.UExpr e ->
+                      let acc, e' = tra acc e in
+                      acc,
+                      if e == e' then u else QmlAst.Db.UExpr e'
+                  | QmlAst.Db.UFlds fields ->
+                      let acc, fields' =
+                        List.fold_left_map_stable
+                          (fun acc ((f,u) as bnd) ->
+                             let acc, u' = update acc u in
+                             acc,
+                             if u == u' then bnd else (f, u')
+                          ) acc fields in
+                      acc,
+                      if fields == fields' then u else QmlAst.Db.UFlds fields'
+                in
+                let acc, u' = update acc u in
+                acc,
+                if u == u' then kind
+                else QmlAst.Db.Update u'
+            | e -> acc, e in
           acc,
-          if p == p' then input_e else
-            Q.Path (label, p', kind)
+          if p == p' && kind == kind' then input_e else
+            Q.Path (label, p', kind')
 
     let fold tra acc e =
       match e with
@@ -647,12 +691,30 @@ struct
       | Q.Record (_, rl) ->
           List.fold_left
             (fun acc (_,e) -> tra acc e) acc rl
-      | Q.Path (_, p, _) ->
-          List.fold_left
-            (fun acc -> function
-               | Q.ExprKey e2 -> tra acc e2
-               | _ -> acc) acc p
-
+      | Q.Path (_, p, kind) ->
+          let acc =
+            List.fold_left
+              (fun acc -> function
+                 | Q.Db.ExprKey e2 -> tra acc e2
+                 | _ -> acc) acc p
+          in
+          let acc = match kind with
+          | Q.Db.Update u ->
+              let rec update acc u =
+                match u with
+                | QmlAst.Db.UPop | QmlAst.Db.UShift | QmlAst.Db.UIncr _ -> acc
+                | QmlAst.Db.UAppend     e
+                | QmlAst.Db.UPrepend    e
+                | QmlAst.Db.UAppendAll  e
+                | QmlAst.Db.UPrependAll e
+                | QmlAst.Db.UExpr e -> tra acc e
+                | QmlAst.Db.UFlds fields ->
+                    List.fold_left
+                      (fun acc (_,u) -> update acc u)
+                      acc fields
+              in update acc u
+          | _ -> acc
+          in acc
       | Q.Directive (_, _, exprs, _) -> List.fold_left tra acc exprs
 
     let iter tra e = Traverse.Unoptimized.iter foldmap tra e

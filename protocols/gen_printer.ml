@@ -17,6 +17,7 @@
 *)
 module B = Base
 let (<|) f a = f a
+
 let (|>) a f = f a
 let ( @* ) g f x = g(f(x))
 module O = Ocaml
@@ -67,7 +68,7 @@ and rewrite_pattern in_sub n = function
             "int64" -> "Int64.to_string"
           | _ -> Printf.sprintf "string_of_%s" t in
         Printf.sprintf " ^ (%s __%s)%s" stroft
-          (string_of_int n) 
+          (string_of_int n)
           <| rewrite_pattern in_sub (succ n) tail
     | _ -> assert false
 

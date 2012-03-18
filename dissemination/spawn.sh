@@ -23,6 +23,7 @@ set -e
 
 #     Author: Louis Gesbert
 #     Author: Hugo Venturini
+#     Author: Frederic Ye (minor maintenance)
 
 DEBUG=${DEBUG:-0}
 
@@ -73,6 +74,7 @@ if ! HAPROXY_BIN=$(which haproxy); then
 fi
 
 OS=$(uname -s)
+OS_REL=$(uname -r | tr -d '.')
 TMP_DIR=""
 SEQ=""
 
@@ -89,7 +91,12 @@ case $OS in
         else
             MDNS="$MDNS -G v4"
         fi
-        SEQ="gseq"
+	if [ $OS_REL -gt $(echo "11.0.0" | tr -d '.') ]; then
+            SEQ="seq"
+	else
+	    SEQ="gseq"
+	fi
+	echo_debug "using $SEQ"
         ;;
     Linux|*)
         # no no no ... it does NOT mean the same thing !
@@ -116,24 +123,40 @@ a single local database server, and provides a local load-balancing front-end
 to access them via HTTP.
 
 Options:
-	--help -h				Displays the current help and exits
-	--host <[user@]host[:port]>[,n]		Specifies a host to use for distribution.
-						The user will be used for login, your service will be run on
-						the given port. n specifies the number of instances you want,
-						each running on port 'port+n'.
-	--host-pem <[user@]host[:port]>[,n]	Specifies a host to use for distribution with public-key.
-						The user will be used for login, your service will be run on
-						the given port. n specifies the number of instances you want,
-						each running on port 'port+n'. (see '--pem' option)
-	--pem <path>				Specify a public-key to connect to host. Will be used with
-						hosts declared with '--host-pem' option.
-	--opa-port <port>			Use the given http port by default on the
-						opa services (default: $DEFAULT_PORT)
-	--haproxy <path>			The path to your haproxy binary (default: $HAPROXY_BIN)
-	--port <port>				The main port to listen on (default: $HAPROXY_PORT)
-	--opa-db-server <path>			Specifies the path to the Opa database server binary
-	--no-db					Does not set up any remote database server
+  --help -h
+                Displays the current help and exits
 
+  --host <[user@]host[:port]>[,n]
+                Specifies a host to use for distribution.
+                The user will be used for login, your service will be run on
+                the given port. n specifies the number of instances you want,
+                each running on port 'port+n'.
+
+  --host-pem <[user@]host[:port]>[,n]
+                Specifies a host to use for distribution with public-key.
+                The user will be used for login, your service will be run on
+                the given port. n specifies the number of instances you want,
+                each running on port 'port+n'. (see '--pem' option)
+
+  --pem <path>
+                Specify a public-key to connect to host. Will be used with
+                hosts declared with '--host-pem' option.
+
+  --opa-port <port>
+                Use the given http port by default on the
+                opa services (default: $DEFAULT_PORT)
+
+  --haproxy <path>
+                The path to your haproxy binary (default: $HAPROXY_BIN)
+
+  --port <port>
+               The main port to listen on (default: $HAPROXY_PORT)
+
+  --opa-db-server <path>
+               Specifies the path to the Opa database server binary
+
+  --no-db
+               Does not set up any remote database server
 EOF
 }
 
@@ -364,7 +387,7 @@ copy_host () (
     echo "echo \"[036mUploading $src[0m\"" >> ${fifos[id]}
     hostname=$(echo "$(uname -n)" | tr '[:upper:]' '[:lower:]')
     if [ ! "$DEBUG" = "0" ] ; then echo "echo \"[035m= Copying $src -> $dst on $hostname[0m\"" >> ${fifos[id]}; fi
-    if [ ${HOSTS[id]} == "localhost" ] || [ ${HOSTS[id]} == "127.0.0.1" ] || [ ${HOSTS[id]} == $hostname ] || [ ${HOSTS[id]} == $hostname".local" ] ; then
+    if [ ${HOSTS[id]} = "localhost" ] || [ ${HOSTS[id]} = "127.0.0.1" ] || [ ${HOSTS[id]} = $hostname ] || [ ${HOSTS[id]} = $hostname".local" ] ; then
         # In case it hasn't been done yet, we create the tmp dir.
         mkdir -p $(dirname $dst)
         cp $src "$dst"
@@ -390,7 +413,7 @@ MAIN_HOST=""
     hp=${HOSTS[0]}
     TRAILING_DOMAIN=${hp##*.}
     echo_debug "... $hp has domain '$TRAILING_DOMAIN'"
-    if [ $TRAILING_DOMAIN = "local" ] ; then
+    if [ $TRAILING_DOMAIN = "local" ] || [ $TRAILING_DOMAIN = "localhost" ] ; then
         FILE=$(mktemp $TMP_DIR/dns-sd-XXXXX)
         echo_debug "... Creating temporary file: '$FILE'"
         case $OS in
@@ -429,7 +452,7 @@ for i in $hostids; do
     else
         OPTIONS="$OPTIONS --chan-directory $MAIN_HOST:1086"
     fi
-    on_host $i "$TMP_DIR.%hostid%/server $DB_OPTIONS "${OPA_SERVER[@]:1}" $OPTIONS --pidfile $TMP_DIR.%hostid%/server.pid --opa-server-port ${PORTS[i]} &"
+    on_host $i "$TMP_DIR.%hostid%/server $DB_OPTIONS "${OPA_SERVER[@]:1}" $OPTIONS --pidfile $TMP_DIR.%hostid%/server.pid --http-port ${PORTS[i]} &"
 done
 
 echo "[32m== All launched ==[0m"

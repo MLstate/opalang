@@ -754,6 +754,14 @@ let alt_handler if_ (name1, pass1) (name2, pass2) env =
 let (<?>) env (if_, (name1, pass1), (name2, pass2)) =
   alt_handler if_ (name1, pass1) (name2, pass2) env
 
+let switch_handler switch pass env =
+  let switcher = switch ~options:env.options env.env in
+  let name, pass = pass switcher in
+  handler name pass env
+
+let (|?|) env (switch, pass) =
+  switch_handler switch pass env
+
 let return env = env.env
 
 let (|>)  = InfixOperator.(|>)

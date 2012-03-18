@@ -37,14 +37,14 @@ open RequestType
 
 +response : {Requestdef.Value.value Requestdef.RequestHeader.t} <-
         / ResponseLine headers {{ __2 }}
-RequestLine <- Word Space+ ((!EOL !Space . )+ $_) Space+ Word EOL
+RequestLine <- Word Space+ ((!EOL !Space . )+ $_) Space+ AnyWord EOL
         {{  { _method = method_of_string __1 ; request_uri = __3 ; http_version = __5 } }}
 
 # We need to accept HTTP/0.9 requests.
 RequestLineShort <- Word Space+ Word EOL
         {{ { _method = method_of_string __1 ; request_uri = __3 ; http_version = "HTTP/0.9" } }}
 
-ResponseLine <- Word Space+ ([0-9]+ $_) (Space+ Word)+ EOL
+ResponseLine <- Word Space+ ([0-9]+ $_) (Space+ AnyWord)+ EOL
         {{  __1, int_of_string(__3) }}
 
 response_headers <- Header response_headers {{ let k, v = __1 in try ResponseHeader.add (response_header_of_string k) v __2 with (Parsing _) -> __2 }}
@@ -65,6 +65,8 @@ Value <- ((![;,\r\n] . {{ __2 }})+ $_) ([;] Space* ((![,\r\n] . {{__2 }})+ $_) {
 
 Word <- Char+ $_
 Char <- !(FullSpace $ / [:] $) . {{ __2 }}
+AnyWord <- AnyChar+ $_
+AnyChar <- !(FullSpace $) . {{ __2 }}
 
 Space <- ' ' / '\t'
 FullSpace <- Space / EOL

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-##register fatal: string, 'a -> void
+##register fatal: string, string -> void
 ##args(topic, value)
 {
    if(window.console)
@@ -26,7 +26,7 @@
    }
 }
 
-##register error: string, 'a -> void
+##register error: string, string -> void
 ##args(topic, value)
 {
    if(window.console)
@@ -36,7 +36,7 @@
    }
 }
 
-##register warning: string, 'a -> void
+##register warning: string, string -> void
 ##args(topic, value)
 {
    if(window.console)
@@ -46,14 +46,14 @@
    }
 }
 
-##register notice: string, 'a -> void
+##register notice: string, string -> void
 ##args(topic, value)
 {
    if(window.console)//Implementation note: we need check [window.console] at each call, as debuggers can be (de)activated dynamically
         window.console.log("[OPA]", topic, value)
 }
 
-##register info: string, 'a -> void
+##register info: string, string -> void
 ##args(topic, value)
 {
    if(window.console)//Implementation note: we need check [window.console] at each call, as debuggers can be (de)activated dynamically

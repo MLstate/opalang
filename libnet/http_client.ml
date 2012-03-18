@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,7 +22,7 @@
    @author David Rajchenbach-Teller
 **)
 
-#<Debugvar:TESTING>
+#<Debugvar:HTTP_CLIENT_DEBUG>
 
 open Http_common
 
@@ -37,18 +37,12 @@ let parse_response str =
     `Success (res, String.sub str pos (String.length str - pos))
   with Trx_runtime.SyntaxError (pos, str) -> `Failure (Printf.sprintf "Http_client: parse response error: %s (pos:%d)" str pos)
 
-(* let get_dialog command = *)
-(*   pLet (write command) (fun _ -> *)
-(*   pLet read_all (fun (_, buf) -> *)
-(*   pDo close *)
-(*   (return buf))) *)
-
 exception Timeout
 
 let place_request (sched: Scheduler.t) ~hostname ~port ~path
     ?client_certificate ?verify_params
     ?(secure=false) ~request_kind ?(auth="")
-    ?(more_headers="") ?(data="")
+    ?(more_headers=[]) ?(data="")
     ?(client_name=client_name)
     ?(timeout=Time.seconds 36)
     ?err_cont ~success ~failure () =
@@ -83,7 +77,7 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
         else           Network.Unsecured
       in
       let port_spec = Network.make_port_spec ~protocol:http machine port in
-      let command = Printf.sprintf "%s %s %s%s%sHost: %s%sUser-Agent: %s%s%s%s"
+      let command = Printf.sprintf "%s %s %s%s%sHost: %s%sUser-Agent: %s%s%s%s%s"
         request_kind
         path
         http_version
@@ -92,8 +86,11 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
         (if port = 80 then hostname else Printf.sprintf "%s:%d" hostname port)
         Base.crlf
         client_name
-        (Printf.sprintf "%s%s" Base.crlf more_headers)
         Base.crlf
+        (List.fold_left (
+	   fun acc h -> Printf.sprintf "%s%s%s" acc h Base.crlf
+	 ) "" more_headers)
+	Base.crlf
         data
       in
       let start conn =
@@ -129,7 +126,9 @@ let place_request (sched: Scheduler.t) ~hostname ~port ~path
       #<If:TESTING $minlevel 0>
         Printf.printf "%s\n" command;
       #<End>;
+      #<If:HTTP_CLIENT_DEBUG>
       Logger.info "[http_client] %s" command;
+      #<End>;
       if has_port then
         Logger.warning "[Http_client] hostname contains ':' but it shouldn't, please check";
       Network.connect sched port_spec secure_mode ~err_cont start
@@ -144,7 +143,7 @@ let default_failure = function
 let get (sched: Scheduler.t) hostname port path
     ?client_certificate ?verify_params
     ?(secure=false) ?(auth="")
-    ?(more_headers="") ?err_cont ?(failure=default_failure) cont =
+    ?(more_headers=[]) ?err_cont ?(failure=default_failure) cont =
   place_request sched ~hostname ~port ~path
     ~request_kind:"GET"
     ?client_certificate ?verify_params
@@ -156,21 +155,15 @@ let get (sched: Scheduler.t) hostname port path
     ?failure
     ()
 
-(*   let rec retry n = *)
-(*     if n <= 0 then failwith "Http_client: too much failures"; *)
-(*     Protocol.apply conn (get_dialog command) (fun res -> *)
-(*       match check res with *)
-(*       | None -> retry (n - 1) *)
-(*       | Some x -> cont x) *)
-(*   in retry 2 *)
-
 let post (sched: Scheduler.t) hostname port path
     ?client_certificate ?verify_params
     ?(secure=false) ?(auth="") mime_type
     ?(length=(-1)) ?err_cont ?(failure=default_failure) data cont =
   let length = if length = (-1) then String.length data else length in
-  let more_headers =
-    Printf.sprintf "Content-Length: %d%sContent-Type: %s%s" length Base.crlf mime_type Base.crlf in
+  let more_headers = [
+    Printf.sprintf "Content-Length: %d" length;
+    Printf.sprintf "Content-Type: %s" mime_type;
+  ] in
   place_request sched ~hostname ~port ~path
     ~request_kind:"POST"
     ?client_certificate ?verify_params

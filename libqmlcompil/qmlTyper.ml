@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,7 +61,7 @@ module NoTyperLowLevel = struct
     let fe = f_gen QmlAst.QAnnot.expr in
     let fp = f_gen QmlAst.QAnnot.pat in
     let annotmap = QmlAstWalk.ExprPatt.fold fe fp annotmap expr in
-    (gamma, annotmap, QmlAst.typeNull)
+    ((gamma, QmlTypes.Env.empty), annotmap, QmlAst.typeNull)
 end
 module NoTyper = QmlMakeTyper.Make ( NoTyperLowLevel )
 

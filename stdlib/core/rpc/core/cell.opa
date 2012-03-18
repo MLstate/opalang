@@ -388,7 +388,12 @@ type middle('msg, 'ctx) = external
 
     parser_(winfo) =
       forbidden(msg) =
-        do reply(winfo, msg, {forbidden})
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        #<Else>
+        _ = msg
+        msg = "Unauthorized request"
+        #<End>
+        do reply(winfo, msg, {unauthorized})
         do Log.error("Cell_Server", msg)
         error("Cell_server")
       parser

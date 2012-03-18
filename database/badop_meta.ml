@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -26,7 +26,7 @@ let default_file ?(name="db") () =
     try
       let id = Unix.geteuid() in
       (Unix.getpwuid id).Unix.pw_dir /
-        (if id = 0 || id >= 500 then ".mlstate" else "mlstate")
+        (if id = 0 || id >= 500 then ".opa" else "opa")
     with Not_found ->
       Lazy.force File.mlstate_dir (* Useful on windows (getpwuid raises that) *)
   in
@@ -81,8 +81,9 @@ let consume_option name =
 
 let options_parser_with_default ?name (_default_m, default_o) =
   let spec_msg = match name with None -> "" | Some n -> Printf.sprintf " for database \"%s\"" n in
+  let suffix = match name with None -> "" | Some n -> Printf.sprintf ":%s" n in
   [
-    ["--db-remote"],
+    [Printf.sprintf "--db-remote%s" suffix],
     A.func A.parse_addr
       (fun (_,o) (addr,portopt) ->
          if o != default_o
@@ -97,7 +98,7 @@ let options_parser_with_default ?name (_default_m, default_o) =
        in
        Printf.sprintf "Use a remote database on given server%s" default_str)
     ;
-    ["--db-local"],
+    [Printf.sprintf "--db-local%s" suffix],
     A.func (A.option A.string)
       (fun (_,o) str_opt ->
          if o != default_o

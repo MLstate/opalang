@@ -274,7 +274,7 @@ sig
   val may_lambda :  ?pos:FilePos.pos -> annotmap -> (QmlAst.ident * QmlAst.ty) list -> QmlAst.expr -> annotmap * QmlAst.expr
 
   (** apply (m : tx, ty -> t) [(x : tx); (y : ty)] : t *)
-  val apply : gamma -> annotmap -> QmlAst.expr -> QmlAst.expr list -> annotmap * QmlAst.expr
+  val apply : ?ty:QmlAst.ty -> gamma -> annotmap -> QmlAst.expr -> QmlAst.expr list -> annotmap * QmlAst.expr
   (** [apply_partial] allows to apply not enough arguments or to apply one group of arguments
       when the type has two arrows *)
   val apply_partial : gamma -> annotmap -> QmlAst.expr -> QmlAst.expr list -> annotmap * QmlAst.expr

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -91,10 +91,11 @@ module Extract = struct
     let code env = env.P.qmlAst
     let annotmap env = env.P.typerEnv.QmlTypes.annotmap
     let gamma env = env.P.typerEnv.QmlTypes.gamma
+    let stdlib_gamma env = env.P.stdlib_gamma
 
     (** Return (annotmap, code).*)
     let ac env = (annotmap env, code env)
-    let agc env = (annotmap env, gamma env, code env)
+    let agc env = (annotmap env, (gamma env, stdlib_gamma env), code env)
     let bymap env =  env.P.bsl.BslLib.bymap
     let bypass_typer env s = BslLib.BSL.ByPassMap.bypass_typer (bymap env) s
 
@@ -109,14 +110,15 @@ module Extract = struct
     let code_server env = env.P.sliced_env.P.server.P.code
     let annotmap env = EnvGen.annotmap (get_env_gen env)
     let gamma env = EnvGen.gamma (get_env_gen env)
+    let stdlib_gamma env = EnvGen.stdlib_gamma (get_env_gen env)
 
     (** Return (annotmap, code) for client *)
     let a_client env = (annotmap env, code_client env)
-    let ag_client env = (annotmap env, gamma env, code_client env)
+    let ag_client env = (annotmap env, (gamma env, stdlib_gamma env), code_client env)
 
     (** Return (annotmap, server) for server *)
     let a_server env = (annotmap env, code_server env)
-    let ag_server env = (annotmap env, gamma env, code_server env)
+    let ag_server env = (annotmap env, (gamma env, stdlib_gamma env), code_server env)
     let bymap env =  EnvGen.bymap (get_env_gen env)
     let bypass_typer env = EnvGen.bypass_typer (get_env_gen env)
     let gamma env = EnvGen.gamma (get_env_gen env)
@@ -347,7 +349,6 @@ let register_fields options =
 let pass_Welcome =
   PassHandler.make_pass
     (fun {PH.env=()} ->
-       Unix.putenv "OPA_VERSION" "S3"; (* this is a hack, probably deprecated (FIXME:remove) *)
        OpaEnv.Options.parse_options ();
        let options = OpaEnv.Options.get_options () in
        OManager.verbose "OPA version %s" BuildInfos.opa_version_name ;
@@ -406,8 +407,6 @@ let pass_PreProcess =
        let ppenv =
          Pprocess.fill_with_sysenv Pprocess.empty_env in
        let ppenv =
-         Pprocess.add_env "OPA_VERSION" "S3" ppenv in
-       let ppenv =
          OpaEnv.Options.to_ppenv e.PH.options ppenv in
        let ppopt = Pprocess.default_options ppenv in
        let process = (Pprocess.process Pplang.opa_description ppopt) in
@@ -418,7 +417,7 @@ let pass_PreProcess =
        in
        { e with PH.env = (process files, process ufiles) })
 
-let pass_Parse =
+let make_pass_Parse sugar =
   PassHandler.make_pass
     (fun e ->
        let options = e.PH.options in
@@ -429,6 +428,7 @@ let pass_Parse =
            OpaParser.code
              ~cache:(not options.O.no_cache_parse)
              ~filename:input_file.P.inputFile_basename
+             ~sugar
              input_file.P.inputFile_content
          in
          { SurfaceAstPassesTypes.
@@ -442,10 +442,32 @@ let pass_Parse =
        PassHandler.make_env options ((special_parsed_files, user_parsed_files), env)
     )
 
+let pass_Parse = make_pass_Parse false
+let pass_ParseSugar = make_pass_Parse true
+
+let parsed_files_printers extract =
+  function opt ->
+    List.map
+      (function (pid, printer) ->
+         (pid, (fun fmt env ->
+                  List.iter
+                    (function pfile ->
+                       Format.fprintf fmt "/** Code from %s**/@\n%a"
+                         pfile.SurfaceAstPassesTypes.parsedFile_filename
+                         printer pfile.SurfaceAstPassesTypes.parsedFile_lcode)
+                    (extract env)
+               )
+         )
+      )
+      (OpaTracker.printers_nonuid (fun a -> a) opt)
+
 let pass_RegisterAppSrcCode =
   PassHandler.make_pass
     (fun e ->
       let options = e.PH.options in
+      let make_env =
+        let printers = parsed_files_printers (fun (_, files) -> files) in
+        PassHandler.make_env ~printers options in
       let ((special_files, user_files), (special_sources, user_sources)) = e.PH.env in
        (* FIXME for now we only not register the source code if option publish_src_code
           is not set, ideally we should not generate the _internal_/src_code page at
@@ -455,9 +477,38 @@ let pass_RegisterAppSrcCode =
           special_files special_sources in
         let user_files' = Pass_RegisterAppSrcCode.register_code ~special:false
           user_files user_sources in
-        PassHandler.make_env options (special_files', user_files')
+         make_env (special_files', user_files')
       else
-        PassHandler.make_env options (special_files, user_files)
+        make_env (special_files, user_files)
+    )
+
+let pass_Print =
+  PassHandler.make_pass
+    (fun e ->
+       let options = e.PH.options in
+       let module Printer = (val OpaPrint.getDefaultFamilly () : OpaPrint.Familly) in
+       if not (File.exists options.O.build_dir) then Unix.mkdir options.O.build_dir 0o740;
+       List.iter
+         (function pfile ->
+            if not (File.exists options.O.build_dir) then Unix.mkdir options.O.build_dir 0o740;
+            let fn = Filename.concat options.O.build_dir
+              (Filename.basename pfile.SurfaceAstPassesTypes.parsedFile_filename) in
+            OManager.verbose "Convert %s to %s"
+              pfile.SurfaceAstPassesTypes.parsedFile_filename fn;
+            let oc = open_out fn in
+            let fmt = Format.formatter_of_out_channel oc in
+            Printer.string#code fmt pfile.SurfaceAstPassesTypes.parsedFile_lcode;
+            Format.pp_print_flush fmt ();
+            ignore (close_out oc);
+            ignore (try (* verification that we can reparse *)
+              OpaParser.code
+                ~parser_:(!OpaSyntax.Args.r.OpaSyntax.Args.printer)
+                ~cache:false
+                ~filename:fn
+                (File.content fn)
+            with _ -> assert false)
+         ) (snd (fst e.PH.env));
+       e
     )
 
 let pass_LoadObjects k =
@@ -494,6 +545,19 @@ let pass_CheckDuplication =
        let options = env.PH.options in
        let both_env = SurfaceAstPasses.pass_check_duplication [] [] ~options env.PH.env in
        EnvUtils.create_sa_both_env_uids env both_env
+    )
+
+let pass_DbEngineImportation =
+  PassHandler.make_pass
+    (fun e ->
+       let files = e.PH.env in
+       let stdlib = e.PH.options.O.stdlib in
+       List.iter
+         (fun (_, _, pfile) ->
+            Pass_DbEngineImportation.process_code ~stdlib pfile
+         ) files;
+       Pass_DbEngineImportation.finalize ~stdlib;
+       e
     )
 
 let pass_BslLoading =
@@ -619,10 +683,21 @@ let pass_SaToQml =
          let options = OpaToQml.options in
          OpaToQml.UidsOpaToQml.code ~options env.P.sa_lcode
        in
-       let type_renaming = SurfaceAstRenaming.ObjectType.fold StringMap.safe_merge env.P.sa_type_renaming in
-       let type_renaming = StringMap.map (fun (i,_) -> OpaToQml.UidsOpaToQml.typeident_aux ~check:false i) type_renaming in
+       let duplicated = Hashtbl.create 16 in
+       let type_renaming =
+         SurfaceAstRenaming.ObjectType.fold
+           (StringMap.merge_i
+              (fun i x y -> Hashtbl.add duplicated i y; x)
+           )
+           env.P.sa_type_renaming in
+       let type_renaming = StringMap.map
+         (fun (i,_) -> OpaToQml.UidsOpaToQml.typeident_aux ~check:false i)
+         type_renaming in
        let type_renamer ?(check=true) str =
-         try StringMap.find str type_renaming
+         try let x = StringMap.find str type_renaming in
+         match Hashtbl.find_all duplicated str with
+         | [] -> x
+         | _ -> OManager.error "Duplicated type ident is found %s\n" str
          with Not_found ->
            (* need to do that because the db uses bypasses with type [embed_info]
             * but this type is not defined in the code because the bypasses can only
@@ -824,9 +899,9 @@ let pass_TypesDefinitions =
        let env = ( e.PH.env : 'tmp_env Passes.env_Gen ) in
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in
-       let local_typedefs, typerEnv, code = Pass_TypeDefinition.process_code
+       let local_typedefs, typerEnv, code, stdlib_gamma = Pass_TypeDefinition.process_code
          (register_fields e.PH.options) typerEnv code in
-       let env = { env with Passes.typerEnv = typerEnv ; qmlAst = code; local_typedefs = local_typedefs } in
+       let env = { env with Passes.typerEnv; local_typedefs; stdlib_gamma; qmlAst = code; } in
        { e with PH.env = env }
     )
 
@@ -846,6 +921,7 @@ let pass_DbSchemaGeneration =
   in
   PassHandler.make_pass ~precond ~postcond ~invariant
     (fun e ->
+        QmlDbGen.settyp OpaMapToIdent.typ;
        let env = ( e.PH.env : 'tmp_env Passes.env_Gen ) in
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in
@@ -883,9 +959,10 @@ let pass_DbPathCoercion =
        let typerEnv = env.Passes.typerEnv in
        let schema = typerEnv.QmlTypes.schema in
        let annotmap = typerEnv.QmlTypes.annotmap in
+       let gamma = typerEnv.QmlTypes.gamma in
        let code = env.Passes.qmlAst in
        let val_ = OpaMapToIdent.val_ in
-       let annotmap, code = Pass_DbPathCoercion.process_code ~val_ schema annotmap code in
+       let annotmap, code = Pass_DbPathCoercion.process_code ~val_ schema gamma annotmap code in
        let typerEnv = { typerEnv with QmlTypes.annotmap = annotmap } in
        let env = { env with Passes.typerEnv = typerEnv ; qmlAst = code } in
        { e with PH.env = env }
@@ -950,7 +1027,7 @@ let pass_WarnCoerce =
     )
 
 let pass_CompileRecursiveValues =
-  PassHandler.make_pass
+  PassHandler.make_pass ~invariant
     (fun e ->
        let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
        let typerEnv = env.Passes.typerEnv in
@@ -958,6 +1035,8 @@ let pass_CompileRecursiveValues =
        let annotmap = typerEnv.QmlTypes.annotmap in
        let code = env.Passes.qmlAst in
        let val_ = OpaMapToIdent.val_ in
+       if !(OpaSyntax.Args.r).OpaSyntax.Args.parser == OpaSyntax.Js then
+         WarningClass.set_warn Pass_CompileRecursiveValues.Warning.recval_lambda false;
        let gamma, annotmap, code = Pass_CompileRecursiveValues.process_code ~val_ gamma annotmap code in
        let typerEnv = {typerEnv with QmlTypes.gamma; annotmap} in
        let env = {env with P.typerEnv; qmlAst = code} in
@@ -965,7 +1044,7 @@ let pass_CompileRecursiveValues =
     )
 
 let pass_RewriteAsyncLambda =
-  PassHandler.make_pass
+  PassHandler.make_pass ~invariant
     (fun e ->
        let env = (e.PH.env : 'tmp_env Passes.env_Gen) in
        let typerEnv = env.Passes.typerEnv in
@@ -979,32 +1058,38 @@ let pass_RewriteAsyncLambda =
        {e with PH.env = env}
     )
 
-let pass_DbAccessorsGeneration =
-  let invariant = global_invariant () in
-  let precond = [
-  ] in
-  let postcond = [
-    QmlCheck.Annot.find Extract.EnvGen.ac ;
-  ] in
-  make_pass_raw_env_refresh Passes.pass_DbAccessorsGeneration
-    ~invariant
-    ~precond
-    ~postcond
-    ()
-
-let pass_DbCodeGeneration =
-  let invariant = global_invariant () in
+let pass_BadopCodeGeneration =
   let precond = [
   ] in
   let postcond = [
     CodeContents.only_NewVal Extract.EnvGen.ac ;
     QmlCheck.Annot.find Extract.EnvGen.ac ;
   ] in
-  make_pass_raw_env_refresh Passes.pass_DbCodeGeneration
+  let pass ~options e =
+    Passes.pass_DbCodeGeneration ~options (Passes.pass_DbAccessorsGeneration ~options e) in
+  make_pass_raw_env_refresh pass
     ~invariant
     ~precond
     ~postcond
     ()
+
+let pass_MongoCodeGeneration =
+  PassHandler.make_pass ~invariant
+    (fun e ->
+       let env = e.PH.env in
+       let typerEnv = env.Passes.typerEnv in
+       let gamma = typerEnv.QmlTypes.gamma in
+       let stdlib_gamma = env.Passes.stdlib_gamma in
+       let annotmap = typerEnv.QmlTypes.annotmap in
+       let schema = typerEnv.QmlTypes.schema in
+       let code = env.Passes.qmlAst in
+       let (nannotmap, code) =
+         Pass_MongoAccessGeneration.process_code ~stdlib_gamma gamma annotmap schema code in
+       let typerEnv = { typerEnv with QmlTypes.
+                          gamma = gamma;
+                          annotmap = nannotmap} in
+       { e with PH.env = {env with Passes.qmlAst = code; typerEnv = typerEnv;} }
+    )
 
 let pass_DocApiGeneration =
   make_pass_raw_env Pass_OpaDocApi.process_qml
@@ -1617,11 +1702,13 @@ let pass_FunActionJsCallGeneration =
 
 let extract_client_agc (_, cenv) =
   (cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.annotmap,
-   cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   (cenv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   QmlTypes.Env.empty),
    cenv.P.newFinalCompile_qml_milkshake.QmlBlender.code)
 let extract_server_agc (senv, _) =
   (senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.annotmap,
-   senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   (senv.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+   QmlTypes.Env.empty),
    senv.P.newFinalCompile_qml_milkshake.QmlBlender.code)
 let extract_client (_, cenv) = cenv.P.newFinalCompile_qml_milkshake.QmlBlender.code
 let extract_server (senv, _) = senv.P.newFinalCompile_qml_milkshake.QmlBlender.code
@@ -1680,7 +1767,11 @@ let pass_JavascriptCompilation =
      env.P.newFinalCompile_qml_milkshake.QmlBlender.code) in
   let make_extract_agc make env =
     let env = make env in
-    let gamma = env.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma in
+    let gamma = (
+      env.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma,
+      QmlTypes.Env.empty
+    )
+    in
     let annotmap, code = make_extract_ac make env in
     annotmap, gamma, code in
   let pass pass_env =
@@ -2187,3 +2278,6 @@ let () =
      | "ByeBye" -> None
 
      | _ -> None)
+
+
+

@@ -1,4 +1,4 @@
-OPA ?= opa
+OPA ?= opa --parser classic
 OPA_PLUGIN_BUILDER ?= opa-plugin-builder
 OCAMLOPT ?= ocamlopt.opt
 

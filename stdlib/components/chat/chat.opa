@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -26,6 +26,7 @@
  */
 
 import stdlib.widgets.dateprinter
+import stdlib.database.db3
 
 /**
  * {1 About this module}
@@ -191,10 +192,10 @@ CChat = {{
     @static_resource("stdlib/components/chat/resources/close_icg_16.png")
 
   @private @publish url_search_icon =
-    DynamicResource.publish(search_icon, resource_parameters)
+    DynamicResource.publish("", search_icon, resource_parameters)
 
   @private @publish url_clear_icon =
-    DynamicResource.publish(clear_icon, resource_parameters)
+    DynamicResource.publish("", clear_icon, resource_parameters)
 
 /**
  * {1 Configuration}
@@ -346,7 +347,7 @@ CChat = {{
 
   persistent_search_action(db_path: CChat.db_path, query: string)
       : CChat.content =
-    Db.intmap_search(db_path.ref, query)
+    Db3.intmap_search(db_path.ref, query)
       |> List.map((res -> (res, Db.read(db_path.get(res)))), _)
       |> IntMap.From.assoc_list(_)
 
@@ -435,7 +436,7 @@ CChat = {{
     /* Add a fresh DB key to a message */
     set_key(action: CChat.action): CChat.action = match action with
       | { ~message id=_ } ->
-        key = Db.fresh_key(db_path.ref)
+        key = Db3.fresh_key(db_path.ref)
         { ~message id=key }
       | any -> any
 

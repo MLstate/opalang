@@ -37,7 +37,7 @@ type OAuth.signature_type =
      { PLAINTEXT } /** Plain text signature - Not recommended unless you have a https connection  */
    / { HMAC_SHA1 } /** HMAC-SHA1 signature */
 
-type OAuth.method = {POST} / {GET}
+type OAuth.method = {POST} / {GET} / {PUT:{mimetype:string file:binary}}
 
 /**
  * OAuth configuration. All these parameters shoul be given
@@ -57,7 +57,7 @@ type OAuth.parameters = {
   authorize_uri     : string
   http_method       : OAuth.method
   inlined_auth      : bool
-  custom_headers    : option(string)
+  custom_headers    : list(string)
 }
 
 type OAuth.token = {
@@ -86,8 +86,9 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
 
   method_to_string(m) =
     match m : OAuth.method with
-    | {POST} -> "POST"
-    | {GET}  -> "GET"
+    | {POST}  -> "POST"
+    | {GET}   -> "GET"
+    | {PUT=_} -> "PUT"
 
   /* ------------------- */
   /* Signature functions */
@@ -112,8 +113,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     do API_libs_private.apijlog("Base string: {base_string}")
     key = "{p.consumer_secret}&{secret}"
     res = Crypto.Base64.encode(Crypto.Hash.hmac_sha1(key, base_string))
-    res = API_libs_private.url_encoder("{res}=")
-       |> String.replace("+", "%2B", _);
+    res = API_libs_private.url_encoder(res)
     do API_libs_private.apijlog("Signature: {res}")
     res
 
@@ -175,11 +175,21 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     res = match p.http_method with
     | {GET} ->
       uri = if params_text == "" then uri else "{uri}?{params_text}"
-      options = {WebClient.Get.default_options with auth=auth custom_headers=p.custom_headers}
+      options = {WebClient.Get.default_options with
+        ~auth custom_headers=p.custom_headers}
       do API_libs_private.apijlog("URI: \n{uri}")
       match Uri.of_string(uri) with
       | {none} -> error("_______")
       | {some=u} -> WebClient.Get.try_get_with_options(u, options)
+      end
+    | {PUT=~{mimetype file}} ->
+      uri = if params_text == "" then uri else "{uri}?{params_text}"
+      options = {WebClient.Put.default_options with
+        ~auth ~mimetype custom_headers=p.custom_headers}
+      do API_libs_private.apijlog("URI: \n{uri}")
+      match Uri.of_string(uri) with
+      | {none} -> error("_______")
+      | {some=u} -> WebClient.Put.try_put_with_options(u, string_of_binary(file), options)
       end
     | {POST} ->
       do API_libs_private.apijlog("URI: \n{uri}")
@@ -192,7 +202,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
       | {none} -> error("_______")
       | {some=u} -> WebClient.Post.try_post_with_options(u, options)
       end
-    do API_libs_private.apijlog("Result: '''{res}'''")
+    // do API_libs_private.apijlog("Result: '''{res}'''")
     res
 
   get_res(more_auth, secret, uri, params, parse_fun) =

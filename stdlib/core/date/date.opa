@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -152,12 +152,28 @@ type time_t = external
     0
 
   /**
-   * The current time.
+   * The current *local* time.
    *
    * Note: depending on whether the function is executed on the client or on the
    * server this function will return, respectively, the client/server time.
+   *
+   * If instead of local time you want GMT time, please consult {!Date.now_gmt}
+   *
   **/
   now : -> Date.date = Date_private.time_now
+
+  /**
+   * The current GMT time.
+   *
+   * Note: depending on whether the function is executed on the client or on the
+   * server this function will return, respectively, the client/server time.
+   *
+   * If instead of GMT time you want local time, please consult {!Date.now_gmt}
+  **/
+  now_gmt() : Date.date =
+    t = now()
+    offset = Date_private.time_local_timezone_offset() |> Duration.min
+    Date.advance(t, offset)
 
   /**
    * Constructs a specific date.
@@ -167,14 +183,21 @@ type time_t = external
   **/
   build(date : {year : Date.year; month : Date.month; day : Date.day; h : int; min : int; s : int; ms : int}
              / {year : Date.year; month : Date.month; day : Date.day; h : int; min : int; s : int}
-             / {year : Date.year; month : Date.month; day : Date.day}) : Date.date =
+             / {year : Date.year; month : Date.month; day : Date.day}
+             / {year : Date.year; week : int; weekday : Date.weekday}
+       ) : Date.date =
     dummy_date = {year=1970 month={january} day=1 h=0 min=0 s=0 ms=0 wday={monday}}
-    dhr =
-      match date with
-      | ~{year month day h min s ms} -> ~{dummy_date with year month day h min s ms}
-      | ~{year month day h min s} -> ~{dummy_date with year month day h min s}
-      | ~{year month day} -> ~{dummy_date with year month day}
-    of_human_readable(dhr)
+    match date with
+    | ~{year month day h min s ms} ->
+        ~{dummy_date with year month day h min s ms} |> of_human_readable
+    | ~{year month day h min s} ->
+        ~{dummy_date with year month day h min s} |> of_human_readable
+    | ~{year month day} ->
+        ~{dummy_date with year month day} |> of_human_readable
+    | ~{year week weekday} ->
+        get_first_week(year)
+        |> advance(_, Duration.weeks(week-1))
+        |> move_to_weekday(_, {forward}, weekday)
 
   /**
    * Converts a low-level representation into a Date.
@@ -424,6 +447,28 @@ type time_t = external
   get_hour : Date.date -> int = Date_private.time_local_hour
 
   /**
+   * Returns the local timezone (+hhmm or -hhmm).
+   *
+   * On the server side, this will be a constant. On the client side
+   * it will depend on whatever the user has set on their system.
+   *
+   * @return The local timezone (+hhmm or -hhmm).
+  **/
+  get_local_timezone : -> string = -> (
+    delta : int = Date_private.time_local_timezone_offset()
+    // delta is the timezone in minutes, so we need to convert it into
+    // +hhmm or -hhmm. If delta is positive, the timezone is -hhmm. Otherwise
+    // the timezone is +hhmm.
+    h : int = Int.abs(delta) / 60
+    m : int = mod(Int.abs(delta), 60)
+    s : string = if delta > 0 then "-" else "+"
+    p = {pad_with_zeros}
+    h_str : string = Date_private.ToString.pad(h, p, p, 2)
+    m_str : string = Date_private.ToString.pad(m, p, p, 2)
+    "{s}{h_str}{m_str}"
+  )
+
+  /**
    * Returns the weekday represented by this date interpreted in the local
    * time zone.
    * If you need to completely decompose a date consider using {!Date.to_human_readable}.
@@ -465,6 +510,21 @@ type time_t = external
   get_year : Date.date -> Date.year = Date_private.time_local_year
 
   /**
+   * Returns the Monday of the first week of a given year.
+   *
+   * This routine follows ISO 8601 and hence assumes that "the first week of a year
+   * is the week that contains the first Thursday of the year" and that "weeks start
+   * with Monday". See {{:http://en.wikipedia.org/wiki/ISO_week_date} for more details}.
+   *
+   * @param year A year
+   * @return The date on Monday of the first week of the year [year].
+  **/
+  get_first_week(year : Date.year) : Date.date =
+    build({~year month={january} day=1}) |>
+    move_to_weekday(_, {forward}, {thursday}) |>
+    move_to_weekday(_, {backward}, {monday})
+
+  /**
    * Returns the week number corresponding to the given date.
    *
    * This routine follows ISO 8601 and hence assumes that "the first week of a year
@@ -475,13 +535,11 @@ type time_t = external
    * @return The week number of the [date].
   **/
   get_week_number(d : Date.date) : int =
-    dhr = to_human_readable(d)
-    first_week =
-      build({year=dhr.year month={january} day=1}) |>
-      move_to_weekday(_, {forward}, {thursday}) |>
-      move_to_weekday(_, {backward}, {monday})
-    Duration.between(first_week, d) |>
-      Duration.in_days(_) |>
+    to_human_readable(d) |>
+      _.year |>
+      get_first_week |>
+      Duration.between(_, d) |>
+      Duration.in_days |>
       _ / 7. |>
       Float.floor |>
       Float.to_int |>
@@ -833,6 +891,7 @@ type time_t = external
    * - [%w] day of week (0..6); 0 is Sunday
    * - [%y] last two digits of year (00..99)
    * - [%Y] year (ex. 2010)
+   * - [%z] +hhmm numeric timezone (e.g., -0400)
    *
    * By default, numeric fields are padded with zeroes. The following optional flags
    * may follow `%':
@@ -849,7 +908,6 @@ type time_t = external
    * - [%U] week number of year with Sunday as first day of week (00..53)
    * - [%V] week number of year with Monday as first day of week (01..53)
    * - [%W] week number of year with Monday as first day of week (00..53)
-   * - [%z] +hhmm numeric timezone (e.g., -0400)
    * - [%:z] +hh:mm numeric timezone (e.g., -04:00)
    *
    * Also the padding directives are not supported:
@@ -975,7 +1033,7 @@ type time_t = external
    *
    * For the purpose of parsing there are few differences in the interpretations
    * of the format, compared to the format used for printing, see {!Date.try_generate_printer}:
-   * - the directives '%C', '%u' and '%w' are not recognized,
+   * - the directives '%C', '%u', '%w' and '%z' are not recognized,
    * - a non-empty sequence of spaces in the [format] can be matched by any (non-empty)
    *   sequence of spaces in the input.
    * - the padding flags ('_', '-' and '0') are ignored and all numerical values

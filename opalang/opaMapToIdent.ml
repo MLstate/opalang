@@ -16,6 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module Format = BaseFormat
+
 (*
   We test strictly than the val_ function is called only on
   identifiers registred in opacapi, using the opacapi interface.
@@ -60,9 +62,9 @@ let other_side = function
 *)
 
 (* Reference to the maps*)
-let r_var = ref (StringMap.empty : Ident.t StringMap.t)
-let r_var_client = ref (StringMap.empty : Ident.t StringMap.t)
-let r_type = ref (StringMap.empty : Ident.t StringMap.t)
+let r_var = ref (StringMap.empty : Ident.t list StringMap.t)
+let r_var_client = ref (StringMap.empty : Ident.t list StringMap.t)
+let r_type = ref (StringMap.empty : Ident.t list StringMap.t)
 
 (* registering the references to be able to save them *)
 let () =
@@ -78,7 +80,9 @@ let print_side = function
   | `client -> "client"
 
 let val_no_opacapi_check ?(side=`server) s =
-  StringMap.find s !(get_rmap side)
+  match StringMap.find s !(get_rmap side) with
+  | [i] -> i
+  | l -> OManager.i_error "Found multiple ident for %s : %a" s (Format.pp_list " " (fun f i -> Format.fprintf f "%s" (Ident.to_uniq_string i))) l
 
 let val_noerr ?(side=`server) s =
   opacapi_check s ;
@@ -99,9 +103,29 @@ let val_ ?(side=`server) s =
       pp_stringmap
       !(get_rmap side)
 
+let default_pos ?(label=Annot.nolabel "OpaMapToIdent") name =
+  QmlAst.Ident (label, Ident.source name)
+
+
+let typed_val ?(label=Annot.nolabel "OpaMapToIdent") ?(side=`server) ?(ty=[]) ?(ty_row=[]) name annotmap gamma =
+  try
+    let ident = val_ ~side name in
+    let tsc = QmlTypes.Env.Ident.find ident gamma in
+    let ty = QmlTypes.Scheme.specialize ~typeident:ident ~ty ~ty_row tsc in
+    let (annotmap, ident) = QmlAstCons.TypedExpr.ident annotmap ident ty in
+    let annotmap = QmlAnnotMap.add_tsc_inst (QmlAst.QAnnot.expr ident) tsc annotmap in
+    (annotmap, ident)
+  with Not_found ->
+    let context = QmlError.Context.annoted_expr annotmap (default_pos ~label name) in
+    QmlError.cond_violation QmlAlphaConv.Check.unbound_id context
+      "Missing ident"
+
 let typ s =
   opacapi_check s ;
-  try StringMap.find s !r_type
+  try
+    match StringMap.find s !r_type with
+    | [i] -> i
+    | l -> OManager.i_error "Found multiple ident for %s : %a" s (Format.pp_list " " (fun f i -> Format.fprintf f "%s" (Ident.to_uniq_string i))) l
   with Not_found ->
     OManager.i_error
       "OpaMapToIdent: Type not found: %S\nIt contains:@\n%a@\n"
@@ -109,20 +133,24 @@ let typ s =
       pp_stringmap
       !r_type
 
+let specialized_typ ?(ty = []) ?(ty_row = []) name gamma =
+  let typeident = typ name in
+  let (scheme, _) = QmlTypes.Env.TypeIdent.find ~visibility_applies:false typeident gamma in
+  QmlTypes.Scheme.specialize ~typeident ~ty ~ty_row scheme
+
 let val_opt ?(side=`server) s =
-  opacapi_check s ;
-  StringMap.find_opt s !(get_rmap side)
+  try Some (val_noerr ~side s) with Not_found -> None
 
 let val_add ?(side=`server) s =
   let new_s = Ident.next s in
   let r_var = get_rmap side in
-  r_var := StringMap.safe_add s new_s !r_var;
+  r_var := StringMap.replace s (function | None -> [new_s] | Some l -> new_s::l)  !r_var;
   new_s
 
 let val_unsafe_add ?(side=`server) s =
   let new_s = Ident.next s in
   let r_var = get_rmap side in
-  r_var := StringMap.add s new_s !r_var;
+  r_var := StringMap.replace s (function | None -> [new_s] | Some l -> new_s::l)  !r_var;
   new_s
 
 let set_val_map ?(side=`server) v = (get_rmap side) := v
@@ -151,7 +179,7 @@ let val_start_server_add () =
   | None ->
       let ident = Ident.next "run_services" in
       start_server := (Some str_start_server);
-      set_val_map (StringMap.add str_start_server ident (get_val_map ()));
+      set_val_map (StringMap.add str_start_server [ident] (get_val_map ()));
       ident
 (** Hack for opacapi - To be cleanned by introduce dependencies
     beetween initialisations values (css, etc...) and init server *)
@@ -160,11 +188,25 @@ let _ = Opacapi.(!!) str_start_server
 let get_toplevel_vars () = StringMap.elts !r_var
 
 let filter f =
-  r_var := StringMap.filter_val f !r_var;
-  r_var_client := StringMap.filter_val f !r_var_client
+  let fil map =
+    StringMap.fold
+      (fun s i acc ->
+         match List.filter f i with
+         | [] -> acc
+         | l -> StringMap.add s l acc)
+      map StringMap.empty
+  in
+  r_var := fil !r_var;
+  r_var_client := fil !r_var_client
 
 let reset () =
   set_val_map ~side:`server StringMap.empty;
   set_val_map ~side:`client StringMap.empty;
   set_typ_map StringMap.empty;
   start_server := None
+
+let pp fmt () =
+  Format.fprintf fmt
+  "OpaMapToIdent (types) contains:@\n%a@\n"
+    pp_stringmap
+    !r_type

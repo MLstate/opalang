@@ -1377,6 +1377,9 @@ let process_code (have_typeof:QmlTypeVars.FreeVars.t) gamma annotmap _published 
           QmlAnnotMap.find_tsc_opt (Q.QAnnot.expr e) annotmap in
         match tsc with
         | None ->
+            #<If:EXPL_INST_DEBUG>
+              debug "Generalization no typescheme for %a" pp#ident id
+            #<End>;
             (* no type variables in the schema, no type arguments needed *)
             ((annotmap, e), ajax_ast)
         | Some tsc ->

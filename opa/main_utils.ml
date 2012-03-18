@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -67,6 +67,15 @@ struct
     ObjectFiles.Arg.is_fully_separated ()
 
   let i18n_template ~options _env = E.i18n_template options
+
+  let database engine ~options _env =
+    ignore options;
+    List.mem engine (Pass_DbEngineImportation.get_engines ())
+end
+
+module Switch =
+struct
+
 end
 
 let if_not f_cond ~options env = not (f_cond ~options env)

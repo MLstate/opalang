@@ -1,3 +1,133 @@
+Updated APIs:
+
+  * Bootstrap
+    - upgraded to v2.0.2
+    - fixes for Bootstrap and Opa icons inclusion
+    - changed the import names
+    - added Font Awesome icons
+
+
+2012.03.09, Version 0.9.1 (stable), v1466
+
+Other features:
+
+  * opa-translate tool updated for classic to js-like syntax translation
+    with support of syntactic sugar, prettier printer and various enhancements and bugfixes
+
+  * directive @from
+    - new @from directive to resolve importation conflicts
+    - In case of conflicts beetween two types with same original names, error message includes packages.
+
+  * cyclic types
+    - exportation of cyclic types
+    - typer.cyclic warnings when (non local) cyclic type exportation
+
+  * mixing database backends
+    - Added @db3 and @mongo database options on database schema declaration.
+
+  * new exprimental --remote-logs option to send logs to a remote web server
+
+  * new --cookie-accept-client-values to use cookie ec/ic values provided by the client instead of generating new ones
+
+New APIs:
+
+  * Unification of runtime types (and fix 'magic' functions)
+
+Updated APIs:
+
+  * included Twitter's Bootstrap CSS inside the stdlib, and improved the import system (see doc)
+
+  * added a way to register favicons (like css and js)
+
+  * changed WebClient API concerning additional headers
+
+  * improved / fixed MIME library
+
+Bug fixes:
+
+  * Improved HTTP gzip compression time
+
+  * Various fixes on http client response parser
+
+  * Parser fixes : bindinds, declaration directives, sugared list
+
+  * Checking of recursives values
+
+  * Database queries on primary keys
+
+  * Events handler in new syntax
+
+  * Coercion on Xhmtl fragment
+
+  * File descriptors leak when embedding static files
+
+Other changes:
+
+  * Log.* functions take a strings instead of 'alpha
+
+  * Http client doesn't log by default (use the new HTTP_CLIENT_DEBUG debug variable if needed)
+
+  * --db-local options with mongo databases: download, install and launch a mongo database if needed.
+
+
+2012.02.14, Version 0.9.0 (stable), v1300
+
+Major features:
+
+  * js-like syntax
+    - new parser for a syntax close to JavaScript
+    - this is now the default syntax (use --parser classic to the the previous syntax)
+    - emacs mode and vim mode have been updated for this syntax
+
+  * MongoDB support
+    - new db backend based on MongoDB (not default)
+    - fully integrated with the langage db syntactic construction
+    - replica sets are supported using SlaveOk mode
+    - db syntactic construction extension to support queries with multiple ranges
+
+Other features:
+
+  * i18n
+    - new @i18n directive
+    - it supports generic value that depends on the language
+    - more concise and simpler support for string
+
+  * directive @public_env
+    - instructs the compiler that it is legal to serialize a closure
+    - helps constructing functions on the server side that will be used later on the client side
+
+New APIs:
+
+  * Mime, WBootstrap, Bootstrap, Dropbox, GCharts, Markdown, IRC, XlsExport, CsvExport, ...
+
+Updated APIs :
+
+  * Email, SmtpClient, SmtpServer, Dom, Resource, OAuth, Canvas, Facebook, Twitter, GitHub, ...
+
+Bug fixes:
+
+  * json string escaping: escape all control characters
+
+  * many other minor and major bug fixes
+
+  * Mongo replica sets now detect unsolicited change in primary due to new
+    priority feature for replica set nodes
+
+  * System.get_memory_usage(() on FreeBSD
+
+Other changes:
+
+  * versioning number to semantic versioning (http://semver.org/)
+    - 1.0s4 => v0.9.0
+
+  * no automatic include of the favicon link
+
+  * .mlstate renamed into .opa, and no un-necessary creation at runtime
+
+  * HTML5 doctype added
+
+
 opa (1.0s3.4) unstable; urgency=low
   * initial open-source release
  -- Louis Gesbert <louis.gesbert@mlstate.com>  Fri, 10 Jun 2011 15:44:20 +0200
+

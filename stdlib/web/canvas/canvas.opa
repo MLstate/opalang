@@ -64,9 +64,7 @@ type Canvas.linejoin =
 / {miter}
 
 type Canvas.imagedata =
-  {width:int
-   height:int
-   }
+  {width: int; height: int}
 
 type Canvas.image =
   {image : Image.image}
@@ -83,6 +81,21 @@ type Image.image = external
 type Video.video = external
 type Image.data = external
 
+type Canvas.textalign = 
+  {align_start}
+/ {align_end}
+/ {align_left}
+/ {align_right}
+/ {align_center}
+
+type Canvas.textbaseline = 
+  {top}
+/ {hanging}
+/ {middle}
+/ {alphabetic}
+/ {ideographic}
+/ {bottom}
+
 /**
  * {1 Interface}
  */
@@ -94,6 +107,7 @@ Canvas = {{
    * {2 Canvas}
   **/
 
+  @both_implem
   create_with(id : string, width : Css.size, height : Css.size,
               error_msg : xhtml) : xhtml =
     get_size(x:Css.size):string = match x
@@ -113,6 +127,7 @@ Canvas = {{
       {error_msg}
     </canvas>
 
+  @both_implem
   create(id : string, width: Css.size, height : Css.size) : xhtml =
     err_msg =
       <p>
@@ -140,6 +155,16 @@ Canvas = {{
 
   get_context_2d(canvas : Canvas.canvas) : option(Canvas.context) =
     get_context(canvas,"2d")
+
+  /**
+   * {2 Canvas size}
+  **/
+
+  get_width(canvas : Canvas.canvas) : int =
+    %%BslCanvas.get_width%%(canvas)
+
+  get_height(canvas : Canvas.canvas) : int =
+    %%BslCanvas.get_height%%(canvas)
 
   /**
    * {2 Canvas state}
@@ -433,7 +458,37 @@ Canvas = {{
    * {2 Text}
   **/
 
-  // TODO
+  // TODO: type font
+  set_font(context:Canvas.context, font:string) : void =
+    %% BslCanvas.set_font %%(context,font)
+
+  set_text_align(context:Canvas.context, align:Canvas.textalign) : void =
+    align_text = match align with
+      | {align_start}  -> "start"
+      | {align_end}    -> "end"
+      | {align_left}   -> "left"
+      | {align_right}  -> "right"
+      | {align_center} -> "center"
+    %% BslCanvas.set_text_align %%(context,align_text)
+
+  set_text_baseline(context:Canvas.context, baseline:Canvas.textbaseline) : void =
+    baseline_text = match baseline with
+      | {top}         -> "top"
+      | {hanging}     -> "hanging"
+      | {middle}      -> "middle"
+      | {alphabetic}  -> "alphabetic"
+      | {ideographic} -> "ideographic"
+      | {bottom}      -> "bottom"
+    %% BslCanvas.set_text_baseline %%(context,baseline_text)
+
+  stroke_text(context:Canvas.context, text:string, x:int, y:int) : void =
+    %% BslCanvas.stroke_text %%(context,text,x,y)
+
+  fill_text(context:Canvas.context, text:string, x:int, y:int) : void =
+    %% BslCanvas.fill_text %%(context,text,x,y)
+
+  measure_text(context:Canvas.context, text:string) : int =
+    %% BslCanvas.measure_text %%(context,text)
 
   /**
    * {2 Drawing images}

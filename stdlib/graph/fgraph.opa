@@ -132,7 +132,7 @@ type FGraph.t('edge_label, 'vertex_label) = {
  * The string_of functions are used for producing dot.
  *
  * FIXME: this should be a module interface, not a record interface.
- * Update when this feature will be integrated to S3
+ * Update when this feature will be integrated
  */
 type FGraph.X.interface('edge_label, 'vertex_label, 'ordering_edge, 'ordering_vertex) = {
      order_edge_label : order('edge_label, 'ordering_edge);

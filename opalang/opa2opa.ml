@@ -23,7 +23,7 @@ let _ =
        ["--expr",Arg.Unit (fun () -> opt_expr := true),"print expressions as expressions (do not insert \"do\")"]
     )
     (fun _ -> ())
-    (Printf.sprintf "%s : simple qml to opa preprocessing\nuse : %s [options] <filein.opa >fileout.opa\n" Sys.argv.(0) Sys.argv.(0))
+    (Printf.sprintf "%s: simple qml to opa preprocessing\nUsage: %s [options] <filein.opa >fileout.opa\nOptions:" Sys.argv.(0) Sys.argv.(0))
 
 let _ =
   if !opt_expr then

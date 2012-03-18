@@ -1,7 +1,7 @@
 % -*-erlang-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -54,6 +54,7 @@
     rt_maximum_content_length : int;
     rt_maximum_number_of_headers : int;
     rt_log_accesses : bool;
+    rt_remote_logs : HttpServerTypes.remote_logs option;
     rt_time_diff : string;
     rt_plim : int;
   }
@@ -178,13 +179,22 @@ let access_log runtime request_line response =
   if runtime.rt_core.rt_log_accesses
   then
     let host = runtime.rt_tmp.rt_hr.hr_inet_addr_str in
+    let cookie = runtime.rt_tmp.rt_hr.hr_ic in
     let _method = String.trim (string_of_msg request_line) in
     let status = match response.sl with | Sl (_,code,_) -> string_of_int code | _ -> "-" in
     let bytes = content_length response.body in
     let ua = runtime.rt_tmp.rt_hr.hr_user_agent in
     let referer = runtime.rt_tmp.rt_hr.hr_referer in
     (* Combined log format (apparently) *)
-    Logger.log_access "%s - - [%s] \"%s\" %s %d %s %s" host !current_time_string _method status bytes referer ua
+    let _ = Logger.log_access "%s - - [%s] \"%s\" %s %d %s %s" host !current_time_string _method status bytes referer ua in
+   (
+      match runtime.rt_core.rt_remote_logs with
+      | None -> ()
+      | Some opt -> (
+      let encode s = Encodings.encode_uri_component (Encodings.encode_uri_component s) in
+      Http_client.get Scheduler.default opt.hostname opt.port (Printf.sprintf "/?appkey=%s&kind=ping&method=%s&status=%s&bytes=%d&cookie=%s&host=%s&referer=%s&ua=%s" opt.appkey (encode _method) (encode status) bytes cookie (encode host) (encode referer) (encode ua)) (fun _ -> ())
+      )
+    )
   else ()
 let get_payload runtime = runtime.rt_proto.rt_payload
 let set_payload runtime payload = { runtime with rt_proto={ runtime.rt_proto with rt_payload=payload; }; }

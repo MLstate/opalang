@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -58,8 +58,16 @@ callFA(json : string, event : Dom.event): void =
 @opacapi FunActionServer_serialize_argument = FunActionServer.serialize_argument
 @opacapi FunActionServer_serialize_ty_argument = FunActionServer.serialize_ty_argument
 
+/** Internal function, don't use */
+@opacapi
+@client
+dom_event_to_opa_event(e) = (%% bslClientOnly.dom_event_to_opa_event %%)(e)
+
+type native_event = external
+
 @both
 FunAction = {{
+
   /**
    * Serialize a fun action on a javascript code.
    */
@@ -205,9 +213,9 @@ serialize_call(fun_action_name:string, ty_ser_args:list(FunActionServer.serializ
         // dropping the server value for the serialized one
         fun_action_call(fun_action,tyargs,args) =
           ty_call = if tyargs == "" then "" else "({tyargs})"
-          ty_call = "({fun_action}){ty_call}"
-          arg_call = "{ty_call}({args})"
-          event_apply = "{arg_call}(event)"
+          event_conv = @js_ident("dom_event_to_opa_event")
+          // fun_action and event_conv are always named values, so we don't need to surround by parenthesis
+          event_apply = "{fun_action}{ty_call}({args})({event_conv}(event))"
           event_apply
 
         get_serialized_args(l)=

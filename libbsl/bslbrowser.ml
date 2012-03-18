@@ -176,14 +176,13 @@ let anon_fun file =
 
 
 let usage_msg =
-  !> "@{<bright>%s@} <Opa External Libraries Browser> %s\nuse: %s [options] [regexps] [bsl-plugins]"
-    Sys.argv.(0) BuildInfos.version_id
-    Sys.argv.(0)
+  !> "@{<bright>%s@}: Opa External Libraries Browser\nUsage: %s [options] [regexps] [bsl-plugins]\n"
+    Sys.argv.(0) Sys.argv.(0)
 
 
 let parse () =
   let spec = (
-    WarningClass.Arg.options () @
+    WarningClass.Arg.options @
     (OManager.Arg.version "bslbrowser" :: OManager.Arg.options) @
     BslLib.Arg.options @
     spec
@@ -194,7 +193,7 @@ let parse () =
   |> Arg.align
 
   in
-  Arg.parse spec anon_fun usage_msg
+  Arg.parse spec anon_fun (usage_msg^"Options:")
 
 
 (* ============= *)
@@ -550,7 +549,7 @@ let tiny_shell
   BslRegisterParserState.init_file ~filename:"stdin" ;
 
   let () =
-    Printf.fprintf stdout "Opa-plugin-browser %s %s\n"
+    Printf.fprintf stdout "bslbrowser %s %s\n"
       BuildInfos.opa_version_name BuildInfos.version_id ;
     Printf.fprintf stdout "Type \"help\" for more information.\n%!"
   in

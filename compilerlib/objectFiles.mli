@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -117,6 +117,11 @@ val expand_glob :
 val load_conf : filename -> unit
 
 (**
+   [conf_opa_files ()] returns all opa file present the loaded conf files
+*)
+val conf_opa_files : unit -> filename list
+
+(**
    [load filename content code]
    check the validity of the 'Package' declarations from the code, and removes them
    loads the dependency of the given code, and update the current package
@@ -181,12 +186,12 @@ sig
      deep: transitive dependencies
   *)
 
-  val iter_with_name : (?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
-  val fold_with_name : (?packages:bool -> ?deep:bool -> (package -> 'acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
-  val iter_with_dir : (?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
-  val fold_with_dir : (?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter : (?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
-  val fold : (?packages:bool -> ?deep:bool -> ('acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
+  val iter_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
+  val fold_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> 'acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
+  val iter_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
+  val fold_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter : (?optional:bool -> ?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
+  val fold : (?optional:bool -> ?packages:bool -> ?deep:bool -> ('acc -> t -> 'acc) -> 'acc -> 'acc) wrapper
 
   (**
      Save the current information to the disk
@@ -194,7 +199,7 @@ sig
      whole environment that results from merging the environment of the dependencies with
      the current environment
   *)
-  val save : (t -> unit) wrapper
+  val save : ?overwrite:bool -> (t -> unit) wrapper
 end
 
 module Make : functor (S:S) -> R with type t = S.t and type 'a wrapper = 'a
@@ -268,6 +273,11 @@ val warning_set : WarningClass.Set.t
 val stdlib_packages : package -> bool
 val stdlib_package_names : package_name -> bool
 
+
+val compiler_package : package -> bool
+
+val resave : unit -> unit
+
 (**
    Loads the js extra lib with the given basename
 *)
@@ -286,3 +296,8 @@ val compilation_is_successfull : unit -> unit
    and not using the standard Arg of this module.
 *)
 val turn_separated_off : unit -> unit
+
+(**
+   Use given package as a compiler package.
+*)
+val add_compiler_packages : package_name list -> unit

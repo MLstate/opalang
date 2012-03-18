@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer}
+import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer, unification}
 
 /**
  * {1 About this module}
@@ -66,7 +66,7 @@ type xml('attributes,'extensions) =
   { text : string }         /**Text meant to be escaped before any insertion*/
 / { content_unsafe: string } /**Text meant to be inserted without any check or escaping. Absolutely unsafe, of course.*/
 / { fragment : list(xml('attributes,'extensions)) }
-/ { namespace : string /** A unique URI characterizing the namespace */
+/ { namespace : string /** The namespace name */
     tag : string
     args : list(Xml.attribute)
     content : list(xml('attributes,'extensions))
@@ -163,7 +163,6 @@ Xmlns =
     * Convert a xmlns structure into a string
     */
    to_string : xmlns -> string = serialize_to_string
-   to_string_with_nsmap : list((string,string)), string, xmlns -> string = serialize_to_string_with_nsmap
 
    /**
     * Convert a xhtml structure into a xmlns
@@ -387,11 +386,6 @@ Xmlns =
     do @assert(js_code == "")
     html_code
 
-  serialize_to_string_with_nsmap(ns_map,default_ns,xmlns: xmlns): string =
-    xhtml = to_xhtml(xmlns)
-    ~{js_code html_code} = Xhtml.prepare_for_export_with_map(ns_map,default_ns,xhtml,false)
-    do @assert(js_code == "")
-    html_code
 }}
 
 verbatim_expr(_)=""
@@ -488,9 +482,9 @@ Xml =
       | { content_unsafe=_ }
       | { xml_dialect=_ } -> fun(elt)
       | { ~fragment } -> {fragment = List.map(aux, fragment) }
-      | { ~tag; ~namespace; ~args; ~content; ~specific_attributes } ->
+      | { ~content ... } as r ->
         content = List.map(aux, content) ;
-        fun({ ~tag; ~namespace; ~args; content=content; ~specific_attributes } : xml)
+        fun({r with content=content} <: xml )
     aux(element)
 
 }}
@@ -542,10 +536,6 @@ XmlConvert = {{
     original_ty = @typeof(value)
     rec aux(value, ty : OpaType.ty) =
       match ty with
-      | {TyName_ident = "list";
-         TyName_args =
-           [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
-          Xml.create_fragment(Magic.id(value))
       | {TyName_ident = "xml"; ...} | {TyName_ident = "xhtml"; ...} ->
           Magic.id(value)
       | {TyName_ident = "text"; ...} ->
@@ -553,13 +543,20 @@ XmlConvert = {{
       | {TyConst = {TyInt}} -> XmlConvert.of_int(Magic.id(value))
       | {TyConst = {TyFloat}} -> XmlConvert.of_float(Magic.id(value))
       | {TyConst = {TyString}} -> XmlConvert.of_string(Magic.id(value))
+      | {TyName_ident = "list";
+         TyName_args =
+           [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
+          Xml.create_fragment(Magic.id(value))
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
-          ident, args, (ty, x -> aux(x, ty)),
+          ident, args, (ty -> aux(_, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
-          value)
-      | _ -> {text = "Can't make an xml with " ^ OpaType.to_pretty(original_ty)}
+          value, [])
+      | ty ->
+        if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+          Xml.create_fragment(Magic.id(value))
+        else {text = "Can't make an xml with {ty}"}
     aux(value, original_ty)
   : xml
 
@@ -642,9 +639,9 @@ Xhtml =
 
   //Private functions, they should move
   @private
-  default_href = sassoc_full(ns_uri, "href", "javascript:void(0)")
+  default_href = sassoc_full("", "href", "javascript:void(0)")
   @private
-  default_alt  = sassoc_full(ns_uri, "alt", ".")
+  default_alt  = sassoc_full("", "alt", ".")
   @private
   sanitized_uri= "javascript:void(0)/*Sanitized URI*/"
 
@@ -686,7 +683,77 @@ Xhtml =
   @private sassoc_full(namespace, name, value) : Xml.attribute = ~{ namespace name value }
 
   to_string = serialize_to_string
-  /**
+ 
+  @private
+  JsEvent = {{
+
+    filter_unsafe_inline(f)(v) =
+      if is_safe_inline_event(v.name)
+      then
+        str = inline_content(v.value)
+        if is_safe_inline_content(str) then
+             do f(Dom.Event.get_name(v.name),str):void
+             false
+        else
+             true
+      else
+        true
+
+    inline_handler(eventname,content) = " on{eventname}='{content}'"
+
+    inline_content =
+    | ~{value} -> value
+    | ~{expr}  -> FunAction.serialize(expr)
+
+    /* stay sync with jquery.(mlstate)bind */
+    is_safe_inline_event =
+    | {click} -> true
+    | {keydown} -> false // jquery normalisation
+    | _ -> false
+
+    /*
+      false = {}
+      true  = {v}
+      none = {}
+      some(a)  = {v:a}
+    */
+    is_safe_inline_content(s) =
+     match Parser.try_parse(check,s)
+     {some} ->
+       // do println("is_safe_inline_content ACCEPTED")
+       true
+     {none} ->
+       // do println("is_safe_inline_content REJECTED {s} at {Parser.partial_parse(debug_check,s)}\n")
+       false
+
+    // CAUTION: the check accept only a very restricted set of chars, take care when extending to not introduce security problem
+    // the checked string is delimited by ', hence ' is not in the accepted chars set
+    // e.g. the string f("\"'onready=\"alert(\"toto\")\"") could cause a js injection on some browser
+    // < and > should not be in the set
+    // typical event handler is a function call with args that are only datatype (no code)
+    // * / are here in case of comments
+    check = parser
+    | [-_A-Za-z()\"0-9:.,\n\t{}*/]* -> void
+    debug_check = parser s=(check) -> s
+
+  }}
+
+  @publish new_server_id =
+   nid = (%% bslIdentGen.create %%)("I8")
+   nid
+
+  new_id: -> string =
+     @sliced_expr(
+      {
+        client() = Random.string(16)
+        server = new_server_id
+      }
+     )
+
+
+ @private Buf = Buffer2_private
+
+ /**
    * Convert a [xhtml] subtree to a pair of strings containing the html proper and the corresponding JS code.
    *
    * Note that event handlers and inline styles are extracted from the html and inserted as JS code, as this
@@ -706,16 +773,7 @@ Xhtml =
    * (i.e. the tags) and [js_code] contains the event handlers and the style information as a JS
    * string.
    */
-  find_assoc(s:string,l:list((string,'a))) : option('a) = (
-    match l with
-    | [h|t] -> // trying to write a code that should be reasonable compiled by qmlflat
-      if h.f1 == s then {some=h.f2} else find_assoc(s,t)
-    | _ -> {none}
-  )
-
-  @private Buf = Buffer2_private
-  prepare_for_export(default_ns_uri,xhtml,style_inline) = prepare_for_export_with_map([],default_ns_uri,xhtml,style_inline)
-  prepare_for_export_with_map(namespace_map:list((string,string)), default_ns_uri:string, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+  prepare_for_export(_default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
     js_buffer   = Buf.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
@@ -724,33 +782,6 @@ Xhtml =
         | { ~value } -> value
         | { ~expr  } -> FunAction.serialize(expr)
       Buf.add(js_buffer,code)
-    ns_counter = Mutable.make(0)
-    ns_bindings = Mutable.make([("","")|namespace_map])
-    ns_buffer = Buf.create(1024)
-    do if default_ns_uri != "" then
-      do Buf.add(ns_buffer, " xmlns=\"")
-      do Buf.add(ns_buffer, default_ns_uri)
-      Buf.add(ns_buffer, "\"")
-    bind_namespace(uri,name) =
-      do Buf.add(ns_buffer, " xmlns:")
-      do Buf.add(ns_buffer, name)
-      do Buf.add(ns_buffer, "=\"")
-      do Buf.add(ns_buffer, uri)
-      Buf.add(ns_buffer, "\"")
-    do List.iter((x,y) -> bind_namespace(x,y),namespace_map)
-    get_ns_prefix(ns_uri) = (
-      if ns_uri == default_ns_uri then "" else
-      match find_assoc(ns_uri,ns_bindings.get()) with
-      | ~{some} -> some
-      | _ ->
-        counter = ns_counter.get()
-        do ns_counter.set(counter + 1)
-        prefix = "ns{counter}"
-        do ns_bindings.set([(ns_uri, prefix)|ns_bindings.get()])
-        do bind_namespace(ns_uri,prefix)
-        prefix
-    )
-
     /**
      * @param depth The current depth in the tree. Used both for pretty-printing and to insert scripts at the correct place
      */
@@ -766,14 +797,10 @@ Xhtml =
             | {some = ~{js_code_unsafe html_code_unsafe}} ->
                   do Buf.add(html_buffer,html_code_unsafe)
                   Buf.add(js_buffer,js_code_unsafe)
-            | _ ->
-                  jlog("[Xhtml.to_serialize_string] Incorrect XHTML extensions")
-                  //This should never happen, by type guarantees -- however, I've spotted a [Magic.id] somewhere in this file
         end
       | ~{ namespace tag args content specific_attributes } ->
 
           tag =
-            namespace = get_ns_prefix(namespace)
             if String.is_empty(namespace) then tag else
             namespace ^ ":" ^ tag
 
@@ -782,7 +809,6 @@ Xhtml =
           do Buf.add(html_buffer,tag)
 
           print_arg(~{name namespace=tagns value}) =
-            tagns = get_ns_prefix(tagns)
             do Buf.add(html_buffer," ")
             do if String.is_empty(tagns) then Buf.add(html_buffer,name)
                else
@@ -826,20 +852,29 @@ Xhtml =
 
                (load_events, other_events) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events)
                (_,   other_events_options) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events_options)
+
+               other_events = // take care of event handler that can be inlined in html attribute
+                 if XhtmlOptions.options.enable_inlined_event then
+                   safe_inline(eventname,content) =
+                     Buf.add(html_buffer,JsEvent.inline_handler(eventname,content))
+                   List.filter(JsEvent.filter_unsafe_inline(safe_inline), other_events)
+                 else
+                   other_events
+
                //Handle events and style: start
                do (if other_events == [] && other_events_options == [] && style == [] then void
                       else  //We need an ID for this node, to be able to attach event handlers
                          id = match find_attr("id", args) with
                             | ~{some} -> some
                             | {none}  ->
-                               id = Random.string(32) //Generate a random ID
+                               id = new_id()
                                do print_arg(sassoc("id", id))
                                id
                          end
                          //Now, generate jQuery-specific code in the jsbuffer, as a chain of JS dot calls on the item
                          do Buf.add(js_buffer,"\n$('#")
-                         do Buf.add(js_buffer,id)
-                         do Buf.add(js_buffer,"')")
+                         do Buf.add(js_buffer,Dom.escape_selector(id))
+                         do Buf.add(js_buffer,"')\n")
 
                          //Handle style -- generate a call to jQuery function [css]
                          do if style == [] then void
@@ -860,40 +895,37 @@ Xhtml =
                                   )
 
                                 else
-                                  do Buf.add(js_buffer,"\n.css(\{  ")
+                                  do Buf.add(js_buffer,".css(\{  ")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
                                     do Buf.add(js_buffer,"'")
                                     do Buf.add(js_buffer,name)
                                     do Buf.add(js_buffer,"': '")
                                     do Buf.add(js_buffer,value)
-                                    if last then Buf.add(js_buffer,"'})")
+                                    if last then Buf.add(js_buffer,"'})\n")
                                     else Buf.add(js_buffer,"', ")),
                                     css_as_list
                                   )
 
-                         //Handle non-load events
-                         do List.iter(~{name value} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
-                            do Buf.add(js_buffer,"\n.opachbind('")
-                            do Buf.add(js_buffer,Dom.Event.get_name(name))
-                            do Buf.add(js_buffer,"', (function(event)\{")
-                            do jsappend_event_handler(value)
-                            do Buf.add(js_buffer,"\}))")
-                            void,
-                            other_events)
-
-                         //Handle non-load events options
-                         do List.iter({name=handle value=options} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
+                         //Handle non-inlined, non-ready events
+                         do (List.iter(_,other_events)){
+                            ~{name value} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
+                            name = Dom.Event.get_name(name)
+                            content = JsEvent.inline_content(value)
+                            add = ".bind('{name}',(function(event)\{{content}\}))\n"
+                            Buf.add(js_buffer,add)
+                         }
+                         //Handle non-inlined non-ready events options
+                         do (List.iter(_,other_events_options)){
+                            {name=handle value=options} -> //Generate    [.name(function(event({<<serialize_event_handler(value)>>})))]
                             stop_propagation = List.exists(_ == {stop_propagation}, options)
                             prevent_default  = List.exists(_ == {prevent_default},  options)
                             if(stop_propagation || prevent_default) then
-                               do Buf.add(js_buffer,"\n\t.bind('")//Note: here, using [bind], which is faster than [opabind] because it doesn't perform JS -> OPA event conversion
-                               do Buf.add(js_buffer,Dom.Event.get_name(handle))
-                               do Buf.add(js_buffer,"', (function(event)\{")
-                               do if stop_propagation then Buf.add(js_buffer,"event.stopPropagation();")
-                               do if prevent_default  then Buf.add(js_buffer,"event.preventDefault();")
-                               do Buf.add(js_buffer,"\}))")
-                               void,
-                               other_events_options)
+                               name = Dom.Event.get_name(handle)
+                               stop_propagation = if stop_propagation then "event.stopPropagation();" else ""
+                               prevent_default  = if prevent_default  then "event.preventDefault();"  else ""
+                               add = ".bind('{name}',(function(event)\{{stop_propagation}{prevent_default}\}))\n"
+                               Buf.add(js_buffer,add)
+                         }
 
                          //Finally, return args with id
                          void
@@ -929,8 +961,6 @@ Xhtml =
                 | "abbr" | "br" | "col" | "img" | "input" | "link" | "meta" | "param" | "hr" | "area" | "embed" -> true
                 | _ -> false)
              then
-               do if depth == 0 then
-                 Buf.add(html_buffer,Buf.contents(ns_buffer))
                Buf.add(html_buffer,"/>")
              else
                do if depth == 0 then
@@ -944,7 +974,6 @@ Xhtml =
                  do Buf.reset(html_buffer,1024)
                  // putting back everything into the buffer
                  do Buf.add(html_buffer,start)
-                 do Buf.add(html_buffer,Buf.contents(ns_buffer))
                  do Buf.add(html_buffer,">")
                  Buf.add(html_buffer,content)
                else
@@ -971,7 +1000,7 @@ Xhtml =
      str
    {js_code = js_code;
     html_code = Buf.contents(html_buffer)}
-  )
+ )
 
  /**
   * Convert xhtml to a readable text
@@ -1109,7 +1138,7 @@ Xhtml =
    * When the future position of the id is not clear (several possible node), it encapsulated everything in a div
    */
   add_id(id,x:xhtml):xhtml =
-    id = id ? Random.string(16)
+    id = id ? new_id()
     // aux(id, x) with
     rec aux(id,x)=
     match x : xhtml
@@ -1195,19 +1224,19 @@ Xhtml =
   /**
    * Add an attribute to an xhtml node if not already defined
    */
-  add_attribute(name: string, value: string, x:xhtml):xhtml =
+  add_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     gen_add_attribute(name, value, x, false)
 
   /**
    * Update (by appending) an attribute to an xhtml node, add it if not already present
    */
-  update_attribute(name: string, value: string, x:xhtml):xhtml =
+  update_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     gen_add_attribute(name, value, x, true)
 
   /**
    * Set an attribute to an xhtml node. Replace if already_exists
    */
-  set_attribute(name: string, value: string, x:xhtml):xhtml =
+  set_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
     // aux(id, x) with
     rec aux(x)=
     match x : xhtml
@@ -1235,6 +1264,18 @@ Xhtml =
     _ -> x
     end
     aux(x)
+
+  /**
+   * Add a title attribute to an xhtml node.
+   * No verification on wether the xhtml supports title attribute is made
+   */
+  add_title(t:string, x:xhtml) : xhtml = Xhtml.add_attribute_unsafe("title", t, x)
+
+  /**
+   * Add/Update ths class attribute of an xhtml node, by appending a certain class.
+   * No verification on wether the xhtml supports class attribute is made
+   */
+  update_class(c:string, x:xhtml) : xhtml = Xhtml.update_attribute_unsafe("class", c, x)
 
   /**
    * Add style to the xhtml (added to pre-exiting style)
@@ -1269,6 +1310,56 @@ Xhtml =
       specific_attributes = some({sa with ~events})
       @opensums({x with ~specific_attributes})
     _ -> <div onready={f}>{x}</div>
+
+  /**
+   * Serializer for xhtml data structures.
+   * Provides a standard serialization but on server side,
+   * unserialization checks and replaces unsafe fields by default
+   * values.
+   */
+  @both_implem @serializer(xhtml) serializer =
+    ximpl = OpaType.implementation(@typeval(xhtml))
+    {
+      f1 = OpaSerialize.partial_serialize_options(_, ximpl, _)
+      f2 = json -> @sliced_expr({
+        client = OpaSerialize.finish_unserialize(json, ximpl)
+
+        server =
+          check_args =
+            List.map({namespace=_ ~name ~value} as a ->
+              match String.has_prefix("on", name)
+              | {true} ->
+                do Log.warning("Xhtml",
+"Attribute {name} can be an event handler and contains an unsafe string :
+{value}
+Replaced by a default value.")
+                {a with value="/*unsafe attribute from a client*/"}
+              | _ -> a
+              , _)
+          check_sargs({class=_ style=_ ~events events_options=_ href=_} as a) =
+            { a with events = List.map(
+              | ~{name value=~{value}} ->
+                do Log.warning("Xhtml",
+"Receiving from a client an unsafe specific attribute {name} :
+{value}
+Replaced by a default value.")
+                ~{name value={value="/*unsafe specific attribute from a client*/"}}
+              | _ as a -> a
+              , events)
+            }
+          Option.map(
+            | ~{content_unsafe} ->
+              do Log.warning("Xhtml",
+"Receiving from client unsafe content of xhtml :
+{content_unsafe}.
+Replaced by a default value.")
+              {text = "unsafe content from a client"} : xhtml
+            | {namespace=_ tag=_ ~args content=_ ~specific_attributes} as e->
+              @opensums({e with args=check_args(args) specific_attributes=Option.map(check_sargs, specific_attributes)}) : xhtml
+            | _ as safe -> safe
+            ,  OpaSerialize.finish_unserialize(json, ximpl))
+        })
+    }
 
 }}
 

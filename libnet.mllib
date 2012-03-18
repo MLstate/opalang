@@ -3,7 +3,6 @@ libnet/Network
 libnet/Http_dialog
 libnet/HttpType
 libnet/Http_client
-libnet/Mailserve
 libnet/SmtpClient
 libnet/SmtpClientCore
 libnet/SmtpClientCore_parse

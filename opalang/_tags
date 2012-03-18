@@ -3,10 +3,11 @@
 true: warn_Z
 
 # subdirs
-<syntax>: traverse
+<classic_syntax>: traverse
+<js_syntax>: traverse
 
 # warnings
-<{*,syntax/parser_utils}.{ml,mli}>: warn_Z
+<{*,classic_syntax/parser_utils}.{ml,mli}>: warn_Z
 
 <opaParser.{ml,mli}>: use_buildinfos, use_libtrx, with_mlstate_debug
 <{opaError,opaParser,surfaceAstCons}.ml>: use_buildinfos

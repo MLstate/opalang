@@ -1,0 +1,245 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+(* shorcuts to other files *)
+;slash_nosp <- Opa_lexer.slash_nosp
+;deco_ml_identifier_nosp <- Opa_parser.deco_ml_identifier_nosp
+;ml_identifier_nosp <- Opa_lexer.ml_identifier_nosp
+;ml_identifier <- Opa_lexer.ml_identifier
+;underscore_nosp <- Opa_lexer.underscore_nosp
+;lbracket <- Opa_lexer.lbracket
+;lbracket_nosp <- Opa_lexer.lbracket_nosp
+;rbracket <- Opa_lexer.rbracket
+;rbracket_nosp <- Opa_lexer.rbracket_nosp
+;lbrace <- Opa_lexer.lbrace
+;lbrace_nosp <- Opa_lexer.lbrace_nosp
+;rbrace <- Opa_lexer.rbrace
+;rbrace_nosp <- Opa_lexer.rbrace_nosp
+;spacing <- Opa_lexer.spacing
+;semic <- Opa_lexer.semic
+
+(* path definition, ie for [db pathdef : typ] or [db pathdef = expr] *)
+;pathdef_nosp <-slash_nosp ml_identifier_nosp:i
+               (slash_nosp ml_identifier_nosp:i {{QmlAst.Db.Decl_fld i}}
+                / "[]" {{ QmlAst.Db.Decl_set [] }}
+                / "[_]" {{ QmlAst.Db.Decl_set [] }})*:l
+               {{ (QmlAst.Db.Decl_fld i)::l }}
+;/** todo: extend to multiple index **/
+setindex_def <- lbrace (=list1(ml_identifier,Opa_parser.record_fields_separator)):i rbrace
+  {{ QmlAst.Db.Decl_set [List.sort String.compare i] }}
+;pathdef_type_nosp <- slash_nosp ml_identifier_nosp:i
+                     (slash_nosp ml_identifier_nosp:i {{QmlAst.Db.Decl_fld i}}
+                     / lbracket setindex_def:i rbracket {{i}})*:l
+                     {{ (QmlAst.Db.Decl_fld i)::l }}
+;/** database path definition without type **/
+pathdef <- spacing pathdef_nosp:v {{ v }}
+;/** database path definition with type **/
+pathdef_type <- spacing pathdef_type_nosp:v {{ v }}
+
+
+(* path for reading *)
+;/** database query **/
+path_kind <- querytype:qt path:p {{ p, qt }}
+
+; /** database update path **/
+path_update <-
+  / '@'? slash_nosp path:pa (Opa_lexer.larrow update:u {{u}} / update_simple):u
+    {{
+       DBPath (pa, QmlAst.Db.Update u)
+    }}
+  / '@'? slash_nosp path:pa (Opa_lexer.larrow / Opa_lexer.assign) Opa_parser.expr:e
+    {{
+       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
+    }}
+
+(* ******************************************************************)
+(**
+   {7 Path updating }
+*)
+update <-
+  / lbrace update_fields:u rbrace {{ u }}
+  / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
+
+update_field <-
+  Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_simple):e
+  {{ (List.map undecorate i, e) }}
+
+update_fields <-
+  (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+  {{ QmlAst.Db.UFlds l }}
+
+update_simple <- update_incr / update_list
+
+update_incr <-
+  / (=Opa_lexer.exact_symbol("++"))
+    {{ QmlAst.Db.UIncr 1 }}
+  / (=Opa_lexer.exact_symbol("+=")) spacing Opa_lexer.int:i
+    {{ QmlAst.Db.UIncr i }}
+  / (=Opa_lexer.exact_symbol("--"))
+    {{ QmlAst.Db.UIncr (-1) }}
+  / (=Opa_lexer.exact_symbol("-=")) spacing Opa_lexer.int:i
+    {{ QmlAst.Db.UIncr (-i) }}
+
+update_list <-
+  / (=Opa_lexer.exact_symbol("<+")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UAppend e }}
+  / (=Opa_lexer.exact_symbol("<++")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UAppendAll e }}
+(*  / (=Opa_lexer.exact_symbol("+>")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UPrepend e }}
+  / (=Opa_lexer.exact_symbol("++>")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UPrependAll e }} *)
+  / (=Opa_lexer.exact_ident("pop")) {{ QmlAst.Db.UPop }}
+  / (=Opa_lexer.exact_ident("shift")) {{ QmlAst.Db.UShift }}
+
+(* ******************************************************************)
+(**
+   {7 Path querying }
+*)
+query <-
+  / query_combine
+  / query_nocombine
+
+query_not <- (=Opa_lexer.exact_ident("not")) spacing query_nocombine:q
+  {{ QmlAst.Db.QNot q }}
+
+query_nocombine <-
+  / Opa_lexer.lpar query:q Opa_lexer.rpar {{ q }}
+  / query_simple
+  / query_not
+  / query_fields
+
+query_combine <-
+  / query_nocombine:q1 spacing query_double_builder:b spacing query:q2 {{ b q1 q2 }}
+  / Opa_lexer.lpar query:q1 Opa_lexer.rpar spacing query_double_builder:b spacing query:q2 {{ b q1 q2 }}
+
+query_simple_builder <-
+  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq e }}
+  / (=Opa_lexer.exact_symbol(">"))  {{ fun e -> QmlAst.Db.QGt e }}
+  / (=Opa_lexer.exact_symbol("<"))  {{ fun e -> QmlAst.Db.QLt e }}
+  / (=Opa_lexer.exact_symbol(">=")) {{ fun e -> QmlAst.Db.QGte e }}
+  / (=Opa_lexer.exact_symbol("<=")) {{ fun e -> QmlAst.Db.QLte e }}
+  / (=Opa_lexer.exact_symbol("!=")) {{ fun e -> QmlAst.Db.QNe e }}
+  / (=Opa_lexer.exact_ident("in"))  {{ fun e -> QmlAst.Db.QIn e }}
+
+query_simple <- query_simple_builder:b query_expr:e {{ b e }}
+
+query_keywords <-
+  / (=Opa_lexer.exact_keyword("and"))
+  / (=Opa_lexer.exact_keyword("or"))
+
+query_nokeywords <-
+  / !query_keywords
+  (* / (=Opa_lexer.deco(query_keywords)):s *)
+  (*   {{ *)
+  (*     let k, a = s in *)
+  (*     error1 (Printf.sprintf "Query keyword \"%s\" is used as a data field" k) a *)
+  (*   }} *)
+
+query_double_builder <-
+  / (=Opa_lexer.exact_keyword("and")) {{ fun q1 q2 -> QmlAst.Db.QAnd (q1, q2) }}
+  / (=Opa_lexer.exact_keyword("or"))  {{ fun q1 q2 -> QmlAst.Db.QOr (q1, q2) }}
+
+query_expr <- Opa_parser.expr
+
+query_long_ident <- Opa_parser.record_long_ident:i {{List.map undecorate i}}
+
+query_field <- query_nokeywords query_long_ident:i query_simple:q
+  {{ (i, q) }}
+
+query_fields <- (=list1(query_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+  {{ QmlAst.Db.QFlds l }}
+
+query_options_limit <-
+  (=Opa_lexer.exact_keyword("limit")) query_expr:limit
+  {{ fun opt -> {opt with QmlAst.Db.limit = Some limit} }}
+
+query_options_skip <-
+  (=Opa_lexer.exact_keyword("skip")) query_expr:skip
+  {{ fun opt -> {opt with QmlAst.Db.skip = Some skip} }}
+
+query_options_order_label <-
+  / (=Opa_lexer.exact_symbol("-")) {{"down"}}
+  / (=Opa_lexer.exact_symbol("+")) {{"up"}}
+
+query_options_order_field <-
+  / query_long_ident:i (=Opa_lexer.exact_symbol("=")) query_expr:e {{ (i, e) }}
+  / query_options_order_label?:ordlbl (=Opa_lexer.careful_deco(query_long_ident)):i
+    {{
+       let i, label = i in
+       let ordlbl = Option.default "up" ordlbl in
+       (i, (Parser_utils.simple_record ordlbl label, label))
+     }}
+
+query_options_order <-
+  (=Opa_lexer.exact_keyword("order"))
+  (=list1(query_options_order_field, Opa_parser.record_fields_separator)):order
+  {{ fun opt -> {opt with QmlAst.Db.sort = Some order} }}
+
+query_options <-
+  (=list0((query_options_limit / query_options_skip / query_options_order), Opa_parser.separator)):l
+  {{
+     let options = {QmlAst.Db.limit = None; skip = None; sort = None} in
+     List.fold_left (fun opt f -> f opt) options l
+  }}
+
+query_with_options <-
+  / query:q (Opa_parser.separator query_options:o {{o}})?:o
+    {{
+       let options =
+         Option.default {QmlAst.Db.limit = None; skip = None; sort = None} o
+       in
+       QmlAst.Db.Query (q, options)
+    }}
+  / query_options:o {{ QmlAst.Db.Query (QmlAst.Db.QFlds [], o) }}
+
+
+;querytype <- [?] slash_nosp {{ QmlAst.Db.Option }}
+            / [!] slash_nosp {{ QmlAst.Db.Valpath }}
+            / [@] slash_nosp {{ QmlAst.Db.Ref }}
+            /     slash_nosp {{ QmlAst.Db.Default }}
+
+;path = Opa_parser.careful_deco just_path
+;just_path <- deco_ml_identifier_nosp:i path_elem*:l {{ let (s,label) = i in ((QmlAst.Db.FldKey s),label) :: l }}
+
+;path_elem = Opa_parser.careful_deco just_path_elem
+;just_path_elem <- slash_nosp ml_identifier_nosp:i   {{ QmlAst.Db.FldKey i }}
+                 / lbracket_nosp query_with_options:q rbracket {{ q }}
+                 / lbracket_nosp Opa_parser.expr:e rbracket {{ QmlAst.Db.ExprKey e }}
+                 / lbracket_nosp spacing [?] rbracket {{ QmlAst.Db.NewKey }}
+
+
+
+
+(**
+   {7 Separated lists}
+*)
+
+(** list where a the separator must occur *)
+let list2 element separator = element:e (separator element:e {{e}})+:l
+  {{ e :: l }}
+
+(**Non-empty lists*)
+let list1 element separator = element:e (separator element {{__2}})*:l
+  {{ e :: l }};
+
+(**Possibly empty lists*)
+let list0 element separator = (=list1(element,separator))?:o
+  {{ match o with
+       | None -> []
+       | Some l -> l
+   }}

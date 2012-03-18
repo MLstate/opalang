@@ -82,6 +82,8 @@ module SA = SurfaceAst
 
 (* -- *)
 
+let _ = OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser = OpaSyntax.Classic}
+
 let validation_ok = ref true
 
 (* f *)
@@ -108,7 +110,7 @@ let spec = [
 let anon_fun file = MutableList.add files file
 
 let usage_msg =
-  !> "@{<bright>%s@} <Opa Compiler Interface Validator> %s\nuse: %s [options] stdlib-files"
+  !> "@{<bright>%s@}: Opa Compiler Interface Validator %s\nUsage: %s [options] stdlib-files\n"
     Sys.argv.(0) BuildInfos.version_id
     Sys.argv.(0)
 
@@ -123,7 +125,7 @@ let parse () =
   |> Arg.align
 
   in
-  Arg.parse spec anon_fun usage_msg
+  Arg.parse spec anon_fun (usage_msg^"Options:")
 
 (**
    Folding input file, and applying a fold on the parsed code
@@ -133,7 +135,6 @@ let parse () =
    pplib specification
 *)
 let pplib_spec = [
-  "OPA_VERSION", "S3" ;
   "OPA_CPS", "" ;
   "OPA_BADOP", "1" ;
 ]
@@ -202,16 +203,17 @@ let stdlib acc code =
 (**
    Check strict equality between 2 StringSet, with errors reporting.
 *)
-let report elt name present absent =
+let report elt name present absent set =
   validation_ok := false ;
   OManager.printf (
-    "[!] The %s @{<bright>%s@} is present in @{<bright>%s@} but not in @{<bright>%s@}@."
+    "[!] The %s @{<bright>%s@} is present in @{<bright>%s@} but not in @{<bright>%s@}@\n@{<bright>%s@} set: %a@.@."
   )
-    elt name present absent
+    elt name present absent absent
+    (StringSet.pp "," Format.pp_print_string) set
 
 let strict_equality elt name1 name2 set1 set2 =
   let iter name1 name2 set1 set2 =
-    let error name = report elt name name1 name2 in
+    let error name = report elt name name1 name2 set2 in
     StringSet.iter (fun s -> if not (StringSet.mem s set2) then error s) set1
   in
   iter name1 name2 set1 set2;

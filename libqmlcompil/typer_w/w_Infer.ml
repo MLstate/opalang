@@ -908,12 +908,12 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          we process the coerced expressions in a regular way. *)
       let (expr_ty, expr_annotmap) =
         (match expr with
-          | QmlAst.Path (_, keys, _) ->
+          | QmlAst.Path (_, keys, kind) ->
               (* [TODO] Note that as HMX typechecker, we don't attach
                  importance to the [QmlAst.Dd.kind] stored in the 2nd
                  [QmlAst.Path] argument. *)
               infer_db_path
-                ~bypass_typer typing_env ~surrounding_path_expr: expr keys
+                ~bypass_typer typing_env ~surrounding_path_expr: expr keys kind
           | _ -> infer_expr_type ~bypass_typer typing_env expr) in
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Coerce end inferred expr@." ;
@@ -1006,7 +1006,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
 (** [surrounding_path_expr] : [QmlAst.Path] surrouding expression, i.e. the
     expression containing the keys we are typechecking. This is the
     expression node in which the type annotation will be recorded. *)
-and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys =
+and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys kind =
   (* The type of the DB path is not given by the path itself: it is always
      coerced afterwards by the surrounding [QmlAst.Coerce]. So we simply return
      a type variable and let the regular processing coercing it. *)
@@ -1015,14 +1015,38 @@ and infer_db_path ~bypass_typer typing_env ~surrounding_path_expr keys =
   let annotmap' =
     List.fold_right
       (fun key annotmap_accu ->
-         match key with
-         | QmlAst.ExprKey e ->
-             (* [TODO] check [_e_ty] against something somehow ? *)
-             let (_e_ty, e_annotmap) =
-               infer_expr_type ~bypass_typer typing_env e in
-             QmlAnnotMap.merge annotmap_accu e_annotmap
-         | _ -> annotmap_accu)
+         let _rebuild, exprs =
+           let open Traverse.Utils in
+           QmlAst.Db.sub_path_elt sub_current sub_current key
+         in
+         List.fold_left
+           (fun annotmap_accu e ->
+              (* [TODO] check [_e_ty] against something somehow ? *)
+              let (_e_ty, e_annotmap) =
+                infer_expr_type ~bypass_typer typing_env e  in
+              QmlAnnotMap.merge annotmap_accu e_annotmap)
+           annotmap_accu exprs)
       keys W_AnnotMap.empty_annotmap in
+  (* Typecheck update ast and recover the updated annotation map. *)
+  let annotmap' = match kind with
+  | QmlAst.Db.Default | QmlAst.Db.Option | QmlAst.Db.Valpath | QmlAst.Db.Ref -> annotmap'
+  | QmlAst.Db.Update u ->
+      let rec aux annotmap_accu = function
+        | QmlAst.Db.UPop | QmlAst.Db.UShift
+        | QmlAst.Db.UIncr _ -> annotmap_accu
+        | QmlAst.Db.UAppend     e
+        | QmlAst.Db.UPrepend    e
+        | QmlAst.Db.UAppendAll  e
+        | QmlAst.Db.UPrependAll e
+        | QmlAst.Db.UExpr e ->
+            (* [TODO] check [_e_ty] against something somehow ? *)
+            let (_e_ty, e_annotmap) =
+              infer_expr_type ~bypass_typer typing_env e in
+            QmlAnnotMap.merge annotmap_accu e_annotmap
+        | QmlAst.Db.UFlds fields ->
+            List.fold_left (fun a (_,u) -> aux a u) annotmap_accu fields
+      in aux annotmap' u
+  in
   perform_infer_expr_type_postlude surrounding_path_expr annotmap' ty
 
 

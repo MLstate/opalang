@@ -454,7 +454,7 @@ CTable = {{
   for_iter(i, max)(f:(int -> void)) = ignore(for(i,(i -> do f(i) (i+1)),_<=max))
 
   @private
-  myselect(table_id,s) = Dom.select_raw("#{table_id}_table tbody tr{s}")
+  myselect(table_id,s) = Dom.select_raw_unsafe("#{table_id}_table tbody tr{s}")
 
   @private
   refresh_parity(table_id,b)=
@@ -522,10 +522,12 @@ CTable = {{
       for_iter(0, col_table_size-1)(i ->
         match BMap.get(i, state.col_map) with
           | {some=col} ->
+            cell_id = gen_cell_id(table_id, config, row, col, simple)
             if ((i >= left) && (i <= right))
-            then widget_value(simple, table_id, config, (row,col), channel, {request=callbacks.request_value})
+            then
+              do widget_value(simple, table_id, config, (row,col), channel, {request=callbacks.request_value})
+              dom_show_cell(0, #{cell_id},simple)
             else
-              cell_id = gen_cell_id(table_id, config, row, col, simple)
               dom_hide_cell(0, #{cell_id},simple)
           | {none} -> void
         )
@@ -783,18 +785,19 @@ CTable = {{
      */
     add_row(row, cols, nb_rows, row_map) =
       row_html = gen_row_html(row, cols)
-      do Dom.transform([#{"{table_id}_table tbody"} +<- row_html])
+      do Dom.transform([{Dom.select_raw_unsafe("#{table_id}_table tbody")} +<- row_html])
       // Check if the added row is in the display scope
       (bottom,nb_rows) =
+        row_id = gen_row_id(table_id, config, row)
         if nb_rows < row_page_size && not(is_filtered(row))
         then
           // Show the added row
           do request_values(row)
+          do dom_show_row(0, #{row_id})
           // a new row added to the display -> bottom++
           (bottom + 1, nb_rows + 1)
         else
           // hide the row
-          row_id = gen_row_id(table_id, config, row)
           do dom_hide_row(0, #{row_id})
           // bottom unchanged
           (bottom, nb_rows)
@@ -845,7 +848,7 @@ CTable = {{
             do match config.headers with
               | {some=f} ->
                  h_html = gen_col_header(simple,table_id, config, channel, f, col)
-                 do Dom.transform([#{"{table_id}_table thead tr"} +<- h_html])
+                 do Dom.transform([{Dom.select_raw_unsafe("#{table_id}_table thead tr")} +<- h_html])
                  h_id = gen_col_header_id(table_id,config,col)
                  if col_page_size > (col_table_size - col_header_size)
                  then dom_show_cell(0, #{h_id}, simple)
@@ -1448,7 +1451,7 @@ CTable = {{
     end
 
   /*
-   * init the session, return the table object and the xhtml
+   * create a table object, install the xhtml in the DOM and return the object
    */
   @private @client
   create_private(simple : bool,

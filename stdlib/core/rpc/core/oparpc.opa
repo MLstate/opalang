@@ -37,7 +37,7 @@
  * {1 What if I need more?}
  */
 
-/* disabled for S3:
+/* disabled
 type OpaRPC.interface = {{
   /* Unserialize */
   unserialize : string -> option(OpaRPC.request)
@@ -105,7 +105,7 @@ type OpaRPC.interface = {{
         (rows,error_row) = unserialize_aux(@typeval(OpaType.row), rows)
         (cols,error_col) = unserialize_aux(@typeval(OpaType.col), cols)
         if error_var || error_row || error_col then
-          do jlog("[oparpc unserialize] Type|Row|Col value isn't a OpaType.ty|row|col")
+          do Log.error("oparpc unserialize","Type|Row|Col value isn't a OpaType.ty|row|col")
           none
         else
           some(~{types; rows; cols; values}) : option(OpaRPC.request)
@@ -139,7 +139,7 @@ type OpaRPC.interface = {{
           else
             match OpaSerialize.finish_unserialize(value, ty) with
             | {none} ->
-              do jlog("OPARPC : extract_values -> Value doesn't match given ty")
+              do Log.error("OPARPC","extract_values -> Value doesn't match given ty")
               ([], true)
             | {some = value} -> ((value +> acc), err)
         ),request.values, types, ([], false)
@@ -189,7 +189,7 @@ type OpaRPC.interface = {{
       {List=[{List=types},{List=rows},{List=cols},{List=List.rev(request.values)}]} : RPC.Json.json
     )
 
-}} /* disabled for S3: : OpaRPC.interface */
+}} /* disabled : OpaRPC.interface */
 
 
 
@@ -395,10 +395,16 @@ type OpaRPC.timeout = {
           {volatile}, winfo.http_request.request, status,
           "text/plain", msg)
       )
+
     reply_error(winfo, msg) =
+      #<Ifstatic:MLSTATE_PING_DEBUG>
+      #<Else>
+      _ = msg
+      msg = "Unauthorized request"
+      #<End>
       winfo.cont(
         WebCoreExport.default_make_response(
-          {volatile}, winfo.http_request.request, {internal_server_error},
+          {volatile}, winfo.http_request.request, {unauthorized},
           "text/plain", msg)
       )
 
@@ -417,7 +423,7 @@ type OpaRPC.timeout = {
           do Log.info("OpaRPC", "RPC call identified by {name}")
           match get(name) with
             | {none} ->
-              _ = reply(winfo, "RPC not found", {wrong_address})
+              _ = reply_error(winfo, "RPC not found")
               do Log.error("OpaRPC", "Call to the rpc \"{name}\" that doesn't exist")
               error("RPC error")
 
@@ -428,7 +434,7 @@ type OpaRPC.timeout = {
                 reply(winfo, serial, {success}),
               match skeleton(get_requested_post_content(winfo.http_request.request)) with
                 | {none} ->
-                  _ = reply(winfo, "Bad formatted rpc request", {forbidden})
+                  _ = reply_error(winfo, "Bad formatted rpc request")
                   do Log.error("OpaRPC", "Call to the rpc \"{name}\" failed")
                   error("RPC error")
                 | {some = (ty,result)} ->

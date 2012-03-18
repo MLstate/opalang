@@ -97,6 +97,12 @@
     return dom.children()
 }
 
+##register select_contents: Dom.private.element -> Dom.private.element
+##args(dom)
+{
+    return dom.contents()
+}
+
 ##register select_parent: Dom.private.element -> Dom.private.element
 ##args(dom)
 {
@@ -185,6 +191,13 @@
 ##args(dom)
 {
     return dom.parents();
+}
+
+##register select: Dom.private.element -> void
+##args(dom)
+{
+    dom.select();
+    return js_void;
 }
 
 ##register compose: opa[list(Dom.private.element)] -> Dom.private.element
@@ -379,6 +392,13 @@
     return dom;
 }
 
+##register give_blur: Dom.private.element -> Dom.private.element
+##args(dom)
+{
+    dom.blur();
+    return dom;
+}
+
 ##register get_value: Dom.private.element -> string
 ##args(dom)
 {
@@ -457,6 +477,19 @@
     dom.offset({top: offset.y_px, left:offset.x_px})
 }
 
+##register get_position: Dom.private.element -> Dom.dimensions
+##args(dom)
+{
+    var position = dom.position();
+    return normalize_obj({x_px: Math.round(position.left || 0), y_px: Math.round(position.top || 0)})
+}
+
+##register set_position: Dom.private.element, Dom.dimensions -> void
+##args(dom, position)
+{
+    dom.position({top: position.y_px, left:position.x_px})
+}
+
 ##register get_size: Dom.private.element -> Dom.dimensions
 ##args(dom)
 {
@@ -527,19 +560,14 @@
 ##register bind: Dom.private.element, string, (Dom.event -> void) -> Dom.event_handler
 ##args(dom, event, f)
 {
-    return dom.opabind(event, f);
+    return dom.opabind(event, f, null, false, false);
 }
 
-##register bind_with_options: Dom.private.element, string, (Dom.event -> void), bool, bool -> Dom.event_handler
-##args(dom, event, f, stop_propagation, prevent_default)
+##register bind_with_options: Dom.private.element, string, (Dom.event -> void), option(Dom.event -> Dom.event_propagation), bool, bool -> Dom.event_handler
+##args(dom, event, f, p_opt, stop_propagation, prevent_default)
 {
-    var g = function(e)
-    {
-        return f(dom_event_to_opa_event(e))
-    }
-    var h = stop_propagation?function(event) { event.stopPropagation(); g(event)}:g;
-    var i = prevent_default ?function(event) { event.preventDefault();  h(event)}:h;
-    return dom.opabind(event, i);
+    var p = option2js(p_opt);
+    return dom.opabind(event, f, p, stop_propagation, prevent_default);
 }
 
 ##register unbind_event\ bsldom_unbind: Dom.private.element, string -> void
@@ -566,6 +594,12 @@ function bsldom_unbind(dom, handler)
 ##args(dom, name, value)
 {
     dom.prop(name, value);
+}
+
+##register set_attribute_unsafe: Dom.private.element, string, string -> void
+##args(dom, name, value)
+{
+    dom.attr(name, value);
 }
 
 ##register set_style_property_unsafe: Dom.private.element, string, string -> void
@@ -625,6 +659,18 @@ function bsldom_unbind(dom, handler)
 ##args(dom, name)
 {
     return dom.prop(name) || ""
+}
+
+##register get_attribute: Dom.private.element, string -> opa[option(string)]
+##args(dom, name)
+{
+    return js2option(dom.attr(name))
+}
+
+##register get_attribute_unsafe: Dom.private.element, string -> string
+##args(dom, name)
+{
+    return dom.attr(name) || ""
 }
 
 ##register add_class: Dom.private.element, string -> void
@@ -860,7 +906,7 @@ function bsldom_do_slide_out(dom, maybe_duration, maybe_easing, maybe_cb)
        var length = range.text.length;
        return normalize_obj({
            start_in:     document.elementFromPoint(range.boundingLeft, range.boundingTop),
-           finish_in:    document.elementFromPoint(range.boundingLeft + range.boundingWidth, range.boundingTop + range.offsetHeight),
+           finish_in:    document.elementFromPoint(range.boundingLeft + range.boundingWidth, range.boundingTop + range.boundingHeight),
            start_at:     offset,
            finish_at:    offset + length,
            is_collapsed: length == 0

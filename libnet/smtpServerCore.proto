@@ -1,7 +1,7 @@
 % -*-erlang-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -34,7 +34,7 @@
   server_port: int;
   hello_message: string;
   client_domain: string;
-  callback: email -> int * string;
+  callback: email -> ((int * string) -> unit) -> unit;
   verify: string -> int * string;
   expand: string -> (int * string) list;
   extended: bool
@@ -56,6 +56,16 @@ let rec msglst = function
 | [(c,s)] -> [Ns (c,s)]
 | ((c,s)::rest) -> (ENs (c,s))::(msglst rest)
 }}
+
+[[
+let unstuff(last_was_crlf, str) =
+  let str =
+    if last_was_crlf && String.length(str) >= 2 && str.[0] = '.' && str.[1] = '.'
+    then String.sub str 1 (String.length(str) - 1)
+    else str
+  in
+  String.replace str "\r\n.." "\r\n.";;
+]]
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      Messages envoyés/reçus                    %%
@@ -141,6 +151,7 @@ get_data(state : state, email : email, last_was_crlf : bool):
 %%   process_email(state, email)
   receive
   | RawInput str ->
+    let str = {{ unstuff(last_was_crlf,str) }}
     debug {{ eprintf "get_data: RawInput='%s'\n" (String.escaped str); Pervasives.flush stderr }}
     let email = {{ { email with body = content_add str email.body } }}
     get_data(state, email, {{ String.is_suffix "\r\n" str }})
@@ -168,11 +179,15 @@ get_data(state : state, email : email, last_was_crlf : bool):
   catch
   | exn -> error({{ sprintf "exn: %s" (Printexc.to_string exn) }}, state)
 
-process_email(state:state, email:email):
-  debug {{ eprintf "process_email\n"; Pervasives.flush stderr }}
-  let reply = {{ Ns (state.callback email) }}
+send_response(reply, state):
   send(reply);
   wait_for_quit(state)
+
+process_email(state:state, email:email):
+  debug {{ eprintf "process_email\n"; Pervasives.flush stderr }}
+  let cpl = !"state.callback" << state.callback email >>
+  let res = {{ Ns(fst cpl, snd cpl) }}
+  send_response(res, state)
 
 wait_for_quit(state):
   receive

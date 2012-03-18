@@ -56,6 +56,17 @@ val val_ : ?side:side -> string -> QmlAst.ident
      of raising an exception
   *)
 
+(**
+   same as [val_], but return an expr corresponding to the typed ident
+*)
+val typed_val :
+  ?label:Annot.label -> ?side:side ->
+  ?ty:QmlAst.ty list ->
+  ?ty_row:QmlAst.ty_row list ->
+  string -> QmlAst.annotmap -> QmlTypes.gamma ->
+  QmlAst.annotmap * QmlAst.expr
+
+
 (** Get the optional ident of the value originally named by the
     given [string]. *)
 val val_opt : ?side:side -> string -> QmlAst.ident option
@@ -88,25 +99,30 @@ val val_start_server : unit -> QmlAst.ident option
     corresponding [side]. *)
 val typ : string -> QmlAst.ident
 
+(** Like [typ] but search type scheme in gamma and specilize it
+*)
+val specialized_typ : ?ty:QmlAst.ty list -> ?ty_row:QmlAst.ty_row list -> string -> QmlTypes.gamma
+  -> QmlAst.ty
+
 (** {6 Map setter & getter}*)
 (** Directly get the map of values *)
-val get_val_map : ?side: side -> unit -> QmlAst.ident StringMap.t
+val get_val_map : ?side: side -> unit -> QmlAst.ident list StringMap.t
 
 (** Directly set the map of values *)
-val set_val_map : ?side:side -> QmlAst.ident StringMap.t -> unit
+val set_val_map : ?side:side -> QmlAst.ident list StringMap.t -> unit
 
 (** Directly set the map of types *)
-val set_typ_map : QmlAst.ident StringMap.t -> unit
+val set_typ_map : QmlAst.ident list StringMap.t -> unit
 
 (** {6 Iterators}*)
 (** Iter on the map of value.*)
-val iter_val_map : ?side:side -> (string -> QmlAst.ident -> unit) -> unit
+val iter_val_map : ?side:side -> (string -> QmlAst.ident list -> unit) -> unit
 
 (** Map on the map of value.*)
-val map_val_map : ?side:side -> (QmlAst.ident -> 'a) -> 'a StringMap.t
+val map_val_map : ?side:side -> (QmlAst.ident list -> 'a) -> 'a StringMap.t
 
 (** Fold on the map of value.*)
-val fold_val_map : ?side:side -> (string -> QmlAst.ident -> 'a -> 'a) -> 'a -> 'a
+val fold_val_map : ?side:side -> (string -> QmlAst.ident list -> 'a -> 'a) -> 'a -> 'a
 
 (** keep the maps only the identifiers satisfying the given predicates
     this function is applied to the two maps of identifiers (client and server) *)
@@ -116,3 +132,5 @@ val filter : (Ident.t -> bool) -> unit
    Clears the state of this module
 *)
 val reset : unit -> unit
+
+val pp : unit BaseFormat.pprinter

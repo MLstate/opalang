@@ -89,6 +89,7 @@ let debug_mode = ref false
 let main = ref None
 let basename = ref None
 let no_mli = ref false
+let analyze_grammar = ref false
 
 (* =========================================================================================================== *)
 (* ============================================= Results/patterns ============================================ *)
@@ -1408,6 +1409,8 @@ let optimize_memoization peg =
 (* ============================================ Cmd. line + main ============================================= *)
 (* =========================================================================================================== *)
 
+let usage_msg = Printf.sprintf "%s: Ocaml parser generator for the Opa project\nUsage: %s [options] syntax_file.[trx|prx]\n" Sys.argv.(0) Sys.argv.(0)
+
 let parse_args () =
   let anon_fun s = grammarFn := Some s in
   Arg.parse (Arg.align [
@@ -1491,12 +1494,16 @@ let parse_args () =
     Arg.Unit (fun _ -> no_mli := true),
     " do not generate interface (.mli) file");
 
+    ("--analyze-grammar",
+    Arg.Unit (fun _ -> analyze_grammar := true),
+    " does not produce a parser but instead just analyzes the grammar");
+
     ("--main",
     Arg.String (fun s -> main := Some s),
     " RULE produces parser with 'main' function parsing with given production")
 
   ]) anon_fun
-    (Printf.sprintf "%s <options> syntax_file.[trx|prx]" Sys.argv.(0))
+    (usage_msg^"Options:")
 
 let set_bool_option opt v var =
   match v with
@@ -1588,13 +1595,16 @@ let _ =
             in
             let fn_ml, fn_mli = baseName ^ ".ml", baseName ^ ".mli" in
             (*jlog ~color:`green ~level:2 (pr "TRX applied to grammar {%s} will generate code in {%s} and interface in {%s} " grammarFn fn_ml fn_mli);*)
-            let read () = Pgrammar.read_grammar ?memo_default:!memo_default ~verbose:(is_verbose ()) ~unfold_starplus:!opt_unfold_starplus None grammarFn in
+            let read () = Pgrammar.read_grammar ~analyze:!analyze_grammar ?memo_default:!memo_default ~verbose:(is_verbose ()) ~unfold_starplus:!opt_unfold_starplus None grammarFn in
             let peg, _used = non_verbose read in
             let peg = optimize_memoization peg in
             let retain_cache (def, _) = def.P.retain_cache in
             if !incremental && StringMap.is_empty (StringMap.filter_val retain_cache peg.T.grammar) then
               prErr "Grammar for incremental parsing needs at least one <icache> rule!"
-            else
+            else if !analyze_grammar then begin
+              Printf.printf "Grammar analysis:\n";
+              Pgrammar.analyze_grammar peg.T.grammar
+            end else
               process_options peg.T.options;
               parse_args (); (* re-parse cmd. line arguments so that they take precedence over grammar options *)
               if !rule_deps then

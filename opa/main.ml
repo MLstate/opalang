@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -28,10 +28,12 @@ let (|>) = PH.(|>)
 let (<?>) = PH.(<?>)
 let (&) = PH.(&)
 let (|?>) = PH.(|?>)
+let (|?|) = PH.(|?|)
 let (or) = PH.(or)
 
 (* Shorthands for accessing options of compilation *)
 module If = Main_utils.If
+module Switch = Main_utils.Switch
 
 (* The deprecated passes *)
 (* FIXME: adapt to the new PassHandler *)
@@ -70,6 +72,8 @@ let () =
   (**********************************************)
   (* SURFACE AST PASSES *************************)
   |> PH.handler ~count_time:false "LoadObjects" (S3.pass_LoadObjects (fun e -> e
+
+    |+> ("DbEngineImportation", S3.pass_DbEngineImportation)
 
     |+> ("BslLoading", S3.pass_BslLoading)
 
@@ -150,9 +154,11 @@ let () =
 
     (*|+> ("Retyping", S3.pass_Retyping)*)
 
-      |+> ("DbAccessorsGeneration", S3.pass_DbAccessorsGeneration)
+    |?> (If.database `db3,
+         "BadopCodeGeneration", S3.pass_BadopCodeGeneration)
 
-      |+> ("DbCodeGeneration", S3.pass_DbCodeGeneration)
+    |?> (If.database `mongo,
+         "MongoCodeGeneration", S3.pass_MongoCodeGeneration)
 
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
     |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)

@@ -88,16 +88,21 @@ type env = Ident.t * (Q.ty,unit) QmlGenericScheme.tsc option IdentMap.t
 
 let empty = IdentMap.empty
 
+type ignored_directive = [
+| Q.type_directive
+| Q.slicer_directive
+]
+
 (* detect function declaration tagged with @public_env *)
 let rec is_public_env e = match e with
   | Q.Directive (_, `public_env, _, _) -> true
-  | Q.Directive (_,_,[e],_) -> is_public_env e
+  | Q.Directive (_, #ignored_directive,[e],_) -> is_public_env e
   | _ -> false
 
 let rec rm_top_public_env e =
   match e with
   | Q.Directive (_, `public_env, [e], _) -> e
-  | Q.Directive (a,b,[e],c) ->  Q.Directive (a,b,[rm_top_public_env e],c)
+  | Q.Directive (a,(#ignored_directive as b),[e],c) ->  Q.Directive (a,b,[rm_top_public_env e],c)
   | e -> e
 
 let detect_candidate_def1 set def = match def with
@@ -117,28 +122,41 @@ let detect_candidate_def code = List.fold_left_map detect_candidate_def1 IdentSe
 *)
 let detect_candidate_call always_serialize code =
   let force_rewrite = ref false in
+  let rec public_env a local need_instrumentation e =  match e with
+    (* partial apply cases *)
+    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, Q.Ident (_, i), _args)], _) ->
+      local,IdentSet.add i need_instrumentation
+
+    (* ident cases *)
+    | Q.Ident(_, i) ->
+      (if IdentSet.mem i local then warn_unknown else warn_empty) a;
+      force_rewrite:=true;
+      local,IdentSet.add i need_instrumentation
+
+    (* traverse directives *)
+    | Q.Directive (_, #ignored_directive , [e], _) -> public_env a local need_instrumentation e
+
+    (* bad cases *)
+    | _ ->
+      warn_unknown a;
+      force_rewrite:=true;
+      local,need_instrumentation
+
+  in
   let _, set = QmlAstWalk.CodeExpr.fold
     (QmlAstWalk.Expr.fold
        (fun (local,need_instrumentation) e ->
          match e with
+         | Q.Directive (a, `public_env ,[e], _ ) -> public_env a local need_instrumentation e
+         | Q.Directive (a, `public_env , _ , _) -> (* should not parse *)
+           QmlError.error (QmlError.Context.pos (Annot.pos a)) "@publish_env with more than one parameter"
+
          (* partial apply cases *)
          | Q.Directive (_, `partial_apply (_,false),
                         [Q.Apply (_, Q.Ident (_, i), _args)]
                           , _)
              when IdentSet.mem i always_serialize
            -> local,IdentSet.add i need_instrumentation
-
-         | Q.Directive (_, `public_env ,[
-           Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, Q.Ident (_, i), _args)], _)]
-           , _)
-           -> local,IdentSet.add i need_instrumentation
-
-
-         (* ident cases *)
-         | Q.Directive (a, `public_env , [Q.Ident(_, i)], _) ->
-           (if IdentSet.mem i local then warn_unknown else warn_empty) a;
-           force_rewrite:=true;
-           local,IdentSet.add i need_instrumentation
 
          (* TODO bind in pattern are missing => bad warning class for some idents *)
          | Q.LetIn(_, decl, _)
@@ -148,15 +166,6 @@ let detect_candidate_call always_serialize code =
          | Q.Lambda(_ ,param, _ ) ->
            let add local id = IdentSet.add id local in
            (List.fold_left add local param),need_instrumentation
-
-         (* bad cases *)
-         | Q.Directive (a, `public_env , [_] , _) ->
-           warn_unknown a;
-           force_rewrite:=true;
-           local,need_instrumentation
-
-         | Q.Directive (a, `public_env , _ , _) -> (* should not parse *)
-           QmlError.error (QmlError.Context.pos (Annot.pos a)) "@publish_env with more than one parameter"
 
          | _ -> local,need_instrumentation
        )
@@ -259,28 +268,50 @@ let generate_instrumented_functions need_instrumentation gamma annotmap code =
 
 (* update call elligible site *)
 let rewrite_identifiers always_serialize env annotmap code =
-  let new_call_site annotmap labelapply i labeli args =
+  let new_call_site labeli i =
     let new_ident, tsc_opt = IdentMap.find i env in
-    let e = Q.Apply (labelapply, Q.Ident (labeli, new_ident), args) in
+    let rw_ident e = match e with | Q.Ident (label, _) when label=labeli -> Q.Ident (labeli, new_ident)
+                                  | _-> e in
+    fun annotmap e ->
+    let e = QmlAstWalk.Expr.map rw_ident e in
     let annotmap = QmlAnnotMap.remove_tsc_inst_label labeli annotmap in
     let annotmap = QmlAnnotMap.add_tsc_inst_opt_label labeli tsc_opt annotmap in
     annotmap, e
   in
+  let rec get_ident e = match e with
+    | Q.Ident (labeli, i) -> Some((labeli,i))
+    | Q.Directive (_,#ignored_directive,[e],_) -> get_ident e
+    | _ -> None
+  in
+  let rm_public_env e = match e with
+    | Q.Directive (_, `public_env, ([]|_::_::_) , _ ) -> assert false (* see detect_candidate_call *)
+    | Q.Directive (_, `public_env, [e], _ ) -> true,e
+    | _ -> false,e
+  in
+  let rec rw_call_site ~has_public_env annotmap e =
+    let no_changes = e in
+    match e with
+    | (Q.Ident _ as id) as e
+    | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ ) as e], _)
+        -> begin match get_ident id with
+            | Some((labeli,id)) when has_public_env || IdentSet.mem id always_serialize ->
+              new_call_site labeli id annotmap e
+            | _ -> (annotmap,no_changes)
+        end
+
+    | Q.Directive (a,(#ignored_directive as b),[e],c) ->
+      let annotmap,e = rw_call_site ~has_public_env annotmap e in
+      annotmap, Q.Directive (a,b,[e],c)
+
+    | _ -> (annotmap,no_changes)
+  in
+  let rw annotmap e =
+    let has_public_env, e = rm_public_env e in
+    rw_call_site ~has_public_env annotmap e
+  in
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
-       (fun annotmap e ->
-          match e with
-          | Q.Directive (_, `public_env ,[Q.Directive (_, `partial_apply (_,false), [Q.Apply (labela, Q.Ident (labeli, i), args)], _)],_) ->
-            new_call_site annotmap labela i labeli args
-
-          | Q.Directive (_, `partial_apply (_,false), [Q.Apply (labela, Q.Ident (labeli, i), args)], _) when IdentSet.mem i always_serialize ->
-            new_call_site annotmap labela i labeli args
-
-          | Q.Directive (_, `public_env,[e], _ ) -> annotmap, e
-          | Q.Directive (_, `public_env, _ , _ ) -> assert false (* see detect_candidate_call *)
-          | _ ->
-              annotmap, e
-       )
+       rw
     ) annotmap code
 
 

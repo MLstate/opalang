@@ -173,7 +173,7 @@ type Map('key,'order) =
         rev_fold: ('key,'val,'acc -> 'acc), ordered_map('key,'val,'order), 'acc -> 'acc
 
         filter_map : (('value -> option('new_value)), ordered_map('key, 'value, 'order) -> ordered_map('key, 'new_value, 'order))
-        
+
      /**
       * Change all values of the map
       * by applying a change function to all values stored in the map
@@ -189,6 +189,8 @@ type Map('key,'order) =
         iter: ('key, 'val -> void), ordered_map('key,'val,'order) -> void
 
         min_binding: ordered_map('key,'val,'order) -> ('key, 'val)
+
+        max_binding: ordered_map('key,'val,'order) -> ('key, 'val)
 
         /**
          * Determine if a key appears in a map.
@@ -449,6 +451,14 @@ Map_private =
       | { left = ({ empty } : map) ~key ~value right = _ ... } -> (key, value)
       | { ~left key = _ value = _ right = _ ... } -> aux(left)
       | { empty } -> error("Map.min_binding: Not Found")
+    aux(m)
+
+  max_binding(m : Map_private.map) =
+   rec aux(a_map : Map_private.map) =
+     match a_map with
+      | { left = _ ~key ~value right = ({ empty } : map) ... } -> (key, value)
+      | { left = _ key = _ value = _ ~right ... } -> aux(right)
+      | { empty } -> error("Map.max_binding: Not Found")
     aux(m)
 
   remove_min_binding(m : Map_private.map) =
@@ -727,6 +737,9 @@ Map_make(order: order('key,'order) ) : Map =
   min_binding(m : ordered_map('key, 'val, 'order)) =
     Map_private.min_binding(m)
 
+  max_binding(m : ordered_map('key, 'val, 'order)) =
+    Map_private.max_binding(m)
+
 //  remove_min_binding(m) = @wrap(_remove_min_binding(@unwrap(m)))
 
 
@@ -837,6 +850,7 @@ Map_make(order: order('key,'order) ) : Map =
    * If a key appears in both maps with distinct values, one of the values
    * is chosen arbitrarily.
    *
+   * @TODO optimize
    */
   intersection(map1, map2) =
     rec aux(m1: Map_private.map('key, 'val),
@@ -850,13 +864,10 @@ Map_make(order: order('key,'order) ) : Map =
             if mem(key : 'key, m2) then add(key : 'key, value : 'val, acc)
             else acc
 
-    match (is_empty(map1), is_empty(map2)) with
-    | ({ true }, { false }) -> map2
-    | ({ false }, { true }) -> map1
-    | _ ->
-        if height(map1) < height(map2) then aux(map1, map2, empty)
-       else aux(map2, map1, empty)
-
+    if is_empty(map1) || is_empty(map2) then empty
+    else
+      if height(map1) < height(map2) then aux(map1, map2, empty)
+      else aux(map2, map1, empty)
 
 
   From = {{
@@ -920,7 +931,18 @@ Map_make(order: order('key,'order) ) : Map =
          | (_, {none}) -> {gt}
        verif(To.iter(m1), To.iter(m2))
 
+
+
 }} //: Map_make
+
+@stringifier(ordered_map('key, 'val, 'order)) map_to_string(k2s, v2s, _o2s, map) =
+  tx = Map.fold(key, val, tx ->
+    Text.insert_right(tx, k2s(key)) |>
+    Text.insert_right(_, " => ")    |>
+    Text.insert_right(_, v2s(val))  |>
+    Text.insert_right(_, "\n")
+    , map, Text.cons(""))
+  Text.to_string(tx)
 
 /**
  * {1 Functions and modules exported to the global namespace}

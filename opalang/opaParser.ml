@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -26,6 +26,17 @@ type nonuid = SurfaceAst.nonuid
 (* meta-information *)
 let hash = OpaParserVersion.hash
 
+module Opa_parser = struct
+  module A = OpaSyntax.Args
+  let select ~js ~classic ?_filename ?_start v =
+    match (!A.r).A.parser with
+    | OpaSyntax.Classic -> classic ?_filename ?_start v
+    | OpaSyntax.Js      -> js ?_filename ?_start v
+  let parse_opa_parser_expr_eoi = select ~js:Opa_js_parser.parse_opa_parser_expr_eoi  ~classic:Opa_classic_parser.parse_opa_parser_expr_eoi
+  let parse_opa_parser_ty_eoi   = select ~js:Opa_js_parser.parse_opa_parser_ty_eoi    ~classic:Opa_classic_parser.parse_opa_parser_ty_eoi
+  let parse_opa_parser_main_eoi = select ~js:Opa_js_parser.parse_opa_parser_main_eoi  ~classic:Opa_classic_parser.parse_opa_parser_main_eoi
+end
+
 (* low level parsing *)
 let ll_factory parser_rule ?filename contents =
   let _filename = filename in
@@ -33,7 +44,7 @@ let ll_factory parser_rule ?filename contents =
   let _pos, result = parser_rule ?_filename ?_start contents in
   result
 
-let ll_expr = ll_factory Opa_parser.parse_opa_parser_expr_eoi
+let ll_expr = ll_factory Opa_classic_parser.parse_opa_parser_expr_eoi
 let ll_ty = ll_factory Opa_parser.parse_opa_parser_ty_eoi
 let ll_code = ll_factory Opa_parser.parse_opa_parser_main_eoi
 
@@ -143,14 +154,14 @@ end
 
 let rec get_index_N_lines_before s i nl =
   if nl=0 then i else
-    let i' = try String.rindex_from s i '\n' with Not_found -> 0 in
+    let i' = try String.rindex_from s i '\n' with Not_found | Invalid_argument _ -> 0 in
     if i' = 0 then 0 else get_index_N_lines_before s (i'-1) (nl-1)
 
 let get_index_N_lines_after s i nl =
   let len = String.length s - 1 in
   let rec get i nl =
     if nl=0 then i else
-      let i' = try String.index_from s i '\n' with Not_found -> len in
+      let i' = try String.index_from s i '\n' with Not_found | Invalid_argument _ -> len in
       if i' = len then len else get (i'+1) (nl-1)
   in get i nl
 
@@ -160,6 +171,8 @@ let parse_error_flag =
     let lang = try Sys.getenv "LC_CTYPE" with Not_found -> Sys.getenv "LANG" in
     let _ = Str.search_forward search_for lang 0 in "⚐"
   with Not_found -> "-->"
+
+module OA = OpaSyntax.Args
 
 (* FIXME, use FilePos for obtaining citations etc. *)
 let show_parse_error file_name content error_summary error_details pos =
@@ -177,6 +190,15 @@ let show_parse_error file_name content error_summary error_details pos =
       let line_int, col_int = FilePos.get_pos file_name pos in
       string_of_int line_int, string_of_int col_int, string_of_int pos
   in
+  let syntax_old = "classical ('old') syntax " in
+  let syntax_new = "revised ('new') syntax" in
+  let option_old = "--parser classic" in
+  let option_new = "--parser js-like" in
+  let used, other, hint_option =
+    match !OA.r.OA.parser with
+    | OpaSyntax.Classic -> syntax_old, syntax_new, option_new
+    | OpaSyntax.Js -> syntax_new, syntax_old, option_old
+  in
   (* FIXME: use really format *)
   OManager.printf "%s" (
     (Printf.sprintf "In %s [%s:%s-%s:%s | global chars=%s-%s]\n%s at line %s, column %s\n"
@@ -187,7 +209,10 @@ let show_parse_error file_name content error_summary error_details pos =
     ^ (Printf.sprintf "\n<<%s%s>>\n"
          (green (String.sub content begin_citation    length_citation  ))
          (red   (parse_error_flag^(String.sub content begin_error_zone  length_error_zone))))
-    ^ (Printf.sprintf "Hint: %s\n" error_details)
+    ^ (Printf.sprintf "%s: %s\n" (red "Hint") error_details)
+    ^ (Printf.sprintf "%s: You are now using the parser for the %s; if the source uses %s syntax then you should compile with %s option\n"
+         (red "Another hint") (red used) (red other) (red hint_option)
+      )
   ) ;
   OManager.error "Syntax error"
 (* ====================================================================================== *)
@@ -204,11 +229,15 @@ let hl_factory parser_rule name ?filename contents =
 let expr = hl_factory Opa_parser.parse_opa_parser_expr_eoi "Expression"
 let ty = hl_factory Opa_parser.parse_opa_parser_ty_eoi "Type"
 
-let code ?(cache=false) ?(filename="") content =
+let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=false) content =
   (*print_string content;*)
+  if sugar then Parser_utils.set_sugar_mode();
   FilePos.add_file filename content;
   match if cache then CacheParse.get filename content else None with
   | None ->
+      let r = OA.r in
+      let old = (!r).OA.parser in
+      r := {!r with OA.parser=parser_} ;
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<red>miss@} for %s@." filename#<End>;
       let res =
         try
@@ -234,6 +263,7 @@ let code ?(cache=false) ?(filename="") content =
       in
       OManager.flush_errors (); (* make sure that if someone threw errors, then we stop before saving the cache *)
       if cache then CacheParse.set filename content res;
+      r := {!r with OA.parser=old} ;
       res
   | Some l ->
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<green>hit@} for %s@." filename#<End>;

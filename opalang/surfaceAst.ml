@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -115,7 +115,7 @@ and ('ident, 'dir) expr_node =
   | Dot          of ('ident, 'dir) expr * string
   | Bypass       of BslKey.t (**A primitive, handled through the Bypass Standard Library*)
 
-  | DBPath       of ('ident, 'dir) dbelt * QmlAst.Db.kind
+  | DBPath       of ('ident, 'dir) dbelt * ('ident, 'dir) expr QmlAst.Db.kind
   | Directive    of ('ident, 'dir) directive
 
       (**
@@ -141,10 +141,7 @@ and ('ident, 'dir) dbelt      = ('ident, 'dir) dbelt_node label
 and ('ident, 'dir) dbelt_node = ('ident, 'dir) preprocessed_db_element list
 
 and ('ident, 'dir) preprocessed_db_element = ('ident, 'dir) preprocessed_db_element_node label
-and ('ident, 'dir) preprocessed_db_element_node =
-  | FldKey  of string
-  | ExprKey of ('ident, 'dir) expr (* not [expr_node], because consecutive labels, but unequal positions, because of brackets *)
-  | NewKey
+and ('ident, 'dir) preprocessed_db_element_node = ('ident, 'dir) expr QmlAst.Db.path_elt
 
 (**
    {6 Pattern}
@@ -214,7 +211,7 @@ and 'ident colvar        = Colvar of 'ident
 
 and ('ident, 'dir) code_elt = ('ident, 'dir) code_elt_node label
 and ('ident, 'dir) code_elt_node =
-  | Database   of 'ident * string list * QmlAst.Db.options list
+  | Database   of 'ident * string list * QmlAst.Db.options
   | NewDbDef   of (('ident, 'dir) expr, 'ident ty) QmlAst.Db.db_def
   | NewType    of 'ident typedef list
   | NewVal     of ('ident pat * ('ident, 'dir) expr) list * bool (* rec *)
@@ -373,6 +370,7 @@ type alpha_renaming_directive =
     | `toplevel_open
     | `module_
     | `toplevel
+    | `from of string (* to manage conflicts beetween packages *)
     ]
 
 (**
@@ -425,12 +423,32 @@ type renaming_directive =
     [ access_directive
     | basic_directive
     | alpha_renaming_directive ]
+
+
+type ('ident,'dir) expr_or_hole = [`expr of ('ident,'dir) expr | `hole of QmlLoc.annot ]
+
+type ('ident,'dir) sugar_directive =
+    [ `sugar of ('ident, 'dir) expr
+    | `sugar_pat_in of 'ident pat * ('ident, 'dir) expr * ('ident, 'dir) expr
+    ]
+
 type parsing_directive =
     [ `xml_parser of (string, parsing_directive) expr xml_parser
     | `parser_ of (string, parsing_directive) expr Trx_ast.expr
-    | renaming_directive ]
+    | renaming_directive
+    | (string, parsing_directive) sugar_directive
+    ]
 
 type all_directives =
     [ parsing_directive
     | dependency_directive
     | renaming_directive ]
+
+
+(** Type defined for convenience : Directives that may be encountered on binding *)
+type binding_directive = [
+| distribution_directive
+| documentation_directive
+| `opacapi
+| `async
+]

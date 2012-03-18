@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -83,6 +83,7 @@ let roots_for_s3
 
   let pass_JavascriptCompilation = [
     Opacapi.callFA; (* because used in a @js_ident *)
+    Opacapi.dom_event_to_opa_event;
     Opacapi.Client_code.register_js_code ;
     Opacapi.Core_server_code.register_server_code;
     Opacapi.Client_code.register_js_code_elt ;

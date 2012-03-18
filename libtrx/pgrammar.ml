@@ -190,61 +190,66 @@ let grammar_error s =
   log "[31m%s[0m" s;
   exit 2
 
+exception Looping
+
 let grammar_analysis pg =
 
-(*
-  let prop2str = function
-    | `Empty -> "Empty"
-    | `NonEmpty -> "NonEmpty"
-    | `Fail -> "Fail"
-    | `Success -> "Success"
-  in
-*)
+  let rec analyze_def s prop def_name =
+    let def, _ = StringMap.find def_name pg in
+    if List.mem (prop, def_name) s then
+      raise Looping
+    else
+      analyze_exp ((prop, def_name)::s) prop def.P.expression
 
-  let rec analyze_def prop def =
-(*    jlog (Printf.sprintf "Analyze def: %s, property: %s" def (prop2str prop));*)
-    let def, _ = StringMap.find def pg in
-    analyze_exp prop def.P.expression
-
-  and analyze_exp prop exp =
-(*    jlog (Printf.sprintf "Analyze exp %s, property: %s" (expr_to_string exp) (prop2str prop));*)
+  and analyze_exp s prop exp =
     match prop with
-    | `Success -> analyze_exp `Empty exp || analyze_exp `NonEmpty exp
+    | `Success -> analyze_exp s `Empty exp || analyze_exp s `NonEmpty exp
     | _ ->
         match exp with
         | P.App _
         | P.Expr [] -> assert false
-        | P.Expr [x] -> analyze_seq prop x
+        | P.Expr [x] -> analyze_seq s prop x
         | P.Expr (x::xs) ->
             match prop with
             | `Fail ->
-                analyze_seq `Fail x && analyze_exp `Fail (P.Expr xs)
+                analyze_seq s `Fail x && analyze_exp s `Fail (P.Expr xs)
             | `Empty
             | `NonEmpty ->
-                analyze_seq prop x || (analyze_seq `Fail x && analyze_exp prop (P.Expr xs))
+                analyze_seq s prop x || (analyze_seq s `Fail x && analyze_exp s prop (P.Expr xs))
             | `Success -> assert false
 
-  and analyze_seq prop ((seq, q1, q2) as seqf) =
-(*    jlog (Printf.sprintf "Analyze seq %s, property: %s" (if seq = [] then "" else seq_to_string seqf) (prop2str prop));*)
+  and analyze_seq s prop ((seq, q1, q2) as seqf) =
+    let backtraceable =
+      match q2 with
+      | None -> false
+      | Some code ->
+        let (_, _, _, b) = code in
+        b
+    in
     match seq, prop with
-    | _, `Success -> analyze_seq `Empty seqf || analyze_seq `NonEmpty seqf
+    | _, `Success -> analyze_seq s `Empty seqf || analyze_seq s `NonEmpty seqf
     | [], `Empty -> true
     | [], `Fail
     | [], `NonEmpty -> false
-    | x::xs, `Empty -> analyze_item `Empty x && analyze_seq `Empty (xs, q1, q2)
-    | x::xs, `Fail -> analyze_item `Fail x || (analyze_item `Success x && analyze_seq `Fail (xs, q1, q2))
+    | x::xs, `Empty ->
+        if backtraceable then
+          (* WARNING, we assume that a backtraceable expression will not admit an empty expression;
+                      this may not be true and hence it can lead to a non-terminating parser... *)
+          false
+        else
+          analyze_item s `Empty x && analyze_seq s `Empty (xs, q1, q2)
+    | x::xs, `Fail -> analyze_item s `Fail x || (analyze_item s `Success x && analyze_seq s `Fail (xs, q1, q2))
     | x::xs, `NonEmpty ->
-        (analyze_item `NonEmpty x && analyze_seq `Success (xs, q1, q2)) ||
-          (analyze_item `Success x && analyze_seq `NonEmpty (xs, q1, q2))
+        (analyze_item s `NonEmpty x && analyze_seq s `Success (xs, q1, q2)) ||
+          (analyze_item s `Success x && analyze_seq s `NonEmpty (xs, q1, q2))
 
-  and analyze_item prop ((prefix, primary, suffix) as item) =
-(*    jlog (Printf.sprintf "Analyze item %s, property: %s" (item_to_string item) (prop2str prop));*)
+  and analyze_item s prop ((prefix, primary, suffix) as item) =
     if prefix = `NORMAL then
-      analyze_suffix prop (primary, suffix)
+      analyze_suffix s prop (primary, suffix)
     else
       match prop with
       | `NonEmpty -> false
-      | `Success -> analyze_item `Empty item || analyze_item `NonEmpty item
+      | `Success -> analyze_item s `Empty item || analyze_item s `NonEmpty item
       | `Empty
       | `Fail ->
           let p =
@@ -255,30 +260,29 @@ let grammar_analysis pg =
             | `NOT, `Fail -> `Success
             | _ -> assert false
           in
-          analyze_item p (`NORMAL, primary, suffix)
+          analyze_item s p (`NORMAL, primary, suffix)
 
-  and analyze_suffix prop (primary, suffix) =
+  and analyze_suffix s prop (primary, suffix) =
     match suffix with
-    | `NORMAL -> analyze_primary prop primary
+    | `NORMAL -> analyze_primary s prop primary
     | `QUESTION -> (* e? := e / empty *)
         let e = `NORMAL, primary, `NORMAL in
         let empty = `NORMAL, P.Literal ("", false), `NORMAL in
         let make_option i = i, StringMap.empty, None in
-        analyze_exp prop (P.Expr ([make_option [e]; make_option [empty]]))
+        analyze_exp s prop (P.Expr ([make_option [e]; make_option [empty]]))
     | `STAR ->
         begin match prop with
-        | `Empty -> analyze_suffix `Fail (primary, `NORMAL)
-        | `NonEmpty -> analyze_suffix `NonEmpty (primary, `NORMAL)
+        | `Empty -> analyze_suffix s `Fail (primary, `NORMAL)
+        | `NonEmpty -> analyze_suffix s `NonEmpty (primary, `NORMAL)
         | `Success -> true
         | `Fail -> false
         end
     | `PLUS -> (* e+ := e; e* *)
-        analyze_seq prop ([(`NORMAL, primary, `NORMAL); (`NORMAL, primary, `STAR)], StringMap.empty, None)
+        analyze_seq s prop ([(`NORMAL, primary, `NORMAL); (`NORMAL, primary, `STAR)], StringMap.empty, None)
 
-  and analyze_primary prop = function
-(*    jlog (Printf.sprintf "Analyze primary %s, property: %s" (primary_to_string primary) (prop2str prop));*)
-  | P.Paren e -> analyze_exp prop e
-  | P.Ident id -> analyze_def prop id
+  and analyze_primary s prop = function
+  | P.Paren e -> analyze_exp s prop e
+  | P.Ident id -> analyze_def s prop id
   | P.Literal (l, _) ->
       begin match prop with
       | `Empty -> String.length l = 0
@@ -287,9 +291,9 @@ let grammar_analysis pg =
       | `Fail -> true
       end
   | P.Class _ -> (* character range has the same characteristics as a literal of length 1 *)
-      analyze_primary prop (P.Literal ("X", false))
+      analyze_primary s prop (P.Literal ("X", false))
   in
-  analyze_def, analyze_exp, analyze_seq, analyze_item, analyze_primary
+  analyze_def [], analyze_exp [], analyze_seq [], analyze_item [], analyze_primary []
 
 let analyze_def pg =
   let (analyze_def, _, _, _, _) = grammar_analysis pg in analyze_def
@@ -306,14 +310,54 @@ let analyze_item pg =
 let analyze_primary pg =
   let (_, _, _, _, analyze_primary) = grammar_analysis pg in analyze_primary
 
-let check_wf pg name =
+let grammar_used_defs pg =
+  let dep = dependencies pg in
+  let rec add_definition name set =
+    if StringSet.mem name set then set
+    else
+      let name_dep = StringMap.find name dep in
+      StringSet.fold add_definition name_dep (StringSet.add name set)
+  in
+  let starts = StringMap.fold (fun name (def,_msg_error) acc -> if def.P.mark then name::acc else acc) pg [] in
+  List.fold_left (fun acc x -> add_definition x acc) StringSet.empty starts
+
+let analyze_grammar peg =
+  let defs = grammar_used_defs peg in
+  let check_def def_name =
+    let check prop symbol =
+      try
+        if analyze_def peg prop def_name then
+          symbol
+        else
+          "  "
+      with
+        Looping -> "??"
+    in
+    Printf.printf "%60s: %s %s %s\n%!" def_name (check `Empty "=0") (check `NonEmpty ">0") (check `Fail "F ")
+  in
+  StringSet.iter check_def defs
+
+let check_wf ~analyze pg name =
+
+  let analyze () =
+    if analyze then begin
+      Printf.eprintf "Complete grammar analysis:\n%!";
+      try
+        analyze_grammar pg
+      with
+        Looping ->
+          Printf.eprintf "Couldn't continue the analysis due to a loop...\n"
+    end
+  in
 
   let rec check_wf_def stack name =
     let def, _ = StringMap.find name pg in
-    if List.mem name stack then
+    if List.mem name stack then begin
+      analyze ();
       grammar_error (Printf.sprintf "Grammmar contains forbidden left-recursion: %s"
         (String.concat_map " -> " (fun i -> i) (List.rev (name::stack)))
-      );
+      )
+    end;
     check_wf_exp (name::stack) def.P.expression
 
   and check_wf_exp stack = function
@@ -335,13 +379,15 @@ let check_wf pg name =
     match suffix with
     | `STAR
     | `PLUS ->
-        if analyze_primary pg `Empty prim then
+        if analyze_primary pg `Empty prim then begin
+          analyze ();
           grammar_error
             (Printf.sprintf "The expression <%s> in rule <%s> admits empty string, while it is marked with a %s. This would result in a looping parser and hence is forbidden."
               (T.primary_to_string prim)
               (List.hd stack)
               (match suffix with `STAR -> "star (*)" | `PLUS -> "plus (+)" | _ -> assert false)
             )
+        end
     | _ -> ()
 
   and check_wf_primary stack = function
@@ -353,19 +399,9 @@ let check_wf pg name =
   in
   check_wf_def [] name
 
-let check_grammar pg =
-  let dep = dependencies pg in
-  let rec add_definition name set =
-    if StringSet.mem name set then set
-    else
-      let name_dep = StringMap.find name dep in
-      StringSet.fold add_definition name_dep (StringSet.add name set)
-  in
-  (** définitions initiales *)
-  let starts = StringMap.fold (fun name (def,_msg_error) acc -> if def.P.mark then name::acc else acc) pg [] in
-  (** liste des définitions utilisées *)
-  let def_used = List.fold_left (fun acc x -> add_definition x acc) StringSet.empty starts in
-  let is_loop name = check_wf pg name in
+let check_grammar ~analyze pg =
+  let def_used = grammar_used_defs pg in
+  let is_loop name = check_wf ~analyze pg name in
   StringSet.iter is_loop def_used;
   def_used
 
@@ -445,9 +481,9 @@ let infer_memoization_options ?(memo_default=T.MemoFull) peg =
 (*     e -> *)
 (*       let _, _, _, last_ok = positions ... *)
 (*       raise e *)
-let grammar_of_pre_grammar ~memo_default ~unfold_starplus start_opt pg =
+let grammar_of_pre_grammar ~analyze ~memo_default ~unfold_starplus start_opt pg =
   let pg = rewrite_funs pg in
-  let used = check_grammar pg.P.defs in
+  let used = check_grammar ~analyze pg.P.defs in
   (* FIXME: ne conserver que used dans pg, renvoyer juste pg en type abstrait ! *)
   let start = match start_opt with
   | Some s -> s
@@ -482,11 +518,11 @@ let grammar_of_pre_grammar ~memo_default ~unfold_starplus start_opt pg =
   let g = infer_memoization_options ?memo_default g in
   g, used
 
-let read_grammar ?stoppable ?memo_default ?(unfold_starplus=true) ~verbose start name =
-  grammar_of_pre_grammar ?memo_default ~unfold_starplus start (read_pre_grammar ?stoppable ~verbose name)
+let read_grammar ?stoppable ?memo_default ?(analyze=false) ?(unfold_starplus=true) ~verbose start name =
+  grammar_of_pre_grammar ?memo_default ~analyze ~unfold_starplus start (read_pre_grammar ?stoppable ~verbose name)
 
-let parse_grammar ?(name="Main") ?stoppable ?memo_default ?(unfold_starplus=true) ~verbose start text =
-  grammar_of_pre_grammar ?memo_default ~unfold_starplus start (parse_pre_grammar ~name ?stoppable ~verbose text)
+let parse_grammar ?(name="Main") ?stoppable ?memo_default ?(analyze=false) ?(unfold_starplus=true) ~verbose start text =
+  grammar_of_pre_grammar ?memo_default ~analyze ~unfold_starplus start (parse_pre_grammar ~name ?stoppable ~verbose text)
 
 let list_start ~verbose name =
   let pg = read_pre_grammar ~verbose name in

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -207,7 +207,22 @@ let spec = [
 ]
   @ ( Sa.import_arg_options OManager.Arg.options )
   @ ( Sa.import_arg_options [OManager.Arg.version "opatop"] )
-  @ ( Sa.import_arg_options (WarningClass.Arg.options ()) )
+  @ ( Sa.import_arg_options WarningClass.Arg.options )
+  @ ( Sa.import_arg_options OpaSyntax.Args.options )
+
+
+(**
+    Loading opatop warnings
+*)
+let _ =
+  let warning_set =
+    let s = WarningClass.Set.create () in
+    (* let (!+) w = WarningClass.Set.add s w in *)
+    let (!++) s' = WarningClass.Set.add_set s s' in
+    !++ QmlTyperWarnings.warning_set;
+    s
+  in
+  WarningClass.load_set warning_set
 
 (**
    Anon function for non --option arguments
@@ -228,6 +243,15 @@ let anon_fun opafile =
 
 (** {6 Main} *)
 
+
+let with_classic_syntax f =
+  let opa_parser = (!OpaSyntax.Args.r).OpaSyntax.Args.parser in
+  (* the libs of opatop are still in classic syntax *)
+  OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser=OpaSyntax.Classic};
+  let v = f () in
+  OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser=opa_parser};
+  v
+
 (**
    The main of the console tool.
 *)
@@ -242,7 +266,8 @@ let main () =
   P.dump_set !dump_stdlib;
   (* init *)
   let env =
-    if !do_init then (
+    (* the libs of opatop are still in classic syntax *)
+    if !do_init then with_classic_syntax (fun () ->
       let loaders = Option.default [] (BslPluginTable.last_finalize ()) in
       let fold env loader =
         let fold env (filename, contents) =
@@ -268,7 +293,7 @@ let main () =
   if MutableList.length user_files = 0 || !do_input then (
     OManager.oformatter := Format.std_formatter;
     OManager.this_is_tool ~force:true "opatop";
-    OManager.printf "This is an experimental top-level for opa, type '#help;;' to know more.@\n";
+    OManager.printf "This is an experimental interpretation loop for opa. Type '#help;;' to know more.@\n";
     OManager.oformatter := Format.err_formatter;
     P.dump_set true;
     let env = OpaTopEnv.set_filename env "stdin" in
@@ -277,3 +302,17 @@ let main () =
   ) else (
     ()
   )
+
+(** Output a manpage file *)
+let write_manpage file =
+  ServerArg.write_simple_manpage
+    ~cmdname:"opatop"
+    ~summary:"The Opa top-level"
+    ~section:1
+    ~centerheader:"Opa Manual"
+    ~synopsis:"opatop [options]"
+    ~description:"Opatop is an experimental interpretation loop for opa. Type '#help;;' to know more."
+    ~options:spec
+    ~other:["NOTE","Opatop also accept some options inherited from the Opa platform. Run 'opatop --help' for details."]
+    file
+

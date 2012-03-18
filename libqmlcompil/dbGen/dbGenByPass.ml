@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -38,6 +38,8 @@ sig
   val none        : string
   val some        : string
 
+  val write : string
+
   val type_map    : string
   val intmap_empty   : string
   val intmap_add     : string
@@ -45,9 +47,16 @@ sig
   val stringmap_empty   : string
   val stringmap_add     : string
   val stringmap_fold    : string
+  val dbset_empty   : string
 
   val make_virtual_val : string
   val make_virtual_ref : string
+
+  val val_to_val : string
+  val ref_to_ref : string
+
+  val dbset_genbuild : string
+  val db3set_iterator : string
 end
 
 module QmlInterface : SourceInterface =
@@ -56,6 +65,8 @@ struct
   let none        = "none"
   let some        = "some"
 
+  let write = Opacapi.Db.write
+
   let type_map    = Opacapi.Types.map
   let intmap_empty   = "intmap_empty"
   let intmap_add     = "intmap_add"
@@ -63,9 +74,16 @@ struct
   let stringmap_empty   = "stringmap_empty"
   let stringmap_add     = "stringmap_add"
   let stringmap_fold    = "stringmap_fold"
+  let dbset_empty   = Opacapi.DbSet.empty
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
 
   let make_virtual_val = "make_virtual_val"
   let make_virtual_ref = "make_virtual_ref"
+
+  let val_to_val = Opacapi.Db3.val_to_val
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
+  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
 (* ======================================================================================================== *)
@@ -83,12 +101,16 @@ sig
     val none : env -> ExprIdent.t
     val some : env -> ExprIdent.t (** 'a -> 'a option *)
 
+    val write : env -> ExprIdent.t
+
     val intmap_empty : env -> ExprIdent.t
     val intmap_add : env -> ExprIdent.t (** ('a,'b) map -> 'a -> 'b -> ('a,'b) map *)
     val intmap_fold : env -> ExprIdent.t (** ('acc -> 'a -> 'b -> 'acc) -> ('a,'b) map -> 'acc -> 'acc  *)
     val stringmap_empty : env -> ExprIdent.t
     val stringmap_add : env -> ExprIdent.t (** ('a,'b) map -> 'a -> 'b -> ('a,'b) map *)
     val stringmap_fold : env -> ExprIdent.t (** ('acc -> 'a -> 'b -> 'acc) -> ('a,'b) map -> 'acc -> 'acc  *)
+
+    val dbset_empty : env -> ExprIdent.t
 
     val make_virtual_val : env -> ExprIdent.t (** val_path('e, 'a) -> ('a -> 'b) -> virtual_val_path('e, 'b) *)
     val make_virtual_ref : env -> ExprIdent.t (** ref_path('e, 'a) -> ('a -> 'r) -> ('w -> 'a) -> virtual_ref_path('e, 'r, 'w) *)
@@ -97,6 +119,11 @@ sig
         above (used by the code splitter in the blender *)
     val list_of_idents : env -> ExprIdent.t list
     val list_of_typeidents : env -> TypeIdent.t list
+
+    val val_to_val : env -> ExprIdent.t
+    val ref_to_ref : env -> ExprIdent.t
+    val dbset_genbuild : env -> ExprIdent.t
+    val db3set_iterator : env -> ExprIdent.t
   end
 
 end
@@ -123,6 +150,8 @@ struct
     let none env = I.conv env (ExprIdent.source N.none)
     let some env = I.conv env (ExprIdent.source N.some) (* 'a -> 'a option *)
 
+    let write env = I.conv env (ExprIdent.source N.write)
+
     let intmap_empty env = I.conv env (ExprIdent.source N.intmap_empty)
     let intmap_add env = I.conv env (ExprIdent.source N.intmap_add)
       (* 'a -> 'b -> ('a,'b) map -> ('a,'b) map *)
@@ -134,8 +163,16 @@ struct
     let stringmap_fold env = I.conv env (ExprIdent.source N.stringmap_fold)
       (* ('a -> 'b -> 'acc -> 'acc) -> ('a,'b) map -> 'acc -> 'acc  *)
 
+    let dbset_empty env = I.conv env (ExprIdent.source N.dbset_empty)
+
     let make_virtual_val env = I.conv env (ExprIdent.source N.make_virtual_val)
     let make_virtual_ref env = I.conv env (ExprIdent.source N.make_virtual_ref)
+
+    let val_to_val env = I.conv env (ExprIdent.source N.val_to_val)
+    let ref_to_ref env = I.conv env (ExprIdent.source N.ref_to_ref)
+
+    let dbset_genbuild env = I.conv env (ExprIdent.source N.dbset_genbuild)
+    let db3set_iterator env = I.conv env (ExprIdent.source N.db3set_iterator)
 
     let list_of_idents env = [ none env; some env; intmap_empty env; intmap_add env; intmap_fold env; stringmap_empty env; stringmap_add env; stringmap_fold env]
     let list_of_typeidents _ = [TypeIdent.of_string N.type_option; TypeIdent.of_string N.type_map;]
@@ -177,6 +214,8 @@ struct
   let none        = Opacapi.none
   let some        = Opacapi.some
 
+  let write = Opacapi.Db.write
+
   let type_map    = "map"
   let intmap_empty   = Opacapi.IntMap.empty
   let intmap_add     = Opacapi.IntMap.add
@@ -184,9 +223,16 @@ struct
   let stringmap_empty   = Opacapi.StringMap.empty
   let stringmap_add     = Opacapi.StringMap.add
   let stringmap_fold    = Opacapi.StringMap.fold
+  let dbset_empty    = Opacapi.DbSet.empty
 
   let make_virtual_val = Opacapi.DbVirtual.make_val
   let make_virtual_ref = Opacapi.DbVirtual.make_ref
+
+  let val_to_val = Opacapi.Db3.val_to_val
+  let ref_to_ref = Opacapi.Db3.ref_to_ref
+
+  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
 module BSLDbGenAlphaOpa = MakeS ( DbOpaInterface )  ( I_Alpha )

@@ -4,28 +4,36 @@
 # MacOS X version
 #
 
-OPTION=$1
-
 MLSTATELIBS=/opt/mlstate
-DEST=/usr/local/bin
-mkdir -p $DEST
+PREFIX=/usr/local
+sudo mkdir -p $PREFIX/bin
+sudo mkdir -p $PREFIX/share/man/man1
+
 DEST_EMACS=/Library/Application\ Support/Emacs/site-lisp/opa-mode
 
 logger -t "OPA" "Postflight starting"
-logger -t "OPA" "Creating shortcut"
 
-logger -t "OPA" "Installing opa shortcut"
+#logger -t "OPA" "Creating shortcut"
 
-$MLSTATELIBS/share/opa/install.sh --dir $MLSTATELIBS --ocaml-prefix $MLSTATELIBS --link $DEST
+logger -t "OPA" "Installing opa shortcuts and manpages"
 
-logger -t "OPA" "Add symbolic links in '/usr/local/bin' to '/opa/mlstate/bin'"
-for x in $(ls /opt/mlstate/bin) ; do
-    sudo ln -s /opt/mlstate/bin/$x /usr/local/bin/$x || logger -t "OPA" " -- $1 link could not be created."
+$MLSTATELIBS/share/opa/install.sh --dir $MLSTATELIBS --ocaml-prefix $MLSTATELIBS --link $PREFIX/bin
+
+logger -t "OPA" "Add symbolic links from '$PREFIX/bin' to '$MLSTATELIBS/bin'"
+ls $MLSTATELIBS/bin | while read x; do
+    sudo ln -s $MLSTATELIBS/bin/$x $PREFIX/bin/$x || logger -t "OPA" " -- link $PREFIX/bin/$x could not be created."
 done
+
+logger -t "OPA" "Add symbolic links from '$PREFIX/share/man/man1' to '$MLSTATELIBS/share/man/man1'"
+ls $MLSTATELIBS/share/man/man1 | while read x; do
+    sudo ln -s $MLSTATELIBS/share/man/man1/$x $PREFIX/share/man/man1/$x || logger -t "OPA" " -- link $PREFIX/share/man/man1/$x could not be created."
+done
+
 
 logger -t "OPA" "Installing Emacs plug-in"
 sudo mkdir -p "$DEST_EMACS"
 sudo install $MLSTATELIBS/share/opa/emacs/opa-mode.el "$DEST_EMACS/"
+sudo install $MLSTATELIBS/share/opa/emacs/opa-js-mode.el "$DEST_EMACS/"
 sudo install $MLSTATELIBS/share/opa/emacs/site-start.el "$DEST_EMACS/"
 
 logger -t "OPA" "Set ownership to 'root'"

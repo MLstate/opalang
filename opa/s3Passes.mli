@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -97,6 +97,27 @@ val pass_Parse :
   )
   opa_pass
 
+val pass_ParseSugar :
+  (
+    env_OpenFiles,
+    ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+    * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+    ) * env_OpenFiles
+  )
+  opa_pass
+
+val pass_Print :
+  (
+    ((
+      ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+      * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
+      )
+    )
+    * env_OpenFiles) as 'parsed_files
+  ,
+    'parsed_files
+  ) opa_pass
+
 val pass_RegisterAppSrcCode :
   (
     (
@@ -108,6 +129,12 @@ val pass_RegisterAppSrcCode :
   ,
     'parsed_files
   ) opa_pass
+
+val pass_DbEngineImportation :
+  ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
+    SurfaceAst.code_elt) ObjectFiles.parsed_code) as 'parsed_code
+     , 'parsed_code)
+  opa_pass
 
 val pass_BslLoading :
   ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
@@ -254,11 +281,11 @@ val pass_Retyping :
 val pass_PurgeTypeDirectiveAfterTyping :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
-val pass_DbAccessorsGeneration :
-  (unit Passes.env_Gen, (QmlDbGen.dbinfo StringListMap.t * QmlAlphaConv.t option) Passes.env_Gen) opa_pass
+val pass_BadopCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
-val pass_DbCodeGeneration :
-  ((QmlDbGen.dbinfo StringListMap.t * QmlAlphaConv.t option) Passes.env_Gen, unit Passes.env_Gen) opa_pass
+val pass_MongoCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_DocApiGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass

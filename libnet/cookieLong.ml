@@ -52,6 +52,7 @@ let cookie_dt2 = ref Time.infinity (* Fixed deadline *)
 (*let cookie_max_external_cookies = ref 25*)
 (*let cookie_rotate_cookies = ref true*)
 let cookies_txt_filename = ref ""
+let cookie_accept_client_values = ref false
 
 type expiration_callback = (string -> string -> unit)
 let cookie_expiration_callback =
@@ -186,9 +187,7 @@ let check_cookie_timer () =
 
 let abbrev s = if String.length s < 5 then s else String.sub s 0 5
 
-let create hr =
-  let ic = get_cookie_string () in
-  let ec = get_cookie_string () in
+let create_aux ic ec hr =
   let dt1 = Time.add hr.HST.hr_timestamp !cookie_dt1 in
   let dt2 = Time.add hr.HST.hr_timestamp !cookie_dt2 in
   Hashtbl.add to_longcook (ec,ic) (dt1,dt2);
@@ -196,6 +195,16 @@ let create hr =
                            (Hashtbl.length to_longcook) (abbrev ic) (abbrev ec)
                            (Time.in_seconds dt1) (Time.in_seconds dt2)#<End>;
   { hr with HST.hr_ec = ec; hr_ic = ic; hr_dt2 = dt2; }
+
+let create hr =
+  let ic = get_cookie_string () in
+  let ec = get_cookie_string () in
+  create_aux ic ec hr
+
+let create_with_client_values hr =
+  let ic = hr.HST.hr_ic in
+  let ec = hr.HST.hr_ec in
+  create_aux ic ec hr
 
 let split_cookie str =
   List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)
@@ -224,17 +233,24 @@ let gc_cookies sched now =
 let get_internal hr =
   try
     if String.length hr.HST.hr_ec <> cookie_len || String.length hr.HST.hr_ic <> cookie_len then raise Not_found;
-    let (dt1,dt2) = Hashtbl.find to_longcook (hr.HST.hr_ec,hr.HST.hr_ic) in
-    if hr.HST.hr_timestamp > dt1 || hr.HST.hr_timestamp > dt2
-    then
-      let hr = create hr in
-      #<If$minlevel 10>Logger.debug "get_internal: expired new={ec='%s' ic='%s'}"
-                               (abbrev hr.HST.hr_ec) (abbrev hr.HST.hr_ic)#<End>;
+    let hr_ec_ic = hr.HST.hr_ec,hr.HST.hr_ic in
+    if !cookie_accept_client_values && not (Hashtbl.mem to_longcook hr_ec_ic) then
+      let hr = create_with_client_values hr in
+      #<If$minlevel 10>Logger.debug "get_internal: not found but create_with_client_values={ec='%s' ic='%s'}"
+                             (abbrev hr.HST.hr_ec) (abbrev hr.HST.hr_ic)#<End>;
       hr
     else
-      (#<If$minlevel 10>Logger.debug "get_internal: found ec=%s ic=%s"
-                                (abbrev hr.HST.hr_ec) (abbrev hr.HST.hr_ic)#<End>;
-       { hr with HST.hr_dt2 = dt2 })
+      let (dt1,dt2) = Hashtbl.find to_longcook hr_ec_ic in
+      if hr.HST.hr_timestamp > dt1 || hr.HST.hr_timestamp > dt2
+      then
+        let hr = create hr in
+        #<If$minlevel 10>Logger.debug "get_internal: expired new={ec='%s' ic='%s'}"
+          (abbrev hr.HST.hr_ec) (abbrev hr.HST.hr_ic)#<End>;
+        hr
+      else
+        (#<If$minlevel 10>Logger.debug "get_internal: found ec=%s ic=%s"
+           (abbrev hr.HST.hr_ec) (abbrev hr.HST.hr_ic)#<End>;
+         { hr with HST.hr_dt2 = dt2 })
   with Not_found ->
     let hr = create hr in
     #<If$minlevel 10>Logger.debug "get_internal: not found new={ec='%s' ic='%s'}"
@@ -319,7 +335,7 @@ let load_cookies () =
   end
 
 let init_cookies ~sched
-                 ?(gc_period=100) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
+                 ?(gc_period=100) ?(accept_client_values=false) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
                  ?(rate_max=5.0) ?(period_max=5) ?(rate_ultimate=10.0) ?(period_ultimate=100)
                  ?(expires_short=Time.seconds 5) ?(expires_long=Time.seconds 50) ?(dt1=Time.days 10) ?(dt2=Time.infinity)
                  ?(max_external_cookies=25) ?(rotate_cookies=true) ?(cookies_filename="")
@@ -328,6 +344,7 @@ let init_cookies ~sched
   let _, _, _, _, _, _, _ =
     period_max, rate_ultimate, period_ultimate, expires_short, expires_long, max_external_cookies, rotate_cookies in
   cookie_gc_period := gc_period;
+  cookie_accept_client_values := accept_client_values;
   cookie_pool_size_min := pool_min;
   cookie_pool_size_max := pool_max;
   cookie_timer_interval := timer_interval;
@@ -351,6 +368,3 @@ let init_cookies ~sched
   cookie_timer_functions := (gc_cookies sched)::!cookie_timer_functions;
   Scheduler.timer sched (Time.seconds timer_interval) check_cookie_timer;
   if !cookies_txt_filename <> "" then (load_cookies(); at_exit save_cookies)
-
-
-

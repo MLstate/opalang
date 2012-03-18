@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -113,7 +113,7 @@ sig
     bypass_typer : bypass_typer ->
     gamma : gamma ->
     QmlAst.expr ->
-    gamma * QmlAst.annotmap * QmlAst.ty
+    (gamma * gamma) * QmlAst.annotmap * QmlAst.ty
 end
 
 
@@ -328,19 +328,16 @@ sig
     val pp : Format.formatter -> gamma -> unit
   end
 
-  (** a map of field which update with every TypeIdent.add in gamma
-      Given a field, return the TypeIdentSet of every type containing such a field *)
-  module FieldMap :
-  sig
-    val find : string -> gamma -> QmlAst.typeident list
-  end
-
   val pp : Format.formatter -> gamma -> unit
 
   (** Appends the definition in g2 to those of g1 *)
   val append : gamma -> gamma -> gamma
 
-  (** with let type in, gamma can be updated with abstract type *)
+  (** Appends the definition in g2 to those of g1, in conflicts case
+      use definition of g2. *)
+  val unsafe_append : gamma -> gamma -> gamma
+
+(** with let type in, gamma can be updated with abstract type *)
   (** in fact, this module should not be here because it is possibly used
       by the typers only, typing such expr :
 
@@ -444,3 +441,14 @@ val process_typenames_annotmap : gamma:gamma -> QmlAst.annotmap -> QmlAst.annotm
 
 (** fails if there are duplicate type definitions *)
 val check_no_duplicate_type_defs : QmlAst.code -> unit
+
+
+(** A class of printer which collects type identifiers printed in types and
+    present on the given [gamma]. Then the flush method prints definitions
+    corresponding to the collected identifiers. *)
+class pp_with_gamma :
+  gamma -> object
+    inherit QmlPrint.opa_printer
+    method flush : unit BaseFormat.pprinter
+  end
+

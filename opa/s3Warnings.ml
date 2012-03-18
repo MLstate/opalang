@@ -60,5 +60,7 @@ let warning_set =
 
   !++ Pass_InstrumentForClosureSerialization.warning_set;
 
+  !++ Pass_CompileRecursiveValues.Warning.set;
+
   (* finally return the global warning_set *)
   s

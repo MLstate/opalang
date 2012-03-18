@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -98,6 +98,8 @@ type package = Package.t
   a package. Loading conf files leads to a side effect on this table.
 *)
 let conftable : (filename, package) Hashtbl.t = Hashtbl.create 10
+
+let conf_opa_files_state = ref ([] : string list)
 
 (*
   Extra import specified in conf files
@@ -208,7 +210,7 @@ let load_conf conffile =
     match process_line ~position line with
     | None -> package
     | Some (Package package_name) ->
-        if package_name = "" || not ( List.for_all String.is_universal_ident (String.slice '.' package_name ) )
+        if package_name = ""
         then
           OManager.error (
             "%a@\n" ^^
@@ -231,6 +233,7 @@ let load_conf conffile =
                   #<End>
                 in
                 Hashtbl.add conftable filename (package_name, position) ;
+                conf_opa_files_state := filename :: (!conf_opa_files_state) ;
             ) filenames ;
             List.iter (
               fun import ->
@@ -269,6 +272,11 @@ let load_conf conffile =
   in
   let _ = File.lines_foldi_offset process_line None conffile in
   ()
+
+let conf_opa_files () = List.rev (!conf_opa_files_state)
+
+
+
 (*------------------------------*)
 (*---- command line options ----*)
 (*------------------------------*)
@@ -287,6 +295,7 @@ type compilation_mode = [
 ]
 let compilation_mode_state = ref `prelude
 let compilation_mode () = !compilation_mode_state
+let compiler_packages = MutableList.create ()
 
 (* m *)
 
@@ -746,18 +755,22 @@ let get_deps ?(packages=false) ?(deep=false) () =
   match compilation_mode () with
   | `init ->
       if packages && deep then
-        !package_deep_names_and_more_deeps_names
+        List.uniq_unsorted ~cmp:Package.compare
+          (!package_deep_names_and_more_deeps_names
+           @ (MutableList.to_list compiler_packages))
       else
         []
   | `compilation | `linking | `prelude ->
       if !after_end_of_separate_compilation then
         []
       else
-        (match packages, deep with
-         | true, true -> !package_deep_names_and_more_deeps_names
-         | true, false -> !package_names_and_more_names
-         | false, true -> !package_deep_names
-         | false, false -> !package_names)
+        List.uniq_unsorted ~cmp:Package.compare
+          ((match packages, deep with
+            | true, true -> !package_deep_names_and_more_deeps_names
+            | true, false -> !package_names_and_more_names
+            | false, true -> !package_deep_names
+            | false, false -> !package_names) @ (MutableList.to_list compiler_packages))
+
 
 let fold_dir_name ?packages ?deep f acc =
   List.fold_left (fun acc package -> f acc (find_dir package) package) acc (get_deps ?packages ?deep ())
@@ -793,13 +806,13 @@ sig
   type 'a wrapper
   type t
 
-  val iter_with_name : (?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
-  val fold_with_name : (?packages:bool -> ?deep:bool -> (package -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter_with_dir : (?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
-  val fold_with_dir : (?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
-  val iter : (?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
-  val fold : (?packages:bool -> ?deep:bool -> ('a -> t -> 'a) -> 'a -> 'a) wrapper
-  val save : (t -> unit) wrapper
+  val iter_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> t -> unit) -> unit) wrapper
+  val fold_with_name : (?optional:bool -> ?packages:bool -> ?deep:bool -> (package -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> t -> unit) -> unit) wrapper
+  val fold_with_dir : (?optional:bool -> ?packages:bool -> ?deep:bool -> (filename -> 'a -> t -> 'a) -> 'a -> 'a) wrapper
+  val iter : (?optional:bool -> ?packages:bool -> ?deep:bool -> (t -> unit) -> unit) wrapper
+  val fold : (?optional:bool -> ?packages:bool -> ?deep:bool -> ('a -> t -> 'a) -> 'a -> 'a) wrapper
+  val save : ?overwrite:bool -> (t -> unit) wrapper
 end
 
 module Make(S:S) :
@@ -819,6 +832,7 @@ struct
   let load1_no_memo ((package_name,pos) as package) =
     let name = filename_from_dir (find_dir package) S.pass in
     try
+      if not(File.exists name) then raise Not_found else
       let channel = open_in_bin name in
       let l1 = input_line channel in
       #<If$contains "noerror"> () #<Else>
@@ -839,8 +853,14 @@ struct
   let load1_exn x = with_exn (fun () -> load1 x)
 
   let ref_for_partial_sep = ref None
-  let load_values ?packages ?deep () =
-    let l = List.map (fun (package_pos) -> (package_pos, load1 package_pos)) (get_deps ?packages ?deep ()) in
+  let load_values ?(optional=false) ?packages ?deep () =
+    let deps = (get_deps ?packages ?deep ()) in
+    let load =
+      match optional with
+      | true -> List.filter_map
+          (fun (package_pos) -> try Some (package_pos, load1_exn package_pos) with No_exit _ -> None)
+      | false -> List.map (fun (package_pos) -> (package_pos, load1 package_pos))  in
+    let l = load deps in
     match compilation_mode () with
     | `init ->
         (match !ref_for_partial_sep with
@@ -848,24 +868,24 @@ struct
          | Some v -> l @ [(linking_package,v)])
     | `linking | `compilation | `prelude -> l
 
-  let iter_with_name ?packages ?deep f =
-    List.iter (fun (package_name, value) -> f package_name value) (load_values ?packages ?deep ())
-  let iter_with_dir ?packages ?deep f =
+  let iter_with_name ?optional ?packages ?deep f =
+    List.iter (fun (package_name, value) -> f package_name value) (load_values ?optional ?packages ?deep ())
+  let iter_with_dir ?optional ?packages ?deep f =
     assert (compilation_mode () <> `init);
-    iter_with_name ?packages ?deep (fun package value -> f (find_dir package) value)
-  let iter ?packages ?deep f =
-    List.iter (fun (_, value) -> f value) (load_values ?packages ?deep ())
-  let fold_with_name ?packages ?deep f acc =
-    List.fold_left (fun acc (package_name,value) -> f package_name acc value) acc (load_values ?packages ?deep ())
-  let fold_with_dir ?packages ?deep f acc =
+    iter_with_name ?optional ?packages ?deep (fun package value -> f (find_dir package) value)
+  let iter ?optional ?packages ?deep f =
+    List.iter (fun (_, value) -> f value) (load_values ?optional ?packages ?deep ())
+  let fold_with_name ?optional ?packages ?deep f acc =
+    List.fold_left (fun acc (package_name,value) -> f package_name acc value) acc (load_values ?optional ?packages ?deep ())
+  let fold_with_dir ?optional ?packages ?deep f acc =
     assert (compilation_mode () <> `init);
-    fold_with_name ?packages ?deep (fun package acc value -> f (find_dir package) acc value) acc
-  let fold ?packages ?deep f acc =
-    List.fold_left (fun acc (_,value) -> f acc value) acc (load_values ?packages ?deep ())
+    fold_with_name ?optional ?packages ?deep (fun package acc value -> f (find_dir package) acc value) acc
+  let fold ?optional ?packages ?deep f acc =
+    List.fold_left (fun acc (_,value) -> f acc value) acc (load_values ?optional ?packages ?deep ())
 
   (* save the given content in the current package, or raise SaveError if it failed
    * (because you have no 'write' rights for instance) *)
-  let save t =
+  let save ?(overwrite=false) t =
     match compilation_mode () with
     | `linking | `prelude ->
         assert (!ref_for_partial_sep = None);
@@ -878,9 +898,11 @@ struct
       if not (File.check_create_path file) then
         OManager.error "An error occurred while trying to create the object file %s." file;
       let filename = filename_from_package !current_package S.pass in
-      assert (not (File.exists filename)); (* this would break only if the compiler doesn't clean an existing
-                                            * object file before compiling it or if someone tries to
-                                            * save several times for the same pass *)
+      if not overwrite then assert (not (File.exists filename));
+      (* this would break only if the compiler doesn't clean an existing
+       * object file before compiling it or if someone tries to
+       * save several times for the same pass *)
+
       let channel = open_out_bin filename in
       try
         Printf.fprintf channel "%s\n" this_file_version;
@@ -933,7 +955,7 @@ module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`
   let fold_with_dir ~side = select side Client.fold_with_dir Server.fold_with_dir
   let iter ~side = select side Client.iter Server.iter
   let fold ~side = select side Client.fold Server.fold
-  let save ~side = select side Client.save Server.save
+  let save ?overwrite ~side = select side (Client.save ?overwrite) (Server.save ?overwrite)
 
 end
 
@@ -1003,6 +1025,12 @@ struct
   let load_conf_import package = get_conf_import (load1 package)
   let load_static_include_deps package = get_static_include_deps (load1 package)
 end
+
+let trclosure = ref ((fun _ -> assert (not (is_separated ())); []) : package list -> package list)
+
+let reorder_packages = ref ((fun p -> assert (not (is_separated ())); p))
+
+let resave =  ref (fun _ -> assert (not (is_separated ())); false)
 
 (* checks that a package agrees with other packages
  * it should fail using [error] and [serror] only so that
@@ -1269,7 +1297,7 @@ let reorder :
   extract_more_deps:('code_elt list -> float option StringMap.t) ->
   'code_elt block_dep list ListPackageMap.t ->
   'code_elt block_dep list option ->
-    (package -> bool) *
+    (?overwrite:bool -> package -> bool) *
     (package list -> package list) *
     (package -> package -> int) *
     (package * 'code_elt block list * package list) list *
@@ -1381,17 +1409,21 @@ let reorder :
       | Some (name,pos) ->
           OManager.error "%a@\n  Cyclic dependency on the package %s." FilePos.pp_pos pos name in
   let transitive_closure_one package =
-    if ListPackageMap.mem package map then
-      projects (S.transitive_dependencies cache (inject package))
-    else
-      ConsistencyCheckR.load_deps package in
+    List.uniq_unsorted ~cmp:Package.compare
+      ((if ListPackageMap.mem package map then
+          projects (S.transitive_dependencies cache (inject package))
+        else
+          ConsistencyCheckR.load_deps package)
+       @ MutableList.to_list compiler_packages)
+  in
   let transitive_closure packages =
-    let r = List.uniq_unsorted ~cmp:Package.compare (packages @ List.concat_map transitive_closure_one packages) in
+    let r = List.uniq_unsorted ~cmp:Package.compare (packages @ List.concat_map transitive_closure_one packages ) in
     #<If$minlevel 3>
       Format.printf "transitive_closure: [%a] -> [%a]@."
         (Format.pp_list ";" Package.pp) packages (Format.pp_list ";" Package.pp) r
     #<End>;
     r in
+  let _ = reorder_packages := fun packages -> fst (S.get_order (S.compute packages)) in
   let sorted_packages, remaining = S.get_order cache in
   if remaining <> [] then (
     Format.printf "@[all_packages:[%a]@\npackages:%a@\nsorted:[%a]@\nremaining: [%a]@]@."
@@ -1550,7 +1582,7 @@ let reorder :
            Unix.Unix_error _ -> ());
         true in
 
-  let save_if_need_recompilation package =
+  let save_if_need_recompilation ?overwrite package =
     let block_deps : 'code_elt block_dep list = ListPackageMap.find package map in
     let filename_content_codes = List.map fst block_deps in
     let filename_content_codes =
@@ -1575,7 +1607,7 @@ let reorder :
         | `partial | `full as v -> v in
       let conf_import = ListHashtbl.find_list confimport (fst package) in
       let static_include_deps = more_deps_of_package package in
-      ConsistencyCheckR.save {
+      ConsistencyCheckR.save ?overwrite {
         sources = my_digest;
         separated_mode = restricted_separated_mode;
         dependencies = my_deeps_deps;
@@ -1703,6 +1735,8 @@ let load ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filenam
             map, Some anon in
     #<If$minlevel 2> Printf.printf "map: %s\n%!" (DebugPrint.print map) #<End>;
     let save_if_need_recompilation, transitive_closure, compare, list, anon = reorder ~extrajs ~extract_more_deps map anon in
+    trclosure := transitive_closure;
+    resave := save_if_need_recompilation ~overwrite:true;
     #<If$minlevel 2> Printf.printf "list: %s\n%!" (DebugPrint.print list) #<End>;
 
     OManager.flush_errors (); (* not compiling (nor saving) anything if there was an error before *)
@@ -1754,7 +1788,26 @@ let stdlib_package_names name =
 
 let stdlib_packages (package_name,_pos) = stdlib_package_names package_name
 
+let compiler_package (package_name,pos) =
+  stdlib_package_names package_name ||
+    List.mem_eq ~eq:Package.equal (package_name, pos) (MutableList.to_list compiler_packages)
+
 let get_paths () = !extrapaths
+
+let add_compiler_packages packs =
+  let packs = List.map (fun packname -> (packname, FilePos.nopos "Compiler Package")) packs in
+  let deeps = !reorder_packages (List.map (fun x -> Some x) (!trclosure packs)) in
+  let deeps = List.filter_map (fun x -> x ) deeps in
+  MutableList.append compiler_packages deeps;
+  #<If> Printf.printf "compiler packages \n%!" #<End>;
+  let unique l = List.uniq_unsorted ~cmp:Package.compare l in
+  package_names := unique (!package_names @ packs);
+  package_deep_names := unique (!package_deep_names @ deeps @ packs);
+  package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs);
+  package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs )
+
+let resave () =
+  let _ = !resave !current_package in ()
 
 module Arg =
 struct

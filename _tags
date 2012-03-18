@@ -29,7 +29,7 @@
 
 # -- from opa --
 
-<{opacapi,opalib,shared,opa,plugins,opabsl,test,opalang,passes,stdlib,ml2opa,opadoc}>: traverse
+<{opacapi,opalib,shared,opa,plugins,opabsl,test,opalang,passes,stdlib,ml2opa}>: traverse
 
 # -- from appserver --
 <{appruntime,libnet,libsecurity,libtools,protocols,opasmanagers}>: traverse

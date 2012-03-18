@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -49,6 +49,7 @@ let magicToXml = !! "magicToXml"
 let never_do_anything = !! "never_do_anything"
 let none = !! "none"
 let callFA = !! "callFA"
+let dom_event_to_opa_event = !! "dom_event_to_opa_event"
 let some = !! "some"
 let unary_minus = !! "unary_minus"
 let unary_minus_dot = !! "unary_minus_dot"
@@ -59,6 +60,13 @@ struct
   let register_css_declaration = !! "register_css_declaration"
   let register_js_code = !! "register_js_code"
   let register_js_code_elt = !! "register_js_code_elt"
+end
+
+module Db3 =
+struct
+  let (!!) s = !! ("Db3_" ^ s)
+  let val_to_val = !! "val_to_val"
+  let ref_to_ref = !! "ref_to_ref"
 end
 
 module DbVirtual =
@@ -126,6 +134,59 @@ struct
   let (!!) s = !! ("Mutable_" ^ s)
   let make = !! "make"
   let set = !! "set"
+end
+
+module Db =
+struct
+  let (!!) s = !! ("Db_" ^ s)
+  let write = !! "write"
+end
+
+module Db3Set =
+struct
+  let (!!) s = !! ("Db3Set_" ^ s)
+  let iterator = !! "iterator"
+end
+
+module DbMongo =
+struct
+  let (!!) s = !! ("DbMongo_" ^ s)
+  let open_ = !! "open"
+  let path_to_path = !! "path_to_path"
+  let build_vpath = !! "build_vpath"
+  let build_rpath = !! "build_rpath"
+  let update_path = !! "update_path"
+  let build_vpath_sub = !! "build_vpath_sub"
+  let build_rpath_sub = !! "build_rpath_sub"
+  let build_rpath_compose = !! "build_rpath_compose"
+  let build_vpath_compose = !! "build_vpath_compose"
+  let option = !! "option"
+  let read = !! "read"
+  let write = !! "write"
+end
+
+module DbSet =
+struct
+  let (!!) s = !! ("DbSet_" ^ s)
+  let build = !! "build"
+  let genbuild = !! "genbuild"
+  let update = !! "update"
+  let empty = !! "empty"
+  let opa2doc = !! "opa2doc"
+  let add_to_document = !! "add_to_document"
+  let indexes = !! "indexes"
+  let to_map = !! "to_map"
+  let iterator = !! "iterator"
+  let map_to_uniq = !! "map_to_uniq"
+  let set_to_uniq = !! "set_to_uniq"
+  let map_to_uniq_def = !! "map_to_uniq_def"
+  let set_to_uniq_def = !! "set_to_uniq_def"
+  let map_to_docs = !! "map_to_docs"
+  let set_to_docs = !! "set_to_docs"
+  let build_vpath = !! "build_vpath"
+  let build_rpath = !! "build_rpath"
+  let build_rpath_collection = !! "build_rpath_collection"
+  let default = !! "default"
 end
 
 module Opa2Js =
@@ -273,6 +334,8 @@ struct
   let continuation = !! "continuation"
   let dbgraph_diff = !! "dbgraph_diff"
   let dbset = !! "dbset"
+  let db3set = !! "Db3Set.t"
+  let dbmongoset = !! "DbMongoSet.t"
   let dom = !! "dom"
   let finite_single_thread_lazy = !! "finite_single_thread_lazy"
   let float = !! "float"
@@ -291,10 +354,13 @@ struct
   let path_ref_p = !! "path_ref_p"
   let path_t = !! "path_t"
   let path_val_p = !! "path_val_p"
+  let val_path = !! "val_path"
+  let ref_path = !! "ref_path"
 
   let string = !! "string"
   let stringmap = !! "stringmap"
   let text = !! "text"
+  let iter = !! "iter"
 
   let transactions_t = !! "opa_transaction_t"
   let tuple_2 = !! "tuple_2"
@@ -306,6 +372,46 @@ struct
   let xhtml_event = !! "xhtml_event"
   let xhtml_href   = !! "xhtml_href"
   let xml = !! "xml"
+
+  (* module Bson = *)
+  (* struct *)
+  (*   let (!!) s = !! ("Bson." ^ s) *)
+  (*   let document = !! "document" *)
+  (* end *)
+
+  module Db =
+  struct
+    let (!!) s = !! ("Db." ^ s)
+    let ref_path = !! "ref_path"
+    let val_path = !! "val_path"
+  end
+
+  module Db3 =
+  struct
+    let (!!) s = !! ("Db3." ^ s)
+    let t  = !! "t"
+  end
+
+  module Db3Set =
+  struct
+    let (!!) s = !! ("Db3Set." ^ s)
+    let engine  = !! "engine"
+  end
+
+  module DbMongoSet =
+  struct
+    let (!!) s = !! ("DbMongoSet." ^ s)
+    let engine  = !! "engine"
+  end
+
+  module DbMongo =
+  struct
+    let (!!) s = !! ("DbMongo." ^ s)
+    let t  = !! "t"
+    let engine  = !! "engine"
+    let val_path = !! "private.val_path"
+    let ref_path = !! "private.ref_path"
+  end
 
   module Cell =
   struct
@@ -331,6 +437,12 @@ struct
   struct
     let (!!) s = !! ("Cps." ^ s)
     let future = !! "future"
+  end
+
+  module DbSet =
+  struct
+    let (!!) s = !! ("DbSet." ^ s)
+    let query = !! "query"
   end
 
   module Deprecated =

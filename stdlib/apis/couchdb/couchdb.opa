@@ -101,20 +101,16 @@ CouchDb = {{
 
   // General helper funs
   @private
-  gen_headers(auth : CouchDb.authentication_method, maybe_rev : option(string))
-    : option(string) =
+  gen_headers(auth : CouchDb.authentication_method, maybe_rev : list(string))
+    : list(string) =
     maybe_auth =
       match auth
-      | {None} -> ""
+      | {None} -> []
       | {HttpLogin = ~{user pass}} ->
           encoded = Crypto.Base64.encode("{user}:{pass}")
-          "Authorization: Basic {encoded}\r\n"
-      | ~{Session} -> "Cookie: {Session}\r\n"
-    tmp = Option.default("", Option.map((rev -> "ETAG: {rev}\r\n"), maybe_rev))
-            ^ maybe_auth
-    match tmp with
-      "" -> {none}
-      some -> ~{some}
+          ["Authorization: Basic {encoded}"]
+      | ~{Session} -> ["Cookie: {Session}"]
+    maybe_rev ++ maybe_auth
 
   @private
   gen_uri(host : string, path : string) : outcome(Uri.uri, CouchDb.failure) =
@@ -151,7 +147,7 @@ CouchDb = {{
     | ~{failure} -> ~{failure}
     | {success = uri} ->
         opts =
-          custom_headers = gen_headers(auth, {none})
+          custom_headers = gen_headers(auth, [])
           { WebClient.Put.default_options with ~mimetype ~custom_headers }
         match WebClient.Put.try_put_with_options(uri, content, opts)
         | {failure = Communication} -> {failure = ~{Communication}}
@@ -171,7 +167,7 @@ CouchDb = {{
     | ~{failure} -> ~{failure}
     | {success = uri} ->
         opts =
-          custom_headers = gen_headers(auth, {none})
+          custom_headers = gen_headers(auth, [])
           { WebClient.Delete.default_options with ~custom_headers }
         match WebClient.Delete.try_delete_with_options(uri, opts)
         | {failure = Communication} -> {failure = ~{Communication}}
@@ -189,7 +185,7 @@ CouchDb = {{
      * Example: [list_all(auth, host)]
      * @param host The location of the couchdb server.
      */
-    list_all(auth, host) = really_get(auth, host, "_all_dbs", {none})
+    list_all(auth, host) = really_get(auth, host, "_all_dbs", [])
 
     create(auth, the_db : CouchDb.db_infos) : CouchDb.result =
       mime = WebClient.Post.default_options.mimetype
@@ -206,7 +202,7 @@ CouchDb = {{
       | ~{failure} -> ~{failure}
       | {success = uri} ->
           opts =
-            custom_headers = gen_headers(auth, {none})
+            custom_headers = gen_headers(auth, [])
             { WebClient.Delete.default_options with ~custom_headers }
           match WebClient.Delete.try_delete_with_options(uri, opts)
           | {failure = Communication} -> {failure = ~{Communication}}
@@ -216,10 +212,10 @@ CouchDb = {{
                 else {success = {FormatedJson = (code, Json.deserialize(content))} }
 
     infos(auth, the_db : CouchDb.db_infos) : CouchDb.result =
-      really_get(auth, the_db.location, the_db.name, {none})
+      really_get(auth, the_db.location, the_db.name, [])
 
     get_revs_limit(auth, the_db : CouchDb.db_infos) : outcome(int, CouchDb.failure)=
-      match get_request(auth, the_db.location, "{the_db.name}/_revs_limit", {none})
+      match get_request(auth, the_db.location, "{the_db.name}/_revs_limit", [])
         ~{failure} -> ~{failure}
         {success = {RawResponse = ~{content ... }}} ->
           {success = Int.of_string(content)}
@@ -243,7 +239,7 @@ CouchDb = {{
      */
     get(auth : CouchDb.authentication_method, the_db : CouchDb.db_infos,
         doc_name : CouchDb.doc_id) : CouchDb.result =
-      really_get(auth, the_db.location, "{the_db.name}/{doc_name}", {none})
+      really_get(auth, the_db.location, "{the_db.name}/{doc_name}", [])
 
     /**
      * Same as [get] but with an additionnal parameter to specify a revision.
@@ -252,7 +248,7 @@ CouchDb = {{
                     the_db : CouchDb.db_infos,
                     doc_name : CouchDb.doc_id,
                     rev : CouchDb.revision) : CouchDb.result =
-      really_get(auth, the_db.location, "{the_db.name}/{doc_name}", {some = rev})
+      really_get(auth, the_db.location, "{the_db.name}/{doc_name}", [rev])
 
     /**
      * Example: [get_attachment(auth, dbinfos, docid, name)]
@@ -260,14 +256,14 @@ CouchDb = {{
      */
     get_attachment(auth, the_db : CouchDb.db_infos, docname : CouchDb.doc_id,
                     name : string) : CouchDb.result =
-      get_request(auth, the_db.location, "{the_db.name}/{docname}/{name}", {none})
+      get_request(auth, the_db.location, "{the_db.name}/{docname}/{name}", [])
 
     head(auth, the_db:CouchDb.db_infos, docid:CouchDb.doc_id) : CouchDb.result =
       match gen_uri(the_db.location, "{the_db.name}/{docid}")
       | ~{failure} -> ~{failure}
       | {success = uri} ->
           opts =
-            custom_headers = gen_headers(auth, {none})
+            custom_headers = gen_headers(auth, [])
             { WebClient.Head.default_options with ~custom_headers }
           match WebClient.Head.try_head_with_options(uri, opts)
           | {failure = Communication} -> {failure = ~{Communication}}
@@ -288,7 +284,7 @@ CouchDb = {{
       | {success = uri} ->
           opts =
             { WebClient.Post.default_options with
-                    custom_headers = gen_headers(auth, {none})
+                    custom_headers = gen_headers(auth, [])
                     content = {some = content}
                     mimetype = "application/json" }
           match WebClient.Post.try_post_with_options(uri, opts)
@@ -333,9 +329,7 @@ CouchDb = {{
       | ~{failure} -> ~{failure}
       | {success = uri} ->
           opts =
-            headers = match gen_headers(auth, {none})
-                      | {none} -> {some = "Destination: {dst}\r\n"}
-                      | ~{some} -> {some = "{some}Destination: {dst}\r\n"}
+            headers = gen_headers(auth, []) ++ ["Destination: {dst}"]
             {
               operation        = "COPY"
               auth             = {none}
@@ -387,14 +381,14 @@ CouchDb = {{
      * @param host address of the couchdb server.
      */
     get_root(auth : CouchDb.authentication_method, host) : CouchDb.result =
-      really_get(auth, host, "", {none})
+      really_get(auth, host, "", [])
 
     /**
      * Example: [get_active_tasks(auth, host)]
      * @param host address of the couchdb server.
      */
     get_active_tasks(a : CouchDb.authentication_method, h) : CouchDb.result =
-      really_get(a, h, "_active_tasks", {none})
+      really_get(a, h, "_active_tasks", [])
 
     /**
      * Example: [get_log_tail(auth, host)]
@@ -403,7 +397,7 @@ CouchDb = {{
      */
     get_log_tail(auth : CouchDb.authentication_method, host, len:option(int)) : CouchDb.result =
       path = match len with {none} -> "_log" | ~{some} -> "_log?bytes={some}"
-      get_request(auth, host, path, {none})
+      get_request(auth, host, path, [])
   }}
 
   /**
@@ -450,7 +444,7 @@ CouchDb = {{
      * @param host −
      */
     infos(auth : CouchDb.authentication_method, host) : CouchDb.result =
-      really_get(auth, host, "_session", {none})
+      really_get(auth, host, "_session", [])
   }}
 
 }}

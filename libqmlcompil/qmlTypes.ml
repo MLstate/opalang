@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,6 +23,7 @@ module List = BaseList
 (* shorthands *)
 module Q = QmlAst
 module QTV = QmlTypeVars
+module I = Ident
 
 (* aliases *)
 module TypeIdent = QmlAst.TypeIdent
@@ -71,8 +72,6 @@ type gamma = {
   ident : typescheme IdentMap.t ;
   type_ident :
     (typescheme * abbrev_height * QmlAst.type_def_visibility) TypeIdentMap.t ;
-  field_map : ImplFieldMap.t ;
-  field_map_quick : ImplFieldMapQuick.t ;
 }
 
 
@@ -96,7 +95,7 @@ sig
     bypass_typer : bypass_typer ->
     gamma: gamma ->
     Q.expr ->
-    gamma * Q.annotmap * Q.ty
+    (gamma * gamma) * Q.annotmap * Q.ty
 
   (* Voir mli *)
 end
@@ -104,8 +103,6 @@ end
 let gamma_empty = {
   ident = IdentMap.empty ;
   type_ident = TypeIdentMap.empty ;
-  field_map = ImplFieldMap.empty ;
-  field_map_quick = ImplFieldMapQuick.empty ;
 }
 
 let rec ty_ty ~with_forall ~free = function
@@ -513,7 +510,7 @@ struct
     let to_map gamma = gamma.ident
     let pp f gamma =
       iter (fun ident tsc ->
-              Format.fprintf f "@[<2>%s -> %a@]@\n" (Ident.to_string ident) QmlPrint.pp#tsc tsc
+              Format.fprintf f "@[<2> %s -> %a@]@\n" (try Ident.to_uniq_string ident with _ -> "erro") QmlPrint.pp#tsc tsc
            ) gamma
   end
 
@@ -623,28 +620,9 @@ struct
       in handle_ty [] t
 
     let add id (s, abbrev_height, visibility) g =
-      let field_map =
-        (* Update field map : only in the case of type sum and type record.
-           Abstract type are obviously skipped. *)
-        let fields =
-          let (_, ty) = Scheme.export s in
-          records_field_names ty in
-        List.fold_left
-          (fun map f -> ImplFieldMap.add f id map) g.field_map fields in
-      let field_map_quick =
-        (* Update field map : only in the case of type sum and type record. *)
-        let fields =
-          let (_, ty) = Scheme.export s in
-          records_field_names_quick ty in
-        let fields = List.map StringSet.from_list fields in
-        List.fold_left
-          (fun map f -> ImplFieldMapQuick.add f id map)
-          g.field_map_quick fields in
       let type_ident =
         TypeIdentMap.add id (s, abbrev_height, visibility) g.type_ident in
-      { g with
-        type_ident = type_ident ; field_map = field_map ;
-        field_map_quick = field_map_quick }
+      { g with type_ident = type_ident ; }
 
     let mem id g = TypeIdentMap.mem id g.type_ident
 
@@ -666,17 +644,9 @@ struct
       iter
         (fun typeident (tsc, _, _) ->
            Format.fprintf f "@[<2>%s -> %a@]@\n"
-             (TypeIdent.to_string typeident) QmlPrint.pp#tsc tsc)
+             (TypeIdent.to_debug_string typeident) QmlPrint.pp#tsc tsc)
         gamma
   end
-
-  module FieldMap =
-  struct
-    let find s g =
-      let s = ImplFieldMap.find s g.field_map in
-      ImplFieldMap.S.elements s
-  end
-
 
 
   let pp f gamma =
@@ -684,12 +654,28 @@ struct
 
   (* Appends the definition in g2 to those of g1 *)
   let append g1 g2 =
-    let ident = IdentMap.merge (fun _ x -> x) g1.ident g2.ident
-    and type_ident = TypeIdentMap.merge (fun _ x -> x) g1.type_ident g2.type_ident
-    and field_map = ImplFieldMap.M.merge ImplFieldMap.S.union g1.field_map g2.field_map
-    and field_map_quick = ImplFieldMapQuick.M.merge ImplFieldMapQuick.S.union g1.field_map_quick g2.field_map_quick in
-    { ident = ident ; type_ident = type_ident ; field_map = field_map ;
-      field_map_quick = field_map_quick }
+    let ident = IdentMap.merge_i
+      (fun i _ _ -> OManager.i_error
+         "Duplicate ident %s (CheckDuplication should catch it before)"
+         (I.to_string i)
+      )
+      g1.ident g2.ident in
+    let type_ident = TypeIdentMap.merge_i
+      (fun i _ x ->
+         assert (BaseString.is_prefix "tuple_" (I.original_name i));
+         x
+      ) g1.type_ident g2.type_ident in
+    { ident = ident ; type_ident = type_ident ;}
+
+  let unsafe_append g1 g2 =
+    let ident = IdentMap.merge_i
+      (fun _ _ x -> x)
+      g1.ident g2.ident in
+    let type_ident = TypeIdentMap.merge_i
+      (fun _ _ x -> x)
+      g1.type_ident g2.type_ident in
+    { ident = ident ; type_ident = type_ident ;}
+
 
 end
 
@@ -902,3 +888,33 @@ let check_no_duplicate_type_defs =
     (List.concat_map
        (function Q.NewType (_, l) ->
           List.map (fun ty_def -> ty_def.QmlAst.ty_def_name) l | _ -> []))
+
+
+class pp_with_gamma gamma =
+  let to_flush = ref IdentMap.empty in
+  let flushed = ref IdentMap.empty in
+object(self)
+  inherit QmlPrint.opa_printer as super
+  method typeident f t =
+    if Env.TypeIdent.mem t gamma
+      && not (IdentMap.mem t !flushed ) then
+        to_flush := IdentMap.add t (Env.TypeIdent.find ~visibility_applies:false t gamma) !to_flush;
+    super#typeident f t
+
+  method flush f () =
+    Format.fprintf f "@[<v>";
+    let rec aux s =
+      if IdentMap.is_empty !to_flush then ()
+      else
+        let (t, (sch,_)) = IdentMap.min !to_flush in
+        to_flush := IdentMap.remove t !to_flush;
+        flushed := IdentMap.add t sch !flushed ;
+        let ty = Scheme.instantiate sch in
+        Format.fprintf f "@[%s %a = %a @]" s self#typeident t self#ty ty;
+        if IdentMap.is_empty !to_flush then ()
+        else aux "and"
+    in aux "type";
+    to_flush := IdentMap.empty;
+    flushed := IdentMap.empty;
+    Format.fprintf f "@]"
+end

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -66,7 +66,6 @@ let annotmap_type_scheme_to_qml_type_scheme annotmap_sch =
 (* ************************************************************************** *)
 let annotmap_to_qml_annotmap annotmap =
   QmlAnnotMap.map_ty_tsc
-    ~ty: (fun ty -> W_PublicExport.simple_type_to_qml_type ty)
-    ~tsc:
-      (fun annotmap_sch -> annotmap_type_scheme_to_qml_type_scheme annotmap_sch)
+    ~ty:W_PublicExport.simple_type_to_qml_type
+    ~tsc:annotmap_type_scheme_to_qml_type_scheme
     annotmap

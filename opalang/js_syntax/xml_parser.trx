@@ -1,0 +1,127 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+##
+## @author Valentin Gatien-Baron
+##
+
+
+{{ open Parser_utils
+   open SurfaceAst
+ }}
+
+spacing <- Xml.spacing;
+lbrace   <- Opa_lexer.lbrace  $
+rbrace   <- Opa_lexer.rbrace  $
+
+let deco rule = (=Opa_lexer.deco(rule));
+let careful_deco rule = (=Opa_lexer.careful_deco(rule));
+let exact_ident rule = (=Opa_parser.exact_ident(rule));
+
+/** xml parser **/
+xml_parser <-
+  / (=Opa_lexer.exact_ident("xml_parser")) lbrace spacing xml_parser_no_keyword:v rbrace
+    {{ v }}
+
+;deco_xml_parser_no_keyword = deco xml_parser_no_keyword;
+xml_parser_no_keyword <-
+  / (Opa_parser.match_case xml_rule:v {{v}})+:l
+    {{ (xml_parser (l : _ xml_parser) : (_,_) expr_node) }}
+
+trx_parser <- Opa_lexer.PARSER? Trx.Item+:l (*Trx.ParserSeq:e*) {{ l }}
+
+/** xml parser rule **/
+xml_rule <- spacing xml_named_pattern+:pl Opa_parser.match_prod:e {{ ((pl,e) : _ xml_rule) }}
+
+ident_except_parser <- !("parser" Opa_lexer.end_of_ident_nosp) Opa_lexer.ml_identifier:i {{ i }}
+
+/* xml named pattern */
+xml_named_pattern <- spacing ident_except_parser:i xml_suffix?:o spacing !Opa_lexer.assign {{ ((Some i, XmlAny, o) : _ xml_named_pattern) }}
+                   / spacing (ident_except_parser:i Opa_lexer.assign spacing {{i}})?:i
+                       xml_pattern:p xml_suffix?:o spacing
+                     {{ ((i, p, o) : _ xml_named_pattern) }}
+                   / spacing trx_parser:e spacing {{ (None, XmlParser e, None) }}
+
+
+/** xml parser pattern **/
+xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
+                ( Xml.close_sign spacing xml_named_pattern*:l
+                  Xml.close_tag_or_frag:close_tag {{ (l, close_tag) }}
+                / Xml.autoclose {{ ([],None) }}):p {{
+                    let rev_bindings, rev_l = List.fold_left
+                      (fun (rev_bindings,rev_l) -> function
+                       | `define (bnd:(string * (_,_) expr)) -> (bnd :: rev_bindings, rev_l)
+                       | `normal_attr v -> (rev_bindings, v :: rev_l)
+                      ) ([],[]) l in
+                    let (children, end_tago) = p in
+                    Option.iter (tag_mismatch nstag) end_tago;
+                    let ns, tag = nstag in
+                    let ns =
+                      let string, label = ns in
+                      (SA.Ident ("xmlns:"^string), label) in
+                    let node = XmlNode ({namespace = ns; name = tag}, rev_l, children) in
+                    if rev_bindings = [] then node
+                    else SA.XmlLetIn (rev_bindings, node)
+                }}
+             / "_" Opa_lexer.end_of_ident_nosp  {{ XmlAny }}
+             / Opa_parser.opa_in_braces_nosp:e {{ XmlExpr e }}
+             / Opa_lexer.lpar deco_xml_parser_no_keyword:e Opa_lexer.rpar {{ XmlExpr e }}
+
+attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
+                   {{ match ns, name with
+                      | ("xmlns",_), (name,label) ->
+                          `define ("xmlns:"^name, label)
+                      | ("",_), ("xmlns",label) ->
+                          `define ("xmlns:", label)
+                      | _ ->
+                          let ns =
+                            let string, label = ns in
+                            (SA.Ident ("xmlns:"^string), label) in
+                          `normal_attr {namespace = ns; name = name} }}
+attribute_value <- ( String_expr.string_with_opa:e {{ XmlAttrStringParser e }}
+                   / Opa_parser.opa_in_braces:e {{ XmlAttrParser e }}
+                   / Opa_lexer.underscore {{ XmlExists }}
+                   ):e {{ e }}
+attribute_rhs <- Opa_lexer.assign spacing
+                   ( attribute_value:e {{ e, None }}
+                   / Opa_lexer.lpar attribute_value:e Opa_lexer.AS Opa_lexer.ml_identifier:i Opa_lexer.rpar {{ e, Some i}} ):v
+                 {{ v }}
+               / !Opa_lexer.assign {{ XmlName, None }}
+
+/* xml parser attribute value */
+attribute <- spacing attribute_lhs:name attribute_rhs:e {{
+               match name with
+               | `define (name, label) -> (
+                   let e =
+                     match e with
+                     | _, Some _ -> error1 (Printf.sprintf "You cannot put a 'as' on an xmlns declaration.") label
+                     | XmlExists, None -> error1 (Printf.sprintf "'_' is not an expression.") label
+                     | XmlAttrParser e, None
+                     | XmlAttrStringParser e, None -> e
+                     | XmlName, None -> (SA.Ident name, label) in
+                   `define ((name,e):(string * (string,_) expr))
+                 )
+               | `normal_attr name -> `normal_attr (name, snd e, fst e)
+             }}
+
+;xml_suffix = deco just_xml_suffix;
+just_xml_suffix <- "?" {{ Xml_question }}
+            / "+" {{ Xml_plus }}
+            / "*" {{ Xml_star }}
+            / Opa_parser.lbrace Opa_parser.expr:e1
+              (Opa_parser.comma Opa_parser.expr:e2 {{e2}})?:oe2 Opa_parser.rbrace
+             {{ match oe2 with None -> Xml_number e1 | Some e2 -> Xml_range (e1,e2) }}

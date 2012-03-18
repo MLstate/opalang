@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -36,8 +36,11 @@ type t = query list KeyRecMap.map
 
 let path_to_nonempty_list l =
   let l = Path.to_list l in
-  assert (not (List.is_empty l));
+  (match l with
+   | [] -> Logger.warning "No transaction on root path";
+   | _ -> ());
   l
+
 
 
 (* Print *)

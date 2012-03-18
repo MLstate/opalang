@@ -98,7 +98,7 @@ type WebClient.result('content) =
 type WebClient.Get.options =
  {
    auth:             option(string)
-   custom_headers:   option(string)
+   custom_headers:   list(string)
    custom_agent:     option(string)
    follow_redirects: int /*The maximal number of redirects to follow. By default, 0. Usually a bad idea to set it higher than 5.*/
    timeout_sec:      option(float)
@@ -112,7 +112,7 @@ type WebClient.Get.options =
 type WebClient.Head.options =
  {
    auth: option(string)
-   custom_headers: option(string)
+   custom_headers: list(string)
 
    custom_agent:   option(string)
    follow_redirects: int /*The maximal number of redirects to follow. By default, 0. Usually a bad idea to set it higher than 5.*/
@@ -127,7 +127,7 @@ type WebClient.Head.options =
 type WebClient.Delete.options =
  {
    auth: option(string)
-   custom_headers: option(string)
+   custom_headers: list(string)
    custom_agent:   option(string)
    timeout_sec:      option(float)
    ssl_key:          option(SSL.private_key)
@@ -146,7 +146,7 @@ type WebClient.Post.options('content) =
    mimetype:         string
    content:          option('content)
    auth:             option(string)
-   custom_headers:   option(string)
+   custom_headers:   list(string)
    custom_agent:     option(string)
    redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, don't follow redirections.*/
    timeout_sec:      option(float)
@@ -161,7 +161,7 @@ type WebClient.Put.options =
  {
    mimetype:         string
    auth:             option(string)
-   custom_headers:   option(string)
+   custom_headers:   list(string)
    custom_agent:     option(string)
    redirect_to_get:  option(WebClient.Get.options) /**If [{true}], follow redirections using GET protocol. Otherwise, don't follow redirections.*/
    timeout_sec:      option(float)
@@ -173,7 +173,7 @@ type WebClient.Generic.options =
  {
    operation:        string
    auth:             option(string)
-   custom_headers:   option(string)
+   custom_headers:   list(string)
    custom_agent:     option(string)
    redirect:         option(WebClient.Generic.options)
    timeout_sec:      option(float)
@@ -208,7 +208,7 @@ WebClient =
         timeout_sec      = {some = 36.}
         follow_redirects = 0
         custom_agent     = {none}
-        custom_headers   = {none}
+        custom_headers   = []
         ssl_key          = {none}
         ssl_policy       = {none}
       }
@@ -262,8 +262,8 @@ WebClient =
         * Usage suggestion: use [try_get_async] and [try_get_with_options_async] when your code is very concurrent
         * and you intend to send messages on completion of requests.
         */
-       try_get_async(location:Uri.uri, options:WebClient.Get.options, on_result: WebClient.result(string) -> void): void =
-           try_get_with_options_async(location, options, on_result)
+       try_get_async(location:Uri.uri, on_result: WebClient.result(string) -> void): void =
+           try_get_with_options_async(location, default_options, on_result)
        try_get_with_options_async(location:Uri.uri, options:WebClient.Get.options, on_result: WebClient.result(string) -> void): void =
            on_success(x) = on_result({success = x})
            on_failure(x) = on_result({failure = x})
@@ -307,7 +307,7 @@ WebClient =
         timeout_sec      = {some = 36.}
         follow_redirects = 0
         custom_agent     = {none}
-        custom_headers   = {none}
+        custom_headers   = []
         ssl_key          = {none}
         ssl_policy       = {none}
       }
@@ -405,7 +405,7 @@ WebClient =
         auth             = {none}
         timeout_sec      = {some = 36.}
         custom_agent     = {none}
-        custom_headers   = {none}
+        custom_headers   = []
         ssl_key          = {none}
         ssl_policy       = {none}
       }
@@ -499,7 +499,7 @@ WebClient =
         timeout_sec      = {some = 36.}
         redirect_to_get  = {none}
         custom_agent     = {none}
-        custom_headers   = {none}
+        custom_headers   = []
         ssl_key          = {none}
         ssl_policy       = {none}
       }
@@ -561,17 +561,15 @@ WebClient =
           length  = match options.content with
              | {none} -> 0
              | ~{some} -> String.length(some)
-          post_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
-          headers = match options.custom_headers with
-            | {none}  -> post_headers
-            | ~{some} -> "{post_headers}{some}"
+          post_headers = ["Content-Length: {length}", "Content-Type: {options.mimetype}"]
+          headers = post_headers ++ options.custom_headers
           generic_options = {
             operation        = "POST"
             auth             = options.auth
             redirect         = Option.map(Get.generic_options_of_get_options(_), options.redirect_to_get)
             timeout_sec      = options.timeout_sec
             custom_agent     = options.custom_agent
-            custom_headers   = {some = headers}
+            custom_headers   = headers
             ssl_key          = options.ssl_key
             ssl_policy       = options.ssl_policy
 
@@ -660,7 +658,7 @@ WebClient =
         timeout_sec      = {some = 36.}
         redirect_to_get  = {none}
         custom_agent     = {none}
-        custom_headers   = {none}
+        custom_headers   = []
         ssl_key          = {none}
         ssl_policy       = {none}
       }
@@ -719,17 +717,15 @@ WebClient =
           try_put_with_options_async(location, content, default_options, on_result)
       try_put_with_options_async(location:Uri.uri, content:string, options:WebClient.Put.options, on_result: WebClient.result(string) -> void): void =
           length  = String.length(content)
-          put_headers = "Content-Length: {length}\r\nContent-Type: {options.mimetype}\r\n"
-          headers = match options.custom_headers with
-            | {none}  -> put_headers
-            | ~{some} -> "{put_headers}{some}"
+          put_headers = ["Content-Length: {length}", "Content-Type: {options.mimetype}"]
+          headers = put_headers ++ options.custom_headers
           generic_options = {
             operation        = "PUT"
             auth             = options.auth
             redirect         = Option.map(Get.generic_options_of_get_options(_), options.redirect_to_get)
             timeout_sec      = options.timeout_sec
             custom_agent     = options.custom_agent
-            custom_headers   = {some = headers}
+            custom_headers   = headers
             ssl_key          = options.ssl_key
             ssl_policy       = options.ssl_policy
           }
@@ -759,7 +755,7 @@ WebClient =
                    /*request_kind*/string, /*data*/option(string),
                    /*is_secure*/bool, /*auth*/option(string), /*SSL key*/ option(SSL.private_key), /*SSL policy*/ option(SSL.policy),
                    /*timeout*/option(time_t),
-                   /*custom_agent*/option(string), /*more_headers*/option(string),
+                   /*custom_agent*/option(string), /*more_headers*/list(string),
                    /*success*/(string, int, string, list(string), (string -> option(string)) -> void),
                    /*failure*/(continuation(WebClient.failure))
                    -> void

@@ -268,7 +268,7 @@ UriParser =
   query_parser = Rule.parse_list(query_element, parser [&;] -> void)
 
   query =
-    parser "?" query=query_parser -> query
+    parser "?" "&"? query=query_parser -> query
 
   fragment = parser
     | "#" fragment=chars -> fragment

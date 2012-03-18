@@ -111,6 +111,30 @@ type Markdown.options = {
   detect_text_links : bool
 }
 
+/**
+ * A section in the hierarchical model of the Markdown document.
+ *
+ * It consists of a markdown representation of section's title and
+ * its content (see type below).
+ */
+type Markdown.Hierarchical.section =
+  { title : Markdown.t
+  ; content : Markdown.Hierarchical.t
+  }
+
+/**
+ *   A hierarchical representation of a Markdown document.
+ *   Consists of a prelude (text before the start of any section)
+ * and then a list of blocks, which are chapters/sections/...
+ * depending on the depth in the tree.
+ *   Together with [Markdown.Hierarchical.section] this type models
+ * a tree structure of the document.
+ */
+type Markdown.Hierarchical.t =
+  { prelude : Markdown.t
+  ; blocks : list(Markdown.Hierarchical.section)
+  }
+
 Markdown = {{
 
   /**
@@ -443,7 +467,7 @@ Markdown = {{
     main = generic_multiple(elt, (t->{text=t}))
     Parser.parse(main,src):Markdown.private.content
 
-  @private help_string = "
+  help_string = "
 You can enter a message using a Markdown-like syntax.
 Here is a list of all elements recognized.
 
@@ -638,7 +662,7 @@ with a linebreak
 
 "
 
-  @private help_xhtml = xhtml_of_string(default_options, help_string)
+  help_xhtml = xhtml_of_string(default_options, help_string)
 
   @private @client toggle_help(src_id, res_id)(_) =
     do Dom.toggle(#{src_id})
@@ -808,5 +832,51 @@ with a linebreak
   */
   help_button(id, content:xhtml) =
     <a class="markdown_help_button" onclick={_->do_expand(id)}>{content}</a>
+
+  /**
+   * This function builds a hierarchical representation (something one would
+   * use for instance to generate a Table of contents) of a given Markdown
+   * document.
+   *
+   * @param src a markdown document to analyze
+   * @param levels number of header levels to analyze; all headers after that
+   *        level will be considered just a part of the running text. That
+   *        means that the depth of the resulting document tree will be equal
+   *        to the value of that parameter.
+   * @return a tree representation of the Markdown document (think: 'Table of
+   *         contents').
+   */
+  to_hierarchical(src : Markdown.t, levels : int) : Markdown.Hierarchical.t =
+    mk_paragraph(paragraph) =
+      { src with blocks=[{~paragraph}] }
+    split_at_lvl(level, blocks) =
+      header =
+      | {header=hd_lvl content=_} -> hd_lvl == level
+      | _ -> false
+      match List.index_p(header, blocks) with
+      | {none} -> (blocks, [])
+      | {some=i} -> List.split_at(blocks, i)
+    rec process(level, blocks) =
+      if level > levels then
+        { prelude = {src with ~blocks}
+        ; blocks = []
+        }
+      else
+        (prelude_blocks, rest) = split_at_lvl(level, blocks)
+        rec aux(blocks) : list(Markdown.Hierarchical.section) =
+          match blocks with
+          | [] -> []
+          | [{header=_ ~content} | rest] ->
+            (this, next) = split_at_lvl(level, rest)
+            this_section =
+              { title=mk_paragraph(content)
+              ; content=process(level+1, this)
+              } : Markdown.Hierarchical.section
+            [this_section | aux(next)]
+          | _ -> error("Markdown.to_hierarchical :: should not happen...")
+        { prelude={ src with blocks=prelude_blocks }
+        ; blocks=aux(rest)
+        }
+    process(1, src.blocks)
 
 }}

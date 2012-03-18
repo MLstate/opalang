@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -66,11 +66,11 @@ WColorpicker = {{
   @private
   parameters = { consumption={unlimited}; expiration={none}; visibility={shared} }
   @private @publish
-  url_map_saturation_overlay = DynamicResource.publish(map_saturation_overlay,parameters)
+  url_map_saturation_overlay = DynamicResource.publish("", map_saturation_overlay,parameters)
   @private @publish
-  url_map_saturation = DynamicResource.publish(map_saturation,parameters)
+  url_map_saturation = DynamicResource.publish("", map_saturation,parameters)
   @private @publish
-  url_bar_saturation = DynamicResource.publish(bar_saturation,parameters)
+  url_bar_saturation = DynamicResource.publish("", bar_saturation,parameters)
 
   /**
    * {1 Configuration}

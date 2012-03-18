@@ -15,6 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+##extern-type int64 = Int64.t
+
+##extern-type int32 = Int32.t
+
 ##module Int \ bsl_int
 
 ##register max_int : int
@@ -269,12 +273,27 @@ let comparison (a:float) (b:float) =
   let random_init() =
     Random.self_init()
 
+##register generic_string : string, int -> string
+  let generic_string chars len =
+    let s = String.create len in
+    for i =  0 to len - 1 do
+      s.[i] <- chars.[Random.int (String.length chars)]
+    done;
+    s
+
 ##register string : int -> string
   let string len =
-    let s = String.create len in
-      for i =  0 to len - 1 do
-        s.[i] <- char_of_int (97 + Random.int 26)
-      done;
-      s
+    let chars = "abcdefghijklmnopqrstuvwxyz" in
+    generic_string chars len
+
+##register base64 : int -> string
+let base64 len =
+  let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/" in
+  generic_string chars len
+
+##register base64_url : int -> string
+let base64_url len =
+  let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" in
+  generic_string chars len
 
 ##endmodule

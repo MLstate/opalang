@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,13 +19,15 @@
 
 module List = BaseList
 
+module DbSchema = QmlDbGen.Schema
+
 module Arg =
 struct
   module A = Base.Arg
 
   (* overriding db options *)
   let commandline_override =
-    ref (StringListMap.empty : QmlAst.Db.options list StringListMap.t)
+    ref (StringListMap.empty : QmlAst.Db.options StringListMap.t)
 
   let parse_opts s =
     try
@@ -53,22 +55,22 @@ struct
 
   let options = [
 
-    "--database",
-    A.String (fun s ->
-                try
-                  let (name, opt_string) = BaseString.split_char '@' s in
-                  let point =
-                    if name = "" then []
-                    else [BaseString.remove_suffix ":" name]
-                  in
-                  let opts = parse_opts opt_string in
-                  commandline_override :=
-                    StringListMap.add point opts !commandline_override;
-                  ()
-                with
-                | Not_found -> failwith "Separate the name of the database and the options with a colon, e.g., --database 'db1:\"@shared(:4849)\"'."
-             ),
-    " Override options of a database";
+    (* "--database", *)
+    (* A.String (fun s -> *)
+    (*             try *)
+    (*               let (name, opt_string) = BaseString.split_char '@' s in *)
+    (*               let point = *)
+    (*                 if name = "" then [] *)
+    (*                 else [BaseString.remove_suffix ":" name] *)
+    (*               in *)
+    (*               let opts = parse_opts opt_string in *)
+    (*               commandline_override := *)
+    (*                 StringListMap.add point opts !commandline_override; *)
+    (*               () *)
+    (*             with *)
+    (*             | Not_found -> failwith "Separate the name of the database and the options with a colon, e.g., --database 'db1:\"@shared(:4849)\"'." *)
+    (*          ), *)
+    (* " Override options of a database"; *)
 
     "--export-db-schema",
     A.String (fun s ->
@@ -159,21 +161,18 @@ let process_code gamma _annotmap schema code =
       sch
     else R.fold_with_name merge schema
   in
-
   (* registering Database definitions
      The construction of the schema needs to get
      Database nodes before NewDbValue.
   *)
-  let (schema, gamma) =
+  let schema =
     List.fold_left
-      (fun ((schema, gamma) as acc) code_elt ->
+      (fun schema code_elt ->
          match code_elt with
          | QmlAst.Database (label, ident, p, opts) ->
-             QmlDbGen.Schema.register_db_declaration
-               schema gamma (label, ident, p, opts)
-         | _ -> acc
-      ) (schema, gamma) code in
-
+             QmlDbGen.Schema.register_db_declaration schema (label, ident, p, opts)
+         | _ -> schema
+      ) schema code in
   (* registering NewDbValue definitions *)
   let schema, code =
     List.fold_left_collect (
@@ -225,6 +224,28 @@ let process_code gamma _annotmap schema code =
         schema,
         QmlDbGen.Schema.of_package schema (ObjectFiles.get_current_package_name())
     | None -> schema, schema (* empty schemas *)
+  in
+
+  (* updating gamma with registered databases *)
+  let gamma =
+  match ObjectFiles.compilation_mode () with
+  | `init -> gamma
+  | _ ->
+      let current = ObjectFiles.get_current_package_name () in
+      List.fold_left
+        (fun gamma database ->
+           if database.DbSchema.package = current then
+             let ty = fst (QmlTypes.type_of_type gamma (database.DbSchema.dbty)) in
+             let _ =
+               #<If:DBGEN_DEBUG>
+                 OManager.printf "Adding database (%a) %a to gamma\n%!"
+                 QmlPrint.pp#ty ty
+                 QmlPrint.pp#ident database.DbSchema.ident
+               #<End>;
+             in
+             QmlTypes.Env.Ident.add database.DbSchema.ident (QmlTypes.Scheme.quantify ty) gamma
+           else gamma
+        ) gamma (DbSchema.get_db_declaration schema)
   in
 
   let _ = R.save partial_schema in

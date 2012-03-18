@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -133,7 +133,6 @@ let rec lowerize_level_in_simple_type max_level ty =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 and lowerize_level_in_row max_level row =
-  assert (max_level < W_CoreTypes.generic_binding_level) ;
   (* First, get the canonical representation of the row type. *)
   let (row_fields, row_ending) =
     (W_CoreTypes.row_type_repr row).W_Algebra.rt_value in
@@ -158,7 +157,6 @@ and lowerize_level_in_row max_level row =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 and lowerize_level_in_column max_level column =
-  assert (max_level <W_CoreTypes. generic_binding_level) ;
   (* First, get the canonical representation of the column type. *)
   let (col_rows, col_ending) =
     (W_CoreTypes.column_type_repr column).W_Algebra.ct_value in

@@ -124,9 +124,10 @@ module OpaNetwork = struct
 
   (** Define what entities the network consists. *)
   type entity =
+(*  | Server  missing case *)
     | Client of Client.key
-        (** A client relied on this server. Communicate with [Ping].*)
-
+        (** A client relied on this server. Communicate with [Ping]. *)
+        (** The server is itself considered as a client *)
     | RemoteServer of Unix.inet_addr * int * schan_client Cps.Lazy.t
         (** A remote server. Communicate with [Hlnet]. *)
 
@@ -787,7 +788,10 @@ end = struct
          | _ -> raise Malformed
         )
     | _ -> raise Malformed
-  ) with Malformed -> None |> k
+  ) with
+      (* We catch all exceptions so we can answer the client and close the
+         current connection *)
+    | e -> Logger.error "unserialize error: (%s)" (Printexc.to_string e); (None |> k)
 
 
   let registers cookie page request =
@@ -1135,12 +1139,16 @@ let llsend_then ch ser msg ctx herror hsuccess =
 
 (** {6 Serialization} *)
 
-##register get_server_id : Session.private.native('msg, 'ctx) -> option(string)
-let get_server_id t =
-  (* This case is on toplelvel javascript serialization. *)
-  (* Use a client identity which can't be collected. *)
-  let universal = OpaNetwork.Client (Client.key "_internal_" (-1)) in
-  match Channel.export t universal with
+##register get_server_id : Session.private.native('msg, 'ctx),  option(opa[ThreadContext.client]) -> option(string)
+let get_server_id t context =
+  (* This case is on toplelvel javascript serialization => dummy client
+     and on optimized serialization => correct client *)
+  let context = match context with
+    | None -> assert false
+    (* should be OpaNetwork.bgfServer, for now opa always gives one,
+       see Opa2Js.Common.session and Session_private.serialize *)
+    | Some e -> OpaNetwork.Client (Obj.magic e) in
+  match Channel.export t context with
   | Channel.LocalId id -> Some (string_of_int id)
   | Channel.EntityId _ -> None
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -50,7 +50,7 @@ let abort_transaction k =
 ##extern-type [normalize] database = { db_engine: Badop_engine.t; db: Badop_engine.db }
 ##extern-type [normalize] transaction = { tr_engine: Badop_engine.t; tr: Badop_engine.tr }
 ##extern-type [normalize] revision = Badop_engine.rv
-##extern-type dbset('a) = {     \
+##extern-type Db3Set.engine('a) = {     \
   transaction : transaction ;   \
   path : path ;                 \
   reader : transaction -> path -> 'a QmlCpsServerLib.continuation -> unit ;  \
@@ -422,7 +422,7 @@ let fold_string_keys tr path f acc k =
     transaction, \
     path, \
     (transaction, path, continuation('a) -> void), \
-    continuation(dbset('a)) -> \
+    continuation(Db3Set.engine('a)) -> \
     void
 let create_dbset tr path reader k = {
   transaction = tr;
@@ -451,26 +451,31 @@ let rec partial_match partial keylist =
   in aux (Array.length partial - 1)
 
 
-##register [opacapi;restricted:dbgen,cps-bypass] set_dbset_keys : dbset('a), db_partial_key, continuation(dbset('a)) -> void
+##register [opacapi;restricted:dbgen,cps-bypass] set_dbset_keys : Db3Set.engine('a), db_partial_key, continuation(Db3Set.engine('a)) -> void
 let set_dbset_keys dbset keys k = { dbset with keys = Array.of_list keys } |> k
 
-##register[cps-bypass] fold_dbset : dbset('a), 'acc, ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
-let fold_dbset dbset acc folder k =
+##register[cps-bypass] fold_dbset : 'acc, Db3Set.engine('a), ('acc, 'a, continuation('acc) -> void), continuation('acc) -> void
+let fold_dbset acc dbset folder k =
   let tr = dbset.transaction in
   tr.tr_engine.E.read tr.tr dbset.path (Badop.Children (D.query (None, 0))) @>
     function
       | `Answer (Badop.Children (D.Response children)) ->
           let partial = dbset.keys in
           let reader = dbset.reader in
-          C.fold_list
-            (fun acc path k ->
-               match Badop.Path.last path with
-               | Badop.Key.ListKey kl when partial_match partial kl ->
-                   (reader tr path @> C.ccont_ml k (function x -> folder acc x k))
-               | Badop.Key.ListKey _ ->
-                   acc |> k
-               | _ -> assert false
-            ) acc children k
+          let readme acc path k =
+            reader tr path @> C.ccont_ml k (function x -> folder acc x k)
+          in
+          if BaseArray.is_empty partial then C.fold_list readme acc children k
+          else
+            C.fold_list
+              (fun acc path k ->
+                 match Badop.Path.last path with
+                 | Badop.Key.ListKey kl when partial_match partial kl ->
+                     readme acc path k
+                 | Badop.Key.ListKey _ ->
+                     acc |> k
+                 | _ -> assert false
+              ) acc children k
       | `Absent ->
           Logger.error "[fold_dbset] Path to the dbset is absent";
           acc |> k

@@ -32,6 +32,7 @@ let default_scheduler = BslScheduler.opa
 ##extern-type HttpRequest.payload = HttpServerCore.payload
 ##extern-type HttpRequest.msg_list = HttpServerCore_parse.msg list
 ##extern-type HttpRequest.request = HttpServerTypes.request
+##extern-type remote_logs = HttpServerTypes.remote_logs option
 ##opa-type HttpRequest.part
 
 
@@ -157,40 +158,40 @@ let default_scheduler = BslScheduler.opa
 
 
   (** {6 Make weblib response} *)
-  ##register make_response : \
+  ##register [cps-bypass] make_response : \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       caml_list(WebInfo.private.native_http_header), \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response ms req stat headers s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response ms req stat headers s1 s2 k =
     let modified_since = Option.map Time.milliseconds ms in
     HttpServer.make_response_with_headers ~modified_since ~req headers stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_modified_since : \
+  ##register [cps-bypass] make_response_modified_since : \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response_modified_since modified_since req stat s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response_modified_since modified_since req stat s1 s2 k =
     let ms = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~modified_since:ms ~expires:Time.zero ~req stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_expires_at : \
+  ##register [cps-bypass] make_response_expires_at : \
       option(time_t), \
       option(time_t), \
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string -> \
-      WebInfo.private.native_response
-  let make_response_expires_at expires_at modified_since req stat s1 s2 =
+      string, \
+      continuation(WebInfo.private.native_response) -> void
+  let make_response_expires_at expires_at modified_since req stat s1 s2 k =
     let expires =
       match expires_at with
       | None -> Time.infinity
@@ -198,24 +199,25 @@ let default_scheduler = BslScheduler.opa
     in
     let modified_since = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~expires ~modified_since ~req stat s1
-      (Http_common.Result s2)
+      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_req : time_t, WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response
-  let make_response_req expires r stat s1 s2 =
-    HttpServer.make_response_req (Time.milliseconds expires) r stat s1 (Http_common.Result s2)
+  ##register [cps-bypass] make_response_req : time_t, WebInfo.private.native_request, web_server_status, string, string, \
+    continuation(WebInfo.private.native_response) -> void
+  let make_response_req expires r stat s1 s2 k =
+    HttpServer.make_response_req (Time.milliseconds expires) r stat s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register make_response_req_loc : \
-      time_t, string, WebInfo.private.native_request, web_server_status, string, string \
-        -> WebInfo.private.native_response
-  let make_response_req_loc expires url r stat s1 s2 =
-    HttpServer.make_response_req_loc (Time.milliseconds expires) url r stat s1 (Http_common.Result s2)
+  ##register [cps-bypass] make_response_req_loc : \
+      time_t, string, WebInfo.private.native_request, web_server_status, string, string, \
+        continuation(WebInfo.private.native_response) -> void
+  let make_response_req_loc expires url r stat s1 s2 k =
+    HttpServer.make_response_req_loc (Time.milliseconds expires) url r stat s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register direct_expires : WebInfo.private.native_request, string, string -> WebInfo.private.native_response
-  let direct_expires wr s1 s2 =
-    HttpServer.direct ~expires:Time.zero wr s1 (Http_common.Result s2)
+  ##register [cps-bypass] direct_expires : WebInfo.private.native_request, string, string, continuation(WebInfo.private.native_response) -> void
+  let direct_expires wr s1 s2 k =
+    HttpServer.direct ~expires:Time.zero wr s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
-  ##register direct : WebInfo.private.native_request, string, string -> WebInfo.private.native_response
-  let direct wr s1 s2 = HttpServer.direct wr s1 (Http_common.Result s2)
+  ##register [cps-bypass] direct : WebInfo.private.native_request, string, string, continuation(WebInfo.private.native_response) -> void
+  let direct wr s1 s2 k = HttpServer.direct wr s1 (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
 
 
 
@@ -383,6 +385,13 @@ let default_scheduler = BslScheduler.opa
     | Unix.ADDR_INET(addr,_port) -> Unix.string_of_inet_addr(addr)
     | _ -> assert false
 
+  ##register get_remote_logs_params :  -> opa[option(tuple_3(string, int, string))]
+  let get_remote_logs_params _ =
+    match HttpServer.get_remote_logs_params () with
+    | None -> ServerLib.none
+    | Some p -> ServerLib.some (BslNativeLib.opa_tuple_3
+            (p.HttpServerTypes.hostname, p.HttpServerTypes.port, p.HttpServerTypes.appkey))
+
 ##endmodule
 
 ##module ssl
@@ -477,7 +486,7 @@ let default_scheduler = BslScheduler.opa
       option(SSL.policy), \
       option(time_t), \
       option(string), \
-      option(string), \
+      opa[list(string)], \
       (string, \
        int, \
        string, \
@@ -523,10 +532,11 @@ let default_scheduler = BslScheduler.opa
               ServerLib.make_record cons
       in QmlCpsServerLib.return cont_failure opa_e
     in
+    let more_headers = BslNativeLib.opa_list_to_ocaml_list (fun h -> h) more_headers in
     let _ = Http_client.place_request default_scheduler ~request_kind ?data ~hostname ~port ~path
       ~secure:is_secure  ?auth ?client_certificate:private_key ?verify_params:policy
       ?timeout:(Option.map Time.milliseconds timeout)
-      ?client_name:custom_agent ?more_headers ~err_cont
+      ?client_name:custom_agent ~more_headers ~err_cont
        ~success
        ~failure
       ()

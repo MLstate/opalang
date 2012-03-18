@@ -241,6 +241,40 @@ let doc_string title speclist =
     speclist;
   Format.flush_str_formatter ()
 
+(** write a simple manpage from serverArg specs *)
+(* CAVEAT: unfortunately many Opa programs install _several_ arg parsers by top-level side effects. This function should be generalized to allow several sections of options to reflect this fact. *)
+let write_simple_manpage
+    ?(nohelp=false)
+    ~cmdname ~section
+    ?centerfooter
+    ?leftfooter ?centerheader
+    ?summary ?synopsis ?description ?options ?(other=[])
+    file
+    =
+  let print_spec buf (names,_,params_doc,doc) =
+    let names_str = List.fold_left (fun str name -> str ^ (BaseString.replace name "-" "\\-") ^ " ") "" names
+    in
+    Printf.bprintf buf ".TP\n%s%s\n%s\n" names_str params_doc doc
+  in
+  let help_dummy_spec = (["--help"; "-help"; "-h"; "-?"], (fun _ -> failwith "help_dummy_spec"), "", "Print this help")
+  in
+  let options_str =
+    begin match options with
+      None -> None
+    | Some(speclist) ->
+      let buf = Buffer.create 10
+      in
+      List.iter (print_spec buf) (if nohelp then speclist else speclist@[help_dummy_spec]);
+      Some(Buffer.contents buf)
+    end
+  in
+  BaseArg.write_simple_manpage
+    ~cmdname ~section
+    ?centerfooter
+    ?leftfooter ?centerheader
+    ?summary ?synopsis ?description ~other:(match options_str with None -> other | Some(str) -> ("OPTIONS", str)::other)
+    file
+
 let make_parser ?(final=false) ?(nohelp=false) title speclist acc0 args0 =
   let rec do_args (acc,rev_args) = function
     | [] -> (Some acc, List.rev rev_args, [])
@@ -344,6 +378,7 @@ let import_arg_spec = function
   | A.Set_int r -> !> int (fun i -> r := i)
   | A.Float f -> !> float f
   | A.Set_float r -> !> float (fun f -> r := f)
+  | A.Symbol (_l, f) -> !> string f
 
   (* The rest is not implemented, you can add it if you need *)
   | _ -> assert false

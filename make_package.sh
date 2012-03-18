@@ -7,9 +7,10 @@ set -u
 INSTALLDIR=$PWD/release_install_root
 
 # VERSION_MAJOR must be a version number, not text !!
-VERSION_MAJOR=1.0
+VERSION_MAJOR=$(cat buildinfos/version_major.txt)
+OFFICIAL_VERSION_NAME=$(cat<buildinfos/version_name.txt)
 # VERSION_NAME shall be a string of alphanumeric characters or . + ~ (Debian guidelines)
-VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version.txt)
+VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version_name.txt)
 VERSION_BUILD=build
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
@@ -34,8 +35,10 @@ DEB="false"
 PKG="false"
 WINPKG="false"
 
+PACK_MAN="/Applications/Xcode.app/Contents/Applications/PackageMaker.app" # PackageManager path for OS X
+
 help() {
-    echo "Makes an installation package from an installed OPA (installation"
+    echo "Makes an installation package from an installed Opa (installation"
     echo "should be done through install_release.sh)."
     echo "Options"
     # echo "	-prefix <dir>			Prefix where the package should install opa by"
@@ -109,7 +112,7 @@ fi
 BUILDNUM=$($INSTALLDIR/lib/opa/bin/opa-bin --version 2>&1 | sed 's/.*build \([0-9]\+\).*/\1/')
 VERSION_STRING=${VERSION_MAJOR}${VERSION_NAME}$(if [ -n "$VERSION_BUILD" ]; then echo "+$VERSION_BUILD$BUILDNUM"; fi)
 
-msg "Making package from installation in $INSTALLDIR, with OPA version $VERSION_STRING."
+msg "Making package from installation in $INSTALLDIR, with Opa version $VERSION_STRING."
 
 if [ -n "$TBZ2" ]; then
     msg "Making $TBZ2 (to be decompressed at the installation prefix)"
@@ -193,7 +196,7 @@ else
   trap "rm -f $0" EXIT
 fi
 
-echo -n "Going to remove OPA from $INSTALLDIR. Proceed ? "
+echo -n "Going to remove Opa from $INSTALLDIR. Proceed ? "
 read yesno
 if [ "${yesno:0:1}" != "y" ]; then exit 0; fi
 
@@ -207,7 +210,7 @@ EOF
   cat >>"$INSTALLDIR/share/opa/uninstall.sh" <<"EOF"
 cd $P
 
-for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/opa"; do
+for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/man" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/opa"; do
   R=0
   find $DIR \( -type d -empty \) -delete || R=$?
   if [ $R -ne 0 ] || [ -d $DIR ]; then
@@ -216,6 +219,7 @@ for DIR in "$INSTALLDIR/share/opa" "$INSTALLDIR/share/doc/opa" "$INSTALLDIR/lib/
 done
 
 set +e
+rmdir "$INSTALLDIR/share/man" 2>/dev/null
 rmdir "$INSTALLDIR/share/doc" 2>/dev/null
 rmdir "$INSTALLDIR/share" 2>/dev/null
 rmdir "$INSTALLDIR/lib" 2>/dev/null
@@ -235,9 +239,9 @@ fi
 #############################
 if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
-    PKG_NAME="OPA $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM for MacOS $OS_VARIANT"
+    PKG_NAME="Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-   /Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "OPA $VERSION_MAJOR $VERSION_NAME"
+   $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME"
    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
    hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
@@ -247,7 +251,7 @@ fi
 # MsWindows package generation #
 ################################
 if [ "$WINPKG" = "true" ]; then
-   PKG_NAME="OPA $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM"
+   PKG_NAME="Opa $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM"
    rm -rf pkg_ms_windows
    mkdir -p pkg_ms_windows
    # Copy
@@ -277,7 +281,7 @@ fi
 #############################
 
 if [ "$DEB" = "true" ]; then
-    MAINTAINER="Louis Gesbert <louis.gesbert@mlstate.com>"
+    MAINTAINER="package.maintainer@opalang.org"
     PREFIX=/usr
     WORKDIR=$(mktemp -d /tmp/mkdeb.XXXXX)
     cd $WORKDIR
@@ -299,8 +303,8 @@ Pre-Depends: debconf
 Depends: libc6 (>= 2.3.2), libgdbm3, libssl0.9.8, libssl-dev, zlib1g, zlib1g-dev, libjpeg62, libpng12-0, libgif4
 Maintainer: $MAINTAINER
 Description: The unified language for web 2.0 development
- OPA is a unified programming language for web development. This self-contained
- package contains the OPA compiler, that compiles stand-alone web servers
+ Opa is a unified programming language for web development. This self-contained
+ package contains the Opa compiler, that compiles stand-alone web servers
  including AJAX features, database, etc. from single source files.
 EOF
 
@@ -310,7 +314,7 @@ EOF
 
     mkdir -p $DEBROOT$PREFIX/share/lintian/overrides
     cat > $DEBROOT$PREFIX/share/lintian/overrides/opa <<EOF
-# The package itself is in AGPL, but includes other software and lists their licenses
+# The package itself is in AGPL & APACHE, but includes other software and lists their licenses
 # in the copyright file
 opa binary: copyright-should-refer-to-common-license-file-for-lgpl
 EOF

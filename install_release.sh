@@ -9,7 +9,8 @@ set -u
 PREFIX=/usr
 INSTALLDIR=$PWD/release_install_root
 
-NODOC="false"
+NODOC="true"
+NOMAN="false"
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
 # (MAJORNAME if BUILD is empty)
@@ -54,6 +55,8 @@ while [ $# -gt 0 ]; do
     case $1 in
         -no-doc)
             NODOC="true";;
+        -no-man)
+            NOMAN="true";;
         -force-doc)
             NODOC="false";;
         -fetch-git)
@@ -170,52 +173,61 @@ else
         else
             $OPAGENERAL/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml --installdir $INSTALLDIR_LIBOPAOCAML
         fi
-    fi
-    if [ -n "$IS_MAC" ] ; then
-        export OCAMLLIB=$INSTALLDIR/lib/ocaml
-        export PATH=$INSTALLDIR/bin:$PATH
-    else
-        export OCAMLLIB=$INSTALLDIR_LIBOPAOCAML/lib/ocaml
-        export PATH=$INSTALLDIR_LIBOPAOCAML/bin:$PATH
+	if [ -n "$IS_MAC" ] ; then
+            export OCAMLLIB=$INSTALLDIR/lib/ocaml
+            export PATH=$INSTALLDIR/bin:$PATH
+	else
+            export OCAMLLIB=$INSTALLDIR_LIBOPAOCAML/lib/ocaml
+            export PATH=$INSTALLDIR_LIBOPAOCAML/bin:$PATH
+	fi
     fi
 fi
 
 # mlstate libs and tools (generic)
 msg Installing mlstate stuff
 
-if [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPAOCAML/lib/ocaml" ]; then
+if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPAOCAML/lib/ocaml" ]; then
     msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR_LIBOPAOCAML/lib/ocaml"
     exit 1
 fi
 
 export MLSTATELIBS=$INSTALLDIR
 # in order to build opa with the ocaml freshly built
-if [ -n "$IS_MAC" ] ; then
-    export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
+if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
+    if [ -n "$IS_MAC" ] ; then
+	export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
+    else
+	export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
+    fi
 else
-    export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
+    OCAMLOPT=ocamlopt.opt
 fi
 cd $OPAGENERAL
 SRCDIR=$OPAGENERAL
 OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
-OPADOCGEN=$OPAGENERAL/_build/opadoc/doc # the generated API doc
 
 ./configure -prefix $INSTALLDIR -ocamlopt $OCAMLOPT -release -no-dbm
 
-make clean distrib install
+
+TARGETS="distrib"
+if [ $NOMAN = "false" ]; then
+    TARGETS="$TARGETS manpages"
+fi
+
+make clean $TARGETS install
 
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
 
+make packages-api
 # generating the book
-if [ $NODOC = "false" ]; then
-    make opadoc/doc install-doc
-    if ! make book-clean book; then
-        msg "Error: could not build the doc in $OPABOOK."
-        msg "You may want to fix and re-run with -keep-install-sys -keep-build"
-        exit 1
-    fi
-fi
+# if [ $NODOC = "false" ]; then
+#    if ! make book-clean book; then
+#        msg "Error: could not build the doc in $OPABOOK."
+#        msg "You may want to fix and re-run with -keep-install-sys -keep-build"
+#        exit 1
+#    fi
+# fi
 # installing the book
 if [ $NODOC = "false" ] && [ -z "$IS_WINDOWS" ]; then
     mkdir -p $INSTALLDIR/share/doc/opa/book
@@ -225,7 +237,7 @@ fi
 $SRCDIR/utils/install.sh --uninstall --dir $INSTALLDIR
 install -m 0755 -v $SRCDIR/utils/install.sh $INSTALLDIR/share/opa
 mkdir -p $INSTALLDIR/share/opa/emacs
-install -m 0644 -v $SRCDIR/utils/emacs/{opa-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
+install -m 0644 -v $SRCDIR/utils/emacs/{opa-mode.el,opa-js-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
 mkdir -p $INSTALLDIR/share/opa/vim
 cp -r $SRCDIR/utils/vim/* $INSTALLDIR/share/opa/vim/
 

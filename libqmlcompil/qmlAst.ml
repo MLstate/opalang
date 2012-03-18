@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -128,8 +128,45 @@ end
 module Db =
 struct
 
+  type 'expr fields = (string list * 'expr) list
+
+  type 'expr query =
+    | QEq   of 'expr
+    | QGt   of 'expr
+    | QLt   of 'expr
+    | QGte  of 'expr
+    | QLte  of 'expr
+    | QNe   of 'expr
+    | QMod  of int
+    | QIn   of 'expr
+    | QOr   of 'expr query * 'expr query
+    | QAnd  of 'expr query * 'expr query
+    | QNot  of 'expr query
+    | QFlds of 'expr query fields
+
+  type 'expr query_options = {
+    limit : 'expr option;
+    skip  : 'expr option;
+    sort  : 'expr fields option;
+  }
+
+  type 'expr update =
+    (* Record updating*)
+    | UFlds of 'expr update fields
+
+    (* Simple updating*)
+    | UExpr of 'expr
+    | UIncr of int (* TODO : expr*)
+
+    (* List updating *)
+    | UAppend     of 'expr
+    | UAppendAll  of 'expr
+    | UPrepend    of 'expr
+    | UPrependAll of 'expr
+    | UPop | UShift
+
   (** The kind of a path, ie the type of access it is *)
-  type kind =
+  type 'expr kind =
     | Option
         (** Check if the path exists in the database, and return the lazy-read as
             option if it does. Errors while reading are still filled with
@@ -142,6 +179,7 @@ struct
     | Ref
         (** No operation is done, just build a pointer to the database.  used for
             operations on paths (like writes) *)
+    | Update of 'expr update
 
   (** The paths as specified in definitions (eg. with possible definition of keys) *)
   type path_decl_key =
@@ -156,22 +194,26 @@ struct
             (empty means whole element) *)
   type path_decl = path_decl_key list
 
+  type 'expr path_elt =
+    | FldKey of string
+    | ExprKey of 'expr
+    | NewKey
+    | Query of 'expr query * 'expr query_options
+
+  type 'expr path = 'expr path_elt list
+
   (** The extensible type for DB definitions (the "database xxx" level 0
       directive). For now, only used to specify the data storage location (any
       path, absolute or relative, ending with the filename prefix). DbGen sets
       this to [~/.mlstate/<progname>/default] by default (based on argv.(0)) *)
-  type engine =
-      [
-      |`db3 of string option (* path *)
-      |`db3light of string option (* path *)
-      |`meta
-      |`client of string option * int option (* server:port *)
-      ]
-  type options =
-      [
-      |`engine of engine
-      |`mountpoint of string list
-      ]
+  type engine = [
+  |`db3
+  |`mongo
+  ]
+
+  type options = {
+    backend : engine
+  }
 
   type 'expr db_constraint =  (** The type of DB constraints as specified by the user. To be extended *)
       (* /!\ this is WIP, and most of it is dummy for now *)
@@ -202,8 +244,48 @@ struct
     | Db_Constraint of path_decl * 'expr db_constraint
     | Db_Virtual of path_decl * 'expr
 
-  let path_kind_to_string = function
-    | Default -> "" | Option -> "?" | Valpath -> "!" | Ref -> "@"
+  let pp = BaseFormat.fprintf
+
+  let rec pp_field fmt = function
+    | t0::((_::_) as q) -> pp fmt "%s.%a" t0 pp_field q
+    | t0::[] -> pp fmt "%s" t0
+    | [] -> pp fmt ""
+
+  let rec pp_update pp_expr fmt = function
+    | UExpr e -> pp fmt "%a" pp_expr e
+    | UFlds fields ->
+        pp fmt "(";
+        List.iter
+          (function (f, u) ->
+             pp fmt "%a %a" pp_field f (pp_update pp_expr) u) fields;
+        pp fmt ")";
+    | UIncr i -> pp fmt "+=%i" i
+    | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
+    | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
+    | UPrepend    expr -> pp fmt "+> %a"  pp_expr expr
+    | UPrependAll expr -> pp fmt "++> %a" pp_expr expr
+    | UPop   -> pp fmt "pop"
+    | UShift -> pp fmt "shift"
+
+  let pp_path_elt pp_expr f =
+    function
+    | FldKey (s) -> pp f "/%s" s
+    | ExprKey e -> pp f "[@[<hv>%a@]]" pp_expr e
+    | NewKey -> pp f "[?]"
+    | Query _ -> pp f "query TODO"
+
+  let pp_path pp_expr f (el, knd) =
+    let pp_el fmt () = pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) el in
+    match knd with
+    | Update u -> pp f "%a <- %a" pp_el () (pp_update pp_expr) u
+    | _ ->
+        pp f "%s%a" (
+          match knd with
+          | Default -> "" | Option -> "?"
+          | Valpath -> "!" | Ref -> "@"
+          | Update _ -> assert false
+        ) pp_el ()
+
   let engine_to_string opt =
     match opt with
     | `db3 s -> "@local(" ^ Option.default "" s ^ ")"
@@ -213,12 +295,10 @@ struct
         let h = Option.default "" h in
         let p = match p with None -> "" | Some p -> ":" ^ string_of_int p in
         "@shared(" ^ h ^ p ^ ")"
-  let options_to_string opts =
-    String.concat_map " "
-      (function
-       | `engine s -> engine_to_string s
-       | `mountpoint _sl -> ""
-      ) opts
+  let options_to_string opt = match opt.backend with
+    | `db3 -> "@db3"
+    | `mongo -> "@mongo"
+
   let path_decl_key_to_string = function
     | Decl_fld s -> "/"^s
     | Decl_int -> "[_]" (* "[]" in qml. This is only valid for default defs. Should be "[int]" once available in OPA *)
@@ -281,6 +361,73 @@ struct
         TU.wrap (fun (p,c) -> Db_Constraint (p,c)) (TU.sub_2 TU.sub_ignore (sub_db_constraint sub_e sub_ty) (p,c))
     | Db_Virtual (p,e) ->
         TU.wrap (fun (p,e) -> Db_Virtual (p,e)) (TU.sub_2 TU.sub_ignore sub_e (p,e))
+
+  let rec sub_db_update sub_e sub_ty = function
+    | (UPop | UShift | UIncr _) as e -> TU.sub_ignore e
+    | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
+    | UAppend     expr -> TU.wrap (fun e -> UAppend e) (sub_e expr)
+    | UAppendAll  expr -> TU.wrap (fun e -> UAppendAll e) (sub_e expr)
+    | UPrepend    expr -> TU.wrap (fun e -> UPrepend e) (sub_e expr)
+    | UPrependAll expr -> TU.wrap (fun e -> UPrependAll e) (sub_e expr)
+    | UFlds fields ->
+        TU.wrap
+          (fun fields -> UFlds fields)
+          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
+
+  let sub_db_kind sub_e sub_ty = function
+    | Default
+    | Option
+    | Valpath
+    | Ref as e -> TU.sub_ignore e
+    | Update update ->
+        TU.wrap (fun u -> Update u) (sub_db_update sub_e sub_ty update)
+
+  let rec sub_db_query sub_e sub_ty = function
+    | QMod  _ as e -> TU.sub_ignore e
+    | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
+    | QGt   e -> TU.wrap (fun e -> QGt e) (sub_e e)
+    | QLt   e -> TU.wrap (fun e -> QLt e) (sub_e e)
+    | QGte  e -> TU.wrap (fun e -> QGte e) (sub_e e)
+    | QLte  e -> TU.wrap (fun e -> QLte e) (sub_e e)
+    | QNe   e -> TU.wrap (fun e -> QNe e) (sub_e e)
+    | QIn   e -> TU.wrap (fun e -> QIn e) (sub_e e)
+    | QOr   (q1, q2) ->
+        TU.wrap
+          (fun (q1,q2) -> QOr (q1,q2))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
+    | QAnd (q1, q2) ->
+        TU.wrap
+          (fun (q1,q2) -> QAnd (q1,q2))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
+    | QNot  q -> TU.wrap (fun e -> QNot e) (sub_db_query sub_e sub_ty q)
+
+    | QFlds flds ->
+        TU.wrap
+          (fun fields -> QFlds fields)
+          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_query sub_e sub_ty)) flds)
+
+  let sub_db_query_options sub_e _sub_ty opt =
+    let (sub_fields: ('a fields, _, _, 'b fields) TU.sub) = fun flds ->
+      TU.wrap
+        (fun fields -> fields)
+        (TU.sub_list (TU.sub_2 TU.sub_ignore sub_e) flds)
+    in
+    TU.wrap
+      (fun (limit, skip, sort) -> {limit; skip; sort})
+      (TU.sub_3 (TU.sub_option sub_e) (TU.sub_option sub_e) (TU.sub_option sub_fields)
+         (opt.limit, opt.skip, (opt.sort : 'expr fields option))
+      )
+
+  let sub_path_elt sub_e sub_ty = function
+    | FldKey _
+    | NewKey as v -> TU.sub_ignore v
+    | ExprKey e -> TU.wrap (fun x -> ExprKey x) (sub_e e)
+    | Query (q, o) ->
+        TU.wrap
+          (fun (q, o) -> Query (q, o))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
+             (q, o)
+          )
 
   let foldmap_expr f acc dbdef =
     let cons, subs = sub_db_def TU.sub_current TU.sub_ignore dbdef in
@@ -919,6 +1066,12 @@ type qml_directive = [
       *)
 ]
 
+type binding_directive = [
+| slicer_directive
+| `async
+| opavalue_directive
+]
+
 (* TODO: remove Coerce form AST and use this instead; same for Parser; maybe others ? *)
 
 and expr =
@@ -934,13 +1087,11 @@ and expr =
   | ExtendRecord   of Annot.label * string * expr * expr
   | Bypass         of Annot.label * BslKey.t
   | Coerce         of Annot.label * expr * ty
-  | Path           of Annot.label * dbpath_expr_elt list * Db.kind
+  | Path           of Annot.label * path * expr Db.kind
   | Directive      of Annot.label * qml_directive * expr list * ty list
 
-and dbpath_expr_elt =
-  | FldKey of string
-  | ExprKey of expr
-  | NewKey
+and path = expr Db.path
+
 (*   | Unpreprocessed of Db.element *)
 
 (** First level of qml *)
@@ -985,7 +1136,7 @@ let comb l x = List.fold_left (fun b f -> f x || b) false l
 
 type code_elt =
   | Database of Annot.label * Ident.t * (** The name of the database*)
-                Db.path_decl * Db.options list
+                Db.path_decl * Db.options
   | NewDbValue  of Annot.label * (expr,ty) Db.db_def
   | NewType     of Annot.label * typedef list
   | NewVal      of Annot.label * (Ident.t * expr) list
@@ -1157,7 +1308,7 @@ let map_code = List.map
 *)
 type ('a, 'b) maped_code_elt =
   | M_Failure of code_elt * (exn * exn list) (** exn list : for NewVal for example *)
-  | M_Database of Ident.t * Db.path_decl * (Db.options list)
+  | M_Database of Ident.t * Db.path_decl * Db.options
   | M_NewDbValue of Db.path_decl * 'a
   | M_DbAlias of Db.path_decl * Db.path_decl
   | M_DbDefault of Db.path_decl

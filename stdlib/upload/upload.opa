@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -165,7 +165,7 @@ Upload = {{
             Resource.source("Upload successful", "text/plain")
         )
     resource = Resource.dynamic(dynamic)
-    upload_url = DynamicResource.publish(resource, config.url_parameters)
+    upload_url = DynamicResource.publish("", resource, config.url_parameters)
     frame_style = css {
       width: 0px;
       height: 0px;

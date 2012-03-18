@@ -1,0 +1,4 @@
+# -*- conf -*- (for emacs)
+
+<**/*.{ml,mli}>: use_buildinfos, use_libbase, use_libqmlcompil, use_libtrx, use_opacapi
+<opa_classic_parser.ml>: use_opacapi

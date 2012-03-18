@@ -126,13 +126,9 @@ struct
   let sub_record_node l = sub_list (sub_2 sub_ignore sub_e) l
   let sub_record r = unannot sub_record_node r
   let sub_pattern x = sub_ignore x
-  let sub_db_elt = function
-    | FldKey _
-    | NewKey as v -> sub_ignore v
-    | ExprKey e -> wrap (fun x -> ExprKey x) (sub_e e)
+  let sub_db_elt x = QmlAst.Db.sub_path_elt sub_e sub_ty x
 
   let sub_db_def x = QmlAst.Db.sub_db_def sub_e sub_ty x
-
 
   (* this part does not depend on the type of identifiers, and so can be used by renaming
    * for uninteresting cases *)
@@ -143,7 +139,7 @@ struct
     | ExtendRecord (r,e) -> wrap extendrecord (sub_2 sub_record_node sub_e (r,e))
     | Dot (e,s) -> wrap dot (sub_2 sub_e sub_ignore (e,s))
     | Bypass b -> wrap bypass (sub_ignore b)
-    | DBPath (a,b) -> wrap dbpath (sub_2 (unannot (sub_list (unannot sub_db_elt))) sub_ignore (a,b))
+    | DBPath (a,b) -> wrap dbpath (sub_2 (unannot (sub_list (unannot sub_db_elt))) (QmlAst.Db.sub_db_kind sub_e sub_ty) (a,b))
     | _ -> assert false
   let sub_expr_node' fd = function
     | Ident _ as e -> sub_ignore e

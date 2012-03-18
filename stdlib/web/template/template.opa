@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -63,7 +63,7 @@
  * my_engine = { Template.empty with
  *   // Parse function. It takes the xmlns, and a xmlns parse which is able to process xmlns into Template.content.
  *   // If the current engine is able to process the current, it should create a Template.content. Otherwise, it should fail.
- *   parse(_conf, {xmlns_parse=_; ~xmlns }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
+ *   parse(_conf, {xmlns_parser=_; ~xmlns }) : outcome(Template.content(either(MyEngine.tag, 'b)), Template.failure) =
  *   match xmlns with
  *   // We check if the node namespace is correct
  *   | { ~tag; namespace="http://response.xsd" ... } ->
@@ -106,33 +106,33 @@
  * the date format as an attribute.
  *
  *  {[
- *   
+ *
  *   // Our engine type
  *   type DateEngine.tag = { date; format:string }
- *   
+ *
  *   default_date_format : string = "%d/%m/%y"
- *   
+ *
  *   date_attribute = "format"
- *   
+ *
  *   // Parse function for date tag. It seeks if a "format" attribute exists and fetch its value.
  *   parse_date_tag(args:Template.args) : DateEngine.tag =
  *     match List.find( { namespace=_; ~name; value=_ } -> name == date_attribute, args) with
  *     | {some = {value=format ... } } -> { date; ~format }
  *     | { none } -> { date; format=default_date_format }
- *   
+ *
  *   // The export to xhtml function
  *   date_html(date_format)=
  *     match Date.try_generate_printer(date_format) with
  *     | { success=date_printer } -> <>{Date.to_formatted_string(date_printer, Date.now())}</>
  *     | { ~failure } -> <>Incorrect date format {failure}</>
- *   
+ *
  *   // The engine implementation.
  *   date_engine = { Template.empty with
  *     parse(_conf, {~xmlns; xmlns_parser=_}) =
  *       match xmlns with
  *       | {tag="date"; ~args; namespace=_; content=_; specific_attributes=_ } -> { success = Template.to_extension(parse_date_tag(args)) }
  *       | _ -> { failure = { unsupported_node=xmlns } }
- *   
+ *
  *    export(content, _) =
  *      match Template.from_extension(content) with
  *      | { none } -> { failure = { unknown_tag = "Expected extension" } }
@@ -165,16 +165,16 @@
  * }
  *
  * {[
- * 
+ *
  *    head_foot_engine : Template.engine(head_foot_tag('a), 'a) = { Template.empty with
  *      // Parse the tag. This time, we put the children passed in argument in the record.
  *      parse(_conf, {~xmlns; ~xmlns_parser} ) =
  *       match xmlns with
- *       | {tag="headfoot"; ~content ... } -> 
+ *       | {tag="headfoot"; ~content ... } ->
  *          children = Template.parse_list_xmlns(content, xmlns_parser)
  *          {success = Template.to_extension( { header_footer; ~children } ) }
  *       | _ -> { failure = { unsupported_node=xmlns } }
- *                           
+ *
  *      // Export the tag in xhtml. The children is already transformed in xhtml and
  *      // provided as an argument. We just need to wrap our child in a header/footer
  *      export(content, child) =
@@ -222,73 +222,38 @@
  *   | { some={header_footer; ~children } } ->
  *     child = Outcome.get(content_exporter(children) )
  *     res = Template.print_tag("headfoot", none, "", false, true, some(child) )
- *     { success = printer(depth)(res) }   
+ *     { success = printer(depth)(res) }
  * }
  * With this, a {[ Template.to_source(head_foot_engine, content) } will be able to print the headfoot tags correctly.
  *
  */
-
-
 Template =
 {{
 
   default_conf = { strict = false ; fallback_to_text_node = true}
 
   @private map_content(translation:('a -> 'b), content:Template.content('a)) : Template.content('b) =
-
     match content with
+    | { ~standard_tag; ~content; ~standard_attribute } -> { ~standard_tag; content=map_content(translation, content); ~standard_attribute}
     | { anchor; ~anchor_attribute; ~content } -> {anchor; ~anchor_attribute; content=map_content(translation, content) }
-    | { div; ~content; ~standard_attribute } -> { div; content=map_content(translation, content); ~standard_attribute}
     | { blockquote; ~content; ~quote_attribute } -> { blockquote; content=map_content(translation, content); ~quote_attribute}
     | { quote; ~content; ~quote_attribute } -> { quote; content=map_content(translation, content); ~quote_attribute}
-    | { address; ~content; ~standard_attribute } -> { address; content=map_content(translation, content); ~standard_attribute}
-    | { acronym; ~content; ~standard_attribute } -> { acronym; content=map_content(translation, content); ~standard_attribute}
-    | { span; ~content; ~standard_attribute } -> { span; content= map_content(translation, content); ~standard_attribute }
     | { ~fragment } -> { fragment = List.map(el -> map_content(translation, el), fragment) }
     | { ~text } -> { ~text }
     | { ~checked_text } -> { ~checked_text }
     | { ~extension } -> { extension = translation(extension) }
     | { br ; ~standard_attribute } -> { br ; ~standard_attribute }
-    | { fieldset ; ~content ; ~standard_attribute } -> { fieldset ; content=map_content(translation, content) ; ~standard_attribute }
     | { form ; ~content ; ~form_attribute } -> { form ; content=map_content(translation, content) ; ~form_attribute }
-    | { h1 ; ~content ; ~standard_attribute } -> { h1 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { h2 ; ~content ; ~standard_attribute } -> { h2 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { h3 ; ~content ; ~standard_attribute } -> { h3 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { h4 ; ~content ; ~standard_attribute } -> { h4 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { h5 ; ~content ; ~standard_attribute } -> { h5 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { h6 ; ~content ; ~standard_attribute } -> { h6 ; content=map_content(translation, content) ; ~standard_attribute }
-    | { del ; ~content ; ~standard_attribute } -> { del ; content=map_content(translation, content) ; ~standard_attribute }
-    | { ins ; ~content ; ~standard_attribute } -> { ins ; content=map_content(translation, content) ; ~standard_attribute }
-    | { abbr ; ~content ; ~standard_attribute } -> { abbr ; content=map_content(translation, content) ; ~standard_attribute }
-    | { dd ; ~content ; ~standard_attribute } -> { dd ; content=map_content(translation, content) ; ~standard_attribute }
-    | { dt ; ~content ; ~standard_attribute } -> { dt ; content=map_content(translation, content) ; ~standard_attribute }
-    | { dl ; ~content ; ~standard_attribute } -> { dl ; content=map_content(translation, content) ; ~standard_attribute }
     | { hr ; ~standard_attribute } -> { hr ; ~standard_attribute }
     | { img ; ~img_attribute } -> { img ; ~img_attribute }
     | { input ; ~input_attribute } -> { input ; ~input_attribute }
     | { label ; ~content ; ~label_attribute } -> { label ; content=map_content(translation, content) ; ~label_attribute }
-    | { legend ; ~content ; ~standard_attribute } -> { legend ; content=map_content(translation, content) ; ~standard_attribute }
-    | { li ; ~content ; ~standard_attribute } -> { li ; content=map_content(translation, content) ; ~standard_attribute }
-    | { ol ; ~content ; ~standard_attribute } -> { ol ; content=map_content(translation, content) ; ~standard_attribute }
     | { optgroup ; ~content ; ~optgroup_attribute } -> { optgroup ; content=map_content(translation, content) ; ~optgroup_attribute }
     | { option ; ~content ; ~option_attribute } -> { option ; content=map_content(translation, content) ; ~option_attribute }
-    | { paragraph ; ~content ; ~standard_attribute } -> { paragraph ; content=map_content(translation, content) ; ~standard_attribute }
-    | { pre ; ~content ; ~standard_attribute } -> { pre ; content=map_content(translation, content) ; ~standard_attribute }
     | { select ; ~content ; ~select_attribute } -> { select ; content=map_content(translation, content) ; ~select_attribute }
-    | { sub ; ~content ; ~standard_attribute } -> { sub ; content=map_content(translation, content) ; ~standard_attribute }
-    | { sup ; ~content ; ~standard_attribute } -> { sup ; content=map_content(translation, content) ; ~standard_attribute }
-    | { table ; ~content ; ~standard_attribute } -> { table ; content=map_content(translation, content) ; ~standard_attribute }
-    | { caption; ~content ; ~standard_attribute } -> { caption ; content=map_content(translation, content) ; ~standard_attribute }
-    | { tbody ; ~content ; ~standard_attribute } -> { tbody ; content=map_content(translation, content) ; ~standard_attribute }
     | { td ; ~content ; ~td_attribute } -> { td ; content=map_content(translation, content) ; ~td_attribute }
     | { textarea ; ~content ; ~textarea_attribute } -> { textarea ; content=map_content(translation, content) ; ~textarea_attribute }
-    | { tfoot ; ~content ; ~standard_attribute } -> { tfoot ; content=map_content(translation, content) ; ~standard_attribute }
     | { th ; ~content ; ~th_attribute } -> { th ; content=map_content(translation, content) ; ~th_attribute }
-    | { thead ; ~content ; ~standard_attribute } -> { thead ; content=map_content(translation, content) ; ~standard_attribute }
-    | { tr ; ~content ; ~standard_attribute } -> { tr ; content=map_content(translation, content) ; ~standard_attribute }
-    | { ul ; ~content ; ~standard_attribute } -> { ul ; content=map_content(translation, content) ; ~standard_attribute }
-    | { menu ; ~content ; ~standard_attribute } -> { menu ; content=map_content(translation, content) ; ~standard_attribute }
-    | { open ; ~content; ~standard_attribute } -> { open ; content=map_content(translation, content); ~standard_attribute }
     | { link ; ~link_attribute } -> { link; ~link_attribute }
     | { head ; ~content } -> { head ; content=map_content(translation, content) }
     | { ~title } -> { ~title }
@@ -364,9 +329,9 @@ Template =
    */
   try_parse_with_conf(conf:Template.conf, engine:Template.engine('a, 'b), input:string) : outcome(Template.content(either('a, 'b)), Template.failure ) =
   (
-    remove_span(content:Template.content(either('a, 'b) ) ) =
+    remove_span(content:Template.content(either('a, 'b))) =
       match content with
-      | { span; ~content  ... } -> content
+      | { standard_tag={span}; ~content  ... } -> content
       | _ -> @fail
 
     match Xmlm.try_parse(input) with

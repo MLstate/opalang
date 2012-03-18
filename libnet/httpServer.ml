@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -38,6 +38,12 @@ let sprintf = Printf.sprintf
 type request = HST.request
 
 let make_status = HSC.make_status
+
+let remote_logs_params = ref None
+
+(* Warning: it only returns the last defined remote-logs server option *)
+(* TODO: getter for a specific http server name *)
+let get_remote_logs_params() = !remote_logs_params
 
 (* Private tools *)
 
@@ -132,7 +138,7 @@ let m2 =
     (fun () ->
        let mime_types_file_content =
          try
-           let res = File.content ((Lazy.force File.mlstate_dir)^"/.mime.types") in
+           let res = "./mime.types" (* File.content ((Lazy.force File.mlstate_dir)^"/.mime.types")  *)in
            Logger.info "Loaded .mime.types file";
            res
          with Unix.Unix_error _ -> "" in
@@ -215,8 +221,8 @@ let str_of_result = function
   | _ -> "<html><head><title>Error</title></head><body>Error.</body></html>"
 
 let make_response_with_headers ?(modified_since=None) ?(compression_level=6)
-        ?(cache_response=true) ?(delcookies=false) ?req
-        headers_out status_line _type content =
+    ?(cache_response=true) ?(delcookies=false) ?req
+    headers_out status_line _type content cont =
   #<If$minlevel 20>Logger.debug "make_response"#<End>;
   let code = Rd.status_code status_line in
   let reason = Rd.reason_phrase code in
@@ -231,20 +237,22 @@ let make_response_with_headers ?(modified_since=None) ?(compression_level=6)
                    req.HST.request_header,
                    (match req.HST.request_line.HST._method with HSCp.Head _ -> false | _ -> true))
     | _ -> (Scheduler.default,None,"",[],true) in
-  let processed =
-    HSCm.process_content_with_headers sched ~modified_since ~compression_level
-      ~cache_response ~_delcookies:delcookies ~_type hr_opt uri
-      (Rc.ContentString content) headers_in headers_out include_body
-  in match processed with
-    Some (headers_out,body,len) -> {
-        HST.sl = sl;
-        HST.headers = HSCp.Content_Length len :: headers_out;
-        HST.body = body;
-      }
-  | None -> _not_modified ()
+  HSCm.process_content_with_headers sched ~modified_since ~compression_level
+    ~cache_response ~_delcookies:delcookies ~_type hr_opt uri
+    (Rc.ContentString content) headers_in headers_out include_body
+    (function processed ->
+       let r =
+         match processed with
+           Some (headers_out,body,len) -> {
+             HST.sl = sl;
+             HST.headers = HSCp.Content_Length len :: headers_out;
+             HST.body = body;
+           }
+         | None -> _not_modified ()
+       in cont r)
 
 let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero) ?(cache=true)
-                  ?(delcookies=false) ?location ?req status_line _type ?content_dispo content =
+    ?(delcookies=false) ?location ?req status_line _type ?content_dispo content cont =
   #<If$minlevel 20>Logger.debug "make_response"#<End>;
   let code = Rd.status_code status_line in
   let reason = Rd.reason_phrase code in
@@ -259,15 +267,19 @@ let make_response ?(modified_since=None) ?(compression_level=6) ?(cache_response
                    req.HST.request_header,
                    (match req.HST.request_line.HST._method with HSCp.Head _ -> false | _ -> true))
     | _ -> (Scheduler.default,None,"",[],true) in
-  match HSCm.process_content sched ~modified_since ~compression_level ~cache_response ~expires
-                                   ~cache ~_delcookies:delcookies ~_type ?content_dispo
-                        hr_opt uri (Rc.ContentString content) headers_in include_body with
-    Some (headers_out,body,len) ->
-      let headers_out = match location with
-        | Some url -> (HSCp.Location url)::headers_out
-        | None -> headers_out in
-      { HST.sl = sl; HST.headers = HSCp.Content_Length len::headers_out; HST.body = body }
-  | None -> _not_modified ()
+  HSCm.process_content sched ~modified_since ~compression_level ~cache_response ~expires
+    ~cache ~_delcookies:delcookies ~_type ?content_dispo
+    hr_opt uri (Rc.ContentString content) headers_in include_body (
+      function e ->
+        let r = match e with
+            Some (headers_out,body,len) ->
+              let headers_out = match location with
+                | Some url -> (HSCp.Location url)::headers_out
+                | None -> headers_out in
+              { HST.sl = sl; HST.headers = HSCp.Content_Length len::headers_out; HST.body = body }
+          | None -> _not_modified ()
+        in cont r
+    )
 
 let make_response_result ?(modified_since=None) ?(compression_level=6) ?(cache_response=true) ?(expires=Time.zero)
     ?(cache=true) ?(delcookies=false) ?location ?req status _type ?content_dispo content =
@@ -383,11 +395,13 @@ let post_headers hr request_type headers_in headers_out =
 
 let handle_special sched _runtime _method hr body_value headers _conn k =
   let include_body = match _method with HSCp.Head _ -> false | _ -> true in
-  match HSCm.get_body_from_value sched hr body_value headers include_body with
-    Some (ceheader,body,len) ->
-      k { HST.sl=HSCp.Sl ("1.0", 200, "OK"); headers=[HSCp.Content_Length len]@ceheader; body=body }
-  | None ->
-      k (_not_modified ())
+  HSCm.get_body_from_value sched hr body_value headers include_body (
+    function res -> match res with
+    | Some (ceheader,body,len) ->
+        k { HST.sl=HSCp.Sl ("1.0", 200, "OK"); headers=[HSCp.Content_Length len]@ceheader; body=body }
+    | None ->
+        k (_not_modified ())
+  )
 
 let handle_get sched runtime _method hr (uri, headers) conn k =
   #<If>Logger.debug "handle_get: uri=%s" uri#<End>;
@@ -486,6 +500,7 @@ type options =
       cachetype : string;
       server_send_buffer_size: int;
       cookie_gc_period: int;
+      cookie_accept_client_values: bool;
       cookie_pool_size_min: int;
       cookie_pool_size_max: int;
       cookie_timer_interval: int;
@@ -500,6 +515,7 @@ type options =
       maximum_number_of_connections: int;
       maximum_content_length: int;
       maximum_number_of_headers: int;
+      remote_logs: HST.remote_logs option;
       favicon_ico: HSC.body_value;
       favicon_gif: HSC.body_value;
       backtrace: bool;
@@ -572,6 +588,7 @@ let default_options =
     cachetype = "public";
     server_send_buffer_size = 1024;
     cookie_gc_period = 100;
+    cookie_accept_client_values = false;
     cookie_pool_size_min = 100;
     cookie_pool_size_max = 10000;
     cookie_timer_interval = 1;
@@ -586,6 +603,7 @@ let default_options =
     maximum_number_of_connections = max_int;
     maximum_content_length = (50*1024*1024);
     maximum_number_of_headers = 200;
+    remote_logs = None;
     favicon_ico = null_body_value (*(body_value_from_home ~log:true ".favicon.ico")*);
     favicon_gif = null_body_value (*(body_value_from_home ~log:true ".favicon.gif")*);
     backtrace = true;
@@ -675,6 +693,10 @@ let spec_args name =
     ServerArg.func ServerArg.int (fun o i -> { o with cookie_gc_period = i }),
     "<int>", (sprintf "Cookie GC period in requests (default: %d)" default_options.cookie_gc_period);
 
+    p"cookie-accept-client-values",
+    ServerArg.func ServerArg.unit (fun o () -> { o with cookie_accept_client_values = true }),
+    "", (sprintf "WARNING: Only with long cookies. Accept cookie values provided by the client instead of generating new one when they aren't found on the server cookie table (default: %b)" default_options.cookie_accept_client_values);
+
     p"cookie-pool-size-min",
     ServerArg.func ServerArg.int (fun o i -> { o with cookie_pool_size_min = i }),
     "<int>", (sprintf "Cookie pool size minimum (default: %d)" default_options.cookie_pool_size_min);
@@ -721,6 +743,21 @@ let spec_args name =
     ServerArg.func ServerArg.float (fun o f -> { o with server_write_timeout = Time.seconds_float f }),
     "<float>", (sprintf "Timeout while writing data (default: %6.1f)" (Time.in_seconds default_options.server_write_timeout));
 
+    p"remote-logs",
+    ServerArg.func ServerArg.string (fun o s ->
+       try
+         let (hostname,port_appkey) = Base.String.split_char ':' s in
+         let (port,appkey) = Base.String.split_char '/' port_appkey in
+         let port = int_of_string port in
+         let remote_logs = Some {HST.hostname=hostname; HST.port=port; HST.appkey=appkey} in
+         remote_logs_params := remote_logs;
+         {o with remote_logs = remote_logs}
+       with
+       | Not_found -> let _ = prerr_endline ("Bad option \""^s^"\" for --remote-logs") in o
+       | Failure s -> let _ = prerr_endline ("Invalid port for --remote-logs."^s) in o
+        ),
+    "<hostname:port/appkey>", "Log access to a remote server (WARNING: this is experimental) (default: no log server).";
+
     (*(p"max-connections")@["-C"],
     ServerArg.func ServerArg.int (fun o i -> { o with maximum_number_of_connections = i }),
     "<int>", "Maximum number of active server connections (default: 100)";*)
@@ -732,14 +769,6 @@ let spec_args name =
     p"maximum-number-of-headers",
     ServerArg.func ServerArg.int (fun o i -> { o with maximum_number_of_headers = i }),
     "<int>", (sprintf "Maximum number of request headers (default: %d)" default_options.maximum_number_of_headers);
-
-    p"favicon-ico",
-    ServerArg.func ServerArg.string (fun o s -> { o with favicon_ico = body_value_from_file ~log:true s }),
-    "<string>", (sprintf "Favicon.ico file (default: %s)" (bv_file default_options.favicon_ico));
-
-    p"favicon-gif",
-    ServerArg.func ServerArg.string (fun o s -> { o with favicon_gif = body_value_from_file ~log:true s }),
-    "<string>", (sprintf "Favicon.gif file (default: %s)" (bv_file default_options.favicon_gif));
 
     p"no-print-log-info",
     ServerArg.func ServerArg.unit (fun o () -> { o with print_log_info = false }),
@@ -831,6 +860,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   HSCm.use_long_cookies := opt.long_cookies;
   (if !HSCm.use_long_cookies then CookieLong.init_cookies else Cookie2.init_cookies)
     ~sched ~gc_period:opt.cookie_gc_period
+    ~accept_client_values:opt.cookie_accept_client_values
     ~pool_min:opt.cookie_pool_size_min
     ~pool_max:opt.cookie_pool_size_max
     ~timer_interval:opt.cookie_timer_interval
@@ -865,6 +895,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
         rt_maximum_content_length = opt.maximum_content_length;
         rt_maximum_number_of_headers = opt.maximum_number_of_headers;
         rt_log_accesses = (!log_accesses);
+        rt_remote_logs = opt.remote_logs;
         rt_time_diff = !(HST.time_diff);
         rt_plim = 128;
       };

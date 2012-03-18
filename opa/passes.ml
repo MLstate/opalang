@@ -324,9 +324,10 @@ let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
       let updated =
         StringMap.fold
           (fun k v updated ->
-             match QmlRenamingMap.new_from_original_opt renaming v with
-             | None -> updated
-             | Some r -> StringMap.add k r updated
+             let v = List.filter_map (QmlRenamingMap.new_from_original_opt renaming) v in
+             match  v with
+             | [] -> updated
+             | r -> StringMap.add k r updated
 
           )
           map_before StringMap.empty
@@ -490,12 +491,16 @@ let pass_DbAccessorsGeneration ~options:(_ : opa_options) env =
     let map =
       OpaMapToIdent.fold_val_map
         (fun k v map ->
-           IdentMap.add (Ident.source k) v map)
+           match v with
+           | [] -> map
+           | v::_ -> IdentMap.add (Ident.source k) v map)
         IdentMap.empty in
     let revmap =
       OpaMapToIdent.fold_val_map
         (fun k v revmap ->
-           IdentMap.add v (Ident.source k) revmap)
+           List.fold_left
+             (fun revmap v -> IdentMap.add v (Ident.source k) revmap)
+             revmap v)
         IdentMap.empty in
     Some (QmlAlphaConv.create_from_maps ~map:map ~revmap:revmap)
   in

@@ -34,7 +34,7 @@ module R = ObjectFiles.Make(S)
 let process_code register typerEnv code =
   let new_gamma = QmlTypes.Env.empty in
   let gamma = typerEnv.QmlTypes.gamma in
-  let gamma =
+  let (gamma, stdlib) =
     (* during pre_linking, the whole gamma is loaded
        because dbGen loads the whole database schema *)
     let options_packages = ObjectFiles.compilation_mode() = `init in
@@ -45,10 +45,14 @@ let process_code register typerEnv code =
                   * when u is defined in another package saying type u = v
                   * when v is defined in another package etc.
                   *)
-      (fun package acc_gamma gamma ->
+      (fun package (acc_gamma, acc_stdlib) gamma ->
          let gamma = QmlRefresh.refresh_gamma package gamma in
-         QmlTypes.Env.append acc_gamma gamma)
-      gamma in
+         let stdlib =
+           if ObjectFiles.compiler_package package then
+             QmlTypes.Env.append acc_stdlib gamma
+           else acc_stdlib
+         in (QmlTypes.Env.append acc_gamma gamma, stdlib))
+      (gamma, QmlTypes.Env.empty) in
   let typerEnv = { typerEnv with QmlTypes.gamma = gamma } in
   (* Rgeister fields declared on [ty] *)
   let rec register_type ty =
@@ -80,4 +84,4 @@ let process_code register typerEnv code =
     List.fold_left_filter_map
       aux (Q.TypeIdentSet.empty,new_gamma,typerEnv) code in
   R.save new_gamma ;
-  (local_typedefs, typerEnv, code)
+  (local_typedefs, typerEnv, code, stdlib)

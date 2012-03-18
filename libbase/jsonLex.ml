@@ -29,7 +29,7 @@ let regexp t_blank = [' ' '\t' '\n' '\r']
 
 let regexp t_digit = ['0'-'9']
 let regexp t_digits = t_digit+
-let regexp t_int = '0'| '-'? ['1'-'9'] t_digit*
+let regexp t_int = '0'| '-''0' | '-'? ['1'-'9'] t_digit*
 let regexp t_frac = "." t_digits
 let regexp t_e = ("e"|"E") ("+"|"-")?
 let regexp t_exp = t_e t_digits

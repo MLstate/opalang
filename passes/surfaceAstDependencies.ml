@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -59,7 +59,7 @@ module Parser_utils = OpaParserUtils
 (* depends *)
 module List = BaseList
 module String = BaseString
-
+module DbAst = QmlAst.Db
 
 (* TODO remove *)
 open SurfaceAst
@@ -68,6 +68,7 @@ open SurfaceAst
 module SAH = SurfaceAstHelper
 module C = SurfaceAstCons.ExprIdentCons
 module D = SurfaceAstDecons
+
 let copy_label = Parser_utils.copy_label
 
 let (|>) = InfixOperator.(|>)
@@ -164,7 +165,7 @@ let merge_dep_contexts = merge_contexts merge_dep_other empty_dep_context
 
 let db_root_of_path l =
   match l with
-    | (QmlAst.Db.Decl_fld s) :: _ -> s
+    | (DbAst.Decl_fld s) :: _ -> s
     | _ -> assert false
 
 let directive_dependencies filter acc v =
@@ -223,13 +224,13 @@ let get_expr_dep_context ?filter e =
               | None ->
                   List.fold_left (fun acc (p,_) -> get_pat_dep_context acc p) acc pel
               | Some _ -> acc)
-         | DBPath (dbelt, _)->
+         | DBPath (dbelt, _) ->
              let acc = Option.if_none filter (add_database acc) acc in
              (* taking the first elt of the path *)
              ( match (fst (List.hd (fst dbelt))) with
-               | FldKey s -> Option.if_none filter (add_root s acc) acc
-               | NewKey
-               | ExprKey _ ->
+               | DbAst.FldKey s -> Option.if_none filter (add_root s acc) acc
+               | DbAst.NewKey
+               | DbAst.ExprKey _ | DbAst.Query _ ->
                    (* not possible, see the parser *)
                    assert false
              )
@@ -276,21 +277,21 @@ let get_code_elt_dep_context (code_elt_node, _label) =
   match code_elt_node with
     | Database _ ->
         empty_dep_context
-    | NewDbDef (QmlAst.Db.Db_TypeDecl ([_], ty)) ->
+    | NewDbDef (DbAst.Db_TypeDecl ([_], ty)) ->
         (* db /map does not depend on /map, it defines it
          * on the other hand, db /map[_] = 2 does depend
          *)
         { empty_dep_context with
             types = OpaWalk.Type.get_typenames ty }
-    | NewDbDef (QmlAst.Db.Db_TypeDecl (sl, ty)) ->
+    | NewDbDef (DbAst.Db_TypeDecl (sl, ty)) ->
         { empty_dep_context with
             db_roots = [db_root_of_path sl];
             types = OpaWalk.Type.get_typenames ty }
-    | NewDbDef (QmlAst.Db.Db_Default (p, _)
-                   | QmlAst.Db.Db_Constraint (p, _)
-                   | QmlAst.Db.Db_Alias (_, p)
-                   | QmlAst.Db.Db_Virtual (p, _) as db_def) ->
-        fst(QmlAst.Db.foldmap_expr
+    | NewDbDef (DbAst.Db_Default (p, _)
+                   | DbAst.Db_Constraint (p, _)
+                   | DbAst.Db_Alias (_, p)
+                   | DbAst.Db_Virtual (p, _) as db_def) ->
+        fst(DbAst.foldmap_expr
               (fun dep_context e -> merge_dep_context (get_expr_dep_context e) dep_context, e)
               {empty_dep_context with db_roots = [db_root_of_path p]}
               db_def)
@@ -323,7 +324,7 @@ let get_code_elt_api_context ((code_elt_node, _label) as code_elt) =
   match code_elt_node with
     | Database (ident,_,_) ->
         {empty_api_context with vals = [(ident,None)]}
-    | NewDbDef (QmlAst.Db.Db_TypeDecl (p, _)) ->
+    | NewDbDef (DbAst.Db_TypeDecl (p, _)) ->
         (* all the [db /map/...] define the root '/map'
          * or else in [ db /map/a : string
          *              db /map/b : string ], '/map' is never defined
@@ -615,10 +616,9 @@ let extract_field_ident_expr_from_module e =
   let reannotate = OpaToQml.propagate_slicer_annotation e in
   let e, acc, coercer =
     D.FoldContext.letin
-      ~through:[D.Context.Basic.slicer_directive;
-                D.Context.Basic.opacapi;
+      ~through:[D.Context.Basic.binding_directive;
                 D.Context.Basic.coerce;
-                D.Context.Basic.doctype] e in
+               ] e in
   let acc = List.map (fun (i,e) -> (i, reannotate e)) acc in
   match e with
     | (Directive (`module_, [(Record l,label_record)], b),c) ->
@@ -647,7 +647,8 @@ let extract_field_ident_expr_from_module e =
    gives a mapping from field to the ident bound to its content
    (see comment above for more details)
 *)
-let is_private e = D.Look.private_ ~through:[D.Remove.Basic.doctype; D.Remove.Basic.opacapi; D.Remove.Basic.slicer_directive] e
+let is_private e = D.Look.private_
+  ~through:[D.Remove.Basic.binding_directive] e
 type access =
   | Possible (* normal module field *)
   | Forbidden (* field tagged as private *)
@@ -744,10 +745,10 @@ let rewrite_path map e =
 
 let rec remove_access_directive e =
   match e with
-  | (Directive ((`doctype _ | #distribution_directive as variant), [e], b), c) ->
-      (Directive (variant, [remove_access_directive e], b), c)
   | (Directive (#access_directive, [e], _),_) ->
-      e
+      remove_access_directive e
+  | (Directive ((`doctype _ | #binding_directive as variant), [e], b), c) ->
+      (Directive (variant, [remove_access_directive e], b), c)
   | _ -> e
   (*if D.Look.access_directive ~through:[D.Remove.Basic.doctype] e then
     let e, rebuild =

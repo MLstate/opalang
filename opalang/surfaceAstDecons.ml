@@ -65,6 +65,10 @@ struct
       | (Directive (`async, [e], _),_) -> e
       | (Directive (`async, _, _),_) -> assert false
       | e -> e
+    let binding_directive = function
+      | (Directive (#binding_directive, [e], _),_) -> e
+      | (Directive (#binding_directive, _, _),_) -> assert false
+      | e -> e
     let coerce = function
       | (Directive (`coerce,[e],_),_) -> e
       | (Directive (`coerce,_,_),_) -> assert false
@@ -214,6 +218,11 @@ struct
       | (Directive (#distribution_directive as v,[e],b),c) ->
           e,  (fun e -> (Directive (v,[e],b),c))
       | (Directive (#distribution_directive,_,_),_) -> assert false
+      | e -> e, identity
+    let binding_directive = function
+      | (Directive (#binding_directive as v,[e],b),c) ->
+          e,  (fun e -> (Directive (v,[e],b),c))
+      | (Directive (#binding_directive,_,_),_) -> assert false
       | e -> e, identity
     let side_annotation = function
       | (Directive (`side_annotation _ as v,[e],b),c) ->

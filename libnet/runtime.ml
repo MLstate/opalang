@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,6 +23,7 @@
 
 module P = RuntimeType.Ports
 module D = RuntimeType.Description
+module SA = ServerArg
 
 let make_application (type options) name opt comp =
   let module Comp = (val comp : RuntimeSig.COMPONENT with type options = options) in
@@ -49,8 +50,8 @@ let make_application (type options) name opt comp =
           comp
 
         let get_options () =
-          let parse = ServerArg.make_parser full_name (Comp.spec_args name) in
-          ServerArg.filter (opt:Comp.options) parse
+          let parse = SA.make_parser full_name (Comp.spec_args name) in
+          SA.filter (opt:Comp.options) parse
 
         let run = Comp.run
         let close = Comp.close
@@ -111,20 +112,28 @@ let add_watchdog = add_component (module Watchdog : RuntimeSig.COMPONENT with ty
 
 let start () =
   let sched = Scheduler.default in
-  let run, close =
+  let get_fun =
     match !app with
-    | None -> (fun _ -> ()), (fun _ -> ())
+    | None -> fun () -> (fun _ -> ()), (fun _ -> ())
     | Some a ->
         let module App = (val a : RuntimeSig.APPLICATION) in
         let options = App.get_options () in
-        let args = (ServerArg.get_argv ()) in
-        if List.mem "--help" (ServerArg.to_list args) then exit 0;
-        let app = App.make options sched in
-        RuntimeType.Ports.init sched;
-        let run () = let _ = App.run app sched in () in
-        let close () = App.close app sched in
-        run, close
+        fun () ->
+          begin
+            let app = App.make options sched in
+            RuntimeType.Ports.init sched;
+            (fun () -> let _ = App.run app sched in ()),
+            (fun () -> App.close app sched)
+          end
   in
+  let args = (SA.get_argv ()) in
+  if List.mem "--help" (SA.to_list args) then exit 0;
+  if not (SA.is_empty args) then begin
+    Printf.eprintf "Unknown option `%s'." (SA.argv_to_string ());
+    Printf.eprintf "Try `--help' for more information.";
+    exit 1;
+  end;
+  let run, close = get_fun () in
   run ();
   Scheduler.run sched;
   close ()

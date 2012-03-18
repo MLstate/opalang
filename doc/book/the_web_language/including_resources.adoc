@@ -24,6 +24,7 @@ The two typical scenarios are embedding one resource:
 ----------------------------------------------------------------
 handler = parser
   | "/favicon.ico"  -> @static_resource("img/favicon.ico")
+  | "/favicon.gif"  -> @static_resource("img/favicon.gif")
 ----------------------------------------------------------------
 
 and embedding many resources:

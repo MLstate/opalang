@@ -175,6 +175,9 @@ function normalize_num() {
     error("normalize_num not implemented")
 }
 
+// FIXME: BUGGY, does not handle special opa fields...
+function record2obj(x) { return x; }
+
 function extendrecord() {
     // WONT BE IMPLEMENTED or change the name
     error("extendrecord not implemented")

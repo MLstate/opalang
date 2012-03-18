@@ -18,10 +18,9 @@
 (**
    A family of pretty-printers for the OPA AST.
 *)
-
 type 'ident printer =
   <
-  code : 'dir. ('ident, [< SurfaceAst.all_directives ] as 'dir) SurfaceAst.code LangPrint.pprinter;
+    code : 'dir. ('ident, [< SurfaceAst.all_directives ] as 'dir) SurfaceAst.code LangPrint.pprinter;
   code_elt : 'dir. ('ident, [< SurfaceAst.all_directives ] as 'dir) SurfaceAst.code_elt LangPrint.pprinter;
   code_elt_node : 'dir. ('ident, [< SurfaceAst.all_directives ] as 'dir) SurfaceAst.code_elt_node LangPrint.pprinter;
   expr : 'dir. ('ident, [< SurfaceAst.all_directives ] as 'dir) SurfaceAst.expr LangPrint.pprinter;
@@ -31,7 +30,21 @@ type 'ident printer =
   typevar : 'ident SurfaceAst.typevar LangPrint.pprinter;
   typeident : 'ident SurfaceAst.typeident LangPrint.pprinter;
   ident : 'ident LangPrint.pprinter;
+  keyword : string -> bool
   >
+
+module type Familly = sig
+  val string : string printer
+  val string_and_pos : string printer
+  val ident : Ident.t printer
+  val readable_ident : Ident.t printer
+  val full_ident : Ident.t printer
+end
+
+val makeFamilly : OpaSyntax.t -> (module Familly)
+
+val getDefaultFamilly : unit -> (module Familly)
+
 
 val string : string printer
 val string_and_pos : string printer

@@ -29,10 +29,10 @@
     document.title = str;
   }
 
-##register reload : -> void
-  ##args()
+##register reload : bool -> void
+  ##args(forceget)
   {
-    location.reload();
+    location.reload(forceget);
   }
 
 ##register jump : string -> void

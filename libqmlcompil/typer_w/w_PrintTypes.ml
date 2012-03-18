@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,7 +23,6 @@
 
 (* depends *)
 module Format = Base.Format
-
 
 
 let type_variables_counter = ref 0
@@ -119,6 +118,47 @@ let create_column_variable_name _is_generalized =
   incr column_variables_counter ;
   name
 
+
+(* ************************************************************************** *)
+(** {b Descr}: Function that prepares the final pretty-printing of a sequence of
+    [simple_type]. Since we allows several type definition with the same
+    original ident (but different package) we should print type name with their
+    packages if several name from different packages will be printed.
+    {b Visibility}: Exported outside this module.  *)
+(* ************************************************************************** *)
+let original_ident = Hashtbl.create 16
+
+let pp_simple_type_prepare_sequence tys =
+  List.iter
+    (fun ty ->
+       let rec aux ty =
+         match ty.W_Algebra.sty_desc with
+         | W_Algebra.SType_var _ -> ()
+         | W_Algebra.SType_arrow (args, bd) ->
+             List.iter aux args; aux bd
+         | W_Algebra.SType_named n ->
+             begin try
+               Hashtbl.add original_ident (Ident.original_name n.W_Algebra.nst_name)
+                 (Ident.get_package_name n.W_Algebra.nst_name)
+             with _ -> () end
+         | W_Algebra.SType_sum_of_records {W_Algebra.ct_value = (ct, _)} ->
+             List.iter
+               (function {W_Algebra.rt_value = (rt, _)} -> List.iter (fun (_, st) -> aux st) rt)
+               ct
+         | W_Algebra.SType_forall tsh ->
+             List.iter aux tsh.W_Algebra.ty_parameters;
+             aux tsh.W_Algebra.body
+       in aux ty
+    ) tys
+
+let pp_type_ident fmt ident =
+  let o = (Ident.original_name ident) in
+  match BaseList.uniq (Hashtbl.find_all original_ident o) with
+  | [] | [_] -> Format.fprintf fmt "%s" o
+  | _l ->
+      try
+        Format.fprintf fmt "%s from package %s" o (Ident.get_package_name ident)
+      with _ -> Format.fprintf fmt "%s" o
 
 
 (* ************************************************************************** *)
@@ -502,8 +542,7 @@ let rec __pp_simple_type prio ppf ty =
                                   W_Algebra.nst_args = args ;
                                   W_Algebra.nst_unwinded = _manifest } ->
             (* We never print the real representation of a named type. *)
-            Format.fprintf ppf "%s@,"
-              (QmlAst.TypeIdent.to_printable_string name) ;
+            Format.fprintf ppf "%a@," pp_type_ident name;
             (* Only if there are parameters to the type constructor, print them
                separated by a comma and enclosed between parentheses. Since
                arguments of the constructor are always enclosed by parens,
@@ -759,7 +798,7 @@ let __explain_simple_type_abbrev prio ppf abbreved_ty =
                                 W_Algebra.nst_args = args ;
                                 W_Algebra.nst_unwinded = _manifest } ->
           (* We never print the real representation of a named type. *)
-          Format.fprintf ppf "%s" (QmlAst.TypeIdent.to_printable_string name) ;
+          Format.fprintf ppf "%a" pp_type_ident name ;
           (* Only if there are parameters to the type constructor, print them
              separated by a comma and enclosed between parentheses. Since
              arguments of the constructor are always enclosed by parens,
@@ -837,7 +876,6 @@ let pp_simple_type ppf ty =
   tys_to_reprint_if_sequence := [] ;
   row_vars_to_reprint_if_sequence := [] ;
   col_vars_to_reprint_if_sequence := []
-
 
 
 let (pp_simple_type_start_sequence, pp_simple_type_continue_sequence,

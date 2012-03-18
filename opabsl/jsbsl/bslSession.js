@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -60,7 +60,7 @@ var LowLevelPingLoop = {};
     }
     /**
      * Set the page number of this client ([page_server] is inserted by
-     * the server on S3)
+     * the server)
      */
     var page_index = -1;
     if (typeof(page_server) != 'undefined') {
@@ -83,8 +83,9 @@ var LowLevelPingLoop = {};
     var internal_url = base_url_client+"/_internal_/"+page_index;
 
     var async_rpc_return = true;
-    /* If client is dumb, we must force rpc to be synchronous */
-    if (!command_line_execution && 'safari' in jQuery.browser){
+    /* If client is safari, we must force rpc to be synchronous */
+    var hack = typeof(desactivate_safari_hack) == 'undefined' || !desactivate_safari_hack
+    if (hack && !command_line_execution && 'safari' in jQuery.browser){
         async_rpc_return = !jQuery.browser.safari;
     }
 
@@ -405,19 +406,11 @@ var LowLevelPingLoop = {};
     /* ************************************************** */
     /* Distant Channel ********************************** */
     /**
-     * A common ancestor for [ServerChannel] and [CousinChannel]
+     * A common prototype for [ServerChannel] and [ClientChannel]
      *
      * @constructor
      */
-    function DistantChannel()
-    {
-    }
-    DistantChannel.prototype = {
-        message_to_post: function(message){
-            var ser = this.serialize();
-            return {to:ser,
-                    message:message};
-        },
+    var distantChannelPrototype = {
 
         /**
          * Send a message along this channel
@@ -459,6 +452,12 @@ var LowLevelPingLoop = {};
         }
         #<End>
     }
+
+    distantChannelPrototype.message_to_post = function(message){
+        return { to: this.serialize(),
+                 message: message };
+    };
+
 
 
     /* ************************************************** */
@@ -518,11 +517,11 @@ var LowLevelPingLoop = {};
          * @param msg The message, unserialized
          * @param ctx Ignored
          */
-        send: DistantChannel.prototype.send,
+        send: distantChannelPrototype.send,
 
-        call_no_cps: DistantChannel.prototype.call_no_cps,
+        call_no_cps: distantChannelPrototype.call_no_cps,
 
-        message_to_post: DistantChannel.prototype.message_to_post
+        message_to_post: distantChannelPrototype.message_to_post
 
     }
 
@@ -581,13 +580,13 @@ var LowLevelPingLoop = {};
          * @param The message, unserialized
          * @param ctx Ignored
          */
-        send: DistantChannel.prototype.send,
+        send: distantChannelPrototype.send,
 
         call_no_cps: function(){
             throw Error("Not yet implemented");
         },
 
-        message_to_post: DistantChannel.prototype.message_to_post
+        message_to_post: distantChannelPrototype.message_to_post
 
     }
 

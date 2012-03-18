@@ -1,2 +1,2 @@
 cmap.o
-rusage.o
+memory.o

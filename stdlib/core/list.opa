@@ -26,6 +26,24 @@
  */
 
 /**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * The type of lists
+ * @param 'a The type of list elements
+ *
+ * {[{nil}} The empty list. As a syntactic shortcut, you can also write [[]].
+ * {[{ hd ; tl }} A list with at least one element.
+ * You can write equivalently [[1,2,3]] or
+ * [ {hd = 1 ; tl = {hd = 2 ; tl = {hd = 3 ; tl = {nil} } } } ]
+**/
+@opacapi
+type list('a) =
+   { nil }
+ / { hd : 'a ; tl : list('a) }
+
+/**
  * {1 About this module}
  *
  * This module defines lists (also known as "linked lists"), an immutable data structure meant
@@ -69,25 +87,6 @@
  * or if you frequently need to access the [n]th element. For this purpose, you should rather use module
  * [Array].
  */
-
-/**
- * {1 Types defined in this module}
- */
-
-/**
- * The type of lists
- * @param 'a The type of list elements
- *
- * {[{nil}} The empty list. As a syntactic shortcut, you can also write [[]].
- * {[{ hd ; tl }} A list with at least one element.
- * You can write equivalently [[1,2,3]] or
- * [ {hd = 1 ; tl = {hd = 2 ; tl = {hd = 3 ; tl = {nil} } } } ]
-**/
-@opacapi
-type list('a) =
-   { nil }
- / { hd : 'a ; tl : list('a) }
-
 List = {{
 
   /**
@@ -479,7 +478,7 @@ List = {{
    *
    * [
    *   is_even(x) = x mod 2 == 0
-   *   partition(is_odd, [1,2,3,4,5,6,7,8])
+   *   partition(is_even, [1,2,3,4,5,6,7,8])
    * ] returns [([2,4,6,8], [1,3,5,7])]
    *
    * @param f A function deciding in which lists elements will end. Items for which

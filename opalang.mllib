@@ -12,8 +12,10 @@ opalang/OpaError
 opalang/OpaCheck
 opalang/OpaParser
 opalang/OpaParserUtils
-opalang/syntax/Opa_parser
-opalang/syntax/Parser_utils
-opalang/syntax/OpaParserVersion
+opalang/OpaSyntax
+opalang/classic_syntax/Opa_classic_parser
+opalang/classic_syntax/Parser_utils
+opalang/classic_syntax/OpaParserVersion
+opalang/js_syntax/Opa_js_parser
 opalang/OpaMapToIdent
 opalang/Trx_ast

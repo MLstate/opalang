@@ -130,6 +130,7 @@ type type_marker =
          we will stop descending, replacing it by itself in the copy. *)
   | TM_export_seen_not_rec
   | TM_export_seen of int ref  (* [TODO] argument seems useless. *)
+  | TM_export_cyclic of type_name_ident
   | TM_generalize_seen (** During generalization, this type was already
          seen. *)
   | TM_col_close_seen  (** During a column closing this type was already
@@ -386,6 +387,7 @@ let tmp_debug_type_marker = function
   | TM_copy_copied_as _ -> "TM_copy_copied_as (_)"
   | TM_export_seen_not_rec -> "TM_export_seen_not_rec"
   | TM_export_seen i -> "TM_export_seen (" ^ (string_of_int !i) ^")"
+  | TM_export_cyclic _i -> "TM_export_cyclic"
   | TM_generalize_seen -> "TM_generalize_seen"
   | TM_col_close_seen -> "TM_col_close_seen"
   | TM_col_open_seen _ -> "TM_col_open_seen"

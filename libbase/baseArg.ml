@@ -41,6 +41,8 @@ type spec =
   | Rest of (string -> unit)
   | Complete of spec * completion
 
+let spec_fun_of_assoc f assoc =
+  Symbol (List.map fst assoc, (fun s -> f (List.assoc s assoc)))
 let spec_of_assoc ref_ assoc =
   Symbol (List.map fst assoc, (fun s -> ref_ := List.assoc s assoc))
 let spec_opt_of_assoc ref_ assoc =
@@ -108,6 +110,65 @@ type usage_msg = Arg.usage_msg
 type anon_fun = Arg.anon_fun
 exception Help = Arg.Help
 exception Bad = Arg.Bad
+
+(* -- generate a simple manpage -- *)
+
+let date_manpage () =
+  let dt = Unix.gmtime (Unix.time ()) in
+  (Date.fullmonth.(dt.Unix.tm_mon))
+  ^ " " ^ (string_of_int (dt.Unix.tm_mday))
+  ^ ", " ^ (string_of_int (dt.Unix.tm_year+1900))
+
+
+(* todo: move to baseList *)
+let pretty_list_to_string empty left separator right = function
+  | [] -> empty
+  | x::q -> (List.fold_left (fun s y -> s ^ separator ^ y) (left ^ x) q) ^ right
+
+let split_option_args str =
+  let reg = Str.regexp "[>)\"}]   " in
+  try
+    let pos = (Str.search_forward reg str 0) + 1
+    in
+    (String.ltrim (Str.string_before str pos)), (String.ltrim (Str.string_after str pos))
+  with
+    Not_found -> "", (String.ltrim str)
+
+let print_spec file (key, spec, doc) =
+  let key = String.replace key "-" "\\-" in
+  let options, doc = split_option_args doc in
+  match spec with
+  | Symbol (l, _) -> Printf.fprintf file ".TP\n%s %s %s\n%s\n" key (pretty_list_to_string "<none>" "{" "|" "}" l) options doc
+  | _ -> Printf.fprintf file ".TP\n%s %s\n%s\n" key options doc; ()
+
+let add_help speclist =
+  let add help =
+    if List.exists (fun (x, _, _) -> x = help) speclist then []
+    else [help, Unit (fun x->x), " Display this list of options"]
+   in
+  speclist @ (add "-help") @ (add "--help")
+
+let write_simple_manpage
+    ~cmdname ~section
+    ?(centerfooter=(date_manpage ()))
+    ?(leftfooter="") ?(centerheader="")
+    ?(summary="") ?(synopsis="") ?(description="") ?options ?(other=[])
+    file =
+  Printf.fprintf file ".TH \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"\n" cmdname (string_of_int section) centerfooter leftfooter centerheader;
+  if summary <> "" then
+    Printf.fprintf file ".SH NAME\n%s \\- %s\n" cmdname summary
+  else
+    Printf.fprintf file ".SH NAME\n%s\n" cmdname;
+  if synopsis <> "" then Printf.fprintf file ".SH SYNOPSIS\n%s\n" synopsis;
+  if description <> "" then Printf.fprintf file ".SH DESCRIPTION\n%s\n" description;
+  begin match options with None -> () | Some(speclist) -> begin
+    Printf.fprintf file ".SH OPTIONS\n";
+    List.iter (print_spec file) (add_help speclist);
+  end end;
+  List.iter (fun (title, content) -> Printf.fprintf file ".SH %s\n%s\n" title content) other;
+  ()
+  
+(* --- *)
 
 
 let sort_by_name l = List.stable_sort (fun (x,_,_) (y,_,_) -> compare (x:string) y) l

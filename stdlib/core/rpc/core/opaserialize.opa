@@ -411,25 +411,15 @@ OpaSerializeClosure = {{
 
       /* Encapsulated types ***********************/
       | {TyName_args = args; TyName_ident = ident} ->
-         match %%BslValue.MagicContainer.serializer_get%%(ident) with
-         | {none} -> aux(value, OpaType.type_of_name(ident, args))
-         | {some = serializer} ->
-           serializer = serializer.f1
-           nargs = List.length(args)
-           match nargs with
-           | 0 -> serializer(value)
-           | _ ->
-              clos_arg = OpaValue.Closure.Args.create(nargs + 2)
-              do List.iteri(
-                (i, ty ->
-                  OpaValue.Closure.Args.set(clos_arg, i,
-                    partial_serialize_options(_, ty, _))
-                ), args)
-              do Closure.Args.set(clos_arg, nargs, value)
-              do Closure.Args.set(clos_arg, nargs + 1, options)
-              OpaValue.Closure.apply(@unsafe_cast(serializer), clos_arg)
-           end
-         end
+         OpaValue.todo_magic_container(
+           (ident ->
+             Option.map((r -> r.f1),
+                        %%BslValue.MagicContainer.serializer_get%%(ident))
+           ),
+           ident, args, (ty -> partial_serialize_options(_, ty, _)),
+           aux(_, OpaType.type_of_name(ident, args)),
+           value, [options]
+         )
       | {TyForall_quant = _; TyForall_body = body} ->
         aux(value, body)
 
@@ -440,8 +430,8 @@ OpaSerializeClosure = {{
       /* Error case *****************************/
       | {TyAbstract}
       | {TyVar = _} ->
-        do jlog(error_message("OpaSerialize.partial_serialize", original_ty, ty))
-        do jlog("value: {Debug.dump(value)}")
+        do Log.error("partial_serialize_options", error_message("OpaSerialize.partial_serialize", original_ty, ty))
+        do Log.error("partial_serialize_options", "value: {Debug.dump(value)}")
         error("OpaSerialize.partial_serialize")
   aux(value, ty)
 
@@ -472,7 +462,7 @@ OpaSerializeClosure = {{
   unserialize(str, ty) =
     match partial_unserialize(str) with
     | {none} ->
-      do jlog("[OpaSerialize.unserialize] Failed to unserialize from a string")
+      do Log.error("OpaSerialize.unserialize","Failed to unserialize from a string")
       {none}
     | {some = unser} ->
       finish_unserialize(unser, ty)
@@ -508,7 +498,7 @@ OpaSerializeClosure = {{
     //do jlog("Try to unserialize {Json.to_string(unser)} with {OpaType.to_pretty(ty)}")
     original_ty = ty
     error_ret(str, v) =
-      do Log.error("Finish unserialize", str)
+      do Log.error("Finish unserialize", "{str}")
       v
     magic_some(v) = some(Magic.id(v))
     /* Function for continuation ****************/
@@ -622,7 +612,7 @@ OpaSerializeClosure = {{
                             (acc, [], true))
                 | [hd | tl] ->
                   do (if hd.label != name then
-                         do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", json)
+                      do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", "{json}")
                          @fail("Deserialization error")  // if it breaks, you are generating
                                 // json that is not ordered properly
                      else void)
@@ -637,7 +627,8 @@ OpaSerializeClosure = {{
                       (Record.add_field(acc, field, value), tl, err)
             ), js_lst, (Record.empty_constructor(), fields, false))
         if res.f3 then
-          do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}", js_lst)
+          do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}",
+                       "{js_lst}")
           none
         else some(Record.make_record(res.f1))
 
@@ -763,9 +754,9 @@ OpaSerializeClosure = {{
              Option.map((r -> r.f2),
                         %%BslValue.MagicContainer.serializer_get%%(ident))
           ),
-          ident, args, (ty, x -> aux(x, ty)),
+          ident, args, (ty -> aux(_, ty)),
           aux(_, OpaType.type_of_name(ident, args)),
-          json)
+          json, [])
       | (_, {TyForall_quant = _; TyForall_body = body}) ->
         aux(json, body)
 
@@ -782,7 +773,7 @@ OpaSerializeClosure = {{
 
       /* Error case *****************************/
       | (a,b) ->
-        do jlog("[OpaSerialize.finish_unserialize] Type doesn't match value :\nvalue : {to_string(a)}\n on type : {to_string(b)}\n inside the main type {OpaType.to_pretty(original_ty)}")
+        do Log.error("OpaSerialize.finish_unserialize","Type doesn't match value :\nvalue : {to_string(a)}\n on type : {to_string(b)}\n inside the main type {OpaType.to_pretty(original_ty)}")
         {none}
     aux(unser, ty)
 
@@ -886,7 +877,7 @@ OpaSerializeClosure = {{
 
   }}
 
-}} /* disabled for S3: : OpaValue.interface */
+}} /* disabled : OpaValue.interface */
 
 /**
   * Deprecated, [un]serialize

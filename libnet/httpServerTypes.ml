@@ -70,5 +70,7 @@ type web_info = { cont : response -> unit;
                   certificate : Ssl.certificate option;
                 }
 
+type remote_logs = {port : int; hostname : string; appkey : string}
+
 let current_time_string = ref ""
 let time_diff = ref ""

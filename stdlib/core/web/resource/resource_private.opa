@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -386,19 +386,7 @@ Resource_private =
                                        | {all}  -> {all}
                                        | ~{js css files} -> {~js ~css files=StringSet.add("{x}", files)}
                                  }
-        }
-  /*,
-        {
-          names       = ["--debug-editable-directory"]
-          param_doc   = "directory*"
-          description = "Export some directories embedded with static_source_content, so that they can be viewed and edited during execution of the application"
-          on_encounter(state) = {params = state}
-          on_param(state) = parser x = (.*) -> {no_params = match state with
-                                       | {all}  -> {all}
-                                       | ~{js css files dirs} -> {~js ~css dirs=StringSet.add(dirs, "{x}") ~files}
-                                 }
-        }
-  */
+        },
    ]}
 
    @private debug_editable_show_resources =
@@ -538,7 +526,7 @@ shared_xhtml1_1_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"
 
 shared_html5_header =
-  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>"
+  "<!DOCTYPE html>"
 
 shared_xml_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -607,7 +595,7 @@ incompatible_browser_message =
   because it lacks some critical features.
     </div>
     <div style="margin:2pt">For a better experience, please consider using this application with a <a style="text-decoration:none;color:green"
-    href="http://www.mlstate.com/opa/documentation_-_supported_browsers">supported
+    href="http://opalang.org/supported_browsers.xmlt">supported
   browser</a>.
   </div>
   </div>) : xhtml // value restriction ... restrictions
@@ -646,20 +634,25 @@ required_customizer_for_opa_ad =
 
 @private autoloaded_js = Mutable.make([] : list(string))
 @private autoloaded_css = Mutable.make([] : list(string))
+@private autoloaded_favicon = Mutable.make([] : list(Favicon.t))
 @package register_external_js(url : string) = autoloaded_js.set([url | autoloaded_js.get()])
 @package unregister_external_js(url : string) = autoloaded_js.set(List.remove(url, autoloaded_js.get()))
 @package register_external_css(url : string) = autoloaded_css.set([url | autoloaded_css.get()])
 @package unregister_external_css(url : string) = autoloaded_css.set(List.remove(url, autoloaded_css.get()))
+@package register_external_favicon(f:Favicon.t) = autoloaded_favicon.set([f | autoloaded_favicon.get()])
 
 customizer_autoloaded : platform_customization =
   _ -> some(
     { custom_body = none
-      custom_headers = none
+      custom_headers =
+        favicons = autoloaded_favicon.get()
+        if List.is_empty(favicons) then none
+        else some(Xhtml.createFragment(List.map(f->Favicon.to_html(f), favicons)))
       custom_js      = List.rev(autoloaded_js.get())
       custom_css     = List.rev(autoloaded_css.get())
     })
 
-default_customizers = [customizer_for_icon,customizer_for_google_frame,required_customizer_for_incompatible_browsers, customizer_autoloaded]
+default_customizers = [customizer_for_google_frame,required_customizer_for_incompatible_browsers, customizer_autoloaded]
 
 @private cache_xhtml_options = CommandLine.filter({
       title = "Server xhtml resource cache"
@@ -681,7 +674,13 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
  */
 @private cache_for_xhtml : resource_cache_entry -> {body:xhtml; head:xhtml; mime_type:string} =
   compute_result(body:xhtml, customizations):{body:xhtml head:xhtml mime_type:string} =
-     {html=body_content js=raw_js_content} = Xhtml.prepare_for_export_as_xml_blocks(body)
+     {html=body_content js=raw_js_content} =
+       #<Ifstatic:BENCH_SERVER>
+         print_t(t) = Log.notice("Resource Private", "resource computed in {t}s")
+         CoreProfiler.instrument(1, print_t){->Xhtml.prepare_for_export_as_xml_blocks(body)}
+       #<Else>
+         Xhtml.prepare_for_export_as_xml_blocks(body)
+       #<End>
 
      {body     = {html=body_custom  js=raw_js_body_custom}
       head     = {html=head_custom  js=raw_js_head_custom}
@@ -705,7 +704,7 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
       end }
 
   compute_everything(customizers, body:xhtml, user_agent) =
-     do jlog("RECOMPUTE")
+     //do jlog("RECOMPUTE")
      customizations  = compute_customization(customizers, user_agent)
      compiled_result = compute_result(body, customizations)
      compiled_result
@@ -803,6 +802,21 @@ default_customizers = [customizer_for_icon,customizer_for_google_frame,required_
    js_links = Xhtml.compile(js_links)
    ~user_compat}
 
+   @private safari_fix = CommandLine.filter({
+      title = "Safari fix"
+      init = true
+      anonymous = []
+      parsers = [
+        {
+          names       = ["--no-safari-fix"]
+          param_doc   = ""
+          description = "(temporary)"
+          on_encounter(_) = {no_params = false}
+          on_param    = CommandLine.no_params
+        },
+      ]
+    })
+
 
 /**
  * Prepare a resource for sending to the user.
@@ -825,7 +839,7 @@ export_resource(external_css_files: list(string),
                 make_response_with_headers: (
                     WebInfo.private.native_request, web_response,
                     list(Resource.http_header), string, string
-                      -> WebInfo.private.native_response
+                    -> WebInfo.private.native_response
                   )
                 ) =
     /**
@@ -905,10 +919,10 @@ export_resource(external_css_files: list(string),
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
           page_lang = ServerI18n.page_lang() // TODO by customizer
-          page_info = "var page_server = {num_page};var page_lang = \"{page_lang}\";"
-          js_base_url = Option.switch(base -> "var base_url = \"{base}\";", "", base_url)
-
-          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info} {js_base_url}</script>"} : xhtml
+          page_info = "var page_server = {num_page}; var page_lang = \"{page_lang}\";"
+          js_base_url = Option.switch(base -> " var base_url = \"{base}\";", "", base_url)
+          safari_hack = if not(safari_fix) then "var desactivate_safari_hack = true;" else ""
+          global_variable = {content_unsafe="<script type=\"text/javascript\">{page_info}{js_base_url}{safari_hack}</script>"} : xhtml
           {body = ready_body
            head = head_without_id
            mime_type= mime_type} = cache_for_xhtml(
@@ -928,10 +942,10 @@ export_resource(external_css_files: list(string),
               <></>, base_url)
           ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
-          doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
+          html_doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
 
-          page= Xhtml.of_string_unsafe(doctype) <+>
-            <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
+          page = Xhtml.of_string_unsafe(html_doctype) <+>
+                 <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
 
           //Serialize and send
           data = Xhtml.serialize_to_string(page)
@@ -957,7 +971,8 @@ export_resource(external_css_files: list(string),
       | {~json} -> handle_utf(Json.to_string(json),"text/plain")
 
       | {~mimetype ~source} ->
-          (r -> winfo.cont(
+          (r ->
+            winfo.cont(
               make_plain_response_with_headers(mimetype, source, status, r, resource_pr.rc_headers) // should it not be in utf ?
             ))
 

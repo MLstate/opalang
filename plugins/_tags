@@ -1,6 +1,8 @@
 <**/*.{ml,byte,native,opa_plugin}>: use_libbase, use_libnet, use_appruntime, use_libtools, use_libsecurity, use_database, use_libqmlcompil, use_qmltop, use_libbsl
+<crypto/*.{ml,byte,native,opa_plugin}>: use_cryptokit
 <browser_canvas>: traverse
 <crypto>: traverse
 <irc>: traverse
 <unix>:traverse
 <socket>: traverse
+<gcharts>: traverse
