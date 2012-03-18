@@ -42,7 +42,7 @@
  * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
  */
 
-// import stdlib.themes.bootstrap.core
+import stdlib.themes.bootstrap.core
 
 current_bootstrap_version = "1.3.0"
 current_bootstrap_url = "http://twitter.github.com/bootstrap/{current_bootstrap_version}/bootstrap.min.css"
