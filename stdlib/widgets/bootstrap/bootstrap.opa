@@ -760,8 +760,8 @@ WBootstrap = {{
           else identity)
 
     nav(l, stacked) = make_tabs("", l, stacked)
-    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked) |> Xhtml.add_attribute_unsafe("data-tabs", "tabs", _)
-    pills(l, stacked) = make_tabs("nav-pills", l, stacked) |> Xhtml.add_attribute_unsafe("data-pills", "pills", _)
+    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked) |> Xhtml.add_attribute_unsafe("data-toggle", "tab", _)
+    pills(l, stacked) = make_tabs("nav-pills", l, stacked) |> Xhtml.add_attribute_unsafe("data-toggle", "pill", _)
 
     // TODO: nav-list, tabbable nav
 
