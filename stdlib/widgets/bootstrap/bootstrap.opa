@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,21 +19,23 @@
 /**
  * Bootstrapped widgets library.
  *
- * @author Frederic Ye 2011
+ * @author Frederic Ye 2011-2012
  * @category WIDGET
  * @destination PUBLIC
  * @stability EXPERIMENTAL
- * @version 0.9
+ * @version 2.0
  */
 
 /**
  * {1 TODO}
  *
  * - Forms
+ * - Hero-unit
+ * - Navbar ...
+ * - Pager
+ * - Progress bars
  * - JS
  */
-
-package stdlib.widgets.bootstrap
 
 /**
  * {1 Types definition}
@@ -42,12 +44,19 @@ package stdlib.widgets.bootstrap
 // Grid
 
 type WBootstrap.Grid.column =
-  { span: int // 1-16
-    offset: option(int) // 1-16
-    content: xhtml } /
-  { third: int // 1-2
-    offset: option(int) // 1-2
+  { span: int // 1-12
+    offset: option(int) // 1-12
     content: xhtml }
+
+// Responsive
+
+type WBootstrap.Responsive.visibility =
+  {visible_phone}
+/ {visible_tablet}
+/ {visible_desktop}
+/ {hidden_phone}
+/ {hidden_tablet}
+/ {hidden_desktop}
 
 // List
 
@@ -55,12 +64,13 @@ type WBootstrap.List.description =
   {title: xhtml} /
   {description: xhtml}
 
-// Media
+// Thumbnail
 
-type WBootstrap.Media.media = {
+type WBootstrap.Thumbnail.img = {
   href: option(string)
   onclick: Dom.event -> void
-  content: xhtml
+  src: string
+  alt: string
 }
 
 // Navigation
@@ -72,11 +82,21 @@ type WBootstrap.Navigation.elt =
   {custom_li: xhtml} /
   {divider}
 
-type WBootstrap.Navigation.page_nav_elt = WBootstrap.Media.media
+type WBootstrap.Navigation.page_nav_elt = {
+  href: option(string)
+  onclick: Dom.event -> void
+  content: xhtml
+}
+
 
 // Table
 
 type WBootstrap.Table.elt = xhtml
+
+type WBootstrap.Table.decoration =
+  {bordered}
+/ {striped}
+/ {condensed}
 
 // Button
 
@@ -86,14 +106,16 @@ type WBootstrap.Button.type =
 / {input:string callback:(Dom.event -> void)}
 
 type WBootstrap.Button.size =
-  {normal} / {small} / {large}
+  {normal} / {small} / {large} / {mini}
 
 type WBootstrap.Button.importance =
   {default}
 / {primary}
 / {info}
 / {success}
+/ {warning}
 / {danger}
+/ {inverse}
 
 type WBootstrap.Button.status = {enabled} / {disabled}
 
@@ -102,20 +124,41 @@ type WBootstrap.Button.option =
 / WBootstrap.Button.importance
 / WBootstrap.Button.status
 
-// Message
+type WBootstrap.Button.button = {
+  bt_type: WBootstrap.Button.type
+  bt_options: list(WBootstrap.Button.option)
+}
 
-type WBootstrap.Message.type =
-  {alert:WBootstrap.Message.content closable:bool}
-/ {block:WBootstrap.Message.content actions:option(xhtml) closable:bool}
+type WBootstrap.Button.group = list(WBootstrap.Button.button)
 
-type WBootstrap.Message.importance =
+// Label
+
+type WBootstrap.Label.importance =
+  {default}
+/ {success}
+/ {warning}
+/ {important}
+/ {info}
+/ {inverse}
+
+// Badge
+
+type WBootstrap.Badge.importance = WBootstrap.Label.importance
+
+// Alert
+
+type WBootstrap.Alert.type =
+  {alert:WBootstrap.Alert.content closable:bool}
+/ {block:WBootstrap.Alert.content actions:option(xhtml) closable:bool}
+
+type WBootstrap.Alert.importance =
   {default}
 / {warning}
 / {error}
 / {success}
 / {info}
 
-type WBootstrap.Message.content = {
+type WBootstrap.Alert.content = {
   title: string
   description: xhtml
 }
@@ -127,11 +170,11 @@ type WBootstrap.Message.content = {
  *
  * {1 Where should I start?}
  *
- * You can find documentation and examples at http://bootstrap.opalang.org.
+ * Your pages needs the HTML5 doctype.
  *
  * {1 Compatibility?}
  *
- * It should be compatible with Bootstrap <= 1.4.0
+ * Compatible with Bootstrap 2.0
  */
 WBootstrap = {{
 
@@ -150,32 +193,32 @@ WBootstrap = {{
 
   Grid = {{
 
+    @private
+    row_private(columns:list(WBootstrap.Grid.column)) =
+      <div>{
+        @toplevel.List.map(~{span offset content} ->
+          offset = match offset
+                   {some=ofs} -> " offset{ofs}"
+                   {none} -> ""
+          <div class="span{span}{offset}">{content}</div>
+        , columns)
+      }</div>
+
     /**
      * Create a row
      *
      * @param columns a list of WBootstrap.Grid.column
      * @see {!WBootstrap.Grid.column} for column restrictions
      */
-    row(columns:list(WBootstrap.Grid.column)) =
-      <div>{
-        @toplevel.List.map(column ->
-          match column
-          ~{span offset content} ->
-            offset = match offset
-                     {some=ofs} -> " offset{ofs}"
-                     {none} -> ""
-            <div class="span{span}{offset}">{content}</div>
-          ~{third offset content} ->
-            offset = match offset
-                     {some=1} -> " offset-one-third"
-                     {some=2} -> " offset-two-thirds"
-                     _ -> ""
-            match third with
-            1 -> <div class="span-one-third{offset}">{content}</div>
-            2 -> <div class="span-two-thirds{offset}">{content}</div>
-            _ -> <></>
-        , columns)
-      }</div> |> Xhtml.update_class("row", _)
+    raw(cols) = row_private(cols) |> Xhtml.update_class("row", _)
+
+    /**
+     * Create a fluid row
+     *
+     * @param columns a list of WBootstrap.Grid.column
+     * @see {!WBootstrap.Grid.column} for column restrictions
+     */
+    raw_fluid(cols) = row_private(cols) |> Xhtml.update_class("row-fluid", _)
 
   }}
 
@@ -195,6 +238,25 @@ WBootstrap = {{
         <div class="sidebar">{sidebar}</div>
         <div class="content">{content}</div>
       )
+
+  }}
+
+  Responsive = {{
+
+    /**
+     * Decorate an xhtml chunk with some responsiveness visibilities
+     */
+    decorate(visibilities:list(WBootstrap.Responsive.visibility), xhtml:xhtml) =
+      @toplevel.List.fold(visibility, acc ->
+        cl = match visibility
+             | {visible_phone} -> "visible-phone"
+             | {visible_tablet} -> "visible-tablet"
+             | {visible_desktop} -> "visible-desktop"
+             | {hidden_phone} -> "hidden-phone"
+             | {hidden_tablet} -> "hidden-tablet"
+             | {hidden_desktop} -> "hidden-desktop"
+        Xhtml.update_class(cl, acc)
+      , visibilities, xhtml)
 
   }}
 
@@ -229,6 +291,14 @@ WBootstrap = {{
       </address>
 
     /**
+     * Create an abbreviation or acronym
+     */
+    abbrev(text:string, expanded_text:string, uppercase:bool) =
+      <abbr title="{expanded_text}">{text}</abbr>
+      |> (if uppercase then Xhtml.update_class("initialism", _)
+          else identity)
+
+    /**
      * Create a blockquote
      */
     blockquote(content:xhtml, author:xhtml) =
@@ -236,6 +306,25 @@ WBootstrap = {{
         <p>{content}</p>
         <small>{author}</small>
       </blockquote>
+
+  // TODO: hero-unit
+
+  }}
+
+  Code = {{
+
+    /**
+     * Create an inline code snippet
+     */
+    inline(code:string) = <code>{code}</code>
+
+    /**
+     * Create a block of code, with multiple lines
+     */
+    block(code:string, limit_height:bool) =
+      <pre>{code}</pre>
+      |> (if limit_height then Xhtml.update_class("pre-scrollable", _)
+          else identity)
 
     /**
      * Create a preformatted text, compatible with google-code-prettify
@@ -246,9 +335,8 @@ WBootstrap = {{
              {none} -> ""
       <pre>{Xhtml.of_string(s)}</pre>
       |> Xhtml.update_class("prettyprint{lang}", _)
-      |> (match linenums
-          {false} -> identity
-          {true} -> Xhtml.update_class("linenums", _))
+      |> (if linenums then Xhtml.update_class("linenums", _)
+          else identity)
 
   }}
 
@@ -279,13 +367,15 @@ WBootstrap = {{
     /**
      * Create an description list
      */
-    description(list:list(WBootstrap.List.description)) =
+    description(list:list(WBootstrap.List.description), horizontal:bool) =
       <dl>{
         @toplevel.List.map(e -> match e
           {title=t} -> <dt>{t}</dt>
           {description=d} -> <dd>{d}</dd>
         , list)
       }</dl>
+      |> (if horizontal then Xhtml.update_class("dl-horizontal", _)
+          else identity)
 
   }}
 
@@ -294,41 +384,73 @@ WBootstrap = {{
     make_label(content:string) =
       <span>{content}</span> |> Xhtml.update_class("label", _)
 
-    success = Xhtml.update_class("success", _)
-    warning = Xhtml.update_class("warning", _)
-    important = Xhtml.update_class("important", _)
-    notice = Xhtml.update_class("notice",_)
+    success = Xhtml.update_class("label-success", _)
+    warning = Xhtml.update_class("label-warning", _)
+    important = Xhtml.update_class("label-important", _)
+    info = Xhtml.update_class("label-info", _)
+    inverse = Xhtml.update_class("label-inverse", _)
 
     /**
      * Create a label
      */
-    make(lb_text, lb_class) =
-      lb = make_label(lb_text)
-      lb = match lb_class
+    make(text:string, importance:WBootstrap.Label.importance) =
+      lb = make_label(text)
+      lb = match importance
           {default} -> lb
           {success} -> lb |> success(_)
           {warning} -> lb |> warning(_)
           {important} -> lb |> important(_)
-          {notice} -> lb |> notice(_)
+          {info} -> lb |> info(_)
+          {inverse} -> lb |> inverse(_)
       lb
 
   }}
 
-  Media = {{
+  // FIXME: merge with label
+  Badge = {{
+
+    make_badge(content:string) =
+      <span>{content}</span> |> Xhtml.update_class("badge", _)
+
+    success = Xhtml.update_class("badge-success", _)
+    warning = Xhtml.update_class("badge-warning", _)
+    important = Xhtml.update_class("badge-important", _)
+    info = Xhtml.update_class("badge-info", _)
+    inverse = Xhtml.update_class("badge-inverse", _)
 
     /**
-     * Create a media grid
+     * Create a label
      */
-    grid(imgs:list(WBootstrap.Media.media)) =
+    make(text:string, importance:WBootstrap.Label.importance) =
+      lb = make_badge(text)
+      lb = match importance
+          {default} -> lb
+          {success} -> lb |> success(_)
+          {warning} -> lb |> warning(_)
+          {important} -> lb |> important(_)
+          {info} -> lb |> info(_)
+          {inverse} -> lb |> inverse(_)
+      lb
+
+  }}
+
+  Thumbnail = {{
+
+    /**
+     * Create a thumbnails grid
+     *
+     * FIXME: li span size, limit to img
+     */
+    grid(imgs:list(WBootstrap.Thumbnail.img)) =
       list =
         @toplevel.List.map(
-          media ->
-            content = media.content
-            <a onclick={media.onclick}>
-              {content}
-            </a> |> add_href_opt(media.href, _)
+          img ->
+            <a onclick={img.onclick}
+               class="thumbnail">
+              <img src="{img.src}" alt="{img.alt}"/>
+            </a> |> add_href_opt(img.href, _)
         , imgs)
-      List.unordered(list) |> Xhtml.update_class("media-grid", _)
+      List.unordered(list) |> Xhtml.update_class("thumbnails", _)
 
   }}
 
@@ -354,16 +476,33 @@ WBootstrap = {{
     /**
      * Create a table
      */
-    table(head:list(WBootstrap.Table.elt), body:list(list(WBootstrap.Table.elt))) =
-      <table>
-        {gen_head(head)}
-        {gen_body(body)}
-      </table>
+    table(head:list(WBootstrap.Table.elt), body:list(list(WBootstrap.Table.elt)), decorations:list(WBootstrap.Table.decoration)) =
+      xhtml = <table class="table">
+                {gen_head(head)}
+                {gen_body(body)}
+              </table>
+      @toplevel.List.fold(decoration, acc ->
+        cl = match decoration
+             {bordered} -> "table-bordered"
+             {striped} -> "table-striped"
+             {condensed} -> "table-condensed"
+        Xhtml.update_class(cl, acc)
+      , decorations, xhtml)
 
     /**
      * Create a zebra stripped table
      */
-    zebra_stripped(h, b) = table(h, b) |> Xhtml.update_class("zebra-striped", _)
+    bordered(h, b) = table(h, b, [{bordered}])
+
+    /**
+     * Create a zebra striped table
+     */
+    zebra_stripped(h, b) = table(h, b, [{striped}])
+
+    /**
+     * Create a condensed table
+     */
+    condensed(h, b) = table(h, b, [{condensed}])
 
   }}
 
@@ -374,8 +513,17 @@ WBootstrap = {{
     classic(content:xhtml) =
       <form action="javascript:void(0);">{content}</form>
 
-    stacked(content:xhtml) =
-      <form action="javascript:void(0);" class="form-stacked">{content}</form>
+    vertical(content:xhtml) =
+      <form action="javascript:void(0);" class="form-vertical">{content}</form>
+
+    horizontal(content:xhtml) =
+      <form action="javascript:void(0);" class="form-horizontal">{content}</form>
+
+    inline(content:xhtml) =
+      <form action="javascript:void(0);" class="form-inline">{content}</form>
+
+    search(content:xhtml) =
+      <form action="javascript:void(0);" class="form-search">{content}</form>
 
     Fieldset = {{
 
@@ -383,7 +531,7 @@ WBootstrap = {{
         <>
           {match legend {some=l} -> <legend>{l}</legend> {none} -> <></>}
           {@toplevel.List.map(
-            e -> <div class="clearfix">{e}</div>
+            e -> <div class="control-group">{e}</div>
            , elements)}
         </>
 
@@ -410,12 +558,15 @@ WBootstrap = {{
       <input type="button" value="{text}" onclick={callback}/>
       |> Xhtml.update_class("btn", _)
 
-    primary = Xhtml.update_class("primary", _)
-    info = Xhtml.update_class("info", _)
-    success = Xhtml.update_class("success", _)
-    danger = Xhtml.update_class("danger",_)
-    large = Xhtml.update_class("large", _)
-    small = Xhtml.update_class("small", _)
+    primary = Xhtml.update_class("btn-primary", _)
+    info = Xhtml.update_class("btn-info", _)
+    success = Xhtml.update_class("btn-success", _)
+    danger = Xhtml.update_class("btn-danger",_)
+    warning = Xhtml.update_class("btn-warning",_)
+    inverse = Xhtml.update_class("btn-inverse",_)
+    large = Xhtml.update_class("btn-large", _)
+    small = Xhtml.update_class("btn-small", _)
+    mini = Xhtml.update_class("btn-mini", _)
     disabled = Xhtml.update_class("disabled", _) // FIXME: incomplete on buttons and inputs (see below)
 
     /**
@@ -438,8 +589,11 @@ WBootstrap = {{
                        {info} -> { opts with class={info} }
                        {success} -> { opts with class={success} }
                        {danger} -> { opts with class={danger} }
+                       {warning} -> { opts with class={warning} }
+                       {inverse} -> { opts with class={inverse} }
                        {small} -> { opts with size={small} }
                        {large} -> { opts with size={large} }
+                       {mini} -> { opts with size={mini} }
                        {disabled} -> { opts with disabled=true }
                        _ -> opts
                    , bt_options_list, {class={default} size={normal} disabled=false})
@@ -450,11 +604,14 @@ WBootstrap = {{
           {info} -> bt |> info(_)
           {success} -> bt |> success(_)
           {danger} -> bt |> danger(_)
+          {warning} -> bt |> warning(_)
+          {inverse} -> bt |> inverse(_)
 
       bt = match bt_options.size
            {normal} -> bt
            {small} -> bt |> small(_)
            {large} -> bt |> large(_)
+           {mini} -> bt |> mini(_)
 
       bt = match bt_options.disabled
            {false} -> bt
@@ -466,12 +623,76 @@ WBootstrap = {{
 
       bt
 
+    /**
+     * Create a group of buttons
+     */
+    group(group:WBootstrap.Button.group) =
+      <div class="btn-group">{
+        @toplevel.List.map(button ->
+          make(button.bt_type, button.bt_options)
+        , group)
+      }</div>
+
+    /**
+     * Create a toolbar of buttons group
+     */
+    toolabr(groups:list(WBootstrap.Button.group)) =
+      <div class="btn-toolbar">{
+        @toplevel.List.map(bt_group ->
+          group(bt_group)
+        , groups)
+      }</div>
+
+    /**
+     * Create a dropdown button
+     * Needs the dropdown plugin
+     */
+    dropdown(bt_type:WBootstrap.Button.type,
+             bt_options_list:list(WBootstrap.Button.option),
+             list:list(WBootstrap.Navigation.elt),
+             up:bool) =
+    bt_type = match bt_type
+              ~{button callback} -> {button=<>{button}<span class="caret"/></> ~callback}
+              ~{link href callback} -> {link=<>{link}<span class="caret"/></> ~href ~callback}
+              _ -> bt_type
+    bt = make(bt_type, bt_options_list)
+         |> Xhtml.update_class("dropdown-toggle", _)
+         |> Xhtml.add_attribute_unsafe("data-toggle", "dropdown", _)
+    <div class="btn-group">
+      {bt}
+      <ul class="dropdown-menu">{
+        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false), list)
+      }</ul>
+    </div>
+    |> (if up then Xhtml.update_class("dropup", _)
+        else identity)
+
+    /**
+     * Create a aplit button
+     * Needs the dropdown plugin
+     */
+    split(bt_type:WBootstrap.Button.type,
+          bt_options_list:list(WBootstrap.Button.option),
+          list:list(WBootstrap.Navigation.elt),
+          up:bool) =
+    bt = make({button=<span class="caret"></span> callback=ignore}, bt_options_list)
+         |> Xhtml.update_class("dropdown-toggle", _)
+         |> Xhtml.add_attribute_unsafe("data-toggle", "dropdown", _)
+    <div class="btn-group">
+      {make(bt_type, bt_options_list)}
+      {bt}
+      <ul class="dropdown-menu">{
+        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false), list)
+      }</ul>
+    </div>
+    |> (if up then Xhtml.update_class("dropup", _)
+        else identity)
 
   }}
 
   Navigation = {{
 
-    @private nav_elt_to_xhtml =
+    @package nav_elt_to_xhtml(vertical_sep) =
       | {active=e ~onclick ~href} ->
         <li class="active">
           {<a onclick={onclick}>{e}</a>
@@ -487,66 +708,88 @@ WBootstrap = {{
           {<a onclick={onclick}>{e}</a>
           |> add_href_opt(href, _)}
         </li>
-      | {divider} -> <li class="divider"></li>
+      | {divider} -> <li class="divider{if vertical_sep then "-vertical" else ""}"></li>
       | {~custom_li} -> custom_li
 
     /**
-     * Create a topbar
+     * Create a navbar
      */
-    topbar(content:xhtml) =
-      <div data-scrollspy="scrollspy">
-        <div class="topbar-inner">{content}</div>
-      </div> |> Xhtml.update_class("topbar", _)
+    navbar(content:xhtml) =
+      <div data-spy="scroll">
+        <div class="navbar-inner">{content}</div>
+      </div> |> Xhtml.update_class("navbar", _)
+
+    /**
+     * Create a fixed navbar (top or bottom)
+     */
+    fixed_navbar(content:xhtml, location:{top}/{bottom}) =
+      xhtml = navbar(content)
+      cl = if location == {top} then "top" else "bottom"
+      Xhtml.update_class("navbar-fixed-{cl}", xhtml)
+
+    // TODO: navbar forms
 
     /**
      * Create a brand link
      */
     brand(brand:xhtml, href:option(string), callback:(Dom.event -> void)) =
-      <a class="brand" onclick={callback}>{brand}</a>
-      |> add_href_opt(href, _)
+      html = match href
+             {none} -> <span class="brand" onclick={callback}>{brand}</span>
+             {some=_} -> <a class="brand" onclick={callback}>{brand}</a>
+      add_href_opt(href, html)
 
     /**
      * Create a dropdown li (for use with WBootstrap.List)
      */
     dropdown_li(toggle:xhtml, href:option(string), list:list(WBootstrap.Navigation.elt)) =
-      a = <a class="dropdown-toggle">{toggle}</a>
-          |> add_href_opt(href, _)
-      <li class="dropdown" data-dropdown="dropdown">
-        {a}
+      <li class="dropdown">
+        {<a class="dropdown-toggle"
+             data-toggle="dropdown">{toggle}</a>
+         |> add_href_opt(href, _)}
         <ul class="dropdown-menu">{
-          @toplevel.List.map(nav_elt_to_xhtml, list)
+          @toplevel.List.map(nav_elt_to_xhtml(false), list)
         }</ul>
       </li>
 
-    @private make_tabs(cl:string, tabs:list(WBootstrap.Navigation.elt)) =
-      <ul>{
-        @toplevel.List.map(nav_elt_to_xhtml, tabs)
-      }</ul> |> Xhtml.update_class(cl, _)
+    @private make_tabs(cl:string, tabs:list(WBootstrap.Navigation.elt), stacked:bool) =
+      <ul class="nav">{
+        @toplevel.List.map(nav_elt_to_xhtml(true), tabs)
+      }</ul>
+      |> Xhtml.update_class(cl, _)
+      |> (if stacked then Xhtml.update_class("nav-stacked", _)
+          else identity)
 
-    nav(l) = make_tabs("nav", l)
-    tabs(l) = make_tabs("tabs", l) |> Xhtml.add_attribute_unsafe("data-tabs", "tabs", _)
-    pills(l) = make_tabs("pills", l) |> Xhtml.add_attribute_unsafe("data-pills", "pills", _)
+    nav(l, stacked) = make_tabs("", l, stacked)
+    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked) |> Xhtml.add_attribute_unsafe("data-tabs", "tabs", _)
+    pills(l, stacked) = make_tabs("nav-pills", l, stacked) |> Xhtml.add_attribute_unsafe("data-pills", "pills", _)
+
+    // TODO: nav-list, tabbable nav
 
     /**
      * Create a breadcrumb
      */
     breadcrumb(path:list(WBootstrap.Navigation.elt), sep:xhtml) =
       <ul class="breadcrumb">{
-        list = @toplevel.List.map(nav_elt_to_xhtml, path)
+        list = @toplevel.List.map(nav_elt_to_xhtml(false), path)
         XmlConvert.of_list_using(<></>, <></>, Span.divider(sep), list)
       }</ul>
 
     /**
      * Create a pagination
      */
-    pagination(pages:list(WBootstrap.Navigation.elt), prev:WBootstrap.Navigation.page_nav_elt, next:WBootstrap.Navigation.page_nav_elt) =
-      list = @toplevel.List.map(nav_elt_to_xhtml, pages)
-      is_disabled(l) = if @toplevel.List.is_empty(l) || (match @toplevel.List.head(l) {active=_ href=_ onclick=_} -> true _ -> false) then "disabled" else ""
+    pagination(pages:list(WBootstrap.Navigation.elt),
+               prev:WBootstrap.Navigation.page_nav_elt,
+               next:WBootstrap.Navigation.page_nav_elt,
+               alignment:{left}/{centered}/{right}) =
+      list = @toplevel.List.map(nav_elt_to_xhtml(true), pages)
+      is_disabled(l) = if @toplevel.List.is_empty(l)
+                          || (match @toplevel.List.head(l) {active=_ href=_ onclick=_} -> true _ -> false)
+                       then "disabled" else ""
       prev_disabled = is_disabled(pages)
       next_disabled = is_disabled(@toplevel.List.rev(pages))
       <div class="pagination">
         <ul>
-          <li class="prev {prev_disabled}">
+          <li class="previous {prev_disabled}">
             {<a onclick={prev.onclick}>{prev.content}</a>
              |> add_href_opt(prev.href, _)}
           </li>
@@ -557,41 +800,50 @@ WBootstrap = {{
           </li>
         </ul>
       </div>
+      |> (match alignment
+          {centered} -> Xhtml.update_class("pagination-centered", _)
+          {left} -> identity
+          {right} -> Xhtml.update_class("pagination-right", _))
+
+    // TODO: pager
 
   }}
 
-  Message = {{
+  Alert = {{
 
-    @private gen_make_alert(closable:bool, content:WBootstrap.Message.content, more:xhtml) =
+    @private gen_make(closable:bool, content:WBootstrap.Alert.content, block:option(int), more:xhtml) =
       id = Dom.fresh_id()
-      <div id=#{id} class="alert-message">
+      <div id=#{id} class="alert">
         {if not(closable) then <></>
-         else <a class="close" onclick={_->Dom.remove(#{id})}>&times;</a>}
-        <p>
-          {if content.title == "" then <></> else <strong>{content.title}</strong>}
-          {content.description}
-        </p>
+         else <a class="close" data-dismiss="alert"
+                 onclick={_->Dom.remove(#{id})}>&times;</a>}
+        {if content.title == "" then <></>
+         else match block
+              {some=i} -> Typography.header(i, none, <>{content.title}</>)
+                          |> Xhtml.update_class("alert-heading", _)
+              {none} -> <strong>{content.title}</strong>}
+        {content.description}
         {more}
       </div>
 
-    make_alert(closable:bool, content:WBootstrap.Message.content) =
-      gen_make_alert(closable, content, <></>)
+    make_alert(closable:bool, content:WBootstrap.Alert.content) =
+      gen_make(closable, content, none, <></>)
 
-    make_block(closable:bool, actions:option(xhtml), content:WBootstrap.Message.content) =
+    make_block(closable:bool, actions:option(xhtml), content:WBootstrap.Alert.content) =
       more = match actions
              {some=a} -> <div class="alert-actions">{a}</div>
              {none} -> <></>
-      gen_make_alert(closable, content, more) |> Xhtml.update_class("block-message", _)
+      gen_make(closable, content, some(4), more) |> Xhtml.update_class("alert-block", _)
 
-    warning = Xhtml.update_class("warning", _)
-    error = Xhtml.update_class("error", _)
-    success = Xhtml.update_class("success", _)
-    info = Xhtml.update_class("info", _)
+    warning = Xhtml.update_class("alert-warning", _)
+    error = Xhtml.update_class("alert-error", _)
+    success = Xhtml.update_class("alert-success", _)
+    info = Xhtml.update_class("alert-info", _)
 
     /**
      * Create a message (alert or block)
      */
-    make(msg_type:WBootstrap.Message.type, msg_class:WBootstrap.Message.importance) =
+    make(msg_type:WBootstrap.Alert.type, msg_class:WBootstrap.Alert.importance) =
 
       msg = match msg_type
             ~{alert closable} -> make_alert(closable, alert)
@@ -607,6 +859,8 @@ WBootstrap = {{
       msg
 
   }}
+
+  // TODO: progress bars
 
   Div = {{
 
