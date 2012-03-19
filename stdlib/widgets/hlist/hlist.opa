@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -25,27 +25,6 @@
  * @destination PUBLIC
  * @stability EXPERIMENTAL
  * @version 0.4
- */
-
-/*
- * {1 About this module}
- *
- * Hierarchical list widget, aka WHList widget
- *
- * An item is an element of the hierarchical list
- *
- * {1 Where should I start?}
- *
- * If you simply want an hlist widget, use [WHList.html]
- *
- * {1 Recommandations}
- *
- * {1 What if I need more?}
- *
- * {1 TODO (ideas) }
- *
- * - Multi-select
- * - DnD
  */
 
 import stdlib.web.client
@@ -146,6 +125,26 @@ type WHList.config('key) = {
   stylers         : WHList.stylers
 }
 
+/**
+ * {1 About this module}
+ *
+ * Hierarchical list widget, aka WHList widget
+ *
+ * An item is an element of the hierarchical list
+ *
+ * {1 Where should I start?}
+ *
+ * If you simply want an hlist widget, use [WHList.html]
+ *
+ * {1 Recommandations}
+ *
+ * {1 What if I need more?}
+ *
+ * {1 TODO (ideas) }
+ *
+ * - Multi-select
+ * - DnD
+ */
 WHList = {{
 
   /**
