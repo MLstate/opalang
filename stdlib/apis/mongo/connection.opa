@@ -275,8 +275,15 @@ MongoConnection = {{
            {success=db})
     | {~failure} -> {~failure}
 
-  @private
-  do_authenticate(db:Mongo.mongodb, auth:Mongo.auths) =
+  /**
+   * Perform authentication on a connection.
+   * Normally handled automatically from command line options or built-in parameters but
+   * you can perform authentications from other sources, here.
+   * Caveat: you will need to re-authenticate manually after each reconnection on a replica set.
+   * How you'll do this, I don't know but you'll probably need to pick up on the "db unauthorized"
+   * messages after the reconnect.
+   **/
+  authenticate(db:Mongo.mongodb, auth:Mongo.auths) =
     List.fold((auth, outcome ->
                 match outcome with
                 | {success=_} ->
@@ -303,14 +310,9 @@ MongoConnection = {{
    **/
   openraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    match
-      ((open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log,auth) with
-               | {success=m} -> {success=(false,m)}
-               | {~failure} -> {~failure}),name),auth))
-    with
-    | ({~success},[]) -> {~success}
-    | ({~success},_) -> do_authenticate(success, auth)
-    | ({~failure},_) -> {~failure}
+    open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log,auth) with
+           | {success=m} -> {success=(false,m)}
+           | {~failure} -> {~failure}),name)
 
   /**
    * Open a connection to a replica set starting from the given list of seeds.
@@ -323,12 +325,7 @@ MongoConnection = {{
    **/
   replraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, seeds:list(Mongo.mongo_host))
       : outcome(Mongo.mongodb,Mongo.failure) =
-    match
-      ((open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,allow_slaveok,log,auth,seeds)),name),auth))
-    with
-    | ({~success},[]) -> {~success}
-    | ({~success},_) -> do_authenticate(success, auth)
-    | ({~failure},_) -> {~failure}
+    open_(MongoReplicaSet.connect(MongoReplicaSet.init(name,bufsize,pool_max,allow_slaveok,log,auth,seeds)),name)
 
   /**
    * Get the current SlaveOK status.

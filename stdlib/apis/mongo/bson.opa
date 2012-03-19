@@ -512,10 +512,12 @@ Bson = {{
       | {some=n} -> "<not ok> (Weird ok number {n})"
       | {none} -> "<unknown ok status>"
     err = match find_string(doc, "err") with | {some=""} -> "" | {some=err} -> "<err=\"{err}\">" | {none} -> ""
+    derr = match find_string(doc, "$err") with | {some=""} -> "" | {some=err} -> "<err=\"{err}\">" | {none} -> ""
     code = match find_int(doc, "code") with | {some=code} -> "<code={code}>" | {none} -> ""
     errno = match find_int(doc, "errno") with | {some=errno} -> "<errno={errno}>" | {none} -> ""
     n = match find_int(doc, "n") with | {some=n} -> "<n={n}>" | {none} -> ""
     errmsg = match find_string(doc, "errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
+    derrmsg = match find_string(doc, "$errmsg") with | {some=""} -> "" | {some=errmsg} -> "<errmsg=\"{errmsg}\">" | {none} -> ""
     assertion =
       match find_string(doc, "assertion") with
       | {some=""} -> ""
@@ -525,7 +527,7 @@ Bson = {{
       match find_int(doc, "assertionCode") with
       | {some=assertionCode} -> "<assertionCode={assertionCode}>"
       | {none} -> ""
-    String.concat(" ",List.filter((s -> s != ""),[ok,err,code,errno,n,errmsg,assertion,assertionCode]))
+    String.concat(" ",List.filter((s -> s != ""),[ok,err,derr,code,errno,n,errmsg,derrmsg,assertion,assertionCode]))
 
   /**
    * Decide if a document contains an error or not.
@@ -534,9 +536,11 @@ Bson = {{
   is_error(doc:Bson.document): bool =
     (match find_int(doc,"ok") with {some=ok} -> ok != 1 | {none} -> false) ||
     (match find_string(doc, "err") with {some=err} -> err != "" | {none} -> false) ||
+    (match find_string(doc, "$err") with {some=err} -> err != "" | {none} -> false) ||
     (match find_int(doc, "code") with {some=code} -> code != 0 | {none} -> false) ||
     (match find_int(doc, "errno") with {some=errno} -> errno != 0 | {none} -> false) ||
-    (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
+    (match find_string(doc, "errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false) ||
+    (match find_string(doc, "$errmsg") with {some=errmsg} -> errmsg != "" | {none} -> false)
 
   is_not_master(doc:Bson.document): bool =
     match find_string(doc, "err") with {some=err} -> err == "not master" | {none} -> false
@@ -586,7 +590,11 @@ Bson = {{
       err=
         match find_string(doc, "err") with
         | {some=err} -> {present=err}
-        | {none} -> {absent};
+        | {none} ->
+           match find_string(doc, "$err") with
+           | {some=err} -> {present=err}
+           | {none} -> {absent}
+           end;
       code=
         match find_int(doc,"code") with
         | {some=code} -> {present=code}
@@ -610,7 +618,11 @@ Bson = {{
       errmsg=
         match find_string(doc, "errmsg") with
         | {some=errmsg} -> {present=errmsg}
-        | {none} -> {absent};
+        | {none} ->
+           match find_string(doc, "$errmsg") with
+           | {some=errmsg} -> {present=errmsg}
+           | {none} -> {absent}
+           end;
     }
 
   /**

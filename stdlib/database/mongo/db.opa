@@ -84,12 +84,12 @@ DbMongo = {{
        | _ -> Bson.doc2opa_default([{name="value"; ~value}], default)
      match query with
          | {none} ->
-           do Log.error("DbGen/Mongo", "(failure) read to {id} doesn't returns anything")
+           do Log.error("DbGen/Mongo", "(failure) read from {id} didn't return anything")
            none
          | {some=reply} ->
            match MongoCommon.reply_document(reply, 0) with
            | {none} ->
-             do Log.error("DbGen/Mongo", "(failure) read to {id} doesn't returns the document")
+             do Log.error("DbGen/Mongo", "(failure) read from {id} didn't return any document")
              none
            | {some=document} ->
              #<Ifstatic:DBGEN_DEBUG>
@@ -407,7 +407,7 @@ Then use option --db-remote instead of --db-local.
       match connect() with
       | {success = db} -> ~{db name cols=["default"]}
       | ~{failure} ->
-        do Log.error("DbGen/Mongo", "Error on openning database \"{name}\"\n{failure}")
+        do Log.error("DbGen/Mongo", "Error while opening database \"{name}\"\n{failure}")
         System.exit(1)
 
 
@@ -641,14 +641,21 @@ DbSet = {{
             do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
             aux(i+1)
           | {some=doc} ->
-            match Bson.doc2opa_default(doc, dbset.default) with
-            | {none} ->
-              do Log.error("DbGen/Mongo",
-                   "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
-              aux(i+1)
+              match Bson.doc2opa_default(doc, dbset.default) with
+              | {none} ->
+                 // Note: we should really test for error before unserialize but it would have an adverse effect on performance.
+                 if Bson.is_error(doc)
+                 then
+                   do Log.error("DbGen/Mongo",
+                        "(failure) Unexpected error : MongoDB returned error document {Bson.string_of_doc_error(doc)}")
+                   aux(i+1)
+                 else
+                   do Log.error("DbGen/Mongo",
+                        "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
+                   aux(i+1)
 
-            | {some=opa} -> {some = (opa, {next=->aux(i+1)})}
-            end
+              | {some=opa} -> {some = (opa, {next=->aux(i+1)})}
+              end
           end
       {next= -> aux(0)}
 

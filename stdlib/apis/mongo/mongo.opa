@@ -201,10 +201,9 @@ MongoDriver = {{
   /* Get responseTo from Mongo.mongo_buf */
   @private mongo_buf_responseTo = (%% BslMongo.Mongo.mongo_buf_responseTo %%: Mongo.mongo_buf -> int)
 
-  @private
-  do_authenticate_ll(db:outcome((bool,Mongo.db),Mongo.failure)) =
+  do_authenticate_ll(db:outcome(Mongo.db,Mongo.failure)) =
     match db with
-    | {success=(slaveok,m)} ->
+    | {success=m} ->
       List.fold((auth, outcome ->
                   match outcome with
                   | {success=_} ->
@@ -217,7 +216,7 @@ MongoDriver = {{
                         {~failure}
                      end
                   | {~failure} -> {~failure}
-                ),m.auth,{success=(slaveok,m)})
+                ),m.auth,{success=m})
     | {~failure} -> {~failure}
 
   /*
@@ -240,10 +239,16 @@ MongoDriver = {{
           if attempts > m.max_attempts
           then none
           else
-            (match do_authenticate_ll(MongoReplicaSet.connect(m)) with
+            (match MongoReplicaSet.connect(m) with
              | {success=(slaveok,m)} ->
-                do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
-                {some=(slaveok,m)}
+                match do_authenticate_ll({success=m}) with
+                | {success=m} ->
+                  do if m.log then ML.info("MongoDriver.reconnect({from})","reconnected",void)
+                  {some=(slaveok,m)}
+                | {~failure} ->
+                   do if m.log then ML.info("MongoDriver.reconnect({from})","auth failure={C.string_of_failure(failure)}",void)
+                   none
+                end
              | {~failure} ->
                 do if m.log then ML.info("MongoDriver.reconnect({from})","failure={C.string_of_failure(failure)}",void)
                 do Scheduler.wait(m.reconnect_wait)
@@ -534,8 +539,11 @@ MongoDriver = {{
    **/
   open(bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, auth:Mongo.auths)
      : outcome(Mongo.db,Mongo.failure) =
-    do if log then ML.info("MongoDriver.open","{addr}:{port}",void)
-    connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log,auth),addr,port)
+    do if log then ML.info("MongoDriver.open","{addr}:{port} auth={auth}",void)
+    match ((connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log,auth),addr,port),auth)) with
+    | ({~success},[]) -> {~success}
+    | ({~success},_) -> do_authenticate_ll({~success})
+    | ({~failure},_) -> {~failure}
 
   /**
    *  Close mongo connection.

@@ -210,6 +210,17 @@ MongoReplicaSet = {{
         end
     aux(l1, l2)
 
+  @private do_authenticate(slaveok:bool, m:Mongo.db): outcome((bool,Mongo.db),Mongo.failure) =
+    match m.auth with
+    | [] -> {success=(slaveok,m)}
+    | _ ->
+       match MongoDriver.do_authenticate_ll({success=m}) with
+       | {success=m} -> {success=(slaveok,m)}
+       | {~failure} -> {~failure}
+       end
+    end
+
+
   /**
    * Connect (and reconnect) to a replica set.
    *
@@ -251,7 +262,7 @@ MongoReplicaSet = {{
                      | ({some=ismaster},setName) ->
                         if ismaster && (Option.default("...",setName) == m.name)
                         then
-                          {success=(false,m)}
+                          do_authenticate(false,m)
                         else
                           (match Bson.find_string(doc,"primary") with
                            | {some=primary} ->
@@ -266,7 +277,7 @@ MongoReplicaSet = {{
                               if m.allow_slaveok
                               then
                                 do if m.log then ML.info("MongoReplicaSet.connect","using secondary",void)
-                                {success=(true,m)}
+                                do_authenticate(true,m)
                               else aux2(m,rest)
                           )
                      | _ -> aux2(m,rest))

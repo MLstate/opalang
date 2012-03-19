@@ -271,7 +271,7 @@ MongoSelectUpdate = {{
     | {String=_} -> ({su_either},T.tstring)
     | {Document=d} -> type_of_bson_document(d)
     | {Array=[]} -> ({su_either},T.tempty) // or maybe list('a) or list({})???
-    | {Array=[{name=name; ~value}|_]} -> // comes from an OPA list or intmap so all same type
+    | {Array=[{name=_name; ~value}|_]} -> // comes from an OPA list or intmap so all same type
        //dbg do println("type_of_bson_value: Array({name}) value={value}")
        (sut,ty) = type_of_bson_value(value)
        (sut,T.tlist(ty))
