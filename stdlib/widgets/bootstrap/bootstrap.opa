@@ -661,7 +661,7 @@ WBootstrap = {{
     <div class="btn-group">
       {bt}
       <ul class="dropdown-menu">{
-        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false), list)
+        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false, identity), list)
       }</ul>
     </div>
     |> (if up then Xhtml.update_class("dropup", _)
@@ -682,7 +682,7 @@ WBootstrap = {{
       {make(bt_type, bt_options_list)}
       {bt}
       <ul class="dropdown-menu">{
-        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false), list)
+        @toplevel.List.map(Navigation.nav_elt_to_xhtml(false, identity), list)
       }</ul>
     </div>
     |> (if up then Xhtml.update_class("dropup", _)
@@ -692,21 +692,24 @@ WBootstrap = {{
 
   Navigation = {{
 
-    @package nav_elt_to_xhtml(vertical_sep) =
+    @package nav_elt_to_xhtml(vertical_sep, f) =
       | {active=e ~onclick ~href} ->
         <li class="active">
           {<a onclick={onclick}>{e}</a>
-          |> add_href_opt(href, _)}
+          |> add_href_opt(href, _)
+          |> f(_)}
         </li>
       | {inactive=e ~onclick ~href} ->
         <li>
           {<a onclick={onclick}>{e}</a>
-          |> add_href_opt(href, _)}
+          |> add_href_opt(href, _)
+          |> f(_)}
         </li>
       | {disabled=e ~onclick ~href} ->
         <li class="disabled">
           {<a onclick={onclick}>{e}</a>
-          |> add_href_opt(href, _)}
+          |> add_href_opt(href, _)
+          |> f(_)}
         </li>
       | {divider} -> <li class="divider{if vertical_sep then "-vertical" else ""}"></li>
       | {~custom_li} -> custom_li
@@ -747,21 +750,21 @@ WBootstrap = {{
              data-toggle="dropdown">{toggle}</a>
          |> add_href_opt(href, _)}
         <ul class="dropdown-menu">{
-          @toplevel.List.map(nav_elt_to_xhtml(false), list)
+          @toplevel.List.map(nav_elt_to_xhtml(false, identity), list)
         }</ul>
       </li>
 
-    @private make_tabs(cl:string, tabs:list(WBootstrap.Navigation.elt), stacked:bool) =
+    @private make_tabs(cl:string, tabs:list(WBootstrap.Navigation.elt), stacked:bool, f) =
       <ul class="nav">{
-        @toplevel.List.map(nav_elt_to_xhtml(true), tabs)
+        @toplevel.List.map(nav_elt_to_xhtml(true, f), tabs)
       }</ul>
       |> Xhtml.update_class(cl, _)
       |> (if stacked then Xhtml.update_class("nav-stacked", _)
           else identity)
 
-    nav(l, stacked) = make_tabs("", l, stacked)
-    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked) |> Xhtml.add_attribute_unsafe("data-toggle", "tab", _)
-    pills(l, stacked) = make_tabs("nav-pills", l, stacked) |> Xhtml.add_attribute_unsafe("data-toggle", "pill", _)
+    nav(l, stacked) = make_tabs("", l, stacked, identity)
+    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "tab", _))
+    pills(l, stacked) = make_tabs("nav-pills", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "pill", _))
 
     // TODO: nav-list, tabbable nav
 
@@ -770,7 +773,7 @@ WBootstrap = {{
      */
     breadcrumb(path:list(WBootstrap.Navigation.elt), sep:xhtml) =
       <ul class="breadcrumb">{
-        list = @toplevel.List.map(nav_elt_to_xhtml(false), path)
+        list = @toplevel.List.map(nav_elt_to_xhtml(false, identity), path)
         XmlConvert.of_list_using(<></>, <></>, Span.divider(sep), list)
       }</ul>
 
@@ -781,7 +784,7 @@ WBootstrap = {{
                prev:WBootstrap.Navigation.page_nav_elt,
                next:WBootstrap.Navigation.page_nav_elt,
                alignment:{left}/{centered}/{right}) =
-      list = @toplevel.List.map(nav_elt_to_xhtml(true), pages)
+      list = @toplevel.List.map(nav_elt_to_xhtml(true, identity), pages)
       is_disabled(l) = if @toplevel.List.is_empty(l)
                           || (match @toplevel.List.head(l) {active=_ href=_ onclick=_} -> true _ -> false)
                        then "disabled" else ""
