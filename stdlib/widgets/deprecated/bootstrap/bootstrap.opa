@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -33,7 +33,7 @@
  * - JS
  */
 
-package stdlib.widgets.bootstrap
+package stdlib.widgets.deprecated.bootstrap
 
 /**
  * {1 Types definition}
