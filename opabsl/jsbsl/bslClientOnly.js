@@ -203,7 +203,8 @@ var load_js_files = {}
   ##register append_child: dom_element, dom_element -> void
   ##args(parent, child)
   {
-    parent.appendChild(child);
+      if (parent.appendChild) parent.appendChild(child);
+      else (new $(parent)).append($(child));
   }
 
   ##register add_class_name : dom_element, string -> void
