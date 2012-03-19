@@ -129,8 +129,8 @@ let start () =
   let args = (SA.get_argv ()) in
   if List.mem "--help" (SA.to_list args) then exit 0;
   if not (SA.is_empty args) then begin
-    Printf.eprintf "Unknown option `%s'." (SA.argv_to_string ());
-    Printf.eprintf "Try `--help' for more information.";
+    Printf.eprintf "Unknown option `%s'.\n" (SA.argv_to_string ());
+    Printf.eprintf "Try `--help' for more information.\n";
     exit 1;
   end;
   let run, close = get_fun () in
