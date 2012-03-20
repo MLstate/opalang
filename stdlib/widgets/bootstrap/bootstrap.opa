@@ -387,7 +387,7 @@ WBootstrap = {{
 
   Label = {{
 
-    make_label(content:string) =
+    make_label(content:xhtml) =
       <span>{content}</span> |> Xhtml.update_class("label", _)
 
     success = Xhtml.update_class("label-success", _)
@@ -399,7 +399,7 @@ WBootstrap = {{
     /**
      * Create a label
      */
-    make(text:string, importance:WBootstrap.Label.importance) =
+    make(text:xhtml, importance:WBootstrap.Label.importance) =
       lb = make_label(text)
       lb = match importance
           {default} -> lb
