@@ -151,8 +151,8 @@ MongoConnection = {{
 
   @private
   auth_parser = parser
-  | user=((![@] .)+)[@] dbname=((![:] .)+) [:] password=(.+) ->
-    {user=Text.to_string(user); dbname=Text.to_string(dbname); password=Text.to_string(password)}:Mongo.auth
+  | user=((![:] .)+)[:] password=((![@] .)+) [@] dbname=(.+) ->
+    {user=Text.to_string(user); dbname=Text.to_string(dbname); password=Text.to_string(password)}
 
   @private
   get_params = ->
@@ -238,7 +238,7 @@ MongoConnection = {{
            {CommandLine.default_parser with
               names = ["--mongo-auth", "--mongoauth", "--ma", "-ma"]
               description = "MongoDB user authentication"
-              param_doc = "user@dbname:password"
+              param_doc = "user:password@dbname"
               on_param(p) = parser s={Rule.consume} ->
                   match Parser.try_parse(auth_parser,s) with
                   | {some=auth} ->

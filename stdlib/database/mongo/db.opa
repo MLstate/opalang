@@ -484,30 +484,22 @@ Then use option --db-remote instead of --db-local.
           {CommandLine.default_parser with
             names = ["--db-remote{suffix}"]
             description = "Use a remote mongo database(s), (default: {seed.f1}:{seed.f2})"
-            param_doc = "host[:<port>][,host[:<port>]]*"
+            param_doc = "[user:password@]host[:<port>][,[user:password@]host[:<port>]]*"
             on_param(acc) =
               do jlog("Hello")
+              auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
+                {user=Text.to_string(user); password=Text.to_string(password); dbname=name}
               seed_parser = parser
-                host=((![:] .)*)[:] port={Rule.natural} -> (Text.to_string(host), port)
+                | auth=auth_parser? host=((![:] .)*)[:] port={Rule.natural} ->
+                  (auth, (Text.to_string(host), port))
               parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} ->
                 acc = match acc with
                   | {remote = acc} -> acc
                   | _ -> default_remote
-                do jlog("Parsing seeds {seeds}")
-                {no_params = {remote = {acc with seeds = List.append(acc.seeds, seeds)}}}
-          },
-          {CommandLine.default_parser with
-            names = ["--db-remote-auth{suffix}"]
-            description = "Set authorisation for databases"
-            param_doc = "<user>@<dbname>:<password> (Note: no '@' in <user> and no ':' in <dbname>)"
-            on_param(acc) =
-              parser user=((![@] .)+)[@] dbname=((![:] .)+) [:] password=(.+) ->
-                auth = {user=Text.to_string(user); dbname=Text.to_string(dbname); password=Text.to_string(password)}:Mongo.auth
-                acc = match acc with
-                  | {remote = acc} -> acc
-                  | _ -> default_remote
-                do jlog("Parsing auth {auth}")
-                {no_params = {remote = {acc with auth = List.append(acc.auth, [auth])}}}
+                (auths,seeds) = List.unzip(seeds)
+                auths = List.filter_map((a -> a),auths)
+                do jlog("Parsing seeds {seeds} auths {auths}")
+                {no_params = {remote = {acc with seeds = List.append(acc.seeds, seeds); auth = List.append(acc.auth, auths)}}}
           },
           {CommandLine.default_parser with
             names = ["--db-local{suffix}"]
