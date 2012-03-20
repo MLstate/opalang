@@ -1,10 +1,19 @@
+Improvements:
+
+  * bslClient
+    - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
+
 Updated APIs:
 
-  * Bootstrap
+  * Bootstrap CSS
     - upgraded to v2.0.2
     - fixes for Bootstrap and Opa icons inclusion
     - changed the import names
     - added Font Awesome icons
+
+  * Bootstrap Widgets
+    - upgrade bootstrap widgets to match v2.0 of bootstrap
+    - the previous implementation (compatible with <= v1.4.0) is moved in stdlib.widgets.deprecated.bootrap
 
   * Mongo low-level drivers
     - added authentication parameters and command line options
