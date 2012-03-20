@@ -36,7 +36,7 @@ type post =
   | Multipart of multipart_post_request
   | Simple of uri * header list * Rcontent.content
 type put = uri * header list * Rcontent.content
-type delete = uri * header list
+type optional = uri * header list
 
 type request_line = { _method : msg ; request_uri : string ; http_version : string }
 

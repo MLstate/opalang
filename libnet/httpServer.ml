@@ -458,8 +458,8 @@ let handle_put sched runtime _method hr (uri, headers, body) conn k =
               server_info = hr.HST.hr_server_info; is_multipart = false; handle_request = hr} in
   (HD.body runtime.HSC.rt_server.HSC.rt_dialog_content sched) { HST.cont=k; request=req; connection=conn; certificate=None }
 
-let handle_delete sched runtime _method hr (uri, headers) conn k =
-  #<If>Logger.debug "handle_delete: uri=%s" uri#<End>;
+let handle_optional handler_name sched runtime _method hr (uri, headers) conn k =
+  #<If>Logger.debug "%s: uri=%s" handler_name uri#<End>;
   HSCm.check_host headers;
   let req = { HST.request_scheduler=sched;
               HST.request_line = { HST._method=_method; request_uri=uri; http_version=HSC.http_version_number };
@@ -541,6 +541,7 @@ type options =
       port : int;
       block_size : int;
       allowed_hosts : string list;
+      allmethods: bool;
       dos_prevention : bool;
       on_server_run : options -> Scheduler.t -> unit;
       on_server_close : Scheduler.t -> unit;
@@ -550,7 +551,7 @@ type options =
              -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
       put : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.put
             -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
-      delete : Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.delete
+      optional : string -> Scheduler.t -> HSC.runtime -> HSCp.msg -> HST.handle_request -> HST.optional
                -> Scheduler.connection_info -> (HST.response -> unit) -> unit;
       pre_headers : HST.handle_request -> HSCp.msg -> HST.header list -> (HST.handle_request * HST.header list);
       post_headers : HST.handle_request -> HSCp.msg -> HST.header list -> HST.header list
@@ -634,12 +635,13 @@ let default_options =
     block_size = 4096; (* TODO: implement separate callbac blocksize *)
     allowed_hosts = [];
     dos_prevention = true;
+    allmethods = false;
     on_server_run = (fun _ _ -> ());
     on_server_close = (fun _ -> ());
     get = handle_get;
     post = handle_post;
     put = handle_put;
-    delete = handle_delete;
+    optional = handle_optional;
     pre_headers = pre_headers;
     post_headers = post_headers;
     callback = Some null_callback;
@@ -809,6 +811,10 @@ let spec_args name =
     ServerArg.func ServerArg.unit (fun o () -> { o with backtrace = false }),
       "", (sprintf "Disable backtrace printout for server exceptions" (*default_options.backtrace*));
 
+    p"all-methods",
+    ServerArg.func ServerArg.unit (fun o () -> { o with allmethods = true }),
+      "", (sprintf "Enable all HTTP methods (default: only GET, HEAD and POST)" (*default_options.allmethods*));
+
     p"ssl-cert",
     ServerArg.func ServerArg.string (fun o s -> { o with ssl_cert = s }),
     "<file>", (sprintf "Location of your SSL certificate (requires ssl-key) (default:'%s')" default_options.ssl_cert);
@@ -905,11 +911,12 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   let diff = lc.Unix.tm_hour - gm.Unix.tm_hour in
   let sign = if diff > 0 then "+" else if diff < 0 then "-" else "" in
   HST.time_diff := sprintf "%s%02d00" sign diff;
+    Printf.eprintf "all_methods: %b\n%!" opt.allmethods;
   let runtime = {
     HSC.rt_get = opt.get;
     rt_post = opt.post;
     rt_put = opt.put;
-    rt_delete = opt.delete;
+    rt_optional = opt.optional;
     rt_core =
       { HSC.rt_pre_headers = opt.pre_headers;
         rt_post_headers = opt.post_headers;
@@ -932,6 +939,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
         rt_on_close = opt.on_server_close;
         rt_favicon_ico = opt.favicon_ico;
         rt_favicon_gif = opt.favicon_gif;
+        rt_all_methods = opt.allmethods;
       };
     rt_proto =
       { HSC.rt_name = opt.name;

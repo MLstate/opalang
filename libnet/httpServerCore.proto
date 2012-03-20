@@ -70,6 +70,7 @@
     rt_on_close : Scheduler.t -> unit;
     rt_favicon_ico : body_value;
     rt_favicon_gif : body_value;
+    rt_all_methods : bool;
   }
 
 -type payload = string * (header list)
@@ -91,8 +92,8 @@
                           -> Scheduler.connection_info -> (response -> unit) -> unit;
     rt_put : Scheduler.t -> runtime -> msg -> handle_request -> put
                          -> Scheduler.connection_info -> (response -> unit) -> unit;
-    rt_delete : Scheduler.t -> runtime -> msg -> handle_request -> delete
-                            -> Scheduler.connection_info -> (response -> unit) -> unit;
+    rt_optional : string -> Scheduler.t -> runtime -> msg -> handle_request -> optional
+                         -> Scheduler.connection_info -> (response -> unit) -> unit;
     rt_tmp : rt_tmp;
     rt_server : rt_server;
     rt_proto : rt_proto;
@@ -314,18 +315,14 @@ wait_for_request(hr, timeout):
     wait_for_headers0(uri, {{ [] }}, hr, {{ Get (uri,v) }}, {{ -1 }}, 0, timeout)
   | Post (uri, v) ->
     wait_for_headers0(uri, {{ [] }}, hr, {{ Post (uri,v) }}, {{ -1 }}, 0, timeout)
-  | Put (uri, v) ->
-    wait_for_headers0(uri, {{ [] }}, hr, {{ Put (uri,v) }}, {{ -1 }}, 0, timeout)
-  | Del (uri, v) ->
-    wait_for_headers0(uri, {{ [] }}, hr, {{ Del (uri,v) }}, {{ -1 }}, 0, timeout)
   % If we get a secure connection on a non-secure server we get lots of rubbish here
   % so we only respond with a bad request if it is actually a request.
-  %| Put (uri, v) -> bad_request({{ Put (uri,v) }})
-  %| Del (uri, v) -> bad_request({{ Del (uri,v) }})
-  | Trace (uri, v) -> bad_request({{ Trace (uri,v) }})
-  | Conn (uri, v) -> bad_request({{ Conn (uri,v) }})
-  | Opts (uri, v) -> bad_request({{ Opts (uri,v) }})
-  | Ptch (uri, v) -> bad_request({{ Ptch (uri,v) }})
+  | Put (uri, v) -> optional_method(uri, hr, {{ Put (uri,v) }}, timeout)
+  | Del (uri, v) -> optional_method(uri, hr, {{ Del (uri,v) }}, timeout)
+  | Trace (uri, v) -> optional_method(uri, hr, {{ Trace (uri,v) }}, timeout)
+  | Conn (uri, v) -> optional_method(uri, hr, {{ Conn (uri,v) }}, timeout)
+  | Opts (uri, v) -> optional_method(uri, hr, {{ Opts (uri,v) }}, timeout)
+  | Ptch (uri, v) -> optional_method(uri, hr, {{ Ptch (uri,v) }}, timeout)
   | msg ->
     let amount_of_rubbish = {{ String.length (string_of_msg msg) }}
     {{ Logger.error "HttpServerCore.wait_for_request: bad request (%d bytes of rubbish)" amount_of_rubbish }}
@@ -339,6 +336,11 @@ wait_for_request(hr, timeout):
       exnerr ({{"wait_for_request_exception"}}, {{ None }}, exn,
               {{ if _runtime.rt_proto.rt_backtrace then (Some (Printexc.get_backtrace())) else None }})
   after timeout -> close_connection_req ({{"wait_for_request"}}, {{ None }})
+
+optional_method(uri, hr, request_type, timeout):
+  if {{ _runtime.rt_server.rt_all_methods }}
+  then wait_for_headers0(uri, {{ [] }}, hr, request_type, {{ -1 }}, 0, timeout)
+  else bad_request(request_type)
 
 wait_for_headers0(uri, headers, hr, request_type, contlen, hdrcnt, timeout):
   debug 10 {{ Logger.debug "wait_for_headers: %s\n%!" (string_of_msg request_type) }}
@@ -366,7 +368,11 @@ wait_for_headers(uri, headers, hr, request_type, contlen, hdrcnt, timeout):
           | Get _ -> handle_get(request_type, uri, headers, hr)
           | Post _ -> handle_post(request_type, contlen, uri, headers, hr, timeout)
           | Put _ -> handle_put(request_type, contlen, uri, headers, hr, timeout)
-          | Del _ -> handle_delete(request_type, uri, headers, hr)
+          | Del _ -> handle_optional(request_type, uri, headers, hr, {{"DELETE"}}, {{"handle_delete"}})
+          | Trace _ -> handle_optional(request_type, uri, headers, hr, {{"TRACE"}}, {{"handle_trace"}})
+          | Conn _ -> handle_optional(request_type, uri, headers, hr, {{"CONNECT"}}, {{"handle_connect"}})
+          | Opts _ -> handle_optional(request_type, uri, headers, hr, {{"OPTIONS"}}, {{"handle_options"}})
+          | Ptch _ -> handle_optional(request_type, uri, headers, hr, {{"PATCH"}}, {{"handle_patch"}})
           | rt -> bad_request(rt)
           ;
         end
@@ -440,16 +446,16 @@ handle_put0(request_type, contlen, uri, headers, hr, timeout):
   after timeout -> timeouterr ({{"handle_put"}}, {{ None }})
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%                      Handling DELETE requests                      %%%%
+%%%%                      Handling optional requests                    %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-handle_delete(request_type, uri, headers, hr):
-  let _runtime = {{ set_payload _runtime ("DELETE",headers) }}
+handle_optional(request_type, uri, headers, hr, reqname, handlername):
+  let _runtime = {{ set_payload _runtime (reqname,headers) }}
   if {{ http_server_callback _runtime _mailbox }}
   then
-    debug {{ Logger.debug "handle_delete: uri=%s\n%!" uri }}
-    let res = !"handle_delete"<< _runtime.rt_delete sched _runtime request_type hr (uri, headers) conn >>
+    debug {{ Logger.debug "%s: uri=%s\n%!" handlername uri }}
+    let res = !"handle_optional"<< _runtime.rt_optional handlername sched _runtime request_type hr (uri, headers) conn >>
     send_res(res, hr, request_type, headers, NoResource)
-  else callback_abort({{"handle_delete"}}, {{None}})
+  else callback_abort(handlername, {{None}})
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%                      Handling POST requests                        %%%%
