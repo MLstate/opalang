@@ -1292,6 +1292,22 @@ let projects l = List.map project l
 module G = GraphUtils.String.G
 module Viz = GraphUtils.DefaultGraphviz(G)(struct let vertex_name x = x end)
 
+(* packages are compared by their index in the sorted packages list *)
+let compare_packages_h = PackageTbl.create 10
+let compare_packages_update sorted_packages =
+  PackageTbl.clear compare_packages_h;
+  List.iteri (fun package i -> PackageTbl.add compare_packages_h package i) sorted_packages
+
+let compare_packages package1 package2 =
+  if Package.equal package1 package2 then 0
+  else
+    try
+      compare (PackageTbl.find compare_packages_h package1) (PackageTbl.find compare_packages_h package2)
+    with Not_found ->
+      if not(PackageTbl.mem compare_packages_h package1) then 1
+      else if not(PackageTbl.mem compare_packages_h package2) then -1
+      else assert false
+
 let reorder :
   extrajs:string list ->
   extract_more_deps:('code_elt list -> float option StringMap.t) ->
@@ -1643,16 +1659,8 @@ let reorder :
     match anon with
     | None -> None
     | Some _ -> Some (blocks,deps) in
-
-  let compare =
-    (* packages are compared by their index in the sorted packages list *)
-    let h = PackageTbl.create 10 in
-    List.iteri (fun package_opt i ->
-                  match package_opt with
-                  | None -> ()
-                  | Some package -> PackageTbl.add h package i) sorted_packages;
-    fun package1 package2 ->
-      compare (PackageTbl.find h package1) (PackageTbl.find h package2) in
+  compare_packages_update (List.filter_map (fun x -> x ) sorted_packages);
+  let compare = compare_packages in
 
   save_if_need_recompilation, transitive_closure, compare, list, anon
 
@@ -1804,7 +1812,8 @@ let add_compiler_packages packs =
   package_names := unique (!package_names @ packs);
   package_deep_names := unique (!package_deep_names @ deeps @ packs);
   package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs);
-  package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs )
+  package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs );
+  compare_packages_update !package_deep_names_and_more_deeps_names;;
 
 let resave () =
   let _ = !resave !current_package in ()
