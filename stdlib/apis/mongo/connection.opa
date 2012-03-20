@@ -279,19 +279,19 @@ MongoConnection = {{
    * Perform authentication on a connection.
    * Normally handled automatically from command line options or built-in parameters but
    * you can perform authentications from other sources, here.
-   * Caveat: you will need to re-authenticate manually after each reconnection on a replica set.
-   * How you'll do this, I don't know but you'll probably need to pick up on the "db unauthorized"
-   * messages after the reconnect.
    **/
   authenticate(db:Mongo.mongodb, auth:Mongo.auths) =
     List.fold((auth, outcome ->
                 match outcome with
-                | {success=_} ->
+                | {success=db} ->
                    match MongoCommands.authenticate(db, auth.dbname, auth.user, auth.password) with
                    | {success=_} ->
                       do if db.mongo.log
                          then ML.info("MongoConnection.authenticate","success",void)
-                      outcome
+                      {success={db with mongo={db.mongo with
+                                               auth=[{dbname=auth.dbname;
+                                                      user=auth.user;
+                                                      password=auth.password}|db.mongo.auth]}}}
                    | {~failure} ->
                       do if db.mongo.log
                          then ML.info("MongoConnection.authenticate","failure {failure}",void)

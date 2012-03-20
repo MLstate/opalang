@@ -6,6 +6,12 @@ Updated APIs:
     - changed the import names
     - added Font Awesome icons
 
+  * Mongo low-level drivers
+    - added authentication parameters and command line options
+
+Other features:
+
+  * Added authentication options for @mongo database
 
 2012.03.09, Version 0.9.1 (stable), v1466
 
