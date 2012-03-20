@@ -911,7 +911,6 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
   let diff = lc.Unix.tm_hour - gm.Unix.tm_hour in
   let sign = if diff > 0 then "+" else if diff < 0 then "-" else "" in
   HST.time_diff := sprintf "%s%02d00" sign diff;
-    Printf.eprintf "all_methods: %b\n%!" opt.allmethods;
   let runtime = {
     HSC.rt_get = opt.get;
     rt_post = opt.post;
