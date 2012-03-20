@@ -143,7 +143,13 @@ type WBootstrap.Label.importance =
 
 // Badge
 
-type WBootstrap.Badge.importance = WBootstrap.Label.importance
+type WBootstrap.Badge.importance =
+  {default}
+/ {success}
+/ {warning}
+/ {error}
+/ {info}
+/ {inverse}
 
 // Alert
 
@@ -414,20 +420,20 @@ WBootstrap = {{
 
     success = Xhtml.update_class("badge-success", _)
     warning = Xhtml.update_class("badge-warning", _)
-    important = Xhtml.update_class("badge-important", _)
+    error = Xhtml.update_class("badge-error", _)
     info = Xhtml.update_class("badge-info", _)
     inverse = Xhtml.update_class("badge-inverse", _)
 
     /**
      * Create a label
      */
-    make(text:string, importance:WBootstrap.Label.importance) =
+    make(text:string, importance:WBootstrap.Badge.importance) =
       lb = make_badge(text)
       lb = match importance
           {default} -> lb
           {success} -> lb |> success(_)
           {warning} -> lb |> warning(_)
-          {important} -> lb |> important(_)
+          {error} -> lb |> error(_)
           {info} -> lb |> info(_)
           {inverse} -> lb |> inverse(_)
       lb
