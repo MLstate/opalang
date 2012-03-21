@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -539,7 +539,7 @@ let absify ~toplevel env gamma_with_lambda_bindings annotmap e xs =
 
 
 
-let absify_untyped ~toplevel e xs =
+let absify_untyped ~toplevel env e xs =
   match xs with
   | [] when toplevel -> e
   | _ ->
@@ -549,7 +549,8 @@ let absify_untyped ~toplevel e xs =
           | Q.Lambda (_, orig_xs, e) ->
               let pos = Q.Pos.expr expr in
               let label = Annot.next_label pos in
-              QmlAstCons.UntypedExprWithLabel.lambda ~label (xs @ orig_xs) e
+              let lambda = QmlAstCons.UntypedExprWithLabel.lambda ~label (xs @ orig_xs) e in
+              QmlAstCons.UntypedExprWithLabel.directive ~label (`lifted_lambda (List.length xs, List.tl env.hierarchy)) [lambda] []
           | Q.Coerce _
           | Q.Directive (_, #ignored_directive, _, _) as e -> tra e
           | _ -> assert false)
@@ -951,7 +952,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                     let body =
                       match mode with
                       | `fun_action _ -> absify_fun_action body fresh_extra
-                      | `untyped -> absify_untyped ~toplevel body fresh_extra in
+                      | `untyped -> absify_untyped ~toplevel env body fresh_extra in
                     let sigma = IdentMap.from_list (List.combine extra fresh_extra) in
                     annotmap,body,sigma in
               (* replace each free variables by the corresponding

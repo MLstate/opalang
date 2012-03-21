@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,7 +18,10 @@
 module Q = QmlAst
 module List = Base.List
 
-type ignored_directive = Q.type_directive
+type ignored_directive = [
+| Q.type_directive
+| Q.lambda_lifting_directive
+]
 
 (* for each top level function, we record
    1-its defining identifier,
