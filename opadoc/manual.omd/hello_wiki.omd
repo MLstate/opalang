@@ -1,0 +1,515 @@
+Hello, wiki
+===========
+
+Wikis, and other form of user-editable pages, are components commonly encountered on the web.
+In itself, developing a simple wiki is error-prone but otherwise not very difficult. However,
+developing a rich wiki that both scales up and does not suffer from vulnerabilities caused by
+the content provided by users is quite harder. Once again, Opa makes it simple.
+
+In this chapter, we will see how to program a complete, albeit simple, wiki
+application in Opa. Along the way, we will introduce the Opa database, the
+client-server security policy, the mechanism used to incorporate user-defined
+pages without breaking security, as well as more user interface manipulation.
+
+Overview
+--------
+
+Let us start with a picture of the wiki application we will develop in this chapter:
+
+![Final version of the Hello wiki application](/resources/manual/img/hello_wiki/result.png)
+
+This web application stores pages and lets users edit them, using [Markdown syntax](http://en.wikipedia.org/wiki/Markdown),
+which is a popular markup language that supports headings, links, lists, images etc.
+
+If you are curious, this is the full source code of the application.
+
+[opa|fork=hello_wiki|run=http://wiki.tutorials.opalang.org]file://hello_wiki/hello_wiki.opa
+
+In this listing, we define a database for storing the content of the pages in the
+Markdown syntax format, we define the user interface and finally, the main application.  In
+the rest of the chapter, we will walk you through all the concepts and
+constructions introduced.
+
+As for the chat, we use [Bootstrap CSS from Twitter](http://twitter.github.com/bootstrap/)
+with a single import line.
+
+Setting up storage
+------------------
+
+A wiki is all about modifying, storing and displaying pages. This means that we
+need to set up some storage to receive these pages, as follows:
+
+    database stringmap(string) /wiki
+
+This defines a _database path_, i.e. a place where we can store information, and specifies the type
+of information that will be stored there. Here, we use type `stringmap(string)`.
+This is a `stringmap` (i.e. an association from `string` keys to values) containing values of type
+`string` (used to denote Markdown code).
+
+{block}[TIP]
+### About database paths
+In Opa, the database is composed of _paths_. A path is a named slot where you can store
+exactly one value at a time. Of course, this value can be a list, or a map, for instance,
+both of which act as containers for several values.
+
+As everything else in Opa, paths are typed, with the type of the value that can
+be stored. Paths can be defined for any Opa type, except types containing
+functions or real-time web constructions such as networks. To guard against
+subtle incompatibilities between successive versions of an application, the type
+must be given during the definition of the path.
+{block}
+
+{block}[TIP]
+### HTML VS markup
+On the web, letting users directly write HTML code that can be seen at a later
+stage by other users is not a good idea, as it opens the way for numerous forms of
+attacks, sometimes quite subtle and hard to detect.
+
+Opa offers at least two ways to circumvent this problem. Firstly, there is
+a _templating_ mechanism (see package `stdlib.web.template`), which is an
+XML-based markup that covers a safe subset of HTML. Moreover this templating
+mechanism is designed for full extensibility -- indeed, [our website](http://opalang.org),
+including our own on-line editor, is developed using templating.
+
+Another, more lightweight approach, and one that we are using here, is to
+use Markdown (package `stdlib.tools.markdown`), which is a very popular
+markup language that convers easy to read and write plain text format
+into structurally valid and completely safe XHTML (and supports headings,
+links, images, code snippets etc.).
+{block}
+
+It is generally a good idea to associate a default value to each path, as this
+makes manipulation of data easier:
+
+    database /wiki[_] = "This page is empty. Double-click to edit."
+
+The square brackets `[_]` are a convention to specify that we are talking about
+the contents of a map and, more precisely, providing a default value. Here, the
+default value is `"This page is empty. Double-click to edit."`, i.e. a simple text
+in Markdown syntax (here it's just plain text).
+
+With these two lines, the database is set. Any data written to the database will
+be kept persistent. Should you stop and restart your application, the data will
+be checked and made accessible to your application as it was at the point you
+stopped it.
+
+Loading, parsing and writing
+----------------------------
+
+Reading data from or writing data to the database is essentially
+transparent. For clarity and performance, we may start by defining two loading functions.
+One, `load_source`, will load some content from the database and present it as source code that the user can edit, while a second one, `load_rendered` will load the same content and present it as xhtml that can be displayed immediately:
+
+```
+function load_source(topic) {
+  /wiki[topic]
+}
+
+function load_rendered(topic) {
+  source = load_source(topic)
+  Markdown.xhtml_of_string(Markdown.default_options, source)
+}
+```
+
+In this extract, `topic` is the topic we wish to display or edit -- i.e. the name
+of the page. The content associated with `topic` can be found in the database at path `/wiki[topic]`.
+Once we have this content, depending on our needs, we just return it as a `string`,
+or convert to `xhtml` data structure for display, using the `Markdown.xhtml_of_string`
+function, which parses the string and builds its corresponding `xhtml` representation,
+with respect to the Markdown syntax.
+
+Saving data is equally simple:
+
+```
+function save_source(topic, source) {
+    /wiki[topic] <- source;
+    load_rendered(topic);
+}
+```
+
+This function takes two arguments: a `topic`, with the same meaning as above,
+and a `source`, i.e. a `string`, which is a representation of the page with Markdown syntax.
+The instruction after `do` writes `source` to the database at path `/wiki[topic]`.
+
+User interface
+--------------
+
+As previously, we define a function to produce the user interface:
+
+```
+function display(topic) {
+   xhtml =
+     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="content container">
+       <div class="page-header"><h1>About {topic}</></>
+       <div class="well" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
+       <textarea rows="30" id=#edit_content onblur={function(_) { save(topic) }}></>
+      </div>;
+    Resource.styled_page("About {topic}", ["/resources/css.css"], xhtml);
+}
+```
+
+This time, instead of producing a `xhtml` result, we have embedded
+this result in a `resource`, i.e. a representation for anything that
+the server can send to the client, whether it is a page, an image, or
+anything else. In practice, most applications produce a set of
+resources, as this is more powerful and more flexible than plain
+`xhtml`. Of course that will require different variant of `Server.start`, which we will see later.
+
+A number of functions can be used to construct a `resource`. Here, we
+use `Resource.styled_page`, a function which constructs a web page,
+from its title (first argument), a list of stylesheets (second
+argument) and `xhtml` content. At this stage, the `xhtml` content
+should not surprise you. We use `<div>` to display the contents of the
+page, or `<textarea>` (initially hidden) to modify them. When a user
+double-clicks on the content of the page (event `dblclick`), it
+triggers function `edit`, and when the user stops editing the source
+(event `blur`), it triggers function `save`.
+
+Function `edit` is defined as follows:
+
+```
+function edit(topic) {
+    Dom.set_value(#edit_content, load_source(topic));
+    Dom.hide(#show_content);
+    Dom.show(#edit_content);
+    Dom.give_focus(#edit_content);
+}
+```
+
+This function loads the source code associated with `topic`, sets the content
+of `#edit_content`, replaces the `<div>` with the `<textarea>`, gives focus
+to the `<textarea>` (purely for comfort) and returns `void`.
+
+Similarly, function `save` is defined as follows, and shouldn't surprise you:
+
+```
+function save(topic) {
+    content = save_source(topic, Dom.get_value(#edit_content));
+    #show_content = content;
+    Dom.hide(#edit_content);
+    Dom.show(#show_content);
+}
+```
+
+With these three functions, the user interface is ready. It is now time to work on the server.
+
+Serving the pages
+-----------------
+
+For this application we will use a new variant of `Server.start`. Before we
+were using a construction for a single-page server; in practice most web appliactions
+have multiple pages. For that we can use `Server.start(Server.http, {dispatch: dispatch_fun})`,
+where `dispatch_fun` is a function that takes an `Uri.relative` and produces a `resource`.
+
+Let's first construct such a function:
+
+```
+function start(url) {
+  match (url) {
+    case {path: {nil} ... } :
+      { display("Hello") };
+    case {path: path ...} :
+      { display(String.concat("::", path)) };
+  }
+}
+```
+
+This is another pattern-matching, built from some constructions that you have not seen
+yet.  Pattern `{path: [] ...}` accepts requests for `uri`s with empty `path`, such as "http://localhost:8080/".
+This is because `...` accepts any number of fields in a record. In other words, the first case
+of our pattern-matching accepts any record containing at least one field named `path`,
+provided that this field contains exactly the empty list.
+
+The second pattern accepts any record containing at least one field named
+`path`. From the definition of pattern-matching, it is executed only if the first
+pattern did not match, for instance on a request to "http://localhost:8080/hello".
+
+In both cases, we execute function `display`. The first case is trivial, while
+in the second case, we first convert our list to a string, with separator `"::"`.
+
+Actually, we will make it a tad nicer by also ensuring that the first letter is
+uppercase, while the other letters are lowercase.
+
+```
+function start(url) {
+  match (url) {
+    case {path:[] ... } :
+      { display("Hello") };
+    case {~path ...} :
+      { display(String.capitalize(String.to_lower(String.concat("::", path)))) };
+  }
+}
+```
+
+In this new version, we use a shorter syntax for pattern-matching. We use `[]`
+for the empty list -- this is equivalent to `{nil}` -- and we write `~path` --
+which is equivalent to `path = path`.
+
+Adding some style
+-----------------
+
+As in the previous chapter, without style, this example looks somewhat bland.
+//image::hello_wiki/result_without_css.png[]
+As previously, we will fix this with an external stylesheet `resources/css.css`,
+with the following contents:
+
+###### Contents of file `resources/css.css`
+[css]file://hello_wiki/resources/css.css
+
+One last step: including the stylesheet. For this purpose, we need to extend
+our server to also include resources. We do it as follows:
+
+```
+Server.start(Server.http,
+   /** Statically embed a bundle of resources */
+  [ {resources: @static_include_directory("resources")}
+   /** Launch the [start] dispatcher */
+  , {dispatch: start}
+  ]
+)
+```
+
+We provide `Server.start` here with a list of servers. Note that their order
+is important, as to serve a request they will be tried in that order. So we
+first put a resource bundle, which only handles requests to the defined
+resources and then we pass dispatching to our `start` function.
+
+With this final line, we have a complete, working wiki. With a few
+additional images, we obtain:
+
+![Final version of the Hello wiki application](/resources/manual/img/hello_wiki/result.png)
+
+As a summary, let us recapitulate the source file:
+
+###### The complete application
+[opa|fork=hello_wiki]file://hello_wiki/hello_wiki_simple.opa
+
+This is a total of 30 effective lines of code + CSS.
+
+Questions
+---------
+
+### What about user security?
+
+As mentioned, one of the difficulties when developing a rich wiki is ensuring
+that it has no security vulnerabilities. Indeed, as soon as a user may edit
+content that will be displayed on another user's browser, the risk exists of
+letting one user hide some JavaScript code (or possibly Flash or Java code)
+that will be executed by another user. This is a well-known technique for
+stealing identities.
+
+You may attempt to reproduce this with the wiki, the chat, or any other Opa
+application. This will fail. Indeed, while lower-level web technologies make no
+difference between JavaScript code, text, or structured data, Opa does, and
+ensures that data that has been provided as one can never be interpreted
+as the other one.
+
+{block}[CAUTION]
+### Careful with the `<script>`
+
+There is, actually, one exception to this otherwise bullet-proof guarantee: if a
+developer manually introduces `<script>` tag containing a insert, as follows,
+the possibility exists that a malicious user could take advantage of this
+to inject arbitrary code.
+
+    <script type="text/javascript">{security_hole}</script>
+
+The bottom line is therefore: *do not introduce `<script>` tag containing an
+insert*. This is the _only_ case that, at the time of this writing, Opa cannot
+check.
+{block}
+
+### What about database security?
+
+Now that we have a database, it is high time to think about _what_ can be
+modified and _under what circumstances_. By default, Opa takes a conservative
+approach and ensures that malicious clients have access to as few entry points
+as possible -- we call this _publishing_ a function.  By default, the only
+published functions are functions that users could trigger themselves by
+manipulation of the user interface, i.e. event handlers.
+
+{block}[TIP]
+### Published entry points
+An _entry point_ is a function that exists on the server but that could possibly
+be triggered by a user, possibly malicious.
+
+Typically, every application contains at least one entry point, introduced by
+`server` -- in the wiki, this is function `start`. Most applications also
+feature a manner for the client to send information to the server and trigger
+some treatment upon this information.
+
+More generally, any function can be used as an entry point if it is _published_.
+By default, Opa will _automatically_ publish event handlers.
+{block}
+
+Here, this means functions `edit` and `save`. In our listing, no other functions
+are _published_. Consequently, the `Markdown` syntax analysis is invoked only on the
+server.
+
+### What about client-server performance?
+
+At this stage, keeping the code in mind, you may start to wonder about
+performance and in particular about the number of requests involved in
+editing or saving a page. This is a very good point. Indeed, if your browser
+offers performance/request tracing tools, you will realize that calls to `edit`
+or `save` are quite costly.
+
+This issue can be solved quite easily, but let us first detail the cost of
+saving:
+
+1. The client sends a `save` request to the server (1 request).
+2. The server prompts the client for the value of `edit_content` (2 requests).
+3. The server instructs the client to hide `show_content` (2 requests).
+4. The server instructs the client to show `edit_content` (2 requests).
+
+Surely, this is not the best that Opa can do? Indeed, Opa can do better.  To
+solve this, we only need to provide a little additional information to the
+compiler, namely to let it know that `load_source`, `load_rendered` and
+`save_source` have been designed to handle anything that can be thrown at them,
+and thus do not need to be kept hidden.
+
+For this purpose, Opa offers a special directive: `exposed`, which indicates
+that a given function shuld be exposed to the client.
+
+{block}[WARNING]
+Plase note that from a security standpoint marking a function as `exposed` means
+that a compromised client can call such functions with arbitrary forged arugments;
+and not only those that would follow from the semantics of the application.
+{block}
+
+To apply it to our three functions, we simply add it where needed:
+
+```
+exposed load_source(topic) { ... }
+exposed load_rendered(topic) { ... }
+exposed save_source(topic, source) { ... }
+```
+
+And we are done!
+
+With this simple modification, saving now requires only one request.  We will discuss
+`exposed` and the details of client-server _slicing_ in a later chapter.
+
+Once again, we may take a look at the complete application:
+
+###### The complete application, made faster
+[opa|fork=hello_wiki|run=http://wiki.tutorials.opalang.org]file://hello_wiki/hello_wiki.opa
+
+Exercises
+---------
+
+Time to put your new knowledge to the test.
+
+### Changing the default content
+
+Customize the wiki so that the database contains not a `string` but
+a `option(string)`, i.e. a value that can be either `{none}`
+or `{some: x}`, where `x` is a `string`.
+
+Use this change to ensure that the default content of a page with topic _topic_ is
+"We have no idea about _topic_. Could you please enter some information?".
+
+### Inform users of changes
+
+Drawing inspiration from the chat, add an on-screen zone to inform users of changes that take place while they are connected.
+
+### Template chat
+
+Modify your "Hello, Chat" application so that users can enter rich text, not just raw text.
+
+### Chat log
+
+Modify your "Hello, Chat" application to add the following features:
+
+* store the conversation as it takes place;
+* when a new user connects, display the log of the conversation.
+
+For this purpose, you will need to maintain a _list_ of messages in the database.
+
+{block}[TIP]
+### About lists
+
+In Opa, lists are one of the most common data structures. They are immutable linked lists.
+
+Lists have type `list`. More precisely, a list of elements of type `t` has type `list(t)`, pronounced
+"list of `t`". The empty list is written
+
+    []
+
+or, equivalently, `{nil}`. It has type `list('a)`,
+which means that it could be a list of anything. A list containing elements `x`, `y`, `z` is written
+
+    [x,y,z]
+
+or, equivalently,
+
+    {hd: x, tl:
+      {hd: y, tl:
+        {hd: z; tl:
+          {nil}
+        }
+      }
+    }
+
+More generally, the definition of `list` in Opa is:
+
+    type list('a) = {nil} or {'a hd, list('a) tl}
+
+If you have a list `l` and you wish to construct a list starting with element `x` and continuing with `l`,
+you can write either
+
+    [x|l]
+
+or, equivalently,
+
+    {hd: x, tl: l}
+
+or, equivalently,
+
+    List.cons(x, l)
+{block}
+
+{block}[TIP]
+### About loops
+If you have a list `l` and wish to apply a function `f` to all elements if `l`, use
+function `List.iter`. This is one of the many loop functions of Opa.
+
+Yes, in Opa, loops are just regular functions.
+{block}
+
+For bonus points, make sure that the log is displayed on a slightly different background color.
+
+### Multi-room chat
+
+Now that you know how to create multi-page servers, you can implement a multi-room chat,
+with the following definition:
+
+* visiting a page with path _p_ connects you to a chatroom _p_;
+* each message also contains the name of the chatroom;
+* for a client visiting path _p_, only display messages for chatroom _p_.
+
+{block}[TIP]
+### Minimizing communications
+The best place for deciding whether to display a message is inside the callback
+added with `Network.add_callback`. Fine-tuning this callback can help you minimize
+the amount of server-to-client communications. For this purpose, you can use directive
+`server`, which lets you force a function to be executed only on the server.
+{block}
+
+{block}[TIP]
+### Scaling up
+For optimal scalability, a better design is required.
+
+You will need to maintain a family of networks, one for each room, typically as a `stringmap`
+of networks. Networks are real-time data structures and can therefore not be stored in the
+database, as it is meaningless to store information that becomes inconsistent and unsafe
+whenever a client disconnects. Rather, the `stringmap` should be maintained as part of the
+_state_ of a _distributed session_. We will introduce this mechanism of _distributed sessions_,
+which is the powerful primitive used to implement networks, in a few chapters.
+{block}
+
+### And more
+
+Improve the wiki and the chat. Add features, make them nicer, make them better! And, once again, do not forget
+to show your changes to the community!

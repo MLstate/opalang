@@ -1,0 +1,235 @@
+Hello, scalability
+==================
+
+// [WARNING]
+// .You may need to upgrade Opa
+// =============
+// Examples in this chapter require a version of Opa dated from May the 25th, 2011, or later
+// i.e. build 28532 or greater.
+// =============
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//     - shared networks, shared sessions
+//     - executing with distributed sessions
+//     - distributed database
+//     - executed with distributed database
+//     - deploying a load-balancer
+//     - creating a web service
+//     - accessing a web service
+//     - deploying on EC2
+//
+
+From the ground up, Opa was designed for scalability. This means that any
+application written in Opa can (almost) automatically take advantage of
+additional cores or additional servers to distribute treatment, storage
+or delivery. In this chapter, we will see how to adapt, deploy and
+execute our chat and our wiki in a distributed, load-balanced setting.
+As you will see, it is very, very simple.
+
+Prerequisites
+-------------
+
+You are about to distribute instances of your server on other computers.
+To do so, you will need a valid account and an ssh connection.
+Firstly, make sure that you can connect through ssh to computers you want instances to run, without prompting for a password.
+Secondly, check whether these computers have *base64* installed.
+Thirdly, check whether *HAProxy* is installed on your localhost.
+
+If you don't know how to do any of these steps, don't panic and have a look at the [FAQ](/manual/Hello--scalability/Frequently-Asked-Questions)
+
+It's now time to distribute !
+
+Distributing Hello, chat
+------------------------
+
+Done! We have a distributed Hello, chat.
+
+Don't be confused, this is no mistake. All the versions of the chat we have been implementing
+so far are distributed.  If you want to try any of them, you just need to launch
+it in distributed mode, with the following command-line:
+
+    opa-cloud --host localhost,2 hello_chat.exe
+
+You can also explicit each host you want an instance to run on e.g. twice on 'localhost':
+
+    opa-cloud --host localhost --host localhost hello_chat.exe
+
+Both lines are equivalent.
+
+You can now connect to http://localhost:8080/ and  users connecting to the service will be automatically distributed between
+two processes running on your computer. They can, of course, chat together,
+regardless of the server to which they are effectively connected. You are of
+course not limited to two processes or to a single computer: if you have other
+computers at hand (say, a cloud), with the same binary configuration, you can
+add distant hosts, too:
+
+    opa-cloud --host localhost,2 --host jeff@albertson hello_chat.exe
+
+Not bad for, well, zero lines of code to add or modify!
+
+Distributing Hello, wiki
+------------------------
+
+We are not going to crack the same joke twice, but we could, though.
+Again, don't modify what you have already written for Hello, wiki and merely invoke the following command-line:
+
+    opa-cloud --host localhost,2 hello_wiki.exe
+
+Users are dispatched to servers so as to balance the load between these
+servers. Of course, they share the same database. And, if you have modified the
+wiki so as to show updates as they take place, this feature will keep working
+in a distributed mode.
+
+Examples
+--------
+
+The following command line distributes 6 instances of Hello, chat on `albertson`, with user `jeff`. Each instance will be listening to a port between 7000 et 7005 included.
+
+    opa-cloud --host jeff@albertson:7000,6 hello_chat.exe
+
+The following command line distributes 10 instances of Hello, wiki on an Amazon EC2 instance with key `jeff.pem`. Each instance will listen to a port between 9090 and 9099. The HAProxy binary will be `~/bin/haproxy`.
+
+    opa-cloud hello_wiki.exe --host-pem ubuntu@ec-XXX.amazonaws.com:9090,10 --pem jeff.pem --haproxy ~/bin/haproxy
+
+Frequently Asked Questions
+--------------------------
+
+### How can Hello, chat work be distributed?
+
+We have spent years making sure that it appears as magic, you don't want to ruin the magic now, do you?
+
+For a few more details, we need to start with the network defined in Hello, Chat:
+
+    Network.network(message) room = Network.cloud("room")
+
+Function `Network.cloud` not only constructs a network, but also declares it to
+Opa's built-in distribution directory. In this directory, the network is called
+`"room"` (we could, of course, have given it any other name -- some developers
+prefer writing `@pos`, which gives as name the position in the source
+code). Subsequent calls to `Network.cloud` by _any of the servers you just
+launched_ will return the _same_ network. Consequently, whenever a client calls
+`Network.add_callback` with `room`, the callback is known to all servers.
+
+We will detail this further in the reference chapters.
+
+{block}[TIP]
+### Non-cloud networks
+You can of course declare networks that you do not want to publish in the
+distribution directory. For this purpose, use function `Network.empty`
+rather than `Network.cloud`.
+{block}
+
+### How does Hello, wiki work?
+
+In a few words: it works because Opa's built-in database engine is fully distributed and compatible with `opa-cloud`.
+
+### How can check my ssh connection?
+
+Let say your remote computer is called 'albertson' and your user name is 'jeff'.
+You should be able to connect to albertson with the following command line:
+
+    $ ssh jeff@albertson
+    jeff@albertson's password:
+    jeff@albertson ~ $
+
+Let's get rid of the password prompt by adding your public key to the list of authorized keys. To do so, copy the content of ~/.ssh/id_dsa.pub to ~/.ssh/authorized_keys on 'albertson'.
+
+You can now log off 'albertson':
+
+    jeff@albertson ~ $ exit
+    logout
+    Connection to albertson closed.
+    $
+
+### How can I get rid of the prompt for password?
+
+You must append your public key to the list of authorized keys of the remote host i.e. usually `~user/.ssh/authorized_keys`.
+
+### How can I make sure that my remote computer *albertson* provide *base64* ?
+
+To check whether 'albertson' has this tool, simply type:
+
+    jeff@albertson ~ $ base64 --version
+    base64 1.5
+    Last revised: 10th June 2007
+    The latest version is always available
+    at http://www.fourmilab.ch/webtools/base64
+
+Don't worry if you don't have the same version, the important thing is not to get anything like the following:
+
+    jeff@albertson ~ $ base64 --version
+    -bash: base64: command not found
+
+But if you do, please see the chapter [Getting Opa](/manual/Getting-Opa).
+
+### How can I use this on a machine with a specific public-key?
+
+You can ask `opa-cloud` to connect to servers with a specific public key with options '--pem' and '--host-pem'. The former specifies the key and the latter specifies a host which needs this key. Although you can define only one key, you can specify several hosts:
+
+    opa-cloud --pem ~/.ssh/mykey.pem --host localhost --host-pem user@sver hello_chat.exe
+
+This command line will start two instances of hello_chat.exe, one on your localhost, and one on `sver` connecting to it with `mykey.pem`.
+
+### How can I use this with Amazon Web Services?
+
+Opa's built-in distribution works very nicely with Amazon EC2 -- and just as well with other public or private clouds.
+Amazon allows you to create a pair of key. You will use the public key to connect to your EC2 instance.
+
+* start an instance and make sure to open ports 22, 8081 and 1086 (see the group security option in your AWS Management console)
+* retrieve the url which should look like: ec2-XXX.amazonaws.com
+* use `opa-cloud` to distribute your service on this instance:
+
+    opa-cloud --pem mykey.pem --host-pem ubuntu@ec2-XXX.amazonaws.com hello_chat.exe
+
+You can of course distribute your service on more then one instance, and not only AmazonEC2. The following command line distributes between an instance on your localhost, two instances on server sv1 and 2 on an AmazonEC2 instance with key mykey.pem.
+
+    opa-cloud hello_chat.exe --host-pem ubuntu@ec2-XXX.amazonaws.com,2 --pem mykey.pem --host localhost --host sv1,2
+
+You can, of course, use Amazon's load-balancer instead of Opa's load balancer.
+
+{block}[WARNING]
+Check that each instance can reach every other one e.g. launching EC2 instances from a computer in a local network may raise issues because the EC2 instances won't be able to reach hosts in the sub-network.
+{block}
+
+### My application does not use any database, do I have to get it started anyway?
+
+For some reason, you may not want to start the Opa database server e.g. your service may not need one. You can specify it in the command line with the '--no-db' option:
+
+    opa-cloud --host localhost,3 myapp.exe --nodb
+
+### Can I specify different public keys for different hosts?
+
+No. At the time, `opa-cloud` does not offer this flexibility. Although we are working to implement it because we believe it would be a great feature.
+
+### Port 8080 (default port) is not available, how can I change it?
+
+The load-balancer is set to listen on port 8080, by default. You can change that with option '--port':
+
+    opa-cloud --host localhost,3 myapp.exe --port 2501
+
+### How can I check whether I have HAProxy installed or not?
+
+Try the following command:
+
+    $ haproxy -v
+    HA-Proxy version 1.3.20 2009/08/09
+    Copyright 2000-2009 Willy Tarreau <w@1wt.eu>
+
+Once again, don't worry about the version number. Although, the latest the better, you will be able to load-balance with older versions.
+
+### I want to use my own version of HAProxy, can I specify it to `opa-cloud`?
+
+Yes. `opa-cloud` offers an option to do that:
+
+    opa-cloud --host localhost,4 myapp.exe --haproxy /path/to/hapoxy
+
+### What else ?
+
+`opa-cloud` can do a bit more then what you've seen so far. It offers several command-line option for a better control of your distribution:
+
+    opa-cloud --help

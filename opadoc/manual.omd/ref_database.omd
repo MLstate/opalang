@@ -1,0 +1,360 @@
+The database
+============
+
+One of the unique characteristics of Opa is that the language contains a
+database. Database operations are fully integrated in the language, which
+increases code re-usability, simplifies code coverage tests, and permits both
+automated optimizations and automated safety, security and sanity checks.
+
+In this chapter, we recapitulate the constructions of Opa dedicated to storage
+of data and manipulation of stored data.
+
+Declaring a database
+--------------------
+
+The core notion of the database is that of a _path_. A database _path_ describes
+a position in the database and it is through a path that you can read, write and
+remove data.
+
+A database is named and consists of a set of declared paths. Moreover Opa handles several
+database backends; currently:
+- *Db3*: The native Opa database.
+- *MongoDb*: The popular MongoDB database ([http://www.mongodb.org/](http://www.mongodb.org/))
+
+The following piece of code declares a database named `my_db` and defines :
+- 3 paths containing basic values (/i, /f, /s)
+- 1 path containing a record (/r)
+- 1 path containing a list of strings
+- 1 path to a map from integers (`intmap`) to values of type `stored`.
+- 1 path to a database set of `stored` records, where the primary key of the declared set is `x`.
+
+    type stored = {int x, int y, string v, list(string) lst}
+
+    // where _db\_options_ allows to select the database backend, see below
+    database my_db [db_options] {
+      int    /basic/i
+      float  /basic/f
+      string /basic/s
+      stored /r
+      intmap(stored) /imap
+      stored /set[{x}]
+    }
+
+### Choosing database backend
+
+Database backend depends on presence and value of `db_options`:
+- `@db3` value selects Db3 backend
+- `@mongo`: selects MongoDb backend
+- If the db_options is omitted, the selected backend depends on the compiler '--database' command line option, with `Db3` being the default.
+
+### Initializing database
+
+Opa applications can use several databases with several different backends.
+For each database a command line family is generated. When running your
+applications you can specify, via command line arguments, options for
+each declared database.
+
+Both backends have common command lines options :
+- `--db-local:dbname [/path/to/db]`: Use a local database, stored at the specified location in the file-system.
+- `--db-remote:dbname host(s)`: Use a remote database accessible at a given remote location.
+
+Note that when you use for the first time the local database options with MongoDb, the Opa
+application will download, install, and launch a single instance of MongoDb database.
+
+Note also that you can define database authentication parameters for each
+database with the syntax `--db-remote:dbname username:password@hostname:port`.
+
+Database reads/writes
+---------------------
+
+One can read from the `/my_db/basic/i` path with:
+
+    x = /my_db/basic/i
+
+and write the contents of said path:
+
+    /my_db/basic/i <- x
+
+Note that the database is structured. Therefore, if you access path `/my_db/basic` you will obtain a value of type `{ int i, float f, string s }`.
+
+Conversely, you could have defined the path `/my_db/basic` as:
+
+    ...
+    { int i, float f, string s } /basic
+    ...
+
+and then still access paths `/my_db/basic/i`, `/my_db/basic/f` or `/my_db/basic/s` directly.
+
+### Default values
+
+Each path has a _default value_. Whenever you attempt to read a value that does not exist (was never initialized or was removed), the default value is returned.
+
+While Opa can generally define a default value automatically, it is often a good idea to define an application-specific default value:
+
+    ...
+    string /basic/s = "default string"
+    ...
+
+If you do not define a default value, Opa uses the following strategy:
+
+- the default value for an integer (`int`) is `0`;
+- the default value for a floating-point number (`float`) is `0.0`;
+- the default value for a `string` is `""`;
+- the default value for a record is the record of default values;
+- the default value for a sum type is the case which looks most like an empty case (e.g. `{none}` for `option`, `{nil}` for list, etc.)
+
+Updating
+--------
+
+Previously we saw how to overwrite a path, like that :
+
+    /path/to/data <- x
+
+which assigns to path `/path/to/data` the value of `x`. This used to be the only
+way to write to a path, but since Opa 0.9.0 (S4) there are more ways to update them.
+
+### Int updating
+
+    // Overwrite
+    /my_db/basic/i <- 42
+
+    // Increment
+    /my_db/basic/i++
+    /dbname/i += 10
+
+    // Decrement
+    /my_db/basic/i--
+    /my_db/basic/i -= 10
+
+    // Sure we can go across records
+    /my_db/r/x++
+
+### Record updating
+
+    // Overwrite an entire record
+    x = {x: 1, y: 2, v: "Hello, world", lst: []}
+    /my_db/r <- x
+
+    // Update a subset of record fields
+    /my_db/r <- {x++, y--}
+
+    /my_db/r <- {x++, v : "I just want to update z and incr x"}
+
+### List updating
+
+    // Overwrite an entire list
+    /my_db/l <- ["Hello", ",", "world", "."]
+
+    // Removes first element of a list
+    /my_db/l pop
+
+    // Removes last element of a list
+    /my_db/l shift
+
+    // Append an element
+    /my_db/l <+ "element"
+
+    // Append several elements
+    /my_db/l <++ ["I", "love", "Opa"]
+
+### Set/Map updating
+
+The values stored inside database sets and maps can be updated as above.
+The difference is how we access the elements (more details in the [querying section](/manual/The-database/Querying)).
+Furthermore updates can operates on several paths.
+
+    //Increment the field y of the record stored at position 9 of imap
+    /dbname/imap[9] <- {y++}
+
+    //Increment fields y of records stored with key smaller than 9
+    /dbname/imap[< 9] <- {y++}
+
+    //Increment the field y of record where the field x is equals 9
+    /dbname/set[x == 9] <- {y++}
+
+    //Increment the field y of all records where the field x is smaller than 9
+    /dbname/set[x < 9] <- {y++}
+
+Querying
+--------
+
+Opa 0.9.0 (S4) introduces database sets and a powerful way to access a subset of database collections.
+
+A query is composed from the following operators:
+- `==  expr`: equals expr
+- `!= expr`: not equals expr
+- `<  expr`: lesser than expr
+- `<= expr`: lesser than or equals expr
+- `>  expr`: greater than expr
+- `>= expr`: greater than or equals expr
+- `in expr`: "belongs to" `expr`, where `expr` is a list
+- `q1 or q2`: satisfy query q1 or q2
+- `q1 and q2`: satisfy queries q1 and q2
+- `not q`: does not satisfy q
+- `{f1 q1, f2 q2, ...}`: the record field `f1` satisfies `q1`,  field `f2` satisfies `q2` etc.
+
+Furthermore you can specify some querying options:
+- `skip n`: where `expr` should be an expression of type int, skip the first `n` results
+- `limit n`: where `expr` should be an expression of type int, returns a maximum of `n` results
+- `order fld (, fld)+`: where fld specify an order. `fld` can be a single identifier or a list of identifiers specifying the fields on which the ordering should be based. Identifiers can optionally be prefixed with `+` or `-` to specify, respectively, ascending or descending order. Finally it's possible to choose the order dynamically with `<ident>=<expr>` where `<expr>` should be of type `{up} or {down}`.
+
+### Querying database sets
+
+    k = {x : 9}
+    stored x = /dbname/set[k] // k should be type of set keys, returns a unique value
+    stored x = /dbname/set[x == 10] // Returns a unique value because {x} is primary key of set
+
+    dbset(stored, _) x = /dbname/set[y == 10] // Returns a database set because y is not a primary key
+
+    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]]
+
+    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]; skip 10; limit 15; order +x, -y]
+
+    it = DbSet.iterator(x); // then use Iter module.
+
+### Querying database maps
+
+    // Access to a unique value (like in Opa <0.9.0 (S3))
+    stored x = /dbname/imap[9]
+
+    // Access to a submap where keys are lesser than 9 and greater than 4
+    intmap(stored) submap = /dbname/imap[< 9 and > 4]
+
+Manipulating paths
+------------------
+
+Most operations deal with data, as described above. We will now describe operations
+that deal with meta-data, that is the paths themselves.
+
+A path written with notation `!/path/to/data` is called a _value path_. Value
+paths represent a snapshot of the data stored at that path. Should you write a new value
+at this path at a later stage, this will not affect the data or meta-data of
+such snapshots.
+
+    // Getting a value path. i.e. a read only path
+    !/path/to/data
+
+Should you need to make reference to the _latest version_ of data and meta-data,
+you will need to use a _reference path_, as obtained with the following notation:
+
+    // Getting a reference path. i.e. a r/w path
+    @/path/to/data
+
+A path value is specific to its own database backend, indeed the
+type of a path contains 2 type variables; the first one for the type of data
+stored in the path and the second one for specifying the database backends used for this path.
+
+For instance if `my_db` is declared as a MongoDb database, here is type of its
+paths :
+
+    Db.val_path(string, DbMongo.engine) !/my_db/s
+    Db.ref_path(string, DbMongo.engine) @/my_db/s
+
+Generic functions to manipulate such values are available in the `Db` module
+(imported by default).
+There are also more functions specific to different backends:
+- `Db3` module from package `stdlib.database.db3` for Db3 backend features, such as path history.
+- `DbMongo` from package `stdlib.database.mongo` for MongoDb backend features.
+
+Note, that the same mechanism is used for `dbset('data, 'engine)`
+
+Db3 backend specifics
+---------------------
+
+### Restrictions :
+- Most of querying/updating are not yet implemented
+
+### Db3 Transactions
+
+Whenever database paths can be accessed simultaneously by many users, consistency
+needs to be ensured. For this purpose, Opa offers a mechanism of _transactions_.
+Apart from consistency it is also more efficient to explicitly encapsulate a sequence
+of database operations occurring in a row within a single transaction.
+
+In their simplest and most common form, transactions take the form of function
+`Db.transaction`:
+
+```
+function atomic() {
+    //...any operations
+    void
+}
+
+result = Db.transaction(atomic)
+match (result) {
+ case {none}: //a conflict or another database error prevented the commit
+ case ~{some}: //success, [some] contains the result of [atomic()]
+}
+```
+
+It is possible to get much finer control over what is done with a transaction;
+unlike most common database engines, Opa does not force a transaction to be run
+in one block: it can be suspended and continued later, without blocking the
+database in any way.
+
+```
+tr = Transaction.new()
+
+tr.in(atomic)
+
+// some other treatments
+
+match (tr.commit()) {
+ case {success}: // ...
+ case {failure}: // ...
+}
+```
+
+Here, only the `atomic` function is run within the transaction, the other
+treatments at the top level will be done normally. This means that, until the
+transaction `tr` is committed, its results aren't visible from the
+outside. Moreover, operations executed in `tr` won't see the changes done
+outside, which ensures that it proceeds in a consistent database state. There is
+no limit to the number of `tr.in` you can do in the same transaction.
+
+The problem with this approach is that the operations done on both sides could
+conflict, and `tr` could stop being valid because of changes written to the
+database in the meantime. This is why `commit` can return a `failure`, which
+can be used to either try again or inform the user of the error.
+
+// Note: conflict resolution
+// At the time being, a transaction will conflict whenever some data that it writes
+// has been changed in the meantime. Other conflict policies are planned and, in the future,
+// it will be possible to select them on specific database paths (eg. conflict if
+// the transaction _read_ some data that has been changed at the time of commit,
+// solve conflicts on a counter by adding the increments, etc.)
+
+The continuable transactions are quite useful in a web application context: they
+can be used to write operations done by a user synchronously, then only commit
+when he chooses to validate. You can get back data from a running transaction
+with `tr.try`, by providing an error-case handler:
+
+```
+tr = Transaction.new()
+
+some_operations() = some(/* ... */)
+error_case() = none
+
+r = tr.try(some_operations, error_case)
+```
+
+If you are using multiple databases, the commit of a transaction is guaranteed
+to be consistent on all the ones that were accessed in its course (if the commit
+fails on a single database, no database will be modified). However, when using
+`Transaction.new()`, a low-level transaction is only started on each database as
+needed: if you want to make sure your transaction is started at the same point
+on different databases, use `Transaction.new_on([database1,database2])` instead.
+
+###Database Schema
+
+Db3 verify that the database stored to the disk is compatible with the
+application. If the database schema has changed, Opa will offer the possibility
+to perform an automated database migration.
+
+MongoDb backend specifics
+-------------------------
+
+Currently MongoDb driver does not verify if the compiled application is compatible
+with a database schema (the way the Db3 does). That means that after changing
+data used in the application the developer herself needs to take care of migrating
+the data.

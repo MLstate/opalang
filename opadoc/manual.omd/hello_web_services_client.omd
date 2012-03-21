@@ -1,0 +1,549 @@
+Hello, web services -- client
+=============================
+
+With Opa, accessing a distant web service is as simple as creating one.  In this
+chapter, we will develop a variant of our wiki which, instead of using its own
+database, will serve as a front-end for the wiki developed in the previous
+chapter. This task will lead us through the other side of REST: how to connect
+to a distant server, send commands and interpret results. Somewhere along the
+way, we will also see how to handle command-line arguments in Opa, how to
+analyze text and some interesting features of the language.
+
+Overview
+--------
+
+The general idea behind REST is to use the well-known HTTP protocol to
+send/receive commands through the web. In other words, a REST client is just a
+web application that has a few of the features of a browser, i.e. a web client:
+the functions that we will meet in this chapter can be used just as well for
+purposes unrelated to REST, for instance to write a web crawler, to post the
+contents of a web form automatically, or to download a distant image from an Opa
+application.
+
+In this chapter we modify further our wiki to make it use a distant _REST_ API
+instead of its own database. As previously, this involves few changes from the
+original wiki: we remove the database, we handle error cases in case of
+communication issues, and we introduce command-line options to let users specify
+where to find the distant REST server.
+
+If you are curious, this is the full source code of the REST wiki client (which also acts as a server):
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client_customizable.opa
+
+The web client
+--------------
+
+To connect to distant servers and services, Opa offers a module called
+`WebClient`. The following extract adapts `load_source` to perform loading from
+a distant service:
+
+```
+exposed function load_source(topic) {
+    match (WebClient.Get.try_get(uri_for_topic(topic))) {
+    case {failure: _} : "Error, could not connect";
+    case {~success} :
+        match (WebClient.Result.get_class(success)) {
+        case {success}: success.content;
+        default: "Error {success.code}";
+        }
+    }
+}
+```
+
+As in previous variants of the wiki, this version of `load_source` attempts to
+produce the source code matching a topic. The main difference is that, instead
+of reading the database, it performs a `{get}` request on a distant
+server. This is the role of function `WebClient.Get.try_get` -- of course,
+module `WebClient` offers similar functions other operations other than
+`{get}`.  This function takes as argument a URI -- here, provided by a
+function `uri_for_topic` that we will need to write at some point -- and produces
+as result a sum type, containing either `{failure: f}` or `{success: s}`.
+
+Failures take place when the operation could not proceed at all, for instance
+because of network issues, or because the distant server is down. In such case,
+`f` contains more details about the exact error. Any other case means that the
+request was successful. Note that, depending on what you are trying to do, the
+result of the request could still be something that is no use to your
+application. For instance, the server may have returned some content along with
+a status of "404 Not Found", to indicate that this content is a default page and
+that it actually does not know what to do with your URI. It could be a "100
+Continue", to indicate that you should now send more information before it can
+proceed. All these responses are _successes_ at the level of `WebClient`,
+although many applications decide to treat them as failures.
+
+Here, for our simple protocol, we use function `WebClient.Result.get_class` to
+perform a rough decoding of the server response and categorize it as a success
+(case `{success}`) or anything else (redirection, client error, server error,
+etc.)  (`default` case). In case of success, we return the content of the response,
+e.g. `success.content`.
+
+{block}[TIP]
+### There's more to distribution than REST
+Do not forget that this web client is a demonstration of REST. In Opa, REST is
+but one of the many ways of handling distribution. Indeed, as long
+as your application is written only in Opa, Opa can perform distribution
+automatically, using protocols that are largely more efficient for this purpose
+than REST.
+{block}
+
+Function `remove_topic` is even simpler (we ignore the result of the operation):
+
+```
+function remove_topic(topic) {
+    _ = WebClient.Delete.try_delete(uri_for_topic(topic));
+    void;
+}
+```
+
+We can similarly adapt `load_rendered`, with a slight change to use the API
+we have previously published:
+
+```
+exposed function load_rendered(topic) {
+    source = load_source(topic);
+    Markdown.xhtml_of_string(Markdown.default_options, source);
+}
+```
+
+Finally, we can adapt `save_source`, as follows:
+
+```
+exposed function save_source(topic, source) {
+    match (WebClient.Post.try_post(uri_for_topic(topic), source)) {
+    case { failure: _ }:
+        {failure: "Could not reach the distant server"};
+    case { success: s }:
+        match (WebClient.Result.get_class(s)) {
+        case {success}:
+            {success: load_rendered(topic)};
+        default:
+            {failure: "Error {s.code}"};
+        }
+    }
+}
+```
+
+This version of `save_source` differs slightly from the original, not only because
+it uses a `{post}` request to send the information, but also because it either
+returns the result `{success=...}` or indicates an error with `{failure=...}`.
+
+We take this opportunity to tweak our UI with a box meant to report such
+errors:
+
+Improving error reporting
+-------------------------
+
+We add a `<div>` called `show_messages` to the HTML-like user interface,
+and we update it in `edit` and `save`, as follows:
+
+```
+function display(topic) {
+  Resource.styled_page("About {topic}", ["/resources/css.css"],
+    <div id=#header><div id=#logo></div>About {topic}</div>
+    <div class="show_content" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
+    <div class="show_messages" id=#show_messages />
+    <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={function(_) { save(topic) }}></>
+  );
+}
+
+function edit(topic) {
+    #show_messages = <></>;
+    Dom.set_value(#edit_content, load_source(topic));
+    Dom.hide(#show_content);
+    Dom.show(#edit_content);
+    Dom.give_focus(#edit_content);
+}
+
+function save(topic) {
+    match (save_source(topic, Dom.get_value(#edit_content))) {
+    case { ~success }:
+        #show_content = success;
+        Dom.hide(#edit_content);
+        Dom.show(#show_content);
+    case {~failure}:
+        #show_messages = <>{failure}</>;
+    }
+}
+```
+
+And that is all for the user interface.
+
+Working with URIs
+-----------------
+
+We have already been using URIs by performing pattern-matching on them inside dispatchers. It is now
+time to build new URIs for our function `uri_for_topic`.
+
+{block}[TIP]
+### About absolute URIs
+Many languages consider that a URI is simply a `string`. In Opa, URIs come in several flavors.
+So far, we have been using _absolute uris_, as defined
+by the following type:
+
+```
+type Uri.absolute =
+    { option(string)        schema
+    , Uri.uri_credentials   credentials
+    , string                domain
+    , option(int)           port
+    , list(string)          path
+    , list((string,string)) query
+    , option(string)        fragment
+    }
+
+type Uri.uri_credentials =
+    { option(string) username
+    , option(string) password
+    }
+```
+
+Other flavor exists, e.g. to handle e-mail addresses, relative URIs, etc.
+
+The most general form of URI is `Uri.uri`, whose definition looks like:
+
+    type Uri.uri = Uri.absolute or Uri.relative or ...
+
+To cast an `Uri.absolute` into a `Uri.uri`, use function `Uri.of_absolute`.
+To build a `Uri.absolute`, you can either construct a record manually or
+_derive_ one from `Uri.default_absolute`.
+{block}
+
+To match the API we have defined earlier, we need to place requests for `topic`
+at URI `http://myserver/_rest_/topic`. In other words, we may write:
+
+###### `uri_for_topic` (first version)
+
+```
+function uri_for_topic(topic) {
+  Uri.of_absolute(
+    { schema: {some: "http"}
+    , credentials: {username: {none}, password: {none}}
+    , domain: "localhost"  //Assume server is launched locally
+    , port: {some: 8080}   //Assume server is launched on port 8080
+    , path: ["_rest_", topic]
+    , query: []
+    , fragment: {none}
+    }
+  );
+}
+```
+
+It is, however, a tad clumsy to provide `query`, `fragment`, `port`, etc. only
+to mention that they are not used. So we will prefer to _derive_ a uri from
+`Uri.default_absolute`, as follows:
+
+###### `uri_for_topic` (with derivation)
+
+```
+function uri_for_topic(topic) {
+  Uri.of_absolute(
+    {Uri.default_absolute with
+      schema : {some: "http"},
+      domain : "localhost",
+      port   : {some: 8080},
+      path   : ["_rest_", topic]
+    }
+  );
+}
+```
+
+{block}[TIP]
+
+### Record derivation
+
+Use _record derivation_ to construct a record from another one by modifying several fields.
+For instance, if we have
+
+    foo = {a: 1, b: 2}
+
+we may write
+
+    bar = {foo with b: 17}
+
+This is equivalent to the following
+
+    bar = {a: foo.a, b: 17}
+
+Using record derivation is a good habit, as it is not only more readable than
+copying field values from one record to another, but also faster.
+{block}
+
+With this, your client wiki is complete:
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client.opa
+
+Launch the server wiki, launch the client wiki on a different port (use option
+`-p` or `--opa-server-port` to select a port) and behold, you can edit your wiki from two
+distinct ports. Or two distinct servers, if you replace `"localhost"` by the
+appropriate server name.
+
+On the other hand, replacing a magic constant by another equally magic constant
+is not very nice. Would it not be better to decide that the server name and port
+are options that can be configured without recompiling?
+
+Handling options
+----------------
+
+Opa is a higher-order language. Among other things, this means that there are many
+ways of defining a function. So far, our function definitions have been quite simple,
+but if we wish to define a function whose behavior depends on a command-line option
+or on an option somehow defined at start-up, the best and nicest way is to expand
+our horizon.
+
+In this case, expanding our horizon starts by rewriting `uri_for_topic` as follows:
+
+```
+uri_for_topic =
+  function(topic) {
+    Uri.of_absolute({Uri.default_absolute with
+       schema: {some: "http"},
+       domain: "localhost",
+       port: {some: 8080},
+       path: ["_rest_", topic]
+    });
+  }
+```
+
+So far, this is absolutely equivalent to what we had written earlier.
+While we have not changed the behavior of the function at all, this rewrite is a
+nice opportunity to split the construction URI in two parts, as follows:
+
+```
+uri_for_topic =
+  base_uri = {Uri.default_absolute with
+     schema: {some: "http"},
+     domain: "localhost",
+     port:   {some: 8080},
+  }
+  function (topic) {
+    Uri.of_absolute({base_uri with
+      path: ["_rest_", topic]
+    });
+  }
+```
+
+Suddenly, things have changed a little: `uri_for_topic` is still a function that
+takes a `topic` and returns a URI, but with a twist. At some point, when the
+function itself is built, it first initializes a (local) value called `base_uri`
+which it uses whenever the function is called. This is an example use of
+_closures_.
+
+{block}[TIP]
+### About closures
+You have already met closures in previous chapters. Indeed, most of the event handlers
+we have been using so far are closures.
+
+Rigorously, a _closure_ is a function which uses some values that are local but
+defined outside of the function itself. Closures are a very powerful mechanism
+used in many places in Opa, in particular for event handlers.
+{block}
+
+With this rewrite, the only task we still have ahead of us is changing `base_uri`
+so that it uses options specified on the command-line or in an option file. For
+both purposes, Opa offers a module `CommandLine`:
+
+###### `uri_for_topic` with command-line filter (incomplete)
+
+```
+uri_for_topic =
+  default_uri =
+    {Uri.default_absolute with
+      domain: "localhost",
+      schema: {some: "http"}
+    }
+  base_uri =
+    CommandLine.filter({
+      title:     "Wiki arguments",
+      init:      default_uri,
+      parsers:   [],
+      anonymous: [],
+    })
+  function (topic) {
+    Uri.of_absolute({base_uri with
+      path: ["_rest_", topic]
+   });
+  }
+```
+
+This variant on `uri_for_topic` calls `CommandLine.filter` to instruct the
+option system to take into account a family of arguments
+to progressively construct `base_uri`, starting from `default_uri`.
+We name this family "_Wiki arguments_" and we specify its behavior
+with fields `parsers` (used for named arguments) and `anonymous`
+(used for anonymous arguments) which are both empty for the moment.
+As long as both fields are empty, this family has no effect
+and `base_uri` is always going to be equal to
+`default_uri` -- we will change this shortly. Also, for the moment,
+if you compile your application and launch it with command-line argument
+`--help`, you will see an empty entry for a family called "Wiki arguments".
+
+Let us add one command-line option (or, more precisely, a _command-line
+parser_) to our family, as follows:
+
+###### Parsing option `--wiki-server-port`
+
+```
+port_parser =
+  {CommandLine.default_parser with
+    names: ["--wiki-server-port"],
+    description: "The server port of the REST server for this wiki. By default, 8080.",
+    function on_param(x) { parser { case y=Rule.natural: {no_params: {x with port: {some: y}}}} }
+  }
+```
+
+As you can see, a command-line parser is a record (it has type
+`CommandLine.parser`), and here, we derive it from
+`CommandLine.default_parser`. In this extract, we only specify the bare
+minimum.
+
+Firstly, a command-line parser should have at least one name, here
+"--wiki-server-port".
+
+Secondly, Opa needs to know what it should do whenever it encounters something
+along the lines of "--wiki-server-port foo" on the command-line. This is the
+role of field `on_param`. Argument `x` is the value we are currently building --
+here, initially, `default_uri`. The body of this field is a _text parser_, i.e.
+a construction that should analyze a text and either extract information or
+reject it. Here, we just want a non-negative integer (aka a "natural number"), a
+construction for which the library offers a predefined text parser called
+`Rule.natural`.  We call the result `y`.
+
+{block}[TIP]
+### About text parsers
+Opa offers a powerful text analysis feature with text parsers. Text parsers have roughly
+the same role as regular expressions engines found in many web-related languages,
+but they are considerably more powerful.
+
+A text parser is introduced with keyword `parser` and has a syntax roughly comparable
+to pattern-matching:
+
+```
+parser {
+case y=Rule.natural : //do something with y
+case y=Rule.hex     : //do something with y
+case "none"         : //...
+```
+
+This parser will accept any non-negative integer and execute the first branch,
+or any hexadecimal integer and execute the second branch, or the character
+string `"none"` and execute the third branch. If none of the branches matches
+the text, parsing fails.
+
+The core function for applying a text parser to some text is `Parser.try_parse`.
+You can find a number of predefined parsing functions in module `Rule`. Additional
+modules offer custom parsing, e.g. `Uri.uri_parser`.
+{block}
+
+The result of `on_param` must have one of three shapes:
+
+* `{no_params: v}`, if the option parser does not expect any additional argument and is now ready to produce value `v`;
+*  `{params: v}`, if the option parser expects at least one other argument;
+* `{opt_params: v}`, if the option parser can handle additional arguments but is also satisfied if no such argument is provided.
+
+Here, we expect only one argument after "--wiki-server-port" so we just produce a
+value with `{no_params: ...}`. As for the result itself, we derive from `x`
+the same absolute URI, but with a new content in field `port`.
+
+We can now define in the exact same manner the command-line parser for the host:
+
+###### Parsing option `--wiki-server-domain`
+
+```
+domain_parser =
+  {CommandLine.default_parser with
+    names: ["--wiki-server-domain"],
+    description: "The REST server for this wiki. By default, localhost.",
+    function on_param(x) { parser { case y=Rule.consume: {no_params: {x with domain: y}}} }
+   }
+```
+
+The main difference is that we use predefined text parser `Rule.consume` (which accepts
+anything) instead of `Rule.natural` (which only accepts non-negative integers).
+
+Once we have added both our parsers to `parsers`, we are ready. With a little
+additional documentation, we obtain:
+
+###### Command-line arguments (complete)
+
+```
+uri_for_topic =
+  domain_parser =
+    {CommandLine.default_parser with
+      names: ["--wiki-server-domain"],
+      description: "The REST server for this wiki. By default, localhost.",
+// FIXME, | after parser should not be needed
+      function on_param(x) { parser { case y=Rule.consume -> {no_params: {x with domain: y}}} }
+     }
+  port_parser =
+    {CommandLine.default_parser with
+      names: ["--wiki-server-port"],
+      description: "The server port of the REST server for this wiki. By default, 8080.",
+      function on_param(x) { parser { case y=Rule.natural -> {no_params: {x with port: {some: y}}}} }
+    }
+  base_uri =
+    CommandLine.filter(
+      {title     : "Wiki arguments",
+       init      : {Uri.default_absolute with domain: "localhost", schema: {some: "http"}},
+       parsers   : [domain_parser, port_parser],
+       anonymous : []
+      }
+    )
+  function(topic) {
+    Uri.of_absolute({base_uri with path: ["_rest_", topic]})
+  }
+```
+
+This completes our REST client. We now have a full-featured REST client that can also act as a server
+and supports command-line configuration.
+
+The full source code follows:
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client_customizable.opa
+
+Exercises
+---------
+
+### Database vs. REST
+
+Modify the wiki so that it acts both as a database-backed wiki and as a REST client:
+
+* by default, behave as the REST client wiki;
+* whenever information is downloaded from the REST server, store the information to the local database;
+* whenever information is updated locally, store the information to the local database and upload it to the REST server;
+* if connection fails for some reason, fallback to the database.
+
+### Database vs. REST vs. command-line
+
+Modify the wiki of the previous exercise so that:
+
+* the REST server can be specified from the command-line;
+* if no server is specified from the command-line, it behaves exactly as the non-REST wiki;
+* otherwise, behave as the wiki of the previous exercise.
+
+{block}[TIP]
+### Using tuples
+For this exercise, you may need to define not just one function using the command-line
+but several. In this case, it will probably be interesting to use a _tuple_ definition,
+such as
+
+```
+(a, b) =
+    x = 50;
+    (x, x+1)
+```
+
+This tuple definition defines both `a = 50` and `b = 51`. You can, of course, use
+more complex expressions instead of `50`.
+{block}
+
+### Architecting a REST chat
+
+How would you design a chat distributed among servers using only REST for communications between servers?
+
+{block}[TIP]
+### A REST chat?
+While it is definitely possible to write a REST-based chat in Opa, this is not the preferred
+way of implementing a multi-server application. But it is an interesting exercise, if
+only to experience the contrast between manual REST-style distribution and
+automated Opa-style distribution.
+{block}

@@ -1,0 +1,15 @@
+*.api
+*.api-txt
+*.log
+opa-debug-js
+*html
+_build
+*.opx
+*.opx.broken
+*.opp
+*.o
+*.dump
+*~
+.DS_Store
+_tracks
+*.exe

@@ -1,0 +1,1317 @@
+The core language
+=================
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//   - Full syntax
+//   - The database
+//   - Key functions of the standard library
+//
+
+While Opa empowers developers with numerous technologies, Opa is first and
+foremost a programming language. For clarity, the features of the language are
+presented through several chapters, each dedicated to one aspect of the
+language. In this chapter, we recapitulate the core constructions of the Opa
+language, from lexical conventions to data structures and manipulation of data
+structures, and we introduce a few key functions of the standard library which
+are closely related to core language constructions.
+
+Read this chapter to find out more about:
+
+- syntax;
+- functions;
+- records;
+- control flow;
+- loops;
+- patterns and pattern-matching;
+- modules;
+- text parsers.
+
+Note that this chapter is meant as a reference rather than as a tutorial.
+
+Lexical conventions
+-------------------
+
+Opa accepts standard C/C++/Java/JavaScript-style comments:
+
+###### Comments
+
+```
+// one line comment
+/*
+  multi line comment
+*/
+/*
+  nested
+  /* multi line */
+  comment
+*/
+```
+
+A comment is treated as whitespace for all the rules in the syntax that depend
+on the presence of whitespace.
+
+It is generally a good idea to document values. Documentation can later be
+collected by the opadoc tool and collected into a cross-referenced searchable
+document. Documentation takes the place for special comments, starting with `/**`.
+
+###### Documentation
+
+    /**
+     * I assure you, this function does lots of useful things!
+     * @return 0
+    **/
+    function zero(){ 0 }
+
+{block}[CAUTION]
+###### In progress
+(Soon, a hyperlink to the corresponding chapter)
+{block}
+
+// TODO TODO The syntax of document comment is described <opadoc, here>
+Ill-formed documentation comments do not break the compilation, they only break the documentation.
+
+Basic datatypes
+---------------
+// no need to talk about char I think
+Opa has 3 basic datatypes: strings, integers and floating point numbers.
+
+### Integers
+
+Integers literals can be written in a number of ways:
+
+    x = 10 // 10 in base 10
+    x = 0xA // 10 in base 16, any case works (0Xa, 0XA, Oxa)
+    x = 0o12 // 10 in base 8
+    x = 0b1010 // 10 in base 2
+
+### Floats
+
+Floating point literal can be written in two ways:
+
+    x = 12.21
+    x = .12 // one can omit the integer part when the decimal part is given
+    x = 12. // and vice versa
+    x = 12.5e10 // scientific notation
+
+### Strings
+
+In Opa, text is represented by immutable utf8-encoded character strings.
+String literals follow roughly the common C/Java/JavaScript syntax:
+
+    x = "hello!"
+    x = "\"" // special characters can be escaped with backslashes
+
+Opa features `string insertions`, which is the ability to put arbitrary
+expressions in a string. This feature is comparable to string concatenations
+or manipulation of format strings, but is generally both faster, safer and
+less error-prone:
+
+    x = "1 + 2 is {1+2}" // expressions can be embedded into strings between curly braces
+                         // evaluates to "1 + 2 is 3"
+    function email(first_name,last_name,company){
+      "{String.lowercase(first_name)}.{String.lowercase(last_name)}@{company}.com"
+    }
+    my_email = email("Darth","Vader","deathstar") // evaluates to "darth.vader@deathstar.com"
+
+More formally, the following characters are interpreted inside string literals:
+
+{table}
+{* characters    | meaning                              *}
+{| {             | starts an expression (must be matched by a closing }) |}
+{| "             | the end of the string                |}
+{| \\             | a backslash character                |}
+{| \n            | the newline character                |}
+{| \r            | the carriage return character        |}
+{| \t            | the horizontal tabulation character  |}
+{| \{             | the opening curly brace              |}
+{| \}             | the closing curly brace              |}
+{| \'             | a single quote                       |}
+{| \"             | a double quote                       |}
+{| \anything else | forbidden escape sequence            |}
+{table}
+
+Datastructures
+--------------
+
+### Records
+
+The only way to build datastructures in Opa is to use records.
+Since they are the only datastructure available, they are used pervasively
+and there is a number of syntactic shorthands available to write records
+concisely.
+
+Here is how to build a record:
+
+    x = {} //  the empty record
+    x = {a:2, b:3} //  a record with the field "a" and "b"
+    x = {a:2, b:3,} //  you can add a trailing comma
+    x = {`[weird-chars]` : "2"} //  a record with a field "[weird-chars]"
+
+    //  now various shorthands
+    x = {a} //  means {a:void}
+    x = {a, b:2} //  means {a:void b:2}
+    x = {~a, b:2} //  means {a:a, b:2}
+    x = ~{a, b} //  means {a:a, b:b}
+    x = ~{a, b, c:4} //  means {a:a, b:b, c:4}
+    x = ~{a:{b}, c} //  means {a:{b:void}, c:c}, NOT {a:{b:b}, c:c}
+
+The characters allowed in fields names are the same as the ones allowed in
+identifiers, which is described [here](/manual/The-core-language/Identifiers).
+
+You can also build record by _deriving_ an existing record, i.e. creating a new record
+that is the same an existing record except for the given fields.
+
+    x = {a:1, b:{c:"mlk", d:3.}}
+    y = {x with a:3} //  means {a:3, b:x.b}
+    y = {x with a:3, b:{e}} //  you can redefine as many fields as you want
+                            //  at the same time (but not zero) and even all of them
+
+    //  You can also update fields deep in the record
+    y = {x with b.c : "po"} //  means {x with b : {x.b with c : "po"}}
+                            //  whose value is {a:1, b:{c:"po" d:3.}}
+
+    //  the same syntactic shortcuts as above are available
+    y = {x with a} //  means {x with a:void}, even if it is not terribly useful
+    y = {x with ~a} //  means {x with a:a}
+    y = ~{x with a, b:{e}} //  means {x with a=a b={e}}
+
+### Tuples
+
+Opa features syntactic support for pairs, triples, etc. -- more generally
+_tuples_, ie, heteregenous containers of a fixed size.
+
+    x = (1,"mlk",{a}) //  a tuple of size 3
+    x = (1,"mlk") //  a tuple of size 2
+    x = (1,) //  a tuple of size 1
+             //  note the trailing comma to differentiate a 1-uple
+             //  from a parenthesized expression
+             //  the trailing comma is allowed for any other tuple
+             //  although it makes no difference whether you write it or not
+             //  in these cases
+    //  NOT VALID: x = (), there is no tuple of size 0
+
+Tuples are standard expressions: a N-tuple is just a record with fields `f1`, ..., `fN`.
+As such they can be manipulated and created like any record:
+
+    x = (1,"hello")
+    @assert(x == {f1 : 1, f2 : "hello"});
+    @assert(x.f1 == 1);
+    @assert({x with f2 : "goodbye"} == (1,"goodbye"));
+
+### Lists
+
+Opa also provides syntactic sugar for building _lists_ (homogenous containers of variable length).
+
+    x = [] //  the empty list
+    x = [3,4,5] //  a three element list
+    y = [0,1,2|x] //  the list consisting of 0, 1 and 2 on top the list x
+                  //  ie [0,1,2,3,4,5]
+
+Just like tuples, lists are standard datastructures with a prettier syntax, but you can build them
+without using the syntax if you wish.
+The same code as above without the sugar:
+
+    list x = {nil}
+    list x = {hd:3, tl:{hd:4, tl:{hd:5, tl:{nil}}}}
+    list x = {hd:0, tl:{hd:1, tl:{hd:2, tl:x}}}
+
+Identifiers
+-----------
+
+In Opa, an identifier is a word matched by the following regular expression:
+`([a-zA-Z_] [a-zA-Z0-9_]* | \` [^\`\n\r] \`)`
+except the following keywords:
+`function`, `module`, `with`, `type`, `recursive`, `and`, `match`, `if`, `as`, `case`, `default`, `else`, `database`, `parser`, `_`, `css`, `server`, `client`, `exposed`, `protected`
+
+In addition to these keywords, a few identifiers that can be used as
+regular identifiers in most situations but will be interpreted in some contexts:
+`end`, `external`, `forall`, `import`, `package`, `parser`, `xml_parser`.
+It is not advised to use these words as identifiers, nor as field names.
+
+Any identifier may be written between backquotes: `x` and `\`x\`` are strictly equivalent. However,
+backquotes may also be used to manipulate any text as an identifier, even if it would otherwise
+be rejected, for instance because it contains white spaces, special characters or a keyword. Therefore,
+while `1+2` or `match` are not identifiers, `\`1+2\`` and `\`match\`` are.
+
+Bindings
+--------
+
+At toplevel, you can define an identifier with the following syntax:
+
+    one = 1
+    `hello` = "hello"
+    _z12 = 1+2
+
+{block}[TIP]
+The compiler will warn you when you define a variable but never use it. The only
+exception is for variables whose name begins with `_`, in which case the
+compiler assumes that the variable is named only for documentation purposes.
+As a consequence, you will also be warned if you use variables starting with `_`.
+And for code generation, preprocessing or any use for which you don't want warnings, you can use variables starting with `__`.
+{block}
+
+Of course, local identifiers can be defined too, and they are visible in the following expression:
+
+    two = {
+      one = 1 // semicolon and newline are equivalent
+      one + one
+    }
+
+    two = {
+      one = 1; one + one // the exact same thing as above
+    }
+
+    two = {
+      one = 1 // NOT VALID: syntax error because a local declaration
+    }         // must be followed by an expression
+
+Functions
+---------
+
+### Defining functions
+
+In Opa, functions are regular values. As such, the follow the same naming rules as any other value. In addition, and a few syntactic shorcuts are available:
+
+    function f(x,y){ // defining function f with the two parameters x and y
+      x + y + 1
+    }
+
+    function int f(x,y){ // same as above but explicitly indicate the return type
+      x + y + 1
+    }
+
+    two = {
+      function f(x){ x + 1 } // functions be defined locally, just like other values
+      f(1)
+    }
+
+    // you can write functions in a currified way concisely:
+    function f(x)(y){ x + y + 1 }
+
+{block}[CAUTION]
+Note that there _must_ be no space between the function name and its parameters,
+and no spaces between the function expression and its arguments.
+
+    function f (){ ... } // WARNING: parsed as an anonymous function which return a value of type f
+    x = f () // NOT VALID: parse error
+
+{block}
+
+### Partial applications
+
+From a function with N arguments, we may derive a function with less arguments by _partial application_:
+
+    function add(x,y){ x+y }
+    add1 = add(1,_) // which means function add1(y){ add(1,y) }
+    x = add1(2) // x is 3
+
+{block}[CAUTION]
+Side effects of the arguments are computed at the site and time of partial application,
+not each time the function is called:
+
+    add1 = add(loop(), _) // this loops right now
+                          // not when calling add1
+{block}
+
+[[underscore]]
+All the underscores of a call are regrouped to form the parameters of a unique function
+in the same order are the corresponding underscores:
+
+    function max3(x,y,z){ max(x,max(y,z)) }
+    positive_max = max3(0,_,_) // means function positive_max(x,y){ max(0,x,y) }
+
+### More definitions
+
+We have already seen one way of defining anonymous functions, but there are two.
+The first way allows to functions of arbitrary arity:
+
+    function (x, y){ x + y }
+
+The second syntax allows to define only functions taking one argument, but it is more
+convenient in the frequent case when the first thing that your function does is match
+its parameter.
+
+    function{
+    case 0 : 1
+    case 1 : 2
+    case 2 : 3
+    default : error("Wow, that's outside my capabilities")
+    }
+
+This last defines a function that does a pattern matching on its first argument
+(the meaning of this construct is described in [Pattern-Matching](/manual/The-core-language/Datastructures-manipulation-and-flow-control/pattern)).
+
+    function(e){
+      match(e){
+      case 0 : 1
+      case 1 : 2
+      case 2 : 3
+      default : error("Wow, that's outside my capabilities")
+      }
+    }
+
+### Operators
+
+Since operators in Opa are standard functions, these two declarations are equivalent:
+
+    x = 1 + 2
+    x = `+`(1,2)
+
+To be used as an infix operator, an identifier must contain only the following characters:
+
+    + \ - ^ * / < > = @ | & !
+
+Since operators as normal functions, you can define new ones:
+
+    `**` = Math.pow_i
+    x = 2**3 // x is 8
+
+The priority and associativity of the operators is based on the leading
+characters of the operator.
+The following table show the associativity of the operators. Lines are ordered
+by the priority of operators, slower operators first.
+
+{table}
+{* leading characters | associativity *}
+{| \|  @              | left          |}
+{| \|\|  ?            | right         |}
+{| &                  | right         |}
+{| =  !=  >  <        | left          |}
+{| +  -  ^            | left          |}
+{| *  /               | left          |}
+{table}
+
+{block}[CAUTION]
+You cannot put white space as you wish around operators:
+
+    x = 1 - 2 // works because you have whitespace before and after the operator
+    x = 1-2 // works because you have no whitespace before and no white space after
+    x = 1 -2 // NOT VALID: parsed a unary minus
+{block}
+
+Type coercions
+--------------
+
+There are various reasons for wanting to put a type annotation on an expression:
+
+- to document the code;
+- to avoid value restriction errors;
+- to make sure that an expression has a given type;
+- to try to pinpoint a type error;
+- to avoid anonymous cyclic types (by naming them).
+
+The following demonstrates a type annotation:
+
+    x = list(int) []
+
+Note that parameters of a type name may be omitted:
+
+    x = list(list) [] // means list(list('a))
+
+Type annotations can appear on any expression (but also on any [pattern](/manual/The-core-language/Datastructures-manipulation-and-flow-control/pattern)),
+and can also be put on bindings as shown in the following example:
+
+    list(int) x = [] // same as s = list(int) []
+    function list(int) f(x){ [x] } // annotation of the body of the function
+                                   // same as function f(x){ list(int) [x] }
+
+Grouping
+--------
+
+Expressions can be grouped with parentheses:
+
+    x = (1 + 2) * 3
+
+Modules
+-------
+
+Functionalities are usually regrouped into modules.
+
+    module List{
+      empty = []
+      function cons(hd,tl){ ~{hd, tl} }
+    }
+
+By opposition to records, modules do not offer any of the syntactic shorthands: no `~{x}`, no `{x}`, nor any form of module derivation
+On the other hand, the content of a modules are _not_ field definitions, but _bindings_. This means that the fields of a module can access the other fields:
+
+    module M{
+      x = 1
+      y = x // x is in scope
+    }
+
+    r = {
+      x = 1
+      y = x // NOT VALID: x is unbound
+    }
+
+Note that, by opposition to the toplevel, modules contain _only_ bindings, no type definitions.
+
+The bindings of a module are all mutually recursive (but still subject to the [recursion check](/manual/The-core-language/Recursion), once the recursivity has been reduced to the strict necessary):
+
+    module M{
+      x = y
+      y = 1
+    }
+
+This will work just fine, because this is reordered into:
+
+    module M{
+      y = 1
+      x = y
+    }
+
+where you have no more recursion.
+
+{block}[CAUTION]
+Since the content of a module is recursive, it is not guaranteed that the content of a module is executed in the order of the source.
+{block}
+
+Sequencing computations
+-----------------------
+
+In Opa the toplevel is executed, and so you can have expressions at the toplevel:
+
+    println("Executed!")
+
+In a block if an expression is not binded and if not the last expression, this expression is computed and the result is discarded.
+
+    x = {
+      println("Dibbs!"); // cleaner than saying _unused_name = println("Dibbs!")
+                         // but equivalent (almost, see the warning section)
+      println("Aww...");
+      1
+    }
+
+
+
+Datastructures manipulation and flow control
+--------------------------------------------
+
+The most basic way of deconstructing a record is to _dot_ (or _"dereference"_) the content of an existing field.
+
+    x = {a:1, b:2}
+    @assert(x.a == 1);
+    c = x.c // NOT VALID: type error, because x does not have a field c
+
+Note that the dot is defined only on records, not sums. For sums, something more powerful is needed:
+
+    x = bool {true}
+    @assert(x.true); // NOT VALID: type error
+
+To deconstruct both records and sums, Opa offers _pattern-matching_.
+The general syntax is:
+
+
+      match(<expr>){
+      case <pattern_1> : <expr_1>
+      case <pattern_2> : <expr_2>
+      ...
+      case <pattern_n> : <expr_n>
+      default : <expr_default>
+      }
+
+When evaluating this extract, the result of `<expr>` is compared with
+`<pattern_1>`. If both _match_, i.e. the have the same shape, `<expr_1>`
+is executed. Otherwise, the same result is compared with `<pattern_2>`, etc.
+If no pattern matches, then `<expr_default>`.
+Note the default case (or equivalent `case _`) can be omitted.
+
+The specific case of pattern matching on boolean can be abreviated using a standard `if`-`then`-`else` construct:
+
+    if(1 == 2){
+      println("Who would have known that 1 == 2?")
+    } else {
+       println("That's what I thought!")
+    }
+
+    // if the else branch is omitted, it default to void
+    if(1 == 2) println("Who would have known that 1 == 2?")
+
+    // or equivalently
+    match(1 == 2){
+    case {true} : println("Who would have known that 1 == 2?")
+    case {false} : println("That's what I thought!")
+    }
+
+{block}[TIP]
+The same way that `f(x,_)` means ([roughly](/manual/The-core-language/Functions/underscore)) `function(y){ f(x,y) }`,
+`_.label` is a shorthand for `function(x){ x.label }`, which is convenient
+when combined with higher order:
+
+    l = [(1,2,3),(4,5,6)]
+    l2 = List.map(_.f3,l) // extract the third elements of the tuples of l
+                          // ie [3,6]
+{block}
+
+[[pattern]]
+### Patterns
+
+Generally, patterns appear as part of a `match` construct. However,
+they may also be used at any place where you bind identifiers.
+
+Syntactically, patterns look like a very limited subset of expressions:
+
+    1 // an integer pattern
+    -2.3 // a floating point pattern
+    "hi" // a string pattern, no embedded expression allowed
+    {a:1, ~b} // a (closed) record pattern, equivalent to {a=1 b=b}
+    [1,2,3] // a list pattern
+    (1,"p") // a tuple pattern
+    x // a variable pattern
+
+On top of these constructions, you have
+
+    {a:1, ...} // open record pattern
+    _ // the catch all pattern
+    <pattern> as x // the alias pattern
+    {~a:<pattern>} // a shorthand for {a=<pattern> as a}
+    <pattern> | <pattern> // the 'or' pattern
+                          // the two sub patterns must bind the same set of identifiers
+
+When the expression `match(<expr>){case <pattern> : <expr2> case ... }` is executed,
+`<expr>` is evaluated to a value, which is then matched against each pattern in order until a match is found.
+
+### Matching rules
+
+The rules of pattern-matching are simple:
+- any value matches pattern `_`;
+- any value matches the variable pattern `x`, and the value is _bound_ to identifier `x`;
+- an integer/float/string matches an integer/float/string pattern when they are equal;
+- a record (including tuples and lists) matches a closed record pattern when both record have the same fields and the value of the fields matches the pattern component-wise;
+- a record (including tuples and lists) matches an open record pattern when the value has all the fields of the pattern (but can have more) and the value of the common fields matches the pattern component-wise;
+- a value matches a `pat as x` pattern when the value matches `pat`, and additionally it binds `x` to the value;
+- a value matches a `or` pattern is one of the value matches one of the two sub patterns;
+- in all other cases, the matching fails.
+
+{block}[CAUTION]
+###### Pattern-matching does not test for equality
+Consider the following extract:
+
+    x = 1
+    y = 2
+    match(y){
+    case x : println("Hey, 1=2")
+    default : println("Or not")
+    }
+
+You may expect this code to print result "Or not". This is, however, not what
+happens. As mentioned in the definition of matching rules, pattern `x` matches
+_any value_ and binds the result to identifier `x`. In other words, this extract
+is equivalent to
+
+    x = 1
+    y = 2
+    match(y){
+    case z : println("Hey, 1=2")
+    default : println("Or not")
+    }
+
+If executed, this would therefore print "Hey, 1=2". Note that, in this case,
+the compiler will reject the program because it notices that the two patterns
+test for the same case, which is clearly an error.
+{block}
+
+A few examples:
+
+    function list_is_empty(l){
+      match(l){
+      case [] : true
+      case [_|_] : false
+      }
+    }
+
+    // and without the syntactic sugar for lists
+    // a list is either {nil} or {hd tl}
+    function head(l){
+      match(list l){
+      case {nil} : @fail
+      case ~{hd ...} : hd
+      }
+    }
+
+{block}[WARNING]
+At the time of this writing, support for `or` patterns is only partial.
+It can only be used at the toplevel of the patterns, and it duplicates the expression on the right hand side.
+{block}
+
+{block}[WARNING]
+At the time of this writing, support for `as` patterns is only partial.
+In particular, it cannot be put around open records, although this should be available soon.
+{block}
+
+{block}[WARNING]
+A pattern cannot contain an expression:
+
+    function is_zero(x){ // works fine
+      match(x){
+      case 0 : true
+      case _ : false
+      }
+    }
+
+    // wrong example
+    zero = 0
+    function is_zero(x){
+      match(x){
+      case zero : true
+      case _ : false
+      }
+    }
+    // does not work because the pattern defines zero
+    // it does not check that the x is equal to zero
+{block}
+
+{block}[CAUTION]
+You cannot put the same variable several times in the same pattern:
+
+    function on_the_diagonal(position){
+      match(position){
+      case {x=value y=value} : true
+      case _ : false
+    }
+    // this is not valid because you are trying to give the name value
+    // to two values
+
+    // this must be written
+    function on_the_diagonal(position){
+      position.x == position.y
+    }
+{block}
+
+//Loops
+//-----
+//
+//TODO Rudy - Where are we about loops?
+//
+//At this stage, you may wonder about how to write loops, iterators, etc. in Opa.
+//
+//Surprisingly, Opa does not offer a specific syntax for loops. Rather, Opa offers _function loops_
+//as part of the standard library.
+//
+//    // printing a chain 10 times
+//    // repeat has type : int, (-> void) -> void
+//    do repeat(10,(-> println("Hello!")))
+//
+//    // printing the integer for 1 to 10
+//    // inrange has type int, int, (int -> void) -> void
+//    do inrange(1,10,(i -> println("{i}")))
+//
+//    // summing integer starting from 1 until the sum is greater than 50
+//    // while has type: 'state, ('state -> ('state, bool)) -> 'state
+//    ~{sum ...} =  // we only return the sum, ie the first field of the pair
+//       while({sum=0 i=1},
+//             (~{sum i} ->
+//                sum = sum + i
+//                i = i + 1
+//                ~{sum i}, (sum <= 50)))
+//
+//    // the same function with the for function
+//    // for has type: 'state, ('state -> 'state), ('state -> bool) -> 'state
+//    ~{sum ...} =
+//      for(
+//        {sum=0 i=1}, // the initial state
+//        (~{sum i} -> {sum=sum+i i=i+1}), // the function that computes the next state
+//        (~{sum ...} -> sum <= 50) // the function that tells if we should continue
+//      )
+//
+//    /* the equivalent with an imperative syntax:
+//    sum = 0
+//
+//    for (i = 1; sum <= 50; i=i+1) {
+//        sum=sum+i
+//    }
+//    */
+//
+//In the above,
+//- assignments `sum=0; i=1` correspond to the record `{sum=0 i=1}` above;;
+//- the body of the loop  `sum=sum+i; i=i+1` corresponds to the function `~{sum i} -> {sum=sum+i; i=i+1}`;
+//- the loop condition `sum <= 50` corresponds to `~{sum ...} -> sum <= 50`.
+//
+//Additional loop functions may be easily created, either by building them from
+//these functions, or through <recursion>.
+
+Parser
+------
+
+Opa features a builtin syntax for building text parsers, which are first class
+values just as functions.  The parsers implement _parsing expression grammars_,
+which may look like regular expressions at first but do _not_ behave anything
+like them.
+
+An instance of a parser:
+
+    sign_of_integer =
+      parser{
+        case "-"  [0-9]+ : {negative}
+        case "+"? [0-9]+ : {positive}
+      }
+
+A parser is composed of a disjunction of `case <list-of-subrules> (: <semantic-action>)?.
+When the semantic action is omitted, it defaults to the `text` that was parsed by the left hand side.
+
+A subrule consists of:
+- an optional binder that names the result of the subrule. It can be:
+  - `x=` to name the result `x`
+  - `~` only when followed by a long identifier. In the case, the name bound is the last component. For instance, `~M.x*` means `x=M.x*`
+- an optional prefix modifier (`!` or `&`) that lookahead for the following subrule in the input
+- a basic subrule
+- an optional suffix modifier (`?`, `*`, ```), that alters the basic in the usual way
+
+And the basic subrule is one of:
+
+    "hello {if happy then ":)" else ":("}" // any string, including strings
+                                           // with embedding expressions
+    'hey, I can put double quotes in here: ""' // a string inside single quotes
+                                                // (which cannot contain embedded expressions)
+    Parser.whitespace // a very limited subset of expression can be written inline
+                      // only long identifiers are allowed
+                      // the expression must have the type Parser.general_parser
+    {Parser.whitespace} // in curly braces, an arbitrary expression
+                        // with type Parser.general_parser
+    . // matches a (utf8) character
+    [0-9a-z] // character ranges
+             // the negation does not exist
+    [\-\[\]] // in characters ranges, the minus and the square brackets
+             // can be escaped
+    ( <parser_expression> ) // an anonymous parser
+
+{block}[CAUTION]
+Putting parentheses around a parser can change the type of the parenthesized parsers:
+
+    parser{
+      case x=.* : ... // x as type list(Unicode.character)
+    }
+    parser{
+      case x=(.*) -> ... // x has type text
+    }
+
+This is because the default value of a parenthesized expression is the text parsed.
+This is the only way of getting the text that was matched by a subrule.
+{block}
+
+A way to use a parser (like `sign_of_integer`) to parse a string is to write:
+
+    Parser.try_parser(sign_of_integer,"36")
+
+For an explanation of how parsing expression grammars work, see http://en.wikipedia.org/wiki/Parsing_expression_grammar.
+Here is an example to convince you that even if it looks like a regular expression,
+you can not use them as such:
+
+    parser{
+      case "a"* "a" : void
+    }
+
+The previous parser will _always_ fail, because the star is a greedy operator in
+the sense that it matches the longest sequence possible (by opposition with
+the longest sequence that makes the whole regular expression succeed, if any):
+`"a"*` will consume all the `"a"` in the strings, leaving none for the following `"a"`.
+
+Recursion
+---------
+
+By default, toplevel functions and modules are implicitely recursive at toplevel, while local values (including values defined in functions) are not.
+
+    function f(){ f() } // an infinite loop
+
+    x =
+      function f(){ f() } // NOT VALID: f is unbound
+      void
+
+    x =
+      recursive function f(){ f() } // now f is visible in its body
+      void
+
+    function f(){ g() } // mutual recursion works without having
+    function g(){ f() }// to say 'recursive' anywhere at toplevel
+
+    x =
+      recursive function f(){ g() } // local mutually recursive functions must
+      and function g(){ f() } // be defined together with a 'recursive' 'and'
+                              // construct
+      void
+
+Recursion is only permitted between functions, although you can have recursive modules if it
+amounts to valid recursion between the fields of the module:
+
+    module M{
+      function f(){ M2.f() }
+    }
+    module M2{
+      function f(){ m.f() }
+    }
+
+This is valid, because it amounts to:
+
+    recursive function M_f(){ M2_f() }
+    and function M2_f(){ M_f() }
+    M = {{ f = M_f }}
+    M2 = {{ f = M2_f }}
+
+Which is a valid recursion.
+
+Opa also allows arbitrary recursion (in which case, the validity of the recursion is checked at runtime),
+but it must be indicated explicitely that is what is wished for:
+
+    recursive sess = Session.make(callback)
+    and function callback(){ /*do something with sess*/ }
+
+Please note that the word `recursive` is meant to define _recursive_ values, but not meant to define _cyclic_ values:
+
+    recursive x = [x]
+
+This definition is invalid, and will be rejected (statically in this case despite the presence of the `recursive` because it is sure to fail at runtime).
+
+Of course, most invalid definitions will be only detected at runtime:
+
+    recursive x = if(true){ x } else { 0 }
+
+Directives
+----------
+
+Many special behaviours appear syntactically as directives.
+- A directive starting with a `@`
+- Expect the most common directives which are "both" / "server" / "client" / "exposed" / "protected" / "private" / "abstract"
+A directive can impose arbitrary restrictions on its arguments.
+They are usually used because we want to make it clear in the syntax that something
+special is happening, that we do not have a regular function call.
+
+Some directives are expressions, while some directives are annotations on bindings,
+and they do not appear in the same place.
+
+    if true then void else @fail // @fail appears only in expressions
+    @expand function `=>`(x,y){ not(x) || y } // the lazy implication
+                                              // @expand appears only on bindings
+                                              // and precedes them
+
+Here is a full list of (user-available) expression directives, with the restriction on them:
+* `@assert` :: Takes one boolean argument. Raises an error when its argument is false. The code is removed at compile time when the option --no-assert is used.
+* `@fail` :: Takes an optional string argument. Raises an error when executing (and show the string if any was given). Meant to be used when something cannot happen
+* `@todo` :: Takes no argument. Behaves like `@fail` except that a warning is shown at each place when this directive happens (so that you can conveniently replace them all with actual code later)
+* `@toplevel` :: Takes no argument, and must be followed by a field access. `@toplevel.x` allows to talk about the `x` defined at toplevel, and not the `x` in the local scope.
+* `@unsafe_cast` :: Takes one expression. This directive is meant to bypass the typer. It behaves as the identity of type `'a -> 'b`.
+
+Here is a full list of (user-available) bindings directives, with the restriction on them:
+* `@comparator` :: Takes a typename. Overrides the generic comparison for the given type with the function annotated.
+* `@deprecated` :: Takes one argument of the following kind: `{hint = string literal} / {use = string literal}`. Generates a warning to direct users of the annotated name. The argument is used when displaying the warning (at compile time).
+* `@expand` :: Takes no argument, and appears only on toplevel functions. The directive calls to this function will be macro expanded (but without name clashes). This is how the lazy behaviour of `&&`, `||` and `?` is implemented.
+* `@stringifier`:: Takes a typename Overrides the generic stringification for the given type with the function annotated:
+
+    @stringifier(bool) function to_string(b: bool){ if(b){ "true" } else { "false" } }
+
+Foreign function interface
+--------------------------
+
+Foreign functions, or _system bindings_, are standard expressions.
+To use one, simply write the key (see [the corresponding chapter](/manual/Hello--bindings----Binding-other-languages)) of your binding between `%%`:
+
+    x = (%% BslPervasives.int_of_string %%)("12") // x is 12
+
+Separate compilation
+--------------------
+
+At the toplevel only, you can specify information for the separate compilation:
+
+    package myapp.core // the name of the current package
+    import somelib.* // which package the current package depends on
+
+Inside the import statement, you can have shell-style brace and glob expansion:
+
+    import graph.{traversal,components}, somelib.*
+
+{block}[TIP]
+The compiler will warn you whenever you import a non existing package, or if one of the alternatives of a brace expansion matches nothing, or a if a glob expansion matches nothing.
+{block}
+
+Beware that the toplevel is common to all packages.
+As a consequence, it is advised to define packages that export only modules, without other toplevel values.
+
+Type expressions
+----------------
+
+Type expressions are used in [type annotations](/manual/The-core-language/Type-coercions), and in [type definitions](/manual/The-core-language/Type-definitions).
+
+### Basic types
+
+The three data types of Opa are written `int`, `float` and `string`, like
+regular typenames (except that these names are actually not valid typenames).
+Typenames can contain dots without needing to backquote them: `Character.unicode`
+is a regular typename.
+
+
+### Record types
+
+The syntax for record type works the same as it does in expressions and in patterns:
+
+    {useless} x = @fail // means {useless:void}
+    ~{a, b} x = @fail // means {a a, b b}, where a and b are typenames
+    ~{list} x = @fail // means the same as {list list}
+                      // this is valid in coercions because you can omit
+                      // the parameters of a typename (but not in type definitions)
+    {a, b, ...} x = {a, b, c} // you can give only a part of the fields in type annotations
+
+### Tuple types
+
+The type of a tuple actually looks like the tuple:
+
+    (int,float) (a,b) = (1,3.4)
+
+### Sum types
+
+Now, record expressions do not have records type (in general), they have sum types, which are
+simply unions of record types:
+
+    ({true} or {false}) x = {true}
+    ({true} or ...) x = {true} // sum types can be partially specified, just like record types
+
+### Type names
+
+Types can be given [names](/manual/The-core-language/Type-definitions), and of course you can refer to names in expressions:
+
+    list(int) x = [1] // the parameters of a type are written just like a function call
+    bool x = 1 // except that when there is no parameter, you don't write empty parentheses
+    list x = [1] // and except that you can omit all the parameters of a typename altogether
+                   // (which means 'please fill up with fresh variables for me')
+
+### Variables
+
+Variables begin with an apostrophe except `_`:
+
+    list('a) x = []
+    list(_) x = [] // _ is an anonymous variable
+
+### Function types
+
+Function types are list of types arguments separated by comma then a
+right arrow precedes type of result:
+
+    (int, int, int -> int) function max3(x, y, z){
+      max(x, max(y, z))
+    }
+
+Type definitions
+----------------
+
+A type definition allows to give a name to a type.
+
+It simply consists of an identifier, a list of parameters, a set of directives and a body.
+Since type definitions can only appear at the toplevel, and the toplevel is implicitely recursive,
+all the type definitions of a package are mutually recursive.
+
+Here are the most common types in opa as defined in the standard library:
+
+    type void = {} // naming a record
+    type bool = {true} or {false} // naming a type sum
+    type option('a) = {none} or {some:'a} // a parameterized definition of a type sum
+    type list('a) = {nil} or {'a hd, list('a) tl} // a recursive and parameterized
+                                                  // definition of a type sum
+
+In addition to type expressions, the body of a type definition can be an external types,
+ie types that represent foreign objects, used when interfacing with other languages.
+
+    type continuation('a) = external
+
+### Type directives
+
+There are currently only two directives that can be put on type definitions, and they
+both control the visibility of the type.
+
+The first one is `abstract`, which hides the implementation of a type to the users of a library:
+
+    package test1
+    abstract type Test1.t = int
+    module Test1{
+      Test1.t x = 1
+    }
+
+Abstracting forces the users to go through the interface of the library to build and manipulate
+values of that type.
+
+    package test2
+    import test1
+    x = Test1.x + 1 // this is a type error, since in the package test2
+                    // the type Test1.t is not unifiable with int anymore
+
+The second directive is `private`, which is a type that is not visible from the outside of the module
+(not even its name). When a type is private, values with that type cannot be exported
+
+    package test1
+    private type Test1.t = int
+    module Test1{
+      Test1.t x = 1 // will not compile since the module exports
+                    // Test1.x that has the private type t
+    }
+
+Formal description
+------------------
+
+This syntax recapitulates the syntactic constructs of the language.
+
+//[|grammar_conventions|]
+### Conventions
+
+The following conventions are adopted to describe the grammar.
+The following defines `program` with the production `prod`.
+
+    program ::= prod
+
+A reference to the rule `program` between parens:
+
+    ( <program> )
+
+A possibly empty list of `<rule>` separated by `<sep>` is written:
+
+    <rule>* sep <sep>
+
+A non empty list of `<rule>` separated by `<sep>` is written:
+
+    <rule>+ sep <sep>
+
+### The opa language
+
+A source file is a `<program>`, defined as follows:
+
+    program ::= <declaration>* sep <separator>
+    declaration ::=
+      | <package-declaration>
+      | <package-import>
+      | <type-definition>
+      | <binding>
+      | <expr>
+
+The rules related to separate compilation:
+
+    package-declaration ::=
+      | package <package-ident>
+    package-import ::=
+      | import <package-expression>* sep ,
+    package-expression ::=
+      | { <package-expression>* sep , }
+      | <package-expression> *
+      | <package-ident>
+    package-ident ::= [a-zA-Z0-9_.-]
+
+Some rules used in many places:
+
+    field ::= <ident>
+
+    literal ::=
+      | <integer-literal>
+      | <float-literal>
+      | <string-literal>
+
+    long-ident ::=
+      | <long-ident> . <ident>
+      | <ident>
+
+    separator ::=
+      | ;
+      | \n
+
+The syntax of the types:
+
+    type-definition ::=
+      | <type-directive>* type <type-bindings>
+    type-bindings ::=
+      | <type-binding>* sep and
+    type-binding ::=
+      | <type-ident> ( <type-var>* sep , ) = <type-def>
+    type-def ::=
+      | <type>
+      | external
+    type ::=
+      | int
+      | string
+      | float
+      | <type-ident> ( <type>* sep , )
+      | <record-type>
+      | <lambda-type>
+      | <sum-type>
+      | forall ( <type-var>* sep , ) . <type>
+      | <type-var>
+      | <tuple-type>
+      | ( <type> )
+
+    type-ident ::= <long-ident>
+
+    record-type ::=
+      | ~? { <record-type-field>* sep , <record-type-end>? }
+    record-type-field ::=
+      | <type> <field>
+      | ~ <field>
+      | <field>
+    record-type-end ::=
+      | , <record-type-var>?
+    record-type-var ::=
+      | ...
+      | ' <ident>
+
+    lambda-type ::=
+      | <type>* sep , -> <type>
+
+    sum-type ::=
+      | or? <type> or <type>+ sep or <sum-type-end>?
+      | <type> or? <sum-type-var>
+    sum-type-end ::=
+      | or <sum-type-var>?
+    sum-type-var ::=
+      | ...
+      | ' <ident>
+
+    type-var ::=
+      | ' <ident>
+      | _
+
+    tuple-type ::=
+      | ( <type> , )
+      | ( <type> , <type>+ sep , ,? )
+
+The syntax of the patterns:
+
+    pattern ::=
+      | <literal>
+      | <record-pattern>
+      | <list-pattern>
+      | <tuple-pattern>
+      | <pattern> as <ident>
+      | <pattern> | <pattern>
+      | <type> <pattern>
+      | ( <pattern> )
+      | _
+
+    record-pattern ::=
+      | ~? { ...? }
+      | ~? { <record-pattern-field>+ sep , ,? ...? }
+    record-pattern-field ::=
+      | ~? <type>? <field>
+      | ~? <type>? <field> : <pattern>
+
+    list-pattern ::=
+     | [ pattern+ sep , | pattern ]
+     | [ pattern* sep , ,?]
+
+    tuple-pattern ::=
+      | ( <pattern> , )
+      | ( <pattern> , <pattern>+ sep , ,? )
+
+The syntax of the bindings:
+
+    binding ::=
+      | <binding-directive> recursive <non-rec-binding>+ sep and
+      | <binding-directive> <non-rec-binding>
+
+    non-rec-binding ::=
+      | <ident-binding>
+      | <pattern-binding>
+
+    ident-binding ::=
+      | <type>? <ident> = <expr>
+      | <type>? function <type>? <ident> <params>+ { <expr_block> }
+      | <type>? module <ident> <params>+ { <non-rec-binding>* sep <separator> }
+
+    params ::=
+      | ( <pattern>* sep , )
+
+    pattern-binding ::=
+      | <pattern> = <expr>
+
+The syntax of the expressions, except the parsers:
+// todo database, domaction, xhtml...
+
+    expr ::=
+      | <ident>
+      | <expr-or-underscore> <op> <expr-or-underscore>
+      | - <expr>
+      | <type> <expr>
+      | <expr-or-underscore> . field
+      | <expr-or-underscore> ( <expr-or-underscore>* sep , )
+      | <binding> <separator> <expr>
+      | <match>
+      | <lambda>
+      | <module>
+      | <record>
+      | { <expr_block> }
+      | ( expr )
+      | <tuple>
+      | <list>
+      | <literal>
+      | <directive>
+      | <sysbinding>
+      | <parser>
+
+    expr_block ::=
+      | <expr>
+      | <expr_or_binding>+ sep <separator> <separator> <expr>
+    expr_or_binding ::=
+      | <expr>
+      | <binding>
+
+    match ::=
+      | match ( <expr> ){ <match_case>* <match_default> }
+      | if <expr> then <expr> else <expr>
+      | if <expr> then <expr>
+    match_case ::=
+      | case <pattern> : <expr_block>
+      | default : <expr_block>
+
+    lambda ::=
+      | function <type>? <space> <params>+ { <expr_block> }
+      | function{ <match_case>* <match_default> }
+
+    record ::=
+      | ~? { <record-field>* sep ,? }
+      | ~? { <expr> with <record-field>+ sep ;? }
+    record-field ::=
+      | ~? <type>? <field>
+      | <type>? <field> : <expr>
+
+    tuple ::=
+      | ( <expr> , )
+      | ( <expr> , <expr>+ sep , ,? )
+
+    list ::=
+      | [ <expr>+ sep , | <expr> ]
+      | [ <expr>* sep , ,? ]
+
+    module ::=
+      | module{ <non-rec-binding>+ sep <separator> }
+
+    expr-or-underscore ::=
+      | <expr>
+      | _
+
+The syntax of the parsers:
+
+    parser ::=
+      | parser{ <parser-case>+ }
+    parser-case ::=
+     | case <parser-rule>
+    parser-rule ::=
+      | <parser-prod>+ : <block_expr>
+      | <parser-prod>+
+    parser-prod ::=
+      | <parser-name>? <subrule-prefix>? <subrule> <subrule-suffix>?
+      | ~ <ident> <subrule-suffix>?
+
+    subrule-prefix ::=
+      | &
+      | !
+    subrule-suffix ::=
+      | *
+      | +
+      | ?
+    subrule-expr ::=
+      | parser-rule | subrule-expr
+      | parser-rule
+    subrule ::=
+      | { <expr> }
+      | ( subrule-expr )
+      | <character-set>
+      | .
+      | <string>
+      | <long-ident>

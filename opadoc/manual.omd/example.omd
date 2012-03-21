@@ -1,0 +1,387 @@
+Example
+=======
+
+List
+----
+
+- un
+- deux
+    {html}
+    <ul>
+      <li>deux point un</li>
+      <li>deux point deux</li>
+    </ul>
+    {html}
+- trois
+
+Code
+----
+
+`one line code`[js]
+
+```{.opa}
+r = {
+  id(x) = x
+  pair(x) = (x, x)
+  one = 1
+}
+> r : {id : 'v0 -> 'v0; pair : 'v1 -> tuple_2('v1, 'v1); one : int} / ... =
+>  { id = <fun> ; one = 1 ; pair = <fun> }
+
+i = 5
+> i : int = 5
+f = 3.14159
+> f : float = 3.14159
+s = "foo"
+> s : string = "foo"
+v = {}
+> v : {} / ... = void
+b = true
+> b : bool = { true = void ;  }
+```
+
+```{.opa}
+////////////////////////////////////////////////////////////
+// TYPE :
+////////////////////////////////////////////////////////////
+//   1 - Type constant
+type const0 = int
+type const1 = float
+type const3 = string
+
+//   2 - Type record
+type record0 = {int x0, float y0, string z0}
+type record1 = {int x1, float y1, string z1,}
+
+//   3 - Type sum
+type sum0 =
+   {int s00, float s01, string s02}
+or {int s10, float s11, string s12}
+
+type sum1 = sum0 or record0 or record1
+
+//   4 - Type arrow
+type arrow0('a, 'b) = 'a, 'b -> 'b
+
+//   5 - Type named
+type name('a) = arrow0(int, 'a)
+
+//   6 - Type forall
+type arrow1 = forall('a, 'b). arrow0('a, 'b)
+
+//   7 - Type module
+type IModule = module {
+  string get_message()
+  'a do_message(string -> 'a)
+}
+
+//   8 - Type functor
+type IFunctor = module(option(string)) {
+  string get_message()
+  'a do_message(string -> 'a)
+}
+
+
+////////////////////////////////////////////////////////////
+// EXPRESSIONS :
+////////////////////////////////////////////////////////////
+//   NB : An unbinded expression @toplvl is equivalent to _ = expr
+//   1 - Constant expression
+1
+
+"Hello"
+
+2.
+
+//   2 - Record
+// { (typ? name : expr,)* }
+{x : 1, y : "y", z : 3,}
+
+// Last ; is optionnal
+{x : 1, y : 2, z : 3}
+
+// tilt binding
+{
+  x = 1
+  y = 2
+  z = 3
+  ex1 = ~{x, y, z}
+  ex2 = ~{x, y:8, z}
+  ex3 = {x:10, y:20, ~z}
+  void
+}
+
+//   3 - Extend Record
+{
+  x = 7
+  z = 6
+  record = {x : 1, y : 2, z : 3,}
+  record = {record with x : 0, z : 5}
+  record = ~{record with x, z}
+  void
+}
+
+//   4 - Match
+//   match(expr){
+//     case p1 : e1
+//     case p2 : e2
+//     default : e3
+//   }
+match({x : 958}){
+  case {x : 2} : 1
+  case {x : 1} : 2
+  case {int ~x} : x
+  case {x : 3, ...} : 9
+  default : 4
+}
+
+//   5 - Expression block
+//   {
+//    (binding / do_expr)*
+//    final_expr
+//   }
+{
+  jlog("let x")
+  x = 1
+  jlog("let y")
+  y = 2
+  jlog("let z")
+  z = 3
+  x + y + z
+}
+
+//   6 - Lambda
+//   function return_type? (pattern(,pattern)*)block
+function int (x, y, z){
+  x + y + z
+}
+
+function(~{int x, y, z} as r){
+  jlog("{r}")
+  x+y+z
+}
+
+//   7 - Anonymous module
+module{
+  private msg = "This is my message "
+
+  function get_message(){ msg }
+
+  function do_message(string -> void f){ f(msg) }
+}
+
+//   8 - Anonymous functor
+module (option(string) custom){
+
+  private msg = custom ? "This is my message "
+
+  function get_message(){ msg }
+
+  function do_message(string -> void f){ f(msg) }
+
+}
+
+//   9 - Coerce
+//   typ expr
+int 89
+
+string "42"
+
+//   10 - Database declaration
+//   10.1 - Grouped
+// database db0 @local("/tmp/tototest0") {
+//   int /path0
+//   int /path1 = 10
+// }
+
+//   10.2 - Single
+database int /db0/path2 = 999
+
+//   11 - Dom action sugar :
+//   action = domselector (insertaction / cssaction)
+//
+//   domselector = #id / .class / *selector
+//
+//   insertaction = (= / += / -=) expr
+//
+//   cssaction = css= css_properties
+private function dom_sugar(){
+
+  #toto = <h1>Replace</h1>
+  #toto += <h1>Prepend</h1>
+  #toto =+ <h1>Append</h1>
+
+  dom_pointer = Dom.select_children(#toto)
+  *dom_pointer += <h2>before</h2>
+  *dom_pointer =+ <h2>after</h2>
+
+  dom_pointer = Dom.select_inside(dom_pointer, Dom.select_tag("h2"))
+  *dom_pointer css={color : blue}
+}
+
+//   12 - Recursives let
+//   12.1 Recursive value
+recursive x = {
+    x : function(){void x.x()}
+}
+
+{
+  // Local recursive lambda
+  recursive function aux(){aux()}
+
+  recursive x = {
+      y : function(){u()}
+  }
+  and z = {
+      y : function(){x.y()}
+  }
+  and function u(){
+      void x.y()
+  }
+
+  recursive x = 1
+
+  aux
+
+}
+
+//   13 - Subsumption
+option(int) :> ({none} {none})
+
+
+////////////////////////////////////////////////////////////
+// DECLARATIONS
+////////////////////////////////////////////////////////////
+
+//   1 - Values
+//   var? type? pattern = expr
+var int x = 1
+
+int xcx = 1
+
+var ~{v1, v2, v3} = {v1 : 1, v2 : 2, v3 :3}
+
+//   2 - Function safe replace @publish
+safe function my_fun(){
+  /db0/path0 <- 90
+  jlog("my_fun"); jlog(" is")
+  jlog(" fun")
+}
+
+//   3 - Module
+module MyModule{
+
+  private msg = "This is my message "
+
+  function get_message(){ msg }
+
+  function 'a do_message(string -> 'a f){ f(msg) }
+
+  private module P{
+    function transform(){
+      msg ^ msg
+    }
+  }
+
+}
+
+IModule module MyModule{
+
+  private msg = "This is my message "
+
+  function get_message(){ msg }
+
+  function 'a do_message(string -> 'a f){ f(msg) }
+
+}
+
+//   4 - Functor
+IFunctor module MyFunctor(option(string) custom){
+
+  private msg = custom ? "This is my message "
+
+  function string get_message(){ msg }
+
+  function do_message(f){ f(msg) }
+
+}
+
+package MyModule2 = MyFunctor(some("My custom message"))
+
+MyModule2.do_message(jlog)
+
+
+
+
+
+
+////////////////////////////////////////////////////////////
+// STARTING THE SERVER
+////////////////////////////////////////////////////////////
+// Proposal
+type Server.conf = {
+  int               port,
+  ip                netmask,
+  Server.encryption encryption,
+  string            name,
+}
+
+/**
+ * Different types of request handler.
+ */
+type Server.handler =
+  /** The most simple request handler. It replies to all incoming
+      request. With a title page [title] and given body by the [page]
+      function */
+  or {string title, xhtml page()}
+
+  /** The most configurable request handler. The [custom] parser takes
+      as input the non-decoded uri from incoming requests and should
+      compute corresponding resource. */
+  or {Parser.general_parser(resource) custom}
+
+  /** Request handler on decoded incoming uri. This handler takes as
+      input the decoded uri from incoming requests which through the
+      [filter]. */
+  or {Server.filter filter, resource dispatch(Uri.relative) }
+
+  /** Request handler which performs on non-decoded uri. Returns
+      resource which uri matches into the [bundle] map. */
+  or {stringmap(resource) bundle}
+
+// Sure we can provide Server.compose(Server.handler, Server.handler)
+// With a function : void Server.start(Server.conf, Server.handler)
+http = { port : 8080, netmask : 0.0.0.0, encryption : {no_encryption}, name : "http"}
+
+Server.start(
+  http,
+  {title : "My first opa server", page : function(){<h1>Hello world</h1>}}
+)
+
+Server.start(
+  {service with name:"secure", port:4343},
+  {title : "My first opa server secured", page : function(){<h1>Hello secure</h1>}}
+)
+```
+
+Block
+-----
+
+{block}[TIP]
+###About _inserts_
+Opa provides _inserts_ to insert expressions inside HTML, inside strings and in
+a few other places that we will introduce as we meet _them_
+{block}
+
+OpaCode
+-------
+
+{opa}
+Hello world
+{opa}
+
+OpaFile
+----
+
+opa-file://../../src/main.opa
+

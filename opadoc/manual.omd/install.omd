@@ -1,0 +1,217 @@
+//[[Getting_Opa]]
+Getting Opa
+===========
+
+This section is about installation and configuration of Opa. If you
+want to learn more about Opa first, you can safely skip this section
+and come back later.
+
+At the time of this writing, binary packages of Opa are available for Mac OS X
+and Linux (Ubuntu/Debian-based, 64-bit architectures only). We do not provide
+binary packages for other Unixes, FreeBSD, and 32-bit variants, but you should
+be able to build Opa from sources on these systems (see below). A Windows port
+is in the works and Opa should also work on a number of other operating systems
+but these platforms are not supported for the moment.
+
+Installing Opa
+--------------
+
+The easiest solution for installing Opa is to download an installer from [our website](http://opalang.org/get.xmlt).
+
+### Mac OS X
+
+- If you have not done so yet, install the Xcode tools, provided by Apple with your copy of Mac OS X. If you do not have Xcode, you can either download [Xcode 4](https://developer.apple.com/xcode/) or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (registration required). In addition to general development utilities, this package provides some of the low-level, Mac-specific, tools used by Opa to produce server-side executables.
+
+{block}[WARNING]
+Starting with Xcode 4.3, Apple does not install command line tools by default anymore, so after Xcode installation, go to Preferences > Downloads > Components > Command Line Tools and click Install.
+You can also directly download [Command Line Tools for Xcode](https://developer.apple.com/downloads) without getting Xcode.
+{block}
+
+- Download [Opa for Mac OS X](http://www.opalang.org/get.xmlt).
+- Once the download is complete, if your browser does not open automatically the file you have just downloaded, go to your Download folder and open this file. This should open a new Finder window containing the Opa installer package.
+- Open the Opa installer package by double-clicking on it.
+- Follow the instructions on the screen. You will need the password of an administrative account.
+- Once the installation is complete, the Opa compiler will be installed in the directory
+
+`/opt/mlstate`[sh]
+
+and symbolic links will be created in `/usr/local/bin` hence you should not have to modify your PATH variable to enjoy the Opa compiler and its tools.
+
+### Ubuntu Linux, Debian Linux
+
+The following instructions are also valid for all Debian-based Linux distributions.
+
+- Download the [Ubuntu Linux package](http://www.opalang.org/get.xmlt).
+- Once the download is complete, your operating system will offer you to install Opa using a tool such as `gdebi` or `kdebi`.
+- Follow the instructions on the screen. You will need the password of an account with administrative rights.
+- Once the installation is complete, the Opa compiler will be installed in the directory
+
+`/usr/bin`[sh]
+
+and the documentation and examples will be in
+
+`/usr/share/doc/opa`[sh]
+
+### Arch Linux
+
+A community package is a work in progress at
+[AUR](https://aur.archlinux.org/packages.php?ID=51140). It is not
+officially supported by us, and we have not tested it, but we are
+interested by any feedback about it.
+
+### Other Linux distribution
+
+To install Opa on Suse, Red Hat, Fedora and other distributions of Linux which
+do not use the .deb system, or if you do not have administrative rights on your
+machine, take the following steps:
+
+- Using your package manager, install packages:
+**    `libssl-devel`
+**    `zlib1g-devel`
+- Or, if these packages do not exist in your distribution, install whichever packages provide
+**  library `libssl.so`
+**  library `libz.so`
+- Download the [Linux self-extracting package](http://www.opalang.org/get.xmlt).
+- When prompted by your browser, choose to save the file in a temporary directory, for instance, `/tmp`.
+- To install as a user:
+** Set the execution permission on the downloaded program
+** Run it and follow the instructions on the screen
+** The compiler is installed by default in `~/mlstate-opa/bin`
+- To install system-wide, open a terminal (if you are using KDE, the terminal is called Konsole)
+** In the terminal, write:
+
+`sudo sh [complete path to the file you have just downloaded]`[sh]
+
+** Follow the instructions on the screen
+** By default, the installation is done in `/usr/local`
+- This installation comes with an un-installation script, in `[install prefix]/share/opa/uninstall.sh`
+
+Building Opa from the sources
+-----------------------------
+
+Should you wish to work on an unsupported platform, or to contribute to Opa, you will need to build Opa from sources. This requires a bit more work than the
+installation, but you should have no major difficulties. You will need:
+
+- git (to download the source)
+- ocaml 3.12.0-5 or later
+- libgif 4.1 or later (dev version)
+- libjpeg 8b-1 or later (dev version)
+- libpng 1.2.44 or later (dev version)
+- libssl 0.9.8 or later (dev version)
+- libxft 2.2.0 or later (dev version)
+- m4
+- dblatex
+- java 1.5 or later
+- libx11 1.4.2 or later (dev version)
+- zlib 1.2.3.4 or later (dev version)
+
+In addition, if you are using Mac OS X, you will need:
+
+- GNU coreutils, wget, md5sha1sum and gsed (or gnu-sed) available via [MacPorts](http://www.macports.org/) or [Homebrew](http://mxcl.github.com/homebrew/)
+- The Xcode suite, provided by Apple with your copy of Mac OS X (prior to Mac OS X 10.7 Lion).
+- If you do not have Xcode, you can either download [Xcode 4](https://developer.apple.com/xcode/) or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (registration required). In addition to general development utilities, this package provides some of the low-level, Mac-specific, tools used by Opa to produce server-side executables.
+
+{block}[WARNING]
+Starting with Xcode 4.3, Apple does not install command line tools by default anymore, so after Xcode installation, go to Preferences > Downloads > Components > Command Line Tools and click Install.
+You can also directly download [Command Line Tools for Xcode](https://developer.apple.com/downloads) without getting Xcode.
+{block}
+
+Once these dependencies are satisfied, take the following steps:
+
+- Grab the sources from [GitHub](http://github.com/MLstate/opalang) by entering in a terminal:
+
+`git clone https://github.com/MLstate/opalang.git`[sh]
+
+  - In the same terminal, enter
+
+```{.sh}
+cd opalang
+./configure -prefix SOME_DIRECTORY
+make all install
+```
+
+(You may need root privileges). This will install Opa in directory `SOME_DIRECTORY`
+
+Do not forget to change your PATH variable if needed after that.
+
+{block}[TIP]
+We also provide a script that will help you install all dependencies needed for building Opa.
+In this case, the only dependencies should be (tested on clean Ubuntu 11.10) :
+- git (to download the source)
+- m4
+- libssl 0.9.8 or later (dev version)
+- zlib 1.2.3.4 or later (dev version)
+
+In your opalang diectory, run: `dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
+
+You will need to update your PATH variable after that.
+
+{block}
+
+Setting up your editor
+----------------------
+
+The package you installed provides two Opa modes, one for Emacs and one for Vim.
+
+### Emacs
+
+On Mac OS X, either you're using Aquamacs and the package installation took care of it, or you should add the following line to your configuration file (which might be `~/.emacs`).
+
+```{.lisp}
+(autoload 'opa-classic-mode "/Library/Application Support/Emacs/site-lisp/opa-mode/opa-mode.el" "OPA CLASSIC editing mode." t)
+(autoload 'opa-js-mode "/Library/Application Support/Emacs/site-lisp/opa-mode/opa-js-mode.el" "OPA JS editing mode." t)
+(add-to-list 'auto-mode-alist '("\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.js\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
+```
+
+On Linux, add the following lines to your configuration file:
+
+```{.lisp}
+(autoload 'opa-js-mode "/usr/share/opa/emacs/opa-js-mode.el" "OPA JS editing mode." t)
+(autoload 'opa-classic-mode "/usr/share/opa/emacs/opa-mode.el" "OPA CLASSIC editing mode." t)
+(add-to-list 'auto-mode-alist '("\\.opa$" . opa-js-mode)) ;; <-- Set the default mode here
+(add-to-list 'auto-mode-alist '("\\.js\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
+```
+
+This allows for both Opa syntaxes, Javascript-like and the Classic mode.
+You can have both in the same editor but not in the same buffer, use the
+line shown here to set the default mode.
+
+{block}[TIP]
+You may want to activate spell-checking on Opa comments and strings. To do so,
+type the command `M-x flyspell-prog-mode` within emacs.
+
+And if you want this functionality activated each time you open an OPA file,
+you just need to add the following lines to your configuration file:
+
+```{.lisp}
+(defun enable_flyspell ()
+  (ispell-change-dictionary "american")
+  (flyspell-prog-mode)
+)
+
+;; Enable spell-checking on OPA comments and strings
+(add-hook 'opa-mode-hook 'enable_flyspell)
+```
+{block}
+
+### Vim
+
+If you are running Linux (resp. Mac OS X), copy files `/usr/share/opa/vim/{ftdetect,syntax}/opa.vim` (resp. `/opt/mlstate/share/opa/vim/{ftdetect,syntax}/opa.vim`) to your `.vim` directory, keeping the directory structure.
+
+{block}[TIP]
+Instead of copying you can create a symbolic link. This will let you be automatically up-to-date with the latest mode every time you install a new version of Opa.
+{block}
+
+### Eclipse
+
+An experimental Eclipse plugin is available from
+[GitHub](https://github.com/MLstate/opa-eclipse-plugin). It is not fully
+functional, but it is good start, and we hope that the open source
+community can help us.
+
+### Other editors
+
+Although we do not provide configuration files for other editors yet, we would be very happy to hear about it.

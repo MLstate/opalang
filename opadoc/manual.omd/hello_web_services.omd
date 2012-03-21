@@ -1,0 +1,343 @@
+Hello, web services
+===================
+
+Nowadays, numerous web applications offer their features as _web services_, APIs
+that can be used by other web applications or native clients. This is how
+Twitter, GitHub, Google Maps or countless others can be scripted by third-party
+applications, using cleanly defined and easily accessible protocols.
+
+With Opa, offering a web service is just as simple as creating any other form of
+web application. In this chapter, instead of writing a new application, we will
+extend our wiki to make it accessible through such a web API. This task will lead
+us through REST web service design, command-line testing of Opa services, management
+of URI queries and more.
+
+{block}[TIP]
+Several protocols share the landscape of web services, in particular _REST_
+(Representational State Transfer, a simple standard which does not specify how
+messages should be formated, only how they should be exchanged), _SOAP_ (a more
+complex standard imposing conventions on the formatting of messages) and _WSDL_
+(a higher-level protocol). In this chapter, we'll only cover _REST_.
+{block}
+
+Overview
+--------
+
+In this chapter, we will modify our wiki to make it accessible by a _REST_
+API. This involves few changes from the original wiki, only the addition of a
+few cases to differentiate between several kinds of requests that can be sent by
+a client -- which does not need to be a browser anymore.
+
+If you are curious, this is the full source code of the REST wiki server:
+
+[opa|fork=hello_web_services|run=http://wiki-rest.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest.opa
+
+We will now walk through the concepts introduced in this listing.
+
+Removing topics
+---------------
+
+In the rest of this chapter (pun intended), we will want to be able to delete a
+topic previously added to the wiki. Adding this feature (without showing it in
+the user interface) is just the matter of one line, as follows:
+
+```
+function remove_topic(topic) {
+    Db.remove(@/wiki[topic]);
+}
+```
+
+In this extract, we use function `Db.remove`, a function whose sole role is to
+remove the contents of a database path. Notice the `@` before `/wiki[topic]`?
+This symbol signifies that we are not working with the _value_ `/wiki[topic]` but
+with the _path_ itself. If we had omitted this symbol, the Opa compiler would
+have complained that `Db.remove` cannot work with a `string` -- which is
+absolutely true.
+
+Resting a little
+----------------
+
+A web service behaves much like a web application, without the client part. In other word, as any Opa
+web application, it starts with a server declared with `Server.start`:
+
+###### The server, with an entry point for rest
+
+```
+function topic_of_path(path) {
+    String.capitalize(String.to_lower(List.to_string_using("", "", "::", path)));
+}
+
+function start(url) {
+    match (url) {
+    case {path: [] ... }: display("Hello");
+    case {path: ["_rest_" | path] ...}: rest(topic_of_path(path));
+    case {~path ...}: display(topic_of_path(path));
+    }
+}
+
+Server.start(Server.http,
+  [ {bundle: @static_include_directory("resources")}
+  , {dispatch: start}
+  ]
+)
+```
+
+In this version of `start`, we have slightly altered our pattern-matching to
+handle the case of paths starting with `"_rest_"`. We decide that such paths
+are actually entry points for REST-based requests and handle them as such. Here,
+we delegate the management to function `rest`, which we write immediately:
+
+As you may see, this function is also quite simple:
+
+###### Handling rest requests
+
+```
+function rest(topic) {
+  match (HttpRequest.get_method()) {
+  case {some: method} :
+      match (method) {
+      case {post}:
+          _ = save_source(
+              topic,
+              match (HttpRequest.get_body()) {
+              case ~{some}: some;
+              case {none}: "";
+              }
+          );
+          Resource.raw_status({success});
+      case {delete}:
+          remove_topic(topic);
+          Resource.raw_status({success});
+      case {get}:
+          Resource.raw_response(load_source(topic), "text/plain", {success});
+      default:
+          Resource.raw_status({method_not_allowed});
+      }
+    default:
+      Resource.raw_status({bad_request});
+  }
+}
+```
+
+First, notice that `rest` is based on pattern-matching. Expect to meet pattern-matching
+constantly in Opa. The first three patterns are built from some of to the distinct verbs
+of the standard vocabulary of REST (these verbs are called _Http methods_):
+
+* `{post}` is used to place information on a server, here to add some content to the wiki;
+* `{delete}` is used to remove information from the server, here remove a topic from the wiki;
+* `{get}` is used to get information from a server, here to download the source code of an entry.
+
+From these verbs, we build the following patterns:
+
+* `{some: {post}}`, i.e. the Http method is defined and is _post_;
+* `{some: {delete}}`, i.e. the Http method is defined and is _delete_;
+* `{some: {get}}`, i.e. the Http method is defined and is _get_;
+* `_`, i.e. any other case, whether the Http method is not defined or whether it is a method that we do not
+wish to handle.
+
+Everything else in `rest` is simply function calls. You can find the definition of each function in the API
+documentation, so we will just introduce quickly the functions you have not seen yet:
+
+* Function `HttpRequest.get_method` has type `-> option(method)`. If the function is called from a request and this request has a method _m_, it produces `{some: m}`. Otherwise, it produces `{none}`.
+* Similarly, `HttpRequest.get_body` has type `-> option(string)`. If the function is called from a request containing a body _b_, it produces  `{some: b}`. Otherwise, it produces `{none}`.
+* Function `Resource.raw_response` has type `string, string, status -> resource`. It produces a resource with a body from its body, its MIME type, and a status. This function is commonly used to reply to REST requests.
+* Finally, function `Resource.raw_status` has type `status -> resource`. It produces an empty resource, and is generally used to return an error to a REST request.
+
+As pattern-matching against an `option` is very common, Opa provides an operator `?` that can be used to make
+the above extract shorter and more readable.
+Expression `a?b` is equivalent to the following three lines:
+
+    match a with
+    | {none}  -> b
+    | ~{some} -> some
+
+With this expression, we may rewrite our extract as follows:
+
+###### Handling rest requests (shorter variant)
+
+```
+function rest(topic) {
+    match (HttpServer.get_method()) {
+    case {some : {post}} :
+        _ = save_source(topic, HttpServer.get_body() ? "");
+        Resource.raw_status({success});
+    case {some : {delete}} :
+        remove_topic(topic);
+        Resource.raw_status({success});
+    case {some : {get}} :
+        Resource.raw_response(load_source(topic), "text/plain", {success});
+    default :
+        Resource.raw_status({method_not_allowed});
+    }
+}
+```
+
+And with this, we are done! Our wiki can now be scripted by external web applications:
+
+[opa|fork=hello_web_services|run=http://wiki-rest.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest.opa
+
+All in all, the changes required a dozen lines of code.
+
+Exercises will show you how to introduce more complex forms of scripting.
+
+Testing it
+----------
+
+The simplest way of testing a REST API is to use a command-line tool that lets
+you place requests directly, for instance `curl` or `wget`. Assuming
+that `curl` is installed on your system, the following command-line will test
+the result of placing a `{get}` request at address `_rest_/hello`:
+
+    curl localhost:8080/_rest_/hello
+
+Execute this command-line and `curl` will show you the result of the call.
+
+Similarly, the following command-line will test the result of placing a `{post}`
+request at the same address:
+
+    curl localhost:8080/_rest_/hello -d "I've just POSTed to change the contents of my wiki"
+
+Now, we are not here to learn about `curl`, but to learn about Opa. And what best way to test
+the REST API of a wiki than by writing a web front-end that does not rely on its own database
+but on that of the wiki we have just defined?
+
+We will do just this in the next chapter.
+
+Questions
+---------
+
+### When is a method or a body not defined?
+
+As mentioned, functions `HttpServer.get_method` and `HttpServer.get_body` can
+produce result `{none}` if the http method (respectively the body) does not
+exist.
+
+This may be surprising, as, by definition of the protocols, every request has a
+method (not all have a body). Indeed, the only case in which `HttpServer.get_method`
+returns `{none}` is when there is _no request_, i.e. when the function has been
+called by the server for its own use and not during the execution of a request
+on behalf of a web browser or a distant web server.
+
+On the other hand, many requests do not have a body. Function `HttpServer.get_body`
+returns `{none}` when there is no body, or when there is no request, as above.
+
+### Only one server?
+
+If you have started thinking about large applications, at this stage, you might
+start worrying about having to centralize all your path management into only one
+pattern-matching, which could hurt modularity and hamper your work.
+
+No need to worry, though, as we've already seen with Opa, you may combine any
+number of servers in an application. Take a look at all the variants in
+`Server.handler`, which is the type of the second argument to `Server.start`,
+to see other ways of constructing servers.
+
+Exercises
+---------
+
+### Rest for chat
+
+Add a REST API to your chat, with the following feature:
+
+* use a `{post}` request send a message for immediate display into the chat (for the moment, we will assume that the message has been written by author "ghost").
+
+{block}[TIP]
+To deal with several entry points, you will have to rewrite your `server` and replace `one_page_bundle` by a dispatcher. For these
+exercises, we decide that any request placed on path `_rest_` is a REST request.
+{block}
+
+For testing, use the following command-line (assuming that `curl` is installed on your system):
+
+    curl localhost:8080/_rest_ -d "Whispers..."
+
+### Rest for chat, with logs
+
+If you have not done so yet, update your chat to maintain conversation logs in the database.
+
+Now, add the following REST API:
+
+* use a `{get}` request to get the log of messages as `string` containing one message per line.
+
+Remember, use function `List.to_string_using` to convert a list to a `string`.
+
+### Rest for chat, with queries
+
+For this exercise, we wish to extend the REST API for the chat to be able to
+send a message _and_ give a name to the author of the message. For this purpose,
+we need to send more informations than simply `{post}`. In the REST world, there
+are typically two ways of passing additional informations: either in the URI
+itself or in the body of the request. For this exercise, we will see the first
+option:
+
+* if a `{post}` request is received on `_rest_` and if the _query_ of the request contains a pair `("author", x)`, use the value of `x` as the author name;
+* otherwise, use name "ghost", as above.
+
+{block}[TIP]
+### About queries
+A _query_ is an element of a URI. From the user's perspective, queries look like
+`?author=name&arg2=val2&arg3=val3`. From the developer's perspective, the query
+is contained in field `query` of the URI, just as `path`. This field contains
+a list of pairs with the name of the argument and its value. So, for the
+previous query, the list will look like:
+
+    [("author", "name"), ("arg2", "val2"), ("arg3", "val3")]
+
+Note that the order of these arguments is meaningless.
+{block}
+
+{block}[TIP]
+### About association lists
+Lists of pairs containing a name and a value (or, more generally, a key and a
+value) are generally called "association lists".
+
+In Opa, the most common function to extract a value from an association list is
+`List.assoc`. This function takes two arguments: the key to search and the list in which
+to search. Its result is an `option` which may contain either `{none}` (if the key
+does not appear in the list) or `{some: v}` (if the key appears in the list, associated
+to value `v`).
+{block}
+
+### Rest for chat, with JSON
+
+Another common technique used among REST services is to pass additional
+information as part of the body of the request, often formated using the
+JavaScript Object Notation language (or _JSON_). The objective of this exercise
+is to use JSON instead of the URI to send the author name to the server.
+
+* if a `{post}` request is received on `_rest_` and if the body of the request is a valid JSON construction containing a field `"author"`, use the value associated to this field as the author name;
+* otherwise, use name "ghost", as above.
+
+{block}[TIP]
+### JSON requests
+To obtain the JSON body of a request, use function
+`HttpRequest.get_json_body`.
+{block}
+
+{block}[TIP]
+### About JSON
+JSON is a format of strings which can be interpreted as simple data structures.
+In Opa, a string in JSON format can be transformed into a value with type
+`RPC.Json.json` by using function
+
+    Json.deserialize: string -> option(RPC.Json.json)
+
+Note that this function can return `{none}` if the `string` was incorrectly formated.
+
+The opposite operation is implemented by function
+
+    Json.serialize: RPC.Json.json -> string
+
+Type `RPC.Json.json` is defined as follows:
+
+```
+type RPC.Json.json =
+    { int   Int }
+ or { float Float }
+ or { string String }
+ or { bool Bool }
+ or { list(RPC.Json.json) List }
+ or { list((string, RPC.Json.json)) Record }
+```
+
+As above, case `Record` corresponds to a list of associations.
+{block}

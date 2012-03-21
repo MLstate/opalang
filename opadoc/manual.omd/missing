@@ -1,0 +1,50 @@
+Compiler directives
+-------------------
+   - preprocessor
+   - directives
+
+Compiler warnings and errors
+----------------------------
+
+Hello, XML
+----------
+
+The XML family of languages is an important technology for the web, at all
+levels.  It structures both web pages, SOAP or WSDL service-oriented application
+technologies, but also numerous databases accessible online, e-Book
+technologies, social web services, etc. In this chapter, we will rework our
+REST-based wiki to make it understand and produce SOAP requests. Along the way,
+we will introduce Opa's advanced tools for extracting data from XML or building
+XML documents.
+
+Developing for distribution
+---------------------------
+
+   - The slicer
+   - Sessions and networks
+   - Concurrency, @spawn, @callcc
+   - Distributed database
+   - HLnet, RPC
+
+Developing for modularity and reusability
+-----------------------------------------
+
+   - Using and designing functions, incl. higher-order functions
+   - Using and designing types
+   - Modules
+   - The type system
+
+Developing for security
+-----------------------
+
+A tour of the standard library
+------------------------------
+
+Developing user interfaces
+--------------------------
+
+   - (X)HTML
+   - CSS
+   - Widgets?
+
+

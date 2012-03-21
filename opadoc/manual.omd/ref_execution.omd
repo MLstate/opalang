@@ -1,0 +1,380 @@
+Running Executables
+===================
+
+//
+// About this chapter:
+//   Main author:  ?
+//   Paired author:?
+//
+//   Topics:
+//   - The compiler
+//   - Launching and configuring applications
+//   - Launching and configuring distributed stuff
+//   - External tools (e.g. db recovery, db tool, xml import/export, opadoc)
+//
+
+The compiler : opa
+------------------
+
+This chapter describes the _opa_ compiler, which compiles OPA source files to package object files
+and links these object files to produce standalone executables.
+
+### Level and Modes of use
+
+The compiler offers 2 levels of use, a high-level one, and a low-level one,
+and 2 low-level modes of execution, the compilation and the linking.
+
+#### Standard usage
+
+The high-level usage of _opa_ is an _autobuild_ mode. It offers an automatic way for building
+medium and large applications composed of several packages. It simplifies the set up of a build system.
+This is the default behavior of _opa_, able to build an application as a standalone executable,
+from all its source files, recompiling only what is needed, without needing e.g. a Makefile.
+During the same call to opa, the compiler will process to the compilation of all needed packages,
+and perform the final linking at the end.
+
+Same example:
+
+    user@computer:~/$ ls
+    foo.opa
+    
+    user@computer:~/$ opa foo.opa
+    
+    user@computer:~/$ ls
+    foo.exe  _build  foo.opa  foo.opx
+
+#### Other modes
+
+The low-level usage of _opa_ is comparable with standard compilers like _gcc_
+or _java_. It takes one or more opa files from the same package, compile them into
+compiled packages, or link previous compiled packages and opa files, depending on
+the activated mode.
+
+#### Compilation
+
+This mode corresponds to the compilation of the files composing a package into intermediate object files,
+ready to be linked. Note than compiled packages can be shared between linked applications.
+For example, the distribution of OPA contains the compiled packages of the stdlib (cf opx files),
+and these opx files are linked with all OPA applications.
+
+#### Linking
+
+The linking is the final step in the build process. This produces an standalone executable from
+given previously compiled _opx_ files.
+
+{block}[TIP]
+##### About linking
+It is possible to give some opa file for the linking.
+In this case, they are considered to be all regrouped in the same package.
+This can be used for a quick prototyping, and small applications, but
+this practice is discouraged for medium and big applications. Use rather
+autobuild mode (default) or link only packages previously compiled (_opx_)
+{block}
+
+#### Example
+
+Example:
+
+    user@computer:~/$ ls
+    foo.opa
+    
+    user@computer:~/$ cat foo.opa
+    package foo
+    do print("this is foo.opa\n")
+    
+    user@computer:~/$ opa -c foo.opa
+    
+    user@computer:~/$ ls
+    foo.opa  foo.opx
+    
+    user@computer:~/$ opa -l foo.opx
+    
+    user@computer:~/$ ls
+    a.exe  _build  foo.opa  foo.opx
+    
+    user@computer:~/$ ./a.exe
+    this is foo.opa
+
+### Arguments, input
+
+The compiler recognizes a certain number of file extension in its command line.
+For more details about the file extension, see the section [Filename extensions]
+
+{table}
+{* extension     | action                                          *}
+{| *.conf        | read a conf file for package organisation       |}
+{| *.cmx, *.cmxa | add ocaml native libraries for linking          |}
+{| *.opa         | compile and/or link opa files                   |}
+{| *.opack       | read option and arguments from an external file |}
+{| *.opp         | link with an OPA plugin                         |}
+{| *.opx         | link with a previous compiled package           |}
+{table}
+
+### Output of the compiler
+
+The compiler produces a number of files and/or executable, depending on its mode of usage,
+and the options activated.
+
+{table}
+{* output     | mode or option           | description                                   *}
+{| api        | --api                    | used by _opadoc_                              |}
+{| executable | linking or autobuild     | standalone executables                        |}
+{| odep       | --odep                   | dependency graphs of the compiled application |}
+{| opx        | compilation or autobuild | compiled packages                             |}
+{table}
+
+### Options
+
+This list contains only the offical options supported in the distributions of OPA.
+For more details about your specific opa version, use _opa --help_
+
+#### Levels and modes of usage
+
+{table}
+{* option        | argument | description *}
+{| <default>     | none     | High-level compilation mode, compiles everything and build a standalone executable |}
+{| -c            | none     | Low-level compilation mode, compiles the current package |}
+{| -l            | none     | Low-level linking mode, link the given packages and opa files |}
+{| --autocompile | none     | High-level mode, compile every package, but do not link at end, for building e.g. shared opa libraries |}
+{table}
+
+// Other options
+// +++++++++++++
+
+// TODO!
+
+// Common errors
+// ^^^^^^^^^^^^^
+
+// TODO!
+
+### Warnings
+
+The warnings of the compiler are organized in hierarchical classes composing a warning tree.
+Each warning class is a node of this tree. Each class can contain sub-classes (children), and
+can be switched into :
+
+* ignored
+* warning
+* error
+
+It is possible to change the default properties of a warning class
+using the following options:
+
+{table}
+{* option                  | description *}
+{| --no-warn               | ignored (not printed) |}
+{| --warn, --no-warn-error | printed as a warning, the compilation continues |}
+{| --warn-error            | treated as an error, the compilation stops |}
+{table}
+
+For accessing to the list of all warnings, use _--warn-help_.
+
+The name of the classes are implied by their place in the warning tree,
+this is the path of nodes leading to the class, lowercased, and separated
+by dots. Example, the class _coding_ corresponds to rules about coding style,
+and contains a subclass named _deprecated_ used for pointing out the use of deprecated
+constructions. So, the name of this subclass for the command line is _coding.deprecated_ :
+
+    user@computer:~/$ opa --warn-error coding.deprecated foo.opa
+
+A property set to a class is applied to all children of the class. For example, _--warn-error coding_ implies _--warn-error coding.deprecated_
+
+{block}[TIP]
+##### About the root warning class
+All warning classes have a common ancestor named _root_, this is the root of the tree.
+You can use e.g. _--warn-error root_ for enabling all warnings
+as errors. Although this is the root of the tree, the name 'root'
+does not appear in each warning class name (this is the only exception)
+{block}
+
+Example:
+
+    user@computer:~/$ ls
+    foo.opa
+    
+    user@computer:~/$ cat foo.opa
+    f(x) = 0
+    
+    user@computer:~/$ opa foo.opa
+    Warning unused
+    File "foo.opa", line 1, characters 2-3, (1:2-1:3 | 2-3)
+      Unused variable x.
+    
+    user@computer:~/$ opa --no-warn unused foo.opa
+    
+    user@computer:~/$ opa --warn-error unused foo.opa
+    Warning unused
+    File "foo.opa", line 1, characters 2-3, (1:2-1:3 | 2-3)
+      Unused variable x.
+    
+    Error
+    Fatal warning: 'unused'
+
+opadoc
+------
+
+This executable is a documentation generator for OPA projects.
+It reads special comments from OPA files documenting functions and type declarations,
+and produces various formats of output (html, man pages, etc.)
+
+### Arguments, input
+
+The documentation is generated from
+
+* _opa_ files documented with special comments using the _opadoc_ syntax
+* _api_ files generated by _opa --api_, containing inferred type informations
+
+The tool parses all the given files, computes an association between types and comments,
+then generates a full documention.
+
+Argument should be :
+
+* opa files directly ;
+* directories containing opa files
+
+{block}[CAUTION]
+_api_ files are not given in the command line of _opadoc_, but found automatically near _opa_ files
+or in the given directories
+{block}
+
+### Output
+
+Formats of output can be specified. Currently, only an _html_ mode is implemented.
+Contributions to support more formats are welcome.
+
+At the end of the file analysis and association (_opa + api_) it is possible to store
+the result of this association, in an _apix_ file
+
+#### html
+
+A directory is generated containing several html files, with a list of types, values,
+packages, etc.
+
+### Options
+
+
+{table}
+{* option           | argument | description *}
+{| --output-dir, -o | <dir>    | Specify an Output directory where to put the generated documentation. The default value is 'doc' |}
+{| --private        | none     | Export private and abstract types/values. This option can be used during e.g. the co-developpement of a package, internally. Note that the documentation of the stdlib in the distribution of OPA is not compiled with this option. |}
+{table}
+
+### Example
+
+    user@computer:~/$ ls
+    bar  foo.opa
+    
+    user@computer:~/$ ls bar
+    bar.opa
+    
+    user@computer:~/$ opa --api bar/bar.opa foo.opa
+    
+    user@computer:~/$ ls
+    bar  foo.api  foo.opa  foo.exe
+    
+    user@computer:~/$ ls bar
+    bar.api  bar.opa
+    
+    user@computer:~/$ opadoc foo.opa bar -o doc
+    
+    user@computer:~/$ open doc/index.html
+
+// Common errors
+// ^^^^^^^^^^^^^
+
+// TODO!
+
+// Syntax of comments
+// ^^^^^^^^^^^^^^^^^^
+
+// TODO!
+
+// opa-plugin-builder TODO!
+
+// Coming soon...
+
+////
+
+//Arguments, input
+//Output
+//Options
+//Common errors
+//Warnings
+//[|opa_plugin_browser|]
+//opa-plugin-browser
+//Coming soon...
+//Arguments, input
+//Output
+//Options
+//Common errors
+//Warnings
+////
+
+### Opa applications, at run-time
+
+This section details the use of applications built with Opa, including:
+
+- command-line arguments;
+- logging of events;
+- network administration;
+- environment variables.
+
+///////////////////////////////////////////////
+// Main editor for this section: Louis Gesbert
+///////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item spans several sections, please provide
+// hyperlinks, e.g. type definitions have both a syntax
+// and a more complete definition on the corresponding
+// section
+//////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// If an item is considered experimental and may or may
+// not survive to future versions, please label it using
+// an Admonition block with style [CAUTION]
+//////////////////////////////////////////////////////
+
+### Accessing privileged system resources
+
+When developing your application, it is perfectly acceptable (and even
+recommended) to test it on user-allowed ports, as the default port 8080.
+However, when your application is ready and you want to deploy it and show
+it to the world, you will probably need to allow it to use port 80, as well as
+some other privileged ports, depending on your application.
+
+There are basically two ways to do that:
+
+* Run your application with the root account. This will work, as with any other user, and Opa will not attempt to drop privileges. Although we did our best to make Opa as secure as possible, and you certainly did the same for your application, it is a bit uncomfortable to run a full application with administrative rights. Consequently, we do not advise this solution.
+* Run your application in user-land, and handle privileged actions with specific tools. This is much safer and often more flexible. There are at least two very different ways to do that:
+** use authbind to allow your application to access directly a privileged port;
+** or put a priviledged dispatcher in front of your application (e.g.  HAProxy or Nginx).
+
+### Debugging resources
+
+[[runtime_editable_resources]]
+
+Opa applications support the following command-line options, which can be used to make generated files editable at runtime:
+
+ -  --debug-editable-js makes the compiled JS editable at runtime;
+ -  --debug-editable-css makes the compiled CSS editable at runtime;
+ -  --debug-editable-file f makes embedded file f editable at runtime;
+ -  --debug-editable-all makes everything editable at runtime;
+ -  --debug-list-resources lists the resources that can be made editable.
+
+Each of these options creates a directory _'opa-debug'_, which contains all the editable files. If a file (other than JS) is already present, it is reused instead of the embedded file. Otherwise, the file is created with the contents embedded in the executable. Now, if the file is modified, it is automatically reloaded (without having to relaunch the server) and is immediately visible on the client.
+
+By the way, if a debug file is removed during the execution of the server,
+this file is automatically recreated, without having to relaunch the server.
+We also log any change to the application logs.
+
+Of course, the file is never saved back into the executable. You'll need recompilation for this kind of thing.
+
+//### Index of command-line arguments
+//- <runtime_arg_debug_editable_js,     --debug-editable-js>
+//- <runtime_arg_debug_editable_css,    --debug-editable-css>
+//- <runtime_arg_debug_editable_file,   --debug-editable-file>
+//- <runtime_arg_debug_editable_all,    --debug-editable-all>
+//- <runtime_arg_debug_list_resources,  --debug-list-resources>

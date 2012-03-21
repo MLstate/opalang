@@ -1,0 +1,13 @@
+/***Header***/
+#logo {
+  background: url("/resources/opa-logo.png") no-repeat scroll 0 0 transparent;
+  height: 32px;
+  margin: 10px 0 5px;
+  width: 61px;
+}
+/***Editing area***/
+.content {margin-top:60px;}
+#edit_content {
+  width:100%;
+  display: none; /* initially hidden */
+}

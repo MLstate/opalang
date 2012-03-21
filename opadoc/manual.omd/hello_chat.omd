@@ -1,0 +1,779 @@
+Hello, chat
+===========
+
+Real-time web applications are notoriously difficult to develop. They require a
+complex and error-prone infrastructure to handle communications between client
+and server, and often from server to server, in addition to deep security checks
+against specific attacks that may prove quite subtle.
+
+Opa makes real-time web simple. In this chapter, we will see how to program a
+complete web chat application in Opa -- in only 20 lines of code, and without
+compromising security. Along the way, we will introduce the basic concepts of
+the Opa language, but also user interface manipulation, data structure
+manipulation, embedding of external resources, as well as the first building
+bricks of concurrency and distribution.
+
+Overview
+--------
+
+Let us start with a picture of the web chat we will develop in this chapter:
+
+![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
+
+This web application offers one chatroom. Users connecting to the web application
+with their browser automatically join this chatroom and can immediately
+start discussing in real-time. On the picture, we have two users, using regular
+web browsers. For the sake of simplicity, in this application, we choose the name
+of users randomly.
+
+If you are curious, the full source code of the application is listed
+at the end of this chapter. In the rest of the chapter, we will walk
+you through all the concepts and constructions: the communication
+infrastructure for the chatroom, the user interface, and finally, the
+main application.
+
+Setting up communication
+------------------------
+
+A chat is all about communicating messages between users. This means that we need to decide of what _type_ of messages we wish to transmit,
+as follows:
+
+`type message = {string author, string text}`[opa]
+
+This extract determines that each `message` is composed of two fields: an `author` (which is a `string`, in other words, some text)
+and a `text` (also a `string`).
+
+{block}[TIP]
+### About types
+_Types_ are the shape of data manipulated by an application. Opa uses
+types to perform checks on your application, including sanity checks
+(e.g. you are not confusing a length and a color) and security checks (e.g. a
+malicious user is not attempting to insert a malicious program inside a web page
+or to trick the database into confusing informations). Opa also uses types to
+perform a number of optimizations.
+
+In most cases, Opa can work even if you do not provide any type information,
+thanks to a mechanism of _type inference_. However, in this book, for
+documentation purposes, we will put types even in a few places where they are
+not needed.
+{block}
+
+We say that _type_ `message` is a _record_ with two _fields_, `author` and
+`text`. We will see in a few minutes how to manipulate a `message`.
+
+At this stage, we have a complete (albeit quite useless) application. Should you
+wish to check that your code is correct, you can _compile_ it easily. Save your
+code as a file `hello_chat.opa`, open a terminal and enter
+
+###### Compiling Hello, Chat
+`opa hello_chat.opa`[sh]
+
+Opa will take a few seconds to analyze your application, check that everything
+is in order and produce an executable file. We do not really need that file yet,
+not until it actually does something. Opa will inform you that you have no
+_server_ in your application -- at this stage, your application is not really
+useful -- but that is ok, we will add the _server_ shortly.
+
+So far, we have defined `message`. Now, it is time to use it for communications. For
+this purpose, we should define a _network_.  Networks are a unit of communication
+between browsers or between servers. As you will see, communications are one of
+the many domains where Opa shines. To define one, let us write:
+
+{block}[TIP]
+### Networks
+A network is a real-time web construction used to broadcast messages from one
+source to many observers. Networks are used not only for chats, but also for
+system event handling or for user interface event handling.
+
+Networks themselves are built upon a unique and extremely powerful paradigm
+of _distributed session_, which we will detail in a further chapter.
+{block}
+
+`room = Network.network(message) (Network.cloud("room"))`[opa]
+
+This extract defines a _cloud network_ called `room` and initially empty. As
+everything in Opa, this network has a type. The type of this network is
+`Network.network(message)`, marking that this is a network used to transmit
+informations with type `message`.  We will see later a few other manners of
+creating networks for slightly different uses.
+
+And that is it. With these two lines, we have set up our communication
+infrastructure -- yes, really. We are now ready to add the user interface.
+
+Defining the user interface
+---------------------------
+
+To define user interfaces, Opa uses a simple HTML-like notation for the
+structure, regular CSS for appearance and more Opa code for interactions.
+There are also a few higher-level constructions which we will introduce
+later, but HTML and CSS are more than sufficient for the following few chapters.
+
+For starters, consider a possible skeleton for the user interface:
+
+###### Skeleton of the user interface (incomplete)
+
+```
+<div id=#conversation />
+<input id=#entry />
+<input type="button" value="Post" />
+```
+
+If you are familiar with HTML, you will recognize easily that this
+skeleton defines a few boxes (or `<div>`), with some names (or `id`),
+as well as a text input zone (or `<input>`) called `entry`. We will
+use these names to add interactions and style. If you are not familiar
+with HTML, it might be a good idea to grab
+[a good HTML reference](https://developer.mozilla.org/En/HTML) and check
+up the tags as you see them.
+
+{block}[TIP]
+### About HTML
+There is not much more magic about HTML in Opa than the special
+syntax. For instance, the skeleton that we just defined is a regular
+Opa value, of type `xhtml`. You can for instance inspect its structure
+(with a `match` construct that we will see later), apply to it
+functions accepting type `xhtml`, or use it as the body of a function.
+{block}
+
+Actually, for convenience, and because it fits with the rest of the library, we will
+put this user interface inside a function, as follows:
+
+###### Skeleton of the user interface factorized as a function (still incomplete)
+
+```
+function start() {
+    <div id=#conversation />
+    <input id=#entry />
+    <input type="button" value="Post" />;
+}
+```
+
+This extract defines a _function_ called `start`. This function takes no _argument_
+and produces a HTML-like content. As everything in Opa, `start` has a type. Its
+type is `-> xhtml` .
+
+{block}[TIP]
+### About functions
+_Functions_ are bits of the program that represent a treatment that can be
+triggered as many times as needed (including zero). Functions that can have
+distinct behaviors, take _arguments_ and all functions _produce_ a
+_result_. Triggering the treatment is called _calling_ or _invoking_ the
+function.
+
+Functions are used pervasively in Opa. A function with type `t1, t2, t3 -> u`
+takes 3 arguments, with respective types `t1`, `t2` and `t3` and produces
+a result with type `u`. A function with type `-> u` takes no arguments
+and produces a result with type `u`.
+
+The main syntax for defining a function is as follows:
+```
+function f(x1, x2, x3) {
+    fun_body
+}
+```
+
+Similarly, for a function with no argument, you can write
+
+```
+function f() {
+    fun_body
+}
+```
+To call a function `f` expecting three arguments, you will need to write `f(arg1, arg2, arg3)`. Similarly, for a function expecting no argument, you will write `f()`.
+{block}
+
+{block}[WARNING]
+### Function syntax
+// FIXME: check
+In `function f(x1, x2, x3) { fun_body }` there is no space between `f` and `(`.
+Adding a space changes the meaning of the extract and would cause an error during compilation.
+{block}
+
+At this stage, we can already go a bit further and invent an author name, as follows:
+
+###### Skeleton of the user interface with an arbitrary name (still incomplete)
+
+```
+function start() {
+    author = Random.string(8);
+    <>
+    <div id=#conversation />
+    <input id=#entry />
+    <input type="button" value="Post" />
+    </>;
+}
+```
+
+This defines a value called `author`, with a name composed of 8 random characters.
+
+With this, we have placed everything on screen and we have already taken a few
+additional steps. That is enough for the user interface for the moment, we should
+get started with interactivity.
+
+Sending and receiving
+---------------------
+
+We are developing a chat application, so we want the following interactions:
+
+- at start-up, the application should _join_ the room;
+- whenever a message is broadcasted to the room, we should display it;
+- whenever the user presses return or clicks on the button, a message should be broadcasted to the room.
+
+For these purposes, let us define a few auxiliary functions.
+
+###### Broadcasting a message to the room
+
+```
+function broadcast(author) {
+    text = Dom.get_value(#entry);
+    message = ~{author, text};
+    Network.broadcast(message, room);
+    Dom.clear_value(#entry);
+}
+```
+
+This defines a function `broadcast`, with one argument `author` and performing the following operations:
+
+- read the text entered by the user inside the input called `entry`, call this text `text`;
+- create a record with two fields `author` and `text`, in which the value of field `author` is `author` (the argument to the function) and the value field `text` is `text` (the value just read from the input), call this record `message`;
+- call Opa's network broadcasting function to broadcast `message` to network `room`;
+- clear the contents of the input.
+
+As you can start to see, network-related functions are all prefixed by
+`Network.` and user-interface related functions are all prefixed by `Dom.`. Keep
+this in mind, this will come in handy whenever you develop with Opa. Also note
+that our record corresponds to type `message`, as defined earlier. Otherwise,
+the Opa compiler would complain that there is something suspicious: indeed, we have defined
+our network to propagate messages of type `message`, attempting to send a message
+that does not fit would be an error.
+
+{block}[TIP]
+### About `Dom`
+If you are familiar with web applications, you certainly know about
+the DOM already. Otherwise, it is sufficient to know that DOM, or
+Document Object Model, denotes the manipulation of the contents of a
+web page once that page is displayed in the browser. In Opa, elements
+in the DOM have type `dom`. A standard way to access such an element
+is through the selection operator `#`, as in `#entry` which selects
+the element of id `"entry"` (ids must be unique in the page). A
+variant of the selection operator is `#{id}`, which selects the DOM
+element whose id is the value of `id` (so `id` must be of type
+`string`).
+{block}
+
+Speaking of types, it is generally a good idea to know the type of
+functions. Function `broadcast` has type `string -> void`, meaning that it
+takes an argument with type `string` and produces a value with type
+`void`. Also, writing `{author:author, text:text}` is a bit painful,
+so we added a syntactic sugar for this: it can be abbreviated with
+`{~author, ~text}` or if all fields are constructed with such abbreviation
+even with: `~{author, text}`. So we could have written just as well:
+
+###### Broadcasting a message to the room (variant)
+
+```
+function void broadcast(string author) {
+    text = Dom.get_value(#entry);
+    message = ~{author, text};
+    Network.broadcast(message, room);
+    Dom.clear_value(#entry);
+}
+```
+
+{block}[TIP]
+### About `void`
+Type `void` is an alias for the empty record, i.e. the record with no fields.
+It is commonly used for functions whose result is uninformative, such as
+functions only producing side-effects or sending messages.
+{block}
+
+This takes care of sending a message to the network. Let us now define
+the symmetric function that should be called whenever the network
+propagates a message:
+
+###### Updating the user interface when a message is received
+
+```
+function user_update(message x) {
+    line = <div>{x.author}: {x.text}</div>;
+    #conversation =+ line;
+}
+```
+
+The role of this function is to display a message just received to the screen.
+This function first produces a few items of user interface, using the same
+HTML-like syntax as above, and calls these items `line`.
+It then uses the special `#ID =+ HTML` construction to append the contents of
+`line` at the end of box with the id `conversation` that we have defined earlier.
+Instead of using the `=+` operator one can also use `+=` to _prepend_ the element
+at the beginning of a given DOM node or simply `=` to _replace_ the node with
+a given content.
+
+If you look more closely at the HTML-like syntax, you may notice that the contents
+inside curly brackets are probably not HTML. Indeed, these curly brackets are
+called _inserts_ and they mark the fact that we are inserting not _text_
+`"x.author"`, but a text representation of the _value_ of `x.author`, i.e. the
+value of field `author` of record `x`.
+
+{block}[TIP]
+### About _inserts_
+Opa provides _inserts_ to insert expressions inside HTML, inside strings and in
+a few other places that we will introduce as we meet them.
+
+This mechanism of inserts is used both to ensure that the correct information
+is displayed and to ensure that this information is sanitized if needs be. It is
+powerful, simple and extensible.
+{block}
+
+We are now ready to connect interactions.
+
+Connecting interactions
+-----------------------
+
+Let us connect `broadcast` to our button and our input. This changes function `start` as follows:
+
+###### Skeleton of the user interface connected to `broadcast` (still incomplete)
+
+```
+function start() {
+    author = Random.string(8);
+    <div id=#conversation />
+    <input id=#entry onnewline={function(_) { broadcast(author) }} />
+    <input type="button" onclick={function(_) { broadcast(author) }} value="Post" />
+}
+```
+
+We have just added _event handlers_ to `entry` and our button. Both call function `broadcast`,
+respectively when the user presses _return_ on the text input and when the user clicks on the
+button. As you can notice, we find again the curly brackets.
+
+{block}[TIP]
+### About _event handlers_
+An _event handler_ is a function whose call is triggered not by the application but by the user
+herself. Typical event handlers
+react to user clicking (the event is called `click`), pressing _return_ (event `newline`),
+moving the mouse (event `mousemove`) or the user loading the page (event `ready`).
+
+Event handlers are always connected to HTML-like user interface elements. An event handler
+always has type `Dom.event -> void`.
+
+You can find more informations about event handlers in [online Opa API documentation](http://api.opalang.org)
+by searching for entry `Dom.event`.
+{block}
+
+We will add one last event handler to our interface, to effectively join the network when
+the user loads the page, as follows:
+
+###### Skeleton of the user interface now connected to everything (final version)
+
+```
+function start() {
+    author = Random.string(8);
+    <div id=#conversation onready={function(_) { Network.add_callback(user_update, room) }} />
+    <input id=#entry onnewline={function(_) { broadcast(author) }} />
+    <input type="button" onclick={function(_) { broadcast(author) }} value="Post" />;
+}
+```
+
+This `onready` event handler is triggered when the page is (fully)
+loaded and connects function `user_update` to our network.
+
+And that is it! The user interface is complete and connected to all
+features. Now, we just need to add the `server` and make things a
+little nicer.
+
+{block}[TIP]
+### About `_`
+Opa has a special value name `_`, pronounced _"I don't care"_. It is
+reserved for values or arguments that you are not going to use, to
+avoid clutter. You will frequently see it in event handlers, as it is
+relatively rare to need details on the event (such as the position of
+the mouse pointer), at least in this book.
+{block}
+
+Bundling, building, launching
+-----------------------------
+
+Every Opa application needs a _server_, to determine what is accessible from the web, so let us define one:
+
+{block}[TIP]
+### About servers
+In Opa, every web application is defined by one or more server. A server is an
+entry point for the web, which offers to users a set of resources, such as web
+pages, stylesheets, images, sounds, etc.
+{block}
+
+###### The server (first version)
+
+```
+Server.start(Server.http, {title: "Chat", page: start})
+```
+
+This extract launches a new HTTP server. For that the special `Server.start` construction is used.
+
+{block}[TIP]
+### About `Server.start`
+`Server.start` is, in a way, an equivalent of a `main` function in C/Java/..., as it's the entry point of the program. However, in Opa instead of just being a function to be executed when a program is started, `Server.start` starts an HTTP server to serve resources to the clients.
+
+We will present some ways of defining servers below. You can also look up the `Server` module in [online Opa API](http://api.opalang.org) and learn more there.
+{block}
+
+This is the type of the `Server.start` function:
+
+`void Server.start(Server.conf configuration, Server.handler handler)`[opa]
+
+ It takes two parameters: configuration and a handler which essentialy defines a service.
+
+Configuration, `Server.conf`, is just a simple record, which defines the port on which the server will run, it's netmask, used encryption and name. Most often you will use `Server.http` or `Server.https`; possibly customizing those values depending on your needs.
+
+In this case the server is constructed using `{title: ..., page: ...}` record which builds a one-page server given a function `page` to generate this page and a `title`.
+
+Well, we officially have a complete application. Time to test it!
+
+We have seen compilation already:
+
+###### Compiling Hello, Chat
+`opa hello_chat.opa`[sh]
+
+Barring any error, Opa will inform you that compilation has succeeded and will produce
+a file called `hello_chat.exe`. This file contains everything you need, so you can now
+launch it, as follows:
+
+###### Running Hello, Chat
+`./hello_chat.exe`[sh]
+
+Congratulations, your application is launched. Let us [visit it](http://localhost:8080).
+
+{block}[TIP]
+### About `hello_chat.exe`
+The opa compiler produces self-sufficient executable applications. The
+application contains everything is requires, including:
+
+- webpages (HTML, CSS, JavaScript);
+- any resource included with `@static_resource_directory`;
+- the embedded web server itself;
+- the distributed database management system;
+- the initial content of the database;
+- security checks added automatically by the compiler;
+- the distributed communication infrastructure;
+- the default configuration for the application;
+- whatever is needed to get the various components to communicate.
+
+In other words, to execute an application, you only need to launch this
+executable, without having to deploy, configure or otherwise administer
+any third-party component.
+{block}
+
+{block}[TIP]
+### About 8080
+By default, Opa applications are launched on port 8080. To launch them on a different port,
+use command-line argument `--port`. For some ports, you will need administrative rights.
+{block}
+
+As you can see, it works, but it is not very nice yet:
+
+![Resulting application, missing style](/resources/manual/img/hello_chat/result_without_css.png)
+
+Perhaps it is time to add some style.
+
+Adding some style
+-----------------
+
+In Opa, all styling is done with stylesheets defined in the CSS
+language. This tutorial is not about CSS, so if you feel rusty, it is
+probably a good idea to keep a
+[good reference] (https://developer.mozilla.org/En/CSS) at hand.
+
+Of course, you will always need some custom CSS, specific to your
+application. Still, you can use some standard CSS to get you started
+with some predefined, nice-looking classes. Opa makes this as easy as
+a single import line:
+
+`import stdlib.themes.bootstrap`[opa]
+
+This automatically brings [Bootstrap CSS from Twitter](http://twitter.github.com/bootstrap/)
+to your application, so you can use their predefined classes that will
+just look nice.
+
+A first step is to rewrite some of our simple HTML stubs to give them
+more structure and add classes. The main user interface becomes
+(omitting the event handlers):
+
+###### Main user interface
+
+```
+<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div id=#conversation class="container"></div>
+<div id=#footer><div class="container">
+  <input id=#entry class="xlarge"/>
+  <div class="btn primary" >Post</div>
+</div></div>
+```
+
+And the update function becomes:
+
+###### Function to update the user interface when a message is received
+
+```
+function user_update(message x) {
+    line =  <div class="row line">
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{x.author}:</div>
+            <div class="span13 columns message">{x.text}
+            </div>
+            </div>;
+    #conversation =+ line;
+    Dom.scroll_to_bottom(#conversation);
+}
+```
+
+Note that we have also added a call to `Dom.scroll_to_bottom`, in
+order to scroll to the bottom of the box, to ensure that the user can
+always read the most recent items of the conversation.
+
+For custom style, you have two possibilities. You can either do it
+inside your Opa source file or as an external file. For this example,
+we will use an external file with the following contents:
+
+###### Contents of file `resources/css.css`
+[css]file://hello_chat/resources/css.css
+
+Create a directory called `resources` and save this file as `resources/css.css`. It might be a good idea to add a few
+images to the mix, matching the names given in this stylesheet (`opa-logo.png`, `user.png`) also in directory `resources`.
+
+Now, we will want to extend our `Server.start` construct by instructing it to access the directory and to use our stylesheet. We can achieve by supplying `Server.start` with a record defining our server. More forms of records are allowed, see the definition of `Server.start` in the [online API](http://api.opalang.org).
+
+###### The server (final version)
+
+```
+Server.start(
+    Server.http,
+    [ { resources: @static_resource_directory("resources") }
+      , { register: ["resources/chat.css"]}
+      , { title: "Chat", page: start }
+    ]
+)
+```
+
+In this extract, we have instructed the Opa _compiler_ to:
+* embed the files of directory `resources` and offer them to the browser
+* use a custom resource (CSS) located at `resources/chat.css` and
+* start a one-page application with title _Chat_ and the content of the page generated by the +start+ function.
+
+{block}[TIP]
+### About _embedding_
+In Opa, the preferred way to handle external files is to _embed_ them in the executable.
+This is faster, more secure and easier to deploy than accessing the file system.
+
+To embed a directory, use _directive_ `@static_resource_directory`.
+{block}
+
+{block}[TIP]
+### About _directives_
+In Opa, a _directive_ is an instruction given to the compiler. By opposition to _functions_,
+which are executed once the application is launched,
+directives are executed while the application is being built. Directives always start with character `@`.
+{block}
+
+While we are adding directives, let us take this opportunity to inform the
+compiler that the chatroom definition `room` should be visible and directly accessible for the clients.
+
+`exposed @async room = Network.network(message)`[opa]
+
+This will considerably improve the speed of the chat.
+
+We are done, by the way. Not only is our application is now complete, it also looks nice:
+
+![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
+
+As a summary, let us recapitulate the source file:
+
+###### The complete application
+[opa|fork=hello_chat|run=http://chat.opalang.org]file://hello_chat/hello_chat.opa
+
+All this in 20 effective lines of code (without the CSS). Note that, in this
+final version, we have removed some needless parentheses, which were useful
+mostly for explanations, and documented the code.
+
+Questions
+---------
+
+### Where is the `room`?
+Good question: we have created a network called `room` and we haven't given any location information, so where exactly
+is it? On the server? On some client? In the database?
+
+As `room` is shared between all users, it is, of course, on the server, but the
+best answer is that, generally, you do not need to know. Opa handles such
+concerns as deciding what goes to the server or to the client. We will see in a
+[further chapter](/manual/Developing-for-the-web/Client-server-distribution) exactly how Opa has extracted this information
+from your source code.
+
+### Where are my headers?
+
+If you are accustomed to web applications, you probably wonder about the absence
+of headers, to define for instance the title, favicon, stylesheets or html
+version. In Opa, all these concerns are handled at higher level. You have
+already seen one way of connecting a page to a stylesheet and giving it a
+title. As for deciding which html version to use, Opa handles this
+behind-the-scenes.
+
+### Where is my `return`?
+
+You may be surprised by the lack of an equivalent of the `return` command that would
+allow you to exit function with some return value. Instead in Opa always the
+_last expression_ of the function is its return value.
+
+This is a convention that Opa borrows from functional programming languages
+(as in fact Opa itself is, for the most part, functional!). It may feel limiting at
+first, but don't worry you will quickly get used to that and you may even start
+thinking of a disruption of the functions flow-of-control caused by `return` as
+almost as evil as that of the ill-famed `goto`...
+
+### To `type` or not to `type`?
+
+As mentioned earlier, Opa is designed so that, most of the time, you do not need
+to provide type information manually. However, in some cases, if you do not
+provide type information, the Opa compiler will raise a _value restriction
+error_ and reject the code. Database definitions and value restricted
+definitions are the (only) cases in which you need to provide type information
+for reasons other than optimization, documentation or stronger checks.
+
+For more information on the theoretical definition of a _value restriction
+error_, we invite you to consult the reference chapters of this book. For this
+chapter, it is sufficient to say that value restriction is both a safety and a
+security measure, that alerts you that there is not enough type information on a
+specific value to successfully guard this value against subtle misuses or subtle
+attacks. The Opa compiler detects this possible safety or security hole and
+rejects the code, until you provide more precise type information.
+
+This only ever happens to toplevel values (i.e. values that are defined outside
+of any function), so sometimes, you will need to provide type information for
+such values. Since it is also a good documentation practice, this is not a real
+loss. If you look at the source code of Opa's standard library, you will notice
+that the Opa team strives to always provide such information, although it is
+often not necessary, for the sake of documentation.
+
+Exercises
+---------
+
+Time to see if this tutorial taught you something! Here are a few exercises that will have you expand and customize
+the web chat.
+
+### Customizing the display
+
+Customize the chat so that
+
+- the text box appears on top;
+- each new message is added at the top, rather than at the bottom.
+
+You will need to use operator `+=` instead of `=+` to add at start instead of at end.
+
+### Saying "hello"
+
+- Customize the chat so that, at startup, at the start of `#conversation`, it displays the following message to the current user:
+
+    Hello, you are user 8dh335
+
+(replace `8dh335` by the value of `author`, of course).
+
+- Customize the chat so that, at startup, it displays the following message to all users:
+
+    User 8dh335 has joined the room
+
+- Combine both: customize the chat so that the user sees
+
+    Hello, you are user 8dh335
+
+and other users see
+
+    User 8dh335 has joined the room
+
+{block}[TIP]
+### About comparison
+To compare two values, use operator `==` or, equivalently, function `\`==\`` (with the backquotes).
+When comparing `x == y` (or `\`==\`(x,y)`), `x` and `y` must have the same type. The result of
+a comparison is a boolean. We write that the type of function
+`\`==\`` is `'a,'a -> bool`.
+{block}
+
+{block}[TIP]
+### About _booleans_
+In Opa, booleans are values `{true: void}` and `{false: void}`, or, more
+concisely but equivalently, `{true}` and `{false}`.
+
+Their type declaration looks as follow: `type bool = {true} or {false}`.
+Such types, admitting one of a number of variants, are called sum types.
+{block}
+
+{block}[TIP]
+### About sum types
+A value has a _sum type_ `t or u`, meaning that the values of this type are either
+of the two variants: either a value of type `t` or a value of type `u`.
+
+A good example of sum type are the aforementioned boolean values, which are defined
+as `type bool = {false} or {true}`.
+
+Another good example of sum type is the type `list` of linked lists; its definition
+can be summed up as `{nil} or {... hd, list tl}`.
+
+Note that sum types are not limited to two cases. Sum types with tens of cases
+are not uncommon in real applications.
+{block}
+
+Safely determining which variant was used to construct a value of a sum type
+can be accomplished with pattern matching.
+
+{block}[TIP]
+### About pattern-matching
+The operation used to branch according to the case of a sum type
+is called _pattern-matching_. A good example of pattern-matching
+is `if ... then ... else ...` . The more general syntax for pattern matching is
+```
+match (EXPR) {
+  case CASE_1: EXPR_1
+  case CASE_2: EXPR_2
+  default: EXPR_n
+}
+```
+
+The operation is actually more powerful than just determining which case of a
+sum type is used. Indeed, if we use the vocabulary of languages such as Java or
+C#, pattern-matching combines features of `if`, `switch`, `instanceof`/`is`,
+multiple assignment and dereferenciation, but without the possible safety issues
+of `instanceof`/`is` and with fewer chances of misuse than `switch`.
+
+As an example, you can check whether boolean `b` is true or false by using
+`if b then ... else ...` or, equivalently,
+```
+match (b) {
+  case {true}: ...
+  case {false}: ...
+}
+```
+{block}
+
+### Distinguishing messages between users
+
+Customize the chat so that your messages are distinguished from messages by other users: your messages should be displayed with one icon and everybody else's messages should be displayed with the default icon.
+
+// - Now, expand this beyond two icons. Of course, each user's icon should remain constant during the conversation.
+
+### User customization
+
+- Let users choose their own user name.
+- Let users choose their own icon. You can let them enter a URI, for instance.
+
+{block}[CAUTION]
+### More about `xhtml`
+For security reasons, values with type `xhtml` cannot be transmitted from a client to another one.
+So you will have to find another way of sending one user's icon to all other users.
+{block}
+
+### Security
+
+As mentioned, values with type `xhtml` cannot be transmitted from a client to another one. Why?
+
+### And more
+
+And now, an open exercise: turn this chat in the best chat application available on the web. Oh, and do not forget to show
+your app to the community!

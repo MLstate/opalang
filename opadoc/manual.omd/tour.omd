@@ -1,0 +1,214 @@
+A tour of Opa
+=============
+
+Opa is a new generation of open source web development platform that lets you write *secure* and *scalable* web applications using a single technology. Throughout the pages of this book, we will introduce you to the many features of Opa.
+It will help if you have some knowledge of programming (any language should do) and web technology (HTML and CSS in particular).
+
+A single language
+-----------------
+
+Opa is a single programming language for writing web applications.
+In particular, client and server code (usually called frontend and backend) are both written in Opa.
+
+You can write a complete program without thinking about the client-server distinction and the Opa compiler will distribute the code as needed for you and take care of all the communication. Should you need to tweak the choices made by the compiler (for instance to improve the application performance) it's very easy with simple keywords like `client`, `server` and more for fine-tuning.
+
+```
+ // Opa decides
+function client_or_server(x, y) { ... }
+ // Client-side
+client function client_function(x, y) { ... }
+ // Server-side
+server function server_function(x, y) { ... }
+```
+
+The database code can also be written directly in Opa. Opa supports the major NoSQL databases MongoDB and CouchDB, and has its own internal database as well. The latter, requires no configuration at all and is recommended, especially for beginners.
+
+Easy workflow
+-------------
+
+To write an application, first type the code in your favorite editor.
+The simplest "Hello, world" application in Opa is written in just a few lines:
+
+```
+Server.start(
+   Server.http,
+   { page: function() { <h1>Hello, world</h1> }
+   , title: "Hello, world"
+   }
+)
+```
+
+The program can be compiled and run with the following single command line:
+`opa hello.opa --`[sh]
+// --parser js-like
+
+The resulting application can be opened in your favorite browser at http://localhost:8080
+
+Familiar syntax
+---------------
+
+Opa new default syntax is inspired by popular programming languages: C, JavaScript and others. Below is an extract of a real Opa program:
+
+```
+function createUser(username, password) {
+    match (findUser(username)) {
+    case {none}:
+        user =
+            { username: username
+              , fullname: ""
+              , password: Crypto.Hash.sha2(password)
+            };
+        saveUser(user);
+    default:
+        displayMessage("This username exists");
+    };
+    Client.goto("/login");
+}
+```
+
+Opa however extends the classical syntax with advanced features specific to the web. HTML fragments can be inserted directly without quotes:
+`line = <div id="foo">bar</div>;`[opa]
+
+CSS selectors readily available:
+`selector = #foo;`[opa]
+
+And a pointer-like syntax allows to apply a given content to a selector:
+`*selector = line;`[opa]
+
+Opa provides event-driven programming. For instance, running a function when an event is triggered is accomplished in the following way:
+```
+function action(_) {
+  #foo = <div id="bar" />;
+}
+...
+<div onclick={action} />
+```
+
+The best place to start looking at the features of Opa and their syntax is the [reference card](/refcard).
+
+Static typing
+-------------
+
+One of the most important features of Opa is its typing system. Although Opa may look like and has many advantages of dynamic programming languages, it is a compiled language which relies on a state-of-the-art type system.
+
+Opa checks the types at compile time, which means that no type error can happen at runtime. For instance, the following code
+`foo = 1 + "bar";`[opa]
+raises the following error at compile time:
+`"Types int and string are not compatible"`[sh]
+
+Unlike C or Java, you don't have to annotate types yourself as Opa features almost complete type inference. For instance, you can just write:
+
+```
+function foo(s) {
+   String.length(s);
+}
+function bar(x, y) {
+   foo(x) + y;
+}
+```
+
+and the Opa compilers automatically infers the types, as if you've written:
+
+```
+int function foo(string s) {
+   String.length(s);
+}
+int function bar(string x, int y) {
+   foo(x) + y;
+}
+```
+
+This system will become your wingman while you code. For instance, we will present four types of errors that are caught at compile time. The examples are taken from a real work on Opa program named webshell, available at http://github.com/hbbio/webshell.
+
+If you write:
+
+```
+element =
+        <div>
+                <span>{prompt({none})}</span>
+                <span>{expr}
+        </div>
+        <div>{Calc.compute(expr)}</div>;
+```
+The compiler will tell you that there is an _"open and close tag mismatch <span> vs </div>"_.
+
+If you write:
+
+```
+case {some: 13}: #status = "Enter"; callback(get());
+case {some: 37}: #status = "Left"; move({lef});
+case {some: 38}: #status = "Up"; move({up});
+case {some: 39}: #status = "Right"; move({right});
+```
+The compiler will tell you that the type of this function is not right. _You are using a type `{ lef }` when a type `{ left } or { right } or { rightmost } or { up } or { down }` is expected_. The latter type is not declared anywhere in the code, but rather was inferred by the Opa compiler from the rest of the code.
+
+If you write:
+
+```
+previous = Dom.get_content(#precaret);
+#precaret = String.sub(0, String.lenght(previous) - 1, previous);
+#postcaret += String.get(String.length(previous) - 1, previous);
+```
+the compiler will tell you that `String` module has no `lenght` function and will suggest that maybe you meant `int function length(string)` instead?
+
+If you write:
+
+```
+previous = Dom.get_content(#postcaret);
+#postcaret = String.sub(1, String.length(previous) - 1, previous);
+#precaret =+ String.get(previous);
+```
+the compiler will tell you that `String.get` is a `string function(int, string)` but application uses it as `function(string)`, meaning that you forgot the first argument which is an integer.
+
+Opa type system not only manages basic types but complex data-structures, functions and even modules! Check the [following chapter](/manual/The-type-system) for a full presentation.
+
+Database
+--------
+
+Opa has support for MongoDB and CouchDB, as well as its own database engine. The latter requires no configuration and is recommended for starting new programs.
+
+Database values are declared by stating their type:
+`database type /path;`[opa]
+for instance
+`database int /counter;`[opa]
+
+In the line above, `/counter` is called a _path_, as accessing stored values bears similarities to browsing a filesystem.
+Getting a value from the database is simply accomplished with:
+`/counter`[opa]
+while storing (or replacing) a value with:
+`/path <- value`[opa]
+
+You can store complex datastructures in the database, like maps. A map is a datastructure that associates a value to each key. The path system recognize such datastructures and allows to specify a key directly in the path. For instance, you can write:
+```
+database stringmap(string) /dictionary;
+...
+/dictionary[key];
+...
+/dictionary[key] <- value;
+...
+```
+
+Summary
+-------
+
+Can you guess what the following code does?
+
+[opa|fork=hello-opa|run=http://hello-opa.tutorials.opalang.org]file://hello-opa/hello-opa.opa
+
+Try `Run` above to find out.
+
+Going further
+-------------
+
+In the following chapters, we will introduce you to various features and use-cases of Opa.
+Each chapter concentrates on writing one specific application, and on how best to achieve this using combination of skills developed in previous and current chapter.
+At the end of the book, additional reference chapters introduce all the concepts of the language and the platform in more detail.
+
+If you have any question or feedback, do not hesitate to contact us. A few ways to get in touch:
+
+- [Opa forum](http://forum.opalang.org);
+- Opa [mailing list](https://lists.owasp.org/mailman/listinfo/opa);
+- [Stack Overflow](http://stackoverflow.com/questions/tagged/opa), an excellent site for seeking help with programming problems (do not forget to mark Opa related questions with the `Opa` tag);
+- Follow Opa on [Twitter (@opalang)](http://twitter.com/opalang) or [Facebook](http://www.facebook.com/Opalang) or [Google+](https://plus.google.com/b/106948838673607430453/) if you want to be always up to date.
+
+We will be there. Let's together transform the way web development is done!
