@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -338,24 +338,23 @@ let extract_prefix pfx =
 (* ------------------------------------------------------------ *)
 (* Pre-defined parsers                                          *)
 (* ------------------------------------------------------------ *)
-let parse_addr =
-  let parse str =
-    let host,port = Base.String.split_char_last ':' str in
-    try
-      let portopt =
-        if port = "" then None
+let parse_addr_raw str =
+  let host,port = Base.String.split_char_last ':' str in
+  try
+    let portopt =
+      if port = "" then None
+      else
+        let p = int_of_string port in
+        if p < 0xffff then Some p
         else
-          let p = int_of_string port in
-          if p < 0xffff then Some p
-          else
-            failwith "Port number is too high: "
-      in
-      Some ((Unix.gethostbyname host).Unix.h_addr_list.(0), portopt)
-    with
-    | Failure s -> prerr_endline ("Error: invalid port. "^s^port); None
-    | Not_found -> prerr_endline ("Error: host not found: "^host); None
-  in
-  wrap_opt string parse
+          failwith "Port number is too high: "
+    in
+    Some ((Unix.gethostbyname host).Unix.h_addr_list.(0), portopt)
+  with
+  | Failure s -> prerr_endline ("Error: invalid port. "^s^port); None
+  | Not_found -> prerr_endline ("Error: host not found: "^host); None
+let parse_addr =
+  wrap_opt string parse_addr_raw
 
 
 (* ------------------------------------------------------------ *)

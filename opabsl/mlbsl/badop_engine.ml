@@ -90,6 +90,27 @@ module A = ServerArg
 
 (* options parser *)
 
+##register set_default_local: string -> void
+let default_local = ref None
+let set_default_local (s:string) = default_local := Some s
+
+##register set_default_remote: string -> void
+let default_remote = ref None
+let set_default_remote (s:string) = default_remote := Some s
+
+let badop_default_local path = {
+  Badop.
+    path;
+  revision = None;
+  restore = None;
+  dot = false;
+  readonly = false;
+}
+
+let badop_default_client (host, port) =
+  let port = Option.default Badop_meta.default_port port in
+  Badop.Options_Client (Scheduler.default, (host, port), fun () -> `abort)
+
 let db_options =
   let arg_parser_dbgen = [
     ["--db-force-upgrade"],
@@ -106,10 +127,22 @@ let db_options =
     fun o -> A.wrap (parse o.engine_options) (fun bo -> { o with engine_options = bo })
   in
   let make_arg_parser ?name default =
-      arg_parser_dbgen @
-        List.map
-        (fun (arg,parse,params,help) -> arg, wrap_parser parse, params, help)
-        (Badop_meta.options_parser_with_default ?name default.engine_options)
+    let engine_options = match !default_local with
+      | Some s -> ((module Badop_client : Badop.S), Badop.Options_Local (badop_default_local s))
+      | None -> match !default_remote with
+        | Some s ->
+            begin match (ServerArg.parse_addr_raw s) with
+            | None ->
+                Logger.error "DbGen/Db3 Bad remote args %s" s;
+                exit 1
+            | Some x -> ((module Badop_local : Badop.S), badop_default_client x)
+            end
+        | None -> default.engine_options
+    in
+    arg_parser_dbgen @
+      List.map
+      (fun (arg,parse,params,help) -> arg, wrap_parser parse, params, help)
+      (Badop_meta.options_parser_with_default ?name engine_options)
   in
   (* association list (backend_opts -> db name) used to check for conflicts *)
   let parsed_engine_options = ref []
@@ -204,8 +237,7 @@ let client_options ident host_opt port_opt =
   let default_host = Unix.inet_addr_loopback in
   let host = match host_opt with None -> default_host | Some host ->
     try (Unix.gethostbyname host).Unix.h_addr_list.(0) with Not_found -> default_host in
-  let port = Option.default Badop_meta.default_port port_opt in
-  let o = Badop.Options_Client (Scheduler.default, (host, port), fun () -> `abort) in
+  let o = badop_default_client (host, port_opt) in
   db_options ident (m, o)
 
 ##register [restricted: dbgen; no-projection; opacapi] get: database_options -> t

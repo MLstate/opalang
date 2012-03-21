@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -392,6 +392,11 @@ MongoDriver = {{
   sr_swe(m,mbuf,name,ns,slaveok) =
     swe = send_with_error(m,mbuf,name,ns,slaveok)
     if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect}
+
+  check(m:Mongo.db) =
+    match SocketPool.get(m.pool) with
+    | ~{failure} -> ~{failure}
+    | {success=(_,c)} -> do SocketPool.release(m.pool, c) {success = m}
 
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =

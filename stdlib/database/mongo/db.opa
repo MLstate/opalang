@@ -401,11 +401,12 @@ Then use option --db-remote instead of --db-local.
         | seeds ->
           mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, args.auth, seeds)
           match MongoReplicaSet.connect(mdb) with
-          | {success=(_/*slaveok*/,m)} -> {success=m}
+          | {success=(_/*slaveok*/,m)} -> MongoDriver.check(m)
           | {~failure} -> {~failure}
           end
       match connect() with
-      | {success = db} -> ~{db name cols=["default"]}
+      | {success = db} ->
+        ~{db name cols=["default"]}
       | ~{failure} ->
         do Log.error("DbGen/Mongo", "Error while opening database \"{name}\"\n{failure}")
         System.exit(1)
@@ -470,6 +471,13 @@ Then use option --db-remote instead of --db-local.
         )
         open_remote(name, default_remote, seed)
 
+    @private seeds_parser(name, f) =
+      auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
+       {user=Text.to_string(user); password=Text.to_string(password); dbname=name}
+      seed_parser = parser
+       | auth=auth_parser? host=((![:] .)*)[:] port={Rule.natural} ->
+         (auth, (Text.to_string(host), port))
+      parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} -> f(seeds)
 
     open(name:string, host, port) =
       seed = (host ? "localhost", port ? 27017)
@@ -478,7 +486,7 @@ Then use option --db-remote instead of --db-local.
       | _ -> (":{name}", "\"{name}\"")
       args = CommandLine.filter({
         title = "Options for Mongo database {msg}"
-        init = { remote = default_remote }
+        init = none
         anonymous = []
         parsers = [
           {CommandLine.default_parser with
@@ -486,35 +494,47 @@ Then use option --db-remote instead of --db-local.
             description = "Use a remote mongo database(s), (default: {seed.f1}:{seed.f2})"
             param_doc = "[user:password@]host[:<port>][,[user:password@]host[:<port>]]*"
             on_param(acc) =
-              do jlog("Hello")
-              auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
-                {user=Text.to_string(user); password=Text.to_string(password); dbname=name}
-              seed_parser = parser
-                | auth=auth_parser? host=((![:] .)*)[:] port={Rule.natural} ->
-                  (auth, (Text.to_string(host), port))
-              parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} ->
+              seeds_parser(name, (seeds ->
                 acc = match acc with
-                  | {remote = acc} -> acc
+                  | {some = {remote = acc}} -> acc
                   | _ -> default_remote
                 (auths,seeds) = List.unzip(seeds)
                 auths = List.filter_map((a -> a),auths)
-                do jlog("Parsing seeds {seeds} auths {auths}")
-                {no_params = {remote = {acc with seeds = List.append(acc.seeds, seeds); auth = List.append(acc.auth, auths)}}}
+                {no_params = {some = {remote = {acc with seeds = List.append(acc.seeds, seeds); auth = List.append(acc.auth, auths)}}}}
+              ))
           },
           {CommandLine.default_parser with
             names = ["--db-local{suffix}"]
             description = "Use a local mongo database, (default: {default_local()})"
             param_doc = "path"
             on_encounter(_acc) =
-              {opt_params = {local = {path = default_local()}}}
+              {opt_params = {some = {local = {path = default_local()}}}}
             on_param(_acc) =
-              parser path=(.*) -> {no_params = {local = {path = Text.to_string(path)}}}
+              parser path=(.*) -> {no_params = {some = {local = {path = Text.to_string(path)}}}}
           },
         ]
       })
-      match args with
-      | ~{remote} -> open_remote(name, remote, seed)
-      | ~{local} -> open_local(name, local, seed)
+      rec aux(args) =
+        match args with
+        | {some = ~{remote}} -> open_remote(name, remote, seed)
+        | {some = ~{local}} -> open_local(name, local, seed)
+        | {none} ->
+          match Db.default_cmdline with
+          | {none} -> open_remote(name, default_remote, seed)
+          | {some = {local = {none}}} -> open_local(name, {path = default_local()}, seed)
+          | {some = {local = {some = path}}} -> open_local(name, ~{path}, seed)
+          | {some = {remote = {some = remote}}} ->
+            Parser.try_parse(
+              seeds_parser(name, (seeds ->
+                  (auth,seeds) = List.unzip(seeds)
+                  auth = List.filter_map(x->x, auth)
+                  open_remote(name, {default_remote with ~seeds ~auth}, seed)))
+              , remote) ?
+              do Log.error("DbGen/Mongo", "Invalid --db-remote params for the database '{name}' (Mongo)")
+            System.exit(1)
+          | {some = {remote = {none}}} -> open_remote(name, default_remote, seed)
+      aux(args)
+
   }}
 
   open = Init.open

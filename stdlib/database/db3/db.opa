@@ -309,3 +309,10 @@ Transaction = {{
   }
   engine = db3path;
 }) : ref_path('a)
+
+@private _init_default_options = match Db.default_cmdline with
+  | {none} -> void
+  | {some = {local = {some = local}}} -> %%badop_engine.set_default_local%%(local)
+  | {some = {local = {none}}} -> %%badop_engine.set_default_local%%(%%BslFile.mlstate_dir%%(void))
+  | {some = {remote = {some = remote}}} -> %%badop_engine.set_default_remote%%(remote)
+  | {some = {remote = {none}}} -> %%badop_engine.set_default_remote%%("localhost")

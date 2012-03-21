@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -223,7 +223,9 @@ val extract_prefix: string -> args
   *)
 
 (** {6 A few useful pre-defined parsers} *)
+val parse_addr_raw: string -> (Unix.inet_addr * int option) option
 val parse_addr: (Unix.inet_addr * int option) param_parser
+
   (** Parses the syntax [host[:port]]. Resolves the host using the Unix module
       (fails if it is not found). *)
 

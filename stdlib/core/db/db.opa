@@ -1,5 +1,8 @@
 package stdlib.core.db
 
+import stdlib.core.args
+import stdlib.core.parser
+
 /**
  * {1 About this module}
  *
@@ -93,7 +96,39 @@ Db = {{
 
   get_engine(path:Db.path(_,_,'engine)):'engine = path.engine
 
+
+  /**
+   * {1 Private Utils}
+   */
+
   build(builder:Db.builder('a, 'b, 'c)):Db.path('a, 'b, 'c) = builder
+
+  default_cmdline =
+    CommandLine.filter({
+        title = "Default options for database"
+        init = none
+        anonymous = []
+        parsers = [
+          {CommandLine.default_parser with
+            names = ["--db-remote"]
+            description = "Use a remote database"
+            param_doc = "depending of backends"
+            on_param(_acc) =
+              parser l=(.*) -> {no_params = {some = {remote = some(Text.to_string(l))}}}
+          },
+          {CommandLine.default_parser with
+            names = ["--db-local"]
+            description = "Use a local database"
+            param_doc = "depending of backends"
+            on_encounter(_acc) =
+              {opt_params = { some ={local = none}} }
+            on_param(_acc) =
+              parser l=(.*) -> {no_params = {some = {local = some(Text.to_string(l))}}}
+          },
+        ]
+      })
+
+
 
 }}
 
