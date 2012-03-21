@@ -642,7 +642,7 @@ WBootstrap = {{
     /**
      * Create a toolbar of buttons group
      */
-    toolabr(groups:list(WBootstrap.Button.group)) =
+    toolbar(groups:list(WBootstrap.Button.group)) =
       <div class="btn-toolbar">{
         @toplevel.List.map(bt_group ->
           group(bt_group)
