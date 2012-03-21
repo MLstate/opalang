@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+##extern-type continuation('a)
 
 /**
  * {1 Arithmetic operations}
@@ -279,6 +280,22 @@ function jlog(s) { (%%BslSyslog.info%%)("BSL", s); }
 {
   error(position +" @fail: "+ message);
 }
+
+var field_fail = static_field_of_name("fail");
+var field_position = static_field_of_name("position");
+
+##register [opacapi, cps-bypass] fail_cps : string, string, continuation('a) -> void
+##args(message, position, k)
+{
+  window.console.error(""+position+"\nfail: %s"+message);
+  var r = empty_constructor();
+  r = add_field(r, field_fail, message);
+  r = add_field(r, field_position, position);
+  r = make_record(r);
+  k.executexn(r);
+  return js_void;
+}
+
 
 
 /**

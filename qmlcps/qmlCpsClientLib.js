@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -312,6 +312,7 @@ Continuation.prototype = {
     _payload: null,
     _context: null,
     _options: null,
+    _paylexn: null,
     /**
      * Apply a continuation to an array of arguments
      *
@@ -336,6 +337,12 @@ Continuation.prototype = {
     _execute1: function(arg) {
         cps_assert(this._context == null, "[Continuation._execute1] called with non-null context");
         return this._payload(arg);
+    },
+    /**
+     * Apply a continuation to an exception
+     */
+    executexn: function(exn) {
+        return this._paylexn.apply(this._context, [exn])
     }
 }
 
@@ -388,11 +395,7 @@ function schedule_aux()
             } else {
                 task = tasks.shift();
                 cps_assert(task.debug_is_a_task, "[schedule] expects [ready] to contain [Task]s");
-                tailcall_manager_call(task.go, task);//Execute trampolined code
-                // In CPS, we can very likely get away without the tail-call manager.
-                // However, the compiler doesn't know whether we are in CPS, so always produces code
-                // meant for use with the tail-call manager
-                // If/when we move to full CPS, simplify this.
+                task.go();
             }
         }
     } catch(e) {
@@ -424,7 +427,7 @@ function command_line_schedule_aux()
             } else {
                 task = tasks.shift();
                 cps_assert(task.debug_is_a_task, "[schedule] expects [ready] to contain [Task]s");
-                tailcall_manager_call(task.go, task);//Execute trampolined code
+                task.go();//Execute trampolined code
                 // In CPS, we can very likely get away without the tail-call manager.
                 // However, the compiler doesn't know whether we are in CPS, so always produces code
                 // meant for use with the tail-call manager
@@ -506,7 +509,7 @@ function blocking_wait(barrier){
         //cps_assert(ready.length != 0, "[Schedule] Nothing to do.");
         task = ready.shift();
         cps_assert(task.debug_is_a_task, "[Schedule] [blocking wait] expects [ready] to contain [Task]s");
-        tailcall_manager_call(task.go, task);//Execute trampolined code
+        task.go();//Execute trampolined code
     }
     return barrier._result;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -71,7 +71,11 @@ Continuation.prototype = {
     /**
      * @param {!*} arg
      */
-    execute1: function(arg) {}
+    execute1: function(arg) {},
+    /**
+     * @param {!*} arg
+     */
+    executexn: function(arg) {}
 }
 
 /**

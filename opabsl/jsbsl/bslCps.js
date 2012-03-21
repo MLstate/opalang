@@ -24,6 +24,8 @@
    @review David Rajchenbach-Teller (started Aug 20th, 2010)
 */
 
+
+
 ##extern-type Cps.future('a)
 ##extern-type continuation('a)
 ##extern-type [normalize] func('a, 'b)
@@ -38,8 +40,18 @@
  * it use js_debug, with a prefix identifying 'CPS'
 **/
 ##register debug \ cps_debug : int, string -> void
+##register [opacapi, no-projection, restricted : cps] before_wait : -> void
+##args()
+{
+    // Nothing todo
+    return js_void;
+}
 
-##register [no-projection, restricted : cps] wait \ wait_barrier : Cps.future('a), continuation('a) -> void
+
+
+//////////////////////////////////////////////////
+// BARRIER ///////////////////////////////////////
+//////////////////////////////////////////////////
 
 /**
  * @param {(number|string)=} name An optional name, used for debugging purposes
@@ -49,6 +61,9 @@ function make_barrier(name)
 {
     return new Barrier(name);
 }
+##register [no-projection, restricted : cps] make_barrier       \ make_barrier    : string -> Cps.future('a)
+##register [no-projection, restricted : cps] black_make_barrier \ make_barrier    : string -> black_future
+//'
 
 /**
  * Non-blocking wait for a barrier to be [release]d
@@ -60,6 +75,8 @@ function make_barrier(name)
 function wait_barrier(barrier, k){
     barrier.wait(k);
 }
+##register [no-projection, restricted : cps] wait \ wait_barrier : Cps.future('a), continuation('a) -> void
+
 
 /**
  * Release a [Barrier]
@@ -71,6 +88,18 @@ function wait_barrier(barrier, k){
 function release_barrier(barrier, x){
     barrier.release(x);
 }
+##register [no-projection, restricted : cps] release_barrier \ release_barrier : Cps.future('a), 'a -> void
+
+function toplevel_wait(barrier){
+    return blocking_wait(barrier);
+}
+##register [opacapi, no-projection, restricted : cps] toplevel_wait \ toplevel_wait : Cps.future('a) -> 'a
+##register [opacapi, no-projection, restricted : cps] black_toplevel_wait \ toplevel_wait : black_future -> 'a
+
+
+
+
+
 
 /**
  * Defined in [qmlCpsClientLib.js]
@@ -140,15 +169,15 @@ function ccont(b, f){
 ##register [no-projection, restricted : cps] return \ return_ : continuation('a), 'a -> void
 ##register [no-projection : cps, restricted : cps] apply\ cps_apply : ('a, continuation('c) -> _unit), 'a, continuation('c) -> _unit
 
-##register [no-projection, restricted : cps] make_barrier    \ make_barrier    : string -> Cps.future('a)
-##register [no-projection, restricted : cps] release_barrier \ release_barrier : Cps.future('a), 'a -> void
+
+
 
 
 ##register [no-projection, restricted : cps] magic_func : func('a, 'c) -> func('e, 'f)
 ##args(a)
 { return a; }
 
-##register [no-projection, restricted : cps] black_make_barrier    \ make_barrier    : string -> black_future
+
 ##register [no-projection, restricted : cps] black_release_barrier \ release_barrier : black_future, 'a -> void
 
 /**
