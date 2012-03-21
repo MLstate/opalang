@@ -91,6 +91,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
           | QmlAst.Directive (label, `full_apply env, [QmlAst.Apply (label2,fun_,args) as sub], _) ->
               if env = 0 then sub else
               let env_args, args = List.split_at env args in
+              let missing = List.length args - env + 1 in
               (* same here *)
               (* BEWARE duplicating the annotation [label] is bad, but the
                * backend doesn't care about that and then they are lost *)
@@ -98,7 +99,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
                 label,
                 QmlAst.Directive
                   (label,
-                   `partial_apply (None, false),
+                   `partial_apply (Some missing, false),
                    [QmlAst.Apply (label2, fun_, env_args)],
                    []),
                 args)

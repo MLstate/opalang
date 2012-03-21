@@ -680,30 +680,27 @@ struct
   let if_ConstantSharing ~options _ = options.constant_sharing
 
   let main ?(dynloader=ignore) ~side ~lang options =
+    let open PassHandler in
     ObjectFiles.no_init := true;
     PassHandler.make_env options dynloader
-    |> PassHandler.handler "BslLoading" pass_BslLoading
-    |> PassHandler.handler "Parse" pass_Parse
-    |> PassHandler.handler "Typing" pass_Typing
+    |+> ("BslLoading", pass_BslLoading)
+    |+> ("Parse", pass_Parse)
+    |+> ("Typing", pass_Typing)
 
-    |> PassHandler.handler "Assertion" pass_Assertion
+    |+> ("Assertion", pass_Assertion)
 
     (* needed by closures *)
-    |> PassHandler.handler "BypassHoisting" pass_BypassHoisting
+    |+> ("BypassHoisting", pass_BypassHoisting)
 
-    |> PassHandler.handler "DiscardRemoteBypasses" (pass_DiscardRemoteBypasses ~lang)
+    |+> ("DiscardRemoteBypasses", pass_DiscardRemoteBypasses ~lang)
 
-    (* This one is for testing, maybe we'll use it, and update Cps so that it does its
-       own lambda lifting. (wip) *)
-    (* |> PassHandler.if_handler ~if_:if_LambdaLifting "PreCpsLambdaLifting" pass_LambdaLifting *)
+    |+> (if_CpsRewriter, "CpsRewriter", pass_CpsRewriter ~lang)
 
-    |> PassHandler.handler "CpsRewriter" (pass_CpsRewriter ~lang)
-
-    |> PassHandler.if_handler ~if_:if_LambdaLifting "LambdaLifting" (pass_LambdaLifting side)
-    |> PassHandler.if_handler ~if_:(if_ClosureServer side) "Uncurry" (pass_Uncurry side)
-    |> PassHandler.if_handler ~if_:(if_ClosureServer side) "Closure" (pass_Closure ~side)
-    |> PassHandler.if_handler ~if_:if_ConstantSharing "ConstantSharing" pass_ConstantSharing
-    |> PassHandler.handler "RemoveTyperCrap" pass_RemoveTyperCrap
+    |?> (if_LambdaLifting, "LambdaLifting", pass_LambdaLifting side)
+    |?> (if_ClosureServer side, "Uncurry", pass_Uncurry side)
+    |?> (if_ClosureServer side, "Closure", pass_Closure ~side)
+    |?> (if_ConstantSharing, "ConstantSharing", pass_ConstantSharing)
+    |+> ("RemoveTyperCrap", pass_RemoveTyperCrap)
     |> PassHandler.return
 
   (* See : where to apply constant sharing ? *)

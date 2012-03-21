@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -236,7 +236,6 @@ struct
         aux_external ~check:env.options.Qml2jsOptions.check_bsl_types aux_qml_of_js key env private_env p id
 
     | B.Fun (_, inputs, output) ->
-        assert (not env.options.Qml2jsOptions.cps);
         let initial_conv =
           function_projection ~key
             ~check:env.options.Qml2jsOptions.check_bsl_types
@@ -274,7 +273,6 @@ struct
         aux_external aux_js_of_qml key env private_env p id
 
     | B.Fun (_, inputs, output) ->
-        assert (not env.options.Qml2jsOptions.cps);
         let p private_env id =
           function_projection ~key
             ~inputs:(aux_qml_of_js key env)

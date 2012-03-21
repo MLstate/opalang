@@ -755,7 +755,7 @@ let compile_function_body_aux env private_env recursion_info name body =
              | _ -> true
           ) params args
       with Invalid_argument _ ->
-        Format.eprintf "%s(%a)(%a) %a@ inside@\n%a."
+        Format.eprintf "%s(%a)(%a) %a@ inside@\n%a.%!\n"
           (Ident.to_string f)
           (Format.pp_list "," QmlPrint.pp#expr) fun_env
           (Format.pp_list "," (JsPrint.pp#expr ~leading:false)) args
