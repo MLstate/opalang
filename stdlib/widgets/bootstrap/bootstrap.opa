@@ -185,6 +185,11 @@ type WBootstrap.Alert.content = {
 WBootstrap = {{
 
   /**
+   * Add a pull-left class to an xhtml chunk
+   */
+  pull_left(x:xhtml) = Xhtml.update_class("pull-left", x)
+
+  /**
    * Add a pull-right class to an xhtml chunk
    */
   pull_right(x:xhtml) = Xhtml.update_class("pull-right", x)
