@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -103,6 +103,11 @@ type Set('elem,'order) =
    * Return an existing element in the given set
    */
   get : 'elem, ordered_set('elem,'order) -> option('elem)
+
+  /**
+   * Find an element in the given set
+   */
+  find : ('elem -> bool), ordered_set('elem,'order) -> option('elem)
 
   /**
    * Loop through a set, collecting data from the set.
@@ -310,6 +315,9 @@ Set_make( order : order('elem,'order)  )  =
   mem( elem : 'elem, set : ordered_set('elem, 'order)) = MapSet.mem(elem, set)
 
   get( elem : 'elem, set : ordered_set('elem, 'order)) = Option.map(_.key,MapSet.get_key_val(elem, set))
+
+  find( f : 'elem -> bool, set : ordered_set('elem, 'order)) =
+    fold((e,acc->if f(e) then some(e) else acc), set, none)
 
   fold(fun: ('elem, 'acc -> 'acc), set: ordered_set('elem,'order), acc : 'acc) =
     MapSet.fold((k,_v,a -> fun(k,a)), set, acc)
