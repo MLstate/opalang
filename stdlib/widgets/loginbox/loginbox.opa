@@ -154,7 +154,9 @@ WLoginbox =
             ("", "display:none"), usr_opt)
       login_form(init_username: string, init_password: string) =
       /* ugly hack : needs iframe to be the fake target of the submit form  */
-        <iframe src="{prepend}{null_url}" id="{iframe_id}" name="{iframe_id}" style="display:none;with:0px;height:0px;"></iframe>
+        <iframe src="{prepend}{null_url}" id="{iframe_id}" name="{iframe_id}"
+                width="0" height="0"
+                style="visibility:hidden;display:none;width:0px;height:0px;opacity:0;"></iframe>
         <form  target="{iframe_id}" method="post"  action="{prepend}{null_url}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
         <span id={get_not_logged_id(id)} style="{login_css}">
           {match config.login_label
