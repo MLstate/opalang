@@ -1968,10 +1968,13 @@ module DatabaseAccess ( Arg : DbGenByPass.S ) = struct
   let replace_path_ast t dbinfo_map gamma ?(annotmap=None) ?(valinitial_env=Arg.ValInitial.empty) code =
     let _ = AnnotTable.open_table ~annotmap () in
     let _ = Helpers_gen.valinitial_env_ref := valinitial_env in
+    let _ = DbGen_common.set_engine `db3 in
     (* ugly hack alpha converting db idents ... will be removed *)
     let refresh_db_id =
       let fold_fun _point db_def acc =
-        let id = db_def.Schema_private.ident in (id, Ident.refresh id)::acc
+        match db_def.Schema_private.options.DbAst.backend with
+        | `db3 -> let id = db_def.Schema_private.ident in (id, Ident.refresh id)::acc
+        | _ -> acc
       in
       let db_idents = StringListMap.fold fold_fun t [] in
       fun id -> try List.assoc id db_idents with Not_found -> id
