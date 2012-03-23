@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -148,6 +148,11 @@ type Map('key,'order) =
         get: 'key, ordered_map('key,'val,'order) -> option('val)
 
         get_key_val:  'key, ordered_map('key,'val,'order) -> option({key:'key val:'val})
+
+        /**
+         * Find the first occurence validating a testing function [f]
+         */
+        find: ('key, 'val -> bool), ordered_map('key,'val,'order) -> option({key:'key val:'val})
 
         /**
          * {1 Loops}
@@ -571,6 +576,18 @@ Map_make(order: order('key,'order) ) : Map =
       match m_aux with
       | { empty } -> 0
       | { ~left ~right value=_ key=_ height=_ } -> 1+aux(left)+aux(right)
+    aux(m)
+
+  find(f:('key, 'value -> bool), m:ordered_map('key,'val,'order)) : option({key:'key val:'val}) =
+    rec aux(m:Map_private.map('key, 'val)) =
+      match m with
+      | { empty } -> none
+      | { ~left ~key ~value ~right ... } ->
+        match aux(left)
+        | {some=res} -> some(res)
+        | {none} ->
+          if f(key, value) then some(~{key val=value})
+          else aux(right)
     aux(m)
 
   get(x:'key, m:ordered_map('key,'val,'order)) : option('val) =

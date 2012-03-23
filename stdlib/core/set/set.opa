@@ -317,7 +317,9 @@ Set_make( order : order('elem,'order)  )  =
   get( elem : 'elem, set : ordered_set('elem, 'order)) = Option.map(_.key,MapSet.get_key_val(elem, set))
 
   find( f : 'elem -> bool, set : ordered_set('elem, 'order)) =
-    fold((e,acc->if f(e) then some(e) else acc), set, none)
+    match MapSet.find((e,_->f(e)), set)
+    {none} -> none
+    {some={~key val=_}} -> some(key) : option('elem)
 
   fold(fun: ('elem, 'acc -> 'acc), set: ordered_set('elem,'order), acc : 'acc) =
     MapSet.fold((k,_v,a -> fun(k,a)), set, acc)
