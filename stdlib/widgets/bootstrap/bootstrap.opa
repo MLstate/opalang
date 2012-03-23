@@ -221,7 +221,7 @@ WBootstrap = {{
      * @param columns a list of WBootstrap.Grid.column
      * @see {!WBootstrap.Grid.column} for column restrictions
      */
-    raw(cols) = row_private(cols) |> Xhtml.update_class("row", _)
+    row(cols) = row_private(cols) |> Xhtml.update_class("row", _)
 
     /**
      * Create a fluid row
@@ -229,7 +229,7 @@ WBootstrap = {{
      * @param columns a list of WBootstrap.Grid.column
      * @see {!WBootstrap.Grid.column} for column restrictions
      */
-    raw_fluid(cols) = row_private(cols) |> Xhtml.update_class("row-fluid", _)
+    row_fluid(cols) = row_private(cols) |> Xhtml.update_class("row-fluid", _)
 
   }}
 
