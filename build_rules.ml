@@ -537,7 +537,7 @@ rule "opa-bslgenMLRuntime JS validation"
   ~prods: ["opabsl/js_validation/bsl.js"]
   (fun env build ->
      let arg_of_file file acc = match file with (*A very dumb filter to get rid of files that we just can't fix in the first place*)
-       | "opabsl/jsbsl/opabslgen_jquery-1.7.1.js.pp" -> acc
+       | "opabsl/jsbsl/opabslgen_jquery-1.7.2.min.js.pp" -> acc
        | "opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
        | _                 -> A "--js" :: A file :: acc
      in
