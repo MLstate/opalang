@@ -756,8 +756,7 @@ let get_deps ?(packages=false) ?(deep=false) () =
   | `init ->
       if packages && deep then
         List.uniq_unsorted ~cmp:Package.compare
-          (!package_deep_names_and_more_deeps_names
-           @ (MutableList.to_list compiler_packages))
+          (!package_deep_names_and_more_deeps_names)
       else
         []
   | `compilation | `linking | `prelude ->
@@ -765,11 +764,11 @@ let get_deps ?(packages=false) ?(deep=false) () =
         []
       else
         List.uniq_unsorted ~cmp:Package.compare
-          ((match packages, deep with
+          (match packages, deep with
             | true, true -> !package_deep_names_and_more_deeps_names
             | true, false -> !package_names_and_more_names
             | false, true -> !package_deep_names
-            | false, false -> !package_names) @ (MutableList.to_list compiler_packages))
+            | false, false -> !package_names)
 
 
 let fold_dir_name ?packages ?deep f acc =
@@ -1304,8 +1303,8 @@ let compare_packages package1 package2 =
     try
       compare (PackageTbl.find compare_packages_h package1) (PackageTbl.find compare_packages_h package2)
     with Not_found ->
-      if not(PackageTbl.mem compare_packages_h package1) then 1
-      else if not(PackageTbl.mem compare_packages_h package2) then -1
+      if not(PackageTbl.mem compare_packages_h package1) then -1
+      else if not(PackageTbl.mem compare_packages_h package2) then 1
       else assert false
 
 let reorder :
@@ -1807,12 +1806,14 @@ let add_compiler_packages packs =
   let deeps = !reorder_packages (List.map (fun x -> Some x) (!trclosure packs)) in
   let deeps = List.filter_map (fun x -> x ) deeps in
   MutableList.append compiler_packages deeps;
-  #<If> Printf.printf "compiler packages \n%!" #<End>;
+  #<If> Format.printf "compiler packages %s %a\n%!" (get_current_package_name ())(Format.pp_list ";" Package.pp) deeps #<End>;
   let unique l = List.uniq_unsorted ~cmp:Package.compare l in
   package_names := unique (!package_names @ packs);
   package_deep_names := unique (!package_deep_names @ deeps @ packs);
-  package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs);
-  package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs );
+  let (h,t) = List.extract_last !package_deep_names_and_more_deeps_names in
+  package_deep_names_and_more_deeps_names := (unique (h @ deeps @ packs @ [t]));
+  let (h,t) = List.extract_last !package_names_and_more_names in
+  package_names_and_more_names := (unique (h @ deeps @ packs @ [t]));
   compare_packages_update !package_deep_names_and_more_deeps_names;;
 
 let resave () =
