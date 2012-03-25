@@ -1007,7 +1007,7 @@ Here are the most common types in opa as defined in the standard library:
 
     type void = {} // naming a record
     type bool = {true} or {false} // naming a type sum
-    type option('a) = {none} or {some:'a} // a parameterized definition of a type sum
+    type option('a) = {none} or {'a some} // a parameterized definition of a type sum
     type list('a) = {nil} or {'a hd, list('a) tl} // a recursive and parameterized
                                                   // definition of a type sum
 
