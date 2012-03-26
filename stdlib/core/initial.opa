@@ -174,8 +174,8 @@ ignore(_:'a) : void = void
  *
  * Use it to chain function calls.
  */
-// CAUTION, |> is currently inlined by the compiler using `|>`(a,f) = f(a)
-`|>`(a,f) = f(a)
+@expand
+`|>`(x,f) = f(x)
 
 /**
  * Composition
@@ -184,10 +184,10 @@ ignore(_:'a) : void = void
  * Use this operator to compose functions for a later call. For instance, [_ + 10 @ _ + 20]
  * is the function [x -> x + 30].
  */
-`@`(f,g) =
-    new_f(x)=f(g(x))
-    new_f
+@expand
+`@`(f,g)(x) = f(g(x))
 
+@expand
 `@>`(g, f) = f @ g
 
 compose = `@`
