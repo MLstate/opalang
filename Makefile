@@ -234,26 +234,3 @@ doc.odocl:
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
 	OPAOPT="$(OPAOPT) --rebuild --api --parser classic" $(OCAMLBUILD) opa-packages.stamp
-
-.PHONY: book
-book:
-	$(MAKE) -C doc/book
-
-.PHONY: examples
-examples: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,opa-bin opa-plugin-builder-bin) opa-packages.stamp
-	$(call copy-tools,opa-bin opa-plugin-builder-bin)
-	MLSTATELIBS=$(realpath $(BUILD_DIR)) \
-	OPA="$(realpath $(BUILD_DIR))/lib/opa/bin/opa-bin -I $(realpath $(BUILD_DIR))" \
-	OPA_PLUGIN_BUILDER=$(realpath $(BUILD_DIR))/lib/opa/bin/opa-plugin-builder-bin \
-	$(MAKE) -C doc/book examples
-
-.PHONY: book-clean
-book-clean:
-	$(MAKE) -C doc/book clean
-
-#see also target clean in included Makefile build/Makefile.bld
-clean:: book-clean
-
-.PHONY: doc
-doc: doc.html
