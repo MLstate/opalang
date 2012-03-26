@@ -1810,10 +1810,18 @@ let add_compiler_packages packs =
   let unique l = List.uniq_unsorted ~cmp:Package.compare l in
   package_names := unique (!package_names @ packs);
   package_deep_names := unique (!package_deep_names @ deeps @ packs);
-  let (h,t) = List.extract_last !package_deep_names_and_more_deeps_names in
-  package_deep_names_and_more_deeps_names := (unique (h @ deeps @ packs @ [t]));
-  let (h,t) = List.extract_last !package_names_and_more_names in
-  package_names_and_more_names := (unique (h @ deeps @ packs @ [t]));
+  (if !package_deep_names_and_more_deeps_names <> [] then (
+    let (h,t) = List.extract_last !package_deep_names_and_more_deeps_names in
+    package_deep_names_and_more_deeps_names := unique (h @ deeps @ packs @ [t])
+  ) else (
+    package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs)
+  ));
+  if !package_names_and_more_names <> [] then (
+    let (h,t) = List.extract_last !package_names_and_more_names in
+    package_names_and_more_names := unique (h @ deeps @ packs @ [t])
+  ) else (
+    package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs )
+  );
   compare_packages_update !package_deep_names_and_more_deeps_names;;
 
 let resave () =
