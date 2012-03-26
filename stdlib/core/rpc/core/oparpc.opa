@@ -354,7 +354,6 @@ type OpaRPC.timeout = {
                     bool
 
   send_to_client(fun_name : string, request : OpaRPC.request, ty : OpaType.ty) : 'a =
-    id = fun_name  //plus some things
     arg = OpaRPC.serialize(request)
     serialized_return =
       @callcc(
@@ -362,7 +361,7 @@ type OpaRPC.timeout = {
           t = ThreadContext.get({from = k})
           match t with
           | {key = {client = x}; details = _; request = _; constraint = {free}} ->
-              if not(send_response(true, id, arg, k, x)) then
+              if not(send_response(true, fun_name, arg, k, x)) then
                 error("Server request client rpc but client wasn't ping ({fun_name})")
 
           | {key = {client = _}; details = _; request = _; constraint = _ } ->
