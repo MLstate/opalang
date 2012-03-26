@@ -837,7 +837,7 @@ let check_side ~emit_error ~emit node =
   in
   let c1 = if node.calls_private <> None then (
     match node.user_annotation with
-    | Some {wish=Force; side=Server} ->
+    | Some {wish=Force; side=Server} when not(node.does_side_effects)->
       may_warn_tagged_but_use ~emit node ~wclass:WClass.Server.meaningless
         ~tagged:"server" ~use:"protected" Private_path
         "The directive will be ignored.";
