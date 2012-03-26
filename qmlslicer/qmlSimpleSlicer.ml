@@ -842,14 +842,15 @@ let check_side ~emit_error ~emit node =
         ~tagged:"server" ~use:"protected" Private_path
         "The directive will be ignored.";
     | Some {wish=Force; side=(Client|Both) as side} ->
-      if emit || emit_error then (
+      let c1 = side=Client || (match node.privacy with Published _ -> true | _ -> false) in
+      if not(c1) && (emit || emit_error) then (
       OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as '%s' but it uses 'protected' values:@\n%a@]"
         pp_pos node
         (Ident.original_name node.ident)
         (side_str side)
         (pp_private_path pp_pos) node;
-        false
-      ) else true
+        c1
+      ) else c1
     | _ -> true
   ) else true
   in
