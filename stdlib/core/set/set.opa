@@ -110,6 +110,11 @@ type Set('elem,'order) =
   find : ('elem -> bool), ordered_set('elem,'order) -> option('elem)
 
   /**
+   * Filter a set of elements
+   */
+  filter : ('elem -> bool), ordered_set('elem,'order) -> ordered_set('elem,'order)
+
+  /**
    * Loop through a set, collecting data from the set.
    *
    * This function guarantees that all elements of the set will be visited.
@@ -320,6 +325,10 @@ Set_make( order : order('elem,'order)  )  =
     match MapSet.find((e,_->f(e)), set)
     {none} -> none
     {some={~key val=_}} -> some(key) : option('elem)
+
+  filter( f : 'elem -> bool, set : ordered_set('elem, 'order)) =
+    MapSet.fold((k,_v,a -> if f(k) then MapSet.add(k,void,a) else a), set, MapSet.empty)
+    : ordered_set('elem, 'order)
 
   fold(fun: ('elem, 'acc -> 'acc), set: ordered_set('elem,'order), acc : 'acc) =
     MapSet.fold((k,_v,a -> fun(k,a)), set, acc)
