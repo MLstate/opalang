@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -908,7 +908,7 @@ prerr_endline \"CHECKUP - LIBS - OK\"
           let o = cont () in
           if o <> 0
           then (
-            OManager.printf "error during ocaml compilation -- the command was :@\n%s@\nyou can see compilation logs in %s/%s" c build_dir compilation_log_file;
+            OManager.printf "error during ocaml compilation -- the command was :@\n%s@\nyou can see compilation logs in %s/%s\n" c build_dir compilation_log_file;
             o
           )
           else do_compilation q in
