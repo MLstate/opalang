@@ -162,16 +162,16 @@ module WClass = struct
       all_swclass
     );
     "normal", (
-      [Exposed.misleading],
-      [Server.useless; Server.meaningless; Protected.misleading;Protected.implicit_access]
+      [Exposed.misleading; Server.misleading; Protected.implicit_access; Server.misleading],
+      [Protected.misleading]
     );
     "high", (
-      [],
-      [Exposed.misleading;Protected.implicit_access]
+      [Exposed.misleading],
+      [Server.misleading;Protected.implicit_access]
     );
     "higher", (
       [],
-      [Protected.implicit_access]
+      [Exposed.misleading;Protected.implicit_access]
     );
     "pedantic", (
       [],
@@ -210,7 +210,7 @@ module Options = struct
   include Type
 
   let default_options = {
-    check_level = "warnall"
+    check_level = "normal"
   }
   let _ = WClass.select_security_level default_options.check_level
 
