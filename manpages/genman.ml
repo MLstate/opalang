@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -37,7 +37,7 @@ let help_summary, help_synopsis, help_description, help_options =
     None -> "","","",""
   | Some help ->
     let reg0 = (* one line summary ? *)
-      Str.regexp ("^.*"^ (Str.quote cmdname) ^"[ \t]*:[ \t]*\(.*\)$")
+      Str.regexp ("^.*"^ (Str.quote cmdname) ^"[ \t]*:[ \t]*\\(.*\\)$")
     in
     let is_blank x =
       BaseString.contains " \n\t" x
@@ -53,7 +53,7 @@ let help_summary, help_synopsis, help_description, help_options =
 	Not_found -> "", 0
     in
     let reg1 = (* one line synopsis ? *)
-      Str.regexp ("^[ \t]*[Uu]sage[ \t]*:.*\("^ (Str.quote cmdname) ^".*\)$")
+      Str.regexp ("^[ \t]*[Uu]sage[ \t]*:.*\\("^ (Str.quote cmdname) ^".*\\)$")
     in
     let synopsis, pos1 =
       try
@@ -66,7 +66,7 @@ let help_summary, help_synopsis, help_description, help_options =
 	Not_found -> "", pos0
     in
     let reg2 = (* beginning of the list of options after the description ? *)
-      Str.regexp "^\(.*[Oo]ptions.*\):[ \t]*\n\([ \t]*--?[a-zA-Z0-0]+\)"
+      Str.regexp "^\\(.*[Oo]ptions.*\\):[ \t]*\n\\([ \t]*--?[a-zA-Z0-0]+\\)"
     in
     let description, options =
       try

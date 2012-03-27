@@ -89,3 +89,9 @@ internal mimetype_database.xml libbase/mimetype_database.xml share/opa
 
 # dissemination
 internal opa-cloud dissemination/spawn.sh
+
+#manpages
+internal gen_opa_manpage        opa/gen_opa_manpage.native
+internal gen_opatop_manpage     opatop/gen_opatop_manpage.native
+internal genman.native          manpages/genman.native
+
