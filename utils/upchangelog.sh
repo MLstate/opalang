@@ -28,12 +28,10 @@ EOF
 }
 
 
-MASTERTAG=$(git tag | grep -e "^v[0-9]*" | sort -n | tail -n 1)
-CHANGELOGTAG=$(cat $CHANGELOGTAGF)
 
 normalise_tag(){
-    local SHA=git log -n --format="%H" $1
-    local TAG=git tag --contains $1
+    local SHA=$(git log -n 1 --format="%h" $1)
+    local TAG=$(git tag --contains $1 | head -n 1)
     if [ "$TAG" = "" ];
     then
         echo $SHA
@@ -41,6 +39,11 @@ normalise_tag(){
         echo $TAG
     fi
 }
+
+CHANGELOGTAG=$(normalise_tag `cat $CHANGELOGTAGF`)
+MASTERTAG=$(git tag --contains $CHANGELOGTAG | tail -n 1)
+
+echo Target $CHANGELOGTAG to $MASTERTAG
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -89,7 +92,7 @@ changelogcommit(){
 }
 
 
-git log --pretty=format:%h --grep="^CHANGELOG" $CHANGELOGTAG..$MASTERTAG > $DIFFGIT
+git log --format="%h" --grep="^CHANGELOG" $CHANGELOGTAG..$MASTERTAG > $DIFFGIT
 
 echo $(cat $DIFFGIT | wc -w) entries
 
