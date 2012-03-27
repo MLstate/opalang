@@ -1,7 +1,7 @@
 Hello, database
 ===============
 
-In this chapter we will explore data storage possibilities. Opa has its own internal database, which is perfect for prototyping and quickly getting off the ground. However, for complex, data-intense applications, requiring scalable database with data replication and complex querying capabilities it is not enough. That is why starting with ver. 0.9.0 (S4), Opa provides extensive support for the popular [MongoDB database](http://www.mongodb.org) and we will focus on it in this chapter, so beware as some of the presented constructions are not (yet) supported by the internal database of Opa.
+In this chapter we will explore data storage possibilities. Opa has its own internal database, which is perfect for prototyping and quickly getting off the ground. However, for complex, data-intense applications, requiring scalable database with data replication and complex querying capabilities, Opa provides extensive support for the popular [MongoDB database](http://www.mongodb.org). This chapter focuses on MongoDB.
 
 MongoDB: Quickstart
 -------------------
@@ -28,7 +28,7 @@ Let us recapitulate the example from the previous chapter (we will assume it is 
 
 [opa|fork=hello-opa|run=http://hello-opa.tutorials.opalang.org]file://hello-opa/hello-opa.opa
 
-So how do we upgrade this example to MongoDB? All you have to do is to use the compilation switch for setting the DB backend: `--database mongo` (other accepted value is `db3`, Opa's internal database, which is the default)
+So how do we upgrade this example to MongoDB? All you have to do is to use the compilation switch for setting the DB backend: `--database mongo` (MongoDB will be the default database in future releases of Opa and you will be able to omit the switch).
 
 `opa --database mongo counter.opa`
 

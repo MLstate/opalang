@@ -2,7 +2,7 @@ Low-level MongoDB support
 =========================
 
 {block}[WARNING]
-This chapter is about advanced uses of MongoDB in Opa and is not for a casual user. If you're not sure you probably want to read [this chapter](/manual/Hello--database) instead.
+This chapter is about advanced uses of MongoDB in Opa and details low-level access to MongoDB in Opa. For most applications, you should only read [this chapter](/manual/Hello--database) instead.
 {block}
 
 Introduction

@@ -1,12 +1,11 @@
 The database
 ============
 
-One of the unique characteristics of Opa is that the language contains a
-database. Database operations are fully integrated in the language, which
+Database operations are fully integrated in the Opa language, which
 increases code re-usability, simplifies code coverage tests, and permits both
 automated optimizations and automated safety, security and sanity checks.
 
-In this chapter, we recapitulate the constructions of Opa dedicated to storage
+In this chapter, we describe the constructions of Opa dedicated to storage
 of data and manipulation of stored data.
 
 Declaring a database
@@ -18,8 +17,8 @@ remove data.
 
 A database is named and consists of a set of declared paths. Moreover Opa handles several
 database backends; currently:
-- *Db3*: The native Opa database.
-- *MongoDb*: The popular MongoDB database ([http://www.mongodb.org/](http://www.mongodb.org/))
+- *MongoDb*: The popular MongoDB database ([http://www.mongodb.org/](http://www.mongodb.org/));
+- *Db3*: The native Opa database which allows for rapid prototyping of applications.
 
 The following piece of code declares a database named `my_db` and defines :
 - 3 paths containing basic values (/i, /f, /s)
@@ -43,9 +42,9 @@ The following piece of code declares a database named `my_db` and defines :
 ### Choosing database backend
 
 Database backend depends on presence and value of `db_options`:
-- `@db3` value selects Db3 backend
 - `@mongo`: selects MongoDb backend
-- If the db_options is omitted, the selected backend depends on the compiler '--database' command line option, with `Db3` being the default.
+- `@db3` value selects Db3 backend
+- If the db_options is omitted, the selected backend depends on the compiler '--database' command line option, with `Db3` being the default (soon to be changed to MongoDB).
 
 ### Initializing database
 
@@ -354,7 +353,7 @@ to perform an automated database migration.
 MongoDb backend specifics
 -------------------------
 
-Currently MongoDb driver does not verify if the compiled application is compatible
+Currently, the MongoDb driver does not verify if the compiled application is compatible
 with a database schema (the way the Db3 does). That means that after changing
 data used in the application the developer herself needs to take care of migrating
 the data.
