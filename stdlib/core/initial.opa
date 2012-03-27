@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -228,12 +228,12 @@ rem = %% Bslpervasives.int_rem %%
 
 /**
  * Magic overloaded operator '+'
- * This operator is defined only on [int], [float]
+ * This operator is defined only on [int], [float], [string]
  * The overloading of this operator is resolved at compile time, which means that
  * if the context does not give enough type information for inferring one of the supported type,
  * this will raise an error during the compilation, inviting the user to add a type annotation.
 **/
-@specialize_strict(Int.`+`, Float.`+`)
+@specialize_strict(Int.`+`, Float.`+`,String.`^`)
 `+`(_ : 'number, _ : 'number) : 'number = @fail
 
 /**
