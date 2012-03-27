@@ -880,7 +880,7 @@ let check_node ?(emit_error=false) ~emit node =
 
 let look_at_user_annotation env pp_pos node annot =
   let rec aux node annot =
-    ignore( check_node ~emit_error:true ~emit:false node); (* only to catch errors *)
+    ignore( check_node ~emit_error:false ~emit:false node);
     match annot with
     | Some {wish=Force; side=Client} ->
         node.on_the_server <- Some None;
