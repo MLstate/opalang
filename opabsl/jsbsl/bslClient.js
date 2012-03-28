@@ -57,8 +57,8 @@
   ##args(str, dft)
   {
     var res = window.prompt(str, dft);
-    if (res == null || res === "") return js_none
-    return js_some(res)
+    if (res == null) return js_none // cancel
+    return js_some(res) // ok
   }
 
 ##register goto : string -> void
