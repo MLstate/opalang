@@ -1628,6 +1628,71 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
          QmlPrint.pp#ty (match H.type_from_annot ref_path with Q.TypeName (ty::_, _) -> ty | _ -> assert false))
       ref_path
 
+  (* let make_update_value value update = *)
+  (*   match update with *)
+  (*   | UFlds flds  ->  *)
+  (*   | UExpr e     -> *)
+  (*   | UIncr i     -> H.const_int i *)
+  (*   | UAppend     -> *)
+  (*   | UAppendAll  -> *)
+  (*   | UPrepend    -> *)
+  (*   | UPrependAll ->  *)
+  (*   | UPop        -> *)
+  (*   | UShift      -> *)
+
+  let make_update_path ~context gamma rpath node update =
+    let error () =
+      QmlError.error context "This update operation is not yet handled by db3 generator\n"
+    in
+    let rec aux update =
+      match update with
+      | Db.UExpr expr ->
+          let dbwrite = Helpers_gen.expr_write node.C.ty in
+          H.apply_lambda' dbwrite [rpath; expr]
+      | Db.UFlds flds ->
+          let rec build_record flds ty =
+            let flds =
+              List.map
+                (function
+                   | [f], Db.UExpr expr -> f, expr
+                   | [f], Db.UFlds flds ->
+                       f, build_record flds (Schema_private.dots gamma [f] ty)
+                   | _ -> error ()
+                )
+                flds
+            in
+            let flds = List.sort (fun (f1,_) (f2,_) -> String.compare f1 f2) flds in
+            let _check =
+              let aux_check tyflds =
+                List.iter2 (fun (f1,_) (f2,_) -> if String.compare f1 f2 <> 0 then error ())
+                  tyflds flds
+              in
+              match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+              | Q.TypeRecord ty_row ->
+                  begin match QmlAstCons.Type.Row.sort ty_row with
+                  | Q.TyRow (tyflds, _) -> aux_check tyflds
+                  end
+              | Q.TypeSum ty_sum ->
+                  begin match QmlAstCons.Type.Col.sort ty_sum with
+                  | Q.TyCol (cols, _) ->
+                      let ismatch col =
+                        (List.make_compare (fun x y -> String.compare (fst x) (fst y))
+                           col flds)
+                        = 0
+                      in
+                      let col =
+                        try
+                          List.find ismatch cols
+                        with Not_found -> error ()
+                      in
+                      aux_check col
+                  end
+              | _ -> error ()
+            in H.make_record flds
+          in aux (Db.UExpr (build_record flds node.C.ty))
+      | _ -> error ()
+    in aux update
+
   let make_simple_virtual_val_path val_path =
     let read_ty = C.get_val_path_ty (H.type_from_annot val_path) in
     let identity =
@@ -1636,7 +1701,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let make_virt_path = Helpers_gen.expr_make_virtual_val read_ty read_ty in
     H.apply_lambda' make_virt_path [val_path; identity]
 
-  let make_virtualset_fullpath sch dbinfo gamma node path kind wty =
+  let rec make_virtualset_fullpath ~context sch dbinfo gamma node path kind wty =
     match kind with
     | Db.Ref ->
         (* Create a virtual path from a ref path, read function is
@@ -1690,10 +1755,11 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         (* Create a simple virtual path from a val path *)
         let val_path = get_path_expr sch dbinfo gamma node path kind in
         make_simple_virtual_val_path val_path
-
     | Db.Option | Db.Default ->
         get_path_expr sch dbinfo gamma node path kind
-    | _ -> assert false (* TODO - ... *)
+    | Db.Update update ->
+        make_update_path ~context gamma (make_ref_path sch dbinfo gamma node path) node update
+
 
   let create_partial_key sch node fields record =
     match SchemaGraphLib.multi_key sch node with
@@ -1830,72 +1896,6 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         H.apply_lambda' make_virt_path [e; read; write]
     | _ -> assert false (* TODO - ... *)
 
-  (* let make_update_value value update = *)
-  (*   match update with *)
-  (*   | UFlds flds  ->  *)
-  (*   | UExpr e     -> *)
-  (*   | UIncr i     -> H.const_int i *)
-  (*   | UAppend     -> *)
-  (*   | UAppendAll  -> *)
-  (*   | UPrepend    -> *)
-  (*   | UPrependAll ->  *)
-  (*   | UPop        -> *)
-  (*   | UShift      -> *)
-
-  let make_update_path ~context sch dbinfo gamma node path update =
-    let error () =
-      QmlError.error context "This update operation is not yet handled by db3 generator\n"
-    in
-    let rec aux update =
-      match update with
-      | Db.UExpr expr ->
-          let rpath = make_ref_path sch dbinfo gamma node path in
-          let dbwrite = Helpers_gen.expr_write node.C.ty in
-          H.apply_lambda' dbwrite [rpath; expr]
-      | Db.UFlds flds ->
-          let rec build_record flds ty =
-            let flds =
-              List.map
-                (function
-                   | [f], Db.UExpr expr -> f, expr
-                   | [f], Db.UFlds flds ->
-                       f, build_record flds (Schema_private.dots gamma [f] ty)
-                   | _ -> error ()
-                )
-                flds
-            in
-            let flds = List.sort (fun (f1,_) (f2,_) -> String.compare f1 f2) flds in
-            let _check =
-              let aux_check tyflds =
-                List.iter2 (fun (f1,_) (f2,_) -> if String.compare f1 f2 <> 0 then error ())
-                  tyflds flds
-              in
-              match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
-              | Q.TypeRecord ty_row ->
-                  begin match QmlAstCons.Type.Row.sort ty_row with
-                  | Q.TyRow (tyflds, _) -> aux_check tyflds
-                  end
-              | Q.TypeSum ty_sum ->
-                  begin match QmlAstCons.Type.Col.sort ty_sum with
-                  | Q.TyCol (cols, _) ->
-                      let ismatch col =
-                        (List.make_compare (fun x y -> String.compare (fst x) (fst y))
-                           col flds)
-                        = 0
-                      in
-                      let col =
-                        try
-                          List.find ismatch cols
-                        with Not_found -> error ()
-                      in
-                      aux_check col
-                  end
-              | _ -> error ()
-            in H.make_record flds
-          in aux (Db.UExpr (build_record flds node.C.ty))
-      | _ -> error ()
-    in aux update
-
   let rec get_expr ~context t dbinfo_map gamma (label, path0, kind) =
     let _ =
       let pos = QmlError.Context.get_pos context in
@@ -1908,7 +1908,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
     let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
     let r = match virtual_ with
     | `virtualset (_, wty, false, _) ->
-        make_virtualset_fullpath db_def.Schema_private.schema dbinfo gamma node path kind wty
+        make_virtualset_fullpath  ~context db_def.Schema_private.schema dbinfo gamma node path kind wty
     | `virtualset (_, wty, true, record) ->
         begin match record with
         | Some record -> make_virtualset_partialpath
@@ -1925,7 +1925,8 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         | Db.Ref ->
             make_ref_path db_def.Schema_private.schema dbinfo gamma node path
         | Db.Update update ->
-            make_update_path ~context db_def.Schema_private.schema dbinfo gamma node path update
+            let rpath = make_ref_path db_def.Schema_private.schema dbinfo gamma node path in
+            make_update_path ~context gamma rpath node update
         | _ ->
             get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
     in H.end_built_pos (); r
