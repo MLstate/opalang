@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -172,8 +172,7 @@ let rec find_field_edge t node field =
 let multi_key t n =
   match List.map E.label (SchemaGraph0.succ_e t n) with
     | [{C.label = C.Multi_edge k}] -> k
-    (* TODO: adapt to sets with multiple keys *)
-    | _ -> assert false
+    | _ -> raise Not_found
 
 (** @return the key type of a Mult node *)
 let type_of_key t n = match multi_key t n with

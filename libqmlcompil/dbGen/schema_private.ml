@@ -1015,7 +1015,11 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
           let ty =
             match SchemaGraphLib.type_of_node node with
             | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
-            | _ ->  SchemaGraphLib.type_of_key t node
+            | _ ->
+                try
+                  SchemaGraphLib.type_of_key t node
+                with Not_found ->
+                  cerror "According the path definition, query is invalid"
           in
           coerce_query_element ~context gamma ty (query, options)
         in
