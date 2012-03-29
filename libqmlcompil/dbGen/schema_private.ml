@@ -452,7 +452,8 @@ let add_path ~context gamma t path0 ty =
           let t,n = SchemaGraphLib.set_node_label t n C.Multi in
           let t,n = SchemaGraphLib.set_node_type t n
             (C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))) in
-          add_subgraph ~is_plain:true ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty
+          let t = add_subgraph ~is_plain:true ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty in
+          type_upwards t n
       | (Db.Decl_set [])::_path ->
           QmlError.error context
             "Path specification inside sets unhandled yet (%s)"
