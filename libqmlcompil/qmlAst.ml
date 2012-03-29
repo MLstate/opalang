@@ -254,11 +254,11 @@ struct
   let rec pp_update pp_expr fmt = function
     | UExpr e -> pp fmt "%a" pp_expr e
     | UFlds fields ->
-        pp fmt "(";
+        pp fmt "{";
         List.iter
           (function (f, u) ->
-             pp fmt "%a %a" pp_field f (pp_update pp_expr) u) fields;
-        pp fmt ")";
+             pp fmt "%a : %a," pp_field f (pp_update pp_expr) u) fields;
+        pp fmt "}";
     | UIncr i -> pp fmt "+=%i" i
     | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
     | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
@@ -267,12 +267,42 @@ struct
     | UPop   -> pp fmt "pop"
     | UShift -> pp fmt "shift"
 
+  let rec pp_query pp_expr fmt = function
+    | QEq   expr -> pp fmt "== %a" pp_expr expr
+    | QGt   expr -> pp fmt "> %a" pp_expr expr
+    | QLt   expr -> pp fmt "< %a" pp_expr expr
+    | QGte  expr -> pp fmt ">= %a" pp_expr expr
+    | QLte  expr -> pp fmt "<= %a" pp_expr expr
+    | QNe   expr -> pp fmt "!= %a" pp_expr expr
+    | QMod  i    -> pp fmt "mod %d" i
+    | QIn   expr -> pp fmt "in %a" pp_expr expr
+    | QOr   (q1, q2) -> pp fmt "(%a) or (%a)" (pp_query pp_expr) q1 (pp_query pp_expr) q2
+    | QAnd  (q1, q2) -> pp fmt "(%a) and (%a)" (pp_query pp_expr) q1 (pp_query pp_expr) q2
+    | QNot  query -> pp fmt "not (%a)" (pp_query pp_expr) query
+    | QFlds fields ->
+        List.iter
+          (function (f, q) ->
+             pp fmt "%a %a" pp_field f (pp_query pp_expr) q) fields
+
+  let pp_options pp_expr fmt options =
+    let pp_option pp_o = function
+    | None -> ()
+    | Some o -> pp fmt "; %a" pp_o o
+    in
+    pp_option (fun fmt l -> pp fmt "limit %a" pp_expr l) options.limit;
+    pp_option (fun fmt s -> pp fmt "skip %a" pp_expr s) options.skip;
+    pp_option (fun fmt fields ->
+                 pp fmt "order %a"
+                   (BaseFormat.pp_list "," (fun fmt (f, e) -> pp fmt "%a=%a" pp_field f pp_expr e))
+                   fields)
+      options.sort
+
   let pp_path_elt pp_expr f =
     function
     | FldKey (s) -> pp f "/%s" s
     | ExprKey e -> pp f "[@[<hv>%a@]]" pp_expr e
     | NewKey -> pp f "[?]"
-    | Query _ -> pp f "query TODO"
+    | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr) q (pp_options pp_expr) o
 
   let pp_path pp_expr f (el, knd) =
     let pp_el fmt () = pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) el in

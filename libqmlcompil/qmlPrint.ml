@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -327,7 +327,7 @@ object (self)
   method path f (el, knd) =
     let pp_el fmt () = Format.fprintf fmt "%a" (pp_list "" self#path_elt) el in
     match knd with
-    | Q.Db.Update u -> pp f "%a <- %a //update" pp_el () (QmlAst.Db.pp_update self#expr) u
+    | Q.Db.Update u -> pp f "%a <- %a" pp_el () (QmlAst.Db.pp_update self#expr) u
     | _ ->
         pp f "%s%a" (
           match knd with
@@ -444,12 +444,7 @@ object (self)
 
   method rule_ f (p,e) =
     pp f "@[<2>%a ->@ %a@]" self#pat p self#expr e
-  method path_elt f =
-    function
-    | Db.FldKey (s) -> pp f "/%s" s
-    | Db.ExprKey e -> pp f "[@[<hv>%a@]]" self#reset#expr e
-    | Db.NewKey -> pp f "[?]"
-    | Db.Query _ -> pp f "query TODO"
+  method path_elt f = (QmlAst.Db.pp_path_elt self#expr) f
 
   (*---------------------*)
   (*---- code printer ---*)
