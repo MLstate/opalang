@@ -554,7 +554,11 @@ Then use option --db-remote instead of --db-local.
 
 @abstract
 @opacapi
-type DbMongoSet.engine('a) = { reply: Mongo.reply default : 'a}
+type DbMongoSet.engine('a) = {
+    reply: Mongo.reply;
+    default : 'a;
+    next : int, Mongo.reply -> option(DbMongoSet.engine('a))
+}
 
 @opacapi
 type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
@@ -589,12 +593,30 @@ DbSet = {{
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     #<End>
     id = DbSet.path_to_id(path)
-    reply=MongoDriver.query(db.db, 0, "{db.name}.{id}", skip, limit, selector, none)
+    ns = "{db.name}.{id}"
+    reply=MongoDriver.query(db.db, 0, ns, skip, limit, selector, none)
     match reply with
     | {none} ->
-      do Log.error("DbGen/Query", "(failure) Read tn {id} set doesn't returns anything")
+      do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
       error("DbSet build error")
-    | {some=reply} -> ~{reply default}
+    | {some=reply} ->
+      rec next(consummed, reply) =
+        cursor = MongoCommon.reply_cursorID(reply)
+        if MongoCommon.is_null_cursorID(cursor) then
+          none
+        else if limit != 0 && consummed >= limit then none
+        else
+          limit = if limit == 0 then 0 else consummed - limit
+          match MongoDriver.get_more(db.db, ns, limit, cursor) with
+          | {none} ->
+            do Log.error("DbGen/Mongo",
+               "(failure) Get more data from {id} set doesn't returns anything")
+            {none}
+          | {some = reply} ->
+            next(c, r) = next(consummed+c, r)
+            {some = ~{reply default next}}
+          end
+       ~{reply default next}
 
   @package update(db:DbMongo.t, path:list(string), selector, update) =
     id = DbSet.path_to_id(path)
@@ -628,48 +650,48 @@ DbSet = {{
 
 
   @private fold_doc(init, dbset:DbMongoSet.engine, f) =
-    match dbset with
-    | ~{reply default=_} ->
-      size = MongoCommon.reply_numberReturned(reply)
-      rec aux(i, acc) =
-        if i == size then acc
-        else
-          match MongoCommon.reply_document(reply, i) with
-          | {none} ->
-            do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
-            aux(i+1, acc)
-          | {some=doc} -> aux(i+1, f(acc, doc))
-      aux(0, init)
+    rec aux(size, dbset, i, acc) =
+      if i == size then
+        match dbset.next(size, dbset.reply):option(DbMongoSet.engine('a)) with
+        | {some = dbset} -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0, acc)
+        | _ -> acc
+      else
+        match MongoCommon.reply_document(dbset.reply, i) with
+        | {none} ->
+          do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
+          aux(size, dbset, i+1, acc)
+        | {some=doc} -> aux(size, dbset, i+1, f(acc, doc))
+    aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0, init)
 
   @package iterator(dbset:DbMongoSet.engine('a)):iter('a) =
-    match dbset with
-    | ~{reply default=_} ->
-      size = MongoCommon.reply_numberReturned(reply)
-      rec aux(i) =
-        if i == size then none
-        else
-          match MongoCommon.reply_document(reply, i) with
-          | {none} ->
-            do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
-            aux(i+1)
-          | {some=doc} ->
-              match Bson.doc2opa_default(doc, dbset.default) with
-              | {none} ->
-                 // Note: we should really test for error before unserialize but it would have an adverse effect on performance.
-                 if Bson.is_error(doc)
-                 then
-                   do Log.error("DbGen/Mongo",
-                        "(failure) Unexpected error : MongoDB returned error document {Bson.string_of_doc_error(doc)}")
-                   aux(i+1)
-                 else
-                   do Log.error("DbGen/Mongo",
-                        "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
-                   aux(i+1)
+    rec aux(size, dbset, i) =
+      if i == size then
+        match dbset.next(size, dbset.reply):option(DbMongoSet.engine('a)) with
+        | {some = dbset} -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0)
+        | _ -> {none}
+      else
+        match MongoCommon.reply_document(dbset.reply, i) with
+        | {none} ->
+          do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
+          aux(size, dbset, i+1)
+        | {some=doc} ->
+            match Bson.doc2opa_default(doc, dbset.default) with
+            | {none} ->
+               // Note: we should really test for error before unserialize but it would have an adverse effect on performance.
+               if Bson.is_error(doc)
+               then
+                 do Log.error("DbGen/Mongo",
+                      "(failure) Unexpected error : MongoDB returned error document {Bson.string_of_doc_error(doc)}")
+                 aux(size, dbset, i+1)
+               else
+                 do Log.error("DbGen/Mongo",
+                      "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
+                 aux(size, dbset, i+1)
 
-              | {some=opa} -> {some = (opa, {next=->aux(i+1)})}
-              end
-          end
-      {next= -> aux(0)}
+            | {some=opa} -> {some = (opa, {next=->aux(size, dbset, i+1)})}
+            end
+        end
+      {next = -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0)}
 
   @private fold(init, dbset, f) =
     Iter.fold(f, iterator(dbset), init)
