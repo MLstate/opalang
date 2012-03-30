@@ -23,6 +23,7 @@
 **)
 
 #<Debugvar:TESTING>
+#<Debugvar:HTTP_CLIENT_DEBUG>
 
 open Http_common
 
