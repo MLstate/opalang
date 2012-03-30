@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -196,42 +196,42 @@ end (* module FillbufF *)
 module FillbufString = FillbufF(String)
 
 let add_le_int32 b i =
-  if Buf.spare b <= 4 then raise (Failure "add_le_int32");
+  if Buf.spare b <= 4 then Buf.resize b 4;
   FillbufString.lei32 b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 4
 
 let add_be_int32 b i =
-  if Buf.spare b <= 4 then raise (Failure "add_be_int32");
+  if Buf.spare b <= 4 then Buf.resize b 4;
   FillbufString.bei32 b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 4
 
 let add_le_d b i =
-  if Buf.spare b <= 8 then raise (Failure "add_le_d");
+  if Buf.spare b <= 8 then Buf.resize b 8;
   FillbufString.led b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 8
 
 let add_be_d b i =
-  if Buf.spare b <= 8 then raise (Failure "add_be_d");
+  if Buf.spare b <= 8 then Buf.resize b 8;
   FillbufString.bed b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 8
 
 let add_le_int32l b i =
-  if Buf.spare b <= 4 then raise (Failure "add_le_i32l");
+  if Buf.spare b <= 4 then Buf.resize b 4;
   FillbufString.lei32l b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 4
 
 let add_be_int32l b i =
-  if Buf.spare b <= 4 then raise (Failure "add_be_i32l");
+  if Buf.spare b <= 4 then Buf.resize b 4;
   FillbufString.bei32l b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 4
 
 let add_le_int64L b i =
-  if Buf.spare b <= 4 then raise (Failure "add_le_i64L");
+  if Buf.spare b <= 8 then Buf.resize b 8;
   FillbufString.lei64L b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 8
 
 let add_be_int64L b i =
-  if Buf.spare b <= 4 then raise (Failure "add_be_i64L");
+  if Buf.spare b <= 4 then Buf.resize b 4;
   FillbufString.bei64L b.Buf.str b.Buf.i i;
   b.Buf.i <- b.Buf.i + 8
 
