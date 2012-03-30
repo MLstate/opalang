@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -305,8 +305,15 @@ import stdlib.core.parser
     parse_num(f) =
       parser Rule.ws v=Rule.natural -> f(v)
 
+    parse_timezone(f) =
+      parser Rule.ws s=("+"|"-") h=Rule.fixed_length_natural(2) m=Rule.fixed_length_natural(2) -> f((Text.to_string(s), h, m))
+
     update_am(d : Date.human_readable) = {d with h = if d.h == 12 then  0 else d.h}
     update_pm(d : Date.human_readable) = {d with h = if d.h == 12 then 12 else d.h + 12}
+
+    update_timezone((s:string, h:int, m:int), d:Date.human_readable) =
+      if s == "-" then { d with h = d.h + h min = d.min + m }
+      else { d with h = d.h - h min = d.min - m }
 
     @both_implem directives : list((string,Parser.general_parser(Date.human_readable -> Date.human_readable))) =
       [ ("%", parser "%" -> id)
@@ -332,7 +339,7 @@ import stdlib.core.parser
       , ("x", parse_num(v -> d -> {d with ms = v}))
       , ("y", parse_num(v -> d -> {d with year=if v < 70 then 2000 + v else 1900 + v}))
       , ("Y", parse_num(v -> d -> {d with year=v}))
-//      , ("z", *not supported for parsing*
+      , ("z", parse_timezone(v -> d -> update_timezone(v, d)))
       ]
 
     parse_directive_with((d, p)) =
