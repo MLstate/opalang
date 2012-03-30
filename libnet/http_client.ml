@@ -22,7 +22,7 @@
    @author David Rajchenbach-Teller
 **)
 
-#<Debugvar:HTTP_CLIENT_DEBUG>
+#<Debugvar:TESTING>
 
 open Http_common
 
