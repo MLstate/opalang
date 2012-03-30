@@ -1307,6 +1307,36 @@ let compare_packages package1 package2 =
       else if not(PackageTbl.mem compare_packages_h package2) then 1
       else assert false
 
+
+module TopologicMPackage  =
+struct
+  type t = package option
+  let rmap = ref (ListPackageMap.empty : package list ListPackageMap.t)
+  let ranon = ref ([] : package list)
+  let set_map map = rmap := map
+  let add k v =
+    rmap := ListPackageMap.update_default k ((@) v) v !rmap
+  let set_anon anon = ranon := anon
+  let index = function
+    | None -> "linking"
+    | Some (s,_) -> "file"^s
+  let index_of_package x = index (inject x)
+  let deps_on_disk = ConsistencyCheckR.load_deps
+  let deps_of package =
+    if ListPackageMap.mem package !rmap then
+      ListPackageMap.find package !rmap
+    else
+      deps_on_disk package
+  let reload_from_disk package =
+    let deps = (deps_on_disk package) in
+    rmap := ListPackageMap.add package deps !rmap
+  let depends_t : t -> t list =
+    function
+    | None -> injects (!ranon @ List.concat_map deps_of (MutableList.to_list more_link_package_names))
+    | Some package -> injects (deps_of package)
+  let depends t = List.map index (depends_t t)
+end
+
 let reorder :
   extrajs:string list ->
   extract_more_deps:('code_elt list -> float option StringMap.t) ->
@@ -1326,28 +1356,11 @@ let reorder :
     let get, _set, _reset = M.memo_but_exn more_deps_of_package_no_memo in
     get in
   let deps_of_block_deps block_deps = List.concat_map snd block_deps in
-  let deps_in_map package = deps_of_block_deps (ListPackageMap.find package map) in
-  let module M =
-      struct
-        type t = package option
-        let index = function
-          | None -> "linking"
-          | Some (s,_) -> "file"^s
-        let index_of_package x = index (inject x)
-        let deps_on_disk = ConsistencyCheckR.load_deps
-        let deps_of package =
-          if ListPackageMap.mem package map then
-            deps_in_map package
-          else
-            deps_on_disk package
-        let depends_t : t -> t list =
-          let anon = Option.default [] anon in
-          function
-          | None -> injects (deps_of_block_deps anon @ List.concat_map deps_of (MutableList.to_list more_link_package_names))
-          | Some package -> injects (deps_of package)
-        let depends t = List.map index (depends_t t)
-      end in
-  let module S = TopologicSort.Make(M) in
+  Option.iter (fun anon -> TopologicMPackage.set_anon (deps_of_block_deps anon)) anon;
+  let depsmap = ListPackageMap.map deps_of_block_deps map in
+  TopologicMPackage.set_map depsmap;
+  let module M = TopologicMPackage in
+  let module S = TopologicSort.Make(TopologicMPackage) in
 
   (* packages that are defined by the files on the command line only *)
   let packages = injects (ListPackageMap.keys map) @ [None] in
@@ -1357,8 +1370,8 @@ let reorder :
     List.uniq_unsorted ~cmp:Package.compare_opt
       (injects (
          MutableList.to_list more_link_package_names @
-         deps_of_block_deps (List.flatten (ListPackageMap.elts map)) @
-         deps_of_block_deps (Option.default [] anon)
+           (List.flatten (ListPackageMap.elts depsmap)) @
+           deps_of_block_deps (Option.default [] anon)
        ) @
        packages) in
   (* that could possibly be computed in a cleaner way *)
@@ -1416,20 +1429,33 @@ let reorder :
     Format.printf "all_packages: [%a]@." (Format.pp_list ";" Package.pp_option) all_packages;
   #<End>;
 
-  let cache =
+  let get_cache all_packages =
     try S.compute all_packages
     with S.CyclicDep t ->
       match t with
       | None -> assert false (* you shouldn't be able to have cycles with the linking part *)
       | Some (name,pos) ->
           OManager.error "%a@\n  Cyclic dependency on the package %s." FilePos.pp_pos pos name in
-  let transitive_closure_one package =
-    List.uniq_unsorted ~cmp:Package.compare
-      ((if ListPackageMap.mem package map then
-          projects (S.transitive_dependencies cache (inject package))
-        else
-          ConsistencyCheckR.load_deps package)
-       @ MutableList.to_list compiler_packages)
+  let cache = get_cache all_packages in
+  let transitive_closure_one =
+    let rmap = ref !TopologicMPackage.rmap in
+    let cache = ref cache in
+    function package ->
+      if (!rmap) != (!TopologicMPackage.rmap) then (
+        rmap := !TopologicMPackage.rmap;
+        let map_packages =
+          ListPackageMap.fold (fun p l a -> (p::l) :: a) !TopologicMPackage.rmap [] in
+        let map_packages = List.flatten map_packages in
+        cache := get_cache
+          (List.uniq_unsorted
+             ~cmp:Package.compare_opt
+             (all_packages @ (injects (map_packages)));
+          ));
+      List.uniq_unsorted ~cmp:Package.compare
+        (if ListPackageMap.mem package !TopologicMPackage.rmap then
+           projects (S.transitive_dependencies !cache (inject package))
+         else
+           ConsistencyCheckR.load_deps package)
   in
   let transitive_closure packages =
     let r = List.uniq_unsorted ~cmp:Package.compare (packages @ List.concat_map transitive_closure_one packages ) in
@@ -1569,6 +1595,8 @@ let reorder :
     match need_recomp with
     | None ->
         verbose "No recompilation for %a@." Package.pp package;
+        (* Reload computed deps *)
+        TopologicMPackage.reload_from_disk package;
         false
     | Some reason ->
         let pp_reason f = function
@@ -1606,8 +1634,9 @@ let reorder :
        * recompilation *)
       List.sort (fun (filename1,_,_) (filename2,_,_) -> String.compare filename1 filename2) filename_content_codes in
     let my_digest = String.concat_map "\n" (fun (_filename,content,_) -> Digest.string content) filename_content_codes in
-    if need_recompilation package my_digest then (
+    if overwrite = Some true || need_recompilation package my_digest then (
       let deep_dependencies = transitive_closure_one package in
+      #<If> Format.printf "saved deeps %a\n%!" (Format.pp_list ";" Package.pp) deep_dependencies #<End>;
       (* here we are loading from the disk all the hashes, even those of
        * the packages that are given on the command line only
        * (the hashes may not exists yet, or not be valid anymore)
@@ -1803,26 +1832,41 @@ let get_paths () = !extrapaths
 
 let add_compiler_packages packs =
   let packs = List.map (fun packname -> (packname, FilePos.nopos "Compiler Package")) packs in
-  let deeps = !reorder_packages (List.map (fun x -> Some x) (!trclosure packs)) in
-  let deeps = List.filter_map (fun x -> x ) deeps in
-  MutableList.append compiler_packages deeps;
-  #<If> Format.printf "compiler packages %s %a\n%!" (get_current_package_name ())(Format.pp_list ";" Package.pp) deeps #<End>;
-  let unique l = List.uniq_unsorted ~cmp:Package.compare l in
-  package_names := unique (!package_names @ packs);
-  package_deep_names := unique (!package_deep_names @ deeps @ packs);
-  (if !package_deep_names_and_more_deeps_names <> [] then (
-    let (h,t) = List.extract_last !package_deep_names_and_more_deeps_names in
-    package_deep_names_and_more_deeps_names := unique (h @ deeps @ packs @ [t])
-  ) else (
-    package_deep_names_and_more_deeps_names := unique (!package_deep_names_and_more_deeps_names @ deeps @ packs)
-  ));
-  if !package_names_and_more_names <> [] then (
-    let (h,t) = List.extract_last !package_names_and_more_names in
-    package_names_and_more_names := unique (h @ deeps @ packs @ [t])
-  ) else (
-    package_names_and_more_names := unique (!package_names_and_more_names @ deeps @ packs )
-  );
-  compare_packages_update !package_deep_names_and_more_deeps_names;;
+  TopologicMPackage.add (get_current_package ()) packs;
+  let module S = TopologicSort.Make(TopologicMPackage) in
+  let deps packs = List.flatten (List.map TopologicMPackage.deps_of packs) in
+  let reorder packs =
+    let packs = List.uniq_unsorted ~cmp:Package.compare packs in
+    let cache = S.compute (injects packs) in
+    let deeps = fst (S.get_order cache) in
+    let deeps = List.filter_map (fun x -> x ) deeps in
+    deeps
+  in
+  MutableList.append compiler_packages packs;
+  #<If> Format.printf "compiler packages %s %a\n%!" (get_current_package_name ())(Format.pp_list ";" Package.pp) packs #<End>;
+
+  let deeps = deps packs in
+  #<If> Format.printf "compiler packages deeps %s %a\n%!" (get_current_package_name ())(Format.pp_list ";" Package.pp) deeps #<End>;
+
+  #<If>
+    Format.printf "package_names: %a@." (Format.pp_list ";" Package.pp) !package_names;
+    Format.printf "package_deep_names: %a@." (Format.pp_list ";" Package.pp) !package_deep_names;
+    Format.printf "package_deep_names_and_more_deeps_names: %a@." (Format.pp_list ";" Package.pp) !package_deep_names_and_more_deeps_names;
+    Format.printf "package_names_and_more_names: %a@." (Format.pp_list ";" Package.pp) !package_names_and_more_names
+  #<End>;
+
+  package_names := reorder (!package_names @ packs);
+
+  package_deep_names := reorder (!package_deep_names @ deeps @ packs);
+  package_deep_names_and_more_deeps_names := reorder (!package_deep_names_and_more_deeps_names @ deeps @ packs);
+  package_names_and_more_names := reorder (!package_names_and_more_names @ deeps @ packs);
+  #<If>
+    Format.printf "package_names: %a@." (Format.pp_list ";" Package.pp) !package_names;
+    Format.printf "package_deep_names: %a@." (Format.pp_list ";" Package.pp) !package_deep_names;
+    Format.printf "package_deep_names_and_more_deeps_names: %a@." (Format.pp_list ";" Package.pp) !package_deep_names_and_more_deeps_names;
+    Format.printf "package_names_and_more_names: %a@." (Format.pp_list ";" Package.pp) !package_names_and_more_names
+  #<End>
+  (* compare_packages_update !package_deep_names_and_more_deeps_names;; *)
 
 let resave () =
   let _ = !resave !current_package in ()
