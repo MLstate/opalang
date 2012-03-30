@@ -99,6 +99,45 @@ let mapi f = StringListMap.mapi
 (* A selection of ways to type/coerce the returned results. Choose wisely *)
 (* ---------------------------------------------------------------------- *)
 
+exception Formatted of unit Format.pprinter
+
+let rec dots gamma field ty =
+  match field with
+  | [] -> ty
+  | f::t ->
+      match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+      | Q.TypeRecord (Q.TyRow (row, _var) as tyrow) ->
+          let ty =
+            try List.assoc f row with Not_found ->
+              raise (Formatted (fun fmt () ->
+                       Format.fprintf fmt "@{<bright>'%s'@} is not found inside the row @{<bright>%a@}"
+                         f QmlPrint.pp#tyrow tyrow))
+          in dots gamma t ty
+      | Q.TypeSum (Q.TyCol (flds, _) as tysum) ->
+          begin match List.find_map (List.assoc_opt f) flds with
+          | Some ty -> ty
+          | None ->
+              raise (Formatted
+                       (fun fmt () ->
+                          Format.fprintf fmt
+                            "@{<bright>'%s'@} is not found inside the sum @{<bright>%a@}"
+                            f QmlPrint.pp#tysum tysum)
+                    )
+          end
+      | ty2 ->
+          raise (Formatted  (fun fmt () ->
+                   let more =
+                     match ty2 with
+                     | Q.TypeSum _ -> Some "Update inside a sum type is ambiguous."
+                     | _ -> None in
+                   Format.fprintf fmt
+                     "can't through type @{<bright>%a@} with field(s) @{<bright>'%a'@}%a"
+                     QmlPrint.pp#ty ty Db.pp_field field
+                     (fun fmt () -> match more with
+                      | None -> ()
+                      | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
+                )
+
 let get_type_from_name ~context gamma tylst tid =
   match
     QmlTypes.Env.TypeIdent.findi_opt ~visibility_applies: false tid gamma with
@@ -449,6 +488,13 @@ let add_path ~context gamma t path0 ty =
           let t, next_node = SchemaGraphLib.add_unknown_node t n (C.Field (str,0)) ~context in
           build t next_node path
       | (Db.Decl_set lidx)::[] ->
+          List.iter
+            (fun idx ->
+               try
+                 List.iter (fun f -> ignore (dots gamma [f] ty)) idx
+               with Formatted p ->
+                 QmlError.error context "Bad index declaration : %a" p ()
+            ) lidx;
           let t,n = SchemaGraphLib.set_node_label t n C.Multi in
           let t,n = SchemaGraphLib.set_node_type t n
             (C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))) in
@@ -795,45 +841,6 @@ let db_declaration t name =
     | _ -> [name] in
   let decl = StringListMap.find name t in
   decl
-
-exception Formatted of unit Format.pprinter
-
-let rec dots gamma field ty =
-  match field with
-  | [] -> ty
-  | f::t ->
-      match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
-      | Q.TypeRecord (Q.TyRow (row, _var) as tyrow) ->
-          let ty =
-            try List.assoc f row with Not_found ->
-              raise (Formatted (fun fmt () ->
-                       Format.fprintf fmt "@{<bright>'%s'@} is not found inside row @{<bright>{%a}@}"
-                         f QmlPrint.pp#tyrow tyrow))
-          in dots gamma t ty
-      | Q.TypeSum (Q.TyCol (flds, _) as tysum) ->
-          begin match List.find_map (List.assoc_opt f) flds with
-          | Some ty -> ty
-          | None ->
-              raise (Formatted
-                       (fun fmt () ->
-                          Format.fprintf fmt
-                            "@{<bright>'%s'@} is not found inside sum @{<bright>{%a}@}"
-                            f QmlPrint.pp#tysum tysum)
-                    )
-          end
-      | ty2 ->
-          raise (Formatted  (fun fmt () ->
-                   let more =
-                     match ty2 with
-                     | Q.TypeSum _ -> Some "Update inside a sum type is ambiguous."
-                     | _ -> None in
-                   Format.fprintf fmt
-                     "can't through type @{<bright>%a@} with field(s) @{<bright>'%a'@}%a"
-                     QmlPrint.pp#ty ty Db.pp_field field
-                     (fun fmt () -> match more with
-                      | None -> ()
-                      | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
-                )
 
 let is_uniq t node query =
   let keyty = SchemaGraphLib.type_of_key t node in
