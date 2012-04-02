@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -189,6 +189,7 @@ UriParser =
 
   uric_query = parser a=unreserved -> a | a=escaped -> a | t=([/:@+$, ]) -> Text.to_string(t) | a=unwise -> a;
   chars_query = parser v=uric_query+ -> String.flatten(v)
+  opt_chars_query = parser v=uric_query* -> String.flatten(v)
 
   uric_path = parser a=unreserved -> a | a=escaped -> a;
   chars_path = parser v=uric_path+ -> String.flatten(v)
@@ -264,7 +265,7 @@ UriParser =
     segs = Rule.parse_list_non_empty(domain_segment, parser [.])
     parser ls=segs -> List.to_string_using("", "", ".", ls)
 
-  query_element = parser key=chars_query "=" value=chars_query -> (key, value)
+  query_element = parser key=chars_query "=" value=opt_chars_query -> (key, value)
   query_parser = Rule.parse_list(query_element, parser [&;] -> void)
 
   query =
