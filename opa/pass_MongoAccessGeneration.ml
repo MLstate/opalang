@@ -481,7 +481,22 @@ module Generator = struct
             | Some i -> annotmap, i
           in let query = Some (
             match setkind with
-            | DbSchema.Map _ -> uniq, DbAst.QFlds [(["_id"], query)]
+            | DbSchema.Map _ ->
+                let rec insert_id query = match query with
+                  | DbAst.QEq  _
+                  | DbAst.QGt  _
+                  | DbAst.QLt  _
+                  | DbAst.QGte _
+                  | DbAst.QLte _
+                  | DbAst.QNe  _
+                  | DbAst.QMod _
+                  | DbAst.QIn  _ -> DbAst.QFlds [(["_id"], query)]
+                  | DbAst.QFlds flds -> DbAst.QFlds (List.map (fun (flds, q) -> ("_id"::flds, q)) flds)
+                  | DbAst.QNot q -> DbAst.QNot (insert_id q)
+                  | DbAst.QAnd (q1, q2) -> DbAst.QAnd (insert_id q1, insert_id q2)
+                  | DbAst.QOr (q1, q2) -> DbAst.QOr (insert_id q1, insert_id q2)
+                in
+                uniq, insert_id query
             | _ -> uniq, query
           )
           in
