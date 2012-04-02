@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{xhtml, rpc.core, xmlm}
+import stdlib.core.{xhtml, rpc.core, xmlm, map}
 
 
 /**
@@ -180,6 +180,22 @@ HttpRequest = {{
       raw(get_low_level_request(x))
 
     /**
+     * Return the form-data of a POST request.
+     *
+     * Use this function as part of a protocol involving POST
+     * or PUT requests to extract the content
+     * of the request.
+     */
+    get_form_data(x: HttpRequest.request): stringmap(string) =
+      decode(s) = String.replace("+", " ", Uri.decode_string(s))
+      match Parser.try_parse(UriParser.query_parser, get_body(x))
+      | {none} -> StringMap.empty
+      | {some=list} ->
+        List.fold((a, b), acc ->
+           StringMap.add(decode(a), decode(b), acc)
+         , list, StringMap.empty)
+
+    /**
      * Return the body of a XML request.
      *
      * Use this function as part of a protocol involving POST
@@ -305,6 +321,8 @@ HttpRequest = {{
   is_secured() = apply(Generic.is_secured)
 
   get_body() = apply(Generic.get_body)
+
+  get_form_data() = apply(Generic.get_form_data)
 
   get_xml_body() = apply2(Generic.get_xml_body)
 
