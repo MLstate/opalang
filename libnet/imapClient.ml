@@ -23,11 +23,9 @@ module ICC = ImapClientCore
 
 let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
                   ~addr ?(port=993)
-                  ~mailbox ?readonly ~username ~password
+                  ~username ~password
                   ?(commands=[]) cont ?err_cont () =
-  let mail = { ICC.mailbox=mailbox;
-               readonly=Option.default false readonly;
-               username=username;
+  let mail = { ICC.username=username;
                password=password;
                commands=commands;
                status={ ICC.flags=""; exists=(-1); recent=(-1); oks=[]; rwstatus="" };
@@ -71,9 +69,9 @@ let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
 
 let mail_recv ?client_certificate ?verify_params ?secure sched
               ~addr ?port
-              ~mailbox ?readonly ~username ~password ?commands
+              ~username ~password ?commands
               (cont:ICC.results -> unit) ?err_cont () =
   mail_recv_aux ?client_certificate ?verify_params ?secure sched
                 ~addr ?port
-                ~mailbox ?readonly ~username ~password ?commands
+                ~username ~password ?commands
                 cont ?err_cont ()

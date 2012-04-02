@@ -107,7 +107,9 @@ type Email.options = {
 }
 
 type Email.imap_command =
-    { ImapNoop }
+    { ImapSelect : string }
+  / { ImapExamine : string }
+  / { ImapNoop }
   / { ImapFetch : (bool, string, string) }
   / { ImapStore : (bool, string, string, string) }
   / { ImapSearch : (bool, string) }
@@ -118,18 +120,20 @@ type Email.imap_command =
   / { ImapRename : (string, string) }
   / { ImapExpunge }
 
-type Email.imap_status = {
-  flags : string
-  exists : int
-  recent : int
-  oks : string list
-  rwstatus : string
-}
+//type Email.imap_status = {
+//  flags : string
+//  exists : int
+//  recent : int
+//  oks : string list
+//  rwstatus : string
+//}
 
 type Email.imap_result =
     { Ok : string }
   / { No : string }
   / { Bad : string }
+  / { SelectResult : (string,int,int,list(string),string) }
+  / { ExamineResult : (string,int,int,list(string),string) }
   // { NoopResult : Email.imap_status }
   / { NoopResult : (string,int,int,list(string),string) }
   / { SearchResult : list(int) }
@@ -386,7 +390,7 @@ Email = {{
 
 Imap = {{
 
-  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , bool, string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
+  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
 
 }}
 

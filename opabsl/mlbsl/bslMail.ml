@@ -108,6 +108,8 @@
   ##opa-type Email.imap_status
 
   let ok = ServerLib.static_field_of_name "Ok"
+  let selectresult = ServerLib.static_field_of_name "SelectResult"
+  let examineresult = ServerLib.static_field_of_name "ExamineResult"
   let noopresult = ServerLib.static_field_of_name "NoopResult"
   let searchresult = ServerLib.static_field_of_name "SearchResult"
   let fetchresult = ServerLib.static_field_of_name "FetchResult"
@@ -125,11 +127,11 @@
   let rwstatus = ServerLib.static_field_of_name "rwstatus"
 
   ##register [cps-bypass] command : int, string, SSL.secure_type, \
-    string, opa[bool], string, string, opa[list(email_imap_command)], \
+    string, string, opa[list(email_imap_command)], \
     (opa[list(email_imap_result)], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
 
-  let command port addr secure_type mailbox readonly username password commands cont k =
+  let command port addr secure_type username password commands cont k =
     let cont = BslUtils.proj_cps k cont in
 
     let wrap_s fld s =
@@ -176,6 +178,14 @@
                 | ImapClientCore.No str -> wrap_s no str
                 | ImapClientCore.Bad str -> wrap_s bad str
                 | ImapClientCore.Error str -> wrap_s error str
+                | ImapClientCore.SelectResult status ->
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc selectresult (wrap_status status) in
+                    ServerLib.make_record rc
+                | ImapClientCore.ExamineResult status ->
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc examineresult (wrap_status status) in
+                    ServerLib.make_record rc
                 | ImapClientCore.NoopResult status ->
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc noopresult (wrap_status status) in
@@ -233,6 +243,8 @@
              (fun f value _cmd ->
                 let value = Obj.magic(value) in
                 match ServerLib.name_of_field f with
+                | Some "ImapSelect" -> ImapClientCore.ImapSelect (ServerLib.unwrap_string value)
+                | Some "ImapExamine" -> ImapClientCore.ImapExamine (ServerLib.unwrap_string value)
                 | Some "ImapNoop" -> ImapClientCore.ImapNoop
                 | Some "ImapFetch" -> ImapClientCore.ImapFetch (unwrap_bss value)
                 | Some "ImapStore" -> ImapClientCore.ImapStore (unwrap_bsss value)
@@ -257,7 +269,7 @@
     in
 
     ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~addr ~port
-      ~mailbox ~readonly:(ServerLib.unwrap_bool readonly) ~username ~password ~commands
+      ~username ~password ~commands
       (cont:ImapClientCore.results -> unit) ~err_cont ();
     QmlCpsServerLib.return k ServerLib.void
 
