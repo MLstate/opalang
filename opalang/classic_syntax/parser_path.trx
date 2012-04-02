@@ -31,6 +31,7 @@
 ;rbrace_nosp <- Opa_lexer.rbrace_nosp
 ;spacing <- Opa_lexer.spacing
 ;semic <- Opa_lexer.semic
+;tilda <- Opa_parser.tilda
 
 (* path definition, ie for [db pathdef : typ] or [db pathdef = expr] *)
 ;pathdef_nosp <-slash_nosp ml_identifier_nosp:i
@@ -66,21 +67,31 @@ path_update <-
        DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
     }}
 
+
 (* ******************************************************************)
 (**
    {7 Path updating }
 *)
 update <-
-  / lbrace update_fields:u rbrace {{ u }}
+  / update_fields:u {{ u }}
   / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
 
 update_field <-
-  Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_simple):e
-  {{ (List.map undecorate i, e) }}
+  / Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_simple):e
+    {{ `binding (List.map undecorate i, e) }}
+  / tilda:tilda Opa_parser.record_short_ident:i
+    {{
+       let u = if tilda then `value (QmlAst.Db.UExpr (var_to_exprvar i)) else `novalue i in
+       `noassign ([undecorate i], u , None)
+     }}
 
 update_fields <-
+  tilda:tilda lbrace
   (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
-  {{ QmlAst.Db.UFlds l }}
+  rbrace
+  {{
+     QmlAst.Db.UFlds (default_value_in_expr_update tilda l)
+  }}
 
 update_simple <- update_incr / update_list
 

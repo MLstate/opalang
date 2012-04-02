@@ -1031,7 +1031,7 @@ record_element <-
      ))
    / (binding_lambda / binding_module):b
      {{ `binding (undecorate (fst b), snd b) }}
-   / tilda:tilda deco_field_identifier:p
+   / tilda:tilda record_short_ident:p
      {{ let rhs = if tilda then `value (var_to_exprvar p) else `novalue p in
         `noassign (undecorate p, rhs, None)
      }}
@@ -1060,6 +1060,7 @@ record_with_element <-
 
 record_long_ident_nosp <- deco_ml_identifier_nosp:i ('.' deco_field_identifier_nosp:i {{i}})*:l {{ i :: l }}
 record_long_ident <- spacing record_long_ident_nosp:i {{i}}
+record_short_ident <- deco_ml_identifier
 record_long_binding <-
   / record_long_ident:i record_fields_assign expr:e {{ (i, e) }}
 

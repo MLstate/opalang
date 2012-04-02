@@ -966,18 +966,30 @@ let list_expr_of_expr_list_unsafe l =
 (*
  * same as above with record stuff
  *)
+let gen_default_value_in_expr_record may_coerce set_default f =
+  List.map (function
+              | `binding b -> b
+              | `noassign (i, `value p, t) ->
+                  (i,may_coerce p t)
+              | `noassign (i, `novalue i2, t) ->
+                  (i, may_coerce (set_default i2) t)) f
+
 let default_value_in_expr_record tilda f =
   let set_default =
     if tilda then
       fun i -> var_to_exprvar i
     else
       fun i -> void (label i) in
-  List.map (function
-              | `binding b -> b
-              | `noassign (i, `value p, t) ->
-                  (i,may_coerce_expr p t)
-              | `noassign (i, `novalue i2, t) ->
-                  (i, may_coerce_expr (set_default i2) t)) f
+  gen_default_value_in_expr_record may_coerce_expr set_default f
+
+let default_value_in_expr_update tilda f =
+  let set_default =
+    if tilda then
+      fun i -> QmlAst.Db.UExpr (var_to_exprvar i)
+    else
+      fun i -> QmlAst.Db.UExpr (void (label i)) in
+  gen_default_value_in_expr_record (fun x _y -> x) set_default f
+
 let default_value_in_pat_record tilda f =
   let default_value =
     if tilda then

@@ -980,6 +980,8 @@ record_fields_assign <- assign
 
 record_long_ident <- long_ident
 
+record_short_ident <- deco_ml_identifier
+
 extend_record_element <-
    / long_binding:b {{ `binding b }}
    / tilda:tilda (=deco(long_ident)):lp may_coerce:t not_assign
@@ -991,7 +993,7 @@ extend_record_element <-
 
 record_element <-
    / ident_binding:b {{ `binding b }}
-   / tilda:tilda deco_ml_identifier:p may_coerce:t not_assign
+   / tilda:tilda record_short_ident:p may_coerce:t not_assign
      {{ let rhs = if tilda then `value (var_to_exprvar p) else `novalue p in
         `noassign (undecorate p, rhs, t)
      }}

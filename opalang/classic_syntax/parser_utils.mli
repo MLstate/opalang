@@ -219,6 +219,24 @@ val simple_record : string -> annot -> ('a, 'b) coerced_expr_node
 val record1 : string -> ('a, 'b) expr -> ('a, 'b) expr
 val simple_record_expr : string -> annot -> ('a, 'b) coerced_expr
 val simple_record_expr2 : string * annot -> ('a, 'b) coerced_expr
+val default_value_in_expr_update :
+  bool ->
+  [< `binding of
+       'a *
+         (('b, [> `coerce ] as 'c) SurfaceAst.expr_node * QmlLoc.annot)
+         QmlAst.Db.update
+  | `noassign of
+      'a *
+        [< `novalue of 'b * QmlLoc.annot
+        | `value of
+                     (('b, 'c) SurfaceAst.expr_node * QmlLoc.annot)
+                       QmlAst.Db.update ] *
+        'd ]
+    list ->
+  ('a *
+     (('b, 'c) SurfaceAst.expr_node * QmlLoc.annot) QmlAst.Db.update)
+    list
+
 val default_value_in_expr_record : bool ->
   [< `binding of 'a * (string, [> `coerce ] as 'c) SurfaceAst.expr
    | `noassign of 'a *
