@@ -361,10 +361,17 @@ module Generator = struct
                 let annotmap, uexpr =
                   if ty_is_sum gamma dataty then (
                     let annotmap, uexpr = update_to_expr ~set:false gamma annotmap u in
-                    let annotmap, _id =
-                      C.string annotmap (Format.sprintf "/%a" (Format.pp_list "/" Format.pp_print_string) strpath)
-                    in
-                    add_to_document gamma annotmap "_id" _id uexpr
+                    match u with
+                    | DbAst.UExpr _ ->
+                        (* Special case for upsert without '$' modifier, needs
+                           _id to the update query. *)
+                        let _id =
+                          (Format.sprintf "/%a"
+                             (Format.pp_list "/" Format.pp_print_string) strpath)
+                        in
+                        let annotmap, _id = C.string annotmap _id in
+                        add_to_document gamma annotmap "_id" _id uexpr
+                    | _ -> annotmap, uexpr
                   ) else (
                     let u =
                       if ty_is_const gamma dataty then DbAst.UFlds [["value"], u]
