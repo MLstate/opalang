@@ -860,7 +860,11 @@ let is_uniq t node query =
               ) rows
         | _ -> false
         end
-    | Q.TypeConst _ -> true
+    | Q.TypeConst _ ->
+        begin match query with
+        | Q.Db.QEq _ -> true
+        | _ -> false
+        end
     | _ -> false
   in aux query keyty
 
