@@ -264,7 +264,12 @@ module Generator = struct
                 match set with
                 | [] -> acc
                 | (field, value)::q ->
-                    aux (add_to_document gamma annotmap field value doc) q
+                    (*Special case for _id fields we can't modify.
+                      Mongo restriction : TODO ?*)
+                    if field = "_id" then
+                      aux acc q
+                    else
+                      aux (add_to_document gamma annotmap field value doc) q
               in
               if addset then (
                 let annotmap, sexpr = aux (C.list (annotmap, gamma) []) set in
