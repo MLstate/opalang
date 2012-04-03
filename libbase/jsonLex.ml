@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -55,7 +55,12 @@ let rec get_token = lexer
     | ':'       ->  JP.COLON
     | ','       ->  JP.COMMA
     | t_int     ->  JP.INT (int_of_string (Ulexing.utf8_lexeme lexbuf))
+
+    | "NaN"
+    | "Infinity"
+    | "-Infinity"
     | t_number  ->  JP.FLOAT (float_of_string (Ulexing.utf8_lexeme lexbuf))
+
     | "true"    ->  JP.TRUE
     | "false"   ->  JP.FALSE
     | "null"    ->  JP.NIL
