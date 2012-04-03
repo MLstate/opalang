@@ -130,6 +130,12 @@ struct
 
   type 'expr fields = (string list * 'expr) list
 
+  type 'expr select =
+    | SNil
+    | SStar
+    | SSlice of 'expr * 'expr
+    | SFlds of 'expr select fields
+
   type 'expr query =
     | QEq   of 'expr
     | QGt   of 'expr
@@ -192,6 +198,7 @@ struct
     | Decl_set of string list list
         (** Declares a set with unicity determined by list of keys
             (empty means whole element) *)
+
   type path_decl = path_decl_key list
 
   type 'expr path_elt =
@@ -284,6 +291,17 @@ struct
           (function (f, q) ->
              pp fmt "%a %a" pp_field f (pp_query pp_expr) q) fields
 
+  let rec pp_select pp_expr fmt = function
+    | SStar -> pp fmt "*"
+    | SSlice (e1, e2) -> pp fmt "(%a, %a)" pp_expr e1 pp_expr e2
+    | SNil -> ()
+    | SFlds flds ->
+        pp fmt "{%a}"
+          (BaseFormat.pp_list "," (fun fmt (f, e) -> pp fmt "%a : %a"
+                                     pp_field f
+                                     (pp_select pp_expr) e)
+          ) flds
+
   let pp_options pp_expr fmt options =
     let pp_option pp_o = function
     | None -> ()
@@ -304,17 +322,17 @@ struct
     | NewKey -> pp f "[?]"
     | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr) q (pp_options pp_expr) o
 
-  let pp_path pp_expr f (el, knd) =
+  let pp_path pp_expr f (el, knd, select) =
     let pp_el fmt () = pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) el in
     match knd with
-    | Update u -> pp f "%a <- %a" pp_el () (pp_update pp_expr) u
+    | Update u -> pp f "%a.%a <- %a" pp_el () (pp_select pp_expr) select (pp_update pp_expr) u
     | _ ->
-        pp f "%s%a" (
+        pp f "%s%a.%a" (
           match knd with
           | Default -> "" | Option -> "?"
           | Valpath -> "!" | Ref -> "@"
           | Update _ -> assert false
-        ) pp_el ()
+        ) pp_el () (pp_select pp_expr) select
 
   let engine_to_string opt =
     match opt with
@@ -403,6 +421,14 @@ struct
         TU.wrap
           (fun fields -> UFlds fields)
           (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
+
+  let rec sub_db_select sub_e sub_ty = function
+    | (SStar | SNil) as e -> TU.sub_ignore e
+    | SSlice (e1, e2) -> TU.wrap (fun (e1, e2) -> SSlice (e1, e2)) (TU.sub_2 sub_e sub_e (e1, e2))
+    | SFlds fields ->
+        TU.wrap
+          (fun fields -> SFlds fields)
+          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_select sub_e sub_ty)) fields)
 
   let sub_db_kind sub_e sub_ty = function
     | Default
@@ -1117,7 +1143,7 @@ and expr =
   | ExtendRecord   of Annot.label * string * expr * expr
   | Bypass         of Annot.label * BslKey.t
   | Coerce         of Annot.label * expr * ty
-  | Path           of Annot.label * path * expr Db.kind
+  | Path           of Annot.label * path * expr Db.kind * expr Db.select
   | Directive      of Annot.label * qml_directive * expr list * ty list
 
 and path = expr Db.path
