@@ -367,13 +367,18 @@ Then use option --db-remote instead of --db-local.
     jlog(msg) = Log.notice("DbGen/Mongo", msg)
 
     default_archive =
+      arch = "x86_64" // TODO 32 BITS
+      ver  = "2.0.2"
+      os = (
       #<Ifstatic:IS_LINUX 1>
-        some("mongodb-linux-i686-2.0.2")
+        some("linux")
       #<Else>#<Ifstatic:IS_MAC 1>
-        some("mongodb-osx-x86_64-2.0.2")
+        some("osx")
       #<Else>
         none
       #<End>#<End>
+      )
+      Option.map(os -> "mongodb-{os}-{arch}-{ver}", os)
 
     default_url =
       Option.map(default_archive ->
