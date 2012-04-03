@@ -771,7 +771,7 @@ let register_new_db_value ~name_default_values t gamma (label, value) =
               exn in
       register_path ~context t gamma p ty, None
   | Db.Db_Alias (p,p') ->
-    register_alias ~context t p p', None
+      register_alias ~context t p p', None
   | Db.Db_Default (p,dflt) ->
       let s, o = register_default ~name_default_values ~context t p dflt in
       let new_value =
@@ -946,14 +946,14 @@ let coerce_query_element ~context gamma ty (query, options) =
   a, (query, options)
 
 (** @return (new_annots_list, pppath) *)
-let rec convert_dbpath ~context t gamma node kind path0 path =
+let rec convert_dbpath ~context t gamma node kind select path0 path =
   let context = QmlError.Context.merge2 context (V.label node).C.context in
   let context = HacksForPositions.map context in
   let cerror fmt =
     QmlError.error context (
       "in path access %a@\n"^^fmt
     )
-      QmlPrint.pp#path (path0, kind)
+      QmlPrint.pp#path (path0, kind, select)
   in
   let rec valid_keys () = match (V.label node).C.nlabel with
     | C.Product ->
@@ -975,7 +975,7 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
       entry value (valid_keys())
   in
   if (V.label node).C.nlabel = C.Hidden
-  then convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path
+  then convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path
   else
     match path with
     | [] -> [],[]
@@ -991,12 +991,12 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
         in
         match (V.label node).C.nlabel with
         | C.Product ->
-            let new_annots, epath = convert_dbpath ~context t gamma next kind path0 path in
+            let new_annots, epath = convert_dbpath ~context t gamma next kind select path0 path in
             new_annots, Db.FldKey fld :: epath
         | C.Sum ->
             (* Format.eprintf "Sum case on %a => %a\n%!" QmlPrint.pp#path (path0, kind) QmlPrint.pp#path (path, kind); *)
             if kind <> Q.Db.Ref then
-              convert_dbpath ~context t gamma next kind path0 ((Db.FldKey fld)::path)
+              convert_dbpath ~context t gamma next kind select path0 ((Db.FldKey fld)::path)
             else
             cerror "Direct write access to a sub node of a sum node is forbidden"
         | _ ->
@@ -1014,12 +1014,12 @@ let rec convert_dbpath ~context t gamma node kind path0 path =
           | e ->
               let e' = QmlAstCons.UntypedExpr.coerce e keytyp in
               [Q.QAnnot.expr e'], e' in
-        let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
+        let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
         new_annots @ new_annots', Db.ExprKey e :: epath
 
     | Db.NewKey::path ->
         assert (SchemaGraphLib.multi_key t node = C.Kint);
-        let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind path0 path in
+        let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
         new_annots, Db.NewKey :: epath
 
     | Db.Query (query, options)::[] ->
@@ -1145,83 +1145,130 @@ let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option)
         QmlPrint.pp#path_elts p
   | _::_::_ -> assert false
 
-let preprocess_kind ~context gamma kind ty virtual_ =
-  match kind with
-  | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
-  | Db.Update u ->
-      let ty =
-        match virtual_ with
-        | `realpath -> ty
-        | `virtualset (r, _, _, _) -> r
-        | _ -> assert false
-      in
-      let coerce e ty = QmlAstCons.UntypedExpr.coerce e ty in
-      let coerce_list e ty =
-        match ty with
-        | Q.TypeName ([param], name) when Q.TypeIdent.to_string name = "list" ->
-            coerce e param
-        | _ ->
-            QmlError.error context "You use a database update operator which performs on 'list', but you used it on a path of '%a'"
-              QmlPrint.pp#ty  ty
-      in
-      let rec update (ty:QmlAst.ty) u =
-        let error fmt0 fmt =
-          QmlError.error context ("You can't update "^^fmt0^^" because "^^fmt)
-        in
-        match u with
-        | Db.UExpr e -> Db.UExpr (coerce e ty)
-        | Db.UFlds fields ->
-            Db.UFlds
-              (List.map
-                 (function (field, u) ->
-                    let subty =
-                      try
-                        dots gamma field ty
-                      with Formatted prt ->
-                        error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
-                    in
-                    (field, update subty u))
-                 fields)
-        | Db.UAppend     e -> Db.UAppend (coerce_list e ty)
-        | Db.UPrepend    e -> Db.UPrepend  (coerce_list e ty)
-        | Db.UAppendAll  e -> Db.UAppendAll  (coerce e ty)
-        | Db.UPrependAll e -> Db.UPrependAll (coerce e ty)
-        | Db.UIncr _ when (
-            match ty with (* TODO - unify! *)
-            | Q.TypeConst Q.TyInt -> true
-            | _ -> false
-          ) -> u
-        | (Db.UPop | Db.UShift) when (
-            match ty with (* TODO - unify???! *)
-            | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
-            | _ -> false
-          ) -> u
-        | Db.UPop -> error "" "pop is not available on %a" QmlPrint.pp#ty ty
-        | Db.UShift -> error "" "shift is not available on %a" QmlPrint.pp#ty ty
-        | Db.UIncr _ -> error "" "incr is not available on %a (only on int)" QmlPrint.pp#ty ty
-      in Db.Update (update ty u)
 
-let preprocess_path ~context t gamma prepath kind =
+module Preprocess = struct
+
+  let coerce e ty = QmlAstCons.UntypedExpr.coerce e ty
+  let coerce_list context e ty =
+    match ty with
+    | Q.TypeName ([param], name) when Q.TypeIdent.to_string name = "list" ->
+        coerce e param
+    | _ ->
+        QmlError.error context "You use a database update operator which performs on 'list', but you used it on a path of '%a'"
+          QmlPrint.pp#ty  ty
+
+  let kind ~context gamma kind ty virtual_ =
+    match kind with
+    | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
+    | Db.Update u ->
+        let ty =
+          match virtual_ with
+          | `realpath -> ty
+          | `virtualset (r, _, _, _) -> r
+          | _ -> assert false
+        in
+        let rec update (ty:QmlAst.ty) u =
+          let error fmt0 fmt =
+            QmlError.error context ("You can't update "^^fmt0^^" because "^^fmt)
+          in
+          match u with
+          | Db.UExpr e -> Db.UExpr (coerce e ty)
+          | Db.UFlds fields ->
+              Db.UFlds
+                (List.map
+                   (function (field, u) ->
+                      let subty =
+                        try
+                          dots gamma field ty
+                        with Formatted prt ->
+                          error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
+                      in
+                      (field, update subty u))
+                   fields)
+          | Db.UAppend     e -> Db.UAppend (coerce_list context e ty)
+          | Db.UPrepend    e -> Db.UPrepend  (coerce_list context e ty)
+          | Db.UAppendAll  e -> Db.UAppendAll  (coerce e ty)
+          | Db.UPrependAll e -> Db.UPrependAll (coerce e ty)
+          | Db.UIncr _ when (
+              match ty with (* TODO - unify! *)
+              | Q.TypeConst Q.TyInt -> true
+              | _ -> false
+            ) -> u
+          | (Db.UPop | Db.UShift) when (
+              match ty with (* TODO - unify???! *)
+              | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
+              | _ -> false
+            ) -> u
+          | Db.UPop -> error "" "pop is not available on %a" QmlPrint.pp#ty ty
+          | Db.UShift -> error "" "shift is not available on %a" QmlPrint.pp#ty ty
+          | Db.UIncr _ -> error "" "incr is not available on %a (only on int)" QmlPrint.pp#ty ty
+        in Db.Update (update ty u)
+
+  let select ~context gamma select ty virtual_ =
+    let (dataty, rebuildt) =
+      match virtual_ with
+      | `realpath -> ty, (fun t -> t)
+      | `virtualset (r, _, _, rb) -> r, rb
+      | _ -> assert false
+    in
+    let error fmt0 fmt =
+      QmlError.error context ("You can't select "^^fmt0^^" because "^^fmt)
+    in
+    let rec aux ty = function
+    | Db.SStar -> (ty, Db.SStar)
+    | Db.SNil -> (ty, Db.SNil)
+    | Db.SFlds flds ->
+        let row, select =
+          List.fold_left_map
+            (fun row (field, s0) ->
+               assert (List.length field == 1);
+               let field1 = List.hd field in
+               let subty =
+                 try
+                   dots gamma field ty
+                 with Formatted prt ->
+                   error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
+               in
+               let (subty, s0) = aux subty s0 in
+               ((field1, subty)::row, (field, s0))
+            ) [] flds
+        in (Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false row)), Db.SFlds select
+    | Db.SSlice (e1, e2) when (
+        match ty with
+        | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
+        | _ -> false
+      ) -> (* TODO : coerce e1, e2 *) (ty, Db.SSlice (e1, e2))
+    | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
+    in
+    let ty, s = aux dataty select in
+    (rebuildt ty), s
+
+
+
+end
+
+let preprocess_path ~context t gamma prepath kind select =
   let prefix, db_def, prepath = database_def_of_path_expr ~context t prepath in
   C.set_engine db_def.options.Db.backend;
   let prepath = apply_aliases db_def.path_aliases prepath in
   let root = SchemaGraphLib.get_root db_def.schema in
-  let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind prepath prepath in
+  let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind select prepath prepath in
   let ty, _node, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
-  let kind = preprocess_kind ~context gamma kind ty virtual_ in
-  new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind), ty, virtual_
+  let kind = Preprocess.kind ~context gamma kind ty virtual_ in
+  let ty, select = Preprocess.select ~context gamma select ty virtual_  in
+  new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind, select), ty, virtual_
 
 
 
 let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
   QmlAstWalk.Expr.foldmap_up
     (fun annottrack e -> match e with
-     | Q.Path (label, p, kind)  ->
+     | Q.Path (label, p, kind, select)  ->
          let a = Annot.annot label in
          let context = QmlError.Context.expr e in (* FIXME: we don't get a valid position here. *)
          let context = HacksForPositions.map context in
-         let new_annots, p, realty, virtual_ = preprocess_path ~context t gamma p kind in
+         let new_annots, p, realty, virtual_ = preprocess_path ~context t gamma p kind select in
          let exprty =
            let dataty = match virtual_ with
              |`realpath -> realty
