@@ -1896,40 +1896,48 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         H.apply_lambda' make_virt_path [e; read; write]
     | _ -> assert false (* TODO - ... *)
 
-  let rec get_expr ~context t dbinfo_map gamma (label, path0, kind) =
+  let rec get_expr ~context t dbinfo_map gamma (label, path0, kind, select) =
     let _ =
       let pos = QmlError.Context.get_pos context in
       H.start_built_pos pos in
     let prefix, db_def, path = Schema_private.database_def_of_path_expr ~context t path0 in
     if db_def.Schema_private.options.DbAst.backend != `db3 then
-      Q.Path (label, path0, kind)
-    else
-    let dbinfo = StringListMap.find prefix dbinfo_map in
-    let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
-    let r = match virtual_ with
-    | `virtualset (_, wty, false, _) ->
-        make_virtualset_fullpath  ~context db_def.Schema_private.schema dbinfo gamma node path kind wty
-    | `virtualset (_, wty, true, record) ->
-        begin match record with
-        | Some record -> make_virtualset_partialpath
-            db_def.Schema_private.schema dbinfo gamma node path kind wty record
-        | None ->
+      Q.Path (label, path0, kind, select)
+    else (
+      (* Selection with db3 is not implemented *)
+      (match select with
+       | Db.SStar | Db.SNil -> ()
+       | _ ->
+           QmlError.error context
+             "This kind of selection is not yet implemented by the db3 backend"
+      );
+      let dbinfo = StringListMap.find prefix dbinfo_map in
+      let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
+      let r = match virtual_ with
+        | `virtualset (_, wty, false, _) ->
+            make_virtualset_fullpath  ~context db_def.Schema_private.schema dbinfo gamma node path kind wty
+        | `virtualset (_, wty, true, record) ->
+            begin match record with
+            | Some record -> make_virtualset_partialpath
+                db_def.Schema_private.schema dbinfo gamma node path kind wty record
+            | None ->
+                match kind with
+                | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
+                | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
+            end
+        | `virtualpath (ident, rty, wty) ->
+            make_virtualpath db_def.Schema_private.schema dbinfo gamma node path kind ident rty wty
+        | `realpath ->
             match kind with
-            | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
-            | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
-        end
-    | `virtualpath (ident, rty, wty) ->
-        make_virtualpath db_def.Schema_private.schema dbinfo gamma node path kind ident rty wty
-    | `realpath ->
-        match kind with
-        | Db.Ref ->
-            make_ref_path db_def.Schema_private.schema dbinfo gamma node path
-        | Db.Update update ->
-            let rpath = make_ref_path db_def.Schema_private.schema dbinfo gamma node path in
-            make_update_path ~context gamma rpath node update
-        | _ ->
-            get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
-    in H.end_built_pos (); r
+            | Db.Ref ->
+                make_ref_path db_def.Schema_private.schema dbinfo gamma node path
+            | Db.Update update ->
+                let rpath = make_ref_path db_def.Schema_private.schema dbinfo gamma node path in
+                make_update_path ~context gamma rpath node update
+            | _ ->
+                get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
+      in H.end_built_pos (); r
+    )
 end
 
 module DatabaseAccess ( Arg : DbGenByPass.S ) = struct
@@ -1943,9 +1951,9 @@ module DatabaseAccess ( Arg : DbGenByPass.S ) = struct
     let context = QmlError.Context.expr e in
     let context = Schema_private.HacksForPositions.map context in
     let f tra = function
-      | Q.Coerce (_, Q.Path (label, p, kind), _)
-      | Q.Path (label, p, kind) ->
-          let e = CodeGenerator.get_expr ~context t dbinfo_map gamma (label, p, kind) in
+      | Q.Coerce (_, Q.Path (label, p, kind, select), _)
+      | Q.Path (label, p, kind, select) ->
+          let e = CodeGenerator.get_expr ~context t dbinfo_map gamma (label, p, kind, select) in
           (* needs to be traversed again because db idents may be introduced *)
           tra e
       | Q.Ident (label, id) ->
