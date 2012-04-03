@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -375,14 +375,14 @@ OpaSerializeClosure = {{
         else {Int = integer}
 
       | {TyConst = {TyString}} -> {String = Magic.id(value)}
-      | {TyConst = {TyFloat}}
-        ->
-          fvalue = Magic.id(value) : float
-          if Math.is_normal(fvalue) then {Float=fvalue}
-          else
-            anormal = if Math.is_NaN(fvalue) then "NaN"
-                      else if fvalue<0.0 then "-Infinity" else "Infinity"
-            aux(Magic.id(anormal),{TyConst = {TyString}})
+      | {TyConst = {TyFloat}}  ->
+        // JSON does not handle limits float on all browsers
+        // remove the anormal handler when our client side implem is ok
+        fvalue = Magic.id(value) : float
+        if Math.is_normal(fvalue) then {Float=fvalue}
+        else
+          anormal = @toplevel.Json.serialize_float(fvalue)
+          aux(Magic.id(anormal),{TyConst = {TyString}})
 
       /* Record case ****************************/
       | {TyRecord_row = row}

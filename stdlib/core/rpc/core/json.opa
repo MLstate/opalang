@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -162,8 +162,11 @@ type ll_json_record_repr = external
   serialize_to_js(j/*: json*/) =
     Text.to_string(to_text_in_js(j))
 
-
-
+  serialize_float(f) =
+    // WHAT ABOUT PRINTING PRECISIONS
+    if Math.is_normal(f) then Float.to_string(f)
+    else if Math.is_NaN(f) then "NaN"
+    else if f<0.0 then "-Infinity" else "Infinity"
 
 /**
  * {1 Private stuff}
@@ -261,7 +264,7 @@ type ll_json_record_repr = external
     rec aux(j:RPC.Json.json, tx, n) =
       match j with
       | {~Int} -> (tx ++ "{Int}", [])
-      | {~Float} -> (tx ++ "{Float}", [])
+      | {~Float} -> (tx ++ serialize_float(Float), [])
       | {~String} -> (for_string(tx, String), [])
       | {~Bool} -> (tx ++ "{Bool}", [])
       | {~Record} ->
@@ -338,7 +341,7 @@ type ll_json_record_repr = external
     rec aux(j : RPC.Json.js_code, tx : text, n, nid) =
       match j with
       | {~Int} -> (tx ++ "{Int}", [], nid)
-      | {~Float} -> (tx ++ "{Float}", [], nid)
+      | {~Float} -> (tx ++ serialize_float(Float), [], nid)
       | {~String} -> (for_string(tx, String), [], nid)
       | {~Bool} -> (tx ++ "{Bool}", [], nid)
       | {~Direct} -> (tx ++ Direct, [], nid)
