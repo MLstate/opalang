@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,39 +19,11 @@
 import stdlib.core.rpc.core
 
 /**
- * {1 About this module}
- *
- * {1 Where should I start?}
- *
- * {1 What if I need more?}
+ * {1 Interface} This is deprecated, use module Limits in stdlib.core.rpc
  */
 
-/**
- * {1 Interface}
- */
+@deprecated({use="Limits.min_int"})
+min_int = Limits.min_int
 
-/**
- * The largest integer usable in OPA
- *
- * Note that the size of integers is dictated both by server limitations (64-bit servers have larger integers than 32-bit servers)
- * and by client limitations (JavaScript implementations are typically limited to 53-bit integers).
- */
-max_int = IntServer.max_int // 2**53 (size of significand in js)
-
-/**
- * The smallest integer usable in OPA
- *
- * Note that the size of integers is dictated both by server limitations (64-bit servers have larger integers than 32-bit servers)
- * and by client limitations (JavaScript implementations are typically limited to 53-bit integers).
- */
-min_int=-max_int
-
-
-@publish IntServer =
-{{
-  /**
-   * Returns the biggest integer representable by the server
-   * @server
-   */
-  max_int     = %% BslNumber.Int.max_int %% : int
-}}
+@deprecated({use="Limits.max_int"})
+max_int = Limits.max_int

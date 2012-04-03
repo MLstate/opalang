@@ -367,7 +367,13 @@ OpaSerializeClosure = {{
     and aux(value, ty) =
       match ty with
       /* Basic case *****************************/
-      | {TyConst = {TyInt}}    -> {Int = Magic.id(value)}
+      | {TyConst = {TyInt}}    ->
+        integer = Magic.id(value):int
+        if not(Limits.min_int <= integer && integer <= Limits.max_int)
+        && options.to == {client}
+        then error("Cannot serialize the integer {integer}, it is out of range, use min_int and max_int to ensure the range")
+        else {Int = integer}
+
       | {TyConst = {TyString}} -> {String = Magic.id(value)}
       | {TyConst = {TyFloat}}
         ->
