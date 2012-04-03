@@ -33,6 +33,7 @@
   | ImapStore of (bool * string * string * string)
   | ImapSearch of (bool * string)
   | ImapSearchCs of (bool * string * string)
+  | ImapCopy of (bool * string * string)
   | ImapList of (string * string)
   | ImapCreate of string
   | ImapDelete of string
@@ -65,8 +66,6 @@
 
 -type results = result list
 
-  %mailbox : string;
-  %readonly : bool;
 -type mail = {
   username : string;
   password : string;
@@ -108,6 +107,7 @@ let string_of_command = function
   | ImapExamine s -> sprintf "EXAMINE %s" s
   | ImapNoop -> "NOOP"
   | ImapFetch (uid,seq,items) -> sprintf "%sFETCH %s %s" (if uid then "UID " else "") seq items
+  | ImapCopy (uid,seq,m) -> sprintf "%sCOPY %s %s" (if uid then "UID " else "") seq m
   | ImapStore (uid,seq,din,dinval) -> sprintf "%sSTORE %s %s %s" (if uid then "UID " else "") seq din dinval
   | ImapSearch (uid,s) -> sprintf "%sSEARCH %s" (if uid then "UID " else "") s
   | ImapSearchCs (uid,cs,s) -> sprintf "%sSEARCH CHARSET %s %s" (if uid then "UID " else "") cs s
@@ -147,6 +147,8 @@ let add_fetched str fetched =
 -define (UidFetch (tag, seq, items))            = tag " UID FETCH " seq " " items "\r\n"
 -define (Store (tag, seq, din, dinval))         = tag " STORE " seq " " din " " dinval "\r\n"
 -define (UidStore (tag, seq, din, dinval))      = tag " UID STORE " seq " " din " " dinval "\r\n"
+-define (Copy (tag, seq, mailbox))              = tag " COPY " seq " " mailbox "\r\n"
+-define (UidCopy (tag, seq, mailbox))           = tag " UID COPY " seq " " mailbox "\r\n"
 -define (List (tag, rf, mailbox))               = tag " LIST " rf " " mailbox "\r\n"
 -define (Create (tag, mailbox))                 = tag " CREATE " mailbox "\r\n"
 -define (Delete (tag, mailbox))                 = tag " DELETE " mailbox "\r\n"
@@ -157,6 +159,7 @@ let add_fetched str fetched =
 -define (NoopOk (tag,str))                      = tag " OK NOOP "~ str "\r\n"
 -define (FetchOk (tag,str))                     = tag " OK " "UID "? "FETCH "~ str "\r\n"
 -define (StoreOk (tag,str))                     = tag " OK " "UID "? "STORE "~ str "\r\n"
+-define (CopyOk (tag,str))                      = tag " OK " "UID "? "COPY "~ str "\r\n"
 -define (ListOk (tag,str))                      = tag " OK LIST "~ str "\r\n"
 -define (CreateOk (tag,str))                    = tag " OK CREATE "~ str "\r\n"
 -define (DeleteOk (tag,str))                    = tag " OK DELETE "~ str "\r\n"
@@ -294,6 +297,14 @@ commands(mail, tools):
         send (List (tag, rf, mailbox));
         list(mail, tools, tag)
       end
+    | ImapCopy (uid, seq, mailbox) ->
+      if {{ uid }}
+      then
+        send (UidCopy (tag, seq, mailbox));
+        copy(mail, tools, tag)
+      else
+        send (Copy (tag, seq, mailbox));
+        copy(mail, tools, tag)
     | ImapCreate mailbox ->
       send (Create (tag, mailbox));
       wait_for_ok(mail, tools, tag, {{"create"}}, {{"CREATE"}},
@@ -475,6 +486,32 @@ store(mail, tools, tag):
   | exn ->
     check_exception(mail, tools, {{"store"}}, tag, exn)
 
+copy(mail, tools, tag):
+  receive
+  | CopyOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "copy received mismatched COPY OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "fetch received COPY OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((Ok "copied")::mail.results) } }}
+      commands(mail, tools)
+  | FlagsOk (rtag,flags,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "copy received mismatched COPY OK: rtag=%s tag=%s flags=%s str=%s\n" rtag tag flags _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "fetch received COPY OK: tag=%s flags=%s str=%s\n" tag flags _str }}
+      let mail = {{ { mail with results = ((Ok flags)::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"COPY"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"copy"}}, tag, exn)
+
 list(mail, tools, tag):
   receive
   | StarOk _str ->
@@ -501,6 +538,10 @@ list(mail, tools, tag):
 
 expunge(mail, tools, tag):
   receive
+  | Recent num ->
+    debug {{ eprintf "expunge received * RECENT: %d\n" num }}
+    let mail = [[ {mail with status={mail.status with recent=num}} ]]
+    expunge(mail, tools, tag)
   | StarExpunge num ->
     debug {{ eprintf "expunge received * EXPUNGE: %d\n" num }}
     let mail = {{ { mail with expunged = (num::mail.expunged) } }}

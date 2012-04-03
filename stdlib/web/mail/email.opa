@@ -114,6 +114,7 @@ type Email.imap_command =
   / { ImapStore : (bool, string, string, string) }
   / { ImapSearch : (bool, string) }
   / { ImapSearchCs : (bool, string, string) }
+  / { ImapCopy : (bool, string, string) }
   / { ImapList : (string, string) }
   / { ImapCreate : string }
   / { ImapDelete : string }

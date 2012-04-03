@@ -250,6 +250,7 @@
                 | Some "ImapStore" -> ImapClientCore.ImapStore (unwrap_bsss value)
                 | Some "ImapSearch" -> ImapClientCore.ImapSearch (unwrap_bs value)
                 | Some "ImapSearchCs" -> ImapClientCore.ImapSearchCs (unwrap_bss value)
+                | Some "ImapCopy" -> ImapClientCore.ImapCopy (unwrap_bss value)
                 | Some "ImapList" -> ImapClientCore.ImapList (unwrap_ss value)
                 | Some "ImapCreate" -> ImapClientCore.ImapCreate (ServerLib.unwrap_string value)
                 | Some "ImapDelete" -> ImapClientCore.ImapDelete (ServerLib.unwrap_string value)
