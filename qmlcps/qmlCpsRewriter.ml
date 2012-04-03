@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -885,7 +885,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     | Q.Coerce (_, e, _) -> aux_can_skip ~can_skip_lambda e context
 
-    | Q.Path (_, _, _) ->
+    | Q.Path (_, _, _, _) ->
         failwith "Internal error: At this stage, all first-class paths should have been compiled."
 
     (* Concurrency-specific directive, and cps specific *)

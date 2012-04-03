@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -277,7 +277,12 @@ let rec expr t e =
     | Q.ExtendRecord (label, f, e, n) -> Q.ExtendRecord (label, f, expr t e, expr t n)
     | (Q.Bypass _) as by -> by
     | Q.Coerce (label, e, ty) -> Q.Coerce (label, expr t e, ty)
-    | Q.Path (label, p,h) -> Q.Path (label, List.map (function Q.Db.ExprKey e -> Q.Db.ExprKey (expr t e) | k -> k) p, h)
+    | Q.Path (_label, _p, _h, _s) as path ->
+        QmlAstWalk.Expr.traverse_map
+          (fun tra -> function
+           | Q.Path (_, _, _, _) as e -> tra e
+           | e -> expr t e)
+          path
 
     | Q.Directive (_, `backend_ident _,_,_) as e ->
         (* not going inside `backend_ident, because it does contain

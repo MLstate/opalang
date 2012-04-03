@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -356,7 +356,7 @@ struct
         rewrite_arrow level its_effect qty
     | Q.Coerce (_, e, _) ->
         infer bp env effect (level+1) e
-    | Q.Path (_, el, _) ->
+    | Q.Path (_, el, _, _) ->
         List.iter (function
                      | Q.Db.ExprKey e -> ignore (infer bp env effect (level+1) e)
                      | _ -> ()) el;

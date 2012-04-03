@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -257,7 +257,7 @@ let get_expr_dep_context ?filter e =
              (*{ acc with  fields_groups = List.fold (fun groups (p,_)-> add_group (get_fields_pat p) groups) acc.fields_groups _pel }*)
              (*let _p = List.map pel in*)
              (* FIXME: ??? don't know what to do *)
-         | Q.Path (_, dbelt, _)-> (
+         | Q.Path (_, dbelt, _, _)-> (
              let acc = Option.if_none filter (add_database acc) acc in
              (* taking the first elt of the path *)
              match List.hd dbelt with

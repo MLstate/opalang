@@ -69,7 +69,13 @@ module Schema = struct
     default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
   }
 
-  let pp_query fmt _e = Format.fprintf fmt "todo query"
+  let pp_query fmt = function
+    | None -> ()
+    | Some (u, (q, o)) ->
+        Format.fprintf fmt "[%a%a]/* uniq : %b */"
+          (QmlAst.Db.pp_query QmlPrint.pp#expr) q
+          (QmlAst.Db.pp_options QmlPrint.pp#expr) o
+          u
 
   let pp_set_kind fmt = function
     | DbSet ty -> Format.fprintf fmt "dbset(%a)" QmlPrint.pp#ty ty
@@ -90,7 +96,7 @@ module Schema = struct
         Format.fprintf fmt "@[<hov>access to %a : %a with %a@]"
           pp_path path
           pp_set_kind sk
-          (Option.pp_none pp_query) query
+          pp_query query
 
   let pp_node fmt node =
     Format.fprintf fmt "{@[<hov>type : %a; kind : %a; ...@]}"

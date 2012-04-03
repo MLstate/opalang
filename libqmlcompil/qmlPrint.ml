@@ -324,17 +324,7 @@ object (self)
   | Q.String s -> Format.fprintf f "\"%s\"" (escaped_string s)
   | c -> Format.pp_print_string f (Q.Const.string_of_expr c)
 
-  method path f (el, knd) =
-    let pp_el fmt () = Format.fprintf fmt "%a" (pp_list "" self#path_elt) el in
-    match knd with
-    | Q.Db.Update u -> pp f "%a <- %a" pp_el () (QmlAst.Db.pp_update self#expr) u
-    | _ ->
-        pp f "%s%a" (
-          match knd with
-          | Q.Db.Default -> "" | Q.Db.Option -> "?"
-          | Q.Db.Valpath -> "!" | Q.Db.Ref -> "@"
-          | Q.Db.Update _ -> assert false
-        ) pp_el ()
+  method path f (el, knd, select) = QmlAst.Db.pp_path self#expr f (el, knd, select)
 
   method path_elts f el =
     pp f "%a" (pp_list "" self#path_elt) el
@@ -369,7 +359,7 @@ object (self)
         pp f "@[<2>{%s = %a} ::@ %a@]" s self#expr e1 self#expr e2
     | Q.Bypass (_, s) -> Format.pp_print_string f ("%%" ^ (BslKey.to_string s) ^ "%%")
     | Q.Coerce (_, e,ty) -> pp f "%a : %a" self#under_coerce#expr e self#ty ty
-    | Q.Path (_, el, knd) -> self#path f (el, knd)
+    | Q.Path (_, el, knd, select) -> self#path f (el, knd, select)
     | Q.Directive (_, `module_, [e], _) -> pp f "{%a}" self#reset#expr e
     | Q.Directive (_, dir, exprs, tys) -> self#directive f dir exprs tys
   method bind_field fmt (f, d) = pp fmt "%s = %a" f self#under_record#expr d

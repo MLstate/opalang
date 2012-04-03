@@ -1,3 +1,21 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+
 (* shorthands *)
 module Q = QmlAst
 module C = QmlAstCons.TypedExpr
@@ -672,7 +690,7 @@ module Generator = struct
     (annotmap, set)
 
 
-  let path ~context gamma annotmap schema (label, dbpath, kind) =
+  let path ~context gamma annotmap schema (label, dbpath, kind, select) =
     let node = get_node ~context schema dbpath in
     match node.DbSchema.database.DbSchema.options.DbAst.backend with
     | `mongo -> (
@@ -697,7 +715,7 @@ module Generator = struct
             C.apply gamma annotmap p2p [mongopath]
         | _ -> annotmap, mongopath
       )
-    | `db3 -> annotmap, Q.Path (label, dbpath, kind)
+    | `db3 -> annotmap, Q.Path (label, dbpath, kind, select)
 
   let indexes gamma annotmap _schema node rpath lidx =
     let (annotmap, database) =
@@ -770,10 +788,10 @@ let clean_code gamma annotmap schema code =
 
 let process_path gamma annotmap schema code =
   let fmap tra annotmap = function
-    | Q.Path (label, path, kind) as expr ->
+    | Q.Path (label, path, kind, select) as expr ->
         let context = QmlError.Context.annoted_expr annotmap expr in
         let annotmap, result =
-          Generator.path ~context gamma annotmap schema (label, path, kind) in
+          Generator.path ~context gamma annotmap schema (label, path, kind, select) in
         tra annotmap result
     | e -> tra annotmap e
   in
