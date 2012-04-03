@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -104,6 +104,7 @@ type ('a,'b,'c) strictly_non_expansive =
     | `may_cps
     | Q.opavalue_directive
     | `async
+    | `deprecated
     ]
 type non_expansive = [
   | `module_
@@ -112,96 +113,44 @@ type non_expansive = [
   | Q.closure_instrumentation_directive
 ]
 
-let rec is_expansive e =
-  match e with
-  | Q.Const _
-  | Q.Ident _
-  | Q.Lambda _
-  | Q.Bypass _ -> false
+let is_expansive =
+  QmlAstWalk.Expr.traverse_exists
+    (fun tra -> function
+    | Q.Const _
+    | Q.Ident _
+    | Q.Lambda _
+    | Q.Bypass _ -> false
 
-  | Q.Apply _ -> true
-
-  | Q.LetIn (_, bindings, expr)
-  | Q.LetRecIn (_, bindings, expr) ->
-      List.exists is_expansive (List.map snd bindings)
-      || is_expansive expr
-
-  | Q.Match (_, expr, branches) ->
-      List.exists is_expansive (List.map snd branches)
-      || is_expansive expr
-
-  | Q.Record (_, fields) ->
-      List.exists is_expansive (List.map snd fields)
-
-  | Q.Dot (_, expr, _)
-  | Q.Coerce (_, expr, _)
-    -> is_expansive expr
-
-  | Q.Directive (_, `llarray, [], _) ->
+    | Q.Directive (_, `llarray, [], _) ->
       false (* the empty array is the only one that is not expansive
              * because it is not mutable *)
 
-  | Q.Directive (_, `deprecated, args, _) -> (
-      match args with
-      | [ _ ; expr ] -> is_expansive expr
-      | _ ->
-          (*
-            wrong argument, ill typed
-          *)
-          assert false
-    )
-
-  | Q.Directive (_, #stop_expansiveness, _, _) ->
+    | Q.Directive (_, #stop_expansiveness, _, _) ->
       false
 
-  | Q.Directive (_, (#strictly_non_expansive | #non_expansive), exprs, _)
-    -> List.exists is_expansive exprs
+    | Q.Directive (_, (#strictly_non_expansive | #non_expansive), _exprs, _) as d
+      -> tra d
 
-  | Q.ExtendRecord (_, _, e1, e2) -> is_expansive e1 || is_expansive e2
+    | Q.Directive _ -> true
+    | Q.Apply _ -> true
+    | e -> tra e)
 
-  | Q.Path (_, elt, _) -> List.exists is_expansive_dbpath_expr_elt elt
-  | Q.Directive _ -> true
+let is_expansive_strict =
+  QmlAstWalk.Expr.traverse_exists
+    (fun tra -> function
+    | Q.Const _
+    | Q.Ident _
+    | Q.Lambda _
+    | Q.Bypass _ -> false
+    | Q.Apply _
+    | Q.Record _ -> true
 
-and is_expansive_dbpath_expr_elt e =
-  match e with
-  | Q.Db.ExprKey e -> is_expansive e
-  | _ -> false
+    | Q.Directive (_, #strictly_non_expansive, _exprs, _) as d
+      -> tra d
 
-let rec is_expansive_strict e =
-  match e with
-  | Q.Const _
-  | Q.Ident _
-  | Q.Lambda _
-  | Q.Bypass _ -> false
-
-  | Q.Apply _
-  | Q.Record _ -> true
-
-  | Q.LetIn (_, bindings, expr)
-  | Q.LetRecIn (_, bindings, expr) ->
-      List.exists is_expansive_strict (List.map snd bindings)
-      || is_expansive_strict expr
-
-  | Q.Match (_, expr, branches) ->
-      List.exists is_expansive_strict (List.map snd branches)
-      || is_expansive_strict expr
-
-  | Q.Dot (_, expr, _)
-  | Q.Coerce (_, expr, _) -> is_expansive_strict expr
-
-  | Q.ExtendRecord (_, _, e1, e2) -> is_expansive_strict e1 || is_expansive_strict e2
-
-  | Q.Path (_, elt, _) -> List.exists is_expansive_strict_dbpath_expr_elt elt
-
-  | Q.Directive (_, #strictly_non_expansive, exprs, _)
-    -> List.exists is_expansive_strict exprs
-
-  | Q.Directive _ -> true
-
-and is_expansive_strict_dbpath_expr_elt e =
-  match e with
-  | Q.Db.ExprKey e -> is_expansive_strict e
-  | _ -> false
+    | Q.Directive _ -> true
+    | e -> tra e
+    )
 
 let is_expansive_with_options = function
   | `disabled -> (fun _ -> false)
