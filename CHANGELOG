@@ -18,9 +18,17 @@ Updated APIs:
   * Mongo low-level drivers
     - added authentication parameters and command line options
 
+  * HttpRequest
+    - added a get_form_data to retieves POST data (application/x-www-form-urlencoded )
+  * UriParser
+    - accept empty values for query parameters
+  * Date
+    - support %z in scanner format (returns GMT date)
+
 Other features:
 
-  * Added authentication options for @mongo database
+  * added authentication options for @mongo database
+  * bug-fixes
 
 2012.03.09, Version 0.9.1 (stable), v1466
 
