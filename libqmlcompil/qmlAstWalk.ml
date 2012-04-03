@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,6 +22,7 @@ module List = BaseList
 
 (* aliases *)
 module Db = QmlAst.Db
+module TU = Traverse.Utils
 
 (* shorthands *)
 module Q = QmlAst
@@ -603,63 +604,28 @@ struct
           acc,
           if e == e' then input_e else
             Q.Coerce (label, e', ty)
-      | Q.Path (label, p, kind) ->
+      | Q.Path (label, p, kind, select) ->
+          let aux subs acc elt =
+            let (rebuild, exprs) =
+              subs TU.sub_current TU.sub_ignore elt
+            in let (acc, exprs') =
+              List.fold_left_map_stable
+                (fun acc e ->
+                   let acc, e' = tra acc e in
+                   acc, if e == e' then e else e')
+                acc exprs
+            in acc, if exprs' == exprs then elt else rebuild exprs'
+          in
           let acc, p' =
             List.fold_left_map_stable
-              (fun acc e1 ->
-                 match e1 with
-                 | Q.Db.ExprKey e2 ->
-                     let acc, e2' = tra acc e2 in
-                     acc,
-                     if e2 == e2' then e1 else
-                       Q.Db.ExprKey e2'
-                 | _ -> acc, e1) acc p in
-          let acc, kind' =
-            match kind with
-            | Q.Db.Update u ->
-                let rec update acc u =
-                  match u with
-                  | QmlAst.Db.UPop | QmlAst.Db.UShift
-                  | QmlAst.Db.UIncr _ -> acc, u
-                  | QmlAst.Db.UAppend     e ->
-                      let acc, e' = tra acc e in
-                      acc,
-                      if e == e' then u else QmlAst.Db.UAppend e'
-                  | QmlAst.Db.UPrepend    e ->
-                      let acc, e' = tra acc e in
-                      acc,
-                      if e == e' then u else QmlAst.Db.UPrepend e'
-                  | QmlAst.Db.UAppendAll  e ->
-                      let acc, e' = tra acc e in
-                      acc,
-                      if e == e' then u else QmlAst.Db.UAppendAll e'
-                  | QmlAst.Db.UPrependAll e ->
-                      let acc, e' = tra acc e in
-                      acc,
-                      if e == e' then u else QmlAst.Db.UPrependAll e'
-                  | QmlAst.Db.UExpr e ->
-                      let acc, e' = tra acc e in
-                      acc,
-                      if e == e' then u else QmlAst.Db.UExpr e'
-                  | QmlAst.Db.UFlds fields ->
-                      let acc, fields' =
-                        List.fold_left_map_stable
-                          (fun acc ((f,u) as bnd) ->
-                             let acc, u' = update acc u in
-                             acc,
-                             if u == u' then bnd else (f, u')
-                          ) acc fields in
-                      acc,
-                      if fields == fields' then u else QmlAst.Db.UFlds fields'
-                in
-                let acc, u' = update acc u in
-                acc,
-                if u == u' then kind
-                else QmlAst.Db.Update u'
-            | e -> acc, e in
+              (fun acc e1 -> aux Q.Db.sub_path_elt acc e1)
+              acc p
+          in
+          let acc, select' = aux Q.Db.sub_db_select acc select in
+          let acc, kind' = aux Q.Db.sub_db_kind acc kind in
           acc,
-          if p == p' && kind == kind' then input_e else
-            Q.Path (label, p', kind')
+          if p == p' && kind == kind' && select == select' then input_e else
+            Q.Path (label, p', kind', select')
 
     let fold tra acc e =
       match e with
@@ -691,30 +657,24 @@ struct
       | Q.Record (_, rl) ->
           List.fold_left
             (fun acc (_,e) -> tra acc e) acc rl
-      | Q.Path (_, p, kind) ->
+      | Q.Path (_, p, kind, select) ->
+          let aux subs acc elt =
+            let (_rebuild, exprs) =
+              subs TU.sub_current TU.sub_ignore elt
+            in let acc =
+              List.fold_left
+                (fun acc e -> tra acc e)
+                acc exprs
+            in acc
+          in
           let acc =
             List.fold_left
-              (fun acc -> function
-                 | Q.Db.ExprKey e2 -> tra acc e2
-                 | _ -> acc) acc p
+              (fun acc e -> aux Q.Db.sub_path_elt acc e)
+              acc p
           in
-          let acc = match kind with
-          | Q.Db.Update u ->
-              let rec update acc u =
-                match u with
-                | QmlAst.Db.UPop | QmlAst.Db.UShift | QmlAst.Db.UIncr _ -> acc
-                | QmlAst.Db.UAppend     e
-                | QmlAst.Db.UPrepend    e
-                | QmlAst.Db.UAppendAll  e
-                | QmlAst.Db.UPrependAll e
-                | QmlAst.Db.UExpr e -> tra acc e
-                | QmlAst.Db.UFlds fields ->
-                    List.fold_left
-                      (fun acc (_,u) -> update acc u)
-                      acc fields
-              in update acc u
-          | _ -> acc
-          in acc
+          let acc = aux Q.Db.sub_db_select acc select in
+          let acc = aux Q.Db.sub_db_kind acc kind in
+          acc
       | Q.Directive (_, _, exprs, _) -> List.fold_left tra acc exprs
 
     let iter tra e = Traverse.Unoptimized.iter foldmap tra e
