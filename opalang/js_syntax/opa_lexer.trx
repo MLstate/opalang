@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -125,20 +125,35 @@ utf8char <- [\000-\127]:i1 {{ Cactutf.one_byte (Char.code i1) }}
 # Numbers
 #
 /* integer */
-decimal_number <- [0-9]+ $
-binary_number <- [01]+ $
-octal_number <- [0-7]+ $
-hexadecimal_number <- hexa+ $
+decimal_number <- [0-9][0-9_]* $
+binary_number <- [01][01_]* $
+octal_number <- [0-7][0-7_]* $
+hexadecimal_number <- hexa (hexa/[_])* $
 
 strint   <- [-]? ([0] [bB] binary_number $
                  /[0] [oO] octal_number $
                  /[0] [xX] hexadecimal_number $
                  /decimal_number $) $_
 /* float */
+exponent <- 'e'~ '-'? decimal_number $
 strfloat <-
-   / [-]? [.] [0-9]+ ('e'~ '-'? [0-9]+)? $_
-   / [-]? [0-9]+ [.] [0-9]* ('e'~ '-'? [0-9]+)? $_
-   / [-]? [0-9]+ 'e'~ '-'? [0-9]+ $_
+   / [-]? decimal_number [.] decimal_number? exponent? $_
+   / [-]? [.] decimal_number exponent? $_
+   / [-]? decimal_number exponent $_
+
+
+strint   <- [-]? ([0] [bB] binary_number $
+                 /[0] [oO] octal_number $
+                 /[0] [xX] hexadecimal_number $
+                 /decimal_number $) $_
+
+/* float */
+exponent <- 'e'~ '-'? decimal_number $
+strfloat <-
+   / [-]? decimal_number [.] decimal_number? exponent? $_
+   / [-]? [.] decimal_number exponent? $_
+   / [-]? decimal_number exponent $_
+
 int      <- Opa_parser.pos:pos strint:s   {{ try int_of_string s with Failure "int_of_string" -> error_int_overflow pos }}
 float    <- strfloat {{ float_of_string __1 }}
 
