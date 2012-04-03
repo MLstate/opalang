@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -183,6 +183,10 @@ type channelset('a) = ordered_set(channel('a), Channel.order)
  */
 compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
   Order.of_int(%%BslSession.compare_channels%%(a, b))
+
+@private @comparator(channel('msg)) _cmp(_f : 'msg, 'msg -> Order.comparison, ca, cb) =
+  compare_channel(ca, cb) <: Order.comparison
+
 
 Channel = {{
   order = @nonexpansive(Order.make(compare_channel)) : order(channel('message), Channel.order)
