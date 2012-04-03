@@ -301,15 +301,19 @@ Mime = {{
       | "multipart/related" ->
         boundary = Header.extract_value("boundary", content_type_list)
         multipart(body, boundary)
-      | "text/plain" -> {plain=decoded_body}
       | "text/html" -> {html=Xhtml.of_string(decoded_body)}
       | _ ->
         match Header.find("Content-Disposition", headers)
         {none} -> {plain=decoded_body}
         {some=cd} ->
+          if content_type == "text/plain" && cd == "inline" then
+            {plain=decoded_body}
+          else
             filename = String.explode(";", cd)
                        |> List.map(String.trim, _)
                        |> Header.extract_value("filename", _)
+            if String.is_empty(filename) then {plain=decoded_body}
+            else
             { attachment = {
               ~filename
               mimetype = content_type
