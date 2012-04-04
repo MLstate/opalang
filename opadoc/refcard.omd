@@ -72,7 +72,7 @@ Expressions
 
 ### Functions
 
-###### Function declarations
+#### Function declarations
 
      // function declaration
     function incr(int x) : int
@@ -100,7 +100,7 @@ Expressions
 //[TODO]: Add recursive functions
 //[TODO]: Add partial application
 
-###### Function/module modifiers
+#### Function/module modifiers
 
 The following modifiers can alert the declaration of the function in some way.
 
@@ -157,7 +157,7 @@ Inserts work in XHTML too (both for tags & attributes)
       </>
     }
 
-###### DOM manipulations
+#### DOM manipulations
 
 DOM (Document Object Model) is a representation of X(HT)ML. You will often interact with the DOM to dynamically change the content of the page.
 
@@ -238,7 +238,7 @@ One can choose the back-end with the `--database {mongo/db3}` compiler switch. C
 
 ### Simple types
 
-###### Declaring
+#### Declaring
 
 Declare a collection of database values called `person`
 
@@ -251,7 +251,7 @@ Declare a collection of database values called `person`
       string /name
     }
 
-###### Reading
+#### Reading
 
 The primitive values can be read with `/db_name/field_name` notation
 
@@ -259,7 +259,7 @@ The primitive values can be read with `/db_name/field_name` notation
       "Hey, my name is {/person/name}, I'm {/person/age} years old and I weight {/person/weight} kg."
     }
 
-###### Modifying
+#### Modifying
 
 You can simply set a value:
 
@@ -274,7 +274,7 @@ You can also increment or decrement integer values.
 
 ### Records
 
-###### Declaring
+#### Declaring
 
 Database declaration can also include records
 
@@ -284,7 +284,7 @@ Database declaration can also include records
       person /me
     }
 
-###### Reading
+#### Reading
 
 We can read the whole record
 
@@ -294,7 +294,7 @@ or just a chosen field
 
     int my_age = /people/me/age
 
-###### Modifying
+#### Modifying
 
 Similarly we can update the whole record
 
@@ -339,7 +339,7 @@ After all those operations we have:
 
 Sets and maps are very powerful concepts allowing to better organize and query data.
 
-###### Declaring
+#### Declaring
 
 Let us begin with declaring a *set* of persons
 
@@ -363,7 +363,7 @@ To illustrate maps we will just use a simple abstract example with a map from `i
       intmap(string) /m
     }
 
-###### Querying
+#### Querying
 
 We can fetch a single value from a set with a given key:
 
@@ -371,6 +371,7 @@ We can fetch a single value from a set with a given key:
     user user1 = /users/all[key]
 
 {block}[WARNING]
+
 Note that in Opa 0.9.0 abbreviating the above with
 
     user user1 = /users/all[{id: 123}]
@@ -404,7 +405,7 @@ Examples for maps:
     intmap(string) /map/m[< 123 and > 456] // a sub-map for keys below 123 and above 456
 
 // TODO: Add updating; one example doesn't work for now...
-//###### Updating
+//#### Updating
 
 //Complete, single-value update:
 
@@ -513,7 +514,7 @@ General data types
       case {false}: ...
     }
 
-* See the full [#API#](/module/stdlib.core/Bool).
+[#See the full API#](/module/stdlib.core/Bool)
 
 ### float
 
@@ -532,7 +533,7 @@ General data types
      // conversion from string
     option(float) f = Parser.try_parse(Rule.float, "3.14159")
 
-* See the full [#API#](/module/stdlib.core/Float)
+[#See the full API#](/module/stdlib.core/Float)
 
 ### int
 
@@ -549,7 +550,7 @@ General data types
      // conversion from a string
     option(int) i = Parser.try_parse(Rule.integer, "42")
 
-* See the full [#API#](/module/stdlib.core/Int)
+[#See the full API#](/module/stdlib.core/Int)
 
 ### string
 
@@ -568,8 +569,9 @@ General data types
      // flattening a list of string
     String.flatten(["1", "2", "3"]) == "123"
 
-* See also: [String.capitalize](/value/stdlib.core/String/capitalize), [String.get_prefix](/value/stdlib.core/String/get_prefix), [String.get_suffix](/value/stdlib.core/String/get_suffix), [String.has_prefix](/value/stdlib.core/String/has_prefix), [String.has_suffix](/value/stdlib.core/String/has_suffix), [String.init](/value/stdlib.core/String/init), [String.lowercase](/value/stdlib.core/String/lowercase), [String.print_list](/value/stdlib.core/String/print_list), [String.replace](/value/stdlib.core/String/replace), [String.reverse](/value/stdlib.core/String/reverse), [String.substring](/value/stdlib.core/String/substring), [String.trim](/value/stdlib.core/String/trim), [String.uppercase](/value/stdlib.core/String/uppercase)
-* See the full [#API#](/module/stdlib.core/String).
+See also: [String.capitalize](/value/stdlib.core/String/capitalize), [String.get_prefix](/value/stdlib.core/String/get_prefix), [String.get_suffix](/value/stdlib.core/String/get_suffix), [String.has_prefix](/value/stdlib.core/String/has_prefix), [String.has_suffix](/value/stdlib.core/String/has_suffix), [String.init](/value/stdlib.core/String/init), [String.lowercase](/value/stdlib.core/String/lowercase), [String.print_list](/value/stdlib.core/String/print_list), [String.replace](/value/stdlib.core/String/replace), [String.reverse](/value/stdlib.core/String/reverse), [String.substring](/value/stdlib.core/String/substring), [String.trim](/value/stdlib.core/String/trim), [String.uppercase](/value/stdlib.core/String/uppercase)
+
+[#See the full API#](/module/stdlib.core/String)
 
 //### date
 //[TODO]
@@ -591,8 +593,9 @@ Optional value of any type -- a type-safe approach to null-values.
      // default value; opt of type option(string)
     string s = opt ? "default"
 
-* See also: [Option.map](/value/stdlib.core/Option/map), [Option.switch](/value/stdlib.core/Option/switch)
-* See the full [#API#](/module/stdlib.core/Option)
+See also: [Option.map](/value/stdlib.core/Option/map), [Option.switch](/value/stdlib.core/Option/switch)
+
+[#See the full API#](/module/stdlib.core/Option)
 
 Containers
 ----------
@@ -634,8 +637,9 @@ Lists in Opa are homogeneous, i.e. all elements must have the same type. It's th
      // converting to string
     List.to_string([1, 3, 5]) = "[1, 3, 5]"
 
-* See also: [List.assoc](/value/stdlib.core/List/assoc), [List.exists](/value/stdlib.core/List/exists), [List.filter](/value/stdlib.core/List/filter), [List.find](/value/stdlib.core/List/find), [List.flatten](/value/stdlib.core/List/flatten), [List.get](/value/stdlib.core/List/get), [List.init](/value/stdlib.core/List/init), [/value/stdlib.core/List/nth](List.nth), [List.remove](/value/stdlib.core/List/remove), [List.rev](/value/stdlib.core/List/rev).
-* See the full [#API#](/module/stdlib.core/List).
+See also: [List.assoc](/value/stdlib.core/List/assoc), [List.exists](/value/stdlib.core/List/exists), [List.filter](/value/stdlib.core/List/filter), [List.find](/value/stdlib.core/List/find), [List.flatten](/value/stdlib.core/List/flatten), [List.get](/value/stdlib.core/List/get), [List.init](/value/stdlib.core/List/init), [/value/stdlib.core/List/nth](List.nth), [List.remove](/value/stdlib.core/List/remove), [List.rev](/value/stdlib.core/List/rev).
+
+[#See the full API#](/module/stdlib.core/List)
 
 ### map
 
@@ -661,8 +665,9 @@ Maps (dictionaries, hashmaps) are *immutable* structures mapping keys to values.
      // getting an element from a map
     option(int) v = Map.get("seven", map)
 
-* Iterators: `fold`, `map`, `iter`, `filter` -- similar to [lists](/refcard/Standard-library/Containers/list).
-* See the full [#API#](/package/stdlib.core.map).
+Iterators: `fold`, `map`, `iter`, `filter` -- similar to [lists](/refcard/Standard-library/Containers/list).
+
+[#See the full API#](/package/stdlib.core.map)
 
 //[TODO] add See also
 
@@ -689,8 +694,9 @@ Sets are containers holding and allowing to manipulate a number of elements of t
      // getting an element from a set
     option(int) v = Set.get("Alice")
 
-* Iterators: `fold`, `map`, `iter` -- similar to [lists](/refcard/Standard-library/Containers/list) and [maps](/refcard/Standard-library/Containers/map)
-* See the full [#API#](/package/stdlib.core.set).
+Iterators: `fold`, `map`, `iter` -- similar to [lists](/refcard/Standard-library/Containers/list) and [maps](/refcard/Standard-library/Containers/map)
+
+[#See the full API#](/package/stdlib.core.set)
 //[TODO] add See also
 
 Web features
@@ -751,7 +757,7 @@ This module allows one to declare Servers, i.e. entry-points of Opa programs. On
       ]
     )
 
-* See the full [#API#](/module/stdlib.core.web.server/Server).
+[#See the full API#](/module/stdlib.core.web.server/Server)
 
 ### XHTML
 
@@ -773,7 +779,7 @@ See [syntax introduction](/refcard/The-language/Expressions/XHTML) for more info
         </span>
     }
 
-* See the full [#API#](/module/stdlib.core.xhtml/Xhtml).
+[#See the full API#](/module/stdlib.core.xhtml/Xhtml)
 
 ### CSS
 
@@ -800,9 +806,11 @@ See [syntax introduction](/refcard/The-language/Expressions/XHTML) for more info
       , ...
       ])
 
-* It's very easy to use [Bootstrap](http://twitter.github.com/bootstrap) in Opa. Check [this page](http://bootstrap.opalang.org) for more info.
-* See [syntax introduction](/refcard/The-language/Expressions/XHTML) for more info.
-* See the full [#API#](/module/stdlib.core.xhtml/Css).
+It's very easy to use [Bootstrap](http://twitter.github.com/bootstrap) in Opa. Check [this page](http://bootstrap.opalang.org) for more info.
+
+See [syntax introduction](/refcard/The-language/Expressions/XHTML) for more info.
+
+[#See the full API#](/module/stdlib.core.xhtml/Css)
 
 ### DOM
 
@@ -822,8 +830,9 @@ See [syntax introduction](/refcard/The-language/Expressions/XHTML) for some intr
     Dom.transition(#some_id, Dom.Effect.fade_out())
     Dom.transition(dom_selection, Dom.Effect.slide_in())
 
-* For more effects and ways of applying them see the: /module/stdlib.core.xhtml/Dom/Effect[Dom.Effect] module.
-* See the full [#API#](/module/stdlib.core.xhtml/Dom).
+For more effects and ways of applying them see the: /module/stdlib.core.xhtml/Dom/Effect[Dom.Effect] module.
+
+[#See the full API#](/module/stdlib.core.xhtml/Dom)
 
 ### URLs
 
@@ -848,7 +857,7 @@ See [syntax introduction](/refcard/The-language/Expressions/XHTML) for some intr
     }
     Server.start(Server.http, { dispatch: start })
 
-* See the full [#API#](/module/stdlib.core.web.core/Uri).
+[#See the full API#](/module/stdlib.core.web.core/Uri)
 
 ### Resource
 
@@ -859,7 +868,7 @@ Resources are objects that can be served by the server to the clients, such as w
     Resource.styled_page(title,
       ["resources/style.css"], body)                    // HTML page + custom CSS
     Resource.image({png:
-      @static_source_content("./resources/index.png")}) // image
+      @static_source_content("./resources/index.jpg")}) // image
     Resource.raw_status({wrong_address})                // HTTP response code
 
      // Registering custom CSS resource (app-wide)
@@ -876,7 +885,7 @@ Resources are objects that can be served by the server to the clients, such as w
     }
     Server.start(Server.http, {dispatch: start})
 
-* See the full [#API#](/module/stdlib.core.web.resource/Resource).
+[#See the full API#](/module/stdlib.core.web.resource/Resource)
 
 //Other
 //-----
@@ -887,9 +896,15 @@ Resources are objects that can be served by the server to the clients, such as w
 
 External APIs
 -------------
-
-{table}
-{| ![CouchDB (stdlib.apis.couchdb)]{/package/stdlib.apis.couchdb}(/resources/img/api-couchdb.png) | ![Dropbox (stdlib.apis.dropbox)]{/package/stdlib.apis.dropbox}(/resources/img/api-dropbox.png) | ![Facebook (stdlib.apis.facebook)]{/package/stdlib.apis.facebook}(/resources/img/api-facebook.png) | ![GitHub (stdlib.apis.github)]{/package/stdlib.apis.github}(/resources/img/api-github.png) |}
-{| ![Google Maps (stdlib.apis.gmaps)]{/package/stdlib.apis.gmaps}(/resources/img/api-google-maps.png) | ![IRC (stdlib.apis.irc)]{/package/stdlib.apis.irc}(/resources/img/api-irc.png) | ![MongoDB (stdlib.apis.mongo)]{/package/stdlib.apis.mongo}(/resources/img/api-mongodb.png) | ![OAuth (stdlib.apis.oauth)]{/package/stdlib.apis.oauth}(/resources/img/api-oauth.png) |}
-{| ![RDF (stdlib.apis.rdf)]{/package/stdlib.apis.rdf}(/resources/img/api-rdf.png) | ![ReCaptcha (stdlib.apis.recaptcha)]{/package/stdlib.apis.recaptcha}(/resources/img/api-recaptcha.png) | ![Twitter (stdlib.apis.twitter)]{/package/stdlib.apis.twitter}(/resources/img/api-twitter.png) | ![World Weather Online (stdlib.apis.worldweather)]{/package/stdlib.apis.worldweather}(/resources/img/api-worldweatheronline.png) |}
-{table}
+![^MongoDB (stdlib.apis.mongo)^]{/package/stdlib.apis.mongo}(/resources/img/api-mongodb.jpg)
+![^CouchDB (stdlib.apis.couchdb)^]{/package/stdlib.apis.couchdb}(/resources/img/api-couchdb.jpg)
+![^Dropbox (stdlib.apis.dropbox)^]{/package/stdlib.apis.dropbox}(/resources/img/api-dropbox.jpg)
+![^Facebook (stdlib.apis.facebook)^]{/package/stdlib.apis.facebook}(/resources/img/api-facebook.jpg)
+![^GitHub (stdlib.apis.github)^]{/package/stdlib.apis.github}(/resources/img/api-github.jpg)
+![^Twitter (stdlib.apis.twitter)^]{/package/stdlib.apis.twitter}(/resources/img/api-twitter.jpg)
+![^Google Maps (stdlib.apis.gmaps)^]{/package/stdlib.apis.gmaps}(/resources/img/api-google-maps.jpg)
+![^IRC (stdlib.apis.irc)^]{/package/stdlib.apis.irc}(/resources/img/api-irc.jpg)
+![^OAuth (stdlib.apis.oauth)^]{/package/stdlib.apis.oauth}(/resources/img/api-oauth.jpg)
+![^RDF (stdlib.apis.rdf)^]{/package/stdlib.apis.rdf}(/resources/img/api-rdf.jpg)
+![^ReCaptcha (stdlib.apis.recaptcha)^]{/package/stdlib.apis.recaptcha}(/resources/img/api-recaptcha.jpg)
+![^World Weather Online (stdlib.apis.worldweather)^]{/package/stdlib.apis.worldweather}(/resources/img/api-worldweatheronline.jpg)
