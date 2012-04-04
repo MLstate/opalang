@@ -391,6 +391,10 @@ OpaSerializeClosure = {{
         aux_list(Magic.id(value), ty_arg)
 
       /* Particular named type ******************/
+      /* Bool */
+      | {TyName_ident = "bool"; TyName_args = _} ->
+        {Bool = Magic.id(value)}
+
       /* Session */
       | {TyName_ident = "Session.private.native"; TyName_args = _}
       | {TyName_ident = "channel"; TyName_args = _}
@@ -730,6 +734,10 @@ OpaSerializeClosure = {{
          record_to_list(json,[])
 
       /* Particular named type ******************/
+      /* Bool */
+      | (_, {TyName_ident = "bool"; TyName_args = _}) ->
+        magic_some(json)
+
       /* Session */
       | (_, {TyName_ident = "Session.private.native"; TyName_args = _})
       | (_, {TyName_ident = "channel"; TyName_args = _})
