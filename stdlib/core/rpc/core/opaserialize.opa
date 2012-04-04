@@ -885,6 +885,19 @@ OpaSerializeClosure = {{
 
 }} /* disabled : OpaValue.interface */
 
+
+@private serialize_bool(b:bool,_):RPC.Json.json =
+  {Bool=b}
+
+@private unserialize_bool(b:RPC.Json.json):option(bool) =
+  match b
+  ~{Bool} -> some(Bool)
+  _ -> none
+  end
+
+@serializer(bool) serialization_bool = (serialize_bool,unserialize_bool)
+
+
 /**
   * Deprecated, [un]serialize
   */
