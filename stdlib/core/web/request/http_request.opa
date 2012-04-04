@@ -187,13 +187,12 @@ HttpRequest = {{
      * of the request.
      */
     get_form_data(x: HttpRequest.request): stringmap(string) =
-      decode(s) = String.replace("+", " ", Uri.decode_string(s))
       match Parser.try_parse(UriParser.query_parser, get_body(x))
       | {none} -> StringMap.empty
       | {some=list} ->
         List.fold((a, b), acc ->
-           StringMap.add(decode(a), decode(b), acc)
-         , list, StringMap.empty)
+          StringMap.add(a, b, acc)
+        , list, StringMap.empty)
 
     /**
      * Return the body of a XML request.

@@ -187,7 +187,7 @@ UriParser =
   uric = parser a=reserved -> a | a=unreserved -> a | a=escaped -> a;
   chars = parser v=uric+ -> String.flatten(v)
 
-  uric_query = parser a=unreserved -> a | a=escaped -> a | t=([/:@+$, ]) -> Text.to_string(t) | a=unwise -> a;
+  uric_query = parser a=unreserved -> a | a=escaped -> a | [+] -> " " | t=([/:@+$, ]) -> Text.to_string(t) | a=unwise -> a;
   chars_query = parser v=uric_query+ -> String.flatten(v)
   opt_chars_query = parser v=uric_query* -> String.flatten(v)
 
