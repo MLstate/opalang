@@ -771,7 +771,7 @@ Bson = {{
     | {TyName_args=[{TyConst={TyInt={}}},lty,_]; TyName_ident="ordered_map"}
     | {TyName_args=[lty]; TyName_ident="intmap"} -> intmap_to_bson(key, @unsafe_cast(v), lty)
     | {TyName_args=tys; TyName_ident=tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
-    | _ -> ML.fatal("Bson.opa_to_bson","unknown value {v} of type {OpaType.to_pretty(ty)}",-1)
+    | _ -> ML.fatal("Bson.opa_to_bson","unknown value {Debug.dump(v)} of type {OpaType.to_pretty(ty)}",-1)
 
   opa_to_bson(v:'a, ty_opt:option(OpaType.ty)): Bson.document =
     ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
