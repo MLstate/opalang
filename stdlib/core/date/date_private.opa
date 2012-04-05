@@ -305,8 +305,9 @@ import stdlib.core.parser
     parse_num(f) =
       parser Rule.ws v=Rule.natural -> f(v)
 
-    parse_timezone(f) =
-      parser Rule.ws s=("+"|"-") h=Rule.fixed_length_natural(2) m=Rule.fixed_length_natural(2) -> f((Text.to_string(s), h, m))
+    parse_timezone(f) = parser
+      | Rule.ws "GMT" -> identity
+      | Rule.ws s=("+"|"-") h=Rule.fixed_length_natural(2) m=Rule.fixed_length_natural(2) (Rule.ws "(" (!")" .)* ")")? -> f((Text.to_string(s), h, m))
 
     update_am(d : Date.human_readable) = {d with h = if d.h == 12 then  0 else d.h}
     update_pm(d : Date.human_readable) = {d with h = if d.h == 12 then 12 else d.h + 12}
