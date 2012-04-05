@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -144,7 +144,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     List.fold(aux, auth_params, "")
 
   build_basic_params() =
-    nonce = Random.int(max_int)+max_int/10
+    nonce = Random.int(Limits.max_int)+Limits.max_int/10
     timestamp = Date.in_milliseconds(Date.now()) / 1000
     [("oauth_consumer_key", p.consumer_key), ("oauth_timestamp", "{timestamp}"),
      ("oauth_nonce", "{nonce}"), ("oauth_version", "1.0")]
