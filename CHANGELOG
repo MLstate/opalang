@@ -1,4 +1,13 @@
+New supported platform:
+
+ * Windows 64bits
+   - the platform is now supported via our binary installer
+   - the behaviour is still considered as unstable
+
 Bug fixes:
+
+  * Windows
+    - line error location
 
   * Mime
     - fixed a bug in q-parser and qp-parser
@@ -48,6 +57,9 @@ Updated APIs:
 
 Other features:
 
+  * Windows
+    - the installer is now completly standalone, nothing else need to be installed
+
   * Slicer
     - new warning classes that prevent using inadapted slicer directives
     - new compile-time option '--slicer-check' that activate predefined configuration for theses warning classes
@@ -64,6 +76,9 @@ Other features:
 
   * bslClient
     - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
+
+  * Editor
+    - start support of Sublime Text 2 with a plugin available at https://github.com/OpaOnWindowsNow/OpaSublimeText/downloads
 
 2012.03.09, Version 0.9.1 (stable), v1466
 
