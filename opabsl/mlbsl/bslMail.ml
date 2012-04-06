@@ -114,6 +114,7 @@
   let searchresult = ServerLib.static_field_of_name "SearchResult"
   let fetchresult = ServerLib.static_field_of_name "FetchResult"
   let storeresult = ServerLib.static_field_of_name "StoreResult"
+  let statusresult = ServerLib.static_field_of_name "StatusResult"
   let listresult = ServerLib.static_field_of_name "ListResult"
   let expungeresult = ServerLib.static_field_of_name "ExpungeResult"
   let no = ServerLib.static_field_of_name "No"
@@ -141,6 +142,8 @@
     in
     let wrap_is (i,s) =
       BslNativeLib.opa_tuple_2 (ServerLib.wrap_int i, ServerLib.wrap_string s) in
+    let wrap_ss (s1,s2) =
+      BslNativeLib.opa_tuple_2 (ServerLib.wrap_string s1, ServerLib.wrap_string s2) in
     let wrap_iss (i1,s2,s3) =
       BslNativeLib.opa_tuple_3 (ServerLib.wrap_int i1, ServerLib.wrap_string s2, ServerLib.wrap_string s3) in
     let wrap_sss (s1,s2,s3) =
@@ -210,6 +213,11 @@
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc storeresult opa_isl in
                     ServerLib.make_record rc
+                | ImapClientCore.StatusResult ssl ->
+                    let opa_ssl = BslNativeLib.caml_list_to_opa_list wrap_ss ssl in
+                    let rc = ServerLib.empty_record_constructor in
+                    let rc = ServerLib.add_field rc statusresult opa_ssl in
+                    ServerLib.make_record rc
                 | ImapClientCore.ListResult sssl ->
                     let opa_sssl = BslNativeLib.caml_list_to_opa_list wrap_sss sssl in
                     let rc = ServerLib.empty_record_constructor in
@@ -255,6 +263,7 @@
                 | Some "ImapCreate" -> ImapClientCore.ImapCreate (ServerLib.unwrap_string value)
                 | Some "ImapDelete" -> ImapClientCore.ImapDelete (ServerLib.unwrap_string value)
                 | Some "ImapRename" -> ImapClientCore.ImapRename (unwrap_ss value)
+                | Some "ImapStatus" -> ImapClientCore.ImapStatus (unwrap_ss value)
                 | Some "ImapExpunge" -> ImapClientCore.ImapExpunge
                 | _ -> assert false)
              (unwrap_opa_email_imap_command command) ImapClientCore.ImapNoop)

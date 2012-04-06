@@ -29,7 +29,7 @@ let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
                password=password;
                commands=commands;
                status={ ICC.flags=""; exists=(-1); recent=(-1); oks=[]; rwstatus="" };
-               fetched=[]; list=[]; expunged=[];
+               fetched=[]; list=[]; expunged=[]; statused=[];
                results=[];
                from=""; dests=[]; data="" } in
   let rec try_mx mail cont =

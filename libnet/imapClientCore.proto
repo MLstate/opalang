@@ -1,4 +1,4 @@
-% -*-erlang-*-
+% -*-proto-*-
 
 %
 %   Copyright © 2011 MLstate
@@ -38,6 +38,7 @@
   | ImapCreate of string
   | ImapDelete of string
   | ImapRename of (string * string)
+  | ImapStatus of (string * string)
   | ImapExpunge
 
 -type commands = command list
@@ -61,6 +62,7 @@
   | FetchResult of (int * string * string) list
   | StoreResult of (int * string) list
   | ListResult of (string * string * string) list
+  | StatusResult of (string * string) list
   | ExpungeResult of int list
   | Error of string
 
@@ -73,6 +75,7 @@
   status : status;
   fetched : (int * string * string) list;
   list : (string * string * string) list;
+  statused : (string * string) list;
   expunged : int list;
   results : results;
   from : string;
@@ -115,6 +118,7 @@ let string_of_command = function
   | ImapCreate s -> sprintf "CREATE %s" s
   | ImapDelete s -> sprintf "DELETE %s" s
   | ImapRename (f,t) -> sprintf "RENAME %s %s" f t
+  | ImapStatus (m,i) -> sprintf "STATUS %s %s" m i
   | ImapExpunge -> "EXPUNGE"
 let add_fetched str fetched =
   match fetched with
@@ -139,6 +143,7 @@ let add_fetched str fetched =
 -define (StarFetchLen (num:int, what, len:int)) = "* " num " FETCH (" what " {" len "}\r\n"
 -define (StarFetch (num:int, result))           = "* " num " FETCH " result "\r\n"
 -define (StarList (flags,rf,mailbox))           = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
+-define (StarStatus (mailbox,items))            = "* STATUS "~ mailbox " (" items ")\r\n"
 -define (Search (tag, params))                  = tag " SEARCH " params "\r\n"
 -define (UidSearch (tag, params))               = tag " UID SEARCH " params "\r\n"
 -define (SearchCs (tag, cs, params))            = tag " SEARCH CHARSET " cs " " params "\r\n"
@@ -153,6 +158,7 @@ let add_fetched str fetched =
 -define (Create (tag, mailbox))                 = tag " CREATE " mailbox "\r\n"
 -define (Delete (tag, mailbox))                 = tag " DELETE " mailbox "\r\n"
 -define (Rename (tag, frommb, tomb))            = tag " RENAME " frommb " " tomb "\r\n"
+-define (Status (tag, mailbox, items))          = tag " STATUS " mailbox " (" items ")\r\n"
 -define (Expunge tag)                           = tag " EXPUNGE\r\n"
 -define (Close tag)                             = tag " CLOSE\r\n"
 
@@ -164,6 +170,7 @@ let add_fetched str fetched =
 -define (CreateOk (tag,str))                    = tag " OK CREATE "~ str "\r\n"
 -define (DeleteOk (tag,str))                    = tag " OK DELETE "~ str "\r\n"
 -define (RenameOk (tag,str))                    = tag " OK RENAME "~ str "\r\n"
+-define (StatusOk (tag,str))                    = tag " OK STATUS "~ str "\r\n"
 -define (ExpungeOk (tag,str))                   = tag " OK EXPUNGE "~ str "\r\n"
 -define (CloseOk (tag,str))                     = tag " OK CLOSE "~ str "\r\n"
 -define (StarOk str)                            = "* OK " str "\r\n"
@@ -198,14 +205,6 @@ login(mail, tools, tag):
     else
       debug {{ eprintf "login received LOGIN OK: tag=%s flags=%s str=%s\n%!" tag _flags _str }}
       commands(mail, tools)
-%      let tag = {{ get_tag() }}
-%      if {{ mail.readonly }}
-%      then
-%        send (Examine (tag, mail.mailbox));
-%        select(mail, tools, tag, {{"EXAMINE"}})
-%      else
-%        send (Select (tag, mail.mailbox));
-%        select(mail, tools, tag, {{"SELECT"}})
   | err ->
     debug {{ eprintf "ImapClientCore.login received err: %s\n%!" (string_of_msg err) }}
     error({{ string_of_msg err }}, tools)
@@ -313,6 +312,14 @@ commands(mail, tools):
       send (Delete (tag, mailbox));
       wait_for_ok(mail, tools, tag, {{"delete"}}, {{"DELETE"}},
                   {{function DeleteOk (rt,s) -> Some (rt,s) | _ -> None}}, {{Ok "deleted"}})
+    | ImapStatus (mailbox, items) ->
+      if {{ items = "" || mailbox = "" }}
+      then
+        error({{ "Empty strings would make STATUS command invalid, use \"\" instead" }}, tools)
+      else
+        send (Status (tag, mailbox, items));
+        status(mail, tools, tag)
+      end
     | ImapRename (frommb, tomb) ->
       send (Rename (tag, frommb, tomb));
       wait_for_ok(mail, tools, tag, {{"rename"}}, {{"RENAME"}},
@@ -535,6 +542,30 @@ list(mail, tools, tag):
   catch
   | exn ->
     check_exception(mail, tools, {{"list"}}, tag, exn)
+
+status(mail, tools, tag):
+  receive
+  | StarOk _str ->
+    debug {{ eprintf "status received * OK: %s\n" _str }}
+    status(mail, tools, tag)
+  | StarStatus (mailbox, items) ->
+    debug {{ eprintf "status received * STATUS: %s (%s)\n" mailbox items }}
+    let mail = {{ { mail with statused = ((mailbox,items)::mail.statused) } }}
+    status(mail, tools, tag)
+  | StatusOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "status received mismatched STATUS OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "status received STATUS OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((StatusResult mail.statused)::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"STATUS"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"status"}}, tag, exn)
 
 expunge(mail, tools, tag):
   receive

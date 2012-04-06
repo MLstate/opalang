@@ -119,6 +119,7 @@ type Email.imap_command =
   / { ImapCreate : string }
   / { ImapDelete : string }
   / { ImapRename : (string, string) }
+  / { ImapStatus : (string, string) }
   / { ImapExpunge }
 
 //type Email.imap_status = {
@@ -141,6 +142,7 @@ type Email.imap_result =
   / { FetchResult : list((int, string, string)) }
   / { StoreResult : list((int, string)) }
   / { ListResult : list((string, string, string)) }
+  / { StatusResult : list((string, string)) }
   / { ExpungeResult : list(int) }
   / { Error : string }
 
