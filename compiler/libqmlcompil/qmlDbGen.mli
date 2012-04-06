@@ -19,7 +19,7 @@
 (** {6 Command line arguments } *)
 
 (** Describes different backend that dbgen handle. *)
-type engine = [`db3 | `mongo]
+type engine = [`db3 | `mongo | `dropbox]
 
 (** Command line specification provides necessary options for switch
     database backend. *)

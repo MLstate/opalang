@@ -231,6 +231,7 @@ struct
   type engine = [
   |`db3
   |`mongo
+  |`dropbox 
   ]
 
   type options = {
@@ -399,6 +400,7 @@ struct
   let options_to_string opt = match opt.backend with
     | `db3 -> "@db3"
     | `mongo -> "@mongo"
+    | `dropbox -> "@dropbox"
 
   let path_decl_key_to_string = function
     | Decl_fld s -> "/"^s

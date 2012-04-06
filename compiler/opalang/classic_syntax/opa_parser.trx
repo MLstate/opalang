@@ -247,7 +247,8 @@ db_options <-
   / "@" "meta" {{ {QmlAst.Db.backend = `db3} }}
   / "@" "db3" {{ {QmlAst.Db.backend = `db3} }}
   / "@" "mongo" {{ {QmlAst.Db.backend = `mongo} }}
-
+  / "@" "dropbox" {{ {QmlAst.Db.backend = `dropbox} }}
+  
 (**
    {6 Bindings}
    Bindings or assimilated (like do)

@@ -484,7 +484,7 @@ db_virtual <-
 db_options <-
   / "@" "db3" {{ {QmlAst.Db.backend = `db3} }}
   / "@" "mongo" {{ {QmlAst.Db.backend = `mongo} }}
-
+  / "@" "dropbox" {{ {QmlAst.Db.backend = `dropbox} }}
 
 
 

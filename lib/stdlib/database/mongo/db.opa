@@ -26,6 +26,7 @@ import stdlib.apis.mongo
 //# <End>
 import stdlib.apis.mongo.common
 import stdlib.system
+import stdlib.database.common
 
 /**
  * {1 About this module}
@@ -191,15 +192,12 @@ DbMongo = {{
 
   @package defaultns(db:DbMongo.t2) = "{db.name}._default"
 
-  @package path_to_id(path:list(string)) =
-    Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
-
    /* ********************************************
     * {3 Builder of composed path}
     * *******************************************/
    @package build_vpath_compose(_:DbMongo.t, path:list(string), default:'data,
                        elements:list((string, DbMongo.private.path_t(black, 'data)))):DbMongo.private.val_path('data) =
-     id = path_to_id(path)
+     id = DbCommon.path_to_id(path)
      read() = (
        #<Ifstatic:DBGEN_DEBUG>
        do Log.notice("DbGen/Mongo", "Db.build_vpath_compose : Start reading")
@@ -245,8 +243,8 @@ DbMongo = {{
    : DbMongo.private.val_path('data) =
      db = db.get()
      ns = defaultns(db)
-     rid = path_to_id(rpath)
-     id = path_to_id(path)
+     rid = DbCommon.path_to_id(rpath)
+     id = DbCommon.path_to_id(path)
      selector = [{name = "_id"; value = {String = rid}}]
      filter = [
        {name = "_id"; value = {Boolean = false}},
@@ -284,7 +282,8 @@ DbMongo = {{
      vpath = build_vpath_sub(db, path, default, rpath, partial)
      db = db.get()
      ns = defaultns(db)
-     rid = path_to_id(rpath)
+     rid = DbCommon.path_to_id(rpath)
+     vpath = build_vpath_sub(db, path, default, rpath, partial)
      selector = [{name = "_id"; value = {String = rid}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      field = List.to_string_using("", "", ".", partial)
@@ -313,7 +312,7 @@ DbMongo = {{
    @package build_vpath(db:DbMongo.t, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
      db = db.get()
      ns = defaultns(db)
-     id = path_to_id(path)
+     id = DbCommon.path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
      filter = [{name = "_id"; value = {Boolean = false}}]
      uncap =
@@ -352,7 +351,7 @@ DbMongo = {{
    @package update_path(db:DbMongo.t, path:list(string), update) =
      db = db.get()
      ns = defaultns(db)
-     id = path_to_id(path)
+     id = DbCommon.path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      @catch(_ ->
@@ -755,12 +754,12 @@ type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
  * {1 Interface}
  */
 
-DbSet = {{
+DbMongoSet = {{
 
   @package path_to_id(path) = List.to_string_using("", "", ".", path)
 
   @package index(db:DbMongo.t2, path:list(string), idx) =
-    id = DbSet.path_to_id(path)
+    id = path_to_id(path)
     key = List.map((name -> ~{name value={Int32=1}}), idx)
     opt = 0
     opt = Bitwise.lor(opt, MongoCommon.UniqueBit)
@@ -813,7 +812,7 @@ DbSet = {{
     do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
     #<End>
     db = db.get()
-    id = DbSet.path_to_id(path)
+    id = path_to_id(path)
     ns = "{db.name}.{id}"
     filter =
         match filter with
@@ -838,7 +837,7 @@ DbSet = {{
 
   @package update(db:DbMongo.t, path:list(string), selector, update, upsert) =
     db = db.get()
-    id = DbSet.path_to_id(path)
+    id = path_to_id(path)
     tag = if upsert then Bitwise.lor(0, MongoCommon.UpsertBit) else 0
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
     #<Ifstatic:DBGEN_DEBUG>
@@ -989,7 +988,7 @@ DbSet = {{
   @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
               read_map:DbMongoSet.engine('a) -> option('b)):DbMongo.private.val_path('b) =
     {
-      id = DbSet.path_to_id(path)
+      id = path_to_id(path)
       read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit, filter)):option('b)
       default = default
       more = void
@@ -998,7 +997,7 @@ DbSet = {{
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
                        read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document,
                        embed:option(string)):DbMongo.private.ref_path('b) =
-    id = DbSet.path_to_id(path)
+    id = path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     write(data) =
       do update(db, path, selector,
@@ -1033,7 +1032,8 @@ DbSet = {{
              read_map:DbMongoSet.engine('a) -> option('b),
              write_map:'b -> list(Bson.document),
              embed:option(string)):DbMongo.private.ref_path('b) =
-    id = DbSet.path_to_id(path)
+             write_map:'b -> list(Bson.document)):DbMongo.private.ref_path('b) =
+    id = path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     db0 = db.get()
     remove =
@@ -1077,7 +1077,6 @@ DbSet = {{
 @opacapi DbMongo_update_path = DbMongo.update_path
 @opacapi DbMongo_build_vpath = DbMongo.build_vpath
 @opacapi DbMongo_build_rpath = DbMongo.build_rpath
-
 @opacapi DbMongo_build_rpath_compose = DbMongo.build_rpath_compose
 @opacapi DbMongo_build_vpath_compose = DbMongo.build_vpath_compose
 
@@ -1087,24 +1086,23 @@ DbSet = {{
 @opacapi DbMongo_write = DbMongo.write
 @opacapi DbMongo_option = DbMongo.option
 
-
-@opacapi DbSet_build = DbSet.build
-@opacapi DbSet_update = DbSet.update
-@opacapi DbSet_opa2doc = Bson.opa2doc
-@opacapi DbSet_add_to_document = DbSet.add_to_document
-@opacapi DbSet_indexes = DbSet.indexes
-@opacapi DbSet_to_map = DbSet.to_map
-@opacapi DbSet_iterator = DbSet.iterator
-@opacapi DbSet_iterator_map = Iter.map
-@opacapi DbSet_map_to_uniq = DbSet.map_to_uniq
-@opacapi DbSet_map_to_uniq_def = DbSet.map_to_uniq_def
-@opacapi DbSet_map_to_docs = DbSet.map_to_docs
-@opacapi DbSet_set_to_uniq = DbSet.set_to_uniq
-@opacapi DbSet_set_to_uniq_def = DbSet.set_to_uniq_def
-@opacapi DbSet_set_to_docs = DbSet.set_to_docs
-@opacapi DbSet_build_vpath = DbSet.build_vpath
-@opacapi DbSet_build_rpath = DbSet.build_rpath
-@opacapi DbSet_build_rpath_collection = DbSet.build_rpath_collection
-@opacapi DbSet_default = Option.default
-@opacapi DbSet_empty = {empty}
+@opacapi DbMongoSet_build = DbSet.build
+@opacapi DbMongoSet_update = DbSet.update
+@opacapi DbMongoSet_opa2doc = Bson.opa2doc
+@opacapi DbMongoSet_add_to_document = DbSet.add_to_document
+@opacapi DbMongoSet_indexes = DbSet.indexes
+@opacapi DbMongoSet_to_map = DbSet.to_map
+@opacapi DbMongoSet_iterator = DbSet.iterator
+@opacapi DbMongoSet_iterator_map = Iter.map
+@opacapi DbMongoSet_map_to_uniq = DbSet.map_to_uniq
+@opacapi DbMongoSet_map_to_uniq_def = DbSet.map_to_uniq_def
+@opacapi DbMongoSet_map_to_docs = DbSet.map_to_docs
+@opacapi DbMongoSet_set_to_uniq = DbSet.set_to_uniq
+@opacapi DbMongoSet_set_to_uniq_def = DbSet.set_to_uniq_def
+@opacapi DbMongoSet_set_to_docs = DbSet.set_to_docs
+@opacapi DbMongoSet_build_vpath = DbSet.build_vpath
+@opacapi DbMongoSet_build_rpath = DbSet.build_rpath
+@opacapi DbMongoSet_build_rpath_collection = DbSet.build_rpath_collection
+@opacapi DbMongoSet_default = Option.default
+@opacapi DbMongoSet_empty = {empty}
 @opacapi DbMongo_expr_to_field(x) = Bson.encode_field(OpaSerialize.serialize(x))

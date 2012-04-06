@@ -27,7 +27,7 @@ module Api = struct
 
   module Db = Opacapi.DbMongo
 
-  module DbSet = Opacapi.DbSet
+  module DbSet = Opacapi.DbMongoSet
 end
 
 module DbAst = QmlAst.Db

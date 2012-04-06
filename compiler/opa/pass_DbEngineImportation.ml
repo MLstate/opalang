@@ -37,6 +37,7 @@ struct
     let aux = function
       |`db3 -> "db3"
       |`mongo -> "mongo"
+      |`dropbox -> "dropbox"
     in
     List.iter (fun x -> Format.fprintf f "%s;" (aux x)) l
 end
@@ -55,7 +56,9 @@ let import_packages engines =
     List.map
       (function
        | `db3   -> "stdlib.database.db3"
-       | `mongo -> "stdlib.database.mongo")
+       | `mongo -> "stdlib.database.mongo"
+       | `dropbox -> "stdlib.database.dropbox"
+         )
       engines
   in
   ObjectFiles.add_compiler_packages packages

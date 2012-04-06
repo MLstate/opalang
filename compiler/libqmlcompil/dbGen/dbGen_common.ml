@@ -59,7 +59,7 @@ type schema_node = {
   plain : bool;
 }
 
-type engine = [ `db3 | `mongo]
+type engine = [ `db3 | `mongo | `dropbox]
 
 module Args = struct
 
@@ -74,15 +74,16 @@ module Args = struct
   let descr = function
     | `db3   -> "Db3"
     | `mongo -> "Mongo"
+    | `dropbox -> "Dropbox"
 
-  let assoc = [("mongo", `mongo); ("db3"), `db3]
+  let assoc = [("mongo", `mongo); ("db3", `db3); ("dropbox", `dropbox)]
 
   let r = ref None
 
   let options = [
     ("--database", Arg.spec_fun_of_assoc
        (fun s -> r := Some {engine=s}) assoc,
-     "Select kind of database (db3|mongo)");
+     "Select kind of database (db3|mongo|dropbox)");
   ]
 
   let get_engine () = Option.map (fun r -> r.engine) !r
@@ -162,6 +163,7 @@ module Db = struct
       match engine with
       | `db3 -> Opacapi.Types.Db3.t
       | `mongo -> Opacapi.Types.DbMongo.t
+      | `dropbox -> Opacapi.Types.DbDropbox.t
     in
     QmlAst.TypeName ([], typ ident)
 
@@ -170,17 +172,22 @@ module Db = struct
       match engine with
       | `db3 -> Opacapi.Types.db3set
       | `mongo -> Opacapi.Types.dbmongoset
+      | `dropbox -> Opacapi.Types.dbdropboxset
     in
     QmlAst.TypeName ([ty], typ ident)
 
   let mongo_engine () =
     QmlAst.TypeName ([], typ Opacapi.Types.DbMongo.engine)
 
+  let dropbox_engine () =
+    QmlAst.TypeName ([], typ Opacapi.Types.DbDropbox.engine)
+
   let ref_path_ty tydata =
     let tyengine =
       match get_engine() with
       | `db3 -> ref_path_ty tydata
-      | `mongo -> mongo_engine ()
+      | `dropbox -> dropbox_engine ()
+      | `mongo -> mongo_engine () 
     in
     QmlAst.TypeName ([tydata; tyengine],
                      (* typ don't use typ with type defined inside stdlib.core*)
@@ -190,6 +197,7 @@ module Db = struct
     let tyengine =
       match get_engine() with
       | `db3 -> val_path_ty tydata
+      | `dropbox -> dropbox_engine ()
       | `mongo -> mongo_engine ()
     in
     QmlAst.TypeName ([tydata; tyengine],

@@ -74,7 +74,7 @@ struct
   let stringmap_empty   = "stringmap_empty"
   let stringmap_add     = "stringmap_add"
   let stringmap_fold    = "stringmap_fold"
-  let dbset_empty   = Opacapi.DbSet.empty
+  let dbset_empty   = Opacapi.DbMongoSet.empty
   let ref_to_ref = Opacapi.Db3.ref_to_ref
 
   let make_virtual_val = "make_virtual_val"
@@ -82,7 +82,7 @@ struct
 
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
-  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let dbset_genbuild = Opacapi.DbMongoSet.genbuild
   let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
@@ -223,7 +223,7 @@ struct
   let stringmap_empty   = Opacapi.StringMap.empty
   let stringmap_add     = Opacapi.StringMap.add
   let stringmap_fold    = Opacapi.StringMap.fold
-  let dbset_empty    = Opacapi.DbSet.empty
+  let dbset_empty    = Opacapi.DbMongoSet.empty
 
   let make_virtual_val = Opacapi.DbVirtual.make_val
   let make_virtual_ref = Opacapi.DbVirtual.make_ref
@@ -231,8 +231,9 @@ struct
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
 
-  let dbset_genbuild = Opacapi.DbSet.genbuild
+  let dbset_genbuild = Opacapi.DbMongoSet.genbuild
   let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
+(* Add dropbox opa interface here *)
 module BSLDbGenAlphaOpa = MakeS ( DbOpaInterface )  ( I_Alpha )

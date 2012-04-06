@@ -149,23 +149,46 @@ struct
   let iterator = !! "iterator"
 end
 
-module DbMongo =
-struct
-  let (!!) s = !! ("DbMongo_" ^ s)
-  let open_ = !! "open"
-  let path_to_path = !! "path_to_path"
-  let build_vpath = !! "build_vpath"
-  let build_rpath = !! "build_rpath"
-  let update_path = !! "update_path"
-  let build_vpath_sub = !! "build_vpath_sub"
-  let build_rpath_sub = !! "build_rpath_sub"
-  let build_rpath_compose = !! "build_rpath_compose"
-  let build_vpath_compose = !! "build_vpath_compose"
-  let option = !! "option"
-  let read = !! "read"
-  let write = !! "write"
-  let expr_to_field = !! "expr_to_field"
-end
+module type DB =
+  sig
+    val ( !! ) : string -> string
+    val open_ : string
+    val path_to_path : string
+    val build_vpath : string
+    val build_rpath : string
+    val update_path : string
+    val build_vpath_sub : string
+    val build_rpath_sub : string
+    val build_rpath_compose : string
+    val build_vpath_compose : string
+    val option : string
+    val read : string
+    val write : string
+	val expr_to_field : string
+  end
+
+let make_db(x) =
+  let module Db =
+    struct
+      let (!!) s = !! (x ^ "_" ^ s)
+      let open_ = !! "open"
+      let path_to_path = !! "path_to_path"
+      let build_vpath = !! "build_vpath"
+      let build_rpath = !! "build_rpath"
+      let update_path = !! "update_path"
+      let build_vpath_sub = !! "build_vpath_sub"
+      let build_rpath_sub = !! "build_rpath_sub"
+      let build_rpath_compose = !! "build_rpath_compose"
+      let build_vpath_compose = !! "build_vpath_compose"
+      let option = !! "option"
+      let read = !! "read"
+      let write = !! "write"
+      let expr_to_field = !! "expr_to_field"
+    end
+  in (module Db : DB)
+
+module DbMongo = (val make_db "DbMongo" : DB)
+module DbDropbox = (val make_db "DbDropbox" : DB)
 
 module DbSet =
 struct
@@ -372,6 +395,7 @@ struct
   let dbset = !! "dbset"
   let db3set = !! "Db3Set.t"
   let dbmongoset = !! "DbMongoSet.t"
+  let dbdropboxset = !! "DbDropboxSet.t"
   let dom = !! "dom"
   let finite_single_thread_lazy = !! "finite_single_thread_lazy"
   let float = !! "float"
@@ -441,9 +465,24 @@ struct
     let engine  = !! "engine"
   end
 
+  module DbDropboxSet =
+  struct
+    let (!!) s = !! ("DbDropboxSet." ^ s)
+    let engine  = !! "engine"
+  end
+
   module DbMongo =
   struct
     let (!!) s = !! ("DbMongo." ^ s)
+    let t  = !! "t"
+    let engine  = !! "engine"
+    let val_path = !! "private.val_path"
+    let ref_path = !! "private.ref_path"
+  end
+
+  module DbDropbox =
+  struct
+    let (!!) s = !! ("DbDropbox." ^ s)
     let t  = !! "t"
     let engine  = !! "engine"
     let val_path = !! "private.val_path"
