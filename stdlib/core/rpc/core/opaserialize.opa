@@ -892,6 +892,8 @@ OpaSerializeClosure = {{
 @private unserialize_bool(b:RPC.Json.json):option(bool) =
   match b
   ~{Bool} -> some(Bool)
+  {Record=[("false", _)]} -> some(false)
+  {Record=[("true", _)]} -> some(true)
   _ -> none
   end
 
