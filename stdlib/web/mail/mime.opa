@@ -85,12 +85,12 @@ Mime = {{
   @private Q = {{
 
     q_parser = parser
-    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> 16 * fst + snd
-    | "_" -> 320 // <=> =20
-    | c=. -> c
+    | c=((!"=" !"_" .)+) -> Text.to_string(c)
+    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> String.of_byte_val(16 * fst + snd)
+    | "_"  -> " "
 
     decode(s:string, _charset:string) =
-      p = parser l=q_parser+ -> Text.to_string(Text.lcconcat(l))
+      p = parser l=q_parser+ -> String.flatten(l)
       match Parser.try_parse(p, s)
       {some=s} -> s
       {none} -> s
@@ -151,15 +151,15 @@ Mime = {{
   @private QuotedPrintable = {{
 
     qp_parser = parser
-    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> some(16 * fst + snd)
+    | c=((!"=" !"_" .)+) -> some(Text.to_string(c))
+    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> some(String.of_byte_val(16 * fst + snd))
     | "=" crlf_parser -> none
     | "=" -> none
-    | c=. -> some(c)
 
     decode(s:string) : string =
       p = parser l=QuotedPrintable.qp_parser+ ->
         l = List.filter_map(identity, l)
-        Text.to_string(Text.lcconcat(l))
+        String.flatten(l)
       match Parser.try_parse(p, s)
       {some=s} -> s
       {none} -> s
