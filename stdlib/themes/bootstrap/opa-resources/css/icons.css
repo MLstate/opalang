@@ -249,6 +249,18 @@
 .active .icon.icon-sent, .icon.icon-sent, .icon.icon-sent:hover { background-position: -64px -144px; }
 .active .icon.icon-attachment, .icon.icon-attachment, .icon.icon-attachment:hover { background-position: -80px -144px; }
 
+/* Misc */
+.active .icon.icon-company, .icon.icon-company, .icon.icon-company:hover { background-position: -96px -144px; }
+.active .icon.icon-mobile, .icon.icon-mobile, .icon.icon-mobile:hover { background-position: -112px -144px; }
+.active .icon.icon-headphones-on, .icon.icon-headphones-on, .icon.icon-headphones-on:hover { background-position: -128px -144px; }
+.active .icon.icon-headphones-off, .icon.icon-headphones-off, .icon.icon-headphones-off:hover { background-position: -144px -144px; }
+.active .icon.icon-box, .icon.icon-box, .icon.icon-box:hover { background-position: -160px -144px; }
+.active .icon.icon-puzzle, .icon.icon-puzzle, .icon.icon-puzzle:hover { background-position: -176px -144px; }
+.active .icon.icon-caret-n, .icon.icon-caret-n, .icon.icon-caret-n:hover { background-position: -192px -144px; }
+.active .icon.icon-caret-e, .icon.icon-caret-e, .icon.icon-caret-e:hover { background-position: -208px -144px; }
+.active .icon.icon-caret-s, .icon.icon-caret-s, .icon.icon-caret-s:hover { background-position: -224px -144px; }
+.active .icon.icon-caret-w, .icon.icon-caret-w, .icon.icon-caret-w:hover { background-position: -240px -144px; }
+
 /* treeview */
 .active .icon.icon-square-plus, .icon.icon-square-plus, .icon.icon-square-plus:hover { background-position: -160px -240px; }
 .active .icon.icon-square-minus, .icon.icon-square-minus, .icon.icon-square-minus:hover { background-position: -176px -240px; }
@@ -506,6 +518,18 @@
 .active .icon32.icon-reply, .icon32.icon-reply, .icon32.icon-reply:hover { background-position: -96px -288px; }
 .active .icon32.icon-sent, .icon32.icon-sent, .icon32.icon-sent:hover { background-position: -128px -288px; }
 .active .icon32.icon-attachment, .icon32.icon-attachment, .icon32.icon-attachment:hover { background-position: -160px -288px; }
+
+/* misc */
+.active .icon32.icon-company, .icon32.icon-company, .icon32.icon-company:hover { background-position: -192px -288px; }
+.active .icon32.icon-mobile, .icon32.icon-mobile, .icon32.icon-mobile:hover { background-position: -224px -288px; }
+.active .icon32.icon-headphones-on, .icon32.icon-headphones-on, .icon32.icon-headphones-on:hover { background-position: -256px -288px; }
+.active .icon32.icon-headphones-off, .icon32.icon-headphones-off, .icon32.icon-headphones-off:hover { background-position: -288px -288px; }
+.active .icon32.icon-box, .icon32.icon-box, .icon32.icon-box:hover { background-position: -320px -288px; }
+.active .icon32.icon-puzzle, .icon32.icon-puzzle, .icon32.icon-puzzle:hover { background-position: -352px -288px; }
+.active .icon32.icon-caret-n, .icon32.icon-caret-n, .icon32.icon-caret-n:hover { background-position: -384px -288px; }
+.active .icon32.icon-caret-e, .icon32.icon-caret-e, .icon32.icon-caret-e:hover { background-position: -416px -288px; }
+.active .icon32.icon-caret-s, .icon32.icon-caret-s, .icon32.icon-caret-s:hover { background-position: -448px -288px; }
+.active .icon32.icon-caret-w, .icon32.icon-caret-w, .icon32.icon-caret-w:hover { background-position: -480px -288px; }
 
 /* treeview */
 .active .icon32.icon-square-plus, .icon32.icon-square-plus, .icon32.icon-square-plus:hover { background-position: -320px -480px; }
