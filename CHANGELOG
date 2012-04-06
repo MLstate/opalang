@@ -1,7 +1,12 @@
-Improvements:
+Bug fixes:
 
-  * bslClient
-    - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
+  * Mime
+    - fixed a bug in q-parser and qp-parser
+    - fixed inline plain/text detection
+
+  * UriParser
+    - fixed bug when parsing '+' character in query
+    - accept empty values for query parameters
 
 Updated APIs:
 
@@ -20,15 +25,16 @@ Updated APIs:
 
   * HttpRequest
     - added a get_form_data to retieves POST data (application/x-www-form-urlencoded )
-  * UriParser
-    - accept empty values for query parameters
+
   * Date
     - support %z in scanner format (returns GMT date)
 
 Other features:
 
   * added authentication options for @mongo database
-  * bug-fixes
+
+  * bslClient
+    - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
 
 2012.03.09, Version 0.9.1 (stable), v1466
 
