@@ -8,6 +8,9 @@ Bug fixes:
     - fixed bug when parsing '+' character in query
     - accept empty values for query parameters
 
+  * Json
+    - serialisation: emit an error when an integers serialisation could be out of range for the client
+
   * Mongo
     - ref and val path on database set
     - sum type updating
@@ -15,11 +18,14 @@ Bug fixes:
     - always resize buffer when it's full
     - detection of primary key query
     - update with _id
+    - use 64bits package for autoinstall
 
   * Separate compilation
     - Fix packages ordering issues with compiler packages
 
 Updated APIs:
+
+  * `+` : can be used to concatenate two strings
 
   * Bootstrap CSS
     - upgraded to v2.0.2
@@ -41,6 +47,10 @@ Updated APIs:
     - support %z in scanner format (returns GMT date)
 
 Other features:
+
+  * Slicer
+    - new warning classes that prevent using inadapted slicer directives
+    - new compile-time option '--slicer-check' that activate predefined configuration for theses warning classes
 
   * Mongo
     - added authentication options for @mongo database
