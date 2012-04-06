@@ -60,6 +60,12 @@ Other features:
   * Windows
     - the installer is now completly standalone, nothing else need to be installed
 
+  * Html response, size reduction
+    - add option --xhtml-enable-inlined-event, that can choose to inline event handler code in the html
+    - automatic dom ids are shorter
+
+  * Dom ids: accept minus char inside ids
+
   * Slicer
     - new warning classes that prevent using inadapted slicer directives
     - new compile-time option '--slicer-check' that activate predefined configuration for theses warning classes
