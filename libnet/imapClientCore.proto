@@ -39,6 +39,7 @@
   | ImapDelete of string
   | ImapRename of (string * string)
   | ImapStatus of (string * string)
+  | ImapAppend of (string * string * string * string)
   | ImapExpunge
 
 -type commands = command list
@@ -119,6 +120,7 @@ let string_of_command = function
   | ImapDelete s -> sprintf "DELETE %s" s
   | ImapRename (f,t) -> sprintf "RENAME %s %s" f t
   | ImapStatus (m,i) -> sprintf "STATUS %s %s" m i
+  | ImapAppend (m,f,t,l) -> sprintf "APPEND %s %s %s (%d bytes)" m f t (String.length l)
   | ImapExpunge -> "EXPUNGE"
 let add_fetched str fetched =
   match fetched with
@@ -129,58 +131,65 @@ let add_fetched str fetched =
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      Messages envoyés/reçus        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--define (Noop tag)                              = tag " NOOP\r\n"
--define (Login (tag, name, pass))               = tag " LOGIN " name " " pass "\r\n"
--define (Select (tag, mailbox))                 = tag " SELECT " mailbox "\r\n"
--define (Examine (tag, mailbox))                = tag " EXAMINE " mailbox "\r\n"
--define (Exists num:int)                        = "* " num " EXISTS\r\n"
--define (Recent num:int)                        = "* " num " RECENT\r\n"
--define (Flags str)                             = "* FLAGS (" str ")\r\n"
--define (StarSearch result)                     = "* SEARCH " result "\r\n"
--define StarEmptySearch                         = "* SEARCH\r\n"
+-define (Ready str)                                    = "+ " str "\r\n"
+-define (Noop tag)                                     = tag " NOOP\r\n"
+-define (Login (tag, name, pass))                      = tag " LOGIN " name " " pass "\r\n"
+-define (Select (tag, mailbox))                        = tag " SELECT " mailbox "\r\n"
+-define (Examine (tag, mailbox))                       = tag " EXAMINE " mailbox "\r\n"
+-define (Exists num:int)                               = "* " num " EXISTS\r\n"
+-define (Recent num:int)                               = "* " num " RECENT\r\n"
+-define (Flags str)                                    = "* FLAGS (" str ")\r\n"
+-define (StarSearch result)                            = "* SEARCH " result "\r\n"
+-define StarEmptySearch                                = "* SEARCH\r\n"
 % TODO: watch out for other empty messages
--define (StarExpunge num:int)                   = "* " num " EXPUNGE\r\n"
--define (StarFetchLen (num:int, what, len:int)) = "* " num " FETCH (" what " {" len "}\r\n"
--define (StarFetch (num:int, result))           = "* " num " FETCH " result "\r\n"
--define (StarList (flags,rf,mailbox))           = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
--define (StarStatus (mailbox,items))            = "* STATUS "~ mailbox " (" items ")\r\n"
--define (Search (tag, params))                  = tag " SEARCH " params "\r\n"
--define (UidSearch (tag, params))               = tag " UID SEARCH " params "\r\n"
--define (SearchCs (tag, cs, params))            = tag " SEARCH CHARSET " cs " " params "\r\n"
--define (UidSearchCs (tag, cs, params))         = tag " UID SEARCH CHARSET " cs " " params "\r\n"
--define (Fetch (tag, seq, items))               = tag " FETCH " seq " " items "\r\n"
--define (UidFetch (tag, seq, items))            = tag " UID FETCH " seq " " items "\r\n"
--define (Store (tag, seq, din, dinval))         = tag " STORE " seq " " din " " dinval "\r\n"
--define (UidStore (tag, seq, din, dinval))      = tag " UID STORE " seq " " din " " dinval "\r\n"
--define (Copy (tag, seq, mailbox))              = tag " COPY " seq " " mailbox "\r\n"
--define (UidCopy (tag, seq, mailbox))           = tag " UID COPY " seq " " mailbox "\r\n"
--define (List (tag, rf, mailbox))               = tag " LIST " rf " " mailbox "\r\n"
--define (Create (tag, mailbox))                 = tag " CREATE " mailbox "\r\n"
--define (Delete (tag, mailbox))                 = tag " DELETE " mailbox "\r\n"
--define (Rename (tag, frommb, tomb))            = tag " RENAME " frommb " " tomb "\r\n"
--define (Status (tag, mailbox, items))          = tag " STATUS " mailbox " (" items ")\r\n"
--define (Expunge tag)                           = tag " EXPUNGE\r\n"
--define (Close tag)                             = tag " CLOSE\r\n"
+-define (StarExpunge num:int)                          = "* " num " EXPUNGE\r\n"
+-define (StarFetchLen (num:int, what, len:int))        = "* " num " FETCH (" what " {" len "}\r\n"
+-define (StarFetch (num:int, result))                  = "* " num " FETCH " result "\r\n"
+-define (FetchContinue (what, len:int))                = " " what " {" len "}\r\n"
+-define FetchEnd                                       = ")\r\n"
+-define (StarList (flags,rf,mailbox))                  = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
+-define (StarStatus (mailbox,items))                   = "* STATUS "~ mailbox " (" items ")\r\n"
+-define (Search (tag, params))                         = tag " SEARCH " params "\r\n"
+-define (UidSearch (tag, params))                      = tag " UID SEARCH " params "\r\n"
+-define (SearchCs (tag, cs, params))                   = tag " SEARCH CHARSET " cs " " params "\r\n"
+-define (UidSearchCs (tag, cs, params))                = tag " UID SEARCH CHARSET " cs " " params "\r\n"
+-define (Fetch (tag, seq, items))                      = tag " FETCH " seq " " items "\r\n"
+-define (UidFetch (tag, seq, items))                   = tag " UID FETCH " seq " " items "\r\n"
+-define (Store (tag, seq, din, dinval))                = tag " STORE " seq " " din " " dinval "\r\n"
+-define (UidStore (tag, seq, din, dinval))             = tag " UID STORE " seq " " din " " dinval "\r\n"
+-define (Copy (tag, seq, mailbox))                     = tag " COPY " seq " " mailbox "\r\n"
+-define (UidCopy (tag, seq, mailbox))                  = tag " UID COPY " seq " " mailbox "\r\n"
+-define (List (tag, rf, mailbox))                      = tag " LIST " rf " " mailbox "\r\n"
+-define (Create (tag, mailbox))                        = tag " CREATE " mailbox "\r\n"
+-define (Delete (tag, mailbox))                        = tag " DELETE " mailbox "\r\n"
+-define (Rename (tag, frommb, tomb))                   = tag " RENAME " frommb " " tomb "\r\n"
+-define (Status (tag, mailbox, items))                 = tag " STATUS " mailbox " (" items ")\r\n"
+-define (Append1 (tag, mailbox, len:int))              = tag " APPEND " mailbox " {" len "}\r\n"
+-define (Append2 (tag, mailbox, flags, len:int))       = tag " APPEND " mailbox " (" flags ") {" len "}\r\n"
+-define (Append3 (tag, mailbox, flags, time, len:int)) = tag " APPEND " mailbox " (" flags ") " time " {" len "}\r\n"
+-define (Expunge tag)                                  = tag " EXPUNGE\r\n"
+-define (Close tag)                                    = tag " CLOSE\r\n"
 
--define (NoopOk (tag,str))                      = tag " OK NOOP "~ str "\r\n"
--define (FetchOk (tag,str))                     = tag " OK " "UID "? "FETCH "~ str "\r\n"
--define (StoreOk (tag,str))                     = tag " OK " "UID "? "STORE "~ str "\r\n"
--define (CopyOk (tag,str))                      = tag " OK " "UID "? "COPY "~ str "\r\n"
--define (ListOk (tag,str))                      = tag " OK LIST "~ str "\r\n"
--define (CreateOk (tag,str))                    = tag " OK CREATE "~ str "\r\n"
--define (DeleteOk (tag,str))                    = tag " OK DELETE "~ str "\r\n"
--define (RenameOk (tag,str))                    = tag " OK RENAME "~ str "\r\n"
--define (StatusOk (tag,str))                    = tag " OK STATUS "~ str "\r\n"
--define (ExpungeOk (tag,str))                   = tag " OK EXPUNGE "~ str "\r\n"
--define (CloseOk (tag,str))                     = tag " OK CLOSE "~ str "\r\n"
--define (StarOk str)                            = "* OK " str "\r\n"
--define (FlagsOk (tag, flags, str))             = tag " OK [" flags "] " str "\r\n"
--define (JustOk (tag, str))                     = tag " OK " str "\r\n"
+-define (NoopOk (tag,str))                             = tag " OK NOOP "~ str "\r\n"
+-define (FetchOk (tag,str))                            = tag " OK " "UID "? "FETCH "~ str "\r\n"
+-define (StoreOk (tag,str))                            = tag " OK " "UID "? "STORE "~ str "\r\n"
+-define (CopyOk (tag,str))                             = tag " OK " "UID "? "COPY "~ str "\r\n"
+-define (ListOk (tag,str))                             = tag " OK LIST "~ str "\r\n"
+-define (CreateOk (tag,str))                           = tag " OK CREATE "~ str "\r\n"
+-define (DeleteOk (tag,str))                           = tag " OK DELETE "~ str "\r\n"
+-define (RenameOk (tag,str))                           = tag " OK RENAME "~ str "\r\n"
+-define (StatusOk (tag,str))                           = tag " OK STATUS "~ str "\r\n"
+-define (AppendOk (tag,str))                           = tag " OK APPEND "~ str "\r\n"
+-define (ExpungeOk (tag,str))                          = tag " OK EXPUNGE "~ str "\r\n"
+-define (CloseOk (tag,str))                            = tag " OK CLOSE "~ str "\r\n"
+-define (StarOk str)                                   = "* OK " str "\r\n"
+-define (FlagsOk (tag, flags, str))                    = tag " OK [" flags "] " str "\r\n"
+-define (JustOk (tag, str))                            = tag " OK " str "\r\n"
 
--define (JustNo (tag,str))                      = tag " NO " str "\r\n"
--define (JustBad (tag,str))                     = tag " BAD " str "\r\n"
+-define (JustNo (tag,str))                             = tag " NO " str "\r\n"
+-define (JustBad (tag,str))                            = tag " BAD " str "\r\n"
 
--define RawInput str                            = str
+-define RawInput str                                   = str
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%            L'automate              %%
@@ -320,6 +329,22 @@ commands(mail, tools):
         send (Status (tag, mailbox, items));
         status(mail, tools, tag)
       end
+    | ImapAppend (mailbox, flags, time, msg) ->
+      let len = {{ String.length msg }}
+      if {{ time = "" }}
+      then
+        if {{ flags = "" }}
+        then
+          send (Append1 (tag,mailbox,len));
+          append(mail, tools, tag, msg)
+        else
+          send (Append2 (tag,mailbox,flags,len));
+          append(mail, tools, tag, msg)
+        end
+      else
+        send (Append3 (tag,mailbox,flags,time,len));
+        append(mail, tools, tag, msg)
+      end
     | ImapRename (frommb, tomb) ->
       send (Rename (tag, frommb, tomb));
       wait_for_ok(mail, tools, tag, {{"rename"}}, {{"RENAME"}},
@@ -428,7 +453,7 @@ fetch(mail, tools, tag):
   | StarFetchLen (num, what, len) ->
     debug {{ eprintf "fetch received * FETCH: %d %d\n" num len }}
     let mail = {{ { mail with fetched = ((num,what,"")::mail.fetched) } }}
-    fetch_data(mail, tools, tag, len)
+    fetch_data(num, mail, tools, tag, len)
   | StarFetch (num, str) ->
     debug {{ eprintf "fetch received * FETCH: %d %s\n" num (String.limit 50 str) }}
     let mail = {{ { mail with fetched = ((num,"",str)::mail.fetched) } }}
@@ -442,6 +467,10 @@ fetch(mail, tools, tag):
       debug {{ eprintf "fetch received FETCH OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((FetchResult (List.rev mail.fetched))::mail.results) } }}
       commands(mail, tools)
+  | JustNo (rtag, str) ->
+    got_nobad(mail, tools, {{"FETCH"}}, {{"NO"}}, tag, rtag, str, {{(No str)}})
+  | JustBad (rtag, str) ->
+    got_nobad(mail, tools, {{"FETCH"}}, {{"BAD"}}, tag, rtag, str, {{(Bad str)}})
   | msg ->
     % This is ridiculous and dangerous, we should parse the initial header and use fixed to read in the data.
     % For the moment it's just a fallback in case the StarFetchLen pattern fails
@@ -453,24 +482,26 @@ fetch(mail, tools, tag):
   | exn ->
     check_exception(mail, tools, {{"fetch"}}, tag, exn)
 
-fetch_data(mail, tools, tag, len):
+fetch_data(num, mail, tools, tag, len):
   debug {{ eprintf "fetch_data: getting %d bytes\n%!" len }}
   fixed {{ len }}
   | data ->
     debug {{ eprintf "fetch_data: data='%s'\n%!" (String.escaped (String.limit 50 data)) }}
     let mail = {{ { mail with fetched = (add_fetched data mail.fetched) } }}
-    end_fetched_data(mail, tools, tag)
+    end_fetched_data(num, mail, tools, tag)
 
-end_fetched_data(mail, tools, tag):
-  fixed {{ 3 }}
-  | data ->
-    if {{ data = ")\r\n" }}
-    then
-      debug {{ eprintf "fetch_data: ok\n%!" }}
-      fetch(mail, tools, tag)
-    else
-      debug {{ eprintf "fetch_data: error\n%!" }}
-      error({{ sprintf "Bad end of fetch data: %s" (String.escaped data) }}, tools)
+end_fetched_data(num, mail, tools, tag):
+  receive
+  | FetchEnd ->
+    debug {{ eprintf "fetch_data: ok\n%!" }}
+    fetch(mail, tools, tag)
+  | FetchContinue (what, len) ->
+    debug {{ eprintf "fetch received continuation: %d %d\n" num len }}
+    let mail = {{ { mail with fetched = ((num,what,"")::mail.fetched) } }}
+    fetch_data(num, mail, tools, tag, len)
+  | err ->
+    debug {{ eprintf "fetch_data: error\n%!" }}
+    error({{ sprintf "Bad end of fetch data: %s" (String.escaped (string_of_msg err)) }}, tools)
 
 store(mail, tools, tag):
   receive
@@ -566,6 +597,39 @@ status(mail, tools, tag):
   catch
   | exn ->
     check_exception(mail, tools, {{"status"}}, tag, exn)
+
+append(mail, tools, tag, msg):
+  receive
+  | Ready _str ->
+    debug {{ eprintf "append received + %s\n" _str }}
+    send_buf {{ msg }}
+    send_buf {{ "\r\n" }}
+    append1(mail, tools, tag)
+  | err ->
+    check_error(mail, tools, {{"APPEND"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"append"}}, tag, exn)
+
+append1(mail, tools, tag):
+  receive
+  | StarOk _str ->
+    debug {{ eprintf "append received * OK: %s\n" _str }}
+    append1(mail, tools, tag)
+  | FlagsOk (rtag,flags,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "append received mismatched APPEND OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "append received APPEND OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((Ok flags)::mail.results) } }}
+      commands(mail, tools)
+  | err ->
+    check_error(mail, tools, {{"APPEND"}}, tag, err)
+  catch
+  | exn ->
+    check_exception(mail, tools, {{"append"}}, tag, exn)
 
 expunge(mail, tools, tag):
   receive

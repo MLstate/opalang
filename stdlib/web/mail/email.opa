@@ -120,6 +120,7 @@ type Email.imap_command =
   / { ImapDelete : string }
   / { ImapRename : (string, string) }
   / { ImapStatus : (string, string) }
+  / { ImapAppend : (string, string, string, string) }
   / { ImapExpunge }
 
 //type Email.imap_status = {

@@ -240,6 +240,10 @@
       let b, s1, s2 = BslNativeLib.ocaml_tuple_3 value in
       ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
     in
+    let unwrap_ssss value = 
+      let s1, s2, s3, s4 = BslNativeLib.ocaml_tuple_4 value in
+      ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3, ServerLib.unwrap_string s4
+    in
     let unwrap_bsss value = 
       let b, s1, s2, s3 = BslNativeLib.ocaml_tuple_4 value in
       ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3
@@ -264,6 +268,7 @@
                 | Some "ImapDelete" -> ImapClientCore.ImapDelete (ServerLib.unwrap_string value)
                 | Some "ImapRename" -> ImapClientCore.ImapRename (unwrap_ss value)
                 | Some "ImapStatus" -> ImapClientCore.ImapStatus (unwrap_ss value)
+                | Some "ImapAppend" -> ImapClientCore.ImapAppend (unwrap_ssss value)
                 | Some "ImapExpunge" -> ImapClientCore.ImapExpunge
                 | _ -> assert false)
              (unwrap_opa_email_imap_command command) ImapClientCore.ImapNoop)
