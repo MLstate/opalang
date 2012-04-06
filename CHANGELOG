@@ -8,6 +8,17 @@ Bug fixes:
     - fixed bug when parsing '+' character in query
     - accept empty values for query parameters
 
+  * Mongo
+    - ref and val path on database set
+    - sum type updating
+    - composed path
+    - always resize buffer when it's full
+    - detection of primary key query
+    - update with _id
+
+  * Separate compilation
+    - Fix packages ordering issues with compiler packages
+
 Updated APIs:
 
   * Bootstrap CSS
@@ -31,7 +42,15 @@ Updated APIs:
 
 Other features:
 
-  * added authentication options for @mongo database
+  * Mongo
+    - added authentication options for @mongo database
+    - added reference path on database set/map
+    - use the default command line options if non-specific command line
+    - use cursors
+    - 'tilda' syntactic sugar for update request
+
+  * Db3
+    - added reference path on the root
 
   * bslClient
     - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
