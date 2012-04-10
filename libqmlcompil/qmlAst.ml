@@ -167,8 +167,8 @@ struct
     (* List updating *)
     | UAppend     of 'expr
     | UAppendAll  of 'expr
-    | UPrepend    of 'expr
-    | UPrependAll of 'expr
+    | URemove    of 'expr
+    | URemoveAll of 'expr
     | UPop | UShift
 
   type 'expr update_options = {
@@ -277,8 +277,8 @@ struct
     | UIncr i -> pp fmt "+=%i" i
     | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
     | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
-    | UPrepend    expr -> pp fmt "+> %a"  pp_expr expr
-    | UPrependAll expr -> pp fmt "++> %a" pp_expr expr
+    | URemove    expr -> pp fmt "+> %a"  pp_expr expr
+    | URemoveAll expr -> pp fmt "++> %a" pp_expr expr
     | UPop   -> pp fmt "pop"
     | UShift -> pp fmt "shift"
 
@@ -445,8 +445,8 @@ struct
     | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
     | UAppend     expr -> TU.wrap (fun e -> UAppend e) (sub_e expr)
     | UAppendAll  expr -> TU.wrap (fun e -> UAppendAll e) (sub_e expr)
-    | UPrepend    expr -> TU.wrap (fun e -> UPrepend e) (sub_e expr)
-    | UPrependAll expr -> TU.wrap (fun e -> UPrependAll e) (sub_e expr)
+    | URemove    expr -> TU.wrap (fun e -> URemove e) (sub_e expr)
+    | URemoveAll expr -> TU.wrap (fun e -> URemoveAll e) (sub_e expr)
     | UFlds fields ->
         TU.wrap
           (fun fields -> UFlds fields)

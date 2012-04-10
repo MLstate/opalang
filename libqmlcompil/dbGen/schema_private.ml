@@ -1185,9 +1185,9 @@ module Preprocess = struct
                       (field, update subty u))
                    fields)
           | Db.UAppend     e -> Db.UAppend (coerce_list context e ty)
-          | Db.UPrepend    e -> Db.UPrepend  (coerce_list context e ty)
+          | Db.URemove    e -> Db.URemove  (coerce_list context e ty)
           | Db.UAppendAll  e -> Db.UAppendAll  (coerce e ty)
-          | Db.UPrependAll e -> Db.UPrependAll (coerce e ty)
+          | Db.URemoveAll e -> Db.URemoveAll (coerce e ty)
           | Db.UIncr _ when (
               match ty with (* TODO - unify! *)
               | Q.TypeConst Q.TyInt -> true

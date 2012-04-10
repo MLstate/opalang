@@ -262,8 +262,8 @@ module Generator = struct
                 (inc, set, other, annotmap) fields
           | DbAst.UAppend     e -> (inc, set, (rfld, "$push", e)::other, annotmap)
           | DbAst.UAppendAll  e -> (inc, set, (rfld, "$pushAll", e)::other, annotmap)
-          | DbAst.UPrepend    _e -> assert false
-          | DbAst.UPrependAll _e -> assert false
+          | DbAst.URemove     e -> (inc, set, (rfld, "$pull", e)::other, annotmap)
+          | DbAst.URemoveAll  e -> (inc, set, (rfld, "$pullAll", e)::other, annotmap)
           | DbAst.UPop   ->
               let annotmap, e = C.int annotmap (-1) in
               (inc, set, (rfld, "$pop", e)::other, annotmap)
