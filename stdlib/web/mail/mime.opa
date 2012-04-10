@@ -251,7 +251,9 @@ Mime = {{
     merge_fields(l) =
       (a, b) =
         List.fold_map(e, acc ->
-          if String.contains(e, ":") then
+          if String.has_prefix("\t", e) then
+            ([], "{acc} {String.trim(e)}")
+          else if String.contains(e, ":") then
             ([acc], e)
           else
             ([], "{acc} {e}")
