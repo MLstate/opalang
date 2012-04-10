@@ -191,7 +191,7 @@ UriParser =
   chars_query = parser v=uric_query+ -> String.flatten(v)
   opt_chars_query = parser v=uric_query* -> String.flatten(v)
 
-  uric_path = parser a=unreserved -> a | a=escaped -> a;
+  uric_path = parser a=unreserved -> a | a=escaped -> a | " " -> " ";
   chars_path = parser v=uric_path+ -> String.flatten(v)
 
   uric_mailto = parser a=uric -> a | t=("@") -> Text.to_string(t);
