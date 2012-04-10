@@ -155,7 +155,8 @@ select_fields <-
 
 select_list <-
   / lbracket Opa_parser.expr:e rbracket {{ QmlAst.Db.SSlice (e, none (label e)) }}
-  / lbracket Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 rbracket {{ QmlAst.Db.SSlice (e1, e2) }}
+  / lbracket Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 rbracket
+    {{ QmlAst.Db.SSlice (e1, some e2) }}
 
 select_star <- "*" {{ QmlAst.Db.SStar }}
 

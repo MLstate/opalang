@@ -200,6 +200,7 @@ module Generator = struct
 
   let select_to_expr gamma annotmap select =
     let rec aux prev_fld ((annotmap, acc) as aacc) select =
+      let get_name () = BaseFormat.sprintf "%a" QmlAst.Db.pp_field prev_fld in
       match select with
       | DbAst.SFlds flds ->
           List.fold_left
@@ -207,10 +208,29 @@ module Generator = struct
             aacc
             flds
       | DbAst.SNil | DbAst.SStar ->
-          let name = BaseFormat.sprintf "%a" QmlAst.Db.pp_field prev_fld in
+          let name = get_name () in
           let annotmap, one = C.int annotmap 1 in
           add_to_document gamma annotmap name one acc
-      | DbAst.SSlice _ -> assert false
+      | DbAst.SSlice (e1, e2) ->
+          let name = get_name () in
+          let tyint = (Q.TypeConst Q.TyInt) in
+          let limitid = Ident.next "limit" in
+          let annotmap, pvar = QmlAstCons.TypedPat.var annotmap limitid tyint in
+          let annotmap, ko_expr =
+            let annotmap, empty = empty_query gamma annotmap in
+            add_to_document gamma annotmap "$slice" e1 empty
+          in
+          let annotmap, ok_expr =
+            let annotmap, empty = empty_query gamma annotmap in
+            let annotmap, limit = C.ident annotmap limitid tyint in
+            let annotmap, sklim = C.list ~ty:tyint (annotmap, gamma) [limit; e1] in
+            add_to_document gamma annotmap "$slice" sklim empty
+          in
+          let annotmap, slice =
+            QmlAstCons.TypedPat.match_option annotmap gamma e2 pvar ok_expr ko_expr
+          in
+          let annotmap, empty = empty_query gamma annotmap in
+          add_to_document gamma annotmap name slice empty
     in aux [] (empty_query gamma annotmap) select
 
   let query_add_order gamma annotmap order query =
