@@ -964,14 +964,14 @@ let look_at_user_annotation env pp_pos node annot =
           (match on_the_client with
            | `expression -> ()
            | `alias | `insert_server_value ->
-               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  %s contains a 'sliced_expr' but the client code will not be executed.@]"
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  The value '%s' contains a 'sliced_expr' but the client code will not be executed.@]"
                  pp_pos node
                  (Ident.original_name node.ident)
           );
           (match on_the_server with
            | `expression -> ()
            | `alias ->
-               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  %s contains a 'sliced_expr' but the server code will not be executed.@]"
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  The value '%s' contains a 'sliced_expr' but the server code will not be executed.@]"
                  pp_pos node
                  (Ident.original_name node.ident))
         );
