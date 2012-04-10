@@ -1159,7 +1159,7 @@ module Preprocess = struct
   let kind ~context gamma kind ty virtual_ =
     match kind with
     | Db.Option | Db.Default | Db.Ref | Db.Valpath -> kind
-    | Db.Update u ->
+    | Db.Update (u, o) ->
         let ty =
           match virtual_ with
           | `realpath -> ty
@@ -1201,7 +1201,7 @@ module Preprocess = struct
           | Db.UPop -> error "" "pop is not available on %a" QmlPrint.pp#ty ty
           | Db.UShift -> error "" "shift is not available on %a" QmlPrint.pp#ty ty
           | Db.UIncr _ -> error "" "incr is not available on %a (only on int)" QmlPrint.pp#ty ty
-        in Db.Update (update ty u)
+        in Db.Update ((update ty u), o)
 
   let select ~context gamma select ty virtual_ =
     let (dataty, rebuildt) =
@@ -1284,7 +1284,7 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
            | Db.Default -> dataty
            | Db.Valpath -> C.Db.val_path_ty dataty
            | Db.Ref -> C.Db.ref_path_ty dataty
-           | Db.Update _u -> H.tyunit
+           | Db.Update (_, _) -> H.tyunit
          in
          let e =
            (* Bind type variable of virtual path handler with virtual

@@ -59,13 +59,15 @@ path_kind <- querytype:qt path:p select:s {{ p, qt, s }}
 
 ; /** database update path **/
 path_update <-
-  / '@'? slash_nosp path:pa select:s spacing (Opa_lexer.larrow update:u {{u}} / update_simple):u
+  / '@'? slash_nosp path:pa select:s spacing
+    (Opa_lexer.larrow update:u {{u}} / update_simple:u {{u, QmlAst.Db.default_update_options}}):u
     {{
-       DBPath (pa, QmlAst.Db.Update u, s)
+       let u, o = u in
+       DBPath (pa, QmlAst.Db.Update (u, o), s)
     }}
   / '@'? slash_nosp path:pa select:s spacing (Opa_lexer.larrow / Opa_lexer.assign) Opa_parser.expr:e
     {{
-       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e), s)
+       DBPath (pa, QmlAst.Db.Update ((QmlAst.Db.UExpr e), QmlAst.Db.default_update_options), s)
     }}
 
 
@@ -74,11 +76,25 @@ path_update <-
    {7 Path updating }
 *)
 update <-
-  / update_fields:u {{ u }}
+  / lbrace update_simple:u update_options:o rbrace {{ u, o }}
+  / tilda:tilda lbrace update_fields:u update_options:o rbrace {{ u tilda, o }}
+  / update_noopt:u {{ u, QmlAst.Db.default_update_options }}
+
+update_options <- Opa_parser.separator (=list0(update_options_ifexists, Opa_parser.separator)):l
+  {{
+     let options = QmlAst.Db.default_update_options in
+     List.fold_left (fun opt f -> f opt) options l
+  }}
+
+update_options_ifexists <- (=Opa_lexer.exact_keyword("ifexists"))
+  {{ fun _opt -> {QmlAst.Db.ifexists = true } }}
+
+update_noopt <-
+  / tilda:tilda lbrace update_fields:u rbrace {{ u tilda }}
   / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
 
 update_field <-
-  / Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update:e {{e}} / update_simple):e
+  / Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update_noopt:e {{e}} / update_simple):e
     {{ `binding (List.map undecorate i, e) }}
   / tilda:tilda Opa_parser.record_short_ident:i
     {{
@@ -87,11 +103,9 @@ update_field <-
      }}
 
 update_fields <-
-  tilda:tilda lbrace
   (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
-  rbrace
   {{
-     QmlAst.Db.UFlds (default_value_in_expr_update tilda l)
+     function tilda -> QmlAst.Db.UFlds (default_value_in_expr_update tilda l)
   }}
 
 update_simple <- update_incr / update_list
@@ -123,12 +137,12 @@ update_list <-
    {7 Path selection }
 *)
 ;/** Path selection **/
-select <- 
+select <-
   / "." (select_fields / select_list / select_star):s {{ s }}
   / select_nil
 
 select_field <-
-  / Opa_parser.record_long_ident:i select:e 
+  / Opa_parser.record_long_ident:i select:e
     {{ List.map undecorate i, e }}
 
 select_fields <-
@@ -143,7 +157,7 @@ select_list <-
   / lbracket Opa_parser.expr:e rbracket {{ QmlAst.Db.SSlice (e, none (label e)) }}
   / lbracket Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 rbracket {{ QmlAst.Db.SSlice (e1, e2) }}
 
-select_star <- "*" {{ QmlAst.Db.SStar }} 
+select_star <- "*" {{ QmlAst.Db.SStar }}
 
 select_nil <- _succeed {{ QmlAst.Db.SNil }}
 
@@ -234,7 +248,7 @@ query_options_order <-
 query_options <-
   (=list0((query_options_limit / query_options_skip / query_options_order), Opa_parser.separator)):l
   {{
-     let options = {QmlAst.Db.limit = None; skip = None; sort = None} in
+     let options = QmlAst.Db.default_query_options in
      List.fold_left (fun opt f -> f opt) options l
   }}
 
@@ -242,7 +256,7 @@ query_with_options <-
   / query:q (Opa_parser.separator query_options:o {{o}})?:o
     {{
        let options =
-         Option.default {QmlAst.Db.limit = None; skip = None; sort = None} o
+         Option.default QmlAst.Db.default_query_options o
        in
        QmlAst.Db.Query (q, options)
     }}

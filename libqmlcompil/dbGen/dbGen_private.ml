@@ -1772,7 +1772,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
         make_simple_virtual_val_path val_path
     | Db.Option | Db.Default ->
         get_path_expr sch dbinfo gamma node path kind
-    | Db.Update update ->
+    | Db.Update (update, _) -> (* TODO : options *)
         make_update_path ~context gamma (make_ref_path sch dbinfo gamma node path) node update
 
 
@@ -1942,7 +1942,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             match kind with
             | Db.Ref ->
                 make_ref_path db_def.Schema_private.schema dbinfo gamma node path
-            | Db.Update update ->
+            | Db.Update (update, _) -> (* TODO : options *)
                 let rpath = make_ref_path db_def.Schema_private.schema dbinfo gamma node path in
                 make_update_path ~context gamma rpath node update
             | _ ->

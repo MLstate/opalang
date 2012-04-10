@@ -506,14 +506,22 @@ struct
     aux original_expr
 
   and kind k = match k with
-  | QA.Db.Update update ->
+  | QA.Db.Update (update, options) ->
       let rebuild, exprs =
         QmlAst.Db.sub_db_update
           Traverse.Utils.sub_current
           Traverse.Utils.sub_ignore
           update in
       let exprs' = List.map expr exprs in
-      QA.Db.Update (rebuild exprs')
+      let update = rebuild exprs' in
+      let rebuild, exprs =
+        QmlAst.Db.sub_db_update_options
+          Traverse.Utils.sub_current
+          Traverse.Utils.sub_ignore
+          options in
+      let exprs' = List.map expr exprs in
+      let options = rebuild exprs' in
+      QA.Db.Update (update, options)
   | QA.Db.Default -> QA.Db.Default
   | QA.Db.Option -> QA.Db.Option
   | QA.Db.Valpath -> QA.Db.Valpath

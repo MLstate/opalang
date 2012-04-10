@@ -407,7 +407,7 @@ module Generator = struct
         let dataty = node.DbSchema.ty in
         let dbname = node.DbSchema.database.DbSchema.name in
         match kind with
-        | DbAst.Update u ->
+        | DbAst.Update (u, o) ->
             begin match node.DbSchema.kind with
             | DbSchema.Plain ->
                 let annotmap, path = expr_of_strpath gamma annotmap strpath in
@@ -453,7 +453,7 @@ module Generator = struct
                        | Some (annotmap, subu) ->
                            let annotmap, sube =
                              string_path ~context gamma annotmap schema
-                               (DbAst.Update subu, dbname::subpath)
+                               (DbAst.Update (subu, o), dbname::subpath)
                            in (annotmap, Some (Ident.next "_", sube))
                        | None -> annotmap, None
                     ) annotmap c
@@ -556,7 +556,7 @@ module Generator = struct
           annotmap, skip, limit, query, opt.DbAst.sort, uniq
     in
     match query0, kind with
-    | None, DbAst.Update DbAst.UExpr e ->
+    | None, DbAst.Update (DbAst.UExpr e, _options) (* TODO : options *) ->
         (* Just reuse ref path on collections if 0 query *)
         let annotmap, refpath =
           dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 embed select0 in
@@ -679,7 +679,7 @@ module Generator = struct
               | _ -> assert false
               end
 
-          | DbAst.Update u ->
+          | DbAst.Update (u, o) ->
               let (annotmap, query) = query_to_expr gamma annotmap query in
               let (annotmap, update) =
                 let u =
@@ -690,10 +690,14 @@ module Generator = struct
                 in
                 update_to_expr gamma annotmap u
               in
+              let annotmap, upsert =
+                if o.DbAst.ifexists then C._false (annotmap, gamma)
+                else C._true (annotmap, gamma)
+              in
               let (annotmap, build) =
                 OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
               in
-              (annotmap, build, query, [update])
+              (annotmap, build, query, [update; upsert])
         in
         (* database *)
         let (annotmap, database) = node_to_dbexpr gamma annotmap node in

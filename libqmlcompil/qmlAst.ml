@@ -171,6 +171,10 @@ struct
     | UPrependAll of 'expr
     | UPop | UShift
 
+  type 'expr update_options = {
+    ifexists : bool;
+  }
+
   (** The kind of a path, ie the type of access it is *)
   type 'expr kind =
     | Option
@@ -185,7 +189,7 @@ struct
     | Ref
         (** No operation is done, just build a pointer to the database.  used for
             operations on paths (like writes) *)
-    | Update of 'expr update
+    | Update of 'expr update * 'expr update_options
 
   (** The paths as specified in definitions (eg. with possible definition of keys) *)
   type path_decl_key =
@@ -251,6 +255,10 @@ struct
     | Db_Constraint of path_decl * 'expr db_constraint
     | Db_Virtual of path_decl * 'expr
 
+  let default_update_options = { ifexists = false }
+
+  let default_query_options = { limit = None; skip = None; sort = None }
+
   let pp = BaseFormat.fprintf
 
   let rec pp_field fmt = function
@@ -273,6 +281,24 @@ struct
     | UPrependAll expr -> pp fmt "++> %a" pp_expr expr
     | UPop   -> pp fmt "pop"
     | UShift -> pp fmt "shift"
+
+  let pp_update_options _pp_expr fmt o =
+    if o.ifexists then pp fmt "; ifexists"
+
+  let pp_update_with_options pp_expr fmt (u, o) =
+    if o = default_update_options then pp_update pp_expr fmt u
+    else (
+      pp fmt "{";
+      (match u with
+       | UFlds fields ->
+           List.iter
+             (function (f, u) ->
+                pp fmt "%a : %a," pp_field f (pp_update pp_expr) u) fields;
+       | _ -> pp_update pp_expr fmt u
+      );
+      pp fmt "%a}" (pp_update_options pp_expr) o
+    )
+
 
   let rec pp_query pp_expr fmt = function
     | QEq   expr -> pp fmt "== %a" pp_expr expr
@@ -328,7 +354,8 @@ struct
   let pp_path pp_expr f (el, knd, select) =
     let pp_el fmt () = pp_path_elts pp_expr fmt el in
     match knd with
-    | Update u -> pp f "%a.%a <- %a" pp_el () (pp_select pp_expr) select (pp_update pp_expr) u
+    | Update (u, o) ->
+        pp f "%a.%a <- %a" pp_el () (pp_select pp_expr) select (pp_update_with_options pp_expr) (u, o)
     | _ ->
         pp f "%s%a.%a" (
           match knd with
@@ -425,6 +452,12 @@ struct
           (fun fields -> UFlds fields)
           (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
 
+  let sub_db_update_options _sub_e _sub_ty opt =
+    TU.wrap
+      (fun (ifexists) -> {ifexists;})
+      ((TU.sub_ignore) (opt.ifexists))
+
+
   let rec sub_db_select sub_e sub_ty = function
     | (SStar | SNil) as e -> TU.sub_ignore e
     | SSlice (e1, e2) -> TU.wrap (fun (e1, e2) -> SSlice (e1, e2)) (TU.sub_2 sub_e sub_e (e1, e2))
@@ -438,8 +471,11 @@ struct
     | Option
     | Valpath
     | Ref as e -> TU.sub_ignore e
-    | Update update ->
-        TU.wrap (fun u -> Update u) (sub_db_update sub_e sub_ty update)
+    | Update (update, options) ->
+        TU.wrap (fun (u, o) -> Update (u,o))
+          (TU.sub_2 (sub_db_update sub_e sub_ty)
+             (sub_db_update_options sub_e sub_ty)
+             (update, options))
 
   let rec sub_db_query sub_e sub_ty = function
     | QMod  _ as e -> TU.sub_ignore e
@@ -475,7 +511,7 @@ struct
       (fun (limit, skip, sort) -> {limit; skip; sort})
       (TU.sub_3 (TU.sub_option sub_e) (TU.sub_option sub_e) (TU.sub_option sub_fields)
          (opt.limit, opt.skip, (opt.sort : 'expr fields option))
-      )
+     )
 
   let sub_path_elt sub_e sub_ty = function
     | FldKey _
