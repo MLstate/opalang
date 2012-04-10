@@ -593,14 +593,7 @@ DbSet = {{
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
     List.iter(index(db, path, _), idxs)
 
-  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.engine('a) =
-    #<Ifstatic:DBGEN_DEBUG>
-    do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
-    do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
-    #<End>
-    id = DbSet.path_to_id(path)
-    ns = "{db.name}.{id}"
-    reply=MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter)
+  @package genbuild(db, ns, id, default:'a, reply, limit):DbMongoSet.engine('a) =
     match reply with
     | {none} ->
       do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
@@ -624,35 +617,63 @@ DbSet = {{
           end
        ~{reply default next}
 
-  @package update(db:DbMongo.t, path:list(string), selector, update) =
+  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.engine('a) =
+    #<Ifstatic:DBGEN_DEBUG>
+    do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
+    do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
+    #<End>
     id = DbSet.path_to_id(path)
-    tag = Bitwise.lor(0, MongoCommon.UpsertBit)
+    ns = "{db.name}.{id}"
+    genbuild(db, ns, id, default,
+             MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter), limit)
+
+  // @package build_and_modify(db:DbMongo.t, path:list(string), selector, default:'a,
+  //                           skip, limit, filter, update):DbMongoSet.engine('a) =
+  //   #<Ifstatic:DBGEN_DEBUG>
+  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Selector {selector}")
+  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Filter {filter}")
+  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Update {update}")
+  //   #<End>
+  //   id = DbSet.path_to_id(path)
+  //   ns = "{db.name}.{id}"
+  //   genbuild(db, ns, id, default,
+  //            MongoCommands.findAndUpdate(db.db, db.name, ns, selector, update, none, noneskip, limit, selector, filter), limit)
+
+  @package update(db:DbMongo.t, path:list(string), selector, update, upsert) =
+    id = DbSet.path_to_id(path)
+    tag = if upsert then Bitwise.lor(0, MongoCommon.UpsertBit) else 0
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Selector {selector}")
-    do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Update {update}")
+    do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Update({upsert}) {update}")
     #<End>
-    reply=MongoDriver.update(db.db, tag, "{db.name}.{id}", selector, update)
+    reply=MongoDriver.updatee(db.db, tag, "{db.name}.{id}", db.name, selector, update)
     match reply with
-    | {false} ->
-      do Log.error("DbGen/Query", "(failure) Read tn {id} set doesn't returns anything")
-      error("DbSet update error")
-    | {true} ->
-      #<Ifstatic:DBGEN_DEBUG>
-      do Log.notice("DbGen/Mongo", "(success) DbSet.update")
-      #<End>
-      void
-    // TODO - Needed for error reporting
-    // reply=MongoDriver.updatee(db.db, tag, ns, db.name, selector, update)
-    // match MongoCommon.reply_to_result("DbGen/Mongo", 0, reply) with
-    // | ~{success} ->
-    //   #<Ifstatic:DBGEN_DEBUG>
-    //   do Log.notice("DbGen/Mongo", "(success) DbSet.update \"{ns}\" {success}")
-    //   #<End>
-    //   void
-    // | ~{failure} ->
-    //   Log.error("DbGen/Mongo", "(failure) DbSet.update \"{ns}\" {failure}")
-    // end
+    | {none} ->
+      do Log.error("DbGen/Query", "(failure) Read {id} set doesn't returns anything")
+      error("DbGen/Mongo: Network Error")
+    | {some = reply} ->
+      match MongoCommon.reply_document(reply, 0) with
+      | {none} -> error("DbGen/Mongo: Protocol Error (1)")
+      | {some=doc} ->
+        match Bson.find_float(doc, "ok") with
+        | {none} -> error("DbGen/Mongo: Protocol Error (2)")
+        | {some = ok} ->
+          if ok != 1.0 then error("DbGen/Mongo: GetLastError Error")
+          else match Bson.find_element(doc, "err") with
+          | {none} -> void
+          | {some = {value = {String = str} ...}} -> error("DbGen/Mongo: {str}")
+          | {some = {value = {Null} ...}} ->
+            if not(upsert) &&
+               not(Bson.find_bool(doc, "updatedExisting")
+                   ? error("DbGen/Mongo: Protocol Error (4)"))
+            then error("DbGen/Mongo: Update Error")
+            else
+              #<Ifstatic:DBGEN_DEBUG>
+              do Log.notice("DbGen/Mongo", "(success) DbSet.update {doc}")
+              #<End>
+              void
+          | {some = err} -> error("DbGen/Mongo: Protocol Error (3) {err}")
 
 
   @private fold_doc(init, dbset:DbMongoSet.engine, f) =
@@ -804,7 +825,7 @@ DbSet = {{
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     write(data) =
       do update(db, path, selector,
-           [{name="$set"; value={Document = write_map(data)}}]
+           [{name="$set"; value={Document = write_map(data)}}], true
          )
       true
     remove() =
