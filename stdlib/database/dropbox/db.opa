@@ -27,6 +27,7 @@ import stdlib.system
 import stdlib.database.common
 import stdlib.apis.dropbox
 import stdlib.core.rpc.core
+
 /**
  * {1 About this module}
  *
@@ -40,11 +41,16 @@ import stdlib.core.rpc.core
  * {1 Types defined in this module}
  */
 
+type DbDropbox.User.status = 
+   {no_credentials}
+ / {request_secret : string; request_token : string}
+ / {authenticated : Dropbox.creds}
+
 @opacapi @abstract type DbDropbox.t = {
   root : string;
   appkey : string;
   appsecret : string;
-  cols : list(string)
+  context : UserContext.t(DbDropbox.User.status)
 }
 
 @opacapi @abstract type DbDropbox.engine = void
@@ -96,22 +102,46 @@ DbDropbox = {{
     path = DbCommon.path_to_id(path)
     "/{path}.json"
 
-   build_conf(db) = {app_key = db.appkey app_secret = db.appsecret}
 
-  Context = {{
+   @private _User(db : DbDropbox.t) = {{
 
-    dropbox_context = UserContext.make({no_credentials})
-    get() = UserContext.execute(s -> s, dropbox_context)
-    set(r) = UserContext.change(_ -> r, dropbox_context)
-    set_request(token, secret) = set({request_secret = secret; request_token = token})
-    set_authenticated(token, secret) = set({authenticated = { token = token; secret = secret}})
+    get_status() = UserContext.execute(s -> s, db.context)
+    is_authenticated() = match get_status() with { authenticated = _ } -> true | _ -> false
+    set_status(r) = UserContext.change(_ -> r, db.context)
+    set_request(token, secret) = set_status({request_secret = secret; request_token = token})
+    set_authenticated(token, secret) = set_status({authenticated = { token = token; secret = secret}})
+   
+   }}
+   
+   @private _Auth(db : DbDropbox.t) = {{
+
+    conf = {app_key = db.appkey app_secret = db.appsecret}
+    Auth = Dropbox(conf).Auth(_User(db))
+    get_login_url = Auth.get_login_url
+    get_access = Auth.get_access
+    are_valid_creds = Auth.are_valid_creds
 
   }}
 
-   @package gen_read(db:DbDropbox.t, path):option('data) =
-    match Context.get() with
+  User(db : DbDropbox.t) = {{
+    
+    get_status = _User(db).get_status
+    is_authenticated = _User(db).is_authenticated
+    set_status = _User(db).set_status
+    set_request = _User(db).set_request
+    set_authenticated = _User(db).set_authenticated
+    get_login_url = _Auth(db).get_login_url
+    get_access = _Auth(db).get_access
+    are_valid_creds = _Auth(db).are_valid_creds
+
+  }}
+
+   D(db) = Dropbox({app_key = db.appkey app_secret = db.appsecret})
+
+   @package @server gen_read(db:DbDropbox.t, path):option('data) =
+    match User(db).get_status() with
     | {authenticated = creds} -> (
-      match Dropbox(build_conf(db)).Files(db.root, build_path(path)).get(none, creds) with
+      match D(db).Files(db.root, build_path(path)).get(none, creds) with
       | { success = file } -> (
         value : DbDropbox.value = file.content
         match Json.deserialize(value) with
@@ -127,10 +157,10 @@ DbDropbox = {{
     | _ -> do error("Impossible to read {path}. The user is not authenticated, but in request mode.") none
 
     @package @server gen_write(db:DbDropbox.t, path, data:string) =
-      match Context.get() with
+      match User(db).get_status() with
       | {authenticated = creds} -> (
           json_value : DbDropbox.value = data
-          match Dropbox(build_conf(db)).Files(db.root, build_path(path)).put("application/json", json_value, true, none, creds) with
+          match D(db).Files(db.root, build_path(path)).put("application/json", json_value, true, none, creds) with
           | { success = _ } -> true
           | { failure = failure } -> do error("Impossible to write to {path}: {failure}") false )
       | {no_credentials} -> do error("Impossible to write to {path}. The user is not authenticated.") false
@@ -236,17 +266,35 @@ DbDropbox = {{
 
     jlog(msg) = Log.notice("DbGen/Dropbox", msg)
 
-    // todo
-    open(appkey, appsecret, root) = ~{appkey appsecret root; cols=[]}
-
+    open(name) =
+      (suffix, msg) = match name with
+      | "_no_name" -> ("", "")
+      | _ -> (":{name}", "\"{name}\"")
+      args = CommandLine.filter({
+      title = "Options for Dropbox database {msg}"
+      init = none
+      anonymous = []
+      parsers = [
+        {CommandLine.default_parser with
+          names = ["--db-remote{suffix}"]
+          description = "Use a user dropbox account as a database. Specify your dropbox apps parameters."
+          param_doc = "appkey:appsecret"
+          on_param(_) = parser appkey=((![:] .)+)[:] appsecret=(.+)
+                        -> {no_params = { some = {appkey=Text.to_string(appkey)
+                                                  appsecret=Text.to_string(appsecret)
+                                                  root="sandbox"
+                                                  context=UserContext.make({no_credentials})
+                            }}}
+        }]
+      })
+      match args with
+      | {some = conf} -> conf
+      | {none} -> error("You have to specify your dropbox app parameters: --db-remote{suffix} appkey:appsecret")
   }}
 
   open = Init.open
 
-  @package drop(db:DbDropbox.t) =
-    List.iter(
-      _col -> error("Drop not yep implemented")
-    , db.cols)
+  @package drop(_db:DbDropbox.t) = error("Drop not yep implemented")
 
 }}
 

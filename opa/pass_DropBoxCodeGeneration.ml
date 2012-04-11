@@ -73,25 +73,10 @@ module Generator = struct
 
   let ty_database = Q.TypeVar (QmlTypeVars.TypeVar.next ())
 
-  (* todo: dropbox backend open with appkey/appsecret/root instead *)
-  let open_database gamma annotmap name host port =
+  let open_database gamma annotmap name =
     let annotmap, name = C.string annotmap name in
-    let annotmap, host =
-      match host with
-      | None -> C.none annotmap gamma
-      | Some host ->
-          let annotmap, host = C.string annotmap host in
-          C.some annotmap gamma host
-    in
-    let annotmap, port =
-      match port with
-      | None -> C.none annotmap gamma
-      | Some port ->
-          let annotmap, port = C.int annotmap port in
-          C.some annotmap gamma port
-    in
     let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
-    let annotmap, open_ = C.apply gamma annotmap open_ [name; host; port] in
+    let annotmap, open_ = C.apply gamma annotmap open_ [name] in
     (annotmap, open_)
 
   let node_to_dbexpr _gamma annotmap node =
@@ -354,7 +339,7 @@ let init_database gamma annotmap schema =
        | `dropbox ->
          let ident = database.DbSchema.ident in
          let name = database.DbSchema.name in
-         let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
+         let (annotmap, open_) = Generator.open_database gamma annotmap name in
          (annotmap, (Q.NewVal (label, [ident, open_]))::newvals)
        | _ -> (annotmap, newvals)
     )
