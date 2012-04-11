@@ -1236,7 +1236,8 @@ module Preprocess = struct
         match ty with
         | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
         | _ -> false
-      ) -> (* TODO : coerce e1, e2 *) (ty, Db.SSlice (e1, e2))
+      ) ->
+        (ty, Db.SSlice (coerce e1 H.tyint, coerce e2 (H.typeoption H.tyint)))
     | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
     in
     let tyres, s = aux dataty select in
