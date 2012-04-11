@@ -952,7 +952,9 @@ Bson = {{
          | {value={Int32=i} ...} -> {some=@unsafe_cast(i != 0)}
          | {value={Int64=i} ...} -> {some=@unsafe_cast(i != 0)}
          | {value={Double=d} ...} -> {some=@unsafe_cast(d != 0.0)}
+         | {value={Null} name="true"}
          | {value={String="true"} ...} -> {some=@unsafe_cast(true)}
+         | {value={Null} name="false"}
          | {value={String="false"} ...} -> {some=@unsafe_cast(false)}
          | element -> error("expected bool, got {element}",{none}))
       | {TyName_args=[]; TyName_ident="Bson.meta"} ->
@@ -1059,7 +1061,8 @@ Bson = {{
     | ([],{TyName_args=[_]; TyName_ident="Bson.register"}) -> {some=@unsafe_cast({absent})}
     | (_,{TyName_args=[{TyRecord_row=row}]; TyName_ident="Bson.register"}) -> make_register(element_to_rec(bson_noid,row, default))
     | ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
-    | ([element],{TyName_args=[_]; TyName_ident="option"}) -> element_to_opa(element, ty_name, default)
+    | ([element],{TyName_args=[_]; TyName_ident="option"})
+    | ([element],{TyName_args=[]; TyName_ident="bool"})
     | ([element],{TyName_args=[_]; TyName_ident="list"}) -> element_to_opa(element, ty_name, default)
     | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid, row, default)
     | (_,{TySum_col=col ...}) -> column_to_rec(bson_noid,col)
