@@ -68,7 +68,7 @@ module Schema: sig
     | Compose of (string * string list) list
     | Plain
     | Partial of bool * string list * string list
-    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*)
+    | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*) * QmlAst.path option
 
   type node = {
     ty : QmlAst.ty;

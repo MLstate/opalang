@@ -1916,14 +1916,10 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       let r = match virtual_ with
         | `virtualset (_, wty, false, _) ->
             make_virtualset_fullpath  ~context db_def.Schema_private.schema dbinfo gamma node path kind wty
-        | `virtualset (_, wty, true, record) ->
-            begin match record with
-            | Some record -> make_virtualset_partialpath
-                db_def.Schema_private.schema dbinfo gamma node path kind wty record
-            | None ->
-                match kind with
-                | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
-                | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
+        | `virtualset (_, _wty, true, _) ->
+            begin match kind with
+            | Db.Ref -> make_ref_path db_def.Schema_private.schema dbinfo gamma node path
+            | _ -> get_path_expr db_def.Schema_private.schema dbinfo gamma node path kind
             end
         | `virtualpath (ident, rty, wty) ->
             make_virtualpath db_def.Schema_private.schema dbinfo gamma node path kind ident rty wty

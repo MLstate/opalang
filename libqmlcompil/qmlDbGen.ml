@@ -60,7 +60,7 @@ module Schema = struct
     | Compose of (string * string list) list
     | Plain
     | Partial of bool (* Inside sum*) * string list * string list
-    | SetAccess of set_kind * string list * (bool (*is_unique*) * query) option
+    | SetAccess of set_kind * string list * (bool (*is_unique*) * query) option * QmlAst.path option
 
   type node = {
     ty : QmlAst.ty;
@@ -92,14 +92,15 @@ module Schema = struct
     | Compose cmp ->
         Format.fprintf fmt "compose(%a)"
           (Format.pp_list "; " (fun fmt (f, p) -> Format.fprintf fmt "%s:[%a]" f pp_path p)) cmp
-    | SetAccess (sk, path, query) ->
-        Format.fprintf fmt "@[<hov>access to %a : %a with %a@]"
+    | SetAccess (sk, path, query, epath) ->
+        Format.fprintf fmt "@[<hov>access to %a : %a @. with %a @. embedded path : %a@]"
           pp_path path
           pp_set_kind sk
           pp_query query
+          (Option.pp (DbAst.pp_path_elts QmlPrint.pp#expr)) epath
 
   let pp_node fmt node =
-    Format.fprintf fmt "{@[<hov>type : %a; kind : %a; ...@]}"
+    Format.fprintf fmt "{@[<hov>type : %a; @. kind : %a; ...@]}"
       QmlPrint.pp#ty node.ty
       pp_kind node.kind
 
@@ -244,7 +245,7 @@ module Schema = struct
     in
     let database = get_database schema dbname in
     let llschema = declaration.Sch.schema in
-    let f (node, kind, path) fragment =
+    let find_next_step (node, kind, path) fragment =
       let next = next llschema node fragment in
       let get_setkind schema node =
         match Graph.succ_e schema node with
@@ -265,14 +266,14 @@ module Schema = struct
       | DbAst.ExprKey expr ->
           let setkind = get_setkind llschema node in
           let options = {DbAst.limit = None; skip = None; sort = None} in
-          let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq expr, options))) in
+          let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq expr, options)), None) in
           (next, kind, path)
 
       | DbAst.FldKey key ->
           let kind =
             let nlabel = Graph.V.label next in
             match nlabel.C.nlabel with
-            | C.Multi -> SetAccess (get_setkind llschema next, key::path, None)
+            | C.Multi -> SetAccess (get_setkind llschema next, key::path, None, None)
             | _ ->
                 match kind, nlabel.C.plain with
                 | Compose _, true -> Plain
@@ -285,20 +286,26 @@ module Schema = struct
           in (next, kind, path)
       | DbAst.Query (query, options) ->
           begin match kind with
-          | SetAccess (_k, path, None) ->
-              let partial = Sch.is_uniq llschema node query in
+          | SetAccess (_k, path, None, _) ->
+              let uniq = Sch.is_uniq llschema node query in
               let kind = SetAccess (get_setkind llschema node, path,
-                                    Some (partial, (query, options))) in
+                                    Some (uniq, (query, options)), None) in
               (next, kind, path)
-          | SetAccess (_, _path, Some _) ->
+          | SetAccess (_, _path, Some _, _) ->
               raise (Base.NotImplemented "Selection inside a multi node")
           | _ ->
               raise (Base.NotImplemented "Query in a non multi node")
           end
       | DbAst.NewKey -> raise (Base.NotImplemented "New key")
     in
-    let (node, kind, _path) =
-      List.fold_left f (get_root llschema, Compose [], []) path in
+    let node, kind =
+      let rec find path ((node, kind, _) as x) =
+        match (path, kind) with
+        | [], _ -> node, kind
+        | _::_, SetAccess (k, p, (Some _ as q), None) -> node, SetAccess(k, p, q, Some path)
+        | t::q, _ -> find q (find_next_step x t)
+      in find path (get_root llschema, Compose [], []) 
+    in
     let kind =
       match kind with
       | Compose _ -> (
@@ -318,14 +325,14 @@ module Schema = struct
         )
       | Partial (sum, path, part) ->
           Partial (sum, List.rev path, List.rev part)
-      | SetAccess (k, path, query) ->
-          SetAccess (k, List.rev path, query)
+      | SetAccess (k, path, query, epath) ->
+          SetAccess (k, List.rev path, query, epath)
       | Plain -> Plain
     in
     let default =
       let node =
         match kind with
-        | SetAccess (_, _, None) -> SchemaGraphLib.SchemaGraph.unique_next llschema node
+        | SetAccess (_, _, None, _) -> SchemaGraphLib.SchemaGraph.unique_next llschema node
         | _ -> node
       in
       fun annotmap ->

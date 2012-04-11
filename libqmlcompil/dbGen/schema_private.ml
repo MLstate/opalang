@@ -1022,7 +1022,7 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
         let new_annots, epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
         new_annots, Db.NewKey :: epath
 
-    | Db.Query (query, options)::[] ->
+    | Db.Query (query, options)::path ->
         let new_annots, (query, options) =
           let ty =
             match SchemaGraphLib.type_of_node node with
@@ -1035,9 +1035,8 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
           in
           coerce_query_element ~context gamma ty (query, options)
         in
-        new_annots, [Db.Query (query, options)]
-
-    | Db.Query _::_path -> QmlError.error context "sub path after query is not handler yet"
+        let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
+        new_annots @ new_annots', (Db.Query (query, options))::epath
 
 let get_virtual_path vpath epath =
   let rec aux acc = function
@@ -1079,7 +1078,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       match node.C.ty with
       | Q.TypeName ([setparam;_], name) when Q.TypeIdent.to_string name = "dbset" ->
           let ty = C.Db.set setparam in
-          ty, node, `virtualset (setparam, ty, true, None)
+          ty, node, `virtualset (setparam, ty, true, (fun t -> C.Db.set t))
       | ty -> ty, node, `realpath
     )
   | [],_ -> node.C.ty, node, `realpath
@@ -1095,23 +1094,23 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
   | (Db.Query (query, _))::epath, C.Multi ->
       let setty = node.C.ty in
-      (match epath with
-       | [] -> ()
-       | _ -> QmlError.error context "Path after queries is not yet allowed");
+      let dataty, dnode, _ = 
+        find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) 
+          ~kind ~epath0 vpath epath
+      in
       (match setty with
-       | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
-           let setty = C.Db.set setparam in
-           let node, partial, tyread = node, not (is_uniq t node query), setty in
-           setty, node, `virtualset (setparam, tyread, partial, None)
+       | Q.TypeName ([_setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+           let setty = C.Db.set dataty in
+           let partial = not (is_uniq t node query) in
+           setty, dnode, `virtualset (dataty, dataty, partial, (fun t -> C.Db.set t))
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
            let partial = not (is_uniq t node query) in
-           let valty, node, _x =
-             find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
-               ~kind ~epath0 vpath []
-           in Q.TypeName ([keyty; valty], Q.TypeIdent.of_string Opacapi.Types.map), node,
-           `virtualset (valty, valty, partial, None)
-      )
+           let rebuildt dataty = 
+             Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
+           in
+           rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
+      ) 
 
   | (Db.ExprKey _e)::epath, C.Multi ->
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath

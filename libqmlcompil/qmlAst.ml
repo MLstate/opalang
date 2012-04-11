@@ -322,8 +322,11 @@ struct
     | NewKey -> pp f "[?]"
     | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr) q (pp_options pp_expr) o
 
+  let pp_path_elts pp_expr fmt elts =
+      pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) elts
+
   let pp_path pp_expr f (el, knd, select) =
-    let pp_el fmt () = pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) el in
+    let pp_el fmt () = pp_path_elts pp_expr fmt el in
     match knd with
     | Update u -> pp f "%a.%a <- %a" pp_el () (pp_select pp_expr) select (pp_update pp_expr) u
     | _ ->
