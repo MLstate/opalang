@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -80,6 +80,16 @@ let autoresize buf extra msg =
   else invalid_arg msg
 
 let copy buf = { str=String.copy buf.str; i=buf.i }
+
+let finalize buf unused younger =
+  buf.i <- younger.i;
+  buf.str <- younger.str;
+  unused buf
+
+let mark_as_used ~unused buf =
+  let younger = { str=buf.str; i=buf.i } in
+  Gc.finalise (finalize buf unused) younger;
+  younger
 
 let clear buf = buf.i <- 0
 

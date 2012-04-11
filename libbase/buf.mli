@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,3 +61,7 @@ val resize : buf -> int -> unit
 val extend : buf -> int -> unit
 val real_length : buf -> int
 val spare : buf -> int
+
+(** to handle a pool of buffer with GC cooperation
+    create a shallow copy of buffer and attach a finalisation taking original buffer updated on it *)
+val mark_as_used : unused:(buf -> unit) -> buf -> buf
