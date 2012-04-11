@@ -1094,8 +1094,8 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
   | (Db.Query (query, _))::epath, C.Multi ->
       let setty = node.C.ty in
-      let dataty, dnode, _ = 
-        find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) 
+      let dataty, dnode, _ =
+        find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
           ~kind ~epath0 vpath epath
       in
       (match setty with
@@ -1106,11 +1106,11 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
            let partial = not (is_uniq t node query) in
-           let rebuildt dataty = 
+           let rebuildt dataty =
              Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
            in
            rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
-      ) 
+      )
 
   | (Db.ExprKey _e)::epath, C.Multi ->
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
@@ -1206,8 +1206,8 @@ module Preprocess = struct
   let select ~context gamma select ty virtual_ =
     let (dataty, rebuildt) =
       match virtual_ with
-      | `realpath -> ty, (fun t -> t)
-      | `virtualset (r, _, _, rb) -> r, rb
+      | `realpath -> ty, (fun t -> t, `realpath)
+      | `virtualset (r, a, b, rb) -> r, (fun t -> rb t, `virtualset (t, a, b, rb))
       | _ -> assert false
     in
     let error fmt0 fmt =
@@ -1239,10 +1239,14 @@ module Preprocess = struct
       ) -> (* TODO : coerce e1, e2 *) (ty, Db.SSlice (e1, e2))
     | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
     in
-    let ty, s = aux dataty select in
-    (rebuildt ty), s
-
-
+    let tyres, s = aux dataty select in
+    #<If:DBGEN_DEBUG>
+      Format.eprintf "Preprocess select %a : %a -> %a\n%!"
+      (QmlAst.Db.pp_select QmlPrint.pp#expr) select
+      QmlPrint.pp#ty dataty QmlPrint.pp#ty tyres
+    ;
+    #<End>;
+    (rebuildt tyres), s
 
 end
 
@@ -1255,7 +1259,7 @@ let preprocess_path ~context t gamma prepath kind select =
   let ty, _node, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
   let kind = Preprocess.kind ~context gamma kind ty virtual_ in
-  let ty, select = Preprocess.select ~context gamma select ty virtual_  in
+  let (ty, virtual_), select = Preprocess.select ~context gamma select ty virtual_ in
   new_annots, Q.Path (label, List.map (fun f -> Db.FldKey f) prefix @ epath, kind, select), ty, virtual_
 
 
