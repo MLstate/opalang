@@ -1187,8 +1187,6 @@ and expr =
 
 and path = expr Db.path
 
-(*   | Unpreprocessed of Db.element *)
-
 (** First level of qml *)
 
 and type_def_visibility =

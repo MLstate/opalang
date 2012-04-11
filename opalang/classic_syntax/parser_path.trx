@@ -200,11 +200,6 @@ query_keywords <-
 
 query_nokeywords <-
   / !query_keywords
-  (* / (=Opa_lexer.deco(query_keywords)):s *)
-  (*   {{ *)
-  (*     let k, a = s in *)
-  (*     error1 (Printf.sprintf "Query keyword \"%s\" is used as a data field" k) a *)
-  (*   }} *)
 
 query_double_builder <-
   / (=Opa_lexer.exact_keyword("and")) {{ fun q1 q2 -> QmlAst.Db.QAnd (q1, q2) }}

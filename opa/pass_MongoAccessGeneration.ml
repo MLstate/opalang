@@ -682,7 +682,6 @@ module Generator = struct
                      | DbAst.FldKey str ->
                          DbAst.SFlds [[str], select],
                          (fun ((annotmap, expr), ty) ->
-                            Format.eprintf "dot %s %a\n%!" str QmlPrint.pp#ty ty;
                             let ty = dot str ty in
                             let ae = C.dot gamma annotmap expr str in
                             post (ae, ty)
