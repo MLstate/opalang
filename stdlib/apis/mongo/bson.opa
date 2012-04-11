@@ -698,7 +698,7 @@ Bson = {{
     doc = List.flatten(IntMap.fold((i, v, acc ->
                                     (doc = opa_to_document("{i}", v, ty)
                                      ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
-    [H.arr(key,doc)]
+    [H.doc(key,doc)]
 
   opa_to_document(key:string, v:'a, ty:OpaType.ty): Bson.document =
     v = Magic.id(v)
@@ -1002,7 +1002,8 @@ Bson = {{
       | {TyName_args=[{TyConst={TyInt={}}},ty,_]; TyName_ident="ordered_map"}
       | {TyName_args=[ty]; TyName_ident="intmap"} ->
         (match element with
-         | {value={Array=doc} ...} ->
+         | {value={Array=doc} ...}
+         | {value={Document=doc} ...} ->
            imap =
              List.fold((element, im ->
                          (match getel(element, ty, none) with
