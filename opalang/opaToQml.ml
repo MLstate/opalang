@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -448,9 +448,9 @@ struct
     (* ********************************************************************** *)
     and aux (x, opa_annot) =
       match x with
-      | SA.DBPath (path, access_kind) ->
+      | SA.DBPath (path, k, s) ->
           let path = List.map (fun (elt, _) -> db_path elt) (fst path) in
-          QA.Path ((make_label_from_opa_annot opa_annot), path, kind (access_kind))
+          QA.Path ((make_label_from_opa_annot opa_annot), path, kind k, select s)
       | SA.Apply (e, r) ->
           let e = aux e in
           let args = List.map (fun (_, e') -> aux e') (fst r) in
@@ -518,6 +518,15 @@ struct
   | QA.Db.Option -> QA.Db.Option
   | QA.Db.Valpath -> QA.Db.Valpath
   | QA.Db.Ref -> QA.Db.Ref
+
+  and select s =
+    let rebuild, exprs =
+      QmlAst.Db.sub_db_select
+        Traverse.Utils.sub_current
+        Traverse.Utils.sub_ignore
+        s in
+    let exprs' = List.map expr exprs in
+    rebuild exprs'
 
   and expr_of_record e =
     expr (SA.Record ((Parser_utils.encode_tuple [e])), Parser_utils.nlabel e)

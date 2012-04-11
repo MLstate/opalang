@@ -751,7 +751,7 @@ module Classic = struct
           pp f "@[<1>{%a with@ %a}@]" self#expr e (list ";@ " self#record_binding) r
       | Dot (e,s) -> pp f "%a.%a" self#apply_expr e self#field s
       | Bypass s -> pp f "%%%%%s%%%%" (BslKey.to_string s)
-      | DBPath (elt,kind) -> pp f "%a" (QmlAst.Db.pp_path self#expr) (List.map fst (fst elt), kind)
+      | DBPath (elt,kind,select) -> pp f "%a" (QmlAst.Db.pp_path self#expr) (List.map fst (fst elt), kind, select)
       | Directive d -> self#directive f d
     method private apply_expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f -> function
       | (Ident _,_)
@@ -1329,8 +1329,8 @@ module Js = struct
           pp f "@[<1>{%a with@ %a}@]" self#expr e (list ",@ " self#record_binding) r
       | Dot (e,s) -> pp f "%a.%a" self#apply_expr e self#field s
       | Bypass s -> pp f "%%%%%s%%%%" (BslKey.to_string s)
-      | DBPath (elt,kind) ->
-          QmlAst.Db.pp_path self#expr f (List.map fst (fst elt), kind)
+      | DBPath (elt,kind, select) ->
+          QmlAst.Db.pp_path self#expr f (List.map fst (fst elt), kind, select)
       | Directive d -> self#directive f d
     method private apply_expr : 'dir. ('ident,[< all_directives ] as 'dir) expr pprinter = fun f -> function
       | (Ident _,_)

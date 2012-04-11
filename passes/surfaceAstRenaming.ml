@@ -1253,10 +1253,11 @@ and f_expr_node all_env hierar label : (string, renaming_directive) expr_node ->
       let f_env, r = f_record_node ~kind:`record all_env hierar r in
       let f_env, e = f_expr {all_env with f = f_env} hierar e in
       f_env, ExtendRecord (r, e)
-  | DBPath (dbelt, d) ->
+  | DBPath (dbelt, d, s) ->
       let f_env, dbelt = f_dbelt all_env hierar dbelt in
       let f_env, d = f_kind {all_env with f = f_env} hierar d in
-      f_env, DBPath (dbelt, d)
+      let f_env, s = f_select {all_env with f = f_env} hierar s in
+      f_env, DBPath (dbelt, d, s)
   | Directive (`open_, l, _) ->
       ( match l with
           | [e1;e2] ->
@@ -1293,6 +1294,18 @@ and f_kind all_env hierar kind =
   let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
   all_env.f, rebuild exprs'
 
+and f_select all_env hierar select =
+  let rebuild, exprs =
+    QmlAst.Db.sub_db_select
+      Traverse.Utils.sub_current
+      Traverse.Utils.sub_ignore
+      select in
+  let f_expr all_env expr =
+    let (f, expr) = f_expr all_env hierar expr in
+    {all_env with f}, expr
+  in
+  let all_env, exprs' = List.fold_left_map f_expr all_env exprs in
+  all_env.f, rebuild exprs'
 
 and update_all_env_with str ident e all_env =
   match tree_option_of_expr str e with

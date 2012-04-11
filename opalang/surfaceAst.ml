@@ -115,7 +115,10 @@ and ('ident, 'dir) expr_node =
   | Dot          of ('ident, 'dir) expr * string
   | Bypass       of BslKey.t (**A primitive, handled through the Bypass Standard Library*)
 
-  | DBPath       of ('ident, 'dir) dbelt * ('ident, 'dir) expr QmlAst.Db.kind
+  | DBPath       of ('ident, 'dir) dbelt
+      * ('ident, 'dir) expr QmlAst.Db.kind
+      * ('ident, 'dir) expr QmlAst.Db.select
+
   | Directive    of ('ident, 'dir) directive
 
       (**

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -47,7 +47,7 @@ let record r = Record r
 let extendrecord (r,e) = ExtendRecord (r,e)
 let dot (e,s) = Dot (e,s)
 let bypass b = Bypass b
-let dbpath (a,b) = DBPath(a,b)
+let dbpath (a,b,c) = DBPath(a,b,c)
 let directive (a,el,t) = Directive (a,el,t)
 
 (* functions wrapping code_elt constructors *)

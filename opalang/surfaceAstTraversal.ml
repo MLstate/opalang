@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -139,7 +139,7 @@ struct
     | ExtendRecord (r,e) -> wrap extendrecord (sub_2 sub_record_node sub_e (r,e))
     | Dot (e,s) -> wrap dot (sub_2 sub_e sub_ignore (e,s))
     | Bypass b -> wrap bypass (sub_ignore b)
-    | DBPath (a,b) -> wrap dbpath (sub_2 (unannot (sub_list (unannot sub_db_elt))) (QmlAst.Db.sub_db_kind sub_e sub_ty) (a,b))
+    | DBPath (a,b,c) -> wrap dbpath (sub_3 (unannot (sub_list (unannot sub_db_elt))) (QmlAst.Db.sub_db_kind sub_e sub_ty) (QmlAst.Db.sub_db_select sub_e sub_ty) (a,b,c))
     | _ -> assert false
   let sub_expr_node' fd = function
     | Ident _ as e -> sub_ignore e

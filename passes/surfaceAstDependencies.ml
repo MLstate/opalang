@@ -224,7 +224,7 @@ let get_expr_dep_context ?filter e =
               | None ->
                   List.fold_left (fun acc (p,_) -> get_pat_dep_context acc p) acc pel
               | Some _ -> acc)
-         | DBPath (dbelt, _) ->
+         | DBPath (dbelt, _, _) ->
              let acc = Option.if_none filter (add_database acc) acc in
              (* taking the first elt of the path *)
              ( match (fst (List.hd (fst dbelt))) with

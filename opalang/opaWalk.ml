@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -241,7 +241,7 @@ struct
           acc,
           if e == e' then orig_e else
             (Dot (e',s),lab)
-      | DBPath (dbelt,kind) ->
+      | DBPath (dbelt,kind,select) ->
           let acc, dbelt' =
             foldmap_1_stable
               (fun acc node ->
@@ -277,9 +277,18 @@ struct
             let acc, exprs' = List.fold_left_map_stable tra acc exprs in
             acc, rebuild exprs'
           in
+          let acc, select' =
+            let rebuild, exprs =
+              QmlAst.Db.sub_db_select
+                Traverse.Utils.sub_current
+                Traverse.Utils.sub_ignore
+                select in
+            let acc, exprs' = List.fold_left_map_stable tra acc exprs in
+            acc, rebuild exprs'
+          in
           acc,
-          if dbelt == dbelt' && kind == kind' then orig_e else
-            (DBPath (dbelt',kind'),lab)
+          if dbelt == dbelt' && kind == kind' && select == select' then orig_e else
+            (DBPath (dbelt',kind', select'),lab)
       | Directive (variant,el,t) ->
           let acc, el' = List.fold_left_map_stable tra acc el in
           acc,
