@@ -85,10 +85,10 @@ let (@:) a b = H.(@:) a b
 
 module Default = struct
 
-  let rec expr_aux sch n =
-    H.copy_expr (H.newexpr_annot (expr_for_def sch n) (SchemaGraphLib.type_of_node n))
+  let rec expr_aux ?select sch n =
+    H.copy_expr (H.newexpr_annot (expr_for_def ?select sch n) (SchemaGraphLib.type_of_node n))
 
-  and expr_for_def sch n =
+  and expr_for_def ?(select=DbAst.SStar) sch n =
     let ty = SchemaGraphLib.type_of_node n in
     let _ =
       let pos = QmlError.Context.get_pos ((V.label n).C.context) in
@@ -110,9 +110,24 @@ module Default = struct
             | C.Hidden -> expr_aux sch (SchemaGraph.unique_next sch n)
             | C.Sum -> H.convert_case_to_sum ty (expr_aux sch (E.dst (Schema_private.find_nonrec_child_edge sch n)))
             | C.Product ->
+                let selected =
+                  match select with
+                  | DbAst.SFlds flds ->
+                      (fun fld ->
+                         List.find_map (fun (flds, s) -> if flds = [fld] then Some s else None) flds
+                      )
+                  | _ -> (fun _ -> Some (DbAst.SStar))
+                in
                 H.newexpr_annot
                   (QC.record
-                     (List.map (fun e -> SchemaGraphLib.fieldname_of_edge e, expr_aux sch (E.dst e)) (SchemaGraph0.succ_e sch n)))
+                     (List.fold_right
+                        (fun e acc ->
+                           let fld = SchemaGraphLib.fieldname_of_edge e in
+                           match selected fld with
+                           | None -> acc
+                           | Some s -> (fld, expr_aux ~select:s sch (E.dst e))::acc
+                        ) (SchemaGraph0.succ_e sch n) []
+                     ))
                   ty
             | C.Leaf C.Leaf_int -> H.const_int 0
             | C.Leaf C.Leaf_text -> H.const_string ""
@@ -121,9 +136,9 @@ module Default = struct
     in H.end_built_pos ();
     r
 
-  let expr annotmap sch n =
+  let expr ?select annotmap sch n =
     let () = H.AnnotTable.open_table ~annotmap:(Some annotmap) () in
-    let e = expr_aux sch n in
+    let e = expr_aux ?select sch n in
     (match H.AnnotTable.close_table () with
      | None -> assert false
      | Some a -> a, e)

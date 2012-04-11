@@ -23,6 +23,8 @@
 
 module Format = BaseFormat
 
+module List = BaseList
+
 module Graph = SchemaGraphLib.SchemaGraph.SchemaGraph0
 
 module DbAst = QmlAst.Db
@@ -66,7 +68,7 @@ module Schema = struct
     ty : QmlAst.ty;
     kind : node_kind;
     database : database;
-    default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
+    default : ?select:QmlAst.expr DbAst.select -> QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
   }
 
   let pp_query fmt = function
@@ -304,7 +306,7 @@ module Schema = struct
         | [], _ -> node, kind
         | _::_, SetAccess (k, p, (Some _ as q), None) -> node, SetAccess(k, p, q, Some path)
         | t::q, _ -> find q (find_next_step x t)
-      in find path (get_root llschema, Compose [], []) 
+      in find path (get_root llschema, Compose [], [])
     in
     let kind =
       match kind with
@@ -335,9 +337,10 @@ module Schema = struct
         | SetAccess (_, _, None, _) -> SchemaGraphLib.SchemaGraph.unique_next llschema node
         | _ -> node
       in
-      fun annotmap ->
+      fun ?select annotmap ->
       let (annotmap2, expr) =
         DbGen_private.Default.expr
+          ?select
           annotmap
           llschema
           node
@@ -355,6 +358,41 @@ module Schema = struct
 
 
   module HacksForPositions = Sch.HacksForPositions
+end
+
+module Utils = struct
+
+  let rec type_of_selected gamma ty select =
+    let ty = QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty in
+    let res = match select with
+      | DbAst.SNil | DbAst.SStar | DbAst.SSlice _ -> ty
+      | DbAst.SFlds sflds ->
+          match ty with
+          | QmlAst.TypeRecord (QmlAst.TyRow (rflds, rv)) ->
+              QmlAst.TypeRecord
+                (QmlAst.TyRow
+                   ((List.filter_map
+                       (fun (rfld, ty) ->
+                          match List.find_map
+                            (fun (sfld, s) -> if sfld = [rfld] then Some s else None)
+                            sflds
+                          with | None -> None
+                          | Some s -> Some (rfld, type_of_selected gamma ty s)
+                       )
+                       rflds)
+                      , rv)
+                )
+          | ty -> OManager.i_error "Try to select fields on %a" QmlPrint.pp#ty ty
+    in
+    #<If>
+      Format.eprintf "@[Type selection : %a.%a => %a@]@\n"
+      QmlPrint.pp#ty ty
+      (QmlAst.Db.pp_select (fun _ _ -> ())) select
+      QmlPrint.pp#ty res;
+    #<End>;
+    res
+
+
 end
 
 module type S = sig include DbGenByPass.S end

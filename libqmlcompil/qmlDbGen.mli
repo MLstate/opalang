@@ -74,7 +74,7 @@ module Schema: sig
     ty : QmlAst.ty;
     kind : node_kind;
     database : database;
-    default : QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
+    default : ?select:QmlAst.expr QmlAst.Db.select -> QmlAst.annotmap -> (QmlAst.annotmap * QmlAst.expr);
   }
 
 
@@ -202,6 +202,12 @@ module Schema: sig
     val set_annotmap : QmlAst.annotmap -> unit
     val free_annotmap : unit -> unit
   end
+end
+
+module Utils : sig
+
+  val type_of_selected : QmlTypes.gamma -> QmlAst.ty -> 'a QmlAst.Db.select -> QmlAst.ty
+
 end
 
 module type S = sig include DbGenByPass.S end
