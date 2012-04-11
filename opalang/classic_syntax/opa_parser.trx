@@ -542,7 +542,7 @@ just_expr10 <-
        / match
        / lambda
        / letin
-       / Parser_path.path_kind:v {{ let (path,access_kind) = v in DBPath (path, access_kind)}}
+       / Parser_path.path_kind:v {{ let (path,access_kind, s) = v in DBPath (path, access_kind, s)}}
        (* FIXME: useful? / paths_opa_expr / props_aux*)
        / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
        / Trx.ExpressionAsFunction:e {{ parser_ e }}

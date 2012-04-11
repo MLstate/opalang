@@ -32,6 +32,7 @@
 ;spacing <- Opa_lexer.spacing
 ;semic <- Opa_lexer.semic
 ;tilda <- Opa_parser.tilda
+_succeed <- (&. $/ !. $)
 
 (* path definition, ie for [db pathdef : typ] or [db pathdef = expr] *)
 ;pathdef_nosp <-slash_nosp ml_identifier_nosp:i
@@ -54,17 +55,17 @@ pathdef_type <- spacing pathdef_type_nosp:v {{ v }}
 
 (* path for reading *)
 ;/** database query **/
-path_kind <- querytype:qt path:p {{ p, qt }}
+path_kind <- querytype:qt path:p select:s {{ p, qt, s }}
 
 ; /** database update path **/
 path_update <-
-  / '@'? slash_nosp path:pa (Opa_lexer.larrow update:u {{u}} / update_simple):u
+  / '@'? slash_nosp path:pa select:s spacing (Opa_lexer.larrow update:u {{u}} / update_simple):u
     {{
-       DBPath (pa, QmlAst.Db.Update u)
+       DBPath (pa, QmlAst.Db.Update u, s)
     }}
-  / '@'? slash_nosp path:pa (Opa_lexer.larrow / Opa_lexer.assign) Opa_parser.expr:e
+  / '@'? slash_nosp path:pa select:s spacing (Opa_lexer.larrow / Opa_lexer.assign) Opa_parser.expr:e
     {{
-       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e))
+       DBPath (pa, QmlAst.Db.Update (QmlAst.Db.UExpr e), s)
     }}
 
 
@@ -116,6 +117,35 @@ update_list <-
     {{ QmlAst.Db.UPrependAll e }} *)
   / (=Opa_lexer.exact_ident("pop")) {{ QmlAst.Db.UPop }}
   / (=Opa_lexer.exact_ident("shift")) {{ QmlAst.Db.UShift }}
+
+(* ******************************************************************)
+(**
+   {7 Path selection }
+*)
+;/** Path selection **/
+select <- 
+  / "." (select_fields / select_list / select_star):s {{ s }}
+  / select_nil
+
+select_field <-
+  / Opa_parser.record_long_ident:i select:e 
+    {{ List.map undecorate i, e }}
+
+select_fields <-
+  / lbrace
+    (=list0(select_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+    rbrace
+    {{
+      QmlAst.Db.SFlds l
+    }}
+
+select_list <-
+  / lbracket Opa_parser.expr:e rbracket {{ QmlAst.Db.SSlice (e, none (label e)) }}
+  / lbracket Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 rbracket {{ QmlAst.Db.SSlice (e1, e2) }}
+
+select_star <- "*" {{ QmlAst.Db.SStar }} 
+
+select_nil <- _succeed {{ QmlAst.Db.SNil }}
 
 (* ******************************************************************)
 (**

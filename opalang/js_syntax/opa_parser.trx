@@ -814,7 +814,7 @@ expr_noop_simple <-
   / module
   / record / block (* Becareful : Keep this order for keep single fields record *)
   / tuple_expr
-  / Parser_path.path_kind:v {{ let (p, k) = v in DBPath (p, k) }}
+  / Parser_path.path_kind:v {{ let (p, k, s) = v in DBPath (p, k, s) }}
   (* FIXME: useful? / paths_opa_expr / props_aux*)
   / Css.css_map:e {{ undecorate e }} (* useful when saying some_style = ... *)
   / Trx.ExpressionAsFunction:e {{ parser_ e }}
