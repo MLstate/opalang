@@ -48,10 +48,14 @@ module Generator = struct
     | Q.TypeConst _ -> true
     | _ -> false
 
+  (* With mongo db we don't consider list as a sum *)
   let ty_is_sum gamma ty =
-    match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
-    | Q.TypeSum _ -> true
-    | _ -> false
+    match ty with
+    | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> false
+    | ty ->
+        match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+        | Q.TypeSum _ -> true
+        | _ -> false
 
   let ty_database = Q.TypeVar (QmlTypeVars.TypeVar.next ())
 
