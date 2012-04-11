@@ -681,6 +681,9 @@ DbSet = {{
           do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
           aux(size, dbset, i+1)
         | {some=doc} ->
+            #<Ifstatic:DBGEN_DEBUG>
+            do Log.notice("DbGen/Mongo", "Unserialize {doc} with {@typeval('a)} {dbset.default}")
+            #<End>
             match Bson.doc2opa_default(doc, dbset.default) with
             | {none} ->
                // Note: we should really test for error before unserialize but it would have an adverse effect on performance.
@@ -694,7 +697,11 @@ DbSet = {{
                       "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
                  aux(size, dbset, i+1)
 
-            | {some=opa} -> {some = (opa, {next=->aux(size, dbset, i+1)})}
+            | {some=opa} ->
+              #<Ifstatic:DBGEN_DEBUG>
+              do Log.notice("DbGen/Mongo", "Unserialize success {opa}")
+              #<End>
+              {some = (opa, {next=->aux(size, dbset, i+1)})}
             end
         end
       {next = -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0)}
@@ -704,8 +711,14 @@ DbSet = {{
 
   @package to_list(dbset:DbMongoSet.engine('a)) = fold([], dbset, (a, acc -> a +> acc))
 
-  @package to_map(dbset:DbMongoSet.engine('a)):map('key, 'value) =
-    fold_doc(Map.empty, dbset, (map:map('key, 'value), doc:Bson.document ->
+  @package to_map(dbset:DbMongoSet.engine('a), f : 'v0 -> 'v1):map('key, 'v1) =
+    #<Ifstatic:DBGEN_DEBUG>
+      do Log.notice("DbGen/Mongo", "DbSet.to_map key:{@typeval('key)} v0:{@typeval('v0)} v1:{@typeval('v1)}")
+    #<End>
+    fold_doc(Map.empty, dbset, (map:map('key, 'v1), doc:Bson.document ->
+        #<Ifstatic:DBGEN_DEBUG>
+        do Log.notice("DbGen/Mongo", "Map fold doc {doc}")
+        #<End>
         match List.extract_p(x -> x.name == "_id", doc) with
         | ({some=kdoc}, vdoc) ->
           //Traditional hack... (We really need bson.opa rewriting)
@@ -716,12 +729,12 @@ DbSet = {{
                  "(failure) map unserialize key {kdoc} from {@typeval('key)}")
             map
           | {some=key} ->
-            match Bson.doc2opa_default(vdoc, @unsafe_cast(dbset.default)):option('value) with
+            match Bson.doc2opa_default(vdoc, @unsafe_cast(dbset.default)):option('v0) with
             | {none} ->
               do Log.error("DbGen/Mongo",
                    "(failure) map unserialize value {vdoc} from {@typeval('value)}")
               map
-            | {some=val} -> Map.add(key, val, map)
+            | {some=val} -> Map.add(key, f(val), map)
             end
           end
         | ({none}, _) ->
@@ -856,6 +869,8 @@ DbSet = {{
 @opacapi DbMongo_read = DbMongo.read
 @opacapi DbMongo_write = DbMongo.write
 @opacapi DbMongo_option = DbMongo.option
+
+
 @opacapi DbSet_build = DbSet.build
 @opacapi DbSet_update = DbSet.update
 @opacapi DbSet_opa2doc = Bson.opa2doc
@@ -863,6 +878,7 @@ DbSet = {{
 @opacapi DbSet_indexes = DbSet.indexes
 @opacapi DbSet_to_map = DbSet.to_map
 @opacapi DbSet_iterator = DbSet.iterator
+@opacapi DbSet_iterator_map = Iter.map
 @opacapi DbSet_map_to_uniq = DbSet.map_to_uniq
 @opacapi DbSet_map_to_uniq_def = DbSet.map_to_uniq_def
 @opacapi DbSet_map_to_docs = DbSet.map_to_docs

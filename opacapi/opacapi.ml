@@ -177,6 +177,7 @@ struct
   let indexes = !! "indexes"
   let to_map = !! "to_map"
   let iterator = !! "iterator"
+  let iterator_map = !! "iterator_map"
   let map_to_uniq = !! "map_to_uniq"
   let set_to_uniq = !! "set_to_uniq"
   let map_to_uniq_def = !! "map_to_uniq_def"

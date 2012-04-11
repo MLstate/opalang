@@ -41,7 +41,6 @@ type db_access = {
 
 let label = Annot.nolabel "MongoAccessGeneration"
 
-
 module Generator = struct
 
   let ty_is_const gamma ty =
@@ -200,23 +199,19 @@ module Generator = struct
         in aux annotmap query
 
   let select_to_expr gamma annotmap select =
-    let rec aux prev_fld annotmap select =
+    let rec aux prev_fld ((annotmap, acc) as aacc) select =
       match select with
       | DbAst.SFlds flds ->
-        List.fold_left
-          (fun (annotmap, acc) (fld, select) ->
-            match select with
-            | DbAst.SNil | DbAst.SStar ->
-              let name = BaseFormat.sprintf "%a" QmlAst.Db.pp_field (prev_fld @ fld) in
-              let annotmap, one = C.int annotmap 1 in
-              add_to_document gamma annotmap name one acc
-            | DbAst.SSlice _ -> assert false
-            | DbAst.SFlds _ -> assert false)
-          (empty_query gamma annotmap)
-          flds
-      | DbAst.SNil | DbAst.SStar -> assert false
+          List.fold_left
+            (fun aacc (fld, select) -> aux (prev_fld @ fld) aacc select)
+            aacc
+            flds
+      | DbAst.SNil | DbAst.SStar ->
+          let name = BaseFormat.sprintf "%a" QmlAst.Db.pp_field prev_fld in
+          let annotmap, one = C.int annotmap 1 in
+          add_to_document gamma annotmap name one acc
       | DbAst.SSlice _ -> assert false
-    in aux [] annotmap select
+    in aux [] (empty_query gamma annotmap) select
 
   let query_add_order gamma annotmap order query =
     match order with
@@ -345,17 +340,38 @@ module Generator = struct
         "Can't generates mongo access because : %s is not yet implemented"
         s
 
-  let get_read_map setkind uniq annotmap gamma =
-    let dataty = QmlAstCons.Type.next_var () in
+  let get_read_map setkind dty uniq annotmap gamma =
+    let aty = QmlAstCons.Type.next_var () in
     match setkind, uniq with
-    | DbSchema.Map (_kty, dty), true ->
-        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
-    | DbSchema.Map (_kty, dty), false ->
-        OpaMapToIdent.typed_val ~label ~ty:[dataty; dty] Api.DbSet.map_to_uniq annotmap gamma
-    | DbSchema.DbSet dty, true ->
+    | DbSchema.Map (_kty, _), true ->
+        OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
+    | DbSchema.Map (_kty, _), false ->
+        OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
+    | DbSchema.DbSet _, true ->
         OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
-    | DbSchema.DbSet dty, false ->
+    | DbSchema.DbSet _, false ->
         OpaMapToIdent.typed_val ~label ~ty:[dty] Api.some annotmap gamma
+
+  let apply_postmap gamma kind dataty postmap =
+    match postmap with
+    | None -> (fun x -> x)
+    | Some (map, postty) ->
+        match kind with
+        | DbAst.Default ->
+            (fun (annotmap, expr) -> C.apply ~ty:postty gamma annotmap map [expr])
+        | DbAst.Option ->
+            (fun (annotmap, expr) ->
+               let id = Ident.next "data" in
+               let annotmap, pvar = QmlAstCons.TypedPat.var annotmap id postty in
+               let annotmap, ko_expr = C.none annotmap gamma in
+               let annotmap, ok_expr =
+                 let annotmap, eid = C.ident annotmap id dataty in
+                 let annotmap, result = C.apply ~ty:postty gamma annotmap map [eid] in
+                 C.some annotmap gamma result
+               in
+               QmlAstCons.TypedPat.match_option annotmap gamma expr pvar ok_expr ko_expr
+            )
+        | _ -> assert false
 
   let rec compose_path ~context gamma annotmap schema dbname kind subs =
     let subkind =
@@ -380,13 +396,13 @@ module Generator = struct
     in
     (annotmap, [elements], builder, pathty)
 
-    and string_path ~context gamma annotmap schema (kind, strpath) =
+  and string_path ~context gamma annotmap schema (kind, strpath) =
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
       get_node ~context schema strpath in
     match node.DbSchema.kind with
     | DbSchema.SetAccess (setkind, path, query, _todo) ->
-        dbset_path ~context gamma annotmap (kind, path) setkind node query DbAst.SNil
+        dbset_path ~context gamma annotmap (kind, path) setkind node query None DbAst.SNil
     | _ ->
         let dataty = node.DbSchema.ty in
         let dbname = node.DbSchema.database.DbSchema.name in
@@ -499,7 +515,7 @@ module Generator = struct
                   C.apply gamma annotmap again [path]
             in annotmap, path
 
-    and dbset_path ~context gamma annotmap (kind, path) setkind node query0 select0 =
+  and dbset_path ~context gamma annotmap (kind, path) setkind node query0 embed select0 =
     let ty = node.DbSchema.ty in
     let annotmap, skip, limit, query, order, uniq =
       match query0 with
@@ -543,7 +559,7 @@ module Generator = struct
     | None, DbAst.Update DbAst.UExpr e ->
         (* Just reuse ref path on collections if 0 query *)
         let annotmap, refpath =
-          dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 select0 in
+          dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 embed select0 in
         let annotmap, more = C.dot gamma annotmap refpath "more" in
         let annotmap, write = C.dot gamma annotmap more "write" in
         let annotmap, apply = C.apply gamma annotmap write [e] in
@@ -554,166 +570,240 @@ module Generator = struct
         in annotmap, ignore
 
     | _ ->
-    (* DbSet.build *)
-    let (annotmap, build, query, args) =
-      match kind with
-      | DbAst.Default
-      | DbAst.Valpath
-      | DbAst.Ref
-      | DbAst.Option ->
-          let dataty =
+        (* Preprocessing of the embedded path, for select only useful data. *)
+        let select0, postdot =
+          let dot str ty =
+            match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+            | Q.TypeRecord ((Q.TyRow (row, _)) as tyrow) ->
+                begin try List.assoc str row
+                with Not_found -> OManager.i_error "Selection : %s not found in %a"
+                  str QmlPrint.pp#tyrow tyrow
+                end
+            | ty -> OManager.i_error "Selection : %s not found in non record : %a"
+                str QmlPrint.pp#ty ty
+          in
+          match embed with
+          | None -> select0, None
+          | Some embed ->
+              let select0, postdot =
+                List.fold_right
+                  (fun fragment (select, post) ->
+                     match fragment with
+                     | DbAst.FldKey str ->
+                         DbAst.SFlds [[str], select],
+                         (fun ((annotmap, expr), ty) ->
+                            Format.eprintf "dot %s %a\n%!" str QmlPrint.pp#ty ty;
+                            let ty = dot str ty in
+                            let ae = C.dot gamma annotmap expr str in
+                            post (ae, ty)
+                         )
+                     | DbAst.ExprKey _
+                     | DbAst.NewKey _
+                     | DbAst.Query _ ->
+                         QmlError.error context
+                           "This kind of sub selection is not yet implemented by mongo generator")
+                  embed
+                  (select0, (fun x -> x))
+              in select0, Some postdot
+        in
+        (* Type of the data after selection *)
+        let dataty =
+          let ty =
             match setkind with
             | DbSchema.DbSet ty -> ty
-            | DbSchema.Map _ -> QmlAstCons.Type.next_var ()
-                (* Dummy type variable, should never use*)
+            | DbSchema.Map (_, ty) -> ty
+          in QmlDbGen.Utils.type_of_selected gamma ty select0
+        in
+        (* DbSet.build *)
+        let (annotmap, build, query, args) =
+          match kind with
+          | DbAst.Default
+          | DbAst.Valpath
+          | DbAst.Ref
+          | DbAst.Option ->
+              (* query *)
+              let annotmap, query = query_to_expr gamma annotmap query in
+              let annotmap, query = query_add_order gamma annotmap order query in
+              let annotmap, default = node.DbSchema.default ~select:select0 annotmap in
+              let annotmap, select =
+                match select0 with
+                | DbAst.SNil | DbAst.SStar -> C.none annotmap gamma
+                | select ->
+                    let annotmap, select = select_to_expr gamma annotmap select in
+                    C.some annotmap gamma select
+              in
+              begin match kind with
+              | DbAst.Default | DbAst.Option ->
+                  let annotmap, build =
+                    OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
+                  (annotmap, build, query, [default; skip; limit; select])
+              | DbAst.Valpath ->
+                  let annotmap, build =
+                    OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                      Api.DbSet.build_vpath annotmap gamma
+                  in
+                  let annotmap, read_map = get_read_map setkind dataty uniq annotmap gamma in
+                  (annotmap, build, query, [default; skip; limit; select; read_map])
+              | DbAst.Ref ->
+                  let annotmap, read_map = get_read_map setkind dataty uniq annotmap gamma in
+                  let build_rpath, (annotmap, write_map) =
+                    match setkind, uniq with
+                    | DbSchema.DbSet _, true ->
+                        let iarg  = Ident.next "data" in
+                        let annotmap, earg = C.ident annotmap iarg dataty in
+                        let annotmap, doc = opa2doc ~ty:dataty gamma annotmap earg () in
+                        Api.DbSet.build_rpath, C.lambda annotmap [(iarg, dataty)] doc
+                    | DbSchema.Map (_kty, _dty), true ->
+                        let iarg  = Ident.next "data" in
+                        let annotmap, earg = C.ident annotmap iarg dataty in
+                        let annotmap, doc = opa2doc ~ty:dataty gamma annotmap earg () in
+                        Api.DbSet.build_rpath, C.lambda annotmap [(iarg, dataty)] doc
+                    | DbSchema.DbSet _, false ->
+                        QmlError.warning ~wclass:WarningClass.dbgen_mongo
+                          context "Reference path on database set is not advised";
+                        Api.DbSet.build_rpath_collection,
+                        OpaMapToIdent.typed_val ~label ~ty:[dataty]
+                          Api.DbSet.set_to_docs annotmap gamma
+
+                    | DbSchema.Map (kty, _), false ->
+                        QmlError.warning ~wclass:WarningClass.dbgen_mongo
+                          context "Reference path on database map is not advised";
+                        Api.DbSet.build_rpath_collection,
+                        OpaMapToIdent.typed_val ~label ~ty:[kty; dataty]
+                          Api.DbSet.map_to_docs annotmap gamma
+                  in
+                  let annotmap, build =
+                    OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty] build_rpath annotmap gamma
+                  in
+                  (annotmap, build, query, [default; skip; limit; select; read_map; write_map])
+              | _ -> assert false
+              end
+
+          | DbAst.Update u ->
+              let (annotmap, query) = query_to_expr gamma annotmap query in
+              let (annotmap, update) =
+                let u =
+                  (* Hack : When map value is simple, adding the "value" field *)
+                  match setkind with
+                  | DbSchema.Map (_, tyval) when ty_is_const gamma tyval -> DbAst.UFlds [["value"], u]
+                  | _ -> u
+                in
+                update_to_expr gamma annotmap u
+              in
+              let (annotmap, build) =
+                OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
+              in
+              (annotmap, build, query, [update])
+        in
+        (* database *)
+        let (annotmap, database) = node_to_dbexpr gamma annotmap node in
+        (* path : list(string) *)
+        let (annotmap, path) =
+          let (annotmap, path) = List.fold_left
+            (fun (annotmap, acc) key ->
+               let annotmap, e = C.string annotmap key in
+               annotmap, e::acc
+            ) (annotmap, []) path
           in
-          (* query *)
-          let annotmap, query = query_to_expr gamma annotmap query in
-          let annotmap, query = query_add_order gamma annotmap order query in
-          let annotmap, default = node.DbSchema.default annotmap in
-          let annotmap, select =
-            match select0 with
-            | DbAst.SNil | DbAst.SStar -> C.none annotmap gamma
-            | select ->
-              let annotmap, select = select_to_expr gamma annotmap select in
-              C.some annotmap gamma select
-          in
-          begin match kind with
+          C.rev_list (annotmap, gamma) path in
+        (* dbset = DbSet.build(database, path, query, ...) *)
+        let (annotmap, set) =
+          C.apply  gamma annotmap build
+            ([database; path; query] @ args) in
+        let ty =
+          (*FIXME : We should project the resulted ty according to the selection *)
+          ty
+        in
+        (* Final convert *)
+        let (annotmap, set) =
+          match kind with
           | DbAst.Default | DbAst.Option ->
-              let annotmap, build =
-                OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
-              (annotmap, build, query, [default; skip; limit; select])
-          | DbAst.Valpath ->
-              let annotmap, build =
-                OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty] Api.DbSet.build_vpath annotmap gamma
+              let annotmap, postmap =
+                match postdot with
+                | None -> annotmap, None
+                | Some postdot ->
+                    let data = Ident.next "data" in
+                    let (annotmap, map), postty =
+                      postdot ((C.ident annotmap data dataty), dataty)
+                    in
+                    let annotmap, map = C.lambda annotmap [(data, dataty)] map in
+                    annotmap, Some (map, postty)
               in
-              let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
-              (annotmap, build, query, [default; skip; limit; select; read_map])
-          | DbAst.Ref ->
-              let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
-              let build_rpath, wty, (annotmap, write_map) =
-                match setkind, uniq with
-                | DbSchema.DbSet dty, true ->
-                    let iarg  = Ident.next "data" in
-                    let annotmap, earg = C.ident annotmap iarg dty in
-                    let annotmap, doc = opa2doc ~ty:dty gamma annotmap earg () in
-                    Api.DbSet.build_rpath, dty, C.lambda annotmap [(iarg, dty)] doc
-                | DbSchema.Map (_kty, dty), true ->
-                    let iarg  = Ident.next "data" in
-                    let annotmap, earg = C.ident annotmap iarg dty in
-                    let annotmap, doc = opa2doc ~ty:dty gamma annotmap earg () in
-                    Api.DbSet.build_rpath, dty, C.lambda annotmap [(iarg, dty)] doc
-                | DbSchema.DbSet dty, false ->
-                    QmlError.warning ~wclass:WarningClass.dbgen_mongo
-                      context "Reference path on database set is not advised";
-                    Api.DbSet.build_rpath_collection, dataty,
-                    OpaMapToIdent.typed_val ~label ~ty:[dty]
-                      Api.DbSet.set_to_docs annotmap gamma
-
-                | DbSchema.Map (kty, dty), false ->
-                    QmlError.warning ~wclass:WarningClass.dbgen_mongo
-                      context "Reference path on database map is not advised";
-                    Api.DbSet.build_rpath_collection, dataty,
-                    OpaMapToIdent.typed_val ~label ~ty:[kty; dty]
-                      Api.DbSet.map_to_docs annotmap gamma
-              in
-              let annotmap, build =
-                OpaMapToIdent.typed_val ~label ~ty:[wty; dataty] build_rpath annotmap gamma
-              in
-              (annotmap, build, query, [default; skip; limit; select; read_map; write_map])
-          | _ -> assert false
-          end
-
-      | DbAst.Update u ->
-          let (annotmap, query) = query_to_expr gamma annotmap query in
-          let (annotmap, update) =
-            let u =
-              (* Hack : When map value is simple, adding the "value" field *)
-              match setkind with
-              | DbSchema.Map (_, tyval) when ty_is_const gamma tyval -> DbAst.UFlds [["value"], u]
-              | _ -> u
-            in
-            update_to_expr gamma annotmap u
-          in
-          let (annotmap, build) =
-            OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
-          in
-          (annotmap, build, query, [update])
-    in
-    (* database *)
-    let (annotmap, database) = node_to_dbexpr gamma annotmap node in
-    (* path : list(string) *)
-    let (annotmap, path) =
-      let (annotmap, path) = List.fold_left
-        (fun (annotmap, acc) key ->
-           let annotmap, e = C.string annotmap key in
-           annotmap, e::acc
-        ) (annotmap, []) path
-      in
-      C.rev_list (annotmap, gamma) path in
-    (* dbset = DbSet.build(database, path, query, ...) *)
-    let (annotmap, set) =
-      C.apply  gamma annotmap build
-        ([database; path; query] @ args) in
-    (* Final convert *)
-    let (annotmap, set) =
-      match kind with
-      | DbAst.Default | DbAst.Option ->
-          (match setkind, uniq with
-           | DbSchema.DbSet ty, false ->
-               let setident = Ident.next "mongoset" in
-               let annotmap, identset =
-                 let tyset = OpaMapToIdent.specialized_typ ~ty:[ty]
-                   Api.Types.DbMongoSet.engine gamma in
-                 C.ident annotmap setident tyset
-               in
-               let annotmap, iterator =
-                 let annotmap, iterator =
-                   OpaMapToIdent.typed_val ~label ~ty:[ty]
-                     Api.DbSet.iterator annotmap gamma
-                 in
-                 C.apply ~ty gamma annotmap iterator [identset]
-               in
-               let annotmap, genset =
-                 let annotmap, identset = C.copy annotmap identset in
-                 C.record annotmap [("iter", iterator); ("engine", identset)]
-               in
-               C.letin annotmap [setident, set] genset
-           | DbSchema.Map (keyty, dataty), false ->
-               let (annotmap, to_map) =
-                 OpaMapToIdent.typed_val ~label
-                   ~ty:[QmlAstCons.Type.next_var (); keyty; dataty]
-                   Api.DbSet.to_map annotmap gamma in
-               let (annotmap, map) =
-                 C.apply ~ty gamma annotmap to_map [set] in
-               begin match kind with
-               | DbAst.Option ->
-                   (* TODO - Actually we consider map already exists *)
-                   C.some annotmap gamma map
-               | _ -> (annotmap, map)
-               end
-           | DbSchema.DbSet dataty, true ->
-               let (annotmap, set_to_uniq) =
-                 let set_to_uniq = match kind with
-                 | DbAst.Default -> Api.DbSet.set_to_uniq_def
-                 | DbAst.Option -> Api.DbSet.set_to_uniq
-                 | _ -> assert false
-                 in
-                 OpaMapToIdent.typed_val ~label ~ty:[dataty] set_to_uniq annotmap gamma in
-               C.apply ~ty gamma annotmap set_to_uniq [set]
-           | DbSchema.Map (_keyty, dataty), true ->
-               let (annotmap, map_to_uniq) =
-                 let map_to_uniq = match kind with
-                 | DbAst.Default -> Api.DbSet.map_to_uniq_def
-                 | DbAst.Option -> Api.DbSet.map_to_uniq
-                 | _ -> assert false
-                 in
-                 OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
-                   map_to_uniq annotmap gamma in
-               C.apply ~ty gamma annotmap map_to_uniq [set])
-      | _ -> (annotmap, set)
-    in
-    (annotmap, set)
+              (match setkind, uniq with
+               | DbSchema.DbSet _, false ->
+                   let setident = Ident.next "mongoset" in
+                   let annotmap, identset =
+                     let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
+                       Api.Types.DbMongoSet.engine gamma in
+                     C.ident annotmap setident tyset
+                   in
+                   let annotmap, iterator =
+                     let annotmap, iterator =
+                       OpaMapToIdent.typed_val ~label ~ty:[dataty]
+                         Api.DbSet.iterator annotmap gamma
+                     in
+                     let annotmap, iterator =
+                       C.apply ~ty gamma annotmap iterator [identset]
+                     in
+                     match postmap with
+                     | None -> annotmap, iterator
+                     | Some (map, postty) ->
+                         let annotmap, imap =
+                           OpaMapToIdent.typed_val ~label ~ty:[dataty; postty]
+                             Api.DbSet.iterator_map annotmap gamma
+                         in C.apply ~ty gamma annotmap imap [map; iterator]
+                   in
+                   let annotmap, genset =
+                     let annotmap, identset = C.copy annotmap identset in
+                     C.record annotmap [("iter", iterator); ("engine", identset)]
+                   in
+                   C.letin annotmap [setident, set] genset
+               | DbSchema.Map (keyty, _), false ->
+                   let (annotmap, postdot), postty =
+                     match postmap with
+                     | None ->
+                         let id = Ident.next "x" in
+                         let annotmap, idx = C.ident annotmap id dataty in
+                         (C.lambda annotmap [id, dataty] idx), dataty
+                     | Some (map, postty) -> (annotmap, map), postty
+                   in
+                   let annotmap, to_map =
+                     OpaMapToIdent.typed_val ~label
+                       ~ty:[QmlAstCons.Type.next_var (); dataty; postty; keyty;]
+                       Api.DbSet.to_map annotmap gamma in
+                   let annotmap, map =
+                     C.apply ~ty gamma annotmap to_map [set; postdot] in
+                   begin match kind with
+                   | DbAst.Option ->
+                       (* TODO - Actually we consider map already exists *)
+                       C.some annotmap gamma map
+                   | _ -> (annotmap, map)
+                   end
+               | DbSchema.DbSet _, true ->
+                   let (annotmap, set_to_uniq) =
+                     let set_to_uniq = match kind with
+                       | DbAst.Default -> Api.DbSet.set_to_uniq_def
+                       | DbAst.Option -> Api.DbSet.set_to_uniq
+                       | _ -> assert false
+                     in
+                     OpaMapToIdent.typed_val ~label ~ty:[dataty] set_to_uniq annotmap gamma in
+                   apply_postmap gamma kind dataty postmap
+                     (C.apply ~ty gamma annotmap set_to_uniq [set])
+               | DbSchema.Map (_keyty, _), true ->
+                   let (annotmap, map_to_uniq) =
+                     let map_to_uniq = match kind with
+                       | DbAst.Default -> Api.DbSet.map_to_uniq_def
+                       | DbAst.Option -> Api.DbSet.map_to_uniq
+                       | _ -> assert false
+                     in
+                     OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                       map_to_uniq annotmap gamma in
+                   apply_postmap gamma kind dataty postmap
+                     (C.apply ~ty gamma annotmap map_to_uniq [set])
+              )
+          | _ -> (annotmap, set)
+        in
+        (annotmap, set)
 
 
   let path ~context gamma annotmap schema (label, dbpath, kind, select) =
@@ -722,8 +812,8 @@ module Generator = struct
     | `mongo -> (
         let annotmap, mongopath =
           match node.DbSchema.kind with
-          | DbSchema.SetAccess (setkind, path, query, _todo) ->
-              dbset_path ~context gamma annotmap (kind, path) setkind node query select
+          | DbSchema.SetAccess (setkind, path, query, embed) ->
+              dbset_path ~context gamma annotmap (kind, path) setkind node query embed select
           | _ ->
               let strpath = List.map
                 (function
