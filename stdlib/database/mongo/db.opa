@@ -593,13 +593,14 @@ DbSet = {{
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
     List.iter(index(db, path, _), idxs)
 
-  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit):DbMongoSet.engine('a) =
+  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.engine('a) =
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
+    do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
     #<End>
     id = DbSet.path_to_id(path)
     ns = "{db.name}.{id}"
-    reply=MongoDriver.query(db.db, 0, ns, skip, limit, selector, none)
+    reply=MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter)
     match reply with
     | {none} ->
       do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
@@ -775,19 +776,19 @@ DbSet = {{
   @package add_to_document(doc, name, value, ty):Bson.document =
     List.append(doc, Bson.opa_to_document(name, value, ty))
 
-  @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
+  @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
               read_map:DbMongoSet.engine('a) -> option('b)):DbMongo.private.val_path('b) =
     {
       id = DbSet.path_to_id(path)
-      read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit)):option('b)
+      read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit, filter)):option('b)
       default = default
       more = void
     }
 
-  @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit,
+  @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
               read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
-    vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
+    vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     write(data) =
       do update(db, path, selector,
            [{name="$set"; value={Document = write_map(data)}}]
@@ -808,10 +809,11 @@ DbSet = {{
              default:'b,
              skip,
              limit,
+             filter,
              read_map:DbMongoSet.engine('a) -> option('b),
              write_map:'b -> list(Bson.document)):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
-    vpath = build_vpath(db, path, selector, default, skip, limit, read_map)
+    vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     remove() =
       if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
         Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")

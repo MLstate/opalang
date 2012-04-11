@@ -199,6 +199,25 @@ module Generator = struct
               add_to_document gamma annotmap name query empty
         in aux annotmap query
 
+  let select_to_expr gamma annotmap select =
+    let rec aux prev_fld annotmap select =
+      match select with
+      | DbAst.SFlds flds ->
+        List.fold_left
+          (fun (annotmap, acc) (fld, select) ->
+            match select with
+            | DbAst.SNil | DbAst.SStar ->
+              let name = BaseFormat.sprintf "%a" QmlAst.Db.pp_field (prev_fld @ fld) in
+              let annotmap, one = C.int annotmap 1 in
+              add_to_document gamma annotmap name one acc
+            | DbAst.SSlice _ -> assert false
+            | DbAst.SFlds _ -> assert false)
+          (empty_query gamma annotmap)
+          flds
+      | DbAst.SNil | DbAst.SStar -> assert false
+      | DbAst.SSlice _ -> assert false
+    in aux [] annotmap select
+
   let query_add_order gamma annotmap order query =
     match order with
     | None -> annotmap, query
@@ -366,8 +385,8 @@ module Generator = struct
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
       get_node ~context schema strpath in
     match node.DbSchema.kind with
-    | DbSchema.SetAccess (setkind, path, query) ->
-        dbset_path ~context gamma annotmap (kind, path) setkind node query
+    | DbSchema.SetAccess (setkind, path, query, _todo) ->
+        dbset_path ~context gamma annotmap (kind, path) setkind node query DbAst.SNil
     | _ ->
         let dataty = node.DbSchema.ty in
         let dbname = node.DbSchema.database.DbSchema.name in
@@ -480,7 +499,7 @@ module Generator = struct
                   C.apply gamma annotmap again [path]
             in annotmap, path
 
-    and dbset_path ~context gamma annotmap (kind, path) setkind node query0 =
+    and dbset_path ~context gamma annotmap (kind, path) setkind node query0 select0 =
     let ty = node.DbSchema.ty in
     let annotmap, skip, limit, query, order, uniq =
       match query0 with
@@ -524,7 +543,7 @@ module Generator = struct
     | None, DbAst.Update DbAst.UExpr e ->
         (* Just reuse ref path on collections if 0 query *)
         let annotmap, refpath =
-          dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 in
+          dbset_path ~context gamma annotmap (DbAst.Ref, path) setkind node query0 select0 in
         let annotmap, more = C.dot gamma annotmap refpath "more" in
         let annotmap, write = C.dot gamma annotmap more "write" in
         let annotmap, apply = C.apply gamma annotmap write [e] in
@@ -552,17 +571,24 @@ module Generator = struct
           let annotmap, query = query_to_expr gamma annotmap query in
           let annotmap, query = query_add_order gamma annotmap order query in
           let annotmap, default = node.DbSchema.default annotmap in
+          let annotmap, select =
+            match select0 with
+            | DbAst.SNil | DbAst.SStar -> C.none annotmap gamma
+            | select ->
+              let annotmap, select = select_to_expr gamma annotmap select in
+              C.some annotmap gamma select
+          in
           begin match kind with
           | DbAst.Default | DbAst.Option ->
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
-              (annotmap, build, query, [default; skip; limit])
+              (annotmap, build, query, [default; skip; limit; select])
           | DbAst.Valpath ->
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty] Api.DbSet.build_vpath annotmap gamma
               in
               let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
-              (annotmap, build, query, [default; skip; limit; read_map])
+              (annotmap, build, query, [default; skip; limit; select; read_map])
           | DbAst.Ref ->
               let annotmap, read_map = get_read_map setkind uniq annotmap gamma in
               let build_rpath, wty, (annotmap, write_map) =
@@ -594,7 +620,7 @@ module Generator = struct
               let annotmap, build =
                 OpaMapToIdent.typed_val ~label ~ty:[wty; dataty] build_rpath annotmap gamma
               in
-              (annotmap, build, query, [default; skip; limit; read_map; write_map])
+              (annotmap, build, query, [default; skip; limit; select; read_map; write_map])
           | _ -> assert false
           end
 
@@ -696,8 +722,8 @@ module Generator = struct
     | `mongo -> (
         let annotmap, mongopath =
           match node.DbSchema.kind with
-          | DbSchema.SetAccess (setkind, path, query) ->
-              dbset_path ~context gamma annotmap (kind, path) setkind node query
+          | DbSchema.SetAccess (setkind, path, query, _todo) ->
+              dbset_path ~context gamma annotmap (kind, path) setkind node query select
           | _ ->
               let strpath = List.map
                 (function
