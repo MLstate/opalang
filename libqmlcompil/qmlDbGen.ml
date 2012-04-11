@@ -363,10 +363,10 @@ end
 module Utils = struct
 
   let rec type_of_selected gamma ty select =
-    let ty = QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty in
     let res = match select with
       | DbAst.SNil | DbAst.SStar | DbAst.SSlice _ -> ty
       | DbAst.SFlds sflds ->
+          let ty = QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty in
           match ty with
           | QmlAst.TypeRecord (QmlAst.TyRow (rflds, rv)) ->
               QmlAst.TypeRecord
