@@ -375,17 +375,56 @@ module Generator = struct
         "Can't generates mongo access because : %s is not yet implemented"
         s
 
+  let dbMongoSet_to_dbSet gamma annotmap set dataty imap =
+    let setident = Ident.next "mongoset" in
+    let annotmap, identset =
+      let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
+        Api.Types.DbMongoSet.engine gamma in
+      C.ident annotmap setident tyset
+    in
+    let annotmap, iterator =
+      let annotmap, iterator =
+        OpaMapToIdent.typed_val ~label ~ty:[dataty]
+          Api.DbSet.iterator annotmap gamma
+      in
+      imap (C.apply ~ty:dataty gamma annotmap iterator [identset])
+    in
+    let annotmap, genset =
+      let annotmap, identset = C.copy annotmap identset in
+      C.record annotmap [("iter", iterator); ("engine", identset)]
+    in
+    C.letin annotmap [setident, set] genset
+
   let get_read_map setkind dty uniq annotmap gamma =
     let aty = QmlAstCons.Type.next_var () in
     match setkind, uniq with
     | DbSchema.Map (_kty, _), true ->
         OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
-    | DbSchema.Map (_kty, _), false ->
-        OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
+    | DbSchema.Map (kty, _), false ->
+        let annotmap, to_map =
+          OpaMapToIdent.typed_val ~label ~ty:[aty; dty; dty; kty;]
+            Api.DbSet.to_map annotmap gamma
+        in
+        let annotmap, identity =
+          let idx = Ident.next "x" in
+          let annotmap, x = C.ident annotmap idx dty in
+          C.lambda annotmap [idx, dty] x
+        in
+        let idx = Ident.next "x" in
+        let annotmap, x = C.ident annotmap idx dty in
+        let annotmap, body = C.apply gamma annotmap to_map [x; identity] in
+        let annotmap, body = C.some annotmap gamma body in
+        C.lambda annotmap [idx, aty] body
     | DbSchema.DbSet _, true ->
         OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
-    | DbSchema.DbSet _, false ->
-        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.some annotmap gamma
+    | DbSchema.DbSet dataty, false ->
+        let idset = Ident.next "set" in
+        let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
+          Api.Types.DbMongoSet.engine gamma in
+        let annotmap, set = C.ident annotmap idset tyset in
+        let annotmap, set = dbMongoSet_to_dbSet gamma annotmap set dty (fun x -> x) in
+        let annotmap, set = C.some annotmap gamma set in
+        C.lambda annotmap [idset, tyset] set
 
   let apply_postmap gamma kind dataty postmap =
     match postmap with
@@ -785,20 +824,7 @@ module Generator = struct
               in
               (match setkind, uniq with
                | DbSchema.DbSet _, false ->
-                   let setident = Ident.next "mongoset" in
-                   let annotmap, identset =
-                     let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
-                       Api.Types.DbMongoSet.engine gamma in
-                     C.ident annotmap setident tyset
-                   in
-                   let annotmap, iterator =
-                     let annotmap, iterator =
-                       OpaMapToIdent.typed_val ~label ~ty:[dataty]
-                         Api.DbSet.iterator annotmap gamma
-                     in
-                     let annotmap, iterator =
-                       C.apply ~ty gamma annotmap iterator [identset]
-                     in
+                   let imap = function (annotmap, iterator) ->
                      match postmap with
                      | None -> annotmap, iterator
                      | Some (map, postty) ->
@@ -807,11 +833,7 @@ module Generator = struct
                              Api.DbSet.iterator_map annotmap gamma
                          in C.apply ~ty gamma annotmap imap [map; iterator]
                    in
-                   let annotmap, genset =
-                     let annotmap, identset = C.copy annotmap identset in
-                     C.record annotmap [("iter", iterator); ("engine", identset)]
-                   in
-                   C.letin annotmap [setident, set] genset
+                   dbMongoSet_to_dbSet gamma annotmap set dataty imap
                | DbSchema.Map (keyty, _), false ->
                    let (annotmap, postdot), postty =
                      match postmap with
