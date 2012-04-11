@@ -151,7 +151,7 @@ Mime = {{
   @private QuotedPrintable = {{
 
     qp_parser = parser
-    | c=((!"=" !"_" .)+) -> some(Text.to_string(c))
+    | c=((!"=" .)+) -> some(Text.to_string(c))
     | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> some(String.of_byte_val(16 * fst + snd))
     | "=" crlf_parser -> none
     | "=" -> none
