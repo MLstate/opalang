@@ -352,6 +352,21 @@ module Generator = struct
           fields
     | _ -> None
 
+  let dot_select field update =
+    match update with
+    | DbAst.SFlds fields ->
+        List.find_map
+          (fun (fields, u) -> match fields with
+           | [t] when t = field ->
+               Some (if u = DbAst.SNil then DbAst.SStar else u)
+           | [_t] -> None
+           | _t::_q -> assert false
+           | _ -> None)
+          fields
+    | DbAst.SNil -> Some DbAst.SNil
+    | DbAst.SStar -> Some DbAst.SStar
+    | _ -> None
+
   let get_node ~context schema path =
     try
       DbSchema.get_node schema path
@@ -393,17 +408,27 @@ module Generator = struct
             )
         | _ -> assert false
 
-  let rec compose_path ~context gamma annotmap schema dbname kind subs =
+  let rec compose_path ~context gamma annotmap schema dbname kind subs select =
     let subkind =
       match kind with
       | DbAst.Update _
       | DbAst.Ref -> DbAst.Ref
       | _ -> DbAst.Valpath
     in
+    let subs =
+      List.filter_map
+        (function (field, sub) ->
+           match dot_select field select with
+           | Some select -> Some (field, select, sub)
+           | None -> None
+        ) subs
+    in
     let annotmap, elements =
       C.list_map
-        (fun annotmap (field, sub) ->
-           let (annotmap, path) = string_path ~context gamma annotmap schema (subkind, dbname::sub) in
+        (fun annotmap (field, select, sub) ->
+           let (annotmap, path) =
+             string_path ~context gamma annotmap schema (subkind, dbname::sub) select
+           in
            let (annotmap, field) = C.string annotmap field in
            C.opa_tuple_2 (annotmap, gamma) (field, path)
         ) (annotmap, gamma) subs
@@ -416,13 +441,13 @@ module Generator = struct
     in
     (annotmap, [elements], builder, pathty)
 
-  and string_path ~context gamma annotmap schema (kind, strpath) =
+  and string_path ~context gamma annotmap schema (kind, strpath) select =
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
       get_node ~context schema strpath in
     match node.DbSchema.kind with
     | DbSchema.SetAccess (setkind, path, query, _todo) ->
-        dbset_path ~context gamma annotmap (kind, path) setkind node query None DbAst.SNil
+        dbset_path ~context gamma annotmap (kind, path) setkind node query None select
     | _ ->
         let dataty = node.DbSchema.ty in
         let dbname = node.DbSchema.database.DbSchema.name in
@@ -471,10 +496,15 @@ module Generator = struct
                     (fun annotmap (field, subpath) ->
                        match dot_update gamma annotmap field u with
                        | Some (annotmap, subu) ->
-                           let annotmap, sube =
-                             string_path ~context gamma annotmap schema
-                               (DbAst.Update (subu, o), dbname::subpath)
-                           in (annotmap, Some (Ident.next "_", sube))
+                           begin match dot_select field select with
+                           | Some select ->
+                               let annotmap, sube =
+                                 string_path ~context gamma annotmap schema
+                                   (DbAst.Update (subu, o), dbname::subpath)
+                                   select
+                               in (annotmap, Some (Ident.next "_", sube))
+                           | None -> annotmap, None
+                           end
                        | None -> annotmap, None
                     ) annotmap c
                 in
@@ -488,7 +518,7 @@ module Generator = struct
             let (annotmap, args, builder, pathty) =
               match node.DbSchema.kind with
               | DbSchema.Compose subs ->
-                  compose_path ~context gamma annotmap schema dbname kind subs
+                  compose_path ~context gamma annotmap schema dbname kind subs select
 
               | DbSchema.Partial (sum, rpath, partial) ->
                   let annotmap, partial = C.list_map
@@ -516,7 +546,7 @@ module Generator = struct
               OpaMapToIdent.typed_val ~label ~ty:[dataty] builder annotmap gamma in
             let (annotmap, database) = node_to_dbexpr gamma annotmap node in
             let ty = OpaMapToIdent.specialized_typ ~ty:[dataty] pathty gamma in
-            let (annotmap, default) = node.DbSchema.default annotmap in
+            let (annotmap, default) = node.DbSchema.default ~select annotmap in
             let (annotmap, path) = C.apply ~ty gamma annotmap build
               ([database; path; default] @ args) in
             let again =
@@ -844,7 +874,7 @@ module Generator = struct
                  | DbAst.FldKey k -> k
                  | _ -> assert false
                 ) dbpath in
-              string_path ~context gamma annotmap schema (kind, strpath)
+              string_path ~context gamma annotmap schema (kind, strpath) select
         in
         match kind with
         | DbAst.Ref | DbAst.Valpath ->

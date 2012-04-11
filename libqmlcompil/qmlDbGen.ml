@@ -95,7 +95,7 @@ module Schema = struct
         Format.fprintf fmt "compose(%a)"
           (Format.pp_list "; " (fun fmt (f, p) -> Format.fprintf fmt "%s:[%a]" f pp_path p)) cmp
     | SetAccess (sk, path, query, epath) ->
-        Format.fprintf fmt "@[<hov>access to %a : %a @. with %a @. embedded path : %a@]"
+        Format.fprintf fmt "@[<hov>access to %a : %a @. with : %a @. embedded path : %a@]"
           pp_path path
           pp_set_kind sk
           pp_query query
