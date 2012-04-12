@@ -87,7 +87,7 @@ let simple_type_to_qml_type initial_ty =
            We must cleanup the type in order to be able to print it in an error
            message. If we don't clean it, we will get assertion failures because
            the exportation set its own markers. *)
-        let ident = Ident.next "cyclic" in
+        let ident = Ident.next (Printf.sprintf "c%d" (Fresh.Int.get ())) in
         ty.W_Algebra.sty_mark <- W_Algebra.TM_export_cyclic ident;
         QmlAst.TypeName ([], ident)
     | W_Algebra.TM_export_cyclic ident ->
