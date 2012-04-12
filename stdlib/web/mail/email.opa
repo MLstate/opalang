@@ -82,7 +82,7 @@ type Email.send_status =
    { bad_sender }
  / { bad_recipient }
  / { sending }
- / { ok }
+ / { ok : string }
  / { error : string }
 
 /**
@@ -292,7 +292,7 @@ Email = {{
     | { bad_sender } -> "bad sender"
     | { bad_recipient } -> "bad recipient"
     | { sending } -> "sending"
-    | { ok } -> "ok"
+    | { ok=s } -> "ok : {s}"
     | { error=e } -> "error : {e}"
 
   @private
