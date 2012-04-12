@@ -37,7 +37,10 @@
     let cont x =
       let res =
         match x with
-        | SmtpClientCore.Ok -> ServerLib.make_simple_record status_ok
+        | SmtpClientCore.Ok str ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc status_ok (ServerLib.wrap_string str) in
+            ServerLib.make_record rc
         | SmtpClientCore.Bad_Sender -> ServerLib.make_simple_record status_bad_sender
         | SmtpClientCore.Bad_Recipient -> ServerLib.make_simple_record status_bad_recipient
         | SmtpClientCore.Error err ->
@@ -73,7 +76,10 @@
     let cont x =
       let res =
         match x with
-        | SmtpClientCore.Ok -> ServerLib.make_simple_record status_ok
+        | SmtpClientCore.Ok str ->
+            let rc = ServerLib.empty_record_constructor in
+            let rc = ServerLib.add_field rc status_ok (ServerLib.wrap_string str) in
+            ServerLib.make_record rc
         | SmtpClientCore.Bad_Sender -> ServerLib.make_simple_record status_bad_sender
         | SmtpClientCore.Bad_Recipient -> ServerLib.make_simple_record status_bad_recipient
         | SmtpClientCore.Error err ->

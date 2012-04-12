@@ -32,11 +32,12 @@
   auth : string;
   user : string;
   pass : string;
-  dryrun : bool
+  dryrun : bool;
+  sent : Buffer.t;
 }
 
 -type result =
-  | Ok
+  | Ok of string
   | Error of string
   | Error_MX
   | Delayed of int
@@ -169,7 +170,7 @@ from(mail, tools):
   | Ns (250, _) ->
       if {{ mail.dryrun }}
       then
-        quit(tools)
+        quit(mail, tools)
       else
         send (From mail.from);
         to(mail, tools)
@@ -205,8 +206,9 @@ data(mail, tools):
   | Ns (354, _) ->
       % TODO: more efficient than Str?
       let dot_stuff = {{ Str.global_replace (Str.regexp_string "\r\n.") "\r\n.." mail.body }}
+      {{ Buffer.add_string mail.sent dot_stuff }}
       send (RawInput dot_stuff);
-      enddata(tools, {{ String.is_suffix "\r\n" dot_stuff }})
+      enddata(mail, tools, {{ String.is_suffix "\r\n" dot_stuff }})
   | ENs (a, b) -> 
     debug {{ eprintf "data received ENs: %d %s\n" a b }}
     {{ tools.elog a b }} handle_error(tools, a,b)
@@ -215,19 +217,21 @@ data(mail, tools):
   catch
   | _ -> {{ tools.k Error_MX }}
 
-enddata(tools, has_crlf):
+enddata(mail, tools, has_crlf):
   if {{ has_crlf }}
   then
+    {{ Buffer.add_string mail.sent ".\r\n" }}
     send(Dot);
-    wait_for_ack(tools)
+    wait_for_ack(mail, tools)
   else
+    {{ Buffer.add_string mail.sent "\r\n.\r\n" }}
     send(EndData);
-    wait_for_ack(tools)
+    wait_for_ack(mail, tools)
 
-wait_for_ack(tools):
+wait_for_ack(mail, tools):
   receive
   | Ns (250, _) ->
-    quit(tools)
+    quit(mail, tools)
   | ENs (a, b) ->
     debug {{ eprintf "wait_for_ack received ENs: %d %s\n" a b }}
     {{ tools.elog a b }} finish_error(tools)
@@ -238,8 +242,8 @@ wait_for_ack(tools):
   catch
   | _ -> {{ tools.k Error_MX }}
 
-quit(tools):
-  send Quit; -!- {{ tools.k Ok }}
+quit(mail, tools):
+  send Quit; -!- {{ tools.k (Ok (Buffer.contents mail.sent)) }}
 
 error(_msg : string, tools : imports):
   debug {{ eprintf "error: %s\n" _msg; Pervasives.flush stderr }}

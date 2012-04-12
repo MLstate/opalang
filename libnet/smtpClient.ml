@@ -256,6 +256,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                    body = mdata;
                    auth = Option.default "" auth; user = Option.default "" user; pass = Option.default "" pass;
                    dryrun = Option.default false dryrun;
+                   sent = Buffer.create (String.length mdata + 1024);
                  }
       in
       let rec try_mx mail attempt ?ip_list cont =
