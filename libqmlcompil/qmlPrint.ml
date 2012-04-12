@@ -747,7 +747,8 @@ let rec sexp_ty f = function
   | Q.TypeSumSugar _ ->
       assert false
   | Q.TypeName (tyl,ident) ->
-      Format.fprintf f "(N %s " (Q.TypeIdent.to_string ident);
+      Format.fprintf f "(N %s "
+        (try Ident.to_uniq_string ident with _ -> Q.TypeIdent.to_string ident);
       List.iter (sexp_ty f) tyl;
       Format.fprintf f ")"
   | Q.TypeAbstract ->
