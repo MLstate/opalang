@@ -39,7 +39,7 @@ struct
   let client_hash_size = 1024
   let init_keys_size = 1024
   let priority_max_successive = 1
-  let compute_max_successive = 10000
+  let compute_max_successive = ref 5
   let counter_max_reentrant_level = 0
   let counter_max_sync = 0
   let max_keys_number = Sys.max_array_length
@@ -528,6 +528,8 @@ struct
 
   let is_empty = Queue.is_empty
 
+  let set_max_successive n = Const.compute_max_successive := n
+
   let push t f = Queue.push f t
 
   let rec process t =
@@ -540,7 +542,7 @@ struct
           E.execute f (L.error "compute");
           aux (pred i)
       )
-    in aux Const.compute_max_successive
+    in aux !Const.compute_max_successive
 
   let clear (t:t) = Queue.clear t
 

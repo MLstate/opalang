@@ -741,6 +741,7 @@ let make ?(is_server=false) () =
   Pervasives.at_exit (fun () -> do_at_exit sched do_at_exit_time_limit(* time limited *));
   sched
 
+let set_max_compute_successive = SchedulerKer.Compute.set_max_successive
 
 let run sched =
   let rec aux () =

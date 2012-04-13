@@ -309,6 +309,9 @@ sig
   (** Transfer all jobs from a scheduler to another *)
   val rev_transfer : src:t -> dest:t -> unit
 
+  val set_max_successive : int -> unit
+  (** Set the maximum of compute the scheduler can do before scheduling *)
+
 end
 
 (**

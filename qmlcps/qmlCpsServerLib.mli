@@ -167,6 +167,8 @@ val apply: ('a, 'b) func -> 'a -> 'b continuation -> unit
 val apply0: QmlClosureRuntime.t -> 'b continuation -> unit
 val apply0_ml : (unit -> unit) -> 'b continuation -> unit
 
+val set_nb_step_apply: int -> unit (* Set the number of apply for each scheduling step *)
+
 (**
    {6 Futures}
 *)

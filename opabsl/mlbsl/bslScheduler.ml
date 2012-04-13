@@ -30,6 +30,9 @@ let timer t f = Scheduler.timer opa (Time.milliseconds t) f
 
 let abort a = Scheduler.abort opa a
 
+let set_max_compute_successive n = Scheduler.set_max_compute_successive n
+
+let set_nb_step_apply n = QmlCpsServerLib.set_nb_step_apply n
 
 (* BSL REGISTERING *)
 ##register sleep : int, (-> void) -> void
@@ -69,3 +72,7 @@ let finalize f v = Scheduler.finalise opa f v
 let finalize_cps f v k =
   finalize (BslUtils.proj_cps k f) v;
   QmlCpsServerLib.return k ServerLib.void
+
+##register set_max_compute_successive : int -> void
+
+##register set_nb_step_apply : int -> void

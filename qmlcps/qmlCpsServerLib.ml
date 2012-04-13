@@ -282,10 +282,12 @@ let push_cont k x =
 (* With the explicit flush of the scheduler at end of the toplevel
    initialization, there is not need to schedule in apply or return
    Moreover, this breaks the tail-rec optimization of ocaml code. *)
-let nb_step_apply = 10000
+let nb_step_apply = ref 10000
+let set_nb_step_apply n = 
+  nb_step_apply := n
 let max_blocking_step = 1000000
 (* cannot embbed the reference for typing problem *)
-let applied_step = ref nb_step_apply
+let applied_step = ref !nb_step_apply
 
 let check_stack_step = pred (1 lsl 10) (* <!> should be a 2^^n -1 *)
 let stack_limit = 5000000
@@ -312,7 +314,7 @@ let return k x =
     CR.args_apply1 k.payload x
   )
   else (
-    applied_step:=nb_step_apply;
+    applied_step:=!nb_step_apply;
     push_cont k x
   )
 

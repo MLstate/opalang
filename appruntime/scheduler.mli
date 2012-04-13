@@ -400,3 +400,6 @@ val finalise : t -> ('a -> unit) -> 'a -> unit
 
 val run : t -> unit
   (** Like [flush] but catch all exn *)
+
+val set_max_compute_successive : int -> unit
+  (** Set the maximum of compute the scheduler can do before scheduling *)

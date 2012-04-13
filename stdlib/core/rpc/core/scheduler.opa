@@ -178,6 +178,18 @@ Scheduler =
    */
   finalize = @may_cps(%%BslScheduler.finalize%%) : ('a -> void), 'a -> void
 
+  /**
+   * Set the maximum of compute the scheduler can do before scheduling
+   * Use it with caution! 
+   */
+  set_max_compute_successive = %%BslScheduler.set_max_compute_successive%%
+
+  /**
+   * Set the number of Apply for each compute
+   * Use it with caution! 
+   */
+  set_nb_step_apply = %%BslScheduler.set_nb_step_apply%%
+
 }}
 
 sleep = Scheduler.sleep
