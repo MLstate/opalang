@@ -693,6 +693,7 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
       //Additional IE-specific fix -- note that the mime type can be ignored if the resource uses [override_mime_type]
       mime_type = match user_compat.renderer with
          /* hack for IE (considers application/xhtml+xml as files to save) */
+         // FIXME: do this? http://www.w3.org/MarkUp/2004/xhtml-faq#ie
          | { Trident=_ } -> "text/html"
          /* work-around for Chrome & Safari's bug http://code.google.com/p/chromium/issues/detail?id=45440
             if we serve application/xhtml+xml, we loose the password-saving mechanism for login forms
