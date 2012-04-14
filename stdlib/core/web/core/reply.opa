@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -139,6 +139,7 @@ type Resource.http_response_header =
   / { retry_after: { date:string } / { delay:int } }
   / { server: list(string) }
   / { content_disposition : { attachment : string } }
+  / { custom : (string, string) }
 
 type Resource.http_general_header =
     { lastm : web_cache_control }
@@ -164,6 +165,7 @@ WebCoreExport =
 @private ll_pragma : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.pragma%%
 @private ll_cdisp_attachment : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.cdisp_attachment%%
 @private ll_location : string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.location%%
+@private ll_custom : string, string -> WebInfo.private.native_http_header = %%BslNet.ConvertHeader.custom%%
 
 /**
  * Escape header field content.
@@ -230,6 +232,12 @@ WebCoreExport =
            [ ll_expires_at({some = te(expiry)}), ll_cache_control("public") ,
               ll_lastm(te(now)) | lst ]
       end
+
+  | {custom=(name, value)} ->
+    name=escape_string_header(name)
+    value=escape_string_header(value)
+    [ ll_custom(name, value) | lst ]
+
   // TODO - WHY THESE CASES ARE IGNORED??
   | _ -> lst
 

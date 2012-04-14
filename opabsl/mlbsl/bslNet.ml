@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -83,6 +83,9 @@ let default_scheduler = BslScheduler.opa
         Time.gmtime (Time.add time expires)
       else time_now
     in HSCp.Expires (Date.rfc1123 exp_time)
+
+  ##register custom : string, string -> WebInfo.private.native_http_header
+  let custom name value = HSCp.Custom (name, value)
 
 ##endmodule
 

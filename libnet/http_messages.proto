@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%% -*-erlang-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -29,6 +29,7 @@
 -define Via str = "Via: " str "\r\n"
 -define Warning str = "Warning: " str "\r\n"
 -define Allow str = "Allow: " str "\r\n"
+-define Custom (name,value) = name ": " value "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%
 %%% Entity headers %%%
