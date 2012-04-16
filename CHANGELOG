@@ -1,3 +1,9 @@
+New supported platform:
+
+  * FreeBSD
+    - Opa commited to FreeBSD port trees: http://www.freshports.org/lang/opa/
+      Thanks to Jeremy Messenger <mezz.freebsd@gmail.com>
+
 Bug fixes:
 
   * UriParser
