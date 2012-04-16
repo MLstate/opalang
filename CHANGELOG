@@ -4,6 +4,17 @@ New supported platform:
     - Opa commited to FreeBSD port trees: http://www.freshports.org/lang/opa/
       Thanks to Jeremy Messenger <mezz.freebsd@gmail.com>
 
+New features:
+
+  * Scheduler
+    - new set_max_compute_successive function
+    - new set_nb_step_apply function
+      Those functions are made to fine-tune scheduling policy. For advanced users!
+
+Improvements:
+
+  * Scheduling policy updated to improve concurrency level
+
 Bug fixes:
 
   * UriParser
