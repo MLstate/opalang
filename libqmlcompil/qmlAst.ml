@@ -135,6 +135,7 @@ struct
     | SStar
     | SSlice of 'expr * 'expr
     | SFlds of 'expr select fields
+    | SId of 'expr * 'expr select
 
   type 'expr query =
     | QEq   of 'expr
@@ -162,6 +163,7 @@ struct
 
     (* Simple updating*)
     | UExpr of 'expr
+    | UId of 'expr * 'expr update
     | UIncr of int (* TODO : expr*)
 
     (* List updating *)
@@ -268,6 +270,7 @@ struct
 
   let rec pp_update pp_expr fmt = function
     | UExpr e -> pp fmt "%a" pp_expr e
+    | UId (e, u) -> pp fmt "[%a]%a" pp_expr e (pp_update pp_expr) u
     | UFlds fields ->
         pp fmt "{";
         List.iter
@@ -327,6 +330,7 @@ struct
                                      pp_field f
                                      (pp_select pp_expr) e)
           ) flds
+    | SId (id, select) -> pp fmt "[%a]%a" pp_expr id (pp_select pp_expr) select
 
   let pp_options pp_expr fmt options =
     let pp_option pp_o = function
@@ -443,6 +447,10 @@ struct
   let rec sub_db_update sub_e sub_ty = function
     | (UPop | UShift | UIncr _) as e -> TU.sub_ignore e
     | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
+    | UId (id, update) ->
+        TU.wrap
+          (fun (id, update) -> UId (id, update))
+          (TU.sub_2 sub_e (sub_db_update sub_e sub_ty) (id, update))
     | UAppend     expr -> TU.wrap (fun e -> UAppend e) (sub_e expr)
     | UAppendAll  expr -> TU.wrap (fun e -> UAppendAll e) (sub_e expr)
     | URemove    expr -> TU.wrap (fun e -> URemove e) (sub_e expr)
@@ -461,6 +469,10 @@ struct
   let rec sub_db_select sub_e sub_ty = function
     | (SStar | SNil) as e -> TU.sub_ignore e
     | SSlice (e1, e2) -> TU.wrap (fun (e1, e2) -> SSlice (e1, e2)) (TU.sub_2 sub_e sub_e (e1, e2))
+    | SId (id, select) ->
+        TU.wrap
+          (fun (id, select) -> SId (id, select))
+          (TU.sub_2 sub_e (sub_db_select sub_e sub_ty) (id, select))
     | SFlds fields ->
         TU.wrap
           (fun fields -> SFlds fields)
