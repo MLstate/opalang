@@ -91,19 +91,31 @@ module Generator = struct
     in
     C.apply gamma annotmap opa2doc [expr]
 
-  let add_to_document gamma annotmap name expr
+  let magicToString gamma annotmap expr
+      ?(ty=QmlAnnotMap.find_ty (Annot.annot (QmlAst.Label.expr expr)) annotmap)
+      ()
+      =
+    let (annotmap, magicToString) =
+      OpaMapToIdent.typed_val ~label ~ty:[ty] Opacapi.magicToString annotmap gamma
+    in
+    C.apply gamma annotmap magicToString [expr]
+
+  let add_to_document0 gamma annotmap name expr
       ?(ty=QmlAnnotMap.find_ty (Annot.annot (QmlAst.Label.expr expr)) annotmap)
       doc =
     let (annotmap, add_to_document) =
       OpaMapToIdent.typed_val ~label ~ty:[ty] Api.DbSet.add_to_document annotmap gamma
     in
-    let (annotmap, name) = C.string annotmap name in
     let (annotmap, opaty) =
       Pass_ExplicitInstantiation.ty_to_opaty
         ~memoize:false
         ~val_:OpaMapToIdent.val_ ~side:`server
         annotmap gamma ty in
     C.apply gamma annotmap add_to_document [doc; name; expr; opaty]
+
+  let add_to_document gamma annotmap name expr ?ty doc =
+    let (annotmap, name) = C.string annotmap name in
+    add_to_document0 gamma annotmap name expr ?ty doc
 
   let expr_of_strpath gamma annotmap strpath =
     let annotmap, path = List.fold_left
@@ -113,6 +125,46 @@ module Generator = struct
       ) (annotmap, []) strpath
     in
     C.rev_list (annotmap, gamma) path
+
+  let expr_of_strexprpath gamma annotmap path =
+    let path = match path with [] -> [`string "value"] | _ -> path in
+    let fld_to_string annotmap fld =
+      C.string annotmap (BaseFormat.sprintf "%a" QmlAst.Db.pp_field fld)
+    in
+    let rec aux annotmap prev_str prev_expr = function
+      | (`string s)::q -> aux annotmap (s::prev_str) prev_expr q
+      | (`expr e1)::q ->
+          let annotmap, prev_expr =
+            if prev_str = [] then annotmap, prev_expr
+            else
+              let annotmap, e = fld_to_string annotmap prev_str in
+              let annotmap, d = C.string annotmap "." in
+              annotmap, d::e::prev_expr
+          in
+          let annotmap, e1 = magicToString gamma annotmap e1 () in
+          let annotmap, d1 = C.string annotmap "." in
+          if q = [] then
+            let annotmap, value = C.string annotmap "value" in
+            annotmap, value::d1::e1::prev_expr
+          else
+            aux annotmap [] (d1::e1::prev_expr) q
+      | [] ->
+          if prev_str = [] then
+            annotmap, prev_expr
+          else
+            let annotmap, e = fld_to_string annotmap prev_str in
+            if prev_expr = [] then annotmap, (e::prev_expr)
+            else
+              let annotmap, d0 = C.string annotmap "." in
+              annotmap, (e::d0::prev_expr)
+
+    in match aux annotmap [] [] path with
+    | annotmap, [u] -> annotmap, u
+    | annotmap, lst ->
+        let annotmap, lst = C.list (annotmap, gamma) lst in
+        let annotmap, flatten =
+          OpaMapToIdent.typed_val ~label Opacapi.String.flatten annotmap gamma
+        in C.apply gamma annotmap flatten [lst]
 
   let rec prepare_query query =
     match query with
@@ -204,19 +256,20 @@ module Generator = struct
 
   let select_to_expr gamma annotmap select =
     let rec aux prev_fld ((annotmap, acc) as aacc) select =
-      let get_name () = BaseFormat.sprintf "%a" QmlAst.Db.pp_field prev_fld in
+      let get_name annotmap = expr_of_strexprpath gamma annotmap prev_fld in
       match select with
       | DbAst.SFlds flds ->
           List.fold_left
-            (fun aacc (fld, select) -> aux (prev_fld @ fld) aacc select)
-            aacc
-            flds
+            (fun aacc (fld, select) ->
+               aux (List.rev_map_append (fun s -> `string s) fld prev_fld) aacc select)
+            aacc flds
+      | DbAst.SId (id, s) -> aux ((`expr id)::prev_fld) aacc s
       | DbAst.SNil | DbAst.SStar ->
-          let name = get_name () in
+          let annotmap, name = get_name annotmap in
           let annotmap, one = C.int annotmap 1 in
-          add_to_document gamma annotmap name one acc
+          add_to_document0 gamma annotmap name one acc
       | DbAst.SSlice (e1, e2) ->
-          let name = get_name () in
+          let annotmap, name = get_name annotmap in
           let tyint = (Q.TypeConst Q.TyInt) in
           let limitid = Ident.next "limit" in
           let annotmap, pvar = QmlAstCons.TypedPat.var annotmap limitid tyint in
@@ -234,7 +287,7 @@ module Generator = struct
             QmlAstCons.TypedPat.match_option annotmap gamma e2 pvar ok_expr ko_expr
           in
           let annotmap, empty = empty_query gamma annotmap in
-          add_to_document gamma annotmap name slice empty
+          add_to_document0 gamma annotmap name slice empty
     in aux [] (empty_query gamma annotmap) select
 
   let query_add_order gamma annotmap order query =
@@ -271,19 +324,17 @@ module Generator = struct
         else annotmap, uexpr
     | update ->
         let addset = set in
-        let rec collect fld (inc, set, other, annotmap) update =
-          let rfld = if fld = "" then "value" else fld in
+        let rec collect rfld (inc, set, other, annotmap) update =
           match update with
-          | DbAst.UExpr e -> (inc, (rfld, e)::set, other, annotmap)
-          | DbAst.UIncr i -> ((rfld, i)::inc, set, other, annotmap)
+          | DbAst.UId (e, u) -> collect (`expr e::rfld) (inc, set, other, annotmap) u
           | DbAst.UFlds fields ->
               List.fold_left
                 (fun (inc, set, other, annotmap) (f, u) ->
-                   let fld =
-                     let dot = match fld with | "" -> "" | _ -> "." in
-                     BaseFormat.sprintf "%s%s%a" fld dot QmlAst.Db.pp_field f in
+                   let fld = List.rev_map_append (fun s -> `string s) f rfld in
                    collect fld (inc, set, other, annotmap) u)
                 (inc, set, other, annotmap) fields
+          | DbAst.UExpr e -> (inc, (rfld, e)::set, other, annotmap)
+          | DbAst.UIncr i -> ((rfld, i)::inc, set, other, annotmap)
           | DbAst.UAppend     e -> (inc, set, (rfld, "$push", e)::other, annotmap)
           | DbAst.UAppendAll  e -> (inc, set, (rfld, "$pushAll", e)::other, annotmap)
           | DbAst.URemove     e -> (inc, set, (rfld, "$pull", e)::other, annotmap)
@@ -294,7 +345,7 @@ module Generator = struct
           | DbAst.UShift ->
               let annotmap, e = C.int annotmap 1 in
               (inc, set, (rfld, "$pop", e)::other, annotmap)
-        in let (inc, set, other, annotmap) = collect "" ([], [], [], annotmap) update in
+        in let (inc, set, other, annotmap) = collect [] ([], [], [], annotmap) update in
         let annotmap, uexpr = C.list (annotmap, gamma) [] in
         let annotmap, uexpr =
           match inc with
@@ -305,8 +356,9 @@ module Generator = struct
                 match inc with
                 | [] -> acc
                 | (field, value)::q ->
-                    let (annotmap, value) = C.int annotmap value in
-                    aux (add_to_document gamma annotmap field value ~ty doc) q
+                    let annotmap, value = C.int annotmap value in
+                    let annotmap, field = expr_of_strexprpath gamma annotmap field in
+                    aux (add_to_document0 gamma annotmap field value ~ty doc) q
               in
               let annotmap, iexpr = aux (C.list (annotmap, gamma) []) inc in
               add_to_document gamma annotmap "$inc" iexpr uexpr
@@ -314,7 +366,6 @@ module Generator = struct
         let annotmap, uexpr =
           match set with
           | [] -> annotmap, uexpr
-          | ["", e] -> add_to_document gamma annotmap "value" e uexpr
           | _ ->
               let rec aux ((annotmap, doc) as acc) set =
                 match set with
@@ -322,10 +373,11 @@ module Generator = struct
                 | (field, value)::q ->
                     (*Special case for _id fields we can't modify.
                       Mongo restriction : TODO ?*)
-                    if field = "_id" then
-                      aux acc q
-                    else
-                      aux (add_to_document gamma annotmap field value doc) q
+                    match field with
+                    | [`string "_id"] -> aux acc q
+                    | _ ->
+                        let annotmap, field = expr_of_strexprpath gamma annotmap field in
+                        aux (add_to_document0 gamma annotmap field value doc) q
               in
               if addset then (
                 let annotmap, sexpr = aux (C.list (annotmap, gamma) []) set in
@@ -338,7 +390,8 @@ module Generator = struct
           List.fold_left
             (fun (annotmap, uexpr) (fld, name, request) ->
                let annotmap, empty = C.list (annotmap, gamma) [] in
-               let annotmap, request = add_to_document gamma annotmap fld request empty in
+               let annotmap, fld = expr_of_strexprpath gamma annotmap fld in
+               let annotmap, request = add_to_document0 gamma annotmap fld request empty in
                add_to_document gamma annotmap name request uexpr
             ) (annotmap, uexpr) other
         in annotmap, uexpr
@@ -511,11 +564,8 @@ module Generator = struct
                     let annotmap, _id = C.string annotmap _id in
                     add_to_document gamma annotmap "_id" _id uexpr
                   ) else (
-                    let u =
-                      if ty_is_const gamma dataty then DbAst.UFlds [["value"], u]
-                      else u
-                    in
-                    update_to_expr gamma annotmap u)
+                    update_to_expr gamma annotmap u
+                  )
                 in
                 let annotmap, database = node_to_dbexpr gamma annotmap node in
                 let annotmap, update =
@@ -686,7 +736,14 @@ module Generator = struct
                             let ae = C.dot gamma annotmap expr str in
                             post (ae, ty)
                          )
-                     | DbAst.ExprKey _
+                     | DbAst.ExprKey uexpr
+                     | DbAst.Query (DbAst.QEq uexpr , _)->
+                         DbAst.SId (uexpr, select),
+                         (fun ((annotmap, expr), dty) ->
+ 
+                                post ((annotmap, expr), dty)
+
+                            )
                      | DbAst.NewKey _
                      | DbAst.Query _ ->
                          QmlError.error context
@@ -771,6 +828,18 @@ module Generator = struct
           | DbAst.Update (u, o) ->
               let (annotmap, query) = query_to_expr gamma annotmap query in
               let (annotmap, update) =
+                let u = Option.default_map u
+                  (function embed ->
+                     List.fold_right
+                       (fun fragment update -> match fragment with
+                        | DbAst.FldKey str -> DbAst.UFlds [[str], update]
+                        | DbAst.Query ((DbAst.QEq uexpr), _)
+                        | DbAst.ExprKey uexpr -> DbAst.UId (uexpr, update)
+                        | _ -> QmlError.error context
+                            "This kind of update access is not supported by mongo dbgen driver"
+                       ) embed u
+                  ) embed
+                in
                 let u =
                   (* Hack : When map value is simple, adding the "value" field *)
                   match setkind with
