@@ -1006,7 +1006,8 @@ end
 let init_database gamma annotmap schema =
   List.fold_left
     (fun (annotmap, newvals) database ->
-       if database.DbSchema.options.DbAst.backend = `mongo then
+       if database.DbSchema.options.DbAst.backend = `mongo
+         && database.DbSchema.package = ObjectFiles.get_current_package_name () then
          let ident = database.DbSchema.ident in
          let name = database.DbSchema.name in
          let (annotmap, open_) = Generator.open_database gamma annotmap name None None in
