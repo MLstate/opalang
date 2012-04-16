@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -106,9 +106,10 @@ struct
     | Q.TypeName (l, s)-> Some (find_and_specialize gamma s l)
     | _ -> None
 
-  let follow_alias_noopt gamma t =
+  let follow_alias_noopt ?until gamma t =
     let rec aux memo t =
       match t with
+      | Q.TypeName (_, s) when Some (QmlAst.TypeIdent.to_string s) = until -> t
       | Q.TypeName (l, s) ->
           if TypeIdentSet.mem s memo then t (* infinite named type *) else
           let memo = TypeIdentSet.add s memo in
@@ -117,16 +118,9 @@ struct
     in
     aux TypeIdentSet.empty t
 
-  let follow_alias_noopt_private gamma t =
-    let rec aux memo t =
-      match t with
-      | Q.TypeName (l, s) ->
-          if TypeIdentSet.mem s memo then t (* infinite named type *) else
-          let memo = TypeIdentSet.add s memo in
-          aux memo (find_and_specialize gamma s l)
-      | ty -> ty
-    in
-    aux TypeIdentSet.empty t
+  let follow_alias_noopt_private ?until gamma t =
+    (* TODO : Something else of follow_alias_noopt... *)
+    follow_alias_noopt ?until gamma t
 
 
 

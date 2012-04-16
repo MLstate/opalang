@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -38,12 +38,12 @@ sig
   (**
      get the implementation of a types, traversing named types.
   *)
-  val follow_alias_noopt : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
+  val follow_alias_noopt : ?until:string -> QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
 
   (**
      like [follow_alias_noopt] but traverse also private types.
   *)
-  val follow_alias_noopt_private : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
+  val follow_alias_noopt_private : ?until:string -> QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
 
   (* ************************************************************************ *)
   (* {b Descr}: Exception raised when a type contains a sub-term being a named
