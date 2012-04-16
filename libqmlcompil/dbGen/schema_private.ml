@@ -1172,6 +1172,13 @@ module Preprocess = struct
           in
           match u with
           | Db.UExpr e -> Db.UExpr (coerce e ty)
+          | Db.UId (id, u) ->
+              begin match QmlTypesUtils.Inspect.follow_alias_noopt_private
+                ~until:Opacapi.Types.map gamma ty with
+                | Q.TypeName ([kty; dty], _) -> Db.UId (coerce id kty, update dty u)
+                | _ -> error "with the identifier @{<bright>'%a'}" "@{<bright>'%a'} is not a map"
+                    QmlPrint.pp#expr id QmlPrint.pp#ty ty
+              end
           | Db.UFlds fields ->
               Db.UFlds
                 (List.map
@@ -1239,6 +1246,13 @@ module Preprocess = struct
       ) ->
         (ty, Db.SSlice (coerce e1 H.tyint, coerce e2 (H.typeoption H.tyint)))
     | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
+    | Db.SId (id, select) ->
+        match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:Opacapi.Types.map gamma ty with
+        | Q.TypeName ([kty; dty], _) ->
+            let fst, snd = aux dty select in
+            (fst, Db.SId (coerce id kty, snd))
+        | _ -> error "with the identifier @{<bright>'%a'}" "@{<bright>'%a'} is not a map"
+            QmlPrint.pp#expr id QmlPrint.pp#ty ty
     in
     let tyres, s = aux dataty select in
     #<If:DBGEN_DEBUG>

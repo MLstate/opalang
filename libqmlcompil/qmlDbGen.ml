@@ -365,6 +365,12 @@ module Utils = struct
   let rec type_of_selected gamma ty select =
     let res = match select with
       | DbAst.SNil | DbAst.SStar | DbAst.SSlice _ -> ty
+      | DbAst.SId (_id, s) ->
+        begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:"ordered_map" gamma ty with
+          | QmlAst.TypeName ([_; dty; _], _) ->  type_of_selected gamma dty s
+          | ty2 -> OManager.i_error "Try to select an id on %a %a" QmlPrint.pp#ty ty QmlPrint.pp#ty ty2
+          end
+
       | DbAst.SFlds sflds ->
           let ty = QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty in
           match ty with
