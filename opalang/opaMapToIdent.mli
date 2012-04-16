@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -101,7 +101,7 @@ val typ : string -> QmlAst.ident
 
 (** Like [typ] but search type scheme in gamma and specilize it
 *)
-val specialized_typ : ?ty:QmlAst.ty list -> ?ty_row:QmlAst.ty_row list -> string -> QmlTypes.gamma
+val specialized_typ : ?stdlib:bool -> ?ty:QmlAst.ty list -> ?ty_row:QmlAst.ty_row list -> string -> QmlTypes.gamma
   -> QmlAst.ty
 
 (** {6 Map setter & getter}*)

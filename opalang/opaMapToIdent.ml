@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -133,8 +133,8 @@ let typ s =
       pp_stringmap
       !r_type
 
-let specialized_typ ?(ty = []) ?(ty_row = []) name gamma =
-  let typeident = typ name in
+let specialized_typ ?(stdlib=false) ?(ty = []) ?(ty_row = []) name gamma =
+  let typeident = if stdlib then Ident.source name else typ name in
   let (scheme, _) = QmlTypes.Env.TypeIdent.find ~visibility_applies:false typeident gamma in
   QmlTypes.Scheme.specialize ~typeident ~ty ~ty_row scheme
 
