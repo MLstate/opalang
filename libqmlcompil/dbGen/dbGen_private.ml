@@ -102,11 +102,20 @@ module Default = struct
             H.make_dot ~ty (expr_aux sch (E.src e)) (SchemaGraphLib.fieldname_of_edge e)
           else
             match (V.label n).C.nlabel with
-            | C.Multi -> (match SchemaGraphLib.multi_key sch n with
-                          | C.Kint -> H.make_record ["empty", H.make_record []]
-                          | C.Kstring -> H.make_record ["empty", H.make_record []]
-                          | C.Kfields _ -> H.make_record ["empty", H.make_record []]
-                              (* TODO - ... *))
+            | C.Multi ->
+                begin match select with
+                | DbAst.SStar | DbAst.SNil ->
+                    begin match SchemaGraphLib.multi_key sch n with
+                    | C.Kint -> H.make_record ["empty", H.make_record []]
+                    | C.Kstring -> H.make_record ["empty", H.make_record []]
+                    | C.Kfields _ -> H.make_record ["empty", H.make_record []]
+                    end
+                | DbAst.SSlice _ | DbAst.SFlds _ ->
+                    OManager.i_error
+                      "On compute default value unexpected selection on a multi node"
+                | DbAst.SId (_, select) -> expr_aux ~select sch (SchemaGraph.unique_next sch n)
+
+                end
             | C.Hidden -> expr_aux sch (SchemaGraph.unique_next sch n)
             | C.Sum -> H.convert_case_to_sum ty (expr_aux sch (E.dst (Schema_private.find_nonrec_child_edge sch n)))
             | C.Product ->
