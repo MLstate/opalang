@@ -654,10 +654,10 @@ Bson = {{
       | {TyName_args=[_]; TyName_ident="option"}
       | {TyName_args=[]; TyName_ident="bool"}
       | {TyName_args=[]; TyName_ident="void"}
-      | {TyName_args=[_]; TyName_ident="intmap"}
       | {TyName_args=[_]; TyName_ident="int32"}
       | {TyName_args=[_]; TyName_ident="int64"}
-      | {TyName_args=[{TyConst={TyInt={}}},_,_]; TyName_ident="ordered_map"}
+      | {TyName_args=[_,_]; TyName_ident="map"}
+      | {TyName_args=[_,_,_]; TyName_ident="ordered_map"} //TODO - Check order
       | {TyName_args=[_]; TyName_ident="list"} -> ty
       | {TyName_args=tys; TyName_ident=tyid} -> name_type(OpaType.type_of_name(tyid, tys))
       | ty ->
@@ -694,9 +694,9 @@ Bson = {{
                                           ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
     [H.arr(key,doc)]
 
-  intmap_to_bson(key:string, v:'a, ty:OpaType.ty): Bson.document =
-    doc = List.flatten(IntMap.fold((i, v, acc ->
-                                    (doc = opa_to_document("{i}", v, ty)
+  map_to_bson(key:string, v:'a, kty:OpaType.ty, dty:OpaType.ty): Bson.document =
+    doc = List.flatten(Map.fold((k, v, acc ->
+                                    (doc = opa_to_document(OpaValue.to_string_with_type(kty, k), v, dty)
                                      ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
     [H.doc(key,doc)]
 
@@ -768,8 +768,8 @@ Bson = {{
         | {absent} -> [])
     | {TyName_ident="Bson.document"; TyName_args=_} -> [H.doc(key,@unsafe_cast(v))]
     | {TyName_args=[lty]; TyName_ident="list"} -> list_to_bson(key, @unsafe_cast(v), lty)
-    | {TyName_args=[{TyConst={TyInt={}}},lty,_]; TyName_ident="ordered_map"}
-    | {TyName_args=[lty]; TyName_ident="intmap"} -> intmap_to_bson(key, @unsafe_cast(v), lty)
+    | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
+    | {TyName_args=[kty, dty]; TyName_ident="map"} -> map_to_bson(key, @unsafe_cast(v), kty, dty)
     | {TyName_args=tys; TyName_ident=tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
     | _ -> ML.fatal("Bson.opa_to_bson","unknown value {Debug.dump(v)} of type {OpaType.to_pretty(ty)}",-1)
 
@@ -870,7 +870,7 @@ Bson = {{
                  end
                end
               | {lt} -> optreg(name, field, frest, [element|erest], acc)
-              | {gt} -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true)))
+              | {gt} -> (acc, true))
         | ([],[]) -> (acc,false)
         | ([],[field|frest]) -> optreg("absent field", field, frest, [], acc)
         | (_erest,_frest) -> (acc,true)
@@ -878,7 +878,10 @@ Bson = {{
       rcrd = List.fold(((field,value), rcrd ->OpaValue.Record.add_field(rcrd, field, value)),
                        flds,OpaValue.Record.empty_constructor())
       if err
-      then error("Failed with fields {OpaType.to_pretty_fields(fields)} document {to_pretty(doc)}",{none})
+      then
+          match doc with // Try to throw document, is a bit hack for throw maps
+          | [{value=({Document=[_] as doc})...}] -> element_to_rec2(doc, fields, none)
+          _ -> error("Failed with fields {OpaType.to_pretty_fields(fields)} document {to_pretty(doc)}",{none})
       else {some=@unsafe_cast(OpaValue.Record.make_record(rcrd))}
 
     and column_to_rec(doc:Bson.document, col) =
@@ -999,19 +1002,25 @@ Bson = {{
                  aux(Int.of_string(e.name),doc,[]))
              {some=@unsafe_cast(lst)}
          | element -> error("expected list, got {element}",{none}))
-      | {TyName_args=[{TyConst={TyInt={}}},ty,_]; TyName_ident="ordered_map"}
-      | {TyName_args=[ty]; TyName_ident="intmap"} ->
+      | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
+      | {TyName_args=[kty, dty]; TyName_ident="map"} ->
         (match element with
          | {value={Array=doc} ...}
          | {value={Document=doc} ...} ->
+           Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
            imap =
              List.fold((element, im ->
-                         (match getel(element, ty, none) with
-                          | {some=v} -> IntMap.add(Int.of_string(element.name), v, im)
-                          | {none} -> fatal("Failed for intmap element {element} type {OpaType.to_pretty(ty)}"))),
-                        doc, IntMap.empty)
+                          match getel(element, dty, none) with
+                          | {none} ->
+                            fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
+                          | {some=v} ->
+                            match OpaSerialize.unserialize(element.name, kty) with
+                            | {none} -> fatal("Failed for map key {element.name} type {kty}")
+                            | {some = k} -> Map.add(k, v, im))
+                         , doc, Map.empty)
            {some=@unsafe_cast(imap)}
-         | element -> error("expected intmap, got {element}",{none}))
+         | element -> error("expected map, got {element}", none)//element_to_opa(element, OpaType.implementation(ty), none))
+         )
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
          | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
@@ -1046,7 +1055,16 @@ Bson = {{
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
          | element -> error("expected timestamp, got {element}",{none}))
       | {TyRecord_row=row ...} ->
-        check_list( -> element_to_rec([element], row, default))
+        match check_list( -> element_to_rec([element]:Bson.document, row, default)) with
+        |{none} ->
+        match element.value with
+        | ~{Document} ->
+          check_list( -> element_to_rec(Document:Bson.document, row, default))
+        | _ -> @fail
+        end
+        |x ->x
+
+        end
       | {TySum_col=col ...} ->
         check_list( -> column_to_rec([element], col))
       | {TyName_args=tys; TyName_ident=tyid} ->

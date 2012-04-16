@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -214,8 +214,9 @@ OpaValue = {{
    * Generic compare. [compare x y] returns [0] if [x == y], [-1] if
    * [x < y] and [1] if [x > y].
    */
-  compare(a, b) =
-    original_ty = @typeof(a)
+  compare(a, b) = compare_with_ty(a, b, @typeof(a))
+
+  compare_with_ty(a, b, original_ty) =
     /* For record and sum, take values and fields */
     rec aux_rec(a, b, fields) =
       Record.fold2_with_fields(
