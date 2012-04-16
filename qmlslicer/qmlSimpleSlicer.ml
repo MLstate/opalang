@@ -730,10 +730,12 @@ let rec find_private_path acc info =
           | Some (External package) -> List.rev acc, `package package
 
 let find_private_path info = find_private_path [] info
+
+
 let pp_private_path pp_pos f info =
   let l,end_ = find_private_path info in
   let pp_info f info =
-    Format.fprintf f "%s at @[<v>%a@]"
+    Format.fprintf f "'%s' at @[<v>%a@]"
       (Ident.original_name info.ident)
       pp_pos info in
   let pp_end f = function
@@ -778,7 +780,7 @@ type faulty = Private_path | No
 
 let warn_tagged_but_use node ~wclass ~tagged ~use (faulty:faulty) consequence=
   OManager.warning ~wclass
-    "@[<v>%a@]@\n@[<2>  %s is tagged as '%s' but it uses '%s' values%a%s@]"
+    "@[<v>%a@]@\n@[<2>  '%s' is tagged as '%s' but it uses '%s' values%a%s@]"
     pp_pos node
     (Ident.original_name node.ident)
     tagged
@@ -844,7 +846,7 @@ let check_side ~emit_error ~emit node =
     | Some {wish=Force; side=(Client|Both) as side} ->
       let c1 = side=Both && (match node.privacy with Published _ -> true | _ -> false) in
       if not(c1) && (emit || emit_error) then (
-      OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as '%s' but it uses 'protected' values:@\n%a@]"
+      OManager.serror "@[<v>%a@]@\n@[<4>  '%s' is tagged as '%s' but it uses 'protected' values:@\n%a@]"
         pp_pos node
         (Ident.original_name node.ident)
         (side_str side)
@@ -890,7 +892,7 @@ let look_at_user_annotation env pp_pos node annot =
     | Some {wish=Force; side=Server} ->
       (match node.calls_client_bypass with
         | Some key ->
-             OManager.serror "@[<v>%a@]@\n@[<2>  %s is tagged as @@server but it contains a client bypass (%%%%%a%%%%).@]"
+             OManager.serror "@[<v>%a@]@\n@[<2>  '%s' is tagged as @@server but it contains a client bypass (%%%%%a%%%%).@]"
              pp_pos node
                (Ident.original_name node.ident)
                BslKey.pp key
@@ -906,13 +908,13 @@ let look_at_user_annotation env pp_pos node annot =
             match node.privacy with
             | Published _ -> ()
             | _ ->
-                OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both' but it uses a 'protected' values:@\n%a@]"
+                OManager.serror "@[<v>%a@]@\n@[<4>  '%s' is tagged as 'both' but it uses a 'protected' values:@\n%a@]"
                   pp_pos node
                   (Ident.original_name node.ident)
                   (pp_private_path pp_pos) node
             );
             if node.implemented_both then
-              OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both_implem' but it uses 'protected' values:@\n%a@]"
+              OManager.serror "@[<v>%a@]@\n@[<4>  '%s' is tagged as 'both_implem' but it uses 'protected' values:@\n%a@]"
                 pp_pos node
                 (Ident.original_name node.ident)
                 (pp_private_path pp_pos) node;
@@ -921,7 +923,7 @@ let look_at_user_annotation env pp_pos node annot =
             match node.calls_client_bypass with
             | Some key ->
                 if node.implemented_both then (
-                  OManager.serror "@[<v>%a@]@\n@[<4>  %s is tagged as 'both_implem' but it uses the client bypass %s@]"
+                  OManager.serror "@[<v>%a@]@\n@[<4>  '%s' is tagged as 'both_implem' but it uses the client bypass %s@]"
                     pp_pos node
                     (Ident.original_name node.ident)
                     (BslKey.to_string key)
@@ -933,7 +935,7 @@ let look_at_user_annotation env pp_pos node annot =
           if fake_server then
             let functional_type = has_functional_type env.gamma env.annotmap (get_expr node) in
             if not functional_type then
-              OManager.serror "@[<v>%a@]@\n@[<2>  %s is tagged as 'both' but it contains a client bypass (%%%%%a%%%%) and it is not a function.@]"
+              OManager.serror "@[<v>%a@]@\n@[<2>  '%s' is tagged as 'both' but it contains a client bypass (%%%%%a%%%%) and it is not a function.@]"
                 pp_pos node
                 (Ident.original_name node.ident)
                 BslKey.pp (Option.get node.calls_client_bypass);
@@ -964,14 +966,14 @@ let look_at_user_annotation env pp_pos node annot =
           (match on_the_client with
            | `expression -> ()
            | `alias | `insert_server_value ->
-               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  The value '%s' contains a 'sliced_expr' but the client code will not be executed.@]"
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  '%s' contains a 'sliced_expr' but the client code will not be executed.@]"
                  pp_pos node
                  (Ident.original_name node.ident)
           );
           (match on_the_server with
            | `expression -> ()
            | `alias ->
-               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  The value '%s' contains a 'sliced_expr' but the server code will not be executed.@]"
+               OManager.warning ~wclass:WClass.sliced_expr "@[<v>%a@]@\n@[<2>  '%s' contains a 'sliced_expr' but the server code will not be executed.@]"
                  pp_pos node
                  (Ident.original_name node.ident))
         );
