@@ -35,6 +35,7 @@ New supported platform:
 
  * Windows 64bits
    - the platform is now supported via our binary installer while still considered as unstable
+     Congratulations to shadinger (https://github.com/shadinger) for the major contribution!
 
 Bug fixes:
 
