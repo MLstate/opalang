@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -427,28 +427,28 @@ let read_mongo conn timeout mailbox k =
 let export_reply (b,s,l) = Buf.sub b s l
 
 ##register reply_messageLength : Mongo.reply -> int
-let reply_messageLength = Mongo.reply_messageLength 
+let reply_messageLength = Mongo.reply_messageLength
 
 ##register reply_requestId : Mongo.reply -> int
-let reply_requestId = Mongo.reply_requestId 
+let reply_requestId = Mongo.reply_requestId
 
 ##register reply_responseTo : Mongo.reply -> int
-let reply_responseTo = Mongo.reply_responseTo 
+let reply_responseTo = Mongo.reply_responseTo
 
 ##register reply_opCode : Mongo.reply -> int
-let reply_opCode = Mongo.reply_opCode 
+let reply_opCode = Mongo.reply_opCode
 
 ##register reply_responseFlags : Mongo.reply -> int
-let reply_responseFlags = Mongo.reply_responseFlags 
+let reply_responseFlags = Mongo.reply_responseFlags
 
 ##register reply_cursorID : Mongo.reply -> Mongo.cursorID
-let reply_cursorID = Mongo.reply_cursorID 
+let reply_cursorID = Mongo.reply_cursorID
 
 ##register reply_startingFrom : Mongo.reply -> int
-let reply_startingFrom = Mongo.reply_startingFrom 
+let reply_startingFrom = Mongo.reply_startingFrom
 
 ##register reply_numberReturned : Mongo.reply -> int
-let reply_numberReturned = Mongo.reply_numberReturned 
+let reply_numberReturned = Mongo.reply_numberReturned
 
 ##register reply_document : Mongo.reply, int -> option(Bson.document)
 let reply_document (b,s,l) n =
@@ -472,12 +472,21 @@ let string_of_cursorID cid = Printf.sprintf "%016Lx" cid
 let is_null_cursorID cid = ServerLib.wrap_bool (cid = 0L)
 
 ##register mongo_buf_requestId : Mongo.mongo_buf -> int
-let mongo_buf_requestId = Mongo.mongo_buf_requestId 
+let mongo_buf_requestId = Mongo.mongo_buf_requestId
 
 ##register mongo_buf_refresh_requestId : Mongo.mongo_buf -> void
 let mongo_buf_refresh_requestId m = Mongo.mongo_buf_refresh_requestId m (nextrid())
 
 ##register mongo_buf_responseTo : Mongo.mongo_buf -> int
-let mongo_buf_responseTo = Mongo.mongo_buf_responseTo 
+let mongo_buf_responseTo = Mongo.mongo_buf_responseTo
+
+##register encode_field : string -> string
+let encode_field field =
+  Encodings.pc_encode_string
+    (function '.' | '$' -> false | _ -> true)
+    field
+
+##register decode_field : string  -> string
+let decode_field = Encodings.pc_decode_string
 
 ##endmodule

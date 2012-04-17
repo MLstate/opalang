@@ -696,7 +696,9 @@ Bson = {{
 
   map_to_bson(key:string, v:'a, kty:OpaType.ty, dty:OpaType.ty): Bson.document =
     doc = List.flatten(Map.fold((k, v, acc ->
-                                    (doc = opa_to_document(OpaValue.to_string_with_type(kty, k), v, dty)
+                                    k = OpaValue.to_string_with_type(kty, k)
+                                    k = %%BslMongo.Mongo.encode_field%%(k)
+                                    (doc = opa_to_document(k, v, dty)
                                      ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
     [H.doc(key,doc)]
 
@@ -853,24 +855,28 @@ Bson = {{
         match (elements, fields) with
         | ([element|erest],[field|frest]) ->
             name = Bson.key(element)
+            next() =
+              match OpaValue.Record.field_of_name(name) with
+              | {none} -> error("Missing field {name}", (acc, true))
+              | {some=backfield} ->
+                default = Option.map(OpaValue.Record.unsafe_dot(_, backfield), default)
+                val_opt =
+                  (match element with
+                   | {value={Document=doc} ...} -> bson_to_opa_aux(doc, field.ty, default)
+                   | _ -> element_to_opa(element, field.ty, default))
+                match val_opt with
+                | {none} ->
+                  error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
+                | {some=value} -> aux(erest,frest,[(backfield,value)|acc])
+                end
+              end
             (match String.ordering(field.label,name) with
-             | {eq} ->
-               match OpaValue.Record.field_of_name(name) with
-               | {none} -> error("Missing field {name}", (acc, true))
-               | {some=backfield} ->
-                 default = Option.map(OpaValue.Record.unsafe_dot(_, backfield), default)
-                 val_opt =
-                   (match element with
-                    | {value={Document=doc} ...} -> bson_to_opa_aux(doc, field.ty, default)
-                    | _ -> element_to_opa(element, field.ty, default))
-                 match val_opt with
-                 | {none} ->
-                   error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
-                 | {some=value} -> aux(erest,frest,[(backfield,value)|acc])
-                 end
-               end
-              | {lt} -> optreg(name, field, frest, [element|erest], acc)
-              | {gt} -> (acc, true))
+             | {eq} -> next()
+             | _ ->
+               match String.ordering(field.label, %%BslMongo.Mongo.decode_field%%(name))
+               | {eq} -> next()
+               | {lt} -> optreg(name, field, frest, [element|erest], acc)
+               | {gt} -> (acc, true))
         | ([],[]) -> (acc,false)
         | ([],[field|frest]) -> optreg("absent field", field, frest, [], acc)
         | (_erest,_frest) -> (acc,true)
@@ -1014,12 +1020,13 @@ Bson = {{
                           | {none} ->
                             fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
                           | {some=v} ->
-                            match OpaSerialize.unserialize(element.name, kty) with
+                            elname = %%BslMongo.Mongo.decode_field%%(element.name)
+                            match OpaSerialize.unserialize(elname, kty) with
                             | {none} -> fatal("Failed for map key {element.name} type {kty}")
                             | {some = k} -> Map.add(k, v, im))
                          , doc, Map.empty)
            {some=@unsafe_cast(imap)}
-         | element -> error("expected map, got {element}", none)//element_to_opa(element, OpaType.implementation(ty), none))
+         | element -> error("expected map, got {element}", element_to_opa(element, OpaType.implementation(ty), none))
          )
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
