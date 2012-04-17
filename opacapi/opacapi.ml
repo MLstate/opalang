@@ -163,6 +163,7 @@ struct
   let option = !! "option"
   let read = !! "read"
   let write = !! "write"
+  let expr_to_field = !! "expr_to_field"
 end
 
 module DbSet =

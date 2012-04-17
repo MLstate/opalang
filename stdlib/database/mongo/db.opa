@@ -911,4 +911,4 @@ DbSet = {{
 @opacapi DbSet_build_rpath_collection = DbSet.build_rpath_collection
 @opacapi DbSet_default = Option.default
 @opacapi DbSet_empty = {empty}
-
+@opacapi DbMongo_expr_to_field(x) = %%BslMongo.Mongo.encode_field%%(OpaSerialize.serialize(x))

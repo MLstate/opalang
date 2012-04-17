@@ -91,14 +91,14 @@ module Generator = struct
     in
     C.apply gamma annotmap opa2doc [expr]
 
-  let magicToString gamma annotmap expr
+  let expr_to_field gamma annotmap expr
       ?(ty=QmlAnnotMap.find_ty (Annot.annot (QmlAst.Label.expr expr)) annotmap)
       ()
       =
-    let (annotmap, magicToString) =
-      OpaMapToIdent.typed_val ~label ~ty:[ty] Opacapi.magicToString annotmap gamma
+    let annotmap, expr_to_field =
+      OpaMapToIdent.typed_val ~label ~ty:[ty] Opacapi.DbMongo.expr_to_field annotmap gamma
     in
-    C.apply gamma annotmap magicToString [expr]
+    C.apply gamma annotmap expr_to_field [expr]
 
   let add_to_document0 gamma annotmap name expr
       ?(ty=QmlAnnotMap.find_ty (Annot.annot (QmlAst.Label.expr expr)) annotmap)
@@ -141,7 +141,7 @@ module Generator = struct
               let annotmap, d = C.string annotmap "." in
               annotmap, d::e::prev_expr
           in
-          let annotmap, e1 = magicToString gamma annotmap e1 () in
+          let annotmap, e1 = expr_to_field gamma annotmap e1 () in
           let annotmap, d1 = C.string annotmap "." in
           if q = [] then
             let annotmap, value = C.string annotmap "value" in
@@ -740,7 +740,7 @@ module Generator = struct
                      | DbAst.Query (DbAst.QEq uexpr , _)->
                          DbAst.SId (uexpr, select),
                          (fun ((annotmap, expr), dty) ->
- 
+
                                 post ((annotmap, expr), dty)
 
                             )
