@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -24,6 +24,10 @@ val http_unencode : string -> string
 
 (** Generic string encoding functions. *)
 val encode_chars : ?hint:(int -> int) -> (char -> string) -> string -> string
+val pc_encode_string : (char -> bool) -> string -> string
+
+val pc_decode_string : string -> string
+
 val encode_list_to_map : (char * string) list -> string array
 val encode_uri_component : string -> string
 val decode_uri_component : string -> string

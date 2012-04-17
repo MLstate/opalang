@@ -129,6 +129,10 @@ let encode_aws_uri = (fun s -> encode_chars_filter Charf.is_awsf pc_encode s)
 
 let decode_uri_component = decode_string [ pchxhx ]
 
+let pc_encode_string is_char s =
+  encode_chars_filter (function '%' -> false | c -> is_char c) pc_encode s
+let pc_decode_string = decode_string [ pchxhx ]
+
 let escaped1 = [ "'","&#39;"; "&","&amp;"; ]
 let escaped2 = (* ' redefined here for revert operation *)
   [ ">","&gt;"; "<","&lt;"; "\"","&quot;"; "'","&apos;";
