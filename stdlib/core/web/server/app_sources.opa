@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -49,7 +49,7 @@ AppSources =
     | _ -> dom
 
 
-  show_file(filename) =
+  show_file(filename)(_) =
     content = %%BslAppSrcCode.get_file_content%%(filename)
     Dom.transform([#content <- <>{content}</>])
 
@@ -62,7 +62,8 @@ AppSources =
       )
     files =
       new_file(filename) =
-        <a onclick={_ -> show_file(filename)}>{filename}</>
+        show = show_file(filename)
+        <a onclick={show}>{filename}</>
         |> apply_style(css { display: block }, _)
       <span id=#files onready={_ -> init()}>
         {List.map(new_file, app_files)}
