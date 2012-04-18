@@ -696,7 +696,7 @@ Bson = {{
 
   map_to_bson(key:string, v:'a, kty:OpaType.ty, dty:OpaType.ty): Bson.document =
     doc = List.flatten(Map.fold((k, v, acc ->
-                                    k = OpaValue.to_string_with_type(kty, k)
+                                    k = OpaSerialize.serialize_with_type(kty, k)
                                     k = %%BslMongo.Mongo.encode_field%%(k)
                                     (doc = opa_to_document(k, v, dty)
                                      ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
