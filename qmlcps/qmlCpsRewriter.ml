@@ -527,30 +527,56 @@ module U = struct
     | Q.Const _ -> true
     | _ -> false
 
-  let good_llarray_property_elt penv arg =
-    is_stable_ident penv arg
-    || is_const arg
+  let good_property_val penv v = is_const v || is_stable_ident penv v
+
+  let normalise_val ?(name="alias") penv v bindings =
+    if good_property_val penv v then
+      bindings, v
+    else
+      let id = Ident.next name in
+      (id, v)::bindings, Q.Ident (label (), id)
+
+  let normalise_vals ?(name="alias") penv vs bindings =
+    List.fold_left_map (fun bindings v -> normalise_val ~name penv v bindings) bindings vs
 
   let good_llarray_property penv args =
-    List.for_all (good_llarray_property_elt penv) args
+    List.for_all (good_property_val penv) args
 
   let normalize_llarray_property penv args =
-    let foldmap bindings expr =
-      if good_llarray_property_elt penv expr
-      then
-        bindings, expr
-      else
-        (* name all others *)
-        let id = Ident.next "arg" in
-        let binding = id, expr in
-        let bindings = binding :: bindings in
-        let expr = Q.Ident (label (), id) in
-        bindings, expr
-    in
-    let bindings, args = List.fold_left_map foldmap [] args in
-    let llarray = Q.Directive (label (), `llarray, args, []) in
+    let bindings, args = normalise_vals ~name:"args" penv args [] in
     assert (bindings <> []) ;
-    Q.LetIn (label (), bindings, llarray)
+    Q.LetIn (label (), List.rev bindings,
+             Q.Directive (label (), `llarray, args, [])
+    )
+
+  let good_with_property penv base fields =
+    good_property_val penv base
+    && List.for_all (fun (_,v)-> good_property_val penv v) fields
+
+  let rec with_collect e acc = match e with
+    | Q.Coerce (_, e, _) -> with_collect e acc
+    | Q.ExtendRecord (_, f, expr, e) -> with_collect e ((f,expr)::acc)
+    | e -> acc,e
+
+  let with_ base fields =
+    let add_field base (f,v) = Q.ExtendRecord(label (), f , v, base) in
+    List.fold_left add_field base fields
+
+  let good_with_property penv extend =
+    let fields, base = with_collect extend [] in
+    good_with_property penv base fields
+
+  let normalize_with_property penv extend =
+    let fields, base = with_collect extend [] in
+    let normalize_field bindings (f,v) =
+      let bindings, v = normalise_val ~name:("with_field_"^f) penv v bindings in
+      bindings, (f,v)
+    in
+    let bindings, base = normalise_val ~name:"with_record" penv base []  in
+    let bindings, fields = List.fold_left_map normalize_field bindings fields in
+    assert (bindings <> []) ;
+    Q.LetIn (label (), bindings, with_ base fields)
+
 end
 
 
@@ -819,46 +845,10 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
                           e), parent)
         end
 
-    | Q.ExtendRecord _ ->
-
-        let il_fields, build_fields, rest =
-          let rec fold ((il_fields, build, seen) as acc) expr =
-            match expr with
-            | Q.Coerce (_, e, _) -> fold acc e
-            | Q.ExtendRecord (_, f, expr, e) ->
-                let acc =
-                  if StringSet.mem f seen
-                  then
-                    (* This field has been added once already.
-                       Drop the second extension or it would break [extend_with_array] *)
-                    acc
-                  else
-                    let c = IL.fresh_c () in
-                    let v = IL.fresh_v () in
-                    (
-                      ((IL.Field f, v)::il_fields),
-                      ((c, v, (aux expr (Context.cont context c)))::build),
-                      (StringSet.add f seen)
-                    )
-                in
-                fold acc e
-            | _ -> il_fields, build, expr
-          in fold ([], [], StringSet.empty) expr
-        in
-
-        let record = IL.fresh_v () in
-        let il_extend_record =
-          let v = IL.fresh_v () in
-          IL.LetVal (v, IL.ExtendRecord ((List.rev il_fields), record), Context.apply context v) in
-
-        let parent = Context.current_cont context in
-
-        let il_term =
-          let c = IL.fresh_c () in
-          IL.LetCont((c, record, il_extend_record, aux rest (Context.cont context c)), parent) in
-
-        let fold il_term (c, v, term) = IL.LetCont((c, v, il_term, term), parent) in
-        List.fold_left fold il_term build_fields
+    | Q.ExtendRecord _ when not (U.good_with_property private_env expr) ->
+      aux_can_skip (U.normalize_with_property private_env expr) context
+    (* guaranteed property : base record and fields values are const or stable ident *)
+    | Q.ExtendRecord _ -> IL.Skip expr
 
     | Q.Bypass _
     | Q.Directive (_, `restricted_bypass _, [Q.Bypass _], _) -> (
