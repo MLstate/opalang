@@ -918,10 +918,13 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           | _ -> assert false (* cannot be parsed *)
         end
 
-    | Q.Directive (_, `atomic, exprs, tys) ->
-        let expr = List.get_only_element exprs in
-        let expr = aux expr context in
-        IL.Directive (`atomic, [expr], tys)
+    | Q.Directive (_, `atomic, [expr], []) ->
+      begin match aux_can_skip expr context  with
+      | (IL.Skip _) as r -> r
+      | _ -> QmlError.error (QmlError.Context.expr expr) "The expression cannot be guaranteed to be atomic"
+      end
+
+    | Q.Directive (_, `atomic, _ , _) -> assert false
 
     | Q.Directive (_, `callcc, [expr], _) ->
         let c = IL.fresh_c () and f_callcc = IL.fresh_v () in
