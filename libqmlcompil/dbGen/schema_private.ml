@@ -914,6 +914,7 @@ let coerce_query_element ~context gamma ty (query, options) =
       new_annots, wrap (q1, q2)
     in
     match query with
+    | Db.QExists _ -> assert false
     | Db.QEq  expr -> coerce (fun e -> Db.QEq  e) ty expr
     | Db.QGt  expr -> coerce (fun e -> Db.QGt  e) ty expr
     | Db.QLt  expr -> coerce (fun e -> Db.QLt  e) ty expr

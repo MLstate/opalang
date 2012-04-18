@@ -166,47 +166,75 @@ module Generator = struct
           OpaMapToIdent.typed_val ~label Opacapi.String.flatten annotmap gamma
         in C.apply gamma annotmap flatten [lst]
 
-  let rec prepare_query query =
-    match query with
-    | DbAst.QEq  _
-    | DbAst.QGt  _
-    | DbAst.QLt  _
-    | DbAst.QGte _
-    | DbAst.QLte _
-    | DbAst.QNe  _
-    | DbAst.QMod _
-    | DbAst.QIn  _ -> query
-    | DbAst.QFlds flds -> DbAst.QFlds (List.map (fun (f, q) -> (f, prepare_query q)) flds)
-    | DbAst.QAnd (q1, q2) -> DbAst.QAnd (prepare_query q1, prepare_query q2)
-    | DbAst.QOr (q1, q2)  -> DbAst.QOr  (prepare_query q1, prepare_query q2)
-    | DbAst.QNot DbAst.QEq  e -> DbAst.QNe  e
-    | DbAst.QNot DbAst.QGt  e -> DbAst.QLte e
-    | DbAst.QNot DbAst.QLt  e -> DbAst.QGte e
-    | DbAst.QNot DbAst.QGte e -> DbAst.QLt  e
-    | DbAst.QNot DbAst.QLte e -> DbAst.QGt  e
-    | DbAst.QNot DbAst.QNe  e -> DbAst.QEq  e
-    | DbAst.QNot (DbAst.QIn _ | DbAst.QMod _) -> query
-    | DbAst.QNot (DbAst.QNot query) -> query
-    | DbAst.QNot (DbAst.QFlds flds) ->
-        DbAst.QFlds (List.map (fun (f, q) -> (f, prepare_query (DbAst.QNot q))) flds)
-    | DbAst.QNot (DbAst.QOr (q1, q2)) ->
-        DbAst.QAnd (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
-    | DbAst.QNot (DbAst.QAnd (q1, q2)) ->
-        DbAst.QOr (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
-
   let empty_query gamma annotmap = C.list (annotmap, gamma) []
 
-  let query_to_expr gamma annotmap query =
+  let prepare_query query embed =
+    let rec prepare_query query =
+      match query with
+      | DbAst.QEq  _
+      | DbAst.QGt  _
+      | DbAst.QLt  _
+      | DbAst.QGte _
+      | DbAst.QLte _
+      | DbAst.QNe  _
+      | DbAst.QMod _
+      | DbAst.QExists _
+      | DbAst.QIn  _ -> query
+      | DbAst.QFlds flds -> DbAst.QFlds (List.map (fun (f, q) -> (f, prepare_query q)) flds)
+      | DbAst.QAnd (q1, q2) -> DbAst.QAnd (prepare_query q1, prepare_query q2)
+      | DbAst.QOr (q1, q2)  -> DbAst.QOr  (prepare_query q1, prepare_query q2)
+      | DbAst.QNot DbAst.QEq  e -> DbAst.QNe  e
+      | DbAst.QNot DbAst.QGt  e -> DbAst.QLte e
+      | DbAst.QNot DbAst.QLt  e -> DbAst.QGte e
+      | DbAst.QNot DbAst.QGte e -> DbAst.QLt  e
+      | DbAst.QNot DbAst.QLte e -> DbAst.QGt  e
+      | DbAst.QNot DbAst.QNe  e -> DbAst.QEq  e
+      | DbAst.QNot DbAst.QExists (p, b) -> DbAst.QExists (p, not b)
+      | DbAst.QNot (DbAst.QIn _ | DbAst.QMod _) -> query
+      | DbAst.QNot (DbAst.QNot query) -> query
+      | DbAst.QNot (DbAst.QFlds flds) ->
+          DbAst.QFlds (List.map (fun (f, q) -> (f, prepare_query (DbAst.QNot q))) flds)
+      | DbAst.QNot (DbAst.QOr (q1, q2)) ->
+          DbAst.QAnd (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
+      | DbAst.QNot (DbAst.QAnd (q1, q2)) ->
+          DbAst.QOr (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
+    in
+    let query =
+      match embed with
+      | [] -> query
+      | _ ->
+          let acc =
+            List.fold_right
+              (fun fragment acc -> match fragment with
+               | DbAst.FldKey k -> (`string k)::acc
+               | DbAst.Query (DbAst.QEq e , _)
+               | DbAst.ExprKey e -> (`expr e)::acc
+               | _ -> assert false)
+              embed []
+          in DbAst.QAnd (DbAst.QExists (acc, true), query)
+    in
+    prepare_query query
+
+
+
+  let query_to_expr gamma annotmap query embed =
     match query with
     | None -> empty_query gamma annotmap
     | Some (_todo, query) ->
-        let query = prepare_query query in
+        let query = prepare_query query embed in
         let rec aux annotmap query =
           match query with
           | DbAst.QEq e ->
               let (annotmap, e) = C.shallow_copy annotmap e in
               opa2doc gamma annotmap e ()
           | DbAst.QMod _ -> assert false
+          | DbAst.QExists (p, b) ->
+              let annotmap, name = expr_of_strexprpath gamma annotmap (List.rev p) in
+              let annotmap, b = C.bool (annotmap, gamma) b in
+              let annotmap, query = empty_query gamma annotmap in
+              let annotmap, exists = add_to_document gamma annotmap "$exists" b query in
+              let annotmap, query = empty_query gamma annotmap in
+              add_to_document0 gamma annotmap name exists query
           | DbAst.QGt e | DbAst.QLt e | DbAst.QGte e | DbAst.QLte e | DbAst.QNe e | DbAst.QIn e ->
               let name =
                 match query with
@@ -676,6 +704,7 @@ module Generator = struct
             match setkind with
             | DbSchema.Map _ ->
                 let rec insert_id query = match query with
+                  | DbAst.QExists _ -> assert false
                   | DbAst.QEq  _
                   | DbAst.QGt  _
                   | DbAst.QLt  _
@@ -768,7 +797,7 @@ module Generator = struct
           | DbAst.Ref
           | DbAst.Option ->
               (* query *)
-              let annotmap, query = query_to_expr gamma annotmap query in
+              let annotmap, query = query_to_expr gamma annotmap query (Option.default [] embed) in
               let annotmap, query = query_add_order gamma annotmap order query in
               let annotmap, default = node.DbSchema.default ~select:select0 annotmap in
               let annotmap, select =
@@ -826,7 +855,7 @@ module Generator = struct
               end
 
           | DbAst.Update (u, o) ->
-              let (annotmap, query) = query_to_expr gamma annotmap query in
+              let (annotmap, query) = query_to_expr gamma annotmap query [] in
               let (annotmap, update) =
                 let u = Option.default_map u
                   (function embed ->

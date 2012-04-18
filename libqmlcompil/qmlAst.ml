@@ -150,6 +150,7 @@ struct
     | QAnd  of 'expr query * 'expr query
     | QNot  of 'expr query
     | QFlds of 'expr query fields
+    | QExists of [`string of string | `expr of 'expr] list * bool
 
   type 'expr query_options = {
     limit : 'expr option;
@@ -319,6 +320,7 @@ struct
         List.iter
           (function (f, q) ->
              pp fmt "%a %a" pp_field f (pp_query pp_expr) q) fields
+    | QExists _ -> assert false
 
   let rec pp_select pp_expr fmt = function
     | SStar -> pp fmt "*"
@@ -512,6 +514,7 @@ struct
         TU.wrap
           (fun fields -> QFlds fields)
           (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_query sub_e sub_ty)) flds)
+    | QExists _ -> assert false
 
   let sub_db_query_options sub_e _sub_ty opt =
     let (sub_fields: ('a fields, _, _, 'b fields) TU.sub) = fun flds ->
