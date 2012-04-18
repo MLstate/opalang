@@ -276,6 +276,49 @@ OpaValue = {{
   aux(a, b, original_ty)
 
   /**
+   * Default value generator. [option(a_type) OpaValue.default()] generates if possible a
+   * default value of type [a_type].
+   */
+  default() : option('a) = default_with_ty(@typeval('a))
+
+  /**
+   * As [OpaValue.default] but the type is explicitly given as an argument.
+   * Note : Unsafe, use [OpaValue.default] for save generation
+   */
+  default_with_ty(ty:OpaType.ty) =
+    match ty with
+    | {TyConst=const} ->
+      aux_const(const) = match const with
+        | {TyInt} -> {some = @unsafe_cast(0)}
+        | {TyFloat} -> {some = @unsafe_cast(0.)}
+        | {TyString} -> {some = @unsafe_cast("")}
+      aux_const(const)
+    | {TyRecord_row=row ...} ->
+      rec aux_row(row, cons) =
+        match row with
+        | [] -> {some = Record.make_record(cons)}
+        | [t|q] -> match default_with_ty(t.ty) with
+          | {none} -> {none}
+          | {some = value} ->
+            field = Record.field_of_name_unsafe(t.label)
+            aux_row(q, Record.add_field(cons, field, value))
+          end
+      aux_row(row, Record.empty_constructor())
+    | {TySum_col=col ...} ->
+      rec aux_col(col) =
+        match col with
+        | [[~{label ty}]|q] ->
+          if OpaType.is_void(ty) then
+            field = Record.field_of_name_unsafe(label)
+            {some = Record.make_simple_record(field)}
+          else aux_col(q)
+        | [_|q] -> aux_col(q)
+        | [] -> none
+      aux_col(col)
+    | {TyName_args=tys TyName_ident=tyid} -> default_with_ty(OpaType.type_of_name(tyid, tys))
+    | _ -> none
+
+  /**
    * {2 Record manipulation}
    * This module provides some functions for manipulate records.
    */
