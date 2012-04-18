@@ -286,7 +286,9 @@ type 'a value =
   | Local of 'a
   | External of Package.t
 
-type information = (* TODO: explicit the invariants *)
+type dependency = Node of information | Bypass of BslKey.t
+
+and information = (* TODO: explicit the invariants *)
     { (* fields that aren't computed *)
       mutable privacy : privacy;
       implemented_both : bool;
@@ -312,7 +314,7 @@ type information = (* TODO: explicit the invariants *)
 
       (* these fields are computed by choose sides *)
       mutable needs_the_server : bool;
-      mutable needs_the_client : bool;
+      mutable needs_the_client : dependency list;
       (*mutable need_serialization : bool; (* not equivalent to calls_the_client || calls_the_server
                                           * because you need serialization mechanisms
                                           * for @insert_server_value, but there is no call
@@ -558,7 +560,7 @@ let default_information ~env ~annotmap (ident,expr) =
     on_the_client = None;
     publish_on_the_server = false;
     publish_on_the_client = false;
-    needs_the_client = false;
+    needs_the_client = [];
     needs_the_server = false;
     ident = ident;
     does_side_effects = false;
@@ -778,6 +780,20 @@ let pp_private_path pp_pos f info =
       (Format.pp_list "@ " pp_info) l
       pp_end end_
 
+let pp_dependency pp_pos f dep =
+  let pp_info f info =
+    Format.fprintf f "'%s' at @[<v>%a@]"
+      (Ident.original_name info.ident)
+      pp_pos info
+  in
+  match dep with
+  | Bypass key -> Format.fprintf f "%%%%%a%%%%" BslKey.pp key
+  | Node node -> Format.fprintf f "%a" pp_info node
+
+let pp_dependencies pp_pos f deps =
+  Format.fprintf f "@[<v>%a@]"
+    (Format.pp_list "@ " (pp_dependency pp_pos)) deps
+
 (* FIXME: with the smarter analysis for side effects, this function doesn't work anymore:
  * @server b = 1
  * @client a = (-> b)() would probably not do an insert_server_value when it should
@@ -804,7 +820,7 @@ let direct_dep_on_the_server env node =
     | e -> tra bnds e in
   not (QmlAstWalk.Expr.traverse_forall_context_down aux IdentSet.empty (get_expr node))
 
-type faulty = Private_path | No
+type faulty = Private_path | Client_deps | No
 
 let warn_tagged_but_use node ~wclass ~tagged ~use (faulty:faulty) consequence=
   OManager.warning ~wclass
@@ -816,6 +832,7 @@ let warn_tagged_but_use node ~wclass ~tagged ~use (faulty:faulty) consequence=
     (fun b node -> match faulty with
     | No -> Format.fprintf b "%s" ". "
     | Private_path -> Format.fprintf b ":@\n%a@\n" (pp_private_path pp_pos) node
+    | Client_deps -> Format.fprintf b ":@\n%a@\n" (pp_dependencies pp_pos) node.needs_the_client
     )
     node
     consequence
@@ -842,19 +859,20 @@ let check_privacy ~emit_error:_ ~emit node =
     let c2 = node.calls_private <> None && implicit in
     if c2 then may_warn ~wclass:WClass.Protected.implicit_access
       ~tagged:"implicit exposed" ~use:"protected" Private_path
-      "The access to these value is guaranteed to be safe, but they can be accessed."
+      "The access to these values is guaranteed to be safe, but they can be accessed."
     ;
-    let c3 = node.needs_the_client && not(implicit) in
+    (* an explicit exposed value is accessing the client *)
+    let c3 = node.needs_the_client<>[] && not(implicit) in
     if c3 then may_warn ~wclass:WClass.Exposed.misleading
-      ~tagged:"exposed" ~use:"client" No
+      ~tagged:"exposed" ~use:"client" Client_deps
       "This is can be inefficient and may be a security threat."
     ;
     c1 && c2 && c3
   | Visible -> true
   | Private ->
-    let c1 = node.needs_the_client in
+    let c1 = node.needs_the_client<>[] in
     if c1 then may_warn ~wclass:WClass.Protected.misleading
-      ~tagged:"protected" ~use:"client" No
+      ~tagged:"protected" ~use:"client" Client_deps
       "This is probably a security threat."
     ;
     c1
@@ -884,11 +902,11 @@ let check_side ~emit_error ~emit node =
     | _ -> true
   ) else true
   in
-  let c2 = if node.needs_the_client then (
+  let c2 = if node.needs_the_client<>[] then (
     match node.user_annotation with
     | Some {wish=Force; side=Server} ->
       may_warn_tagged_but_use ~emit node ~wclass:WClass.Server.misleading
-        ~tagged:"server" ~use:"client" No
+        ~tagged:"server" ~use:"client" Client_deps
         "This can be inefficient.";
     | _ -> true
   ) else true
@@ -1157,6 +1175,37 @@ let inline_informations_lambda_lifted env =
                G.add_edge env.call_graph orig_info info
     ) env.informations
 
+let cons_opt_bypass opt l = match opt with Some e -> (Bypass e)::l | None -> l
+
+let list_is_sorted cmp l =
+  let (<) a b = (cmp a b) = -1 in
+  let rec (<<) prev l =
+    match l with
+    | x :: rl -> (prev < x) && (x << rl)
+    | _ -> true
+  in
+  match l with
+  | x :: rl -> x << rl
+  | _ -> true
+
+(* to speed up concat that will be normalised *)
+let list_cat x acc = if x==acc then acc else x@acc
+
+let normalise cmp l =
+  if list_is_sorted cmp l then l
+  else List.uniq ~cmp l
+
+let (|>) a f = f a
+
+let dependency_cmp a b=
+  match a,b with
+  | Node a , Node b -> Pervasives.compare a.ident b.ident
+  | Bypass a , Bypass b -> Pervasives.compare a b
+  | Node   _, _ ->  1
+  | Bypass _, _ -> -1
+
+let dependency_norm  = normalise dependency_cmp
+
 let choose_sides env =
   let graph = env.call_graph in
   let groups = SCC.scc ~size:1000 graph in
@@ -1177,19 +1226,26 @@ let choose_sides env =
                           assert (b = `expression); (* if not on the client, must be on the server *)
                           true
                       | _ -> false)) graph node;
-              node.needs_the_client <- node.calls_client_bypass <> None || G.exists_succ
-                (fun node ->
-                   node.needs_the_client ||
-                     (match node.on_the_client, node.on_the_server with
+              node.needs_the_client <-
+                  []
+               |> cons_opt_bypass node.calls_client_bypass
+               |> G.fold_succ (fun node acc ->
+                     match node.on_the_client, node.on_the_server with
                       | Some Some a, Some None ->
                           assert (a = `expression);
-                          true
-                      | _ -> false)) graph node;
+                          (Node node)::acc
+                      | _ -> acc) graph node;
            ) group;
          if List.exists (fun node -> node.needs_the_server) group then
            List.iter (fun node -> node.needs_the_server <- true) group;
-         if List.exists (fun node -> node.needs_the_client) group then
-           List.iter (fun node -> node.needs_the_client <- true) group;
+
+         let needs_the_client = group
+           |> List.fold_left (fun acc node -> list_cat node.needs_the_client acc) []
+           |> dependency_norm
+         in
+         if needs_the_client<>[] then
+           List.iter (fun node -> node.needs_the_client <- needs_the_client) group;
+
          (* FIXME the value of needs_the_* is not correct when you have recursive bindings
           * with some but not all bindings annotated *)
          (* we should first look at annotated declarations, then compute this set
