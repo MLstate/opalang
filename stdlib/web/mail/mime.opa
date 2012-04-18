@@ -303,13 +303,18 @@ Mime = {{
       | "multipart/related" ->
         boundary = Header.extract_value("boundary", content_type_list)
         multipart(body, boundary)
-      | "text/html" -> {html=Xhtml.of_string(decoded_body)}
       | _ ->
         match Header.find("Content-Disposition", headers)
-        {none} -> {plain=decoded_body}
+        {none} ->
+          if content_type == "text/html" then
+            {html=Xhtml.of_string(decoded_body)}
+          else
+            {plain=decoded_body}
         {some=cd} ->
           if content_type == "text/plain" && cd == "inline" then
             {plain=decoded_body}
+          else if content_type == "text/html" && cd == "inline" then
+            {html=Xhtml.of_string(decoded_body)}
           else
             filename = String.explode(";", cd)
                        |> List.map(String.trim, _)
