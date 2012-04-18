@@ -798,7 +798,23 @@ Bson = {{
 
   rec bson_to_opa_aux(bson:Bson.document, ty:OpaType.ty, default:option('a)): option('a) =
 
-    error(str, v) = ML.error("Bson.bson_to_opa", str, v)
+    error_msg(str) = "Try to unserialize {bson} with {ty}\n Error : {str}"
+
+    error_no_retry(str, v) =
+      ML.error("Bson.bson_to_opa", error_msg(str), v)
+
+    error(str) =
+      // Try to traverse the document. It's a bit hacky : the good value can be
+      // embedded in a map
+      match bson with
+      | [~{name value=~{Document}}] ->
+        match bson_to_opa_aux(Document, ty, default) with
+        | {none} -> ML.error("Bson.bson_to_opa", "Traverse in '{name}' fail\n{error_msg(str)}", {none})
+        | x -> x
+        end
+      | _ -> ML.error("Bson.bson_to_opa", error_msg("Can't traverse document {bson}"), {none})
+      end
+
     fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
 
     isrcrdtype(ty:OpaType.ty): bool =
@@ -834,7 +850,7 @@ Bson = {{
                         default:option('a)): option('a) =
       rec optreg(name, field, frest, elements, acc) =
         match OpaValue.Record.field_of_name(field.label) with
-          | {none} -> error("Missing field {name}", (acc, true))
+          | {none} -> error_no_retry("Missing runtime field {name}", (acc, true))
           | {some=backfield} ->
             match default with
             | {none} ->
@@ -843,7 +859,7 @@ Bson = {{
                 aux(elements,frest,[(backfield,@unsafe_cast({none}))|acc])
               | {TyName_args=[_]; TyName_ident="Bson.register"} ->
                 aux(elements,frest,[(backfield,@unsafe_cast({absent}))|acc])
-              | _ -> error("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
+              | _ -> error_no_retry("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
               end
             | {some=default} ->
               default = OpaValue.Record.unsafe_dot(default, backfield)
@@ -857,7 +873,7 @@ Bson = {{
             name = Bson.key(element)
             next() =
               match OpaValue.Record.field_of_name(name) with
-              | {none} -> error("Missing field {name}", (acc, true))
+              | {none} -> error_no_retry("Missing field {name}", (acc, true))
               | {some=backfield} ->
                 default = Option.map(OpaValue.Record.unsafe_dot(_, backfield), default)
                 val_opt =
@@ -866,7 +882,7 @@ Bson = {{
                    | _ -> element_to_opa(element, field.ty, default))
                 match val_opt with
                 | {none} ->
-                  error("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
+                  error_no_retry("Failed with field {name}, document {to_pretty(doc)} and type {OpaType.to_pretty(field.ty)}", (acc, true))
                 | {some=value} -> aux(erest,frest,[(backfield,value)|acc])
                 end
               end
@@ -884,10 +900,7 @@ Bson = {{
       rcrd = List.fold(((field,value), rcrd ->OpaValue.Record.add_field(rcrd, field, value)),
                        flds,OpaValue.Record.empty_constructor())
       if err
-      then
-          match doc with // Try to throw document, is a bit hack for throw maps
-          | [{value=({Document=[_] as doc})...}] -> element_to_rec2(doc, fields, none)
-          _ -> error("Failed with fields {OpaType.to_pretty_fields(fields)} document {to_pretty(doc)}",{none})
+      then error("Failed with fields {OpaType.to_pretty_fields(fields)} document {doc}")
       else {some=@unsafe_cast(OpaValue.Record.make_record(rcrd))}
 
     and column_to_rec(doc:Bson.document, col) =
@@ -898,7 +911,7 @@ Bson = {{
         allreg = List.for_all((r -> List.for_all((f -> isrcrdtype(f.ty)),r)),col)
         if allreg
         then element_to_rec(doc, List.flatten(col), none)
-        else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})",{none})
+        else error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})")
 
     and getel(element, ty, default) =
       match element with
@@ -912,23 +925,23 @@ Bson = {{
       | {TyName_args=_; TyName_ident="Bson.document"} ->
         (match element with
          | {value={Document=doc} ...} -> {some=@unsafe_cast(doc)}
-         | element -> error("expected Bson.document, got {element}",{none}))
+         | element -> error("expected Bson.document, got {element}"))
       | {TyName_args=[]; TyName_ident="void"} ->
         (match element with
          | {value={Null=_} ...} -> {some=@unsafe_cast(void)}
          | {value={Min=_} ...} -> {some=@unsafe_cast(void)}
          | {value={Max=_} ...} -> {some=@unsafe_cast(void)}
-         | element -> error("expected void, got {element}",{none}))
+         | element -> error("expected void, got {element}"))
       | {TyName_args=[]; TyName_ident="int32"}
       | {TyName_args=[]; TyName_ident="Bson.realint32"} ->
         (match element with
          | {value={RealInt32=i} ...} -> {some=@unsafe_cast(i)}
-         | element -> error("expected int32, got {element}",{none}))
+         | element -> error("expected int32, got {element}"))
       | {TyName_args=[]; TyName_ident="int64"}
       | {TyName_args=[]; TyName_ident="Bson.realint64"} ->
         (match element with
          | {value={RealInt64=i} ...} -> {some=@unsafe_cast(i)}
-         | element -> error("expected int64, got {element}",{none}))
+         | element -> error("expected int64, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.int32"}
       | {TyName_args=[]; TyName_ident="Bson.int64"}
       | {TyConst={TyInt={}}} ->
@@ -938,7 +951,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(i)}
          | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_int(d))}
          | {value={String=s} ...} -> {some=@unsafe_cast(Int.of_string(s))}
-         | element -> error("expected int, got {element}",{none}))
+         | element -> error("expected int, got {element}"))
       | {TyConst={TyString={}}} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(Bool.to_string(tf))}
@@ -946,7 +959,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(Int.to_string(i))}
          | {value={Double=d} ...} -> {some=@unsafe_cast(Float.to_string(d))}
          | {value={String=s} ...} -> {some=@unsafe_cast(s)}
-         | element -> error("expected string, got {element}",{none}))
+         | element -> error("expected string, got {element}"))
       | {TyConst={TyFloat={}}} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(if tf then 1.0 else 0.0)}
@@ -954,7 +967,7 @@ Bson = {{
          | {value={Int64=i} ...} -> {some=@unsafe_cast(Float.of_int(i))}
          | {value={Double=d} ...} -> {some=@unsafe_cast(d)}
          | {value={String=s} ...} -> {some=@unsafe_cast(Float.of_string(s))}
-         | element -> error("expected float, got {element}",{none}))
+         | element -> error("expected float, got {element}"))
       | {TyName_args=[]; TyName_ident="bool"} ->
         (match element with
          | {value={Boolean=tf} ...} -> {some=@unsafe_cast(tf)}
@@ -965,16 +978,16 @@ Bson = {{
          | {value={String="true"} ...} -> {some=@unsafe_cast(true)}
          | {value={Null} name="false"}
          | {value={String="false"} ...} -> {some=@unsafe_cast(false)}
-         | element -> error("expected bool, got {element}",{none}))
+         | element -> error("expected bool, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.meta"} ->
         (match element with
          | {~value ...} -> {some=@unsafe_cast(value)}
-         | element -> error("expected Bson.meta, got {element}",{none}))
+         | element -> error("expected Bson.meta, got {element}"))
       | {TyName_args=[ty]; TyName_ident="option"} ->
         (match element with
          | {name="some"; ...} -> make_option(getel(element, ty, none))
          | {name="none"; ...} -> {some=@unsafe_cast({none})}
-         | _ -> error("expected option, got {element}",{none}))
+         | _ -> error("expected option, got {element}"))
       | {TyName_args=[ty]; TyName_ident="Bson.register"} ->
         make_register(element_to_opa(element,ty, default))
       | {TyName_args=[ty]; TyName_ident="list"} ->
@@ -1007,7 +1020,7 @@ Bson = {{
                     | [] -> l)
                  aux(Int.of_string(e.name),doc,[]))
              {some=@unsafe_cast(lst)}
-         | element -> error("expected list, got {element}",{none}))
+         | element -> error("expected list, got {element}"))
       | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
       | {TyName_args=[kty, dty]; TyName_ident="map"} ->
         (match element with
@@ -1016,7 +1029,8 @@ Bson = {{
            Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
            imap =
              List.fold((element, im ->
-                          match getel(element, dty, none) with
+                          default = OpaValue.default_with_ty(dty)
+                          match getel(element, dty, default) with
                           | {none} ->
                             fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
                           | {some=v} ->
@@ -1026,41 +1040,42 @@ Bson = {{
                             | {some = k} -> Map.add(k, v, im))
                          , doc, Map.empty)
            {some=@unsafe_cast(imap)}
-         | element -> error("expected map, got {element}", element_to_opa(element, OpaType.implementation(ty), none))
+         | element ->
+           ML.warning("Bson.bson_to_opa", "expected map, got {element}, fallback to the old representation", element_to_opa(element, OpaType.implementation(ty), none))
          )
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with
          | {value={Date=dt} ...} -> {some=@unsafe_cast(dt)}
-         | element -> error("expected date, got {element}",{none}))
+         | element -> error("expected date, got {element}"))
       | {TyName_args=[]; TyName_ident="binary"}
       | {TyName_args=[]; TyName_ident="Bson.binary"} ->
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
-         | element -> error("expected binary, got {element}",{none}))
+         | element -> error("expected binary, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.oid"} ->
         (match element with
          | {value={ObjectID=oid} ...} -> {some=@unsafe_cast(oid)}
-         | element -> error("expected ObjectId, got {element}",{none}))
+         | element -> error("expected ObjectId, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.regexp"} ->
         (match element with
          | {value={Regexp=re} ...} -> {some=@unsafe_cast(re)}
-         | element -> error("expected regexp, got {element}",{none}))
+         | element -> error("expected regexp, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.code"} ->
         (match element with
          | {value={Code=c} ...} -> {some=@unsafe_cast(c)}
-         | element -> error("expected code, got {element}",{none}))
+         | element -> error("expected code, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.symbol"} ->
         (match element with
          | {value={Symbol=s} ...} -> {some=@unsafe_cast(s)}
-         | element -> error("expected symbol, got {element}",{none}))
+         | element -> error("expected symbol, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.codescope"} ->
         (match element with
          | {value={CodeScope=cs} ...} -> {some=@unsafe_cast(cs)}
-         | element -> error("expected codescope, got {element}",{none}))
+         | element -> error("expected codescope, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.timestamp"} ->
         (match element with
          | {value={Timestamp=ts} ...} -> {some=@unsafe_cast(ts)}
-         | element -> error("expected timestamp, got {element}",{none}))
+         | element -> error("expected timestamp, got {element}"))
       | {TyRecord_row=row ...} ->
         match check_list( -> element_to_rec([element]:Bson.document, row, default)) with
         |{none} ->
@@ -1092,7 +1107,7 @@ Bson = {{
     | ([element],{TyName_args=[_]; TyName_ident="list"}) -> element_to_opa(element, ty_name, default)
     | (_,{TyRecord_row=row ...}) -> element_to_rec(bson_noid, row, default)
     | (_,{TySum_col=col ...}) -> column_to_rec(bson_noid,col)
-    | ([],_) -> error("Empty document for non-register type",{none})
+    | ([],_) -> element_to_opa(H.doc("value", bson_noid), ty_name, default)//error("Empty document for non-register type",{none})
     | _ -> element_to_opa(H.doc("value", bson_noid), ty_name, default) // assume bare type
 
   bson_to_opa(doc, ty) = bson_to_opa_aux(doc, ty, none)
