@@ -136,12 +136,6 @@ type Cache.async('a, 'b, 'signature) =
     decode_diff:       ('b,'diff) -> 'b                       //Note: typically, located on the client
 })
 
-// @deprecated({use = "Cache.negotiator"})
-/**
- * {emp DEPRECATED: was a typo, replaced by} {!Cache.negotiator}
- */
-//@abstract type Cache.negociator('a, 'b, 'signature, 'diff) = Cache.negotiator('a, 'b, 'signature, 'diff)
-
 
 /**
  * {1 Interface}
@@ -149,8 +143,6 @@ type Cache.async('a, 'b, 'signature) =
 
 @both Cache =
 {{
-
-     //@deprecated({use = "Cache.Negotiator"}) Negociator = Negotiator
 
      Negotiator =
      {{
