@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -38,7 +38,21 @@ rbrace   <- Opa_lexer.rbrace  $
 ;Expression = deco(Expression_aux)
 Expression_aux <-
   Opa_parser.match_case? ParserSeq:e (Opa_parser.match_case ParserSeq:e {{e}})*:l
-  {{ Trx_ast.Expr (e::l) }}
+  ((=deco(Opa_parser.match_default_case)):d ParserCode:e {{d, e}})?:o
+  {{
+     let l =
+       match o with
+       | None -> l
+       | Some (d, o) ->
+           let item = {
+             Trx_ast.item_name=None;
+             Trx_ast.item_prefix=`NORMAL;
+             Trx_ast.item_primary=(Trx_ast.Any, label d);
+             Trx_ast.item_suffix=`STAR
+           } in
+           l@[{Trx_ast.seq_items=[item, label d]; Trx_ast.seq_code=Some o}, label d] in
+     Trx_ast.Expr (e::l)
+  }}
 
 ;SubExpression = deco(SubExpression_aux)
 SubExpression_aux <- Expression_aux
