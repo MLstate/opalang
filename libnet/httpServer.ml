@@ -541,7 +541,7 @@ type options =
       port : int;
       block_size : int;
       allowed_hosts : string list;
-      allmethods: bool;
+      all_methods: bool;
       dos_prevention : bool;
       on_server_run : options -> Scheduler.t -> unit;
       on_server_close : Scheduler.t -> unit;
@@ -635,7 +635,7 @@ let default_options =
     block_size = 4096; (* TODO: implement separate callbac blocksize *)
     allowed_hosts = [];
     dos_prevention = true;
-    allmethods = true;
+    all_methods = true;
     on_server_run = (fun _ _ -> ());
     on_server_close = (fun _ -> ());
     get = handle_get;
@@ -812,7 +812,7 @@ let spec_args name =
     "", (sprintf "Disable backtrace printout for server exceptions" (*default_options.backtrace*));
 
     p"all-methods",
-    ServerArg.func ServerArg.bool (fun o b -> { o with allmethods = b }),
+    ServerArg.func ServerArg.bool (fun o b -> { o with all_methods = b }),
     "<bool>", (sprintf "Use all HTTP methods (default:%b) - Only GET, HEAD and POST if false." default_options.long_cookies);
 
     p"ssl-cert",
@@ -938,7 +938,7 @@ let make (name:string) (opt:options) (sched:Scheduler.t) : t =
         rt_on_close = opt.on_server_close;
         rt_favicon_ico = opt.favicon_ico;
         rt_favicon_gif = opt.favicon_gif;
-        rt_all_methods = opt.allmethods;
+        rt_all_methods = opt.all_methods;
       };
     rt_proto =
       { HSC.rt_name = opt.name;
