@@ -16,6 +16,9 @@ New features:
   * SMTP Client
     - plain authentication
 
+  * HTTP Server
+    - PUT and DELETE methods are now handled
+
 Improvements:
 
   * Scheduling policy updated to improve concurrency level
