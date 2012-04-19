@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -140,7 +140,7 @@ type Cache.async('a, 'b, 'signature) =
 /**
  * {emp DEPRECATED: was a typo, replaced by} {!Cache.negotiator}
  */
-@abstract type Cache.negociator('a, 'b, 'signature, 'diff) = Cache.negotiator('a, 'b, 'signature, 'diff)
+//@abstract type Cache.negociator('a, 'b, 'signature, 'diff) = Cache.negotiator('a, 'b, 'signature, 'diff)
 
 
 /**
@@ -150,7 +150,7 @@ type Cache.async('a, 'b, 'signature) =
 @both Cache =
 {{
 
-     @deprecated({use = "Cache.Negotiator"}) Negociator = Negotiator
+     //@deprecated({use = "Cache.Negotiator"}) Negociator = Negotiator
 
      Negotiator =
      {{

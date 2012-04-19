@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -382,7 +382,7 @@ WDatepicker = {{
         <></>}
     </>
 
-  // TODO: some refactoring of the following (definitions at another place) 
+  // TODO: some refactoring of the following (definitions at another place)
   // functions may be useful
   @private
   advance_month(config: WDatepicker.config, onchange: Date.date -> void,
@@ -865,7 +865,7 @@ WDatepicker = {{
 
   @private @both_implem
   update_datepicker_mem =
-    Cache.make(Cache.Negociator.always_necessary(update_datepicker),
+    Cache.make(Cache.Negotiator.always_necessary(update_datepicker),
       {Cache.default_options with
         storage = {ordering = update_datepicker_order}
       }).get

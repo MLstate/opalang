@@ -713,11 +713,11 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
 
   f({uri=_ ~customizers ~body user_agent=_}) =
     customizer_cache = Cache.make(
-        Cache.Negociator.always_necessary(user_agent -> compute_customization(customizers, user_agent)),
+        Cache.Negotiator.always_necessary(user_agent -> compute_customization(customizers, user_agent)),
         {Cache.default_options with size_limit = {some = 30}})
 
     result_cache = Cache.make(
-        Cache.Negociator.always_necessary(user_agent -> compute_result(body, customizer_cache.get(user_agent))),
+        Cache.Negotiator.always_necessary(user_agent -> compute_result(body, customizer_cache.get(user_agent))),
         {Cache.default_options with size_limit = {some = 30}})
 
    {cache_everything =
@@ -727,7 +727,7 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
      size_limit = {some = 30}
      storage    = {ordering = Order.make_by(x -> x.uri, String.order)}//TODO: Declare type (may speed this up)
   }
-  global_cache = Cache.make(Cache.Negociator.always_necessary(f), cache_options)
+  global_cache = Cache.make(Cache.Negotiator.always_necessary(f), cache_options)
 
   customizer_equality(a:resource_cache_customizers,b:resource_cache_customizers) =
         a.external_css_files === b.external_css_files
