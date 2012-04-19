@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -184,13 +184,15 @@ var global_thread_context;
 if (command_line_execution) {
   global_thread_context = js_none
 } else {
+  var cookie = getStableCookie();
+  cookie = ('some' in cookie)?cookie.some:"BADCOOKIE";
   global_thread_context =
     js_some(normalize_obj(
     {
         key:{
             client:{
-                client: getStableCookie(),
-                page    : js_some(page_server)
+                client: cookie,
+                page    : page_server
             }},
         request: js_none,
         details:{
