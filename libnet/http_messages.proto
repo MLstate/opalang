@@ -19,83 +19,83 @@
 %
 %%% General headers %%%
 %%%%%%%%%%%%%%%%%%%%%%%
--define Cache_Control str = "Cache-Control: " str "\r\n"
--define Connection str = "Connection: " str "\r\n"
--define Date str = "Date: " str "\r\n"
--define Pragma str = "Pragma: " str "\r\n"
--define Trailer str = "Trailer: " str "\r\n"
--define Transfer_Encoding str = "Transfer-Encoding: " str "\r\n"
--define Upgrade str = "Upgrade: " str "\r\n"
--define Via str = "Via: " str "\r\n"
--define Warning str = "Warning: " str "\r\n"
--define Allow str = "Allow: " str "\r\n"
+-define Cache_Control str = "Cache-Control: "~ str "\r\n"
+-define Connection str = "Connection: "~ str "\r\n"
+-define Date str = "Date: "~ str "\r\n"
+-define Pragma str = "Pragma: "~ str "\r\n"
+-define Trailer str = "Trailer: "~ str "\r\n"
+-define Transfer_Encoding str = "Transfer-Encoding: "~ str "\r\n"
+-define Upgrade str = "Upgrade: "~ str "\r\n"
+-define Via str = "Via: "~ str "\r\n"
+-define Warning str = "Warning: "~ str "\r\n"
+-define Allow str = "Allow: "~ str "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%
 %%% Entity headers %%%
 %%%%%%%%%%%%%%%%%%%%%%
--define Content_Encoding str = "Content-Encoding: " str "\r\n"
--define Content_Language str = "Content-Language: " str "\r\n"
--define Content_Length (nb:int64) = "Content-Length: " nb "\r\n"
--define Content_Location str = "Content-Location: " str "\r\n"
--define Content_MD5 str = "Content-MD5: " str "\r\n"
--define Content_Range str = "Content-Range: " str "\r\n"
--define Content_Type (str,lst : string list) = "Content-Type: " !"\r\n" !";" str (";" !";" !"\r\n" string)* as lst "\r\n"
--define Content_Disposition (str,lst : string list) = "Content-Disposition: " !"\r\n" !";" str (";" !";" !"\r\n" string)* as lst "\r\n"
-%-define Content_Disposition str = "Content-Disposition: " str "\r\n"
--define Expires str = "Expires: " str "\r\n"
--define Last_Modified str = "Last-Modified: " str "\r\n"
+-define Content_Encoding str = "Content-Encoding: "~ str "\r\n"
+-define Content_Language str = "Content-Language: "~ str "\r\n"
+-define Content_Length (nb:int64) = "Content-Length: "~ nb "\r\n"
+-define Content_Location str = "Content-Location: "~ str "\r\n"
+-define Content_MD5 str = "Content-MD5: "~ str "\r\n"
+-define Content_Range str = "Content-Range: "~ str "\r\n"
+-define Content_Type (str,lst : string list) = "Content-Type: "~ !"\r\n" !";" str (";" !";" !"\r\n" string)* as lst "\r\n"
+-define Content_Disposition (str,lst : string list) = "Content-Disposition: "~ !"\r\n" !";" str (";" !";" !"\r\n" string)* as lst "\r\n"
+%-define Content_Disposition str = "Content-Disposition: "~ str "\r\n"
+-define Expires str = "Expires: "~ str "\r\n"
+-define Last_Modified str = "Last-Modified: "~ str "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% Requests headers %%%
 %%%%%%%%%%%%%%%%%%%%%%%%
--define Accept str = "Accept: " str "\r\n"
--define Accept_Charset str = "Accept-Charset: " str "\r\n"
--define Accept_Encoding str = "Accept-Encoding: " str "\r\n"
--define Accept_Language str = "Accept-Language: " str "\r\n"
--define Authorization str = "Authorization: " str "\r\n"
--define Expect str = "Expect: " str "\r\n"
--define From str = "From: " str "\r\n"
--define Host str = "Host: " str "\r\n"
--define If_Match str = "If-Match: " str "\r\n"
--define If_Modified_Since str = "If-Modified-Since: " str "\r\n"
--define If_None_Match str = "If-None-Match: " str "\r\n"
--define If_Range str = "If-Range: " str "\r\n"
--define If_Unmodified_Since str = "If-Unmodified-Since: " str "\r\n"
--define Keep_Alive (nb:int) = "Keep-Alive: " nb "\r\n"
--define Max_Forwards str = "Max-Forwards: " str "\r\n"
--define Proxy_Authorization str = "Proxy-Authorization: " str "\r\n"
--define ReqRange str = "ReqRange: " str "\r\n"
--define Referer str = "Referer: " str "\r\n"
--define TE str = "TE: " str "\r\n"
--define User_Agent str = "User-Agent: " str "\r\n"
--define X_Forwarded_For str = "X-Forwarded-For: " str "\r\n"
+-define Accept str = "Accept: "~ str "\r\n"
+-define Accept_Charset str = "Accept-Charset: "~ str "\r\n"
+-define Accept_Encoding str = "Accept-Encoding: "~ str "\r\n"
+-define Accept_Language str = "Accept-Language: "~ str "\r\n"
+-define Authorization str = "Authorization: "~ str "\r\n"
+-define Expect str = "Expect: "~ str "\r\n"
+-define From str = "From: "~ str "\r\n"
+-define Host str = "Host: "~ str "\r\n"
+-define If_Match str = "If-Match: "~ str "\r\n"
+-define If_Modified_Since str = "If-Modified-Since: "~ str "\r\n"
+-define If_None_Match str = "If-None-Match: "~ str "\r\n"
+-define If_Range str = "If-Range: "~ str "\r\n"
+-define If_Unmodified_Since str = "If-Unmodified-Since: "~ str "\r\n"
+-define Keep_Alive (nb:int) = "Keep-Alive: "~ nb "\r\n"
+-define Max_Forwards str = "Max-Forwards: "~ str "\r\n"
+-define Proxy_Authorization str = "Proxy-Authorization: "~ str "\r\n"
+-define ReqRange str = "ReqRange: "~ str "\r\n"
+-define Referer str = "Referer: "~ str "\r\n"
+-define TE str = "TE: "~ str "\r\n"
+-define User_Agent str = "User-Agent: "~ str "\r\n"
+-define X_Forwarded_For str = "X-Forwarded-For: "~ str "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% Response headers %%%
 %%%%%%%%%%%%%%%%%%%%%%%%
--define Accept_Ranges str = "Accept-Ranges: " str "\r\n"
--define Age str = "Age: " str "\r\n"
--define ETag str = "ETag: " str "\r\n"
--define Location str = "Location: " str "\r\n"
--define Proxy_Authenticate str = "Proxy-Authenticate: " str "\r\n"
--define Retry_After str = "Retry-After: " str "\r\n"
--define Server str = "Server: " str "\r\n"
--define Vary str = "Vary: " str "\r\n"
--define WWW_Authenticate str = "WWW-Authenticate: " str "\r\n"
+-define Accept_Ranges str = "Accept-Ranges: "~ str "\r\n"
+-define Age str = "Age: "~ str "\r\n"
+-define ETag str = "ETag: "~ str "\r\n"
+-define Location str = "Location: "~ str "\r\n"
+-define Proxy_Authenticate str = "Proxy-Authenticate: "~ str "\r\n"
+-define Retry_After str = "Retry-After: "~ str "\r\n"
+-define Server str = "Server: "~ str "\r\n"
+-define Vary str = "Vary: "~ str "\r\n"
+-define WWW_Authenticate str = "WWW-Authenticate: "~ str "\r\n"
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Uncategorised headers %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--define Set_Cookie str = "Set-Cookie: " str "\r\n"           % (coded) server updates UA
--define Cookie str = "Cookie: " str "\r\n"                   % (coded) UA returns to server
+-define Set_Cookie str = "Set-Cookie: "~ str "\r\n"           % (coded) server updates UA
+-define Cookie str = "Cookie: "~ str "\r\n"                   % (coded) UA returns to server
 % (uncoded) server keeps internal id
 -define MyCookie ((found:bool),ecid,ecstr,icid,icstr) =
                  "MyCookie: found=" found " " ecid "=" ecstr "; " icid "=" icstr "\r\n"
 
--define Set_Cookie2 str = "Set-Cookie2: " str "\r\n"
+-define Set_Cookie2 str = "Set-Cookie2: "~ str "\r\n"
 %-define Cookie2 ver = "Cookie2: $Version=" "\""? ver "\""? "\r\n" % ho hum.
--define Cookie2 str = "Cookie2: " str "\r\n"
+-define Cookie2 str = "Cookie2: "~ str "\r\n"
 
--define Origin str = "Origin: " str "\r\n"
+-define Origin str = "Origin: "~ str "\r\n"
 
--define Custom (name,value) = name ": " value "\r\n"
+-define Custom (name,value) = name ": "~ value "\r\n"
