@@ -635,7 +635,7 @@ let default_options =
     block_size = 4096; (* TODO: implement separate callbac blocksize *)
     allowed_hosts = [];
     dos_prevention = true;
-    allmethods = false;
+    allmethods = true;
     on_server_run = (fun _ _ -> ());
     on_server_close = (fun _ -> ());
     get = handle_get;
@@ -809,11 +809,11 @@ let spec_args name =
 
     p"no-backtrace",
     ServerArg.func ServerArg.unit (fun o () -> { o with backtrace = false }),
-      "", (sprintf "Disable backtrace printout for server exceptions" (*default_options.backtrace*));
+    "", (sprintf "Disable backtrace printout for server exceptions" (*default_options.backtrace*));
 
     p"all-methods",
-    ServerArg.func ServerArg.unit (fun o () -> { o with allmethods = true }),
-      "", (sprintf "Enable all HTTP methods (default: only GET, HEAD and POST)" (*default_options.allmethods*));
+    ServerArg.func ServerArg.bool (fun o b -> { o with allmethods = b }),
+    "<bool>", (sprintf "Use all HTTP methods (default:%b) - Only GET, HEAD and POST if false." default_options.long_cookies);
 
     p"ssl-cert",
     ServerArg.func ServerArg.string (fun o s -> { o with ssl_cert = s }),
