@@ -46,7 +46,8 @@ import stdlib.core.compare
  */
 type html_resource_doctype =
   {html5} /
-  {xhtml1_1}
+  {xhtml1_1} /
+  {custom:string}
 
 /**
  * The actual contents of a resource.
@@ -132,6 +133,7 @@ Resource_private =
     match doctype with
     {xhtml1_1} -> shared_xhtml1_1_header
     {html5} -> shared_html5_header
+    {~custom} -> custom
 
   get_lastm(resource) =
     check(x) =
@@ -635,12 +637,13 @@ required_customizer_for_opa_ad =
 @private autoloaded_js = Mutable.make([] : list(string))
 @private autoloaded_css = Mutable.make([] : list(string))
 @private autoloaded_favicon = Mutable.make([] : list(Favicon.t))
+@private default_doctype = Mutable.make({xhtml1_1} : html_resource_doctype)
 @package register_external_js(url : string) = autoloaded_js.set([url | autoloaded_js.get()])
 @package unregister_external_js(url : string) = autoloaded_js.set(List.remove(url, autoloaded_js.get()))
 @package register_external_css(url : string) = autoloaded_css.set([url | autoloaded_css.get()])
 @package unregister_external_css(url : string) = autoloaded_css.set(List.remove(url, autoloaded_css.get()))
 @package register_external_favicon(f:Favicon.t) = autoloaded_favicon.set([f | autoloaded_favicon.get()])
-
+@package register_default_doctype(d:html_resource_doctype) = default_doctype.set(d)
 customizer_autoloaded : platform_customization =
   _ -> some(
     { custom_body = none
@@ -943,7 +946,10 @@ export_resource(external_css_files: list(string),
               <></>, base_url)
           ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
-          html_doctype = match doctype with {some=d} -> html_doctype_to_string(d) {none} -> shared_xhtml1_1_header
+          html_doctype =
+            match doctype with
+            | {some=d} -> html_doctype_to_string(d)
+            | {none} -> html_doctype_to_string(default_doctype.get())
 
           page = Xhtml.of_string_unsafe(html_doctype) <+>
                  <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>

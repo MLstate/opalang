@@ -111,7 +111,12 @@ type resource_content = external
 */
 
 
-
+/**
+ * The doctype of an html page.
+ * You can specify the default doctype in the [Server.handler] list.
+ * Read [Server.start]
+ */
+type Resource.doctype = html_resource_doctype
 
 /**
  * {1 About this module}
@@ -717,6 +722,11 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
    * (Its interest is very limited in user code, since it's easier to customize resources directly)
    */
   register_external_favicon(favicon : Favicon.t) : void = Resource_private.register_external_favicon(favicon)
+
+  /**
+   * Set the default doctype of html pages.
+   */
+  register_default_doctype(d : html_resource_doctype) : void = Resource_private.register_default_doctype(d)
 
   /**
    * Removes an external javascript file (identified by its url) to the default_customizers of ALL resources if it exists.

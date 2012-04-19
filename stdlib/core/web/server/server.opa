@@ -93,11 +93,10 @@ type Server.registrable_resource =
   {favicon : list(Favicon.t)}
 / {css : list(string)}
 / {js : list(string)}
-/ list(string)
+/ {doctype : Resource.doctype}
+/ list(Server.registrable_resource)
 
-/**
- * Different types of request handler.
- */
+
 type Server.handler =
 
   /** The most simple request handler. It replies to all incoming
@@ -235,34 +234,26 @@ Server = {{
       | ~{hd=_ tl=_} as e -> flatten(e)
       | {nil} -> head
     )
+    rec register(r) =
+      match r
+      | ~{favicon} -> List.iter(f -> Resource.register_external_favicon(f), favicon)
+      | ~{js} -> List.iter(f -> Resource.register_external_js(f), js)
+      | ~{css} -> List.iter(f -> Resource.register_external_css(f), css)
+      | ~{doctype} -> Resource.register_default_doctype(doctype)
+      | ~{hd tl} -> List.iter(register, ~{hd tl})
+      | {nil} -> void
     match handler with
     | ~{hd; tl} -> (
       all = List.map(handler_to_parser, hd+>tl)
       Rule.of_parsers(all)
     )
     | {nil} -> Rule.fail
-    | ~{register} ->
-      do match register
-      | ~{favicon} -> List.iter(f -> Resource.register_external_favicon(f), favicon)
-      | ~{js} -> List.iter(f -> Resource.register_external_js(f), js)
-      | ~{css} -> List.iter(f -> Resource.register_external_css(f), css)
-      | ~{hd tl} ->
-        List.iter(file ->
-          if String.has_suffix(".css", file) then
-            Resource.register_external_css(file)
-          else if String.has_suffix(".js", file) then
-            Resource.register_external_js(file)
-          else
-            Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
-        , ~{hd tl})
-      | {nil} -> void
-      Rule.fail
+    | {register=r} -> do register(r) Rule.fail
     | {custom=_} as e
     | {title=_; page=_} as e
     | {dispatch=_} as e
     | {filter=_ dispatch=_} as e
     | {resources=_} as e -> simple_to_parser(e)
-
 
   /**
    * {2 Starting a server}
@@ -285,7 +276,7 @@ Server = {{
   /**
    * Default [http] configuration with port equals to 8080 and the server name is "http".
    */
-  http = { port = 8080; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
+  http : Server.conf = { port = 8080; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
 
   /**
 
@@ -293,7 +284,7 @@ Server = {{
    * name is "https". SSL certificate should be at ./service.crt and
    * SSL key should be at ./service.key.
    */
-  https = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
+  https : Server.conf = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
 
   /**
    * {2 Constructing a server}
@@ -384,6 +375,18 @@ Server = {{
       make(blind_url_parser)
    )
 
+   /**
+    * Register a list of file name, based on the extension (".css" and ".js" are supported).
+    */
+   register_from_extension(l : list(string)): void =
+    List.iter(file ->
+      if String.has_suffix(".css", file) then
+        Resource.register_external_css(file)
+      else if String.has_suffix(".js", file) then
+        Resource.register_external_js(file)
+      else
+        Log.error("Server", "Unknown type of file, the resource \"{file}\" will not registered")
+    , l)
 
    Filter =
    {{
