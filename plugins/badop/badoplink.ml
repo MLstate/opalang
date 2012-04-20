@@ -18,6 +18,7 @@
 (* ================================================================= *)
 (** DB : link to the new BADOP interface                             *)
 (* ================================================================= *)
+module BslNativeLib = Badop_engine.BslNativeLib
 
 module C = QmlCpsServerLib
 module D = Badop.Dialog
@@ -115,7 +116,7 @@ let error s k =
   error s; abort_transaction @> k
 
 ##register [opacapi;restricted:dbgen] fatal_error \ fatal_error_for_dbgen: string, string, string -> 'a
-let fatal_error_for_dbgen = fun s1 s2 s3 -> Logger.critical "%s%s%s" s1 s2 s3; BslSys.do_exit 1
+let fatal_error_for_dbgen = fun s1 s2 s3 -> Logger.critical "%s%s%s" s1 s2 s3; ServerLib.do_exit 1
 
 (* let wrap_option : 'a_option BslCps.continuation -> 'a Dblib.answer -> unit = fun k a -> match a with *)
 (*   | `Answer x -> qmlreturn k (qml_some x) *)
@@ -172,7 +173,7 @@ let get_db_prefix db k =
 let open_db engine k =
   engine.E.open_database ()
   @> fun db ->
-    Scheduler.at_exit BslScheduler.opa (fun () ->
+    Scheduler.at_exit Scheduler.default (fun () ->
       flush stdout; flush stderr;
       engine.E.close_database db @> (fun () -> ())
     );

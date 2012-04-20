@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,6 +18,8 @@
 (* ================================================================ *)
 (** Low-level transaction handling for the database              -- *)
 (* ================================================================ *)
+module BslNativeLib = Badop_engine.BslNativeLib
+module BslUtils = Badop_engine.BslUtils
 
 module B = Badoplink
 module C = QmlCpsServerLib
@@ -133,7 +135,7 @@ let init t dbs k = match !(t.status) with
                      t.status := Active ((db.B.db_engine,tr) :: trs);
                      () |> k
                  | Aborted -> () |> k)
-        (BslNativeLib.opa_list_to_ocaml_list (fun db -> db) dbs)
+        (Badop_engine.opa_list_to_ocaml_list (fun db -> db) dbs)
       @> C.ccont_ml k
       @> fun () -> ServerLib.void |> k
 
@@ -176,18 +178,18 @@ let continue t f errh k =
 
 ##register [opacapi;cps-bypass] commit: t, continuation(opa[outcome(void,void)]) -> void
 
-let opa_success : (ServerLib.ty_void, ServerLib.ty_void) BslUtils.opa_outcome =
+let opa_success : (ServerLib.ty_void, ServerLib.ty_void) Badop_engine.opa_outcome =
   let fld = ServerLib.static_field_of_name "success" in
   let fields = ServerLib.empty_record_constructor in
   let fields = ServerLib.add_field fields fld ServerLib.void in
   let record = ServerLib.make_record fields in
-  BslUtils.wrap_opa_outcome record
-let opa_failure : (ServerLib.ty_void, ServerLib.ty_void) BslUtils.opa_outcome =
+  Badop_engine.wrap_opa_outcome record
+let opa_failure : (ServerLib.ty_void, ServerLib.ty_void) Badop_engine.opa_outcome =
   let fld = ServerLib.static_field_of_name "failure" in
   let fields = ServerLib.empty_record_constructor in
   let fields = ServerLib.add_field fields fld ServerLib.void in
   let record = ServerLib.make_record fields in
-  BslUtils.wrap_opa_outcome record
+  Badop_engine.wrap_opa_outcome record
 
 let opa_outcome b = if b then opa_success else opa_failure
 

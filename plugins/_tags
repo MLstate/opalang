@@ -7,3 +7,4 @@
 <socket>: traverse
 <gcharts>: traverse
 <iconv>: traverse
+<badop>: traverse

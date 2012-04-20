@@ -20,6 +20,25 @@
     allowing run-time selection of an engine through an added function
     parameter *)
 
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##extern-type caml_list('a) = 'a list
+##extern-type time_t = int
+##property[endmli]
+
+##opa-type list('a)
+##opa-type tuple_2('a, 'b)
+##opa-type outcome('a, 'b)
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+module BslUtils = OpabslgenMLRuntime.BslUtils
+let opa_list_to_ocaml_list f l =
+  BslNativeLib.opa_list_to_ocaml_list f
+    (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
+let create_outcome x =
+  wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome x))
+(** *****************************)
+
 module D = Badop.Dialog
 
 (* All options *)
@@ -247,12 +266,14 @@ let get options =
     | Badop.Options_Client (sched,server,_on_disconnect) ->
         let on_disconnect () =
           (match ServerLib.field_of_name "server_event_db_error" with
-           | Some record ->
-               let event =
-                 ServerLib.make_record
-                   (ServerLib.add_field ServerLib.empty_record_constructor record ServerLib.void)
-               in
-               BslServer_event.send (Obj.magic event) (QmlCpsServerLib.cont_ml (fun _ -> ()))
+           | Some _record ->
+               Logger.error "Database connection error"
+               (* TODO - use server plugin *)
+               (* let event = *)
+               (*   ServerLib.make_record *)
+               (*     (ServerLib.add_field ServerLib.empty_record_constructor record ServerLib.void) *)
+               (* in *)
+               (* BslServer_event.send (Obj.magic event) (QmlCpsServerLib.cont_ml (fun _ -> ())) *)
            | None ->
                Logger.error "Database connection error before OPA runtime initialisation";
                exit 3)

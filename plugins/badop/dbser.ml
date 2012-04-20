@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,7 +16,7 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* DB-serialisation: dump-recovery of the database *)
-
+module BslNativeLib = Badop_engine.BslNativeLib
 module C = QmlCpsServerLib
 module D = Badop.Dialog
 module E = Badop_engine
