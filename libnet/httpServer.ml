@@ -458,8 +458,8 @@ let handle_put sched runtime _method hr (uri, headers, body) conn k =
               server_info = hr.HST.hr_server_info; is_multipart = false; handle_request = hr} in
   (HD.body runtime.HSC.rt_server.HSC.rt_dialog_content sched) { HST.cont=k; request=req; connection=conn; certificate=None }
 
-let handle_optional handler_name sched runtime _method hr (uri, headers) conn k =
-  #<If>Logger.debug "%s: uri=%s" handler_name uri#<End>;
+let handle_optional __handler_name sched runtime _method hr (uri, headers) conn k =
+  #<If>Logger.debug "%s: uri=%s" __handler_name uri#<End>;
   HSCm.check_host headers;
   let req = { HST.request_scheduler=sched;
               HST.request_line = { HST._method=_method; request_uri=uri; http_version=HSC.http_version_number };
