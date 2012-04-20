@@ -8,3 +8,6 @@
 <gcharts>: traverse
 <iconv>: traverse
 <badop>: traverse
+<hlnet>: traverse
+<session>: traverse
+<qos>: traverse

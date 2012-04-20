@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,7 +21,14 @@
    @date Tue Jan  4 19:17:05 CET 2011
 *)
 
-module BslNativeLib = BslNativeLib (* refactoring in progress *)
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib (* refactoring in progress *)
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##property[endmli]
+
+##opa-type tuple_2('a, 'b)
+(** *****************************)
 
 
 (**
@@ -36,7 +43,7 @@ type signal =
 type void = ServerLib.ty_void
 
 type ('state, 'message, 'result) on_message =
-    'state -> 'message -> ('state, 'result) BslNativeLib.opa_tuple_2 QmlCpsServerLib.continuation -> unit
+    'state -> 'message -> ('state, 'result) opa_tuple_2 QmlCpsServerLib.continuation -> unit
 type 'state expire = 'state -> (signal ServerLib.ty_option) QmlCpsServerLib.continuation -> unit
 type 'state collect = 'state -> signal -> void QmlCpsServerLib.continuation -> unit
 
@@ -101,7 +108,7 @@ let create (state : 'state) on_message expire collect k =
 
 let call manager message cont =
   let cont_tuple opa_tuple =
-    let state, result = BslNativeLib.ocaml_tuple_2 opa_tuple in
+    let state, result = BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 opa_tuple)) in
     manager.state <- state ;
     QmlCpsServerLib.return cont result
   in

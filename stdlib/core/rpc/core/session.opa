@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+import plugin-session
 import stdlib.core.{map, args}
 import stdlib.core.rpc.hlnet
 
@@ -182,7 +182,7 @@ type channelset('a) = ordered_set(channel('a), Channel.order)
  * A partial order on channels
  */
 compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
-  Order.of_int(%%BslSession.compare_channels%%(a, b))
+  Order.of_int(%%Session.compare_channels%%(a, b))
 
 @private @comparator(channel('msg)) _cmp(_f : 'msg, 'msg -> Order.comparison, ca, cb) =
   compare_channel(ca, cb) <: Order.comparison
@@ -670,20 +670,20 @@ Session = {{
     /**
      * Get the server [entity] corresponding to the given [endpoint].
      */
-    @private get_server_entity = %%BslSession.get_server_entity%%
+    @private get_server_entity = %%Session.get_server_entity%%
 
     /**
      * Returns entity which own the given channel
      */
     @private owner(chan : channel) =
-      bsl = %%BslSession.owner%%
+      bsl = %%Session.owner%%
       bsl(chan)
 
     /**
      * Return true if the given entity is a client
      */
     @private is_client(entity) =
-      bsl = %%BslSession.is_client%%
+      bsl = %%Session.is_client%%
       bsl(entity)
 
     /**
@@ -691,7 +691,7 @@ Session = {{
      * local return [none].
      */
     @private get_endpoint(chan : channel) =
-      bsl = %%BslSession.get_endpoint%%
+      bsl = %%Session.get_endpoint%%
       bsl(chan)
 
     /**
@@ -699,20 +699,20 @@ Session = {{
      * Beware, this returns false in case of non RemoteClient.
      */
     is_remote(chan : channel) =
-      bsl = %%BslSession.is_remote%%
+      bsl = %%Session.is_remote%%
       bsl(chan)
 
     /**
      * Returns true only if the channel is owned by this server.
      * Returns false in case of Client.
     **/
-    is_local = %%BslSession.is_local%% : channel -> bool
+    is_local = %%Session.is_local%% : channel -> bool
 
     /**
      * [on_remove_server] For internal use.
      */
     @private @server on_remove_server(chan:channel('msg), f:-> void): void =
-      bp = @may_cps(%%BslSession.on_remove%%)
+      bp = @may_cps(%%Session.on_remove%%)
       : Session.private.native('a, _), (-> void) -> void
       bp(chan, f)
 
@@ -720,7 +720,7 @@ Session = {{
      * [on_remove_both] For internal use.
      */
     @private on_remove_both(chan:channel('msg), f:-> void): void =
-      bp = @may_cps(%%BslSession.on_remove%%)
+      bp = @may_cps(%%Session.on_remove%%)
       : Session.private.native('a, _), (-> void) -> void
       bp(chan, f)
 

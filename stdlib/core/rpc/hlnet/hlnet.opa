@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,7 +19,7 @@
 /*
     @authors Raja Boujbel, 2010
 **/
-
+import-plugin hlnet
 import stdlib.core.{web.core, security.ssl}
 
 
@@ -87,13 +87,13 @@ Hlnet =
 
   /** Creates an endpoint from an address and port */
   new_endpoint(addr: ip, port: int) =
-    new = %%BslHlnet.new_endpoint%%
+    new = %%Hlnet.new_endpoint%%
     ip : string = IPv4.string_of_ip(addr)
     new(ip, port)
 
   /** Creates an endpoint from an address and port */
   new_ssl_endpoint(addr: ip, port: int, secure: SSL.secure_type) =
-    new = %%BslHlnet.new_ssl_endpoint%%
+    new = %%Hlnet.new_ssl_endpoint%%
     ip : string = IPv4.string_of_ip(addr)
     new(ip, port, secure)
 
@@ -110,7 +110,7 @@ Hlnet =
     unserialise: Hlnet.channel('out,'in), string -> option('in)
   ) : Hlnet.channel_spec('out,'in)
     =
-    bp = %%BslHlnet.make_channel_spec%%
+    bp = %%Hlnet.make_channel_spec%%
     bp(name,version,serialise,unserialise)
 
   /** Consistently defines the specs for both ends of a channel.
@@ -135,7 +135,7 @@ Hlnet =
   /** Creates a channel connected to a remote endpoint. The other hand needs to
       [accept] channels with the same service using {!Hlnet.accept} */
   open_channel(endpoint: endpoint, spec: Hlnet.channel_spec) =
-    opchan = %%BslHlnet.open_channel%%
+    opchan = %%Hlnet.open_channel%%
     opchan(endpoint,spec)
 
   /** {6 Sending on channels} */
@@ -143,7 +143,7 @@ Hlnet =
   /** Sends a packet on a channel, to be handled by a remote {!Hlnet.receive} or
       {!Hlnet.setup_receive} */
   send(chan: Hlnet.channel('a, 'b), msg: 'a) =
-    snd = %%BslHlnet.send%%
+    snd = %%Hlnet.send%%
     snd(chan, msg)
 
   /** Sends a message on a channel, to be handled by a remote
@@ -152,39 +152,39 @@ Hlnet =
       corresponding to your question.
       Blocking function. */
   sendreceive(chan: Hlnet.channel('a, 'b), msg: 'a) : 'b =
-    sndrcv = %%BslHlnet.sendreceive%%
+    sndrcv = %%Hlnet.sendreceive%%
     sndrcv(chan, msg)
 
-  sendreceiverr = %%BslHlnet.sendreceiverr%% : Hlnet.channel('a, 'b), 'a -> outcome('b, Hlnet.error)
+  sendreceiverr = %%Hlnet.sendreceiverr%% : Hlnet.channel('a, 'b), 'a -> outcome('b, Hlnet.error)
 
 
   /** {6 Receiving on channels and setting up handlers} */
 
   /** The default local endpoint, for listening on all addresses */
-  default_endpoint = %%BslHlnet.default_endpoint%%
+  default_endpoint = %%Hlnet.default_endpoint%%
 
   /** Prepare the socket for receiving new channels on the given local endpoint
       (they can already be received, but will only be queued until you call [accept]) */
   listen(endpoint: endpoint) =
-    list = %%BslHlnet.listen%%
+    list = %%Hlnet.listen%%
     list(endpoint)
 
   /** Setup a function to call every time a channel looking for the service [spec] is
       opened to the current host.
       You would usually use it to do a [setup_respond] on the given channel. */
   accept(endpoint: endpoint, spec: Hlnet.channel_spec('out,'in), handler: Hlnet.channel('out,'in) -> void) : void =
-    acc = %%BslHlnet.accept%%
+    acc = %%Hlnet.accept%%
     acc(endpoint, spec, handler)
 
   /** Cancel any previous call to [listen] or [accept] on the given local endpoint,
       refusing the opening of new channels from remote parties. */
   refuse(endpoint: endpoint) =
-    ref = %%BslHlnet.refuse%%
+    ref = %%Hlnet.refuse%%
     ref(endpoint)
 
   /** Receives a single incoming message on a channel. Blocking function. */
   receive(chan: Hlnet.channel('a, 'b)) : 'b =
-    rcv = %%BslHlnet.receive%%
+    rcv = %%Hlnet.receive%%
     rcv(chan)
 
   /** Sets up a function to handle all messages incoming on the given channel
@@ -192,14 +192,14 @@ Hlnet =
       to a local [sentreceive]).
       For use when the remote uses [send]. */
   setup_receive(chan: Hlnet.channel('a, 'b), handler: 'b -> void) : void =
-    bp = %%BslHlnet.setup_receive%%
+    bp = %%Hlnet.setup_receive%%
     bp(chan,handler)
 
   /** Sets up a function to handle all messages incoming on the given channel, and
       respond back to them.
       For use when the remote uses [sendreceive]. */
   setup_respond(chan: Hlnet.channel('out, 'in), handler: 'in -> 'out) : void =
-    setrsp = %%BslHlnet.setup_respond%%
+    setrsp = %%Hlnet.setup_respond%%
     setrsp(chan, handler)
 
 
@@ -209,7 +209,7 @@ Hlnet =
       by the GC if you don't hold any references to the channel anymore
       (also, the server will be informed) */
   close_channel(chan: Hlnet.channel('a, 'b)) =
-    close = %%BslHlnet.close_channel%%
+    close = %%Hlnet.close_channel%%
     close(chan)
 
   /** Create a new channel from an existing one, with the same ends
@@ -223,27 +223,27 @@ Hlnet =
       use it to contact you on the new handler ([serialise_channel]
       and [unserialise_remote_channel]). */
   dup(chan: Hlnet.channel('out0, 'in0), spec: Hlnet.channel_spec('out,'in)) : Hlnet.channel('out, 'in) =
-    dp = %%BslHlnet.dup%%
+    dp = %%Hlnet.dup%%
     dp(chan, spec)
 
   /** Sets up a handler on a new channel, duplicated from the given one. For
       sending back to the other hand */
   dup_and_respond : Hlnet.channel('o0,'i0), Hlnet.channel_spec('o,'i), ('i -> 'o) -> Hlnet.channel('i,'o) =
-    %%BslHlnet.respond_on_new_channel%%
+    %%Hlnet.respond_on_new_channel%%
 
   /** Returns the local endpoint of an open channel */
   local_endpoint(chan) =
-    bp = %%BslHlnet.local_endpoint%%
+    bp = %%Hlnet.local_endpoint%%
     bp(chan)
 
   /** Returns the remote endpoint of an open channel */
   remote_endpoint(chan) =
-    bp = %%BslHlnet.remote_endpoint%%
+    bp = %%Hlnet.remote_endpoint%%
     bp(chan)
 
   /** Utility function to make sending channels through a communication protocol possible */
   serialise_channel(chan: Hlnet.channel('out,'in)): string =
-    bp = %%BslHlnet.serialise_channel%%
+    bp = %%Hlnet.serialise_channel%%
     bp(chan)
 
   /** For use on a received serialized channel: unserializes it and registers
@@ -253,38 +253,38 @@ Hlnet =
   unserialise_remote_channel(spec: Hlnet.channel_spec('out,'in), aux_chan: Hlnet.channel('out0,'in0), s: string)
     : option(Hlnet.channel('out,'in))
     =
-    bp = %%BslHlnet.unserialise_remote_channel%%
+    bp = %%Hlnet.unserialise_remote_channel%%
     bp(spec, aux_chan, s)
 
   /** Returns [true] if the channel is live and connected */
   channel_is_open(chan: Hlnet.channel('a,'b)) : bool =
-    bp = %%BslHlnet.channel_is_open%%
+    bp = %%Hlnet.channel_is_open%%
     bp(chan)
 
   /** Checks if there is any handler set up on the given channel */
   channel_is_handled(chan: Hlnet.channel('a,'b)) : bool =
-    ex = %%BslHlnet.channel_exists%%
+    ex = %%Hlnet.channel_exists%%
     ex(chan)
 
   /** Debug function */
   channel_to_string(chan: Hlnet.channel('a,'b)) : string =
-    tostr = %%BslHlnet.channel_to_string%%
+    tostr = %%Hlnet.channel_to_string%%
     tostr(chan)
 
 
   /** {6 Asynchronous versions} of the blocking functions above */
 
   async_receive(chan: Hlnet.channel('a, 'b), handler: 'b -> void) :void =
-    rcv = %%BslHlnet.async_receive%%
+    rcv = %%Hlnet.async_receive%%
     rcv(chan, handler)
 
   async_sendreceive(chan: Hlnet.channel('a, 'b), msg: 'a, handler : 'b -> void) : void =
-    sndrcv = %%BslHlnet.async_sendreceive%%
+    sndrcv = %%Hlnet.async_sendreceive%%
     sndrcv(chan, msg, handler)
 
-  @private endpoint_protocol = %%BslHlnet.EndpointGet.protocol%% : endpoint -> string
-  @private endpoint_addr     = %%BslHlnet.EndpointGet.addr%%     : endpoint -> string
-  @private endpoint_port     = %%BslHlnet.EndpointGet.port%%     : endpoint -> int
+  @private endpoint_protocol = %%Hlnet.EndpointGet.protocol%% : endpoint -> string
+  @private endpoint_addr     = %%Hlnet.EndpointGet.addr%%     : endpoint -> string
+  @private endpoint_port     = %%Hlnet.EndpointGet.port%%     : endpoint -> int
 
   /** {6 Peerpoints} */
 

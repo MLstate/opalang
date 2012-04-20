@@ -5,7 +5,6 @@ bslSys.ml
 bslUtils.ml
 bslScheduler.ml
 
-bslResourceTracker.ml
 bslAppSrcCode.ml
 
 bool.ml
@@ -31,8 +30,6 @@ bslMinJs.ml
 bslValue.ml
 bslSyslog.ml
 bslPingRegister.ml
-bslHlnet.ml
-bslSession.ml
 bslRPC.ml
 bslDispatcher.ml
 bslBuffer.ml

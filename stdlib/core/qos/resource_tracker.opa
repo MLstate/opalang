@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,6 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import-plugin qos
 /**
  * Manager of collectible resources, binding with QOS (appserver)
  *
@@ -50,13 +51,13 @@ ResourceTracker = {{
    * Some Signal
   **/
   Signal = {{
-    EXPIRATION = %%BslResourceTracker.Signal.expiration%% : ResourceTracker.signal
+    EXPIRATION = %%ResourceTracker.Signal.expiration%% : ResourceTracker.signal
   }}
 
   /**
    * Creating a new manager.
   **/
-  create = %%BslResourceTracker.create%% :
+  create = %%ResourceTracker.create%% :
     /*state :*/       'state,
     /*on_message :*/  ('state, 'message -> ('state, 'result)),
     /*expire :*/      ('state -> option(ResourceTracker.signal)),
@@ -66,7 +67,7 @@ ResourceTracker = {{
   /**
    * Trying to access to the resource associated to its manager.
   **/
-  call = %%BslResourceTracker.call%% :
+  call = %%ResourceTracker.call%% :
     /*manager*/ ResourceTracker.manager('message, 'result),
     /*message*/ 'message
     /*result*/ -> 'result
@@ -74,10 +75,10 @@ ResourceTracker = {{
   /**
    * Send a termination signal to a manager.
   **/
-  term = %%BslResourceTracker.term%% : ResourceTracker.manager, ResourceTracker.signal -> void
+  term = %%ResourceTracker.term%% : ResourceTracker.manager, ResourceTracker.signal -> void
 
   /**
    * Execute manually a step of garbage collector.
   **/
-  garbage_collector = %%BslResourceTracker.garbage_collector%% : -> void
+  garbage_collector = %%ResourceTracker.garbage_collector%% : -> void
 }}
