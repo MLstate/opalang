@@ -46,9 +46,6 @@ bslIdentGen.ml # xhtml ident
 
 bslServer_event.ml
 
-# Database handling
-mongolink.ml
-
 bslCommandLine.ml
 bslXmlm.ml
 
