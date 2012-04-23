@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -36,6 +36,8 @@
 
 import-plugin crypto
 
+type Crypto.RSA.key = external
+
 Crypto = {{
 
   Base64 = {{
@@ -69,6 +71,26 @@ Crypto = {{
     md5 = %% BslCrypto.md5 %% : string -> string
 
     sha2 = %%BslCrypto.sha2%% : string -> string
+
+  }}
+
+  RSA = {{
+
+    /**
+     * Generate a new RSA key of size [size].
+     */
+    new_key = %% BslCrypto.rsa_new_key %% : int -> Crypto.RSA.key
+
+    /**
+     * Encrypt a string with a certain RSA key.
+     */
+    encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, string -> string
+
+    /**
+     * Decrypt an RSA encrypted message.
+     * /!\ You might need to trim the result in order to retrieve the origin message.
+     */
+    decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, string -> string
 
   }}
 

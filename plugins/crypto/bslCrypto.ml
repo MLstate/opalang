@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 ##register md5 : string -> string
 let md5 = (fun x -> Digest.to_hex (Digest.string x))
 
@@ -53,3 +54,15 @@ let sha2 s =
     hashobj#add_string s;
     hashobj#result
   end
+
+
+##extern-type Crypto.RSA.key = Cryptokit.RSA.key
+
+##register rsa_new_key : int -> Crypto.RSA.key
+let rsa_new_key size = Cryptokit.RSA.new_key ~rng:Cryptokit.Random.secure_rng size
+
+##register rsa_encrypt : Crypto.RSA.key, string -> string
+let rsa_encrypt key msg = Cryptokit.RSA.encrypt key msg
+
+##register rsa_decrypt : Crypto.RSA.key, string -> string
+let rsa_decrypt key msg = Cryptokit.RSA.decrypt key msg
