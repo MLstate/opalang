@@ -439,31 +439,31 @@ expected and reciprocally.
 #### Directives in type definitions
 
 Directives allow to alter the visibility of a type definition to ensure
-abstraction. Two directives are available: `@private` and `@abstract`.
+abstraction. Two directives are available: `private` and `abstract`.
 
-`@private` makes the type definition only visible in the package where it
+`private` makes the type definition only visible in the package where it
 it defined. Outside this package, the type is no more visible : it doesn't
 exist for other packages. Such types are typically _internal_ to a
 package and serve only to implement functionalities without appearing in
 the interface of the package. As a consequence, they must not escape outside
 the package, i.e. must not appear in the signatures of values visible outside
 the package. To make this possible, values manipulating such types must also
-be declared private, using the `@private` directive also available for
+be declared private, using the `private` directive also available for
 value definitions. If a private type appears in the signature of an exported
 value, an error is raised, advising to make this value private, like in the
 following example:
 
     package private_ty_escape2
-    @private type prv_string_ty = string
+    private type prv_string_ty = string
     vv = "" : prv_string_ty
     > *Error*
     > Description:
     > Definition of vv is not private but its type contains a type private to the
     > package. Type prv_string_ty must not escape its scope.
     > Hint:
-    >   Add a @private directive on this definition.
+    >   Add a private directive on this definition.
 
-`@abstract` makes the type definition transparently visible inside the
+`abstract` makes the type definition transparently visible inside the
 package where it is defined, i.e. its internal structure can be accessed and
 manipulated, but outside this package it turns opaque: the type is still
 visible (i.e. it still exists) but its internal structure is not visible
@@ -482,7 +482,7 @@ Outside its definition module, an abstract type loses its internal
 representation, hence becomes compatible only with itself.
 
     package p1
-    @abstract type u = int
+    abstract type u = int
     function u to_u(int x) { x }
     function int from_u(u x) { x }
     // Legal since we are in the defining package: we see u's internals.
