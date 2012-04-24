@@ -29,6 +29,8 @@ Improvements:
   * Easier to change the doctype. For example, to use html5 doctype:
     Server.start(Server.http, [{register: { doctype : { html5 }}}, {title:"html5", ~page} ])
 
+  * namespace on html tag only for doctype xhtml1_1
+
   * Scheduling policy updated to improve concurrency level
 
 Bug fixes:
