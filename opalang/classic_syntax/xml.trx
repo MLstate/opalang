@@ -23,6 +23,7 @@
 let deco rule = (=Opa_parser.careful_deco(rule));
 pos <- Opa_parser.pos;
 read htmlentities.trx
+read html5.trx
 
 #####################################################################################
 ## HTML TEXT ########################################################################
@@ -84,6 +85,7 @@ htmltext           <- htmlchars+:s                      {{ concat_xml_text s }}
 deco_sname         =  deco sname;
 deco_ename         =  deco ename;
 deco_tname         =  deco tname;
+deco_html5voidtname =  deco Html5.void_element;
 deco_htmltext      =  deco htmltext;
 deco_svalue        =  deco svalue;
 deco_spaces        =  deco spaces;
@@ -96,9 +98,15 @@ close_sign         <- spacing ">"
 autoclose          <- spacing "/" close_sign
 
 begin_open_tag     <- open_sign namespace:ns deco_tname:tag spacing {{ push_tag (undecorate tag); (ns, tag) }}
+begin_open_html5_void_tag <- open_sign namespace:ns deco_html5voidtname:tag spacing {{ push_tag (undecorate tag); (ns, tag) }}
+
 (* FIXME: factorisation of open_tag and autoclose_tag *)
 /** xml open tag **/
 open_tag           <- begin_open_tag:nstag args_option:args close_sign   {{ (nstag, arg_default args) }}
+
+/** html5 open void tag **/
+open_html5_void_tag <- begin_open_html5_void_tag:nstag args_option:args close_sign   {{ (nstag, arg_default args) }}
+
 /** xml close tag **/
 close_tag          <- open_sign "/" spacing namespace:ns deco_tname:tag close_sign {{ ignore (pop_tag()); (ns, tag) }}
 
@@ -113,6 +121,10 @@ close_frag         <- open_sign "/" spacing close_sign
 close_tag_or_frag <- close_tag:t {{ Some t }}
                    / close_frag {{ None }}
 
+(** For html5 void element, end tags can be omitted *)
+/** html5 void element without close tag **/
+noclose_elem       <- begin_open_html5_void_tag:nstag args_option:args spacing close_sign {{ ignore (pop_tag()); (nstag, arg_default args) }}
+
 #####################################################################################
 ## XHTML TYPES ######################################################################
 #####################################################################################
@@ -123,20 +135,34 @@ xhtml_text  <- deco_htmltext:v {{ create_textnode v }}
   / xhtml_tag / xhtml_text / xhtml_fragment
   / opa_expr:e {{ wrap_e magic_to_xml e }}
 
+(** We consider void elements as those define in the html5 spec
+    Those elements can be closed, but in this case: it has no child and close tag is not a close_frag *)
+/** void element with close tag and no child **/
+nochild_elem  <- open_html5_void_tag:open_tag has_children_nodes:has_children close_tag:close_tag
+    {| let nstag, args = open_tag in
+         nochild_elem nstag close_tag has_children (fun _ -> (create_element nstag args [])) |}
+
 ;/** xml tag **/
 xhtml_tag <-
   / comment spacing xhtml_tag:tag {{ tag }}
   / autoclose_tag:t {{ let nstag,args = t in create_element nstag args [] }}
+  / nochild_elem:e {{ e }}
+  / noclose_elem:t {{ let nstag,args = t in create_element nstag args [] }}
   / open_tag:open_tag just_xhtml_nodes:children close_tag_or_frag:close_tag
     {{ let nstag, args = open_tag in
          Option.iter (tag_mismatch nstag) close_tag;
          create_element nstag args children }}
+
 
 ;/** xml fragment **/
 xhtml_fragment <- open_frag xhtml_nodes:p close_frag {{ let (l,label) = p in create_fragment l label }}
 ;xhtml_nodes = deco just_xhtml_nodes
 ;just_xhtml_nodes <- xhtml_node*
 
+has_children_nodes <-
+  / Opa_lexer.strict_spacing !(xhtml_node+) {{ false }}
+  / xhtml_node+ {{ true }}
+  / '' {{ false }}
 
 ;xhtml_empty_frag = deco just_xhtml_empty_frag
 ;just_xhtml_empty_frag <- open_frag spacing close_frag

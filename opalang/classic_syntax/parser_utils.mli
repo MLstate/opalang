@@ -446,6 +446,7 @@ val create_element :
   (string, 'a) expr list ->
   (string, 'a) expr
 val tag_mismatch : (string * annot) * (string * annot) -> (string * annot) * (string * annot) -> unit
+val nochild_elem : (string * annot) * (string * annot) -> (string * annot) * (string * annot) -> bool -> (unit -> 'b) -> 'b option
 val add_arg :
   'a dom_tag_args option * annot ->
   (string * annot) * (string * annot) ->

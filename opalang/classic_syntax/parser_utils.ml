@@ -1295,6 +1295,17 @@ let tag_mismatch ((ns1,_annot), (tag1,{QmlLoc.pos = pos1})) ((ns2,_annot), (tag2
         _annot
     else ()
 
+let nochild_elem nstag close_tag has_children create =
+  let ((ns1,_annot),(tag1,{QmlLoc.pos = pos1})) = nstag in
+  let ((ns2,_),(tag2,_)) = close_tag in
+  if tag1 = tag2 && ns1 = ns2 then begin
+    if not has_children then Some (create ())
+    else error1 (sprintf "and %s\n <%s> is a void element: it can't have children"
+                  (FilePos.to_string pos1)
+                  (nstag_to_string ns1 tag1))
+           _annot
+  end else None
+
 let add_arg src ((prefix,_),name) value =
   let old = arg_default src in
   { old with args = (prefix, fst name, Option.default (unc2 string name) value) :: old.args }
