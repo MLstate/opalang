@@ -437,11 +437,9 @@ status_control(resource: resource, status: web_response) =
 source(content: string, mimetype: string) =
   raw_response(content, mimetype, {success})
 
-
 static_styled_page(title:string, styles:list(string), body: xmlns): resource =
   xml_content : xmlns =
-    @xml(
-      <html xmlns="http://www.w3.org/1999/xhtml">
+    Resource_private.xmlns_html_tag(
         <head>
           <title>{title}</title>
           <meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -449,8 +447,7 @@ static_styled_page(title:string, styles:list(string), body: xmlns): resource =
         </head>
         <body>
           {body}
-        </body>
-      </html>
+        </body> 
     )
   string_content = Xmlns.serialize_to_string(xml_content)
   raw_response(string_content, "text/html", {success})

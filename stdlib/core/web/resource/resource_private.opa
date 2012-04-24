@@ -533,6 +533,16 @@ shared_html5_header =
 shared_xml_header =
   "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 
+html_tag(content) =
+  match default_doctype.get() with
+  | {xhtml1_1} -> <html xmlns="http://www.w3.org/1999/xhtml">{content}</html>
+  | _ -> <html>{content}</html>
+
+xmlns_html_tag(content) =
+  match default_doctype.get() with
+  | {xhtml1_1} -> @xml(<html xmlns="http://www.w3.org/1999/xhtml">{content}</html>)
+  | _ -> @xml(<html>{content}</html>)
+
 /**
  * Produce a response to a given request.
  *
@@ -952,7 +962,7 @@ export_resource(external_css_files: list(string),
             | {none} -> html_doctype_to_string(default_doctype.get())
 
           page = Xhtml.of_string_unsafe(html_doctype) <+>
-                 <html xmlns="http://www.w3.org/1999/xhtml">{ready_head}{ready_body}</html>
+                 html_tag(<>{ready_head}{ready_body}</>)
 
           //Serialize and send
           data = Xhtml.serialize_to_string(page)
