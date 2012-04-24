@@ -21,6 +21,14 @@ New features:
 
 Improvements:
 
+  * Easier to define several server register: it now accepts a single registrable or a list of registrable 
+
+  * Better support of html5 void elements: for those elements, the close tag is now optional
+    Note: html5 void elements can't be closed with a frag tag (</>).
+
+  * Easier to change the doctype. For example, to use html5 doctype:
+    Server.start(Server.http, [{register: { doctype : { html5 }}}, {title:"html5", ~page} ])
+
   * Scheduling policy updated to improve concurrency level
 
 Bug fixes:
