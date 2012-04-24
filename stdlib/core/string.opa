@@ -625,6 +625,22 @@ String =
     | {some=source_suffix} -> equals(suffix, source_suffix)
 
   /**
+   * Returns a String with the [n] first letters capitalized
+   *
+   * @param len the number of characters to uppercase
+   * @param source a source string
+   */
+  // Use of Text because it should be cheaper to append Text than String
+  uppercase_first(len, source) =
+    String.fold(s, (cpt, acc) ->
+      if cpt < len then
+        s = String.uppercase(s)
+        (cpt+1, Text.insert_right(acc, s))
+      else (cpt+1, Text.insert_right(acc, s))
+    , source, (0, Text.cons(""))).f2
+    |> Text.to_string(_)
+
+  /**
    *  ALIAS / SHORTHAND OF PREEXISTING FUNCTIONS
    */
 
