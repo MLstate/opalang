@@ -407,6 +407,19 @@ let opp_build opa_plugin opp oppf env build =
   let files_lib = List.map (fun s -> P s) files_lib in
   let plugin_name = Pathname.basename (env "%") in
   let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
+  let preprocess_js =
+    List.fold_left
+      (fun acc f -> if Tags.mem "with_mlstate_debug" (tags_of_pathname f) then
+         (A"--pp-file")::(P (Printf.sprintf "%s:%s" f (string_of_command_spec (get_tool"ppjs"))))::acc
+       else acc
+      ) [] files_js in
+  let preprocess_ml =
+    List.fold_left
+      (fun acc f -> if Pathname.check_extension f "ml" &&
+         Tags.mem "with_mlstate_debug" (tags_of_pathname f) then
+           (A"--pp-file")::(P (Printf.sprintf "%s:%s" f (Pathname.pwd/"utils"/"ppdebug.pl")))::acc
+       else acc
+      ) [] files in
   let js_validation = if files_js=[]
     then [A"--js-validator-off"]
     else (
@@ -416,12 +429,12 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ include_libs @js_validation @ files_lib in
+  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @ preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib in
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in
 rule "opa_plugin_dir: opa_plugin -> oppf"
-  ~deps:("%.opa_plugin" :: (tool_deps opa_plugin_builder_name))
+  ~deps:("%.opa_plugin" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
   (opp_build "%.opa_plugin" "%" "%oppf")
 ;
