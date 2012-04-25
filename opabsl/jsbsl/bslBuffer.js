@@ -25,7 +25,7 @@
  * @author David Rajchenbach-Teller
  */
 
-##extern-type Buffer_private.buffer
+##extern-type Buffer.t
    //a JS array
 
 /**
@@ -40,24 +40,39 @@ LLBuffer.prototype = {
     opa_do_not_inspect: true
 }
 
-##register create: int -> Buffer_private.buffer
+##register create: int -> Buffer.t
 ##args(_)
 {
     return new LLBuffer();
 }
 
-##register append: Buffer_private.buffer, string -> void
+##register append: Buffer.t, string -> void
 ##args(buf, value)
 {
     buf.contents.push(value);
     buf.length = buf.length + value.length
+    return js_void;
 }
 
-##register contents: Buffer_private.buffer -> string
+##register length: Buffer.t -> int
+##args(buf)
+{
+    return buf.length;
+}
+
+##register contents: Buffer.t -> string
 ##args(buf)
 {
     var contents = buf.contents;
     var result   = contents.join("");
     buf.contents = [result];//Cache result
     return result;
+}
+
+##register clear: Buffer.t -> void
+##args(b)
+{
+    b.contents = [];
+    b.length = 0;
+    return js_void;
 }

@@ -4,13 +4,11 @@ bslNativeLib.ml
 bslUtils.ml
 
 bslPervasives.ml
-
 bslBuffer.ml
 bslCactutf.ml
 bslClosure.ml
 bslCps.ml
 bslNumber.ml
-bslMongo.ml
 bslReference.ml
 bslString.ml
 bslSyslog.ml
@@ -21,12 +19,4 @@ bslValue.ml
 # Server specific bypass
 bslTimeServer.ml
 bslPervasivesServer.ml
-
-
-
-
-
-
-
-# i18n and localisation
 

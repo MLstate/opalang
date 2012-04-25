@@ -16,6 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import-plugin server
 import stdlib.core.{iter, web.core, rpc.core, parser, funaction, mutable.buffer, unification}
 
 /**
@@ -757,9 +758,6 @@ Xhtml =
       }
      )
 
-
- @private Buf = Buffer2_private
-
  /**
    * Convert a [xhtml] subtree to a pair of strings containing the html proper and the corresponding JS code.
    *
@@ -789,28 +787,28 @@ Xhtml =
   @private
   prepare_for_export_(utf8, _default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
-    html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
-    js_buffer   = Buf.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
+    html_buffer = Buffer.create(1024)//A buffer for storing the HTML source code
+    js_buffer   = Buffer.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
     jsappend_event_handler(x: xhtml_event) =
       code = match x with
         | { ~value } -> value
         | { ~expr  } -> FunAction.serialize(expr)
-      Buf.add(js_buffer,code)
+      Buffer.append(js_buffer,code)
     /**
      * @param depth The current depth in the tree. Used both for pretty-printing and to insert scripts at the correct place
      */
     rec handle_xhtml(xhtml: xhtml, depth:int) =
       next = depth + 1 //next depth
       match xhtml with
-      | ~{ text }            -> Buf.add(html_buffer,String.escape_html(utf8,text))
-      | ~{ content_unsafe }  -> Buf.add(html_buffer,content_unsafe)
+      | ~{ text }            -> Buffer.append(html_buffer,String.escape_html(utf8,text))
+      | ~{ content_unsafe }  -> Buffer.append(html_buffer,content_unsafe)
       | ~{ fragment }        -> List.iter(x -> handle_xhtml(x, depth), fragment)
       | ~{ xml_dialect }     ->
         match xml_dialect with
             | {none} -> void
             | {some = ~{js_code_unsafe html_code_unsafe}} ->
-                  do Buf.add(html_buffer,html_code_unsafe)
-                  Buf.add(js_buffer,js_code_unsafe)
+                  do Buffer.append(html_buffer,html_code_unsafe)
+                  Buffer.append(js_buffer,js_code_unsafe)
         end
       | ~{ namespace tag args content specific_attributes } ->
 
@@ -819,19 +817,19 @@ Xhtml =
             namespace ^ ":" ^ tag
 
           //Start handling the tag itself
-          do Buf.add(html_buffer,"<")
-          do Buf.add(html_buffer,tag)
+          do Buffer.append(html_buffer,"<")
+          do Buffer.append(html_buffer,tag)
 
           print_arg(~{name namespace=tagns value}) =
-            do Buf.add(html_buffer," ")
-            do if String.is_empty(tagns) then Buf.add(html_buffer,name)
+            do Buffer.append(html_buffer," ")
+            do if String.is_empty(tagns) then Buffer.append(html_buffer,name)
                else
-                 do Buf.add(html_buffer,tagns)
-                 do Buf.add(html_buffer,":")
-                 Buf.add(html_buffer,name)
-            do Buf.add(html_buffer,"=\"")
-            do Buf.add(html_buffer,String.escape_html(utf8,value))
-            Buf.add(html_buffer,"\"")
+                 do Buffer.append(html_buffer,tagns)
+                 do Buffer.append(html_buffer,":")
+                 Buffer.append(html_buffer,name)
+            do Buffer.append(html_buffer,"=\"")
+            do Buffer.append(html_buffer,String.escape_html(utf8,value))
+            Buffer.append(html_buffer,"\"")
 
           //Handle regular attributes
           do List.iter(print_arg,args)
@@ -870,7 +868,7 @@ Xhtml =
                other_events = // take care of event handler that can be inlined in html attribute
                  if XhtmlOptions.options.enable_inlined_event then
                    safe_inline(eventname,content) =
-                     Buf.add(html_buffer,JsEvent.inline_handler(eventname,content))
+                     Buffer.append(html_buffer,JsEvent.inline_handler(eventname,content))
                    List.filter(JsEvent.filter_unsafe_inline(safe_inline), other_events)
                  else
                    other_events
@@ -886,9 +884,9 @@ Xhtml =
                                id
                          end
                          //Now, generate jQuery-specific code in the jsbuffer, as a chain of JS dot calls on the item
-                         do Buf.add(js_buffer,"\n$('#")
-                         do Buf.add(js_buffer,Dom.escape_selector(id))
-                         do Buf.add(js_buffer,"')\n")
+                         do Buffer.append(js_buffer,"\n$('#")
+                         do Buffer.append(js_buffer,Dom.escape_selector(id))
+                         do Buffer.append(js_buffer,"')\n")
 
                          //Handle style -- generate a call to jQuery function [css]
                          do if style == [] then void
@@ -898,25 +896,25 @@ Xhtml =
                                 /* if we printed when css_as_list is empty the css({ would not be closed })*/
                                 if style_inline // style_inline is used e.g. for emails
                                 then
-                                  do Buf.add(html_buffer," style=\"")
+                                  do Buffer.append(html_buffer," style=\"")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
-                                    do Buf.add(html_buffer,name)
-                                    do Buf.add(html_buffer,":")
-                                    do Buf.add(html_buffer,value)
-                                    if last then Buf.add(html_buffer,"\"")
-                                    else Buf.add(html_buffer,"; ")),
+                                    do Buffer.append(html_buffer,name)
+                                    do Buffer.append(html_buffer,":")
+                                    do Buffer.append(html_buffer,value)
+                                    if last then Buffer.append(html_buffer,"\"")
+                                    else Buffer.append(html_buffer,"; ")),
                                     css_as_list
                                   )
 
                                 else
-                                  do Buf.add(js_buffer,".css(\{  ")
+                                  do Buffer.append(js_buffer,".css(\{  ")
                                   iter_tell_me_if_i_am_last((~{name value}, last ->
-                                    do Buf.add(js_buffer,"'")
-                                    do Buf.add(js_buffer,name)
-                                    do Buf.add(js_buffer,"': '")
-                                    do Buf.add(js_buffer,value)
-                                    if last then Buf.add(js_buffer,"'})\n")
-                                    else Buf.add(js_buffer,"', ")),
+                                    do Buffer.append(js_buffer,"'")
+                                    do Buffer.append(js_buffer,name)
+                                    do Buffer.append(js_buffer,"': '")
+                                    do Buffer.append(js_buffer,value)
+                                    if last then Buffer.append(js_buffer,"'})\n")
+                                    else Buffer.append(js_buffer,"', ")),
                                     css_as_list
                                   )
 
@@ -926,7 +924,7 @@ Xhtml =
                             name = Dom.Event.get_name(name)
                             content = JsEvent.inline_content(value)
                             add = ".bind('{name}',(function(event)\{{content}\}))\n"
-                            Buf.add(js_buffer,add)
+                            Buffer.append(js_buffer,add)
                          }
                          //Handle non-inlined non-ready events options
                          do (List.iter(_,other_events_options)){
@@ -938,7 +936,7 @@ Xhtml =
                                stop_propagation = if stop_propagation then "event.stopPropagation();" else ""
                                prevent_default  = if prevent_default  then "event.preventDefault();"  else ""
                                add = ".bind('{name}',(function(event)\{{stop_propagation}{prevent_default}\}))\n"
-                               Buf.add(js_buffer,add)
+                               Buffer.append(js_buffer,add)
                          }
 
                          //Finally, return args with id
@@ -948,9 +946,9 @@ Xhtml =
                  do List.iter(~{name value} ->
                     match name with
                       | {ready} ->
-                              do Buf.add(js_buffer,"\n$(function()\{var event = {JsInterface.default_opa_event};")//In jQuery, the first argument of the callback is [$] itself -- replace by default event
+                              do Buffer.append(js_buffer,"\n$(function()\{var event = {JsInterface.default_opa_event};")//In jQuery, the first argument of the callback is [$] itself -- replace by default event
                               do jsappend_event_handler(value)
-                              do Buf.add(js_buffer,"\});")
+                              do Buffer.append(js_buffer,"\});")
                               void
                       | _ -> error("[Xhtml.prepare_for_export] Internal error in xhtml serialization -- at this stage, all events other than [ready] should have been prepared")
                     end,
@@ -962,10 +960,10 @@ Xhtml =
                do match class with
                   | [] -> void
                   | [name|t] ->
-                    do Buf.add(html_buffer," class=\"")
-                    do Buf.add(html_buffer,name)
-                    do List.iter((name -> do Buf.add(html_buffer," ") Buf.add(html_buffer,name)),t)
-                    Buf.add(html_buffer,"\"")
+                    do Buffer.append(html_buffer," class=\"")
+                    do Buffer.append(html_buffer,name)
+                    do List.iter((name -> do Buffer.append(html_buffer," ") Buffer.append(html_buffer,name)),t)
+                    Buffer.append(html_buffer,"\"")
 
              void
 
@@ -975,27 +973,27 @@ Xhtml =
                 | "abbr" | "br" | "col" | "img" | "input" | "link" | "meta" | "param" | "hr" | "area" | "embed" -> true
                 | _ -> false)
              then
-               Buf.add(html_buffer,"/>")
+               Buffer.append(html_buffer,"/>")
              else
                do if depth == 0 then
                  // saving the current content of the buffer
-                 start = Buf.contents(html_buffer)
-                 do Buf.reset(html_buffer,1024)
+                 start = Buffer.contents(html_buffer)
+                 do Buffer.clear(html_buffer)
                  // need to first look at the children,
                  // or else we won't have all their namespaces
                  do List.iter(x -> handle_xhtml(x, next), content)
-                 content = Buf.contents(html_buffer)
-                 do Buf.reset(html_buffer,1024)
+                 content = Buffer.contents(html_buffer)
+                 do Buffer.clear(html_buffer)
                  // putting back everything into the buffer
-                 do Buf.add(html_buffer,start)
-                 do Buf.add(html_buffer,">")
-                 Buf.add(html_buffer,content)
+                 do Buffer.append(html_buffer,start)
+                 do Buffer.append(html_buffer,">")
+                 Buffer.append(html_buffer,content)
                else
-                 do Buf.add(html_buffer,">")
+                 do Buffer.append(html_buffer,">")
                  List.iter(x -> handle_xhtml(x, next), content)
-               do Buf.add(html_buffer,"</")
-               do Buf.add(html_buffer,tag)
-               do Buf.add(html_buffer,">")
+               do Buffer.append(html_buffer,"</")
+               do Buffer.append(html_buffer,tag)
+               do Buffer.append(html_buffer,">")
                void
           void
    end
@@ -1009,11 +1007,11 @@ Xhtml =
    //  operative as in html) or accidental termination of CDATA, ']]>'.
 
    js_code =
-     str = Buf.contents(js_buffer)
+     str = Buffer.contents(js_buffer)
      str = String.replace(">", "\\076", str)
      str
    {js_code = js_code;
-    html_code = Buf.contents(html_buffer)}
+    html_code = Buffer.contents(html_buffer)}
  )
 
  /**
@@ -1021,13 +1019,13 @@ Xhtml =
   */
   to_readable_string(xhtml: xhtml): string =
   (
-    html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
-    // indent(n) = Buf.add(html_buffer,String.make(n," "))
+    html_buffer = Buffer.create(1024)//A buffer for storing the HTML source code
+    // indent(n) = Buffer.append(html_buffer,String.make(n," "))
     rec handle_xhtml(xhtml: xhtml, depth:int) =
       next = depth + 1 //next depth
       match xhtml with
       | ~{ text }            ->
-        Buf.add(html_buffer,text)
+        Buffer.append(html_buffer,text)
       | { content_unsafe=_ }  -> void
       | ~{ fragment }        ->
         List.iter(x -> handle_xhtml(x, depth), fragment)
@@ -1037,7 +1035,7 @@ Xhtml =
         | "img" ->
           match find_attr("alt",args) with
             | {none} -> void
-            |~{some} -> do Buf.add(html_buffer,"[") do Buf.add(html_buffer,some) Buf.add(html_buffer,"]")
+            |~{some} -> do Buffer.append(html_buffer,"[") do Buffer.append(html_buffer,some) Buffer.append(html_buffer,"]")
           end
         | "a"   ->    //Transform xhtml-specific attribute [href] into a string
           match specific_attributes with
@@ -1052,21 +1050,21 @@ Xhtml =
                 | ~{typed}   -> {some = Uri.to_string(typed)}//Here, insert URI serialization
               end
               match href with
-                | {~some} -> do Buf.add(html_buffer,"[") do Buf.add(html_buffer,some) do Buf.add(html_buffer," | ") do List.iter(handle_xhtml(_,depth),content) Buf.add(html_buffer,"]")
+                | {~some} -> do Buffer.append(html_buffer,"[") do Buffer.append(html_buffer,some) do Buffer.append(html_buffer," | ") do List.iter(handle_xhtml(_,depth),content) Buffer.append(html_buffer,"]")
                 | {none} -> List.iter(handle_xhtml(_,depth),content)
               end
           end
         | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" ->
-          do Buf.add(html_buffer,"\n") do List.iter(handle_xhtml(_,depth),content) Buf.add(html_buffer,"\n")
+          do Buffer.append(html_buffer,"\n") do List.iter(handle_xhtml(_,depth),content) Buffer.append(html_buffer,"\n")
         | "div"| "p"| "pre"| "blocknote"| "adress" ->
-          do Buf.add(html_buffer,"\n") do List.iter(handle_xhtml(_,depth),content) Buf.add(html_buffer,"\n")
+          do Buffer.append(html_buffer,"\n") do List.iter(handle_xhtml(_,depth),content) Buffer.append(html_buffer,"\n")
         | "ul"|"ol"|"dl"|"dir"|"menu" ->
-          do Buf.add(html_buffer,"\n") do List.iter(handle_xhtml(_,next),content) Buf.add(html_buffer,"\n")
+          do Buffer.append(html_buffer,"\n") do List.iter(handle_xhtml(_,next),content) Buffer.append(html_buffer,"\n")
         | "li"|"dt" ->
-          do Buf.add(html_buffer,"- ") do List.iter(handle_xhtml(_,depth),content) Buf.add(html_buffer,"\n")
+          do Buffer.append(html_buffer,"- ") do List.iter(handle_xhtml(_,depth),content) Buffer.append(html_buffer,"\n")
         | "br" ->
-          Buf.add(html_buffer,"\n\n")
-        | "hr" -> Buf.add(html_buffer,"\n---------------------------\n")
+          Buffer.append(html_buffer,"\n\n")
+        | "hr" -> Buffer.append(html_buffer,"\n---------------------------\n")
         | "b" | "i" | "span" | "acronym" | "cite" | "q" | "sup" | "sub" | "strong" | "em"
         | "del" | "ins" | "dfn" | "kbd"->
           List.iter(handle_xhtml(_,depth),content)
@@ -1076,7 +1074,7 @@ Xhtml =
         end
     end
     do handle_xhtml(xhtml, 0)
-    Buf.contents(html_buffer)
+    Buffer.contents(html_buffer)
   )
 
   /**

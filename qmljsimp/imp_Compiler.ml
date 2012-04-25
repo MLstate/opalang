@@ -116,6 +116,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
          )
       ) code
   in
+  (* Format.eprintf "CODE %a\n%!" QmlPrint.pp#code code; *)
   let _private_env, js_code = Imp_Code.compile env private_env code in
   #<If:JS_IMP$contains "time"> Printf.printf "qml -> js: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;

@@ -50,5 +50,6 @@ JSON.stringify = function(o){ return "" }
 
 var location;
 var print = function(s) { }
+var console;
 
 

@@ -17,8 +17,11 @@
 *)
 module U = Unix
 
+(** TODO - plugins dependencies *)
+##property[mli]
 ##extern-type time_t = int
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+(** *****************************)
 
 ##register mlstate_dir : void -> string
 let mlstate_dir () = Lazy.force File.mlstate_dir

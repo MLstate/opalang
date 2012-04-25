@@ -780,8 +780,6 @@ let bslregister_options ()=
 
   let nodejs_files = MutableList.to_list nodejs_files in
 
-  Printf.eprintf "HHHHHh %d\n" (List.length nodejs_files);
-
   let js_validator =
     Option.map (
       fun js -> (js, MutableList.to_list js_validator_files), MutableList.to_list js_validator_options

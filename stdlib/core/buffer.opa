@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -27,16 +27,19 @@
  * @destination INTERNAL
  */
 
-type Buffer2_private.buffer = external//Defined in fbuffer.js / fbuffer.ml
+type Buffer.t = external
 
-Buffer2_private = {{
-  create: int -> Buffer2_private.buffer = %% Fbuffer.create %%
-  add  :   Buffer2_private.buffer, string -> void = %% Fbuffer.add %%
-  addln:   Buffer2_private.buffer, string -> void = %% Fbuffer.addln %%
-  contents: Buffer2_private.buffer -> string                        = %% Fbuffer.contents %%
-  to_string: Buffer2_private.buffer -> string                       = %% Fbuffer.contents %%
-  is_empty: Buffer2_private.buffer -> bool                          = %% Fbuffer.is_empty %%
-  add_list(l, buf:Buffer2_private.buffer): void =
-    List.iter((x -> add(buf, x)), l)
-  reset : Buffer2_private.buffer, int -> void = %% Fbuffer.reset %%
+Buffer = {{
+
+    create: int -> Buffer.t = %% BslBuffer.create %%
+    append: Buffer.t, string -> void = %% BslBuffer.append %%
+    length: Buffer.t -> int = %% BslBuffer.length %%
+    contents: Buffer.t -> string = %% BslBuffer.contents %%
+    clear: Buffer.t -> void = %% BslBuffer.clear %%
+
+    to_string = contents
+
+    append_list(buf:Buffer.t, l): void =
+        List.iter((x -> append(buf, x)), l)
+    is_empty(b) = length(b) == 0
 }}

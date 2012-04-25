@@ -15,19 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(**
- * A low-level module of mutable string buffers.
- *
- * Values of type [buffer] are not and should not be serialized, so any use of buffer must be strictly controlled
- *
- *
- * @author David Rajchenbach-Teller
- *)
 
-##extern-type Buffer.t = Buffer.t
-
-##register create\ `Buffer.create`: int -> Buffer.t
-##register append\ `Buffer.add_string`: Buffer.t, string -> void
-##register contents\ `Buffer.contents`: Buffer.t -> string
-##register length\ `Buffer.length`: Buffer.t -> int
-##register clear\ `Buffer.clear`: Buffer.t -> void
+##register flush_all : -> void
+let flush_all () = Pervasives.flush_all ()

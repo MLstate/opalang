@@ -16,6 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import-plugin server
 import stdlib.core.{xhtml, rpc.core, xmlm, map}
 
 

@@ -21,7 +21,7 @@
  * @author Mathieu Barbin (layout, documentation, documentation back-port, anonymous arguments)
  * @destination public
 **/
-import-plugin unix
+import-plugin {unix, server}
 import stdlib.core.parser
 
 /**

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -24,7 +24,7 @@
  * @stability UNSTABLE
  */
 
-
+import-plugin server
 import stdlib.core.{xhtml}
 /* NB: we depend on stdlib.xhtml essentially because the translation to xmlns is here
    (and also because of the type string_assoc, but it could be put elsewhere).

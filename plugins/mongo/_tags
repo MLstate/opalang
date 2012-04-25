@@ -1,0 +1,2 @@
+<bslMongo.ml>: with_mlstate_debug
+<mongo.opa_plugin>: use_libbase, use_opabsl, use_qmlcps, use_qmlflat, use_appruntime, use_libnet

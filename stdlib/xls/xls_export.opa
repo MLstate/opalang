@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,7 +22,7 @@
  * @stability unknown
  * @category export
  */
-
+import-plugin unix
 /**
  * {1 About this module}
  *
@@ -78,7 +78,7 @@ to_string(config, content) =
         <style>{style}</style>
         <table border={config.xls_border}>{header}{lines}</table>
       Xhtml.to_string(html)
-  
+
 
 /**
 * Generate a new xls file from the given list of string list

@@ -15,19 +15,16 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
-(**
- * A low-level module of mutable string buffers.
- *
- * Values of type [buffer] are not and should not be serialized, so any use of buffer must be strictly controlled
- *
- *
- * @author David Rajchenbach-Teller
- *)
+let unwrap = Time.in_milliseconds
 
-##extern-type Buffer.t = Buffer.t
+##register process_utime : -> time_t
+let process_utime () = unwrap (Time.process_utime ())
 
-##register create\ `Buffer.create`: int -> Buffer.t
-##register append\ `Buffer.add_string`: Buffer.t, string -> void
-##register contents\ `Buffer.contents`: Buffer.t -> string
-##register length\ `Buffer.length`: Buffer.t -> int
-##register clear\ `Buffer.clear`: Buffer.t -> void
+##register process_stime : -> time_t
+let process_stime () = unwrap (Time.process_stime ())
+
+##register process_cutime : -> time_t
+let process_cutime () = unwrap (Time.process_cutime ())
+
+##register process_cstime : -> time_t
+let process_cstime () = unwrap (Time.process_cstime ())

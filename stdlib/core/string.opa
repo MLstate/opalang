@@ -672,16 +672,5 @@ String =
   print_list = source -> "["^concat(",", source)^"]"
 }}
 
-/*
- * FIXME: Used ? if, @opacapi else, remove
-*/
-type Buffer_private.buffer = external//Low-level buffers, used internally to speed-up serialization
-
-@private Buffer = {{
-  create   = %% BslBuffer.create %%
-  append   = %% BslBuffer.append %%
-  contents = %% BslBuffer.contents %%
-}}
-
 @opacapi
 String_flatten = String.flatten

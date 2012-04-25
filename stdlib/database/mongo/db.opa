@@ -20,6 +20,8 @@
  *
  */
 
+import-plugin unix
+
 package stdlib.database.mongo
 
 import stdlib.core.{date,map,parser}

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,7 +19,7 @@
 /*
     @author David Rajchenbach-Teller
 **/
-
+import-plugin server
 import stdlib.core.{date, web.core, rpc.core, xhtml, security.ssl, parser}
 
 /**

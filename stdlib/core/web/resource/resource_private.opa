@@ -16,6 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import-plugin {server, unix}
 import stdlib.core.{parser, loop, date, web.core, rpc.core, web.request, cache, xhtml, args, set, i18n}
 import stdlib.core.compare
 

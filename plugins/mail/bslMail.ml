@@ -16,6 +16,24 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##extern-type caml_tuple_2('a,'b) = ('a*'b)
+##extern-type caml_tuple_4('a,'b,'c,'d) = ('a*'b*'c*'d)
+##extern-type caml_list('a) = 'a list
+##extern-type SSL.secure_type = SslAS.secure_type
+##property[endmli]
+
+##opa-type list('a)
+##opa-type tuple_2('a, 'b)
+
+let caml_list_to_opa_list f l =
+  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
+(** *****************************)
+
 ##module mailserve
 
   let status_ok = ServerLib.static_field_of_name "ok"
@@ -61,7 +79,7 @@
     and mto = if mto = "" then None else Some mto
     and dryrun = Some (ServerLib.unwrap_bool dryrun)
     in
-    SmtpClient.mail_send_aux BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+    SmtpClient.mail_send_aux Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
     QmlCpsServerLib.return k ServerLib.void
 
   ##register [cps-bypass] mail_send_fun_secure : string, string, string, string, string, string, string, \
@@ -101,7 +119,7 @@
     and dryrun = Some (ServerLib.unwrap_bool dryrun)
     in
     let client_certificate, verify_params = secure_type in
-    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?port:port ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?port:port ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
     QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule
@@ -289,7 +307,7 @@
         cont [ImapClientCore.Error (Printf.sprintf "Exception(at %s): %s" name (Printexc.to_string exn))]
     in
 
-    ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true BslScheduler.opa ~addr ~port
+    ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true Scheduler.default ~addr ~port
       ~username ~password ~commands
       (cont:ImapClientCore.results -> unit) ~err_cont ();
     QmlCpsServerLib.return k ServerLib.void
@@ -307,9 +325,9 @@
       let f = ServerLib.wrap_string email.SmtpServerCore.from in
       let c = Rcontent.get_content email.SmtpServerCore.body in
       let c = ServerLib.wrap_string c in
-      let t = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_string email.SmtpServerCore.dests in
+      let t = caml_list_to_opa_list ServerLib.wrap_string email.SmtpServerCore.dests in
       handler f t c (QmlCpsServerLib.cont_ml (
-                       fun res -> let i, s = BslNativeLib.ocaml_tuple_2 res in
+                       fun res -> let i, s = BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 res)) in
                        k (ServerLib.unwrap_int i, ServerLib.unwrap_string s)))
     in
     let _ = Runtime.add_smtpServer "smtpServer" {

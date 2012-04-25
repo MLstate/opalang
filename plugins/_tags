@@ -12,3 +12,5 @@
 <session>: traverse
 <qos>: traverse
 <server>: traverse
+<mail>: traverse
+<mongo>: traverse

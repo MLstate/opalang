@@ -108,10 +108,12 @@ let unwrap_option proj opa =
 (**
    caml_tuple_* as known by OCaml
 *)
+##property[mli]
 ##extern-type caml_tuple_2('a,'b) = ('a*'b)
 ##extern-type caml_tuple_3('a,'b,'c) = ('a*'b*'c)
 ##extern-type caml_tuple_4('a,'b,'c,'d) = ('a*'b*'c*'d)
 ##extern-type caml_tuple_5('a,'b,'c,'d,'e) = ('a*'b*'c*'d*'e)
+##property[endmli]
 
 (**
    tuple_* as known by OPA

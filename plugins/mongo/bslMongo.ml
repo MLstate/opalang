@@ -16,6 +16,29 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##property[endmli]
+
+##opa-type list('a)
+##opa-type tuple_2('a, 'b)
+##opa-type outcome('a, 'b)
+
+let opa_list_to_ocaml_list f l =
+  BslNativeLib.opa_list_to_ocaml_list f
+    (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
+let ocaml_tuple_2 x =
+  BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 x))
+let opa_tuple_2 x =
+  wrap_opa_tuple_2 (BslNativeLib.unwrap_opa_tuple_2 (BslNativeLib.opa_tuple_2 x))
+let create_outcome x =
+  wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome x))
+(** *****************************)
+
 module C = QmlCpsServerLib
 open C.Ops
 module FillbufString = Bson.FillbufString
@@ -127,20 +150,20 @@ let serialize bsons b =
                | Some "Min" -> Bson.Append.minkey b name
                | Some "Max" -> Bson.Append.maxkey b name
                | Some "Regexp" ->
-                   (match BslNativeLib.ocaml_tuple_2 value with
+                   (match ocaml_tuple_2 value with
                     | (regexp, regexp_opts) ->
                         Bson.Append.regex b name (ServerLib.unwrap_string regexp) (ServerLib.unwrap_string regexp_opts))
                | Some "Code" -> Bson.Append.code b name (ServerLib.unwrap_string value)
                | Some "Symbol" -> Bson.Append.symbol b name (ServerLib.unwrap_string value)
                | Some "CodeScope" ->
-                   (match BslNativeLib.ocaml_tuple_2 value with
+                   (match ocaml_tuple_2 value with
                     | (code, scope) ->
                         Bson.Append.start_codewscope b name code;
                         aux scope;
                         Bson.Append.finish_codewscope b code)
                | Some "Int32" -> Bson.Append.int b name (itoi32 (ServerLib.unwrap_int value))
                | Some "Timestamp" ->
-                   (match BslNativeLib.ocaml_tuple_2 value with
+                   (match ocaml_tuple_2 value with
                     | (i, t) ->
                         Bson.Append.timestamp b name ((itoi32 (ServerLib.unwrap_int i)), (itoi32 (ServerLib.unwrap_int t))))
                | Some "Int64" -> Bson.Append.long b name (itoi64 (ServerLib.unwrap_int value))
@@ -295,7 +318,7 @@ let insert m f ns (bson:'a) =
 
 ##register insert_batch: Mongo.mongo_buf, int, string, opa[list('a)] -> void
 let insert_batch m f ns (bsons:'a) =
-  let (bsons:opa_bson_document list) = Obj.magic (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) bsons) in
+  let (bsons:opa_bson_document list) = Obj.magic (opa_list_to_ocaml_list (fun x -> x) bsons) in
   Mongo.start_insert m (nextrid()) f ns;
   List.iter (fun bson ->
                Mongo.bson_init m;
@@ -355,7 +378,7 @@ let delete m flags ns selector =
 ##register kill_cursors: Mongo.mongo_buf, opa[list('a)] -> void
 let kill_cursors m clist =
   let clist = Obj.magic clist in
-  Mongo.start_kill_cursors m (nextrid()) (BslNativeLib.opa_list_to_ocaml_list (fun x -> x) clist);
+  Mongo.start_kill_cursors m (nextrid()) (opa_list_to_ocaml_list (fun x -> x) clist);
   Mongo.finish m
 
 ##register msg: Mongo.mongo_buf, string -> void
@@ -369,7 +392,7 @@ let get = Mongo.get
 ##register export: Mongo.mongo_buf -> opa[tuple_2(string, int)]
 let export m =
   let (str, i) = Mongo.export m in
-  BslNativeLib.opa_tuple_2 (ServerLib.wrap_string str, ServerLib.wrap_int i)
+  opa_tuple_2 (ServerLib.wrap_string str, ServerLib.wrap_int i)
 
 ##register import: string -> Mongo.mongo_buf
 let import = Mongo.import
@@ -408,20 +431,20 @@ let reset_mailbox (b,_) = Mongo.free_buf b
 let read_mongo conn timeout mailbox k =
   let timeout = Time.milliseconds timeout in
   HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox 4 ()
-    ~err_cont:(fun exn -> BslUtils.create_outcome (`failure (Printexc.to_string exn)) |> k)
+    ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) |> k)
     ~timeout
     (fun (b,s,l) ->
        if l < 4
-       then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
+       then create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
        else
          let len = FillbufString.ldi32 (Buf.sub b s 4) 0 in
          HttpTools.fixed_stream_cps2_buf Scheduler.default conn mailbox (len-4) ()
-           ~err_cont:(fun exn -> BslUtils.create_outcome (`failure (Printexc.to_string exn)) |> k)
+           ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) |> k)
            ~timeout
            (fun (b,s,l) ->
               if l < len - 4
-              then BslUtils.create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
-              else BslUtils.create_outcome (`success (b,s,l)) |> k))
+              then create_outcome (`failure "BslMongo.Mongo.read_mongo insufficient data") |> k
+              else create_outcome (`success (b,s,l)) |> k))
 
 ##register export_reply: Mongo.reply -> string
 let export_reply (b,s,l) = Buf.sub b s l
