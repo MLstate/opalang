@@ -524,65 +524,74 @@ type env = {
    * most probably useless now *)
 }
 
-(* utility to save [env] for separated compilation *)
-module S =
-struct
-  type t = env
-  let pass = "pass_JavascriptCompilation_imp_Inlining"
-  let pp_element f = function
-    | `var e ->
-        Format.fprintf f "`var %a" (JsPrint.pp#expr ~leading:true) e
-    | `fun_ (params,e) ->
-        Format.fprintf f "`fun %a -> %a"
-          (Format.pp_list "," (fun f i -> Format.pp_print_string f (JsIdent.to_string i))) params
-          (JsPrint.pp#expr ~leading:true) e
-  let pp_functions f m =
-    JsIdentMap.iter
-      (fun k v ->
-         Format.fprintf f "@[<2>%s:@ %a@]@\n" (JsIdent.to_string k) pp_element v
-      ) m
-  let pp_closures f m =
-    JsIdentMap.iter
-      (fun k v ->
-         Format.fprintf f "@[<2>%s: %s@]@\n" (JsIdent.to_string k) (JsIdent.to_string v)
-      ) m
-  let pp f env =
-    Format.fprintf f "@[{@\n  @[<2>functions: %a@];@\n  @[<2>closures: %a@]@\n}@]"
-      pp_functions env.functions pp_closures env.closures
+module type R =
+sig
+  val load : env -> env
+  val save : env:env -> loaded_env:env -> initial_env:env -> unit
 end
-module R =
-struct
-  include ObjectFiles.Make(S)
-  let refresh_expr = JsWalk.Refresh.expr
-  let refresh_element = function
-    | `var e -> `var (refresh_expr e)
-    | `fun_ (params,e) -> `fun_ (params,refresh_expr e)
-  let load env =
-    fold ~deep:true (* FIXME: shouldn't be true, but the environment
-                     * saved should have been rewritten by the inlining
-                     * actually, if you depend on a plugin, then it won't
-                     * be loaded if one of your deep dependency depends
-                     * on it i think, so it also forces you go deep
-                     *)
-      (fun {functions=functions1; closures=closures1} {functions=old_functions; closures=old_closures} ->
-         let functions1 =
-           JsIdentMap.fold
-             (fun k v env ->
-                let v = refresh_element v in
-                (* we can possibly have collisions in the map, if
-                 * you depend on several independant packages that
-                 * load the same plugins *)
-                JsIdentMap.add k v env
-             ) old_functions functions1 in
-         let closures1 = JsIdentMap.merge (fun a _ -> a) closures1 old_closures in
-         {functions=functions1; closures=closures1}
-      ) env
-  let save ~env ~loaded_env ~initial_env =
-    let functions_to_be_saved = JsIdentMap.diff2 env.functions loaded_env.functions initial_env.functions in
-    let closures_to_be_saved = JsIdentMap.diff2 env.closures loaded_env.closures initial_env.closures in
-    let env_to_be_saved = {functions = functions_to_be_saved; closures = closures_to_be_saved} in
-    save env_to_be_saved
-end
+
+let make_r pass =
+  (* utility to save [env] for separated compilation *)
+  let module S =
+      struct
+        type t = env
+        let pass = pass ^ "_imp_Inlining"
+        let pp_element f = function
+          | `var e ->
+              Format.fprintf f "`var %a" (JsPrint.pp#expr ~leading:true) e
+          | `fun_ (params,e) ->
+              Format.fprintf f "`fun %a -> %a"
+                (Format.pp_list "," (fun f i -> Format.pp_print_string f (JsIdent.to_string i))) params
+                (JsPrint.pp#expr ~leading:true) e
+        let pp_functions f m =
+          JsIdentMap.iter
+            (fun k v ->
+               Format.fprintf f "@[<2>%s:@ %a@]@\n" (JsIdent.to_string k) pp_element v
+            ) m
+        let pp_closures f m =
+          JsIdentMap.iter
+            (fun k v ->
+               Format.fprintf f "@[<2>%s: %s@]@\n" (JsIdent.to_string k) (JsIdent.to_string v)
+            ) m
+        let pp f env =
+          Format.fprintf f "@[{@\n  @[<2>functions: %a@];@\n  @[<2>closures: %a@]@\n}@]"
+            pp_functions env.functions pp_closures env.closures
+      end
+  in
+  let module R =
+      struct
+        include ObjectFiles.Make(S)
+        let refresh_expr = JsWalk.Refresh.expr
+        let refresh_element = function
+          | `var e -> `var (refresh_expr e)
+          | `fun_ (params,e) -> `fun_ (params,refresh_expr e)
+        let load env =
+          fold ~deep:true (* FIXME: shouldn't be true, but the environment
+                           * saved should have been rewritten by the inlining
+                           * actually, if you depend on a plugin, then it won't
+                           * be loaded if one of your deep dependency depends
+                           * on it i think, so it also forces you go deep
+                           *)
+            (fun {functions=functions1; closures=closures1} {functions=old_functions; closures=old_closures} ->
+               let functions1 =
+                 JsIdentMap.fold
+                   (fun k v env ->
+                      let v = refresh_element v in
+                      (* we can possibly have collisions in the map, if
+                       * you depend on several independant packages that
+                       * load the same plugins *)
+                      JsIdentMap.add k v env
+                   ) old_functions functions1 in
+               let closures1 = JsIdentMap.merge (fun a _ -> a) closures1 old_closures in
+               {functions=functions1; closures=closures1}
+            ) env
+        let save ~env ~loaded_env ~initial_env =
+          let functions_to_be_saved = JsIdentMap.diff2 env.functions loaded_env.functions initial_env.functions in
+          let closures_to_be_saved = JsIdentMap.diff2 env.closures loaded_env.closures initial_env.closures in
+          let env_to_be_saved = {functions = functions_to_be_saved; closures = closures_to_be_saved} in
+          save env_to_be_saved
+      end
+  in (module R : R)
 
 let empty_env = { functions = JsIdentMap.empty; closures = JsIdentMap.empty }
 let env_of_map closure_map =

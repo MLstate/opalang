@@ -37,8 +37,9 @@ val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement
 (**
    The interface for separate compilation
 *)
-module R :
+module type R =
 sig
   val load : env -> env
   val save : env:env -> loaded_env:env -> initial_env:env -> unit
 end
+val make_r : string -> (module R)

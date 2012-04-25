@@ -126,7 +126,9 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
         match bsl with
         | Some code -> Imp_Inlining.global_inline_analyse_code (Imp_Inlining.env_of_map closure_map) code
         | None -> Imp_Inlining.env_of_map closure_map in
-      let loaded_env = Imp_Inlining.R.load initial_env in
+      let pass = BslLanguage.to_string bsl_lang in
+      let module Imp_Inlining_R = (val Imp_Inlining.make_r pass : Imp_Inlining.R) in
+      let loaded_env = Imp_Inlining_R.load initial_env in
       (* we first analyse the code just to be able to inline simple recursive functions
        * the results of this analysis will be overwritten when we do the real analysis in
        * global_inline_stm *)
@@ -161,7 +163,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
                   env, stms
                )
           ) env js_code in
-      Imp_Inlining.R.save ~env ~loaded_env ~initial_env;
+      Imp_Inlining_R.save ~env ~loaded_env ~initial_env;
       #<If:JS_IMP$contains "time"> Printf.printf "global inline: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
       js_code
     ) else
@@ -190,7 +192,8 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
 
 
 let dummy_compile () =
-  Imp_Inlining.R.save
+  let module R = (val Imp_Inlining.make_r "dummy" : Imp_Inlining.R) in
+  R.save
     ~env:Imp_Inlining.empty_env
     ~loaded_env:Imp_Inlining.empty_env
     ~initial_env:Imp_Inlining.empty_env
