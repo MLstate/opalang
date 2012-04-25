@@ -888,7 +888,7 @@ rule "opa application creator"
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
   rule name
-    ~deps:[opacapi_validation;all_plugins_file;all_packages_file;"opacomp.stamp"]
+    ~deps:[(* opacapi_validation; *)all_plugins_file;all_packages_file;"opacomp.stamp"]
     ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
