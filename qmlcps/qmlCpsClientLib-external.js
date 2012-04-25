@@ -123,3 +123,9 @@ function cps_debug(s) {}
  * @param {!string} s
  */
 function cps_assert(b,s) {}
+
+function QmlCpsLib_callcc_directive(f, k){}
+
+function QmlCpsLib_default_handler_cont(k){}
+
+function QmlCpsLib_handler_cont(k){}

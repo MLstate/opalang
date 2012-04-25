@@ -346,6 +346,19 @@ Continuation.prototype = {
     }
 }
 
+function QmlCpsLib_callcc_directive(f, k){
+    f(k, new Continuation(function(){return js_void}, k._context, default_options));
+}
+
+function QmlCpsLib_default_handler_cont(k){
+    return new Continuation(function(exn){console.error("Error : uncaught OPA exn", exn)}, k._context, k._options);
+}
+
+function QmlCpsLib_handler_cont(k){
+    var paylexn = k._paylexn;
+    return (paylexn ? new Continuation(paylexn, k._context, k._options) : QmlCpsLib_default_handler_cont(k));
+}
+
 
 
 /**
