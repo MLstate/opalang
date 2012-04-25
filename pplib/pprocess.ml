@@ -331,6 +331,19 @@ module Exe = struct
       (fun file -> files := file::!files)
       (usage_msg^"Options:")
 
+  let content_of_ic ic =
+    let len = 10000 in
+    let str = String.create len in
+    let buf = Buffer.create 10000 in
+    let rec aux () =
+      let read = input ic str 0 len in
+      if read <> 0 then (
+        Buffer.add_substring buf str 0 read;
+        aux ()
+      ) in
+    aux ();
+    buf
+
   (* Get a file content (cc from File) *)
   let content f =
     let stat = Unix.stat f in
@@ -343,16 +356,7 @@ module Exe = struct
     | Unix.S_SOCK  (* Socket *) ->
         (* for these kind of files, the size information is meaningless *)
         let ic = open_in_bin f in
-        let len = 10000 in
-        let str = String.create len in
-        let buf = Buffer.create 10000 in
-        let rec aux () =
-          let read = input ic str 0 len in
-          if read <> 0 then (
-            Buffer.add_substring buf str 0 read;
-            aux ()
-          ) in
-        aux ();
+        let buf = content_of_ic ic in
         close_in ic;
         Buffer.contents buf
     | Unix.S_REG  (* Regular file *) ->
@@ -369,6 +373,11 @@ module Exe = struct
     let options =
       let options = !options in
       { options with env = fill_with_sysenv options.env } in
+    if !files = [] then
+      let buf = Buffer.contents (content_of_ic stdin) in
+      let result = process description options buf in
+      output_string stdout result
+    else
     let rec aux files =
       match files with
       | t::q ->
