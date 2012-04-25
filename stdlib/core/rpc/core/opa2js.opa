@@ -42,7 +42,7 @@ import stdlib.core.{web.core, js}
      * Serialize a server session on [RPC.Json.js_code].
      */
     session(s:channel('a)):option(RPC.Json.js_code) =
-      get_server_id = %%BslSession.get_server_id%%
+      get_server_id = %%Session.get_server_id%%
       context = match ThreadContext.get({current}).key
                 {~client} -> some(client)
                 _ -> some(ThreadContext.Client.fake)

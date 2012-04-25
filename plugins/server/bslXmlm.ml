@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -20,10 +20,12 @@
 *)
 
 (**
-   Current status:
+   Current status: TODO REMOVE!!! Need opa implementation...
    * only parsing
    * no option supported
 *)
+
+let caml_list_to_opa_list = BslAppSrcCode.caml_list_to_opa_list
 
 ##opa-type Xmlm.signal
 
@@ -56,18 +58,18 @@ let make_scanner input =
     try
       let r =
         match Xmlm.input input with
-        | `Data s -> 
+        | `Data s ->
             let r = ServerLib.empty_record_constructor in
             let r = ServerLib.add_field r field_data s in
             ServerLib.make_record r
-        | `Dtd s -> 
+        | `Dtd s ->
             let r = ServerLib.empty_record_constructor in
             let r = ServerLib.add_field r field_dtd s in
             ServerLib.make_record r
-        | `El_end -> 
+        | `El_end ->
             ServerLib.make_simple_record field_el_end
         | `El_start ((namespace, tag), args) ->
-            let args = BslNativeLib.caml_list_to_opa_list handle_attribute args in
+            let args = caml_list_to_opa_list handle_attribute args in
             let r = ServerLib.empty_record_constructor in
             let r = ServerLib.add_field r field_el_start ServerLib.void in
             let r = ServerLib.add_field r field_namespace namespace in
@@ -76,35 +78,35 @@ let make_scanner input =
             ServerLib.make_record r
       in
       Some (wrap_opa_xmlm_signal r)
-    with 
+    with
     | Xmlm.Error (_, _) -> None
 
 ##opa-type xmlns
 
-let handle_tag ((uri, local), attributes) children = 
+let handle_tag ((uri, local), attributes) children =
   let acc = ServerLib.empty_record_constructor in
   let acc = ServerLib.add_field acc field_tag local in
   let acc = ServerLib.add_field acc field_namespace uri in
-  let args = BslNativeLib.caml_list_to_opa_list handle_attribute attributes in
+  let args = caml_list_to_opa_list handle_attribute attributes in
   let acc = ServerLib.add_field acc field_args args in
-  let acc = ServerLib.add_field acc field_content (BslNativeLib.caml_list_to_opa_list Base.identity children) in
+  let acc = ServerLib.add_field acc field_content (caml_list_to_opa_list Base.identity children) in
   let acc = ServerLib.add_field acc field_specific_attributes ServerLib.none in
   ServerLib.make_record acc
 
-let handle_text_node str = 
+let handle_text_node str =
   let acc = ServerLib.empty_record_constructor in
   let acc = ServerLib.add_field acc field_text str in
   ServerLib.make_record acc
 
-let handle_fragment caml_list_xmlns = 
+let handle_fragment caml_list_xmlns =
   let acc = ServerLib.empty_record_constructor in
-  let list_opa_xmlns = (BslNativeLib.caml_list_to_opa_list Base.identity caml_list_xmlns) in
+  let list_opa_xmlns = (caml_list_to_opa_list Base.identity caml_list_xmlns) in
   let acc = ServerLib.add_field acc field_fragment list_opa_xmlns in
   ServerLib.make_record acc
-   
+
 ##register parse_tree : string -> option(opa[xmlns])
-let parse_tree input = 
-  let entity_fun(el) = match el with 
+let parse_tree input =
+  let entity_fun(el) = match el with
   | "lt" -> Some("&lt;")
   | "gt" -> Some("&gt;")
   | "nbsp" -> Some("&nbsp;")
@@ -115,18 +117,18 @@ let parse_tree input =
   in
   let input = Xmlm.make_input ?enc:None ~strip:false ?ns:None ~entity:entity_fun (`String (0, input)) in
   try
-    let rec parse(current_list) = 
+    let rec parse(current_list) =
       let (_, r) = Xmlm.input_doc_tree ~el:handle_tag ~data:handle_text_node input in
       let new_list = BaseList.cons r current_list in
       if Xmlm.eoi input
         then new_list
-        else parse(new_list) 
+        else parse(new_list)
     in
 
     match parse([]) with
       | [] -> None
       | [xmlns] -> Some (wrap_opa_xmlns xmlns)
-      | list_xmlns -> 
+      | list_xmlns ->
           let list_xmlns = BaseList.rev list_xmlns in
           let fragment = handle_fragment list_xmlns in
           Some (wrap_opa_xmlns fragment)

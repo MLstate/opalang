@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -15,6 +15,14 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##property[endmli]
+(** *****************************)
+
+module BslUtils = OpabslgenMLRuntime.BslUtils
+
 let opa = Scheduler.default
 
 let push f = Scheduler.push opa f

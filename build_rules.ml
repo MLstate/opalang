@@ -361,7 +361,8 @@ in
 
 (* -- opa plugin -- *)
 (* -- plugin that fails to validate -- *)
-let accept_js_validation_failure = []
+(* TODO - Remove this and add preprocessing on plugins files before js validation *)
+let accept_js_validation_failure = ["server"]
 in
 (* -- file that are only needed for validation process -- *)
 let jschecker_file s =

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -136,7 +136,7 @@ let rename,
               #<If:JS_RENAMING>
                 Printf.printf "BslJsIdent.renaming: %s -> %s\n%!" key_ident ident
               #<End>;
-              BslClosure.replace_identifier key_ident ident;
+              OpabslgenMLRuntime.BslClosure.replace_identifier key_ident ident;
               Base.Hashtbl.add ref_ key_ident ident;
               ident
         ) else (

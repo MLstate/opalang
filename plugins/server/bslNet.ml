@@ -18,8 +18,32 @@
 module List = BaseList
 module HSCp = HttpServerCore_parse
 
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+let caml_list_to_opa_list = BslAppSrcCode.caml_list_to_opa_list
 (* The opa scheduler *)
 let default_scheduler = BslScheduler.opa
+
+(** TODO - plugins dependencies *)
+##property[mli]
+##extern-type time_t = int
+##extern-type caml_list('a) = 'a list
+##extern-type endpoint = Hlnet.endpoint
+##extern-type llarray('a) = Obj.t array
+##property[endmli]
+
+##opa-type tuple_2('a, 'b)
+##opa-type tuple_3('a, 'b, 'c)
+##opa-type ThreadContext.t
+##opa-type ThreadContext.client
+
+let opa_tuple_2 t =
+  wrap_opa_tuple_2 (BslNativeLib.unwrap_opa_tuple_2 (BslNativeLib.opa_tuple_2 t))
+let opa_tuple_3 t =
+  wrap_opa_tuple_3 (BslNativeLib.unwrap_opa_tuple_3 (BslNativeLib.opa_tuple_3 t))
+let opa_list_to_ocaml_list f l =
+  BslNativeLib.opa_list_to_ocaml_list f
+    (BslNativeLib.wrap_opa_list (BslAppSrcCode.unwrap_opa_list l))
+(** *****************************)
 
 ##extern-type web_server_status = Requestdef.status
 ##extern-type WebInfo.private.native_request = HttpServerTypes.request
@@ -145,7 +169,7 @@ let default_scheduler = BslScheduler.opa
     req.HttpServerTypes.handle_request.HttpServerTypes.hr_is_secure
 
   ##register get_header_names: WebInfo.private.native_request -> opa[list(string)]
-  let get_header_names r = BslNativeLib.caml_list_to_opa_list (fun x -> x) (HttpServer.get_header_names r)
+  let get_header_names r = caml_list_to_opa_list (fun x -> x) (HttpServer.get_header_names r)
 
   ##register get_header_values \ `HttpServer.get_header_by_name` : WebInfo.private.native_request -> (string -> option(string))
 
@@ -392,7 +416,7 @@ let default_scheduler = BslScheduler.opa
   let get_remote_logs_params _ =
     match HttpServer.get_remote_logs_params () with
     | None -> ServerLib.none
-    | Some p -> ServerLib.some (BslNativeLib.opa_tuple_3
+    | Some p -> ServerLib.some (opa_tuple_3
             (p.HttpServerTypes.hostname, p.HttpServerTypes.port, p.HttpServerTypes.appkey))
 
 ##endmodule
@@ -512,7 +536,7 @@ let default_scheduler = BslScheduler.opa
         | Some key -> match Requestdef.ResponseHeader.get_string key headers with
           | None        -> QmlCpsServerLib.return k ServerLib.none
           | Some string -> QmlCpsServerLib.return k (ServerLib.some (ServerLib.wrap_string string))
-      and keys  =  BslNativeLib.caml_list_to_opa_list (fun x -> Requestdef.string_of_response_header x) (Requestdef.ResponseHeader.keys headers)
+      and keys  =  caml_list_to_opa_list (fun x -> Requestdef.string_of_response_header x) (Requestdef.ResponseHeader.keys headers)
       in
       cont_success mime status content keys get  (QmlCpsServerLib.ccont_ml cont_void (fun _ -> ()))
     and failure e =
@@ -535,7 +559,7 @@ let default_scheduler = BslScheduler.opa
               ServerLib.make_record cons
       in QmlCpsServerLib.return cont_failure opa_e
     in
-    let more_headers = BslNativeLib.opa_list_to_ocaml_list (fun h -> h) more_headers in
+    let more_headers = opa_list_to_ocaml_list (fun h -> h) more_headers in
     let _ = Http_client.place_request default_scheduler ~request_kind ?data ~hostname ~port ~path
       ~secure:is_secure  ?auth ?client_certificate:private_key ?verify_params:policy
       ?timeout:(Option.map Time.milliseconds timeout)
@@ -656,6 +680,6 @@ let default_scheduler = BslScheduler.opa
     let ic, ec = HttpServer.get_request_cookies request in
     let ic = Option.map ServerLib.wrap_string ic in
     let ec = Option.map ServerLib.wrap_string ec in
-    BslNativeLib.opa_tuple_2 (ServerLib.wrap_option ic, ServerLib.wrap_option ec)
+    opa_tuple_2 (ServerLib.wrap_option ic, ServerLib.wrap_option ec)
 
 ##endmodule

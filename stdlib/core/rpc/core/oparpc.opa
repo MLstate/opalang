@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -228,7 +228,7 @@ type OpaRPC.interface = {{
    * TODO for CPS client use callcc?
    */
   send_to_server(fun_name, request, ty) =
-    mr = %%BslSession.PingRegister.pang_request%% : string, string -> string
+    mr = %%Session.PingRegister.pang_request%% : string, string -> string
     url = "/rpc_call/" ^ fun_name
     ty_success = [{label="success" ~ty}]
     ty_failure = [{label="failure" ty={TyRecord_row = []}}]
@@ -241,7 +241,7 @@ type OpaRPC.interface = {{
         error("OPARPC : Request on {url} has failed")
 
   async_send_to_server(fun_name, request, _) =
-    mr = %% BslSession.PingRegister.ping_async_call %%: string, string -> void
+    mr = %% Session.PingRegister.ping_async_call %%: string, string -> void
     url= "/rpc_call/" ^ fun_name
     mr(url, OpaRPC.serialize(request))//Ignore results
 
@@ -249,7 +249,7 @@ type OpaRPC.interface = {{
    * This module is a dispatcher of RPC on client
    */
   Dispatcher = {{
-    register = %%BslSession.comet_table_add%%
+    register = %%Session.comet_table_add%%
     : string, (string -> option(string)) -> void
   }}
 

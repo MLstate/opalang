@@ -61,7 +61,7 @@ type Session.how_send('message) =
     value = OpaSerialize.finish_unserialize(json, @typeval(-> void))
     r : -> void = Option.lazy_default(fail, value)
     r
-  bp = @may_cps(%%BslSession.set_uu%%)
+  bp = @may_cps(%%Session.set_uu%%)
   bp(serialize_uu, unserialize_uu)
 
 @private Session_private = {{
@@ -156,7 +156,7 @@ type Session.how_send('message) =
                 handler : Session.handler('state, 'message),
                 more : 'more,
                 selector : Session.context_selector) =
-      make = @may_cps(%%BslSession.llmake%%)
+      make = @may_cps(%%Session.llmake%%)
       make_make(state, unserialize, handler, more, selector, make)
     : channel('msg)
 
@@ -171,7 +171,7 @@ type Session.how_send('message) =
      *
      */
     @server make_shared(key, state, unserialize, handler) =
-      make = %%BslSession.make_shared%%
+      make = %%Session.make_shared%%
       make_make(state, unserialize, handler, {none}, {maker},
                 make(key, _, _ ,_ ,_ ,_ ,_ ,_))
 
@@ -191,11 +191,11 @@ type Session.how_send('message) =
                 ) =
       match how_send with
       | ~{serialize; message} ->
-        LL_Session_llsend = %%BslSession.llsend%%
+        LL_Session_llsend = %%Session.llsend%%
         ser(x : 'msg) : RPC.Json.private.native = Json.to_ll_json(serialize(x))
         LL_Session_llsend(chan, ser, message, context)
       | ~{serialize; message; herror; hsuccess} ->
-        LL_Session_llsend = %%BslSession.llsend_then%%
+        LL_Session_llsend = %%Session.llsend_then%%
         ser(x : 'msg) : RPC.Json.private.native = Json.to_ll_json(serialize(x))
         LL_Session_llsend(chan, ser, message, context, herror, hsuccess)
 
@@ -219,7 +219,7 @@ type Session.how_send('message) =
     serialize(x:channel('msg), options:OpaSerialize.options) : RPC.Json.json =
       x = match options.to_session with
       | {none} ->
-        aux = @may_cps(%%BslSession.export%%)
+        aux = @may_cps(%%Session.export%%)
         ctx = match ThreadContext.get({current}).key with
           | {server = _} | {nothing} ->
             // This case is on toplelvel javascript serialization.
@@ -228,7 +228,7 @@ type Session.how_send('message) =
           | ~{client} -> client
         aux(x, ctx)
       | {some = entity} ->
-        aux = @may_cps(%%BslSession.serialize_for_entity%%)
+        aux = @may_cps(%%Session.serialize_for_entity%%)
         aux(x, entity)
       Option.get_msg(-> "[Session.serialize] Json object malformed",
                      Json.from_ll_json(x))
@@ -236,7 +236,7 @@ type Session.how_send('message) =
 
 
     unserialize(x : RPC.Json.json) : option(channel('msg)) =
-      aux = @may_cps(%%BslSession.unserialize%%)
+      aux = @may_cps(%%Session.unserialize%%)
               : option(ThreadContext.t), RPC.Json.private.native -> option(Session.private.native('msg, _))
       match aux(ThreadContext.get_opt({current}), Json.to_ll_json(x)) with
       | {none} -> do Log.error("[Session][unserialize]","fail") {none}

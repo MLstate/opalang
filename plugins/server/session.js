@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+##extern-type continuation('a)
 
 /* LowLevel modules exported on the DOM */
 var LowLevelSession = {};
@@ -239,7 +240,9 @@ var LowLevelPingLoop = {};
                     return;
                 }
             } catch (er) {
-                %%bslsyslog_error%%("[LocalChannel.send] Catch :", er);
+                // TODO - plugins dependencies
+                // bslsyslog_error%%("[LocalChannel.send] Catch :", er);
+                console.error("[LocalChannel.send] Catch :", er);
                 return;
             }
         },
@@ -333,7 +336,9 @@ var LowLevelPingLoop = {};
                 this.action = f;
                 this.send_no_cps_aux(msg, js_none);
             } catch (er) {
-                %%bslsyslog_error%%("[LocalChannel.call] Cell :", er);
+                // TODO - plugins dependencies
+                // bslsyslog_error%%("[LocalChannel.call] Cell :", er);
+                console.error("[LocalChannel.call] Cell :", er);
             }
             if(res === null) error("Call failed, result was [null]");
             return res;

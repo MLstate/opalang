@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -218,8 +218,8 @@ Cell_private = {{
    *                  it's {!OpaSerialize.partial_serialize}
    * @return return value after applying on_message
    */
-  @private gm = %% BslSession.get_more%%
-  @private bsl_llcall = %%BslSession.SynchronousCell.llcall%%
+  @private gm = %% Session.get_more%%
+  @private bsl_llcall = %%Session.SynchronousCell.llcall%%
   llcall(cell : Cell.cell('message, 'result),
          message : 'message,
          serialize : option('message -> RPC.Json.json),
@@ -400,13 +400,13 @@ type middle('msg, 'ctx) = external
         | "cell/CallThatPlease" ->
           do Log.info("Cell_Server", "Delegate cell call")
           middle =
-            rtm = %% BslSession.Convert.request_to_middle %%
+            rtm = %% Session.Convert.request_to_middle %%
             rtm(WebInfo.to_native_web_info(winfo)) ? forbidden("Bad formatted request")
           cell =
-            cfm = %% BslSession.Convert.chan_from_middle %%
+            cfm = %% Session.Convert.chan_from_middle %%
             cfm(middle)
           s_result =
-            get_more = %% BslSession.Convert.get_more %%
+            get_more = %% Session.Convert.get_more %%
             match (get_more(middle)) : option
             /*
                Initially the line commented below was there in place of the
@@ -420,7 +420,7 @@ type middle('msg, 'ctx) = external
           /* Message is the session message i.e. its a couple (k,
            * cellmsg) its why we apply a .f2 on message. */
           message =
-            mfm = %% BslSession.Convert.msg_from_middle %%
+            mfm = %% Session.Convert.msg_from_middle %%
             (mfm(middle) ? forbidden("Bad formatted cell message")).f2
           result = Cell.call(Magic.id(cell), message)
           reply(winfo, OpaSerialize.finish_serialize(s_result(result)), {success})

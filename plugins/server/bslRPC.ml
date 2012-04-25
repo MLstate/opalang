@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -69,7 +69,7 @@ end = struct
       try
         let k = Hashtbl.find rpc_ids id in
         Hashtbl.remove rpc_ids id ;
-        let exc = BslNativeLib.OpaExc.OpaRPC.timeout cid fun_id in
+        let exc = OpabslgenMLRuntime.BslNativeLib.OpaExc.OpaRPC.timeout cid fun_id in
         let k_exc = QmlCpsServerLib.handler_cont k in
         QmlCpsServerLib.push_cont k_exc exc
       with

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -20,6 +20,9 @@
    from a string directly into the opa client ast
    The corresponding serialization is in Qmljs_serializer
  *)
+
+module BslReference = OpabslgenMLRuntime.BslReference
+module LowLevelArray = OpabslgenMLRuntime.LowLevelArray
 
 ##register unser_adhoc : \
     (opa[string] -> opa[_]), \

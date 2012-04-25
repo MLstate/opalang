@@ -2,48 +2,32 @@
 
 bslNativeLib.ml
 bslUtils.ml
-bslScheduler.ml
 
-bslAppSrcCode.ml
+bslPervasives.ml
 
-bool.ml
-bslTime.ml
-bslNet.ml
+bslBuffer.ml
+bslCactutf.ml
 bslClosure.ml
 bslCps.ml
-dbgraph.ml
-fbuffer.ml
-lowLevelArray.ml
-bslGc.ml
-bslPervasives.ml
-bslString.ml
-bslCactutf.ml
-bslFile.ml
 bslMail.ml
-bslReference.ml
 bslNumber.ml
-
-bslJson.ml
 bslMongo.ml
-bslMinJs.ml
-bslValue.ml
+bslReference.ml
+bslString.ml
 bslSyslog.ml
-bslPingRegister.ml
-bslRPC.ml
-bslDispatcher.ml
-bslBuffer.ml
+bslTime.ml
+lowLevelArray.ml
+bslValue.ml
 
-bslJsIdent.ml
-bslInit.ml
-bslClientCode.ml
-bslClientEvent.ml
+# Server specific bypass
+bslTimeServer.ml
+bslPervasivesServer.ml
 
-bslIdentGen.ml # xhtml ident
 
-bslServer_event.ml
 
-bslCommandLine.ml
-bslXmlm.ml
+
+
+
 
 # i18n and localisation
-bslI18n.ml
+

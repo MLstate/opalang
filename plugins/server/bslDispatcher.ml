@@ -23,10 +23,10 @@ open HttpServer
 
 open Cps.Ops
 
-
+module BslUtils = OpabslgenMLRuntime.BslUtils
 module Client = BslPingRegister.Client
 module Ping   = BslPingRegister.M
-module WebChannel = BslSession.WebChannel
+module WebChannel = Session.WebChannel
 
 module JS     = JsonTypes
 type json = JS.json
@@ -149,7 +149,7 @@ let complete_dispatcher_cps base_url dispatcher k =
            send_json_response winfo (JS.Bool true)
 
        | `internal "chan/sharedaddr" ->
-           BslSession.SharedChannel.addr @>
+           Session.SharedChannel.addr @>
              (function (ip, port) ->
                 let addr = Unix.string_of_inet_addr ip in
                 let res = JS.Record [

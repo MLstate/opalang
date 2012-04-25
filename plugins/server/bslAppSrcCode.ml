@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -26,6 +26,15 @@
 
     @author Adam Koprowski
   *)
+
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+
+(** TODO - plugins dependencies *)
+##opa-type list('a)
+
+let caml_list_to_opa_list f l =
+  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
+(** *****************************)
 
 let (|>) = InfixOperator.(|>)
 
@@ -61,7 +70,7 @@ let get_file_list () =
      |> List.sort cmp_srcs
      |> List.map snd
   in
-  BslNativeLib.caml_list_to_opa_list Base.identity caml_list
+  caml_list_to_opa_list Base.identity caml_list
 
 (** Returns the content of the file [fn], or [""] if such files
     was not registered with [register_src_code]. *)

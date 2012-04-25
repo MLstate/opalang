@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,6 +19,8 @@
 /**
     @author David Rajchenbach-Teller
 **/
+
+import-plugin server
 
 /**
  * {1 About this module}

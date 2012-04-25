@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,7 +22,7 @@
  * @author Rudy Sicard
  * @author Mathieu Barbin
 **/
-
+import-plugin server
 import stdlib.core.{map,set}
 
 /**
@@ -152,7 +152,7 @@ JsIdent = {{
   **/
   // Local idents : [a-zA-Z][a-zA-Z0-9]*
   // Toplevel idents : _local-ident
-  rename = %%bslJsIdent.rename%% : JsAst.ident -> JsAst.ident
+  rename = %%BslJsIdent.rename%% : JsAst.ident -> JsAst.ident
 
   /**
    * We only rename variables that are defined in the code, by calling this bypass on each toplevel ident,
