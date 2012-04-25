@@ -118,8 +118,8 @@ let print_code ?(doeval=false) ?(eval=fun _ -> true) description buf code =
     | `static ->
         let str =
           (match cond with
-           | Set c -> Printf.sprintf "#<Ifstatic:%s>" c
-           | Test (_, c1, c2) -> Printf.sprintf "#<Ifstatic:%s %s>" c1 c2) in
+           | Set c -> Printf.sprintf "<Ifstatic:%s>" c
+           | Test (_, c1, c2) -> Printf.sprintf "<Ifstatic:%s %s>" c1 c2) in
         open_com ~comment;
         Buffer.add_string buf str;
         close_com ~comment;
@@ -135,9 +135,9 @@ let print_code ?(doeval=false) ?(eval=fun _ -> true) description buf code =
           let pptest =
             (match cond with
              | Set c ->
-                 Printf.sprintf "#<If:%s>" c;
+                 Printf.sprintf "<If:%s>" c;
              | Test (t, c1, c2) ->
-                 Printf.sprintf "#<If:%s$%s %s>" c1 t c2 ) in
+                 Printf.sprintf "<If:%s$%s %s>" c1 t c2 ) in
           open_com ~comment:!doeval;
           Buffer.add_string buf pptest;
           close_com ~comment:!doeval;
@@ -156,13 +156,13 @@ let print_code ?(doeval=false) ?(eval=fun _ -> true) description buf code =
      | Some else_ ->
          if (s = `dyn) then Buffer.add_string buf " else ";
          open_com ~comment:sv;
-         Buffer.add_string buf "#<Else>";
+         Buffer.add_string buf "<Else>";
          close_com ~comment:sv;
          print_lexpr ~block:(s = `dyn) ~comment else_;
      | None -> ());
     doeval := sv;
     open_com ~comment:!doeval;
-    Buffer.add_string buf "#<End>";
+    Buffer.add_string buf "<End>";
     close_com ~comment:!doeval;
     ()
   in
