@@ -681,6 +681,7 @@ type finalized_t = {
   f_ml_runtime_mli             : FBuffer.t ;
 
   f_js_code                    : (filename * contents * BslJsConf.conf) list ;
+  f_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
   f_opa_code                   : (filename * contents) list ;
   f_opa_interface              : (filename * contents) list ;
 
@@ -1066,6 +1067,7 @@ let finalize s =
     f_ml_dynloader_plugin ;
 
     f_js_code ;
+    f_nodejs_code ;
     f_js_keys ;
 
     f_ml_runtime ;
@@ -1138,6 +1140,11 @@ let out_code extract iterator finalized_t =
 let out_js_code i f =
   let fc (filename, contents, _) = filename, contents in
   let extract f = f.f_js_code in
+  out_code_factory fc extract i f
+
+let out_nodejs_code i f =
+  let fc (filename, contents, _) = filename, contents in
+  let extract f = f.f_nodejs_code in
   out_code_factory fc extract i f
 
 

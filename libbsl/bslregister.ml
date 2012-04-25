@@ -721,6 +721,9 @@ let iter_generated_files fct =
       | "js" ->
           fct (js_code f) ;
           ()
+      | "nodejs" ->
+          fct (js_code f) ;
+          ()
       | _ -> ()
   ) files ;
 
@@ -870,6 +873,7 @@ let files_generation ( finalized_t : BR.finalized_t ) =
   let iterator_opa_interface  = make_iterator opa_interface   in
 
   BR.out_js_code              iterator_js_code                finalized_t ;
+  BR.out_nodejs_code              iterator_js_code                finalized_t ;
   BR.out_opa_code             iterator_opa_code               finalized_t ;
   BR.out_opa_interface        iterator_opa_interface          finalized_t ;
 

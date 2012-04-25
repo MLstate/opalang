@@ -138,6 +138,7 @@ type 'a output_iterator = iterator -> 'a -> unit
    Opa compiler use plugins to get back the js code.
 *)
 val out_js_code              : finalized_t output_iterator
+val out_nodejs_code          : finalized_t output_iterator
 
 (**
    ML loader and plugin.
