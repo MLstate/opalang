@@ -388,8 +388,8 @@ end
 type environment =
     { informations : information IdentTable.t;
       call_graph : G.t;
-      client_language : BslLanguage.t;
-      server_language : BslLanguage.t; (* could have a debug mode where both sides are ml *)
+      client_bsl_lang : BslLanguage.t;
+      server_bsl_lang : BslLanguage.t; (* could have a debug mode where both sides are ml *)
       bymap : BslLib.BSL.ByPassMap.t;
       gamma : QmlTypes.gamma;
       annotmap : Q.annotmap;
@@ -400,8 +400,8 @@ let get_bypass_side env bslkey =
   | None -> assert false (* shouldn't have undefined bypass at that point *)
   | Some bypass ->
       let langs = BslLib.BSL.ByPass.langs bypass in
-      let impl_client = List.mem env.client_language langs in
-      let impl_server = List.mem env.server_language langs in
+      let impl_client = List.mem env.client_bsl_lang langs in
+      let impl_server = List.mem env.server_bsl_lang langs in
       match impl_server,impl_client with
       | true,true -> `both
       | false,true -> `client
@@ -416,11 +416,11 @@ let get_bypass_side env bslkey =
 (* TODO: annotation @assert_both etc? *)
 (* TODO: never insert_server_value of any datatype containing functions? *)
 
-let empty_env bymap typer_env =
+let empty_env ~client_bsl_lang ~server_bsl_lang bymap typer_env =
   { informations = IdentTable.create 100;
     call_graph = G.create ();
-    client_language = BslLanguage.js;
-    server_language = BslLanguage.ml;
+    client_bsl_lang ;
+    server_bsl_lang ;
     bymap = bymap;
     gamma = typer_env.QmlTypes.gamma;
     annotmap = typer_env.QmlTypes.annotmap;
@@ -1838,8 +1838,10 @@ struct
       )
 end
 
-let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma ~bymap ~code =
-  let env = empty_env bymap typer_env in
+let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma
+    ~client_bsl_lang ~server_bsl_lang ~bymap
+    ~code =
+  let env = empty_env ~client_bsl_lang ~server_bsl_lang bymap typer_env in
   let _chrono = Chrono.make () in
   #<If:SLICER_TIME> _chrono.Chrono.start () #<End>;
   R.load env;

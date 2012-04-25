@@ -132,7 +132,7 @@ struct
           fun (filename, content, _conf) -> Some (filename, content)
       in
       let fold acc loader =
-        List.rev_filter_map_append filter_bsl loader.BslPluginInterface.js_code acc
+        List.rev_filter_map_append filter_bsl loader.BslPluginInterface.nodejs_code acc
       in
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
@@ -251,6 +251,7 @@ sig
                 closure_map:Ident.t IdentMap.t ->
                 renaming_server:QmlRenamingMap.t ->
                 renaming_client:QmlRenamingMap.t ->
+                bsl_lang:BslLanguage.t ->
                 (module Qml2jsOptions.JsBackend) ->
                 Qml2jsOptions.t ->
                 BslLib.env_bsl ->
@@ -261,9 +262,9 @@ sig
 end
 =
 struct
-  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client back_end argv env_bsl env_typer code =
+  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client ~bsl_lang back_end argv env_bsl env_typer code =
     let module M = (val back_end : Qml2jsOptions.JsBackend) in
-    let env_js_input = M.compile ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client argv env_bsl env_typer code in
+    let env_js_input = M.compile ~val_ ?bsl:bsl_code ~closure_map ~renaming_server ~renaming_client ~bsl_lang argv env_bsl env_typer code in
     env_js_input
   let dummy_for_opa backend =
     let module M = (val backend : Qml2jsOptions.JsBackend) in

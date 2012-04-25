@@ -75,7 +75,7 @@ let is_it_void _env expr =
   aux expr
 
 let compile_bypass env key =
-  match Imp_Bsl.JsImpBSL.ByPassMap.find_opt_implementation env.E.private_bymap ~lang:BslLanguage.js key with
+  match Imp_Bsl.JsImpBSL.ByPassMap.find_opt_implementation env.E.private_bymap ~lang:env.E.bsl_lang key with
   | None ->
       OManager.error
         "bsl-resolution failed for: key %a" BslKey.pp key

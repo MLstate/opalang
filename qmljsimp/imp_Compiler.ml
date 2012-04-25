@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -26,7 +26,7 @@ module E = Imp_Env
 
 let warning_set = Imp_Warnings.warning_set
 
-let initial_env ~val_ ~renaming_server ~renaming_client options env_typer code =
+let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_typer code =
   let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
   let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~js_ctrans () in
   let gamma = env_typer.QmlTypes.gamma in
@@ -37,6 +37,7 @@ let initial_env ~val_ ~renaming_server ~renaming_client options env_typer code =
     annotmap;
     val_;
     private_bymap;
+    bsl_lang;
     renaming_client;
     renaming_server;
   } in
@@ -61,10 +62,10 @@ let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
       aux (i+1) a b in
   aux 0
 
-let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming_server ~renaming_client options _env_bsl env_typer code =
+let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming_server ~renaming_client ~bsl_lang options _env_bsl env_typer code =
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
-  let env, code = initial_env ~val_ ~renaming_server ~renaming_client options env_typer code in
+  let env, code = initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_typer code in
   let js_init = Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in
@@ -108,7 +109,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
               let lst = List.map (function (i, e) -> i, tra e) lst in
               let ine = QmlAst.Directive (label, `full_apply env, [ine], tys) in
               let ine = tra ine in
-              QmlAst.LetIn (inl, lst, ine)
+              tra (QmlAst.LetIn (inl, lst, ine))
           | QmlAst.Directive (_,(`lifted_lambda _ | `full_apply _),_,_) as expr ->
               OManager.i_error "Unexpected expression %a\n%!" QmlPrint.pp#expr expr
           | e -> tra e

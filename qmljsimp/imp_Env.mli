@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,6 +23,7 @@ type env = {
   annotmap : QmlAst.annotmap;
   val_ : string -> Ident.t;
   private_bymap : Imp_Bsl.JsImpBSL.ByPassMap.t;
+  bsl_lang : BslLanguage.t;
   renaming_client : QmlRenamingMap.t;
   renaming_server : QmlRenamingMap.t;
 }

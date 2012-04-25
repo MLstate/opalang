@@ -311,6 +311,7 @@ let full_serialize
       ~closure_map
       ~renaming_server
       ~renaming_client
+      ~bsl_lang:BslLanguage.js
       back_end
       jsoptions
       bsl_client

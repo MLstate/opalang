@@ -41,6 +41,8 @@ val process_code :
   dump:bool ->
   typer_env:QmlTyper.env ->
   stdlib_gamma:QmlTypes.gamma ->
+  client_bsl_lang:BslLanguage.t ->
+  server_bsl_lang:BslLanguage.t ->
   bymap:BslLib.BSL.ByPassMap.t ->
   code:QmlAst.code ->
   QmlTypes.gamma

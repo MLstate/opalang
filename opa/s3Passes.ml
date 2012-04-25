@@ -2175,24 +2175,28 @@ let pass_ServerJavascriptCompilation =
              inlining = options.OpaEnv.js_local_inlining;
              global_inlining = options.OpaEnv.js_global_inlining;
              no_assert = options.OpaEnv.no_assert;
+             compilation_directory = Option.get (ObjectFiles.get_compilation_directory ())
          } in
        let env_bsl = env.Passes.newFinalCompile_bsl in
-       let generated_files, generated_ast =
-         Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
+       let generated_ast = ([] : JsAst.code) in
+         (* Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in  *)
        let env_js_input = JsBackend.compile
          ~bsl: generated_ast
          ~val_:OpaMapToIdent.val_
          ~closure_map:env.Passes.newFinalCompile_closure_map
          ~renaming_server:env.Passes.newFinalCompile_renaming_server
          ~renaming_client:env.Passes.newFinalCompile_renaming_client
+         ~bsl_lang:BslLanguage.nodejs
          jsoptions
          env_bsl
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in let _env_js_output =
-         Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input
+         Qml2js.JsTreat.js_generation jsoptions []
+           { env_js_input with Qml2jsOptions.js_init_contents = [] }
        in
-       PH.make_env options 5
+
+       PH.make_env options 0
     )
 
 let pass_CleanUp =

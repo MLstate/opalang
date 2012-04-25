@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -94,6 +94,7 @@ module type JsBackend = sig
                 ?closure_map:Ident.t IdentMap.t ->
                 renaming_server:QmlRenamingMap.t ->
                 renaming_client:QmlRenamingMap.t ->
+                bsl_lang:BslLanguage.t ->
                 t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
   val name : string
   val runtime_libs : cps:bool -> (string * BslJsConf.conf) list

@@ -308,12 +308,19 @@ let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
       }
     }
   in
+  let client_bsl_lang = BslLanguage.js in
+  let server_bsl_lang = match options.OpaEnv.back_end with
+    | `qmlflat -> BslLanguage.ml
+    | `qmljs   -> BslLanguage.nodejs
+  in
   let stdlib_gamma, typer_env, client, server =
        QmlSimpleSlicer.process_code
       ~test_mode:options.OpaEnv.slicer_test
       ~dump:options.OpaEnv.slicer_dump
       ~stdlib_gamma:env.stdlib_gamma
       ~typer_env:env.typerEnv
+      ~client_bsl_lang
+      ~server_bsl_lang
       ~bymap:env.bsl.BslLib.bymap
       ~code:env.qmlAst in
 

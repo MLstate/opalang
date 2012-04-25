@@ -256,8 +256,8 @@ let process
     =
   (* Pass *)
   let plugins = options.O.bypass_plugin in
-  let back_end = options.O.back_end in
-  let js_back_end = options.O.js_back_end in
+  let server_back_end = options.O.back_end in
+  let client_back_end = options.O.js_back_end in
   let cwd = Sys.getcwd () in
   let search_path = cwd :: ObjectFiles.get_paths () in
 
@@ -439,23 +439,29 @@ let process
     It is actually possible to remove this
     by coding a table export in libbsl
   *)
-  let js_back_end_dynload =
-    let module M = (val js_back_end : Qml2jsOptions.JsBackend) in
-    M.dynloader in
-  let back_end_dynload =
-    match back_end with
-    | `qmlflat -> Flat_Compiler.dynloader
-    | `qmljs -> js_back_end_dynload
+  let client_back_end_dynload, client_bsl_lang =
+    let module M = (val client_back_end : Qml2jsOptions.JsBackend) in
+    (M.dynloader, BslLanguage.js) in
+  let server_back_end_dynload, server_bsl_lang =
+    match server_back_end with
+    | `qmlflat -> (Flat_Compiler.dynloader, BslLanguage.ml)
+    | `qmljs -> (client_back_end_dynload, BslLanguage.nodejs)
   in
   (* Register plug-ins with actual backend.*)
   List.iter
     (fun plugin ->
        (* ML back-end *)
-       back_end_dynload plugin ;
+       server_back_end_dynload plugin ;
        (* js back-end *)
-       js_back_end_dynload plugin ;
+       client_back_end_dynload plugin ;
     ) plugins;
-  let bymap = BslLib.BSL.RegisterTable.build_bypass_map () in (* Build public map.*)
+  (* Build bypass map *)
+  let bymap =
+    let lang = [client_bsl_lang; server_bsl_lang] in
+    BslLib.BSL.RegisterTable.build_bypass_map
+      ~filter:(fun bp -> BslLib.BSL.ByPass.implemented_in_any bp ~lang)
+      ()
+  in
   let bsl = { BslLib.bymap = bymap ; plugins = plugins } in
 
   (* Separated compilation: saving *)
