@@ -17,6 +17,9 @@
 *)
 module U = Unix
 
+##extern-type time_t = int
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+
 ##register mlstate_dir : void -> string
 let mlstate_dir () = Lazy.force File.mlstate_dir
 
@@ -127,7 +130,7 @@ let content_opt = File.content_opt
 let content_cps filename k =
   let fd = U.openfile filename [U.O_RDONLY; U.O_NONBLOCK] 0o600 in
   let size = (U.fstat fd).U.st_size in
-  let sched = BslNet.default_scheduler in
+  let sched = Scheduler.default in
   let addr = NetAddr.mk_file ~fd in
   let conn = Scheduler.make_connection sched addr in
   let finalize result =

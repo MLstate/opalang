@@ -1,1 +1,1 @@
-<unix.opa_plugin>: use_qmlflat
+<unix.opa_plugin>: use_libbase, use_opabsl, use_qmlflat, use_qmlcps, use_libruntime, use_appruntime

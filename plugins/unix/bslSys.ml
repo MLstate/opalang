@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -17,6 +17,12 @@
 *)
 module String = Base.String
 
+module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+
+##opa-type list('a)
+
+let caml_list_to_opa_list f l =
+  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
 
 (**
    This is used by opa servers or qml applications to have access
@@ -36,7 +42,8 @@ let get_argv () =
          (ServerArg.filter_functional (ServerArg.get_argv()) []
             (ServerArg.fold (fun acc -> ServerArg.wrap ServerArg.anystring (fun s -> s::acc)))))
   in
-  BslNativeLib.caml_list_to_opa_list Base.identity caml_list
+  caml_list_to_opa_list Base.identity caml_list
+
 
 ##register self_name : -> string
 let self_name () = Sys.argv.(0)
@@ -86,10 +93,6 @@ let do_exit = ServerLib.do_exit
 
 ##opa-type ip
 
-
-##register fork : -> int
-let fork = Unix.fork
-
 ##register gethostname : -> string
 let gethostname = Unix.gethostname
 
@@ -117,16 +120,12 @@ let gethostbyname host =
 (** returns all hosts entry in hosts order*)
 ##register gethostsbyname : string -> opa[list(ip)]
 let gethostsbyname host =
-  BslNativeLib.caml_list_to_opa_list Base.identity (
+  caml_list_to_opa_list Base.identity (
   try
     let ips = (Unix.gethostbyname host).Unix.h_addr_list in (* may raise Not_found *)
     Base.List.init (Array.length ips) (fun i-> opa_ip ips.(i))
   with
   | Not_found | Failure _ | Invalid_argument _ -> [])
-
-
-##register finalise : ('a -> void), 'a -> void
-let finalise f v = Gc.finalise f v
 
 (** Get the current process memory usage.
     @return the memory usage in bytes *)
