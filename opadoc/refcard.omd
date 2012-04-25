@@ -712,7 +712,7 @@ This module allows one to declare Servers, i.e. entry-points of Opa programs. On
      /* Configurations (1st argument of Server.start) */
     Server.http  // default HTTP config (on port 8080)
     Server.https // default HTTPS config (on port 8080)
-    {port: 80, netmask=0.0.0.0, encryption: {no_encryption}, name="my server"} // custom server
+    {port: 80, netmask:0.0.0.0, encryption: {no_encryption}, name:"my server"} // custom server
 
      /* Handlers (2nd argument of Server.start) */
     function mypage() {
