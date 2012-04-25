@@ -837,11 +837,11 @@ let files_of_package pkg =
     let files = List.sort String.compare files in
     files in
 
-let make_all_packages = stdlib_packages_dir/"all_packages.sh" in
+let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/"node.todo" ]in
 let all_packages_file = stdlib_packages_dir/"all.packages" in
 
 rule "all.packages"
-  ~dep: make_all_packages
+  ~deps: make_all_packages
   ~prod: all_packages_file
   (fun env build ->
      Cmd(S[

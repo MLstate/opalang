@@ -3,7 +3,7 @@
 
 DIRS=$(find . -type d | sed "s/.\///")
 
-: ${PACKAGE_FILTER:=cat}
+: ${PACKAGE_FILTER:=grep -E -v -f node.todo}
 
 PACKAGES=''
 for dir in $DIRS ; do

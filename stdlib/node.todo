@@ -1,0 +1,13 @@
+stdlib.core.web*
+stdlib.core.funaction
+stdlib.core.xhtml
+stdlib.core.xmlm
+stdlib.core.rpc*
+stdlib.core.i18n
+stdlib.core.fresh
+stdlib.core.security
+stdlib.core.qos
+stdlib.core.js
+stdlib.core.args
+stdlib.apis*
+stdlib.database*
