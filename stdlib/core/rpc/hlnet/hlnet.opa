@@ -43,19 +43,19 @@ import stdlib.core.{web.core, security.ssl}
  */
 
 type endpoint = external
-type bslhlnet_channel('out, 'in) = external
-type bslhlnet_channel_spec('out,'in) = external
+@abstract type hlnet_channel('out, 'in) = external
+@abstract type hlnet_channel_spec('out,'in) = external
 
 /** The abstract type of channels where we send values of type ['out]
     and receive values of type ['in].
     This type actually only describes the local half of a channel:
     on the other side of the connection, the same channel will be
     seen as an [Hlnet.channel('in,'out)] */
-type Hlnet.channel('out,'in) = bslhlnet_channel('out,'in)
+type Hlnet.channel('out,'in) = hlnet_channel('out,'in)
 
 /** Type of what should be provided to define a safe ('out,'in) channel
     (includes a service name, serialization and deserialization functions */
-type Hlnet.channel_spec('out,'in) = bslhlnet_channel_spec('out,'in)
+type Hlnet.channel_spec('out,'in) = hlnet_channel_spec('out,'in)
 
 /** An [endpoint] is one end of a channel. It may be local or remote. */
 type Hlnet.endpoint = endpoint

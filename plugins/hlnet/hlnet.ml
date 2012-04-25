@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,13 +23,25 @@ module C = QmlCpsServerLib
 open C.Ops
 
 let (@@) a b = fun x -> a (b x)
-let scheduler = BslScheduler.opa
+let scheduler = Scheduler.default
+module BslUtils = OpabslgenMLRuntime.BslUtils
 
+##opa-type outcome('a, 'b)
+
+##property [mli]
+##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##extern-type SSL.secure_type = SslAS.secure_type
 ##extern-type endpoint = Hlnet.endpoint
+##property [endmli]
+
 ##extern-type [normalize] channel('o, 'i) = ('o, 'i) Hlnet.channel
 ##extern-type [normalize] channel_spec('o, 'i) = ('o, 'i) Hlnet.channel_spec
 
 ##opa-type Hlnet.error
+
+(** TODO - Remove this hack we need plugins depends*)
+let create_outcome outcome k =
+  QmlCpsServerLib.return k (wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
 
 
 (** Projection of ocaml exn raised by hlnet to an opa record
@@ -116,8 +128,8 @@ let sendreceive chan opack k =
 ##register[cps-bypass] sendreceiverr: channel('o, 'i), 'o, continuation(outcome('i, Hlnet.error)) -> void
 let sendreceiverr chan opack k =
   Hlnet.sendreceive' chan opack
-    (fun e -> BslUtils.create_outcome (`failure (hlnetexn_ml_to_opa e)) |> k)
-    (fun r -> BslUtils.create_outcome (`success r) |> k)
+    (fun e -> create_outcome (`failure (hlnetexn_ml_to_opa e)) k)
+    (fun r -> create_outcome (`success r) k)
 
 ##register async_receive: channel('o, 'i), ('i -> void) -> void
 let async_receive chan handler =
