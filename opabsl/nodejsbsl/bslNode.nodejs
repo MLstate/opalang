@@ -1,0 +1,5 @@
+##register dummy_for_test : int -> int
+##args(i)
+{
+        return i + 1;
+}

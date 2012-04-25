@@ -1,0 +1,19 @@
+# -*- conf -*-
+
+bslSyslog.nodejs
+bslPervasives.nodejs
+bslString.nodejs
+bslCactutf.nodejs
+bslNumber.nodejs
+bslTime.nodejs
+bslReference.nodejs
+bslBuffer.nodejs
+bslNode.nodejs
+bslCps.nodejs
+bslClosure.nodejs
+lowLevelArray.nodejs
+bslValue.nodejs
+
+# Server specific bypass
+bslTimeServer.nodejs
+bslPervasivesServer.nodejs
