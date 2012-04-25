@@ -9,7 +9,6 @@ bslBuffer.ml
 bslCactutf.ml
 bslClosure.ml
 bslCps.ml
-bslMail.ml
 bslNumber.ml
 bslMongo.ml
 bslReference.ml
