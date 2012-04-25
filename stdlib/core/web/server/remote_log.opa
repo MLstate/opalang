@@ -49,8 +49,8 @@ RemoteLog = {{
     match get_remote_logs_params() with
     | {none} -> {none}
     | {some=(hostname,port,appkey)} ->
-     cookie = match ThreadContext.get({current}).key with
-     | {client = {~client ...}} -> "&cookie={client}"
+     cookie = match HttpRequest.get_cookie() with
+     | {some=cookie} -> "&cookie={cookie}"
      | _ -> ""
      some("http://{hostname}:{port}/?appkey={appkey}{cookie}")
 
