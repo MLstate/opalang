@@ -31,18 +31,3 @@ let debug       topic x = Logger.debug     "%s %s" topic (DebugPrint.simple_prin
 let emergency   topic x = Logger.emergency "%s %s" topic x
 let alert       topic x = Logger.alert     "%s %s" topic x
 let critical    topic x = Logger.critical  "%s %s" topic x
-
-(**
-   int is in microseconds
-   event are log in event.log
-   [event time src properties json_content]
-*)
-##register event: int,string,string,string -> void
-let event =
-  let logger =
-    let file = Logger.make_rotating_destination ~days:1 "event" in
-    let dest = Logger.empty_logger () in
-    let _ = Logger.add_destination dest file in
-    dest
-  in
-  fun time src properties content -> Logger.log_access ~logger ~priority:Logger.Emergency "%d %s %s %s" time src properties content (* time display desactivated *)

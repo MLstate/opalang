@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -28,18 +28,6 @@
 
    ##register now : -> time_t
    let now () = unwrap (Time.now ())
-
-   ##register process_utime : -> time_t
-   let process_utime () = unwrap (Time.process_utime ())
-
-   ##register process_stime : -> time_t
-   let process_stime () = unwrap (Time.process_stime ())
-
-   ##register process_cutime : -> time_t
-   let process_cutime () = unwrap (Time.process_cutime ())
-
-   ##register process_cstime : -> time_t
-   let process_cstime () = unwrap (Time.process_cstime ())
 
    ##register gmt_msec : time_t -> int
    let gmt_msec t = Time.gmt_msec (wrap t)

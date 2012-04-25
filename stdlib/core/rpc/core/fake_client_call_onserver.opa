@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,4 +18,4 @@
 
 /* a server side function that takes any number of arguments and does nothing
  * used by the pass discarding remote calls client -> server (should be temporary) */
-@opacapi never_do_anything = %% Bslpervasives.never_do_anything %% : _ -> _
+@opacapi never_do_anything = Magic.id

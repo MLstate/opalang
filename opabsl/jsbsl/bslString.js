@@ -153,10 +153,16 @@
   }
 
 ##register of_byte_unsafe : int -> string
-  ##args(i)
-  {
-    return String.fromCharCode(i);
-  }
+##args(i)
+{
+  return String.fromCharCode(i);
+}
+
+##register of_byte_val : int -> string
+##args(i)
+{
+    return %% BslString.of_byte_unsafe %%(i)
+}
 
 ##register byte_at_unsafe : int, string -> int
   ##args(n, s)
@@ -220,10 +226,11 @@ function string_decode(str){ return unescape(str); }
 ##register ordering: string,string -> opa[Order.ordering]
 ##args(c1,c2)
 {
-    if(c1<c2) return %%BslPervasives.order_lt%%
-    if(c1==c2) return %%BslPervasives.order_eq%%
-    return %%BslPervasives.order_gt%%
+    if(c1<c2) return result_lt
+    if(c1==c2) return result_eq
+    return result_gt
 }
 
 ##register encode_uri_component\ encodeURIComponent: string -> string
+##register decode_uri_component\ decodeURIComponent: string -> string
 

@@ -97,7 +97,10 @@ function toplevel_wait(barrier){
 ##register [opacapi, no-projection, restricted : cps] black_toplevel_wait \ toplevel_wait : black_future -> 'a
 
 
-
+//////////////////////////////////////////////////
+// EXCEPTION /////////////////////////////////////
+//////////////////////////////////////////////////
+##register [opacapi, no-projection, restricted : cps] handler_cont \ `QmlCpsLib_handler_cont` : continuation('a) -> continuation('c)
 
 
 
@@ -106,27 +109,8 @@ function toplevel_wait(barrier){
 **/
 ##register [no-projection : cps, restricted : cps] spawn \ spawn : (_unit, continuation('a) -> _unit) -> Cps.future('a)
 
-/**
- * A bogus empty continuation,used by [uncps_directive]
- */
-var empty_continuation = new Continuation(function() {return js_void});
+##register [opacapi, no-projection : cps, restricted : cps] callcc_directive \ `QmlCpsLib_callcc_directive` : (continuation('a), _unit_continuation -> _unit), continuation('a) -> _unit
 
-/**
- * @param f A function with OPA type [continuation('a) -> void],
- * converted by CPS into [('a -> unit continuation -> unit) -> unit continuation -> unit)]
- * @param {{apply1}} k A [continuation('a)], which must be called by [f] to return any result
- *
- * This implementation mirrors [QmlCpsServerLib.uncps_directive]
- */
-##register [no-projection : cps, restricted : cps] uncps_directive : (('a, _unit_continuation -> _unit), _unit_continuation -> _unit), continuation('a) -> _unit
-##args(f, k)
-{
-    var g = function(a, k2) {
-        k.apply1(a);
-        k2.apply1();
-    };
-    return f(g, empty_continuation)//[empty_continuation] is defined in [qmlCpsClientLib.js]
-}
 
 /**
  * Thread_context does not really makes sens on the client side.
@@ -167,7 +151,6 @@ function ccont(b, f){
 }
 
 ##register [no-projection, restricted : cps] return \ return_ : continuation('a), 'a -> void
-##register [no-projection : cps, restricted : cps] apply\ cps_apply : ('a, continuation('c) -> _unit), 'a, continuation('c) -> _unit
 
 
 
@@ -183,8 +166,6 @@ function ccont(b, f){
 /**
  * Defined in [qmlCpsClientLib.js]
 **/
-##register [no-projection, restricted : cps] blocking_wait \ blocking_wait : Cps.future('a) -> 'a
-##register [no-projection, restricted : cps] black_blocking_wait \ blocking_wait : black_future -> 'a
 ##register [no-projection, restricted : cps] loop_schedule \ loop_schedule : opa['d] -> void
 
 
@@ -251,25 +232,12 @@ if (command_line_execution) {
     return b;
   }
 
-##register uncps_directive : (('a -> void) -> void) -> 'a
-  ##args(f)
-  {
-    var cheat = null;
-    f( function(x){ cheat = x} );
-    return cheat;
-  }
 ##endmodule
 
 
 var _directive_thread_context_ = %%BslCps.Notcps_compatibility.thread_context%%;
 var _directive_with_thread_context_ = function(context, expression){
     return expression
-}
-
-##register [no-projection : cps, restricted : cps] callcc_directive : (continuation('a), _unit_continuation -> _unit), continuation('a) -> _unit
-##args(f, k)
-{
-  return f(k, empty_continuation);
 }
 
 ##register print_trace : continuation(_) -> void

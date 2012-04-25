@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -60,10 +60,4 @@ LLBuffer.prototype = {
     var result   = contents.join("");
     buf.contents = [result];//Cache result
     return result;
-}
-
-##register is_empty: Buffer_private.buffer -> bool
-##args(buf)
-{
-    return buf.length == 0;
 }

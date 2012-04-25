@@ -31,8 +31,6 @@
   let replace search replacement source =
     BaseString.replace source search replacement
 
-##register strip_quotes \ `BaseString.strip_quotes` : string -> string
-
 ##register index : string, string -> option(int)
   let index pattern source =
     let lp = String.length pattern in

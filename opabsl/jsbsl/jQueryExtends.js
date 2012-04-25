@@ -508,9 +508,9 @@ function opa_event_to_dom_event(event, name)
     if(value_change != null)
     {
         var change = option2js(value_change);
-        if (change != null && change.from && change.to) {
+        if (change != null && change.from && change["to"]) {
             result.prevVal = change.from;
-            result.newVal  = change.to;
+            result.newVal  = change["to"];
         }
     }
 

@@ -45,7 +45,7 @@ error(s) = @fail(s) :'a
 /**
  * Print a warning and continue.
  */
-warning = %% Bslpervasives.warning %%
+    warning = Syslog.warning("Debug", _)
 
 /**
  * Print a message and continue.
@@ -96,7 +96,7 @@ alert(s)=warning(s)
 /**
  * Flush all outputs.
  */
-flush_all = %% Bslpervasives.flush_all %%
+flush_all = %% BslPervasivesServer.flush_all %%
 
 /**
  * Deprecated

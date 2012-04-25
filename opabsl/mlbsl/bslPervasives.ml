@@ -106,24 +106,6 @@ let areSameObject x y = Obj.magic x == Obj.magic y
 ##register int_cmp_gneq  \ `(Pervasives.(>)  : int -> int -> bool)` : int, int -> bool
 ##register int_cmp_geq   \ `(Pervasives.(>=) : int -> int -> bool)` : int, int -> bool
 
-##register stop: -> 'a
-let stop () =
-  Logger.warning "BslSyslog.stop has been called :  shutting down application ...";
-  ServerLib.do_exit 1
-
-
-
-
-
-(* this function is used by the pass that discard slicer directives *)
-##register never_do_anything : 'a -> 'b
-(* could take a string and display it so that we can see if something goes wrong *)
-let rec never_do_anything _ = Obj.magic never_do_anything
-
-##register warning : string -> void
-let warning s =
-  sync_to_print_on stderr;
-  Logger.warning "%s" s
 
 ##register jlog : string -> void
 let jlog s =
@@ -190,14 +172,6 @@ let prerr_endline s = sync_to_print_on stdout ; Pervasives.prerr_endline s
 
 ##register print_int : int -> void
 let print_int i = print_string (string_of_int i)
-
-##register flush_stdout : -> void
-let flush_stdout () = Pervasives.flush stdout
-
-##register flush_all : -> void
-let flush_all () = Pervasives.flush_all ()
-
-
 
 ##extern-type black = unit
 

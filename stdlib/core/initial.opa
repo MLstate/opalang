@@ -313,7 +313,7 @@ error(s) = @fail(s)
 /**
  * Print a warning.
  */
-warning = Debug.warning
+warning = Syslog.warning("", _)
 
 /**
  * Print a message and continue.

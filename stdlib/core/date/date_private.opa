@@ -48,16 +48,16 @@ import stdlib.core.parser
     date_out(%%BslTime.now%% : -> time_t)
 
   time_process_utime() : Date.date =
-    date_out(%%BslTime.process_utime%% : -> time_t)
+    date_out(%%BslTimeServer.process_utime%% : -> time_t)
 
   time_process_stime() : Date.date =
-    date_out(%%BslTime.process_stime%% : -> time_t)
+    date_out(%%BslTimeServer.process_stime%% : -> time_t)
 
   time_process_cutime() : Date.date =
-    date_out(%%BslTime.process_cutime%% : -> time_t)
+    date_out(%%BslTimeServer.process_cutime%% : -> time_t)
 
   time_process_cstime() : Date.date =
-    date_out(%%BslTime.process_cstime%% : -> time_t)
+    date_out(%%BslTimeServer.process_cstime%% : -> time_t)
 
   // -------------------------------------------------------
 

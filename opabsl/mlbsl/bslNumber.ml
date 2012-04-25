@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -233,15 +233,6 @@ let comparison (a:float) (b:float) =
 
 ##register atan : float -> float
   let atan = Pervasives.atan
-
-##register sinh : float -> float
-  let sinh = Pervasives.sinh
-
-##register cosh : float -> float
-  let cosh = Pervasives.cosh
-
-##register tanh : float -> float
-  let tanh = Pervasives.tanh
 
   (* keep the coerse `x : float', otherwise isNaN(0.0 /. 0.0) is false *)
 ##register isNaN : float -> bool

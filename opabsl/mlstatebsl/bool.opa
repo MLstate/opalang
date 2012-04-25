@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -24,7 +24,6 @@ True = {true} : bool
 False = {false} : bool
 
 bool =
-  ##include functions bool
   make =
     _true = {true} : bool
     _false = {false} : bool
@@ -38,7 +37,6 @@ bool =
         end
     { string = string }
   {
-    ##include bind bool
-    to = to; 
-    make = make 
+    to = to;
+    make = make
   }

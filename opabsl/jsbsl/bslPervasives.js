@@ -71,84 +71,8 @@ var op_rem = function (l, r) {
 ##register float_neg \ op_neg : float -> float
 var op_neg = function (n) { return -n; };
 
-##register abs \ `Math.abs` : int -> int
-
-/**
- * {1 Numeric conversions}
- */
-
-##register float_of_int : int -> float
-##args(x)
-{
-    return x;
-}
-
-##register int_of_float: float -> int
-##args(x)
-{
-    return x;
-}
-
-
-/**
- * {1 Logical operations}
- */
-
-##register bool_and : bool, bool -> bool
-##args(l, r)
-{ return l && r; };
-
-##register bool_or : bool, bool -> bool
-##args(l, r)
-{ return l || r; };
-
 ##register int_of_first_char \ int_of_char : string -> int
 function int_of_char(c){ return c.charCodeAt(0); }
-
-##register int_of_string: string -> option(int)
-##args(s)
-{
-    try {
-        return js_some(parseInt(s, 0));
-    } catch(e) {
-        return js_none
-    }
-}
-
-##register bool_of_string : string -> option(bool)
-##args(a)
-{
-    if (a == "true")
-        return js_some(true);
-    else if (a == "false")
-        return js_some(false);
-    else
-        return js_none;
-}
-
-##register string_of_bool : bool -> string
-##args(a)
-{ if(a) { return "true"; } else {return "false"; }}
-
-##register float_of_string : string -> option(float)
-##args(a)
-{
-    return ( "" + (a + 0) == a ) ? ( js_some(a+0) ) : js_none ;
-}
-
-##register string_of_int \ string_of_num: int -> string
-function string_of_num(a){ return ""+a; }
-
-##register string_of_float \ string_of_float : float -> string
-function string_of_float(v)  {
-      var str = ""+v;
-    if (str.indexOf('.') >= 0 || str.indexOf('e') >= 0 || str[0] == 'N' || str[0] == 'I' || str[1] == 'I') {
-          return str; //Printing corresponds to server-side printing
-      } else {
-          return str + ".0";//Printing needs to be adjusted
-      }
-  }
-
 
 /**
  * Physical equality between JS objects
@@ -382,6 +306,7 @@ if(typeof window != "object" || command_line_execution)//If we're not in a brows
 ##register prerr_endline  \ prerr_endline : string -> void
 
 ##register print_string \ js_print : string -> void
+##register prerr_string \ js_print : string -> void
 ##register print_int    \ js_print : int -> void
 
 ##register dump\ dump_value : 'a -> string
@@ -414,17 +339,6 @@ var dump_value = function (x) {
 
 ##opa-type Order.comparison
 ##opa-type Order.ordering
-
-//Used in bslString.js
-##register order_lt     \ result_lt  : Order.ordering
-##register order_eq     \ result_eq  : Order.ordering
-##register order_gt     \ result_gt  : Order.ordering
-
-// Used in bslNumber.js
-##register compare_lt   \ result_lt  : Order.comparison
-##register compare_eq   \ result_eq  : Order.comparison
-##register compare_gt   \ result_gt  : Order.comparison
-##register compare_neq  \ result_neq : Order.comparison
 
 var result_lt  = make_simple_record("lt")
 var result_eq  = make_simple_record("eq")

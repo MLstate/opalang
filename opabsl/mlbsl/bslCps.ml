@@ -28,6 +28,8 @@
    by bringing the code there.
 *)
 
+let scheduler = Scheduler.default
+
 (**
    Runtime debug output. Based on {b MLSTATE_CPS_DEBUG}.
    @see 'debugVariables.ml' for details
@@ -90,7 +92,7 @@ let toplevel_wait b =
   #<If:CPS_BLOCKING_WAIT>
     Format.eprintf "LOOP-UNTIL: %a\n%!" QmlCpsServerLib.print_barrier b;
   #<End>;
-  let () = Scheduler.loop_until BslScheduler.opa is_released in
+  let () = Scheduler.loop_until scheduler is_released in
   QmlCpsServerLib.toplevel_wait b
 
 ##register [opacapi, no-projection, restricted : cps] black_toplevel_wait : black_future -> 'a
@@ -123,14 +125,14 @@ let user_cont f = QmlCpsServerLib.cont_ml (fun a -> ignore (f a))
 ##register print_trace \ `QmlCpsServerLib.print_trace` : continuation('a) -> void
 
 ##register [no-projection, restricted : cps] loop_schedule : opa['a] -> void
-let loop_schedule _ = Scheduler.run BslScheduler.opa
+let loop_schedule _ = Scheduler.run scheduler
 
 (** Notcps_compatibility : add a dummy implementation for some primitive,
     so that the same (qml/opa) code using cps features can be compiled
     using them, without changing its semantic without --cps mode *)
 
 ##module Notcps_compatibility
-  let fatal_error = fun s -> Logger.critical "%s" s; BslSys.do_exit 1
+  let fatal_error = fun s -> Logger.critical "%s" s; ServerLib.do_exit 1
 
   ##register [opacapi, no-projection, restricted : cps] dummy_cont : continuation(void)
   let dummy_cont = QmlCpsServerLib.cont_ml (fun x -> x)
@@ -148,23 +150,5 @@ let loop_schedule _ = Scheduler.run BslScheduler.opa
     QmlCpsServerLib.uncps_ml "CheatedCALLCC"
       (QmlCpsServerLib.cont_ml (fun () -> ()))
       f
-
-  ##register [opacapi] cps0_native : (-> 'b) -> (continuation('b) -> void)
-  let cps0_native f = (fun k -> QmlCpsServerLib.return k (f ()))
-
-  ##register [opacapi] cps1_native : ('a -> 'b) -> ('a, continuation('b) -> void)
-  let cps1_native f = (fun x k -> QmlCpsServerLib.return k (f x))
-
-  ##register [opacapi] cps2_native : ('a, 'b -> 'c) -> ('a, 'b, continuation('c) -> void)
-  let cps2_native f = (fun x0 x1 k -> QmlCpsServerLib.return k (f x0 x1))
-
-  ##register [opacapi]cps3_native : ('a, 'b, 'c -> 'd) -> ('a, 'b, 'c, continuation('d) -> void)
-  let cps3_native f = (fun x0 x1 x2 k -> QmlCpsServerLib.return k (f x0 x1 x2))
-
-  ##register [opacapi] cps4_native : ('a, 'b, 'c, 'd -> 'e) -> ('a, 'b, 'c, 'd, continuation('e) -> void)
-  let cps4_native f = (fun x0 x1 x2 x3 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3))
-
-  ##register [opacapi] cps5_native : ('a, 'b, 'c, 'd, 'e -> 'f) -> ('a, 'b, 'c, 'd, 'e, continuation('f) -> void)
-  let cps5_native f = (fun x0 x1 x2 x3 x4 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3 x4))
 
 ##endmodule

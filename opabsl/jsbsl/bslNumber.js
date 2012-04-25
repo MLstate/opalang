@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -39,6 +39,16 @@
           }
       }
   }
+
+##register of_string_opt : string -> option(int)
+    ##args(str)
+{
+    try {
+        js_some(%%BslNumber.Int.of_string%%(str))
+    } catch(e) {
+        return js_none;
+    }
+}
 
 ##register of_float : float -> int
   ##args(a)
@@ -106,9 +116,9 @@
 ##register ordering: int,int -> opa[Order.ordering]
 ##args(c1,c2)
 {
-    if(c1<c2) return %%BslPervasives.order_lt%%
-    if(c1==c2) return %%BslPervasives.order_eq%%
-    return %%BslPervasives.order_gt%%
+    if(c1<c2) return result_lt
+    if(c1==c2) return result_eq
+    return result_gt
 }
 
 
@@ -128,13 +138,28 @@
     return parseFloat(v)
   }
 
+##register of_string_opt : string -> option(float)
+    ##args(str)
+{
+    try {
+        js_some(%%BslNumber.Float.of_string%%(str))
+    } catch(e) {
+        return js_none;
+    }
+}
+
   // transforms the string so that it is compatible with the mlbsl
   // (see the comment there)
 ##register to_string : float -> string
   ##args(v)
-  {
-      return string_of_float(v)
-  }
+{
+    var str = ""+v;
+    if (str.indexOf('.') >= 0 || str.indexOf('e') >= 0 || str[0] == 'N' || str[0] == 'I' || str[1] == 'I') {
+        return str; //Printing corresponds to server-side printing
+    } else {
+        return str + ".0";//Printing needs to be adjusted
+    }
+}
 
   // should also be compatible with mlbsl
 ##register to_formatted_string : bool, option(int), float -> string
@@ -207,10 +232,10 @@
 ##register comparison: float,float -> opa[Order.comparison]
 ##args(c1,c2)
 {
-    if(isNaN(c1) || isNaN(c2)) return %%BslPervasives.compare_neq%%
-    if(c1<c2) return %%BslPervasives.compare_lt%%
-    if(c1==c2) return %%BslPervasives.compare_eq%%
-    return %%BslPervasives.compare_gt%%
+    if(isNaN(c1) || isNaN(c2)) return result_neq
+    if(c1<c2) return result_lt
+    if(c1==c2) return result_eq
+    return result_gt
 }
 
 ##endmodule

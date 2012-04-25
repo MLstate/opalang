@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -43,12 +43,6 @@
    i=i-1
    for (;i>=0;i--){res[i]=v}
    return res
-}
-
-##register fast_create : int -> llarray('a)
-##args(i)
-{
-   return (new Array(i))
 }
 
 ##register concat : llarray('a), llarray('a) -> llarray('a)

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -49,6 +49,7 @@
 ##args(r, v)
 {
    r[0] = v;
+   return js_void;
 }
 
 /**

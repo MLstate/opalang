@@ -9,6 +9,8 @@ PACKAGES=''
 for dir in $DIRS ; do
     files=$(find $dir -maxdepth 1 -name '*.opa')
     if [ -n "$files" ] ; then
-        ./extract-import-plugin.sh $files
+        for i in $files; do
+            ./extract-import-plugin.sh $i
+        done
     fi
 done | sort -u | $PACKAGE_FILTER
