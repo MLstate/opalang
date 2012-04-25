@@ -143,6 +143,8 @@ type session = {
 
   s_options                    : BI.options ;
 
+  s_pprocess                   : string -> string -> string ;
+
   s_depends                    : depends ;
   s_identification             : identification ;
 
@@ -317,6 +319,7 @@ let check_session session =
 let create ~options =
   let s_options                      = options in
 
+  let s_pprocess                     = fun _ content -> content in
   let s_depends                      = create_s_depends          options in
   let s_identification               = create_s_identification   options in
 
@@ -349,6 +352,8 @@ let create ~options =
 
   let session = {
     s_options ;
+
+    s_pprocess ;
 
     s_depends ;
     s_identification ;
@@ -384,6 +389,9 @@ let create ~options =
   in
 
   check_session session
+
+let set_pprocess ~pprocess session =
+  { session  with s_pprocess = pprocess }
 
 
 (*
@@ -1294,7 +1302,7 @@ let parse_line_factory process_directive set_last_directive options parser_rule 
 *)
 let warning_size = 160
 
-let parse_file_factory process_directive set_last_directive options parser_rule filename =
+let parse_file_factory pprocess process_directive set_last_directive options parser_rule filename =
   let do_check_style = options.BI.check_style in
   let parse_multiline = parse_line_factory process_directive set_last_directive options parser_rule do_check_style in
   let aux (parsed_lines, multiline) line line_number =
@@ -1346,8 +1354,20 @@ let parse_file_factory process_directive set_last_directive options parser_rule 
         )
    in
   cache_file filename ;
-  BRState.init_file ~filename ;
-  let parsed_lines, multiline = File.lines_foldi aux ([], None) filename in
+  BRState.init_file ~filename;
+  let content = File.content filename in
+  let content = pprocess filename content in
+  let lines_foldi f acc content =
+    let lines = String.slice '\n' content in
+    let rec aux nr acc lines =
+      match lines with
+      | line::tail -> aux (nr + 1) (f acc line nr) tail
+      | [] -> acc
+    in
+    let acc = aux 1 acc lines in
+    acc
+  in
+  let parsed_lines, multiline = lines_foldi aux ([], None) content in
   if Option.is_some multiline
   then BRState.error "@[<2>Syntax error@\nunfinished multiline directive@]@\n"
   ;
@@ -1402,24 +1422,24 @@ let bypass_process_directive pos tags directive =
       BDir.Directive (pos, tags, directive)
 
 
-let parse_opa_file options f =
+let parse_opa_file pprocess options f =
   (* used only in bypass files *)
   let set_last_directive _ = () in
   let process_directive pos tags directive =
     let tags = BslTags.parse ~pos tags in
     BDir.Directive (pos, tags, directive)
   in
-  let parsed = parse_file_factory process_directive set_last_directive options
+  let parsed = parse_file_factory pprocess process_directive set_last_directive options
     BRParse.parse_bslregisterparser_opalang f in
   ( parsed : BslDirectives.opalang_decorated_file )
 
 
 
 
-let parse_bypass_file options f =
+let parse_bypass_file pprocess options f =
   let set_last_directive d = BRState.set_last_directive d in
   let process_directive = bypass_process_directive in
-  let parsed = parse_file_factory process_directive set_last_directive options
+  let parsed = parse_file_factory pprocess process_directive set_last_directive options
     BRParse.parse_bslregisterparser_bypasslang f in
   ( parsed : BslDirectives.bypasslang_decorated_file )
 
@@ -1444,7 +1464,7 @@ let preprocess_file session filename =
   let ext = File.extension basename in
   match ext with
   | "opa" ->
-      let decorated_file = parse_opa_file session.s_options filename in
+      let decorated_file = parse_opa_file session.s_pprocess session.s_options filename in
       let s_rev_opa_decorated_files =
         decorated_file :: session.s_rev_opa_decorated_files in
 
@@ -1456,7 +1476,7 @@ let preprocess_file session filename =
 
   | "ml" ->
       check_ml_filename basename ;
-      let parsed_file = parse_bypass_file session.s_options filename in
+      let parsed_file = parse_bypass_file session.s_pprocess session.s_options filename in
       let s_rev_ml_parsed_files =
         parsed_file :: session.s_rev_ml_parsed_files in
 
@@ -1468,7 +1488,7 @@ let preprocess_file session filename =
 
 
   | "js" ->
-      let parsed_file = parse_bypass_file session.s_options filename in
+      let parsed_file = parse_bypass_file session.s_pprocess session.s_options filename in
       let s_rev_js_parsed_files =
         parsed_file :: session.s_rev_js_parsed_files in
 
@@ -1479,7 +1499,7 @@ let preprocess_file session filename =
       session
 
   | "nodejs" ->
-      let parsed_file = parse_bypass_file session.s_options filename in
+      let parsed_file = parse_bypass_file session.s_pprocess session.s_options filename in
       let s_rev_nodejs_parsed_files =
         parsed_file :: session.s_rev_nodejs_parsed_files in
 

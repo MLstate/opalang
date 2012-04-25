@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -78,6 +78,9 @@ type session
 
 (** Building a new [session] for registering files *)
 val create : options:BslInterface.options -> session
+
+(** Set the session preprocessor *)
+val set_pprocess : pprocess:(FilePos.filename -> string -> string) -> session -> session
 
 (**
    Preprocessing on all languages, the extension tells what to do.

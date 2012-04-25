@@ -308,6 +308,11 @@ let js_validator_add_option o =
 let ml_flags = MutableList.create ()
 let mlopt_flags = MutableList.create ()
 
+(* p *)
+
+let pprocess = ref None
+let spec_process = Hashtbl.create 5
+
 
 (* r *)
 
@@ -456,6 +461,20 @@ let spec = [
   Arg.String plugin_inclusion,
   !>
     "<opp> Take the following argument as an opa plugin (opp)" ;
+
+  "--pp",
+  Arg.String (fun s -> pprocess := Some s),
+  !>
+    "<command> Pipe sources through preprocessor <command>";
+
+  "--pp-file",
+  Arg.String (fun s ->
+                match BaseString.split_char ':' s with
+                | (_, "") -> raise (Arg.Help "--pp-file")
+                | (file, pprocess) -> Hashtbl.add spec_process file pprocess
+             ),
+  !>
+    "<file>:<command> Pipe file through preprocessor <command>";
 
 
   (* u *)
@@ -907,6 +926,37 @@ let _ =
       let options = bslregister_options () in
       check_options options ;
       BR.create ~options
+    in
+    let session =
+      let pprocess filename content =
+        match
+          try
+            Some (Hashtbl.find spec_process filename)
+          with Not_found -> !pprocess
+        with None -> content
+        | Some command ->
+            try
+              let ic, oc = Unix.open_process command in
+              output_string oc content;
+              flush oc;
+              close_out oc;
+              let rec aux lines =
+                try
+                  let line = input_line ic in
+                  aux (line::lines)
+                with
+                | End_of_file ->
+                    match Unix.close_process (ic, oc) with
+                    | Unix.WEXITED 0 -> String.rev_concat_map "\n" (fun s -> s) lines
+                    | _ -> OManager.error "Error while preprocessing file '%s', command '%s'"
+                        filename command
+              in
+              aux []
+            with
+            | Unix.Unix_error (error, a, b) ->
+                OManager.error "Unix_error (%S, %S, %S)" (Unix.error_message error) a b
+      in
+      BR.set_pprocess ~pprocess session
     in
     let session = MutableList.fold_left (
       fun session file ->
