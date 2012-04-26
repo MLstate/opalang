@@ -51,6 +51,19 @@ in
 extralib_opt Config.libnatpmp;
 extralib_opt Config.miniupnpc;
 
+let linux_system_libs = ["iconv"]
+and mac_system_libs = []
+and windows_system_libs = []
+in
+
+let filter_system_libs l =
+  let system_libs =
+    match Config.os with
+    | Config.Linux | Config.FreeBSD -> linux_system_libs
+    | Config.Mac -> mac_system_libs
+    | Config.Win32 | Config.Cygwin -> windows_system_libs
+  in List.filter (fun x -> not (List.mem x system_libs)) l
+in
 
 begin
   match Config.camlidl with
@@ -381,6 +394,7 @@ let opp_build opa_plugin opp oppf env build =
     | None -> list
     | Some dep -> dep::list
   ) (tags_of_pathname (env "%.opa_plugin")) []
+    |> filter_system_libs
   in
   let lib_dir s = [A"--ml";A"-I";A"--ml";P (if Pathname.exists s then ".." / s else ("+"^s))] in
   let include_dirs = List.flatten (List.map lib_dir caml_use_lib) in
