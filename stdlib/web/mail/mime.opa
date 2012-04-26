@@ -82,7 +82,7 @@ Mime = {{
   @private crlf = "\r\n"
   @private crlf_parser = parser Rule.of_string(crlf) -> void
   @private double_crlf_parser = parser Rule.rep(2, crlf_parser) -> void
-  @private default_charset = "utf8"
+  @private default_charset = "utf-8"
 
   @private Q = {{
 
