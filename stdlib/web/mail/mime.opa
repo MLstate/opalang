@@ -353,24 +353,25 @@ Mime = {{
   // Text
 
   @private
-  body_to_string(body:Mime.body_part) : string =
+  body_to_string(body:Mime.body_part, decoder) : string =
     match body
-    {~plain} -> plain.f2
+    {~plain} -> decoder(plain.f1, plain.f2)
     {html=_} -> ""
     {attachment=_} -> ""
     {multipart=parts} ->
-      List.map(get_text_aux, parts)
-      |> List.to_string_using("", "", "", _)
+      List.fold(part, acc ->
+        acc + get_text_aux(part, decoder)
+      , parts, "")
 
   @private
-  get_text_aux(entity:Mime.entity) =
-    body_to_string(entity.body)
+  get_text_aux(entity:Mime.entity, decoder) =
+    body_to_string(entity.body, decoder)
 
   /**
    * Get the textual content of a MIME message
    */
-  get_text(message:Mime.message) =
-    get_text_aux(message.content)
+  get_text(message:Mime.message, decoder:(string, binary -> string)) : string =
+    get_text_aux(message.content, decoder)
 
   // HTML
 
