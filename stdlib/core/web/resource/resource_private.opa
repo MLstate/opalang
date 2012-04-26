@@ -135,6 +135,11 @@ Resource_private =
     {html5} -> shared_html5_header
     {~custom} -> custom
 
+  html_doctype_to_meta_utf_8(doctype:html_resource_doctype) =
+    match doctype with
+    | {html5} -> <meta charset="utf-8">
+    | _ -> <></>
+
   get_lastm(resource) =
     check(x) =
       match x with
@@ -654,6 +659,7 @@ required_customizer_for_opa_ad =
 @package unregister_external_css(url : string) = autoloaded_css.set(List.remove(url, autoloaded_css.get()))
 @package register_external_favicon(f:Favicon.t) = autoloaded_favicon.set([f | autoloaded_favicon.get()])
 @package register_default_doctype(d:html_resource_doctype) = default_doctype.set(d)
+@package get_default_doctype() = default_doctype.get()
 customizer_autoloaded : platform_customization =
   _ -> some(
     { custom_body = none
@@ -959,13 +965,16 @@ export_resource(external_css_files: list(string),
                 <>{Xhtml.of_string_unsafe("<!-- no host to set base url -->")}</>,
                 HttpRequest.Generic.get_host(request)),
               <></>, base_url)
-          ready_head = <head>{base}{head_without_id}{global_variable}</head>
 
-          html_doctype =
-            match doctype with
-            | {some=d} -> html_doctype_to_string(d)
-            | {none} -> html_doctype_to_string(default_doctype.get())
+          (html_doctype, meta_utf_8) =
+            d = (
+              match doctype with
+              | {some=d} -> d
+              | {none} -> default_doctype.get())
+            (html_doctype_to_string(d), html_doctype_to_meta_utf_8(d))
 
+          ready_head = <head>{meta_utf_8}{base}{head_without_id}{global_variable}</head>
+  
           page = Xhtml.of_string_unsafe(html_doctype) <+>
                  html_tag(<>{ready_head}{ready_body}</>)
 

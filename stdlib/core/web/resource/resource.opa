@@ -562,8 +562,13 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
     match rc_content with
       | {~html ~doctype ~headers customizers=_} ->
         body= <body id="Body">{html}</body>
-        head = <head>{headers}</head>
-        doctype = match doctype with {some=d} -> Resource_private.html_doctype_to_string(d) {none} -> Resource_private.shared_xhtml1_1_header
+        (doctype, meta_utf_8) =
+            d = (
+              match doctype with
+              | {some=d} -> d
+              | {none} -> Resource_private.get_default_doctype())
+            (Resource_private.html_doctype_to_string(d), Resource_private.html_doctype_to_meta_utf_8(d))
+        head = <head>{meta_utf_8}{headers}</head>
         page = Xhtml.of_string_unsafe(doctype) <+>
           <html>{head}{body}</html>
         data=Xhtml.serialize_as_standalone_html(page)
