@@ -355,12 +355,15 @@ let jschecker_file s =
   let prefix = "jschecker_" in
   try String.sub (Pathname.basename s) 0 (String.length prefix) = prefix with _ -> false
 in
-let use_tag s =
-  let lenp = String.length "use_" in
-  let t = try String.sub s 0 lenp = "use_" with _ -> false in
+let gen_tag prefix s =
+  let pfx = prefix ^ "_" in
+  let lenp = String.length pfx in
+  let t = try String.sub s 0 lenp = pfx with _ -> false in
   if t then Some(String.sub s lenp ((String.length s) -lenp))
   else None
 in
+let use_tag s = gen_tag "use" s in
+let clib_tag s = gen_tag "clib" s in
 let opa_plugin_builder_name = "opa-plugin-builder-bin" in
 let opa_plugin_builder = get_tool opa_plugin_builder_name in
 let opp_build opa_plugin opp oppf env build =
@@ -373,8 +376,16 @@ let opp_build opa_plugin opp oppf env build =
     | Some dep -> dep::list
   ) (tags_of_pathname (env "%.opa_plugin")) []
   in
+  let c_libs = Tags.fold (fun tag list ->
+    match clib_tag tag with
+    | None -> list
+    | Some dep -> dep::list
+  ) (tags_of_pathname (env "%.opa_plugin")) []
+  in
   let lib_dir s = [A"--ml";A"-I";A"--ml";P (if Pathname.exists s then ".." / s else ("+"^s))] in
   let include_dirs = List.flatten (List.map lib_dir caml_use_lib) in
+  let clib s = [A"--ml";A"-cclib";A"--ml";A("-l"^s)] in
+  let include_libs = List.flatten (List.map clib c_libs) in
   let files = List.map ((^) path) files in
   build_list build files;
   let files_validation, files_lib = List.partition jschecker_file files in
@@ -390,7 +401,7 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ js_validation @ files_lib in
+  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ include_dirs @ include_libs @js_validation @ files_lib in
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in

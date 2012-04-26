@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -627,8 +627,9 @@ OCAMLOPT_FLAGS=$(mlopt_flags)
   let static_part = "
 TARGETS_CMI=$(patsubst %, $(OPP)%.cmi, $(SUFFIX))
 TARGETS_CMX=$(patsubst %, $(OPP)%.cmx, $(SUFFIX))
+TARGETS_CMXA=$(patsubst %, $(OPP)%.cmxa, $(SUFFIX))
 
-all: $(TARGETS_CMI) $(TARGETS_CMX)
+all: $(TARGETS_CMI) $(TARGETS_CMX) $(TARGETS_CMXA)
 
 OCAMLOPT ?= ocamlopt.opt
 TRX ?= $(MLSTATELIBS)/bin/trx
@@ -638,6 +639,9 @@ TRX ?= $(MLSTATELIBS)/bin/trx
 
 %.cmx : %.ml %.cmi
 \t$(OCAMLOPT) $(OCAML_FLAGS) $(OCAMLOPT_FLAGS) $(INCLUDE) -c $<
+
+%.cmxa : %.cmx
+\t$(OCAMLOPT) $(OCAML_FLAGS) $(OCAMLOPT_FLAGS) $(INCLUDE) -a $< -o $@
 
 %.cmi : %.mli
 \t$(OCAMLOPT) $(OCAML_FLAGS) $(OCAMLOPT_FLAGS) $(INCLUDE) -c $<

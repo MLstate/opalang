@@ -346,7 +346,7 @@ check-c-lib () (
     local LIBDIR=$(dirname "$LIB")
     local INCLUDE_DIR
     for d in {"$OCAMLLIB/..","$OCAMLLIB",/usr/lib,/usr/local/lib}{/$LIBDIR,}; do
-        if [ -e $d/lib$LIBNAME.a ]; then
+        if [ -e $d/lib$LIBNAME.a ] || [ -e $d/lib$LIBNAME.dylib ] ; then
             LD_DIR=$(readlink -f $d)
             INCLUDE_DIR=$LD_DIR/
             INCLUDE_DIR=${INCLUDE_DIR%/lib/*}/include
@@ -361,7 +361,7 @@ check-c-lib () (
         return 1
     fi >&2
 
-    echo-ok -n "$LD_DIR/lib$LIBNAME.a, "
+    echo-ok -n "$LD_DIR/lib$LIBNAME..., "
 
     # Now checking compile, link & run
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
@@ -414,6 +414,16 @@ if [ -n "$HAS_CAMLIDL" ]; then
     else
         MINIUPNPC=("")
     fi
+fi
+
+HAS_LIBICONV=
+LIBICONV=("")
+if [ -n "${IS_MAC:-}" ] &&
+    echo-check libiconv &&
+    LIBICONV=($(check-c-lib iconv iconv.h)); then
+    HAS_LIBICONV=1
+else
+    LIBICONV=("")
 fi
 
 # check ocaml libs:
@@ -645,7 +655,7 @@ camlopt() {
     fi
 }
 
-ALL_TAGS_LIST="camlidl libnatpmp miniupnpc dbm"
+ALL_TAGS_LIST="camlidl libnatpmp miniupnpc dbm libiconv"
 TAGS_LIST=""
 for tag in $ALL_TAGS_LIST; do
     hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
@@ -666,6 +676,7 @@ let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
 let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
 let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
 let has_dbm = $(camlbool "$HAS_DBM")
+let libiconv = $(camlopt "$HAS_LIBICONV" "$(camlstrtuple "${LIBICONV[@]}")")
 
 let available = [ $TAGS_LIST]
 let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
@@ -717,6 +728,8 @@ LIBNATPMP=(${LIBNATPMP[@]})
 HAS_MINIUPNPC="$HAS_MINIUPNPC"
 MINIUPNPC=(${MINIUPNPC[@]})
 HAS_DBM="$HAS_DBM"
+HAS_LIBICONV="$HAS_LIBICONV"
+LIBICONV=(${LIBICONV[@]})
 IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"

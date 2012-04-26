@@ -1,5 +1,5 @@
 Unless something else is mentioned, Opa is
-Copyright © 2011 MLstate. All Rights Reserved.
+Copyright © 2011, 2012 MLstate. All Rights Reserved.
 
 This package was put together by MLstate <packaging@opalang.org> from
 the sources available at <http://opalang.org>.
@@ -70,6 +70,10 @@ This package also includes pieces of the following software:
     © 1999 INRIA
     Q Public license v1.0 (compiler)
     LGPL v2 with static linking exception (library)
+
+- iconv-ocaml, http://panathenaia.halfmoon.jp/alang/ocaml/
+    © 2010 YT
+    New BSD License
 
 Detailed copyright information of all these included packages lie in
 file <other_licenses>.

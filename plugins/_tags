@@ -6,3 +6,4 @@
 <unix>:traverse
 <socket>: traverse
 <gcharts>: traverse
+<iconv>: traverse

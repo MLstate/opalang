@@ -54,7 +54,7 @@ let inclusion ~cwd opp =
   in
   let (/) = Filename.concat in
   let extrapath = prefix/opp in
-  let extralib = plugin_name^Suffix.mlruntime^".cmx" in
+  let extralib = plugin_name^Suffix.mlruntime^".cmxa" in
   let plugin = prefix/opp/(plugin_name^"."^Extension.bypass) in
   {
     extrapath ;

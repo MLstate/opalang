@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -518,6 +518,11 @@ let _ = dispatch begin function
           let flags = S[A"-ccopt";A"DnsAPI.Lib"] in
           flag ["use_io";"link"] flags
       );
+
+      if is_mac then (
+	flag ["ocaml"; "link"; "iconv"] (S[A"-cclib";A"-liconv"]);
+      );
+
       (* for C #includes *)
       flag ["extension:c"] (S[A"-I";P (Pathname.pwd / !Options.build_dir)]);
 

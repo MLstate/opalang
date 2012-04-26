@@ -21,7 +21,7 @@
 <{pplib,libbase,compilerlib,passlib,libtrx,jslang,ocamllang,libqmlcompil,libruntime,oparuntime,database,teerex,libbsl,qmlslicer,ulex,qmlpasses,libsession}>: traverse
 
 <{libbase.{cma,cmxa},ocamlbase.top}>: use_stubs
-<ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex
+<ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex, iconv
 
 # -- from qml2llvm --
 
