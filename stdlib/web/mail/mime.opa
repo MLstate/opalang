@@ -339,7 +339,10 @@ Mime = {{
       some({ ~headers body=body })
 
   /**
-   * Parse a raw string into an MIME message
+   * Parse a raw binary string into an MIME message
+   *
+   * @param raw the raw binary string message
+   * @return an option MIME message
    */
   parse(raw:binary) : option(Mime.message) =
     match parse_entity(raw)
@@ -347,7 +350,7 @@ Mime = {{
     {some=content} -> some({~raw ~content})
 
   /**
-   * Access
+   * Accessors
    */
 
   // Text
@@ -369,6 +372,10 @@ Mime = {{
 
   /**
    * Get the textual content of a MIME message
+   *
+   * @param message the MIME message
+   * @param decoder the function to use to decode each textual part of the message
+   * @return the textual content of the MIME message
    */
   get_text(message:Mime.message, decoder:(string, binary -> string)) : string =
     get_text_aux(message.content, decoder)
@@ -391,8 +398,11 @@ Mime = {{
 
   /**
    * Get the xhtml content of a MIME message
+   *
+   * @param message the Mime message
+   * @return the xhtml content of the MIME message
    */
-  get_xhtml(message:Mime.message) =
+  get_xhtml(message:Mime.message) : xhtml =
     get_xhtml_aux(message.content)
 
   // Attachments
@@ -412,6 +422,9 @@ Mime = {{
 
   /**
    * Get the attachments of a MIME message
+   *
+   * @param message the MIME  message
+   * @return a list of MIME attachements
    */
   get_attachments(message:Mime.message) : list(Mime.attachment) =
     get_attachments_aux(message.content, [])
