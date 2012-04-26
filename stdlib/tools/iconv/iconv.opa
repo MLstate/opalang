@@ -34,17 +34,19 @@ type Iconv.t = external
 Iconv = {{
 
   /**
-   *
+   * Open a descriptor for character set conversion
    */
   open(~{from to}) = %%bslIconv.iconv_open%%(to, from)
 
   /**
-   * Convert a binary encoded data into another encoded binary data
+   * Perform a character set conversion
+   * from a binary encoded data into another encoded binary data
    */
   convert = %%bslIconv.iconv%%
 
   /**
-   * Convert a binary binary data into an utf-8 compatible string
+   * Perform a character set conversion
+   * from a binary encoded data into an utf-8 compatible string
    */
   convert_to_utf8(from:string, s:binary) : string =
     iconv = open({~from to="utf-8"})
