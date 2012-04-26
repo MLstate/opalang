@@ -29,6 +29,8 @@ Improvements:
   * Easier to change the doctype. For example, to use html5 doctype:
     Server.start(Server.http, [{register: { doctype : { html5 }}}, {title:"html5", ~page} ])
 
+  * utf-8 charset meta tag automatically added for doctype html5
+
   * namespace on html tag only for doctype xhtml1_1
 
   * Scheduling policy updated to improve concurrency level
@@ -42,6 +44,10 @@ Bug fixes:
     - fixed a bug in Mime headers parsing
 
 Updated APIs:
+
+  * Server: 
+    - {register:...} now accepts a list of registrable instead of a list of string
+      Use Server.register_from_extension to register a list of string.
 
   * Resource:
     - allow custom response headers (name, value)
