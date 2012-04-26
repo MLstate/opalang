@@ -341,13 +341,10 @@ Mime = {{
   /**
    * Parse a raw string into an MIME message
    */
-  parse(s:string) : option(Mime.message) =
-    match parse_entity(s)
+  parse(raw:binary) : option(Mime.message) =
+    match parse_entity(raw)
     {none} -> none
-    {some=content} -> some({
-      raw = s
-      content = content
-    })
+    {some=content} -> some({~raw ~content})
 
   /**
    * Access
