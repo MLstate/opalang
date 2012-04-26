@@ -19,9 +19,13 @@ New features:
   * HTTP Server
     - PUT and DELETE methods are now handled
 
+  * Iconv
+    - binded libiconv with the help of iconv-ocaml
+    - added an Iconv module consequently
+
 Improvements:
 
-  * Easier to define several server register: it now accepts a single registrable or a list of registrable 
+  * Easier to define several server register: it now accepts a single registrable or a list of registrable
 
   * Better support of html5 void elements: for those elements, the close tag is now optional
     Note: html5 void elements can't be closed with a frag tag (</>).
@@ -35,6 +39,8 @@ Improvements:
 
   * Scheduling policy updated to improve concurrency level
 
+  * possibility to disable manpages generation with NO_MANPAGES
+
 Bug fixes:
 
   * UriParser
@@ -42,10 +48,11 @@ Bug fixes:
 
   * Mime
     - fixed a bug in Mime headers parsing
+    - various fixes
 
 Updated APIs:
 
-  * Server: 
+  * Server:
     - {register:...} now accepts a list of registrable instead of a list of string
       Use Server.register_from_extension to register a list of string.
 
@@ -57,6 +64,9 @@ Updated APIs:
 
   * Cache
     - removed deprecated Negociator API (misspelled)
+
+  * Mime
+    - Mime.get_text now takes an additional decoding function
 
 
 2012.01.06, Version 0.9.2 (stable), v1591
