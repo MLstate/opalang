@@ -16,6 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+#<Debugvar:BUF_DEBUG>
+
 (* Simple library, like Buffer but fixed size but can also look like String if required *)
 
 type buf = { mutable str : string; mutable i : int }
@@ -67,8 +69,10 @@ let resize buf extra =
   then
     let msg = Printf.sprintf "Buf.resize called (now %d), please resize your buffers" newsize in
     match !auto_resize with
-    | RM_stdout -> Printf.printf "%s\n%!" msg
-    | RM_stderr -> Printf.eprintf "%s\n%!" msg
+    | RM_stdout ->
+	#<If> Printf.eprintf "%s\n%!" msg #<Else> () #<End>
+    | RM_stderr ->
+	#<If> Printf.eprintf "%s\n%!" msg #<Else> () #<End>
     | RM_custom f -> f msg
     | RM_failwith -> failwith msg
     | RM_exit -> exit 1

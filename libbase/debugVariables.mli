@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -741,6 +741,12 @@ val patterns_real_patas : debug_var
     Debug printing on ping loop system
 *)
 val ping_debug : debug_var
+
+(**
+    {b MLSTATE_BUF_DEBUG}
+    Debug printing on buf
+*)
+val buf_debug : debug_var
 
 (**
   The env var {b MLSTATE_PPDEBUG}

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -123,6 +123,7 @@ let parser_cache_debug = var "parser_cache_debug"
 let patterns_normalize = var "patterns_normalize"
 let patterns_real_patas = var "patterns_real_patas"
 let ping_debug = var "ping_debug"
+let buf_debug = var "buf_debug"
 let ppdebug = var "ppdebug"
 let protocol_debug = var "protocol_debug"
 let qmlc_no_magic = var "qmlc_no_magic"
