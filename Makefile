@@ -36,7 +36,9 @@ export
 all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
+ifndef NO_MANPAGES
 	$(MAKE) manpages
+endif
 
 .PHONY: build
 build: all
