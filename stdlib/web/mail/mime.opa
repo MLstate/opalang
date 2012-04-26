@@ -50,11 +50,13 @@ type Mime.headers = list(Mime.header)
 type Mime.attachment = {
   filename : string
   mimetype : string
-  data : string
+  data : binary
 }
 
+type Mime.charset = string
+
 type Mime.body_part =
-  { plain : (string, string) }
+  { plain : (Mime.charset, binary) }
 / { html : xhtml }
 / { attachment : Mime.attachment }
 / { multipart : list(Mime.entity) }
@@ -65,7 +67,7 @@ type Mime.entity = {
 }
 
 type Mime.message = {
-  raw : string
+  raw : binary
   content : Mime.entity
 }
 
