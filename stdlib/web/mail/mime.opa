@@ -75,7 +75,7 @@ type Mime.message = {
  * Module for treating MIME message.
  * @see http://tools.ietf.org/html/{rfc2045/rfc2046/rfc2047}
  *
- * FIXME: Encoding is not handled, we consider everything as UTF-8
+ * Encoding can be handled afterwards, with the Iconv module
  */
 Mime = {{
 
