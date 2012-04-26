@@ -28,7 +28,24 @@ let warning_set = Imp_Warnings.warning_set
 
 let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_typer code =
   let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
-  let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~js_ctrans () in
+  (* Keep only Bypasses used in the code *)
+  let filter =
+    let used_bypasses =
+      QmlAstWalk.CodeExpr.fold
+        (fun used_bypasses expr ->
+           QmlAstWalk.Expr.fold
+             (fun used_bypasses -> function
+              | QmlAst.Bypass (_, bkey) ->
+                  #<If:JS_IMP>
+                    Format.eprintf "Found bypass : %a\n%!" BslKey.pp bkey;
+                  #<End>;
+                  BslKeySet.add bkey used_bypasses
+              | _ -> used_bypasses
+             ) used_bypasses expr
+        ) BslKeySet.empty code
+    in (fun bypass -> BslKeySet.mem (Imp_Bsl.JsImpBSL.ByPass.key bypass) used_bypasses)
+  in
+  let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~filter ~js_ctrans () in
   let gamma = env_typer.QmlTypes.gamma in
   let annotmap = env_typer.QmlTypes.annotmap in
   let env = {E.
