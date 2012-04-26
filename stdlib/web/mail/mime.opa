@@ -54,7 +54,7 @@ type Mime.attachment = {
 }
 
 type Mime.body_part =
-  { plain : string }
+  { plain : (string, string) }
 / { html : xhtml }
 / { attachment : Mime.attachment }
 / { multipart : list(Mime.entity) }
@@ -235,7 +235,7 @@ Mime = {{
   @private
   multipart(body, boundary) =
     match Parser.try_parse_opt(Multipart.parser(boundary), body)
-    {none} -> {plain=body}
+    {none} -> {plain=(default_charset, body)}
     {some=content} -> {multipart=content}
 
   @private
@@ -276,7 +276,7 @@ Mime = {{
   @private
   parse_body_part(headers:Mime.headers, body:string) : Mime.body_part =
     match Header.find("Content-Type", headers)
-    {none} -> {plain=body} // No Content-Type, treat as plain text
+    {none} -> {plain=(default_charset, body)} // No Content-Type, treat as plain text
     {some=content_type} ->
 
       content_type_list =
@@ -309,17 +309,17 @@ Mime = {{
           if content_type == "text/html" then
             {html=Xhtml.of_string(decoded_body)}
           else
-            {plain=decoded_body}
+            {plain=(charset, decoded_body)}
         {some=cd} ->
           if content_type == "text/plain" && cd == "inline" then
-            {plain=decoded_body}
+            {plain=(charset, decoded_body)}
           else if content_type == "text/html" && cd == "inline" then
             {html=Xhtml.of_string(decoded_body)}
           else
             filename = String.explode(";", cd)
                        |> List.map(String.trim, _)
                        |> Header.extract_value("filename", _)
-            if String.is_empty(filename) then {plain=decoded_body}
+            if String.is_empty(filename) then {plain=(charset, decoded_body)}
             else
             { attachment = {
               ~filename
@@ -356,7 +356,7 @@ Mime = {{
   @private
   body_to_string(body:Mime.body_part) : string =
     match body
-    {~plain} -> plain
+    {~plain} -> plain.f2
     {html=_} -> ""
     {attachment=_} -> ""
     {multipart=parts} ->
