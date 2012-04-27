@@ -2164,9 +2164,8 @@ let pass_ServerJavascriptCompilation =
        let module JsBackend = (val (options.OpaEnv.js_back_end) : Qml2jsOptions.JsBackend) in
        let compilation_directory =
          match ObjectFiles.compilation_mode () with
-         | `compilation ->
-             Filename.concat (Option.get (ObjectFiles.get_compilation_directory ())) "_build"
-         | `init | `linking -> options.OpaEnv.target
+         | `compilation -> Option.get (ObjectFiles.get_compilation_directory ())
+         | `init | `linking -> "_build"
          | `prelude -> assert false
        in
        let jsoptions =
@@ -2182,6 +2181,7 @@ let pass_ServerJavascriptCompilation =
              inlining = options.OpaEnv.js_local_inlining;
              global_inlining = options.OpaEnv.js_global_inlining;
              no_assert = options.OpaEnv.no_assert;
+             target = options.OpaEnv.target;
              compilation_directory;
          } in
        let env_bsl = env.Passes.newFinalCompile_bsl in
@@ -2198,37 +2198,21 @@ let pass_ServerJavascriptCompilation =
          env_bsl
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
-       in let _env_js_output =
-         match ObjectFiles.compilation_mode () with
-         | `linking ->
-             let oc = open_out (options.OpaEnv.target ^ ".js") in
-             List.iter
-               (fun (filename, content) ->
-                  Printf.fprintf oc "///////////////////////\n";
-                  Printf.fprintf oc "// From %s\n" filename;
-                  Printf.fprintf oc "///////////////////////\n";
-                  Printf.fprintf oc "%s" content;
-                  Printf.fprintf oc "\n";
-               ) generated_files;
-             ObjectFiles.iter_dir ~deep:true ~packages:true
-               (fun opx ->
-                  Printf.fprintf oc "///////////////////////\n";
-                  Printf.fprintf oc "/** From packages %s \n" opx;
-                  Printf.fprintf oc "///////////////////////\n";
-                  let ic = open_in (Filename.concat (Filename.concat opx "_build") "a.js") in
-                  let chunk = 10000 in
-                  let str = String.create chunk in
-                  let rec aux () =
-                    match input ic str 0 chunk with
-                    | 0 -> ()
-                    | len -> output oc str 0 len; aux ()
-                  in aux(); close_in ic
-               );
-             close_out oc
-         | _ ->
-             let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in
-             ()
-       in
+       in let _env_js_output = Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input in
+       (* match ObjectFiles.compilation_mode () with *)
+       (*   | `linking -> *)
+       (*       OManager.verbose "LINKING"; *)
+
+       (*   | `init -> *)
+       (*       OManager.verbose "INITTTTTTTTTTTTT"; *)
+       (*       let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in *)
+       (*       () *)
+       (*   | `compilation -> *)
+       (*       OManager.verbose "COMPILLLLLLLLLLlll"; *)
+       (*       let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in *)
+       (*       () *)
+       (*   | `prelude -> OManager.verbose "PRELUDE"; *)
+
        PH.make_env options 0
     )
 

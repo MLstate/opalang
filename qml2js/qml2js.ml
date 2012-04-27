@@ -25,6 +25,7 @@
 
 (* depends *)
 module List = Base.List
+module Format = BaseFormat
 
 (* alias *)
 module J = Qml2jsOptions
@@ -35,6 +36,10 @@ type env_js_output =
     {
       generated_files : (string * string) list ; (** path/name without build directory * contents *)
     }
+
+let wclass =
+  let doc = "Javascript compiler warnings" in
+  WarningClass.create ~name:"jscompiler" ~doc ~err:false ~enable:true ()
 
 (**
    PASSES :
@@ -146,86 +151,150 @@ struct
                             ) generated_files) in
     List.rev generated_files, ast
 
+  let name_generation ?index env_opt =
+    match index with
+    | None -> env_opt.target
+    | Some (i, n) -> Printf.sprintf "js_%d_%s" (i * n) env_opt.target
+
+  let write env_opt (filename, contents) =
+    let filename = Filename.concat env_opt.compilation_directory filename in
+    OManager.verbose "writing file @{<bright>%s@}" filename ;
+    let success = File.output filename contents in
+    if not success then OManager.error "cannot write file @{<bright>%S@}" filename
+
+  module S =
+  struct
+    type t = {
+      generated_files : (string * string) list;
+      js_init : (BslInterface.unicity_index * JsAst.code_elt) list;
+    }
+    let pass = "ServerJavascriptCompilation"
+    let pp fmt {js_init; generated_files} =
+      let pp_file fmt (filename, content) =
+        Format.fprintf fmt "// FILE : %s@\n%s" filename content in
+      let pp_js_init fmt (name, elt) =
+        Format.fprintf fmt "// BSLIndex : %s@\n%a" name JsPrint.pp#statement elt
+      in
+      Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files;
+      Format.fprintf fmt "%a" (Format.pp_list "@\n" pp_js_init) js_init;
+
+(*   let map (name, elts) = *)
+(* -        name, ( *)
+(* -          match elts with *)
+(* -          | `ast elts -> *)
+(* -              let code = List.map snd elts in *)
+(* -              JsPrint.code code *)
+(* -          | `string s -> s *)
+(* -        ) *)
+(* -      in *)
+(* -      List.rev_map_append map env_js_input.js_init_contents generated_files *)
+
+  end
+
+  module R = ObjectFiles.Make(S)
+
+  let get_js_init env_js_input = List.flatten (
+    List.map
+      (fun (_, x) -> match x with
+       | `ast ast -> ast
+       | `string str ->
+           OManager.i_error "JS INIT CONTAINS UNEXPECTED PROJECTION : %s\n" str
+      )
+      env_js_input.Qml2jsOptions.js_init_contents)
+
+  let compilation_generation env_opt generated_files env_js_input =
+    let save = {S.generated_files; js_init = get_js_init env_js_input} in
+    let _debug =
+      Format.fprintf (Format.formatter_of_out_channel (open_out (Filename.concat env_opt.compilation_directory "obj.js"))) "%a" S.pp save
+    in
+    R.save save;
+    let content = JsPrint.code env_js_input.js_code in
+    let filename = "a.js" in
+    let build_dir = env_opt.compilation_directory in
+    OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
+    let success = File.check_create_path build_dir in
+    let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
+    write env_opt (filename, content)
+
+  let linking_generation_js_init generated_files env_js_input oc =
+    let generated_files, js_init =
+      let js_init = get_js_init env_js_input in
+      let to_map l = List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty l in
+      (to_map generated_files, to_map js_init)
+    in
+    let generated_map, js_init_map =
+      R.fold_with_name ~packages:true ~deep:true
+        (fun package (generated_map, js_init_map) {S. generated_files; js_init} ->
+           let generated_map = List.fold_left
+             (fun generated_map (filename, content) ->
+                StringMap.replace filename
+                  (function
+                   | None -> content
+                   | Some c ->
+                       OManager.verbose "Load file %s from %a"
+                         filename ObjectFiles.Package.pp package;
+                       if content <> c then
+                         OManager.warning ~wclass "Two file named %s has not the same content\n%!"
+                           filename;
+                       content
+                  ) generated_map
+             ) generated_map generated_files
+           in
+           let js_init_map = List.fold_left
+             (fun js_init_map (index, elt) ->
+                StringMap.add index elt js_init_map
+             ) js_init_map js_init
+           in generated_map, js_init_map
+        ) (generated_files, js_init)
+    in
+    StringMap.iter
+      (fun filename content ->
+         Printf.fprintf oc "///////////////////////\n";
+         Printf.fprintf oc "// From %s\n" filename;
+         Printf.fprintf oc "///////////////////////\n";
+         Printf.fprintf oc "%s" content;
+         Printf.fprintf oc "\n";
+      ) generated_map;
+    Printf.fprintf oc "///////////////////////\n";
+    Printf.fprintf oc "// BSL JS INIT\n";
+    Printf.fprintf oc "///////////////////////\n";
+    let fmt = Format.formatter_of_out_channel oc in
+    StringMap.iter
+      (fun index elt ->
+         Printf.fprintf oc "// index : %s\n" index;
+         Format.fprintf fmt "%a\n" JsPrint.pp#statement elt;
+      ) js_init_map
+
+
+  let linking_generation env_opt generated_files env_js_input =
+    compilation_generation env_opt generated_files env_js_input;
+    let oc = open_out env_opt.target in
+    linking_generation_js_init generated_files env_js_input oc;
+    let read_append opx =
+      Printf.fprintf oc "///////////////////////\n";
+      Printf.fprintf oc "/** From packages %s \n" opx;
+      Printf.fprintf oc "///////////////////////\n";
+      let ic = open_in (Filename.concat opx "a.js") in
+      let chunk = 10000 in
+      let str = String.create chunk in
+      let rec aux () =
+        match input ic str 0 chunk with
+        | 0 -> ()
+        | len -> output oc str 0 len; aux ()
+      in aux(); close_in ic
+    in
+    ObjectFiles.iter_dir ~deep:true ~packages:true read_append;
+    read_append env_opt.compilation_directory;
+    close_out oc
+
   let js_generation env_opt generated_files env_js_input =
-    let name_generation ?index () =
-      match index with
-      | None -> env_opt.target
-      | Some (i, n) -> Printf.sprintf "js_%d_%s" (i * n) env_opt.target
-    in
-
-    let generated_files = List.rev generated_files in
-
-    (* some more init given by the specific implementation of the backen (bypass projection : bsl_js_init.js) *)
-    let generated_files =
-      let map (name, elts) =
-        name, (
-          match elts with
-          | `ast elts ->
-              let code = List.map snd elts in
-              JsPrint.code code
-          | `string s -> s
-        )
-      in
-      List.rev_map_append map env_js_input.js_init_contents generated_files
-    in
-
-    let generated_files =
-      match env_opt.split_js_value with
-      | None ->
-          let file = name_generation (), JsPrint.code env_js_input.js_code in
-          file::generated_files
-      | Some n ->
-          let rec aux acc i rest =
-            let filename = name_generation ~index:(i, n) () in
-            match take_n n rest with
-            | code, rest ->
-                let acc =
-                  let file = filename, JsPrint.code code in
-                  file::acc in
-                begin
-                  match rest with
-                  | [] -> acc
-                  | _ :: _ -> aux acc (succ i) rest
-                end
-          in
-          aux generated_files 1 env_js_input.js_code
-    in
-    let last =
-      match generated_files with
-      | (last,_)::_ -> last
-      | [] -> Filename.concat env_opt.compilation_directory "empty.js" in
-
-    let generated_files = List.rev generated_files in
-
-    (* keep split, or merge them all *)
-    let generated_files =
-      if env_opt.split then generated_files else
-        begin
-          OManager.verbose "append files into %s" last ;
-          let fold buf (filename, contents) =
-            OManager.verbose "append -- @{<bright>%s@}" filename;
-            FBuffer.addln buf contents in
-          let buf = FBuffer.create 1048 in
-          let buf = List.fold_left fold buf generated_files in
-          [ last, FBuffer.contents buf ]
-        end
-    in
-
-    let _ =
-      let write (filename, contents) =
-        let filename = Filename.concat env_opt.compilation_directory filename in
-        OManager.verbose "writing file @{<bright>%s@}" filename ;
-        let success = File.output filename contents in
-        if not success then OManager.error "cannot write file @{<bright>%S@}" filename
-      in
-      let caller_wd = Sys.getcwd () in
-      let build_dir = Filename.concat caller_wd env_opt.compilation_directory in
-      OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
-      let success = File.check_create_path build_dir in
-      let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
-      List.iter write generated_files
-    in
-    { generated_files = generated_files }
+    begin match ObjectFiles.compilation_mode () with
+    | `compilation -> compilation_generation env_opt generated_files env_js_input
+    | `init -> OManager.verbose "JAVASCRIPT INIT COMPILATION TODO"
+    | `linking -> linking_generation env_opt generated_files env_js_input
+    | `prelude -> assert false
+    end;
+    { generated_files = [] }
 
   let js_treat env_opt env_js_output =
     if not env_opt.exe_run
@@ -271,7 +340,3 @@ struct
     M.dummy_compile ()
 end
 
-
-let wclass =
-  let doc = "Javascript compiler warnings" in
-  WarningClass.create ~name:"jscompiler" ~doc ~err:false ~enable:true ()
