@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 
-<mliconv.c> : iconv
+<mliconv.c> : c_wall, iconv
 
 <journal.{byte,native}>: thread, iconv
 <io.{ml,mli,byte,native}>: use_zip
