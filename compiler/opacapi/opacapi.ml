@@ -143,6 +143,12 @@ struct
   let write = !! "write"
 end
 
+module DbSet =
+struct
+  let (!!) s = !! ("DbSet_" ^ s)
+  let genbuild = !! "genbuild"
+end
+
 module Db3Set =
 struct
   let (!!) s = !! ("Db3Set_" ^ s)
@@ -190,13 +196,11 @@ let make_db(x) =
 module DbMongo = (val make_db "DbMongo" : DB)
 module DbDropbox = (val make_db "DbDropbox" : DB)
 
-module DbSet =
+module DbMongoSet =
 struct
-  let (!!) s = !! ("DbSet_" ^ s)
+  let (!!) s = !! ("DbMongoSet_" ^ s)
   let build = !! "build"
-  let genbuild = !! "genbuild"
   let update = !! "update"
-  let empty = !! "empty"
   let opa2doc = !! "opa2doc"
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"

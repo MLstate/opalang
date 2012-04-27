@@ -1079,7 +1079,7 @@ module Generator = struct
             C.apply gamma annotmap p2p [mongopath]
         | _ -> annotmap, mongopath
       )
-    | `db3 -> annotmap, Q.Path (label, dbpath, kind, select)
+    | _ -> annotmap, Q.Path (label, dbpath, kind, select)
 
   let indexes gamma annotmap _schema node rpath lidx =
     let (annotmap, database) =

@@ -1080,7 +1080,27 @@ let pass_MongoCodeGeneration =
        let schema = typerEnv.QmlTypes.schema in
        let code = env.Passes.qmlAst in
        let (nannotmap, code) =
-         Pass_MongoAccessGeneration.process_code ~stdlib_gamma gamma annotmap schema code in
+         Pass_MongoAccessGeneration.process_code
+           ~stdlib_gamma gamma annotmap schema code in
+       let typerEnv = { typerEnv with QmlTypes.
+                          gamma = gamma;
+                          annotmap = nannotmap} in
+       { e with PH.env = {env with Passes.qmlAst = code; typerEnv = typerEnv;} }
+    )
+
+let pass_DropBoxCodeGeneration =
+  PassHandler.make_pass ~invariant
+    (fun e ->
+       let env = e.PH.env in
+       let typerEnv = env.Passes.typerEnv in
+       let gamma = typerEnv.QmlTypes.gamma in
+       let stdlib_gamma = env.Passes.stdlib_gamma in
+       let annotmap = typerEnv.QmlTypes.annotmap in
+       let schema = typerEnv.QmlTypes.schema in
+       let code = env.Passes.qmlAst in
+       let (nannotmap, code) =
+         Pass_DropBoxCodeGeneration.process_code
+           ~stdlib_gamma gamma annotmap schema code in
        let typerEnv = { typerEnv with QmlTypes.
                           gamma = gamma;
                           annotmap = nannotmap} in

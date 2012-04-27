@@ -462,8 +462,6 @@ struct
   let id_some () = Arg.ValInitial.some !valinitial_env_ref
   let expr_some ty = id_expr (Arg.ValInitial.some !valinitial_env_ref) (tyfun [ty; typeoption ty])
 
-  let expr_dbset_empty ty =
-    id_expr (Arg.ValInitial.dbset_empty !valinitial_env_ref) ty
   let expr_intmap_empty ty =
     id_expr (Arg.ValInitial.intmap_empty !valinitial_env_ref) ty
   let expr_stringmap_empty ty =

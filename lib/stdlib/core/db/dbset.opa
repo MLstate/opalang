@@ -29,6 +29,4 @@ DbSet = {{
 
 }}
 
-
-@opacapi DbMongoSet_genbuild = DbSet.build
-@opacapi DbDropboxSet_genbuild = error("Set not yet supported on Dropbox db backend")
+@opacapi DbSet_genbuild = DbSet.build

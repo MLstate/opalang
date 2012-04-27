@@ -49,12 +49,16 @@ import stdlib.core.rpc.core
 
 @opacapi @abstract type DbDropbox.engine = void
 
+@opacapi @abstract type DbDropboxSet.engine = void
+@opacapi @abstract type DbDropboxSet.t = void
+
 type DbDropbox.val_path('a) = Db.val_path('a, DbDropbox.engine)
 
 type DbDropbox.ref_path('a) = Db.ref_path('a, DbDropbox.engine)
 
 type DbDropbox.value = string
 type DbDropbox.query = void // not yet implemented
+type DbDropbox.update = string // not yet implemented
 
 // Private type
 type DbDropbox.private.path_t('kind, 'data) = {
@@ -122,10 +126,10 @@ DbDropbox = {{
     | {no_credentials} -> do error("Impossible to read {path}. The user is not authenticated.") none
     | _ -> do error("Impossible to read {path}. The user is not authenticated, but in request mode.") none
 
-    @package gen_write(db:DbDropbox.t, path, data:'data) =
+    @package @server gen_write(db:DbDropbox.t, path, data:string) =
       match Context.get() with
       | {authenticated = creds} -> (
-          json_value : DbDropbox.value = Json.serialize(OpaSerialize.Json.serialize(data))
+          json_value : DbDropbox.value = data
           match Dropbox(build_conf(db)).Files(db.root, build_path(path)).put("application/json", json_value, true, none, creds) with
           | { success = _ } -> true
           | { failure = failure } -> do error("Impossible to write to {path}: {failure}") false )
@@ -179,8 +183,8 @@ DbDropbox = {{
      remove() = error("remove not yet implemented")
      { vpath with more=~{write remove} }
 
-   @package update_path(db:DbDropbox.t, path:list(string), data) =
-     gen_write(db, path, data)
+    @package update_path(db:DbDropbox.t, path:list(string), data:DbDropbox.update):void =
+     ignore(gen_write(db, path, data))
 
   /**
    * Writes data at the given path in the database.
@@ -268,5 +272,4 @@ DbDropbox = {{
 @opacapi DbDropbox_read = DbDropbox.read
 @opacapi DbDropbox_write = DbDropbox.write
 @opacapi DbDropbox_option = DbDropbox.option
-
 

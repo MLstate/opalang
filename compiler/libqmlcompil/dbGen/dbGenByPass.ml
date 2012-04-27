@@ -47,7 +47,6 @@ sig
   val stringmap_empty   : string
   val stringmap_add     : string
   val stringmap_fold    : string
-  val dbset_empty   : string
 
   val make_virtual_val : string
   val make_virtual_ref : string
@@ -74,7 +73,6 @@ struct
   let stringmap_empty   = "stringmap_empty"
   let stringmap_add     = "stringmap_add"
   let stringmap_fold    = "stringmap_fold"
-  let dbset_empty   = Opacapi.DbMongoSet.empty
   let ref_to_ref = Opacapi.Db3.ref_to_ref
 
   let make_virtual_val = "make_virtual_val"
@@ -82,7 +80,7 @@ struct
 
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
-  let dbset_genbuild = Opacapi.DbMongoSet.genbuild
+  let dbset_genbuild = Opacapi.DbSet.genbuild
   let db3set_iterator = Opacapi.Db3Set.iterator
 end
 
@@ -109,8 +107,6 @@ sig
     val stringmap_empty : env -> ExprIdent.t
     val stringmap_add : env -> ExprIdent.t (** ('a,'b) map -> 'a -> 'b -> ('a,'b) map *)
     val stringmap_fold : env -> ExprIdent.t (** ('acc -> 'a -> 'b -> 'acc) -> ('a,'b) map -> 'acc -> 'acc  *)
-
-    val dbset_empty : env -> ExprIdent.t
 
     val make_virtual_val : env -> ExprIdent.t (** val_path('e, 'a) -> ('a -> 'b) -> virtual_val_path('e, 'b) *)
     val make_virtual_ref : env -> ExprIdent.t (** ref_path('e, 'a) -> ('a -> 'r) -> ('w -> 'a) -> virtual_ref_path('e, 'r, 'w) *)
@@ -162,8 +158,6 @@ struct
       (* 'a -> 'b -> ('a,'b) map -> ('a,'b) map *)
     let stringmap_fold env = I.conv env (ExprIdent.source N.stringmap_fold)
       (* ('a -> 'b -> 'acc -> 'acc) -> ('a,'b) map -> 'acc -> 'acc  *)
-
-    let dbset_empty env = I.conv env (ExprIdent.source N.dbset_empty)
 
     let make_virtual_val env = I.conv env (ExprIdent.source N.make_virtual_val)
     let make_virtual_ref env = I.conv env (ExprIdent.source N.make_virtual_ref)
@@ -223,7 +217,6 @@ struct
   let stringmap_empty   = Opacapi.StringMap.empty
   let stringmap_add     = Opacapi.StringMap.add
   let stringmap_fold    = Opacapi.StringMap.fold
-  let dbset_empty    = Opacapi.DbMongoSet.empty
 
   let make_virtual_val = Opacapi.DbVirtual.make_val
   let make_virtual_ref = Opacapi.DbVirtual.make_ref
@@ -231,7 +224,7 @@ struct
   let val_to_val = Opacapi.Db3.val_to_val
   let ref_to_ref = Opacapi.Db3.ref_to_ref
 
-  let dbset_genbuild = Opacapi.DbMongoSet.genbuild
+  let dbset_genbuild = Opacapi.DbSet.genbuild
   let db3set_iterator = Opacapi.Db3Set.iterator
 end
 

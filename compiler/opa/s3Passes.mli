@@ -263,6 +263,9 @@ val pass_BadopCodeGeneration :
 val pass_MongoCodeGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
+val pass_DropBoxCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
 val pass_DocApiGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 

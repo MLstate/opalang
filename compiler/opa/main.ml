@@ -160,6 +160,9 @@ let () =
     |?> (If.database `mongo,
          "MongoCodeGeneration", S3.pass_MongoCodeGeneration)
 
+    |?> (If.database `dropbox,
+         "DropBoxCodeGeneration", S3.pass_DropBoxCodeGeneration)
+
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
     |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)
 
