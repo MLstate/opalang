@@ -165,16 +165,16 @@ Gmaps_static = {{
       { terrain } -> add("maptype=terrain", acc)
 
     auxmarkerstyle(p, acc) = match p : Gmaps_static.markerstyle
-      { ~Size } -> add("size={Size}", acc)
-      { ~Color } -> add("color={Color}", acc)
-      { ~Label } -> add("label={Label}", acc)
-      { ~Icon } -> add("icon={Icon}", acc)
-      { Noshadow } -> add("shadow=false", acc)
+      { ~Size } -> add("size:{Size}", acc)
+      { ~Color } -> add("color:{Color}", acc)
+      { ~Label } -> add("label:{Label}", acc)
+      { ~Icon } -> add("icon:{Icon}", acc)
+      { Noshadow } -> add("shadow:false", acc)
 
     auxpathstyle(p, acc) = match p : Gmaps_static.pathstyle
-      { ~Weight } -> add("weight={Weight}", acc)
-      { ~Color } -> add("color={Color}", acc)
-      { ~Fillcolor } -> add("weight={Fillcolor}", acc)
+      { ~Weight } -> add("weight:{Weight}", acc)
+      { ~Color } -> add("color:{Color}", acc)
+      { ~Fillcolor } -> add("weight:{Fillcolor}", acc)
 
     aux(p, acc) = match p : Gmaps_static.param
       { ~Center } -> add("center={Center}", acc)
