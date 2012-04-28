@@ -16,7 +16,7 @@ syn spell default
 syn keyword  opaType           int list char string option float void bool
 syn keyword  opaIf             if then else
 syn keyword  opaMatch          match with end
-syn keyword  opaKeywords       do type and rec as
+syn keyword  opaKeywords       do type and rec as or recursive function
 syn keyword  opaPackage        import import-plugin package
 syn keyword  opaDatabase       database db
 syn keyword  opaParser         parser
