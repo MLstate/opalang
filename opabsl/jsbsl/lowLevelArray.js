@@ -16,6 +16,10 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+//////////////////////////////////////////////////////////////////////
+// BEWARE THIS FILE IS SHARING BEETWEEN THE JAVASCRIPT AND NODE BSL //
+//////////////////////////////////////////////////////////////////////
+
 ##extern-type llarray('a)
 
 ##register set : llarray('a), int, 'a -> void

@@ -49,7 +49,8 @@ JSON.stringify = function(o){ return "" }
  */
 
 var location;
-var print = function(s) { }
-var console;
+var console = {};
+console.debug = function(){};
+console.trace = function(){};
 
 

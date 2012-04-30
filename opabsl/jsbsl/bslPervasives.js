@@ -15,6 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+//////////////////////////////////////////////////////////////////////
+// BEWARE THIS FILE IS SHARING BEETWEEN THE JAVASCRIPT AND NODE BSL //
+//////////////////////////////////////////////////////////////////////
+
 ##extern-type continuation('a)
 
 /**
@@ -128,59 +133,6 @@ function compare_native(c1, c2)
 ##args(c1, c2)
 {return c1>=c2;}
 
-// deprecated
-##register jlog \ jlog_old_style : string -> void
-var jlog_old_style;
-var jlog_id= "__internal__log";
-// because close_jlog is used as a string in the onclick below
-// it must not be renamed by the compiler
-// since the compiler doesn't rename fields, we defined close_jlog as a field
-// DON'T use window instead of this, because it won't be defined in command line
-this.close_jlog= function () { (new jQuery("#" + jlog_id)).remove() };
-var jlog_item;
-var jlog_with_colors= function(foreground, background, message)
-{
-  new $(function(){
-    if (!document.getElementById(jlog_id))
-    {
-      var item = "position: absolute; right: 0px; top: 0px; z-index: 100; font-size: .7em; ";
-      item += "background-color: "+background+"; color: "+foreground+"; width: 300px; border: 2px solid green; ";
-      item += "white-space: nowrap; overflow-x: auto";
-      var close = document.createElement("div");
-      close.setAttribute("style", "float: right;");
-      close.innerHTML='<a onclick="close_jlog()">X</a>';
-      jlog_item = document.createElement("div");
-      jlog_item.setAttribute("style", item);
-      jlog_item.setAttribute("id", jlog_id);
-      jlog_item.appendChild(close);
-      document.body.appendChild(jlog_item);
-    }
-    var txt = document.createElement("div");
-    txt.setAttribute("style", "clear:both");
-    txt.appendChild(document.createTextNode(message));
-    jlog_item.appendChild(txt);
-  });
-}
-
-function jlog_for_browser(v){//A version of jlog for browsers
-    jlog_with_colors("green", "white", v);
-    return js_void;
-}
-function jlog_for_command_line(v){//A version of jlog for command-line testers
-    print("STDERR:"+v);//STDERR is a hack to keep the reftester happy
-    return js_void;
-}
-
-if(typeof window != "object" || command_line_execution)//If we're not in a browser
-{
-    jlog_old_style = jlog_for_command_line;
-} else {
-    jlog_old_style = jlog_for_browser
-}
-
-//The log function that should be used internally in the jsbsl
-function jlog(s) { (%%BslSyslog.info%%)("BSL", s); }
-
 /**
  * Type-unsafe identity.
  * Not for casual user.
@@ -211,7 +163,7 @@ var field_position = static_field_of_name("position");
 ##register [opacapi, cps-bypass] fail_cps : string, string, continuation('a) -> void
 ##args(message, position, k)
 {
-  window.console.error(""+position+"\nfail: %s"+message);
+  console.error(""+position+"\nfail: %s"+message);
   var r = empty_constructor();
   r = add_field(r, field_fail, message);
   r = add_field(r, field_position, position);
@@ -227,8 +179,10 @@ var field_position = static_field_of_name("position");
  *
  * For debugging only.
  */
-##register get_stack \ `get_stack` : -> string
-function get_stack(){//Adapted from an extract on Eric Wendelin's blog
+##register get_stack : -> string
+##args()
+{
+//Adapted from an extract on Eric Wendelin's blog
   var callstack            = [];
   var isCallstackPopulated = false;
   try {
@@ -278,39 +232,71 @@ function get_stack(){//Adapted from an extract on Eric Wendelin's blog
 
 
 /********************************************************************/
+// deprecated
+##register jlog \ jlog_old_style : string -> void
 
-var print_endline;
-var prerr_endline = function(s)
-{
-    jlog_old_style(s);
+#<Ifstatic:OPABSL_NODE>
+function jlog_old_style(v){
+    console.log("STDERR:"+v);//STDERR is a hack to keep the reftester happy
+    return js_void;
 }
-var js_print;
-function print_noline(s)
+#<Else>
+var jlog_with_colors=function(foreground, background, message)
 {
-    print(s+"NONEWLINE"); //NONEWLINE is a hack to keep both the command-line JS and reftester happy
+  var jlog_item;
+  var jlog_id= "__internal__log";
+  new $(function(){
+    if (!document.getElementById(jlog_id))
+    {
+      var item = "position: absolute; right: 0px; top: 0px; z-index: 100; font-size: .7em; ";
+      item += "background-color: "+background+"; color: "+foreground+"; width: 300px; border: 2px solid green; ";
+      item += "white-space: nowrap; overflow-x: auto";
+      var close = document.createElement("div");
+      close.setAttribute("style", "float: right;");
+      close.innerHTML='<a onclick="function () { (new jQuery(\"#\" + jlog_id)).remove() }">X</a>';
+      jlog_item = document.createElement("div");
+      jlog_item.setAttribute("style", item);
+      jlog_item.setAttribute("id", jlog_id);
+      jlog_item.appendChild(close);
+      document.body.appendChild(jlog_item);
+    }
+    var txt = document.createElement("div");
+    txt.setAttribute("style", "clear:both");
+    txt.appendChild(document.createTextNode(message));
+    jlog_item.appendChild(txt);
+  });
 }
-if(typeof window != "object" || command_line_execution)//If we're not in a browser
-{
-    print_endline = print;
-    js_print      = print_noline
-} else {
-    print_endline = jlog_for_browser;
-    js_print      = jlog_for_browser;
+
+function jlog_old_style(v){//A version of jlog for browsers
+    jlog_with_colors("green", "white", v);
+    return js_void;
 }
+#<End>
+
+#<Ifstatic:OPABSL_NODE>
+var print_endline = console.log;
+function js_print(s){
+  console.log(s+"NONEWLINE"); //NONEWLINE is a hack to keep both the command-line JS and reftester happy
+}
+#<Else>
+var print_endline = jlog_old_style;
+var js_print      = jlog_old_style;
+#<End>
 
 /**
  * {1 Printing}
  */
 
 ##register print_endline  \ print_endline : string -> void
-##register prerr_endline  \ prerr_endline : string -> void
+##register prerr_endline  \ print_endline : string -> void
 
 ##register print_string \ js_print : string -> void
 ##register prerr_string \ js_print : string -> void
 ##register print_int    \ js_print : int -> void
 
-##register dump\ dump_value : 'a -> string
-var dump_value = function (x) {
+##register dump : 'a -> string
+##args(x)
+{
   var dumper = {
   'number' : function(u){ return ""+u; },
   'string' : function(u){ return u; },
@@ -320,7 +306,7 @@ var dump_value = function (x) {
     else {
      var s = "{ ";
      for(var i in u)
-       s+=i+": "+dump_value(u[i])+", "
+       s+=i+": "+%%BslPervasives.dump%%(u[i])+", "
      s+="}"
      return s;
      }

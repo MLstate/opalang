@@ -16,6 +16,10 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+//////////////////////////////////////////////////////////////////////
+// BEWARE THIS FILE IS SHARING BEETWEEN THE JAVASCRIPT AND NODE BSL //
+//////////////////////////////////////////////////////////////////////
+
 ##extern-type time_t
 
 var time_month_duration = new Array(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
