@@ -202,11 +202,47 @@ Parser =
    *
    * @param an input string
    *
-   * @return [some(f)] with [f : float] begin the float point number
+   * @return [some(f)] with [f : float] being the float point number
    * represented by the input or [none] if the source does not contain
    * a valid representation of a float point number.
    */
   float = try_parse(Rule.float, _)
+
+  /**
+   * A parsing function for alphanumerical strings, i.e a non empty
+   * a sequence of letters (a-z and A-Z) and digits (0-9):
+   *
+   * @param an input string
+   *
+   * @return [some(f)] with [f : string] 
+   * or [none] if the source is not contain
+   * a valid representation of an alphanum sequence
+   */
+  alphanum = try_parse(Rule.alphanum_string, _)
+
+  /**
+   * A parsing function for idents, ie a non empty
+   * sequence of letters (a-z and A-Z), digits (0-9) and underscores.
+   *
+   * @param an input string
+   *
+   * @return [some(f)] with [f : string] 
+   * or [none] if the source is not contain
+   * a valid representation of an ident
+   */
+  ident = try_parse(Rule.ident, _)
+
+  /**
+   * A parsing function for boolean string
+   * ("false", "False", "true" or "True")
+   *
+   * @param an input string
+   *
+   * @return [some(f)] with [f : bool] 
+   * or [none] if the source is not contain
+   * a valid representation of boolean
+   */
+  bool = try_parse(Rule.bool, _)
 
   /**
    * {2 Parsing related functions}

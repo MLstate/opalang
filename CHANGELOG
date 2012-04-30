@@ -6,6 +6,8 @@ New supported platform:
 
 New features:
 
+  * Parser.alphanum, Parser.ident and Parser.bool added
+  
   * Scheduler
     - new set_max_compute_successive function
     - new set_nb_step_apply function
