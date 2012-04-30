@@ -332,7 +332,7 @@ let google_closure_compiler_options =
           "deprecated" ;
           "fileoverviewTags" ;
           "invalidCasts" ;
-          "missingProperties" ;
+          (* "missingProperties" ; *)
           (* "nonStandardJsDocs" ; *)
           "strictModuleDepCheck" ;
           "undefinedVars" ;

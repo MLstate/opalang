@@ -2199,21 +2199,10 @@ let pass_ServerJavascriptCompilation =
          env_bsl
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
-       in let _env_js_output = Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input in
-       (* match ObjectFiles.compilation_mode () with *)
-       (*   | `linking -> *)
-       (*       OManager.verbose "LINKING"; *)
-
-       (*   | `init -> *)
-       (*       OManager.verbose "INITTTTTTTTTTTTT"; *)
-       (*       let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in *)
-       (*       () *)
-       (*   | `compilation -> *)
-       (*       OManager.verbose "COMPILLLLLLLLLLlll"; *)
-       (*       let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in *)
-       (*       () *)
-       (*   | `prelude -> OManager.verbose "PRELUDE"; *)
-
+       in
+       let _env_js_output =
+         Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input
+       in
        PH.make_env options 0
     )
 

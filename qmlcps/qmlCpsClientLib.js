@@ -17,16 +17,6 @@
 */
 
 /**
-   Client-side library for JavaScript compilation in CPS mode.
-
-   Some of the functions here are made accessible to the user and/or the compiler through the BSL (see bslCps.js ).
-
-   @author Maxime Audouin <maxime.audouin@mlstate.com>
-   @author Rudy Sicard
-   @author David Rajchenbach-Teller (clean-up, documentation, review -- Aug 24th, 2010)
-*/
-
-/**
  * {1 Debugging}
  */
 
@@ -57,8 +47,6 @@ var cps_assert = js_assert
  * {1 Scheduling}
  */
 
-
-
 /**
  * {2 Synchronization barriers}
  *
@@ -66,18 +54,7 @@ var cps_assert = js_assert
  * while [release] releases the barrier and sets a value which the waiting continuations can obtain.
  */
 
-//DEBUG START
-var created_barriers = [];
-var released_barriers= [];
-/*cps_debug_create_barrier = function(s)
-{
-    created_barriers.push(s);
-}
-function cps_debug_release_barrier(s)
-{
-    released_barriers.push(s);
-}*/
-//DEBUG END
+var default_options = {movable:true, atomic:false, lazy:false};
 
 /**
  * Create a synchronization barrier.
@@ -89,14 +66,9 @@ function cps_debug_release_barrier(s)
 function Barrier(name)
 {
     this._waiters = [];
-//DEBUG START
-    if(name == null)
-        this._id = Math.random();
-    else
-        this._id = name;
+    if(name == null) this._id = Math.random();
+    else this._id = name;
     cps_debug("[Barrier] Creating barrier "+this._id);
-    created_barriers.push(this._id);
-//DEBUG END
 }
 
 Barrier.prototype = {
@@ -301,7 +273,6 @@ Task_from_return.prototype = {
  *///TODO reintroduce options
 function Continuation(payload, context, options) {
     cps_assert(payload instanceof Function, "[Continuation] can only be constructed from functions");
-    cps_assert(options == null, "[Continuation] doesn't handle options for the moment");
     this._payload = payload;
     this._context = context;
     this._options = options;
@@ -342,12 +313,14 @@ Continuation.prototype = {
      * Apply a continuation to an exception
      */
     executexn: function(exn) {
+        var payload = this._paylexn;
+        payload = payload ? payload : QmlCpsLib_default_handler_cont(this)._payload;
         return this._paylexn.apply(this._context, [exn])
     }
 }
 
 function QmlCpsLib_callcc_directive(f, k){
-    f(k, new Continuation(function(){return js_void}, k._context, default_options));
+    f(k, new Continuation(function(){return js_void}, k._context));
 }
 
 function QmlCpsLib_default_handler_cont(k){
@@ -388,7 +361,7 @@ function push(task)
  *
  * Stop on fatal error.
  */
-function schedule_aux()
+function loop_schedule()
 {
     cps_debug("Entering scheduling outer loop");
     var i;
@@ -415,55 +388,8 @@ function schedule_aux()
         fatal_error = true;
         cps_debug(e);
     }
+    console.log("END LOOP SCHEDULE")
 }
-
-function command_line_schedule_aux()
-{
-    cps_debug("Entering scheduling outer loop");
-    var i;
-    var fatal_error   = false;//[true] if we stopped scheduling because of a fatal error, [false] otherwise
-    var nothing_to_do = false;//[true] if we stopped scheduling because there's nothing left to do
-    var tasks         = ready;//Keep a local copy. In most JS VMs, this will speed-up code.
-    var task;
-    var iterations_between_settimeout = 100;
-    var wait_delay_nothing_to_do      = 50;//Default wait delay when there's nothing to do. We could increase it progressively.
-    var wait_delay_something_to_do    = 10;//Default wait delay when there's something left to do. Cannot be much lower, otherwise some browsers will ignore it.
-    try
-    {
-        while(true)
-        {
-            cps_debug("Entering scheduling inner loop");
-            if(tasks.length == 0)
-            {
-                nothing_to_do = true;
-                break;
-            } else {
-                task = tasks.shift();
-                cps_assert(task.debug_is_a_task, "[schedule] expects [ready] to contain [Task]s");
-                task.go();//Execute trampolined code
-                // In CPS, we can very likely get away without the tail-call manager.
-                // However, the compiler doesn't know whether we are in CPS, so always produces code
-                // meant for use with the tail-call manager
-                // If/when we move to full CPS, simplify this.
-            }
-        }
-    } catch(e) {
-        fatal_error = true;
-        cps_debug(e);
-    }
-}
-
-var schedule;
-if(!command_line_execution)
-{
-        schedule = schedule_aux
-} else {
-        schedule = command_line_schedule_aux
-}
-
-function loop_schedule() {
-    schedule()
-}//TODO: Get rid of this
 
 /**
  * Returns value [x] to Continuation [k].
@@ -491,9 +417,6 @@ function cps_apply(f, v, k){
     push(new Task_from_application(f, [v, k] ));
 }
 
-
-
-
 /**
  * Blocking wait for a barrier to be [release]d
  *
@@ -503,26 +426,8 @@ function cps_apply(f, v, k){
 function blocking_wait(barrier){
     var i;
     var task;
-    while(!barrier._is_computed)
-    {
-        cps_debug("[Schedule] Entering blocking wait outer loop");
-        //DEBUG START
-        if(ready.length == 0)
-        {
-            cps_debug("[Schedule] nothing left to do");
-            var remaining_barriers = [];
-            for(i = 0; i < created_barriers.length; ++i)
-            {
-                if(released_barriers.indexOf(created_barriers[i]) == -1)
-                    remaining_barriers.push(created_barriers[i]);
-            }
-            cps_assert(ready.length != 0, "[Schedule] Nothing to do. The following barriers are still closed: "+remaining_barriers);
-        }
-        //DEBUG END
-        //cps_assert(ready.length != 0, "[Schedule] Nothing to do.");
-        task = ready.shift();
-        cps_assert(task.debug_is_a_task, "[Schedule] [blocking wait] expects [ready] to contain [Task]s");
-        task.go();//Execute trampolined code
+    while(!barrier._is_computed){
+        loop_schedule();
     }
     return barrier._result;
 }
@@ -533,13 +438,3 @@ function spawn(f) {
     push(task);
     return task._barrier;
 }
-
-
-function main(f)
-{
-    return spawn(f);
-}
-
-
-var default_options = {movable:true, atomic:false, lazy:false};
-var default_thread_context = {none:js_void};
