@@ -76,6 +76,13 @@ Continuation = {{
   return = %%bslcps.user_return%% : continuation('a), 'a -> void
 
   /**
+   * Add a translation step to the input value of a continuation.
+   */
+  map(f:'new -> 'old, k) = Continuation.make{
+    input -> return(k,f(input))
+  }
+
+  /**
    * Like {!Continuation.return} but can't be scheduled before to return the value
    * Hack for synchronous situations.
    * Not for casual user.
