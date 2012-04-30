@@ -2162,6 +2162,13 @@ let pass_ServerJavascriptCompilation =
        let env = e.PH.env in
        assert (options.OpaEnv.back_end == `qmljs);
        let module JsBackend = (val (options.OpaEnv.js_back_end) : Qml2jsOptions.JsBackend) in
+       let compilation_directory =
+         match ObjectFiles.compilation_mode () with
+         | `compilation ->
+             Filename.concat (Option.get (ObjectFiles.get_compilation_directory ())) "_build"
+         | `init | `linking -> options.OpaEnv.target
+         | `prelude -> assert false
+       in
        let jsoptions =
          let argv_options = Qml2jsOptions.Argv.default () in
          { argv_options with Qml2jsOptions.
@@ -2175,11 +2182,11 @@ let pass_ServerJavascriptCompilation =
              inlining = options.OpaEnv.js_local_inlining;
              global_inlining = options.OpaEnv.js_global_inlining;
              no_assert = options.OpaEnv.no_assert;
-             compilation_directory = Option.get (ObjectFiles.get_compilation_directory ())
+             compilation_directory;
          } in
        let env_bsl = env.Passes.newFinalCompile_bsl in
-       let generated_ast = ([] : JsAst.code) in
-         (* Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in  *)
+       let generated_files, generated_ast = (* ([] : JsAst.code) in *)
+         Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
        let env_js_input = JsBackend.compile
          ~bsl: generated_ast
          ~val_:OpaMapToIdent.val_
@@ -2192,10 +2199,36 @@ let pass_ServerJavascriptCompilation =
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in let _env_js_output =
-         Qml2js.JsTreat.js_generation jsoptions []
-           { env_js_input with Qml2jsOptions.js_init_contents = [] }
+         match ObjectFiles.compilation_mode () with
+         | `linking ->
+             let oc = open_out (options.OpaEnv.target ^ ".js") in
+             List.iter
+               (fun (filename, content) ->
+                  Printf.fprintf oc "///////////////////////\n";
+                  Printf.fprintf oc "// From %s\n" filename;
+                  Printf.fprintf oc "///////////////////////\n";
+                  Printf.fprintf oc "%s" content;
+                  Printf.fprintf oc "\n";
+               ) generated_files;
+             ObjectFiles.iter_dir ~deep:true ~packages:true
+               (fun opx ->
+                  Printf.fprintf oc "///////////////////////\n";
+                  Printf.fprintf oc "/** From packages %s \n" opx;
+                  Printf.fprintf oc "///////////////////////\n";
+                  let ic = open_in (Filename.concat (Filename.concat opx "_build") "a.js") in
+                  let chunk = 10000 in
+                  let str = String.create chunk in
+                  let rec aux () =
+                    match input ic str 0 chunk with
+                    | 0 -> ()
+                    | len -> output oc str 0 len; aux ()
+                  in aux(); close_in ic
+               );
+             close_out oc
+         | _ ->
+             let _ = Qml2js.JsTreat.js_generation jsoptions [] env_js_input in
+             ()
        in
-
        PH.make_env options 0
     )
 
