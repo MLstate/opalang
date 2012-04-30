@@ -563,8 +563,8 @@ followed optionally by:
     -> some_property // to select any static property (like style, value, etc.)
     -> {e} // to select any dynamic property
 
-The verb is either `<-` for setting the value, `+<-` for appending to the
-value or `-<-` for prepending to the value.
+The verb is either `=` for setting the value, `=+` for appending to the
+value or `+=` for prepending to the value.
 
 The expression is simply the value that will be set, appended to prepended to whatever is selected.
 When the selector is not followed by `->`, the expression should be convertible to xhtml.
@@ -574,7 +574,13 @@ In all other cases, the expression must have type string.
 Here is an instance of an action list, that replaces the content of the element
 pointed to by `#show_message` by a fragment of html.
 
-    do Dom.transform([#show_messages <- <>{failure}</>])
+    Dom.transform([#show_messages = <>{failure}</>])
+
+If the list of actions to perform contains only one single element then the
+`Dom.transform` application can be ommitted and the above can be replaced with
+simple
+
+    #show_messages = <>{failure}</>
 
 Client-server distribution
 --------------------------
