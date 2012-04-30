@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -161,6 +161,12 @@ ThreadContext = {{
     // use when you need a ThreadContext.client that you can't get
     // only here for avoiding duplication of code
     // TODO: remove all use
+
+    /**
+     * Current thread context with the given ThreadContext.client key
+     */
+    using(client_key) = {get({current}) with key={client=client_key}}
+
   }}
 }}
 
