@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -390,6 +390,10 @@ List = {{
     match l:list with
     | [hd | tl] -> do f(hd):void; iter(f,tl)
     | [] -> void : void
+
+  /* Temporary list or temporary nested continuation, that is the question */
+  /** Same as iter but in reverse order */
+  rev_iter(f, l):void = iter(f, List.rev(l))
 
   /**
    * As [iter] but informs the function of the current position in the list.
