@@ -75,7 +75,7 @@ Expressions
 #### Function declarations
 
      // function declaration
-    function incr(int x) : int
+    function int incr(int x)
     {
       x + 1
     }
@@ -93,9 +93,10 @@ Expressions
      // anonymous function
     function(x) { x + 1 }
 
-     // mutually recursive functions
-    rec function odd(x) { if x == 1 then true else even(x-1) }
-    and function even(x) { if x == 0 then true else odd(x-1) }
+     // mutually recursive functions; 'recursive' and 'and' only
+     // needed for *local* functions (not needed at top-level)
+    recursive function odd(x) { if (x == 1) true else even(x-1) }
+    and function even(x) { if (x == 0) true else odd(x-1) }
 
 //[TODO]: Add recursive functions
 //[TODO]: Add partial application
