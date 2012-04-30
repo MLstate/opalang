@@ -307,8 +307,8 @@ struct
   (* TODO: This will have to be extended to mutually recursive types, once those are
      handled properly *)
   let check_definition tname tvars ty =
-    let rec check_row (Q.TyRow (fields, _)) =
-      List.iter (check ~top:false @* snd) fields
+    let rec check_row ~guarded (Q.TyRow (fields, _)) =
+      List.iter (check ~guarded ~top:false @* snd) fields
 
     and check_col (Q.TyCol (l, _)) =
       let seen_sum_cases = ref [] in
@@ -335,44 +335,36 @@ struct
              type_err_raise ty exc)
         l
 
-
-    and check ?(top=false) t =
+    and check ?(guarded=true) ?(top=false) t =
       match t with
       | Q.TypeConst _ | Q.TypeVar _ -> ()
       | Q.TypeArrow (lt, u) ->
           List.iter check lt;
           check u
-      | Q.TypeSumSugar s -> List.iter check s
-      | Q.TypeSum col -> check_col col
-      | Q.TypeRecord r -> check_row r
+      | Q.TypeSumSugar s ->
+        (* TODO we should check that at least one case in not recursive before saying it is guarded *)
+        List.iter check s
+      | Q.TypeSum col ->
+        check_col col
+      | Q.TypeRecord r -> check_row ~guarded r
       | Q.TypeName (vars, name) ->
-          List.iter check vars ;
-          if TypeIdent.equal name tname then
+          List.iter (check ~guarded:true) vars ; (* TODO : the check is incorrect it should go through typename, instead of type parameter with bad assumptions *)
+          if TypeIdent.equal name tname then (
             let ok =
-              if ty == t then (
-                (* We want to reject definitions trivially cyclic like
-                   type t = t. This is the case when the initial type expression
-                   is the same than the current one. *)
-                false
-               )
-              else (
-                try
-                  let c = List.combine tvars vars in
-                  let pos_ok (v, t) =
-                    match t with
-                    | Q.TypeVar v' -> TypeVar.equal v v'
-                    | _ -> false in
-                  List.for_all pos_ok c
-                with Invalid_argument "List.combine" -> false) in
+              (List.length vars == List.length tvars)
+              && guarded
+              (* non uniform recursion could be checked more carefully *)
+            in
             if not ok then
               let exc = invalidTypeDefinition (tvars, tname, ty) in
               type_err_raise t exc
+          )
       | Q.TypeAbstract ->
           if (not top) then
             let exc =
               QmlTyperException.InvalidType (ty, `abstract_in_ty_annotation) in
             type_err_raise t exc (* "abstract" nested inside a type def *)
-      | Q.TypeForall (_, _, _, t) -> check t
+      | Q.TypeForall (_, _, _, t) -> check ~guarded t
     in
     let rec repeated_var = function
       | [] -> false
@@ -382,7 +374,7 @@ struct
       let exc = invalidTypeDefinition (tvars, tname, ty) in
       type_err_raise ty exc
     else
-      check ~top:true ty
+      check ~guarded:false ~top:true ty
 
   let definition_no_check ?(typevar=[]) ?(ty_row=[]) tname typ =
     let error () =
