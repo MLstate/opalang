@@ -31,7 +31,13 @@
 Random = {{
   int   = %% BslNumber.Random.int %% : int -> int
   float = %% BslNumber.Random.float %% : float -> float
-  random_init = %% BslNumber.Random.random_init %% : -> void
+
+  /**
+   * [Random.bool(p)]
+   * returns a random bool, true with probability p
+   * use p=0.5 to obtain true or false with equiprobability
+  **/
+  bool(f) = Random.float(1.0) < f
 
   /**
    * [Random.generic_string(s, n)]
