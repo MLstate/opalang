@@ -17,7 +17,7 @@
 */
 package stdlib.apis.mongo
 
-import stdlib.queue
+import stdlib.core.queue
 
 type SocketPool.result = outcome((bool,Socket.connection),Mongo.failure)
 

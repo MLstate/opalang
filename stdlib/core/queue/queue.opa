@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -28,6 +28,7 @@
  * @category algo
  * @author Maxime Audouin, 2010
  * @author Mathieu Barbin, 2011
+ * @author Rudy Sicard, 2012
  * @destination
  * @stability untested
 **/
@@ -224,22 +225,29 @@ Queue = {{
    * {1 Iterators}
   **/
 
+
+  /**
+   * Reverse the queue
+   * We provide no other reversed iterator since it is efficient
+   * Complexity O(1)
+  **/
+  rev((l1, s1, l2, s2): Queue.t('a)) : Queue.t('a) =
+    (l2,s2,l1,s1)
+
   /**
    * {2 fold}
+   * Fold from top (first added) to bottom (last added)
+   * Complexity O(n)
   **/
-
-  /**
-   * Create a new queue with element in reverse order
-  **/
-  /*
-  rev((l1, s1, l2, s2): Queue.t('a)) : Queue.t('a)
-  */
-
   fold(f : ('a, 'acc -> 'acc), (l1, _s1, l2, _s2) : Queue.t('a), acc : 'acc) : 'acc =
     List.foldr(f, l1, List.fold(f, l2, acc))
-  /*
-  foldi(f : (int, 'a, 'acc -> 'acc), (l1, s1, l2, s2) : Queue.t('a), acc : 'acc) : 'acc
-  */
+
+  @private revindexl1(s1,s2,i) = s2+s1-(i+1)
+
+  foldi(f : (int, 'a, 'acc -> 'acc), (l1, _s1, l2, s2) : Queue.t('a), acc : 'acc) : 'acc =
+    acc = List.foldi(f, l2, acc)
+    f_(i,v, acc) = f(s2+i ,v, acc)
+    List.foldi(f_, List.rev(l1), acc)
 
   /*
   fold_backwards(f : ('a, 'acc -> 'acc), (l1, s1, l2, s2) : Queue.t('a), acc : 'acc) : 'acc
@@ -248,12 +256,16 @@ Queue = {{
 
   /**
    * {2 map}
+   * Complexity O(n)
   **/
+  map(f : ('a -> 'b), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('b) =
+    (List.map(f,l1),s1,List.map(f,l2),s2)
 
-  /*
-  map(f : ('a -> 'a), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
-  mapi(f : (int, 'a -> 'a), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
-  */
+  mapi(f : (int, 'a -> 'b), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('b) =
+    l1 = List.mapi(f,l1)
+    f_(i,v) = f(revindexl1(s1,s2,i),v)
+    l2 = List.mapi(f_,l2)
+    (l1,s1,l2,s2)
 
   /*
   map_backwards(f : ('a -> 'a), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
@@ -262,12 +274,19 @@ Queue = {{
 
   /**
    * {2 iter}
+   * Iter from top (first added) to bottom (last added)
+   * Complexity O(n)
   **/
+  iter(f : ('a -> void), (l1, _s1, l2, _s2) : Queue.t('a)) : void =
+    do List.iter(f, l2)
+    do List.rev_iter(f, l1)
+    void
 
-  /*
-  iter(f : ('a -> void), (l1, s1, l2, s2) : Queue.t('a)) : void
-  iteri(f : (int, 'a -> void), (l1, s1, l2, s2) : Queue.t('a)) : void
-  */
+  iteri(f : (int, 'a -> void), (l1, _s1, l2, s2) : Queue.t('a)) : void =
+   do List.iteri(f, l2)
+   f_(i,v) = f(s2+i,v)
+   do List.iteri(f_, List.rev(l1))
+   void
 
   /*
   iter_backwards(f : ('a -> void), (l1, s1, l2, s2) : Queue.t('a)) : void
@@ -290,10 +309,12 @@ Queue = {{
 
   /**
    * {2 exists}
+   * Complexity O(n)
   **/
 
+  exists(f : ('a -> bool), (l1, _s1, l2, _s2) : Queue.t('a)) : bool =
+    List.exists(f,l1) || List.exists(f,l2)
   /*
-  exists(f : ('a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : bool
   existsi(f : (int, 'a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : bool
   */
 
@@ -304,36 +325,47 @@ Queue = {{
 
   /**
    * {2 forall}
+   * Complexity O(n)
   **/
 
+  forall(f : ('a -> bool), (l1, _s1, l2, _s2) : Queue.t('a)) : bool =
+     List.for_all(f,l1) && List.for_all(f,l2)
   /*
-  forall(f : ('a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : bool
   foralli(f : (int, 'a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : bool
   */
 
   /**
    * {2 foldmap}
+   * Fold from top (first added) to bottom (last added)
+   * Complexity O(n)
   **/
 
-  /*
-  foldmap
-  foldmapi
-  */
+  foldmap(f, (l1,s1,l2,s2):Queue.t, acc:'acc):(Queue.t,'acc) =
+    (l2,acc) = List.fold_map(f, l2, acc)
+    (l1,acc) = List.fold_map(f, l1, acc)
+    ( (l1,s1,l2,s2), acc )
+
+  foldmapi(f, (l1,s1,l2,s2):Queue.t, acc) =
+    f(v,(acc,n)) = (
+      (e,acc) = f(n,v,acc)
+      (e,(acc,n+1))
+    )
+    (l2,(acc, n)) = List.fold_map(f, l2,           (acc,0))
+    (l1,(acc,_n)) = List.fold_map(f, List.rev(l1), (acc,n))
+    ( (l1,s1,l2,s2), acc )
 
   /**
    * {2 filter}
   **/
 
-  /*
-  filter(f : ('a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
-  filteri(f : (int, 'a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
-  */
+  filter(f : ('a -> bool), (l1, _s1, l2, _s2) : Queue.t('a)) : Queue.t('a) =
+    l1 = List.filter(f,l1)
+    s1 = List.length(l1)
+    l2 = List.filter(f,l2)
+    s2 = List.length(l2)
+    (l1,s1,l2,s2)
 
-  /**
-   * Export to a iter value.
-   * @deprecated Not efficient, use rather [Queue.iter]
-  **/
-  @deprecated({use="Queue.iter"})
-  to_iter((l1, _s1, l2, _s2): Queue.t('a)): iter('a) =
-    Iter.append(Iter.of_list(l2), Iter.of_list(List.rev(l1)))
+  //filteri(f : (int, 'a -> bool), (l1, s1, l2, s2) : Queue.t('a)) : Queue.t('a)
+
+
 }}
