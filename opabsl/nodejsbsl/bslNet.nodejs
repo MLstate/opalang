@@ -1,10 +1,15 @@
 
+var http = require('http');
+var client = require('../../qmljsimp/qmlJsImpClientLib.js');
+
 ##extern-type WebInfo.private.native
 ##extern-type WebInfo.private.native_http_header
 ##extern-type WebInfo.private.native_request
 ##extern-type WebInfo.private.native_connection
 ##extern-type WebInfo.private.native_response
 ##extern-type web_server_status
+##extern-type SSL.secure_type
+##extern-type HttpRequest.msg_list
 ##extern-type list('a)
 //'
 
@@ -70,25 +75,27 @@ function merge_headers(headers) {
 ##module Http_server
 
 ##register web_info_request : WebInfo.private.native -> WebInfo.private.native_request
-##args(x)
+##args(req)
 {
   // We'll just leave it intact, it doesn't have any internal "request" field,
   // the whole thing is the request.
-  return x
+  // We also have to do it this way to ensure that the extra parameters are in the
+  // native_request rather than in the native.
+  return req
 }
 
 ##register web_info_cont : WebInfo.private.native -> (WebInfo.private.native_response -> void)
-##args(x)
+##args(req)
 {
   // We may need to add extra fields in the Opa handling
-  return function () { return void }
+  return function (resp) { return js_void }
 }
 
 ##register web_info_conn : WebInfo.private.native -> WebInfo.private.native_connection
-##args(x)
+##args(req)
 {
   // The connection is actually in the request
-  return x.connection
+  return req.request.connection
 }
 
 ##register web_info_reconstruct : \
@@ -107,74 +114,78 @@ function merge_headers(headers) {
   return r
 }
 
-function get_user_agent(request) {
-  if ('user-agent' in request.headers)
-    return request.headers['user-agent']
-  else if ('User-Agent' in request.headers)
-    return request.headers['User-Agent']
+function get_user_agent(req) {
+  if ('user-agent' in req.request.headers)
+    return req.request.headers['user-agent']
+  else if ('User-Agent' in req.request.headers)
+    return req.request.headers['User-Agent']
   else
     return "unknown"
 }
 
 ##register get_user_agent : WebInfo.private.native_request -> string
-##args(request)
+##args(req)
 {
-  return get_user_agent(request)
+  return get_user_agent(req)
 }
 
 ##register is_apple_mobile_webapp : WebInfo.private.native_request -> bool
-##args(request)
+##args(req)
 {
-  var ua = get_user_agent(request);
+  var ua = get_user_agent(req);
   return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1 && ua.indexOf("Safari",0) == -1 
 }
 
 ##register is_apple_mobile : WebInfo.private.native_request -> bool
-##args(request)
+##args(req)
 {
-  var ua = get_user_agent(request);
+  var ua = get_user_agent(req);
   return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1
 }
 
 // Not present, will need to be injected into prototype when createServer is called
-//# #register get_server_url \ `HttpServer.get_server_url` : WebInfo.private.native_request -> string
+##register get_server_url : WebInfo.private.native_request -> string
+##args(req)
+{
+  return req.server_url
+}
 
 ##register get_uri : WebInfo.private.native_request -> string
-##args(request)
+##args(req)
 {
-  return request.url
+  return req.request.url
 }
 
 ##register get_method : WebInfo.private.native_request -> string
-##args(request)
+##args(req)
 {
-  return request.method
+  return req.request.method
 }
 
 ##register is_secured : WebInfo.private.native_request -> bool
-##args(request)
+##args(req)
 {
   // just guesswork
-  var cert = request.connection.getPeerCertificate()
+  var cert = req.request.connection.getPeerCertificate()
   return cert !== null && cert !== undefined
 }
 
 ##register get_header_names: WebInfo.private.native_request -> opa[list(string)]
-##args(request)
+##args(req)
 {
   var lst = [];
-  for (var fld in request.headers) { lst.push(fld) };
+  for (var fld in req.request.headers) { lst.push(fld) };
   return js2list(lst)
 }
 
 function gethdr(request, s) {
-  return (s in request.headers) ? {some:request.headers[s]} : js_none
+  return (s in request.headers) ? {some:request.headers[s]} : client.js_none
 }
 
 ##register get_header_values : WebInfo.private.native_request -> (string -> option(string))
-##args(request)
+##args(req)
 {
-  return function (s) { return gethdr(request, s) }
+  return function (s) { return gethdr(req.request, s) }
 }
 
 ##register ip_of_web_info : WebInfo.private.native_connection -> string
@@ -193,61 +204,111 @@ function gethdr(request, s) {
 // BslNet.Http_server.make_response 
 
 function Option_map(f, opt) {
-  return ('some' in opt) ? {some:f(opt.some)} : opt
+  if (opt === null || opt === undefined) {
+    return opt
+  } else if ('some' in opt) {
+    return {some:f(opt.some)}
+  } else {
+    return opt
+  }
+}
+
+function Option_is_some(x) {
+  if (x === null || x === undefined) {
+    return false
+  } else if ('some' in x) {
+    return true
+  } else {
+    return false
+  }
+}
+
+function Option_is_none(x) {
+  if (x === null || x === undefined) {
+    return true
+  } else if ('some' in x) {
+    return false
+  } else {
+    return true
+  }
+}
+
+function Option_get(x) {
+  if (x === null || x === undefined) {
+    return undefined
+  } else if ('some' in x) {
+    return x.some
+  } else {
+    return undefined
+  }
+}
+
+function Option_default(dflt, x) {
+  if (x === null || x === undefined) {
+    return dflt
+  } else if ('some' in x) {
+    return x.some
+  } else {
+    return dflt
+  }
 }
 
 function is_valid(request, modified_since) {
-  if (request.headers['Cache-Control'] === 'no-cache')
+  if (request.headers['cache-control'] === 'no-cache')
     return false
-  else if (request.headers['Pragma'] === 'no-cache')
+  else if (request.headers['pragma'] === 'no-cache')
     return false
-  else if ('If-Modified-Since' in request.headers) {
-    if ('some' in modified_since) {
-      var mtimein = new Date(request.headers['If-Modified-Since']);
+  else if ('if-modified-since' in request.headers) {
+    if (Option_is_some(modified_since)) {
+      var mtimein = new Date(request.headers['if-modified-since']);
       return mtimein >= modified_since.some
     } else false
-  } else if ('If-Unmodified-Since' in request.headers) {
-    if ('some' in modified_since) {
-      var mtimein = new Date(request.headers['If-Unmodified-Since']);
+  } else if ('if-unmodified-since' in request.headers) {
+    if (Option_is_some(modified_since)) {
+      var mtimein = new Date(request.headers['if-unmodified-since']);
       return mtimein < modified_since.some
     } else false
   } else false
 }
 
-function process_content(request, response, expires, modified_since, _type, content, include_body) {
+function process_content(req, expires, modified_since, _type, content, include_body) {
   var now = new Date();
   var content_len = Buffer.byteLength(content.toString(),'utf8');
-  var cs = if (_type.indexOf("charset") != -1) "" else "; charset=utf-8";
+  var cs;
+  if (_type.indexOf("charset") != -1) { cs = "" } else { cs = "; charset=utf-8" };
   var typeval = _type + cs;
-  var expires = if ('some' in expires) expires.some else new Date();
-  response.setHeader('Date',now);
-  //response.setHeader('Server',server_name);
-  response.setHeader('Content-Type',typeval);
-  response.setHeader('Expires',expires);
-  if ('some' in modified_since) {
-    response.setHeader('Cache-Control',"public");
-    response.setHeader('Last-Modified',modified_since.some);
+  var expires = Option_default(new Date(), expires);
+  req.response.setHeader('Date',now);
+  req.response.setHeader('Server',req.server_name);
+  req.response.setHeader('Content-Type',typeval);
+  req.response.setHeader('Expires',expires);
+  if (Option_is_some(modified_since)) {
+    req.response.setHeader('Cache-Control',"public");
+    req.response.setHeader('Last-Modified',modified_since.some);
   };
-  response.setHeader('Content-Length',content_len);
+  req.response.setHeader('Content-Length',content_len);
   if (include_body)
-    response.end(content)
+    req.response.end(content)
   else
-    response.end();
+    req.response.end();
 }
 
-function make_response_with_headers(request,response,expires,modified_since,req,headers_out,status_line,_type,content,cont) {
-  var code = status_code(status_line);
-  var reason = reason_phrase(code);
-  var include_body = request.method !== 'HEAD';
-  if (is_valid(request, modified_since)) {
-    response.writeHead(304, {'Date': new Date()});
-    response.end('Not Modified');
+function make_response_with_headers(expires,modified_since,req,headers_out,status_line,_type,content,cont) {
+  var code = BslNet_Requestdef_status_code(status_line);
+  var reason = BslNet_Requestdef_reason_phrase(code);
+  var include_body = req.request.method !== 'HEAD';
+  console.log("make_response: _type="+_type);
+  if (is_valid(req.request, modified_since)) {
+    console.log("make_response: code="+304);
+    req.response.writeHead(304, {'Date': new Date()});
+    req.response.end('Not Modified');
   } else {
-    response.statusCode(code);
-    headers.forEach(function (hdr) { for (var h in hdr) { response.setHeader(h,hdr[h]) } });
-    process_content(request, response, expires, modified_since, _type, content, include_body)
+    console.log("make_response: code="+code);
+    req.response.statusCode = code;
+    headers_out.forEach(function (hdr) { for (var h in hdr) { req.response.setHeader(h,hdr[h]) } });
+    process_content(req, expires, modified_since, _type, content, include_body)
   };
-  cont(request, response)
+  cont(req)
 }
 
 ##register [cps-bypass] make_response : \
@@ -260,8 +321,9 @@ function make_response_with_headers(request,response,expires,modified_since,req,
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,k)
 {
-  var modified_since = Option_map(function (ms) { new Date(ms) },ms);
-  make_response_with_headers(js_none, modified_since, req, headers, stat, _type, content, function (r) { execute(k, r) });
+  var modified_since = Option_map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, k);
+  return js_void
 }
 
 ##register [cps-bypass] make_response_modified_since : \
@@ -274,8 +336,9 @@ function make_response_with_headers(request,response,expires,modified_since,req,
 ##args(modified_since,req,stat,_type,content,k)
 {
   var expires = {some:new Date(0)};
-  var modified_since = Option_map(function (ms) { new Date(ms) },ms);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, function (r) { execute(k, r) });
+  var modified_since = Option_map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, k);
+  return js_void
 }
 
 ##register [cps-bypass] make_response_expires_at : \
@@ -289,15 +352,45 @@ function make_response_with_headers(request,response,expires,modified_since,req,
 ##args(expires_at,modified_since,req,stat,_type,content,k)
 {
   var date = new Date();
-  var expires = (`some` in expires_at) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
-  var modified_since = Option_map(function (ms) { new Date(ms) },modified_since);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, function (r) { execute(k, r) });
+  var expires = (Option_is_some(expires_at)) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
+  var modified_since = Option_map(function (ms) { return new Date(ms) },modified_since);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, k);
+  return js_void
 }
 
-// BslNet.Http_server.make_response_expires_at 
-// BslNet.Http_server.make_response_modified_since 
+function cookies_in(req) {
+  req.request.headers.cookie && req.request.headers.cookie.split(';').forEach(function(cookie) {
+    var parts = cookie.split('=');
+    console.log("cookie: "+cookie);
+    req.cookies[parts[0].trim()] = (parts[1] || '').trim();
+  });
+  return req
+}
+
+##register init_server : \
+    string, \
+    int, \
+    option(string), \
+    option(string), \
+    option(string), \
+    SSL.secure_type, \
+    (WebInfo.private.native -> void), \
+    (string, HttpRequest.msg_list, int -> bool) ->\
+    void
+##args(name,port,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
+{
+  http.createServer(function (request, response) {
+                      var req = cookies_in({server_name:name, cookies:{}, request:request, response:response});
+                      console.log(req);
+                      return dispatcher(req)
+                    }).listen(port);
+  return js_void
+}
 
 ##endmodule
+
+exports.make_response = BslNet_Http_server_make_response
+exports.init_server = BslNet_Http_server_init_server
 
 ##module Requestdef
 
@@ -450,4 +543,7 @@ var reason_phrase_map = {
 }
 
 ##endmodule
+
+exports.status_code = BslNet_Requestdef_status_code
+exports.reason_phrase = BslNet_Requestdef_reason_phrase
 
