@@ -29,7 +29,22 @@
  */
 
 Random = {{
+  /**
+   * [Random.random_init()]
+   * Initialize the random generator
+  **/
+  random_init = %% BslNumber.Random.random_init %% : -> void
+
+  /**
+   * [Random.int(N)]
+   * returns an integer in [  [0 , N[  ]
+  **/
   int   = %% BslNumber.Random.int %% : int -> int
+
+  /**
+   * [Random.float(R)]
+   * returns a float in [  [0 , R[  ]
+  **/
   float = %% BslNumber.Random.float %% : float -> float
 
   /**
