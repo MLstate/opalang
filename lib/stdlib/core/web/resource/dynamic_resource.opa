@@ -145,7 +145,7 @@ type DynamicResource.message =
 /**
  * {1 Interface}
  */
-
+@server_private
 DynamicResource = {{
 
   /**
@@ -198,7 +198,7 @@ DynamicResource = {{
   @private find_resource(key) =
     Option.get(Cell.call(resourceCell, { get = key }))
 
-  @private @server next_key =
+  @private next_key =
     fresh = Fresh.server(i->i)
     ((prefix:string), (sufix:string) ->
       id = fresh()
