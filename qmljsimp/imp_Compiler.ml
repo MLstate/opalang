@@ -31,6 +31,10 @@ let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_ty
   (* Keep only Bypasses used in the code *)
   let filter =
     let used_bypasses =
+      let fail = Opacapi.Opabsl.BslPervasives.fail in
+      BslKeySet.add fail BslKeySet.empty
+    in
+    let used_bypasses =
       QmlAstWalk.CodeExpr.fold
         (fun used_bypasses expr ->
            QmlAstWalk.Expr.fold
@@ -42,7 +46,7 @@ let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_ty
                   BslKeySet.add bkey used_bypasses
               | _ -> used_bypasses
              ) used_bypasses expr
-        ) BslKeySet.empty code
+        ) used_bypasses code
     in (fun bypass -> BslKeySet.mem (Imp_Bsl.JsImpBSL.ByPass.key bypass) used_bypasses)
   in
   let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~filter ~js_ctrans () in
