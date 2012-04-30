@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -167,6 +167,34 @@ Scheduler =
    * Push a task on scheduler.
    */
   push  = @may_cps(%%BslScheduler.push%%)
+
+ /**
+   * Introduce a scheduling point.
+   *
+   * Warning: this function is server-only.
+   */
+  @server_private
+  point() = @callcc(Continuation.return(_,void))
+
+  /**
+   * Reschedule the current computation for later.
+   *
+   * Warning: this function is server-only.
+   */
+  @server_private
+  yield() = @callcc(k -> Scheduler_push( -> Continuation.return(k,void)))
+
+  /**
+   * Switch to the task provided by the function while rescheduling the current computation
+   *
+   * Warning: this function is server-only.
+   */
+  @server_private
+  switch(f) = @callcc(k ->
+    do Scheduler_push( -> Continuation.return(k,void))
+	  f()
+  )
+
 
   /**
    * {1 GC}
