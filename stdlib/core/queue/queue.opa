@@ -37,6 +37,8 @@
  * {1 About this module}
  *
  * This file provides an implementation of functional queue.
+ * We provide 'average complexity', which means that on standard use you will observe the amortized given complexity.
+ * But they are not strictly guaranteed amortized complexity. (malicious code can make complexity worse than that)
  *
 **/
 
@@ -121,6 +123,7 @@ Queue = {{
 
   /**
    * Create a singleton queue, containing the given element
+   * Complexity O(1)
   **/
   singleton(item:'a) : Queue.t('a) = ([], 0, [item], 1)
 
@@ -136,7 +139,7 @@ Queue = {{
 
   /**
    * Get the top of the queue.
-   * Complexity O(1) in better case, O(n) is worth case.
+   * Average complexity O(1), but ranges from O(1) and  O(n)
   **/
   top((l1, s1, l2, s2): Queue.t('a)): option('a) =
     match l2 with
@@ -145,7 +148,8 @@ Queue = {{
       if l1 == [] then none
       else top( flush_l1(l1,s1,s2) )
   /**
-   * get the top and the remaining queue.
+   * Get the top and the remaining queue.
+   * Average complexity O(1), but ranges from O(1) and  O(n)
   **/
   rem((l1, s1, l2, s2): Queue.t('a)) : (option('a), Queue.t('a)) =
     match l2 with
@@ -199,7 +203,7 @@ Queue = {{
 
   /**
    * Reverse the queue
-   * We provide no other reversed iterator since it is efficient
+   * We provide no other reversed iterator since it is efficient.
    * Complexity O(1)
   **/
   rev((l1, s1, l2, s2): Queue.t('a)) : Queue.t('a) =
