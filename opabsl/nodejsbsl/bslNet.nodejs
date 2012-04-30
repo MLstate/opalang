@@ -1,0 +1,453 @@
+
+##extern-type WebInfo.private.native
+##extern-type WebInfo.private.native_http_header
+##extern-type WebInfo.private.native_request
+##extern-type WebInfo.private.native_connection
+##extern-type WebInfo.private.native_response
+##extern-type web_server_status
+##extern-type list('a)
+//'
+
+##module ConvertHeader
+
+function merge_headers(headers) {
+  var hdr = { };
+  headers.forEach(function (h) { for (var f in h) { hdr[f] = h[f]; } });
+  return hdr
+}
+
+##register set_cookie : string -> WebInfo.private.native_http_header
+##args(value)
+{
+  return { 'Set-Cookie': value }
+}
+
+##register last_modified : time_t -> WebInfo.private.native_http_header
+##args(date)
+{
+  var now = new Date(date)
+  return { 'Last-Modified': now }
+}
+
+##register cache_control: string -> WebInfo.private.native_http_header
+##args(value)
+{
+  return { 'Cache-Control': value }
+}
+
+##register pragma : string -> WebInfo.private.native_http_header
+##args(value)
+{
+  return { 'Pragma': value }
+}
+
+##register location : string -> WebInfo.private.native_http_header
+##args(value)
+{
+  return { 'Location': value }
+}
+
+##register cdisp_attachment : string -> WebInfo.private.native_http_header
+##args(value)
+{
+  return { 'Content-Disposition': "attachment; filename="+value+";" }
+}
+
+##register expires_at : option(time_t) -> WebInfo.private.native_http_header
+##args(t)
+{
+  var exp_time = new Date();
+  if ('some' in t) {
+    exp_time.setTime(exp_time.getTime()+t.some);
+  } else {
+    exp_time.setFullYear(exp_time.getFullYear()+1);
+  };
+  return { 'Expires': exp_time }
+}
+
+##endmodule
+
+##module Http_server
+
+##register web_info_request : WebInfo.private.native -> WebInfo.private.native_request
+##args(x)
+{
+  // We'll just leave it intact, it doesn't have any internal "request" field,
+  // the whole thing is the request.
+  return x
+}
+
+##register web_info_cont : WebInfo.private.native -> (WebInfo.private.native_response -> void)
+##args(x)
+{
+  // We may need to add extra fields in the Opa handling
+  return function () { return void }
+}
+
+##register web_info_conn : WebInfo.private.native -> WebInfo.private.native_connection
+##args(x)
+{
+  // The connection is actually in the request
+  return x.connection
+}
+
+##register web_info_reconstruct : \
+  (WebInfo.private.native_response -> void), \
+  WebInfo.private.native_request, \
+  WebInfo.private.native_connection -> \
+  WebInfo.private.native
+##args(f, r, c)
+{
+  //let web_info_reconstruct f r c = {
+  //  HttpServerTypes.cont        = f; -- not present
+  //  HttpServerTypes.request     = r; -- the whole request object
+  //  HttpServerTypes.connection  = c; -- ignore this, it's in the request
+  //  HttpServerTypes.certificate = None; -- use request.connection.getPeerCertificate etc.
+  //}
+  return r
+}
+
+function get_user_agent(request) {
+  if ('user-agent' in request.headers)
+    return request.headers['user-agent']
+  else if ('User-Agent' in request.headers)
+    return request.headers['User-Agent']
+  else
+    return "unknown"
+}
+
+##register get_user_agent : WebInfo.private.native_request -> string
+##args(request)
+{
+  return get_user_agent(request)
+}
+
+##register is_apple_mobile_webapp : WebInfo.private.native_request -> bool
+##args(request)
+{
+  var ua = get_user_agent(request);
+  return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1 && ua.indexOf("Safari",0) == -1 
+}
+
+##register is_apple_mobile : WebInfo.private.native_request -> bool
+##args(request)
+{
+  var ua = get_user_agent(request);
+  return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1
+}
+
+// Not present, will need to be injected into prototype when createServer is called
+//# #register get_server_url \ `HttpServer.get_server_url` : WebInfo.private.native_request -> string
+
+##register get_uri : WebInfo.private.native_request -> string
+##args(request)
+{
+  return request.url
+}
+
+##register get_method : WebInfo.private.native_request -> string
+##args(request)
+{
+  return request.method
+}
+
+##register is_secured : WebInfo.private.native_request -> bool
+##args(request)
+{
+  // just guesswork
+  var cert = request.connection.getPeerCertificate()
+  return cert !== null && cert !== undefined
+}
+
+##register get_header_names: WebInfo.private.native_request -> opa[list(string)]
+##args(request)
+{
+  var lst = [];
+  for (var fld in request.headers) { lst.push(fld) };
+  return js2list(lst)
+}
+
+function gethdr(request, s) {
+  return (s in request.headers) ? {some:request.headers[s]} : js_none
+}
+
+##register get_header_values : WebInfo.private.native_request -> (string -> option(string))
+##args(request)
+{
+  return function (s) { return gethdr(request, s) }
+}
+
+##register ip_of_web_info : WebInfo.private.native_connection -> string
+##args(c)
+{
+  return c.remoteAddress
+}
+
+##register check_connection : WebInfo.private.native_connection -> bool
+##args(c)
+{
+  // Just have to assume open
+  return true
+}
+
+// BslNet.Http_server.make_response 
+
+function Option_map(f, opt) {
+  return ('some' in opt) ? {some:f(opt.some)} : opt
+}
+
+function is_valid(request, modified_since) {
+  if (request.headers['Cache-Control'] === 'no-cache')
+    return false
+  else if (request.headers['Pragma'] === 'no-cache')
+    return false
+  else if ('If-Modified-Since' in request.headers) {
+    if ('some' in modified_since) {
+      var mtimein = new Date(request.headers['If-Modified-Since']);
+      return mtimein >= modified_since.some
+    } else false
+  } else if ('If-Unmodified-Since' in request.headers) {
+    if ('some' in modified_since) {
+      var mtimein = new Date(request.headers['If-Unmodified-Since']);
+      return mtimein < modified_since.some
+    } else false
+  } else false
+}
+
+function process_content(request, response, expires, modified_since, _type, content, include_body) {
+  var now = new Date();
+  var content_len = Buffer.byteLength(content.toString(),'utf8');
+  var cs = if (_type.indexOf("charset") != -1) "" else "; charset=utf-8";
+  var typeval = _type + cs;
+  var expires = if ('some' in expires) expires.some else new Date();
+  response.setHeader('Date',now);
+  //response.setHeader('Server',server_name);
+  response.setHeader('Content-Type',typeval);
+  response.setHeader('Expires',expires);
+  if ('some' in modified_since) {
+    response.setHeader('Cache-Control',"public");
+    response.setHeader('Last-Modified',modified_since.some);
+  };
+  response.setHeader('Content-Length',content_len);
+  if (include_body)
+    response.end(content)
+  else
+    response.end();
+}
+
+function make_response_with_headers(request,response,expires,modified_since,req,headers_out,status_line,_type,content,cont) {
+  var code = status_code(status_line);
+  var reason = reason_phrase(code);
+  var include_body = request.method !== 'HEAD';
+  if (is_valid(request, modified_since)) {
+    response.writeHead(304, {'Date': new Date()});
+    response.end('Not Modified');
+  } else {
+    response.statusCode(code);
+    headers.forEach(function (hdr) { for (var h in hdr) { response.setHeader(h,hdr[h]) } });
+    process_content(request, response, expires, modified_since, _type, content, include_body)
+  };
+  cont(request, response)
+}
+
+##register [cps-bypass] make_response : \
+    option(time_t), \
+    WebInfo.private.native_request, \
+    web_server_status, \
+    list(WebInfo.private.native_http_header), \
+    string, \
+    string, \
+    continuation(WebInfo.private.native_response) -> void
+##args(ms,req,stat,headers,_type,content,k)
+{
+  var modified_since = Option_map(function (ms) { new Date(ms) },ms);
+  make_response_with_headers(js_none, modified_since, req, headers, stat, _type, content, function (r) { execute(k, r) });
+}
+
+##register [cps-bypass] make_response_modified_since : \
+    option(time_t), \
+    WebInfo.private.native_request, \
+    web_server_status, \
+    string, \
+    string, \
+    continuation(WebInfo.private.native_response) -> void
+##args(modified_since,req,stat,_type,content,k)
+{
+  var expires = {some:new Date(0)};
+  var modified_since = Option_map(function (ms) { new Date(ms) },ms);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, function (r) { execute(k, r) });
+}
+
+##register [cps-bypass] make_response_expires_at : \
+    option(time_t), \
+    option(time_t), \
+    WebInfo.private.native_request, \
+    web_server_status, \
+    string, \
+    string, \
+    continuation(WebInfo.private.native_response) -> void
+##args(expires_at,modified_since,req,stat,_type,content,k)
+{
+  var date = new Date();
+  var expires = (`some` in expires_at) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
+  var modified_since = Option_map(function (ms) { new Date(ms) },modified_since);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, function (r) { execute(k, r) });
+}
+
+// BslNet.Http_server.make_response_expires_at 
+// BslNet.Http_server.make_response_modified_since 
+
+##endmodule
+
+##module Requestdef
+
+// 1xx
+##register sc_Continue \ `"SC_Continue"` : web_server_status
+##register sc_SwitchingProtocols \ `"SC_SwitchingProtocols"` : web_server_status
+
+// 2xx
+##register sc_OK \ `"SC_OK"` : web_server_status
+##register sc_Created \ `"SC_Created"` : web_server_status
+##register sc_Accepted \ `"SC_Accepted"` : web_server_status
+##register sc_Non_AuthoritativeInformation \ `"SC_Non_AuthoritativeInformation"` : web_server_status
+##register sc_NoContent \ `"SC_NoContent"` : web_server_status
+##register sc_ResetContent \ `"SC_ResetContent"` : web_server_status
+##register sc_PartialContent \ `"SC_PartialContent"` : web_server_status
+
+// 3xx
+##register sc_MultipleChoices \ `"SC_MultipleChoices"` : web_server_status
+##register sc_MovedPermanently \ `"SC_MovedPermanently"` : web_server_status
+##register sc_Found \ `"SC_Found"` : web_server_status
+##register sc_SeeOther \ `"SC_SeeOther"` : web_server_status
+##register sc_NotModified \ `"SC_NotModified"` : web_server_status
+##register sc_UseProxy \ `"SC_UseProxy"` : web_server_status
+##register sc_TemporaryRedirect \ `"SC_TemporaryRedirect"` : web_server_status
+
+// 4xx
+##register sc_BadRequest \ `"SC_BadRequest"` : web_server_status
+##register sc_Unauthorized \ `"SC_Unauthorized"` : web_server_status
+##register sc_PaymentRequired \ `"SC_PaymentRequired"` : web_server_status
+##register sc_Forbidden \ `"SC_Forbidden"` : web_server_status
+##register sc_NotFound \ `"SC_NotFound"` : web_server_status
+##register sc_MethodNotAllowed \ `"SC_MethodNotAllowed"` : web_server_status
+##register sc_NotAcceptable \ `"SC_NotAcceptable"` : web_server_status
+##register sc_ProxyAuthenticationRequired \ `"SC_ProxyAuthenticationRequired"` : web_server_status
+##register sc_RequestTime_out \ `"SC_RequestTime_out"` : web_server_status
+##register sc_Conflict \ `"SC_Conflict"` : web_server_status
+##register sc_Gone \ `"SC_Gone"` : web_server_status
+##register sc_LengthRequired \ `"SC_LengthRequired"` : web_server_status
+##register sc_PreconditionFailed \ `"SC_PreconditionFailed"` : web_server_status
+##register sc_RequestEntityTooLarge \ `"SC_RequestEntityTooLarge"` : web_server_status
+##register sc_Request_URITooLarge \ `"SC_Request_URITooLarge"` : web_server_status
+##register sc_UnsupportedMediaType \ `"SC_UnsupportedMediaType"` : web_server_status
+##register sc_RequestedRangeNotSatisfiable \ `"SC_RequestedRangeNotSatisfiable"` : web_server_status
+##register sc_ExpectationFailed \ `"SC_ExpectationFailed"` : web_server_status
+
+// 5xx
+##register sc_InternalServerError \ `"SC_InternalServerError"` : web_server_status
+##register sc_NotImplemented \ `"SC_NotImplemented"` : web_server_status
+##register sc_BadGateway \ `"SC_BadGateway"` : web_server_status
+##register sc_ServiceUnavailable \ `"SC_ServiceUnavailable"` : web_server_status
+##register sc_GatewayTime_out \ `"SC_GatewayTime_out"` : web_server_status
+##register sc_HTTPVersionNotSupported \ `"SC_HTTPVersionNotSupported"` : web_server_status
+
+var status_code_map = {
+  'SC_Continue':100,
+  'SC_SwitchingProtocols':101,
+  'SC_OK':200,
+  'SC_Created':201,
+  'SC_Accepted':202,
+  'SC_Non_AuthoritativeInformation':203,
+  'SC_NoContent':204,
+  'SC_ResetContent':205,
+  'SC_PartialContent':206,
+  'SC_MultipleChoices':300,
+  'SC_MovedPermanently':301,
+  'SC_Found':302,
+  'SC_SeeOther':303,
+  'SC_NotModified':304,
+  'SC_UseProxy':305,
+  'SC_TemporaryRedirect':307,
+  'SC_BadRequest':400,
+  'SC_Unauthorized':401,
+  'SC_PaymentRequired':402,
+  'SC_Forbidden _':403,
+  'SC_NotFound':404,
+  'SC_MethodNotAllowed':405,
+  'SC_NotAcceptable':406,
+  'SC_ProxyAuthenticationRequired':407,
+  'SC_RequestTime_out':408,
+  'SC_Conflict':409,
+  'SC_Gone':410,
+  'SC_LengthRequired':411,
+  'SC_PreconditionFailed':412,
+  'SC_RequestEntityTooLarge':413,
+  'SC_Request_URITooLarge':414,
+  'SC_UnsupportedMediaType':415,
+  'SC_RequestedRangeNotSatisfiable':416,
+  'SC_ExpectationFailed':417,
+  'SC_InternalServerError':500,
+  'SC_NotImplemented':501,
+  'SC_BadGateway':502,
+  'SC_ServiceUnavailable':503,
+  'SC_GatewayTime_out':504,
+  'SC_HTTPVersionNotSupported':505
+};
+
+##register status_code : web_server_status -> int
+##args(code)
+{
+  return (code in status_code_map) ? status_code_map[code] : -1;
+}
+
+var reason_phrase_map = {
+  100:"Continue",
+  101:"Switching Protocols",
+  200:"OK",
+  201:"Created",
+  202:"Accepted",
+  203:"Non-Authoritative Information",
+  204:"No Content",
+  205:"Reset Content",
+  206:"Partial Content",
+  300:"Multiple Choices",
+  301:"Moved Permanently",
+  302:"Found",
+  303:"See Other",
+  304:"Not Modified",
+  305:"Use Proxy",
+  307:"Temporary Redirect",
+  400:"Bad Request",
+  401:"Unauthorized",
+  402:"Payment Required",
+  403:"Forbidden",
+  404:"Not Found",
+  405:"Method Not Allowed",
+  406:"Not Acceptable  ",
+  407:"Proxy Authentication Required",
+  408:"Request Time-out",
+  409:"Conflict",
+  410:"Gone",
+  411:"Length Required",
+  412:"Precondition Failed",
+  413:"Request Entity Too Large",
+  414:"Request-URI Too Large",
+  415:"Unsupported Media Type",
+  416:"Requested range not satisfiable",
+  417:"Expectation Failed",
+  500:"Internal Server Error",
+  501:"Not Implemented",
+  502:"Bad Gateway",
+  503:"Service Unavailable",
+  504:"Gateway Time-out",
+  505:"HTTP Version not supported"
+};
+
+##register reason_phrase : int -> string
+##args(code)
+{
+  return (code in reason_phrase_map) ? reason_phrase_map[code] : "reason_phrase";
+}
+
+##endmodule
+

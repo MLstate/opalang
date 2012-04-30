@@ -13,6 +13,7 @@ bslCps.nodejs
 bslClosure.nodejs
 lowLevelArray.nodejs
 bslValue.nodejs
+bslNet.nodejs
 
 # Server specific bypass
 bslTimeServer.nodejs
