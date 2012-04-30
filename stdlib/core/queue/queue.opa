@@ -128,60 +128,31 @@ Queue = {{
    * Add an element to a queue.
    * Complexity O(1)
   **/
-  add(item:'a , (l1, s1, l2, s2): Queue.t('a)) : Queue.t('a) =
-    if s2 == 0 && s1 == 0
-    then
-      ([], 0, [item], 1)
-    else
-      (item +> l1, s1 + 1, l2, s2)
+  add(item:'a , (l1, s1, l2, s2): Queue.t('a)) : Queue.t('a) = ([item|l1], s1 + 1, l2, s2)
+
+  /** making element of l1 available in l2 */
+  @private
+  flush_l1(l1,s1,s2): Queue.t('a)  = ([],0,List.rev(l1),s1+s2)
 
   /**
    * Get the top of the queue.
    * Complexity O(1) in better case, O(n) is worth case.
   **/
-  top((l1, _s1, l2, _s2): Queue.t('a)): option('a) =
+  top((l1, s1, l2, s2): Queue.t('a)): option('a) =
     match l2 with
     | [ hd | _ ] -> some(hd)
     | [] ->
-      match List.rev(l1) with
-      | [ hd | _ ] -> some(hd)
-      | [] -> none
-      end
-
+      if l1 == [] then none
+      else top( flush_l1(l1,s1,s2) )
   /**
    * get the top and the remaining queue.
   **/
   rem((l1, s1, l2, s2): Queue.t('a)) : (option('a), Queue.t('a)) =
     match l2 with
-    | [ hd | tl ] ->
-      if s2 > 1 then
-        (some(hd), (l1, s1, tl, s2 - 1) )
-      else
-        (some(hd), ([], 0, List.rev(l1), s1))
-
+    | [ hd | tl ] -> (some(hd), (l1, s1, tl, s2 - 1) )
     | [] ->
-      nl = List.rev(l1)
-      match nl with
-      | [] -> (none, (l1, s1, l2, s2))
-      | [ hd | tl ] -> (some(hd), ([], 0, tl, s1 - 1))
-
-  // Take at most [n] element of [list], and return them, and the remaining list.
-  @private
-  list_take_n(n:int, list:list) =
-    rec aux(pos, acc, l) =
-      match l with
-      | [] ->
-        // n was greater than or equal to the number of element in the list
-        // in this case, the function is stable, the initial list is returned
-        (list, [])
-      | [ hd | tl ] ->
-        if pos == n
-        then
-          // acc contains already all the n first elements of the initial list
-          (List.rev(acc), l)
-        else
-          aux(pos+1, hd +> acc, tl)
-     aux(0, [], list)
+      if l1 == [] then (none,empty)
+      else rem( flush_l1(l1,s1,s2) )
 
   /**
    * [Queue.take_n(n, q)]
@@ -193,7 +164,7 @@ Queue = {{
     | (l1, s1, l2, s2) ->
       if s2 >= n
       then
-        (elts, l2) = list_take_n(n, l2)
+        (elts, l2) = List.split_at(l2,n)
         s2 = s2 - n
         ((l1, s1, l2, s2), elts)
       else
@@ -217,7 +188,7 @@ Queue = {{
                   aux(pos+1, hd +> acc, tl)
                 | [] -> @fail("internal error")
             aux(0, [], l1)
-          elts = List.rev_append(List.rev(l2), List.rev(rest))
+          elts = List.append(l2, List.rev(rest))
           queue = ([], 0, l1, r1)
           (queue, elts)
 
