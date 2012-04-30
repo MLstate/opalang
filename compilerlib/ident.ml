@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -89,8 +89,11 @@ let maybe_digest n =
   let digest s = String.sub (Digest.to_hex (Digest.string s)) 0 8 in
   if Base.String.is_word n && not (is_operator_string n) then n else digest n
 
-let print id n d =
-  Printf.sprintf "_v%d_%s%s%s" id n (if d = "" then "" else "_") d
+let print n id d =
+  if n=0 then
+    Printf.sprintf "__%s%s%s" id (if d = "" then "" else "_") d
+  else
+    Printf.sprintf "_v%d_%s%s%s" n id (if d = "" then "" else "_") d
 
 let original_name = function
   | FakeSource n
@@ -214,4 +217,8 @@ let concrete_string = function
 let light_ident = function
   | FakeSource n
   | Source n -> n
-  | Internal (_, id, n, _) -> Printf.sprintf "_v%d_%s" id n
+  | Internal (_, n, id, _) ->
+    if n=0 then
+      Printf.sprintf "__%s" id
+    else
+      Printf.sprintf "_v%d_%s" n id
