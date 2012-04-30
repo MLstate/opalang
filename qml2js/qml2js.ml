@@ -120,7 +120,7 @@ struct
             in if b then
               let ppjs =
                 let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
-                (* TODO modifier ppenv avec des choses *)
+                let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
                 let ppopt = Pprocess.default_options ppenv in
                 Pprocess.process ~name:filename Pplang.js_description ppopt in
               let content = ppjs content in

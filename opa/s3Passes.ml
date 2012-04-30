@@ -2183,6 +2183,7 @@ let pass_ServerJavascriptCompilation =
              no_assert = options.OpaEnv.no_assert;
              target = options.OpaEnv.target;
              compilation_directory;
+             lang = `node;
          } in
        let env_bsl = env.Passes.newFinalCompile_bsl in
        let generated_files, generated_ast = (* ([] : JsAst.code) in *)

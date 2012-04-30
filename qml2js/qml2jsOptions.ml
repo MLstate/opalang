@@ -76,6 +76,7 @@ type t =
       split : bool ;
       split_js_value : int option ;
       target : string ;
+      lang : [`js | `node]
     }
 type env_js_input =
     {
@@ -306,7 +307,8 @@ struct
       qml_closure = !qml_closure;
       split = !split ;
       split_js_value = !split_js_value ;
-      target = target ;
+      target = target;
+      lang = `js;
     }
 
   let usage_msg = Printf.sprintf "%s: command-line options for the Qml-to-JS compiler\nUsage: %s [options]\n" Sys.argv.(0) Sys.argv.(0)
