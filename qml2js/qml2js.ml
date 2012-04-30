@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -117,7 +117,7 @@ struct
                 let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
                 (* TODO modifier ppenv avec des choses *)
                 let ppopt = Pprocess.default_options ppenv in
-                Pprocess.process Pplang.js_description ppopt in
+                Pprocess.process ~name:filename Pplang.js_description ppopt in
               let content = ppjs content in
               let () =
                 (*

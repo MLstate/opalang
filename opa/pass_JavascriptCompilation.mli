@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,7 +61,7 @@ val process :
   renaming_client:QmlRenamingMap.t ->
   client_roots:IdentSet.t ->
   typing:QmlTyper.env -> (* currently unused *)
-  bsl_pp:(string -> string) ->
+  bsl_pp:(name:string-> string -> string) ->
   bsl_client:BslLib.env_bsl ->
   server: QmlBlender.qml_milkshake ->
   client: QmlBlender.qml_milkshake ->

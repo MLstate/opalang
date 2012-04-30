@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -168,8 +168,34 @@ let print_code ?(doeval=false) ?(eval=fun _ -> true) description buf code =
   in
   print_lexpr ~block:false ~comment:false code
 
+(* we avoid the dependency to libbase *)
+let rec compute_line content pos pos_line line pos_max =
+  let len = min pos_max (String.length content) in
+  if pos < len then
+    if
+      content.[pos] = '\n' ||
+      content.[pos] = '\r' && ( ( (pos<len-1) && content.[pos+1]<>'\n' ) ||
+                                  ( (pos>1    ) && content.[pos-1]<>'\n' ) )
+    then
+      compute_line content (pos+1) (pos+1) (line+1) pos_max
+    else
+      compute_line content (pos+1) pos_line line pos_max
+  else
+    (line, pos-pos_line)
+
 (* Parse a string *)
-let parse content options =
+let parse filename content options =
+  let pp_pos remain =
+    let remain_size =
+      List.fold_left (fun acc e ->
+        match e with
+        | Str.Delim s | Str.Text  s -> acc+String.length(s)
+      ) 0 remain
+    in
+    let pos_max = (String.length content) - remain_size in
+    let (line, pos) = compute_line content 0 0 0 pos_max in
+    Printf.sprintf "File \"%s\", line %d, character %d (%d:%d-%d:%d)" filename line pos line pos line pos
+  in
   let set_debugvar, get_debugvar =
     let dvar = ref None in
     (fun str -> dvar := Some str),
@@ -186,16 +212,19 @@ let parse content options =
   let cond3_regexp = Str.regexp "\\([^ ]*\\) \\([^ ]*\\)" in
   let dvar_regexp = Str.regexp "#<Debugvar: *\\([^ ]*\\) *" in
 
+  let error i lst =
+        raise (PPParse_error (Format.sprintf "Error %s.\n%s" i (pp_pos lst)))
+  in
+  let unknown tag lst =
+    error ("Unknown preprocessing directive "^tag^" (authorized only #<{If,Ifstatic,Else,End}>)") lst
+  in
+
   let rec aux (result, lst) =
     match lst with
     | Str.Delim "#<Else>"::_
     | Str.Delim "#<End>"::_ -> (List.rev result), lst
     | Str.Delim tag::queue ->
         (try
-           let error i =
-             raise (PPParse_error
-                      (Printf.sprintf "Error (%d) on pptag \"%s\" : Bad formatted" i tag))
-           in
            if Str.string_match dvar_regexp tag 0 then (
              set_debugvar (Str.matched_group 1 tag);
              aux (result, queue)
@@ -206,7 +235,7 @@ let parse content options =
                  `dyn
                else if tag = "#<Ifstatic>" || Str.matched_group 1 tag = "Ifstatic" then
                  `static
-               else error 1
+               else unknown tag lst
              in
              let cond =
                if tag = "#<If>" || tag = "#<Ifstatic>"then(
@@ -245,8 +274,8 @@ let parse content options =
                      |`dyn -> If if_)::result
                   in
                   aux (result, queue)
-              | _ -> failwith ("Error expected end"))
-           ) else error 2
+              | _ -> error "Expected end" lst)
+           ) else unknown tag lst
          with | PPParse_error _ -> aux (result, (Str.Text tag)::queue)
         )
 
@@ -255,15 +284,15 @@ let parse content options =
     | _ -> (List.rev result), lst
   in match aux ([], content) with
   | content, [] -> content
-  | _, t::_ ->
+  | _, (t::_ as lst) ->
       (match t with
-       | Str.Delim r
-       | Str.Text r -> failwith (Printf.sprintf "Error on \"%s\"" r))
+       | Str.Delim _r
+       | Str.Text _r -> error "Unfinished parsing" lst)
 
 (* Process *)
-let process description options content =
+let process ~name description options content =
   (* Parsing *)
-  let content = parse content options in
+  let content = parse name content options in
   (* Eval function *)
   let eval cond =
     try
@@ -344,7 +373,7 @@ module Exe = struct
       match files with
       | t::q ->
           begin
-            let result = process description options (content t) in
+            let result = process ~name:t description options (content t) in
             match options.output_suffix with
             | None   -> output_string stdout result
             | Some s ->

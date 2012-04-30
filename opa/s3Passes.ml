@@ -409,11 +409,11 @@ let pass_PreProcess =
        let ppenv =
          OpaEnv.Options.to_ppenv e.PH.options ppenv in
        let ppopt = Pprocess.default_options ppenv in
-       let process = (Pprocess.process Pplang.opa_description ppopt) in
+       let process = Pprocess.process Pplang.opa_description ppopt in
        let process =
          List.map
            (fun f ->
-              {f with P.inputFile_content = process f.P.inputFile_content})
+              {f with P.inputFile_content = process ~name:f.P.inputFile_filename f.P.inputFile_content})
        in
        { e with PH.env = (process files, process ufiles) })
 

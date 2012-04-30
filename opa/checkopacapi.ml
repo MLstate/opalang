@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -143,7 +143,7 @@ let pprocess =
   let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
   let ppenv = List.fold_left (fun ppenv (var, value) -> Pprocess.add_env var value ppenv) ppenv pplib_spec in
   let ppopt = Pprocess.default_options ppenv in
-  (fun s -> Pprocess.process Pplang.opa_description ppopt s)
+  Pprocess.process Pplang.opa_description ppopt
 
 let fold
     ( fold : (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAst.code -> 'acc -> 'acc )
@@ -153,7 +153,7 @@ let fold
   | None ->
       OManager.error "[!] I/O error: cannot read file @{<bright>%S@}" filename
   | Some content ->
-      let content = pprocess content in
+      let content = pprocess ~name:filename content in
       let code = OpaParser.code ~cache:true ~filename content in
       fold code acc
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -277,7 +277,7 @@ let full_serialize
            register_plugin plugin_id ;
            let fold rev_ast (filename, content, conf) =
              let key_prefix = plugin_id ^ filename in
-             let content = bsl_pp content in
+             let content = bsl_pp ~name:filename content in
              match conf with
              | BslJsConf.Verbatim ->
                  let code_elt = make_root key_prefix content in

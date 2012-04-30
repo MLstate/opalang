@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -82,7 +82,7 @@ type lang_description = {
   debug_module : string; (** The debug module *)
 }
 
-val process : lang_description -> options -> string -> string
+val process : name:string -> lang_description -> options -> string -> string
 
 (** {6 Executable} *)
 (** A module for easy executable making. *)
