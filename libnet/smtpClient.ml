@@ -238,6 +238,7 @@ let analyze_error = Mailerror.parse_mailerror_error
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
     ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25)
     ?via ?addr ?auth ?user ?pass ?dryrun cont () =
+  let dryrun = Option.default false dryrun in
   let mto =
     match mto with
     | Some tos -> tos
@@ -255,7 +256,7 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                    dests = [mdst];
                    body = mdata;
                    auth = Option.default "" auth; user = Option.default "" user; pass = Option.default "" pass;
-                   dryrun = Option.default false dryrun;
+                   dryrun = dryrun;
                    sent = Buffer.create (String.length mdata + 1024);
                  }
       in
@@ -271,20 +272,21 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                     | None -> [])
                | None -> resolve_mx dst)
         in
+        let decr_attempt attempt = if dryrun then (-1) else pred attempt in
         match ip_list with
         | [] ->
             if attempt < 0 then
               let _ = Logger.warning "No working MX server found - can't send mail to %s" mdst in
               cont SCC.Error_MX
             else
-              wait_and_retry (Time.seconds 60) (fun () -> try_mx mail (pred attempt) cont)
+              wait_and_retry (Time.seconds 60) (fun () -> try_mx mail (decr_attempt attempt) cont)
         | _ when attempt < 0 -> Logger.error "Too many failures" ; cont SCC.Error_MX
         | dst_ip :: mx_servers as ips ->
             let tools = {
               SCC.log = _log " " ;
               SCC.elog = _log "-" ;
               SCC.k = (function
-                | SCC.Error_MX -> try_mx mail (pred attempt) ~ip_list:mx_servers cont
+                | SCC.Error_MX -> try_mx mail (decr_attempt attempt) ~ip_list:mx_servers cont
                 | SCC.Error msg ->
                     ( prerr_endline ("ERROR: " ^ msg) ;
                       try
@@ -293,18 +295,18 @@ let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
                         | Mailerror.GreylistedSec x ->
                             let x = if x < 90 then 90 else x in
                             Logger.debug "::: greylisted (%d secs)" x;
-                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (decr_attempt attempt) ~ip_list:ips cont)
                         | Mailerror.GreylistedMin x ->
                             Logger.debug "::: greylisted (%d mins)" x;
                             let x = x * 60 in
-                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (decr_attempt attempt) ~ip_list:ips cont)
                         | Mailerror.Add_cc s ->
                             let new_mail = { mail with SCC.body = sprintf "Cc: %s\r\n%s" s mail.SCC.body } in
-                            wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (pred attempt) ~ip_list:ips cont)
+                            wait_and_retry (Time.seconds 1) (fun () -> try_mx new_mail (decr_attempt attempt) ~ip_list:ips cont)
                         | _ when fst (read_code msg) = 451 ->
                             let x = 60 * attempt * attempt in
                             Logger.debug "::: waiting (%d sec)" x;
-                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (pred attempt) ~ip_list:ips cont)
+                            wait_and_retry (Time.seconds x) (fun () -> try_mx mail (decr_attempt attempt) ~ip_list:ips cont)
                         | _ -> cont (SCC.Error msg)
                       with Not_found | Failure _ | Trx_runtime.SyntaxError _ -> cont (SCC.Error msg))
                 | res -> cont res) ;
