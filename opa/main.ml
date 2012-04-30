@@ -257,7 +257,7 @@ let () =
 
       (*|+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives)*)
 
-      |?> (If.init,
+      |?> (If.init & If.server,
            "InitializeBslValues", S3.pass_InitializeBslValues)
 
       |+> ("ServerQmlCpsRewriter", S3.pass_ServerCpsRewriter)
