@@ -46,7 +46,8 @@ type ServerEvent.info =
  * {1 Interface}
  */
 
-@server ServerEvent = {{
+@server_private
+ServerEvent = {{
 
   /**
    * Register a new handler for an event.
@@ -59,6 +60,7 @@ type ServerEvent.info =
    * that you don't know how to handle.
    */
   register_handler(handler:  channel(ServerEvent.info)): void = Network.add(handler, network)
+
   unregister_handler(handler:channel(ServerEvent.info)): void = Network.remove(handler, network)
 
   /*
@@ -87,6 +89,7 @@ type ServerEvent.info =
    *
    * Events are treated asynchronously, by whichever event handlers have been registered
    */
+  @publish
   trigger(event: ServerEvent.event): void =
     do Network.broadcast({date    = Date.now()
                           context = thread_context()
