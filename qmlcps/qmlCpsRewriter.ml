@@ -763,6 +763,13 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
     | Q.Directive (_, `partial_apply (_,ser), Q.Apply (_, f, f_args) :: more_args, _)
         when not (U.good_apply_property ~more_args private_env f f_args) ->
         aux_can_skip (U.normalize_apply_property private_env ~partial:(more_args,ser) f f_args) context
+    | Q.Directive (a, ((`full_apply _) as d), [Q.Apply (_, f, f_args)], b)
+        when not (U.good_apply_property private_env f f_args) ->
+        aux_can_skip
+          (match U.normalize_apply_property private_env f f_args with
+           | Q.LetIn (l, bindings, app) -> Q.LetIn (l, bindings, Q.Directive(a, d, [app], b))
+           | _ -> assert false
+          ) context
 
     (* guaranteed property : f is a non barrier ident, f_args are stable identifiers *)
     | Q.Apply (_, Q.Ident (_, f_id), f_args) ->
