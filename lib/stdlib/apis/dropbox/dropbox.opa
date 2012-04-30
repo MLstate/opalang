@@ -9,15 +9,13 @@
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-/*
- * Author    : Nicolas Glondu <nicolas.glondu@mlstate.com>
- **/
 
 /**
  * Dropbox generic API module (v1)
  *
  * @category api
  * @author Nicolas Glondu, 2011
+ * @author Cedric Soulas, 2012
  * @destination public
  */
 
@@ -39,6 +37,11 @@ type Dropbox.creds = {
   token  : string
   secret : string
 }
+
+type Dropbox.User.status = 
+   {no_credentials}
+ / {request_secret : string; request_token : string}
+ / {authenticated : Dropbox.creds}
 
 type Dropbox.metadata_options = {
   file_limit      : int
@@ -111,6 +114,17 @@ type Dropbox.file = {
   content : binary
   mime_type : string
 }
+
+DropboxUser = {{
+
+  @private dropbox_context = UserContext.make( { no_credentials } )
+  get_status() = UserContext.execute(s -> s, dropbox_context)
+  is_authenticated() = match get_status() with { authenticated = _ } -> true | _ -> false
+  set_status(r) = UserContext.change(_ -> r, dropbox_context)
+  set_request(token, secret) = set_status({request_secret = secret; request_token = token})
+  set_authenticated(token, secret) = set_status({authenticated = { token = token; secret = secret}})
+
+}}
 
 @private DBParse = {{
 
@@ -457,6 +471,58 @@ Dropbox(conf:Dropbox.conf) = {{
         ("to_path", to_path),
       ]
       DBP.wpost(api_host, path, params, creds, DBParse.one_metadata)
+
+  }}
+
+  /**
+   * This module helps to request an access to a user Dropbox account.
+   * It takes a User module in parameter. You can use the default DropboxUser module
+   * which stores tokens in the UserContext.
+   * 
+   * First, use get_login_url to redirect the user to the Dropbox request page.
+   * Then, parse the callback url to retrieve the token and negociate the access 
+   * with this token and the function get_access.
+   */
+  Auth(User) = {{
+
+    err(v) : outcome(void, string) = { failure = v }
+  
+    get_login_url(redirect) =
+      match OAuth.get_request_token(redirect)
+      | {success = s} -> do User.set_request(s.token, s.secret) : void
+                 { success = OAuth.build_authorize_url(s.token, redirect) }
+      | {error = error} -> { failure = "Error getting request token: {error}" }
+  
+    get_access(raw_token) = pass1(raw_token)
+  
+    @private pass1(raw_token) = 
+      match(User.get_status())
+      | {~request_secret ~request_token} -> pass2(request_token, request_secret, raw_token)
+      | _ -> err("The current user don't have a request token")
+  
+    @private pass2(request_token, request_secret, raw_token) =
+      match OAuth.connection_result(raw_token)
+      | {success = s} -> pass3(request_token, request_secret, s)
+      | {error=error} -> err("The providing arguments are invalid: {error}")
+  
+    @private pass3(request_token, request_secret, s) =
+      if(s.token == request_token) then
+        if(s.verifier == "" && s.secret == "") then
+          pass4(s.token, request_secret)
+        else
+          err("The connection result contains those unexpected values: verifier: '{s.verifier}' and secret: '{s.secret}'")
+      else err("The request token of the current user doesn't match provided arguments.")
+  
+    @private pass4(token, secret) =
+      match OAuth.get_access_token(token, secret, "")
+      | {success = s} -> do User.set_authenticated(s.token, s.secret) : void; { success = void }
+      | {error=error} -> err("Impossible to retreive an access token: {error}")
+  
+    are_valid_creds(creds) = 
+      match Account.info(creds) with
+      | {success=info} -> info.quota_info.total != -1
+      | _ -> false
+
 
   }}
 
