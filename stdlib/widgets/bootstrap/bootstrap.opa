@@ -131,23 +131,13 @@ type WBootstrap.Button.button = {
 
 type WBootstrap.Button.group = list(WBootstrap.Button.button)
 
-// Label
+// Badge-Label
 
-type WBootstrap.Label.importance =
+type WBootstrap.BadgeLabel.importance =
   {default}
 / {success}
 / {warning}
 / {important}
-/ {info}
-/ {inverse}
-
-// Badge
-
-type WBootstrap.Badge.importance =
-  {default}
-/ {success}
-/ {warning}
-/ {error}
 / {info}
 / {inverse}
 
@@ -390,22 +380,20 @@ WBootstrap = {{
 
   }}
 
-  Label = {{
+  @private
+  BadgeLabel(t:string) = {{
 
-    make_label(content:xhtml) =
-      <span>{content}</span> |> Xhtml.update_class("label", _)
+    make_simple(content:xhtml) =
+      <span>{content}</span> |> Xhtml.update_class(t, _)
 
-    success = Xhtml.update_class("label-success", _)
-    warning = Xhtml.update_class("label-warning", _)
-    important = Xhtml.update_class("label-important", _)
-    info = Xhtml.update_class("label-info", _)
-    inverse = Xhtml.update_class("label-inverse", _)
+    success = Xhtml.update_class("{t}-success", _)
+    warning = Xhtml.update_class("{t}-warning", _)
+    important = Xhtml.update_class("{t}-important", _)
+    info = Xhtml.update_class("{t}-info", _)
+    inverse = Xhtml.update_class("{t}-inverse", _)
 
-    /**
-     * Create a label
-     */
-    make(text:xhtml, importance:WBootstrap.Label.importance) =
-      lb = make_label(text)
+    make(text:xhtml, importance:WBootstrap.BadgeLabel.importance) =
+      lb = make_simple(text)
       lb = match importance
           {default} -> lb
           {success} -> lb |> success(_)
@@ -417,33 +405,9 @@ WBootstrap = {{
 
   }}
 
-  // FIXME: merge with label
-  Badge = {{
+  Label = BadgeLabel("label")
 
-    make_badge(content:string) =
-      <span>{content}</span> |> Xhtml.update_class("badge", _)
-
-    success = Xhtml.update_class("badge-success", _)
-    warning = Xhtml.update_class("badge-warning", _)
-    error = Xhtml.update_class("badge-error", _)
-    info = Xhtml.update_class("badge-info", _)
-    inverse = Xhtml.update_class("badge-inverse", _)
-
-    /**
-     * Create a label
-     */
-    make(text:string, importance:WBootstrap.Badge.importance) =
-      lb = make_badge(text)
-      lb = match importance
-          {default} -> lb
-          {success} -> lb |> success(_)
-          {warning} -> lb |> warning(_)
-          {error} -> lb |> error(_)
-          {info} -> lb |> info(_)
-          {inverse} -> lb |> inverse(_)
-      lb
-
-  }}
+  Badge = BadgeLabel("badge")
 
   Thumbnail = {{
 
