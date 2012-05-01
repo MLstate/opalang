@@ -683,7 +683,7 @@ Xhtml =
   @private sassoc_full(namespace, name, value) : Xml.attribute = ~{ namespace name value }
 
   to_string = serialize_to_string
- 
+
   @private
   JsEvent = {{
 
@@ -1101,7 +1101,9 @@ Xhtml =
    * to be used with [prepare_for_xhtml_export]
    */
   finalize_js_inline(js:xhtml):xhtml =
-    {fragment = [of_string_unsafe(_script_start), js, of_string_unsafe(_script_end)]}
+    match compile(js)
+    {text=""} {content_unsafe=""} {fragment=[]} -> empty_xhtml
+    _ -> {fragment = [of_string_unsafe(_script_start), js, of_string_unsafe(_script_end)]}
 
   /**
    * Perform the final compilation of a html fragment.
