@@ -220,7 +220,7 @@ Server_private = {{
       css_file_with_version = "{base_url_string}/{_internal_}/{css_file_no_internal_with_version}"
       //css_file_without_version = "/_internal_/{css_file_no_internal_without_version}"
       css_inline_code = ""
-      css_library = [css_file_with_version]
+      css_library = if String.is_empty(css_code) then [] else [css_file_with_version]
       css_parser = parser
       | "{css_file_no_internal_with_version}" -> {}
       | "{css_file_no_internal_without_version}" -> {}
