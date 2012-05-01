@@ -127,6 +127,18 @@ Bootstrap = {{
     Resource.register_external_css(bs_url(v))
 
   @package
+  import_responsive_css(v:string) =
+    match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-responsive.min.css", uri_bs)
+    {none} -> void
+    {some=uri} -> Resource.register_external_css(uri)
+
+  @package
+  import_no_responsive_css(v:string) =
+    match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-no-responsive.min.css", uri_bs)
+    {none} -> void
+    {some=uri} -> Resource.register_external_css(uri)
+
+  @package
   import_icons(v:string) =
     do if String.lt(v, "2.0.0") then import_opa_icons()
     do match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-glyphicons.min.css", uri_bs)
