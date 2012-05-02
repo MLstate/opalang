@@ -645,7 +645,7 @@ WBootstrap = {{
         else identity)
 
     /**
-     * Create a aplit button
+     * Create a split button
      * Needs the dropdown plugin
      */
     split(bt_type:WBootstrap.Button.type,
