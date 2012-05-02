@@ -38,7 +38,7 @@ type Dropbox.creds = {
   secret : string
 }
 
-type Dropbox.User.status = 
+type Dropbox.User.status =
    {no_credentials}
  / {request_secret : string; request_token : string}
  / {authenticated : Dropbox.creds}
@@ -178,21 +178,49 @@ DropboxUser = {{
     } : Dropbox.quota_info
 
   build_infos(data) =
-    map = API_libs_private.parse_json(data.content)
-      |> JsonOpa.record_fields
-      |> Option.default(Map.empty, _)
-    int(name) = API_libs_private.map_get_int(name, map)
-    str(name) = API_libs_private.map_get_string(name, map)
-    quota_info =
-      StringMap.get("quota_info", map) ? {Record=[]}:RPC.Json.json
-      |> build_quota
-    { ~quota_info
-      email         = str("email")
-      referral_link = str("referral_link")
-      display_name  = str("display_name")
-      uid           = int("uid")
-      country       = str("country")
-    } : Dropbox.info
+    f(r) = { failure = r }
+    match data.code with
+    | 503 -> f({ too_many_requests })
+    | 200 ->
+      map = API_libs_private.parse_json(data.content)
+        |> JsonOpa.record_fields
+        |> Option.default(Map.empty, _)
+      int(name) = API_libs_private.map_get_int(name, map)
+      str(name) = API_libs_private.map_get_string(name, map)
+      quota_info =
+        StringMap.get("quota_info", map) ? {Record=[]}:RPC.Json.json
+        |> build_quota
+      { success = { ~quota_info
+        email         = str("email")
+        referral_link = str("referral_link")
+        display_name  = str("display_name")
+        uid           = int("uid")
+        country       = str("country")
+      } : Dropbox.info }
+    | code -> f({ unexpected_error = code })
+
+  check_metadata_http_code(code, k) =
+    f(r) = { failure = r }
+    match code with
+    | 503 -> f({ too_many_requests })
+    | 507 -> f({ over_storage_quota })
+    | 404 -> f({ not_found })
+    | 415 -> f({ invalid_image })
+    | 411 -> f({ chunked_encoded_not_supported })
+    | 403 -> f({ invalid_operation })
+    | 406 -> f({ too_many_files })
+    | 400 -> f({ bad_input })
+    | 304 -> f({ not_modified })
+    | 200 -> { success = k() }
+    | code -> f({ unexpected_error = code })
+
+  check_file_http_code(code, k) =
+    f(r) = { failure = r }
+    match code with
+    | 503 -> f({ too_many_requests })
+    | 404 -> f({ not_found })
+    | 200 -> { success = k() }
+    | code -> f({ unexpected_error = code })
 
   build_metadata_internal(elt) : Dropbox.element =
     map = JsonOpa.record_fields(elt) ? Map.empty
@@ -227,28 +255,31 @@ DropboxUser = {{
       {file ~metadata ~mime_type}
 
   one_metadata(data) =
-    parsed = API_libs_private.parse_json(data.content)
-    build_metadata_internal(parsed)
+    k() = parsed = API_libs_private.parse_json(data.content)
+          build_metadata_internal(parsed)
+    check_metadata_http_code(data.code, k)
 
   metadata_list(data) =
-    match API_libs_private.parse_json(data.content) with
-    | {List=l} -> List.map(build_metadata_internal, l)
-    | _ -> []
+    k() = match API_libs_private.parse_json(data.content) with
+          | {List=l} -> List.map(build_metadata_internal, l)
+          | _ -> []
+    check_metadata_http_code(data.code, k)
 
   build_url(data) =
-    map = API_libs_private.parse_json(data.content)
-      |> JsonOpa.record_fields
-      |> Option.default(Map.empty, _)
-    str(name) = API_libs_private.map_get_string(name, map)
-    { url     = str("url")
-      expires = str("expires") |> parse_date
-    } : Dropbox.url
+    k() = map = API_libs_private.parse_json(data.content)
+          |> JsonOpa.record_fields
+          |> Option.default(Map.empty, _)
+          str(name) = API_libs_private.map_get_string(name, map)
+          { url     = str("url")
+            expires = str("expires") |> parse_date
+          } : Dropbox.url
+    check_file_http_code(data.code, k)
 
   build_file(data) =
-    { content = binary_of_string(data.content)
-      mime_type = data.mime_type
-    } : Dropbox.file
-
+    k() = { content = binary_of_string(data.content)
+            mime_type = data.mime_type
+          } : Dropbox.file
+    check_file_http_code(data.code, k)
 }}
 
 @private DBprivate(conf:Dropbox.conf) = {{
@@ -269,22 +300,22 @@ DropboxUser = {{
     uri = "{host}{path}"
     res = DBOAuth({GET}).get_protected_resource_2(uri, params, creds.token, creds.secret)
     match res with
-    | {success=s} -> {success=parse_fun(s)}
-    | {failure=f} -> {failure=f}
+    | {success=s} -> parse_fun(s)
+    | {failure=f} -> {failure={ webclient = f}}
 
   wpost(host, path, params, creds:Dropbox.creds, parse_fun) =
     uri = "{host}{path}"
     res = DBOAuth({POST}).get_protected_resource_2(uri, params, creds.token, creds.secret)
     match res with
-    | {success=s} -> {success=parse_fun(s)}
-    | {failure=f} -> {failure=f}
+    | {success=s} -> parse_fun(s)
+    | {failure=f} -> {failure={ webclient = f}}
 
   wput(host, path, mimetype:string, file:binary, params, creds:Dropbox.creds, parse_fun) =
     uri = "{host}{path}"
     res = DBOAuth({PUT=~{mimetype file}}).get_protected_resource_2(uri, params, creds.token, creds.secret)
     match res with
-    | {success=s} -> {success=parse_fun(s)}
-    | {failure=f} -> {failure=f}
+    | {success=s} -> parse_fun(s)
+    | {failure=f} -> {failure={ webclient = f}}
 
 }}
 
@@ -478,33 +509,33 @@ Dropbox(conf:Dropbox.conf) = {{
    * This module helps to request an access to a user Dropbox account.
    * It takes a User module in parameter. You can use the default DropboxUser module
    * which stores tokens in the UserContext.
-   * 
+   *
    * First, use get_login_url to redirect the user to the Dropbox request page.
-   * Then, parse the callback url to retrieve the token and negociate the access 
+   * Then, parse the callback url to retrieve the token and negociate the access
    * with this token and the function get_access.
    */
   Auth(User) = {{
 
     err(v) : outcome(void, string) = { failure = v }
-  
+
     get_login_url(redirect) =
       match OAuth.get_request_token(redirect)
       | {success = s} -> do User.set_request(s.token, s.secret) : void
                  { success = OAuth.build_authorize_url(s.token, redirect) }
       | {error = error} -> { failure = "Error getting request token: {error}" }
-  
+
     get_access(raw_token) = pass1(raw_token)
-  
-    @private pass1(raw_token) = 
+
+    @private pass1(raw_token) =
       match(User.get_status())
       | {~request_secret ~request_token} -> pass2(request_token, request_secret, raw_token)
       | _ -> err("The current user don't have a request token")
-  
+
     @private pass2(request_token, request_secret, raw_token) =
       match OAuth.connection_result(raw_token)
       | {success = s} -> pass3(request_token, request_secret, s)
       | {error=error} -> err("The providing arguments are invalid: {error}")
-  
+
     @private pass3(request_token, request_secret, s) =
       if(s.token == request_token) then
         if(s.verifier == "" && s.secret == "") then
@@ -512,13 +543,13 @@ Dropbox(conf:Dropbox.conf) = {{
         else
           err("The connection result contains those unexpected values: verifier: '{s.verifier}' and secret: '{s.secret}'")
       else err("The request token of the current user doesn't match provided arguments.")
-  
+
     @private pass4(token, secret) =
       match OAuth.get_access_token(token, secret, "")
       | {success = s} -> do User.set_authenticated(s.token, s.secret) : void; { success = void }
       | {error=error} -> err("Impossible to retreive an access token: {error}")
-  
-    are_valid_creds(creds) = 
+
+    are_valid_creds(creds) =
       match Account.info(creds) with
       | {success=info} -> info.quota_info.total != -1
       | _ -> false
