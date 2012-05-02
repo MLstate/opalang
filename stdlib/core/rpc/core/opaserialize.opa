@@ -499,8 +499,7 @@ OpaSerializeClosure = {{
    * Check and finish unserialize value. This function ensures that
    * the returned value match with type [ty].
    */
-  finish_unserialize(unser, ty) = finish_unserialize_with_sort(unser, ty, {false})
-  finish_unserialize_with_sort(unser, ty, opt) =
+  finish_unserialize(unser, ty) =
     //do jlog("Try to unserialize {Json.to_string(unser)} with {OpaType.to_pretty(ty)}")
     original_ty = ty
     error_ret(str, v) =
@@ -599,14 +598,6 @@ OpaSerializeClosure = {{
         aux_rec_unoptimized(js_lst,fields)
 
     and aux_rec_unoptimized(js_lst, fields) =
-        js_lst =
-          if opt then
-            List.sort_with(
-                ((name1, _), (name2, _) ->
-                  Order.compare(name1, name2, Order.reverse(Order.default))
-                ), js_lst)
-          else
-            js_lst
         res =
           List.foldr(
             ((name, json), (acc, fields, err) ->
@@ -618,6 +609,7 @@ OpaSerializeClosure = {{
                             (acc, [], true))
                 | [hd | tl] ->
                   do (if hd.label != name then
+
                       do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", "{json}")
                          @fail("Deserialization error")  // if it breaks, you are generating
                                 // json that is not ordered properly
@@ -877,9 +869,9 @@ OpaSerializeClosure = {{
     unserialize(v:RPC.Json.json):option('a) = unserialize_with_ty(v,@typeval('a))
     unserialize_with_ty(v:RPC.Json.json,ty:OpaType.ty) = OpaSerialize.finish_unserialize(v,ty)
 
-    unserialize_unsorted(v:RPC.Json.json) =
-     typeof_alpha = @typeval('a)
-     OpaSerialize.finish_unserialize_with_sort(v, typeof_alpha, {true}) : option('a)
+    unserialize_unsorted(json:RPC.Json.json) : option('a) =
+     fld_order = Order.reverse(@toplevel.String.order)
+     OpaSerialize.finish_unserialize(@toplevel.Json.sort(json, fld_order), @typeval('a))
 
   }}
 
