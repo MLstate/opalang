@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -508,7 +508,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
       | Not_found -> ());
       remove_events key
 
-    let update_activity ?(nb=0) ?(is_ping=false) ?(is_active=false) ?winfo key=
+    let update_activity ?(nb=(-1)) ?(is_ping=false) ?(is_active=false) ?winfo key=
       let will_disconnect t nb key =
         S.sleep t
           (fun () ->
@@ -520,7 +520,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
       let will_raise_timeout t key =
         S.sleep t (fun () -> raise_event key Inactive ) in
       match Hashtbl.find_opt state_tbl key with
-        Some((_, old_s, d, old_s2, d2)) ->
+        Some((old_nb, old_s, d, old_s2, d2)) ->
           let s =
             if is_ping
             then (S.abort old_s; will_disconnect !disconnection_state_delay nb key)
@@ -532,7 +532,7 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
             | 0 -> None
             | n -> Some(will_raise_timeout n key))
             else old_s2 in
-          Hashtbl.replace state_tbl key (nb, s, d, s2, d2);
+          Hashtbl.replace state_tbl key ((if nb = -1 then old_nb else nb), s, d, s2, d2);
           true
       | None ->
           ignore(winfo);
