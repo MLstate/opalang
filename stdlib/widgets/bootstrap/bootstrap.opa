@@ -735,7 +735,7 @@ WBootstrap = {{
       <ul class="nav">{
         @toplevel.List.map(nav_elt_to_xhtml(true, f), tabs)
       }</ul>
-      |> Xhtml.update_class(cl, _)
+      |> (if String.is_empty(cl) then identity else Xhtml.update_class(cl, _))
       |> (if stacked then Xhtml.update_class("nav-stacked", _)
           else identity)
 
