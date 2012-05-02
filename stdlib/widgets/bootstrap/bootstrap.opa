@@ -405,8 +405,10 @@ WBootstrap = {{
 
   }}
 
+  @both_implem
   Label = BadgeLabel("label")
 
+  @both_implem
   Badge = BadgeLabel("badge")
 
   Thumbnail = {{
