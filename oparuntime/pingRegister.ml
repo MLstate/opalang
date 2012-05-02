@@ -146,9 +146,6 @@ module Make (S : SCHEDULER) (C : CLIENT) = struct
         identifier. *)
     val send : C.msg -> C.key -> unit
 
-    (** Remove the client connection from this manager*)
-    val remove : C.key -> unit
-
     (** Update the status of the client connection and update the
         [web_info] that allows to send a message to the corresponding
         client with [send]. *)
