@@ -176,6 +176,15 @@ module Generator = struct
 
   let empty_query gamma annotmap = C.list (annotmap, gamma) []
 
+  let convert_embeded_path fragconv embed =
+    List.map
+      (function
+       | DbAst.FldKey k -> fragconv (`string k)
+       | DbAst.Query (DbAst.QEq e , _)
+       | DbAst.ExprKey e -> fragconv (`expr e)
+       | _ -> assert false)
+      embed
+
   let prepare_query query embed =
     let rec prepare_query query =
       match query with
@@ -211,15 +220,8 @@ module Generator = struct
       match embed with
       | [] -> query
       | _ ->
-          let acc =
-            List.fold_right
-              (fun fragment acc -> match fragment with
-               | DbAst.FldKey k -> (`string k)::acc
-               | DbAst.Query (DbAst.QEq e , _)
-               | DbAst.ExprKey e -> (`expr e)::acc
-               | _ -> assert false)
-              embed []
-          in DbAst.QAnd (DbAst.QExists (acc, true), query)
+          let acc = convert_embeded_path (fun x -> x) embed in
+          DbAst.QAnd (DbAst.QExists (acc, true), query)
     in
     prepare_query query
 
@@ -858,7 +860,17 @@ module Generator = struct
                   let annotmap, build =
                     OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty] build_rpath annotmap gamma
                   in
-                  (annotmap, build, query, [default; skip; limit; select; read_map; write_map])
+                  let annotmap, embed =
+                    match embed with
+                    | None -> C.none annotmap gamma
+                    | Some embed ->
+                        let strexprpath = convert_embeded_path (fun x -> x) embed in
+                        let annotmap, embed = expr_of_strexprpath gamma annotmap
+                          (List.rev strexprpath) in
+                        C.some annotmap gamma embed
+                  in
+                  (annotmap, build, query,
+                   [default; skip; limit; select; read_map; write_map; embed])
               | _ -> assert false
               end
 

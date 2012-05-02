@@ -820,7 +820,8 @@ DbSet = {{
     }
 
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
-              read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document):DbMongo.private.ref_path('b) =
+                       read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document,
+                       embed:option(string)):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     write(data) =
@@ -828,12 +829,20 @@ DbSet = {{
            [{name="$set"; value={Document = write_map(data)}}], true
          )
       true
-    remove() =
-      if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
-        Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
-      #<Ifstatic:DBGEN_DEBUG>
-      else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
-      #<End>
+    remove =
+      match embed with
+      | {none} ->
+        ->
+          if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
+             Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
+          #<Ifstatic:DBGEN_DEBUG>
+          else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
+          #<End>
+      | {some=embed} ->
+        ->
+          update(db, path, selector,
+            [{name="$unset"; value={Document = [{name=embed; value={Int32 = 1}}]}}]
+            , false)
     {vpath with more=~{write remove}}
 
   @package build_rpath_collection(
