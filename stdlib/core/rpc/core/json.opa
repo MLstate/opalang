@@ -168,6 +168,26 @@ type ll_json_record_repr = external
     else if Math.is_NaN(f) then "NaN"
     else if f<0.0 then "-Infinity" else "Infinity"
 
+  /**
+   * {2 Utils on JSON structure}
+   */
+
+  /**
+   * Sort JSON records as the order specifies.
+   */
+  sort(json:RPC.Json.json, order:order(string, 'a)):RPC.Json.json =
+    sort = sort(_, order)
+    match json with
+    | { List = list } -> { List = List.map(sort, list) }
+    | { Record = rc } ->
+      { Record =
+        List.sort_with(
+          (name1, _), (name2, _) -> Order.compare(name1, name2, order)
+          , rc
+        )
+      }
+    | _ -> json
+
 /**
  * {1 Private stuff}
  */
@@ -320,16 +340,16 @@ type ll_json_record_repr = external
     j <: RPC.Json.js_code
 
   // FOR JAVASCRIPT FILE
-  /** 
+  /**
       Serialize a json value, this serialized value must be inserted
       on a javascript file only. This generated string can be
       evaluated natively by browsers (It's javascript code).
-      
+
       TODO : Test if depth_limit should be different.
-      
+
       WARNING : Don't use this function for network transfers.
       not too deep.
-      
+
       @param j A json value to serialize.
       @param tx A text for store serialization.
       @return The serialized json value can be evaluated natively by
