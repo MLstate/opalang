@@ -91,7 +91,7 @@ Mime = {{
     | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> String.of_byte_val(16 * fst + snd)
     | "_"  -> " "
 
-    decode(s:string, _charset:string) =
+    decode(s:binary) =
       p = parser l=q_parser+ -> String.flatten(l)
       match Parser.try_parse(p, s)
       {some=s} -> s
@@ -133,17 +133,17 @@ Mime = {{
     encoded_text = parser
     | s=(!(" "|"?") .)+ -> Text.to_string(Text.ltconcat(s))
 
-    ew_parser = parser
+    ew_parser(decoder) = parser
     | ew=encoded_word ->
       match string_to_encoding(ew.encoding)
-      | {some={Q_encoding}} -> Q.decode(ew.encoded_text, ew.charset)
+      | {some={Q_encoding}} -> decoder(ew.charset, Q.decode(ew.encoded_text))
       | {some={B_encoding}} -> Crypto.Base64.decode(ew.encoded_text)
       | {none} -> ew.encoded_text
       end
     | c=. -> Cactutf.cons(c)
 
-    decode(s:string) : string =
-      p = parser value=ew_parser+ -> List.to_string_using("", "", "", value)
+    decode(s:string, decoder) : string =
+      p = parser value=ew_parser(decoder)+ -> List.to_string_using("", "", "", value)
       match Parser.try_parse(p, s)
       {some=s} -> s
       {none} -> s
@@ -176,8 +176,8 @@ Mime = {{
         else none
       , headers)
 
-    decode_value(s:string) : string =
-      EncodedWords.decode(s)
+    decode_value(s:string, decoder) : string =
+      EncodedWords.decode(s, decoder)
 
     extract_value(name, values) =
       name = String.lowercase(name)
