@@ -1,0 +1,272 @@
+
+var hashtbl = require('./hashtbl.nodejs');
+var Option = require('./option.nodejs');
+
+var Time_infinity = 10*365*24*3600*1000; // Actually just ten years (TODO: Time object with infinity?)
+
+var cookie_len = 32;
+var cookie_connect_rate = 0;
+var cookie_gc_period = 100;
+var cookie_pool_size_min = 100;
+var cookie_pool_size_max = 10000;
+var cookie_connection_count = 0;
+var cookie_timer_stop = false;
+var cookie_timer_interval = 1;
+var cookie_gc_blocksize = 1;
+var cookie_rotation_connection_rate_max = 5;
+var cookie_dt1 = 10*24*60*60*1000; /* Variable expiration */
+var cookie_dt2 = Time_infinity; /* Fixed deadline */
+var cookies_txt_filename = "";
+var cookie_accept_client_values = false;
+
+var cookie_pool = new Array();
+var last_cookie_check_time = new Date();
+var to_longcook = new hashtbl.HashTable({})
+
+function abbrev(s) { if (s.length < 5) { return s } else { return s.substring(0,5) } }
+
+function cookid(ec, ic) { return ec+"_"+ic }
+
+function Date_max(a, b) {
+  if (a === null || a === undefined) {
+    return b
+  } else if (b === null || b === undefined) {
+    return a
+  } else if (Math.max(a, b) == a) {
+    return a
+  } else {
+    return b
+  }
+}
+
+function Date_min(a, b) {
+  if (a === null || a === undefined) {
+    return b
+  } else if (b === null || b === undefined) {
+    return a
+  } else if (Math.min(a, b) == a) {
+    return a
+  } else {
+    return b
+  }
+}
+
+function now_plus(dt) { var d = new Date(); d.setTime(d.getTime() + dt); return d }
+
+function randomd(len) {
+  var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  var string_length = len;
+  var randomstring = '';
+  for (var i=0; i<string_length; i++) {
+    var rnum = Math.floor(Math.random() * chars.length);
+    randomstring += chars.substring(rnum,rnum+1);
+  }
+  return randomstring;
+}
+
+function populate_cookie_pool(cnt) {
+  //console.log("populate_cookie_pool");
+  while (cookie_pool.length < cnt) {
+    cookie_pool.push(randomd(cookie_len));
+  }
+}
+
+function get_cookie_string() {
+  if (cookie_pool.length === 0) {
+    //console.log("get_cookie_string: random");
+    return randomd(cookie_len)
+  } else {
+    //console.log("get_cookie_string: pool");
+    return cookie_pool.pop()
+  }
+}
+
+function check_cookie_pool(now) {
+  var dT = now - last_cookie_check_time;
+  last_cookie_check_time = now;
+  if (dT <= 1000) {
+    cookie_connection_count = 0;
+    console.log("check_cookie_pool: dT="+dT+" <= 1000");
+  } else {
+    var cookie_connect_rate = cookie_connection_count / dT;
+    console.log("check_cookie_pool: dT="+dT
+                +" cookie_connection_count="+cookie_connection_count
+                +" cookie_connect_rate="+cookie_connect_rate);
+    cookie_connection_count = 0;
+    if (cookie_pool.length < cookie_pool_size_min && cookie_connect_rate <= cookie_rotation_connection_rate_max) {
+      var cnt = Math.max(cookie_pool_size_min,(cookie_pool_size_max - cookie_pool.length));
+      console.log("check_cookie_pool: repopulating "+cnt);
+      populate_cookie_pool(cnt)
+    }
+  }
+}
+
+function create_aux(ic, ec, req) {
+  var dt1 = new Date();
+  var dt2 = new Date();
+  dt1.setTime(req.timestamp.getTime() + cookie_dt1);
+  dt2.setTime(req.timestamp.getTime() + cookie_dt2);
+  to_longcook.setItem(cookid(ec,ic),{dt1:dt1, dt2:dt2});
+  console.log("create: add(to_longcook["+to_longcook.length+"])="+abbrev(ic)+"."+abbrev(ec)+" -> ("+dt1+","+dt2+")");
+  req.cookies.ec = ec;
+  req.cookies.ic = ic;
+}
+
+function create(req) {
+  create_aux(get_cookie_string(), get_cookie_string(), req)
+}
+
+function create_with_client_values(req) {
+  create_aux(req.ic, req.ec, req)
+}
+
+//var req = {cookies:{ec:get_cookie_string(), ic:get_cookie_string()}, timestamp:new Date(), dt2:new Date()};
+
+function get_internal(req) {
+  try {
+    if (req.cookies.ec.length !== cookie_len || req.cookies.ic.length !== cookie_len) throw "Not_found";
+    var id = cookid(req.cookies.ec, req.cookies.ic);
+    if (cookie_accept_client_values && !(to_longcook.hasItem(id))) {
+      create_with_client_values(req);
+      console.log("get_internal: client values={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
+    } else {
+      var dt = to_longcook.getItem(id);
+      if (dt === null || dt === undefined) throw "Not_found";
+      if (req.timestamp > dt.dt1 || req.timestamp > dt.dt2) {
+        create(req);
+        console.log("get_internal: expired new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
+      } else {
+        req.dt2 = dt.dt2
+        console.log("get_internal: found {ec='"+abbrev(req.cookies.ec)+" ic="+abbrev(req.cookies.ic)+"'}");
+      }
+    }
+  } catch(err) {
+    //console.log("err: "+err);
+    create(req);
+    console.log("get_internal: not found new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}");
+  }
+  return req
+}
+//get_internal(req)
+
+function get_external(req) {
+  var id = cookid(req.cookies.ec, req.cookies.ic);
+  /* Note that if dt1 = dt2 = infinity then cookies will last forever. */
+  var dt1 = now_plus(cookie_dt1);
+  //console.log("get_external: dt1="+dt1);
+  //console.log("get_external: dt2="+req.dt2);
+  var max_age = Date_min(dt1,req.dt2);
+  to_longcook.setItem(id,{dt:dt1,dt2:req.dt2});
+  console.log("get_external("+abbrev(req.cookies.ec)+"."+abbrev(req.cookies.ic)+") max_age="+max_age);
+  return {max_age:max_age, ecstr:"ec="+req.cookies.ec, icstr:"ic="+req.cookies.ic}
+}
+//get_external(req)
+
+function setopt(val, def) {
+  if (val === null || val === undefined) return def;
+  return val;
+}
+
+exports.init_cookies = init_cookies;
+
+function init_cookies(opts) {
+  //?(gc_period=100) ?(accept_client_values=false) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
+  //?(rate_max=5.0) ?(period_max=5) ?(rate_ultimate=10.0) ?(period_ultimate=100)
+  //?(expires_short=Time.seconds 5) ?(expires_long=Time.seconds 50) ?(dt1=Time.days 10) ?(dt2=Time.infinity)
+  //?(max_external_cookies=25) ?(rotate_cookies=true) ?(cookies_filename="")
+  cookie_gc_period = setopt(opts.gc_period, 100);
+  cookie_accept_client_values = setopt(opts.accept_client_values, false);
+  cookie_pool_size_min = setopt(opts.pool_min, 100);
+  cookie_pool_size_max = setopt(opts.pool_max, 10000);
+  cookie_timer_interval = setopt(opts.timer_interval, 1);
+  cookie_rotation_connection_rate_max = setopt(opts.rate_max, 5);
+  cookie_dt1 = setopt(opts.dt1, 10*24*3600*1000);
+  cookie_dt2 = setopt(opts.dt2, Time_infinity);
+  cookies_txt_filename = setopt(opts.cookies_filename, "");
+  last_cookie_check_time = new Date();
+  populate_cookie_pool(cookie_pool_size_max);
+  //cookie_timer_stop = false;
+  //cookie_timer_functions := check_cookie_pool::!cookie_timer_functions;
+  //cookie_timer_functions := update_current_time::!cookie_timer_functions;
+  //cookie_timer_functions := (gc_cookies sched)::!cookie_timer_functions;
+  //Scheduler.timer sched (Time.seconds timer_interval) check_cookie_timer;
+  //if !cookies_txt_filename <> "" then (load_cookies(); at_exit save_cookies)
+}
+
+exports.default_opts = default_opts;
+
+var default_opts = {
+  gc_period:100,
+  accept_client_values:false,
+  pool_min:100,
+  pool_max:10000,
+  timer_interval:1,
+  rate_max:5,
+  dt1:10*24*3600*1000,
+  dt2:Time_infinity,
+  cookies_filename:""
+};
+
+// Temporary, we should call this elsewhere
+init_cookies(default_opts);
+
+exports.cookies_in = cookies_in;
+
+function cookies_in(req) {
+  switch (req.pathname) {
+  case "/favicon.ico": return req;
+  case "/favicon.gif": return req;
+  default:
+    req.request.headers.cookie
+      && req.request.headers.cookie.split(';').forEach(function(cookie) {
+                                                         var parts = cookie.split('=');
+                                                         req.cookies[parts[0].trim()] = (parts[1] || '').trim();
+                                                       });
+    console.log("cookies: ec="+req.cookies.ec+" ic="+req.cookies.ic);
+    return get_internal(req);
+  }
+}
+
+function get_object(quotes,name,obj_opt) {
+  var q = (quotes) ? "\"" : "";
+  return Option.default_map("",function (obj) { if (obj !== "") { return "; "+name+"="+q+obj+q } else { return "" } },obj_opt)
+}
+
+function get_path(quotes,path_opt) { return get_object(quotes,"path",path_opt) }
+function get_expires(delcookies,expires) {
+  if (delcookies) {
+    return "; expires=Thu, 01-Jan-1970 00:00:01 GMT"
+  } else {
+    return "; expires="+expires
+  }
+}
+
+exports.cookies_out = cookies_out;
+
+function cookies_out(req, delcookies) {
+  switch (req.pathname) {
+  case "/favicon.ico": return;
+  case "/favicon.gif": return;
+  default:
+    if (delcookies) {
+      cookies = {expiry_changed:false, max_age:req.timestamp, ecstr:"ec=Null", icstr:"ic=Null"};
+    } else {
+      if (req.cookies.ec === "" || req.cookies.ic === "") {
+        cookies = {expiry_changed:true, max_age:req.timestamp, ecstr:"", icstr:""};
+      } else {
+        cookies = get_external(req);
+        cookies.expiry_changed = true;
+      }
+    };
+    if (cookies.ecstr === "" || cookies.icstr === "") return;
+    var pathstr = get_path(false,{some:"/"});
+    var expirestr = (cookies.expiry_changed) ? get_expires(delcookies,cookies.max_age) : "";
+    var str = expirestr+pathstr;
+    // dreadful hack, see http://joerussbowman.tumblr.com/post/486694181/hacking-at-node-js-headers
+    var c2 = "\r\nSet-Cookie: "+cookies.icstr+str;
+    req.response.setHeader('Set-Cookie',cookies.ecstr+str+c2);
+    //req.response.setHeader('Set-Cookie',cookies.icstr+str);
+    return;
+  }
+}
+//cookies_out(req, false)
