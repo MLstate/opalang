@@ -166,6 +166,14 @@ DbDropbox = {{
       | {no_credentials} -> do error("Impossible to write to {path}. The user is not authenticated.") false
       | _ -> do error("Impossible to write to {path}. The user is not authenticated, but in request mode.") false
 
+    @package @server gen_remove(db:DbDropbox.t, path) =
+      match User(db).get_status() with
+      | {authenticated = creds} -> (
+          match D(db).FileOps.delete(db.root, build_path(path), creds) with
+          | { success = _ } -> void
+          | { failure = failure } -> error("Impossible to remove {path}: {failure}") )
+      | {no_credentials} -> error("Impossible to remove {path}. The user is not authenticated.")
+      | _ -> error("Impossible to remove {path}. The user is not authenticated, but in request mode.")
 
    /* ********************************************
     * {3 Builder of composed path}
@@ -210,7 +218,7 @@ DbDropbox = {{
    @package build_rpath(db, path:list(string), default:'data):DbDropbox.private.ref_path('data) =
      vpath = build_vpath(db, path, default) : DbDropbox.private.val_path('data)
      write(data:'data) = gen_write(db, path, OpaSerialize.serialize(data))
-     remove() = error("remove not yet implemented")
+     remove() = gen_remove(db, path)
      { vpath with more=~{write remove} }
 
     @package update_path(db:DbDropbox.t, path:list(string), data:DbDropbox.update):void =
