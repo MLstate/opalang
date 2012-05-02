@@ -84,13 +84,13 @@ Crypto = {{
     /**
      * Encrypt a string with a certain RSA key.
      */
-    encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, string -> string
+    encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, string -> option(string)
 
     /**
      * Decrypt an RSA encrypted message.
      * /!\ You might need to trim the result in order to retrieve the origin message.
      */
-    decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, string -> string
+    decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, string -> option(string)
 
   }}
 

@@ -61,8 +61,14 @@ let sha2 s =
 ##register rsa_new_key : int -> Crypto.RSA.key
 let rsa_new_key size = Cryptokit.RSA.new_key ~rng:Cryptokit.Random.secure_rng size
 
-##register rsa_encrypt : Crypto.RSA.key, string -> string
-let rsa_encrypt key msg = Cryptokit.RSA.encrypt key msg
+##register rsa_encrypt : Crypto.RSA.key, string -> option(string)
+let rsa_encrypt key msg =
+  try
+    Some (Cryptokit.RSA.encrypt key msg)
+  with Cryptokit.Error _ -> None
 
-##register rsa_decrypt : Crypto.RSA.key, string -> string
-let rsa_decrypt key msg = Cryptokit.RSA.decrypt key msg
+##register rsa_decrypt : Crypto.RSA.key, string -> option(string)
+let rsa_decrypt key msg =
+  try
+    Some (Cryptokit.RSA.decrypt key msg)
+  with Cryptokit.Error _ -> None
