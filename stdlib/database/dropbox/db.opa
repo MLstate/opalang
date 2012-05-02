@@ -27,6 +27,7 @@ import stdlib.system
 import stdlib.database.common
 import stdlib.apis.dropbox
 import stdlib.core.rpc.core
+import stdlib.io.file
 
 /**
  * {1 About this module}
@@ -41,7 +42,7 @@ import stdlib.core.rpc.core
  * {1 Types defined in this module}
  */
 
-type DbDropbox.User.status = 
+type DbDropbox.User.status =
    {no_credentials}
  / {request_secret : string; request_token : string}
  / {authenticated : Dropbox.creds}
@@ -98,9 +99,13 @@ DbDropbox = {{
 
    error(s) = Log.error("DbGen/Dropbox", s)
    notice(s) = Log.notice("DbGen/Dropbox", s)
+   uri_to_string(path) = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=false})
    build_path(path) =
     path = DbCommon.path_to_id(path)
     "/{path}.json"
+   build_folder_path(path) =
+    path = uri_to_string(path)
+    "/{path}"
 
 
    @private _User(db : DbDropbox.t) = {{
@@ -110,9 +115,9 @@ DbDropbox = {{
     set_status(r) = UserContext.change(_ -> r, db.context)
     set_request(token, secret) = set_status({request_secret = secret; request_token = token})
     set_authenticated(token, secret) = set_status({authenticated = { token = token; secret = secret}})
-   
+
    }}
-   
+
    @private _Auth(db : DbDropbox.t) = {{
 
     conf = {app_key = db.appkey app_secret = db.appsecret}
@@ -124,7 +129,7 @@ DbDropbox = {{
   }}
 
   User(db : DbDropbox.t) = {{
-    
+
     get_status = _User(db).get_status
     is_authenticated = _User(db).is_authenticated
     set_status = _User(db).set_status
@@ -138,23 +143,92 @@ DbDropbox = {{
 
    D(db) = Dropbox({app_key = db.appkey app_secret = db.appsecret})
 
+   /* ********************************************
+    * {Operations over Dropbox API}
+    * *******************************************/
+
+    get_path_list(db, creds, path) =
+      db_files = D(db).Files(db.root, path).metadata(D(db).default_metadata_options, creds)
+      f(e : Dropbox.element) =
+        (match (e) with
+         | {file; ~metadata; ...} -> { some = metadata.path }
+         | {folder; ...} -> do error("There is an invalid folder inside {path}"); none)
+      match (db_files) with
+      | { success = {~contents; ...} } -> List.filter_map(f, contents ? [])
+      | { success = {file=_; ...} } -> do error("{path} is a file, not a folder"); []
+      | { failure = { not_found }} -> do error("Unbound path {path}"); []
+      | { failure = failure } -> do error("Unexepected error: {failure}"); []
+
+   /**
+    - all elements are requested in parallel (would be too slow in sequence!)
+    - responses are received in a random order (random time response)
+    - an element is safely added to the map via a cell
+    - a counter is used to know when all elements are retrieved
+    - no callback argument: the map is return thanks to @callcc
+   */
+   @package @server read_map(db:DbDropbox.t, creds, path:string, kty, dty):stringmap('data) =
+     Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
+     l = get_path_list(db, creds, path)
+     if l == [] then Map.empty else
+     cont(map_add, k) =
+       size = List.length(l)
+       on_message((counter, map), r) =
+         map = match r with
+               | { some = (path, value)} -> (
+                    basename = File.basename(path)
+                    key = String.substring_opt(0, String.length(basename) - 5, basename) ? ""
+                    map_add(key, value, map)
+                    )
+               | { none } -> map
+         instruction = {set = (counter+1, map)}
+         if counter == size then {~instruction return = Continuation.return(k, map)}
+         else {~instruction return = void}
+       cell = Cell.make((1, Map.empty), on_message)
+       add(r) = (Cell.call(cell, r))
+       iterator(path) =
+         f() = match read_record(db, creds, path, dty) with
+              | {none} -> add(none)
+              | {some=r} -> add({some = (path, r)})
+         Scheduler.push(f)
+       List.iter(iterator, l)
+     invalid_key(map, key) = do error("Invalid map key '{key}' regarding type {kty}"); map
+     add_parsed(key, value, map, parse) = Option.switch(Map.add(_, value, map), invalid_key(map, key), @unsafe_cast(parse(key)))
+     match kty with
+     | {TyConst={TyString={}}} -> f(key, value, map) = Map.add(key, value, map)                  @callcc(cont(@unsafe_cast(f), _))
+     | {TyConst={TyInt={}}}    -> f(key, value, map) = add_parsed(key, value, map, Parser.int)   @callcc(cont(@unsafe_cast(f), _))
+     | {TyConst={TyFloat={}}}  -> f(key, value, map) = add_parsed(key, value, map, Parser.float) @callcc(cont(@unsafe_cast(f) , _))
+     | _ -> do error("Unsupported type {kty} for map keys"); Map.empty
+
+
+   @package @server read_record(db:DbDropbox.t, creds, path:string, ty):option('data) =
+    match D(db).Files(db.root, path).get(none, creds) with
+    | { success = file } -> (
+      value : DbDropbox.value = file.content
+      match Json.deserialize(value) with
+      | { some = json } -> (
+        s = OpaSerialize.Json.unserialize_with_ty(json, ty)
+        match s with
+        | { some = r } -> some(r)
+        | { none } -> do error("Invalid json: '{value}'") none )
+      | { none } -> do error("Invalid value: '{value}'") none )
+    | { failure = { not_found }} -> none
+    | { failure = failure } -> do error("Impossible to read {path}: {failure}") none
+
    @package @server gen_read(db:DbDropbox.t, path):option('data) =
     match User(db).get_status() with
     | {authenticated = creds} -> (
-      match D(db).Files(db.root, build_path(path)).get(none, creds) with
-      | { success = file } -> (
-        value : DbDropbox.value = file.content
-        match Json.deserialize(value) with
-        | { some = json } -> (
-          match OpaSerialize.Json.unserialize(json) with
-          | { some = r } -> some(r)
-          | { none } ->
-                do error("Invalid json: '{value}'") none )
-        | { none } ->
-                do error("Invalid value: '{value}'") none )
-      | { failure = failure } -> do error("Impossible to read {path}: {failure}") none )
-    | {no_credentials} -> do error("Impossible to read {path}. The user is not authenticated.") none
-    | _ -> do error("Impossible to read {path}. The user is not authenticated, but in request mode.") none
+        ty = @typeval('data)
+        read_map_opt(kty, dty) = { some = @unsafe_cast(read_map(db, creds, build_folder_path(path), kty, dty)) }
+        do jlog("\ngen_read/TYPE: {OpaType.to_pretty(ty)}\n")
+        match ty
+        | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
+        | {TyName_args=[kty, dty]; TyName_ident="map"}      -> read_map_opt(kty, dty)
+        | {TyName_args = [dty]; TyName_ident = "stringmap"} -> read_map_opt({TyConst={TyString={}}}, dty)
+        | {TyName_args = [dty]; TyName_ident = "intmap"}    -> read_map_opt({TyConst={TyInt={}}}, dty)
+        | _                                                 -> read_record(db, creds, build_path(path), ty)
+      )
+    | {no_credentials} -> do error("Impossible to read {path}. The user is not authenticated") none
+    | _ -> do error("Impossible to read {path}. The user is not authenticated, but in request mode") none
 
     @package @server gen_write(db:DbDropbox.t, path, data:string) =
       match User(db).get_status() with
@@ -163,8 +237,8 @@ DbDropbox = {{
           match D(db).Files(db.root, build_path(path)).put("application/json", json_value, true, none, creds) with
           | { success = _ } -> true
           | { failure = failure } -> do error("Impossible to write to {path}: {failure}") false )
-      | {no_credentials} -> do error("Impossible to write to {path}. The user is not authenticated.") false
-      | _ -> do error("Impossible to write to {path}. The user is not authenticated, but in request mode.") false
+      | {no_credentials} -> do error("Impossible to write to {path}. The user is not authenticated") false
+      | _ -> do error("Impossible to write to {path}. The user is not authenticated, but in request mode") false
 
     @package @server gen_remove(db:DbDropbox.t, path) =
       match User(db).get_status() with
@@ -172,8 +246,8 @@ DbDropbox = {{
           match D(db).FileOps.delete(db.root, build_path(path), creds) with
           | { success = _ } -> void
           | { failure = failure } -> error("Impossible to remove {path}: {failure}") )
-      | {no_credentials} -> error("Impossible to remove {path}. The user is not authenticated.")
-      | _ -> error("Impossible to remove {path}. The user is not authenticated, but in request mode.")
+      | {no_credentials} -> error("Impossible to remove {path}. The user is not authenticated")
+      | _ -> error("Impossible to remove {path}. The user is not authenticated, but in request mode")
 
    /* ********************************************
     * {3 Builder of composed path}
