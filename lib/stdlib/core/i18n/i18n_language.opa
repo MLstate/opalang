@@ -7862,7 +7862,7 @@ type I18n.language = string
 */
 I18n_language = {{
 
-@server parse(s) : option(I18n.language) =
+parse(s) : option(I18n.language) =
   check(s) = match s
     #<Ifstatic:OPA_BACKEND_QMLJS>
     _ -> true
