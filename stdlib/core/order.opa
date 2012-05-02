@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -63,7 +63,7 @@
 @abstract type order('item, 'label) = ('item, 'item -> Order.ordering)
 @abstract type Order.default = void
 @opacapi
-type Order.comparison = {lt} / {gt} / {eq} / {neq}
+type Order.comparison = Order.ordering / {neq}
 type Order.ordering   = {lt} / {gt} / {eq}
 
 /**
