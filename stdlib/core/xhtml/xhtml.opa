@@ -1233,8 +1233,7 @@ Xhtml =
    * Update (by appending) an attribute to an xhtml node, add it if not already present
    */
   update_attribute_unsafe(name: string, value: string, x:xhtml):xhtml =
-    if String.is_empty(value) then x
-    else gen_add_attribute(name, value, x, true)
+    gen_add_attribute(name, value, x, true)
 
   /**
    * Set an attribute to an xhtml node. Replace if already_exists
