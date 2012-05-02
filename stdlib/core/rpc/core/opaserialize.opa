@@ -608,12 +608,9 @@ OpaSerializeClosure = {{
                   error_ret("Type of field " ^ name ^ " is not found",
                             (acc, [], true))
                 | [hd | tl] ->
-                  do (if hd.label != name then
-
-                      do Log.error("Improper name while deserializing field \"{hd.label}\" -- expected \"{name}\"", "{json}")
-                         @fail("Deserialization error")  // if it breaks, you are generating
-                                // json that is not ordered properly
-                     else void)
+                  // We doesn't check the field equality in Opa is an invariant.
+                  // With the external world we should provides a tools for
+                  // checking the field equality.
                   match aux(json, hd.ty) with
                   | {none} ->
                     error_ret("Unserialization of field {hd.label} with json {json} and with type {OpaType.to_pretty(hd.ty)} fail", (acc, [], true))
@@ -666,13 +663,13 @@ OpaSerializeClosure = {{
       | ({String = value}, {TyConst = {TyString}}) -> magic_some(value)
 
       /* Degenerate float case ******************/
-      | ({~String} , {TyConst = {TyFloat}}) -> magic_some(
+      | ({~String} , {TyConst = {TyFloat}}) ->
         match String
-        "Infinity"  ->   1.0 / 0.0 // temporary hack break Math dependencies
-        "-Infinity" ->  -1.0 / 0.0
-        "NaN"       ->   0.0 / 0.0
-        _ -> @fail
-        )
+        | "Infinity"  -> magic_some(1.0 / 0.0) // temporary hack break Math dependencies
+        | "-Infinity" -> magic_some(-1.0 / 0.0)
+        | "NaN"       -> magic_some(0.0 / 0.0)
+        | _ -> error_ret("Try to unserialize a float with the json string {String}", none)
+        end
       | ({Int = value}, {TyConst = {TyFloat}}) -> magic_some( Float.of_int(value) )
 
       /* Record case ****************************/
