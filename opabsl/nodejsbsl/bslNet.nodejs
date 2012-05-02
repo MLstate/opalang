@@ -1,6 +1,9 @@
 
 var http = require('http');
+var url = require('url');
 var client = require('../../qmljsimp/qmlJsImpClientLib.js');
+var Option = require('./option.nodejs');
+var Cookies = require('./cookies.nodejs');
 
 ##extern-type WebInfo.private.native
 ##extern-type WebInfo.private.native_http_header
@@ -88,7 +91,7 @@ function merge_headers(headers) {
 ##args(req)
 {
   // We may need to add extra fields in the Opa handling
-  return function (resp) { return js_void }
+  return function (resp) { return client.js_void }
 }
 
 ##register web_info_conn : WebInfo.private.native -> WebInfo.private.native_connection
@@ -203,97 +206,49 @@ function gethdr(request, s) {
 
 // BslNet.Http_server.make_response 
 
-function Option_map(f, opt) {
-  if (opt === null || opt === undefined) {
-    return opt
-  } else if ('some' in opt) {
-    return {some:f(opt.some)}
-  } else {
-    return opt
-  }
-}
-
-function Option_is_some(x) {
-  if (x === null || x === undefined) {
-    return false
-  } else if ('some' in x) {
-    return true
-  } else {
-    return false
-  }
-}
-
-function Option_is_none(x) {
-  if (x === null || x === undefined) {
-    return true
-  } else if ('some' in x) {
-    return false
-  } else {
-    return true
-  }
-}
-
-function Option_get(x) {
-  if (x === null || x === undefined) {
-    return undefined
-  } else if ('some' in x) {
-    return x.some
-  } else {
-    return undefined
-  }
-}
-
-function Option_default(dflt, x) {
-  if (x === null || x === undefined) {
-    return dflt
-  } else if ('some' in x) {
-    return x.some
-  } else {
-    return dflt
-  }
-}
-
 function is_valid(request, modified_since) {
   if (request.headers['cache-control'] === 'no-cache')
     return false
   else if (request.headers['pragma'] === 'no-cache')
     return false
   else if ('if-modified-since' in request.headers) {
-    if (Option_is_some(modified_since)) {
+    if (Option.is_some(modified_since)) {
       var mtimein = new Date(request.headers['if-modified-since']);
       return mtimein >= modified_since.some
     } else false
   } else if ('if-unmodified-since' in request.headers) {
-    if (Option_is_some(modified_since)) {
+    if (Option.is_some(modified_since)) {
       var mtimein = new Date(request.headers['if-unmodified-since']);
       return mtimein < modified_since.some
     } else false
   } else false
 }
 
-function process_content(req, expires, modified_since, _type, content, include_body) {
+function process_content(req, expires, modified_since, _type, content, content_len, include_body) {
   var now = new Date();
-  var content_len = Buffer.byteLength(content.toString(),'utf8');
+  var content_len = Option.dflt(content.length,content_len); // TODO: how do we get the real length of one of these things?
+  //console.log("content_len="+content_len);
   var cs;
   if (_type.indexOf("charset") != -1) { cs = "" } else { cs = "; charset=utf-8" };
   var typeval = _type + cs;
-  var expires = Option_default(new Date(), expires);
+  var expires = Option.dflt(new Date(), expires);
   req.response.setHeader('Date',now);
   req.response.setHeader('Server',req.server_name);
   req.response.setHeader('Content-Type',typeval);
   req.response.setHeader('Expires',expires);
-  if (Option_is_some(modified_since)) {
+  if (Option.is_some(modified_since)) {
     req.response.setHeader('Cache-Control',"public");
     req.response.setHeader('Last-Modified',modified_since.some);
   };
   req.response.setHeader('Content-Length',content_len);
+  Cookies.cookies_out(req, false);
   if (include_body)
     req.response.end(content)
   else
     req.response.end();
 }
 
-function make_response_with_headers(expires,modified_since,req,headers_out,status_line,_type,content,cont) {
+function make_response_with_headers(expires,modified_since,req,headers_out,status_line,_type,content,content_len,cont) {
   var code = BslNet_Requestdef_status_code(status_line);
   var reason = BslNet_Requestdef_reason_phrase(code);
   var include_body = req.request.method !== 'HEAD';
@@ -306,9 +261,25 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     console.log("make_response: code="+code);
     req.response.statusCode = code;
     headers_out.forEach(function (hdr) { for (var h in hdr) { req.response.setHeader(h,hdr[h]) } });
-    process_content(req, expires, modified_since, _type, content, include_body)
+    process_content(req, expires, modified_since, _type, content, content_len, include_body)
   };
   cont(req)
+}
+
+##register [cps-bypass] make_response_len : \
+    option(time_t), \
+    WebInfo.private.native_request, \
+    web_server_status, \
+    list(WebInfo.private.native_http_header), \
+    string, \
+    string, \
+    option(int), \
+    continuation(WebInfo.private.native_response) -> void
+##args(ms,req,stat,headers,_type,content,content_len,k)
+{
+  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, content_len, k);
+  return client.js_void
 }
 
 ##register [cps-bypass] make_response : \
@@ -321,9 +292,9 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,k)
 {
-  var modified_since = Option_map(function (ms) { return new Date(ms) },ms);
-  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, k);
-  return js_void
+  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, client.js_none, k);
+  return client.js_void
 }
 
 ##register [cps-bypass] make_response_modified_since : \
@@ -336,9 +307,9 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
 ##args(modified_since,req,stat,_type,content,k)
 {
   var expires = {some:new Date(0)};
-  var modified_since = Option_map(function (ms) { return new Date(ms) },ms);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, k);
-  return js_void
+  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, client.js_none, k);
+  return client.js_void
 }
 
 ##register [cps-bypass] make_response_expires_at : \
@@ -352,19 +323,10 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
 ##args(expires_at,modified_since,req,stat,_type,content,k)
 {
   var date = new Date();
-  var expires = (Option_is_some(expires_at)) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
-  var modified_since = Option_map(function (ms) { return new Date(ms) },modified_since);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, k);
-  return js_void
-}
-
-function cookies_in(req) {
-  req.request.headers.cookie && req.request.headers.cookie.split(';').forEach(function(cookie) {
-    var parts = cookie.split('=');
-    console.log("cookie: "+cookie);
-    req.cookies[parts[0].trim()] = (parts[1] || '').trim();
-  });
-  return req
+  var expires = (Option.is_some(expires_at)) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
+  var modified_since = Option.map(function (ms) { return new Date(ms) },modified_since);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, client.js_none, k);
+  return client.js_void
 }
 
 ##register init_server : \
@@ -380,16 +342,20 @@ function cookies_in(req) {
 ##args(name,port,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
 {
   http.createServer(function (request, response) {
-                      var req = cookies_in({server_name:name, cookies:{}, request:request, response:response});
-                      console.log(req);
+                      var pathname = url.parse(request.url).pathname;
+                      var req = Cookies.cookies_in({timestamp:new Date(), pathname:pathname,
+                                                    server_name:name, cookies:{},
+                                                    request:request, response:response});
+                      //console.log(req);
                       return dispatcher(req)
                     }).listen(port);
-  return js_void
+  return client.js_void
 }
 
 ##endmodule
 
 exports.make_response = BslNet_Http_server_make_response
+exports.make_response_len = BslNet_Http_server_make_response_len
 exports.init_server = BslNet_Http_server_init_server
 
 ##module Requestdef
