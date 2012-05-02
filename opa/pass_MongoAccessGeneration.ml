@@ -126,6 +126,7 @@ module Generator = struct
     in
     C.rev_list (annotmap, gamma) path
 
+  (** Path must be reverted *)
   let expr_of_strexprpath gamma annotmap path =
     let path = match path with [] -> [`string "value"] | _ -> path in
     let fld_to_string annotmap fld =
@@ -138,22 +139,29 @@ module Generator = struct
             if prev_str = [] then annotmap, prev_expr
             else
               let annotmap, e = fld_to_string annotmap prev_str in
-              let annotmap, d = C.string annotmap "." in
-              annotmap, d::e::prev_expr
+              if prev_expr = [] then annotmap, [e]
+              else
+                let annotmap, d = C.string annotmap "." in
+                annotmap, e::d::prev_expr
+          in
+          let annotmap, prev_expr =
+            if prev_expr = [] then annotmap, prev_expr
+            else
+              let annotmap, d1 = C.string annotmap "." in
+              annotmap, d1::prev_expr
           in
           let annotmap, e1 = expr_to_field gamma annotmap e1 () in
-          let annotmap, d1 = C.string annotmap "." in
           if q = [] then
+            let annotmap, d2 = C.string annotmap "." in
             let annotmap, value = C.string annotmap "value" in
-            annotmap, value::d1::e1::prev_expr
+            annotmap, value::d2::e1::prev_expr
           else
-            aux annotmap [] (d1::e1::prev_expr) q
+            aux annotmap [] (e1::prev_expr) q
       | [] ->
-          if prev_str = [] then
-            annotmap, prev_expr
+          if prev_str = [] then annotmap, prev_expr
           else
             let annotmap, e = fld_to_string annotmap prev_str in
-            if prev_expr = [] then annotmap, (e::prev_expr)
+            if prev_expr = [] then annotmap, [e]
             else
               let annotmap, d0 = C.string annotmap "." in
               annotmap, (e::d0::prev_expr)
