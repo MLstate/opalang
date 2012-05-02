@@ -140,6 +140,8 @@ type Set('elem,'order) =
 
   /**
    * Change all values of the set by applying a change function to all element stored in it
+   * The resulting set has the same order as initial set and the same kind of element.
+   * Use [map_to_different_order] or [map_to_different_set] to change order or element type.
    *
    * @param f a function invoked at each element of the set, returns a new element
    * @param s the set to visit
@@ -150,6 +152,19 @@ type Set('elem,'order) =
   // however, the polymorphic set could actually provide this function
   // with the previous type
   map : ('elem -> 'elem), ordered_set('elem,'order) -> ordered_set('elem, 'order)
+
+
+  /** Same as map but with no order and element type restrictions.
+      You can provide the new order.
+      e.g. [StringSet.map_to_different_order(Int.of_string, Order.default, set)]
+  */
+  map_to_different_order : ('elem -> 'new_elem), order('new_elem,'new_order), ordered_set('elem,'order) -> ordered_set('new_elem,'new_order)
+
+  /** Same as map but with no order and element type restrictions.
+      You can provide the new Set module.
+      e.g. [StringSet.map_to_different_order(Int.of_string, IntSet set)]
+  */
+  map_to_different_set   : ('elem -> 'new_elem), Set('new_elem,'new_order),   ordered_set('elem,'order) -> ordered_set('new_elem,'new_order)
 
   /**
    * Iterate on all value of the set
@@ -338,9 +353,21 @@ Set_make( order : order('elem,'order)  )  =
     MapSet.extract(elem, set).f1
     : ordered_set('elem, 'order)
 
-  map(fun : ('elem -> 'new_elem), set : ordered_set('elem,'order))=
+  map(fun : ('elem -> 'elem), set : ordered_set('elem,'order))=
     fold((elem, acc -> add(fun(elem), acc)), set, empty)
-    : ordered_set('new_elem, 'order)
+
+  map_to_different_order( f:('elem -> 'new_elem), new_order:order('new_elem,'new_order), set:ordered_set('elem,'order) ) =
+    // // Ideally
+    // map_to_different_set(f, Set_make(new_order), set)
+    // // But cannot recurse directly for both valid and invalid reasons (non uniform recursivity and forall problems)
+    NewSet = Map_make(new_order)
+    add(elem,acc) = NewSet.add(f(elem),void,acc)
+    fold( add , set, NewSet.empty) : ordered_set('new_elem,'new_order)
+
+
+  map_to_different_set(f:('elem -> 'new_elem), TargetSet:Set('new_elem,'new_order), set:ordered_set('elem,'order) ) =
+    add(elem,acc) = TargetSet.add(f(elem),acc)
+    fold( add , set, TargetSet.empty) : ordered_set('new_elem,'new_order)
 
   iter(fun: ('elem -> void), set: ordered_set('elem,'order)) =
     MapSet.iter((k, _v -> fun(k)), set)
