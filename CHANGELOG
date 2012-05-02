@@ -71,6 +71,7 @@ Updated APIs:
 
   * Mime
     - Mime.get_text now takes an additional decoding function
+    - Mime.Header.decode_value also takes a decoding function
 
   * Bootstrap
     - upgraded to Bootstrap 2.0.3
