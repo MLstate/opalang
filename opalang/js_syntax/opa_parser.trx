@@ -838,11 +838,12 @@ expr_noop_simple <-
 /** pattern/if then else/function as pattern **/
 match <- (=deco(Opa_lexer.MATCH lpar expr:e rpar {{Some (e:(_, _) SurfaceAst.expr)}} / Opa_lexer.FUNCTION {{None}})):e
          lbrace
-           (=list0_strict(match_case, match_rule)):l
+           match_rules+:l
            match_rule_default?:default
          rbrace
          {{
             let e, a = e in
+            let l = List.flatten l in
             let rec aux (e:(_, _) SurfaceAst.expr option) =
               match e with
               | Some e ->
@@ -867,6 +868,13 @@ match_end_case <- (match_case $ / match_default_case $ / rbrace $)
 match_expr <- (((=deco(block_inner)):e &match_end_case {{e}}) / (expr:e &match_end_case {{e}}))
 
 match_prod <-  match_right_separator spacing match_expr:e {{e}}
+
+match_rules <- (=list1_strict(match_case, pattern)):l match_prod:e
+  {{
+    match l with
+    | [] -> assert false
+    | h :: l -> (h,e) :: List.map (fun p -> (p,SurfaceAstCons.Refresh.expr e)) l
+  }}
 
 match_rule <- pattern:p match_prod:e
   {{(p, e)}}
