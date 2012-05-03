@@ -624,6 +624,12 @@ DbSet = {{
     #<End>
     id = DbSet.path_to_id(path)
     ns = "{db.name}.{id}"
+    filter =
+        match filter with
+        // It's a hack for empty filter, if the filter is really empty mongo
+        // returns all fields instead of any
+        | {some=[]} -> {some=[{name="`" value={Int32=1}}]}
+        | _ -> filter
     genbuild(db, ns, id, default,
              MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter), limit)
 
