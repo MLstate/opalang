@@ -6,12 +6,18 @@ New supported platform:
 
 New features:
 
+  * Syntax:
+    - Possibility to use underscore inside numbers
+    - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
+      e.g.            <div> onready={ {function(_) code} }></>
+      and             <div> onready={ function(_){ code} }></>
+      can be written  <div> onready={ function(_) code   }></>
+
   * Parser.alphanum, Parser.ident and Parser.bool added
 
   * Scheduler
-    - new set_max_compute_successive function
-    - new set_nb_step_apply function
-      Those functions are made to fine-tune scheduling policy. For advanced users!
+    - New functions for advance users, providing fine-tuning of scheduling policy:
+      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
 
   * IMAP Client
 
@@ -24,6 +30,24 @@ New features:
   * Iconv
     - binded libiconv with the help of iconv-ocaml
     - added an Iconv module consequently
+
+  * The directive @atomic(expr) now checks that the compiler is able to emit an atomic expression computation
+    (i.e. containing no scheduling point)
+
+  * Queue: add many folding function
+
+  * Set: add 'mapping' functions that can map to different kind of set
+
+  * List: add 'rev_iter'
+
+  * Random: add 'bool'
+
+  * ThreadContext: add Client.using
+
+  * New package stdlib.core.concurrency that provides (on server side only):
+     - generic Mutex mecanism
+     - exclusive section
+     - and reference with exclusive access
 
 Improvements:
 
@@ -45,6 +69,10 @@ Improvements:
 
   * do not generate dyn_css link or script tag if useless
 
+  * The 'with' construction generate more efficient code (less scheduling points)
+
+  * Better check of wrong cyclic type definition
+
 Bug fixes:
 
   * UriParser
@@ -53,6 +81,8 @@ Bug fixes:
   * Mime
     - fixed a bug in Mime headers parsing
     - various fixes
+
+  * Mongodb buffer sharing is now always safe
 
 Updated APIs:
 
@@ -77,6 +107,8 @@ Updated APIs:
     - upgraded to Bootstrap 2.0.3
     - ability to import Bootstrap CSS with or without responsiveness
     - merged WBootstrap Badge and Label importance type
+
+  * stdlib.queue moved to stdlib.core.queue
 
 
 2012.01.06, Version 0.9.2 (stable), v1591
