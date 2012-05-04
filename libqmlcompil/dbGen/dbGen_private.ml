@@ -20,6 +20,7 @@
    Private module for DB-Accessors generation.
    @author Louis Gesbert
    @author Mathieu Barbin (errors report)
+   @author Quentin Bourgerie
 *)
 
 (* depends *)
@@ -123,7 +124,9 @@ module Default = struct
                   match select with
                   | DbAst.SFlds flds ->
                       (fun fld ->
-                         List.find_map (fun (flds, s) -> if flds = [fld] then Some s else None) flds
+                         List.find_map
+                           (fun (flds, s) -> if flds = [`string fld] then Some s else None)
+                           flds
                       )
                   | _ -> (fun _ -> Some (DbAst.SStar))
                 in
@@ -1678,9 +1681,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
             let flds =
               List.map
                 (function
-                   | [f], Db.UExpr expr -> f, expr
-                   | [f], Db.UFlds flds ->
-                       f, build_record flds (Schema_private.dots gamma [f] ty)
+                   | [`string f], Db.UExpr expr -> f, expr
+                   | ([`string f] as f0), Db.UFlds flds ->
+                       f, build_record flds (Schema_private.dots gamma f0 ty)
                    | _ -> error ()
                 )
                 flds

@@ -20,6 +20,7 @@
    Private module for DB-Schema manipulation.
    @author Louis Gesbert
    @author Mathieu Barbin (errors report)
+   @author Quentin Bourgerie
 *)
 
 (* This module makes use of OCamlGraph: http://ocamlgraph.lri.fr/doc *)
@@ -101,17 +102,25 @@ let mapi f = StringListMap.mapi
 
 exception Formatted of unit Format.pprinter
 
-let rec dots gamma field ty =
-  match field with
+let db_pp_field = Db.pp_field QmlPrint.pp#expr
+
+(**
+    Traverse a type according the given list of field.
+    `string s : traverse record and sum type
+    `expr e : traverse maps
+   @throw Formatted exception that pretty describes the error
+*)
+let rec dots gamma fields ty =
+  match fields with
   | [] -> ty
-  | f::t ->
-      match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+  | `string f::t ->
+      begin match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
       | Q.TypeRecord (Q.TyRow (row, _var) as tyrow) ->
           let ty =
             try List.assoc f row with Not_found ->
               raise (Formatted (fun fmt () ->
-                       Format.fprintf fmt "@{<bright>'%s'@} is not found inside the row @{<bright>%a@}"
-                         f QmlPrint.pp#tyrow tyrow))
+                                  Format.fprintf fmt "@{<bright>'%s'@} is not found inside the row @{<bright>%a@}"
+                                    f QmlPrint.pp#tyrow tyrow))
           in dots gamma t ty
       | Q.TypeSum (Q.TyCol (flds, _) as tysum) ->
           begin match List.find_map (List.assoc_opt f) flds with
@@ -125,18 +134,31 @@ let rec dots gamma field ty =
                     )
           end
       | ty2 ->
-          raise (Formatted  (fun fmt () ->
-                   let more =
-                     match ty2 with
-                     | Q.TypeSum _ -> Some "Update inside a sum type is ambiguous."
-                     | _ -> None in
-                   Format.fprintf fmt
-                     "can't through type @{<bright>%a@} with field(s) @{<bright>'%a'@}%a"
-                     QmlPrint.pp#ty ty Db.pp_field field
-                     (fun fmt () -> match more with
-                      | None -> ()
-                      | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
+          raise (Formatted
+                   (fun fmt () ->
+                      let more =
+                        match ty2 with
+                        | Q.TypeSum _ -> Some "Update inside a sum type is ambiguous."
+                        | _ -> None in
+                      Format.fprintf fmt
+                                 "can't through type @{<bright>%a@} with field(s) @{<bright>'%a'@}%a"
+                        QmlPrint.pp#ty ty db_pp_field fields
+                        (fun fmt () -> match more with
+                         | None -> ()
+                         | Some msg -> Format.fprintf fmt "\n@{<bright>Hint@} : %s" msg) ())
                 )
+      end
+  | `expr e::t ->
+      begin match QmlTypesUtils.Inspect.follow_alias_noopt_private
+        ~until:Opacapi.Types.map gamma ty with
+        | Q.TypeName ([_kty; dty], _) -> dots gamma t dty
+        | _ -> raise (Formatted
+                        (fun fmt () ->
+                           Format.fprintf fmt
+                             "try to access with @{<bright>[%a]@} on the type @{<bright>'%a'}\
+ which is not a map"
+                             QmlPrint.pp#expr e QmlPrint.pp#ty ty))
+      end
 
 let get_type_from_name ~context gamma tylst tid =
   match
@@ -491,7 +513,7 @@ let add_path ~context gamma t path0 ty =
           List.iter
             (fun idx ->
                try
-                 List.iter (fun f -> ignore (dots gamma [f] ty)) idx
+                 List.iter (fun f -> ignore (dots gamma [`string f] ty)) idx
                with Formatted p ->
                  QmlError.error context "Bad index declaration : %a" p ()
             ) lidx;
@@ -851,7 +873,7 @@ let is_uniq t node query =
         | Q.Db.QFlds (flds) ->
             let (flds : string list) =
               List.filter_map
-                (fun (f, q) -> match f, q with | [f], Q.Db.QEq _ -> Some f | _ -> None)
+                (fun (f, q) -> match f, q with | [`string f], Q.Db.QEq _ -> Some f | _ -> None)
                 flds
             in
             List.for_all
@@ -1188,7 +1210,7 @@ module Preprocess = struct
                         try
                           dots gamma field ty
                         with Formatted prt ->
-                          error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
+                          error "the field @{<bright>'%a'@}" "%a" db_pp_field field prt ()
                       in
                       (field, update subty u))
                    fields)
@@ -1224,22 +1246,6 @@ module Preprocess = struct
     let rec aux ty = function
     | Db.SStar -> (ty, Db.SStar)
     | Db.SNil -> (ty, Db.SNil)
-    | Db.SFlds flds ->
-        let row, select =
-          List.fold_left_map
-            (fun row (field, s0) ->
-               assert (List.length field == 1);
-               let field1 = List.hd field in
-               let subty =
-                 try
-                   dots gamma field ty
-                 with Formatted prt ->
-                   error "the field @{<bright>'%a'@}" "%a" Db.pp_field field prt ()
-               in
-               let (subty, s0) = aux subty s0 in
-               ((field1, subty)::row, (field, s0))
-            ) [] flds
-        in (Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false row)), Db.SFlds select
     | Db.SSlice (e1, e2) when (
         match ty with
         | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true
@@ -1247,13 +1253,32 @@ module Preprocess = struct
       ) ->
         (ty, Db.SSlice (coerce e1 H.tyint, coerce e2 (H.typeoption H.tyint)))
     | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
+    | Db.SFlds ([[`expr id], select])
     | Db.SId (id, select) ->
-        match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:Opacapi.Types.map gamma ty with
+        begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:Opacapi.Types.map gamma ty with
         | Q.TypeName ([kty; dty], _) ->
             let fst, snd = aux dty select in
             (fst, Db.SId (coerce id kty, snd))
         | _ -> error "with the identifier @{<bright>'%a'}" "@{<bright>'%a'} is not a map"
             QmlPrint.pp#expr id QmlPrint.pp#ty ty
+        end
+    | Db.SFlds flds ->
+        let row, select =
+          List.fold_left_map
+            (fun row (field, s0) ->
+               assert (List.length field == 1);
+               let field1 = match List.hd field with `string s -> s
+                 | _ -> assert false (*TODO*) in
+               let subty =
+                 try
+                   dots gamma field ty
+                 with Formatted prt ->
+                   error "the field @{<bright>'%a'@}" "%a" db_pp_field field prt ()
+               in
+               let (subty, s0) = aux subty s0 in
+               ((field1, subty)::row, (field, s0))
+            ) [] flds
+        in (Q.TypeRecord (QmlAstCons.Type.Row.make ~extend:false row)), Db.SFlds select
     in
     let tyres, s = aux dataty select in
     #<If:DBGEN_DEBUG>
