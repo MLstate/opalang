@@ -69,6 +69,20 @@ function HashTable(obj)
         return values;
     }
 
+    this.toList = function(from, cnt)
+    {
+        var i = 0;
+        var list = [];
+        for (var k in this.items) {
+            if (i >= from && this.hasItem(k)) {
+              list.push({key:k, value:this.items[k]});
+            }
+            if (list.length >= cnt) break;
+            i++
+        }
+        return list;
+    }
+
     this.each = function(fn) {
         for (var k in this.items) {
             if (this.hasItem(k)) {
