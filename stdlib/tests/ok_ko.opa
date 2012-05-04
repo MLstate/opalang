@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -40,11 +40,11 @@
 OK = {{
 
   ok_ko(mess:string, b )=
-    prerr("ok_ko : {
+    prerrln("ok_ko : {
       if b
       then "OK"
       else "KO - Fail"
-     }: {mess}\t ##ok_ko\n")
+     }: {mess}\t ##ok_ko")
 
   ok(mess) = ok_ko(mess, true)
   fail(mess) = ok_ko(mess, false)
