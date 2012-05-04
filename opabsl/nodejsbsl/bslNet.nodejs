@@ -34,7 +34,7 @@ function merge_headers(headers) {
 ##args(date)
 {
   var now = new Date(date)
-  return { 'Last-Modified': now }
+  return { 'Last-Modified': now.toUTCString() }
 }
 
 ##register cache_control: string -> WebInfo.private.native_http_header
@@ -70,7 +70,7 @@ function merge_headers(headers) {
   } else {
     exp_time.setFullYear(exp_time.getFullYear()+1);
   };
-  return { 'Expires': exp_time }
+  return { 'Expires': exp_time.toUTCString() }
 }
 
 ##endmodule
@@ -232,10 +232,10 @@ function process_content(req, expires, modified_since, _type, content, content_l
   if (_type.indexOf("charset") != -1) { cs = "" } else { cs = "; charset=utf-8" };
   var typeval = _type + cs;
   var expires = Option.dflt(new Date(), expires);
-  req.response.setHeader('Date',now);
+  req.response.setHeader('Date',now.toUTCString());
   req.response.setHeader('Server',req.server_name);
   req.response.setHeader('Content-Type',typeval);
-  req.response.setHeader('Expires',expires);
+  req.response.setHeader('Expires',expires.toUTCString());
   if (Option.is_some(modified_since)) {
     req.response.setHeader('Cache-Control',"public");
     req.response.setHeader('Last-Modified',modified_since.some);
@@ -255,7 +255,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
   console.log("make_response: _type="+_type);
   if (is_valid(req.request, modified_since)) {
     console.log("make_response: code="+304);
-    req.response.writeHead(304, {'Date': new Date()});
+    req.response.writeHead(304, {'Date': new Date().toUTCString()});
     req.response.end('Not Modified');
   } else {
     console.log("make_response: code="+code);
