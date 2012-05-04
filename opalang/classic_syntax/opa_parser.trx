@@ -653,6 +653,9 @@ directive1 <-
   / "unsafe_cast" {{ `unsafe_cast }}
   / "wait" {{ `wait }}
 
+directive0pack <-
+  / "from" {{ fun x -> `from x }}
+
 directive2 <-
   / "catch" {{ `catch }}
   / "deprecated" {{ `deprecated }}
@@ -688,6 +691,8 @@ directive <-
     }}
   / "@" (=exact_ident(directive0)):v !"("
     {{ Directive (v,[],[]) }}
+  / "@" (=exact_ident(directive0pack)):v Opa_lexer.lpar_nosp package_identifier:pck rpar
+    {{ Directive (v pck,[],[]) }}
   / "@" (=exact_ident(directive1)):v Opa_lexer.lpar_nosp expr:e rpar
     {{ Directive (v,[e],[]) }}
   / "@" (=exact_ident(directive1str)):v Opa_lexer.lpar_nosp string:str rpar
