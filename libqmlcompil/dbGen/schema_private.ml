@@ -150,13 +150,13 @@ let rec dots gamma fields ty =
       end
   | `expr e::t ->
       begin match QmlTypesUtils.Inspect.follow_alias_noopt_private
-        ~until:Opacapi.Types.map gamma ty with
-        | Q.TypeName ([_kty; dty], _) -> dots gamma t dty
-        | _ -> raise (Formatted
+        ~until:Opacapi.Types.ordered_map gamma ty with
+        | Q.TypeName ([_kty; dty; _], _) -> dots gamma t dty
+        | ty -> raise (Formatted
                         (fun fmt () ->
                            Format.fprintf fmt
-                             "try to access with @{<bright>[%a]@} on the type @{<bright>'%a'}\
- which is not a map"
+                             "try to access with @{<bright>[%a]@} on the type @{<bright>'%a'@} \
+ that is not a map"
                              QmlPrint.pp#expr e QmlPrint.pp#ty ty))
       end
 
@@ -936,7 +936,7 @@ let coerce_query_element ~context gamma ty (query, options) =
       new_annots, wrap (q1, q2)
     in
     match query with
-    | Db.QExists _ -> assert false
+    | Db.QExists _ -> new_annots, query
     | Db.QEq  expr -> coerce (fun e -> Db.QEq  e) ty expr
     | Db.QGt  expr -> coerce (fun e -> Db.QGt  e) ty expr
     | Db.QLt  expr -> coerce (fun e -> Db.QLt  e) ty expr
@@ -1197,8 +1197,8 @@ module Preprocess = struct
           | Db.UExpr e -> Db.UExpr (coerce e ty)
           | Db.UId (id, u) ->
               begin match QmlTypesUtils.Inspect.follow_alias_noopt_private
-                ~until:Opacapi.Types.map gamma ty with
-                | Q.TypeName ([kty; dty], _) -> Db.UId (coerce id kty, update dty u)
+                ~until:Opacapi.Types.ordered_map gamma ty with
+                | Q.TypeName ([kty; dty; _], _) -> Db.UId (coerce id kty, update dty u)
                 | _ -> error "with the identifier @{<bright>'%a'}" "@{<bright>'%a'} is not a map"
                     QmlPrint.pp#expr id QmlPrint.pp#ty ty
               end
@@ -1255,8 +1255,8 @@ module Preprocess = struct
     | Db.SSlice _ -> error "" "slice is not available on %a" QmlPrint.pp#ty ty
     | Db.SFlds ([[`expr id], select])
     | Db.SId (id, select) ->
-        begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:Opacapi.Types.map gamma ty with
-        | Q.TypeName ([kty; dty], _) ->
+        begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:Opacapi.Types.ordered_map gamma ty with
+        | Q.TypeName ([kty; dty; _], _) ->
             let fst, snd = aux dty select in
             (fst, Db.SId (coerce id kty, snd))
         | _ -> error "with the identifier @{<bright>'%a'}" "@{<bright>'%a'} is not a map"

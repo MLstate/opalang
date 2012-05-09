@@ -65,6 +65,7 @@ import stdlib.core.iter
  */
 @opacapi
 type map('key,'val) = ordered_map('key,'val, Order.default)
+@opacapi
 @abstract type ordered_map('key,'val,'order) = (Map_private.map('key,'val))
 
 /**

@@ -327,7 +327,7 @@ struct
         List.iter
           (function (f, q) ->
              pp fmt "%a %a" (pp_field pp_expr) f (pp_query pp_expr) q) fields
-    | QExists _ -> assert false
+    | QExists _ -> pp fmt "exists"
 
   let rec pp_select pp_expr fmt = function
     | SStar -> pp fmt "*"
@@ -522,6 +522,7 @@ struct
              (update, options))
 
   let rec sub_db_query sub_e sub_ty = function
+    | QExists _
     | QMod  _ as e -> TU.sub_ignore e
     | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
     | QGt   e -> TU.wrap (fun e -> QGt e) (sub_e e)
@@ -544,7 +545,6 @@ struct
         TU.wrap
           (fun fields -> QFlds fields)
           (sub_db_fields sub_e (sub_db_query sub_e sub_ty) flds)
-    | QExists _ -> assert false
 
   let sub_db_query_options sub_e _sub_ty opt =
     TU.wrap
