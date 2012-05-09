@@ -81,7 +81,7 @@ field_both <-
   / field_string:s {{`string s}}
   / field_expr:s {{`expr s}}
 
-field_long <- field_both+
+field_long <- spacing field_both+:l {{l}}
 
 
 (* ******************************************************************)
@@ -118,7 +118,7 @@ update_field <-
 update_fields <-
   (=list0(update_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
   {{
-     function tilda -> let _ = QmlAst.Db.UFlds (default_value_in_expr_update tilda l) in assert false
+     function tilda -> QmlAst.Db.UFlds (default_value_in_expr_update tilda l)
   }}
 
 update_simple <- update_list / update_incr
