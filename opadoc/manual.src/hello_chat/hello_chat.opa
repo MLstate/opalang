@@ -97,8 +97,8 @@ function start() {
  */
 Server.start(
     Server.http,
-    [ {resources: @static_resource_directory("resources")}
-      , {register: ["resources/css.css"]}
-      , {title: "Chat", page:start }
+    [ { resources: @static_resource_directory("resources") }
+      , { register: { css: ["resources/chat.css"] } }
+      , { title: "Chat", page: start }
     ]
 );
