@@ -205,7 +205,9 @@ query_simple_builder <-
   / (=Opa_lexer.exact_symbol("!=")) {{ fun e -> QmlAst.Db.QNe e }}
   / (=Opa_lexer.exact_ident("in"))  {{ fun e -> QmlAst.Db.QIn e }}
 
-query_simple <- query_simple_builder:b query_expr:e {{ b e }}
+query_simple <-
+  / query_simple_builder:b query_expr:e {{ b e }}
+  / (=Opa_lexer.exact_ident("exists")) {{ QmlAst.Db.QExists true }}
 
 query_keywords <-
   / (=Opa_lexer.exact_keyword("and"))
