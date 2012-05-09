@@ -81,7 +81,7 @@ field_both <-
   / field_string:s {{`string s}}
   / field_expr:s {{`expr s}}
 
-field_long <- field_both*
+field_long <- field_both+
 
 
 (* ******************************************************************)
