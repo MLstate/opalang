@@ -878,7 +878,6 @@ module Generator = struct
 
           | DbAst.Update (u, o) ->
               let (annotmap, query) = query_to_expr gamma annotmap query [] in
-              Format.eprintf "EMBED : %a\n%!" (QmlAst.Db.pp_path_elts QmlPrint.pp#expr) (Option.default [] embed);
               let (annotmap, update) =
                 let u = Option.default_map u
                   (function embed -> DbAst.UFlds [convert_embeded_path (fun x -> x) embed, u])
