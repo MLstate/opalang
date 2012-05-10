@@ -19,7 +19,7 @@ type message = { string author /**The name of the author (arbitrary string)*/
 /**
  * The chatroom.
  */
-exposed room = Network.network(message) (Network.cloud("room"))
+exposed Network.network(message) room = Network.cloud("room")
 
 /**
  * {1 User interface}

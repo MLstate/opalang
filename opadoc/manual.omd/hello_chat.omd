@@ -88,7 +88,7 @@ Networks themselves are built upon a unique and extremely powerful paradigm
 of _distributed session_, which we will detail in a further chapter.
 {block}
 
-`room = Network.network(message) (Network.cloud("room"))`[opa]
+`Network.network(message) room = Network.cloud("room")`[opa]
 
 This extract defines a _cloud network_ called `room` and initially empty. As
 everything in Opa, this network has a type. The type of this network is
