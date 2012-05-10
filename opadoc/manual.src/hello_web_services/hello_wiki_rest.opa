@@ -3,7 +3,7 @@ import stdlib.tools.markdown
 database stringmap(string) /wiki
 database /wiki[_] = "This page is empty. Double click to edit"
 
-exposed function load_source(topic) {
+function load_source(topic) {
     /wiki[topic];
 }
 

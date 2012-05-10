@@ -30,7 +30,7 @@ database /wiki[_] = "This page is empty. Double-click to edit."
  * @return If a page has been saved in for [topic], the source for this
  * page. Otherwise, the source for the default page.
  */
-exposed function load_source(topic) {
+function load_source(topic) {
     /wiki[topic];
 }
 
@@ -43,6 +43,7 @@ exposed function load_source(topic) {
  * page. Otherwise, the xhtml for the default page.
  *
  * Note: This function does not perform any caching.
+ * Note: This function is exposed because a user can ask the rendered content for any topic.
  */
 exposed function load_rendered(topic) {
     source = load_source(topic);
@@ -55,6 +56,8 @@ exposed function load_rendered(topic) {
  * @param topic A topic (arbitrary string).
  * @param source Markdown source to store at this topic.
  * @return The xhtml for the page that has just been saved.
+ *
+ * Note: This function is exposed because a user can save any content for any topic.
  */
 exposed function save_source(topic, source) {
     /wiki[topic] <- source;
@@ -73,7 +76,7 @@ exposed function save_source(topic, source) {
  *
  * @param topic The topic to edit.
  */
-exposed function edit(topic) {
+function edit(topic) {
     Dom.set_value(#edit_content, load_source(topic));
     Dom.hide(#show_content);
     Dom.show(#edit_content);

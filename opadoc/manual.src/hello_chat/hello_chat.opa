@@ -19,8 +19,7 @@ type message = { string author /**The name of the author (arbitrary string)*/
 /**
  * The chatroom.
  */
-// FIXME mixed directives; will need to be cleaned-up
-exposed @async room = Network.network(message) (Network.cloud("room"))
+exposed room = Network.network(message) (Network.cloud("room"))
 
 /**
  * {1 User interface}
