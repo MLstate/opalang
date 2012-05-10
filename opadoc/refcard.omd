@@ -190,9 +190,9 @@ While working with Opa you'll use records *a lot*. Therefore it's probably a goo
     name = ...
     age = ...
      // '~field' within the record abbreviates 'field: field'
-    person = { ~name ~age }
+    person = { ~name, ~age }
      // one can even also abbreviate all fields by putting tilde in front of the record
-    person2 = ~{ name age }
+    person2 = ~{ name, age }
      // both 'person' and 'person2' are equivalent to
     person3 = { name: name, age: age }
 
