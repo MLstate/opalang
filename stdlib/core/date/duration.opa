@@ -699,7 +699,7 @@ Duration = {{
    * @param duration a duration to be printed
    * @return string representation of [duration] using {!default_printer} format.
   **/
-  to_string(duration : Duration.duration) : string =
+  @stringifier(Duration.duration) to_string(duration : Duration.duration) : string =
     to_formatted_string(default_printer, duration)
 
   /**
