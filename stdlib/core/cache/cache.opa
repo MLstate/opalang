@@ -23,42 +23,6 @@
 import stdlib.core.{map, date}
 
 /**
- * General-purpose caching of function results.
- *
- * {1 What is this module for?}
- *
- * This module provides a general-purpose cache for functions, also known as a memoizer. You can use it whenever
- * you have a function whose evaluation is long or memory consuming, and you wish to store the result of the function
- * in memory.
- *
- * This is an extremely useful optimization tool in numerous cases:
- * - if you are writing an application that needs to access a distant web server to read information, where the information
- *   changes rather slowly (e.g. today's weather conditions in Paris, today's exchange rate for Pesos, a map of Antakya, ...)
- * - if you are writing an application that needs to perform heavy computations but can reuse the results for a time
- *   (e.g. a usage statistics graph, the high scores of a game, ...)
- * - if you are writing an application in which the browser needs to frequently read information from the server (e.g. schedule
- *   manager for many users, a turn-by-turn game, ...)
- * - ...
- *
- *
- * {1 Where should I start?}
- *
- * A good way to determine whether caching a function can be useful is to use function [Cache.simple].
- *
- *
- * {1 What if I need more?}
- *
- * Module {!Cache.Negotiator} and function {!Cache.make} are designed to give you fine control upon the cache. Use these to
- * set a maximal size for the cache, or to determine how long results should be kept in the cache, or how they should be
- * stored, or how new results should be added to the cache, or to set the concurrency level, or if you wish to invalidate
- * cache results manually, or to add results to the cache manually.
- *
- *
- * @author David Rajchenbach-Teller, 2011
- * @stability Experimental
- */
-
-/**
  * {1 Types defined in this module}
  */
 
@@ -143,6 +107,41 @@ type Cache.async('a, 'b, 'signature) =
  * {1 Interface}
  */
 
+/**
+ * General-purpose caching of function results.
+ *
+ * {1 What is this module for?}
+ *
+ * This module provides a general-purpose cache for functions, also known as a memoizer. You can use it whenever
+ * you have a function whose evaluation is long or memory consuming, and you wish to store the result of the function
+ * in memory.
+ *
+ * This is an extremely useful optimization tool in numerous cases:
+ * - if you are writing an application that needs to access a distant web server to read information, where the information
+ *   changes rather slowly (e.g. today's weather conditions in Paris, today's exchange rate for Pesos, a map of Antakya, ...)
+ * - if you are writing an application that needs to perform heavy computations but can reuse the results for a time
+ *   (e.g. a usage statistics graph, the high scores of a game, ...)
+ * - if you are writing an application in which the browser needs to frequently read information from the server (e.g. schedule
+ *   manager for many users, a turn-by-turn game, ...)
+ * - ...
+ *
+ *
+ * {1 Where should I start?}
+ *
+ * A good way to determine whether caching a function can be useful is to use function [Cache.simple].
+ *
+ *
+ * {1 What if I need more?}
+ *
+ * Module {!Cache.Negotiator} and function {!Cache.make} are designed to give you fine control upon the cache. Use these to
+ * set a maximal size for the cache, or to determine how long results should be kept in the cache, or how they should be
+ * stored, or how new results should be added to the cache, or to set the concurrency level, or if you wish to invalidate
+ * cache results manually, or to add results to the cache manually.
+ *
+ *
+ * @author David Rajchenbach-Teller, 2011
+ * @stability Experimental
+ */
 @both Cache =
 {{
 
