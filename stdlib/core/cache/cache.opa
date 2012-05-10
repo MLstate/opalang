@@ -87,6 +87,7 @@ type Cache.sync('a, 'b, 'signature) =
 {
         get:        'a -> 'b                    /**Get a cached response if available -- compute one otherwise.*/
         invalidate: 'a -> void                  /**Remove a response from the cache.*/
+        reset:      -> void                     /**Reset all response from the cache.*/
         put:        'a,'b,'signature -> void    /**Artificially put a new response in the cache.*/
         read:       'a -> option('b)            /**Read the current contents of the cache, without any side-effect.*/
         fetch:      list('a) -> void            /**Ask the cache to fetch several values in one request*/
@@ -101,6 +102,7 @@ type Cache.async('a, 'b, 'signature) =
 {
         get:        'a, ('b -> void) -> void    /**Get a cached response if available -- compute one otherwise.*/
         invalidate: 'a -> void                  /**Remove a response from the cache.*/
+        reset:      -> void                     /**Reset all response from the cache.*/
         put:        'a,'b,'signature -> void    /**Artificially put a new response in the cache.*/
         read:       'a -> option('b)            /**Read the current contents of the cache, without any side-effect.*/
         fetch:      list('a) -> void            /**Ask the cache to fetch several values in one request*/
@@ -343,6 +345,18 @@ type Cache.async('a, 'b, 'signature) =
        )
 
        /**
+        * {3 Handle [reset]}
+        */
+
+       /**
+        * Perform reset (public API).
+        */
+       do_reset():void =
+       (
+          setter(init)
+       )
+
+       /**
         * {3 Handling [put]}
         */
 
@@ -505,7 +519,7 @@ type Cache.async('a, 'b, 'signature) =
        )
 
 
-       {get=do_get invalidate=do_invalidate put=do_put read=do_read fetch=do_fetch}
+       {get=do_get invalidate=do_invalidate reset=do_reset put=do_put read=do_read fetch=do_fetch}
      )
 
 
