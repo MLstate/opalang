@@ -26,35 +26,54 @@ dbm dbm =
   _ = System.at_exit(function () { %%dbm.close_db%%(dbm) })
   dbm
 
+
+/**
+ * Client interface to the Db
+**/
+exposed
+function find_person(name) {
+  %%dbm.find_person%%(dbm, name);
+}
+
+exposed
+function add_person(person) {
+  // Because this function is exposed, it should check that person is well formed.
+  // e.g. name is not too long ...
+  %%dbm.add_person%%(dbm, person);
+}
+
+
+
+/**
+ * Find an entry in the ndbm from the contains of the Name box
+**/
+function action_find() {
+  Dom.clear_value(#age);
+  Dom.clear_value(#email);
+  name = Dom.get_value(#name)
+  match (find_person(name)) {
+  case { some: person }:
+    Dom.set_value(#age, string_of_int(person.age));
+    Dom.set_value(#email, person.email);
+    void
+  case { none }:
+    result("\"{name}\" Not-found")
+  }
+}
+
 function result(string) {
   #result = string
 }
 
 /**
- * Find an entry in the ndbm from the contains of the Name box
-**/
-exposed function action_find() {
-  Dom.clear_value(#age);
-  Dom.clear_value(#email);
-  name = Dom.get_value(#name)
-  match (%%dbm.find_person%%(dbm, name)) {
-  case { some: person }:
-    Dom.set_value(#age, string_of_int(person.age));
-    Dom.set_value(#email, person.email);
-    void
-  case { none }: result("\"{name}\" Not-found")
-  }
-}
-
-/**
  * Submit the truplet in the ndbm
 **/
-exposed function action_submit() {
+function action_submit() {
   name = Dom.get_value(#name)
   age = Parser.int(Dom.get_value(#age)) ? 0
   email = Dom.get_value(#email)
   person = ~{ name, age, email }
-  %%dbm.add_person%%(dbm, person);
+  add_person(person);
   Dom.clear_value(#name);
   Dom.clear_value(#age);
   Dom.clear_value(#email);
@@ -69,8 +88,8 @@ exposed function action_submit() {
 the_captain = "The Captain"
 the_question = "What is the age of \"{the_captain}\" ?"
 
-exposed function action_captain() {
-  match (%%dbm.find_person%%(dbm, the_captain)) {
+function action_captain() {
+  match (find_person(the_captain)) {
   case { some: person }:
     result("The captain is {person.age} years old")
   case { none }:
