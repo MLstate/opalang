@@ -221,29 +221,32 @@ Furthermore you can specify some querying options:
     intmap(stored) submap = /dbname/imap[< 9 and > 4]
 
 Selection
---------
+---------
 
-We saw how we can request database sets and maps to obtain a sub-set of declared
-dbset and map. But often we need only have a subset of fields stored at database
-rows. We already saw we can access to subpath of a given path :
+We saw how we can query database sets and maps to obtain a sub-set of their
+values. But often we do not need all the information stored there but only
+a selected few fields and fetching complete information from the database
+would be inefficient.
+
+We already saw how we can access a subpath of a given path:
 
     // Access to /my_db/r
     stored x = /my_db/r
-    // Access to the /y sub-path of /my_db/r
+    // Access to the /x sub-path of /my_db/r
     int x = /my_db/r/x
 
-If we want to access to both supath /x and /y of path /my_db/r we can write
-something like that :
+If we want to access to both subpath /x and /y of path /my_db/r we can write
+something like that:
 
-    {int x, int y} x = {x : /my_db/r/x, y : /my_db/r/y}
+    {int x, int y} xy = {x : /my_db/r/x, y : /my_db/r/y}
 
-But they have a more consice and optimized way to get these datas :
+But there is a more concise syntax to achieve the same:
 
     // This path access means 'select fields x and y in path /my_db/r'
     {int x, int y} x = /my_db/r.{x, y}
 
-Conversely, you could use these kinds of projection on database sets and maps,
-below some examples:
+Similarly, you can use these kinds of projections on database sets and maps.
+Some examples follow:
 
     // Access of /v sub-path of a set access with primary key
     string result = /dbname/set[x == 10]/v
@@ -254,7 +257,7 @@ below some examples:
     // Access of /v sub-paths of a set access
     dbset(string, _) results = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]]/v
 
-    // Access of both sub-paths /x and /v of a set access
+    // Access of two sub-paths /x and /v of a set access
     dbset({int x, string v}, _) results = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]].{x, v}
 
 
