@@ -1063,31 +1063,38 @@ let clean_code gamma annotmap schema code =
   List.fold_left_filter_map
     (fun annotmap -> function
        | Q.Database _ -> annotmap, None
-       | Q.NewDbValue (_label, DbAst.Db_TypeDecl (p, _ty)) ->
+       | Q.NewDbValue (_label,
+                       ( DbAst.Db_TypeDecl   (p, _)
+                       | DbAst.Db_Default    (p, _)
+                       | DbAst.Db_Alias      (p, _)
+                       | DbAst.Db_Constraint (p, _)
+                       | DbAst.Db_Virtual    (p, _) as decl)
+                      ) as elt ->
            let fake_path =
              match p with
              | DbAst.Decl_fld k::_ -> [DbAst.FldKey k]
              | _ -> []
            in
-           begin match p with
-           | (DbAst.Decl_fld _)::p ->
-               let rec aux rpath p =
-                 match p with
-                 | (DbAst.Decl_set lidx)::[] ->
-                     let (annotmap, init) =
-                       let fake_node = DbSchema.get_node schema fake_path in
-                       Generator.indexes gamma annotmap schema fake_node rpath lidx
-                     in
-                     let id = Ident.next "_index_setup" in
-                     annotmap, Some (Q.NewVal (label, [id, init]))
-                 | (DbAst.Decl_set _lidx)::_ -> assert false
-                 | (DbAst.Decl_fld str)::p -> aux (str::rpath) p
-                 | [] -> annotmap, None
-                 | _ -> assert false
-               in aux [] p
-           | _ -> annotmap, None
-           end
-       | Q.NewDbValue _ -> annotmap, None
+           let fake_node = DbSchema.get_node schema fake_path in
+           if fake_node.DbSchema.database.DbSchema.options.DbAst.backend = `mongo then
+             begin match decl with
+             | DbAst.Db_TypeDecl ((DbAst.Decl_fld _)::p, _) ->
+                 let rec aux rpath p =
+                   match p with
+                   | (DbAst.Decl_set lidx)::[] ->
+                       let (annotmap, init) =
+                         Generator.indexes gamma annotmap schema fake_node rpath lidx
+                       in
+                       let id = Ident.next "_index_setup" in
+                       annotmap, Some (Q.NewVal (label, [id, init]))
+                   | (DbAst.Decl_set _lidx)::_ -> assert false
+                   | (DbAst.Decl_fld str)::p -> aux (str::rpath) p
+                   | [] -> annotmap, None
+                   | _ -> assert false
+                 in aux [] p
+             | _ -> annotmap, None
+             end
+           else annotmap, Some elt
        | elt -> annotmap, Some elt)
     annotmap code
 
