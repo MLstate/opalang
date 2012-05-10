@@ -70,8 +70,7 @@ code as a file `hello_chat.opa`, open a terminal and enter
 
 Opa will take a few seconds to analyze your application, check that everything
 is in order and produce an executable file. We do not really need that file yet,
-not until it actually does something. Opa will inform you that you have no
-_server_ in your application -- at this stage, your application is not really
+not until it actually does something. At this stage, your application is not really
 useful -- but that is ok, we will add the _server_ shortly.
 
 So far, we have defined `message`. Now, it is time to use it for communications. For
