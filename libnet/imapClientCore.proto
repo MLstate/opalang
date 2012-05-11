@@ -147,6 +147,7 @@ let add_fetched str fetched =
 -define (StarFetch (num:int, result))                  = "* " num " FETCH " result "\r\n"
 -define (FetchContinue (what, len:int))                = " " what " {" len "}\r\n"
 -define FetchEnd                                       = ")\r\n"
+-define (StarListLen (flags,rf,len:int))               = "* LIST ("~ flags ") " rf " {" len "}\r\n"
 -define (StarList (flags,rf,mailbox))                  = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
 -define (StarStatus (mailbox,items))                   = "* STATUS "~ mailbox " (" items ")\r\n"
 -define (Search (tag, params))                         = tag " SEARCH " params "\r\n"
@@ -189,6 +190,7 @@ let add_fetched str fetched =
 -define (JustNo (tag,str))                             = tag " NO " str "\r\n"
 -define (JustBad (tag,str))                            = tag " BAD " str "\r\n"
 
+-define End                                            = "\r\n"
 -define RawInput str                                   = str
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -555,6 +557,8 @@ list(mail, tools, tag):
   | StarOk _str ->
     debug {{ eprintf "list received * OK: %s\n" _str }}
     list(mail, tools, tag)
+  | StarListLen (flags, rf, len) ->
+    list_data(mail, tools, tag, flags, rf, len)
   | StarList (flags, rf, mailbox) ->
     debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
     let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
@@ -573,6 +577,23 @@ list(mail, tools, tag):
   catch
   | exn ->
     check_exception(mail, tools, {{"list"}}, tag, exn)
+
+list_data(mail, tools, tag, flags, rf, len):
+  debug {{ eprintf "list_data: getting %d bytes\n%!" len }}
+  fixed {{ len }}
+  | mailbox ->
+    debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
+    let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
+    list_end(mail, tools, tag)
+
+list_end(mail, tools, tag):
+  receive
+  | End ->
+    debug {{ eprintf "list_data: ok\n%!" }}
+    list(mail, tools, tag)
+  | err ->
+    debug {{ eprintf "list_data: error\n%!" }}
+    error({{ sprintf "Bad end of list data: %s" (String.escaped (string_of_msg err)) }}, tools)
 
 status(mail, tools, tag):
   receive
