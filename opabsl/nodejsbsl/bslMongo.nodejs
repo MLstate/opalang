@@ -1,0 +1,194 @@
+var mongo = require('mongodb');
+var Option = require('./option.nodejs');
+var c = require('./client.nodejs');
+var client = new c.Client();
+
+// Note: we can't share this because it doesn't export anything
+//var client = require('../../qmljsimp/qmlJsImpClientLib.js');
+
+var Admin = mongo.Admin;
+var BSON = mongo.BSONPure;
+var CheckMaster = mongo.CheckMaster;
+var Connection = mongo.Connection;
+var Cursor = mongo.Cursor;
+var Db = mongo.Db;
+var DbCommand = mongo.DbCommand;
+var GridStore = mongo.GridStore;
+var ReplSetServers = mongo.ReplSetServers;
+var Server = mongo.Server;
+var connect = mongo.connect;
+
+##extern-type NodeMongo.server
+##extern-type NodeMongo.db
+##extern-type NodeMongo.collection
+##extern-type NodeMongo.reply
+##opa-type tuple_2('a, 'b)
+##opa-type Bson.document
+
+##module NodeMongo
+
+// Note: the default default is false
+function getbool(b, dflt) {
+  if (b === null || b === undefined)
+    return (typeof(dflt) === 'boolean') ? dflt : false;
+  else if (typeof(b) === 'boolean')
+    return b
+  else
+    return client.un_uniformize_bool(b)
+}
+
+exports.server = BslMongo_NodeMongo_server
+##register server : string, int, bool, int -> NodeMongo.server
+##args(host, port, auto_reconnect, poolSize)
+{
+  return new Server(host, port, {auto_reconnect:auto_reconnect, poolSize:poolSize})
+}
+
+exports.replset = BslMongo_NodeMongo_replset
+##register replset : list(NodeMongo.server) -> NodeMongo.server
+##args(servers)
+{
+  return new ReplSetServers(client.list2js(servers))
+}
+
+exports.db = BslMongo_NodeMongo_db
+##register db : NodeMongo.server, string, bool -> NodeMongo.db
+##args(server, dbname, slaveok)
+{
+  return new Db(dbname, server, {slaveok:getbool(slaveok,false)})
+}
+
+exports.open = BslMongo_NodeMongo_open
+##register open : NodeMongo.db, continuation(tuple_2(string, NodeMongo.db)) -> void
+##args(db, cont)
+{
+  db.open(function(err, db) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
+  return client.js_void
+}
+
+exports.close = BslMongo_NodeMongo_close
+##register close : NodeMongo.db, continuation(string) -> void
+##args(db, cont)
+{
+  db.close(false, function (err, result) { cont((err === null || err === undefined) ? "" : err.message) });
+  return client.js_void
+}
+
+exports.collection = BslMongo_NodeMongo_collection
+##register collection : NodeMongo.db, string, continuation(tuple_2(string, NodeMongo.collection)) -> void
+##args(db, cname, cont)
+{
+  db.collection(cname,
+                function(err, collection) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:collection}) })
+  return client.js_void
+}
+
+exports.query = BslMongo_NodeMongo_query
+##register query : NodeMongo.collection, int, int, Bson.document, option(Bson.document), \
+                   continuation(tuple_2(string,NodeMongo.reply)) -> void
+##args(collection, skip, limit, query, fields_opt, cont)
+{
+  var opts = {skip:skip, limit:limit};
+  if (Option.is_some(fields_opt)) opts['fields'] = Option.get(fields_opt);
+  collection.find(query, opts,
+                  function (err, cursor) {
+                    cont({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
+                  });
+  return client.js_void
+}
+
+exports.count = BslMongo_NodeMongo_count
+##register count : NodeMongo.reply, continuation(int) -> void
+##args(cursor, cont)
+{
+  cursor.count(function (err, count) {
+                 cont(((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
+               });
+  return client.js_void
+}
+
+exports.nextObject = BslMongo_NodeMongo_nextObject
+##register nextObject : NodeMongo.reply, continuation(tuple_2(string, Bson.document)) -> void
+##args(cursor, cont)
+{
+  cursor.nextObject(function (err, item) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
+  return client.js_void
+}
+
+exports.insert = BslMongo_NodeMongo_insert
+##register insert : NodeMongo.collection, list(Bson.document), bool, bool, \
+                    continuation(tuple_2(string,list(Bson.document))) -> void
+##args(collection, docs, keepGoing, safe, cont)
+{
+  var opts = {keepGoing:getbool(keepGoing),
+              safe:getbool(safe)}; // TODO: w, wtimeout
+  collection.insert(client.list2js(docs), opts,
+                    function (err, insertedDocs) {
+                      // The _id field can be a hideous ObjectID object, Opa just uses the string id
+                      // which is buried in the object, string representation: _id.__id, binary: _id.id
+                      insertedDocs.map(function (o) { if (o._id._bsontype === 'ObjectID') o._id = o._id.__id; });
+                      cont({f1:(err === null || err === undefined) ? "" : err.message,
+                            f2:client.js2list(insertedDocs)})
+                    });
+  return client.js_void
+}
+
+exports.update = BslMongo_NodeMongo_update
+##register update : NodeMongo.collection, Bson.document, Bson.document, bool, bool, bool,  \
+                   continuation(tuple_2(string,int)) -> void
+##args(collection, selector, update, upsert, multi, safe, cont)
+{
+  var opts = {upsert:getbool(upsert),
+              multi:getbool(multi),
+              safe:getbool(safe)};
+  collection.update(selector, update, opts,
+                    function (err, numberOfUpdatedDocs) {
+                      // numberOfUpdatedDocs will be undefined if safe is false
+                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs})
+                    });
+  return client.js_void
+}
+
+exports.remove = BslMongo_NodeMongo_remove
+##register remove : NodeMongo.collection, Bson.document, bool, continuation(tuple_2(string,int)) -> void
+##args(collection, selector, safe, cont)
+{
+  var opts = {safe:getbool(safe)};
+  collection.remove(selector, opts,
+                    function (err, numberOfRemovedDocs) {
+                      // numberOfRemovedDocs will be undefined if safe is false
+                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfRemovedDocs})
+                    });
+  return client.js_void
+}
+
+exports.createIndex = BslMongo_NodeMongo_createIndex
+##register createIndex : NodeMongo.collection, Bson.document, bool, bool, bool, bool, bool, \
+                         continuation(tuple_2(string,string)) -> void
+##args(collection, fieldOrSpec, unique, sparse, background, dropDups, safe, cont)
+{
+  var opts = {unique:getbool(unique),
+              sparse:getbool(sparse),
+              background:getbool(background),
+              dropDups:getbool(dropDups),
+              safe:getbool(safe)};
+  collection.createIndex(fieldOrSpec, opts,
+                    function (err, indexName) {
+                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:indexName})
+                    });
+  return client.js_void
+}
+
+// Not needed by db.opa but here for test code
+exports.dropIndex = BslMongo_NodeMongo_dropIndex
+##register dropIndex : NodeMongo.collection, string, continuation(tuple_2(string,Bson.document)) -> void
+##args(collection, name, cont)
+{
+  collection.dropIndex(name,
+                       function (err, result) {
+                         cont({f1:(err === null || err === undefined) ? "" : err.message, f2:result});
+                       });
+  return client.js_void;
+}
+
+##endmodule

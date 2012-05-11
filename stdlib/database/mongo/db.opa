@@ -74,6 +74,23 @@ type DbMongo.private.path_t('kind, 'data) = {
 
 DbMongo = {{
 
+   node_js_flag = false // temporary
+
+   // TODO: fix this once the flag for node.js backend is implemented
+   (reply_numberReturned, reply_document,
+    open, query, insert_batch,
+    update, delete, create_index,
+    repl_init, repl_connect) =
+     if node_js_flag
+     then (NodeMongo.MongoCommon.reply_numberReturned, NodeMongo.MongoCommon.reply_document,
+           NodeMongo.MongoDriver.open, NodeMongo.MongoDriver.query, NodeMongo.MongoDriver.insert_batch,
+           NodeMongo.MongoDriver.update, NodeMongo.MongoDriver.delete, NodeMongo.MongoDriver.create_index,
+           NodeMongo.MongoReplicaSet.init, NodeMongo.MongoReplicaSet.connect)
+     else (MongoCommon.reply_numberReturned, MongoCommon.reply_document,
+           MongoDriver.open, MongoDriver.query, MongoDriver.insert_batch,
+           MongoDriver.update, MongoDriver.delete, MongoDriver.create_index,
+           MongoReplicaSet.init, MongoReplicaSet.connect)
+
    /**
     * {2 Utils}
     */

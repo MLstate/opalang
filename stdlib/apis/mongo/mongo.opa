@@ -74,6 +74,11 @@ type Mongo.db = {
   depth : int;
   max_depth : int;
   auth : Mongo.auths;
+
+  // For node.js
+  server : NodeMongo.server;
+  db : option((string, NodeMongo.db));
+  collection : option((string, NodeMongo.collection));
 }
 
 /** Outgoing Cell messages **/
@@ -499,6 +504,8 @@ MongoDriver = {{
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
       depth=0; max_depth=2; ~auth;
+      // Not used, for the node.js driver
+      server=@unsafe_cast(0); db=none; collection=none;
     }
 
   /**
