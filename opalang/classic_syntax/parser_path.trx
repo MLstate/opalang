@@ -124,14 +124,18 @@ update_fields <-
 update_simple <- update_list / update_incr
 
 update_incr <-
-  / (=Opa_lexer.exact_symbol("++"))
-    {{ QmlAst.Db.UIncr 1 }}
-  / (=Opa_lexer.exact_symbol("+=")) spacing Opa_lexer.int:i
-    {{ QmlAst.Db.UIncr i }}
-  / (=Opa_lexer.exact_symbol("--"))
-    {{ QmlAst.Db.UIncr (-1) }}
-  / (=Opa_lexer.exact_symbol("-=")) spacing Opa_lexer.int:i
-    {{ QmlAst.Db.UIncr (-i) }}
+  / (=Opa_lexer.deco((=Opa_lexer.exact_symbol("++")))):d
+    {{ QmlAst.Db.UIncr ((SurfaceAst.Const (SurfaceAst.CInt (Big_int.big_int_of_int 1))), label d) }}
+  / (=Opa_lexer.exact_symbol("+=")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UIncr e }}
+  / (=Opa_lexer.deco((=Opa_lexer.exact_symbol("--")))):d
+    {{ QmlAst.Db.UIncr (SurfaceAst.Const (SurfaceAst.CInt (Big_int.big_int_of_int (-1))), label d) }}
+  / (=Opa_lexer.exact_symbol("-=")) spacing Opa_parser.expr:e
+    {{
+       let l = label e in
+       let minus = (SurfaceAst.Ident Opacapi.unary_minus, l) in
+       QmlAst.Db.UIncr (minus &. [e], l)
+    }}
 
 update_list <-
   / (=Opa_lexer.exact_symbol("<+")) spacing Opa_parser.expr:e

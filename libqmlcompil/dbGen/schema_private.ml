@@ -1218,11 +1218,11 @@ module Preprocess = struct
           | Db.URemove    e -> Db.URemove  (coerce_list context e ty)
           | Db.UAppendAll  e -> Db.UAppendAll  (coerce e ty)
           | Db.URemoveAll e -> Db.URemoveAll (coerce e ty)
-          | Db.UIncr _ when (
-              match ty with (* TODO - unify! *)
+          | Db.UIncr e when (
+              match ty with
               | Q.TypeConst Q.TyInt -> true
               | _ -> false
-            ) -> u
+            ) -> Db.UIncr (coerce e ty)
           | (Db.UPop | Db.UShift) when (
               match ty with (* TODO - unify???! *)
               | Q.TypeName ([_], name) when Q.TypeIdent.to_string name = "list" -> true

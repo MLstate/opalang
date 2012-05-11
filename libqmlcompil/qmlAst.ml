@@ -170,7 +170,7 @@ struct
     (* Simple updating*)
     | UExpr of 'expr
     | UId of 'expr * 'expr update
-    | UIncr of int (* TODO : expr*)
+    | UIncr of 'expr
 
     (* List updating *)
     | UAppend     of 'expr
@@ -285,7 +285,7 @@ struct
           (function (f, u) ->
              pp fmt "%a : %a," (pp_field pp_expr) f (pp_update pp_expr) u) fields;
         pp fmt "}";
-    | UIncr i -> pp fmt "+=%i" i
+    | UIncr i -> pp fmt "+=%a" pp_expr i
     | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
     | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
     | URemove    expr -> pp fmt "+> %a"  pp_expr expr
@@ -477,7 +477,8 @@ struct
 
 
   let rec sub_db_update sub_e sub_ty = function
-    | (UPop | UShift | UIncr _) as e -> TU.sub_ignore e
+    | (UPop | UShift) as e -> TU.sub_ignore e
+    | UIncr expr -> TU.wrap (fun e -> UIncr e) (sub_e expr)
     | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
     | UId (id, update) ->
         TU.wrap

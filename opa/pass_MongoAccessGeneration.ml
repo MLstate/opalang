@@ -396,7 +396,6 @@ module Generator = struct
                 match inc with
                 | [] -> acc
                 | (field, value)::q ->
-                    let annotmap, value = C.int annotmap value in
                     let annotmap, field = expr_of_strexprpath_rev gamma annotmap field in
                     aux (add_to_document0 gamma annotmap field value ~ty doc) q
               in
