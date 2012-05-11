@@ -98,6 +98,7 @@ Updated APIs:
 
   * Cache
     - removed deprecated Negociator API (misspelled)
+    - added reset function to reset cache entirely
 
   * Mime
     - Mime.get_text now takes an additional decoding function
