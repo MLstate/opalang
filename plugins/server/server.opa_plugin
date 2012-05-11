@@ -24,6 +24,9 @@ bslXmlm.ml
 bslI18n.ml
 bslI18n.js
 session.ml
+
+actor.js
+actor.nodejs
 session.js
 session.nodejs
 bslDispatcher.ml

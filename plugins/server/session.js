@@ -15,6 +15,15 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/**
+ * 1 - The client implementation for Opa actor : Wrapper of LocalChannel +
+ * ServerChannel + CousinClientChannel.
+ * 2 - Client RPC
+ * 3 - Ping mescanism
+ *
+ * @author Quentin Bourgerie
+ */
 ##extern-type continuation('a)
 
 /* LowLevel modules exported on the DOM */
@@ -30,15 +39,6 @@ var LowLevelPingLoop = {};
 {
     /* ************************************************** */
     /* Variables definitions **************************** */
-    /**
-     * The table of channels which have been sent to the server and
-     * could be received back.
-     *
-     * A mapping from local channel id (as generated during
-     * the first serialization of [LocalChannel]) to [LocalChannel]
-     */
-    var client_stored = new Object();
-
     /**
      * Thrown when a session was killed.
      *
@@ -165,251 +165,7 @@ var LowLevelPingLoop = {};
 
 
 
-    /* ************************************************** */
-    /* Local Channel ************************************ */
 
-    /**
-     * A channel which may be used to send messages locally
-     *
-     * @constructor
-     */
-    function LocalChannel(st, unserialize, fun_session, ctx, dfun, more,
-                          cps_mode, concurrent) {
-        var tmp;
-        this.lchan_id = generate_lchan_id();
-        this.state = st;
-        this.action = fun_session;
-        this.unserialize = unserialize;
-        this.messages = new Array() ;
-        this.on_delete = (tmp = dfun.some)?[tmp]:[];
-        this.more = more;
-        this.ctx = ctx;
-        this.concurrent = concurrent;
-        this.serialized = null;
-        this.killed = false;
-        this.is_client = true;
-    }
-
-    LocalChannel.prototype = {
-
-        /* Sending functions **************************** */
-
-        #<Ifstatic:OPA_CPS_CLIENT>
-        #<Else>
-        /**
-         * An auxiliar function for send a message to a session.
-         *
-         * @param herror is optionnal, it's a function that called if
-         * session is Killed.
-         * @param hsuccess is optionnal, it's a function that called if
-         * message is treated.
-         *
-         * Note : USE UNIQUELY ON NO CPS MODE (like its name indicates)
-         */
-        send_no_cps_aux: function(msg, context, herror, hsuccess){
-            // Session has been stopped
-            if(this.state == null) {
-                #<Ifstatic:PING_DEBUG>
-                sess_debug("Call a killed session : "+this.lchan_id);
-                #<End>
-                if (herror != undefined) herror();
-                #<Ifstatic:PING_DEBUG>
-                    sess_debug("[LocalChannel.send] Killed :"+er);
-                #<End>
-                return;
-            }
-            // Get the good context (owner if setted, sender else)
-            var ctx;
-            if ('some' in this.ctx) ctx = this.ctx;
-            else ctx = context;
-            // Perform action
-            #<Ifstatic:PING_DEBUG> ping_debug("Start handler"); #<End>
-            if (hsuccess !=  undefined) hsuccess();
-            var new_st = null ;
-            try {
-                new_st = this.action(this.state, msg, ctx);
-                #<Ifstatic:PING_DEBUG> ping_debug("End handler"); #<End>
-                if ('none' in new_st){
-                    // Stop session
-                    this.state = null;
-                    this.kill();
-                    return;
-                } else {
-                    // Update state
-                    this.state = new_st.some;
-                    return;
-                }
-            } catch (er) {
-                // TODO - plugins dependencies
-                // bslsyslog_error%%("[LocalChannel.send] Catch :", er);
-                console.error("[LocalChannel.send] Catch :", er);
-                return;
-            }
-        },
-        #<End>
-
-        /**
-         * Send a message [msg] along this channel.
-         *
-         * @param {*} serialize Ignored
-         * @param {!Object} msg The message, in a status fit for delivery
-         * (e.g. not serialized)
-         * @param {*} ctx The Thread context in which to send the message
-         * @param {Function=} herror a function called if
-         * session is Killed.
-         * @param {Function=} hsuccess a function called if
-         * message is treated properly.
-         */
-        send: function(serialize, msg, ctx, herror, hsuccess){
-        #<Ifstatic:OPA_CPS_CLIENT>
-            this.messages.unshift({msg: msg, ctx: ctx, herror : herror, hsuccess : hsuccess});
-            //If [state] is [null], then we're currently handling a message
-            // [msg] will be handled later
-            if (this.state == null) return;
-            else {
-                var st = this.state;
-                var lchan = this;
-                // lock the state
-                this.state = null;
-                //Recursive wait loop
-                function aux(stt) {
-                    var cpl = lchan.messages.pop();
-                    if (cpl == null) {
-                        lchan.state = stt;
-                    } else {
-                        var ctx;
-                        if ('some' in lchan.ctx){
-                            ctx = lchan.ctx;
-                        } else {
-                            ctx = cpl.ctx;
-                        }
-                        if (hsuccess !=  undefined) hsuccess();
-                        lchan.action(stt, cpl.msg, ctx, function(new_st){
-                          if ('none' in new_st) {
-                              //If the action returns [none], we should kill the session
-                              lchan.state = null;
-                              lchan.kill();
-                          } else {
-                              setTimeout(function() {aux(new_st.some)}, 0);
-                          }
-                        );
-                    }
-                }
-                setTimeout(function() {aux(st);}, 0);
-            }
-        #<Else>
-            var lchan = this;
-            function aux(){
-                lchan.send_no_cps_aux(msg, ctx, herror, hsuccess);
-            }
-            if(this.concurrent){
-                aux();
-            } else {
-                setTimeout(aux, 0);
-            }
-        #<End>
-        },
-
-        #<Ifstatic:OPA_CPS_CLIENT>
-        #<Else>
-        /**
-         * Call a local cell represented by [lchan] with the message
-         * [msg]. Same remarks that [llsend_lchan_no_cps].
-         * This implementation of [Cell.call] is not very fair. Indeed if a
-         * message waiting for the session, this call will be execute before
-         * the waiting message. We can have also an unlikely starvation with
-         * this implementation. But that respect the semantic of session.
-         */
-        call_no_cps: function(msg, _1, _2, onmsg){
-            /* That is a very dirty hack, stdlib
-             * implementation dependent (see also cell.opa) */
-            var res = null;
-            try {
-                var f = function(state, msg){
-                    /* Make cell message, with a continuation which set [res] */
-                    var cmsg = empty_constructor()
-                    cmsg = add_field(cmsg,static_field_of_name('f1'),new Continuation(function(r){res = r}))
-                    cmsg = add_field(cmsg,static_field_of_name('f2'),msg)
-                    cmsg = make_record(cmsg)
-                    /* [onmsg] returns the session instruction */
-                    return onmsg(state, cmsg);
-                }
-                this.action = f;
-                this.send_no_cps_aux(msg, js_none);
-            } catch (er) {
-                // TODO - plugins dependencies
-                // bslsyslog_error%%("[LocalChannel.call] Cell :", er);
-                console.error("[LocalChannel.call] Cell :", er);
-            }
-            if(res === null) error("Call failed, result was [null]");
-            return res;
-        },
-        #<End>
-
-
-
-        /* Utils **************************************** */
-        /**
-         * Return the serialized form of the channel.
-         */
-        serialize: function(){
-            var serialized = this.serialized;
-            if(serialized == null) {
-                serialized = {cl_id : generate_cl_id()};
-                client_stored[serialized.cl_id] = this;
-                to_register.push(serialized);
-                this.serialized = serialized;
-            }
-            return serialized;
-        },
-
-        /**
-         * Kill a local channel
-         *
-         * Trigger any [on_delete] callbacks
-         */
-        kill: function(){
-            this.killed = true;
-            var on_delete = this.on_delete;
-            var n = on_delete.length;
-            for (var i = 0; i < n; i ++) {
-                on_delete[i]();
-            }
-            while(this.messages.length > 0){
-                var herror = this.messages.pop().herror;
-                if (herror != undefined) herror();
-            }
-            var serialized = this.serialized;
-            if(serialized != null){
-                delete client_stored[serialized.cl_id];
-                internal_ajax({ type : 'POST',
-                            url : "/chan/remove",
-                            data : JSON.stringify(serialized),
-                            async: async_rpc_return});
-            }
-        },
-
-        /**
-         * Compare against another channel
-         *
-         * @return -1, 0, 1 or null if the channels are not comparable
-         */
-        compare: function(to) {
-            if (to instanceof LocalChannel)
-                return compare_native(this.lchan_id, to.lchan_id);
-            else
-                return 1;
-        },
-
-        owner: function(){
-            return null;
-        },
-
-        on_remove: function(callback) {
-            this.on_delete.push(callback);
-        }
-
-    }
 
     /* ************************************************** */
     /* Distant Channel ********************************** */
@@ -636,7 +392,7 @@ var LowLevelPingLoop = {};
         #<Ifstatic:PING_DEBUG>
               ping_debug("COMM", "Received message "+message+" for channel "+id);
         #<End>
-        var lchan = client_stored[id];
+        var lchan = LocalChannelStore.get(id);
         if (herror != undefined)
             herror = function(){unserialize_uu(srvmsg.herror)()};
         if (hsuccess != undefined)
@@ -827,7 +583,7 @@ var LowLevelPingLoop = {};
         if ("srv_id" in chan) {
             rtchan = new ServerChannel(chan["srv_id"]);
         } else if ("cl_id" in chan) {
-            var lchan = client_stored[chan.cl_id];
+            var lchan = LocalChannelStore.get(chan.cl_id);
             if (lchan != null) {
                 return lchan;
             } else {
@@ -861,10 +617,26 @@ var LowLevelPingLoop = {};
         unserialize_uu = u;
     }
 
+    LowLevelSession.serialize = function(chan){
+        var serialized = chan.serialized;
+        if(serialized != null){
+            serialized = chan.serialize();
+            if(chan.on_remove != null){
+                chan.on_remove(function(){
+                        internal_ajax({ type : 'POST',
+                                    url : "/chan/remove",
+                                    data : JSON.stringify(serialized),
+                                    async: async_rpc_return});
+                    });
+            }
+        }
+        return serialized;
+    }
+
     LowLevelSession.serialize_and_share = function(chan){
         var shared_serialize = chan.shared_serialize;
         if (shared_serialize == null){
-            var ser = chan.serialize();
+            var ser = LowLevelSession.serialize(chan);
             shared_serialize = {};
             for (var i in ser) shared_serialize[i] = ser[i];
             if (shared_serialize.addr == null){
@@ -878,13 +650,13 @@ var LowLevelPingLoop = {};
     }
 
     LowLevelSession.exportt = function(chan, entity){
-        if (entity == null) return chan.serialize();
+        if (entity == null) return LowLevelSession.serialize(chan);
         var e = entity.serialize();
         var c;
         if (e.addr != null){
             c = LowLevelSession.serialize_and_share(chan)
         } else {
-            c = chan.serialize();
+            c =  LowLevelSession.serialize(chan);
         }
         if (! (entity.srv_id != null && entity.addr ==null)){
             var m = {entity : e, channel : c};
@@ -1045,7 +817,7 @@ var LowLevelPingLoop = {};
 ##register export : Session.private.native('msg, 'ctx), opa[ThreadContext.client] -> RPC.Json.private.native
 ##args(chan, _)
 {
-    return chan.serialize();
+    return LowLevelSession.serialize(chan);
 }
 
 ##register serialize_for_entity : Session.private.native('b, 'c), Session.entity -> RPC.Json.private.native
