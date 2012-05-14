@@ -268,7 +268,7 @@ DbMongo = {{
      uncap =
        if const then (
          rec uncap(doc:Bson.document) = match doc with
-           | [{name = "value"; ~value}] -> some(value)
+           | [{name = "data"; ~value}] -> some(value)
            | _ -> undotdoc(doc, uncap)
          uncap
        ) else (
