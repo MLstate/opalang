@@ -249,6 +249,7 @@ let complete = complete_right
 let sconcat ?(left="") ?(right="") ?nil sep l =
   match l with
     [] -> Option.default (left^right) nil
+  | [hd] when left="" && right="" -> hd
   | hd :: tl ->
       let len_left = length left
       and len_right = length right
