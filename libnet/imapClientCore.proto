@@ -583,7 +583,7 @@ list_data(mail, tools, tag, flags, rf, len):
   fixed {{ len }}
   | mailbox ->
     debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
-    let mail = {{ { mail with list = ((flags,rf,"\""^mailbox^"\"")::mail.list) } }}
+    let mail = {{ { mail with list = ((flags,rf,"\\\""^mailbox^"\\\"")::mail.list) } }}
     list_end(mail, tools, tag)
 
 list_end(mail, tools, tag):
