@@ -307,6 +307,7 @@ commands(mail, tools):
         error({{ "Empty strings would make LIST command invalid, use \"\" instead" }}, tools)
       else
         send (List (tag, rf, mailbox));
+        let mail = {{ { mail with list = [] } }}
         list(mail, tools, tag)
       end
     | ImapCopy (uid, seq, mailbox) ->
@@ -331,6 +332,7 @@ commands(mail, tools):
         error({{ "Empty strings would make STATUS command invalid, use \"\" instead" }}, tools)
       else
         send (Status (tag, mailbox, items));
+        let mail = {{ { mail with statused = [] } }}
         status(mail, tools, tag)
       end
     | ImapAppend (mailbox, flags, time, msg) ->
@@ -562,6 +564,7 @@ list(mail, tools, tag):
   | StarListLen (flags, rf, len) ->
     list_data(mail, tools, tag, flags, rf, len)
   | StarList (flags, rf, mailbox) ->
+    let mailbox = {{ String.strip_quotes mailbox }}
     debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
     let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
     list(mail, tools, tag)
@@ -585,7 +588,7 @@ list_data(mail, tools, tag, flags, rf, len):
   fixed {{ len }}
   | mailbox ->
     debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
-    let mail = {{ { mail with list = ((flags,rf,"\\\""^mailbox^"\\\"")::mail.list) } }}
+    let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
     list_end(mail, tools, tag)
 
 list_end(mail, tools, tag):
@@ -605,6 +608,8 @@ status(mail, tools, tag):
   | StarStatusLen len ->
     status_data(mail, tools, tag, len)
   | StarStatus (mailbox, items) ->
+    let mailbox = {{ String.strip_quotes mailbox }}
+    debug {{ eprintf "mailbox(hdr) = '%s'\n%!" mailbox }}
     debug {{ eprintf "status received * STATUS: %s (%s)\n" mailbox items }}
     let mail = {{ { mail with statused = ((mailbox,items)::mail.statused) } }}
     status(mail, tools, tag)
@@ -627,7 +632,7 @@ status_data(mail, tools, tag, len):
   debug {{ eprintf "status_data: getting %d bytes\n%!" len }}
   fixed {{ len }}
   | mailbox ->
-    let mailbox = {{ "\\\""^mailbox^"\\\"" }}
+    debug {{ eprintf "mailbox(len) = '%s'\n%!" mailbox }}
     debug {{ eprintf "status received * STATUS: %s\n" mailbox }}
     status_end(mail, tools, tag, mailbox)
 
