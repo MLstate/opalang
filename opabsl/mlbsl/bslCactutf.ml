@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -49,5 +49,6 @@ let lenbytes x =
 ##register two_bytes \ `Cactutf.two_bytes` : int, int -> int
 ##register three_bytes \ `Cactutf.three_bytes` : int, int, int -> int
 ##register four_bytes \ `Cactutf.four_bytes` : int, int, int, int -> int
+##register check \ `Cactutf.check` : string -> bool
 
 (*register charutf8 : string -> int -> int*)

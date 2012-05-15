@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -82,5 +82,7 @@ Cactutf = {{
 
   /* cons */
   cons = %% BslCactutf.cons %% : int -> string
+
+  check = %% BslCactutf.check %% : string -> bool
 
 }}
