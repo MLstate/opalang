@@ -129,8 +129,11 @@ end
 module Db =
 struct
 
-  type 'epath field =
-      [`string of string | `expr of 'epath] list
+  type 'epath field = [
+    `string of string
+  | `expr of 'epath
+  | `any
+  ] list
 
   type ('epath, 'expr) fields =
       ('epath field * 'expr) list
@@ -274,6 +277,7 @@ struct
     | `string t0::((_::_) as q) -> pp fmt "%s.%a" t0 (pp_field pp_expr) q
     | `expr t0::q -> pp fmt "[%a]%a" pp_expr t0 (pp_field pp_expr) q
     | `string t0::[] -> pp fmt "%s" t0
+    | `any::q -> pp fmt "[_]%a" (pp_field pp_expr) q
     | [] -> pp fmt ""
 
   let rec pp_update pp_expr fmt = function
@@ -461,7 +465,7 @@ struct
     let rebuild, subs =
       List.fold_left
         (fun (rebuild, subs) -> function
-         | `string s -> (fun x -> `string s::rebuild x), subs
+         | (`string _ | `any) as fragment -> (fun x -> fragment::rebuild x), subs
          | `expr e ->
              let unsub, list = sub_epath e in
              let length = List.length list in
