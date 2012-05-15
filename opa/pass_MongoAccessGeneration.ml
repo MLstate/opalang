@@ -129,12 +129,17 @@ module Generator = struct
   let strlst_to_field fld =
     BaseFormat.sprintf "%a" (BaseFormat.pp_list "." Format.pp_print_string) fld
 
-  let expr_of_strexprpath_rev gamma annotmap path =
+  let expr_of_strexprpath_rev ?any gamma annotmap path =
     let path = match path with [] -> [`string "value"] | _ -> path in
     let fld_to_string annotmap fld =
       C.string annotmap (strlst_to_field fld)
     in
     let rec aux annotmap prev_str prev_expr = function
+      | `any::q ->
+          aux annotmap (match any with
+                        | None -> prev_str
+                        | Some s -> s::prev_str)
+            prev_expr q
       | (`string s)::q -> aux annotmap (s::prev_str) prev_expr q
       | (`expr e1)::q ->
           let annotmap, prev_expr =
@@ -176,8 +181,8 @@ module Generator = struct
           OpaMapToIdent.typed_val ~label Opacapi.String.flatten annotmap gamma
         in C.apply gamma annotmap flatten [lst]
 
-  let expr_of_strexprpath gamma annotmap path =
-    expr_of_strexprpath_rev gamma annotmap (List.rev path)
+  let expr_of_strexprpath ?any gamma annotmap path =
+    expr_of_strexprpath_rev ?any gamma annotmap (List.rev path)
 
   let empty_query gamma annotmap = C.list (annotmap, gamma) []
 
@@ -396,7 +401,7 @@ module Generator = struct
                 match inc with
                 | [] -> acc
                 | (field, value)::q ->
-                    let annotmap, field = expr_of_strexprpath_rev gamma annotmap field in
+                    let annotmap, field = expr_of_strexprpath_rev ~any:"$" gamma annotmap field in
                     aux (add_to_document0 gamma annotmap field value ~ty doc) q
               in
               let annotmap, iexpr = aux (C.list (annotmap, gamma) []) inc in
