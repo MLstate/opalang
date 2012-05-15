@@ -77,11 +77,14 @@ field_string <- Opa_lexer.field_identifier_nosp
 
 field_expr <- lbracket Opa_parser.expr:e rbracket {{e}}
 
-field_both <-
+field_any <- lbracket Opa_lexer.underscore_nosp rbracket
+
+field_one <-
   / field_string:s {{`string s}}
+  / field_any {{`any}}
   / field_expr:s {{`expr s}}
 
-field_long <- spacing field_both+:l {{l}}
+field_long <- spacing field_one+:l {{l}}
 
 
 (* ******************************************************************)
