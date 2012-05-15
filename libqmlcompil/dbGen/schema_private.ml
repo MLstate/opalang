@@ -159,6 +159,17 @@ let rec dots gamma fields ty =
  that is not a map"
                              QmlPrint.pp#expr e QmlPrint.pp#ty ty))
       end
+  | `any::t ->
+      begin match QmlTypesUtils.Inspect.follow_alias_noopt_private
+        ~until:Opacapi.Types.list gamma ty with
+        | Q.TypeName ([dty;], _) -> dots gamma t dty
+        | ty -> raise (Formatted
+                         (fun fmt () ->
+                           Format.fprintf fmt
+                             "try to access with @{<bright>[_]@} on the type @{<bright>'%a'@} \
+ that is not a list"
+                             QmlPrint.pp#ty ty))
+      end
 
 let get_type_from_name ~context gamma tylst tid =
   match
