@@ -170,6 +170,7 @@ struct
 
 
   let resugarer original_name e =
+    try
     select e [
       sugar_list original_name [];
       sugar_tuple original_name;
@@ -178,6 +179,7 @@ struct
       sugar_dom_transformation original_name;
 (*      sugar_css_properties original_name;  *)
     ]
+    with _ -> `no_sugar
 
   let handle_coerce_directive print_coerce print_no_coerce typeident_original_name make_expr default = function
     | (Directive ((`coerce : [< all_directives ]), [e2], [ty])), _  as e ->
@@ -284,6 +286,7 @@ module Sugar = struct
   (* record pattern are never closed *)
   let iF ?notrecord e l =
     try
+    try
       let fs = (fields_list e) in
       try
         snd (
@@ -293,6 +296,7 @@ module Sugar = struct
         )
       with Not_found -> raise Fallback
     with NotARecord when notrecord <> None -> (Option.get notrecord)
+    with _ -> raise Fallback
 
   let is_nil e = iF e [
     ["nil"],(fun _ -> true);
@@ -714,6 +718,7 @@ module Classic = struct
     method ident f i = Format.pp_print_string f (self#to_protected_ident i)
     method private unprotected_ident f i = Format.pp_print_string f (self#to_unprotected_ident i)
     method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
+      try
       if not sugar then self#label self#expr_node f e
       else  match ExprSugar.resugarer self#typeident_original_name e with
       | `list (head,None) -> pp f "@[<2>[%a]@]" (list ",@ " self#expr) head
@@ -723,6 +728,7 @@ module Classic = struct
       | `xhtml  e -> Sugar.Xhtml.pp_xml self#expr_sugar f e
       | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
       | `no_sugar -> self#label self#expr_node f e
+      with _ -> self#label self#expr_node f e
     method expr : 'dir . ('ident,[< all_directives ] as 'dir) expr pprinter  = self#expr_sugar true
     method expr_node : 'dir. ('ident,[< all_directives ] as 'dir) expr_node pprinter = fun f -> function
         (*| Directive ((`coerce:[< all_directives]),_,_) as e when comma -> pp f "(%a)" self#expr_node e*)
@@ -1269,6 +1275,7 @@ module Js = struct
       aux e
 
     method private expr_sugar : 'dir . bool -> ('ident,[< all_directives ] as 'dir) expr pprinter = fun sugar f e ->
+      try
       if not sugar then self#label self#expr_node f e
       else match ExprSugar.resugarer self#typeident_original_name e with
       | `list (head,None) -> pp f "@[<2>[%a]@]" (list ",@ " self#expr) head
@@ -1287,6 +1294,7 @@ module Js = struct
       | `xhtml e  -> Sugar.Xhtml.pp_xml self#expr_sugar f e
       | `action e -> Sugar.Action.pp self#to_unprotected_ident self#expr_sugar f e
       | `no_sugar -> self#label self#expr_node f e
+      with _ -> self#label self#expr_node f e
     method expr : 'dir . ('ident,[< all_directives ] as 'dir) expr pprinter  = self#expr_sugar true
     method private expr_string : 'dir . (string,[< all_directives ] as 'dir) expr pprinter  = Obj.magic self#expr
     method expr_node : 'dir. ('ident,[< all_directives ] as 'dir) expr_node pprinter = fun f -> function
@@ -1508,16 +1516,18 @@ module Js = struct
       let print_coerce ty e =
         pp f "%s %a %a(%a) {@\n%a@]@\n}" function_ self#ty ty p s (list ", " self#reset#under_comma#pat) (List.map snd r) self#expr e
       in
-      let handle_coerce_directive =
-        ExprSugar.handle_coerce_directive print_coerce print_no_coerce self#typeident_original_name
-      in
-      match fst e with
-      | LetIn (isrec, i, e2) ->
-        handle_coerce_directive (fun e -> Obj.magic (LetIn (isrec, i,  Obj.magic e)), (snd e2)) e (Obj.magic e2)
-      | Record _
-      | ExtendRecord _
-      | Match _ -> print_no_coerce e
-      | _ -> handle_coerce_directive (fun e -> Obj.magic e) e (Obj.magic e)
+      try
+        let handle_coerce_directive =
+          ExprSugar.handle_coerce_directive print_coerce print_no_coerce self#typeident_original_name
+        in
+        match fst e with
+        | LetIn (isrec, i, e2) ->
+            handle_coerce_directive (fun e -> Obj.magic (LetIn (isrec, i,  Obj.magic e)), (snd e2)) e (Obj.magic e2)
+        | Record _
+        | ExtendRecord _
+        | Match _ -> print_no_coerce e
+        | _ -> handle_coerce_directive (fun e -> Obj.magic e) e (Obj.magic e)
+      with _ -> print_no_coerce e
 
     method private module_binding : 'id 'dir. 'id pprinter -> ('id * ('ident, [< all_directives ] as 'dir) expr) pprinter = fun p f (s,e) ->
       match fst e with
