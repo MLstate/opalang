@@ -89,6 +89,7 @@ type resource_cache_customizers = {
 }
 
 type resource_cache_entry = {
+ doctype : option(html_resource_doctype)
  uri : string
  customizers : resource_cache_customizers
  body : xhtml
@@ -691,15 +692,17 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
 /**
  * A cache for generation of xhtml resources
  */
+@private print_resource_time(t) = Log.notice("Resource Private", "Html resource computed in {t}s")
+
 @private cache_for_xhtml : resource_cache_entry -> {body:xhtml; head:xhtml; mime_type:string} =
-  compute_result(body:xhtml, customizations):{body:xhtml head:xhtml mime_type:string} =
+  compute_result(doctype, body:xhtml, customizations):{body:xhtml head:xhtml mime_type:string} =
+     doctype = doctype ? default_doctype.get()
      {html=body_content js=raw_js_content} =
-       #<Ifstatic:BENCH_SERVER>
-         print_t(t) = Log.notice("Resource Private", "resource computed in {t}s")
-         CoreProfiler.instrument(1, print_t){->Xhtml.prepare_for_export_as_xml_blocks(body)}
-       #<Else>
-         Xhtml.prepare_for_export_as_xml_blocks(body)
-       #<End>
+      #<Ifstatic:BENCH_SERVER> CoreProfiler.instrument(1, print_resource_time){ -> #<End>
+      match doctype
+        {custom=_} -> Xhtml.prepare_for_export_as_xml_blocks_non_utf8(body)
+        _ -> Xhtml.prepare_for_export_as_xml_blocks(body)
+      #<Ifstatic:BENCH_SERVER> } #<End>
 
      {body     = {html=body_custom  js=raw_js_body_custom}
       head     = {html=head_custom  js=raw_js_head_custom}
@@ -711,7 +714,7 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
       head = head_custom
       //Additional IE-specific fix -- note that the mime type can be ignored if the resource uses [override_mime_type]
       mime_type = 
-         match default_doctype.get() with
+         match doctype
          | {xhtml1_1} -> (
             match user_compat.renderer with
             /* hack for IE (considers application/xhtml+xml as files to save) */
@@ -728,24 +731,24 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
          | _ -> "text/html"
       end }
 
-  compute_everything(customizers, body:xhtml, user_agent) =
+  compute_everything(doctype, customizers, body:xhtml, user_agent) =
      //do jlog("RECOMPUTE")
      customizations  = compute_customization(customizers, user_agent)
-     compiled_result = compute_result(body, customizations)
+     compiled_result = compute_result(doctype, body, customizations)
      compiled_result
 
 
-  f({uri=_ ~customizers ~body user_agent=_}) =
+  f(~{uri=_ customizers doctype body user_agent=_}) =
     customizer_cache = Cache.make(
         Cache.Negotiator.always_necessary(user_agent -> compute_customization(customizers, user_agent)),
         {Cache.default_options with size_limit = {some = 30}})
 
     result_cache = Cache.make(
-        Cache.Negotiator.always_necessary(user_agent -> compute_result(body, customizer_cache.get(user_agent))),
+        Cache.Negotiator.always_necessary(user_agent -> compute_result(doctype, body, customizer_cache.get(user_agent))),
         {Cache.default_options with size_limit = {some = 30}})
 
    {cache_everything =
-        { ~customizers  ~body ~result_cache ~customizer_cache } }
+        { ~customizers ~body ~result_cache ~customizer_cache } }
 
   cache_options = {Cache.default_options with
      size_limit = {some = 30}
@@ -763,20 +766,20 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
 
   strategy(x:resource_cache_entry) =
   (
-    {uri=_ ~customizers ~body ~user_agent} = x
-    if cache_xhtml_options.disable then compute_everything(customizers, body, user_agent)
+    {uri=_ ~customizers ~doctype ~body ~user_agent} = x
+    if cache_xhtml_options.disable then compute_everything(doctype, customizers, body, user_agent)
     else
     match global_cache.get(x) with
       | {no_caching}        -> //results seems variable, cache deactivated for this [uri]
-            compute_everything(customizers, body, user_agent)
+            compute_everything(doctype, customizers, body, user_agent)
       |~{cache_customizers} -> //the body changes, but the customizations don't seem to
             if customizer_equality(cache_customizers.customizers,customizers) then
                //customizers haven't changed, that's a good sign, let's continue
-               compute_result(body, cache_customizers.customizer_cache.get(user_agent))
+               compute_result(doctype, body, cache_customizers.customizer_cache.get(user_agent))
             else
                //customizers have changed, the resource is unstable
                do global_cache.put(x, {no_caching}, void) //    fully deactivate caching for this resource
-               compute_everything(customizers, body, user_agent)
+               compute_everything(doctype, customizers, body, user_agent)
       |~{cache_everything}  -> //there's something in the cache, let's check if it's correct
             if customizer_equality(cache_everything.customizers,customizers) then
               //    customizers haven't changed, that's a good sign, let's continue
@@ -785,10 +788,10 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
               else //    the body has changed, fallback to caching only customization
                  customizer_cache = cache_everything.customizer_cache
                  do global_cache.put(x, {cache_customizers = {~customizers ~customizer_cache}}, void)
-                 compute_result(body, customizer_cache.get(user_agent))
+                 compute_result(doctype, body, customizer_cache.get(user_agent))
             else  //customizers have changed, the resource is unstable
               do global_cache.put(x, {no_caching}, void)                            //    fully deactivate caching for this resource
-              compute_everything(customizers, body, user_agent)
+              compute_everything(doctype, customizers, body, user_agent)
     )
     strategy
 
@@ -954,6 +957,7 @@ export_resource(external_css_files: list(string),
             {~uri
              customizers= ~{customizers external_css_files inline_css_code
                             external_js_files inline_js_code headers}
+             ~doctype
              ~body ~user_agent})
 
           base =

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -70,15 +70,20 @@ let have_to_be_escaped_table =
     code >= 128 || String.contains Base.Utf8.except_html_char chr || (code < 32 && not (String.contains Base.Utf8.allowed_special_char chr)) in
   Array.init 256 (fun code -> have_to_be_escaped (Char.unsafe_chr code))
 let have_to_be_escaped (c:char) = have_to_be_escaped_table.(Char.code c)
+let not_have_to_be_escaped (c:char) = not (have_to_be_escaped_table.(Char.code c))
 
-(*Fails with UTF-8 -- use Cactutf?*)
-(*TODO: This looks slow -- constructing lists ?*)
-(* I think it works ok with utf8 because whenever the code is greater than 128
- * (ie we have a character of more than one byte, BaseString.len_from is used to
- * agglomerate the following bytes whose code is more than 128 (which is the end
- * of the unicode character if is the input is well formed) *)
-##register escapeHTML : string -> string
-  let escapeHTML src =
+
+let utf8_byte_have_to_be_escaped = function
+  | '"' | '<' | '>' | '&' -> true
+(*  | '\'' -> true *)
+  | _ -> false
+
+(* This thing works with utf-8 because
+   - if utf8 encoding is ok, no 'one byte utf8 char' needs to be escaped if the html has utf-8 encoding,
+   - if utf8 is not ok, all byte of longer than on byte character are seen as needing escaping *)
+##register escapeHTML : bool, string -> string
+let escapeHTML utf8 src =
+  let have_to_be_escaped     = if utf8 then utf8_byte_have_to_be_escaped     else have_to_be_escaped     in
     if BaseString.exists have_to_be_escaped src then
       let len = String.length src in
       let rec aux pos acc =
