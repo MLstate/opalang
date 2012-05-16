@@ -73,18 +73,24 @@ path_update <-
 (**
    {Path fields}
 *)
-field_string <- Opa_lexer.field_identifier_nosp
+field_string <- Opa_lexer.field_identifier_nosp:s {{`string s}}
 
-field_expr <- lbracket Opa_parser.expr:e rbracket {{e}}
+field_expr <- lbracket Opa_parser.expr:e rbracket {{`expr e}}
 
-field_any <- lbracket Opa_lexer.underscore_nosp rbracket
+field_any <- lbracket Opa_lexer.underscore_nosp rbracket {{`any}}
 
 field_one <-
-  / field_string:s {{`string s}}
-  / field_any {{`any}}
-  / field_expr:s {{`expr s}}
+  / field_string
+  / field_any
+  / field_expr
 
-field_long <- spacing field_one+:l {{l}}
+field_dot_one <-
+  / "." field_string:f {{f}}
+  / field_any
+  / field_expr
+
+
+field_long <- spacing field_one:t (field_dot_one:f {{f}})*:l {{t::l}}
 
 
 (* ******************************************************************)
