@@ -339,7 +339,7 @@ struct
 
   let binary = !! "binary"
   let caml_list = !! "caml_list"
-  let char = !! "char"
+  let char = !! "Unicode.character"
   let continuation = !! "continuation"
   let dbgraph_diff = !! "dbgraph_diff"
   let dbset = !! "dbset"

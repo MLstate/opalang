@@ -420,6 +420,7 @@ pattern = deco just_pattern_as_coerce
     Opa_lexer.UNDERSCORE {{ PatAny }}
   / ml_identifier_nosp:i !"(" {{ PatVar {ident=i;directives=[]} }}
   / const:c {{ PatConst c }}
+  / String_expr.char_pat:c {{ undecorate c }}
   / tuple_pat
   / record_pat
   / list_pat
@@ -557,7 +558,7 @@ just_expr10 <-
        / Opa_lexer.BEGIN expr:e Opa_lexer.END {{ undecorate e }}
        / ml_identifier_nosp:i hint_end_of_callable {{ Ident i }}
        / const:c {{ Const c }}
-       / String_expr.string_with_opa:e {{ undecorate e }} (* need to come after const so that constant strings are just parsed as constants *)
+       / String_expr.string_or_char:e {{ undecorate e }} (* need to come after const so that constant strings are just parsed as constants *)
        / Css.prop_value_expr_opa:e {{ undecorate e }} (* useful when constructing colors as #123456 *)
 
 (**

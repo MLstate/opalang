@@ -578,6 +578,7 @@ pattern_simple <-
   / pattern_any
   / pattern_var
   / pattern_const
+  / pattern_char
   / pattern_record
   / pattern_tuple
   / pattern_list
@@ -591,6 +592,8 @@ pattern_var <- ml_identifier_nosp:i !"("
 
 pattern_const <- const:c
   {{ PatConst c }}
+
+pattern_char <- String_expr.char_pat:c {{ undecorate c }}
 
 pattern_record <-
   / tilda lbrace rbrace
@@ -827,7 +830,7 @@ expr_noop_simple <-
 (*  / Opa_lexer.BEGIN expr:e Opa_lexer.END {{ undecorate e }} *)
   / ml_identifier_nosp:i hint_end_of_callable {{ Ident i }}
   / const:c {{ Const c }}
-  / String_expr.string_with_opa:e {{ undecorate e }} (* need to come after const so that constant strings are just parsed as constants *)
+  / String_expr.string_or_char:e {{ undecorate e }} (* need to come after const so that constant strings are just parsed as constants *)
   / Css.prop_value_expr_opa:e {{ undecorate e }} (* useful when constructing colors as #123456 *)
 
 

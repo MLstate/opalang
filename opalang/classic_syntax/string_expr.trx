@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -20,7 +20,7 @@
 ;lbrace <- Opa_lexer.lbrace
 ;rbrace_nosp <- Opa_lexer.rbrace_nosp
 
-(* parser for non constants strings like "f(3) is :{f(3)}!" 
+(* parser for non constants strings like "f(3) is :{f(3)}!"
  * the given example will be transformed in
  * [sc_list(["f(3)",f(3),"!"])]
  *)
@@ -31,6 +31,23 @@ string_with_opa <- (=Opa_parser.deco(just_string_with_opa)):p
        (* slight optimization, but mostly it improves readability of pretty printed code *)
        (computed_string l),label
   }}
+
+intchar <- (=Opa_parser.deco(Opa_lexer.char)):c {{c}}
+
+char <-
+  / intchar:c
+    {{
+      coerce_name_expr (int2 c) Opacapi.Types.char
+    }}
+
+char_pat <- intchar:c
+  {{ coerce_name_pat (PatConst ((CInt (Big_int.big_int_of_int (undecorate c)))), label c)
+     Opacapi.Types.char  }}
+
+/** unicode character **/
+string_or_char <-
+  / string_with_opa
+  / char
 
 ;just_string_with_opa <- [\"] inner_string_element*:l (=Opa_lexer.or_eof([\"])):b {{ if not b then error_string (pos_only _filename _pos_beg _pos_end) else l }}
 
