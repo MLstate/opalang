@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -86,7 +86,11 @@ attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                       | _ ->
                           let ns =
                             let string, label = ns in
-                            (SA.Ident ("xmlns:"^string), label) in
+                            if string = "" then
+                              (SA.Const (SA.CString ""), label)
+                            else
+                              (SA.Ident ("xmlns:"^string), label)
+                          in
                           `normal_attr {namespace = ns; name = name} }}
 attribute_value <- ( String_expr.string_with_opa:e {{ XmlAttrStringParser e }}
                    / Opa_parser.opa_in_braces:e {{ XmlAttrParser e }}
