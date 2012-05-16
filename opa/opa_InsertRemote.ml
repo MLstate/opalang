@@ -1261,7 +1261,7 @@ let insert_resolver1_optimized ~annotmap ~stdlib_gamma ~gamma ~side (`insert_ser
   let annotmap, serv_expr =
     let annotmap, toplevel_var = TypedExpr.string annotmap (JsPrint.string_of_ident (JsAst.ExprIdent id)) in
     let annotmap, expr = TypedExpr.ident annotmap ident ty in
-    TypedExpr.apply_partial gamma annotmap ser [ty_expr_server; toplevel_var; expr]
+    full_apply gamma annotmap ser [ty_expr_server] [toplevel_var; expr]
   in
 
   (* Make directive *)
