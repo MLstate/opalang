@@ -283,15 +283,6 @@ String =
   remove_accents = %% Bslstring.remove_accents %%
 
   /**
-   * Escapes every characters of the string with &#xxx escapes if needed
-   * The boolean indicates if we target an utf-8 user or not.
-   *
-   * Manual use of this function is strongly discouraged, as it may cause
-   * security risks
-   */
-  escape_html= %% BslString.escapeHTML %%
-
-  /**
    * Returns the UTF8 representation of a positive integer
    *
    * Exits with an error when the integer is negative

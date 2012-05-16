@@ -615,6 +615,19 @@ XmlConvert = {{
  */
 Xhtml =
 {{
+
+  /**
+   * Escapes every html special characters of the given string with &#xxx;
+   *
+   * Note: You shouldn't use it by yourself except if you want to insert an
+   * unsafe html node, and if you be aware of XSS risk.
+   */
+  escape_special_chars =
+    String.replace_char(_,
+      (| '&' | '\"' | '\'' | '<' | '>' -> true | _ -> false),
+      (c -> "&#{c};")
+    )
+
   default_attributes = {style=[] class=[] events=[] events_options=[] href={none}} : xhtml_specific_attributes
 
   createFragment : list(xhtml) -> xhtml = Xml.create_fragment
@@ -790,7 +803,7 @@ Xhtml =
     rec handle_xhtml(xhtml: xhtml, depth:int) =
       next = depth + 1 //next depth
       match xhtml with
-      | ~{ text }            -> Buffer.append(html_buffer,String.escape_html(utf8,text))
+      | ~{ text }            -> Buffer.append(html_buffer,escape_special_chars(text))
       | ~{ content_unsafe }  -> Buffer.append(html_buffer,content_unsafe)
       | ~{ fragment }        -> List.iter(x -> handle_xhtml(x, depth), fragment)
       | ~{ xml_dialect }     ->
@@ -818,7 +831,7 @@ Xhtml =
                  do Buffer.append(html_buffer,":")
                  Buffer.append(html_buffer,name)
             do Buffer.append(html_buffer,"=\"")
-            do Buffer.append(html_buffer,String.escape_html(utf8,value))
+            do Buffer.append(html_buffer,escape_special_chars(value))
             Buffer.append(html_buffer,"\"")
 
           //Handle regular attributes
