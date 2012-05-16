@@ -494,6 +494,33 @@ String =
     else source
 
   /**
+   * Replace all unicode characters [c] of the [source] by [e(c)] when [f(c)]
+   * returns bool.
+   */
+  replace_char(source:string,
+               f:Unicode.character -> bool,
+               e:Unicode.character -> string):string =
+    len = String.length(source)
+    rec aux(i, stable, acc, size) =
+      if i >= len then
+        match acc with
+        | [] -> source
+        | _ ->
+          acc = if stable != i then [Cactutf.sub(source, stable, i - 1 - stable) | acc] else acc
+          b = Buffer.create(size)
+          do List.iter(Buffer.append(b, _), List.rev(acc))
+          Buffer.contents(b)
+      else
+        c = Cactutf.look(source, i)
+        n = Cactutf.next(source, i)
+        if f(c) then
+          esc = e(c)
+          acc = if stable != i then [Cactutf.sub(source, stable, i - stable) | acc] else acc
+          aux(n, n, [esc | acc], String.length(esc) + size + i - stable)
+        else aux(n, stable, acc, size)
+    aux(0, 0, [], 0)
+
+  /**
    * iter on each character of [source] and call the function [callback] with the current character
    * and an accumulator [accumulator]
    * @return the last accumulator
