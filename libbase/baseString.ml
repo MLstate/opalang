@@ -624,14 +624,14 @@ let last_char s =
   if len = 0 then invalid_arg "String.last_char" else
     unsafe_get s (pred len)
 
+let rec aux_len_from func str len i =
+  if i<>len && func (unsafe_get str i) then aux_len_from func str len (i+1)
+  else i
+
 let len_from func str index =
   let len = length str in
-  let max = len - index in
-  let rec aux cur =
-    if cur < max && func str.[index + cur] then aux (succ cur)
-    else cur
-  in
-  aux 0
+  if 0 <= index && index < len then (aux_len_from func str len index)-index
+  else invalid_arg (Printf.sprintf "String.len_from(_,len=%d,%d)" len index)
 
 let hash = Hashtbl.hash
 
