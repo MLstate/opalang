@@ -32,6 +32,8 @@ struct
     options = Qml2jsOptions.Argv.default ()
   }
 
+  let label = Annot.nolabel "imp_Bsl"
+
   (* checks if a value of the type can evaluate to false
    * in a 'if' for instance *)
   let can_be_false = function
@@ -57,6 +59,9 @@ struct
     local_vars : JsIdent.t list;
   }
 
+  let param name =
+    (JsAst.Native (`local, name))
+
   let fresh_param name =
     J.ExprIdent (Ident.next name)
   let fresh_var private_env name =
@@ -72,26 +77,40 @@ struct
 
   let call_typer ~key typer ?ret id =
     JsCons.Expr.comma
-      [JsCons.Expr.call ~pure:false typer [JsCons.Expr.string (BslKey.to_string key); JsCons.Expr.ident id]]
+      [JsCons.Expr.call ~pure:false typer [JsCons.Expr.string (BslKey.to_string key); id]]
       (match ret with
-       | None -> JsCons.Expr.ident id
+       | None -> id
        | Some ret -> ret)
 
-  let function_projection ?(check=false) ~inputs ~outputs ~key private_env type_params type_return id =
+  let function_projection ?(cps=`no)
+      ?(check=false) ~inputs ~outputs ~bsltags _env ~key private_env type_params type_return id =
+    let cps = if BslTags.do_projection bsltags "cps" then cps else `no in
     let initial_local_vars = private_env.local_vars in
+    (* 1 - Projection of inputs *)
     let private_env = {local_vars = []} in
-    let private_env, js_ret = fresh_var private_env "js_ret" in
-    let params = List.map (fun _ -> fresh_param "p") type_params in
+    let params = List.mapi (fun i _ -> param (Printf.sprintf "p%d" i)) type_params in
+    let proj_input (private_env,projected) typ x =
+      match inputs private_env typ (JsCons.Expr.ident x) with
+      | Some (private_env, ast) -> (private_env, true), ast
+      | None -> (private_env, projected), (JsCons.Expr.ident x) in
+    let (private_env, projected), (arguments:JsAst.expr list) =
+      List.fold_left_map2 proj_input (private_env,false) type_params params
+    in
+    let params, arguments =
+      if cps <> `no then
+        let k = param "k" in
+        (params @ [k]), (arguments @ [JsCons.Expr.ident k])
+      else params, arguments
+    in
+    (* 2 - Projection of outputs *)
+    let js_ret =
+      JsCons.Expr.call ~pure:true id arguments
+    in
     let (private_env, projected), proj_output =
       match outputs private_env type_return js_ret with
       | Some (private_env, ast) -> (private_env, true), ast
-      | None -> (private_env, false), JsCons.Expr.ident js_ret in
-    let proj_input (private_env,projected) typ x =
-      match inputs private_env typ x with
-      | Some (private_env, ast) -> (private_env, true), ast
-      | None -> (private_env, projected), JsCons.Expr.ident x in
-    let (private_env, projected), arguments = List.fold_left_map2 proj_input (private_env,projected) type_params params in
-    if projected then
+      | None -> (private_env, projected), js_ret in
+    if projected || cps <> `no then
       let check_arity =
         if check
         then
@@ -105,14 +124,34 @@ struct
         else [] in
       let _private_env, declarations = declare_local_vars private_env in
       let private_env = {(*private_env with*) local_vars = initial_local_vars} in
-      let call =
-        JsCons.Statement.assign_ident js_ret (
-          JsCons.Expr.call ~pure:true
-            (JsCons.Expr.ident id)
-            arguments
-        ) in
-      let return = JsCons.Statement.return proj_output in
-      let function_ = JsCons.Expr.function_ None params (check_arity @ declarations @ [call;return]) in
+      let return =
+        match cps with
+        | `to_ -> (* cps return : return_(k, output) *)
+            JsCons.Expr.call ~pure:true
+              (JsCons.Expr.ident (JsAst.Native (`global, "return_")))
+              [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
+               proj_output]
+        | _ -> proj_output
+      in
+      let return = JsCons.Statement.return return in
+      let function_ =
+        JsCons.Expr.function_ None params (check_arity @ declarations @ [return])
+      in
+      let function_ =
+        match cps with
+        | `no -> function_
+        | (`to_ | `from) as cps->
+            match cps with
+            | `to_ -> function_
+                (* JsCons.Expr.call ~pure:true *)
+                (*   (JsCons.Expr.ident (JsAst.Native (`global, "cps"))) *)
+                (*   [function_] *)
+            | `from ->
+                JsCons.Expr.call ~pure:true
+                  (JsCons.Expr.ident (JsAst.Native (`global, "uncps")))
+                  [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
+                   function_]
+      in
       let function_ =
         if check then
           call_typer ~key Imp_Common.ClientLib.type_fun id ~ret:function_
@@ -122,27 +161,32 @@ struct
     else
       None
 
-  let aux_option ?(check=false) caller key env private_env typ id =
+  let aux_option ?(check=false) caller key env private_env typ (id:JsAst.expr) =
     (* no projection for options *)
     let private_env, x = fresh_var private_env "js" in
-    match caller key env private_env typ x with
+    let private_env, ret = fresh_var private_env "ret" in
+    match caller key env private_env typ (JsCons.Expr.ident x) with
     | None -> None
     | Some (private_env, ast) ->
         let ast =
           if can_be_false typ then
             (* 'some' in id ? (x = id.some, {some = ast}) : id *)
             JsCons.Expr.cond
-              (JsCons.Expr.in_ (JsCons.Expr.string "some") (JsCons.Expr.ident id))
+              (JsCons.Expr.in_ (JsCons.Expr.string "some") (JsCons.Expr.ident ret))
               (JsCons.Expr.comma
-                 [JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident id) "some")]
+                 [JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")]
                  (JsCons.Expr.obj ["some", ast]))
-              (JsCons.Expr.ident id)
+              (JsCons.Expr.ident ret)
           else
             (* (x = id.some) ? {some = ast} : id (* none *) *)
             JsCons.Expr.cond
-              (JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident id) "some"))
+              (JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some"))
               (JsCons.Expr.obj ["some", ast])
-              (JsCons.Expr.ident id) in
+              (JsCons.Expr.ident ret) in
+        let ast =
+          let assign = JsCons.Expr.assign_ident ret ast in
+          JsCons.Expr.comma [assign] ast
+        in
         let ast =
           if check then
             call_typer ~key Imp_Common.ClientLib.type_option id ~ret:ast
@@ -151,7 +195,7 @@ struct
         Some (private_env, ast)
 
 
-  let aux_external ?(check=false) caller key env private_env p id =
+  let aux_external ?(check=false) caller key env private_env p (id:JsAst.expr) =
     List.iter
       (fun ty ->
          (* this is just a check that the inner
@@ -171,7 +215,7 @@ struct
 
   (* when the relevant option is activated, inserting type checks that the js
    * object received correspond to the type declared in the bsl *)
-  let rec aux_qml_of_js key env private_env typ id : (private_env * JsAst.expr) option =
+  let rec aux_qml_of_js ~bsltags key env private_env typ (id:JsAst.expr) : (private_env * JsAst.expr) option =
     match typ with
     | B.Const (_, c) ->
         if env.options.Qml2jsOptions.check_bsl_types then
@@ -208,7 +252,7 @@ struct
           None (* same representation for booleans *)
 
     | B.Option (_, o) ->
-        aux_option ~check:env.options.Qml2jsOptions.check_bsl_types aux_qml_of_js key env private_env o id
+        aux_option ~check:env.options.Qml2jsOptions.check_bsl_types (aux_qml_of_js ~bsltags) key env private_env o id
 
     | B.OpaValue (_, t) ->
         if env.options.Qml2jsOptions.check_bsl_types then
@@ -233,21 +277,26 @@ struct
           None
 
     | B.External (_, _, p) ->
-        aux_external ~check:env.options.Qml2jsOptions.check_bsl_types aux_qml_of_js key env private_env p id
+        aux_external ~check:env.options.Qml2jsOptions.check_bsl_types
+          (aux_qml_of_js ~bsltags) key env private_env p id
 
     | B.Fun (_, inputs, output) ->
-        let initial_conv =
-          function_projection ~key
-            ~check:env.options.Qml2jsOptions.check_bsl_types
-            ~inputs:(aux_js_of_qml key env)
-            ~outputs:(aux_qml_of_js key env)
-            private_env
-            inputs output id in
-        initial_conv
+        let cps =
+          match env.options.Qml2jsOptions.cps, bsltags.BslTags.cps_bypass with
+          | true, false -> `to_
+          | false, true -> `from
+          | true, true | false, false -> `no
+        in
+        function_projection ~cps ~bsltags env ~key
+          ~check:env.options.Qml2jsOptions.check_bsl_types
+          ~inputs:(aux_js_of_qml ~bsltags key env)
+          ~outputs:(aux_qml_of_js ~bsltags key env)
+          private_env
+          inputs output id
 
   (* in the projection qml -> js, there is no check since the typer
    * already checks that the input of bypasses are right *)
-  and aux_js_of_qml key env private_env typ id =
+  and aux_js_of_qml ~bsltags key env private_env typ (id:JsAst.expr) =
     match typ with
     | B.Const _ ->
         None
@@ -264,22 +313,26 @@ struct
         None
 
     | B.Option (_, o) ->
-        aux_option aux_js_of_qml key env private_env o id
+        aux_option (aux_js_of_qml ~bsltags) key env private_env o id
 
     | B.OpaValue _ ->
         None
 
     | B.External (_,_,p) ->
-        aux_external aux_js_of_qml key env private_env p id
+        aux_external (aux_js_of_qml ~bsltags) key env private_env p id
 
     | B.Fun (_, inputs, output) ->
-        let p private_env id =
-          function_projection ~key
-            ~inputs:(aux_qml_of_js key env)
-            ~outputs:(aux_js_of_qml key env)
-            private_env
-            inputs output id in
-        p private_env id
+        let cps =
+          match env.options.Qml2jsOptions.cps, bsltags.BslTags.cps_bypass with
+          | true, false -> `from
+          | false, true -> `to_
+          | true, true | false, false -> `no
+        in
+        function_projection ~cps ~bsltags env ~key
+          ~inputs:(aux_qml_of_js ~bsltags key env)
+          ~outputs:(aux_js_of_qml ~bsltags key env)
+          private_env
+          inputs output id
 
   let wrap_return_of_aux = function
     | None -> None
@@ -288,13 +341,15 @@ struct
 
   let initial_private_env = {local_vars = []}
 
-  let qml_of_js ~bslkey:key ~bsltags:_ typ ~env (BI.MetaIdent meta_ident) =
-    let o = aux_qml_of_js key env initial_private_env typ (JsCons.Ident.native meta_ident) in
+  let qml_of_js ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
+    let o = aux_qml_of_js key ~bsltags env initial_private_env typ
+      (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
     let o = wrap_return_of_aux o in
     env, o
 
-  let js_of_qml ~bslkey:key ~bsltags:_ typ ~env (BI.MetaIdent meta_ident) =
-    let o = aux_js_of_qml key env initial_private_env typ (JsCons.Ident.native meta_ident) in
+  let js_of_qml ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
+    let o = aux_js_of_qml ~bsltags key env initial_private_env typ
+      (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
     let o = wrap_return_of_aux o in
     env, o
 
@@ -303,6 +358,34 @@ struct
              Pass_Closure.generate_applys_js ()
            else ["",JsCons.Statement.comment "closure not activated"])
     )
+
+  let addk bsltags env =
+    env.options.Qml2jsOptions.cps
+    && bsltags.BslTags.second_order
+    && BslTags.do_projection bsltags "cps"
+
+  let should_cps_return bsltags env =
+    env.options.Qml2jsOptions.cps
+    && bsltags.BslTags.second_order
+    && not(bsltags.BslTags.cps_bypass)
+    && BslTags.do_projection bsltags "cps"
+
+  let more_args _ bsltags env =
+    if addk bsltags env then Some ["k"]
+    else if should_cps_return bsltags env then
+      Some []
+    else None
+
+  let map_result _ bsltags env expr =
+    if not(should_cps_return bsltags env) then
+      expr
+    else
+      let open JsAst in
+      Je_call (label,
+               Je_ident (label, (Native (`global, "return_"))),
+               [Je_ident (label, (Native (`local, "k"))); expr],
+               false)
+
 end
 
 module JsImpBSL = BslLib.LibBSLForQml2Js (JS_CTrans)

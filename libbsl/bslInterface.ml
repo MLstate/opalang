@@ -166,8 +166,10 @@ sig
      which is the place for adding :
      {[
      "let bslkey = \"mybslkey\" in"
+
      ]}
   *)
+
   val more_code : BslKey.t -> BslTags.t -> env -> string option
 
   (**
@@ -196,6 +198,26 @@ sig
   val qml_of_js : bslkey:BslKey.t -> bsltags:BslTags.t -> (env,(JsAst.ident list * JsAst.expr)) bsl_projection
   val js_of_qml : bslkey:BslKey.t -> bsltags:BslTags.t -> (env,(JsAst.ident list * JsAst.expr)) bsl_projection
   val conversion_code : env -> env * (string(*unicity_index*) * JsAst.statement) list
+
+  (**
+     Additional arguments to add on projection.
+
+     This code is inserted there :
+     {[
+     function bsl_proj(x0, x1, x2, <THERE>)
+     ]}
+  *)
+  val more_args : BslKey.t -> BslTags.t -> env -> string list option
+
+  (**
+     Additional arguments to add on projection.
+
+     This code is inserted there :
+     {[
+     function bsl_proj(x0, x1, x2, <THERE>)
+     ]}
+  *)
+  val map_result : BslKey.t -> BslTags.t -> env -> JsAst.expr -> JsAst.expr
 end
 
 (** {6 Bsl Main Modules Interfaces} *)

@@ -559,7 +559,6 @@ struct
       | None -> None
 
     let bsl_bypass_cps t ~lang key =
-      Format.eprintf "LOOK FOR %a\n%!" BslLanguage.pp lang;
       let cps_key = Printf.sprintf "%s_cps" (BslKey.to_string key) in
       let cps_key = BslKey.normalize cps_key in
       match BslKeyMap.find_opt cps_key t.map with
@@ -997,7 +996,6 @@ struct
       let env = building.js_ctrans in
       if BslTags.never_projected bsltags then building, None else
       let trans_type = ref false in
-
       let js_arg = Printf.sprintf "x%d"
       and js_ret = "by_ret" in
 
@@ -1005,17 +1003,16 @@ struct
         let env, maped_output = JS_CTrans.qml_of_js ~bslkey ~bsltags output ~env (BI.MetaIdent js_ret) in
         env,
         (match maped_output with
-         | None -> ([],JsCons.Expr.native js_ret), output
+         | None ->
+             ([],JsCons.Expr.native js_ret), output
          | Some conv ->
              trans_type:=true;
              conv, BslTypes.opavalue output
         )
       in
-
       let new_impl = trans_ident bslkey in
       let unicity_index = BslKey.to_string bslkey in
       let buf = building.generated_js in
-
       match inputs with
       | None ->
           if !trans_type then
@@ -1048,11 +1045,27 @@ struct
             )
             (vars_out,env) inputs in
 
+          let more_args = JS_CTrans.more_args bslkey bsltags env in
+
+          trans_type := !trans_type || Option.is_some more_args ;
           if !trans_type
           then
             begin
               let jsident = JsCons.Ident.ident new_impl in
               let formal_params = List.mapi (fun i _ -> JsCons.Ident.native (js_arg i)) inputs in
+              let formal_params =
+                Option.default_map formal_params
+                  (fun more_args -> formal_params @
+                     (List.map (fun x -> JsCons.Ident.native x) more_args)
+                  )
+                  more_args
+              in
+              let body =
+                JsCons.Expr.call
+                  ~pure:true
+                  impl
+                  (List.map fst projected_args)
+              in
               let code_elt =
                 JsCons.Statement.deprecated_function
                   jsident
@@ -1061,12 +1074,9 @@ struct
                   (
                     JsCons.Expr.deprecated_letin [
                       JsCons.Ident.native js_ret,
-                      JsCons.Expr.call
-                        ~pure:true
-                        impl
-                        (List.map fst projected_args)
+                      body
                     ]
-                      trans_out
+                      (JS_CTrans.map_result bslkey bsltags env trans_out)
                   )
               in
               let buf = (unicity_index,code_elt) :: buf in
@@ -1142,7 +1152,9 @@ struct
                     let re_compiled_generate =
                       match compiled.c_lang with
                       | ml when BslLanguage.compare ml BslLanguage.ml = 0 -> re_compiled_generate_ml
-                      | js when BslLanguage.compare js BslLanguage.js = 0 -> re_compiled_generate_js
+                      | js when BslLanguage.compare js BslLanguage.js = 0
+                          || BslLanguage.compare js BslLanguage.nodejs = 0
+                          -> re_compiled_generate_js
                       | _ -> (fun building _key _bsltags _fct _input _output -> building, None)
                         (** with llvmtrans, do the same with CCTrans MLCTrans, in arg of the functor MakeLibBSL etc... *)
                     in
@@ -1510,6 +1522,8 @@ struct
   let qml_of_js ~bslkey:_ ~bsltags:_ _ ~env _ = env, None
   let js_of_qml ~bslkey:_ ~bsltags:_ _ ~env _ = env, None
   let conversion_code env = env, ["",JsCons.Statement.comment "/* dummy code (bslLib.ml)! */"]
+  let more_args _ _ _ = None
+  let map_result _ _ _ e = e
 end
 
 module LibBSLForQml2Ocaml (ML_CTrans : BI.ML_CTRANS) : BI.BSLINTROSPECTION with type ml_ctrans_env = ML_CTrans.env =
