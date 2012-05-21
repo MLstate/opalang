@@ -73,6 +73,13 @@ struct
 
   let js_bslfilesloading env_opt env_bsl =
     (* 1) extra libraries *)
+    let ppjs =
+      let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
+      let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
+      let ppenv = Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv in
+      let ppopt = Pprocess.default_options ppenv in
+      fun ~name ->
+        Pprocess.process ~name Pplang.js_description ppopt in
     let generated_files = [] in
     let generated_files =
       let fold acc (extra_lib, conf) =
@@ -85,7 +92,7 @@ struct
         in
         let get t =
           let contents = File.content t in
-          (File.from_pattern "%b.js" t, contents)::acc
+          (File.from_pattern "%b.js" t, ppjs ~name:t contents)::acc
         in
         match File.get_locations env_opt.extra_path extra_lib with
         | [] ->
@@ -118,12 +125,7 @@ struct
               (* every file that need functionality that won't be available in
                * js or rhino should end up in this match *)
             in if b then
-              let ppjs =
-                let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
-                let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
-                let ppopt = Pprocess.default_options ppenv in
-                Pprocess.process ~name:filename Pplang.js_description ppopt in
-              let content = ppjs content in
+              let content = ppjs ~name:filename content in
               let () =
                 (*
                   TODO: refactor so that conf is not ignored,
