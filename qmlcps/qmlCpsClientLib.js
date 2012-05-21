@@ -446,3 +446,18 @@ function spawn(f) {
     push(task);
     return task._barrier;
 }
+
+/**
+ * Transform a cps function [f] (function (..., k)) to a non-cps function
+ * [function(...)].
+ */
+function uncps(pk, f) {
+    return function (){
+        var b = new Barrier("uncps : " + f);
+        var k = pk.ccont(function(x){b.release(x)});
+        var a = Array.prototype.slice.call(arguments);
+        a.push(k);
+        f.apply(this, a);
+        return blocking_wait(b);
+    }
+}
