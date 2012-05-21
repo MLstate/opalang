@@ -436,6 +436,8 @@ function blocking_wait(barrier){
     var task;
     while(!barrier._is_computed){
         loop_schedule();
+        if(!barrier._is_computed && ready.length == 0)
+            error("Barrier not relased : " + barrier._id);
     }
     return barrier._result;
 }
