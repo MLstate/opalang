@@ -114,17 +114,18 @@ let escapeHTML utf8 src =
       )
     in
     let new_pos = pos + len_to_push in
-    if new_pos<len  then (
+    if new_pos >= len && buf == empty_buf then (* optimize for the escape-in-one-step case *)
+      (if need_escaping then Base.Utf8.htmlentities src else src)
+    else
       let buf = if buf == empty_buf then Buffer.create (len+(4*len/(new_pos+1))) else buf in
       if need_escaping then
-         Base.Utf8.htmlentities_append buf src pos len_to_push
+        Base.Utf8.htmlentities_append buf src pos len_to_push
       else
         Buffer.add_substring buf src pos len_to_push;
-      aux new_pos buf
-    ) else (* term *)
-      if buf==empty_buf then (
-        if need_escaping then Base.Utf8.htmlentities src else src
-      ) else Buffer.contents buf
+      if new_pos < len then
+        aux new_pos buf
+      else
+        Buffer.contents buf
   in
   aux 0 empty_buf
 
