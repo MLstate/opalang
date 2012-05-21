@@ -37,6 +37,22 @@ var LocalChannelStore = function(){
      * the first serialization of [LocalChannel]) to [LocalChannel]
      */
     var stored = new Object();
+    function random_id() {
+        return Math.floor(Math.random() * 1073741824);
+    }
+    var generate_id = function(){
+        var rand = random_id();
+        #<Ifstatic:OPABSL_NODE>
+        return rand;
+        #<Else>
+        var c = getStableCookie();
+        if ( 'none' in c )
+            throw new Error("no cookie no session");
+        else {
+            return ("" + rand + c.some);
+        }
+        #<End>
+    }
     return {
         get : function(id){
             return stored[id];
@@ -49,12 +65,13 @@ var LocalChannelStore = function(){
         serialize : function(chan){
             var serialized = stored[chan.lchan_id];
             if (serialized == null){
-                serialized = {cl_id : generate_cl_id()};
+                serialized = {cl_id : generate_id()};
                 chan.serialized = serialized;
                 stored[serialized.cl_id] = serialized;
             }
             return serialized;
-        }
+        },
+        random_id : random_id
     };
 
 }();
@@ -66,7 +83,7 @@ var LocalChannelStore = function(){
  */
 function LocalChannel(st, unserialize, fun_session, ctx, dfun, more, concurrent) {
     var tmp;
-    this.lchan_id = Math.floor(Math.random() * 1073741824);
+    this.lchan_id = LocalChannelStore.random_id();
     this.state = st;
     this.action = fun_session;
     this.unserialize = unserialize;
@@ -84,8 +101,6 @@ LocalChannel.prototype = {
     /* ************************************************** */
     /* Sending functions ******************************** */
 
-    #<Ifstatic:OPA_CPS_CLIENT>
-    #<Else>
     /**
      * An auxiliar function for send a message to a session.
      *
@@ -96,6 +111,8 @@ LocalChannel.prototype = {
      *
      * Note : USE UNIQUELY ON NO CPS MODE (like its name indicates)
      */
+    #<Ifstatic:OPA_CPS_CLIENT>
+    #<Else>
     send_no_cps_aux: function(msg, context, herror, hsuccess){
         // Session has been stopped
         if(this.state == null) {
@@ -180,12 +197,12 @@ LocalChannel.prototype = {
                           lchan.state = null;
                           lchan.kill();
                       } else {
-                          setTimeout(function() {aux(new_st.some)}, 0);
+                          push(new Task_from_application(function() {aux(new_st.some); return 0}));
                       }
-                    );
+                    });
                 }
             }
-            setTimeout(function() {aux(st);}, 0);
+            push(new Task_from_application(function() {aux(st); return 0}));
         }
     #<Else>
         var lchan = this;
@@ -200,8 +217,6 @@ LocalChannel.prototype = {
     #<End>
     },
 
-    #<Ifstatic:OPA_CPS_CLIENT>
-    #<Else>
     /**
      * Call a local cell represented by [lchan] with the message
      * [msg]. Same remarks that [llsend_lchan_no_cps].
@@ -210,18 +225,20 @@ LocalChannel.prototype = {
      * the waiting message. We can have also an unlikely starvation with
      * this implementation. But that respect the semantic of session.
      */
+    #<Ifstatic:OPA_CPS_CLIENT>
+    #<Else>
     call_no_cps: function(msg, _1, _2, onmsg){
-        /* That is a very dirty hack, stdlib
-         * implementation dependent (see also cell.opa) */
+        // That is a very dirty hack, stdlib
+        // implementation dependent (see also cell.opa)
         var res = null;
         try {
             var f = function(state, msg){
-                /* Make cell message, with a continuation which set [res] */
+                // Make cell message, with a continuation which set [res]
                 var cmsg = empty_constructor()
                 cmsg = add_field(cmsg,static_field_of_name('f1'),new Continuation(function(r){res = r}))
                 cmsg = add_field(cmsg,static_field_of_name('f2'),msg)
                 cmsg = make_record(cmsg)
-                /* [onmsg] returns the session instruction */
+                // [onmsg] returns the session instruction
                 return onmsg(state, cmsg);
             }
             this.action = f;
