@@ -16,58 +16,20 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/**
- * Configure the JS environment for browser-less execution if necessary.
- *
- * To detect whether we are in a browser, we check whether [window] is defined and has type "object".
- * This detection may change. The public API is to use global variable [command_line_execution],
- * which is set to [true] if we are executed out of a browser, [false] otherwise.
- */
 var print = console.log
-if (typeof window != "object") {
-    alert = function (x) { print(x) };
-    var placeholder = function (name) {return function() { print("function ["+name+"] requires a browser")} };
-    var element = {
-        innerHTML: "",
-        style: {},
-        insertBefore: placeholder("insertBefore"),
-        removeChild : placeholder("removeChild"),
-        createComment: placeholder("createComment"),
-        appendChild: placeholder("appendChild"),
-        getElementById: placeholder("getElementById")
-    };
-    var command_line_execution = true;
-
-    element.documentElement = element;
-
-    var element_fun = function () {
-        return element;
-    };
-
-    element.createElement = element_fun;
-    element.getElementsByTagName = element_fun;
-
-    /* not define with "var" keyword because MSIE is little ... (what
-     * U want)*/
-
-    setTimeout    = placeholder("setTimeout");
-    setInterval   = placeholder("setInterval");
-    clearTimeout  = placeholder("clearTimeout");
-    clearInterval = placeholder("clearInterval");
-    clearTimeout  = placeholder("clearTimeout");
-    location = {};
-    document = element;
-    document.cookie = "OK";
-    window = { addEventListener: placeholder("addEventListener") };
-    navigator = { userAgent : "no browser" };
-} else {
-    command_line_execution = false;
-}
-
+// command_line_execution should be deprecated (use preprocessing instead)
+// keep for the moment because some code still use
+#<Ifstatic:OPABSL_NODE>
+var command_line_execution = true;
+#<Else>
+var command_line_execution = false;
+#<End>
 
 /**
  * Browser-specific adaptations
  */
+#<Ifstatic:OPABSL_NODE>
+#<Else>
 var is_native_object;
 
 var userAgent = navigator.userAgent.toLowerCase();
@@ -87,10 +49,12 @@ if(/msie/.test( userAgent ) && !/opera/.test( userAgent )) //MSIE compatibility 
         return (x instanceof Node || x instanceof Event);
     }
 }
+#<End>
 
 function error(s)
 {
-    throw new Error(s)
+    console.error(s);
+    throw new Error(s);
 }
 
 /**
