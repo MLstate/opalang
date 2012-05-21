@@ -26,7 +26,7 @@
 /**
  * {1 About this module}
  *
- * The cleaning algorithm is a mark and sweep, based on a graph accessibility 
+ * The cleaning algorithm is a mark and sweep, based on a graph accessibility
  * from root nodes.
  * As we prefer that the stdlib does not depend on fgraph, there is an ad-hoc implementation,
  * without graphs construction, dealing with specialized structures.

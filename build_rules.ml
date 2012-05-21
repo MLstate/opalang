@@ -944,7 +944,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          [A"--conf-opa-files"]
        in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
-       let extra_opt = if nodebackend then A"--no-warn-error"::A"root"::A"--back-end"::A"qmljs"::extra_opt else extra_opt in
+       let extra_opt = if nodebackend then A"--print"::A"code"::A"--no-warn-error"::A"root"::A"--back-end"::A"qmljs"::extra_opt else extra_opt in
        Seq[
          Echo(conf, "conf");
          Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");

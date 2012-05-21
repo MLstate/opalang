@@ -58,7 +58,7 @@ struct
   let extend_record = !! "extend_record"
 
   let match_failure pos =
-    let message = JsCons.Expr.string (Format.sprintf "%a: Match failure" FilePos.pp_pos pos) in
+    let message = JsCons.Expr.string (Format.sprintf "%a: Match failure %d" FilePos.pp_pos pos (BaseRandom.int 10000000)) in
     JsCons.Expr.call ~pure:false error [ message ]
 
   let size = !! "size"
