@@ -166,8 +166,7 @@ ServerI18n =
   // TODO make it faster using partial parsing and cache (btw it is called once for each new user)
   request_lang(request) =
     match HttpRequest.Generic.`get_Accept-Language`(request)
-    {none} -> do debug("Http Accept-Language is not provided ({HttpRequest.Generic.get_headers(request).headers} are provided)")
-              get_server_lang()
+    {none} -> get_server_lang()
     {some=al} ->
     match extract_lang(al)
     {none} -> do debug("Extract lang failed on {al}")
@@ -177,7 +176,6 @@ ServerI18n =
 
   /** touch lang */
   touch_user_lang(request) =
-    do jlog("I18n")
     match UserI18n.get_lang_opt()
     {none} -> l = request_lang(request) // if user has no lang get it from the request
                 UserI18n.set_lang(l)   // and fix it

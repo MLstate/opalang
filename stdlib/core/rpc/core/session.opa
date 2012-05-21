@@ -357,7 +357,8 @@ Session = {{
       ) : channel('message)
 
 
-    @package @publish @server cloud_mode =
+    @package @server_private
+    cloud_mode =
       commandline : CommandLine.family(bool) = {
         title = "Distribution of sessions"
         init = false

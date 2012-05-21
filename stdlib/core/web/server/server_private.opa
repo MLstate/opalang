@@ -314,13 +314,11 @@ Server_private = {{
                 )
               } -> Option.iter(dispatch, winfo)
             | "/{_internal_}/" uri=(.*) ->
-              do jlog("2 {uri}")
               @with_thread_context(
                 build_thread_context(Random.int(max_int)),
                 Parser.Text.parse(internal_handler, uri)
               )
             | uri=(.*) ->
-              do jlog("3 {uri}")
               @with_thread_context(
                 build_thread_context(Random.int(max_int)),
                 do ServerI18n.touch_user_lang(winfo.http_request)
