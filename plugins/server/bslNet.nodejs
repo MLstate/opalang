@@ -138,7 +138,7 @@ function merge_headers(headers) {
 ##args(req)
 {
   // We may need to add extra fields in the Opa handling
-  return function (resp) { return client.js_void }
+  return function (resp) { return js_void }
 }
 
 ##register web_info_conn : WebInfo.private.native -> WebInfo.private.native_connection
@@ -223,13 +223,14 @@ function get_user_agent(req) {
 ##register get_header_names: WebInfo.private.native_request -> opa[list(string)]
 ##args(req)
 {
+
   var lst = [];
   for (var fld in req.request.headers) { lst.push(fld) };
   return js2list(lst)
 }
 
 function gethdr(request, s) {
-  return (s in request.headers) ? {some:request.headers[s]} : client.js_none
+  return (s in request.headers) ? {some:request.headers[s]} : js_none
 }
 
 ##register get_header_values : WebInfo.private.native_request -> (string -> option(string))
@@ -259,12 +260,12 @@ function is_valid(request, modified_since) {
   else if (request.headers['pragma'] === 'no-cache')
     return false
   else if ('if-modified-since' in request.headers) {
-    if (Option.is_some(modified_since)) {
+    if (is_some(modified_since)) {
       var mtimein = new Date(request.headers['if-modified-since']);
       return mtimein >= modified_since.some
     } else false
   } else if ('if-unmodified-since' in request.headers) {
-    if (Option.is_some(modified_since)) {
+    if (is_some(modified_since)) {
       var mtimein = new Date(request.headers['if-unmodified-since']);
       return mtimein < modified_since.some
     } else false
@@ -273,22 +274,22 @@ function is_valid(request, modified_since) {
 
 function process_content(req, expires, modified_since, _type, content, content_len, include_body) {
   var now = new Date();
-  var content_len = Option.dflt(content.length,content_len); // TODO: how do we get the real length of one of these things?
+  var content_len = dflt(content.length,content_len); // TODO: how do we get the real length of one of these things?
   //if (debug) console.log("content_len="+content_len);
   var cs;
   if (_type.indexOf("charset") != -1) { cs = "" } else { cs = "; charset=utf-8" };
   var typeval = _type + cs;
-  var expires = Option.dflt(new Date(), expires);
+  var expires = dflt(new Date(), expires);
   req.response.setHeader('Date',now.toUTCString());
   req.response.setHeader('Server',req.server_name);
   req.response.setHeader('Content-Type',typeval);
   req.response.setHeader('Expires',expires.toUTCString());
-  if (Option.is_some(modified_since)) {
+  if (is_some(modified_since)) {
     req.response.setHeader('Cache-Control',"public");
     req.response.setHeader('Last-Modified',modified_since.some);
   };
   req.response.setHeader('Content-Length',content_len);
-  Cookies.cookies_out(req, false);
+  cookies_out(req, false);
   if (include_body)
     req.response.end(content)
   else
@@ -310,7 +311,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     headers_out.forEach(function (hdr) { for (var h in hdr) { req.response.setHeader(h,hdr[h]) } });
     process_content(req, expires, modified_since, _type, content, content_len, include_body)
   };
-  cont(req)
+  return_(cont, req);
 }
 
 ##register [cps-bypass] make_response_len : \
@@ -324,9 +325,9 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,content_len,k)
 {
-  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
-  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, content_len, k);
-  return client.js_void
+  var modified_since = map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(js_none, modified_since, req, headers, stat, _type, content, content_len, k);
+  return js_void
 }
 
 ##register [cps-bypass] make_response : \
@@ -339,9 +340,9 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,k)
 {
-  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
-  make_response_with_headers(client.js_none, modified_since, req, headers, stat, _type, content, client.js_none, k);
-  return client.js_void
+  var modified_since = map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(js_none, modified_since, req, headers, stat, _type, content, js_none, k);
+  return js_void
 }
 
 ##register [cps-bypass] make_response_modified_since : \
@@ -354,9 +355,9 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
 ##args(modified_since,req,stat,_type,content,k)
 {
   var expires = {some:new Date(0)};
-  var modified_since = Option.map(function (ms) { return new Date(ms) },ms);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, client.js_none, k);
-  return client.js_void
+  var modified_since = map(function (ms) { return new Date(ms) },ms);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, js_none, k);
+  return js_void
 }
 
 ##register [cps-bypass] make_response_expires_at : \
@@ -370,10 +371,10 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
 ##args(expires_at,modified_since,req,stat,_type,content,k)
 {
   var date = new Date();
-  var expires = (Option.is_some(expires_at)) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
-  var modified_since = Option.map(function (ms) { return new Date(ms) },modified_since);
-  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, client.js_none, k);
-  return client.js_void
+  var expires = (is_some(expires_at)) ? date.setTime(expires_at.some) : date.setFullYear(date.getFullYear()+1);
+  var modified_since = map(function (ms) { return new Date(ms) },modified_since);
+  make_response_with_headers(expires, modified_since, req, [], stat, _type, content, js_none, k);
+  return js_void
 }
 
 http._opa_servers = {};
@@ -409,8 +410,8 @@ http._opa_servers = {};
   var server =
     http.createServer(function (request, response) {
                         var pathname = url.parse(request.url).pathname;
-                        Cookies.increment_cookie_connection_count();
-                        var req = Cookies.cookies_in({timestamp:new Date(), pathname:pathname,
+                        increment_cookie_connection_count();
+                        var req = cookies_in({timestamp:new Date(), pathname:pathname,
                                                       server_name:name, cookies:{},
                                                       request:request, response:response});
                         //if (debug) console.log(req);
@@ -435,6 +436,7 @@ http._opa_servers = {};
 {
   function dispatcher_cps(winfo){
     return_(dispatcher, winfo);
+    launch_schedule();
   };
   return %%BslNet.Http_server.init_server%%(name, port, certfileo, privkeyo, passwdo, secure_type, dispatcher_cps, ontransfer);
 }
@@ -627,7 +629,8 @@ var reason_phrase_map = {
 ##register get_cookie: WebInfo.private.native_request -> string
 ##args(req)
 {
-  return req.cookies.ic;
+  var s = req.cookies.ic
+  return s != null ? s : "";
 }
 
 ##register get_request_cookie:WebInfo.private.native_request -> option(string)

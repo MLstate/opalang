@@ -68,5 +68,5 @@
 ##args(topic, value)
 {
    if(console)//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-         console.debug("[OPA]", topic, value)
+         console.log("[OPA]", topic, value)
 }

@@ -115,11 +115,9 @@ function args_apply(closure,args) {
 ##register [cps-bypass] apply_cps : Closure.t, Closure.args, continuation('a) -> void
 ##args(closure, args, k)
 {
-   error("TODO: apply_cps")
-   /*if(closure.arity - 1 == args.length + closure.args.length){
-      args.push(k);
-   }
-   return %BslClosure.apply%(closure, args);*/
+    // Warning : partial apply was broken
+    args.push(k);
+    args_apply(closure, args);
 }
 
 function get_closure_name(closure) {
