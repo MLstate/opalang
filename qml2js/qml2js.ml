@@ -225,45 +225,41 @@ struct
     write env_opt (filename, content)
 
   let linking_generation_js_init generated_files env_js_input oc =
-    let generated_files, js_init =
+    let js_init =
       let js_init = get_js_init env_js_input in
-      let to_map l = List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty l in
-      (to_map generated_files, to_map js_init)
+      List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty js_init
     in
-    let generated_map, js_init_map =
+    let generated_files = List.rev generated_files in
+    let generated_files, js_init_map =
       R.fold_with_name ~packages:true ~deep:true
-        (fun package (generated_map, js_init_map) {S. generated_files; js_init} ->
-           let generated_map = List.fold_left
-             (fun generated_map (filename, content) ->
-                StringMap.replace filename
-                  (function
-                   | None -> content
-                   | Some c ->
-                       OManager.verbose "Load file %s from %a"
-                         filename ObjectFiles.Package.pp package;
-                       if content <> c then
-                         OManager.warning ~wclass "Two file named %s has not the same content\n%!"
-                           filename;
-                       content
-                  ) generated_map
-             ) generated_map generated_files
+        (fun _package (generated_files, js_init_map) {S. generated_files = opxgenfiles; js_init} ->
+           let generated_files = List.fold_left
+             (fun generated_files ((filename, content) as opxgenfile) ->
+                try
+                  let c = List.assoc filename generated_files in
+                  if content <> c then
+                    OManager.warning ~wclass "Two file named %s has not the same content\n%!"
+                      filename;
+                  generated_files
+                with Not_found -> opxgenfile::generated_files
+             ) generated_files opxgenfiles
            in
            let js_init_map = List.fold_left
              (fun js_init_map (index, elt) ->
                 StringMap.add index elt js_init_map
              ) js_init_map js_init
-           in generated_map, js_init_map
+           in generated_files, js_init_map
         ) (generated_files, js_init)
     in
-    StringMap.iter
-      (fun filename content ->
+    List.iter
+      (fun (filename, content) ->
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "// From %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "console.log('Load file %s')" filename;
          Printf.fprintf oc "%s" content;
          Printf.fprintf oc "\n";
-      ) generated_map;
+      ) (List.rev generated_files);
     Printf.fprintf oc "///////////////////////\n";
     Printf.fprintf oc "// BSL JS INIT\n";
     Printf.fprintf oc "///////////////////////\n";
