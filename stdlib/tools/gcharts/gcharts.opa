@@ -189,6 +189,7 @@ type GCharts.option =
   / { series : list((int, list(GCharts.series_option))) } // (Affected series, options)
 
   / { legend : {left}/{right}/{top}/{bottom}/{in}/{none} }
+  / { display_mode : {markers}/{none} }
   / { region : GCharts.region }
   / { is_stacked : bool }
 
@@ -351,6 +352,10 @@ type GCharts.option =
           | {top}    -> ({String="top"})
           | {bottom} -> ({String="bottom"})
           | {in}     -> ({String="in"})
+          | {none}   -> ({String="none"}))
+      | ~{display_mode} ->
+        ("displayMode", match display_mode with
+          | {markers}   -> ({String="markers"})
           | {none}   -> ({String="none"}))
       | ~{region} ->
         ("region", match region with
