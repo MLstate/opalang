@@ -362,6 +362,8 @@ function push(task)
     ready.push(task);
 }
 
+var is_schedule = false;
+
 /**
  * An infinite scheduling loop.
  *
@@ -371,12 +373,12 @@ function push(task)
  */
 function loop_schedule()
 {
-    cps_debug("Entering scheduling outer loop");
     var i;
     var fatal_error   = false;//[true] if we stopped scheduling because of a fatal error, [false] otherwise
     var nothing_to_do = false;//[true] if we stopped scheduling because there's nothing left to do
     var tasks         = ready;//Keep a local copy. In most JS VMs, this will speed-up code.
     var task;
+    is_schedule = true;
     try
     {
         for(;;)
@@ -394,9 +396,18 @@ function loop_schedule()
         }
     } catch(e) {
         fatal_error = true;
-        cps_debug(e);
+        console.log("Uncaught exception : " + e.toString());
+        console.log(e.stack);
     }
-    console.log("END LOOP SCHEDULE")
+    is_schedule = false;
+}
+
+/**
+ * As loop_schedule but only if not already launched.
+ */
+function launch_schedule(){
+    if(is_schedule) return;
+    loop_schedule();
 }
 
 /**
