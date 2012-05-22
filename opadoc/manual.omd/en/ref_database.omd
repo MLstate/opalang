@@ -25,10 +25,9 @@ The following piece of code declares a database named `my_db` and defines :
 - 1 path containing a record (/r)
 - 1 path containing a list of strings
 - 1 path to a map from integers (`intmap`) to values of type `stored`.
-- 1 path to a database set of `stored` records, where the primary key of the declared set is `x`.
-- 1 path to a database set of a more complex records where the primary keys of
-  the declared set is `id`. This most complex records contains
-  embedded maps and list.
+- 1 path to a set of `stored` records, where the primary key of the declared set is `x`.
+- 1 path to a set of more complex records where the primary key of
+  the set is `id`. This most complex records contain embedded maps and lists.
 
     type stored = {int x, int y, string v, list(string) lst}
 
@@ -106,17 +105,21 @@ If you do not define a default value, Opa uses the following strategy:
 - the default value for a record is the record of default values;
 - the default value for a sum type is the case which looks most like an empty case (e.g. `{none}` for `option`, `{nil}` for list, etc.)
 
-Database fields
----------------
+Sub-paths
+---------
 
-In next chapters we mention the notion of `database fields`. Database fields are
-a common construction used for querying, updating and projection.
+_Sub-paths_ are paths relative to some location in the database. If you think
+about paths as akin to absolute paths in the file-system, then sub-paths are
+a bit like relative paths.
 
-A database field can be composed by one or several fragment. A fragment is a
-record field (<ident>) or an expression field ([<expr>]) or a hole ([_]).  A
-record field allows to access to a sub expression of a record, an expression
-field accesses to an entry of a map and a hole is used to accesses of elements
-of lists.
+There are several ways to build sub-paths, that can be further composed by
+by separating them with dots (`.`, as opposed to `/` used for paths).
+
+* A _record field_ (`<ident>`) accessing a record field with the given name,
+* An _indexed_expression_ (`[<expr>]`) accessing elements of a map with constaints given by `<expr>` and
+* A _hole expression_ (`[_]`) acessing elements of a list.
+
+We'll talk more about sub-path in the following chapters.
 
 Querying
 --------
@@ -145,7 +148,7 @@ Furthermore you can specify some querying options:
 
     k = {x : 9}
     stored x = /dbname/set[k] // k should be type of set keys, returns a unique value
-    stored x = /dbname/set[x == 10] // Returns a unique value because {x} is primary key of set
+    stored x = /dbname/set[x == 10] // Returns a unique value because {x} is the primary key of the set
 
     dbset(stored, _) x = /dbname/set[y == 10] // Returns a database set because y is not a primary key
 
@@ -160,31 +163,31 @@ Furthermore you can specify some querying options:
     // Access to a unique value (like in Opa <0.9.0 (S3))
     stored x = /dbname/imap[9]
 
-    // Access to a submap where keys are lesser than 9 and greater than 4
+    // Access to a submap where keys are smaller than 9 and greater than 4
     intmap(stored) submap = /dbname/imap[< 9 and > 4]
 
-### Querying with database fields
+### Sub-queries
 
-With database fields you can querying on depth stored value.
+We can also use sub-paths to perform sub-queries on elements at a given path.
 
-With expression fields you can querying on value inside maps.
+With indexed-expressions you can query on values inside maps.
 
     // Querying using expression fields.
     // This query returns all elements in the database set at path
     // `/dbname/complex` where
     // - The field `x` of the `stored` record on field `s` of database set
-    //   elements is lesser that 100
-    // - And the intmap `imap` contains an elements associated of the key `10`
-    //   where the field `v` is equals to `"value"`
-    // - And the stringmap `smap` contains a bindings with the key `"key"`
+    //   elements is smaller that 100
+    // - and the intmap `imap` contains an elements associated to the key `10`
+    //   where the field `v` is equal to `"value"`
+    // - and the stringmap `smap` contains a bindings with the key `"key"`
     dbset(_, _) x = /dbname/complex[s.x < 100 and imap[10].v == "value" and smap["key"] exists]
 
-With hole fields you can querying on the elements contained on list.
+With hole expressions you can query elements within a list.
 
-    // Querying using hole fields.
-    // This query returns all elements which the stringmap `smap` contains a
-    // value associated to the `"key"`. And the list on the field `lst` contains a
-    // value equals of "value".
+    // Querying using hole expressions.
+    // This query returns all elements for which the stringmap `smap` contains a
+    // value associated to the `"key"` and the list on the field `lst` contains a
+    // value equal to "value".
     dbset(_, _) x = /dbname/complex[smap["key"].lst[_] == "value"]
 
 Updating
@@ -259,27 +262,27 @@ Furthermore updates can operates on several paths.
     //Increment the field y of all records where the field x is smaller than 9
     /dbname/set[x < 9] <- {y++}
 
-### Updating with database fields
+### Updating sub-paths
 
-With database fields you can update depth stored value.
+With sub-paths it is possible to update some values deeper in the database
+structure, relative to the point of update.
 
-With expression fields you can update on value inside maps.
+For instance, with indexed-expressions it's possible to write:
 
     // Updating using expression fields.
-    // Update elements which matches with the query `...` with :
-    // - Increment field `x` of the `stored` record on field `s` of database set
-    // - And add 2 of the field `x` and substract 2 of the field `y` of the
+    // Update elements which match the query `...` by:
+    // - Incrementing field `x` of the `stored` record on field `s` of the database set
+    // - and add 2 to the field `x` and substract 2 from the field `y` of the
     //   element associated to the `"key"` in the stringmap `smap`
-    /dbname/complex[...] <- {s.x ++, smap["key"].{x += 2, y -= 2}}
+    /dbname/complex[...] <- {s.x++, smap["key"].{x += 2, y -= 2}}
 
-With hole fields you can update THE FIRST element of the list matched by the
-corresponding hole in the querying.
+With hole expressions it is possible to update *the first* element of a list matched
+by the corresponding hole in the query.
 
     // Updating using hole fields.
-    // Write "another" on the first element equals of "value" in the list
-    // `lst`. On the all rows which matches the query.
+    // Write "another" into the first element of the list `lst` in the map `smap`
+    // at key "key".
     /dbname/complex[smap["key"].lst[_] == "value"] <- {smap["key"].lst[_] : "another"}
-
 
 Projection
 ---------
@@ -321,8 +324,7 @@ Some examples follow:
     // Access of two sub-paths /x and /v of a set access
     dbset({int x, string v}, _) results = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]].{x, v}
 
-You can also use database fields to project selected datas, the kind of fragment
-are allowed in the fields are record field and expression field.
+You can also use sub-paths to project selected data.
 
     dbset({{int x, int y} s, intmap(stored) imap}) results = /dbname/complex[...].{s.{x, y}, imap}
 
