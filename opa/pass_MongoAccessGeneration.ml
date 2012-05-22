@@ -184,7 +184,9 @@ module Generator = struct
   let expr_of_strexprpath ?any gamma annotmap path =
     expr_of_strexprpath_rev ?any gamma annotmap (List.rev path)
 
-  let empty_query gamma annotmap = C.list (annotmap, gamma) []
+  let empty_document gamma annotmap = C.list (annotmap, gamma) []
+
+  let empty_query = empty_document
 
   let convert_embeded_path fragconv embed =
     List.map
@@ -496,34 +498,78 @@ module Generator = struct
     in
     C.letin annotmap [setident, set] genset
 
-  let get_read_map setkind dty uniq annotmap gamma =
+  let get_read_map setkind postdot dty uniq annotmap gamma =
     let aty = QmlAstCons.Type.next_var () in
+    let wrap_uniq (annotmap, map) =
+      match postdot with
+      | None -> annotmap, map
+      | Some postdot ->
+          let datai = Ident.next "data" in
+          let annotmap, data = C.ident annotmap datai dty in
+          let annotmap, map = C.apply gamma annotmap map [data] in
+          let resulti = Ident.next "result" in
+          let annotmap, result = C.ident annotmap resulti dty in
+          let annotmap, body =
+            let annotmap, var = QmlAstCons.TypedPat.var annotmap resulti dty in
+            let annotmap, none = C.none annotmap gamma in
+            let annotmap, postdot = postdot (annotmap, result) in
+            let annotmap, postdot = C.some annotmap gamma postdot in
+            QmlAstCons.TypedPat.match_option annotmap gamma map var postdot none
+          in
+          C.lambda annotmap [(datai, dty)] body
+    in
     match setkind, uniq with
     | DbSchema.Map (_kty, _), true ->
-        OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
+        wrap_uniq (
+          OpaMapToIdent.typed_val ~label ~ty:[aty; dty] Api.DbSet.map_to_uniq annotmap gamma
+        )
+    | DbSchema.DbSet _, true ->
+        wrap_uniq (
+          OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
+        )
     | DbSchema.Map (kty, _), false ->
         let annotmap, to_map =
           OpaMapToIdent.typed_val ~label ~ty:[aty; dty; dty; kty;]
             Api.DbSet.to_map annotmap gamma
         in
-        let annotmap, identity =
-          let idx = Ident.next "x" in
-          let annotmap, x = C.ident annotmap idx dty in
-          C.lambda annotmap [idx, dty] x
-        in
         let idx = Ident.next "x" in
         let annotmap, x = C.ident annotmap idx dty in
-        let annotmap, body = C.apply gamma annotmap to_map [x; identity] in
+        let annotmap, postdot =
+          let idx = Ident.next "x" in
+          let annotmap, x = C.ident annotmap idx dty in
+          match postdot with
+          | None -> C.lambda annotmap [idx, dty] x
+          | Some postdot ->
+              let annotmap, x = postdot (annotmap, x) in
+              C.lambda annotmap [idx, dty] x
+        in
+        let annotmap, body = C.apply gamma annotmap to_map [x; postdot] in
         let annotmap, body = C.some annotmap gamma body in
         C.lambda annotmap [idx, aty] body
-    | DbSchema.DbSet _, true ->
-        OpaMapToIdent.typed_val ~label ~ty:[dty] Api.DbSet.set_to_uniq annotmap gamma
     | DbSchema.DbSet dataty, false ->
         let idset = Ident.next "set" in
         let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
           Api.Types.DbMongoSet.engine gamma in
         let annotmap, set = C.ident annotmap idset tyset in
-        let annotmap, set = dbMongoSet_to_dbSet gamma annotmap set dty (fun x -> x) in
+        let postdot =
+          match postdot with
+          | None -> (fun x -> x)
+          | Some postdot ->
+              (fun (annotmap, iterator) ->
+                 let annotmap, imap =
+                   OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty]
+                     Api.DbSet.iterator_map annotmap gamma
+                 in
+                 let annotmap, postdot =
+                   let idx = Ident.next "x" in
+                   let annotmap, x = C.ident annotmap idx dty in
+                   let annotmap, x = postdot (annotmap, x) in
+                   C.lambda annotmap [idx, dty] x
+                 in
+                 C.apply gamma annotmap imap [postdot; iterator]
+              )
+        in
+        let annotmap, set = dbMongoSet_to_dbSet gamma annotmap set dty postdot in
         let annotmap, set = C.some annotmap gamma set in
         C.lambda annotmap [idset, tyset] set
 
@@ -757,7 +803,12 @@ module Generator = struct
 
     | _ ->
         (* Preprocessing of the embedded path, for select only useful data. *)
-        let select0, postdot =
+        let dataty =
+          match setkind with
+          | DbSchema.DbSet ty -> ty
+          | DbSchema.Map (_, ty) -> ty
+        in
+        let select0, postdot, postty, embed_field =
           let dot str ty =
             match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
             | Q.TypeRecord ((Q.TyRow (row, _)) as tyrow) ->
@@ -769,43 +820,38 @@ module Generator = struct
                 str QmlPrint.pp#ty ty
           in
           match embed with
-          | None -> select0, None
+          | None -> select0, None, dataty, []
           | Some embed ->
-              let select0, postdot =
+              let select0, postdot, posty, embed_field =
                 List.fold_right
-                  (fun fragment (select, post) ->
+                  (fun fragment (select, post, posty, embed_field) ->
                      match fragment with
                      | DbAst.FldKey str ->
                          DbAst.SFlds [[`string str], select],
-                         (fun ((annotmap, expr), ty) ->
-                            let ty = dot str ty in
+                         (fun (annotmap, expr) ->
                             let ae = C.dot gamma annotmap expr str in
-                            post (ae, ty)
-                         )
+                            post ae
+                         ),
+                         (fun ty -> posty (dot str ty)),
+                         `string str :: embed_field
                      | DbAst.ExprKey uexpr
                      | DbAst.Query (DbAst.QEq uexpr , _)->
                          DbAst.SId (uexpr, select),
-                         (fun ((annotmap, expr), dty) ->
-
-                                post ((annotmap, expr), dty)
-
-                            )
+                         (fun (annotmap, expr) -> post (annotmap, expr)),
+                         (fun dty -> posty dty),
+                         `expr uexpr::embed_field
                      | DbAst.NewKey _
                      | DbAst.Query _ ->
                          QmlError.error context
                            "This kind of sub selection is not yet implemented by mongo generator")
                   embed
-                  (select0, (fun x -> x))
-              in select0, Some postdot
+                  (select0, (fun x -> x), (fun x -> x), [])
+              in
+              let postty = posty dataty in
+              select0, Some postdot, postty, embed_field
         in
         (* Type of the data after selection *)
-        let dataty =
-          let ty =
-            match setkind with
-            | DbSchema.DbSet ty -> ty
-            | DbSchema.Map (_, ty) -> ty
-          in QmlDbGen.Utils.type_of_selected gamma ty select0
-        in
+        let dataty = QmlDbGen.Utils.type_of_selected gamma dataty select0 in
         (* DbSet.build *)
         let (annotmap, build, query, args) =
           match kind with
@@ -834,34 +880,41 @@ module Generator = struct
                     OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
                       Api.DbSet.build_vpath annotmap gamma
                   in
-                  let annotmap, read_map = get_read_map setkind dataty uniq annotmap gamma in
+                  let annotmap, read_map = get_read_map setkind postdot dataty uniq annotmap gamma in
                   (annotmap, build, query, [default; skip; limit; select; read_map])
               | DbAst.Ref ->
-                  let annotmap, read_map = get_read_map setkind dataty uniq annotmap gamma in
+                  let annotmap, read_map = get_read_map setkind postdot dataty uniq annotmap gamma in
                   let build_rpath, (annotmap, write_map) =
+                    let write_map_uniq _ =
+                      let iarg  = Ident.next "data" in
+                      let annotmap, earg = C.ident annotmap iarg postty in
+                      let annotmap, doc =
+                        match embed_field with
+                        | [] -> opa2doc ~ty:postty gamma annotmap earg ()
+                        | _ ->
+                            let annotmap, field = expr_of_strexprpath gamma annotmap embed_field in
+                            let annotmap, empty = empty_document gamma annotmap in
+                            add_to_document0 ~ty:postty gamma annotmap field earg empty
+                      in
+                      C.lambda annotmap [(iarg, postty)] doc
+                    in
                     match setkind, uniq with
                     | DbSchema.DbSet _, true ->
-                        let iarg  = Ident.next "data" in
-                        let annotmap, earg = C.ident annotmap iarg dataty in
-                        let annotmap, doc = opa2doc ~ty:dataty gamma annotmap earg () in
-                        Api.DbSet.build_rpath, C.lambda annotmap [(iarg, dataty)] doc
+                        Api.DbSet.build_rpath, write_map_uniq ()
                     | DbSchema.Map (_kty, _dty), true ->
-                        let iarg  = Ident.next "data" in
-                        let annotmap, earg = C.ident annotmap iarg dataty in
-                        let annotmap, doc = opa2doc ~ty:dataty gamma annotmap earg () in
-                        Api.DbSet.build_rpath, C.lambda annotmap [(iarg, dataty)] doc
+                        Api.DbSet.build_rpath, write_map_uniq ()
                     | DbSchema.DbSet _, false ->
                         QmlError.warning ~wclass:WarningClass.dbgen_mongo
                           context "Reference path on database set is not advised";
                         Api.DbSet.build_rpath_collection,
-                        OpaMapToIdent.typed_val ~label ~ty:[dataty]
+                        OpaMapToIdent.typed_val ~label ~ty:[postty]
                           Api.DbSet.set_to_docs annotmap gamma
 
                     | DbSchema.Map (kty, _), false ->
                         QmlError.warning ~wclass:WarningClass.dbgen_mongo
                           context "Reference path on database map is not advised";
                         Api.DbSet.build_rpath_collection,
-                        OpaMapToIdent.typed_val ~label ~ty:[kty; dataty]
+                        OpaMapToIdent.typed_val ~label ~ty:[kty; postty]
                           Api.DbSet.map_to_docs annotmap gamma
                   in
                   let annotmap, build =
@@ -932,9 +985,7 @@ module Generator = struct
                 | None -> annotmap, None
                 | Some postdot ->
                     let data = Ident.next "data" in
-                    let (annotmap, map), postty =
-                      postdot ((C.ident annotmap data dataty), dataty)
-                    in
+                    let (annotmap, map) = postdot (C.ident annotmap data dataty) in
                     let annotmap, map = C.lambda annotmap [(data, dataty)] map in
                     annotmap, Some (map, postty)
               in
