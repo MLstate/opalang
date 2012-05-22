@@ -77,6 +77,8 @@ Improvements:
 
   * Better check of wrong cyclic type definition
 
+  * Faster parsing of Mime Miltipart message
+
 Bug fixes:
 
   * UriParser
