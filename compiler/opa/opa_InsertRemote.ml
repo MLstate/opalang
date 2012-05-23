@@ -820,9 +820,9 @@ let register_skeleton ~renamingmap ~annotmap ~stdlib_gamma ~gamma ~side oexpr is
             send_to_<side>
               "<function_id>"
               (OpaRPC.serialize
-                (OpaRPC.add_args_with_type t3 a3
-                (OpaRPC.add_args_with_type t2 a2
                 (OpaRPC.add_args_with_type t1 a1
+                (OpaRPC.add_args_with_type t2 a2
+                (OpaRPC.add_args_with_type t3 a3
                   (OpaRPC.add_var_types i2
                   (OpaRPC.add_var_types i1 OpaRPC.empty_request))))))
             tres
@@ -836,9 +836,9 @@ let register_skeleton ~renamingmap ~annotmap ~stdlib_gamma ~gamma ~side oexpr is
             async_send_to_<side>
               "<function_id>"
               (OpaRPC.serialize
-                (OpaRPC.add_args t3 a3
-                (OpaRPC.add_args t2 a2
                 (OpaRPC.add_args t1 a1
+                (OpaRPC.add_args t2 a2
+                (OpaRPC.add_args t3 a3
                   (OpaRPC.add_var_types i2
                   (OpaRPC.add_var_types i1 OpaRPC.empty_request))))))
           | _ -> /* Make an error */
@@ -950,7 +950,7 @@ let generate_stub explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side 
       (fun (annotmap, req) t a ->
          let annotmap, add_args_with_type = OpaRPC.add_args_with_type ~side annotmap stdlib_gamma in
          TypedExpr.apply gamma annotmap add_args_with_type [t; a; req])
-      (annotmap, req) ex_ins_list expr_std_list in
+      (annotmap, req) (List.rev ex_ins_list) (List.rev expr_std_list) in
 
   (* String identifier of function *)
   let f_id = ident_to_registering renamingmap ident in

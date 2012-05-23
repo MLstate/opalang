@@ -71,6 +71,7 @@ type OpaRPC.interface = {{
 
 @both OpaRPC = {{
 
+
   /**
    * {2 Unserialization}
    */
@@ -175,19 +176,24 @@ type OpaRPC.interface = {{
     List.fold(
       (ty, lres -> OpaSerialize.partial_serialize(ty, @typeof(ty)) +> lres),
        list, [])
-  serialize(request:OpaRPC.request) : string =
+
+  serialize_json(request:OpaRPC.request) : RPC.Json.json =
     types = serialize_aux(request.types)
     rows = serialize_aux(request.rows)
     cols = serialize_aux(request.cols)
-    Json.serialize_opt(
-      {List=[{List=types},{List=rows},{List=cols},{List=List.rev(request.values)}]} : RPC.Json.json
-    )
+    {List=[{List=types},{List=rows},{List=cols},{List=request.values}]}
+
+  serialize(request:OpaRPC.request) : string =
+    Json.serialize_opt(serialize_json(request))
 
 }} /* disabled : OpaRPC.interface */
+
+
 
 /**
  * {1 Specific client module for RPC}
  */
+
 @client OpaRPC_Client = {{
 
   /**
@@ -212,6 +218,7 @@ type OpaRPC.interface = {{
         result
       | {some = cached} -> cached
     ))
+
 
   /**
    * Sending a request to server.
@@ -243,6 +250,7 @@ type OpaRPC.interface = {{
     mr = %%Session.PingRegister.pang_request%% : string, string -> string
     ignore(mr(url, body))
     #<End>
+
 
 
 
@@ -302,7 +310,6 @@ type OpaRPC.timeout = {
 /**
  * {1 Specific server module for RPC}
  */
-
 @server_private
 OpaRPC_Server =
 
@@ -423,7 +430,7 @@ OpaRPC_Server =
           | _ ->
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
           end
-      )
+    )
     do Log.debug("RPC", "{fun_name} received")
     OpaSerialize.unserialize(serialized_return, ty)
     ? error("OPARPC : Request on client url {fun_name} has failed.")
@@ -435,15 +442,17 @@ OpaRPC_Server =
     match thread_context() with
     | {key = {client = x}; details = _; request = _; constraint = _} ->
       if not(send_response(false, id, arg, dummy_cont, x)) then
-        error("Server request client rpc but client wasn't ping ({fun_name})")
+      error("Server request client rpc but client wasn't ping ({fun_name})")
     | _ ->
       error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
     end
+
 
   /**
    * This module is a dispatcher of RPC on server
    */
   Dispatcher = {{
+
     reply(winfo, msg, status) =
       WebInfo.simple_reply(winfo, msg, status)
 
@@ -464,7 +473,7 @@ OpaRPC_Server =
     /* Duplication
      * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depends on the package [stdlib.rpc.core] */
     get_requested_post_content = %% BslNet.Requestdef.get_request_message_body %% : WebInfo.private.native_request -> string
-
+      
     parser_(winfo) =
       parser
         #<Ifstatic:OPA_FULL_DISPATCHER>
@@ -476,7 +485,7 @@ OpaRPC_Server =
           body = (%%BslNet.Requestdef.get_request_message_body %%(winfo.http_request.request))
           if rpc_return(client, id, body) then reply(winfo, "true", {success})
           else reply(winfo, "false", {unauthorized})
-        #<End>
+              #<End>
           | "rpc_call" async="_async"? "/" name=(.*) ->
           async = Option.is_some(async)
           name = "{name}"
@@ -513,7 +522,7 @@ OpaRPC_Server =
                   #<End>
                   ty = {TyRecord_row=[{label="success" ~ty}]}
                   serial = OpaSerialize.serialize_with_type(ty,{success=result})
-                  reply(winfo, serial, {success})
+      reply(winfo, serial, {success})
               end)
           end
   }}
