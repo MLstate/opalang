@@ -1,0 +1,209 @@
+Opa 导读
+=============
+
+OPA是新一代的开源web开发平台，它可以让你使用Opa一种技术就写出安全、可扩展的web应用。本手册将为你介绍OPA的许多特性。如果你有编程经验和web开发的知识（尤其是HTML和CSS）的话，将会对阅读和理解有很大帮助。
+
+单一的语言
+-----------------
+
+OPA是开发web应用的一种单一语言。也就是说，服务端和客户端的代码都是采用OPA语言编写的。
+
+你可以在不用考虑客户服务端差异的情况下写出一个完整的web应用，OPA编译器会自动地为你发布代码并且管理所有的通讯。有时，你可能需要去调整编译器的选项（例如达到增强应用的性能的目的），在这种情况下，只需要使用诸如“client”、“server”这样的关键字就可以了。
+
+```
+ // Opa decides
+function client_or_server(x, y) { ... }
+ // Client-side
+client function client_function(x, y) { ... }
+ // Server-side
+server function server_function(x, y) { ... }
+```
+
+数据库的代码也可以直接使用OPA语言编写，OPA支持主要的NoSQL数据库MongoDB和CouchDB，并且具有自己的内部数据库。内部数据库不需要进行任何的配置，因此尤其推荐初学者使用。
+
+简单的工作流
+-------------
+
+要编写一个应用，首先要在你习惯的编辑器中写好代码，OPA中最简单的“hello world”应用如下：
+
+```
+Server.start(
+   Server.http,
+   { page: function() { <h1>Hello, world</h1> }
+   , title: "Hello, world"
+   }
+)
+```
+
+然后，使用下面的编译命令编译：
+`opa hello.opa --`[sh]
+// --parser js-like
+
+在应用启动之后，就可以使用浏览器中查看这个应用： http://localhost:8080
+
+熟悉的语法
+---------------
+
+OPA的新语法（译者注：Opa 0.9s4之后与之前版本的语法有比较大的差别）源自于流行的编程语言：c，javascript等，下面是OPA程序片段：
+
+```
+function createUser(username, password) {
+    match (findUser(username)) {
+    case {none}:
+        user =
+            { username: username
+              , fullname: ""
+              , password: Crypto.Hash.sha2(password)
+            };
+        saveUser(user);
+    default:
+        displayMessage("This username exists");
+    };
+    Client.goto("/login");
+}
+```
+
+然而，OPA除了继承自传统的web语法外，还增加了一些新的特性。例如，HTML片段可以直接插入到程序中，不需要添加引号，如下：
+`line = <div id="foo">bar</div>;`[opa]
+
+Css选择器也可以直接使用，如下：
+`selector = #foo;`[opa]
+
+并且，类似指针的语法可以把指定的内容赋值给选择器，如下：
+`*selector = line;`[opa]
+
+OPA提供了事件驱动（event-driven）的编程方式。例如，当某个事件触发后运行一个方法可以使用下面的代码完成：
+```
+function action(_) {
+  #foo = <div id="bar" />;
+}
+...
+<div onclick={action} />
+```
+
+查看OPA特性和语法最好的地方是看 [reference card](/refcard).
+
+
+静态类型
+-------------
+
+OPA最重要特性之一是其类型系统。虽然OPA看起来像很多动态编程语言，但其实它是编译性语言，并且依赖于state-of-the-art类型系统。
+
+OPA在编译阶段就进行类型检查，这表明在运行阶段不会出现类型错误。例如，下面的代码：
+`foo = 1 + "bar";`[opa]
+在编译阶段会报如下错误：
+`"Types int and string are not compatible"`[sh]
+
+然而，不像C和Java，你不需要在任何地方都去注明变量的类型，因为OPA几乎可以推断出所有的应该属于的类型，例如你可以直接这样写：
+
+```
+function foo(s) {
+   String.length(s);
+}
+function bar(x, y) {
+   foo(x) + y;
+}
+```
+
+OPA编译器会自动的推断出上述参数和返回值的类型，上面代码和下面的代码作用一样：
+
+```
+int function foo(string s) {
+   String.length(s);
+}
+int function bar(string x, int y) {
+   foo(x) + y;
+}
+```
+
+这个类型推断系统会大大加快你编写代码的速度。举例来说，Opa在编译阶段会捕获4中类型的错误，下面的例子是从一个叫做webshell（ http://github.com/hbbio/webshell ) 的真实Opa程序中选取出来的。
+
+如果你这样写：
+
+```
+element =
+        <div>
+                <span>{prompt({none})}</span>
+                <span>{expr}
+        </div>
+        <div>{Calc.compute(expr)}</div>;
+```
+编译器会提示你：元素的起始定义和结束标志不匹配。（第四行少了一个 </span>) 
+
+如果你这样写：
+
+```
+case {some: 13}: #status = "Enter"; callback(get());
+case {some: 37}: #status = "Left"; move({lef});
+case {some: 38}: #status = "Up"; move({up});
+case {some: 39}: #status = "Right"; move({right});
+```
+编译器会提示你方法的类型不正确，你使用了类型 '{lef}'，而期待的类型为： '{left} or {right} or {rightmost} or {up} or {down}' 。后面期待的类型并没有在代码的任何地方进行定义，而是Opa通过其他地方的代码推断出来的。
+
+如果你这样写：
+
+```
+previous = Dom.get_content(#precaret);
+#precaret = String.sub(0, String.lenght(previous) - 1, previous);
+#postcaret += String.get(String.length(previous) - 1, previous);
+```
+编译器会提示你：String模块并没有lenght方法，而且会询问你或许是想使用： int function length(string)?
+
+如果你这样写：
+
+```
+previous = Dom.get_content(#postcaret);
+#postcaret = String.sub(1, String.length(previous) - 1, previous);
+#precaret =+ String.get(previous);
+```
+编译器会提示你：String.get方法的类型为 string function(int, string), 但是你调用的形式为 string function(string)。说明你忘记了第一个整型参数。
+
+Opa的类型系统不仅仅管理基础类型，还管理复杂的数据结构甚至是模块。类型系统一章会给出完整地说明。
+
+数据库
+--------
+
+OPA现在已经提供了对MongoDB和CouchDB的支持，另外还有其自身内部的数据库引擎。后者不需要任何配置，推荐初学者使用。
+
+数据库值是通下面的代码声明：
+`database type /path;`[opa]
+例如：
+`database int /counter;`[opa]
+
+在上面的代码中，/counter叫做路径，由于访问存储的值与浏览文件系统类似。从数据库中获取一个值可以通过简单地: 
+`/counter`[opa]
+而存储一个值使用下面的代码：
+`/path <- value`[opa]
+
+你可以向数据库中存放复杂的数据结构，例如map。Map是一种键（key）到值（value）关联的数据结构。Opa的路径系统可以识别这样的数据结构并允许直接在路径上指定键，例如：
+```
+database stringmap(string) /dictionary;
+...
+/dictionary[key];
+...
+/dictionary[key] <- value;
+...
+```
+
+总结
+-------
+
+你能够猜出下面代码的作用么？
+
+[opa|fork=hello-opa|run=http://hello-opa.tutorials.opalang.org]file://hello-opa/hello-opa.opa
+
+试着去运行，你就会知道了。
+
+深入了解
+-------------
+
+在后面的章节里，我们会介绍Opa的众多特性和实例。每一章关注于一个特定的Opa应用，以及如何结合本章和前面章节所学到的知识，更好地完成这个应用。在本手册的最后，另外有章节更详细地介绍Opa语言和平台的概念。
+
+如果你有任何的疑问或反馈，可以直接联系我们。下面是取得联系一些方式：
+
+- [Opa 论坛](http://forum.opalang.org);
+- Opa [邮件组](https://lists.owasp.org/mailman/listinfo/opa);
+- [Stack Overflow](http://stackoverflow.com/questions/tagged/opa)
+- 如果希望得到最新的Opa动态，可以在 [Twitter (@opalang)](http://twitter.com/opalang) or [Facebook](http://www.facebook.com/Opalang) or [Google+](https://plus.google.com/b/106948838673607430453/) 上关注Opa。
+
+期待您的加入，让我们一起改变web开发的方式。

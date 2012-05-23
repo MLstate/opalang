@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -159,6 +159,10 @@ val uppercase : string -> string
 *)
 val lowercase : string -> string
 
+(**
+   check utf8 validity
+*)
+val check : string -> bool
 
 (**
    {6 Deprecated}

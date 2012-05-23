@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -43,3 +43,4 @@ val is_alpha : char -> bool
 *)
 val is_space : char -> bool
 val hexa_value : char -> int
+val cache : (char->bool) -> (char->bool)

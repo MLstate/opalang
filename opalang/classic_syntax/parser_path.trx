@@ -70,6 +70,28 @@ path_update <-
        DBPath (pa, QmlAst.Db.Update ((QmlAst.Db.UExpr e), QmlAst.Db.default_update_options), s)
     }}
 
+(**
+   {Path fields}
+*)
+field_string <- Opa_lexer.field_identifier_nosp:s {{`string s}}
+
+field_expr <- lbracket Opa_parser.expr:e rbracket {{`expr e}}
+
+field_any <- lbracket Opa_lexer.underscore_nosp rbracket {{`any}}
+
+field_one <-
+  / field_string
+  / field_any
+  / field_expr
+
+field_dot_one <-
+  / "." field_string:f {{f}}
+  / field_any
+  / field_expr
+
+
+field_long <- spacing field_one:t (field_dot_one:f {{f}})*:l {{t::l}}
+
 
 (* ******************************************************************)
 (**
@@ -94,12 +116,12 @@ update_noopt <-
   / Opa_parser.expr:e {{ QmlAst.Db.UExpr e }}
 
 update_field <-
-  / Opa_parser.record_long_ident:i (Opa_parser.record_fields_assign update_noopt:e {{e}} / update_simple):e
-    {{ `binding (List.map undecorate i, e) }}
+  / field_long:f (Opa_parser.record_fields_assign update_noopt:e {{e}} / update_simple):e
+    {{ `binding (f, e) }}
   / tilda:tilda Opa_parser.record_short_ident:i
     {{
        let u = if tilda then `value (QmlAst.Db.UExpr (var_to_exprvar i)) else `novalue i in
-       `noassign ([undecorate i], u , None)
+       `noassign (([`string (undecorate i)]:'a QmlAst.Db.field), u , None)
      }}
 
 update_fields <-
@@ -111,14 +133,18 @@ update_fields <-
 update_simple <- update_list / update_incr
 
 update_incr <-
-  / (=Opa_lexer.exact_symbol("++"))
-    {{ QmlAst.Db.UIncr 1 }}
-  / (=Opa_lexer.exact_symbol("+=")) spacing Opa_lexer.int:i
-    {{ QmlAst.Db.UIncr i }}
-  / (=Opa_lexer.exact_symbol("--"))
-    {{ QmlAst.Db.UIncr (-1) }}
-  / (=Opa_lexer.exact_symbol("-=")) spacing Opa_lexer.int:i
-    {{ QmlAst.Db.UIncr (-i) }}
+  / (=Opa_lexer.deco((=Opa_lexer.exact_symbol("++")))):d
+    {{ QmlAst.Db.UIncr ((SurfaceAst.Const (SurfaceAst.CInt (Big_int.big_int_of_int 1))), label d) }}
+  / (=Opa_lexer.exact_symbol("+=")) spacing Opa_parser.expr:e
+    {{ QmlAst.Db.UIncr e }}
+  / (=Opa_lexer.deco((=Opa_lexer.exact_symbol("--")))):d
+    {{ QmlAst.Db.UIncr (SurfaceAst.Const (SurfaceAst.CInt (Big_int.big_int_of_int (-1))), label d) }}
+  / (=Opa_lexer.exact_symbol("-=")) spacing Opa_parser.expr:e
+    {{
+       let l = label e in
+       let minus = (SurfaceAst.Ident Opacapi.unary_minus, l) in
+       QmlAst.Db.UIncr (minus &. [e], l)
+    }}
 
 update_list <-
   / (=Opa_lexer.exact_symbol("<+")) spacing Opa_parser.expr:e
@@ -142,8 +168,8 @@ select <-
   / select_nil
 
 select_field <-
-  / Opa_parser.record_long_ident:i select:e
-    {{ List.map undecorate i, e }}
+  / field_long:f select:e
+    {{ f, e }}
 
 select_fields <-
   / lbrace
@@ -192,7 +218,9 @@ query_simple_builder <-
   / (=Opa_lexer.exact_symbol("!=")) {{ fun e -> QmlAst.Db.QNe e }}
   / (=Opa_lexer.exact_ident("in"))  {{ fun e -> QmlAst.Db.QIn e }}
 
-query_simple <- query_simple_builder:b query_expr:e {{ b e }}
+query_simple <-
+  / query_simple_builder:b query_expr:e {{ b e }}
+  / (=Opa_lexer.exact_ident("exists")) {{ QmlAst.Db.QExists true }}
 
 query_keywords <-
   / (=Opa_lexer.exact_keyword("and"))
@@ -207,10 +235,8 @@ query_double_builder <-
 
 query_expr <- Opa_parser.expr
 
-query_long_ident <- Opa_parser.record_long_ident:i {{List.map undecorate i}}
-
-query_field <- query_nokeywords query_long_ident:i query_simple:q
-  {{ (i, q) }}
+query_field <- query_nokeywords field_long:f query_simple:q
+  {{ (f, q) }}
 
 query_fields <- (=list1(query_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
   {{ QmlAst.Db.QFlds l }}
@@ -228,8 +254,8 @@ query_options_order_label <-
   / (=Opa_lexer.exact_symbol("+")) {{"up"}}
 
 query_options_order_field <-
-  / query_long_ident:i (=Opa_lexer.exact_symbol("=")) query_expr:e {{ (i, e) }}
-  / query_options_order_label?:ordlbl (=Opa_lexer.careful_deco(query_long_ident)):i
+  / field_long:l (=Opa_lexer.exact_symbol("=")) query_expr:e {{ (l, e) }}
+  / query_options_order_label?:ordlbl (=Opa_lexer.careful_deco(field_long)):i
     {{
        let i, label = i in
        let ordlbl = Option.default "up" ordlbl in

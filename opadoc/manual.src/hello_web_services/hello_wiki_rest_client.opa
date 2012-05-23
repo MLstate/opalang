@@ -11,7 +11,7 @@ function uri_for_topic(topic) {
     )
 }
 
-exposed function load_source(topic) {
+function load_source(topic) {
     match (WebClient.Get.try_get(uri_for_topic(topic))) {
     case { failure : _ }: "Error, could not connect";
     case ~{ success }:

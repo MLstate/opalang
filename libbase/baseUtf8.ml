@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -20,8 +20,13 @@ module String = BaseString
 
 (* -- *)
 
-let except_html_char = "\"&<>" (* normal characters that *should* be escaped in html *)
-let allowed_special_char = "\t\n\r" (* special characters that *should not* be escaped in html *)
+(* normal characters that *should* be escaped in html *)
+let except_html_char = "\"&<>"
+let fexcept_html_char = BaseChar.cache (String.contains except_html_char)
+
+(* special characters that *should not* be escaped in html *)
+let allowed_special_char = "\t\n\r"
+let fallowed_special_char = BaseChar.cache (String.contains allowed_special_char)
 
 let string_of_int i =
   let r1 i = Char.chr (((i mod 64) + 128)) in
@@ -39,30 +44,25 @@ let string_of_int i =
   else assert false
 
 (*  takes any utf8 string and converts it into html entities (escape *all* characters, which is not avised in general; please perform checks before calling it) *)
-let htmlentities src =
-  let rec pow n p = if p = 0 then 1 else (pow n (p - 1)) * n in
-  let len = String.length src in
-  let soi = Pervasives.string_of_int in
-  let rec aux nbr pos i lst =
-    if i = len then lst
-    else
-      let chr = Char.code src.[i] in
-      if pos = (-1) then
-        if chr >= 240 then aux ((chr mod 16) * 262144) 2 (i + 1) lst
-        else if chr >= 224 then aux ((chr mod 32) * 4096) 1 (i + 1) lst
-        else if chr >= 192 then aux ((chr mod 64) * 64) 0 (i + 1) lst
-        else if (chr < 128 && (chr >= 32 || String.contains allowed_special_char src.[i])) || String.contains except_html_char src.[i]
-        then aux 0 (-1) (i + 1) (chr::lst)
-        else
-          (* between 128 and 192: malformed UTF-8; we should absolutely not fail, but return the usual black question mark for invalid symbols *)
-          (* between 0 and 31, except allowed_special_char, the entities seem to be illegal, so we project again to the question mark *)
-          begin
-            (* Journal.Interface.warning (Printf.sprintf "Warning: htmlentities: invalid UTF-8: in string %s at position %d on character of code %d" src i chr); *)
-            aux 0 (-1) (i + 1) (65533::lst)
-          end
-      else
-        let nbr = nbr + ((chr mod 64) * (pow 64 pos)) in
-        if pos = 0 then aux 0 (-1) (i + 1) (nbr::lst)
-        else aux nbr (pos - 1) (i + 1) lst
+let htmlentities_append buf src start len =
+  let unknown = 65533 in
+  let last = start+len in
+  let rec aux i =
+    if i=last then () else (
+      let char_code = Cactutf.look src i in
+      let next_i = try Cactutf.next src i with _ -> (* bad utf8 *) i+1 in
+      let char_ok = (char_code >= 32  ||  fallowed_special_char src.[i])  (* control char *)
+                (*&& (char_code <= 128 ||  fexcept_html_char src.[i]) *) (* Useless *)
+      in
+      Buffer.add_string buf "&#";
+      Buffer.add_string buf (Pervasives.string_of_int (if char_ok then char_code else unknown));
+      Buffer.add_char buf ';';
+      aux next_i
+    )
   in
-  List.fold_right (fun item acc -> acc^"&#"^(soi item)^";") (aux 0 (-1) 0 []) ""
+  aux start
+
+let htmlentities src =
+  let buf = Buffer.create ((String.length src) * ( (*String.length "&#00;"*)3 + 2 )) in
+  htmlentities_append buf src 0 (String.length src);
+  Buffer.contents buf

@@ -160,7 +160,7 @@ Xmlns =
    to_xhtml(xmlns: xmlns): xhtml = @unsafe_cast(xmlns)
 
    /**
-    * Convert a xmlns structure into a string
+    * Convert a xmlns structure into a string, assuming utf-8 encoding
     */
    to_string : xmlns -> string = serialize_to_string
 
@@ -682,6 +682,9 @@ Xhtml =
   ns_uri = "http://www.w3.org/1999/xhtml"
   @private sassoc_full(namespace, name, value) : Xml.attribute = ~{ namespace name value }
 
+  /**
+   * Convert a xhtml structure into a string, assuming utf-8 encoding
+   */
   to_string = serialize_to_string
 
   @private
@@ -773,7 +776,14 @@ Xhtml =
    * (i.e. the tags) and [js_code] contains the event handlers and the style information as a JS
    * string.
    */
-  prepare_for_export(_default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+  prepare_for_export(default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+    prepare_for_export_(true, default_ns_uri, xhtml, style_inline)
+
+  prepare_for_non_utf8_export(default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+    prepare_for_export_(false, default_ns_uri, xhtml, style_inline)
+
+  @private
+  prepare_for_export_(utf8, _default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buf.create(1024)//A buffer for storing the HTML source code
     js_buffer   = Buf.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
@@ -788,7 +798,7 @@ Xhtml =
     rec handle_xhtml(xhtml: xhtml, depth:int) =
       next = depth + 1 //next depth
       match xhtml with
-      | ~{ text }            -> Buf.add(html_buffer,String.escape_html(text))
+      | ~{ text }            -> Buf.add(html_buffer,String.escape_html(utf8,text))
       | ~{ content_unsafe }  -> Buf.add(html_buffer,content_unsafe)
       | ~{ fragment }        -> List.iter(x -> handle_xhtml(x, depth), fragment)
       | ~{ xml_dialect }     ->
@@ -816,7 +826,7 @@ Xhtml =
                  do Buf.add(html_buffer,":")
                  Buf.add(html_buffer,name)
             do Buf.add(html_buffer,"=\"")
-            do Buf.add(html_buffer,String.escape_html(value))
+            do Buf.add(html_buffer,String.escape_html(utf8,value))
             Buf.add(html_buffer,"\"")
 
           //Handle regular attributes
@@ -1074,6 +1084,13 @@ Xhtml =
     js   = of_string_unsafe(js_code)
     ~{html js}
 
+  prepare_for_export_as_xml_blocks_non_utf8(xhtml: xhtml) =
+    ~{html_code js_code} =  prepare_for_export_(false,ns_uri,xhtml,false)
+    html = of_string_unsafe(html_code)
+    js   = of_string_unsafe(js_code)
+    ~{html js}
+
+  /** Same as to_string */
   serialize_to_string(xhtml: xhtml): string =
   (
     ~{js_code html_code} = prepare_for_export(ns_uri,xhtml,false)
@@ -1082,6 +1099,7 @@ Xhtml =
       String.flatten([html_code,_script_start,js_code,_script_end])
   )
 
+  /** Same as to_string but without js_code */
   serialize_as_standalone_html(xhtml: xhtml): string =
     {js_code=_ ~html_code} = prepare_for_export(ns_uri,xhtml,true)
     html_code

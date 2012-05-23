@@ -16,7 +16,8 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 (*
-    @author Louis Gesbert
+  @author Louis Gesbert
+  @author Quentin Bourgerie
 **)
 
 #<Debugvar:DBGEN_DEBUG>
@@ -363,14 +364,15 @@ end
 module Utils = struct
 
   let rec type_of_selected gamma ty select =
+    let traverse_map s =
+      begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:"ordered_map" gamma ty with
+      | QmlAst.TypeName ([_; dty; _], _) ->  type_of_selected gamma dty s
+      | ty2 -> OManager.i_error "Try to select an id on %a %a" QmlPrint.pp#ty ty QmlPrint.pp#ty ty2
+      end
+    in
     let res = match select with
       | DbAst.SNil | DbAst.SStar | DbAst.SSlice _ -> ty
-      | DbAst.SId (_id, s) ->
-        begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:"ordered_map" gamma ty with
-          | QmlAst.TypeName ([_; dty; _], _) ->  type_of_selected gamma dty s
-          | ty2 -> OManager.i_error "Try to select an id on %a %a" QmlPrint.pp#ty ty QmlPrint.pp#ty ty2
-          end
-
+      | DbAst.SId (_id, s) -> traverse_map s
       | DbAst.SFlds sflds ->
           let ty = QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty in
           match ty with
@@ -380,7 +382,7 @@ module Utils = struct
                    ((List.filter_map
                        (fun (rfld, ty) ->
                           match List.find_map
-                            (fun (sfld, s) -> if sfld = [rfld] then Some s else None)
+                            (fun (sfld, s) -> if sfld = [`string rfld] then Some s else None)
                             sflds
                           with | None -> None
                           | Some s -> Some (rfld, type_of_selected gamma ty s)

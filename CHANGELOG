@@ -6,6 +6,10 @@ New supported platform:
 
 New features:
 
+  * Doc: 3 first chapters translated in Chinese.
+    Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
+    Online preview: http://cn.doc.opalang.org
+
   * Syntax:
     - Possibility to use underscore inside numbers
     - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
@@ -98,6 +102,7 @@ Updated APIs:
 
   * Cache
     - removed deprecated Negociator API (misspelled)
+    - added reset function to reset cache entirely
 
   * Mime
     - Mime.get_text now takes an additional decoding function

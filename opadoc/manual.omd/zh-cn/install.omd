@@ -1,0 +1,191 @@
+//[[Getting_Opa]]
+安装和使用Opa
+===========
+
+本章内容是关于如何安装和配置Opa的，如果你希望先学习一下Opa语言本身，可以先跳过本章，待需要使用时再回来参考。
+截止到本文完成之时，Opa官方提供了对Mac OS X / Ubuntu / FreeBSD / Windows的支持，但全部是64位的。如果读者希望Opa编译器运行在其他的一些系统上，可以自行从源代码对Opa进行编译。
+
+安装Opa
+--------------
+
+安装Opa最简单的方式就是从我们的[官方网站](http://www.opalang.org/get.xmlt) 上下载安装包进行安装。
+
+### Mac OS X
+
+- 首先需要安装Xcode工具，如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/) or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册). 
+
+{block}[WARNING]
+从Xcode 4.3开始，不再默认安装命令行工具。所以，当安装完Xcode之后，进入：Preferences > Downloads > Components > Command Line tools并点击安装。
+你也可以不下载Xcode，直接下载[Xcode命令行工具](https://developer.apple.com/downloads) 。
+{block}
+
+- 下载 [Opa for Mac OS X](http://www.opalang.org/get.xmlt).
+- 下载完成后，如果你的浏览器没有自动打开刚才下载的文件。进入下载目录，找到并打开该文件。这会打开一个包含安装包的新Finder窗口。
+- 双击这个安装包进行安装。
+- 依照屏幕的提示进行操作，你可能需要管理员的密码。
+- 安装完成之后，Opa编译器会被安装到： 
+
+`/opt/mlstate`[sh]
+
+同时会在 '/usr/local/bin' 创建一些符号链接，因此你不再需要去修改环境变量PATH。
+
+### Ubuntu Linux, Debian Linux
+
+下面的步骤同样适用于所有基于Debian的Linux发行版本。
+
+- 下载 [Ubuntu Linux package](http://www.opalang.org/get.xmlt).
+- 找到下载的文件，双击这个安装包进行安装。
+- 依照屏幕的提示进行操作，你可能需要管理员的密码。
+- 安装完成后，Opa编译器会被安装到
+
+`/usr/bin`[sh]
+
+文档和示例会安装在
+
+`/usr/share/doc/opa`[sh]
+
+### Arch Linux
+
+在[AUR](https://aur.archlinux.org/packages.php?ID=51140) 网站上提供了一个尚在进行中的社区包。这个版本并没有被我们官方支持，我们也没有去测试它，但我们会很高兴听到关于这个包的任何反馈。
+
+### 其他Linux发行版本
+
+要在Suse、RedHat、Fedora和其他的不使用.deb系统的Linux发行版本上安装Opa，或者你无法获取到自己机器的管理员权限。可以采用下面的步骤安装Opa：
+- 使用包管理器安装包： 
+**    `libssl-devel`
+**    `zlib1g-devel`
+- 如果你使用的发行版本中不存在这些发行包，安装提供了下列模块库的任意包：
+**  library `libssl.so`
+**  library `libz.so`
+- 下载[Linux self-extracting package](http://www.opalang.org/get.xmlt).
+- 当浏览器提示时, 保存这个文件到临时目录，例如 /tmp.
+- 如果进行用户级安装（只为自己一个用户使用）：
+** 设置下载包的可执行权限（使用 chmod +x 命令）
+** 运行安装包并根据屏幕的指示进行操作。
+** 编译器安装的默认路径为： `~/mlstate-opa/bin`
+- 如果进行系统级安装（所有用户都可以使用）：
+** 打开一个终端，输入
+
+`sudo sh [complete path to the file you have just downloaded]`[sh]
+
+** 按照屏幕的指示进行操作
+** 编译器安装的默认路径为：`/usr/local`
+- 这种安装方式提供了卸载脚本：`[install prefix]/share/opa/uninstall.sh`
+
+从源码编译Opa
+-----------------------------
+
+如果你希望Opa工作在未被支持的系统上，或者希望对Opa项目做出贡献，你就需要从源码对Opa进行构建。这相对于安装需要更多地工作，不过对你来说应该不会很难，你需要：
+
+- git (to download the source)
+- ocaml 3.12.0-5 or later
+- libgif 4.1 or later (dev version)
+- libjpeg 8b-1 or later (dev version)
+- libpng 1.2.44 or later (dev version)
+- libssl 0.9.8 or later (dev version)
+- libxft 2.2.0 or later (dev version)
+- m4
+- dblatex
+- java 1.5 or later
+- libx11 1.4.2 or later (dev version)
+- zlib 1.2.3.4 or later (dev version)
+
+另外，如果你使用的是Mac OS X系统，你还需要
+
+- GNU coreutils, wget, md5sha1sum 和 gsed (或 gnu-sed)，可在 [MacPorts](http://www.macports.org/) 或 [Homebrew](http://mxcl.github.com/homebrew/) 上获得。
+- Xcode 开发套件
+- 如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/) 
+  or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册). 
+
+{block}[WARNING]
+从Xcode 4.3开始，不再默认安装命令行工具。所以，当安装完Xcode之后，进入：Preferences > Downloads > Components > Command Line tools并点击安装。
+你也可以不下载Xcode，直接下载[Xcode命令行工具](https://developer.apple.com/downloads) 。
+{block}
+
+如果上面的依赖条件都满足的话，按照下面的步骤进行编译：
+
+- 从[GitHub](http://github.com/MLstate/opalang) 上获取源码，在终端输入：
+
+`git clone https://github.com/MLstate/opalang.git`[sh]
+
+  - 完成后，接着输入：
+
+```{.sh}
+cd opalang
+./configure -prefix SOME_DIRECTORY
+make all install
+```
+
+上面的命令会将Opa安装到`SOME_DIRECTORY`（你可能会需要管理员权限）。
+如果需要的话，不要忘了在编译完成之后修改环境变量PATH。 
+
+{block}[TIP]
+我们还提供了一个帮助你安装编译Opa所需所有依赖的脚本。那样的话，所需的依赖只有（在干净的Ubuntu 11.10上测试通过）：
+- git (to download the source)
+- m4
+- libssl 0.9.8 or later (dev version)
+- zlib 1.2.3.4 or later (dev version)
+
+这个脚本位于opalang目录下的dependencies里面。运行：`dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
+
+在完成之后你注意去更新环境变量PATH。
+
+{block}
+
+设置编辑器
+----------------------
+
+你所安装的Opa包提供了两种模式，一种适用于Emacs，另一种适用于Vim。
+
+### Emacs
+
+在Mac OS X下，如果使用Aquamacs编辑器的话，安装过程就已经设置好了。如果使用其他编辑器，需要将下面的配置信息加入到编辑器的配置文件中（应该在是 ~/.emacs文件）。
+
+```{.lisp}
+(autoload 'opa-classic-mode "/Library/Application Support/Emacs/site-lisp/opa-mode/opa-mode.el" "OPA CLASSIC editing mode." t)
+(autoload 'opa-js-mode "/Library/Application Support/Emacs/site-lisp/opa-mode/opa-js-mode.el" "OPA JS editing mode." t)
+(add-to-list 'auto-mode-alist '("\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.js\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
+```
+
+在Linux下，向配置文件中添加下面的信息：
+
+```{.lisp}
+(autoload 'opa-js-mode "/usr/share/opa/emacs/opa-js-mode.el" "OPA JS editing mode." t)
+(autoload 'opa-classic-mode "/usr/share/opa/emacs/opa-mode.el" "OPA CLASSIC editing mode." t)
+(add-to-list 'auto-mode-alist '("\\.opa$" . opa-js-mode)) ;; <-- Set the default mode here
+(add-to-list 'auto-mode-alist '("\\.js\\.opa$" . opa-js-mode))
+(add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
+```
+
+这样配置同时支持两种Opa语法，传统语法和类Javascript语法。你可以在同一个编辑器中同时使用两种语法，但不能再同一个缓存中同时使用。可以通过上面文字(Set the default mode here)所示的地方来设置默认的语法模式。
+
+{block}[TIP]
+你可能需要对Opa注释和字符串开启拼写检查，需要在emacs中输入命令： M-x flyspell-prog-mode 。
+如果你希望拼写检查在每次打开Opa文件的时候都起效，只需要向配置文件中添加下面的信息：
+```{.lisp}
+(defun enable_flyspell ()
+  (ispell-change-dictionary "american")
+  (flyspell-prog-mode)
+)
+
+;; Enable spell-checking on OPA comments and strings
+(add-hook 'opa-mode-hook 'enable_flyspell)
+```
+{block}
+
+### Vim
+
+如果你使用的是Linux系统（或Mac OS X），拷贝文件 /usr/share/opa/vim/{ftdetect,syntax}/opa.vim (对于Mac OS X： /opt/mlstate/share/opa/vim/{ftdetect,syntax}/opa.vim) 到你的.vim目录下，注意保持目录的结构。
+
+{block}[TIP]
+你也可以不拷贝，而是创建符号链接。这样的话可以让你在每次安装完新版本的Opa之后始终与最新的Opa保持一致。
+{block}
+
+### Eclipse
+Github上可以下载到一个实验性质的[Eclipse插件](https://github.com/MLstate/opa-eclipse-plugin) ，该插件功能不是很全，然而却是一个很好的开始。我们希望有开源社区能够帮助我们开发Eclipse中的插件。
+
+### 其他编辑器
+
+虽然我们目前并没有提供对其他编辑器的支持，如果有个人或组织提供了对其他编辑器的支持，我们会很乐意了解。

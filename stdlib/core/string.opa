@@ -283,7 +283,8 @@ String =
   remove_accents = %% Bslstring.remove_accents %%
 
   /**
-   * Escapes every characters of the string with &#xxx escapes
+   * Escapes every characters of the string with &#xxx escapes if needed
+   * The boolean indicates if we target an utf-8 user or not.
    *
    * Manual use of this function is strongly discouraged, as it may cause
    * security risks

@@ -70,8 +70,7 @@ code as a file `hello_chat.opa`, open a terminal and enter
 
 Opa will take a few seconds to analyze your application, check that everything
 is in order and produce an executable file. We do not really need that file yet,
-not until it actually does something. Opa will inform you that you have no
-_server_ in your application -- at this stage, your application is not really
+not until it actually does something. At this stage, your application is not really
 useful -- but that is ok, we will add the _server_ shortly.
 
 So far, we have defined `message`. Now, it is time to use it for communications. For
@@ -89,7 +88,7 @@ Networks themselves are built upon a unique and extremely powerful paradigm
 of _distributed session_, which we will detail in a further chapter.
 {block}
 
-`room = Network.network(message) (Network.cloud("room"))`[opa]
+`Network.network(message) room = Network.cloud("room")`[opa]
 
 This extract defines a _cloud network_ called `room` and initially empty. As
 everything in Opa, this network has a type. The type of this network is
@@ -535,10 +534,10 @@ For custom style, you have two possibilities. You can either do it
 inside your Opa source file or as an external file. For this example,
 we will use an external file with the following contents:
 
-###### Contents of file `resources/css.css`
-[css]file://hello_chat/resources/css.css
+###### Contents of file `resources/chat.css`
+[css]file://hello_chat/resources/chat.css
 
-Create a directory called `resources` and save this file as `resources/css.css`. It might be a good idea to add a few
+Create a directory called `resources` and save this file as `resources/chat.css`. It might be a good idea to add a few
 images to the mix, matching the names given in this stylesheet (`opa-logo.png`, `user.png`) also in directory `resources`.
 
 Now, we will want to extend our `Server.start` construct by instructing it to access the directory and to use our stylesheet. We can achieve by supplying `Server.start` with a record defining our server. More forms of records are allowed, see the definition of `Server.start` in the [online API](http://api.opalang.org).
@@ -549,7 +548,7 @@ Now, we will want to extend our `Server.start` construct by instructing it to ac
 Server.start(
     Server.http,
     [ { resources: @static_resource_directory("resources") }
-      , { register: ["resources/chat.css"]}
+      , { register: { css: ["resources/chat.css"] } }
       , { title: "Chat", page: start }
     ]
 )

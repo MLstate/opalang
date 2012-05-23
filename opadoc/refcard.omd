@@ -190,9 +190,9 @@ While working with Opa you'll use records *a lot*. Therefore it's probably a goo
     name = ...
     age = ...
      // '~field' within the record abbreviates 'field: field'
-    person = { ~name ~age }
+    person = { ~name, ~age }
      // one can even also abbreviate all fields by putting tilde in front of the record
-    person2 = ~{ name age }
+    person2 = ~{ name, age }
      // both 'person' and 'person2' are equivalent to
     person3 = { name: name, age: age }
 
@@ -744,7 +744,7 @@ This module allows one to declare Servers, i.e. entry-points of Opa programs. On
     { resources: @static_resource_directory("resources") }
 
      // no request handling but registering a list of custom resources (JS/CSS)
-    { register: ["resources/css/style.css", "resources/js/myjs.js"] }
+    { register: {css: ["resources/css/style.css", "resources/js/myjs.js"]} }
 
      // One can also use a list of servers.
      // For instance bundle + custom resources + dispatcher).
@@ -753,7 +753,7 @@ This module allows one to declare Servers, i.e. entry-points of Opa programs. On
     Server.start(
       Server.http,
       [ {resources: @static_resource_directory("resources")} // serve custom resources
-      , {register: ["resources/css.css"]}                    // use custom CSS
+      , {register: {css: ["resources/css.css"]}}             // use custom CSS
       , {title: "Chat", page:start }                         // serve the one-page app!
       ]
     )
@@ -803,7 +803,7 @@ See [syntax introduction](/refcard/The-language/Expressions/XHTML) for more info
 
      // one can also register external css (from a separate project file)
     Server.start(Server.http,
-      [ {register: "resources/css/style.css"}
+      [ {register: {css: ["resources/css/style.css"]}}
       , ...
       ])
 

@@ -1,0 +1,558 @@
+聊天室示例
+===========
+
+实时的Web应用极难开发，不仅需要一个既复杂又容易出错的基础架构来处理客户端与服务器端（有时也包括服务器端到服务器端）的通讯，而且需要针对某些攻击进行安全检查，然而事实证明，这些检查相当脆弱。
+
+Opa使得开发实时web应用变得简单。在这个章节中，我们会看到如何利用Opa语言来编写一个完整的web聊天程序，而这一切仅仅需要20行代码，并且没有以牺牲安全性作为代价。同时，我们会介绍Opa语言的基础概念，另外还包括用户界面（User Interface）的操纵，数据结构的使用，还有如何嵌入外部资源，以及构建和发布Opa程序的基础。
+
+概述
+--------
+
+首先让我们来看看本章要开发应用的截图：
+
+![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
+
+这个Web应用提供了一个聊天室。使用浏览器连接到这个应用的用户会自动地加入到这个聊天室并且能够立即开始聊天。在截图中，我们有两个用户使用普通的浏览器进行操作。为了简单起见，在这个应用中，我们先使用随机的用户名。
+
+如果你对本应用感兴趣，在本章最后，给出了这个应用完整的代码。在本章的其他部分，我们会接触到以下的概念和结构：聊天室的通讯基础构架、用户界面以及最后的主应用。
+
+设置通讯
+------------------------
+聊天室其实就是用户之间信息的传递，这意味着我们需要定义传输消息的类型，如下：
+
+`type message = {string author, string text}`[opa]
+
+这段代码定义了每个消息由两个字段组成：一个作者（author），一个内容（text），它们都是string类型的。
+
+{block}[TIP]
+### About types
+类型是一个应用所管理数据的形态。Opa使用类型来对一个应用进行检查，包括健全测试（Sanity Check，例如不会将length和color弄混淆）和安全检查（security check，不允许恶意用户向web页面中添加恶意代码使得数据库的信息混乱）。另外，Opa同时还使用类型来对应用进行优化。
+
+在大多数情况下，就算你不提供类型信息，Opa依然能够正常工作。这都要归功于Opa的类型接口（type interface）机制。但是在本书中，为了使表述更加清晰，我们会在一些原本不需要使用类型标注的地方也加上类型说明。
+{block}
+
+message类型是一个具有两个字段（field）的记录（record）类型，这两个字段分别为author和text。不久我们将会看到怎样使用message。
+
+我们此时其实已经有了一个完整应用（虽然毫无用处）。你是否希望检查一下自己代码的正确性，你可以简单地编译这个程序。将你的代码保存为hello_chat.opa，然后打开一个终端并输入：
+
+###### Compiling Hello, Chat
+`opa hello_chat.opa`[sh]
+
+Opa需要花些钟时间来分析程序，检查程序保证一切正常，并产生一个可执行文件，我们现在还不需要这个文件。Opa会提示你说在应用中并没有发现服务端（server）。此刻，你的程序并没有什么用，我们很快会加入server。
+
+之前我们定义了message，现在是时候使用它进行通讯了。为此，我们应该定义一个网络（network）。Network是浏览器和服务器之间进行通讯的单位。正如你将看到的那样，通讯是Opa许多出众之处之一。为了定义一个网络，可以这样写：
+
+{block}[TIP]
+### Networks
+网络（Network）是一个实时的Web结构，用于从一个源到众多观察者（observer）广播消息。Network不仅仅只用于聊天，而且还用于系统事件处理或用户事件处理。
+Network本身是基于一个功能强大的分布式会话范式进行构建的。后面的章节会详细讨论这一点。
+{block}
+
+`Network.network(message) room = Network.cloud("room")`[opa]
+
+这段代码定义了一个初始值为空名叫room的云网络（cloud network），正如Opa中的任何对象，这个网络有一个类型：Network.network(message)，标志着这是一个用于传输message类型的网络。后面我们会看到稍微不同用处的的网络。
+不错，有了这两行代码，我们已经设置好了通讯的基础构架。现在我们可以来添加用户界面了。
+
+定义用户接口
+---------------------------
+
+Opa使用简单的类HTML标记作为结构来定义用户接口，使用普通的CSS作为展示，使用Opa代码作为交互。虽然后面我们还会介绍到一些高层的结构，但是对于后面的几个章节，HTML和CSS的知识已经足够了。
+
+对于初学者，看一下下面的用户界面的框架：
+
+###### Skeleton of the user interface (incomplete)
+
+```
+<div id=#conversation />
+<input id=#entry />
+<input type="button" value="Post" />
+```
+
+如果你熟悉HTML，你很容易发现这段代码定义了一个块（div），这些块有名字或id，同时定义了一个id为entry的字符输入框。我们后面会使用这些名字来添加用户交互和样式。如果你不熟悉HTML，可以参考 https://developer.mozilla.org/En/HTML 上面的HTML标签的作用。
+
+{block}[TIP]
+### About HTML
+对于HTML，Opa处理并没有什么特别之处。比如我们刚才定义的用户界面框架，其实是一个类型为xhtml的普通Opa值。举例来说，你可以使用到它的结构（使用match，后面会看到），也可以把它作为接受xhtml类型方法的参数，或者把它作为一个方法的方法体。
+{block}
+
+实际上，为了方便起见，同时也为了和库中的其他部分代码一致，我们会把这段代码放到一个方法中，如下：
+
+###### Skeleton of the user interface factorized as a function (still incomplete)
+
+```
+function start() {
+    <div id=#conversation />
+    <input id=#entry />
+    <input type="button" value="Post" />;
+}
+```
+
+这段代码定义了一个叫做start的方法，这个方法不接受参数，产生一个类HTML的内容。正如Opa中任何东西一样，start方法有一个类型：  -> xhtml 。
+
+{block}[TIP]
+### About functions
+方法（Function）代表了可以被触发任意次（包括0次）的处理代码。方法可以有不同的行为，接受参数，并且所有的方法都产生一个结果。触发这段代码叫做调用这个方法（calling or invoking）。
+方法在Opa程序中使用得非常广泛。一个类型为 t1,t2,t3 -> u的方法接受3个参数，类型分别为t1、t2、t3。产生一个类型为u的结果。一个类型为 –> u的方法不接受参数并产生一个类型为u的结果。
+
+定义方法的主要语法如下：
+```
+function f(x1, x2, x3) {
+    fun_body
+}
+```
+
+类似的，对于不接受参数的方法，可以写为
+
+```
+function f() {
+    fun_body
+}
+```
+
+为了调用接受三个参数的方法f，你需要这样写： f(arg1, arg2, arg3)。类似的，对于不接受参数的方法，你需要这样写： f() 
+{block}
+
+{block}[WARNING]
+### Function syntax
+// FIXME: check
+在方法定义语句：`function f(x1, x2, x3) { fun_body }`中，注意`f`和`(`之间没有空格。在这里添加空格会改变这条语句的意思，并会在编译阶段产生错误。
+{block}
+
+到此，我们可以更近一步，随机产生一个用户名，如下：
+
+###### Skeleton of the user interface with an arbitrary name (still incomplete)
+
+```
+function start() {
+    author = Random.string(8);
+    <>
+    <div id=#conversation />
+    <input id=#entry />
+    <input type="button" value="Post" />
+    </>;
+}
+```
+
+上面的代码定义了一个叫做author的值，由8个随机的字符组成。
+有了这些代码，我们已经把所有内容展示在屏幕上了，并且我们已经更进一步。这是，对于用户接口已经完成，下面让我们开始关注交互吧。
+
+发送和接受
+---------------------
+
+我们正在开发的是一个聊天程序，所以我们需要如下的用户交互：
+
+- 启动时，这个应用应该把用户加入到聊天室
+- 聊天室广播的消息都应该被显示出来。
+- 用户按下回车或者点击了按钮之后，消息应该被广播到聊天室中。
+
+为了如上的目的，我们来定义一些辅助的方法。
+
+###### Broadcasting a message to the room
+
+```
+function broadcast(author) {
+    text = Dom.get_value(#entry);
+    message = ~{author, text};
+    Network.broadcast(message, room);
+    Dom.clear_value(#entry);
+}
+```
+
+上面定义了一个叫broadcast的方法，接受一个参数author并进行下面的动作：
+
+- 读取用户输入在名为entry的input中的值，赋值给text
+- 创建一个拥有author和text两个字段的记录，字段author的值为author（方法的参数），text的值为text（刚从input中读取出的值），把这个记录叫做message。
+- 调用Opa的网络广播方法来广播这个消息到room网络。
+- 清除input的内容。
+
+你可能已经注意到了，网络相关的方法都是以Network.开头的，而用户接口相关的方法都是Dom开头的。记住以上的两点对于开发Opa应用是很有帮助的。同时要注意的是这里的message一定要和之前定义的message类型一致。否则，编译器会提示有错误存在。这也很好理解，我们定义的网络用于传送`message`消息，类型不为message的消息自然无法处理。
+
+{block}[TIP]
+### About `Dom`
+如果你熟悉web应用，你一定对Dom有所了解。Dom（Document Object Model）定义了一旦页面在浏览器中显示之后对web页面内容进行操作的规范。在Opa中，Dom中元素的类型为dom。访问这样元素的标准方式是通过选择符#，例如，#entry会选择id为“entry”的元素（页面中元素的id应该唯一）。选择符的另一种形式是：#{id}, 这会选择Dom中id为变量id值的元素（因此变量id必须为string类型）。
+{block}
+
+说到类型，弄清楚方法的类型是一个好的主意。Broadcast方法的类型为：string -> void，意味着这个方法接受一个string类型的参数并产生一个类型为void的值。另外，{author:author, text:text}写起来有些繁琐，所以Opa中添加一个速写的符号 ~。
+
+###### Broadcasting a message to the room (variant)
+
+```
+function void broadcast(string author) {
+    text = Dom.get_value(#entry);
+    message = ~{author, text};
+    Network.broadcast(message, room);
+    Dom.clear_value(#entry);
+}
+```
+
+{block}[TIP]
+### About `void`
+类型void是空记录（empty record）的别名，空记录也就是没有字段的记录。空记录在返回参数不会被使用到的方法中经常出现，例如仅仅产生副作用或只是发送消息的方法。
+{block}
+
+上面的代码发送消息到网络中，我们现在来定义一个相应的接收网络消息的方法，当接收到网络消息之后来更新用户界面：
+
+###### Updating the user interface when a message is received
+
+```
+function user_update(message x) {
+    line = <div>{x.author}: {x.text}</div>;
+    #conversation =+ line;
+}
+```
+
+这个方法的作用是用于在页面上显示刚刚收到的消息。该方法首先使用如上所述的类HTML语法产生页面的一些元素，并把这些元素叫做line。然后使用： #ID =+ HTML 的语法来吧line的内容添加到id为conversation的块的最后。除了使用“=+”之外，还可以使用“+=”来把元素放到指定id的前面，或者使用“=”来替换掉指定id的内容。
+
+相信细心的读者可能注意到了，大括号里面的内容（{x.author})可以不是HTML。确实如此，这些大括号叫做插入符（insert），它们表明：我们现在插入的不是“x.author”字符串，而是x.author所代表的内容，也就是记录x的author字段的值。
+
+{block}[TIP]
+### About _inserts_
+Opa提供了插入符（insert）来向HTML、字符串、甚至其他一些位置插入表达式，我们会在后面遇到的时候讲解。
+插入符的机制不仅用于保证显示信息的正确性，同时也在必要时保证了该信息的安全性。它是强大、简单和可扩展的。
+{block}
+
+下面，我们将介绍交互绑定（connect interactions）
+
+交互绑定
+-----------------------
+
+现在，让我们把broadcast方法绑定到我们的按钮和文本框上。我们可以通过修改start方法来完成：
+
+###### Skeleton of the user interface connected to `broadcast` (still incomplete)
+
+```
+function start() {
+    author = Random.string(8);
+    <div id=#conversation />
+    <input id=#entry onnewline={function(_) { broadcast(author) }} />
+    <input type="button" onclick={function(_) { broadcast(author) }} value="Post" />
+}
+```
+
+我们刚刚为文本框entry和按钮添加了事件处理函数，两者都调用了方法broadcast，当用户在文本框中按下回车，或点击了按钮之后分别进行调用。你可能已经发现，这里我们也使用到了大括号。
+
+{block}[TIP]
+### About _event handlers_
+事件处理函数指那些不是通过应用调用，而是通过用户动作进行调用的方法。典型的事件处理函数响应用户的点击（click事件），回车（newline事件），移动鼠标（mousemove事件），加载页面（ready事件）。事件处理函数所关联的总是类HTML的用户接口元素，函数的类型永远是： Dom.event -> void. 
+
+你可以通过参阅Opa API（http://doc.opalang.org/api) 中关于Dom.event的相关内容更多地了解事件处理函数。
+{block}
+
+下面我们添加本章的最后一个事件处理函数，该函数在用户页面加载完成之后自动地将用户添加到聊天网络中，代码如下：
+
+###### Skeleton of the user interface now connected to everything (final version)
+
+```
+function start() {
+    author = Random.string(8);
+    <div id=#conversation onready={function(_) { Network.add_callback(user_update, room) }} />
+    <input id=#entry onnewline={function(_) { broadcast(author) }} />
+    <input type="button" onclick={function(_) { broadcast(author) }} value="Post" />;
+}
+```
+
+这个onready事件处理函数在页面完全加载完成之后被调用，它将我们的聊天网络关联到user_update方法上去。
+
+到此为止，用户接口已经全部完成并拥有了所有功能。现在，我们需要添加一个server，然后进行一些小小的优化。
+
+{block}[TIP]
+### About `_`
+Opa中有一个特殊的值 _ ,读作“I don’t care”。它用于标示那些你不会去用或者不关心的值，这样做可以避免代码杂乱。在事件处理函数中，你会经常看到它，因为至少在本书中，你很少会去关心事件的详细内容（例如鼠标的位置）。
+{block}
+
+构建和运行
+-----------------------------
+
+每一个Opa应用都需要一个server，来确定通过web能够访问到的资源。因此我们可以定义一个：
+
+{block}[TIP]
+### About servers
+在Opa中，每一个Web应用都定义了一个或多个服务器。一个Sever是web应用的入口点（entry point），它为用户提供一系列资源，例如网页、样式表、图片、声音等。
+{block}
+
+###### The server (first version)
+
+```
+Server.start(Server.http, {title: "Chat", page: start})
+```
+
+这段代码使用Server.start构造并启动了一个新的HTTP服务器。
+
+{block}[TIP]
+### About `Server.start`
+从某些方面来说，Server.start等同于C/Java等语言中的main方法，是程序的入口点。然而，Opa的Server.start除了是程序的入口方法之外，还启动了一个HTTP服务来为客户端提供资源。后面我们会看到定义server的其他几种方式，你也可以在[Opa API](http://doc.opalang.org/api) 中更多地了解这些。
+{block}
+
+Server.start方法的类型定义如下：
+
+`void Server.start(Server.conf configuration, Server.handler handler)`[opa]
+
+可以看到，Server.start方法接受两个参数：configuration和handler，handler实际上是定义了一个服务。
+
+配置（Server.conf）其实只是一个简单地记录，其中定义了服务器运行的端口、网络掩码、加密、名称。最常使用的是Server.http和Server.https，当然也可以根据需求自己定义。
+
+在本例中，server是使用{title: …, page: …}这样的记录进行构造的，这样会构建一个单页面服务器（one-page server），通过page指定的方法来生成这个页面，同时页面的标题被赋值为title。
+
+大功告成，我们现在已经拥有了一个完整的应用，现在可以进行测试了。
+
+通过下面的命令来编译这段代码：
+
+###### Compiling Hello, Chat
+`opa hello_chat.opa`[sh]
+
+如果一切顺利，Opa会告诉你编译成功并会产生一个叫做hello_chat.exe的输出，这个文件包含了我们所需的一切东西。
+
+###### Running Hello, Chat
+`./hello_chat.exe`[sh]
+
+恭喜你，你的应用已经成功启动，可以通过：http://localhost:8080 进行访问。
+
+{block}[TIP]
+### About `hello_chat.exe`
+Opa编译所产生的是一个自满足（self-sufficient）的可执行程序，这个程序包含了所需要的一切内容，包括：
+
+- 页面 (HTML, CSS, JavaScript);
+- 通过 `@static_resource_directory` 引入的任何资源
+- 嵌入的Web服务器
+- 分布式数据库管理系统
+- 数据库的初始内容
+- 编译器自动添加的安全检查
+- 分布式通讯系统框架
+- 应用的默认配置
+- 通讯过程中所需要的各种组件
+
+换言之，要执行一个应用，你只需要启动这个可执行程序，不需要另外进行部署，配置或者管理人和第三方的组建。
+{block}
+
+{block}[TIP]
+### About 8080
+默认情况下，Opa应用启动之后使用8080端口。要在其他端口启动应用，可以使用命令行参数 –port。对于一些特定端口，你可能需要管理员权限。
+{block}
+
+如你所见，应用可以运行起来，但看起来并不是那么美观。
+
+![Resulting application, missing style](/resources/manual/img/hello_chat/result_without_css.png)
+
+接下来可以为应用添加一些样式了。
+
+添加样式
+-----------------
+
+在Opa中，所有的样式都是通过层叠样式表（CSS）来进行定义的。这个Opa的手册并不是关于CSS的，如果你不太了解CSS，可以参考(https://developer.mozilla.org/En/CSS) 
+
+当然，你肯定会需要一些特定于应用的自定义的CSS。但是，你也可以使用一些标准的CSS来进行快速开发，这些CSS是预定义好的，并且也十分美观。在Opa中，只需要下面的语句就可以完成这个工作：
+
+`import stdlib.themes.bootstrap`[opa]
+
+这段代码自动地将Twitter上的[Bootstrap CSS](http://twitter.github.com/bootstrap/) 引入到你的应用中，这样你就可以使用他们预定义号的一些样式，这些样式看起来还不错。
+
+添加样式的第一步是重写一下之前HTML部分的代码，来获得更好的结构和添加样式类。用户的主界面变成了下面的样子（省略了事件处理函数）：
+
+###### Main user interface
+
+```
+<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div id=#conversation class="container"></div>
+<div id=#footer><div class="container">
+  <input id=#entry class="xlarge"/>
+  <div class="btn primary" >Post</div>
+</div></div>
+```
+
+更新方法变成了：
+
+###### Function to update the user interface when a message is received
+
+```
+function user_update(message x) {
+    line =  <div class="row line">
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{x.author}:</div>
+            <div class="span13 columns message">{x.text}
+            </div>
+            </div>;
+    #conversation =+ line;
+    Dom.scroll_to_bottom(#conversation);
+}
+```
+
+注意我们这里调用了方法Dom.scroll_to_bottom来将块的内容刷至底端，来保证用户总能看到最新的消息。
+对于自定义样式，有两种方式。你可以直接嵌入到Opa代码中，也可以引入外部的样式文件。对于上面的例子，使用的是外部文件: resources/chat.css，
+
+###### Contents of file `resources/chat.css`
+[css]file://hello_chat/resources/chat.css
+
+创建一个叫做`resources`的文件夹并将文件保存为`resources/chat.css`，同时最好将样式表中所涉及到的图片（opa-logo.png, user.png)也加入到resources文件夹中。
+
+现在，通过指定服务器去访问和使用我们自己的样式，对Server.start方法的使用进行扩展。要达到这个目的，可以为Server.start提供一个包含我们服务器信息的记录。要了解所提供记录的各种格式，可以参考[online API](http://api.opalang.org).
+
+###### The server (final version)
+
+```
+Server.start(
+    Server.http,
+    [ { resources: @static_resource_directory("resources") }
+      , { register: { css: ["resources/chat.css"] } }
+      , { title: "Chat", page: start }
+    ]
+)
+```
+
+在这段代码中，我们告诉Opa编译器去完成：
+* 嵌入目录resources中的文件并提供给浏览器
+* 使用自定义资源： resources/chat.css
+* 启动单页面应用，标题为title，内容为start方法的返回
+
+{block}[TIP]
+### About _embedding_
+在Opa中，倾向于将文件嵌入到可执行程序的方式来处理外部文件。相比于访问文件系统，这样做更快、更安全、更容易部署。可以使用指令 `@static_resource_directory` 来嵌入一个目录。 
+{block}
+
+{block}[TIP]
+### About _directives_
+在Opa中，一个指令（DIRECTIVE）是给是给编译器的一个命令。与方法不同，方法是在应用启动之后进行执行，而指令是在编译阶段就执行的。有的指令都是以 @ 开头的。
+{block}
+
+既然说到了指令，让我们使用指令来告诉编译器聊天室room被定义为对客户端可见，并且能够直接访问的：
+
+`exposed @async room = Network.network(message)`[opa]
+
+这样做可以显著地提高聊天的速度。
+现在真正的大功告成了，我们的应用不仅完成，而且看起来还很漂亮。
+
+![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
+
+作为总结，让我们简单地回顾下程序的源码：
+
+###### The complete application
+[opa|fork=hello_chat|run=http://chat.opalang.org]file://hello_chat/hello_chat.opa
+
+所有这些在短短20行有效代码就得以完成（除去CSS）。注意，在程序的最终版本中，我们去掉了一些没有用的括号，这些括号主要用于解释和代码注释。
+
+问题
+---------
+
+### 聊天室room在何处？
+好问题，我们创建了一个名为room的网络，但并没有给出任何位置信息，所以到底聊天室在哪？在服务器上？在某个客户端上？还是在数据库里面？
+由于room被所有的用户所共享，因此，它当然在服务器上。但这个问题最好的回答是：你根本不需要知道它在哪。Opa回去处理这样的问题，并经过分析来决定什么放在服务器，什么放在客户端。后面的章节我们会看到Opa是如何从你写的的代码中提取和获取到这些信息的。
+
+### HTML的header到哪去了？
+
+熟悉web应用的读者可能已经发现，用来定义title，favicon，样式表的HTMLheader不见了。在Opa中，所有的这些（title,favicon，sytlesheets，html version）都是在高层进行处理的。在前面我们已经看到了给页面关联样式表和定义title的一种方式。至于确定使用哪个html版本，Opa会在后台进行处理。
+
+### return语句在哪？
+
+你可能会对方法中缺少return语句感到惊奇，在Opa中，使用最后语句返回的方式，也就是说，方法所执行的最后一个表达式即为方法的返回值。
+
+这一点是Opa借鉴了函数式语言（实际上，Opa的大部分都是函数式的）。最初你可能会觉得这样会有所限制，但你很快就能适应它，甚至会开始考虑return语句所带来的很多弊端，就如同臭名昭著的goto语句一样。
+
+### 定义还是不定义类型？
+
+前面说过，在大多数情况下，即使你不提供类型信息，Opa也可以推断出应当的类型。然而，在某些情况下，如果你不提供类型信息，Opa编译器会给出“value restriction error”并拒绝编译。除了优化、注释说明、更强的类型检查之外，唯一需要提供类型信息的情况是数据库定义和值约束定义（value restricted definition）。
+
+关于值约束错误（value restriction error）的更详细的理论定义，可以查看本书的参考章节。在本章中，我们简单地说值约束是一种既安全（safety）有安全（security）的方法，用于提醒你某个值没有足够的类型信息，来保证这个值不会被误用或者受到攻击。Opa编译器会检查这些可能存在的安全或安全漏洞并拒绝编译，直到你提供更为精确的类型信息。
+
+值类型约束只在顶层值（toplevel value，指定义在任何方法之外的值）上发生，因此，有些时候你需要为这些值提供类型信息。这样做同时也是一种好的文档说明，如果你去查看Opa标准库的源代码，你会发现Opa开发人员总是给出这些类型信息以便代码更加易读，虽然这些信息有时并不需要。
+
+
+练习
+---------
+
+是时间来看看这个教程是否让你明白了一些。下面的一些练习会让你扩展和自定子上面的web聊天应用。
+
+### 自定义显示
+
+完成自定义显示，达到下面的目的
+
+- 文字输入框在顶端显示
+- 新的消息在顶部显示，而不是在底部显示
+
+需要使用” += “运算法而不是” =+" 来把新元素添加到顶部而非底部。
+
+### 显示欢迎信息
+
+- 自定义应用，在用户页面加载完成后对当前用户显示下列信息：
+
+    Hello, you are user 8dh335
+
+(当然，要把`8dh335` 换做 `author`的值).
+
+- 自定义聊天室，在某个用户加入到聊天室之后，对所有用户显示如下信息：
+
+    User 8dh335 has joined the room
+
+- 把两者结合起来: 自己用户会看到
+
+    Hello, you are user 8dh335
+
+别的用户会看到
+
+    User 8dh335 has joined the room
+
+{block}[TIP]
+### About comparison
+要比较两个值，使用运算符`==`，或者等价的方法`==`。进行比较时：`x == y` (或 ==(x,y)), `x`和`y`需要具有相同的类型。比较的结果是一个布尔值。我们将方法`==`的类型写作：`‘a,'a -> bool`
+{block}
+
+{block}[TIP]
+### About _booleans_
+在Opa中，布尔值就是：`{true:void}` 和 `{false:void}`，或简写为 `{true}` 和 `{false}`
+
+布尔的类型定义为：`type bool = {true} or {false}`，这样允许出现一系列类别的类型叫做组合类型（sum type）。
+{block}
+
+{block}[TIP]
+### About sum types
+一个类型为组合类型`t或`u的值表示，这个值要么是类型`t的一个值，要么是类型`u的一个值。
+
+组合类型的一个很好的例子就是前面提到的布尔值，其定义为：`type bool = {false} or {true}`
+
+另一个很好的例子是链表类型`list`,它的类型定义为：`{nil} or {... hd, list tl}`
+
+注意，组合类型不一定局限于两种类别（case）。在实际应用中，有数十种类别的组合类型也并不稀奇。
+{block}
+
+模式匹配可以安全地确定组成一个组合类型的值是那种类别。
+
+{block}[TIP]
+### About pattern-matching
+根据组合类型值的类别不同而进行不同处理的操作叫做模式匹配。模式匹配的一个很好的例子是 `if ... then ... else ...`。而更常用的模式匹配的语法为：
+```
+match (EXPR) {
+  case CASE_1: EXPR_1
+  case CASE_2: EXPR_2
+  default: EXPR_n
+}
+```
+除了确定组合类型值的类别，这个操作实际上还用更强大的功能。事实上，如果我们从Java/C#这样编程语言的语法来看，模式匹配集合了`if`,`switch`,`instanceof`/`is`,多重赋值(multiple assignment)和反引用（dereferenciation)的特点，但不会引入`instanceof`/`is`所带来的安全隐患，使用起来也比`switch`更加容易。
+
+举例来说，你可以使用`if b then ... else ...`或使用下面的语句来检查布尔值b是真还是假：
+
+```
+match (b) {
+  case {true}: ...
+  case {false}: ...
+}
+```
+{block}
+
+### 区分不同用户的信息
+自定义chat应用，使得你的信息和别的用户的信息有所区分：你的信息前面显示你特定的图标，其他用户的信息显示默认的图标。
+
+### 用户定制
+
+- 允许用户选择自己的用户名
+- 允许用户选择自己的图标。例如可以让用户输入图标的URI。
+
+{block}[CAUTION]
+### More about `xhtml`
+由于安全原因，类型`xhtml`的值是无法从一个客户端传递到另一个客户端的。因此，你需要寻找其他的途径来把用户的图标发送给所有其他用户。
+{block}
+
+### 安全
+
+如前所述，类型`xhtml`的值是无法从一个客户端传递给另一个客户端的，那么这是为什么呢？
+
+### 更多
+
+现在是一个开放式的练习，把这个聊天程序变成网络上最棒的聊天应用。不要忘了在我们的社区中来展示你自己的应用啊！
