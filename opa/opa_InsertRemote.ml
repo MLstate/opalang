@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -642,7 +642,8 @@ let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr =
       if is_a_function then
         let args_ty = list_expr_ty @ list_expr_row @ list_expr_col in
         match number_of_lambdas with
-        | `one_lambda -> full_apply gamma annotmap expr args_ty list_expr_val
+        | `one_lambda ->
+            full_apply gamma annotmap expr (args_ty @ list_expr_val) []
         | `two_lambdas ->
             let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
             QmlAstCons.TypedExpr.apply gamma annotmap apply1 list_expr_val
