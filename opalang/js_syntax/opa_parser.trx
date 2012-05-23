@@ -607,7 +607,7 @@ pattern_row <- (=exact_symbol("...")) {{ () }}
 
 pattern_field <-
   (=type_maybe(
-     tilda:tilda deco_ml_identifier:i (colon pattern:p {{ p }})?:p
+     tilda:tilda deco_field_identifier:i (colon pattern:p {{ p }})?:p
      {{ function t ->
           let ident,label = i in
           let p =
