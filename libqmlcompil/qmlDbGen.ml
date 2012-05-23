@@ -365,10 +365,11 @@ module Utils = struct
 
   let rec type_of_selected gamma ty select =
     let traverse_map s =
-      begin match QmlTypesUtils.Inspect.follow_alias_noopt_private ~until:"ordered_map" gamma ty with
-      | QmlAst.TypeName ([_; dty; _], _) ->  type_of_selected gamma dty s
-      | ty2 -> OManager.i_error "Try to select an id on %a %a" QmlPrint.pp#ty ty QmlPrint.pp#ty ty2
-      end
+      type_of_selected gamma (
+        try QmlTypesUtils.Inspect.get_data_type_of_map gamma ty with
+        | Not_found ->
+            OManager.i_error "Try to select an id on %a" QmlPrint.pp#ty ty
+      ) s
     in
     let res = match select with
       | DbAst.SNil | DbAst.SStar | DbAst.SSlice _ -> ty

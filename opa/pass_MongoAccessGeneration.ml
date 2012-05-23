@@ -838,7 +838,12 @@ module Generator = struct
                      | DbAst.Query (DbAst.QEq uexpr , _)->
                          DbAst.SId (uexpr, select),
                          (fun (annotmap, expr) -> post (annotmap, expr)),
-                         (fun dty -> posty dty),
+                         (fun dty ->
+                            try posty (QmlTypesUtils.Inspect.get_data_type_of_map gamma dty) with
+                            | Not_found ->
+                                QmlError.i_error None context
+                                  "Try to select an id on %a" QmlPrint.pp#ty dty
+                         ),
                          `expr uexpr::embed_field
                      | DbAst.NewKey _
                      | DbAst.Query _ ->
