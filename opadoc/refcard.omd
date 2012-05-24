@@ -690,7 +690,7 @@ Sets are containers holding and allowing to manipulate a number of elements of t
 
      // extending sets
     Set.add("Joe", names)
-     // checking if an element belongs to a map
+     // checking if an element belongs to a set
     if (Set.mem("Dave", set)) { ... } else { ... }
      // getting an element from a set
     option(int) v = Set.get("Alice")
