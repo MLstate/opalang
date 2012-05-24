@@ -689,7 +689,7 @@ var LowLevelPingLoop = {};
                 for(var i = 0; i < messages.length; i++){
                     process_msg(messages[i]);
                 }
-                break;
+                return null;
             case "result" :
                 return native_response;
             default :
@@ -761,7 +761,7 @@ var LowLevelPingLoop = {};
                     } else {
                         panged[result.id]=result.body;
                     }
-                } else {
+                } else if (f===undefined){
                     if(attempt >= max_pang_attempt) {
                         delete(panged[id]);
                         panged.waiting_pang--;
