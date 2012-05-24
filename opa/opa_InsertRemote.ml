@@ -510,7 +510,7 @@ let check_and_get ?(msg="") ~annotmap ~gamma:_ explicit_map expr =
             #<End>;
             let ty = QmlAnnotMap.find_ty_label label annotmap in
             let tsc = QmlTypes.Scheme.quantify ty in
-            expr, ident, ty, tsc, 0, 0, 0, ty, tsc, `one_lambda
+            expr, ident, ty, tsc, 0, 0, 0, ty, tsc, `one_lambda 0
       end
   | _ -> iv expr "on an non ident expression"
 
@@ -642,13 +642,9 @@ let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr =
       if is_a_function then
         let args_ty = list_expr_ty @ list_expr_row @ list_expr_col in
         match number_of_lambdas with
-        | `one_lambda ->
-            let args_ty, list_expr_val =
-              match args_ty with
-              | [] -> [], list_expr_val
-              | _ -> (args_ty @ list_expr_val), []
-            in
-            full_apply gamma annotmap expr args_ty list_expr_val
+        | `one_lambda env ->
+            let env_args, list_expr_val =  List.split_at env list_expr_val in
+            full_apply gamma annotmap expr (args_ty @ env_args) list_expr_val
         | `two_lambdas ->
             let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
             QmlAstCons.TypedExpr.apply gamma annotmap apply1 list_expr_val
