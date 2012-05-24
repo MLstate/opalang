@@ -311,7 +311,7 @@ WFormBuilder =
 
   render_text_area(~{data initial_value}, size) =
     // FIXME, resize:none should be in css{...}
-    <textarea onclick={_ -> void} style="resize: none;" type="text" id={data.ids.input_id}
+    <textarea style="resize: none;" type="text" id={data.ids.input_id}
       rows={size.rows} cols={size.cols}>
       {initial_value}
     </>
@@ -530,9 +530,10 @@ WFormBuilder =
   @private mk_field_checker(field, style) : WFormBuilder.field_checker =
     -> validate_field(field, style)
 
-  @private validate_field( field : WFormBuilder.field('ty)
-                         , style : WFormBuilder.style)
-                         : bool =
+  @private
+  validate_field( field : WFormBuilder.field('ty)
+                , style : WFormBuilder.style
+                ) : bool =
     ids = build_ids(field.data.id)
     input = access_field(field)
     err_fld = #{ids.error_id}
@@ -636,13 +637,7 @@ WFormBuilder =
     err_xhtml = builder.mk_err(rdata) |> hide
     builder.mk_field({label=label_xhtml input=input_xhtml hint=hint_xhtml err=err_xhtml data=rdata})
 
-  @private
-  form_html( config : WFormBuilder.form_config
-           , fld_checkers : list(WFormBuilder.field_checker)
-           , form_type : {Basic} / {Normal}
-           , body : xhtml
-           , process_form : WFormBuilder.form_data -> void
-           ) : xhtml =
+  @private submit_form(form_type, fld_checkers, process_form) =
     rec for_all_eager(f, l) =
       match l with
       | [] -> true
@@ -650,25 +645,32 @@ WFormBuilder =
           match (f(hd), for_all_eager(f, tl)) with
           | ({true}, {true}) -> true
           | _ -> false
-    go(fd) =
-      // we don't use List.for_all, as we want to enforce evaluation of all fields
-      // (and not stop when the first error is found)
-      all_ok = for_all_eager((v -> v()), fld_checkers)
-      if all_ok then
-        process_form(fd)
-      else
-        void
+    // we don't use List.for_all, as we want to enforce evaluation of all fields
+    // (and not stop when the first error is found)
+    all_ok = for_all_eager((v -> v()), fld_checkers)
+    if all_ok then
+      process_form(form_type)
+    else
+      void
+
+  @private
+  form_html( config : WFormBuilder.form_config
+           , fld_checkers : list(WFormBuilder.field_checker)
+           , form_type : {Basic} / {Normal}
+           , body : xhtml
+           , process_form : WFormBuilder.form_data -> void
+           ) : xhtml =
     form_body = <fieldset>{body}</>
     match form_type
     | {Basic} ->
-        <form id={config.id} action="#" onsubmit={_ -> go({SimpleForm})}
-          method="get" options:onsubmit="prevent_default">
+        <form id={config.id} action="#" method="get" options:onsubmit="prevent_default"
+          onsubmit={_ -> submit_form({SimpleForm}, fld_checkers, process_form)}>
           {form_body}
         </>
         |> add_style(config.style.form_style)
     | {Normal} ->
         process(data) =
-          do Scheduler.push( -> go({FileUploadForm=data}))
+          do Scheduler.push( -> submit_form({FileUploadForm=data}, fld_checkers, process_form))
           void
         config = {Upload.default_config() with
                     ~form_body ~process form_id=config.id}
