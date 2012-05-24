@@ -188,6 +188,58 @@ let comparison (a:float) (b:float) =
 ##register round : float -> int
   let round v = int_of_float (Base.round 0 v)
 
+##register embed_le : float -> string
+let embed_le f =
+  let i64 = Int64.bits_of_float f in
+  let s = "        " in
+  s.[7] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
+  s.[6] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
+  s.[5] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
+  s.[4] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
+  s.[3] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
+  s.[2] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
+  s.[1] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
+  s.[0] <- (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)));
+  s
+
+##register embed_be : float -> string
+let embed_be f =
+  let i64 = Int64.bits_of_float f in
+  let s = "        " in
+  s.[0] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
+  s.[1] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
+  s.[2] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
+  s.[3] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
+  s.[4] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
+  s.[5] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
+  s.[6] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
+  s.[7] <- (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)));
+  s
+
+##register unembed_le: string, int -> float
+let unembed_le s i =
+  Int64.float_of_bits(
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+7])) 56) 0xff00000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+6])) 48) 0x00ff000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+5])) 40) 0x0000ff0000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+4])) 32) 0x000000ff00000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+3])) 24) 0x00000000ff000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+2])) 16) 0x0000000000ff0000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+1]))  8) 0x000000000000ff00L)
+               (Int64.logand (                 (Int64.of_int (Char.code s.[i  ]))   ) 0x00000000000000ffL)))))))))
+
+##register unembed_be: string, int -> float
+let unembed_be s i =
+  Int64.float_of_bits(
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i  ])) 56) 0xff00000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+1])) 48) 0x00ff000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+2])) 40) 0x0000ff0000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+3])) 32) 0x000000ff00000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+4])) 24) 0x00000000ff000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+5])) 16) 0x0000000000ff0000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+6]))  8) 0x000000000000ff00L)
+               (Int64.logand (                 (Int64.of_int (Char.code s.[i+7]))   ) 0x00000000000000ffL)))))))))
+
 ##endmodule
 
 ##module Math
