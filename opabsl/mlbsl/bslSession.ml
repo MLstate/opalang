@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -845,14 +845,22 @@ end = struct
         debug "WebChannel" "Try sending for %s => (%s)"
           (Client.key_to_string cid) (Json_utils.to_string request);
         #<End>;
-        let cpschan, msg, then_ =
+        let cpschan, msg, then_, onerror =
           match request with
           | JS.Record (("to", to_)::("message", msg)::then_) ->
-              unserialize context to_, msg, then_
+              let onerror () =
+                debug "WebChannel" "Execute error";
+                match then_ with
+                | [("herror", herror); ("hsuccess", _hsuccess)] ->
+                    unserialize_uu herror @> (function herror -> herror ())
+                | _ -> debug "WebChannel" "No error callback"; ()
+              in
+              unserialize context to_, msg, then_, onerror
           | _ -> raise Malformed
         in
-        cpschan @> function
-          | None -> ignore (bad_formatted "sending channel" request)
+        try
+          cpschan @> function
+          | None -> onerror(); ignore (bad_formatted "sending channel" request)
           | Some chan -> (
               match then_ with
               | [] -> Channel.forward chan msg context
@@ -864,17 +872,14 @@ end = struct
                               Channel.forward_then chan msg context herror hsuccess));
               | _ -> ignore (bad_formatted "sending2" request)
             )
+        with
+        | Channel.Unregistered ->
+            onerror ();
+            #<If>
+              debug "WebChannel" "Unregistered channel %s" (Printexc.get_backtrace());
+            #<End>
     with
     | Malformed -> ignore (bad_formatted "sending" request)
-    | Channel.Unregistered ->
-        (* Execute herror if present *)
-        (match request with
-         | JS.Record (_::_::("herror",herror)::_) ->
-             unserialize_uu herror @> (function herror -> herror ());
-         | _ ->
-             #<If>
-               debug "WebChannel" "Unregistered channel %s" (Printexc.get_backtrace());
-             #<End> )
 
   let serialize entity chan =
     let identity = redefined_export chan entity in
