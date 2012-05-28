@@ -110,7 +110,17 @@ let diff package options1 options2 (*current options*) =
        "Set --value-restriction option to the same value for all packages.@]")
       package
       (value_restiction_option_status options1.value_restriction)
-      (value_restiction_option_status options2.value_restriction)
+      (value_restiction_option_status options2.value_restriction);
+  if options1.back_end <> options2.back_end then
+    OManager.serror
+      ("The package %s was compiled for @{<bright>%s@} backend, " ^^
+       "while you tried to compile the current one for @{<bright>%s@} backend" ^^
+       "@[<2>@{<bright>Hint@}:@\n" ^^
+       "Set --back-end option to the same value for all packages.@]")
+      package
+      (OpaEnv.string_of_available_back_end options1.back_end)
+      (OpaEnv.string_of_available_back_end options2.back_end);
+;;
 
 
 
