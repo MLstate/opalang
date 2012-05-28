@@ -38,6 +38,129 @@ import stdlib.core.{js, rpc.core}
 
 @server Client_code = {{
 
+  key_ident_code =
+    [{Coded=[({Byte=0},[{Llstring=""}]),
+             ({Byte=1},[{Llstring=""}]),
+             ({Byte=2},[{Llstring=""},{Llstring=""}])]}]
+
+  unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
+    match Pack.Decode.unpack(key_ident_code, input.string, input.pos) with
+    | {success=(pos,[({Byte=0},[{Llstring=key}])])} -> {success=({input with ~pos},{~key})}
+    | {success=(pos,[({Byte=1},[{Llstring=ident}])])} -> {success=({input with ~pos},{~ident})}
+    | {success=(pos,[({Byte=2},[{Llstring=key},{Llstring=ident}])])} -> {success=({input with ~pos},~{key, ident})}
+    | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.unser_key_ident: bad code {n}"}
+    | {~failure} -> {~failure}
+
+  mini_expr_code =
+    [{Coded=[({Byte=0},[{Llstring=""}]),
+             ({Byte=1},[{Llstring=""}]),
+             ({Byte=2},[{Llstring=""}]),
+             ({Byte=3},[{Lllist=([{Llstring=""}],[])}]),
+             ({Byte=4},[{Llstring=""}]),
+             ({Byte=5},[{Llstring=""}]),
+             ({Byte=6},[{Llstring=""}]),
+             ({Byte=7},[{Llstring=""}]),
+            ]}]
+
+  // data list -> string low-level array
+  dl2slla(dl) = // TODO: Outcome.list
+    LowLevelArray.of_list(List.map((data -> match data with | [{~Llstring}] -> Llstring | _ -> ""),dl))
+
+  unser_mini_expr(input:Pack.input) : Pack.result(JsAst.mini_expr) =
+    match Pack.Decode.unpack(mini_expr_code, input.string, input.pos) with
+    | {success=(pos,[({Byte=0},[{Llstring=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
+    | {success=(pos,[({Byte=1},[{Llstring=ident}])])} -> {success=({input with ~pos},{~ident})}
+    | {success=(pos,[({Byte=2},[{Llstring=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
+    | {success=(pos,[({Byte=3},[{Lllist=(_,dl)}])])} -> {success=({input with ~pos},~{set_distant=dl2slla(dl)})}
+    | {success=(pos,[({Byte=4},[{Llstring=rpcdef}])])} -> {success=({input with ~pos},{~rpcdef})}
+    | {success=(pos,[({Byte=5},[{Llstring=rpcuse}])])} -> {success=({input with ~pos},{~rpcuse})}
+    | {success=(pos,[({Byte=6},[{Llstring=typedef}])])} -> {success=({input with ~pos},{~typedef})}
+    | {success=(pos,[({Byte=7},[{Llstring=typeuse}])])} -> {success=({input with ~pos},{~typeuse})}
+    | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.mini_expr_ident: bad code {n}"}
+    | {~failure} -> {~failure}
+
+  unser_content(input:Pack.input) : Pack.result(JsAst.content) =
+    unset_array(unser_mini_expr, {verbatim:""}, input)
+
+  definition_code =
+    [{Coded=[({Byte=0},[{Llstring=""}]),
+             ({Byte=1},[{Llstring=""}]),
+             ({Byte=2},[{Llstring=""},{Llstring=""}])]}]
+
+  unser_definition(input:Pack.input) : Pack.result(ServerAst.definition) =
+    match Pack.Decode.unpack(definition_code, input.string, input.pos) with
+    | {success=(pos,[({Byte=0},[])])} -> {success=({input with ~pos},{nothing})}
+    | {success=(pos,[({Byte=1},[{Llstring=rpc}])])} -> {success=({input with ~pos},{~rpc})}
+    | {success=(pos,[({Byte=2},[{Llstring=type_}])])} -> {success=({input with ~pos},{~type_})}
+    | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.unser_definition: bad code {n}"}
+    | {~failure} -> {~failure}
+
+  unser_bool_ref(input:Pack.input) : Pack.result(Server.reference(bool)) = Pack.Decode.unser_ref(Pack.Decode.unser_bool, _)
+
+  unser_code_elt(input:Pack.input): Pack.result(JsAst.code_elt) =
+    match Pack.Decode.unser4(unser_content, unser_definition, unser_ident, unser_bool_ref) with
+    | {success=(_,(content, definition, root, content))} -> {success=(input,{~content, definition, root, content})}
+    | {~failure} -> {~failure}
+
+  dummy_code_elt : JsAst.code_elt =
+    { ident={key=""}; definition={nothing}; root=ServerReference.create(false); content=LowLevelArray.empty }
+
+  unser_code(input:Pack.input): Pack.result(JsAst.code) =
+    Pack.Decode.unser_array(unser_code_elt, dummy_code_elt, input)
+
+  unser_sarray(input:Pack.input): Pack.result(llarray(string)) =
+    Pack.Decode.unser_array(unser_string, "", input)
+
+  unser_adhoc(string:string) : JsAst.code =
+    match unser_code({~string; pos=0}) with
+    | {success=(input, code)} ->
+       if input.pos == String.length(string)
+       then code
+       else
+         do Log.error("Client_code.unser_adhoc: extraneous data in string")
+         LowLevelArray.empty
+    | {~failure} ->
+       do Log.error("Client_code.unser_adhoc: {failure}")
+       LowLevelArray.empty
+
+  unser_server_code_elt(input:Pack.input): Pack.result(ServerAst.code_elt) =
+    match Pack.Decode.unser7(Pack.Decode.unser_option(unser_string,_), // client_equivalent
+                             unser_definition,             // defines
+                             Pack.Decode.unser_option(unser_string,_), // ident
+                             unser_sarray,                 // ident_deps
+                             unser_bool_ref,               // root
+                             unser_sarray,                 // rpc_deps
+                             unser_sarray                  // type_deps
+                ) with
+    | {success=(_,(client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps))} ->
+       {success=(input,{~client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps})}
+    | {~failure} -> {~failure}
+
+  dummy_server_code_elt : ServerAst.code_elt =
+    { client_equivalent=none;
+      defines={nothing};
+      ident=none;
+      ident_deps=LowLevelArray.empty;
+      root=ServerReference.create(false);
+      rpc_deps=LowLevelArray.empty;
+      type_deps=LowLevelArray.empty
+    }
+
+  unser_server_code(input:Pack.input): Pack.result(ServerAst.code) =
+    Pack.Decode.unser_array(unser_server_code_elt, dummy_server_code_elt, input)
+
+  unser_server(string:string) : ServerAst.code =
+    match unser_server_code({~string; pos=0}) with
+    | {success=(input, code)} ->
+       if input.pos == String.length(string)
+       then code
+       else
+         do Log.error("Client_code.unser_server: extraneous data in string")
+         LowLevelArray.empty
+    | {~failure} ->
+       do Log.error("Client_code.unser_server: {failure}")
+       LowLevelArray.empty
+
   /**
    * Register a code_elt.
   **/
