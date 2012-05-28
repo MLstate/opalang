@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -406,8 +406,6 @@ struct
   exception Busy_direction
   exception Existent_key of key
 
-  let nothing_todo = (fun () -> ())
-
   let make () =
     { heap = BHeap.empty();
       tout_cb = Hashtbl.create Const.tout_cb_size;
@@ -427,14 +425,14 @@ struct
 
   let mem priority key = Hashtbl.mem priority.tout_cb key
 
+  let removed = (fun () -> assert false)
   let remove priority key =
-    if mem priority key then (
-      priority.n <- priority.n - 1;
+    try
       let ref_cb = Hashtbl.find priority.tout_cb key in
-      ref_cb := nothing_todo;
+      ref_cb := removed;
+      priority.n <- priority.n - 1;
       Hashtbl.remove priority.tout_cb key
-    ) else
-      ()
+    with Not_found -> ()
 
   let add priority key tout callback =
     if Hashtbl.mem priority.tout_cb key then
@@ -457,21 +455,20 @@ struct
     let rec aux nb_successive =
       match BHeap.minimum priority.heap with
       | Some (tout_date, ref_cb) ->
-          let t = Time.difference (Time.now ()) tout_date in
-          if (nb_successive > 0 ) && not (Time.is_positive t) then begin
-            let _ = BHeap.remove priority.heap in
-            let todo = !ref_cb in
-            if todo==nothing_todo then aux nb_successive
-            (* everything above is considered as no op *)
-            else (
-              begin
-                E.execute
-                  todo
-                  (L.error "priority process");
-              end;
-              aux (nb_successive - 1)
-            )
-          end else if priority.n == 0 then -1
+          if !ref_cb==removed then (
+            ignore(BHeap.remove priority.heap);
+            aux nb_successive
+          ) else
+          let todo = !ref_cb in
+          let time = Time.now () in
+          let t = Time.difference time tout_date in
+          if (nb_successive > 0 ) && not (Time.is_positive t) then (
+            ignore(BHeap.remove priority.heap);
+            E.execute
+              todo
+              (L.error "priority process");
+            aux (nb_successive - 1)
+          ) else if priority.n == 0 then -1
           else
             (* +2 ms  to have a small upper value *)
             (* otherwise we could be called just to soon *)
