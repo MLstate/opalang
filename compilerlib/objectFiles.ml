@@ -464,16 +464,18 @@ let defaultpaths =
     !opxdir :: prefix_by_mlstatelibs InstallDir.lib_opa :: []
   )
 
+let relative_stdlib = ref ""
 let defaultpaths_for_stdlib =
   (* need to delay the computation until after options have been parsed
    * or else the --quiet option wouldn't have been set yet *)
-  lazy (let dirname = prefix_by_mlstatelibs InstallDir.opa_packages in
+  lazy (let dirname = prefix_by_mlstatelibs (Filename.concat InstallDir.opa_packages !relative_stdlib) in
+        let dirplug = prefix_by_mlstatelibs InstallDir.opa_packages in
         let formula =
           Filename.concat (Printf.sprintf "$%s" InstallDir.name) InstallDir.opa_packages
         in
         try
           if Sys.is_directory dirname then
-            [dirname]
+            [dirname; dirplug]
           else (
             if is_separated () then
               OManager.unquiet "%s (=%s) is not a directory. It won't be used as a default included directory."
@@ -1162,6 +1164,8 @@ let merge_consistency_info ~exn (acc_js_libs, acc_deps, acc_bsl_plugins) package
     (acc_js_libs, acc_deps, acc_bsl_plugins) in
 
   if exn then with_exn check_everything else check_everything ()
+
+let set_relative_stdlib path = relative_stdlib := path
 
 let set_extrapaths ~no_stdlib paths =
   (*

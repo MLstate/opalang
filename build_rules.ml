@@ -837,18 +837,26 @@ let files_of_package pkg =
     let files = List.sort String.compare files in
     files in
 
-let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/"node.todo" ]in
-let all_packages_file = stdlib_packages_dir/"all.packages" in
+let packages_exclude_node = "node.exclude"in
+let packages_exclude_qmlflat = "qmlflat.exclude"in
+let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/packages_exclude_node ; stdlib_packages_dir/packages_exclude_qmlflat] in
+let all_packages_file nodebackend = if nodebackend then stdlib_packages_dir/"all.node.packages" else stdlib_packages_dir/"all.packages" in
 
-rule "all.packages"
-  ~deps: make_all_packages
-  ~prod: all_packages_file
-  (fun env build ->
-     Cmd(S[
-           Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-           P"./all_packages.sh"; Sh">"; P (Pathname.pwd / !Options.build_dir / all_packages_file);
-         ])
-  );
+let all_packages_building nodebackend =
+  let prod = all_packages_file nodebackend in
+  rule (if nodebackend then "all.node.packages" else "all.packages")
+    ~deps: make_all_packages
+    ~prod
+    (fun env build ->
+         Cmd(S[
+               Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
+               P"./all_packages.sh"; P (if nodebackend then packages_exclude_node else packages_exclude_qmlflat); Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
+             ])
+    )
+in
+
+all_packages_building true;
+all_packages_building false;
 
 let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 let all_plugins_file = stdlib_packages_dir/"all.plugins" in
@@ -888,7 +896,7 @@ rule "opa application creator"
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
   rule name
-    ~deps:[(* opacapi_validation; *)all_plugins_file;all_packages_file;"opacomp.stamp"]
+    ~deps:[(* opacapi_validation; *)all_plugins_file;all_packages_file nodebackend;"opacomp.stamp"]
     ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
@@ -896,7 +904,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        let plugins = string_list_of_file all_plugins_file in
        let plugins = List.map (fun f -> "plugins" /  f / f -.- "oppf") plugins in
        build_list build plugins;
-       let packages = string_list_of_file all_packages_file in
+       let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =
          if stdlib_only
          then
@@ -943,10 +951,17 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
          [A"--conf-opa-files"]
        in
+       let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
-       let extra_opt = if nodebackend then A"--print"::A"code"::A"--no-warn-error"::A"root"::A"--back-end"::A"qmljs"::extra_opt else extra_opt in
+       let extra_opt =
+         [A"--opx-dir";A opx_dir;A"-I";A"."] @
+           if nodebackend then
+             A"--print"::A"code"::A"--no-warn-error"::A"root"::A"--back-end"::A"qmljs"::extra_opt
+           else A"--back-end"::A"qmlflat"::extra_opt
+       in
        Seq[
          Echo(conf, "conf");
+         Cmd(S([Sh"mkdir";A"-p";P opx_dir;]));
          Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
                 get_tool "opa-bin";
                 A"--autocompile";

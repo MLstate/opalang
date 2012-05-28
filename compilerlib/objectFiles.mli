@@ -88,6 +88,8 @@ val get_compilation_directory_or_current_dir : unit -> filename
 *)
 val set_extrapaths : no_stdlib:bool -> filename list -> unit
 
+val set_relative_stdlib : filename -> unit
+
 (**
    Get all paths where the compiler should search its objects
 *)

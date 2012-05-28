@@ -34,7 +34,7 @@ export
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 ifndef NO_MANPAGES
 	$(MAKE) manpages
@@ -50,16 +50,16 @@ runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-node-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-node-packages
+.PHONY: opa-packages
 opa-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-node-packages.stamp
+	$(OCAMLBUILD) opa-packages.stamp
 opa-node-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp
 
@@ -73,7 +73,7 @@ OPA_TOOLS = opa-create
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) $(OPA_TOOLS)
 
@@ -100,13 +100,27 @@ install-opa-create = mkdir -p $(PREFIX)/bin && $(INSTALL) $(BUILD_DIR)/bin/opa-c
 .PHONY: install*
 
 STDLIB_DIR = $(INSTALL_DIR)/lib/opa/stdlib
+
+FLAT_STDLIB_SUFFIX_DIR=stdlib.qmlflat
+STDLIB_FLAT_DIR=$(STDLIB_DIR)/$(FLAT_STDLIB_SUFFIX_DIR)
+BUILD_FLAT_DIR=$(BUILD_DIR)/$(FLAT_STDLIB_SUFFIX_DIR)
 define install-package
-@printf "Installing into $(STDLIB_DIR)/$*.opx[K\r"
-@mkdir -p "$(STDLIB_DIR)/$*.opx/_build"
-@find "$(BUILD_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_DIR)/$*.opx/" \;
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.a "$(STDLIB_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.cmi "$(STDLIB_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.cmxa "$(STDLIB_DIR)/$*.opx/_build/"
+@printf "Installing into $(STDLIB_FLAT_DIR)/$*.opx[K\r"
+@mkdir -p "$(STDLIB_FLAT_DIR)/$*.opx/_build"
+@find "$(BUILD_FLAT_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_FLAT_DIR)/$*.opx/" \;
+@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.a "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
+@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.cmi "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
+@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.cmxa "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
+endef
+
+NODE_STDLIB_SUFFIX_DIR=stdlib.qmljs
+STDLIB_NODE_DIR=$(STDLIB_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
+BUILD_NODE_DIR=$(BUILD_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
+define install-node-package
+@printf "Installing into $(STDLIB_NODE_DIR)/$*.opx[K\r"
+@mkdir -p "$(STDLIB_NODE_DIR)/$*.opx/_build"
+@find "$(BUILD_NODE_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_NODE_DIR)/$*.opx/" \;
+@$(INSTALL) $(BUILD_NODE_DIR)/$*.opx/*.js "$(STDLIB_NODE_DIR)/$*.opx/"
 endef
 
 define install-plugin
@@ -134,16 +148,25 @@ OPA_PLUGINS  := $(shell cd stdlib && ./all_plugins.sh)
 # for that
 
 install-packageopt-%:
-	$(if $(wildcard $(BUILD_DIR)/$*.opx/_build/*),$(install-package))
+	$(if $(wildcard $(BUILD_FLAT_DIR)/$*.opx/_build/*),$(install-package))
+
+install-node-packageopt-%:
+	$(if $(wildcard $(BUILD_NODE_DIR)/$*.opx/*.js),$(install-node-package))
 
 install-package-%:
 	$(install-package)
 
+install-node-package-%:
+	$(install-node-package)
+
 install-packages: $(addprefix install-packageopt-,$(OPA_PACKAGES))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
+	@printf "Installation to $(STDLIB_FLAT_DIR) done.[K\n"
+
+install-node-packages: $(addprefix install-node-packageopt-,$(OPA_PACKAGES))
+	@printf "Installation to $(STDLIB_NODE_DIR) done.[K\n"
 
 install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
+	@printf "Installation to $(STDLIB_FLAT_DIR) done.[K\n"
 
 install-pluginopt-%:
 	$(if $(wildcard $(BUILD_DIR)/$*.opp/),$(install-plugin))

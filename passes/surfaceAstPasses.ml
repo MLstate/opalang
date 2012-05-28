@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -47,6 +47,8 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     let imports =  List.map (fun s -> Package(`import, s), label s) i18n_to_import in
     (name,content,imports @ code)
   in
+  ObjectFiles.set_relative_stdlib
+    (Printf.sprintf "stdlib.%s" (OpaEnv.string_of_available_back_end options.OpaEnv.back_end));
   ObjectFiles.set_extrapaths ~no_stdlib:(not options.OpaEnv.stdlib) options.OpaEnv.extrapath;
   ObjectFiles.load
     ~extrajs:(

@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # script used to generate the list of packages
 
+exclude=$1
+
 DIRS=$(find . -type d | sed "s/.\///")
 
-: ${PACKAGE_FILTER:=grep -E -v -f node.todo}
+if [ -f "$exclude" ]; then
+    : ${PACKAGE_FILTER:=grep -E -v -f $exclude}
+else
+    : ${PACKAGE_FILTER:=cat}
+fi
 
 PACKAGES=''
 for dir in $DIRS ; do
