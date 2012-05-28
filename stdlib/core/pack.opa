@@ -59,11 +59,11 @@ type Pack.u =
  / {Llstring:string}
  / {Float:float}
  / {Coded:list((Pack.u, Pack.data))}
- /// {Llist:(Pack.data,list(Pack.data))} // TODO
+ / {Lllist:(Pack.data,list(Pack.data))} // TODO: Blist, Slist, Llist
 
 type Pack.data = list(Pack.u)
 
-type Pack.input = { string:string, pos:int }
+type Pack.input = { string:string; pos:int }
 
 type Pack.result('a) = outcome((Pack.input,'a),string)
 
@@ -299,6 +299,56 @@ Pack = {{
       | (le, signed, {success=_}) -> pack_data(buf, le, signed, data)
       | failure -> failure
 
+    same_u(u1:Pack.u, u2:Pack.u): bool =
+      match (u1,u2) with
+      | ({Be},{Be}) -> true
+      | ({Le},{Le}) -> true
+      | ({Signed},{Signed}) -> true
+      | ({Unsigned},{Unsigned}) -> true
+      | ({Char=_},{Char=_}) -> true
+      | ({Byte=_},{Byte=_}) -> true
+      | ({Short=_},{Short=_}) -> true
+      | ({Long=_},{Long=_}) -> true
+      | ({Longlong=_},{Longlong=_}) -> true
+      | ({Pad},{Pad}) -> true
+      | ({Padn=_},{Padn=_}) -> true
+      | ({Void},{Void}) -> true
+      | ({Bool=_},{Bool=_}) -> true
+      | ({Cstring=_},{Cstring=_}) -> true
+      | ({Bstring=_},{Bstring=_}) -> true
+      | ({Sstring=_},{Sstring=_}) -> true
+      | ({Lstring=_},{Lstring=_}) -> true
+      | ({Llstring=_},{Llstring=_}) -> true
+      | ({Float=_},{Float=_}) -> true
+      | ({Coded=_},{Coded=_}) -> true
+      | ({Lllist=_},{Lllist=_}) -> true
+      | (_,_) -> false
+
+    same_data(d1:Pack.data, d2:Pack.data): bool =
+      match List.for_all2((u1, u2 -> same_u(u1,u2)),d1,d2) with
+      | {result=tf} -> tf
+      | _ -> false
+
+    // list
+    list(buf:Pack.t, le:bool, signed:bool, mklen:int -> Pack.u, typ:Pack.data, data:list(Pack.data))
+         : (bool, bool, outcome(void,string)) =
+      match pack_u(buf, le, signed, mklen(List.length(data))) with
+      | (le, signed, {success=_}) ->
+         rec aux(le, signed, l) =
+           match l with
+           | [] -> (le, signed, {success=void})
+           | [data|t] ->
+              if same_data(typ, data)
+              then
+                match pack_data(buf, le, signed, data) with
+                | (le, signed, {success=_}) -> aux(le, signed, t)
+                | failure -> failure
+                end
+              else (le, signed, {failure="Pack.Encode.list: non-matching list elements"})
+           end
+         aux(le, signed, data)
+      | failure -> failure
+
     // pack item length
     packitemsize(u:Pack.u) : int =
       match u with
@@ -324,6 +374,7 @@ Pack = {{
       | {Coded=[]} -> 0 // Can't pack nothing
       | {Coded=[(code,data)]} -> packitemsize(code) + packlen(data)
       | {Coded=_} -> 0 // Will generate error
+      | {Lllist=(_,l)} -> 8+List.fold((data, size -> size+packlen(data)),l,0)
 
     // predict pack length
     packlen(data:Pack.data) : int = List.fold((u, len -> len + packitemsize(u)), data, 0)
@@ -364,6 +415,7 @@ Pack = {{
       | {Coded=[]} -> (le, signed, {failure="Pack.Encode.pack: Coded has no codes"})
       | {Coded=[(code,data)]} -> coded(buf, le, signed, code, data)
       | {Coded=_} -> (le, signed, {failure="Pack.Encode.pack: Coded has multiple codes"})
+      | {Lllist=(t,l)} -> list(buf, le, signed, (len -> {Longlong=len}), t, l)
 
     // pack data into buffer
     pack_data(buf:Pack.t, le:bool, signed:bool, data:Pack.data) : (bool, bool, outcome(void,string)) =
@@ -656,6 +708,20 @@ Pack = {{
                               | {none} -> {failure="Pack.Decode.unpack: Coded has missing code {code}"})
                            | {success=_} -> {failure="Pack.Decode.unpack: Coded has multiple decodings"}
                            | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad code {failure}"})
+                       | {Lllist=(d,_)} ->
+                          (match unpack([{Longlong=0}], str, pos) with
+                           | {success=(pos,[{Longlong=len}])} ->
+                              rec aux(i, l, pos) =
+                                if i == len
+                                then {success=(le, signed, pos, [{Lllist=(d,List.rev(l))}|data])}
+                                else
+                                  match unpack(d, str, pos) with
+                                  | {success=(npos,ndata)} -> aux(i+1, [ndata|l], npos)
+                                  | {~failure} -> {~failure}
+                                  end
+                              aux(0, [], pos)
+                           | {success=_} -> {failure="Pack.Decode.unpack: Lllist has missing/multiple lengths"}
+                           | {~failure} -> {~failure})
                        )), data, {success=(true, true, pos, [])})
       with
       | {success=(_,_,pos,data)} -> {success=(pos,List.rev(data))}
@@ -684,6 +750,7 @@ Pack = {{
       | {Llstring=_} -> true
       | {Float=_} -> true
       | {Coded=_} -> true
+      | {Lllist=_} -> true
 
     // cleanup elements with no data
     clean(data:Pack.data) = List.filter(has_data, data)
@@ -710,7 +777,7 @@ Pack = {{
     unser_option(unser_a:Pack.input -> Pack.result('a), input:Pack.input): Pack.result(option('a)) =
       match byte(input.string, input.pos) with
       | {success=0} ->
-         match unser_a({input with pos=input.pos+1} with
+         match unser_a({input with pos=input.pos+1}) with
          | {success=(input, a)} -> {success=(input,{some=a})}
          | {~failure} -> {~failure}
          end
@@ -736,10 +803,10 @@ Pack = {{
       | {~failure} -> {~failure}
 
     unser4(input:Pack.input,
-           unser_a:Pack.result('a),
-           unser_b:Pack.result('b),
-           unser_c:Pack.result('c),
-           unser_d:Pack.result('d)) : Pack.result(('a,'b,'c,'d)) =
+           unser_a:Pack.input -> Pack.result('a),
+           unser_b:Pack.input -> Pack.result('b),
+           unser_c:Pack.input -> Pack.result('c),
+           unser_d:Pack.input -> Pack.result('d)) : Pack.result(('a,'b,'c,'d)) =
       match unser_a(input) with
       | {success=(input, a)} ->
          match unser_b(input) with
@@ -758,13 +825,13 @@ Pack = {{
       | {~failure} -> {~failure}
 
     unser7(input:Pack.input,
-           unser_a:Pack.result('a),
-           unser_b:Pack.result('b),
-           unser_c:Pack.result('c),
-           unser_d:Pack.result('d),
-           unser_e:Pack.result('e),
-           unser_f:Pack.result('f),
-           unser_g:Pack.result('g)) : Pack.result(('a,'b,'c,'d,'e,'f,'g)) =
+           unser_a:Pack.input -> Pack.result('a),
+           unser_b:Pack.input -> Pack.result('b),
+           unser_c:Pack.input -> Pack.result('c),
+           unser_d:Pack.input -> Pack.result('d),
+           unser_e:Pack.input -> Pack.result('e),
+           unser_f:Pack.input -> Pack.result('f),
+           unser_g:Pack.input -> Pack.result('g)) : Pack.result(('a,'b,'c,'d,'e,'f,'g)) =
       match unser_a(input) with
       | {success=(input, a)} ->
          match unser_b(input) with
