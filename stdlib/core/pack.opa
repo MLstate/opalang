@@ -86,7 +86,7 @@ Pack = {{
       then {failure="Pack.byte: out of range {i}"}
       else {success=append(buf, String.of_byte_unsafe(i))}
     ubyte(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < -0x80 || i > 0x7f)
+      if (i < 0 || i > 0xff)
       then {failure="Pack.byte: out of range {i}"}
       else {success=append(buf, String.of_byte_unsafe(i))}
 
