@@ -12,7 +12,7 @@ bslNode.nodejs
 bslCps.nodejs
 bslClosure.nodejs
 lowLevelArray.nodejs
-hashtbl.nodejs
+bslHashtbl.nodejs
 bslValue.nodejs
 
 # Server specific bypass
