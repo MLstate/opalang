@@ -537,7 +537,7 @@ struct
              | `expr e -> Q.NewVal (label, [ident, e]))
           idents l in
       let tystring = Q.TypeConst Q.TyString in
-      let _ty_bp = Q.TypeArrow ([tystring], tystring) in
+      let ty_sl = Q.TypeArrow ([tystring], tystring) in
       let rev_list =
         List.concat_map2
           (fun e ident ->
@@ -545,9 +545,11 @@ struct
              let r =
                match e with
                | `string _ -> []
-               | `expr _ -> []
-                   (* let bp = !cons#bypass Opacapi.Opabsl.BslClientCode.serialize_string_length ty_bp in *)
-                   (* [!cons#apply bp [gen_ident ()]] *) in
+               | `expr _ ->
+                   let sl = !cons#ident
+                     (OpaMapToIdent.val_ Opacapi.Client_code.serialize_string_length) ty_sl in
+                   [!cons#apply sl [gen_ident ()]]
+             in
              gen_ident () :: r
           ) l idents in
       #<If:JS_SERIALIZE$contains "overhead">

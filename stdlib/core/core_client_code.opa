@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -131,3 +131,4 @@ Core_server_code =
 
 @opacapi Client_code_register_js_code = Core_client_code.register_js_code
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
+@opacapi Client_code_serialize_string_length = #<Ifstatic:OPA_BACKEND_QMLJS>(_:string -> "0")#<Else>%%BslBuffer.serialize_string_length%%#<End>

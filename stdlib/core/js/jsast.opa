@@ -161,7 +161,9 @@ JsIdent = {{
 
   @private js_roots = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
 
-  @private gen = String.fresh(0)
+  @private gen =
+    g = String.fresh(0)
+    -> "_{g()}"
 
   /**
    * Set the value which indicates if the js code should be cleaned.

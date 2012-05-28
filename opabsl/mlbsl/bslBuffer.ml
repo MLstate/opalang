@@ -31,3 +31,15 @@
 ##register contents\ `Buffer.contents`: Buffer.t -> string
 ##register length\ `Buffer.length`: Buffer.t -> int
 ##register clear\ `Buffer.clear`: Buffer.t -> void
+
+(* Temporary *)
+##register serialize_string_length: string -> string
+let serialize_string_length s =
+  let ser_int b i = (* DIRTY DIRTY copy pasting *)
+    for j = 64 / 8 - 1 downto 0 do
+      Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
+    done
+  in
+  let b = Buffer.create 10 in
+  ser_int b (String.length s);
+  Buffer.contents b

@@ -282,58 +282,60 @@ Session = {{
     /**
      * {2 Creating distributed sessions}
      */
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Else>
+    make_at_protocol : Hlnet.protocol(make_at_query, make_at_response) =
+      Hlnet.define_protocol(
+        "chan/make_at", 1,
+        OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_query))),
+        OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_response)))
+      )
 
-    // make_at_protocol : Hlnet.protocol(make_at_query, make_at_response) =
-    //   Hlnet.define_protocol(
-    //     "chan/make_at", 1,
-    //     OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_query))),
-    //     OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_response)))
-    //   )
-
-    // /**
-    //  * Used for start a listening which allows other servers to
-    //  * request a make_at.
-    //  */
-    // @private accept_make_at =
-    //   started_ref = Server_reference.create(false)
-    //   ->
-    //   /* Make sure that accept is called only one time */
-    //   started = @atomic(Server_reference.compare_and_swap(started_ref, false, true))
-    //   if started then void
-    //   else
-    //     Hlnet.accept(Hlnet.default_endpoint, make_at_protocol.server_spec,
-    //       (chan ->
-    //         Hlnet.setup_respond(chan,
-    //           ((tystate, tymessage, state, on_message) ->
-    //             /* Unserialize state and handler */
-    //             tyonmessage : OpaType.ty =
-    //               tyret = {TyName_ident = "Session.instruction";
-    //                        TyName_args = [tystate]}
-    //               {TyArrow_params = [tystate, tymessage];
-    //                TyArrow_res = tyret}
-    //             match (OpaSerialize.finish_unserialize(state, tystate),
-    //                    OpaSerialize.finish_unserialize(on_message, tyonmessage))
-    //             | ({some = state}, {some = on_message}) ->
-    //               /* Create session */
-    //               session = Session_private.llmake(@unsafe_cast(state),
-    //                           OpaSerialize.finish_unserialize(_, tymessage),
-    //                           {normal = @unsafe_cast(on_message)})
-    //               /* Send created session */
-    //               tychannel = {TyName_ident = "channel";
-    //                            TyName_args = [tymessage]}
-    //               entity = get_server_entity(Hlnet.remote_endpoint(chan))
-    //               options = { OpaSerialize.default_options with to_session={some=entity} to={server} closure={at_best} }
-    //               session = OpaSerialize.partial_serialize_options(@unsafe_cast(session),
-    //                           tychannel, options)
-    //               some(session)
-    //             | _ ->
-    //               do Log.warning("[Session.accept_make_at]",
-    //                              "An error occurs when try to unserialize state or handler")
-    //               none
-    //           )
-    //         )
-    //       )
-    //     )
+    /**
+     * Used for start a listening which allows other servers to
+     * request a make_at.
+     */
+    @private accept_make_at =
+      started_ref = Server_reference.create(false)
+      ->
+      /* Make sure that accept is called only one time */
+      started = @atomic(Server_reference.compare_and_swap(started_ref, false, true))
+      if started then void
+      else
+        Hlnet.accept(Hlnet.default_endpoint, make_at_protocol.server_spec,
+          (chan ->
+            Hlnet.setup_respond(chan,
+              ((tystate, tymessage, state, on_message) ->
+                /* Unserialize state and handler */
+                tyonmessage : OpaType.ty =
+                  tyret = {TyName_ident = "Session.instruction";
+                           TyName_args = [tystate]}
+                  {TyArrow_params = [tystate, tymessage];
+                   TyArrow_res = tyret}
+                match (OpaSerialize.finish_unserialize(state, tystate),
+                       OpaSerialize.finish_unserialize(on_message, tyonmessage))
+                | ({some = state}, {some = on_message}) ->
+                  /* Create session */
+                  session = Session_private.llmake(@unsafe_cast(state),
+                              OpaSerialize.finish_unserialize(_, tymessage),
+                              {normal = @unsafe_cast(on_message)})
+                  /* Send created session */
+                  tychannel = {TyName_ident = "channel";
+                               TyName_args = [tymessage]}
+                  entity = get_server_entity(Hlnet.remote_endpoint(chan))
+                  options = { OpaSerialize.default_options with to_session={some=entity} to={server} closure={at_best} }
+                  session = OpaSerialize.partial_serialize_options(@unsafe_cast(session),
+                              tychannel, options)
+                  some(session)
+                | _ ->
+                  do Log.warning("[Session.accept_make_at]",
+                                 "An error occurs when try to unserialize state or handler")
+                  none
+              )
+            )
+          )
+        )
+    #<End>
 
     /**
      * Like [make] but created session is shared between all of your
@@ -676,10 +678,13 @@ Session = {{
     /**
      * {2 Utilities}
      */
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Else>
     /**
      * Get the server [entity] corresponding to the given [endpoint].
      */
-    // @private get_server_entity = %%Session.get_server_entity%%
+    @private get_server_entity = %%Session.get_server_entity%%
+    #<End>
 
     /**
      * Returns entity which own the given channel

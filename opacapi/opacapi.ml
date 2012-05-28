@@ -60,6 +60,7 @@ struct
   let register_css_declaration = !! "register_css_declaration"
   let register_js_code = !! "register_js_code"
   let register_js_code_elt = !! "register_js_code_elt"
+  let serialize_string_length = !! "serialize_string_length"
 end
 
 module Db3 =
@@ -640,12 +641,6 @@ struct
     let light_options = !! "light_options"
     let client_options = !! "client_options"
     let get = !! "get"
-  end
-
-  module BslClientCode =
-  struct
-    let (!!) s = !! ("BslClientCode." ^ s)
-    let serialize_string_length = !! "serialize_string_length"
   end
 
   module BslClosure =

@@ -354,7 +354,7 @@ Server_private = {{
       {true}
 
     complete_dispatcher =
-    #<Ifstatic:DISPATCHER_OUT_OF_BSL>
+    #<Ifstatic:OPA_BACKEND_QMLJS>
       (_base_url, dispatcher ->
         Continuation.make(w -> dispatcher(w))
       )
