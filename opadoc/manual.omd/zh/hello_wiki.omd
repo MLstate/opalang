@@ -1,0 +1,366 @@
+维基（wiki）示例
+===========
+维基（Wiki）和其他一些形式的用户可编辑页面，是网页中十分常见的组件。就其自身而言，开发一个简单的维基是很繁琐的，却并不困难。然而，开发一个可扩展、并且不会因为恶意用户提供的内容而受到攻击的复杂维基系统就要困难得多。Opa再一次让这些工作变得简单。
+
+在本章中，我们会看到如何使用Opa编写一个简单却完整的维基应用。同时，我们会介绍Opa数据库、客户端安全策略、以及如何在不损失安全的条件下包含用户定义的页面，还有一些关于用户界面的操作。
+
+概述
+--------
+让我们首先看看本章完成后应用的截图：
+
+![Final version of the Hello wiki application](/resources/manual/img/hello_wiki/result.png)
+
+这个应用存储页面并让用户使用Markdown语法（http://en.wikipedia.org/wiki/Markdown) 编辑它们，Markdown语法是一种流行的支持标题（heading）、链接（link）、列表（list）、图片（image)的Markup语言。
+
+这个应用的完整代码在下面地址，有兴趣的读者可以查看：
+
+[opa|fork=hello_wiki|run=http://wiki.tutorials.opalang.org]file://hello_wiki/hello_wiki.opa
+
+在代码中，我们定义了一个用于存放以Markdown语法格式保存的页面内容的数据库、用户界面、以及最后是主程序。本章的后面内容，我们会谈到上述的所有概念的结构。
+
+和上一章聊天室的应用一样，我们使用了 [Bootstrap CSS from Twitter](http://twitter.github.com/bootstrap/) 。
+
+
+设置存储
+------------------
+维基其实就是关于页面修改、存储、和显示的应用。这意味着我们需要一些地方来存储所收到的页面，如下：
+
+    database stringmap(string) /wiki
+
+上面的代码定义了一个数据库路径，也就是用于存放页面信息的位置。并指定了存储信息的类型，在这里我们使用了类型：stringmap(string).
+这是一个stringmap（也就是说，键是string类型的），所存储的内容的类型是string（用于表示Markdown标记的代码）。
+
+{block}[TIP]
+### 关于数据库路径
+在Opa中，数据库由路径(path)组成。路径是你能存储数据的位置，当然，值可能是一个list，或一个map。上述两者（list和map）都是存放一些值的容器。
+
+同Opa中其他内容一样, 路径也是有类型的，其类型同要存入值的类型一致。除了包含方法或实时web结构的类型之外（例如network），路径可以被定义为任意Opa类型。为了应对程序不同版本中可能带来的微小不一致，在定义路径的时候，类型不需要指定。
+{block}
+
+{block}[TIP]
+### HTML VS markup
+在页面上，让用户直接编写能够被后续用户看到的HTML代码似乎并不是一个好主意，因为这样为各式各样的攻击开启了大门，而有时这些攻击很难被检查到。
+
+Opa提供了至少两种方式来解决这个问题。
+首先是Opa的模版（template）机制，它是一个基于XML的HTML标记语言的子集。另外，模版机制被设计为是可以完全扩展的。（我们的网站（http://opalang.org) ,包括我们自己的在线编辑器就是采用模版机制开发的）
+另外就是这里使用的，更轻量级的Markdown(`stdlib.tools.markdown`)。Markdown是一种非常流行的标记语言，可以将易读易写的纯文本格式转换为结构合法和完全安全的XHTML格式（并且支持标题，连接，代码片段等）。
+{block}
+
+为每个数据库路径都赋一个默认值总是一个好主意，因为这样会使得数据操作变得简单：
+
+    database /wiki[_] = "This page is empty. Double-click to edit."
+
+方括号`[_]`是一个惯用写法，表明我们所涉及到的是一个Map的内容，并且提供了默认值。这里，默认值为：`"This page is empty. Double-click to edit."。也就是一段用Markdown语法书写的简单文本（这里是纯文本）。
+
+通过这两行代码，数据库就被设置好了。写到数据库中的任何数据都会被持久化。如果你停止并重启应用，数据会是你停掉应用时的那一点。
+
+加载、解析和写回
+----------------------------
+从数据库读取数据或向数据库写入数据实际上对用户是透明的。为了清楚起见，以及考虑到性能，我们在此定义两个加载方法。
+一个是`load_source`, 它会从数据库中加载一些内容，并以源代码的形式展示以供用户编辑。另一个`load_rendered`，它会从数据库中加载相同的内容，并以xhtml的形式展示出来。
+
+```
+function load_source(topic) {
+  /wiki[topic]
+}
+
+function load_rendered(topic) {
+  source = load_source(topic)
+  Markdown.xhtml_of_string(Markdown.default_options, source)
+}
+```
+
+在这段代码中，`topic` 是我们希望显示或编辑的主题，同时也是页面的名字。与该主题相关联的页面的内容可以在数据库路径 `/wiki[topic]` 获取到。一旦我们得到了页面的内容，根据我们的需要，我们可以直接以字符串的形式返回，或者转换为xhtml数据结构用来显示。方法 Markdown.xhtml_of_string 解析获得的字符串内容并转换为Markdown语法相对应的xhtml表示。
+
+保存数据同样地简单：
+
+```
+function save_source(topic, source) {
+    /wiki[topic] <- source;
+    load_rendered(topic);
+}
+```
+
+这个方法有两个参数： `topic`，跟上面含义相同；`source`，也是一个string，代表页面Markdown语法的内容。
+方法的第一条语句保存`source`内容到数据库路径 `/wiki[topic]`
+
+
+用户界面
+--------------
+正如前面看到的那样，我们定义了一个方法来产生用户界面：
+
+```
+function display(topic) {
+   xhtml =
+     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="content container">
+       <div class="page-header"><h1>About {topic}</></>
+       <div class="well" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
+       <textarea rows="30" id=#edit_content onblur={function(_) { save(topic) }}></>
+      </div>;
+    Resource.styled_page("About {topic}", ["/resources/css.css"], xhtml);
+}
+```
+
+这次不再产生xhtml结果了，而是把结果嵌入到了一个`resource`中，resource代表了服务端能够提供给客户端的任何资源，包括页面（page）、图片（image）或者其他任何资源。在实际中，大多数应用会产生一系列资源，因为这样比仅使用`xhtml`更加强大和灵活。当然，这需要我们使用`Server.start`的其他调用形式，我们马上就会看到。
+
+构建resource的方法有很多种。我们这里使用的是：Resource.styled_page , 这个方法通过标题（第一个参数）、样式列表（第二个参数）和xhtml内容来构造一个页面。到此，你应该不会再对xhtml的内容感到疑惑了。我们使用`<div>`来展示页面的内容，使用`<textarea>`来修改它们。当用户双击页面内容的时候（dbclick事件），就会触发`edit`方法。当用户停止编辑的时候（blur事件）,就会触发`save`方法。
+
+方法 `edit` 定义如下：
+
+```
+function edit(topic) {
+    Dom.set_value(#edit_content, load_source(topic));
+    Dom.hide(#show_content);
+    Dom.show(#edit_content);
+    Dom.give_focus(#edit_content);
+}
+```
+
+这个方法加载与`topic`相关联的页面代码，设置为`#edit_content`的内容，并把`<div>`换做`<textarea>`,最后把焦点设置到`<textarea>`上并返回void。
+
+类似的，方法`save`定义如下，应该不难理解：
+
+```
+function save(topic) {
+    content = save_source(topic, Dom.get_value(#edit_content));
+    #show_content = content;
+    Dom.hide(#edit_content);
+    Dom.show(#show_content);
+}
+```
+
+有了这三个方法，用户界面就准备好了。下面我们来看服务端的工作。
+
+提供页面
+-----------------
+我们会在这个应用中使用Server.start的一个新的形式。之前我们使用了针对单页面的构造方法。在实际应用中，web应用都有多个页面。对于这种情况，我们可以使用`Server.start(Server.http, {dispatch: dispatch_fun})`, 这里的`dispatch_fun`是一个接受 `uri.relate` 参数并产生一个 `resource`的方法。
+
+让我们先构造一个这样的方法：
+
+```
+function start(url) {
+  match (url) {
+    case {path: {nil} ... } :
+      { display("Hello") };
+    case {path: path ...} :
+      { display(String.concat("::", path)) };
+  }
+}
+```
+
+这是另一个形式的模式匹配（pattern-matching)，这种模式匹配的结构你在之前还没有见到过。模式 `{path:[] ...}` 会匹配到空路径的uri请求，例如: http://localhost:8080 。这是因为`...`会匹配记录里面任意数量的字段。换句话说，我们上面模式匹配第一个条目匹配包含最少一个叫`path`字段的记录，条件是这个字段仅仅包含空列表。
+
+第二个模式会匹配到任意包含至少一个名叫`path`字段的记录。从上面模式匹配的定义来看，只有第一个模式无法匹配之后，这个模式才会执行。例如请求："http://localhost:8080/hello"
+
+在上述两种情况下，我们都执行`display`方法。第一种情况很简单，而在第二种情况下，我们先用分隔符"::“把列表转换为字符串。
+
+在实际中，我们在这里让它变得更加美观，保证首字母大写，其他字母小写：
+
+```
+function start(url) {
+  match (url) {
+    case {path:[] ... } :
+      { display("Hello") };
+    case {~path ...} :
+      { display(String.capitalize(String.to_lower(String.concat("::", path)))) };
+  }
+}
+```
+
+在上面的新版本中，我们在模式匹配中使用了一些简写. 首先，我们使用`[]`来表示空列表（和`{nil}`表示同样的意思）。其次，我们使用了`~path`(同`path = path`表示相同的意思)。
+
+添加样式
+-----------------
+和前面章节一样，如果没有样式，这个例子看起来过于平淡。
+//image::hello_wiki/result_without_css.png[]
+
+如前，我们使用外部的样式表`resources/css.css`来渲染页面，样式表内容如下：
+
+###### Contents of file `resources/css.css`
+[css]file://hello_wiki/resources/css.css
+
+最后一步，引入这个样式表。为此，我们需要扩展服务器来将资源包含进来，如下：
+
+```
+Server.start(Server.http,
+   /** Statically embed a bundle of resources */
+  [ {resources: @static_include_directory("resources")}
+   /** Launch the [start] dispatcher */
+  , {dispatch: start}
+  ]
+)
+```
+
+我们在此为`Server.start`提供了一个服务器的列表。请注意，他们的顺序很重要，因为请求就是按这个顺序处理的。所以我们首先放置了一个资源包（Resource Bundle）来处理对特定资源的请求。然后我们把请求分发给我们的`start`方法。
+
+到此，我们就拥有了一个完整的，可以工作的维基应用：
+
+![Final version of the Hello wiki application](/resources/manual/img/hello_wiki/result.png)
+
+作为总结，让我们重新审视一下源代码
+
+###### The complete application
+[opa|fork=hello_wiki]file://hello_wiki/hello_wiki_simple.opa
+
+总共30行有效代码。
+
+问题
+---------
+### 关于用户安全
+正如前面提到的，开发复杂Wiki的一个难点就是保证不受安全攻击。的确，由于一个用户编辑的内容可能会在另一个用户的浏览器上展示，因此就存在有用户在页面中隐藏JavaScript代码（或者Flash，Java代码），而被别的用户执行的可能。这就是著名的盗取验证的技术。
+
+你可能会试图在我们的Wiki，Chat，或其他Opa应用中来使用上述的技术，你的这些尝试都将会以失败告终。的确，底层的Web技术是不区分JavaScript代码，文字和结构化数据的，然而Opa会区分，此外Opa还保证一个用户提供的数据是不能够被另一个用户解析的。
+
+{block}[CAUTION]
+### 注意`<script>`
+实际上，存在唯一的一种例外情况：如果一个开发者手工地引入带有插入内容的`<script>`标签，如下所示。那么就有可能让恶意用户利用这一点插入任意代码.
+
+    <script type="text/javascript">{security_hole}</script>
+
+因此，确保安全的底线是：不要引入带有插入内容的`<script>`表标签。这是截至到本文书写之时，Opa不能检查出来的唯一情况。
+{block}
+
+### 关于数据库安全
+既然我们现在使用到了数据库，是时候要考虑在什么情况下，什么内容可以被存入数据库。默认情况下，Opa采取保守的策略，来保证恶意客户端能够访问到尽可能少的入口点 -- 我们称之为发布方法（publishing a function）。默认情况下，唯一的发布方法就是用户通过操纵用户界面能够触发的方法，也就是事件处理函数。
+
+{block}[TIP]
+### 发布入口点（entry point）
+一个入口点（Entry point）是一个存在于服务端，而有可能被用户触发的方法，这种触发也有可能是恶意的。
+
+典型情况下，每个应用包含至少一个入口点，被`server`引入。-- 在Wiki例子中，这个方法是`start`。大多数的应用还允许客户端发送信息到服务端，并触发相应的处理。
+
+更一般的情况是，只要是发布的任何方法都可以成为入口点。Opa默认情况下会自动发布事件处理函数。
+{block}
+
+在这里，事件处理函数就是方法`edit`和`save`。在我们的代码清单中，其他的方法都没有发布。因此，Markdown语法的分析只在服务端被调用。
+
+### 关于客户-服务端性能
+到这个阶段，纵观眼下的代码，你可能会考虑性能的问题，尤其是编辑和保存时所发出请求的数量。这个切入点很好。如果你的浏览器提供性能/请求跟踪工具，你就会意识到`edit`和`save`操作都很昂贵。
+
+这个问题很容易解决，不过让我们首先来看一下保存操作的细节：
+
+1. 客户端发送一个`save`请求到服务器端。（1个请求）
+2. 服务器端从客户端获取到`edit_content`的内容（2个请求）
+3. 服务端指示客户端隐藏`show_content` （2个请求）
+4. 服务端指示客户端显示`edit_content` （2个请求）
+
+这肯定不是Opa所能提供的最好方式。Opa确实能够做的更好。要解决这个问题，我们只需要给编译器提供一点点额外的信息，好让编译器知道`load_source`,`load_rendered`和`save_source`被设计为用于处理任何丢给他们的事情，因此不必被隐藏。
+
+为此，Opa提供了一个特定的指令: `exposed`，表明给定的方法暴露给客户端。
+
+{block}[WARNING]
+请注意，从安全的角度来看，把一个方法设置为`exposed`就意味着，不仅只有程序中的语句能够调用，任何恶意的客户端都可以使用伪造的参数调用该方法。
+{block}
+
+我们只需要简单修改，就可以应用到这三个方法上：
+
+```
+exposed load_source(topic) { ... }
+exposed load_rendered(topic) { ... }
+exposed save_source(topic, source) { ... }
+```
+
+完工！
+
+经过这个简单修改，保存现在只会发送一个请求。我们会在后面的章节详细讨论`exposed`和客服-服务器的分离(client-server slicing）。
+
+完整的程序如下
+
+###### The complete application, made faster
+[opa|fork=hello_wiki|run=http://wiki.tutorials.opalang.org]file://hello_wiki/hello_wiki.opa
+
+
+练习
+---------
+到了测验你所学习的新知识的时候了。
+
+### 更改默认的内容
+定制wiki，使得数据库里存放的不是`string`，而是`option(string)`。例如，一个要存入的值可以是`{none}`，或者 `{some: x}`，这里`x`是字符串。
+使用上述修改来保证主题_topic_的默认内容是："We have no idea about _topic_. Could you please enter some information?"。
+
+### 将改变通知给用户
+受到聊天室应用的启发，在页面上添加一个区域，在用户连接之后将发生的改变通知给用户。
+
+### 聊天模版
+修改你的聊天室应用（上一章的内容），使得用户可以输入富文本（rich text），而不仅仅是纯文本（raw text）。
+
+### 聊天记录
+修改你的聊天室应用，添加以下的一些特性：
+
+* 存储聊天的内容
+* 当一个新用户连接上时，给他显示之前聊天的记录。
+
+为此，你需要在数据库中管理一个消息的列表(_list_)。
+
+{block}[TIP]
+### 关于列表
+
+在Opa中，列表（list）是最常用的数据结构之一。它们是不可变链表。
+
+列表的类型为`list`。具体而言，元素类型为`t`的列表的类型为`list(t)`，读作"list of t"。空列表写作
+
+    []
+
+或者`{nil}`。它的类型为 `list('a)`，表明它是可以容纳任何类型的列表。一个包含`x`,`y`,`z`元素的列表写做：
+
+    [x,y,z]
+
+等价于:
+
+    {hd: x, tl:
+      {hd: y, tl:
+        {hd: z; tl:
+          {nil}
+        }
+      }
+    }
+
+更一般地说，在Opa中`list`类型的定义如下：
+
+    type list('a) = {nil} or {'a hd, list('a) tl}
+
+如果你有一个列表`l`，并且希望构造一个以`x`开头，后面跟着`l`的列表，可以这样写：
+
+    [x|l]
+
+或等价于,
+
+    {hd: x, tl: l}
+
+还等价于，
+
+    List.cons(x, l)
+{block}
+
+{block}[TIP]
+### 关于循环（loop）
+如果你有一个列表`l`，并且希望对列表中所有的元素应用方法`f`，可使用方法`List.iter`。这是Opa众多循环方法之一。
+
+不错，在Opa中循环就是普通的方法。
+{block}
+
+要获得额外的加分，请使得聊天记录的背景显示为稍微不同的颜色。
+
+### 多聊天室
+
+既然你知道了如何创建一个多页面的服务器，你可以实现一个多聊天室聊天应用：
+
+* 访问路径为_p_的页面会连接到聊天室_p_;
+* 每一条消息还要包含聊天室的名称;
+* 对于访问路径_p_的客户端，只对他显示聊天室_p_里面的消息。
+
+{block}[TIP]
+### 减少通讯
+决定是否显示消息的最好位置是在通过`Network.add_callback`添加的回调函数里面。优化这个回调函数可以帮助你减少服务器到客户端的通讯。为此，你可以使用`server`，它使得指定的方法只会在服务器端执行。
+{block}
+
+{block}[TIP]
+### 扩展
+为了得到最佳的扩展性，需要更好的设计。
+
+你会需要管理一系列网络（network），一个聊天室对应一个，一般是`stringmap`类型的。网络是实时的数据结构，无法在数据库中存放，而且存放这种客户端断开连接后就变得不一致和不安全的信息是没有意义的。因此，这个`stringmap`应该作为一个分布式会话（_distributed session_)状态（_state_)的一部分来进行管理。我们会在后面几章介绍分布式会话的机制，分布式会话是一个用来实现网络的强大的原型（primitive）。
+{block}
+
+### 更多
+改进聊天室和维基应用。增加一些特性，做的更漂亮，更好一些！而且，不要忘了在我们的社区中展示你的成果。

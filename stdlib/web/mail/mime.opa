@@ -137,8 +137,8 @@ Mime = {{
     | ew=encoded_word ->
       match string_to_encoding(ew.encoding)
       | {some={Q_encoding}} -> decoder(ew.charset, Q.decode(ew.encoded_text))
-      | {some={B_encoding}} -> Crypto.Base64.decode(ew.encoded_text)
-      | {none} -> ew.encoded_text
+      | {some={B_encoding}} -> decoder(ew.charset, Crypto.Base64.decode(ew.encoded_text))
+      | {none} -> decoder(ew.charset, ew.encoded_text)
       end
     | c=. -> Cactutf.cons(c)
 

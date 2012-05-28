@@ -268,7 +268,7 @@ DbMongo = {{
      uncap =
        if const then (
          rec uncap(doc:Bson.document) = match doc with
-           | [{name = "data"; ~value}] -> some(value)
+           | [{name = "value"; ~value}] -> some(value)
            | _ -> undotdoc(doc, uncap)
          uncap
        ) else (
@@ -286,7 +286,7 @@ DbMongo = {{
      selector = [{name = "_id"; value = {String = vpath.id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      write(data:'data) =
-       update = Bson.opa2doc({_id = vpath.id; data=data})
+       update = Bson.opa2doc({_id = vpath.id; value=data})
        MongoDriver.update(db.db, tags, ns, selector, update)
      remove() =
        if not(MongoDriver.delete(db.db, 0, ns, selector)) then

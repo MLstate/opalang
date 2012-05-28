@@ -93,6 +93,8 @@ var LowLevelPingLoop = {};
 
     var unserialize_uu = function(_){error("Unregistered unserialization function")}
 
+    var max_pang_attempt = 3;
+
     /* DEBUG FUNCTIONS*/
     #<Ifstatic:PING_DEBUG>
     function ping_debug (msg) {
@@ -590,7 +592,10 @@ var LowLevelPingLoop = {};
 
     }
 
-
+    function log_error(){
+        if(window.console && window.console.error) window.console.error.apply(null, arguments);
+        else jlog.apply(null, arguments);
+    }
     /* ************************************************** */
     /* RPC support (server -> client) ******************* */
     /** Contains skeletons. */
@@ -603,7 +608,7 @@ var LowLevelPingLoop = {};
         // hook for try catch there, and return a special case, maybe e.g. rpc_return_exc
         var data = funct(argument);
         if ('none' in data) {
-            if(window.console && window.console.error) window.console.error("RPC comet call ", id, " failed, no data in ", argument);
+            log_error("RPC comet call ", id, " failed, no data in ", argument);
         } else if (id != null) {
             internal_ajax({
                     type : 'POST',
@@ -684,7 +689,7 @@ var LowLevelPingLoop = {};
                 for(var i = 0; i < messages.length; i++){
                     process_msg(messages[i]);
                 }
-                break;
+                return null;
             case "result" :
                 return native_response;
             default :
@@ -740,6 +745,7 @@ var LowLevelPingLoop = {};
                 uri : url,
                 body : is_json ? JSON.stringify(req) : req
             };
+            var attempt = 0;
             while(panged[id] === null){
                 response =
                     internal_ajax({
@@ -749,7 +755,21 @@ var LowLevelPingLoop = {};
                             data : JSON.stringify(request)
                         });
                 result = success_ping_response(response.responseText, -1);
-                if (result != undefined) panged[result.id]=result.body;
+                if (result != undefined) {
+                    if(panged[result.id] === undefined) {
+                        log_error("Receive the pang("+result.id+") result too late", result);
+                    } else {
+                        panged[result.id]=result.body;
+                    }
+                } else if (f===undefined){
+                    if(attempt >= max_pang_attempt) {
+                        delete(panged[id]);
+                        panged.waiting_pang--;
+                        if(panged.waiting_pang == 0) internal_loop(false);
+                        throw new Error("Maximum pang attempt reached");
+                    }
+                    attempt++;
+                }
                 request = ++cpt;
             }
             result = panged[id];
@@ -898,6 +918,10 @@ var LowLevelPingLoop = {};
      * Like [jQuery.ajax] but for internal url of OPA server
      */
     LowLevelPingLoop.ajax = internal_ajax;
+
+    LowLevelPingLoop.set_max_pang_attempt = function(i){
+        max_pang_attempt = i;
+    }
 
     /**
      * Make an internal synchronous request using the pang system. Can
@@ -1104,6 +1128,13 @@ var LowLevelPingLoop = {};
     ##args(url, request)
     {
         LowLevelPingLoop.async_call(url, request);
+    }
+
+    ##register set_max_pang_attempt: int -> void
+    ##args(i)
+    {
+        LowLevelPingLoop.set_max_pang_attempt(i);
+        return js_void;
     }
 
 ##endmodule

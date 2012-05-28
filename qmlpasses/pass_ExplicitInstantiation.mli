@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -29,10 +29,39 @@
 *)
 
 
-(* Hack: 2 global refs instead of function arguments; TODO: unhack *)
 
-(** A map of top-level expressions published between client and server *)
-type published_map = (Annot.label * Ident.t * [`one_lambda | `two_lambdas]) option IdentMap.t
+
+(** A map of top-level expressions published between client and server. This map
+    binds the name of the published function and informations of an
+    'ei_skeleton' function. This skeleton throws useless type arguments. These
+    informations are the ident of the skeleton and how the skeleton has been
+    generated.
+
+    - [`one_lambda e] means the skeleton is composed by a uniq lambda, i.e. the
+    type and casual arguments are in the same block. [e] is the size of the
+    previous lifted lambda.
+
+    - [`two_lambdas] means the type and casual arguments are in two separated
+    blocks
+
+    Where f and g are published:
+    {[
+      _v0_f = a, b -> @typeof('b)
+      _v0_g = a -> void
+    ]}
+
+    Rewrited as:
+    {[
+
+      _v0_f = @lifted_lambda(1, (vvva, a, b -> vvva))
+      // _v0_f -> (`one_lambda 0 , _v0 -> f)
+
+      _v0_g = a -> void
+      _v1_g = _ -> (a -> void)
+      // _v0_g -> (`two_lambdas, _v1_g)
+    ]}
+*)
+type published_map = (Annot.label * Ident.t * [`one_lambda of int | `two_lambdas]) option IdentMap.t
 val published_ref : published_map ref
 
 (** The link between current identifiers and the ones before slicing *)

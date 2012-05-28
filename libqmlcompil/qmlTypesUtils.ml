@@ -250,6 +250,11 @@ struct
     match follow_alias_noopt gamma ty with
     | Q.TypeArrow (tl, t2) -> Some (tl,t2)
     | _ -> None
+
+  let get_data_type_of_map gamma ty =
+    match follow_alias_noopt_private ~until:"ordered_map" gamma ty with
+    | Q.TypeName ([_; dty; _], _) -> dty
+    | _ -> raise Not_found
 end
 
 module TypeArrow =
