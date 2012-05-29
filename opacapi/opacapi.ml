@@ -349,6 +349,7 @@ struct
   let list = !! "list"
   let llarray = !! "llarray"
   let map = !! "map"
+  let ordered_map = !! "ordered_map"
   let option = !! "option"
 
   let path_embed_info = !! "path_embed_info"

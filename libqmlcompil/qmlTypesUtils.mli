@@ -87,6 +87,10 @@ sig
   val get_arrow_params : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty list option
   val get_arrow_through_alias_and_private :
     QmlTypes.gamma -> QmlAst.ty -> (QmlAst.ty list * QmlAst.ty) option
+
+  (** Returns the type of data of the [ty] map. If the given [ty] is not a type
+      of map (or an alias) throws [Not_found].*)
+  val get_data_type_of_map : QmlTypes.gamma -> QmlAst.ty -> QmlAst.ty
 end
 
 (** Utils for arrow types *)

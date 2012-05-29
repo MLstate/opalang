@@ -520,7 +520,7 @@ binding_simple <-
 binding_lambda <- lambda_with_name:lwn {{ lwn }}
 
 binding_module <-
-  (=type_maybe(Opa_lexer.MODULE spacing deco_ml_identifier_nosp:ident (=deco(module_no_keyword)):m
+  (=type_maybe(Opa_lexer.MODULE spacing deco_ml_identifier_nosp:ident (=careful_deco(module_no_keyword)):m
   {{ function t -> (ident, may_coerce_expr m t) }}))
 
 
@@ -607,7 +607,7 @@ pattern_row <- (=exact_symbol("...")) {{ () }}
 
 pattern_field <-
   (=type_maybe(
-     tilda:tilda deco_ml_identifier:i (colon pattern:p {{ p }})?:p
+     tilda:tilda deco_field_identifier:i (colon pattern:p {{ p }})?:p
      {{ function t ->
           let ident,label = i in
           let p =
@@ -997,7 +997,7 @@ module_simple_field <-
 
 /** Module expression **/
 module_no_keyword <-
-  spacing module_functor_args?:func "{" spacing pos:pos (=deco((=list0pos(module_element,separator)))):r spacing "}"
+  module_functor_args?:func spacing "{" spacing pos:pos (=deco((=list0pos(module_element,separator)))):r spacing "}"
   {{
     let (r,posl),label = r in
     push_hint (`same_indents (pos :: posl));
@@ -1006,7 +1006,7 @@ module_no_keyword <-
     | Some func -> func ((module_ (Record r,label)), copy_label label)
   }}
 
-module_functor_args <- lpar (=list0(pattern,comma)):args rpar
+module_functor_args <- lambda_args:args
   {{ function e -> Lambda (encode_args_as_record args, e) }}
 
 module <- Opa_lexer.MODULE module_no_keyword:m

@@ -147,7 +147,9 @@ let add_fetched str fetched =
 -define (StarFetch (num:int, result))                  = "* " num " FETCH " result "\r\n"
 -define (FetchContinue (what, len:int))                = " " what " {" len "}\r\n"
 -define FetchEnd                                       = ")\r\n"
+-define (StarListLen (flags,rf,len:int))               = "* LIST ("~ flags ") " rf " {" len "}\r\n"
 -define (StarList (flags,rf,mailbox))                  = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
+-define (StarStatusLen (len:int))                      = "* STATUS {" len "}\r\n"
 -define (StarStatus (mailbox,items))                   = "* STATUS "~ mailbox " (" items ")\r\n"
 -define (Search (tag, params))                         = tag " SEARCH " params "\r\n"
 -define (UidSearch (tag, params))                      = tag " UID SEARCH " params "\r\n"
@@ -189,6 +191,8 @@ let add_fetched str fetched =
 -define (JustNo (tag,str))                             = tag " NO " str "\r\n"
 -define (JustBad (tag,str))                            = tag " BAD " str "\r\n"
 
+-define StatusLenEnd items                             = " (" items ")\r\n"
+-define End                                            = "\r\n"
 -define RawInput str                                   = str
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -303,6 +307,7 @@ commands(mail, tools):
         error({{ "Empty strings would make LIST command invalid, use \"\" instead" }}, tools)
       else
         send (List (tag, rf, mailbox));
+        let mail = {{ { mail with list = [] } }}
         list(mail, tools, tag)
       end
     | ImapCopy (uid, seq, mailbox) ->
@@ -327,6 +332,7 @@ commands(mail, tools):
         error({{ "Empty strings would make STATUS command invalid, use \"\" instead" }}, tools)
       else
         send (Status (tag, mailbox, items));
+        let mail = {{ { mail with statused = [] } }}
         status(mail, tools, tag)
       end
     | ImapAppend (mailbox, flags, time, msg) ->
@@ -555,7 +561,10 @@ list(mail, tools, tag):
   | StarOk _str ->
     debug {{ eprintf "list received * OK: %s\n" _str }}
     list(mail, tools, tag)
+  | StarListLen (flags, rf, len) ->
+    list_data(mail, tools, tag, flags, rf, len)
   | StarList (flags, rf, mailbox) ->
+    let mailbox = {{ String.strip_quotes mailbox }}
     debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
     let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
     list(mail, tools, tag)
@@ -574,12 +583,33 @@ list(mail, tools, tag):
   | exn ->
     check_exception(mail, tools, {{"list"}}, tag, exn)
 
+list_data(mail, tools, tag, flags, rf, len):
+  debug {{ eprintf "list_data: getting %d bytes\n%!" len }}
+  fixed {{ len }}
+  | mailbox ->
+    debug {{ eprintf "list received * LIST: (%s) %s %s\n" flags rf mailbox }}
+    let mail = {{ { mail with list = ((flags,rf,mailbox)::mail.list) } }}
+    list_end(mail, tools, tag)
+
+list_end(mail, tools, tag):
+  receive
+  | End ->
+    debug {{ eprintf "list_data: ok\n%!" }}
+    list(mail, tools, tag)
+  | err ->
+    debug {{ eprintf "list_data: error\n%!" }}
+    error({{ sprintf "Bad end of list data: %s" (String.escaped (string_of_msg err)) }}, tools)
+
 status(mail, tools, tag):
   receive
   | StarOk _str ->
     debug {{ eprintf "status received * OK: %s\n" _str }}
     status(mail, tools, tag)
+  | StarStatusLen len ->
+    status_data(mail, tools, tag, len)
   | StarStatus (mailbox, items) ->
+    let mailbox = {{ String.strip_quotes mailbox }}
+    debug {{ eprintf "mailbox(hdr) = '%s'\n%!" mailbox }}
     debug {{ eprintf "status received * STATUS: %s (%s)\n" mailbox items }}
     let mail = {{ { mail with statused = ((mailbox,items)::mail.statused) } }}
     status(mail, tools, tag)
@@ -597,6 +627,24 @@ status(mail, tools, tag):
   catch
   | exn ->
     check_exception(mail, tools, {{"status"}}, tag, exn)
+
+status_data(mail, tools, tag, len):
+  debug {{ eprintf "status_data: getting %d bytes\n%!" len }}
+  fixed {{ len }}
+  | mailbox ->
+    debug {{ eprintf "mailbox(len) = '%s'\n%!" mailbox }}
+    debug {{ eprintf "status received * STATUS: %s\n" mailbox }}
+    status_end(mail, tools, tag, mailbox)
+
+status_end(mail, tools, tag, mailbox):
+  receive
+  | StatusLenEnd items ->
+    debug {{ eprintf "status_data: ok\n%!" }}
+    let mail = {{ { mail with statused = ((mailbox,items)::mail.statused) } }}
+    status(mail, tools, tag)
+  | err ->
+    debug {{ eprintf "status_data: error\n%!" }}
+    error({{ sprintf "Bad end of status data: %s" (String.escaped (string_of_msg err)) }}, tools)
 
 append(mail, tools, tag, msg):
   receive

@@ -155,7 +155,7 @@ module Q = QmlAst
 (* -- *)
 
 (* Here a reference to published map *)
-type published_map = (Annot.label * Ident.t * [`one_lambda | `two_lambdas]) option IdentMap.t
+type published_map = (Annot.label * Ident.t * [`one_lambda of int | `two_lambdas]) option IdentMap.t
 let published_ref = ref (IdentMap.empty : published_map)
 (* Same hack as above, but for ei to update the link between current identifiers and the one before slicing *)
 let renaming_map = ref QmlRenamingMap.empty
@@ -1064,6 +1064,16 @@ let filter_left f l1 l2 =
     | _ -> invalid_arg "filter_left" in
   aux [] l1 l2
 
+let rec get_lifted_env = function
+  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async), [e], _) ->
+      get_lifted_env e
+  | Q.Directive (_, `lifted_lambda env, [e], _) -> (
+      match e with
+      | Q.Lambda (_,_params,_e) -> fst env
+      | _ -> assert false
+    )
+  | _ -> 0
+
 let type_of_args_from_quant gamma lt lrow lcol =
   let opaty = opaty gamma in
   let oparow = oparow gamma in
@@ -1398,7 +1408,7 @@ let process_code (have_typeof:QmlTypeVars.FreeVars.t) gamma annotmap _published 
               let annotmap, map_e = TypedExpr.ident annotmap id ty in
               (* put the ident in the map in any case
                * so that InsertRemote knows that it was rewritten *)
-              published_ref := IdentMap.add id (Some (Q.Label.expr map_e, id, `one_lambda)) !published_ref;
+              published_ref := IdentMap.add id (Some (Q.Label.expr map_e, id, `one_lambda (get_lifted_env e))) !published_ref;
               ((annotmap, e), ajax_ast)
             ) else
               let ajax_id = Ident.refresh id in

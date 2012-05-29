@@ -365,16 +365,34 @@ Server_private = {{
                       dispatcher, bogus_ontransfer)
       make_server
 
+    /* Check the contatenation of potentially invalid string
+       is a valid string */
+    @private
+    check(l) =
+      str = String.concat("",l)
+      Rule.succeed_opt(
+       if Cactutf.check(str) then
+          some(Text.cons(str))
+       else do Log.warning("url decoding",
+                        "Invalid escaped")
+         none
+      )
+
     /**
-     * Decode url, as per http://en.wikipedia.org/wiki/URL_Encoding
+     * Decode url, as per "http://en.wikipedia.org/wiki/URL_Encoding
+     * Byte should be decoded as if it was valid utf-8 (see current standard)
      */
     url_decode =
-        hex = parser c=[0-9a-fA-F] -> Text.from_character(c)
+        hex2 = parser
+          | h1=Rule.hexadecimal h2=Rule.hexadecimal ->
+            h1 * 16 + h2
         special_char = parser
-          | "+" -> Text.cons(" ")
-          | "%" t=(hex hex) -> Text.cons(String.of_utf8_val(Int.of_string("0x"^Text.to_string(t))))
+          | "+" -> " "
+          | "%" ~hex2 -> String.of_byte_val(hex2)
+        special_chars = parser
+          | l=special_char+ r={check(l)} -> r
         (parser
-          l=(((!special_char .)+) | c=special_char -> c )* -> Text.ltconcat(l) )
+          l=(((!special_char .)+) | c=special_chars -> c )* -> Text.ltconcat(l) )
         : Parser.general_parser(text)
 
   @private generate_dynamic_content(filename, default_dir, minifier, value, replace, mimetype) =

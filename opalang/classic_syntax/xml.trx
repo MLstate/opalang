@@ -85,7 +85,7 @@ htmltext           <- htmlchars+:s                      {{ concat_xml_text s }}
 deco_sname         =  deco sname;
 deco_ename         =  deco ename;
 deco_tname         =  deco tname;
-deco_html5voidtname =  deco Html5.void_element;
+deco_html5voidtname =  deco (Html5.void_element !([a-zA-Z_\-.0-9]+));
 deco_htmltext      =  deco htmltext;
 deco_svalue        =  deco svalue;
 deco_spaces        =  deco spaces;

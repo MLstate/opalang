@@ -74,8 +74,9 @@ FunAction = {{
   @private
   sendFA(v)=
     sendFA_RTSTRING = @js_ident("callFA")
+    de2oe_RTSTRING = @js_ident("dom_event_to_opa_event")
     v_str = String.escape_non_utf8_special(OpaSerialize.serialize(v))
-    "{sendFA_RTSTRING}(\"{v_str}\", event);"
+    "{sendFA_RTSTRING}(\"{v_str}\", {de2oe_RTSTRING}(event));"
 
   serialize(f:FunAction.t) =
     json = OpaSerialize.partial_serialize(f, @typeof(f))

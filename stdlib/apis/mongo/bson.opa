@@ -1023,25 +1023,33 @@ Bson = {{
          | element -> error("expected list, got {element}"))
       | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
       | {TyName_args=[kty, dty]; TyName_ident="map"} ->
+        fallback() =
+          do Log.warning("Bson.bson_to_opa", "fallback to the old representation (0.9.2)")
+          match (element.value, OpaType.implementation(ty)) with
+          | (~{Document}, {TySum_col=col ...}) -> column_to_rec(Document, col)
+          | _ ->
+            do Log.error("Bson.bson_to_opa", "Can't fallback to the old representation")
+            none
         (match element with
          | {value={Array=doc} ...}
          | {value={Document=doc} ...} ->
-           Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
-           imap =
-             List.fold((element, im ->
-                          default = OpaValue.default_with_ty(dty)
-                          match getel(element, dty, default) with
-                          | {none} ->
-                            fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
-                          | {some=v} ->
-                            elname = %%BslMongo.Mongo.decode_field%%(element.name)
-                            match OpaSerialize.unserialize(elname, kty) with
-                            | {none} -> fatal("Failed for map key {element.name} type {kty}")
-                            | {some = k} -> Map.add(k, v, im))
-                         , doc, Map.empty)
-           {some=@unsafe_cast(imap)}
-         | element ->
-           ML.warning("Bson.bson_to_opa", "expected map, got {element}, fallback to the old representation", element_to_opa(element, OpaType.implementation(ty), none))
+           @catch(_ -> fallback(),
+             Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
+             imap =
+               List.fold((element, im ->
+                            default = OpaValue.default_with_ty(dty)
+                            match getel(element, dty, default) with
+                            | {none} ->
+                              fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
+                            | {some=v} ->
+                              elname = %%BslMongo.Mongo.decode_field%%(element.name)
+                              match OpaSerialize.unserialize(elname, kty) with
+                              | {none} -> fatal("Failed for map key {element.name} type {kty}")
+                              | {some = k} -> Map.add(k, v, im))
+                           , doc, Map.empty)
+             {some=@unsafe_cast(imap)}
+           )
+         | _ -> fallback()
          )
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match element with

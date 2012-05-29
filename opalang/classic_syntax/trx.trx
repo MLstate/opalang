@@ -91,7 +91,8 @@ Char <- Opa_lexer.char_char
 /** parser subrule call */
 IdentifierCall <-
        / (=deco(Opa_parser.ident_call_dot))
-       / deco_ml_identifier:n !EQUAL {{ let s,a = n in (ident s a : ('a,'b) SurfaceAst.expr) }}
+       / deco_ml_identifier:n !EQUAL
+  {{ let s,a = n in (ident s a : parsing_expr) }}
 
 /** parser subrule call with autobind */
 AutobindIdentifierCall <- IdentifierCall:e {{( get_meaningful_called_ident e, e : string * (string,'b) SurfaceAst.expr) }}

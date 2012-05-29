@@ -25,7 +25,9 @@ The following piece of code declares a database named `my_db` and defines :
 - 1 path containing a record (/r)
 - 1 path containing a list of strings
 - 1 path to a map from integers (`intmap`) to values of type `stored`.
-- 1 path to a database set of `stored` records, where the primary key of the declared set is `x`.
+- 1 path to a set of `stored` records, where the primary key of the declared set is `x`.
+- 1 path to a set of more complex records where the primary key of
+  the set is `id`. This most complex records contain embedded maps and lists.
 
     type stored = {int x, int y, string v, list(string) lst}
 
@@ -37,6 +39,7 @@ The following piece of code declares a database named `my_db` and defines :
       stored /r
       intmap(stored) /imap
       stored /set[{x}]
+      {int id, stored s, intmap(stored) imap, stringmap(stored) smap} /complex[{id}]
     }
 
 ### Choosing database backend
@@ -101,6 +104,91 @@ If you do not define a default value, Opa uses the following strategy:
 - the default value for a `string` is `""`;
 - the default value for a record is the record of default values;
 - the default value for a sum type is the case which looks most like an empty case (e.g. `{none}` for `option`, `{nil}` for list, etc.)
+
+Sub-paths
+---------
+
+_Sub-paths_ are paths relative to some location in the database. If you think
+about paths as akin to absolute paths in the file-system, then sub-paths are
+a bit like relative paths.
+
+There are several ways to build sub-paths, that can be further composed by
+by separating them with dots (`.`, as opposed to `/` used for paths).
+
+* A _record field_ (`<ident>`) accessing a record field with the given name,
+* An _indexed_expression_ (`[<expr>]`) accessing elements of a map with constaints given by `<expr>` and
+* A _hole expression_ (`[_]`) acessing elements of a list.
+
+We'll talk more about sub-path in the following chapters.
+
+Querying
+--------
+
+Opa 0.9.0 (S4) introduces database sets and a powerful way to access a subset of database collections.
+
+A query is composed from the following operators:
+- `==  expr`: equals expr
+- `!= expr`: not equals expr
+- `<  expr`: lesser than expr
+- `<= expr`: lesser than or equals expr
+- `>  expr`: greater than expr
+- `>= expr`: greater than or equals expr
+- `in expr`: "belongs to" `expr`, where `expr` is a list
+- `q1 or q2`: satisfy query q1 or q2
+- `q1 and q2`: satisfy queries q1 and q2
+- `not q`: does not satisfy q
+- `{f1 q1, f2 q2, ...}`: the database field `f1` satisfies `q1`,  field `f2` satisfies `q2` etc.
+
+Furthermore you can specify some querying options:
+- `skip n`: where `expr` should be an expression of type int, skip the first `n` results
+- `limit n`: where `expr` should be an expression of type int, returns a maximum of `n` results
+- `order fld (, fld)+`: where fld specify an order. `fld` can be a single identifier or a list of identifiers specifying the fields on which the ordering should be based. Identifiers can optionally be prefixed with `+` or `-` to specify, respectively, ascending or descending order. Finally it's possible to choose the order dynamically with `<ident>=<expr>` where `<expr>` should be of type `{up} or {down}`.
+
+### Querying database sets
+
+    k = {x : 9}
+    stored x = /dbname/set[k] // k should be type of set keys, returns a unique value
+    stored x = /dbname/set[x == 10] // Returns a unique value because {x} is the primary key of the set
+
+    dbset(stored, _) x = /dbname/set[y == 10] // Returns a database set because y is not a primary key
+
+    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]]
+
+    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]; skip 10; limit 15; order +x, -y]
+
+    it = DbSet.iterator(x); // then use Iter module.
+
+### Querying database maps
+
+    // Access to a unique value (like in Opa <0.9.0 (S3))
+    stored x = /dbname/imap[9]
+
+    // Access to a submap where keys are smaller than 9 and greater than 4
+    intmap(stored) submap = /dbname/imap[< 9 and > 4]
+
+### Sub-queries
+
+We can also use sub-paths to perform sub-queries on elements at a given path.
+
+With indexed-expressions you can query on values inside maps.
+
+    // Querying using expression fields.
+    // This query returns all elements in the database set at path
+    // `/dbname/complex` where
+    // - The field `x` of the `stored` record on field `s` of database set
+    //   elements is smaller that 100
+    // - and the intmap `imap` contains an elements associated to the key `10`
+    //   where the field `v` is equal to `"value"`
+    // - and the stringmap `smap` contains a bindings with the key `"key"`
+    dbset(_, _) x = /dbname/complex[s.x < 100 and imap[10].v == "value" and smap["key"] exists]
+
+With hole expressions you can query elements within a list.
+
+    // Querying using hole expressions.
+    // This query returns all elements for which the stringmap `smap` contains a
+    // value associated to the `"key"` and the list on the field `lst` contains a
+    // value equal to "value".
+    dbset(_, _) x = /dbname/complex[smap["key"].lst[_] == "value"]
 
 Updating
 --------
@@ -174,50 +262,74 @@ Furthermore updates can operates on several paths.
     //Increment the field y of all records where the field x is smaller than 9
     /dbname/set[x < 9] <- {y++}
 
-Querying
---------
+### Updating sub-paths
 
-Opa 0.9.0 (S4) introduces database sets and a powerful way to access a subset of database collections.
+With sub-paths it is possible to update some values deeper in the database
+structure, relative to the point of update.
 
-A query is composed from the following operators:
-- `==  expr`: equals expr
-- `!= expr`: not equals expr
-- `<  expr`: lesser than expr
-- `<= expr`: lesser than or equals expr
-- `>  expr`: greater than expr
-- `>= expr`: greater than or equals expr
-- `in expr`: "belongs to" `expr`, where `expr` is a list
-- `q1 or q2`: satisfy query q1 or q2
-- `q1 and q2`: satisfy queries q1 and q2
-- `not q`: does not satisfy q
-- `{f1 q1, f2 q2, ...}`: the record field `f1` satisfies `q1`,  field `f2` satisfies `q2` etc.
+For instance, with indexed-expressions it's possible to write:
 
-Furthermore you can specify some querying options:
-- `skip n`: where `expr` should be an expression of type int, skip the first `n` results
-- `limit n`: where `expr` should be an expression of type int, returns a maximum of `n` results
-- `order fld (, fld)+`: where fld specify an order. `fld` can be a single identifier or a list of identifiers specifying the fields on which the ordering should be based. Identifiers can optionally be prefixed with `+` or `-` to specify, respectively, ascending or descending order. Finally it's possible to choose the order dynamically with `<ident>=<expr>` where `<expr>` should be of type `{up} or {down}`.
+    // Updating using expression fields.
+    // Update elements which match the query `...` by:
+    // - Incrementing field `x` of the `stored` record on field `s` of the database set
+    // - and add 2 to the field `x` and substract 2 from the field `y` of the
+    //   element associated to the `"key"` in the stringmap `smap`
+    /dbname/complex[...] <- {s.x++, smap["key"].{x += 2, y -= 2}}
 
-### Querying database sets
+With hole expressions it is possible to update *the first* element of a list matched
+by the corresponding hole in the query.
 
-    k = {x : 9}
-    stored x = /dbname/set[k] // k should be type of set keys, returns a unique value
-    stored x = /dbname/set[x == 10] // Returns a unique value because {x} is primary key of set
+    // Updating using hole fields.
+    // Write "another" into the first element of the list `lst` in the map `smap`
+    // at key "key".
+    /dbname/complex[smap["key"].lst[_] == "value"] <- {smap["key"].lst[_] : "another"}
 
-    dbset(stored, _) x = /dbname/set[y == 10] // Returns a database set because y is not a primary key
+Projection
+---------
 
-    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]]
+We saw how we can query database sets and maps to obtain a sub-set of their
+values. But often we do not need all the information stored there but only
+a selected few fields and fetching complete information from the database
+would be inefficient.
 
-    dbset(stored, _) x = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]; skip 10; limit 15; order +x, -y]
+We already saw how we can access a subpath of a given path:
 
-    it = DbSet.iterator(x); // then use Iter module.
+    // Access to /my_db/r
+    stored x = /my_db/r
+    // Access to the /x sub-path of /my_db/r
+    int x = /my_db/r/x
 
-### Querying database maps
+If we want to access to both subpath /x and /y of path /my_db/r we can write
+something like that:
 
-    // Access to a unique value (like in Opa <0.9.0 (S3))
-    stored x = /dbname/imap[9]
+    {int x, int y} xy = {x : /my_db/r/x, y : /my_db/r/y}
 
-    // Access to a submap where keys are lesser than 9 and greater than 4
-    intmap(stored) submap = /dbname/imap[< 9 and > 4]
+But there is a more concise syntax to achieve the same:
+
+    // This path access means 'select fields x and y in path /my_db/r'
+    {int x, int y} x = /my_db/r.{x, y}
+
+Similarly, you can use these kinds of projections on database sets and maps.
+Some examples follow:
+
+    // Access of /v sub-path of a set access with primary key
+    string result = /dbname/set[x == 10]/v
+
+    // Access of both sub-path /x and /v of a set access with primary key
+    {int x, string v} result = /dbname/set[x == 10].{x, v}
+
+    // Access of /v sub-paths of a set access
+    dbset(string, _) results = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]]/v
+
+    // Access of two sub-paths /x and /v of a set access
+    dbset({int x, string v}, _) results = /dbname/set[x > 10, y > 0, v in ["foo", "bar"]].{x, v}
+
+You can also use sub-paths to project selected data.
+
+    dbset({{int x, int y} s, intmap(stored) imap}) results = /dbname/complex[...].{s.{x, y}, imap}
+
+    dbset({{int x, int y} s, stored imap}) results = /dbname/complex[...].{s.{x, y}, imap["key"]}
+
 
 Manipulating paths
 ------------------

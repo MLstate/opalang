@@ -37,7 +37,7 @@
  * {1 Interface}
  */
 
-OK = {{
+@server OK = {{
 
   ok_ko(mess:string, b )=
     prerrln("ok_ko : {

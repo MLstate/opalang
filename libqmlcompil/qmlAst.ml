@@ -23,6 +23,7 @@
            2009, Louis Gesbert            <Louis.Gesbert@mlstate.com>
            2009, Mehdi Bouaziz            <Mehdi.Bouaziz@mlstate.com>
            2009, David Rajchenbach-Teller <David.Teller@mlstate.com>
+           2010, 2012 Quentin Bourgerie
 *)
 
 (**
@@ -128,13 +129,20 @@ end
 module Db =
 struct
 
-  type 'expr fields = (string list * 'expr) list
+  type 'epath field = [
+    `string of string
+  | `expr of 'epath
+  | `any
+  ] list
+
+  type ('epath, 'expr) fields =
+      ('epath field * 'expr) list
 
   type 'expr select =
     | SNil
     | SStar
     | SSlice of 'expr * 'expr
-    | SFlds of 'expr select fields
+    | SFlds of ('expr, 'expr select) fields
     | SId of 'expr * 'expr select
 
   type 'expr query =
@@ -149,23 +157,23 @@ struct
     | QOr   of 'expr query * 'expr query
     | QAnd  of 'expr query * 'expr query
     | QNot  of 'expr query
-    | QFlds of 'expr query fields
-    | QExists of [`string of string | `expr of 'expr] list * bool
+    | QFlds of ('expr, 'expr query) fields
+    | QExists of bool
 
   type 'expr query_options = {
     limit : 'expr option;
     skip  : 'expr option;
-    sort  : 'expr fields option;
+    sort  : ('expr, 'expr) fields option;
   }
 
   type 'expr update =
     (* Record updating*)
-    | UFlds of 'expr update fields
+    | UFlds of ('expr, 'expr update) fields
 
     (* Simple updating*)
     | UExpr of 'expr
     | UId of 'expr * 'expr update
-    | UIncr of int (* TODO : expr*)
+    | UIncr of 'expr
 
     (* List updating *)
     | UAppend     of 'expr
@@ -264,9 +272,12 @@ struct
 
   let pp = BaseFormat.fprintf
 
-  let rec pp_field fmt = function
-    | t0::((_::_) as q) -> pp fmt "%s.%a" t0 pp_field q
-    | t0::[] -> pp fmt "%s" t0
+  let rec pp_field pp_expr fmt =
+    function
+    | `string t0::((_::_) as q) -> pp fmt "%s.%a" t0 (pp_field pp_expr) q
+    | `expr t0::q -> pp fmt "[%a]%a" pp_expr t0 (pp_field pp_expr) q
+    | `string t0::[] -> pp fmt "%s" t0
+    | `any::q -> pp fmt "[_]%a" (pp_field pp_expr) q
     | [] -> pp fmt ""
 
   let rec pp_update pp_expr fmt = function
@@ -276,9 +287,9 @@ struct
         pp fmt "{";
         List.iter
           (function (f, u) ->
-             pp fmt "%a : %a," pp_field f (pp_update pp_expr) u) fields;
+             pp fmt "%a : %a," (pp_field pp_expr) f (pp_update pp_expr) u) fields;
         pp fmt "}";
-    | UIncr i -> pp fmt "+=%i" i
+    | UIncr i -> pp fmt "+=%a" pp_expr i
     | UAppend     expr -> pp fmt "<+ %a"  pp_expr expr
     | UAppendAll  expr -> pp fmt "<++ %a" pp_expr expr
     | URemove    expr -> pp fmt "+> %a"  pp_expr expr
@@ -297,7 +308,7 @@ struct
        | UFlds fields ->
            List.iter
              (function (f, u) ->
-                pp fmt "%a : %a," pp_field f (pp_update pp_expr) u) fields;
+                pp fmt "%a : %a," (pp_field pp_expr) f (pp_update pp_expr) u) fields;
        | _ -> pp_update pp_expr fmt u
       );
       pp fmt "%a}" (pp_update_options pp_expr) o
@@ -319,8 +330,8 @@ struct
     | QFlds fields ->
         List.iter
           (function (f, q) ->
-             pp fmt "%a %a" pp_field f (pp_query pp_expr) q) fields
-    | QExists _ -> assert false
+             pp fmt "%a %a" (pp_field pp_expr) f (pp_query pp_expr) q) fields
+    | QExists _ -> pp fmt "exists"
 
   let rec pp_select pp_expr fmt = function
     | SStar -> pp fmt "*"
@@ -329,7 +340,7 @@ struct
     | SFlds flds ->
         pp fmt "{%a}"
           (BaseFormat.pp_list "," (fun fmt (f, e) -> pp fmt "%a : %a"
-                                     pp_field f
+                                     (pp_field pp_expr) f
                                      (pp_select pp_expr) e)
           ) flds
     | SId (id, select) -> pp fmt "[%a]%a" pp_expr id (pp_select pp_expr) select
@@ -343,7 +354,8 @@ struct
     pp_option (fun fmt s -> pp fmt "skip %a" pp_expr s) options.skip;
     pp_option (fun fmt fields ->
                  pp fmt "order %a"
-                   (BaseFormat.pp_list "," (fun fmt (f, e) -> pp fmt "%a=%a" pp_field f pp_expr e))
+                   (BaseFormat.pp_list ","
+                      (fun fmt (f, e) -> pp fmt "%a=%a" (pp_field pp_expr) f pp_expr e))
                    fields)
       options.sort
 
@@ -361,7 +373,10 @@ struct
     let pp_el fmt () = pp_path_elts pp_expr fmt el in
     match knd with
     | Update (u, o) ->
-        pp f "%a.%a <- %a" pp_el () (pp_select pp_expr) select (pp_update_with_options pp_expr) (u, o)
+        pp f "%a.%a <- %a"
+          pp_el ()
+          (pp_select pp_expr) select
+          (pp_update_with_options pp_expr) (u, o)
     | _ ->
         pp f "%s%a.%a" (
           match knd with
@@ -446,8 +461,28 @@ struct
     | Db_Virtual (p,e) ->
         TU.wrap (fun (p,e) -> Db_Virtual (p,e)) (TU.sub_2 TU.sub_ignore sub_e (p,e))
 
+  let sub_db_field sub_epath field =
+    let rebuild, subs =
+      List.fold_left
+        (fun (rebuild, subs) -> function
+         | (`string _ | `any) as fragment -> (fun x -> fragment::rebuild x), subs
+         | `expr e ->
+             let unsub, list = sub_epath e in
+             let length = List.length list in
+             (fun l ->
+                let l1, l2 = List.split_at length l in
+                `expr (unsub l1)::rebuild l2
+             ), (subs @ list)
+        ) ((function | [] -> [] | _ -> assert false), []) field
+    in (fun l -> List.rev (rebuild l)), subs
+
+  let sub_db_fields sub_epath sub_expr fields =
+    TU.sub_list (TU.sub_2 (sub_db_field sub_epath) sub_expr) fields
+
+
   let rec sub_db_update sub_e sub_ty = function
-    | (UPop | UShift | UIncr _) as e -> TU.sub_ignore e
+    | (UPop | UShift) as e -> TU.sub_ignore e
+    | UIncr expr -> TU.wrap (fun e -> UIncr e) (sub_e expr)
     | UExpr expr -> TU.wrap (fun e -> UExpr e) (sub_e expr)
     | UId (id, update) ->
         TU.wrap
@@ -460,7 +495,7 @@ struct
     | UFlds fields ->
         TU.wrap
           (fun fields -> UFlds fields)
-          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_update sub_e sub_ty)) fields)
+          (sub_db_fields sub_e (sub_db_update sub_e sub_ty) fields)
 
   let sub_db_update_options _sub_e _sub_ty opt =
     TU.wrap
@@ -478,7 +513,7 @@ struct
     | SFlds fields ->
         TU.wrap
           (fun fields -> SFlds fields)
-          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_select sub_e sub_ty)) fields)
+          (sub_db_fields sub_e (sub_db_select sub_e sub_ty) fields)
 
   let sub_db_kind sub_e sub_ty = function
     | Default
@@ -492,6 +527,7 @@ struct
              (update, options))
 
   let rec sub_db_query sub_e sub_ty = function
+    | QExists _
     | QMod  _ as e -> TU.sub_ignore e
     | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
     | QGt   e -> TU.wrap (fun e -> QGt e) (sub_e e)
@@ -513,19 +549,16 @@ struct
     | QFlds flds ->
         TU.wrap
           (fun fields -> QFlds fields)
-          (TU.sub_list (TU.sub_2 TU.sub_ignore (sub_db_query sub_e sub_ty)) flds)
-    | QExists _ -> assert false
+          (sub_db_fields sub_e (sub_db_query sub_e sub_ty) flds)
 
   let sub_db_query_options sub_e _sub_ty opt =
-    let (sub_fields: ('a fields, _, _, 'b fields) TU.sub) = fun flds ->
-      TU.wrap
-        (fun fields -> fields)
-        (TU.sub_list (TU.sub_2 TU.sub_ignore sub_e) flds)
-    in
     TU.wrap
       (fun (limit, skip, sort) -> {limit; skip; sort})
-      (TU.sub_3 (TU.sub_option sub_e) (TU.sub_option sub_e) (TU.sub_option sub_fields)
-         (opt.limit, opt.skip, (opt.sort : 'expr fields option))
+      (TU.sub_3
+         (TU.sub_option sub_e)
+         (TU.sub_option sub_e)
+         (TU.sub_option (sub_db_fields sub_e sub_e))
+         (opt.limit, opt.skip, (opt.sort))
      )
 
   let sub_path_elt sub_e sub_ty = function

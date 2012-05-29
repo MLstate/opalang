@@ -137,8 +137,8 @@ Mime = {{
     | ew=encoded_word ->
       match string_to_encoding(ew.encoding)
       | {some={Q_encoding}} -> decoder(ew.charset, Q.decode(ew.encoded_text))
-      | {some={B_encoding}} -> Crypto.Base64.decode(ew.encoded_text)
-      | {none} -> ew.encoded_text
+      | {some={B_encoding}} -> decoder(ew.charset, Crypto.Base64.decode(ew.encoded_text))
+      | {none} -> decoder(ew.charset, ew.encoded_text)
       end
     | c=. -> Cactutf.cons(c)
 
@@ -200,17 +200,17 @@ Mime = {{
   @private Multipart = {{
 
     parser(b:string) =
+      not_double_dash = parser !"--" !crlf_parser . -> void
       delimiter =
-        parser crlf_parser? (!("--"|crlf_parser) .)* "--" Parser.of_string(b) -> void
+        parser crlf_parser? not_double_dash* "--" "{b}" -> void
       close_delimiter =
         parser delimiter "--" -> void
       body_part =
-        parser bp=(!(delimiter|close_delimiter) .)* ->
-          Text.to_string(Text.ltconcat(bp))
+        parser bp=((!delimiter Rule.full_line)*) -> Text.to_string(bp)
       encapsulation =
         parser delimiter crlf_parser content=body_part -> content
       parser
-      | (!delimiter .)* parts=encapsulation+ close_delimiter (.*) ->
+      | (!delimiter .)* parts=encapsulation+ close_delimiter .* ->
         List.map(content ->
           match parse_entity(content)
           {some=part} -> part

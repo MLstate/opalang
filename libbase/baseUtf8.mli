@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,4 +18,7 @@
 val except_html_char : string
 val allowed_special_char : string
 val string_of_int : int -> string
+(* escape all chars to html entities using a formater taking starting position and number of char to process *)
+val htmlentities_append : Buffer.t -> string -> int -> int -> unit
+(* escape all chars to html entities *)
 val htmlentities : string -> string

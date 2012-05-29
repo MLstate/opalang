@@ -286,7 +286,7 @@ DbMongo = {{
      selector = [{name = "_id"; value = {String = vpath.id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      write(data:'data) =
-       update = Bson.opa2doc({_id = vpath.id; data=data})
+       update = Bson.opa2doc({_id = vpath.id; value=data})
        MongoDriver.update(db.db, tags, ns, selector, update)
      remove() =
        if not(MongoDriver.delete(db.db, 0, ns, selector)) then
@@ -860,15 +860,24 @@ DbSet = {{
              limit,
              filter,
              read_map:DbMongoSet.engine('a) -> option('b),
-             write_map:'b -> list(Bson.document)):DbMongo.private.ref_path('b) =
+             write_map:'b -> list(Bson.document),
+             embed:option(string)):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
-    remove() =
-      if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
-        Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
-      #<Ifstatic:DBGEN_DEBUG>
-      else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
-      #<End>
+    remove =
+      match embed with
+      | {none} ->
+        ->
+          if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
+            Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
+          #<Ifstatic:DBGEN_DEBUG>
+          else Log.notice("DbGen/Mongo", "(success) removing inside set '{path}' removed ")
+          #<End>
+      | {some=embed} ->
+        ->
+          update(db, path, selector,
+            [{name="$unset"; value={Document = [{name=embed; value={Int32 = 1}}]}}]
+            , false)
     write(datas) =
       do remove()
       #<Ifstatic:DBGEN_DEBUG>

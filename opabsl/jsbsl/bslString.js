@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -119,8 +119,8 @@
     return result;
 }
 
-##register escapeHTML : string -> string
-  ##args(someText)
+##register escapeHTML : bool, string -> string
+  ##args(_,someText)
   {
     var div = document.createElement('div');
     var text = document.createTextNode(someText);

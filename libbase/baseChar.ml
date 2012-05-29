@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -81,3 +81,7 @@ let hexa_value c =
     else if c >= 'a' && c <= 'f' then 87 (* int_of_char 'a' - 10 *)
     else assert false
   )
+
+let cache fun_charset =
+  let table = Array.init 256 (fun code -> fun_charset (Char.unsafe_chr code)) in
+  fun c -> Array.unsafe_get table (Char.code c)
