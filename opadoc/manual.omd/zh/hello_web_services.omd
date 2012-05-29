@@ -1,0 +1,276 @@
+Web服务（Web Services）示例
+===================
+
+如今，成千上万的web应用通过Web服务（web services）的形式提供它们的功能，以及可以被其他Web应用或本地客户端调用的API。这正是Twitter、Github、Google
+Map 以及其他无数应用能够被第三方应用扩展的原因，在这过程中使用了定义清晰并且易于访问的协议。
+
+使用Opa，提供Web服务变得同创建任意其他形式的Web应用一样简单。在本章中，我们不去编写新的应用，而是将上一章的wiki应用进行扩展，使得可以通过Web API访问它。这项工作会让我们了解REST Web服务的设计、怎样使用命令行测试Opa服务、管理URI请求等等内容。
+
+{block}[TIP]
+Web service存在多种不同的协议，尤其是 _REST_ (Representational State Transfer, 一个简单的标准，并没有规定消息的格式，只规定了它们该如何交换），_SOAP_（一个更为复杂的标准，强制了消息格式及交换方式），_WSDL_(一个高层的协议）。在本章中，我们只讨论_REST_.
+{block}
+
+概述
+--------
+在本章，我们会修改上一章的wiki应用，使得它可以通过REST API进行访问。这几乎不会对原来的代码进行修改，仅仅是增加了一些用来区分客户端可以发送的不同种类请求的判断 -- 现在，这里的客户端不一定指浏览器了。
+
+有兴趣的读者可以通过下面的地址查看REST wiki的完整源代码：
+
+[opa|fork=hello_web_services|run=http://wiki-rest.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest.opa
+
+我们现在开始了解上面代码清单中相关的概念。
+
+移除主题
+---------------
+
+在本章的后面，我们希望能够删除之前添加到wiki里面的主题。增加这个功能（不在用户界面上显示）仅仅需要下面几行代码：
+
+```
+function remove_topic(topic) {
+    Db.remove(@/wiki[topic]);
+}
+```
+
+在这段代码中，我们使用了方法`Db.remove`，该方法的唯一作用就是去删除掉指定数据库路径下的内容。注意`/wiki[topic]`前面的 ` @ `，这个符号表明我们没用使用路径`/wiki[topic]`的值，而是使用路径本身。如果我们去掉这个符号，Opa编译器会提示：`Db.remove`无法接受`string`类型的参数 -- 实际情况确实如此。
+
+REST浅析
+----------------
+
+Web服务（Web Services）和Web应用（Web Applications）在行为上很相似，只不过Web服务没有客户端部分。换句话说，和其他的Web应用一样，Web服务也是从`Server.start`声明开始的。
+
+###### 带有一个rest入口点的服务器
+
+```
+function topic_of_path(path) {
+    String.capitalize(String.to_lower(List.to_string_using("", "", "::", path)));
+}
+
+function start(url) {
+    match (url) {
+    case {path: [] ... }: display("Hello");
+    case {path: ["_rest_" | path] ...}: rest(topic_of_path(path));
+    case {~path ...}: display(topic_of_path(path));
+    }
+}
+
+Server.start(Server.http,
+  [ {bundle: @static_include_directory("resources")}
+  , {dispatch: start}
+  ]
+)
+```
+
+在这个版本的`start`方法中，我们稍微改变了模式匹配的代码，来处理以`"_rest_"`开头的路径。我们认为这样形式的路径是基于Rest请求的入口点，并以此来处理它们。这里，我们把处理逻辑通过`rest`方法实现，我们下面来看一下这个方法：
+
+正如你所见，这个方法同样简单：
+
+###### 处理Rest请求
+
+```
+function rest(topic) {
+  match (HttpRequest.get_method()) {
+  case {some: method} :
+      match (method) {
+      case {post}:
+          _ = save_source(
+              topic,
+              match (HttpRequest.get_body()) {
+              case ~{some}: some;
+              case {none}: "";
+              }
+          );
+          Resource.raw_status({success});
+      case {delete}:
+          remove_topic(topic);
+          Resource.raw_status({success});
+      case {get}:
+          Resource.raw_response(load_source(topic), "text/plain", {success});
+      default:
+          Resource.raw_status({method_not_allowed});
+      }
+    default:
+      Resource.raw_status({bad_request});
+  }
+}
+```
+
+首先，请注意方法`rest`的代码是基于模式匹配的。为了使得Opa中的模式匹配一致，此模式匹配中前面三个模式都是从REST的标准用语中的不同动作构造出来的（这些动作称为_Http methods_):
+
+* `{post}` 用于向服务器存放信息，在这里指向wiki中添加一些内容；
+* `{delete}` 用于从服务器删除信息，在这里指从wiki中删除一个主题；
+* `{get}` 用户从服务器获取信息，在这里指下载一个入口的源代码。
+
+对于这些动作，我们构建了下面的模式：
+
+* `{some: {post}}`, 即：Http方法有定义，并且是 _post_方法;
+* `{some: {delete}}`, 即：Http方法有定义，并且是 _delete_方法；
+* `{some: {get}}`, 即：Http方法有定义，并且是_get_方法；
+* `_`, 即：任何其他情况，Http方法没有定义，或者我们不希望处理这个方法。
+
+`rest`中的其他任何东西都是简单的方法调用。你可以在API文档中找到每个方法的定义，因此这里我们仅仅简单介绍一下你还没有看到过的方法：
+
+* 函数 `HttpRequest.get_method`，类型为： `-> option(method)`. 如果请求调用了这个函数，并且这个请求有一个方法(method)_m_，它会返回`{some:m}`.否则返回`{none}`
+* 类似地, `HttpRequest.get_body`，类型为： `-> option(string)`.  如果请求调用了这个函数，并且这个请求有一个请求体（body） _b_，它会返回`{some:b}`.否则返回`{none}`
+* 函数`Resource.raw_response` has type `string, string, status -> resource`. 这个函数会根据输入参数的body,MIME type和status产生一个资源。此函数在响应REST请求时很常用。
+* 最后, 函数`Resource.raw_status`，类型为：`status -> resource`. 它会产生一个空资源, 这个函数多用于对Rest请求返回错误消息。
+
+由于对于一个`option`的模式匹配十分常用，Opa提供了一个操作符`?`，这个操作符可以使得上面的代码片段更加精简，且便于阅读。
+表达式`a?b`和下面三行表示同样的内容：
+
+    match a with
+    | {none}  -> b
+    | ~{some} -> some
+
+使用这个表达式，我们可以把上面的代码重写为如下形式：
+
+###### 处理Rest请求（使用了`?`简写）
+
+```
+function rest(topic) {
+    match (HttpServer.get_method()) {
+    case {some : {post}} :
+        _ = save_source(topic, HttpServer.get_body() ? "");
+        Resource.raw_status({success});
+    case {some : {delete}} :
+        remove_topic(topic);
+        Resource.raw_status({success});
+    case {some : {get}} :
+        Resource.raw_response(load_source(topic), "text/plain", {success});
+    default :
+        Resource.raw_status({method_not_allowed});
+    }
+}
+```
+
+有了上面这些，我们就完成了！现在我们的wiki就可以被其他的web应用调用了：
+
+[opa|fork=hello_web_services|run=http://wiki-rest.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest.opa
+
+总而言之，上面的十多行代码就完成了所需的改变。
+
+后面的练习会向你展示如何引入形式更为复杂的脚本。
+
+进行测试
+----------
+
+测试一个REST
+API最简单的方法是使用命令行工具，它允许你直接发出请求。例如`curl`或者`wget`。假定你的系统中装有`curl`，下面的命令行可以测试发送一个`{get}`请求到`_rest_/hello`所返回的结果：
+
+    curl localhost:8080/_rest_/hello
+
+执行上面的命令，`curl`会显示这次调用的结果。
+
+类似地，下面的命令行会测试发送一个`{post}`请求到相同地址的结果
+
+    curl localhost:8080/_rest_/hello -d "I've just POSTed to change the contents of my wiki"
+
+我们这里学习的不是如何去使用`curl`，而是学习Opa。那么怎样才能不必写一个web前台（web
+front-end），而通过一个不依赖于自身数据库，依赖于wiki所定义的数据库的更好方式去测试wiki的REST API呢？
+
+我们会在下一章讲述这部分内容。
+
+问题
+---------
+
+### 什么情况下方法（method）或请求体（body）未定义
+
+如前所述，方法`HttpServer.get_method`和`HttpServer.get_body`在http方法/请求体不存在的情况下会返回`{none}`。
+
+这可能会令你感到吃惊，因为根据协议的定义，每一个请求都有一个method(并不是所有的请求都有body）。情况的确如此，`HttpServer.get_method`会返回`{none}`的唯一情况是没有请求，也就是说，当函数被服务器自身调用，而不是通过执行web浏览器或者不同web服务器的请求。
+
+另一方面，很多请求都不包含body。当请求没有请求体，或者同上没有请求的时候，方法`HttpServer.get_body`会返回`{none}`
+
+### 只有一个服务器？
+
+可能有读者已经开始考虑大的应用，根据目前的知识，你也许会担忧把所有的路径管理工作放到一个模式匹配中进行管理，有可能会破坏模块化并阻碍你的工作。
+
+你不必担心，因为Opa已经注意到了这一点。你可以将任意数量的服务器组合在一起。你可以查看一下`Server.start`的第二个参数`Server.handler`的所有其他变换形式，来了解所有其他构造服务器的方式。
+
+练习
+---------
+
+### Chat的Rest形式
+
+为聊天室程序添加REST API，使其拥有下列特性：
+
+* 使用`{post}`请求来发送一个消息以在聊天室中立即显示（目前，我们假定消息是由"ghost"编写的）。
+
+{block}[TIP]
+要处理多个入口点，必须重写`server`并将`one_page_bundle`替换为一个分发器（dispatcher）.这些练习，假定对于路径`_rest_`的所有请求都是REST请求。
+{block}
+
+使用下面的命令行进行测试（假定你的系统中装有`curl`):
+
+    curl localhost:8080/_rest_ -d "Whispers..."
+
+### Chat的Rest形式，并带有日志记录
+
+如果你还没有完成使用数据库存放聊天记录的话，请先完成这项工作。
+
+之后，添加如下的REST API：
+
+* 使用`{get}` 请求来获取消息记录，返回`string`类型，每条记录包含一行。
+
+记住，使用方法`List.to_string_using`来将list转换为string。
+
+### Chat的Rest形式，支持查询
+
+对于这个练习，我们希望扩展聊天室chat的REST API，使其能够发送一条消息，并且附带有消息作者的名字。为此，我们需要发送更多的信息，而不仅仅是简单的`{post}`。在REST的世界里，有两种传送额外信息的典型方式：一种是通过URI本身，另一种是通过请求体（body of request）。在本练习中，我们使用前者。
+
+* 如果收到一个`{post}`请求。并且，如果请求的查询参数包含一对`("author", x)`, 使用`x`的值作为作者的名字。
+* 否则同上，使用"ghost"作为作者的名字。
+
+{block}[TIP]
+### 关于查询参数
+查询参数是URI的一个元素。从用户的角度来看，查询参数看起来如：`?author=name&arg2=val2&arg3=val3`。从开发者的角度来看，查询参数包含在URI的`query`字段中，就如同`path`一样。这个字段包含了一个键值对的列表。因此，对于前面的查询，这个列表看起来形式如下：
+
+    [("author", "name"), ("arg2", "val2"), ("arg3", "val3")]
+
+注意，这些参数的顺序是毫无意义的。
+{block}
+
+{block}[TIP]
+### 关于关联表（association lists）
+包含一个名称和值对（更一般的，键值对）的列表一般叫做“关联表”。
+
+在Opa中，要从关联列表中提取一个值的最常用方法是`List.assoc`。这个方法接受两个参数：要查找的键和要查找的列表。它的结果是一个`option`,要么是`{none}`(如果在列表中没有这个key）,或者`{some:v}`(如果这个键存在，并且与值`v`相关联）。
+{block}
+
+### Chat的Rest形式，支持JSON
+
+另一种在REST服务中使用的常见技术是通过请求体来传送额外的信息，通常以JSON（JavaScript Object Notation Language)的格式传送。这个练习的目的就是使用JSON替代URI来发送消息作者的名字到服务器。
+
+* 如果服务器收到的是`{post}`请求，并且请求体是一个包含了字段`"author"`的合法JSON结构，使用这个字段的值作为作者的名字。
+* 否则同上，使用"ghost"作为作者的名字。
+
+{block}[TIP]
+### JSON请求
+要获得一个请求的JSON格式的请求体，使用方法`HttpRequest.get_json_body`。
+{block}
+
+{block}[TIP]
+### 关于JSON
+JSON是一种可以被解析为简单数据结构的字符串格式。在Opa中，一个JSON格式的字符串可以使用下面的方法转换为`RPC.Json.json`类型：
+
+    Json.deserialize: string -> option(RPC.Json.json)
+
+注意，如果字符串的格式不正确，这个方法会返回`{none}`。
+
+相反的操作是下面的方法：
+
+    Json.serialize: RPC.Json.json -> string
+
+类型`RPC.Json.json`的定义如下：
+
+```
+type RPC.Json.json =
+    { int   Int }
+ or { float Float }
+ or { string String }
+ or { bool Bool }
+ or { list(RPC.Json.json) List }
+ or { list((string, RPC.Json.json)) Record }
+```
+
+如上所述，前面关联表的情况对应了Record。
+{block}
