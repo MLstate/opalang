@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+##extern-type Scheduler.key
 
 ##register timer : int, (-> void) -> void
 ##args(delay,todo)
@@ -32,8 +34,22 @@
     setTimeout(function(){ todo() },delay);
 }
 
+##register asleep : int, (-> void) -> Scheduler.key
+##args(delay, todo)
+{
+    var key = setTimeout(function(){ todo() }, delay);
+    return key
+}
+
 ##register push : (-> void) -> void
 ##args(todo)
 {
     %%BslScheduler.sleep%%(0, todo);
+}
+
+##register abort : Scheduler.key -> void
+##args(key)
+{
+    clearTimeout(key);
+    return js_void;
 }

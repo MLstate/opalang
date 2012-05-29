@@ -21,6 +21,8 @@
 ##property[endmli]
 (** *****************************)
 
+##extern-type Scheduler.key = Scheduler.async_key
+
 module BslUtils = OpabslgenMLRuntime.BslUtils
 
 let opa = Scheduler.default
@@ -45,10 +47,16 @@ let set_nb_step_apply n = QmlCpsServerLib.set_nb_step_apply n
 (* BSL REGISTERING *)
 ##register sleep : int, (-> void) -> void
 
+##register asleep : int, (-> void) -> Scheduler.key
+
 ##register [cps-bypass] sleep_cps : int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
 let sleep_cps t f k =
   sleep t (BslUtils.proj_cps0 k f);
   QmlCpsServerLib.return k ServerLib.void
+
+##register [cps-bypass] asleep_cps : int, (continuation(opa[void]) -> void), continuation(opa[Scheduler.key]) -> void
+let asleep_cps t f k =
+  QmlCpsServerLib.return k (asleep t (BslUtils.proj_cps0 k f))
 
 
 ##register timer : int, (-> void) -> void

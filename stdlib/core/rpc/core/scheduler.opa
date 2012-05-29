@@ -38,6 +38,11 @@
  */
 
 /**
+ * Tyoe of keys associated of scheduler jobs.
+ */
+type Scheduler.key = external
+
+/**
  * {1 Interface}
  */
 
@@ -152,6 +157,11 @@ Scheduler =
   sleep(i, f) = @may_cps(%%BslScheduler.sleep%%)(i, f)
 
   /**
+   * As sleep but returns the associated jobs key.
+   */
+  asleep(i, f) = %%BslScheduler.asleep%%(i, f)
+
+  /**
    * Interrupt the current thread for a given number of milliseconds.
    *
    * Warning: this function is server-only.
@@ -194,6 +204,15 @@ Scheduler =
     do Scheduler_push( -> Continuation.return(k,void))
 	  f()
   )
+
+  /**
+   * {2 Jobs management}
+   */
+
+  /**
+   * Abort the jobs associated of the [key].
+   */
+  abort(key:Scheduler.key) = %%BslScheduler.abort%%(key)
 
   #<Ifstatic:OPA_BACKEND_QMLJS>
   #<Else>
