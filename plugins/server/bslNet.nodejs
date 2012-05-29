@@ -604,13 +604,14 @@ var reason_phrase_map = {
     req._body_barrier.wait(k);
   } else {
     var body = new Array();
-    req._body_barrier = new Barrier("get_request_message_body");
-    req.on('data', function(chunk){
+    var barrier = new Barrier("get_request_message_body")
+    req._body_barrier = barrier;
+    req.request.on('data', function(chunk){
              body.push(chunk);
            }
           );
-    req.on('end', function(){
-             Barrier.release(body.join(""));
+    req.request.on('end', function(){
+             barrier.release(body.join(""));
            }
           );
     return;
@@ -621,7 +622,7 @@ var reason_phrase_map = {
 ##args(req, url, body)
 {
   req._body_barrier = new Barrier("request_with");
-  req.url = url;
+  req.request.url = url;
   req._body_barrier.release(body);
   return req;
 }
