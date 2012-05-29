@@ -153,6 +153,13 @@ function ccont(b, f){
   return cont(f);
 }
 
+##register [cps-bypass] user_cont_cps  : ('a, continuation(opa[void]) -> void ), continuation(continuation('a)) -> void
+##args(f, k)
+{
+  var fk = ccont(k, function(a){f(a, ccont(fk, function(){}))});
+  return_(k, fk);
+}
+
 ##register execute : continuation('a), 'a -> void
 ##args(k, x)
 {
