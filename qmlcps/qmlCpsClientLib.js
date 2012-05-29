@@ -311,7 +311,7 @@ Continuation.prototype = {
      */
     executexn: function(exn) {
         var payload = this._paylexn;
-        (payload ? payload : QmlCpsLib_default_handler_cont(this)._payload)
+        (payload ? payload : QmlCpsLib_default_handler_cont(this))
         ._paylexn.apply(this._context, [exn]);
     },
 
@@ -360,6 +360,7 @@ function push(task)
 {
     cps_assert(task.debug_is_a_task, "[push] expects a [Task]");
     ready.push(task);
+    launch_schedule();
 }
 
 var is_schedule = false;
