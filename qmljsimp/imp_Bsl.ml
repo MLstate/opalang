@@ -150,7 +150,9 @@ struct
                 JsCons.Expr.call ~pure:true
                   (JsCons.Expr.ident (JsAst.Native (`global, "uncps")))
                   [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
-                   function_]
+                   function_;
+                   JsCons.Expr.string (BslKey.to_string key)
+                  ]
       in
       let function_ =
         if check then

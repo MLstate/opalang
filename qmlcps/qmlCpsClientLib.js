@@ -464,9 +464,9 @@ function spawn(f) {
  * Transform a cps function [f] (function (..., k)) to a non-cps function
  * [function(...)].
  */
-function uncps(pk, f) {
+function uncps(pk, f, name) {
     return function (){
-        var b = new Barrier("uncps : " + f);
+        var b = new Barrier(name != undefined ? name : ("uncps : " + f));
         var k = pk.ccont(function(x){b.release(x)});
         var a = Array.prototype.slice.call(arguments);
         a.push(k);
