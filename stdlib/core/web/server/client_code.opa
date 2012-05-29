@@ -38,68 +38,70 @@ import stdlib.core.{js, rpc.core}
 
 @server Client_code = {{
 
+  // Note: defaults for pack.opa are littleEndian, Unsigned, Longlong
+
   key_ident_code =
-    [{Coded=[({Byte=0},[{Llstring=""}]),
-             ({Byte=1},[{Llstring=""}]),
-             ({Byte=2},[{Llstring=""},{Llstring=""}])]}]
+    [{Coded=[({Byte=0},[{String=""}]),
+             ({Byte=1},[{String=""}]),
+             ({Byte=2},[{String=""},{String=""}])]}]
 
   unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
     match Pack.Decode.unpack(key_ident_code, input.string, input.pos) with
-    | {success=(pos,[({Byte=0},[{Llstring=key}])])} -> {success=({input with ~pos},{~key})}
-    | {success=(pos,[({Byte=1},[{Llstring=ident}])])} -> {success=({input with ~pos},{~ident})}
-    | {success=(pos,[({Byte=2},[{Llstring=key},{Llstring=ident}])])} -> {success=({input with ~pos},~{key, ident})}
+    | {success=(pos,[({Byte=0},[{String=key}])])} -> {success=({input with ~pos},{~key})}
+    | {success=(pos,[({Byte=1},[{String=ident}])])} -> {success=({input with ~pos},{~ident})}
+    | {success=(pos,[({Byte=2},[{String=key},{String=ident}])])} -> {success=({input with ~pos},~{key, ident})}
     | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.unser_key_ident: bad code {n}"}
     | {~failure} -> {~failure}
 
   mini_expr_code =
-    [{Coded=[({Byte=0},[{Llstring=""}]),
-             ({Byte=1},[{Llstring=""}]),
-             ({Byte=2},[{Llstring=""}]),
-             ({Byte=3},[{Lllist=([{Llstring=""}],[])}]),
-             ({Byte=4},[{Llstring=""}]),
-             ({Byte=5},[{Llstring=""}]),
-             ({Byte=6},[{Llstring=""}]),
-             ({Byte=7},[{Llstring=""}]),
+    [{Coded=[({Byte=0},[{String=""}]),
+             ({Byte=1},[{String=""}]),
+             ({Byte=2},[{String=""}]),
+             ({Byte=3},[{List=([{String=""}],[])}]),
+             ({Byte=4},[{String=""}]),
+             ({Byte=5},[{String=""}]),
+             ({Byte=6},[{String=""}]),
+             ({Byte=7},[{String=""}]),
             ]}]
 
   // data list -> string low-level array
   dl2slla(dl) = // TODO: Outcome.list
-    LowLevelArray.of_list(List.map((data -> match data with | [{~Llstring}] -> Llstring | _ -> ""),dl))
+    LowLevelArray.of_list(List.map((data -> match data with | [{~String}] -> String | _ -> ""),dl))
 
   unser_mini_expr(input:Pack.input) : Pack.result(JsAst.mini_expr) =
     match Pack.Decode.unpack(mini_expr_code, input.string, input.pos) with
-    | {success=(pos,[({Byte=0},[{Llstring=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
-    | {success=(pos,[({Byte=1},[{Llstring=ident}])])} -> {success=({input with ~pos},{~ident})}
-    | {success=(pos,[({Byte=2},[{Llstring=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
-    | {success=(pos,[({Byte=3},[{Lllist=(_,dl)}])])} -> {success=({input with ~pos},~{set_distant=dl2slla(dl)})}
-    | {success=(pos,[({Byte=4},[{Llstring=rpcdef}])])} -> {success=({input with ~pos},{~rpcdef})}
-    | {success=(pos,[({Byte=5},[{Llstring=rpcuse}])])} -> {success=({input with ~pos},{~rpcuse})}
-    | {success=(pos,[({Byte=6},[{Llstring=typedef}])])} -> {success=({input with ~pos},{~typedef})}
-    | {success=(pos,[({Byte=7},[{Llstring=typeuse}])])} -> {success=({input with ~pos},{~typeuse})}
+    | {success=(pos,[({Byte=0},[{String=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
+    | {success=(pos,[({Byte=1},[{String=ident}])])} -> {success=({input with ~pos},{~ident})}
+    | {success=(pos,[({Byte=2},[{String=verbatim}])])} -> {success=({input with ~pos},{~verbatim})}
+    | {success=(pos,[({Byte=3},[{List=(_,dl)}])])} -> {success=({input with ~pos},~{set_distant=dl2slla(dl)})}
+    | {success=(pos,[({Byte=4},[{String=rpcdef}])])} -> {success=({input with ~pos},{~rpcdef})}
+    | {success=(pos,[({Byte=5},[{String=rpcuse}])])} -> {success=({input with ~pos},{~rpcuse})}
+    | {success=(pos,[({Byte=6},[{String=typedef}])])} -> {success=({input with ~pos},{~typedef})}
+    | {success=(pos,[({Byte=7},[{String=typeuse}])])} -> {success=({input with ~pos},{~typeuse})}
     | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.mini_expr_ident: bad code {n}"}
     | {~failure} -> {~failure}
 
   unser_content(input:Pack.input) : Pack.result(JsAst.content) =
-    unset_array(unser_mini_expr, {verbatim:""}, input)
+    Pack.Decode.unset_array(unser_mini_expr, {verbatim:""}, input)
 
   definition_code =
-    [{Coded=[({Byte=0},[{Llstring=""}]),
-             ({Byte=1},[{Llstring=""}]),
-             ({Byte=2},[{Llstring=""},{Llstring=""}])]}]
+    [{Coded=[({Byte=0},[{String=""}]),
+             ({Byte=1},[{String=""}]),
+             ({Byte=2},[{String=""},{String=""}])]}]
 
   unser_definition(input:Pack.input) : Pack.result(ServerAst.definition) =
     match Pack.Decode.unpack(definition_code, input.string, input.pos) with
     | {success=(pos,[({Byte=0},[])])} -> {success=({input with ~pos},{nothing})}
-    | {success=(pos,[({Byte=1},[{Llstring=rpc}])])} -> {success=({input with ~pos},{~rpc})}
-    | {success=(pos,[({Byte=2},[{Llstring=type_}])])} -> {success=({input with ~pos},{~type_})}
+    | {success=(pos,[({Byte=1},[{String=rpc}])])} -> {success=({input with ~pos},{~rpc})}
+    | {success=(pos,[({Byte=2},[{String=type_}])])} -> {success=({input with ~pos},{~type_})}
     | {success=(_,[({Byte=n},_)])} -> {failure="Client_code.unser_definition: bad code {n}"}
     | {~failure} -> {~failure}
 
   unser_bool_ref(input:Pack.input) : Pack.result(Server.reference(bool)) = Pack.Decode.unser_ref(Pack.Decode.unser_bool, _)
 
   unser_code_elt(input:Pack.input): Pack.result(JsAst.code_elt) =
-    match Pack.Decode.unser4(unser_content, unser_definition, unser_ident, unser_bool_ref) with
-    | {success=(_,(content, definition, root, content))} -> {success=(input,{~content, definition, root, content})}
+    match Pack.Decode.unser4(input, unser_content, unser_definition, unser_key_ident, unser_bool_ref) with
+    | {success=(input,(content, definition, ident, root))} -> {success=(input,{~content, definition, ident, root})}
     | {~failure} -> {~failure}
 
   dummy_code_elt : JsAst.code_elt =
@@ -108,32 +110,29 @@ import stdlib.core.{js, rpc.core}
   unser_code(input:Pack.input): Pack.result(JsAst.code) =
     Pack.Decode.unser_array(unser_code_elt, dummy_code_elt, input)
 
-  unser_sarray(input:Pack.input): Pack.result(llarray(string)) =
-    Pack.Decode.unser_array(unser_string, "", input)
-
   unser_adhoc(string:string) : JsAst.code =
-    match unser_code({~string; pos=0}) with
-    | {success=(input, code)} ->
-       if input.pos == String.length(string)
-       then code
-       else
-         do Log.error("Client_code.unser_adhoc: extraneous data in string")
-         LowLevelArray.empty
-    | {~failure} ->
+    match Pack.Decode.unser(unser_code, string, true) with
+    | {success=code} -> code
+    | {~failure} -> 
        do Log.error("Client_code.unser_adhoc: {failure}")
        LowLevelArray.empty
 
+  unser_string = Pack.Decode.unser_string(Pack.littleEndian, Pack.sizeLonglong, _)
+  unser_string_option = Pack.Decode.unser_option(unser_string,_)
+
+  unser_sarray(input:Pack.input): Pack.result(llarray(string)) = Pack.Decode.unser_array(unser_string, "", input)
+
   unser_server_code_elt(input:Pack.input): Pack.result(ServerAst.code_elt) =
-    match Pack.Decode.unser7(Pack.Decode.unser_option(unser_string,_), // client_equivalent
-                             unser_definition,             // defines
-                             Pack.Decode.unser_option(unser_string,_), // ident
-                             unser_sarray,                 // ident_deps
-                             unser_bool_ref,               // root
-                             unser_sarray,                 // rpc_deps
-                             unser_sarray                  // type_deps
-                ) with
+    match Pack.Decode.unser7(unser_string_option, // client_equivalent
+                             unser_definition,    // defines
+                             unser_string_option, // ident
+                             unser_sarray,        // ident_deps
+                             unser_bool_ref,      // root
+                             unser_sarray,        // rpc_deps
+                             unser_sarray         // type_deps
+                            ) with
     | {success=(_,(client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps))} ->
-       {success=(input,{~client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps})}
+       {success=(input,~{client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps})}
     | {~failure} -> {~failure}
 
   dummy_server_code_elt : ServerAst.code_elt =
@@ -150,14 +149,9 @@ import stdlib.core.{js, rpc.core}
     Pack.Decode.unser_array(unser_server_code_elt, dummy_server_code_elt, input)
 
   unser_server(string:string) : ServerAst.code =
-    match unser_server_code({~string; pos=0}) with
-    | {success=(input, code)} ->
-       if input.pos == String.length(string)
-       then code
-       else
-         do Log.error("Client_code.unser_server: extraneous data in string")
-         LowLevelArray.empty
-    | {~failure} ->
+    match Pack.Decode.unser(unser_server_code, string, true) with
+    | {success=code} -> code
+    | {~failure} -> 
        do Log.error("Client_code.unser_server: {failure}")
        LowLevelArray.empty
 
