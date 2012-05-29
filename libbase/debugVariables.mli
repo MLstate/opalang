@@ -613,6 +613,7 @@ val mimetype_debug : debug_var
    display the debug for MongoDB
 *)
 val mongo_debug : debug_var
+val mongo_buffer_pool : debug_var
 
 (**
    {b MLSTATE_NO_ACCESS_LOG}

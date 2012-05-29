@@ -160,14 +160,15 @@ module Pool = struct
 
   let _Kb = 1024
   let _Mb = 1024 * _Kb
+  let max_total = #<If:MONGO_BUFFER_POOL> 256 #<Else> 0 #<End>
 
   let default () = {
     list = [];
     total = 0;
     free = 0;
-    maximal_total = 1024;
-    initial_size = _Kb * 4;
-    dealloc_size = _Mb * 16
+    maximal_total = max_total;
+    initial_size = 128;
+    dealloc_size = 256 * _Mb / (max 1 max_total)
   }
 
   let collect () = () (*ignore(Gc.minor ())*) (* triggering gc changes almost nothing *)
