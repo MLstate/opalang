@@ -190,7 +190,8 @@ module Pool = struct
       b
 
   let unsafe_free pool b =
-    if (Buf.length b < pool.dealloc_size) && (pool.total <= pool.maximal_total) then (
+    let size = Buf.real_length b in
+    if (size < pool.dealloc_size) && (pool.total <= pool.maximal_total) then (
       #<If$minlevel 2>!buflog (Printf.sprintf "free_buf(%d): return" pool.free)#<End>;
       pool.list <- b::pool.list;
       pool.free <- pool.free + 1
