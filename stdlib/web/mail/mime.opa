@@ -282,7 +282,7 @@ Mime = {{
     {some=content_type} ->
 
       content_type_list =
-        String.explode(";", content_type)
+        String.explode_with(";", content_type, false)
         |> List.map(String.trim, _)
       charset =
         cs = Header.extract_value("charset", content_type_list)
