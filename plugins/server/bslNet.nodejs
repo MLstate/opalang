@@ -20,6 +20,26 @@ var debug = false
 ##extern-type list('a)
 //'
 
+function DummyOpaResponse(at_end){
+  this.is_dummy = true;
+  this.at_end = at_end;
+  this.content = new Array();
+}
+
+DummyOpaResponse.prototype = {
+
+  writeHead:function(){},
+
+  setHeader:function(){},
+
+  end:function(chunk){
+    if(chunk!==undefined){
+      this.content.push(chunk)
+    }
+    this.at_end(this.content.join(""))
+  }
+}
+
 ##module ConvertHeader
 
 function merge_headers(headers) {
@@ -289,7 +309,7 @@ function process_content(req, expires, modified_since, _type, content, content_l
     req.response.setHeader('Last-Modified',modified_since.some);
   };
   req.response.setHeader('Content-Length',content_len);
-  cookies_out(req, false);
+  if (!req.response.is_dummy) cookies_out(req, false);
   if (include_body)
     req.response.end(content)
   else
@@ -355,7 +375,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
 ##args(modified_since,req,stat,_type,content,k)
 {
   var expires = {some:new Date(0)};
-  var modified_since = map(function (ms) { return new Date(ms) },ms);
+  var modified_since = map(function (ms) { return new Date(ms) }, modified_since);
   make_response_with_headers(expires, modified_since, req, [], stat, _type, content, js_none, k);
   return js_void
 }
@@ -600,9 +620,7 @@ var reason_phrase_map = {
 ##register [cps-bypass] get_request_message_body: WebInfo.private.native_request, continuation(string) -> void
 ##args(req, k)
 {
-  if(req._body_barrier){
-    req._body_barrier.wait(k);
-  } else {
+  if(req._body_barrier === undefined){
     var body = new Array();
     var barrier = new Barrier("get_request_message_body")
     req._body_barrier = barrier;
@@ -614,8 +632,9 @@ var reason_phrase_map = {
              barrier.release(body.join(""));
            }
           );
-    return;
   }
+  req._body_barrier.wait(k);
+  return;
 }
 
 ##register request_with: WebInfo.private.native_request, string, string -> WebInfo.private.native_request
@@ -625,6 +644,24 @@ var reason_phrase_map = {
   req.request.url = url;
   req._body_barrier.release(body);
   return req;
+}
+
+// Note : Really hacky in node backend the response are sended by make_response*
+// and the web info continuation do nothing.
+// We need to fix it, probably by changing the bsl interface.
+##register [cps-bypass] request_with_cont:\
+WebInfo.private.native_request, string, string, \
+(string, continuation(opa[void]) -> void), \
+continuation(opa['a]) -> void
+##args(req, url, body, f, k)
+{
+  var r = {request : req.request,
+           cookies : req.cookies,
+           response : new DummyOpaResponse(function(s){f(s, k.ccont(function(){}))})
+          };
+  r = %%BslNet.Requestdef.request_with%%(r, url, body);
+  return_(k, {f1 : r, f2 : function(_r, _k){}});
+  return js_void;
 }
 
 ##register get_cookie: WebInfo.private.native_request -> string
