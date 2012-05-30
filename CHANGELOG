@@ -4,24 +4,20 @@ New supported platform:
     - Opa commited to FreeBSD port trees: http://www.freshports.org/lang/opa/
       Thanks to Jeremy Messenger <mezz.freebsd@gmail.com>
 
+
 New features:
 
-  * Doc: 4 first chapters translated in Chinese.
-    Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
-    Online preview: http://cn.doc.opalang.org
+  * Doc
+    - 4 first chapters translated in Chinese.
+      Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
+      Online preview: http://cn.doc.opalang.org
 
-  * Syntax:
+  * Syntax
     - Possibility to use underscore inside numbers
     - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
       e.g.            <div> onready={ {function(_) code} }></>
       and             <div> onready={ function(_){ code} }></>
       can be written  <div> onready={ function(_) code   }></>
-
-  * Parser.alphanum, Parser.ident and Parser.bool added
-
-  * Scheduler
-    - New functions for advance users, providing fine-tuning of scheduling policy:
-      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
 
   * IMAP Client
 
@@ -37,16 +33,6 @@ New features:
 
   * The directive @atomic(expr) now checks that the compiler is able to emit an atomic expression computation
     (i.e. containing no scheduling point)
-
-  * Queue: add many folding function
-
-  * Set: add 'mapping' functions that can map to different kind of set
-
-  * List: add 'rev_iter'
-
-  * Random: add 'bool'
-
-  * ThreadContext: add Client.using
 
   * New package stdlib.core.concurrency that provides (on server side only):
      - generic Mutex mecanism
@@ -92,11 +78,11 @@ Bug fixes:
 
 Updated APIs:
 
-  * Server:
+  * Server
     - {register:...} now accepts a list of registrable instead of a list of string
       Use Server.register_from_extension to register a list of string.
 
-  * Resource:
+  * Resource
     - allow custom response headers (name, value)
 
   * SMTP Client
@@ -115,7 +101,27 @@ Updated APIs:
     - ability to import Bootstrap CSS with or without responsiveness
     - merged WBootstrap Badge and Label importance type
 
-  * stdlib.queue moved to stdlib.core.queue
+  * Queue
+    - stdlib.queue moved to stdlib.core.queue
+    - add many folding function
+
+  * Set
+    - add 'mapping' functions that can map to different kind of set
+
+  * List
+    - add 'rev_iter'
+
+  * Random add 'bool'
+
+  * Parser
+    - Parser.alphanum, Parser.ident and Parser.bool added
+
+  * Scheduler
+    - New functions for advance users, providing fine-tuning of scheduling policy:
+      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
+
+  * ThreadContext
+    - add Client.using
 
 
 2012.01.06, Version 0.9.2 (stable), v1591
