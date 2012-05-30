@@ -241,6 +241,11 @@ Server_private = {{
         provide_css = Resource_private.make_resource_include(css_file_with_version, {system_css}, identity, css_code, {true}, {false}, {permanent},
                     (x -> Resource.source(x, "text/css")))
 
+        internal_error(winfo)(e) =
+          do Log.warning("Server_private","Exception while answering {Debug.dump(e)}")
+          export(winfo, Resource.default_error_page({internal_server_error}))
+
+
         /* The dispatcher, the result of this function */
         dispatch(winfo: web_info)=
         (
@@ -305,7 +310,8 @@ Server_private = {{
           Parser.parse(full_handler_with_base, str_url)
         )
 
-        dispatch
+        error_proof_dispatch(a) = @catch(internal_error(a), dispatch(a))
+        error_proof_dispatch
 
       make_dispatcher
 
