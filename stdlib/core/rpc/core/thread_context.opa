@@ -154,6 +154,16 @@ ThreadContext = {{
 
 
   Client = {{
+
+    /**
+     * Returns the current client context or [none] if the client context is not
+     * found.
+     */
+    get_opt(select) =
+      match ThreadContext.get_opt(select) with
+      | {some = {key = ~{client} ...}} -> some(client)
+      | _ -> none
+
     /**
      * If you use it, it means you don't need the documentation.
      */
