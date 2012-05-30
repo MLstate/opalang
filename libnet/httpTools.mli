@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -131,8 +131,6 @@ val content_compress : Scheduler.t -> bool -> bool -> int -> bool -> Rcontent.co
   ((bool * Rcontent.content) -> unit) -> unit
 
 (** Simple buffer management *)
-
-val collect_bufs : int -> unit
 val get_buf : ?hint:int -> unit -> Buffer.t
 val free_buf : Buffer.t -> unit
 

@@ -280,6 +280,17 @@ val bsl_sl : debug_var
 val bypass_hoisting : debug_var
 
 (**
+   {b MLSTATE_BUFFER_POOL_DEBUG}
+*)
+val buffer_pool_debug : debug_var
+
+(**
+   {b MLSTATE_BUFFER_POOL_ENABLE}
+*)
+val buffer_pool_enable : debug_var
+
+
+(**
    One variable to check them all !
 
    If you dont spell correctly a debug variable by exporting it before running your application,
@@ -613,7 +624,6 @@ val mimetype_debug : debug_var
    display the debug for MongoDB
 *)
 val mongo_debug : debug_var
-val mongo_buffer_pool : debug_var
 
 (**
    {b MLSTATE_NO_ACCESS_LOG}

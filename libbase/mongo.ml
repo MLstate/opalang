@@ -55,7 +55,7 @@ let docmap b pos len num =
   let rec aux i pos idxs =
     if i >= num || len - pos < 4
     then idxs
-    else 
+    else
       let size = geti32 b pos in
       if len - pos < size
       then List.rev idxs
@@ -142,75 +142,9 @@ let set_header m requestId responseTo opCode =
   St.lei32 m.Bson.buf.Buf.str 12 opCode;
   m.Bson.buf.Buf.i <- 16
 
-(* handle a pool of buffer for short lives buffer, and diverges to standard allocation (pure GC) when the pool is failing
-   performance gains (vs standard) are not huge (at most 15% on persistant db actors)
-   detection of unused buffer is based on finalise (i.e. depends on GC),
-   that can explain the gain is small compared to pure GC *)
-module Pool = struct
-  type pool = {
-    mutable list  : Buf.t list; (* free buffers *)
-    mutable free  : int;        (* number of free *)
-    mutable total : int;        (* number of buffer = free + used *)
-    maximal_total : int;        (* maximal pool total size *)
-    initial_size : int;         (* default initial size for buffers *)
-    dealloc_size : int          (* automatic forget of bigger buffer *)
-  }
+module Pool = Pool.Pool(Pool.BufferEgg)
 
-  let buflog = ref (fun str -> Printf.eprintf "%s\n%!" str)
-
-  let _Kb = 1024
-  let _Mb = 1024 * _Kb
-  let max_total = #<If:MONGO_BUFFER_POOL> 256 #<Else> 0 #<End>
-
-  let default () = {
-    list = [];
-    total = 0;
-    free = 0;
-    maximal_total = max_total;
-    initial_size = 128;
-    dealloc_size = 256 * _Mb / (max 1 max_total)
-  }
-
-  let collect () = () (*ignore(Gc.minor ())*) (* triggering gc changes almost nothing *)
-
-  let independant_alloc _pool hint =
-    #<If$minlevel 2>!buflog "extra wild buffer"#<End>;
-    Buf.create hint
-
-  let pool_alloc pool hint =
-    #<If$minlevel 2>!buflog (Printf.sprintf "get_buf(%d/%d): %s" pool.free pool.total (if pool.list=[] then "new" else "old"))#<End>;
-    if pool.list = [] then collect ();
-    match pool.list with
-    | [] ->
-      pool.total <- pool.total + 1;
-      Buf.create hint
-    | b::t ->
-      pool.free <- pool.free - 1;
-      pool.list <- t;
-      Buf.clear b;
-      b
-
-  let unsafe_free pool b =
-    let size = Buf.real_length b in
-    if (size < pool.dealloc_size) && (pool.total <= pool.maximal_total) then (
-      #<If$minlevel 2>!buflog (Printf.sprintf "free_buf(%d): return" pool.free)#<End>;
-      pool.list <- b::pool.list;
-      pool.free <- pool.free + 1
-    ) else (
-      #<If$minlevel 2>!buflog (Printf.sprintf "free_buf(%d): reset" pool.free)#<End>;
-      (* Bug.reset ; USELESS *)
-      pool.total <- pool.total - 1;
-    )
-
-  let alloc pool =
-    fun ?(hint=pool.initial_size) () ->
-     if pool.total >= pool.maximal_total && pool.list==[] then independant_alloc pool hint
-     else Buf.mark_as_used ~unused:(unsafe_free pool)  (pool_alloc pool hint)
-
-end
-
-
-let pool_mongo = Pool.default ()
+let pool_mongo = Pool.create ()
 
 let get_buf = Pool.alloc pool_mongo
 

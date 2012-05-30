@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -220,7 +220,6 @@ let number_of_connections = ref 0\n\
 let close_conn sched conn mailbox =\n  \
   (* Connection close code here... *)\n  \
   HttpTools.free_buf (fst mailbox);\n  \
-  HttpTools.collect_bufs 2 (*(!number_of_connections)*);\n  \
   decr number_of_connections;\n  \
   #<If$minlevel 2>Logger.debug \"close_conn: %d\" !number_of_connections#<End>;\n  \
   Scheduler.remove_connection sched conn\n\

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -500,34 +500,35 @@ let putback2 str (b, p) =
     Buffer.add_string b bufstr;
     p := 0
 
-let buflst = ref ([]:Buffer.t list)
-let bufcnt = ref 0
 
-let collect_bufs needed =
-  let target = !bufcnt lsr 1 in
-  #<If$minlevel 10>Logger.debug "collect_bufs: needed=%d target=%d bufcnt=%d" needed target !bufcnt#<End>;
-  if target >= 2 && needed <= target
-  then
-    let rec aux () =
-      if !bufcnt > target
-      then (Buffer.reset (List.hd (!buflst));
-            buflst := List.tl (!buflst);
-            decr bufcnt;
-            aux ())
+module BufferHack = struct
+  let size (b:Buffer.t) =
+    let b = Obj.repr b in
+    let rec aux n acc =
+      if n>=0 then acc
       else
-        #<If$minlevel 2>Logger.debug "collect_bufs: reduced to %d" !bufcnt#<End>
-    in
-    aux ()
+        let s = Obj.field (Obj.repr b) n in
+        aux (n-1) (
+          if Obj.tag s = Obj.string_tag
+          then acc+(String.length (Obj.obj s))
+          else acc
+        )
+    in aux ((Obj.size b)-1) 0
+end
 
-let get_buf ?(hint=4096) () =
-  match !buflst with
-  | [] -> (#<If$minlevel 2>Logger.debug "get_buf(%d): new" !bufcnt#<End>; Buffer.create hint)
-  | b::t -> (#<If$minlevel 2>Logger.debug "get_buf(%d): old" !bufcnt#<End>; buflst := t; decr bufcnt; Buffer.clear b; b)
+module BufferEgg = struct
+  type egg = Buffer.t
+  let create = Buffer.create
+  let size = BufferHack.size
+  let clear = Buffer.clear
+end
 
-let free_buf b =
-  if Buffer.length b <= (10*1024*1024)
-  then (#<If$minlevel 2>Logger.debug "free_buf(%d): return" !bufcnt#<End>; buflst := b::(!buflst); incr bufcnt)
-  else (#<If$minlevel 2>Logger.debug "free_buf(%d): reset" !bufcnt#<End>; Buffer.reset b)
+module Pool = Pool.Pool(BufferEgg)
+
+let pool_http = Pool.create ()
+
+let get_buf = (Pool.alloc pool_http : ?hint:int -> unit -> Buffer.t)
+let free_buf _b = ()
 
 let upto mark read conn cont = upto_mark_stream_cps (Buffer.create 1024) (get_char_cps read) conn mark cont
 
