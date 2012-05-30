@@ -1,4 +1,4 @@
-2012.05.31, Version 0.9.3 (stable),
+2012.05.31, Version 0.9.3 (stable), v1860
 
 New supported platform:
 
@@ -82,7 +82,13 @@ Improvements:
 
   * Added a max pang attemps
 
+  * Html escaping, faster (x2) and introduces almost no html entities for utf8 encoded html resources
+
 Bug fixes:
+
+  * Memory leaks of buffer pools (http and mongodb)
+
+  * Url decoding on multibyte utf8 characters
 
   * UriParser
     - fixed bug when parsing ' ' character in path
