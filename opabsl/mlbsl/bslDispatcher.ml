@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -224,7 +224,6 @@ let complete_dispatcher_cps base_url dispatcher k =
 
        (* User urls *************************)
        | `user ->
-           ignore(Ping.update_activity ~is_active:true key);
            BslScheduler.push (fun () -> dispatcher winfo cont_with_context)
 
   in QmlCpsServerLib.return k (QmlCpsServerLib.cont_ml aux_complete_dispatcher)
