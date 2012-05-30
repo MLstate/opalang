@@ -475,3 +475,10 @@ function uncps(pk, f, name) {
         return blocking_wait(b);
     }
 }
+
+/**
+ * Transform an opa cps callback (-> void) to a js_callback
+ */
+function opa_cps_callback_to_js_callback0(k, f){
+    return function(){f(k.ccont(function(){}))}
+}

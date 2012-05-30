@@ -8,7 +8,6 @@ var debug = false
 ##extern-type caml_list('a)
 ##extern-type endpoint
 ##extern-type llarray('a)
-##extern-type continuation('a)
 
 ##extern-type WebInfo.private.native
 ##extern-type WebInfo.private.native_http_header

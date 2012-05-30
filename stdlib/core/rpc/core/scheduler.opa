@@ -15,15 +15,12 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
-    @author David Rajchenbach-Teller
-**/
-
 
 /**
  * Functions related to scheduling
  *
  * @author David Rajchenbach-Teller
+ * @author Quentin Bourgerie
  */
 
 
@@ -159,7 +156,7 @@ Scheduler =
   /**
    * As sleep but returns the associated jobs key.
    */
-  asleep(i, f) = %%BslScheduler.asleep%%(i, f)
+  asleep(i, f) = @may_cps(%%BslScheduler.asleep%%)(i, f)
 
   /**
    * Interrupt the current thread for a given number of milliseconds.

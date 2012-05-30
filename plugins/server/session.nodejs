@@ -26,10 +26,6 @@
  * @author Quentin Bourgerie
  */
 
-// TODO - Plugin dependencies
-##extern-type continuation('a)
-
-
 ##extern-type Session.private.native('a, 'b)
 
 ##extern-type Session.entity

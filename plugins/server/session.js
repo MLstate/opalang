@@ -24,7 +24,6 @@
  *
  * @author Quentin Bourgerie
  */
-##extern-type continuation('a)
 
 /* LowLevel modules exported on the DOM */
 var LowLevelSession = {};
