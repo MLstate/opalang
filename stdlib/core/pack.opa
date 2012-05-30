@@ -87,12 +87,15 @@ Pack = {{
   // convenience values
   littleEndian = true
   bigEndian = false
+  defaultEndian = bigEndian
   signedInts = true
   unsignedInts = false
+  defaultInts = signedInts
   sizeByte = {B}
   sizeShort = {S}
   sizeLong = {L}
   sizeLonglong = {Ll}
+  defaultSize = sizeLonglong
 
   // size of sized items
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
@@ -427,7 +430,7 @@ Pack = {{
 
     // predict pack length
     packlen(data:Pack.data) : int =
-      (List.fold((u, (s, len) -> match packitemsize(s, u) with | (s,size) -> (s,len+size)), data, ({Ll},0))).f2
+      (List.fold((u, (s, len) -> match packitemsize(s, u) with | (s,size) -> (s,len+size)), data, (defaultSize,0))).f2
 
     // missing from LowLevelArray?
     @private a2l(a:llarray('a)) : list('a) =
@@ -491,7 +494,7 @@ Pack = {{
     // pack data into string
     pack(data:Pack.data) : outcome(string,string) =
       buf = create(packlen(data))
-      (_, _, _, res) = pack_data(buf, true, true, {Ll}, data);
+      (_, _, _, res) = pack_data(buf, defaultEndian, defaultInts, defaultSize, data);
       match res with
       | {success=_} -> {success=contents(buf)}
       | {~failure} -> {~failure}
@@ -685,6 +688,7 @@ Pack = {{
 
     //longlongstr
     string_ll_be(data:string, pos:int) : outcome(string,string) =
+      do pinput("string_ll_be",{string=data; ~pos})
       match longlong_be(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -768,6 +772,7 @@ Pack = {{
 
     // unpack data
     unpack(data:Pack.data, str:string, pos:int) : outcome((int,Pack.data),string) =
+      if data == [] then {success=(pos,[])} else
       match
         List.fold((u:Pack.u, acc ->
                     match acc with
@@ -852,7 +857,7 @@ Pack = {{
                            | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad code {failure}"})
                        | {List=(typ,_)} -> list(true, le, signed, size, typ, str, pos, data)
                        | {Array=(typ,_)} -> list(false, le, signed, size, typ, str, pos, data)
-                       )), data, {success=(true, true, {Ll}, pos, [])})
+                       )), data, {success=(defaultEndian, defaultInts, defaultSize, pos, [])})
       with
       | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
       | {~failure} -> {~failure}
@@ -892,27 +897,40 @@ Pack = {{
 
     // TODO: complete this list of functions
 
+    dump = (%% BslMongo.Bson.dump %%: int, string -> string)
+
+    debug = ServerReference.create(false)
+ 
+    pinput(name, input) =
+      if ServerReference.get(debug)
+      then jlog("{name}: input=\n{dump(16,String.sub(input.pos, Int.min(32,String.length(input.string)-input.pos), input.string))}")
+      else void
+
     unser_char(input:Pack.input) : Pack.result(string) =
       match char(input.string, input.pos) with
       | {success=c} -> {success=({input with pos=input.pos+1},c)}
       | {~failure} -> {~failure}
 
     unser_int(le:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
+      do pinput("unser_int", input)
       match int(le, size, input.string, input.pos) with
       | {success=i} -> {success=({input with pos=input.pos+sizesize(size)},i)}
       | {~failure} -> {~failure}
 
     unser_float(le:bool, input:Pack.input) : Pack.result(float) =
+      do pinput("unser_float", input)
       match float(le, input.string, input.pos) with
       | {success=f} -> {success=({input with pos=input.pos+8},f)}
       | {~failure} -> {~failure}
 
     unser_string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
+      do pinput("unser_string", input)
       match string(le, size, input.string, input.pos) with
       | {success=s} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
       | {~failure} -> {~failure}
 
     unser_bool(input:Pack.input) : Pack.result(bool) =
+      do pinput("unser_bool", input)
       match bool(input.string, input.pos) with
       | {success=b} -> {success=({input with pos=input.pos+1},b)}
       | {~failure} -> {~failure}
@@ -924,20 +942,23 @@ Pack = {{
       | {~failure} -> {~failure}
 
     unser_option(unser_a:Pack.input -> Pack.result('a), input:Pack.input): Pack.result(option('a)) =
+      do pinput("unser_option", input)
       match byte(input.string, input.pos) with
-      | {success=0} ->
+      | {success=0} -> {success=({input with pos=input.pos+1},{none})}
+      | {success=1} ->
          match unser_a({input with pos=input.pos+1}) with
          | {success=(input, a)} -> {success=(input,{some=a})}
          | {~failure} -> {~failure}
          end
-      | {success=1} -> {success=({input with pos=input.pos+1},{none})}
       | {success=n} -> {failure="Pack.unser_option: bad option code {n}"}
       | {~failure} -> {~failure}
 
     unser_array(unser_a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, def:'a, input:Pack.input)
                 : Pack.result(llarray('a)) =
+      do pinput("unser_array", input)
       match unser_int(le, size, input) with
       | {success=(input,len)} ->
+         do if ServerReference.get(debug) then jlog("unser_array: len={len}") else void
          a = LowLevelArray.create(len, def)
          rec aux(input, i) =
            if i == len
@@ -986,6 +1007,7 @@ Pack = {{
            unser_b:Pack.input -> Pack.result('b),
            unser_c:Pack.input -> Pack.result('c),
            unser_d:Pack.input -> Pack.result('d)) : Pack.result(('a,'b,'c,'d)) =
+      do pinput("unser4", input)
       match unser_a(input) with
       | {success=(input, a)} ->
          match unser_b(input) with
@@ -1070,6 +1092,7 @@ Pack = {{
            unser_e:Pack.input -> Pack.result('e),
            unser_f:Pack.input -> Pack.result('f),
            unser_g:Pack.input -> Pack.result('g)) : Pack.result(('a,'b,'c,'d,'e,'f,'g)) =
+      do pinput("unser7", input)
       match unser_a(input) with
       | {success=(input, a)} ->
          match unser_b(input) with
@@ -1100,7 +1123,9 @@ Pack = {{
       | {~failure} -> {~failure}
 
     unser(unser_a:Pack.input -> Pack.result('a), string:string, use_all_data:bool) : outcome('a,string) =
-      match unser_a({~string; pos=0}) with
+      input = {~string; pos=0}
+      do pinput("unser", input)
+      match unser_a(input) with
       | {success=(input, a)} ->
          len = String.length(string)
          if use_all_data && input.pos != len
