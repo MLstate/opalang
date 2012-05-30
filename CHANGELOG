@@ -1,4 +1,4 @@
-2012.05.31, Version 0.9.3 (stable), v1860
+2012.05.31, Version 0.9.3 (stable), v1869
 
 New supported platform:
 
@@ -87,6 +87,8 @@ Improvements:
 Bug fixes:
 
   * Memory leaks of buffer pools (http and mongodb)
+
+  * File descriptor leaks in case of error while answering http request
 
   * Url decoding on multibyte utf8 characters
 
