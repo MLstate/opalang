@@ -69,6 +69,7 @@ Bug fixes:
 
   * UriParser
     - fixed bug when parsing ' ' character in path
+    - accept key without value (including equal sign)
 
   * Mime
     - fixed a bug in Mime headers parsing
