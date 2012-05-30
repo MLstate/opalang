@@ -2,6 +2,9 @@
 
 <**/*.{ml,mli,byte,native}>: use_str, use_graph, use_buildinfos, use_libbase, use_compilerlib, use_libtrx, use_libqmlcompil, use_passlib
 
+<*.trx>: trx_cache
+
+
 # specific tags
 <bslTypes.ml>: use_langlang
 <bslError.ml>: use_passlib
@@ -15,7 +18,6 @@
 <bslRegisterParser.{ml,mli,byte,native}>: use_libtrx
 <bslTinyShell.{ml,mli,byte,native}>: use_libtrx
 <bslregister.{byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
-
 <bslTypes.ml>: use_opacapi
 
 <portingBsl.{ml,byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
