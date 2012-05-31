@@ -35,7 +35,7 @@ DEB="false"
 PKG="false"
 WINPKG="false"
 
-PACK_MAN="/Applications/Xcode.app/Contents/Applications/PackageMaker.app" # PackageManager path for OS X
+PACK_MAN="/Applications/PackageMaker.app" # PackageManager path for OS X
 
 help() {
     echo "Makes an installation package from an installed Opa (installation"
