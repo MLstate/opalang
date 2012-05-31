@@ -1,3 +1,21 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*)
+
 module Q = QmlAst
 
 (* keep in sync with the slicer *)
@@ -47,9 +65,14 @@ let process_code ~val_ gamma annotmap code =
              let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr e) tsc_gen_opt annotmap in
 
              (* leaving the directive so that the slicer that see the 'async' *)
-             let annotmap, e = try rewrite_lambda ~gamma ~val_ annotmap e with Exit -> annotmap, e in
-             let expr = Q.Directive (label, `async, [e], []) in
-             tra annotmap expr
+	     let annotmap, expr =
+	       #<If:NO_ASYNC> (annotmap, e)
+	       #<Else>
+		 let annotmap, e = try rewrite_lambda ~gamma ~val_ annotmap e with Exit -> annotmap, e in
+		 let expr = Q.Directive (label, `async, [e], []) in
+		 (annotmap, expr)
+	       #<End>
+	     in tra annotmap expr
          | _ -> tra annotmap expr
       )
   ) annotmap code

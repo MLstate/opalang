@@ -861,6 +861,8 @@ val slicer_cond : debug_var (** checks slicer precondition and postcondition *)
 val slicer_debug : debug_var (** ?? *)
 val slicer_time : debug_var (** shows where the time of the slicing pass is spent *)
 
+val no_async : debug_var (** no async rewriting *)
+
 (**
    {b MLSTATE_SSL_DEBUG}
 *)
