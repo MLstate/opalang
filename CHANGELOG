@@ -138,7 +138,7 @@ Updated APIs:
     - added reset function to reset cache entirely
 
   * Mime
-    - Mime.get_text now takes an additional decoding function
+    - Mime.get_text and Mime.get_attachments now takes an additional decoding function
     - Mime.Header.decode_value also takes a decoding function
 
   * Bootstrap
