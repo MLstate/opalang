@@ -17,9 +17,9 @@ New features:
   * Syntax
     - Possibility to use underscore inside numbers
     - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
-      e.g.            <div> onready={ {function(_) code} }></>
-      and             <div> onready={ function(_){ code} }></>
-      can be written  <div> onready={ function(_) code   }></>
+      e.g.            <div onready={ {function(_) code} }></>
+      and             <div onready={ function(_){ code} }></>
+      can be written  <div onready={ function(_) code   }></>
     - Projection database syntax
     - Allows several match case with the same production
 
@@ -78,7 +78,7 @@ Improvements:
 
   * Better check of wrong cyclic type definition
 
-  * Faster parsing of Mime Miltipart message
+  * Faster parsing of Mime Multipart message
 
   * Added a max pang attemps
 
