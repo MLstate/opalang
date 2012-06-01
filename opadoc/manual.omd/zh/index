@@ -3,3 +3,17 @@ install
 
 hello_chat
 hello_wiki
+hello_web_services
+hello_web_services_client
+hello_database
+hello_distribution
+hello_recaptcha
+hello_bindings
+
+ref_core_language
+ref_web_language
+ref_database
+ref_mongodb
+ref_execution
+ref_type_system
+ref_filenames
