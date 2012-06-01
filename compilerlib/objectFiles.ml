@@ -1472,7 +1472,7 @@ let reorder :
       (Format.pp_list ";" Package.pp) (ListPackageMap.keys map)
       (Format.pp_list ";" Package.pp_option) sorted_packages
       (Format.pp_list ";" (Package.pp_2 Format.pp_print_string (Format.pp_list "," Package.pp_option))) remaining;
-    assert false
+    (* assert false *)
   );
   let all_but_last, last = List.extract_last sorted_packages in
   if last <> None then (
