@@ -584,10 +584,10 @@ DbSet = {{
     opt = Bitwise.lor(opt, MongoCommon.UniqueBit)
     match MongoDriver.create_index(db.db, "{db.name}.{id}", key, opt) with
     | {true} ->
-      do Log.notice("DbGen/Mongo", "(success) Index {idx} at {path} as been created")
+      do Log.notice("DbGen/Mongo", "(success) Index {idx} at {path} has been created")
       void
     | {false} ->
-      do Log.error("DbGen/Mongo", "(failure) Error when creating index {idx} at {path}")
+      do Log.error("DbGen/Mongo", "(failure) Error while creating index {idx} at {path}")
       error("Error when creating index")
 
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
