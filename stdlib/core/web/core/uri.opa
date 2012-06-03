@@ -291,7 +291,13 @@ Uri =
   of_absolute(absolute: Uri.absolute): Uri.uri =
     @opensums(absolute)
 
+  of_relative(relative: Uri.relative): Uri.uri =
+    @opensums(relative)
+
   default_absolute: Uri.absolute = {schema = {none} credentials = {username = {none} password = {none}} domain="example.org" port = {none} path=[] query=[] fragment = {none} is_directory=true}
+
+  default_relative: Uri.relative =
+    { path=[] fragment=none query=[] is_directory=false is_from_root=true }
 
   default_absolute_domain(domain,path) =
    {default_absolute
