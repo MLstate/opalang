@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import stdlib.core.{web.core, rpc.core, parser, funaction, mutable.buffer, unification}
+import stdlib.core.{iter, web.core, rpc.core, parser, funaction, mutable.buffer, unification}
 
 /**
  * {1 About this module}
@@ -452,6 +452,10 @@ Xml =
   // conversion from an option to xml + registering auto-magical conversion from list to xml
   @xmlizer(option('a)) option_to_xml(alpha_to_xml, o) =
     Option.switch(alpha_to_xml, <></>, o)
+
+  // conversion from an iterator to xml + registering auto-magical conversion from iterator to xml
+  @xmlizer(iter('a)) iterator_to_xml(alpha_to_xml, i) =
+    create_fragment(Iter.map(alpha_to_xml, i) |> Iter.to_list)
 
   /**
    *  Fold on every node of the xml
