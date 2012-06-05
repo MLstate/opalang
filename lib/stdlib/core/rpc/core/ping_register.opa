@@ -104,8 +104,8 @@ PingRegister = {{
     @private
     send_response(winfo, msg) =
       json = match msg with
-        | {pong}      -> {Record = [("type", {String = "pong"})]}
-        | {break}     -> {Record = [("type", {String = "break"})]}
+        | ~{pong=_}      -> {Record = [("type", {String = "pong"})]}
+        | ~{break=_}     -> {Record = [("type", {String = "break"})]}
         | ~{msgs}      -> {Record = [("type", {String = "msgs"}),
                                      ("body", {List = List.rev(msgs)})]}
         | ~{result nb} -> {Record = [("type", {String = "result"}),

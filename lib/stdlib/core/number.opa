@@ -139,9 +139,19 @@ Int = {{
    */
   to_hex =
     int_to_1hex(int) =
-      if int<10 then string_of_int(int)
-      else
+      //if int<10 then string_of_int(int) <-- problems with node
+      //else
         match int:int with
+        | 0 -> "0"
+        | 1 -> "1"
+        | 2 -> "2"
+        | 3 -> "3"
+        | 4 -> "4"
+        | 5 -> "5"
+        | 6 -> "6"
+        | 7 -> "7"
+        | 8 -> "8"
+        | 9 -> "9"
         | 10 -> "A"
         | 11 -> "B"
         | 12 -> "C"

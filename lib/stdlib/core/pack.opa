@@ -70,6 +70,29 @@ type Pack.result('a) = outcome((Pack.input,'a),string)
 
 Pack = {{
 
+  dump(_:int, s:string) : string =
+    i2h(b) = if b < 16 then String.get(b,"0123456789ABCDEF") else Int.to_hex(b)
+    rec aux(i, d) =
+      //do jlog("dump(aux): i={i} d={d}")
+      if i >= String.length(s)
+      then d
+      else
+        rec aux2(h, a, i, j) =
+          //do jlog("dump(aux2): i={i} j={j} h={h} a={a}")
+          if i >= String.length(s) || j >= 16
+          then (h, a, i)
+          else
+            ch = String.byte_at_unsafe(i, s)
+            ac = if ch >= 0x20 && ch < 0x7f then String.get(i,s) else "."
+            hx = String.padding_left("0",2,i2h(ch))
+            sp = if i == String.length(s) - 1 then "" else " "
+            aux2(h^hx^sp, a^ac, i+1, j+1)
+        pos = String.padding_left("0",4,i2h(i))
+        (h, a, i) = aux2("", "", i, 0)
+        h = String.padding_right(" ",3*16,h)
+        aux(i, d^pos^" "^h^" "^a^"\n")
+    aux(0, "")
+
   // Re-export underlying module
 
   create = PackBuffer.create
@@ -226,6 +249,7 @@ Pack = {{
       | ({true},{true}) -> long_le(buf, l)
 
     // longlong - note, 63 bits!!!
+/*
     longlong_be(buf:Pack.t, i:int) : outcome(void,string) =
       do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,56),0xff)))
       do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,48),0xff)))
@@ -245,6 +269,18 @@ Pack = {{
       do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,40),0xff)))
       do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,48),0xff)))
       do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,56),0xff)))
+      {success=void}
+*/
+
+    // longlong - note 63 bits on caml, 53 bits on node
+    embed_int_le = %% BslNumber.Float.embed_int_le %% : int -> string
+    embed_int_be = %% BslNumber.Float.embed_int_be %% : int -> string
+
+    longlong_be(buf:Pack.t, i:int) : outcome(void,string) =
+      do append(buf, embed_int_be(i))
+      {success=void}
+    longlong_le(buf:Pack.t, i:int) : outcome(void,string) =
+      do append(buf, embed_int_le(i))
       {success=void}
 
     // longlong
@@ -306,14 +342,14 @@ Pack = {{
     string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {Ll}, str)
 
     // float
-    embed_le = %% BslNumber.Float.embed_le %% : float -> string
-    embed_be = %% BslNumber.Float.embed_be %% : float -> string
+    embed_float_le = %% BslNumber.Float.embed_float_le %% : float -> string
+    embed_float_be = %% BslNumber.Float.embed_float_be %% : float -> string
 
     float_be(buf:Pack.t, f:float) : outcome(void,string) =
-      do append(buf, embed_be(f))
+      do append(buf, embed_float_be(f))
       {success=void}
     float_le(buf:Pack.t, f:float) : outcome(void,string) =
-      do append(buf, embed_le(f))
+      do append(buf, embed_float_le(f))
       {success=void}
 
     // float
@@ -551,6 +587,7 @@ Pack = {{
       if le then long_le(data, pos) else long_be(data, pos)
 
     // longlong
+/*
     longlong_be(data:string, pos:int) : outcome(int,string) =
       if String.length(data) >= pos + 8
       then {success=
@@ -574,6 +611,30 @@ Pack = {{
       + Bitwise.lsl(String.byte_at_unsafe(pos+5, data),40)
       + Bitwise.lsl(String.byte_at_unsafe(pos+6, data),48)
       + Bitwise.lsl(String.byte_at_unsafe(pos+7, data),56)}
+      else {failure="Pack.Decode.longlong_be: not enough data for longlong"}
+*/
+
+    // longlong
+    unembed_int_le = %% BslNumber.Float.unembed_int_le %% : string, int -> int
+    unembed_int_be = %% BslNumber.Float.unembed_int_be %% : string, int -> int
+    is_int_NaN = %% BslNumber.Float.is_int_NaN %% : int -> bool
+
+    longlong_le(data:string, pos:int) : outcome(int,string) =
+      if String.length(data) >= pos + 8
+      then
+        i = unembed_int_le(data, pos)
+        if is_int_NaN(i)
+        then {failure="Pack.Decode.longlong_le: NaN"}
+        else {success=i}
+      else {failure="Pack.Decode.longlong_le: not enough data for longlong"}
+    longlong_be(data:string, pos:int) : outcome(int,string) =
+      if String.length(data) >= pos + 8
+      then
+        i = unembed_int_be(data, pos)
+        do jlog("longlong_be: i={i}")
+        if is_int_NaN(i)
+        then {failure="Pack.Decode.longlong_be: NaN"}
+        else {success=i}
       else {failure="Pack.Decode.longlong_be: not enough data for longlong"}
 
     longlong(le:bool, data:string, pos:int) : outcome(int,string) =
@@ -686,8 +747,11 @@ Pack = {{
       match longlong_be(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
-        then {success=String.substring(pos + 8, len, data)}
-      else {failure="Pack.Decode.string_ll_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
+        then
+          s = String.substring(pos + 8, len, data)
+          do jlog("string_ll_be: s=\n{dump(16,String.substring(pos + 8, len+16, data))}")
+          {success=s}
+        else {failure="Pack.Decode.string_ll_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
     string_ll_le(data:string, pos:int) : outcome(string,string) =
       match longlong_le(data, pos) with
@@ -709,16 +773,16 @@ Pack = {{
       | {Ll} -> string_ll(le, data, pos)
 
     // float
-    unembed_le = %% BslNumber.Float.unembed_le %% : string, int -> float
-    unembed_be = %% BslNumber.Float.unembed_be %% : string, int -> float
+    unembed_float_le = %% BslNumber.Float.unembed_float_le %% : string, int -> float
+    unembed_float_be = %% BslNumber.Float.unembed_float_be %% : string, int -> float
 
     float_le(data:string, pos:int) : outcome(float,string) =
       if String.length(data) >= pos + 8
-      then {success=unembed_le(data, pos)}
+      then {success=unembed_float_le(data, pos)}
       else {failure="Pack.Decode.float_le: not enough data for float"}
     float_be(data:string, pos:int) : outcome(float,string) =
       if String.length(data) >= pos + 8
-      then {success=unembed_be(data, pos)}
+      then {success=unembed_float_be(data, pos)}
       else {failure="Pack.Decode.float_be: not enough data for float"}
 
     float(le:bool, data:string, pos:int) : outcome(float,string) =
@@ -908,7 +972,7 @@ Pack = {{
     unser_int(le:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
       do pinput("unser_int", input)
       match int(le, size, input.string, input.pos) with
-      | {success=i} -> {success=({input with pos=input.pos+sizesize(size)},i)}
+      | {success=i} -> do jlog("unser_int: i={i}") {success=({input with pos=input.pos+sizesize(size)},i)}
       | {~failure} -> {~failure}
 
     unser_float(le:bool, input:Pack.input) : Pack.result(float) =
