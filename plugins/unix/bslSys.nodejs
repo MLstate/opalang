@@ -25,5 +25,5 @@
 ##args(key)
 {
   var r = process.env[key];
-  return r ? js_none : js_some(r);
+  return r == undefined ? js_none : js_some(r);
 }
