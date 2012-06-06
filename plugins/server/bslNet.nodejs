@@ -331,6 +331,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     process_content(req, expires, modified_since, _type, content, content_len, include_body)
   };
   return_(cont, req);
+  return js_void;
 }
 
 ##register [cps-bypass] make_response_len : \
@@ -458,6 +459,107 @@ http._opa_servers = {};
     launch_schedule();
   };
   return %%BslNet.Http_server.init_server%%(name, port, certfileo, privkeyo, passwdo, secure_type, dispatcher_cps, ontransfer);
+}
+
+##endmodule
+
+// FIXME
+##extern-type WebClient.failure = void
+
+##module Http_client
+
+##register [cps-bypass] place_request : \
+      string, \
+      int, \
+      string, \
+      string, \
+      option(string), \
+      bool, \
+      option(string), \
+      option(SSL.private_key), \
+      option(SSL.policy), \
+      option(time_t), \
+      option(string), \
+      opa[list(string)], \
+      (string, \
+       int, \
+       string, \
+       opa[list(string)], \
+       (string, continuation(opa[option(string)]) -> void), \
+       continuation(opa[void]) -> \
+       void), \
+      (continuation(WebClient.failure)), \
+      continuation(opa[void]) -> \
+      void
+##args(hostname, port, path, request_kind, data, is_secure, auth, \
+       private_key, policy, timeout, custom_agent, more_headers, \
+       cont_success, cont_failure, cont_void)
+{
+
+  var data = option2js(data);
+  var timeout = option2js(timeout);
+
+  var options = {
+    host: hostname,
+    port: port,
+    path: path,
+    method: request_kind,
+    auth: option2js(auth)
+  };
+
+  var on_success = function (res) {
+    var data = "";
+    res.on('data', function (chunk) {
+      data += chunk;
+    });
+
+    var mime = res.headers['content-type'] || "text/plain";
+
+    var headers = [];
+    for (h in res.headers) {
+      headers.push(h + ": " + res.headers[h]);
+    }
+
+    var header_get = function (h, k) {
+      return_(k, js2option(res.headers[h]));
+    };
+
+    res.on('end', function () {
+      var c = cont(function (x) { return x; });
+      cont_success(mime, res.statusCode, data,
+                   js2list(headers), header_get, c);
+    });
+  };
+
+  var on_failure = function (e) {
+    return_(cont_failure, js_void);
+  };
+
+  var req = null;
+
+  if (is_secure) {
+    // TODO: implement this
+    error("place_request: HTTPS is not implemented");
+  } else {
+    req = http.request(options, on_success);
+  }
+
+  if (data) {
+    req.write(data);
+  }
+
+  req.setTimeout(timeout, function() {
+    // TODO: destroy the socket object
+    // return_(cont_failure, js_void);
+  });
+
+  req.on("error", on_failure);
+
+  req.end();
+
+  return_(cont_void, js_void);
+  return js_void;
+
 }
 
 ##endmodule

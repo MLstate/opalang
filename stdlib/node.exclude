@@ -1,4 +1,3 @@
-stdlib.core.web.client
 stdlib.core.xmlm
 stdlib.core.rpc.hlnet
 stdlib.core.qos
