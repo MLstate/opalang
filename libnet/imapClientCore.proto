@@ -151,6 +151,8 @@ let add_fetched str fetched =
 -define (StarList (flags,rf,mailbox))                  = "* LIST ("~ flags ") " rf " " mailbox "\r\n"
 -define (StarStatusLen (len:int))                      = "* STATUS {" len "}\r\n"
 -define (StarStatus (mailbox,items))                   = "* STATUS "~ mailbox " (" items ")\r\n"
+-define (StarCapability items)                         = "* CAPABILITY "~ items "\r\n"
+-define (SearchOk (tag,str))                           = tag " OK SEARCH "~ str "\r\n"
 -define (Search (tag, params))                         = tag " SEARCH " params "\r\n"
 -define (UidSearch (tag, params))                      = tag " UID SEARCH " params "\r\n"
 -define (SearchCs (tag, cs, params))                   = tag " SEARCH CHARSET " cs " " params "\r\n"
@@ -207,6 +209,9 @@ let add_fetched str fetched =
 
 login(mail, tools, tag):
   receive
+  | StarCapability _items ->
+    debug {{ eprintf "login received * CAPABILITY: %s\n%!" _items }}
+    login(mail, tools, tag)
   | StarOk _str ->
     debug {{ eprintf "login received * OK: %s\n%!" _str }}
     login(mail, tools, tag)
@@ -217,6 +222,14 @@ login(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "login received LOGIN OK: tag=%s flags=%s str=%s\n%!" tag _flags _str }}
+      commands(mail, tools)
+  | JustOk (rtag, _str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "login received mismatched LOGIN OK: rtag=%s tag=%s str=%s\n%!" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "login received LOGIN OK: tag=%s str=%s\n%!" tag _str }}
       commands(mail, tools)
   | err ->
     debug {{ eprintf "ImapClientCore.login received err: %s\n%!" (string_of_msg err) }}
@@ -405,6 +418,15 @@ wait_for_ok(mail, tools, tag, name, _NAME, fn, result):
   | StarOk _str ->
     debug {{ eprintf "%s received * OK: %s\n%!" name _str }}
     wait_for_ok(mail, tools, tag, name, _NAME, fn, result)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "%s received mismatched OK: rtag=%s tag=%s str=%s\n%!" name rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "%s received OK: %s\n%!" name _str }}
+      %wait_for_ok(mail, tools, tag, name, _NAME, fn, result)
+      bye(mail, tools, result)
   | err ->
     match {{ fn err }} with
     | Some (rtag, _str) ->
@@ -440,13 +462,21 @@ search(mail, tools, tag):
     debug {{ eprintf "search received * SEARCH\n" }}
     let mail = {{ { mail with results = ((SearchResult [])::mail.results) } }}
     search(mail, tools, tag)
-  | JustOk (rtag,_str) ->
+  | SearchOk (rtag,_str) ->
     if {{ rtag <> tag }}
     then
       debug {{ eprintf "search received mismatched SEARCH OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "search received SEARCH OK: tag=%s str=%s\n" tag _str }}
+      commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "search received mismatched OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "search received OK: tag=%s str=%s\n" tag _str }}
       commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"SEARCH"}}, tag, err)
@@ -465,6 +495,15 @@ fetch(mail, tools, tag):
     let mail = {{ { mail with fetched = ((num,"",str)::mail.fetched) } }}
     fetch(mail, tools, tag)
   | FetchOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "fetch received mismatched FETCH OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "fetch received FETCH OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((FetchResult (List.rev mail.fetched))::mail.results) } }}
+      commands(mail, tools)
+  | JustOk (rtag,_str) ->
     if {{ rtag <> tag }}
     then
       debug {{ eprintf "fetch received mismatched FETCH OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
@@ -524,6 +563,15 @@ store(mail, tools, tag):
       debug {{ eprintf "store received STORE OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((StoreResult (List.rev (List.map (function (x,_,z) -> (x,z)) mail.fetched)))::mail.results) } }}
       commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "store received mismatched STORE OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "store received STORE OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((StoreResult (List.rev (List.map (function (x,_,z) -> (x,z)) mail.fetched)))::mail.results) } }}
+      commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"STORE"}}, tag, err)
   catch
@@ -550,6 +598,15 @@ copy(mail, tools, tag):
       debug {{ eprintf "fetch received COPY OK: tag=%s flags=%s str=%s\n" tag flags _str }}
       let mail = {{ { mail with results = ((Ok flags)::mail.results) } }}
       commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "copy received mismatched COPY OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "fetch received COPY OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((Ok "copied")::mail.results) } }}
+      commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"COPY"}}, tag, err)
   catch
@@ -575,6 +632,15 @@ list(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "list received LIST OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((ListResult (List.rev mail.list))::mail.results) } }}
+      commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "list received mismatched OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "list received OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((ListResult (List.rev mail.list))::mail.results) } }}
       commands(mail, tools)
   | err ->
@@ -620,6 +686,15 @@ status(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "status received STATUS OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((StatusResult mail.statused)::mail.results) } }}
+      commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "status received mismatched OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "status received OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((StatusResult mail.statused)::mail.results) } }}
       commands(mail, tools)
   | err ->
@@ -673,6 +748,15 @@ append1(mail, tools, tag):
       debug {{ eprintf "append received APPEND OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((Ok flags)::mail.results) } }}
       commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "append received mismatched APPEND OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "append received APPEND OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((Ok "appended")::mail.results) } }}
+      commands(mail, tools)
   | err ->
     check_error(mail, tools, {{"APPEND"}}, tag, err)
   catch
@@ -681,6 +765,10 @@ append1(mail, tools, tag):
 
 expunge(mail, tools, tag):
   receive
+  | Exists num ->
+    debug {{ eprintf "expunge received * EXISTS: %d\n" num }}
+    let mail = [[ {mail with status={mail.status with exists=num}} ]]
+    expunge(mail, tools, tag)
   | Recent num ->
     debug {{ eprintf "expunge received * RECENT: %d\n" num }}
     let mail = [[ {mail with status={mail.status with recent=num}} ]]
@@ -696,6 +784,15 @@ expunge(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "expunge received EXPUNGE OK: tag=%s str=%s\n" tag _str }}
+      let mail = {{ { mail with results = ((ExpungeResult (List.rev mail.expunged))::mail.results) } }}
+      commands(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "expunge received mismatched OK: rtag=%s tag=%s str=%s\n" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "expunge received OK: tag=%s str=%s\n" tag _str }}
       let mail = {{ { mail with results = ((ExpungeResult (List.rev mail.expunged))::mail.results) } }}
       commands(mail, tools)
   | err ->
@@ -721,6 +818,14 @@ wait_close(mail, tools, tag):
       error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
     else
       debug {{ eprintf "close received CLOSE OK: tag=%s str=%s\n%!" tag _str }}
+      quit(mail, tools)
+  | JustOk (rtag,_str) ->
+    if {{ rtag <> tag }}
+    then
+      debug {{ eprintf "close received mismatched OK: rtag=%s tag=%s str=%s\n%!" rtag tag _str }}
+      error({{ sprintf "Tag mismatch: %s vs. %s" rtag tag }}, tools)
+    else
+      debug {{ eprintf "close received OK: tag=%s str=%s\n%!" tag _str }}
       quit(mail, tools)
   | _err ->
     debug {{ eprintf "close received err: %s\n%!" (string_of_msg _err) }}
