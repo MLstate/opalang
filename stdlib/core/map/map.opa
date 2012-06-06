@@ -180,6 +180,7 @@ type Map('key,'order) =
         foldi : (int,'key,'val,'acc -> 'acc), ordered_map('key,'val,'order), 'acc -> 'acc
         rev_foldi : (int,'key,'val,'acc -> 'acc), ordered_map('key,'val,'order), 'acc -> 'acc
 
+        filter : ('key, 'val -> bool), ordered_map('key, 'val, 'order) -> ordered_map('key, 'val, 'order)
         filter_map : (('value -> option('new_value)), ordered_map('key, 'value, 'order) -> ordered_map('key, 'new_value, 'order))
 
      /**
@@ -522,6 +523,11 @@ Map_private =
         aux(left, f(cpt+1, key, value, acc), cpt+1)
     aux(m, acc, 0).f1
 
+  filter(order: order('key, _), f: ('key, 'val -> bool), m: Map_private.map('key, 'val)) : Map_private.map('key, 'val) =
+    fold(
+      (k, v, acc -> if f(k, v) then add(order, k, v, acc) else acc),
+      m, empty
+    )
 
   filter_map(order:order('key,_), f:('a -> option('b)), m:Map_private.map('key, 'a)) : Map_private.map('key,'b) =
     fold(
@@ -770,6 +776,9 @@ Map_make(order: order('key,'order) ) : Map =
   map(f : ('val -> 'new_val), m : ordered_map('key, 'val, 'order)) :
      ordered_map('key, 'new_val, 'order) =
     Map_private.map(f,m)
+
+  filter(f : 'key, 'val -> bool, m : ordered_map('key, 'val, 'order)) : ordered_map('key, 'val, 'order) =
+    Map_private.filter(order, f, m)
 
   filter_map(f : ('a -> option('b)), m : ordered_map('key, 'a, 'order)) :
             ordered_map('key, 'b, 'order) =
