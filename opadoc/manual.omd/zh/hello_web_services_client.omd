@@ -1,0 +1,429 @@
+Web服务(Web Services)示例 -- 客户端
+=============================
+
+使用Opa，访问远端的Web服务同创建服务一样简单。在本章中，我们会再次改版wiki应用，使其不再使用自己的数据库，而是作为上一章所开发的wiki服务的前端。这项工作会带领我们领略REST的其他方面，包括如何连接到远端服务器，如何发送命令和解析结果。同时，我们还会看到在Opa中如何处理命令行参数，如何去分析文本以及Opa语言的其他一些有趣特性。
+
+概述
+--------
+
+REST背后的整体思想是使用熟知的HTTP协议来在网络中发送和接受命令。换言之，一个REST客户端其实就是一个拥有一些浏览器特性的web应用，也就是一个web客户端：在本章中我们所实现的功能同时也可以用于和REST无关的目的，例如编写一个网络爬虫（web crawler）、自动发送web表单的内容，或者从Opa应用中下载一张图片。
+
+在本章中，我们进一步修改上一章的wiki应用，让它使用远端的REST API而非自己的数据库。和上一章一样，所引入的修改也非常少，包括：去掉数据库，处理通讯过程中的错误，引入了命令行选项以允许用户指定远端REST服务器的位置。
+
+有兴趣的读者可以从下面的地址看到REST wiki客户端（同时也是服务器）的源代码：
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client_customizable.opa
+
+Web客户端
+--------------
+
+要连接到远端的服务器并使用服务，Opa提供了一个叫做`WebClient`的模块。下面的代码片段能够让`load_source`从远端的服务中加载内容：
+
+```
+exposed function load_source(topic) {
+    match (WebClient.Get.try_get(uri_for_topic(topic))) {
+    case {failure: _} : "Error, could not connect";
+    case {~success} :
+        match (WebClient.Result.get_class(success)) {
+        case {success}: success.content;
+        default: "Error {success.code}";
+        }
+    }
+}
+```
+
+同上一章的wiki一样，这个版本的`load_source`方法试图去获得与topic匹配的源代码。与上一章的主要区别在于，该方法发送一个`{get}`请求到远端服务器，而不是从数据库中取。这正是方法`WebClient.Get.try_get`所起到的作用（当然，模块`WebClient`还提供了其他类似于`{get}`的操作）。这个方法接受一个URI作为参数（在这里是由方法`uri_for_topic`产生的），并产生一个组合类型（sum type）的结果，这个结果要么是`{failure: f}`,要么是`{success: s}`.
+
+当这个操作根本无法进行的时候会产生错误，例如由于网络问题，或者由于远端服务器宕机。在这种情况下，`f`包含了错误更为详细的信息。其他任何情况都表明请求成功了。需要注意的是，根据你实现功能的不同，请求的结果仍然有可能是你应用所不希望看到的。例如，服务器可能返回内容为“404 Not Found”的信息，表明服务器无法找到你URI所对应的资源。也可能返回"100 Continue",表明你应该发送更多的信息以继续。在`WebClient`层面，所有的这些响应都是_success_，这时你的应用应该自己决定哪些是错误。
+
+对于我们这种简单的协议，在此我们使用方法`WebClient.Result.get_class`来执行对服务器响应简单的解析，并将其作为成功(`{success}`情况)或者其他(重定向,客户端错误，服务端错误等等)(`default`)。如果成功的话，我们返回成功的内容，例如`success.content`.
+
+{block}[TIP]
+### 分发（distribution）方式不仅仅只有REST
+请记住，这个web客户端只是REST的演示。在Opa中，REST只是处理分发（distribution)的众多方式之一。如果你的应用仅用Opa编写，Opa可以自动处理分发，自动分发过程中使用的是比REST高效的多的协议。
+{block}
+
+方法`remove_topic`更为简单（我们忽略这个操作的结果）：
+```
+function remove_topic(topic) {
+    _ = WebClient.Delete.try_delete(uri_for_topic(topic));
+    void;
+}
+```
+
+我们可以类似地稍微修改`load_rendered`,从而可以使用前面声明的API。
+
+```
+exposed function load_rendered(topic) {
+    source = load_source(topic);
+    Markdown.xhtml_of_string(Markdown.default_options, source);
+}
+```
+
+最后，我们修改`save_source`，如下：
+
+```
+exposed function save_source(topic, source) {
+    match (WebClient.Post.try_post(uri_for_topic(topic), source)) {
+    case { failure: _ }:
+        {failure: "Could not reach the distant server"};
+    case { success: s }:
+        match (WebClient.Result.get_class(s)) {
+        case {success}:
+            {success: load_rendered(topic)};
+        default:
+            {failure: "Error {s.code}"};
+        }
+    }
+}
+```
+
+这个版本的`save_source`与最初的版本稍有不同，不仅是因为它使用了`{post}`请求来发送信息，同时也因为它要么返回结果`success=...`，要么返回`{failure=...}`，表明有错误发生。
+
+下面，我们借此机会来调整我们的UI，增加一个提示这些错误的框。
+
+增加错误提示
+-------------------------
+
+我们在UI代码中增加一个叫做`show_message`的`<div>`，并在方法`edit`和`save`中更新它们，如下：
+
+```
+function display(topic) {
+  Resource.styled_page("About {topic}", ["/resources/css.css"],
+    <div id=#header><div id=#logo></div>About {topic}</div>
+    <div class="show_content" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
+    <div class="show_messages" id=#show_messages />
+    <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={function(_) { save(topic) }}></>
+  );
+}
+
+function edit(topic) {
+    #show_messages = <></>;
+    Dom.set_value(#edit_content, load_source(topic));
+    Dom.hide(#show_content);
+    Dom.show(#edit_content);
+    Dom.give_focus(#edit_content);
+}
+
+function save(topic) {
+    match (save_source(topic, Dom.get_value(#edit_content))) {
+    case { ~success }:
+        #show_content = success;
+        Dom.hide(#edit_content);
+        Dom.show(#show_content);
+    case {~failure}:
+        #show_messages = <>{failure}</>;
+    }
+}
+```
+
+这样，我们的UI就修改完毕了。
+
+处理URIs
+-----------------
+
+我们之前已经在分发器(dispatcher)内部的模式匹配中使用过URI了，现在是时候为方法`uri_for_topic`构造新的URI了。
+
+{block}[TIP]
+### 关于绝对URI
+很多语言都将URI作为字符串`string`处理。在Opa中，URI有几种形式。目前，我们已经用了绝对URI（_absolute uris_）,其类型定义如下：
+
+```
+type Uri.absolute =
+    { option(string)        schema
+    , Uri.uri_credentials   credentials
+    , string                domain
+    , option(int)           port
+    , list(string)          path
+    , list((string,string)) query
+    , option(string)        fragment
+    }
+
+type Uri.uri_credentials =
+    { option(string) username
+    , option(string) password
+    }
+```
+
+还存在其他的形式，例如,e-mail地址，相对URI等。
+
+URI最一般的形式为`Uri.uri`，其定义如下：
+
+    type Uri.uri = Uri.absolute or Uri.relative or ...
+
+要把一个`Uri.absolute`转换为`Uri.uri`，使用方法`Uri.of_absolute`。要构造一个`Uri.absolute`，你既可以手动构造一条记录，也可以从`Uri.default_absolute`继承（_derive_)一个。
+{block}
+
+为了跟前面定义的API相一致，我们需要将`topic`对应的请求发送到URI`http://myserver/_rest_/topic` 。换句话说，我们可以这样写：
+
+###### `uri_for_topic` (first version)
+
+```
+function uri_for_topic(topic) {
+  Uri.of_absolute(
+    { schema: {some: "http"}
+    , credentials: {username: {none}, password: {none}}
+    , domain: "localhost"  //Assume server is launched locally
+    , port: {some: 8080}   //Assume server is launched on port 8080
+    , path: ["_rest_", topic]
+    , query: []
+    , fragment: {none}
+    }
+  );
+}
+```
+
+然而，提供`query`,`fragment`,`port`等信息显得十分多余和臃肿，只起到了表明它们没有用到的作用。因此，我们更倾向于从`Uri.default_absolute`继承，如下：
+
+###### `uri_for_topic` (with derivation)
+
+```
+function uri_for_topic(topic) {
+  Uri.of_absolute(
+    {Uri.default_absolute with
+      schema : {some: "http"},
+      domain : "localhost",
+      port   : {some: 8080},
+      path   : ["_rest_", topic]
+    }
+  );
+}
+```
+
+{block}[TIP]
+
+### 记录继承（Record derivation）
+
+记录继承（_record derivation_ ）用于通过修改一个记录的某些字段来构造一个新的记录。例如，如果你有一个记录
+
+    foo = {a: 1, b: 2}
+
+我们可以这样写
+
+    bar = {foo with b: 17}
+
+上面的写法等价于：
+
+    bar = {a: foo.a, b: 17}
+
+使用记录继承是一个好的习惯，因为这样做不仅比拷贝一条记录的值到另一记录更具可读性，而且更快。
+{block}
+
+到此，你的wiki客户端代码就完成了：
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client.opa
+
+启动wiki服务器，并在一个不同的端口（使用`-p`或`--opa-server-port`选项）启动wiki客户端。你可以通过两个不同的端口编辑你的wiki。如果你把“localhost”换做适当的服务器名，你就可以在两个不同的服务器上编辑你的wiki。
+
+另一方面，用一个魔法常量（magic constant）替换另一个魔法常量似乎并不优雅。把服务器名称和端口作为应用的选项来处理似乎更为妥当，这样就可以通过配置而不用重新编译代码。
+
+处理命令行选项
+----------------
+
+Opa是一种更高阶（higher-order)语言。这表明定义方法有很多种方式。到目前为止，我们的方法定义都非常简单，但是如果你希望定义一个方法，依赖于命令行选项（command-line option）或其他启动时定义的选项，最好的途径就是加深对Opa的了解。
+
+在这是例子中，加深了解要从重写`uri_for_topic`方法开始，如下：
+
+```
+uri_for_topic =
+  function(topic) {
+    Uri.of_absolute({Uri.default_absolute with
+       schema: {some: "http"},
+       domain: "localhost",
+       port: {some: 8080},
+       path: ["_rest_", topic]
+    });
+  }
+```
+
+到此，这段代码与我们之前写的代码作用一样。虽然我们还没有改变这个方法的行为，上面的重写提供了一个很好的机会，将URI的构造工作分成了两个部分，如下：
+
+```
+uri_for_topic =
+  base_uri = {Uri.default_absolute with
+     schema: {some: "http"},
+     domain: "localhost",
+     port:   {some: 8080},
+  }
+  function (topic) {
+    Uri.of_absolute({base_uri with
+      path: ["_rest_", topic]
+    });
+  }
+```
+
+情况突然产生一些改变：`uri_for_topic`仍然是一个接受`topic`参数并返回URI的方法，但产生了变化。于此同时，当这个方法本身构建的时候，它首先初始化一个叫做`base_uri`的本地变量，任何时候这个方法被调用，都会用到这个变量。这正是一个使用闭包（_closures_）的例子。
+
+{block}[TIP]
+### 关于闭包（closure）
+你在前面的章节中已经遇到过闭包了。到目前为止，大多数我们使用的事件处理函数都是闭包。
+
+粗略地讲，闭包就是一个方法，它使用定义在方法本身之外的本地变量。闭包是一个强大的机制，使用在Opa语言的很多地方，尤其是事件处理函数。
+{block}
+
+通过这段重写，剩下唯一的任务就是改变`base_uri`，让它可以使用命令行或者配置文件中指定的选项。对于这两个目的，都可以使用Opa提供的`CommandLine`模块：
+
+###### `uri_for_topic` with command-line filter (incomplete)
+
+```
+uri_for_topic =
+  default_uri =
+    {Uri.default_absolute with
+      domain: "localhost",
+      schema: {some: "http"}
+    }
+  base_uri =
+    CommandLine.filter({
+      title:     "Wiki arguments",
+      init:      default_uri,
+      parsers:   [],
+      anonymous: [],
+    })
+  function (topic) {
+    Uri.of_absolute({base_uri with
+      path: ["_rest_", topic]
+   });
+  }
+```
+
+上面的`uri_for_topic`调用`CommandLine.filter`方法来指示选项系统（option system）通过参数列表，从`default_uri`开始，逐步地构造`base_uri`。我们把这部分参数集叫做`_Wiki arguments_`，并将其行为指定到字段`parsers`（用于命名参数）和`anonymous`（用于匿名参数）,这两个字段目前都是空的。由于这两个字段为空，所以现在没有任何效果，`base_uri`和`default_uri`一致，我们会马上在后面改变这一点。 同时，如果现在你编译这个应用并在启动的时候使用命令行参数`--help`，你会看到一个空的叫做`Wiki arguments`的入口。
+
+让我们来添加一个命令行选项(更精确地讲，是一个命令行解析器,_command-line parser_）到我们的参数列表, 如下：
+
+###### 解析参数 `--wiki-server-port`
+
+```
+port_parser =
+  {CommandLine.default_parser with
+    names: ["--wiki-server-port"],
+    description: "The server port of the REST server for this wiki. By default, 8080.",
+    function on_param(x) { parser { case y=Rule.natural: {no_params: {x with port: {some: y}}}} }
+  }
+```
+
+如你所见，一个命令行解析器(command-line parser)就是一条记录（类型为`CommandLine.parser`），在此，我们继承自默认解析器`CommandLine.default_parser`。在这段代码中，我们仅展示了最基本的用法。
+
+首先，一个命令行解析器要有至少一个名字，这里是"--wiki-server-port"
+
+第二，Opa需要知道当遇到形如"--wiki-server-port foo"这样的命令行时应该如何处理，这正是字段`on_param`的作用。参数`x`是我们当前构建的值 -- 在这里，初始为`default_uri`. 字段`on_param`的内容是一个文本解析器（_text parser_),也就是用来分析文本的结构，要么从中提取信息，要么拒绝。在这里，我们需要的是一个非负的整数（自然数），Opa的标准库中已经提供了针对此情况预定义好的解析器，叫做`Rule.natural`，解析后的结果叫做`y`.
+
+{block}[TIP]
+### 关于文本解析器（text parser)
+Opa通过文本解析器提供了强大的文本分析功能。文本解析器的角色大致相当于很多web相关语言中的正则表达式引擎，但功能更为强大。
+
+要使用文本解析器，需要通过关键字`parser`,其语法与模式匹配的语法大致相当：
+
+```
+parser {
+case y=Rule.natural : //do something with y
+case y=Rule.hex     : //do something with y
+case "none"         : //...
+```
+
+上面的解析器会接受任何的非负整数并执行第一个分支，接受任何的16进制整数并执行第二个分支，或者接受字符串"none",并执行第三个分支。如果没有一个分支匹配，解析就会失败。
+
+对文本使用解析器的核心方法是`Parser.try_parse`。你可以在模块`Rule`中找到许多预定义好的解析方法。另外，有些模块会提供自定义的解析，例如`Uri.uri_parser`。
+{block}
+
+`on_param`的结果应该是下面三种形式之一：
+
+* `{no_params: v}`, 表明参数解析器不再期待其他的参数了，并准备产生结果`v`
+*  `{params: v}`,  表明参数解析器还期待至少一个其他的参数。
+* `{opt_params: v}`, 表明参数解析器还可以处理更多的参数，但是如果没有这些参数也是可以的。
+
+在这里，我们只期待在`--wiki-server-port`跟一个参数，所以我们产生`{no_params: ...}`的结果就可以了。对于结果本身，我们从参数`x`继承相同的绝对URI,但字段`port`使用不同的值。
+
+我们现在可以对“主机”定义一个相同的命令行解析器：
+
+###### 解析选项`--wiki-server-domain`
+
+```
+domain_parser =
+  {CommandLine.default_parser with
+    names: ["--wiki-server-domain"],
+    description: "The REST server for this wiki. By default, localhost.",
+    function on_param(x) { parser { case y=Rule.consume: {no_params: {x with domain: y}}} }
+   }
+```
+
+这里主要的区别在于我们使用的文本解析器不再是`Rule.natural`（只接受非负整数）,而是`Rule.consume`(接受任何输入）。
+
+添加完这两个解析器之后，我们就完成了。再增加一点注释，我们得到完整的解析代码：
+
+###### Command-line arguments (complete)
+
+```
+uri_for_topic =
+  domain_parser =
+    {CommandLine.default_parser with
+      names: ["--wiki-server-domain"],
+      description: "The REST server for this wiki. By default, localhost.",
+// FIXME, | after parser should not be needed
+      function on_param(x) { parser { case y=Rule.consume -> {no_params: {x with domain: y}}} }
+     }
+  port_parser =
+    {CommandLine.default_parser with
+      names: ["--wiki-server-port"],
+      description: "The server port of the REST server for this wiki. By default, 8080.",
+      function on_param(x) { parser { case y=Rule.natural -> {no_params: {x with port: {some: y}}}} }
+    }
+  base_uri =
+    CommandLine.filter(
+      {title     : "Wiki arguments",
+       init      : {Uri.default_absolute with domain: "localhost", schema: {some: "http"}},
+       parsers   : [domain_parser, port_parser],
+       anonymous : []
+      }
+    )
+  function(topic) {
+    Uri.of_absolute({base_uri with path: ["_rest_", topic]})
+  }
+```
+
+我们的REST客户端到此大功告成，现在我们拥有了一个功能完整的REST客户端，同时还可以作为服务器，并且支持命令行配置。
+
+完整的代码如下：
+
+[opa|fork=hello_web_services|run=http://wiki-rest-client.tutorials.opalang.org]file://hello_web_services/hello_wiki_rest_client_customizable.opa
+
+练习
+---------
+
+### 数据库 vs. REST
+
+修改wiki，使其既可以支持数据库，又可以作为REST客户端。
+
+* 默认情况下，作为REST客户端。
+* 当从REST服务器下载到信息之后，在本地数据库存储起来。
+* 当本地数据更新之后，在本地数据库存储并上载到REST服务器。
+* 如果由于某些原因，链接失败，回滚数据库。
+
+### 数据库 vs. REST vs. 命令行
+
+修改前面练习的wiki，使得：
+
+* 可以通过命令行指定REST服务器
+* 如果命令行中没有指定服务器，就作为一个没有REST功能的wiki使用。
+* 否则，和前面练习的功能一样。
+
+{block}[TIP]
+### 使用元祖（tuples）
+对于上面的练习，你可能需要去定义不止一个使用命令行的方法。这种情况下，可以使用元祖（_tuple_）定义，例如：
+
+```
+(a, b) =
+    x = 50;
+    (x, x+1)
+```
+
+这个元祖定义同时定义了`a = 50`和`b = 51`. 当然，你也可以使用更为复杂的表达式来替换`50`。
+{block}
+
+### 设计REST聊天室
+
+你会怎样去设计一个仅仅使用REST来完成服务端通讯的聊天室程序呢？
+
+{block}[TIP]
+### 一个使用REST的聊天室？
+使用Opa完成一个基于REST的聊天室程序是肯定可以的，但这并不是实现一个多服务器应用的优选方式。然而，如果将此作为Rest分发方式（Rest-style distribution）和Opa分发方式（Opa-style distribution)的对比，这的确是一个很有趣的练习，
+{block}
