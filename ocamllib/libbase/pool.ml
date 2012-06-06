@@ -69,13 +69,13 @@ module Pool = functor (Egg:Egg.Egg) -> struct
 
   let shallow_copy (egg:'a) =
     let eggt = Obj.repr egg in
-    assert(Obj.double_array_tag = Obj.tag eggt);
+    assert(Obj.double_array_tag <> Obj.tag eggt);
     (Obj.obj (Obj.dup (Obj.repr egg)):'a)
 
   let shallow_transfer ~from ~to_ =
     let from = Obj.repr from in
     let to_ = Obj.repr to_ in
-    for i = 0 to min (Obj.size from) (Obj.size to_) do
+    for i = 0 to (min (Obj.size from) (Obj.size to_)) - 1 do
       Obj.set_field to_ i (Obj.field from i)
     done
 
