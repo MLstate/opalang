@@ -366,10 +366,7 @@ Then use option --db-remote instead of --db-local.
 
     jlog(msg) = Log.notice("DbGen/Mongo", msg)
 
-    default_archive =
-      arch = "x86_64" // TODO 32 BITS
-      ver  = "2.0.2"
-      os = (
+    os =
       #<Ifstatic:IS_LINUX 1>
         some("linux")
       #<Else>#<Ifstatic:IS_MAC 1>
@@ -377,12 +374,15 @@ Then use option --db-remote instead of --db-local.
       #<Else>
         none
       #<End>#<End>
-      )
+      
+    default_archive =
+      arch = "x86_64" // TODO 32 BITS
+      ver  = "2.0.2"
       Option.map(os -> "mongodb-{os}-{arch}-{ver}", os)
 
     default_url =
       Option.map(default_archive ->
-        "http://fastdl.mongodb.org/linux/{default_archive}.tgz",
+        "http://fastdl.mongodb.org/{Option.get(os)}/{default_archive}.tgz",
         default_archive)
 
     default_remote = {
