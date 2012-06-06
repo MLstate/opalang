@@ -94,4 +94,3 @@ internal opa-cloud dissemination/spawn.sh
 internal gen_opa_manpage        opa/gen_opa_manpage.native
 internal gen_opatop_manpage     opatop/gen_opatop_manpage.native
 internal genman.native          manpages/genman.native
-

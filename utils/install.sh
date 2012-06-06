@@ -115,7 +115,24 @@ create_wrapper() {
                 echo "export OCAMLOPT=${OCAMLOPT:-$OCAML_PREFIX/bin/ocamlopt.opt}"
                 # may need to rewrite $PREFIX/lib/opa/ocaml/lib/ld.conf if ocaml is relocated
             fi
-            echo 'exec '$source' "$@"'
+            if [ $name = "opa" ]; then
+                echo '
+case "$1" in
+    create)
+        shift
+        if [ -n "$1" ]
+        then
+          OPT="--name $1"          
+        fi
+         opa-create $OPT
+        ;;
+    *)
+        exec '$source' "$@"
+esac
+'
+            else
+                echo 'exec '$source' "$@"'
+            fi
         } > $wrapper
         chmod 755 $wrapper
         if [ -n "$LINKDIR" ]; then

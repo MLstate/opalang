@@ -16,3 +16,4 @@
 ###
 # jschecker
 <jschecker>: traverse
+<opa-create/**>: traverse

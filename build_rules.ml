@@ -772,6 +772,7 @@ rule "opa bash_completion: opa-bin -> bash_completion"
   (fun env build ->
      Seq[Cmd(S[get_tool "opa-bin"; A"--bash-completion"])]);
 
+
 (* -- OPA packages -- *)
 
 let package_to_dir s0 =
@@ -848,7 +849,28 @@ rule "all.plugins"
          ])
   );
 
+let opa_create_prefix = "tools/opa-create/src/opa-create" in 
+let opa_create_src = opa_create_prefix ^ ".opa" in 
+let opa_create_dst = opa_create_prefix ^ ".exe" in
 
+let dir_all_files dir =
+  List.filter (fun p -> (not (Pathname.is_directory p))) (dirlist dir)
+in
+
+let dir_rec_all_files dir =
+  let dirs =  rec_subdirs [ dir ] in
+  List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
+in
+
+rule "opa application creator"
+  ~deps:((dir_rec_all_files "tools/opa-create"))
+  ~prods: [opa_create_dst]
+  (fun env build -> 
+      Cmd(S[
+        Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
+        get_tool "opa-bin";
+        A"-o"; P opa_create_dst; P opa_create_src
+      ]));
 
 let package_building ~name ~stamp ~stdlib_only ~rebuild =
   rule name

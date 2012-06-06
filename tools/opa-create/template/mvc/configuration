@@ -1,0 +1,11 @@
+application_name.controller:
+	import application_name.view
+	src/controller.opa
+
+application_name.view:
+	import application_name.model
+	import stdlib.themes.bootstrap
+	src/view.opa
+
+application_name.model:
+	src/model.opa
