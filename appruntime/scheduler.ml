@@ -564,8 +564,8 @@ let sleep sched time timer_fun =
 let timer sched time timer_fun =
   let rec f() =
     try
+      ignore(sleep sched time f);
       timer_fun ();
-      ignore(sleep sched time f)
     with
       | StopTimer -> ()
       | Sys.Break as e -> raise e

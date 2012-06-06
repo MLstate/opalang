@@ -68,7 +68,7 @@ module Args = struct
   }
 
   let default = {
-    engine = `db3
+    engine = `mongo
   }
 
   let descr = function

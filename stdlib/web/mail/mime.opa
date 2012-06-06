@@ -282,7 +282,7 @@ Mime = {{
     {some=content_type} ->
 
       content_type_list =
-        String.explode(";", content_type)
+        String.explode_with(";", content_type, false)
         |> List.map(String.trim, _)
       charset =
         cs = Header.extract_value("charset", content_type_list)
@@ -408,17 +408,19 @@ Mime = {{
   // Attachments
 
   @private
-  content_to_attachments(body:Mime.body_part, acc) =
+  content_to_attachments(body:Mime.body_part, decoder, acc) =
     match body
     {plain=_} -> acc
     {html=_} -> acc
-    {~attachment} -> [attachment|acc]
+    {~attachment} ->
+      attachment = { attachment with filename = EncodedWords.decode(attachment.filename, decoder) }
+      [attachment|acc]
     {multipart=parts} ->
-      List.fold(get_attachments_aux, parts, acc)
+      List.fold(get_attachments_aux(_, decoder, _), parts, acc)
 
   @private
-  get_attachments_aux(entity:Mime.entity, acc) =
-    content_to_attachments(entity.body, acc)
+  get_attachments_aux(entity:Mime.entity, decoder, acc) =
+    content_to_attachments(entity.body, decoder, acc)
 
   /**
    * Get the attachments of a MIME message
@@ -426,7 +428,7 @@ Mime = {{
    * @param message the MIME  message
    * @return a list of MIME attachements
    */
-  get_attachments(message:Mime.message) : list(Mime.attachment) =
-    get_attachments_aux(message.content, [])
+  get_attachments(message:Mime.message, decoder) : list(Mime.attachment) =
+    get_attachments_aux(message.content, decoder, [])
 
 }}

@@ -1,27 +1,27 @@
+2012.05.31, Version 0.9.3 (stable), v1869
+
 New supported platform:
 
   * FreeBSD
     - Opa commited to FreeBSD port trees: http://www.freshports.org/lang/opa/
       Thanks to Jeremy Messenger <mezz.freebsd@gmail.com>
 
+
 New features:
 
-  * Doc: 4 first chapters translated in Chinese.
-    Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
-    Online preview: http://cn.doc.opalang.org
+  * Doc
+    - 5 first chapters translated in Chinese.
+      Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
+      Online preview: http://cn.doc.opalang.org
 
-  * Syntax:
+  * Syntax
     - Possibility to use underscore inside numbers
     - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
-      e.g.            <div> onready={ {function(_) code} }></>
-      and             <div> onready={ function(_){ code} }></>
-      can be written  <div> onready={ function(_) code   }></>
-
-  * Parser.alphanum, Parser.ident and Parser.bool added
-
-  * Scheduler
-    - New functions for advance users, providing fine-tuning of scheduling policy:
-      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
+      e.g.            <div onready={ {function(_) code} }></>
+      and             <div onready={ function(_){ code} }></>
+      can be written  <div onready={ function(_) code   }></>
+    - Projection database syntax
+    - Allows several match case with the same production
 
   * IMAP Client
 
@@ -38,20 +38,21 @@ New features:
   * The directive @atomic(expr) now checks that the compiler is able to emit an atomic expression computation
     (i.e. containing no scheduling point)
 
-  * Queue: add many folding function
-
-  * Set: add 'mapping' functions that can map to different kind of set
-
-  * List: add 'rev_iter'
-
-  * Random: add 'bool'
-
-  * ThreadContext: add Client.using
-
   * New package stdlib.core.concurrency that provides (on server side only):
      - generic Mutex mecanism
      - exclusive section
      - and reference with exclusive access
+
+  * Database
+    - Mongo is the default database backend
+    - Sub-path on database set and map
+    - Projection
+    - Options for update (ifexists)
+    - Remove and Remove all operators on database list
+    - Slice Projection
+    - Added hole expression and indexed expression on sub-path
+    - Exists query
+
 
 Improvements:
 
@@ -77,12 +78,23 @@ Improvements:
 
   * Better check of wrong cyclic type definition
 
-  * Faster parsing of Mime Miltipart message
+  * Faster parsing of Mime Multipart message
+
+  * Added a max pang attemps
+
+  * Html escaping, faster (x2) and introduces almost no html entities for utf8 encoded html resources
 
 Bug fixes:
 
+  * Memory leaks of buffer pools (http and mongodb)
+
+  * File descriptor leaks in case of error while answering http request
+
+  * Url decoding on multibyte utf8 characters
+
   * UriParser
     - fixed bug when parsing ' ' character in path
+    - accept key without value (including equal sign)
 
   * Mime
     - fixed a bug in Mime headers parsing
@@ -90,13 +102,32 @@ Bug fixes:
 
   * Mongodb buffer sharing is now always safe
 
+  * Database
+    - Reference and value on mongo path
+    - Update of sum path
+    - Encode special mongo character on mongo fields
+    - Db.remove on path embedded in mongo database set and map
+
+  * Server
+    - Case insensitive http header parser
+
+  * Syntax
+    - Added 'default' case on Opa trx parser
+
+  * RPC
+    - Generation of client skeleton in some polymorphic case
+    - Serialized funaction as server cell
+
+  * Session
+    - The error callback was not called in some use of Session.try_send
+
 Updated APIs:
 
-  * Server:
+  * Server
     - {register:...} now accepts a list of registrable instead of a list of string
       Use Server.register_from_extension to register a list of string.
 
-  * Resource:
+  * Resource
     - allow custom response headers (name, value)
 
   * SMTP Client
@@ -107,7 +138,7 @@ Updated APIs:
     - added reset function to reset cache entirely
 
   * Mime
-    - Mime.get_text now takes an additional decoding function
+    - Mime.get_text and Mime.get_attachments now takes an additional decoding function
     - Mime.Header.decode_value also takes a decoding function
 
   * Bootstrap
@@ -115,10 +146,36 @@ Updated APIs:
     - ability to import Bootstrap CSS with or without responsiveness
     - merged WBootstrap Badge and Label importance type
 
-  * stdlib.queue moved to stdlib.core.queue
+  * Queue
+    - stdlib.queue moved to stdlib.core.queue
+    - add many folding function
+
+  * Set
+    - add 'mapping' functions that can map to different kind of set
+
+  * List
+    - add 'rev_iter'
+
+  * Random add 'bool'
+
+  * Parser
+    - Parser.alphanum, Parser.ident and Parser.bool added
+
+  * Scheduler
+    - New functions for advance users, providing fine-tuning of scheduling policy:
+      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
+
+  * ThreadContext
+    - add Client.using
+
+  * OpaValue
+    - Generator of default value (OpaValue.default)
+
+  * Json
+    - Added sort function
 
 
-2012.01.06, Version 0.9.2 (stable), v1591
+2012.04.06, Version 0.9.2 (stable), v1591
 
 New supported platform:
 

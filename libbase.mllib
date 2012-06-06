@@ -104,3 +104,6 @@ libbase/Wsdl2mlCommon
 libbase/Buf
 libbase/Bson
 libbase/Mongo
+# Buffer Pool
+libbase/Pool
+libbase/Egg

@@ -62,6 +62,7 @@ let import_packages engines =
 
 let process_code ~stdlib code =
   if stdlib then
+    let default_engine = QmlDbGen.get_engine () in
     let engines =
       match QmlDbGen.Args.get_engine () with
       | None -> []
@@ -91,11 +92,15 @@ let process_code ~stdlib code =
     in
     let engines =
       match dbdecl with
-      | None -> engines (* Case if default database *)
+      | None ->
+          (* Case if default database *)
+          if StringSet.is_empty padecl then engines
+          else  default_engine :: engines
       | Some dbdecl ->
           if StringSet.is_empty (StringSet.diff padecl dbdecl) then engines
-          else `db3 :: engines (* Some path are not included in a database,
-                                  load default engine. *)
+          else default_engine :: engines
+            (* Some path are not included in a database,
+               load default engine. *)
     in
     let engines = List.uniq_unsorted engines in
     r := engines

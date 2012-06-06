@@ -265,7 +265,7 @@ UriParser =
     segs = Rule.parse_list_non_empty(domain_segment, parser [.])
     parser ls=segs -> List.to_string_using("", "", ".", ls)
 
-  query_element = parser key=chars_query "=" value=opt_chars_query -> (key, value)
+  query_element = parser key=chars_query value=("=" value=opt_chars_query -> value)? -> (key, value ? "")
   query_parser = Rule.parse_list(query_element, parser [&;] -> void)
 
   query =

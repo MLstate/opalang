@@ -46,14 +46,14 @@
 
     Where f and g are published:
     {[
-      _v0_f = a, b -> @typeof('b)
+      _v0_f = a, b -> \@typeof('b)
       _v0_g = a -> void
     ]}
 
     Rewrited as:
     {[
 
-      _v0_f = @lifted_lambda(1, (vvva, a, b -> vvva))
+      _v0_f = \@lifted_lambda(1, (vvva, a, b -> vvva))
       // _v0_f -> (`one_lambda 0 , _v0 -> f)
 
       _v0_g = a -> void

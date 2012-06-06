@@ -689,7 +689,7 @@ var LowLevelPingLoop = {};
                 for(var i = 0; i < messages.length; i++){
                     process_msg(messages[i]);
                 }
-                return null;
+                if(nb == -1) return null; else break;
             case "result" :
                 return native_response;
             default :
