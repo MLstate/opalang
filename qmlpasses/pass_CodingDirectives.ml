@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -29,6 +29,8 @@ module Q = QmlAst
   We store all the identifiers containing a corresponding coding directive.
 *)
 
+type version = string
+
 type deprecated_argument =
   | Use of string
   | Hint of string
@@ -38,6 +40,7 @@ let pp_deprecated_argument fmt = function
   | Hint hint -> Format.pp_print_string fmt hint
 
 type deprecated_infos = {
+  version : string option ; (* Optional version since which the construction is deprecated *)
   argument : deprecated_argument ;
   pos : FilePos.pos ;
 }
@@ -159,14 +162,19 @@ let process_code _gamma annotmap code =
             in
             match args with
             | [ hint ; sub_expr ] -> (
-                let argument =
+                let (argument, version) =
+                  (* WARNING! This is super fragile... watch the order of fields *)
                   match hint with
-                  | Q.Record (label, [ field, Q.Const (_, Q.String literal)]) -> (
-                      match field with
-                      | "use" -> Use literal
-                      | "hint" -> Hint literal
-                      | _ -> bad_args ~label ()
-                    )
+                  | Q.Record (_, [ "use", Q.Const (_, Q.String use)]) ->
+                    (Use use, None)
+                  | Q.Record (_, [ "hint", Q.Const (_, Q.String hint)]) ->
+                    (Hint hint, None)
+                  | Q.Record (_, [ ("use", Q.Const (_, Q.String use)); ("version", Q.Const (_, Q.String version))])
+                  | Q.Record (_, [ ("version", Q.Const (_, Q.String version)); ("use", Q.Const (_, Q.String use))]) ->
+                    (Use use, Some version)
+                  | Q.Record (_, [ ("hint", Q.Const (_, Q.String hint)); ("version", Q.Const (_, Q.String version))])
+                  | Q.Record (_, [ ("version", Q.Const (_, Q.String version)); ("hint", Q.Const (_, Q.String hint))]) ->
+                    (Hint hint, Some version)
                   | _ ->
                       let label = QmlAst.Label.expr hint in
                       bad_args ~label ()
@@ -174,6 +182,7 @@ let process_code _gamma annotmap code =
                 let pos = QmlAst.Pos.expr expr in
                 let infos = {
                   argument ;
+                  version ;
                   pos ;
                 } in
                 let pinfos = {
@@ -290,12 +299,13 @@ let process_code _gamma annotmap code =
                 let pos = Annot.pos label in
                 let context = QmlError.Context.pos pos in
                 QmlError.warning ~wclass:wdeprecated context (
-                  "This is a @{<bright>deprecated@} construction, as precised in:@\n"^^
+                  "This is a @{<bright>deprecated@} construction%s, see annotation in:@\n"^^
                     "Package:%s,@\n"^^
                     "%a@\n"^^
                       "@[<2>@{<bright>Hint@}:@\n"^^
                     "%a@]"
                 )
+                  (match infos.version with None -> "" | Some version -> " (since version " ^ version ^ ")")
                   (fst package)
                   FilePos.pp infos.pos
                   pp_deprecated_argument infos.argument
@@ -311,7 +321,7 @@ let process_code _gamma annotmap code =
                 let pos = Annot.pos label in
                 let context = QmlError.Context.pos pos in
                 QmlError.warning ~wclass:wtodo context (
-                  "This construction is @{<bright>not implemented@}, as precised in:@\n"^^
+                  "This construction is @{<bright>not implemented@}, see annotation in:@\n"^^
                     "Package:%s,@\n"^^
                     "%a@\n"^^
                     "This will fail at runtime."

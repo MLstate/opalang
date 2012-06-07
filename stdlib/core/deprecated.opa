@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -33,12 +33,19 @@
  *
  * Here are some example of use:
  *
- * {[
- *   @deprecated({use="bar"}) foo = bar
- * }
+ * A deprecation directive that specifies the version of the code when
+ * the function became deprecated and suggests another one to be used
+ * instead:
  *
  * {[
- *   @deprecated({hint="Please refactor your code, this function does no longer exists"}) foo = ...
+ *   @deprecated({use="bar", version=some("1.2.3")}) foo = bar
+ * }
+ *
+ * A deprecation directive that does not specify the version and
+ * provides a textual hint about the deprecated code:
+ *
+ * {[
+ *   @deprecated({hint="Please refactor your code, this function does no longer exists", version=none}) foo = ...
  * }
  *
  * {1 What if I need more?}
@@ -59,13 +66,16 @@ type Deprecated.argument =
     * @deprecated({use="this_function"}) deprec_fun() = void
     * do deprec_fun()
     * }
-    * will produce a warning around the utilization of the deprec_fun, telling :
+    * will produce a warning around the use of the deprec_fun, saying something like:
     * {This code uses a deprecated construction. Please use "this_function" instead}
    **/
    { use : string }
+ / { use : string; version : string }
 
    /**
     * This argument is used if there is no new function to use instead.
-    * The string is them a comment, giving an hint to explain
+    * The string is just a hint to be given to the user, concerning the deprecated
+    * code.
    **/
  / { hint : string }
+ / { hint : string; version : string }
