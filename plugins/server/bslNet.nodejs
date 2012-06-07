@@ -1,6 +1,7 @@
-
 var http = require('http');
+var https = require('https');
 var url = require('url');
+var fs = require('fs');
 
 var debug = false
 
@@ -463,8 +464,7 @@ http._opa_servers = {};
 
 ##endmodule
 
-// FIXME
-##extern-type WebClient.failure = void
+##extern-type WebClient.failure
 
 ##module Http_client
 
@@ -496,7 +496,7 @@ http._opa_servers = {};
        cont_success, cont_failure, cont_void)
 {
 
-  // TODO: Use HTTPS when requested.
+  // TODO: Use CAs and policy with HTTPS.
 
   var req;
   var data = option2js(data);
@@ -569,7 +569,33 @@ http._opa_servers = {};
   }
 
   if (is_secure) {
-    error("place_request: HTTPS is not implemented");
+    var private_key = option2js(private_key);
+    var policy = option2js(policy);
+
+    if (private_key) {
+      options.key = fs.readFileSync(private_key.cert_key);
+      options.passphrase = private_key.cert_pass;
+      options.cert = fs.readFileSync(private_key.cert_file);
+      if (private_key.ca_file || private_key.ca_path) {
+        error("Don't know how to deal with CAs in private key.");
+      }
+    }
+
+    if (policy) {
+      error("Don't know how to use a SSL policy.");
+    }
+
+    options.agent = false;
+    try {
+      req = https.request(options, on_success);
+    } catch (e) {
+      console.log(e);
+      var res = empty_constructor();
+      add_field(res, "ssl", js_void);
+      on_return("failure", res);
+      return_(cont_void, js_void);
+      return js_void;
+    }
   } else {
     req = http.request(options, on_success);
   }
