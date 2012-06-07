@@ -496,6 +496,11 @@ http._opa_servers = {};
        cont_success, cont_failure, cont_void)
 {
 
+  // TODO:
+  //   Use HTTPS when requested.
+  //   Build a proper WebClient.failure value.
+
+  var req;
   var data = option2js(data);
   var timeout = option2js(timeout);
 
@@ -507,7 +512,9 @@ http._opa_servers = {};
     auth: option2js(auth)
   };
 
-  var on_success = function (res) {
+  function on_success(res) {
+    // HTTP data in node doesn't come at once, so we must build
+    // the response string progressively.
     var data = "";
     res.on('data', function (chunk) {
       data += chunk;
@@ -529,32 +536,26 @@ http._opa_servers = {};
       cont_success(mime, res.statusCode, data,
                    js2list(headers), header_get, c);
     });
-  };
+  }
 
-  var on_failure = function (e) {
+  function on_failure(e) {
     return_(cont_failure, js_void);
-  };
+  }
 
-  var req = null;
+  function on_timeout() {
+    req.connection.destroy();
+  }
 
   if (is_secure) {
-    // TODO: implement this
     error("place_request: HTTPS is not implemented");
   } else {
     req = http.request(options, on_success);
   }
 
-  if (data) {
-    req.write(data);
-  }
+  if (data) req.write(data);
 
-  req.setTimeout(timeout, function() {
-    // TODO: destroy the socket object
-    // return_(cont_failure, js_void);
-  });
-
+  req.setTimeout(timeout, on_timeout);
   req.on("error", on_failure);
-
   req.end();
 
   return_(cont_void, js_void);
