@@ -63,7 +63,7 @@ opa-packages: $(MYOCAMLBUILD)
 .PHONY: stdlib
 stdlib: opa-packages
 
-DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate opa-create
+DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
