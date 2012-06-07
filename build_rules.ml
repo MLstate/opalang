@@ -996,7 +996,7 @@ package_building
 package_building
   ~name:"opa-node-packages: meta-rule to build all the stdlib .opx"
   ~stamp:"opa-node-packages.stamp"
-  ~stdlib_only:true
+  ~stdlib_only:false
   ~nodebackend:true
   ~rebuild:false
   ();

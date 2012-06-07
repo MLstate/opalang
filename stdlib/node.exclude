@@ -3,3 +3,12 @@ stdlib.core.rpc.hlnet
 stdlib.core.qos
 stdlib.apis*
 stdlib.database*
+stdlib.interactions.*
+stdlib.io.*
+stdlib.themes.*
+stdlib.upload.*
+stdlib.widgets.*
+stdlib.web.*
+stdlib.mongo*
+stdlib.system
+stdlib.xls
