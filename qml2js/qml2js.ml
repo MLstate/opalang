@@ -256,7 +256,9 @@ struct
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "// From %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
+         #<Ifstatic:JS_IMP_DEBUG 1>
          Printf.fprintf oc "console.log('Load file %s')" filename;
+         #<End>
          Printf.fprintf oc "%s" content;
          Printf.fprintf oc "\n";
       ) (List.rev generated_files);
@@ -279,7 +281,9 @@ struct
       Printf.fprintf oc "///////////////////////\n";
       Printf.fprintf oc "// From package %s \n" opx;
       Printf.fprintf oc "///////////////////////\n";
+      #<Ifstatic:JS_IMP_DEBUG 1>
       Printf.fprintf oc "console.log('Load package %s')" opx;
+      #<End>
       let ic = open_in (Filename.concat opx "a.js") in
       let chunk = 10000 in
       let str = String.create chunk in
