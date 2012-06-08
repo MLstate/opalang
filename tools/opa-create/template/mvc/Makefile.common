@@ -3,7 +3,7 @@
 OPACOMPILER ?= opa
 OPA = $(OPACOMPILER) $(FLAG) $(OPAOPT)
 PWD ?= $(shell pwd)
-BUILDDIR ?= $(PWD)/_build
+BUILDDIR ?= _build
 export BUILDDIR
 OPAGENAPI ?= $(OPACOMPILER) --api-only
 DEPENDS = $(SRC) $(PCK:%=$(BUILDDIR)/%) $(PLUGIN:%=$(BUILDDIR)/%)
@@ -14,13 +14,21 @@ else
      CONFIG =
 endif
 
-_ = $(shell mkdir -p $(BUILDDIR))
+ifdef SystemRoot
+	RM = rmdir /s /q
+	RMFILE = del /s /q
+else
+	RM = rm -rf
+	RMFILE = rm
+endif
+
+# Hack to bypass the lack of "make -p" on Windows:
+_ = $(shell mkdir _build 2>/dev/null)   
 
 ########################################
 # MAIN RULE
 exe : $(EXE)
 pack : $(PACKNAME)
-doc : $(PACKDOC) doc.sub
 
 ########################################
 # MAIN PACKAGE BUILDING
@@ -28,9 +36,8 @@ $(PACKNAME) : $(BUILDDIR)/$(PACKNAME)
 
 $(BUILDDIR)/$(PACKNAME) : $(DEPENDS)
 	@echo "### Building package $(PACKNAME)"
-	mkdir -p $(BUILDDIR)
 	$(OPA) --autocompile $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) --build-dir $(BUILDDIR) -I $(BUILDDIR) $(OPAOPT)
-	@rm -rf $(BUILDDIR)/$(PACKNAME)
+	$(RM) $(BUILDDIR)/$(PACKNAME)
 	@mv $(PACKNAME) $(BUILDDIR)/
 
 ########################################
@@ -45,7 +52,6 @@ $(BUILDDIR)/%.opp :
 # EXECUTABLE BUILDING
 $(EXE) : pack $(SRC) $(MAINSRC) $(DEPENDS) $(OTHER_DEPENDS)
 	@echo "### Building executable $(EXE) "
-	mkdir -p $(BUILDDIR)
 	$(OPA) $(COMPILOPT) $(MAINSRC) $(CONFIG) $(PLUGIN:%=$(BUILDDIR)/%) -o $@ --build-dir $(BUILDDIR)/$(EXE)
 
 $(EXE:%.exe=%.run) : $(EXE)
@@ -60,10 +66,7 @@ pack.depends :
 # CLEANING
 clean ::
 	@$(PCK:%.opx=make -C $(PCKDIR)/% clean &&) $(PLUGIN:%.opp=make -C $(PLUGINDIR)/% clean &&) echo "### Cleaning $(BUILDDIR)";
-	@rm -rf $(BUILDDIR)/* _tracks/*;
-	@if [ -n "$(EXE)" ]; then rm -rf $(EXE); fi
-	@if [ -n "$(PACKDOC)" ]; then rm -rf $(PACKDOC); fi
-
-deep-clean :: clean
-	@rm -rf opa-debug
+	$(RM) $(BUILDDIR) 2>/dev/null
+	$(RMFILE) $(EXE) 2>/dev/null 
+	
 

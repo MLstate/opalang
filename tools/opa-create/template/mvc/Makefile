@@ -1,7 +1,12 @@
 ########################################
 # USER VARIABLES
-
 EXE = application_name.exe
+ifdef SystemRoot
+	RUN_CMD = $(EXE)
+else
+	RUN_CMD = ./$(EXE)
+endif
+
 PACKNAME =
 SRC =
 PCKDIR = ./plugins/
@@ -21,6 +26,6 @@ RUN_OPT = --db-local db/
 default: exe
 
 run: exe
-	./$(EXE) $(RUN_OPT) || true
+	$(RUN_CMD) $(RUN_OPT) || true
 
 include Makefile.common
