@@ -611,6 +611,10 @@ MongoDriver = {{
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
     mbuf = create_(m.bufsize)
+    do if m.log then
+      (str, len) = export_(mbuf)
+      s = String.substring(0,len,str)
+      ML.debug("MongoDriver.send(insert_batch)","\n{string_of_message(s)}",void)
     do insert_batch_(mbuf,flags,ns,documents)
     snd(m,mbuf,"insert")
 
