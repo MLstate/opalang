@@ -53,3 +53,48 @@ var Crypto = require('crypto');
 {
     return new Buffer(data, 'base64');
 }
+
+/**
+ * Compute the SHA1 signature of a string
+ *
+ * @param {!string} salt
+ * @param {!string} str The message to be hashed.
+ * @return {!string} The resulting signature
+ */
+##register hmac_sha1 : string, string -> string
+##args(salt, str)
+{
+  return Crypto.createHmac('sha1', salt).update(str).digest('hex');
+}
+
+// TODO: implement these functions.
+
+##register base64_encode_compact : string -> string
+##args(str)
+{
+  error('base64_encore_compact is not implemented');
+}
+
+##register base64_encode_multiline : string -> string
+##args(str)
+{
+  error('base64_encode_multiline is not implemented');
+}
+
+##register base64_decode2 : string -> string
+##args(str)
+{
+  error('base64_decode2 is not implemented');
+}
+
+##register hmac_sha256 : string, string -> string
+##args(salt, str)
+{
+  error('hmac_sha256 is not implemented');
+}
+
+##register sha2 : string -> string
+##args(str)
+{
+  error('sha2 is not implemented');
+}

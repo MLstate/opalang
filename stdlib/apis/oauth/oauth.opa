@@ -29,6 +29,7 @@
 
 import stdlib.apis.common
 import stdlib.crypto
+import stdlib.core.web.client
 
 /**
  * Type of an OAuth signature
