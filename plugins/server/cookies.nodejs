@@ -211,6 +211,8 @@ function check_cookie_timer() {
 
 function stop_cookie_timer() { clearInterval(cookieIntervalId); }
 
+var cookies_init = false;
+
 function init_cookies(opts) {
   //?(gc_period=100) ?(accept_client_values=false) ?(pool_min=100) ?(pool_max=10000) ?(timer_interval=1)
   //?(rate_max=5.0) ?(period_max=5) ?(rate_ultimate=10.0) ?(period_ultimate=100)
@@ -244,9 +246,6 @@ var default_opts = {
   dt2:Time_infinity,
   cookies_filename:""
 };
-
-// Temporary, we should call this elsewhere
-init_cookies(default_opts);
 
 exports.cookies_in = cookies_in;
 

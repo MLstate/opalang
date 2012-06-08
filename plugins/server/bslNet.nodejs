@@ -416,6 +416,8 @@ http._opa_servers = {};
   return "0.0.0.0";
 }
 
+var has_init_server = false;
+
 ##register init_server : \
     string, \
     int, \
@@ -440,6 +442,10 @@ http._opa_servers = {};
                         });
   server.listen(port);
   http._opa_servers[name] = {server : server, port : port}
+  if (!has_init_server) {
+    init_cookies(default_opts);
+    has_init_server = true;
+  }
   return js_void;
 }
 
