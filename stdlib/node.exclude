@@ -1,8 +1,12 @@
+stdlib.components.*
 stdlib.core.xmlm
 stdlib.core.rpc.hlnet
 stdlib.core.qos
+stdlib.crypto.*
 stdlib.apis*
 stdlib.database*
+stdlib.elvis.*
+stdlib.graph.*
 stdlib.interactions.*
 stdlib.io.*
 stdlib.themes.*
