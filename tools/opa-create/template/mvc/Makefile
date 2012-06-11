@@ -21,7 +21,7 @@ OPACOMPILER ?= opa
 FLAG = --opx-dir _build --import-package stdlib.database.mongo
 PORT = 8080
 
-RUN_OPT = --db-local db/
+RUN_OPT =
 
 default: exe
 
