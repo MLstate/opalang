@@ -374,6 +374,13 @@ Then use option --db-remote instead of --db-local.
       #<Else>
         none
       #<End>#<End>
+
+    wget(from, to) =      
+      #<Ifstatic:IS_MAC 1>
+        "curl {from} > {to}"
+      #<Else>
+        "wget {from} -O {to}"
+      #<End>
       
     default_archive =
       arch = "x86_64" // TODO 32 BITS
@@ -442,7 +449,7 @@ Then use option --db-remote instead of --db-local.
           ) else (
             do jlog("MongoDB does not seem to be installed in '{path}'")
             do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
-            _ = System.exec("wget {default_url} -O {tgzpath}", "")
+            _ = System.exec(wget(default_url, tgzpath), "")
             do jlog("MongoDB was downloaded ({tgzpath})")
             tarcmd = "tar -xvzf {tgzpath} -C {path}"
             do jlog("Uncompressing of MongoDB archive... ({tarcmd})")
