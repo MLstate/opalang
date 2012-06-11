@@ -1,4 +1,6 @@
 var child_process = require('child_process');
+var os = require('os');
+var dns = require('dns');
 
 ##opa-type list('a)
 
@@ -52,24 +54,71 @@ var child_process = require('child_process');
 
 ##endmodule
 
-// Stubs for stdlib.system to compile
-// TODO: implement this
 ##opa-type ip
 ##register gethostname : -> string
 ##args()
 {
-    error("gethostname() is not implemented");
+    return os.hostname();
 }
+
+// Convert an IP address in string form to an Opa ip value.
+function opa_ip_of_string(address) {
+    var m = address.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)/);
+    var res = empty_constructor();
+    add_field(res, "a", parseInt(m[1]));
+    add_field(res, "b", parseInt(m[2]));
+    add_field(res, "c", parseInt(m[3]));
+    add_field(res, "d", parseInt(m[4]));
+    return res;
+}
+
+##register [cps-bypass] gethostbyname_cps : string, continuation(option(opa[ip])) -> void
+##args(address, cont)
+{
+    dns.lookup(address, 4,
+      function (err, address, family) {
+        if (err) {
+          return_(cont, js_none);
+        } else {
+          return_(cont, js_some(opa_ip_of_string(address)));
+        }
+      }
+    );
+
+    return js_void;
+}
+
+// Stub for the typechecker
 ##register gethostbyname : string -> option(opa[ip])
-##args(a)
+##args(address)
 {
-    error("gethostbyname() is not implemented");
+    assert(false);
 }
+
+##register [cps-bypass] gethostsbyname_cps : string, continuation(opa[list(ip)]) -> void
+##args(address, cont)
+{
+    dns.resolve(address,
+      function (err, addresses) {
+        if (err) {
+          return_(cont, js2list([]));
+        } else {
+          return_(cont, js2list(addresses.map(opa_ip_of_string)));
+        }
+      }
+    );
+
+    return js_void;
+}
+
+// Stub for the typechecker
 ##register gethostsbyname : string -> opa[list(ip)]
-##args(a)
+##args(address)
 {
-    error("gethostsbyname() is not implemented");
+    assert(false);
 }
+
+
 ##register get_memory_usage : -> int
 ##args()
 {

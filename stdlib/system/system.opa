@@ -109,12 +109,12 @@ System = {{
   /**
    * gethostbyname() returns the ip (v4) for the given hostname using 'hosts' (see system gethostbyname)
    */
-  gethostbyname = %%BslSys.gethostbyname%% : string -> option(ip)
+  gethostbyname = @may_cps(%%BslSys.gethostbyname%%) : string -> option(ip)
 
   /**
    * gethostsbyname() returns the ips (v4) for the given hostname using 'hosts' (see system gethostbyname)
    */
-  gethostsbyname = %%BslSys.gethostsbyname%% : string -> list(ip)
+  gethostsbyname = @may_cps(%%BslSys.gethostsbyname%%) : string -> list(ip)
 
   /**
    * Get the current process memory usage.
