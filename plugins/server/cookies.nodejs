@@ -19,7 +19,7 @@ var cookie_accept_client_values = false;
 
 var cookie_pool = new Array();
 var last_cookie_check_time = new Date();
-var to_longcook = new HashTable({})
+var to_longcook = new SimpleTable()
 
 exports.cookie_connection_count = cookie_connection_count;
 
@@ -106,7 +106,7 @@ function create_aux(ic, ec, req) {
   var timeNow = req.timestamp.getTime();
   var dt1 = new Date(timeNow + cookie_dt1);
   var dt2 = new Date(timeNow + cookie_dt2);
-  to_longcook.setItem(cookid(ec,ic),{dt1:dt1, dt2:dt2});
+  to_longcook.put(cookid(ec,ic),{dt1:dt1, dt2:dt2});
   if (debug) console.log("create: add(to_longcook["+to_longcook.length+"])="+abbrev(ic)+"."+abbrev(ec)+" -> ("+dt1+","+dt2+")");
   req.cookies.ec = ec;
   req.cookies.ic = ic;
@@ -132,7 +132,7 @@ function collect_cookies(expired) {
                     cookie = cookie_from_id(id);
                     cookie_expiration_callback(cookie.ec,cookie.ic);
                     if (debug) console.log("GC(ec,ic): ("+abbrev(cookie.ec)+","+abbrev(cookie.ic)+") deleted");
-                    to_longcook.removeItem(cookid(cookie.ec,cookie.ic));
+                    to_longcook.remove(cookid(cookie.ec,cookie.ic));
                   });
 }
 
@@ -143,7 +143,7 @@ function gc_cookies(now) {
   var cookie_gc_list = [];
   var expired = [];
   if (cookie_gc_slice_start >= to_longcook.length) cookie_gc_slice_start = 0;
-  cookie_gc_list = to_longcook.toList(cookie_gc_slice_start, cookie_gc_blocksize);
+  cookie_gc_list = to_longcook.values(cookie_gc_slice_start, cookie_gc_blocksize);
   cookie_gc_slice_start += cookie_gc_blocksize;
   cookie_gc_list.forEach(function (c) {
                            if (debug) console.log("gc: id="+c.key+" now="+now+" dt1="+c.value.dt1);
@@ -158,11 +158,11 @@ function get_internal(req) {
   try {
     if (req.cookies.ec.length !== cookie_len || req.cookies.ic.length !== cookie_len) throw "Not_found";
     var id = cookid(req.cookies.ec, req.cookies.ic);
-    if (cookie_accept_client_values && !(to_longcook.hasItem(id))) {
+    if (cookie_accept_client_values && !(to_longcook.containsKey(id))) {
       create_with_client_values(req);
       if (debug) console.log("get_internal: client values={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
     } else {
-      var dt = to_longcook.getItem(id);
+      var dt = to_longcook.get(id);
       if (dt === null || dt === undefined) throw "Not_found";
       if (req.timestamp > dt.dt1 || req.timestamp > dt.dt2) {
         create(req);
@@ -188,7 +188,7 @@ function get_external(req) {
   //if (debug) console.log("get_external: dt1="+dt1);
   //if (debug) console.log("get_external: dt2="+req.dt2);
   var max_age = Date_min(dt1,req.dt2);
-  to_longcook.setItem(id,{dt1:dt1,dt2:req.dt2});
+  to_longcook.put(id,{dt1:dt1,dt2:req.dt2});
   if (debug) console.log("get_external("+abbrev(req.cookies.ec)+"."+abbrev(req.cookies.ic)+") max_age="+max_age);
   return {max_age:max_age, ecstr:"ec="+req.cookies.ec, icstr:"ic="+req.cookies.ic}
 }
