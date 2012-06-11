@@ -1,11 +1,3 @@
-var mongo = require('mongodb');
-var Option = require('./option.nodejs');
-var c = require('./client.nodejs');
-var client = new c.Client();
-
-// Note: we can't share this because it doesn't export anything
-//var client = require('../../qmljsimp/qmlJsImpClientLib.js');
-
 var Admin = mongo.Admin;
 var BSON = mongo.BSONPure;
 var CheckMaster = mongo.CheckMaster;
@@ -34,7 +26,7 @@ function getbool(b, dflt) {
   else if (typeof(b) === 'boolean')
     return b
   else
-    return client.un_uniformize_bool(b)
+    return un_uniformize_bool(b)
 }
 
 exports.server = BslMongo_NodeMongo_server
@@ -48,7 +40,7 @@ exports.replset = BslMongo_NodeMongo_replset
 ##register replset : list(NodeMongo.server) -> NodeMongo.server
 ##args(servers)
 {
-  return new ReplSetServers(client.list2js(servers))
+  return new ReplSetServers(list2js(servers))
 }
 
 exports.db = BslMongo_NodeMongo_db
@@ -63,7 +55,7 @@ exports.open = BslMongo_NodeMongo_open
 ##args(db, cont)
 {
   db.open(function(err, db) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
-  return client.js_void
+  return js_void
 }
 
 exports.close = BslMongo_NodeMongo_close
@@ -71,7 +63,7 @@ exports.close = BslMongo_NodeMongo_close
 ##args(db, cont)
 {
   db.close(false, function (err, result) { cont((err === null || err === undefined) ? "" : err.message) });
-  return client.js_void
+  return js_void
 }
 
 exports.collection = BslMongo_NodeMongo_collection
@@ -80,7 +72,7 @@ exports.collection = BslMongo_NodeMongo_collection
 {
   db.collection(cname,
                 function(err, collection) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:collection}) })
-  return client.js_void
+  return js_void
 }
 
 exports.query = BslMongo_NodeMongo_query
@@ -94,7 +86,7 @@ exports.query = BslMongo_NodeMongo_query
                   function (err, cursor) {
                     cont({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
                   });
-  return client.js_void
+  return js_void
 }
 
 exports.count = BslMongo_NodeMongo_count
@@ -104,7 +96,7 @@ exports.count = BslMongo_NodeMongo_count
   cursor.count(function (err, count) {
                  cont(((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
                });
-  return client.js_void
+  return js_void
 }
 
 exports.nextObject = BslMongo_NodeMongo_nextObject
@@ -112,7 +104,7 @@ exports.nextObject = BslMongo_NodeMongo_nextObject
 ##args(cursor, cont)
 {
   cursor.nextObject(function (err, item) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
-  return client.js_void
+  return js_void
 }
 
 exports.insert = BslMongo_NodeMongo_insert
@@ -122,15 +114,15 @@ exports.insert = BslMongo_NodeMongo_insert
 {
   var opts = {keepGoing:getbool(keepGoing),
               safe:getbool(safe)}; // TODO: w, wtimeout
-  collection.insert(client.list2js(docs), opts,
+  collection.insert(list2js(docs), opts,
                     function (err, insertedDocs) {
                       // The _id field can be a hideous ObjectID object, Opa just uses the string id
                       // which is buried in the object, string representation: _id.__id, binary: _id.id
                       insertedDocs.map(function (o) { if (o._id._bsontype === 'ObjectID') o._id = o._id.__id; });
                       cont({f1:(err === null || err === undefined) ? "" : err.message,
-                            f2:client.js2list(insertedDocs)})
+                            f2:js2list(insertedDocs)})
                     });
-  return client.js_void
+  return js_void
 }
 
 exports.update = BslMongo_NodeMongo_update
@@ -146,7 +138,7 @@ exports.update = BslMongo_NodeMongo_update
                       // numberOfUpdatedDocs will be undefined if safe is false
                       cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs})
                     });
-  return client.js_void
+  return js_void
 }
 
 exports.remove = BslMongo_NodeMongo_remove
@@ -159,7 +151,7 @@ exports.remove = BslMongo_NodeMongo_remove
                       // numberOfRemovedDocs will be undefined if safe is false
                       cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfRemovedDocs})
                     });
-  return client.js_void
+  return js_void
 }
 
 exports.createIndex = BslMongo_NodeMongo_createIndex
@@ -176,7 +168,7 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
                     function (err, indexName) {
                       cont({f1:(err === null || err === undefined) ? "" : err.message, f2:indexName})
                     });
-  return client.js_void
+  return js_void
 }
 
 // Not needed by db.opa but here for test code
@@ -188,7 +180,7 @@ exports.dropIndex = BslMongo_NodeMongo_dropIndex
                        function (err, result) {
                          cont({f1:(err === null || err === undefined) ? "" : err.message, f2:result});
                        });
-  return client.js_void;
+  return js_void;
 }
 
 ##endmodule
