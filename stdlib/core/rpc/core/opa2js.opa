@@ -42,14 +42,13 @@ import stdlib.core.{web.core, js}
      * Serialize a server session on [RPC.Json.js_code].
      */
     session(s:channel('a)):option(RPC.Json.js_code) =
-      get_server_id = %%Session.get_server_id%%
       context = match ThreadContext.get({current}).key
                 {~client} -> some(client)
                 _ -> some(ThreadContext.Client.fake)
                      // NOT none until OpaNetwork corrections
                 end
-      match get_server_id(s,context)
-      {some = id} -> some({Direct = "new {JsInterface.ServerChannel}({id})"})
+      match ChannelServer.get_id(s,context)
+      {some = id} -> some({Record = [("entity", {Record = [("other", {String = id})]})]})
       {none} -> {none}
 
   }}
