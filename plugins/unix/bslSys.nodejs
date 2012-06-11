@@ -38,6 +38,7 @@ var child_process = require('child_process');
     );
 
     proc.stdin.write(input);
+    proc.stdin.end();
 
     return js_void;
 }
