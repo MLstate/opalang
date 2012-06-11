@@ -160,7 +160,7 @@ type Server.encryption =
  * Note that a program can contain several definitions [server = foo].
  */
 type service =
-    { port    : int
+    { options : Server.private.options
     ; netmask : ip              /**This field lets you restrict which clients can use this service, for instance
                                    to enforce the fact that the service should only be used on an Intranet or only
                                    by other services running on the same computer.
@@ -266,7 +266,7 @@ Server = {{
    */
   start(~{port netmask encryption name}:Server.conf, handler:Server.handler): void =
     url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
-    service = ~{server_name=name port netmask encryption url_handler}
+    service = ~{server_name=name options={Server_private.http_options with ~port} netmask encryption url_handler}
     Server_private.add_service(service)
 
   /**
@@ -276,7 +276,7 @@ Server = {{
   /**
    * Default [http] configuration with port equals to 8080 and the server name is "http".
    */
-  http : Server.conf = { port = 8080; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
+  http : Server.conf = { port = Server_private.http_options.port; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
 
   /**
 
@@ -284,7 +284,7 @@ Server = {{
    * name is "https". SSL certificate should be at ./service.crt and
    * SSL key should be at ./service.key.
    */
-  https : Server.conf = { port = 8080; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
+  https : Server.conf = { port = Server_private.https_options.port; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
 
   /**
    * {2 Constructing a server}
@@ -518,7 +518,8 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    * To attach information to users, see module [UserContext] and function [Resource.in_context].
    */
   make(url_handler : Parser.general_parser(HttpRequest.request -> resource)): service =
-    { port=8080 netmask=0.0.0.0 ~url_handler encryption={no_encryption} server_name=default_server_name }
+    { options=Server_private.http_options
+      netmask=0.0.0.0 ~url_handler encryption={no_encryption} server_name=default_server_name }
 
 /**
  * {2 Security checks}
@@ -535,7 +536,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    * etc. To implement these policies, the library provides function [Server.protect].
    */
    secure(ssl_params : Server.encryption, urls : Parser.general_parser(Server.secure_resource)): service =
-       {make(urls) with port = 443
+       {make(urls) with options = { Server_private.https_options with port = 443 }
                         encryption = ssl_params}
 
    /**

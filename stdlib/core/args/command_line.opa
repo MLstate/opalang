@@ -171,9 +171,6 @@ type CommandLine.family('state) = {
 
 @server_private CommandLine = {{
 
-  // FIXME: move this somewhere else
-  @private opa_list_to_caml_list =  %%BslNativeLib.opa_list_to_ocaml_list%%
-
   /**
    * Parse a family of command-line options.
    *
@@ -185,6 +182,35 @@ type CommandLine.family('state) = {
   filter(family: CommandLine.family('state)) : 'state =
     { ~title ~init ~parsers ~anonymous } = family
 
+    parsers = List.map((p ->
+                        l_on_param(state, text) =
+                          do_parse(text) = Parser.try_parse(p.on_param(state), text)
+                          if not(String.is_empty(text))
+                          then
+                            start = String.get(0, text)
+                            if start == "-"
+                            then {none} //By convention, reject params that start with '-'
+                            else
+                              if start == "\\"
+                              then //By convention, remove initial '\\'
+                                do_parse(String.drop_left(1, text))
+                              else
+                                do_parse(text)
+                          else do_parse(text)
+                        ServerArg.make_arg_parser(p.names, p.param_doc, p.description, p.on_encounter, l_on_param)), parsers)
+    // 1. Parsing parametrized arguments
+    state = ServerArg.filter(title, parsers, init)
+    // 2. Parsing anonymous arguments
+    fold(anonymous, state) =
+      // TODO: bind the filter and the description in the ServerArg, for the --help
+      fct = anonymous.parse
+      func(state, anon_arg:string) = Parser.try_parse(fct(state), anon_arg)
+      ServerArg.anonymous_filter(func, state)
+    state = List.fold(fold, anonymous, state)
+    //do jlog("CommandLine.filter: final state={state}")
+    state
+
+/*
     // 1. Parsing parametrized arguments
     camlify_parser( ~{names on_encounter on_param param_doc description} : CommandLine.parser) =
       caml_names = opa_list_to_caml_list(identity, names)
@@ -228,6 +254,7 @@ type CommandLine.family('state) = {
 
   // Returning the final state
     state
+*/
 
 
   /**

@@ -59,6 +59,7 @@ let opa_list_to_ocaml_list f l =
 ##extern-type HttpRequest.request = HttpServerTypes.request
 ##extern-type remote_logs = HttpServerTypes.remote_logs option
 ##opa-type HttpRequest.part
+##opa-type Server.private.options
 
 
 ##extern-type SSL.private_key = SslAS.ssl_certificate
@@ -338,10 +339,9 @@ let opa_list_to_ocaml_list f l =
   ##register set_cookie_expiry_callback : (string, string -> void) -> void
   let set_cookie_expiry_callback callback = CookieLong.cookie_expiration_callback := callback
 
-  (*##register init_server : string, int, option(string), option(string), option(string), (WebInfo.private.native -> void), (int, int, bool, string, string, string -> void) -> unit*)
   ##register init_server : \
       string, \
-      int, \
+      Server.private.options, \
       option(string), \
       option(string), \
       option(string), \
@@ -349,30 +349,36 @@ let opa_list_to_ocaml_list f l =
       (WebInfo.private.native -> void), \
       (string, HttpRequest.msg_list, int -> bool) ->\
       void
-  let init_server name port certfileo privkeyo passwdo secure_type dispatcher ontransfer =
-    let sop = function | Some s -> s | None -> "" in
+  let init_server name options certfileo privkeyo passwdo secure_type dispatcher ontransfer =
+    let sop dflt = function | Some s -> s | None -> dflt in
     let dialog_name = Printf.sprintf "%s-dialog" name in
     let http_server_name = Printf.sprintf "%s" name in
     let dialog _ _sched = dispatcher in
     let callback (name,hdrs) i _buf = ontransfer name hdrs i (*buf*) in
     let ssl_certificate,ssl_verify_params=secure_type in
     Runtime.add_httpDialog dialog_name (HttpDialog.options_with_dialog dialog);
+    let options = unwrap_opa_server_private_options options in
+    let (port:int) = ServerLib.unsafe_dot options (ServerLib.static_field_of_name "port") in
+    let (addr:string) = ServerLib.unsafe_dot options (ServerLib.static_field_of_name "addr") in
+    let (ssl_cert:string) = ServerLib.unsafe_dot options (ServerLib.static_field_of_name "ssl_cert") in
+    let (ssl_key:string) = ServerLib.unsafe_dot options (ServerLib.static_field_of_name "ssl_key") in
+    let (ssl_pass:string) = ServerLib.unsafe_dot options (ServerLib.static_field_of_name "ssl_pass") in
     Runtime.add_httpServer http_server_name
       {HttpServer.default_options with
-         HttpServer.ssl_cert = sop certfileo;
-         ssl_key = sop privkeyo;
-         ssl_pass = sop passwdo;
+         HttpServer.ssl_cert = sop ssl_cert certfileo;
+         ssl_key = sop ssl_key privkeyo;
+         ssl_pass = sop ssl_pass passwdo;
          dialog = dialog_name;
          port = port;
+         addr = addr;
          callback = Some callback;
          ssl_certificate = ssl_certificate;
          ssl_verify_params = ssl_verify_params;
       }
 
-  (*##register init_server_cps : string, int, option(string), option(string), option(string), continuation(WebInfo.private.native), (int, int, bool, string, string, string -> void) -> unit*)
   ##register init_server_cps : \
       string, \
-      int, \
+      Server.private.options, \
       option(string), \
       option(string), \
       option(string), \
@@ -380,8 +386,8 @@ let opa_list_to_ocaml_list f l =
       continuation(WebInfo.private.native), \
       (string, HttpRequest.msg_list, int -> bool) -> \
       void
-  let init_server_cps name port certfileo privkeyo passwdo secure_type dispatcher ontransfer =
-    init_server name port certfileo privkeyo passwdo secure_type
+  let init_server_cps name options certfileo privkeyo passwdo secure_type dispatcher ontransfer =
+    init_server name options certfileo privkeyo passwdo secure_type
       (fun winfo -> QmlCpsServerLib.return dispatcher winfo)
       ontransfer
 

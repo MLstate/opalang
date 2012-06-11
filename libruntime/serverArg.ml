@@ -28,6 +28,7 @@ let get_argv, set_argv =
 let is_empty args = [] = args
 
 let to_list args = args
+let from_list args = args
 
 let argv_to_string () = String.concat " " (get_argv())
 

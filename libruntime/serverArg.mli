@@ -61,10 +61,12 @@ type args
 
 (** The current command-line (may be filtered several times) *)
 val get_argv: unit -> args
+val set_argv: args -> unit
 
 val is_empty: args -> bool
 
 val to_list: args -> string list
+val from_list: string list -> args
 
 (** Gives the remaining command-line arguments out as string. Useful to print a
     message on remaining arguments after parsing *)

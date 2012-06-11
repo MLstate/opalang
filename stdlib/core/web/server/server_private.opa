@@ -76,6 +76,9 @@ type Server.private.generate_resource = {
 
 Server_private = {{
 
+    http_options : Server.private.options = Server_options.spec_args("http",Server_options.default_http_options)
+    https_options : Server.private.options = Server_options.spec_args("https",Server_options.default_https_options)
+
     @private _internal_ = "_internal_"
     @private base_url_string = Resource.base_url ? ""
     @private _internal_string = "{_internal_}"
@@ -146,7 +149,7 @@ Server_private = {{
             map = (match StringMap.get(name, map) with
               | {none} -> StringMap.add(name, service, map)
               |~{some} -> //Merge url handlers, ensure that everything else is compatible
-                cmp = [("port",       service.port       == some.port),
+                cmp = [("options",    service.options    == some.options),
                        ("netmask",    service.netmask    == some.netmask),
                        ("encryption", service.encryption == some.encryption)]
                 match List.find(| (_, {false}) -> {true} | _ -> {false} , cmp) with
@@ -414,15 +417,15 @@ Server_private = {{
         /* Initialize server */
         match service.encryption with
         | {no_encryption} ->
-          init_server(service.server_name, service.port,
+          init_server(service.server_name, service.options,
                       {none}, {none}, {none}, (SSL.make_secure_type(none,none)),
                       dispatcher, bogus_ontransfer)
         | ~{ certificate private_key password } ->
-          init_server(service.server_name, service.port,
+          init_server(service.server_name, service.options,
                       some(certificate), some(private_key), some(password), (SSL.make_secure_type(none,none)),
                       dispatcher, bogus_ontransfer)
         | ~{ secure_type } ->
-          init_server(service.server_name, service.port,
+          init_server(service.server_name, service.options,
                       none, none, none, secure_type,
                       dispatcher, bogus_ontransfer)
       make_server

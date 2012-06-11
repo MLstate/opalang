@@ -24,6 +24,18 @@ module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
 let caml_list_to_opa_list f l =
   wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
 
+(** This returns the raw arguments from the command line,
+ *  it's used to seed the Opa version of ServerArgs.
+ *  We also kill off ServerArgs to prevent multiple reading of the same args.
+ *  We need to retain --help because it's used by the scheduler as a flag for premature exit.
+ *)
+##register argv: -> opa[list(string)]
+let argv () =
+  let args = Array.to_list Sys.argv in
+  ServerArg.set_argv (ServerArg.from_list (List.filter (fun a -> a == "--help") (ServerArg.to_list (ServerArg.get_argv()))));
+  let caml_list = match args with [] -> [] | _0::args -> args in
+  BslNativeLib.caml_list_to_opa_list Base.identity caml_list
+
 (**
    This is used by opa servers or qml applications to have access
    to the command-line options.
