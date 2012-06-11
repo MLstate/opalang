@@ -266,7 +266,7 @@ Server_private = {{
           /* Context handler are dispatcher which needs a client context */
           context_handler = parser
             #<Ifstatic:OPA_FULL_DISPATCHER>
-            | winfo=WebSession.parser_(winfo) -> winfo : option(web_info)
+            | "chan/" winfo=WebSession.parser_(winfo) -> winfo : option(web_info)
             | winfo=PingRegister.parser_(winfo) -> winfo : option(web_info)
             | rpc_handler -> {none}
             | cell_handler -> {none}
