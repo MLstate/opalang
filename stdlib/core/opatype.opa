@@ -171,7 +171,14 @@ OpaTsc = {{
    * scheme [tsc] instantiated by the type list [lt].
    */
   implementation(lt : OpaTsc.instantiation, (tsc : OpaTsc.t)) =
-    OpaType.implementation(instantiate(lt, tsc))
+     ty = instantiate(lt, tsc)
+     match OpaType.implementation(ty) with
+      // HACK NOTE : This function it was used by rpc generation to traverse
+      // aliases of type lambda. But for non-lambda rpc we don't want to
+      // traverse the type. Indeed the aliases could be contains some usefull
+      // serialization informations.
+      | {TyArrow_params=_ ...} as ty -> ty
+      | _ -> ty
 
 }}
 
