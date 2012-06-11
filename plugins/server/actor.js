@@ -65,9 +65,15 @@ var LocalChannelStore = function(){
         serialize : function(chan){
             var serialized = stored[chan.lchan_id];
             if (serialized == null){
+                #<Ifstatic:OPABSL_NODE>
+                serialized = {srv_id : generate_id()};
+                chan.serialized = serialized;
+                stored[serialized.srv_id] = serialized;
+                #<Else>
                 serialized = {cl_id : generate_id()};
                 chan.serialized = serialized;
                 stored[serialized.cl_id] = serialized;
+                #<End>
             }
             return serialized;
         },
@@ -98,6 +104,11 @@ function LocalChannel(st, unserialize, fun_session, ctx, dfun, more, concurrent)
 
 LocalChannel.prototype = {
 
+    get_context:function(context){
+        if ('some' in this.ctx) return this.ctx;
+        else return context;
+    },
+
     /* ************************************************** */
     /* Sending functions ******************************** */
 
@@ -126,9 +137,8 @@ LocalChannel.prototype = {
             return;
         }
         // Get the good context (owner if setted, sender else)
-        var ctx;
-        if ('some' in this.ctx) ctx = this.ctx;
-        else ctx = context;
+        var ctx = this.get_context(ctx);
+
         // Perform action
         #<Ifstatic:SESSION_DEBUG>> ping_debug("Start handler"); #<End>
         if (hsuccess !=  undefined) hsuccess();
@@ -178,18 +188,14 @@ LocalChannel.prototype = {
             var lchan = this;
             // lock the state
             this.state = null;
+
             //Recursive wait loop
             function aux(stt) {
                 var cpl = lchan.messages.pop();
                 if (cpl == null) {
                     lchan.state = stt;
                 } else {
-                    var ctx;
-                    if ('some' in lchan.ctx){
-                        ctx = lchan.ctx;
-                    } else {
-                        ctx = cpl.ctx;
-                    }
+                    var ctx = lchan.get_context(cpl.ctx);
                     if (hsuccess !=  undefined) hsuccess();
                     lchan.action(stt, cpl.msg, ctx, function(new_st){
                       if ('none' in new_st) {
@@ -281,7 +287,11 @@ LocalChannel.prototype = {
         }
         var serialized = LocalChannelStore.get(this.lchan_id);
         if(serialized != null){
+            #<Ifstatic:OPABSL_NODE>
+            LocalChannelStore.remove(serialized.srv_id);
+            #<Else>
             LocalChannelStore.remove(serialized.cl_id);
+            #<End>
         }
     },
 
