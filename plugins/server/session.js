@@ -97,12 +97,8 @@ var LowLevelPingLoop = {};
 
     /* DEBUG FUNCTIONS*/
     #<Ifstatic:PING_DEBUG>
-    function ping_debug (msg) {
-        syslog("notice", "PING", msg);
-    }
-
-    function sess_debug(msg){
-        syslog("notice", "SESSION", msg);
+        function ping_debug (x, y) {
+        console.log("PING", x, y);
     }
     #<End>
 
@@ -410,7 +406,7 @@ var LowLevelPingLoop = {};
 
     /** Process messages according to here type */
     /** @param {{ id, msg, herror, hsuccess, name, args }} mess */
-    function process_msg (mess){
+    function native_process (mess){
         switch(mess.type){
         case "rpc" :
             RPC_call(mess.id, mess.name, mess.args);
@@ -425,6 +421,8 @@ var LowLevelPingLoop = {};
             error("Messages type "+mess.type+" is unknown");
         }
     }
+
+    var process_msg = native_process;
 
     var the_ping_loop;
     var the_pang_loop;
@@ -448,7 +446,13 @@ var LowLevelPingLoop = {};
             case "msgs" :
                 var messages = native_response.body;
                 for(var i = 0; i < messages.length; i++){
-                    process_msg(messages[i]);
+                    var m = %%Bsljson.Json.native_to_json%%(messages[i]);
+                    m = option2js(m);
+                    if (m!=null){
+                        process_msg(m);
+                    } else {
+                        console.error("LLPing", "Bad json", messages[i]);
+                    }
                 }
                 if(nb == -1) return null; else break;
             case "result" :
@@ -685,11 +689,8 @@ var LowLevelPingLoop = {};
      */
     LowLevelPingLoop.start = the_ping_loop;
 
-    /** Setting the page identifier */
-    LowLevelPingLoop.set_page = function(page){
-        page_index = page;
-        internal_url = base_url_client+"/_internal_/"+page_index;
-    }
+    LowLevelPingLoop.internal_prefix =
+        base_url_client+"/_internal_/"+page_index;
 
     /**
      * Like [jQuery.ajax] but for internal url of OPA server
@@ -720,7 +721,14 @@ var LowLevelPingLoop = {};
                         url : url,
                         data : request
                       });
-    }}
+    }
+
+    LowLevelPingLoop.process_msg = function(f){
+        console.log("Set process_msg")
+        process_msg = f;
+    }
+
+}
 
 
 /* ****************************************************** */
@@ -940,6 +948,15 @@ var LowLevelPingLoop = {};
         LowLevelPingLoop.set_max_pang_attempt(i);
         return js_void;
     }
+
+    ##register process_msg: (RPC.Json.json -> void) -> void
+    ##args(processor)
+    {
+        LowLevelPingLoop.process_msg(processor);
+        return js_void;
+    }
+
+    ##register internal_prefix \ `LowLevelPingLoop.internal_prefix`: string
 
 ##endmodule
 
