@@ -329,7 +329,16 @@ Channel = {{
 
   @private OpaChannel = GenChannel(OpaNetwork)
 
-  remove = OpaChannel.remove
+  client_remove(client, cid) =
+    cid = {entity_id = {other = cid}}
+    match OpaChannel.find(cid) with
+    | {none} -> error("Client({client}) try to remove non-existing channel({cid})")
+    | {some = chan} ->
+      match OpaChannel.owner(chan) with
+      | {some = {client = cli}} ->
+        if client == cli then OpaChannel.remove(cid)
+        else error("Client({client}) try to remove channel({cid}) that not owned")
+      | _ -> error("Client({client}) try to remove client channel({cid})")
 
   find = OpaChannel.find
 

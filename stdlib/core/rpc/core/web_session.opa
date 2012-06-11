@@ -60,9 +60,11 @@ WebSession = {{
           ok()
         | _ -> bad_formatted()
       )
-    | "remove"     -> jbody() ?|> (
+    | "remove"     ->
+      ThreadContext.Client.get_opt({current}) ?|> client ->
+      jbody() ?|> (
         | {String = cid} ->
-          do Channel.remove({entity_id = {other = cid}})
+          do Channel.client_remove(client, cid)
           ok()
         | _ -> bad_formatted()
       )
