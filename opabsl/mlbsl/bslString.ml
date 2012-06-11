@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+##extern-type binary = string
+
 ##register concat \ `Pervasives.( ^ )` : string, string -> string
 
 ##register length \ `String.length` : string -> int

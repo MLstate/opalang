@@ -29,6 +29,7 @@ let default_scheduler = BslScheduler.opa
 ##extern-type caml_list('a) = 'a list
 ##extern-type endpoint = Hlnet.endpoint
 ##extern-type llarray('a) = Obj.t array
+##extern-type binary = string
 ##property[endmli]
 
 ##opa-type tuple_2('a, 'b)
@@ -191,7 +192,7 @@ let opa_list_to_ocaml_list f l =
       web_server_status, \
       caml_list(WebInfo.private.native_http_header), \
       string, \
-      string, \
+      binary, \
       continuation(WebInfo.private.native_response) -> void
   let make_response ms req stat headers s1 s2 k =
     let modified_since = Option.map Time.milliseconds ms in
@@ -203,7 +204,7 @@ let opa_list_to_ocaml_list f l =
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string, \
+      binary, \
       continuation(WebInfo.private.native_response) -> void
   let make_response_modified_since modified_since req stat s1 s2 k =
     let ms = Option.map Time.milliseconds modified_since in
@@ -216,7 +217,7 @@ let opa_list_to_ocaml_list f l =
       WebInfo.private.native_request, \
       web_server_status, \
       string, \
-      string, \
+      binary, \
       continuation(WebInfo.private.native_response) -> void
   let make_response_expires_at expires_at modified_since req stat s1 s2 k =
     let expires =

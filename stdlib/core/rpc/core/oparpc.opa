@@ -438,11 +438,7 @@ OpaRPC_Server =
    */
   Dispatcher = {{
     reply(winfo, msg, status) =
-      winfo.cont(
-        WebCoreExport.default_make_response(
-          {volatile}, winfo.http_request.request, status,
-          "text/plain", msg)
-      )
+      WebInfo.simple_reply(winfo, msg, status)
 
     reply_error(winfo, msg) =
       #<Ifstatic:MLSTATE_PING_DEBUG>
@@ -450,11 +446,7 @@ OpaRPC_Server =
       _ = msg
       msg = "Unauthorized request"
       #<End>
-      winfo.cont(
-        WebCoreExport.default_make_response(
-          {volatile}, winfo.http_request.request, {unauthorized},
-          "text/plain", msg)
-      )
+      WebInfo.simple_reply(winfo, msg, {unauthorized})
 
     @private rpctbl = Hashtbl.create(1024) : Hashtbl.t(string, (string -> option(string)))
 

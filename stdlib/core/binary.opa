@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -39,7 +39,8 @@
 
 //TODO:This should be [external]. However, for the moment, we rely on [static_file_include] and we just can't.
 @opacapi
-type binary = string
+@abstract
+type binary = external
 
 /**
  * {1 Interface}

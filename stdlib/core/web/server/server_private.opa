@@ -235,10 +235,14 @@ Server_private = {{
 
         export(winfo, r) = export_resource(winfo,r)(HttpRequest.Generic.get_low_level_request(winfo.http_request)) // ??
 
-        provide_js = Resource_private.make_resource_include(js_file_with_version, {system_js}, JsMinifier.minify , js_code, {true}, {false}, {permanent},
-                   (x -> Resource.source(x, "text/javascript")))
-        provide_css = Resource_private.make_resource_include(css_file_with_version, {system_css}, identity, css_code, {true}, {false}, {permanent},
-                    (x -> Resource.source(x, "text/css")))
+        provide_js =
+          Resource_private.make_resource_include(js_file_with_version, {system_js},
+            binary_of_string(JsMinifier.minify(js_code)), {true}, {false}, {permanent},
+            (x -> Resource.binary(x, "text/javascript")))
+        provide_css =
+          Resource_private.make_resource_include(css_file_with_version, {system_css},
+            binary_of_string(css_code), {true}, {false}, {permanent},
+            (x -> Resource.binary(x, "text/css")))
 
         internal_error(winfo)(e) =
           do Log.warning("Server_private","Exception while answering {Debug.dump(e)}")
@@ -295,7 +299,7 @@ Server_private = {{
               export(winfo, make_resource(HttpRequest._of_web_info(winfo)))
             //Default (can be overridden) favicon, shortcut icons, etc
             | x=overridable_handlers -> export(winfo, x)
-            | any=(.*) -> wrong_address("resource")
+            | .* -> wrong_address("resource")
 
            // to update user lang when external handler is reached
            // TODO - Doesn't use I18n if is not needed
@@ -450,13 +454,13 @@ Server_private = {{
           l=(((!special_char .)+) | c=special_chars -> c )* -> Text.ltconcat(l) )
         : Parser.general_parser(text)
 
-  @private generate_dynamic_content(filename, default_dir, minifier, value, replace, mimetype) =
+  @private generate_dynamic_content(filename, default_dir, minifier, value:string, replace, mimetype) =
    (
     debug = {true} //FIXME always debugging ? opt.is_set(debug_opt)
     if debug then
       // Note: these bypasses are defined locally to avoid unsafe abuse of the library
-      file_content   = %% BslFile.content %% : string -> string
-      file_of_string = %% BslFile.of_string %% : string, string -> void
+      file_content   = %% BslFile.content %% : string -> binary
+      file_of_string = %% BslFile.of_string %% : string, binary -> void
       file_exists    = %% BslFile.exists %% : string -> bool
       // TODO: put back when option will be here
       //dir   = match opt.get(dir_opt) with
@@ -468,11 +472,11 @@ Server_private = {{
          // TODO:Should make a backup copy
          if replace then Log.warning("Server","The file '{filename}' already exists. I will replace it by the version embedded in this server.")
          else  Log.warning("Server","The file '{filename}' already exists. I will use it instead of the server version.")
-      do file_of_string(filename, value)
+      do file_of_string(filename, binary_of_string(value))
       do Log.info("Server","You can edit file {filename} while the server is running.\n")
       (cont -> WebCoreExport.default_make_response({volatile}, cont, {success}, mimetype, file_content(filename)))//Always reload
     else
-      generated = minifier(value)
+      generated = binary_of_string(minifier(value))
       (cont -> WebCoreExport.default_make_response({permanent}, cont, {success}, mimetype, generated))//Reload only when necessary
    )
 

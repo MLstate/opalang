@@ -572,20 +572,21 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
         page = Xhtml.of_string_unsafe(doctype) <+>
           <html>{head}{body}</html>
         data=Xhtml.serialize_as_standalone_html(page)
+        data=binary_of_string(data)
         some({~data mimetype="text/html"})
       | ~{xml} ->
         xml = Resource_private.shared_xml_header^Xmlns.to_string(xml)
-        some({data=xml mimetype="application/xml"})
+        some({data=binary_of_string(xml) mimetype="application/xml"})
       | ~{png} -> some({data=png mimetype="image/png"})
       | ~{jpg} -> some({data=jpg mimetype="image/jpg"})
       | ~{gif} -> some({data=gif mimetype="image/gif"})
       | ~{ico} -> some({data=ico mimetype="image/x-icon"})
-      | ~{txt} -> some({data=txt mimetype="text/plain"})
+      | ~{txt} -> some({data=binary_of_string(txt) mimetype="text/plain"})
       | ~{binary mimetype} -> some({data=binary ~mimetype})
-      | ~{source mimetype} -> some({data=source ~mimetype})
-      | ~{css} -> some({data=css mimetype="text/css"})
-      | {~js} -> some({data=js mimetype="application/x-javascript"})
-      | {~json} -> some({data=Json.serialize(json) mimetype="text/plain"})
+      | ~{source mimetype} -> some({data=binary_of_string(source) ~mimetype})
+      | ~{css} -> some({data=binary_of_string(css) mimetype="text/css"})
+      | {~js} -> some({data=binary_of_string(js) mimetype="application/x-javascript"})
+      | {~json} -> some({data=binary_of_string(Json.serialize(json)) mimetype="text/plain"})
       | {dynamic=_} -> none
       | ~{override_mime_type resource} -> Option.map(r -> {r with mimetype=override_mime_type}, aux(resource))
       | _ -> none

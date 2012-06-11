@@ -261,11 +261,13 @@ WebCoreExport =
  * Prepare a low-level response
  */
 
-make_response_with_headers(request : WebInfo.private.native_request,
-                           status : web_response,
-                           headers : list(Resource.http_header),
-                           mime_type : string,
-                           content : string) : WebInfo.private.native_response =
+make_response_with_headers(
+  request : WebInfo.private.native_request,
+  status : web_response,
+  headers : list(Resource.http_header),
+  mime_type : string,
+  content : binary
+) : WebInfo.private.native_response =
 (
      cache_control = // Ugly and redundant, here for legacy reasons
         check(x) = match x with | { lastm = _ } -> true | _ -> false end
@@ -281,7 +283,6 @@ make_response_with_headers(request : WebInfo.private.native_request,
         end
 
     respond = %% BslNet.Http_server.make_response %%
-            : option(time_t), WebInfo.private.native_request, web_server_status, caml_list(WebInfo.private.native_http_header), string, string -> WebInfo.private.native_response
     to_caml_list : (WebInfo.private.native_http_header
                       -> WebInfo.private.native_http_header),
                    list(WebInfo.private.native_http_header)
@@ -292,12 +293,16 @@ make_response_with_headers(request : WebInfo.private.native_request,
     respond(cache_control, request, answer, ll_headers, mime_type, content)
 )
 
-default_make_response(cache_control: web_cache_control, request: WebInfo.private.native_request, status: web_response, mime_type: string, content: string) : WebInfo.private.native_response =
+default_make_response(
+  cache_control: web_cache_control,
+  request: WebInfo.private.native_request,
+  status: web_response,
+  mime_type: string,
+  content: binary
+)          : WebInfo.private.native_response =
 (
      make_response_modified_since = %% BslNet.Http_server.make_response_modified_since %%
-                              : option(time_t), WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response
      make_response_expires_at = %% BslNet.Http_server.make_response_expires_at %%
-                              : option(time_t), option(time_t), WebInfo.private.native_request, web_server_status, string, string -> WebInfo.private.native_response
      match cache_control with
         | {volatile}  ->     //Possibility 1: should never be cached
              make_response_modified_since({none}, request, web_err_num_of_web_response(status), mime_type, content)

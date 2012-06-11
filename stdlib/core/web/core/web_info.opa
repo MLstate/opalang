@@ -80,7 +80,7 @@ WebInfo = {{
       winfo.cont(
         WebCoreExport.default_make_response(
           {volatile}, winfo.http_request.request, status,
-          "text/plain", msg)
+            "text/plain", binary_of_string(msg))
       )
 }}
 

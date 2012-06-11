@@ -21,6 +21,7 @@ module U = Unix
 ##property[mli]
 ##extern-type time_t = int
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
+##extern-type binary = string
 (** *****************************)
 
 ##register mlstate_dir : void -> string
@@ -109,7 +110,7 @@ let remove_rec file = ignore (File.remove_rec file)
 
      In case of error, explode.
   *)
-  ##register of_string : string, string -> void
+  ##register of_string : string, binary -> void
   let of_string n content =
     let och =
       let path = Filename.dirname n in
@@ -120,7 +121,7 @@ let remove_rec file = ignore (File.remove_rec file)
 ##register create_full_path: string -> void
 let create_full_path path = ignore (File.check_create_path path)
 
-##register content_opt: string -> option(string)
+##register content_opt: string -> option(binary)
 let content_opt = File.content_opt
 
 (**
@@ -129,7 +130,7 @@ let content_opt = File.content_opt
    This works on Macintosh, but not Linux, due to limitations of epoll!
 *)
 
-##register [cps-bypass] content_cps: string, continuation(opa[option(string)]) -> void
+##register [cps-bypass] content_cps: string, continuation(opa[option(binary)]) -> void
 let content_cps filename k =
   let fd = U.openfile filename [U.O_RDONLY; U.O_NONBLOCK] 0o600 in
   let size = (U.fstat fd).U.st_size in
@@ -148,5 +149,5 @@ let content_cps filename k =
    {1 Deprecated}
 *)
 (*Deprecated: use [content_cps]*)
-##register content : string -> string
+##register content : string -> binary
 let content = File.content

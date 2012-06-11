@@ -9,6 +9,7 @@ var debug = false
 ##extern-type caml_list('a)
 ##extern-type endpoint
 ##extern-type llarray('a)
+##extern-type binary
 
 ##extern-type WebInfo.private.native
 ##extern-type WebInfo.private.native_http_header
@@ -341,7 +342,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     web_server_status, \
     caml_list(WebInfo.private.native_http_header), \
     string, \
-    string, \
+    binary, \
     option(int), \
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,content_len,k)
@@ -357,7 +358,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     web_server_status, \
     caml_list(WebInfo.private.native_http_header), \
     string, \
-    string, \
+    binary, \
     continuation(WebInfo.private.native_response) -> void
 ##args(ms,req,stat,headers,_type,content,k)
 {
@@ -371,7 +372,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     WebInfo.private.native_request, \
     web_server_status, \
     string, \
-    string, \
+    binary, \
     continuation(WebInfo.private.native_response) -> void
 ##args(modified_since,req,stat,_type,content,k)
 {
@@ -387,7 +388,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     WebInfo.private.native_request, \
     web_server_status, \
     string, \
-    string, \
+    binary, \
     continuation(WebInfo.private.native_response) -> void
 ##args(expires_at,modified_since,req,stat,_type,content,k)
 {

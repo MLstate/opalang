@@ -4,6 +4,7 @@ var FileSystem = require('fs');
 ##property[mli]
 ##extern-type time_t
 ##extern-type continuation('a)
+##extern-type binary
 /** *****************************/
 
 ##register exists : string -> bool
@@ -62,7 +63,7 @@ var FileSystem = require('fs');
   return r.join("/");
 }
 
-##register content_opt: string -> option(string)
+##register content_opt: string -> option(binary)
 ##args(path)
 {
   try{
@@ -95,11 +96,11 @@ var FileSystem = require('fs');
   return js_void;
 }
 
-##register content: string -> string
+##register content: string -> binary
 ##args(path)
 {
   var buffer = FileSystem.readFileSync(path);
-  return buffer.toString();
+  return buffer;
 }
 
 ##register last_modification : string -> time_t
@@ -108,7 +109,7 @@ var FileSystem = require('fs');
   return FileSystem.statSync(path).mtime;
 }
 
-##register of_string : string, string -> void
+##register of_string : string, binary -> void
 ##args(path, content)
 {
   var dir = %%BslFile.dirname%%(path);
