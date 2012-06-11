@@ -16,7 +16,6 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-@private
 type PingRegister.msg = RPC.Json.json
 
 @private
@@ -27,7 +26,7 @@ type PingRegister.entry =
 @private
 type PingRegister.pang_result = {nb:int result:string}
 
-@private
+@server_private
 PingRegister = {{
 
   @private
@@ -44,10 +43,16 @@ PingRegister = {{
   Entry = {{
 
     @private
-    entries : Hashtbl.t(ThreadContext.client, PingRegister.entry) = Hashtbl.create(1024)
+    hash_client(~{client page}:ThreadContext.client) =
+      "{client}_{page}"
 
     @private
-    pangtbl : Hashtbl.t(ThreadContext.client, list(PingRegister.pang_result)) = Hashtbl.create(1024)
+    entries : Hashtbl.t(ThreadContext.client, PingRegister.entry) =
+      Hashtbl.make(hash_client, (_, _ -> true), 1024)
+
+    @private
+    pangtbl : Hashtbl.t(ThreadContext.client, list(PingRegister.pang_result)) =
+      Hashtbl.make(hash_client, (_, _ -> true), 1024)
 
     @private
     ping_delay = 30 * 1000
@@ -94,13 +99,10 @@ PingRegister = {{
         | ~{pong}      -> {Record = [("type", {String = "pong"})]}
         | ~{break}     -> {Record = [("type", {String = "break"})]}
         | ~{msgs}      -> {Record = [("type", {String = "msgs"}),
-                                     ("body", {List = msgs})]}
+                                     ("body", {List = List.rev(msgs)})]}
         | ~{result nb} -> {Record = [("type", {String = "result"}),
                                      ("body", {String = result}),
                                      ("id"  , {Int = nb})]}
-      #<Ifstatic:MLSTATE_PING_DEBUG>
-      do debug("sending json message {json}")
-      #<End>
       WebInfo.simple_reply(winfo, Json.to_string(json), {success})
 
     /**
@@ -223,15 +225,40 @@ PingRegister = {{
       | ~{ajax} -> send_response(ajax, ~{result nb})
       | {} -> void
 
+    send(client, msg:PingRegister.msg) =
+      #<Ifstatic:MLSTATE_PING_DEBUG>
+      do debug("SEND({client}) message {msg}")
+      #<End>
+      match @atomic(
+        match Hashtbl.try_find(entries, client) with
+        | {some = ~{ajax key ...}} ->
+          do Hashtbl.remove(entries, client)
+          do Scheduler.abort(key)
+          ~{ajax}
+        | {some = ~{msgs}} ->
+          do Hashtbl.replace(entries, client, {msgs = [msg | msgs]})
+          {}
+        | {none} ->
+          do Hashtbl.add(entries, client, {msgs = [msg]})
+          {}
+      ) with
+      | ~{ajax} ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        do debug("SEND({client}) really")
+        #<End>
+        send_response(ajax, {msgs = [msg]})
+      | {} -> void
+
 
   }}
 
-  @expand
+  @private @expand
   `?|>`(a,f) =
     match a with
     | {none} -> @fail
     | {some = x} -> f(x)
 
+  @private
   werror(winfo, msg) =
     do error(msg)
     do WebInfo.simple_reply(winfo,
@@ -239,6 +266,10 @@ PingRegister = {{
       {bad_request}
     )
     Scheduler.stop()
+
+  send(client, msg) =
+    do Entry.send(client, msg)
+    true
 
   parser_(winfo) =
     request = winfo.http_request.request
@@ -273,3 +304,4 @@ PingRegister = {{
       end
 
 }}
+
