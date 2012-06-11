@@ -242,7 +242,7 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
 /**
  * {3 Opa Network}
  */
-type OpaNetwork.cid = {other : string} / {remote /*TODO*/}
+type OpaNetwork.cid = {other : string} / {client : string} / {remote /*TODO*/}
 
 type OpaNetwork.entity =
   {server}
@@ -285,7 +285,8 @@ Channel = {{
 
     @private
     serialize_cid : OpaNetwork.cid -> RPC.Json.json=
-      | ~{other} -> {Record = [(ofield, {String = other})]}
+      | ~{other}  -> {Record = [(ofield, {String = other})]}
+      | ~{client} -> {Record = [(lfield, {String = client})]}
       | {remote} -> {String = "TODO/REMOTE"}
 
     send(entity:OpaNetwork.entity, cid:OpaNetwork.cid, message:OpaNetwork.msg) =
@@ -349,21 +350,32 @@ Channel = {{
       do @sliced_expr({server=void client=PingClient.register_actor(id)})
       {Record = [(lfield, {String=id})]}
     | {entity_id={other=id}} -> {Record = [(ofield, {String=id})]}
+    | {entity_id=~{client}}  -> {Record = [(lfield, {String=client})]}
     | _ -> @fail
 
   unserialize(json:RPC.Json.json):option(channel) =
     match json with
     | {Record = [(jfield, {String = id})]} ->
-      ident : option(Channel.identity) =
-        if jfield == lfield then {some = {local_id = id}}
-        else if jfield == ofield then
-          do @sliced_expr({
-            client=OpaChannel.register({other = id}, {server})
-            server=void
-          })
-          {some = {entity_id = {other = id}}}
-        else do error("Bad JSON fields : {jfield}") {none}
-      Option.bind(OpaChannel.find, ident)
+      if jfield == lfield then
+        @sliced_expr({
+          server = OpaChannel.find({local_id = id})
+          client =
+            lid = {local_id = id}
+            match find(lid) with
+            | {none} ->
+              cid = {client = id}
+              do Channel.register({client = id},
+                                  {client = ThreadContext.Client.fake})
+              {some = {entity = cid}}
+            | channel -> channel
+        })
+      else if jfield == ofield then
+        do @sliced_expr({
+          client=OpaChannel.register({other = id}, {server})
+          server=void
+        })
+        OpaChannel.find({entity_id = {other = id}})
+      else do error("Bad JSON fields : {jfield}") {none}
     | _ ->
       do error("Bad formatted JSON : {json}")
       {none}
