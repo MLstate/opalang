@@ -171,11 +171,15 @@ type JsCleaning.marked = JsIdentSet.t
   @private add_type_to_stack(infos, stack, type_use) =
     stack =
       match StringMap.get(type_use,infos.types_client) with
-      | {none} -> error("Cannot find the client identifier defining type {type_use}")
+      | {none} ->
+        do Log.warning("JsAst", "Cannot find the client identifier defining type {type_use}")
+          stack
       | {some = ident} -> [ident|stack]
       end
     match StringMap.get(type_use,infos.types_server) with
-    | {none} -> error("Cannot find the server identifier defining type {type_use}")
+    | {none} ->
+      do Log.warning("JsAst", "Cannot find the server identifier defining type {type_use}")
+      stack
     | {some = ident} -> [ident|stack]
     end
 
