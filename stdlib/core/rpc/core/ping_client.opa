@@ -71,8 +71,8 @@ PingClient = {{
         Channel.forward(none, channel, message, ~{serialize message})
       end
     | {Record = [("type", {String = "rpc"}),
-                 ("id",   {String = id}),
                  ("name", {String = name}),
+                 ("id",   {String = id}),
                  ("args", {String = args})]} ->
       OpaRPC_Client.Dispatcher.call(some(id), name, args)
     | {Record = [("type", {String = "asyncrpc"}),
