@@ -207,7 +207,6 @@ Cell_private = {{
       false
 
   @private @publish rpc_response_delay = 200 //TODO - %%BslRPC.rpc_response_delay%%
-
   /**
    * Send a message to a cell
    *
@@ -217,7 +216,7 @@ Cell_private = {{
    *                  it's {!OpaSerialize.partial_serialize}
    * @return return value after applying on_message
    */
-  @private gm = %% Session.get_more%%
+  @private gm = Channel.get_more
   @private bsl_llcall = %%Session.SynchronousCell.llcall%%
   llcall(cell : Cell.cell('message, 'result),
          message : 'message,
@@ -239,6 +238,16 @@ Cell_private = {{
     #<Else>
     @sliced_expr({
     client = (
+      #<Ifstatic:OPA_CHANNEL>
+      if Channel.is_local(cell) then @fail
+      else
+        json = {Record = [
+                 ("to", Channel.serialize(cell, OpaSerialize.default_options)),
+                 ("message", {List = [{String="PleaseCallForMe"}, serialize(message)]})
+               ]}
+        r = PingClient.sync_request("/cell/CallThatPlease", Json.to_string(json))
+        Magic.id(OpaSerialize.unserialize(r, result_ty) ? error("Bad cell response:"^r))
+      #<Else>
       serialize(x) =
         x = serialize(x)
         x = {List = {hd={String = "PleaseCallForMe"};tl={hd=x;tl=[]}}}
@@ -255,11 +264,9 @@ Cell_private = {{
         |{some = {cell = ~{on_message ...}}} -> on_message
         |{none} ->
           _, _ -> error("No handler on this cells (That case should never happens)")
+      #<End>
 
-      bsl_llcall(cell, message, serialize, unserialize_result, on_message)
     )
-
-    ;
 
     server = (
     #<End>
@@ -281,9 +288,10 @@ Cell_private = {{
       callbis(k : continuation('result)) : void =
         @with_thread_context(
           ThreadContext.get({from = k}),
-          Session_private.llsend(sess, {~serialize message=(k, message)}))
+          Channel.send(sess, {~serialize message=(k, message)})
+    )
 
-      if not(Session.is_local(sess))
+      if not(Channel.is_local(sess))
       then (
         id = gen_call_id()
         @server timeout() =
@@ -386,15 +394,36 @@ type middle('msg, 'ctx) = external
         _ = msg
         msg = "Unauthorized request"
         #<End>
-        do WebInfo.simple_reply(winfo, msg, {unauthorized})
         do Log.error("Cell_Server", msg)
-        error("Cell_server")
+        do WebInfo.simple_reply(winfo, msg, {unauthorized})
+        Scheduler.stop()
       parser
         | "cell/CallThatPlease" ->
-          #<Ifstatic:OPA_BACKEND_QMLJS>
-          forbidden("NYI")
-          #<Else>
           do Log.info("Cell_Server", "Delegate cell call")
+          #<Ifstatic:OPA_BACKEND_QMLJS>
+          request = winfo.http_request.request
+          jbody =
+            Json.of_string(%%BslNet.Requestdef.get_request_message_body %%(request)) ?
+            forbidden("Bad formatted request")
+          match jbody with
+          | {Record = [("to", cell), ("message", msg)]} ->
+            do Log.debug("Cell", "Cell : {cell}")
+            cell : Cell.cell =
+              OpaSerialize.finish_unserialize(cell, @typeval(Cell.cell))
+              ? forbidden("Cell unserialize fail")
+            s_result =
+              match (Channel.get_more(cell)) : option
+              | {some = {cell = toto }} -> toto.s_result
+              | x -> forbidden("Try to call a non cell session {Debug.dump(x)}")
+            msg = match cell with
+              | {local=_ ~unserialize ...} ->
+                unserialize(msg) ? forbidden("Bad message")
+              | _ -> forbidden("Can't delegate a call for a non local cell")
+            result = Cell.call(cell, msg.f2)
+            result = s_result(result)
+            WebInfo.simple_reply(winfo, OpaSerialize.finish_serialize(result), {success})
+          | _ -> forbidden("Bad formatted JSON")
+          #<Else>
           middle =
             rtm = %% Session.Convert.request_to_middle %%
             rtm(WebInfo.to_native_web_info(winfo)) ? forbidden("Bad formatted request")
