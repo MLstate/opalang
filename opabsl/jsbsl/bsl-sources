@@ -23,3 +23,5 @@ bslValue.js
 bslClosure.js
 bslDom.js
 bslDomSupport.js
+hashtable.js
+bslHashtbl.js
