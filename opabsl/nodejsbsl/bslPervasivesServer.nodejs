@@ -16,8 +16,16 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+var Buffer = require('buffer').Buffer;
+
 ##register flush_all : -> void
-    ##args()
+##args()
 {
     return js_void;
+}
+
+##register bin_of_base64 : string -> binary
+##args(s)
+{
+    return new Buffer(s, 'base64');
 }

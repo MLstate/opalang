@@ -53,6 +53,7 @@ let dom_event_to_opa_event = !! "dom_event_to_opa_event"
 let some = !! "some"
 let unary_minus = !! "unary_minus"
 let unary_minus_dot = !! "unary_minus_dot"
+let bin_of_base64 = !! "bin_of_base64"
 
 module Client_code =
 struct

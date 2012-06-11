@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -301,12 +301,18 @@ let pass_static_inclusions  ~options lcode: (Ident.t, 'a) SurfaceAst.code =
         in
 
         let getter_ident = SurfaceAstCons.ExprIdent.ns_fresh ~label:(lab()) "static_include_resource" in
+        let content =
+          let content =
+            C.E.string ~label:(lab()) (BaseString.base64encode (get_content full_path))
+          in
+          let bin = (C.E.ident  ~label:(lab()) (OpaMapToIdent.val_ Opacapi.bin_of_base64)) in
+          C.E.applys ~label:(lab()) bin [content]
+        in
         let getter_expr  = C.E.applys ~label:(lab())
            (C.E.ident  ~label:(lab()) (OpaMapToIdent.val_ Opacapi.Resource_private.make_resource_include))
            [C.E.string ~label:(lab()) path;
             C.E.record ~label:(lab()) ["misc", C.E.void ~label:(lab()) ()];
-            C.E.ident  ~label:(lab()) (OpaMapToIdent.val_ Opacapi.identity);
-            C.E.string ~label:(lab()) (get_content full_path);
+            content;
             C.E.false_ ~label:(lab()) ();
             if options.OpaEnv.compile_release then C.E.true_ ~label:(lab()) () else C.E.false_ ~label:(lab()) ();
             C.E.record ~label:(lab()) ["permanent", C.E.void ~label:(lab()) ()];

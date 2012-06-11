@@ -48,3 +48,6 @@ type binary = external
 
 string_of_binary(x:binary) = @unsafe_cast(x): string
 binary_of_string(x:string) = @unsafe_cast(x): binary
+
+@opacapi
+bin_of_base64(x:string):binary = %%bslPervasivesServer.bin_of_base64%%(x)

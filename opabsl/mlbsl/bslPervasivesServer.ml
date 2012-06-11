@@ -18,3 +18,5 @@
 
 ##register flush_all : -> void
 let flush_all () = Pervasives.flush_all ()
+
+##register bin_of_base64 \ `BaseString.base64decode` : string -> binary
