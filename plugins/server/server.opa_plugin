@@ -29,4 +29,6 @@ actor.js
 actor.nodejs
 session.js
 session.nodejs
+bslActor.nodejs
+bslActor.js
 bslDispatcher.ml
