@@ -532,7 +532,7 @@ Then use option --db-remote instead of --db-local.
         | {some = ~{local}} -> open_local(name, local, seed)
         | {none} ->
           match Db.default_cmdline with
-          | {none} -> open_remote(name, default_remote, seed)
+          | {none} -> open_local(name, {path = default_local()}, seed)
           | {some = {local = {none}}} -> open_local(name, {path = default_local()}, seed)
           | {some = {local = {some = path}}} -> open_local(name, ~{path}, seed)
           | {some = {remote = {some = remote}}} ->
