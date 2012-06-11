@@ -480,5 +480,5 @@ function uncps(pk, f, name) {
  * Transform an opa cps callback (-> void) to a js_callback
  */
 function opa_cps_callback_to_js_callback0(k, f){
-    return function(){f(k.ccont(function(){}))}
+    return function(){return f(k.ccont(function(){}));};
 }
