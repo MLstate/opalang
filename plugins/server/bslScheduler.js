@@ -37,7 +37,7 @@
 ##args(todo)
 {
     #<Ifstatic:OPA_CPS_CLIENT>
-    push(todo);
+    push(new Task_from_application(todo, []));
     return js_void;
     #<Else>
     return %%BslScheduler.sleep%%(0, todo);
