@@ -14,7 +14,7 @@ PCK =
 PLUGIN =
 PLUGINDIR =
 OTHER_DEPENDS = resources/*
-CONF_FILE = configuration
+CONF_FILE = opa.conf
 
 #Compiler variables
 OPACOMPILER ?= opa
