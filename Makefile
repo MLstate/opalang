@@ -39,6 +39,7 @@ all: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
 	$(MAKE) manpages
 endif
+	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: build
 build: all
@@ -64,6 +65,8 @@ opa-packages: $(MYOCAMLBUILD)
 stdlib: opa-packages
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
+
+OPA_TOOLS = opa-create
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
@@ -152,7 +155,7 @@ install-all-plugins: $(addprefix install-plugin-,$(OPA_PLUGINS))
 
 
 
-install-bin: opa-create
+install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
