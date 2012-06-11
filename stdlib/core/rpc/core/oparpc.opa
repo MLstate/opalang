@@ -191,12 +191,9 @@ type OpaRPC.interface = {{
 
 }} /* disabled : OpaRPC.interface */
 
-
-
 /**
  * {1 Specific client module for RPC}
  */
-
 @client OpaRPC_Client = {{
 
   /**
@@ -249,8 +246,24 @@ type OpaRPC.interface = {{
    * This module is a dispatcher of RPC on client
    */
   Dispatcher = {{
-    register = %%Session.comet_table_add%%
-    : string, (string -> option(string)) -> void
+    @private
+    error(msg) = Log.error("OpaRPC", msg)
+
+    @private rpctbl = Hashtbl.create(1024) : Hashtbl.t(string, (string -> option(string)))
+
+    register(key, rpc) = Hashtbl.add(rpctbl, key, rpc)
+
+    call(id:option(string), name:string, argument:string) =
+      match Hashtbl.try_find(rpctbl, name) with
+      | {none} -> error("Client rpc({name}) was not found")
+      | {some = rpc} ->
+        match rpc(argument) with
+        | {none} ->
+          error("An error occurs when call client rpc({name}) with \"{argument}\"")
+        | {some=result} ->
+          match id with
+          | {none} -> void
+          | {some=id} -> PingClient.async_request("/rpc_return/{id}", result) : void
   }}
 
 }}
@@ -282,7 +295,8 @@ type OpaRPC.timeout = {
  * {1 Specific server module for RPC}
  */
 
-@server OpaRPC_Server =
+@server_private
+OpaRPC_Server =
 
   TCMap =
     tc_order = Order.make(
@@ -346,16 +360,45 @@ type OpaRPC.timeout = {
    * Sending a request to the client
    */
   #<Ifstatic:OPA_BACKEND_QMLJS>
-  @private send_response = (_,_,_,_,_ -> @fail)
+  @private
+  rpc_infos = Hashtbl.create(512)
+    : Hashtbl.t(string, {k:continuation(string) client:ThreadContext.client})
+
+  @private
+  gen_id = String.fresh(0)
+
+  @private
+  send_response(sync, name, args, k, client) =
+    msg =
+      match sync with
+      | {true} ->
+        id = gen_id()
+        do @atomic(Hashtbl.add(rpc_infos, id, ~{k client}))
+        {`type`="rpc" ~id ~name ~args}
+      | {false} ->
+        {`type`="asyncrpc" ~name ~args}
+    PingRegister.send(client, OpaSerialize.partial_serialize(msg, @typeof(msg)))
+
+  @private
+  rpc_return(cid, id, return) =
+    @atomic(
+      match Hashtbl.try_find(rpc_infos, id) with
+      | {none} ->
+        do Log.error("OpaRpc", "No rpc id:"^id)
+        false
+      | {some = ~{k client}} ->
+        if client.client == cid.client && client.page == cid.page then
+          do Hashtbl.remove(rpc_infos, id)
+          do Continuation.return(k, return)
+          true
+        else
+          do Log.error("OpaRpc", "Wrong client try to RPC reply")
+          false
+    )
   #<Else>
-  @private send_response = %%BslRPC.call%%
+  @private
+  send_response = %%BslRPC.call%%
   #<End>
-                  : bool, /* synchronous */
-                    string, /* id for return */
-                    string, /* serialized arguments */
-                    (continuation(string)), /* continuation */
-                    ThreadContext.client -> /* page id */
-                    bool
 
   send_to_client(fun_name : string, request : OpaRPC.request, ty : OpaType.ty) : 'a =
     arg = OpaRPC.serialize(request)
@@ -374,7 +417,9 @@ type OpaRPC.timeout = {
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
           end
       )
-    OpaSerialize.unserialize(serialized_return, ty) ? error("OPARPC : Request on client url {fun_name} has failed.")
+    do Log.debug("RPC", "{fun_name} receibed")
+    OpaSerialize.unserialize(serialized_return, ty)
+    ? error("OPARPC : Request on client url {fun_name} has failed.")
 
   @private dummy_cont = Continuation.make((_:string) -> @fail("Dummy cont should't be called"))
   async_send_to_client(fun_name : string, request : OpaRPC.request, _) : 'a =
@@ -411,9 +456,9 @@ type OpaRPC.timeout = {
           "text/plain", msg)
       )
 
-    @private rpctbl = Hashtbl.create(1024) : Hashtbl.t(string, black)
+    @private rpctbl = Hashtbl.create(1024) : Hashtbl.t(string, (string -> option(string)))
 
-    register(key, rpc) = Hashtbl.add(rpctbl, key, Magic.black(rpc))
+    register(key, rpc) = Hashtbl.add(rpctbl, key, rpc)
 
     get(key) = Option.map(Magic.id, Hashtbl.try_find(rpctbl, key))
 
@@ -423,6 +468,14 @@ type OpaRPC.timeout = {
 
     parser_(winfo) =
       parser
+        | "rpc_return/" id=(.*) ->
+          client =
+            ThreadContext.Client.get_opt({current})
+            ? error("No client context : {ThreadContext.get_opt({current})}")
+          id = Text.to_string(id)
+          body = (%%BslNet.Requestdef.get_request_message_body %%(winfo.http_request.request))
+          if rpc_return(client, id, body) then reply(winfo, "true", {success})
+          else reply(winfo, "false", {unauthorized})
         | "rpc_call/" name=(.*) ->
           name = "{name}"
           do Log.info("OpaRPC", "RPC call identified by {name}")
