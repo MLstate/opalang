@@ -16,6 +16,8 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+package stdlib.core
+
 /**
  * The type of hash tables that contain ['key] to ['value] bindings.
  */
@@ -27,7 +29,15 @@ Hashtbl = {{
    * Creates an empty hash table, with an initial [size].
    * @param size The initial size
    */
-  create(size) = %%BslHashtbl.create%%(size)
+  create(size) =
+    %%BslHashtbl.create%%(size)
+
+  /**
+   * Creates an empty hash table, with an initial [size].
+   * @param size The initial size
+   */
+  make(hash, equals, size) =
+    %%BslHashtbl.make%%(hash, equals, size)
 
   /**
    * Empty the hash [table].
