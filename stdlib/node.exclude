@@ -24,5 +24,4 @@ stdlib.upload.*
 stdlib.widgets.*
 stdlib.web.*
 stdlib.mongo*
-stdlib.system
 stdlib.xls

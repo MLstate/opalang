@@ -1,4 +1,4 @@
-
+var child_process = require('child_process');
 
 ##opa-type list('a)
 
@@ -19,6 +19,60 @@
 ##args(code)
 {
     process.exit(code);
+}
+
+##module process
+
+##register [cps-bypass] exec_cps : string, string, continuation(string) -> void
+##args(command, input, cont)
+{
+    var proc = child_process.exec(command,
+      function (error, stdout, stderr) {
+        // We ignore the standard error
+        if (error == null) {
+          return_(cont, stdout);
+        } else {
+          return_(cont, error.toString())
+        }
+      }
+    );
+
+    proc.stdin.write(input);
+
+    return js_void;
+}
+
+// Stub for the typechecker
+##register exec : string, string -> string
+##args(command, input)
+{
+   assert(false);
+}
+
+##endmodule
+
+// Stubs for stdlib.system to compile
+// TODO: implement this
+##opa-type ip
+##register gethostname : -> string
+##args()
+{
+    error("gethostname() is not implemented");
+}
+##register gethostbyname : string -> option(opa[ip])
+##args(a)
+{
+    error("gethostbyname() is not implemented");
+}
+##register gethostsbyname : string -> opa[list(ip)]
+##args(a)
+{
+    error("gethostsbyname() is not implemented");
+}
+##register get_memory_usage : -> int
+##args()
+{
+    error("get_memory_usage() is not implemented");
 }
 
 ##register get_env_var: string -> option(string)

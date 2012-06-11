@@ -93,3 +93,11 @@ int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
     %%BslScheduler.timer%%(delay, opa_cps_callback_to_js_callback0(k, todo));
     return_(k, js_void);
 }
+
+// Stub
+// TODO: implement this
+##register at_exit : (-> void) -> void
+##args(a)
+{
+    error("at_exit() is not implemented");
+}

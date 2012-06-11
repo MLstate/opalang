@@ -138,6 +138,6 @@ System = {{
    * In case of error, return the error message instead of the process output.
    * @return raw result
    */
-  exec = %%bslSys.process.exec%% : string, string -> string
+  exec = @may_cps(%%bslSys.process.exec%%) : string, string -> string
 
 }}

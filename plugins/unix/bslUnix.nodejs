@@ -1,0 +1,48 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/* This is just a stub file for compiling stdlib.system, and doesn't
+   really implement anything */
+
+##opa-type tuple_2('a, 'b)
+##opa-type System.process_status
+##extern-type System.wait_flag
+##extern-type caml_list('a)
+
+##register wnohang \ `js_void` : System.wait_flag
+##register wuntraced \ `js_void` : System.wait_flag
+##register fork : -> int
+##args()
+{
+    error("fork() is not implemented");
+}
+##register wait : -> opa[tuple_2(int, System.process_status)]
+##args()
+{
+    error("wait() is not implemented");
+}
+##register waitpid_flags : caml_list(System.wait_flag), int -> opa[tuple_2(int, System.process_status)]
+##args(a, b)
+{
+    error("waitpid_flags() is not implemented");
+}
+##register waitpid : int -> opa[tuple_2(int, System.process_status)]
+##args(a)
+{
+    error("waitpid() is not implemented");
+}
