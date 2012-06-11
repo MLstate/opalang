@@ -73,7 +73,7 @@ var child_process = require('child_process');
 ##register get_memory_usage : -> int
 ##args()
 {
-    error("get_memory_usage() is not implemented");
+    return process.memoryUsage().rss;
 }
 
 ##register get_env_var: string -> option(string)
