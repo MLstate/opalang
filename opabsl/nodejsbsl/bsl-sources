@@ -13,6 +13,7 @@ bslNode.nodejs
 bslCps.nodejs
 bslClosure.nodejs
 lowLevelArray.nodejs
+hashtable.nodejs
 bslHashtbl.nodejs
 bslValue.nodejs
 

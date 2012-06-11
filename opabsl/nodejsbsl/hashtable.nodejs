@@ -1,0 +1,146 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+function Hashtable(hash, equal){
+   if(hash!=undefined){
+     this.hash = hash
+   } else {
+     this.hash = function(x){return x}
+   }
+
+   if(equal!=undefined){
+     this.equal = equal;
+   } else {
+     this.equal = function(x, y){return x==y}
+   }
+
+   this.size = 0;
+
+   this.entries = {};
+}
+
+Hashtable.prototype.clear = function(){
+  this.entries = {};
+  this.size = 0;
+}
+
+Hashtable.prototype.put = function(key, value){
+  var entries = this.entries;
+  var h = this.hash(key);
+  var x = entries[h];
+  if(x == undefined){
+    entries[h] = [{key:key, value:value}];
+    this.size++;
+    return;
+  }
+  for(var i in x){
+    var tmp = x[i];
+    if (this.equal(tmp.key, key)){
+      tmp.value = value;
+      return;
+    }
+  }
+  this.size++;
+  x.push({key:key, value:value});
+  return;
+}
+
+Hashtable.prototype.get = function(key){
+  var entries = this.entries;
+  var h = this.hash(key);
+  var x = entries[h];
+  if(x == undefined){
+    return;
+  }
+  for(var i in x){
+    var tmp = x[i];
+    if (this.equal(tmp.key, key)){
+      return tmp.value;
+    }
+  }
+  return;
+}
+
+Hashtable.prototype.remove = function(key){
+  var entries = this.entries;
+  var h = this.hash(key);
+  var x = entries[h];
+  if(x == undefined){
+    return;
+  }
+  for(var i in x){
+    var tmp = x[i];
+    if (this.equal(tmp.key, key)){
+      delete x[i];
+      if (x.length == 0) delete entries[h];
+      this.size--;
+      return;
+    }
+  }
+  return;
+}
+
+Hashtable.prototype.containsKey = function(key){
+  return (this.get(key) != undefined);
+}
+
+Hashtable.prototype.values = function(){
+  var entries = this.entries;
+  var ret = new Array(this.size);
+  for(var i in entries){
+    var tmp = entries[i];
+    for(var j in tmp){
+      ret.push(tmp[j]);
+    }
+  }
+  return ret;
+}
+
+
+function SimpleTable(){
+  this.entries = {};
+  this.size = 0;
+}
+SimpleTable.prototype.clear = function(){
+  this.entries = {};
+  this.size = 0;
+}
+SimpleTable.prototype.put = function(key, value){
+  var prev = this.entries[key];
+  if(prev==undefined) this.size++;
+  this.entries[key]=value;
+  return;
+}
+SimpleTable.prototype.get = function(key){
+  return this.entries[key];
+}
+SimpleTable.prototype.remove = function(key){
+  var x = this.entries[key];
+  if (x != undefined) this.size--;
+  delete this.entries[key];
+}
+SimpleTable.prototype.containsKey = function(key){
+  return (this.get(key) != undefined);
+}
+SimpleTable.prototype.values = function(){
+  var ret = new Array(this.size);
+  var entries = this.entries;
+  for(var i in entries){
+    ret.push({key:i, value:entries[i]});
+  }
+  return ret;
+}

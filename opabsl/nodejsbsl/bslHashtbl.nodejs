@@ -9,116 +9,24 @@
 
     OPA is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
 */
-
-function HashTable(obj)
-{
-    this.length = 0;
-    this.items = {};
-    for (var p in obj) {
-        if (obj.hasOwnProperty(p)) {
-            this.items[p] = obj[p];
-            this.length++;
-        }
-    }
-
-    this.setItem = function(key, value)
-    {
-        var previous = undefined;
-        if (this.hasItem(key)) {
-            previous = this.items[key];
-        }
-        else {
-            this.length++;
-        }
-        this.items[key] = value;
-        return previous;
-    }
-
-    this.getItem = function(key) {
-        return this.hasItem(key) ? this.items[key] : undefined;
-    }
-
-    this.hasItem = function(key)
-    {
-        return this.items.hasOwnProperty(key);
-    }
-   
-    this.removeItem = function(key)
-    {
-        if (this.hasItem(key)) {
-            previous = this.items[key];
-            this.length--;
-            delete this.items[key];
-            return previous;
-        }
-        else {
-            return undefined;
-        }
-    }
-
-    this.keys = function()
-    {
-        var keys = [];
-        for (var k in this.items) {
-            if (this.hasItem(k)) {
-                keys.push(k);
-            }
-        }
-        return keys;
-    }
-
-    this.values = function()
-    {
-        var values = [];
-        for (var k in this.items) {
-            if (this.hasItem(k)) {
-                values.push(this.items[k]);
-            }
-        }
-        return values;
-    }
-
-    this.toList = function(from, cnt)
-    {
-        var i = 0;
-        var list = [];
-        for (var k in this.items) {
-            if (i >= from && this.hasItem(k)) {
-              list.push({key:k, value:this.items[k]});
-            }
-            if (list.length >= cnt) break;
-            i++
-        }
-        return list;
-    }
-
-    this.each = function(fn) {
-        for (var k in this.items) {
-            if (this.hasItem(k)) {
-                fn(k, this.items[k]);
-            }
-        }
-    }
-
-    this.clear = function()
-    {
-        this.items = {}
-        this.length = 0;
-    }
-}
-
 ##extern-type Hashtbl.t('key, 'value)
+
+##register make : ('key -> string), ('key, 'key -> bool), int -> Hashtbl.t('key, 'value)
+##args(hash, equals, _init)
+{
+    return new Hashtable(hash, equals);
+}
 
 ##register create : int -> Hashtbl.t('key, 'value)
 ##args(_init)
 {
-    return new HashTable({});
+    return new SimpleTable();
 }
 
 ##register clear : Hashtbl.t('key, 'value) -> void
@@ -131,35 +39,40 @@ function HashTable(obj)
 ##register add : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
 ##args(table, key, value)
 {
-    // TODO - Should have the same semantics as ML bsl
-    table.setItem(key, value);
+    table.put(key, value);
     return js_void;
 }
 
 ##register replace : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
 ##args(table, key, value)
 {
-    table.setItem(key, value);
+    // TODO - Should have the same semantics as ML bsl
+    table.put(key, value);
     return js_void;
 }
 
 ##register try_find : Hashtbl.t('key, 'value), opa['key] -> option(opa['value])
 ##args(table, key)
 {
-    var r = table.getItem(key);
-    return typeof(r) != 'undefined' ? js_some(r) : js_none;
+    var r = table.get(key);
+    return r != null ? js_some(r) : js_none;
 }
 
 ##register remove : Hashtbl.t('key, 'value), opa['key] -> void
 ##args(table, key)
 {
-    table.removeItem(key);
+    table.remove(key);
     return js_void;
 }
 
 ##register size : Hashtbl.t('key, 'value) -> int
 ##args(table)
 {
-    return table.length;
+    return table.size();
 }
 
+##register mem : Hashtbl.t('key, 'value), opa['key] -> bool
+##args(table, key)
+{
+    return table.containsKey(key)
+}

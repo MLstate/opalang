@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -16,6 +16,10 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 ##extern-type Hashtbl.t('key, 'value) = ('key, 'value) Hashtbl.t
+
+##register make : ('key -> string), ('key, 'key -> bool), int -> Hashtbl.t('key, 'value)
+let make _hash _equals size = (* TODO *)
+  Hashtbl.create size
 
 ##register create \ `Hashtbl.create` : int -> Hashtbl.t('key, 'value)
 
