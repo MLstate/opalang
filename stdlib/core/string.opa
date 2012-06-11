@@ -633,9 +633,10 @@ String =
     x = Reference.create(init)
     // We don't use Fresh module (because cyclic-dependencies)
     ->
-      i = Reference.get(x)
-      do Reference.set(x, i+1)
-      gen(i, [])
+      gen(@atomic(
+        i = Reference.get(x)
+        do Reference.set(x, i+1)
+        i), [])
 
   /**
    * Returns true iff the source string has a given prefix.
