@@ -217,7 +217,11 @@ Cell_private = {{
    * @return return value after applying on_message
    */
   @private gm = Channel.get_more
+  #<Ifstatic:OPA_CHANNEL>
+  @private bsl_llcall = %%BslActor.SynchronousCell.llcall%%
+  #<Else>
   @private bsl_llcall = %%Session.SynchronousCell.llcall%%
+  #<End>
   llcall(cell : Cell.cell('message, 'result),
          message : 'message,
          serialize : option('message -> RPC.Json.json),
@@ -239,8 +243,14 @@ Cell_private = {{
     @sliced_expr({
     client = (
       #<Ifstatic:OPA_CHANNEL>
-      if Channel.is_local(cell) then @fail
-      else
+      match cell with
+      | ~{local ...} ->
+        match gm(cell) with
+        |{some = {cell = ~{on_message ...}}} ->
+          bsl_llcall(local, message, on_message)
+        |{none} -> @fail
+        end
+      | _ ->
         json = {Record = [
                  ("to", Channel.serialize(cell, OpaSerialize.default_options)),
                  ("message", {List = [{String="PleaseCallForMe"}, serialize(message)]})

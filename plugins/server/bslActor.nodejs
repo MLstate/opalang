@@ -1,4 +1,4 @@
-##extern-type Actor.t('msg, 'ctx)
+##extern-type Actor.t('ctx, 'msg)
 
 ##register make : 'state, \
 ('state, 'msg, option('ctx) -> option('state)), \
