@@ -956,7 +956,7 @@ let void_cps_to_unit f =
 (* BSL REGISTERING ****************************************)
 ##extern-type Session.private.native('a, 'b) = ('a, 'b) Channel.t
 
-##extern-type Session.entity = OpaNetwork.entity
+##extern-type OpaNetwork.entity = OpaNetwork.entity
 
 ##extern-type middle('a, 'b) = ('a, 'b) Channel.t * json
 
@@ -1165,10 +1165,10 @@ let export chan ctx =
   WebChannel.serialize entity chan
 
 
-##register serialize_for_entity : Session.private.native('msg, 'ctx), Session.entity -> RPC.Json.private.native
+##register serialize_for_entity : Session.private.native('msg, 'ctx), OpaNetwork.entity -> RPC.Json.private.native
 let serialize_for_entity _ = assert false
 
-##register [cps-bypass] serialize_for_entity_cps : Session.private.native('msg, 'ctx), Session.entity, continuation(RPC.Json.private.native) -> void
+##register [cps-bypass] serialize_for_entity_cps : Session.private.native('msg, 'ctx), OpaNetwork.entity, continuation(RPC.Json.private.native) -> void
 let serialize_for_entity_cps chan entity k =
   match entity with
   | OpaNetwork.Client _ ->
@@ -1214,13 +1214,13 @@ let compare_channels a b = Channel.compare a b (*Server-side comparison of chann
 let get_more chan =
   Option.map Obj.obj (Channel.get_more chan)
 
-##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)
+##register owner : Session.private.native('msg, 'ctx) -> option(OpaNetwork.entity)
 let owner x = try Channel.owner x with Channel.Unregistered -> None
 
-##register is_client : option(Session.entity) -> bool
+##register is_client : OpaNetwork.entity -> bool
 let is_client = function
-  | Some (OpaNetwork.RemoteClient _) -> true
-  | Some (OpaNetwork.Client _) -> true
+  | OpaNetwork.RemoteClient _ -> true
+  | OpaNetwork.Client _ -> true
   | _ -> false
 
 ##register is_remote : Session.private.native('msg, 'ctx) -> bool
@@ -1240,7 +1240,7 @@ let get_endpoint chan =
   | Channel.EntityId (OpaNetwork.Remote (_, ip, port)) -> Some (Hlnet.Tcp (ip, port))
   | _ -> None
 
-##register get_server_entity : endpoint -> Session.entity
+##register get_server_entity : endpoint -> OpaNetwork.entity
 let get_server_entity = function
   | Hlnet.Tcp (ip, port)
   | Hlnet.Ssl (ip, port, _)

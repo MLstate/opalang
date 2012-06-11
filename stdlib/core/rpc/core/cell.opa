@@ -177,8 +177,7 @@ Cell_private = {{
       some({cell = {~s_result; ~on_message}})
 
     /* Encapsulated session */
-    sess = Session_private.llmake_more(state, unserialize, handler_bis,
-                                       more, {sender})
+    sess = Channel.make(state, handler_bis, unserialize, {sender}, more)
     sess
   : Cell.cell('message, 'result)
 

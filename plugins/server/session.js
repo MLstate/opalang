@@ -737,7 +737,7 @@ var LowLevelPingLoop = {};
 /* Session ********************************************** */
 ##extern-type Session.private.native('a, 'b)
 
-##extern-type Session.entity
+##extern-type OpaNetwork.entity
 
 ##opa-type ThreadContext.client
 
@@ -832,7 +832,7 @@ var LowLevelPingLoop = {};
     return LowLevelSession.serialize(chan);
 }
 
-##register serialize_for_entity : Session.private.native('b, 'c), Session.entity -> RPC.Json.private.native
+##register serialize_for_entity : Session.private.native('b, 'c), OpaNetwork.entity -> RPC.Json.private.native
 ##args(chan, entity)
 {
     return LowLevelSession.exportt(chan, entity);
@@ -866,7 +866,7 @@ var LowLevelPingLoop = {};
     return (chan instanceof LocalChannel);
 }
 
-##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)
+##register owner : Session.private.native('msg, 'ctx) -> option(OpaNetwork.entity)
 ##args(chan)
 {
     var r = chan.owner();
@@ -877,14 +877,10 @@ var LowLevelPingLoop = {};
     }
 }
 
-##register is_client : option(Session.entity) -> bool
+##register is_client : OpaNetwork.entity -> bool
 ##args(chan)
 {
-    if (chan.some){
-        return chan.some.is_client;
-    } else {
-        return true;
-    }
+    return chan.some.is_client;
 }
 
 ##register get_more : Session.private.native('msg, 'ctx) -> option('more)

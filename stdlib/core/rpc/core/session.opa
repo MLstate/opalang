@@ -126,8 +126,6 @@ type Session.instruction('state) =
  * Sessions can be created but never manipulated directly.
  */
 type Session.channel('msg)   = channel('msg)
-@abstract type channel('msg) = Session.private.channel('msg)
-
 
 /**
  * The implementation of a non-blocking session.
@@ -175,26 +173,10 @@ type Session.handler('state, 'message) =
 
 @private type Session.private.channel('msg) = Session.private.native('msg, ThreadContext.t)
 
-type Session.entity = external
-
 /* Order for channels */
 @abstract type Channel.order = void
 
 type channelset('a) = ordered_set(channel('a), Channel.order)
-
-/**
- * A partial order on channels
- */
-compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
-  Order.of_int(%%Session.compare_channels%%(a, b))
-
-@private @comparator(channel('msg)) _cmp(_f : 'msg, 'msg -> Order.comparison, ca, cb) =
-  compare_channel(ca, cb) <: Order.comparison
-
-
-Channel = {{
-  order = @nonexpansive(Order.make(compare_channel)) : order(channel('message), Channel.order)
-}}
 
 ChannelSet = @nonexpansive(Set_make(Channel.order))
 
@@ -242,7 +224,7 @@ Session = {{
      */
     make_generic(state : 'state, message_handler : Session.handler('state, 'message), selector : Session.context_selector) : channel('message) =
       unserialize = OpaSerialize.finish_unserialize(_, @typeval('message))
-      Session_private.llmake_more(state, unserialize, message_handler, {none}, selector)
+      Channel.make(state, message_handler, unserialize, selector, {none})
 
     /**
      * An internal version of [make_generic] specialized to sender context
@@ -351,12 +333,16 @@ Session = {{
      */
     @publish @server make_shared(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
 //      do accept_make_at()
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+      error("Make_shared is NYI")
+    #<Else>
       Session_private.make_shared(
         key,
         state,
         OpaSerialize.finish_unserialize(_, @typeval('message)),
         {normal = on_message}
       ) : channel('message)
+    #<End>
 
 
     @package @server_private
@@ -472,7 +458,7 @@ Session = {{
     send(channel : channel('message), message : 'message) =
       options = serialization_options(channel)
       serialize = OpaSerialize.partial_serialize_options(_, @typeval('message), options)
-      Session_private.llsend(channel, ~{serialize message})
+      Channel.send(channel, ~{serialize message})
 
     /**
      * Like [send] but if the [message] to the [channel] was not
@@ -485,7 +471,7 @@ Session = {{
     try_send(channel:channel('message), message : 'message, herror, hsuccess) =
       options = serialization_options(channel)
       serialize = OpaSerialize.partial_serialize_options(_, @typeval('message), options)
-      Session_private.llsend(channel, ~{serialize; message; herror; hsuccess})
+      Channel.send(channel, ~{serialize; message; herror; hsuccess})
 
     /**
      * Like [try_send] but with [hsuccess = -> void].
@@ -674,92 +660,23 @@ Session = {{
 
     }}
 
-
     /**
-     * {2 Utilities}
+     * {1 Utils}
      */
-    #<Ifstatic:OPA_BACKEND_QMLJS>
-    #<Else>
-    /**
-     * Get the server [entity] corresponding to the given [endpoint].
-     */
-    @private get_server_entity = %%Session.get_server_entity%%
-    #<End>
-
-    /**
-     * Returns entity which own the given channel
-     */
-    @private owner(chan : channel) =
-      bsl = %%Session.owner%%
-      bsl(chan)
-
-    /**
-     * Return true if the given entity is a client
-     */
-    @private is_client(entity) =
-      bsl = %%Session.is_client%%
-      bsl(entity)
-
-    #<Ifstatic:OPA_BACKEND_QMLJS>
-    #<Else>
-    /**
-     * Get the endpoint where the session is located, if [session] is
-     * local return [none].
-     */
-    @private get_endpoint(chan : channel) =
-      bsl = %%Session.get_endpoint%%
-      bsl(chan)
-    #<End>
-
-    /**
-     * Returns true if the channel is not owned by this server.
-     * Beware, this returns false in case of non RemoteClient.
-     */
-    is_remote(chan : channel) =
-      bsl = %%Session.is_remote%%
-      bsl(chan)
-
-    /**
-     * Returns true only if the channel is owned by this server.
-     * Returns false in case of Client.
-    **/
-    is_local = %%Session.is_local%% : channel -> bool
-
-    /**
-     * [on_remove_server] For internal use.
-     */
-    @private @server on_remove_server(chan:channel('msg), f:-> void): void =
-      bp = @may_cps(%%Session.on_remove%%)
-      : Session.private.native('a, _), (-> void) -> void
-      bp(chan, f)
-
-    /**
-     * [on_remove_both] For internal use.
-     */
-    @private on_remove_both(chan:channel('msg), f:-> void): void =
-      bp = @may_cps(%%Session.on_remove%%)
-      : Session.private.native('a, _), (-> void) -> void
-      bp(chan, f)
-
-    /**
-     * [on_remove channel f] Execute f when the [channel] is removed
-     * of this server (no effect on the client).
-     */
-    on_remove(chan:channel('msg), f:-> void): void =
-      if is_local(chan)
-      then on_remove_both(chan, f)
-      else on_remove_server(chan, f)
-
     /**
      * Get options for message serialization for the given [channel].
      */
     @package serialization_options(channel) =
-      entity = owner(channel)
+      entity = Channel.owner(channel)
       {OpaSerialize.default_options with
-        to = if is_client(entity) then {client} else {server}
+        to = match entity with
+          | {none} -> {server}
+          | {some=entity} ->
+            if Channel.is_client(entity) then {client} else {server}
         to_session = entity
       }
 
+    on_remove = Channel.on_remove
 
     /**
      * {1 Deprecated API}

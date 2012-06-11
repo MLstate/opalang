@@ -11,58 +11,6 @@
 
 
 
-/**
- * Type used for identify a channel
- */
-type Channel.identity('cid) =
-  {entity_id : 'cid}
-/ {local_id : int}
-
-type Channel.NETWORK('cid, 'entity, 'serialized) = {{
-
-  /**
-   * Should be allows to send a serialized message to a channel identified by
-   * cid owned by entity.
-   */
-  send : 'entity, 'cid, 'serialized -> void
-
-}}
-
-
-Channel(N:Channel.NETWORK('cid, 'entity, 'serialized)) = {{
-  /**
-   * Forward a message to a channel
-   */
-  forward(context : ThreadContext.t, channel : channel('a), msg : RPC.Json.json) =
-    @fail
-
-  remove(chan : Channel.identity) =
-    @todo
-
-  register(cid : 'cid, entity : 'entity) =
-    @fail
-
-  find(identity : Channel.identity('cid)) : option(channel('a)) =
-    @fail
-
-}}
-
-type OpaNetwork.cid = {client : string} / {remote /*TODO*/}
-
-type OpaNetwork.entity =
-  {client : ThreadContext.client}
-/ {remote peer /*TODO*/}
-/ {remote client /*TODO*/}
-
-type OpaNetwork.msg = RPC.Json.json
-
-OpaNetwork : Channel.NETWORK(OpaNetwork.cid, OpaNetwork.entity, OpaNetwork.msg) = {{
-
-  send(_:OpaNetwork.entity, _:OpaNetwork.cid, _:OpaNetwork.msg) = void
-
-}}
-
-OpaChannel = Channel(OpaNetwork)
 
 
 

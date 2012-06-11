@@ -28,7 +28,7 @@
 
 ##extern-type Session.private.native('a, 'b)
 
-##extern-type Session.entity
+##extern-type OpaNetwork.entity
 
 ##opa-type ThreadContext.client
 
@@ -122,7 +122,7 @@
     return chan.serialize();
 }
 
-##register serialize_for_entity : Session.private.native('b, 'c), Session.entity -> RPC.Json.private.native
+##register serialize_for_entity : Session.private.native('b, 'c), OpaNetwork.entity -> RPC.Json.private.native
 ##args(chan, _)
 {
     return chan.serialize();
@@ -152,7 +152,7 @@
     return (chan instanceof LocalChannel);
 }
 
-##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)
+##register owner : Session.private.native('msg, 'ctx) -> option(OpaNetwork.entity)
 ##args(chan)
 {
     var r = chan.owner();
@@ -160,16 +160,6 @@
         return js_none;
     } else {
         return js_some(r);
-    }
-}
-
-##register is_client : option(Session.entity) -> bool
-##args(chan)
-{
-    if (chan.some){
-        return chan.some.is_client;
-    } else {
-        return true;
     }
 }
 

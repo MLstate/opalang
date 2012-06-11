@@ -57,7 +57,7 @@ type OpaSerialize.options = {
       - {at_best} : As {distant} if possible else as {local}
   */
 
-  to_session : option(Session.entity);
+  to_session : option(OpaNetwork.entity);
   /** Indicates if a value is serialized for a session
 
   */
@@ -236,7 +236,8 @@ OpaSerializeClosure = {{
       on_message(k, msg) =
         do Continuation.return(k, msg)
         {continue}
-      sess = Session_private.llmake(k, unserialize, {concurrent = on_message})
+      sess = Channel.make(k, {concurrent = on_message}, unserialize,
+                          {maker}, {none})
       aux(Magic.id(sess), @typeof(sess))
 
     /* For closure ******************************/
@@ -401,7 +402,7 @@ OpaSerializeClosure = {{
       | {TyName_ident = "Session.private.native"; TyName_args = _}
       | {TyName_ident = "channel"; TyName_args = _}
       | {TyName_ident = "Cell.cell"; TyName_args = _} ->
-         Session_private.serialize(Magic.id(value), options)
+         Channel.serialize(Magic.id(value), options)
       /* Json */
       | {TyName_ident = "OpaSerialize.unser"; TyName_args = _}
       | {TyName_ident = "RPC.Json.json"; TyName_args = _} ->
@@ -515,8 +516,7 @@ OpaSerializeClosure = {{
             (message ->
               options = Session.serialization_options(Magic.id(sess))
               serialize = Magic.id(partial_serialize_options(_, ty, options))
-              Session_private.llsend(Magic.id(sess),
-                                     {serialize = Magic.id(serialize); ~message}))
+              Channel.send(Magic.id(sess), {serialize = Magic.id(serialize); ~message}))
           ), aux(json, t))
       Option.map(
         fsess -> Continuation.make(fsess),
@@ -729,7 +729,7 @@ OpaSerializeClosure = {{
       | (_, {TyName_ident = "Session.private.native"; TyName_args = _})
       | (_, {TyName_ident = "channel"; TyName_args = _})
       | (_, {TyName_ident = "Cell.cell"; TyName_args = _}) ->
-        Magic.id(Session_private.unserialize(json))
+        Magic.id(Channel.unserialize(json))
       /* Json */
       | (_, {TyName_ident = "OpaSerialize.unser"; TyName_args = _})
       | (_ ,{TyName_ident = "RPC.Json.json"; TyName_args = _}) -> magic_some(json)

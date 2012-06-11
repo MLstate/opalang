@@ -39,13 +39,7 @@
 /**
  * Indicates to low level sending function how to send the message.
  */
-type Session.how_send('message) =
-  { serialize : 'message -> RPC.Json.json; message : 'message } /
-  /** Basic send */
-
-  { serialize : 'message -> RPC.Json.json; message : 'message;
-    herror : -> void; hsuccess : -> void}
-  /** Send with an error handler and success handler */
+type Session.how_send('message) = GenChannel.how_send('message, RPC.Json.json)
 
 /**
  * {1 Interface}
@@ -94,7 +88,7 @@ type Session.how_send('message) =
     /**
      * {2 Creating sessions}
      */
-    @private make_make(state : 'st,
+    make_make(state : 'st,
                 unserialize : RPC.Json.json -> option('msg),
                 handler : Session.handler('state, 'message),
                 more : 'more,
@@ -132,40 +126,6 @@ type Session.how_send('message) =
           end
         end
       make(state, unser, handler, {none}, ctx, more, concurrent)
-    : channel('msg)
-
-    /**
-     * Low level make channel
-     *
-     * Considering an original [state] a function for [unserialize]
-     * remote message. An [handler] who treat received message with
-     * the current state. You also can attach any [more] information
-     * on the created session. [selector] is used for determine in
-     * which context the [handler] is execute :
-     * - { maker } -> [handler] is executed with the context of the
-     *   session's creator.
-     * - { sender } -> [handler] is executed with the context of the
-     *   session's caller.
-     *
-     * Note : This features (selector) work only if the session is
-     * created on the server. Use selector [{maker}] by default unless
-     * if you are aware what you do.
-     */
-    llmake_more(state : 'st,
-                unserialize : RPC.Json.json -> option('msg),
-                handler : Session.handler('state, 'message),
-                more : 'more,
-                selector : Session.context_selector) =
-      make = @may_cps(%%Session.llmake%%)
-      make_make(state, unserialize, handler, more, selector, make)
-    : channel('msg)
-
-    /**
-     * Shorcut to [llmake_more], with [more = {none}] and
-     * [selector = {maker}]
-     */
-    llmake(state, unserialize, handler) =
-      llmake_more(state, unserialize, handler, {none}, {maker})
 
     /**
      *
@@ -206,40 +166,5 @@ type Session.how_send('message) =
      */
     llsend(chan, how_send) =
       llsend_more(chan, ThreadContext.get_opt({current}),how_send)
-
-
-    /**
-     * {2 Utilities}
-     */
-
-    /**
-     * Serialize / Unserialize channel functions
-     */
-
-    serialize(x:channel('msg), options:OpaSerialize.options) : RPC.Json.json =
-      x = match options.to_session with
-      | {none} ->
-        aux = @may_cps(%%Session.export%%)
-        ctx = match ThreadContext.get({current}).key with
-          | {server = _} | {nothing} ->
-            // This case is on toplelvel javascript serialization.
-            // Use a client identity which can't be collected.
-            ThreadContext.Client.fake
-          | ~{client} -> client
-        aux(x, ctx)
-      | {some = entity} ->
-        aux = @may_cps(%%Session.serialize_for_entity%%)
-        aux(x, entity)
-      Option.get_msg(-> "[Session.serialize] Json object malformed",
-                     Json.from_ll_json(x))
-
-
-
-    unserialize(x : RPC.Json.json) : option(channel('msg)) =
-      aux = @may_cps(%%Session.unserialize%%)
-              : option(ThreadContext.t), RPC.Json.private.native -> option(Session.private.native('msg, _))
-      match aux(ThreadContext.get_opt({current}), Json.to_ll_json(x)) with
-      | {none} -> do Log.error("[Session][unserialize]","fail") {none}
-      | {some = r}-> {some = r}
 
 }}
