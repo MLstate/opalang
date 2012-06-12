@@ -41,7 +41,11 @@ var Crypto = require('crypto');
 ##register base64_encode : string -> string
 ##args(data)
 {
-    return new Buffer(data).toString('base64');
+    // Warning: As of version 0.6.9, the node.js docs say that
+    // using the 'binary' encoding is deprecated and will
+    // be removed in future versions of node.x
+
+    return new Buffer(data, 'binary').toString('base64');
 }
 
 /**
@@ -64,7 +68,8 @@ var Crypto = require('crypto');
 ##register hmac_sha1 : string, string -> string
 ##args(salt, str)
 {
-  return Crypto.createHmac('sha1', salt).update(str).digest('hex');
+  // See the 'binary' warning in base64_encode()
+  return Crypto.createHmac('sha1', salt).update(str).digest('binary');
 }
 
 // TODO: implement these functions.
