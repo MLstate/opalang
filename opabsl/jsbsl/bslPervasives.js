@@ -238,6 +238,11 @@ var field_position = static_field_of_name("position");
 #<Ifstatic:OPABSL_NODE>
 function jlog_old_style(v){
     console.log("STDERR:"+v);//STDERR is a hack to keep the reftester happy
+    //process.stdout.flush(); // node doesn't have flush
+    // Suggestion, try:
+    //  var done = process.stderr.write("STDERR:"+v); 
+    //  while (!done) { process.stderr.on('drain', function (_) { done = true; }); }
+    // or use fs.fsyncSync?
     return js_void;
 }
 #<Else>

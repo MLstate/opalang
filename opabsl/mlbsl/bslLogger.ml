@@ -17,6 +17,7 @@
 *)
 
 ##extern-type Logger.out_channel = out_channel
+##extern-type Logger.date = float
 
 let field_some = ServerLib.static_field_of_name "some"
 let field_none = ServerLib.static_field_of_name "none"
@@ -64,11 +65,11 @@ let get_cwd _ = Sys.getcwd()
 ##register os_type : -> string
 let os_type _ = Sys.os_type
 
-##register now : -> float
+##register now : -> Logger.date
 let now _ = Unix.gettimeofday ()
 
 (* Had to do this because of dependency problems in stdlib *)
-##register log_time : float -> string
+##register log_time : Logger.date -> string
 let log_time t =
     let lc = Unix.localtime t in
     let csec = int_of_float ((fst (modf t)) *. 100.0) in
