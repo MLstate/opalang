@@ -549,7 +549,7 @@ let _ = dispatch begin function
         flag ["ocaml"; "native"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name)]);
       in
 
-      if is_fbsd then
+      if is_fbsd then (
         (* In the memory.c in FreeBSD part that uses kvm_getprocs() required
            link with -lkvm. *)
         flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm"]);
@@ -557,6 +557,7 @@ let _ = dispatch begin function
            /usr/local by default *)
         flag ["iconv"; "compile"] (S[A"-I";A "/usr/local/include"]);
         flag ["iconv"; "link"] (S[A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
+      );
 
 (* -- Don't forget that the rest of the "mlstate build stdlib" is in --
    -- myocamlbuild_suffix.ml. The rest comes from the build_rules*.ml in each repo -- *)
