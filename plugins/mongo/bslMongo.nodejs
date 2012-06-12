@@ -22,7 +22,6 @@ var connect = mongo.connect;
 ##opa-type tuple_2('a, 'b)
 ##extern-type continuation('a)
 ##opa-type list('a)
-##opa-type Bson.document
 
 ##module NodeBson
 
@@ -58,7 +57,7 @@ var connect = mongo.connect;
   }
 
   ##register bool_value: bool -> NodeBson.value
-  ##args(n)
+  ##args(b)
   {
     return un_uniformize_bool(b);
   }
@@ -240,7 +239,7 @@ exports.collection = BslMongo_NodeMongo_collection
 }
 
 exports.query = BslMongo_NodeMongo_query
-##register query : NodeMongo.collection, int, int, Bson.document, option(Bson.document), \
+##register query : NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document), \
                    continuation(tuple_2(string,Mongo.reply)) -> void
 ##args(collection, skip, limit, query, fields_opt, cont)
 {
@@ -264,7 +263,7 @@ exports.count = BslMongo_NodeMongo_count
 }
 
 exports.nextObject = BslMongo_NodeMongo_nextObject
-##register nextObject : Mongo.reply, continuation(tuple_2(string, Bson.document)) -> void
+##register nextObject : Mongo.reply, continuation(tuple_2(string, NodeBson.document)) -> void
 ##args(cursor, cont)
 {
   cursor.nextObject(function (err, item) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
@@ -272,8 +271,8 @@ exports.nextObject = BslMongo_NodeMongo_nextObject
 }
 
 exports.insert = BslMongo_NodeMongo_insert
-##register insert : NodeMongo.collection, list(Bson.document), bool, bool, \
-                    continuation(tuple_2(string,list(Bson.document))) -> void
+##register insert : NodeMongo.collection, list(NodeBson.document), bool, bool, \
+                    continuation(tuple_2(string,list(NodeBson.document))) -> void
 ##args(collection, docs, keepGoing, safe, cont)
 {
   var opts = {keepGoing:getbool(keepGoing),
@@ -290,7 +289,7 @@ exports.insert = BslMongo_NodeMongo_insert
 }
 
 exports.update = BslMongo_NodeMongo_update
-##register update : NodeMongo.collection, Bson.document, Bson.document, bool, bool, bool,  \
+##register update : NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool,  \
                    continuation(tuple_2(string,int)) -> void
 ##args(collection, selector, update, upsert, multi, safe, cont)
 {
@@ -306,7 +305,7 @@ exports.update = BslMongo_NodeMongo_update
 }
 
 exports.remove = BslMongo_NodeMongo_remove
-##register remove : NodeMongo.collection, Bson.document, bool, continuation(tuple_2(string,int)) -> void
+##register remove : NodeMongo.collection, NodeBson.document, bool, continuation(tuple_2(string,int)) -> void
 ##args(collection, selector, safe, cont)
 {
   var opts = {safe:getbool(safe)};
@@ -320,7 +319,7 @@ exports.remove = BslMongo_NodeMongo_remove
 }
 
 exports.createIndex = BslMongo_NodeMongo_createIndex
-##register createIndex : NodeMongo.collection, Bson.document, bool, bool, bool, bool, bool, \
+##register createIndex : NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool, \
                          continuation(tuple_2(string,string)) -> void
 ##args(collection, fieldOrSpec, unique, sparse, background, dropDups, safe, cont)
 {
@@ -338,7 +337,7 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
 
 // Not needed by db.opa but here for test code
 exports.dropIndex = BslMongo_NodeMongo_dropIndex
-##register dropIndex : NodeMongo.collection, string, continuation(tuple_2(string,Bson.document)) -> void
+##register dropIndex : NodeMongo.collection, string, continuation(tuple_2(string,NodeBson.document)) -> void
 ##args(collection, name, cont)
 {
   collection.dropIndex(name,

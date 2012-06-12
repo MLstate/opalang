@@ -46,24 +46,24 @@ NodeMongo = {{
                          NodeMongo.db, string, continuation((string, NodeMongo.collection)) -> void)
 
   query = (%% BslMongo.NodeMongo.query %%:
-                    NodeMongo.collection, int, int, Bson.document, option(Bson.document),
+                    NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document),
                     continuation((string,Mongo.reply)) -> void)
 
   count = (%% BslMongo.NodeMongo.count %%: Mongo.reply, continuation(int) -> void)
 
-  nextObject = (%% BslMongo.NodeMongo.nextObject %%: Mongo.reply, continuation((string, Bson.document)) -> void)
+  nextObject = (%% BslMongo.NodeMongo.nextObject %%: Mongo.reply, continuation((string, NodeBson.document)) -> void)
 
   insert = (%% BslMongo.NodeMongo.insert %%:
-                     NodeMongo.collection, list(Bson.document), bool, bool, continuation((string,list(Bson.document))) -> void)
+                     NodeMongo.collection, list(NodeBson.document), bool, bool, continuation((string,list(NodeBson.document))) -> void)
 
   update = (%% BslMongo.NodeMongo.update %%:
-                     NodeMongo.collection, Bson.document, Bson.document, bool, bool, bool, continuation((string,int)) -> void)
+                     NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool, continuation((string,int)) -> void)
 
   remove = (%% BslMongo.NodeMongo.remove %%:
-                     NodeMongo.collection, Bson.document, bool, continuation((string,int)) -> void)
+                     NodeMongo.collection, NodeBson.document, bool, continuation((string,int)) -> void)
 
   createIndex = (%% BslMongo.NodeMongo.createIndex %%:
-                          NodeMongo.collection, Bson.document, bool, bool, bool, bool, bool,
+                          NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool,
                           continuation((string,string)) -> void)
 
 }}
@@ -126,6 +126,9 @@ NodeBson = {{
     | { CodeScope = c } -> Value.of_code_scope(c)
     | { Min }           -> Value.min_key()
     | { Max }           -> Value.max_key()
+
+  to_document(doc : NodeBson.document) : Bson.document =
+    @fail
 }}
 
 MongoCommon = {{
@@ -168,7 +171,7 @@ MongoCommon = {{
   // Warning: this only ever returns the next document, NOT the nth document in the reply
   reply_document(reply, _): option(Bson.document) =
     match @callcc(cont -> NodeMongo.nextObject(reply, cont)) with
-    | ("", doc) -> {some=doc}
+    | ("", doc) -> {some=NodeBson.to_document(doc)}
     | (err, _) -> {none}
 
 }}
@@ -245,6 +248,8 @@ MongoDriver = {{
   // Here, the reply is actually the cursor
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
+    query = NodeBson.of_document(query)
+    returnFieldSelector_opt = Option.map(NodeBson.of_document, returnFieldSelector_opt)
     match check_ns(m, ns) with
     | {success=db} ->
       (match db.collection with
@@ -256,6 +261,7 @@ MongoDriver = {{
     | {~failure} -> {none}
 
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
+    documents = List.map(NodeBson.of_document, documents)
     match check_ns(m, ns) with
     | {success=db} ->
       (match db.collection with
@@ -268,6 +274,8 @@ MongoDriver = {{
     | {~failure} -> false
 
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
+    selector = NodeBson.of_document(selector)
+    update = NodeBson.of_document(update)
     match check_ns(m, ns) with
     | {success=db} ->
       (match db.collection with
@@ -281,6 +289,7 @@ MongoDriver = {{
     | {~failure} -> false
 
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
+    selector = NodeBson.of_document(selector)
     match check_ns(m, ns) with
     | {success=db} ->
       (match db.collection with
@@ -292,6 +301,7 @@ MongoDriver = {{
     | {~failure} -> false
 
   create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
+    key = NodeBson.of_document(key)
     match check_ns(m, ns) with
     | {success=db} ->
       (match db.collection with
