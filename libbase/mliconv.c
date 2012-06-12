@@ -137,9 +137,9 @@ CAMLprim value mliconv_convert(value conv, value source)
 	CAMLparam2(conv, source);
 	CAMLlocal1(result);
 	struct mliconv_t *internal = mliconv_val(conv);
-/* #if !defined(__APPLE__) */
-/* 	const */
-/* #endif */
+#if (defined(__FreeBSD__) || defined(__FreeBSD_kernel__))
+ 	const
+#endif
 	char *s = String_val(source);
 	size_t s_len = caml_string_length(source);
 	size_t d_len = s_len * 6;
