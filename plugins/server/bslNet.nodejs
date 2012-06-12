@@ -22,6 +22,7 @@ var debug = false
 
 ##opa-type tuple_3('a, 'b, 'c)
 //'
+##extern-type Server.private.options
 
 function DummyOpaResponse(at_end){
   this.is_dummy = true;
@@ -431,7 +432,7 @@ var has_init_server = false;
 
 ##register init_server : \
     string, \
-    int, \
+    Server.private.options, \
     option(string), \
     option(string), \
     option(string), \
@@ -439,7 +440,7 @@ var has_init_server = false;
     (WebInfo.private.native -> void), \
     (string, HttpRequest.msg_list, int -> bool) ->\
     void
-##args(name,port,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
+##args(name,options,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
 {
   var server =
     http.createServer(function (request, response) {
@@ -451,8 +452,8 @@ var has_init_server = false;
                         //if (debug) console.log(req);
                           return dispatcher(req)
                         });
-  server.listen(port);
-  http._opa_servers[name] = {server : server, port : port}
+  server.listen(options.port);
+  http._opa_servers[name] = {server : server, port : options.port}
   if (!has_init_server) {
     init_cookies(default_opts);
     has_init_server = true;
@@ -462,7 +463,7 @@ var has_init_server = false;
 
 ##register init_server_cps : \
     string, \
-    int, \
+    Server.private.options, \
     option(string), \
     option(string), \
     option(string), \

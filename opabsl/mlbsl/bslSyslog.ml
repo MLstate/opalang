@@ -45,7 +45,7 @@ let event =
     let _ = Logger.add_destination dest file in
     dest
   in
-  fun time src properties content -> Logger.log_access ~logger ~priority:Logger.Emergency "%d %s %s %s" time src properties content (* time display desactivated *)
+  fun time src properties content -> Logger.log_access ~logger ~priority:Logger.Emergency "%d %s %s %s" time src properties content (* time display disactivated *)
 
 (* Put this here because it's mostly used by logger.opa *)
 ##extern-type Logger.out_channel = out_channel
@@ -57,21 +57,17 @@ let field_none = ServerLib.static_field_of_name "none"
 let open_out file =
   try
     let oc = open_out_gen [Open_wronly; Open_append; Open_creat] 0o666 file in
-    (*BslNativeLib.wrap_option (fun x -> x) (Some oc)*)
     ServerLib.make_record(ServerLib.add_field ServerLib.empty_record_constructor field_some oc)
   with | Sys_error _s ->
-    ServerLib.make_simple_record field_none
-    (*BslNativeLib.wrap_option (fun x -> x) None (* TODO: report error *)*)
+    ServerLib.make_simple_record field_none (* TODO: report error *)
 
 ##register open_pipe : string -> opa[option(Logger.out_channel)]
 let open_pipe cmd =
   try
     let pipe = Unix.open_process_out cmd in
-    (*BslNativeLib.wrap_option (fun x -> x) (Some pipe)*)
     ServerLib.make_record(ServerLib.add_field ServerLib.empty_record_constructor field_some pipe)
   with | Sys_error _s ->
-    ServerLib.make_simple_record field_none
-    (*BslNativeLib.wrap_option (fun x -> x) None (* TODO: report error *)*)
+    ServerLib.make_simple_record field_none (* TODO: report error *)
 
 ##register close_out : Logger.out_channel -> void
 let close_out oc =
@@ -103,6 +99,7 @@ let os_type _ = Sys.os_type
 ##register now : -> float
 let now _ = Unix.gettimeofday ()
 
+(* Had to do this because of dependency problems in stdlib *)
 ##register log_time : float -> string
 let log_time t =
     let lc = Unix.localtime t in

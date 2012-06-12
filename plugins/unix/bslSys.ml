@@ -34,7 +34,7 @@ let argv () =
   let args = Array.to_list Sys.argv in
   ServerArg.set_argv (ServerArg.from_list (List.filter (fun a -> a == "--help") (ServerArg.to_list (ServerArg.get_argv()))));
   let caml_list = match args with [] -> [] | _0::args -> args in
-  BslNativeLib.caml_list_to_opa_list Base.identity caml_list
+  caml_list_to_opa_list Base.identity caml_list
 
 (**
    This is used by opa servers or qml applications to have access

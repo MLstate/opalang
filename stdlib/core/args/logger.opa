@@ -107,7 +107,6 @@ Logger = {{
      | {some=oc} -> {Channel=oc}
      | {none} -> {Blackhole}) /* FIXME: Display a message to warn that this file can't be accessed */
 
-  //dp = Date.generate_printer(".%Y.%m.%d")
   make_rotating_destination(days, filename) =
     lp = Option.default("",ServerReference.get(logs_path))
     match ServerReference.get(with_rotatelogs) with
@@ -119,7 +118,7 @@ Logger = {{
     | _ ->
         if ServerReference.get(date_logs)
         then
-          log_suffix = %%BslSyslog.log_suffix%%() //"time"//Date.to_formatted_string(dp, Date.now())
+          log_suffix = %%BslSyslog.log_suffix%%()
   	  file = "{lp}{filename}{log_suffix}.log"
   	  make_file_destination(file)
         else
@@ -196,7 +195,6 @@ Logger = {{
      @param long display a long message (date + priority)
      @dest the log destination
      @entry the log entry */
-  //dp2 = Date.generate_printer("%d/%m/%y %H:%M:%S")
   string_of_entry(long,dest,entry) =
     message =
       if is_tty(dest) || force_colour
@@ -204,8 +202,7 @@ Logger = {{
       else entry.message
     if #<Ifstatic:TESTING> false #<Else> long #<End>
     then
-      //cs = String.padding_left("0",2,Int.to_string(mod((Date.in_milliseconds(entry.time) / 10),100)))
-      time = %%BslSyslog.log_time%%(entry.time) //"TIME"//Date.to_formatted_string(dp2, entry.time)^".{cs}"
+      time = %%BslSyslog.log_time%%(entry.time)
       "{time} [{priority_to_string(entry.priority)}]: {message}\n"
     else
       message^"\n"
@@ -342,13 +339,3 @@ Logger = {{
 _ = Logger.initialize() // Should we do this somewhere else???
 
 
-/* Some test code
-_ = Logger.emergency("Test logger: emergency")
-_ = Logger.alert("Test logger: alert")
-_ = Logger.critical("Test logger: critical")
-_ = Logger.error("Test logger: error")
-_ = Logger.warning("Test logger: warning")
-_ = Logger.notice("Test logger: notice")
-_ = Logger.info("Test logger: info")
-_ = Logger.debug("Test logger: debug")
-*/

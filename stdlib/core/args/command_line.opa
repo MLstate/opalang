@@ -210,53 +210,6 @@ type CommandLine.family('state) = {
     //do jlog("CommandLine.filter: final state={state}")
     state
 
-/*
-    // 1. Parsing parametrized arguments
-    camlify_parser( ~{names on_encounter on_param param_doc description} : CommandLine.parser) =
-      caml_names = opa_list_to_caml_list(identity, names)
-      camlify_state =
-        | ~{no_params} -> x -> x // TODO - %% BslCommandLine.no_more_params %%(no_params)
-        | ~{params}   -> x -> x // TODO -%% BslCommandLine.more_params %%(params)
-        | ~{opt_params}-> x -> x // TODO -%% BslCommandLine.maybe_params %%(opt_params)
-      caml_on_encounter(state) =
-        camlify_state(on_encounter(state))
-      caml_on_param(state, text) =
-        do_parse(text) =
-          match Parser.try_parse(on_param(state), text) with
-          | {none} -> {none}
-          |~{some} -> {some = camlify_state(some)}
-        if not(String.is_empty(text))
-        then
-          start = String.get(0, text)
-          if start == "-"
-          then {none} //By convention, reject params that start with '-'
-          else
-            if start == "\\"
-            then //By convention, remove initial '\\'
-              do_parse(String.drop_left(1, text))
-            else
-              do_parse(text)
-        else do_parse(text)
-      //%% BslCommandLine.make %%(caml_names, param_doc, description, caml_on_encounter, caml_on_param)
-    init
-
-    caml_parsers = opa_list_to_caml_list(camlify_parser, parsers)
-    state = init//%% BslCommandLine.filter %%(title, caml_parsers, init)
-
-    // 2. Parsing anonymous arguments
-    fold(anonymous, state) =
-      // TODO: bind the filter and the description in the ServerArg, for the --help
-      fct = anonymous.parse
-      func(state, anon_arg:string) = Parser.try_parse(fct(state), anon_arg)
-      //%%BslCommandLine.anonymous_filter%%(func, state)
-    state
-    state = List.fold(fold, anonymous, state)
-
-  // Returning the final state
-    state
-*/
-
-
   /**
    * A common case for an parameter parser.
   **/
