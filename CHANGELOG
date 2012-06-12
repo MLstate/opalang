@@ -1,3 +1,31 @@
+2012.06.12, Version 0.9.4 (stable), v1900
+
+New features:
+
+  * Tools
+    - 'opa create myapp' to generate a full Opa project
+
+  * Stdlib
+    - Map.filter
+    - Uri.of_relative and Uri.default_relative
+    - Support of Gravatar API
+
+Improvements:
+
+  * switch to --db-local option and ~/.opa/mongo directory by default
+  * Use of curl on Mac OS to download mongoDB archive
+  * Option to include the version on @deprecated directive
+  * Auto conversion from iterator to xml
+  * Formbuilder markup compatible with Bootstrap
+
+Bug fixes:
+
+  * Compilation of libiconv on FeeBSD, thanks Jeremy Messenger!
+  * mongoDB archive URL for Mac OS
+  * Bootstrap white glyphicons
+  * IMAP Client for Gmail
+
+
 2012.05.31, Version 0.9.3 (stable), v1869
 
 New supported platform:
