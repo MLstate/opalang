@@ -31,8 +31,10 @@ type Logger.priority =
   / {Info}
   / {Debug}
 
+type Logger.date = external
+
 type Logger.entry = {
-  time : float;               /* time of log */
+  time : Logger.date;         /* time of log */
   priority : Logger.priority; /* priority */
   message : string;           /* message */
   color : Ansi.color;         /* color if printed in a tty */
@@ -51,7 +53,7 @@ type Logger.t = {
   destinations : list(Logger.named_destination); /* list of destinations */
   ram : reference(list(Logger.entry));           /* list of entry to keep in ram */
   filter : int;                                  /* level after this filter number will not be produced */
-  lasttime : reference(float);                   /* last time a log was output */
+  lasttime : reference(Logger.date);             /* last time a log was output */
 }
 
 type Logger.log_opts = {
@@ -98,12 +100,12 @@ Logger = {{
 
   make_file_destination(file) =
     (file,
-     match %%BslSyslog.open_out%%(file) with
+     match %%BslLogger.open_out%%(file) with
      | {some=oc} -> {Channel=oc}
      | {none} -> {Blackhole}) /* FIXME: Display a message to warn that this file can't be accessed */
   make_piped_destination(cmd) =
     (cmd,
-     match %%BslSyslog.open_pipe%%(cmd) with
+     match %%BslLogger.open_pipe%%(cmd) with
      | {some=oc} -> {Channel=oc}
      | {none} -> {Blackhole}) /* FIXME: Display a message to warn that this file can't be accessed */
 
@@ -118,7 +120,7 @@ Logger = {{
     | _ ->
         if ServerReference.get(date_logs)
         then
-          log_suffix = %%BslSyslog.log_suffix%%()
+          log_suffix = %%BslLogger.log_suffix%%()
   	  file = "{lp}{filename}{log_suffix}.log"
   	  make_file_destination(file)
         else
@@ -130,7 +132,7 @@ Logger = {{
     match p with
     | {Blackhole} -> false
     | {Ram} -> false
-    | {Channel=c} -> %%BslSyslog.is_tty%%(c)
+    | {Channel=c} -> %%BslLogger.is_tty%%(c)
 
   default_filer_level = 6
 
@@ -138,14 +140,14 @@ Logger = {{
     destinations=[]:list(Logger.named_destination);
     ram=ServerReference.create([]:list(Logger.entry));
     filter=default_filer_level;
-    lasttime=ServerReference.create(%%BslSyslog.now%%());
+    lasttime=ServerReference.create(%%BslLogger.now%%());
   }
 
   make_logger(dsts,filter) = {
     destinations=dsts;
     ram=ServerReference.create([]:list(Logger.entry));
     filter=filter;
-    lasttime=ServerReference.create(%%BslSyslog.now%%());
+    lasttime=ServerReference.create(%%BslLogger.now%%());
   }
 
   add_destination(logger,dst) = {logger with destinations=[dst|logger.destinations]}
@@ -162,7 +164,7 @@ Logger = {{
   /* Create a reference to a logger that will write to stderr */
   default_logger =
     logger = empty_logger()
-    ServerReference.create({logger with destinations=[("STDERR", {Channel=%%BslSyslog.get_stderr%%()})]})
+    ServerReference.create({logger with destinations=[("STDERR", {Channel=%%BslLogger.get_stderr%%()})]})
 
   get_default_logger_destinations() = List.map((d -> d.f1),ServerReference.get(default_logger).destinations)
 
@@ -202,12 +204,12 @@ Logger = {{
       else entry.message
     if #<Ifstatic:TESTING> false #<Else> long #<End>
     then
-      time = %%BslSyslog.log_time%%(entry.time)
+      time = %%BslLogger.log_time%%(entry.time)
       "{time} [{priority_to_string(entry.priority)}]: {message}\n"
     else
       message^"\n"
 
-  make_entry(priority,color,message) = ~{ time=%%BslSyslog.now%%(); priority; message; color }
+  make_entry(priority,color,message) = ~{ time=%%BslLogger.now%%(); priority; message; color }
 
   do_log(logger,long,priority,color,s) =
     if priority_to_level(priority) > logger.filter
@@ -219,11 +221,11 @@ Logger = {{
   	match dst with
   	| {Blackhole} -> {}
   	| {Ram} -> ServerReference.set(logger.ram,[entry|ServerReference.get(logger.ram)])
-  	| {Channel=oc} -> %%BslSyslog.output%%(oc,sentry)
+  	| {Channel=oc} -> %%BslLogger.output%%(oc,sentry)
         end
   	do ServerReference.set(logger.lasttime,entry.time)
       #<Ifstatic:SHOW_LOGS> /* If SHOW_LOGS, only log one time in stderr */
-        dst = {Channel=%%BslSyslog.get_stderr%%()}
+        dst = {Channel=%%BslLogger.get_stderr%%()}
         log_entry(dst)
       #<Else>
         List.iter(((_, dst) -> log_entry(dst)),logger.destinations)
@@ -285,7 +287,7 @@ Logger = {{
   default_log_opts = {
     verbose=#<Ifstatic:SHOW_LOGS> 8 #<Else> 6 #<End>;
     display=false;
-    path=%%BslSyslog.get_cwd%%();
+    path=%%BslLogger.get_cwd%%();
     date=false;
     rotate={none};
     rotate_interval={none};
@@ -315,7 +317,7 @@ Logger = {{
     log_opts = CommandLine.filter(args)
     //do jlog("Logger.initialize: log_opts={log_opts}")
 
-    do if Option.is_some(log_opts.rotate) && %%BslSyslog.os_type%%() == "Unix"
+    do if Option.is_some(log_opts.rotate) && %%BslLogger.os_type%%() == "Unix"
     then
       rotate = Option.get(log_opts.rotate)
       if %%BslFile.exists%%(rotate)
@@ -328,8 +330,8 @@ Logger = {{
     /* Display logs overrides default, access and error logger */
     if log_opts.display
     then
-      log_out = make_logger([("STDOUT", {Channel=%%BslSyslog.get_stdout%%()})],default_filer_level)
-      log_err = make_logger([("STDERR", {Channel=%%BslSyslog.get_stderr%%()})],default_filer_level)
+      log_out = make_logger([("STDOUT", {Channel=%%BslLogger.get_stdout%%()})],default_filer_level)
+      log_err = make_logger([("STDERR", {Channel=%%BslLogger.get_stderr%%()})],default_filer_level)
       do set_default_logger(log_out)
       do set_access_logger(log_out)
       set_error_logger(log_err)

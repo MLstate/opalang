@@ -16,6 +16,7 @@ lowLevelArray.nodejs
 hashtable.nodejs
 bslHashtbl.nodejs
 bslValue.nodejs
+bslLogger.nodejs
 
 # Server specific bypass
 bslTimeServer.nodejs

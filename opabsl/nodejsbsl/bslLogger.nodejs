@@ -1,0 +1,135 @@
+
+var fs = require('fs');
+var tty = require('tty');
+
+##extern-type Logger.out_channel
+##extern-type Logger.date
+
+##register open_out : string -> opa[option(Logger.out_channel)]
+##args(path)
+//function open_out(path)
+{
+  try {
+    return js_some(fs.openSync(path, 'a'));
+  } catch(err) {
+    console.log("BslLogger.open_out: Couldn't open file '"+path+"'");
+    return js_none;
+  }
+}
+
+// This can be done in node but it's complicated, you need to
+// fork the process and use stream.pipe on it's stdin/stdout to
+// link to a local stream object.  This can be implemented later
+// if it is required.
+##register open_pipe : string -> opa[option(Logger.out_channel)]
+##args(cmd)
+{
+  console.log("Not implemented: BslLogger.open_pipe");
+  return js_none;
+}
+
+##register close_out : Logger.out_channel -> void
+##args(oc)
+//function close_out(oc)
+{
+  try {
+    fs.closeSync(oc);
+    return js_void;
+  } catch(err) {
+    console.log("BslLogger.close_out: Error closing file");
+    return js_void;
+  }
+}
+
+##register output : Logger.out_channel, string -> void
+##args(oc,str)
+//function output(oc,str)
+{
+  try {
+    var written = fs.writeSync(oc, str, 0, str.length, null);
+    if (written < str.length) console.log("BslLogger.output: string length "+str.length+" written "+written);
+    return js_void;
+  } catch(err) {
+    console.log("BslLogger.output: Write error "+err);
+    return js_void;
+  }
+}
+
+##register is_tty : Logger.out_channel -> opa[bool]
+##args(oc)
+//function is_tty(oc)
+{
+  return uniformize_bool(tty.isatty(oc));
+}
+
+##register get_stderr : -> Logger.out_channel
+##args()
+//function get_stderr()
+{
+  return process.stderr.fd;
+}
+
+##register get_stdout : -> Logger.out_channel
+##args()
+//function get_stdout()
+{
+  return process.stdout.fd;
+}
+
+##register get_cwd : -> string
+##args()
+//function get_cwd()
+{
+  return process.cwd();
+}
+
+##register os_type : -> string
+##args()
+//function os_type()
+{
+  switch (process.platform) {
+  case 'linux': return 'Unix';
+  default: return 'Unknown';
+  }
+}
+
+##register now : -> Logger.date
+##args()
+//function now()
+{
+  return new Date();
+}
+
+function pc(i) {
+  if (i === null || i === undefined) return "??";
+  var s = (i % 100).toString();
+  switch (s.length) {
+  case 0: return "00";
+  case 1: return "0"+s;
+  default: return s;
+  };
+}
+
+/* Had to do this because of dependency problems in stdlib */
+##register log_time : Logger.date -> string
+##args(t)
+//function log_time(t)
+{
+  return "".concat(pc(t.getFullYear() % 100),"/",
+                   pc(t.getMonth()+1),"/",
+                   pc(t.getDate())," ",
+                   pc(t.getHours()),":",
+                   pc(t.getMinutes()),":",
+                   pc(t.getSeconds()),".",
+                   pc(Math.floor(t.getMilliseconds() / 10)));
+}
+
+##register log_suffix : -> string
+##args()
+//function log_suffix()
+{
+  var t = new Date();
+  var yr = t.getFullYear();
+  return "".concat(".",yr.toString(),".",pc(t.getMonth()+1),".",pc(t.getDate()));
+}
+

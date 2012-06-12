@@ -3,6 +3,25 @@ var os = require('os');
 var dns = require('dns');
 
 ##opa-type list('a)
+//'
+
+/** This returns the raw arguments from the command line,
+ *  it's used to seed the Opa version of ServerArgs.
+ *  We also kill off ServerArgs to prevent multiple reading of the same args.
+ *  We need to retain --help because it's used by the scheduler as a flag for premature exit.
+ */
+##register argv: -> opa[list(string)]
+##args()
+// function argv()
+{
+  var argv = process.argv, av = [];
+  if (argv.length > 1) { argv.shift(); };
+  for (i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] == "--help") av[av.length] = "--help";
+  };
+  process.argv = av;
+  return js2list(argv);
+}
 
 ##register get_argv: -> opa[list(string)]
 ##args()
@@ -19,6 +38,7 @@ var dns = require('dns');
 
 ##register exit : int -> 'a
 ##args(code)
+//'
 {
     process.exit(code);
 }
