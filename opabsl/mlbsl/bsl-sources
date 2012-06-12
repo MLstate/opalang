@@ -16,6 +16,7 @@ bslTime.ml
 lowLevelArray.ml
 bslValue.ml
 bslHashtbl.ml
+bslLogger.ml
 
 # Server specific bypass
 bslTimeServer.ml
