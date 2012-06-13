@@ -14,11 +14,141 @@ var connect = mongo.connect;
 ##extern-type NodeMongo.server
 ##extern-type NodeMongo.db
 ##extern-type NodeMongo.collection
+##extern-type NodeBson.document
+##extern-type NodeBson.value
 ##extern-type Mongo.reply
+##extern-type int32
+##extern-type int64
 ##opa-type tuple_2('a, 'b)
 ##extern-type continuation('a)
 ##opa-type list('a)
 ##opa-type Bson.document
+
+##module NodeBson
+
+  ##register empty_document : -> NodeBson.document
+  ##args()
+  {
+    return {};
+  }
+
+  ##register add_element: NodeBson.document, string, NodeBson.value -> void
+  ##args(doc, name, elt)
+  {
+    doc[name] = elt;
+    return js_void;
+  }
+
+  ##register float_value: float -> NodeBson.value
+  ##args(f)
+  {
+    return new mongo.Double(f);
+  }
+
+  ##register int_value: int -> NodeBson.value
+  ##args(i)
+  {
+    return mongo.Long(i);
+  }
+
+  ##register string_value: string -> NodeBson.value
+  ##args(s)
+  {
+    return s;
+  }
+
+  ##register bool_value: bool -> NodeBson.value
+  ##args(n)
+  {
+    return un_uniformize_bool(b);
+  }
+
+  ##register int32_value: int32 -> NodeBson.value
+  ##args(i)
+  {
+    return i;
+  }
+
+  ##register timestamp_value: int, int -> NodeBson.value
+  ##args(l, h)
+  {
+    return mongo.Timestamp(l, h);
+  }
+
+  ##register int64_value: int64 -> NodeBson.value
+  ##args(i)
+  {
+    return mongo.Long(i[0], i[1]);
+  }
+
+  ##register document_value: NodeBson.document -> NodeBson.value
+  ##args(d)
+  {
+    return d;
+  }
+
+  // TODO - binary
+  ##register binary_value: string -> NodeBson.value
+  ##args(b)
+  {
+    return new mongo.Binary(b);
+  }
+
+  ##register object_id_value: string -> NodeBson.value
+  ##args(s)
+  {
+    return new mongo.ObjectID(s);
+  }
+
+  ##register date_value: int -> NodeBson.value
+  ##args(d)
+  {
+    return new Date(d);
+  }
+
+  ##register null_value: -> NodeBson.value
+  ##args()
+  {
+    return null;
+  }
+
+  ##register regexp_value: string, string -> NodeBson.value
+  ##args(p, f)
+  {
+    return new RegExp(p, f);
+  }
+
+  ##register code_value: string -> NodeBson.value
+  ##args(c)
+  {
+    return new mongo.Code(c);
+  }
+
+  ##register symbol_value: string -> NodeBson.value
+  ##args(s)
+  {
+    return new mongo.Symbol(s);
+  }
+
+  ##register code_scope_value: string, NodeBson.document -> NodeBson.value
+  ##args(c, s)
+  {
+    return new mongo.Code(c, s);
+  }
+
+  ##register min_value:  -> NodeBson.value
+  ##args()
+  {
+    return new mongo.MinKey(); ;
+  }
+
+  ##register max_value:  -> NodeBson.value
+  ##args()
+  {
+    return new mongo.MaxKey(); ;
+  }
+
+##endmodule
 
 ##module NodeMongo
 

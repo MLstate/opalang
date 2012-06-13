@@ -7,6 +7,9 @@ type NodeMongo.db = external
 type NodeMongo.collection = external
 type Mongo.reply = external
 
+type NodeBson.document = external
+type NodeBson.value = external
+
 /**
  * Main connection type.
  * Stores the socket connection plus other parameters such as
@@ -63,6 +66,66 @@ NodeMongo = {{
                           NodeMongo.collection, Bson.document, bool, bool, bool, bool, bool,
                           continuation((string,string)) -> void)
 
+}}
+
+@private
+NodeBson = {{
+  @private
+  Document = {{
+    empty = %%BslMongo.NodeBson.empty_document%%
+    add   = %%BslMongo.NodeBson.add_element%%
+  }}
+
+  @private
+  Value = {{
+    float(f)         = %%BslMongo.NodeBson.float_value%%(f)
+    string(s)        = %%BslMongo.NodeBson.string_value%%(s)
+    of_bool(b)       = %%BslMongo.NodeBson.bool_value%%(b)
+    of_int32(i)      = %%BslMongo.NodeBson.int32_value%%(i)
+    of_timestamp(t)  = %%BslMongo.NodeBson.timestamp_value%%(t.f1, t.f2)
+    of_int(i)        = %%BslMongo.NodeBson.int_value%%(i)
+    of_int64(i)      = %%BslMongo.NodeBson.int64_value%%(i)
+
+    of_doc(d)        = %%BslMongo.NodeBson.document_value%%(d)
+    of_binary(b)     = %%BslMongo.NodeBson.binary_value%%(b)
+    of_object_id(o)  = %%BslMongo.NodeBson.object_id_value%%(o)
+    of_date(d)       = %%BslMongo.NodeBson.date_value%%(Date.in_milliseconds(d))
+    null()           = %%BslMongo.NodeBson.null_value%%()
+    regexp(r)        = %%BslMongo.NodeBson.regexp_value%%(r.f1, r.f2)
+    of_code(c)       = %%BslMongo.NodeBson.code_value%%(c)
+    of_symbol(s)     = %%BslMongo.NodeBson.symbol_value%%(s)
+    of_code_scope(s) = %%BslMongo.NodeBson.code_scope_value%%(s.f1, of_document(s.f2))
+    min_key()        = %%BslMongo.NodeBson.min_value%%()
+    max_key()        = %%BslMongo.NodeBson.max_value%%()
+  }}
+
+  of_document(doc : Bson.document):NodeBson.document =
+    ndoc = Document.empty()
+    do List.iter(~{name value} -> Document.add(ndoc, name, of_value(value)), doc)
+    ndoc
+
+  of_value(value:Bson.value):NodeBson.value =
+    match value with
+    | { Double    = d } -> Value.float(d)
+    | { String    = s } -> Value.string(s)
+    | { Boolean   = b } -> Value.of_bool(b)
+    | { RealInt32 = i } -> Value.of_int32(i:int32)
+    | { Timestamp = t } -> Value.of_timestamp(t)
+    | { Int32     = i }
+    | { Int64     = i } -> Value.of_int(i)
+    | { RealInt64 = i } -> Value.of_int64(i)
+    | { Document  = d }
+    | { Array     = d } -> Value.of_doc(of_document(d))
+    | { Binary    = b } -> Value.of_binary(b)
+    | { ObjectID  = o } -> Value.of_object_id(o)
+    | { Date      = d } -> Value.of_date(d)
+    | { Null }          -> Value.null()
+    | { Regexp    = r } -> Value.regexp(r)
+    | { Code      = c } -> Value.of_code(c)
+    | { Symbol    = s } -> Value.of_symbol(s)
+    | { CodeScope = c } -> Value.of_code_scope(c)
+    | { Min }           -> Value.min_key()
+    | { Max }           -> Value.max_key()
 }}
 
 MongoCommon = {{

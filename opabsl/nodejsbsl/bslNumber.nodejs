@@ -20,6 +20,9 @@
 // NO LONGER SHARED BETWEEN NODE BSL AND JS BSL DUE TO FLOAT_PARSER IMPORT //
 /////////////////////////////////////////////////////////////////////////////
 
+##extern-type int32
+##extern-type int64
+
 ##module Int \ bsl_int
 
 ##register max_int \ max_int: int
