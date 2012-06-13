@@ -57,7 +57,7 @@ exports.open = BslMongo_NodeMongo_open
 ##register open : NodeMongo.db, continuation(tuple_2(string, NodeMongo.db)) -> void
 ##args(db, cont)
 {
-  db.open(function(err, db) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
+  db.open(function(err, db) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
   return js_void
 }
 
@@ -65,7 +65,7 @@ exports.close = BslMongo_NodeMongo_close
 ##register close : NodeMongo.db, continuation(string) -> void
 ##args(db, cont)
 {
-  db.close(false, function (err, result) { cont((err === null || err === undefined) ? "" : err.message) });
+  db.close(false, function (err, result) { cont.execute1((err === null || err === undefined) ? "" : err.message) });
   return js_void
 }
 
@@ -74,39 +74,45 @@ exports.collection = BslMongo_NodeMongo_collection
 ##args(db, cname, cont)
 {
   db.collection(cname,
-                function(err, collection) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:collection}) })
-  return js_void
+                function(err, collection) {
+                  if (err === null || err === undefined) {
+                    cont.execute1({f1: "", f2:collection})
+                  }else{
+                    cont.execute1({f1: err.message, f2:0})
+                  }
+                });
+  return js_void;
 }
 
 exports.query = BslMongo_NodeMongo_query
 ##register query : NodeMongo.collection, int, int, Bson.document, option(Bson.document), \
-                   continuation(tuple_2(string,NodeMongo.reply)) -> void
+                   continuation(tuple_2(string,Mongo.reply)) -> void
 ##args(collection, skip, limit, query, fields_opt, cont)
 {
   var opts = {skip:skip, limit:limit};
   if (Option.is_some(fields_opt)) opts['fields'] = Option.get(fields_opt);
   collection.find(query, opts,
                   function (err, cursor) {
-                    cont({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
+                    cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
                   });
   return js_void
 }
 
 exports.count = BslMongo_NodeMongo_count
-##register count : NodeMongo.reply, continuation(int) -> void
+##register count : Mongo.reply, continuation(int) -> void
 ##args(cursor, cont)
 {
   cursor.count(function (err, count) {
-                 cont(((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
+                 cont.execute1(((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
                });
   return js_void
 }
 
 exports.nextObject = BslMongo_NodeMongo_nextObject
-##register nextObject : NodeMongo.reply, continuation(tuple_2(string, Bson.document)) -> void
+##register nextObject : Mongo.reply, continuation(tuple_2(string, Bson.document)) -> void
 ##args(cursor, cont)
 {
-  cursor.nextObject(function (err, item) { cont({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
+  cursor.nextObject(function (err, item) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
   return js_void
 }
 
@@ -122,7 +128,7 @@ exports.insert = BslMongo_NodeMongo_insert
                       // The _id field can be a hideous ObjectID object, Opa just uses the string id
                       // which is buried in the object, string representation: _id.__id, binary: _id.id
                       insertedDocs.map(function (o) { if (o._id._bsontype === 'ObjectID') o._id = o._id.__id; });
-                      cont({f1:(err === null || err === undefined) ? "" : err.message,
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
                             f2:js2list(insertedDocs)})
                     });
   return js_void
@@ -139,7 +145,7 @@ exports.update = BslMongo_NodeMongo_update
   collection.update(selector, update, opts,
                     function (err, numberOfUpdatedDocs) {
                       // numberOfUpdatedDocs will be undefined if safe is false
-                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs})
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs})
                     });
   return js_void
 }
@@ -152,7 +158,8 @@ exports.remove = BslMongo_NodeMongo_remove
   collection.remove(selector, opts,
                     function (err, numberOfRemovedDocs) {
                       // numberOfRemovedDocs will be undefined if safe is false
-                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfRemovedDocs})
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
+                                     f2:numberOfRemovedDocs ? numberOfRemovedDocs : 0})
                     });
   return js_void
 }
@@ -169,7 +176,7 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
               safe:getbool(safe)};
   collection.createIndex(fieldOrSpec, opts,
                     function (err, indexName) {
-                      cont({f1:(err === null || err === undefined) ? "" : err.message, f2:indexName})
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:indexName})
                     });
   return js_void
 }
@@ -181,7 +188,7 @@ exports.dropIndex = BslMongo_NodeMongo_dropIndex
 {
   collection.dropIndex(name,
                        function (err, result) {
-                         cont({f1:(err === null || err === undefined) ? "" : err.message, f2:result});
+                         cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:result});
                        });
   return js_void;
 }
