@@ -74,6 +74,8 @@ Crypto = {{
 
   }}
 
+  #<Ifstatic:OPA_BACKEND_QMLJS>
+  #<Else>
   RSA = {{
 
     /**
@@ -93,6 +95,7 @@ Crypto = {{
     decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, string -> option(string)
 
   }}
+  #<End>
 
 }}
 

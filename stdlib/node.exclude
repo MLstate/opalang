@@ -10,6 +10,7 @@ stdlib.apis.rdf*
 stdlib.apis.recaptcha*
 stdlib.apis.twitter*
 stdlib.apis.worldweather*
+stdlib.apis.gravatar*
 stdlib.components.*
 stdlib.core.xmlm
 stdlib.core.rpc.hlnet
@@ -25,3 +26,4 @@ stdlib.widgets.*
 stdlib.web.*
 stdlib.mongo*
 stdlib.xls
+stdlib.tools.iconv
