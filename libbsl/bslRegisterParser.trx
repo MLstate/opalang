@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -381,9 +381,9 @@ b_BASE <-
 
 b_Const <- (Cint / Cfloat / Cstring) {{ B.Const (pos(), __1) }}
 
-Cint <- "int" ![a-zA-Z] {{ Q.TyInt }}
-Cfloat <- "float" ![a-zA-Z]  {{ Q.TyFloat }}
-Cstring <- "string" ![a-zA-Z] {{ Q.TyString }}
+Cint <- "int" ![a-zA-Z0-9] {{ Q.TyInt }}
+Cfloat <- "float" ![a-zA-Z0-9]  {{ Q.TyFloat }}
+Cstring <- "string" ![a-zA-Z0-9] {{ Q.TyString }}
 
 b_TypeVar <-
   / "'" name
