@@ -74,6 +74,8 @@ NodeBson = {{
   Document = {{
     empty = %%BslMongo.NodeBson.empty_document%%
     add   = %%BslMongo.NodeBson.add_element%%
+
+    array = %%BslMongo.NodeBson.empty_array%%
   }}
 
   @private
@@ -87,6 +89,7 @@ NodeBson = {{
     of_int64(i)      = %%BslMongo.NodeBson.int64_value%%(i)
 
     of_doc(d)        = %%BslMongo.NodeBson.document_value%%(d)
+    of_array(a)      = %%BslMongo.NodeBson.array_value%%(a)
     of_binary(b)     = %%BslMongo.NodeBson.binary_value%%(b)
     of_object_id(o)  = %%BslMongo.NodeBson.object_id_value%%(o)
     of_date(d)       = %%BslMongo.NodeBson.date_value%%(Date.in_milliseconds(d))
@@ -99,10 +102,16 @@ NodeBson = {{
     max_key()        = %%BslMongo.NodeBson.max_value%%()
   }}
 
+  @private
+  fill_document(init:NodeBson.document, doc : Bson.document) =
+    do List.iter(~{name value} -> Document.add(init, name, of_value(value)), doc)
+    init
+
   of_document(doc : Bson.document):NodeBson.document =
-    ndoc = Document.empty()
-    do List.iter(~{name value} -> Document.add(ndoc, name, of_value(value)), doc)
-    ndoc
+    fill_document(Document.empty(), doc)
+
+  of_array(doc : Bson.document):NodeBson.document =
+    fill_document(Document.array(), doc)
 
   of_value(value:Bson.value):NodeBson.value =
     match value with
@@ -114,8 +123,8 @@ NodeBson = {{
     | { Int32     = i }
     | { Int64     = i } -> Value.of_int(i)
     | { RealInt64 = i } -> Value.of_int64(i)
-    | { Document  = d }
-    | { Array     = d } -> Value.of_doc(of_document(d))
+    | { Array     = a } -> Value.of_array(of_array(a))
+    | { Document  = d } -> Value.of_doc(of_document(d))
     | { Binary    = b } -> Value.of_binary(b)
     | { ObjectID  = o } -> Value.of_object_id(o)
     | { Date      = d } -> Value.of_date(d)

@@ -31,6 +31,12 @@ var connect = mongo.connect;
     return {};
   }
 
+  ##register empty_array : -> NodeBson.document
+  ##args()
+  {
+    return [];
+  }
+
   ##register add_element: NodeBson.document, string, NodeBson.value -> void
   ##args(doc, name, elt)
   {
@@ -47,7 +53,7 @@ var connect = mongo.connect;
   ##register int_value: int -> NodeBson.value
   ##args(i)
   {
-    return mongo.Long(i);
+    return i;
   }
 
   ##register string_value: string -> NodeBson.value
@@ -84,6 +90,12 @@ var connect = mongo.connect;
   ##args(d)
   {
     return d;
+  }
+
+  ##register array_value: NodeBson.document -> NodeBson.value
+  ##args(a)
+  {
+    return a;
   }
 
   // TODO - binary
