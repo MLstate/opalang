@@ -117,3 +117,11 @@ var FileSystem = require('fs');
   FileSystem.writeFileSync(path, content);
   return js_void;
 }
+
+##register mlstate_dir : void -> string
+##args(_)
+{
+  var mlstate_dir = "~/.opa";
+  %%BslFile.make_dir%%(mlstate_dir);
+  return mlstate_dir;
+}
