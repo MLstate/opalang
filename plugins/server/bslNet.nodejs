@@ -98,6 +98,14 @@ function merge_headers(headers) {
   return { 'Expires': exp_time.toUTCString() }
 }
 
+##register custom : string, string -> WebInfo.private.native_http_header
+##args(t, v)
+{
+  var h = {};
+  h[t] = v;
+  return h;
+}
+
 ##endmodule
 
 ##extern-type SSL.private_key
