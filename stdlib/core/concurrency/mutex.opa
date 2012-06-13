@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+import-plugin server
 /**
  * Utils for concurrency (Mutex, exclusive section, exclusive resource access, reference guarded by a mutex ...)
  *
@@ -50,7 +50,7 @@
  *     incr() = MutexRef.update(myref){
  * 		   i -> i +1
  *		}
- *	
+ *
  *     // Exclusive arbitrary operation
  *     alone() = MutexRef.exlcusive(myref){
  *			 doing thing with myref
@@ -62,8 +62,8 @@
 
 // TODO check context preservation
 @private
-type Mutex.state('a) = 
-	{unlocked} 
+type Mutex.state('a) =
+	{unlocked}
 / {locked:list('a) process:list('a)->void} // information waiting for unlock, and unlock processing function
 
 /** Generic mutex type, the 'a type designates the type of information provide while locking */
@@ -89,15 +89,15 @@ Mutex = {{
 	@private
 	try_lock_or_stack(v:Mutex.generic,k,process) = @atomic(
 		match Reference.get(v)
-		{unlocked} -> 
+		{unlocked} ->
 			do Reference.set(v,{locked=[] ~process})
 			true
-		
-		{locked=l process=_} as r -> 
+
+		{locked=l process=_} as r ->
 			do match k
-				{some=k} -> 
+				{some=k} ->
 					Reference.set(v,{r with locked=[k|l]} <: Mutex.state)
-				{none}   -> 
+				{none}   ->
 					void
 			false
 	)
@@ -107,7 +107,7 @@ Mutex = {{
 	try_unlock_with_stack(v:Mutex.generic) = @atomic(
 		match Reference.get(v)
 		{unlocked} -> none
-		{locked=_ process=_} as r-> 
+		{locked=_ process=_} as r->
 			do if r.locked == [] then Reference.set(v,{unlocked})
 								 else Reference.set(v,{r with locked=[]} <: Mutex.state)
 			some(r)
@@ -118,12 +118,12 @@ Mutex = {{
 		to_stack = n<=0
 		if try_lock_or_stack(v, if to_stack then some(e) else none, process)
 		then Continuation.return(k,void)
-		else 
+		else
 			if to_stack then void
 			else Scheduler.push( -> lock_or_reschedule_n_times_and_continue(v,n-1,k,e,process) )
 
 	@private
-	lock_or_reschedule_n_times(v,n) = @callcc(k -> 
+	lock_or_reschedule_n_times(v,n) = @callcc(k ->
 		process = List.iter(Continuation.return(_,void),_)
 		lock_or_reschedule_n_times_and_continue(v,n,k,k, process)
 	)
@@ -137,10 +137,10 @@ Mutex = {{
 	@private
 	unlock_(v:Mutex.t) =
 		match try_unlock_with_stack(v)
-		{none} -> 
+		{none} ->
 			Log.error("Mutex.unlock", "Not locked")
 		{some=~{locked process}} ->
-			if locked != [] then 
+			if locked != [] then
 				do @catch( unlock_error,
 					process(locked)
 				)
@@ -156,7 +156,7 @@ Mutex = {{
 	lock(v:Mutex.t) =
 		NO_reschedule = 0
 		lock_or_reschedule_n_times(v,NO_reschedule)
-	
+
 	/** unlock the mutex */
 	unlock(v:Mutex.t) = unlock_(v)
 
@@ -209,7 +209,7 @@ MutexRef = {{
 
 	/** non exclusive get */
 	get(t) = immediate_get(t)
-	
+
 	/** non exclusive set
 		WARNING: you should not use set based on a value obtain by a get sooner, use update in this case */
 	set(t,v) = immediate_set(t,v)
