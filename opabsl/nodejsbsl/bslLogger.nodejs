@@ -32,6 +32,7 @@ var tty = require('tty');
 ##args(oc)
 //function close_out(oc)
 {
+  if (oc === 1 || oc === 2) return js_void;
   try {
     fs.closeSync(oc);
     return js_void;
@@ -45,10 +46,19 @@ var tty = require('tty');
 ##args(oc,str)
 //function output(oc,str)
 {
+  // writeSync doesn't seem to work with process.stderr.fd
   try {
-    var written = fs.writeSync(oc, str, 0, str.length, null);
-    if (written < str.length) console.log("BslLogger.output: string length "+str.length+" written "+written);
-    return js_void;
+    if (oc === 1) {
+      process.stdout.write(str);
+      return js_void;
+    } else if (oc === 2) {
+      process.stderr.write(str); // note: all writes to stderr are blocking
+      return js_void;
+    } else {
+      var written = fs.writeSync(oc, str, 0, str.length, null);
+      if (written < str.length) console.log("BslLogger.output: string length "+str.length+" written "+written);
+      return js_void;
+    };
   } catch(err) {
     console.log("BslLogger.output: Write error "+err);
     return js_void;
@@ -59,7 +69,7 @@ var tty = require('tty');
 ##args(oc)
 //function is_tty(oc)
 {
-  return uniformize_bool(tty.isatty(oc));
+  return tty.isatty(oc);
 }
 
 ##register get_stderr : -> Logger.out_channel
