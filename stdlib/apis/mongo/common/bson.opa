@@ -15,7 +15,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-package stdlib.apis.mongo
 
 /**
  * Bson support for MongoDB driver
@@ -215,18 +214,6 @@ Bson = {{
   tInt64 = 0x12
   tMin = 0xff
   tMax = 0x7f
-
-  /** Convenience function, dump string as hex and ascii */
-  dump = (%% BslMongo.Bson.dump %%: int, string -> string)
-
-  /** Return new Bson Object ID */
-  new_oid = (%% BslMongo.Bson.new_oid %%: void -> string)
-
-  /** Get OID from string */
-  oid_of_string = (%% BslMongo.Bson.oid_of_string %%: string -> string)
-
-  /** Get string from OID */
-  oid_to_string = (%% BslMongo.Bson.oid_to_string %%: string -> string)
 
   /**
    * Return the type number (BSON) of an element.
@@ -465,7 +452,7 @@ Bson = {{
     | {Document=v} -> "{to_pretty(v)}"
     | {Array=v} -> "{pretty_of_array(v)}"
     | {Binary=_} -> "<BINARY>"
-    | {ObjectID=v} -> "ObjectId({oid_to_string(v)})"
+    | {ObjectID=v} -> "ObjectId({v})"
     | {Boolean=v} -> "{v}"
     | {Date=v} -> "{v}"
     | {Null=_} -> "null"
