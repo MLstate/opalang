@@ -375,7 +375,7 @@ module Exe = struct
       { options with env = fill_with_sysenv options.env } in
     if !files = [] then
       let buf = Buffer.contents (content_of_ic stdin) in
-      let result = process description options buf in
+      let result = process ~name:"/dev/stdin" description options buf in
       output_string stdout result
     else
     let rec aux files =

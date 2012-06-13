@@ -149,7 +149,7 @@ let parse_js_content ~optimized_conf ~key_prefix ~filename ~content =
     let ppjs =
       let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
       let ppopt = Pprocess.default_options ppenv in
-      Pprocess.process Pplang.js_description ppopt in
+      Pprocess.process ~name:filename Pplang.js_description ppopt in
     try JsParse.String.code ~throw_exn:true (ppjs content)
     with JsParse.Exception e ->
       ignore (File.output "jserror.js" content);
