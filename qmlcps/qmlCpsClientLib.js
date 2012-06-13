@@ -364,6 +364,7 @@ function push(task)
 }
 
 var is_schedule = false;
+var loop_level = 0;
 
 /**
  * An infinite scheduling loop.
@@ -379,6 +380,7 @@ function loop_schedule()
     var nothing_to_do = false;//[true] if we stopped scheduling because there's nothing left to do
     var tasks         = ready;//Keep a local copy. In most JS VMs, this will speed-up code.
     var task;
+    loop_level++;
     is_schedule = true;
     try
     {
@@ -400,7 +402,8 @@ function loop_schedule()
         console.log("Uncaught exception : " + e.toString());
         console.log(e.stack);
     }
-    is_schedule = false;
+    loop_level--
+    is_schedule = loop_level != 0;
 }
 
 /**
