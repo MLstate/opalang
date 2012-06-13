@@ -32,6 +32,8 @@ module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
 
 let caml_list_to_opa_list f l =
   wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
+let opa_list_to_ocaml_list f l =
+  BslNativeLib.opa_list_to_ocaml_list f (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
 (** *****************************)
 
 ##module mailserve
@@ -173,7 +175,7 @@ let caml_list_to_opa_list f l =
     let wrap_sss (s1,s2,s3) =
       BslNativeLib.opa_tuple_3 (ServerLib.wrap_string s1, ServerLib.wrap_string s2, ServerLib.wrap_string s3) in
 
-    let wrap_sl sl = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_string sl in
+    let wrap_sl sl = caml_list_to_opa_list ServerLib.wrap_string sl in
 
 (*  This segfaults...
     let wrap_status (status:ImapClientCore.status) =
@@ -197,7 +199,7 @@ let caml_list_to_opa_list f l =
 
     let cont results =
       let results =
-        BslNativeLib.caml_list_to_opa_list
+        caml_list_to_opa_list
           (fun result ->
              wrap_opa_email_imap_result
                (match result with
@@ -218,32 +220,32 @@ let caml_list_to_opa_list f l =
                     let rc = ServerLib.add_field rc noopresult (wrap_status status) in
                     ServerLib.make_record rc
                 | ImapClientCore.SearchResult il ->
-                    let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
+                    let opa_il = caml_list_to_opa_list ServerLib.wrap_int il in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc searchresult opa_il in
                     ServerLib.make_record rc
                 | ImapClientCore.ExpungeResult il ->
-                    let opa_il = BslNativeLib.caml_list_to_opa_list ServerLib.wrap_int il in
+                    let opa_il = caml_list_to_opa_list ServerLib.wrap_int il in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc expungeresult opa_il in
                     ServerLib.make_record rc
                 | ImapClientCore.FetchResult issl ->
-                    let opa_issl = BslNativeLib.caml_list_to_opa_list wrap_iss issl in
+                    let opa_issl = caml_list_to_opa_list wrap_iss issl in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc fetchresult opa_issl in
                     ServerLib.make_record rc
                 | ImapClientCore.StoreResult isl ->
-                    let opa_isl = BslNativeLib.caml_list_to_opa_list wrap_is isl in
+                    let opa_isl = caml_list_to_opa_list wrap_is isl in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc storeresult opa_isl in
                     ServerLib.make_record rc
                 | ImapClientCore.StatusResult ssl ->
-                    let opa_ssl = BslNativeLib.caml_list_to_opa_list wrap_ss ssl in
+                    let opa_ssl = caml_list_to_opa_list wrap_ss ssl in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc statusresult opa_ssl in
                     ServerLib.make_record rc
                 | ImapClientCore.ListResult sssl ->
-                    let opa_sssl = BslNativeLib.caml_list_to_opa_list wrap_sss sssl in
+                    let opa_sssl = caml_list_to_opa_list wrap_sss sssl in
                     let rc = ServerLib.empty_record_constructor in
                     let rc = ServerLib.add_field rc listresult opa_sssl in
                     ServerLib.make_record rc))
@@ -252,28 +254,28 @@ let caml_list_to_opa_list f l =
       cont results
     in
 
-    let unwrap_bs value = 
+    let unwrap_bs value =
       let b1, s2 = BslNativeLib.ocaml_tuple_2 value in
       ServerLib.unwrap_bool b1, ServerLib.unwrap_string s2
     in
-    let unwrap_ss value = 
+    let unwrap_ss value =
       let s1, s2 = BslNativeLib.ocaml_tuple_2 value in
       ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
     in
-    let unwrap_bss value = 
+    let unwrap_bss value =
       let b, s1, s2 = BslNativeLib.ocaml_tuple_3 value in
       ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2
     in
-    let unwrap_ssss value = 
+    let unwrap_ssss value =
       let s1, s2, s3, s4 = BslNativeLib.ocaml_tuple_4 value in
       ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3, ServerLib.unwrap_string s4
     in
-    let unwrap_bsss value = 
+    let unwrap_bsss value =
       let b, s1, s2, s3 = BslNativeLib.ocaml_tuple_4 value in
       ServerLib.unwrap_bool b, ServerLib.unwrap_string s1, ServerLib.unwrap_string s2, ServerLib.unwrap_string s3
     in
     let commands =
-      BslNativeLib.opa_list_to_ocaml_list
+      opa_list_to_ocaml_list
         (fun command ->
            ServerLib.fold_record
              (fun f value _cmd ->
