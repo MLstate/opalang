@@ -25,8 +25,21 @@ import-plugin unix
 package stdlib.database.mongo
 
 import stdlib.core.{date,map,parser}
+#<Ifstatic:OPA_BACKEND_QMLJS>
+import stdlib.apis.mongo.node
+import stdlib.apis.mongo.common
+
+System = {{
+
+    exec(_, _) = @fail
+
+    exit(_) = @fail
+
+}}
+#<Else>
 import stdlib.apis.mongo
 import stdlib.system
+#<End>
 
 /**
  * {1 About this module}
@@ -73,23 +86,6 @@ type DbMongo.private.path_t('kind, 'data) = {
  */
 
 DbMongo = {{
-
-   node_js_flag = false // temporary
-
-   // TODO: fix this once the flag for node.js backend is implemented
-   (reply_numberReturned, reply_document,
-    open, query, insert_batch,
-    update, delete, create_index,
-    repl_init, repl_connect) =
-     if node_js_flag
-     then (NodeMongo.MongoCommon.reply_numberReturned, NodeMongo.MongoCommon.reply_document,
-           NodeMongo.MongoDriver.open, NodeMongo.MongoDriver.query, NodeMongo.MongoDriver.insert_batch,
-           NodeMongo.MongoDriver.update, NodeMongo.MongoDriver.delete, NodeMongo.MongoDriver.create_index,
-           NodeMongo.MongoReplicaSet.init, NodeMongo.MongoReplicaSet.connect)
-     else (MongoCommon.reply_numberReturned, MongoCommon.reply_document,
-           MongoDriver.open, MongoDriver.query, MongoDriver.insert_batch,
-           MongoDriver.update, MongoDriver.delete, MongoDriver.create_index,
-           MongoReplicaSet.init, MongoReplicaSet.connect)
 
    /**
     * {2 Utils}
@@ -486,7 +482,7 @@ Then use option --db-remote instead of --db-local.
         do (
           rec aux(launch) =
             pid = %%BslFile.content_opt%%(pidpath)
-            pid = Option.bind(x -> Parser.try_parse(Rule.natural, String.trim(x)), pid)
+            pid = Option.bind(x -> Parser.try_parse(Rule.natural, String.trim(string_of_binary(x))), pid)
             match pid with
             | {some = pid} -> jlog("MongoDB seems launched (pid:{pid})")
             | {none} ->
