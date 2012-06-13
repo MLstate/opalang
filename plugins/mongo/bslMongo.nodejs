@@ -17,6 +17,9 @@ var connect = mongo.connect;
 ##extern-type NodeBson.document
 ##extern-type NodeBson.value
 ##extern-type Mongo.reply
+##opa-type Bson.document
+##opa-type Bson.value
+
 ##extern-type int32
 ##extern-type int64
 ##opa-type tuple_2('a, 'b)
@@ -157,6 +160,67 @@ var connect = mongo.connect;
   ##args()
   {
     return new mongo.MaxKey(); ;
+  }
+
+
+  ##register to_value: NodeBson.value -> Bson.value
+  ##args(x)
+  {
+    var t = typeof(x);
+    switch(t){
+    case 'string' : return {String : x};
+    case 'number' : return {Int64 : x};
+    case 'boolean': return {Boolean : x};
+    case 'object' :
+      if(x === null){
+        return {Null : js_void};
+      }
+      var c = x.constructor;
+      if(c === Array){
+        return {Array : BslMongo_NodeBson_to_document(x)};
+      } else if(c === Object){
+        return {Document : BslMongo_NodeBson_to_document(x)};
+      } else if(c === mongo.Double){
+        return {Double : x.valueOf()};
+      } else if(c === mongo.Timestamp) {
+        return {Timestamp : {f1 : x.getHighBits(), f2 :x.getLowBits()}};
+      } else if(c === mongo.Long){
+        return {Int64 : [x.getHighBits(), x.getLowBits()]};
+      } else if(c === mongo.Binary){
+        return {Binary : x.buffer};
+      } else if(c === mongo.ObjectID){
+        return {ObjectID : x.toString()};
+      } else if(c === mongo.Code){
+        var c = x.code;
+        for (var i in c.scope){
+          var s = %%BslMongo.NodeBson.to_value%%(x.scope);
+          return {CodeScope : {f1 : c, f2 : s}};
+        }
+        return {Code : c};
+      } else if(c === mongo.Symbol){
+        return {Symbol : x.valueOf()};
+      } else if(c === mongo.MaxKey){
+        return {Max : js_void};
+      } else if(c === mongo.MaxKey){
+        return {Min : js_void};
+      } else {
+        console.error("NodeBson.to_value", x, c);
+        throw (new Error("Unknown mongo object"))
+      }
+      default :
+        console.error("NodeBson.to_value", x, t);
+        throw (new Error("Unknown typeof mongo object"))
+    }
+  }
+
+  ##register to_document: NodeBson.document -> Bson.document
+  ##args(doc)
+  {
+    var a = new Array();
+    for (var name in doc){
+      a.push({name:name, value: %%BslMongo.NodeBson.to_value%%(doc[name])});
+    }
+    return js2list(a);
   }
 
 ##endmodule

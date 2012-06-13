@@ -137,7 +137,7 @@ NodeBson = {{
     | { Max }           -> Value.max_key()
 
   to_document(doc : NodeBson.document) : Bson.document =
-    @fail
+    %%BslMongo.NodeBson.to_document%%(doc)
 }}
 
 MongoCommon = {{
