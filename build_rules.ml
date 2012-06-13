@@ -429,7 +429,7 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options = [A"--static" ; A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @ preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib in
+  let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @ preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib in
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in
@@ -871,8 +871,8 @@ rule "all.plugins"
          ])
   );
 
-let opa_create_prefix = "tools/opa-create/src/opa-create" in 
-let opa_create_src = opa_create_prefix ^ ".opa" in 
+let opa_create_prefix = "tools/opa-create/src/opa-create" in
+let opa_create_src = opa_create_prefix ^ ".opa" in
 let opa_create_dst = opa_create_prefix ^ ".exe" in
 
 let dir_all_files dir =
@@ -887,7 +887,7 @@ in
 rule "opa application creator"
   ~deps:((dir_rec_all_files "tools/opa-create"))
   ~prods: [opa_create_dst]
-  (fun env build -> 
+  (fun env build ->
       Cmd(S[
         Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin";
