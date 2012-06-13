@@ -208,7 +208,11 @@ type Map('key,'order) =
          * @param m A map.
          * @return [{true}] if [m] contains a value associated to [k], [{false}] otherwise.
          */
-        mem  : 'key, ordered_map('key,'val,'order) -> bool
+        contains : 'key, ordered_map('key,'val,'order) -> bool
+        /**
+         * Synonym to [contains]
+         */
+        mem : 'key, ordered_map('key,'val,'order) -> bool
 
         /**
          * {1 Information}
@@ -736,7 +740,7 @@ Map_make(order: order('key,'order) ) : Map =
             | { gt } -> Map_private.create(left, key, value, aux(right))
      aux(m) : ordered_map('key,'val,'order)
 
-  mem(x :'key, m : ordered_map('key, 'val, 'order)) : bool =
+  contains(x :'key, m : ordered_map('key, 'val, 'order)) : bool =
     rec aux(map_aux : Map_private.map('key, 'val)) =
       match map_aux with
       | { empty } -> false
@@ -746,6 +750,8 @@ Map_make(order: order('key,'order) ) : Map =
            | { lt } -> aux(left)
            | { gt } -> aux(right)
     aux(m)
+
+  mem = contains
 
   exists(f, m:ordered_map('key, 'val, 'order)) : bool =
     rec aux(map_aux : Map_private.map('key, 'val)) =
@@ -917,7 +923,7 @@ Map_make(order: order('key,'order) ) : Map =
         | { ~left ~key ~value ~right height = _ } ->
             acc = aux(left, m2, acc)
             acc = aux(right, m2, acc)
-            if mem(key : 'key, m2) then add(key : 'key, value : 'val, acc)
+            if contains(key : 'key, m2) then add(key : 'key, value : 'val, acc)
             else acc
 
     if is_empty(map1) || is_empty(map2) then empty

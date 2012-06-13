@@ -556,9 +556,13 @@ List = {{
   /**
    * As [index], but returns [true] if the element can be found, not its index.
    */
-  mem(x,l) =
+  contains(x,l) =
     exists(_ == x, l)
 
+  /**
+   * Synonym to [contains].
+   */
+  mem = contains
 
   /**
    * Check whether all elements of an index match a given condition.

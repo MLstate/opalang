@@ -97,6 +97,10 @@ type Set('elem,'order) =
   /**
    * Return true if given element exists in the given set
    */
+  contains : 'elem, ordered_set('elem,'order) -> bool
+  /**
+   * Synonym to [contains].
+   */
   mem : 'elem, ordered_set('elem,'order) -> bool
 
   /**
@@ -332,7 +336,9 @@ Set_make( order : order('elem,'order)  )  =
     MapSet.exists((key, _ -> f(key)), set)
     : bool
 
-  mem( elem : 'elem, set : ordered_set('elem, 'order)) = MapSet.mem(elem, set)
+  contains( elem : 'elem, set : ordered_set('elem, 'order)) = MapSet.contains(elem, set)
+
+  mem = contains
 
   get( elem : 'elem, set : ordered_set('elem, 'order)) = Option.map(_.key,MapSet.get_key_val(elem, set))
 
