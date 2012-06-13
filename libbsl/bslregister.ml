@@ -938,17 +938,18 @@ let _ =
         with None -> content
         | Some command ->
             try
-              let ic, oc = Unix.open_process command in
-              output_string oc content;
-              flush oc;
-              close_out oc;
+	      let command = Printf.sprintf "%s \"%s\"" command filename in
+              let ic = Unix.open_process_in command in
+              (* output_string oc content; *)
+              (* flush oc; *)
+              (* close_out oc; *)
               let rec aux lines =
                 try
                   let line = input_line ic in
                   aux (line::lines)
                 with
                 | End_of_file ->
-                    match Unix.close_process (ic, oc) with
+                    match Unix.close_process_in ic with
                     | Unix.WEXITED 0 -> String.rev_concat_map "\n" (fun s -> s) lines
                     | _ -> OManager.error "Error while preprocessing file '%s', command '%s'"
                         filename command
