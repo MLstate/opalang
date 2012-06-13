@@ -14,7 +14,7 @@ var connect = mongo.connect;
 ##extern-type NodeMongo.server
 ##extern-type NodeMongo.db
 ##extern-type NodeMongo.collection
-##extern-type NodeMongo.reply
+##extern-type Mongo.reply
 ##opa-type tuple_2('a, 'b)
 ##extern-type continuation('a)
 ##opa-type list('a)

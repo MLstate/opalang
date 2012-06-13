@@ -74,11 +74,6 @@ type Mongo.db = {
   depth : int;
   max_depth : int;
   auth : Mongo.auths;
-
-  // For node.js
-  server : NodeMongo.server;
-  db : option((string, NodeMongo.db));
-  collection : option((string, NodeMongo.collection));
 }
 
 /** Outgoing Cell messages **/
