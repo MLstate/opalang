@@ -30,41 +30,51 @@ type Mongo.db = {
 @private
 NodeMongo = {{
 
-  server = (%% BslMongo.NodeMongo.server %%: string, int, bool, int -> NodeMongo.server)
+  server = %% BslMongo.NodeMongo.server %%
+    : string, int, bool, int -> NodeMongo.server
 
-  replset = (%% BslMongo.NodeMongo.replset %%: list(NodeMongo.server) -> NodeMongo.server)
+  replset = %% BslMongo.NodeMongo.replset %%
+    : list(NodeMongo.server) -> NodeMongo.server
 
-  db = (%% BslMongo.NodeMongo.db %%: NodeMongo.server, string, bool -> NodeMongo.db)
+  db = %% BslMongo.NodeMongo.db %%
+    : NodeMongo.server, string, bool -> NodeMongo.db
 
-  open = (%% BslMongo.NodeMongo.open %%: NodeMongo.db, continuation((string, NodeMongo.db)) -> void)
+  open = %% BslMongo.NodeMongo.open %%
+    : NodeMongo.db -> (string, NodeMongo.db)
 
-  get_database = %%BslMongo.NodeMongo.get_database%% : NodeMongo.server, string, bool -> (string, NodeMongo.db)
+  get_database = %%BslMongo.NodeMongo.get_database%%
+    : NodeMongo.server, string, bool -> (string, NodeMongo.db)
 
-  close = (%% BslMongo.NodeMongo.close %%: NodeMongo.db, continuation(string) -> void)
+  close = %% BslMongo.NodeMongo.close %%
+    : NodeMongo.db -> string
 
-  collection = (%% BslMongo.NodeMongo.collection %%:
-                         NodeMongo.db, string, continuation((string, NodeMongo.collection)) -> void)
+  collection = %% BslMongo.NodeMongo.collection %%
+    : NodeMongo.db, string -> (string, NodeMongo.collection)
 
-  query = (%% BslMongo.NodeMongo.query %%:
-                    NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document),
-                    continuation((string,Mongo.reply)) -> void)
+  query = %% BslMongo.NodeMongo.query %%
+    : NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document)
+      -> (string,Mongo.reply)
 
-  count = (%% BslMongo.NodeMongo.count %%: Mongo.reply, continuation(int) -> void)
+  count = %% BslMongo.NodeMongo.count %%
+    : Mongo.reply -> int
 
-  nextObject = (%% BslMongo.NodeMongo.nextObject %%: Mongo.reply, continuation((string, NodeBson.document)) -> void)
+  nextObject = %% BslMongo.NodeMongo.nextObject %%
+    : Mongo.reply -> (string, NodeBson.document)
 
-  insert = (%% BslMongo.NodeMongo.insert %%:
-                     NodeMongo.collection, list(NodeBson.document), bool, bool, continuation((string,list(NodeBson.document))) -> void)
+  insert = %% BslMongo.NodeMongo.insert %%
+    : NodeMongo.collection, list(NodeBson.document), bool, bool
+      -> (string,list(NodeBson.document))
 
-  update = (%% BslMongo.NodeMongo.update %%:
-                     NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool, continuation((string,int)) -> void)
+  update = %% BslMongo.NodeMongo.update %%
+    : NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool
+      -> (string,int)
 
-  remove = (%% BslMongo.NodeMongo.remove %%:
-                     NodeMongo.collection, NodeBson.document, bool, continuation((string,int)) -> void)
+  remove = %% BslMongo.NodeMongo.remove %%
+    : NodeMongo.collection, NodeBson.document, bool -> (string,int)
 
-  createIndex = (%% BslMongo.NodeMongo.createIndex %%:
-                          NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool,
-                          continuation((string,string)) -> void)
+  createIndex = %% BslMongo.NodeMongo.createIndex %%
+    : NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool
+      -> (string,string)
 
 }}
 
@@ -175,11 +185,11 @@ MongoCommon = {{
   SparseBit     = 0x00000008
 
   // Warning: this does a db access
-  reply_numberReturned(reply): int = @callcc(cont -> NodeMongo.count(reply, cont))
+  reply_numberReturned(reply): int = NodeMongo.count(reply)
 
   // Warning: this only ever returns the next document, NOT the nth document in the reply
   reply_document(reply, _): option(Bson.document) =
-    match @callcc(cont -> NodeMongo.nextObject(reply, cont)) with
+    match NodeMongo.nextObject(reply) with
     | ("", doc) -> {some=NodeBson.to_document(doc)}
     | (err, _) -> {none}
 
@@ -205,7 +215,7 @@ MongoDriver = {{
   close(db:Mongo.db): outcome(Mongo.db,Mongo.failure) =
     match db.db with
     | {some=(_,odb)} ->
-      match @callcc(k -> NodeMongo.close(odb, k)) with
+      match NodeMongo.close(odb) with
       | "" -> {success={db with db={some=("",odb)}}}
       | err -> {failure={Error=err}}
       end
@@ -232,7 +242,7 @@ MongoDriver = {{
 
   redocollection(db:Mongo.db, collection:string): outcome(Mongo.db,Mongo.failure) =
     odb = match db.db with | {some=(_,odb)} -> odb | {none} -> @fail // db must be open
-    match @callcc(cont -> NodeMongo.collection(odb, collection, cont)) with
+    match NodeMongo.collection(odb, collection) with
     | ("", coll) -> {success={db with collection={some=(collection, coll)}}}
     | (err, _) -> {failure={Error=err}}
 
@@ -263,7 +273,7 @@ MongoDriver = {{
     | {success=db} ->
       (match db.collection with
        | {some=(_,coll)} ->
-         (match @callcc(cont -> NodeMongo.query(coll, numberToSkip, numberToReturn, query, returnFieldSelector_opt, cont)) with
+         (match NodeMongo.query(coll, numberToSkip, numberToReturn, query, returnFieldSelector_opt) with
           | ("", cursor) -> {some=cursor}
           | (err, _) -> {none})
        | {none} -> {none})
@@ -276,7 +286,7 @@ MongoDriver = {{
       (match db.collection with
        | {some=(_,coll)} ->
          keepGoing = Bitwise.land(flags,MongoCommon.ContinueOnErrorBit) != 0
-         (match @callcc(cont -> NodeMongo.insert(coll, documents, keepGoing, false/*safe*/, cont)) with
+         (match NodeMongo.insert(coll, documents, keepGoing, false/*safe*/) with
           | ("", _result) -> true // numberInserted???
           | (err, _) -> false)
        | {none} -> false)
@@ -291,7 +301,7 @@ MongoDriver = {{
        | {some=(_,coll)} ->
          upsert = Bitwise.land(flags,MongoCommon.UpsertBit) != 0
          multi = Bitwise.land(flags,MongoCommon.MultiUpdateBit) != 0
-         (match @callcc(cont -> NodeMongo.update(coll, selector, update, upsert, multi, false/*safe*/, cont)) with
+         (match NodeMongo.update(coll, selector, update, upsert, multi, false/*safe*/) with
           | ("", _numberUpdated) -> true
           | (err, _) -> false)
        | {none} -> false)
@@ -303,7 +313,7 @@ MongoDriver = {{
     | {success=db} ->
       (match db.collection with
        | {some=(_,coll)} ->
-         (match @callcc(cont -> NodeMongo.remove(coll, selector, false/*safe*/, cont)) with
+         (match NodeMongo.remove(coll, selector, false/*safe*/) with
           | ("", _numberRemoved) -> true
           | (err, _) -> false)
        | {none} -> false)
@@ -319,7 +329,7 @@ MongoDriver = {{
          sparse = Bitwise.land(options,MongoCommon.SparseBit) != 0
          background = Bitwise.land(options,MongoCommon.BackgroundBit) != 0
          dropDups = Bitwise.land(options,MongoCommon.DropDupsBit) != 0
-         (match @callcc(cont -> NodeMongo.createIndex(coll, key, unique, sparse, background, dropDups, false/*safe*/, cont)) with
+         (match NodeMongo.createIndex(coll, key, unique, sparse, background, dropDups, false/*safe*/) with
           | ("", _indexName) -> true
           | (err, _) -> false)
        | {none} -> false)

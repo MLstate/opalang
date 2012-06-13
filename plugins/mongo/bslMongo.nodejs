@@ -261,10 +261,12 @@ exports.db = BslMongo_NodeMongo_db
 }
 
 exports.open = BslMongo_NodeMongo_open
-##register open : NodeMongo.db, continuation(tuple_2(string, NodeMongo.db)) -> void
+##register [cps-bypass] open : NodeMongo.db, continuation(tuple_2(string, NodeMongo.db)) -> void
 ##args(db, cont)
 {
-  db.open(function(err, db) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
+  db.open(function(err, db) {
+    return_(cont, {f1:(err === null || err === undefined) ? "" : err.message, f2:db})
+  });
   return js_void
 }
 
@@ -292,31 +294,33 @@ exports.open = BslMongo_NodeMongo_open
 }
 
 exports.close = BslMongo_NodeMongo_close
-##register close : NodeMongo.db, continuation(string) -> void
+##register [cps-bypass] close : NodeMongo.db, continuation(string) -> void
 ##args(db, cont)
 {
-  db.close(false, function (err, result) { cont.execute1((err === null || err === undefined) ? "" : err.message) });
+  db.close(false, function (err, result) {
+    return_(cont, (err === null || err === undefined) ? "" : err.message);
+  });
   return js_void
 }
 
 exports.collection = BslMongo_NodeMongo_collection
-##register collection : NodeMongo.db, string, continuation(tuple_2(string, NodeMongo.collection)) -> void
+##register [cps-bypass] collection : NodeMongo.db, string, continuation(tuple_2(string, NodeMongo.collection)) -> void
 ##args(db, cname, cont)
 {
   db.collection(cname,
                 function(err, collection) {
                   if (err === null || err === undefined) {
-                    cont.execute1({f1: "", f2:collection})
+                    return_(cont, {f1: "", f2:collection})
                   }else{
-                    cont.execute1({f1: err.message, f2:0})
+                    return_(cont, {f1: err.message, f2:0})
                   }
                 });
   return js_void;
 }
 
 exports.query = BslMongo_NodeMongo_query
-##register query : NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document), \
-                   continuation(tuple_2(string,Mongo.reply)) -> void
+##register [cps-bypass] query : NodeMongo.collection, int, int, NodeBson.document, option(NodeBson.document), \
+continuation(tuple_2(string,Mongo.reply)) -> void
 ##args(collection, skip, limit, query, fields_opt, cont)
 {
   var opts = {skip:skip, limit:limit};
@@ -329,39 +333,39 @@ exports.query = BslMongo_NodeMongo_query
   }
   collection.find(query, opts,
                   function (err, cursor) {
-                    cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
+                    return_(cont, {f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
                   });
   return js_void
 }
 
 exports.count = BslMongo_NodeMongo_count
-##register count : Mongo.reply, continuation(int) -> void
+##register [cps-bypass] count : Mongo.reply, continuation(int) -> void
 ##args(cursor, cont)
 {
   cursor.count(function (err, count) {
-                 cont.execute1(((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
+                 return_(cont, ((err !== null && err !== undefined) || count === null || count === undefined) ? 0 : count)
                });
   return js_void
 }
 
 exports.nextObject = BslMongo_NodeMongo_nextObject
-##register nextObject : Mongo.reply, continuation(tuple_2(string, NodeBson.document)) -> void
+##register [cps-bypass] nextObject : Mongo.reply, continuation(tuple_2(string, NodeBson.document)) -> void
 ##args(cursor, cont)
 {
   cursor.nextObject(function (err, item) {
     if (err === null && item != null){
-      cont.execute1({f1:"", f2:item})
+      return_(cont, {f1:"", f2:item})
     } else {
       var msg = err.message;
-      cont.execute1({f1:msg == null ? "No item" : msg, f2:0})
+      return_(cont, {f1:msg == null ? "No item" : msg, f2:0})
     }
   });
   return js_void
 }
 
 exports.insert = BslMongo_NodeMongo_insert
-##register insert : NodeMongo.collection, list(NodeBson.document), bool, bool, \
-                    continuation(tuple_2(string,list(NodeBson.document))) -> void
+##register [cps-bypass] insert : NodeMongo.collection, list(NodeBson.document), bool, bool, \
+continuation(tuple_2(string,list(NodeBson.document))) -> void
 ##args(collection, docs, keepGoing, safe, cont)
 {
   var opts = {keepGoing:getbool(keepGoing),
@@ -371,14 +375,14 @@ exports.insert = BslMongo_NodeMongo_insert
                       // The _id field can be a hideous ObjectID object, Opa just uses the string id
                       // which is buried in the object, string representation: _id.__id, binary: _id.id
                       insertedDocs.map(function (o) { if (o._id._bsontype === 'ObjectID') o._id = o._id.__id; });
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
+                      return_(cont, {f1:(err === null || err === undefined) ? "" : err.message,
                             f2:js2list(insertedDocs)})
                     });
   return js_void
 }
 
 exports.update = BslMongo_NodeMongo_update
-##register update : NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool,  \
+##register [cps-bypass] update : NodeMongo.collection, NodeBson.document, NodeBson.document, bool, bool, bool,  \
                    continuation(tuple_2(string,int)) -> void
 ##args(collection, selector, update, upsert, multi, safe, cont)
 {
@@ -388,27 +392,27 @@ exports.update = BslMongo_NodeMongo_update
   collection.update(selector, update, opts,
                     function (err, numberOfUpdatedDocs) {
                       // numberOfUpdatedDocs will be undefined if safe is false
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs ? numberOfUpdatedDocs : 0})
+                      return_(cont, {f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs ? numberOfUpdatedDocs : 0})
                     });
   return js_void
 }
 
 exports.remove = BslMongo_NodeMongo_remove
-##register remove : NodeMongo.collection, NodeBson.document, bool, continuation(tuple_2(string,int)) -> void
+##register [cps-bypass] remove : NodeMongo.collection, NodeBson.document, bool, continuation(tuple_2(string,int)) -> void
 ##args(collection, selector, safe, cont)
 {
   var opts = {safe:getbool(safe)};
   collection.remove(selector, opts,
                     function (err, numberOfRemovedDocs) {
                       // numberOfRemovedDocs will be undefined if safe is false
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
+                      return_(cont, {f1:(err === null || err === undefined) ? "" : err.message,
                                      f2:numberOfRemovedDocs ? numberOfRemovedDocs : 0})
                     });
   return js_void
 }
 
 exports.createIndex = BslMongo_NodeMongo_createIndex
-##register createIndex : NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool, \
+##register [cps-bypass] createIndex : NodeMongo.collection, NodeBson.document, bool, bool, bool, bool, bool, \
                          continuation(tuple_2(string,string)) -> void
 ##args(collection, fieldOrSpec, unique, sparse, background, dropDups, safe, cont)
 {
@@ -419,7 +423,7 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
               safe:getbool(safe)};
   collection.createIndex(fieldOrSpec, opts,
                     function (err, indexName) {
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
+                      return_(cont, {f1:(err === null || err === undefined) ? "" : err.message,
                                      f2:indexName ? indexName : ""})
                     });
   return js_void
@@ -427,12 +431,12 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
 
 // Not needed by db.opa but here for test code
 exports.dropIndex = BslMongo_NodeMongo_dropIndex
-##register dropIndex : NodeMongo.collection, string, continuation(tuple_2(string,NodeBson.document)) -> void
+##register [cps-bypass] dropIndex : NodeMongo.collection, string, continuation(tuple_2(string,NodeBson.document)) -> void
 ##args(collection, name, cont)
 {
   collection.dropIndex(name,
                        function (err, result) {
-                         cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:result});
+                         return_(cont, {f1:(err === null || err === undefined) ? "" : err.message, f2:result});
                        });
   return js_void;
 }
