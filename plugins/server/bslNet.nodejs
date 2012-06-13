@@ -516,10 +516,15 @@ var has_init_server = false;
   var req;
   var data = option2js(data);
   var timeout = option2js(timeout);
-  var custom_agent = option2js(custom_agent);
   var headers = {};
 
+  var custom_agent = option2js(custom_agent);
   if (custom_agent) headers['user-agent'] = custom_agent;
+
+  var auth = option2js(auth);
+  // What we expect here actually is the raw authorization header. Therefore,
+  // we cannot use the auth option of request(), since it gets encoded.
+  if (auth) headers['authorization'] = auth;
 
   list2js(more_headers).forEach(function (line) {
     // Convert headers to format expected by request()
@@ -532,8 +537,7 @@ var has_init_server = false;
     port: port,
     path: path,
     method: request_kind,
-    headers: headers,
-    auth: option2js(auth)
+    headers: headers
   };
 
   function on_success(res) {
