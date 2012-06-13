@@ -83,6 +83,6 @@ Cactutf = {{
   /* cons */
   cons = %% BslCactutf.cons %% : int -> string
 
-  check = %% BslCactutf.check %% : string -> bool
+  // check = %% BslCactutf.check %% : string -> bool
 
 }}

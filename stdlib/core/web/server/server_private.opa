@@ -430,7 +430,12 @@ Server_private = {{
     check(l) =
       str = String.concat("",l)
       Rule.succeed_opt(
-       if Cactutf.check(str) then
+       if
+           // Cactutf.check(str)
+           // Since the binary is abtracted and type string is considered as a
+           // valid utf8 we doesn't need to check the input
+          true
+       then
           some(Text.cons(str))
        else do Log.warning("url decoding",
                         "Invalid escaped")
