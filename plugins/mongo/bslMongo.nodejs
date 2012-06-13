@@ -1,3 +1,4 @@
+var mongo = require('mongodb')
 var Admin = mongo.Admin;
 var BSON = mongo.BSONPure;
 var CheckMaster = mongo.CheckMaster;
@@ -15,6 +16,8 @@ var connect = mongo.connect;
 ##extern-type NodeMongo.collection
 ##extern-type NodeMongo.reply
 ##opa-type tuple_2('a, 'b)
+##extern-type continuation('a)
+##opa-type list('a)
 ##opa-type Bson.document
 
 ##module NodeMongo
