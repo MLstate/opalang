@@ -57,7 +57,7 @@ import stdlib.system
 @opacapi @abstract type DbMongo.t = {
   name : string;
   db : Mongo.db;
-  cols : list(string)
+  cols : list(string);
 }
 
 @opacapi @abstract type DbMongo.engine = void
@@ -410,7 +410,7 @@ Then use option --db-remote instead of --db-local.
     default_remote = {
       seeds=[] : list((string, int))
       bufsize = 50*1024
-      poolsize = 2
+      poolsize = 100
       log = true
       auth = [] : Mongo.auths
     }
@@ -613,7 +613,7 @@ DbSet = {{
       error("Error when creating index")
 
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
-    List.iter(index(db, path, _), idxs)
+    List.iter(idx -> Scheduler.sleep(0, -> index(db, path, idx)), idxs)
 
   @package genbuild(db, ns, id, default:'a, reply, limit):DbMongoSet.engine('a) =
     match reply with
