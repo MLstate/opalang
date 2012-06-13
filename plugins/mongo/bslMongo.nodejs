@@ -294,13 +294,13 @@ exports.update = BslMongo_NodeMongo_update
                    continuation(tuple_2(string,int)) -> void
 ##args(collection, selector, update, upsert, multi, safe, cont)
 {
-  var opts = {upsert:getbool(upsert),
-              multi:getbool(multi),
-              safe:getbool(safe)};
+  var opts = {upsert:un_uniformize_bool(upsert),
+              multi:un_uniformize_bool(multi),
+              safe:un_uniformize_bool(safe)};
   collection.update(selector, update, opts,
                     function (err, numberOfUpdatedDocs) {
                       // numberOfUpdatedDocs will be undefined if safe is false
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs})
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:numberOfUpdatedDocs ? numberOfUpdatedDocs : 0})
                     });
   return js_void
 }
