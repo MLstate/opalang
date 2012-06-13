@@ -516,12 +516,23 @@ var has_init_server = false;
   var req;
   var data = option2js(data);
   var timeout = option2js(timeout);
+  var custom_agent = option2js(custom_agent);
+  var headers = {};
+
+  if (custom_agent) headers['user-agent'] = custom_agent;
+
+  list2js(more_headers).forEach(function (line) {
+    // Convert headers to format expected by request()
+    var fields = line.split(/: /);
+    headers[fields[0]] = fields[1];
+  });
 
   var options = {
     host: hostname,
     port: port,
     path: path,
     method: request_kind,
+    headers: headers,
     auth: option2js(auth)
   };
 
