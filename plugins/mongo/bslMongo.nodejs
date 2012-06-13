@@ -320,7 +320,8 @@ exports.query = BslMongo_NodeMongo_query
 ##args(collection, skip, limit, query, fields_opt, cont)
 {
   var opts = {skip:skip, limit:limit};
-  if (Option.is_some(fields_opt)) opts['fields'] = Option.get(fields_opt);
+  var fields = option2js(fields_opt);
+  if (fields != null) opts['fields'] = fields;
   collection.find(query, opts,
                   function (err, cursor) {
                     cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:cursor})
@@ -342,7 +343,13 @@ exports.nextObject = BslMongo_NodeMongo_nextObject
 ##register nextObject : Mongo.reply, continuation(tuple_2(string, NodeBson.document)) -> void
 ##args(cursor, cont)
 {
-  cursor.nextObject(function (err, item) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:item}) });
+  cursor.nextObject(function (err, item) {
+    if (err === null){
+      cont.execute1({f1:"", f2:item})
+    } else {
+      cont.execute1({f1:err.message, f2:0})
+    }
+  });
   return js_void
 }
 
@@ -406,7 +413,8 @@ exports.createIndex = BslMongo_NodeMongo_createIndex
               safe:getbool(safe)};
   collection.createIndex(fieldOrSpec, opts,
                     function (err, indexName) {
-                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:indexName})
+                      cont.execute1({f1:(err === null || err === undefined) ? "" : err.message,
+                                     f2:indexName ? indexName : ""})
                     });
   return js_void
 }
