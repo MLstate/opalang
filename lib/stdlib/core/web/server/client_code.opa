@@ -42,7 +42,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
     do D.pinput("unser_key_ident", input)
-    match D.unpack(key_ident_code, input.string, input.pos) with
+    match D.unpack_from_string(key_ident_code, input.string, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[{String=key}])]}])} -> {success=({input with ~pos},{~key})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
     | {success=(pos,[{Coded=[({Byte=2},[{String=key},{String=ident}])]}])} -> {success=({input with ~pos},~{key; ident})}
@@ -67,7 +67,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_mini_expr(input:Pack.input) : Pack.result(JsAst.mini_expr) =
     do D.pinput("unser_mini_expr", input)
-    match D.unpack(mini_expr_code, input.string, input.pos) with
+    match D.unpack_from_string(mini_expr_code, input.string, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[{String=verbatim}])]}])} -> {success=({input with ~pos},{~verbatim})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
     | {success=(pos,[{Coded=[({Byte=2},[{String=verbatim}])]}])} -> {success=({input with ~pos},{~verbatim})}
@@ -91,7 +91,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_definition(input:Pack.input) : Pack.result(ServerAst.definition) =
     do D.pinput("unser_definition", input)
-    match D.unpack(definition_code, input.string, input.pos) with
+    match D.unpack_from_string(definition_code, input.string, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[])]}])} -> {success=({input with ~pos},{nothing})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=rpc}])]}])} -> {success=({input with ~pos},{~rpc})}
     | {success=(pos,[{Coded=[({Byte=2},[{String=`type`}])]}])} -> {success=({input with ~pos},{~`type`})}
@@ -117,7 +117,7 @@ import stdlib.core.{js, rpc.core}
   unser_adhoc(string:string) : JsAst.code =
     //do ServerReference.set(D.debug,false)
     //do jlog("unser_adhoc")
-    match D.unser(unser_code, string, true) with
+    match D.unser_from_string(unser_code, string, true) with
     | {success=code} -> /*do jlog("unser_adhoc: code ok")*/ code
     | {~failure} ->
        do error("Client_code.unser_adhoc => {failure}"):void
@@ -161,7 +161,7 @@ import stdlib.core.{js, rpc.core}
   unser_server(string:string) : ServerAst.code =
     //do ServerReference.set(D.debug,true)
     //do jlog("unser_server")
-    match D.unser(unser_server_code, string, true) with
+    match D.unser_from_string(unser_server_code, string, true) with
     | {success=code} -> /*do jlog("unser_server: server code ok")*/ code
     | {~failure} ->
        do Log.error("Client_code.unser_server","{failure}")

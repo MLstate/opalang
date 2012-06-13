@@ -70,28 +70,10 @@ type Pack.result('a) = outcome((Pack.input,'a),string)
 
 Pack = {{
 
-  dump(_:int, s:string) : string =
-    i2h(b) = if b < 16 then String.get(b,"0123456789ABCDEF") else Int.to_hex(b)
-    rec aux(i, d) =
-      //do jlog("dump(aux): i={i} d={d}")
-      if i >= String.length(s)
-      then d
-      else
-        rec aux2(h, a, i, j) =
-          //do jlog("dump(aux2): i={i} j={j} h={h} a={a}")
-          if i >= String.length(s) || j >= 16
-          then (h, a, i)
-          else
-            ch = String.byte_at_unsafe(i, s)
-            ac = if ch >= 0x20 && ch < 0x7f then String.get(i,s) else "."
-            hx = String.padding_left("0",2,i2h(ch))
-            sp = if i == String.length(s) - 1 then "" else " "
-            aux2(h^hx^sp, a^ac, i+1, j+1)
-        pos = String.padding_left("0",4,i2h(i))
-        (h, a, i) = aux2("", "", i, 0)
-        h = String.padding_right(" ",3*16,h)
-        aux(i, d^pos^" "^h^" "^a^"\n")
-    aux(0, "")
+  // For debugging buffer contents
+  @private memdump = (%% BslPervasives.memdump %%: string -> string)
+
+  debug = ServerReference.create(false)
 
   // Re-export underlying module
 
@@ -104,15 +86,15 @@ Pack = {{
   // convenience values
   littleEndian = true
   bigEndian = false
-  defaultEndian = bigEndian
+  defaultEndian = ServerReference.create(bigEndian)
   signedInts = true
   unsignedInts = false
-  defaultInts = signedInts
+  defaultInts = ServerReference.create(signedInts)
   sizeByte = {B}
   sizeShort = {S}
   sizeLong = {L}
   sizeLonglong = {Ll}
-  defaultSize = sizeLong
+  defaultSize = ServerReference.create(sizeLong)
 
   // size of sized items
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
@@ -460,7 +442,9 @@ Pack = {{
 
     // predict pack length
     packlen(data:Pack.data) : int =
-      (List.fold((u, (s, len) -> match packitemsize(s, u) with | (s,size) -> (s,len+size)), data, (defaultSize,0))).f2
+      (List.fold((u, (s, len) ->
+                  match packitemsize(s, u) with
+                  | (s,size) -> (s,len+size)), data, (ServerReference.get(defaultSize),0))).f2
 
     // missing from LowLevelArray?
     @private a2l(a:llarray('a)) : list('a) =
@@ -522,11 +506,12 @@ Pack = {{
                 ), data, (le, signed, size, {success:void}))
 
     // pack data into string
-    pack(data:Pack.data) : outcome(string,string) =
+    pack(data:Pack.data) : outcome(binary,string) =
       buf = create(packlen(data))
-      (_, _, _, res) = pack_data(buf, defaultEndian, defaultInts, defaultSize, data);
+      (_, _, _, res) = pack_data(buf, ServerReference.get(defaultEndian), ServerReference.get(defaultInts),
+                                 ServerReference.get(defaultSize), data);
       match res with
-      | {success=_} -> {success=contents(buf)}
+      | {success=_} -> {success=binary_of_string(contents(buf))}
       | {~failure} -> {~failure}
 
     // TODO: ser_xxx functions to parallel unser_xxx
@@ -536,26 +521,35 @@ Pack = {{
   // Decode
   Decode = {{
 
+    pinput(name, input) =
+      if ServerReference.get(debug)
+      then jlog("{name}: input=\n{memdump(String.sub(input.pos,Int.min(32,String.length(input.string)-input.pos),input.string))}")
+      else void
+
     // char
     char(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.char",{string=data; ~pos})
       if String.length(data) >= pos + 1
       then {success=String.substring(pos, 1, data)}
       else {failure="Pack.Decode.char: not enough data for char"}
 
     // octet
     byte(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.byte",{string=data; ~pos})
       if String.length(data) >= pos + 1
       then {success=String.byte_at_unsafe(pos, data)}
       else {failure="Pack.Decode.byte: not enough data for byte"}
 
     // short
     short_be(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.short_be",{string=data; ~pos})
       if String.length(data) >= pos + 2
       then {success=
         Bitwise.lsl(String.byte_at_unsafe(pos,   data),8)
       +             String.byte_at_unsafe(pos+1, data)}
       else {failure="Pack.Decode.short_be: not enough data for short"}
     short_le(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.short_le",{string=data; ~pos})
       if String.length(data) >= pos + 2
       then {success=
                     String.byte_at_unsafe(pos,   data)
@@ -567,6 +561,7 @@ Pack = {{
 
     // long
     long_be(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.long_be",{string=data; ~pos})
       if String.length(data) >= pos + 4
       then {success=
         Bitwise.lsl(String.byte_at_unsafe(pos,   data),24)
@@ -575,6 +570,7 @@ Pack = {{
       +             String.byte_at_unsafe(pos+3, data)}
       else {failure="Pack.Decode.long_le: not enough data for long"}
     long_le(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.long_le",{string=data; ~pos})
       if String.length(data) >= pos + 4
       then {success=
                     String.byte_at_unsafe(pos,   data)
@@ -620,6 +616,7 @@ Pack = {{
     is_int_NaN = %% BslNumber.Float.is_int_NaN %% : int -> bool
 
     longlong_le(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.longlong_le",{string=data; ~pos})
       if String.length(data) >= pos + 8
       then
         i = unembed_int_le(data, pos)
@@ -628,10 +625,11 @@ Pack = {{
         else {success=i}
       else {failure="Pack.Decode.longlong_le: not enough data for longlong"}
     longlong_be(data:string, pos:int) : outcome(int,string) =
+      do pinput("Pack.Decode.longlong_be",{string=data; ~pos})
       if String.length(data) >= pos + 8
       then
         i = unembed_int_be(data, pos)
-        do jlog("longlong_be: i={i}")
+        //do jlog("longlong_be: i={i}")
         if is_int_NaN(i)
         then {failure="Pack.Decode.longlong_be: NaN"}
         else {success=i}
@@ -656,18 +654,21 @@ Pack = {{
 
     // pad
     pad(data:string, pos:int) : outcome(void,string) =
+      do pinput("Pack.Decode.pad",{string=data; ~pos})
       if String.length(data) >= pos + 1
       then {success=void}
       else {failure="Pack.Decode.pad: not enough data for padding"}
 
     // padn
     padn(data:string, pos:int, n:int) : outcome(void,string) =
+      do pinput("Pack.Decode.padn({n})",{string=data; ~pos})
       if String.length(data) >= pos + n
       then {success=void}
       else {failure="Pack.Decode.padn: not enough data for padding"}
 
     // bool
     bool(data:string, pos:int) : outcome(bool,string) =
+      do pinput("Pack.Decode.bool",{string=data; ~pos})
       if String.length(data) >= pos + 1
       then {success=String.byte_at_unsafe(pos, data) != 0}
       else {failure="Pack.Decode.bool: not enough data for bool"}
@@ -686,6 +687,7 @@ Pack = {{
 
     // cstring
     cstring(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.cstring",{string=data; ~pos})
       match clen(data, pos) with
       | {some=len} ->
         if String.length(data) > pos + len
@@ -696,6 +698,7 @@ Pack = {{
 
     //bytestr
     string_b(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_b",{string=data; ~pos})
       match byte(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -705,6 +708,7 @@ Pack = {{
 
     //shortstr
     string_s_be(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_s_be",{string=data; ~pos})
       match short_be(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -712,6 +716,7 @@ Pack = {{
         else {failure="Pack.Decode.string_s_be: not enough data for string"}
       | {~failure} -> {~failure}
     string_s_le(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_s_le",{string=data; ~pos})
       match short_le(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -724,6 +729,7 @@ Pack = {{
 
     //longstr
     string_l_be(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_l_be",{string=data; ~pos})
       match long_be(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -731,6 +737,7 @@ Pack = {{
         else {failure="Pack.Decode.string_l_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
     string_l_le(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_l_le",{string=data; ~pos})
       match long_le(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -743,17 +750,18 @@ Pack = {{
 
     //longlongstr
     string_ll_be(data:string, pos:int) : outcome(string,string) =
-      do pinput("string_ll_be",{string=data; ~pos})
+      do pinput("Pack.Decode.string_ll_be",{string=data; ~pos})
       match longlong_be(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
         then
           s = String.substring(pos + 8, len, data)
-          do jlog("string_ll_be: s=\n{dump(16,String.substring(pos + 8, len+16, data))}")
+          //do jlog("string_ll_be: s=\n{memdump(String.substring(pos+8, Int.min(String.length(data)-(pos+8),len+16), data))}")
           {success=s}
         else {failure="Pack.Decode.string_ll_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
     string_ll_le(data:string, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_ll_le",{string=data; ~pos})
       match longlong_le(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
@@ -777,10 +785,12 @@ Pack = {{
     unembed_float_be = %% BslNumber.Float.unembed_float_be %% : string, int -> float
 
     float_le(data:string, pos:int) : outcome(float,string) =
+      do pinput("Pack.Decode.float_le",{string=data; ~pos})
       if String.length(data) >= pos + 8
       then {success=unembed_float_le(data, pos)}
       else {failure="Pack.Decode.float_le: not enough data for float"}
     float_be(data:string, pos:int) : outcome(float,string) =
+      do pinput("Pack.Decode.float_be",{string=data; ~pos})
       if String.length(data) >= pos + 8
       then {success=unembed_float_be(data, pos)}
       else {failure="Pack.Decode.float_be: not enough data for float"}
@@ -794,9 +804,10 @@ Pack = {{
     // list
     list(lora:bool, le:bool, signed:bool, s:Pack.s, typ:Pack.data, str:string, pos:int, data:Pack.data)
          : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+      do pinput("Pack.Decode.list",{string=str; ~pos})
       match mksize(s, 0) with
       | {success=size} ->
-        match unpack([size], str, pos) with
+        match unpack_from_string([size], str, pos) with
         | {success=(pos,[size])} ->
           match getsize(size) with
           | {success=len} ->
@@ -804,7 +815,7 @@ Pack = {{
               if i == len
               then {success=(le, signed, s, pos, [mksla(lora, typ, List.rev(l))|data])}
               else
-                match unpack(typ, str, pos) with
+                match unpack_from_string(typ, str, pos) with
                 | {success=(npos,ndata)} -> aux(i+1, [ndata|l], npos)
                 | {~failure} -> {~failure}
                 end
@@ -829,7 +840,8 @@ Pack = {{
       | {~failure} -> {~failure}
 
     // unpack data
-    unpack(data:Pack.data, str:string, pos:int) : outcome((int,Pack.data),string) =
+    unpack_from_string(data:Pack.data, str:string, pos:int) : outcome((int,Pack.data),string) =
+      do pinput("Pack.Decode.unpack",{string=str; ~pos})
       if data == [] then {success=(pos,[])} else
       match
         List.fold((u:Pack.u, acc ->
@@ -903,11 +915,11 @@ Pack = {{
                            | {~failure} -> {~failure})
                        | {Coded=[]} -> {failure="Pack.Decode.unpack: Coded has no codes"}
                        | {Coded=[(code1,data1)|codes]} ->
-                          (match unpack([code1], str, pos) with
+                          (match unpack_from_string([code1], str, pos) with
                            | {success=(npos,[code])} ->
                              (match List.assoc(code, [(code1,data1)|codes]) with
                               | {some=cdata} ->
-                                 (match unpack(cdata, str, npos) with
+                                 (match unpack_from_string(cdata, str, npos) with
                                   | {success=(npos,ndata)} -> {success=(le, signed, size, npos, [{Coded=[(code,ndata)]}|data])}
                                   | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad data {failure}"})
                               | {none} -> {failure="Pack.Decode.unpack: Coded has missing code {code}"})
@@ -915,10 +927,15 @@ Pack = {{
                            | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad code {failure}"})
                        | {List=(typ,_)} -> list(true, le, signed, size, typ, str, pos, data)
                        | {Array=(typ,_)} -> list(false, le, signed, size, typ, str, pos, data)
-                       )), data, {success=(defaultEndian, defaultInts, defaultSize, pos, [])})
+                       )), data, {success=(ServerReference.get(defaultEndian),
+                                           ServerReference.get(defaultInts),
+                                           ServerReference.get(defaultSize), pos, [])})
       with
       | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
       | {~failure} -> {~failure}
+
+    unpack(data:Pack.data, bin:binary, pos:int) : outcome((int,Pack.data),string) =
+      unpack_from_string(data, string_of_binary(bin), pos)
 
     // meaningful entities
     has_data(u:Pack.u) : bool =
@@ -955,15 +972,6 @@ Pack = {{
 
     // TODO: complete this list of functions
 
-    dump = (%% BslPervasives.memdump %%: string -> string)
-
-    debug = ServerReference.create(false)
-
-    pinput(name, input) =
-      if ServerReference.get(debug)
-      then jlog("{name}: input=\n{dump(String.sub(input.pos, Int.min(32,String.length(input.string)-input.pos), input.string))}")
-      else void
-
     unser_char(input:Pack.input) : Pack.result(string) =
       match char(input.string, input.pos) with
       | {success=c} -> {success=({input with pos=input.pos+1},c)}
@@ -972,7 +980,7 @@ Pack = {{
     unser_int(le:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
       do pinput("unser_int", input)
       match int(le, size, input.string, input.pos) with
-      | {success=i} -> do jlog("unser_int: i={i}") {success=({input with pos=input.pos+sizesize(size)},i)}
+      | {success=i} -> {success=({input with pos=input.pos+sizesize(size)},i)}
       | {~failure} -> {~failure}
 
     unser_float(le:bool, input:Pack.input) : Pack.result(float) =
@@ -1180,7 +1188,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser(unser_a:Pack.input -> Pack.result('a), string:string, use_all_data:bool) : outcome('a,string) =
+    unser_from_string(unser_a:Pack.input -> Pack.result('a), string:string, use_all_data:bool) : outcome('a,string) =
       input = {~string; pos=0}
       do pinput("unser", input)
       match unser_a(input) with
@@ -1192,6 +1200,9 @@ Pack = {{
            {failure="Pack.decode.unser: {unused} unused byte{if unused == 1 then "" else "s"} at end of data"}
          else {success=a}
       | {~failure} -> {~failure}
+
+    unser(unser_a:Pack.input -> Pack.result('a), bin:binary, use_all_data:bool) : outcome('a,string) =
+      unser_from_string(unser_a, string_of_binary(bin), use_all_data)
 
   }}
 
