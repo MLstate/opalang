@@ -891,14 +891,13 @@ Pack = {{
 
     // TODO: complete this list of functions
 
-    //dump = (%% BslMongo.Bson.dump %%: int, string -> string)
-    dump(_, _) = "unactivated dump"
+    dump = (%% BslPervasives.memdump %%: string -> string)
 
     debug = ServerReference.create(false)
 
     pinput(name, input) =
       if ServerReference.get(debug)
-      then jlog("{name}: input=\n{dump(16,String.sub(input.pos, Int.min(32,String.length(input.string)-input.pos), input.string))}")
+      then jlog("{name}: input=\n{dump(String.sub(input.pos, Int.min(32,String.length(input.string)-input.pos), input.string))}")
       else void
 
     unser_char(input:Pack.input) : Pack.result(string) =
