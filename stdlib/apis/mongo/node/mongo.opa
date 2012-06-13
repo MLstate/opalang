@@ -35,6 +35,8 @@ NodeMongo = {{
 
   open = (%% BslMongo.NodeMongo.open %%: NodeMongo.db, continuation((string, NodeMongo.db)) -> void)
 
+  get_database = %%BslMongo.NodeMongo.get_database%% : NodeMongo.server, string, bool -> (string, NodeMongo.db)
+
   close = (%% BslMongo.NodeMongo.close %%: NodeMongo.db, continuation(string) -> void)
 
   collection = (%% BslMongo.NodeMongo.collection %%:
@@ -137,8 +139,7 @@ MongoDriver = {{
   reopen(db:Mongo.db, dbname:string): outcome(Mongo.db,Mongo.failure) =
     match close(db) with
     | {success=db} ->
-      ndb = NodeMongo.db(db.server, dbname, db.allow_slaveok)
-      match @callcc(cont -> NodeMongo.open(ndb, cont)) with
+      match NodeMongo.get_database(db.server, dbname, db.allow_slaveok) with
       | ("", ndb) -> {success={db with db={some=(dbname, ndb)}}}
       | (err, _) -> {failure={Error=err}}
       end

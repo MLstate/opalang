@@ -32,6 +32,8 @@ function getbool(b, dflt) {
     return un_uniformize_bool(b)
 }
 
+var databaseTable = new SimpleTable();
+
 exports.server = BslMongo_NodeMongo_server
 ##register server : string, int, bool, int -> NodeMongo.server
 ##args(host, port, auto_reconnect, poolSize)
@@ -59,6 +61,29 @@ exports.open = BslMongo_NodeMongo_open
 {
   db.open(function(err, db) { cont.execute1({f1:(err === null || err === undefined) ? "" : err.message, f2:db}) })
   return js_void
+}
+
+##register [cps-bypass] get_database : NodeMongo.server, string, bool,\
+ continuation(tuple_2(string, NodeMongo.db)) -> void
+##args(server, name, slaveok, k)
+{
+  var barrier = databaseTable.get(name);
+  if(barrier == null){
+    var db = new Db(name, server, {slaveok: un_uniformize_bool(slaveok)});
+    barrier = new Barrier("mongo_database:"+name);
+    databaseTable.put(name, barrier);
+    db.open(function(err, db){
+      var result;
+      if (err == null){
+        result = {f1 : "", f2:db};
+      } else {
+        result = {f1 : err, f2:0};
+      }
+      barrier.release(result);
+    })
+  }
+  barrier.wait(k);
+  return js_void;
 }
 
 exports.close = BslMongo_NodeMongo_close
