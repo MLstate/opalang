@@ -1,6 +1,5 @@
 stdlib.apis.mongo*
 stdlib.apis.couchdb*
-stdlib.apis.github*
 stdlib.apis.gmaps*
 stdlib.apis.irc*
 stdlib.apis.mongo*
