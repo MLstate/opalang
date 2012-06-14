@@ -298,9 +298,36 @@ type CommandLine.family('state) = {
         }:CommandLine.parser
 
   /**
+    * [bool(names,doc,doc_param)(up)] create a flag with a bool param
+    */
+  bool(names,description,param_doc)(up) =
+       {CommandLine.default_parser with
+        ~names ~description ~param_doc
+        on_param(o) =
+         parser bool=Rule.bool -> {no_params=up(bool,o)}
+        }:CommandLine.parser
+
+  /**
+    * [float(names,doc,doc_param)(up)] create a flag with a float param
+    */
+  float(names,description,param_doc)(up) =
+       {CommandLine.default_parser with
+        ~names ~description ~param_doc
+        on_param(o) =
+         parser float=Rule.float -> {no_params=up(float,o)}
+        }:CommandLine.parser
+
+  /**
    * Get the name of the executable
   **/
   executable : -> string = %% BslSys.self_name %%
+
+  /**
+   * Select items from a list occording to the backend
+   */
+  select_backend(l:list((list(string),'a))) : list('a) =
+    be = %%BslLogger.backend%%()
+    List.map((e -> e.f2),List.filter(((bes, a) -> List.mem(be,bes)),l))
 
   /**
    * {1 Deprecated}

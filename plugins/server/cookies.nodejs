@@ -233,9 +233,9 @@ function init_cookies(opts) {
   //if !cookies_txt_filename <> "" then (load_cookies(); at_exit save_cookies)
 }
 
-exports.default_opts = default_opts;
+exports.cookies_default_opts = cookies_default_opts;
 
-var default_opts = {
+var cookies_default_opts = {
   gc_period:100,
   accept_client_values:false,
   pool_min:100,

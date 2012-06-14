@@ -430,6 +430,8 @@ http._opa_servers = {};
 
 var has_init_server = false;
 
+function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.seconds; }
+
 ##register init_server : \
     string, \
     Server.private.options, \
@@ -447,15 +449,25 @@ var has_init_server = false;
                         var pathname = url.parse(request.url).pathname;
                         increment_cookie_connection_count();
                         var req = cookies_in({timestamp:new Date(), pathname:pathname,
-                                                      server_name:name, cookies:{},
-                                                      request:request, response:response});
+                                             server_name:name, cookies:{},
+                                             request:request, response:response});
                         //if (debug) console.log(req);
                           return dispatcher(req)
                         });
+  opts = cookies_default_opts;
+  opts.gc_period = options.cookie_gc_period;
+  opts.accept_client_values = options.cookie_accept_client_values;
+  opts.pool_min = options.cookie_pool_size_min;
+  opts.pool_max = options.cookie_pool_size_max;
+  opts.timer_interval = options.timer_interval;
+  opts.rate_max = options.cookie_rate_max;
+  opts.dt1 = opt_time(options.dt1);
+  opts.dt2 = opt_time(options.dt2);
+  opts.cookies_filename = options.cookies_filename;
   server.listen(options.port);
   http._opa_servers[name] = {server : server, port : options.port}
   if (!has_init_server) {
-    init_cookies(default_opts);
+    init_cookies(opts);
     has_init_server = true;
   }
   return js_void;
