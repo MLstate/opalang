@@ -237,7 +237,7 @@ type Dropbox.file = {
     } : Dropbox.url
 
   build_file(data) =
-    { content = data.content
+    { content = binary_of_string(data.content)
       mime_type = data.mime_type
     } : Dropbox.file
 
