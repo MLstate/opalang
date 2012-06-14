@@ -497,7 +497,7 @@ String =
         match acc with
         | [] -> source
         | _ ->
-          acc = if stable != i then [Cactutf.sub(source, stable, i - 1 - stable) | acc] else acc
+          acc = if stable != i then [Cactutf.sub(source, stable, i - stable) | acc] else acc
           b = Buffer.create(size)
           do List.iter(Buffer.append(b, _), List.rev(acc))
           Buffer.contents(b)
