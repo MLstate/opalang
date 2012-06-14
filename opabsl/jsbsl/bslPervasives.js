@@ -275,11 +275,13 @@ function jlog_old_style(v){//A version of jlog for browsers
 
 #<Ifstatic:OPABSL_NODE>
 var print_endline = console.log;
+var prerr_endline = console.error;
 function js_print(s){
   console.log(s+"NONEWLINE"); //NONEWLINE is a hack to keep both the command-line JS and reftester happy
 }
 #<Else>
 var print_endline = jlog_old_style;
+var prerr_endline = jlog_old_style;
 var js_print      = jlog_old_style;
 #<End>
 
@@ -288,7 +290,7 @@ var js_print      = jlog_old_style;
  */
 
 ##register print_endline  \ print_endline : string -> void
-##register prerr_endline  \ print_endline : string -> void
+##register prerr_endline  \ prerr_endline : string -> void
 
 ##register print_string \ js_print : string -> void
 ##register prerr_string \ js_print : string -> void
