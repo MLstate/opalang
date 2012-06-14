@@ -24,9 +24,9 @@ static inline struct mliconv_t *mliconv_val(value data)
 
 static void mliconv_finalize(value r);
 static int mliconv_compare(value left, value right);
-static long mliconv_hash(value data);
-static void mliconv_serialize(value v, unsigned long * wsize_32, unsigned long * wsize_64);
-static unsigned long mliconv_deserialize(void * dst);
+static intnat mliconv_hash(value data);
+static void mliconv_serialize(value v, uintnat * wsize_32, uintnat * wsize_64);
+static uintnat mliconv_deserialize(void * dst);
 
 static struct custom_operations iconv_ops = {
 	"jp.halfmoon.panathenaia.iconv",
@@ -58,7 +58,7 @@ static int mliconv_compare(value left, value right)
 	CAMLreturn(result);
 }
 
-static long mliconv_hash(value data)
+static intnat mliconv_hash(value data)
 {
 	CAMLparam1(data);
 	struct mliconv_t *internal = mliconv_val(data);
@@ -66,7 +66,7 @@ static long mliconv_hash(value data)
 	CAMLreturn(result);
 }
 
-static void mliconv_serialize(value v, unsigned long * wsize_32, unsigned long * wsize_64)
+static void mliconv_serialize(value v, uintnat * wsize_32, uintnat * wsize_64)
 {
 	CAMLparam1(v);
 	*wsize_32 = 4 * 3;
@@ -81,7 +81,7 @@ static void mliconv_serialize(value v, unsigned long * wsize_32, unsigned long *
 	CAMLreturn0;
 }
 
-static unsigned long mliconv_deserialize(void * dst)
+static uintnat mliconv_deserialize(void * dst)
 {
 	CAMLparam0();
 	size_t to_len = deserialize_uint_4();
@@ -137,9 +137,9 @@ CAMLprim value mliconv_convert(value conv, value source)
 	CAMLparam2(conv, source);
 	CAMLlocal1(result);
 	struct mliconv_t *internal = mliconv_val(conv);
-#if (defined(__FreeBSD__) || defined(__FreeBSD_kernel__))
- 	const
-#endif
+/* #if !defined(__APPLE__) */
+/* 	const */
+/* #endif */
 	char *s = String_val(source);
 	size_t s_len = caml_string_length(source);
 	size_t d_len = s_len * 6;
