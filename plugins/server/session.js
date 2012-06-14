@@ -526,7 +526,7 @@ var LowLevelPingLoop = {};
                     } else {
                         panged[result.id]=result.body;
                     }
-                } else if (f===undefined){
+                } else if (result===undefined){
                     if(attempt >= max_pang_attempt) {
                         delete(panged[id]);
                         panged.waiting_pang--;
