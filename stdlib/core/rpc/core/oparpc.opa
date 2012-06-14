@@ -219,13 +219,16 @@ type OpaRPC.interface = {{
       | {some = cached} -> cached
     ))
 
-
   /**
    * Sending a request to server.
    * TODO for CPS client use callcc?
    */
   send_to_server(fun_name, request, ty) =
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    mr = PingClient.sync_request : string, string -> string
+    #<Else>
     mr = %%Session.PingRegister.pang_request%% : string, string -> string
+    #<End>
     url = "/rpc_call/" ^ fun_name
     ty_success = [{label="success" ~ty}]
     ty_failure = [{label="failure" ty={TyRecord_row = []}}]
@@ -238,9 +241,16 @@ type OpaRPC.interface = {{
         error("OPARPC : Request on {url} has failed")
 
   async_send_to_server(fun_name, request, _) =
-    mr = %% Session.PingRegister.ping_async_call %%: string, string -> void
     url= "/rpc_call/" ^ fun_name
-    mr(url, OpaRPC.serialize(request))//Ignore results
+    body = OpaRPC.serialize(request)
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    PingClient.async_request(url, body)
+    #<Else>
+    mr = %%Session.PingRegister.pang_request%% : string, string -> string
+    ignore(mr(url, body))
+    #<End>
+
+
 
   /**
    * This module is a dispatcher of RPC on client
