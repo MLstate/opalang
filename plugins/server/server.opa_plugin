@@ -19,8 +19,10 @@ bslClientCode.ml
 bslClientEvent.ml
 bslIdentGen.ml
 bslServer_event.ml
+bslServer_event.nodejs
 bslCommandLine.ml
 bslXmlm.ml
+bslXmlm.nodejs
 bslI18n.ml
 bslI18n.js
 session.ml

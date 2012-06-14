@@ -21,6 +21,8 @@ var debug = false
 ##extern-type list('a)
 //'
 
+##opa-type tuple_3('a, 'b, 'c)
+
 function DummyOpaResponse(at_end){
   this.is_dummy = true;
   this.at_end = at_end;
@@ -477,6 +479,12 @@ var has_init_server = false;
   return %%BslNet.Http_server.init_server%%(name, port, certfileo, privkeyo, passwdo, secure_type, dispatcher_cps, ontransfer);
 }
 
+##register get_remote_logs_params : -> opa[option(tuple_3(string, int, string))]
+##args()
+{
+    console.warn("Warning: BslNet.Http_server.get_remote_logs_params is not yet implemented");
+    return js_none;
+}
 ##endmodule
 
 ##extern-type WebClient.failure
