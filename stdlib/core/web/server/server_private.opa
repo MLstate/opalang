@@ -282,10 +282,7 @@ Server_private = {{
             | rpc_handler
             | cell_handler
             #<End>
-            #<Ifstatic:OPA_BACKEND_QMLJS>
-            #<Else>
             | resource=DynamicResource.parser_() -> export(winfo, resource)
-            #<End>
             | js_parser   -> export(winfo, provide_js)
             | css_parser  -> export(winfo, provide_css)
             | "src_code" -> export(winfo, AppSources.page())

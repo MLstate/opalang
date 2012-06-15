@@ -16,9 +16,6 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#<Ifstatic:OPA_BACKEND_QMLJS>
-#<Else>
-
 import stdlib.core.{fresh, qos}
 
 /**
@@ -358,8 +355,7 @@ type DynamicResource.message =
   **/
   @private collectable_parameters_state(_parameters_state) = false
 
-  @private get_executable_id    = %% BslInit.get_executable_id %%: -> string
-  @private executable_path      = "{get_executable_id()}/"
+  @private executable_path      = "{ExecInit.id()}/"
   @private some_executable_path = {some = executable_path}
 
   /**
@@ -398,4 +394,3 @@ type DynamicResource.message =
         key = Text.to_string(t)
         find_resource(key)
 }}
-#<End>
