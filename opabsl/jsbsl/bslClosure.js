@@ -86,22 +86,9 @@ function get_local_unsafe(str) {
 ##register create_anyarray : 'impl, int, 'ident -> Closure.t
 ##args(f,n,identifier)
 {
-    var new_closure = function() { return f.call(null,arguments) };
+    var new_closure = function() { return f.apply(null,arguments) };
     new_closure.identifier = identifier;
     return new_closure;
-}
-
-##register [cps-bypass] create_anyarray_cps \ `create_anyarray_cps` : 'impl, int, 'ident, continuation(Closure.t) -> void
-function create_anyarray_cps(f,n,identifier,k)
-{
-    /*
-    var any_cps = function(args){
-        var k = args.pop();
-        return f(args, k);
-    }
-    return %BslClosure.create%(any_cps, n+1, identifier);
-    */
-    error("TODO create_any_array_cps")
 }
 
 /**
