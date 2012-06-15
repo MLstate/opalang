@@ -201,8 +201,10 @@ var connect = mongo.connect;
         return {Symbol : x.valueOf()};
       } else if(c === mongo.MaxKey){
         return {Max : js_void};
-      } else if(c === mongo.MaxKey){
+      } else if(c === mongo.MinKey){
         return {Min : js_void};
+      } else if(c === Date){
+        return {Date : x.getMilliseconds()};
       } else {
         console.error("NodeBson.to_value", x, c);
         throw (new Error("Unknown mongo object"))
