@@ -17,7 +17,10 @@ var debug = true
   ##opa-type Email.send_status
 
   ##register [cps-bypass] mail_send_fun : \
-    string, string, string, string, string, string, string, string, string, \
+    string, string, \
+    caml_list(string), \
+    string, string, string, \
+    string, string, string, \
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
     option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], option(SSL.secure_type), \
@@ -40,7 +43,6 @@ var debug = true
       	      add_field(headers, header.f1, header.f2);
       })
 
-      if (mto == "") mto = mdst;
       var mailOptions = {
 	  from: mfrom, // sender address
 	  to: mto, // list of receivers

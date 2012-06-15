@@ -46,7 +46,10 @@ let opa_list_to_ocaml_list f l =
   ##opa-type Email.send_status
 
   ##register [cps-bypass] mail_send_fun : \
-    string, string, string, string, string, string, string, string, string, \
+    string, string, \
+    caml_list(string), \
+    string, string, string, \
+    string, string, string, \
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
     option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], option(SSL.secure_type), \
@@ -83,13 +86,16 @@ let opa_list_to_ocaml_list f l =
     in
     let mcc = if mcc = "" then None else Some mcc in
     let mbcc = if mbcc = "" then None else Some mbcc in
-    match secure_type with
-    | Some (client_certificate, verify_params) ->
-	SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
-	QmlCpsServerLib.return k ServerLib.void
-    | None ->
-	SmtpClient.mail_send_aux Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
-	QmlCpsServerLib.return k ServerLib.void
+    List.iter (
+      fun mdst ->
+	match secure_type with
+	| Some (client_certificate, verify_params) ->
+	    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+	    QmlCpsServerLib.return k ServerLib.void
+	| None ->
+	    SmtpClient.mail_send_aux Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+	    QmlCpsServerLib.return k ServerLib.void
+    ) mdst
 
 ##endmodule
 

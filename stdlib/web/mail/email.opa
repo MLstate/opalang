@@ -297,6 +297,10 @@ Email = {{
     | { ok=s } -> "ok : {s}"
     | { error=e } -> "error : {e}"
 
+  emails_list_to_string(emails) =
+    List.map(to_string, emails)
+    |> List.to_string_using("", "", ", ", _)
+
   @private
   send_async(
     from : Email.email,
@@ -334,16 +338,17 @@ Email = {{
     files = %% BslNativeLib.opa_list_to_ocaml_list %%(f, files)
     f = %% BslNativeLib.ocaml_tuple_2 %%
     custom_headers = %% BslNativeLib.opa_list_to_ocaml_list %%(f, options.custom_headers)
-    mto = List.map(to_string, options.to)
-          |> List.to_string_using("", "", ", ", _)
-    mcc = List.map(to_string, options.cc)
-          |> List.to_string_using("", "", ", ", _)
-    mbcc = List.map(to_string, options.bcc)
-           |> List.to_string_using("", "", ", ", _)
+    mto = emails_list_to_string(options.to)
+    mcc = emails_list_to_string(options.cc)
+    mbcc = emails_list_to_string(options.bcc)
+    dst = [to] ++ options.to ++ options.cc ++ options.bcc
+    dst = List.map(to_string_only_address, List.unique_list_of(dst))
+    dst = %% BslNativeLib.opa_list_to_ocaml_list %%(identity, dst)
     %% BslMail.Mailserve.mail_send_fun %%(
       to_string(from), to_string_only_address(from),
-      to_string_only_address(to), mto, mcc, mbcc,
-      subject, text, html, files, custom_headers,
+      dst, mto, mcc, mbcc,
+      subject, text, html,
+      files, custom_headers,
       options.via,
       options.server_addr, options.server_port,
       options.auth, options.user, options.pass,
