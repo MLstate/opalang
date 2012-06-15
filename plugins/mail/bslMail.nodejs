@@ -1,4 +1,6 @@
 var nodemailer = require("nodemailer");
+var simplesmtp = require("simplesmtp");
+var fs = require("fs");
 
 var debug = true
 
@@ -26,7 +28,7 @@ var debug = true
     option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], option(SSL.secure_type), \
     (opa[email_send_status], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
-##args(mfrom,mfrom_address_only,mdst,mto,mcc,mbcc,subject,mdata,html,files,custom_headers,via,addr,port,auth,user,pass,dryrun,secure_type,cont,k)
+##args(mfrom,mfrom_address_only,mdst,mto,mcc,mbcc,subject,mdata,html,files,custom_headers,via,addr,port,auth,user,pass,dryrun,secure_type,callback,k)
   {
 
       var attachments = files.map(function(file) {
@@ -80,17 +82,17 @@ var debug = true
       }
 
       if (dryrun) {
-	  if (smtpTransport) cont({ok:""}, k.ccont(function(){}))
-	  else cont({error:""}, k.ccont(function(){}))
+	  if (smtpTransport) callback({ok:""}, k.ccont(function(){}))
+	  else callback({error:""}, k.ccont(function(){}))
       } else {
 	  // send mail with defined transport object
 	  smtpTransport.sendMail(mailOptions, function(error, response){
 	      if (error) {
 		  console.log(error);
-		  cont({error:error}, k.ccont(function(){}))
+		  callback({error:error}, k.ccont(function(){}))
 	      } else {
 		  console.log("Message sent: " + response.message);
-		  cont({ok:""}, k.ccont(function(){}))
+		  callback({ok:""}, k.ccont(function(){}))
 	      }
 	      smtpTransport.close();
 	  });
@@ -125,10 +127,50 @@ var debug = true
 
 ##module Mailserver
 
-  ##register [cps-bypass] init_server : int, string, SSL.secure_type, \
-    (opa[string], opa[list(string)], opa[string], continuation(opa[tuple_2(int, string)]) -> void), continuation(opa[void]) -> void
-  ##args(port,addr,secure_type,handler,cvoid)
+  ##register [cps-bypass] init_server : \
+    int, string, option(SSL.secure_type), \
+    (opa[string], opa[list(string)], opa[string], continuation(opa[tuple_2(int, string)]) -> void), \
+    continuation(opa[void]) -> void
+  ##args(port,addr,secure_type,handler,k)
   {
+
+      var secure = !(secure_type.none);
+
+      var smtp = simplesmtp.createServer({
+	  debug: debug,
+	  requireAuthentication: false,
+	  enableAuthentication: false,
+	  secureConnection: secure
+      });
+      smtp.listen(port);
+
+      smtp.on("startData", function(envelope){
+	  if (debug) {
+	      console.log("Message from:", envelope.from);
+	      console.log("Message to:", envelope.to);
+	  };
+	  envelope.data = "";
+      });
+
+      smtp.on("data", function(envelope, chunk){
+	  envelope.data += chunk;
+      });
+
+      smtp.on("dataReady", function(envelope, callback){
+	  //console.log(envelope.data);
+	  handler(envelope.from, js2list(envelope.to), envelope.data,
+		  k.ccont(function(res){
+		      if (res.f1 == 250) {
+	      		  var queue_id = Date.now();
+	      		  callback(null, queue_id); // ABC1 is the queue id to be advertised to the client
+		      } else {
+	      		  callback(new Error(res.f2));
+		      };
+		  }),
+		  k.ccont(function(){}));
+      });
+
+      return_(k, js_void);
       return js_void;
   }
 

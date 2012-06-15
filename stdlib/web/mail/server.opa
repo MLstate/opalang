@@ -45,8 +45,6 @@ SmtpServer = {{
       | {failure = {forbidden}} -> (553,"Requested action not taken: mailbox name not allowed")
       | {failure = {error = txt}} -> (503,txt)
 
-    st = ssl ? SSL.make_secure_type({none},{none})
-
-    init_server(port, IPv4.string_of_ip(ip), st, handler_wrapper)
+    init_server(port, IPv4.string_of_ip(ip), ssl, handler_wrapper)
 
 }}

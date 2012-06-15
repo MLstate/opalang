@@ -292,27 +292,38 @@ let opa_list_to_ocaml_list f l =
 
 ##module mailserver
 
-  ##register [cps-bypass] init_server : int, string, SSL.secure_type, \
-    (opa[string], opa[list(string)], opa[string], continuation(opa[tuple_2(int, string)]) -> void), continuation(opa[void]) -> void
+  ##register [cps-bypass] init_server : \
+    int, string, option(SSL.secure_type), \
+    (opa[string], opa[list(string)], opa[string], continuation(opa[tuple_2(int, string)]) -> void), \
+    continuation(opa[void]) -> void
   let init_server port addr secure_type handler cvoid =
-    let ssl_certificate, ssl_verify_params = secure_type in
     let caml_handler email k =
       let f = ServerLib.wrap_string email.SmtpServerCore.from in
       let c = Rcontent.get_content email.SmtpServerCore.body in
       let c = ServerLib.wrap_string c in
       let t = caml_list_to_opa_list ServerLib.wrap_string email.SmtpServerCore.dests in
-      handler f t c (QmlCpsServerLib.cont_ml (
-                       fun res -> let i, s = BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 res)) in
-                       k (ServerLib.unwrap_int i, ServerLib.unwrap_string s)))
+      handler f t c (
+	QmlCpsServerLib.cont_ml (
+          fun res ->
+	    let i, s = BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 res)) in
+	    k (ServerLib.unwrap_int i, ServerLib.unwrap_string s))
+      )
     in
-    let _ = Runtime.add_smtpServer "smtpServer" {
+    let options = {
       SmtpServer.default_options with
         SmtpServer.opt_addr = addr;
         SmtpServer.opt_port = port;
-        SmtpServer.opt_ssl_certificate   = ssl_certificate;
-        SmtpServer.opt_ssl_verify_params = ssl_verify_params;
         SmtpServer.opt_email_handler = caml_handler;
-    } in QmlCpsServerLib.return cvoid ServerLib.void
+    } in
+    let options = match secure_type with
+    | None -> options
+    | Some (ssl_certificate, ssl_verify_params) -> {
+	options with
+          SmtpServer.opt_ssl_certificate   = ssl_certificate;
+          SmtpServer.opt_ssl_verify_params = ssl_verify_params;
+      } in
+    let _ = Runtime.add_smtpServer "smtpServer" options
+    in QmlCpsServerLib.return cvoid ServerLib.void
 
 ##endmodule
 
