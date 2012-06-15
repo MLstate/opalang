@@ -104,7 +104,6 @@ Barrier.prototype = {
      */
     release: function(result)
     {
-        cps_assert(result != null, "[Barrier.release] invoked on [null] result");
         cps_assert(!this._is_computed, "[Barrier.release] invoked on already released barrier");
         cps_debug("[Barrier.release] Releasing barrier "+this._id);
         this._is_computed = true;
