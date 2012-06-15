@@ -845,9 +845,10 @@ struct
       v
     with
     | e ->
-        error "%a@\n@[<2>  An error occurred while trying to read package %s: %s.@]"
+        error "%a@\n@[<2>  An error occurred while trying to read package %s[%s]: %s.@]"
           FilePos.pp_pos pos
           package_name
+          name
           (Printexc.to_string e)
   module M = MakeMemo(Package)
   let (load1 : package -> t), _set_load1, unset_load1 = M.memo_but_exn load1_no_memo
