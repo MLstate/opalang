@@ -17,7 +17,7 @@
 */
 
 /**
- * Library for treating MIME.
+ * Library for handling MIME.
  *
  * @author Frederic Ye, 2012
  * @category Email
@@ -72,7 +72,7 @@ type Mime.message = {
 }
 
 /**
- * Module for treating MIME message.
+ * Module for handling MIME message.
  * @see http://tools.ietf.org/html/{rfc2045/rfc2046/rfc2047}
  *
  * Encoding can be handled afterwards, with the Iconv module
@@ -278,7 +278,7 @@ Mime = {{
   @private
   parse_body_part(headers:Mime.headers, body:string) : Mime.body_part =
     match Header.find("Content-Type", headers)
-    {none} -> {plain=(default_charset, body |> binary_of_string)} // No Content-Type, treat as plain text
+    {none} -> {plain=(default_charset, body |> binary_of_string)} // No Content-Type, handle as plain text
     {some=content_type} ->
 
       content_type_list =

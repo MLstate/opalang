@@ -23,8 +23,6 @@
  * @destination public
  */
 
-import stdlib.crypto
-
 /**
  * {1 Types}
  */
@@ -63,7 +61,7 @@ type Email.file =
 /**
  * A list of file attachments
  */
-type Email.attachments = list(Email.file)
+type Email.files = list(Email.file)
 
 /**
  * Type of an email content
@@ -96,7 +94,7 @@ type Email.options = {
   cc : list(Email.email)
   bcc : list(Email.email)
   custom_headers : list((string, string))
-  files : Email.attachments
+  files : Email.files
   via : option(string)
   server_addr : option(string)
   server_port : option(int)
@@ -106,47 +104,6 @@ type Email.options = {
   dryrun : bool
   secure_type : option(SSL.secure_type)
 }
-
-type Email.imap_command =
-    { ImapSelect : string }
-  / { ImapExamine : string }
-  / { ImapNoop }
-  / { ImapFetch : (bool, string, string) }
-  / { ImapStore : (bool, string, string, string) }
-  / { ImapSearch : (bool, string) }
-  / { ImapSearchCs : (bool, string, string) }
-  / { ImapCopy : (bool, string, string) }
-  / { ImapList : (string, string) }
-  / { ImapCreate : string }
-  / { ImapDelete : string }
-  / { ImapRename : (string, string) }
-  / { ImapStatus : (string, string) }
-  / { ImapAppend : (string, string, string, string) }
-  / { ImapExpunge }
-
-//type Email.imap_status = {
-//  flags : string
-//  exists : int
-//  recent : int
-//  oks : string list
-//  rwstatus : string
-//}
-
-type Email.imap_result =
-    { Ok : string }
-  / { No : string }
-  / { Bad : string }
-  / { SelectResult : (string,int,int,list(string),string) }
-  / { ExamineResult : (string,int,int,list(string),string) }
-  // { NoopResult : Email.imap_status }
-  / { NoopResult : (string,int,int,list(string),string) }
-  / { SearchResult : list(int) }
-  / { FetchResult : list((int, string, string)) }
-  / { StoreResult : list((int, string)) }
-  / { ListResult : list((string, string, string)) }
-  / { StatusResult : list((string, string)) }
-  / { ExpungeResult : list(int) }
-  / { Error : string }
 
 type caml_tuple_2('a,'b) = external
 type caml_tuple_4('a,'b,'c,'d) = external
@@ -284,98 +241,6 @@ Email = {{
     "{email.address.local}@{email.address.domain}"
 
   is_valid_string(s:string) = Option.is_some(of_string_opt(s))
-
-  /**
-   * {1} Sending Email.
-   */
-
-  string_of_send_status(s : Email.send_status) =
-    match s with
-    | { bad_sender } -> "bad sender"
-    | { bad_recipient } -> "bad recipient"
-    | { sending } -> "sending"
-    | { ok=s } -> "ok : {s}"
-    | { error=e } -> "error : {e}"
-
-  emails_list_to_string(emails) =
-    List.map(to_string, emails)
-    |> List.to_string_using("", "", ", ", _)
-
-  @private
-  send_async(
-    from : Email.email,
-    to : Email.email,
-    subject : string,
-    mail_content : Email.content,
-    options : Email.options,
-    k : (Email.send_status -> void)
-  ) : void =
-    (text, html) =
-      match mail_content with
-      | {~text} -> (text, "")
-      | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
-      | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
-    files =
-      List.filter_map(x ->
-        match x with
-        | ~{filename content mime_type} ->
-           if String.has_prefix("text/", mime_type)
-           then some((filename,mime_type,"8bit",content))
-           else some((filename,mime_type,"base64",Crypto.Base64.encode(content)))
-        | ~{filename content mime_type encoding} ->
-          some((filename,mime_type,encoding,content))
-        | ~{filename resource} ->
-           match Resource.export_data(resource) with
-           | {some=~{data mimetype}} ->
-             data = string_of_binary(data)
-             if String.has_prefix("text/", mimetype)
-             then some((filename,mimetype,"8bit",data))
-             else some((filename,mimetype,"base64",Crypto.Base64.encode(data)))
-           | {none} -> {none}
-           end
-      , options.files)
-    f = %% BslNativeLib.ocaml_tuple_4 %%
-    files = %% BslNativeLib.opa_list_to_ocaml_list %%(f, files)
-    f = %% BslNativeLib.ocaml_tuple_2 %%
-    custom_headers = %% BslNativeLib.opa_list_to_ocaml_list %%(f, options.custom_headers)
-    mto = emails_list_to_string(options.to)
-    mcc = emails_list_to_string(options.cc)
-    mbcc = emails_list_to_string(options.bcc)
-    dst = [to] ++ options.to ++ options.cc ++ options.bcc
-    dst = List.map(to_string_only_address, List.unique_list_of(dst))
-    dst = %% BslNativeLib.opa_list_to_ocaml_list %%(identity, dst)
-    %% BslMail.SmtpClient.mail_send_fun %%(
-      to_string(from), to_string_only_address(from),
-      dst, mto, mcc, mbcc,
-      subject, text, html,
-      files, custom_headers,
-      options.via,
-      options.server_addr, options.server_port,
-      options.auth, options.user, options.pass,
-      options.dryrun,
-      options.secure_type, k
-    )
-
-  /**
-   * Try to send a mail {b synchronously}
-   */
-  try_send(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options) : Email.send_status =
-    k(cont) =
-      f(r) = Continuation.return(cont, r)
-      send_async(from, to, subject, content, options, f)
-    @callcc(k)
-
-  /**
-   * Try to send a mail {b asynchronously}
-   */
-  try_send_async(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options, continuation : (Email.send_status -> void)) : void =
-    send_async(from, to, subject, content, options, continuation)
-
-}}
-
-Imap = {{
-
-  command = %% BslMail.ImapClient.command %% : int , string, option(SSL.secure_type), string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
 
 }}
 
