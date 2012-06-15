@@ -833,16 +833,22 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
-    @private unpack_string(data:Pack.data, le:bool, signed:bool, actual_size:Pack.s, return_size:Pack.s, str:string, pos:int)
+    @private unpack_string(data:Pack.data, le:bool, signed:bool, actual_size:option(Pack.s), return_size:Pack.s,
+                           str:string, pos:int)
                            : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+      real_size = Option.default(return_size, actual_size)
       match
-        match actual_size with
+        match real_size with
         | {B} -> string_b(str, pos)
         | {L} -> string_l(le, str, pos)
         | {S} -> string_s(le, str, pos)
         | {Ll} -> string_ll(le, str, pos)
       with
-      | {success=s} -> {success=(le, signed, return_size, pos+String.length(s)+sizesize(actual_size), [{String=s}|data])}
+      | {success=s} ->
+         {success=(le, signed, return_size, pos+String.length(s)+sizesize(real_size),
+                   [(if Option.is_some(actual_size)
+                     then {String=s; size=Option.get(actual_size)}
+                     else {String=s})|data])}
       | {~failure} -> {~failure}
 
     // unpack data
@@ -913,8 +919,8 @@ Pack = {{
                           (match cstring(str, pos) with
                            | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
                            | {~failure} -> {~failure})
-                       | {String=_} -> unpack_string(data, le, signed, size, size, str, pos)
-                       | {String=_; size=actual_size} -> unpack_string(data, le, signed, actual_size, size, str, pos)
+                       | {String=_} -> unpack_string(data, le, signed, {none}, size, str, pos)
+                       | {String=_; size=actual_size} -> unpack_string(data, le, signed, {some=actual_size}, size, str, pos)
                        | {Float=_} ->
                           (match float(le, str, pos) with
                            | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float}|data])}
@@ -944,35 +950,35 @@ Pack = {{
       unpack_from_string(data, string_of_binary(bin), pos)
 
     // meaningful entities
-    has_data(u:Pack.u) : bool =
+    has_data(u:Pack.u) : option(Pack.u) =
       match u with
-      | {Be} -> false
-      | {Le} -> false
-      | {Signed} -> false
-      | {Unsigned} -> false
-      | {B} -> false
-      | {S} -> false
-      | {L} -> false
-      | {Ll} -> false
-      | {Char=_} -> true
-      | {Byte=_} -> true
-      | {Short=_} -> true
-      | {Long=_} -> true
-      | {Longlong=_} -> true
-      | {Int=_} -> true
-      | {Pad} -> false
-      | {Padn=_} -> false
-      | {Void} -> true
-      | {Bool=_} -> true
-      | {Cstring=_} -> true
-      | {String=_; ...} -> true
-      | {Float=_} -> true
-      | {Coded=_} -> true
-      | {List=_} -> true
-      | {Array=_} -> true
+      | {Be} -> none
+      | {Le} -> none
+      | {Signed} -> none
+      | {Unsigned} -> none
+      | {B} -> none
+      | {S} -> none
+      | {L} -> none
+      | {Ll} -> none
+      | {Char=_} -> {some=u}
+      | {Byte=_} -> {some=u}
+      | {Short=_} -> {some=u}
+      | {Long=_} -> {some=u}
+      | {Longlong=_} -> {some=u}
+      | {Int=_} -> {some=u}
+      | {Pad} -> none
+      | {Padn=_} -> none
+      | {Void} -> {some=u}
+      | {Bool=_} -> {some=u}
+      | {Cstring=_} -> {some=u}
+      | {~String; ...} -> {some={~String}}
+      | {Float=_} -> {some=u}
+      | {Coded=_} -> {some=u}
+      | {List=_} -> {some=u}
+      | {Array=_} -> {some=u}
 
     // cleanup elements with no data
-    clean(data:Pack.data) = List.filter(has_data, data)
+    clean(data:Pack.data) = List.filter_map(has_data, data)
 
     // The unser functions provide a compositional functional decode over the Pack.input type
 
