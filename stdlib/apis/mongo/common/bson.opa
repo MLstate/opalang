@@ -669,6 +669,24 @@ Bson = {{
     if nty === ty then f()
     else f2(nty)
 
+  @private // TODO - Move
+  percent_encode(source:string, escape:Unicode.character -> bool) =
+    String.replace_char(source, escape, Int.to_hex)
+
+  @private // TODO - Move + be stable if no replacement needed
+  percent_decode(source) =
+    b = Buffer.create(String.length(source))
+    p : Parser.general_parser(void) = parser
+      | [%] h=Rule.hexadecimal -> Buffer.append(b, Cactutf.cons(h))
+      | c=. -> Buffer.append(b, Cactutf.cons(c))
+    do Parser.parse(p, source)
+    Buffer.contents(b)
+
+  encode_field =
+    percent_encode(_, (|'.' | '$' -> true | _ -> false))
+
+  decode_field = percent_decode
+
   rec_to_bson(v:'a, fields:OpaType.fields): Bson.document =
     List.flatten(OpaValue.Record.fold_with_fields((field, tyfield, value, bson ->
                                                     name = OpaValue.Record.name_of_field_unsafe(field)
@@ -684,7 +702,7 @@ Bson = {{
   map_to_bson(key:string, v:'a, kty:OpaType.ty, dty:OpaType.ty): Bson.document =
     doc = List.flatten(Map.fold((k, v, acc ->
                                     k = OpaSerialize.serialize_with_type(kty, k)
-                                    k = %%BslMongo.Mongo.encode_field%%(k)
+                                    k = encode_field(k)
                                     (doc = opa_to_document(k, v, dty)
                                      ((doc +> acc):list(Bson.document)))), @unsafe_cast(v), []))
     [H.doc(key,doc)]
@@ -876,7 +894,7 @@ Bson = {{
             (match String.ordering(field.label,name) with
              | {eq} -> next()
              | _ ->
-               match String.ordering(field.label, %%BslMongo.Mongo.decode_field%%(name))
+               match String.ordering(field.label, decode_field(name))
                | {eq} -> next()
                | {lt} -> optreg(name, field, frest, [element|erest], acc)
                | {gt} -> (acc, true))
@@ -1029,7 +1047,7 @@ Bson = {{
                             | {none} ->
                               fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
                             | {some=v} ->
-                              elname = %%BslMongo.Mongo.decode_field%%(element.name)
+                              elname = decode_field(element.name)
                               match OpaSerialize.unserialize(elname, kty) with
                               | {none} -> fatal("Failed for map key {element.name} type {kty}")
                               | {some = k} -> Map.add(k, v, im))
