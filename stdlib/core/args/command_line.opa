@@ -323,7 +323,7 @@ type CommandLine.family('state) = {
   executable : -> string = %% BslSys.self_name %%
 
   /**
-   * Select items from a list occording to the backend
+   * Select items from a list according to the backend
    */
   select_backend(l:list((list(string),'a))) : list('a) =
     be = %%BslLogger.backend%%()
