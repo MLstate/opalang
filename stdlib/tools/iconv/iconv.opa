@@ -50,6 +50,6 @@ Iconv = {{
    */
   convert_to_utf8(from:string, s:binary) : string =
     iconv = open({~from to="utf-8"})
-    convert(iconv, s)
+    string_of_binary(convert(iconv, s))
 
 }}
