@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -565,8 +565,62 @@ object (self)
       self#statements body
 end
 
+class scoped_printer =
+object(self)
+  inherit printer as super
+  method ident f i =
+    match i with
+    | J.ExprIdent e ->
+        begin match Ident.safe_get_package_name e with
+        | None -> pps f (safe_str (Ident.stident e))
+        | Some name ->
+            pp f "%s.%s"
+              (safe_str name)
+              (safe_str (Ident.stident e))
+        end
+    | J.Native (_, s) -> pps f s
+
+  method private toplvl_statement f s =
+    match s with
+    | J.Js_var (_, ident, o) -> (
+        match o with
+        | None -> super#statement f s
+        | Some expr ->
+            match ident with
+            | J.Native _ -> super#statement f s
+            | J.ExprIdent i ->
+                match Ident.safe_get_package_name i with
+                | None -> super#statement f s
+                | Some _ ->
+                    pp f "@[<hv 2>%a =@ %a;@]"
+                      self#ident ident
+                      (self#pexpr ~leading:false pAssignment) expr
+      )
+    | J.Js_function (_, ident, params, body) -> (
+        match ident with
+        | J.Native _ -> super#statement f s
+        | J.ExprIdent i ->
+            match Ident.safe_get_package_name i with
+            | None -> super#statement f s
+            | Some _ ->
+                pp f "@[<hv2>%a =@ function @[<hv 1>(%a)@]{@\n%a@]@\n}"
+                  self#ident ident
+                  (pp_list ",@ " self#ident) params
+                  self#statements body
+      )
+    | _ -> self#statement f s
+
+  method code f code =
+    pp f "var %s = {};" (safe_str (ObjectFiles.get_current_package_name ()));
+    pp f "%a@\n" (pp_list "@\n" self#toplvl_statement) code
+
+
+end
+
+
 let pp = new printer
 let debug_pp = new debug_printer
+let scoped_pp = new scoped_printer
 
 let string_of_ident = Format.to_string pp#ident
 let code = Format.to_string pp#code

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,6 +19,7 @@
    Printer for JsAst, and functor for serialization of js.
    @author Maxime Audoin (previous version)
    @author Mathieu Barbin, adapted for OPA from ocamljs/jslib
+   @author Quentin Bourgerie (scoped)
 *)
 
 (**
@@ -57,6 +58,8 @@ val pp : printer
 
 (** same as pp, but prints the blocks instead of hiding them *)
 val debug_pp : printer
+
+val scoped_pp : printer
 
 (** {6 Stringfier} *)
 

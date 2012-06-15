@@ -216,7 +216,7 @@ struct
       Format.fprintf (Format.formatter_of_out_channel (open_out (Filename.concat env_opt.compilation_directory "obj.js"))) "%a" S.pp save
     in
     R.save save;
-    let content = JsPrint.code env_js_input.js_code in
+    let content = Format.to_string JsPrint.scoped_pp#code env_js_input.js_code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
