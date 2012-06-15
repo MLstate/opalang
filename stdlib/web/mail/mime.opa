@@ -67,7 +67,7 @@ type Mime.entity = {
 }
 
 type Mime.message = {
-  raw : binary
+  raw : string
   content : Mime.entity
 }
 
@@ -91,7 +91,7 @@ Mime = {{
     | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> String.of_byte_val(16 * fst + snd)
     | "_"  -> " "
 
-    decode(s:binary) =
+    decode(s:string) =
       p = parser l=q_parser+ -> String.flatten(l)
       match Parser.try_parse(p, s)
       {some=s} -> s
@@ -237,7 +237,7 @@ Mime = {{
   @private
   multipart(body, boundary) =
     match Parser.try_parse_opt(Multipart.parser(boundary), body)
-    {none} -> {plain=(default_charset, body)}
+    {none} -> {plain=(default_charset, body |> binary_of_string)}
     {some=content} -> {multipart=content}
 
   @private
@@ -278,7 +278,7 @@ Mime = {{
   @private
   parse_body_part(headers:Mime.headers, body:string) : Mime.body_part =
     match Header.find("Content-Type", headers)
-    {none} -> {plain=(default_charset, body)} // No Content-Type, treat as plain text
+    {none} -> {plain=(default_charset, body |> binary_of_string)} // No Content-Type, treat as plain text
     {some=content_type} ->
 
       content_type_list =
@@ -294,6 +294,7 @@ Mime = {{
         match Header.find("Content-Transfer-Encoding", headers)
         {none} -> decode_body(body, charset)
         {some=cte} -> decode_body(body, cte)
+      binary_body = binary_of_string(decoded_body)
 
       match content_type
       | "multipart/mixed" ->
@@ -311,22 +312,22 @@ Mime = {{
           if content_type == "text/html" then
             {html=Xhtml.of_string(decoded_body)}
           else
-            {plain=(charset, decoded_body)}
+            {plain=(charset, binary_body)}
         {some=cd} ->
           if content_type == "text/plain" && cd == "inline" then
-            {plain=(charset, decoded_body)}
+            {plain=(charset, binary_body)}
           else if content_type == "text/html" && cd == "inline" then
             {html=Xhtml.of_string(decoded_body)}
           else
             filename = String.explode(";", cd)
                        |> List.map(String.trim, _)
                        |> Header.extract_value("filename", _)
-            if String.is_empty(filename) then {plain=(charset, decoded_body)}
+            if String.is_empty(filename) then {plain=(charset, binary_body)}
             else
             { attachment = {
               ~filename
               mimetype = content_type
-              data = decoded_body
+              data = binary_body
             }}
 
   @private
@@ -339,12 +340,12 @@ Mime = {{
       some({ ~headers body=body })
 
   /**
-   * Parse a raw binary string into an MIME message
+   * Parse a raw string into an MIME message
    *
-   * @param raw the raw binary string message
+   * @param raw the raw string message
    * @return an option MIME message
    */
-  parse(raw:binary) : option(Mime.message) =
+  parse(raw:string) : option(Mime.message) =
     match parse_entity(raw)
     {none} -> none
     {some=content} -> some({~raw ~content})
