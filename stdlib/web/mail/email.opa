@@ -344,7 +344,7 @@ Email = {{
     dst = [to] ++ options.to ++ options.cc ++ options.bcc
     dst = List.map(to_string_only_address, List.unique_list_of(dst))
     dst = %% BslNativeLib.opa_list_to_ocaml_list %%(identity, dst)
-    %% BslMail.Mailserve.mail_send_fun %%(
+    %% BslMail.SmtpClient.mail_send_fun %%(
       to_string(from), to_string_only_address(from),
       dst, mto, mcc, mbcc,
       subject, text, html,
@@ -375,7 +375,7 @@ Email = {{
 
 Imap = {{
 
-  command = %% BslMail.Imap.command %% : int , string, SSL.secure_type, string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
+  command = %% BslMail.ImapClient.command %% : int , string, option(SSL.secure_type), string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
 
 }}
 

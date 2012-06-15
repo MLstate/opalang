@@ -15,7 +15,9 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 import-plugin mail
+
 type SmtpServer.failure =
   {unavailable}
 / {aborted}
@@ -31,7 +33,7 @@ type SmtpServer.handler = string, list(string), string -> SmtpServer.result
 
 SmtpServer = {{
 
-  @private init_server = %% BslMail.Mailserver.init_server %%
+  @private init_server = %% BslMail.SmtpServer.init_server %%
 
   start(ip : ip, port : int, ssl : option(SSL.secure_type), handler : SmtpServer.handler) =
 

@@ -36,7 +36,7 @@ let opa_list_to_ocaml_list f l =
   BslNativeLib.opa_list_to_ocaml_list f (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
 (** *****************************)
 
-##module mailserve
+##module smtpClient
 
   let status_ok = ServerLib.static_field_of_name "ok"
   let status_bad_sender = ServerLib.static_field_of_name "bad_sender"
@@ -100,7 +100,7 @@ let opa_list_to_ocaml_list f l =
 ##endmodule
 
 
-##module imap
+##module imapClient
 
   ##opa-type Email.imap_command
   ##opa-type Email.imap_result
@@ -126,11 +126,11 @@ let opa_list_to_ocaml_list f l =
   let oks = ServerLib.static_field_of_name "oks"
   let rwstatus = ServerLib.static_field_of_name "rwstatus"
 
-  ##register [cps-bypass] command : int, string, SSL.secure_type, \
+  ##register [cps-bypass] command : \
+    int, string, option(SSL.secure_type), \
     string, string, opa[list(email_imap_command)], \
     (opa[list(email_imap_result)], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
-
   let command port addr secure_type username password commands cont k =
     let cont = BslUtils.proj_cps k cont in
 
@@ -274,23 +274,28 @@ let opa_list_to_ocaml_list f l =
         commands
     in
 
-    let client_certificate, verify_params = secure_type in
-
     let (err_cont:ImapClientCore.ecsa) =
       fun (exn,name,_bt_opt) _runtime sched conn mailbox _ec ->
         ImapClientCore.close_conn sched conn mailbox;
         cont [ImapClientCore.Error (Printf.sprintf "Exception(at %s): %s" name (Printexc.to_string exn))]
     in
 
-    ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true Scheduler.default ~addr ~port
-      ~username ~password ~commands
-      (cont:ImapClientCore.results -> unit) ~err_cont ();
-    QmlCpsServerLib.return k ServerLib.void
+    match secure_type with
+    | None ->
+	ImapClient.mail_recv ~secure:false Scheduler.default ~addr ~port
+	  ~username ~password ~commands
+	  (cont:ImapClientCore.results -> unit) ~err_cont ();
+	QmlCpsServerLib.return k ServerLib.void
+    | Some (client_certificate, verify_params) ->
+	ImapClient.mail_recv ?client_certificate ?verify_params ~secure:true Scheduler.default ~addr ~port
+	  ~username ~password ~commands
+	  (cont:ImapClientCore.results -> unit) ~err_cont ();
+	QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule
 
 
-##module mailserver
+##module smtpServer
 
   ##register [cps-bypass] init_server : \
     int, string, option(SSL.secure_type), \

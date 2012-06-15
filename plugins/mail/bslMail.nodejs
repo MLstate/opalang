@@ -1,6 +1,7 @@
 var nodemailer = require("nodemailer");
 var simplesmtp = require("simplesmtp");
 var fs = require("fs");
+var imap = require("imap");
 
 var debug = true
 
@@ -14,7 +15,7 @@ var debug = true
 ##opa-type tuple_2('a, 'b)
 //'
 
-##module Mailserve
+##module SmtpClient
 
   ##opa-type Email.send_status
 
@@ -107,25 +108,28 @@ var debug = true
 ##endmodule
 
 
-##module Imap
+##module ImapClient
 
   ##opa-type Email.imap_command
   ##opa-type Email.imap_result
   ##opa-type Email.imap_status
 
-  ##register [cps-bypass] command : int, string, SSL.secure_type, \
+  ##register [cps-bypass] command : \
+    int, string, option(SSL.secure_type), \
     string, string, opa[list(email_imap_command)], \
     (opa[list(email_imap_result)], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
   ##args(port,addr,secure_type,username,password,commands,cont,k)
   {
+
+
       return js_void;
   }
 
 ##endmodule
 
 
-##module Mailserver
+##module SmtpServer
 
   ##register [cps-bypass] init_server : \
     int, string, option(SSL.secure_type), \
