@@ -646,10 +646,10 @@ MongoDriver = {{
     snd(m,mbuf,"update")
 
   /** update with added getlasterror query **/
-  updatee(m:Mongo.db, flags:int, ns:string, dbname:string, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
+  updatee(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
     mbuf = create_(m.bufsize)
     do update_(mbuf,flags,ns,selector,update)
-    snderr(m,mbuf,"update",dbname)
+    snderr(m,mbuf,"update","")
 
   /**
    *  [updatef]:  same as [update] but using tags instead of bit-wise flags.

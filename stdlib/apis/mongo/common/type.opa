@@ -33,3 +33,12 @@ type Mongo.failure =
 
 /** Type for a connection, host name and port **/
 type Mongo.mongo_host = (string, int)
+
+
+type Mongo.auth = {
+  dbname:string;
+  user:string;
+  password:string;
+}
+
+type Mongo.auths = list(Mongo.auth)

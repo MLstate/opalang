@@ -28,18 +28,10 @@ import stdlib.core.{date,map,parser}
 #<Ifstatic:OPA_BACKEND_QMLJS>
 import stdlib.apis.mongo.node
 import stdlib.apis.mongo.common
-
-System = {{
-
-    exec(_, _) = @fail
-
-    exit(_) = @fail
-
-}}
 #<Else>
 import stdlib.apis.mongo
-import stdlib.system
 #<End>
+import stdlib.system
 
 /**
  * {1 About this module}
@@ -90,6 +82,40 @@ DbMongo = {{
    /**
     * {2 Utils}
     */
+
+   @package updateerr(db:DbMongo.t, flags:int, ns:string, selector:Bson.document, update:Bson.document): void =
+    reply = MongoDriver.updatee(db.db, flags, ns, db.name, selector, update)
+     #<Ifstatic:OPA_BACKEND_QMLJS>
+       if reply then void
+       else error("Update error")
+     #<Else>
+       match reply with
+       | {none} ->
+         do Log.error("DbGen/Query", "(failure) Read {id} set doesn't returns anything")
+         error("DbGen/Mongo: Network Error")
+       | {some = reply} ->
+         match MongoCommon.reply_document(reply, 0) with
+         | {none} -> error("DbGen/Mongo: Protocol Error (1)")
+         | {some=doc} ->
+           match Bson.find_float(doc, "ok") with
+           | {none} -> error("DbGen/Mongo: Protocol Error (2)")
+           | {some = ok} ->
+             if ok != 1.0 then error("DbGen/Mongo: GetLastError Error")
+             else match Bson.find_element(doc, "err") with
+             | {none} -> void
+             | {some = {value = {String = str} ...}} -> error("DbGen/Mongo: {str}")
+             | {some = {value = {Null} ...}} ->
+               if not(upsert) &&
+                  not(Bson.find_bool(doc, "updatedExisting")
+                      ? error("DbGen/Mongo: Protocol Error (4)"))
+               then error("DbGen/Mongo: Update Error")
+               else
+                 #<Ifstatic:DBGEN_DEBUG>
+                 do Log.notice("DbGen/Mongo", "(success) DbSet.update {doc}")
+                 #<End>
+                 void
+             | {some = err} -> error("DbGen/Mongo: Protocol Error (3) {err}")
+     #<End>
 
    @package gen_read(id, query, uncap, default:'a) =
      // TODO - ...
@@ -261,14 +287,15 @@ DbMongo = {{
        do Log.notice("DbGen/Mongo", "Db.build_rpath_sub : Selector {selector}")
        do Log.notice("DbGen/Mongo", "Db.build_rpath_sub : Update {update}")
        #<End>
-       MongoDriver.update(db.db, tags, ns, selector, update)
+       do updateerr(db, tags, ns, selector, update)
+       true
      remove() =
        unset = [{name="$unset" value={Document = [{name=field value={Int32 = 0}}]}}]
-       if not(MongoDriver.update(db.db, 0, ns, selector, unset)) then
-         Log.error("DbGen/Mongo", "(failure) An error occurs when removing subpath '{path}'")
+       do updateerr(db, 0, ns, selector, unset)
        #<Ifstatic:DBGEN_DEBUG>
-       else Log.notice("DbGen/Mongo", "(success) subpath '{path}' removed ")
+       do Log.notice("DbGen/Mongo", "(success) subpath '{path}' removed ")
        #<End>
+       void
      {vpath with more=~{write remove}}
 
 
@@ -302,7 +329,8 @@ DbMongo = {{
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      write(data:'data) =
        update = Bson.opa2doc({_id = vpath.id; value=data})
-       MongoDriver.update(db.db, tags, ns, selector, update)
+       do updateerr(db, tags, ns, selector, update)
+       true
      remove() =
        if not(MongoDriver.delete(db.db, 0, ns, selector)) then
          Log.error("DbGen/Mongo", "(failure) An error occurs when removing subpath '{path}'")
@@ -316,11 +344,15 @@ DbMongo = {{
      id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
-     if not(MongoDriver.update(db.db, tags, ns, selector, update)) then
-       Log.error("DbGen/Mongo", "(failure) An error occurs while updating path '{path}' with {update}")
-     #<Ifstatic:DBGEN_DEBUG>
-     else Log.notice("DbGen/Mongo", "(success) path '{path}' updated with {update}")
-     #<End>
+     @catch(_ ->
+       Log.error("DbGen/Mongo", "(failure) An error occurs while updating path '{path}' with {update}"),
+       do updateerr(db, tags, ns, selector, update)
+
+       #<Ifstatic:DBGEN_DEBUG>
+       do Log.notice("DbGen/Mongo", "(success) path '{path}' updated with {update}")
+       #<End>
+       void
+     )
 
 
   /**
@@ -390,13 +422,13 @@ Then use option --db-remote instead of --db-local.
         none
       #<End>#<End>
 
-    wget(from, to) =      
+    wget(from, to) =
       #<Ifstatic:IS_MAC 1>
         "curl {from} > {to}"
       #<Else>
         "wget {from} -O {to}"
       #<End>
-      
+
     default_archive =
       arch = "x86_64" // TODO 32 BITS
       ver  = "2.0.2"
@@ -547,7 +579,7 @@ Then use option --db-remote instead of --db-local.
         | {some = ~{local}} -> open_local(name, local, seed)
         | {none} ->
           match Db.default_cmdline with
-          | {none} -> open_local(name, {path = default_local()}, seed)
+          | {none} -> open_remote(name, default_remote, seed)
           | {some = {local = {none}}} -> open_local(name, {path = default_local()}, seed)
           | {some = {local = {some = path}}} -> open_local(name, ~{path}, seed)
           | {some = {remote = {some = remote}}} ->
@@ -584,6 +616,7 @@ Then use option --db-remote instead of --db-local.
 type DbMongoSet.engine('a) = {
     reply: Mongo.reply;
     default : 'a;
+    limit : int;
     next : int, Mongo.reply -> option(DbMongoSet.engine('a))
 }
 
@@ -622,6 +655,11 @@ DbSet = {{
       error("DbSet build error")
     | {some=reply} ->
       rec next(consummed, reply) =
+        #<Ifstatic:OPA_BACKEND_QMLJS>
+        _ = consummed
+        _ = reply
+        {none}
+        #<Else>
         cursor = MongoCommon.reply_cursorID(reply)
         if MongoCommon.is_null_cursorID(cursor) then
           none
@@ -637,7 +675,8 @@ DbSet = {{
             next(c, r) = next(consummed+c, r)
             {some = ~{reply default next}}
           end
-       ~{reply default next}
+        #<End>
+       ~{reply default next limit}
 
   @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.engine('a) =
     #<Ifstatic:DBGEN_DEBUG>
@@ -675,33 +714,7 @@ DbSet = {{
     do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Selector {selector}")
     do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Update({upsert}) {update}")
     #<End>
-    reply=MongoDriver.updatee(db.db, tag, "{db.name}.{id}", db.name, selector, update)
-    match reply with
-    | {none} ->
-      do Log.error("DbGen/Query", "(failure) Read {id} set doesn't returns anything")
-      error("DbGen/Mongo: Network Error")
-    | {some = reply} ->
-      match MongoCommon.reply_document(reply, 0) with
-      | {none} -> error("DbGen/Mongo: Protocol Error (1)")
-      | {some=doc} ->
-        match Bson.find_float(doc, "ok") with
-        | {none} -> error("DbGen/Mongo: Protocol Error (2)")
-        | {some = ok} ->
-          if ok != 1.0 then error("DbGen/Mongo: GetLastError Error")
-          else match Bson.find_element(doc, "err") with
-          | {none} -> void
-          | {some = {value = {String = str} ...}} -> error("DbGen/Mongo: {str}")
-          | {some = {value = {Null} ...}} ->
-            if not(upsert) &&
-               not(Bson.find_bool(doc, "updatedExisting")
-                   ? error("DbGen/Mongo: Protocol Error (4)"))
-            then error("DbGen/Mongo: Update Error")
-            else
-              #<Ifstatic:DBGEN_DEBUG>
-              do Log.notice("DbGen/Mongo", "(success) DbSet.update {doc}")
-              #<End>
-              void
-          | {some = err} -> error("DbGen/Mongo: Protocol Error (3) {err}")
+    DbMongo.updateerr(db, tag, "{db.name}.{id}", selector, update)
 
 
   @private fold_doc(init, dbset:DbMongoSet.engine, f) =
@@ -753,7 +766,10 @@ DbSet = {{
               {some = (opa, {next=->aux(size, dbset, i+1)})}
             end
         end
-      {next = -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0)}
+      {next = ->
+         nb = min(MongoCommon.reply_numberReturned(dbset.reply), dbset.limit)
+         if nb == 0 then none
+         else aux(nb, dbset, 0)}
 
   @private fold(init, dbset, f) =
     Iter.fold(f, iterator(dbset), init)
@@ -957,4 +973,4 @@ DbSet = {{
 @opacapi DbSet_build_rpath_collection = DbSet.build_rpath_collection
 @opacapi DbSet_default = Option.default
 @opacapi DbSet_empty = {empty}
-@opacapi DbMongo_expr_to_field(x) = %%BslMongo.Mongo.encode_field%%(OpaSerialize.serialize(x))
+@opacapi DbMongo_expr_to_field(x) = Bson.encode_field(OpaSerialize.serialize(x))

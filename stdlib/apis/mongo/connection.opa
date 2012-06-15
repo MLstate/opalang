@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -75,14 +75,6 @@ type Mongo.mongodb = {
   query_flags: int;
   index_flags: int;
 }
-
-type Mongo.auth = {
-  dbname:string;
-  user:string;
-  password:string;
-}
-
-type Mongo.auths = list(Mongo.auth)
 
 type Mongo.param = {
   name:string;
@@ -269,7 +261,7 @@ MongoConnection = {{
                                  do if db.mongo.log
                                     then ML.info("MongoConnection.open",
                                                  "closing mongo (exit) link_count={db.link_count.get()}",void)
-                                 _ = MongoDriver.close(db.mongo) 
+                                 _ = MongoDriver.close(db.mongo)
                                  void
                                else void)
            {success=db})

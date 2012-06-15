@@ -27,6 +27,9 @@ type Mongo.db = {
   collection : option((string, NodeMongo.collection));
 }
 
+
+@abstract type Mongo.cursorID = Mongo.reply
+
 @private
 NodeMongo = {{
 
@@ -199,7 +202,7 @@ MongoDriver = {{
 
   // Note that we don't open any connection here, we just instantiate a Server object
   // Actually opening the connection is done by the namespace checks on each command
-  open(_bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool)
+    open(_bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, _:Mongo.auths) // TODO - auths
      : outcome(Mongo.db,Mongo.failure) =
     do if log then MongoLog.info("MongoDriver.open","{addr}:{port}",void)
     {success =
@@ -292,7 +295,7 @@ MongoDriver = {{
        | {none} -> false)
     | {~failure} -> false
 
-  update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
+  updatee(m:Mongo.db, flags:int, ns:string, _dbname:string, selector:Bson.document, update:Bson.document): bool =
     selector = NodeBson.of_document(selector)
     update = NodeBson.of_document(update)
     match check_ns(m, ns) with
@@ -335,11 +338,17 @@ MongoDriver = {{
        | {none} -> false)
     | {~failure} -> false
 
+  check(m:Mongo.db) = {success = m} //TODO
+
+  get_more(m:Mongo.db, ns:string, limit, cursor:Mongo.cursorID):option(Mongo.reply) =
+    if NodeMongo.end_reached(cursor) then {none}
+    else {some = cursor}
+
 }}
 
 MongoReplicaSet = {{
 
-  init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, seeds:list(Mongo.mongo_host)): Mongo.db =
+    init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, _:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db = // TODO - auths
     do if log then MongoLog.info("MongoReplicaSet.init","seeds={seeds}",void)
     servers = List.map((((host, port)) -> NodeMongo.server(host, port, true, pool_max)), seeds)
     replset = NodeMongo.replset(servers)
