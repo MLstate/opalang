@@ -215,7 +215,7 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
 
 
 let dummy_compile () =
-  let module R = (val Imp_Inlining.make_r "dummy" : Imp_Inlining.R) in
+  let module R = (val Imp_Inlining.make_r "js" : Imp_Inlining.R) in
   R.save
     ~env:Imp_Inlining.empty_env
     ~loaded_env:Imp_Inlining.empty_env
