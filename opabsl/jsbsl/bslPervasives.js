@@ -246,7 +246,8 @@ var jlog_with_colors=function(foreground, background, message)
   var jlog_item;
   var jlog_id= "__internal__log";
   new $(function(){
-    if (!document.getElementById(jlog_id))
+    jlog_item=document.getElementById(jlog_id);
+    if (!jlog_item)
     {
       var item = "position: absolute; right: 0px; top: 0px; z-index: 100; font-size: .7em; ";
       item += "background-color: "+background+"; color: "+foreground+"; width: 300px; border: 2px solid green; ";
