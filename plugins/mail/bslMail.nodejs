@@ -1,0 +1,134 @@
+var nodemailer = require("nodemailer");
+
+var debug = true
+
+##extern-type continuation('a)
+##extern-type caml_list('a)
+##extern-type caml_tuple_2('a,'b)
+##extern-type caml_tuple_4('a,'b,'c,'d)
+##extern-type SSL.secure_type
+
+##opa-type list('a)
+##opa-type tuple_2('a, 'b)
+//'
+
+##module Mailserve
+
+  ##opa-type Email.send_status
+
+  ##register [cps-bypass] mail_send_fun : \
+    string, string, string, string, string, string, string, string, string, \
+    caml_list(caml_tuple_4(string,string,string,string)), \
+    caml_list(caml_tuple_2(string,string)), \
+    option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], option(SSL.secure_type), \
+    (opa[email_send_status], continuation(opa[void]) -> void), \
+    continuation(opa[void]) -> void
+##args(mfrom,mfrom_address_only,mdst,mto,mcc,mbcc,subject,mdata,html,files,custom_headers,via,addr,port,auth,user,pass,dryrun,secure_type,cont,k)
+  {
+
+      var attachments = files.map(function(file) {
+	  return {
+	      fileName: file.f1,
+	      contents: file.f4,
+	      contentType: file.f2
+	  }
+      });
+
+      var headers = empty_constructor();
+      custom_headers.forEach(function(header) {
+	  if (header.f1 != "size")
+      	      add_field(headers, header.f1, header.f2);
+      })
+
+      if (mto == "") mto = mdst;
+      var mailOptions = {
+	  from: mfrom, // sender address
+	  to: mto, // list of receivers
+	  cc: mcc,
+	  bcc: mbcc,
+	  subject: subject, // Subject line
+	  text: mdata, // plaintext body
+	  html: html, // html body
+	  headers: headers,
+	  attachments: attachments
+      };
+
+      var smtpTransport;
+      if (addr.none) {
+	  // Create a Sendmail transport object
+	  smtpTransport = nodemailer.createTransport("Sendmail", {
+	      args: ["-f "+mfrom_address_only]
+	  });
+      } else {
+	  var addr = option2default(via, addr.some)
+	  var port = option2default(port, 25)
+	  var secure = !(secure_type.none);
+	  var user = option2default(user, "");
+	  var pass = option2default(pass, "")
+	  smtpTransport = nodemailer.createTransport("SMTP", {
+	      host: addr,
+	      port: port,
+	      secureConnection: secure,
+	      debug: debug,
+	      auth: {
+		  user:user,
+		  pass:pass
+	      }
+	  });
+      }
+
+      if (dryrun) {
+	  if (smtpTransport) cont({ok:""}, k.ccont(function(){}))
+	  else cont({error:""}, k.ccont(function(){}))
+      } else {
+	  // send mail with defined transport object
+	  smtpTransport.sendMail(mailOptions, function(error, response){
+	      if (error) {
+		  console.log(error);
+		  cont({error:error}, k.ccont(function(){}))
+	      } else {
+		  console.log("Message sent: " + response.message);
+		  cont({ok:""}, k.ccont(function(){}))
+	      }
+	      smtpTransport.close();
+	  });
+      }
+
+      return_(k, js_void);
+      return js_void;
+
+  } // End register
+
+
+##endmodule
+
+
+##module Imap
+
+  ##opa-type Email.imap_command
+  ##opa-type Email.imap_result
+  ##opa-type Email.imap_status
+
+  ##register [cps-bypass] command : int, string, SSL.secure_type, \
+    string, string, opa[list(email_imap_command)], \
+    (opa[list(email_imap_result)], continuation(opa[void]) -> void), \
+    continuation(opa[void]) -> void
+  ##args(port,addr,secure_type,username,password,commands,cont,k)
+  {
+      return js_void;
+  }
+
+##endmodule
+
+
+##module Mailserver
+
+  ##register [cps-bypass] init_server : int, string, SSL.secure_type, \
+    (opa[string], opa[list(string)], opa[string], continuation(opa[tuple_2(int, string)]) -> void), continuation(opa[void]) -> void
+  ##args(port,addr,secure_type,handler,cvoid)
+  {
+      return js_void;
+  }
+
+##endmodule
+

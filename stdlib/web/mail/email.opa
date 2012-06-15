@@ -94,6 +94,7 @@ type Email.send_status =
 type Email.options = {
   to : list(Email.email)
   cc : list(Email.email)
+  bcc : list(Email.email)
   custom_headers : list((string, string))
   files : Email.attachments
   via : option(string)
@@ -158,6 +159,7 @@ Email = {{
   default_options = {
     to = []
     cc = []
+    bcc = []
     custom_headers = []
     files = []
     via = none
@@ -296,84 +298,58 @@ Email = {{
     | { error=e } -> "error : {e}"
 
   @private
-  caml_list2(l) =
-    rec aux(l,acc) =
-      match l with
-        | [] -> acc
-        | [hd|tl] -> aux(tl, %%BslNativeLib.cons%%(%%BslNativeLib.ocaml_tuple_2%%(hd),acc))
-    aux(List.rev(l),%%BslNativeLib.empty_list%%)
-
-  @private
-  caml_list4(l) =
-    rec aux(l,acc) =
-      match l with
-        | [] -> acc
-        | [hd|tl] -> aux(tl, %%BslNativeLib.cons%%(%%BslNativeLib.ocaml_tuple_4%%(hd),acc))
-    aux(List.rev(l),%%BslNativeLib.empty_list%%)
-
-  @private
-  send_mail = %% BslMail.Mailserve.mail_send_fun %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), option(string), option(string), option(string), option(string), bool, (Email.send_status -> void) -> void
-
-  @private
-  send_mail_secure = %% BslMail.Mailserve.mail_send_fun_secure %% : string , string, string , string , string , string, string, caml_list(caml_tuple_4(string,string,string,string)), caml_list(caml_tuple_2(string, string)), option(string), option(string), option(int), option(string), option(string), option(string), bool, SSL.secure_type, (Email.send_status -> void) -> void
-
-  @private
   send_async(
     from : Email.email,
     to : Email.email,
     subject : string,
     mail_content : Email.content,
     options : Email.options,
-    k : (Email.send_status -> void)) : void =
-    (text, html) = match mail_content with
-                   | {~text} -> (text, "")
-                   | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
-                   | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
-                   end
-    files = List.filter_map(x ->
-              match x with
-              | ~{filename content mime_type} ->
-                 if String.has_prefix("text/", mime_type)
-                 then some((filename,mime_type,"8bit",content))
-                 else some((filename,mime_type,"base64",Crypto.Base64.encode(content)))
-              | ~{filename content mime_type encoding} -> some((filename,mime_type,encoding,content))
-              | ~{filename resource} ->
-                 match Resource.export_data(resource) with
-                 | {some=~{data mimetype}} ->
-                   if String.has_prefix("text/", mimetype)
-                   then some((filename,mimetype,"8bit",data))
-                   else some((filename,mimetype,"base64",Crypto.Base64.encode(data)))
-                 | {none} -> {none}
-                 end
-            , options.files) |> caml_list4(_)
-    custom_headers = caml_list2(options.custom_headers)
-    custom_headers = if List.is_empty(options.cc) then custom_headers
-                     else
-                       s = List.foldi(i, e, acc ->
-                             if i == 0 then to_string(e)
-                             else acc ^ ", " ^ to_string(e)
-                           , options.cc, "")
-                       %%BslNativeLib.cons%%(%%BslNativeLib.ocaml_tuple_2%%(("Cc", s)), custom_headers)
-    mto = if List.is_empty(options.to) then ""
-          else
-            List.foldi(i, e, acc ->
-              if i == 0 then to_string(e)
-              else acc ^ ", " ^ to_string(e)
-            , options.to, "")
-    match options.secure_type with
-    | {some=secure_type} ->
-      send_mail_secure(
-        to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
-        subject, text, html, files, custom_headers,
-        options.via, options.server_addr, options.server_port, options.auth, options.user, options.pass, options.dryrun,
-        secure_type, k
-      )
-    | {none} ->
-      send_mail(
-        to_string(from), to_string_only_address(from), to_string_only_address(to), mto,
-        subject, text, html, files, custom_headers,
-        options.via, options.server_addr, options.auth, options.user, options.pass, options.dryrun, k
-      )
+    k : (Email.send_status -> void)
+  ) : void =
+    (text, html) =
+      match mail_content with
+      | {~text} -> (text, "")
+      | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
+      | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
+    files =
+      List.filter_map(x ->
+        match x with
+        | ~{filename content mime_type} ->
+           if String.has_prefix("text/", mime_type)
+           then some((filename,mime_type,"8bit",content))
+           else some((filename,mime_type,"base64",Crypto.Base64.encode(content)))
+        | ~{filename content mime_type encoding} ->
+          some((filename,mime_type,encoding,content))
+        | ~{filename resource} ->
+           match Resource.export_data(resource) with
+           | {some=~{data mimetype}} ->
+             data = string_of_binary(data)
+             if String.has_prefix("text/", mimetype)
+             then some((filename,mimetype,"8bit",data))
+             else some((filename,mimetype,"base64",Crypto.Base64.encode(data)))
+           | {none} -> {none}
+           end
+      , options.files)
+    f = %% BslNativeLib.ocaml_tuple_4 %%
+    files = %% BslNativeLib.opa_list_to_ocaml_list %%(f, files)
+    f = %% BslNativeLib.ocaml_tuple_2 %%
+    custom_headers = %% BslNativeLib.opa_list_to_ocaml_list %%(f, options.custom_headers)
+    mto = List.map(to_string, options.to)
+          |> List.to_string_using("", "", ", ", _)
+    mcc = List.map(to_string, options.cc)
+          |> List.to_string_using("", "", ", ", _)
+    mbcc = List.map(to_string, options.bcc)
+           |> List.to_string_using("", "", ", ", _)
+    %% BslMail.Mailserve.mail_send_fun %%(
+      to_string(from), to_string_only_address(from),
+      to_string_only_address(to), mto, mcc, mbcc,
+      subject, text, html, files, custom_headers,
+      options.via,
+      options.server_addr, options.server_port,
+      options.auth, options.user, options.pass,
+      options.dryrun,
+      options.secure_type, k
+    )
 
   /**
    * Try to send a mail {b synchronously}

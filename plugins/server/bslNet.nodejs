@@ -842,6 +842,7 @@ var reason_phrase_map = {
 WebInfo.private.native_request, string, string, \
 (string, continuation(opa[void]) -> void), \
 continuation(opa['a]) -> void
+//'
 ##args(req, url, body, f, k)
 {
   var r = {request : req.request,

@@ -45,14 +45,14 @@ let opa_list_to_ocaml_list f l =
 
   ##opa-type Email.send_status
 
-  ##register [cps-bypass] mail_send_fun : string, string, string, string, string, string, string, \
+  ##register [cps-bypass] mail_send_fun : \
+    string, string, string, string, string, string, string, string, string, \
     caml_list(caml_tuple_4(string,string,string,string)), \
     caml_list(caml_tuple_2(string,string)), \
-    option(string), option(string), option(string), option(string), option(string), opa[bool], \
+    option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], option(SSL.secure_type), \
     (opa[email_send_status], continuation(opa[void]) -> void), \
     continuation(opa[void]) -> void
-  let mail_send_fun mfrom mfrom_address_only mdst mto subject mdata html files custom_headers
-                    via addr auth user pass dryrun cont k =
+  let mail_send_fun mfrom mfrom_address_only mdst mto mcc mbcc subject mdata html files custom_headers via addr port auth user pass dryrun secure_type cont k =
     let cont = BslUtils.proj_cps k cont in
     let cont x =
       let res =
@@ -81,48 +81,15 @@ let opa_list_to_ocaml_list f l =
     and mto = if mto = "" then None else Some mto
     and dryrun = Some (ServerLib.unwrap_bool dryrun)
     in
-    SmtpClient.mail_send_aux Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
-    QmlCpsServerLib.return k ServerLib.void
-
-  ##register [cps-bypass] mail_send_fun_secure : string, string, string, string, string, string, string, \
-    caml_list(caml_tuple_4(string,string,string,string)), \
-    caml_list(caml_tuple_2(string,string)), \
-    option(string), option(string), option(int), option(string), option(string), option(string), opa[bool], SSL.secure_type, \
-    (opa[email_send_status], continuation(opa[void]) -> void), \
-    continuation(opa[void]) -> void
-  let mail_send_fun_secure mfrom mfrom_address_only mdst mto subject mdata html files custom_headers
-                           via addr port auth user pass dryrun secure_type cont k =
-    let cont = BslUtils.proj_cps k cont in
-    let cont x =
-      let res =
-        match x with
-        | SmtpClientCore.Ok str ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc status_ok (ServerLib.wrap_string str) in
-            ServerLib.make_record rc
-        | SmtpClientCore.Bad_Sender -> ServerLib.make_simple_record status_bad_sender
-        | SmtpClientCore.Bad_Recipient -> ServerLib.make_simple_record status_bad_recipient
-        | SmtpClientCore.Error err ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc status_error (ServerLib.wrap_string err) in
-            ServerLib.make_record rc
-        | SmtpClientCore.Error_MX ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc status_error (ServerLib.wrap_string "Error MX") in
-            ServerLib.make_record rc
-        | SmtpClientCore.Delayed i ->
-            let rc = ServerLib.empty_record_constructor in
-            let rc = ServerLib.add_field rc status_error (ServerLib.wrap_string ("Delayed "^(string_of_int i))) in
-            ServerLib.make_record rc
-      in cont (wrap_opa_email_send_status res)
-    in
-    let html = if html = "" then None else Some html
-    and mto = if mto = "" then None else Some mto
-    and dryrun = Some (ServerLib.unwrap_bool dryrun)
-    in
-    let client_certificate, verify_params = secure_type in
-    SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?port:port ?via:via ?addr:addr ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
-    QmlCpsServerLib.return k ServerLib.void
+    let mcc = if mcc = "" then None else Some mcc in
+    let mbcc = if mbcc = "" then None else Some mbcc in
+    match secure_type with
+    | Some (client_certificate, verify_params) ->
+	SmtpClient.mail_send_aux ?client_certificate ?verify_params ~secure:true Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+	QmlCpsServerLib.return k ServerLib.void
+    | None ->
+	SmtpClient.mail_send_aux Scheduler.default ~charset:"UTF-8" ~subject mfrom mdst ?mto:mto ?mcc:mcc ?mbcc:mbcc mdata ?html:html ~files ~custom_headers ~return_path:mfrom_address_only 10 ?via:via ?addr:addr ?port:port ?auth:auth ?user:user ?pass:pass ?dryrun:dryrun cont ();
+	QmlCpsServerLib.return k ServerLib.void
 
 ##endmodule
 

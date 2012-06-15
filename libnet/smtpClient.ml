@@ -146,7 +146,7 @@ let attach_files files mdata ?(charset="UTF-8") () =
 let attach_custom_headers(custom_headers) =
   List.fold_left (fun acc (name, value) -> sprintf "%s%s: %s\r\n" acc name value) "" custom_headers
 
-let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(custom_headers=[]) ?cte ?charset () =
+let full_email ?(subject="") mfrom mto ?mcc mdata ?return_path ?html ?(files=[]) ?(custom_headers=[]) ?cte ?charset () =
   let mdata = match html with
     | Some html -> mail_content_html ?charset ?cte ~ascii_part:mdata html
     | None -> mail_content ?charset ?cte mdata
@@ -158,6 +158,7 @@ let full_email ?(subject="") mfrom mto mdata ?return_path ?html ?(files=[]) ?(cu
   in sprintf
 "From: %s\r\n\
 To: %s\r\n\
+%s\
 Return-Path:<%s>\r\n\
 Message-ID: <%s.%s>\r\n\
 X-Mailer: %s\r\n\
@@ -166,7 +167,7 @@ Mime-Version: 1.0\r\n\
 %s\
 %s\
 %s"
-mfrom mto return_path (String.random 10) return_path mailer_name (Date.rfc1123 (Time.gmtime (Time.now())))
+mfrom mto (match mcc with | None -> "" | Some mcc -> "Cc: " ^ mcc ^ "\r\n") return_path (String.random 10) return_path mailer_name (Date.rfc1123 (Time.gmtime (Time.now())))
 (if subject = "" then "" else sprintf "Subject: %s\r\n" subject)
 (attach_custom_headers custom_headers)
 (if files = []
@@ -235,16 +236,18 @@ let read_code s =
 
 let analyze_error = Mailerror.parse_mailerror_error
 
+(* FIXME: send to mto and mbcc *)
 let mail_send_aux ?client_certificate ?verify_params ?(secure=false) sched
-    ?subject mfrom mdst ?mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25)
+    ?subject mfrom mdst ?mto ?mcc ?mbcc mdata ?return_path ?html ?files ?custom_headers ?cte ?charset nb_attempt ?(port=25)
     ?via ?addr ?auth ?user ?pass ?dryrun cont () =
   let dryrun = Option.default false dryrun in
   let mto =
     match mto with
     | Some tos -> tos
     | None -> mdst in
+  let _ = mbcc in
   let wait_and_retry x k = ignore(Scheduler.sleep sched x k) in
-  let mdata = full_email ?subject mfrom mto mdata ?return_path ?html ?files ?custom_headers ?cte ?charset () in
+  let mdata = full_email ?subject mfrom mto ?mcc mdata ?return_path ?html ?files ?custom_headers ?cte ?charset () in
   #<If:PROTOCOL_DEBUG$minlevel 10>Logger.debug "mdata='%s'" mdata#<End>;
   let from = split_email mfrom
   and dst = split_email mdst in

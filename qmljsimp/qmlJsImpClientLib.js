@@ -204,6 +204,10 @@ function option2js(obj) {
     return 'some' in obj ? obj.some : null
 }
 
+function option2default(obj, def) {
+    return 'some' in obj ? obj.some : def;
+}
+
 function option2jsu(obj) {
     return obj.some
 }
