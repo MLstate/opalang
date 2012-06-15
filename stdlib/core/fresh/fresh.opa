@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -20,6 +20,7 @@
  * Library for fresh identifiers
  *
  * @author Mathieu Barbin
+ * @author Quentin Bourgerie
  * @destination public
  */
 
@@ -52,40 +53,30 @@ type Fresh.next('fresh) = -> 'fresh
 
 Fresh = {{
 
-  @server @private private_server_Fresh() =
-    // the only message is incr
-    on_message(state : int, _ : void) = {
-      return = state ;
-      instruction = { set = succ(state) } ;
-    }
-    // FIXME: probably use Cell.cloud
-    Cell.make(0, on_message)
-
-  @client @private private_client_Fresh() =
-    ClientReference.create(0)
-
   /**
    * The function [from_int] is called, starting from [0] included,
    * and increasing.
   **/
 
-  @client client(from_int : int -> 'fresh) =
-    r = private_client_Fresh()
-    next() =
-      v = ClientReference.get(r)
-      do ClientReference.update(r, succ)
-      from_int(v)
-    next : Fresh.next('fresh)
+  @client client(from_int : int -> 'fresh) : Fresh.next('fresh) =
+    x = Reference.create(0)
+    ->
+      from_int(@atomic(
+        i = ClientReference.get(x)
+        do ClientReference.set(x, i+1)
+        i))
 
   /**
    * This fresh uses a shared cell
   **/
-  @server server(from_int : int -> 'fresh) =
-    r = private_server_Fresh()
-    next() =
-      i = Cell.call(r, void)
-      from_int(i)
-    next : Fresh.next('fresh)
+  @server server(from_int : int -> 'fresh) : Fresh.next('fresh)=
+    x = Reference.create(0)
+    ->
+      from_int(@atomic(
+        i = ServerReference.get(x)
+        do ServerReference.set(x, i+1)
+        i))
+
 
   /**
    * This fresh use a {!Mutable.t}
