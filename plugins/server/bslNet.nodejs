@@ -19,9 +19,9 @@ var debug = false
 ##extern-type web_server_status
 ##extern-type HttpRequest.msg_list
 ##extern-type list('a)
-//'
 
 ##opa-type tuple_3('a, 'b, 'c)
+//'
 
 function DummyOpaResponse(at_end){
   this.is_dummy = true;
