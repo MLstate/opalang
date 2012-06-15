@@ -121,7 +121,8 @@ var FileSystem = require('fs');
 ##register mlstate_dir : void -> string
 ##args(_)
 {
-  var mlstate_dir = "~/.opa";
+  var home = process.env["HOME"];
+  var mlstate_dir = home^"/.opa/";
   %%BslFile.make_dir%%(mlstate_dir);
   return mlstate_dir;
 }
