@@ -4,7 +4,6 @@ stdlib.apis.gmaps*
 stdlib.apis.irc*
 stdlib.apis.mongo*
 stdlib.apis.rdf*
-stdlib.apis.recaptcha*
 stdlib.apis.worldweather*
 stdlib.apis.gravatar*
 stdlib.components.*
