@@ -340,10 +340,6 @@ MongoDriver = {{
 
   check(m:Mongo.db) = {success = m} //TODO
 
-  get_more(m:Mongo.db, ns:string, limit, cursor:Mongo.cursorID):option(Mongo.reply) =
-    if NodeMongo.end_reached(cursor) then {none}
-    else {some = cursor}
-
 }}
 
 MongoReplicaSet = {{
