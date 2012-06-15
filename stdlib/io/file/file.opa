@@ -37,30 +37,15 @@ import-plugin unix
   */
 File = {{
   exists = %% BslFile.exists %% : string -> bool
-  content = %% BslFile.content %% : string -> string
-  content_opt = %% BslFile.content_opt %% : string -> option(string)
+  content = %% BslFile.content %% : string -> binary
+  content_opt = %% BslFile.content_opt %% : string -> option(binary)
   is_directory = %% BslFile.is_directory %% : string -> bool
-  mimetype = %% BslFile.mimetype_opt %% : string -> option(string)
-  @deprecated({use="File.mimetype"}) mimetype_opt = %% BslFile.mimetype_opt %% : string -> option(string)
+  mimetype =
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    _ -> none
+    #<Else>
+    %% BslFile.mimetype_opt %% : string -> option(string)
+    #<End>
   basename = %% BslFile.basename %% : string -> string
   dirname = %% BslFile.dirname %% : string -> string
-  dir_sep = %% BslFile.dir_sep %% : string
 }}
-
-
-/**
- * {1 Functions exported to the global namespace}
- */
-
-@deprecated({use="File.content"})
-file_content = File.content
-
-@deprecated({use="File.content_opt"})
-file_content_opt = File.content_opt
-
-/* Used only on --debug mode */
-@deprecated({use="File.mimetype"})
-file_mimetype_opt = File.mimetype_opt
-
-@deprecated({use="File.is_directory"})
-is_directory = File.is_directory
