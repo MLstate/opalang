@@ -13,9 +13,6 @@
 ##extern-type Logger.out_channel = out_channel
 ##extern-type Logger.date = float
 
-##register backend : -> string
-let backend _ = "caml"
-
 let field_some = ServerLib.static_field_of_name "some"
 let field_none = ServerLib.static_field_of_name "none"
 

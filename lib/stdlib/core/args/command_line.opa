@@ -320,8 +320,12 @@ type CommandLine.family('state) = {
    * Select items from a list according to the backend
    */
   select_backend(l:list((list(string),'a))) : list('a) =
-    be = %%BslLogger.backend%%()
-    List.map((e -> e.f2),List.filter((v -> List.mem(be,v.f1)),l))
+#<Ifstatic:OPA_BACKEND_QMLJS>
+    be = "node.js"
+#<Else>
+    be = "caml"
+#<End>
+    List.map((e -> e.f2),List.filter(((bes, a) -> List.mem(be,bes)),l))
 
   /**
    * {1 Deprecated}

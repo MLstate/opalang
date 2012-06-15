@@ -99,8 +99,14 @@ Pack = {{
   // size of sized items
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
 
+#<Ifstatic:OPA_BACKEND_QMLJS>
+  llsize = 0x001fffffffffffff // 53 bits
+#<Else>
+  llsize = 0x3fffffffffffffff // 62 bits
+#<End>
+
   // maximum (unsigned) value for int
-  sizemax(s:Pack.s) : int = match s with | {B} -> 0xff | {S} -> 0xffff | {L} -> 0xffffffff | {Ll} -> 0x3fffffffffffffff
+  sizemax(s:Pack.s) : int = match s with | {B} -> 0xff | {S} -> 0xffff | {L} -> 0xffffffff | {Ll} -> llsize
 
   // maximum (unsigned) value for int
   sizename(s:Pack.s) : string = match s with | {B} -> "byte" | {S} -> "short" | {L} -> "long" | {Ll} -> "longlong"
