@@ -44,17 +44,22 @@
  * - arrow (icon-arrow-n, icon-arrowthick-n, icon-arrowreturn-se, ...)
  * - icon-plus, icon-minus, icon-close, icon-check, icon-help, icon-notice ...
  *
+ * See: http://bootstrap.opalang.org for more info
+ *
  * {1 How to use Font Awesome icons}
+ *
+ * import stdlib.bootstrap.css and stdlib.bootstrap.font-awesome (not the whole package)
  *
  * Font Awesome - http://fortawesome.github.com/Font-Awesome
  *
  * {1 Examples}
  *
- * import stdlib.themes.bootstrap.css // just import bootstrap css
- * import stdlib.themes.bootstrap.icons // just import bootstrap icons
- * import stdlib.themes.bootstrap.opa-icons // just import opa icons for bootstrap
- * import stdlib.themes.bootstrap // import bootstrap css and icons
- * import stdlib.themes.font-awesome // import font awesome icons
+ * import stdlib.themes.bootstrap               // import bootstrap css and icons without responsive
+ * import stdlib.themes.bootstrap.responsive    // import bootstrap responsive part
+ * import stdlib.themes.bootstrap.css           // import bootstrap css (no icons, no responsive)
+ * import stdlib.themes.bootstrap.icons         // import bootstrap glyphicons
+ * import stdlib.themes.bootstrap.opa-icons     // import opa icons for bootstrap
+ * import stdlib.themes.font-awesome            // import font awesome icons
  */
 Bootstrap = {{
 
@@ -75,6 +80,9 @@ Bootstrap = {{
   /** Opa resources **/
 
   @private
+  opa_resources_path = "stdlib/themes/bootstrap/opa-resources"
+
+  @private
   opa_resources = @static_include_directory("stdlib/themes/bootstrap/opa-resources")
 
   @private
@@ -82,11 +90,14 @@ Bootstrap = {{
 
   @package
   import_opa_icons() =
-    match Map.get("stdlib/themes/bootstrap/opa-resources/css/icons.css", uri_opa)
+    match Map.get("{opa_resources_path}/css/icons.css", uri_opa)
     {none} -> void
     {some=uri} -> Resource.register_external_css(uri)
 
   /** Font Awesome resources **/
+
+  @private
+  font_awesome_resources_path = "stdlib/themes/bootstrap/font-awesome"
 
   @private
   font_awesome_resources = @static_include_directory("stdlib/themes/bootstrap/font-awesome")
@@ -96,11 +107,14 @@ Bootstrap = {{
 
   @package
   import_font_awesome() =
-    match Map.get("stdlib/themes/bootstrap/font-awesome/css/font-awesome.css", uri_font_awesome)
+    match Map.get("{font_awesome_resources_path}/css/font-awesome.css", uri_font_awesome)
     {none} -> void
     {some=uri} -> Resource.register_external_css(uri)
 
   /** Bootstrap resources **/
+
+  @private
+  bs_resources_path = "stdlib/themes/bootstrap/bs-resources"
 
   @private
   bs_resources = @static_include_directory("stdlib/themes/bootstrap/bs-resources")
@@ -109,57 +123,45 @@ Bootstrap = {{
   uri_bs = Map.mapi(publish, bs_resources)
 
   @private
-  compute_version_url(v:string) =
-    if String.le(v, "1.2.0") then // Does not work
-      "https://raw.github.com/twitter/bootstrap/v{v}/bootstrap-{v}.min.css"
-    else if String.le(v, "1.4.0") then
+  import_bs(name:string) =
+    match Map.get(name, uri_bs)
+    {some=url} -> Resource.register_external_css(url)
+    {none} -> void
+
+  @private
+  fallback_url(v:string) =
+    if String.le(v, "1.4.0") then
       "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
     else
       "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
-  @private
-  bs_url(v:string) =
-    Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap.min.css", uri_bs) ?
-    compute_version_url(v) // fallback
-
   @package
   import_css(v:string) =
-    Resource.register_external_css(bs_url(v))
+    import_bs("{bs_resources_path}/{v}/css/bootstrap-css.min.css")
 
   @package
   import_responsive_css(v:string) =
-    match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-responsive.min.css", uri_bs)
-    {none} -> void
-    {some=uri} -> Resource.register_external_css(uri)
-
-  @package
-  import_no_responsive_css(v:string) =
-    match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-no-responsive.min.css", uri_bs)
-    {none} -> void
-    {some=uri} -> Resource.register_external_css(uri)
+    import_bs("{bs_resources_path}/{v}/css/bootstrap-responsive.min.css")
 
   @package
   import_icons(v:string) =
-    do if String.lt(v, "2.0.0") then import_opa_icons()
-    do match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/bootstrap-glyphicons.min.css", uri_bs)
-       {some=url} -> Resource.register_external_css(url)
-       {none} -> void
-    do match Map.get("stdlib/themes/bootstrap/bs-resources/{v}/css/glyphicons-halflings-white.min.css", uri_bs)
-       {some=url} -> Resource.register_external_css(url)
-       {none} -> void
-    void
+    if String.lt(v, "2.0.0") then import_opa_icons()
+    else
+      do import_bs("{bs_resources_path}/{v}/css/bootstrap-glyphicons.min.css")
+      do import_bs("{bs_resources_path}/{v}/css/glyphicons-halflings-white.min.css")
+      void
 
   /**
    * Import a specific version of Bootstrap, with its icons
    */
   import(v:string) =
-    do import_css(v)
-    do import_icons(v)
-    void
+    Map.get("{bs_resources_path}/{v}/css/bootstrap.min.css", uri_bs) ?
+    fallback_url(v) // fallback to github
+    |> Resource.register_external_css(_)
 
   /**
    * Latest version of Bootstrap included in Opa
    */
-  latest = "2.0.3"
+  latest = "2.0.4"
 
 }}
