@@ -1,3 +1,11 @@
+Updated APIs:
+
+  * Bootstrap
+    - upgraded to Bootstrap 2.0.4
+    - import stdlib.themes.bootstrap does not import responsive CSS anymore
+    - see Boostrap module description for more info
+
+
 2012.06.12, Version 0.9.4 (stable), v1900
 
 New features:
