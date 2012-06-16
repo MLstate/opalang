@@ -325,7 +325,14 @@ let _ = dispatch begin function
            let sedexpr =
              Printf.sprintf "s/^\\?HAS_(%s)://; /HAS_.*:/d" tags
            in
-           Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
+           (* FreeBSD 8.x and above have added -r that does exactly same as -E
+              for increased compatibility with GNU sed. Since FreeBSD still
+              supports 7.x that does not has -r, so use -E instead. The -r
+              does not exist in MacOS X sed either. *)
+           if is_fbsd && is_mac then
+             Cmd(S[sed; A"-E"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")])
+           else
+             Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
 
       (* Windows specific : redefinition of an existing rule in Ocaml_specific.ml,
          Louis please have a look to avoid the two copies at the end
