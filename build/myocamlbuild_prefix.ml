@@ -551,8 +551,8 @@ let _ = dispatch begin function
 
       if is_fbsd then (
         (* In the memory.c in FreeBSD part that uses kvm_getprocs() required
-           link with -lkvm. *)
-        flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm"]);
+           link with -lkvm. The stubs needs to be compiled with -liconv too. *)
+        flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm";A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
         (* Build with converters/libiconv port, which it installs in the
            /usr/local by default *)
         flag ["iconv"; "compile"] (S[A"-I";A "/usr/local/include"]);
