@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -27,7 +27,10 @@ let bytecode_runtime = not native_runtime
 
 let buffer = Buffer.create 1000
 
-let rec stringify ?(depth=max_int) t =
+let rec stringify ?(custom=fun _ -> None) ?(depth=max_int) t =
+  match custom t with
+  | Some stringify -> stringify buffer t
+  | None ->
   if depth < 0 then
     Buffer.add_char buffer '.'
   else
@@ -39,10 +42,10 @@ let rec stringify ?(depth=max_int) t =
       Buffer.add_char buffer '(';
       let size = Obj.size t in
       if size <> 0 then (
-        stringify ~depth (Obj.field t 0);
+        stringify ~custom ~depth (Obj.field t 0);
         for i = 1 to size - 1 do
           Buffer.add_char buffer ',';
-          stringify ~depth (Obj.field t i);
+          stringify ~custom ~depth (Obj.field t i);
         done
       );
       Buffer.add_char buffer ')';
@@ -63,10 +66,10 @@ let rec stringify ?(depth=max_int) t =
       Buffer.add_char buffer '(';
       let size = Obj.size t in
       if size <> 0 then (
-        stringify ~depth (Obj.field t 0);
+        stringify ~custom ~depth (Obj.field t 0);
         for i = 1 to size - 1 do
           Buffer.add_char buffer ',';
-          stringify ~depth (Obj.field t i);
+          stringify ~custom ~depth (Obj.field t i);
         done
       );
       Buffer.add_char buffer ')';
@@ -110,8 +113,8 @@ let rec stringify ?(depth=max_int) t =
     else
       Buffer.add_string buffer "<UNKNOWN>"
 
-let dump ?depth x =
-  stringify ?depth (Obj.repr x);
+let dump ?custom ?depth x =
+  stringify ?custom ?depth (Obj.repr x);
   let s = Buffer.contents buffer in
   Buffer.reset buffer;
   s

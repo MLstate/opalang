@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -54,7 +54,7 @@ val unmarshal : string -> int -> t * int
 
 (** Additional functions *)
 
-val dump : ?depth:int -> 'a -> string
+val dump : ?custom:(Obj.t -> (Buffer.t -> Obj.t -> unit) option) -> ?depth:int -> 'a -> string
   (** creates a string of the runtime representation of value
       This function is intented for low level debugging purpose
       You should know the internal representation of (at least) algebraic datatypes

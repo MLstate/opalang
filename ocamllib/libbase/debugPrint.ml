@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -18,9 +18,22 @@
 type printer = { f : 'a. 'a -> string option }
 let printers = ref ([] : printer list)
 let register p = printers := p :: !printers
+
+let get_registered_print v =
+  let rec aux v l =
+    match l with
+    | [] -> None
+    | h::rl ->
+      match h.f v with
+      | None -> aux v rl
+      | Some _ as r-> r
+  in aux v !printers
+
+let custom v = Option.map (fun s-> (fun buff _ -> Buffer.add_string buff s)) (get_registered_print (Obj.obj v))
+
 let rec print ?(depth=1000) x =
   let rec aux = function
-    | [] -> Printf.sprintf "$%s$" (BaseObj.dump ~depth x)
+    | [] -> Printf.sprintf "$%s$" (BaseObj.dump ~custom ~depth x)
     | h :: t ->
         match h.f x with
         | None -> aux t
@@ -31,7 +44,7 @@ let pp ?(depth=1000) fmt a = Format.pp_print_string fmt (print ~depth a)
 
 let rec simple_print ?(depth=1000) x =
   let rec aux = function
-    | [] -> Printf.sprintf "%s" (BaseObj.dump ~depth x)
+    | [] -> Printf.sprintf "%s" (BaseObj.dump ~custom ~depth x)
     | h :: t ->
         match h.f x with
         | None -> aux t
