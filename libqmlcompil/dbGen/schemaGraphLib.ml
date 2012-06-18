@@ -278,7 +278,8 @@ let is_node_abstract node = List.mem Db.C_Private (V.label node).C.constraints
 (* A node is considered private when its _parent_ is abstract (eg has the
    private constraint). The parent may still be seen, but the 'private' child
    should be invisible *)
-let is_node_private t node = if is_root node then false else is_node_abstract (get_parent_node t node)
+let is_node_private t node =
+  if is_root node || (package_of_node node) = (ObjectFiles.get_current_package_name()) then false else is_node_abstract (get_parent_node t node)
 
 (** @param n a Mult node
     @return true if n is a set node *)
