@@ -212,9 +212,6 @@ struct
 
   let compilation_generation env_opt generated_files env_js_input =
     let save = {S.generated_files; js_init = get_js_init env_js_input} in
-    let _debug =
-      Format.fprintf (Format.formatter_of_out_channel (open_out (Filename.concat env_opt.compilation_directory "obj.js"))) "%a" S.pp save
-    in
     R.save save;
     let content = Format.to_string JsPrint.scoped_pp#code env_js_input.js_code in
     let filename = "a.js" in
