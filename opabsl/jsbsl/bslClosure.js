@@ -86,7 +86,7 @@ function get_local_unsafe(str) {
 ##register create_anyarray : 'impl, int, 'ident -> Closure.t
 ##args(f,n,identifier)
 {
-    var new_closure = function() { return f.apply(null,arguments) };
+    var new_closure = function() { return f.call(null,arguments) };
     new_closure.identifier = identifier;
     return new_closure;
 }
@@ -95,7 +95,6 @@ function get_local_unsafe(str) {
 function create_anyarray_cps(f,n,identifier,k)
 {
     var any_cps = function(){
-        console.log(arguments);
         var args = Array.prototype.slice.call(arguments);
         var k = args.pop();
         return f(args, k);
