@@ -204,7 +204,7 @@ var connect = mongo.connect;
       } else if(c === mongo.MinKey){
         return {Min : js_void};
       } else if(c === Date){
-        return {Date : x.getMilliseconds()};
+        return {Date : x.getTime()};
       } else {
         console.error("NodeBson.to_value", x, c);
         throw (new Error("Unknown mongo object"))
