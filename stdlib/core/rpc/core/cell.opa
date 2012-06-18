@@ -202,11 +202,12 @@ Cell_private = {{
     if IntSet.mem(id, set)
     then
       do call_tbl.set(IntSet.remove(id, set))
+
       true
     else
       false
 
-  @private @publish rpc_response_delay = 200 //TODO - %%BslRPC.rpc_response_delay%%
+  @private @publish rpc_response_delay = 200 * 1000 //TODO - %%BslRPC.rpc_response_delay%%
   /**
    * Send a message to a cell
    *
