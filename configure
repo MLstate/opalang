@@ -331,7 +331,7 @@ if [[ $NODE_VERSION > $NODE_MIN_VERSION ]]; then
 else
     echo-err $NODE_VERSION
     echo "Node $NODE_MIN_VERSION or newer is required"
-    false
+    exit 1
 fi
 
 # - checking for nodejs package dependency
