@@ -6,17 +6,31 @@ This section is about installation and configuration of Opa. If you
 want to learn more about Opa first, you can safely skip this section
 and come back later.
 
-At the time of this writing, binary packages of Opa are available for Mac OS X
-and Linux (Ubuntu/Debian-based, 64-bit architectures only). We do not provide
-binary packages for other Unixes, FreeBSD, and 32-bit variants, but you should
-be able to build Opa from sources on these systems (see below). A Windows port
-is in the works and Opa should also work on a number of other operating systems
-but these platforms are not supported for the moment.
+Binary packages of Opa are [available](http://opalang.org/get.xmlt) for
+all major 64-bit architectures: Mac OS X, Linux (Ubuntu/Debian-based) and Windows.
+We do not provide binary packages for other Unixes, FreeBSD, and 32-bit
+variants, but you should be able to build Opa from sources on these systems
+(see below). Note however that server performance may be suboptimal on
+32-bit architectures.
 
 Installing Opa
 --------------
 
 The easiest solution for installing Opa is to download an installer from [our website](http://opalang.org/get.xmlt).
+
+{block}[NOTE]
+Although Opa offers its own database, the default (and recommended)
+solution is to use MongoDB for data storage, in which case you may additionally
+need MongoDB installed on your system.
+
+Similarly, Opa has its own server back-end but the default (and recommended)
+approach is to use Node.js as the back-end, which requries Node.js to be
+installed on your system.
+
+In both cases Opa offers help and generated applications are capable of
+automatically downloading and preinstalling MongoDB and/or Node.js, if
+not present and needed.
+{block}
 
 ### Mac OS X
 
