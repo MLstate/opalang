@@ -271,8 +271,6 @@ HttpRequest = {{
         | {none} -> "<unidentified>"
         | {~some}-> string_of_user_id(some)
 
-    #<Ifstatic:OPA_BACKEND_QMLJS>
-    #<Else>
     /**
      * {1 Manipulation of multipart request}
      */
@@ -281,7 +279,7 @@ HttpRequest = {{
      * [HttpRequest.multipart].
      */
     get_multipart(x):option(HttpRequest.multipart) =
-      %%BslNet.Http_server.get_multipart%%(get_low_level_request(x))
+      @may_cps(%%BslNet.Http_server.get_multipart%%)(get_low_level_request(x))
 
     /**
      * [fold_multipart(multipart, acc, folder)]. Fold a [multipart]
@@ -290,10 +288,8 @@ HttpRequest = {{
      * acc)], [fold_headers] is be able to fold on corresponding [part]
      * headers (first argument is header name, second is header value).
      */
-    fold_multipart = %%BslNet.Http_server.fold_multipart%%
+    fold_multipart = @may_cps(%%BslNet.Http_server.fold_multipart%%)
       : HttpRequest.multipart, 'acc, (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc) -> 'acc
-
-    #<End>
 
   }}
 

@@ -18,8 +18,10 @@ var server_debug = false
 ##extern-type WebInfo.private.native_response
 ##extern-type web_server_status
 ##extern-type HttpRequest.msg_list
+##extern-type HttpRequest.multipart
 ##extern-type list('a)
 
+##opa-type HttpRequest.part
 ##opa-type tuple_3('a, 'b, 'c)
 //'
 ##extern-type Server.private.options
@@ -498,6 +500,44 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
     console.warn("Warning: BslNet.Http_server.get_remote_logs_params is not yet implemented");
     return js_none;
 }
+
+##register [cps-bypass] get_multipart_cps : \
+  WebInfo.private.native_request, continuation(option(HttpRequest.multipart)) -> void
+##args(req, cont)
+{
+    return js_void;
+}
+
+// Stub
+##register get_multipart : \
+  WebInfo.private.native_request -> option(HttpRequest.multipart)
+##args(req)
+{
+    assert(false);
+}
+
+##register [cps-bypass] fold_multipart_cps : \
+  HttpRequest.multipart, \
+  'acc, \
+  (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc), \
+  continuation('acc) -> \
+  void
+##args(req, initial_value, f, cont)
+{
+    return js_void;
+}
+
+// Stub
+##register fold_multipart : \
+  HttpRequest.multipart, \
+  'acc, \
+  (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc) -> \
+  'acc
+##args(req, initial_value, f)
+{
+    assert(false);
+}
+
 ##endmodule
 
 ##extern-type WebClient.failure
