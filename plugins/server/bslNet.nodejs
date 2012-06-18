@@ -3,7 +3,7 @@ var https = require('https');
 var url = require('url');
 var fs = require('fs');
 
-var debug = false
+var server_debug = false
 
 ##extern-type time_t
 ##extern-type caml_list('a)
@@ -307,7 +307,7 @@ function is_valid(request, modified_since) {
 function process_content(req, expires, modified_since, _type, content, content_len, include_body) {
   var now = new Date();
   var content_len = dflt(content.length,content_len); // TODO: how do we get the real length of one of these things?
-  //if (debug) console.log("content_len="+content_len);
+  //if (server_debug) console.log("content_len="+content_len);
   var cs;
   if (_type.indexOf("charset") != -1) { cs = "" } else { cs = "; charset=utf-8" };
   var typeval = _type + cs;
@@ -332,13 +332,13 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
   var code = BslNet_Requestdef_status_code(status_line);
   var reason = BslNet_Requestdef_reason_phrase(code);
   var include_body = req.request.method !== 'HEAD';
-  if (debug) console.log("make_response: _type="+_type);
+  if (server_debug) console.log("make_response: _type="+_type);
   if (is_valid(req.request, modified_since)) {
-    if (debug) console.log("make_response: code="+304);
+    if (server_debug) console.log("make_response: code="+304);
     req.response.writeHead(304, {'Date': new Date().toUTCString()});
     req.response.end('Not Modified');
   } else {
-    if (debug) console.log("make_response: code="+code);
+    if (server_debug) console.log("make_response: code="+code);
     req.response.statusCode = code;
     headers_out.forEach(function (hdr) { for (var h in hdr) { req.response.setHeader(h,hdr[h]) } });
     process_content(req, expires, modified_since, _type, content, content_len, include_body)
@@ -449,9 +449,9 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
                         var pathname = url.parse(request.url).pathname;
                         increment_cookie_connection_count();
                         var req = cookies_in({timestamp:new Date(), pathname:pathname,
-                                             server_name:name, cookies:{},
-                                             request:request, response:response});
-                        //if (debug) console.log(req);
+                                                      server_name:name, cookies:{},
+                                                      request:request, response:response});
+                        //if (server_debug) console.log(req);
                           return dispatcher(req)
                         });
   opts = cookies_default_opts;
