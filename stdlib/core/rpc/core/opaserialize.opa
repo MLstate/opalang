@@ -237,7 +237,7 @@ OpaSerializeClosure = {{
         do Continuation.return(k, msg)
         {continue}
       sess = Channel.make(k, {concurrent = on_message}, unserialize,
-                          {maker}, {none})
+                          {maker}, {none}) : channel
       aux(Magic.id(sess), @typeof(sess))
 
     /* For closure ******************************/

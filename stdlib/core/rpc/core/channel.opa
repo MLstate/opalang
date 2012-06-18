@@ -340,9 +340,9 @@ Channel = {{
         else error("Client({client}) try to remove channel({cid}) that not owned")
       | _ -> error("Client({client}) try to remove client channel({cid})")
 
-  find = OpaChannel.find
+  find : _ -> option(channel) = OpaChannel.find
 
-  make = OpaChannel.make
+  make : _, _, _, _, _ -> channel = OpaChannel.make
 
   register = OpaChannel.register
 
@@ -415,7 +415,7 @@ Channel = {{
 
   order = @nonexpansive(Order.make(ordering))
 
-  on_remove(channel, cb) = void
+  on_remove(channel:channel, cb) = void
 
 }}
 
