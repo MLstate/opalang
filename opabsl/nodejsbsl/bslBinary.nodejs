@@ -1,0 +1,384 @@
+
+##extern-type binary
+
+/**
+ * @constructor
+ */
+function Binary(hint) {
+  this.contents = new Buffer(hint);
+  this.length   = 0;
+}
+
+Binary.prototype = {
+  opa_do_not_inspect: true
+}
+
+##register create : int -> binary
+##args(hint)
+//function create(hint)
+{
+  return new Binary(hint);
+}
+
+##register length : binary -> int
+##args(b)
+//function length(b)
+{
+  return b.length;
+}
+
+##register binary_of_string : string -> binary
+##args(s)
+//function binary_of_string(s)
+{
+  return {contents:new Buffer(s2b(s)), length:s.length};
+}
+
+##register string_of_binary : binary -> string
+##args(b)
+//function string_of_binary(b)
+{
+  // Slow but guarantees no encoding problems, sign extension etc.
+  var s = "";
+  for (var i = 0; i < b.length; i++) { s += code(b.contents[i]) };
+  return s;
+}
+
+function resize(b, size)
+{
+  var rb = new Buffer(size);
+  b.contents.copy(rb, 0, 0, (b.length > size) ? size : b.length);
+  b.contents = rb;
+  return js_void;
+}
+
+function grow(b) { resize(b,(b.contents.length < 8) ? 8 : (b.contents.length * 3) / 2); }
+
+function expand(b, min) {
+  var g = (b.contents.length < min) ? min : b.contents.length;
+  var g2 = g >>> 1;
+  var size = g + g2;
+  if (size < 8) size = 8;
+  resize(b,size);
+}
+
+##register resize : binary, int -> void
+##args(b, size)
+{
+  return resize(b, size);
+}
+
+##register clear: binary -> void
+##args(b)
+{
+  b.contents = new Buffer(0);
+  b.length = 0;
+  return js_void;
+}
+
+##register trim: binary -> void
+##args(b)
+//function trim(b)
+{
+  if (b.length === b.contents.length) return js_void;
+  var nb = new Buffer(b.length);
+  b.contents.copy(nb,0,0,b.length);
+  b.contents = nb;
+  return js_void;
+}
+
+##register reset: binary -> void
+##args(b)
+{
+  b.length = 0;
+  return js_void;
+}
+
+##register add_string : binary, string -> void
+##args(b, s)
+//function add_string(b, s)
+{
+  var rlen = slen(s,0,s.length);
+  if (b.length + rlen >= b.contents.length) expand(b, b.length + rlen);
+  s2bj(s,0,s.length,b.contents,b.length);
+  b.length += rlen;
+  return js_void;
+}
+
+##register add_int8 : binary, int -> void
+##args(b, i)
+//function add_int8(b, i)
+{
+  if (i < -0x80 || i > 0x7f) throw("BslBinary.add_int8: out of range int "+i);
+  if (b.length >= b.contents.length) grow(b);
+  b.contents.writeInt8(i, b.length, true);
+  b.length++;
+  return js_void;
+}
+
+##register add_uint8 : binary, int -> void
+##args(b, i)
+//function add_uint8(b, i)
+{
+  if (i < 0 || i > 0xff) throw("BslBinary.add_uint8: out of range int "+i);
+  if (b.length >= b.contents.length) grow(b);
+  b.contents.writeUInt8(i, b.length, true);
+  b.length++;
+  return js_void;
+}
+
+##register add_int16_le : binary, int -> void
+##args(b, i)
+//function add_int16_le(b, i)
+{
+  if (i < -0x8000 || i > 0x7fff) throw("BslBinary.add_int16_le: out of range int "+i);
+  if (b.length + 2 >= b.contents.length) grow(b);
+  b.contents.writeInt16LE(i, b.length, true);
+  b.length += 2;
+  return js_void;
+}
+
+##register add_uint16_le : binary, int -> void
+##args(b, i)
+//function add_uint16_le(b, i)
+{
+  if (i < 0 || i > 0xffff) throw("BslBinary.add_uint16_le: out of range int "+i);
+  if (b.length + 2 >= b.contents.length) grow(b);
+  b.contents.writeUInt16LE(i, b.length, true);
+  b.length += 2;
+  return js_void;
+}
+
+##register add_int16_be : binary, int -> void
+##args(b, i)
+//function add_int16_be(b, i)
+{
+  if (i < -0x8000 || i > 0x7fff) throw("BslBinary.add_int16_be: out of range int "+i);
+  if (b.length + 2 >= b.contents.length) grow(b);
+  b.contents.writeInt16BE(i, b.length, true);
+  b.length += 2;
+  return js_void;
+}
+
+##register add_uint16_be : binary, int -> void
+##args(b, i)
+//function add_uint16_be(b, i)
+{
+  if (i < 0 || i > 0xffff) throw("BslBinary.add_uint16_be: out of range int "+i);
+  if (b.length + 2 >= b.contents.length) grow(b);
+  b.contents.writeUInt16BE(i, b.length, true);
+  b.length += 2;
+  return js_void;
+}
+
+##register add_int32_le : binary, int -> void
+##args(b, i)
+//function add_int32_le(b, i)
+{
+  if (i < -0x80000000 || i > 0x7fffffff) throw("BslBinary.add_int32_le: out of range int "+i);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeInt32LE(i, b.length, true);
+  b.length += 4;
+  return js_void;
+}
+
+##register add_uint32_le : binary, int -> void
+##args(b, i)
+//function add_uint32_le(b, i)
+{
+  if (i < 0 || i > 0xffffffff) throw("BslBinary.add_uint32_le: out of range int "+i);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeUInt32LE(i, b.length, true);
+  b.length += 4;
+  return js_void;
+}
+
+##register add_int32_be : binary, int -> void
+##args(b, i)
+//function add_int32_be(b, i)
+{
+  if (i < -0x80000000 || i > 0x7fffffff) throw("BslBinary.add_int32_be: out of range int "+i);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeInt32BE(i, b.length, true);
+  b.length += 4;
+  return js_void;
+}
+
+##register add_uint32_be : binary, int -> void
+##args(b, i)
+//function add_uint32_be(b, i)
+{
+  if (i < 0 || i > 0xffffffff) throw("BslBinary.add_uint32_be: out of range int "+i);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeUInt32BE(i, b.length, true);
+  b.length += 4;
+  return js_void;
+}
+
+// Might not be accurate to the last bit...
+var FLOATMIN32 = 1.175494351e-38;
+var FLOATMAX32 = 3.402823466e38;
+
+##register add_float_le : binary, float -> void
+##args(b, f)
+//function add_float_le(b, f)
+{
+  if (f < FLOATMIN32 || f > FLOATMAX32) throw("BslBinary.add_float_le: out of range float "+f);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeFloatLE(f, b.length, false); // <-- this probably also traps NaN, Inf, -Inf etc.
+  b.length += 4;
+  return js_void;
+}
+
+##register add_float_be : binary, float -> void
+##args(b, f)
+//function add_float_be(b, f)
+{
+  if (f < FLOATMIN32 || f > FLOATMAX32) throw("BslBinary.add_float_be: out of range float "+f);
+  if (b.length + 4 >= b.contents.length) grow(b);
+  b.contents.writeFloatBE(f, b.length, false); // <-- this probably also traps NaN, Inf, -Inf etc.
+  b.length += 4;
+  return js_void;
+}
+
+##register add_double_le : binary, float -> void
+##args(b, f)
+//function add_double_le(b, f)
+{
+  if (b.length + 8 >= b.contents.length) grow(b);
+  b.contents.writeDoubleLE(f, b.length, false);
+  b.length += 8;
+  return js_void;
+}
+
+##register add_double_be : binary, float -> void
+##args(b, f)
+//function add_double_be(b, f)
+{
+  if (b.length + 8 >= b.contents.length) grow(b);
+  b.contents.writeDoubleBE(f, b.length, false);
+  b.length += 8;
+  return js_void;
+}
+
+##register get_string : binary, int, int -> string
+##args(b, start, length)
+//function get_string(b, start, length)
+{
+  var s = "", end = (b.length < start + length) ? b.length : start + length;
+  for (var i = start; i < end; i++) { s += code(b.contents[i]) };
+  return s;
+}
+
+##register get_int8 : binary, int -> int
+##args(b, start)
+//function get_int8(b, start)
+{
+  if (start >= b.length) throw("BslBinary.get_int8: insufficient buffer data");
+  return b.contents.readInt8(start, true);
+}
+
+##register get_uint8 : binary, int -> int
+##args(b, start)
+//function get_uint8(b, start)
+{
+  if (start >= b.length) throw("BslBinary.get_uint8: insufficient buffer data");
+  return b.contents.readUInt8(start, true);
+}
+
+##register get_int16_le : binary, int -> int
+##args(b, start)
+//function get_int16_le(b, start)
+{
+  if (start > b.length - 2) throw("BslBinary.get_int16_le: insufficient buffer data");
+  return b.contents.readInt16LE(start, true);
+}
+
+##register get_uint16_le : binary, int -> int
+##args(b, start)
+//function get_uint16_le(b, start)
+{
+  if (start > b.length - 2) throw("BslBinary.get_uint16_le: insufficient buffer data");
+  return b.contents.readUInt16LE(start, true);
+}
+
+##register get_int16_be : binary, int -> int
+##args(b, start)
+//function get_int16_be(b, start)
+{
+  if (start > b.length - 2) throw("BslBinary.get_int16_be: insufficient buffer data");
+  return b.contents.readInt16BE(start, true);
+}
+
+##register get_uint16_be : binary, int -> int
+##args(b, start)
+//function get_uint16_be(b, start)
+{
+  if (start > b.length - 2) throw("BslBinary.get_uint16_be: insufficient buffer data");
+  return b.contents.readUInt16BE(start, true);
+}
+
+##register get_int32_le : binary, int -> int
+##args(b, start)
+//function get_int32_le(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_int32_le: insufficient buffer data");
+  return b.contents.readInt32LE(start, true);
+}
+
+##register get_uint32_le : binary, int -> int
+##args(b, start)
+//function get_uint32_le(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_uint32_le: insufficient buffer data");
+  return b.contents.readUInt32LE(start, true);
+}
+
+##register get_int32_be : binary, int -> int
+##args(b, start)
+//function get_int32_be(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_int32_be: insufficient buffer data");
+  return b.contents.readInt32BE(start, true);
+}
+
+##register get_uint32_be : binary, int -> int
+##args(b, start)
+//function get_uint32_be(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_uint32_be: insufficient buffer data");
+  return b.contents.readUInt32BE(start, true);
+}
+
+##register get_float_le : binary, int -> float
+##args(b, start)
+//function get_float_le(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_float_le: insufficient buffer data");
+  return b.contents.readFloatLE(start, true);
+}
+
+##register get_float_be : binary, int -> float
+##args(b, start)
+//function get_float_be(b, start)
+{
+  if (start > b.length - 4) throw("BslBinary.get_float_be: insufficient buffer data");
+  return b.contents.readFloatBE(start, true);
+}
+
+##register get_double_le : binary, int -> float
+##args(b, start)
+//function get_double_le(b, start)
+{
+  if (start > b.length - 8) throw("BslBinary.get_double_le: insufficient buffer data");
+  return b.contents.readDoubleLE(start, true);
+}
+
+##register get_double_be : binary, int -> float
+##args(b, start)
+//function get_double_be(b, start)
+{
+  if (start > b.length - 8) throw("BslBinary.get_double_be: insufficient buffer data");
+  return b.contents.readDoubleBE(start, true);
+}
+
