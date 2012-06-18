@@ -16,6 +16,8 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#<Ifstatic:OPA_BACKEND_QMLJS>
+
 type PingRegister.msg = RPC.Json.json
 
 @private
@@ -96,8 +98,8 @@ PingRegister = {{
     @private
     send_response(winfo, msg) =
       json = match msg with
-        | ~{pong}      -> {Record = [("type", {String = "pong"})]}
-        | ~{break}     -> {Record = [("type", {String = "break"})]}
+        | {pong}      -> {Record = [("type", {String = "pong"})]}
+        | {break}     -> {Record = [("type", {String = "break"})]}
         | ~{msgs}      -> {Record = [("type", {String = "msgs"}),
                                      ("body", {List = List.rev(msgs)})]}
         | ~{result nb} -> {Record = [("type", {String = "result"}),
@@ -305,3 +307,4 @@ PingRegister = {{
 
 }}
 
+#<End>

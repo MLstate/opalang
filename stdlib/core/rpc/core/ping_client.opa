@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#<Ifstatic:OPA_BACKEND_QMLJS>
 @client
 PingClient = {{
 
@@ -88,3 +88,4 @@ PingClient = {{
     wrap_request(url, body, %%Session.PingRegister.ping_async_call%%)
 
 }}
+#<End>

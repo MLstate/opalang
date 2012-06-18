@@ -256,6 +256,7 @@ type OpaRPC.interface = {{
    * This module is a dispatcher of RPC on client
    */
   Dispatcher = {{
+    #<Ifstatic:OPA_BACKEND_QMLJS>
     @private
     error(msg) = Log.error("OpaRPC", msg)
 
@@ -274,6 +275,9 @@ type OpaRPC.interface = {{
           match id with
           | {none} -> void
           | {some=id} -> PingClient.async_request("/rpc_return/{id}", result) : void
+    #<Else>
+    register = %%Session.comet_table_add%%
+    #<End>
   }}
 
 }}
@@ -470,6 +474,7 @@ OpaRPC_Server =
 
     parser_(winfo) =
       parser
+        #<Ifstatic:OPA_BACKEND_QMLJS>
         | "rpc_return/" id=(.*) ->
           client =
             ThreadContext.Client.get_opt({current})
@@ -478,6 +483,7 @@ OpaRPC_Server =
           body = (%%BslNet.Requestdef.get_request_message_body %%(winfo.http_request.request))
           if rpc_return(client, id, body) then reply(winfo, "true", {success})
           else reply(winfo, "false", {unauthorized})
+        #<End>
         | "rpc_call/" name=(.*) ->
           name = "{name}"
           #<Ifstatic:MLSTATE_PING_DEBUG>

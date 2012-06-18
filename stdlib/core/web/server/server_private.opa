@@ -279,8 +279,8 @@ Server_private = {{
           internal_handler:Parser.general_parser(void) = parser
             #<Ifstatic:OPA_FULL_DISPATCHER>
             #<Else>
-            | rpc_handler
-            | cell_handler
+            | rpc_handler -> void
+            | cell_handler -> void
             #<End>
             | resource=DynamicResource.parser_() -> export(winfo, resource)
             | js_parser   -> export(winfo, provide_js)
