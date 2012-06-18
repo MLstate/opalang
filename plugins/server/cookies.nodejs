@@ -1,4 +1,4 @@
-var debug = false
+var cookie_debug = false
 
 var Time_infinity = 10*365*24*3600*1000; // Actually just ten years (TODO: Time object with infinity?)
 
@@ -63,7 +63,7 @@ function randomd(len) {
 }
 
 function populate_cookie_pool(cnt) {
-  //if (debug) console.log("populate_cookie_pool");
+  //if (cookie_debug) console.log("populate_cookie_pool");
   while (cookie_pool.length < cnt) {
     cookie_pool.push(randomd(cookie_len));
   }
@@ -71,10 +71,10 @@ function populate_cookie_pool(cnt) {
 
 function get_cookie_string() {
   if (cookie_pool.length === 0) {
-    //if (debug) console.log("get_cookie_string: random");
+    //if (cookie_debug) console.log("get_cookie_string: random");
     return randomd(cookie_len)
   } else {
-    //if (debug) console.log("get_cookie_string: pool");
+    //if (cookie_debug) console.log("get_cookie_string: pool");
     return cookie_pool.pop()
   }
 }
@@ -87,15 +87,15 @@ function check_cookie_pool(now) {
   var dT = now - last_cookie_check_time;
   last_cookie_check_time = now;
   if (dT <= 1000) {
-    if (debug) console.log("check_cookie_pool: dT="+dT+" <= 1000");
+    if (cookie_debug) console.log("check_cookie_pool: dT="+dT+" <= 1000");
   } else {
     var cookie_connect_rate = cookie_connection_count / dT;
-    if (debug) console.log("check_cookie_pool: dT="+dT
+    if (cookie_debug) console.log("check_cookie_pool: dT="+dT
                            +" cookie_connection_count="+cookie_connection_count
                            +" cookie_connect_rate="+cookie_connect_rate);
     if (cookie_pool.length < cookie_pool_size_min && cookie_connect_rate <= cookie_rotation_connection_rate_max) {
       var cnt = Math.max(cookie_pool_size_min,(cookie_pool_size_max - cookie_pool.length));
-      if (debug) console.log("check_cookie_pool: repopulating "+cnt);
+      if (cookie_debug) console.log("check_cookie_pool: repopulating "+cnt);
       populate_cookie_pool(cnt)
     }
   }
@@ -107,7 +107,7 @@ function create_aux(ic, ec, req) {
   var dt1 = new Date(timeNow + cookie_dt1);
   var dt2 = new Date(timeNow + cookie_dt2);
   to_longcook.put(cookid(ec,ic),{dt1:dt1, dt2:dt2});
-  if (debug) console.log("create: add(to_longcook["+to_longcook.length+"])="+abbrev(ic)+"."+abbrev(ec)+" -> ("+dt1+","+dt2+")");
+  if (cookie_debug) console.log("create: add(to_longcook["+to_longcook.length+"])="+abbrev(ic)+"."+abbrev(ec)+" -> ("+dt1+","+dt2+")");
   req.cookies.ec = ec;
   req.cookies.ic = ic;
 }
@@ -122,7 +122,7 @@ function create_with_client_values(req) {
 
 var cookie_expiration_callback =
   function (ec, ic) {
-  //if (debug) console.log("cookie_expiration_callback: (ec,ic)=("+abbrev(ec)+","+abbrev(ic)+")");
+  //if (cookie_debug) console.log("cookie_expiration_callback: (ec,ic)=("+abbrev(ec)+","+abbrev(ic)+")");
   };
 
 function cookie_from_id(id) { return {ec:id.substring(0,32), ic:id.substring(33,65)} }
@@ -131,7 +131,7 @@ function collect_cookies(expired) {
   expired.forEach(function (id) {
                     cookie = cookie_from_id(id);
                     cookie_expiration_callback(cookie.ec,cookie.ic);
-                    if (debug) console.log("GC(ec,ic): ("+abbrev(cookie.ec)+","+abbrev(cookie.ic)+") deleted");
+                    if (cookie_debug) console.log("GC(ec,ic): ("+abbrev(cookie.ec)+","+abbrev(cookie.ic)+") deleted");
                     to_longcook.remove(cookid(cookie.ec,cookie.ic));
                   });
 }
@@ -139,14 +139,14 @@ function collect_cookies(expired) {
 var cookie_gc_slice_start = 0;
 
 function gc_cookies(now) {
-  //if (debug) console.log("gc_cookies");
+  //if (cookie_debug) console.log("gc_cookies");
   var cookie_gc_list = [];
   var expired = [];
   if (cookie_gc_slice_start >= to_longcook.length) cookie_gc_slice_start = 0;
   cookie_gc_list = to_longcook.values(cookie_gc_slice_start, cookie_gc_blocksize);
   cookie_gc_slice_start += cookie_gc_blocksize;
   cookie_gc_list.forEach(function (c) {
-                           if (debug) console.log("gc: id="+c.key+" now="+now+" dt1="+c.value.dt1);
+                           if (cookie_debug) console.log("gc: id="+c.key+" now="+now+" dt1="+c.value.dt1);
                            if (now > c.value.dt1 || now > c.value.dt2) expired.push(c.key);
                          });
   collect_cookies(expired);
@@ -160,22 +160,22 @@ function get_internal(req) {
     var id = cookid(req.cookies.ec, req.cookies.ic);
     if (cookie_accept_client_values && !(to_longcook.containsKey(id))) {
       create_with_client_values(req);
-      if (debug) console.log("get_internal: client values={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
+      if (cookie_debug) console.log("get_internal: client values={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
     } else {
       var dt = to_longcook.get(id);
       if (dt === null || dt === undefined) throw "Not_found";
       if (req.timestamp > dt.dt1 || req.timestamp > dt.dt2) {
         create(req);
-        if (debug) console.log("get_internal: expired new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
+        if (cookie_debug) console.log("get_internal: expired new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}")
       } else {
         req.dt2 = dt.dt2
-        if (debug) console.log("get_internal: found {ec='"+abbrev(req.cookies.ec)+" ic="+abbrev(req.cookies.ic)+"'}");
+        if (cookie_debug) console.log("get_internal: found {ec='"+abbrev(req.cookies.ec)+" ic="+abbrev(req.cookies.ic)+"'}");
       }
     }
   } catch(err) {
-    //if (debug) console.log("err: "+err);
+    //if (cookie_debug) console.log("err: "+err);
     create(req);
-    if (debug) console.log("get_internal: not found new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}");
+    if (cookie_debug) console.log("get_internal: not found new={ec='"+abbrev(req.cookies.ec)+"' ic='"+abbrev(req.cookies.ic)+"'}");
   }
   return req
 }
@@ -185,11 +185,11 @@ function get_external(req) {
   var id = cookid(req.cookies.ec, req.cookies.ic);
   /* Note that if dt1 = dt2 = infinity then cookies will last forever. */
   var dt1 = new Date(req.timestamp.getTime() + cookie_dt1);
-  //if (debug) console.log("get_external: dt1="+dt1);
-  //if (debug) console.log("get_external: dt2="+req.dt2);
+  //if (cookie_debug) console.log("get_external: dt1="+dt1);
+  //if (cookie_debug) console.log("get_external: dt2="+req.dt2);
   var max_age = Date_min(dt1,req.dt2);
   to_longcook.put(id,{dt1:dt1,dt2:req.dt2});
-  if (debug) console.log("get_external("+abbrev(req.cookies.ec)+"."+abbrev(req.cookies.ic)+") max_age="+max_age);
+  if (cookie_debug) console.log("get_external("+abbrev(req.cookies.ec)+"."+abbrev(req.cookies.ic)+") max_age="+max_age);
   return {max_age:max_age, ecstr:"ec="+req.cookies.ec, icstr:"ic="+req.cookies.ic}
 }
 //get_external(req)
@@ -259,7 +259,7 @@ function cookies_in(req) {
                                                          var parts = cookie.split('=');
                                                          req.cookies[parts[0].trim()] = (parts[1] || '').trim();
                                                        });
-    if (debug) console.log("cookies: ec="+req.cookies.ec+" ic="+req.cookies.ic);
+    if (cookie_debug) console.log("cookies: ec="+req.cookies.ec+" ic="+req.cookies.ic);
     return get_internal(req);
   }
 }
