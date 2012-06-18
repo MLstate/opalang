@@ -313,6 +313,12 @@ Server_private = {{
                 constraint = {free}
                 details = none
               }
+            create_thread_context_opt() =
+              match ThreadContext.get_opt({current}) with
+              | {none}
+              | {some = {key = {nothing} ...}}
+                -> build_thread_context(Random.int(Limits.max_int))
+              | {some = x} -> x
             parser
              | "/{_internal_}/" page=Rule.integer "/" uri=(.*) ->
                 Option.iter(dispatch,
@@ -323,12 +329,12 @@ Server_private = {{
                 )
             | "/{_internal_}/" uri=(.*) ->
               @with_thread_context(
-                build_thread_context(Random.int(max_int)),
+                create_thread_context_opt(),
                 Parser.Text.parse(internal_handler, uri)
               )
             | uri=(.*) ->
               @with_thread_context(
-                build_thread_context(Random.int(max_int)),
+                create_thread_context_opt(),
                 do ServerI18n.touch_user_lang(winfo.http_request)
                 Parser.Text.parse(external_handler, uri)
               )
