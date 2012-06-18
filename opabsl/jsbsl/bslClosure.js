@@ -99,7 +99,8 @@ function create_anyarray_cps(f,n,identifier,k)
         var k = args.pop();
         return f(args, k);
     }
-    return_(k,BslClosure_create_anyarray(any_cps, n+1, identifier));
+    any_cps.identifier = identifier;
+    return_(k,any_cps);
 }
 
 /**
