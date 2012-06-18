@@ -499,8 +499,6 @@ MongoDriver = {{
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
       depth=0; max_depth=2; ~auth;
-      // Not used, for the node.js driver
-      server=@unsafe_cast(0); db=none; collection=none;
     }
 
   /**
@@ -646,10 +644,10 @@ MongoDriver = {{
     snd(m,mbuf,"update")
 
   /** update with added getlasterror query **/
-  updatee(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
+  updatee(m:Mongo.db, flags:int, ns:string, dbname, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
     mbuf = create_(m.bufsize)
     do update_(mbuf,flags,ns,selector,update)
-    snderr(m,mbuf,"update","")
+    snderr(m,mbuf,"update",dbname)
 
   /**
    *  [updatef]:  same as [update] but using tags instead of bit-wise flags.

@@ -16,6 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 package stdlib.apis.mongo
+import stdlib.apis.mongo.common
 
 /**
  * MongoDB binding for OPA.
@@ -125,6 +126,15 @@ MongoCommon = {{
 
   /** Code for query operations */
   _OP_QUERY = 2004
+
+  /** Return new Bson Object ID */
+  new_oid = (%% BslMongo.Bson.new_oid %%: void -> string)
+
+  /** Get OID from string */
+  oid_of_string = (%% BslMongo.Bson.oid_of_string %%: string -> string)
+
+  /** Get string from OID */
+  oid_to_string = (%% BslMongo.Bson.oid_to_string %%: string -> string)
 
   /** Generate a driver error message outcome **/
   failErr(msg:string): outcome('a,Mongo.failure) = {failure={Error=msg}}

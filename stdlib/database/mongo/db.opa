@@ -27,10 +27,10 @@ package stdlib.database.mongo
 import stdlib.core.{date,map,parser}
 #<Ifstatic:OPA_BACKEND_QMLJS>
 import stdlib.apis.mongo.node
-import stdlib.apis.mongo.common
 #<Else>
 import stdlib.apis.mongo
 #<End>
+import stdlib.apis.mongo.common
 import stdlib.system
 
 /**
@@ -83,15 +83,17 @@ DbMongo = {{
     * {2 Utils}
     */
 
-   @package updateerr(db:DbMongo.t, flags:int, ns:string, selector:Bson.document, update:Bson.document): void =
+    @package updateerr(db:DbMongo.t, flags:int, ns:string, selector:Bson.document, update:Bson.document, id , upsert): void =
     reply = MongoDriver.updatee(db.db, flags, ns, db.name, selector, update)
      #<Ifstatic:OPA_BACKEND_QMLJS>
+       _=id
+       _=upsert
        if reply then void
        else error("Update error")
      #<Else>
        match reply with
        | {none} ->
-         do Log.error("DbGen/Query", "(failure) Read {id} set doesn't returns anything")
+         do Log.error("DbGen/Query", "(failure) Read {id} doesn't returns anything")
          error("DbGen/Mongo: Network Error")
        | {some = reply} ->
          match MongoCommon.reply_document(reply, 0) with
@@ -287,11 +289,11 @@ DbMongo = {{
        do Log.notice("DbGen/Mongo", "Db.build_rpath_sub : Selector {selector}")
        do Log.notice("DbGen/Mongo", "Db.build_rpath_sub : Update {update}")
        #<End>
-       do updateerr(db, tags, ns, selector, update)
+       do updateerr(db, tags, ns, selector, update, rid, true)
        true
      remove() =
        unset = [{name="$unset" value={Document = [{name=field value={Int32 = 0}}]}}]
-       do updateerr(db, 0, ns, selector, unset)
+       do updateerr(db, 0, ns, selector, unset, rid, true)
        #<Ifstatic:DBGEN_DEBUG>
        do Log.notice("DbGen/Mongo", "(success) subpath '{path}' removed ")
        #<End>
@@ -329,7 +331,7 @@ DbMongo = {{
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      write(data:'data) =
        update = Bson.opa2doc({_id = vpath.id; value=data})
-       do updateerr(db, tags, ns, selector, update)
+       do updateerr(db, tags, ns, selector, update, vpath.id, true)
        true
      remove() =
        if not(MongoDriver.delete(db.db, 0, ns, selector)) then
@@ -346,7 +348,7 @@ DbMongo = {{
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      @catch(_ ->
        Log.error("DbGen/Mongo", "(failure) An error occurs while updating path '{path}' with {update}"),
-       do updateerr(db, tags, ns, selector, update)
+       do updateerr(db, tags, ns, selector, update, id, true)
 
        #<Ifstatic:DBGEN_DEBUG>
        do Log.notice("DbGen/Mongo", "(success) path '{path}' updated with {update}")
@@ -673,7 +675,7 @@ DbSet = {{
             {none}
           | {some = reply} ->
             next(c, r) = next(consummed+c, r)
-            {some = ~{reply default next}}
+            {some = ~{reply default next limit}}
           end
         #<End>
        ~{reply default next limit}
@@ -714,7 +716,7 @@ DbSet = {{
     do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Selector {selector}")
     do Log.notice("DbGen/Mongo", "DbSet.update {db.name}.{id} : Update({upsert}) {update}")
     #<End>
-    DbMongo.updateerr(db, tag, "{db.name}.{id}", selector, update)
+    DbMongo.updateerr(db, tag, "{db.name}.{id}", selector, update, id, upsert)
 
 
   @private fold_doc(init, dbset:DbMongoSet.engine, f) =

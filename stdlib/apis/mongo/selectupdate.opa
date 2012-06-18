@@ -64,8 +64,8 @@ MongoSelectUpdate = {{
   doc(s:Bson.document, name:string, d:Bson.document): Bson.document = [H.doc(name,d)|s]
   array(s:Bson.document, name:string, l:list('b)): Bson.document = List.flatten([Bson.list_to_bson(name,l,@typeval('b)),s])
   binary(s:Bson.document, name:string, bin:Bson.binary): Bson.document = [H.binary(name,bin)|s]
-  id(s:Bson.document, name:string, id:Bson.oid): Bson.document = [H.oid(name,Bson.oid_of_string(id))|s]
-  newid(s:Bson.document, name:string): Bson.document = [H.oid(name,Bson.new_oid(void))|s]
+  id(s:Bson.document, name:string, id:Bson.oid): Bson.document = [H.oid(name,MongoCommon.oid_of_string(id))|s]
+  newid(s:Bson.document, name:string): Bson.document = [H.oid(name,MongoCommon.new_oid(void))|s]
   bool(s:Bson.document, name:string, b:bool): Bson.document = [H.bool(name,b)|s]
   date(s:Bson.document, name:string, d:Date.date): Bson.document = [H.date(name,d)|s]
   null(s:Bson.document, name:string): Bson.document = [H.null(name)|s]
@@ -416,7 +416,7 @@ MongoSelect = {{
 
   /** Create a select but enforcing run-time type checks **/
   create(s : Bson.document): Mongo.select('a) =
-    do MongoSelectUpdate.check_strict_select_value_against_type(s, @typeval('a), {su_select}) 
+    do MongoSelectUpdate.check_strict_select_value_against_type(s, @typeval('a), {su_select})
     s
 
   /** Make a select from an OPA type with type checking **/
@@ -442,7 +442,7 @@ MongoUpdate = {{
 
   /** Create a update but enforcing run-time type checks **/
   create(u : Bson.document): Mongo.update('a) =
-    do MongoSelectUpdate.check_strict_select_value_against_type(u, @typeval('a), {su_update}) 
+    do MongoSelectUpdate.check_strict_select_value_against_type(u, @typeval('a), {su_update})
     u
 
   /** Make a update from an OPA type with type checking **/
