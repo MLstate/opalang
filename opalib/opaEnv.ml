@@ -738,7 +738,12 @@ struct
       extrapath := MutableList.to_list mutable_extrapath;
       bypass_plugin := MutableList.to_list mutable_bypass_plugin;
       filenames := MutableList.to_list mutable_filenames;
-      target := Option.default (!last_target_from_file ^ ".exe") !target_opt;
+      target := (
+        let ext = match !back_end_wanted with
+          | `qmljs -> OManager.printf "JS BACKEDN"; ".js"
+          | `qmlflat -> OManager.printf "FLAT "; ".exe"
+        in
+        Option.default (!last_target_from_file ^ ext) !target_opt);
       target_only_qml := Option.default (!last_target_from_file ^ ".qml") !target_opt;
       target_qmli := Option.default (!last_target_from_file ^ ".qmli") !target_opt;
       target_dbgen_schema := Option.default (!last_target_from_file ^ ".dot") !target_opt
