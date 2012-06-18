@@ -349,7 +349,6 @@ check-node-dependency() (
 )
 
 check-node-dependency "nodemailer"
-check-node-dependency "simplesmtp"
 check-node-dependency "imap"
 
 # - checking camlidl *

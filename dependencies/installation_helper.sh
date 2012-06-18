@@ -328,9 +328,8 @@ package_install (){
                 ;;
 	    node)
 		vcbuild.bat
-		npm install nodemailer
-		npm install smtpserver
-		npm install imap
+		npm install -g nodemailer
+		npm install -g imap
 		;;
             *)
                 msg_yellow "Install $1 by hand"
@@ -444,9 +443,8 @@ package_install (){
                 ./configure --prefix $PREFIX
                 make
                 $SUDO make install
-		npm install nodemailer
-		npm install smtpserver
-		npm install imap
+		npm install -g nodemailer
+		npm install -g imap
 		;;
             *)
                 install_generic
