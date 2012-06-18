@@ -331,6 +331,7 @@ package_install (){
 		npm install nodemailer
 		npm install smtpserver
 		npm install imap
+		;;
             *)
                 msg_yellow "Install $1 by hand"
                 msg_yellow "TODO : check $1 installation"
@@ -446,6 +447,7 @@ package_install (){
 		npm install nodemailer
 		npm install smtpserver
 		npm install imap
+		;;
             *)
                 install_generic
         esac
