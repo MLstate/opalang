@@ -345,6 +345,7 @@ check-node-dependency() (
 	echo-ok found
     else
 	echo-err Not found
+        exit 1
     fi
 )
 
