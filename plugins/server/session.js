@@ -422,7 +422,7 @@ var LowLevelPingLoop = {};
         }
     }
 
-    var process_msg = native_process;
+    var process_msg = function(){return false};
 
     var the_ping_loop;
     var the_pang_loop;
@@ -446,10 +446,13 @@ var LowLevelPingLoop = {};
             case "msgs" :
                 var messages = native_response.body;
                 for(var i = 0; i < messages.length; i++){
-                    var m = %%Bsljson.Json.native_to_json%%(messages[i]);
+                    var n = messages[i];
+                    var m = %%Bsljson.Json.native_to_json%%(n);
                     m = option2js(m);
                     if (m!=null){
-                        process_msg(m);
+                        if(!process_msg(m)){
+                            native_process(n);
+                        }
                     } else {
                         console.error("LLPing", "Bad json", messages[i]);
                     }
@@ -946,7 +949,7 @@ var LowLevelPingLoop = {};
         return js_void;
     }
 
-    ##register process_msg: (RPC.Json.json -> void) -> void
+    ##register process_msg: (RPC.Json.json -> bool) -> void
     ##args(processor)
     {
         LowLevelPingLoop.process_msg(processor);

@@ -54,31 +54,35 @@ PingClient = {{
      f("/chan/register", Json.to_string(msg))
 
   @private
-  set_process_msg(f:RPC.Json.json -> void):void =
-    (%%Session.PingRegister.process_msg%%:(RPC.Json.json -> void) -> void)(f)
+  set_process_msg(f:RPC.Json.json -> bool):void =
+    (%%Session.PingRegister.process_msg%%:(RPC.Json.json -> bool) -> void)(f)
 
   @private
   _x : void = set_process_msg(process_msg)
 
   @private
-  process_msg(json:RPC.Json.json):void =
+  process_msg(json:RPC.Json.json):bool =
+    error(msg) = do error(msg) false
     match json with
     | {Record = [("type", {String = "chan"}), ("id", id), ("msg", message)]} ->
       match Channel.unserialize(id) with
       | {none} -> error("Can't unserialize {id}")
       | {some = channel} ->
         serialize(_) = @toplevel.error("Should not happends")
-        Channel.forward(none, channel, message, ~{serialize message})
+        do Channel.forward(none, channel, message, ~{serialize message})
+        true
       end
     | {Record = [("type", {String = "rpc"}),
                  ("name", {String = name}),
                  ("id",   {String = id}),
                  ("args", {String = args})]} ->
-      OpaRPC_Client.Dispatcher.call(some(id), name, args)
+      do OpaRPC_Client.Dispatcher.call(some(id), name, args)
+      true
     | {Record = [("type", {String = "asyncrpc"}),
                  ("name", {String = name}),
                  ("args", {String = args})]} ->
-      OpaRPC_Client.Dispatcher.call(none, name, args)
+      do OpaRPC_Client.Dispatcher.call(none, name, args)
+      true
     | _ -> error("I don't understand message : {json}")
 
   sync_request(url, body) =

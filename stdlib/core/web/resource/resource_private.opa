@@ -720,7 +720,7 @@ default_customizers = [customizer_for_google_frame,required_customizer_for_incom
      {body = <body id="Body">{body_content}{body_custom}{js_links_custom}{js_inline}</body>
       head = head_custom
       //Additional IE-specific fix -- note that the mime type can be ignored if the resource uses [override_mime_type]
-      mime_type = 
+      mime_type =
          match doctype
          | {xhtml1_1} -> (
             match user_compat.renderer with
@@ -990,7 +990,7 @@ export_resource(external_css_files: list(string),
             (html_doctype_to_string(d), html_doctype_to_meta_utf_8(d))
 
           ready_head = <head>{meta_utf_8}{base}{head_without_id}{global_variable}</head>
-  
+
           page = Xhtml.of_string_unsafe(html_doctype) <+>
                  html_tag(<>{ready_head}{ready_body}</>)
 
