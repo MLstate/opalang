@@ -64,6 +64,8 @@ val dump : ?custom:(Obj.t -> (Buffer.t -> Obj.t -> unit) option) -> ?depth:int -
 val print : ?prefix:string -> 'a -> unit
   (** print the value to stdout, possibly prefixed by the given string *)
 
+val size : 'a -> int
+
 val native_runtime : bool
   (** [native_runtime = true] when the code currently
       executing is native code *)

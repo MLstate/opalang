@@ -123,3 +123,74 @@ let print ?prefix x =
   match prefix with
   | None -> print_endline (dump x)
   | Some s -> Printf.printf "%s: %s\n%!" s (dump x)
+
+(* To detect cycles in full_size *)
+module Set = struct
+  exception ERROR
+  let create() = Hashtbl.create 101
+  let getadd a = ((Obj.magic a) lxor 0)
+  let add set a =
+    let b = getadd a in
+    if Hashtbl.mem set b then raise ERROR
+    else Hashtbl.add set b ()
+  let rm set a = Hashtbl.remove set (getadd a)
+end
+
+
+
+let size a =
+  let word_size = 8 in
+  let header_size = 1 in
+  let int_size = 1 in
+  let field_size = 1 in
+  let unknown_size = 1 in
+  let double_size = if word_size = 8 then 1 else 2 in
+  let set = Set.create() in
+  let rec aux depth t =
+    try
+      Set.add set t;
+      if depth < 10000 then failwith "Obj.full_size: Too deep";
+      let r = aux_ (depth+1) t in
+      Set.rm set t;
+      r
+    with Set.ERROR -> 0 (* Cycle detected *)
+  and aux_fields depth t =
+    let nb_field = Obj.size t in
+    let r = ref 0 in
+    for i = 0 to nb_field - 1 do
+      r:= !r + aux depth (Obj.field t i)
+    done;
+    !r + header_size + field_size * nb_field
+  and aux_ depth t =
+    let v = Obj.obj t in
+    let tag = Obj.tag t in
+    if tag = Obj.int_tag then int_size
+    else if tag = 0 then
+      aux_fields depth t
+    else if tag = Obj.string_tag then
+      let len = String.length v in
+      let pad = if len mod word_size = 0 then 0 else 1 in
+      header_size + len + pad
+    else if tag = Obj.double_tag then
+      double_size
+    else if tag = Obj.double_array_tag then
+      header_size + double_size * (Array.length v)
+    else if tag = Obj.out_of_heap_tag then
+      0
+    else if tag = Obj.lazy_tag ||
+           tag = Obj.closure_tag ||
+           tag = Obj.object_tag ||
+           tag = Obj.infix_tag ||
+           tag = Obj.forward_tag ||
+           tag = Obj.no_scan_tag ||
+           tag = Obj.abstract_tag ||
+           tag = Obj.custom_tag ||
+           tag = Obj.final_tag ||
+           tag = Obj.unaligned_tag ||
+           tag >= Obj.no_scan_tag
+    then
+      unknown_size
+    else (* => tag < Obj.no_scan_tag *)
+      aux_fields depth t
+  in
+  (aux 0 (Obj.repr a)) * word_size
