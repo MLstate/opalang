@@ -1,4 +1,3 @@
-stdlib.apis.gravatar
 stdlib.apis.irc
 stdlib.apis.mongo
 stdlib.components.*
