@@ -22,7 +22,7 @@
  * @stability unknown
  * @category export
  */
-import-plugin unix
+
 /**
  * {1 About this module}
  *
@@ -33,7 +33,7 @@ import-plugin unix
  * {1 What if I need more?}
  */
 
-import stdlib.core.web.resource
+import-plugin unix
 
 type XlsExport.config =
    {xls_header : list(string)
@@ -88,7 +88,7 @@ to_string(config, content) =
 */
 to_file(config, content, filename) =
     xls_s = to_string(config, content)
-    %%BslFile.of_string%%(filename, xls_s)
+    %%BslFile.of_string%%(filename, binary_of_string(xls_s))
 
 /**
 * Generate a new binary resource from the given list of string list
@@ -97,6 +97,6 @@ to_file(config, content, filename) =
 */
 to_resource(config, content) =
   xls_s = to_string(config, content)
-  Resource.binary(xls_s,"text/xls")
+  Resource.binary(binary_of_string(xls_s),"text/xls")
 
 }}
