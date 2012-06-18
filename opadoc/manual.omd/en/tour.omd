@@ -1,14 +1,15 @@
 A tour of Opa
 =============
 
-Opa is a new generation of open source web development platform that lets you
-write *secure* and *scalable* web applications using a single technology.
+Opa is a new generation framework for JavaScript that allows you to
+write *secure* and *scalable* web applications using a single high-level
+language that runs on existing web standards.
 
 Opa natively supports HTML5 and CSS and automates many aspects of modern web
 application programming: Ajax/Comet client-server communication, event-driven
 and non-blocking programming models.
 
-The platform unifies in one single language:
+Opa unifies in one single language:
 
 * _server_ (backend) programming (runnning on [Node.js](http://nodejs.org) or compiled to native code with Opa's own backend),
 * _client_ (frontend) programming (compiled to Javascript) and
@@ -21,10 +22,13 @@ technology (HTML and CSS in particular).
 A single language
 -----------------
 
-Opa is a single programming language for writing web applications.
-In particular, client and server code (usually called frontend and backend) are both written in Opa.
+Opa takes care of all aspects of web programming: frontend (client code),
+backend (server code) are database queries are all written in one consistent
+language and compiled to standards of the web: Javascript frontend,
+Node.js backend and MongoDB for the database. Other targets are planned,
+making Opa a gateway to web programming.
 
-You can write a complete program without thinking about the client-server distinction and the Opa compiler will distribute the code as needed for you and take care of all the communication. Should you need to tweak the choices made by the compiler (for instance to improve the application performance) it's very easy with simple keywords like `client`, `server` and more for fine-tuning.
+You can write a complete Opa program without thinking about the client-server distinction and the Opa compiler will distribute the code as needed for you and take care of all the communication. Should you need to tweak the choices made by the compiler (for instance to improve the application performance) it's very easy with simple keywords like `client`, `server` and more for fine-tuning.
 
 ```
  // Opa decides
@@ -63,7 +67,7 @@ The resulting application can be opened in your favorite browser at http://local
 Familiar syntax
 ---------------
 
-Opa new default syntax is inspired by popular programming languages: C, JavaScript and others. Below is an extract of a real Opa program:
+Opa syntax is inspired by popular programming languages, most notably, JavaScript. Below is an extract of a real Opa program:
 
 ```
 function createUser(username, password) {
@@ -181,7 +185,7 @@ Opa type system not only manages basic types but complex data-structures, functi
 Database
 --------
 
-Opa has extensive support for MongoDB (and, to lesser extent, CouchDB), as well as its own database engine. The latter requires no configuration and is recommended for starting new programs.
+Opa has extensive support for MongoDB (and, to lesser extent, CouchDB), as well as its own database engine. The latter requires no configuration and is convenient for starting new programs, while the latter offer state-of-the-art solution for data storage and retrieval.
 
 Database values are declared by stating their type:
 `database type /path;`[opa]
