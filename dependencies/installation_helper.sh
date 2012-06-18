@@ -198,7 +198,7 @@ sources () {
 
 package_dir () {
     local p=$1
-    local dir=$(find . -maxdepth 1 -type d -name "$p-[a-z0-9.]*")
+    local dir=$(find . -maxdepth 1 -type d -name "$p-[v0-9.]*")
     local dir="$dir "$(find . -maxdepth 1 -type d -name "$p-master")
     echo $dir | (read a b; if [ -n "$b" ]; then
             msg_red "Error: found several source directories for $p"
