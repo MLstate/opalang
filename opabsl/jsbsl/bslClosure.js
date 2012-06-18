@@ -91,6 +91,18 @@ function get_local_unsafe(str) {
     return new_closure;
 }
 
+##register [cps-bypass] create_anyarray_cps \ `create_anyarray_cps` : 'impl, int, 'ident, continuation(Closure.t) -> void
+function create_anyarray_cps(f,n,identifier,k)
+{
+    var any_cps = function(){
+        console.log(arguments);
+        var args = Array.prototype.slice.call(arguments);
+        var k = args.pop();
+        return f(args, k);
+    }
+    return_(k,BslClosure_create_anyarray(any_cps, n+1, identifier));
+}
+
 /**
  * Part of JsInterface (funaction)
 **/
