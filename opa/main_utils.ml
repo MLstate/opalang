@@ -76,8 +76,7 @@ end
 
 module Switch =
 struct
-  let back_end ~options _env =
-    options.E.back_end
+  let back_end ~options _env = options.E.back_end
 end
 
 let if_not f_cond ~options env = not (f_cond ~options env)
