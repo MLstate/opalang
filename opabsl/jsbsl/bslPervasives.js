@@ -284,6 +284,7 @@ function js_print(s){
 var print_endline = jlog_old_style;
 var prerr_endline = jlog_old_style;
 var js_print      = jlog_old_style;
+var jlog          = jlog_old_style;
 #<End>
 
 /**
