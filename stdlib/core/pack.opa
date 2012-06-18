@@ -900,7 +900,7 @@ Pack = {{
     //dump = (%% BslMongo.Bson.dump %%: int, string -> string)
     dump(_, _) = "unactivated dump"
 
-    debug = ServerReference.create(true)
+    debug = ServerReference.create(false)
 
     pinput(name, input) =
       if ServerReference.get(debug)
