@@ -480,24 +480,32 @@ OpaRPC_Server =
           else reply(winfo, "false", {unauthorized})
         | "rpc_call/" name=(.*) ->
           name = "{name}"
-          do Log.info("OpaRPC", "RPC call identified by {name}")
+          #<Ifstatic:MLSTATE_PING_DEBUG>
+          do Log.info("OpaRPC", "RPC({name}) try call")
+          #<End>
           match get(name) with
             | {none} ->
               _ = reply_error(winfo, "RPC not found")
-              do Log.error("OpaRPC", "Call to the rpc \"{name}\" that doesn't exist")
-              error("RPC error")
-
+              Log.error("OpaRPC", "RPC({name}) does not exist")
             | {some = skeleton} ->
               @catch(_ ->
+                #<Ifstatic:MLSTATE_PING_DEBUG>
+                do Log.info("OpaRPC", "RPC({name}) exception was raise")
+                #<End>
                 ty = {TyRecord_row=[{label="failure" ty={TyRecord_row = []}}]}
                 serial = OpaSerialize.serialize_with_type(ty,{failure})
                 reply(winfo, serial, {success}),
+              #<Ifstatic:MLSTATE_PING_DEBUG>
+              do Log.info("OpaRPC", "RPC({name}) skeleton was found")
+              #<End>
               match skeleton(get_requested_post_content(winfo.http_request.request)) with
                 | {none} ->
-                  _ = reply_error(winfo, "Bad formatted rpc request")
-                  do Log.error("OpaRPC", "Call to the rpc \"{name}\" failed")
-                  error("RPC error")
+                  do Log.error("OpaRPC", "RPC({name}) Bad formatted request")
+                  reply_error(winfo, "Bad formatted rpc request")
                 | {some = (ty,result)} ->
+                  #<Ifstatic:MLSTATE_PING_DEBUG>
+                  do Log.info("OpaRPC", "RPC({name}) success")
+                  #<End>
                   ty = {TyRecord_row=[{label="success" ~ty}]}
                   serial = OpaSerialize.serialize_with_type(ty,{success=result})
                   reply(winfo, serial, {success})

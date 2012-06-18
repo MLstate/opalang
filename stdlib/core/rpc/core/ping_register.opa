@@ -209,7 +209,7 @@ PingRegister = {{
      */
     return(client, nb, result) =
       #<Ifstatic:MLSTATE_PING_DEBUG>
-      do debug("PANG({nb}, {client}) return {result}")
+      do debug("PANG({nb}, {client}) return ")
       #<End>
       match @atomic(
         match Hashtbl.try_find(entries, client) with
