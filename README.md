@@ -19,7 +19,7 @@ should get you there `./configure` should report any missing dependencies and
 point you to the packages you may install to fix them (although those may depend
 on your distribution). make needs to be GNU make.
 
-The main dependency of Opa is OCaml 3.12. In case your distribution doesn't
+The main dependency of Opa is OCaml 3.12 and Node.js 0.6. In case your distribution doesn't
 provide a recent enough version, or if you miss some other dependencies, you can
 use the `installation_helper.sh` script, which automates the download and
 installation of our dependencies. Try

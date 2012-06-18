@@ -313,6 +313,45 @@ else
     exit 1
 fi
 
+# - checking for nodejs
+echo-check for nodejs
+if which node &>/dev/null; then
+    echo-ok found
+else
+    echo-err Not found
+    exit 1
+fi
+
+# - checking for nodejs version
+echo-check nodejs version
+NODE_VERSION=$(node --version)
+NODE_MIN_VERSION="v0.6"
+if [[ $NODE_VERSION > $NODE_MIN_VERSION ]]; then
+    echo-ok $NODE_VERSION
+else
+    echo-err $NODE_VERSION
+    echo "Node $NODE_MIN_VERSION or newer is required"
+    false
+fi
+
+# - checking for nodejs package dependency
+check-node-dependency() (
+    echo-check for "nodejs dependency: $1"
+    # local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
+    # trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
+    # echo "var $1 = require(\"$1\");" >test.nodejs
+    # node test.nodejs
+    if npm list | grep -q "$1"; then
+	echo-ok found
+    else
+	echo-err Not found
+    fi
+)
+
+check-node-dependency "nodemailer"
+check-node-dependency "simplesmtp"
+check-node-dependency "imap"
+
 # - checking camlidl *
 echo-check for camlidl
 if [ "X$NO_CAMLIDL" = "X1" ]; then

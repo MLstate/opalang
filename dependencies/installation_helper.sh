@@ -11,7 +11,7 @@ SCRIPTNAME=$(basename $0)
 
 # OS independent various variables
 # Warning: only put in DEFAULT_PACKAGES what should be included in our binary package
-DEFAULT_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex ocaml-ssl)
+DEFAULT_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex ocaml-ssl node)
 ALL_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc cairo-ocaml)
 
 BUILD_DIR=$SCRIPTDIR/packages
@@ -191,6 +191,7 @@ sources () {
         libnatpmp) echo "http://miniupnp.free.fr/files/download.php?file=libnatpmp-20110103.tar.gz";;
         miniupnpc) echo "http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.5.20110418.tar.gz";;
         cairo-ocaml) echo "http://cgit.freedesktop.org/cairo-ocaml/snapshot/cairo-ocaml-1.2.0.tar.gz";;
+	node) echo "http://nodejs.org/dist/v0.6.19/node-v0.6.19.tar.gz";;
         *) msg_red "Error: don't know about package $1" >&2; exit 2
     esac
 }
@@ -325,6 +326,11 @@ package_install (){
                 make
                 make install
                 ;;
+	    node)
+		vcbuild.bat
+		npm install nodemailer
+		npm install smtpserver
+		npm install imap
             *)
                 msg_yellow "Install $1 by hand"
                 msg_yellow "TODO : check $1 installation"
@@ -433,6 +439,13 @@ package_install (){
                 make
                 $SUDO make install
                 ;;
+	    node)
+                ./configure --prefix $PREFIX
+                make
+                $SUDO make install
+		npm install nodemailer
+		npm install smtpserver
+		npm install imap
             *)
                 install_generic
         esac
