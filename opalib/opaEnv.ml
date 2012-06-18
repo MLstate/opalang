@@ -740,8 +740,8 @@ struct
       filenames := MutableList.to_list mutable_filenames;
       target := (
         let ext = match !back_end_wanted with
-          | `qmljs -> OManager.printf "JS BACKEDN"; ".js"
-          | `qmlflat -> OManager.printf "FLAT "; ".exe"
+          | `qmljs -> ".js"
+          | `qmlflat -> ".exe"
         in
         Option.default (!last_target_from_file ^ ext) !target_opt);
       target_only_qml := Option.default (!last_target_from_file ^ ".qml") !target_opt;
