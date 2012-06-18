@@ -60,7 +60,6 @@ type t =
       extra_lib : (string * BslJsConf.conf) list ;
       extra_path : string list ;
       input_files : Qml2ocamlOptions.input_file list ;
-      js_exe : string ;
       backend : string;
       jsopt : string list ;
       alpha_renaming : bool;
@@ -158,7 +157,6 @@ struct
   let input_files_reset () = MutableList.clear input_files
   let add_input_qml_file qml = List.iter (fun qml -> MutableList.add input_files (Qml2ocamlOptions.QmlFile qml)) (extra_split qml)
   let add_input_opa_file opa = List.iter (fun opa -> MutableList.add input_files (Qml2ocamlOptions.OpaFile opa)) (extra_split opa)
-  let js_exe = ref ""
   let backend = ref ""
   let jsopt_get, jsopt_add, jsopt_reset = mutable_list_factory ()
   let lambda_lifting = ref false
@@ -194,7 +192,6 @@ struct
     let _ = extra_path_reset () ;
       List.iter extra_path_add StaticParameters.js_include_dir in
     input_files_reset () ;
-    js_exe := "js" ;
     backend := "qmljsimp";
     let _ =
       jsopt_reset () ;
@@ -229,7 +226,6 @@ struct
       ("--cps-toplevel-concurrency", Arg.Tuple [ Arg.Set cps ; Arg.Set cps_toplevel_concurrency ],
        " -- During cps transformation, toplevel not functionnal values are compiled as future (enforce --cps)");
       ("--extra-path", Arg.String extra_path_add, "<dir> -- Add an include directory for searching libs");
-      ("--js-exe", Arg.Set_string js_exe, "<exe> -- Specify program js-exe (default is js)");
       ("--jsopt", Arg.String jsopt_add, "<opt> -- Pass option <opt> to js exec only");
       ("--lambda-lifting", Arg.Set lambda_lifting, " -- Use Qml lambda lifting");
       ("--mlstate-I", Arg.String mlstatepath_add, "<dir> -- Add an include directory from mlstatelibs");
@@ -292,7 +288,6 @@ struct
       extra_lib = [] ;
       extra_path = (List.map (fun s -> Filename.concat !mlstatelibs s) (mlstatepath_get ())) @ (extra_path_get ()) ;
       input_files = input_files ;
-      js_exe = !js_exe ;
       backend = !backend ;
       jsopt = jsopt_get () ;
       alpha_renaming = !alpha_renaming;

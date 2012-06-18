@@ -2186,6 +2186,12 @@ let pass_ServerJavascriptCompilation =
              compilation_directory;
              lang = `node;
          } in
+       let jsoptions =
+         match options.OpaEnv.run_server_options with
+         | None -> jsoptions
+         | Some exe_argv ->
+             { jsoptions with Qml2jsOptions. exe_argv; exe_run = true }
+       in
        let env_bsl = env.Passes.newFinalCompile_bsl in
        let generated_files, generated_ast = (* ([] : JsAst.code) in *)
          Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
@@ -2201,10 +2207,11 @@ let pass_ServerJavascriptCompilation =
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in
-       let _env_js_output =
+       let env_js_output =
          Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input
        in
-       PH.make_env options 0
+       let code = Qml2js.JsTreat.js_treat jsoptions env_js_output in
+       PH.make_env options code
     )
 
 let pass_CleanUp =

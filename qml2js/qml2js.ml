@@ -269,10 +269,11 @@ struct
          Format.fprintf fmt "%a\n" JsPrint.pp#statement elt;
       ) js_init_map
 
+  let get_target env_opt = env_opt.target
 
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 env_opt.target in
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#! /usr/bin/env node \n";
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
@@ -298,22 +299,21 @@ struct
   let js_generation env_opt generated_files env_js_input =
     begin match ObjectFiles.compilation_mode () with
     | `compilation -> compilation_generation env_opt generated_files env_js_input
-    | `init -> OManager.verbose "JAVASCRIPT INIT COMPILATION TODO"
+    | `init -> ()
     | `linking -> linking_generation env_opt generated_files env_js_input
     | `prelude -> assert false
     end;
-    { generated_files = [] }
+    { generated_files = [get_target env_opt, ""] }
 
   let js_treat env_opt env_js_output =
     if not env_opt.exe_run
     then 0
     else
-      let prog = env_opt.js_exe in
       let args = env_opt.exe_argv in
       let args = args @ ( List.map fst env_js_output.generated_files ) in
+      let prog = fst (List.hd env_js_output.generated_files) in
+      let prog = Filename.concat (Sys.getcwd ()) prog in
       OManager.verbose "building finished, will run @{<bright>%s@}" prog ;
-      OManager.verbose "going to directory @{<bright>%s@}" env_opt.compilation_directory ;
-      Sys.chdir env_opt.compilation_directory ;
       let command = String.concat " " (prog::args) in
       OManager.verbose "exec$ %s" command ;
       let args = Array.of_list (prog::args) in
