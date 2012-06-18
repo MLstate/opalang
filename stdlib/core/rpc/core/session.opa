@@ -272,6 +272,10 @@ Session = {{
         OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_query))),
         OpaSerialize.serialize, (_chan, s -> OpaSerialize.unserialize(s, @typeval(make_at_response)))
       )
+    /**
+     * Get the server [entity] corresponding to the given [endpoint].
+     */
+    @private get_server_entity = %%Session.get_server_entity%%
 
     /**
      * Used for start a listening which allows other servers to
@@ -298,9 +302,10 @@ Session = {{
                        OpaSerialize.finish_unserialize(on_message, tyonmessage))
                 | ({some = state}, {some = on_message}) ->
                   /* Create session */
-                  session = Session_private.llmake(@unsafe_cast(state),
+                  session = Channel.make(@unsafe_cast(state),
+                              {normal = @unsafe_cast(on_message)},
                               OpaSerialize.finish_unserialize(_, tymessage),
-                              {normal = @unsafe_cast(on_message)})
+                              {maker}, {none})
                   /* Send created session */
                   tychannel = {TyName_ident = "channel";
                                TyName_args = [tymessage]}
@@ -418,6 +423,14 @@ Session = {{
 
     #<Ifstatic:OPA_BACKEND_QMLJS>
     #<Else>
+    /**
+     * Get the endpoint where the session is located, if [session] is
+     * local return [none].
+     */
+    @private get_endpoint(chan : channel) =
+      bsl = %%Session.get_endpoint%%
+      bsl(chan)
+
     /**
      * [make_at state handler channel] Like [make state handler] but
      * the session is created on the server that own the given channel.

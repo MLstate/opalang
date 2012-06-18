@@ -428,6 +428,8 @@ ChannelServer = {{
 #<Else>
 @abstract type channel('msg) = Session.private.channel('msg)
 
+@abstract type OpaNetwork.entity = external
+
 /**
  * A partial order on channels
  */
@@ -459,42 +461,30 @@ Channel = {{
     handler : Session.handler('state, 'message),
     unserialize : RPC.Json.json -> option('msg),
     selector : Session.context_selector,
-    more : 'more
-    ) =
+    more : option('more)
+  ) : channel =
       make = @may_cps(%%Session.llmake%%)
       Session_private.make_make(state, unserialize, handler, more, selector, make)
 
-  send = Session_private.llsend
+  send : channel('a), Session.how_send('a) -> void = Session_private.llsend
 
   /**
    * {2 Utilities}
    */
-  /**
-   * Get the server [entity] corresponding to the given [endpoint].
-   */
-  @private get_server_entity = %%Session.get_server_entity%%
 
   /**
    * Returns entity which own the given channel
    */
-  @private owner(chan : channel) =
+  owner(chan : channel) =
     bsl = %%Session.owner%%
     bsl(chan)
 
   /**
    * Return true if the given entity is a client
    */
-  @private is_client(entity) =
+  is_client(entity) =
     bsl = %%Session.is_client%%
     bsl(entity)
-
-  /**
-   * Get the endpoint where the session is located, if [session] is
-   * local return [none].
-   */
-  @private get_endpoint(chan : channel) =
-    bsl = %%Session.get_endpoint%%
-    bsl(chan)
 
   /**
    * Returns true if the channel is not owned by this server.
@@ -569,11 +559,11 @@ Channel = {{
     | {none} -> do Log.error("[Session][unserialize]","fail") {none}
     | {some = r}-> {some = r}
 
-  get_more = %% Session.get_more%%
+  get_more = %% Session.get_more%% : channel -> 'a
 
 }}
 
 ChannelServer = {{
-  get_id = %%Session.get_server_id%%
+  get_id : channel, _ -> option(string) = %%Session.get_server_id%%
 }}
 #<End>

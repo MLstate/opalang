@@ -275,8 +275,8 @@ Cell_private = {{
         |{some = {cell = ~{on_message ...}}} -> on_message
         |{none} ->
           _, _ -> error("No handler on this cells (That case should never happens)")
+      bsl_llcall(cell, message, serialize, unserialize_result, on_message)
       #<End>
-
     )
 
     server = (
