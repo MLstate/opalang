@@ -39,7 +39,7 @@ all: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
 	$(MAKE) manpages
 endif
-	$(MAKE) $(OPA_TOOLS)
+
 
 .PHONY: build
 build: all
@@ -75,7 +75,6 @@ OPA_TOOLS = opa-create
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
