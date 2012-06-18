@@ -77,7 +77,7 @@ OPA_TOOLS = opa-create
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 
 .PHONY: manpages
