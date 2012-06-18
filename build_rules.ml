@@ -1001,4 +1001,9 @@ package_building
   ~rebuild:false
   ();
 
+rule "opa-both-packages"
+  ~deps:["opa-node-packages.stamp"; "opa-packages.stamp"]
+  ~stamp:"opa-both-packages.stamp"
+  (fun env build -> Nop);
+
 () (* This file should be an expr of type unit *)

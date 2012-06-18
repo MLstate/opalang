@@ -34,7 +34,7 @@ export
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 ifndef NO_MANPAGES
 	$(MAKE) manpages
@@ -50,21 +50,25 @@ runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) opa-both-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-packages
-opa-packages: $(MYOCAMLBUILD)
+.PHONY: opa-flat-packages
+.PHONY: opa-node-packages
+opa-flat-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-packages.stamp
 opa-node-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp
+opa-both-packages: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) opa-both-packages.stamp
 
 .PHONY: stdlib
-stdlib: opa-node-packages
+stdlib: opa-both-packages
+stdlib-flat: opa-flat-packages
 stdlib-node: opa-node-packages
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
@@ -208,7 +212,7 @@ install-man:
 	fi
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
-install: install-bin install-lib install-share install-plugins install-packages install-man
+install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
