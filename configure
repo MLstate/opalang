@@ -154,7 +154,7 @@ if [ -n "${IS_MAC:-}" ]; then
     if which gsed > /dev/null 2>&1; then echo-ok ok
     else
         echo-err Not found
-        echo "gsed is needed to build OPA."
+        echo "gsed is needed to build Opa."
         if which port >/dev/null 2>&1; then
             echo -e " You should run:\n\tsudo port install gsed"
         # else #todo# [add useful suggestion here]
@@ -165,7 +165,7 @@ if [ -n "${IS_MAC:-}" ]; then
     if which gtail gmktemp gsort greadlink >/dev/null 2>&1; then echo-ok ok
     else
         echo-err Not found
-        echo "GNU coreutils are needed to build OPA."
+        echo "GNU coreutils are needed to build Opa."
         if which port >/dev/null 2>&1; then
             echo -e " You should run:\n\tsudo port install coreutils"
         # else #todo# [add useful suggestion here]
@@ -610,7 +610,7 @@ lib-not-found () {
 }
 
 check-cryptokit () {
-    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"OPA\""); then
+    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"Opa\""); then
 	echo-err "You need cryptokit >= 1.4"
     fi
 }
