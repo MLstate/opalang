@@ -622,7 +622,7 @@ var LowLevelPingLoop = {};
 
     LowLevelSession.serialize = function(chan){
         var serialized = chan.serialized;
-        if(serialized != null){
+        if(serialized == null){
             serialized = chan.serialize();
             if(chan.on_remove != null){
                 chan.on_remove(function(){
@@ -632,6 +632,7 @@ var LowLevelPingLoop = {};
                                     async: async_rpc_return});
                     });
             }
+            to_register.push(serialized);
         }
         return serialized;
     }
@@ -880,7 +881,7 @@ var LowLevelPingLoop = {};
 ##register is_client : OpaNetwork.entity -> bool
 ##args(chan)
 {
-    return chan.some.is_client;
+    return chan.is_client;
 }
 
 ##register get_more : Session.private.native('msg, 'ctx) -> option('more)

@@ -141,8 +141,3 @@ Core_server_code =
   b = Buffer.create(10)
   do Outcome.get(Pack.Encode.long_be(b, i))
   Buffer.contents(b)
-
-    // #<Else>
-    // %%BslBuffer.serialize_string_length%%
-    // #<End>
-

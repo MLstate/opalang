@@ -63,7 +63,7 @@ var LocalChannelStore = function(){
         },
 
         serialize : function(chan){
-            var serialized = stored[chan.lchan_id];
+            var serialized = chan.serialized;
             if (serialized == null){
                 #<Ifstatic:OPABSL_NODE>
                 serialized = {srv_id : generate_id()};
@@ -72,7 +72,7 @@ var LocalChannelStore = function(){
                 #<Else>
                 serialized = {cl_id : generate_id()};
                 chan.serialized = serialized;
-                stored[serialized.cl_id] = serialized;
+                stored[serialized.cl_id] = chan;
                 #<End>
             }
             return serialized;
