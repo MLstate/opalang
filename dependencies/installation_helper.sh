@@ -330,6 +330,7 @@ package_install (){
 		vcbuild.bat
 		npm install -g nodemailer
 		npm install -g imap
+		npm install -g mongodb
 		;;
             *)
                 msg_yellow "Install $1 by hand"
@@ -445,6 +446,7 @@ package_install (){
                 $SUDO make install
 		npm install -g nodemailer
 		npm install -g imap
+		npm install -g mongodb
 		;;
             *)
                 install_generic

@@ -357,6 +357,7 @@ check-node-dependency() (
 
 check-node-dependency "nodemailer"
 check-node-dependency "imap"
+check-node-dependency "mongodb"
 
 # - checking camlidl *
 echo-check for camlidl
