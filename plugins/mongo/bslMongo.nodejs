@@ -358,7 +358,7 @@ exports.nextObject = BslMongo_NodeMongo_nextObject
     if (err === null && item != null){
       return_(cont, {f1:"", f2:item})
     } else {
-      var msg = err.message;
+      var msg = err == null ? "No item" : err.message == null ? "No item" : err.message;
       return_(cont, {f1:msg == null ? "No item" : msg, f2:0})
     }
   });
