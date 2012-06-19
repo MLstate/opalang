@@ -514,7 +514,8 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
 
     // formidable doesn't give access to raw headers, so we have to collect them
     // on our own. As the Opa stdlib expects every part to have a name, we index
-    // parts by their names.
+    // parts by their names. Hence, the multipart object is a map from field names
+    // (strings) to {headers, value} / {headers, file}.
     var data = {};
 
     form.onPart = function (part) {
@@ -561,6 +562,10 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
     assert(false);
 }
 
+// Fold function f across obj's fields and values, using
+// acc as the starting value. f must be in cps, with arguments
+// (field_name, field_value, acc, continuation(acc)). k is the
+// continuation.
 function fold_cps(obj, f, acc, k) {
     var obj_fields = [];
 
@@ -568,12 +573,16 @@ function fold_cps(obj, f, acc, k) {
 
     function iter(i) {
         return function (acc) {
-            var c = i == obj_fields.length ? k : cont(iter(i + 1));
-            f(obj_fields[i], obj[obj_fields[i]], acc, c);
+            if (i == obj_fields.length) {
+                return return_(k, acc);
+            } else {
+                return f(obj_fields[i], obj[obj_fields[i]],
+                         acc, cont(iter(i + 1)));
+            }
         }
     }
 
-    iter(0)(acc);
+    return iter(0)(acc);
 }
 
 ##register [cps-bypass] fold_multipart_cps : \
@@ -586,6 +595,9 @@ function fold_cps(obj, f, acc, k) {
   continuation('acc) -> void
 ##args(multipart, acc, folder, k)
 {
+
+    // Due to a bug in higher order projections, we have to bypass
+    // the cps transformation and manipulate continuations by hand.
 
     function iter_multipart(name, part, acc, k) {
         var res = empty_constructor();
@@ -603,14 +615,13 @@ function fold_cps(obj, f, acc, k) {
         }
 
         function fold_header(acc, folder_h, k) {
-            fold_cps(part.headers, folder_h, acc, k);
+            return fold_cps(part.headers, folder_h, acc, k);
         }
 
-        folder(res, fold_header, acc, k);
+        return folder(res, fold_header, acc, k);
     }
 
-
-    fold_cps(multipart, iter_multipart, acc, k);
+    return fold_cps(multipart, iter_multipart, acc, k);
 }
 
 ##register fold_multipart : \
