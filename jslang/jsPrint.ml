@@ -396,7 +396,7 @@ object(self)
         self#pp_f f "@[";
         pp f "new %a" (self#pexpr ~leading:false pMember) obj;
         self#pp_f f"@[<hov 1>";
-        self#pp_f f "(%a)" (pp_list ",@ " (self#pexpr ~leading:false pAssignment)) args;
+        pp f "(%a)" (pp_list "," (fun f i -> self#pp_f f "@ "; self#pexpr ~leading:false pAssignment f i)) args;
         self#pp_f f"@]@]"
 
     | J.Je_hole (_, qml) -> (
