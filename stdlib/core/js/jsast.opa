@@ -21,16 +21,57 @@
  *
  * @author Rudy Sicard
  * @author Mathieu Barbin
+ * @author Quentin Bourgerie
 **/
 import-plugin server
-import stdlib.core.{map,set}
+import stdlib.core.{map, set, args, parser}
+
+
+/**
+ * {1 JsOptions module}
+ *
+ * Options for the JsAst stuff (cleaning, renaming and additional roots).
+ * Builded by the command line.
+ */
+@private
+JsOptions =
+  CommandLine.filter({
+    title = "Options for client JavaScript AST"
+    init = {cleaning = true renaming = {yes} roots=[]}
+    anonymous = []
+    parsers = [
+      {CommandLine.default_parser with
+        names = ["--js-cleaning"]
+        description = "Set the cleaning of the client JavaScript AST"
+        param_doc = "yes | no"
+        on_param(acc) =
+          parser
+          | "yes" -> {no_params = {acc with cleaning = true}}
+          | "no"  -> {no_params = {acc with cleaning = false}}
+      },
+      {CommandLine.default_parser with
+        names = ["--js-renaming"]
+        description = "Set the kind of renaming of the client JavaScript AST"
+        param_doc = "yes | no | fake"
+        on_param(acc) =
+          parser
+          | "yes"  -> {no_params = {acc with renaming = {yes}}}
+          | "no"   -> {no_params = {acc with renaming = {no}}}
+          | "fake" -> {no_params = {acc with renaming = {fake}}}
+      },
+      CommandLine.string(
+        ["--js-root"],
+        "Add a root declaration for the cleaning of the client JavaScript",
+        "jsident"
+      )(arg, acc -> {acc with roots = arg +> acc.roots})
+    ]
+  })
 
 /**
  * {1 JsAst module}
  *
  * Run-time manipulation of js ast.
  */
-
 @server_private JsAst = {{
 
   /**
@@ -116,7 +157,7 @@ import stdlib.core.{map,set}
     do JsCleaning.Closure.iter_on_all_deps(ident -> ignore(JsIdent.rename(ident))) // this prevents renaming on ident
     lexems = lexems // empty
     lexems =
-      if JsIdent.cleaning()
+      if JsOptions.cleaning
       then
         JsCleaning.perform(fold_elt_lexems, js_codes, server_ast, lexems)
       else
@@ -151,25 +192,18 @@ JsMinifier = {{
 @server_private
 JsIdent = {{
 
-  @private cleaningr = Reference.create(true)
-
-  @private renaming = Reference.create({yes}:{yes}/{no}/{fake})
-
   @private defined = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
 
   @private ref = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, JsAst.ident)
 
-  @private js_roots = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
+  @private js_roots =
+    t = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
+    do List.iter(Hashtbl.add(t, _, void), JsOptions.roots)
+    t
 
   @private gen =
     g = String.fresh(0)
     -> "_{g()}"
-
-  /**
-   * Set the value which indicates if the js code should be cleaned.
-   */
-  set_cleaning(c) =
-    Reference.set(cleaningr, c)
 
   /**
    * Used by resolution of directives @js_ident and by the [JsAst.apha_rename]
@@ -180,8 +214,7 @@ JsIdent = {{
    * utilization.
   */
   rename(key : JsAst.ident):JsAst.ident = // TODO - Command line
-    renaming = Reference.get(renaming)
-    match renaming with
+    match JsOptions.renaming with
     | {no} -> key
     | {fake} as renaming | {yes} as renaming ->
       if Hashtbl.mem(defined, key) then
@@ -216,12 +249,6 @@ JsIdent = {{
     do Hashtbl.clear(ref)
     do Hashtbl.clear(defined)
     void
-
-  /**
-   * Tell if the option for the cleaning was activated
-   */
-  cleaning() = // TODO - Command line
-    Reference.get(cleaningr)
 
   /**
    * Tell if an identifier is a root.
