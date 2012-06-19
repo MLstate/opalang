@@ -143,9 +143,6 @@ struct
         | (`to_ | `from) as cps->
             match cps with
             | `to_ -> function_
-                (* JsCons.Expr.call ~pure:true *)
-                (*   (JsCons.Expr.ident (JsAst.Native (`global, "cps"))) *)
-                (*   [function_] *)
             | `from ->
                 JsCons.Expr.call ~pure:true
                   (JsCons.Expr.ident (JsAst.Native (`global, "uncps")))
@@ -238,14 +235,11 @@ struct
           None
 
     | B.Void _ ->
-        let qml_void = Imp_Common.ClientLib.void in
-        let qml_void =
-          if env.options.Qml2jsOptions.check_bsl_types then
-            call_typer ~key Imp_Common.ClientLib.type_native_void id ~ret:qml_void
-          else
-            qml_void
-        in
-        Some (private_env, qml_void)
+        if env.options.Qml2jsOptions.check_bsl_types then
+          let qml_void = Imp_Common.ClientLib.void in
+          Some (private_env, call_typer ~key Imp_Common.ClientLib.type_native_void id ~ret:qml_void)
+        else
+          None
 
     | B.Bool _ ->
         if env.options.Qml2jsOptions.check_bsl_types then
