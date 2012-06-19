@@ -271,6 +271,8 @@ HttpRequest = {{
         | {none} -> "<unidentified>"
         | {~some}-> string_of_user_id(some)
 
+    @private get_multipart_raw = @may_cps(%%BslNet.Http_server.get_multipart%%)
+
     /**
      * {1 Manipulation of multipart request}
      */
@@ -279,7 +281,7 @@ HttpRequest = {{
      * [HttpRequest.multipart].
      */
     get_multipart(x):option(HttpRequest.multipart) =
-      @may_cps(%%BslNet.Http_server.get_multipart%%)(get_low_level_request(x))
+      get_multipart_raw(get_low_level_request(x))
 
     /**
      * [fold_multipart(multipart, acc, folder)]. Fold a [multipart]

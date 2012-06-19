@@ -2,6 +2,7 @@ var http = require('http');
 var https = require('https');
 var url = require('url');
 var fs = require('fs');
+var formidable = require('formidable');
 
 var server_debug = false
 
@@ -505,6 +506,50 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
   WebInfo.private.native_request, continuation(option(HttpRequest.multipart)) -> void
 ##args(req, cont)
 {
+
+    // TODO
+    //  - Build file progressively
+
+    var form = new formidable.IncomingForm();
+
+    // formidable doesn't give access to raw headers, so we have to collect them
+    // on our own. As the Opa stdlib expects every part to have a name, we index
+    // parts by their names.
+    var data = {};
+
+    form.onPart = function (part) {
+        part.on('end', function () {
+            if (!(part.name in data)) {
+                // Ignore for now duplicate names
+                data[part.name] = {headers: part.headers};
+            }
+        });
+        form.handlePart(part);
+    };
+
+    form.on('field', function (name, value) {
+        data[name].value = value;
+    });
+
+    form.on('file', function (name, file) {
+        data[name].file = file;
+    });
+
+    form.on('error', function (err) {
+        // TODO: terminate HTTP request too?
+        form.emit('return', js_none);
+    });
+
+    form.on('end', function () {
+        form.emit('return', js_some(data));
+    });
+
+    form.once('return', function (result) {
+        return_(cont, result);
+    });
+
+    form.parse(req.request);
+
     return js_void;
 }
 
@@ -516,24 +561,64 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
     assert(false);
 }
 
+function fold_cps(obj, f, acc, k) {
+    var obj_fields = [];
+
+    for (var field in obj) obj_fields.push(field);
+
+    function iter(i) {
+        return function (acc) {
+            var c = i == obj_fields.length ? k : cont(iter(i + 1));
+            f(obj_fields[i], obj[obj_fields[i]], acc, c);
+        }
+    }
+
+    iter(0)(acc);
+}
+
 ##register [cps-bypass] fold_multipart_cps : \
   HttpRequest.multipart, \
   'acc, \
-  (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc), \
-  continuation('acc) -> \
-  void
-##args(req, initial_value, f, cont)
+  (HttpRequest.part, \
+     ('a, (string, string, 'a, continuation('a) -> void), \
+        continuation('a) -> void), \
+     'acc, continuation('acc) -> void), \
+  continuation('acc) -> void
+##args(multipart, acc, folder, k)
 {
-    return js_void;
+
+    function iter_multipart(name, part, acc, k) {
+        var res = empty_constructor();
+        add_field(res, 'name', name);
+
+        if ('file' in part) {
+            add_field(res, 'filename', part.file.filename);
+            add_field(res, 'content', function (cont) {
+                var res = empty_constructor();
+                add_field(res, 'content', fs.readFileSync(part.file.path));
+                return_(cont, res);
+            });
+        } else if ('value' in part) {
+            add_field(res, 'value', part.value);
+        }
+
+        function fold_header(acc, folder_h, k) {
+            fold_cps(part.headers, folder_h, acc, k);
+        }
+
+        folder(res, fold_header, acc, k);
+    }
+
+
+    fold_cps(multipart, iter_multipart, acc, k);
 }
 
-// Stub
 ##register fold_multipart : \
   HttpRequest.multipart, \
   'acc, \
   (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc) -> \
   'acc
-##args(req, initial_value, f)
+##args(multipart, acc, folder)
 {
     assert(false);
 }
