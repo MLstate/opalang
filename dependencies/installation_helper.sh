@@ -322,7 +322,7 @@ package_install (){
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $PREFIX --without-gtk --without-libsvg_cairo --without-libpangocairo
+                ./configure --prefix $INSTALLDIR --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 make install
                 ;;
@@ -389,17 +389,17 @@ package_install (){
                 cd _build && $SUDO make -f ../Makefile realinstall
                 ;;
             jpeg)
-                ./configure --prefix $PREFIX
+                ./configure --prefix $INSTALLDIR
                 make
                 $SUDO make install
                 ;;
             libpng)
-                ./configure --prefix $PREFIX
+                ./configure --prefix $INSTALLDIR
                 make
                 $SUDO make install
                 ;;
             giflib)
-                ./configure --prefix $PREFIX
+                ./configure --prefix $INSTALLDIR
                 make
                 $SUDO make install
                 ;;
@@ -435,12 +435,12 @@ package_install (){
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $PREFIX --without-gtk --without-libsvg_cairo --without-libpangocairo
+                ./configure --prefix $INSTALLDIR --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 $SUDO make install
                 ;;
 	    node)
-                ./configure --prefix $PREFIX
+                ./configure --prefix $INSTALLDIR
                 make
                 $SUDO make install
 		npm install -g nodemailer
