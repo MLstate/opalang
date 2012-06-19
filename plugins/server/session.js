@@ -573,11 +573,11 @@ var LowLevelPingLoop = {};
     }
 
     LowLevelSession.llmake = function(st, unserialize, fun_session,
-                                      ctx, dfun, more, cps_mode, concurrent) {
+                                      ctx, dfun, more, concurrent) {
         the_ping_loop();
         var local =
         new LocalChannel(st, unserialize, fun_session,
-                         ctx, dfun, more, cps_mode, concurrent);
+                         ctx, dfun, more, concurrent);
         #<Ifstatic:PING_DEBUG>
         ping_debug("SESSION", "Creating local session");
         #<End>
@@ -767,7 +767,7 @@ var LowLevelPingLoop = {};
 //'
 ##args(state, unser, fun, dfun, ctx, more, concurrent, k)
 {
-    return_(k, LowLevelSession.llmake(state, unser, fun, ctx, dfun, more, true, concurrent))
+    return_(k, LowLevelSession.llmake(state, unser, fun, ctx, dfun, more, concurrent))
 }
 
 ##register llmake : \
@@ -793,8 +793,7 @@ var LowLevelPingLoop = {};
     }
   };
   /* cps_mode is falseelse opa use llmake_cps*/
-  return LowLevelSession.llmake(state, unserbis, fun, ctx, dfun, more,
-                                false, concurrent);
+  return LowLevelSession.llmake(state, unserbis, fun, ctx, dfun, more, concurrent);
 }
 
 /*
