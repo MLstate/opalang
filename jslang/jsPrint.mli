@@ -42,6 +42,7 @@ type 'a pprinter = Format.formatter -> 'a -> unit
 *)
 class printer :
 object
+  method pp_f : 'a. Format.formatter -> ('a, Format.formatter, unit) format -> 'a
   method ident : JsAst.ident pprinter
   method unop : JsAst.unop pprinter
   method field : string pprinter
@@ -56,10 +57,14 @@ end
 
 val pp : printer
 
+val pp_min : printer
+
 (** same as pp, but prints the blocks instead of hiding them *)
 val debug_pp : printer
 
 val scoped_pp : printer
+
+val scoped_pp_min : printer
 
 (** {6 Stringfier} *)
 

@@ -213,8 +213,10 @@ let pps = Format.pp_print_string
 
 type 'a pprinter = Format.formatter -> 'a -> unit
 
-class printer =
+class virtual printer_abstract =
 object(self)
+
+  method virtual pp_f : 'a. Format.formatter -> ('a, Format.formatter, unit) format -> 'a
 
   method ident f i =
     pps f (
@@ -229,14 +231,21 @@ object(self)
     pps f (secure_field_if_needed field)
 
   method objpart f (field, e) =
-    pp f "@[<hv 2>%a:@ %a@]"
-      self#field field
-      (self#pexpr ~leading:false pAssignment) e
+    self#pp_f f "@[<hv 2>";
+    pp f "%a:" self#field field;
+    self#pp_f f "@ ";
+    pp f "%a" (self#pexpr ~leading:false pAssignment) e;
+    self#pp_f f "@]"
 
   method pexpr ~leading pr f e =
     if expr_prec e < pr || leading && (match e with J.Je_function _ | J.Je_object _ -> true | _ -> false)
-    then pp f "(@[%a@])" (self#expr ~leading:false) e
-    else (self#expr ~leading) f e
+    then (
+      pp f "(";
+      self#pp_f f "@[";
+      (self#expr ~leading:false) f e;
+      self#pp_f f "@]";
+      pp f ")"
+    ) else (self#expr ~leading) f e
 
   method expr ~leading f (e : J.expr) =
     match e with
@@ -247,22 +256,40 @@ object(self)
         self#ident f ident
 
     | J.Je_array (_, list) ->
-        pp f "@[<hv>[@;<1 2>%a@ ]@]"
-          (pp_list ",@;<1 2>" (self#pexpr ~leading:false pAssignment)) list
+        self#pp_f f "@[<hv>";
+        pp f "[";
+        self#pp_f f "@;<1 2>";
+        (pp_list ","
+           (fun f i -> self#pp_f f "@;<1 2>"; self#pexpr ~leading:false pAssignment f i))
+          f
+          list;
+        self#pp_f f "@ ";
+        pp f "]";
+        self#pp_f f "@]"
 
     | J.Je_comma (_, [], last) ->
         self#expr ~leading f last
 
     | J.Je_comma (_, e :: list, last) ->
-        pp f "@[%a%s%a,@;<1 2>%a@]"
+        self#pp_f f "@[";
+        pp f "%a%s%a,"
           (self#pexpr ~leading pAssignment) e
           (if list = [] then "" else ",")
-          (pp_list ",@;<1 2>" (self#pexpr ~leading:false pAssignment)) list
-          (self#expr ~leading:false) last
+          (pp_list "," (fun f c -> self#pp_f f "@;<1 2>";
+                          self#pexpr ~leading:false pAssignment f c)) list;
+        self#pp_f f "@;<1 2>";
+        (self#expr ~leading:false) f last;
+        self#pp_f f "@]"
 
     | J.Je_object (_, fields) ->
-        pp f "@[<hv>{@;<1 2>%a@ }@]"
-          (pp_list ",@;<1 2>" self#objpart) fields
+        self#pp_f f "@[<hv>";
+        pp f "{";
+        self#pp_f f "@;<1 2>";
+        pp f "%a"
+          (pp_list "," self#objpart) fields;
+        self#pp_f f "@ ";
+        pp f "}";
+        self#pp_f f "@]"
 
     | J.Je_string (_, string, double_quote) ->
         pps f (escape_string ~double_quote string)
@@ -285,10 +312,17 @@ object(self)
         pp f "/%s/%s" content flags
 
     | J.Je_function (_, ident, params, body) ->
-        pp f "@[<hv2>function %a@[<hv 1>(%a)@]{@\n%a@]@\n}"
-          (Option.pp self#ident) ident
-          (pp_list ",@ " self#ident) params
-          self#statements body
+        self#pp_f f "@[<hv2>";
+        pp f "function %a" (Option.pp self#ident) ident;
+        self#pp_f f "@[<hv 1>";
+        pp f "(%a)" (pp_list "," (fun f i -> self#pp_f f "@ "; self#ident f i)) params;
+        self#pp_f f "@]";
+        pp f "{";
+        self#pp_f f "@\n";
+        pp f "%a" self#statements body;
+        self#pp_f f "@]@\n";
+        pp f "}"
+
 
     | J.Je_dot (_, expr, field) ->
         let field =
@@ -296,54 +330,74 @@ object(self)
           then "."^field
           else "[" ^ (escape_string field) ^ "]"
         in
-        pp f "@[<hv 2>%a%s@]"
-          (self#pexpr ~leading pCall) expr field
+        self#pp_f f "@[<hv 2>";
+        pp f "%a%s"
+          (self#pexpr ~leading pCall) expr field;
+        self#pp_f f "@]"
 
     | J.Je_unop (_, op, expr) ->
+        self#pp_f f "@[";
         if is_postop op
         then
-          pp f "@[%a%s@]"
+          pp f "%a%s"
             (self#pexpr ~leading pPostfix) expr (unop op)
         else (
           match op with
           | J.Ju_delete | J.Ju_void | J.Ju_typeof ->
-              pp f "@[%s %a@]"
+              pp f "%s %a"
                 (unop op) (self#pexpr ~leading:false pUnary) expr
           | _ ->
-              pp f "@[%s%a@]"
+              pp f "%s%a"
                 (unop op) (self#pexpr ~leading:false pUnary) expr
-        )
+        );
+        self#pp_f f "@]"
 
     | J.Je_binop (_, op, expr1, expr2) -> (
         match op with
         | J.Jb_hashref ->
-            pp f "@[%a[%a]@]"
+            self#pp_f f "@[";
+            pp f "%a[%a]"
               (self#pexpr ~leading pCall) expr1
-              (self#pexpr ~leading:false p) expr2
+              (self#pexpr ~leading:false p) expr2;
+            self#pp_f f "@]";
 
         | _ ->
             let prec = binop_prec op in
-            pp f "@[<hv 2>%a %s@ %a@]"
+            self#pp_f f "@[<hv 2>";
+            pp f "%a %s "
               (self#pexpr ~leading prec) expr1
-              (binop op)
-              (self#pexpr ~leading:false (prec + 2)) expr2
+              (binop op);
+            self#pp_f f "@ ";
+            (self#pexpr ~leading:false (prec + 2)) f expr2;
+            self#pp_f f "@]"
       )
 
     | J.Je_cond (_, cond, then_, else_) ->
-        pp f "@[<hv 2>%a ?@ %a :@ %a@]"
-          (self#pexpr ~leading pLogicalOR) cond
-          (self#pexpr ~leading:false pAssignment) then_
-          (self#pexpr ~leading:false pAssignment) else_
+        self#pp_f f "@[<hv 2>";
+        (self#pexpr ~leading pLogicalOR) f cond;
+        pp f "?";
+        self#pp_f f "@ ";
+        (self#pexpr ~leading:false pAssignment) f then_;
+        pp f ":";
+        self#pp_f f "@ ";
+        (self#pexpr ~leading:false pAssignment) f else_;
+        self#pp_f f "@]"
 
     | J.Je_call (_, fun_, args, _) ->
-        pp f "@[%a@[<hov 1>(%a)@]@]"
-          (self#pexpr ~leading pCall) fun_
-          (pp_list ",@ " (self#pexpr ~leading:false pAssignment)) args
+        self#pp_f f "@[";
+        pp f "%a" (self#pexpr ~leading pCall) fun_;
+        self#pp_f f "@[<hov 1>";
+        pp f "(%a)" (pp_list ","
+                       (fun f a -> self#pp_f f "@ "; self#pexpr ~leading:false pAssignment f a))
+          args;
+        self#pp_f f "@]@]"
 
     | J.Je_new (_, obj, args) ->
-        pp f "@[new %a@[<hov 1>(%a)@]@]"
-          (self#pexpr ~leading:false pMember) obj
-          (pp_list ",@ " (self#pexpr ~leading:false pAssignment)) args
+        self#pp_f f "@[";
+        pp f "new %a" (self#pexpr ~leading:false pMember) obj;
+        self#pp_f f"@[<hov 1>";
+        self#pp_f f "(%a)" (pp_list ",@ " (self#pexpr ~leading:false pAssignment)) args;
+        self#pp_f f"@]@]"
 
     | J.Je_hole (_, qml) -> (
         match qml with
@@ -381,7 +435,7 @@ object(self)
     let sep =
       let needed = ref false in
       (fun () ->
-         if !needed then Format.fprintf f "@\n" ;
+         if !needed then self#pp_f f "@\n" ;
          needed := true
       )
     in
@@ -395,13 +449,17 @@ object(self)
                 self#ident f ident
 
             | Some expr ->
-                pp f "%a =@;<1 2>%a"
-                  self#ident ident
-                  (self#pexpr ~leading:false pAssignment) expr
+                pp f "%a =" self#ident ident;
+                self#pp_f f "@;<1 2>";
+                (self#pexpr ~leading:false pAssignment) f expr
           in
           sep ();
-          pp f "@[<hv 2>var@ %a;@]"
-            (pp_list ",@ " bind) bindings
+          self#pp_f f "@[<hv 2>";
+          pp f "var ";
+          self#pp_f f "@ ";
+          pp f "%a;"
+            (pp_list "," (fun f b -> self#pp_f f "@ "; bind f b)) bindings;
+          self#pp_f f "@]"
     in
     let rec aux acc = function
       | [] -> print acc
@@ -423,26 +481,26 @@ object(self)
 
   method statement f (s: J.statement) =
     match s with
-    | J.Js_var (_, ident, o) -> (
-        match o with
-        | None ->
-            pp f "@[<hv 2>var %a;@]"
-              self#ident ident
-        | Some expr ->
-            pp f "@[<hv 2>var %a =@ %a;@]"
-              self#ident ident
-              (self#pexpr ~leading:false pAssignment) expr
-      )
+    | J.Js_var (_, ident, o) ->
+        self#pp_f f "@[<hv 2>";
+        (match o with
+         | None ->
+             pp f "var %a;"
+               self#ident ident
+         | Some expr ->
+             pp f "var %a = %a;"
+               self#ident ident
+               (self#pexpr ~leading:false pAssignment) expr);
+        self#pp_f f "@]"
 
-    | J.Js_function (_, ident, params, body) ->
-        pp f "@[<hv2>function %a@[<hv 1>(%a)@]{@\n%a@]@\n}"
-          self#ident ident
-          (pp_list ",@ " self#ident) params
-          self#statements body
+    | J.Js_function (l, ident, params, body) ->
+        self#expr ~leading:false f (J.Je_function (l, Some ident, params, body))
 
     | J.Js_return (_, expr) ->
-        pp f "@[<h>return%a;@]"
-          (Option.pp_sep " " (self#pexpr ~leading:false p)) expr
+        self#pp_f f "@[<h>";
+        pp f "return%a;"
+          (Option.pp_sep " " (self#pexpr ~leading:false p)) expr;
+        self#pp_f f "@]"
 
     | J.Js_continue (_, label) ->
         pp f "@[<h>continue%a;@]"
@@ -454,61 +512,96 @@ object(self)
 
     | J.Js_switch (_, expr, cases, default) ->
         let pp_case f (expr, stmt) =
-          pp f "@[<hv2>case %a:@\n%a@]"
-            (self#pexpr ~leading:false p) expr
-            self#statement stmt
+          self#pp_f f "@[<hv2>";
+          pp f "case %a:"
+            (self#pexpr ~leading:false p) expr;
+          self#pp_f f "@\n";
+          pp f "%a;" self#statement stmt;
+          self#pp_f f "@]"
         in
         let pp_default f stmt =
-          pp f "@\n@[<hv2>default:@\n%a@]"
-            self#statement stmt
+          self#pp_f f "@\n@[<hv2>";
+          pp f "default:";
+          self#pp_f f "@\n";
+          self#statement f stmt;
+          self#pp_f f "@]"
         in
-        pp f "@[<hv2>switch (%a) {@\n%a%a@]@\n}"
-          (self#pexpr ~leading:false p) expr
+        self#pp_f f "@[<hv2>";
+        pp f "switch (%a) {" (self#pexpr ~leading:false p) expr;
+        self#pp_f f "@\n";
+        pp f "%a%a"
           (pp_list "@\n" pp_case) cases
-          (Option.pp pp_default) default
+          (Option.pp pp_default) default;
+        self#pp_f f "@]@\n";
+        pp f "}"
 
     | J.Js_if (_, cond, then_, None) ->
-        pp f "@[<hv2>if (%a) {@\n%a@]@\n}"
-          (self#pexpr ~leading:false p) cond
-          self#statement then_
+        self#pp_f f "@[<hv2>";
+        pp f "if (%a) {" (self#pexpr ~leading:false p) cond;
+        self#pp_f f "@\n";
+        self#statement f then_;
+        self#pp_f f "@]@\n";
+        pp f "}"
 
     | J.Js_if (_, cond, then_, Some else_) ->
-        pp f "@[<hv2>if (%a) {@\n%a@]@\n@[<hv2>} else {@\n%a@]@\n}"
-          (self#pexpr ~leading:false p) cond
-          self#statement then_
-          self#statement else_
+        self#pp_f f "@[<hv2>";
+        pp f "if (%a) {" (self#pexpr ~leading:false p) cond;
+        self#pp_f f "@\n";
+        self#statement f then_;
+        self#pp_f f "@]@\n@[<hv2>";
+        pp f "} else {";
+        self#pp_f f "@\n";
+        self#statement f else_;
+        self#pp_f f "@]@\n";
+        pp f "}"
 
     | J.Js_throw (_, expr) ->
         pp f "@[throw %a;@]"
           (self#pexpr ~leading:false p) expr
 
     | J.Js_expr (_, expr) ->
-        pp f "@[%a;@]"
-          (self#pexpr ~leading:true p) expr
+        self#pp_f f "@[";
+        pp f "%a;"
+          (self#pexpr ~leading:true p) expr;
+        self#pp_f f "@]"
 
     | J.Js_trycatch (_, body, catches, finally) ->
         let pp_catch f (ident, guard, stmt) =
-          pp f "@[<hv2>} catch (%a%a) {@\n%a@]@\n"
+          self#pp_f f "@[<hv2>";
+          pp f "} catch (%a%a) {"
             self#ident ident
-            (Option.pp_sep " if " (self#pexpr ~leading:false p)) guard
-            self#statement stmt
+            (Option.pp_sep " if " (self#pexpr ~leading:false p)) guard;
+          self#pp_f f "@\n";
+          self#statement f stmt;
+          self#pp_f f "@]@\n"
         in
         let pp_finally f stmt =
           pp f "@[<hv2>} finally {@\n%a@]@\n"
             self#statement stmt
         in
-        pp f "@[<hv2>try {@\n%a@]@\n%a%a@\n}"
-          self#statement body
-          (pp_list "" pp_catch) catches
-          (Option.pp pp_finally) finally
+        self#pp_f f "@[<hv2>";
+        pp f "try {";
+        self#pp_f f "@\n";
+        self#statement f body;
+        self#pp_f f "@]@\n";
+        (pp_list "" pp_catch) f catches;
+        (Option.pp pp_finally) f finally;
+        self#pp_f f "@\n";
+        pp f "}"
+
 
     | J.Js_for (_, init, cond, incr, body) ->
         let ppo = Option.pp (self#pexpr ~leading:false p) in
-        pp f "@[<hv2>for @[<hv 1>(%a;@ %a;@ %a)@] {@\n%a@]@\n}"
-          ppo init
-          ppo cond
-          ppo incr
-          self#statement body
+        self#pp_f f "@[<hv2>";
+        pp f "for ";
+        self#pp_f f "@[<hv 1>";
+        pp f "(%a; %a; %a)" ppo init ppo cond ppo incr;
+        self#pp_f f "@] ";
+        pp f "{";
+        self#pp_f f "@\n";
+        self#statement f body;
+        self#pp_f f "@]@\n";
+        pp f "}"
 
     | J.Js_forin (_, lhs, rhs, body) ->
         (* FIXME: priority isn't good *)
@@ -523,9 +616,14 @@ object(self)
           (self#pexpr ~leading:false p) cond
 
     | J.Js_while (_, cond, body) ->
-        pp f "@[<hv2>while (%a) {@\n%a@]@\n}"
-          (self#pexpr ~leading:false p) cond
-          self#statement body
+        self#pp_f f "@[<hv2>";
+        pp f "while (%a) {"
+          (self#pexpr ~leading:false p) cond;
+        self#pp_f f "@\n";
+        self#statement f body;
+        self#pp_f f "@]@\n";
+        pp f "}"
+
 
     | J.Js_block (_, body) ->
         self#block f body
@@ -557,25 +655,44 @@ object(self)
 
 end
 
+class printer_indent =
+object
+  inherit printer_abstract as super
+
+  method pp_f = pp
+end
+
 class debug_printer =
 object (self)
-  inherit printer
+  inherit printer_indent
   method block f body =
     pp f "@[<hv2>{@\n%a@]@\n}"
       self#statements body
 end
 
+class printer_min =
+object
+  inherit printer_abstract as super
+
+  method pp_f : 'a. Format.formatter -> ('a, Format.formatter, unit) format -> 'a = Format.ifprintf
+
+  method statement (f:Format.formatter) (s:J.statement) =
+    match s with
+    | J.Js_comment _ -> ()
+    | s -> super#statement f s
+end
+
 class scoped_printer =
 object(self)
-  inherit printer as super
+  inherit printer_indent as super
   method ident f i =
     match i with
     | J.ExprIdent e ->
         begin match Ident.safe_get_package_name e with
         | None -> pps f (safe_str (Ident.stident e))
-        | Some name ->
-            pp f "%s.%s"
-              (safe_str name)
+        | Some _name ->
+            pp f "%s"
+              (*safe_str name*)
               (safe_str (Ident.stident e))
         end
     | J.Native (_, s) -> pps f s
@@ -592,35 +709,49 @@ object(self)
                 match Ident.safe_get_package_name i with
                 | None -> super#statement f s
                 | Some _ ->
-                    pp f "@[<hv 2>%a =@ %a;@]"
+                    pp f "global.%a = %a;"
                       self#ident ident
                       (self#pexpr ~leading:false pAssignment) expr
       )
-    | J.Js_function (_, ident, params, body) -> (
+    | J.Js_function (l, ident, params, body) -> (
         match ident with
         | J.Native _ -> super#statement f s
         | J.ExprIdent i ->
             match Ident.safe_get_package_name i with
             | None -> super#statement f s
             | Some _ ->
-                pp f "@[<hv2>%a =@ function @[<hv 1>(%a)@]{@\n%a@]@\n}"
+                pp f "global.%a = %a"
                   self#ident ident
-                  (pp_list ",@ " self#ident) params
-                  self#statements body
+                  (self#expr ~leading:false) (J.Je_function (l, None, params, body))
       )
     | _ -> self#statement f s
 
   method code f code =
-    pp f "var %s = {};" (safe_str (ObjectFiles.get_current_package_name ()));
+    (* pp f "var %s = {};" (safe_str (ObjectFiles.get_current_package_name ())); *)
     pp f "%a@\n" (pp_list "@\n" self#toplvl_statement) code
 
 
 end
 
+class scoped_printer_min =
+object
+  inherit scoped_printer as super
+  method pp_f = Format.ifprintf
+
+  method statement (f:Format.formatter) (s:J.statement) =
+    match s with
+    | J.Js_comment _ -> ()
+    | s -> super#statement f s
+
+end
+
+class printer = printer_min
 
 let pp = new printer
 let debug_pp = new debug_printer
 let scoped_pp = new scoped_printer
+let scoped_pp_min = new scoped_printer_min
+let pp_min = new printer_min
 
 let string_of_ident = Format.to_string pp#ident
 let code = Format.to_string pp#code
@@ -802,7 +933,7 @@ struct
   *)
   class serializer(init) =
   object (self)
-    inherit printer as super
+    inherit printer_min as super
 
     val acc = init
 

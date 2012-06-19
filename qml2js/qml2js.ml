@@ -213,7 +213,7 @@ struct
   let compilation_generation env_opt generated_files env_js_input =
     let save = {S.generated_files; js_init = get_js_init env_js_input} in
     R.save save;
-    let content = Format.to_string JsPrint.scoped_pp#code env_js_input.js_code in
+    let content = Format.to_string JsPrint.scoped_pp_min#code env_js_input.js_code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
