@@ -239,7 +239,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-INSTALL_LIBS_DIR=$INSTALLDIR/lib/opa/ocaml/opa
+INSTALL_LIBS_DIR=$INSTALLDIR/lib/opa/opa
 
 if [ "$CLEAN" = "true" ]; then
     rm -rf $BUILD_DIR/* || warn "could not complete clean"
