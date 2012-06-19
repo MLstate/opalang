@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,6 +21,9 @@
 
 (** the installation prefix (also known as MLSTATELIBS from many places *)
 val prefix : string
+
+(** the installation directory (also known as MLSTATELIBS from many places *)
+val install_dir : string
 
 (** the base directory of external ocaml libraries *)
 val ocamllib : string

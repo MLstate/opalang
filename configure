@@ -35,6 +35,11 @@ while [ $# -gt 0 ]; do
             shift
             PREFIX=$1
             ;;
+	-install-dir)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+	    INSTALL_DIR=$1
+	    ;;
         -release)
             IS_RELEASE=1
             ;;
@@ -86,6 +91,7 @@ done
 : ${PREFIX:=${MLSTATELIBS:-}}
 : ${PREFIX:=/usr/local}
 : ${IS_RELEASE:=}
+: ${INSTALL_DIR:=$PREFIX}
 
 CONFIG_LOG=$PWD/config.log
 
@@ -704,6 +710,7 @@ done
 # See config.mli for the documentation and spec of these variables
 cat >config.ml <<EOF
 let prefix = "$PREFIX"
+let install_dir = "$INSTALL_DIR"
 let ocamllib = "$OCAMLLIB"
 let ocamlopt = "$OCAMLOPT"
 let ocamlbuild = "$OCAMLBUILD"
@@ -752,6 +759,7 @@ EOF
 
 cat >config.sh <<EOF
 PREFIX="$PREFIX"
+INSTALL_DIR="$INSTALL_DIR"
 OCAMLLIB="$OCAMLLIB"
 OCAMLOPT="$OCAMLOPT"
 OCAMLBUILD="$OCAMLBUILD"
