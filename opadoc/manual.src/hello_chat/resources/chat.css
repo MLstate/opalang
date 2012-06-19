@@ -33,10 +33,4 @@
 /***Footer***/
 #footer {
  background:#eee;
- position:fixed;
- bottom:0;
- left:0;
- right:0;
- padding:10px 0;
- text-align:left;
 }
