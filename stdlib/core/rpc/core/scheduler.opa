@@ -69,36 +69,27 @@ Scheduler =
    * @return A timer (initially not started)
    */
   make_timer(delay, cb) =
-    init = { tick  = 0
-             ~delay
-             ~cb }
-    rec val me = Session.make(init,
-      (state, msg ->
-        match msg with
-          | { start }      ->
-                do sleep(state.delay, -> send(me, { tick = state.tick }))
-                { unchanged }
-          | { stop }       ->
-                { set = { state with tick = state.tick + 1 } }
-          | { ~tick }      ->
-            match Int.compare(tick, state.tick) with
-              | {eq} ->
-                do sleep(state.delay, -> send(me, msg))
-                do sleep(0, state.cb)
-                { unchanged }
-              | _ -> { unchanged } /*Obsolete tick, drop it*/
-            end
-          | {~change} ->
-            tick = state.tick + 1
-            do sleep(change, -> send(me, { ~tick }))
-            {set = {state with ~tick delay=change}}
-      )
-    );
+    delay=Reference.create(delay)
+    state=Reference.create({stop}):reference({stop}/{pending:Scheduler.key})
+    set_state(v) = Reference.set(state,v)
+    state() = Reference.get(state)
+    not_stopped() = state()!={stop}
+    rec loop() =
+      k = asleep(Reference.get(delay), next)
+      do set_state({pending=k})
+      cb()
+    and next() = if not_stopped() then loop()
     {
-      start() = Session.send(me, {start});
-      stop()  = Session.send(me, {stop});
-      change(i) = Session.send(me, {change=i})
-    }
+      start() = if not_stopped() then void else loop()
+      stop() =
+        match state()
+        {stop} -> void
+        {pending=k} ->
+          do set_state({stop})
+          abort(k)
+        end
+      change(ms) = Reference.set(delay,ms)
+    } : { ... }
 
   /**
    * Produce a function that will behave as a given function but will default to another function in case of timeout
@@ -110,7 +101,7 @@ Scheduler =
    * @param fallback
    * @return A function which behaves as [f], but executes [fallback] whenever [f] takes too long to return.
    */
-  @server make_timeoutable(f:'a -> 'b, timeout_ms:int, fallback:-> 'b): 'a -> 'b = a ->
+  @server_private make_timeoutable(f:'a -> 'b, timeout_ms:int, fallback:-> 'b): 'a -> 'b = a ->
     ref = Reference.create(false)
     res = @callcc(k ->
         failure() = ( Continuation.return(k, fallback()))
@@ -131,7 +122,7 @@ Scheduler =
    * @param timeout_ms The amount of time to wait for the function to return before calling the fallback.
    * @return The result of the function or a failure if it takes too long to return.
    */
-  @server
+  @server_private
   timeout(f : -> 'a, delay:int) :  -> outcome('a, {timeout}) = ->
     (make_timeoutable(
       (_ -> {success= f()})
@@ -141,7 +132,7 @@ Scheduler =
   /**
    *  Stop the current thread
    */
-  @server
+  @server_private
   stop() = @callcc(_k -> void)
 
   /**
