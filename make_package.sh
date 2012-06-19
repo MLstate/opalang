@@ -243,6 +243,7 @@ if [ "$PKG" = "true" ]; then
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME"
    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
+   rm "$MYDIR/$PKG_NAME.dmg"
    hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
 
