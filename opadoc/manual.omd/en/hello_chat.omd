@@ -501,12 +501,22 @@ more structure and add classes. The main user interface becomes
 ###### Main user interface
 
 ```
-<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container">
+      <div id=#logo />
+    </div>
+  </div>
+</div>
 <div id=#conversation class="container"></div>
-<div id=#footer><div class="container">
-  <input id=#entry class="xlarge"/>
-  <div class="btn primary" >Post</div>
-</div></div>
+<div id=#footer class="navbar navbar-fixed-bottom">
+  <div class="container">
+    <div class="input-append">
+      <input id=#entry class="input-xlarge" type="text">
+      <button class="btn btn-primary" type="button">Post</button>
+    </div>
+  </div>
+</div>
 ```
 
 And the update function becomes:

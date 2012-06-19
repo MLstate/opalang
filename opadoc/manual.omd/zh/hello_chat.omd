@@ -109,7 +109,7 @@ function f() {
 }
 ```
 
-为了调用接受三个参数的方法f，你需要这样写： f(arg1, arg2, arg3)。类似的，对于不接受参数的方法，你需要这样写： f() 
+为了调用接受三个参数的方法f，你需要这样写： f(arg1, arg2, arg3)。类似的，对于不接受参数的方法，你需要这样写： f()
 {block}
 
 {block}[WARNING]
@@ -233,7 +233,7 @@ function start() {
 
 {block}[TIP]
 ### About _event handlers_
-事件处理函数指那些不是通过应用调用，而是通过用户动作进行调用的方法。典型的事件处理函数响应用户的点击（click事件），回车（newline事件），移动鼠标（mousemove事件），加载页面（ready事件）。事件处理函数所关联的总是类HTML的用户接口元素，函数的类型永远是： Dom.event -> void. 
+事件处理函数指那些不是通过应用调用，而是通过用户动作进行调用的方法。典型的事件处理函数响应用户的点击（click事件），回车（newline事件），移动鼠标（mousemove事件），加载页面（ready事件）。事件处理函数所关联的总是类HTML的用户接口元素，函数的类型永远是： Dom.event -> void.
 
 你可以通过参阅Opa API（http://doc.opalang.org/api) 中关于Dom.event的相关内容更多地了解事件处理函数。
 {block}
@@ -338,7 +338,7 @@ Opa编译所产生的是一个自满足（self-sufficient）的可执行程序�
 添加样式
 -----------------
 
-在Opa中，所有的样式都是通过层叠样式表（CSS）来进行定义的。这个Opa的手册并不是关于CSS的，如果你不太了解CSS，可以参考(https://developer.mozilla.org/En/CSS) 
+在Opa中，所有的样式都是通过层叠样式表（CSS）来进行定义的。这个Opa的手册并不是关于CSS的，如果你不太了解CSS，可以参考(https://developer.mozilla.org/En/CSS)
 
 当然，你肯定会需要一些特定于应用的自定义的CSS。但是，你也可以使用一些标准的CSS来进行快速开发，这些CSS是预定义好的，并且也十分美观。在Opa中，只需要下面的语句就可以完成这个工作：
 
@@ -351,12 +351,22 @@ Opa编译所产生的是一个自满足（self-sufficient）的可执行程序�
 ###### Main user interface
 
 ```
-<div class="topbar"><div class="fill"><div class="container"><div id=#logo /></div></div></div>
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container">
+      <div id=#logo />
+    </div>
+  </div>
+</div>
 <div id=#conversation class="container"></div>
-<div id=#footer><div class="container">
-  <input id=#entry class="xlarge"/>
-  <div class="btn primary" >Post</div>
-</div></div>
+<div id=#footer class="navbar navbar-fixed-bottom">
+  <div class="container">
+    <div class="input-append">
+      <input id=#entry class="input-xlarge" type="text">
+      <button class="btn btn-primary" type="button">Post</button>
+    </div>
+  </div>
+</div>
 ```
 
 更新方法变成了：
@@ -405,7 +415,7 @@ Server.start(
 
 {block}[TIP]
 ### About _embedding_
-在Opa中，倾向于将文件嵌入到可执行程序的方式来处理外部文件。相比于访问文件系统，这样做更快、更安全、更容易部署。可以使用指令 `@static_resource_directory` 来嵌入一个目录。 
+在Opa中，倾向于将文件嵌入到可执行程序的方式来处理外部文件。相比于访问文件系统，这样做更快、更安全、更容易部署。可以使用指令 `@static_resource_directory` 来嵌入一个目录。
 {block}
 
 {block}[TIP]
