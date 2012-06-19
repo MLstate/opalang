@@ -13,7 +13,6 @@ bslGc.ml
 bslMinJs.ml
 bslPingRegister.ml
 bslRPC.ml
-bslJsIdent.ml
 bslInit.ml
 bslClientCode.ml
 bslClientEvent.ml

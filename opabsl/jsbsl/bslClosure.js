@@ -189,3 +189,13 @@ function clos_export(clos) { return clos }
 {
     return ;
 }
+
+##register replace_identifier: string,string -> void
+##args(prev, next)
+{
+    var tmp = global[prev];
+    if(tmp != null){
+      global[next] = tmp;
+    }
+    return js_void;
+}

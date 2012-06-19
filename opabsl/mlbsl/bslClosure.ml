@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -150,6 +150,7 @@ let set_distant_false str =
   with Not_found ->
     ()
 
+##register replace_identifier: string, string -> void
 let replace_identifier key_ident ident =
   try
     let {distant; local=clos} = Hashtbl.find funtbl key_ident in

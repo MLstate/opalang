@@ -189,7 +189,7 @@ JsIdent = {{
           ident = match renaming with
             | {fake} -> "rename_{key}"
             | {yes}  -> gen()
-          // TODO - Closure replace identifier
+          do %%BslClosure.replace_identifier%%(key, ident)
           _ = Hashtbl.add(ref, key, ident)
           ident
       else
