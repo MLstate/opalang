@@ -106,7 +106,7 @@ function save(topic) {
  */
 function display(topic) {
    xhtml =
-     <div class="topbar"><div class="fill"><div class="container"><div id=#logo></div></div></div></div>
+     <div class="navbar navbar-fixed-top"><div class="navbar-inner"><div class="container"><div id=#logo></div></div></div></div>
      <div class="content container">
        <div class="page-header"><h1>About {topic}</></>
        <div class="well" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
