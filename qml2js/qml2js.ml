@@ -274,7 +274,7 @@ struct
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
-    Printf.fprintf oc "#! /usr/bin/env node \n";
+    Printf.fprintf oc "#!/usr/bin/env NODE_PATH=%s/lib/node_modules node\n" Config.install_dir;
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
