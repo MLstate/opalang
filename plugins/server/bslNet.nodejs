@@ -615,7 +615,21 @@ function fold_cps(obj, f, acc, k) {
         }
 
         function fold_header(acc, folder_h, k) {
-            return fold_cps(part.headers, folder_h, acc, k);
+            // We need to convert header names to the format expected
+            // by Opa, i.e. "Header_Name"
+
+            var headers = {};
+
+            for (var name in part.headers) {
+                var newName =
+                    name.replace("-", "_")
+                        .replace(/(^|_)\w/g,
+                                 function (s) { return s.toUpperCase(); });
+                headers[newName] = part.headers[name];
+            }
+
+
+            return fold_cps(headers, folder_h, acc, k);
         }
 
         return folder(res, fold_header, acc, k);
