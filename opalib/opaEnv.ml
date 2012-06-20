@@ -105,7 +105,12 @@ let available_js_back_end_of_string = Qml2jsOptions.find_backend
 type available_back_end = [ `qmlflat | `qmljs ]
 let available_back_end_list = [ "qmlflat" ; "qmljs" ]
 let available_back_end_of_string : string -> available_back_end option = function
+  | "native"
   | "qmlflat" -> Some `qmlflat
+  | "node"
+  | "js"
+  | "nodejs"
+  | "node.js"
   | "qmljs" -> Some `qmljs
   | _ -> None
 let string_of_available_back_end : available_back_end -> string = function
@@ -274,7 +279,7 @@ struct
        publish unless --publish-src-code). *)
     let publish_src_code = ref false
 
-    let back_end_wanted = ref ( `qmlflat : available_back_end )
+    let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
       let back_end =
         match available_back_end_of_string s with
