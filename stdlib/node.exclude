@@ -1,6 +1,5 @@
 stdlib.apis.mongo$
 stdlib.apis.irc
-stdlib.io.socket
 stdlib.widgets.formbuilder
 stdlib.components.chat
 stdlib.core.rpc.hlnet

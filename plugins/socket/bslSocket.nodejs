@@ -1,0 +1,131 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under
+    the terms of the GNU Affero General Public License, version 3, as
+    published by the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+    License for more details.
+
+    You should have received a copy of the GNU Affero General Public
+    License along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+var net = require('net');
+
+##opa-type outcome('a, 'b)
+
+##extern-type continuation('a)
+##extern-type SSL.secure_type
+
+// A record containing the client object returned by net.connect,
+// a buffer of received data and an unique connection id.
+##extern-type Socket.connection
+
+##register [cps-bypass] connect: string, int,\
+                                 continuation(Socket.connection) -> void
+##args(addr, port, cont)
+{
+
+    var connection_info =
+        {id: Math.floor(Math.random() * 1024 * 1024 * 1024 * 4)};
+
+    connection_info.connection = net.connect(port, addr, function () {
+        return_(cont, connection_info);
+    });
+
+    connection_info.data = [];
+
+    connection_info.connection.on('data', function (data) {
+        connection_info.data.push(data);
+    });
+
+    return js_void;
+}
+
+##register [cps-bypass] secure_connect: string, int, SSL.secure_type,\
+                                        continuation(Socket.connection) -> void
+##args(addr, port, secure_type, cont)
+{
+    error("secure_connect() is not implemented");
+}
+
+##register [cps-bypass] connect_with_err_cont: string, int,\
+                                 continuation(outcome(Socket.connection,string)) -> void
+##args(addr, port, cont)
+{
+    error("connect_with_err_cont() is not implemented");
+}
+
+##register [cps-bypass] secure_connect_with_err_cont: string, int, SSL.secure_type,\
+                                 continuation(outcome(Socket.connection,string)) -> void
+##args(addr, port, secure_type, cont)
+{
+    error("secure_connect_with_err_cont() is not implemented");
+}
+
+##register close: Socket.connection -> void
+##args(connection_info)
+{
+    connection_info.connection.end();
+    return js_void;
+}
+
+##register [cps-bypass] write: Socket.connection, string,\
+                               continuation(int) -> void
+##args(connection_info, data, cont)
+{
+    connection_info.connection.write(data, 'binary', function () {
+        // TODO: figure out how much was actually written
+        return_(cont, data.length);
+    });
+
+    return js_void;
+}
+
+##register [cps-bypass] write_with_err_cont: Socket.connection, int, string,\
+                               continuation(outcome(int,string)) -> void
+##args(conection_info, timeout, data, cont)
+{
+    error("write_with_err_cont() is not implemented");
+}
+
+##register [cps-bypass] write_len: Socket.connection, string, int,\
+                               continuation(int) -> void
+##args(connection_info, data, len, cont)
+{
+    error("write_len() is not implemented");
+}
+
+##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, string, int,\
+                               continuation(outcome(int,string)) -> void
+##args(connection_info, timeout, data, len, cont)
+{
+    error("write_len_with_err_cont() is not implemented");
+}
+
+##register [cps-bypass] read : Socket.connection, continuation(string) -> void
+##args(connection_info, cont)
+{
+    var res = connection_info.data.join("");
+    connection_info.data = [];
+    return return_(cont, res);
+}
+
+##register [cps-bypass] read_with_err_cont : Socket.connection, int, continuation(outcome(string,string)) -> void
+##args(connection_info, timeout, cont)
+{
+    error("read_with_err_cont() is not implemented");
+}
+
+##register conn_id : Socket.connection -> int
+##args(connection_info)
+{
+    return connection_info.id;
+}
+
