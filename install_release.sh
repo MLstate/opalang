@@ -112,7 +112,7 @@ fi
 
 if [ "$CLEAN" = "true" ] && [ -e _build ]; then
     msg "Cleaning up your _build..."
-    rm -rf _build
+    rm -rf _build/*
 fi
 
 if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
