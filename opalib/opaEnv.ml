@@ -265,7 +265,7 @@ struct
     let undot = ref true
     let generate_interface = ref false
     let generate_interface_and_compile = ref false
-    let js_serialize = ref `adhoc
+    let js_serialize = ref `ast
 
     let constant_sharing = ref true
     let constant_sharing_client = ref false
@@ -287,7 +287,7 @@ struct
         | Some back_end -> back_end in
       back_end_wanted := back_end;
       match back_end with
-      | `qmljs -> js_serialize := `ast
+      | `qmlflat -> js_serialize := `adhoc
       | _ -> ()
     let js_back_end_wanted_name = "qmljsimp"
     let js_back_end_wanted = ref (available_js_back_end_of_string js_back_end_wanted_name)
