@@ -23,8 +23,11 @@ var net = require('net');
 ##extern-type continuation('a)
 ##extern-type SSL.secure_type
 
-// A record containing the client object returned by net.connect,
-// a buffer of received data and an unique connection id.
+// A record containing:
+// - The connection object returned by net.connect
+// - The unique connection id
+// - An array of received data
+// - An optional continuation waiting for incoming data
 ##extern-type Socket.connection
 
 ##register [cps-bypass] connect: string, int,\
@@ -32,17 +35,25 @@ var net = require('net');
 ##args(addr, port, cont)
 {
 
-    var connection_info =
-        {id: Math.floor(Math.random() * 1024 * 1024 * 1024 * 4)};
+    // Invariant: either data is empty or cont is null
+    var connection_info = {
+        id: Math.floor(Math.random() * 1024 * 1024 * 1024 * 4),
+        data: [],
+        cont: null
+    };
 
     connection_info.connection = net.connect(port, addr, function () {
         return_(cont, connection_info);
     });
 
-    connection_info.data = [];
-
     connection_info.connection.on('data', function (data) {
-        connection_info.data.push(data);
+        if (connection_info.cont) {
+            var c = connection_info.cont;
+            connection_info.cont = null;
+            return_(c, data.toString());
+        } else {
+            connection_info.data.push(data);
+        }
     });
 
     return js_void;
@@ -112,6 +123,11 @@ var net = require('net');
 ##register [cps-bypass] read : Socket.connection, continuation(string) -> void
 ##args(connection_info, cont)
 {
+    if (connection_info.data.length == 0) {
+        // Needs to wait for data
+        connection_info.cont = cont;
+        return js_void;
+    }
     var res = connection_info.data.join("");
     connection_info.data = [];
     return return_(cont, res);
