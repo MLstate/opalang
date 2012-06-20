@@ -889,9 +889,9 @@ rule "opa application creator"
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
-        Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin";
-        A"-o"; P opa_create_dst; P opa_create_src
+        A"-o"; P opa_create_dst; P opa_create_src;
+        A"-I"; A opa_prefix
       ]));
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
