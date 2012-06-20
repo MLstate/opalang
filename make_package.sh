@@ -322,7 +322,7 @@ EOF
 
     mkdir -p $DEBROOT$PREFIX/share/lintian/overrides
     cat > $DEBROOT$PREFIX/share/lintian/overrides/opa <<EOF
-# The package itself is in AGPL & APACHE, but includes other software and lists their licenses
+# The package itself is in AGPL, but includes other software and lists their licenses
 # in the copyright file
 opa binary: copyright-should-refer-to-common-license-file-for-lgpl
 EOF
