@@ -769,7 +769,8 @@ DbSet = {{
             end
         end
       {next = ->
-         nb = min(MongoCommon.reply_numberReturned(dbset.reply), dbset.limit)
+         nb = MongoCommon.reply_numberReturned(dbset.reply)
+         nb = if dbset.limit != 0 then min(nb, dbset.limit) else nb
          if nb == 0 then none
          else aux(nb, dbset, 0)}
 
