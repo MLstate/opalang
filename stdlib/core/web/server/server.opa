@@ -279,8 +279,11 @@ Server = {{
    * @param s A server
    */
   start(~{port netmask encryption name}:Server.conf, handler:Server.handler): void =
+    default_= if encryption=={ no_encryption } then Server_options.default_http_options else Server_options.default_https_options
+    default_ = {default_ with ~port ~name} // TODO remove name duplication
+    options = Server_options.spec_args(name, default_)
     url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
-    service = ~{server_name=name options={Server_private.http_options with ~port} netmask encryption url_handler}
+    service = ~{server_name=name options netmask encryption url_handler}
     Server_private.add_service(service)
 
   /**
@@ -290,7 +293,7 @@ Server = {{
   /**
    * Default [http] configuration with port equals to 8080 and the server name is "http".
    */
-  http : Server.conf = { port = Server_private.http_options.port; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
+  http : Server.conf = { port = Server_options.default_http_options.port; netmask = 0.0.0.0; encryption = {no_encryption}; name = "http"}
 
   /**
 
@@ -298,7 +301,7 @@ Server = {{
    * name is "https". SSL certificate should be at ./service.crt and
    * SSL key should be at ./service.key.
    */
-  https : Server.conf = { port = Server_private.https_options.port; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
+  https : Server.conf = { port = Server_options.default_https_options.port; netmask = 0.0.0.0; encryption = {certificate = "service.crt" private_key="service.key" password=""}; name = "https"}
 
   /**
    * {2 Constructing a server}
@@ -498,6 +501,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
 
   @private
   default_server_name = "opa-server"
+
   /**
    * Create a complete server for following users, producing web pages and other contents.
    *
@@ -532,7 +536,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    * To attach information to users, see module [UserContext] and function [Resource.in_context].
    */
   make(url_handler : Parser.general_parser(HttpRequest.request -> resource)): service =
-    { options=Server_private.http_options
+    { options= Server_options.spec_args(default_server_name, Server_options.default_http_options)
       netmask=0.0.0.0 ~url_handler encryption={no_encryption} server_name=default_server_name }
 
 /**
@@ -550,7 +554,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    * etc. To implement these policies, the library provides function [Server.protect].
    */
    secure(ssl_params : Server.encryption, urls : Parser.general_parser(Server.secure_resource)): service =
-       {make(urls) with options = { Server_private.https_options with port = 443 }
+       {make(urls) with options = Server_options.spec_args(default_server_name, {Server_options.default_https_options with port = 443})
                         encryption = ssl_params}
 
    /**

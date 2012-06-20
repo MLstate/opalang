@@ -76,9 +76,6 @@ type Server.private.generate_resource = {
 
 Server_private = {{
 
-    http_options : Server.private.options = Server_options.spec_args("http",Server_options.default_http_options)
-    https_options : Server.private.options = Server_options.spec_args("https",Server_options.default_https_options)
-
     @private _internal_ = "_internal_"
     @private base_url_string = Resource.base_url ? ""
     @private _internal_string = "{_internal_}"
