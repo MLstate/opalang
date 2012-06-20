@@ -75,5 +75,8 @@ This package also includes pieces of the following software:
     © 2010 YT
     New BSD License
 
+- node.js, http://nodejs.org/
+    © Joyent, Inc. and other Node contributors
+
 Detailed copyright information of all these included packages lie in
 file <other_licenses>.
