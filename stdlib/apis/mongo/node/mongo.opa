@@ -194,7 +194,7 @@ MongoCommon = {{
   reply_document(reply, _): option(Bson.document) =
     match NodeMongo.nextObject(reply) with
     | ("", doc) -> {some=NodeBson.to_document(doc)}
-    | (err, _) -> {none}
+    | (_err, _) -> {none}
 
 }}
 
