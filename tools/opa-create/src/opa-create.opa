@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -24,7 +24,7 @@
  * @destination PUBLIC
  * @stability experimental
  */
-
+import-plugin unix
 import stdlib.{system, io.file}
 
 SRC_DIR = "tools/opa-create/template/mvc"
@@ -54,7 +54,7 @@ options =
   CommandLine.filter(cmdline)
 
 function write(file, content) {
-	%%BslFile.of_string%%("./{file}", content)
+    %%BslFile.of_string%%("./{file}", binary_of_string(content))
 }
 
 function iter(file, f_content) {
@@ -62,7 +62,7 @@ function iter(file, f_content) {
 	file = "{options.name}{String.sub(n, String.length(file) - n, file)}"
 	if (File.exists(file)) { warning("File {file} already exists. \nPlease delete it and try again."); System.exit(1) }
 	jlog("Generating {file}")
-	content = String.replace("application_name", options.name, f_content())
+    content = String.replace("application_name", options.name, string_of_binary(f_content()))
 	write(file, content)
 }
 
