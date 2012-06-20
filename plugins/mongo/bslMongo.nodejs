@@ -359,10 +359,18 @@ exports.nextObject = BslMongo_NodeMongo_nextObject
       return_(cont, {f1:"", f2:item})
     } else {
       var msg = err == null ? "No item" : err.message == null ? "No item" : err.message;
+      cursor.close();
       return_(cont, {f1:msg == null ? "No item" : msg, f2:0})
     }
   });
   return js_void
+}
+
+##register cclose : Mongo.reply -> void
+##args(c)
+{
+  c.close();
+  return js_void;
 }
 
 exports.insert = BslMongo_NodeMongo_insert

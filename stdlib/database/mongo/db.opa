@@ -135,6 +135,9 @@ DbMongo = {{
              do Log.error("DbGen/Mongo", "(failure) read from {id} didn't return any document")
              none
            | {some=document} ->
+             #<Ifstatic:OPA_BACKEND_QMLJS>
+             do MongoDriver.cclose(reply)
+             #<End>
              #<Ifstatic:DBGEN_DEBUG>
              do Log.notice("DbGen/Mongo", "(success) read bson document from mongo db returned")
              #<End>
@@ -659,7 +662,7 @@ DbSet = {{
       rec next(consummed, reply) =
         #<Ifstatic:OPA_BACKEND_QMLJS>
         _ = consummed
-        _ = reply
+        do MongoDriver.cclose(reply)
         {none}
         #<Else>
         cursor = MongoCommon.reply_cursorID(reply)

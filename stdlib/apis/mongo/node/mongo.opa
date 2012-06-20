@@ -340,6 +340,9 @@ MongoDriver = {{
 
   check(m:Mongo.db) = {success = m} //TODO
 
+  cclose(r:Mongo.reply) =
+    %%BslMongo.NodeMongo.cclose%%(r)
+
 }}
 
 MongoReplicaSet = {{
