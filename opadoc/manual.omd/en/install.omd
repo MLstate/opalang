@@ -18,7 +18,7 @@ Installing Opa
 
 The easiest solution for installing Opa is to download an installer from [our website](http://opalang.org/get.xmlt).
 
-{block}[NOTE]
+{block}[TIP]
 Although Opa offers its own database, the default (and recommended)
 solution is to use MongoDB for data storage, in which case you may additionally
 need MongoDB installed on your system.

@@ -434,19 +434,24 @@ We have seen compilation already:
 ###### Compiling Hello, Chat
 `opa hello_chat.opa`[sh]
 
-Barring any error, Opa will inform you that compilation has succeeded and will produce
-a file called `hello_chat.exe`. This file contains everything you need, so you can now
+Barring any error, Opa will compile the application and will produce a file
+`hello_chat.js`. This file contains everything you need, so you can now
 launch it, as follows:
 
 ###### Running Hello, Chat
-`./hello_chat.exe`[sh]
+`./hello_chat.js`[sh]
+
+{block}[TIP]
+Executing `./hello_chat.js`[sh] will launch the application using the Node.js
+platform. It is roughly equivalent, though preferrable, to `node hello_chat.js`[sh].
+{block}
 
 Congratulations, your application is launched. Let us [visit it](http://localhost:8080).
 
 {block}[TIP]
 ### About `hello_chat.exe`
-The opa compiler produces self-sufficient executable applications. The
-application contains everything is requires, including:
+The opa compiler produces self-sufficient executable applications, containing
+everything that is required to run them, including:
 
 - webpages (HTML, CSS, JavaScript);
 - any resource included with `@static_resource_directory`;
@@ -460,7 +465,7 @@ application contains everything is requires, including:
 
 In other words, to execute an application, you only need to launch this
 executable, without having to deploy, configure or otherwise administer
-any third-party component.
+any third-party components.
 {block}
 
 {block}[TIP]
