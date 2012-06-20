@@ -42,7 +42,7 @@ var FileSystem = require('fs');
 ##args(path)
 {
   try{
-    return FileSystem.mkdirSync(path, 700);
+    return FileSystem.mkdirSync(path);
     return true;
   } catch(e) {
     return false
@@ -81,7 +81,7 @@ var FileSystem = require('fs');
   var path = [p.pop()];
   while(p.length > 0){
     try{
-      return FileSystem.mkdirSync(path.join("/"), 700);
+      return FileSystem.mkdirSync(path.join("/"));
     } catch(e){
       if(e.code != 'EEXIST'){ throw e };
     }
@@ -122,7 +122,8 @@ var FileSystem = require('fs');
 ##args(_)
 {
   var home = process.env["HOME"];
-  var mlstate_dir = home^"/.opa/";
+  var mlstate_dir = home+"/.opa";
+  console.log(home, mlstate_dir)
   %%BslFile.make_dir%%(mlstate_dir);
   return mlstate_dir;
 }
