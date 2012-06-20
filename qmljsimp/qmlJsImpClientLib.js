@@ -31,6 +31,22 @@ var js_none = {none:js_void}
   */
 function js_some(x) { return {some:x} }
 
+
+// Injections into outcome('a, 'b)
+
+function js_success(x) {
+  return {
+    success: x
+  };
+}
+
+function js_failure(x) {
+  return {
+    failure: x
+  };
+}
+
+
 function bool2obj(x) {
     // WONT BE IMPLEMENTED or change the name
     return x

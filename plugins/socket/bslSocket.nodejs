@@ -39,7 +39,9 @@ var net = require('net');
     var connection_info = {
         id: Math.floor(Math.random() * 1024 * 1024 * 1024 * 4),
         data: [],
-        cont: null
+        error: null,
+        cont_read_plain: null,
+        cont_read_outcome: null
     };
 
     connection_info.connection = net.connect(port, addr, function () {
@@ -47,13 +49,37 @@ var net = require('net');
     });
 
     connection_info.connection.on('data', function (data) {
-        if (connection_info.cont) {
-            var c = connection_info.cont;
-            connection_info.cont = null;
+
+        // Disable existing timeout
+        connection_info.connection.setTimeout(0);
+
+        if (connection_info.cont_read_plain) {
+            var c = connection_info.cont_read_plain;
+            connection_info.cont_read_plain = null;
             return_(c, data.toString());
+        } else if (connection_info.cont_read_outcome) {
+            var c = connection_info.cont_read_outcome;
+            connection_info.cont_read_outcome = null;
+            return_(c, js_success(data.toString()));
         } else {
             connection_info.data.push(data);
         }
+
+    });
+
+    connection_info.connection.on('error', function (err) {
+
+        // Ditto
+        connection_info.connection.setTimeout(0);
+
+        if (connection_info.cont_read_outcome) {
+            var c = connection_info.cont_read_outcome;
+            connection_info.cont_read_outcome = null;
+            return_(c, err.toString());
+        } else {
+            connection_info.error = err;
+        }
+
     });
 
     return js_void;
@@ -125,7 +151,7 @@ var net = require('net');
 {
     if (connection_info.data.length == 0) {
         // Needs to wait for data
-        connection_info.cont = cont;
+        connection_info.cont_read_plain = cont;
         return js_void;
     }
     var res = connection_info.data.join("");
@@ -133,10 +159,30 @@ var net = require('net');
     return return_(cont, res);
 }
 
-##register [cps-bypass] read_with_err_cont : Socket.connection, int, continuation(outcome(string,string)) -> void
+##register [cps-bypass] read_with_err_cont : \
+    Socket.connection, int, continuation(outcome(string,string)) -> void
 ##args(connection_info, timeout, cont)
 {
-    error("read_with_err_cont() is not implemented");
+    if (connection_info.data.length != 0) {
+        var res = connection_info.data.join("");
+        connection_info.data = [];
+        return return_(cont, js_success(res));
+    } else if (connection_info.error) {
+        var e = connection_info.error.toString();
+        connection_info.error = null;
+        return return_(cont, js_failure(e));
+    }
+
+    // Needs to wait
+
+    connection_info.cont_read_outcome = cont;
+
+    connection_info.connection.setTimeout(timeout, function () {
+        connection_info.cont_read_outcome = null;
+        return return_(cont, js_failure("timeout"));
+    });
+
+    return js_void;
 }
 
 ##register conn_id : Socket.connection -> int
