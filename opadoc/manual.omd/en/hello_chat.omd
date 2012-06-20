@@ -443,15 +443,28 @@ launch it, as follows:
 
 {block}[TIP]
 Executing `./hello_chat.js`[sh] will launch the application using the Node.js
-platform. It is roughly equivalent, though preferrable, to `node hello_chat.js`[sh].
+platform. It is roughly equivalent, though preferrable, to `node hello_chat.js`[sh]
 {block}
 
-Congratulations, your application is launched. Let us [visit it](http://localhost:8080).
+Congratulations, your application is launched! Let us [visit it](http://localhost:8080).
 
 {block}[TIP]
-### About `hello_chat.exe`
-The opa compiler produces self-sufficient executable applications, containing
-everything that is required to run them, including:
+### Opa backends
+Apart from the backend powered by Node.js, Opa also offers a native backend, that
+will produce native executables. To use it compile with:
+
+`opa --back-end native hello_chat.opa`[sh]
+
+(`--back-end node` is the default for Node.js-based backend) and run the generated
+executable with:
+
+`./hello_chat.exe`[sh]
+{block}
+
+{block}[TIP]
+### About `hello_chat.js` (`hello_chat.exe`)
+Regardless of the backend used, the opa compiler produces self-sufficient executable
+applications, containing everything that is required to run them, including:
 
 - webpages (HTML, CSS, JavaScript);
 - any resource included with `@static_resource_directory`;
