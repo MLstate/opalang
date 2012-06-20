@@ -45,6 +45,7 @@ help() {
     # echo "					default (default $PREFIX)"
     echo "	-dir <dir>			Where to get the installed tree (as specified"
     echo "					to install_release.sh; default $INSTALLDIR)"
+    echo "	-dst <dir>			Where to put the package (default $MYDIR)"
     echo "	-make-autoinstall <filename>	builds an auto-installing archive (you will need"
     echo "					MakeSelf installed). {} in filename is replaced by"
     echo "					the version string"
@@ -87,6 +88,10 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             INSTALLDIR="$1";;
+        -dst)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift
+            MYDIR="$1";;
         -help|--help|-h)
             help
             exit 0;;
