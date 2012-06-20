@@ -24,7 +24,7 @@ import stdlib.core.{security.ssl, parser, map, rpc.core, web.{core,context,resou
  * This file provides the basic definitions of web services.
  *
  * @category web
- * @author Rudy Sicard, 2006-2009
+ * @author Rudy Sicard, 2006-2012
  * @author David Rajchenbach-Teller, 2009-2010
  * @author Quentin Bourgerie, 2010-2011
  * @destination public
@@ -206,34 +206,41 @@ Server = {{
    * Convert a Server.handler to an url parser
    */
   @private handler_to_parser(handler:Server.handler) =
-    rec simple_to_parser(handler) = (
+    rec simple_to_parser(handler) =
       match handler with
       | ~{custom} -> custom
-      | ~{title page} -> (
+      | ~{title page} ->
         parser
         | .* -> Resource.page(title, page())
-      )
+        end
       | ~{dispatch} -> simple_to_parser({~dispatch filter=Filter.anywhere})
-      | ~{filter dispatch} -> (parser
+      | ~{filter dispatch} -> parser
         | u0=UriParser.uri u1={
             match u0 with
             | ~{path=_ fragment=_ query=_ is_directory=_ is_from_root=_} as u0 ->
               Rule.succeed_opt(@unsafe_cast(filter)(u0))
             | _ -> Rule.fail
+            end
           } -> dispatch(u1)
-      )
-      | ~{resources} -> (parser
+        end
+      | ~{resources} -> parser
         | "/" r={Rule.of_map(resources)} -> r
-      )
-    )
-    rec flatten({hd=h0 tl=t0} : {hd : Server.handler; tl : list(Server.handler)}) = (
-      head = match h0 with
-        | {hd=_ tl=_} as e -> flatten(e)
-        | _ as e -> [e]
-      match t0 with
-      | ~{hd=_ tl=_} as e -> flatten(e)
-      | {nil} -> head
-    )
+        end
+
+    rec check(l) =
+    match l : list(Server.handler)
+      [{dispatch=_}| [_|_] as tl]
+      [{page=_ ...}| [_|_] as tl] ->
+        error("Checking Server.handler: page or dispatch case are not in last position")
+      [_|tl] -> check(tl)
+      _ -> {success}
+
+    rec flatten(handler:Server.handler):list(Server.handler) =
+      match handler
+      | ~{hd tl} -> flatten(hd) ++ List.flatten(List.map(flatten,tl))
+      | {nil} -> []
+      | _ -> [handler]
+
     rec register(r) =
       match r
       | ~{favicon} -> List.iter(f -> Resource.register_external_favicon(f), favicon)
@@ -242,18 +249,25 @@ Server = {{
       | ~{doctype} -> Resource.register_default_doctype(doctype)
       | ~{hd tl} -> List.iter(register, ~{hd tl})
       | {nil} -> void
-    match handler with
-    | ~{hd; tl} -> (
-      all = List.map(handler_to_parser, hd+>tl)
-      Rule.of_parsers(all)
-    )
-    | {nil} -> Rule.fail
-    | {register=r} -> do register(r) Rule.fail
-    | {custom=_} as e
-    | {title=_; page=_} as e
-    | {dispatch=_} as e
-    | {filter=_ dispatch=_} as e
-    | {resources=_} as e -> simple_to_parser(e)
+
+    rec remove_register(l) =
+      (List.filter(_,l)){
+        | {register=r} -> do register(r); false
+        | _ -> true
+      }
+
+    flat_handler = remove_register(flatten(handler))
+    do check(flat_handler)
+    match flat_handler with
+    | [e] -> match e
+      | {nil}{register=_} -> Rule.fail
+      | {custom=_} as e
+      | {title=_; page=_} as e
+      | {dispatch=_} as e
+      | {filter=_ dispatch=_} as e
+      | {resources=_} as e -> simple_to_parser(e)
+      end
+    | l -> Rule.of_parsers(List.map(handler_to_parser, l))
 
   /**
    * {2 Starting a server}
