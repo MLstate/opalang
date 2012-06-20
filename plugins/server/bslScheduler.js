@@ -36,6 +36,7 @@
 ##register push : (-> void) -> void
 ##args(todo)
 {
+    // WHAT ?
     #<Ifstatic:OPA_CPS_CLIENT>
     push(new Task_from_application(todo, []));
     return js_void;
@@ -95,9 +96,22 @@ int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
 }
 
 // Stub
-// TODO: implement this
+// TODO Something with the scheduler is probably missing
+
+var tty = require("tty");
+process.openStdin().on("keypress", function(_chunk, key) {
+  if(key && key.name === "c" && key.ctrl) process.exit(0);
+});
+tty.setRawMode(true);
+
+process.on('SIGINT', function (){process.exit(1)});
+process.on('SIGKILL', function (){process.exit(1)});
+process.on('SIGTERM', function (){process.exit(1)});
+
 ##register at_exit : (-> void) -> void
 ##args(a)
 {
-    error("at_exit() is not implemented");
+    process.on('exit', function () {
+       a();
+    });
 }
