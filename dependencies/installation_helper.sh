@@ -331,6 +331,7 @@ package_install (){
 		npm install -g nodemailer
 		npm install -g imap
 		npm install -g mongodb
+		npm install -g formidable
 		;;
             *)
                 msg_yellow "Install $1 by hand"
@@ -447,6 +448,7 @@ package_install (){
 		npm install -g nodemailer
 		npm install -g imap
 		npm install -g mongodb
+		npm install -g formidable
 		;;
             *)
                 install_generic
