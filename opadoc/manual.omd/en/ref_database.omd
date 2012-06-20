@@ -124,7 +124,7 @@ We'll talk more about sub-path in the following chapters.
 Querying
 --------
 
-Opa 0.9.0 (S4) introduces database sets and a powerful way to access a subset of database collections.
+Opa 0.9.0 introduced database sets and a powerful way to access a subset of database collections.
 
 A query is composed from the following operators:
 - `==  expr`: equals expr
@@ -198,7 +198,7 @@ Previously we saw how to overwrite a path, like that :
     /path/to/data <- x
 
 which assigns to path `/path/to/data` the value of `x`. This used to be the only
-way to write to a path, but since Opa 0.9.0 (S4) there are more ways to update them.
+way to write to a path, but since Opa 0.9.0 there are more ways to update them.
 
 ### Int updating
 
