@@ -1,4 +1,5 @@
 import stdlib.tools.markdown
+import stdlib.themes.bootstrap
 
 database stringmap(string) /wiki
 database /wiki[_] = "This page is empty. Double click to edit"
@@ -37,10 +38,18 @@ function save(topic) {
 
 function display(topic) {
    Resource.styled_page("About {topic}", ["/resources/css.css"],
-     <div id=#header><div id=#logo></div>About {topic}</div>
+     <div class="navbar navbar-fixed-top">
+       <div class="navbar-inner">
+         <div class="container">
+           <span id=#logo class="brand"/><span class="navbar-text">About {topic}</span>
+         </div>
+       </div>
+     </div>
+     <div class="content container">
      <div class="show_content" id=#show_content ondblclick={function(_) { edit(topic) }}>
        {load_rendered(topic)}
-     </>
+     </div>
+     </div>
      <textarea class="edit_content" id=#edit_content style="display:none"
        cols="40" rows="30" onblur={function(_) { save(topic) }}></>
     );

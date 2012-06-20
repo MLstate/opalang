@@ -1,4 +1,5 @@
 import stdlib.tools.markdown
+import stdlib.themes.bootstrap
 
 function uri_for_topic(topic) {
     Uri.of_absolute(
@@ -65,10 +66,18 @@ function save(topic) {
 function display(topic) {
     Resource.styled_page(
         "About {topic}", ["/resources/css.css"],
-            <div id=#header><div id=#logo></div>About {topic}</div>
-            <div class="show_content" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</>
-            <div class="show_messages" id=#show_messages />
-            <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={function(_) { save(topic) }}></>
+           <div class="navbar navbar-fixed-top">
+             <div class="navbar-inner">
+               <div class="container">
+                 <span id=#logo class="brand"/><span class="navbar-text">About {topic}</span>
+               </div>
+             </div>
+           </div>
+           <div class="content container">
+           <div class="show_content" id=#show_content ondblclick={function(_) { edit(topic) }}>{load_rendered(topic)}</div>
+           </div>
+           <div class="show_messages" id=#show_messages />
+           <textarea class="edit_content" id=#edit_content style="display:none" cols="40" rows="30" onblur={function(_) { save(topic) }}></>
     );
 }
 
