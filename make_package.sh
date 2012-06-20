@@ -115,7 +115,7 @@ if [ ${INSTALLDIR:0:1} != "/" ]; then
 fi
 
 BUILDNUM=$($INSTALLDIR/lib/opa/bin/opa-bin --version 2>&1 | sed 's/.*build \([0-9]\+\).*/\1/')
-VERSION_STRING=${VERSION_MAJOR}${VERSION_NAME}$(if [ -n "$VERSION_BUILD" ]; then echo "+$VERSION_BUILD$BUILDNUM"; fi)
+VERSION_STRING=${VERSION_MAJOR}$(if [ -n "$VERSION_BUILD" ]; then echo "+$VERSION_BUILD$BUILDNUM"; fi)
 
 msg "Making package from installation in $INSTALLDIR, with Opa version $VERSION_STRING."
 
@@ -244,9 +244,9 @@ fi
 #############################
 if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
-    PKG_NAME="Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME - Build $BUILDNUM for Mac OS X (64-bit)"
+    PKG_NAME="Opa $VERSION_MAJOR - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-   $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR $OFFICIAL_VERSION_NAME"
+   $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
    if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
        rm "$MYDIR/$PKG_NAME.dmg"
@@ -259,7 +259,7 @@ fi
 # MsWindows package generation #
 ################################
 if [ "$WINPKG" = "true" ]; then
-   PKG_NAME="Opa $VERSION_MAJOR $VERSION_NAME Build $BUILDNUM"
+   PKG_NAME="Opa $VERSION_MAJOR Build $BUILDNUM"
    rm -rf pkg_ms_windows
    mkdir -p pkg_ms_windows
    # Copy
