@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -172,13 +172,13 @@ type JsCleaning.marked = JsIdentSet.t
     stack =
       match StringMap.get(type_use,infos.types_client) with
       | {none} ->
-        do Log.warning("JsAst", "Cannot find the client identifier defining type {type_use}")
-          stack
+        //do Log.warning("JsAst", "Cannot find the client identifier defining type {type_use}")
+        stack
       | {some = ident} -> [ident|stack]
       end
     match StringMap.get(type_use,infos.types_server) with
     | {none} ->
-      do Log.warning("JsAst", "Cannot find the server identifier defining type {type_use}")
+      //do Log.warning("JsAst", "Cannot find the server identifier defining type {type_use}")
       stack
     | {some = ident} -> [ident|stack]
     end
@@ -466,15 +466,11 @@ type JsCleaning.marked = JsIdentSet.t
    * Should be called on the full js code, without omitting any package.
   **/
   perform(fold : JsCleaning.infos -> (JsAst.code_elt, 'acc -> 'acc), code : list(JsAst.code), server_code : list(ServerAst.code), acc : 'acc) : 'acc =
-    do Log.debug("JsAst","Cleaning up javascript")
+    //do Log.debug("JsAst","Cleaning up javascript")
     infos = List.fold(fold_infos, code, infos)
     infos = List.fold(fold_infos_server, server_code, infos)
-    do println("end of infos")
     do mark(infos)
-    do println("end of marking")
     acc = List.fold(fold_sweep(fold(infos), _, _), code, acc)
-    do println("end of sweeping")
     do Closure.end_of_renaming()
-    do println("end of renaming")
     acc
 }}

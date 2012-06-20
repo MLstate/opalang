@@ -26,7 +26,6 @@
    if(console)
    {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
       console.error("[OPA]", "Fatal error", topic, value);
-      console.trace()
    }
 }
 
@@ -36,7 +35,6 @@
    if(console)
    {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
        console.error("[OPA]", topic, value);
-       console.trace();
    }
 }
 
@@ -46,7 +44,6 @@
    if(console)
    {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
        console.warn("[OPA]", topic, value);
-       console.trace();
    }
 }
 
