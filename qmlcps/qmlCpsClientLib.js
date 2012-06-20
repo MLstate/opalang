@@ -310,8 +310,8 @@ Continuation.prototype = {
      */
     executexn: function(exn) {
         var payload = this._paylexn;
-        (payload ? payload : QmlCpsLib_default_handler_cont(this))
-        ._paylexn.apply(this._context, [exn]);
+        (payload ? payload : QmlCpsLib_default_handler_cont(this)._payload)
+        .apply(this._context, [exn]);
     },
 
     ccont: function(f) {
