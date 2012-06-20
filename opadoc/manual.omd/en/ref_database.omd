@@ -31,7 +31,7 @@ The following piece of code declares a database named `my_db` and defines :
 
     type stored = {int x, int y, string v, list(string) lst}
 
-    // where _db\_options_ allows to select the database backend, see below
+    // where _db_options_ allows to select the database backend, see below
     database my_db [db_options] {
       int    /basic/i
       float  /basic/f
