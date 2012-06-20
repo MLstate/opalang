@@ -160,8 +160,8 @@ Compiling the application requires an extra argument to be passed to the _Opa_ c
 so that it finds the type of the external primitive, and find the
 implementation to link with the server. Note that parameters are not ordered.
 
-    user@computer:~/$ opa plugin.opp hell_bindings.opa
-    user@computer:~/$ ./hell_bindings.exe
+    user@computer:~/$ opa plugin.opp hello_bindings.opa
+    user@computer:~/$ ./hello_bindings.js
 
 Binding C
 ---------
@@ -190,7 +190,7 @@ file://opa_binding_examples/c_binding/Makefile
     user@computer:~/$ ocamlopt.opt freq.c
     user@computer:~/$ opa-plugin-builder c_binding.ml -o c_binding
     user@computer:~/$ opa --mllopt $PWD/freq.o c_binding.opp freq.opa
-    user@computer:~/$ ./freq.exe
+    user@computer:~/$ ./freq.js
 
 For more details about integration between C/OCaml, you can refer to the
 manual of Objective Caml.

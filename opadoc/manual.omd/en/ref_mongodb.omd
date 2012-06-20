@@ -413,14 +413,14 @@ So, for example, to connect to the default connection at `machinexyz:12345` you
 would use:
 
 ```{.sh}
-% prog.exe --mh machinexyz:12345
+% prog.js --mh machinexyz:12345
 ```
 
 This remains a single connection, to connect to a replica set you also need to
 define a name for the replica set plus some seeds:
 
 ```{.sh}
-% prog.exe --mn blort --mr blort --ms machinexyz:27017 --ms machineuvw:27017
+% prog.js --mn blort --mr blort --ms machinexyz:27017 --ms machineuvw:27017
 ```
 
 Here we have defined a connection called ''blort'' to a replica set also called

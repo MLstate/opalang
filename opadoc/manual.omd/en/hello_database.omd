@@ -34,7 +34,7 @@ So how do we upgrade this example to MongoDB? All you have to do is to use the c
 
 run it as before:
 
-`./counter.exe`
+`./counter.js`
 
 and... voilà, you have your first Opa application running on MongoDB!
 
@@ -59,14 +59,14 @@ However, programs with such name-less databases will *not* work with MongoDB. Th
 The above setup assumes that Mongo is running on local machine on its default port 27017; if that's not the case you can run your application (not the compiler!) with the option `--db-remote:db_name host[:port]`. For instance if Mongo was running locally but on port 4242, we'd need to run the application with:
 
 ```{.sh}
-./counter.exe --db-remote:mydb localhost:4242
+./counter.js --db-remote:mydb localhost:4242
 ```
 
 Incidentally, if you use authentication with your MongoDB databases, you can
 provide the authentication parameters on the command line as follows:
 
 ```{.sh}
-./counter.exe --db-remote:mydb myusername:mypassword@localhost:4242
+./counter.js --db-remote:mydb myusername:mypassword@localhost:4242
 ```
 
 Note, however, that we have a slightly simplified view of MongoDB authentication
