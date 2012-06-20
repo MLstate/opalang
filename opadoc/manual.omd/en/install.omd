@@ -189,7 +189,7 @@ On Linux, add the following lines to your configuration file:
 (add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
 ```
 
-This allows for both Opa syntaxes, Javascript-like and the Classic mode.
+This allows for both Opa syntaxes, JavaScript-like and the Classic mode.
 You can have both in the same editor but not in the same buffer, use the
 line shown here to set the default mode.
 

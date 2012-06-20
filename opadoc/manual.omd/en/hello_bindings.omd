@@ -2,12 +2,12 @@ Hello, bindings -- Binding other languages
 ==========================================
 
 It is possible to bind Opa with other languages thanks to a *BSL*: Binding System Library.
-Currently, there is a native support to Javascript on the client side, and to OCaml on the server side.
+Currently, there is a native support to JavaScript on the client side, and to OCaml on the server side.
 
-This chapter shows an example of binding between [Opa, OCaml and Javascript](/manual/Hello--bindings----Binding-other-languages/Binding-Ocaml-and-Javascript),
+This chapter shows an example of binding between [Opa, OCaml and JavaScript](/manual/Hello--bindings----Binding-other-languages/Binding-Ocaml-and-JavaScript),
 as well as an example to see [C primitives calls from Opa](/manual/Hello--bindings----Binding-other-languages/Binding-C).
 
-A complete example of binding with an external Javascript library is available in the chapter
+A complete example of binding with an external JavaScript library is available in the chapter
 [Hello, reCaptcha](/manual/Hello--reCaptcha-(and-the-rest-of-the-world)).
 
 In Opa, a function written in an other language is called a
@@ -36,7 +36,7 @@ using the _OCaml/C_ binding)
 ### Client/Server distribution
 
 When you define an external primitive, the function is available only on the
-side of the implementation. (Javascript on the client side, _OCaml_, _C_ on the server side).
+side of the implementation. (JavaScript on the client side, _OCaml_, _C_ on the server side).
 If you do not provide both client and server sides of the implementation of the external primitive,
 it has an impact on the client/server distribution of the Opa code.
 You have to think about it before deciding to use an external binding.
@@ -44,7 +44,7 @@ Writing a function in pure Opa gives you the guarantee that the function is avai
 both side.
 {block}
 
-Binding Ocaml and Javascript
+Binding Ocaml and JavaScript
 ----------------------------
 
 This part shows a complete example, including compilation command line.
@@ -64,7 +64,7 @@ The implementation files are files written in the syntax of the bound language,
 adding some Opa directives for registering the primitives and the types exported
 for being used from Opa code.
 
-In Javascript, we use a special syntax for introducing function names (`##args`),
+In JavaScript, we use a special syntax for introducing function names (`##args`),
 used for simulating namespaces. Using the directive `##args` following a `##register`
 directive defining the function `stammer` in the file `plugin` will introduce
 the function named `plugin_stammer`. The use of `##args` is optional, we can write instead:
@@ -198,7 +198,7 @@ manual of Objective Caml.
 Documentation
 -------------
 
-This paragraph describes the exhaustive list of directives handled by `opa-plugin-builder` in OCaml and Javascript files.
+This paragraph describes the exhaustive list of directives handled by `opa-plugin-builder` in OCaml and JavaScript files.
 The [conventions adopted](/manual/The-core-language/Formal-description) to describe the syntax of theses directives are the same as the one used
 for describing the core language syntax.
 
@@ -208,7 +208,7 @@ Opa is type-checked at compile time, hence it is mandatory to declare the types 
 {block}[CAUTION]
 There is a restriction about types available in the interface between Opa and foreign implementations.
 You should keep in mind that there are differences of representation of values between languages, a fortiori between
-Opa, OCaml, and Javascript,
+Opa, OCaml, and JavaScript,
 and a value passed through the register interface should most of the time be translated. For the most common types, an automatic
 projection is done by Opa (constants, bool, option). For more complex values, you will need to handle the projection
 manually, via the ServerLib //<...>
@@ -355,7 +355,7 @@ Tags are needed for advanced uses only. The casual user can simply ignore them.
 {block}[TIP]
 Compiling OCaml plugins, _opa-plugin-builder_ will perform a type check to ensure that the functions
 defined in plugins have consistent types with respect to their registered definition.
-We are also working on a step of Javascript validation to ensure some consistent properties (functions arities, etc.)
+We are also working on a step of JavaScript validation to ensure some consistent properties (functions arities, etc.)
 {block}
 
 ##### Example: the following definitions will generate a static error :
@@ -523,7 +523,7 @@ projections will not be generated.
 {| option | option('a) VS opa[option('a)] | 'a option            | 'a ServerLib.ty_option |}
 {table}
 
-##### Javascript
+##### JavaScript
 
 {table}
 {* type   | interface syntax              | ocaml representation              | opa representation     *}

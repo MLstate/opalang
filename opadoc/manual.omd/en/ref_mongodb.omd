@@ -847,7 +847,7 @@ match (result) {
 ```
 
 This example returns the first value in the collection for which `i` is greater
-than 106, it expresses the select as a Javascript expression.
+than 106, it expresses the select as a JavaScript expression.
 Many of the MongoDB query methods are perfectly safe with collections such as
 the `$where` example here but some methods are not safe in that they return
 documents which contain fields other than those in the Opa type, a good example

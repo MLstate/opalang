@@ -12,7 +12,7 @@
 
 ### Mac OS X
 
-- 首先需要安装Xcode工具，如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/) or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册). 
+- 首先需要安装Xcode工具，如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/) or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册).
 
 {block}[WARNING]
 从Xcode 4.3开始，不再默认安装命令行工具。所以，当安装完Xcode之后，进入：Preferences > Downloads > Components > Command Line tools并点击安装。
@@ -23,7 +23,7 @@
 - 下载完成后，如果你的浏览器没有自动打开刚才下载的文件。进入下载目录，找到并打开该文件。这会打开一个包含安装包的新Finder窗口。
 - 双击这个安装包进行安装。
 - 依照屏幕的提示进行操作，你可能需要管理员的密码。
-- 安装完成之后，Opa编译器会被安装到： 
+- 安装完成之后，Opa编译器会被安装到：
 
 `/opt/mlstate`[sh]
 
@@ -51,7 +51,7 @@
 ### 其他Linux发行版本
 
 要在Suse、RedHat、Fedora和其他的不使用.deb系统的Linux发行版本上安装Opa，或者你无法获取到自己机器的管理员权限。可以采用下面的步骤安装Opa：
-- 使用包管理器安装包： 
+- 使用包管理器安装包：
 **    `libssl-devel`
 **    `zlib1g-devel`
 - 如果你使用的发行版本中不存在这些发行包，安装提供了下列模块库的任意包：
@@ -94,8 +94,8 @@
 
 - GNU coreutils, wget, md5sha1sum 和 gsed (或 gnu-sed)，可在 [MacPorts](http://www.macports.org/) 或 [Homebrew](http://mxcl.github.com/homebrew/) 上获得。
 - Xcode 开发套件
-- 如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/) 
-  or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册). 
+- 如果你系统中没有Xcode，可以下载 [Xcode 4](https://developer.apple.com/xcode/)
+  or [Xcode 3](http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792) (需要注册).
 
 {block}[WARNING]
 从Xcode 4.3开始，不再默认安装命令行工具。所以，当安装完Xcode之后，进入：Preferences > Downloads > Components > Command Line tools并点击安装。
@@ -117,7 +117,7 @@ make all install
 ```
 
 上面的命令会将Opa安装到`SOME_DIRECTORY`（你可能会需要管理员权限）。
-如果需要的话，不要忘了在编译完成之后修改环境变量PATH。 
+如果需要的话，不要忘了在编译完成之后修改环境变量PATH。
 
 {block}[TIP]
 我们还提供了一个帮助你安装编译Opa所需所有依赖的脚本。那样的话，所需的依赖只有（在干净的Ubuntu 11.10上测试通过）：
@@ -159,7 +159,7 @@ make all install
 (add-to-list 'auto-mode-alist '("\\.classic\\.opa$" . opa-classic-mode))
 ```
 
-这样配置同时支持两种Opa语法，传统语法和类Javascript语法。你可以在同一个编辑器中同时使用两种语法，但不能再同一个缓存中同时使用。可以通过上面文字(Set the default mode here)所示的地方来设置默认的语法模式。
+这样配置同时支持两种Opa语法，传统语法和类JavaScript语法。你可以在同一个编辑器中同时使用两种语法，但不能再同一个缓存中同时使用。可以通过上面文字(Set the default mode here)所示的地方来设置默认的语法模式。
 
 {block}[TIP]
 你可能需要对Opa注释和字符串开启拼写检查，需要在emacs中输入命令： M-x flyspell-prog-mode 。

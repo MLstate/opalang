@@ -65,9 +65,9 @@ browser features, but also to server features.
 At the time of this writing, the BSL provides native bindings with JavaScript
 and OCaml, and can be used to bind to most languages, including C.
 
-This chapter shows how to plug Opa with some Javascript client code.
+This chapter shows how to plug Opa with some JavaScript client code.
 The chapter about the [BSL](/manual/Hello--bindings----Binding-other-languages) will also show how to
-[bind Opa and Ocaml](/manual/Hello--bindings----Binding-other-languages/Binding-Ocaml-and-Javascript), and
+[bind Opa and Ocaml](/manual/Hello--bindings----Binding-other-languages/Binding-Ocaml-and-JavaScript), and
 [how to use C primitives from Opa](/manual/Hello--bindings----Binding-other-languages/Binding-C).
 {block}
 

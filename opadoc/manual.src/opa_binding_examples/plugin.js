@@ -1,4 +1,4 @@
-// This is an Javascript file, containing opa preprocessing directives
+// This is a JavaScript file, containing opa preprocessing directives
 
 ##register stammer : string -> string
 ##args(s)

@@ -12,7 +12,7 @@ and non-blocking programming models.
 Opa unifies in one single language:
 
 * _server_ (backend) programming (runnning on [Node.js](http://nodejs.org) or compiled to native code with Opa's own backend),
-* _client_ (frontend) programming (compiled to Javascript) and
+* _client_ (frontend) programming (compiled to JavaScript) and
 * _database_ programming (using [MongoDB](http://www.mongodb.org) or Opa's own database engine).
 
 Throughout the pages of this manual, we will introduce you to the many features of Opa.
@@ -24,7 +24,7 @@ A single language
 
 Opa takes care of all aspects of web programming: frontend (client code),
 backend (server code) are database queries are all written in one consistent
-language and compiled to standards of the web: Javascript frontend,
+language and compiled to standards of the web: JavaScript frontend,
 Node.js backend and MongoDB for the database. Other targets are planned,
 making Opa a gateway to web programming.
 
