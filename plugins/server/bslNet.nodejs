@@ -447,16 +447,41 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
     void
 ##args(name,options,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
 {
-  var server =
-    http.createServer(function (request, response) {
-                        var pathname = url.parse(request.url).pathname;
-                        increment_cookie_connection_count();
-                        var req = cookies_in({timestamp:new Date(), pathname:pathname,
-                                                      server_name:name, cookies:{},
-                                                      request:request, response:response});
-                        //if (server_debug) console.log(req);
-                          return dispatcher(req)
-                        });
+  var server;
+  var is_s = false;
+  var server_callback = function (request, response) {
+    var pathname = url.parse(request.url).pathname;
+    increment_cookie_connection_count();
+    var req = cookies_in({timestamp:new Date(), pathname:pathname,
+                         server_name:name, cookies:{},
+                         request:request, response:response});
+    //if (debug) console.log(req);
+    return dispatcher(req)
+  }
+  var privkeyo = option2js(privkeyo);
+  var passwdo = option2js(passwdo);
+  var certfileo = option2js(certfileo);
+  if (secure_type.key != null){
+    var sopt = {};
+    var skey = secure_type.key;
+    if (skey != null){
+      var ca_path = "";
+      if (skey.ca_path) ca_path = skey.ca_path + "/";
+      sopts.key = fs.readFileSync(path + skey.cert_key);
+      sopts.passphrase = skey.cert_pass;
+      sopts.cert = fs.readFileSync(path + skey.cert_file);
+    }
+    server = https.createServer(sopts, server_callback);
+    is_s = true;
+  } else if (privkeyo != null && passwdo != null && certfileo != null) {
+    var sopts = {passphrase:passwdo};
+    sopts.key = fs.readFileSync(privkeyo);
+    sopts.cert = fs.readFileSync(certfileo);
+    server = https.createServer(sopts, server_callback);
+    is_s = true;
+  } else {
+    server = http.createServer(server_callback);
+  }
   opts = cookies_default_opts;
   opts.gc_period = options.cookie_gc_period;
   opts.accept_client_values = options.cookie_accept_client_values;
@@ -467,7 +492,10 @@ function opt_time(ot) { return (ot.seconds === undefined) ? Time_infinity : ot.s
   opts.dt1 = opt_time(options.dt1);
   opts.dt2 = opt_time(options.dt2);
   opts.cookies_filename = options.cookies_filename;
-  server.listen(options.port);
+  server.listen(options.port, function(){
+    var pro = is_s ? "https" : "http";
+    console.log(name + " serving on "+pro+"://"+require('os').hostname()+":"+options.port)
+  });
   http._opa_servers[name] = {server : server, port : options.port}
   if (!has_init_server) {
     init_cookies(opts);
