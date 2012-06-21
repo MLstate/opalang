@@ -105,6 +105,16 @@ function expand(b, min) {
   return js_void;
 }
 
+##register add_binary : binary, binary -> void
+##args(b, nb)
+//function add_binary(b, nb)
+{
+  if (b.length + nb.length >= b.contents.length) expand(b, b.length + nb.length);
+  nb.contents.copy(b.contents,b.length,0,nb.length)
+  b.length += nb.length;
+  return js_void;
+}
+
 ##register add_int8 : binary, int -> void
 ##args(b, i)
 //function add_int8(b, i)
@@ -268,6 +278,20 @@ var FLOATMAX32 = 3.402823466e38;
   var s = "", end = (b.length < start + length) ? b.length : start + length;
   for (var i = start; i < end; i++) { s += code(b.contents[i]) };
   return s;
+}
+
+##register get_binary : binary, int, int -> binary
+##args(b, start, length)
+//function get_binary(b, start, length)
+{
+  if (start === undefined) start = 0;
+  if (length === undefined) length = b.length;
+  if (start < 0 || start >= b.length || length < 0) return {contents:new Buffer(0), length:0};
+  var end = (b.length < start + length) ? b.length : start + length;
+  var len = end - start;
+  var nb = new Buffer(len);
+  for (var i = start, j = 0; i < end; i++,j++) { nb[j] = b.contents[i]; };
+  return {contents:nb, length:len};
 }
 
 ##register get_int8 : binary, int -> int

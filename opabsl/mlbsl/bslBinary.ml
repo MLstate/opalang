@@ -25,6 +25,10 @@ let trim b =
 
 ##register add_string\ `Buffer.add_string`: binary, string -> void
 
+##register add_binary : binary, binary -> void
+let add_binary b nb =
+  Buffer.add_string b (Buffer.contents nb)
+
 exception BslBinaryError of string
 let error str = raise (BslBinaryError str)
 
@@ -147,6 +151,15 @@ let add_double_be b f =
 ##register get_string : binary, int, int -> string
 let get_string b start length =
   Buffer.sub b start length
+
+##register get_binary : binary, int, int -> binary
+let get_binary b start length =
+  let blen = Buffer.length b in
+  if start < 0 || start >= blen || length < 0
+  then Buffer.create 0
+  else
+    try binary_of_string (Buffer.sub b start (if blen < start + length then blen - start else length))
+    with Invalid_argument _ -> Buffer.create 0
 
 ##register get_int8 : binary, int -> int
 let get_int8 b start =
