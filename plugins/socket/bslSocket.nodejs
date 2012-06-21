@@ -169,13 +169,15 @@ function connect_common(addr, port, callback) {
     return js_void;
 }
 
-function write_common(connection_info, data, timeout, callback) {
+function write_common(connection_info, data, length, timeout, callback) {
 
     if (connection_info.closed) {
         return callback({failure: 'socked closed'});
     }
 
     connection_info.write_callback = callback;
+
+    if (length != null) data = data.substr(0, length);
 
     // Since these writes in Opa are blocking, we can assume that
     // this value won't change before the current write. However,
@@ -208,7 +210,7 @@ function write_common(connection_info, data, timeout, callback) {
                                continuation(int) -> void
 ##args(connection_info, data, cont)
 {
-    return write_common(connection_info, data, null,
+    return write_common(connection_info, data, null, null,
                         callback_plain(cont, "Write failed"));
 }
 
@@ -216,7 +218,7 @@ function write_common(connection_info, data, timeout, callback) {
                                continuation(outcome(int,string)) -> void
 ##args(conection_info, timeout, data, cont)
 {
-    return write_common(connection_info, data, timeout,
+    return write_common(connection_info, data, null, timeout,
                         callback_with_err_cont(cont));
 }
 
@@ -224,14 +226,16 @@ function write_common(connection_info, data, timeout, callback) {
                                continuation(int) -> void
 ##args(connection_info, data, len, cont)
 {
-    error("write_len() is not implemented");
+    return write_common(connection_info, data, len, null,
+                        callback_plain(cont, "Write failed"));
 }
 
 ##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, string, int,\
                                continuation(outcome(int,string)) -> void
 ##args(connection_info, timeout, data, len, cont)
 {
-    error("write_len_with_err_cont() is not implemented");
+    return write_common(connection_info, data, len, timeout,
+                        callback_with_err_cont(cont));
 }
 
 function read_common(connection_info, timeout, callback) {
