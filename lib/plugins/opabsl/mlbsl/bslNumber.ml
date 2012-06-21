@@ -62,6 +62,44 @@ let ordering (a:int) (b:int) =
 
 ##endmodule
 
+##module Int64
+
+##register neg \ `Int64.neg` : int64 -> int64
+##register add \ `Int64.add` : int64, int64 -> int64
+##register sub \ `Int64.sub` : int64, int64 -> int64
+##register mul \ `Int64.mul` : int64, int64 -> int64
+##register div \ `Int64.div` : int64, int64 -> int64
+##register rem \ `Int64.rem` : int64, int64 -> int64
+##register pred \ `Int64.pred` : int64, int64 -> int64
+##register succ \ `Int64.succ` : int64, int64 -> int64
+##register max_int : -> int64
+let max_int _ = Int64.max_int
+##register logand \ `Int64.logand` : int64, int64 -> int64
+##register logor \ `Int64.logor` : int64, int64 -> int64
+##register logxor \ `Int64.logxor` : int64, int64 -> int64
+##register lognot \ `Int64.lognot` : int64 -> int64
+##register shift_left \ `Int64.shift_left` : int64, int -> int64
+##register shift_right \ `Int64.shift_right` : int64, int -> int64
+##register shift_right_logical \ `Int64.shift_right_logical` : int64, int -> int64
+##register of_int \ `Int64.of_int` : int -> int64
+##register to_int \ `Int64.to_int` : int64 -> int
+##register of_string \ `Int64.of_string` : string -> int64
+##register to_string \ `Int64.to_string` : int64 -> string
+##register op_eq : int64, int64 -> bool
+let op_eq i1 i2 = i1 = i2
+##register op_ne : int64, int64 -> bool
+let op_ne i1 i2 = i1 <> i2
+##register op_gt : int64, int64 -> bool
+let op_gt i1 i2 = i1 > i2
+##register op_ge : int64, int64 -> bool
+let op_ge i1 i2 = i1 >= i2
+##register op_lt : int64, int64 -> bool
+let op_lt i1 i2 = i1 < i2
+##register op_le : int64, int64 -> bool
+let op_le i1 i2 = i1 <= i2
+
+##endmodule
+
 ##module Float
 
   (* transforms the string in a format compatible with the same function
