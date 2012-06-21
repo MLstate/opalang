@@ -284,7 +284,7 @@ Server = {{
     options = Server_options.spec_args(name, default_)
     url_handler = Rule.map(handler_to_parser(handler), (r -> (_ -> r)))
     service = ~{server_name=name options netmask encryption url_handler}
-    Server_private.add_service(service)
+    Server_private.services.add(service)
 
   /**
    * {2 Server configuration}
@@ -614,24 +614,15 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
     * Return the port of the corresponding server
     * result with none is unspecified but useful with only one server
     */
-  get_port(opt_name) =
-    // this bypass gives the default options if none
-    // the opa version gives the option of the default server
-    // returns (-1) if the server does not exist
-    bp = %% BslNet.Http_server.get_port %% : option(string) -> int
-    bp(some(opt_name?default_server_name))
+  get_port(name) =
+    Option.map(c -> c.options.port, Server_private.get_service(name))
 
   /**
     * Return the address of the corresponding server
     * result with none is unspecified but useful with only one server
     */
-  get_addr(opt_name) =
-    // this bypass gives the default options if none
-    // the opa version gives the option of the default server
-    // returns "localhost" if the server does not exist
-    bp = %% BslNet.Http_server.get_addr %% : option(string) -> string
-    bp(some(opt_name?default_server_name))
-
+  get_addr(name) =
+    Option.map(c -> c.options.addr, Server_private.get_service(name))
 
 
   /**

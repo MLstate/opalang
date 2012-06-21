@@ -93,21 +93,19 @@ Server_private = {{
        | "/about/opa"            -> page_version
 
 
-    @private make_registerer() : ('a -> void, -> list('a)) =
+    @private make_registerer() =
       registered = Server_reference.create([])
       add(obj) : void =
         Server_reference.update(registered,(l -> [obj|l]))
-      get() =
-        r = Server_reference.get(registered)
-        do Server_reference.set(registered,[])
-        r
-      (add,get)
+      get() = Server_reference.get(registered)
+      ~{add get}
 
-    @private add_get_service : (service -> void, _) = make_registerer()
-    add_service = add_get_service.f1
+    services = make_registerer() : ~{add:service->void get:->list(service)}
 
-    @private add_get_url_handler : (url_handler(resource) -> void, _) = make_registerer()
-    add_url_handler = add_get_url_handler.f1
+    get_service(name) = List.find(service -> service.server_name==name ,services.get())
+
+    @private
+    url_handlers = make_registerer() : ~{add:url_handler(resource)->void get:->list(url_handler(resource))}
 
 
     run_services() =
@@ -130,8 +128,8 @@ Server_private = {{
              Scheduler.sleep(seconds * 1000, (-> do Log.info("Test run", "Timeout reached, shutting down."); %% BslSys.exit %%(8)))
 
         make_server  = make_server_delayed()
-        services     = add_get_service.f2()
-        url_handlers = add_get_url_handler.f2()
+        services     = services.get()
+        url_handlers = url_handlers.get()
 
         merge_handler(p1, p2) = parser
           | x=p1 -> x
@@ -528,4 +526,4 @@ Server_private = {{
  */
 
 @opacapi Server_private_run_services = Server_private.run_services
-@opacapi Server_private_add_service  = Server_private.add_service
+@opacapi Server_private_add_service  = Server_private.services.add
