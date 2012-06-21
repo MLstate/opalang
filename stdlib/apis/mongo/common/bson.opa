@@ -679,7 +679,7 @@ Bson = {{
     p : Parser.general_parser(void) = parser
       | [%] h=Rule.hexadecimal -> Buffer.append(b, Cactutf.cons(h))
       | c=. -> Buffer.append(b, Cactutf.cons(c))
-    do Parser.parse(p, source)
+    do Parser.parse(parser p+, source)
     Buffer.contents(b)
 
   encode_field =
@@ -894,7 +894,7 @@ Bson = {{
             (match String.ordering(field.label,name) with
              | {eq} -> next()
              | _ ->
-               match String.ordering(field.label, decode_field(name))
+               match String.ordering(field.label, name)
                | {eq} -> next()
                | {lt} -> optreg(name, field, frest, [element|erest], acc)
                | {gt} -> (acc, true))
