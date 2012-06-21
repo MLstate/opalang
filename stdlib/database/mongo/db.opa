@@ -54,7 +54,10 @@ type DbMongo.t2 = {
 }
 
 @opacapi @abstract
-type DbMongo.t = -> DbMongo.t2
+type DbMongo.t = {
+     get : -> DbMongo.t2
+     sync_operation : (DbMongo.t2 -> void) -> void
+}
 
 @opacapi @abstract type DbMongo.engine = void
 
@@ -246,7 +249,7 @@ DbMongo = {{
     * *******************************************/
    @package build_vpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string))
    : DbMongo.private.val_path('data) =
-     db = db()
+     db = db.get()
      ns = defaultns(db)
      rid = path_to_id(rpath)
      id = path_to_id(path)
@@ -285,7 +288,7 @@ DbMongo = {{
 
    @package build_rpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string)) : DbMongo.private.ref_path('data) =
      vpath = build_vpath_sub(db, path, default, rpath, partial)
-     db = db()
+     db = db.get()
      ns = defaultns(db)
      rid = path_to_id(rpath)
      selector = [{name = "_id"; value = {String = rid}}]
@@ -314,7 +317,7 @@ DbMongo = {{
     * {3 Builder of declared path}
     * *******************************************/
    @package build_vpath(db:DbMongo.t, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
-     db = db()
+     db = db.get()
      ns = defaultns(db)
      id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
@@ -336,7 +339,7 @@ DbMongo = {{
 
    @package build_rpath(db, path:list(string), default:'data, const:bool):DbMongo.private.ref_path('data) =
      vpath = build_vpath(db, path, default, const) : DbMongo.private.val_path('data)
-     db = db()
+     db = db.get()
      ns = defaultns(db)
      selector = [{name = "_id"; value = {String = vpath.id}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
@@ -353,7 +356,7 @@ DbMongo = {{
      { vpath with more=~{write remove} }
 
    @package update_path(db:DbMongo.t, path:list(string), update) =
-     db = db()
+     db = db.get()
      ns = defaultns(db)
      id = path_to_id(path)
      selector = [{name = "_id"; value = {String = id}}]
@@ -463,7 +466,7 @@ Then use option --db-remote instead of --db-local.
 
     default_local() = "{%%BslFile.mlstate_dir%%(void)}/mongo"
 
-    open_remote(name, args, default_seed) =
+    open_remote_aux(name, args, default_seed) =
       args = match args.seeds with
         | [] -> {args with seeds = [default_seed]}
         | _ -> args
@@ -542,30 +545,110 @@ Then use option --db-remote instead of --db-local.
               )
           aux(true)
         )
-        open_remote(name, default_remote, seed)
+        open_remote_aux(name, default_remote, seed)
 
-    @private
-    open_local(name, args, seed) =
-      ref = Reference.create({wait = []})
-      do Scheduler.sleep(0, ->
-        x = open_local_aux(name, args, seed)
-        (wait, db) = @atomic(
-          match Reference.get(ref)
-          | ~{wait} ->
-            do Reference.set(ref, {db = x})
-            (wait, x)
-          | {db=_} -> error("Multiple initialization of local database")
-        )
-        List.iter(Continuation.return(_, db), wait)
+   @private
+   open_local(name, args, seed) : DbMongo.t = open_synchronisation(name, -> open_local_aux(name, args, seed) )
+
+   @private
+   open_remote(name, args, seed) : DbMongo.t = open_synchronisation(name, -> open_remote_aux(name, args, seed) )
+
+   @private
+   open_synchronisation(name, open_: -> DbMongo.t2 ) : DbMongo.t =
+      log(s) = Log.info(name^" DbGen/Mongo/SynchroStart", s)
+      ref = Reference.create({psyncops=false wsyncops=[]:list(DbMongo.t2->void) status={wait=[]:list(continuation(DbMongo.t2))} }:{...})
+      // psyncops : processing sync ops, wsyncops: waiting sync ops
+      process_wait(db,wait) =
+        do log("Process {List.length(wait)} operations on the db wait list, start")
+        do List.iter(Continuation.return(_, db), wait)
+        do log("Process {List.length(wait)} operations on the db wait list, finished")
+        void
+      psyncops(b) = @atomic(
+        s = Reference.get(ref)
+        do if b && s.psyncops then log("psyncops incoherent")
+        Reference.set(ref, {s with psyncops=b})
       )
-      ->
-        @callcc(k ->
-          @atomic(
-            match Reference.get(ref) with
-            | ~{db} -> Continuation.return(k, db)
-            | ~{wait} -> Reference.set(ref, {wait = [k|wait]})
-          )
+      try_process_one_syncops(db) =
+        ops = @atomic(
+          s = Reference.get(ref)
+          match s
+          {psyncops={false} wsyncops=[ops|wsyncops] ...} ->
+            do Reference.set(ref, {s with ~wsyncops})
+            do psyncops(true)
+            some( (ops,wsyncops) )
+          _ -> none
         )
+        (Option.iter(_,ops)){ (ops,wsyncops) ->
+          id = Random.string(16)
+          do log("Processing sync op {List.length(wsyncops)}, start {id}")
+          do ops(db):void
+          do psyncops(false)
+          log("Processing sync op, finished {id}")
+        }
+      set_open(x) =
+        opened = @atomic(
+          s = Reference.get(ref)
+          match s
+          {psyncops={false} wsyncops=[] status={wait=_}} ->
+            do Reference.set(ref, {s with status={db=x}})
+            true
+          _ -> false
+        )
+        if not(opened) then error("set_open")
+
+      rec declare_open(x,i) =
+       match Reference.get(ref)
+       {status={db=_} ...} -> error("Multiple initialization of local database")
+       {psyncops={true} ...} ->
+         do if mod(i,30)==0 then log("Waiting sync operation (declare_open)")
+         Scheduler.sleep(100, -> declare_open(x,i+1))
+       {wsyncops=[] status={~wait} ...} ->
+         do set_open(x)
+         do log("Db is ready")
+         do process_wait(x,List.rev(wait))
+         void
+       {wsyncops=_ ...} ->
+         do try_process_one_syncops(x)
+         declare_open(x,i+1)
+       end
+
+      do Scheduler.sleep(0, ->
+        do log("Opening database")
+        declare_open(open_():DbMongo.t2,0)
+      )
+       {{
+        // TODO factor get and sync_operation maintaining get efficiency
+        get():DbMongo.t2 = @callcc((k:continuation(DbMongo.t2)) ->
+          s = @atomic(Reference.get(ref))
+          match s
+          {status={~wait} ...} ->
+            do @atomic(Reference.set(ref, {s with status={wait =[k|wait]}}))
+            log("Operation on db wait list")
+          {psyncops={true} ...} ->
+            do log("Waiting sync operation (get)")
+            Scheduler.sleep(1000, -> Continuation.return(k, get()) )
+          {wsyncops=[] status={~db} ...} ->
+            Continuation.return(k,db)
+          {wsyncops=_ status={~db} ...} ->
+            do try_process_one_syncops(db)
+            Continuation.return(k,get())
+          )
+
+        sync_operation(f) =
+          s = @atomic(Reference.get(ref))
+          match s
+          {status={wait=_} ~wsyncops ...}
+          {psyncops={true} ~wsyncops ...} ->
+            do @atomic(Reference.set(ref, {s with wsyncops=[f|wsyncops]}))
+            log("Sync op on db syncops list")
+          {wsyncops=[] status={~db} ...} ->
+            do psyncops(true) ; do f(db) ; do psyncops(false)
+            log("Sync op on fly")
+          {wsyncops=_ status={~db} ...} ->
+            do try_process_one_syncops(db)
+            sync_operation(f)
+
+      }}
 
     @private seeds_parser(name, f) =
       auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
@@ -610,10 +693,6 @@ Then use option --db-remote instead of --db-local.
           },
         ]
       })
-      open_remote(name, remote, seed) = (
-        db = open_remote(name, remote, seed)
-        -> db
-      )
       match args with
       | {some = ~{remote}} -> open_remote(name, remote, seed)
       | {some = ~{local}} -> open_local(name, local, seed)
@@ -638,7 +717,7 @@ Then use option --db-remote instead of --db-local.
   open = Init.open
 
   @package drop(db:DbMongo.t) =
-    db = db()
+    db = db.get()
     List.iter(
       col ->
         if MongoDriver.delete(db.db, 0, "{db.name}.{col}", []) then
@@ -686,8 +765,7 @@ DbSet = {{
       error("Error when creating index")
 
   @package indexes(db:DbMongo.t, path:list(string), idxs) =
-    Scheduler.sleep(0, ->
-      db = db()
+    db.sync_operation( db ->
       List.iter(idx -> index(db, path, idx), idxs)
     )
 
@@ -726,7 +804,7 @@ DbSet = {{
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
     #<End>
-    db = db()
+    db = db.get()
     id = DbSet.path_to_id(path)
     ns = "{db.name}.{id}"
     filter =
@@ -751,7 +829,7 @@ DbSet = {{
   //            MongoCommands.findAndUpdate(db.db, db.name, ns, selector, update, none, noneskip, limit, selector, filter), limit)
 
   @package update(db:DbMongo.t, path:list(string), selector, update, upsert) =
-    db = db()
+    db = db.get()
     id = DbSet.path_to_id(path)
     tag = if upsert then Bitwise.lor(0, MongoCommon.UpsertBit) else 0
     tag = Bitwise.lor(tag, MongoCommon.MultiUpdateBit)
@@ -923,7 +1001,7 @@ DbSet = {{
       match embed with
       | {none} ->
         ->
-          db = db()
+          db = db.get()
           if not(MongoDriver.delete(db.db, 0, "{db.name}.{id}", selector)) then
              Log.error("DbGen/Mongo", "(failure) An error occurs when removing inside set '{path}'")
           #<Ifstatic:DBGEN_DEBUG>
@@ -949,7 +1027,7 @@ DbSet = {{
              embed:option(string)):DbMongo.private.ref_path('b) =
     id = DbSet.path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
-    db0 = db()
+    db0 = db.get()
     remove =
       match embed with
       | {none} ->
