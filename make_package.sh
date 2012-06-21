@@ -201,7 +201,7 @@ else
   trap "rm -f $0" EXIT
 fi
 
-echo -n "Going to remove Opa from $INSTALLDIR. Proceed ? "
+echo -n "Going to remove Opa from $INSTALLDIR. Proceed ? [y/yes/n/no]"
 read yesno
 if [ "${yesno:0:1}" != "y" ]; then exit 0; fi
 
