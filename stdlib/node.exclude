@@ -5,4 +5,4 @@ stdlib.components.chat
 stdlib.core.rpc.hlnet
 stdlib.database.db3
 stdlib.xls
-stdlib.tools.iconv
+

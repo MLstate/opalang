@@ -1,0 +1,52 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under
+    the terms of the GNU Affero General Public License, version 3, as
+    published by the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+    License for more details.
+
+    You should have received a copy of the GNU Affero General Public
+    License along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// node-iconv is not available in all platforms. Thus, in the case where
+// we are not able to import that module, we simply bind the exported
+// functions to one that throws an error.
+
+var iconv_mod, iconv_open, iconv;
+
+function iconv_open_impl(tocode, fromcode) {
+    error("iconv_open() is not implemented");
+}
+
+function iconv_impl(t, s) {
+    error("iconv() is not implemented");
+}
+
+function iconv_not_available() {
+    error("You don't have iconv installed. " +
+          "It is probably not available in your platform");
+}
+
+##extern-type Iconv.t
+##extern-type binary
+
+##register iconv_open \ `iconv_open` : string, string -> Iconv.t
+
+##register iconv \ `iconv` : Iconv.t, binary -> binary
+
+try {
+    iconv_mod = require('iconv');
+    iconv_open = iconv_open_impl;
+    iconv = iconv_impl;
+} catch (e) {
+    iconv_mod = null;
+    iconv_open = iconv = iconv_not_available;
+}
