@@ -30,11 +30,43 @@ var net = require('net');
 //   closed: Flag that indicates whether the connection has been closed
 //   data: An array of received data waiting to be read
 //   error: A possible connection error
-//   cont_read_plain: A continuation waiting for incoming data
-//   cont_read_outcome: A continuation waiting for incoming data or an error
+//   read_callback: A continuation waiting for incoming data or an error
+//   write_callback: A continuation waiting for the end of an write or an error
 ##extern-type Socket.connection
 
-function connect_common(addr, port, cont, with_err_cont) {
+function unregister_and_call(obj, field, value) {
+    var callback = obj[field];
+    obj[field] = null;
+    callback(value);
+}
+
+function callback_plain(cont, message) {
+
+    return function (data) {
+        if ('success' in data) {
+            return_(cont, data.success);
+        } else { // data.failure
+            error(message + ": " + data.failure);
+        }
+        return js_void;
+    }
+
+}
+
+function callback_with_err_cont(cont) {
+
+    return function (data) {
+        if ('success' in data) {
+            return_(cont, js_success(data.success));
+        } else { // data.failure
+            return_(cont, js_failure(data.failure));
+        }
+        return js_void;
+    }
+
+}
+
+function connect_common(addr, port, callback) {
 
     var connection_info = {
         connection: net.connect(port, addr),
@@ -43,20 +75,13 @@ function connect_common(addr, port, cont, with_err_cont) {
         closed: false,
         data: [],
         error: null,
-        cont_read_plain: null,
-        cont_read_outcome: null
+        read_callback: null,
+        write_callback: null
     };
 
     connection_info.connection.on('connect', function () {
         connection_info.has_connected = true;
-        if (with_err_cont) {
-            // Continuation expects an outcome, so we must wrap the value
-            return_(cont, js_success(connection_info));
-        } else {
-            // Assume that no errors occur, so we send just the
-            // plain value
-            return_(cont, connection_info);
-        }
+        callback({success: connection_info});
     });
 
     connection_info.connection.on('data', function (data) {
@@ -64,14 +89,9 @@ function connect_common(addr, port, cont, with_err_cont) {
         // Disable existing timeout
         connection_info.connection.setTimeout(0);
 
-        if (connection_info.cont_read_plain) {
-            var c = connection_info.cont_read_plain;
-            connection_info.cont_read_plain = null;
-            return_(c, data.toString());
-        } else if (connection_info.cont_read_outcome) {
-            var c = connection_info.cont_read_outcome;
-            connection_info.cont_read_outcome = null;
-            return_(c, js_success(data.toString()));
+        if (connection_info.read_callback) {
+            unregister_and_call(connection_info, 'read_callback',
+                                {success: data.toString()});
         } else {
             connection_info.data.push(data);
         }
@@ -83,15 +103,22 @@ function connect_common(addr, port, cont, with_err_cont) {
         // Ditto
         connection_info.connection.setTimeout(0);
 
-        if (!connection_info.has_connected && with_err_cont) {
+        // The error raised by node can be treated by several different
+        // Opa functions. Thus, we must find out who is expecting
+        // an outcome and direct the error there.
+
+        var wrapped_err = {failure: err.toString()};
+
+        if (!connection_info.has_connected) {
             // Since we couldn't even establish the connection, we
-            // need to signal the caller if it wants to handle errors
-            return_(cont, js_failure(err.toString()));
-        } else if (connection_info.cont_read_outcome) {
-            var c = connection_info.cont_read_outcome;
-            connection_info.cont_read_outcome = null;
-            return_(c, err.toString());
+            // need to signal the caller.
+            callback(wrapped_err);
+        } else if (connection_info.read_callback) {
+            unregister_and_call(connection_info, 'read_callback', wrapped_err);
+        } else if (connection_info.write_callback) {
+            unregister_and_call(connection_info, 'write_callback', wrapped_err);
         } else {
+            // We keep the error if somebody needs it later
             connection_info.error = err;
         }
 
@@ -109,7 +136,8 @@ function connect_common(addr, port, cont, with_err_cont) {
                                  continuation(Socket.connection) -> void
 ##args(addr, port, cont)
 {
-    return connect_common(addr, port, cont, false);
+    return connect_common(addr, port,
+                          callback_plain(cont, "Connection failed"));
 }
 
 ##register [cps-bypass] secure_connect: string, int, SSL.secure_type,\
@@ -123,7 +151,8 @@ function connect_common(addr, port, cont, with_err_cont) {
                                  continuation(outcome(Socket.connection,string)) -> void
 ##args(addr, port, cont)
 {
-    return connect_common(addr, port, cont, true);
+    return connect_common(addr, port,
+                          callback_with_err_cont(cont));
 }
 
 ##register [cps-bypass] secure_connect_with_err_cont: string, int, SSL.secure_type,\
@@ -140,23 +169,55 @@ function connect_common(addr, port, cont, with_err_cont) {
     return js_void;
 }
 
+function write_common(connection_info, data, timeout, callback) {
+
+    if (connection_info.closed) {
+        return callback({failure: 'socked closed'});
+    }
+
+    connection_info.write_callback = callback;
+
+    // Since these writes in Opa are blocking, we can assume that
+    // this value won't change before the current write. However,
+    // we still need to check what causes this variable to be
+    // updated.
+    var b = connection_info.connection.bytesWritten;
+
+    connection_info.connection.write(data, 'binary', function () {
+        // FIXME: What happens if part of the write goes through when
+        // we hit a timeout?
+        if (connection_info.write_callback) {
+            var bytes_written = connection_info.connection.bytesWritten - b;
+            unregister_and_call(connection_info, 'write_callback',
+                                {success: bytes_written});
+        }
+    });
+
+    if (timeout != null) {
+        connection_info.connection.setTimeout(timeout, function () {
+            unregister_and_call(connection_info, 'write_callback',
+                                {failure: 'timeout'});
+        });
+    }
+
+    return js_void;
+
+}
+
 ##register [cps-bypass] write: Socket.connection, string,\
                                continuation(int) -> void
 ##args(connection_info, data, cont)
 {
-    connection_info.connection.write(data, 'binary', function () {
-        // TODO: figure out how much was actually written
-        return_(cont, data.length);
-    });
-
-    return js_void;
+    return write_common(connection_info, data, null,
+                        callback_plain(cont, "Write failed"));
 }
 
 ##register [cps-bypass] write_with_err_cont: Socket.connection, int, string,\
                                continuation(outcome(int,string)) -> void
 ##args(conection_info, timeout, data, cont)
 {
-    error("write_with_err_cont() is not implemented");
+    return write_common(connection_info, data, timeout,
+                        callback_with_err_cont(cont));
 }
 
 ##register [cps-bypass] write_len: Socket.connection, string, int,\
@@ -173,50 +234,48 @@ function connect_common(addr, port, cont, with_err_cont) {
     error("write_len_with_err_cont() is not implemented");
 }
 
+function read_common(connection_info, timeout, callback) {
+
+    if (connection_info.closed) {
+        return callback({failure: 'socket closed'});
+    } else if (connection_info.data.length != 0) {
+        var res = connection_info.data.join('');
+        connection_info.data = [];
+        return callback({success: res});
+    } else if (connection_info.error) {
+        var res = connection_info.error.toString();
+        connection_info.error = null;
+        return callback({failure: res});
+    }
+
+    // Needs to wait for an outcome
+
+    connection_info.read_callback = callback;
+
+    if (timeout != null) {
+        connection_info.connection.setTimeout(timeout, function () {
+            unregister_and_call(connection_info, 'read_callback',
+                                {failure: 'timeout'});
+        });
+    }
+
+    return js_void;
+
+}
+
 ##register [cps-bypass] read : Socket.connection, continuation(string) -> void
 ##args(connection_info, cont)
 {
-    if (connection_info.closed) {
-        // Arbitrarily return empty string
-        return return_(cont, "");
-    } else if (connection_info.data.length == 0) {
-        // Needs to wait for data
-        connection_info.cont_read_plain = cont;
-        return js_void;
-    }
-    var res = connection_info.data.join("");
-    connection_info.data = [];
-    return return_(cont, res);
+    return read_common(connection_info, null,
+                       callback_plain(cont, 'Read failed'));
 }
 
 ##register [cps-bypass] read_with_err_cont : \
     Socket.connection, int, continuation(outcome(string,string)) -> void
 ##args(connection_info, timeout, cont)
 {
-
-    if (connection_info.closed) {
-        return return_(cont, js_failure("socked closed"));
-    } else if (connection_info.data.length != 0) {
-        var res = connection_info.data.join("");
-        connection_info.data = [];
-        return return_(cont, js_success(res));
-    } else if (connection_info.error) {
-        var e = connection_info.error.toString();
-        connection_info.error = null;
-        return return_(cont, js_failure(e));
-    }
-
-    // Needs to wait
-
-    connection_info.cont_read_outcome = cont;
-
-    connection_info.connection.setTimeout(timeout, function () {
-        connection_info.cont_read_outcome = null;
-        connection_info.connection.end();
-        return return_(cont, js_failure("timeout"));
-    });
-
-    return js_void;
+    return read_common(connection_info, timeout,
+                       callback_with_err_cont(cont));
 }
 
 ##register conn_id : Socket.connection -> int
