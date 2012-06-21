@@ -23,11 +23,13 @@
 var iconv_mod, iconv_open, iconv;
 
 function iconv_open_impl(tocode, fromcode) {
-    error("iconv_open() is not implemented");
+    return new iconv_mod.Iconv(fromcode, tocode);
 }
 
 function iconv_impl(t, s) {
-    error("iconv() is not implemented");
+    // WARNING: This can throw an exception. We need to change the interface
+    // in order to return an option when the conversion fails.
+    return t.convert(s).toString();
 }
 
 function iconv_not_available() {
