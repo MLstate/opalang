@@ -103,7 +103,7 @@ let available_js_back_end_list = Qml2jsOptions.backend_names ()
 let available_js_back_end_of_string = Qml2jsOptions.find_backend
 
 type available_back_end = [ `qmlflat | `qmljs ]
-let available_back_end_list = [ "qmlflat" ; "qmljs" ]
+let available_back_end_list = [ "qmlflat" ; "qmljs" ; "native" ; "node" ; "js" ; "nodejs"; "node.js" ]
 let available_back_end_of_string : string -> available_back_end option = function
   | "native"
   | "qmlflat" -> Some `qmlflat
