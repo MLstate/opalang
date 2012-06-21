@@ -34,11 +34,19 @@ var net = require('net');
 //   write_callback: A continuation waiting for the end of an write or an error
 ##extern-type Socket.connection
 
+// Call function field in obj with argument value.
+// Remove that function from the object.
+// Used to notify and remove listeners.
 function unregister_and_call(obj, field, value) {
     var callback = obj[field];
     obj[field] = null;
     callback(value);
 }
+
+// Socket functions come in two flavors: those that handle errors (*_with_err_cont)
+// and those that don't. For the latter, we use callbacks that always expect a result
+// and fail on errors, while for the former we wrap errors and pass them to the
+// continuation.
 
 function callback_plain(cont, message) {
 
@@ -65,6 +73,9 @@ function callback_with_err_cont(cont) {
     }
 
 }
+
+// Open connection to addr:port, passing outcome (connection object or error)
+// to callback.
 
 function connect_common(addr, port, callback) {
 
@@ -169,6 +180,9 @@ function connect_common(addr, port, callback) {
     return js_void;
 }
 
+// Write len bytes of data to connection_info, passing the number of bytes written
+// to callback if write is succesful, or an error otherwise. If len is null,
+// write the whole data. If timeout is not null, write fails after that many ms.
 function write_common(connection_info, data, length, timeout, callback) {
 
     if (connection_info.closed) {
@@ -238,6 +252,7 @@ function write_common(connection_info, data, length, timeout, callback) {
                         callback_with_err_cont(cont));
 }
 
+// Similar to write_common, but with no length
 function read_common(connection_info, timeout, callback) {
 
     if (connection_info.closed) {
@@ -287,4 +302,3 @@ function read_common(connection_info, timeout, callback) {
 {
     return connection_info.id;
 }
-
