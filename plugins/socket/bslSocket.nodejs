@@ -17,6 +17,8 @@
 */
 
 var net = require('net');
+var fs = require('fs');
+var tls = require('tls');
 
 ##opa-type outcome('a, 'b)
 
@@ -75,12 +77,12 @@ function callback_with_err_cont(cont) {
 }
 
 // Open connection to addr:port, passing outcome (connection object or error)
-// to callback.
+// to callback. If secure_type is not null, use it to establish a secure connection.
 
-function connect_common(addr, port, callback) {
+function connect_common(addr, port, secure_type, callback) {
 
     var connection_info = {
-        connection: net.connect(port, addr),
+        connection: null,
         id: Math.floor(Math.random() * 1024 * 1024 * 1024 * 4),
         has_connected: false,
         closed: false,
@@ -90,10 +92,33 @@ function connect_common(addr, port, callback) {
         write_callback: null
     };
 
-    connection_info.connection.on('connect', function () {
+    function connect_callback() {
         connection_info.has_connected = true;
         callback({success: connection_info});
-    });
+    }
+
+    if (secure_type) {
+        var options = {};
+
+        if (secure_type.key) {
+            options.key = fs.readFileSync(secure_type.key.cert_key);
+            options.passphrase = secure_type.key.cert_pass;
+            options.cert = fs.readFileSync(secure_type.key.cert_file);
+            if (secure_type.key.ca_file || secure_type.key.ca_path) {
+                error("Don't know how to deal with CAs in private key");
+            }
+        }
+
+        if (secure_type.policy) {
+            error("Don't know how to use a SSL policy");
+        }
+
+        connection_info.connection =
+            tls.connect(port, addr, options, connect_callback);
+    } else {
+        connection_info.connection =
+            net.connect(port, addr, connect_callback);
+    }
 
     connection_info.connection.on('data', function (data) {
 
@@ -147,7 +172,7 @@ function connect_common(addr, port, callback) {
                                  continuation(Socket.connection) -> void
 ##args(addr, port, cont)
 {
-    return connect_common(addr, port,
+    return connect_common(addr, port, null,
                           callback_plain(cont, "Connection failed"));
 }
 
@@ -155,14 +180,15 @@ function connect_common(addr, port, callback) {
                                         continuation(Socket.connection) -> void
 ##args(addr, port, secure_type, cont)
 {
-    error("secure_connect() is not implemented");
+    return connect_common(addr, port, secure_type,
+                          callback_plain(cont, "Connection failed"));
 }
 
 ##register [cps-bypass] connect_with_err_cont: string, int,\
                                  continuation(outcome(Socket.connection,string)) -> void
 ##args(addr, port, cont)
 {
-    return connect_common(addr, port,
+    return connect_common(addr, port, null,
                           callback_with_err_cont(cont));
 }
 
@@ -170,7 +196,8 @@ function connect_common(addr, port, callback) {
                                  continuation(outcome(Socket.connection,string)) -> void
 ##args(addr, port, secure_type, cont)
 {
-    error("secure_connect_with_err_cont() is not implemented");
+    return connect_common(addr, port, secure_type,
+                          callback_with_err_cont(cont));
 }
 
 ##register close: Socket.connection -> void
