@@ -359,6 +359,8 @@ check-node-dependency "nodemailer"
 check-node-dependency "imap"
 check-node-dependency "mongodb"
 check-node-dependency "formidable"
+# node-iconv doesn't work on Windows.
+if [ ! "${IS_WINDOWS:-}" ]; then check-node-dependency "iconv"; fi
 
 # - checking camlidl *
 echo-check for camlidl

@@ -332,6 +332,8 @@ package_install (){
 		npm install -g imap
 		npm install -g mongodb
 		npm install -g formidable
+                # node-iconv doesn't work on Windows yet
+                # npm install -g iconv
 		;;
             *)
                 msg_yellow "Install $1 by hand"
@@ -449,6 +451,7 @@ package_install (){
 		npm install -g imap
 		npm install -g mongodb
 		npm install -g formidable
+                npm install -g iconv
 		;;
             *)
                 install_generic
