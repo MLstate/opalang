@@ -889,8 +889,11 @@ rule "opa application creator"
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
+	Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
+	A"--opx-dir";A "stdlib.qmlflat";
+	A"--back-end";A "qmlflat";
         A"-I"; A opa_prefix
       ]));
 
