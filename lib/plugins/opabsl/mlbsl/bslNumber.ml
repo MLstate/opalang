@@ -64,6 +64,13 @@ let ordering (a:int) (b:int) =
 
 ##module BslInt64
 
+##register catch : ( -> 'a) -> opa[outcome('a,string)]
+let catch f =
+  try
+    BslUtils.create_outcome (`success (f()))
+  with exn ->
+    BslUtils.create_outcome (`failure (Printexc.to_string exn))
+
 ##register add \ `Int64.add` : int64, int64 -> int64
 ##register sub \ `Int64.sub` : int64, int64 -> int64
 ##register mul \ `Int64.mul` : int64, int64 -> int64
@@ -83,7 +90,12 @@ let max_int _ = Int64.max_int
 ##register of_int \ `Int64.of_int` : int -> int64
 ##register to_int \ `Int64.to_int` : int64 -> int
 ##register of_string \ `Int64.of_string` : string -> int64
+exception Not_implemented of string
+##register of_string_radix : string, int -> int64
+let of_string_radix _s _radix = raise (Not_implemented "Int64.of_string_radix")
 ##register to_string \ `Int64.to_string` : int64 -> string
+##register to_string_radix : int64, int -> string
+let to_string_radix _i _radix = raise (Not_implemented "Int64.to_string_radix")
 ##register op_eq : int64, int64 -> bool
 let op_eq i1 i2 = i1 = i2
 ##register op_ne : int64, int64 -> bool

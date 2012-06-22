@@ -38,6 +38,8 @@ type int64 = external
 
 Int64 = {{
 
+  catch = %%BslNumber.BslInt64.catch%% : (-> 'a) -> outcome('a,string)
+
   add = %%BslNumber.BslInt64.add%% : int64, int64 -> int64
   sub = %%BslNumber.BslInt64.sub%% : int64, int64 -> int64
   mul = %%BslNumber.BslInt64.mul%% : int64, int64 -> int64
@@ -56,7 +58,9 @@ Int64 = {{
   of_int = %%BslNumber.BslInt64.of_int%% : int -> int64
   to_int = %%BslNumber.BslInt64.to_int%% : int64 -> int
   of_string = %%BslNumber.BslInt64.of_string%% : string -> int64
+  of_string_radix = %%BslNumber.BslInt64.of_string_radix%% : string, int -> int64
   to_string = %%BslNumber.BslInt64.to_string%% : int64 -> string
+  to_string_radix = %%BslNumber.BslInt64.to_string_radix%% : int64, int -> string
   op_eq = %%BslNumber.BslInt64.op_eq%% : int64, int64 -> bool
   op_ne = %%BslNumber.BslInt64.op_ne%% : int64, int64 -> bool
   op_gt = %%BslNumber.BslInt64.op_gt%% : int64, int64 -> bool
