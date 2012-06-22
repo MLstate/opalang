@@ -278,7 +278,7 @@ struct
 
 /*usr/bin/env NODE_PATH=%s/lib/%snode_modules:$NODE_PATH node \"$0\" \"$@\"; exit $?;*/
 
-" (if Config.is_mac then "" else "opa/") Config.lib_dir;
+" Config.lib_dir (match Config.os with | Config.Mac -> "" | _ -> "opa/") ;
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
