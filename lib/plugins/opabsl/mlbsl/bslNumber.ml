@@ -62,16 +62,15 @@ let ordering (a:int) (b:int) =
 
 ##endmodule
 
-##module Int64
+##module BslInt64
 
-##register neg \ `Int64.neg` : int64 -> int64
 ##register add \ `Int64.add` : int64, int64 -> int64
 ##register sub \ `Int64.sub` : int64, int64 -> int64
 ##register mul \ `Int64.mul` : int64, int64 -> int64
 ##register div \ `Int64.div` : int64, int64 -> int64
 ##register rem \ `Int64.rem` : int64, int64 -> int64
-##register pred \ `Int64.pred` : int64, int64 -> int64
-##register succ \ `Int64.succ` : int64, int64 -> int64
+##register pred \ `Int64.pred` : int64 -> int64
+##register succ \ `Int64.succ` : int64 -> int64
 ##register max_int : -> int64
 let max_int _ = Int64.max_int
 ##register logand \ `Int64.logand` : int64, int64 -> int64

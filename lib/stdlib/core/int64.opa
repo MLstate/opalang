@@ -38,4 +38,30 @@ type int64 = external
 
 Int64 = {{
 
+  add = %%BslNumber.BslInt64.add%% : int64, int64 -> int64
+  sub = %%BslNumber.BslInt64.sub%% : int64, int64 -> int64
+  mul = %%BslNumber.BslInt64.mul%% : int64, int64 -> int64
+  div = %%BslNumber.BslInt64.div%% : int64, int64 -> int64
+  rem = %%BslNumber.BslInt64.rem%% : int64, int64 -> int64
+  pred = %%BslNumber.BslInt64.pred%% : int64 -> int64
+  succ = %%BslNumber.BslInt64.succ%% : int64 -> int64
+  max_int = %%BslNumber.BslInt64.max_int%% : -> int64
+  logand = %%BslNumber.BslInt64.logand%% : int64, int64 -> int64
+  logor = %%BslNumber.BslInt64.logor%% : int64, int64 -> int64
+  logxor = %%BslNumber.BslInt64.logxor%% : int64, int64 -> int64
+  lognot = %%BslNumber.BslInt64.lognot%% : int64 -> int64
+  shift_left = %%BslNumber.BslInt64.shift_left%% : int64, int -> int64
+  shift_right = %%BslNumber.BslInt64.shift_right%% : int64, int -> int64
+  shift_right_logical = %%BslNumber.BslInt64.shift_right_logical%% : int64, int -> int64
+  of_int = %%BslNumber.BslInt64.of_int%% : int -> int64
+  to_int = %%BslNumber.BslInt64.to_int%% : int64 -> int
+  of_string = %%BslNumber.BslInt64.of_string%% : string -> int64
+  to_string = %%BslNumber.BslInt64.to_string%% : int64 -> string
+  op_eq = %%BslNumber.BslInt64.op_eq%% : int64, int64 -> bool
+  op_ne = %%BslNumber.BslInt64.op_ne%% : int64, int64 -> bool
+  op_gt = %%BslNumber.BslInt64.op_gt%% : int64, int64 -> bool
+  op_ge = %%BslNumber.BslInt64.op_ge%% : int64, int64 -> bool
+  op_lt = %%BslNumber.BslInt64.op_lt%% : int64, int64 -> bool
+  op_le = %%BslNumber.BslInt64.op_le%% : int64, int64 -> bool
+
 }}
