@@ -75,7 +75,8 @@ type t =
       split : bool ;
       split_js_value : int option ;
       target : string ;
-      lang : [`js | `node]
+      lang : [`js | `node];
+      static_link : bool;
     }
 type env_js_input =
     {
@@ -173,6 +174,7 @@ struct
   let split = ref false
   let split_js_value = ref None
   let target = ref None
+  let static_link = ref false
 
   let plugin_inclusion file =
     let cwd = Sys.getcwd () in
@@ -209,6 +211,7 @@ struct
     split := false ;
     split_js_value := None ;
     target := None ;
+    static_link := false ;
     ()
 
   let speclist_aux () =
@@ -304,6 +307,7 @@ struct
       split_js_value = !split_js_value ;
       target = target;
       lang = `js;
+      static_link = !static_link;
     }
 
   let usage_msg = Printf.sprintf "%s: command-line options for the Qml-to-JS compiler\nUsage: %s [options]\n" Sys.argv.(0) Sys.argv.(0)

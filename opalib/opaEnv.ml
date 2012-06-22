@@ -188,7 +188,9 @@ type opa_options = {
 
   i18n : I18n.options ;
 
-  parser_ : OpaSyntax.Args.options
+  parser_ : OpaSyntax.Args.options;
+
+  static_link : bool; (* Whether or not to link object files statically *)
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -278,6 +280,8 @@ struct
     (* in release, force publishing source code ; otherwise, don't
        publish unless --publish-src-code). *)
     let publish_src_code = ref false
+
+    let static_link = ref false
 
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
@@ -851,7 +855,10 @@ struct
     publish_src_code = !ArgParser.publish_src_code;
 
     i18n = !I18n.r;
-    parser_ = !OpaSyntax.Args.r
+    parser_ = !OpaSyntax.Args.r;
+
+    static_link = !ArgParser.static_link;
+
   }
 
   let echo_help () = ArgParser.do_print_help ()
