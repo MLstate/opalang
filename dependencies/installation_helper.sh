@@ -449,7 +449,11 @@ package_install (){
                 $SUDO make install
                 ;;
 	    node)
-                ./configure --prefix $INSTALLDIR --libdir $LIBDIR
+                if [ $IS_MAC ]; then
+                    ./configure --prefix $INSTALLDIR --libdir $LIBDIR --openssl-libpath=/usr/lib
+		else
+                    ./configure --prefix $INSTALLDIR --libdir $LIBDIR
+                fi
                 make
                 $SUDO make install
 		npm install -g nodemailer
