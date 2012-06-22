@@ -21,7 +21,13 @@ package stdlib.core
 /**
  * The type of hash tables that contain ['key] to ['value] bindings.
  */
+@abstract
 type Hashtbl.t('key, 'value) = external
+
+type Hashtbl.binding('key, 'value) = {
+  key : 'key
+  value : 'value
+}
 
 Hashtbl = {{
 
@@ -89,5 +95,10 @@ Hashtbl = {{
    * Returns [true] if [key] is bound in the [table].
    */
   mem(table, key) = %%BslHashtbl.mem%%(table, key)
+
+  /**
+   * Returns the list of all bindings of the [table]
+   */
+  bindings(table) = %%BslHashtbl.bindings%%(table)
 
 }}

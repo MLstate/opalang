@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 */
+##opa-type Hashtbl.binding('key, 'value)
+
 ##extern-type Hashtbl.t('key, 'value)
 
 ##register make : ('key -> string), ('key, 'key -> bool), int -> Hashtbl.t('key, 'value)
@@ -75,4 +77,10 @@
 ##args(table, key)
 {
     return table.containsKey(key)
+}
+
+##register bindings : Hashtbl.t('key, 'value) -> llarray(opa[Hashtbl.binding('key, 'value)])
+##args(table)
+{
+    return table.values();
 }

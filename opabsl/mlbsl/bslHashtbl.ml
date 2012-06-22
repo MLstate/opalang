@@ -15,7 +15,18 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 ##extern-type Hashtbl.t('key, 'value) = ('key, 'value) Hashtbl.t
+
+##opa-type Hashtbl.binding('key, 'value)
+
+let fkey = ServerLib.static_field_of_name "key"
+let fval = ServerLib.static_field_of_name "value"
+let build_binding key val_ =
+  let r = ServerLib.empty_record_constructor in
+  let r = ServerLib.add_field r fkey key in
+  let r = ServerLib.add_field r fval val_ in
+  wrap_opa_hashtbl_binding (ServerLib.make_record r)
 
 ##register make : ('key -> string), ('key, 'key -> bool), int -> Hashtbl.t('key, 'value)
 let make _hash _equals size = (* TODO *)
@@ -37,3 +48,18 @@ let try_find h k = try Some (Hashtbl.find h k) with Not_found -> None
 ##register size \ `Hashtbl.length`: Hashtbl.t('key, 'value) -> int
 
 ##register mem \ `Hashtbl.mem` : Hashtbl.t('key, 'value), opa['key] -> bool
+
+##register bindings : Hashtbl.t('key, 'value) -> llarray(opa[Hashtbl.binding('key, 'value)])
+let bindings (table : ('key, 'value) Hashtbl.t) =
+  let fake = build_binding 0 0 in
+  let size = Hashtbl.length table in
+  if size = 0 then LowLevelArray.create 0 fake
+  else
+    let res = LowLevelArray.create size fake in
+    let _ = Hashtbl.fold
+      (fun key val_ i ->
+         LowLevelArray.set res i ((build_binding key val_) : ('key, 'value) opa_hashtbl_binding);
+         i+1)
+      table 0
+    in res
+
