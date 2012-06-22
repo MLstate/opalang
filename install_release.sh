@@ -30,13 +30,13 @@ CLEAN=true
 KEEP_INSTALL_SYS="false"
 
 help() {
-    echo "Installs a stripped stand-alone (including ocaml) version of OPA in the system."
+    echo "Installs a stripped stand-alone (including ocaml and node) version of OPA in the system."
     echo "The installed system can then be used for building packages."
     echo "Options"
     echo "	-prefix <dir>			Build for install in <dir>. Warning, you may need to recompile"
     echo "					ocaml if you change this (default $PREFIX)"
     echo "	-dir <dir>			Install to <dir> (default $INSTALLDIR)"
-    echo "	-srcdir <dir>			Your opageneral directory (default current dir)"
+    echo "	-srcdir <dir>			Your opalang directory (default current dir)"
     echo "	-keep-install-sys		Don't rebuild ocaml and libs, assume it has already been done"
     echo "	-keep-build			Don't cleanup your _build. Only use if you're sure it was"
     echo "					made with the right version of ocaml (the one this script"
@@ -46,8 +46,8 @@ help() {
     echo "					(default remotes/origin/master)"
     echo "	-license <prefix>		Use given license (files <prefix>_EN, <prefix>_FR)"
     echo
-    echo "GUIDELINES: Run from a proper opageneral or with the fetch-git option."
-    echo "In the former case, you'll need an opa-doc repo along your opageneral."
+    echo "GUIDELINES: Run from a proper opalang or with the fetch-git option."
+    echo "In the former case, you'll need an opa-doc repo along your opalang."
     echo "you could have a syntax error in ocaml-doc, when building, so you can remplace the makefile by empty rule, because it not needed"
 }
 

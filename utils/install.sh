@@ -10,7 +10,7 @@ help() {
     echo "	--help			show this help"
     echo "	--link <dir>		also install links to the scripts in the given directory"
     echo "	--no-ocaml		don't force the use of a specific ocaml"
-    echo "	--ocaml-prefix		what ocaml prefix to use (default <prefix>/lib/opa/ocaml)"
+    echo "	--ocaml-prefix		what ocaml prefix to use (default <prefix>/opa)"
     echo "	--ocamllib		ocaml libraries directory (default <ocaml-prefix>/lib/ocaml)"
     echo "	--ocamlopt		ocaml native compiler to use (default <ocaml-prefix>/bin/ocamlopt.opt)"
     echo "	--prefix <dir>		make wrappers for the given installation prefix"

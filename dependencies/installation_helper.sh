@@ -35,6 +35,7 @@ Usage:
 Options:
 	--prefix <dir>		where ocaml and libs should expect to be installed (mandatory)
 	--installdir <dir>	where to actually do the install (by default, the value of --prefix)
+	--libdir <dir>	        where to actually do the lib install (by default, the value of --prefix)
 	--packages 'pkg list'	only install the specified packages
 	--sudo			sudo before installation commands ([1msee disclaimer[0m)
 
@@ -125,6 +126,7 @@ while [ $# -gt 0 ]; do
             shift
             PREFIX="$1"
             : ${INSTALLDIR:=$PREFIX}
+            : ${LIBDIR:=$PREFIX}
             ;;
         --packages)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
@@ -135,6 +137,11 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             INSTALLDIR="$1"
+            ;;
+        --libdir)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift
+            LIBDIR="$1"
             ;;
         --sudo)
             SUDO="sudo"
@@ -208,13 +215,13 @@ package_dir () {
 }
 
 install_generic () {
-    if [ "$(which $OCAMLC)" != "$INSTALLDIR/bin/$OCAMLC" ]; then
+    if [ "$(which $OCAMLC)" != "$LIBDIR/ocaml/bin/$OCAMLC" ]; then
         echo $OCAMLC x $PATH
-        msg_red "Error: fresh installed ocaml not found ($(which $OCAMLC) is not $INSTALLDIR/bin/$OCAMLC)"
+        msg_red "Error: fresh installed ocaml not found ($(which $OCAMLC) is not $LIBDIR/ocaml/bin/$OCAMLC)"
         exit 1
     fi
-    if [ "$($OCAMLC -where)" != "$INSTALLDIR/lib/ocaml" ]; then
-        msg_red "Error: fresh installed ocaml not found (ocamlc -where returned $($OCAMLC -where) instead of $INSTALLDIR/lib/ocaml"
+    if [ "$($OCAMLC -where)" != "$LIBDIR/ocaml/lib/ocaml" ]; then
+        msg_red "Error: fresh installed ocaml not found (ocamlc -where returned $($OCAMLC -where) instead of $LIBDIR/ocaml/lib/ocaml"
         exit 1
     fi
     # Packages install themselves in $(ocamlc -where) automatically
@@ -322,7 +329,7 @@ package_install (){
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $INSTALLDIR --without-gtk --without-libsvg_cairo --without-libpangocairo
+                ./configure --prefix $LIBDIR/ocaml --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 make install
                 ;;
@@ -351,7 +358,7 @@ package_install (){
                 if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
                     make opt && make opt.opt
                 fi
-                PREFIX=$INSTALLDIR $SUDO make install -e
+                PREFIX=$LIBDIR/ocaml $SUDO make install -e
                 ;;
             camlzip)
                 make all allopt
@@ -359,32 +366,32 @@ package_install (){
                 $SUDO install -m 0644 -v zlib.cm* $($OCAMLC -where)/zip
                 ;;
             ocaml-ssl)
-                $SUDO $INSTALLDIR/bin/ocamlfind remove -destdir $INSTALLDIR/lib/ocaml ssl || true
+                $SUDO $LIBDIR/ocaml/bin/ocamlfind remove -destdir $LIBDIR/ocaml/lib/ocaml ssl || true
                 install_generic
                 ;;
 	    cryptokit)
 		# very ugly way to uninstall previous cryptokit...
 		msg_yellow "Uninstalling potential previous cryptokit (moving it..)"
-		$SUDO mkdir -pv $INSTALLDIR/lib/ocaml/cryptokit.bak
-		$SUDO mv -v $INSTALLDIR/lib/ocaml/cryptokit.* $INSTALLDIR/lib/ocaml/cryptokit.bak/ || true
-		$SUDO mv -v $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so.bak  || true
+		$SUDO mkdir -pv $LIBDIR/ocaml/lib/ocaml/cryptokit.bak
+		$SUDO mv -v $LIBDIR/ocaml/lib/ocaml/cryptokit.* $LIBDIR/ocamllib/ocaml/cryptokit.bak/ || true
+		$SUDO mv -v $LIBDIR/ocaml/lib/ocaml/stublibs/dllcryptokit.so $LIBDIR/ocaml/lib/ocaml/stublibs/dllcryptokit.so.bak  || true
 		ocaml setup.ml -configure
 		ocaml setup.ml -build
 		$SUDO ocaml setup.ml -uninstall
 		$SUDO ocaml setup.ml -install
 		;;
             findlib)
-                install_generic -sitelib $INSTALLDIR/lib/ocaml
+                install_generic -sitelib $LIBDIR/ocaml/lib/ocaml
                 ;;
             camlimages)
                 touch src/oXpm.cmi || true # camlimages wants that even if we tell him not...
-                ./configure --with-ocamlfind=no --enable-native-library --enable-bytecode-library --with-jpeg  --with-png --with-gif --without-lablgtk --without-lablgtk2 --without-freetype --without-xpm --without-tiff --without-x --without-gs --prefix $INSTALLDIR \
-                    CFLAGS=-I$INSTALLDIR/include LDFLAGS=-L$INSTALLDIR/lib
+                ./configure --with-ocamlfind=no --enable-native-library --enable-bytecode-library --with-jpeg  --with-png --with-gif --without-lablgtk --without-lablgtk2 --without-freetype --without-xpm --without-tiff --without-x --without-gs --prefix $LIBDIR/ocaml \
+                    CFLAGS=-I$LIBDIR/ocaml/include LDFLAGS=-L$LIBDIR/ocaml/lib
                 make
                 $SUDO make install
                 ;;
             ulex)
-                $SUDO $INSTALLDIR/bin/ocamlfind remove -destdir $INSTALLDIR/lib/ocaml ulex || true
+                $SUDO $LIBDIR/ocaml/bin/ocamlfind remove -destdir $LIBDIR/ocaml/lib/ocaml ulex || true
                 rm -f myocamlbuild.ml
                 make all.opt
                 # the following is copy pasted from ulex's Makefile
@@ -393,26 +400,26 @@ package_install (){
                 cd _build && $SUDO make -f ../Makefile realinstall
                 ;;
             jpeg)
-                ./configure --prefix $INSTALLDIR
+                ./configure --prefix $PREFIX
                 make
                 $SUDO make install
                 ;;
             libpng)
-                ./configure --prefix $INSTALLDIR
+                ./configure --prefix $PREFIX
                 make
                 $SUDO make install
                 ;;
             giflib)
-                ./configure --prefix $INSTALLDIR
+                ./configure --prefix $PREFIX
                 make
                 $SUDO make install
                 ;;
             mascot)
-                sh configure -ocaml-prefix $INSTALLDIR
+                sh configure -ocaml-prefix $LIBDIR/ocaml
                 $SUDO make all install -e
                 ;;
             camlidl)
-                sed -e "s%^OCAMLLIB=.*%OCAMLLIB=$INSTALLDIR/lib/ocaml%; s%^BINDIR=.*%BINDIR=$INSTALLDIR/bin%" \
+                sed -e "s%^OCAMLLIB=.*%OCAMLLIB=$LIBDIR/ocaml/lib/ocaml%; s%^BINDIR=.*%BINDIR=$LIBDIR/ocaml/bin%" \
                     config/Makefile.unix > config/Makefile
                 make -e all
                 $SUDO make -e install
@@ -420,31 +427,29 @@ package_install (){
             libnatpmp)
                 make -e
                 # custom installation
-                LIBDIR=$INSTALLDIR/lib/ocaml
-                $SUDO mkdir -p $LIBDIR
-                $SUDO cp libnatpmp.a $LIBDIR
-                INCLUDE=$INSTALLDIR/include/libnatpmp
+                $SUDO mkdir -p $LIBDIR/ocaml/lib/ocaml
+                $SUDO cp libnatpmp.a $LIBDIR/ocaml/lib/ocaml
+                INCLUDE=$LIBDIR/ocaml/include/libnatpmp
                 $SUDO mkdir -p $INCLUDE
                 $SUDO cp *.h $INCLUDE
                 ;;
             miniupnpc)
-                INSTALLPREFIX=$INSTALLDIR make -e
-                LIBDIR=$INSTALLDIR/lib/ocaml
-                $SUDO mkdir -p $LIBDIR
-                $SUDO cp libminiupnpc.a $LIBDIR
-                INCLUDE=$INSTALLDIR/include/miniupnpc
+                INSTALLPREFIX=$LIBDIR/ocaml make -e
+                $SUDO mkdir -p $LIBDIR/ocaml/lib/ocaml
+                $SUDO cp libminiupnpc.a $LIBDIR/ocaml/lib/ocaml
+                INCLUDE=$LIBDIR/ocaml/include/miniupnpc
                 $SUDO mkdir -p $INCLUDE
                 $SUDO cp *.h $INCLUDE
                 ;;
             cairo-ocaml)
                 aclocal -I support
                 autoconf
-                ./configure --prefix $INSTALLDIR --without-gtk --without-libsvg_cairo --without-libpangocairo
+                ./configure --prefix $LIBDIR/ocaml --without-gtk --without-libsvg_cairo --without-libpangocairo
                 make
                 $SUDO make install
                 ;;
 	    node)
-                ./configure --prefix $INSTALLDIR
+                ./configure --prefix $INSTALLDIR --libdir $LIBDIR
                 make
                 $SUDO make install
 		npm install -g nodemailer
@@ -543,40 +548,40 @@ setup_local_ocaml () {
     # Here we attempt to relocate ocaml, which is not an easy task. Beware the hacks.
     # (no $SUDO here, relocation is not supposed to be needed if we are already
     #  installing to a privileged place)
-    if [ -d $INSTALLDIR/lib/ocaml ] && [ "$PREFIX" != "$INSTALLDIR" ]; then
+    if [ -d $LIBDIR/ocaml/lib/ocaml ] && [ "$PREFIX" != "$LIBDIR/ocaml" ]; then
         # Update ld.conf for the temporary location
         # (this is reverted last thing in this script)
         HAS_PATCHED_OCAML_LD_CONF=1
-        sed -i "s%^$PREFIX%$INSTALLDIR%" $INSTALLDIR/lib/ocaml/ld.conf
+        sed -i "s%^$PREFIX%$LIBDIR/ocaml%" $LIBDIR/ocaml/lib/ocaml/ld.conf
         # The following are not needed in our binary package, so we
         # don't care about reverting the changes (we clean them up
         # before making the package)
         #
         # The bytecode exes refer to an interpreter that is not installed (<prefix>/bin/ocamlrun).
-        sed -i '1s%#!'$PREFIX'/bin/ocamlrun%#!'$INSTALLDIR'/bin/ocamlrun%' $INSTALLDIR/bin/*
+        sed -i '1s%#!'$PREFIX'/bin/ocamlrun%#!'$LIBDIR/ocaml'/bin/ocamlrun%' $LIBDIR/ocaml/bin/*
         # ocamlmklib doesn't play nice, we wrap them to add options
-        if [ ! -e $INSTALLDIR/bin/ocamlmklib-bin ]; then
-            mv $INSTALLDIR/bin/ocamlmklib $INSTALLDIR/bin/ocamlmklib-bin
-            echo -e '#!/bin/sh\nexec '$INSTALLDIR/bin/ocamlmklib-bin' -ocamlc '$INSTALLDIR/bin/ocamlc' -ocamlopt '$INSTALLDIR/bin/ocamlopt' "$@"' >$INSTALLDIR/bin/ocamlmklib
-            chmod a+x $INSTALLDIR/bin/ocamlmklib
+        if [ ! -e $LIBDIR/ocaml/bin/ocamlmklib-bin ]; then
+            mv $LIBDIR/ocaml/bin/ocamlmklib $LIBDIR/ocaml/bin/ocamlmklib-bin
+            echo -e '#!/bin/sh\nexec '$LIBDIR/ocaml/bin/ocamlmklib-bin' -ocamlc '$LIBDIR/ocaml/bin/ocamlc' -ocamlopt '$LIBDIR/ocaml/bin/ocamlopt' "$@"' >$LIBDIR/ocaml/bin/ocamlmklib
+            chmod a+x $LIBDIR/ocaml/bin/ocamlmklib
         fi
         # camlp4 needs a shared library (dllunix, what for ??) that
         # isn't yet in normal library search paths
-        for f in $INSTALLDIR/bin/camlp4*; do
+        for f in $LIBDIR/ocaml/bin/camlp4*; do
             if [ $f = ${f%.opt} ] && [ ! -e $f-bin ]; then
                 mv $f $f-bin
-                echo -e '#!/bin/sh\nLD_LIBRARY_PATH='$INSTALLDIR/lib/ocaml/stublibs':$LD_LIBRARY_PATH exec '$f-bin' "$@"' >$f
+                echo -e '#!/bin/sh\nLD_LIBRARY_PATH='$LIBDIR/ocaml/lib/ocaml/stublibs':$LD_LIBRARY_PATH exec '$f-bin' "$@"' >$f
                 chmod a+x $f
             fi
         done
     fi
-    msg_yellow "Extending path to find the proper ocaml (at $INSTALLDIR/bin)"
-    export PATH=$INSTALLDIR/bin:$PATH
-    # export LD_LIBRARY_PATH=$INSTALLDIR/lib/ocaml:$INSTALLDIR/lib/ocaml/stublibs/$LD_LIBRARY_PATH
-    msg_yellow "Setting OCAMLLIB to the proper location ($INSTALLDIR/lib/ocaml)"
-    export OCAMLLIB=$INSTALLDIR/lib/ocaml
-    export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
-    export OCAMLFIND_INSTFLAGS="-destdir $INSTALLDIR/lib/ocaml"
+    msg_yellow "Extending path to find the proper ocaml (at $LIBDIR/ocaml/bin)"
+    export PATH=$LIBDIR/ocaml/bin:$PATH
+    # export LD_LIBRARY_PATH=$LIBDIR/ocaml/lib/ocaml:$LIBDIR/ocaml/lib/ocaml/stublibs/$LD_LIBRARY_PATH
+    msg_yellow "Setting OCAMLLIB to the proper location ($LIBDIR/ocaml/lib/ocaml)"
+    export OCAMLLIB=$LIBDIR/ocaml/lib/ocaml
+    export OCAMLOPT=$LIBDIR/ocaml/bin/ocamlopt.opt
+    export OCAMLFIND_INSTFLAGS="-destdir $LIBDIR/ocaml/lib/ocaml"
 }
 
 if [ -n "$INSTALL" ]; then
@@ -602,7 +607,7 @@ fi
 
 if [ -n "${HAS_PATCHED_OCAML_LD_CONF:-}" ]; then
     msg_yellow "Reverting temporary modification of ocaml's ld.conf used for building the libs"
-    sed -i "s%^$INSTALLDIR%$PREFIX%" $INSTALLDIR/lib/ocaml/ld.conf
+    sed -i "s%^$LIBDIR/ocaml%$PREFIX%" $LIBDIR/ocaml/lib/ocaml/ld.conf
 fi
 
 msg_green "$SCRIPTNAME: done"
