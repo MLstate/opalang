@@ -47,7 +47,7 @@ type ResourceTracker.msg('message) =
 
 @abstract
 type ResourceTracker.manager('message, 'result) =
-  Cell.cell(ResourceTracker.msg('message), {result :'result} / {})
+  Cell.cell(ResourceTracker.msg('message), {result :'result} / {} / {stop})
 
 type ResourceTracker.signal =
   {expiration}
@@ -57,13 +57,15 @@ type ResourceTracker.signal =
  */
 @server_private
 ResourceTracker = {{
-
   @private
   managers : Hashtbl.t(int, ResourceTracker.manager('message, 'result)) =
     @nonexpansive(Hashtbl.create(16))
 
   @private
   fresh = Fresh.server(identity)
+
+  @private
+  collect = Reference.create(false)
 
   /**
    * Some Signal
@@ -84,8 +86,9 @@ ResourceTracker = {{
     index = fresh()
     manager = Cell.make(state, (state, msg ->
         stop(signal) =
+          do @atomic(Hashtbl.remove(managers, index))
           do Scheduler.push(-> collect(state, signal))
-          {return={} instruction={stop}}
+          {return={stop} instruction={stop}}
         match msg with
         | {msg = msg} ->
           (set, result) = handler(state, msg)
@@ -103,7 +106,7 @@ ResourceTracker = {{
 
   /**
    * Trying to access to the resource associated to its manager.
-  **/
+   */
   call(
     manager : ResourceTracker.manager('message, 'result),
     message : 'message
@@ -114,16 +117,47 @@ ResourceTracker = {{
 
   /**
    * Send a termination signal to a manager.
-  **/
+   */
   term(manager : ResourceTracker.manager, signal : ResourceTracker.signal) =
     Scheduler.push(-> ignore(Cell.call(manager, ~{signal})))
 
+  // TODO - Move on to the cell module
+  @private
+  call_or_error(cell, message) =
+    @callcc(k ->
+      herror() = Continuation.return(k, {failure})
+      cbs = ~{herror hsuccess=-> void}
+      Continuation.return(k,
+        {success = Cell_private.llcall_more(cell, message, {none}, {none}, cbs)}
+      )
+    )
+
   /**
    * Execute manually a step of garbage collector.
-  **/
+   */
   garbage_collector() =
-    // TODO
-    void
+    match @atomic(
+      match Reference.get(collect) with
+      | {true} -> false
+      | {false} ->
+        do Reference.set(collect, true)
+        true
+    ) with
+    | {false} ->
+      /* The garbage collection is already in progress */
+      void
+    | {true}  ->
+      /* No collection in progress start a new one */
+      do Log.info("ResourceTracker", "Starting garbage collection")
+      nb = LowLevelArray.fold(
+        ({value=manager ...}, nb ->
+          match call_or_error(manager, {expire}) with
+          | {success = {stop}} -> nb+1
+          | _ -> nb
+        ), Hashtbl.bindings(managers), 0
+      )
+      do Log.info("ResourceTracker", "End of collection, {nb} collected")
+      @atomic(Reference.set(collect, false))
 
 }}
 

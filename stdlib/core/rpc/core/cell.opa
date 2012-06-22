@@ -223,10 +223,16 @@ Cell_private = {{
   #<Else>
   @private bsl_llcall = %%Session.SynchronousCell.llcall%%
   #<End>
-  llcall(cell : Cell.cell('message, 'result),
+  llcall(cell, message, serialize, result_ty) =
+    llcall_more(cell, message, serialize, result_ty, {})
+
+  llcall_more(
+         cell : Cell.cell('message, 'result),
          message : 'message,
          serialize : option('message -> RPC.Json.json),
-         result_ty : option(OpaType.ty)) =
+         result_ty : option(OpaType.ty),
+         cbs
+       ) =
     result_ty = result_ty ? @typeval('result)
     /* Get the default serialize function if user doesn't give one */
     // What about value restriction ?
@@ -299,9 +305,12 @@ Cell_private = {{
       callbis(k : continuation('result)) : void =
         @with_thread_context(
           ThreadContext.get({from = k}),
-          Channel.send(sess, {~serialize message=(k, message)})
-    )
-
+          how = match cbs with
+          | ~{herror hsuccess} ->
+            ~{serialize message=(k, message) herror hsuccess}
+          | {} -> {~serialize message=(k, message)}
+          Channel.send(sess, how)
+        )
       if not(Channel.is_local(sess))
       then (
         id = gen_call_id()
