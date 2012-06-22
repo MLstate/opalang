@@ -276,9 +276,9 @@ struct
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#!/usr/bin/env sh
 
-/*usr/bin/env NODE_PATH=%s/lib/node_modules:$NODE_PATH node \"$0\" \"$@\"; exit $?;*/
+/*usr/bin/env NODE_PATH=%s/lib/%snode_modules:$NODE_PATH node \"$0\" \"$@\"; exit $?;*/
 
-" Config.lib_dir;
+" (if Config.is_mac then "" else "opa/") Config.lib_dir;
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
