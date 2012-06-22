@@ -48,8 +48,8 @@ Iconv = {{
    * Perform a character set conversion
    * from a binary encoded data into an utf-8 compatible string
    */
-  convert_to_utf8(from:string, s:binary) : string =
+  convert_to_utf8(from:string, s:binary) : option(string) =
     iconv = open({~from to="utf-8"})
-    string_of_binary(convert(iconv, s))
+    Option.map(string_of_binary, convert(iconv, s))
 
 }}

@@ -27,9 +27,15 @@ function iconv_open_impl(tocode, fromcode) {
 }
 
 function iconv_impl(t, s) {
-    // WARNING: This can throw an exception. We need to change the interface
-    // in order to return an option when the conversion fails.
-    return t.convert(s).toString();
+    var res;
+
+    try {
+        res = js_some(t.convert(s).toString());
+    } catch (e) {
+        res = js_none;
+    }
+
+    return res;
 }
 
 function iconv_not_available() {
@@ -42,7 +48,7 @@ function iconv_not_available() {
 
 ##register iconv_open \ `iconv_open` : string, string -> Iconv.t
 
-##register iconv \ `iconv` : Iconv.t, binary -> binary
+##register iconv \ `iconv` : Iconv.t, binary -> opa[option(binary)]
 
 try {
     iconv_mod = require('iconv');
