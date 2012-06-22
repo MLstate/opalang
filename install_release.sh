@@ -207,7 +207,7 @@ SRCDIR=$OPAGENERAL
 OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
-./configure -prefix $INSTALLDIR -install-dir $PREFIX -ocamlopt $OCAMLOPT -release -no-dbm
+./configure -prefix $INSTALLDIR -libdir $PREFIX -ocamlopt $OCAMLOPT -release -no-dbm
 
 
 TARGETS="distrib"

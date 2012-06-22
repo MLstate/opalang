@@ -278,7 +278,7 @@ struct
 
 /*usr/bin/env NODE_PATH=%s/lib/node_modules:$NODE_PATH node \"$0\" \"$@\"; exit $?;*/
 
-" Config.install_dir;
+" Config.lib_dir;
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
