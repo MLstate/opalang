@@ -128,7 +128,7 @@ rather than `Network.cloud`.
 
 In a few words: it works because Opa's built-in database engine is fully distributed and compatible with `opa-cloud`.
 
-### How can check my ssh connection?
+### How can I check my ssh connection?
 
 Let say your remote computer is called 'albertson' and your user name is 'jeff'.
 You should be able to connect to albertson with the following command line:

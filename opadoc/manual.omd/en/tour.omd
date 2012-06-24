@@ -23,7 +23,7 @@ A single language
 -----------------
 
 Opa takes care of all aspects of web programming: frontend (client code),
-backend (server code) are database queries are all written in one consistent
+backend (server code) and database queries are all written in one consistent
 language and compiled to standards of the web: JavaScript frontend,
 Node.js backend and MongoDB for the database. Other targets are planned,
 making Opa a gateway to web programming.
@@ -185,7 +185,7 @@ Opa type system not only manages basic types but complex data-structures, functi
 Database
 --------
 
-Opa has extensive support for MongoDB (and, to lesser extent, CouchDB), as well as its own database engine. The latter requires no configuration and is convenient for starting new programs, while the latter offer state-of-the-art solution for data storage and retrieval.
+Opa has extensive support for MongoDB (and, to lesser extent, CouchDB), as well as its own database engine. The latter requires no configuration and is convenient for starting new programs, while the former offer state-of-the-art solution for data storage and retrieval.
 
 Database values are declared by stating their type:
 `database type /path;`[opa]
