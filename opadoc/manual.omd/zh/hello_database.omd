@@ -1,1 +1,292 @@
-../en/hello_database.omd
+数据库使用示例
+===============
+
+在本章中，我们会展示数据存储的特性。Opa有其自身的内部数据库，对于构建应用原型和快速入门都十分理想。然而，对于复杂的、数据密集的应用，需要能够支持数据复制和复杂查询，以及扩展性好的数据库，Opa提供了对当前十分流行的[MongoDB数据库](http://www.mongodb.org) 的支持。本章关注的焦点就是MongoDB.
+
+
+MongoDB: 快速入门
+-------------------
+
+在本小节中，我们会以“Opa导论”中最简单的计数器应用为例，使用MongoDB作为数据库来运行。
+
+首先，如果没有安装MongoDB的话，你需要下载(http://mongodb.org/downloads) ，安装并运行（http://www.mongodb.org/display/DOCS/Quickstart) MongoDB服务。安装过程其实就是解压缩下载的包，然后你可以通过类似下面的命令启动服务器：
+
+```{.sh}
+$ mkdir -p ~/mongodata/opa
+$ {INSTALL_DIR}/mongod --noprealloc --dbpath ~/mongodata/opa > ~/mongodata/opa/log.txt 2>&1
+```
+
+上面的命令创建了数据目录`~/mongodata/opa` (line 1), 然后使用这个位置作为数据目录运行MongoDB，最后将日志信息写入到`~/mongodata/opa/log.txt`中去(2). 服务器需要一段时间来启动，当在另一个命令行中可以运行`mongo`（客户端）命令的时候，表明服务器已经开始工作了。命令的响应看起来应该如下（版本号当然会不一样）：
+
+```
+$ {INSTALL_DIR}/mongo
+MongoDB shell version: 2.0.2
+connecting to: test
+>
+```
+
+让我们回顾一下前面章节中计数器的例子（假定代码存放在`counter.opa`文件中）。
+
+[opa|fork=hello-opa|run=http://hello-opa.tutorials.opalang.org]file://hello-opa/hello-opa.opa
+
+那么我们该怎样将这个例子升级到MongoDB呢？你所需要做的只是使用设置数据库后台的编译选项：`--database mongo` (在Opa未来的发布版本中，MongoDB会成为默认的数据库，那样我们就可以省略掉这个选项了。译者注：最新版的Opa（0.9.4s4)已经使mongo成为了默认的选项，所以这个其实可以省掉）。
+
+`opa --database mongo counter.opa`
+
+跟以前一样运行：
+
+`./counter.exe`
+
+哇塞，你已经有了第一个运行MongoDB的Opa应用了！
+
+{block}[警告]
+请注意，Opa可以接受不带显示名称的数据库声明，所以：
+```
+database int /counter = 0;
+```
+
+也可以：
+
+```
+database mydb {
+  int /counter = 0;
+}
+```
+
+然而，这样一个没有名字的数据库定义代码是*无法*在MongoDB下运行的，这个小缺陷会在下一个版本的Opa中得到修复。
+{block}
+
+上述的安装假定Mongo运行在本机的默认端口27017; 如果这不是你应用所希望的，你可以在运行你应用的的时候(注意，不是编译)使用选项`--db-remote:db_name host[:port]`。例如，如果你的Mongo服务跑在本机，但在4242端口，你需要使用下面的命令行运行应用：
+
+```{.sh}
+./counter.exe --db-remote:mydb localhost:4242
+```
+
+另外，如果你的Mongo数据库使用了验证，你可以使用下面的方式在命令行中提供验证参数：
+
+```{.sh}
+./counter.exe --db-remote:mydb myusername:mypassword@localhost:4242
+```
+
+然而请注意，我们这里简化了对MongDB认证方式的认识，认为每个连接只支持一个数据库。实际上，MongoDB实现的认证方式是针对数据库的，因此可以在同一个连接中对多个数据库验证。如果你在同一个服务器上有多个数据库需要认证，那么你必须声明多个`--db-remote`选项，每个目标数据库对应一个。一个可能有用的地方是，如果你以`admin`身份认证，就有点像`root`用户，可以访问这次连接的所有数据库。
+
+如上所述，转换到Mongo是非常简单的。值得注意的一点是，虽然Mongo自身是模式自由的（"Schema free"），但是Opa编译器会保证程序数据库定义的一致性，因此提供了一个保证所有数据库操作都是类型安全的安全层。
+
+那么，使用MongoDB数据库会带来什么好处呢？除了使应用运行在工业标准的数据库管理系统之上以外，这样做还为复杂查询开启了大门，下面的小节我们会关注查询的问题。
+
+数据库声明
+---------------------
+
+例子最足以说明问题，所以本节的余下部分，我们会以一个电影评分服务为例子。首先我们需要定义用户数据，它是一个用户的集合，每个元素都有`id`，类型为`user_id`（这里做`int`处理，虽然现实生活中可能会是任意的）, 一个`int age`字段，一个`status`字段，`status`字段是一个可变类型(枚举）。
+
+```
+type user_status = {regular} or {premium} or {admin}
+type user_id = int
+type user = { user_id id, string name, int age, user_status status }
+
+database users {
+  user /all[{id}]
+  /all[_]/status = { regular }
+}
+```
+
+首先要注意的是声明数据集（*database sets*）的语法。`user /user`会在路径`/user`下声明类型为`user`的一个值。然而，`user /all[{id}]`会声明类型为`user`的值的集合，其中`id`是记录字段的主键。
+
+第二点重要的事情是,Opa中所有的数据库路径都关联了默认值。对于`int`是`0`，对于`string`是空字符串。对于自定义的值，我们要么显示地提供，就如：`/all[_]/status = {regular} ` 一样。要么我们需要声明一个给定的记录集永远不会被部分修改（modified partially）,这一点可以使用下面的声明完成`/all[_] full`。 后面我们会看到关于部分记录更新（partial record update）的更多内容。
+
+现在我们准备去声明movies。首先我们引入了电影演员`person`，为简单起见，仅仅由`name`和`birthday`组成。
+
+```
+type person = { string name, int birthyear }
+```
+
+然后我们定义电影阵容类型，包括导演`director`和电影中明星的列表`starts`（按名气排序）。
+
+```
+type cast = { person director, list(person) stars }
+```
+
+现在轮到电影本身，有名称`title`(`string`类型），观看次数`view_counter`（`int`;电影的观看次数），阵容`cast`，还有就是评分的集合，是一个从`int`(代表评分）到`list(user_id)`（代表给出这个评分的用户列表）的映射。
+
+```
+database movie {
+  string /title
+  int /view_counter
+  cast /cast
+  intmap(list(user_id)) /ratings
+}
+```
+
+值得注意的是，我们可以在不需要任何额外工作的情况下，直接在数据库中存储复杂的数据。-- 比如，`cast`是一个记录，它自身的一个字段中包含了一个列表。
+
+在这里我们会发现复杂类型（例如这里的：records (`cast`), `list`s (`stars` field of `cast`) and `intmap`）都可以声明为数据库的入口，和原始类型的声明方式一样。
+
+在本章的剩余部分，我们会看到怎样去读取（read），查询（query）和更新（update）不同类型的值。
+
+基本类型（Basic Type)
+-----------
+
+我们可以使用下面简单的语句读取某个电影的名称和观看次数：
+
+```
+string title = /movie/title;
+int view_no = /movie/view_counter;
+```
+
+`/movie/title` 和 `/movie/view_counter` 叫做路径，由数据库名称（`movie`）和字段名称（`title` / `view_counter`）组成。
+
+更新可以使用数据库写操作符`path <- value`来完成:
+
+```
+/movie/title <- "The Godfather";
+/movie/view_counter <- 0;
+```
+
+如果某个用户试图去读取没有初始化的数据会怎么样呢？
+
+```
+int view_no = /movie/view_counter;
+```
+
+如果`/movie/view_counter`一直没有初始化，那么`view_no`的值会是什么呢？我们前面提到过默认值，如果我们没有给出某个路径的值，那么它将会被赋予默认值。
+
+可以使用下面的声明来改变某个路径的默认值：
+
+```
+database movies {
+  ...
+  int /view_counter = 10 // default value will be 10
+}
+```
+
+另外一种处理方式是在路径读取之前使用问号（`?`），这将返回一个可选值（optional value），`{none}`表示这个路径还没有被写入过，如下：
+
+```
+match (?/movies/view_counter) {
+case {none}: "No views for this movie...";
+case {some: count}: "The movie has been viewed {count} times";
+}
+```
+
+对于整型的字段，我们还可以使用一些额外的操作：
+
+```
+/movie/view_counter++;
+/movie/view_counter += 5;
+/movie/view_counter -= 10;
+```
+
+记录（Records）
+-------
+
+对于记录，我们可以使用和基本类型一样的方式完成读取和更新操作：
+
+```
+cast complete_cast = /movie/cast;
+/movie/cast <- { director: { name: "Francis Ford Coppola", birthyear: 1939 }
+               , stars: [ { name: "Marlon Brando", birthyear: 1924 }, { name: "Al Pacino", birthyear: 1940 } ]
+               };
+```
+
+但是，除非一个给定的路径声明为只能完全修改（full modifications only，使用前面讲过的`full`修饰符），我们还可以越过记录，通过在路径中指定字段，仅仅访问和修改选中的字段：
+
+```
+person director = /movie/cast/director;
+/movie/cast/director/name <- "Francis Ford Coppola"
+```
+
+同样，我们也可以只更新某些记录：
+
+```
+ // Notice the stars field below, which is not given and hence will not be updated
+/movie/cast <- { director: { name: "Francis Ford Coppola", birthyear: 1939 } }
+```
+
+列表（Lists）
+-----
+
+Opa中的列表其实就是递归的记录(参见/type/stdlib.core/list)，可以通过下面的方式进行操作：
+
+```
+/movie/cast/stars <- []
+person first_billed = /movie/cast/stars/hd
+list(person) non_first_billed = /movie/cast/stars/tl
+```
+
+然而，由于列表是十分常用的数据类型，Opa提供了一些针对列表的额外操作：
+
+```
+ //删除列表的第一个元素
+/movie/cast/stars pop
+ //删除列表的最后一个元素
+/movie/cast/stars shift
+ //向列表中添加一个元素
+/movie/cast/stars <+ { name: "James Caan", birthyear: 1940 }
+
+person actor1 = ...
+person actor2 = ...
+ //向列表中添加一些元素
+/movie/cast/stars <++ [ actor1, actor2 ]
+```
+
+集合和映射(Sets and Maps)
+-------------
+
+集合（Set）和映射（Map）是两种类型的集合类型，使用它们可以在数据中组织管理数据的多个实例。集合（Set）代表某种类型的一些值，值与值之间没有顺序（跟列表不同，列表是有顺序的）。映射（Map）代表了键（key）到值（value）的关联关系。
+
+我们可以从一个给定集合中通过主键获取到一个单一值：
+
+```
+user some_user = /users/all[{id: 123}]
+```
+
+对于映射，类似的：
+
+```
+list(user_id) gave_one = /movie/ratings[1]
+```
+
+我们还可以通过下列的操作构造各种查询（以逗号分割）。
+
+- `field == expr`: `field`字段的值等于表达式`expr`的值
+- `field != expr`: `field`字段的值不等于表达式`expr`的值
+- `field <  expr`: `field`字段的值小于表达式`expr的值（还可以使用：`<=`,`>`,`>=`）。
+- `field in list_expr`: `field`字段的值在列表`list_expr`中
+- `q1 or q2`: 满足查询条件`q1`或`q2`
+- `q1 and q2`: 满足查询`条件q1`和`q2`
+- `not q`: 不满足查询条件`q`
+- `{f1 q1, f2 q2, ...}`: 字段`f1`满足`q1`,字段`f2`满足`q2`,等等。
+
+还可能会有一些选项（以分号分割）
+
+- `skip n`: 跳过前`n`条结果（`n`是一个整数表达式）
+- `limit n`: 允许最多获得`n`条结果（`n`是一个整数表达式）
+- `order fld (, fld)+`: 按照给定的字段将结果排序。 可用的选项包括：`fld`,`+fld`(升序），`-fld`（降序），`fld=expr`(`expr`必须是类型`{up}`或`{down}`）。
+
+注意，如果一个查询没有被主键完全限定，其结果可能含有多个值，那么这个结果的类型对于集合（set）为[dbset](/module/stdlib.database.mongo/DbSet)，对于映射（map）为初始映射类型（initial map）。你可以使用`DbSet.iterator`和[Iter](/module/stdlib.core.iter/Iter)来操作一个dbset。
+
+集合（set）的例子
+
+```
+user /users/all[id == 123]  //通过主键访问某个值
+dbset(user, _) john_does = /users/all[name == "John Doe"]  //返回一个数据集
+it = DbSet.iterator(john_does) //使用Iter模块
+
+dbset(user, _) underages = /users/all[age < 18]
+dbset(user, _) non_admins = /users/all[status in [{regular}, {premium}]]
+dbset(user, _) /users/all[age >= 18 and status == {admin}]
+dbset(user, _) /users/all[not status == {admin}]
+
+ //显示年龄小于18或大于62的用户查询结果的第50~100条记录
+ //按照年龄升序，id降序排列
+dbset(user, _) users1 = /users/all[age <= 18 or age >= 62; skip 50; limit 50; order +age, -id]
+```
+
+映射（map）的例子：
+
+```
+ //对此电影评分为10的用户id列表
+list(user_id) loved_it = /movie/ratings[10]
+ //对此电影评分为7~9(包括7和9)的用户id列表
+list(user_id) liked_it = /movie/ratings[>= 7 and <= 9]
+```
