@@ -239,11 +239,11 @@ echo "Done."
 EOF
     chmod a+x "$INSTALLDIR/share/opa/uninstall.sh"
 
-    if [ $NOOCAML = "true" ]; then
-	rm -rf $INSTALLDIR.final
-	cp -r $INSTALLDIR $INSTALLDIR.final
-	INSTALLDIR=$INSTALLDIR.final
-    fi
+    # if [ $NOOCAML = "true" ]; then
+    # 	rm -rf $INSTALLDIR.final
+    # 	cp -r $INSTALLDIR $INSTALLDIR.final
+    # 	INSTALLDIR=$INSTALLDIR.final
+    # fi
 
     makeself --bzip2 $INSTALLDIR "$MYDIR/$AUTOINSTALL" "$AUTOINSTALL" ./install.sh
     msg "Generated $AUTOINSTALL"
@@ -256,10 +256,10 @@ if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
     PKG_NAME="Opa $VERSION_MAJOR - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-    MOREOPTS=""
-    if [ $NOOCAML = "true" ]; then
-	 MOREOPTS="--filter lib/opa/static/*"
-    fi
+    # MOREOPTS=""
+    # if [ $NOOCAML = "true" ]; then
+    # 	 MOREOPTS="--filter lib/opa/static/*"
+    # fi
     $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR" $MOREOPTS
     echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
     if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
@@ -312,9 +312,9 @@ if [ "$DEB" = "true" ]; then
     mkdir -p $DEBROOT/DEBIAN
     mkdir _build
     cp -a $INSTALLDIR/* $DEBROOT$PREFIX
-    if [ $NOOCAML = "true" ]; then
-	 rm -rf $DEBROOT$PREFIX/lib/opa/static
-    fi
+    # if [ $NOOCAML = "true" ]; then
+    # 	 rm -rf $DEBROOT$PREFIX/lib/opa/static
+    # fi
     find debian -type d | xargs chmod 755
 
     cat > debian/DEBIAN/control <<EOF
