@@ -306,6 +306,9 @@ if [ "$DEB" = "true" ]; then
     mkdir -p $DEBROOT/DEBIAN
     mkdir _build
     cp -a $INSTALLDIR/* $DEBROOT$PREFIX
+    if [ $NOOCAML = "true" ]; then
+	 rm -rf $DEBROOT$PREFIX/lib/opa/static
+    fi
     find debian -type d | xargs chmod 755
 
     cat > debian/DEBIAN/control <<EOF
