@@ -250,7 +250,6 @@ struct
     in
     List.iter
       (fun (filename, content) ->
-         Printf.printf "File %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "// From %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
