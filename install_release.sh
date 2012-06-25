@@ -315,6 +315,13 @@ else
     find $INSTALLDIR \( -name '*.so' -or \( -executable ! -type d \) \) -exec chrpath -k -d {} + 2>/dev/null || true
 fi
 
+msg "Cleaning bin"
+for
+for i in {bslbrowser,filepos,gen_opa_manpage,gen_opatop_manpage,genman.native,genproto,jsstat,mlidl,mlstate_platform,odep,odeplink,ofile,opa-db-server,opa-db-tool,opa-translate,opa2opa,opadep,opatop,opatrack,passdesign,ppdebug,ppdebug-opa,ppjs,qmljs,trx,trx_interpreter,wsdl2ml} ; do
+    echo "    --  Removing $INSTALLDIR/bin/$i"
+    rm -fv $INSTALLDIR/bin/$i
+done
+
 msg Stripping and upx-ing
 UPX=upx
 STRIP=strip
@@ -353,6 +360,7 @@ for i in $INSTALLDIR/bin/* $INSTALLDIR/lib/opa/bin/*; do
     stripf $i
     # upxf $i -- upx disabled, last version seems to cause problems
 done
+
 # same previous stuff, but on mac this directory does not exists, so we put this extra test to avoid a warning
 # if this is a directory (and exist)
 if [ -d $INSTALLDIR_LIBOPAOCAML/bin ]; then
