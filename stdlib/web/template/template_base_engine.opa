@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -514,8 +514,8 @@ import stdlib.web.client
   @private add_attributes_to_xhtml( list_attribute:list(option(string_assoc(string))), xhtml:xhtml) : outcome(xhtml, Template.export_failure)  =
     list_attribute = List.filter_map(identity, list_attribute)
     match xhtml with
-    | { ~args ; ~content ; ~namespace ; ~specific_attributes ; ~tag } ->
-      { success = { args=List.append(list_attribute, args); ~content ; ~namespace ; ~specific_attributes ; ~tag } }
+    | { ~args ; ~content ; ~namespace ; ~specific_attributes ; ~tag ~xmlns } ->
+      { success = { args=List.append(list_attribute, args); ~content ; ~namespace ; ~specific_attributes ; ~tag ~xmlns } }
     | _ -> error("add_attributes_to_xhtml called with a precompiled xhtml")
 
   @private parse_attributes(conf:Template.conf, args:Template.args, attr_fun:Template.attribute('a), fun:('a -> Template.content(either(void, 'b)))): outcome(Template.content(either(void, 'b)), Template.failure)=

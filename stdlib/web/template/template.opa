@@ -334,11 +334,11 @@ Template =
       | { standard_tag={span}; ~content  ... } -> content
       | _ -> @fail
 
-    match Xmlm.try_parse(input) with
+    match Xmlns.try_parse(input) with
     | { ~some } -> try_of_xmlns_with_conf(conf, engine, some)
     | { none } -> (
       // TODO : Remove this hack when the xml parser is able to parse fragment at the root of document
-      match Xmlm.try_parse("<span>{input}</span>") with
+      match Xmlns.try_parse("<span>{input}</span>") with
       | { ~some } -> (
         match try_of_xmlns_with_conf(conf, engine, some) with
         | { ~success } -> { success = remove_span(success) }

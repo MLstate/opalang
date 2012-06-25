@@ -40,12 +40,12 @@ AppSources =
   @private
   apply_style(style, dom : xhtml) =
     match dom with
-    | { specific_attributes=attrs_opt ~namespace ~tag ~args ~content } ->
+    | { specific_attributes=attrs_opt ~namespace ~tag ~args ~content ~xmlns}->
         attrs = default(Xhtml.default_attributes, attrs_opt)
   // FIXME, why the following does not work?
   //        { dom with specific_attributes = some({ attrs with ~style}) }
         { specific_attributes = some({ attrs with ~style})
-          ~namespace ~tag ~args ~content }
+          ~namespace ~tag ~args ~content ~xmlns}
     | _ -> dom
 
 

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -126,14 +126,14 @@ WStyler =
    */
   set(styler: WStyler.styler, elt: xhtml): xhtml =
     match elt with
-      | { specific_attributes=attrs_opt ~namespace ~tag ~args ~content } ->
+      | { specific_attributes=attrs_opt ~namespace ~tag ~args ~content ~xmlns } ->
           attrs = default(Xhtml.default_attributes, attrs_opt)
         (cls, stl) = tuple_of_styler(styler)
         { specific_attributes = some({ attrs with
               class = cls
               style = stl
             })
-          namespace=namespace tag=tag args=args content=content }
+          namespace=namespace tag=tag args=args content=content ~xmlns }
       | _ -> elt
 
   /**
@@ -144,7 +144,7 @@ WStyler =
    */
   get(elt: xhtml): WStyler.styler =
     match elt with
-      | { specific_attributes=attrs_opt namespace=_ tag=_ args=_ content=_ } ->
+      | { specific_attributes=attrs_opt ... } ->
         attrs = default(Xhtml.default_attributes, attrs_opt)
         styler_of_tuple((attrs.class, attrs.style))
       | _ -> empty

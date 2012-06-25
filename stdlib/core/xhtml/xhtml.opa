@@ -70,12 +70,16 @@ type xml('attributes,'extensions) =
 / { namespace : string /** The namespace name */
     tag : string
     args : list(Xml.attribute)
+    xmlns : list(Xml.binding)
     content : list(xml('attributes,'extensions))
     specific_attributes : option('attributes) }
 / { xml_dialect : option('extensions) }
 
 @opacapi
 type Xml.attribute = { namespace:string name:string value:string }
+
+@opacapi
+type Xml.binding = { name:string uri:string } / {default : string}
 
 @opacapi
 type xhtml_href =
@@ -181,14 +185,14 @@ Xmlns =
         end
      | {xml_dialect = {none}} as v -> {some = v}
      | {xml_dialect = {some=_}} -> {none}
-     | ~{namespace tag args content specific_attributes={none}}
-     | ~{namespace tag args content specific_attributes={some = {style=[] class=[] events=[] events_options=[] href={none}}}} ->
+     | ~{namespace tag args content xmlns specific_attributes={none}}
+     | ~{namespace tag args content xmlns specific_attributes={some = {style=[] class=[] events=[] events_options=[] href={none}}}} ->
         match List.map_while_opt(of_xhtml,content) with
         | {none} -> {none}
         | {some=content} ->
-           {some = ~{namespace tag args content specific_attributes={none}}}
+           {some = ~{namespace tag args content xmlns specific_attributes={none}}}
         end
-     | {namespace=_ tag=_ args=_ content=_ specific_attributes=_} -> {none}
+     | {namespace=_ ...} -> {none}
 
    get_children(xml) =
    match xml : xml with
@@ -259,6 +263,7 @@ Xmlns =
    open_tag =
       parser open_sign namespace=namespace tag=name Rule.ws ->
          ~{namespace tag}
+
    open_tag_attributes =
       parser nstag=open_tag args=attribute* ->
          ~{nstag args}
@@ -271,20 +276,30 @@ Xmlns =
 
    /* attributes */
    equal = parser Rule.ws "=" Rule.ws -> {}
-   attribute =
-      parser n=namespace e=name equal v=arg_value Rule.ws ->
-         {namespace=n name=e value=v}
+   attribute = parser
+   | "xmlns:" ~name equal uri=arg_value Rule.ws -> ~{name uri}
+   | "xmlns" equal uri=arg_value Rule.ws -> {default = uri}
+   | n=namespace e=name equal v=arg_value Rule.ws -> {namespace=n name=e value=v}
+
    arg_value = parser "'" s=svalue "'" -> s
                     | "\"" s=dvalue "\"" -> s
    quoted_value(parser_) = parser "'"  v=parser_ "'"  -> v
                                 | "\"" v=parser_ "\"" -> v
 
    /* tag */
-   tag = parser comment Rule.ws t=tag -> t
-              | v1=open_tag_attributes v2=tail_open_tag {Rule.succeed_if(Xml.matching_tags(v1.nstag,v2.nstag))} ->
-                {nstag=~{namespace tag} ~args} = v1
-                {~content nstag=_} = v2
-                ~{namespace tag args content specific_attributes={none}} : xmlns
+   tag = parser
+     | comment Rule.ws t=tag -> t
+     | v1=open_tag_attributes v2=tail_open_tag {Rule.succeed_if(Xml.matching_tags(v1.nstag,v2.nstag))} ->
+       {nstag=~{namespace tag} ~args} = v1
+       ~{args xmlns} = List.fold_left(~{xmlns args}, arg ->
+                                       match arg
+                                       | ~{default} as x | ~{name uri} as x -> {xmlns = [x | xmlns] ~args}
+                                       | {namespace=_ name=_ value=_} as a -> {~xmlns args = [a | args]}
+                                      , {xmlns=[] args=[]}, args)
+       {~content nstag=_} = v2
+       ~{namespace tag args content xmlns specific_attributes={none}}
+       : xmlns
+
    tail_open_tag = parser autoclose -> {content=[] nstag={none}}
                         | close_sign content=node* nstag=close_tag -> ~{nstag={some=nstag} content}
 
@@ -340,25 +355,25 @@ Xmlns =
   /**
    * A few utility functions for pattern matching
    */
-  match_star_aux(pattern,xmls) =
+  match_star_aux(pattern:XmlParser.t,xmls) =
     rec aux(acc,xmls) =
-      match pattern(xmls) with
+      match pattern.parse(xmls, pattern.env) with
       | {none} -> (List.rev(acc),xmls)
       | {some=(res,xmls)} -> aux([res|acc],xmls)
     aux([],xmls)
-  match_star(pattern,xmls) =
+  match_star(pattern:XmlParser.t,xmls) =
     {some = match_star_aux(pattern,xmls)}
   match_question(pattern,xmls) =
-    match pattern(xmls) with
+    match pattern.parse(xmls, pattern.env) with
     | {none} -> {some = ({none}, xmls)}
     | {some=(res,xmls)} -> {some = ({some=res},xmls)}
-  match_plus(pattern,xmls) =
-    match pattern(xmls) with
+  match_plus(pattern:XmlParser.t,xmls) =
+    match pattern.parse(xmls, pattern.env) with
     | {none} -> none
     | {some=(hd_res,xmls)} ->
         (tl_res,xmls) = match_star_aux(pattern,xmls)
         {some = ([hd_res|tl_res],xmls)}
-  match_range(pattern,min,max,xmls) =
+  match_range(pattern:XmlParser.t,min,max,xmls) =
     if max < 0 then {none} else
     over(min,acc,xmls) =
       if min <= 0 then
@@ -369,12 +384,19 @@ Xmlns =
       if max == 0 then
         over(min,acc,xmls)
       else
-        match pattern(xmls) with
+        match pattern.parse(xmls, pattern.env) with
         | {none} -> over(min,acc,xmls)
         | {some=(res,xmls)} -> aux(min-1,max-1,[res|acc],xmls)
     aux(min,max,[],xmls)
-  match_exact(pattern,number,xmls) =
+  match_exact(pattern:XmlParser.t,number,xmls) =
     match_range(pattern,number,number,xmls)
+
+  match_namespace(env:XmlParser.env, pns, xns) =
+    get_uri(ns, ~{default map}) =
+      match ns with
+      | "" -> default
+      | _ -> StringMap.get(ns, map) ? default
+    String.equals(get_uri(pns, env.pbind), get_uri(xns, env.xbind))
 
   /**
    * The default namespace
@@ -432,18 +454,8 @@ Xml =
   Rule = {{
     integer = xml_parser parser v={@toplevel.Rule.integer} -> v
     float = xml_parser parser v={@toplevel.Rule.float} -> v
-    string : list(xml) -> option((string,list(xml))) =
-    | [~{text}|xmls] -> {some = (text,xmls)}
-    | _ -> {none}
-    /* more efficient than
-     * [ string = xml_parser v=(.*) -> Text.to_string(v) ] */
-
+    string = xml_parser parser v={@toplevel.Rule.consume} -> v
     of_rule(r) = xml_parser parser v=r -> v
-
-    string_fragment(xmls:list(xml)) =
-      match xmls with
-      | [~{text}|rest] -> {some = (text,rest)}
-      | _ -> {some = ("",xmls)}
   }}
 
   // conversion from a list to xml + registering auto-magical conversion from list to xml
@@ -470,7 +482,7 @@ Xml =
     | { content_unsafe=_ }
     | { xml_dialect=_ } -> seed
     | { ~fragment } -> List.foldl((el, acc -> fold(fun, acc, el) ), fragment, seed)
-    | { namespace=_; tag=_; args=_; ~content; specific_attributes=_} as node ->
+    | { ~content ... } as node ->
       res = fun(node, seed)
       List.foldl((el, acc -> fold(fun, acc, el) ), content, res)
     end
@@ -497,8 +509,50 @@ Xml =
 /**
  * {1 Xml_parser interface}
  */
+@abstract
+type XmlParser.env = {
+    /* Namespaces bindings of parser */
+    pbind : XmlNsEnv.t;
 
-Xml_parser = {{
+    /* Namespaces bindings of xml tree */
+    xbind : XmlNsEnv.t;
+}
+
+@abstract
+type XmlParser.t('result, 'attributes, 'extensions) = {
+    /* Parse function take a list of xml, and a map which contains namespaces
+       bindings */
+    parse : list(xml('attributes, 'extensions)), XmlParser.env
+        -> option(('result, list(xml('attributes, 'extensions))))
+
+    env : XmlParser.env
+}
+
+@opacapi
+XmlParser_Env_add_pbinds = XmlParser.Env.add_pbinds
+@opacapi
+XmlParser_Env_add_xbinds = XmlParser.Env.add_xbinds
+@opacapi
+XmlParser_make = XmlParser.make
+@opacapi
+XmlParser_set_env = XmlParser.set_env
+@opacapi
+XmlParser_raw_parse = XmlParser.raw_parse
+
+Xml_parser = XmlParser
+
+XmlParser = {{
+
+  Env = {{
+
+    empty:XmlParser.env = {pbind = XmlNsEnv.empty xbind = XmlNsEnv.empty}
+
+    add_pbinds(env:XmlParser.env, binds:list(Xml.binding)):XmlParser.env =
+      {env with pbind = XmlNsEnv.add(env.pbind, binds)}
+
+    add_xbinds(env:XmlParser.env, binds:list(Xml.binding)):XmlParser.env =
+      {env with xbind = XmlNsEnv.add(env.xbind, binds)}
+  }}
 
   flatten_and_discard_whitespace_aux(xml,acc) =
     match xml : xml with
@@ -519,10 +573,48 @@ Xml_parser = {{
   flatten_and_discard_whitespace_list(xmls) =
     List.rev(flatten_and_discard_whitespace_aux_list(xmls,[]))
 
-  try_parse(parser_,xml) =
-    match parser_(flatten_and_discard_whitespace(xml)) with
+  make(parse:list(xml('attributes, 'extensions)), XmlParser.env -> option(('result, list(xml('attributes, 'extensions))))) =
+   ~{parse env = Env.empty} : XmlParser.t
+
+  set_env(p:XmlParser.t, env:XmlParser.env):XmlParser.t = {p with ~env}
+
+  raw_parse(
+    p:XmlParser.t('a, 'attributes, 'extensions),
+    xml:list(xml('attributes, 'extensions))
+  ) = p.parse(xml, p.env)
+
+  try_parse(
+    p:XmlParser.t('a, 'attributes, 'extensions),
+    xml:xml('attributes, 'extensions)
+  ) =
+    match raw_parse(p, flatten_and_discard_whitespace(xml)) with
     | {none} -> none
     | {some=(result,_nodes)} -> {some=result}
+
+}}
+
+@abstract
+type XmlNsEnv.t =
+  { default : string map : stringmap(string) }
+
+
+XmlNsEnv = {{
+
+  empty = {default = "" map = StringMap.empty}
+
+  add(x:XmlNsEnv.t, binds:list(Xml.binding)):XmlNsEnv.t =
+    List.fold_left(~{map default}, bind ->
+      match bind with
+      | ~{name uri} -> ~{default map=StringMap.add(name, uri, map)}
+      | ~{default} -> ~{default map}
+    , x, binds)
+
+  get_uri(name:string, x:XmlNsEnv.t):string =
+    StringMap.get(name, x.map) ? x.default
+
+  try_get_uri(name, x:XmlNsEnv.t) =
+    StringMap.get(name, x.map)
+
 }}
 
 /**
@@ -788,6 +880,24 @@ Xhtml =
     prepare_for_export_(false, default_ns_uri, xhtml, style_inline)
 
   @private
+  serialize_xmlns(buffer, xmlns) =
+    List.iter(
+      | ~{name uri} ->
+        do Buffer.append(buffer, " xmlns:")
+        do Buffer.append(buffer, name)
+        do Buffer.append(buffer, "=\"")
+        do Buffer.append(buffer, uri)
+        do Buffer.append(buffer, "\"")
+        void
+      | ~{default} ->
+        do Buffer.append(buffer, " xmlns=\"")
+        do Buffer.append(buffer, default)
+        do Buffer.append(buffer, "\"")
+        void
+      , xmlns
+    )
+
+  @private
   prepare_for_export_(utf8, _default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buffer.create(1024)//A buffer for storing the HTML source code
@@ -813,7 +923,7 @@ Xhtml =
                   do Buffer.append(html_buffer,html_code_unsafe)
                   Buffer.append(js_buffer,js_code_unsafe)
         end
-      | ~{ namespace tag args content specific_attributes } ->
+      | ~{ namespace tag args content specific_attributes xmlns } ->
 
           tag =
             if String.is_empty(namespace) then tag else
@@ -823,6 +933,9 @@ Xhtml =
           do Buffer.append(html_buffer,"<")
           do Buffer.append(html_buffer,tag)
 
+          do serialize_xmlns(html_buffer, xmlns)
+
+          //Handle regular attributes
           print_arg(~{name namespace=tagns value}) =
             do Buffer.append(html_buffer," ")
             do if String.is_empty(tagns) then Buffer.append(html_buffer,name)
@@ -834,7 +947,6 @@ Xhtml =
             do Buffer.append(html_buffer,escape_special_chars(value))
             Buffer.append(html_buffer,"\"")
 
-          //Handle regular attributes
           do List.iter(print_arg,args)
 
           do match specific_attributes with
@@ -1033,7 +1145,7 @@ Xhtml =
       | ~{ fragment }        ->
         List.iter(x -> handle_xhtml(x, depth), fragment)
       | { xml_dialect=_ }     -> void
-      | { namespace=_ ~tag ~args ~content ~specific_attributes } ->
+      | { namespace=_ ~tag ~args ~content ~specific_attributes xmlns=_ } ->
         match tag with
         | "img" ->
           match find_attr("alt",args) with
@@ -1139,7 +1251,7 @@ Xhtml =
 
   // Should put binds on the first encountred element
   add_binds(list : list(handle_assoc(xhtml_event)), o : xhtml) = match o with
-    | { namespace=_ tag=_ args=_ ~specific_attributes content=_ } as r ->
+    | { ~specific_attributes ... } as r ->
       attr = Option.default(default_attributes,specific_attributes)
       attr = {attr with events= list ++ attr.events}
       @opensums({r with specific_attributes={some=attr}}) : xhtml
@@ -1169,7 +1281,7 @@ Xhtml =
     match x : xhtml
     {fragment=[x]} -> aux(id,x)
     {text=_}{content_unsafe=_} -> <div id={id}>{x}</div>
-    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+    {~args ...} as x->
       args = if exists_attr(id_attr,args) then args
              else [{name=id_attr namespace="" value=id}|args]
       @opensums({x with ~args})
@@ -1182,7 +1294,7 @@ Xhtml =
     match x : xhtml
     {fragment=[x]} -> aux(value,x)
     {text=_}{content_unsafe=_} -> <div class="{value}">{x}</div>
-    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+    {~specific_attributes ...} as x ->
       specific_attributes = specific_attributes ? default_attributes
       specific_attributes = some({ specific_attributes with class = specific_attributes.class ++ [value] })
       @opensums({x with ~specific_attributes})
@@ -1194,7 +1306,7 @@ Xhtml =
     rec aux(value,x)=
     match x : xhtml
     {fragment=[x]} -> aux(value,x)
-    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+    {~specific_attributes ...} as x ->
       specific_attributes = specific_attributes ? default_attributes
       specific_attributes = some({ specific_attributes with href = {untyped=value} })
       @opensums({x with ~specific_attributes})
@@ -1206,7 +1318,7 @@ Xhtml =
     rec aux(value,x)=
     match x : xhtml
     {fragment=[x]} -> aux(value,x)
-    {args=_ namespace=_ tag=_ content=_ ~specific_attributes} as x ->
+    {~specific_attributes ...} as x ->
       aux2(acc, s) =
         match String.explode(":", s)
         [k,v] ->
@@ -1232,7 +1344,7 @@ Xhtml =
       rec aux(x)=
       match x : xhtml
       {fragment=[x]} -> aux(x)
-      {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+      {~args ...} as x->
         args = match find_attr(name,args) with
                {some=val} ->
                  if not(append) then args
@@ -1266,7 +1378,7 @@ Xhtml =
     rec aux(x)=
     match x : xhtml
     {fragment=[x]} -> aux(x)
-    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+    {~args ...} as x->
       args =
         l = remove_attr(name,args)
         [{~name namespace="" ~value}|l]
@@ -1283,7 +1395,7 @@ Xhtml =
     rec aux(x)=
     match x : xhtml
     {fragment=[x]} -> aux(x)
-    {~args namespace=_ tag=_ content=_ specific_attributes=_} as x->
+    {~args ...} as x->
       args = remove_attr(name,args)
       @opensums({x with ~args})
     _ -> x
@@ -1310,7 +1422,7 @@ Xhtml =
    match x : xhtml
     {fragment=l} -> {fragment=List.map(add_style(style,_),l)}
     {text=_}{content_unsafe=_} -> <div style={style}>{x}</div>
-    {args=_ namespace=_ tag=_ content=_ specific_attributes=sa} as x->
+    {specific_attributes=sa ...} as x->
       sa = sa ? default_attributes
       style = style ++ sa.style
       specific_attributes = some({sa with ~style})
@@ -1329,7 +1441,7 @@ Xhtml =
     {fragment=[]} -> <div onready={f}></div>
     {fragment=[x|l]} -> x = add_onready(f,x)
                         {fragment=[x|l]}
-    {args=_ namespace=_ tag=_ content=_ specific_attributes=sa} as x->
+    {specific_attributes=sa ...} as x->
       sa = sa ? default_attributes
       events = [{name={ready} value={expr=f}}|sa.events]
       specific_attributes = some({sa with ~events})
@@ -1379,7 +1491,7 @@ Replaced by a default value.")
 {content_unsafe}.
 Replaced by a default value.")
               {text = "unsafe content from a client"} : xhtml
-            | {namespace=_ tag=_ ~args content=_ ~specific_attributes} as e->
+            | {namespace=_ tag=_ ~args content=_ ~specific_attributes xmlns=_} as e->
               @opensums({e with args=check_args(args) specific_attributes=Option.map(check_sargs, specific_attributes)}) : xhtml
             | _ as safe -> safe
             ,  OpaSerialize.finish_unserialize(json, ximpl))
@@ -1395,6 +1507,8 @@ Replaced by a default value.")
 @opacapi Xml_match_question = Xmlns.match_question
 @opacapi Xml_match_number = Xmlns.match_exact
 @opacapi Xml_match_range = Xmlns.match_range
+@opacapi Xml_match_namespace = Xmlns.match_namespace
+
 
 // Cannot be in Uri.uri module due to dependencies on this package
 @xmlizer(Uri.uri) uri_to_xml(u : Uri.uri) =

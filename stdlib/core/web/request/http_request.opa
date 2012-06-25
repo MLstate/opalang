@@ -195,9 +195,7 @@ HttpRequest = {{
      * or PUT requests (typically, as part of
      * a SOAP protocol) to inspect the content of the request.
      */
-   get_xml_body(x: HttpRequest.request): option(xmlns) =
-      // contrary to Xmlns.try_parse, it handles namespaces
-      // TODO - Don't use Xmlm!!! Fix Xmlns
+    get_xml_body(x: HttpRequest.request): option(xmlns) =
       Xmlns.try_parse(get_body(x))
 
     /**

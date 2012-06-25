@@ -1952,37 +1952,42 @@ Dom = {{
   from_xml(xml : xml('attribute, 'extensions),
            default_namespace:string,
            handle_dialect : 'extensions -> dom_element,
-           handle_attribute : (string/*tag*/, list(string_assoc(string)), dom_element, 'attribute -> void)) =
-    rec aux(aux_xml : xml('attribute, 'extensions)) =
+           handle_attribute : (XmlNsEnv.t, string/*tag*/, list(string_assoc(string)), dom_element, 'attribute -> void)) =
+    rec aux(aux_xml : xml('attribute, 'extensions), nsenv) =
     match aux_xml with
       | ~{text} -> create_text_node(text)
       | ~{content_unsafe} -> create_inner_node(content_unsafe)
       | ~{fragment} ->
         match fragment with
           | []  -> create_fragment()
-          | [e] -> aux(e)
+          | [e] -> aux(e, nsenv)
           | _   ->
             element = create_fragment()
             do List.iter(
-                 x -> append_child(element, aux(x)),
+                 x -> append_child(element, aux(x, nsenv)),
                  fragment)
             element
         end
-      | ~{namespace tag args content specific_attributes} ->
+      | ~{namespace tag args content specific_attributes xmlns} ->
+        nsenv = XmlNsEnv.add(nsenv, xmlns)
         element =
-          if namespace == default_namespace
-          then create_element(tag)
-          else create_element_ns(namespace,tag)
+          match XmlNsEnv.try_get_uri(namespace, nsenv)
+          | {none} -> create_element(tag)
+          | {some = uri} -> create_element_ns(uri, tag)
+        do List.iter(
+          | ~{default}  -> set_attribute(element, "xmlns", default)
+          | ~{name uri} -> set_attribute(element, "xmlns:{name}", uri)
+          , xmlns)
         do List.iter(
              (~{namespace name value} ->
-               if namespace == default_namespace
-               then set_attribute(element, name, value)
-               else set_attribute_ns(element, namespace, name, value)
+               match XmlNsEnv.try_get_uri(namespace, nsenv)
+               | {none} -> set_attribute(element, name, value)
+               | {some = uri} -> set_attribute_ns(element, uri, name, value)
              ), args)
         do List.iter(
-             (child -> append_child(element, aux(child))),
+             (child -> append_child(element, aux(child, nsenv))),
              content)
-        do Option.iter(attributes -> handle_attribute(tag, args, element, attributes),
+        do Option.iter(attributes -> handle_attribute(nsenv, tag, args, element, attributes),
                        specific_attributes)
         element : dom_element
       | ~{xml_dialect} ->
@@ -1990,7 +1995,7 @@ Dom = {{
         | {none} -> create_fragment()
         | ~{some} -> handle_dialect(some)
         end
-    aux(xml) : dom_element
+    aux(xml, XmlNsEnv.empty) : dom_element
 
   /**
    * Conversion from [xhtml] to a [dom_element].
@@ -2006,7 +2011,7 @@ Dom = {{
                      do add_insertion_handler_unsafe(ins, js_code_unsafe)
                      create_inner_node(html_code_unsafe)
                  ),
-               (tag, args, element, attribute ->
+               (_nsenv, tag, args, element, attribute ->
                  match attribute with
                  | ~{class style events events_options href} ->
                    //Handle classes
