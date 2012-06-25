@@ -5,10 +5,12 @@ Opa is a new generation of open source web development framework that lets you w
 
 Opa generates standard Node.js/MongoDB applications, but automates many aspects of programming and checks the quality of the application code automatically.
 
-Opa takes care of all aspects
------------------------------
+Client and server
+-----------------
 
-You can write a complete program without thinking about the client-server distinction and the Opa framework will distribute the code as needed for you and take care of all the communication. Should you need to tweak the choices made by the compiler (for instance to improve the application performance) it's very easy with simple keywords like `client`, `server` and more for fine-tuning.
+You can write a complete program without thinking about the client-server distinction and the Opa framework will distribute the code as needed for you and take care of all the communication. 
+
+Should you need to tweak the choices, for instance to improve the application performance, it's very easy with simple keywords like `client`, `server` and more for fine-tuning.
 
 ```
  // Opa decides
@@ -19,7 +21,7 @@ client function client_function(x, y) { ... }
 server function server_function(x, y) { ... }
 ```
 
-The database code can also be written directly in Opa. Opa supports the major NoSQL databases MongoDB and CouchDB, and has its own internal database as well. The latter, requires no configuration at all and is recommended, especially for beginners.
+The database code can also be written directly in Opa and run on standard NoSQL databases like MongoDB.
 
 Easy workflow
 -------------
