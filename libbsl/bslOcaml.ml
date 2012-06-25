@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -700,6 +700,11 @@ let fold_decorated_file ~dynloader_interface env decorated_file =
   update the ty_spec_map with the previous plugin (cf in options)
 *)
 let preprocess ~options ~plugins ~dynloader_interface decorated_files =
+  if decorated_files = [] then
+    let _ = SeparatedEnv.init ~ty_spec_map:empty.ty_spec_map in
+    let ocaml_env = SeparatedEnv.SideEffect.get_ocaml_env () in
+    ocaml_env, None, None
+  else
   let env = empty in
   (*
     Add open of depends plugins
@@ -733,4 +738,4 @@ let preprocess ~options ~plugins ~dynloader_interface decorated_files =
   let env =
     List.fold_left (fold_decorated_file ~dynloader_interface) env decorated_files in
   let ocaml_env = SeparatedEnv.SideEffect.get_ocaml_env () in
-  ocaml_env, env.ml_runtime, env.ml_runtime_mli
+  ocaml_env, Some env.ml_runtime, Some env.ml_runtime_mli

@@ -180,8 +180,8 @@ type session = {
   s_js_code                    : (filename * contents * BslJsConf.conf) list ;
   s_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
 
-  s_ml_runtime                 : FBuffer.t ;
-  s_ml_runtime_mli             : FBuffer.t ;
+  s_ml_runtime                 : FBuffer.t option;
+  s_ml_runtime_mli             : FBuffer.t option;
 
   s_opa_code                   : (filename * contents) list ;
   s_opa_interface              : (filename * contents) list ;
@@ -344,8 +344,8 @@ let create ~options =
   let s_js_code                      = [] in
   let s_nodejs_code                  = [] in
 
-  let s_ml_runtime                   = create_s_fbuffer () in
-  let s_ml_runtime_mli               = create_s_fbuffer () in
+  let s_ml_runtime                   = None in
+  let s_ml_runtime_mli               = None in
 
   let s_opa_code                     = [] in
   let s_opa_interface                = [] in
@@ -677,8 +677,8 @@ type finalized_t = {
 
   f_js_keys                    : FBuffer.t ;
 
-  f_ml_runtime                 : FBuffer.t ;
-  f_ml_runtime_mli             : FBuffer.t ;
+  f_ml_runtime                 : FBuffer.t option ;
+  f_ml_runtime_mli             : FBuffer.t option ;
 
   f_js_code                    : (filename * contents * BslJsConf.conf) list ;
   f_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
@@ -1162,8 +1162,14 @@ let out_ml_marshal_plugin oc f =
   BMP.output oc f.f_marshal_plugin_t
 
 
-let out_fbuffer extract oc f = FBuffer.output oc (extract f)
+let out_fbuffer extract oc f =
+  try
+    FBuffer.output oc (extract f)
+  with Not_found -> ()
 
+let get_opt o = match o with
+  | None -> raise Not_found
+  | Some x -> x
 
 let out_js_keys oc =
   let extract f = f.f_js_keys in
@@ -1171,14 +1177,18 @@ let out_js_keys oc =
 
 
 let out_ml_runtime oc =
-  let extract f = f.f_ml_runtime in
+  let extract f = get_opt f.f_ml_runtime in
   out_fbuffer extract oc
 
 
 let out_ml_runtime_mli oc =
-  let extract f = f.f_ml_runtime_mli in
+  let extract f = get_opt f.f_ml_runtime_mli in
   out_fbuffer extract oc
 
+let need_makefile f =
+  match f.f_ml_runtime_mli, f.f_ml_runtime with
+  | None, None -> false
+  | _ -> true
 
 let out_ml_plugin_or_loader dynloader oc f =
 

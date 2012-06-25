@@ -178,6 +178,8 @@ val out_ml_plugin            : finalized_t output
 val out_ml_runtime           : finalized_t output
 val out_ml_runtime_mli       : finalized_t output
 
+val need_makefile            : finalized_t -> bool
+
 (**
    Marshal plugin.
    To avoid recompilation and dynamic loading, the infos from a plugin

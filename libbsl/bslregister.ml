@@ -878,15 +878,18 @@ let files_generation ( finalized_t : BR.finalized_t ) =
   output !jskeys              BR.out_js_keys                  finalized_t ;
 
   output !marshalplugin       BR.out_ml_marshal_plugin        finalized_t ;
-  output !mlruntime           BR.out_ml_runtime               finalized_t ;
-  output !mlruntime_mli       BR.out_ml_runtime_mli           finalized_t ;
 
   if !static then (
     output !loader              BR.out_ml_loader                finalized_t ;
     output !plugin              BR.out_ml_plugin                finalized_t ;
   ) ;
 
-  output !makefile            Buffer.output_buffer            (Makefile.generate ()) ;
+  if BR.need_makefile finalized_t then (
+    output !mlruntime           BR.out_ml_runtime               finalized_t ;
+    output !mlruntime_mli       BR.out_ml_runtime_mli           finalized_t ;
+    output !makefile            Buffer.output_buffer            (Makefile.generate ()) ;
+  );
+
   output !stamp               Pervasives.output_string        !stamp_date ;
 
   ()
@@ -975,7 +978,7 @@ let _ =
 
     OManager.verbose "successfull generation of plugin files : @{<bright>%d@} files" !files_generated ;
 
-    if !auto_build then (
+    if !auto_build && BR.need_makefile finalized_t then (
       OManager.verbose "building plugin...";
       let ret = Sys.command (Printf.sprintf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile)) in
       if ret <> 0

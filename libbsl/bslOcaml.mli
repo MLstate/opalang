@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -49,4 +49,4 @@ val preprocess :
   plugins:BslPluginInterface.plugin list ->
   dynloader_interface:BslPluginInterface.dynloader_interface ->
   BslDirectives.bypasslang_decorated_file list ->
-  BslPluginInterface.ocaml_env * ml_runtime * ml_runtime_mli
+  BslPluginInterface.ocaml_env * ml_runtime option * ml_runtime_mli option
