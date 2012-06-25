@@ -161,6 +161,13 @@ ResourceTracker = {{
 
 }}
 
+do
+  // This is a stupid constant, we should have a resource management policy that
+  // force the garbage collector or/and dynamically set the delay
+  time = 19*60*1000
+  rec aux() = Scheduler.sleep(time, -> do ResourceTracker.garbage_collector() aux())
+  aux()
+
 #<Else>
 type ResourceTracker.manager('message, 'result) = external
 type ResourceTracker.signal = external
