@@ -1216,6 +1216,13 @@ let sassoc ((ns:(_,_) expr),name) (value:(_,_) expr) : (_,_) expr =
                             ("name", unc2 string name);
                             ("value", value)]) Opacapi.Types.Xml.attribute
 
+let xbind (name, (value:(_,_) expr)) : (_,_) expr =
+  if name = "" then
+    coerce_name_expr (record ["default", value]) Opacapi.Types.Xml.binding
+  else
+    coerce_name_expr (record [("name", unc2 string (name, label value));
+                              ("uri", value)]) Opacapi.Types.Xml.binding
+
 let create_element (ns,tag) args children =
   (* Adapt tag and attributes *)
   let bind_xmlns_check = false in
@@ -1228,11 +1235,7 @@ let create_element (ns,tag) args children =
   in (* Note: [name] can be empty, it's ok *)
 
   let other_attributes = List.map (fun (prefix, name, value) -> sassoc (string prefix (nlabel tag), (name, nlabel tag)) value) args.args in
-  let xmlns_attributes = List.map (fun (prefix, value) ->
-    let name = (if prefix = "" then "xmlns" else "xmlns:"^prefix),nlabel tag in
-    let prefix = string "" (nlabel tag) in
-    sassoc (prefix,name) value
-  ) args.xmlns_declaration in
+  let xmlns_attributes = List.map xbind args.xmlns_declaration in
   (* Create element *)
   let record =
     if xhtml_mode () && not (is_empty_args args) then (
@@ -1257,15 +1260,17 @@ let create_element (ns,tag) args children =
                ] in
       record [("namespace",tag_ns);
               ("tag",unc2 string tag);
-              ("args", list_expr_of_expr_list (xmlns_attributes@other_attributes) (label tag));
+              ("args", list_expr_of_expr_list other_attributes (label tag));
               ("specific_attributes", some specific_attributes);
+              ("xmlns", list_expr_of_expr_list xmlns_attributes (label tag));
               ("content",list_expr_of_expr_list children (label tag));
              ]
     ) else (
       record [("namespace",tag_ns);
               ("tag",unc2 string tag);
-              ("args", list_expr_of_expr_list (xmlns_attributes@other_attributes) (label tag));
+              ("args", list_expr_of_expr_list other_attributes (label tag));
               ("content",list_expr_of_expr_list children (label tag));
+              ("xmlns", list_expr_of_expr_list xmlns_attributes (label tag));
               ("specific_attributes", none (label tag));
              ]
     ) in
