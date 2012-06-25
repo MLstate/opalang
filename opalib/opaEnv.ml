@@ -281,7 +281,7 @@ struct
        publish unless --publish-src-code). *)
     let publish_src_code = ref false
 
-    let static_link = ref false
+    let static_link = ref true
 
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
@@ -639,7 +639,9 @@ struct
           ("--value-restriction", Arg.spec_of_assoc value_restriction ["disabled", `disabled;
                                                                        "normal", `normal;
                                                                        "strict", `strict],
-                                              " Restrict definition of polymorphic values")
+                                              " Restrict definition of polymorphic values");
+          ("--static-link", Arg.Set static_link, " Link everything in a single object file");
+          ("--no-static-link", Arg.Clear static_link, " Load libraries dynamically (qmljs only)")
         ] in
         Arg.sort (
           Arg.align (
