@@ -250,6 +250,7 @@ struct
     in
     List.iter
       (fun (filename, content) ->
+         Printf.printf "File %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "// From %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
@@ -311,6 +312,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
 
 ";
     linking_generation_js_init generated_files env_js_input oc;
+    let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
       Printf.fprintf oc "// From package %s \n" opx;
@@ -318,7 +320,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       #<Ifstatic:JS_IMP_DEBUG 1>
       Printf.fprintf oc "console.log('Load package %s')" opx;
       #<End>
-      let ic = open_in (Filename.concat opx "a.js") in
+      let ic = open_in (js_file opx) in
       let chunk = 10000 in
       let str = String.create chunk in
       let rec aux () =
@@ -327,7 +329,14 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
         | len -> output oc str 0 len; aux ()
       in aux(); close_in ic
     in
-    ObjectFiles.iter_dir ~deep:true ~packages:true read_append;
+    let link opx =
+      if env_opt.static_link
+      then
+        read_append opx
+      else
+        Printf.fprintf oc "require('%s');\n" (js_file opx)
+    in
+    ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;
     close_out oc
 
