@@ -40,6 +40,7 @@ Int64 = {{
 
   catch = %%BslNumber.BslInt64.catch%% : (-> 'a) -> outcome('a,string)
 
+  is_NaN = %%BslNumber.BslInt64.is_NaN%% : int64 -> bool
   add = %%BslNumber.BslInt64.add%% : int64, int64 -> int64
   sub = %%BslNumber.BslInt64.sub%% : int64, int64 -> int64
   mul = %%BslNumber.BslInt64.mul%% : int64, int64 -> int64
@@ -67,5 +68,9 @@ Int64 = {{
   op_ge = %%BslNumber.BslInt64.op_ge%% : int64, int64 -> bool
   op_lt = %%BslNumber.BslInt64.op_lt%% : int64, int64 -> bool
   op_le = %%BslNumber.BslInt64.op_le%% : int64, int64 -> bool
+  embed_be = %%BslNumber.BslInt64.embed_be%% : int64 -> string
+  embed_le = %%BslNumber.BslInt64.embed_le%% : int64 -> string
+  unembed_be = %%BslNumber.BslInt64.unembed_be%% : string, int -> int64
+  unembed_le = %%BslNumber.BslInt64.unembed_le%% : string, int -> int64
 
 }}

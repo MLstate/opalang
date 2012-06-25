@@ -29,6 +29,7 @@
 }}
 
 type Pack.t = Buffer.t
+type Pack.T = binary
 
 // TODO: multibyte characters
 
@@ -48,6 +49,7 @@ type Pack.u =
  / {Short:int}
  / {Long:int}
  / {Longlong:int}
+ / {Int64:int64}
  / {Int:int}
  / {Pad}
  / {Padn:int}
@@ -127,6 +129,7 @@ Pack = {{
     | {~Long} -> {success=Long}
     | {~Longlong} -> {success=Longlong}
     | {~Int} -> {success=Int}
+    | {Int64=i} -> {success=Int64.to_int(i)}
     | _ -> {failure="Pack.getsize: size {u} is not int"}
 
   // Encode
@@ -137,6 +140,10 @@ Pack = {{
       if (String.length(c) != 1)
       then {failure="Pack.Encode.char: multi-byte char \"{c}\""}
       else {success=append(buf, c)}
+    charbin(buf:Pack.T, c:string) : outcome(void,string) =
+      if (String.length(c) != 1)
+      then {failure="Pack.Encode.char: multi-byte char \"{c}\""}
+      else {success=Binary.add_uint8(buf, String.byte_at_unsafe(0,c))}
 
     // octet
     octet(buf:Pack.t, i:int) : outcome(void,string) =
@@ -147,10 +154,20 @@ Pack = {{
       if (i < 0 || i > 0xff)
       then {failure="Pack.Encode.byte: out of range {i}"}
       else {success=append(buf, String.of_byte_unsafe(i))}
+    octetbin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < -0x80 || i > 0x7f)
+      then {failure="Pack.Encode.byte: out of range {i}"}
+      else {success=Binary.add_int8(buf, i)}
+    uoctetbin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < 0 || i > 0xff)
+      then {failure="Pack.Encode.byte: out of range {i}"}
+      else {success=Binary.add_uint8(buf, i)}
 
     // byte
     byte(buf:Pack.t, signed:bool, b:int): outcome(void,string) =
       if signed then octet(buf, b) else uoctet(buf, b)
+    bytebin(buf:Pack.T, signed:bool, b:int): outcome(void,string) =
+      if signed then octetbin(buf, b) else uoctetbin(buf, b)
 
     // short
     short_be(buf:Pack.t, i:int) : outcome(void,string) =
@@ -181,6 +198,22 @@ Pack = {{
         do append(buf, String.of_byte_unsafe(Bitwise.land(            i    ,0xff)))
         do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i, 8),0xff)))
         {success=void}
+    short_bebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < -0x8000 || i > 0xffff)
+      then {failure="Pack.Encode.short_be: out of range {i}"}
+      else {success=Binary.add_int16_be(buf, i)}
+    short_lebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < -0x8000 || i > 0xffff)
+      then {failure="Pack.Encode.short_le: out of range {i}"}
+      else {success=Binary.add_int16_le(buf, i)}
+    ushort_bebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < 0 || i > 0xffff)
+      then {failure="Pack.Encode.ushort_be: out of range {i}"}
+      else {success=Binary.add_uint16_be(buf, i)}
+    ushort_lebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < 0 || i > 0xffff)
+      then {failure="Pack.Encode.ushort_le: out of range {i}"}
+      else {success=Binary.add_uint16_le(buf, i)}
 
     // short
     short(buf:Pack.t, le:bool, signed:bool, s:int): outcome(void,string) =
@@ -189,6 +222,12 @@ Pack = {{
       | ({true},{false}) -> ushort_le(buf, s)
       | ({false},{true}) -> short_be(buf, s)
       | ({true},{true}) -> short_le(buf, s)
+    shortbin(buf:Pack.T, le:bool, signed:bool, s:int): outcome(void,string) =
+      match (le, signed) with
+      | ({false},{false}) -> ushort_bebin(buf, s)
+      | ({true},{false}) -> ushort_lebin(buf, s)
+      | ({false},{true}) -> short_bebin(buf, s)
+      | ({true},{true}) -> short_lebin(buf, s)
 
     // long
     long_be(buf:Pack.t, i:int) : outcome(void,string) =
@@ -227,6 +266,22 @@ Pack = {{
         do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,16),0xff)))
         do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,24),0xff)))
         {success=void}
+    long_bebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < -0x80000000 || i > 0x7fffffff)
+      then {failure="Pack.Encode.long_be: out of range {i}"}
+      else {success=Binary.add_int32_be(buf, i)}
+    long_lebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < -0x80000000 || i > 0x7fffffff)
+      then {failure="Pack.Encode.long_le: out of range {i}"}
+      else {success=Binary.add_int32_le(buf, i)}
+    ulong_bebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < 0 || i > 0xffffffff)
+      then {failure="Pack.Encode.ulong_be: out of range {i}"}
+      else {success=Binary.add_uint32_be(buf, i)}
+    ulong_lebin(buf:Pack.T, i:int) : outcome(void,string) =
+      if (i < 0 || i > 0xffffffff)
+      then {failure="Pack.Encode.ulong_le: out of range {i}"}
+      else {success=Binary.add_uint32_le(buf, i)}
 
     // long
     long(buf:Pack.t, le:bool, signed:bool, l:int): outcome(void,string) =
@@ -235,30 +290,12 @@ Pack = {{
       | ({true},{false}) -> ulong_le(buf, l)
       | ({false},{true}) -> long_be(buf, l)
       | ({true},{true}) -> long_le(buf, l)
-
-    // longlong - note, 63 bits!!!
-/*
-    longlong_be(buf:Pack.t, i:int) : outcome(void,string) =
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,56),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,48),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,40),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,32),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,24),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,16),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i, 8),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(            i    ,0xff)))
-      {success=void}
-    longlong_le(buf:Pack.t, i:int) : outcome(void,string) =
-      do append(buf, String.of_byte_unsafe(Bitwise.land(            i    ,0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i, 8),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,16),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,24),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,32),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,40),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,48),0xff)))
-      do append(buf, String.of_byte_unsafe(Bitwise.land(Bitwise.lsr(i,56),0xff)))
-      {success=void}
-*/
+    longbin(buf:Pack.T, le:bool, signed:bool, l:int): outcome(void,string) =
+      match (le, signed) with
+      | ({false},{false}) -> ulong_bebin(buf, l)
+      | ({true},{false}) -> ulong_lebin(buf, l)
+      | ({false},{true}) -> long_bebin(buf, l)
+      | ({true},{true}) -> long_lebin(buf, l)
 
     // longlong - note 63 bits on caml, 53 bits on node
     embed_int_le = %% BslNumber.Float.embed_int_le %% : int -> string
@@ -275,11 +312,16 @@ Pack = {{
     longlong(buf:Pack.t, le:bool, b:int): outcome(void,string) =
       if le then longlong_le(buf, b) else longlong_be(buf, b)
 
-    // int64 - snookered by javascript, we need a Long module
-    //int64_be(buf:Pack.t, i:int64) : outcome(void,string) =
-    //  append(buf, Int64.embed_be(i))
-    //int64_le(buf:Pack.t, i:int64) : outcome(void,string) =
-    //  append(buf, Int64.embed_le(i))
+    int64_be(buf:Pack.t, i:int64) : outcome(void,string) =
+      do append(buf, Int64.embed_be(i))
+      {success=void}
+    int64_le(buf:Pack.t, i:int64) : outcome(void,string) =
+      do append(buf, Int64.embed_le(i))
+      {success=void}
+
+    // int64
+    int64(buf:Pack.t, le:bool, b:int64): outcome(void,string) =
+      if le then int64_le(buf, b) else int64_be(buf, b)
 
     // pad
     pad(buf:Pack.t) : outcome(void,string) =
@@ -368,6 +410,7 @@ Pack = {{
       | ({Long=_},{Long=_}) -> true
       | ({Longlong=_},{Longlong=_}) -> true
       | ({Int=_},{Int=_}) -> true
+      | ({Int64=_},{Int64=_}) -> true
       | ({Pad},{Pad}) -> true
       | ({Padn=_},{Padn=_}) -> true
       | ({Void},{Void}) -> true
@@ -428,6 +471,7 @@ Pack = {{
       | {Long=_} -> (s,4)
       | {Longlong=_} -> (s,8)
       | {Int=_} -> (s,sizesize(s))
+      | {Int64=_} -> (s,8)
       | {Pad} -> (s,1)
       | {~Padn} -> (s,Padn)
       | {Void} -> (s,1)
@@ -489,6 +533,7 @@ Pack = {{
          | {L} -> (le, signed, size, long(buf, le, signed, Int))
          | {Ll} -> (le, signed, size, longlong(buf, le, Int))
          end
+      | {Int64=i64} -> (le, signed, size, int64(buf, le, i64))
       | {Pad} -> (le, signed, size, pad(buf))
       | {~Padn} -> (le, signed, size, padn(buf, Padn))
       | {Void} -> (le, signed, size, pad(buf))
@@ -589,34 +634,6 @@ Pack = {{
       if le then long_le(data, pos) else long_be(data, pos)
 
     // longlong
-/*
-    longlong_be(data:string, pos:int) : outcome(int,string) =
-      if String.length(data) >= pos + 8
-      then {success=
-        Bitwise.lsl(String.byte_at_unsafe(pos,   data),56)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+1, data),48)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+2, data),40)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+3, data),32)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+4, data),24)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+5, data),16)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+6, data),8)
-      +             String.byte_at_unsafe(pos+7, data)}
-      else {failure="Pack.Decode.longlong_be: not enough data for longlong"}
-    longlong_le(data:string, pos:int) : outcome(int,string) =
-      if String.length(data) >= pos + 8
-      then {success=
-                    String.byte_at_unsafe(pos,   data)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+1, data),8)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+2, data),16)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+3, data),24)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+4, data),32)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+5, data),40)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+6, data),48)
-      + Bitwise.lsl(String.byte_at_unsafe(pos+7, data),56)}
-      else {failure="Pack.Decode.longlong_be: not enough data for longlong"}
-*/
-
-    // longlong
     unembed_int_le = %% BslNumber.Float.unembed_int_le %% : string, int -> int
     unembed_int_be = %% BslNumber.Float.unembed_int_be %% : string, int -> int
     is_int_NaN = %% BslNumber.Float.is_int_NaN %% : int -> bool
@@ -652,11 +669,28 @@ Pack = {{
       | {L} -> long(le, data, pos)
       | {Ll} -> longlong(le, data, pos)
 
-    // int64 - Not yet, need Javascript Long module
-    //int64_be(data:string, pos:int) : int64 =
-    //  Int64.unembed_be(String.substring(pos, 8, data))
-    //int64_le(data:string, pos:int) : int64 =
-    //  Int64.unembed_le(String.substring(pos, 8, data))
+    // int64
+    int64_le(data:string, pos:int) : outcome(int64,string) =
+      do pinput("Pack.Decode.int64_le",{string=data; ~pos})
+      if String.length(data) >= pos + 8
+      then
+        i = Int64.unembed_le(data, pos)
+        if Int64.is_NaN(i)
+        then {failure="Pack.Decode.int64_le: NaN"}
+        else {success=i}
+      else {failure="Pack.Decode.int64_le: not enough data for int64"}
+    int64_be(data:string, pos:int) : outcome(int64,string) =
+      do pinput("Pack.Decode.int64_be",{string=data; ~pos})
+      if String.length(data) >= pos + 8
+      then
+        i = Int64.unembed_be(data, pos)
+        if Int64.is_NaN(i)
+        then {failure="Pack.Decode.int64_be: NaN"}
+        else {success=i}
+      else {failure="Pack.Decode.int64_be: not enough data for int64"}
+
+    int64(le:bool, data:string, pos:int) : outcome(int64,string) =
+      if le then int64_le(data, pos) else int64_be(data, pos)
 
     // pad
     pad(data:string, pos:int) : outcome(void,string) =
@@ -899,6 +933,10 @@ Pack = {{
                            with
                            | {success=Int} -> {success=(le, signed, size, pos+sizesize(size), [{~Int}|data])}
                            | {~failure} -> {~failure})
+                       | {Int64=_} ->
+                          (match int64(le, str, pos) with
+                           | {success=i64} -> {success=(le, signed, size, pos+8, [{Int64=i64}|data])}
+                           | {~failure} -> {~failure})
                        | {Pad} ->
                           (match pad(str, pos) with
                            | {success=_} -> {success=(le, signed, size, pos+1, [{Pad}|data])}
@@ -966,6 +1004,7 @@ Pack = {{
       | {Long=_} -> {some=u}
       | {Longlong=_} -> {some=u}
       | {Int=_} -> {some=u}
+      | {Int64=_} -> {some=u}
       | {Pad} -> none
       | {Padn=_} -> none
       | {Void} -> {some=u}
@@ -1223,4 +1262,6 @@ Pack = {{
 }}
 
 // End of file pack.opa
+
+_ = jlog("dog")
 
