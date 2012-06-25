@@ -48,4 +48,4 @@ var is_native_object = function(x) {}
 /**
  * Nodejs module exports
  */
-var exports;
+var exports, globals, require;

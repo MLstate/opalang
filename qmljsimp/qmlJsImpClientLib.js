@@ -452,3 +452,11 @@ function compare_structure(patterns,r1,r2) {
    };
    return error("compare_structure"+patterns+"\n"+r1);
 }
+
+// SERVER ONLY
+// Load a JS file directly, bypassing the node module system.
+// Bsl exports now work with globals, so we can't use exports.
+function raw_load(filename) {
+  var contents = require('fs').readFileSync(filename, 'utf-8');
+  eval(contents);
+}

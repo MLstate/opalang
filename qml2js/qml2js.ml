@@ -309,9 +309,7 @@ if [ $? -ne 0 ]; then exit $?; fi;
 NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?;
 */
 
-var fs = require('fs');
-function raw_load(f) { var c = fs.readFileSync(f, 'utf-8'); eval(c); }
-"
+";
     linking_generation_js_init generated_files env_js_input oc;
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
