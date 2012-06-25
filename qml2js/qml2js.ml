@@ -309,7 +309,9 @@ if [ $? -ne 0 ]; then exit $?; fi;
 NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?;
 */
 
-";
+var fs = require('fs');
+function raw_load(f) { var c = fs.readFileSync(f, 'utf-8'); eval(c); }
+"
     linking_generation_js_init generated_files env_js_input oc;
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
@@ -333,7 +335,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       then
         read_append opx
       else
-        Printf.fprintf oc "require('%s');\n" (js_file opx)
+        Printf.fprintf oc "raw_load('%s');\n" (js_file opx)
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;
