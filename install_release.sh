@@ -356,6 +356,7 @@ fi
 
 for i in $INSTALLDIR/bin/* $INSTALLDIR/lib/opa/bin/*; do
     # Strip BEFORE upx, otherwise the exe is DESTROYED
+    echo "    -- Striping $i"
     stripf $i
     # upxf $i -- upx disabled, last version seems to cause problems
 done
