@@ -92,7 +92,7 @@ struct
         in
         let get t =
           let contents = File.content t in
-          (t, ppjs ~name:t contents)::acc
+          (File.from_pattern "%b.js" t, ppjs ~name:t contents)::acc
         in
         match File.get_locations env_opt.extra_path extra_lib with
         | [] ->
@@ -221,7 +221,7 @@ struct
     let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
     write env_opt (filename, content)
 
-  let linking_generation_js_init env_opt generated_files env_js_input oc =
+  let linking_generation_js_init generated_files env_js_input oc =
     let js_init =
       let js_init = get_js_init env_js_input in
       List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty js_init
@@ -250,18 +250,14 @@ struct
     in
     List.iter
       (fun (filename, content) ->
-        #<Ifstatic:JS_IMP_DEBUG 1>
-        Printf.fprintf oc "console.log('Load file %s')" filename;
-        #<End>
-        if env_opt.static_link then (
-          Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "// From %s\n" filename;
-          Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "%s" content;
-          Printf.fprintf oc "\n";
-        ) else
-          let modname = File.from_pattern "%b" filename in
-          Printf.fprintf oc "var %s = require('%s');\n" modname filename;
+         Printf.fprintf oc "///////////////////////\n";
+         Printf.fprintf oc "// From %s\n" filename;
+         Printf.fprintf oc "///////////////////////\n";
+         #<Ifstatic:JS_IMP_DEBUG 1>
+         Printf.fprintf oc "console.log('Load file %s')" filename;
+         #<End>
+         Printf.fprintf oc "%s" content;
+         Printf.fprintf oc "\n";
       ) (List.rev generated_files);
     Printf.fprintf oc "///////////////////////\n";
     Printf.fprintf oc "// BSL JS INIT\n";
@@ -314,7 +310,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
 */
 
 ";
-    linking_generation_js_init env_opt generated_files env_js_input oc;
+    linking_generation_js_init generated_files env_js_input oc;
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
