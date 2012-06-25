@@ -9,8 +9,9 @@ set -u
 PREFIX=/usr
 INSTALLDIR=$PWD/release_install_root
 
-NODOC="true"
-NOMAN="false"
+NODOC="true" # build the book
+NOMAN="false" # build manpages
+NOOCAML="false" # build and embed ocaml backend
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
 # (MAJORNAME if BUILD is empty)
@@ -26,11 +27,11 @@ MYDIR=$PWD
 
 OPAGENERAL=$MYDIR
 
-CLEAN=true
+CLEAN="true"
 KEEP_INSTALL_SYS="false"
 
 help() {
-    echo "Installs a stripped stand-alone (including ocaml and node) version of OPA in the system."
+    echo "Installs a stripped stand-alone (including ocaml and node) version of Opa in the system."
     echo "The installed system can then be used for building packages."
     echo "Options"
     echo "	-prefix <dir>			Build for install in <dir>. Warning, you may need to recompile"
@@ -45,6 +46,7 @@ help() {
     echo "					option to freshly clone the sources at branch/tag"
     echo "					(default remotes/origin/master)"
     echo "	-license <prefix>		Use given license (files <prefix>_EN, <prefix>_FR)"
+    echo "	-no-ocaml			Do not build and install OCaml"
     echo
     echo "GUIDELINES: Run from a proper opalang or with the fetch-git option."
     echo "In the former case, you'll need an opa-doc repo along your opalang."
@@ -90,6 +92,8 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             OPAGENERAL="$1";;
+	-no-ocaml)
+            NOOCAML="true";;
         -help|--help|-h)
             help
             exit 0;;
@@ -215,7 +219,11 @@ if [ $NOMAN = "false" ]; then
     TARGETS="$TARGETS manpages"
 fi
 
-make clean $TARGETS install
+if [ $NOOCAML = "false" ]; then
+    make $TARGETS install
+else
+    make $TARGETS install-node
+fi
 
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
@@ -282,6 +290,7 @@ for i in {findlib,etc,camlp4,labltk,ocamldoc,objinfo_helper,toplevellib.cma,addl
         echo "    --  Removing $INSTALLDIR_LIBOPAOCAML/lib/ocaml/$i"
         rm -rvf $INSTALLDIR_LIBOPAOCAML/lib/ocaml/$i
 done
+
 rm -rvf $INSTALLDIR/lib/ocaml/mascot
 rm -fv $INSTALLDIR/bin/mascot.*
 
@@ -289,6 +298,13 @@ if [ -z "$IS_MAC" ] ; then
     msg "Removing any source, bytecode, headers or other compilation artefacts"
     find $INSTALLDIR \( -name '*.ml' -or -name '*.mli' -or -name '*.cma' -or -name '*.cmo' -or -name '*.p.a' -or -name '*.p.cm*' -or -name '*.h' -or -name 'HEAD' -or -name 'META' -or \( -type d -empty \) \) | grep -v $INSTALLDIR/share/doc/opa/book | while read line ; do if [ -f $line ] ; then rm $line ; fi ; if [ -d $line ] ; then rmdir $line ; fi ; done
 
+fi
+
+if [ $NOOCAML = "true" ]; then
+    echo "    --  Removing $INSTALLDIR_LIBOPA/lib/opa/stdlib/*.opp/*ML*"
+    rm -fv $INSTALLDIR_LIBOPA/lib/opa/stdlib/*.opp/*ML*
+    # echo "    --  Removing $INSTALLDIR_LIBOPA/lib/opa/static"
+    # rm -rfv $INSTALLDIR_LIBOPA/lib/opa/static
 fi
 
 msg "Cleaning RPATH of binaries and shared libraries"

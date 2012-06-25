@@ -216,6 +216,9 @@ install-man:
 install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
+install-node: install-bin install-lib install-share install-plugins install-node-packages install-man
+	@printf "Installation into $(INSTALL_DIR) done.[K\n"
+
 .PHONY: uninstall
 uninstall:
 	rm -rf $(INSTALL_DIR)/lib/opa

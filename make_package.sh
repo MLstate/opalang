@@ -34,6 +34,7 @@ AUTOINSTALL=""
 DEB="false"
 PKG="false"
 WINPKG="false"
+NOOCAML="false"
 
 PACK_MAN="/Applications/PackageMaker.app" # PackageManager path for OS X
 
@@ -46,6 +47,7 @@ help() {
     echo "	-dir <dir>			Where to get the installed tree (as specified"
     echo "					to install_release.sh; default $INSTALLDIR)"
     echo "	-dst <dir>			Where to put the package (default $MYDIR)"
+    echo "	-no-ocaml			Filter out OCaml"
     echo "	-make-autoinstall <filename>	builds an auto-installing archive (you will need"
     echo "					MakeSelf installed). {} in filename is replaced by"
     echo "					the version string"
@@ -92,6 +94,8 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             MYDIR="$1";;
+	-no-ocaml)
+	    NOOCAML="true";;
         -help|--help|-h)
             help
             exit 0;;
@@ -246,12 +250,16 @@ if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
     PKG_NAME="Opa $VERSION_MAJOR - Build $BUILDNUM for Mac OS X (64-bit)"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
-   $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
-   echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
-   if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
-       rm "$MYDIR/$PKG_NAME.dmg"
-   fi
-   hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
+    MOREOPTS=""
+    if [ $NOOCAML = "true" ]; then
+	 MOREOPTS="--filter lib/opa/static/*"
+    fi
+    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR" $MOREOPTS
+    echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
+    if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
+	rm "$MYDIR/$PKG_NAME.dmg"
+    fi
+    hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
 
 
