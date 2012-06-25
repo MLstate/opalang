@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -348,6 +348,8 @@ struct
       (Directive (`string, l, []), c label)
     let i18n_lang ?(label=w()) () =
       (Directive (`i18n_lang, [], []), c label)
+    let nonexpansive ?(label=w()) e1 =
+      (Directive (`nonexpansive, [e1], []), c label)
     let side_annotation ?(label=w()) side e =
       (Directive (`side_annotation side, [e], []), c label)
     let visibility_annotation ?(label=w()) visibility e =

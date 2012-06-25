@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -114,10 +114,19 @@ let error_suffix_anonymous_parser annot =
     "@[<2>@{<bright>Hint@}:@\nPlease use an @{<bright>anonymous@} parser instead.@]@\n"
   )
 
-let rec process_named_pattern named_pattern l tl acc =
+let make_bind (name, expr) =
+  if name = "" then
+    C.E.record ["default", expr]
+  else
+    C.E.record ["name", C.E.string name; "uri" , expr]
+
+let rec process_named_pattern env named_pattern l tl acc =
   match (named_pattern : _ xml_named_pattern) with
   | (name, XmlLetIn (bindings, subpattern), suffix) ->
-      C.E.letand bindings (process_named_pattern (name, subpattern, suffix) l tl acc)
+      let bindings = C.E.list (List.map make_bind bindings) in
+      let addpbind = C.E.ident (Opacapi.XmlParser.Env.add_pbinds) in
+      C.E.letin env (C.E.applys addpbind [(C.E.ident env); bindings])
+        (process_named_pattern env (name, subpattern, suffix) l tl acc)
   | (name, XmlAny, suffix) ->
       ( match suffix with
         | None ->
@@ -158,8 +167,9 @@ let rec process_named_pattern named_pattern l tl acc =
       )
   | (name, XmlExpr e, suffix) ->
       let res =
+        let e = !I.XmlParser.set_env & [e; !env] in
         match suffix with
-        | None -> C.E.applys e [!l]
+        | None -> C.E.applys !I.XmlParser.raw_parse [e; !l]
         | Some (Xml_star,_) -> C.E.applys !I.Xml.match_star [e; !l]
         | Some (Xml_plus,_) -> C.E.applys !I.Xml.match_plus [e; !l]
         | Some (Xml_question,_) -> C.E.applys !I.Xml.match_question [e; !l]
@@ -175,6 +185,7 @@ let rec process_named_pattern named_pattern l tl acc =
           let attrs = fresh_name ~name:"attrs" () in
           let args = fresh_name ~name:"args" () in
           let ns = fresh_name ~name:"ns" () in
+          let xmlns = fresh_name ~name:"xmlns" () in
           let k e =
             C.E.match_ !l
               [ C.P.hd_tl (
@@ -183,15 +194,21 @@ let rec process_named_pattern named_pattern l tl acc =
                                 ; "tag", mkstring tag.name
                                 ; "args", (if attr = [] then C.P.any () else C.P.var attrs)
                                 ; "content", (if children = [] then C.P.any () else C.P.var args)
-                                ; "specific_attributes", C.P.any ()])
+                                ; "specific_attributes", C.P.any ()
+                                ; "xmlns", C.P.var xmlns
+                                ])
                     Opacapi.Types.xml
                 ) (C.P.ident tl), e
               ; C.P.any (), C.E.none () ] in
           let k e =
             k (
-              C.E.if_ (C.E.applys !I.(==) [tag.namespace; C.E.var ns])
-                e
-                (C.E.none ())
+                C.E.letin env
+                  (!I.XmlParser.Env.add_xbinds & [C.E.ident env; C.E.ident xmlns])
+                  (C.E.if_
+                     (!I.Xml.match_namespace & [C.E.ident env; tag.namespace; C.E.var ns])
+                     e
+                     (C.E.none ())
+                  )
             ) in
           k (
             if children = [] then (
@@ -201,7 +218,7 @@ let rec process_named_pattern named_pattern l tl acc =
               let last_name = fresh_name ~name:"dontcare" () in
               process_attributes attrs attr
                 (C.E.letin args (flatten_and_discard_whitespace_list () & [!args])
-                   (process_named_patterns args children last_name
+                   (process_named_patterns args env children last_name
                       acc))
             )
           )
@@ -233,12 +250,12 @@ let rec process_named_pattern named_pattern l tl acc =
             (try_parse_opt () & [C.E.var p; C.E.var res])
         ; C.P.any (), C.E.none () ]
 
-and process_named_patterns name named_patterns last_name e : (_,_) expr =
+and process_named_patterns xml env named_patterns last_name e : (_,_) expr =
   let acc, _ =
   List.fold_right_i
     (fun (named_pattern : _ xml_named_pattern) i (acc,tl) ->
-       let l = if i = 0 then name else fresh_name ~name:"l" () in
-       (process_named_pattern named_pattern l tl acc,l)
+       let l = if i = 0 then xml else fresh_name ~name:"l" () in
+       (process_named_pattern env named_pattern l tl acc,l)
     ) named_patterns (e,last_name) in
   acc
 
@@ -252,20 +269,20 @@ and process_named_patterns name named_patterns last_name e : (_,_) expr =
  * | [<poi/>|rest] -> ... /* no backtracking possible between those two cases */
  * | _ -> ...
  *)
-let process_rule name (patterns,e) : (_,_) expr =
+let process_rule xml env (patterns,e) : (_,_) expr =
   let last_name = fresh_name ~name:"last_name" () in
   let res = C.E.some (C.E.tuple_2 e (C.E.ident last_name)) in
-  process_named_patterns name patterns last_name res
+  process_named_patterns xml env patterns last_name res
 
-let process_rules name l =
+let process_rules xml env l =
   let last_none = C.E.none () in
   List.fold_right_i
     (fun rule_ i acc ->
        let n = fresh_name ~name:(Printf.sprintf "case_%d" i) () in
        if acc == last_none then
-         process_rule name rule_ (* avoid a stupid match *)
+         process_rule xml env rule_ (* avoid a stupid match *)
        else
-       C.E.letin n (process_rule name rule_)
+       C.E.letin n (process_rule xml env rule_)
          (C.E.match_opt !n
             (C.P.none (), acc)
             (C.P.ident "res", !"res"))) l last_none
@@ -274,7 +291,8 @@ let process_parser _e rules =
   #<If:SA_XML_PATTERN>
     Format.printf "%a@." OpaPrint.string#expr _e
   #<End>;
-  let xmls = fresh_name ~name:"xmls" () in
-  let body = process_rules xmls rules in
-  let body = Parser_utils.around_xmlns body in
-  C.E.lambda_var xmls body
+  let xml = fresh_name ~name:"xml" () in
+  let env  = fresh_name ~name:"env"  () in
+  let body = process_rules xml env rules in
+  let p = !I.XmlParser.make & [(C.E.lambda [C.P.ident xml; C.P.ident env] body)] in
+  C.D.nonexpansive p

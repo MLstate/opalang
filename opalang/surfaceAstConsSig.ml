@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -198,6 +198,7 @@ sig
     val open_ : ?label:annot -> (ident, [< all_directives > `open_ ] as 'a) expr -> (ident, 'a) expr -> (ident, 'a) expr
     val doctype : string list -> ?label:annot -> ?access:SurfaceAst.access_directive -> (ident, [< all_directives > `doctype ] as 'a) expr -> (ident, 'a) expr
     val string : ?label:annot -> (('a, [> `string ]) expr as 'expr) list -> 'expr
+    val nonexpansive : ?label:annot -> (('a, [> `nonexpansive ]) expr as 'expr) -> 'expr
     val i18n_lang : ?label:annot -> unit -> ('a, [> `i18n_lang ]) expr
 
     val side_annotation : ?label:annot -> [`server | `client | `both | `prefer_server | `prefer_client | `prefer_both | `both_implem ] ->

@@ -326,6 +326,21 @@ struct
   let match_question = !! "match_question"
   let match_range = !! "match_range"
   let match_star = !! "match_star"
+  let match_namespace = !! "match_namespace"
+end
+
+module XmlParser =
+struct
+  let (!!) s = !! ("XmlParser_" ^ s)
+  let make = !! "make"
+  let set_env = !! "set_env"
+  let raw_parse = !! "raw_parse"
+  module Env =
+  struct
+    let (!!) s = !! ("Env_" ^ s)
+    let add_pbinds = !! "add_pbinds"
+    let add_xbinds = !! "add_xbinds"
+  end
 end
 
 (**
@@ -568,6 +583,13 @@ struct
   struct
     let (!!) s = !! ("Xml." ^ s)
     let attribute = !! "attribute"
+    let binding = !! "binding"
+  end
+
+  module XmlParser =
+  struct
+    let (!!) s = !! ("XmlParser." ^ s)
+    let t = !! "t"
   end
 
 end

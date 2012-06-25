@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -22,5 +22,5 @@
 *)
 
 val process_parser :
-  ((string, [< SurfaceAst.all_directives > `coerce ] as 'a) SurfaceAst.expr as 'expr) ->
+  ((string, [< SurfaceAst.all_directives > `coerce `nonexpansive ] as 'a) SurfaceAst.expr as 'expr) ->
   'expr SurfaceAst.xml_parser -> (string, 'a) SurfaceAst.expr

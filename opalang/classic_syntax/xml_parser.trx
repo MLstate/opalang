@@ -68,7 +68,7 @@ xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
                     let ns, tag = nstag in
                     let ns =
                       let string, label = ns in
-                      (SA.Ident ("xmlns:"^string), label) in
+                      (SA.Const (SA.CString string), label) in
                     let node = XmlNode ({namespace = ns; name = tag}, rev_l, children) in
                     if rev_bindings = [] then node
                     else SA.XmlLetIn (rev_bindings, node)
@@ -80,9 +80,9 @@ xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
 attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                    {{ match ns, name with
                       | ("xmlns",_), (name,label) ->
-                          `define ("xmlns:"^name, label)
+                          `define (name, label)
                       | ("",_), ("xmlns",label) ->
-                          `define ("xmlns:", label)
+                          `define ("", label)
                       | _ ->
                           let ns =
                             let string, label = ns in
@@ -125,3 +125,4 @@ just_xml_suffix <- "?" {{ Xml_question }}
             / Opa_parser.lbrace Opa_parser.expr:e1
               (Opa_parser.comma Opa_parser.expr:e2 {{e2}})?:oe2 Opa_parser.rbrace
              {{ match oe2 with None -> Xml_number e1 | Some e2 -> Xml_range (e1,e2) }}
+
