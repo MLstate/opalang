@@ -16,40 +16,51 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-var print = console.log
+var print = console.log;
+
+// Try to detect whether running client or server-side by checking whether
+// window is defined, i.e.
+//
+//   if (typeof window == 'undefined')
+//     do_something();
+//
+
 // command_line_execution should be deprecated (use preprocessing instead)
 // keep for the moment because some code still use
-#<Ifstatic:OPABSL_NODE>
-var command_line_execution = true;
-#<Else>
-var command_line_execution = false;
-#<End>
+
+var command_line_execution;
+
+if (typeof window == 'undefined') {
+  command_line_execution = true;
+} else {
+  command_line_execution = false;
+}
 
 /**
  * Browser-specific adaptations
  */
-#<Ifstatic:OPABSL_NODE>
-#<Else>
+
 var is_native_object;
 
-var userAgent = navigator.userAgent.toLowerCase();
-if(/msie/.test( userAgent ) && !/opera/.test( userAgent )) //MSIE compatibility mode
-{
-    is_native_object = function(x)
-    {
-        return (x instanceof ActiveXObject);
-    }
-} else if (userAgent=="no browser") { //Command-line compatibility mode
-    is_native_object = function(x)
-    {
-        return false;
-    }
-} else {
-    is_native_object = function(x) {
-        return (x instanceof Node || x instanceof Event);
-    }
+if (typeof window != 'undefined') {
+  var userAgent = navigator.userAgent.toLowerCase();
+  if(/msie/.test( userAgent ) && !/opera/.test( userAgent )) //MSIE compatibility mode
+  {
+      is_native_object = function(x)
+      {
+          return (x instanceof ActiveXObject);
+      };
+  } else if (userAgent=="no browser") { //Command-line compatibility mode
+      is_native_object = function(x)
+      {
+          return false;
+      };
+  } else {
+      is_native_object = function(x) {
+          return (x instanceof Node || x instanceof Event);
+      };
+  }
 }
-#<End>
 
 function error(s)
 {
