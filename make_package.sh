@@ -239,6 +239,12 @@ echo "Done."
 EOF
     chmod a+x "$INSTALLDIR/share/opa/uninstall.sh"
 
+    if [ $NOOCAML = "true" ]; then
+	rm -rf $INSTALLDIR.final
+	cp -r $INSTALLDIR $INSTALLDIR.final
+	INSTALLDIR=$INSTALLDIR.final
+    fi
+
     makeself --bzip2 $INSTALLDIR "$MYDIR/$AUTOINSTALL" "$AUTOINSTALL" ./install.sh
     msg "Generated $AUTOINSTALL"
 fi
