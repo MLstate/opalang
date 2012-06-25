@@ -132,6 +132,6 @@ Core_server_code =
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
 @opacapi Client_code_serialize_string_length(s) =
   i = String.length(s)
-  b = Buffer.create(10)
+  b = Binary.create(10)
   do Outcome.get(Pack.Encode.long_be(b, i))
-  Buffer.contents(b)
+  string_of_binary(b)

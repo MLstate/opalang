@@ -102,6 +102,38 @@ let add_uint32_be b i =
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ( i         land 0xff))
 
+##register add_uint64_le : binary, int64 -> void
+let add_uint64_le b i =
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)))
+
+##register add_uint64_be : binary, int64 -> void
+let add_uint64_be b i =
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)))
+
+##register add_int53_le : binary, int -> void
+let add_int53_le b i =
+  if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_le: out of range int %d" i);
+  add_uint64_le b (Int64.of_int i)
+
+##register add_int53_be : binary, int -> void
+let add_int53_be b i =
+  if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_be: out of range int %d" i);
+  add_uint64_be b (Int64.of_int i)
+
 (* Might not be accurate to the last bit... *)
 let _FLOATMIN32 = 1.175494351e-38
 let _FLOATMAX32 = 3.402823466e38

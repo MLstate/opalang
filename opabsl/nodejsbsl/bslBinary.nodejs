@@ -225,13 +225,39 @@ function expand(b, min) {
   return js_void;
 }
 
+##register add_int53_le : binary, int -> void
+##args(b, i)
+//function add_int53_le(b, i)
+{
+  var i64 = BslNumber_BslInt64_of_int_signed(i);
+  if (is_nan(i64)) throw("BslBinary.add_int53_be: out of range int "+i);
+  if (b.length + 8 > b.contents.length) grow(b);
+  b.contents.writeUInt32LE(i64.l, b.length, true);
+  b.contents.writeUInt32LE(i64.h, b.length+4, true);
+  b.length += 8;
+  return js_void;
+}
+
+##register add_int53_be : binary, int -> void
+##args(b, i)
+//function add_int53_be(b, i)
+{
+  var i64 = BslNumber_BslInt64_of_int_signed(i);
+  if (is_nan(i64)) throw("BslBinary.add_int53_be: out of range int "+i);
+  if (b.length + 8 > b.contents.length) grow(b);
+  b.contents.writeUInt32BE(i64.h, b.length, true);
+  b.contents.writeUInt32BE(i64.l, b.length+4, true);
+  b.length += 8;
+  return js_void;
+}
+
 ##register add_uint64_le : binary, int64 -> void
 ##args(b, i)
 //function add_uint64_le(b, i)
 {
   if (b.length + 8 >= b.contents.length) grow(b);
   b.contents.writeUInt32LE(i.l, b.length, true);
-  b.contents.writeUInt32LE(i.h, b.length, true);
+  b.contents.writeUInt32LE(i.h, b.length+4, true);
   b.length += 8;
   return js_void;
 }
@@ -242,7 +268,7 @@ function expand(b, min) {
 {
   if (b.length + 8 >= b.contents.length) grow(b);
   b.contents.writeUInt32BE(i.h, b.length, true);
-  b.contents.writeUInt32BE(i.l, b.length, true);
+  b.contents.writeUInt32BE(i.l, b.length+4, true);
   b.length += 8;
   return js_void;
 }
@@ -394,6 +420,24 @@ var FLOATMAX32 = 3.402823466e38;
 {
   if (start > b.length - 4) throw("BslBinary.get_uint32_be: insufficient buffer data");
   return b.contents.readUInt32BE(start, true);
+}
+
+##register get_int53_le : binary, int -> int
+##args(b, start)
+//function get_int53_le(b, start)
+{
+  if (start > b.length - 8) throw("BslBinary.get_int53_le: insufficient buffer data");
+  return BslNumber_BslInt64_to_int_signed({h:b.contents.readUInt32LE(start+4, true),
+                                           l:b.contents.readUInt32LE(start, true)});
+}
+
+##register get_int53_be : binary, int -> int
+##args(b, start)
+//function get_int53_be(b, start)
+{
+  if (start > b.length - 8) throw("BslBinary.get_int53_be: insufficient buffer data");
+  return BslNumber_BslInt64_to_int_signed({h:b.contents.readUInt32BE(start, true),
+                                           l:b.contents.readUInt32BE(start+4, true)});
 }
 
 ##register get_uint64_le : binary, int -> int64
