@@ -40,14 +40,13 @@ Server.start(
 
 The program can be compiled and run with the following single command line:
 `opa hello.opa --`[sh]
-// --parser js-like
 
 The resulting application can be opened in your favorite browser at http://localhost:8080
 
 Familiar syntax
 ---------------
 
-Opa new default syntax is inspired by popular programming languages: C, JavaScript and others. Below is an extract of a real Opa program:
+Opa syntax is close to JavaScript but introduces many enhancements. Below is an extract of a real Opa program:
 
 ```
 function createUser(username, password) {
@@ -66,7 +65,7 @@ function createUser(username, password) {
 }
 ```
 
-Opa however extends the classical syntax with advanced features specific to the web. HTML fragments can be inserted directly without quotes:
+For instance, Opa extends the JavaScript syntax with advanced features specific to the web. HTML fragments can be inserted directly without quotes:
 `line = <div id="foo">bar</div>;`[opa]
 
 CSS selectors readily available:
@@ -107,7 +106,7 @@ function bar(x, y) {
 }
 ```
 
-and the Opa compilers automatically infers the types, as if you've written:
+and the Opa compiler automatically infers the types, as if you've written:
 
 ```
 int function foo(string s) {
@@ -165,8 +164,6 @@ Opa type system not only manages basic types but complex data-structures, functi
 Database
 --------
 
-Opa has support for MongoDB and CouchDB, as well as its own database engine. The latter requires no configuration and is recommended for starting new programs.
-
 Database values are declared by stating their type:
 `database type /path;`[opa]
 for instance
@@ -202,7 +199,7 @@ Going further
 
 In the following chapters, we will introduce you to various features and use-cases of Opa.
 Each chapter concentrates on writing one specific application, and on how best to achieve this using combination of skills developed in previous and current chapter.
-At the end of the book, additional reference chapters introduce all the concepts of the language and the platform in more detail.
+At the end of the manual, additional reference chapters introduce all the concepts of the language and the platform in more detail.
 
 If you have any question or feedback, do not hesitate to contact us. A few ways to get in touch:
 
@@ -211,4 +208,4 @@ If you have any question or feedback, do not hesitate to contact us. A few ways 
 - [Stack Overflow](http://stackoverflow.com/questions/tagged/opa), an excellent site for seeking help with programming problems (do not forget to mark Opa related questions with the `Opa` tag);
 - Follow Opa on [Twitter (@opalang)](http://twitter.com/opalang) or [Facebook](http://www.facebook.com/Opalang) or [Google+](https://plus.google.com/b/106948838673607430453/) if you want to be always up to date.
 
-We will be there. Let's together transform the way web development is done!
+We will be there to help you writing high-quality JavaScript applications with Opa!
