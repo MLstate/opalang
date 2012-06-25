@@ -334,9 +334,10 @@ let debug fmt =
 let split_regexp = Str.regexp "%%[ ]*[a-zA-Z\\._]+[ ]*%%";;
 
 
-let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) source_elt =
+let rec fold_source_elt ~dynloader_interface ~filename
+    ~lang (env, js_file, exports) source_elt =
 
-  let env, js_file =
+  let env, js_file, exports =
     match source_elt with
     | D.Source (pos, source) ->
         let splitted = Str.full_split split_regexp source in
@@ -363,7 +364,7 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
           )
           splitted) in
         let js_file = FBuffer.addln js_file source in
-        env, js_file
+        env, js_file, exports
 
     | D.Directive (pos, tags, directive) -> (
         match directive with
@@ -423,7 +424,7 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
               env with
                 ty_spec_map ;
             } in
-            env, js_file
+            env, js_file, exports
 
         | D.ExternalTypeDef (skey, params, implementation) ->
             let () =
@@ -476,13 +477,13 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
               env with
                 ty_spec_map     = ty_spec_map ;
             } in
-            env, js_file
+            env, js_file, exports
 
         | D.Module (skey, implementation) ->
-            env_add_module pos skey implementation env, js_file
+            env_add_module pos skey implementation env, js_file, exports
 
         | D.EndModule ->
-            env_add_endmodule pos env, js_file
+            env_add_endmodule pos env, js_file, exports
 
         | D.Register (skey, source_implementation, injected, bslty) ->
             let rp_ks = env_rp_ks env skey in
@@ -516,7 +517,7 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
             let () = SeparatedEnv.SideEffect.add_renaming key implementation in
             let env = {env with renaming = StringMap.add key implementation env.renaming } in
             BslPluginInterface.apply_register_primitive dynloader_interface.BslPluginInterface.register_primitive rp ;
-            env, js_file
+            env, js_file, exports
 
         | D.Args (name, args, _bslty) ->
             (* BslTypes.pp bslty *)
@@ -524,15 +525,15 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
             let argsname = List.map fst args in
             let funname = env_rp_implementation env name false in
             let js_file = FBuffer.printf js_file "function %s (%s)\n" funname (print_args argsname) in
-            env, js_file
+            env, js_file, (funname :: exports)
 
         | D.Property _ ->
             (* keep coherence for line count in the js *)
             let js_file = FBuffer.add js_file "\n" in
-            env, js_file
+            env, js_file, exports
       )
   in
-  env, js_file
+  env, js_file, exports
 
 
 let env_add_file_line ~filename env js_file =
@@ -550,9 +551,16 @@ let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
   let js_file = fbuffer () in
   let js_file, env = env_add_file_line ~filename env js_file in
 
-  let env, js_file =
-    List.fold_left (fold_source_elt ~dynloader_interface ~filename ~lang) (env, js_file) source
+  let env, js_file, exports =
+    List.fold_left (fold_source_elt ~dynloader_interface ~filename ~lang) (env, js_file, []) source
   in
+
+  (* Export all declared primitives in the current file *)
+  let add_export js_file name =
+    FBuffer.printf js_file "exports.%s = %s;\n" name name
+  in
+  let js_file = List.fold_left add_export js_file exports in
+
   let js_code = FBuffer.contents js_file in
   let file_js_code = filename, js_code in
   let rev_files_js_code = env.rev_files_js_code in

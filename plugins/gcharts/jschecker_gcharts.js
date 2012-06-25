@@ -35,4 +35,6 @@ google.prototype = {
 	    draw : null
 	}
     }
-}
+};
+
+var exports; // node packaging
