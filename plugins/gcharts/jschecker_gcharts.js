@@ -37,4 +37,4 @@ google.prototype = {
     }
 };
 
-var exports; // node packaging
+var exports, global; // node packaging

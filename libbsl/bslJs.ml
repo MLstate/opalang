@@ -555,9 +555,11 @@ let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
     List.fold_left (fold_source_elt ~dynloader_interface ~filename ~lang) (env, js_file, []) source
   in
 
-  (* Export all declared primitives in the current file *)
+  (* Export all declared primitives in the current file.
+     For now we use the global namespace, since then we
+     don't have to worry about managing module names *)
   let add_export js_file name =
-    FBuffer.printf js_file "exports.%s = %s;\n" name name
+    FBuffer.printf js_file "global.%s = %s;\n" name name
   in
   let js_file = List.fold_left add_export js_file exports in
 
