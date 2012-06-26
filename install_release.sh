@@ -322,43 +322,40 @@ for i in {bslbrowser,filepos,gen_opa_manpage,gen_opatop_manpage,genman.native,ge
 done
 
 msg Stripping and upx-ing
-UPX=upx
-STRIP=strip
 
 upxf(){
-if [ -n "$IS_WINDOWS" ];
-then
-    FILETOMOD="$(cygpath -w $1)"
-    editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # bigger stacksize because ocamlopt.opt needs it
-    /windows_libs/utils/upx "$FILETOMOD"
-    editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # in case upx malfunctions
-elif [ -n "$IS_MAC" ];
-then
-    echo No upx on mac
-else
-    upx $1 || true
-fi
+    echo "    -- UPX-ing $1"
+    if [ -n "$IS_WINDOWS" ];
+    then
+	FILETOMOD="$(cygpath -w $1)"
+	editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # bigger stacksize because ocamlopt.opt needs it
+	/windows_libs/utils/upx "$FILETOMOD"
+	editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # in case upx malfunctions
+    elif [ -n "$IS_MAC" ];
+    then
+	upx $1 || true
+    else
+	upx $1 || true
+    fi
 }
 
-
 stripf(){
-if [ -n "$IS_WINDOWS" ];
-then
-    echo No strip on windows
-elif [ -n "$IS_MAC" ];
-then
-    # not $STRIP there ?
-    strip $1 || true
-else
-    strip $1 || true
-fi
+    echo "    -- Striping $1"
+    if [ -n "$IS_WINDOWS" ];
+    then
+	echo No strip on windows
+    elif [ -n "$IS_MAC" ];
+    then
+	strip $1 || true
+    else
+	strip $1 || true
+    fi
 }
 
 for i in $INSTALLDIR/bin/* $INSTALLDIR/lib/opa/bin/*; do
     # Strip BEFORE upx, otherwise the exe is DESTROYED
-    echo "    -- Striping $i"
     stripf $i
-    # upxf $i -- upx disabled, last version seems to cause problems
+    upxf $i
 done
 
 # same previous stuff, but on mac this directory does not exists, so we put this extra test to avoid a warning
