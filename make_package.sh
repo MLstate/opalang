@@ -325,7 +325,7 @@ Priority: optional
 Architecture: $(dpkg --print-architecture)
 Installed-Size: $(du -s $INSTALLDIR | cut -f1)
 Pre-Depends: debconf
-Depends: nodejs
+Depends: nodejs, npm
 Maintainer: $MAINTAINER
 Description: The unified language for web 2.0 development
  Opa is a unified programming language for web development. This self-contained
