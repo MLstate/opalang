@@ -480,6 +480,11 @@ ChannelServer = {{
     | ~{local_id} -> some(local_id)
     | _ -> none
 }}
+
+do ClientEvent.register_event({none},
+   {disconnect},
+   (client -> Channel.remove_entity(~{client}))
+)
 #<Else>
 @abstract type channel('msg) = Session.private.channel('msg)
 

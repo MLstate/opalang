@@ -24,7 +24,7 @@ module BslUtils = OpabslgenMLRuntime.BslUtils
 
 ##extern-type ClientEvent.t = BslPingRegister.M.event
 
-##extern-type ClientEventKey.t = BslPingRegister.M.event_key
+##extern-type ClientEvent.key = BslPingRegister.M.event_key
 
 ##register connect : ClientEvent.t
 let connect = BslPingRegister.M.Connect
@@ -54,7 +54,7 @@ external bsl_pr_c_k_2_opa_tc_c :
 module Ping = BslPingRegister.M
 module Client = BslPingRegister.Client
 
-##register remove_event : ClientEventKey.t -> void
+##register remove_event : ClientEvent.key -> void
 let remove_event = Ping.remove_event
 
 ##register set_inactive_delay : option(opa[ThreadContext.client]),     \
@@ -72,7 +72,7 @@ let set_inactive_delay opt_tcc opt_time =
 ##register [cps-bypass] register_event : option(opa[ThreadContext.client])\
   ,ClientEvent.t\
   ,(opa[ThreadContext.client], continuation(opa[void]) -> void)\
-  ,continuation(ClientEventKey.t) -> void
+  ,continuation(ClientEvent.key) -> void
 let register_event opt_tcc evt f k =
   let opt_tcc' =
     match opt_tcc with

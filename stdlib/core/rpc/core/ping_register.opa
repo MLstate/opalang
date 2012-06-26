@@ -37,6 +37,18 @@ PingRegister = {{
   @private
   error = Log.error("PING", _)
 
+  @package
+  Utils = {{
+
+    @private
+    hash_client(~{client page}:ThreadContext.client) =
+      "{client}_{page}"
+
+    make_tctbl(): Hashtbl.t(ThreadContext.client, 'a) =
+      Hashtbl.make(hash_client, (_, _ -> true), 1024)
+
+  }}
+
   /**
    * This module manages the communications between the server and the clients.
    * It handles ping and pang request, buffurize messages sent to client, etc.
@@ -50,11 +62,11 @@ PingRegister = {{
 
     @private
     entries : Hashtbl.t(ThreadContext.client, PingRegister.entry) =
-      Hashtbl.make(hash_client, (_, _ -> true), 1024)
+      Utils.make_tctbl()
 
     @private
     pangtbl : Hashtbl.t(ThreadContext.client, list(PingRegister.pang_result)) =
-      Hashtbl.make(hash_client, (_, _ -> true), 1024)
+      Utils.make_tctbl()
 
     @private
     ping_delay = 30 * 1000
@@ -251,7 +263,6 @@ PingRegister = {{
         send_response(ajax, {msgs = [msg]})
       | {} -> void
 
-
   }}
 
   @private @expand
@@ -279,11 +290,14 @@ PingRegister = {{
       json = Json.of_string(%%BslNet.Requestdef.get_request_message_body %%(request))
       do if Option.is_none(json) then werror(winfo, "bad formatted json")
       json
-    client() = ThreadContext.Client.get_opt({current}) ? werror(winfo, "No client context : {ThreadContext.get_opt({current})}")
+    client(active) =
+      client = ThreadContext.Client.get_opt({current}) ? werror(winfo, "No client context : {ThreadContext.get_opt({current})}")
+      do ClientEvent.touch(client, active)
+      client
     parser
     | "ping" -> jbody() ?|>
       | {Int = nb} ->
-        client = client()
+        client = client(false)
         do Entry.ping(nb == 1, client, nb, winfo)
         {none}
       | json -> werror(winfo, "bad formatted ping : {json}")
@@ -294,12 +308,12 @@ PingRegister = {{
                    ("uri", {String = uri}),
                    ("body", {String = body}),
                   ]} ->
-        client = client()
+        client = client(true)
         do Entry.pang(client, nb, winfo)
         (request, cont) = %%BslNet.Requestdef.request_with_cont%%(request, uri, body, Entry.return(client, nb, _))
         {some = {winfo with http_request.request = request ~cont}}
       | {Int = nb} ->
-        client = client()
+        client = client(false)
         do Entry.pang(client, nb, winfo)
         {none}
       | json -> werror(winfo, "bad formatted json : {json}")
