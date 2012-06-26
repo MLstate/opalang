@@ -30,4 +30,5 @@ session.js
 session.nodejs
 bslActor.nodejs
 bslActor.js
+bslActor.ml
 bslDispatcher.ml
