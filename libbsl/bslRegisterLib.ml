@@ -950,24 +950,28 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
   let s_js_code = finalizing_js_code_conf js_confs s_js_code in
 
   let ppjs code =
-    let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
-    let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
-    let ppenv = Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv in
+    let ppenv =
+      if BslLanguage.is_nodejs lang then
+        let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
+        let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
+        Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv
+      else
+        Pprocess.fill_with_sysenv Pprocess.empty_env in
     let ppopt = Pprocess.default_options ppenv in
     fun ~name ->
       Pprocess.process ~name Pplang.js_description ppopt code in
 
   let export_to_globals (filename, code, conf) =
-    Printf.printf "I am going to parse this: %s\n" (String.sub code 0 20);
+    let code = ppjs ~name:filename code in
     try
-      let code = ppjs ~name:filename code in
       let code = JsParse.String.code code ~throw_exn:true in
       (filename, Format.to_string JsPrint.scoped_pp_min#code code, conf)
     with
     | JsParse.Exception e ->
       let e = Format.to_string JsParse.pp e in
-      Printf.printf "Wrong\n%s\n%s\n" e code;
-      failwith "" in
+      OManager.error "There was a problem when parsing file %s: %s\nThis is the PP result:\n%s"
+        filename e code
+  in
 
   let s_js_code = List.map export_to_globals s_js_code in
 
