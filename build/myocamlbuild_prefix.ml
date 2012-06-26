@@ -39,7 +39,7 @@ let windows_mode = (os = Win32)
 
 let c_wall,c_werror =
   if windows_mode (*&& compiler=microsoft*) then "/Wall","/Wall"
-  else if is_mac then "-Wall","-Wall"
+  else if is_mac then "-Wall -Wdeprecated-declarations","-Wall"
   else "-Wall","-Werror"
 
 let winocamldir   = Pathname.pwd /  "ms_windows"
