@@ -220,9 +220,9 @@ if [ $NOMAN = "false" ]; then
 fi
 
 if [ $NOOCAML = "false" ]; then
-    make $TARGETS install
+    make clean $TARGETS install
 else
-    make $TARGETS install-node
+    make clean $TARGETS install-node
 fi
 
 mkdir -p $INSTALLDIR/share/opa/
