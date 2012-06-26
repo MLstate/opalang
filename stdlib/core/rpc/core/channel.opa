@@ -114,7 +114,7 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
     | {~message ~serialize}
     | {~message ~serialize ...} -> serialize(message)
 
-  @private entity_channels : Hashtbl.t('cid, 'entity) =
+  @private entity_infos : Hashtbl.t('cid, {owner : 'entity cb : -> void}) =
     Hashtbl.make(N.hash_cid, N.equals_cid, 1024)
 
   @private local_infos : Hashtbl.t(string, {id : string cb : -> void}) =
@@ -130,10 +130,12 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
     selector:Session.context_selector,
     more:option('a)
     ) : GenChannel.t('ctx, 'msg, 'ser, 'cid) =
-    llmake(state, _, handler, ondelete, ctx, more, concurrent) =
+    llmake(state, _, handler, ctx, more, concurrent) =
+      id = genid()
+      ondelete = some(-> remove({local_id = id}))
       local = @may_cps(%%BslActor.make%%)(state, handler, ondelete, ctx, concurrent)
       more=Option.map(Magic.black, more)
-      ~{local more unserialize id=genid()}
+      ~{local more unserialize id}
     Session_private.make_make(state, unserialize, handler, more, selector, llmake)
 
   @private post(ctx:option('ctx), msg:'msg, actor : Actor.t('ctx, 'msg)) =
@@ -141,9 +143,9 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
 
   send_to_entity(cid, msg, report) =
     match
-      match @atomic(Hashtbl.try_find(entity_channels, cid)) with
+      match @atomic(Hashtbl.try_find(entity_infos, cid)) with
       | {none} -> N.default_entity
-      | x -> x
+      | {some = x} -> some(x.owner)
     with
     | {none} ->
       report.error("Entity channel({cid}) not found: Can't send the message")
@@ -183,21 +185,38 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
     | {entity = cid} -> send_to_entity(cid, msg, how_to_report(how))
 
   remove(ident : GenChannel.identity('cid)) =
-    match ident with
-    | {local_id = id} ->
-      cb = @atomic(
+    match @atomic(
+      match ident with
+      | {local_id = id} ->
         match Hashtbl.try_find(local_infos, id) with
-        | {none} -> (-> void)
+        | {none} -> {}
         | {some = {~cb ...}} ->
           do Hashtbl.remove(local_infos, id)
-          cb
-        )
-      Scheduler.push(cb)
-    | {entity_id = cid} ->
-      Hashtbl.remove(entity_channels, cid)
+          ~{cb}
+        end
+      | {entity_id = cid} ->
+        match Hashtbl.try_find(entity_infos, cid)
+        | {none} -> {}
+        | {some = ~{cb ...}} ->
+          do Hashtbl.remove(entity_infos, cid)
+          ~{cb}
+        end
+      end
+    ) with
+    | {}    -> void
+    | ~{cb} -> Scheduler.push(cb)
 
   register(cid : 'cid, entity : 'entity) =
-    @atomic(Hashtbl.add(entity_channels, cid, entity))
+    @atomic(Hashtbl.add(entity_infos, cid, {owner = entity cb = -> void}))
+
+  remove_entity(entity:'entity) =
+    #<Ifstatic:MLSTATE_SESSION_DEBUG>
+    do debug("Entity({entity}) removed")
+    #<End>
+    // TODO : Reverse index?
+    LowLevelArray.iter(
+      {key=cid ~value} -> if entity == value.owner then remove({entity_id = cid})
+      , Hashtbl.bindings(entity_infos))
 
   find(ident : GenChannel.identity('cid)) : option(channel('a)) =
     match ident with
@@ -208,7 +227,7 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
       | x -> x <: option(GenChannel.t)
       end
     | {entity_id = id} ->
-      match Hashtbl.try_find(entity_channels, id) with
+      match Hashtbl.try_find(entity_infos, id) with
       | {none} ->
         do error("Entity channel({id}) not found")
         {none}
@@ -216,25 +235,59 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
 
   owner(c:GenChannel.t('ctx, 'msg, 'ser, 'cid)):option('entity) =
     match c with
-    | {entity = id} -> Hashtbl.try_find(entity_channels, id)
+    | {entity = id} -> Option.map(_.owner, Hashtbl.try_find(entity_infos, id))
     | {local=_ ...} -> none
+
+  @private
+  instantiate(c, id) =
+    x = Random.string(20) ^ id
+    #<Ifstatic:MLSTATE_SESSION_DEBUG>
+    do debug("Instantiate channel("^id^") as "^x^"")
+    #<End>
+    do Hashtbl.add(local_channels, x, c)
+    x
 
   identify(c:GenChannel.t):GenChannel.identity =
     match c with
     | {local=_ ~id ...} as c ->
       @atomic(
+        instantiate() = instantiate(c, id)
         match Hashtbl.try_find(local_infos, id) with
-        | {some = {~id ...}} -> {local_id = id}
+        | {some = ~{id cb}} ->
+          id =
+            if id == "" then
+             x = instantiate()
+             do Hashtbl.replace(local_infos, id, {id = x ~cb})
+             x
+            else id
+          {local_id = id}
         | {none} ->
-          x = Random.string(20) ^ id
-          #<Ifstatic:MLSTATE_SESSION_DEBUG>
-          do debug("Instantiate channel("^id^") as "^x^"")
-          #<End>
-          do Hashtbl.add(local_channels, x, c)
+          x = instantiate()
           do Hashtbl.add(local_infos, id, {id = x; cb = -> void})
           {local_id = x}
       )
     | {entity = cid} -> {entity_id = cid}
+
+  on_remove(channel:GenChannel.t, cb: -> void) =
+    match channel with
+    |  {local=_ ~id ...} ->
+      @atomic(
+        match Hashtbl.try_find(local_infos, id) with
+        | {some = {cb=cbs ...} as e} ->
+          Hashtbl.replace(local_infos, id, {e with cb = -> do Scheduler.push(cb) cbs() })
+        | {none} ->
+          Hashtbl.add(local_infos, id, {id="" ~cb})
+      )
+    | {entity = cid} ->
+      match @atomic(
+        match Hashtbl.try_find(entity_infos, cid) with
+        | {some = {cb=cbs ...} as e} ->
+          do Hashtbl.replace(entity_infos, cid, {e with cb = -> do Scheduler.push(cb) cbs() })
+          {}
+        | {none} -> ~{cb}
+      ) with
+      | {} -> void
+      | ~{cb} -> Scheduler.push(cb)
 
 
 }}
@@ -348,6 +401,8 @@ Channel = {{
 
   identify = OpaChannel.identify
 
+  remove_entity : OpaNetwork.entity -> void = OpaChannel.remove_entity
+
   send(chan : channel('msg), how : Session.how_send('msg)) =
     OpaChannel.send(ThreadContext.get_opt({current}), chan, how)
 
@@ -415,7 +470,7 @@ Channel = {{
 
   order = @nonexpansive(Order.make(ordering))
 
-  on_remove(channel:channel, cb) = void
+  on_remove(channel:channel, cb) = OpaChannel.on_remove(channel, cb)
 
 }}
 
@@ -463,7 +518,7 @@ Channel = {{
     selector : Session.context_selector,
     more : option('more)
   ) : channel =
-      make = @may_cps(%%Session.llmake%%)
+      make = @may_cps(%%Session.llmake%%)(_, _, _, {none}, _, _, _)
       Session_private.make_make(state, unserialize, handler, more, selector, make)
 
   send : channel('a), Session.how_send('a) -> void = Session_private.llsend

@@ -89,11 +89,11 @@ type Session.how_send('message) = GenChannel.how_send('message, RPC.Json.json)
      * {2 Creating sessions}
      */
     make_make(state : 'st,
-                unserialize : RPC.Json.json -> option('msg),
-                handler : Session.handler('state, 'message),
-                more : 'more,
-                selector : Session.context_selector,
-                make) =
+              unserialize : RPC.Json.json -> option('msg),
+              handler : Session.handler('state, 'message),
+              more : 'more,
+              selector : Session.context_selector,
+              make) =
       concurrent =
         match handler with
         | {concurrent = _} -> true
@@ -125,7 +125,7 @@ type Session.how_send('message) = GenChannel.how_send('message, RPC.Json.json)
           | _ -> { some = context }
           end
         end
-      make(state, unser, handler, {none}, ctx, more, concurrent)
+      make(state, unser, handler, ctx, more, concurrent)
 
     /**
      *
@@ -133,7 +133,7 @@ type Session.how_send('message) = GenChannel.how_send('message, RPC.Json.json)
     @server make_shared(key, state, unserialize, handler) =
       make = %%Session.make_shared%%
       make_make(state, unserialize, handler, {none}, {maker},
-                make(key, _, _ ,_ ,_ ,_ ,_ ,_))
+                make(key, _, _ ,_ ,{none} ,_ ,_ ,_))
 
     /**
      * {2 Sending messages}

@@ -420,7 +420,7 @@ type middle('msg, 'ctx) = external
       parser
         | "cell/CallThatPlease" ->
           do Log.info("Cell_Server", "Delegate cell call")
-          #<Ifstatic:OPA_BACKEND_QMLJS>
+          #<Ifstatic:OPA_CHANNEL>
           request = winfo.http_request.request
           jbody =
             Json.of_string(%%BslNet.Requestdef.get_request_message_body %%(request)) ?
