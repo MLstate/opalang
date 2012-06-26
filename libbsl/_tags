@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 
-<**/*.{ml,mli,byte,native}>: use_str, use_graph, use_buildinfos, use_libbase, use_compilerlib, use_libtrx, use_libqmlcompil, use_passlib
+<**/*.{ml,mli,byte,native}>: use_str, use_graph, use_buildinfos, use_libbase, use_compilerlib, use_libtrx, use_libqmlcompil, use_passlib, use_pplib
 
 <*.trx>: trx_cache
 
@@ -9,7 +9,7 @@
 <bslTypes.ml>: use_langlang
 <bslError.ml>: use_passlib
 <bslLib.ml>: use_libtrx, rectypes, use_jslang
-<bslRegisterLib.{ml,mli}>: use_libtrx, use_buildinfos, use_ocamllang
+<bslRegisterLib.{ml,mli}>: use_libtrx, use_buildinfos, use_ocamllang, use_jslang
 <bslInitChecker.ml>:use_opalang
 <bslTypesGeneration.ml>: use_ocamllang
 <bslPluginInterface.ml>: use_ocamllang
