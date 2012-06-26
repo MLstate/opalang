@@ -101,10 +101,11 @@ Hashtable.prototype.containsKey = function(key){
 Hashtable.prototype.values = function(){
   var entries = this.entries;
   var ret = new Array(this.size);
+  var x = 0;
   for(var i in entries){
     var tmp = entries[i];
     for(var j in tmp){
-      ret.push(tmp[j]);
+      ret[x++] = tmp[j];
     }
   }
   return ret;
@@ -139,8 +140,9 @@ SimpleTable.prototype.containsKey = function(key){
 SimpleTable.prototype.values = function(){
   var ret = new Array(this.size);
   var entries = this.entries;
+  var x = 0;
   for(var i in entries){
-    ret.push({key:i, value:entries[i]});
+    ret[x++] = {key:i, value:entries[i]};
   }
   return ret;
 }
