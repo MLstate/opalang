@@ -371,7 +371,7 @@ if [ -d $INSTALLDIR_LIBOPAOCAML/bin ]; then
 fi
 
 ## not some on stripf there ?
-find $INSTALLDIR -name '*.cmxs' -exec $STRIP {} \;
-find $INSTALLDIR -name '*.so' -exec $STRIP {} \;
+find $INSTALLDIR -name '*.cmxs' -exec strip {} \;
+find $INSTALLDIR -name '*.so' -exec strip {} \;
 
 msg "Installation in $INSTALLDIR finished."
