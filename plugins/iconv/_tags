@@ -1,1 +1,1 @@
-<iconv.opa_plugin> : clib_iconv
+<iconv.opa_plugin> : clib_iconv, use_libbase, use_opabsl
