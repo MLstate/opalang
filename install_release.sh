@@ -335,7 +335,8 @@ upxf(){
     then
 	upx $1 || true
     else
-	upx $1 || true
+	echo "No UPX on linux for the moment, BUGGY"
+	#upx $1 || true
     fi
 }
 
