@@ -185,18 +185,6 @@ struct
       in
       Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files;
       Format.fprintf fmt "%a" (Format.pp_list "@\n" pp_js_init) js_init;
-
-(*   let map (name, elts) = *)
-(* -        name, ( *)
-(* -          match elts with *)
-(* -          | `ast elts -> *)
-(* -              let code = List.map snd elts in *)
-(* -              JsPrint.code code *)
-(* -          | `string s -> s *)
-(* -        ) *)
-(* -      in *)
-(* -      List.rev_map_append map env_js_input.js_init_contents generated_files *)
-
   end
 
   module R = ObjectFiles.Make(S)

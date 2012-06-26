@@ -1453,11 +1453,11 @@ let parse_opa_file pprocess options f =
 
 
 
-let parse_bypass_file pprocess options f =
+let parse_bypass_file pprocess options filename =
   let set_last_directive d = BRState.set_last_directive d in
   let process_directive = bypass_process_directive in
   let parsed = parse_file_factory pprocess process_directive set_last_directive options
-    BRParse.parse_bslregisterparser_bypasslang f in
+    BRParse.parse_bslregisterparser_bypasslang filename in
   ( parsed : BslDirectives.bypasslang_decorated_file )
 
 

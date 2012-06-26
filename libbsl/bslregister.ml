@@ -942,6 +942,7 @@ let _ =
         | Some command ->
             try
 	      let command = Printf.sprintf "%s \"%s\"" command filename in
+              Printf.printf "COMMAND: %s\n" command;
               let ic = Unix.open_process_in command in
               (* output_string oc content; *)
               (* flush oc; *)
@@ -999,9 +1000,6 @@ let _ =
   | e ->
       let backtrace = Printexc.get_backtrace () in
       OManager.apologies ();
-      (* if not BuildInfos.is_release then ( *)
-      (*   OManager.printf "Now you get an extra hint, because this is not the @{<bright>release@} mode:@\n"; *)
-        OManager.printf "@[<2>@{<bright>Hint@}:@\n%s@]@\n@{<bright>Backtrace@}:@\n%s@\n"
-          (Printexc.to_string e) backtrace;
-      (* ); *)
+      OManager.printf "@[<2>@{<bright>Hint@}:@\n%s@]@\n@{<bright>Backtrace@}:@\n%s@\n"
+        (Printexc.to_string e) backtrace;
       exit 2
