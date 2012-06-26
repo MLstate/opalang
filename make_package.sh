@@ -325,7 +325,7 @@ Priority: optional
 Architecture: $(dpkg --print-architecture)
 Installed-Size: $(du -s $INSTALLDIR | cut -f1)
 Pre-Depends: debconf
-Depends: libc6 (>= 2.3.2), libgdbm3, libssl0.9.8, libssl-dev, zlib1g, zlib1g-dev, libjpeg62, libpng12-0, libgif4
+Depends: node
 Maintainer: $MAINTAINER
 Description: The unified language for web 2.0 development
  Opa is a unified programming language for web development. This self-contained
