@@ -179,37 +179,6 @@ import stdlib.core.{js, rpc.core}
   register_js_code_elt(js_elt : JsAst.code_elt) : void =
     Core_client_code.register_js_code({ast=@llarray(js_elt)})
 
-/*
-  @private unser_adhoc : string -> JsAst.code =
-    `type`(`type`:string) = ~{`type`}
-    type_def(type_def:string) = ~{type_def}
-    type_use(type_use:string) = ~{type_use}
-    rpc(rpc:string) = ~{rpc}
-    rpc_def(rpc_def:string) = ~{rpc_def}
-    rpc_use(rpc_use:string) = ~{rpc_use}
-    set_distant(set_distant:llarray(string)) = ~{set_distant}
-    verbatim(verbatim:string) = ~{verbatim}
-    ident(ident:string) = ~{ident}
-    key(key:string) = ~{key}
-    key_ident(key,ident) : JsAst.key_ident = ~{key ident}
-    code_elt(content,definition,ident,root) : JsAst.code_elt = ~{content definition ident root}
-    #<Ifstatic:OPA_BACKEND_QMLJS>
-    _ -> LowLevelArray.empty
-    #<Else>
-    %% BslClientCode.unser_adhoc %%(rpc,rpc_def,rpc_use,`type`,type_def,type_use,set_distant,verbatim,ident,key,key_ident,code_elt,_)
-    #<End>
-
-  @private unser_server : string -> ServerAst.code =
-    rpc(rpc:ServerAst.rpc_key) = ~{rpc}
-    `type`(`type`:ServerAst.type_key) = ~{`type`}
-    code_elt(client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps) : ServerAst.code_elt = ~{client_equivalent defines ident ident_deps root rpc_deps type_deps}
-    #<Ifstatic:OPA_BACKEND_QMLJS>
-    _ -> LowLevelArray.empty
-    #<Else>
-    %% BslClientCode.unser_server %%(code_elt,rpc,`type`,_)
-    #<End>
-*/
-
   /**
    * Obtain client processed code as a string (rename and cleaned, but not minified)
   **/

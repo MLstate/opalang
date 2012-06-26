@@ -125,7 +125,7 @@ Network = {{
       make_generic((init, handler -> Session.make_shared(key, init, handler)))
    )
 
-   #<Ifstatic:OPA_BACKEND_QMLJS>
+   #<Ifstatic:OPA_CHANNEL>
    #<Else>
    make_at(location: channel(_)): Network.network('a) =
    (

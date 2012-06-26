@@ -38,7 +38,7 @@ import-plugin qos
  * {1 Types defined in this module}
  */
 
-#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Ifstatic:OPA_FULL_DISPATCHER>
 @private
 type ResourceTracker.msg('message) =
   {msg : 'message}

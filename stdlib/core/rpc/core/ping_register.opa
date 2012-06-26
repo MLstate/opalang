@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Ifstatic:OPA_FULL_DISPATCHER>
 
 type PingRegister.msg = RPC.Json.json
 

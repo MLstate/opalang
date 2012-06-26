@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
-#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Ifstatic:OPA_FULL_DISPATCHER>
 @client
 PingClient = {{
 

@@ -17,7 +17,7 @@
 */
 import-plugin server
 import stdlib.core.{map, args}
-#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Ifstatic:OPA_CHANNEL>
 #<Else>
 import stdlib.core.rpc.hlnet
 #<End>
@@ -264,7 +264,7 @@ Session = {{
     /**
      * {2 Creating distributed sessions}
      */
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_CHANNEL>
     #<Else>
     make_at_protocol : Hlnet.protocol(make_at_query, make_at_response) =
       Hlnet.define_protocol(
@@ -338,7 +338,7 @@ Session = {{
      */
     @publish @server make_shared(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
 //      do accept_make_at()
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_CHANNEL>
       error("Make_shared is NYI")
     #<Else>
       Session_private.make_shared(
@@ -421,7 +421,7 @@ Session = {{
         | {none} -> @fail("Session.cloud : session \"{key}\" already exists but {OpaType.to_pretty(@typeval('message))} is not compatible to type of message")
 
 
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_CHANNEL>
     #<Else>
     /**
      * Get the endpoint where the session is located, if [session] is

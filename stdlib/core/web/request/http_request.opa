@@ -338,9 +338,6 @@ HttpRequest = {{
 
   get_connexion_string() = apply(Generic.get_connexion_string)
 
-  #<Ifstatic:OPA_BACKEND_QMLJS>
-  #<Else>
   get_multipart() = apply2(Generic.get_multipart)
-  #<End>
 
 }}

@@ -16,7 +16,7 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 import stdlib.core.date
-#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Ifstatic:OPA_FULL_DISPATCHER>
 
 type ClientEvent.t =
   {connect}

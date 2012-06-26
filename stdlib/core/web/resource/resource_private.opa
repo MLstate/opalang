@@ -951,6 +951,9 @@ export_resource(external_css_files: list(string),
             | ~{client} ->
               #<Ifstatic:OPA_BACKEND_QMLJS>
               #<Else>
+              // It's needed for collecting server resource allowed by a
+              // specific client. TODO - Use ClientEvent.touch for Opa version,
+              // when the resource managment is done
               do %%BslPingRegister.client_start%%(client)
               #<End>
               client.page

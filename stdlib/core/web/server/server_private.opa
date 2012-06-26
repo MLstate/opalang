@@ -383,12 +383,6 @@ Server_private = {{
         /* Select bypasses */
         init_server = %% BslNet.Http_server.init_server_cps %%
                     : _, _, _, _, _, _, continuation(WebInfo.private.native), _ -> void
-        #<Ifstatic:OPA_BACKEND_QMLJS>
-        #<Else>
-        set_cookie_expiry_callback = %% BslNet.Http_server.set_cookie_expiry_callback %%
-                    : (string, string -> void) -> void
-        do set_cookie_expiry_callback(bogus_cookie_expiry_callback)
-        #<End>
 
         /* Make dispatcher */
         url_dispatcher = make_dispatcher(service)

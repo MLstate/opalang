@@ -224,7 +224,7 @@ type OpaRPC.interface = {{
    * TODO for CPS client use callcc?
    */
   send_to_server(fun_name, request, ty) =
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_FULL_DISPATCHER>
     mr = PingClient.sync_request : string, string -> string
     #<Else>
     mr = %%Session.PingRegister.pang_request%% : string, string -> string
@@ -243,7 +243,7 @@ type OpaRPC.interface = {{
   async_send_to_server(fun_name, request, _) =
     url= "/rpc_call/" ^ fun_name
     body = OpaRPC.serialize(request)
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_FULL_DISPATCHER>
     PingClient.async_request(url, body)
     #<Else>
     mr = %%Session.PingRegister.pang_request%% : string, string -> string
@@ -256,7 +256,7 @@ type OpaRPC.interface = {{
    * This module is a dispatcher of RPC on client
    */
   Dispatcher = {{
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Ifstatic:OPA_FULL_DISPATCHER>
     @private
     error(msg) = Log.error("OpaRPC", msg)
 
@@ -373,7 +373,7 @@ OpaRPC_Server =
   /**
    * Sending a request to the client
    */
-  #<Ifstatic:OPA_BACKEND_QMLJS>
+  #<Ifstatic:OPA_FULL_DISPATCHER>
   @private
   rpc_infos = Hashtbl.create(512)
     : Hashtbl.t(string, {k:continuation(string) client:ThreadContext.client})
@@ -474,7 +474,7 @@ OpaRPC_Server =
 
     parser_(winfo) =
       parser
-        #<Ifstatic:OPA_BACKEND_QMLJS>
+        #<Ifstatic:OPA_FULL_DISPATCHER>
         | "rpc_return/" id=(.*) ->
           client =
             ThreadContext.Client.get_opt({current})
