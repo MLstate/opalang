@@ -260,8 +260,7 @@ struct
           Printf.fprintf oc "%s" content;
           Printf.fprintf oc "\n";
         ) else
-          let modname = File.from_pattern "%b" filename in
-          Printf.fprintf oc "var %s = require('%s');\n" modname filename;
+          Printf.fprintf oc "raw_load('%s');\n" filename;
       ) (List.rev generated_files);
     Printf.fprintf oc "///////////////////////\n";
     Printf.fprintf oc "// BSL JS INIT\n";
@@ -314,6 +313,8 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
 */
 
 ";
+    (* Load library bypassing the module system *)
+    Printf.fprintf oc "function raw_load(f){ eval(require('fs').readFileSync(f, 'utf-8')); }\n";
     linking_generation_js_init env_opt generated_files env_js_input oc;
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
