@@ -27,3 +27,11 @@
    local to the considered code elt.
 *)
 val globalize_native_ident : JsAst.code_elt -> JsAst.code_elt
+
+(**
+   Prefix every global identifier by "global.". Converts declarations
+   so that they still make sense, i.e.
+
+     var foo = bar; -> global.foo = bar;
+*)
+val prefix_globals : JsAst.code_elt -> JsAst.code_elt

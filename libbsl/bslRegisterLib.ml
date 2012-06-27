@@ -962,15 +962,20 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
       Pprocess.process ~name Pplang.js_description ppopt code in
 
   let export_to_globals (filename, code, conf) =
+    Printf.printf "Exporting %s\n" filename;
     let code = ppjs ~name:filename code in
     try
-      let code = List.map JsUtils.globalize_native_ident
-        (JsParse.String.code code ~throw_exn:true) in
-      (filename, Format.to_string JsPrint.scoped_pp_min#code code, conf)
+      let process stm =
+        JsUtils.prefix_globals (JsUtils.globalize_native_ident stm) in
+      let code =
+        List.map process
+          (JsParse.String.code code ~throw_exn:true) in
+      (filename, Format.to_string JsPrint.pp_min#code code, conf)
     with
     | JsParse.Exception e ->
       let e = Format.to_string JsParse.pp e in
-      OManager.error "There was a problem when parsing file %s: %s\nThis is the PP result:\n%s"
+      OManager.error
+        "There was a problem when parsing file %s: %s\nThis is the PP result:\n%s"
         filename e code
   in
 

@@ -68,3 +68,30 @@ let globalize_native_ident stm =
        | _ ->
            local_vars, e
     ) JsIdentSet.empty stm
+
+let prefix_global (name : string) : J.expr =
+  JsCons.Expr.dot (JsCons.Expr.native_global "global") name
+
+let prefix_globals stm =
+  JsWalk.TStatement.map
+    (fun stm ->
+      match stm with
+      | J.Js_function (_, J.Native (`global, name), params, body) ->
+        JsCons.Statement.assign (prefix_global name)
+          (JsCons.Expr.function_ None params body)
+      | J.Js_var (_, J.Native (`global, name), o) ->
+        let rhs =
+          match o with
+          | Some e -> e
+          | None -> JsCons.Expr.undefined () in
+        JsCons.Statement.assign (prefix_global name) rhs
+      | _ -> stm
+    )
+    (fun e ->
+      match e with
+      | J.Je_ident (_, J.Native (`global, name)) when name <> "global" ->
+        prefix_global name
+      | _ -> e
+    ) stm
+
+
