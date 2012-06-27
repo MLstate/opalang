@@ -915,7 +915,7 @@ var LowLevelPingLoop = {};
 }
 
 ##register get_server_id : Session.private.native('msg, 'ctx),  option(opa[ThreadContext.client]) -> option(string)
-##args(_, _)
+##args(chan, _)
 {
     return js_some("TODO");
 }
