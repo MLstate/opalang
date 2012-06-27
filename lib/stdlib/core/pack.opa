@@ -33,12 +33,19 @@
  * which uses the default endianness, signedness and width, followed by a single
  * byte representing a bool, followed by a single null byte of padding.
  *
- * To pack this data into a binary type, we would just do: [Pack.Encode.pack(data)],
+ * To pack this data into a binary type, we would just do:
+ *
+ * [bin = Pack.Encode.pack(data)]
+ *
  * which would return the binary data (the defaults for Int are big-endian, signed 32-bits):
  *
  * [0000 61 62 63 00 00 00 00 7b 01 00                    abc....{..]
  *
- * Given this binary data, you can decode the buffer using: [Pack.Decode.unpack(binary)]
+ * Given this binary data, you can decode the buffer using:
+ *
+ * [decoded_data = Pack.Decode.unpack(data, bin, 0)]
+ *
+ * (the values in tha data specification can be anything but the types have to match)
  * which will return a [Pack.data] type exactly as above.
  *
  * The specification includes directives which can be embedded in the data, for example if you had
@@ -47,6 +54,7 @@
  * {S} stands for "short", ie. 16-bits.  For [{Int}] and [{String}], you can add the
  * directives locally, for example: [{Int=1; size={Ll}; signed=false}].
  *
+ * The directives are retained by [Pack.Decode.unpack] so you can reuse the returned data type.
  * To remove these directives, just leaving items with data, you can call [Pack.Decode.clean].
  *
  * {1 Where should I start?}
