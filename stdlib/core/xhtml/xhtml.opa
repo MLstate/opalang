@@ -610,10 +610,12 @@ XmlNsEnv = {{
     , x, binds)
 
   get_uri(name:string, x:XmlNsEnv.t):string =
-    StringMap.get(name, x.map) ? x.default
+    if name == "" then x.default
+    else StringMap.get(name, x.map) ? x.default
 
   try_get_uri(name, x:XmlNsEnv.t) =
-    StringMap.get(name, x.map)
+    if name == "" then some(x.default)
+    else StringMap.get(name, x.map)
 
 }}
 

@@ -1970,10 +1970,7 @@ Dom = {{
         end
       | ~{namespace tag args content specific_attributes xmlns} ->
         nsenv = XmlNsEnv.add(nsenv, xmlns)
-        element =
-          match XmlNsEnv.try_get_uri(namespace, nsenv)
-          | {none} -> create_element(tag)
-          | {some = uri} -> create_element_ns(uri, tag)
+        element = create_element_ns(XmlNsEnv.get_uri(namespace, nsenv), tag)
         do List.iter(
           | ~{default}  -> set_attribute(element, "xmlns", default)
           | ~{name uri} -> set_attribute(element, "xmlns:{name}", uri)
