@@ -1,17 +1,12 @@
 Hello, chat
 ===========
 
-Real-time web applications are notoriously difficult to develop. They require a
-complex and error-prone infrastructure to handle communications between client
-and server, and often from server to server, in addition to deep security checks
-against specific attacks that may prove quite subtle.
-
 Opa makes real-time web simple. In this chapter, we will see how to program a
-complete web chat application in Opa -- in only 20 lines of code, and without
+complete web chat application in Opa -- in only 20 lines of code and without
 compromising security. Along the way, we will introduce the basic concepts of
-the Opa language, but also user interface manipulation, data structure
-manipulation, embedding of external resources, as well as the first building
-bricks of concurrency and distribution.
+the Opa language, and we will learn about starting new projects, building user
+interfaces, manipulating data structures, embedding external resources and
+basic building blocks of concurrency and distribution.
 
 Overview
 --------
@@ -20,17 +15,16 @@ Let us start with a picture of the web chat we will develop in this chapter:
 
 ![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
 
-This web application offers one chatroom. Users connecting to the web application
+This web application offers one chatroom. Users connecting to the application
 with their browser automatically join this chatroom and can immediately
-start discussing in real-time. On the picture, we have two users, using regular
+start discussing in real-time. In the picture, we have two users, using regular
 web browsers. For the sake of simplicity, in this application, we choose the name
 of users randomly.
 
 If you are curious, the full source code of the application is listed
 at the end of this chapter. In the rest of the chapter, we will walk
-you through all the concepts and constructions: the communication
-infrastructure for the chatroom, the user interface, and finally, the
-main application.
+you through all the concepts and constructions including the user
+interface and communication infrastructure.
 
 Setting up communication
 ------------------------
