@@ -2185,6 +2185,7 @@ let pass_ServerJavascriptCompilation =
              target = options.OpaEnv.target;
              compilation_directory;
              lang = `node;
+             static_link = true;
          } in
        let jsoptions =
          match options.OpaEnv.run_server_options with

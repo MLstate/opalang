@@ -964,7 +964,8 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
   let export_to_globals (filename, code, conf) =
     let code = ppjs ~name:filename code in
     try
-      let code = JsParse.String.code code ~throw_exn:true in
+      let code = List.map JsUtils.globalize_native_ident
+        (JsParse.String.code code ~throw_exn:true) in
       (filename, Format.to_string JsPrint.scoped_pp_min#code code, conf)
     with
     | JsParse.Exception e ->
@@ -985,7 +986,10 @@ let finalizing_js_keys ~final_bymap =
     | Some compiled ->
         let skey = BslKey.to_string key in
         let resolution = BSL.Implementation.CompiledFunction.compiler_repr compiled in
-        FBuffer.printf buf "var _check_definition_of_%s = %s@\n" skey resolution
+        (* HACK: As long as we access global variables using the
+           "global" accessor, we need to bypass this check. As soon
+           as we fix this, we have to change this back. *)
+        FBuffer.printf buf "var _check_definition_of_%s = global.%s@\n" skey resolution
     | None -> buf
   in
   let buf = FBuffer.create 1024 in
