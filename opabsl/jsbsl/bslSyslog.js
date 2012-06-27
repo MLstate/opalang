@@ -16,54 +16,52 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//////////////////////////////////////////////////////////////////////
-// BEWARE THIS FILE IS SHARING BEETWEEN THE JAVASCRIPT AND NODE BSL //
-//////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+// BEWARE THIS FILE IS SHARED BEETWEEN THE CLIENT JAVASCRIPT AND NODE BSL //
+////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Implementation note: we need to check [console] at each call, as debuggers can be (de)activated dynamically 
+ */
 
 ##register fatal: string, string -> void
 ##args(topic, value)
 {
-   if(console)
-   {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-      console.error("[OPA]", "Fatal error", topic, value);
-   }
+   if (console)
+       console.error("[Opa]", "Fatal error", topic, value);
 }
 
 ##register error: string, string -> void
 ##args(topic, value)
 {
-   if(console)
-   {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-       console.error("[OPA]", topic, value);
-   }
+   if (console)
+       console.error("[Opa]", topic, value);
 }
 
 ##register warning: string, string -> void
 ##args(topic, value)
 {
-   if(console)
-   {//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-       console.warn("[OPA]", topic, value);
-   }
+   if (console)
+       console.warn("[Opa]", topic, value);
 }
 
 ##register notice: string, string -> void
 ##args(topic, value)
 {
-   if(console)//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-        console.log("[OPA]", topic, value)
+   if (console)
+       console.log("[Opa]", topic, value);
 }
 
 ##register info: string, string -> void
 ##args(topic, value)
 {
-   if(console)//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-         console.info("[OPA]", topic, value)
+   if (console)
+       console.info("[Opa]", topic, value);
 }
 
 ##register debug: string, 'a -> void
 ##args(topic, value)
 {
-   if(console)//Implementation note: we need check [console] at each call, as debuggers can be (de)activated dynamically
-         console.log("[OPA]", topic, value)
+   if (console)
+       console.log("[Opa]", topic, value); // we do not use debug, because it is deprecated since Gecko 5.0
 }
