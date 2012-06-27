@@ -1,31 +1,32 @@
 module View {
 
-   // View code goes here
-
   function page_template(content) {
-    <div class="navbar navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container">
-          <a class="brand" href="./index.html">hello_chat</>
+    <>
+      <div class="navbar navbar-fixed-top">
+        <div class=navbar-inner>
+          <div class=container>
+            <div id=#logo />
+          </>
         </>
       </>
-    </>
-    <div id=#main class="container-fluid">
-      <div class="hero-unit">
-        {content}
-      </>
-      <footer>
-        <p>hello_chat</>
-      </>
+      {content}
     </>
   }
 
+  chat_html =
+    <div id=#conversation class=container-fluid />
+    <div id=#footer class="navbar navbar-fixed-bottom">
+      <div class=container>
+        <div class=input-append>
+          <input id=#entry class=input-xlarge type=text>
+          <button class="btn btn-primary" type=button>Post</>
+        </>
+      </>
+    </>
+
   function default_page() {
-    content =
-      // page content goes here
-      <>Page content goes here...</>
-    html = page_template(content)
-    Resource.page("Default page", html)
+    html = page_template(chat_html)
+    Resource.page("Opa chat", html)
   }
 
 }
