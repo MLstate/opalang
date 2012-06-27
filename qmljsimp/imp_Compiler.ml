@@ -144,7 +144,8 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;
 
   let js_code =
-    if options.Qml2jsOptions.global_inlining then (
+    (* HACK *)
+    if options.Qml2jsOptions.global_inlining && false then (
       let initial_env =
         match bsl with
         | Some code -> Imp_Inlining.global_inline_analyse_code (Imp_Inlining.env_of_map closure_map) code
