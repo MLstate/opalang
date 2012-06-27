@@ -26,6 +26,58 @@ at the end of this chapter. In the rest of the chapter, we will walk
 you through all the concepts and constructions including the user
 interface and communication infrastructure.
 
+Starting a new project
+----------------------
+
+To start a new project, our chat application, simply write:
+
+`opa create chat`[sh]
+
+This will create a `chat` directory and generate a scaffolding for a new Opa
+app, with the following content:
+
+```
++- chat
+| +- Makefile
+| +- Makefile.common
+| +- opa.conf
+| +- resources
+| | +- css
+| | | +- style.css
+| +- src
+| | +- model.opa
+| | +- view.opa
+| | +- controller.opa
+```
+
+The project includes:
+
+* `Makefile` for the project (which can be customized),
+* a generic `Makefile.common` (which will usually not be modified),
+* a configuration, `opa.conf` (listing all source files of the projects and their dependencies),
+* an examplary style file `style.css`,
+* and the sources following the classical MVC pattern: `model.opa`, `view.opa` and `controller.opa`.
+
+{block}[TIP]
+You can expore other templates of the `opa-create` tool by trying out
+
+`opa-create --help`[sh]
+
+For instance:
+
+`opa-create --name wiki --template mvc-wiki`[sh]
+
+will create a simple wiki application that you can experiment with, learn from and build upon.
+We will talk more about building a wiki app in the [next chapter](/manual/Hello--wiki).
+{block}
+
+To compile and run the project simply execute:
+
+```
+cd chat
+make run
+```
+
 Setting up communication
 ------------------------
 
