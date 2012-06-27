@@ -40,7 +40,7 @@
  *
  * {1 What if I need more?}
  *
- * The most low-level routines is [add_string] and [get_string], if you can get your
+ * The most low-level routines are [add_string] and [get_string], if you can get your
  * data into a string, use these to embed/unembed in/from the binary data.
  *
  */
@@ -50,7 +50,7 @@
  */
 
 /**
- * The type of binary data
+ * The type of binary data.
  *
  * The underlying type is module Buffer for both OCaml and Node.js.
  * Remember that these are imperative.

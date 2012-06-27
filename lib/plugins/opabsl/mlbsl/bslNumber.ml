@@ -112,54 +112,6 @@ let op_le i1 i2 = i1 <= i2
 ##register is_NaN : int64 -> bool
 let is_NaN _ = false
 
-##register embed_le : int64 -> string
-let embed_le i64 =
-  let s = "        " in
-  s.[7] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
-  s.[6] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
-  s.[5] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
-  s.[4] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
-  s.[3] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
-  s.[2] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
-  s.[1] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
-  s.[0] <- (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)));
-  s
-
-##register embed_be : int64 -> string
-let embed_be i64 =
-  let s = "        " in
-  s.[0] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 56) 0xffL)));
-  s.[1] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 48) 0xffL)));
-  s.[2] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 40) 0xffL)));
-  s.[3] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 32) 0xffL)));
-  s.[4] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 24) 0xffL)));
-  s.[5] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 16) 0xffL)));
-  s.[6] <- (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i64 8 ) 0xffL)));
-  s.[7] <- (Char.chr (Int64.to_int (Int64.logand (                          i64   ) 0xffL)));
-  s
-
-##register unembed_le: string, int -> int64
-let unembed_le s i =
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+7])) 56) 0xff00000000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+6])) 48) 0x00ff000000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+5])) 40) 0x0000ff0000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+4])) 32) 0x000000ff00000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+3])) 24) 0x00000000ff000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+2])) 16) 0x0000000000ff0000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+1]))  8) 0x000000000000ff00L)
-               (Int64.logand (                 (Int64.of_int (Char.code s.[i  ]))   ) 0x00000000000000ffL))))))))
-
-##register unembed_be: string, int -> int64
-let unembed_be s i =
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i  ])) 56) 0xff00000000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+1])) 48) 0x00ff000000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+2])) 40) 0x0000ff0000000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+3])) 32) 0x000000ff00000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+4])) 24) 0x00000000ff000000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+5])) 16) 0x0000000000ff0000L)
-  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code s.[i+6]))  8) 0x000000000000ff00L)
-               (Int64.logand (                 (Int64.of_int (Char.code s.[i+7]))   ) 0x00000000000000ffL))))))))
-
 ##endmodule
 
 ##module Float
@@ -282,32 +234,6 @@ let comparison (a:float) (b:float) =
 ##register round : float -> int
   let round v = int_of_float (Base.round 0 v)
 
-##register embed_int_le : int -> string
-let embed_int_le i =
-  let s = "        " in
-  s.[7] <- (Char.chr ((i lsr 56) land 0xff));
-  s.[6] <- (Char.chr ((i lsr 48) land 0xff));
-  s.[5] <- (Char.chr ((i lsr 40) land 0xff));
-  s.[4] <- (Char.chr ((i lsr 32) land 0xff));
-  s.[3] <- (Char.chr ((i lsr 24) land 0xff));
-  s.[2] <- (Char.chr ((i lsr 16) land 0xff));
-  s.[1] <- (Char.chr ((i lsr 8 ) land 0xff));
-  s.[0] <- (Char.chr ( i         land 0xff));
-  s
-
-##register embed_int_be : int -> string
-let embed_int_be i =
-  let s = "        " in
-  s.[0] <- (Char.chr ((i lsr 56) land 0xff));
-  s.[1] <- (Char.chr ((i lsr 48) land 0xff));
-  s.[2] <- (Char.chr ((i lsr 40) land 0xff));
-  s.[3] <- (Char.chr ((i lsr 32) land 0xff));
-  s.[4] <- (Char.chr ((i lsr 24) land 0xff));
-  s.[5] <- (Char.chr ((i lsr 16) land 0xff));
-  s.[6] <- (Char.chr ((i lsr 8 ) land 0xff));
-  s.[7] <- (Char.chr ( i         land 0xff));
-  s
-
 ##register embed_int64_le : int64 -> string
 let embed_int64_le i64 =
   let s = "        " in
@@ -343,28 +269,6 @@ let embed_int64_be i64 =
 let embed_float_be f =
   let i64 = Int64.bits_of_float f in
   embed_int64_be i64
-
-##register unembed_int_le: string, int -> int
-let unembed_int_le s i =
-      (((Char.code s.[i+7]) lsl 56) land 0x7f00000000000000)
-  lor (((Char.code s.[i+6]) lsl 48) land 0x00ff000000000000)
-  lor (((Char.code s.[i+5]) lsl 40) land 0x0000ff0000000000)
-  lor (((Char.code s.[i+4]) lsl 32) land 0x000000ff00000000)
-  lor (((Char.code s.[i+3]) lsl 24) land 0x00000000ff000000)
-  lor (((Char.code s.[i+2]) lsl 16) land 0x0000000000ff0000)
-  lor (((Char.code s.[i+1]) lsl  8) land 0x000000000000ff00)
-  lor (((Char.code s.[i+0])       ) land 0x00000000000000ff)
-
-##register unembed_int_be: string, int -> int
-let unembed_int_be s i =
-      (((Char.code s.[i+0]) lsl 56) land 0x7f00000000000000)
-  lor (((Char.code s.[i+1]) lsl 48) land 0x00ff000000000000)
-  lor (((Char.code s.[i+2]) lsl 40) land 0x0000ff0000000000)
-  lor (((Char.code s.[i+3]) lsl 32) land 0x000000ff00000000)
-  lor (((Char.code s.[i+4]) lsl 24) land 0x00000000ff000000)
-  lor (((Char.code s.[i+5]) lsl 16) land 0x0000000000ff0000)
-  lor (((Char.code s.[i+6]) lsl  8) land 0x000000000000ff00)
-  lor (((Char.code s.[i+7])       ) land 0x00000000000000ff)
 
 ##register unembed_int64_le: string, int -> int64
 let unembed_int64_le s i =

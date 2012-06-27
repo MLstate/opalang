@@ -27,14 +27,14 @@
  * This module provides a convenient method for defining structured binary data.
  * You define the structure of the data with a [Pack.data] type, for example:
  *
- * data = [[{Cstring="abc"}, {Int=123}, {Bool=true}, {Pad}]]
+ * [data = [{Cstring="abc"}, {Int=123}, {Bool=true}, {Pad}]]
  *
  * This defines a binary data of a null-terminated string, followed by an integer
  * which uses the default endianness, signedness and width, followed by a single
- * byte representing a bool, followed by a single byte of padding.
+ * byte representing a bool, followed by a single null byte of padding.
  *
  * To pack this data into a binary type, we would just do: [Pack.Encode.pack(data)],
- * which would return the binary data:
+ * which would return the binary data (the defaults for Int are big-endian, signed 32-bits):
  *
  * [0000 61 62 63 00 00 00 00 7b 01 00                    abc....{..]
  *
@@ -42,7 +42,7 @@
  * which will return a [Pack.data] type exactly as above.
  *
  * The specification includes directives which can be embedded in the data, for example if you had
- * big-endian, signed 16-bit integers, you coud specify: [[{Be}, {Signed}, {S}, ...]]
+ * little-endian, unsigned 16-bit integers, you could specify: [[{Le}, {Unsigned}, {S}, ...]]
  *
  * {S} stands for "short", ie. 16-bits.  For [{Int}] and [{String}], you can add the
  * directives locally, for example: [{Int=1; size={Ll}; signed=false}].
@@ -54,7 +54,8 @@
  * Start by looking at the [Pack.u] type which contains all the directives and
  * basic types.  In general, the functions in the Encode and Decode modules shadow
  * the rows in this type, with aggregated equivalents for convenience, for example,
- * a string whose side is indicated by a big-endian, 16-bit integer, will be "string_s_le".
+ * a size-prefixed string whose size is indicated by a big-endian, 16-bit integer,
+ * will be "string_s_le".
  *
  * The main modules are Encode and Decode which are the mirror-image of each other but there
  * is also a composable, functional interface for decoding called Unser.  This has some
@@ -85,8 +86,15 @@ type Pack.s = {B} / {S} / {L} / {Ll}
 
 /**
  * [Pack.codes] is for data-dependent encode/decode.  Data is packed according to
- * the codes: [[(code1,data1),...]].  On decode, the code is read in and the following
- * data is decoded according to the matching code-data pair.
+ * the codes: [{Coded=[(code1,data1)]}] will generate [<code1><data1>] in the binary output.
+ *
+ * On decode, there can be more than one code, for example [{Coded=[(code1,data1),(code2,data2),...]}] but
+ * note that only the first code in the list is used.
+ * The code is read in and the following data is decoded according to the matching code-data pair.
+ * For full generality, the codes are pack items, so you can index your data with, for example ints, strings,
+ * bools or even more complex data such as lists.
+ *
+ * Note: don't attempt to use directives or padding/boundary items as codes.
  **/
 type Pack.codes = list((Pack.u, Pack.data))
 
@@ -98,8 +106,10 @@ type Pack.codes = list((Pack.u, Pack.data))
  * reproduced in the [Pack.s] type.
  *
  * Basic data types are: [{Byte}] for 8-bit integers, [{Short}] for 16-bit integers,
- * [{Long}] for 32-bit integers, [{Longlong}] for 64-bit integers, [{Int}] for generic
- * integers (controlled by the directives), [{Int64}] for 64-bit integers on the Opa side,
+ * [{Long}] for 32-bit integers, [{Longlong}] for 64-bit integers (in the binary output, the source
+ * integers will be the underlying native ints which are not, in general, 64-bits), [{Int}] for generic
+ * integers (controlled by the directives), [{Int64}] for 64-bit integers on the Opa side (there
+ * is a basic Int64 module implementation),
  * [{Cstring}] for null-terminated strings, [{String}] for generic, size-prefixed strings,
  * where the size data is controlled by the directives, [{Bool}] for a single-byte value
  * representing a bool, [{Float32}] for 32-bit floats and [{Float}] for 64-bit floats.
@@ -108,8 +118,8 @@ type Pack.codes = list((Pack.u, Pack.data))
  * for data-dependent encoding.
  *
  * Other utility types include: [{Pad}] for a single null-padding byte, [{Padn}] for a series
- * of null-padding bytes, [{Char}] which is just a single-character string and [{Void}] which
- * is present for cosmetic purposes.
+ * of null-padding bytes, [{Bound}] to fill the current binary data up to a given boundary,
+ * [{Char}] which is just a single-character string and [{Void}] which is present for cosmetic purposes.
  **/
 type Pack.u =
    {Be}
@@ -132,6 +142,7 @@ type Pack.u =
  / {Int:int; size:Pack.s; signed:bool}
  / {Pad}
  / {Padn:int}
+ / {Bound:int}
  / {Void}
  / {Bool:bool}
  / {Cstring:string}
@@ -143,7 +154,6 @@ type Pack.u =
  / {List:(Pack.data,list(Pack.data))}
  / {Array:(Pack.data,llarray(Pack.data))}
 // Other possibilities...
-// / {Boundary:int} // <-- arrange to fill up to boundary
 // / {Record:list((field_name,field_type,data))} // <-- problem, type vars
 
 /**
@@ -246,6 +256,40 @@ Pack = {{
     | {Int64=i} -> {success=Int64.to_int(i)}
     | _ -> {failure="Pack.getsize: size {u} is not int"}
 
+  /** boundary computation **/
+  bound(len, bnd) = if bnd <= 0 then 0 else rem = mod(len, bnd) if rem == 0 then 0 else (bnd - rem)
+
+  /** test if item is valid for Coded codes **/
+  valid_code(u:Pack.u) : bool =
+    match u with
+    | {Be} -> false
+    | {Le} -> false
+    | {Signed} -> false
+    | {Unsigned} -> false
+    | {B} -> false
+    | {S} -> false
+    | {L} -> false
+    | {Ll} -> false
+    | {Char=_} -> true
+    | {Byte=_} -> true
+    | {Short=_} -> true
+    | {Long=_} -> true
+    | {Longlong=_} -> true
+    | {Int=_; ...} -> true
+    | {Int64=_} -> true
+    | {Pad} -> false
+    | {Padn=_} -> false
+    | {Bound=_} -> false
+    | {Void} -> true
+    | {Bool=_} -> true
+    | {Cstring=_} -> true
+    | {String=_; ...} -> true
+    | {Float32=_} -> true
+    | {Float=_} -> true
+    | {Coded=_} -> true
+    | {List=_} -> true
+    | {Array=_} -> true
+
   /** Debug, memdump first 32-bytes of current input **/
   pinput(name:string, input:Pack.input) =
     if ServerReference.get(debug)
@@ -256,6 +300,7 @@ Pack = {{
 
   /**
    * {2 Encode data}
+   *
    * This module provides functions to encode data in binary types.
    */
   Encode = {{
@@ -417,18 +462,47 @@ Pack = {{
      * @param n number of bytes of padding
      **/
     padn(buf:Pack.t, n:int) : outcome(void,string) =
-      {success=Binary.add_string(buf, String.repeat(n, String.of_byte_unsafe(0)))}
+      if n <= 0 
+      then {success=void}
+      else {success=Binary.add_string(buf, String.repeat(n, String.of_byte_unsafe(0)))}
 
-    // bool
+    /**
+     * Add null-byte padding to make up to given boundary.
+     * @param n boundary value
+     **/
+    boundary(buf:Pack.t, n:int) : outcome(void,string) =
+      if n <= 0 
+      then {success=void}
+      else
+        padding = bound(Binary.length(buf),n)
+        do Binary.add_string(buf, String.repeat(padding, String.of_byte_unsafe(0)))
+        {success=void}
+
+    /**
+     * Encode boolean as either 8-bit 0x00 or 0x01
+     * @param b bool
+     **/
     bool(buf:Pack.t, b:bool) : outcome(void,string) =
       octet(buf, if b then 1 else 0)
 
-    // cstring
+    /**
+     * Encode null-terminated string
+     * @param str string
+     **/
     cstring(buf:Pack.t, str:string) : outcome(void,string) =
       do Binary.add_string(buf, str)
       octet(buf, 0)
 
-    // string
+    /**
+     * Encode size-prefixed string.
+     * The format of the size prefix is determined by the le and size parameters (always unsigned).
+     * This function will fail if the string length is greater than the maximum size.
+     *
+     * @param buf the binary data to append the string to
+     * @param le true=little endian, false=big endian
+     * @param size the width of the size prefix
+     * @param str string
+     **/
     string(buf:Pack.t, le:bool, size:Pack.s, str:string): outcome(void,string) =
       len = String.length(str)
       if len > sizemax(size)
@@ -444,37 +518,83 @@ Pack = {{
         | {~failure} -> {~failure}
         | {success=_} -> {success=Binary.add_string(buf, str)}
 
-    // string derivatives
+    /** Encode byte-prefixed string **/
     string_b(buf:Pack.t, str:string) : outcome(void,string) = string(buf, noEndian, {B}, str)
+
+    /** Encode short-prefixed string.
+     * @param le endianness of prefix
+     **/
     string_s(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {S}, str)
+
+    /** Encode little-endian short-prefixed string **/
     string_s_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {S}, str)
+
+    /** Encode big-endian short-prefixed string **/
     string_s_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {S}, str)
+
+    /** Encode long-prefixed string.
+     * @param le endianness of prefix
+     **/
     string_l(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {L}, str)
+
+    /** Encode little-endian long-prefixed string **/
     string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {L}, str)
+
+    /** Encode big-endian long-prefixed string **/
     string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {L}, str)
+
+    /* Encode longlong-prefixed string.
+     * @param le endianness of prefix
+     **/
     string_ll(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {Ll}, str)
+
+    /** Encode little-endian longlong-prefixed string **/
     string_ll_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {Ll}, str)
+
+    /** Encode big-endian longlong-prefixed string **/
     string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {Ll}, str)
 
-    // float32
+    /** Encode big-endian 32-bit float **/
     float_be(buf:Pack.t, f:float) : outcome(void,string) =
       {success=Binary.add_float_be(buf, f)}
+
+    /** Encode little-endian 32-bit float **/
     float_le(buf:Pack.t, f:float) : outcome(void,string) =
       {success=Binary.add_float_le(buf, f)}
 
+    /** Encode 32-bit float.
+     * @param le endianness
+     **/
     float(buf:Pack.t, le:bool, f:float): outcome(void,string) =
       if le then float_le(buf, f) else float_be(buf, f)
 
-    // float
+    /** Encode big-endian 64-bit float **/
     double_be(buf:Pack.t, f:float) : outcome(void,string) =
       {success=Binary.add_double_be(buf, f)}
+
+    /** Encode little-endian 64-bit float **/
     double_le(buf:Pack.t, f:float) : outcome(void,string) =
       {success=Binary.add_double_le(buf, f)}
 
+    /** Encode 64-bit float.
+     * @param le endianness
+     **/
     double(buf:Pack.t, le:bool, f:float): outcome(void,string) =
       if le then double_le(buf, f) else double_be(buf, f)
 
-    // coded
+    /** Encode Coded data.
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param buf the binary data to pack into
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param size the initial width for integers
+     * @param code the code item
+     * @param data the data to pack
+     * @return the final endianness, signedness and integer width plus the usual outcome
+     **/
     coded(buf:Pack.t, le:bool, signed:bool, size:Pack.s, code:Pack.u, data:Pack.data)
           : (bool, bool, Pack.s, outcome(void,string)) =
       match pack_u(buf, le, signed, size, code) with
@@ -482,7 +602,7 @@ Pack = {{
       | failure -> failure
 
     // same item type
-    same_u(u1:Pack.u, u2:Pack.u): bool =
+    @private same_u(u1:Pack.u, u2:Pack.u): bool =
       match (u1,u2) with
       | ({Be},{Be}) -> true
       | ({Le},{Le}) -> true
@@ -504,6 +624,7 @@ Pack = {{
       | ({Int64=_},{Int64=_}) -> true
       | ({Pad},{Pad}) -> true
       | ({Padn=_},{Padn=_}) -> true
+      | ({Bound=_},{Bound=_}) -> true
       | ({Void},{Void}) -> true
       | ({Bool=_},{Bool=_}) -> true
       | ({Cstring=_},{Cstring=_}) -> true
@@ -517,12 +638,30 @@ Pack = {{
       | (_,_) -> false
 
     // same data type
-    same_data(d1:Pack.data, d2:Pack.data): bool =
+    @private same_data(d1:Pack.data, d2:Pack.data): bool =
       match List.for_all2((u1, u2 -> same_u(u1,u2)),d1,d2) with
       | {result=tf} -> tf
       | _ -> false
 
-    // list
+    /** Encode size-prefixed list of data.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * The characteristics of the prefix (endianness, width) are determined by
+     * the initial values.  If your data has different characteristics from the prefix,
+     * you will have to include directives in the data.
+     *
+     * @param buf the binary data to pack into
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param size the initial width for integers
+     * @param typ a proforma data value which indicates the types of all the elements,
+                  all the elements in the list must be of this type.
+     * @param data a list of data values to encode
+     * @return the final endianness, signedness and integer width plus the usual outcome
+     **/
     list(buf:Pack.t, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
          : (bool, bool, Pack.s, outcome(void,string)) =
       match mksize(s, List.length(data)) with
@@ -547,50 +686,63 @@ Pack = {{
       | {~failure} -> (le, signed, s, {~failure})
 
     // pack item length
-    packitemsize(s:Pack.s, u:Pack.u) : (Pack.s, int) =
+    @private packitemsize(s:Pack.s, u:Pack.u) : (Pack.s, int, int) =
       match u with
-      | {Be} -> (s,0)
-      | {Le} -> (s,0)
-      | {Signed} -> (s,0)
-      | {Unsigned} -> (s,0)
-      | {B} -> ({B},0)
-      | {S} -> ({S},0)
-      | {L} -> ({L},0)
-      | {Ll} -> ({Ll},0)
-      | {Char=_} -> (s,1)
-      | {Byte=_} -> (s,1)
-      | {Short=_} -> (s,2)
-      | {Long=_} -> (s,4)
-      | {Longlong=_} -> (s,8)
-      | {Int=_} -> (s,sizesize(s))
-      | {Int=_; ~size} -> (s,sizesize(size))
-      | {Int=_; signed=_} -> (s,sizesize(s))
-      | {Int=_; ~size; signed=_} -> (s,sizesize(size))
-      | {Int64=_} -> (s,8)
-      | {Pad} -> (s,1)
-      | {~Padn} -> (s,Padn)
-      | {Void} -> (s,1)
-      | {Bool=_} -> (s,1)
-      | {Cstring=str} -> (s,String.length(str)+1)
-      | {String=str} -> (s,sizesize(s)+String.length(str))
-      | {String=str; ~size} -> (s,sizesize(size)+String.length(str))
-      | {Float32=_} -> (s,4)
-      | {Float=_} -> (s,8)
-      | {Coded=[]} -> (s,0) // Can't pack nothing
-      | {Coded=[(code,data)]} -> (s,icnt) = packitemsize(s,code) (s,dcnt) = packdatasize(s,data) (s, icnt + dcnt)
-      | {Coded=_} -> (s,0) // Will generate error
-      | {List=(_,l)} -> List.fold((data, (s,cnt) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt)),l,(s,sizesize(s)))
-      | {Array=(_,a)} -> LowLevelArray.fold((data, (s,cnt) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt)),a,(s,sizesize(s)))
+      | {Be} -> (s,0,0)
+      | {Le} -> (s,0,0)
+      | {Signed} -> (s,0,0)
+      | {Unsigned} -> (s,0,0)
+      | {B} -> ({B},0,0)
+      | {S} -> ({S},0,0)
+      | {L} -> ({L},0,0)
+      | {Ll} -> ({Ll},0,0)
+      | {Char=_} -> (s,1,0)
+      | {Byte=_} -> (s,1,0)
+      | {Short=_} -> (s,2,0)
+      | {Long=_} -> (s,4,0)
+      | {Longlong=_} -> (s,8,0)
+      | {Int=_} -> (s,sizesize(s),0)
+      | {Int=_; ~size} -> (s,sizesize(size),0)
+      | {Int=_; signed=_} -> (s,sizesize(s),0)
+      | {Int=_; ~size; signed=_} -> (s,sizesize(size),0)
+      | {Int64=_} -> (s,8,0)
+      | {Pad} -> (s,1,0)
+      | {~Padn} -> (s,Padn,0)
+      | {~Bound} -> (s,0,Bound)
+      | {Void} -> (s,1,0)
+      | {Bool=_} -> (s,1,0)
+      | {Cstring=str} -> (s,String.length(str)+1,0)
+      | {String=str} -> (s,sizesize(s)+String.length(str),0)
+      | {String=str; ~size} -> (s,sizesize(size)+String.length(str),0)
+      | {Float32=_} -> (s,4,0)
+      | {Float=_} -> (s,8,0)
+      | {Coded=[]} -> (s,0,0) // Can't pack nothing
+      | {Coded=[(code,data)]} ->
+         if valid_code(code)
+         then (s,icnt,_) = packitemsize(s,code) (s,dcnt) = packdatasize(s,data) (s, icnt + dcnt, 0)
+         else (s,0,0) // Bad code
+      | {Coded=_} -> (s,0,0) // Will generate error
+      | {List=(_,l)} -> List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(s),0))
+      | {Array=(_,a)} ->
+         LowLevelArray.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),a,(s,sizesize(s),0))
 
     // predict pack length
-    packdatasize(s:Pack.s, data:Pack.data) : (Pack.s, int) =
-      List.fold((u, (s, len) -> match packitemsize(s, u) with | (s,size) -> (s,len+size)), data, (s,0))
+    @private packdatasize(s:Pack.s, data:Pack.data) : (Pack.s, int) =
+      List.fold((u, (s, len) -> match packitemsize(s, u) with | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (s,0))
 
-    // predict pack length
+    /**
+     * Predict pack length.  Given a data element, this function will return
+     * the exact size of the binary data needed to pack it.
+     * Note that this has to simulate a packing  without actually inserting the
+     * data and so is computationally quite expensive.
+     *
+     * @param data the data to be sized
+     * @return the size in bytes of the resulting packing
+     **/
     packlen(data:Pack.data) : int =
       (List.fold((u, (s, len) ->
                   match packitemsize(s, u) with
-                  | (s,size) -> (s,len+size)), data, (ServerReference.get(defaultSize),0))).f2
+                  | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (ServerReference.get(defaultSize),0))).f2
 
     // missing from LowLevelArray?
     @private a2l(a:llarray('a)) : list('a) =
@@ -614,7 +766,19 @@ Pack = {{
       | {L} -> (le, return_signed, return_size,  long(buf, le, actual_signed, i))
       | {Ll} -> (le, return_signed, return_size, longlong(buf, le, i))
 
-    // pack item into buffer
+    /** Pack item into binary data.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param buf the binary data to pack into
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param size the initial width for integers
+     * @param u the item to pack into the binary.
+     * @return the final endianness, signedness and integer width plus the usual outcome
+     **/
     pack_u(buf:Pack.t, le:bool, signed:bool, size:Pack.s, u:Pack.u) : (bool, bool, Pack.s, outcome(void,string)) =
       match u with
       | {Be} -> (false, signed, size, {success=void})
@@ -637,6 +801,7 @@ Pack = {{
       | {Int64=i64} -> (le, signed, size, int64(buf, le, i64))
       | {Pad} -> (le, signed, size, pad(buf))
       | {~Padn} -> (le, signed, size, padn(buf, Padn))
+      | {~Bound} -> (le, signed, size, boundary(buf, Bound))
       | {Void} -> (le, signed, size, pad(buf))
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
       | {~Cstring} -> (le, signed, size, cstring(buf, Cstring))
@@ -645,12 +810,27 @@ Pack = {{
       | {~Float32} -> (le, signed, size, float(buf, le, Float32))
       | {~Float} -> (le, signed, size, double(buf, le, Float))
       | {Coded=[]} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has no codes"})
-      | {Coded=[(code,data)]} -> coded(buf, le, signed, size, code, data)
+      | {Coded=[(code,data)]} ->
+         if valid_code(code)
+         then coded(buf, le, signed, size, code, data)
+         else (le, signed, size, {failure="Pack.Encode.pack: Coded has invalid code {code}"})
       | {Coded=_} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has multiple codes"})
       | {List=(t,l)} -> list(buf, le, signed, size, t, l)
       | {Array=(t,a)} -> list(buf, le, signed, size, t, a2l(a))
 
-    // pack data into buffer
+    /** Pack data into binary data.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param buf the binary data to pack into
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param size the initial width for integers
+     * @param data the data value to back into the binary
+     * @return the final endianness, signedness and integer width plus the usual outcome
+     **/
     pack_data(buf:Pack.t, le:bool, signed:bool, size:Pack.s, data:Pack.data) : (bool, bool, Pack.s, outcome(void,string)) =
       List.fold((u, (le, signed, size, res) ->
                  match res with
@@ -658,24 +838,45 @@ Pack = {{
                  | {success=_} -> pack_u(buf, le, signed, size, u)
                 ), data, (le, signed, size, {success:void}))
 
-    // pack data into binary
-    pack(data:Pack.data) : outcome(binary,string) =
+    /** Create binary and pack with given data.
+     *
+     * Uses [packlen] to predict the size of the binary so the binary size is exact.
+     *
+     * @param data the data value to back into the binary
+     * @return the binary data
+     **/
+    pack(data:Pack.data) : outcome(Pack.t,string) =
       buf = Binary.create(packlen(data))
-      (_, _, _, res) = pack_data(buf, ServerReference.get(defaultEndian), ServerReference.get(defaultInts),
-                                         ServerReference.get(defaultSize), data);
+      (_, _, _, res) = pack_data(buf, ServerReference.get(defaultEndian),
+                                      ServerReference.get(defaultInts),
+                                      ServerReference.get(defaultSize), data);
       match res with
       | {success=_} -> {success=buf}
       | {~failure} -> {~failure}
 
   }}
 
-  // The Ser functions give some Opa-specific versions to enhance the Encode module
-  // Note that these are not necessarily unique, for instance option(a) == {Coded=[({Byte=0},[]),({Byte=1},[<a>])]}
+  /**
+   * {2 Serialize data}
+   *
+   * The Ser functions give some Opa-specific encoding functions to supplement the Encode module.
+   *
+   * Note that these are not necessarily unique, for instance option(a) is basically the same
+   * as: [{Coded=[({Byte=0},[]),({Byte=1},[<a>])]}].
+   **/
   Ser = {{
 
+    /** Pack a Server.reference value.
+     *
+     * eg. [ref(buf, Pack.Encode.bool, bool_ref)]
+     **/
     ref(buf:Pack.t, ea:Pack.t, 'a -> outcome(void,string), r:Server.reference('a)) : outcome(void,string) =
       ea(buf, ServerReference.get(r))
 
+    /** Pack an optional value.
+     *
+     * eg. [option(buf, Pack.Encode.double, {some=1.23})]
+     **/
     option(buf:Pack.t, ea:Pack.t, 'a -> outcome(void,string), oa:option('a)) : outcome(void,string) =
       match oa with
       | {some=a} ->
@@ -685,6 +886,10 @@ Pack = {{
          end
       | {none} -> Encode.uoctet(buf, 0)
 
+    /** Pack a 2-tuple value.
+     *
+     * eg. [option(buf, Pack.Encode.long_be, Pack.Encode.short_be, (123,456))]
+     **/
     tuple2(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -695,6 +900,7 @@ Pack = {{
          eb(buf, b)
       | {~failure} -> {~failure}
 
+    /** Pack a 3-tuple value. **/
     tuple3(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -709,6 +915,7 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
+    /** Pack a 4-tuple value. **/
     tuple4(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -728,6 +935,7 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
+    /** Pack a 5-tuple value. **/
     tuple5(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -752,6 +960,7 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
+    /** Pack a 6-tuple value. **/
     tuple6(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -781,6 +990,7 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
+    /** Pack a 7-tuple value. **/
     tuple7(buf:Pack.t,
            ea:Pack.t, 'a -> outcome(void,string),
            eb:Pack.t, 'b -> outcome(void,string),
@@ -817,53 +1027,71 @@ Pack = {{
 
   }}
 
-  // Decode
+  /**
+   * {2 Decode data}
+   *
+   * This module provides functions to extract values from binary data.
+   * 
+   **/
   Decode = {{
 
-    // char
+    /** Decode single 8-bit byte as a string of length 1 **/
     char(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.char",{binary=data; ~pos})
       if Binary.length(data) >= pos + 1
       then {success=Binary.get_string(data, pos, 1)}
       else {failure="Pack.Decode.char: not enough data for char"}
 
-    // octet
+    /** Decode 8-bit signed integer **/
     octet(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.byte",{binary=data; ~pos})
       if Binary.length(data) >= pos + 1
       then {success=Binary.get_int8(data, pos)}
       else {failure="Pack.Decode.byte: not enough data for byte"}
+
+    /** Decode 8-bit unsigned integer **/
     uoctet(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.byte",{binary=data; ~pos})
       if Binary.length(data) >= pos + 1
       then {success=Binary.get_uint8(data, pos)}
       else {failure="Pack.Decode.byte: not enough data for byte"}
 
+    /** Decode 8-bit integer, signedness as per argument **/
     byte(signed:bool, data:binary, pos:int) : outcome(int,string) =
       if signed then octet(data, pos) else uoctet(data, pos)
 
-    // short
+    /** Decode 16-bit unsigned big-endian integer **/
     ushort_be(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.ushort_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 2
       then {success=Binary.get_uint16_be(data, pos)}
       else {failure="Pack.Decode.ushort_be: not enough data for short"}
+
+    /** Decode 16-bit unsigned little-endian integer **/
     ushort_le(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.ushort_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 2
       then {success=Binary.get_uint16_le(data, pos)}
       else {failure="Pack.Decode.ushort_le: not enough data for short"}
+
+    /** Decode 16-bit signed big-endian integer **/
     short_be(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.short_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 2
       then {success=Binary.get_int16_be(data, pos)}
       else {failure="Pack.Decode.short_be: not enough data for short"}
+
+    /** Decode 16-bit signed little-endian integer **/
     short_le(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.short_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 2
       then {success=Binary.get_int16_le(data, pos)}
       else {failure="Pack.Decode.short_le: not enough data for short"}
 
+    /** Decode 16-bit integer
+     * @param le endianness
+     * @param signed signedness
+     **/
     short(le:bool, signed:bool, data:binary, pos:int): outcome(int,string) =
       match (le, signed) with
       | ({false},{false}) -> ushort_be(data, pos)
@@ -871,28 +1099,38 @@ Pack = {{
       | ({false},{true}) -> short_be(data, pos)
       | ({true},{true}) -> short_le(data, pos)
 
-    // long
+    /** Decode 32-bit signed big-endian integer **/
     long_be(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.long_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_int32_be(data, pos)}
       else {failure="Pack.Decode.long_le: not enough data for long"}
+
+    /** Decode 32-bit signed little-endian integer **/
     long_le(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.long_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_int32_le(data, pos)}
       else {failure="Pack.Decode.long_le: not enough data for long"}
+
+    /** Decode 32-bit unsigned big-endian integer **/
     ulong_be(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.ulong_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_uint32_be(data, pos)}
       else {failure="Pack.Decode.ulong_le: not enough data for long"}
+
+    /** Decode 32-bit unsigned little-endian integer **/
     ulong_le(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.ulong_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_uint32_le(data, pos)}
       else {failure="Pack.Decode.ulong_le: not enough data for long"}
 
+    /** Decode 32-bit integer
+     * @param le endianness
+     * @param signed signedness
+     **/
     long(le:bool, signed:bool, data:binary, pos:int): outcome(int,string) =
       match (le, signed) with
       | ({false},{false}) -> ulong_be(data, pos)
@@ -900,22 +1138,31 @@ Pack = {{
       | ({false},{true}) -> long_be(data, pos)
       | ({true},{true}) -> long_le(data, pos)
 
-    // longlong
+    /** Decode 64-bit signed big-endian integer, resulting integer is in native format **/
     longlong_be(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.longlong_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_int53_be(data, pos)}
       else {failure="Pack.Decode.longlong_le: not enough data for longlong"}
+
+    /** Decode 64-bit signed little-endian integer, resulting integer is in native format **/
     longlong_le(data:binary, pos:int) : outcome(int,string) =
       do pinput("Pack.Decode.longlong_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_int53_le(data, pos)}
       else {failure="Pack.Decode.longlong_le: not enough data for longlong"}
 
+    /** Decode 64-bit integer
+     * @param le endianness
+     **/
     longlong(le:bool, data:binary, pos:int) : outcome(int,string) =
       if le then longlong_le(data, pos) else longlong_be(data, pos)
 
-    // generalised int
+    /** Decode generalised integer
+     * @param le endianness
+     * @param signed signedness
+     * @param size integer width
+     **/
     int(le:bool, signed:bool, s:Pack.s, data:binary, pos:int) : outcome(int,string) =
       match s with
       | {B} -> byte(signed, data, pos) // no endian
@@ -923,36 +1170,61 @@ Pack = {{
       | {L} -> long(le, signed, data, pos)
       | {Ll} -> longlong(le, data, pos) // always signed
 
-    // int64
+    /** Decode 64-bit unsigned little-endian integer, resulting integer is int64 **/
     int64_le(data:binary, pos:int) : outcome(int64,string) =
       do pinput("Pack.Decode.int64_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 8
       then {success=Binary.get_uint64_le(data, pos)}
       else {failure="Pack.Decode.int64_le: not enough data for int64"}
+
+    /** Decode 64-bit unsigned big-endian integer, resulting integer is int64 **/
     int64_be(data:binary, pos:int) : outcome(int64,string) =
       do pinput("Pack.Decode.int64_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 8
       then {success=Binary.get_uint64_be(data, pos)}
       else {failure="Pack.Decode.int64_be: not enough data for int64"}
 
+    /** Decode 64-bit unsigned integer
+     * @param le endianness
+     **/
     int64(le:bool, data:binary, pos:int) : outcome(int64,string) =
       if le then int64_le(data, pos) else int64_be(data, pos)
 
-    // pad
+    /** Skip over a single padding byte **/
     pad(data:binary, pos:int) : outcome(void,string) =
       do pinput("Pack.Decode.pad",{binary=data; ~pos})
       if Binary.length(data) >= pos + 1
       then {success=void}
       else {failure="Pack.Decode.pad: not enough data for padding"}
 
-    // padn
+    /** Skip over n padding bytes
+     * @param data binary data
+     * @param pos position in binary data
+     * @param n number of bytes to skip
+     **/
     padn(data:binary, pos:int, n:int) : outcome(void,string) =
       do pinput("Pack.Decode.padn({n})",{binary=data; ~pos})
       if Binary.length(data) >= pos + n
       then {success=void}
       else {failure="Pack.Decode.padn: not enough data for padding"}
 
-    // bool
+    /** Skip up to given boundary.
+     * @param data binary data
+     * @param pos position in binary data
+     * @param n the boundary value
+     * @return the actual number of bytes skipped
+     **/
+    boundary(data:binary, pos:int, n:int) : outcome(int,string) =
+      if n <= 0
+      then {success=0}
+      else
+        do pinput("Pack.Decode.boundary({n})",{binary=data; ~pos})
+        padding = bound(pos, n)
+        if Binary.length(data) >= pos + padding
+        then {success=padding}
+        else {failure="Pack.Decode.boundary: not enough data for padding"}
+
+    /** Decode single byte as bool, 0 means false, true otherwise **/
     bool(data:binary, pos:int) : outcome(bool,string) =
       do pinput("Pack.Decode.bool",{binary=data; ~pos})
       if Binary.length(data) >= pos + 1
@@ -971,7 +1243,7 @@ Pack = {{
           else aux(i+1)
       aux(0)
 
-    // cstring
+    /** Decode null-terminated string from data, searches forward for null **/
     cstring(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.cstring",{binary=data; ~pos})
       match clen(data, pos) with
@@ -982,7 +1254,7 @@ Pack = {{
       | {none} ->
         {failure="Pack.Decode.cstring: can't find null"}
 
-    //bytestr
+    /** Decode 8-bit integer size-prefixed string */
     string_b(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_b",{binary=data; ~pos})
       match uoctet(data, pos) with
@@ -992,7 +1264,7 @@ Pack = {{
         else {failure="Pack.Decode.string_b: not enough data for string"}
       | {~failure} -> {~failure}
 
-    //shortstr
+    /** Decode 16-bit big-endian integer size-prefixed string */
     string_s_be(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_s_be",{binary=data; ~pos})
       match short_be(data, pos) with
@@ -1001,6 +1273,8 @@ Pack = {{
         then {success=Binary.get_string(data, pos + 2, len)}
         else {failure="Pack.Decode.string_s_be: not enough data for string"}
       | {~failure} -> {~failure}
+
+    /** Decode 16-bit big-endian integer size-prefixed string */
     string_s_le(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_s_le",{binary=data; ~pos})
       match short_le(data, pos) with
@@ -1010,10 +1284,13 @@ Pack = {{
         else {failure="Pack.Decode.string_s_le: not enough data for string"}
       | {~failure} -> {~failure}
 
+    /** Decode 16-bit integer size-prefixed string
+     * @param le endianness
+     **/
     string_s(le:bool, data:binary, pos:int) : outcome(string,string) =
       if le then string_s_le(data, pos) else string_s_be(data, pos)
 
-    //longstr
+    /** Decode 32-bit big-endian integer size-prefixed string */
     string_l_be(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_l_be",{binary=data; ~pos})
       match long_be(data, pos) with
@@ -1022,6 +1299,8 @@ Pack = {{
         then {success=Binary.get_string(data, pos + 4, len)}
         else {failure="Pack.Decode.string_l_be: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
+
+    /** Decode 32-bit little-endian integer size-prefixed string */
     string_l_le(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_l_le",{binary=data; ~pos})
       match long_le(data, pos) with
@@ -1031,10 +1310,13 @@ Pack = {{
         else {failure="Pack.Decode.string_l_le: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
 
+    /** Decode 32-bit integer size-prefixed string
+     * @param le endianness
+     **/
     string_l(le:bool, data:binary, pos:int) : outcome(string,string) =
       if le then string_l_le(data, pos) else string_l_be(data, pos)
 
-    //longlongstr
+    /** Decode 64-bit big-endian integer size-prefixed string */
     string_ll_be(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_ll_be",{binary=data; ~pos})
       match longlong_be(data, pos) with
@@ -1043,6 +1325,8 @@ Pack = {{
         then {success=Binary.get_string(data, pos + 8, len)}
         else {failure="Pack.Decode.string_ll_be: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
+
+    /** Decode 64-bit little-endian integer size-prefixed string */
     string_ll_le(data:binary, pos:int) : outcome(string,string) =
       do pinput("Pack.Decode.string_ll_le",{binary=data; ~pos})
       match longlong_le(data, pos) with
@@ -1052,9 +1336,16 @@ Pack = {{
         else {failure="Pack.Decode.string_ll_le: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
 
+    /** Decode 64-bit integer size-prefixed string
+     * @param le endianness
+     **/
     string_ll(le:bool, data:binary, pos:int) : outcome(string,string) =
       if le then string_ll_le(data, pos) else string_ll_be(data, pos)
 
+    /** Decode generalised string
+     * @param le endianness
+     * @param size integer width
+     **/
     // generalised string
     string(le:bool, size:Pack.s, data:binary, pos:int) : outcome(string,string) =
       match size with
@@ -1063,42 +1354,67 @@ Pack = {{
       | {L} -> string_l(le, data, pos)
       | {Ll} -> string_ll(le, data, pos)
 
-    // float32
+    /** Decode 32-bit little-endian float */
     float_le(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.float_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_float_le(data, pos)}
       else {failure="Pack.Decode.float_le: not enough data for float"}
+
+    /** Decode 32-bit big-endian float */
     float_be(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.float_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_float_be(data, pos)}
       else {failure="Pack.Decode.float_be: not enough data for float"}
 
+    /** Decode 32-bit float
+     * @param le endianness
+     **/
     float(le:bool, data:binary, pos:int) : outcome(float,string) =
       if le then float_le(data, pos) else float_be(data, pos)
 
-    // float
+    /** Decode 64-bit little-endian float */
     double_le(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.double_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 8
       then {success=Binary.get_double_le(data, pos)}
       else {failure="Pack.Decode.double_le: not enough data for double"}
+
+    /** Decode 64-bit big-endian float */
     double_be(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.double_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 8
       then {success=Binary.get_double_be(data, pos)}
       else {failure="Pack.Decode.double_be: not enough data for double"}
 
+    /** Decode 64-bit float
+     * @param le endianness
+     **/
     double(le:bool, data:binary, pos:int) : outcome(float,string) =
       if le then double_le(data, pos) else double_be(data, pos)
 
     @private mksla(lora:bool, typ:Pack.data, l:list(Pack.data)) : Pack.u =
       if lora then {List=(typ,l)} else {Array=(typ,LowLevelArray.of_list(l))}
 
-    // list
-    list(lora:bool, le:bool, signed:bool, s:Pack.s, typ:Pack.data, bin:binary, pos:int, data:Pack.data)
-         : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+    /** Decode list or array of data.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param lora true means List, false means Array
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param s the initial width for integers
+     * @param typ proforma value for list/array elements
+     * @param pos position in the binary data
+     * @param data the resultant data is added to the start of this data element (used to accumulate)
+     * @return the final endianness, signedness, integer width and buffer position
+     *         plus an outcome of either a [{List}] or [{Array}] item containing the data items read in.
+     **/
+    list(lora:bool, le:bool, signed:bool, s:Pack.s, typ:Pack.data, bin:binary, pos:int)
+         : outcome((bool, bool, Pack.s, int, Pack.u),string) =
       do pinput("Pack.Decode.list",{binary=bin; ~pos})
       match mksize(s, 0) with
       | {success=size} ->
@@ -1108,7 +1424,7 @@ Pack = {{
           | {success=len} ->
             rec aux(i, l, pos) =
               if i == len
-              then {success=(le, signed, s, pos, [mksla(lora, typ, List.rev(l))|data])}
+              then {success=(le, signed, s, pos, mksla(lora, typ, List.rev(l)))}
               else
                 match unpack(typ, bin, pos) with
                 | {success=(npos,ndata)} -> aux(i+1, [ndata|l], npos)
@@ -1122,21 +1438,38 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
-    // coded
-    coded(codes, bin, pos) =
+    @private unpack_list(lora:bool, le:bool, signed:bool, size:Pack.s, typ:Pack.data, bin:binary, pos:int, data:Pack.data)
+                        : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+      match list(lora, le, signed, size, typ, bin, pos) with
+      | {success=(le, signed, size, npos, item)} -> {success=(le, signed, size, npos, [item|data])}
+      | {~failure} -> {~failure}
+
+    /** Decode a coded value.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param codes The list of recognised codes and matching data
+     * @return A triple of the final buffer position, the actual matched code and the resulting data.
+     **/
+    coded(codes:Pack.codes, bin:Pack.t, pos:int) : outcome((int, Pack.u, Pack.data),string) =
       match codes with
       | [] -> {failure="Pack.Decode.coded: no codes"}
       | [(code1,data1)|codes] ->
-         (match unpack([code1], bin, pos) with
-          | {success=(npos,[code])} ->
-            (match List.assoc(code, [(code1,data1)|codes]) with
-             | {some=cdata} ->
-                (match unpack(cdata, bin, npos) with
-                 | {success=(npos,ndata)} -> {success=(npos, code, ndata)}
-                 | {~failure} -> {failure="Pack.Decode.coded: bad data {failure}"})
-             | {none} -> {failure="Pack.Decode.coded: missing code {code}"})
-          | {success=_} -> {failure="Pack.Decode.coded: multiple decodings"}
-          | {~failure} -> {failure="Pack.Decode.coded: bad code {failure}"})
+         if valid_code(code1)
+         then
+           (match unpack([code1], bin, pos) with
+            | {success=(npos,[code])} ->
+              (match List.assoc(code, [(code1,data1)|codes]) with
+               | {some=cdata} ->
+                  (match unpack(cdata, bin, npos) with
+                   | {success=(npos,ndata)} -> {success=(npos, code, ndata)}
+                   | {~failure} -> {failure="Pack.Decode.coded: bad data {failure}"})
+               | {none} -> {failure="Pack.Decode.coded: missing code {code}"})
+            | {success=_} -> {failure="Pack.Decode.coded: multiple decodings"}
+            | {~failure} -> {failure="Pack.Decode.coded: bad code {failure}"})
+          else {failure="Pack.Decode.coded: bad code {code1}"}
 
     @private unpack_coded(codes, data, le, signed, size, bin, pos) =
       match coded(codes, bin, pos) with
@@ -1179,7 +1512,7 @@ Pack = {{
       | {~failure} -> {~failure}
 
     // Unpack item
-    unpack_u(bin:binary, u:Pack.u, acc) =
+    @private unpack_item(bin:binary, u:Pack.u, acc) =
       match acc with
       | {~failure} -> {~failure}
       | {success=(le, signed, size, pos, data)} ->
@@ -1232,6 +1565,10 @@ Pack = {{
             (match padn(bin, pos, Padn) with
              | {success=_} -> {success=(le, signed, size, pos+Padn, [{~Padn}|data])}
              | {~failure} -> {~failure})
+         | {~Bound} ->
+            (match boundary(bin, pos, Bound) with
+             | {success=padding} -> {success=(le, signed, size, pos+padding, [{~Bound}|data])}
+             | {~failure} -> {~failure})
          | {Void} ->
             (match pad(bin, pos) with
              | {success=_} -> {success=(le, signed, size, pos+1, [{Void}|data])}
@@ -1255,17 +1592,50 @@ Pack = {{
              | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float}|data])}
              | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
-         | {List=(typ,_)} -> list(true, le, signed, size, typ, bin, pos, data)
-         | {Array=(typ,_)} -> list(false, le, signed, size, typ, bin, pos, data))
+         | {List=(typ,_)} -> unpack_list(true, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_)} -> unpack_list(false, le, signed, size, typ, bin, pos, data))
 
-    // unpack data
-    unpack(data:Pack.data, bin:binary, pos:int) : outcome((int,Pack.data),string) =
+    /** Decode single item.
+     *
+     * Since this function is out of context and packing data can change the
+     * endianness, signedness or integer width, you have to pass these in.
+     * The return value includes the final context.
+     *
+     * @param le initial endianness (true=little endian)
+     * @param signed initial signedness (true=signed)
+     * @param size the initial width for integers
+     * @param bin the binary data
+     * @param pos position in the binary data
+     * @param u the item specification
+     * @return the final endianness, signedness, integer width and buffer position
+     *         plus an outcome of the item read in
+     **/
+    unpack_u(le:bool, signed:bool, size:Pack.s, bin:Pack.t, pos:int, u:Pack.u)
+            : outcome((bool, bool, Pack.s, int, Pack.u),string) =
+      match unpack_item(bin, u, {success=(le, signed, size, pos, [])}) with
+      | {success=(le, signed, size, pos, [item])} -> {success=(le, signed, size, pos, item)}
+      | {success=(_, _, _, _, [])} -> {failure="Pack.Decode.unpack_u: no items"}
+      | {success=(_, _, _, _, _)} -> {failure="Pack.Decode.unpack_u: multiple items"}
+      | {~failure} -> {~failure}
+
+    /** Decode data.
+     *
+     * Read in data starting with the default endianness, signedness and size from
+     * the given binary data and position.
+     * Note that empty data is not considered an error and will return empty data plus the current position.
+     *
+     * @param data the data specification
+     * @param bin the binary data
+     * @param pos position in the binary data
+     * @return an outcome of the final buffer position and the data read in
+     **/
+    unpack(data:Pack.data, bin:Pack.t, pos:int) : outcome((int,Pack.data),string) =
       do pinput("Pack.Decode.unpack",{binary=bin; ~pos})
       if data == []
       then {success=(pos,[])}
       else
         match
-          List.fold(unpack_u(bin, _, _),
+          List.fold(unpack_item(bin, _, _),
                     data, {success=(ServerReference.get(defaultEndian),
                                     ServerReference.get(defaultInts),
                                     ServerReference.get(defaultSize), pos, [])})
@@ -1274,7 +1644,7 @@ Pack = {{
         | {~failure} -> {~failure}
 
     // meaningful entities
-    has_data(u:Pack.u) : option(Pack.u) =
+    @private has_data(u:Pack.u) : option(Pack.u) =
       match u with
       | {Be} -> none
       | {Le} -> none
@@ -1294,6 +1664,7 @@ Pack = {{
       | {Int64=_} -> {some=u}
       | {Pad} -> none
       | {Padn=_} -> none
+      | {Bound=_} -> none
       | {Void} -> {some=u}
       | {Bool=_} -> {some=u}
       | {Cstring=_} -> {some=u}
@@ -1304,20 +1675,48 @@ Pack = {{
       | {List=_} -> {some=u}
       | {Array=_} -> {some=u}
 
-    // cleanup elements with no data
+    /** Cleanup elements with no data
+     *
+     * All directives, padding and non-data items are filtered out.
+     * Note that in situ directives (eg. {Int=1; size={S}}) are also removed.
+     **/
     clean(data:Pack.data) = List.filter_map(has_data, data)
 
   }}
 
-  // The Unser functions provide a compositional functional decode over the Pack.input type
+  /**
+   * {2 Unserialize data}
+   *
+   * The Unser functions provide a compositional functional decode over the Pack.input type.
+   *
+   * You can create a Pack.input value from binary data by: [{binary=data; pos=0}] or you
+   * can use the top-level start function provided here ([Pack.Unser.unser]).
+   *
+   * The idea here is that you can compose these functions:
+   *
+   * [unser_bi = Pack.Unser.tuple2(_, Pack.Unser.bool, Pack.Unser.short_be)]
+   *
+   * In general, these functions return a [Pack.result] type, which is an outcome of
+   * an update [Pack.input] type plus the value read in.
+   **/
   Unser = {{
 
+    /** Unpack char **/
     char(input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.char", input)
       match Decode.char(input.binary, input.pos) with
       | {success=c} -> {success=({input with pos=input.pos+1},c)}
       | {~failure} -> {~failure}
 
+    /** Unpack generalized int.
+     *
+     * @param le endianness (true=little endian)
+     * @param signed signedness (true=signed)
+     * @param size the width for integers
+     * @param input the input value
+     * @param pos position in the binary data
+     * @return an int Pack.result
+     **/
     int(le:bool, signed:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
       do pinput("Pack.Unser.int", input)
       match Decode.int(le, signed, size, input.binary, input.pos) with
@@ -1325,102 +1724,232 @@ Pack = {{
       | {~failure} -> {~failure}
 
     byte(signed:bool, input:Pack.input) = int(noEndian, signed, {B}, input)
+
+    /** Unpack signed 8-bit int **/
     octet(input:Pack.input) = byte(signedInts, input)
+
+    /** Unpack unsigned 8-bit int **/
     uoctet(input:Pack.input) = byte(unsignedInts, input)
+
+    /** Unpack 16-bit int.
+     *
+     * @param le endianness (true=little endian)
+     * @param signed signedness (true=signed)
+     * @param input the input value
+     * @return an int Pack.result
+     **/
     short(le:bool, signed:bool, input:Pack.input) = int(le, signed, {S}, input)
+
+    /** Unpack signed 16-bit little-endian int **/
     short_le(input:Pack.input) = int(littleEndian, signedInts, {S}, input)
+
+    /** Unpack signed 16-bit big-endian int **/
     short_be(input:Pack.input) = int(bigEndian, signedInts, {S}, input)
+
+    /** Unpack unsigned 16-bit little-endian int **/
     ushort_le(input:Pack.input) = int(littleEndian, unsignedInts, {S}, input)
+
+    /** Unpack unsigned 16-bit big-endian int **/
     ushort_be(input:Pack.input) = int(bigEndian, unsignedInts, {S}, input)
+
+    /** Unpack 32-bit int.
+     *
+     * @param le endianness (true=little endian)
+     * @param signed signedness (true=signed)
+     * @param input the input value
+     * @return an int Pack.result
+     **/
     long(le:bool, signed:bool, input:Pack.input) = int(le, signed, {L}, input)
+
+    /** Unpack signed 32-bit little-endian int **/
     long_le(input:Pack.input) = int(littleEndian, signedInts, {L}, input)
+
+    /** Unpack signed 32-bit big-endian int **/
     long_be(input:Pack.input) = int(bigEndian, signedInts, {L}, input)
+
+    /** Unpack unsigned 32-bit little-endian int **/
     ulong_le(input:Pack.input) = int(littleEndian, unsignedInts, {L}, input)
+
+    /** Unpack unsigned 32-bit big-endian int **/
     ulong_be(input:Pack.input) = int(bigEndian, unsignedInts, {L}, input)
+
+    /** Unpack 64-bit int into native int.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return an int Pack.result
+     **/
     longlong(le:bool, input:Pack.input) = int(le, signedInts, {Ll}, input)
+
+    /** Unpack signed 64-bit little-endian int as native int **/
     longlong_le(input:Pack.input) = int(littleEndian, signedInts, {Ll}, input)
+
+    /** Unpack signed 64-bit big-endian int as native int **/
     longlong_be(input:Pack.input) = int(bigEndian, signedInts, {Ll}, input)
 
+    /** Unpack unsigned 64-bit int into int64.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return an int64 Pack.result
+     **/
     int64(le:bool, input:Pack.input) : Pack.result(int64) =
       do pinput("Pack.Unser.int64", input)
       match Decode.int64(le, input.binary, input.pos) with
       | {success=i64} -> {success=({input with pos=input.pos+8},i64)}
       | {~failure} -> {~failure}
 
+    /** Unpack unsigned 64-bit little-endian int as int64 **/
     int64_le(input:Pack.input) = int64(true, input)
+
+    /** Unpack unsigned 64-bit big-endian int as int64 **/
     int64_be(input:Pack.input) = int64(false, input)
 
+    /** Unpack 32-bit float.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return a float Pack.result
+     **/
     float32(le:bool, input:Pack.input) : Pack.result(float) =
       do pinput("Pack.Unser.float", input)
       match Decode.float(le, input.binary, input.pos) with
       | {success=f} -> {success=({input with pos=input.pos+8},f)}
       | {~failure} -> {~failure}
 
+    /** Unpack 64-bit float.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return a float Pack.result
+     **/
     float(le:bool, input:Pack.input) : Pack.result(float) =
       do pinput("Pack.Unser.float", input)
       match Decode.double(le, input.binary, input.pos) with
       | {success=f} -> {success=({input with pos=input.pos+8},f)}
       | {~failure} -> {~failure}
 
+    /** Unpack null-terminated string **/
     cstring(input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.cstring", input)
       match Decode.cstring(input.binary, input.pos) with
       | {success=s} -> {success=({input with pos=input.pos+1+String.length(s)},s)}
       | {~failure} -> {~failure}
 
+    /** Unpack size-prefixed string.
+     *
+     * @param le endianness (true=little endian)
+     * @param size the width for integers
+     * @param input the input value
+     * @return a string Pack.result
+     **/
     string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.string", input)
       match Decode.string(le, size, input.binary, input.pos) with
       | {success=s} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
       | {~failure} -> {~failure}
 
+    /** Unpack 8-bit int-prefixed string **/
     string_b(input:Pack.input) = string(false, {B}, input)
+
+    /** Unpack short-prefixed string.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return a string Pack.result
+     **/
     string_s(le:bool, input:Pack.input) = string(le, {S}, input)
+
+    /** Unpack 16-bit little-endian int-prefixed string **/
     string_s_le(input:Pack.input) = string(true, {S}, input)
+
+    /** Unpack 16-bit big-endian int-prefixed string **/
     string_s_be(input:Pack.input) = string(false, {S}, input)
+
+    /** Unpack long-prefixed string.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return a string Pack.result
+     **/
     string_l(le:bool, input:Pack.input) = string(le, {L}, input)
+
+    /** Unpack 32-bit little-endian int-prefixed string **/
     string_l_le(input:Pack.input) = string(true, {L}, input)
+
+    /** Unpack 32-bit big-endian int-prefixed string **/
     string_l_be(input:Pack.input) = string(false, {L}, input)
+
+    /** Unpack longlong-prefixed string.
+     *
+     * @param le endianness (true=little endian)
+     * @param input the input value
+     * @return a string Pack.result
+     **/
     string_ll(le:bool, input:Pack.input) = string(le, {Ll}, input)
+
+    /** Unpack 64-bit little-endian int-prefixed string **/
     string_ll_le(input:Pack.input) = string(true, {Ll}, input)
+
+    /** Unpack 64-bit big-endian int-prefixed string **/
     string_ll_be(input:Pack.input) = string(false, {Ll}, input)
 
+    /** Skip one byte of input **/
     pad(input:Pack.input) : Pack.result(void) =
       do pinput("Pack.Unser.pad", input)
       match Decode.pad(input.binary, input.pos) with
       | {success=_} -> {success=({input with pos=input.pos+1},void)}
       | {~failure} -> {~failure}
 
+    /** Skip n bytes of input **/
     padn(n:int, input:Pack.input) : Pack.result(void) =
       do pinput("Pack.Unser.padn({n})", input)
       match Decode.padn(input.binary, input.pos, n) with
       | {success=_} -> {success=({input with pos=input.pos+1},void)}
       | {~failure} -> {~failure}
 
+    /** Unpack single byte into bool **/
     bool(input:Pack.input) : Pack.result(bool) =
       do pinput("Pack.Unser.bool", input)
       match Decode.bool(input.binary, input.pos) with
       | {success=b} -> {success=({input with pos=input.pos+1},b)}
       | {~failure} -> {~failure}
 
+    /** Unpack coded value **/
     coded(codes:Pack.codes, input:Pack.input) : Pack.result(Pack.data) =
       do pinput("Pack.Unser.coded", input)
       match Decode.coded(codes, input.binary, input.pos) with
       | {success=(pos, _code, data)} -> {success=({input with ~pos},data)}
       | {~failure} -> {~failure}
 
+    /** Unpack reference value.
+     * @param a function to unpack the value
+     * @param input the input value
+     * @result a Pack.result of a reference to the type returned by the unpack function, the reference is fresh
+     **/
     ref(a:Pack.input -> Pack.result('a), input:Pack.input) : Pack.result(Server.reference('a)) =
       do pinput("Pack.Unser.ref", input)
       match a(input) with
       | {success=(input,a)} -> {success=(input,ServerReference.create(a))}
       | {~failure} -> {~failure}
 
+    /** Unpack into reference value.
+     * @param a function to unpack the value
+     * @param r reference value
+     * @param input the input value
+     * @result a void Pack.result, the value read in is used to update the reference
+     **/
     setref(a:Pack.input -> Pack.result('a), r:Server.reference('a), input:Pack.input) : Pack.result(void) =
       do pinput("Pack.Unser.setref", input)
       match a(input) with
       | {success=(input,a)} -> do ServerReference.set(r,a) {success=(input,void)}
       | {~failure} -> {~failure}
 
+    /** Unpack optional value.
+     * @param a function to unpack the value
+     * @param input the input value
+     * @result a Pack.result of an option of the type returned by the unpack function
+     **/
     option(a:Pack.input -> Pack.result('a), input:Pack.input): Pack.result(option('a)) =
       do pinput("Pack.Unser.option", input)
       match Decode.byte(false, input.binary, input.pos) with
@@ -1433,6 +1962,13 @@ Pack = {{
       | {success=n} -> {failure="Pack.Unser.option: bad option code {n}"}
       | {~failure} -> {~failure}
 
+    /** Unpack list of values.
+     * @param a function to unpack the values
+     * @param le endianness (true=little endian) of the list prefix
+     * @param size the width for the list prefix
+     * @param input the input value
+     * @result a Pack.result of a list of values of the type returned by the unpack function
+     **/
     list(a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, input:Pack.input) : Pack.result(list('a)) =
       do pinput("Pack.Unser.list", input)
       match int(le, false, size, input) with
@@ -1449,6 +1985,13 @@ Pack = {{
          aux(input, 0, [])
       | {~failure} -> {~failure}
 
+    /** Unpack array of values.
+     * @param a function to unpack the values
+     * @param le endianness (true=little endian) of the list prefix
+     * @param size the width for the list prefix
+     * @param input the input value
+     * @result a Pack.result of an array of values of the type returned by the unpack function
+     **/
     array(a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, def:'a, input:Pack.input) : Pack.result(llarray('a)) =
       do pinput("Pack.Unser.array", input)
       match int(le, false, size, input) with
@@ -1468,6 +2011,12 @@ Pack = {{
          aux(input, 0)
       | {~failure} -> {~failure}
 
+    /** Unpack 2-tuple of values.
+     * @param input the input value
+     * @param a function to unpack the first value
+     * @param b function to unpack the second value
+     * @result a Pack.result of a tuple of the two values
+     **/
     tuple2(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b)) : Pack.result(('a,'b)) =
@@ -1481,6 +2030,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack a 3-tuple of values **/
     tuple3(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b),
@@ -1499,6 +2049,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack a 4-tuple of values **/
     tuple4(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b),
@@ -1522,6 +2073,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack a 5-tuple of values **/
     tuple5(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b),
@@ -1550,6 +2102,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack a 6-tuple of values **/
     tuple6(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b),
@@ -1583,6 +2136,7 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack a 7-tuple of values **/
     tuple7(input:Pack.input,
            a:Pack.input -> Pack.result('a),
            b:Pack.input -> Pack.result('b),
@@ -1621,6 +2175,12 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
+    /** Unpack value from binary data.
+     * @param a function to extract the data from the binary
+     * @param binary the binary data
+     * @param use_all_data when true then all the data in the binary must be used or en error is returned
+     * @result an outcome of the value extracted or a string error message
+     **/
     unser(a:Pack.input -> Pack.result('a), binary:binary, use_all_data:bool) : outcome('a,string) =
       input = {~binary; pos=0}
       do pinput("Pack.Unser.unser", input)
@@ -1634,6 +2194,7 @@ Pack = {{
          else {success=a}
       | {~failure} -> {~failure}
 
+    /** Same as Pack.Unser.unser, except that the binary data is copied from a string **/
     from_string(a:Pack.input -> Pack.result('a), str:string, use_all_data:bool) : outcome('a,string) =
       unser(a, binary_of_string(str), use_all_data)
 
