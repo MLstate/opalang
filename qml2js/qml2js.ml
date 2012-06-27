@@ -306,7 +306,7 @@ check-node-dependencies \"mongodb formidable nodemailer imap\" || exit $?
 EOF
 
 if [ $? -ne 0 ]; then exit $?; fi;
-node NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" \"$0\" \"$@\"; exit $?;
+NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?;
 */
 
 ";
