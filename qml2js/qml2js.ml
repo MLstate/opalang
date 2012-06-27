@@ -274,9 +274,38 @@ struct
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
-    Printf.fprintf oc "#!/usr/bin/env sh
+    Printf.fprintf oc "#!/usr/bin/env bash
 
-/*usr/bin/env node \"$0\" \"$@\"; exit $?;*/
+/*usr/bin/env bash <<'EOF'
+
+if ! which node &>/dev/null; then
+    echo \"--> node.js missing, please install nodejs from: http://nodejs.org\"
+    exit 1
+fi;
+
+if ! which npm &>/dev/null; then
+    echo \"--> npm missing, please install npm first\"
+    exit 1
+fi
+
+function check-node-dependency() (
+    echo \"Checking $1\"
+    if ! npm list | grep -q \"$1\" && ! npm list -g | grep -q \"$1\"; then
+	echo \"--> $1 missing, please run: npm install $1\"
+        exit 1
+    fi
+)
+
+check-node-dependency \"mongodb\" || exit $?
+check-node-dependency \"formidable\" || exit $?
+check-node-dependency \"nodemailer\" || exit $?
+check-node-dependency \"imap\" || exit $?
+
+EOF
+
+if [ $? -ne 0 ]; then exit $?; fi;
+node \"$0\" \"$@\"; exit $?;
+*/
 
 ";
     linking_generation_js_init generated_files env_js_input oc;
