@@ -692,6 +692,7 @@ object(self)
         | None -> pps f (safe_str (Ident.stident e))
         | Some _name ->
             pp f "%s"
+              (*safe_str name*)
               (safe_str (Ident.stident e))
         end
     | J.Native (_, s) -> pps f s
@@ -699,42 +700,29 @@ object(self)
   method private toplvl_statement f s =
     match s with
     | J.Js_var (_, ident, o) -> (
-        let pprhs () =
-            match o with
-            | None -> pp f ";"
-            | Some expr ->
-                pp f " = %a;" (self#pexpr ~leading:false pAssignment) expr
-        in
-        match ident with
-        | J.Native (`global, i) ->
-            pp f "global.%s" i;
-            pprhs ()
-        | J.Native _ ->
-            super#statement f s
-        | J.ExprIdent i ->
-            match Ident.safe_get_package_name i with
-            | None -> super#statement f s
-            | Some _ ->
-                pp f "global.%a" self#ident ident;
-                pprhs ()
+        match o with
+        | None -> super#statement f s
+        | Some expr ->
+            match ident with
+            | J.Native _ -> super#statement f s
+            | J.ExprIdent i ->
+                match Ident.safe_get_package_name i with
+                | None -> super#statement f s
+                | Some _ ->
+                    pp f "global.%a = %a;"
+                      self#ident ident
+                      (self#pexpr ~leading:false pAssignment) expr
       )
     | J.Js_function (l, ident, params, body) -> (
-        let pprhs () =
-          pp f " = %a;"
-            (self#expr ~leading:false) (J.Je_function (l, None, params, body))
-        in
         match ident with
-        | J.Native (`global, i) ->
-            pp f "global.%s" i;
-            pprhs ()
-        | J.Native (`local, _) ->
-            super#statement f s
+        | J.Native _ -> super#statement f s
         | J.ExprIdent i ->
             match Ident.safe_get_package_name i with
             | None -> super#statement f s
             | Some _ ->
-                pp f "global.%a" self#ident ident;
-                pprhs ()
+                pp f "global.%a = %a"
+                  self#ident ident
+                  (self#expr ~leading:false) (J.Je_function (l, None, params, body))
       )
     | _ -> self#statement f s
 
