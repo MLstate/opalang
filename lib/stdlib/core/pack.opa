@@ -21,12 +21,96 @@
  * @destination EXTERNAL
  */
 
+/**
+ * {1 About this module}
+ *
+ * This module provides a convenient method for defining structured binary data.
+ * You define the structure of the data with a [Pack.data] type, for example:
+ *
+ * data = [[{Cstring="abc"}, {Int=123}, {Bool=true}, {Pad}]]
+ *
+ * This defines a binary data of a null-terminated string, followed by an integer
+ * which uses the default endianness, signedness and width, followed by a single
+ * byte representing a bool, followed by a single byte of padding.
+ *
+ * To pack this data into a binary type, we would just do: [Pack.Encode.pack(data)],
+ * which would return the binary data:
+ *
+ * [0000 61 62 63 00 00 00 00 7b 01 00                    abc....{..]
+ *
+ * Given this binary data, you can decode the buffer using: [Pack.Decode.unpack(binary)]
+ * which will return a [Pack.data] type exactly as above.
+ *
+ * The specification includes directives which can be embedded in the data, for example if you had
+ * big-endian, signed 16-bit integers, you coud specify: [[{Be}, {Signed}, {S}, ...]]
+ *
+ * {S} stands for "short", ie. 16-bits.  For [{Int}] and [{String}], you can add the
+ * directives locally, for example: [{Int=1; size={Ll}; signed=false}].
+ *
+ * To remove these directives, just leaving items with data, you can call [Pack.Decode.clean].
+ *
+ * {1 Where should I start?}
+ *
+ * Start by looking at the [Pack.u] type which contains all the directives and
+ * basic types.  In general, the functions in the Encode and Decode modules shadow
+ * the rows in this type, with aggregated equivalents for convenience, for example,
+ * a string whose side is indicated by a big-endian, 16-bit integer, will be "string_s_le".
+ *
+ * The main modules are Encode and Decode which are the mirror-image of each other but there
+ * is also a composable, functional interface for decoding called Unser.  This has some
+ * additional functions for Opa-specific types such as options and references.  The mirror
+ * image of this, the Ser module, is mostly covered by Encode but Ser provides the additional
+ * functions to mirror Unser.
+ *
+ * {1 What if I need more?}
+ *
+ * There are probably many other types which could be supported but you can write your own
+ * packing, unpacking routines using the routines from the underlying Binary module.
+ *
+ */
+
+/**
+ * {1 Types defined in this module}
+ */
+
+/**
+ * The type of binary data, [Pack.t] is just binary.
+**/
 type Pack.t = binary
 
-// TODO: multibyte characters
-
+/**
+ * Type representing size directives: [{B}]=8-bits, [{S}]=16-bits, [{L}]=32-bits, [{Ll}]=64-bits
+**/
 type Pack.s = {B} / {S} / {L} / {Ll}
 
+/**
+ * [Pack.codes] is for data-dependent encode/decode.  Data is packed according to
+ * the codes: [[(code1,data1),...]].  On decode, the code is read in and the following
+ * data is decoded according to the matching code-data pair.
+ **/
+type Pack.codes = list((Pack.u, Pack.data))
+
+/**
+ * [Pack.u] is the main type defining primitive items to be encoded/decoded.
+ *
+ * Directives are: [{Be}] and [{Le}] for endianness, [{Signed}] and [{Unsigned}] for
+ * signedness of integers and [{B}], [{S}], [{L}] and [{Ll}] for integer width (which are
+ * reproduced in the [Pack.s] type.
+ *
+ * Basic data types are: [{Byte}] for 8-bit integers, [{Short}] for 16-bit integers,
+ * [{Long}] for 32-bit integers, [{Longlong}] for 64-bit integers, [{Int}] for generic
+ * integers (controlled by the directives), [{Int64}] for 64-bit integers on the Opa side,
+ * [{Cstring}] for null-terminated strings, [{String}] for generic, size-prefixed strings,
+ * where the size data is controlled by the directives, [{Bool}] for a single-byte value
+ * representing a bool, [{Float32}] for 32-bit floats and [{Float}] for 64-bit floats.
+ *
+ * Aggregate data types are: [{List}] for lists of data, [{Array}] for arrays and [{Coded}]
+ * for data-dependent encoding.
+ *
+ * Other utility types include: [{Pad}] for a single null-padding byte, [{Padn}] for a series
+ * of null-padding bytes, [{Char}] which is just a single-character string and [{Void}] which
+ * is present for cosmetic purposes.
+ **/
 type Pack.u =
    {Be}
  / {Le}
@@ -55,53 +139,95 @@ type Pack.u =
  / {String:string; size:Pack.s}
  / {Float32:float}
  / {Float:float}
- / {Coded:list((Pack.u, Pack.data))}
+ / {Coded:Pack.codes}
  / {List:(Pack.data,list(Pack.data))}
  / {Array:(Pack.data,llarray(Pack.data))}
- /// TODO: {Record:list((field_name,field_type,data))} // <-- problem, type vars
+// Other possibilities...
+// / {Boundary:int} // <-- arrange to fill up to boundary
+// / {Record:list((field_name,field_type,data))} // <-- problem, type vars
 
+/**
+ * [Pack.data] is the main specification type but it is just a list of the [Pack.u]
+ * item types.
+ **/
 type Pack.data = list(Pack.u)
 
+/**
+ * [Pack.input] is a specialised type which wraps the input binary plus
+ * a position.  It is used by the Unser module.
+ **/
 type Pack.input = { binary:binary; pos:int }
 
+/**
+ * [Pack.result] is the result type for the Unser module.
+ **/
 type Pack.result('a) = outcome((Pack.input,'a),string)
 
+/**
+ * {1 Interface}
+ */
 Pack = {{
 
   // For debugging buffer contents
   @private memdump = (%% BslPervasives.memdump %%: string -> string)
 
+  /**
+   * A reference bool for dynamically switching debug output on and off.
+   **/
   debug = ServerReference.create(false)
 
-  // convenience values
+  /** Convenience value for little Endian values **/
   littleEndian = true
-  bigEndian = false
-  defaultEndian = ServerReference.create(bigEndian)
-  signedInts = true
-  unsignedInts = false
-  defaultInts = ServerReference.create(signedInts)
-  sizeByte = {B}
-  sizeShort = {S}
-  sizeLong = {L}
-  sizeLonglong = {Ll}
-  defaultSize = ServerReference.create(sizeLong)
 
-  // size of sized items
+  /** Convenience value for big Endian values **/
+  bigEndian = false
+
+  /** Convenience value for meaningless Endian values, eg. bytes **/
+  noEndian = false
+
+  /** The default endianness, can be set from the command line **/
+  defaultEndian = ServerReference.create(bigEndian)
+
+  /** Convenience value for signed integers **/
+  signedInts = true
+
+  /** Convenience value for unsigned integers **/
+  unsignedInts = false
+
+  /** The default signedness, can be set from the command line **/
+  defaultInts = ServerReference.create(signedInts)
+
+  /** Convenience value for 8-bit integers **/
+  byteSize = {B} : Pack.s
+
+  /** Convenience value for 16-bit integers **/
+  shortSize = {S} : Pack.s
+
+  /** Convenience value for 32-bit integers **/
+  longSize = {L} : Pack.s
+
+  /** Convenience value for 64-bit integers **/
+  longlongSize = {Ll} : Pack.s
+
+  /** The default integer size, can be set from the command line **/
+  defaultSize = ServerReference.create(longSize)
+
+  /** size of sized items in bytes **/
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
 
 #<Ifstatic:OPA_BACKEND_QMLJS>
-  llsize = 0x001fffffffffffff // 53 bits
+  @private llsize = 0x001fffffffffffff // 53 bits
 #<Else>
-  llsize = 0x3fffffffffffffff // 62 bits
+  @private llsize = 0x3fffffffffffffff // 62 bits
 #<End>
 
-  // maximum (unsigned) value for int
+  /** maximum (unsigned) value for int **/
   sizemax(s:Pack.s) : int = match s with | {B} -> 0xff | {S} -> 0xffff | {L} -> 0xffffffff | {Ll} -> llsize
 
-  // maximum (unsigned) value for int
+  /** names of the sizes, eg. [{B}] is "byte" **/
   sizename(s:Pack.s) : string = match s with | {B} -> "byte" | {S} -> "short" | {L} -> "long" | {Ll} -> "longlong"
 
-  // make size item
+  /** make size item (ie. for preceding strings or arrays), returns failure on out-of-range **/
   mksize(s:Pack.s, i:int) : outcome(Pack.u,string) =
     match s with
     | {B} -> if i < 0 || i > 0xff then {failure="Pack.mksize: int {i} too big for byte size"} else {success={Byte=i}}
@@ -109,7 +235,7 @@ Pack = {{
     | {L} -> if i < 0 || i > 0xffffffff then {failure="Pack.mksize: int {i} too big for long size"} else {success={Long=i}}
     | {Ll} -> {success={Longlong=i}}
 
-  // recover size from item
+  /** recover size from item, failure if not an integer type **/
   getsize(u:Pack.u) : outcome(int,string) =
     match u with
     | {~Byte} -> {success=Byte}
@@ -120,10 +246,21 @@ Pack = {{
     | {Int64=i} -> {success=Int64.to_int(i)}
     | _ -> {failure="Pack.getsize: size {u} is not int"}
 
-  // Encode
+  /** Debug, memdump first 32-bytes of current input **/
+  pinput(name:string, input:Pack.input) =
+    if ServerReference.get(debug)
+    then
+      data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
+      jlog("{name}: input=\n{memdump(data)}")
+    else void
+
+  /**
+   * {2 Encode data}
+   * This module provides functions to encode data in binary types.
+   */
   Encode = {{
 
-    // char
+    /** Encode char, actually just a single 8-bit character string, failure if multi-byte **/
     char(buf:Pack.t, c:string) : outcome(void,string) =
       b = String.byte_at_unsafe(0,c)
       not8 = b < 0 || b > 0xff
@@ -131,39 +268,60 @@ Pack = {{
       then {failure="Pack.Encode.char: multi-byte char \"{c}\""}
       else {success=Binary.add_uint8(buf, b)}
 
-    // octet
+    /** Encode signed 8-bit int, failure if out-of-range **/
     octet(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x80 || i > 0x7f)
       then {failure="Pack.Encode.byte: out of range {i}"}
       else {success=Binary.add_int8(buf, i)}
+
+    /** Encode unsigned 8-bit int, failure if out-of-range **/
     uoctet(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < 0 || i > 0xff)
       then {failure="Pack.Encode.byte: out of range {i}"}
       else {success=Binary.add_uint8(buf, i)}
 
-    // byte
+    /**
+     * Encode 8-bit int, failure if out-of-range
+     *
+     * @param buf binary data to encode into.
+     * @param signed signed if true
+     * @param i integer
+     **/
     byte(buf:Pack.t, signed:bool, b:int): outcome(void,string) =
       if signed then octet(buf, b) else uoctet(buf, b)
 
-    // short
+    /** Encode signed 16-bit big-endian int, failure if out-of-range **/
     short_be(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x8000 || i > 0xffff)
       then {failure="Pack.Encode.short_be: out of range {i}"}
       else {success=Binary.add_int16_be(buf, i)}
+
+    /** Encode signed 16-bit little-endian int, failure if out-of-range **/
     short_le(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x8000 || i > 0xffff)
       then {failure="Pack.Encode.short_le: out of range {i}"}
       else {success=Binary.add_int16_le(buf, i)}
+
+    /** Encode unsigned 16-bit big-endian int, failure if out-of-range **/
     ushort_be(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < 0 || i > 0xffff)
       then {failure="Pack.Encode.ushort_be: out of range {i}"}
       else {success=Binary.add_uint16_be(buf, i)}
+
+    /** Encode unsigned 16-bit little-endian int, failure if out-of-range **/
     ushort_le(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < 0 || i > 0xffff)
       then {failure="Pack.Encode.ushort_le: out of range {i}"}
       else {success=Binary.add_uint16_le(buf, i)}
 
-    // short
+    /**
+     * Encode 16-bit int, failure if out-of-range
+     *
+     * @param buf binary data to encode into.
+     * @param le little-endian if true
+     * @param signed signed if true
+     * @param i integer
+     **/
     short(buf:Pack.t, le:bool, signed:bool, s:int): outcome(void,string) =
       match (le, signed) with
       | ({false},{false}) -> ushort_be(buf, s)
@@ -171,25 +329,38 @@ Pack = {{
       | ({false},{true}) -> short_be(buf, s)
       | ({true},{true}) -> short_le(buf, s)
 
-    // long
+    /** Encode signed 32-bit big-endian int, failure if out-of-range **/
     long_be(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x80000000 || i > 0x7fffffff)
       then {failure="Pack.Encode.long_be: out of range {i}"}
       else {success=Binary.add_int32_be(buf, i)}
+
+    /** Encode signed 32-bit little-endian int, failure if out-of-range **/
     long_le(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x80000000 || i > 0x7fffffff)
       then {failure="Pack.Encode.long_le: out of range {i}"}
       else {success=Binary.add_int32_le(buf, i)}
+
+    /** Encode unsigned 32-bit big-endian int, failure if out-of-range **/
     ulong_be(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < 0 || i > 0xffffffff)
       then {failure="Pack.Encode.ulong_be: out of range {i}"}
       else {success=Binary.add_uint32_be(buf, i)}
+
+    /** Encode unsigned 32-bit little-endian int, failure if out-of-range **/
     ulong_le(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < 0 || i > 0xffffffff)
       then {failure="Pack.Encode.ulong_le: out of range {i}"}
       else {success=Binary.add_uint32_le(buf, i)}
 
-    // long
+    /**
+     * Encode 32-bit int, failure if out-of-range
+     *
+     * @param buf binary data to encode into.
+     * @param le little-endian if true
+     * @param signed signed if true
+     * @param i integer
+     **/
     long(buf:Pack.t, le:bool, signed:bool, l:int): outcome(void,string) =
       match (le, signed) with
       | ({false},{false}) -> ulong_be(buf, l)
@@ -197,34 +368,54 @@ Pack = {{
       | ({false},{true}) -> long_be(buf, l)
       | ({true},{true}) -> long_le(buf, l)
 
-    // These are restricted to 53 bits
+    /** Encode signed 53-bit big-endian int, failure if out-of-range **/
     longlong_be(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x20000000000000 || i > 0x1fffffffffffff)
       then {failure="Pack.Encode.ulonglong_be: out of range {i}"}
       else {success=Binary.add_int53_be(buf, i)}
+
+    /** Encode signed 53-bit little-endian int, failure if out-of-range **/
     longlong_le(buf:Pack.t, i:int) : outcome(void,string) =
       if (i < -0x20000000000000 || i > 0x1fffffffffffff)
       then {failure="Pack.Encode.ulonglong_le: out of range {i}"}
       else {success=Binary.add_int53_le(buf, i)}
 
-    // longlong
+    /**
+     * Encode 53-bit int, failure if out-of-range
+     *
+     * @param buf binary data to encode into.
+     * @param le little-endian if true
+     * @param i integer
+     **/
     longlong(buf:Pack.t, le:bool, b:int): outcome(void,string) =
       if le then longlong_le(buf, b) else longlong_be(buf, b)
 
+    /** Encode unsigned 64-bit big-endian int **/
     int64_be(buf:Pack.t, i:int64) : outcome(void,string) =
       {success=Binary.add_uint64_be(buf, i)}
+
+    /** Encode unsigned 64-bit little-endian int **/
     int64_le(buf:Pack.t, i:int64) : outcome(void,string) =
       {success=Binary.add_uint64_le(buf, i)}
 
-    // int64
+    /**
+     * Encode 64-bit int
+     *
+     * @param buf binary data to encode into.
+     * @param le little-endian if true
+     * @param i int64
+     **/
     int64(buf:Pack.t, le:bool, b:int64): outcome(void,string) =
       if le then int64_le(buf, b) else int64_be(buf, b)
 
-    // pad
+    /** Encode single null-byte padding **/
     pad(buf:Pack.t) : outcome(void,string) =
       octet(buf, 0)
 
-    // padn
+    /**
+     * Encode null-byte padding
+     * @param n number of bytes of padding
+     **/
     padn(buf:Pack.t, n:int) : outcome(void,string) =
       {success=Binary.add_string(buf, String.repeat(n, String.of_byte_unsafe(0)))}
 
@@ -254,16 +445,16 @@ Pack = {{
         | {success=_} -> {success=Binary.add_string(buf, str)}
 
     // string derivatives
-    string_b(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {B}, str)
+    string_b(buf:Pack.t, str:string) : outcome(void,string) = string(buf, noEndian, {B}, str)
     string_s(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {S}, str)
-    string_s_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {S}, str)
-    string_s_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {S}, str)
+    string_s_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {S}, str)
+    string_s_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {S}, str)
     string_l(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {L}, str)
-    string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {L}, str)
-    string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {L}, str)
+    string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {L}, str)
+    string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {L}, str)
     string_ll(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {Ll}, str)
-    string_ll_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {Ll}, str)
-    string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {Ll}, str)
+    string_ll_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {Ll}, str)
+    string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {Ll}, str)
 
     // float32
     float_be(buf:Pack.t, f:float) : outcome(void,string) =
@@ -280,7 +471,6 @@ Pack = {{
     double_le(buf:Pack.t, f:float) : outcome(void,string) =
       {success=Binary.add_double_le(buf, f)}
 
-    // float
     double(buf:Pack.t, le:bool, f:float): outcome(void,string) =
       if le then double_le(buf, f) else double_be(buf, f)
 
@@ -468,7 +658,7 @@ Pack = {{
                  | {success=_} -> pack_u(buf, le, signed, size, u)
                 ), data, (le, signed, size, {success:void}))
 
-    // pack data into string
+    // pack data into binary
     pack(data:Pack.data) : outcome(binary,string) =
       buf = Binary.create(packlen(data))
       (_, _, _, res) = pack_data(buf, ServerReference.get(defaultEndian), ServerReference.get(defaultInts),
@@ -477,19 +667,158 @@ Pack = {{
       | {success=_} -> {success=buf}
       | {~failure} -> {~failure}
 
-    // TODO: ser_xxx functions to parallel unser_xxx
+  }}
+
+  // The Ser functions give some Opa-specific versions to enhance the Encode module
+  // Note that these are not necessarily unique, for instance option(a) == {Coded=[({Byte=0},[]),({Byte=1},[<a>])]}
+  Ser = {{
+
+    ref(buf:Pack.t, ea:Pack.t, 'a -> outcome(void,string), r:Server.reference('a)) : outcome(void,string) =
+      ea(buf, ServerReference.get(r))
+
+    option(buf:Pack.t, ea:Pack.t, 'a -> outcome(void,string), oa:option('a)) : outcome(void,string) =
+      match oa with
+      | {some=a} ->
+         match Encode.uoctet(buf, 1) with
+         | {success=_} -> ea(buf, a)
+         | {~failure} -> {~failure}
+         end
+      | {none} -> Encode.uoctet(buf, 0)
+
+    tuple2(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           (a,b):('a,'b))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+         eb(buf, b)
+      | {~failure} -> {~failure}
+
+    tuple3(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           ec:Pack.t, 'c -> outcome(void,string),
+           (a,b,c):('a,'b,'c))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+        match eb(buf, b) with
+        | {success=_} -> ec(buf, c)
+        | {~failure} -> {~failure}
+        end
+      | {~failure} -> {~failure}
+
+    tuple4(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           ec:Pack.t, 'c -> outcome(void,string),
+           ed:Pack.t, 'd -> outcome(void,string),
+           (a,b,c,d):('a,'b,'c,'d))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+        match eb(buf, b) with
+        | {success=_} ->
+          match ec(buf, c) with
+          | {success=_} -> ed(buf, d)
+          | {~failure} -> {~failure}
+          end
+        | {~failure} -> {~failure}
+        end
+      | {~failure} -> {~failure}
+
+    tuple5(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           ec:Pack.t, 'c -> outcome(void,string),
+           ed:Pack.t, 'd -> outcome(void,string),
+           ee:Pack.t, 'e -> outcome(void,string),
+           (a,b,c,d,e):('a,'b,'c,'d,'e))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+        match eb(buf, b) with
+        | {success=_} ->
+          match ec(buf, c) with
+          | {success=_} ->
+            match ed(buf, d) with
+            | {success=_} -> ee(buf, e)
+            | {~failure} -> {~failure}
+            end
+          | {~failure} -> {~failure}
+          end
+        | {~failure} -> {~failure}
+        end
+      | {~failure} -> {~failure}
+
+    tuple6(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           ec:Pack.t, 'c -> outcome(void,string),
+           ed:Pack.t, 'd -> outcome(void,string),
+           ee:Pack.t, 'e -> outcome(void,string),
+           ef:Pack.t, 'f -> outcome(void,string),
+           (a,b,c,d,e,f):('a,'b,'c,'d,'e,'f))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+        match eb(buf, b) with
+        | {success=_} ->
+          match ec(buf, c) with
+          | {success=_} ->
+            match ed(buf, d) with
+            | {success=_} ->
+              match ee(buf, e) with
+              | {success=_} -> ef(buf, f)
+              | {~failure} -> {~failure}
+              end
+            | {~failure} -> {~failure}
+            end
+          | {~failure} -> {~failure}
+          end
+        | {~failure} -> {~failure}
+        end
+      | {~failure} -> {~failure}
+
+    tuple7(buf:Pack.t,
+           ea:Pack.t, 'a -> outcome(void,string),
+           eb:Pack.t, 'b -> outcome(void,string),
+           ec:Pack.t, 'c -> outcome(void,string),
+           ed:Pack.t, 'd -> outcome(void,string),
+           ee:Pack.t, 'e -> outcome(void,string),
+           ef:Pack.t, 'f -> outcome(void,string),
+           eg:Pack.t, 'g -> outcome(void,string),
+           (a,b,c,d,e,f,g):('a,'b,'c,'d,'e,'f,'g))
+          : outcome(void,string) =
+      match ea(buf, a) with
+      | {success=_} ->
+        match eb(buf, b) with
+        | {success=_} ->
+          match ec(buf, c) with
+          | {success=_} ->
+            match ed(buf, d) with
+            | {success=_} ->
+              match ee(buf, e) with
+              | {success=_} ->
+                match ef(buf, f) with
+                | {success=_} -> eg(buf, g)
+                | {~failure} -> {~failure}
+                end
+              | {~failure} -> {~failure}
+              end
+            | {~failure} -> {~failure}
+            end
+          | {~failure} -> {~failure}
+          end
+        | {~failure} -> {~failure}
+        end
+      | {~failure} -> {~failure}
 
   }}
 
   // Decode
   Decode = {{
-
-    pinput(name, input) =
-      if ServerReference.get(debug)
-      then
-        data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
-        jlog("{name}: input=\n{memdump(data)}")
-      else void
 
     // char
     char(data:binary, pos:int) : outcome(string,string) =
@@ -734,7 +1063,7 @@ Pack = {{
       | {L} -> string_l(le, data, pos)
       | {Ll} -> string_ll(le, data, pos)
 
-    // float
+    // float32
     float_le(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.float_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
@@ -749,6 +1078,7 @@ Pack = {{
     float(le:bool, data:binary, pos:int) : outcome(float,string) =
       if le then float_le(data, pos) else float_be(data, pos)
 
+    // float
     double_le(data:binary, pos:int) : outcome(float,string) =
       do pinput("Pack.Decode.double_le",{binary=data; ~pos})
       if Binary.length(data) >= pos + 8
@@ -792,6 +1122,27 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
+    // coded
+    coded(codes, bin, pos) =
+      match codes with
+      | [] -> {failure="Pack.Decode.coded: no codes"}
+      | [(code1,data1)|codes] ->
+         (match unpack([code1], bin, pos) with
+          | {success=(npos,[code])} ->
+            (match List.assoc(code, [(code1,data1)|codes]) with
+             | {some=cdata} ->
+                (match unpack(cdata, bin, npos) with
+                 | {success=(npos,ndata)} -> {success=(npos, code, ndata)}
+                 | {~failure} -> {failure="Pack.Decode.coded: bad data {failure}"})
+             | {none} -> {failure="Pack.Decode.coded: missing code {code}"})
+          | {success=_} -> {failure="Pack.Decode.coded: multiple decodings"}
+          | {~failure} -> {failure="Pack.Decode.coded: bad code {failure}"})
+
+    @private unpack_coded(codes, data, le, signed, size, bin, pos) =
+      match coded(codes, bin, pos) with
+      | {success=(npos, code, ndata)} -> {success=(le, signed, size, npos, [{Coded=[(code,ndata)]}|data])}
+      | {~failure} -> {~failure}
+
     @private unpack_int(data:Pack.data, le:bool,
                         actual_signed:option(bool), return_signed:bool, actual_size:option(Pack.s), return_size:Pack.s,
                         bin:binary, pos:int)
@@ -827,106 +1178,100 @@ Pack = {{
                      else {String=s})|data])}
       | {~failure} -> {~failure}
 
+    // Unpack item
+    unpack_u(bin:binary, u:Pack.u, acc) =
+      match acc with
+      | {~failure} -> {~failure}
+      | {success=(le, signed, size, pos, data)} ->
+        (match u:Pack.u with
+         | {Be} -> {success=(false, signed, size, pos, [{Be}|data])}
+         | {Le} -> {success=(true, signed, size, pos, [{Le}|data])}
+         | {Signed} -> {success=(le, true, size, pos, [{Signed}|data])}
+         | {Unsigned} -> {success=(le, false, size, pos, [{Unsigned}|data])}
+         | {B} -> {success=(le, false, {B}, pos, [{B}|data])}
+         | {S} -> {success=(le, false, {S}, pos, [{S}|data])}
+         | {L} -> {success=(le, false, {L}, pos, [{L}|data])}
+         | {Ll} -> {success=(le, false, {Ll}, pos, [{Ll}|data])}
+         | {Char=_} ->
+            (match char(bin, pos) with
+             | {success=Char} -> {success=(le, signed, size, pos+1, [{~Char}|data])}
+             | {~failure} -> {~failure})
+         | {Byte=_} ->
+            (match byte(signed, bin, pos) with
+             | {success=Byte} -> {success=(le, signed, size, pos+1, [{~Byte}|data])}
+             | {~failure} -> {~failure})
+         | {Short=_} ->
+            (match short(le, signed, bin, pos) with
+             | {success=Short} -> {success=(le, signed, size, pos+2, [{~Short}|data])}
+             | {~failure} -> {~failure})
+         | {Long=_} ->
+            (match long(le, signed, bin, pos) with
+             | {success=Long} -> {success=(le, signed, size, pos+4, [{~Long}|data])}
+             | {~failure} -> {~failure})
+         | {Longlong=_} ->
+            (match longlong(le, bin, pos) with
+             | {success=Longlong} -> {success=(le, signed, size, pos+8, [{~Longlong}|data])}
+             | {~failure} -> {~failure})
+         | {Int=_} ->
+            unpack_int(data, le, {none}, signed, {none}, size, bin, pos)
+         | {Int=_; size=actual_size} ->
+            unpack_int(data, le, {none}, signed, {some=actual_size}, size, bin, pos)
+         | {Int=_; signed=actual_signed} ->
+            unpack_int(data, le, {some=actual_signed}, signed, {none}, size, bin, pos)
+         | {Int=_; size=actual_size; signed=actual_signed} ->
+            unpack_int(data, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
+         | {Int64=_} ->
+            (match int64(le, bin, pos) with
+             | {success=i64} -> {success=(le, signed, size, pos+8, [{Int64=i64}|data])}
+             | {~failure} -> {~failure})
+         | {Pad} ->
+            (match pad(bin, pos) with
+             | {success=_} -> {success=(le, signed, size, pos+1, [{Pad}|data])}
+             | {~failure} -> {~failure})
+         | {~Padn} ->
+            (match padn(bin, pos, Padn) with
+             | {success=_} -> {success=(le, signed, size, pos+Padn, [{~Padn}|data])}
+             | {~failure} -> {~failure})
+         | {Void} ->
+            (match pad(bin, pos) with
+             | {success=_} -> {success=(le, signed, size, pos+1, [{Void}|data])}
+             | {~failure} -> {~failure})
+         | {Bool=_} ->
+            (match bool(bin, pos) with
+             | {success=Bool} -> {success=(le, signed, size, pos+1, [{~Bool}|data])}
+             | {~failure} -> {~failure})
+         | {Cstring=_} ->
+            (match cstring(bin, pos) with
+             | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
+             | {~failure} -> {~failure})
+         | {String=_} -> unpack_string(data, le, signed, {none}, size, bin, pos)
+         | {String=_; size=actual_size} -> unpack_string(data, le, signed, {some=actual_size}, size, bin, pos)
+         | {Float32=_} ->
+            (match float(le, bin, pos) with
+             | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32}|data])}
+             | {~failure} -> {~failure})
+         | {Float=_} ->
+            (match double(le, bin, pos) with
+             | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float}|data])}
+             | {~failure} -> {~failure})
+         | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
+         | {List=(typ,_)} -> list(true, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_)} -> list(false, le, signed, size, typ, bin, pos, data))
+
     // unpack data
     unpack(data:Pack.data, bin:binary, pos:int) : outcome((int,Pack.data),string) =
       do pinput("Pack.Decode.unpack",{binary=bin; ~pos})
-      if data == [] then {success=(pos,[])} else
-      match
-        List.fold((u:Pack.u, acc ->
-                    match acc with
-                    | {~failure} -> {~failure}
-                    | {success=(le, signed, size, pos, data)} ->
-                      (match u:Pack.u with
-                       | {Be} -> {success=(false, signed, size, pos, [{Be}|data])}
-                       | {Le} -> {success=(true, signed, size, pos, [{Le}|data])}
-                       | {Signed} -> {success=(le, true, size, pos, [{Signed}|data])}
-                       | {Unsigned} -> {success=(le, false, size, pos, [{Unsigned}|data])}
-                       | {B} -> {success=(le, false, {B}, pos, [{B}|data])}
-                       | {S} -> {success=(le, false, {S}, pos, [{S}|data])}
-                       | {L} -> {success=(le, false, {L}, pos, [{L}|data])}
-                       | {Ll} -> {success=(le, false, {Ll}, pos, [{Ll}|data])}
-                       | {Char=_} ->
-                          (match char(bin, pos) with
-                           | {success=Char} -> {success=(le, signed, size, pos+1, [{~Char}|data])}
-                           | {~failure} -> {~failure})
-                       | {Byte=_} ->
-                          (match byte(signed, bin, pos) with
-                           | {success=Byte} -> {success=(le, signed, size, pos+1, [{~Byte}|data])}
-                           | {~failure} -> {~failure})
-                       | {Short=_} ->
-                          (match short(le, signed, bin, pos) with
-                           | {success=Short} -> {success=(le, signed, size, pos+2, [{~Short}|data])}
-                           | {~failure} -> {~failure})
-                       | {Long=_} ->
-                          (match long(le, signed, bin, pos) with
-                           | {success=Long} -> {success=(le, signed, size, pos+4, [{~Long}|data])}
-                           | {~failure} -> {~failure})
-                       | {Longlong=_} ->
-                          (match longlong(le, bin, pos) with
-                           | {success=Longlong} -> {success=(le, signed, size, pos+8, [{~Longlong}|data])}
-                           | {~failure} -> {~failure})
-                       | {Int=_} ->
-                          unpack_int(data, le, {none}, signed, {none}, size, bin, pos)
-                       | {Int=_; size=actual_size} ->
-                          unpack_int(data, le, {none}, signed, {some=actual_size}, size, bin, pos)
-                       | {Int=_; signed=actual_signed} ->
-                          unpack_int(data, le, {some=actual_signed}, signed, {none}, size, bin, pos)
-                       | {Int=_; size=actual_size; signed=actual_signed} ->
-                          unpack_int(data, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
-                       | {Int64=_} ->
-                          (match int64(le, bin, pos) with
-                           | {success=i64} -> {success=(le, signed, size, pos+8, [{Int64=i64}|data])}
-                           | {~failure} -> {~failure})
-                       | {Pad} ->
-                          (match pad(bin, pos) with
-                           | {success=_} -> {success=(le, signed, size, pos+1, [{Pad}|data])}
-                           | {~failure} -> {~failure})
-                       | {~Padn} ->
-                          (match padn(bin, pos, Padn) with
-                           | {success=_} -> {success=(le, signed, size, pos+Padn, [{~Padn}|data])}
-                           | {~failure} -> {~failure})
-                       | {Void} ->
-                          (match pad(bin, pos) with
-                           | {success=_} -> {success=(le, signed, size, pos+1, [{Void}|data])}
-                           | {~failure} -> {~failure})
-                       | {Bool=_} ->
-                          (match bool(bin, pos) with
-                           | {success=Bool} -> {success=(le, signed, size, pos+1, [{~Bool}|data])}
-                           | {~failure} -> {~failure})
-                       | {Cstring=_} ->
-                          (match cstring(bin, pos) with
-                           | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
-                           | {~failure} -> {~failure})
-                       | {String=_} -> unpack_string(data, le, signed, {none}, size, bin, pos)
-                       | {String=_; size=actual_size} -> unpack_string(data, le, signed, {some=actual_size}, size, bin, pos)
-                       | {Float32=_} ->
-                          (match float(le, bin, pos) with
-                           | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32}|data])}
-                           | {~failure} -> {~failure})
-                       | {Float=_} ->
-                          (match double(le, bin, pos) with
-                           | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float}|data])}
-                           | {~failure} -> {~failure})
-                       | {Coded=[]} -> {failure="Pack.Decode.unpack: Coded has no codes"}
-                       | {Coded=[(code1,data1)|codes]} ->
-                          (match unpack([code1], bin, pos) with
-                           | {success=(npos,[code])} ->
-                             (match List.assoc(code, [(code1,data1)|codes]) with
-                              | {some=cdata} ->
-                                 (match unpack(cdata, bin, npos) with
-                                  | {success=(npos,ndata)} -> {success=(le, signed, size, npos, [{Coded=[(code,ndata)]}|data])}
-                                  | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad data {failure}"})
-                              | {none} -> {failure="Pack.Decode.unpack: Coded has missing code {code}"})
-                           | {success=_} -> {failure="Pack.Decode.unpack: Coded has multiple decodings"}
-                           | {~failure} -> {failure="Pack.Decode.unpack: Coded has bad code {failure}"})
-                       | {List=(typ,_)} -> list(true, le, signed, size, typ, bin, pos, data)
-                       | {Array=(typ,_)} -> list(false, le, signed, size, typ, bin, pos, data)
-                       )), data, {success=(ServerReference.get(defaultEndian),
-                                           ServerReference.get(defaultInts),
-                                           ServerReference.get(defaultSize), pos, [])})
-      with
-      | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
-      | {~failure} -> {~failure}
+      if data == []
+      then {success=(pos,[])}
+      else
+        match
+          List.fold(unpack_u(bin, _, _),
+                    data, {success=(ServerReference.get(defaultEndian),
+                                    ServerReference.get(defaultInts),
+                                    ServerReference.get(defaultSize), pos, [])})
+        with
+        | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
+        | {~failure} -> {~failure}
 
     // meaningful entities
     has_data(u:Pack.u) : option(Pack.u) =
@@ -962,98 +1307,190 @@ Pack = {{
     // cleanup elements with no data
     clean(data:Pack.data) = List.filter_map(has_data, data)
 
-    // The unser functions provide a compositional functional decode over the Pack.input type
+  }}
 
-    // TODO: complete this list of functions
+  // The Unser functions provide a compositional functional decode over the Pack.input type
+  Unser = {{
 
-    unser_char(input:Pack.input) : Pack.result(string) =
-      match char(input.binary, input.pos) with
+    char(input:Pack.input) : Pack.result(string) =
+      do pinput("Pack.Unser.char", input)
+      match Decode.char(input.binary, input.pos) with
       | {success=c} -> {success=({input with pos=input.pos+1},c)}
       | {~failure} -> {~failure}
 
-    unser_int(le:bool, signed:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
-      do pinput("unser_int", input)
-      match int(le, signed, size, input.binary, input.pos) with
+    int(le:bool, signed:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
+      do pinput("Pack.Unser.int", input)
+      match Decode.int(le, signed, size, input.binary, input.pos) with
       | {success=i} -> {success=({input with pos=input.pos+sizesize(size)},i)}
       | {~failure} -> {~failure}
 
-    unser_float(le:bool, input:Pack.input) : Pack.result(float) =
-      do pinput("unser_float", input)
-      match double(le, input.binary, input.pos) with
+    byte(signed:bool, input:Pack.input) = int(noEndian, signed, {B}, input)
+    octet(input:Pack.input) = byte(signedInts, input)
+    uoctet(input:Pack.input) = byte(unsignedInts, input)
+    short(le:bool, signed:bool, input:Pack.input) = int(le, signed, {S}, input)
+    short_le(input:Pack.input) = int(littleEndian, signedInts, {S}, input)
+    short_be(input:Pack.input) = int(bigEndian, signedInts, {S}, input)
+    ushort_le(input:Pack.input) = int(littleEndian, unsignedInts, {S}, input)
+    ushort_be(input:Pack.input) = int(bigEndian, unsignedInts, {S}, input)
+    long(le:bool, signed:bool, input:Pack.input) = int(le, signed, {L}, input)
+    long_le(input:Pack.input) = int(littleEndian, signedInts, {L}, input)
+    long_be(input:Pack.input) = int(bigEndian, signedInts, {L}, input)
+    ulong_le(input:Pack.input) = int(littleEndian, unsignedInts, {L}, input)
+    ulong_be(input:Pack.input) = int(bigEndian, unsignedInts, {L}, input)
+    longlong(le:bool, input:Pack.input) = int(le, signedInts, {Ll}, input)
+    longlong_le(input:Pack.input) = int(littleEndian, signedInts, {Ll}, input)
+    longlong_be(input:Pack.input) = int(bigEndian, signedInts, {Ll}, input)
+
+    int64(le:bool, input:Pack.input) : Pack.result(int64) =
+      do pinput("Pack.Unser.int64", input)
+      match Decode.int64(le, input.binary, input.pos) with
+      | {success=i64} -> {success=({input with pos=input.pos+8},i64)}
+      | {~failure} -> {~failure}
+
+    int64_le(input:Pack.input) = int64(true, input)
+    int64_be(input:Pack.input) = int64(false, input)
+
+    float32(le:bool, input:Pack.input) : Pack.result(float) =
+      do pinput("Pack.Unser.float", input)
+      match Decode.float(le, input.binary, input.pos) with
       | {success=f} -> {success=({input with pos=input.pos+8},f)}
       | {~failure} -> {~failure}
 
-    unser_string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
-      do pinput("unser_string", input)
-      match string(le, size, input.binary, input.pos) with
+    float(le:bool, input:Pack.input) : Pack.result(float) =
+      do pinput("Pack.Unser.float", input)
+      match Decode.double(le, input.binary, input.pos) with
+      | {success=f} -> {success=({input with pos=input.pos+8},f)}
+      | {~failure} -> {~failure}
+
+    cstring(input:Pack.input) : Pack.result(string) =
+      do pinput("Pack.Unser.cstring", input)
+      match Decode.cstring(input.binary, input.pos) with
+      | {success=s} -> {success=({input with pos=input.pos+1+String.length(s)},s)}
+      | {~failure} -> {~failure}
+
+    string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
+      do pinput("Pack.Unser.string", input)
+      match Decode.string(le, size, input.binary, input.pos) with
       | {success=s} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
       | {~failure} -> {~failure}
 
-    unser_bool(input:Pack.input) : Pack.result(bool) =
-      do pinput("unser_bool", input)
-      match bool(input.binary, input.pos) with
+    string_b(input:Pack.input) = string(false, {B}, input)
+    string_s(le:bool, input:Pack.input) = string(le, {S}, input)
+    string_s_le(input:Pack.input) = string(true, {S}, input)
+    string_s_be(input:Pack.input) = string(false, {S}, input)
+    string_l(le:bool, input:Pack.input) = string(le, {L}, input)
+    string_l_le(input:Pack.input) = string(true, {L}, input)
+    string_l_be(input:Pack.input) = string(false, {L}, input)
+    string_ll(le:bool, input:Pack.input) = string(le, {Ll}, input)
+    string_ll_le(input:Pack.input) = string(true, {Ll}, input)
+    string_ll_be(input:Pack.input) = string(false, {Ll}, input)
+
+    pad(input:Pack.input) : Pack.result(void) =
+      do pinput("Pack.Unser.pad", input)
+      match Decode.pad(input.binary, input.pos) with
+      | {success=_} -> {success=({input with pos=input.pos+1},void)}
+      | {~failure} -> {~failure}
+
+    padn(n:int, input:Pack.input) : Pack.result(void) =
+      do pinput("Pack.Unser.padn({n})", input)
+      match Decode.padn(input.binary, input.pos, n) with
+      | {success=_} -> {success=({input with pos=input.pos+1},void)}
+      | {~failure} -> {~failure}
+
+    bool(input:Pack.input) : Pack.result(bool) =
+      do pinput("Pack.Unser.bool", input)
+      match Decode.bool(input.binary, input.pos) with
       | {success=b} -> {success=({input with pos=input.pos+1},b)}
       | {~failure} -> {~failure}
 
-    unser_ref(unser_a:Pack.input -> Pack.result('a), input:Pack.input)
-              : Pack.result(Server.reference('a)) =
-      match unser_a(input) with
+    coded(codes:Pack.codes, input:Pack.input) : Pack.result(Pack.data) =
+      do pinput("Pack.Unser.coded", input)
+      match Decode.coded(codes, input.binary, input.pos) with
+      | {success=(pos, _code, data)} -> {success=({input with ~pos},data)}
+      | {~failure} -> {~failure}
+
+    ref(a:Pack.input -> Pack.result('a), input:Pack.input) : Pack.result(Server.reference('a)) =
+      do pinput("Pack.Unser.ref", input)
+      match a(input) with
       | {success=(input,a)} -> {success=(input,ServerReference.create(a))}
       | {~failure} -> {~failure}
 
-    unser_option(unser_a:Pack.input -> Pack.result('a), input:Pack.input): Pack.result(option('a)) =
-      do pinput("unser_option", input)
-      match byte(false, input.binary, input.pos) with
+    setref(a:Pack.input -> Pack.result('a), r:Server.reference('a), input:Pack.input) : Pack.result(void) =
+      do pinput("Pack.Unser.setref", input)
+      match a(input) with
+      | {success=(input,a)} -> do ServerReference.set(r,a) {success=(input,void)}
+      | {~failure} -> {~failure}
+
+    option(a:Pack.input -> Pack.result('a), input:Pack.input): Pack.result(option('a)) =
+      do pinput("Pack.Unser.option", input)
+      match Decode.byte(false, input.binary, input.pos) with
       | {success=0} -> {success=({input with pos=input.pos+1},{none})}
       | {success=1} ->
-         match unser_a({input with pos=input.pos+1}) with
+         match a({input with pos=input.pos+1}) with
          | {success=(input, a)} -> {success=(input,{some=a})}
          | {~failure} -> {~failure}
          end
-      | {success=n} -> {failure="Pack.unser_option: bad option code {n}"}
+      | {success=n} -> {failure="Pack.Unser.option: bad option code {n}"}
       | {~failure} -> {~failure}
 
-    unser_array(unser_a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, def:'a, input:Pack.input)
-                : Pack.result(llarray('a)) =
-      do pinput("unser_array", input)
-      match unser_int(le, false, size, input) with
+    list(a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, input:Pack.input) : Pack.result(list('a)) =
+      do pinput("Pack.Unser.list", input)
+      match int(le, false, size, input) with
       | {success=(input,len)} ->
-         do if ServerReference.get(debug) then jlog("unser_array: len={len}") else void
-         a = LowLevelArray.create(len, def)
+         do if ServerReference.get(debug) then jlog("Pack.Unser.list: len={len}") else void
+         rec aux(input, i, l) =
+           if i == len
+           then {success=(input,List.rev(l))}
+           else
+             match a(input) with
+             | {success=(input, v:'a)} -> aux(input, i+1, [v|l])
+             | {~failure} -> {~failure}
+             end
+         aux(input, 0, [])
+      | {~failure} -> {~failure}
+
+    array(a:Pack.input -> Pack.result('a), le:bool, size:Pack.s, def:'a, input:Pack.input) : Pack.result(llarray('a)) =
+      do pinput("Pack.Unser.array", input)
+      match int(le, false, size, input) with
+      | {success=(input,len)} ->
+         do if ServerReference.get(debug) then jlog("Pack.Unser.array: len={len}") else void
+         arr = LowLevelArray.create(len, def)
          rec aux(input, i) =
            if i == len
-           then {success=(input,a)}
+           then {success=(input,arr)}
            else
-             match unser_a(input) with
+             match a(input) with
              | {success=(input, v:'a)} ->
-                _ = LowLevelArray.set(a, i, v)
+                _ = LowLevelArray.set(arr, i, v)
                 aux(input, i+1)
              | {~failure} -> {~failure}
              end
          aux(input, 0)
       | {~failure} -> {~failure}
 
-    unser2(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b)) : Pack.result(('a,'b)) =
-      match unser_a(input) with
+    tuple2(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b)) : Pack.result(('a,'b)) =
+      do pinput("Pack.Unser.tuple2", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
             {success=(input, (a,b))}
          | {~failure} -> {~failure}
          end
       | {~failure} -> {~failure}
 
-    unser3(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b),
-           unser_c:Pack.input -> Pack.result('c)) : Pack.result(('a,'b,'c)) =
-      match unser_a(input) with
+    tuple3(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b),
+           c:Pack.input -> Pack.result('c)) : Pack.result(('a,'b,'c)) =
+      do pinput("Pack.Unser.tuple3", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
-           match unser_c(input) with
+           match c(input) with
            | {success=(input, c)} ->
               {success=(input, (a,b,c))}
            | {~failure} -> {~failure}
@@ -1062,19 +1499,19 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser4(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b),
-           unser_c:Pack.input -> Pack.result('c),
-           unser_d:Pack.input -> Pack.result('d)) : Pack.result(('a,'b,'c,'d)) =
-      do pinput("unser4", input)
-      match unser_a(input) with
+    tuple4(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b),
+           c:Pack.input -> Pack.result('c),
+           d:Pack.input -> Pack.result('d)) : Pack.result(('a,'b,'c,'d)) =
+      do pinput("Pack.Unser.tuple4", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
-           match unser_c(input) with
+           match c(input) with
            | {success=(input, c)} ->
-             match unser_d(input) with
+             match d(input) with
              | {success=(input, d)} ->
                 {success=(input, (a,b,c,d))}
              | {~failure} -> {~failure}
@@ -1085,21 +1522,22 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser5(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b),
-           unser_c:Pack.input -> Pack.result('c),
-           unser_d:Pack.input -> Pack.result('d),
-           unser_e:Pack.input -> Pack.result('e)) : Pack.result(('a,'b,'c,'d,'e)) =
-      match unser_a(input) with
+    tuple5(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b),
+           c:Pack.input -> Pack.result('c),
+           d:Pack.input -> Pack.result('d),
+           e:Pack.input -> Pack.result('e)) : Pack.result(('a,'b,'c,'d,'e)) =
+      do pinput("Pack.Unser.tuple5", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
-           match unser_c(input) with
+           match c(input) with
            | {success=(input, c)} ->
-             match unser_d(input) with
+             match d(input) with
              | {success=(input, d)} ->
-               match unser_e(input) with
+               match e(input) with
                | {success=(input, e)} ->
                   {success=(input, (a,b,c,d,e))}
                | {~failure} -> {~failure}
@@ -1112,24 +1550,25 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser6(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b),
-           unser_c:Pack.input -> Pack.result('c),
-           unser_d:Pack.input -> Pack.result('d),
-           unser_e:Pack.input -> Pack.result('e),
-           unser_f:Pack.input -> Pack.result('f)) : Pack.result(('a,'b,'c,'d,'e,'f)) =
-      match unser_a(input) with
+    tuple6(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b),
+           c:Pack.input -> Pack.result('c),
+           d:Pack.input -> Pack.result('d),
+           e:Pack.input -> Pack.result('e),
+           f:Pack.input -> Pack.result('f)) : Pack.result(('a,'b,'c,'d,'e,'f)) =
+      do pinput("Pack.Unser.tuple6", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
-           match unser_c(input) with
+           match c(input) with
            | {success=(input, c)} ->
-             match unser_d(input) with
+             match d(input) with
              | {success=(input, d)} ->
-               match unser_e(input) with
+               match e(input) with
                | {success=(input, e)} ->
-                 match unser_f(input) with
+                 match f(input) with
                  | {success=(input, f)} ->
                     {success=(input, (a,b,c,d,e,f))}
                  | {~failure} -> {~failure}
@@ -1144,28 +1583,28 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser7(input:Pack.input,
-           unser_a:Pack.input -> Pack.result('a),
-           unser_b:Pack.input -> Pack.result('b),
-           unser_c:Pack.input -> Pack.result('c),
-           unser_d:Pack.input -> Pack.result('d),
-           unser_e:Pack.input -> Pack.result('e),
-           unser_f:Pack.input -> Pack.result('f),
-           unser_g:Pack.input -> Pack.result('g)) : Pack.result(('a,'b,'c,'d,'e,'f,'g)) =
-      do pinput("unser7", input)
-      match unser_a(input) with
+    tuple7(input:Pack.input,
+           a:Pack.input -> Pack.result('a),
+           b:Pack.input -> Pack.result('b),
+           c:Pack.input -> Pack.result('c),
+           d:Pack.input -> Pack.result('d),
+           e:Pack.input -> Pack.result('e),
+           f:Pack.input -> Pack.result('f),
+           g:Pack.input -> Pack.result('g)) : Pack.result(('a,'b,'c,'d,'e,'f,'g)) =
+      do pinput("Pack.Unser.tuple7", input)
+      match a(input) with
       | {success=(input, a)} ->
-         match unser_b(input) with
+         match b(input) with
          | {success=(input, b)} ->
-           match unser_c(input) with
+           match c(input) with
            | {success=(input, c)} ->
-             match unser_d(input) with
+             match d(input) with
              | {success=(input, d)} ->
-               match unser_e(input) with
+               match e(input) with
                | {success=(input, e)} ->
-                 match unser_f(input) with
+                 match f(input) with
                  | {success=(input, f)} ->
-                   match unser_g(input) with
+                   match g(input) with
                    | {success=(input, g)} ->
                       {success=(input, (a,b,c,d,e,f,g))}
                    | {~failure} -> {~failure}
@@ -1182,25 +1621,23 @@ Pack = {{
          end
       | {~failure} -> {~failure}
 
-    unser(unser_a:Pack.input -> Pack.result('a), binary:binary, use_all_data:bool) : outcome('a,string) =
+    unser(a:Pack.input -> Pack.result('a), binary:binary, use_all_data:bool) : outcome('a,string) =
       input = {~binary; pos=0}
-      do pinput("unser", input)
-      match unser_a(input) with
+      do pinput("Pack.Unser.unser", input)
+      match a(input) with
       | {success=(input, a)} ->
          len = Binary.length(binary)
          if use_all_data && input.pos != len
          then
            unused = len - input.pos
-           {failure="Pack.decode.unser: {unused} unused byte{if unused == 1 then "" else "s"} at end of data"}
+           {failure="Pack.Unser.unser: {unused} unused byte{if unused == 1 then "" else "s"} at end of data"}
          else {success=a}
       | {~failure} -> {~failure}
 
-    unser_from_string(unser_a:Pack.input -> Pack.result('a), str:string, use_all_data:bool) : outcome('a,string) =
-      unser(unser_a, binary_of_string(str), use_all_data)
+    from_string(a:Pack.input -> Pack.result('a), str:string, use_all_data:bool) : outcome('a,string) =
+      unser(a, binary_of_string(str), use_all_data)
 
   }}
-
-  // TODO: pack_to_opa, opa_to_pack
 
 }}
 

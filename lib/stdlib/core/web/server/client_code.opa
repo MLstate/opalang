@@ -34,6 +34,7 @@ import stdlib.core.{js, rpc.core}
 
   // Note: defaults for pack.opa are littleEndian, Signed, Longlong
   @private D = Pack.Decode
+  @private U = Pack.Unser
 
   key_ident_code =
     [{Coded=[({Byte=0},[{String=""}]),
@@ -41,7 +42,7 @@ import stdlib.core.{js, rpc.core}
              ({Byte=2},[{String=""},{String=""}])]}]
 
   unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
-    do D.pinput("unser_key_ident", input)
+    do Pack.pinput("unser_key_ident", input)
     match D.unpack(key_ident_code, input.binary, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[{String=key}])]}])} -> {success=({input with ~pos},{~key})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
@@ -66,7 +67,7 @@ import stdlib.core.{js, rpc.core}
     LowLevelArray.of_list(List.map((data -> match data with | [{~String}] -> String | _ -> ""),dl))
 
   unser_mini_expr(input:Pack.input) : Pack.result(JsAst.mini_expr) =
-    do D.pinput("unser_mini_expr", input)
+    do Pack.pinput("unser_mini_expr", input)
     match D.unpack(mini_expr_code, input.binary, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[{String=verbatim}])]}])} -> {success=({input with ~pos},{~verbatim})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
@@ -81,8 +82,8 @@ import stdlib.core.{js, rpc.core}
     | {~failure} -> {~failure}
 
   unser_content(input:Pack.input) : Pack.result(JsAst.content) =
-    do D.pinput("unser_content", input)
-    D.unser_array(unser_mini_expr, Pack.bigEndian, Pack.sizeLong, {verbatim=""}, input)
+    do Pack.pinput("unser_content", input)
+    U.array(unser_mini_expr, Pack.bigEndian, Pack.longSize, {verbatim=""}, input)
 
   definition_code =
     [{Coded=[({Byte=0},[]),
@@ -90,7 +91,7 @@ import stdlib.core.{js, rpc.core}
              ({Byte=2},[{String=""}])]}]
 
   unser_definition(input:Pack.input) : Pack.result(ServerAst.definition) =
-    do D.pinput("unser_definition", input)
+    do Pack.pinput("unser_definition", input)
     match D.unpack(definition_code, input.binary, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[])]}])} -> {success=({input with ~pos},{nothing})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=rpc}])]}])} -> {success=({input with ~pos},{~rpc})}
@@ -99,11 +100,11 @@ import stdlib.core.{js, rpc.core}
     | {success=data} -> {failure="Client_code.unser_definition: bad unpack data {data}"}
     | {~failure} -> {~failure}
 
-  unser_bool_ref(input:Pack.input) : Pack.result(Server.reference(bool)) = D.unser_ref(D.unser_bool, input)
+  unser_bool_ref(input:Pack.input) : Pack.result(Server.reference(bool)) = U.ref(U.bool, input)
 
   unser_code_elt(input:Pack.input): Pack.result(JsAst.code_elt) =
-    do D.pinput("unser_code_elt", input)
-    match D.unser4(input, unser_content, unser_definition, unser_key_ident, unser_bool_ref) with
+    do Pack.pinput("unser_code_elt", input)
+    match U.tuple4(input, unser_content, unser_definition, unser_key_ident, unser_bool_ref) with
     | {success=(input,(content, definition, ident, root))} -> {success=(input,~{content; definition; ident; root})}
     | {~failure} -> {~failure}
 
@@ -111,27 +112,27 @@ import stdlib.core.{js, rpc.core}
     { ident={key=""}; definition={nothing}; root=ServerReference.create(false); content=LowLevelArray.empty }
 
   unser_code(input:Pack.input): Pack.result(JsAst.code) =
-    do D.pinput("unser_code", input)
-    D.unser_array(unser_code_elt, Pack.bigEndian, Pack.sizeLong, dummy_code_elt, input)
+    do Pack.pinput("unser_code", input)
+    U.array(unser_code_elt, Pack.bigEndian, Pack.longSize, dummy_code_elt, input)
 
   unser_adhoc(string:string) : JsAst.code =
     //do ServerReference.set(D.debug,false)
     //do jlog("unser_adhoc")
-    match D.unser_from_string(unser_code, string, true) with
+    match U.from_string(unser_code, string, true) with
     | {success=code} -> /*do jlog("unser_adhoc: code ok")*/ code
     | {~failure} ->
        do error("Client_code.unser_adhoc => {failure}"):void
        LowLevelArray.empty
 
-  unser_string = D.unser_string(Pack.bigEndian, Pack.sizeLong, _)
-  unser_string_option = D.unser_option(unser_string,_)
+  unser_string = U.string(Pack.bigEndian, Pack.longSize, _)
+  unser_string_option = U.option(unser_string,_)
 
   unser_sarray(input:Pack.input): Pack.result(llarray(string)) =
-    D.unser_array(unser_string, Pack.bigEndian, Pack.sizeLong, "", input)
+    U.array(unser_string, Pack.bigEndian, Pack.longSize, "", input)
 
   unser_server_code_elt(input:Pack.input): Pack.result(ServerAst.code_elt) =
-    do D.pinput("unser_server_code_elt", input)
-    match D.unser7(input,
+    do Pack.pinput("unser_server_code_elt", input)
+    match U.tuple7(input,
                    unser_string_option, // client_equivalent
                    unser_definition,    // defines
                    unser_string_option, // ident
@@ -155,13 +156,13 @@ import stdlib.core.{js, rpc.core}
     }
 
   unser_server_code(input:Pack.input): Pack.result(ServerAst.code) =
-    do D.pinput("unser_server_code", input)
-    D.unser_array(unser_server_code_elt, Pack.bigEndian, Pack.sizeLong, dummy_server_code_elt, input)
+    do Pack.pinput("unser_server_code", input)
+    U.array(unser_server_code_elt, Pack.bigEndian, Pack.longSize, dummy_server_code_elt, input)
 
   unser_server(string:string) : ServerAst.code =
     //do ServerReference.set(D.debug,true)
     //do jlog("unser_server")
-    match D.unser_from_string(unser_server_code, string, true) with
+    match U.from_string(unser_server_code, string, true) with
     | {success=code} -> /*do jlog("unser_server: server code ok")*/ code
     | {~failure} ->
        do Log.error("Client_code.unser_server","{failure}")

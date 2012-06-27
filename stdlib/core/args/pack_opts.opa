@@ -29,10 +29,10 @@ PackOptions = {{
              )(signed,p -> do ServerReference.set(Pack.defaultInts,signed) p),
 
       CL.case(["--default-size"],
-              [("byte",    Pack.sizeByte),
-               ("short",   Pack.sizeShort),
-               ("long",    Pack.sizeLong),
-               ("longlong",Pack.sizeLonglong)],
+              [("byte",    Pack.byteSize),
+               ("short",   Pack.shortSize),
+               ("long",    Pack.longSize),
+               ("longlong",Pack.longlongSize)],
               "Default size","byte, short, long, longlong"
              )(size,p -> do ServerReference.set(Pack.defaultSize,size) p),
     ]

@@ -325,7 +325,7 @@ type CommandLine.family('state) = {
 #<Else>
     be = "caml"
 #<End>
-    List.map((e -> e.f2),List.filter(((bes, a) -> List.mem(be,bes)),l))
+    List.map((e -> e.f2),List.filter(((bes, _a) -> List.mem(be,bes)),l))
 
   /**
    * {1 Deprecated}
