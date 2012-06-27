@@ -284,12 +284,11 @@ if ! which node &>/dev/null; then
 fi;
 
 if ! which npm &>/dev/null; then
-    echo \"--> npm missing, please install npm first\"
+    echo \"--> npm missing, please install npm from: http://npmjs.org/\"
     exit 1
 fi
 
 function check-node-dependency() (
-    echo \"Checking $1\"
     if ! npm list | grep -q \"$1\" && ! npm list -g | grep -q \"$1\"; then
 	echo \"--> $1 missing, please run: npm install $1\"
         exit 1
