@@ -962,7 +962,6 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
       Pprocess.process ~name Pplang.js_description ppopt code in
 
   let export_to_globals (filename, code, conf) =
-    Printf.printf "Exporting %s\n" filename;
     let code = ppjs ~name:filename code in
     try
       let process stm =

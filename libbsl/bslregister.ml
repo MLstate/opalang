@@ -871,7 +871,7 @@ let files_generation ( finalized_t : BR.finalized_t ) =
   let iterator_opa_interface  = make_iterator opa_interface   in
 
   BR.out_js_code              iterator_js_code                finalized_t ;
-  BR.out_nodejs_code              iterator_js_code                finalized_t ;
+  BR.out_nodejs_code          iterator_js_code                finalized_t ;
   BR.out_opa_code             iterator_opa_code               finalized_t ;
   BR.out_opa_interface        iterator_opa_interface          finalized_t ;
 
@@ -943,9 +943,6 @@ let _ =
             try
 	      let command = Printf.sprintf "%s \"%s\"" command filename in
               let ic = Unix.open_process_in command in
-              (* output_string oc content; *)
-              (* flush oc; *)
-              (* close_out oc; *)
               let rec aux lines =
                 try
                   let line = input_line ic in
@@ -980,6 +977,7 @@ let _ =
 
     if !auto_build && BR.need_makefile finalized_t then (
       OManager.verbose "building plugin...";
+      Printf.printf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile);
       let ret = Sys.command (Printf.sprintf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile)) in
       if ret <> 0
       then
