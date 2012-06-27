@@ -1,5 +1,5 @@
 module View {
-  
+
   function template(content) {
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
@@ -14,15 +14,14 @@ module View {
       </div>
     </div>
     <div id=#main class="container-fluid">
-      <div class="row-fluid">     
-        {content} 
+      <div class="row-fluid">
+        {content}
       </div>
       <hr>
       <footer>
         <p>application_name</p>
       </footer>
     </div>
-  
   }
 
   function statistics() {
@@ -52,4 +51,3 @@ module View {
   }
 
 }
-
