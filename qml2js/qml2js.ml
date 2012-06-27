@@ -288,17 +288,20 @@ if ! which npm &>/dev/null; then
     exit 1
 fi
 
-function check-node-dependency() (
-    if ! npm list | grep -q \"$1\" && ! npm list -g | grep -q \"$1\"; then
-	echo \"--> $1 missing, please run: npm install $1\"
-        exit 1
+function check-node-dependencies() (
+    MISSING=\"\"
+    for i in $1; do
+        if ! npm list | grep -q \"$i\" && ! npm list -g | grep -q \"$i\"; then
+            MISSING=\"$MISSING $i\"
+        fi
+    done
+    if [ \"$MISSING\" != \"\" ]; then
+        echo \"--> some node modules are missing, please run: npm install$MISSING\"
+        exit 1;
     fi
 )
 
-check-node-dependency \"mongodb\" || exit $?
-check-node-dependency \"formidable\" || exit $?
-check-node-dependency \"nodemailer\" || exit $?
-check-node-dependency \"imap\" || exit $?
+check-node-dependencies \"mongodb formidable nodemailer imap\" || exit $?
 
 EOF
 
