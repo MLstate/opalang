@@ -147,7 +147,7 @@ type Pack.u =
  / {Int:int}
  / {Int:int; size:Pack.s}
  / {Int:int; signed:bool}
- / {Int:int; size:Pack.s; signed:bool}
+ / {Int:int; size:Pack.s; signed:bool} // TODO: put endian in here
  / {Pad}
  / {Padn:int}
  / {Bound:int}
