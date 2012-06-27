@@ -208,6 +208,23 @@ database stringmap(string) /dictionary;
 ...
 ```
 
+Getting started in seconds
+--------------------------
+
+Opa offers scaffolding for easy project creation. Just write
+
+`opa create myapp`[sh]
+
+This will create a skeleton of a new app named `myapp` based on the MVC architecture. Run it with:
+
+```
+cd myapp
+make run
+```
+
+Edit the sources in the `src` and resources in `resource` directory. You can also try
+`opa-create --help` for more options.
+
 Summary
 -------
 
