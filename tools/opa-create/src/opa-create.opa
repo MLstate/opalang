@@ -28,11 +28,14 @@ function Template.t mk_template(name, dir, resources) {
   ~{ name, dir, ~resources }
 }
 
+mvc_wiki_template =
+  mk_template("mvc_wiki", "tools/opa-create/template/mvc-wiki",
+              @static_content_directory("tools/opa-create/template/mvc-wiki"))
 mvc_template =
   mk_template("mvc", "tools/opa-create/template/mvc",
               @static_content_directory("tools/opa-create/template/mvc"))
 
-list(Template.t) templates = [ mvc_template ]
+list(Template.t) templates = [ mvc_template, mvc_wiki_template ]
 
 function CommandLine_ident(names,description,param_doc)(up) {
     { CommandLine.default_parser with
@@ -50,7 +53,7 @@ list(CommandLine.parser({oprion(string) name, Template.t template})) options_par
     ),
     CommandLine_ident(["--template", "-t"],
       "Template to be used for the application",
-      "template_name [{template_names}]")(
+      "template_name {template_names}")(
       function(template_name, r) {
         { r with template: List.find(function (t) {t.name == template_name}, templates) ?
           error("Wrong template name: {template_name} (known templates: {template_names})") }

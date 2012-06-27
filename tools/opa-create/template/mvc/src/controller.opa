@@ -1,13 +1,15 @@
-resources = @static_resource_directory("resources")
+module Controller {
 
-custom = {
-  parser {
-  case r={Server.resource_map(resources)} : r
-  case "/" : Resource.default_redirection_page("/index.html")
-  case "/statistics" : Resource.page("Display", View.statistics())
-  case p=(.*) : path = Text.to_string(p); Resource.page(path, View.page(path))
+  // URL dispatcher of your application; add URL handling as needed
+  dispatcher = {
+    parser {
+    case (.*) : View.default_page()
+    }
   }
+
 }
+
+resources = @static_resource_directory("resources")
 
 Server.start(Server.http, [
   { register:
@@ -16,5 +18,6 @@ Server.start(Server.http, [
       { css: [ "/resources/css/style.css"] }
     ]
   },
-  { ~custom }
+  { ~resources },
+  { custom: Controller.dispatcher }
 ])
