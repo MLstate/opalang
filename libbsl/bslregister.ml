@@ -942,7 +942,6 @@ let _ =
         | Some command ->
             try
 	      let command = Printf.sprintf "%s \"%s\"" command filename in
-              Printf.printf "COMMAND: %s\n" command;
               let ic = Unix.open_process_in command in
               (* output_string oc content; *)
               (* flush oc; *)
