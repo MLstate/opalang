@@ -262,7 +262,7 @@ function code(i) {
      "\xc0","\xc1","\xc2","\xc3","\xc4","\xc5","\xc6","\xc7","\xc8","\xc9","\xca","\xcb","\xcc","\xcd","\xce","\xcf",
      "\xd0","\xd1","\xd2","\xd3","\xd4","\xd5","\xd6","\xd7","\xd8","\xd9","\xda","\xdb","\xdc","\xdd","\xde","\xdf",
      "\xe0","\xe1","\xe2","\xe3","\xe4","\xe5","\xe6","\xe7","\xe8","\xe9","\xea","\xeb","\xec","\xed","\xee","\xef",
-     "\xf0","\xf1","\xf2","\xf3","\xf4","\xf5","\xf6","\xf7","\xf8","\xf9","\xfa","\xfb","\xfc","\xfd","\xfe","\xff",
+     "\xf0","\xf1","\xf2","\xf3","\xf4","\xf5","\xf6","\xf7","\xf8","\xf9","\xfa","\xfb","\xfc","\xfd","\xfe","\xff"
      ];
   return tab[i];
 }
@@ -301,7 +301,7 @@ function uncode(s) {
     '\xe0':0xe0, '\xe1':0xe1, '\xe2':0xe2, '\xe3':0xe3, '\xe4':0xe4, '\xe5':0xe5, '\xe6':0xe6, '\xe7':0xe7,
     '\xe8':0xe8, '\xe9':0xe9, '\xea':0xea, '\xeb':0xeb, '\xec':0xec, '\xed':0xed, '\xee':0xee, '\xef':0xef,
     '\xf0':0xf0, '\xf1':0xf1, '\xf2':0xf2, '\xf3':0xf3, '\xf4':0xf4, '\xf5':0xf5, '\xf6':0xf6, '\xf7':0xf7,
-    '\xf8':0xf8, '\xf9':0xf9, '\xfa':0xfa, '\xfb':0xfb, '\xfc':0xfc, '\xfd':0xfd, '\xfe':0xfe, '\xff':0xff,
+    '\xf8':0xf8, '\xf9':0xf9, '\xfa':0xfa, '\xfb':0xfb, '\xfc':0xfc, '\xfd':0xfd, '\xfe':0xfe, '\xff':0xff
   };
   return tab[s];
 }
@@ -317,8 +317,6 @@ function s2a(s) {
   for (var i = 0; i < s.length; i++) { a[i] = uncode(s[i]) };
   return a;
 }
-
-var Float_parser = require('./float_parser.nodejs');
 
 ##register embed_le : float -> string
 ##args(f)

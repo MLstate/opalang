@@ -41,8 +41,6 @@ import stdlib.core.{js, rpc.core}
   // Note: defaults for pack.opa are littleEndian, Signed, Longlong
   @private D = Pack.Decode
 
-  @private dump = (%% BslMongo.Bson.dump %%: int, string -> string)
-
   key_ident_code =
     [{Coded=[({Byte=0},[{String=""}]),
              ({Byte=1},[{String=""}]),
@@ -127,7 +125,7 @@ import stdlib.core.{js, rpc.core}
     //do jlog("unser_adhoc")
     match D.unser(unser_code, string, true) with
     | {success=code} -> /*do jlog("unser_adhoc: code ok")*/ code
-    | {~failure} -> 
+    | {~failure} ->
        do Log.error("Client_code.unser_adhoc","{failure}")
        LowLevelArray.empty
 
@@ -139,7 +137,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_server_code_elt(input:Pack.input): Pack.result(ServerAst.code_elt) =
     do D.pinput("unser_server_code_elt", input)
-    match D.unser7(input, 
+    match D.unser7(input,
                    unser_string_option, // client_equivalent
                    unser_definition,    // defines
                    unser_string_option, // ident
@@ -171,7 +169,7 @@ import stdlib.core.{js, rpc.core}
     //do jlog("unser_server")
     match D.unser(unser_server_code, string, true) with
     | {success=code} -> /*do jlog("unser_server: server code ok")*/ code
-    | {~failure} -> 
+    | {~failure} ->
        do Log.error("Client_code.unser_server","{failure}")
        LowLevelArray.empty
 

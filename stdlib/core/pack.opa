@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -34,7 +34,7 @@
   contents = %% BslBuffer.contents %%
 }}
 
-type Pack.t = Buffer_private.buffer
+type Pack.t = Buffer.t
 
 // TODO: multibyte characters
 
@@ -897,10 +897,11 @@ Pack = {{
 
     // TODO: complete this list of functions
 
-    dump = (%% BslMongo.Bson.dump %%: int, string -> string)
+    //dump = (%% BslMongo.Bson.dump %%: int, string -> string)
+    dump(_, _) = "unactivated dump"
 
     debug = ServerReference.create(false)
- 
+
     pinput(name, input) =
       if ServerReference.get(debug)
       then jlog("{name}: input=\n{dump(16,String.sub(input.pos, Int.min(32,String.length(input.string)-input.pos), input.string))}")
