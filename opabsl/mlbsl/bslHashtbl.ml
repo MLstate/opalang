@@ -23,6 +23,8 @@
 
 ##register add \ `Hashtbl.add` : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
 
+##register replace \ `Hashtbl.replace` : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
+
 ##register try_find : Hashtbl.t('key, 'value), opa['key] -> option(opa['value])
 let try_find h k = try Some (Hashtbl.find h k) with Not_found -> None
 

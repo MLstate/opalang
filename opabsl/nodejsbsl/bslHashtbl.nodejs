@@ -113,17 +113,53 @@ function HashTable(obj)
     }
 }
 
-/*
-var h = new HashTable({one: 1, two: 2, three: 3, "i'm no 4": 4});
+##extern-type Hashtbl.t('key, 'value)
 
-console.log('original length: ' + h.length);
-console.log('value of key \"one\": ' + h.getItem('one'));
-console.log('has key \"foo\"? ' + h.hasItem('foo'));
-console.log('previous value of key \"foo\": ' + h.setItem('foo', 'bar'));
-console.log('length after setItem: ' + h.length);
-console.log('value of key \"foo\": ' + h.getItem('foo'));
-console.log('value of key \"i\'m no 4\": ' + h.getItem("i'm no 4"));
-h.clear();
-console.log('length after clear: ' + h.length);
-*/
+##register create : int -> Hashtbl.t('key, 'value)
+##args(_init)
+{
+    return new HashTable({});
+}
+
+##register clear : Hashtbl.t('key, 'value) -> void
+##args(table)
+{
+    table.clear();
+    return js_void;
+}
+
+##register add : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
+##args(table, key, value)
+{
+    // TODO - Should have the same semantics as ML bsl
+    table.setItem(key, value);
+    return js_void;
+}
+
+##register replace : Hashtbl.t('key, 'value), opa['key], opa['value] -> void
+##args(table, key, value)
+{
+    table.setItem(key, value);
+    return js_void;
+}
+
+##register try_find : Hashtbl.t('key, 'value), opa['key] -> option(opa['value])
+##args(table, key)
+{
+    var r = table.getItem(key);
+    return typeof(r) != 'undefined' ? js_some(r) : js_none;
+}
+
+##register remove : Hashtbl.t('key, 'value), opa['key] -> void
+##args(table, key)
+{
+    table.removeItem(key);
+    return js_void;
+}
+
+##register size : Hashtbl.t('key, 'value) -> int
+##args(table)
+{
+    return table.length;
+}
 
