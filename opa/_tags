@@ -42,7 +42,7 @@
 
 <pass_AddStdlibFiles.{ml,mli}>: use_compilerlib, use_opalib
 
-<pass_BslLoading.{ml,mli}>: use_libbsl, use_opalib, use_opabsl_for_compiler, use_qmlflatcompiler, use_qml2ocaml, use_qml2js, use_opalang, use_libqmlcompil
+<pass_BslLoading.{ml,mli}>: use_libbsl, use_opalib, use_opabsl_for_compiler, use_qmlflatcompiler, use_qmljsimp, use_qml2ocaml, use_qml2js, use_opalang, use_libqmlcompil
 
 <s3Warnings.{ml,mli}>: use_compilerlib, use_libqmlcompil, use_qmlpasses, use_opapasses, use_qmljsimp, use_qmlflatcompiler, use_qmlslicer, use_opalang
 

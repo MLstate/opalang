@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -439,12 +439,14 @@ let process
     It is actually possible to remove this
     by coding a table export in libbsl
   *)
-  let back_end_dynload =
-    match back_end with
-    | `qmlflat -> Flat_Compiler.dynloader in
   let js_back_end_dynload =
     let module M = (val js_back_end : Qml2jsOptions.JsBackend) in
     M.dynloader in
+  let back_end_dynload =
+    match back_end with
+    | `qmlflat -> Flat_Compiler.dynloader
+    | `qmljs -> js_back_end_dynload
+  in
   (* Register plug-ins with actual backend.*)
   List.iter
     (fun plugin ->
