@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -27,7 +27,7 @@ module Cons = QmlAstCons.TypedExpr
 let () = Random.ensure_init ()
 
 let set_executable_id = Opacapi.Opabsl.BslInit.set_executable_id
-let set_cleaning_default_value = Opacapi.Opabsl.BslJsIdent.set_cleaning_default_value
+let set_cleaning_default_value = Opacapi.Opabsl.BslInit.set_executable_id
 
 let add_bypass_application bypass_typer gamma annotmap bypass arguments code =
   let annotmap, bypass =

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -52,8 +52,8 @@ struct
     | None ->
       let ident = Ident.next string in
       let () =
-        let bypass = QCons.bypass Opacapi.Opabsl.BslJsIdent.define_rename in
-        let apply = QCons.apply bypass [QCons.directive (`tagged_string (string, Q.Client_closure_use)) [] []] in
+        let def = QCons.ident (OpaMapToIdent.val_ Opacapi.JsIdent.define_rename) in
+        let apply = QCons.apply def [QCons.directive (`tagged_string (string, Q.Client_closure_use)) [] []] in
         let code_elt = Q.NewVal(Annot.nolabel "Serializer.JsIdent.resolve", [ident, apply]) in
         Hashtbl.add table string (ident, code_elt)
       in

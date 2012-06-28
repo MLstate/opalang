@@ -134,46 +134,98 @@ import stdlib.core.{map,set}
     lexems_to_string(lexems)
 }}
 
+JsMinifier = {{
+  minify(code) =
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    code
+    #<Else>
+    %% BslMinJs.minify %%(code)
+    #<End>
+}}
+
 /**
  * {1 JsIdent module}
  *
  * Binding with the bsl module for managing runtime alpha renaming.
-**/
-
+ */
+@server_private
 JsIdent = {{
 
-  /**
-   * Used by resolution of directives @js_ident
-   * and by the [JsAst.apha_rename] function.
-   * The language of fresh idents should have an empty intersection with the language of local idents
-   * used by the local renaming. This is for toplevel idents only.
-   * This works by side-effect in a local reference. You can clean the reference with the [JsIdent.clear] function
-   * for memory utilization.
-  **/
-  // Local idents : [a-zA-Z][a-zA-Z0-9]*
-  // Toplevel idents : _local-ident
-  rename = %%BslJsIdent.rename%% : JsAst.ident -> JsAst.ident
+  @private cleaningr = Reference.create(true)
+
+  @private renaming = Reference.create({yes}:{yes}/{no}/{fake})
+
+  @private defined = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
+
+  @private ref = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, JsAst.ident)
+
+  @private js_roots = Hashtbl.create(1024) : Hashtbl.t(JsAst.ident, void)
+
+  @private gen = String.fresh(0)
 
   /**
-   * We only rename variables that are defined in the code, by calling this bypass on each toplevel ident,
-   * before performing the cleaning.
-  **/
-  define = %%bslJsIdent.define%% : JsAst.ident -> void
+   * Set the value which indicates if the js code should be cleaned.
+   */
+  set_cleaning(c) =
+    Reference.set(cleaningr, c)
 
   /**
-   * Clear the local reference used by the renaming. After a [JsIdent.clear], the renaming restarts.
-  **/
-  clear = %%bslJsIdent.clear%% : -> void
+   * Used by resolution of directives @js_ident and by the [JsAst.apha_rename]
+   * function. The language of fresh idents should have an empty intersection
+   * with the language of local idents used by the local renaming. This is for
+   * toplevel idents only.  This works by side-effect in a local reference. You
+   * can clean the reference with the [JsIdent.clear] function for memory
+   * utilization.
+  */
+  rename(key : JsAst.ident):JsAst.ident = // TODO - Command line
+    renaming = Reference.get(renaming)
+    match renaming with
+    | {no} -> key
+    | {fake} as renaming | {yes} as renaming ->
+      if Hashtbl.mem(defined, key) then
+        Hashtbl.try_find(ref, key) ?
+          ident = match renaming with
+            | {fake} -> "rename_{key}"
+            | {yes}  -> gen()
+          // TODO - Closure replace identifier
+          _ = Hashtbl.add(ref, key, ident)
+          ident
+      else
+        do Hashtbl.add(ref, key, key)
+        key
+
+  /**
+   * We only rename variables that are defined in the code, by calling this
+   * function on each toplevel ident, before performing the cleaning.
+   */
+  define(ident:JsAst.ident):void =
+    if not(Hashtbl.mem(defined, ident)) then
+      Hashtbl.add(defined, ident, void)
+
+  define_rename(key:JsAst.ident) =
+    do define(key)
+    rename(key)
+
+  /**
+   * Clear the local reference used by the renaming. After a [JsIdent.clear],
+   * the renaming restarts.
+   */
+  clear() =
+    do Hashtbl.clear(ref)
+    do Hashtbl.clear(defined)
+    void
 
   /**
    * Tell if the option for the cleaning was activated
-  **/
-  cleaning = %%bslJsIdent.js_cleaning%% : -> bool
+   */
+  cleaning() = // TODO - Command line
+    Reference.get(cleaningr)
 
   /**
    * Tell if an identifier is a root.
-  **/
-  is_root = %%bslJsIdent.is_root%% : string -> bool
+   */
+  is_root(key) = Hashtbl.mem(js_roots, key)
+
 }}
 
 /**
@@ -201,3 +253,5 @@ type JsIdentSet.t = ordered_set(JsAst.ident, String.order)
  * A set indexed by {!JsAst.ident}
 **/
 JsIdentSet = StringSet
+
+@opacapi JsIdent_define_rename = JsIdent.define_rename

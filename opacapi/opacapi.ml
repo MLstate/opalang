@@ -191,6 +191,13 @@ struct
   let default = !! "default"
 end
 
+module JsIdent =
+struct
+  let (!!) s = !! ("JsIdent_" ^ s)
+  let define_rename = !! "define_rename"
+  let set_cleaning = !! "set_cleaning"
+end
+
 module Opa2Js =
 struct
   let (!!) s = !! ("Opa2Js_" ^ s)
@@ -695,13 +702,6 @@ struct
   struct
     let (!!) s = !! ("BslInit." ^ s)
     let set_executable_id = !! "set_executable_id"
-  end
-
-  module BslJsIdent =
-  struct
-    let (!!) s = !! ("BslJsIdent." ^ s)
-    let define_rename = !! "define_rename"
-    let set_cleaning_default_value = !! "set_cleaning_default_value"
   end
 
   module BslNativeLib =
