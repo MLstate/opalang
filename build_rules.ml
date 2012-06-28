@@ -872,7 +872,7 @@ rule "opa application creator"
         A"-o"; P opa_create_dst; P opa_create_src
       ]));
 
-let package_building ~name ~stamp ~stdlib_only ~rebuild =
+let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
   rule name
     ~deps:[opacapi_validation;all_plugins_file;all_packages_file;"opacomp.stamp"]
     ~stamp
@@ -888,7 +888,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
          then
            let stdlib = "stdlib.core" in
            List.filter (fun package ->
-                          String.length package > String.length stdlib &&
+                          String.length package >= String.length stdlib &&
                             stdlib = String.sub package 0 (String.length stdlib)) packages
          else packages in
        let list_package_files = List.map
@@ -929,7 +929,8 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
          (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
          [A"--conf-opa-files"]
        in
-       let rebuild_opt = if rebuild then [A"--rebuild"] else [] in
+       let extra_opt = if rebuild then [A"--rebuild"] else [] in
+       let extra_opt = if nodebackend then A"--back-end"::A"qmljs"::extra_opt else extra_opt in
        Seq[
          Echo(conf, "conf");
          Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
@@ -944,7 +945,7 @@ let package_building ~name ~stamp ~stdlib_only ~rebuild =
                 A"--parser"; A"classic";
                 opaopt;
                 S all_files;
-               ] @ rebuild_opt));
+               ] @ extra_opt));
        ]
      with RuleFailure.E ->
        fail_rule build
@@ -954,12 +955,22 @@ package_building
   ~name:"opa-packages: meta-rule to build all .opx"
   ~stamp:"opa-packages.stamp"
   ~stdlib_only:false
-  ~rebuild:false;
+  ~rebuild:false
+  ();
 
 package_building
   ~name:"opa-stdlib-packages: meta-rule to build all the stdlib .opx"
   ~stamp:"opa-stdlib-packages.stamp"
   ~stdlib_only:true
-  ~rebuild:false;
+  ~rebuild:false
+  ();
+
+package_building
+  ~name:"opa-node-packages: meta-rule to build all the stdlib .opx"
+  ~stamp:"opa-node-packages.stamp"
+  ~stdlib_only:true
+  ~nodebackend:true
+  ~rebuild:false
+  ();
 
 () (* This file should be an expr of type unit *)

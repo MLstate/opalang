@@ -694,7 +694,7 @@ struct
 
     |+> ("DiscardRemoteBypasses", pass_DiscardRemoteBypasses ~lang)
 
-    |+> (if_CpsRewriter, "CpsRewriter", pass_CpsRewriter ~lang)
+    |?> (if_CpsRewriter, "CpsRewriter", pass_CpsRewriter ~lang)
 
     |?> (if_LambdaLifting, "LambdaLifting", pass_LambdaLifting side)
     |?> (if_ClosureServer side, "Uncurry", pass_Uncurry side)

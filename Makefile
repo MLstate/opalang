@@ -60,9 +60,12 @@ opa: $(BUILD_DIR)/bin/opa
 .PHONY: opa-packages
 opa-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-packages.stamp
+opa-node-packages: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) opa-node-packages.stamp
 
 .PHONY: stdlib
 stdlib: opa-packages
+stdlib-node: opa-node-packages
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
 
