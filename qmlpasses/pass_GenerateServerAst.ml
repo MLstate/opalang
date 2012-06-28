@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -214,12 +214,13 @@ let runtime_code_of_accs ~server_renaming ~client_renaming accs =
 let ser_int b i =
   (* we need to make sure that the length of an integer is fixed (or predictable at least) *)
   (* big bytes first *)
-  for j = 64 / 8 - 1 downto 0 do
+  for j = 3 downto 0 do
     Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
   done
 let ser_string b s =
   ser_int b (String.length s);
   Buffer.add_string b s
+
 let ser_option ser_a b = function
   | None -> Buffer.add_char b '\000'
   | Some a -> Buffer.add_char b '\001'; ser_a b a

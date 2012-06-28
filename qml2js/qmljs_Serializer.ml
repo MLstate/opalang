@@ -461,7 +461,7 @@ struct
     let ser_int b i =
       (* we need to make sure that the length of an integer is fixed (or predictable at least) *)
       (* big bytes first *)
-      for j = 64 / 8 - 1 downto 0 do
+      for j = 3 downto 0 do
         Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
       done
     let ser_string b s =

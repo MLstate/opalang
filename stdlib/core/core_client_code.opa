@@ -136,10 +136,8 @@ Core_server_code =
     (s ->
       i = String.length(s)
       b = Buffer.create(10)
-      do Outcome.get(Pack.Encode.longlong_be(b, i))
+      do Outcome.get(Pack.Encode.long_be(b, i))
       s = Buffer.contents(b)
-      do jlog("{i} => {s}")
-      do jlog("{Outcome.get(Pack.Decode.longlong_be(b, 0))}")
       s
     )
     // #<Else>

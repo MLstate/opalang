@@ -2,6 +2,7 @@
 bslNativeLib.nodejs
 bslSyslog.nodejs
 bslPervasives.nodejs
+float_parser.nodejs
 bslString.nodejs
 bslCactutf.nodejs
 bslNumber.nodejs

@@ -95,7 +95,7 @@ Pack = {{
   sizeShort = {S}
   sizeLong = {L}
   sizeLonglong = {Ll}
-  defaultSize = sizeLonglong
+  defaultSize = sizeLong
 
   // size of sized items
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
@@ -305,8 +305,8 @@ Pack = {{
     string_s_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {S}, str)
     string_s_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {S}, str)
     string_l(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {L}, str)
-    string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {S}, str)
-    string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {S}, str)
+    string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {L}, str)
+    string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {L}, str)
     string_ll(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {Ll}, str)
     string_ll_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, true, {Ll}, str)
     string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, false, {Ll}, str)
@@ -673,14 +673,14 @@ Pack = {{
       | {success=len} ->
         if String.length(data) > pos + len
         then {success=String.substring(pos + 4, len, data)}
-        else {failure="Pack.Decode.string_l_be: not enough data for string"}
+        else {failure="Pack.Decode.string_l_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
     string_l_le(data:string, pos:int) : outcome(string,string) =
       match long_le(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
         then {success=String.substring(pos + 4, len, data)}
-        else {failure="Pack.Decode.string_l_le: not enough data for string"}
+        else {failure="Pack.Decode.string_l_le: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
 
     string_l(le:bool, data:string, pos:int) : outcome(string,string) =
@@ -693,14 +693,14 @@ Pack = {{
       | {success=len} ->
         if String.length(data) > pos + len
         then {success=String.substring(pos + 8, len, data)}
-        else {failure="Pack.Decode.string_ll_be: not enough data for string"}
+      else {failure="Pack.Decode.string_ll_be: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
     string_ll_le(data:string, pos:int) : outcome(string,string) =
       match longlong_le(data, pos) with
       | {success=len} ->
         if String.length(data) > pos + len
         then {success=String.substring(pos + 8, len, data)}
-        else {failure="Pack.Decode.string_ll_le: not enough data for string"}
+        else {failure="Pack.Decode.string_ll_le: not enough data for string ({String.length(data)}:{data} > ({pos} + {len})"}
       | {~failure} -> {~failure}
 
     string_ll(le:bool, data:string, pos:int) : outcome(string,string) =
@@ -900,7 +900,7 @@ Pack = {{
     //dump = (%% BslMongo.Bson.dump %%: int, string -> string)
     dump(_, _) = "unactivated dump"
 
-    debug = ServerReference.create(false)
+    debug = ServerReference.create(true)
 
     pinput(name, input) =
       if ServerReference.get(debug)

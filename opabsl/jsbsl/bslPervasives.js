@@ -238,6 +238,7 @@ var field_position = static_field_of_name("position");
 #<Ifstatic:OPABSL_NODE>
 function jlog_old_style(v){
     console.log("STDERR:"+v);//STDERR is a hack to keep the reftester happy
+    process.stdout.flush();
     return js_void;
 }
 #<Else>

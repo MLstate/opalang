@@ -88,7 +88,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_content(input:Pack.input) : Pack.result(JsAst.content) =
     do D.pinput("unser_content", input)
-    D.unser_array(unser_mini_expr, Pack.bigEndian, Pack.sizeLonglong, {verbatim=""}, input)
+    D.unser_array(unser_mini_expr, Pack.bigEndian, Pack.sizeLong, {verbatim=""}, input)
 
   definition_code =
     [{Coded=[({Byte=0},[]),
@@ -118,7 +118,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_code(input:Pack.input): Pack.result(JsAst.code) =
     do D.pinput("unser_code", input)
-    D.unser_array(unser_code_elt, Pack.bigEndian, Pack.sizeLonglong, dummy_code_elt, input)
+    D.unser_array(unser_code_elt, Pack.bigEndian, Pack.sizeLong, dummy_code_elt, input)
 
   unser_adhoc(string:string) : JsAst.code =
     //do ServerReference.set(D.debug,false)
@@ -129,11 +129,11 @@ import stdlib.core.{js, rpc.core}
        do Log.error("Client_code.unser_adhoc","{failure}")
        LowLevelArray.empty
 
-  unser_string = D.unser_string(Pack.bigEndian, Pack.sizeLonglong, _)
+  unser_string = D.unser_string(Pack.bigEndian, Pack.sizeLong, _)
   unser_string_option = D.unser_option(unser_string,_)
 
   unser_sarray(input:Pack.input): Pack.result(llarray(string)) =
-    D.unser_array(unser_string, Pack.bigEndian, Pack.sizeLonglong, "", input)
+    D.unser_array(unser_string, Pack.bigEndian, Pack.sizeLong, "", input)
 
   unser_server_code_elt(input:Pack.input): Pack.result(ServerAst.code_elt) =
     do D.pinput("unser_server_code_elt", input)
@@ -162,7 +162,7 @@ import stdlib.core.{js, rpc.core}
 
   unser_server_code(input:Pack.input): Pack.result(ServerAst.code) =
     do D.pinput("unser_server_code", input)
-    D.unser_array(unser_server_code_elt, Pack.bigEndian, Pack.sizeLonglong, dummy_server_code_elt, input)
+    D.unser_array(unser_server_code_elt, Pack.bigEndian, Pack.sizeLong, dummy_server_code_elt, input)
 
   unser_server(string:string) : ServerAst.code =
     //do ServerReference.set(D.debug,true)
