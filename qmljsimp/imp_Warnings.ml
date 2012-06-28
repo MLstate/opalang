@@ -26,7 +26,7 @@ let wclass = Qml2js.wclass
 
 let missing_type =
   let doc = "Missing type annotation, pattern matching not optimized" in
-  WarningClass.create ~parent:wclass ~name:"missing-type" ~doc ~err:false ~enable:true ()
+  WarningClass.create ~parent:wclass ~name:"missing-type" ~doc ~err:false ~enable:false ()
 
 let warning_set =
   WarningClass.Set.create_from_list [

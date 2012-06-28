@@ -1076,6 +1076,12 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     | Q.Directive (_, `partial_apply _, _, _) -> assert false
 
+    | Q.Directive (a, ((`lifted_lambda _ | `full_apply _) as d), [e], tys)  ->
+        begin match aux_can_skip ~can_skip_lambda e context with
+        | IL.Skip e -> IL.Skip (Q.Directive (a, d, [e], tys))
+        | term -> IL.Directive (d, [term], tys)
+        end
+
     (* other directive : no specific tratement done in the cps *)
     | Q.Directive (_, directive, exprs, tys) ->
         let terms = List.map (fun expr -> aux expr context) exprs in
@@ -1480,7 +1486,9 @@ let private_env_add_skipped_fun id arity fskip_id fcps_id private_env =
       skipped_functions = IdentMap.add id (arity, fskip_id, fcps_id) private_env.skipped_functions
   }
 
-let simpl_let_in = function
+let rec simpl_let_in = function
+  | Q.Directive (l, d, [e], tys) ->
+      Q.Directive (l, d, [simpl_let_in e], tys)
   | Q.LetIn (_, [(x, expr)], Q.Ident (_, y)) when Ident.equal x y -> expr
   | expr -> expr
 
@@ -1558,7 +1566,18 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let fskip = e in
               let fskip_id =  Ident.refreshf ~map:"%s_skip" id in
               let private_env = private_env_add_skipped_fun id arity fskip_id id private_env in
-              let fskip_eta_exp = QmlAstUtils.Lambda.eta_expand_ast arity (QC.ident id) in
+              let fskip_eta_exp =
+                match fskip with
+                | Q.Directive (l, (`lifted_lambda (env, _) as ll), [_e], tys) ->
+                    let fskip_eta_exp =
+                      match QmlAstUtils.Lambda.eta_expand_ast arity (QC.ident id) with
+                      | Q.Lambda (l, args, e) ->
+                          Q.Lambda (l, args, (Q.Directive (l, `full_apply env, [e], [])))
+                      | _ -> assert false
+                    in
+                    Q.Directive(l, ll, [fskip_eta_exp], tys)
+                | _ -> QmlAstUtils.Lambda.eta_expand_ast arity (QC.ident id)
+              in
               let private_env, fcps_il = il_of_qml env private_env fskip_eta_exp in
               let private_env, fcps = qml_of_il ~toplevel_cont env private_env fcps_il in
               let fcps = simpl_let_in fcps in
@@ -1596,7 +1615,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         | Q.LetIn _
         | Q.LetRecIn _ -> immediate_value_or_barrier ()
 
-        | Q.Directive (_, `restricted_bypass _, [Q.Lambda (_, l, _)], _)
+        | Q.Directive (_, (`restricted_bypass _ | `lifted_lambda _), [Q.Lambda (_, l, _)], _)
         | Q.Lambda (_, l, _) -> immediate_lambda (List.length l)
 
         | Q.Apply _ -> immediate_value_or_barrier ~can_skip_toplvl:true ()
