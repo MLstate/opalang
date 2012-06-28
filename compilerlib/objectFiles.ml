@@ -836,7 +836,7 @@ struct
       let l1 = input_line channel in
       #<If$contains "noerror"> () #<Else>
         if l1 <> this_file_version then
-          error "The package %s was compiled with a different version of the compiler." package_name
+          error "The package %s was compiled with a different version of the compiler.\n%s : %s vs %s" package_name name l1 this_file_version
       #<End>;
       let v = (Marshal.from_channel channel : t) in
       close_in channel;
