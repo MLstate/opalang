@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,15 +61,121 @@
  * to write OPA parsers.
  */
 
-/**
+/**erents parse
  * {1 Parser module interface}
  */
+
+/**
+ * [genparse] is the function used by the [Parser.Generic] module to build the
+ * differents parsing function. For more description of the genparse expected
+ * behavior see [Parser.parse_generic]
+ *
+ * Note : The module is just used for forall
+ */
+@private type Parser.Gen('input) = {{
+  genparse : (bool, Parser.general_parser('a), 'input, (-> 'b), ((itextrator, 'a) -> 'b) -> 'b)
+}}
 
 /**
  * A module with parsing related functions and some common parsers
  */
 Parser =
 {{
+
+  /**
+   * As [Parser.parse_string_generic] but on a [text].
+   */
+  @private
+  StringGen = {{
+    genparse(partial, rule:Parser.general_parser, s, on_failure, on_success) =
+      TextGen.genparse(partial, rule, @toplevel.Text.cons(s), on_failure, on_success)
+  }}
+
+  /**
+   * As [Parser.parse_string_generic] but on a [text].
+   */
+  @private
+  TextGen = {{
+    genparse(partial, rule:Parser.general_parser, text, on_failure, on_success) =
+      ItextGen.genparse(partial, rule, @toplevel.Text.itstart(text), on_failure, on_success)
+  }} : Parser.Gen(text)
+
+  /**
+   * As [Parser.parse_string_generic] but on a [itextrator].
+   */
+  @private
+  ItextGen = {{
+    genparse(partial, rule:Parser.general_parser, iterator, on_failure, on_success) =
+      match rule(partial, iterator) with
+      | {none} -> on_failure()
+      | {some=(it, res)} -> on_success((it, res))
+  }} : Parser.Gen(itextrator)
+
+  @private
+  parse_error(input, pos, fn) =
+    txt =
+      if @toplevel.String.length(input) < 20 then
+        input
+      else
+        @toplevel.String.substring(0, 20, input) ^ "..."
+    error("Parse error: function {fn} on string: <{txt}> {pos}")
+
+  /**
+   * A generic functor to create parse functions.
+   */
+  @private
+  Generic(F:Parser.Gen('input)) = {{
+
+    parse_generic = F.genparse
+
+    /**
+     * As [Parser.parse] but the input depends of [genparse]
+     */
+    parse(rule:Parser.general_parser('a), s:'input):'a =
+      on_failure() = parse_error("{s}", __POSITION__, "parse")
+      on_success((_it, res)) = res
+      F.genparse(false, rule, s, on_failure, on_success)
+
+    /**
+     * As [Parser.try_parse] but the input depends of [genparse]
+     */
+    try_parse(rule:Parser.general_parser('a), s:'input):option('a) =
+      on_failure() = none
+      on_success((_it, res)) = some(res)
+      F.genparse(false, rule, s, on_failure, on_success)
+
+    /**
+     * As [Parser.try_parse_opt] but the input depends of [genparse]
+     */
+    try_parse_opt(rule:Parser.general_parser(option('a)), s:'input):option('a) =
+      on_failure() = none
+      on_success((_it, res)) = res
+      F.genparse(false, rule, s, on_failure, on_success)
+
+    /**
+     * As [Parser.partial_parse] but the input depends of [genparse]
+     */
+    partial_parse(rule:Parser.general_parser('a), s:'input):'a =
+      on_failure() = parse_error("{s}", __POSITION__, "partial_parse")
+      on_success((_it, res)) = res
+      F.genparse(true, rule, s, on_failure, on_success)
+
+    /**
+     * As [Parser.partial_try_parse] but the input depends of [genparse]
+     */
+    partial_try_parse(rule:Parser.general_parser('a), s:'input):option('a) =
+      on_failure() = none
+      on_success((_it, res)) = some(res)
+      F.genparse(true, rule, s, on_failure, on_success)
+
+    /**
+     * As [Parser.parse_and_it] but the input depends of [genparse]
+     */
+    parse_and_it(_rule:Parser.general_parser('a), _s):option((itextrator, 'a)) =
+      _on_failure() = @fail // parse_error(s, __POSITION__, "parse_and_it")
+      _on_success(_it_res):option((itextrator, 'a)) = @fail
+      @fail
+  }}
 
   /**
    * {2 Front-end functions for parsing}
@@ -89,19 +195,8 @@ Parser =
    * result of this function will be [on_success(res)].
    * @return the result of parsing, as outlined above.
    */
-  parse_generic(partial, rule: Parser.general_parser, s, on_failure,
-                on_success) =
-    match rule(partial, Text.itstart(Text.cons(s))) with
-    | {none} -> on_failure()
-    | {some=(it, res)} -> on_success((it, res))
-
-  parse_error(input, pos, fn) =
-    txt =
-      if String.length(input) < 20 then
-        input
-      else
-        String.substring(0, 20, input) ^ "..."
-    error("Parse error: function {fn} on string: <{txt}> {pos}")
+  parse_generic(partial, rule, s, on_failure, on_success) =
+    String.parse_generic(partial, rule, s, on_failure, on_success)
 
   /**
    * Generic function for non-partial parsing that returns the
@@ -112,9 +207,7 @@ Parser =
    * @return the result of parsing
    */
   parse(rule, s) =
-    on_failure() = parse_error(s, __POSITION__, "parse")
-    on_success((_it, res)) = res
-    parse_generic(false, rule, s, on_failure, on_success)
+    String.parse(rule, s)
 
   /**
    * Generic function for non-partial parsing that returns
@@ -127,17 +220,13 @@ Parser =
    * or [none] on parsing failure.
    */
   try_parse(rule, s) =
-    on_failure() = none
-    on_success((_it, res)) = some(res)
-    parse_generic(false, rule, s, on_failure, on_success)
+    String.try_parse(rule, s)
 
   /**
-   * [try_parse_opt(f,s)] behaves like [try_parse(f,s) ? {none}]
+   * [Parser.try_parse_opt(rule, s)] behaves like [try_parse(f,s) ? {none}]
    */
-  try_parse_opt(rule,s) =
-    on_failure() = none
-    on_success((_it, res)) = res
-    parse_generic(false, rule, s, on_failure, on_success)
+  try_parse_opt(rule, s) =
+    String.try_parse_opt(rule, s)
 
   /**
    * Generic function for partial parsing that returns the
@@ -148,9 +237,7 @@ Parser =
    * @return the result of parsing
    */
   partial_parse(rule, s) =
-    on_failure() = parse_error(s, __POSITION__, "partial_parse")
-    on_success((_it, res)) = res
-    parse_generic(true, rule, s, on_failure, on_success)
+    String.partial_parse(rule, s)
 
   /**
    * Generic function for partial parsing that returns
@@ -163,9 +250,7 @@ Parser =
    * or [none] on parsing failure.
    */
   partial_try_parse(rule, s) =
-    on_failure() = none
-    on_success((_it, res)) = some(res)
-    parse_generic(true, rule, s, on_failure, on_success)
+    String.partial_try_parse(rule, s)
 
   /**
    * Non-failing (i.e. failure results in an error), non-partial
@@ -178,9 +263,32 @@ Parser =
    * [it] is a text iterator for the remainder of [s].
    */
   parse_and_it(rule, s) =
-    on_failure() = parse_error(s, __POSITION__, "parse_and_it")
-    on_success(it_res) = some(it_res)
-    parse_generic(false, rule, s, on_failure, on_success)
+    String.parse_and_it(rule, s)
+
+
+  /**
+   * {2 Parsers for differents type of input}
+   *
+   * These sub-modules defined same functions as above but on differents types.
+   */
+
+  /**
+   * Parse functions on [string] inputs.
+   */
+  @both_implem
+  String = Generic(StringGen)
+
+  /**
+   * Parse functions on [text].
+   */
+  @both_implem
+  Text = Generic(TextGen)
+
+  /**
+   * Parse functions on [itextrator].
+   */
+  @both_implem
+  Itextrator = Generic(ItextGen)
 
   /**
    * {2 Parsers for some common types}
