@@ -199,7 +199,7 @@ type JsCleaning.marked = JsIdentSet.t
       | { verbatim = _ } -> stack
       | { set_distant = _ } -> [JsAst.set_distant|stack]
       | ~{ type_use } ->
-        //do jlog("CLIENT: {code_elt.ident} is using type {type_use}")
+         // do jlog("CLIENT: {code_elt.ident} is using type {type_use}")
          add_type_to_stack(infos, stack, type_use)
       | ~{ rpc_use } ->
         //do jlog("CLIENT: {code_elt.ident} is using rpc {rpc_use}")
@@ -465,11 +465,12 @@ type JsCleaning.marked = JsIdentSet.t
     do Log.debug("JsAst","Cleaning up javascript")
     infos = List.fold(fold_infos, code, infos)
     infos = List.fold(fold_infos_server, server_code, infos)
-    // do println("end of infos")
+    do println("end of infos")
     do mark(infos)
-    // do println("end of marking")
+    do println("end of marking")
     acc = List.fold(fold_sweep(fold(infos), _, _), code, acc)
-    // do println("end of sweeping")
+    do println("end of sweeping")
     do Closure.end_of_renaming()
+    do println("end of renaming")
     acc
 }}

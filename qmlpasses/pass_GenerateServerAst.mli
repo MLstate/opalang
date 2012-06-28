@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,6 +18,7 @@
 val ident_to_string : Ident.t -> string
 
 val process :
+  kind:[`adhoc | `ast] ->
   annotmap:QmlAst.annotmap ->
   stdlib_gamma:QmlTypes.gamma ->
   gamma:QmlTypes.gamma ->

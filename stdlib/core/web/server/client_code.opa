@@ -126,7 +126,7 @@ import stdlib.core.{js, rpc.core}
     match D.unser(unser_code, string, true) with
     | {success=code} -> /*do jlog("unser_adhoc: code ok")*/ code
     | {~failure} ->
-       do Log.error("Client_code.unser_adhoc","{failure}")
+       do error("Client_code.unser_adhoc => {failure}")
        LowLevelArray.empty
 
   unser_string = D.unser_string(Pack.bigEndian, Pack.sizeLong, _)
@@ -216,16 +216,13 @@ import stdlib.core.{js, rpc.core}
   retrieve_js_file() : string =
     client_codes = Core_client_code.retrieve_js_codes()
     server_codes = Core_server_code.retrieve_server_codes()
-    asts = List.map((client_code ->
-      match client_code with
-      | ~{adhoc=s package_=_} ->
-        //do jlog("[init] building js ast from adhoc format for {package_}")
-        unser_adhoc(s)
+    asts = List.map((
+      | ~{adhoc=s package_=_} -> unser_adhoc(s)
       | ~{ast} -> ast
     ), client_codes)
-    server_asts = List.map(({adhoc=s package_=_} ->
-      //do jlog("[init] building server ast for {package_}")
-      unser_server(s)
+    server_asts = List.map((
+      |{adhoc=s package_=_} -> unser_server(s)
+      |{adhoc_e=e package_=_} -> e
     ), server_codes)
     JsAst.js_codes_to_string(server_asts,asts)
 

@@ -447,13 +447,25 @@ struct
   module JsAstLabel =
   struct
     (* Meta infos, corresponding to the module JsAst of the stdlib *)
-    let verbatim = "verbatim"
-    let ident = "ident"
     let content = "content"
     let root = "root"
 
     let declaration = "declaration"
     let key = "key"
+
+    (* JsAst.mini_expr *)
+    let ident = "ident"
+
+    let verbatim = "verbatim"
+
+    let set_distant = "set_distant"
+
+    let type_use = "type_use"
+    let type_def = "type_def"
+
+    let rpc_use = "rpc_use"
+    let rpc_def = "rpc_def"
+
   end
 
   module AdHocSerialize =
@@ -576,6 +588,9 @@ struct
      Invariant: in the returned t, there are no 2 successives lexem verbatim.
   *)
 
+  let list gen_a l =
+    !cons#directive `llarray (List.map gen_a l) []
+
   let ident string =
     let string = !cons#string string in
     !cons#record [JsAstLabel.ident, string]
@@ -599,19 +614,39 @@ struct
   let qml qml =
     !cons#record [JsAstLabel.verbatim, qml]
 
+  let set_distant ls =
+    !cons#record [JsAstLabel.set_distant, list !cons#string ls]
+
+  let type_use s =
+    !cons#record [JsAstLabel.type_use, !cons#string s]
+
+  let type_def s =
+    !cons#record [JsAstLabel.type_def, !cons#string s]
+
+  let rpc_use s =
+    !cons#record [JsAstLabel.rpc_use, !cons#string s]
+
+  let rpc_def s =
+    !cons#record [JsAstLabel.rpc_def, !cons#string s]
+
   let mini_expr = function
     | S.Verbatim s -> verbatim s
     | S.Ident s -> ident s
     | S.Expr e -> qml e
-    | S.SetDistant _
-    | S.TypeDef _
-    | S.TypeUse _
-    | S.RpcUse _
-    | S.RpcDef _ -> assert false (* TODO if needed *)
+    | S.SetDistant ls -> set_distant ls
+    | S.TypeDef s -> type_def s
+    | S.TypeUse s -> type_use s
+    | S.RpcUse s -> rpc_use s
+    | S.RpcDef s -> rpc_def s
 
   let declaration string =
     let string = !cons#string string in
     !cons#record [JsAstLabel.declaration, string]
+
+  let definition d = match d with
+    | `Nothing -> !cons#record ["nothing", !cons#cheap_void]
+    | `Rpc s   -> !cons#record ["rpc", !cons#string s]
+    | `Type s  -> !cons#record ["type", !cons#string s]
 
   (*
     Possibly optimized in the future.
@@ -636,25 +671,15 @@ struct
     in
     let code_elt =
       !cons#record [
-        JsAstLabel.ident, ident ;
-        JsAstLabel.root, root ;
-        JsAstLabel.content, content ;
+        JsAstLabel.ident,      ident ;
+        JsAstLabel.root,       root ;
+        JsAstLabel.content,    content ;
+        "definition",          definition elt.S.definition;
       ]
     in
-    let id = Ident.next "js_code_elt" in
-    let decl = Q.NewVal (label, [ id, code_elt ]) in
-    let decls = [ decl ] in
-    let code_elt = QCons.ident id in
-    decls, code_elt
+    code_elt
 
-  let code code =
-    let fold_map rev_decls elt =
-      let decls, elt = code_elt elt in
-      let rev_decls = List.rev_append decls rev_decls in
-      rev_decls, elt
-    in
-    let rev_decls, code = List.fold_left_map fold_map [] code in
-    List.rev rev_decls, code
+  let code code = list code_elt code
 
   (*
     The dependencies of the generated code is hard to predict,
@@ -671,6 +696,22 @@ struct
       acc
       e
 
+  let pull_expr_out code =
+    List.fold_left
+      (fun (outs, code) elt ->
+         let defs, content =
+           List.fold_left
+             (fun (outs, content) elt -> match elt with
+              | S.Expr e ->
+                  let iout = Ident.next "jsout" in
+                  let iexp = !cons#ident iout (Q.TypeConst Q.TyString) in
+                  ((iout, e)::outs, S.Expr iexp :: content)
+              | e -> (outs, e::content)
+             ) ([], []) elt.S.content
+         in let content = List.rev content
+         in defs@outs, {elt with S.content}::code
+      ) ([], []) code
+
   let insert_code ~kind ( js_code : JsSerializer.jsast_code ) ( server_code : QmlAst.code ) =
     let () =
       #<If:JS_SERIALIZE>
@@ -682,49 +723,30 @@ struct
         ()
       #<End>
     in
-    let register_js_file_ident = OpaMapToIdent.val_ Opacapi.Client_code.register_js_code in
-    let register_js_file = QCons.ident register_js_file_ident in
     let insert =
       match kind with
       | `adhoc ->
+          let register_js_code = OpaMapToIdent.val_ Opacapi.Client_code.register_js_code in
+          let register_js_code = QCons.ident register_js_code in
           (* the order in code_elts doesn't matter *)
           let code_elts, e = AdHocSerialize.ser_code js_code in
-          let register_call = !cons#apply register_js_file [ e ] in
+          let register_call = !cons#apply register_js_code [ e ] in
           List.rev (Q.NewVal (label, [ Ident.next "js_code", register_call ]) :: code_elts)
       | `ast ->
-          let (!!) x = OpaMapToIdent.val_ x in
-          let decls, qml_elts = code js_code in
-          if false (* TODO: inspect CPS rewriter, and bypass skipping *)
-          then (
-            (*
-              Add a sequence of call to register.
-              Not possible currently because of a unskipped list,
-              and then LambdaLifting which consume all the ram.
-            *)
-            let register_js_ident = !!Opacapi.Client_code.register_js_code_elt in
-            let register_js_elt = QCons.ident register_js_ident in
-            let foldr js_code_elt acc =
-              let id = Ident.next "_" in
-              let register_call = !cons#apply register_js_elt [js_code_elt] in
-              !cons#letin id register_call acc
-            in
-            let void = !cons#cheap_void in
-            let register_all = List.fold_right foldr qml_elts void in
-            let register_elt =
-              Q.NewVal (label, [ Ident.next "_", register_all ]) in
-            let insert = decls @ [ register_elt ] in
-            insert
-          )
-          else (
-            let js_code = QCons.directive `llarray qml_elts [] in
-            let js_code = !cons#record ["ast", js_code] in
-            let register_call = !cons#apply register_js_file [ js_code ] in
-            let register_elt =
-              Q.NewVal (label, [ Ident.next "_", register_call ])
-            in
-            let insert = decls @ [ register_elt ] in
-            insert
-          ) in
+          let register_js_code =
+            OpaMapToIdent.val_ Opacapi.Client_code.register_js_code_ast
+          in
+          let register_js_code = QCons.ident register_js_code in
+          (* This is needed because we want that the js code registering be
+             skipped by cps *)
+          let outs, js_code = pull_expr_out js_code in
+          let js_code = code (List.rev js_code) in
+          let js_code = !cons#record ["ast", js_code] in
+          let register_call = !cons#apply register_js_code [ js_code ] in
+          let register_elt = Ident.next "register_js_ast", register_call in
+          let insert = Q.NewVal (label, List.rev( register_elt :: outs )) in
+          [ insert ]
+    in
     let deps = QmlAstWalk.CodeExpr.fold get_deps IdentSet.empty insert in
     QmlAstUtils.Code.insert ~deps ~insert server_code
 end

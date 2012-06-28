@@ -1876,6 +1876,7 @@ let pass_GenerateServerAst generate =
   PassHandler.make_pass
     (fun e ->
        let env = e.PH.env in
+       let options = e.PH.options in
        let {P.
          newFinalCompile_qml_milkshake = {
            QmlBlender.code;
@@ -1886,7 +1887,7 @@ let pass_GenerateServerAst generate =
          newFinalCompile_renaming_client = client_renaming;
        } = env in
        let val_ = OpaMapToIdent.val_noerr in
-       let gamma, annotmap, code = Pass_GenerateServerAst.process ~generate ~gamma ~stdlib_gamma ~annotmap ~val_ ~server_renaming ~client_renaming ~code in
+       let gamma, annotmap, code = Pass_GenerateServerAst.process ~kind:options.OpaEnv.js_serialize ~generate ~gamma ~stdlib_gamma ~annotmap ~val_ ~server_renaming ~client_renaming ~code in
        let env =
          { env with P.
              newFinalCompile_qml_milkshake =

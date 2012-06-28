@@ -78,3 +78,6 @@ ServerReference = {{
 
 @deprecated({use="ServerReference"})
 Server_reference = ServerReference
+
+@opacapi
+ServerReference_create = %% BslReference.create %%

@@ -211,65 +211,163 @@ let runtime_code_of_accs ~server_renaming ~client_renaming accs =
        }
     ) accs
 
-let ser_int b i =
-  (* we need to make sure that the length of an integer is fixed (or predictable at least) *)
-  (* big bytes first *)
-  for j = 3 downto 0 do
-    Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
-  done
-let ser_string b s =
-  ser_int b (String.length s);
-  Buffer.add_string b s
+module Binary = struct
 
-let ser_option ser_a b = function
-  | None -> Buffer.add_char b '\000'
-  | Some a -> Buffer.add_char b '\001'; ser_a b a
-let ser_list ser_a b l =
-  ser_int b (List.length l);
-  List.iter (fun a -> ser_a b a) l
-let ser_bool b bool =
-  Buffer.add_char b (if bool then '\001' else '\000')
+  let ser_int b i =
+    (* we need to make sure that the length of an integer is fixed (or predictable at least) *)
+    (* big bytes first *)
+    for j = 3 downto 0 do
+      Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
+    done
+  let ser_string b s =
+    ser_int b (String.length s);
+    Buffer.add_string b s
 
-let ser_rpc b s =
-  (* same escaping as in qmljs_serializer! *)
-  ser_string b (JsPrint.escape_string s)
-let ser_type b s =
-  (* same escaping as in qmljs_serializer! *)
-  ser_string b (JsPrint.escape_string s)
-let ser_defines b = function
-  | `nothing -> Buffer.add_char b '\000'
-  | `rpc s -> Buffer.add_char b '\001'; ser_rpc b s
-  | `type_ s -> Buffer.add_char b '\002'; ser_type b s
-let ser_ident b o =
-  ser_option ser_string b o
-let ser_ident_deps b l =
-  ser_list ser_string b l
-let ser_rpc_deps b l =
-  ser_list ser_rpc b l
-let ser_type_deps b l =
-  ser_list ser_type b l
-let ser_root = ser_bool
-let ser_code_elt b {ident; client_equivalent; defines; ident_deps; rpc_deps; type_deps; root} =
-  (* alphabetic order of fields *)
-  ser_ident b client_equivalent;
-  ser_defines b defines;
-  ser_ident b ident;
-  ser_ident_deps b ident_deps;
-  ser_root b root;
-  ser_rpc_deps b rpc_deps;
-  ser_type_deps b type_deps
-let ser_code b code =
-  ser_list ser_code_elt b code
+  let ser_option ser_a b = function
+    | None -> Buffer.add_char b '\000'
+    | Some a -> Buffer.add_char b '\001'; ser_a b a
+  let ser_list ser_a b l =
+    ser_int b (List.length l);
+    List.iter (fun a -> ser_a b a) l
+  let ser_bool b bool =
+    Buffer.add_char b (if bool then '\001' else '\000')
+
+  let ser_rpc b s =
+    (* same escaping as in qmljs_serializer! *)
+    ser_string b (JsPrint.escape_string s)
+  let ser_type b s =
+    (* same escaping as in qmljs_serializer! *)
+    ser_string b (JsPrint.escape_string s)
+  let ser_defines b = function
+    | `nothing -> Buffer.add_char b '\000'
+    | `rpc s -> Buffer.add_char b '\001'; ser_rpc b s
+    | `type_ s -> Buffer.add_char b '\002'; ser_type b s
+  let ser_ident b o =
+    ser_option ser_string b o
+  let ser_ident_deps b l =
+    ser_list ser_string b l
+  let ser_rpc_deps b l =
+    ser_list ser_rpc b l
+  let ser_type_deps b l =
+    ser_list ser_type b l
+  let ser_root = ser_bool
+  let ser_code_elt b {ident; client_equivalent; defines; ident_deps; rpc_deps; type_deps; root} =
+    (* alphabetic order of fields *)
+    ser_ident b client_equivalent;
+    ser_defines b defines;
+    ser_ident b ident;
+    ser_ident_deps b ident_deps;
+    ser_root b root;
+    ser_rpc_deps b rpc_deps;
+    ser_type_deps b type_deps
+  let ser_code b code =
+    ser_list ser_code_elt b code
+end
+
+module Code =
+struct
+
+  type env = {
+    gamma : QmlTypes.gamma;
+    stdlib_gamma : QmlTypes.gamma;
+    annotmap : QmlAst.annotmap;
+    val_ : string -> Ident.t;
+  }
+
+  let cons = ref QmlAstCons.untyped_cons
+
+  let empty_env = {
+    gamma =  QmlTypes.Env.empty;
+    stdlib_gamma = QmlTypes.Env.empty;
+    annotmap = QmlAnnotMap.empty;
+    val_ = (function _ -> assert false);
+  }
+
+  let env = ref empty_env
+
+  let gen_list gen_a l =
+    !cons#directive `llarray (List.map gen_a l) []
+
+  let gen_string s =
+    !cons#string s
+
+  let gen_bool = !cons#bool
+
+  let gen_option gen_a = function
+    | None -> !cons#none ()
+    | Some e -> !cons#some (gen_a e)
+
+  let gen_ident oident =
+    gen_option gen_string oident
+
+  let gen_ident_deps idents =
+    gen_list gen_string idents
+
+  let gen_root root =
+    let create = !env.val_ Opacapi.ServerReference.create in
+    let tsc = QmlTypes.Env.Ident.find create !env.stdlib_gamma in
+    let ty = QmlTypes.Scheme.instantiate tsc in
+    let create = !cons#ident create ty in
+    !cons#apply create [gen_bool root]
+
+  let gen_rpc rpc =
+    gen_string (JsPrint.escape_string rpc)
+
+  let gen_type type_ =
+    gen_string (JsPrint.escape_string type_)
+
+  let gen_defines = function
+    | `nothing -> !cons#record ["nothing", !cons#cheap_void]
+    | `rpc s ->   !cons#record ["rpc",     gen_rpc s]
+    | `type_ s -> !cons#record ["type",    gen_type s]
+
+  let gen_rpc_deps rpc_deps =
+    gen_list gen_rpc rpc_deps
+
+  let gen_type_deps type_deps =
+    gen_list gen_type type_deps
+
+  let gen_code_elt {ident; client_equivalent; defines; ident_deps; rpc_deps; type_deps; root} =
+    !cons#record [
+      ("client_equivalent", gen_ident client_equivalent);
+      ("defines"          , gen_defines defines);
+      ("ident"            , gen_ident ident);
+      ("ident_deps"       , gen_ident_deps ident_deps);
+      ("root"             , gen_root root);
+      ("rpc_deps"         , gen_rpc_deps rpc_deps);
+      ("type_deps"        , gen_type_deps type_deps);
+    ]
+
+  let generate env_ code =
+    let c, e =  QmlAstCons.make_typed_cons env_.gamma env_.annotmap in
+    cons := c;
+    env := env_;
+    let expr = gen_list gen_code_elt code in
+    let _gamma, annotmap = e () in
+    `code expr, annotmap
+
+end
 
 let generate_register ~gamma ~stdlib_gamma ~annotmap ~val_ ~server_code =
   let ident = val_ Opacapi.Core_server_code.register_server_code in
   let tsc = QmlTypes.Env.Ident.find ident stdlib_gamma in
   let ty = QmlTypes.Scheme.instantiate tsc in
   let annotmap, fun_ = QmlAstCons.TypedExpr.ident annotmap ident ty in
-  let annotmap, string = QmlAstCons.TypedExpr.string annotmap server_code in
-  let annotmap, package = QmlAstCons.TypedExpr.string annotmap (ObjectFiles.get_current_package_name ()) in
-  let annotmap, arg = QmlAstCons.TypedExpr.record annotmap ["adhoc", string; "package_", package] in
-  let annotmap, app = QmlAstCons.TypedExpr.apply gamma annotmap fun_ [arg] in
+  let annotmap, to_register =
+    match server_code with
+    | `string s ->
+        let annotmap, string = QmlAstCons.TypedExpr.string annotmap s in
+        let annotmap, package =
+          QmlAstCons.TypedExpr.string annotmap (ObjectFiles.get_current_package_name ())
+        in
+        QmlAstCons.TypedExpr.record annotmap ["adhoc", string; "package_", package]
+    | `code e ->
+        let annotmap, package =
+          QmlAstCons.TypedExpr.string annotmap (ObjectFiles.get_current_package_name ())
+        in
+        QmlAstCons.TypedExpr.record annotmap ["adhoc_e", e; "package_", package]
+  in
+  let annotmap, app = QmlAstCons.TypedExpr.apply gamma annotmap fun_ [to_register] in
   let dummy_ident = Ident.next "server_ast" in
   let tyvoid = Q.TypeRecord (Q.TyRow ([], None)) in
   let tsc_void = QmlTypes.Scheme.quantify tyvoid in
@@ -280,7 +378,24 @@ let _outputer oc ast =
   let fmt = Format.formatter_of_out_channel oc in
   Format.fprintf fmt "%a%!" pp_code ast
 
-let process ~annotmap ~stdlib_gamma ~gamma ~val_ ~generate ~server_renaming ~client_renaming ~code =
+let generate_binary rc =
+  let b = Buffer.create 1000 in
+  Binary.ser_code b rc;
+  let string = Buffer.contents b in
+  #<If:SERVER_SERIALIZE$contains "overhead">
+    Printf.printf "length: %d\n%!" (String.length string);
+    let r = ref 0 in
+      for i = 0 to String.length string - 1 do
+        if string.[i] < '\005' then incr r
+      done;
+      Printf.printf "overhead: %d, %.2f%%\n%!" !r (100. *. float !r /. float (String.length string))
+    #<End>;
+  `string string
+
+let generate_code ~annotmap ~gamma ~stdlib_gamma ~val_ rc =
+  Code.generate {Code. val_; annotmap; stdlib_gamma; gamma} rc
+
+let process ~kind ~annotmap ~stdlib_gamma ~gamma ~val_ ~generate ~server_renaming ~client_renaming ~code =
   match ObjectFiles.compilation_mode () with
   | `init -> gamma, annotmap, code
   | `prelude | `linking | `compilation ->
@@ -295,22 +410,19 @@ let process ~annotmap ~stdlib_gamma ~gamma ~val_ ~generate ~server_renaming ~cli
     #<If:SERVER_SERIALIZE>
       ignore (PassTracker.file ~filename:"serverast" _outputer rc);
     #<End>;
-    let b = Buffer.create 1000 in
-    ser_code b rc;
-    let string = Buffer.contents b in
-    #<If:SERVER_SERIALIZE$contains "overhead">
-      Printf.printf "length: %d\n%!" (String.length string);
-      let r = ref 0 in
-      for i = 0 to String.length string - 1 do
-        if string.[i] < '\005' then incr r
-      done;
-      Printf.printf "overhead: %d, %.2f%%\n%!" !r (100. *. float !r /. float (String.length string))
-    #<End>;
-    let deps, gamma, annotmap, code_elt = generate_register ~gamma ~stdlib_gamma ~annotmap ~val_ ~server_code:string in
+    let server_code, annotmap =
+      match kind with
+      | `adhoc -> generate_binary rc, annotmap
+      | `ast   -> generate_code ~annotmap ~gamma ~stdlib_gamma ~val_ rc
+    in
+    let deps, gamma, annotmap, code_elt =
+      generate_register ~gamma ~stdlib_gamma ~annotmap ~val_ ~server_code
+    in
     (* for the first package, we need to insert the code_elt at the end :/ *)
     gamma, annotmap, QmlAstUtils.Code.insert ~deps ~insert:[code_elt] qml
-  ) else
-    gamma, annotmap, qml
+     )
+  else gamma, annotmap, qml
+
 
 (* FIXME:
    the computation of roots could be finer:

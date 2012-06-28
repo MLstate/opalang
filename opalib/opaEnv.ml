@@ -280,7 +280,10 @@ struct
         match available_back_end_of_string s with
         | None -> assert false (* use symbol in Arg.parse *)
         | Some back_end -> back_end in
-      back_end_wanted := back_end
+      back_end_wanted := back_end;
+      match back_end with
+      | `qmljs -> js_serialize := `ast
+      | _ -> ()
     let js_back_end_wanted_name = "qmljsimp"
     let js_back_end_wanted = ref (available_js_back_end_of_string js_back_end_wanted_name)
     let js_back_end s =

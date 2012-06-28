@@ -85,11 +85,16 @@ Core_client_code =
         v
     ServerReference.update(js_codes,List.cons(code,_))
 
+  register_js_code_ast(code) =
+    do Log.debug("JsAst", "register_js_code_ast")
+    @atomic(ServerReference.set(js_codes, [code | ServerReference.get(js_codes)]))
+
   /**
    * Retrieve client code on server to be served for all client
    * Used for building the complete javascript code of the application
   **/
   retrieve_js_codes() : list(Client_code.output) =
+    do Log.debug("JsAst", "retreive_js_codes")
     l = List.rev(ServerReference.get(js_codes))
     do ServerReference.set(js_codes,[])
     do @assert(l != []) /* making sure this function is called at most once */
@@ -111,7 +116,8 @@ Core_client_code =
  * @opacapi
 **/
 type ServerCode.t =
-     {adhoc : string; package_ : string}
+  {adhoc : string; package_ : string}
+/ {adhoc_e : ServerAst.code; package_ : string}
 
 /**
  * {3 Interface}
@@ -130,6 +136,7 @@ Core_server_code =
 }}
 
 @opacapi Client_code_register_js_code = Core_client_code.register_js_code
+@opacapi Client_code_register_js_code_ast = Core_client_code.register_js_code_ast
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
 @opacapi Client_code_serialize_string_length =
     // #<Ifstatic:OPA_BACKEND_QMLJS>
@@ -143,3 +150,4 @@ Core_server_code =
     // #<Else>
     // %%BslBuffer.serialize_string_length%%
     // #<End>
+
