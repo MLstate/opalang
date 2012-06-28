@@ -307,7 +307,7 @@ function process_content(req, expires, modified_since, _type, content, content_l
     req.response.setHeader('Cache-Control',"public");
     req.response.setHeader('Last-Modified',modified_since.some);
   };
-  req.response.setHeader('Content-Length',content_len);
+  // req.response.setHeader('Content-Length',content_len);
   if (!req.response.is_dummy) cookies_out(req, false);
   if (include_body)
     req.response.end(content)
