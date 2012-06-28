@@ -733,9 +733,14 @@ var LowLevelPingLoop = {};
 
 ##opa-type ThreadContext.client
 
-##register set_uu \ `LowLevelSession.set_uu` : \
+##register set_uu : \
   ((-> void) -> RPC.Json.private.native), \
   (RPC.Json.private.native -> (-> void)) -> void
+##args(x0, x1)
+{
+    LowLevelSession.set_uu(x0, x1);
+    return js_void;
+}
 
 ##register [cps-bypass] llmake_cps : \
    'st, \
