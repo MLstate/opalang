@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -34,12 +34,18 @@ var global = this;
   return (str in global) && global[str].distant || false
 }
 
-function set_distant(str)
+function set_distant(str, b)
 {
   var l = str.split(",")
   for (var i = l.length; i--;) {
-    (l[i] in global) && (global[l[i]].distant = true)
+    (l[i] in global) && (global[l[i]].distant = b)
   }
+}
+##register set_distant_false : string -> void
+##args(str)
+{
+    set_distant(str, false);
+    return js_void;
 }
 
 function get_local_unsafe(str) {
