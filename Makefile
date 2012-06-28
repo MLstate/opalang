@@ -36,9 +36,7 @@ export
 all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
-ifndef NO_MANPAGES
 	$(MAKE) manpages
-endif
 	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: build
@@ -83,7 +81,11 @@ distrib: $(MYOCAMLBUILD)
 
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
+ifndef NO_MANPAGES
 	$(MAKE) -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
+else
+	@echo "Not building manpages"
+endif
 
 .PHONY: opa-create
 opa-create: $(MYOCAMLBUILD)
