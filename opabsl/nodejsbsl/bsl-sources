@@ -1,5 +1,5 @@
 # -*- conf -*-
-
+bslNativeLib.nodejs
 bslSyslog.nodejs
 bslPervasives.nodejs
 bslString.nodejs

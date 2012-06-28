@@ -1,0 +1,64 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+##extern-type caml_list('a)
+##opa-type list('a)
+##register opa_list_to_ocaml_list: ('a -> 'b), opa[list('a)] -> caml_list('b)
+##args(f, l)
+{
+  var x = new Array();
+  var cl = l;
+  var hd = cl.hd;
+  while(hd){
+      x.push(hd);
+      cl = cl.tl;
+      hd = cl.hd;
+  }
+  return x;
+}
+
+##register cons : 'a, caml_list('a) -> caml_list('a)
+//'
+##args(e, l)
+{
+  return [e].concat(l);
+}
+
+
+##extern-type caml_tuple_2('a,'b)
+##opa-type tuple_2('a, 'b)
+##register ocaml_tuple_2 : opa[tuple_2('a,'b)] -> caml_tuple_2('a,'b)
+##args(t)
+{
+    return t;
+}
+
+// let ocaml_tuple_2 opa =
+//   let record = unwrap_opa_tuple_2 opa in
+// (*   let a = ServerLib.unsafe_dot record f1 in *)
+// (*   let b = ServerLib.unsafe_dot record f2 in *)
+// (*   (a, b) *)
+
+
+##extern-type caml_tuple_4('a, 'b, 'c, 'd)
+##opa-type tuple_4('a, 'b, 'c, 'd)
+##register ocaml_tuple_4 : opa[tuple_4('a,'b,'c,'d)] -> caml_tuple_4('a,'b,'c,'d)
+##args(t)
+{
+    return t;
+}

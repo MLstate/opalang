@@ -1,0 +1,118 @@
+var FileSystem = require('fs');
+
+/** TODO - plugins dependencies */
+##property[mli]
+##extern-type time_t
+##extern-type continuation('a)
+/** *****************************/
+
+##register exists : string -> bool
+##args(path)
+{
+  try{
+    FileSystem.statSync(path);
+    return true;
+  } catch(e) {
+    return false
+  };
+}
+
+##register is_regular : string -> bool
+##args(path)
+{
+  try{
+    return FileSystem.statSync(path).isFile();
+  } catch(e) {
+    return false
+  };
+}
+
+##register is_directory : string -> bool
+##args(path)
+{
+  try{
+    return FileSystem.statSync(path).isDirectory();
+  } catch(e) {
+    return false
+  };
+}
+
+##register make_dir : string -> bool
+##args(path)
+{
+  try{
+    return FileSystem.mkdirSync(path, 700);
+    return true;
+  } catch(e) {
+    return false
+  };
+}
+
+##register basename : string -> string
+##args(path)
+{
+  return path.split("/").pop();
+}
+
+##register dirname : string -> string
+##args(path)
+{
+  var r = path.split("/");
+  r.pop();
+  return r.join("/");
+}
+
+##register content_opt: string -> option(string)
+##args(path)
+{
+  try{
+    var buffer = FileSystem.readFileSync(path);
+    return js_some(buffer.toString())
+  }catch(e){
+    return js_none;
+  }
+}
+
+##register create_full_path:string -> void
+##args(path)
+{
+  var p = path.split("/");
+  var path = [p.pop()];
+  while(p.length > 0){
+    try{
+      return FileSystem.mkdirSync(path.join("/"), 700);
+    } catch(e){
+      if(e.code != 'EEXIST'){ throw e };
+    }
+  }
+  return js_void
+}
+
+##register move: string, string, bool -> void
+##args(src, dst, _force)
+{
+  FileSystem.renameSync(src, dst);
+  return js_void;
+}
+
+##register content: string -> string
+##args(path)
+{
+  var buffer = FileSystem.readFileSync(path);
+  return buffer.toString();
+}
+
+##register last_modification : string -> time_t
+##args(path)
+{
+  return FileSystem.statSync(path).mtime;
+}
+
+##register of_string : string, string -> void
+##args(path, content)
+{
+  var dir = %%BslFile.dirname%%(path);
+  %%BslFile.create_full_path%%(dir);
+  FileSystem.writeFileSync(path, content);
+  return js_void;
+}

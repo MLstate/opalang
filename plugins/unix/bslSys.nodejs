@@ -1,0 +1,29 @@
+
+
+##opa-type list('a)
+
+##register get_argv: -> opa[list(string)]
+##args()
+{
+    return js2list(process.argv);
+}
+
+
+##register self_name : -> string
+##args()
+{
+    return process.argv[0];
+}
+
+##register exit : int -> 'a
+##args(code)
+{
+    process.exit(code);
+}
+
+##register get_env_var: string -> option(string)
+##args(key)
+{
+  var r = process.env[key];
+  return r ? js_none : js_some(r);
+}
