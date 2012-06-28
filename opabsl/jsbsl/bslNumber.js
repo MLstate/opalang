@@ -22,6 +22,9 @@
 
 ##module Int \ bsl_int
 
+##register max_int \ max_int: int
+var max_int = Math.pow(2, 53);
+
 ##register of_string : string -> int
   ##args(str)
   {
