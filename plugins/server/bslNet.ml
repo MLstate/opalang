@@ -684,4 +684,20 @@ let opa_list_to_ocaml_list f l =
       request_message_body = (Rcontent.ContentString body)
   }
 
+  (* Note : This a big hack see the nodejs comment. *)
+  ##register [cps-bypass] request_with_cont : \
+  WebInfo.private.native_request, string, string, \
+  (string, continuation(opa[void]) -> void), \
+  continuation(opa['a]) -> void
+  let request_with_cont request uri body cont k =
+    let request = request_with request uri body in
+    let cont response v =
+      match response.HttpServerTypes.body with
+      | content -> cont (Rcontent.get_content content) v
+    in
+    let cont = QmlClosureRuntime.import cont 2 in
+    let result = Obj.magic (opa_tuple_2 (request, cont)) in
+    QmlCpsServerLib.return k result
+
+
 ##endmodule

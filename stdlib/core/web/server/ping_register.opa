@@ -115,11 +115,11 @@ PingRegister = {{
         match Hashtbl.try_find(entries, client) with
         | {some = ~{ajax nb key=_}} ->
           do remove(client)
-          if pnb == nb then ~{ajax pong}
+          if pnb == nb then {~ajax pong}
           else {}
         | _ -> {}
       ) with
-      | ~{ajax pong} ->
+      | {~ajax pong} ->
         #<Ifstatic:MLSTATE_PING_DEBUG>
         do debug("PONG({pnb}, {client}) really sending")
         #<End>

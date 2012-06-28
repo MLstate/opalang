@@ -49,7 +49,7 @@ Hashtbl = {{
    * @param key The key of the binding
    * @param value The value associated to the [key]
    */
-  replace(table, key, value) = add(table, key, value) //TODO
+  replace(table, key, value) = %%BslHashtbl.replace%%(table, key, value)
 
   /**
    * Returns the current value associated to the [key] in the [table].

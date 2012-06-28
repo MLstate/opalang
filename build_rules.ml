@@ -954,9 +954,9 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
-         [A"--opx-dir";A opx_dir;A"-I";A opa_prefix;A"--no-warn";A"load-import";A"--no-warn";A"bsl.loading"] @
+         [A"--opx-dir";A opx_dir;A"-I";A opa_prefix;A"--no-warn";A"load-import";A"--no-warn";A"bsl.loading";A"--no-warn-error";A"root"] @
            if nodebackend then
-             A"--no-warn-error"::A"root"::A"--back-end"::A"qmljs"::extra_opt
+             A"--back-end"::A"qmljs"::extra_opt
            else A"--back-end"::A"qmlflat"::extra_opt
        in
        Seq[

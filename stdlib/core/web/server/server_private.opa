@@ -265,12 +265,19 @@ Server_private = {{
           cell_handler = Cell_Server.Dispatcher.parser_(winfo: web_info)
           /* Context handler are dispatcher which needs a client context */
           context_handler = parser
+            #<Ifstatic:OPA_FULL_DISPATCHER>
             | winfo=WebSession.parser_(winfo) -> winfo : option(web_info)
             | winfo=PingRegister.parser_(winfo) -> winfo : option(web_info)
             | rpc_handler -> {none}
             | cell_handler -> {none}
+            #<End>
             | .* -> do wrong_address("contexted resource") {none}
           internal_handler:Parser.general_parser(void) = parser
+            #<Ifstatic:OPA_FULL_DISPATCHER>
+            #<Else>
+            | rpc_handler
+            | cell_handler
+            #<End>
             #<Ifstatic:OPA_BACKEND_QMLJS>
             #<Else>
             | resource=DynamicResource.parser_() -> export(winfo, resource)
@@ -354,13 +361,13 @@ Server_private = {{
       {true}
 
     complete_dispatcher =
-    #<Ifstatic:OPA_BACKEND_QMLJS>
+      #<Ifstatic:OPA_FULL_DISPATCHER>
       (_base_url, dispatcher ->
         Continuation.make(w -> dispatcher(w))
       )
-    #<Else>
+      #<Else>
       %%BslDispatcher.complete_dispatcher_cps%%
-    #<End>
+      #<End>
 
     /**
      * Initialize the opa server.

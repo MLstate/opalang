@@ -49,6 +49,8 @@ let set_nb_step_apply n = QmlCpsServerLib.set_nb_step_apply n
 
 ##register asleep : int, (-> void) -> Scheduler.key
 
+##register abort : Scheduler.key -> void
+
 ##register [cps-bypass] sleep_cps : int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
 let sleep_cps t f k =
   sleep t (BslUtils.proj_cps0 k f);

@@ -255,7 +255,7 @@ let () =
       (* ***********************************************)
       (* FINAL SERVER COMPILATION **********************)
 
-      (*|+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives)*)
+      |+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives)
 
       |?> (If.init & If.server,
            "InitializeBslValues", S3.pass_InitializeBslValues)
