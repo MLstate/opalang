@@ -7,7 +7,9 @@
 #
 # More info in build/Makefile.bld
 
+# Makefile inclusions
 include config.make
+include build/Makefile.bld
 
 MAKE ?= $_
 export MAKE
@@ -22,8 +24,6 @@ endif
 
 .PHONY: default
 default: all
-
-include build/Makefile.bld
 
 export
 
