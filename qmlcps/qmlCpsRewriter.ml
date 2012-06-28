@@ -1729,6 +1729,9 @@ let code_elt (env:env) (private_env:private_env) code_elt =
             in private_env, (id, expr)
           end
 
+        | Q.Directive (a, ((`lifted_lambda _) as d), [e], tys)  ->
+            let private_env, (id, e) = fold_map private_env (id, e) in
+            private_env, (id, Q.Directive (a, d, [e], tys))
 
         | _ ->
             (* FIXME: use OpaError *)

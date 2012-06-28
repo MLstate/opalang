@@ -78,16 +78,17 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
    *   or two successive lambdas appear at the toplevel
    *   (the first lambda taking the environment, and the second the argument)
    *)
+  (* Format.eprintf "%a\n%!" QmlPrint.pp#code code; *)
   let code =
     QmlAstWalk.CodeExpr.map
-      (QmlAstWalk.Expr.map
-         (function
+      (QmlAstWalk.Expr.traverse_map
+         (fun tra -> function
           | QmlAst.Directive (label, `lifted_lambda (env,_), [QmlAst.Lambda (label2,params,body) as sub],_) ->
-              if env = 0 then sub else
-              let env_params, params = List.split_at env params in
-              (* the type is crappy here but the
-               * backend doesn't look at it anyway *)
-              QmlAst.Lambda (label, env_params, QmlAst.Lambda (label2, params, body))
+              if env = 0 then tra sub else
+                let env_params, params = List.split_at env params in
+                (* the type is crappy here but the
+                 * backend doesn't look at it anyway *)
+                tra (QmlAst.Lambda (label, env_params, QmlAst.Lambda (label2, params, body)))
           | QmlAst.Directive (label, `full_apply env, [QmlAst.Apply (label2,fun_,args) as sub], _) ->
               if env = 0 then sub else
               let env_args, args = List.split_at env args in
@@ -95,19 +96,25 @@ let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~re
               (* same here *)
               (* BEWARE duplicating the annotation [label] is bad, but the
                * backend doesn't care about that and then they are lost *)
-              QmlAst.Apply (
-                label,
-                QmlAst.Directive
-                  (label,
-                   `partial_apply (None, false),
-                   [QmlAst.Apply (label2, fun_, env_args)],
-                   []),
-                args)
+              tra (QmlAst.Apply (
+                     label,
+                     QmlAst.Directive
+                       (label,
+                        `partial_apply (None, false),
+                        [QmlAst.Apply (label2, fun_, env_args)],
+                        []),
+                     args))
+          | QmlAst.Directive (label, `full_apply env, [QmlAst.LetIn (inl, lst, ine)], tys) ->
+              let lst = List.map (function (i, e) -> i, tra e) lst in
+              let ine = QmlAst.Directive (label, `full_apply env, [ine], tys) in
+              let ine = tra ine in
+              QmlAst.LetIn (inl, lst, ine)
           | QmlAst.Directive (_,(`lifted_lambda _ | `full_apply _),_,_) as expr ->
               OManager.i_error "Unexpected expression %a\n%!" QmlPrint.pp#expr expr
-          | e -> e)
-      ) code in
-
+          | e -> tra e
+         )
+      ) code
+  in
   let _private_env, js_code = Imp_Code.compile env private_env code in
   #<If:JS_IMP$contains "time"> Printf.printf "qml -> js: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;
