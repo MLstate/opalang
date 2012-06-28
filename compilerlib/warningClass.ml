@@ -230,7 +230,7 @@ let bsl_loading =
 
 let bsl_projection =
   let doc = "External Primitive Projection" in
-  create ~parent:bsl ~name:"projection" ~doc ~err:false ~enable:true ()
+  create ~parent:bsl ~name:"projection" ~doc ~err:true ~enable:true ()
 
 let bsl_register =
   let doc = "External Primitive Plugin Builder" in
