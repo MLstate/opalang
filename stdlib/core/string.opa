@@ -602,6 +602,24 @@ String =
         source ^ "a"
 
   /**
+   * Returns a string fresh generator.
+   */
+  fresh(init : int) =
+    ofint(i) =
+      if (i <= 25) then String.of_utf8_val(i + 65) //Capital Letter
+      else String.of_utf8_val(i + 72) //Small Letter
+    rec gen(i, l) =
+      if (i <= 50) then String.flatten(ofint(i)+>l)
+      else
+        gen(i/50, ofint(mod(i, 50))+>l)
+    x = Reference.create(init)
+    // We don't use Fresh module (because cyclic-dependencies)
+    ->
+      i = Reference.get(x)
+      do Reference.set(x, i+1)
+      gen(i, [])
+
+  /**
    * Returns true iff the source string has a given prefix.
    *
    * @param prefix a prefix to check
