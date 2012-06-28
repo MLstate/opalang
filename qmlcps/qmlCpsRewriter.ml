@@ -646,7 +646,18 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
      Only record case is recursively calling 'aux_can_skip'.
      All other calls are on the standard 'aux' (see after)
   *)
+  and atomic_level = ref 0
+  and check_atomic expr il =
+    if !atomic_level != 0 then
+      begin match il with
+      | IL.Skip _ -> ()
+      | _ -> QmlError.serror (QmlError.Context.expr expr) "This expression should be atomic because it is inside atomic directive"
+      end;
+    il
   and aux_can_skip ?(can_skip_lambda=false) expr (context:Context.t) =
+    let aux_can_skip ?(can_skip_lambda=false) expr (context:Context.t) =
+      check_atomic expr (aux_can_skip ~can_skip_lambda expr context)
+    in
     match expr with
 
     | Q.Const _ when Skip.can -> IL.Skip expr
@@ -933,10 +944,13 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         end
 
     | Q.Directive (_, `atomic, [expr], []) ->
-      begin match aux_can_skip expr context  with
-      | (IL.Skip _) as r -> r
-      | _ -> QmlError.error (QmlError.Context.expr expr) "The expression cannot be guaranteed to be atomic"
-      end
+        incr (atomic_level);
+        let il = aux_can_skip expr context in
+        decr (atomic_level);
+        begin match il  with
+        | (IL.Skip _) as r -> r
+        | _ -> QmlError.error (QmlError.Context.expr expr) "The expression cannot be guaranteed to be atomic"
+        end
 
     | Q.Directive (_, `atomic, _ , _) -> assert false
 
