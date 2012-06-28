@@ -1089,8 +1089,14 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
             Context.insertLetCont context term
       )
 
-    | Q.Directive (_, `llarray, args, _) when not (U.good_llarray_property private_env args) ->
-        aux_can_skip (U.normalize_llarray_property private_env args) context
+    | Q.Directive (a, `llarray, args, b) when not (U.good_llarray_property private_env args) ->
+        let sargs = List.map (fun e -> aux_can_skip e context) args in
+        if List.for_all Skip.is1 sargs then
+          IL.Skip (Q.Directive (a, `llarray, (List.map Skip.get sargs), b))
+        else
+          let _i = Option.get (List.findi (fun x -> not (Skip.is1 x)) sargs) in
+          (* Format.eprintf "Because can't skip %a\n%!" QmlPrint.pp#expr (List.nth args _i); *)
+          aux_can_skip (U.normalize_llarray_property private_env args) context
 
     | Q.Directive (_, `llarray, _, _) -> IL.Skip expr
 
