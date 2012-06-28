@@ -107,9 +107,6 @@ Barrier.prototype = {
         cps_assert(result != null, "[Barrier.release] invoked on [null] result");
         cps_assert(!this._is_computed, "[Barrier.release] invoked on already released barrier");
         cps_debug("[Barrier.release] Releasing barrier "+this._id);
-        //DEBUG START
-        released_barriers.push(this._id);
-        //DEBUG STOP
         this._is_computed = true;
         this._result      = result;
         var waiters       = this._waiters;
@@ -316,7 +313,18 @@ Continuation.prototype = {
         var payload = this._paylexn;
         payload = payload ? payload : QmlCpsLib_default_handler_cont(this)._payload;
         return this._paylexn.apply(this._context, [exn])
+    },
+
+    ccont: function(f) {
+        return new Continuation(f, this._context, this._options);
+    },
+
+    catch_: function(h) {
+        var k = this.ccont(this._payload);
+        k._paylexn = h;
+        return k;
     }
+
 }
 
 function QmlCpsLib_callcc_directive(f, k){

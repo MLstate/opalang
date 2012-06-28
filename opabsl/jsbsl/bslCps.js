@@ -102,6 +102,13 @@ function toplevel_wait(barrier){
 //////////////////////////////////////////////////
 ##register [opacapi, no-projection, restricted : cps] handler_cont \ `QmlCpsLib_handler_cont` : continuation('a) -> continuation('c)
 
+##register [opacapi, no-projection : cps, restricted : cps] catch_native : \
+(opa['c], continuation('a) -> _unit), continuation('a) -> continuation('a)
+##args(h, k)
+{
+  return k.catch_(h);
+}
+
 
 ##register [no-projection : cps, restricted : cps] spawn \ spawn : (_unit, continuation('a) -> _unit) -> Cps.future('a)
 
