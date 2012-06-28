@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -559,10 +559,11 @@ struct
       | None -> None
 
     let bsl_bypass_cps t ~lang key =
+      Format.eprintf "LOOK FOR %a\n%!" BslLanguage.pp lang;
       let cps_key = Printf.sprintf "%s_cps" (BslKey.to_string key) in
       let cps_key = BslKey.normalize cps_key in
       match BslKeyMap.find_opt cps_key t.map with
-      | Some _ -> (
+      | Some bypass when (ByPass.implementation ~lang bypass <> None) -> (
           match bsl_bypass_tags t ~lang cps_key with
           | Some tags when tags.BslTags.cps_bypass ->
               let ty = Option.get (bsl_bypass_typer t key) in
@@ -585,6 +586,7 @@ struct
           | None ->
               OManager.i_error "The bypass %a was found but these tags was not found in lang %s" BslKey.pp cps_key (BslLanguage.to_string lang)
         )
+      | Some _ -> None
       | None -> None
 
 (*     let bsl_bypass_cps t ~lang key = *)

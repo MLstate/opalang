@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -707,6 +707,11 @@ type options = {
      filter them reading regexps.
      The declaration of js files should be done before any preprocessing
      of jsconf files.
+  *)
+
+  nodejs_files : filename list ;
+  (**
+     as [js_files]
   *)
 
   js_validator      : ( (executable * shell_options) * filename list ) option ;

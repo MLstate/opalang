@@ -543,6 +543,11 @@ let pass_QmlCpsRewriter client ~(options:opa_options) (env:env_NewFinalCompile) 
     | `qmljs -> false
     | `qmlflat -> not client;
   in
+  let lang =
+    match options.OpaEnv.back_end with
+    | `qmljs -> BslLanguage.nodejs
+    | `qmlflat -> BslLanguage.ml
+  in
   let options =
     { QmlCpsRewriter.default_options with QmlCpsRewriter.
         no_assert = options.OpaEnv.no_assert ;
@@ -560,9 +565,6 @@ because the types of all primitives are required.
 Please use a bsl plugin@\n" (BslKey.to_string key)
       )
     | Some t -> t in
-  let lang =
-    if client then BslLanguage.js
-    else BslLanguage.ml in
   let bsl_bypass_tags key =
     match BslLib.BSL.ByPassMap.bsl_bypass_tags ~lang
       env.newFinalCompile_bsl.BslLib.bymap key with

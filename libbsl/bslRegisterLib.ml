@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -79,6 +79,7 @@ type depends = {
   d_parents                    : BPI.plugin_basename list ;
 
   d_js_code                    : ( filename * contents ) list ;
+  d_nodejs_code                    : ( filename * contents ) list ;
   d_opa_code                   : ( filename * contents ) list ;
 
 }
@@ -150,6 +151,7 @@ type session = {
 
   s_conf                       : BslConf.t ;
   s_js_confs                   : BslJsConf.t ;
+  s_nodejs_conf                : BslJsConf.t ;
 
   s_marshal_plugin_s           : BMP.session ;
 
@@ -157,6 +159,7 @@ type session = {
   s_ml_dynloader_plugin        : FBuffer.t ;
 
   s_rev_js_parsed_files        : BslDirectives.bypasslang_decorated_file list ;
+  s_rev_nodejs_parsed_files    : BslDirectives.bypasslang_decorated_file list ;
   s_rev_ml_parsed_files        : BslDirectives.bypasslang_decorated_file list ;
 
   s_rev_opa_decorated_files    : BslDirectives.opalang_decorated_file  list ;
@@ -173,6 +176,7 @@ type session = {
     opa_code and opa_interface are optained at finalization time
   *)
   s_js_code                    : (filename * contents * BslJsConf.conf) list ;
+  s_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
 
   s_ml_runtime                 : FBuffer.t ;
   s_ml_runtime_mli             : FBuffer.t ;
@@ -205,16 +209,17 @@ let load_plugin plugins =
   Fold depends plugin
 *)
 let d_fold_plugin
-    (rev_ml_runtime_list, rev_parent_list, rev_js_code_list, rev_opa_code_list) plugin =
+    (rev_ml_runtime_list, rev_parent_list, rev_js_code_list, rev_nodejs_code_list, rev_opa_code_list) plugin =
 
   BSL.RegisterInterface.dynload_no_obj plugin.BPI.dynloader ;
 
   let rev_ml_runtime_list = plugin.BPI.ml_runtime              :: rev_ml_runtime_list in
   let rev_parent_list     = plugin.BPI.basename                :: rev_parent_list     in
   let rev_js_code_list    = List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_js_code_list plugin.BPI.js_code in
+  let rev_nodejs_code_list= List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_nodejs_code_list plugin.BPI.nodejs_code in
   let rev_opa_code_list   = List.rev_append plugin.BPI.opa_code   rev_opa_code_list   in
 
-  rev_ml_runtime_list, rev_parent_list, rev_js_code_list, rev_opa_code_list
+  rev_ml_runtime_list, rev_parent_list, rev_js_code_list, rev_nodejs_code_list, rev_opa_code_list
 
 
 let create_s_depends options =
@@ -224,11 +229,14 @@ let create_s_depends options =
 
   let d_plugins = BslPluginTable.finalize () in
 
-  let (ml, prt, js, opa)  = List.fold_left d_fold_plugin ([], [], [], []) d_plugins in
+  let (ml, prt, js, nodejs, opa)  =
+    List.fold_left d_fold_plugin ([], [], [], [], []) d_plugins
+  in
 
   let d_ml_runtimes       = List.rev ml  in
   let d_parents           = List.rev prt in
   let d_js_code           = List.rev js  in
+  let d_nodejs_code       = List.rev nodejs  in
   let d_opa_code          = List.rev opa in
 
 
@@ -243,6 +251,7 @@ let create_s_depends options =
     d_parents ;
 
     d_js_code ;
+    d_nodejs_code ;
     d_opa_code ;
   }
 
@@ -313,6 +322,7 @@ let create ~options =
 
   let s_conf                         = BslConf.default in
   let s_js_confs                     = BslJsConf.empty options.BI.js_files in
+  let s_nodejs_conf                  = BslJsConf.empty options.BI.nodejs_files in
 
   let s_marshal_plugin_s             = BMP.create () in
 
@@ -320,6 +330,7 @@ let create ~options =
   let s_ml_dynloader_plugin          = create_s_fbuffer () in
 
   let s_rev_js_parsed_files          = [] in
+  let s_rev_nodejs_parsed_files      = [] in
   let s_rev_ml_parsed_files          = [] in
 
   let s_rev_opa_decorated_files      = [] in
@@ -328,6 +339,7 @@ let create ~options =
   let s_rt_calls                     = BslKeyMap.empty in
 
   let s_js_code                      = [] in
+  let s_nodejs_code                  = [] in
 
   let s_ml_runtime                   = create_s_fbuffer () in
   let s_ml_runtime_mli               = create_s_fbuffer () in
@@ -343,6 +355,7 @@ let create ~options =
 
     s_conf ;
     s_js_confs ;
+    s_nodejs_conf ;
 
     s_marshal_plugin_s ;
 
@@ -350,6 +363,7 @@ let create ~options =
     s_ml_dynloader_loader ;
 
     s_rev_js_parsed_files ;
+    s_rev_nodejs_parsed_files ;
     s_rev_ml_parsed_files ;
 
     s_rev_opa_decorated_files ;
@@ -358,6 +372,7 @@ let create ~options =
     s_rt_calls ;
 
     s_js_code ;
+    s_nodejs_code ;
 
     s_ml_runtime ;
     s_ml_runtime_mli ;
@@ -798,6 +813,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
   let ml_runtime            = s_identification.i_ml_runtime in
   let depends               = s.s_depends.d_parents in
   let js_code               = s.s_js_code in
+  let nodejs_code           = s.s_nodejs_code in
   let opa_code              = s.s_opa_code in
 
   let buf = FBuffer.create 1024 in
@@ -811,6 +827,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
       ~ml_runtime
       ~depends
       ~js_code
+      ~nodejs_code
       ~opa_code
       ~ocaml_env
       ~javascript_env
@@ -907,30 +924,24 @@ let finalizing_js_code_conf s_js_confs s_js_code =
   List.map map s_js_code
 
 
-let finalizing_js session =
+let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session session =
 
   let options = session.s_options in
 
-  let depends = session.s_depends.d_js_code in
   let plugins = session.s_depends.d_plugins in
-
-  let js_decorated_files = List.rev session.s_rev_js_parsed_files in
 
   let session_ref, dynloader_interface =
     make_imperative_dynloader_interface session
   in
 
   let javascript_env, s_js_code =
-    BslJs.preprocess ~options ~plugins ~dynloader_interface ~depends js_decorated_files
+    BslJs.preprocess ~options ~plugins ~dynloader_interface ~depends ~lang js_decorated_files
   in
 
-  let s_js_code = finalizing_js_code_conf session.s_js_confs s_js_code in
+  let s_js_code = finalizing_js_code_conf js_confs s_js_code in
 
-  javascript_env,
-  { !session_ref
-    with
-      s_js_code ;
-  }
+  javascript_env, update_session !session_ref s_js_code
+
 
 
 let finalizing_js_keys ~final_bymap =
@@ -961,7 +972,23 @@ let finalize s =
   *)
 
   let ocaml_env, s          = finalizing_ocaml s in
-  let javascript_env, s     = finalizing_js    s in
+  let javascript_env, s     =
+    let depends = s.s_depends.d_js_code in
+    let js_decorated_files = List.rev s.s_rev_js_parsed_files in
+    let js_confs = s.s_js_confs in
+    let lang = BslLanguage.js in
+    let update_session session js_code = { session with s_js_code = js_code } in
+    finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
+  in
+
+  let _nodejs_env, s        =
+    let depends = s.s_depends.d_nodejs_code in
+    let js_decorated_files = List.rev s.s_rev_nodejs_parsed_files in
+    let js_confs = s.s_nodejs_conf in
+    let lang = BslLanguage.nodejs in
+    let update_session session js_code = { session with s_nodejs_code = js_code } in
+    finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
+  in
 
   (*
     Now all the calls to the register interface are regrouped in
@@ -989,6 +1016,7 @@ let finalize s =
 
   let f_js_code             = s.s_js_code in
   let f_js_keys             = finalizing_js_keys ~final_bymap in
+  let f_nodejs_code         = s.s_nodejs_code          in
 
   let f_ml_runtime          = s.s_ml_runtime           in
   let f_ml_runtime_mli      = s.s_ml_runtime_mli       in
@@ -1010,6 +1038,7 @@ let finalize s =
     BMP.register_depends                   bmp_session   depends ;
 
     BMP.register_js_code                   bmp_session   f_js_code ;
+    BMP.register_nodejs_code               bmp_session   f_nodejs_code ;
     BMP.register_opa_code                  bmp_session   f_opa_code ;
 
     BMP.register_ocaml_env                 bmp_session   ocaml_env ;
@@ -1385,6 +1414,8 @@ let parse_opa_file options f =
   ( parsed : BslDirectives.opalang_decorated_file )
 
 
+
+
 let parse_bypass_file options f =
   let set_last_directive d = BRState.set_last_directive d in
   let process_directive = bypass_process_directive in
@@ -1447,7 +1478,28 @@ let preprocess_file session filename =
       } in
       session
 
+  | "nodejs" ->
+      let parsed_file = parse_bypass_file session.s_options filename in
+      let s_rev_nodejs_parsed_files =
+        parsed_file :: session.s_rev_nodejs_parsed_files in
+
+      let session = {
+        session with
+          s_rev_nodejs_parsed_files ;
+      } in
+      session
+
   | "jsconf" ->
+      let s_js_confs = session.s_js_confs in
+      let s_js_confs = BslJsConf.fold filename s_js_confs in
+
+      let session = {
+        session with
+          s_js_confs ;
+      } in
+      session
+
+  | "nodejsconf" ->
       let s_js_confs = session.s_js_confs in
       let s_js_confs = BslJsConf.fold filename s_js_confs in
 

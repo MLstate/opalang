@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -278,6 +278,7 @@ let meta_plugin__01 buf
     ~ml_runtime
     ~depends
     ~js_code
+    ~nodejs_code
     ~opa_code
     ~ocaml_env
     ~javascript_env
@@ -304,6 +305,10 @@ struct
   let b = ~> b    "let js_code  = ( [ %a ] : (string * string * BslJsConf.conf) list )\n"
     (pp_ml_list pp_fc_conf)
     js_code
+  in
+  let b = ~> b    "let nodejs_code  = ( [ %a ] : (string * string * BslJsConf.conf) list )\n"
+    (pp_ml_list pp_fc_conf)
+    nodejs_code
   in
   let b = ~> b    "let opa_code = [ %a ]\n"          (pp_ml_list pp_fc)        opa_code   in
   let b = ~> b    "let ocaml_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (ocaml_env : ocaml_env) []) in
@@ -340,6 +345,7 @@ let meta_plugin__03 = "
     depends ;
     opa_code ;
     js_code ;
+    nodejs_code ;
     dynloader ;
     ocaml_env ;
     javascript_env ;
@@ -369,6 +375,7 @@ type plugin = {
   depends               : plugin_basename list ;
   opa_code              : (filename * contents) list ;
   js_code               : (filename * contents * BslJsConf.conf) list ;
+  nodejs_code           : (filename * contents * BslJsConf.conf) list ;
   dynloader             : dynloader ;
   ocaml_env             : ocaml_env ;
   javascript_env        : javascript_env ;
@@ -440,6 +447,11 @@ sig
      The files are given file by file, indexed by the name of the file.
   *)
   val js_code : (filename * contents * BslJsConf.conf) list
+
+  (**
+     as [js_code] but on node files
+  *)
+  val nodejs_code : (filename * contents * BslJsConf.conf) list
 
   (** {6 Registering primitives and types} *)
 

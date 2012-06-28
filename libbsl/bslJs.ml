@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -334,7 +334,7 @@ let debug fmt =
 let split_regexp = Str.regexp "%%[ ]*[a-zA-Z\\._]+[ ]*%%";;
 
 
-let rec fold_source_elt ~dynloader_interface ~filename (env, js_file) source_elt =
+let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) source_elt =
 
   let env, js_file =
     match source_elt with
@@ -497,7 +497,7 @@ let rec fold_source_elt ~dynloader_interface ~filename (env, js_file) source_elt
                   else
                     env_rp_implementation env skey injected
             in
-            let rp_ips = [ BslLanguage.js, filename, parsed_t, implementation ] in
+            let rp_ips = [ lang, filename, parsed_t, implementation ] in
             let rp = { BslPluginInterface.
               rp_ks  = rp_ks ;
               rp_ty  = rp_ty ;
@@ -540,7 +540,7 @@ let env_add_file_line ~filename env js_file =
   js_file, env
 
 
-let fold_decorated_file ~dynloader_interface env decorated_file =
+let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
   let filename = decorated_file.D.filename in
   let source = decorated_file.D.decorated_source in
   let implementation = js_module_of_filename filename in
@@ -551,7 +551,7 @@ let fold_decorated_file ~dynloader_interface env decorated_file =
   let js_file, env = env_add_file_line ~filename env js_file in
 
   let env, js_file =
-    List.fold_left (fold_source_elt ~dynloader_interface ~filename) (env, js_file) source
+    List.fold_left (fold_source_elt ~dynloader_interface ~filename ~lang) (env, js_file) source
   in
   let js_code = FBuffer.contents js_file in
   let file_js_code = filename, js_code in
@@ -575,7 +575,7 @@ let fold_decorated_file ~dynloader_interface env decorated_file =
   env
 
 
-let preprocess ~options ~plugins ~dynloader_interface ~depends decorated_files =
+let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_files =
   let env = empty in
   let sep_env = SeparatedEnv.init ~ty_spec_map:env.ty_spec_map ~renaming:env.renaming in
   let sep_env = List.fold_left SeparatedEnv.fold sep_env plugins in
@@ -587,7 +587,7 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends decorated_files =
       renaming ;
   } in
   let env =
-    List.fold_left (fold_decorated_file ~dynloader_interface) env decorated_files in
+    List.fold_left (fold_decorated_file ~dynloader_interface ~lang) env decorated_files in
   let files_js_code = List.rev env.rev_files_js_code in
 
   check ~options ~depends files_js_code ;

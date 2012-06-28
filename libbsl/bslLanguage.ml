@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,7 +21,7 @@ module String = Base.String
 let (@*) = InfixOperator.(@*)
 
 type ext = string
-type lang = ML | JS | C
+type lang = ML | JS | C | NODEJS
 type format = [ `compiled | `interpreted ]
 type t = Language of lang * format
 
@@ -29,12 +29,14 @@ let mli = Language (ML,    `interpreted)
 let ml  = Language (ML,    `compiled)
 let js  = Language (JS,    `compiled)
 let c   = Language (C,     `compiled)
+let nodejs  = Language (NODEJS,    `compiled)
 
 external fieldlang : t -> lang = "%field0"
 
 let is_ml ml = (fieldlang ml) = ML
 let is_js js = (fieldlang js) = JS
 let is_c c = (fieldlang c) = C
+let is_nodejs c = (fieldlang c) = NODEJS
 
 let compare = Pervasives.compare
 
@@ -44,6 +46,7 @@ let of_string ?format s =
   | "ml" | "ocaml" -> Some (Language (ML, dformat))
   | "ml:top" when format <> Some `compiled -> Some (Language (ML, `interpreted))
   | "js" | "javascript" -> Some (Language (JS, dformat))
+  | "nodejs" -> Some (Language (NODEJS, dformat))
   | "c" -> Some (Language (C, dformat))
   | _ -> None
 
@@ -53,6 +56,7 @@ let to_string (Language (l, c)) =
   | ML, `interpreted -> "ml:top"
   | JS, _ -> "js"
   | C, _ -> "c"
+  | NODEJS, _ -> "nodejs"
 
 let pp fmt = Format.pp_print_string fmt @* to_string
 (* one failure -> None *)
@@ -89,6 +93,7 @@ let pp_meta fmt t =
     match fieldlang t with
     | ML -> "ml"
     | JS -> "js"
+    | NODEJS -> "nodejs"
     | C -> "c"
   in
   Format.fprintf fmt "L.%s" s

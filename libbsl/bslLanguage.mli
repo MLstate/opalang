@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -54,12 +54,14 @@ val formate : format -> t -> t
 val ml : t (** Traditional ocaml code *)
 val js : t (** JavaScript code, for use on the client (technically interpreted, but not by us) *)
 val c  : t (** C code, for use with e.g. LLVM *)
+val nodejs : t (** JavaScript code, for use on the server with NodeJS *)
 
 (** {6 Sugar} *)
 
 val is_ml : t -> bool
 val is_js : t -> bool
 val is_c  : t -> bool
+val is_nodejs  : t -> bool
 
 (**{6 Interpreted}*)
 

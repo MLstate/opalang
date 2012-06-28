@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -146,6 +146,7 @@ val register_depends                : session -> module_name list -> unit
 
 val register_opa_code               : session -> (filename * contents) list -> unit
 val register_js_code                : session -> (filename * contents * BslJsConf.conf) list -> unit
+val register_nodejs_code                : session -> (filename * contents * BslJsConf.conf) list -> unit
 
 val register_ocaml_env              : session -> BslPluginInterface.ocaml_env -> unit
 val register_javascript_env         : session -> BslPluginInterface.javascript_env -> unit

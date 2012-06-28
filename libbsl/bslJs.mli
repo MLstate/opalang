@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -63,5 +63,6 @@ val preprocess :
   plugins:BslPluginInterface.plugin list ->
   dynloader_interface:BslPluginInterface.dynloader_interface ->
   depends:(filename * contents) list ->
+  lang:BslLanguage.t ->
   BslDirectives.bypasslang_decorated_file list ->
   BslPluginInterface.javascript_env * (filename * contents) list

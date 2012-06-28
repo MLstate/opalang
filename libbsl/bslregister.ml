@@ -285,6 +285,7 @@ let files_generated = ref 0
 
 
 let js_files = MutableList.create ()
+let nodejs_files = MutableList.create ()
 
 let js_validator       = ref (Some "js")
 let js_validator_files = MutableList.create ()
@@ -487,27 +488,26 @@ let anon_fun file =
   | opp when opp = BslConvention.Extension.plugin ->
       plugin_inclusion file
 
-  | js ->
-      if js = "js"
-      then (
-        (*
-          The js files are indexed by their basename.
-        *)
-        let key = file in
-        if StringSet.mem key (!js_validator_files_set)
-        then
-          OManager.error (
-            "Found several js files with the same basename : @{<bright>%s@}@\n"^^
+  | ("js" | "nodejs") as ext ->
+      (*
+        The js files are indexed by their basename.
+      *)
+      let key = file in
+      if StringSet.mem key (!js_validator_files_set)
+      then
+        OManager.error (
+          "Found several js files with the same basename : @{<bright>%s@}@\n"^^
             "@[<2>{@<bright>Hint@}:@\n"^^
             "Perhaps the same file is passed several time in the command line@\n"^^
             "or maybe you could rename one of the clashing javascript files@]@\n"
-          )
-            file
-        ;
-        js_validator_files_set := StringSet.add key (!js_validator_files_set);
-        MutableList.add js_files file
-      ) ;
+        )
+          file
+      ;
+      js_validator_files_set := StringSet.add key (!js_validator_files_set);
+      (if ext = "js" then MutableList.add js_files file
+       else MutableList.add nodejs_files file);
       MutableList.add files file
+  | _ -> MutableList.add files file
 
 
 let usage_msg =
@@ -756,6 +756,10 @@ let bslregister_options ()=
 
   let js_files = MutableList.to_list js_files in
 
+  let nodejs_files = MutableList.to_list nodejs_files in
+
+  Printf.eprintf "HHHHHh %d\n" (List.length nodejs_files);
+
   let js_validator =
     Option.map (
       fun js -> (js, MutableList.to_list js_validator_files), MutableList.to_list js_validator_options
@@ -778,6 +782,7 @@ let bslregister_options ()=
     check_style ;
 
     js_files ;
+    nodejs_files ;
     js_validator ;
 
     ml_plugin_filename ;

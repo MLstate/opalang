@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -41,6 +41,7 @@ type t = {
 
   opa_code                             : ( filename * contents ) list ;
   js_code                              : ( filename * contents * BslJsConf.conf ) list ;
+  nodejs_code                          : ( filename * contents * BslJsConf.conf ) list ;
 
   ocaml_env                            : BPI.ocaml_env ;
   javascript_env                       : BPI.javascript_env ;
@@ -59,6 +60,7 @@ type session = {
 
   mutable s_opa_code                   : ( filename * contents ) list ;
   mutable s_js_code                    : ( filename * contents * BslJsConf.conf ) list ;
+  mutable s_nodejs_code                : ( filename * contents * BslJsConf.conf ) list ;
 
   mutable s_ocaml_env                  : BPI.ocaml_env option ;
   mutable s_javascript_env             : BPI.javascript_env option ;
@@ -79,6 +81,7 @@ let create () = {
 
   s_opa_code = [] ;
   s_js_code = [] ;
+  s_nodejs_code = [] ;
 
   s_ocaml_env = None ;
   s_javascript_env = None ;
@@ -100,6 +103,7 @@ let finalize s = {
 
   opa_code                   = s.s_opa_code ;
   js_code                    = s.s_js_code ;
+  nodejs_code                = s.s_nodejs_code ;
 
   ocaml_env                  = Option.get s.s_ocaml_env ;
   javascript_env             = Option.get s.s_javascript_env ;
@@ -135,6 +139,7 @@ let register_depends s d                = s.s_depends <- d
 
 let register_opa_code s c               = s.s_opa_code <- c
 let register_js_code s c                = s.s_js_code <- c
+let register_nodejs_code s c            = s.s_nodejs_code <- c
 
 let register_ocaml_env s env            = s.s_ocaml_env <- Some env
 let register_javascript_env s env       = s.s_javascript_env <- Some env
@@ -233,6 +238,7 @@ let plugin t =
 
     opa_code                = t.opa_code ;
     js_code                 = t.js_code ;
+    nodejs_code             = t.nodejs_code ;
 
     ocaml_env               = t.ocaml_env ;
     javascript_env          = t.javascript_env ;
