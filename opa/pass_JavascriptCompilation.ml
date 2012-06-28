@@ -147,6 +147,7 @@ let parse_js_content ~optimized_conf ~key_prefix ~filename ~content =
   let parsed_code =
     try JsParse.String.code ~throw_exn:true content
     with JsParse.Exception e ->
+      ignore (File.output "jserror.js" content);
       OManager.error (
           "External Javascript serialization@\n"^^
           "Cannot serialize external js-code @{<bright>%s@}@\n"^^
