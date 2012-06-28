@@ -17,7 +17,7 @@
 */
 
 import-plugin server
-import stdlib.core.{iter, web.core, rpc.core, parser, funaction, mutable.buffer, unification}
+import stdlib.core.{iter, web.core, rpc.core, parser, funaction, mutable.buffer, unification, js}
 
 /**
  * {1 About this module}
@@ -746,17 +746,7 @@ Xhtml =
 
   }}
 
-  @publish new_server_id =
-   nid = (%% bslIdentGen.create %%)("I8")
-   nid
-
-  new_id: -> string =
-     @sliced_expr(
-      {
-        client() = Random.string(16)
-        server = new_server_id
-      }
-     )
+  @both_implem new_id = String.fresh(200)
 
  /**
    * Convert a [xhtml] subtree to a pair of strings containing the html proper and the corresponding JS code.
