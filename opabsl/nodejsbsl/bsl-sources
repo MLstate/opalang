@@ -12,11 +12,8 @@ bslNode.nodejs
 bslCps.nodejs
 bslClosure.nodejs
 lowLevelArray.nodejs
-bslValue.nodejs
-bslNet.nodejs
 hashtbl.nodejs
-option.nodejs
-cookies.nodejs
+bslValue.nodejs
 
 # Server specific bypass
 bslTimeServer.nodejs

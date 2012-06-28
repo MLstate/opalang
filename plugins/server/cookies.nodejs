@@ -1,7 +1,3 @@
-
-var hashtbl = require('./hashtbl.nodejs');
-var Option = require('./option.nodejs');
-
 var debug = false
 
 var Time_infinity = 10*365*24*3600*1000; // Actually just ten years (TODO: Time object with infinity?)
@@ -23,7 +19,7 @@ var cookie_accept_client_values = false;
 
 var cookie_pool = new Array();
 var last_cookie_check_time = new Date();
-var to_longcook = new hashtbl.HashTable({})
+var to_longcook = new HashTable({})
 
 exports.cookie_connection_count = cookie_connection_count;
 
@@ -271,7 +267,7 @@ function cookies_in(req) {
 
 function get_object(quotes,name,obj_opt) {
   var q = (quotes) ? "\"" : "";
-  return Option.default_map("",function (obj) { if (obj !== "") { return "; "+name+"="+q+obj+q } else { return "" } },obj_opt)
+  return default_map("",function (obj) { if (obj !== "") { return "; "+name+"="+q+obj+q } else { return "" } },obj_opt)
 }
 
 function get_path(quotes,path_opt) { return get_object(quotes,"path",path_opt) }

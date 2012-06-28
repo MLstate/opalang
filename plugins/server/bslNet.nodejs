@@ -1,11 +1,14 @@
 
 var http = require('http');
 var url = require('url');
-var client = require('../../qmljsimp/qmlJsImpClientLib.js');
-var Option = require('./option.nodejs');
-var Cookies = require('./cookies.nodejs');
 
 var debug = false
+
+##extern-type time_t
+##extern-type caml_list('a)
+##extern-type endpoint
+##extern-type llarray('a)
+##extern-type continuation('a)
 
 ##extern-type WebInfo.private.native
 ##extern-type WebInfo.private.native_http_header
@@ -13,7 +16,6 @@ var debug = false
 ##extern-type WebInfo.private.native_connection
 ##extern-type WebInfo.private.native_response
 ##extern-type web_server_status
-##extern-type SSL.secure_type
 ##extern-type HttpRequest.msg_list
 ##extern-type list('a)
 //'
@@ -74,6 +76,49 @@ function merge_headers(headers) {
   };
   return { 'Expires': exp_time.toUTCString() }
 }
+
+##endmodule
+
+##extern-type SSL.private_key
+##extern-type SSL.policy
+##extern-type SSL.certificate
+##extern-type SSL.secure_type
+
+##module ssl
+
+  ##register make_key: option(string), option(string), string, string, string -> SSL.private_key
+  ##args(ca_file, ca_path, cert_file, cert_key, cert_pass)
+  {
+    return {
+      ca_file : option2js(ca_file),
+      ca_path : option2js(ca_path),
+      cert_file : cert_file,
+      cert_pass : cert_pass,
+      cert_key  : cert_key
+    }
+  }
+
+  ##register make_policy: option(string), option(SSL.certificate -> bool), bool, string, string, string -> SSL.policy
+  ##args(client_ca_file, fallback, always, ca_file, ca_path, cert_path)
+  {
+    return {
+      client_ca_file : option2js(client_ca_file),
+      fallback : option2js(fallback),
+      always : always,
+      ca_file : ca_file,
+      ca_path : ca_path,
+      cert_path : cert_path
+    }
+  }
+
+  ##register make_secure_type: option(SSL.private_key), option(SSL.policy) -> SSL.secure_type
+  ##args(key, policy)
+  {
+    return {
+      key : option2js(key),
+      policy : option2js(policy)
+    };
+  }
 
 ##endmodule
 
@@ -138,7 +183,7 @@ function get_user_agent(req) {
 ##args(req)
 {
   var ua = get_user_agent(req);
-  return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1 && ua.indexOf("Safari",0) == -1 
+  return ua.indexOf("Mobile",0) != -1 && ua.indexOf("Apple",0) != -1 && ua.indexOf("Safari",0) == -1
 }
 
 ##register is_apple_mobile : WebInfo.private.native_request -> bool
@@ -152,7 +197,7 @@ function get_user_agent(req) {
 ##register get_server_url : WebInfo.private.native_request -> string
 ##args(req)
 {
-  return req.server_url
+  return req.url;
 }
 
 ##register get_uri : WebInfo.private.native_request -> string
@@ -206,7 +251,7 @@ function gethdr(request, s) {
   return true
 }
 
-// BslNet.Http_server.make_response 
+// BslNet.Http_server.make_response
 
 function is_valid(request, modified_since) {
   if (request.headers['cache-control'] === 'no-cache')
@@ -272,7 +317,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     option(time_t), \
     WebInfo.private.native_request, \
     web_server_status, \
-    list(WebInfo.private.native_http_header), \
+    caml_list(WebInfo.private.native_http_header), \
     string, \
     string, \
     option(int), \
@@ -288,7 +333,7 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     option(time_t), \
     WebInfo.private.native_request, \
     web_server_status, \
-    list(WebInfo.private.native_http_header), \
+    caml_list(WebInfo.private.native_http_header), \
     string, \
     string, \
     continuation(WebInfo.private.native_response) -> void
@@ -331,6 +376,24 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
   return client.js_void
 }
 
+http._opa_servers = {};
+
+##register get_port : option(string) -> int
+##args(name)
+{
+  var name = option2js(name);
+  name = name ? name : "default";
+  var port = http._opa_servers[name].port;
+  return port ? port : -1;
+}
+
+##register get_addr : option(string) -> string
+##args(name)
+{
+  // TODO
+  return "0.0.0.0";
+}
+
 ##register init_server : \
     string, \
     int, \
@@ -343,16 +406,37 @@ function make_response_with_headers(expires,modified_since,req,headers_out,statu
     void
 ##args(name,port,certfileo,privkeyo,passwdo,secure_type,dispatcher,ontransfer)
 {
-  http.createServer(function (request, response) {
-                      var pathname = url.parse(request.url).pathname;
-                      Cookies.increment_cookie_connection_count();
-                      var req = Cookies.cookies_in({timestamp:new Date(), pathname:pathname,
-                                                    server_name:name, cookies:{},
-                                                    request:request, response:response});
-                      //if (debug) console.log(req);
-                      return dispatcher(req)
-                    }).listen(port);
-  return client.js_void
+  var server =
+    http.createServer(function (request, response) {
+                        var pathname = url.parse(request.url).pathname;
+                        Cookies.increment_cookie_connection_count();
+                        var req = Cookies.cookies_in({timestamp:new Date(), pathname:pathname,
+                                                      server_name:name, cookies:{},
+                                                      request:request, response:response});
+                        //if (debug) console.log(req);
+                          return dispatcher(req)
+                        });
+  server.listen(port);
+  http._opa_servers[name] = {server : server, port : port}
+  return js_void;
+}
+
+##register init_server_cps : \
+    string, \
+    int, \
+    option(string), \
+    option(string), \
+    option(string), \
+    SSL.secure_type, \
+    continuation(WebInfo.private.native), \
+    (string, HttpRequest.msg_list, int -> bool) -> \
+    void
+##args(name, port, certfileo, privkeyo, passwdo, secure_type, dispatcher, ontransfer)
+{
+  function dispatcher_cps(winfo){
+    return_(dispatcher, winfo);
+  };
+  return %%BslNet.Http_server.init_server%%(name, port, certfileo, privkeyo, passwdo, secure_type, dispatcher_cps, ontransfer);
 }
 
 ##endmodule
@@ -511,8 +595,57 @@ var reason_phrase_map = {
   return (code in reason_phrase_map) ? reason_phrase_map[code] : "reason_phrase";
 }
 
+##register [cps-bypass] get_request_message_body: WebInfo.private.native_request, continuation(string) -> void
+##args(req, k)
+{
+  if(req._body_barrier){
+    req._body_barrier.wait(k);
+  } else {
+    var body = new Array();
+    req._body_barrier = new Barrier("get_request_message_body");
+    req.on('data', function(chunk){
+             body.push(chunk);
+           }
+          );
+    req.on('end', function(){
+             Barrier.release(body.join(""));
+           }
+          );
+    return;
+  }
+}
+
+##register request_with: WebInfo.private.native_request, string, string -> WebInfo.private.native_request
+##args(req, url, body)
+{
+  req._body_barrier = new Barrier("request_with");
+  req.url = url;
+  req._body_barrier.release(body);
+  return req;
+}
+
+##register get_cookie: WebInfo.private.native_request -> string
+##args(req)
+{
+  return req.cookies.ic;
+}
+
+##register get_request_cookie:WebInfo.private.native_request -> option(string)
+##args(req)
+{
+  var r = %%BslNet.Requestdef.get_cookie%%(req);
+  return r == "" ? js_none : js_some(r);
+}
+
+##register get_request_ua:WebInfo.private.native_request -> string
+##args(req)
+{
+  return get_user_agent(req);
+}
+
 ##endmodule
 
 exports.status_code = BslNet_Requestdef_status_code
 exports.reason_phrase = BslNet_Requestdef_reason_phrase
+
 

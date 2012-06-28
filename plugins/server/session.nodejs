@@ -1,0 +1,212 @@
+/*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/**
+ * Specific Node JS bsl registering for Actors
+ *
+ * Todo :
+ *  - implements Remote Actor : Opa or JS?
+ *  - cps bypasses
+ *
+ * @author Quentin Bourgerie
+ */
+
+// TODO - Plugin dependencies
+##extern-type continuation('a)
+
+
+##extern-type Session.private.native('a, 'b)
+
+##extern-type Session.entity
+
+##opa-type ThreadContext.client
+
+##register set_uu : \
+  ((-> void) -> RPC.Json.private.native), \
+  (RPC.Json.private.native -> (-> void)) -> void
+##args(_1, _2)
+{
+    // TODO - Implement or remove this hacky bypass...
+    return js_void;
+}
+
+##register llmake : \
+    'st, \
+    (option('ctx), RPC.Json.private.native -> option('msg)), \
+    ('st, 'msg, option('ctx) -> option('st)), \
+    option(-> void), \
+    option('ctx), \
+    option('more), \
+    bool -> \
+    Session.private.native('msg, 'ctx)
+//'
+##args(state, unser, fun, dfun, ctx, more, concurrent)
+{
+  var unserbis = function (x) {
+    /* js_none because when we unserialize on client we don't care of
+     * thread context owner... for moment*/
+    var result = unser(js_none, x);
+    if ('none' in result) {
+      throw new Error("Unserialize fail");
+    } else {
+      return result.some;
+    }
+  };
+  /* cps_mode is falseelse opa use llmake_cps*/
+  return LowLevelSession.llmake(state, unserbis, fun, ctx, dfun, more,
+                                false, concurrent);
+}
+
+##register [cps-bypass] llmake_cps : \
+   'st, \
+   (option('ctx), RPC.Json.private.native, continuation(opa[option('msg)]) -> void), \
+   ('st, 'msg, option('ctx), continuation(opa[option('st)]) -> void), \
+   option(continuation(opa[void]) -> void), \
+   option('ctx), \
+   option('more), \
+   bool, \
+   continuation(Session.private.native('msg, 'ctx)) -> \
+   void
+//'
+##args(state, unser, fun, dfun, ctx, more, concurrent, k)
+{
+    var action = function(state, msg, ctx, f){
+        fun(state, msg, ctx, new Continuation(f));
+    };
+    // TODO - Projection : unserialize + dfun
+    var chan = new LocalChannel(state, unser, action, ctx, dfun, ctx, more, concurrent);
+    return_(k, chan);
+}
+
+##register equal_channel : Session.private.native('b, 'c), Session.private.native('b, 'c) -> bool
+##args(ch1, ch2)
+{
+    return (ch1.compare(ch2) == 0);
+}
+
+##register compare_channels : Session.private.native('msg, 'ctx), Session.private.native('msg, 'ctx) -> int
+##args(ch1, ch2)
+{
+    return ch1.compare(ch2);
+}
+
+##register llsend : Session.private.native('b, 'c), ('b -> RPC.Json.private.native), 'b, option('c) -> void
+##args(ch, ser, msg, ctx)
+{
+    ch.send(ser, msg, ctx);
+}
+
+##register llsend_then : \
+  Session.private.native('msg, 'ctx), \
+  ('msg -> RPC.Json.private.native), \
+  'msg, option('ctx), (-> void), (-> void) -> void
+##args(ch, ser, msg, ctx, herror, hsuccess)
+{
+    ch.send(ser, msg, ctx, herror, hsuccess);
+}
+
+##register export : Session.private.native('msg, 'ctx), opa[ThreadContext.client] -> RPC.Json.private.native
+##args(chan, _)
+{
+    return chan.serialize();
+}
+
+##register serialize_for_entity : Session.private.native('b, 'c), Session.entity -> RPC.Json.private.native
+##args(chan, _)
+{
+    return chan.serialize();
+}
+
+##register unserialize : option('c), RPC.Json.private.native -> option(Session.private.native('b, 'c))
+##args(_, str_chan)
+{
+    return js_none;
+}
+
+##register on_remove : Session.private.native('msg, 'ctx), (-> void) -> void
+##args(chan, callback)
+{
+    chan.on_remove(callback);
+}
+
+##register is_remote : Session.private.native('msg, 'ctx) -> bool
+##args(chan)
+{
+    return ('addr' in chan);
+}
+
+##register is_local : Session.private.native('msg, 'ctx) -> bool
+##args(chan)
+{
+    return (chan instanceof LocalChannel);
+}
+
+##register owner : Session.private.native('msg, 'ctx) -> option(Session.entity)
+##args(chan)
+{
+    var r = chan.owner();
+    if(r==null){
+        return js_none;
+    } else {
+        return js_some(r);
+    }
+}
+
+##register is_client : option(Session.entity) -> bool
+##args(chan)
+{
+    if (chan.some){
+        return chan.some.is_client;
+    } else {
+        return true;
+    }
+}
+
+##register get_more : Session.private.native('msg, 'ctx) -> option('more)
+##args(chan)
+{
+    var more = chan.more;
+    return more != null ? js_some(more) : js_none;
+}
+
+##register [cps-bypass] make_shared : \
+    string, \
+    'st, \
+    (option('ctx), RPC.Json.private.native, continuation(opa[option('msg)]) -> void), \
+    ('st, 'msg, option('ctx), continuation(opa[option('st)]) -> void), \
+    option(continuation(opa[void]) -> void), \
+    option('ctx), \
+    option('more), \
+    bool, \
+    continuation(Session.private.native('msg, 'ctx)) -> \
+    void
+##args(_key, _state, _unserialize, _handler, _ondelete, _ctx, _more, _concurrent, _k)
+{
+   error("Session.make_shared");
+}
+
+##register get_server_id : Session.private.native('msg, 'ctx),  option(opa[ThreadContext.client]) -> option(string)
+##args(chan, _)
+{
+    var s = %%Session.export%%(chan, js_none);
+    if (s != null && s.cl_id != null){
+        return js_some(s.cl_id);
+    } else {
+        return js_none;
+    }
+}

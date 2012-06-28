@@ -666,20 +666,22 @@ let opa_list_to_ocaml_list f l =
 
   (** {6 Weblib request} see alse on [HttpServer]*)
 
-  ##register get_request_message_body : WebInfo.private.native_request -> string
-  let get_request_message_body req = Rcontent.get_content req.HttpServerTypes.request_message_body
+  ##register [cps-bypass] get_request_message_body : WebInfo.private.native_request, continuation(string) -> void
+  let get_request_message_body req k =
+    QmlCpsServerLib.return k (Rcontent.get_content req.HttpServerTypes.request_message_body)
 
   (** Return User Agent ("unknown" if there is no user agent) *)
   ##register get_request_ua \ `HttpServer.get_user_agent` : WebInfo.private.native_request -> string
 
   ##register get_request_cookie \ `HttpServer.get_request_cookie` : WebInfo.private.native_request -> option(string)
 
-  (** Returns the ic and ec cookies, contrary to get_request_cookie that just returns ic *)
-  ##register get_request_cookies : WebInfo.private.native_request -> opa[tuple_2(option(string), option(string))]
-  let get_request_cookies request =
-    let ic, ec = HttpServer.get_request_cookies request in
-    let ic = Option.map ServerLib.wrap_string ic in
-    let ec = Option.map ServerLib.wrap_string ec in
-    opa_tuple_2 (ServerLib.wrap_option ic, ServerLib.wrap_option ec)
+  ##register get_cookie \ `HttpServer.get_cookie` : WebInfo.private.native_request -> string
+
+  ##register request_with : WebInfo.private.native_request, string, string -> WebInfo.private.native_request
+  let request_with request uri body = let open HttpServerTypes in {
+    request with
+      request_line = { request.request_line with request_uri = uri };
+      request_message_body = (Rcontent.ContentString body)
+  }
 
 ##endmodule
