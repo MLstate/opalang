@@ -265,6 +265,10 @@ PingRegister = {{
         do Entry.pang(client, nb, winfo)
         (request, cont) = %%BslNet.Requestdef.request_with_cont%%(request, uri, body, Entry.return(client, nb, _))
         {some = {winfo with http_request.request = request ~cont}}
+      | {Int = nb} ->
+        client = client()
+        do Entry.pang(client, nb, winfo)
+        {none}
       | json -> werror(winfo, "bad formatted json : {json}")
       end
 
