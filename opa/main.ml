@@ -265,8 +265,8 @@ let () =
       |> PH.old_if_handler ~if_:If.closure (* ~precond:[check_ident_final] *)
           "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
 
-      |?> (If.constant_sharing,
-           "QmlConstantSharing", S3.pass_QmlConstantSharing)
+      (* |?> (If.constant_sharing, *)
+      (*      "QmlConstantSharing", S3.pass_QmlConstantSharing) *)
 
       |?| (Switch.back_end, function
            | `qmlflat -> ("QmlFlatCompilation", (PassHandler.make_pass (fun e -> e
