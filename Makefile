@@ -12,7 +12,6 @@ include config.make
 include build/Makefile.bld
 
 MAKE ?= $_
-export MAKE
 
 ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += "--rebuild"
