@@ -62,9 +62,34 @@ Crypto = {{
      */
     hmac_sha256 = %% BslCrypto.hmac_sha256 %% : string, string -> string
 
+    /**
+     * Generalised hmac.
+     * Valid output encodings are "hex", "binary" and "base64".
+     * Valid algorithms depend on what is available in OpenSSL, eg. "sha1", "md5", "sha256" and "sha512".
+     * Note that [hmac_sha1 = hash("sha1","binary",_)] and [hmac_sha256 = hash("sha256","binary",_)].
+     *
+     * @param algorithm the algorithm to use
+     * @param output_encoding the output encoding
+     * @param key the key for the encryption
+     * @param str the string to encode
+     */
+    hmac = %%BslCrypto.hmac%% : string, string, string, string -> string
+
     md5 = %% BslCrypto.md5 %% : string -> string
 
     sha2 = %%BslCrypto.sha2%% : string -> string
+
+    /**
+     * Generalised hash.
+     * Valid output encodings are "hex", "binary" and "base64".
+     * Valid algorithms depend on what is available in OpenSSL, eg. "sha1", "md5", "sha256" and "sha512".
+     * Note that [sha2 = hash("sha256","binary",_)] and [md5 = hash("md5","hex",_)].
+     *
+     * @param algorithm the algorithm to use
+     * @param output_encoding the output encoding
+     * @param str the string to hash
+     */
+    hash = %%BslCrypto.hash%% : string, string, string -> string
 
   }}
 
