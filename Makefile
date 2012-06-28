@@ -129,9 +129,10 @@ endef
 
 define install-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
-@mkdir -p "$(STDLIB_DIR)/$*.opp/plugins/$*"
+@mkdir -p "$(STDLIB_DIR)/$*.opp"
 @$(INSTALL) $(BUILD_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
-@find "$(BUILD_DIR)/$*.opp" -mindepth 2 -iname \*.js -exec $(INSTALL) {} "$(STDLIB_DIR)/$*.opp/plugins/$*" \;
+@for f in `find "$(BUILD_DIR)/$*.opp" -mindepth 2 -iname \*.\*js`; do \
+	nf=`basename $$f | sed 's/[^_]*_\(.*\)/\1/'`; $(INSTALL) $$f "$(STDLIB_DIR)/$*.opp/$$nf"; done
 @$(if $(wildcard $(BUILD_DIR)/$*.opp/*MLRuntime.*), $($(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/";))
 endef
 
