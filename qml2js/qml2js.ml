@@ -142,12 +142,18 @@ struct
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
     let ast = List.flatten (List.rev_map (
-                              fun (_,content) ->
+                              fun (filename,content) ->
                                 (*
                                   TODO: we must take care about conf,
                                   and not parse file tagged as Verbatim
                                 *)
-                                JsParse.String.code content
+                                try
+                                  JsParse.String.code ~throw_exn:true content
+                                with JsParse.Exception error -> (
+                                  let _ = File.output "jserror.js" content in
+                                  OManager.error "JavaScript parser error on file '%s'\n%a\n"
+                                    filename JsParse.pp error;
+                                )
                             ) generated_files) in
     List.rev generated_files, ast
 
@@ -252,6 +258,7 @@ struct
          Printf.fprintf oc "///////////////////////\n";
          Printf.fprintf oc "// From %s\n" filename;
          Printf.fprintf oc "///////////////////////\n";
+         Printf.fprintf oc "console.log('Load file %s')" filename;
          Printf.fprintf oc "%s" content;
          Printf.fprintf oc "\n";
       ) generated_map;
@@ -272,8 +279,9 @@ struct
     linking_generation_js_init generated_files env_js_input oc;
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
-      Printf.fprintf oc "/** From packages %s \n" opx;
+      Printf.fprintf oc "// From package %s \n" opx;
       Printf.fprintf oc "///////////////////////\n";
+      Printf.fprintf oc "console.log('Load package %s')" opx;
       let ic = open_in (Filename.concat opx "a.js") in
       let chunk = 10000 in
       let str = String.create chunk in
