@@ -25,8 +25,7 @@ module View {
     </>
 
   function default_page() {
-    html = page_template(chat_html)
-    Resource.page("Opa chat", html)
+    Resource.page("Opa chat", page_template(chat_html))
   }
 
 }

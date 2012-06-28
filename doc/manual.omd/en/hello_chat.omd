@@ -15,8 +15,8 @@ Let us start with a picture of the web chat we will develop in this chapter:
 
 ![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
 
-This web application offers one chatroom. Users connecting to the application
-with their browser automatically join this chatroom and can immediately
+This web application offers one chat-room. Users connecting to the application
+with their browser automatically join this chat-room and can immediately
 start discussing in real-time. In the picture, we have two users, using regular
 web browsers. For the sake of simplicity, in this application, we choose the name
 of users randomly.
@@ -36,8 +36,7 @@ To start a new project, our chat application, simply write:
 This will create a `chat` directory and generate a scaffolding for a new Opa
 app, with the following content:
 
-```
-+- chat
+`+- chat
 | +- Makefile
 | +- Makefile.common
 | +- opa.conf
@@ -47,19 +46,18 @@ app, with the following content:
 | +- src
 | | +- model.opa
 | | +- view.opa
-| | +- controller.opa
-```
+| | +- controller.opa`[sh]
 
 The project includes:
 
 * `Makefile` for the project (which can be customized),
 * a generic `Makefile.common` (which will usually not be modified),
 * a configuration, `opa.conf` (listing all source files of the projects and their dependencies),
-* an examplary style file `style.css`,
+* an exemplary style file `style.css`,
 * and the sources following the classical MVC pattern: `model.opa`, `view.opa` and `controller.opa`.
 
 {block}[TIP]
-You can expore other templates of the `opa-create` tool by trying out
+You can explore other templates of the `opa-create` tool by trying out
 
 `opa-create --help`[sh]
 
@@ -73,10 +71,62 @@ We will talk more about building a wiki app in the [next chapter](/manual/Hello-
 
 To compile and run the project simply execute:
 
+`cd chat
+make run`[sh]
+
+Building user interface
+-----------------------
+
+Let us start with the user interface; the _view_ part of the application. If you look
+at `src/view.opa` (shown below) you will see that it contains a `View` _module_.
+Modules are more powerful than that, but for now you can think of them as containers
+to group together related definitions.
+
 ```
-cd chat
-make run
+module View {
+
+   // View code goes here
+
+  function page_template(title, content) {
+    html =
+      <div class="navbar navbar-fixed-top">
+        <div class=navbar-inner>
+          <div class=container>
+            <a class=brand href="./index.html">chat</>
+          </>
+        </>
+      </>
+      <div id=#main class=container-fluid>
+        {content}
+      </>
+    Resource.page(title, html)
+  }
+
+  function default_page() {
+    content =
+      <div class="hero-unit">
+        <>Page content goes here...</>
+      </>
+    page_template("Default page", content)
+  }
+
+}
 ```
+
+The `View` module contains two functions: `page_template` that contains a generic
+template for any page and `default_page` that uses it to build a page. Few things
+to notice:
+
+* HTML & CSS, prevailing web standards, are used to build user interface (UI). Both are first class citizens in the language and are understood (and checked!) by the compiler, without having to wrap them as strings.
+* HTML uses [Twitter Bootstrap](http://twitter.github.com/bootstrap/) markup. Opa makes it possible to use Bootstrap with one single import, which is already taken care of for you by the `opa create` template.
+* Opa also makes few simplifications in the HTML syntax: name in the closing tag is optional and quotes can be omitted for one-word, letters-only attributes.
+* _Inserts_ are a safe way of "injecting" values into strings and HTML fragments; they consist of code placed within the curly braces `{...}`. This is how the `content` argument is placed in the constructed HTML in the `page_template` function.
+
+For our chat app we need to slightly modify the markup in the
+[View module](https://github.com/MLstate/hello_chat/blob/master/src/view.opa).
+The template also automatically places a CSS style-sheet in `resources/css/style.css`,
+which we need to [modify](https://github.com/MLstate/hello_chat/blob/master/resources/css/style.css)
+to obtain the desired look & feel for our app.
 
 Setting up communication
 ------------------------
