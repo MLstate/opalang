@@ -862,6 +862,9 @@ struct
     in let env =
       let module JsCC = (val options.js_back_end : Qml2jsOptions.JsBackend) in
       Pprocess.add_env "OPA_JS_COMPILER" JsCC.name env
+    in let env =
+      if options.back_end = `qmljs then Pprocess.add_env "OPA_BACKEND_QMLJS" "1" env
+      else env
     in env
 
   let write_manpage file =
