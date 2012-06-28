@@ -34,7 +34,7 @@ export
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 ifndef NO_MANPAGES
 	$(MAKE) manpages
@@ -50,21 +50,21 @@ runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-packages
+.PHONY: opa-node-packages
 opa-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp
+	$(OCAMLBUILD) opa-node-packages.stamp
 opa-node-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp
 
 .PHONY: stdlib
-stdlib: opa-packages
+stdlib: opa-node-packages
 stdlib-node: opa-node-packages
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
@@ -73,7 +73,7 @@ OPA_TOOLS = opa-create
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) $(OPA_TOOLS)
 
