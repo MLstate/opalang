@@ -1,14 +1,12 @@
 # Opa #
 
-
 ## Overview ##
 
-Opa is a new generation of cloud development platform. It is a new programming
-language, a new web server, a new database and a new distributed execution
-engine, all of them tightly integrated to provide a great experience for cloud
-developers.
+Opa is an advanced framework for JavaScript, made of two parts:
+* A compiler from the Opa language, which features JavaScript-like syntax but introduces many enhancements;
+* A JavaScript library, which is used at runtime.
 
-This repository contains all the sources of the Opa compiler and libraries.
+This repository contains all the sources of both the Opa compiler and the Opa library.
 
 
 ## Quick build instructions ##
@@ -70,12 +68,13 @@ files are put in `_build`, following the same hierarchy as the source directory.
 
 ## License & Credits ##
 
-Opa is Copyright 2011, MLstate; it is distributed under the terms of the GNU
-Affero General Public License, version 3. See file LICENSE for details.
+Opa is open source and Copyright 2007-2012, MLstate.
+* The library is released under the MIT license;
+* The compiler is released under the GNU Affero General Public License, version 3. 
+See file LICENSE for details.
 
 The repository opalang is currently versioning 2 external tools in tools/
 used only during the build process of Opa :
-
 * The Closure Compiler (see tools/jschecker/README for copyright information)
 * JsDoc Toolkit (see tools/jsdoc-toolkit/README.txt for copyright information)
 
@@ -86,24 +85,20 @@ Javascript code.
 The use of these tools is transitional, and will soon be made optional.
 
 Part of the jslang library, has been closely inspired by ocamljs/jslib:
-
 * ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
-
-Files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules
-found in ocamljs, specialized for Opa specific needs.
+In particular files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules found in ocamljs, specialized for Opa specific needs.
 We would like to thank the authors of the ocamljs/jslib.
 
 Opa also includes external libraries :
-
 * Bootstrap, from Twitter - http://twitter.github.com/bootstrap
-
 * Font Awesome - http://fortawesome.github.com/Font-Awesome
 
 Contact
 -------
 
 All bug reports, feedback, comments, contributions or remarks are welcome,
-either on our website: [http://opalang.org](http://opalang.org)
+either on our website: [http://opalang.org](http://opalang.org).
 
-or by email, to:
-                              support@opalang.org
+In particular, users are welcome to:
+* subscribe on the mailing list at [https://lists.owasp.org/listinfo/opa](OWASP);
+* participate in the forum at [http://forum.opalang.org](opalang).
