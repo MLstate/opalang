@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -125,11 +125,13 @@ Network = {{
       make_generic((init, handler -> Session.make_shared(key, init, handler)))
    )
 
-
+   #<Ifstatic:OPA_BACKEND_QMLJS>
+   #<Else>
    make_at(location: channel(_)): Network.network('a) =
    (
       make_generic((init, handler -> Session.make_at(init, handler, location)))
    )
+   #<End>
 
    /**
     *

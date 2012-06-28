@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -32,9 +32,6 @@
  * WARNING: this is an experimental feature.
  *
  */
-
-import stdlib.core.web.client
-import stdlib.core
 
 /**
  * {1 Interface}

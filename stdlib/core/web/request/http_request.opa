@@ -17,7 +17,7 @@
 */
 
 import-plugin server
-import stdlib.core.{xhtml, rpc.core, xmlm, map}
+import stdlib.core.{xhtml, rpc.core, map}
 
 
 /**
@@ -105,13 +105,6 @@ HttpRequest = {{
      */
     get_cookie(x: HttpRequest.request) : option(string) =
         raw = %% BslNet.Requestdef.get_request_cookie %%
-        raw(x.request)
-
-    /**
-     * Return the both internal and external cookies associated to a request.
-     */
-    get_cookies(x: HttpRequest.request) : tuple_2(option(string), option(string)) =
-        raw = %% BslNet.Requestdef.get_request_cookies %%
         raw(x.request)
 
     /**
@@ -204,7 +197,8 @@ HttpRequest = {{
      */
    get_xml_body(x: HttpRequest.request): option(xmlns) =
       // contrary to Xmlns.try_parse, it handles namespaces
-      Xmlm.try_parse(get_body(x))
+      // TODO - Don't use Xmlm!!! Fix Xmlns
+      Xmlns.try_parse(get_body(x))
 
     /**
      * Return the body of a JSON request.
@@ -277,6 +271,8 @@ HttpRequest = {{
         | {none} -> "<unidentified>"
         | {~some}-> string_of_user_id(some)
 
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    #<Else>
     /**
      * {1 Manipulation of multipart request}
      */
@@ -296,6 +292,8 @@ HttpRequest = {{
      */
     fold_multipart = %%BslNet.Http_server.fold_multipart%%
       : HttpRequest.multipart, 'acc, (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc) -> 'acc
+
+    #<End>
 
   }}
 
@@ -344,6 +342,9 @@ HttpRequest = {{
 
   get_connexion_string() = apply(Generic.get_connexion_string)
 
+  #<Ifstatic:OPA_BACKEND_QMLJS>
+  #<Else>
   get_multipart() = apply2(Generic.get_multipart)
+  #<End>
 
 }}

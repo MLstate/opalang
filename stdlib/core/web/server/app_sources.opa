@@ -49,12 +49,22 @@ AppSources =
     | _ -> dom
 
 
-  show_file(filename)(_) =
-    content = %%BslAppSrcCode.get_file_content%%(filename)
+    show_file(filename)(_) =
+    content =
+        #<Ifstatic:OPA_BACKEND_QMLJS>
+        ""
+        #<Else>
+        %%BslAppSrcCode.get_file_content%%(filename)
+        #<End>
     Dom.transform([#content <- <>{content}</>])
 
   page() =
-    app_files = %%BslAppSrcCode.get_file_list%%()
+    app_files =
+        #<Ifstatic:OPA_BACKEND_QMLJS>
+        []
+        #<Else>
+        %%BslAppSrcCode.get_file_list%%()
+        #<End>
     init() =
       Dom.set_style(
         Dom.select_raw_unsafe("html, body"),

@@ -172,10 +172,7 @@ type CommandLine.family('state) = {
 @server_private CommandLine = {{
 
   // FIXME: move this somewhere else
-  @private opa_list_to_caml_list(convert : 'a -> 'b, l : list('a)) : caml_list('b) =
-    cons = %%BslNativeLib.cons%%
-    empty = %%BslNativeLib.empty_list%%
-    List.fold(x, acc -> cons(convert(x), acc), List.rev(l), empty)
+  @private opa_list_to_caml_list =  %%BslNativeLib.opa_list_to_ocaml_list%%
 
   /**
    * Parse a family of command-line options.
@@ -192,9 +189,9 @@ type CommandLine.family('state) = {
     camlify_parser( ~{names on_encounter on_param param_doc description} : CommandLine.parser) =
       caml_names = opa_list_to_caml_list(identity, names)
       camlify_state =
-        | ~{no_params} -> %% BslCommandLine.no_more_params %%(no_params)
-        | ~{params}   -> %% BslCommandLine.more_params %%(params)
-        | ~{opt_params}-> %% BslCommandLine.maybe_params %%(opt_params)
+        | ~{no_params} -> x -> x // TODO - %% BslCommandLine.no_more_params %%(no_params)
+        | ~{params}   -> x -> x // TODO -%% BslCommandLine.more_params %%(params)
+        | ~{opt_params}-> x -> x // TODO -%% BslCommandLine.maybe_params %%(opt_params)
       caml_on_encounter(state) =
         camlify_state(on_encounter(state))
       caml_on_param(state, text) =
@@ -214,17 +211,19 @@ type CommandLine.family('state) = {
             else
               do_parse(text)
         else do_parse(text)
-      %% BslCommandLine.make %%(caml_names, param_doc, description, caml_on_encounter, caml_on_param)
+      //%% BslCommandLine.make %%(caml_names, param_doc, description, caml_on_encounter, caml_on_param)
+    init
 
     caml_parsers = opa_list_to_caml_list(camlify_parser, parsers)
-    state = %% BslCommandLine.filter %%(title, caml_parsers, init)
+    state = init//%% BslCommandLine.filter %%(title, caml_parsers, init)
 
     // 2. Parsing anonymous arguments
     fold(anonymous, state) =
       // TODO: bind the filter and the description in the ServerArg, for the --help
       fct = anonymous.parse
       func(state, anon_arg:string) = Parser.try_parse(fct(state), anon_arg)
-      %%BslCommandLine.anonymous_filter%%(func, state)
+      //%%BslCommandLine.anonymous_filter%%(func, state)
+    state
     state = List.fold(fold, anonymous, state)
 
   // Returning the final state

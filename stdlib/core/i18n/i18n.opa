@@ -177,6 +177,7 @@ ServerI18n =
 
   /** touch lang */
   touch_user_lang(request) =
+    do jlog("I18n")
     match UserI18n.get_lang_opt()
     {none} -> l = request_lang(request) // if user has no lang get it from the request
                 UserI18n.set_lang(l)   // and fix it

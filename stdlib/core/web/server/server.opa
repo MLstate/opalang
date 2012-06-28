@@ -579,6 +579,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
            ) : HttpRequest.request, 'a -> resource
      (request ->
        Resource.later(f ->
+         do jlog("UC")
          UserContext.execute((info -> f(aux(request,info))), context)
        )
      ) : Server.secure_resource
@@ -633,9 +634,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    */
 /*  Parser =
   {{*/
-
-     @private executable_id = "/{%% BslInit.get_executable_id %%()}/"
-     @private permanent_prefix = Rule.of_string(executable_id)
+     @private permanent_prefix = Rule.of_string(ExecInit.id())
      resource_map(map: stringmap(resource)): Parser.general_parser(resource) =
      (
        suffix = Rule.of_map(map)

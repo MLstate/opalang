@@ -16,6 +16,9 @@
     along with OPA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Else>
+
 import stdlib.core.{fresh, qos}
 
 /**
@@ -395,3 +398,4 @@ type DynamicResource.message =
         key = Text.to_string(t)
         find_resource(key)
 }}
+#<End>

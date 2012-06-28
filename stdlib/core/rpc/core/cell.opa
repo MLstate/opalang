@@ -207,7 +207,7 @@ Cell_private = {{
     else
       false
 
-  @private @publish rpc_response_delay = %%BslRPC.rpc_response_delay%%
+  @private @publish rpc_response_delay = 200 //TODO - %%BslRPC.rpc_response_delay%%
 
   /**
    * Send a message to a cell
@@ -379,12 +379,6 @@ type middle('msg, 'ctx) = external
 @server Cell_Server = {{
 
   Dispatcher = {{
-    reply(winfo, msg, status) =
-      winfo.cont(
-        WebCoreExport.default_make_response(
-          {volatile}, winfo.http_request.request, status,
-          "text/plain", msg)
-      )
 
     parser_(winfo) =
       forbidden(msg) =
@@ -393,11 +387,14 @@ type middle('msg, 'ctx) = external
         _ = msg
         msg = "Unauthorized request"
         #<End>
-        do reply(winfo, msg, {unauthorized})
+        do WebInfo.simple_reply(winfo, msg, {unauthorized})
         do Log.error("Cell_Server", msg)
         error("Cell_server")
       parser
         | "cell/CallThatPlease" ->
+          #<Ifstatic:OPA_BACKEND_QMLJS>
+          forbidden("NYI")
+          #<Else>
           do Log.info("Cell_Server", "Delegate cell call")
           middle =
             rtm = %% Session.Convert.request_to_middle %%
@@ -423,7 +420,8 @@ type middle('msg, 'ctx) = external
             mfm = %% Session.Convert.msg_from_middle %%
             (mfm(middle) ? forbidden("Bad formatted cell message")).f2
           result = Cell.call(Magic.id(cell), message)
-          reply(winfo, OpaSerialize.finish_serialize(s_result(result)), {success})
+          WebInfo.simple_reply(winfo, OpaSerialize.finish_serialize(s_result(result)), {success})
+          #<End>
 
   }}
 

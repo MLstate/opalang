@@ -191,8 +191,7 @@ Server_private = {{
        * so we must add a lambda here, and we must not
        * execute this code under the lambda that takes service
        * (because we can take several services) */
-      get_executable_id = %% BslInit.get_executable_id %%
-      executable_id = get_executable_id()
+      executable_id = ExecInit.id()
 
       /* Javascript variables */
       /* here, we are making sure that the html sent to the client
@@ -236,7 +235,7 @@ Server_private = {{
 
         export(winfo, r) = export_resource(winfo,r)(HttpRequest.Generic.get_low_level_request(winfo.http_request)) // ??
 
-        provide_js = Resource_private.make_resource_include(js_file_with_version, {system_js}, %% BslMinJs.minify %%, js_code, {true}, {false}, {permanent},
+        provide_js = Resource_private.make_resource_include(js_file_with_version, {system_js}, JsMinifier.minify , js_code, {true}, {false}, {permanent},
                    (x -> Resource.source(x, "text/javascript")))
         provide_css = Resource_private.make_resource_include(css_file_with_version, {system_css}, identity, css_code, {true}, {false}, {permanent},
                     (x -> Resource.source(x, "text/css")))
@@ -247,10 +246,11 @@ Server_private = {{
 
 
         /* The dispatcher, the result of this function */
-        dispatch(winfo: web_info)=
+        rec dispatch(winfo: web_info)=
         (
+          request = winfo.http_request
           /* 1 - Extract requested url*/
-          str_url = winfo.http_request |> HttpRequest.Generic.get_uri
+          str_url = HttpRequest.Generic.get_uri(request)
           //do Log.info("Server dispatch", "Received URL {str_url}")
           str_url = Text.to_string(Parser.parse(url_decode,str_url))
           //do Log.info("Server dispatch", "Decoded URL to {str_url}")
@@ -260,11 +260,13 @@ Server_private = {{
           /* 2 - Internal handlers */
           rpc_handler = OpaRPC_Server.Dispatcher.parser_(winfo: web_info)
           cell_handler = Cell_Server.Dispatcher.parser_(winfo: web_info)
-          dynamic_resource = DynamicResource.parser_()
           internal_handler:Parser.general_parser(void) = parser
             | cell_handler -> void //Note: response is provided directly by [cell_handler]
             | rpc_handler -> void  //Note: response is provided directly by [rpc_handler]
-            | resource=dynamic_resource -> export(winfo, resource)
+            #<Ifstatic:OPA_BACKEND_QMLJS>
+            #<Else>
+            | resource=DynamicResource.parser_() -> export(winfo, resource)
+            #<End>
             | js_parser   -> export(winfo, provide_js)
             | css_parser  -> export(winfo, provide_css)
             | "src_code" -> export(winfo, AppSources.page())
@@ -291,12 +293,43 @@ Server_private = {{
               export(winfo, Resource.default_error_page({wrong_address})) : void
 
            // to update user lang when external handler is reached
-           touch_lang(_bool,it) = do ServerI18n.touch_user_lang(winfo.http_request)
-                                  some((it,void))
+           // TODO - Doesn't use I18n if is not needed
+           // touch_lang(_bool,it) = do ServerI18n.touch_user_lang(winfo.http_request)
+           //                        some((it,void))
 
-           full_handler:Parser.general_parser(void) = parser
-            | "/" _internal_parser "/" internal_handler -> void
-            | &touch_lang external_handler              -> void
+          max_int = %% BslNumber.Int.max_int %%
+
+          /* 2.1 - Parser which set the thread context */
+          full_handler =
+            build_thread_context(page) = {
+                key = {client = { client = %%BslNet.Requestdef.get_cookie%%(request.request) ~page} }
+                request = {some = request}
+                constraint = {free}
+                details = none
+              }
+            parser
+            | "/{_internal_}/" page=Rule.integer "/" winfo={
+                @with_thread_context(build_thread_context(page),
+                  parser | "chan/" winfo={Session.parser_(winfo)} -> winfo
+                )
+              } -> Option.iter(dispatch, winfo)
+            | "/{_internal_}/" uri=(.*) ->
+              do jlog("2 {uri}")
+              @with_thread_context(
+                build_thread_context(Random.int(max_int)),
+                Parser.Text.parse(internal_handler, uri)
+              )
+            | uri=(.*) ->
+              do jlog("3 {uri}")
+              @with_thread_context(
+                build_thread_context(Random.int(max_int)),
+                do ServerI18n.touch_user_lang(winfo.http_request)
+                Parser.Text.parse(external_handler, uri)
+              )
+
+           // full_handler:Parser.general_parser(void) = parser
+           //  | "/" _internal_parser "/" internal_handler -> void
+           //  | &touch_lang external_handler              -> void
 
           full_handler_with_base = parser
             | "{base_url_string}" full_handler -> void
@@ -322,6 +355,15 @@ Server_private = {{
       //do println("ontransfer: str={_str} hdrs={_hdrs} i={_i}")
       {true}
 
+    complete_dispatcher =
+    #<Ifstatic:DISPATCHER_OUT_OF_BSL>
+      (_base_url, dispatcher ->
+        Continuation.make(w -> dispatcher(w))
+      )
+    #<Else>
+      %%BslDispatcher.complete_dispatcher_cps%%
+    #<End>
+
     /**
      * Initialize the opa server.
      */
@@ -331,9 +373,12 @@ Server_private = {{
         /* Select bypasses */
         init_server = %% BslNet.Http_server.init_server_cps %%
                     : _, _, _, _, _, _, continuation(WebInfo.private.native), _ -> void
+        #<Ifstatic:OPA_BACKEND_QMLJS>
+        #<Else>
         set_cookie_expiry_callback = %% BslNet.Http_server.set_cookie_expiry_callback %%
                     : (string, string -> void) -> void
-        complete_dispatcher = %%BslDispatcher.complete_dispatcher_cps%%
+        do set_cookie_expiry_callback(bogus_cookie_expiry_callback)
+        #<End>
 
         /* Make dispatcher */
         url_dispatcher = make_dispatcher(service)
@@ -355,7 +400,6 @@ Server_private = {{
           complete_dispatcher((base_url_string),(x -> url_dispatcher(WebInfo.of_native_web_info(x)))):continuation(WebInfo.private.native)
 
         /* Initialize server */
-        do set_cookie_expiry_callback(bogus_cookie_expiry_callback)
         match service.encryption with
         | {no_encryption} ->
           init_server(service.server_name, service.port,
@@ -434,7 +478,7 @@ Server_private = {{
     generateIfNeeeded({~filename ~init_value kind="css" mimetype="text/css" replace=false minifier=identity})
 
   @private magicGenerateAndExportJSIfNeeded(filename:string, init_value:string) =
-    minifier = %% BslMinJs.minify %% : string -> string
+    minifier = JsMinifier.minify
     generateIfNeeeded({~filename ~init_value kind="js" mimetype="text/javascript" replace=true ~minifier})
 
     /**

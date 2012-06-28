@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -18,6 +18,8 @@
 /*
     @author Francois Pessaux
 */
+#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Else>
 
 import stdlib.core.date
 
@@ -183,3 +185,4 @@ ClientEvent = {{
   //      @fail("disconnect_current: no client in the current context.")
 
 }}
+#<End>

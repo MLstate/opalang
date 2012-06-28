@@ -345,7 +345,11 @@ type OpaRPC.timeout = {
   /**
    * Sending a request to the client
    */
+  #<Ifstatic:OPA_BACKEND_QMLJS>
+  @private send_response = (_,_,_,_,_ -> @fail)
+  #<Else>
   @private send_response = %%BslRPC.call%%
+  #<End>
                   : bool, /* synchronous */
                     string, /* id for return */
                     string, /* serialized arguments */
@@ -407,9 +411,11 @@ type OpaRPC.timeout = {
           "text/plain", msg)
       )
 
-    register = %%BslRPC.Dispatcher.register%%
+    @private rpctbl = Hashtbl.create(1024) : Hashtbl.t(string, black)
 
-    get      = %%BslRPC.Dispatcher.get%%
+    register(key, rpc) = Hashtbl.add(rpctbl, key, Magic.black(rpc))
+
+    get(key) = Option.map(Magic.id, Hashtbl.try_find(rpctbl, key))
 
     /* Duplication
      * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depends on the package [stdlib.rpc.core] */

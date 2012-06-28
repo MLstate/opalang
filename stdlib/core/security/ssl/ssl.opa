@@ -62,6 +62,6 @@ SSL =
   make_secure_type: option(SSL.private_key), option(SSL.policy) -> SSL.secure_type =
     %% BslNet.SSL.make_secure_type %%
 
-  get_issuer: SSL.certificate -> string = %% BslNet.Ssl.get_issuer %%
-  get_subject:SSL.certificate -> string = %% BslNet.Ssl.get_subject %%
+  // get_issuer: SSL.certificate -> string = %% BslNet.Ssl.get_issuer %%
+  // get_subject:SSL.certificate -> string = %% BslNet.Ssl.get_subject %%
 }}

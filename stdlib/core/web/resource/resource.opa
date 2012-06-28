@@ -646,10 +646,8 @@ export_data({~rc_content rc_status=_ rc_headers=_}: resource)=
   /**
    * {2 Adding batches of files}
    */
-
-  @private get_executable_id = %% BslInit.get_executable_id %%: -> string
-  @private executable_id     = "/{get_executable_id()}/"
-  @private executable_id_noslash = "/{get_executable_id()}"
+  @private executable_id     = "/{ExecInit.id()}/"
+    @private executable_id_noslash = "/{ExecInit.id()}"
   get_uri_of_permanent(name: string):string =
     //TODO: This [if] is a temporary compatibility hack (for URI cleanup)
      if String.length(name) >= 1 && String.get(0, name) == "/" then

@@ -149,7 +149,7 @@ Scheduler =
   /**
    * Trigger a function after at least a given number of milliseconds.
    */
-  sleep = @may_cps(%%BslScheduler.sleep%%)
+  sleep(i, f) = @may_cps(%%BslScheduler.sleep%%)(i, f)
 
   /**
    * Interrupt the current thread for a given number of milliseconds.
@@ -195,7 +195,8 @@ Scheduler =
 	  f()
   )
 
-
+  #<Ifstatic:OPA_BACKEND_QMLJS>
+  #<Else>
   /**
    * {1 GC}
    */
@@ -218,6 +219,7 @@ Scheduler =
    */
   set_nb_step_apply = %%BslScheduler.set_nb_step_apply%%
 
+  #<End>
 }}
 
 sleep = Scheduler.sleep
