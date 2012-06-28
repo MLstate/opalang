@@ -9,7 +9,6 @@
 
 include config.make
 
-INSTALL ?= cp -u -L
 MAKE ?= $_
 export MAKE
 
