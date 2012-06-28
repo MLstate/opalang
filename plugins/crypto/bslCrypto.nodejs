@@ -1,0 +1,55 @@
+/*
+    Copyright © 2011 MLstate
+
+    This file is part of OPA.
+
+    OPA is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+var Crypto = require('crypto');
+
+/**
+ * Compute the MD5 signature of a string.
+ *
+ * @param {!string} str A text of arbitrary length.
+ * @return {!string} A 32 digits long hexadecimal string
+ */
+##register md5 : string -> string
+##args(data)
+{
+    var hash = Crypto.createHash('md5');
+    hash.update(data);
+    return hash.digest('hex');
+}
+
+
+/**
+ * Encode a string as Base 64
+ *
+ * @param {!string} str A text of arbitrary length.
+ * @return {!string} A (longer) representation, encoded as base 64
+ */
+##register base64_encode : string -> string
+##args(data)
+{
+    return new Buffer(data).toString('base64');
+}
+
+/**
+ * @param {!string} str A base64-encoded text
+ * @return {!string} A decoded representation
+ */
+##register base64_decode : string -> string
+##args(data)
+{
+    return new Buffer(data, 'base64');
+}
