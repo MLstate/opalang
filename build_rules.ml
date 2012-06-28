@@ -430,8 +430,12 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 (* -- BSL compilation (using bslregister) -- *)
 let ml_sources_bsl = dir_sources_bsl "opabsl/mlbsl" in
 let js_sources_bsl = dir_sources_bsl "opabsl/jsbsl" in
-let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/jsbsl" in
+let nodejs_sources_bsl = dir_sources_bsl "opabsl/nodejsbsl" in
 let mlstate_init_bsl = dir_sources_bsl "opabsl/mlstatebsl" in
+let all_sources_bsl = ml_sources_bsl @ js_sources_bsl @ nodejs_sources_bsl @ mlstate_init_bsl in
+let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/jsbsl" in
+let nodejs_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/nodejsbsl" in
+let alljs_dest_bsl = js_dest_bsl @ nodejs_dest_bsl in
 let js_conf = "opabsl/jsbsl/bsl-sources.jsconf" in
 
 (*
@@ -450,16 +454,14 @@ let _ = Printf.eprintf "js_dest_bsl: %s\n" (ponctuate ", " (fun x -> x)  (List.m
 
 (* used for js-validation-only *)
 rule "opabsl_sources"
-  ~deps: (js_conf :: ml_sources_bsl
-          @ js_sources_bsl
-          @ mlstate_init_bsl
+  ~deps: (js_conf :: all_sources_bsl
           @ tool_deps "opa-plugin-builder-bin")
   ~prods: ((List.map (fun s -> "opabsl"/s)
              ["opabslgenLoader.ml";"opabslgenPlugin.ml";
               "opabslgen.bypass" ;
               "opabslgenMLRuntime_x.ml";"opabslgenMLRuntime_x.mli";
               "opabslgenJSkeys.js";
-             ])@js_dest_bsl)
+             ])@alljs_dest_bsl)
   begin fun env build ->
     Seq[Cmd(S([Sh"cd opabsl && ";
                get_tool "opa-plugin-builder-bin";
@@ -467,13 +469,11 @@ rule "opabsl_sources"
                A"--no-opp";
                A"--no-build";
                A"--static";
+               A"--verbose";
               ]
               @special_bsl_options@
                 List.map (fun s -> P (".."/s)) (
-                  js_conf ::
-                  ml_sources_bsl
-                  @js_sources_bsl
-                  @mlstate_init_bsl
+                  js_conf :: all_sources_bsl
                 )));
         mv "opabsl/opabslgenMLRuntime.ml" "opabsl/opabslgenMLRuntime_x.ml";
         mv "opabsl/opabslgenMLRuntime.mli" "opabsl/opabslgenMLRuntime_x.mli";
@@ -496,11 +496,11 @@ rule "opa-bslgenMLRuntime interface validation"
 let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "opabsl/jsbsl" in
 
 rule "preprocess JS files for validation"
- ~deps:((tool_deps "ppjs")@js_dest_bsl)
+ ~deps:((tool_deps "ppjs")@alljs_dest_bsl)
  ~prods:js_pp_bsl
  (fun env build ->
     let ppjs = get_tool "ppjs" in
-    Cmd(S (ppjs::A"--output-suffix"::A ".pp"::List.map (fun x -> A x) js_dest_bsl))
+    Cmd(S (ppjs::A"--output-suffix"::A ".pp"::List.map (fun x -> A x) alljs_dest_bsl))
  );
 
 rule "Client lib JS validation"
@@ -607,7 +607,7 @@ let jsdoc_target = "doc.jsbsl" in
 
 rule "opa-bslgenMLRuntime JS documentation"
   ~deps: (
-    js_dest_bsl
+    alljs_dest_bsl
   )
   ~prods: (
     [ jsdoc_target ^ "/index.html" ]
@@ -623,7 +623,7 @@ rule "opa-bslgenMLRuntime JS documentation"
            A("--allfunctions") ::
            (* Set the target directory *)
            A("-d="^jsdoc_target) ::
-           (List.map (fun js -> A js) js_dest_bsl)
+           (List.map (fun js -> A js) alljs_dest_bsl)
          ))
   );
 
