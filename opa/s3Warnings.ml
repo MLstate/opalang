@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -61,6 +61,11 @@ let warning_set =
   !++ Pass_InstrumentForClosureSerialization.warning_set;
 
   !++ Pass_CompileRecursiveValues.Warning.set;
+
+  !++ (WarningClass.Set.create_from_list [
+         WarningClass.bsl;
+       ]);
+
 
   (* finally return the global warning_set *)
   s
