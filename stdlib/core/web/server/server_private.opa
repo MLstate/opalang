@@ -253,16 +253,24 @@ Server_private = {{
           str_url = HttpRequest.Generic.get_uri(request)
           //do Log.info("Server dispatch", "Received URL {str_url}")
           str_url = Text.to_string(Parser.parse(url_decode,str_url))
-          //do Log.info("Server dispatch", "Decoded URL to {str_url}")
+          do Log.info("Server dispatch", "Decoded URL to {str_url}")
           //str_url = Uri.to_string(Parser.parse(UriParser.uri, str_url)) //Clean-up URI (removing "//", "/../", etc.)
           //do Log.info("Server dispatch", "Cleaned URL to {str_url}")
-
+          wrong_address(kind) =
+            do Log.warning("Server", "This is an abnormal request to a non-existent {kind}
+{str_url}")
+            export(winfo, Resource.default_error_page({wrong_address}))
           /* 2 - Internal handlers */
           rpc_handler = OpaRPC_Server.Dispatcher.parser_(winfo: web_info)
           cell_handler = Cell_Server.Dispatcher.parser_(winfo: web_info)
+          /* Context handler are dispatcher which needs a client context */
+          context_handler = parser
+            | winfo=WebSession.parser_(winfo) -> winfo : option(web_info)
+            | winfo=PingRegister.parser_(winfo) -> winfo : option(web_info)
+            | rpc_handler -> {none}
+            | cell_handler -> {none}
+            | .* -> do wrong_address("contexted resource") {none}
           internal_handler:Parser.general_parser(void) = parser
-            | cell_handler -> void //Note: response is provided directly by [cell_handler]
-            | rpc_handler -> void  //Note: response is provided directly by [rpc_handler]
             #<Ifstatic:OPA_BACKEND_QMLJS>
             #<Else>
             | resource=DynamicResource.parser_() -> export(winfo, resource)
@@ -272,12 +280,7 @@ Server_private = {{
             | "src_code" -> export(winfo, AppSources.page())
             | "null" -> export(winfo, Resource.raw_text(""))
             | "about/opa" -> export(winfo, page_version)
-            | any=(.*) ->
-              do Log.warning("Server_private",
-                 "This is an abnormal request to a non-existent internal resource."
-               ^ " [{Text.to_string(any)}]"
-               ^ "Dropping.")
-              export(winfo, Resource.default_error_page({wrong_address}))
+            | .* -> wrong_address("internal resource")
 
           /* 3 - User handlers*/
           external_handler:Parser.general_parser(void) = parser
@@ -285,12 +288,7 @@ Server_private = {{
               export(winfo, make_resource(HttpRequest._of_web_info(winfo)))
             //Default (can be overridden) favicon, shortcut icons, etc
             | x=overridable_handlers -> export(winfo, x)
-            | any=(.*) ->
-              do Log.warning("Server_private",
-                 "This is a request for a non-existent resource."
-                 ^ " [{Text.to_string(any)}]"
-                 ^ "Answer wrong_adress")
-              export(winfo, Resource.default_error_page({wrong_address})) : void
+            | any=(.*) -> wrong_address("resource")
 
            // to update user lang when external handler is reached
            // TODO - Doesn't use I18n if is not needed
@@ -308,11 +306,13 @@ Server_private = {{
                 details = none
               }
             parser
-            | "/{_internal_}/" page=Rule.integer "/" winfo={
-                @with_thread_context(build_thread_context(page),
-                  parser | "chan/" winfo={Session.parser_(winfo)} -> winfo
+             | "/{_internal_}/" page=Rule.integer "/" uri=(.*) ->
+                Option.iter(dispatch,
+                  @with_thread_context(
+                    build_thread_context(page),
+                    Parser.Text.parse(context_handler, uri)
+                  )
                 )
-              } -> Option.iter(dispatch, winfo)
             | "/{_internal_}/" uri=(.*) ->
               @with_thread_context(
                 build_thread_context(Random.int(max_int)),

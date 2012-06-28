@@ -57,7 +57,7 @@ PingRegister = {{
      */
     @private
     add(client, entry) =
-      do @assert(not(Hashtbl.mem(entries, client)))
+      //do @assert(not(Hashtbl.mem(entries, client)))
       Hashtbl.add(entries, client, entry)
 
     /**
@@ -133,7 +133,13 @@ PingRegister = {{
      */
     @private
     iping(crush, client, nb, winfo) =
-      apong() =
+      // Should be programmed only in needed case but is not compatible with
+      // atomic. Thus we abort on non needed case.
+      //
+      // Note : They doesn't have (real) good reason for non atomicity because
+      // asleep is an atomic cps-bypass. We should have a better @atomic and
+      // update the following code.
+      apong =
         #<Ifstatic:MLSTATE_PING_DEBUG>
         do debug("PONG({nb}, {client}) is programmed")
         #<End>
@@ -141,25 +147,29 @@ PingRegister = {{
       match @atomic(
         match Hashtbl.try_find(entries, client) with
         | {none} ->
-          do add(client, {ajax=winfo ~nb key=apong()})
+          do add(client, {ajax=winfo ~nb key=apong})
           {}
         | {some = {msgs=[]}} ->
-          do replace(client, {ajax=winfo ~nb key=apong()})
+          do replace(client, {ajax=winfo ~nb key=apong})
           {}
         | {some = {msgs=_} as e} ->
+          do Scheduler.abort(apong)
           do remove(client)
           e
         | {some = {ajax=owinfo nb=onb key=okey}} ->
           if crush then
-            do replace(client, {ajax=winfo ~nb key=apong()})
+            do replace(client, {ajax=winfo ~nb key=apong})
             do Scheduler.abort(okey)
             {winfo=owinfo break}
           else
-            do error("PING({nb}, {client}) not registered PING({onb}) already present")
-            {~winfo break}
+            do Scheduler.abort(apong)
+            {error already=onb}
       ) with
       | {} -> void
-      | {~winfo break} as e -> send_response(winfo, {break})
+      | {error ~already} ->
+        do error("PING({nb}, {client}) not registered PING({already}) already present")
+        send_response(winfo, {break})
+      | {~winfo break} -> send_response(winfo, {break})
       | {msgs=_} as e -> send_response(winfo, e)
 
     /**
@@ -223,7 +233,7 @@ PingRegister = {{
     | {some = x} -> f(x)
 
   werror(winfo, msg) =
-    do Log.error("WINFO", msg)
+    do error(msg)
     do WebInfo.simple_reply(winfo,
       #<Ifstatic:MLSTATE_PING_DEBUG>msg#<Else>""#<End>,
       {bad_request}

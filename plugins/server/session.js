@@ -905,7 +905,7 @@ var LowLevelPingLoop = {};
 ##register get_server_id : Session.private.native('msg, 'ctx),  option(opa[ThreadContext.client]) -> option(string)
 ##args(_, _)
 {
-  return "TODO";
+    return js_some("TODO");
 }
 
 /* Ping loop system ************************************* */

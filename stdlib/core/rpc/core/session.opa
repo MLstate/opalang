@@ -787,33 +787,6 @@ Session = {{
     @deprecated({use="Session.NonBlocking"})
     Concurrent = NonBlocking
 
-    @server_private
-    parser_(winfo:web_info) =
-      `?|>`(a,f) =
-        match a with
-        | {none} -> {none}
-        | {some = x} -> f(x)
-      bad_formatted() =
-        do WebInfo.simple_reply(winfo, "No json body", {unauthorized})
-        {none}
-      request = winfo.http_request.request
-      jbody() = Json.of_string(%%BslNet.Requestdef.get_request_message_body %%(request))
-      parser
-      | "register"   ->
-        jbody() ?|> (
-          | {Record = [("to_register", _to_register),
-                       ("uri", {String = uri}),
-                       ("body", {String = body}),
-                      ]} ->
-            {some = {winfo with
-              http_request.request = %%BslNet.Requestdef.request_with%%(request, uri, body)
-            }}
-          | _ -> bad_formatted()
-        )
-      | "send"       -> @fail
-      | "remove"     -> @fail
-      | "sharedaddr" -> @fail
-
 }}
 
 session = Session.make

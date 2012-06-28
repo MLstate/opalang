@@ -76,7 +76,7 @@ WebInfo = {{
     get_conn_ip(conn) =
       IPv4.ip_of_string(web_info_ip(conn))
 
-    simple_reply(winfo, msg, status) =
+    simple_reply(winfo:web_info, msg, status) =
       winfo.cont(
         WebCoreExport.default_make_response(
           {volatile}, winfo.http_request.request, status,
