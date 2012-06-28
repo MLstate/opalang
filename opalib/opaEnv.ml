@@ -102,13 +102,15 @@ let cwd = Sys.getcwd ()
 let available_js_back_end_list = Qml2jsOptions.backend_names ()
 let available_js_back_end_of_string = Qml2jsOptions.find_backend
 
-type available_back_end = [ `qmlflat ]
-let available_back_end_list = [ "qmlflat" ]
+type available_back_end = [ `qmlflat | `qmljs ]
+let available_back_end_list = [ "qmlflat" ; "qmljs" ]
 let available_back_end_of_string : string -> available_back_end option = function
   | "qmlflat" -> Some `qmlflat
+  | "qmljs" -> Some `qmljs
   | _ -> None
 let string_of_available_back_end : available_back_end -> string = function
   | `qmlflat -> "qmlflat"
+  | `qmljs -> "qmljs"
 
 type opa_options = {
 
@@ -457,7 +459,9 @@ struct
           " Generate interfaces (json and text) and exit"
           ;
 
-          (* ("--back-end",          Arg.Symbol (available_back_end_list, back_end), (sprintf " Select a backend between %s (default is %s) [EXPERIMENTAL]" (String.concat ", " available_back_end_list) (string_of_available_back_end !back_end_wanted))); *)
+          ("--back-end", Arg.Symbol (available_back_end_list, back_end),
+           (Printf.sprintf "Select a backend between (default is %s)"
+              (string_of_available_back_end !back_end_wanted)));
 
           (* b *)
           "--build-dir",

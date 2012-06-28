@@ -2133,18 +2133,12 @@ let pass_OcamlCompilation =
     (* proceed *)
     let ocamlCompilation_returned_code =
       Qml2ocaml.OcamlCompilation.ocaml_compilation ocamlGeneration_options ocamlGeneration_env_ocaml_output in
-    (* build env *)
-    let ocamlCompilation_env =
-      {
-        ocamlCompilation_returned_code = ocamlCompilation_returned_code
-      }
-    in
     let empty _ = [] in
     {
       pass_env with PassHandler.
-        env = ocamlCompilation_env ;
+        env = ocamlCompilation_returned_code ;
         printers = empty ;
-        trackers = empty
+        trackers = empty ;
     }
   in
   let invariant =
@@ -2161,6 +2155,46 @@ let pass_OcamlCompilation =
     ] in
   PassHandler.make_pass ~invariant ~precond ~postcond transform
 
+let pass_ServerJavascriptCompilation =
+  PassHandler.make_pass
+    (fun e ->
+       let options = e.PH.options in
+       let env = e.PH.env in
+       assert (options.OpaEnv.back_end == `qmljs);
+       let module JsBackend = (val (options.OpaEnv.js_back_end) : Qml2jsOptions.JsBackend) in
+       let jsoptions =
+         let argv_options = Qml2jsOptions.Argv.default () in
+         { argv_options with Qml2jsOptions.
+             cps = options.OpaEnv.cps;
+             cps_toplevel_concurrency = options.OpaEnv.cps_toplevel_concurrency ;
+             qml_closure = options.OpaEnv.closure;
+             extra_lib = options.OpaEnv.extrajs;
+             alpha_renaming = options.OpaEnv.js_local_renaming;
+             check_bsl_types = options.OpaEnv.js_check_bsl_types;
+             cleanup = options.OpaEnv.js_cleanup;
+             inlining = options.OpaEnv.js_local_inlining;
+             global_inlining = options.OpaEnv.js_global_inlining;
+             no_assert = options.OpaEnv.no_assert;
+         } in
+       let env_bsl = env.Passes.newFinalCompile_bsl in
+       let generated_files, generated_ast =
+         Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
+       let env_js_input = JsBackend.compile
+         ~bsl: generated_ast
+         ~val_:OpaMapToIdent.val_
+         ~closure_map:env.Passes.newFinalCompile_closure_map
+         ~renaming_server:env.Passes.newFinalCompile_renaming_server
+         ~renaming_client:env.Passes.newFinalCompile_renaming_client
+         jsoptions
+         env_bsl
+         env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
+         env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
+       in let _env_js_output =
+         Qml2js.JsTreat.js_generation jsoptions generated_files env_js_input
+       in
+       PH.make_env options 5
+    )
+
 let pass_CleanUp =
   { PH.
       invariant = [];
@@ -2169,8 +2203,7 @@ let pass_CleanUp =
       f = (fun e ->
              QmlRefresh.clear ();
              OpaMapToIdent.reset ();
-             let code = e.PH.env.ocamlCompilation_returned_code in
-             if code = 0 then ObjectFiles.compilation_is_successfull ();
+             if e.PH.env = 0 then ObjectFiles.compilation_is_successfull ();
              e)
   }
 
@@ -2181,9 +2214,8 @@ let pass_ByeBye =
     invariant = [];
     precond = [];
     postcond = [];
-    f = (fun env ->
-           let code = env.PH.env.ocamlCompilation_returned_code in
-           if code <> 0 then OManager.exit code;
+    f = (fun e ->
+           if e.PH.env <> 0 then OManager.exit e.PH.env;
            PH.make_env () ()
         );
   }

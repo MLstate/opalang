@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -23,6 +23,7 @@
  * This detection may change. The public API is to use global variable [command_line_execution],
  * which is set to [true] if we are executed out of a browser, [false] otherwise.
  */
+var print = console.log
 if (typeof window != "object") {
     alert = function (x) { print(x) };
     var placeholder = function (name) {return function() { print("function ["+name+"] requires a browser")} };

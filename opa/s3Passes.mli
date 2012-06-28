@@ -417,13 +417,13 @@ val pass_InitializeBslValues :
 val pass_ServerCpsRewriter :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 
-val pass_ServerQmlClosure :
-  (env_NewFinalCompile, env_NewFinalCompile) opa_pass
-
-val pass_QmlLiftDeepRecords :
-  (env_NewFinalCompile, env_NewFinalCompile) opa_pass
-
 val pass_QmlConstantSharing :
+  (env_NewFinalCompile, env_NewFinalCompile) opa_pass
+
+(* ***********************************************)
+(* FINAL QMLFLAT COMPILATION *********************)
+
+val pass_ServerQmlClosure :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 
 val pass_QmlCompilation :
@@ -436,8 +436,23 @@ val pass_OcamlGeneration :
   (env_OcamlSplitCode, env_OcamlGeneration) opa_pass
 
 val pass_OcamlCompilation :
-  (env_OcamlGeneration, env_OcamlCompilation) opa_pass
+  (env_OcamlGeneration, int) opa_pass
 
-val pass_CleanUp : ('opt, 'opt, env_OcamlCompilation, env_OcamlCompilation) PassHandler.pass
+(* ***********************************************)
+(* FINAL QMLJS COMPILATION ***********************)
 
-val pass_ByeBye : (_, unit, env_OcamlCompilation, unit) PassHandler.pass
+val pass_ServerJavascriptCompilation :
+  (env_NewFinalCompile, int) opa_pass
+
+(* ***********************************************)
+(* END OF COMPILATION *****************************)
+
+val pass_CleanUp : ('opt, 'opt, int, int) PassHandler.pass
+
+val pass_ByeBye : (_, unit, int, unit) PassHandler.pass
+
+
+(* ***********************************************)
+(* UNUSED PASSES *********************************)
+val pass_QmlLiftDeepRecords :
+  (env_NewFinalCompile, env_NewFinalCompile) opa_pass

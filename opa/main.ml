@@ -231,19 +231,12 @@ let () =
 
       (* ***********************************************)
       (* FINAL CLIENT COMPILATION **********************)
-      (* ~precond:[check_ident_final_client] *)
 
       |?> (If.cps_client,
            "ClientQmlCpsRewriter", S3.pass_ClientCpsRewriter)
 
       |?> (If.closure,
            "ClientQmlLambdaLifting", S3.pass_ClientLambdaLifting)
-
-(*      |?> (If.closure,
-           "ClientQmlUncurry", S3.pass_ClientQmlUncurry)
-
-      |?> (If.closure,
-           "ClientQmlClosure", S3.pass_ClientQmlClosure)*)
 
       |?> (If.constant_sharing_client,
            "QmlClientConstantSharing", S3.pass_ClientQmlConstantSharing)
@@ -262,33 +255,40 @@ let () =
       (* ***********************************************)
       (* FINAL SERVER COMPILATION **********************)
 
-      |+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives)
+      (* |+> ("CleanLambdaLiftingDirectives", S3.pass_CleanLambdaLiftingDirectives) *)
 
       |?> (If.init,
            "InitializeBslValues", S3.pass_InitializeBslValues)
 
-      |+>  ("ServerQmlCpsRewriter", S3.pass_ServerCpsRewriter)
+      |+> ("ServerQmlCpsRewriter", S3.pass_ServerCpsRewriter)
 
       |> PH.old_if_handler ~if_:If.closure (* ~precond:[check_ident_final] *)
           "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
 
-      |> PH.old_if_handler ~if_:If.closure
-          "ServerQmlUncurry" (S2.pass_QmlUncurry2 ~typed:false ~side:`server)
-
-      |?> (If.closure,
-           "ServerQmlClosure", S3.pass_ServerQmlClosure)
-
       |?> (If.constant_sharing,
            "QmlConstantSharing", S3.pass_QmlConstantSharing)
 
-      |+> ("QmlCompilation", S3.pass_QmlCompilation)
+      |?| (Switch.back_end, function
+           | `qmlflat -> ("QmlFlatCompilation", (PassHandler.make_pass (fun e -> e
+             |>  PH.old_if_handler ~if_:If.closure
+                 "ServerQmlUncurry" (S2.pass_QmlUncurry2 ~typed:false ~side:`server)
 
-      |+> ("OcamlSplitCode", S3.pass_OcamlSplitCode)
+             |?> (If.closure,
+                  "ServerQmlClosure", S3.pass_ServerQmlClosure)
 
-      |+> ("OcamlGeneration", S3.pass_OcamlGeneration)
+             |+> ("QmlCompilation", S3.pass_QmlCompilation)
 
-      |+> ("OcamlCompilation", S3.pass_OcamlCompilation)
+             |+> ("OcamlSplitCode", S3.pass_OcamlSplitCode)
 
+             |+> ("OcamlGeneration", S3.pass_OcamlGeneration)
+
+             |+> ("OcamlCompilation", S3.pass_OcamlCompilation)
+
+             )))
+           | `qmljs -> ("QmlJsCompilation", (PassHandler.make_pass (fun e -> e
+             |+> ("ServerJavascriptCompilation", S3.pass_ServerJavascriptCompilation)
+             )))
+          )
       |+> ("CleanUp", S3.pass_CleanUp)
 
       |+> ("ByeBye", S3.pass_ByeBye)

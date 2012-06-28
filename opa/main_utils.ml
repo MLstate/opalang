@@ -24,13 +24,14 @@
    @author Cédric Soulas
 *)
 
+module E = OpaEnv
+
 (**
    {6 Compiler options}
 *)
 
 module If =
 struct
-  module E = OpaEnv
 
   (* alphabetic order *)
 
@@ -75,7 +76,8 @@ end
 
 module Switch =
 struct
-
+  let back_end ~options _env =
+    options.E.back_end
 end
 
 let if_not f_cond ~options env = not (f_cond ~options env)
