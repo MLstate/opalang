@@ -337,6 +337,7 @@ end
 let register_fields options =
   match options.O.back_end with
   | `qmlflat -> Flat_Compiler.register_field_name
+  | _ -> (fun _ -> ())
 
 
 (**********************************************************)
@@ -2015,9 +2016,8 @@ let pass_QmlCompilation =
     (* 1) transform options *)
     let qmlCompilation_options = Passes.pass_OpaOptionsToQmlOptions ~options qml2ocaml_qml_milkshake in
     (* 2) selection of the back-end *)
-    let qml_to_ocaml =
-      match options.O.back_end with
-      | `qmlflat -> Flat_Compiler.qml_to_ocaml in
+    assert (options.O.back_end = `qmlflat);
+    let qml_to_ocaml =Flat_Compiler.qml_to_ocaml in
     (* proceed *)
     let qmlCompilation_env_ocaml_input = qml_to_ocaml qmlCompilation_options qml2ocaml_env_bsl qml2ocaml_qml_milkshake in
     (* build env *)

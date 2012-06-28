@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -533,13 +533,23 @@ let pass_DbCodeGeneration ~options:(_:opa_options) env =
 let pass_QmlCpsRewriter client ~(options:opa_options) (env:env_NewFinalCompile) : env_NewFinalCompile =
   (* Passing options to qmlCpsRewriter : use syntax { with } like ever *)
   let opaoptions = options in
+  let qml_closure =
+    match options.OpaEnv.back_end with
+    | `qmljs -> false
+    | `qmlflat -> options.OpaEnv.closure
+  in
+  let server_side =
+    match options.OpaEnv.back_end with
+    | `qmljs -> false
+    | `qmlflat -> not client;
+  in
   let options =
     { QmlCpsRewriter.default_options with QmlCpsRewriter.
         no_assert = options.OpaEnv.no_assert ;
         no_server = Option.get options.OpaEnv.no_server;
-        qml_closure = options.OpaEnv.closure ;
+        qml_closure ;
         toplevel_concurrency = options.OpaEnv.cps_toplevel_concurrency ;
-        server_side = not client;
+        server_side ;
     } in
   let bsl_bypass_typer key =
     match BslLib.BSL.ByPassMap.bsl_bypass_typer env.newFinalCompile_bsl.BslLib.bymap key with
@@ -646,9 +656,8 @@ let pass_QmlCompiler ~(options:opa_options) (env:env_NewFinalCompile) : env_Bina
   let env_bsl = env.newFinalCompile_bsl in
   let argv_options = pass_OpaOptionsToQmlOptions ~options qml_milkshake in
   (** Choice of back-end *)
-  let qml_to_ocaml =
-    match options.OpaEnv.back_end with
-    | `qmlflat -> Flat_Compiler.qml_to_ocaml in
+  assert (`qmlflat = options.OpaEnv.back_end);
+  let qml_to_ocaml = Flat_Compiler.qml_to_ocaml in
   (* This pass is splitten in 3 in opas3 *)
   let return = Qml2ocaml.Sugar.for_opa qml_to_ocaml argv_options env_bsl qml_milkshake in
   let out = {
