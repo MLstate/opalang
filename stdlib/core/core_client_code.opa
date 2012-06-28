@@ -131,4 +131,17 @@ Core_server_code =
 
 @opacapi Client_code_register_js_code = Core_client_code.register_js_code
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
-@opacapi Client_code_serialize_string_length = #<Ifstatic:OPA_BACKEND_QMLJS>(_:string -> "0")#<Else>%%BslBuffer.serialize_string_length%%#<End>
+@opacapi Client_code_serialize_string_length =
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+    (s ->
+      i = String.length(s)
+      b = Buffer.create(10)
+      do Outcome.get(Pack.Encode.longlong_be(b, i))
+      s = Buffer.contents(b)
+      do jlog("{i} => {s}")
+      do jlog("{Outcome.get(Pack.Decode.longlong_be(b, 0))}")
+      s
+    )
+    #<Else>
+    %%BslBuffer.serialize_string_length%%
+    #<End>
