@@ -262,7 +262,7 @@ var LowLevelPingLoop = {};
          */
         send: function(serialize, msg, ctx, herror, hsuccess){
         #<Ifstatic:OPA_CPS_CLIENT>
-        this.messages.unshift({msg: msg, ctx: ctx, herror : herror, hsuccess : hsuccess});
+            this.messages.unshift({msg: msg, ctx: ctx, herror : herror, hsuccess : hsuccess});
             //If [state] is [null], then we're currently handling a message
             // [msg] will be handled later
             if (this.state == null) return;
@@ -284,14 +284,15 @@ var LowLevelPingLoop = {};
                             ctx = cpl.ctx;
                         }
                         if (hsuccess !=  undefined) hsuccess();
-                        var new_st = lchan.action(stt, cpl.msg, ctx);
-                        if ('none' in new_st) {
-                            //If the action returns [none], we should kill the session
-                            lchan.state = null;
-                            this.kill();
-                        } else {
-                            setTimeout(function() {aux(new_st.some)}, 0);
-                        }
+                        lchan.action(stt, cpl.msg, ctx, function(new_st){
+                          if ('none' in new_st) {
+                              //If the action returns [none], we should kill the session
+                              lchan.state = null;
+                              lchan.kill();
+                          } else {
+                              setTimeout(function() {aux(new_st.some)}, 0);
+                          }
+                        );
                     }
                 }
                 setTimeout(function() {aux(st);}, 0);
@@ -975,9 +976,10 @@ var LowLevelPingLoop = {};
    bool, \
    continuation(Session.private.native('msg, 'ctx)) -> \
    void
+//'
 ##args(state, unser, fun, dfun, ctx, more, concurrent, k)
 {
-    throw new Error("Not yet implemented, TODO for cps client.");
+    return_(k, LowLevelSession.llmake(state, unser, fun, ctx, dfun, more, true, concurrent))
 }
 
 ##register llmake : \
@@ -1113,6 +1115,27 @@ var LowLevelPingLoop = {};
     LowLevelRPC.comet_table_add(str,f);
 }
 
+##register [cps-bypass] make_shared : \
+    string, \
+    'st, \
+    (option('ctx), RPC.Json.private.native, continuation(opa[option('msg)]) -> void), \
+    ('st, 'msg, option('ctx), continuation(opa[option('st)]) -> void), \
+    option(continuation(opa[void]) -> void), \
+    option('ctx), \
+    option('more), \
+    bool, \
+    continuation(Session.private.native('msg, 'ctx)) -> \
+    void
+##args(_key, _state, _unserialize, _handler, _ondelete, _ctx, _more, _concurrent, _k)
+{
+   error("Session.make_shared");
+}
+
+##register get_server_id : Session.private.native('msg, 'ctx),  option(opa[ThreadContext.client]) -> option(string)
+##args(_, _)
+{
+  return "TODO";
+}
 
 /* Ping loop system ************************************* */
 ##module PingRegister \ bsl_pingregister
