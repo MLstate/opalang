@@ -2184,6 +2184,7 @@ let pass_ServerJavascriptCompilation =
              no_assert = options.OpaEnv.no_assert;
              target = options.OpaEnv.target;
              compilation_directory;
+             static_link = options.OpaEnv.static_link;
              lang = `node;
          } in
        let jsoptions =
