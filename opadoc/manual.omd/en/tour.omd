@@ -1,13 +1,12 @@
 A tour of Opa
 =============
 
-Opa is a new generation framework for JavaScript that allows you to
-write *secure* and *scalable* web applications using a single high-level
-language that runs on existing web standards.
+Opa is a new generation of open source web development framework for JavaScript
+that lets you write *secure* and *scalable* web applications.
 
-Opa natively supports HTML5 and CSS and automates many aspects of modern web
-application programming: Ajax/Comet client-server communication, event-driven
-and non-blocking programming models.
+Opa generates standard Node.js/MongoDB applications, natively supports HTML5 and CSS
+and automates many aspects of modern web application programming: Ajax/Comet client-server
+communication, event-driven and non-blocking programming models.
 
 Opa unifies in one single language:
 
