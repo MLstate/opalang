@@ -38,10 +38,15 @@ Binary.prototype = {
 ##args(b)
 //function string_of_binary(b)
 {
-  // Slow but guarantees no encoding problems, sign extension etc.
-  var s = "";
-  for (var i = 0; i < b.length; i++) { s += code(b.contents[i]) };
-  return s;
+  switch (typeof(b)) {
+  case 'object':
+    var s = "";
+    // Slow but guarantees no encoding problems, sign extension etc.
+    for (var i = 0; i < b.length; i++) { s += code(b.contents[i]) };
+    return s;
+  case 'string':
+    return b;
+  };
 }
 
 function resize(b, size)
