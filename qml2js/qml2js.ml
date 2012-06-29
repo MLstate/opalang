@@ -201,18 +201,19 @@ struct
     let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
     write env_opt (filename, content)
 
+  let fix_exports statement =
+    JsUtils.export_to_global_namespace
+      (JsUtils.globalize_native_ident statement)
+
   (* Copy included BSL files to the build path where
      they can be loaded dynamically *)
   let copy_js_file env_opt filename content =
     let dest = Filename.concat env_opt.compilation_directory
       (Filename.basename filename) in
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 dest in
-    let process statement =
-      JsUtils.export_to_global_namespace
-        (JsUtils.globalize_native_ident statement) in
     try
       let content =
-        List.map process
+        List.map fix_exports
           (JsParse.String.code content ~throw_exn:true) in
       let fmt = Format.formatter_of_out_channel oc in
       Format.fprintf fmt "%a" JsPrint.pp_min#code content;
@@ -238,12 +239,6 @@ struct
         in
         Printf.fprintf oc "require('%s');\n"
           (Filename.concat (Sys.getcwd ()) load_path);
-        (* Load library bypassing the module system *)
-        Printf.fprintf load_oc (
-          "var fs = require('fs');\n" ^^
-          "function raw_load(f){" ^^
-          "eval(fs.readFileSync(f, 'utf-8')); }\n"
-        );
         load_oc
     in
     let js_init =
@@ -285,7 +280,7 @@ struct
           Printf.fprintf oc "\n";
         ) else
           let filename = copy_js_file env_opt filename content in
-          Printf.fprintf load_oc "raw_load('%s');\n" filename;
+          Printf.fprintf load_oc "require('./%s');\n" (Filename.basename filename);
       ) (List.rev generated_files);
     Printf.fprintf load_oc "///////////////////////\n";
     Printf.fprintf load_oc "// BSL JS INIT\n";
@@ -294,7 +289,11 @@ struct
     StringMap.iter
       (fun index elt ->
          Format.fprintf fmt "// index : %s\n" index;
-         Format.fprintf fmt "%a\n" JsPrint.pp#statement elt;
+         if env_opt.static_link then
+           Format.fprintf fmt "%a\n" JsPrint.pp#statement elt
+         else
+           Format.fprintf fmt "%a\n" JsPrint.pp#statement
+             (fix_exports elt)
       ) js_init_map;
     load_oc
 
@@ -365,7 +364,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       then
         read_append opx
       else
-        Printf.fprintf load_oc "raw_load('%s');\n" (js_file opx)
+        Printf.fprintf load_oc "require('%s');\n" (js_file opx)
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;

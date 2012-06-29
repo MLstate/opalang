@@ -79,6 +79,10 @@ let export_to_global_namespace stm =
       | J.Js_function (_, J.Native (`global, name), params, body) ->
         JsCons.Statement.assign (prefix_global name)
           (JsCons.Expr.function_ None params body)
+      | J.Js_function (_, ((J.ExprIdent _) as i), params, body) ->
+        let name = JsPrint.string_of_ident i in
+        JsCons.Statement.assign (prefix_global name)
+          (JsCons.Expr.function_ None params body)
       | J.Js_var (_, J.Native (`global, name), o) ->
         let rhs =
           match o with
