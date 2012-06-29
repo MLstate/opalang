@@ -95,17 +95,24 @@ int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
     return_(k, js_void);
 }
 
-// Stub
+#<Ifstatic:OPABSL_NODE>
 // TODO Something with the scheduler is probably missing
 
 process.on('SIGINT', function (){process.exit(1)});
 process.on('SIGKILL', function (){process.exit(1)});
 process.on('SIGTERM', function (){process.exit(1)});
+#<End>
 
 ##register at_exit : (-> void) -> void
 ##args(a)
 {
+
+#<Ifstatic:OPABSL_NODE>
     process.on('exit', function () {
        a();
     });
+#<Else>
+    return js_void;
+#<End>
+
 }
