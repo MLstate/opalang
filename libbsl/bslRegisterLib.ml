@@ -949,7 +949,7 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
 
   let s_js_code = finalizing_js_code_conf js_confs s_js_code in
 
-  let ppjs code =
+  let ppjs (filename, code, conf) =
     let ppenv =
       if BslLanguage.is_nodejs lang then
         let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
@@ -958,27 +958,12 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
       else
         Pprocess.fill_with_sysenv Pprocess.empty_env in
     let ppopt = Pprocess.default_options ppenv in
-    fun ~name ->
-      Pprocess.process ~name Pplang.js_description ppopt code in
-
-  let export_to_globals (filename, code, conf) =
-    let code = ppjs ~name:filename code in
-    try
-      let process stm =
-        JsUtils.prefix_globals (JsUtils.globalize_native_ident stm) in
-      let code =
-        List.map process
-          (JsParse.String.code code ~throw_exn:true) in
-      (filename, Format.to_string JsPrint.pp_min#code code, conf)
-    with
-    | JsParse.Exception e ->
-      let e = Format.to_string JsParse.pp e in
-      OManager.error
-        "There was a problem when parsing file %s: %s\nThis is the PP result:\n%s"
-        filename e code
+    let code = Pprocess.process ~name:filename
+      Pplang.js_description ppopt code in
+    (filename, code, conf)
   in
 
-  let s_js_code = List.map export_to_globals s_js_code in
+  let s_js_code = List.map ppjs s_js_code in
 
   javascript_env, update_session !session_ref s_js_code
 

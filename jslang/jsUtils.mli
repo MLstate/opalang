@@ -33,5 +33,9 @@ val globalize_native_ident : JsAst.code_elt -> JsAst.code_elt
    so that they still make sense, i.e.
 
      var foo = bar; -> global.foo = bar;
+
+   Handle also corner cases such as replacing a real export
+
+     exports.foo = foo; -> global.foo = foo;
 *)
-val prefix_globals : JsAst.code_elt -> JsAst.code_elt
+val export_to_global_namespace : JsAst.code_elt -> JsAst.code_elt

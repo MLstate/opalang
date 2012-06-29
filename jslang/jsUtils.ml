@@ -72,7 +72,7 @@ let globalize_native_ident stm =
 let prefix_global (name : string) : J.expr =
   JsCons.Expr.dot (JsCons.Expr.native_global "global") name
 
-let prefix_globals stm =
+let export_to_global_namespace stm =
   JsWalk.TStatement.map
     (fun stm ->
       match stm with
@@ -89,7 +89,14 @@ let prefix_globals stm =
     )
     (fun e ->
       match e with
-      | J.Je_ident (_, J.Native (`global, name)) when name <> "global" ->
+      | J.Je_ident (_, J.Native (`global, "exports")) ->
+        (* Since exports is not defined in the global scope
+           when commonjs modules are loaded, we need to replace
+           it *)
+        JsCons.Expr.native_global "global"
+      | J.Je_ident (_, J.Native (`global, name)) when
+          name <> "global" &&
+          name <> "require" (* Hack to avoid require scope problem *) ->
         prefix_global name
       | _ -> e
     ) stm
