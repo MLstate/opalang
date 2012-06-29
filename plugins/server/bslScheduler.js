@@ -98,12 +98,6 @@ int, (continuation(opa[void]) -> void), continuation(opa[void]) -> void
 // Stub
 // TODO Something with the scheduler is probably missing
 
-var tty = require("tty");
-process.openStdin().on("keypress", function(_chunk, key) {
-  if(key && key.name === "c" && key.ctrl) process.exit(0);
-});
-tty.setRawMode(true);
-
 process.on('SIGINT', function (){process.exit(1)});
 process.on('SIGKILL', function (){process.exit(1)});
 process.on('SIGTERM', function (){process.exit(1)});
