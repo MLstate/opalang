@@ -160,6 +160,8 @@ type Pack.u =
  / {Cstring:string}
  / {String:string}
  / {String:string; size:Pack.s}
+ / {String:string; le:bool}
+ / {String:string; le:bool; size:Pack.s}
  / {Float32:float}
  / {Float:float}
  / {Coded:Pack.codes}
@@ -653,6 +655,8 @@ Pack = {{
       | ({Cstring=_},{Cstring=_}) -> true
       | ({String=_},{String=_}) -> true
       | ({String=_; size=s1},{String=_; size=s2}) -> s1 == s2
+      | ({String=_; le=le1},{String=_; le=le2}) -> le1 == le2
+      | ({String=_; le=le1; size=s1},{String=_; le=le2; size=s2}) -> le1 == le2 && s1 == s2
       | ({Float32=_},{Float32=_}) -> true
       | ({Float=_},{Float=_}) -> true
       | ({Coded=_},{Coded=_}) -> true
@@ -733,8 +737,8 @@ Pack = {{
       | {Void} -> (s,1,0)
       | {Bool=_} -> (s,1,0)
       | {Cstring=str} -> (s,String.length(str)+1,0)
-      | {String=str} -> (s,sizesize(s)+String.length(str),0)
-      | {String=str; ~size} -> (s,sizesize(size)+String.length(str),0)
+      | {String=str; ~size; ...} -> (s,sizesize(size)+String.length(str),0)
+      | {String=str; ...} -> (s,sizesize(s)+String.length(str),0)
       | {Float32=_} -> (s,4,0)
       | {Float=_} -> (s,8,0)
       | {Coded=[]} -> (s,0,0) // Can't pack nothing
@@ -772,13 +776,17 @@ Pack = {{
       rec aux(i) = if i == size then [] else [LowLevelArray.get(a, i)|aux(i+1)]
       aux(0)
 
-    @private pack_string(buf:Pack.t, le:bool, signed:bool, actual_size:Pack.s, return_size:Pack.s, str:string)
+    @private pack_string(buf:Pack.t,
+                         actual_le:bool, return_le:bool,
+                         signed:bool,
+                         actual_size:Pack.s, return_size:Pack.s,
+                         str:string)
                          : (bool, bool, Pack.s, outcome(void,string)) =
       match actual_size with
-      | {B} -> (le, signed, return_size, string_b(buf, str))
-      | {S} -> (le, signed, return_size,  string_s(buf, le, str))
-      | {L} -> (le, signed, return_size,  string_l(buf, le, str))
-      | {Ll} -> (le, signed, return_size, string_ll(buf, le, str))
+      | {B} -> (return_le, signed, return_size, string_b(buf, str))
+      | {S} -> (return_le, signed, return_size,  string_s(buf, actual_le, str))
+      | {L} -> (return_le, signed, return_size,  string_l(buf, actual_le, str))
+      | {Ll} -> (return_le, signed, return_size, string_ll(buf, actual_le, str))
 
     @private pack_int(buf:Pack.t,
                       actual_le:bool, return_le:bool,
@@ -836,8 +844,10 @@ Pack = {{
       | {Void} -> (le, signed, size, pad(buf))
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
       | {~Cstring} -> (le, signed, size, cstring(buf, Cstring))
-      | {String=str} -> pack_string(buf, le, signed, size, size, str)
-      | {String=str; size=actual_size} -> pack_string(buf, le, signed, actual_size, size, str)
+      | {String=str} -> pack_string(buf, le, le, signed, size, size, str)
+      | {String=str; size=actual_size} -> pack_string(buf, le, le, signed, actual_size, size, str)
+      | {String=str; le=actual_le} -> pack_string(buf, actual_le, le, signed, size, size, str)
+      | {String=str; le=actual_le; size=actual_size} -> pack_string(buf, actual_le, le, signed, actual_size, size, str)
       | {~Float32} -> (le, signed, size, float(buf, le, Float32))
       | {~Float} -> (le, signed, size, double(buf, le, Float))
       | {Coded=[]} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has no codes"})
@@ -1532,22 +1542,29 @@ Pack = {{
                     )|data])}
       | {~failure} -> {~failure}
 
-    @private unpack_string(data:Pack.data, le:bool, signed:bool, actual_size:option(Pack.s), return_size:Pack.s,
+    @private unpack_string(data:Pack.data,
+                           actual_le:option(bool), return_le:bool,
+                           signed:bool,
+                           actual_size:option(Pack.s), return_size:Pack.s,
                            bin:binary, pos:int)
                           : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+      real_le = Option.default(return_le, actual_le)
       real_size = Option.default(return_size, actual_size)
       match
         match real_size with
         | {B} -> string_b(bin, pos)
-        | {L} -> string_l(le, bin, pos)
-        | {S} -> string_s(le, bin, pos)
-        | {Ll} -> string_ll(le, bin, pos)
+        | {L} -> string_l(real_le, bin, pos)
+        | {S} -> string_s(real_le, bin, pos)
+        | {Ll} -> string_ll(real_le, bin, pos)
       with
       | {success=s} ->
-         {success=(le, signed, return_size, pos+String.length(s)+sizesize(real_size),
-                   [(if Option.is_some(actual_size)
-                     then {String=s; size=Option.get(actual_size)}
-                     else {String=s})|data])}
+         {success=(return_le, signed, return_size, pos+String.length(s)+sizesize(real_size),
+                   [(match (actual_le, actual_size) with
+                     | ({some=actual_le},{some=actual_size}) -> {String=s; le=actual_le; size=actual_size}
+                     | ({some=actual_le},{none}) -> {String=s; le=actual_le}
+                     | ({none},{some=actual_size}) -> {String=s; size=actual_size}
+                     | ({none},{none}) -> {String=s}
+                    )|data])}
       | {~failure} -> {~failure}
 
     // Unpack item
@@ -1628,8 +1645,11 @@ Pack = {{
             (match cstring(bin, pos) with
              | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
              | {~failure} -> {~failure})
-         | {String=_} -> unpack_string(data, le, signed, {none}, size, bin, pos)
-         | {String=_; size=actual_size} -> unpack_string(data, le, signed, {some=actual_size}, size, bin, pos)
+         | {String=_} -> unpack_string(data, {none}, le, signed, {none}, size, bin, pos)
+         | {String=_; size=actual_size} -> unpack_string(data, {none}, le, signed, {some=actual_size}, size, bin, pos)
+         | {String=_; le=actual_le} -> unpack_string(data, {some=actual_le}, le, signed, {none}, size, bin, pos)
+         | {String=_; le=actual_le; size=actual_size} ->
+            unpack_string(data, {some=actual_le}, le, signed, {some=actual_size}, size, bin, pos)
          | {Float32=_} ->
             (match float(le, bin, pos) with
              | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32}|data])}
