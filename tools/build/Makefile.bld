@@ -52,7 +52,7 @@ clean::
 
 .PHONY: distclean
 distclean: clean
-	rm -f config.sh config.ml config.make
+	rm -f config.sh config.ml config.make config.log
 
 
 -include $(BUILD_DIR)/build_libs.make
