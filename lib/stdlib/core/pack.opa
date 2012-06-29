@@ -147,7 +147,11 @@ type Pack.u =
  / {Int:int}
  / {Int:int; size:Pack.s}
  / {Int:int; signed:bool}
- / {Int:int; size:Pack.s; signed:bool} // TODO: put endian in here
+ / {Int:int; size:Pack.s; signed:bool}
+ / {Int:int; le:bool}
+ / {Int:int; le:bool; size:Pack.s}
+ / {Int:int; le:bool; signed:bool}
+ / {Int:int; le:bool; size:Pack.s; signed:bool}
  / {Pad}
  / {Padn:int}
  / {Bound:int}
@@ -261,7 +265,7 @@ Pack = {{
     | {~Short} -> {success=Short}
     | {~Long} -> {success=Long}
     | {~Longlong} -> {success=Longlong}
-    | {~Int} -> {success=Int}
+    | {~Int; ...} -> {success=Int}
     | {Int64=i} -> {success=Int64.to_int(i)}
     | _ -> {failure="Pack.getsize: size {u} is not int"}
 
@@ -634,6 +638,12 @@ Pack = {{
       | ({Int=_; size=s1},{Int=_; size=s2}) -> s1 == s2
       | ({Int=_; signed=sg1},{Int=_; signed=sg2}) -> sg1 == sg2
       | ({Int=_; size=s1; signed=sg1},{Int=_; size=s2; signed=sg2}) -> s1 == s2 && sg1 == sg2
+      | ({Int=_; le=le1},{Int=_; le=le2}) -> le1 == le2
+      | ({Int=_; le=le1; size=s1},{Int=_; le=le2; size=s2}) -> le1 == le2 && s1 == s2
+      | ({Int=_; le=le1; signed=sg1},{Int=_; le=le2; signed=sg2}) -> le1 == le2 && sg1 == sg2
+      | ({Int=_; le=le1; size=s1; signed=sg1},{Int=_; le=le2; size=s2; signed=sg2}) ->
+         leseq = le1 == le2 && s1 == s2 // non-lazy semantic???
+         leseq && sg1 == sg2
       | ({Int64=_},{Int64=_}) -> true
       | ({Pad},{Pad}) -> true
       | ({Padn=_},{Padn=_}) -> true
@@ -714,10 +724,8 @@ Pack = {{
       | {Short=_} -> (s,2,0)
       | {Long=_} -> (s,4,0)
       | {Longlong=_} -> (s,8,0)
-      | {Int=_} -> (s,sizesize(s),0)
-      | {Int=_; ~size} -> (s,sizesize(size),0)
-      | {Int=_; signed=_} -> (s,sizesize(s),0)
-      | {Int=_; ~size; signed=_} -> (s,sizesize(size),0)
+      | {Int=_; ~size; ...} -> (s,sizesize(size),0)
+      | {Int=_; ...} -> (s,sizesize(s),0)
       | {Int64=_} -> (s,8,0)
       | {Pad} -> (s,1,0)
       | {~Padn} -> (s,Padn,0)
@@ -772,13 +780,17 @@ Pack = {{
       | {L} -> (le, signed, return_size,  string_l(buf, le, str))
       | {Ll} -> (le, signed, return_size, string_ll(buf, le, str))
 
-    @private pack_int(buf:Pack.t, le:bool, actual_signed:bool, return_signed:bool, actual_size:Pack.s, return_size:Pack.s, i:int)
+    @private pack_int(buf:Pack.t,
+                      actual_le:bool, return_le:bool,
+                      actual_signed:bool, return_signed:bool,
+                      actual_size:Pack.s, return_size:Pack.s,
+                      i:int)
                       : (bool, bool, Pack.s, outcome(void,string)) =
       match actual_size with
-      | {B} -> (le, return_signed, return_size, byte(buf, actual_signed, i))
-      | {S} -> (le, return_signed, return_size,  short(buf, le, actual_signed, i))
-      | {L} -> (le, return_signed, return_size,  long(buf, le, actual_signed, i))
-      | {Ll} -> (le, return_signed, return_size, longlong(buf, le, i))
+      | {B} -> (return_le, return_signed, return_size, byte(buf, actual_signed, i))
+      | {S} -> (return_le, return_signed, return_size,  short(buf, actual_le, actual_signed, i))
+      | {L} -> (return_le, return_signed, return_size,  long(buf, actual_le, actual_signed, i))
+      | {Ll} -> (return_le, return_signed, return_size, longlong(buf, actual_le, i))
 
     /** Pack item into binary data.
      *
@@ -808,10 +820,15 @@ Pack = {{
       | {~Short} -> (le, signed, size, short(buf, le, signed, Short))
       | {~Long} -> (le, signed, size, long(buf, le, signed, Long))
       | {~Longlong} -> (le, signed, size, longlong(buf, le, Longlong))
-      | {Int=i} -> pack_int(buf, le, signed, signed, size, size, i)
-      | {Int=i; size=actual_size} -> pack_int(buf, le, signed, signed, actual_size, size, i)
-      | {Int=i; signed=actual_signed} -> pack_int(buf, le, actual_signed, signed, size, size, i)
-      | {Int=i; size=actual_size; signed=actual_signed} -> pack_int(buf, le, actual_signed, signed, actual_size, size, i)
+      | {Int=i} -> pack_int(buf, le, le, signed, signed, size, size, i)
+      | {Int=i; size=actual_size} -> pack_int(buf, le, le, signed, signed, actual_size, size, i)
+      | {Int=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, size, size, i)
+      | {Int=i; size=actual_size; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, actual_size, size, i)
+      | {Int=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, size, size, i)
+      | {Int=i; le=actual_le; size=actual_size} -> pack_int(buf, actual_le, le, signed, signed, actual_size, size, i)
+      | {Int=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, size, size, i)
+      | {Int=i; le=actual_le; size=actual_size; signed=actual_signed} ->
+         pack_int(buf, actual_le, le, actual_signed, signed, actual_size, size, i)
       | {Int64=i64} -> (le, signed, size, int64(buf, le, i64))
       | {Pad} -> (le, signed, size, pad(buf))
       | {~Padn} -> (le, signed, size, padn(buf, Padn))
@@ -1490,20 +1507,28 @@ Pack = {{
       | {success=(npos, code, ndata)} -> {success=(le, signed, size, npos, [{Coded=[(code,ndata)]}|data])}
       | {~failure} -> {~failure}
 
-    @private unpack_int(data:Pack.data, le:bool,
-                        actual_signed:option(bool), return_signed:bool, actual_size:option(Pack.s), return_size:Pack.s,
+    @private unpack_int(data:Pack.data,
+                        actual_le:option(bool), return_le:bool,
+                        actual_signed:option(bool), return_signed:bool,
+                        actual_size:option(Pack.s), return_size:Pack.s,
                         bin:Pack.t, pos:int)
                         : outcome((bool, bool, Pack.s, int, Pack.data),string) =
-      real_size = Option.default(return_size, actual_size)
+      real_le = Option.default(return_le, actual_le)
       real_signed = Option.default(return_signed, actual_signed)
-      match int(le, real_signed, real_size, bin, pos) with
+      real_size = Option.default(return_size, actual_size)
+      match int(real_le, real_signed, real_size, bin, pos) with
       | {success=i} ->
-         {success=(le, return_signed, return_size, pos+sizesize(real_size),
-                   [(match (actual_size,actual_signed) with
-                     | ({none},{none}) -> {Int=i}
-                     | ({some=actual_size},{none}) -> {Int=i; size=actual_size}
-                     | ({none},{some=actual_signed}) -> {Int=i; signed=actual_signed}
-                     | ({some=actual_size},{some=actual_signed}) -> {Int=i; size=actual_size; signed=actual_signed}
+         {success=(return_le, return_signed, return_size, pos+sizesize(real_size),
+                   [(match (actual_le,actual_size,actual_signed) with
+                     | ({none},{none},{none}) -> {Int=i}
+                     | ({none},{some=actual_size},{none}) -> {Int=i; size=actual_size}
+                     | ({none},{none},{some=actual_signed}) -> {Int=i; signed=actual_signed}
+                     | ({none},{some=actual_size},{some=actual_signed}) -> {Int=i; size=actual_size; signed=actual_signed}
+                     | ({some=actual_le},{none},{none}) -> {Int=i; le=actual_le}
+                     | ({some=actual_le},{some=actual_size},{none}) -> {Int=i; le=actual_le; size=actual_size}
+                     | ({some=actual_le},{none},{some=actual_signed}) -> {Int=i; le=actual_le; signed=actual_signed}
+                     | ({some=actual_le},{some=actual_size},{some=actual_signed}) ->
+                        {Int=i; le=actual_le; size=actual_size; signed=actual_signed}
                     )|data])}
       | {~failure} -> {~failure}
 
@@ -1560,13 +1585,21 @@ Pack = {{
              | {success=Longlong} -> {success=(le, signed, size, pos+8, [{~Longlong}|data])}
              | {~failure} -> {~failure})
          | {Int=_} ->
-            unpack_int(data, le, {none}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, le, {none}, signed, {none}, size, bin, pos)
          | {Int=_; size=actual_size} ->
-            unpack_int(data, le, {none}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, le, {none}, signed, {some=actual_size}, size, bin, pos)
          | {Int=_; signed=actual_signed} ->
-            unpack_int(data, le, {some=actual_signed}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
          | {Int=_; size=actual_size; signed=actual_signed} ->
-            unpack_int(data, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
+         | {Int=_; le=actual_le} ->
+            unpack_int(data, {some=actual_le}, le, {none}, signed, {none}, size, bin, pos)
+         | {Int=_; le=actual_le; size=actual_size} ->
+            unpack_int(data, {some=actual_le}, le, {none}, signed, {some=actual_size}, size, bin, pos)
+         | {Int=_; le=actual_le; signed=actual_signed} ->
+            unpack_int(data, {some=actual_le}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
+         | {Int=_; le=actual_le; size=actual_size; signed=actual_signed} ->
+            unpack_int(data, {some=actual_le}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
          | {Int64=_} ->
             (match int64(le, bin, pos) with
              | {success=i64} -> {success=(le, signed, size, pos+8, [{Int64=i64}|data])}
@@ -1673,7 +1706,6 @@ Pack = {{
       | {Short=_} -> {some=u}
       | {Long=_} -> {some=u}
       | {Longlong=_} -> {some=u}
-      | {Int=_} -> {some=u}
       | {~Int; ...} -> {some={~Int}}
       | {Int64=_} -> {some=u}
       | {Pad} -> none
