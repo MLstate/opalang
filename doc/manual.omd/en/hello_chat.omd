@@ -1,9 +1,9 @@
 Hello, chat
 ===========
 
-Opa makes real-time web simple. In this chapter, we will see how to program a
-complete web chat application in Opa -- in only 20 lines of code and without
-compromising security. Along the way, we will introduce the basic concepts of
+Opa makes real-time web simple. In this chapter, we will see how to quickly
+program a complete web chat application.
+Along the way, we will introduce the basic concepts of
 the Opa language, and we will learn about starting new projects, building user
 interfaces, manipulating data structures, embedding external resources and
 basic building blocks of concurrency and distribution.
@@ -15,15 +15,14 @@ Let us start with a picture of the web chat we will develop in this chapter:
 
 ![Final version of the Hello chat application](/resources/manual/img/hello_chat/result.png)
 
-This web application offers one chat-room. Users connecting to the application
-with their browser automatically join this chat-room and can immediately
-start discussing in real-time. In the picture, we have two users, using regular
-web browsers. For the sake of simplicity, in this application, we choose the name
-of users randomly.
+This web application offers one chat-room. Connecting users auto automatically
+join this chat-room and can immediately start discussing in real-time. In the
+picture, we have two users, using regular web browsers. For the sake of
+simplicity will choose names of users randomly.
 
-If you are curious, the full source code of the application is listed
-at the end of this chapter. In the rest of the chapter, we will walk
-you through all the concepts and constructions including the user
+If you are curious, you can see the complete, finished application
+[here](https://github.com/MLstate/hello_chat). In the rest of the chapter, we
+will walk you through all the concepts and constructions including the user
 interface and communication infrastructure.
 
 Starting a new project
