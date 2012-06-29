@@ -24,6 +24,11 @@
 ##extern-type Closure.t
 ##extern-type Closure.args
 
+#<Ifstatic:OPABSL_NODE>
+#<Else>
+global = this;
+#<End>
+
 /**
  * <!> Part of the JsInterface (used by funaction serialization)
 **/
