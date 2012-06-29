@@ -363,7 +363,7 @@ Xmlns =
     aux([],xmls)
   match_star(pattern:XmlParser.t,xmls) =
     {some = match_star_aux(pattern,xmls)}
-  match_question(pattern,xmls) =
+  match_question(pattern:XmlParser.t,xmls) =
     match pattern.parse(xmls, pattern.env) with
     | {none} -> {some = ({none}, xmls)}
     | {some=(res,xmls)} -> {some = ({some=res},xmls)}
