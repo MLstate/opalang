@@ -73,8 +73,8 @@ To compile and run the project simply execute:
 `cd chat
 make run`[sh]
 
-Building user interface
------------------------
+View: Building user interface
+-----------------------------
 
 Let us start with the user interface; the _view_ part of the application. If you look
 at `src/view.opa` (shown below) you will see that it contains a `View` _module_.
@@ -117,7 +117,7 @@ template for any page and `default_page` that uses it to build a page. Few thing
 to notice:
 
 * HTML & CSS, prevailing web standards, are used to build user interface (UI). Both are first class citizens in the language and are understood (and checked!) by the compiler, without having to wrap them as strings.
-* HTML uses [Twitter Bootstrap](http://twitter.github.com/bootstrap/) markup. Opa makes it possible to use Bootstrap with one single import, which is already taken care of for you by the `opa create` template.
+* HTML uses [Twitter Bootstrap](http://twitter.github.com/bootstrap/) markup. Opa makes it possible to use Bootstrap with one single import, which is already taken care of for you in the template used by `opa create`.
 * Opa also makes few simplifications in the HTML syntax: name in the closing tag is optional and quotes can be omitted for one-word, letters-only attributes.
 * _Inserts_ are a safe way of "injecting" values into strings and HTML fragments; they consist of code placed within the curly braces `{...}`. This is how the `content` argument is placed in the constructed HTML in the `page_template` function.
 
@@ -125,18 +125,22 @@ For our chat app we need to slightly modify the markup in the
 [View module](https://github.com/MLstate/hello_chat/blob/master/src/view.opa).
 The template also automatically places a CSS style-sheet in `resources/css/style.css`,
 which we need to [modify](https://github.com/MLstate/hello_chat/blob/master/resources/css/style.css)
-to obtain the desired look & feel for our app.
+to obtain the desired look & feel for our app. Both steps are "business as usual"
+if you have any experience with HTML/CSS.
 
-Setting up communication
+Model: Application logic
 ------------------------
 
-A chat is all about communicating messages between users. This means that we need to decide of what _type_ of messages we wish to transmit,
-as follows:
+Now that we have the skeleton of the user interface in place it is time to bring it up
+to live by adding application logic. A chat is all about communicating messages between
+users. This means that we need to decide of what _type_ of messages we wish to transmit.
 
 `type message = {string author, string text}`[opa]
 
-This extract determines that each `message` is composed of two fields: an `author` (which is a `string`, in other words, some text)
-and a `text` (also a `string`).
+This extract determines that each `message` is composed of two fields: an `author`
+(which is a `string`, in other words, some text) and a `text` (also a `string`).
+We say that _type_ `message` is a _record_ with two _fields_, `author` and
+`text`. We will see in a few minutes how to manipulate a `message`.
 
 {block}[TIP]
 ### About types
@@ -144,17 +148,64 @@ _Types_ are the shape of data manipulated by an application. Opa uses
 types to perform checks on your application, including sanity checks
 (e.g. you are not confusing a length and a color) and security checks (e.g. a
 malicious user is not attempting to insert a malicious program inside a web page
-or to trick the database into confusing informations). Opa also uses types to
+or to trick the database into confusing information). Opa also uses types to
 perform a number of optimizations.
 
 In most cases, Opa can work even if you do not provide any type information,
 thanks to a mechanism of _type inference_. However, in this book, for
-documentation purposes, we will put types even in a few places where they are
-not needed.
+documentation purposes and to ease understanding, we will put types in
+many places where they are not needed.
 {block}
 
-We say that _type_ `message` is a _record_ with two _fields_, `author` and
-`text`. We will see in a few minutes how to manipulate a `message`.
+This is the _model_ part of our application, defining application data, its
+manipulation and storage, and therefore we put this declaration in `src/model.opa`.
+
+Now that we have a definition of what a message is we need to figure out a
+way to pass it around between different clients. Opa provides three primitives
+for communication between clients and the server:
+
+* `Session` for _one-way, asynchronous_ communication.
+* `Cell` for _two-way, synchronous_ communication and
+* `Network` for _broadcasting_ messages to a number of _observers_.
+
+For our chat application we have a number of clients connected to the chat-room
+and they all need to be informed of all the messages posted there; therefore
+we will use a network.
+
+`private Network.network(message) room = Network.cloud("room")`[opa]
+
+This extract creates a _cloud network_ (ensuring that it will be shared
+between all running instances of the application) called `room`. As everything in Opa,
+this network has a type. The type of this network is `Network.network(message)`,
+meaning that this is a network used to transmit data of type `message`.
+
+By declaring this value as `private` we ensure that it is not accessible
+from outside of our Model and that other functions need to be used to
+manipulate it. This concept, known as _encapsulation_ or _information hiding_,
+is crucial for writing modular, well-designed programs.
+
+We will need two such functions: one to broadcast a message to all clients
+and another one to register a callback, which will be invoked whenever a new
+message has been posted:
+
+```
+function broadcast(message) {
+  Network.broadcast(message, room);
+}
+
+function register_message_callback(callback) {
+  Network.add_callback(callback, room);
+}
+```
+
+Both functions simply invoke relavant functionality from the `Network`
+module.
+
+
+
+
+
+
 
 At this stage, we have a complete (albeit quite useless) application. Should you
 wish to check that your code is correct, you can _compile_ it easily. Save your
@@ -167,32 +218,6 @@ Opa will take a few seconds to analyze your application, check that everything
 is in order and produce an executable file. We do not really need that file yet,
 not until it actually does something. At this stage, your application is not really
 useful -- but that is ok, we will add the _server_ shortly.
-
-So far, we have defined `message`. Now, it is time to use it for communications. For
-this purpose, we should define a _network_.  Networks are a unit of communication
-between browsers or between servers. As you will see, communications are one of
-the many domains where Opa shines. To define one, let us write:
-
-{block}[TIP]
-### Networks
-A network is a real-time web construction used to broadcast messages from one
-source to many observers. Networks are used not only for chats, but also for
-system event handling or for user interface event handling.
-
-Networks themselves are built upon a unique and extremely powerful paradigm
-of _distributed session_, which we will detail in a further chapter.
-{block}
-
-`Network.network(message) room = Network.cloud("room")`[opa]
-
-This extract defines a _cloud network_ called `room` and initially empty. As
-everything in Opa, this network has a type. The type of this network is
-`Network.network(message)`, marking that this is a network used to transmit
-informations with type `message`.  We will see later a few other manners of
-creating networks for slightly different uses.
-
-And that is it. With these two lines, we have set up our communication
-infrastructure -- yes, really. We are now ready to add the user interface.
 
 Defining the user interface
 ---------------------------
