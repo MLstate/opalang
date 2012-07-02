@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# script used to generate the list of packages
+# script used to generate the list of plugins
 
 DIRS=$(find . -type d | sed "s/.\///")
 

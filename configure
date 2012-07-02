@@ -178,7 +178,7 @@ if [ -n "${IS_MAC:-}" ]; then
         fi
         exit 1
     fi >&2
-    . ./platform_helper.sh
+    . ./tools/platform_helper.sh
 fi
 
 if [ -n "${IS_FREEBSD:-}" ]; then
@@ -808,8 +808,7 @@ EOF
 sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
 if [ -n "${IS_MAC:-}" ]; then
     echo "INSTALL := gcp -u -L" >>config.make
-fi
-if [ -n "${IS_FREEBSD:-}" ]; then
+elif [ -n "${IS_FREEBSD:-}" ]; then
     echo "INSTALL := cp" >>config.make
 fi
 

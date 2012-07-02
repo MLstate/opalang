@@ -4,7 +4,7 @@
 # build the list of target binaries to be documented:
 #   bin/* and lib/opa/bin/* together with inclusions and exclusions
 # --
-BLDDIR ?= ../_build
+BLDDIR ?= ../../_build
 OCAMLBUILD ?= bld
 
 BINDIR=$(BLDDIR)/bin
@@ -36,15 +36,15 @@ $(TARGETDIR)/%.1: %.man
 # --
 # second run specific manpage generation programs
 # --
-$(BLDDIR)/opa/gen_opa_manpage.native: ../opa/gen_opa_manpage.ml
-	cd ..; $(OCAMLBUILD) opa/gen_opa_manpage.native
+$(BLDDIR)/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpage.ml
+	cd ../..; $(OCAMLBUILD) compiler/opa/gen_opa_manpage.native
 
 $(TARGETDIR)/opa.1: $(BLDDIR)/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 
-$(BLDDIR)/opatop/gen_opatop_manpage.native: ../opatop/gen_opatop_manpage.ml
-	cd ..; $(OCAMLBUILD) opatop/gen_opatop_manpage.native
+$(BLDDIR)/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
+	cd ../..; $(OCAMLBUILD) compiler/opatop/gen_opatop_manpage.native
 
 $(TARGETDIR)/opatop.1: $(BLDDIR)/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)

@@ -15,30 +15,27 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 (* ------------------------------------------------------------ *)
 (* Tags, flags, directory contexts and custom stuff             *)
 (* ------------------------------------------------------------ *)
 
 (* -- Directory contexts -- *)
 
-shared_namespace_dir "libqmlcompil";
-shared_namespace_dir "database";
-shared_namespace_dir "opa";
-include_subdirs "opalib";
-shared_namespace_dir "opalang";
-shared_namespace_dir "appruntime";
-shared_namespace_dir "libnet";
-include_subdirs "qmlflat";
+shared_namespace_dir "compiler/libqmlcompil";
+include_subdirs "compiler/qmlflat";
+shared_namespace_dir "compiler/opa";
+include_subdirs "compiler/opalib";
+shared_namespace_dir "compiler/opalang";
+shared_namespace_dir "ocamllib/appruntime";
+shared_namespace_dir "ocamllib/libnet";
+shared_namespace_dir "ocamllib/database";
 
 (* -- Stubs -- *)
 
-def_stubs ~dir:"libbase" "stubs";
-def_stubs ~dir:"libsecurity" "ssl_ext";
-def_stubs ~dir:"appruntime" "io";
-
-let root_ocamldir = Config.ocamllib in
-
-let is_release () = Config.is_release in
+def_stubs ~dir:"ocamllib/libbase" "stubs";
+def_stubs ~dir:"ocamllib/libsecurity" "ssl_ext";
+def_stubs ~dir:"ocamllib/appruntime" "io";
 
 let link_cmd = if windows_mode then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"] in
 
@@ -51,6 +48,7 @@ in
 extralib_opt Config.libnatpmp;
 extralib_opt Config.miniupnpc;
 
+(* Pre-installed system libs *)
 let linux_system_libs = ["iconv"]
 and mac_system_libs = []
 and windows_system_libs = []
@@ -65,32 +63,31 @@ let filter_system_libs l =
   in List.filter (fun x -> not (List.mem x system_libs)) l
 in
 
-begin
-  match Config.camlidl with
-  | None -> ()
-  | Some camlidl ->
-      flag ["link"; "use_camlidl"] (S [A "-cclib"; P "-lcamlidl" ]);
+begin match Config.camlidl with
+| None -> ()
+| Some camlidl ->
+    flag ["link"; "use_camlidl"] (S [A "-cclib"; P "-lcamlidl" ]);
 
-      rule "camlidl processing: .idl -> .ml .mli _stubs.c lib_stubs.clib"
-        ~deps:[ "%(dir)stubs%(name).idl" ]
-        ~prods:[ "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).mli";
-                 "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).ml" ;
-                 "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>)_stubs.c" ]
-        ~insert:`top
-        (fun env _build ->
-           let dir = env "%(dir)" in
-           let name = env "%(name)" in
+    rule "camlidl processing: .idl -> .ml .mli _stubs.c lib_stubs.clib"
+      ~deps:[ "%(dir)stubs%(name).idl" ]
+      ~prods:[ "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).mli";
+               "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).ml" ;
+               "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>)_stubs.c" ]
+      ~insert:`top
+      (fun env _build ->
+         let dir = env "%(dir)" in
+         let name = env "%(name)" in
 
-           def_stubs ~dir (name ^ "_idl");
+         def_stubs ~dir (name ^ "_idl");
 
-           Cmd(S[Sh"cd"; P dir; Sh"&&";
-                 P camlidl; A"-prepro"; P"/usr/bin/cpp"; A"-no-include"; P ("stubs" ^ name -.- "idl") ])
-        )
+         Cmd(S[Sh"cd"; P dir; Sh"&&";
+               P camlidl; A"-prepro"; P"/usr/bin/cpp"; A"-no-include"; P ("stubs" ^ name -.- "idl") ])
+      )
 end;
 
 (* -- Ocamldoc plugin -- *)
 
-flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"utils/ocamldoc_plugin.cmxs"]);
+flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
 
 (* ------------------------------------------------------------ *)
 (* Hacks                                                        *)
@@ -100,12 +97,12 @@ flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"utils/ocamldoc_plugin.cmxs"]);
    cheat by copying the opabsl generated files so that they can be seen as
    local by opatop. *)
 let magic_import_from_opabsl dest f =
-  rule ("import from opabsl: "^f) ~deps:["opabsl/"^f] ~prod:(dest / f)
+  rule ("import from opabsl: "^f) ~deps:["lib/opabsl/"^f] ~prod:(dest / f)
     (fun env build ->
        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
-           if Pathname.exists "opabsl"
-           then (build_list build ["opabsl" / f]; cp ("opabsl"/ f) dest)
-           else cp (mlstatelibs/"opabsl"/ f) dest
+           if Pathname.exists "lib/opabsl"
+           then (build_list build ["lib/opabsl" / f]; cp ("lib/opabsl"/ f) dest)
+           else cp (mlstatelibs/"lib/opabsl"/ f) dest
           ])
 in
 List.iter
@@ -184,8 +181,8 @@ rule "mlstate_platform: () -> libbase/mlstate_platform.h"
 *)
 let stdlib_files =
   (* keep in sync with s3passes@pass_AddStdlibFiles*)
-  let core_dir = "stdlib/core" in
-  let tests_dir = "stdlib/tests" in
+  let core_dir = "lib/stdlib/core" in
+  let tests_dir = "lib/stdlib/tests" in
   let dirs = core_dir :: tests_dir :: rec_subdirs [ core_dir ] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "js" dir @ dir_ext_files "opa" dir @ acc) dirs [] in
   files
@@ -196,7 +193,7 @@ rule "stdlib embedded: stdlib_files -> opalib/staticsInclude.of"
   (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, "opalib/staticsInclude.of"));
 
 let opa_opacapi_files =
-  let dirs = rec_subdirs ["stdlib"] in
+  let dirs = rec_subdirs ["lib/stdlib"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "opa" dir @ acc) dirs [] in
   files
 in
@@ -206,7 +203,7 @@ let opa_opacapi_plugins = ["badop"] in
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
-  ~deps:("opa/checkopacapi.native" :: opa_opacapi_files
+  ~deps:("compiler/opa/checkopacapi.native" :: opa_opacapi_files
          @ List.map (fun x -> Printf.sprintf "plugins/%s/%s.oppf" x x)
          opa_opacapi_plugins)
   ~prod:opacapi_validation
@@ -223,14 +220,14 @@ rule "Opa Compiler Interface Validation (opacapi)"
 (* -- Build infos and runtime version handling -- *)
 
 (* TODO: probably same bugs than mlstate_platform *)
-let generate_buildinfos = "buildinfos/generate_buildinfos.sh" in
-let version_buildinfos = "buildinfos/version_major.txt" in
-let pre_buildinfos = "buildinfos/buildInfos.ml.pre" in
-let post_buildinfos = "buildinfos/buildInfos.ml.post" in
-let buildinfos = "buildinfos/buildInfos.ml" in
-rule "buildinfos: buildinfos/* -> buildinfos/buildInfos.ml"
+let generate_buildinfos = "compiler/buildinfos/generate_buildinfos.sh" in
+let version_buildinfos = "compiler/buildinfos/version_major.txt" in
+let pre_buildinfos = "compiler/buildinfos/buildInfos.ml.pre" in
+let post_buildinfos = "compiler/buildinfos/buildInfos.ml.post" in
+let buildinfos = "compiler/buildinfos/buildInfos.ml" in
+rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
   ~deps:[version_buildinfos ; pre_buildinfos ; generate_buildinfos ; post_buildinfos]
-  ~prods:(buildinfos :: (if is_release() then ["always_rebuild"] else []))
+  ~prods:(buildinfos :: (if Config.is_release then ["always_rebuild"] else []))
   (fun env build ->
      let version = env version_buildinfos in
      let pre_prod = env pre_buildinfos in
@@ -239,7 +236,7 @@ rule "buildinfos: buildinfos/* -> buildinfos/buildInfos.ml"
      Seq[
        Cmd(S[Sh "cat" ; P pre_prod ; Sh ">" ; P prod]);
        Cmd(S[P "bash"; A "-e"; P generate_buildinfos; P Pathname.pwd;
-             if is_release () then A "--release" else N;
+             if Config.is_release then A "--release" else N;
              A "--version" ; P version ;
              Sh ">>" ; P prod]);
        Cmd(S[Sh "cat" ; P post_prod ; Sh ">>" ; P prod]);
@@ -247,7 +244,7 @@ rule "buildinfos: buildinfos/* -> buildinfos/buildInfos.ml"
   );
 
 let parser_files =
-  let dir = ["opalang/classic_syntax";"opalang/js_syntax"] in
+  let dir = ["compiler/opalang/classic_syntax";"compiler/opalang/js_syntax"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
@@ -357,10 +354,10 @@ let js_checker =
     A"--js_output_file" :: A output_file :: *)
     google_closure_compiler_options (*@
     A"--js"             :: A clientlib ::
-    A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-    A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-    A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-    A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
+    A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+    A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+    A"--js"             :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+    A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
     A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
     []*)
 in
@@ -423,7 +420,7 @@ let opp_build opa_plugin opp oppf env build =
     List.fold_left
       (fun acc f -> if Pathname.check_extension f "ml" &&
          Tags.mem "with_mlstate_debug" (tags_of_pathname f) then
-           (A"--pp-file")::(P (Printf.sprintf "%s:%s" f (Pathname.pwd/"utils"/"ppdebug.pl")))::acc
+           (A"--pp-file")::(P (Printf.sprintf "%s:%s" f (Pathname.pwd/"tools"/"utils"/"ppdebug.pl")))::acc
        else acc
       ) [] files in
   let js_validation = if files_js=[]
@@ -453,15 +450,15 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 
 
 (* -- BSL compilation (using bslregister) -- *)
-let ml_sources_bsl = dir_sources_bsl "opabsl/mlbsl" in
-let js_sources_bsl = dir_sources_bsl "opabsl/jsbsl" in
-let nodejs_sources_bsl = dir_sources_bsl "opabsl/nodejsbsl" in
-let mlstate_init_bsl = dir_sources_bsl "opabsl/mlstatebsl" in
+let ml_sources_bsl = dir_sources_bsl "lib/opabsl/mlbsl" in
+let js_sources_bsl = dir_sources_bsl "lib/opabsl/jsbsl" in
+let nodejs_sources_bsl = dir_sources_bsl "lib/opabsl/nodejsbsl" in
+let mlstate_init_bsl = dir_sources_bsl "lib/opabsl/mlstatebsl" in
 let all_sources_bsl = ml_sources_bsl @ js_sources_bsl @ nodejs_sources_bsl @ mlstate_init_bsl in
-let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/jsbsl" in
-let nodejs_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "opabsl/nodejsbsl" in
+let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/jsbsl" in
+let nodejs_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/nodejsbsl" in
 let alljs_dest_bsl = js_dest_bsl @ nodejs_dest_bsl in
-let js_conf = "opabsl/jsbsl/bsl-sources.jsconf" in
+let js_conf = "lib/opabsl/jsbsl/bsl-sources.jsconf" in
 
 (*
 let rec ponctuate s f = function
@@ -475,20 +472,20 @@ let _ = Printf.eprintf "js_dest_bsl: %s\n" (ponctuate ", " (fun x -> x)  (List.m
 *)
 
 (* TODO: this is not the way to LLVM, the C code is not usable as it is now *)
-(* let c_sources_bsl = dir_sources_bsl "opabsl/cbsl" in *)
+(* let c_sources_bsl = dir_sources_bsl "lib/opabsl/cbsl" in *)
 
 (* used for js-validation-only *)
 rule "opabsl_sources"
   ~deps: (js_conf :: all_sources_bsl
           @ tool_deps "opa-plugin-builder-bin")
-  ~prods: ((List.map (fun s -> "opabsl"/s)
+  ~prods: ((List.map (fun s -> "lib/opabsl"/s)
              ["opabslgenLoader.ml";"opabslgenPlugin.ml";
               "opabslgen.bypass" ;
               "opabslgenMLRuntime_x.ml";"opabslgenMLRuntime_x.mli";
               "opabslgenJSkeys.js";
              ])@alljs_dest_bsl)
   begin fun env build ->
-    Seq[Cmd(S([Sh"cd opabsl && ";
+    Seq[Cmd(S([Sh"cd lib/opabsl && ";
                get_tool "opa-plugin-builder-bin";
                A"-o";P"opabslgen";
                A"--no-opp";
@@ -500,25 +497,25 @@ rule "opabsl_sources"
                 List.map (fun s -> P (".."/s)) (
                   js_conf :: all_sources_bsl
                 )));
-        mv "opabsl/opabslgenMLRuntime.ml" "opabsl/opabslgenMLRuntime_x.ml";
-        mv "opabsl/opabslgenMLRuntime.mli" "opabsl/opabslgenMLRuntime_x.mli";
+        mv "lib/opabsl/opabslgenMLRuntime.ml" "lib/opabsl/opabslgenMLRuntime_x.ml";
+        mv "lib/opabsl/opabslgenMLRuntime.mli" "lib/opabsl/opabslgenMLRuntime_x.mli";
       ]
   end;
 
 rule "opa-bslgenMLRuntime interface validation"
   ~deps: [
-    "opabsl/opabslgenMLRuntime_x.cmo";
-    "opabsl/js_validation/imp_client_lib.js";
-    "opabsl/js_validation/bsl.js";
+    "lib/opabsl/opabslgenMLRuntime_x.cmo";
+    "lib/opabsl/js_validation/imp_client_lib.js";
+    "lib/opabsl/js_validation/bsl.js";
   ]
-  ~prod: "opabsl/opabslgenMLRuntime.ml"
+  ~prod: "lib/opabsl/opabslgenMLRuntime.ml"
   (fun env build ->
     Seq[
-    cp "opabsl/opabslgenMLRuntime_x.ml" "opabsl/opabslgenMLRuntime.ml";
+    cp "lib/opabsl/opabslgenMLRuntime_x.ml" "lib/opabsl/opabslgenMLRuntime.ml";
   ]
   );
 
-let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "opabsl/jsbsl" in
+let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "lib/opabsl/jsbsl" in
 
 rule "preprocess JS files for validation"
  ~deps:((tool_deps "ppjs")@alljs_dest_bsl)
@@ -530,24 +527,24 @@ rule "preprocess JS files for validation"
 
 rule "Client lib JS validation"
   ~deps: (
-         "qmljsimp/qmlJsImpClientLib.js" ::
-         "qmlcps/qmlCpsClientLib.js"     ::
-         "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-         "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-         "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-         "opabsl/jsbsl/jquery_extra.externs.js" ::
+         "compiler/qmljsimp/qmlJsImpClientLib.js" ::
+         "compiler/qmlcps/qmlCpsClientLib.js"     ::
+         "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+         "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+         "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+         "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
          (tool_deps "jschecker.jar") @
          (tool_deps "jschecker_externals.js") @
          (tool_deps "jschecker_clientliblib.js") @
          (tool_deps "jschecker_jquery.js") )
   ~prods:[
-    "opabsl/js_validation/imp_client_lib.js";
+    "lib/opabsl/js_validation/imp_client_lib.js";
   ]
  (fun env build ->
     let run_check clientlib output_file =
       let local = windows_mode in
       [
-        Cmd(S [Sh"mkdir"; A"-p";P "opabsl/js_validation"]);
+        Cmd(S [Sh"mkdir"; A"-p";P "lib/opabsl/js_validation"]);
         Cmd(S(
           js_checker @
             A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
@@ -555,17 +552,17 @@ rule "Client lib JS validation"
             A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
             A"--js_output_file" :: A output_file ::
             A"--js"             :: A clientlib ::
-            A"--js"             :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-            A"--js"             :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-            A"--js"             :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-            A"--js"             :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
+            A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+            A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+            A"--js"             :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+            A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
             A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
             []
         ))
       ]
    in
     Seq (
-      run_check "qmljsimp/qmlJsImpClientLib.js" "opabsl/js_validation/imp_client_lib.js"
+      run_check "qmljsimp/qmlJsImpClientLib.js" "lib/opabsl/js_validation/imp_client_lib.js"
     )
  );
 
@@ -578,22 +575,22 @@ rule "opa-bslgenMLRuntime JS validation"
     @ (tool_deps "jschecker_clientliblib.js")
     @ (tool_deps "jschecker_cpsclientlib.js")
     @ js_pp_bsl
-    @ [ "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ;
-        "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ;
-        "opabsl/jsbsl/selection_ext_bsldom.extern.js" ;
-        "opabsl/jsbsl/jquery_extra.externs.js" ;
-        "opabsl/opabslgenJSkeys.js" ]
+    @ [ "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ;
+        "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ;
+        "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ;
+        "lib/opabsl/jsbsl/jquery_extra.externs.js" ;
+        "lib/opabsl/opabslgenJSkeys.js" ]
   )
-  ~prods: ["opabsl/js_validation/bsl.js"]
+  ~prods: ["lib/opabsl/js_validation/bsl.js"]
   (fun env build ->
      let arg_of_file file acc = match file with (*A very dumb filter to get rid of files that we just can't fix in the first place*)
-       | "opabsl/jsbsl/opabslgen_jquery-1.7.2.min.js.pp" -> acc
-       | "opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
+       | "lib/opabsl/jsbsl/opabslgen_jquery-1.7.2.min.js.pp" -> acc
+       | "lib/opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
        | _                 -> A "--js" :: A file :: acc
      in
      let get_tool = get_tool ~local:windows_mode in
      Seq[
-       Cmd(S [Sh"mkdir";A"-p";P "opabsl/js_validation"]);
+       Cmd(S [Sh"mkdir";A"-p";P "lib/opabsl/js_validation"]);
        Cmd(S(
              A"java" :: A"-jar"  :: (get_tool "jschecker.jar") ::
                A"--externs"        :: (get_tool "jschecker_externals.js") ::
@@ -601,14 +598,14 @@ rule "opa-bslgenMLRuntime JS validation"
                A"--externs"        :: (get_tool "jschecker_clientlib.js") ::
                A"--externs"        :: (get_tool "jschecker_jquery.js") ::
                A"--externs"        :: (get_tool "jschecker_cpsclientlib.js") ::
-               A"--externs"        :: A "opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-               A"--externs"        :: A "opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-               A"--externs"        :: A "opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-               A"--externs"        :: A "opabsl/jsbsl/jquery_extra.externs.js" ::
-               A"--js_output_file" :: A "opabsl/js_validation/bsl.js" ::
+               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
+               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
+               A"--externs"        :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
+               A"--js_output_file" :: A "lib/opabsl/js_validation/bsl.js" ::
                google_closure_compiler_options @
                (List.fold_right (fun s acc -> arg_of_file s acc) js_pp_bsl [])
-               @ [ A"--js" ; A "opabsl/opabslgenJSkeys.js" ]
+               @ [ A"--js" ; A "lib/opabsl/opabslgenJSkeys.js" ]
            ))]
   );
 
@@ -659,12 +656,12 @@ rule "opa-bslgenMLRuntime JS documentation"
 
 (* -- OPA compiler rules -- *)
 
-let stdlib_packages_dir = "stdlib" in
+let stdlib_packages_dir = "lib/stdlib" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
-let opacomp_deps_js = string_list_of_file "opa-run-js-libs.itarget" in
-let opacomp_deps_native = string_list_of_file "opa-run-libs.itarget" in
+let opacomp_deps_js = string_list_of_file "compiler/opa-run-js-libs.itarget" in
+let opacomp_deps_native = string_list_of_file "compiler/opa-run-libs.itarget" in
 let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
 
 let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in
@@ -694,7 +691,7 @@ let copy_lib_to_runtime lib =
 in
 
 rule "opa run-time libraries"
-  ~deps:("libbase"/"mimetype_database.xml" :: opacomp_deps_native)
+  ~deps:("ocamllib"/"libbase"/"mimetype_database.xml" :: opacomp_deps_native)
   ~stamp:"runtime-libs.stamp"
   (fun _env _build ->
      let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_native in
@@ -709,7 +706,7 @@ rule "opa run-time libraries"
              @ [ P (opa_prefix / opa_libs_dir) ]));
        Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs
              @ [ P (opa_prefix / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: P (opa_prefix / "libbase" / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
+       Cmd(S(link_cmd :: P (opa_prefix / "ocamllib" / "libbase" / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
        Seq copylibs
      ]
   );

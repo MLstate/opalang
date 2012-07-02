@@ -5,7 +5,7 @@ set -e
 
 # README BEFORE EDITING THIS FILE!
 #
-# This is supposed to be a portable script (Linux, Mac, and even Windows).
+# This is supposed to be a portable script (Linux, Mac and Windows).
 # Due to Windows limitations, avoid complex pipes (you can pipe to an
 # executable, but not to a `while' loop).
 # Don't refer to absolute directories ("/tmp" is not a good idea).

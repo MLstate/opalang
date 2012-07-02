@@ -315,7 +315,7 @@ else
 fi
 
 msg "Cleaning bin"
-for i in {bslbrowser,filepos,gen_opa_manpage,gen_opatop_manpage,genman.native,genproto,jsstat,mlidl,mlstate_platform,odep,odeplink,ofile,opa-db-server,opa-db-tool,opa-translate,opa2opa,opadep,opatop,opatrack,passdesign,ppdebug,ppdebug-opa,ppjs,qmljs,trx,trx_interpreter,wsdl2ml} ; do
+for i in {bslbrowser,filepos,gen_opa_manpage,gen_opatop_manpage,genman,genproto,jsstat,mlidl,mlstate_platform,odep,odeplink,ofile,opa-db-server,opa-db-tool,opa-translate,opa2opa,opadep,opatop,opatrack,passdesign,ppdebug,ppdebug-opa,ppjs,qmljs,trx,trx_interpreter,wsdl2ml} ; do
     echo "    --  Removing $INSTALLDIR/bin/$i"
     rm -fv $INSTALLDIR/bin/$i
 done

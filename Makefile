@@ -1,15 +1,18 @@
-#!/usr/bin/make
+#!/usr/bin/env make
 
 # [ Warning ] don't use make to solve dependencies !!
 #
 # we rely on ocamlbuild which already handles them ; every rule should
 # call it only once (no recursion)
 #
-# More info in build/Makefile.bld
+# More info in tools/build/Makefile.bld
+
+.PHONY: default
+default: all
 
 # Makefile inclusions
 include config.make
-include build/Makefile.bld
+include tools/build/Makefile.bld
 
 MAKE ?= $_
 
@@ -18,11 +21,8 @@ OPAOPT += "--rebuild"
 endif
 
 ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
-export DISABLED_LIBS = libnattraversal
+DISABLED_LIBS = libnattraversal
 endif
-
-.PHONY: default
-default: all
 
 export
 
@@ -48,13 +48,12 @@ runtime-libs: $(MYOCAMLBUILD)
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-both-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
-	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
+	@tools/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-flat-packages
-.PHONY: opa-node-packages
+.PHONY: opa-flat-packages opa-node-packages opa-both-packages
 opa-flat-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-packages.stamp
 opa-node-packages: $(MYOCAMLBUILD)
@@ -80,7 +79,7 @@ distrib: $(MYOCAMLBUILD)
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
-	$(MAKE) -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
+	$(MAKE) -C tools/manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../../$(BUILD_DIR)
 else
 	@echo "Not building manpages"
 endif
@@ -137,9 +136,9 @@ define install-plugin
 endef
 
 
-
-OPA_PACKAGES := $(shell cd stdlib && ./all_packages.sh)
-OPA_PLUGINS  := $(shell cd stdlib && ./all_plugins.sh)
+# List all packages and plugins in stdlib
+OPA_PACKAGES := $(shell cd lib/stdlib && ./all_packages.sh)
+OPA_PLUGINS  := $(shell cd lib/stdlib && ./all_plugins.sh)
 
 # Rules installing everything that has been compiled
 #
@@ -192,7 +191,7 @@ install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
-	@utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
+	@tools/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
 	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
 install-lib:
@@ -229,7 +228,7 @@ uninstall:
 	rm -rf $(INSTALL_DIR)/share/doc/opa
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
-	@utils/install.sh --uninstall --dir $(INSTALL_DIR)
+	@tools/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
@@ -258,11 +257,11 @@ install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocam
 	>> $(INSTALL_DIR)/bin/qmlflat
 
 # installs some dev tools on top of the normal install; these should not change often
-install-all: install install-bld install-qmlflat utils/maxmem
+install-all: install install-bld install-qmlflat tools/maxmem
 	@$(INSTALL) platform_helper.sh $(INSTALL_DIR)/bin/
-	@$(INSTALL) utils/maxmem $(INSTALL_DIR)/bin/
-	@rm utils/maxmem
-	@$(INSTALL) utils/plotmem $(INSTALL_DIR)/bin/
+	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
+	@rm tools/maxmem
+	@$(INSTALL) tools/plotmem $(INSTALL_DIR)/bin/
 
 ##
 ## DOCUMENTATION

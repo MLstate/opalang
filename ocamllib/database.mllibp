@@ -1,0 +1,95 @@
+# -*- conf -*-
+# low_level Io
+ocamllib/database/db3/io/FileIo
+ocamllib/database/db3/io/IoMmap
+ocamllib/database/db3/io/IoUnix
+ocamllib/database/db3/io/DbIoSig
+ocamllib/database/db3/io/DbIo
+ocamllib/database/db3/io/IoSig
+ocamllib/database/db3/io/DbTypes
+# Db3 low-level
+ocamllib/database/db3/IoManager
+ocamllib/database/db3/Keys
+ocamllib/database/db3/Path
+ocamllib/database/DataImpl
+ocamllib/database/db3/Datas
+ocamllib/database/db3/Common
+ocamllib/database/db3/Eid
+ocamllib/database/db3/EidMap
+ocamllib/database/db3/Uid
+ocamllib/database/db3/UidMap
+ocamllib/database/db3/Revision
+ocamllib/database/db3/RevisionMap
+ocamllib/database/db3/KeyMap
+ocamllib/database/db3/KeyRecMap
+ocamllib/database/db3/Node
+ocamllib/database/db3/Hldb
+ocamllib/database/db3/QueryMap
+ocamllib/database/db3/Unwind
+ocamllib/database/db3/Transaction
+ocamllib/database/db3/RevisionMachine
+ocamllib/database/db3/Dot
+ocamllib/database/db3/Session
+# Migration machinery (binary changes)
+ocamllib/database/db3/migration/Init
+ocamllib/database/db3/migration/Migration_18
+ocamllib/database/db3/migration/Migration_19
+ocamllib/database/db3/migration/Migration_20
+ocamllib/database/db3/migration/Migration_21
+ocamllib/database/db3/migration/Migration_22
+ocamllib/database/db3/migration/Migration_23
+ocamllib/database/db3/migration/Migration_24
+ocamllib/database/db3/migration/Migration_25
+ocamllib/database/db3/migration/Migration_26
+ocamllib/database/db3/migration/Migration
+# Badop interface generic
+ocamllib/database/badop/Badop_structure
+ocamllib/database/badop/Badop_lib
+ocamllib/database/Badop
+# Badop backends: database
+ocamllib/database/Badop_local
+ocamllib/database/Badop_sync
+ocamllib/database/Badop_trans
+# Badop backends: client-server
+ocamllib/database/Badop_protocol
+ocamllib/database/Badop_server
+ocamllib/database/Badop_client
+ocamllib/database/Badop_locator
+ocamllib/database/Badop_dispatcher
+# Badop more functor fun
+ocamllib/database/Badop_wrapper_template
+ocamllib/database/Badop_stash
+ocamllib/database/Badop_cache
+ocamllib/database/Badop_debug
+ocamllib/database/Badop_stats
+ocamllib/database/Badop_workaround
+ocamllib/database/Badop_check
+# support for run-time choice of backend (Ocaml 3.12)
+ocamllib/database/Badop_meta
+# high-level run-time schema support
+ocamllib/database/Gml_parser
+ocamllib/database/Dbgraph
+ocamllib/database/Xml_dump
+#ocamllib/database/Xml_import
+#Internal structs
+ocamllib/database/db3/structs/SigListMap
+ocamllib/database/db3/structs/RaListMap
+ocamllib/database/db3/structs/SimpleListMap
+ocamllib/database/db3/structs/TabMap
+# Badop light
+?HAS_DBM:ocamllib/database/Badop_light
+?HAS_DBM:ocamllib/database/light/Node_light
+?HAS_DBM:ocamllib/database/light/Session_light
+?HAS_DBM:ocamllib/database/light/Session_light_sig
+?HAS_DBM:ocamllib/database/light/Transaction_light
+?HAS_DBM:ocamllib/database/light/Transaction_light_sig
+?HAS_DBM:ocamllib/database/light/Db_light
+?HAS_DBM:ocamllib/database/light/Db_light_sig
+?HAS_DBM:ocamllib/database/light/Io_light
+?HAS_DBM:ocamllib/database/light/Io_light_sig
+?HAS_DBM:ocamllib/database/light/Encode_light
+?HAS_DBM:ocamllib/database/light/Mem_tree_light
+?HAS_DBM:ocamllib/database/light/Mst
+?HAS_DBM:ocamllib/database/light/KeySet
+?HAS_DBM:ocamllib/database/light/DbSig
+?HAS_DBM:ocamllib/database/light/DbmDB

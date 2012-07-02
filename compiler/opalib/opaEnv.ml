@@ -900,8 +900,9 @@ struct
       ~section:1
       ~centerheader:"Opa Manual"
       ~synopsis:ArgParser.synopsis
-      ~description:"The Opa compiler allows you to compile Opa projects into execute files. Please refer to the online manual on http://opalang.org for a detailed description of the language and its tools.\n"
+      ~description:"The Opa compiler allows you to compile Opa projects into executable files. Please refer to the online manual on http://doc.opalang.org for a detailed description of the language and its tools.\n"
       ~options:ArgParser.speclist
       ~other:[("VERSION", ArgParser.str_version)]
       file
+
 end

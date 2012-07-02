@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -33,8 +33,8 @@
           P (pp_script "mlstate_nodebug"),
           P (pp_script "pa_ulex")
         else
-          P (Pathname.pwd/"utils"/"ppdebug.pl"),
-          S [ P (Pathname.pwd/"utils"/"ppdebug.pl"); A "-r" ],
+          P (Pathname.pwd/"tools"/"utils"/"ppdebug.pl"),
+          S [ P (Pathname.pwd/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
           S [ P Config.camlp4o;
               (match Config.Libdir.ulex with
                | Some dir -> S [A "-I"; P dir]

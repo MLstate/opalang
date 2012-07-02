@@ -1,4 +1,4 @@
-#!/usr/bin/make
+#!/usr/bin/env make
 
 # [ Warning ] don't use make to solve dependencies !!
 #
@@ -6,7 +6,7 @@
 # call it only once (more details below)
 
 #
-# The OPA build system
+# The Opa build system
 # --------------------
 #
 # - it's based on ocamlbuild, the Makefiles are simple wrappers on top of it
@@ -36,7 +36,7 @@
 #
 
 BUILD_DIR ?= _build
-BLDDIR ?= build
+BLDDIR ?= tools/build
 MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin -j 6 $(OCAMLBUILD_FLAGS)
 
@@ -111,6 +111,7 @@ target-libs = $(addsuffix .cmxa,$(1))
 
 .PHONY: libs
 libs: $(MYOCAMLBUILD)
+	@echo $(ALL_LIBS)
 	$(OCAMLBUILD) $(call target-libs,$(ALL_LIBS))
 
 .PHONY: install-libs
@@ -152,6 +153,7 @@ copy-tools = $(foreach tool,$(1),$(copy-tool-$(tool));)
 
 .PHONY: tools
 tools: $(MYOCAMLBUILD)
+	@echo $(ALL_TOOLS)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS))
 	@$(call copy-tools,$(ALL_TOOLS))
 

@@ -10,42 +10,44 @@
 # contains the shared interfaces.
 # if omitted, [directory] is the same as lib_name.
 
-internal pplib
-internal buildinfos
-internal libbase
-internal compilerlib
-internal passlib
-internal libtrx
-internal ocamllang
-internal database
-internal libqmlcompil
-internal qmlpasses
-internal jslang
-internal libbsl
-internal qmlslicer
-internal opatoplib
-internal qml2ocaml
-internal qml2js
-internal qmlcpsrewriter qmlcps
-internal qmlflatserver qmlflat
-internal qmlflatcompiler qmlflat
-internal qmlcpsserver qmlcps
-internal qmljsimp
-internal opalib
-internal opabsl_for_compiler opabsl
-internal opabsl_for_server opabsl
-internal opabsl_for_interpreter opabsl
-internal libruntime
-internal oparuntime
-# internal libopa opa
-internal opalang
-internal opacapi
-internal opapasses passes
-internal appruntime
-internal libsecurity
-internal libnet
-internal libnattraversal libnet/nattraversal
-internal libirc
-internal libtools
-internal protocols
-internal libsession
+internal libbase	  	      ocamllib/libbase
+internal appruntime	     	      ocamllib/appruntime
+internal database	  	      ocamllib/database
+internal libirc			      ocamllib/libirc
+internal libnet			      ocamllib/libnet
+internal libnattraversal  	      ocamllib/libnet/nattraversal
+internal libruntime	  	      ocamllib/libruntime
+internal libsecurity	  	      ocamllib/libsecurity
+internal libtools	  	      ocamllib/libtools
+internal libsession	  	      ocamllib/libsession
+internal oparuntime	  	      ocamllib/oparuntime
+
+internal pplib		      	      compiler/pplib
+internal buildinfos		      compiler/buildinfos
+internal compilerlib	  	      compiler/compilerlib
+internal passlib	  	      compiler/passlib
+internal libtrx		      	      compiler/libtrx
+internal ocamllang	  	      compiler/ocamllang
+internal libqmlcompil	  	      compiler/libqmlcompil
+internal qmlpasses	  	      compiler/qmlpasses
+internal jslang		      	      compiler/jslang
+internal libbsl		      	      compiler/libbsl
+internal qmlslicer	  	      compiler/qmlslicer
+internal opatoplib	  	      compiler/opatoplib
+internal qml2ocaml	  	      compiler/qml2ocaml
+internal qml2js		      	      compiler/qml2js
+internal qmlcpsrewriter	      	      compiler/qmlcps
+internal qmlflatserver	      	      compiler/qmlflat
+internal qmlflatcompiler  	      compiler/qmlflat
+internal qmlcpsserver	  	      compiler/qmlcps
+internal qmljsimp	  	      compiler/qmljsimp
+internal opalib		      	      compiler/opalib
+internal protocols	  	      compiler/protocols
+internal opapasses	  	      compiler/passes
+internal opalang	  	      compiler/opalang
+internal opacapi	  	      compiler/opacapi
+internal libopa 	  	      compiler/opa
+
+internal opabsl_for_compiler	      lib/opabsl
+internal opabsl_for_server	      lib/opabsl
+internal opabsl_for_interpreter       lib/opabsl

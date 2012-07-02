@@ -8,14 +8,15 @@ Important files:
 * build_libs contains the external and internal mlstate libraries to be used
 
 syntax:
-    internal libname [dir [installdir]]
-        defines library lib with source in directory dir (optional)
+    internal libname [sourcedir [installdir]]
+        defines library lib with source in directory sourcedir (optional)
         there must be an according .mllib file.
-    external libname [dir]
+    external libname [sourcedir]
         defines an external library
 
-When dir is omitted, it's the name of the library. When installdir is omitted,
-it's dir. This defines the use_libname tags and the installation of these libs
+When sourcedir is omitted, it's the name of the library.
+When installdir is omitted, it's sourcedir.
+This defines the use_libname tags and the installation of these libs
 in MLSTATELIBS. Lines starting with # are comments
 
 

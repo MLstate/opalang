@@ -21,9 +21,9 @@ fi
 
 . $CONFIG_SH
 
-. platform_helper.sh
+. tools/platform_helper.sh
 
-: ${BLDDIR:="$PWD"/build}
+: ${BLDDIR:="$PWD"/tools/build}
 
 CONFIG_ML=config.ml
 if [ ! -e $CONFIG_ML ]; then

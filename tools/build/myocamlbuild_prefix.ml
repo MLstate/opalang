@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 open Ocamlbuild_plugin
 
 open Command
@@ -296,8 +297,8 @@ let _ = dispatch begin function
           let dir = match dir with None -> lib | Some dir -> dir in
           Hashtbl.add mlstate_libs_table lib ([lib],dir);
           ocaml_lib ~dir lib;
-          dep ["use_"^lib; "byte"] [lib^".cma"];
-          dep ["use_"^lib; "native"] [lib^".cmxa"]
+          dep ["use_"^lib; "byte"] [(Pathname.dirname dir)/(lib^".cma")];
+          dep ["use_"^lib; "native"] [(Pathname.dirname dir)/(lib^".cmxa")]
           (* How this works: the ~dir is only the top-level of the lib, hence
              the .cmi from sub-directories are not seen. That's good, use them
              for modules internal to your library *)
