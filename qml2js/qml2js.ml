@@ -151,11 +151,6 @@ struct
                             ) generated_files) in
     List.rev generated_files, ast
 
-  let name_generation ?index env_opt =
-    match index with
-    | None -> env_opt.target
-    | Some (i, n) -> Printf.sprintf "js_%d_%s" (i * n) env_opt.target
-
   let write env_opt (filename, contents) =
     let filename = Filename.concat env_opt.compilation_directory filename in
     OManager.verbose "writing file @{<bright>%s@}" filename ;
