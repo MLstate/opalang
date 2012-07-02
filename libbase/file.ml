@@ -322,7 +322,7 @@ let rec remove_all_symlinks path =
     let path = Filename.concat dirname (Filename.basename path) in
     remove_symlinks path
 
-(** crée tous les répertoires nécessaires pour accéder à path *)
+(** create all necessary directories to access path *)
 let check_create_path ?(rights=0o755) path =
   let path =
     if Filename.basename path = "." then path
@@ -333,7 +333,7 @@ let check_create_path ?(rights=0o755) path =
     | (hd :: tl) as l ->
         let d = Filename.dirname hd in
         if d <> hd then aux1 (d :: l)
-        else tl (* car hd = C:\ ou / *) in
+        else tl (* since hd = C:\ or / *) in
   let mkdir d = try Unix.mkdir d rights; true with Unix.Unix_error _ -> false in
   List.for_all (fun x -> Sys.file_exists x || mkdir x) (aux1 [])
 
@@ -449,7 +449,7 @@ let rec iter_dir_rec ?(showdir=false) f d =
   with
     End_of_file -> Unix.closedir dh
 
-(* FIXME: tester les iter/fold rec ou non *)
+(* FIXME: test both rec. or non-rec. iter/fold *)
 let fold_dir_rec f i d =
   let rec aux d dh r =
     try
@@ -497,7 +497,7 @@ let rec remove_rec file =
             Unix.closedir handle;
             Unix.rmdir dir
 
-(** itère une fonction sur un répertoire / non récursif, ignore les répertoires ! *)
+(** iterate a function on the contents of a directory, ignoring subdirectories *)
 let iter_dir f d =
   let dh = Unix.opendir d in
   try
@@ -509,8 +509,8 @@ let iter_dir f d =
   with
     End_of_file -> Unix.closedir dh
 
-(** itère une fonction sur un répertoire / non récursif, ignore les répertoires ! *)
-(* FIXME: remplacer ici . par getcwd ? *)
+(** fold a function on the contents of a directory, ignoring subdirectories *)
+(* FIXME: replace "." with getcwd? *)
 let fold_dir f i d =
   let dh = Unix.opendir d in
   let rec aux r =
@@ -523,7 +523,7 @@ let fold_dir f i d =
   in
   aux i
 
-(* FIXME: optimiser si le dir n'a pas changé (lors d'une saisie lettre par lettre)... *)
+(* FIXME: optimize if the dir. hasn't changed *)
 (* FIXME: Glib.Convert.filename_to_utf8 ! *)
 let completion path =
   let dir = Filename.dirname path (* FIXME: tenir compte de ~ *)
