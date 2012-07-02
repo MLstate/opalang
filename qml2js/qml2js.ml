@@ -222,7 +222,7 @@ struct
         "%s\nThis is the PP result:\n%s"
       ) filename e content
 
-  let linking_generation_js_init env_opt generated_files env_js_input oc =
+  let linking_generation_js_init env_opt stdlib_path generated_files env_js_input oc =
     let load_oc =
       (* Channel to output libraries *)
       if env_opt.static_link then
@@ -236,6 +236,13 @@ struct
         Printf.fprintf oc "require('./%s');\n" load_file_name;
         load_oc
     in
+    if env_opt.static_link then
+      ()
+    else
+      begin match stdlib_path with
+      | Some path -> Printf.fprintf load_oc "var __stdlib_path = '%s/';\n" path;
+      | None -> ()
+      end;
     let js_init =
       let js_init = get_js_init env_js_input in
       List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty js_init
@@ -334,17 +341,24 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
 */
 
 ";
+    let stdlib_path =
+      ObjectFiles.fold_dir ~deep:true ~packages:true
+        (fun acc opx ->
+          if "stdlib.core.opx" = Filename.basename opx then
+            Some (Filename.dirname opx)
+          else
+            acc) None
+    in
+    let is_from_stdlib =
+      match stdlib_path with
+      | Some path -> fun opx -> String.is_prefix path opx
+      | None -> fun _ -> false
+    in
     let load_oc =
-      linking_generation_js_init env_opt generated_files
+      linking_generation_js_init env_opt stdlib_path generated_files
         env_js_input oc;
     in
-    let js_file opx =
-      let name = Filename.concat opx "a.js" in
-      if Filename.is_relative name then
-        Filename.concat (Sys.getcwd ()) name
-      else
-        name
-    in
+    let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
       Printf.fprintf oc "// From package %s \n" opx;
@@ -362,11 +376,15 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       in aux(); close_in ic
     in
     let link opx =
-      if env_opt.static_link
-      then
+      let short_name = js_file (Filename.basename opx) in
+      if env_opt.static_link then
         read_append opx
+      else if is_from_stdlib opx then
+        Printf.fprintf load_oc "require(__stdlib_path + '%s');\n" short_name
       else
-        Printf.fprintf load_oc "require('%s');\n" (js_file opx)
+        let dest_name = Filename.concat env_opt.target short_name in
+        assert (File.copy ~force:true (js_file opx) dest_name = 0);
+        Printf.fprintf load_oc "require('./%s');\n" short_name
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;
