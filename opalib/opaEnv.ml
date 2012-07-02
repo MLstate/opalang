@@ -281,7 +281,7 @@ struct
        publish unless --publish-src-code). *)
     let publish_src_code = ref false
 
-    let static_link = ref true
+    let static_link = ref false
 
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
