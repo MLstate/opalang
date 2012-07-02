@@ -751,7 +751,7 @@ struct
       filenames := MutableList.to_list mutable_filenames;
       target := (
         let ext = match !back_end_wanted with
-          | `qmljs -> ".js"
+          | `qmljs -> "" (* We output a directory for js files *)
           | `qmlflat -> ".exe"
         in
         Option.default (!last_target_from_file ^ ext) !target_opt);

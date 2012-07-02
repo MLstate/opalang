@@ -277,7 +277,7 @@ struct
     let input_files = input_files_get () in
     let last_qml = match List.rev input_files with t::_ -> Qml2ocamlOptions.input_filename t | _ -> "a.qml" in
     let target_dir = File.from_pattern "%" last_qml in
-    let target = Option.default (File.from_pattern "%b.js" last_qml) !target in
+    let target = Option.default (File.from_pattern "%b" last_qml) !target in
     {
       bypass_plugin = MutableList.to_list bypass_plugins ;
       command_line = true; (* no need to have an arg parser for this option

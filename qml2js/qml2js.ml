@@ -203,9 +203,9 @@ struct
   (* Copy included BSL files to the build path where
      they can be loaded dynamically *)
   let copy_js_file env_opt filename content =
-    let dest = Filename.concat env_opt.compilation_directory
+    let dest = Filename.concat env_opt.target
       (Filename.basename filename) in
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 dest in
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 dest in
     try
       let content =
         List.map fix_exports
@@ -228,12 +228,12 @@ struct
       if env_opt.static_link then
         oc
       else
-        let load_path = Filename.concat env_opt.compilation_directory "_load.js" in
+        let load_file_name = "load.js" in
+        let load_path = Filename.concat env_opt.target load_file_name in
         let load_oc =
-          open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 load_path
+          open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 load_path
         in
-        Printf.fprintf oc "require('%s');\n"
-          (Filename.concat (Sys.getcwd ()) load_path);
+        Printf.fprintf oc "require('./%s');\n" load_file_name;
         load_oc
     in
     let js_init =
@@ -292,10 +292,11 @@ struct
       ) js_init_map;
     load_oc
 
-  let get_target env_opt = env_opt.target
+  let get_target env_opt = File.from_pattern "%/start" env_opt.target
 
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
+    assert (File.check_create_path ~rights:0o700 env_opt.target);
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#!/usr/bin/env bash
 
@@ -337,7 +338,13 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       linking_generation_js_init env_opt generated_files
         env_js_input oc;
     in
-    let js_file opx = Filename.concat opx "a.js" in
+    let js_file opx =
+      let name = Filename.concat opx "a.js" in
+      if Filename.is_relative name then
+        Filename.concat (Sys.getcwd ()) name
+      else
+        name
+    in
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
       Printf.fprintf oc "// From package %s \n" opx;
