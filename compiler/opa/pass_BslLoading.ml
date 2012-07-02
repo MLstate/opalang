@@ -324,15 +324,7 @@ let process
        name, pos
     ) plugins in
 
-  (* Register default plug-ins. *)
-  let () = OpabslgenPlugin.Self.self_store () in
-
   let package_name = ObjectFiles.get_current_package_name () in
-
-  (*
-    The compiler inserts calls to bypass of the opabsl potentially in every package
-  *)
-  BslLib.declare_visibility package_name OpabslgenPlugin.Self.basename ;
 
   (* Search additional plug-ins.*)
   List.iter (

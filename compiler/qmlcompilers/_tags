@@ -5,7 +5,7 @@
 
 # application, linkink
 # common
-<{qmljs_exe}.{ml,mli,byte,native}>: thread, use_unix, use_dynlink, use_str, use_graph, use_ulex, use_libtrx, use_pplib, use_opabsl_for_compiler, use_passlib, use_nums, use_buildinfos, use_opalang, use_compilerlib, use_opacapi
+<{qmljs_exe}.{ml,mli,byte,native}>: thread, use_unix, use_dynlink, use_str, use_graph, use_ulex, use_libtrx, use_pplib, use_passlib, use_nums, use_buildinfos, use_opalang, use_compilerlib, use_opacapi
 
 # specific
 <qmljs_exe.{ml,byte,native}>: use_qmljsimp, use_qml2js, use_zip

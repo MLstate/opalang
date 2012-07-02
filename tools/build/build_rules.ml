@@ -456,15 +456,15 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 
 
 (* -- BSL compilation (using bslregister) -- *)
-let ml_sources_bsl = dir_sources_bsl "lib/opabsl/mlbsl" in
-let js_sources_bsl = dir_sources_bsl "lib/opabsl/jsbsl" in
-let nodejs_sources_bsl = dir_sources_bsl "lib/opabsl/nodejsbsl" in
-let mlstate_init_bsl = dir_sources_bsl "lib/opabsl/mlstatebsl" in
-let all_sources_bsl = ml_sources_bsl @ js_sources_bsl @ nodejs_sources_bsl @ mlstate_init_bsl in
-let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/jsbsl" in
-let nodejs_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/nodejsbsl" in
-let alljs_dest_bsl = js_dest_bsl @ nodejs_dest_bsl in
-let js_conf = "lib/opabsl/jsbsl/bsl-sources.jsconf" in
+(* let ml_sources_bsl = dir_sources_bsl "lib/opabsl/mlbsl" in *)
+(* let js_sources_bsl = dir_sources_bsl "lib/opabsl/jsbsl" in *)
+(* let nodejs_sources_bsl = dir_sources_bsl "lib/opabsl/nodejsbsl" in *)
+(* let mlstate_init_bsl = dir_sources_bsl "lib/opabsl/mlstatebsl" in *)
+(* let all_sources_bsl = ml_sources_bsl @ js_sources_bsl @ nodejs_sources_bsl @ mlstate_init_bsl in *)
+(* let js_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/jsbsl" in *)
+(* let nodejs_dest_bsl    = dir_sources_bsl ~prefix:"opabslgen_" "lib/opabsl/nodejsbsl" in *)
+(* let alljs_dest_bsl = js_dest_bsl @ nodejs_dest_bsl in *)
+(* let js_conf = "lib/opabsl/jsbsl/bsl-sources.jsconf" in *)
 
 (*
 let rec ponctuate s f = function
@@ -481,31 +481,31 @@ let _ = Printf.eprintf "js_dest_bsl: %s\n" (ponctuate ", " (fun x -> x)  (List.m
 (* let c_sources_bsl = dir_sources_bsl "lib/opabsl/cbsl" in *)
 
 (* used for js-validation-only *)
-rule "opabsl_sources"
-  ~deps: (js_conf :: all_sources_bsl
-          @ tool_deps "opa-plugin-builder-bin")
-  ~prods: ((List.map (fun s -> "lib/opabsl"/s)
-             ["opabslgenLoader.ml";"opabslgenPlugin.ml";
-              "opabslgen.bypass" ;
-              "opabslgenMLRuntime_x.ml";"opabslgenMLRuntime_x.mli";
-              "opabslgenJSkeys.js";
-             ])@alljs_dest_bsl)
-  begin fun env build ->
-    Seq[Cmd(S([Sh"cd lib/opabsl && ";
-               get_tool "opa-plugin-builder-bin";
-               A"-o";P"opabslgen";
-               A"--no-opp";
-               A"--no-build";
-               A"--static";
-              ]
-              @special_bsl_options@
-                List.map (fun s -> P (".."/".."/s)) (
-                  js_conf :: all_sources_bsl
-                )));
-        mv "lib/opabsl/opabslgenMLRuntime.ml" "lib/opabsl/opabslgenMLRuntime_x.ml";
-        mv "lib/opabsl/opabslgenMLRuntime.mli" "lib/opabsl/opabslgenMLRuntime_x.mli";
-      ]
-  end;
+(* rule "opabsl_sources" *)
+(*   ~deps: (js_conf :: all_sources_bsl *)
+(*           @ tool_deps "opa-plugin-builder-bin") *)
+(*   ~prods: ((List.map (fun s -> "lib/opabsl"/s) *)
+(*              ["opabslgenLoader.ml";"opabslgenPlugin.ml"; *)
+(*               "opabslgen.bypass" ; *)
+(*               "opabslgenMLRuntime_x.ml";"opabslgenMLRuntime_x.mli"; *)
+(*               "opabslgenJSkeys.js"; *)
+(*              ])@alljs_dest_bsl) *)
+(*   begin fun env build -> *)
+(*     Seq[Cmd(S([Sh"cd lib/opabsl && "; *)
+(*                get_tool "opa-plugin-builder-bin"; *)
+(*                A"-o";P"opabslgen"; *)
+(*                A"--no-opp"; *)
+(*                A"--no-build"; *)
+(*                A"--static"; *)
+(*               ] *)
+(*               @special_bsl_options@ *)
+(*                 List.map (fun s -> P (".."/".."/s)) ( *)
+(*                   js_conf :: all_sources_bsl *)
+(*                 ))); *)
+(*         mv "lib/opabsl/opabslgenMLRuntime.ml" "lib/opabsl/opabslgenMLRuntime_x.ml"; *)
+(*         mv "lib/opabsl/opabslgenMLRuntime.mli" "lib/opabsl/opabslgenMLRuntime_x.mli"; *)
+(*       ] *)
+(*   end; *)
 
 rule "opa-bslgenMLRuntime interface validation"
   ~deps: [
@@ -520,15 +520,15 @@ rule "opa-bslgenMLRuntime interface validation"
      ]
   );
 
-let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "lib/opabsl/jsbsl" in
+(* let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "lib/opabsl/jsbsl" in *)
 
-rule "preprocess JS files for validation"
- ~deps:((tool_deps "ppjs")@alljs_dest_bsl)
- ~prods:js_pp_bsl
- (fun env build ->
-    let ppjs = get_tool "ppjs" in
-    Cmd(S (ppjs::A"--output-suffix"::A ".pp"::List.map (fun x -> A x) alljs_dest_bsl))
- );
+(* rule "preprocess JS files for validation" *)
+(*  ~deps:((tool_deps "ppjs")@alljs_dest_bsl) *)
+(*  ~prods:js_pp_bsl *)
+(*  (fun env build -> *)
+(*     let ppjs = get_tool "ppjs" in *)
+(*     Cmd(S (ppjs::A"--output-suffix"::A ".pp"::List.map (fun x -> A x) alljs_dest_bsl)) *)
+(*  ); *)
 
 rule "Client lib JS validation"
   ~deps: (
@@ -571,48 +571,48 @@ rule "Client lib JS validation"
     )
  );
 
-rule "opa-bslgenMLRuntime JS validation"
-  ~deps: (
-    (tool_deps "jschecker.jar")
-    @ (tool_deps "jschecker_externals.js")
-    @ (tool_deps "jschecker_jquery.js")
-    @ (tool_deps "jschecker_clientlib.js")
-    @ (tool_deps "jschecker_clientliblib.js")
-    @ (tool_deps "jschecker_cpsclientlib.js")
-    @ js_pp_bsl
-    @ [ "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ;
-        "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ;
-        "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ;
-        "lib/opabsl/jsbsl/jquery_extra.externs.js" ;
-        "lib/opabsl/opabslgenJSkeys.js" ]
-  )
-  ~prods: ["lib/opabsl/js_validation/bsl.js"]
-  (fun env build ->
-     let arg_of_file file acc = match file with (*A very dumb filter to get rid of files that we just can't fix in the first place*)
-       | "lib/opabsl/jsbsl/opabslgen_jquery-1.7.2.min.js.pp" -> acc
-       | "lib/opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc
-       | _                 -> A "--js" :: A file :: acc
-     in
-     let get_tool = get_tool ~local:windows_mode in
-     Seq[
-       Cmd(S [Sh"mkdir";A"-p";P "lib/opabsl/js_validation"]);
-       Cmd(S(
-             A"java" :: A"-jar"  :: (get_tool "jschecker.jar") ::
-               A"--externs"        :: (get_tool "jschecker_externals.js") ::
-               A"--externs"        :: (get_tool "jschecker_clientliblib.js") ::
-               A"--externs"        :: (get_tool "jschecker_clientlib.js") ::
-               A"--externs"        :: (get_tool "jschecker_jquery.js") ::
-               A"--externs"        :: (get_tool "jschecker_cpsclientlib.js") ::
-               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-               A"--externs"        :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-               A"--externs"        :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
-               A"--js_output_file" :: A "lib/opabsl/js_validation/bsl.js" ::
-               google_closure_compiler_options @
-               (List.fold_right (fun s acc -> arg_of_file s acc) js_pp_bsl [])
-               @ [ A"--js" ; A "lib/opabsl/opabslgenJSkeys.js" ]
-           ))]
-  );
+(* rule "opa-bslgenMLRuntime JS validation" *)
+(*   ~deps: ( *)
+(*     (tool_deps "jschecker.jar") *)
+(*     @ (tool_deps "jschecker_externals.js") *)
+(*     @ (tool_deps "jschecker_jquery.js") *)
+(*     @ (tool_deps "jschecker_clientlib.js") *)
+(*     @ (tool_deps "jschecker_clientliblib.js") *)
+(*     @ (tool_deps "jschecker_cpsclientlib.js") *)
+(*     @ js_pp_bsl *)
+(*     @ [ "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ; *)
+(*         "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ; *)
+(*         "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ; *)
+(*         "lib/opabsl/jsbsl/jquery_extra.externs.js" ; *)
+(*         "lib/opabsl/opabslgenJSkeys.js" ] *)
+(*   ) *)
+(*   ~prods: ["lib/opabsl/js_validation/bsl.js"] *)
+(*   (fun env build -> *)
+(*      let arg_of_file file acc = match file with (\*A very dumb filter to get rid of files that we just can't fix in the first place*\) *)
+(*        | "lib/opabsl/jsbsl/opabslgen_jquery-1.7.2.min.js.pp" -> acc *)
+(*        | "lib/opabsl/jsbsl/opabslgen_json2.js.pp"        -> acc *)
+(*        | _                 -> A "--js" :: A file :: acc *)
+(*      in *)
+(*      let get_tool = get_tool ~local:windows_mode in *)
+(*      Seq[ *)
+(*        Cmd(S [Sh"mkdir";A"-p";P "lib/opabsl/js_validation"]); *)
+(*        Cmd(S( *)
+(*              A"java" :: A"-jar"  :: (get_tool "jschecker.jar") :: *)
+(*                A"--externs"        :: (get_tool "jschecker_externals.js") :: *)
+(*                A"--externs"        :: (get_tool "jschecker_clientliblib.js") :: *)
+(*                A"--externs"        :: (get_tool "jschecker_clientlib.js") :: *)
+(*                A"--externs"        :: (get_tool "jschecker_jquery.js") :: *)
+(*                A"--externs"        :: (get_tool "jschecker_cpsclientlib.js") :: *)
+(*                A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" :: *)
+(*                A"--externs"        :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" :: *)
+(*                A"--externs"        :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" :: *)
+(*                A"--externs"        :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" :: *)
+(*                A"--js_output_file" :: A "lib/opabsl/js_validation/bsl.js" :: *)
+(*                google_closure_compiler_options @ *)
+(*                (List.fold_right (fun s acc -> arg_of_file s acc) js_pp_bsl []) *)
+(*                @ [ A"--js" ; A "lib/opabsl/opabslgenJSkeys.js" ] *)
+(*            ))] *)
+(*   ); *)
 
 (*
   -The documentation generator does not work if files are not suffixed with '.js'
@@ -632,27 +632,27 @@ in
 
 let jsdoc_target = "doc.jsbsl" in
 
-rule "opa-bslgenMLRuntime JS documentation"
-  ~deps: (
-    alljs_dest_bsl
-  )
-  ~prods: (
-    [ jsdoc_target ^ "/index.html" ]
-  )
-  (fun env build ->
-     Cmd(S(
-           A"java" ::
-           A("-Djsdoc.dir="^jsdocdir) ::
-           A("-Djsdoc.template.dir="^jsdocdir^"/templates") ::
-           A"-jar" ::
-           A(jsdocdir^"/jsrun.jar") :: A(jsdocdir^"/app/run.js") ::
-           A("-t="^(jsdocdir^"/templates/jsdoc")) ::
-           A("--allfunctions") ::
-           (* Set the target directory *)
-           A("-d="^jsdoc_target) ::
-           (List.map (fun js -> A js) alljs_dest_bsl)
-         ))
-  );
+(* rule "opa-bslgenMLRuntime JS documentation" *)
+(*   ~deps: ( *)
+(*     alljs_dest_bsl *)
+(*   ) *)
+(*   ~prods: ( *)
+(*     [ jsdoc_target ^ "/index.html" ] *)
+(*   ) *)
+(*   (fun env build -> *)
+(*      Cmd(S( *)
+(*            A"java" :: *)
+(*            A("-Djsdoc.dir="^jsdocdir) :: *)
+(*            A("-Djsdoc.template.dir="^jsdocdir^"/templates") :: *)
+(*            A"-jar" :: *)
+(*            A(jsdocdir^"/jsrun.jar") :: A(jsdocdir^"/app/run.js") :: *)
+(*            A("-t="^(jsdocdir^"/templates/jsdoc")) :: *)
+(*            A("--allfunctions") :: *)
+(*            (\* Set the target directory *\) *)
+(*            A("-d="^jsdoc_target) :: *)
+(*            (List.map (fun js -> A js) alljs_dest_bsl) *)
+(*          )) *)
+(*   ); *)
 
 
 (* ------------------------------------------------------------------ *)
@@ -918,7 +918,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
      try
-       let plugins = string_list_of_file all_plugins_file in
+       let plugins = "opabsl" :: string_list_of_file all_plugins_file in
        let plugins = List.map (fun f -> "lib/plugins" /  f / f -.- "oppf") plugins in
        build_list build plugins;
        let packages = string_list_of_file (all_packages_file nodebackend) in
