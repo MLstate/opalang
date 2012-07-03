@@ -358,18 +358,6 @@ for i in $INSTALLDIR/bin/* $INSTALLDIR_LIBOPA/bin/*; do
     upxf $i
 done
 
-# same previous stuff, but on mac this directory does not exists, so we put this extra test to avoid a warning
-# if this is a directory (and exist)
-if [ -d $INSTALLDIR_LIBOPAOCAML/bin ]; then
-    for i in $INSTALLDIR_LIBOPAOCAML/bin/*; do
-        # extra protection against an empty 'bin/*'
-        if [ -f $i ]; then
-            # here we will pass up on ocamlopt.opt, so we must be carefull to not break it
-            stripf $i
-        fi
-    done
-fi
-
 ## not some on stripf there ?
 find $INSTALLDIR -name '*.cmxs' -exec strip {} \;
 find $INSTALLDIR -name '*.so' -exec strip {} \;
