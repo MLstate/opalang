@@ -34,4 +34,4 @@
 
 
 #ppdebug
-<opabslgenMLRuntime*.ml>: with_mlstate_debug
+<**/*.ml>: with_mlstate_debug
