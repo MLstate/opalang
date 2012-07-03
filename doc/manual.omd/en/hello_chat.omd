@@ -121,12 +121,100 @@ to notice:
 * Opa also makes few simplifications in the HTML syntax: name in the closing tag is optional and quotes can be omitted for one-word, letters-only attributes.
 * _Inserts_ are a safe way of "injecting" values into strings and HTML fragments; they consist of code placed within the curly braces `{...}`. This is how the `content` argument is placed in the constructed HTML in the `page_template` function.
 
-For our chat app we need to slightly modify the markup in the
-[View module](https://github.com/MLstate/hello_chat/blob/master/src/view.opa).
-The template also automatically places a CSS style-sheet in `resources/css/style.css`,
-which we need to [modify](https://github.com/MLstate/hello_chat/blob/master/resources/css/style.css)
-to obtain the desired look & feel for our app. Both steps are "business as usual"
-if you have any experience with HTML/CSS.
+For our chat app we need to modify the `page_template` and `default_page` functions
+of the [View module](https://github.com/MLstate/hello_chat/blob/master/src/view.opa),
+to obtain the desired look & feel for our app. The template also automatically places
+a CSS style-sheet in `resources/css/style.css`, which we need to
+[modify](https://github.com/MLstate/hello_chat/blob/master/resources/css/style.css)
+as well. Both steps are "business as usual"to if you have any experience with HTML/CSS.
+
+Below we present both files after modifications.
+
+#### `src/view.opa`
+
+```
+module View {
+
+  function page_template(content) {
+    <>
+      <div class="navbar navbar-fixed-top">
+        <div class=navbar-inner>
+          <div class=container>
+            <div id=#logo />
+          </>
+        </>
+      </>
+      {content}
+    </>
+  }
+
+  chat_html =
+    <div id=#conversation class=container-fluid />
+    <div id=#footer class="navbar navbar-fixed-bottom">
+      <div class=container>
+        <div class=input-append>
+          <input id=#entry class=input-xlarge type=text>
+          <button class="btn btn-primary" type=button>Post</>
+        </>
+      </>
+    </>
+
+  function default_page() {
+    Resource.page("Opa chat", page_template(chat_html))
+  }
+
+}
+```
+
+#### `resources/css/style.css`
+
+```
+#logo {
+ background: url("/resources/img/opa-logo.png") no-repeat scroll 0 0 transparent;
+ height: 32px;
+ margin: 10px 0 5px;
+ width: 61px;
+}
+
+#conversation {
+ overflow: auto;
+ position: absolute;
+ margin: auto;
+ bottom: 48px;
+ top: 50px;
+ left: 0;
+ right: 0;
+}
+
+.line {
+ border-bottom: 1px solid #ddd;
+ padding-bottom: 8px;
+ margin-bottom: 8px !important;
+}
+
+.user, .message {
+ padding-top: 8px;
+}
+
+.userpic {
+ background: url("/resources/img/user.png") no-repeat 0 0;
+ height: 40px;
+ width: 40px;
+}
+
+.user {
+ color: #000;
+ font-weight: bold;
+}
+
+.message{
+ color:#666;
+}
+
+footer {
+ background:#eee;
+}
+```
 
 Model: Application logic
 ------------------------
@@ -199,25 +287,44 @@ function register_message_callback(callback) {
 ```
 
 Both functions simply invoke relavant functionality from the `Network`
-module.
+module. The complete source of the model follows.
+
+#### `src/model.opa`
+
+```
+type message = { string author
+               , string text
+               }
+
+module Model {
+
+  private Network.network(message) room = Network.cloud("room")
+
+  exposed function broadcast(message) {
+    Network.broadcast(message, room);
+  }
+
+  function register_message_callback(callback) {
+    Network.add_callback(callback, room);
+  }
+
+  function new_author() {
+    Random.string(8);
+  }
+
+}
+```
+
+Connecting the Model and the View
+---------------------------------
+
+Now it is time to connect together the model and the view. 
 
 
+Running the chat application
+----------------------------
 
-
-
-
-
-At this stage, we have a complete (albeit quite useless) application. Should you
-wish to check that your code is correct, you can _compile_ it easily. Save your
-code as a file `hello_chat.opa`, open a terminal and enter
-
-###### Compiling Hello, Chat
-`opa hello_chat.opa`[sh]
-
-Opa will take a few seconds to analyze your application, check that everything
-is in order and produce an executable file. We do not really need that file yet,
-not until it actually does something. At this stage, your application is not really
-useful -- but that is ok, we will add the _server_ shortly.
+...
 
 Defining the user interface
 ---------------------------

@@ -45,7 +45,7 @@ module View {
   }
 
   function default_page() {
-    author = Random.string(8);
+    author = Model.new_author();
     Resource.page("Opa chat", page_template(chat_html(author)));
   }
 
