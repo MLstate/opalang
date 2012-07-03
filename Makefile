@@ -71,7 +71,7 @@ stdlib: opa-both-packages
 stdlib-flat: opa-flat-packages
 stdlib-node: opa-node-packages
 
-DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opa-translate
+DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
 
 OPA_TOOLS = opa-create
 
