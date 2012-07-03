@@ -287,7 +287,19 @@ function register_message_callback(callback) {
 ```
 
 Both functions simply invoke relavant functionality from the `Network`
-module. The complete source of the model follows.
+module.
+
+Finally we need a function to assign user names to newly connected
+users. As mentioned at the beginning, we will simplify the app by
+choosing those names at random:
+
+```
+function new_author() {
+  Random.string(8);
+}
+```
+
+The complete source of the model follows.
 
 #### `src/model.opa`
 
@@ -318,8 +330,61 @@ module Model {
 Connecting the Model and the View
 ---------------------------------
 
-Now it is time to connect together the model and the view. 
+Now it is time to connect together the model and the view. We
+need two functionalities, that we will now discuss in turn:
 
+* showing new messages as they arrive,
+* broadcasting current user's message when entered.
+
+### Showing new messages
+
+To show new messages we write an `user_update` function that
+takes a message as an argument and updates the user interface
+to show it to the user.
+
+```
+function user_update(message msg) {
+  line = <div class="row line">
+            <div class="span1 columns userpic" />
+            <div class="span2 columns user">{msg.author}:</>
+            <div class="span13 columns message">{msg.text}</>
+          </>;
+  #conversation =+ line;
+  Dom.scroll_to_bottom(#conversation);
+}
+```
+
+It first constructs an HTML representation of the message (`line`)
+and then prepends this HTML to the DOM element with the `conversation`
+identifier, using the special syntax: `#conversation =+ line`.
+
+{block}[TIP]
+### HTML modifications
+Opa offers three main operators for HTML updates:
+
+```
+#identifier = content
+#identifier =+ content
+#identifier += content
+```
+
+Those constructions operate on the HTML element with the id
+`identifier`. The first variant replaces the content of that element
+with `content`. The second (resp. third) prepend (resp. append)
+`content` to the existing content of that element.
+{block}
+
+Finally the last command of this function scrolls to the bottom
+of the `conversation` element, to ensure that latest messages are
+visible.
+
+### Broadcasting current user's messages
+
+...
+
+### Connecting everything
+
+...
 
 Running the chat application
 ----------------------------

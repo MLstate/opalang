@@ -13,11 +13,11 @@ module View {
     </>
   }
 
-  function user_update(message x) {
+  function user_update(message msg) {
     line = <div class="row line">
               <div class="span1 columns userpic" />
-              <div class="span2 columns user">{x.author}:</>
-              <div class="span13 columns message">{x.text}</>
+              <div class="span2 columns user">{msg.author}:</>
+              <div class="span13 columns message">{msg.text}</>
             </>;
     #conversation =+ line;
     Dom.scroll_to_bottom(#conversation);
