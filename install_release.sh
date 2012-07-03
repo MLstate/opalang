@@ -227,7 +227,7 @@ fi
 mkdir -p $INSTALLDIR/share/opa/
 mkdir -p $INSTALLDIR/share/doc/opa/
 
-make packages-api
+# make packages-api
 # generating the book
 # if [ $NODOC = "false" ]; then
 #    if ! make book-clean book; then
