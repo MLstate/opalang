@@ -442,7 +442,7 @@ in
 rule "opa_plugin_dir: opa_plugin -> oppf"
   ~deps:("%.opa_plugin" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
-  (opp_build "%.opa_plugin" "%" "%oppf")
+  (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
 
