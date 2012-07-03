@@ -31,7 +31,7 @@ CLEAN="true"
 KEEP_INSTALL_SYS="false"
 
 help() {
-    echo "Installs a stripped stand-alone (including ocaml and node) version of Opa in the system."
+    echo "Installs a stripped stand-alone (including ocaml) version of Opa in the system."
     echo "The installed system can then be used for building packages."
     echo "Options"
     echo "	-prefix <dir>			Build for install in <dir>. Warning, you may need to recompile"
@@ -152,9 +152,9 @@ fi
 
 mkdir -p $INSTALLDIR
 
-INSTALLDIR_LIBOPAOCAML=$INSTALLDIR/lib/opa/ocaml
+INSTALLDIR_LIBOPA=$INSTALLDIR/lib/opa
 if [ -n "$IS_MAC" ] ; then
-    INSTALLDIR_LIBOPAOCAML=$INSTALLDIR
+    INSTALLDIR_LIBOPA=$INSTALLDIR
 fi
 
 
@@ -175,14 +175,15 @@ else
         if [ -n "$IS_MAC" ] ; then
             $OPAGENERAL/dependencies/installation_helper.sh --prefix $INSTALLDIR
         else
-            $OPAGENERAL/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml --installdir $INSTALLDIR_LIBOPAOCAML
+            $OPAGENERAL/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
+		--installdir $INSTALLDIR --libdir $INSTALLDIR_LIBOPA
         fi
 	if [ -n "$IS_MAC" ] ; then
             export OCAMLLIB=$INSTALLDIR/lib/ocaml
             export PATH=$INSTALLDIR/bin:$PATH
 	else
-            export OCAMLLIB=$INSTALLDIR_LIBOPAOCAML/lib/ocaml
-            export PATH=$INSTALLDIR_LIBOPAOCAML/bin:$PATH
+            export OCAMLLIB=$INSTALLDIR_LIBOPA/ocaml/lib/ocaml
+            export PATH=$INSTALLDIR_LIBOPA/ocaml/bin:$PATH
 	fi
     fi
 fi
@@ -190,8 +191,8 @@ fi
 # mlstate libs and tools (generic)
 msg Installing mlstate stuff
 
-if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPAOCAML/lib/ocaml" ]; then
-    msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR_LIBOPAOCAML/lib/ocaml"
+if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPA/ocaml/lib/ocaml" ]; then
+    msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR_LIBOPA/ocaml/lib/ocaml"
     exit 1
 fi
 
@@ -201,7 +202,7 @@ if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
     if [ -n "$IS_MAC" ] ; then
 	export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
     else
-	export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
+	export OCAMLOPT=$INSTALLDIR_LIBOPA/ocaml/bin/ocamlopt.opt
     fi
 fi
 cd $OPAGENERAL
@@ -277,16 +278,16 @@ install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/AGPL
 # Cleaning up:
 msg Removing unneeded ocaml executables
 # ocaml
-rm -rvf $INSTALLDIR_LIBOPAOCAML/man*
+rm -rvf $INSTALLDIR_LIBOPA/ocaml/man*
 # leave only ocamlc.opt, ocamlopt.opt
 for i in {camlp4*,mkcamlp4,ocamlbuild.byte,ocamlcp,ocamldoc,ocamlmklib*,ocamlprof,ocaml,ocamlbuild.native,ocamldebug,ocamldoc.opt,ocamlmktop,ocamlrun,ocamlbrowser,ocamlc,ocamldep,ocamllex,ocamlopt,ocamlyacc,labltk,ocamlbuild,ocamldep.opt,ocamllex.opt,ocamlc.opt,ocamlobjinfo,ocamlfind,findlib,safe_camlp4,camlidl} ; do
-        echo "    --  Removing $INSTALLDIR_LIBOPAOCAML/bin/$i"
-        rm -fv $INSTALLDIR_LIBOPAOCAML/bin/$i
+        echo "    --  Removing $INSTALLDIR_LIBOPA/ocaml/bin/$i"
+        rm -fv $INSTALLDIR_LIBOPA/ocaml/bin/$i
 done
-rm -rvf $INSTALLDIR_LIBOPAOCAML/etc
+rm -rvf $INSTALLDIR_LIBOPA/ocaml/etc
 for i in {findlib,etc,camlp4,labltk,ocamldoc,objinfo_helper,toplevellib.cma,addlabels,camlheader,expunge,extract_crc,scrapelabels}; do
-        echo "    --  Removing $INSTALLDIR_LIBOPAOCAML/lib/ocaml/$i"
-        rm -rvf $INSTALLDIR_LIBOPAOCAML/lib/ocaml/$i
+        echo "    --  Removing $INSTALLDIR_LIBOPA/ocaml/lib/ocaml/$i"
+        rm -rvf $INSTALLDIR_LIBOPA/ocaml/lib/ocaml/$i
 done
 
 rm -rvf $INSTALLDIR/lib/ocaml/mascot
@@ -299,10 +300,10 @@ if [ -z "$IS_MAC" ] ; then
 fi
 
 if [ $NOOCAML = "true" ]; then
-    echo "    --  Removing $INSTALLDIR_LIBOPAOCAML/lib/opa/stdlib/*.opp/*ML*"
-    rm -fv $INSTALLDIR_LIBOPAOCAML/lib/opa/stdlib/*.opp/*ML*
-    # echo "    --  Removing $INSTALLDIR_LIBOPA/lib/opa/static"
-    # rm -rfv $INSTALLDIR_LIBOPA/lib/opa/static
+    echo "    --  Removing $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*"
+    rm -fv $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*
+    # echo "    --  Removing $INSTALLDIR_LIBOPA/static"
+    # rm -rfv $INSTALLDIR_LIBOPA/static
 fi
 
 msg "Cleaning RPATH of binaries and shared libraries"
@@ -351,7 +352,7 @@ stripf(){
     fi
 }
 
-for i in $INSTALLDIR/bin/* $INSTALLDIR/lib/opa/bin/*; do
+for i in $INSTALLDIR/bin/* $INSTALLDIR_LIBOPA/bin/*; do
     # Strip BEFORE upx, otherwise the exe is DESTROYED
     stripf $i
     upxf $i
