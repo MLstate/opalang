@@ -231,7 +231,7 @@ struct
       if env_opt.static_link then
         oc
       else (
-        assert (File.check_create_path ~rights:0o700 (depends_dir env_opt));
+        let _ = File.check_create_path ~rights:0o700 (depends_dir env_opt) in
         let load_file_name = "load.js" in
         let load_path = Filename.concat
           (Filename.basename (depends_dir env_opt)) load_file_name in
@@ -388,7 +388,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
         Printf.fprintf load_oc "require(__stdlib_path + '%s');\n" short_name
       else
         let dest_name = Filename.concat (depends_dir env_opt) short_name in
-        assert (File.copy ~force:true (js_file opx) dest_name = 0);
+        let _ = File.copy ~force:true (js_file opx) dest_name = 0 in
         Printf.fprintf load_oc "require('./%s');\n" short_name
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
