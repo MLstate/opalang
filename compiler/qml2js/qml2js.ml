@@ -106,6 +106,20 @@ struct
        order : since the generated code contains call to bypass of bsl, it is too dangerous to
        put the extra-libs between bsl and the generated code *)
     let generated_files =
+      let fold acc loader =
+        (* TODO figure out what filter_bsl was being used for *)
+        let filename =
+          Filename.concat
+            loader.BslPluginInterface.path
+            (loader.BslPluginInterface.basename ^
+               BslConvention.Suffix.nodejspackage ^
+               ".js") in
+        let content = File.content filename in
+        (filename, content) :: acc
+      in
+
+    (*
+    let generated_files =
       let filter_bsl =
         if env_opt.command_line then
           fun (filename, content, conf) ->
@@ -132,7 +146,7 @@ struct
       in
       let fold acc loader =
         List.rev_filter_map_append filter_bsl loader.BslPluginInterface.nodejs_code acc
-      in
+      in*)
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
     let ast = List.flatten (List.rev_map (
@@ -161,17 +175,12 @@ struct
   struct
     type t = {
       generated_files : (string * string) list;
-      js_init : (BslInterface.unicity_index * JsAst.code_elt) list;
     }
     let pass = "ServerJavascriptCompilation"
-    let pp fmt {js_init; generated_files} =
+    let pp fmt {generated_files} =
       let pp_file fmt (filename, content) =
         Format.fprintf fmt "// FILE : %s@\n%s" filename content in
-      let pp_js_init fmt (name, elt) =
-        Format.fprintf fmt "// BSLIndex : %s@\n%a" name JsPrint.pp#statement elt
-      in
-      Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files;
-      Format.fprintf fmt "%a" (Format.pp_list "@\n" pp_js_init) js_init;
+      Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files
   end
 
   module R = ObjectFiles.Make(S)
@@ -185,20 +194,23 @@ struct
       )
       env_js_input.Qml2jsOptions.js_init_contents)
 
+  let fix_exports statement =
+    JsUtils.export_to_global_namespace
+      (JsUtils.globalize_native_ident statement)
+
   let compilation_generation env_opt generated_files env_js_input =
-    let save = {S.generated_files; js_init = get_js_init env_js_input} in
+    let js_init = get_js_init env_js_input in
+    let save = {S.generated_files} in
     R.save save;
-    let content = Format.to_string JsPrint.scoped_pp_min#code env_js_input.js_code in
+    let js_init = List.map (fun (_, elt) -> fix_exports elt) js_init in
+    let code = env_js_input.js_code @ js_init in
+    let content = Format.to_string JsPrint.scoped_pp_min#code code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
     let success = File.check_create_path build_dir in
     let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
     write env_opt (filename, content)
-
-  let fix_exports statement =
-    JsUtils.export_to_global_namespace
-      (JsUtils.globalize_native_ident statement)
 
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
@@ -225,7 +237,7 @@ struct
         "%s\nThis is the PP result:\n%s"
       ) filename e content
 
-  let linking_generation_js_init env_opt stdlib_path generated_files env_js_input oc =
+  let linking_generation_js_init env_opt stdlib_path generated_files oc =
     let load_oc =
       (* Channel to output libraries *)
       if env_opt.static_link then
@@ -250,32 +262,28 @@ struct
       | Some path -> Printf.fprintf load_oc "var __stdlib_path = '%s/';\n" path;
       | None -> ()
       end;
-    let js_init =
-      let js_init = get_js_init env_js_input in
-      List.fold_left (fun a (k, v) -> StringMap.add k v a) StringMap.empty js_init
-    in
     let generated_files = List.rev generated_files in
-    let generated_files, js_init_map =
+    Format.printf "generated 1: %a\n" (Format.pp_list ", " Format.pp_print_string)
+      (List.map fst generated_files);
+    let generated_files =
       R.fold_with_name ~packages:true ~deep:true
-        (fun _package (generated_files, js_init_map) {S. generated_files = opxgenfiles; js_init} ->
+        (fun _package generated_files {S. generated_files = opxgenfiles} ->
            let generated_files = List.fold_left
              (fun generated_files ((filename, content) as opxgenfile) ->
                 try
                   let c = List.assoc filename generated_files in
                   if content <> c then
-                    OManager.warning ~wclass "Two file named %s has not the same content\n%!"
+                    OManager.warning ~wclass "Two files named %s has not the same content\n%!"
                       filename;
                   generated_files
                 with Not_found -> opxgenfile::generated_files
              ) generated_files opxgenfiles
            in
-           let js_init_map = List.fold_left
-             (fun js_init_map (index, elt) ->
-                StringMap.add index elt js_init_map
-             ) js_init_map js_init
-           in generated_files, js_init_map
-        ) (generated_files, js_init)
+           generated_files
+        ) generated_files
     in
+    Format.printf "generated 2: %a\n" (Format.pp_list ", " Format.pp_print_string)
+      (List.map fst generated_files);
     List.iter
       (fun (filename, content) ->
         #<Ifstatic:JS_IMP_DEBUG 1>
@@ -291,19 +299,6 @@ struct
           let filename = copy_js_file env_opt filename content in
           Printf.fprintf load_oc "require('./%s');\n" (Filename.basename filename);
       ) (List.rev generated_files);
-    Printf.fprintf load_oc "///////////////////////\n";
-    Printf.fprintf load_oc "// BSL JS INIT\n";
-    Printf.fprintf load_oc "///////////////////////\n";
-    let fmt = Format.formatter_of_out_channel load_oc in
-    StringMap.iter
-      (fun index elt ->
-         Format.fprintf fmt "// index : %s\n" index;
-         if env_opt.static_link then
-           Format.fprintf fmt "%a\n" JsPrint.pp#statement elt
-         else
-           Format.fprintf fmt "%a\n" JsPrint.pp#statement
-             (fix_exports elt)
-      ) js_init_map;
     load_oc
 
   let get_target env_opt = env_opt.target
@@ -370,8 +365,7 @@ if (process.version < '%s') {
       | None -> fun _ -> false
     in
     let load_oc =
-      linking_generation_js_init env_opt stdlib_path generated_files
-        env_js_input oc;
+      linking_generation_js_init env_opt stdlib_path generated_files oc
     in
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =

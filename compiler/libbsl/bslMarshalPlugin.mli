@@ -48,6 +48,7 @@
 
 (** {6 Type alias} *)
 type filename = string
+type pathname = string
 
 (** {6 Error reporting} *)
 (**
@@ -86,7 +87,7 @@ val input : filename:string -> in_channel -> t
 (** {6 COMPATIBILITY with BslLib interface} *)
 
 (** Build the same plugin structure as you would optained after the native dynloading of a Loader.*)
-val plugin : t -> BslPluginInterface.plugin
+val plugin : t -> pathname -> BslPluginInterface.plugin
 
 (** {6 Dynlink API} *)
 

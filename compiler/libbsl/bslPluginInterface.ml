@@ -27,6 +27,7 @@ module Format = BaseFormat
 (** {6 Type alias (just for lisibility) } *)
 (** *)
 type filename = string
+type pathname = string
 type contents = string
 type ocaml_module_name = string (* OcamlUtils.module_name *)
 
@@ -368,6 +369,7 @@ let _ = Self.self_store ()
 *)
 type plugin = {
   basename              : plugin_basename ;
+  path                  : pathname ;
   self_module_name      : ocaml_module_name ;
   uniq_id               : uniq_id ;
   conf                  : BslConf.conf ;
@@ -399,6 +401,11 @@ sig
      The name asked for the plugin, without the extension opp.
   *)
   val basename : plugin_basename
+
+  (**
+     Where this plugin was loaded from
+  *)
+  val path : pathname
 
   (**
      The name of the Ocaml module corresponding to this plugin.

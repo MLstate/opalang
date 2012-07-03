@@ -25,6 +25,7 @@ type skey            = string
 type language        = string
 type path            = string
 type filename        = string
+type pathname        = string
 type module_name     = string
 type uniq_id         = string
 type contents        = string
@@ -199,7 +200,7 @@ let input_file filename =
   | Failure s ->
       fail "input" filename s
 
-let plugin t =
+let plugin t path =
   let plugin_name = t.basename in
   let uniq_id = t.uniq_id in
   let dynloader ( get_register : BslPluginInterface.multi_loading_safe_get_dynloader_interface ) =
@@ -230,6 +231,7 @@ let plugin t =
   { BslPluginInterface.
 
     basename                = t.basename ;
+    path                    = path ;
     self_module_name        = t.self_module_name ;
     uniq_id                 = t.uniq_id ;
     conf                    = t.conf ;
@@ -247,8 +249,15 @@ let plugin t =
   }
 
 let loadfile_private file =
+  let path =
+    if File.is_relative file then
+      Filename.concat (Sys.getcwd ()) file
+    else
+      file
+  in
+  let path = Filename.dirname path in
   let t = input_file file in
-  let plugin = plugin t in
+  let plugin = plugin t path in
   BslPluginTable.store plugin
 
 let loadfile = loadfile_private
