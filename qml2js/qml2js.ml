@@ -299,7 +299,7 @@ struct
       ) js_init_map;
     load_oc
 
-  let get_target env_opt = File.from_pattern "%/start" env_opt.target
+  let get_target env_opt = Filename.concat env_opt.target "start"
 
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
