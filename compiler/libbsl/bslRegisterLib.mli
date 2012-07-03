@@ -170,6 +170,12 @@ val out_nodejs_code          : finalized_t output_iterator
    This is a file containing all the key resolution in JS, so that
    we can use the checker for knowing statically if a resolution leads
    to an unbound value.
+
+   node.js package
+
+   This is a file that packages all the JS files in the plugin. In the
+   node.js backend, it must be included in the final object file to
+   use the plugin.
 *)
 (** *)
 val out_nodejs_package       : finalized_t output
