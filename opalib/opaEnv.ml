@@ -578,6 +578,9 @@ struct
           ("-h",                  Arg.Set print_help,        " Shorthand for --help");
           ("-help",               Arg.Set print_help,        " Like --help");
           ("--help",              Arg.Set print_help,        " Print this help");
+
+          ("--static-link", Arg.Set static_link, " Link everything in a single object file");
+          ("--no-static-link", Arg.Clear static_link, " Load libraries dynamically (qmljs only)");
         ]
       in
       let non_release = (* Please preserve the alphabetical order *)
@@ -640,8 +643,6 @@ struct
                                                                        "normal", `normal;
                                                                        "strict", `strict],
                                               " Restrict definition of polymorphic values");
-          ("--static-link", Arg.Set static_link, " Link everything in a single object file");
-          ("--no-static-link", Arg.Clear static_link, " Load libraries dynamically (qmljs only)")
         ] in
         Arg.sort (
           Arg.align (
