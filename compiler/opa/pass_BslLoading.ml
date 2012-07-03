@@ -255,7 +255,7 @@ let process
     ~code
     =
   (* Pass *)
-  let plugins = options.O.bypass_plugin in
+  let plugins = "opabsl" :: options.O.bypass_plugin in
   let server_back_end = options.O.back_end in
   let client_back_end = options.O.js_back_end in
   let cwd = Sys.getcwd () in
