@@ -431,7 +431,7 @@ OpaRPC_Server =
             error("Invalid distant call to function ({fun_name}) at {__POSITION__}: there seems to be no client connected")
           end
       )
-    do Log.debug("RPC", "{fun_name} receibed")
+    do Log.debug("RPC", "{fun_name} received")
     OpaSerialize.unserialize(serialized_return, ty)
     ? error("OPARPC : Request on client url {fun_name} has failed.")
 
