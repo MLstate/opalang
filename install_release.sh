@@ -299,8 +299,8 @@ if [ -z "$IS_MAC" ] ; then
 fi
 
 if [ $NOOCAML = "true" ]; then
-    echo "    --  Removing $INSTALLDIR_LIBOPA/lib/opa/stdlib/*.opp/*ML*"
-    rm -fv $INSTALLDIR_LIBOPA/lib/opa/stdlib/*.opp/*ML*
+    echo "    --  Removing $INSTALLDIR_LIBOPAOCAML/lib/opa/stdlib/*.opp/*ML*"
+    rm -fv $INSTALLDIR_LIBOPAOCAML/lib/opa/stdlib/*.opp/*ML*
     # echo "    --  Removing $INSTALLDIR_LIBOPA/lib/opa/static"
     # rm -rfv $INSTALLDIR_LIBOPA/lib/opa/static
 fi
