@@ -200,10 +200,13 @@ struct
     JsUtils.export_to_global_namespace
       (JsUtils.globalize_native_ident statement)
 
+  let depends_dir env_opt =
+    Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
+
   (* Copy included BSL files to the build path where
      they can be loaded dynamically *)
   let copy_js_file env_opt filename content =
-    let dest = Filename.concat env_opt.target
+    let dest = Filename.concat (depends_dir env_opt)
       (Filename.basename filename) in
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 dest in
     try
@@ -227,14 +230,17 @@ struct
       (* Channel to output libraries *)
       if env_opt.static_link then
         oc
-      else
+      else (
+        assert (File.check_create_path ~rights:0o700 (depends_dir env_opt));
         let load_file_name = "load.js" in
-        let load_path = Filename.concat env_opt.target load_file_name in
+        let load_path = Filename.concat
+          (Filename.basename (depends_dir env_opt)) load_file_name in
         let load_oc =
           open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 load_path
         in
-        Printf.fprintf oc "require('./%s');\n" load_file_name;
+        Printf.fprintf oc "require('./%s');\n" load_path;
         load_oc
+      )
     in
     if env_opt.static_link then
       ()
@@ -299,11 +305,10 @@ struct
       ) js_init_map;
     load_oc
 
-  let get_target env_opt = Filename.concat env_opt.target "start"
+  let get_target env_opt = env_opt.target
 
   let linking_generation env_opt generated_files env_js_input =
     compilation_generation env_opt generated_files env_js_input;
-    assert (File.check_create_path ~rights:0o700 env_opt.target);
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#!/usr/bin/env bash
 
@@ -382,7 +387,7 @@ NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?
       else if is_from_stdlib opx then
         Printf.fprintf load_oc "require(__stdlib_path + '%s');\n" short_name
       else
-        let dest_name = Filename.concat env_opt.target short_name in
+        let dest_name = Filename.concat (depends_dir env_opt) short_name in
         assert (File.copy ~force:true (js_file opx) dest_name = 0);
         Printf.fprintf load_oc "require('./%s');\n" short_name
     in
