@@ -381,7 +381,23 @@ visible.
 
 ### Broadcasting current user's messages
 
-...
+When the user enters new message in the chat we need to send it to
+others. This functionality is accomplished with the following function:
+
+```
+function broadcast(author) {
+  text = Dom.get_value(#entry);
+  Model.broadcast(~{author, text});
+  Dom.clear_value(#entry);
+}
+```
+
+First we assign to `text` the content of the user message, by reading
+the value of the DOM element with id `entry` using the `Dom.get_value`
+function. In the second line of this function we call the previously
+written `Model.broadcast` function of the model to broadcast the message
+to all chat users. Finally in the last line we clear the content of
+the input field, allowing the user to start composing new chat message.
 
 ### Connecting everything
 
