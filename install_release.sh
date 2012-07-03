@@ -203,15 +203,13 @@ if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
     else
 	export OCAMLOPT=$INSTALLDIR_LIBOPAOCAML/bin/ocamlopt.opt
     fi
-else
-    OCAMLOPT=ocamlopt.opt
 fi
 cd $OPAGENERAL
 SRCDIR=$OPAGENERAL
 OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
-./configure -prefix $INSTALLDIR -libdir $PREFIX -ocamlopt $OCAMLOPT -release -no-dbm
+./configure -prefix $INSTALLDIR -libdir $PREFIX -release -no-dbm
 
 
 TARGETS="distrib"
