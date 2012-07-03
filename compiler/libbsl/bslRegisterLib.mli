@@ -172,6 +172,7 @@ val out_nodejs_code          : finalized_t output_iterator
    to an unbound value.
 *)
 (** *)
+val out_nodejs_package       : finalized_t output
 val out_js_keys              : finalized_t output
 val out_ml_loader            : finalized_t output
 val out_ml_plugin            : finalized_t output

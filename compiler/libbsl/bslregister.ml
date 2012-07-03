@@ -123,6 +123,7 @@ struct
   let map f () =
     output_prefix !bsl_pref f
 
+  let nodejspackage    = map (BslConvention.Suffix.nodejspackage ^ ".js")
   let jskeys           = map (BslConvention.Suffix.jskeys ^ ".js")
   let loader           = map (BslConvention.Suffix.loader ^ ".ml")
   let marshalplugin    = map (BslConvention.Suffix.marshalplugin ^ "." ^ BslConvention.Extension.bypass)
@@ -143,7 +144,7 @@ let js_code = prefix
 let opa_code = prefix
 let opa_interface f = (prefix f)^"i"
 
-
+let nodejspackage      = ref ""
 let jskeys             = ref ""
 let loader             = ref ""
 let marshalplugin      = ref ""
@@ -179,6 +180,7 @@ let customize_lib_name name =
 let finalize_options () =
   finalize_opp_dir () ;
 
+  nodejspackage        := Name.nodejspackage () ;
   jskeys               := Name.jskeys () ;
   loader               := Name.loader () ;
   marshalplugin        := Name.marshalplugin () ;
@@ -727,6 +729,7 @@ let iter_generated_files fct =
       | _ -> ()
   ) files ;
 
+  fct !nodejspackage ;
   fct !jskeys ;
   fct !marshalplugin ;
   fct !mlruntime ;
@@ -874,6 +877,8 @@ let files_generation ( finalized_t : BR.finalized_t ) =
   BR.out_nodejs_code          iterator_js_code                finalized_t ;
   BR.out_opa_code             iterator_opa_code               finalized_t ;
   BR.out_opa_interface        iterator_opa_interface          finalized_t ;
+
+  output !nodejspackage       BR.out_nodejs_package           finalized_t ;
 
   output !jskeys              BR.out_js_keys                  finalized_t ;
 

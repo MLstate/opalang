@@ -26,6 +26,7 @@ end
 module Suffix =
 struct
   type suffix = string
+  let nodejspackage = "NodeJsPackage"
   let jskeys = "JSkeys"
   let loader = "Loader"
   let marshalplugin = ""

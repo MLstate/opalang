@@ -45,6 +45,7 @@ sig
   *)
 
   type suffix = string
+  val nodejspackage : suffix
   val jskeys : suffix
   val loader : suffix
   val marshalplugin : suffix

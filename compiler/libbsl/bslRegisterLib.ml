@@ -675,6 +675,8 @@ type finalized_t = {
   f_ml_dynloader_loader        : FBuffer.t ; (*     X        |               *)
   f_ml_dynloader_plugin        : FBuffer.t ; (*              |       X       *)
 
+  f_nodejs_package             : FBuffer.t ;
+
   f_js_keys                    : FBuffer.t ;
 
   f_ml_runtime                 : FBuffer.t option ;
@@ -967,7 +969,13 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
 
   javascript_env, update_session !session_ref s_js_code
 
-
+let finalizing_nodejs_package nodejs_code =
+  let fold buf (filename, contents, conf) =
+    ignore filename; ignore conf;
+    FBuffer.printf buf "%s\n" contents
+  in
+  let buf = FBuffer.create 1024 in
+  List.fold_left fold buf nodejs_code
 
 let finalizing_js_keys ~final_bymap =
   let fold key bypass buf =
@@ -1025,7 +1033,7 @@ let finalize s =
   let s                     = finalizing_register_calls s in
 
   (*
-    Now, we can build the final bymap, every bypass have been registred.
+    Now, we can build the final bymap, every bypass has been registred.
   *)
   let final_bymap           = BSL.RegisterTable.build_bypass_map () in
 
@@ -1043,6 +1051,7 @@ let finalize s =
   let f_ml_dynloader_plugin = s.s_ml_dynloader_plugin  in
 
   let f_js_code             = s.s_js_code in
+  let f_nodejs_package      = finalizing_nodejs_package s.s_nodejs_code in
   let f_js_keys             = finalizing_js_keys ~final_bymap in
   let f_nodejs_code         = s.s_nodejs_code          in
 
@@ -1085,6 +1094,7 @@ let finalize s =
     f_ml_dynloader_loader ;
     f_ml_dynloader_plugin ;
 
+    f_nodejs_package ;
     f_js_code ;
     f_nodejs_code ;
     f_js_keys ;
@@ -1195,10 +1205,13 @@ let get_opt o = match o with
   | None -> raise Not_found
   | Some x -> x
 
+let out_nodejs_package oc =
+  let extract f = f.f_nodejs_package in
+  out_fbuffer extract oc
+
 let out_js_keys oc =
   let extract f = f.f_js_keys in
   out_fbuffer extract oc
-
 
 let out_ml_runtime oc =
   let extract f = get_opt f.f_ml_runtime in
