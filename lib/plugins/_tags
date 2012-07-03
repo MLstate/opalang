@@ -14,4 +14,4 @@
 <server>: traverse
 <mail>: traverse
 <mongo>: traverse
-<opabsl>: traverse
+<opabsl>: traverse, no_js_validation

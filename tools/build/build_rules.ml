@@ -429,7 +429,8 @@ let opp_build opa_plugin opp oppf env build =
            (A"--pp-file")::(P (Printf.sprintf "%s:%s" f (Pathname.pwd/"tools"/"utils"/"ppdebug.pl")))::acc
        else acc
       ) [] files in
-  let js_validation = if files_js=[]
+  let no_js_validation = Tags.mem "no_js_validation" (tags_of_pathname dir) in
+  let js_validation = if files_js=[] || no_js_validation
     then [A"--js-validator-off"]
     else (
       let files_validation = List.flatten (List.map (fun s -> [A"--js-validator-file";P s]) files_validation) in
