@@ -66,9 +66,7 @@ var default_options = {movable:true, atomic:false, lazy:false};
 function Barrier(name)
 {
     this._waiters = [];
-    if(name == null) this._id = Math.random();
-    else this._id = name;
-    cps_debug("[Barrier] Creating barrier "+this._id);
+    this._id = name ? name : "anonymous";
 }
 
 Barrier.prototype = {
@@ -104,8 +102,6 @@ Barrier.prototype = {
      */
     release: function(result)
     {
-        cps_assert(!this._is_computed, "[Barrier.release] invoked on already released barrier");
-        cps_debug("[Barrier.release] Releasing barrier "+this._id);
         this._is_computed = true;
         this._result      = result;
         var waiters       = this._waiters;
@@ -357,7 +353,6 @@ var ready = [];
  */
 function push(task)
 {
-    cps_assert(task.debug_is_a_task, "[push] expects a [Task]");
     ready.push(task);
     launch_schedule();
 }
@@ -385,14 +380,12 @@ function loop_schedule()
     {
         for(;;)
         {
-            cps_debug("Entering scheduling inner loop");
             if(tasks.length == 0)
             {
                 nothing_to_do = true;
                 break;
             } else {
                 task = tasks.shift();
-                cps_assert(task.debug_is_a_task, "[schedule] expects [ready] to contain [Task]s");
                 task.go();
             }
         }
@@ -417,9 +410,6 @@ function launch_schedule(){
  * Returns value [x] to Continuation [k].
  */
 function return_(k, x){
-    cps_assert(arguments.length == 2, "[return_] expects 2 arguments");
-    cps_assert(k instanceof Continuation, "[return_] expects a [Continuation]");
-    cps_debug("[return_] starting, with "+k+", "+x);
     push (new Task_from_return(k, [x]));
 }
 
