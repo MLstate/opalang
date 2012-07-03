@@ -89,6 +89,7 @@ let validation_ok = ref true
 (* f *)
 
 let files = MutableList.create ()
+let fopps = MutableList.create ()
 
 (* t *)
 
@@ -107,7 +108,12 @@ let spec = [
 
 ]
 
-let anon_fun file = MutableList.add files file
+let anon_fun file =
+  let ext = File.extension file in
+  match ext with
+  | "opa" -> MutableList.add files file
+  | "opp" -> MutableList.add fopps file
+  | _ -> OManager.error "Error with @{<bright>%S@} because file extension @{<bright>%S@} is unknown" file ext
 
 let usage_msg =
   !> "@{<bright>%s@}: Opa Compiler Interface Validator %s\nUsage: %s [options] stdlib-files\n"
@@ -234,9 +240,15 @@ let core_types =
   ]
 
 let _ =
-  (* Part 1: bsl VS opacapi *)
+  (* Part 1: plugins VS opacapi *)
   OpabslgenPlugin.Self.self_store ();
   parse ();
+  let cwd = Sys.getcwd () in
+  MutableList.iter
+    (fun opp ->
+       let plugin = BslConvention.inclusion ~cwd opp in
+       BslDynlink.load_bypass_plugin (BslDynlink.MarshalPlugin plugin.BslConvention.plugin))
+    fopps;
   let plugins = BslPluginTable.finalize () in
   let module B = BslLib.BSL in
   List.iter (fun loader -> B.RegisterInterface.dynload loader.BPI.dynloader) plugins;
