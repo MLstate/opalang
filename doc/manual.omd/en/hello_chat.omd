@@ -401,7 +401,81 @@ the input field, allowing the user to start composing new chat message.
 
 ### Connecting everything
 
-...
+Now that we have all the pieces in place it is time to connect them.
+We need two things: to make sure that `broadcast` is invoked whenever
+a user sends a new message and that `user_udpate` is invoked whenever
+a new message was sent to the chatroom. For that we will use the
+event handlers/listeners of the DOM.
+
+{block}[TIP]
+### About _event handlers_
+An _event handler_ is a function whose call is triggered by some activity
+in the user interface. Typical event handlers react to user clicking
+(the event is called `click`), pressing _enter_ (event `newline`),
+moving the mouse (event `mousemove`) or the user loading the page
+(event `ready`).
+
+In Opa, an event handler always has type `Dom.event -> void`.
+
+You can find more informations about event handlers in [online Opa API documentation](http://api.opalang.org)
+by searching for entry `Dom.event`.
+{block}
+
+We add all the wiring in the `chat_html` function. Firstly we need
+to add an argument to this function, `author`, which is the name of
+the current user. Then we add three event handlers:
+
+* `onready` event to `conversation` element, which is invoked when the page loads and calls the model's `register_message_callback` function, passing `user_update` as a callback that should be invoked for every new message being received.
+* `onnewline` event to the input box for the user message, which upon pressing enter by the user will call the `broadcast` function to distribute it to other chat users.
+* `onclick` event to the `Post` button, that will handle the second way of sending a message -- by pressing the `Post` button.
+
+After those changes the function looks as follows:
+
+```
+function chat_html(author) {
+  <div id=#conversation class=container-fluid
+    onready={function(_) { Model.register_message_callback(user_update)}} />
+  <footer class="navbar navbar-fixed-bottom">
+    <div class=container>
+      <div class=input-append>
+        <input id=#entry class=input-xlarge type=text
+          onnewline={function(_) { broadcast(author) }}>
+        <button class="btn btn-primary" type=button
+          onclick={function(_) { broadcast(author) }}>Post</>
+      </>
+    </>
+  </>
+}
+```
+
+That snippet uses anonymous functions and "don't-care" arguments, which
+we explain next.
+
+{block}[TIP]
+### Anonymous functions
+
+In function declarations one can omit the function name to construct
+an _anonymous function_, such as this one:
+
+`function(x, y) { x + y }`
+
+Such functions are particularly useful to pass as argument to other functions
+or to define event handlers.
+{block}
+
+{block}[TIP]
+### "Don't care" arguments
+
+Sometimes we need to write a function with an argument that is not needed.
+For instance if we write event handlers, they always take an argument of
+type `Dom.event`, describing the event being handled. But often the fact
+that the event occurred is all the information we need and we don't need
+to inspect this argument. In this case we can replace the argument name
+with underscore (`_`); if we just used a regularly named argument instead,
+the compiler would emit a warning about an unused argument, as that is
+often an indication that we forgot to do something in the function
+definition.
+{block}
 
 Running the chat application
 ----------------------------
