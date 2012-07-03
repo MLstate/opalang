@@ -201,17 +201,23 @@ let opa_opacapi_files =
   files
 in
 
+let opa_opacapi_plugins = ["badop"] in
+
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
-  ~deps:("opa/checkopacapi.native" :: opa_opacapi_files)
+  ~deps:("opa/checkopacapi.native" :: opa_opacapi_files
+         @ List.map (fun x -> Printf.sprintf "plugins/%s/%s.oppf" x x)
+         opa_opacapi_plugins)
   ~prod:opacapi_validation
   (fun env build ->
      Cmd(S ([
               P "./opa/checkopacapi.native" ;
               A "-o" ;
               P opacapi_validation ;
-            ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)));
+            ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
+            @ (List.map (fun x -> P (x ^ ".opp")) opa_opacapi_plugins))
+        )
   );
 
 (* -- Build infos and runtime version handling -- *)
