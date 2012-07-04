@@ -81,10 +81,13 @@ mlstatebsl/map.opa
 mlstatebsl/cps.opa
 
 # js validation files
-../../tools/jschecker/externs.js
-../../qmlcps/qmlCpsClientLib.externs.js
-../../qml2js/clientLib.externs.js
-../../qml2js/clientLibLib.externs.js
+
+# these are kept as symlinks since .. doesn't work
+externs.js
+qmlCpsClientLib.externs.js
+clientLib.externs.js
+clientLibLib.externs.js
+
 jsbsl/jquery-1.6.externs.js
 jsbsl/jquery_ext_bslanchor.externs.js
 jsbsl/jquery_ext_jQueryExtends.externs.js

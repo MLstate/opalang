@@ -1,0 +1,1 @@
+../../tools/jschecker/externs.js
