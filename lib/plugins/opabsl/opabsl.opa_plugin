@@ -88,7 +88,7 @@ qmlCpsClientLib.externs.js
 clientLib.externs.js
 clientLibLib.externs.js
 
-jsbsl/jquery-1.6.externs.js
+jsbsl/jquery.externs.js
 jsbsl/jquery_ext_bslanchor.externs.js
 jsbsl/jquery_ext_jQueryExtends.externs.js
 jsbsl/selection_ext_bsldom.externs.js
