@@ -169,14 +169,6 @@ let js_cleaning () =
   | Some b -> b
   | None -> !cleaning_default_value
 
-(**
-   Set the value of --js-cleaning if the user doesn't set its value
-   It is set in the init module to [true] in full separation and to
-   [false] otherwise
-*)
-##register [opacapi] set_cleaning_default_value : bool -> void
-let set_cleaning_default_value b =
-  cleaning_default_value := b
 
 (**
    External mechanism for registering roots.

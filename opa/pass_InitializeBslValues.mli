@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -21,4 +21,4 @@
    of the server
 *)
 
-val process_code : (BslKey.t -> QmlAst.ty option) -> QmlTypes.gamma -> QmlAst.annotmap -> QmlAst.code -> QmlTypes.gamma * QmlAst.annotmap * QmlAst.code
+val process_code : stdlib_gamma:QmlTypes.gamma -> QmlTypes.gamma -> QmlAst.annotmap -> QmlAst.code -> QmlTypes.gamma * QmlAst.annotmap * QmlAst.code

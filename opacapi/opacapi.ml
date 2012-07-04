@@ -194,11 +194,16 @@ struct
   let default = !! "default"
 end
 
+module ExecInit =
+struct
+  let (!!) s = !! ("ExecInit_" ^ s)
+  let set_id = !! "set_id"
+end
+
 module JsIdent =
 struct
   let (!!) s = !! ("JsIdent_" ^ s)
   let define_rename = !! "define_rename"
-  let set_cleaning = !! "set_cleaning"
 end
 
 module Opa2Js =
@@ -721,12 +726,6 @@ struct
         let array = Array.init (max_cps_native+1) (fun i -> !! (cps_native_str i)) in
         fun arity -> array.(arity)
     end
-  end
-
-  module BslInit =
-  struct
-    let (!!) s = !! ("BslInit." ^ s)
-    let set_executable_id = !! "set_executable_id"
   end
 
   module BslNativeLib =

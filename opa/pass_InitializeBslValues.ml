@@ -26,20 +26,17 @@ module Cons = QmlAstCons.TypedExpr
 
 let () = Random.ensure_init ()
 
-let set_executable_id = Opacapi.Opabsl.BslInit.set_executable_id
-let set_cleaning_default_value = Opacapi.Opabsl.BslInit.set_executable_id
+let set_executable_id = Opacapi.ExecInit.set_id
 
-let add_bypass_application bypass_typer gamma annotmap bypass arguments code =
-  let annotmap, bypass =
-    Cons.bypass annotmap bypass (Option.get (bypass_typer bypass)) in
-  let annotmap, app =
-    Cons.apply gamma annotmap bypass arguments in
+let add_application ~stdlib_gamma gamma annotmap fn arguments code =
+  let annotmap, fn = OpaMapToIdent.typed_val fn annotmap stdlib_gamma in
+  let annotmap, app = Cons.apply gamma annotmap fn arguments in
   let ident = Ident.next "__dummy" in
   let gamma = QmlTypes.Env.Ident.add ident (QmlTypes.Scheme.id (Q.TypeRecord (Q.TyRow ([],None)))) gamma in
   let label = Annot.nolabel "pass_InitializeBslValues" in
   gamma, annotmap, Q.NewVal (label, [ident, app]) :: code
 
-let process_code bypass_typer gamma annotmap code =
+let process_code ~stdlib_gamma gamma annotmap code =
 
   (* generating the server id *)
   let annotmap, id =
@@ -50,16 +47,6 @@ let process_code bypass_typer gamma annotmap code =
         String.random 32
       #<End>
     ) in
-  let gamma, annotmap, code = add_bypass_application bypass_typer gamma annotmap set_executable_id [id] code in
-
-  (* setting the default value of cleaning *)
-  let gamma, annotmap, code =
-    try
-      let annotmap, cleaning =
-        Cons.bool (annotmap,gamma) (ObjectFiles.Arg.is_fully_separated ()) in
-      add_bypass_application bypass_typer gamma annotmap set_cleaning_default_value [cleaning] code
-    with QmlTyperException.Exception _ ->
-      (* if bool is not defined, we are in --no-stdlib, so we don't care about cleaning *)
-      gamma, annotmap, code in
+  let gamma, annotmap, code = add_application ~stdlib_gamma gamma annotmap set_executable_id [id] code in
 
   gamma, annotmap, code

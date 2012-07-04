@@ -24,7 +24,7 @@
 <opa_Roots.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang, use_opapasses
 
 <pass_EnrichMagic.{ml,mli}>:use_libqmlcompil, use_opalang, use_qmlslicer, use_qmlpasses
-<pass_InitializeBslValues.{ml,mli}>: use_libqmlcompil
+<pass_InitializeBslValues.{ml,mli}>: use_libqmlcompil, use_opalang
 <pass_Retyping.{ml,mli}>: use_libqmlcompil
 <pass_Typing.{ml,mli}>: use_libqmlcompil, use_opalang
 <pass_TypeDefinition.{ml,mli}>: use_libqmlcompil

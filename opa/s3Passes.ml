@@ -1930,10 +1930,12 @@ let pass_InitializeBslValues =
   PH.make_pass
     (fun e ->
        let env =  e.PH.env in
-       let bypass_typer = extract_final_bypass_typer env in
        let annotmap, code = extract_final_ac env in
        let gamma = extract_final_gamma env in
-       let gamma, annotmap, code = Pass_InitializeBslValues.process_code bypass_typer gamma annotmap code in
+       let stdlib_gamma = env.P.newFinalCompile_stdlib_gamma in
+       let gamma, annotmap, code =
+         Pass_InitializeBslValues.process_code ~stdlib_gamma gamma annotmap code
+       in
        let milkshake = { QmlBlender.
                           code = code;
                           env = {env.P.newFinalCompile_qml_milkshake.QmlBlender.env with QmlTypes.
