@@ -133,7 +133,7 @@ define install-plugin
 @$(INSTALL) $(BUILD_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
 @for f in `find "$(BUILD_DIR)/$*.opp" -mindepth 2 -iname \*.\*js`; do \
 	nf=`basename $$f | sed 's/[^_]*_\(.*\)/\1/'`; $(INSTALL) $$f "$(STDLIB_DIR)/$*.opp/$$nf"; done
-@$(if $(wildcard $(BUILD_DIR)/$*.opp/*MLRuntime.*), $($(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/";))
+@$(if $(wildcard $(BUILD_DIR)/$*.opp/*MLRuntime.*), $(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/")
 endef
 
 
