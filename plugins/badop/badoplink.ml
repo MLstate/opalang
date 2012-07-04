@@ -58,7 +58,9 @@ let abort_transaction k =
   keys : Badop.key option array ; \
 }
 
+##property[mli]
 ##extern-type [normalize] node_config = Badop.Node_property.config
+##property[endmli]
 
 ##module [restricted:dbgen] data
   ##extern-type [normalize] d = Badop.Data.t

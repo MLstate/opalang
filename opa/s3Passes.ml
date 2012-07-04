@@ -1047,6 +1047,7 @@ let pass_BadopCodeGeneration =
     CodeContents.only_NewVal Extract.EnvGen.ac ;
     QmlCheck.Annot.find Extract.EnvGen.ac ;
   ] in
+  BslLib.declare_visibility (ObjectFiles.get_current_package_name ()) "badop";
   let pass ~options e =
     Passes.pass_DbCodeGeneration ~options (Passes.pass_DbAccessorsGeneration ~options e) in
   make_pass_raw_env_refresh pass
