@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -150,5 +150,23 @@ let loop_schedule _ = Scheduler.run scheduler
     QmlCpsServerLib.uncps_ml "CheatedCALLCC"
       (QmlCpsServerLib.cont_ml (fun () -> ()))
       f
+
+  ##register [opacapi] cps0_native : (-> 'b) -> (continuation('b) -> void)
+  let cps0_native f = (fun k -> QmlCpsServerLib.return k (f ()))
+
+  ##register [opacapi] cps1_native : ('a -> 'b) -> ('a, continuation('b) -> void)
+  let cps1_native f = (fun x k -> QmlCpsServerLib.return k (f x))
+
+  ##register [opacapi] cps2_native : ('a, 'b -> 'c) -> ('a, 'b, continuation('c) -> void)
+  let cps2_native f = (fun x0 x1 k -> QmlCpsServerLib.return k (f x0 x1))
+
+  ##register [opacapi]cps3_native : ('a, 'b, 'c -> 'd) -> ('a, 'b, 'c, continuation('d) -> void)
+  let cps3_native f = (fun x0 x1 x2 k -> QmlCpsServerLib.return k (f x0 x1 x2))
+
+  ##register [opacapi] cps4_native : ('a, 'b, 'c, 'd -> 'e) -> ('a, 'b, 'c, 'd, continuation('e) -> void)
+  let cps4_native f = (fun x0 x1 x2 x3 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3))
+
+  ##register [opacapi] cps5_native : ('a, 'b, 'c, 'd, 'e -> 'f) -> ('a, 'b, 'c, 'd, 'e, continuation('f) -> void)
+  let cps5_native f = (fun x0 x1 x2 x3 x4 k -> QmlCpsServerLib.return k (f x0 x1 x2 x3 x4))
 
 ##endmodule

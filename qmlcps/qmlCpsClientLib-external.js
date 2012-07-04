@@ -129,3 +129,9 @@ function QmlCpsLib_callcc_directive(f, k){}
 function QmlCpsLib_default_handler_cont(k){}
 
 function QmlCpsLib_handler_cont(k){}
+
+/**
+ * @param {!Function} f
+ * @return {!Function}
+ */
+function cps(f){}

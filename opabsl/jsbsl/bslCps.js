@@ -200,16 +200,52 @@ var global_thread_context =
 
 ##module Notcps_compatibility
   ##register [opacapi] thread_context : opa['d] -> option(opa['b])
-    ##args(a)
-    {
-        return global_thread_context;
-    }
+  ##args(a)
+  {
+      return global_thread_context;
+  }
 
   ##register with_thread_context : opa['d], 'a -> 'a
-    ##args(a, b)
-    {
-      return b;
-    }
+  ##args(a, b)
+  {
+    return b;
+  }
+
+  ##register [opacapi] cps0_native : (-> 'b) -> (continuation('b) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
+
+  ##register [opacapi] cps1_native : ('a -> 'b) -> ('a, continuation('b) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
+
+  ##register [opacapi] cps2_native : ('a, 'b -> 'c) -> ('a, 'b, continuation('c) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
+
+  ##register [opacapi]cps3_native : ('a, 'b, 'c -> 'd) -> ('a, 'b, 'c, continuation('d) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
+
+  ##register [opacapi] cps4_native : ('a, 'b, 'c, 'd -> 'e) -> ('a, 'b, 'c, 'd, continuation('e) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
+
+  ##register [opacapi] cps5_native : ('a, 'b, 'c, 'd, 'e -> 'f) -> ('a, 'b, 'c, 'd, 'e, continuation('f) -> void)
+  ##args(f)
+  {
+    return cps(f)
+  }
 
 ##endmodule
 

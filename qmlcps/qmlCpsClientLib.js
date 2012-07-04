@@ -469,6 +469,18 @@ function uncps(pk, f, name) {
 }
 
 /**
+ * Transform a non-cps function [f] (function (...)) to a cps function
+ * [function(..., k)].
+ */
+function cps(f) {
+    return function (){
+        var a = Array.prototype.slice.call(arguments);
+        var k = arguments.pop();
+        return return_(k, f.apply(this, a));
+    }
+}
+
+/**
  * Transform an opa cps callback (-> void) to a js_callback
  */
 function opa_cps_callback_to_js_callback0(k, f){
