@@ -108,9 +108,10 @@ else
     trap "rm -f $tmp" EXIT
 fi
 
-: ${BLDDIR:="$MLSTATELIBS"/share/opa/bld}
+: ${BLDDIR:=build}
 
 : ${CONFIG_ML:=config.ml}
+
 if [ ! -e $CONFIG_ML ]; then
     echo "Error: config.ml not found. Please run ./configure"
     exit 1
