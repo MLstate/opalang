@@ -397,7 +397,11 @@ type environment =
 
 let get_bypass_side env bslkey =
   match BslLib.BSL.ByPassMap.find_opt env.bymap bslkey with
-  | None -> assert false (* shouldn't have undefined bypass at that point *)
+  | None ->
+      (* shouldn't have undefined bypass at that point *)
+      OManager.i_error "@[missing bypass @{<bright>%a@}@] in bypasses @[%a@]"
+        BslKey.pp bslkey
+        BslLib.BSL.ByPassMap.pp env.bymap
   | Some bypass ->
       let langs = BslLib.BSL.ByPass.langs bypass in
       let impl_client = List.mem env.client_bsl_lang langs in
