@@ -443,7 +443,16 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @ preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib in
+  let options =
+    if Tags.mem "static" (tags_of_pathname dir) then
+      [A"--static"; A"--no-build"]
+    else
+      []
+  in
+  let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
+    preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib @
+    options
+  in
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in
@@ -453,7 +462,7 @@ rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
   (opa_plugin_deps "%.opa_plugin" "%.opa_plugin.depends");
 
 rule "opa_plugin_dir: opa_plugin -> oppf"
-  ~deps:("%.opa_plugin" :: "lib/plugins/opabsl/opabslgenMLRuntime.cmx" ::
+  ~deps:("%.opa_plugin" :: "compiler/libbsl.cma" :: "lib/plugins/opabsl/opabslgenMLRuntime.cmx" ::
             (tool_deps "jschecker.jar") @ (tool_deps "ppdebug") @
             (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild
