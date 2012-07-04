@@ -97,6 +97,7 @@ module Extract = struct
     let ac env = (annotmap env, code env)
     let agc env = (annotmap env, (gamma env, stdlib_gamma env), code env)
     let bymap env =  env.P.bsl.BslLib.bymap
+    let env_bsl env =  env.P.bsl
     let bypass_typer env s = BslLib.BSL.ByPassMap.bypass_typer (bymap env) s
 
     (** Return (bypass_typer, (code, gamma, annotmap)). Used by
@@ -185,7 +186,8 @@ module EnvUtils = struct
   let create_env_gen e env = { PH.
     options = e.PH.options;
     env = env;
-    printers = QmlTracker.printers Extract.EnvGen.agc;
+    printers = (fun opt -> QmlTracker.printers Extract.EnvGen.agc opt
+                  @ BslTracker.printers Extract.EnvGen.env_bsl opt);
     trackers = QmlTracker.trackers Extract.EnvGen.code;
   }
 

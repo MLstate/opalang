@@ -485,6 +485,9 @@ sig
     val iter : (BslKey.t -> ByPass.t -> unit) -> t -> unit
     val fold : (BslKey.t -> ByPass.t -> 'a -> 'a) -> t -> 'a -> 'a
 
+    (** Pretty printer of a bypasses map. *)
+    val pp : t BaseFormat.pprinter
+
     (** more introspection, get the map part of t structure : *)
     val get_map : t -> ByPass.t BslKeyMap.t
 

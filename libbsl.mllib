@@ -26,3 +26,4 @@ libbsl/BslIncludeFormats
 libbsl/BslRegisterParserState
 libbsl/BslError
 libbsl/BslArgs
+libbsl/BslTracker

@@ -471,6 +471,11 @@ struct
 
     let iter fct t = BslKeyMap.iter fct t.map
     let fold fct t = BslKeyMap.fold fct t.map
+    let pp fmt t =
+      BslKeyMap.pp "@\n"
+        (fun f k _t -> Format.fprintf f "key : %a" BslKey.pp k)
+        fmt
+        t.map
     let get_map t = t.map
 
     (** Uncps the type of fun (remove extra continuation)*)
