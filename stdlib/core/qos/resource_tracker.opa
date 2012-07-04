@@ -102,6 +102,7 @@ ResourceTracker = {{
       )
     )
     do @atomic(Hashtbl.add(managers, index, manager))
+    do GC.timer.start()
     manager
 
   /**
@@ -133,40 +134,46 @@ ResourceTracker = {{
     )
 
   /**
-   * Execute manually a step of garbage collector.
+   * {3 Garbage collection of tracked resources}
    */
-  garbage_collector() =
-    match @atomic(
-      match Reference.get(collect) with
-      | {true} -> false
+  GC = {{
+    /**
+     * Execute manually a step of garbage collector.
+     */
+    step() =
+      match @atomic(
+        match Reference.get(collect) with
+        | {true} -> false
+        | {false} ->
+          do Reference.set(collect, true)
+          true
+      ) with
       | {false} ->
-        do Reference.set(collect, true)
-        true
-    ) with
-    | {false} ->
-      /* The garbage collection is already in progress */
-      void
-    | {true}  ->
-      /* No collection in progress start a new one */
-      do Log.info("ResourceTracker", "Starting garbage collection")
-      nb = LowLevelArray.fold(
-        ({value=manager ...}, nb ->
-          match call_or_error(manager, {expire}) with
-          | {success = {stop}} -> nb+1
-          | _ -> nb
-        ), Hashtbl.bindings(managers), 0
-      )
-      do Log.info("ResourceTracker", "End of collection, {nb} collected")
-      @atomic(Reference.set(collect, false))
+        /* The garbage collection is already in progress */
+        void
+      | {true}  ->
+        /* No collection in progress start a new one */
+        nb = LowLevelArray.fold(
+          ({value=manager ...}, nb ->
+            match call_or_error(manager, {expire}) with
+            | {success = {stop}} -> nb+1
+            | _ -> nb
+          ), Hashtbl.bindings(managers), 0
+        )
+        @atomic(Reference.set(collect, false))
+
+    /**
+     * The GC timer
+     */
+    timer = Scheduler.make_timer(
+      // This is a stupid constant, we should have a resource management policy that
+      // force the garbage collector or/and dynamically set the delay
+      19*60*1000,
+      step
+    )
+  }}
 
 }}
-
-do
-  // This is a stupid constant, we should have a resource management policy that
-  // force the garbage collector or/and dynamically set the delay
-  time = 19*60*1000
-  rec aux() = Scheduler.sleep(time, -> do ResourceTracker.garbage_collector() aux())
-  aux()
 
 #<Else>
 type ResourceTracker.manager('message, 'result) = external
