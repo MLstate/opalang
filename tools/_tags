@@ -1,3 +1,10 @@
+# -*- conf -*- (for emacs)
+#
+#                           TOOLS TAGS
+#
+
+<dependencies>: -include, -traverse
+
 # Odep
 <odep*.{ml,byte,native}>: thread, use_str, use_unix, use_graph, use_zip, use_libbase, use_ulex
 
@@ -19,5 +26,6 @@
 <opa-create/**>: traverse
 
 <teerex/**>: traverse
+<dissemination>: traverse
 
 <ocamldoc_plugin.{ml,byte,native}>: use_ocamldoc

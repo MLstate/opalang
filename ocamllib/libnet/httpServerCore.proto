@@ -32,10 +32,10 @@
 %-modalias S = String
 
 % This will be for the raw parser
-%-include "libnet/httpMessages.proto"
+%-include "ocamllib/libnet/httpMessages.proto"
 
--include "libnet/http_messages.proto"
--include "libnet/http_rr.proto"
+-include "ocamllib/libnet/http_messages.proto"
+-include "ocamllib/libnet/http_rr.proto"
 
 -define Crlf = "\r\n"
 -define EndBoundary b = "--" !"\r\n" b "--\r\n"
@@ -74,7 +74,7 @@
   }
 
 -type payload = string * (header list)
--include "libnet/rt_proto.proto"
+-include "ocamllib/libnet/rt_proto.proto"
 
 -type rt_tmp =
   {

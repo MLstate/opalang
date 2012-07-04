@@ -41,7 +41,7 @@
 }
 
 -type payload = unit
--include "libnet/rt_proto.proto"
+-include "ocamllib/libnet/rt_proto.proto"
 
 -type runtime = {
     rt_plim : int;

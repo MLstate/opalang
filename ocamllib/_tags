@@ -4,3 +4,11 @@
 #
 
 <{appruntime,database,libbase,libirc,libnet,libruntime,libsecurity,libsession,libtools,oparuntime}>: traverse
+
+<{libbase.{cma,cmxa},ocamlbase.top}>: use_stubs
+<ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex, iconv
+
+<libsecurity.*a>: use_ssl_ext
+<appruntime.*a>: use_io
+
+<libnattraversal.*a>: use_miniupnpc_idl, use_natpmp_idl

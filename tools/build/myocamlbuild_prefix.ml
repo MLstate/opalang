@@ -40,6 +40,7 @@ let windows_mode = (os = Win32)
 
 let c_wall,c_werror =
   if windows_mode (*&& compiler=microsoft*) then "/Wall","/Wall"
+    (* -Wdeprecated-declarations added for OpenSSL deprecation on 10.8 *)
   else if is_mac then "-Wall -Wdeprecated-declarations","-Wall"
   else "-Wall","-Werror"
 
@@ -106,11 +107,10 @@ let set_tool ~internal ?(env="") name f =
   in Hashtbl.add tools_table name tool
 
 let tool_deps name =
-  try
-    (match Hashtbl.find tools_table name with
-       | Internal f -> [f]
-       | External f -> [])
-  with Not_found -> failwith ("Build tool not found (tool_deps) : "^name)
+  try begin match Hashtbl.find tools_table name with
+  | Internal f -> [f]
+  | External f -> []
+  end with Not_found -> failwith ("Build tool not found (tool_deps) : "^name)
 
 let get_tool ?local:(local=false) name =
   try
@@ -156,7 +156,8 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
             aux (((f :: path), deps) :: (path, rest) :: todo) in
     aux [[], [f]]
   in
-  let trx_cache_tag = Tags.does_match (tags_of_pathname (env src)) (Tags.of_list ["trx_cache"]) in
+  let trx_cache_tag =
+    Tags.does_match (tags_of_pathname (env src)) (Tags.of_list ["trx_cache"]) in
   let do_build () =
     transitive_deps build (env src);
     let trxexec = get_tool trx_tool in
@@ -270,6 +271,12 @@ let _ = dispatch begin function
 
       let ocaml_lib ?(extern=false) ?dir ?tag_name lib =
         let tag_name = match tag_name with None -> "use_"^lib | Some n -> n in
+	let lib = match dir with
+	| Some d ->
+	    let dir = Pathname.dirname d in
+	    if String.get dir 0 == '/' then lib
+	    else dir/lib
+	| None  -> lib in
         ocaml_lib ~extern ?dir ~tag_name lib;
         match dir with Some dir -> flag ["use_"^lib; "doc"] (S[A"-I"; P dir])
         | None -> ()
@@ -297,8 +304,9 @@ let _ = dispatch begin function
           let dir = match dir with None -> lib | Some dir -> dir in
           Hashtbl.add mlstate_libs_table lib ([lib],dir);
           ocaml_lib ~dir lib;
-          dep ["use_"^lib; "byte"] [(Pathname.dirname dir)/(lib^".cma")];
-          dep ["use_"^lib; "native"] [(Pathname.dirname dir)/(lib^".cmxa")]
+	  let pfx = Pathname.dirname dir in
+          dep ["use_"^lib; "byte"] [pfx/lib^".cma"];
+          dep ["use_"^lib; "native"] [pfx/lib^".cmxa"];
           (* How this works: the ~dir is only the top-level of the lib, hence
              the .cmi from sub-directories are not seen. That's good, use them
              for modules internal to your library *)

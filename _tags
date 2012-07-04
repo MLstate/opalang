@@ -9,39 +9,8 @@
 # Default : do not include or traverse anything
 # <**/*>: -include, -traverse
 
-<tools/dependencies>: -include, -traverse
-
 # Subdirectories to include
-<{ocamllib,compiler,lib,tools}>: include, traverse
+<{ocamllib,compiler,lib,tools}>: include
 
 # Warnings
 <**/*.ml>: warn_L, warn_Z, warn_error_A
-
-# # -- from opageneral --
-
-# <{utils,buildinfos}>: traverse
-
-# # -- from libqml --
-
-# <{pplib,libbase,compilerlib,passlib,libtrx,jslang,ocamllang,libqmlcompil,libruntime,oparuntime,database,teerex,libbsl,qmlslicer,ulex,qmlpasses,libsession}>: traverse
-
-# <{libbase.{cma,cmxa},ocamlbase.top}>: use_stubs
-# <ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex, iconv
-
-# # -- from qml2llvm --
-
-# <{opatop,qmlflat,qmlcps,qml2ocaml,qml2js,qmljsimp,qmlcompilers,tools}>: traverse
-
-# # -- from opa --
-
-# <{opacapi,opalib,shared,opa,plugins,opabsl,test,opalang,passes,stdlib,ml2opa}>: traverse
-
-# # -- from appserver --
-# <{appruntime,libnet,libsecurity,libtools,protocols,opasmanagers}>: traverse
-# <libsecurity.*a>: use_ssl_ext
-# <appruntime.*a>: use_io
-# <libnattraversal.*a>: use_miniupnpc_idl, use_natpmp_idl
-
-# # --
-# <{dissemination}>: traverse
-# <{libirc}>: traverse

@@ -1,7 +1,7 @@
 % vim: syntax=erlang
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -21,7 +21,7 @@
 -generate client
 -protocol IRC
 -debugvar PROTOCOL_DEBUG
--include "libirc/ircMessages.proto"
+-include "ocamllib/libirc/ircMessages.proto"
 
 -type irc = {
     username:string;

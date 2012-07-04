@@ -1,6 +1,9 @@
 <{mouse,java}>: traverse
+
 <*.trx>: trx_cache
-<*.{ml,mli,byte,native}>: use_str, use_ulex, use_libbase, use_compilerlib, use_passlib, use_graph, use_libtrx, use_ocamllang, use_zip, use_buildinfos
+
+<*.{ml,mli,byte,native}>: use_str, use_libbase, use_compilerlib, use_graph, use_libtrx, use_ocamllang, use_zip, use_buildinfos
+#, use_passlib, use_ulex,
 
 <trx_ocaml.{byte,native}>: thread, use_unix
 <trx_ocaml_main.{byte,native}>: thread, use_unix

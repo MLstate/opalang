@@ -1,7 +1,7 @@
 -generate server (* -*-erlang-*- *)
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -23,7 +23,7 @@
 % ftpServer:
 %   o Conforms to RFC1123 updated minimal server requirements.
 %
-  
+
 % TODO: (-=todo, /=partial, +=done)
 %   o RFC959
 %     + USER <SP> <username> <CRLF>
@@ -77,10 +77,10 @@
 -open Printf
 -open FtpServerType
 
--include "libnet/ftpResponses.proto"
--include "libnet/ftpMessages.proto"
+-include "ocamllib/libnet/ftpResponses.proto"
+-include "ocamllib/libnet/ftpMessages.proto"
 -type payload = unit
--include "libnet/rt_proto.proto"
+-include "ocamllib/libnet/rt_proto.proto"
 
 -type runtime = {
     rt_plim : int;
@@ -110,7 +110,7 @@ wait_for_login(state):
        let state = {{ {state with is_admin = false; user = Some str} }}
        send(OkLogin);
        wait_for_request(state)
-  | Syst -> 
+  | Syst ->
         {{ Printf.eprintf "Syst\n%!" }}
         send(OkSyst);
         wait_for_login(state)
@@ -118,7 +118,7 @@ wait_for_login(state):
         let str = {{ state.goodbye_message }}
         send(Bye str);
         -!-
-  | msg -> 
+  | msg ->
        {{ Printf.eprintf "Error %s\n%!" (string_of_msg msg) }}
        send(ErrLogin);
        wait_for_login(state)
@@ -367,7 +367,7 @@ do_wait_for_request(state):
         change_dir(state,str)
 
   % Return current directory
-  | Pwd -> 
+  | Pwd ->
         let s = {{ pwd state }}
         send(OkPwd s);
         wait_for_request(state)
@@ -401,7 +401,7 @@ do_wait_for_request(state):
         ;
 
   % Define the data port, addr and port no.
-  | Port str -> 
+  | Port str ->
 	let state_ok = {{ set_port state str }}
         let state = {{ fst state_ok }}
         if {{ snd state_ok }}
@@ -414,7 +414,7 @@ do_wait_for_request(state):
 	end
 
   % Set the transfer type
-  | Type str -> 
+  | Type str ->
 	let state_msg = {{ set_type state str }}
         let state = {{ fst state_msg }}
 	let msg = {{ snd state_msg }}
@@ -429,7 +429,7 @@ do_wait_for_request(state):
           wait_for_request(state)
 
   % Set the data structure
-  | Stru str -> 
+  | Stru str ->
 	let state_msg = {{ set_structure_code state str }}
         let state = {{ fst state_msg }}
 	let msg = {{ snd state_msg }}
@@ -444,7 +444,7 @@ do_wait_for_request(state):
           wait_for_request(state)
 
   % Set the transfer mode
-  | Mode str -> 
+  | Mode str ->
         match {{ set_transfer_mode state str }} with
 	| (state,"200") ->
 	  send(OkCmd "Command okay.");
@@ -522,24 +522,24 @@ do_wait_for_request(state):
           wait_for_request(state)
 
   % Delete file
-  | Dele str -> 
+  | Dele str ->
         file_action(state,str,delete_folder)
 
   % Create directory.
-  | Mkd str -> 
+  | Mkd str ->
         file_action(state,str,create_directory)
 
   % Create directory.*)
-  | Rmd str -> 
+  | Rmd str ->
         file_action(state,str,delete_directory)
 
   % System type, just send the usual UNIX one.
-  | Syst -> 
+  | Syst ->
         send(OkSyst);
         wait_for_request(state)
 
   % System type, just send the usual UNIX one.
-  | Stat -> 
+  | Stat ->
         send(OkStat211a);
         let statstr = {{ server_status state conn }}
         send(Dummy statstr);
@@ -547,50 +547,50 @@ do_wait_for_request(state):
         wait_for_request(state)
 
   % Seems to be redundant
-  | Allo1 -> 
+  | Allo1 ->
         send(OkAllo);
         wait_for_request(state)
-  | Allo2 _ -> 
+  | Allo2 _ ->
         send(OkAllo);
         wait_for_request(state)
-  | Allo3 _ -> 
+  | Allo3 _ ->
         send(OkAllo);
         wait_for_request(state)
 
   % File size, with no argument???
-  | Size -> 
+  | Size ->
         send(ErrNoSize);
         wait_for_request(state)
 
   % File size, as it would be transmitted
-  | SizeS _ -> 
+  | SizeS _ ->
         send(ErrNoSize);
         wait_for_request(state)
 
   % File mdtm, with no argument???
-  | Mdtm -> 
+  | Mdtm ->
         send(ErrNoMdtm);
         wait_for_request(state)
 
   % File modification time
-  | MdtmS _ -> 
+  | MdtmS _ ->
         send(ErrNoMdtm);
         wait_for_request(state)
 
   % Help string, just send implemented commands.
-  | Help -> 
+  | Help ->
         transmit_help(state)
 
-  | HelpS _ -> 
+  | HelpS _ ->
         transmit_help(state)
 
   % Account, not implemented.
-  | Acct _ -> 
+  | Acct _ ->
         send(ErrAcct);
         wait_for_request(state)
 
   % Do nothing, but it's in the minimal spec.
-  | Noop -> 
+  | Noop ->
         send(OkCmd "Command okay.");
         wait_for_request(state)
 
@@ -610,7 +610,7 @@ do_wait_for_request(state):
 	send(ErrTime);
         let str = {{ state.goodbye_message }}
 	send(Bye str);
-	-!- 
+	-!-
 
 set_pasv_port_conn(state):
   let _ = {{ sched }}

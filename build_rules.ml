@@ -106,7 +106,7 @@ let magic_import_from_opabsl dest f =
           ])
 in
 List.iter
-  (fun m -> magic_import_from_opabsl "opatop" (m ^ ".ml"))
+  (fun m -> magic_import_from_opabsl "compiler/opatop" (m ^ ".ml"))
   [ "opabslgenMLRuntime"; "opabslgenLoader" ];
 
 
@@ -161,14 +161,14 @@ generate_ocamldep_rule "mli";
 (* -- Macro-rules generating mlstate_platform.h files -- *)
 (* TODO BUG 2 : droits du script invalides *)
 (* TODO BUG 3 : path du fichier généré foireux *)
-rule "mlstate_platform: () -> libbase/mlstate_platform.h"
+rule "mlstate_platform: () -> ocamllib/libbase/mlstate_platform.h"
   ~deps:(tool_deps "mlstate_platform")
-  ~prods:["libbase/mlstate_platform.h"]
+  ~prods:["ocamllib/libbase/mlstate_platform.h"]
   (fun env build ->
      Seq[
-       Cmd(S[Sh"chmod +x"; P "libbase/gen_platform"]);
+       Cmd(S[Sh"chmod +x"; P "ocamllib/libbase/gen_platform"]);
        Cmd(S[get_tool "mlstate_platform"; A (if windows_mode then "WIN" else "")]);
-       Cmd(S[Sh"mv mlstate_platform.h libbase/mlstate_platform.h"])
+       Cmd(S[Sh"mv mlstate_platform.h ocamllib/libbase/mlstate_platform.h"])
      ]
   );
 
@@ -189,8 +189,8 @@ let stdlib_files =
 in
 rule "stdlib embedded: stdlib_files -> opalib/staticsInclude.of"
   ~deps:stdlib_files
-  ~prod:"opalib/staticsInclude.of"
-  (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, "opalib/staticsInclude.of"));
+  ~prod:"compiler/opalib/staticsInclude.of"
+  (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, "compiler/opalib/staticsInclude.of"));
 
 let opa_opacapi_files =
   let dirs = rec_subdirs ["lib/stdlib"] in
@@ -204,12 +204,12 @@ let opa_opacapi_plugins = ["badop"] in
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
   ~deps:("compiler/opa/checkopacapi.native" :: opa_opacapi_files
-         @ List.map (fun x -> Printf.sprintf "plugins/%s/%s.oppf" x x)
+         @ List.map (fun x -> Printf.sprintf "lib/plugins/%s/%s.oppf" x x)
          opa_opacapi_plugins)
   ~prod:opacapi_validation
   (fun env build ->
      Cmd(S ([
-              P "./opa/checkopacapi.native" ;
+              P "./compiler/opa/checkopacapi.native" ;
               A "-o" ;
               P opacapi_validation ;
             ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
@@ -248,7 +248,7 @@ let parser_files =
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
-let opaParserVersion = "opalang"/"classic_syntax"/"opaParserVersion.ml"
+let opaParserVersion = "compiler"/"opalang"/"classic_syntax"/"opaParserVersion.ml"
 in
 rule "opa parser version: opalang/*_syntax/* stdlib -> opalang/classic_syntax/opaParserVersion.ml"
   ~deps:parser_files
@@ -494,7 +494,7 @@ rule "opabsl_sources"
                A"--verbose";
               ]
               @special_bsl_options@
-                List.map (fun s -> P (".."/s)) (
+                List.map (fun s -> P (".."/".."/s)) (
                   js_conf :: all_sources_bsl
                 )));
         mv "lib/opabsl/opabslgenMLRuntime.ml" "lib/opabsl/opabslgenMLRuntime_x.ml";
@@ -510,9 +510,9 @@ rule "opa-bslgenMLRuntime interface validation"
   ]
   ~prod: "lib/opabsl/opabslgenMLRuntime.ml"
   (fun env build ->
-    Seq[
-    cp "lib/opabsl/opabslgenMLRuntime_x.ml" "lib/opabsl/opabslgenMLRuntime.ml";
-  ]
+     Seq[
+       cp "lib/opabsl/opabslgenMLRuntime_x.ml" "lib/opabsl/opabslgenMLRuntime.ml";
+     ]
   );
 
 let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "lib/opabsl/jsbsl" in
@@ -556,13 +556,13 @@ rule "Client lib JS validation"
             A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
             A"--js"             :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
             A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
-            A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
+            A"--js"             :: A "compiler/qmlcps/qmlCpsClientLib.js" ::
             []
         ))
       ]
    in
     Seq (
-      run_check "qmljsimp/qmlJsImpClientLib.js" "lib/opabsl/js_validation/imp_client_lib.js"
+      run_check "compiler/qmljsimp/qmlJsImpClientLib.js" "lib/opabsl/js_validation/imp_client_lib.js"
     )
  );
 
@@ -913,7 +913,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
   (fun env build ->
      try
        let plugins = string_list_of_file all_plugins_file in
-       let plugins = List.map (fun f -> "plugins" /  f / f -.- "oppf") plugins in
+       let plugins = List.map (fun f -> "lib/plugins" /  f / f -.- "oppf") plugins in
        build_list build plugins;
        let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =

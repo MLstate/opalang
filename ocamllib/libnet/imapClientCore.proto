@@ -1,7 +1,7 @@
 % -*-proto-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -91,7 +91,7 @@
 }
 
 -type payload = unit
--include "libnet/rt_proto.proto"
+-include "ocamllib/libnet/rt_proto.proto"
 
 -type rt_tmp =
   {

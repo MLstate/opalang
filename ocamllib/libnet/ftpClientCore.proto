@@ -1,7 +1,7 @@
 % -*-erlang-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -38,7 +38,7 @@
   content_hint:int
 }
 
--type result = 
+-type result =
   | Ok of content
   | Error of string
 
@@ -67,7 +67,7 @@
 -define (ENs (num : int, str)) = num "-" str "\r\n"
 -define (Ns (num : int, str))  = num " " str "\r\n"
 
--include "libnet/ftpMessages.proto"
+-include "ocamllib/libnet/ftpMessages.proto"
 
 {{
 let dlog sep code _msg = Logger.debug "<<< %d%s%s" code sep _msg
@@ -196,7 +196,7 @@ input_ascii_file(state, ftp, content_ref):
 %%     % TODO: crlf conversion??? (BIN mode).
 %%     %let buff = {{ FtpServerType.crlf2cr buff }}
 %%     input_ascii_file(state, ftp, content_ref)
-    
+
 
 %% input_ascii_file_n(state, ftp, content):
 %%   debug 2 {{ Logger.debug "input_ascii_file_n" }}

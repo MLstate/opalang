@@ -1,7 +1,7 @@
 % -*-proto-*-
 
 %
-%   Copyright © 2011 MLstate
+%   Copyright © 2011, 2012 MLstate
 %
 %   This file is part of OPA.
 %
@@ -53,7 +53,7 @@
 }
 
 -type payload = unit
--include "libnet/rt_proto.proto"
+-include "ocamllib/libnet/rt_proto.proto"
 %-type rt_proto = {
 %  rt_block_size : int;
 %  rt_backtrace : bool;
@@ -209,7 +209,7 @@ data(mail, tools):
       {{ Buffer.add_string mail.sent dot_stuff }}
       send (RawInput dot_stuff);
       enddata(mail, tools, {{ String.is_suffix "\r\n" dot_stuff }})
-  | ENs (a, b) -> 
+  | ENs (a, b) ->
     debug {{ eprintf "data received ENs: %d %s\n" a b }}
     {{ tools.elog a b }} handle_error(tools, a,b)
   | Ns (a, b) ->  {{ tools.log a b }} handle_error(tools, a, b)
