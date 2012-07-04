@@ -977,7 +977,6 @@ let _ =
 
     if !auto_build && BR.need_makefile finalized_t then (
       OManager.verbose "building plugin...";
-      Printf.printf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile);
       let ret = Sys.command (Printf.sprintf "%s -C %s -f %s" Config.makebinary !opp_dir (Filename.basename !makefile)) in
       if ret <> 0
       then
