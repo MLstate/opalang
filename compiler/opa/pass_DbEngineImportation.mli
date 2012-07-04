@@ -17,7 +17,7 @@
 *)
 
 (**
-   This pass import the database runtime if needed.
+   This pass imports the database runtime if needed.
 *)
 val process_code : stdlib:bool -> ('ident, 'dir) SurfaceAst.code -> unit
 

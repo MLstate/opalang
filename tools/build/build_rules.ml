@@ -450,7 +450,8 @@ rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
 
 rule "opa_plugin_dir: opa_plugin -> oppf"
   ~deps:("%.opa_plugin" :: "lib/opabsl/opabslgenMLRuntime.cmx" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
-  ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
+  ~prod:"%.oppf" (* use a dummy target because ocamlbuild
+                    doesn't accept directory targets *)
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
