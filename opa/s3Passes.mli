@@ -108,12 +108,11 @@ val pass_ParseSugar :
 
 val pass_Print :
   (
-    ((
+    (
       ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
       * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
       )
-    )
-    * env_OpenFiles) as 'parsed_files
+    ) as 'parsed_files
   ,
     'parsed_files
   ) opa_pass

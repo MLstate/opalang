@@ -489,7 +489,7 @@ let pass_Print =
                 ~filename:fn
                 (File.content fn)
             with _ -> assert false)
-         ) (snd (fst e.PH.env));
+         ) (snd e.PH.env);
        e
     )
 
