@@ -518,6 +518,7 @@ type XmlParser.env = {
     xbind : XmlNsEnv.t;
 }
 
+@opacapi
 @abstract
 type XmlParser.t('result, 'attributes, 'extensions) = {
     /* Parse function take a list of xml, and a map which contains namespaces
