@@ -283,7 +283,6 @@ Server_private = {{
             | resource=DynamicResource.parser_() -> export(winfo, resource)
             | js_parser   -> export(winfo, provide_js)
             | css_parser  -> export(winfo, provide_css)
-            | "src_code" -> export(winfo, AppSources.page())
             | "null" -> export(winfo, Resource.raw_text(""))
             | "about/opa" -> export(winfo, page_version)
             | .* -> wrong_address("internal resource")

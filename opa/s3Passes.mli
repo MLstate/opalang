@@ -93,7 +93,7 @@ val pass_Parse :
     env_OpenFiles,
     ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
     * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
-    ) * env_OpenFiles
+    )
   )
   opa_pass
 
@@ -102,7 +102,7 @@ val pass_ParseSugar :
     env_OpenFiles,
     ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
     * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
-    ) * env_OpenFiles
+    )
   )
   opa_pass
 
@@ -114,18 +114,6 @@ val pass_Print :
       )
     )
     * env_OpenFiles) as 'parsed_files
-  ,
-    'parsed_files
-  ) opa_pass
-
-val pass_RegisterAppSrcCode :
-  (
-    (
-      ( SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
-      * SurfaceAst.parsing_directive SurfaceAstPassesTypes.parsed_file list
-      ) as 'parsed_files
-    )
-    * env_OpenFiles
   ,
     'parsed_files
   ) opa_pass

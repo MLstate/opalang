@@ -67,8 +67,6 @@ let () =
 
   |+> ("Parse", S3.pass_Parse)
 
-  |+> ("RegisterAppSrcCode", S3.pass_RegisterAppSrcCode)
-
   (**********************************************)
   (* SURFACE AST PASSES *************************)
   |> PH.handler ~count_time:false "LoadObjects" (S3.pass_LoadObjects (fun e -> e

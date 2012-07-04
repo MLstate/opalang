@@ -801,11 +801,4 @@ struct
     let start = !! "start"
   end
 
-  module BslAppSrcCode =
-  struct
-    let (!!) s = !! ("BslAppSrcCode." ^ s)
-    let register_src_code = !! "register_src_code"
-    let register_special_src_code = !! "register_special_src_code"
-  end
-
 end
