@@ -230,7 +230,6 @@ module LocMap = ListMap.Make(BslKey)
 
 let core_types =
   [
-    "char";
     "float";
     "int";
     "OPA.Init.value";
@@ -344,8 +343,7 @@ let _ =
             if B.ByPass.implemented_in bypass ~lang:BslLanguage.ml
             then server_unused
             else (
-              OManager.printf "checkopacapi: %a@\n" BslKey.pp key ;
-              assert false
+              OManager.i_error "checkopacapi: %a@\n" BslKey.pp key ;
           )
         in
         incr(unused_bypass);
