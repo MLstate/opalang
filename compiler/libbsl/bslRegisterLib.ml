@@ -1119,7 +1119,7 @@ let js_validator finalized_t =
       else Format.pp_print_string
     )
     in
-    let command = Format.sprintf "%s %a %a %a"
+    let command = Format.sprintf "%s %a %a %a --js_output_file output.js"
       executable
       pp_str_list cmd_options
       pp_extern_files_list extern_files
