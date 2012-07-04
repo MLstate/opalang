@@ -363,8 +363,12 @@ let accept_js_validation_failure = ["server"]
 in
 (* -- file that are only needed for validation process -- *)
 let jschecker_file s =
-  let prefix = "jschecker_" in
-  try String.sub (Pathname.basename s) 0 (String.length prefix) = prefix with _ -> false
+  let suffix = ".externs.js" in
+  let suflen = String.length suffix in
+  let s = Pathname.basename s in
+  let start = (String.length s) - suflen in
+  s = "externs.js" ||
+      try String.sub s start suflen = suffix with _ -> false
 in
 let gen_tag prefix s =
   let pfx = prefix ^ "_" in
@@ -449,7 +453,9 @@ rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
   (opa_plugin_deps "%.opa_plugin" "%.opa_plugin.depends");
 
 rule "opa_plugin_dir: opa_plugin -> oppf"
-  ~deps:("%.opa_plugin" :: "lib/opabsl/opabslgenMLRuntime.cmx" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
+  ~deps:("%.opa_plugin" :: "lib/plugins/opabsl/opabslgenMLRuntime.cmx" ::
+            (tool_deps "jschecker.jar") @ (tool_deps "ppdebug") @
+            (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild
                     doesn't accept directory targets *)
   (opp_build "%.opa_plugin" "%" "%.oppf")
@@ -559,9 +565,9 @@ rule "Client lib JS validation"
             A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
             A"--js_output_file" :: A output_file ::
             A"--js"             :: A clientlib ::
-            A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-            A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-            A"--js"             :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
+            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
+            A"--js"             :: A "lib/plugins/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
             A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
             A"--js"             :: A "compiler/qmlcps/qmlCpsClientLib.js" ::
             []
