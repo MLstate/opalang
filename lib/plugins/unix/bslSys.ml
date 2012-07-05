@@ -11,7 +11,7 @@
 *)
 module String = Base.String
 
-module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+module BslNativeLib = OpabslMLRuntime.BslNativeLib
 
 ##opa-type list('a)
 

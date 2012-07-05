@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -16,6 +16,6 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 let _ =
-  OpabslgenLoader.Self.self_store () ;
+  OpabslLoader.Self.self_store () ;
   ObjectFiles.turn_separated_off () ;
   OpaTopMain.main ()

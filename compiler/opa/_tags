@@ -9,7 +9,7 @@
 # it help as well to see what depends still on liboldqml.
 # Please, keep it so until the refactoring is finished
 
-<checkopacapi.{ml,byte,native}>: use_opalang, use_libbsl, use_libqmlcompil, use_compilerlib, use_pplib
+<checkopacapi.{ml,byte,native}>: use_opalang, use_opabsl_for_compiler, use_libbsl, use_libqmlcompil, use_compilerlib, use_pplib
 
 <compilationUtils.ml>: use_opalib
 <pass_FunActionEnvSerialize.{ml,mli}>: use_libqmlcompil, use_opalang, use_opalib, use_jslang, use_qmlpasses
@@ -42,7 +42,7 @@
 
 <pass_AddStdlibFiles.{ml,mli}>: use_compilerlib, use_opalib
 
-<pass_BslLoading.{ml,mli}>: use_libbsl, use_opalib, use_qmlflatcompiler, use_qmljsimp, use_qml2ocaml, use_qml2js, use_opalang, use_libqmlcompil
+<pass_BslLoading.{ml,mli}>: use_libbsl, use_opalib, use_opabsl_for_compiler, use_qmlflatcompiler, use_qmljsimp, use_qml2ocaml, use_qml2js, use_opalang, use_libqmlcompil
 
 <s3Warnings.{ml,mli}>: use_compilerlib, use_libqmlcompil, use_qmlpasses, use_opapasses, use_qmljsimp, use_qmlflatcompiler, use_qmlslicer, use_opalang
 
@@ -59,7 +59,7 @@
 <syntaxHelper.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib
 
 # linking
-<{main,opa_parse,checkopacapi,gen_opa_manpage,syntaxHelper}.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi
+<{main,opa_parse,checkopacapi,gen_opa_manpage,syntaxHelper}.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi
 
 <opa_InsertRemote.ml>: with_mlstate_debug
 <main_utils.ml>: with_mlstate_debug

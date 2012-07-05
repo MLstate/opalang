@@ -7,8 +7,7 @@
 <gen_opatop_manpage.*>: use_pplib
 <opatop.*>: use_pplib
 
-<opabslgenMLRuntime.ml>: warn_e, warn_z
-<opabslgenMLRuntime.ml>: with_mlstate_debug
+<opatop.native>: use_opabsl
 
 # ppdebug
 <opaTopEnv.ml>       : with_mlstate_debug

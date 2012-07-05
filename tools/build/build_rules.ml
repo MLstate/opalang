@@ -342,18 +342,7 @@ in
 let js_checker =
   let local = windows_mode in
   A"java" :: A"-jar"  :: (get_tool ~local "jschecker.jar") ::
-(*    A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
-    A"--externs"        :: (get_tool ~local "jschecker_jquery.js") ::
-    A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
-    A"--js_output_file" :: A output_file :: *)
-    google_closure_compiler_options (*@
-    A"--js"             :: A clientlib ::
-    A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-    A"--js"             :: A "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-    A"--js"             :: A "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
-    A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
-    A"--js"             :: A"qmlcps/qmlCpsClientLib.js" ::
-    []*)
+    google_closure_compiler_options
 in
 
 (* -- opa plugin -- *)
@@ -462,7 +451,7 @@ rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
   (opa_plugin_deps "%.opa_plugin" "%.opa_plugin.depends");
 
 rule "opa_plugin_dir: opa_plugin -> oppf"
-  ~deps:("%.opa_plugin" :: "compiler/libbsl.cma" :: "lib/plugins/opabsl/opabslgenMLRuntime.cmx" ::
+  ~deps:("%.opa_plugin" :: "compiler/libbsl.cma" ::
             (tool_deps "jschecker.jar") @ (tool_deps "ppdebug") @
             (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild
