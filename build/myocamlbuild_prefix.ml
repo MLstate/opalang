@@ -87,6 +87,9 @@ let proto_deps dep prod env build =
         Sh("| perl -p -e 's/^ *([-]include) +\"([^ ]+)\".*/\\2/'");
         Sh("> "^(env prod))])
 
+let opa_plugin_deps dep prod env build =
+  Cmd(S[Sh(Printf.sprintf "cp \"%s\" \"%s\"" dep prod)])
+
 let build_list build targets = List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
 
 let mlstatelibs = try Sys.getenv "MLSTATELIBS" with

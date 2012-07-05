@@ -439,6 +439,11 @@ let opp_build opa_plugin opp oppf env build =
   Seq[Cmd(S(opa_plugin_builder::options));
       Cmd(S[A"touch"; P(env oppf) ] )]
 in
+rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
+  ~dep:"%.opa_plugin"
+  ~prod:"%.opa_plugin.depends"
+  (opa_plugin_deps "%.opa_plugin" "%.opa_plugin.depends");
+
 rule "opa_plugin_dir: opa_plugin -> oppf"
   ~deps:("%.opa_plugin" :: "opabsl/opabslgenMLRuntime.cmx" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
