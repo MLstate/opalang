@@ -4,10 +4,10 @@
 
 # Caution: used by many scripts, in particular, make_distrib.sh
 
-database.cmxa
-libbase.cmxa
-libtrx.cmxa
-qml2ocaml.cmxa
-qmlflatcompiler.cmxa
-opalib.cmxa
-opabsl_for_compiler.cmxa
+ocamllib/database.cmxa
+ocamllib/libbase.cmxa
+compiler/libtrx.cmxa
+compiler/qml2ocaml.cmxa
+compiler/qmlflatcompiler.cmxa
+compiler/opalib.cmxa
+lib/opabsl_for_compiler.cmxa

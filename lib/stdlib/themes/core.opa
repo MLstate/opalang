@@ -21,7 +21,7 @@ type Themes.state = stringmap(stringmap(finite_single_thread_lazy(string)))
 Themes = {{
 
   @private
-  dir = "stdlib/themes/"
+  dir = "lib/stdlib/themes/"
 
   @private
   default_theme_name = "default"

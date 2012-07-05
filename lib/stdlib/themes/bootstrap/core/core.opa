@@ -80,10 +80,10 @@ Bootstrap = {{
   /** Opa resources **/
 
   @private
-  opa_resources_path = "stdlib/themes/bootstrap/opa-resources"
+  opa_resources_path = "lib/stdlib/themes/bootstrap/opa-resources"
 
   @private
-  opa_resources = @static_include_directory("stdlib/themes/bootstrap/opa-resources")
+  opa_resources = @static_include_directory("lib/stdlib/themes/bootstrap/opa-resources")
 
   @private
   uri_opa = Map.mapi(publish, opa_resources)
@@ -97,10 +97,10 @@ Bootstrap = {{
   /** Font Awesome resources **/
 
   @private
-  font_awesome_resources_path = "stdlib/themes/bootstrap/font-awesome"
+  font_awesome_resources_path = "lib/stdlib/themes/bootstrap/font-awesome"
 
   @private
-  font_awesome_resources = @static_include_directory("stdlib/themes/bootstrap/font-awesome")
+  font_awesome_resources = @static_include_directory("lib/stdlib/themes/bootstrap/font-awesome")
 
   @private
   uri_font_awesome = Map.mapi(publish, font_awesome_resources)
@@ -114,10 +114,10 @@ Bootstrap = {{
   /** Bootstrap resources **/
 
   @private
-  bs_resources_path = "stdlib/themes/bootstrap/bs-resources"
+  bs_resources_path = "lib/stdlib/themes/bootstrap/bs-resources"
 
   @private
-  bs_resources = @static_include_directory("stdlib/themes/bootstrap/bs-resources")
+  bs_resources = @static_include_directory("lib/stdlib/themes/bootstrap/bs-resources")
 
   @private
   uri_bs = Map.mapi(publish, bs_resources)

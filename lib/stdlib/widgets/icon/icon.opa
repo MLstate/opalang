@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -79,7 +79,7 @@ WIcon =
   }
 
   @private predefined_image: WIcon.predefined -> { url: string; pos: (int, int); size: (int, int) } =
-    predefined_icon_grid = @static_resource("stdlib/widgets/icon/icon_grid-16x16.gif")
+    predefined_icon_grid = @static_resource("lib/stdlib/widgets/icon/icon_grid-16x16.gif")
     predefined_icon_grid_parameters = { consumption={unlimited}; expiration={none}; visibility={current_context} }
     predefined_url = DynamicResource.publish("", predefined_icon_grid, predefined_icon_grid_parameters)
     w = 16; h = 16;

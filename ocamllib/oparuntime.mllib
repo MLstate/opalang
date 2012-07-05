@@ -1,3 +1,3 @@
-oparuntime/QmlClosureRuntime
-oparuntime/PingRegister
-oparuntime/JsMinify
+ocamllib/oparuntime/QmlClosureRuntime
+ocamllib/oparuntime/PingRegister
+ocamllib/oparuntime/JsMinify

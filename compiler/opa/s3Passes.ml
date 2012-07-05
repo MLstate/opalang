@@ -392,7 +392,7 @@ let pass_AddStdlibFiles =
              then Pass_AddStdlibFiles.of_static_include options
              else
                (* keep in sync with build_rules *)
-               Pass_AddStdlibFiles.of_basedir [ "stdlib/core" ; "stdlib/tests" ] options
+               Pass_AddStdlibFiles.of_basedir [ "lib/stdlib/core" ; "lib/stdlib/tests" ] options
          in
          if ObjectFiles.Arg.is_separated ()
          then

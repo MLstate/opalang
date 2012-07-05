@@ -1,2 +1,2 @@
-plugins/webtoplib.otarget
-plugins/testSlicer.otarget
+lib/plugins/webtoplib.otarget
+lib/plugins/testSlicer.otarget

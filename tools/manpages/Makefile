@@ -39,24 +39,24 @@ $(TARGETDIR)/%.1: %.man
 $(BLDDIR)/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpage.ml
 	cd ../..; $(OCAMLBUILD) compiler/opa/gen_opa_manpage.native
 
-$(TARGETDIR)/opa.1: $(BLDDIR)/opa/gen_opa_manpage.native
+$(TARGETDIR)/opa.1: $(BLDDIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 
 $(BLDDIR)/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
 	cd ../..; $(OCAMLBUILD) compiler/opatop/gen_opatop_manpage.native
 
-$(TARGETDIR)/opatop.1: $(BLDDIR)/opatop/gen_opatop_manpage.native
+$(TARGETDIR)/opatop.1: $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 
 # --
 # third run our hackish conversion tool help->manpage
 # --
-GENMAN=$(BLDDIR)/manpages/genman.native
+GENMAN=$(BLDDIR)/tools/manpages/genman.native
 
 $(GENMAN): genman.ml
-	cd ..; $(OCAMLBUILD) -cflags "-w -14" manpages/genman.native
+	cd ../..; $(OCAMLBUILD) -cflags "-w -14" tools/manpages/genman.native
 
 $(TARGETDIR)/%.help: $(BLDDIR)/bin/%
 	@mkdir -p $(TARGETDIR)

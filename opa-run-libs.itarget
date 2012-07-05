@@ -1,0 +1,27 @@
+# This file lists all libs that are LINKED to opa servers.
+# As a consequence, opa needs their interface.
+# (libs that are linked indirectly, eg used by the libs here
+# but not directly by the server, can safely be skipped and
+# put in opa-compile-libs.itarget)
+
+# Caution: used by many scripts, in particular, make_distrib.sh
+
+#compiler/qml2ocaml.cmxa
+ocamllib/database.cmxa
+compiler/buildinfos.cmxa
+ocamllib/libbase.cmxa
+compiler/libtrx.cmxa
+compiler/qmlflatserver.cmxa
+compiler/qmlcpsserver.cmxa
+lib/opabsl_for_server.cmxa
+ocamllib/libruntime.cmxa
+ocamllib/appruntime.cmxa
+ocamllib/oparuntime.cmxa
+ocamllib/libnet.cmxa
+ocamllib/libsecurity.cmxa
+ocamllib/libtools.cmxa
+#compiler/protocols.cmxa
+ocamllib/libsession.cmxa
+ocamllib/libnet/runtimeMain.cmx
+ocamllib/libnet/runtimeMain.o
+ocamllib/libirc.cmxa

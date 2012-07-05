@@ -318,7 +318,9 @@ let _ = dispatch begin function
         in
         let mlstate_lib_dir l =
           try snd (Hashtbl.find mlstate_libs_table l) (* returned without extension *)
-          with Not_found -> prerr_endline ("WARNING: lib "^l^" not found"); "."
+          with Not_found ->
+	    prerr_endline ("WARNING: lib "^l^" not found");
+	    if Sys.file_exists l then l else "."
         in
         mlstate_lib, internal_lib, mlstate_lib_deps, mlstate_lib_dir
       in

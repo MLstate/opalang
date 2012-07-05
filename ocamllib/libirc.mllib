@@ -1,3 +1,3 @@
-libirc/IrcBot
-libirc/IrcBotCore
-libirc/IrcBotCore_parse
+ocamllib/libirc/IrcBot
+ocamllib/libirc/IrcBotCore
+ocamllib/libirc/IrcBotCore_parse

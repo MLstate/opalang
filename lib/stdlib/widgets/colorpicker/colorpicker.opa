@@ -58,11 +58,11 @@ type WColorpicker.mode =
 
 WColorpicker = {{
   @private
-  map_saturation_overlay = @static_resource("stdlib/widgets/colorpicker/resource/map-saturation-overlay.png")
+  map_saturation_overlay = @static_resource("lib/stdlib/widgets/colorpicker/resource/map-saturation-overlay.png")
   @private
-  map_saturation =         @static_resource("stdlib/widgets/colorpicker/resource/map-saturation.png")
+  map_saturation =         @static_resource("lib/stdlib/widgets/colorpicker/resource/map-saturation.png")
   @private
-  bar_saturation =         @static_resource("stdlib/widgets/colorpicker/resource/bar-saturation.png")
+  bar_saturation =         @static_resource("lib/stdlib/widgets/colorpicker/resource/bar-saturation.png")
   @private
   parameters = { consumption={unlimited}; expiration={none}; visibility={shared} }
   @private @publish

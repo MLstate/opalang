@@ -1,2 +1,2 @@
-qmlslicer/QmlSimpleSlicer
-qmlslicer/QmlFakeSlicer
+compiler/qmlslicer/QmlSimpleSlicer
+compiler/qmlslicer/QmlFakeSlicer

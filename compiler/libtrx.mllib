@@ -1,8 +1,8 @@
-libtrx/Tgrammar
-libtrx/Trx_runtime
-libtrx/Trxparse
-libtrx/Trxparse_functor
-libtrx/Trxparse_auto
-libtrx/Trx_auto_ast
-libtrx/Pgrammar
-libtrx/Xparse
+compiler/libtrx/Tgrammar
+compiler/libtrx/Trx_runtime
+compiler/libtrx/Trxparse
+compiler/libtrx/Trxparse_functor
+compiler/libtrx/Trxparse_auto
+compiler/libtrx/Trx_auto_ast
+compiler/libtrx/Pgrammar
+compiler/libtrx/Xparse

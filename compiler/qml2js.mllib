@@ -1,4 +1,4 @@
-qml2js/Qml2jsOptions
-qml2js/Qml2js
-qml2js/Qml2jsBackendOptions
-qml2js/qmljs_Serializer
+compiler/qml2js/Qml2jsOptions
+compiler/qml2js/Qml2js
+compiler/qml2js/Qml2jsBackendOptions
+compiler/qml2js/qmljs_Serializer

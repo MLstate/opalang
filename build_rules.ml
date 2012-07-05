@@ -400,7 +400,19 @@ let opp_build opa_plugin opp oppf env build =
   ) (tags_of_pathname (env "%.opa_plugin")) []
     |> filter_system_libs
   in
-  let lib_dir s = [A"--ml";A"-I";A"--ml";P (if Pathname.exists s then ".." / s else ("+"^s))] in
+  let lib_dir s =
+    [A"--ml";A"-I";A"--ml";P (
+       (* FIXME: very ugly hack !!! *)
+       let compiler_s = "compiler"/s
+       and ocamllib_s = "ocamllib"/s
+       and lib_s = "lib"/s in
+       if Pathname.exists compiler_s then ".."/compiler_s
+       else if Pathname.exists ocamllib_s then ".."/ocamllib_s
+       else if Pathname.exists lib_s then ".."/lib_s
+       else if Pathname.exists s then ".." / s
+       else ("+"^s)
+     )]
+  in
   let include_dirs = List.flatten (List.map lib_dir caml_use_lib) in
   let clib s = [A"--ml";A"-cclib";A"--ml";A("-l"^s)] in
   let include_libs = List.flatten (List.map clib c_libs) in
@@ -442,7 +454,7 @@ rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
   (opa_plugin_deps "%.opa_plugin" "%.opa_plugin.depends");
 
 rule "opa_plugin_dir: opa_plugin -> oppf"
-  ~deps:("%.opa_plugin" :: "opabsl/opabslgenMLRuntime.cmx" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
+  ~deps:("%.opa_plugin" :: "lib/opabsl/opabslgenMLRuntime.cmx" :: (tool_deps "ppdebug") @ (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name))
   ~prod:"%.oppf" (* use a dummy target because ocamlbuild don't want directory target *)
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
@@ -660,8 +672,8 @@ let stdlib_packages_dir = "lib/stdlib" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
-let opacomp_deps_js = string_list_of_file "compiler/opa-run-js-libs.itarget" in
-let opacomp_deps_native = string_list_of_file "compiler/opa-run-libs.itarget" in
+let opacomp_deps_js = string_list_of_file "opa-run-js-libs.itarget" in
+let opacomp_deps_native = string_list_of_file "opa-run-libs.itarget" in
 let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
 
 let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in
@@ -804,6 +816,7 @@ let package_to_dir s0 =
   done;
   s
 in
+
 let dir_to_package s0 =
   let s = String.copy s0 in
   let len_std = String.length stdlib_packages_dir in
@@ -823,7 +836,7 @@ in
 
 let module RuleFailure = struct exception E end in
 let files_of_package pkg =
-  let pkdir = package_to_dir pkg in
+  let pkdir = "lib" / package_to_dir pkg in
   if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
     let () = Printf.eprintf "Error: can not find sources for package %s (directory %s does not exist)\n" pkg pkdir in
     raise RuleFailure.E
@@ -965,7 +978,11 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
-         [A"--opx-dir";A opx_dir;A"-I";A opa_prefix;A"--no-warn";A"load-import";A"--no-warn";A"bsl.loading";A"--no-warn-error";A"root"] @
+         [A"--opx-dir";A opx_dir;
+	  A"-I";A opa_prefix;
+	  A"--no-warn";A"load-import";
+	  A"--no-warn";A"bsl.loading";
+	  A"--no-warn-error";A"root"] @
            if nodebackend then
              A"--back-end"::A"qmljs"::extra_opt
            else A"--back-end"::A"qmlflat"::extra_opt

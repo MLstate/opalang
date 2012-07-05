@@ -186,10 +186,10 @@ CChat = {{
     { consumption={unlimited}; expiration={none}; visibility={shared} }
 
   @private search_icon =
-    @static_resource("stdlib/components/chat/resources/search_icg_16.png")
+    @static_resource("lib/stdlib/components/chat/resources/search_icg_16.png")
 
   @private clear_icon =
-    @static_resource("stdlib/components/chat/resources/close_icg_16.png")
+    @static_resource("lib/stdlib/components/chat/resources/close_icg_16.png")
 
   @private @publish url_search_icon =
     DynamicResource.publish("", search_icon, resource_parameters)

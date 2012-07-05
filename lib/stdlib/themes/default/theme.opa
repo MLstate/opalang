@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -19,7 +19,7 @@ import stdlib.themes
 
 do
 name = "default"
-files_css = @static_include_directory("stdlib/themes/default/css")
-// files_img = @static_include_directory("stdlib/themes/default/images")
+files_css = @static_include_directory("lib/stdlib/themes/default/css")
+// files_img = @static_include_directory("lib/stdlib/themes/default/images")
 // _ = Themes.load_theme(name, StringMap.union(files_css,files_img))
 Themes.load_theme(name, files_css)

@@ -1,4 +1,4 @@
-libsecurity/SslAS
-libsecurity/Ssl_ext
-libsecurity/CryptoLib
-libsecurity/LicenseLib
+ocamllib/libsecurity/SslAS
+ocamllib/libsecurity/Ssl_ext
+ocamllib/libsecurity/CryptoLib
+ocamllib/libsecurity/LicenseLib

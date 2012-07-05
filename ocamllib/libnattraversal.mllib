@@ -1,6 +1,6 @@
 # -*- conf -*-
-libnet/nattraversal/Stubsnatpmp
-libnet/nattraversal/HighNatpmp
-libnet/nattraversal/Stubsminiupnpc
-libnet/nattraversal/Miniupnp
-libnet/nattraversal/Nattraversal
+ocamllib/libnet/nattraversal/Stubsnatpmp
+ocamllib/libnet/nattraversal/HighNatpmp
+ocamllib/libnet/nattraversal/Stubsminiupnpc
+ocamllib/libnet/nattraversal/Miniupnp
+ocamllib/libnet/nattraversal/Nattraversal

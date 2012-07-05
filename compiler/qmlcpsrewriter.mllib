@@ -1,2 +1,2 @@
-qmlcps/QmlCpsIL
-qmlcps/QmlCpsRewriter
+compiler/qmlcps/QmlCpsIL
+compiler/qmlcps/QmlCpsRewriter
