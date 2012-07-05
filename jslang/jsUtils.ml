@@ -37,37 +37,71 @@ let collect_local_vars local_vars stms =
   List.fold_left collect_local_var local_vars stms
 
 let globalize_native_ident stm =
-  JsWalk.TStatement.map_context_down (* map_down actually *)
-    (fun local_vars stm ->
-       match stm with
-       | J.Js_function (label,name,params,body) ->
-           let fname = maybe_globalize_ident local_vars name in
-           let local_vars = JsIdentSet.add arguments_ident local_vars in
-           let local_vars = List.fold_left (fun local_vars i -> JsIdentSet.add i local_vars) local_vars params in
-           let local_vars = collect_local_vars local_vars body in
-           let stm = if name == fname then stm else J.Js_function (label,fname,params,body) in
-           local_vars, stm
-       | J.Js_var (label,name,o) ->
-           let fname = maybe_globalize_ident local_vars name in
-           let stm = if name == fname then stm else J.Js_var (label,fname, o) in
-           local_vars, stm
-       | _ ->
-           local_vars, stm
-    )
-    (fun local_vars e ->
-       match e with
-       | J.Je_function (_,_,params,body) ->
-           let local_vars = JsIdentSet.add arguments_ident local_vars in
-           let local_vars = List.fold_left (fun local_vars i -> JsIdentSet.add i local_vars) local_vars params in
-           let local_vars = collect_local_vars local_vars body in
-           local_vars, e
-       | J.Je_ident (label,name) ->
-           let fname = maybe_globalize_ident local_vars name in
-           let e = if name == fname then e else J.Je_ident (label,fname) in
-           local_vars, e
-       | _ ->
-           local_vars, e
-    ) JsIdentSet.empty stm
+  let rec traverse_stm local_vars =
+    JsWalk.TStatement.map_nonrec
+      (aux_stm local_vars) (aux_expr local_vars)
+  and traverse_expr local_vars =
+    JsWalk.TExpr.map_nonrec
+      (aux_expr local_vars) (aux_stm local_vars)
+  and aux_stm local_vars stm =
+    match stm with
+    | J.Js_function (label, name, params, body) ->
+      let fname = maybe_globalize_ident local_vars name in
+      let local_vars = JsIdentSet.add arguments_ident local_vars in
+      let local_vars =
+        List.fold_left (fun local_vars i ->
+          JsIdentSet.add i local_vars
+        ) local_vars params
+      in
+      let local_vars = collect_local_vars local_vars body in
+      let stm =
+        if name == fname then
+          stm
+        else
+          J.Js_function (label,fname,params,body)
+      in
+      traverse_stm local_vars stm
+    | J.Js_var (label, name, o) ->
+      let fname = maybe_globalize_ident local_vars name in
+      let stm =
+        if name == fname then
+          stm
+        else
+          J.Js_var (label,fname, o)
+      in
+      traverse_stm local_vars stm
+    | J.Js_trycatch (label, body, catches, finally) ->
+      (* We traverse the catch statements by ourselves since
+         the standard JsWalk fold doesn't take binding variables
+         into account *)
+      let fcatches =
+        List.map (fun (ident, expr, body) ->
+          let local_vars = JsIdentSet.add ident local_vars in
+          (ident, expr, traverse_stm local_vars body)
+        ) catches
+      in
+      J.Js_trycatch (label, body, fcatches, finally)
+    | _ ->
+      traverse_stm local_vars stm
+  and aux_expr local_vars expr =
+    match expr with
+    | J.Je_function (_, _, params, body) ->
+      let local_vars = JsIdentSet.add arguments_ident local_vars in
+      let local_vars =
+        List.fold_left (fun local_vars i ->
+          JsIdentSet.add i local_vars
+        ) local_vars params
+      in
+      let local_vars = collect_local_vars local_vars body in
+      traverse_expr local_vars expr
+    | J.Je_ident (label, name) ->
+      let fname = maybe_globalize_ident local_vars name in
+      let expr = if name == fname then expr else J.Je_ident (label,fname) in
+      traverse_expr local_vars expr
+    | _ ->
+      traverse_expr local_vars expr
+  in
+  aux_stm JsIdentSet.empty stm
 
 let prefix_global (name : string) : J.expr =
   JsCons.Expr.dot (JsCons.Expr.native_global "global") name
@@ -104,5 +138,3 @@ let export_to_global_namespace stm =
         prefix_global name
       | _ -> e
     ) stm
-
-
