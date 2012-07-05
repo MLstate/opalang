@@ -150,7 +150,7 @@ Server_options = {{
                 )),
 
       (["caml","node.js"],
-      CL.int(List.append([optname("port")],if name == "http" then ["-p"] else []),
+       CL.int([optname("port"), "-p", "--port"],
              "Sets the port on which the server should run (default:{init.port})",
              "<int>"
             )(port, p ->
