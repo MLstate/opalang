@@ -36,7 +36,6 @@ nodejsbsl/bslNumber.nodejs
 nodejsbsl/bslTime.nodejs
 nodejsbsl/bslReference.nodejs
 nodejsbsl/bslBuffer.nodejs
-nodejsbsl/bslNode.nodejs
 nodejsbsl/bslCps.nodejs
 nodejsbsl/bslClosure.nodejs
 nodejsbsl/lowLevelArray.nodejs
