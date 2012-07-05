@@ -1663,14 +1663,27 @@ let show_annotations env =
                  server_visible, IdentMap.add i v server_not_visible in
          (client, server_visible, server_not_visible)
       ) env.informations (IdentMap.empty,IdentSet.empty,IdentMap.empty) in
+  let pn = ObjectFiles.get_current_package_name () in
   let show_set set =
     let elts = IdentSet.elements set in
-    let names = List.map Ident.original_name elts in
+    let names = List.filter_map
+      (fun a ->
+         match Ident.safe_get_package_name a with
+         | Some pn2 when pn2 = pn -> Some (Ident.original_name a)
+         | _ -> None
+      )
+      elts in
     let sorted_names = List.sort compare names in
     List.iter (Format.printf "  %s\n") sorted_names in
   let show_map p map =
     let l = IdentMap.to_list map in
-    let l = List.map (fun (a,b) -> (Ident.original_name a,b)) l in
+    let l = List.filter_map
+      (fun (a,b) ->
+         match Ident.safe_get_package_name a with
+         | Some pn2 when pn2 = pn -> Some (Ident.original_name a,b)
+         | _ -> None
+      )
+      l in
     let l = List.sort compare l in
     List.iter (fun (a,b) -> Format.printf "  %s->%a\n" a p b) l in
   Format.printf "Server private:\n"; show_map pp_constraint_ server_not_visible;
