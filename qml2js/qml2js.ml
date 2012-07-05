@@ -233,12 +233,13 @@ struct
       else (
         let _ = File.check_create_path ~rights:0o700 (depends_dir env_opt) in
         let load_file_name = "load.js" in
-        let load_path = Filename.concat
+        let load_path = Filename.concat (depends_dir env_opt) load_file_name in
+        let relative_load_path = Filename.concat
           (Filename.basename (depends_dir env_opt)) load_file_name in
         let load_oc =
           open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 load_path
         in
-        Printf.fprintf oc "require('./%s');\n" load_path;
+        Printf.fprintf oc "require('./%s');\n" relative_load_path;
         load_oc
       )
     in
