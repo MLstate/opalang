@@ -1,9 +1,11 @@
-#!/bin/sh -eu
+#!/usr/bin/env sh
+
+set -u
+set -e
 
 help() {
-    echo "OPA installation script: creates wrapper scripts to call OPA and tools"
-    echo "with an environment setting their correct working directories; sets up"
-    echo "the www-data user with a ~/mlstate directory"
+    echo "Opa installation script: creates wrapper scripts to call opa and tools"
+    echo "with an environment setting their correct working directories"
     echo "Options:"
     echo "	--dir <dir>		the OPA installation prefix to work in"
     echo "				(by default, the current directory)"
@@ -108,7 +110,7 @@ create_wrapper() {
         [ $QUIET = true ] || echo "Creating $wrapper"
         mkdir -p $(dirname $wrapper)
         {
-            echo '#!/bin/sh'
+            echo '#!/usr/bin/env sh'
             echo "export MLSTATELIBS=$PREFIX"
             if [ $NO_OCAML = false ]; then
                 echo "export OCAMLLIB=${OCAMLLIB:-$OCAML_PREFIX/lib/ocaml}"
@@ -122,7 +124,7 @@ case "$1" in
         shift
         if [ -n "$1" ]
         then
-          OPT="--name $1"          
+          OPT="--name $1"
         fi
          opa-create $OPT
         ;;

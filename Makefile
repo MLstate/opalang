@@ -48,7 +48,7 @@ runtime-libs: $(MYOCAMLBUILD)
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-both-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
-	@tools/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
+	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
@@ -191,7 +191,7 @@ install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
-	@tools/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
+	@tools/utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
 	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
 install-lib:
@@ -228,7 +228,7 @@ uninstall:
 	rm -rf $(INSTALL_DIR)/share/doc/opa
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
-	@tools/install.sh --uninstall --dir $(INSTALL_DIR)
+	@tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
