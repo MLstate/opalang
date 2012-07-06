@@ -5,9 +5,7 @@
 <lib/opabsl>: traverse
 
 <gen_opatop_manpage.*>: use_pplib
-<opatop.*>: use_pplib
-
-<opatop.native>: use_opabsl
+<opatop.*>: use_pplib, use_opabsl_for_interpreter
 
 # ppdebug
 <opaTopEnv.ml>       : with_mlstate_debug

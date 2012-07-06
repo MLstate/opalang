@@ -574,5 +574,7 @@ let _ = dispatch begin function
         flag ["iconv"; "link"] (S[A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
       );
 
+      let touch file = Cmd(S[A"touch"; P file]) in
+
 (* -- Don't forget that the rest of the "mlstate build stdlib" is in --
    -- myocamlbuild_suffix.ml. The rest comes from the build_rules*.ml in each repo -- *)

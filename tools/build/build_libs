@@ -48,6 +48,6 @@ internal opalang	  	      compiler/opalang
 internal opacapi	  	      compiler/opacapi
 # internal libopa 	  	      compiler/opa
 
-internal opabsl_for_compiler	      lib/opabsl
-internal opabsl_for_server	      lib/opabsl
-internal opabsl_for_interpreter       lib/opabsl
+internal opabsl_for_compiler	      opabsl.opp
+internal opabsl_for_server	      opabsl.opp
+internal opabsl_for_interpreter       opabsl.opp

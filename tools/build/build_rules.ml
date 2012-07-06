@@ -87,21 +87,21 @@ flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
 (* Hacks                                                        *)
 (* ------------------------------------------------------------ *)
 
-(* opatop needs to link its serverLib *then* opabsl *then* the rest. We
-   cheat by copying the opabsl generated files so that they can be seen as
-   local by opatop. *)
-let magic_import_from_opabsl dest f =
-  rule ("import from opabsl: "^f) ~deps:["lib/opabsl/"^f] ~prod:(dest / f)
-    (fun env build ->
-       Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
-           if Pathname.exists "lib/opabsl"
-           then (build_list build ["lib/opabsl" / f]; cp ("lib/opabsl"/ f) dest)
-           else cp (mlstatelibs/"lib/opabsl"/ f) dest
-          ])
-in
-List.iter
-  (fun m -> magic_import_from_opabsl "compiler/opatop" (m ^ ".ml"))
-  [ "opabslgenMLRuntime"; "opabslgenLoader" ];
+(* (\* opatop needs to link its serverLib *then* opabsl *then* the rest. We *)
+(*    cheat by copying the opabsl generated files so that they can be seen as *)
+(*    local by opatop. *\) *)
+(* let magic_import_from_opabsl dest f = *)
+(*   rule ("import from opabsl: "^f) ~deps:["lib/opabsl/"^f] ~prod:(dest / f) *)
+(*     (fun env build -> *)
+(*        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]); *)
+(*            if Pathname.exists "lib/opabsl" *)
+(*            then (build_list build ["lib/opabsl" / f]; cp ("lib/opabsl"/ f) dest) *)
+(*            else cp (mlstatelibs/"lib/opabsl"/ f) dest *)
+(*           ]) *)
+(* in *)
+(* List.iter *)
+(*   (fun m -> magic_import_from_opabsl "compiler/opatop" (m ^ ".ml")) *)
+(*   [ "opabslgenMLRuntime"; "opabslgenLoader" ]; *)
 
 
 (* ------------------------------------------------------------ *)
@@ -459,7 +459,27 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
+rule "opabsl files"
+  ~deps:[
+    "plugins/opabsl/opabsl.oppf";
+    "plugins/opabsl/serverLib.mli"
+  ]
+  ~prods:(List.map (fun file -> "opabsl.opp"/file) [
+    "opabslPlugin.ml"; "opabslMLRuntime.ml";
+    "opabslLoader.ml"; "serverLib.mli"
+  ])
+  (fun _ _ ->
+    Seq[
+      touch "opabsl.opp/opabslPlugin.ml";
+      touch "opabsl.opp/opabslMLRuntime.ml";
+      touch "opabsl.opp/opabslLoader.ml";
+      cp "plugins/opabsl/serverLib.mli" "opabsl.opp/serverLib.mli"
+    ]
+  )
+;
 
+dep ["plugin_opabsl"] ["plugins/opabsl/opabsl.oppf"];
+(*dep ["file:opatop/opatop.native"] ["opabsl.cma"];*)
 
 (* -- BSL compilation (using bslregister) -- *)
 (* let ml_sources_bsl = dir_sources_bsl "lib/opabsl/mlbsl" in *)
@@ -513,18 +533,18 @@ let _ = Printf.eprintf "js_dest_bsl: %s\n" (ponctuate ", " (fun x -> x)  (List.m
 (*       ] *)
 (*   end; *)
 
-rule "opa-bslgenMLRuntime interface validation"
-  ~deps: [
-    "lib/opabsl/opabslgenMLRuntime_x.cmo";
-    "lib/opabsl/js_validation/imp_client_lib.js";
-    "lib/opabsl/js_validation/bsl.js";
-  ]
-  ~prod: "lib/opabsl/opabslgenMLRuntime.ml"
-  (fun env build ->
-     Seq[
-       cp "lib/opabsl/opabslgenMLRuntime_x.ml" "lib/opabsl/opabslgenMLRuntime.ml";
-     ]
-  );
+(* rule "opa-bslgenMLRuntime interface validation" *)
+(*   ~deps: [ *)
+(*     "lib/opabsl/opabslgenMLRuntime_x.cmo"; *)
+(*     "lib/opabsl/js_validation/imp_client_lib.js"; *)
+(*     "lib/opabsl/js_validation/bsl.js"; *)
+(*   ] *)
+(*   ~prod: "lib/opabsl/opabslgenMLRuntime.ml" *)
+(*   (fun env build -> *)
+(*      Seq[ *)
+(*        cp "lib/opabsl/opabslgenMLRuntime_x.ml" "lib/opabsl/opabslgenMLRuntime.ml"; *)
+(*      ] *)
+(*   ); *)
 
 (* let js_pp_bsl    = dir_sources_bsl ~prefix:"opabslgen_" ~suffix:".pp" "lib/opabsl/jsbsl" in *)
 
