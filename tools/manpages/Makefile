@@ -36,7 +36,7 @@ $(TARGETDIR)/%.1: %.man
 # --
 # second run specific manpage generation programs
 # --
-$(BLDDIR)/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpage.ml
+$(BLDDIR)/compiler/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpage.ml
 	cd ../..; $(OCAMLBUILD) compiler/opa/gen_opa_manpage.native
 
 $(TARGETDIR)/opa.1: $(BLDDIR)/compiler/opa/gen_opa_manpage.native
