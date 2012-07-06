@@ -471,7 +471,7 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 
 let opabsl_files =
   (List.map (fun file -> "opabsl.opp"/file) [
-    "opabslPlugin.ml"; "opabslMLRuntime.ml"; "opabslMLRuntime.mli";
+    "opabslPlugin.ml"; "opabslMLRuntime.ml";
     "opabslLoader.ml"; "serverLib.mli"
   ])
 in
@@ -479,20 +479,21 @@ in
 List.iter (fun file ->
   let tags = Tags.elements (tags_of_pathname ("plugins"/"opabsl"/file)) in
   tag_file ("opabsl.opp"/file) tags
-) ["opabslPlugin.ml"; "opabslMLRuntime.ml"; "opabslMLRuntime.mli";
+) ["opabslPlugin.ml"; "opabslMLRuntime.ml"
    "opabslLoader.ml"; "serverLib.mli"]
 ;
 
 rule "opabsl files"
   ~deps:[
-    "plugins/opabsl/opabsl.oppf";
-    "plugins/opabsl/serverLib.mli"
+    "plugins"/"opabsl"/"opabsl.oppf";
+    "plugins"/"opabsl"/"serverLib.mli"
   ]
   ~prods:opabsl_files
   (fun _ _ ->
     Seq[
       mv "opabsl.save" "opabsl.opp";
-      cp "plugins/opabsl/serverLib.mli" "opabsl.opp/serverLib.mli"
+      cp ("plugins"/"opabsl"/"serverLib.mli") ("opabsl.opp"/"serverLib.mli");
+      rm_f ("opabsl.opp"/"opabslMLRuntime.mli")
     ]
   )
 ;
@@ -579,9 +580,9 @@ rule "Client lib JS validation"
   ~deps: (
          "compiler/qmljsimp/qmlJsImpClientLib.js" ::
          "compiler/qmlcps/qmlCpsClientLib.js"     ::
-         "lib/opabsl/jsbsl/jquery_ext_bslanchor.extern.js" ::
-         "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.extern.js" ::
-         "lib/opabsl/jsbsl/selection_ext_bsldom.extern.js" ::
+         "lib/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
+         "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
+         "lib/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
          "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
          (tool_deps "jschecker.jar") @
          (tool_deps "jschecker_externals.js") @
