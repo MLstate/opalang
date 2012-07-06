@@ -13,7 +13,7 @@
     @author Francois Pessaux
 *)
 
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslUtils = OpabslMLRuntime.BslUtils
 
 
 ##extern-type ClientEvent.t = BslPingRegister.M.event

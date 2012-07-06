@@ -27,7 +27,7 @@
    Plug-ins are first registered and then properly loaded.
 
    Registration takes place in the following order:
-   - Opa standard bypass library (defined in module {!OpabslgenPlugin})
+   - Opa standard bypass library (defined in module {!OpabslPlugin})
    - files specified through command-line arguments {v *.opp v}, searched in the current
      directory and directories specified through command-line option {v -I v} -- if several files
      match the name specified, a warning is displayed and the first such file is used.

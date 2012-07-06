@@ -17,7 +17,7 @@ open HttpServer
 
 open Cps.Ops
 
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslUtils = OpabslMLRuntime.BslUtils
 module Client = BslPingRegister.Client
 module Ping   = BslPingRegister.M
 module WebChannel = Session.WebChannel

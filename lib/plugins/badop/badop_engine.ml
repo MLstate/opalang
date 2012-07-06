@@ -24,8 +24,8 @@
 ##opa-type list('a)
 ##opa-type tuple_2('a, 'b)
 ##opa-type outcome('a, 'b)
-module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslNativeLib = OpabslMLRuntime.BslNativeLib
+module BslUtils = OpabslMLRuntime.BslUtils
 let opa_list_to_ocaml_list f l =
   BslNativeLib.opa_list_to_ocaml_list f
     (BslNativeLib.wrap_opa_list (unwrap_opa_list l))

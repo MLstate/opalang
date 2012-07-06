@@ -288,7 +288,7 @@ etc...
 
    In closure mode, the code is as follows (note that it depends on the non closure-mode cpsX functions):
 {[
-let export = OpabslgenMLRuntime.BslClosure.export
+let export = OpabslMLRuntime.BslClosure.export
 let (clos_cps1, clos_cps2, clos_cps3, clos_uncps1, clos_uncps2, clos_uncps3) = Obj.magic (
   let cps_uniq = Obj.magic (object end) in
   let can_import = ... (* written in clear in the implem *) in

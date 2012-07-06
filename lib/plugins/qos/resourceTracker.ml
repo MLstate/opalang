@@ -15,7 +15,7 @@
    @date Tue Jan  4 19:17:05 CET 2011
 *)
 
-module BslNativeLib = OpabslgenMLRuntime.BslNativeLib (* refactoring in progress *)
+module BslNativeLib = OpabslMLRuntime.BslNativeLib (* refactoring in progress *)
 (** TODO - plugins dependencies *)
 ##property[mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation

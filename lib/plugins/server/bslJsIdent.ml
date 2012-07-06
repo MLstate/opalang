@@ -130,7 +130,7 @@ let rename,
               #<If:JS_RENAMING>
                 Printf.printf "BslJsIdent.renaming: %s -> %s\n%!" key_ident ident
               #<End>;
-              OpabslgenMLRuntime.BslClosure.replace_identifier key_ident ident;
+              OpabslMLRuntime.BslClosure.replace_identifier key_ident ident;
               Base.Hashtbl.add ref_ key_ident ident;
               ident
         ) else (

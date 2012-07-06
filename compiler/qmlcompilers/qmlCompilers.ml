@@ -41,7 +41,7 @@ module PH = PassHandler
 
 (**
    A dynloader is a function which take a generated loader
-   (like [OpabslgenLoader]), and register all bypass which its defines
+   (like [OpabslLoader]), and register all bypass which its defines
    somewhere, with a side effect.
 
    @see "BslLib.BSLINTROSPECTION.ByPassMap.RegisterInterface" to see how

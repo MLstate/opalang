@@ -11,7 +11,7 @@
 *)
 #<Debugvar:SESSION_DEBUG>
 
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslUtils = OpabslMLRuntime.BslUtils
 
 (**********************************************************)
 (* Alias **************************************************)

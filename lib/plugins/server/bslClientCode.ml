@@ -15,8 +15,8 @@
    The corresponding serialization is in Qmljs_serializer
  *)
 
-module BslReference = OpabslgenMLRuntime.BslReference
-module LowLevelArray = OpabslgenMLRuntime.LowLevelArray
+module BslReference = OpabslMLRuntime.BslReference
+module LowLevelArray = OpabslMLRuntime.LowLevelArray
 
 ##register unser_adhoc : \
     (opa[string] -> opa[_]), \

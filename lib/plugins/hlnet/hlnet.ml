@@ -18,7 +18,7 @@ open C.Ops
 
 let (@@) a b = fun x -> a (b x)
 let scheduler = Scheduler.default
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslUtils = OpabslMLRuntime.BslUtils
 
 ##opa-type outcome('a, 'b)
 

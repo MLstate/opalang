@@ -475,7 +475,7 @@ struct
     let buf = FBuffer.addln buf "(** {6 cps tools} *)" in
     let buf =
       ignore Opacapi.Opabsl.BslPervasives.return_exc ;
-      FBuffer.addln buf "let return_exc = OpabslgenMLRuntime.BslPervasives.return_exc"
+      FBuffer.addln buf "let return_exc = OpabslMLRuntime.BslPervasives.return_exc"
     in
     let buf =
       FBuffer.addln buf (QmlCpsRewriter.meta_cps_utils env.uncps_level)

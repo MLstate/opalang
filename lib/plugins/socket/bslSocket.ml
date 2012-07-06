@@ -18,7 +18,7 @@
 
 module C = QmlCpsServerLib
 open C.Ops
-open OpabslgenMLRuntime
+open OpabslMLRuntime
 
 ##opa-type outcome('a, 'b)
 

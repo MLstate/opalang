@@ -75,7 +75,7 @@ type ocaml_env
    + [filename] the complete filname with dirname where is the file
    + [parsed_t] the row tags.
    + [implementation] the complete identifier for the implementation.
-   ["OpabslgenMLRuntime.Foo.Bar.function"]
+   ["OpabslMLRuntime.Foo.Bar.function"]
    + [obj] optional, a pointer to the function (in this case, the code is linked
    with the runtime, this is no more just a plugin, but a loader for the interpreter)
 *)
@@ -403,7 +403,7 @@ sig
   (**
      The name of the Ocaml module corresponding to this plugin.
      This name is already capitalized.
-     e.g. [OpabslgenPlugin]
+     e.g. [OpabslPlugin]
   *)
   val self_module_name : ocaml_module_name
 

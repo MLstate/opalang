@@ -1895,7 +1895,7 @@ let no_cps_pass env code =
 
 (* keep it consistent with the name of the module *)
 let serverlib_module_name = "QmlCpsServerLib"
-let bsl = "OpabslgenMLRuntime.BslCps"
+let bsl = "OpabslMLRuntime.BslCps"
 
 (* cf mli *)
 let meta_cps_utils n =

@@ -17,7 +17,7 @@
 
 ##extern-type Scheduler.key = Scheduler.async_key
 
-module BslUtils = OpabslgenMLRuntime.BslUtils
+module BslUtils = OpabslMLRuntime.BslUtils
 
 let opa = Scheduler.default
 

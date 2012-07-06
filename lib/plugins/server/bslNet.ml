@@ -12,7 +12,7 @@
 module List = BaseList
 module HSCp = HttpServerCore_parse
 
-module BslNativeLib = OpabslgenMLRuntime.BslNativeLib
+module BslNativeLib = OpabslMLRuntime.BslNativeLib
 (* The opa scheduler *)
 let default_scheduler = BslScheduler.opa
 
