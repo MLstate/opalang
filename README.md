@@ -66,33 +66,6 @@ dynamically builds an ocamlbuild plugin and generates targets based on files
 See `build/Makefile.bld` and `build_rules.ml` for more information. All generated
 files are put in `_build`, following the same hierarchy as the source directory.
 
-## License & Credits ##
-
-Opa is open source and Copyright 2007-2012, MLstate.
-* The library is released under the MIT license;
-* The compiler is released under the GNU Affero General Public License, version 3. 
-See file LICENSE for details.
-
-The repository opalang is currently versioning 2 external tools in tools/
-used only during the build process of Opa :
-* The Closure Compiler (see tools/jschecker/README for copyright information)
-* JsDoc Toolkit (see tools/jsdoc-toolkit/README.txt for copyright information)
-
-The Closure Compiler is used as a checker for the Javascript part of the sources
-of Opa, and JsDoc Toolkit is used for generating html documentation pages from this
-Javascript code.
-
-The use of these tools is transitional, and will soon be made optional.
-
-Part of the jslang library, has been closely inspired by ocamljs/jslib:
-* ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
-In particular files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules found in ocamljs, specialized for Opa specific needs.
-We would like to thank the authors of the ocamljs/jslib.
-
-Opa also includes external libraries :
-* Bootstrap, from Twitter - http://twitter.github.com/bootstrap
-* Font Awesome - http://fortawesome.github.com/Font-Awesome
-
 Contact
 -------
 
