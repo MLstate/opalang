@@ -21,24 +21,14 @@ help() {
     echo "	--uninstall		remove installed scripts instead"
 }
 
-BUILDDIR=_build
 INSTALLDIR=$PWD
 LINKDIR=""
 UNINSTALL=false
 NO_OCAML=false
 QUIET=false
-QMLFLAT=false
 
 while [ $# -gt 0 ]; do
     case $1 in
-        --qmlflat)
-            QMLFLAT=true
-            ;;
-        --build-dir)
-            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
-            shift
-            BUILDDIR=$1
-            ;;
         --dir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
