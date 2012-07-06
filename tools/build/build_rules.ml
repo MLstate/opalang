@@ -366,7 +366,12 @@ let gen_tag prefix s =
   if t then Some(String.sub s lenp ((String.length s) -lenp))
   else None
 in
-let use_tag s = gen_tag "use" s in
+let use_tag s =
+  if s = "use_opabsl" then
+    Some "opabsl.opp"
+  else
+    gen_tag "use" s
+in
 let clib_tag s = gen_tag "clib" s in
 let opa_plugin_builder_name = "opa-plugin-builder-bin" in
 let opa_plugin_builder = get_tool opa_plugin_builder_name in

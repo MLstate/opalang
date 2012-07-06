@@ -16,4 +16,6 @@
 <mongo>: traverse
 <opabsl>: traverse, static
 
-<opabsl_for_*.cma>: plugin_opabsl
+# Tag treated differently in build_rules
+<**/*.opa_plugin>: use_opabsl
+<opabsl/opabsl.opa_plugin>: -use_opabsl
