@@ -272,14 +272,19 @@ let new_node label ty default constraints context =
     C.plain = false;
   }
 
-
-let is_node_abstract node = List.mem Db.C_Private (V.label node).C.constraints
+let has_C_Private bool cstr = List.mem (Db.C_Private bool) cstr
+let is_node_C_Private bool node = List.mem (Db.C_Private bool) (V.label node).C.constraints
+let is_node_abstract node = is_node_C_Private false node
+let is_node_full node = is_node_C_Private true node
 
 (* A node is considered private when its _parent_ is abstract (eg has the
    private constraint). The parent may still be seen, but the 'private' child
    should be invisible *)
 let is_node_private t node =
-  if is_root node || (package_of_node node) = (ObjectFiles.get_current_package_name()) then false else is_node_abstract (get_parent_node t node)
+  if is_root node then false
+  else if is_node_full node then true
+  else if is_node_abstract (get_parent_node t node) then (package_of_node node) <> (ObjectFiles.get_current_package_name())
+  else false
 
 (** @param n a Mult node
     @return true if n is a set node *)
@@ -290,7 +295,9 @@ let is_node_set t n =
 
 let add_unknown_node ?(ty=Q.TypeRecord (Q.TyRow ([], None))) ?dflt ?(cstr=[]) ~context t parent edgelbl =
   (* assumes lbl is not already taken *)
-  let cstr = if not (List.mem Db.C_Private cstr) && is_node_abstract parent then Db.C_Private::cstr else cstr in
+  let prop_private bool cstr =  if not (has_C_Private bool cstr) &&  is_node_C_Private bool parent then (Db.C_Private bool)::cstr else cstr in
+  let cstr = prop_private true cstr in
+  let cstr = prop_private false cstr in
   let new_node = new_node C.Product ty dflt cstr context in
   let new_edge = E.create parent { C.label = edgelbl; C.is_main = true } new_node in
     SchemaGraph0.add_edge_e t new_edge, new_node

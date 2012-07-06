@@ -254,10 +254,12 @@ struct
             [/books[]/authors], meaning that for any element of [/books] [B] and any
             element of [/authors] [A], [B] \in [A/biblio] is equivalent to [A] \in
             [B/authors] *)
-    | C_Private
+    | C_Private of bool
         (** marks a path as private: accesses will only be allowed on the full path,
             not directly on children. Implies that the sub-tree can't contain partial
-            records. This constraint is propagated to all sub-nodes *)
+            records. This constraint is propagated to all sub-nodes.
+            This constraint is also valid for the current package if the bollean is true
+        *)
 
   type ('expr,'ty) db_def =
     | Db_TypeDecl of path_decl * 'ty
@@ -408,20 +410,20 @@ struct
         (* not yet usable *)
   let path_decl_to_string = String.concat_map "" path_decl_key_to_string
 
-  let constraint_to_string _e_t_s = function
-    | C_Private -> "full"
+  let constraint_to_string = function
+    | C_Private true -> "@private"
+    | C_Private false -> "full"
     | _ -> "[[database constraint]]" (* todo (but doesn't have a syntax yet) *)
 
   let def_to_string e_t_s ty_t_s = function
     | Db_TypeDecl (pd,ty) -> Printf.sprintf "db %s : %s" (path_decl_to_string pd) (ty_t_s ty)
     | Db_Alias (pd,pd') -> Printf.sprintf "db %s alias %s" (path_decl_to_string pd) (path_decl_to_string pd')
     | Db_Default (pd,e) -> Printf.sprintf "db %s = %s" (path_decl_to_string pd) (e_t_s e)
-    | Db_Constraint (pd,cstr) -> Printf.sprintf "db (%s %s)" (path_decl_to_string pd) (constraint_to_string e_t_s cstr)
+    | Db_Constraint (pd,cstr) -> Printf.sprintf "db (%s %s)" (path_decl_to_string pd) (constraint_to_string cstr)
     | Db_Virtual (pd,e) -> Printf.sprintf "db %s := %s" (path_decl_to_string pd) (e_t_s e)
 
-  let print_constraint _p_e out = function
-    | C_Private -> Format.fprintf out "full"
-    | _ -> Format.fprintf out "<FIXME database constraint>"
+  let print_constraint _p_e out c =
+    Format.fprintf out "%s" (constraint_to_string c)
 
   let print_def p_e p_ty out = function
     | Db_TypeDecl (pd,ty) ->
@@ -446,7 +448,7 @@ struct
         TU.wrap (fun e -> C_Validation e) (sub_e e)
     | C_Inverse p ->
         TU.wrap (fun e -> C_Inverse e) (TU.sub_ignore p)
-    | C_Private as x ->
+    | (C_Private _ ) as x ->
         TU.sub_ignore x
 
   let sub_db_def sub_e sub_ty = function

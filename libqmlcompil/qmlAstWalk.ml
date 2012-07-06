@@ -344,7 +344,7 @@ struct
                acc,
                if e == fe then elt else
                  Q.NewDbValue (label, Db.Db_Constraint (p, Db.C_Validation fe))
-           | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private ->
+           | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private _ ->
                acc, elt)
     | Q.NewDbValue (label, Db.Db_Default (p, dflt)) ->
         let acc, (_, fdflt) = f acc (Ident.source "dbdefault", dflt) in

@@ -665,7 +665,7 @@ struct
       | Db.C_Inclusion p -> Db.C_Inclusion p
       | Db.C_Validation expr_ -> Db.C_Validation (expr expr_)
       | Db.C_Inverse p -> Db.C_Inverse p
-      | Db.C_Private -> Db.C_Private
+      | Db.C_Private b -> Db.C_Private b
 
     let db_def = function
       | Db.Db_TypeDecl (path_decl, ty_) ->

@@ -236,7 +236,7 @@ db_pathdef <-
 
 /** database constraint **/
 db_constraint <-
-  / (=exact_ident("full")) {{ QmlAst.Db.C_Private }}
+  / (=exact_ident("full")) {{ QmlAst.Db.C_Private true }}
 
 /** database virtual path **/
 db_virtual <-

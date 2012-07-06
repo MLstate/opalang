@@ -221,7 +221,8 @@ let rec type_upwards t node =
 let insert_multi t ?key_kind ?multi_type node =
   let multi_type = match multi_type with Some t -> t | None -> SchemaGraphLib.type_of_node node in
   let parent = SchemaGraphLib.get_parent_edge t node in
-  let cstr = if SchemaGraphLib.is_node_abstract node then [Db.C_Private] else [] in
+  let propagate_c_Priv bool node = if SchemaGraphLib.is_node_C_Private bool node then [Db.C_Private bool] else [] in
+  let cstr = (propagate_c_Priv true node) @ (propagate_c_Priv false node) in
   let multi_node, down_edge_label = match key_kind with
     | None -> SchemaGraphLib.new_node C.Hidden multi_type None cstr node.C.context, C.Hidden_edge
     | Some kind ->
@@ -386,7 +387,7 @@ let rec add_subgraph ?(is_plain = false) ~context ?(boundnames = []) gamma t par
           let (t, cur_node) =
             if SchemaGraphLib.is_node_abstract cur_node ||
               not is_abstract_or_private_ty then (t, cur_node)
-            else SchemaGraphLib.add_node_cstr t cur_node Db.C_Private
+            else SchemaGraphLib.add_node_cstr t cur_node (Db.C_Private false)
           in
           (match List.find_opt (fun (ty',_) -> Q.EqualsTy.equal ty' ty) boundnames with
            | Some (_, linkto) when V.equal (SchemaGraphLib.find_path_path_of_node t ~node:linkto) cur_node ->
@@ -737,11 +738,11 @@ let register_constraint ~context t p cstr =
       ;
       let (s, _n) = SchemaGraphLib.add_node_cstr db_def.schema n cstr in
       StringListMap.add prefix { db_def with schema = s } t
-  | Db.C_Private -> (* must be propagated to the whole subtree *)
+  | Db.C_Private b -> (* must be propagated to the whole subtree *)
       let rec aux s n =
         let (s, n) =
           if SchemaGraphLib.is_node_abstract n then (s, n)
-          else SchemaGraphLib.add_node_cstr s n Db.C_Private
+          else SchemaGraphLib.add_node_cstr s n (Db.C_Private b)
         in
         List.fold_left
           (fun s e -> if (E.label e).C.is_main then aux s (E.dst e) else s)
@@ -1596,7 +1597,7 @@ let map_expr f t =
                     (function
                      | Db.C_Validation e -> Db.C_Validation (f e)
                      | Db.C_Ordering e -> Db.C_Ordering (f e)
-                     | (Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private) as cstr -> cstr)
+                     | (Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private _) as cstr -> cstr)
                     lbl.C.constraints
                 in
                 if default == lbl.C.default && constraints == lbl.C.constraints
@@ -1610,7 +1611,7 @@ let fold_expr f acc t =
     let acc = List.fold_left (fun acc cstr ->
       match cstr with
       | Db.C_Validation e | Db.C_Ordering e -> f acc e
-      | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private -> acc)
+      | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private _ -> acc)
       acc (V.label n).C.constraints
     in
     match (V.label n).C.default with
@@ -1633,7 +1634,7 @@ let foldmap_expr f acc t =
            | Db.C_Ordering e ->
                let acc,e = f acc e in
                acc, Db.C_Ordering e
-           | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private ->
+           | Db.C_Inclusion _ | Db.C_Inverse _ | Db.C_Private _ ->
                acc, cstr)
         acc label.C.constraints
     in
