@@ -103,7 +103,7 @@ $(BUILD_DIR)/build_libs.make: $(BUILD_LIBS)
 	      END { \
 	        printf "ALL_LIBS ="; for (i in libs) printf " %s",libs[i]; printf "\n"; \
 	      }' \
-	  $(^F) > $@
+	  $(BUILD_LIBS) > $@
 
 ALL_LIBS := $(filter-out $(DISABLED_LIBS),$(ALL_LIBS))
 
@@ -146,7 +146,7 @@ $(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS)
 	      END { \
 	        printf "ALL_TOOLS ="; for (i in tools) printf " %s",tools[i]; printf "\n"; \
 	      }' \
-	  $(^F) > $@
+	  $(BUILD_TOOLS) > $@
 
 target-tools = $(foreach tool,$(1),$(target-tool-$(tool)))
 copy-tools = $(foreach tool,$(1),$(copy-tool-$(tool));)
