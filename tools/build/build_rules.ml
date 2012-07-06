@@ -87,21 +87,21 @@ flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
 (* Hacks                                                        *)
 (* ------------------------------------------------------------ *)
 
-(* (\* opatop needs to link its serverLib *then* opabsl *then* the rest. We *)
-(*    cheat by copying the opabsl generated files so that they can be seen as *)
-(*    local by opatop. *\) *)
-(* let magic_import_from_opabsl dest f = *)
-(*   rule ("import from opabsl: "^f) ~deps:["lib/opabsl/"^f] ~prod:(dest / f) *)
-(*     (fun env build -> *)
-(*        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]); *)
-(*            if Pathname.exists "lib/opabsl" *)
-(*            then (build_list build ["lib/opabsl" / f]; cp ("lib/opabsl"/ f) dest) *)
-(*            else cp (mlstatelibs/"lib/opabsl"/ f) dest *)
-(*           ]) *)
-(* in *)
-(* List.iter *)
-(*   (fun m -> magic_import_from_opabsl "compiler/opatop" (m ^ ".ml")) *)
-(*   [ "opabslgenMLRuntime"; "opabslgenLoader" ]; *)
+(* opatop needs to link its serverLib *then* opabsl *then* the rest. We
+   cheat by copying the opabsl generated files so that they can be seen as
+   local by opatop. *)
+let magic_import_from_opabsl dest f =
+  rule ("import from opabsl: "^f) ~deps:["opabsl.opp/"^f] ~prod:(dest / f)
+    (fun env build ->
+       Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
+           if Pathname.exists "opabsl.opp"
+           then (build_list build ["opabsl.opp" / f]; cp ("opabsl.opp"/ f) dest)
+           else cp (mlstatelibs/"opabsl.opp"/ f) dest
+          ])
+in
+List.iter
+  (fun m -> magic_import_from_opabsl "compiler/opatop" (m ^ ".ml"))
+  [ "opabslMLRuntime"; "opabslLoader" ];
 
 
 (* ------------------------------------------------------------ *)
@@ -432,18 +432,28 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options =
+  let options, mv_cmd =
     if Tags.mem "static" (tags_of_pathname dir) then
-      [A"--static"; A"--no-build"]
+    (* HACK: passing --static or not will change the files produced
+       by the plugin builder. Since productions can't be tracked
+       dynamically, we move the produced files in this case
+       to make ocamlbuild believe that we're actually producing the extra
+       files *)
+      [A"--static"; A"--no-build"],
+      mv ((Pathname.basename (env opp)) -.- "opp")
+         ((Pathname.basename (env opp)) -.- "save")
     else
-      []
+      [], Cmd(S[A"true"])
   in
   let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
     preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib @
     options
   in
-  Seq[Cmd(S(opa_plugin_builder::options));
-      Cmd(S[A"touch"; P(env oppf) ] )]
+  Seq[
+    Cmd(S(opa_plugin_builder::options));
+    Cmd(S[A"touch"; P(env oppf) ] );
+    mv_cmd
+  ]
 in
 rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
   ~dep:"%.opa_plugin"
@@ -459,20 +469,29 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
+let opabsl_files =
+  (List.map (fun file -> "opabsl.opp"/file) [
+    "opabslPlugin.ml"; "opabslMLRuntime.ml"; "opabslMLRuntime.mli";
+    "opabslLoader.ml"; "serverLib.mli"
+  ])
+in
+
+List.iter (fun file ->
+  let tags = Tags.elements (tags_of_pathname ("plugins"/"opabsl"/file)) in
+  tag_file ("opabsl.opp"/file) tags
+) ["opabslPlugin.ml"; "opabslMLRuntime.ml"; "opabslMLRuntime.mli";
+   "opabslLoader.ml"; "serverLib.mli"]
+;
+
 rule "opabsl files"
   ~deps:[
     "plugins/opabsl/opabsl.oppf";
     "plugins/opabsl/serverLib.mli"
   ]
-  ~prods:(List.map (fun file -> "opabsl.opp"/file) [
-    "opabslPlugin.ml"; "opabslMLRuntime.ml";
-    "opabslLoader.ml"; "serverLib.mli"
-  ])
+  ~prods:opabsl_files
   (fun _ _ ->
     Seq[
-      touch "opabsl.opp/opabslPlugin.ml";
-      touch "opabsl.opp/opabslMLRuntime.ml";
-      touch "opabsl.opp/opabslLoader.ml";
+      mv "opabsl.save" "opabsl.opp";
       cp "plugins/opabsl/serverLib.mli" "opabsl.opp/serverLib.mli"
     ]
   )

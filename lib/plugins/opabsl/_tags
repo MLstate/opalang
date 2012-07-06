@@ -9,29 +9,31 @@
 # c_wall : guidelines
 <*.c>: c_wall
 
-# module used at compile time only : OpabslgenPlugin
-<opabslgenPlugin.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl
+# module used at compile time only : OpabslPlugin
+<opabslPlugin.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl
 
-# module used at runtime, does not depends on libbsl : ServerLib, OpabslgenMLRuntime, OpabslgenMLRuntime_x
+# module used at runtime, does not depends on libbsl : ServerLib, OpabslMLRuntime, OpabslMLRuntime_x
   <serverLib.{ml,mli,byte,native}>: use_libbase
 
   # external libs dependencies
-  <opabslgenMLRuntime*.{ml,mli,byte,native}>: use_str, use_ssl, use_ssl_threads, use_cryptokit
+  <opabslMLRuntime*.{ml,mli,byte,native}>: use_str, use_ssl, use_ssl_threads, use_cryptokit
 
   # mlstate libs dependencies
-  <opabslgenMLRuntime*.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libsession, use_libirc
+  <opabslMLRuntime*.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libsession, use_libirc
 
 # module used both, in case of an interpretor (qmltop)
   # same as the Plugin
-  <opabslgenLoader.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl
+  <opabslLoader.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl
 
   # same as the Runtime
     # external libs dependencies
-    <opabslgenLoader.{ml,mli,byte,native}>: use_str, use_ssl, use_ssl_threads, use_cryptokit
+    <opabslLoader.{ml,mli,byte,native}>: use_str, use_ssl, use_ssl_threads, use_cryptokit
 
     # mlstate libs dependencies
-    <opabslgenLoader.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libnet, use_appruntime, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libruntime, use_libsession, use_oparuntime
+    <opabslLoader.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libnet, use_appruntime, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libruntime, use_libsession, use_oparuntime
 
 
 #ppdebug
 <**/*.ml>: with_mlstate_debug
+<opabslPlugin.ml>: -with_mlstate_debug
+<opabslLoader.ml>: -with_mlstate_debug

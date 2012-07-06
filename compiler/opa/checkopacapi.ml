@@ -240,7 +240,7 @@ let core_types =
 
 let _ =
   (* Part 1: plugins VS opacapi *)
-  OpabslgenPlugin.Self.self_store ();
+  OpabslPlugin.Self.self_store ();
   parse ();
   let cwd = Sys.getcwd () in
   MutableList.iter

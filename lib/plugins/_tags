@@ -17,5 +17,3 @@
 <opabsl>: traverse, static
 
 <opabsl_for_*.cma>: plugin_opabsl
-
-<opabsl.opp>: traverse

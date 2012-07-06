@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -36,7 +36,7 @@ exception SigInt
 let _ =
   try
     Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> raise SigInt)) ;
-    let () = OpabslgenPlugin.Self.self_store () in
+    let () = OpabslPlugin.Self.self_store () in
     let () = ObjectFiles.turn_separated_off () in
     let return = QmlCompilers.Qml2jsSugar.console () in
     exit return
