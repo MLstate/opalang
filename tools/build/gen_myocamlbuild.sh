@@ -41,16 +41,16 @@ fi
 
 
 BUILD_DIR="_build"
-BUILD_RULES="build_rules.ml"
-BUILD_LIBS="build_libs"
-BUILD_TOOLS="build_tools"
+BUILD_RULES="tools/build/build_rules.ml"
+BUILD_LIBS="tools/build/build_libs"
+BUILD_TOOLS="tools/build/build_tools"
 
 while [ $# -gt 0 ]; do
     case $1 in
         -private)
-            BUILD_RULES="build_rules*.ml"
-            BUILD_LIBS="build_libs*"
-            BUILD_TOOLS="build_tools*"
+            BUILD_RULES="tools/build/build_rules*.ml"
+            BUILD_LIBS="tools/build/build_libs*"
+            BUILD_TOOLS="tools/build/build_tools*"
             ;;
         -build-dir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi

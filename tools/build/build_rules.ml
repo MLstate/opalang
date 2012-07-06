@@ -668,12 +668,13 @@ rule "opa-bslgenMLRuntime JS documentation"
 
 (* -- OPA compiler rules -- *)
 
-let stdlib_packages_dir = "lib/stdlib" in
+let stdlib_packages_dir = "lib"/"stdlib" in
+let build_tools_dir = "tools"/"build" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
-let opacomp_deps_js = string_list_of_file "opa-run-js-libs.itarget" in
-let opacomp_deps_native = string_list_of_file "opa-run-libs.itarget" in
+let opacomp_deps_js = string_list_of_file (build_tools_dir/"opa-run-js-libs.itarget") in
+let opacomp_deps_native = string_list_of_file (build_tools_dir/"opa-run-libs.itarget") in
 let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
 
 let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in

@@ -108,7 +108,7 @@ else
     trap "rm -f $tmp" EXIT
 fi
 
-: ${BLDDIR:=build}
+: ${BLDDIR:=tools/build}
 
 : ${CONFIG_ML:=config.ml}
 
@@ -146,8 +146,8 @@ ARGS=""
 RENAME=""
 INSTALLDIR="$MLSTATELIBS"
 BUILD_DIR="_build"
-BUILD_LIBS="build_libs"
-BUILD_TOOLS="build_tools"
+BUILD_LIBS="tools/build/build_libs"
+BUILD_TOOLS="tools/build/build_tools"
 
 init_install_libs() (
     if [ -z "$LIBS" ]; then
@@ -278,7 +278,7 @@ if [ ! -f $MYOCAMLBUILD ] ||
     [ $MYOCAMLBUILD -ot $CONFIG_SH ] ||
     [ $MYOCAMLBUILD -ot $0 ] ||
     [ -n "$(find -L . -maxdepth 1 -newer $MYOCAMLBUILD -and \
-             \( -name build_rules\*.ml -or -name build_tools\* -or -name build_libs\* \) )" ]
+             \( -name $BLDDIR/build_rules\*.ml -or -name $BLDDIR/build_tools\* -or -name $BLDDIR/build_libs\* \) )" ]
 then
   {
     echo "(* ****************************************************************************** *)"
@@ -303,7 +303,7 @@ then
         awk '/^external/ { print "mlstate_lib ~dir:\"lib/opa/static\" \""$2"\";" }
              /^internal/ { print "internal_lib", $3 ? "~dir:\""$3"\"" : "", "\""$2"\";" }' $i
     done
-    for i in build_rules*.ml; do
+    for i in $BLDDIR/build_rules*.ml; do
         echo "#1 \"$i\""
         cat $i
         echo ";"

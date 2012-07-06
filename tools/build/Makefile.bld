@@ -63,9 +63,9 @@ ifdef private
   BUILD_LIBS := $(wildcard build_libs*)
   BUILD_TOOLS := $(wildcard build_tools*)
 else
-  BUILD_RULES := build_rules.ml
-  BUILD_LIBS := build_libs
-  BUILD_TOOLS := build_tools
+  BUILD_RULES := $(BLDDIR)/build_rules.ml
+  BUILD_LIBS := $(BLDDIR)/build_libs
+  BUILD_TOOLS := $(BLDDIR)/build_tools
 endif
 
 MYOCAMLBUILD_SOURCES = $(BLDDIR)/gen_myocamlbuild.sh $(BLDDIR)/myocamlbuild_prefix.ml $(BLDDIR)/myocamlbuild_suffix.ml config.ml $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
