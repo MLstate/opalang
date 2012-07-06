@@ -226,6 +226,8 @@ uninstall:
 	@[ ! -d $(INSTALL_DIR)/lib ] || [ -n "`ls -A $(INSTALL_DIR)/lib`" ] || rmdir $(INSTALL_DIR)/lib
 	rm -rf $(INSTALL_DIR)/share/opa
 	rm -rf $(INSTALL_DIR)/share/doc/opa
+	# TODO: remove all installed opa manpages
+	# rm -rf $(INSTALL_DIR)/share/man/man1/opa*
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
 	@tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
