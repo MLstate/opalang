@@ -498,6 +498,10 @@ rule "opabsl files"
     Seq[
       mv "opabsl.save" "opabsl.opp";
       cp ("plugins"/"opabsl"/"serverLib.mli") ("opabsl.opp"/"serverLib.mli");
+      (* The .mli file is meant to be linked with actual opa
+         applications.  Thus, it doesn't expose all the symbols
+         defined in the .ml file.  We remove this file so that ocamlc
+         export all symbols defined there. *)
       rm_f ("opabsl.opp"/"opabslMLRuntime.mli")
     ]
   )
