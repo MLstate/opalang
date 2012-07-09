@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 (* depends in base *)
@@ -173,7 +173,7 @@ let check_hybrid_value annotmap e1 e2 =
   | _ -> false
 
 (* ******************************************************************)
-(* Retrieve OPA type and functions **********************************)
+(* Retrieve Opa type and functions **********************************)
 (* /!\ WARNING : DON'T USE BELOW FUNCTIONS UNTIL YOU READ /!\ *******)
 (* /!\ COMMENT of preprocess_types. /!\ *****************************)
 (* ******************************************************************)
@@ -206,7 +206,7 @@ end
 (** This module allows access to some values and types defined on
     module OpaType (written on opa). This expression are well
     typed. For more information see the corresponding module written
-    in OPA. *)
+    in Opa. *)
 module OpaType = struct
 
   let tsc = ref Pass_ExplicitInstantiation.opatsc_type
@@ -228,7 +228,7 @@ end
 (** This module allows access to some values and types defined on
     module OpaSerialize (written on opa). This expression are well
     typed. For more information see the corresponding module written
-    in OPA. *)
+    in Opa. *)
 
 module OpaSerialize = struct
 
@@ -242,7 +242,7 @@ end
 (** This module allows access to some values and types defined on
     module OpaRPC (written on opa). This expression are well
     typed. For more information see the corresponding module written
-    in OPA. *)
+    in Opa. *)
 module OpaRPC = struct
 
   let request =
@@ -362,7 +362,7 @@ let generate_vars ~annotmap ~gamma prefix ty =
       aux annotmap gamma (id::id_l) (ex::ex_l) (n-1) in
   aux annotmap gamma [] []
 
-(** Generate a match on option, like this in OPA syntax :
+(** Generate a match on option, like this in Opa syntax :
     match [expr] with
     | {some = [id_expr]} -> [ok_expr]
     | {none} -> ko_expr
@@ -397,7 +397,7 @@ let generate_pat_list ~annotmap ident_list ty =
        ]
     ) ident_list (annotmap, pat_list)
 
-(** Generate a match on list(option), like this in OPA syntax :
+(** Generate a match on list(option), like this in Opa syntax :
     match [expr] with
     | {some = [ident_list]} -> [ok_expr]
     | _ -> [ko_expr]

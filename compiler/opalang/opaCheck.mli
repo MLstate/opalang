@@ -1,23 +1,23 @@
 (*
     Copyright © 2011 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 (**
-    Provides all checks on OPA for pre/post conditions.
+    Provides all checks on Opa for pre/post conditions.
 
     @author Esther Baruk
 *)

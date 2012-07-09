@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 
@@ -93,10 +93,10 @@ type bypass_typer = BslKey.t -> QmlAst.ty option
 type options =
     {
       (*** general options about the behaviour of the typer *)
-      (** see the OPA option --explicit-instantiation *)
+      (** see the Opa option --explicit-instantiation *)
       explicit_instantiation : bool;
 
-      (** see the OPA option --value-restriction *)
+      (** see the Opa option --value-restriction *)
       value_restriction : [`disabled|`normal|`strict];
     }
 

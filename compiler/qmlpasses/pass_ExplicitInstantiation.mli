@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (**
    Explicit instantiation adds type abstractions and type applications
@@ -68,7 +68,7 @@ val published_ref : published_map ref
 val renaming_map : QmlRenamingMap.t ref
 
 
-(** Building representation of types in OPA *)
+(** Building representation of types in Opa *)
 
 (**
    The type of type representations
@@ -78,16 +78,16 @@ val opatype_type : QmlAst.ty
 val oparow_type : QmlAst.ty
 val opacol_type : QmlAst.ty
 
-(** [ty_to_opaty ~side annotmap gamma ty] represents a type [ty] in OPA,
-    as an OPA expression. The type of these OPA expressions is defined
-    in the OPA standard library.
+(** [ty_to_opaty ~side annotmap gamma ty] represents a type [ty] in Opa,
+    as an Opa expression. The type of these OPA expressions is defined
+    in the Opa standard library.
 
     @param side  on which side we are, meaningless when memoization is off
-    @param annotmap  the annotmap for, e.g., creating new OPA expressions
+    @param annotmap  the annotmap for, e.g., creating new Opa expressions
     @param gamma  the environment with type definitions
-    @param ty  type to be represented in OPA.
+    @param ty  type to be represented in Opa.
 
-    @return Updated annotmap, and an OPA representation of [ty].
+    @return Updated annotmap, and an Opa representation of [ty].
 *)
 val ty_to_opaty :
   side:[ `server | `client ] -> ?memoize:bool -> ?normalize:bool
@@ -125,22 +125,22 @@ val ty_to_opaty_for_opadoc :
     QmlAst.ty -> QmlAst.expr
   )
 
-(** Building representation of type schemes in OPA *)
+(** Building representation of type schemes in Opa *)
 
 (** The type of representation of type schemes. *)
 val opatsc_type : QmlAst.ty
 
 (** [tsc_to_opatsc ~side (annotmap, gamma) tsc] represents a type scheme [tsc]
-    in OPA, as OPA expression (of type [QmlAst.expr]). The OPA type of this
-    OPA expression is defined in file "specialisation.opa" as [OpaTsc.t].
+    in Opa, as OPA expression (of type [QmlAst.expr]). The OPA type of this
+    Opa expression is defined in file "specialisation.opa" as [OpaTsc.t].
 
     @param side  on which side we are
-    @param annotmap  the annotmap for, e.g., creating new OPA expressions
+    @param annotmap  the annotmap for, e.g., creating new Opa expressions
     @param gamma  the environment with type definitions
-    @param tsc  type scheme to be represented in OPA
+    @param tsc  type scheme to be represented in Opa
 
-    @return Updated annotmap, and an OPA expression that represents
-    [tsc] in OPA.
+    @return Updated annotmap, and an Opa expression that represents
+    [tsc] in Opa.
 *)
 val tsc_to_opatsc :
   side:[ `server | `client ] -> val_:(?side:[`client|`server] -> string -> Ident.t) -> ?memoize:bool ->
@@ -190,14 +190,14 @@ val get_stdlib_gamma : QmlTypes.gamma -> QmlTypes.gamma
 
 
 (** [unprocess_code gamma annotmap qmlAst] eliminates Explicit Instantiation
-    directives in code [qmlAst], replacing them with standard OPA code.
+    directives in code [qmlAst], replacing them with standard Opa code.
 
     @param gamma  the environment with type and value definitions
     @param annotmap  the annotmap for, e.g., looking up types of expressions
     @param qmlAst  the syntax tree to transform
 
     @return Updated annotmap and updated code with extra type arguments
-    abstracted and applied using standard OPA code and with [\@typeof]
+    abstracted and applied using standard Opa code and with [\@typeof]
     directives implemented using the extra type arguments.
 *)
 val unprocess_code :
@@ -207,12 +207,12 @@ val unprocess_code :
 
 
 (** Inserts code generating type definition environment accessible
-    from within OPA code (for runtime explicit instantiation).
+    from within Opa code (for runtime explicit instantiation).
 
     @param gamma  the environment with type definitions
-    @param annotmap  the annotmap for creating new OPA expressions
+    @param annotmap  the annotmap for creating new Opa expressions
 
-    @return Updated annotmap and code building the OPA representation
+    @return Updated annotmap and code building the Opa representation
     of the type environment.
  *)
 val generate_tsc_map_updates :

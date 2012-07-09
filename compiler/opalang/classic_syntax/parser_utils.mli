@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (**
    Functions used by the parser to generate code
@@ -31,7 +31,7 @@
    - Re tuple and records, for generating code while duplicating labels
    - Generating datastructures
    - Generating other AST nodes
-   - Call to OPA functions, that are supposed to be defined in the stdlib
+   - Call to Opa functions, that are supposed to be defined in the stdlib
    - Utilities on patterns
    - Utils on type constants
    - Utils on type vars
@@ -285,7 +285,7 @@ val dots2 : (string * annot) list -> (string, 'a) expr
 val applys : ('a, 'b) expr -> ('a, 'b) expr list -> ('a, 'b) expr
 val apply : ('a, 'b) expr -> ('a, 'b) expr -> ('a, 'b) expr
 
-(** Call to OPA functions, that are supposed to be defined in the stdlib *)
+(** Call to Opa functions, that are supposed to be defined in the stdlib *)
 val append : (string, 'a) expr -> (string, 'a) expr -> (string, 'a) expr
 val stringmap_empty : annot -> (string, 'a) expr
 val cssentrymap_empty : annot -> (string, 'a) expr

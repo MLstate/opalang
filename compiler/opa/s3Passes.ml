@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* shorthands *)
 module O = OpaEnv
@@ -23,7 +23,7 @@ module Q = QmlAst
 
 module List = BaseList
 
-(* Define some alias for OPA pass system *)
+(* Define some alias for Opa pass system *)
 type opa_options = OpaEnv.opa_options
 
 type 'env opa_env = (opa_options, 'env) PassHandler.one_env
@@ -354,7 +354,7 @@ let pass_Welcome =
     (fun {PH.env=()} ->
        OpaEnv.Options.parse_options ();
        let options = OpaEnv.Options.get_options () in
-       OManager.verbose "OPA version %s" BuildInfos.opa_version_name ;
+       OManager.verbose "Opa version %s" BuildInfos.opa_version_name ;
        OManager.verbose "(c) 2007-%s MLstate, All Rights Reserved." BuildInfos.year;
        OManager.verbose "Build: %s" BuildInfos.version_id;
        PassHandler.make_env options ())
@@ -1602,7 +1602,7 @@ let pass_ExplicitInstantiation =
       })
 
 (* rewrite the directives to normal QML code; insert code generating
-   gamma accessible from OPA code *)
+   gamma accessible from Opa code *)
 let pass_OptimizeExplicitInstantiation =
   let precond =
     [

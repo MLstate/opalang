@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (*
     @author Cedric Soulas
@@ -655,7 +655,7 @@ let pass_OpaOptionsToQmlOptions ~(options:opa_options) qml_milkshake =
         show_compilation = options.OpaEnv.show_compilation ;
         split_ocaml_value =  split_ocaml_value ;
         target = options.OpaEnv.target ;
-        (* hack for "cannot generalize"; in rare cases of OPA code helps, and can be complementary with eta_expand *)
+        (* hack for "cannot generalize"; in rare cases of Opa code helps, and can be complementary with eta_expand *)
         top_magic = true ;
     } in
   argv_options

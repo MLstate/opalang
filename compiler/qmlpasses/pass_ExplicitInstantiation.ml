@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 (*
@@ -494,7 +494,7 @@ let add_definition ~side v =
 (*------ end memo utils --------*)
 (*------------------------------*)
 
-(** Building representation of types in OPA *)
+(** Building representation of types in Opa *)
 
 let opatype_type =
   Q.TypeName ([], QmlAst.TypeIdent.of_string Opacapi.Types.OpaType.ty)
@@ -507,7 +507,7 @@ let opatype_typevar =
   Q.TypeName ([], QmlAst.TypeIdent.of_string Opacapi.Types.OpaType.typevar)
 
 (** Construct expression with one unit field named by the given name.
-    Example : rep_of_unit_field annotmap "Toto" represents the OPA
+    Example : rep_of_unit_field annotmap "Toto" represents the Opa
     value { Toto } *)
 let rep_of_unit_field annotmap gamma name =
   let annotmap, unit_expr = TypedExpr.cheap_void annotmap gamma in
@@ -1015,7 +1015,7 @@ let dummy_opaty annotmap gamma =
   annotmap, e
 
 
-(** Building representation of type schems in OPA *)
+(** Building representation of type schems in Opa *)
 
 let opatsc_type =
   Q.TypeName ([], QmlAst.TypeIdent.of_string Opacapi.Types.OpaTsc.t)

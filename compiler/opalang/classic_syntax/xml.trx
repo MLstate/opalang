@@ -1,19 +1,19 @@
 (*
     Copyright © 2011 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 {{ open Parser_utils }}
 
@@ -503,7 +503,7 @@ css_unary <-
   / "white-space" style_delim (css_white_space / opa_expr)                               {{ css_build_unsafe "white_space" [__3] }}
   / "z-index" style_delim (css_z_index / opa_expr)                                       {{ css_build_unsafe "z_index" [__3] }}
 
-# Produces a typed CSS style, as a OPA [Css.property]
+# Produces a typed CSS style, as a Opa [Css.property]
 ;css_properties <- (=deco(just_css_properties)):p {{ unc2 list_expr_of_expr_list p }}
 just_css_properties <-
   / spacing css_unary:v spacing (style_sep spacing css_unary:v spacing {{ v }})*:l style_sep? spacing {{ v :: l }}

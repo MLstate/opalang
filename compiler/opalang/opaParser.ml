@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* CF mli *)
 module String = BaseString
@@ -257,7 +257,7 @@ let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=fals
         | Specific_parse_error (pos, err) ->
             show_parse_error filename content "Error" err (FilePos.get_first_char pos) (* FIXME, whole range should be used *)
         | err ->
-            (* All parser error in OPA should use the [Specific_parse_error] exception.
+            (* All parser error in Opa should use the [Specific_parse_error] exception.
                Otherwise we have no location to report... *)
             show_parse_error filename content "Error" (Printexc.to_string err) (-1)
       in

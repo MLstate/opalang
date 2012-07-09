@@ -1,19 +1,19 @@
 (*
     Copyright © 2011 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (* cf mli *)
 
@@ -506,7 +506,7 @@ struct
     let annotmap, label = typed_label ?pos annotmap ty_void in
     annotmap, Q.Coerce (label, empty_record, ty_void)
 
-  (* the cheapest unit, typed with a typename "void"; works only in OPA *)
+  (* the cheapest unit, typed with a typename "void"; works only in Opa *)
   let cheap_void ?pos annotmap gamma =
     let ti_void = ti_from_string gamma Opacapi.Types.void in
     let annotmap, label = typed_label ?pos annotmap (Q.TypeName ([], ti_void)) in
@@ -652,9 +652,9 @@ struct
       | Q.TypeVar _ ->
           (* After typing this case should not happen, but if we insert some
              code into AST in a lazy way using typevars, this is required.
-             The coerce is (was?) probably needed by some OPA pass
+             The coerce is (was?) probably needed by some Opa pass
              and documents in the AST our assumption about types.
-             As soon as it does not break any OPA pass, we may change
+             As soon as it does not break any Opa pass, we may change
              [tparams] below to the possibly more precise types found
              in annotmap for [params], as follows:
                let tparams = List.map (fun param -> QmlAnnotMap.find_ty param.annot annotmap) params in

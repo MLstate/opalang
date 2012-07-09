@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 (* depends *)
@@ -339,7 +339,7 @@ struct
       QmlAst.ty_def_body = ty ty_def.SurfaceAst.ty_def_body ;
     }
 
-  (* Note that the OPA annot [opa_annot] is only used for error messages
+  (* Note that the Opa annot [opa_annot] is only used for error messages
      purpose. *)
   let const_expr (const_node, opa_annot) =
     match const_node with
@@ -360,7 +360,7 @@ struct
   (* ************************************************************************ *)
   (** {b Descr}: Creates a new label, i.e. key in an annotation map + position
       in source code. The key in annotation map is a fresh one. The position
-      in source code is copied from the OPA annotation received in input.
+      in source code is copied from the Opa annotation received in input.
       {b Visibility}: Not exported outside this module.                       *)
   (* ************************************************************************ *)
   let make_label_from_opa_annot opa_annot =

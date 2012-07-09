@@ -1,26 +1,26 @@
 (*
     Copyright © 2011 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 (*
     @author Adam Koprowski
 **)
 
 (* TODO, This module should at some point be generalized in such
-   a way that both OPA TRX and Ocaml TRX could use this AST *)
+   a way that both Opa TRX and Ocaml TRX could use this AST *)
 
 open QmlLoc
 
@@ -62,7 +62,7 @@ type 'code expr = 'code expr_node label
  and 'code primary_node = 
    | Parens of 'code expr
    | Literal of string(*literal*) * bool(*is case-sensitive?*)
-   | DynamicLiteral of 'code (* literal string containing embedded OPA expressions {...} *)
+   | DynamicLiteral of 'code (* literal string containing embedded Opa expressions {...} *)
    | Code of 'code (* arbitrary expression implementing a parser *)
    | Rule of 'code (* reference to another parsing rule *)
    | Class of range list

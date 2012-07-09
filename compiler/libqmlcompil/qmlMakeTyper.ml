@@ -1,19 +1,19 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 (**
@@ -82,9 +82,9 @@ sig
     ?display:bool ->               (** false *)
     explicit_instantiation : bool ->
     (** not an optional argument, because it has to be the same
-        as the OPA compilation option of the same name, it's called
-        in many places in OPA, and the default value in OPA changes
-        (so we risk getting out of sync with OPA and having obscure errors
+        as the Opa compilation option of the same name, it's called
+        in many places in Opa, and the default value in OPA changes
+        (so we risk getting out of sync with Opa and having obscure errors
         or inefficiencies, if we have a (different) default value here, too) *)
     value_restriction : [`disabled|`normal|`strict] ->
     (** The set of toplevel identifiers that are visible outside the package.

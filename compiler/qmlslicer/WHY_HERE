@@ -6,7 +6,7 @@ to have a interactive loop with it.
 A test with a slicing to a double ocaml side will also take place here.
 
 Since this version of the slicer works on new ast,
-there is no other dependancies in OPA.
+there is no other dependancies in Opa.
 
 This lib contains only the kernel of the slicing process,
 the opa-specific traitements are still in opa.

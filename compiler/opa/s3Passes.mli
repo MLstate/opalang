@@ -1,36 +1,36 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 open Passes
 
-(** Pass and pass utils for OPA S3. *)
+(** Pass and pass utils for Opa S3. *)
 
-(** {6 Type alias to passHandler for OPA}*)
+(** {6 Type alias to passHandler for Opa}*)
 (** Shortcut for [opa_options] *)
 type opa_options = OpaEnv.opa_options
 
-(** Type of OPA environments. *)
+(** Type of Opa environments. *)
 type 'env opa_env = (opa_options, 'env) PassHandler.one_env
 
-(** Type of OPA passes. *)
+(** Type of Opa passes. *)
 type ('env, 'env2) opa_pass =
     (opa_options, opa_options, 'env, 'env2) PassHandler.pass
 
-(** Type of old OPA passes. *)
+(** Type of old Opa passes. *)
 type ('env, 'env2) opa_old_pass =
     (opa_options, 'env, 'env2) PassHandler.old_pass
 
@@ -82,7 +82,7 @@ val pass_CheckOptions : (unit, env_ArgParse) opa_pass
 (**
    {6 Stdlib files}
 
-   This pass adds OPA's standard include list.
+   This pass adds Opa's standard include list.
 *)
 val pass_AddStdlibFiles : (env_ArgParse, env_AddStdlibFiles) opa_pass
 

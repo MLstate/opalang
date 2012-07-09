@@ -1,19 +1,19 @@
 (*
     Copyright © 2011 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA. If not, see <http://www.gnu.org/licenses/>.
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
 module String = Base.String
@@ -217,7 +217,7 @@ let opa_tyn tn ((tyns,exts):tyexts) =
   match tn with
   | [tn] -> [tn]
   | [mn;tn] -> [(lc1 mn);tn]
-  | "external"::_ -> failwith "external type expected for OPA type name"
+  | "external"::_ -> failwith "external type expected for Opa type name"
   | _ -> assert false
 
 let str_of_tyn = function
@@ -327,7 +327,7 @@ let rec type_ocaml_te tyns = function
 
 (* End of Generate OCaml types *)
 
-(* Generate OPA types *)
+(* Generate Opa types *)
 
 let type_opa_cte = function
   | O.TypeString -> "string"
@@ -355,7 +355,7 @@ let rec type_opa_te tyns = function
            else sprintf "%s(%s)" on (String.concat "," (List.map (type_opa_te tyns) tes))
        | ExternalTyn (_,ext) ->
            (try List.assoc "opatype" ext
-            with Not_found -> failwith (sprintf "No OPA type defined for external type %s" n))
+            with Not_found -> failwith (sprintf "No Opa type defined for external type %s" n))
        | _ ->
            (eprintf "Unknown: %s %s\n%!" (String.concat " " (List.map Tools.str_of_type_expr tes)) n;
             assert false))
@@ -380,9 +380,9 @@ let rec type_opa_te tyns = function
   | O.TypeLabel (*of bool (* optional *) * string * type_expr*) _ -> assert false
   | O.TypeVerbatim (*of string*) _ -> assert false
 
-(* End of Generate OPA types *)
+(* End of Generate Opa types *)
 
-(* Generate OPA arg types *)
+(* Generate Opa arg types *)
 
 let opa_arg_type_cte = function
   | O.TypeString -> "opa[string]"
@@ -396,7 +396,7 @@ let rec opa_arg_type_te name = function
   | O.TypeConst cte -> opa_arg_type_cte cte
   | _ -> sprintf "opa[%s_%s]" !mns name
 
-(* End of Generate OPA arg types *)
+(* End of Generate Opa arg types *)
 
 (* Generate ServerLib types *)
 
@@ -1160,7 +1160,7 @@ let rec abs_input_te enc tyns = function
 
 (* End of Abstract input *)
 
-(* OPA input/output *)
+(* Opa input/output *)
 
 let get_external_opa_function enc exts t =
   let defnames =
@@ -1301,7 +1301,7 @@ let opa_prs3 = {
   input_v = ocaml_input_str;
 }
 
-(* End of OPA input/output *)
+(* End of Opa input/output *)
 
 (* OCaml input/output *)
 
@@ -1475,7 +1475,7 @@ let ocaml_prs3 = {
 
 (* End of OCaml input/output *)
 
-(* OPA JSON output *)
+(* Opa JSON output *)
 
 let opa_tojson_encoding = {
   foldstrs = false;
@@ -1506,9 +1506,9 @@ let opa_tojson_encoding = {
   prs = opa_prs;
 }
 
-(* End of OPA JSON output *)
+(* End of Opa JSON output *)
 
-(* OPA JSON low-level output *)
+(* Opa JSON low-level output *)
 
 let opa_tojson_ll_encoding = {
   foldstrs = false;
@@ -1539,7 +1539,7 @@ let opa_tojson_ll_encoding = {
   prs = opa_prs;
 }
 
-(* End of OPA JSON low-level output *)
+(* End of Opa JSON low-level output *)
 
 (* OCaml JSON output *)
 
@@ -1661,11 +1661,11 @@ let ocaml_unwrap_encoding () = {
 
 (* End of OCaml BSL output *)
 
-(* OPA JSON input *)
+(* Opa JSON input *)
 
 (* Now abstract - common with opa output *)
 
-(* End of OPA JSON input *)
+(* End of Opa JSON input *)
 
 (* OCaml JSON input *)
 
@@ -2455,7 +2455,7 @@ let make_create tyns oc oci _ocb _ocbo name te =
   | args, typs, opatyps, cr ->
       (fprintf oc "let create_%s %s =\n  %s\n\n" name (String.concat " " args) cr;
        fprintf oci "val create_%s : %s -> %s\n\n" name (String.concat " -> " typs) name(*;
-       We would have to wrap these. OPA can se debrouille.
+       We would have to wrap these. Opa can se debrouille.
        if !bsl_file
        then (fprintf ocb "##register create_%s : %s -> %s\n\n" name (String.concat " -> " opatyps) name
        )*)
@@ -3205,9 +3205,9 @@ let write_ml_types_file file mdls tynames exts idls sars import=
                 output_header ocb file "BSL file" "(*" "*)";
 
                 let bslofile = setsuffix file !bsl_prefix ".mlidl" !output_suffix ".opa" in
-                if !verbose then eprintf "Output OPA BSL file=%s\n%!" bslofile;
+                if !verbose then eprintf "Output Opa BSL file=%s\n%!" bslofile;
                 let ocbo = open_out bslofile in
-                output_header ocbo file "OPA BSL file" "/*" "*/";
+                output_header ocbo file "Opa BSL file" "/*" "*/";
                 ocb, ocbo)
           else stderr, stderr
         in
@@ -3282,9 +3282,9 @@ let write_ml_types_file file mdls tynames exts idls sars import=
 
   if not !no_opa
   then (let opafile = setsuffix file "" ".mlidl" !output_suffix ".opa" in
-        if !verbose then eprintf "Output OPA file=%s\n%!" opafile;
+        if !verbose then eprintf "Output Opa file=%s\n%!" opafile;
         let oco = open_out opafile in
-        output_header oco file "OPA file" "/*" "*/";
+        output_header oco file "Opa file" "/*" "*/";
         List.iter (function PI.IDLType (name,te,_) -> make_type_opa oco tyext name te | _ -> assert false) idls;
         fprintf oco "%s" (opa_hdr ("STR_"^(!mns)));
         List.iter (function PI.IDLType (name,te,_) -> make_output_opa !opa_encoding tyext oco name te | _ -> assert false) idls;
@@ -3501,7 +3501,7 @@ let _ =
        ("-no-ocaml", (Arg.Bool (fun s -> default_opts := { !default_opts with opt_no_ocaml = s })),
         (sprintf "<bool>\tDon't generate OCaml output (default: %b)." (!default_opts).opt_no_ocaml));
        ("-no-opa", (Arg.Bool (fun s -> default_opts := { !default_opts with opt_no_opa = s })),
-        (sprintf "<bool>\tDon't generate OPA output (default: %b)." (!default_opts).opt_no_opa));
+        (sprintf "<bool>\tDon't generate Opa output (default: %b)." (!default_opts).opt_no_opa));
        ("-v", (Arg.Unit (fun () -> default_opts := { !default_opts with opt_verbose = true })), "\tVerbose.");
        ("-g", (Arg.Unit (fun () -> default_opts := { !default_opts with opt_debug = true })),
         "\tDebug (currently does nothing).");
