@@ -108,7 +108,7 @@ Mime = {{
       match String.uppercase(s)
       | "Q" -> some({Q_encoding})
       | "B" -> some({B_encoding})
-      | _ -> do warning("EncodedWords.string_to_encoding: unknown encoding {s}") none
+      | _ -> do Log.warning("Mime", "EncodedWords.string_to_encoding: unknown encoding {s}") none
 
     /** FIXME: limit to 75 long... */
     encoded_word = parser

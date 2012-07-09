@@ -395,20 +395,19 @@ OpaRPC_Server =
 
   @private
   rpc_return(cid, id, return) =
-    @atomic(
+    match @atomic(
       match Hashtbl.try_find(rpc_infos, id) with
-      | {none} ->
-        do Log.error("OpaRpc", "No rpc id:"^id)
-        false
+      | {none} -> {some = "No rpc id:"^id}
       | {some = ~{k client}} ->
         if client.client == cid.client && client.page == cid.page then
           do Hashtbl.remove(rpc_infos, id)
           do Continuation.return(k, return)
-          true
+          {none}
         else
-          do Log.error("OpaRpc", "Wrong client try to RPC reply")
-          false
-    )
+          {some = "Wrong client try to RPC reply"}
+    ) with
+    | {none} -> true
+    | {some = msg} -> do Log.error("OpaRpc", msg) false
   #<Else>
   @private
   send_response = %%BslRPC.call%%

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -39,15 +39,19 @@
  * {1 Interface}
  */
 
-/**
- * All parameters are the same:
- * @param topic
- * @param message
- * Example:
- * [Log.fatal("topic", "message")]
- */
+@private
+ServerLog = {{
+  @private wrap(l)(topic:string, x:string) = l("{topic} {x}"):void
+  @publish fatal   = wrap(Logger.critical)
+  @publish error   = wrap(Logger.error   )
+  @publish warning = wrap(Logger.warning )
+  @publish notice  = wrap(Logger.notice  )
+  @publish info    = wrap(Logger.info    )
+  @publish debug(t, x) = wrap(Logger.debug   )(t, "{x}")
+}}
 
-Log = {{
+@private
+Clientlog = {{
   fatal   = %% BslSyslog.fatal %%
   error   = %% BslSyslog.error %%
   warning = %% BslSyslog.warning %%
@@ -57,7 +61,15 @@ Log = {{
 }}
 
 /**
- * {1 Deprecated. Use Log.}
+ * All parameters are the same:
+ * @param topic
+ * @param message
+ * Example:
+ * [Log.fatal("topic", "message")]
  */
+Log =
+  @sliced_expr({
+  server = ServerLog
 
-@deprecated({use="Log"}) Syslog = Log
+  client = Clientlog
+})

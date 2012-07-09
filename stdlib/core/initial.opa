@@ -311,11 +311,6 @@ unary_minus(_:'number) : 'number = @fail
 error(s) = @fail(s)
 
 /**
- * Print a warning.
- */
-warning = Syslog.warning("", _)
-
-/**
  * Print a message and continue.
  *
  * If this function is executed on the client, the message will be displayed in a side window.

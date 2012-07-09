@@ -255,7 +255,7 @@ Server_private = {{
           str_url = HttpRequest.Generic.get_uri(request)
           //do Log.info("Server dispatch", "Received URL {str_url}")
           str_url = Text.to_string(Parser.parse(url_decode,str_url))
-          do Log.info("Server dispatch", "Decoded URL to {str_url}")
+          //do Log.info("Server dispatch", "Decoded URL to {str_url}")
           //str_url = Uri.to_string(Parser.parse(UriParser.uri, str_url)) //Clean-up URI (removing "//", "/../", etc.)
           //do Log.info("Server dispatch", "Cleaned URL to {str_url}")
           wrong_address(kind) =

@@ -565,9 +565,8 @@ Then use option --db-remote instead of --db-local.
         void
       psyncops(b) = @atomic(
         s = Reference.get(ref)
-        do if b && s.psyncops then log("psyncops incoherent")
         Reference.set(ref, {s with psyncops=b})
-      )
+      ) //if b && s.psyncops then log("psyncops incoherent")
       try_process_one_syncops(db) =
         ops = @atomic(
           s = Reference.get(ref)

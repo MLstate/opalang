@@ -2,6 +2,7 @@ package stdlib.core.db
 
 import stdlib.core.args
 import stdlib.core.parser
+import stdlib.core.rpc.core
 
 /**
  * {1 About this module}

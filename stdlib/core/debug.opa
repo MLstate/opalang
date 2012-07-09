@@ -43,11 +43,6 @@ Debug = {{
 error(s) = @fail(s) :'a
 
 /**
- * Print a warning and continue.
- */
-    warning = Syslog.warning("Debug", _)
-
-/**
  * Print a message and continue.
  *
  * If this function is executed on the client, the message will be displayed in a side window.
@@ -87,11 +82,6 @@ jlog_with_stack(mess: string)=
  * This only shows the local stack, not the full client-to-server or server-to-client stack.
  */
 @deprecated({use="Continuation.print_trace"}) get_stack = %% Bslpervasives.get_stack %%
-
-/**
- * As [warning].
- */
-alert(s)=warning(s)
 
 /**
  * Flush all outputs.

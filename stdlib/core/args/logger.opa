@@ -293,7 +293,11 @@ Logger = {{
     rotate_interval={none};
   }
 
-  initialize() = /* Initial parse */
+  /*
+   * Initialization of the logger
+   */
+  @private
+  initialize =
     args = {
       title = "Logging options"
       init = default_log_opts
@@ -302,7 +306,7 @@ Logger = {{
         CommandLine.int(["--verbose"],"Set the verbosity level (0-8, default {default_log_opts.verbose})","<level>")(
                          (verbose, p ->
                             if verbose < 0 || verbose > 8
-                            then do Log.fatal("Logger options","Bad level: {verbose}") p
+                            then do error("[Logger] Bad level: {verbose}") p
                             else {p with ~verbose})),
         CommandLine.switch(["--display-logs"],"Display a part (default, access and error) of the server logs directly on the terminal instead of outputting them into log files")(p -> {p with display=true}),
         CommandLine.string(["--logs-path"],"Set the path for storing logs","<string>")(
@@ -337,7 +341,3 @@ Logger = {{
       set_error_logger(log_err)
 
 }}
-
-_ = Logger.initialize() // Should we do this somewhere else???
-
-
