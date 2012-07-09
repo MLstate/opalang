@@ -17,5 +17,5 @@
 <opabsl>: traverse, static
 
 # Tag treated differently in build_rules
-<**/*.opa_plugin>: use_opabsl
-<opabsl/opabsl.opa_plugin>: -use_opabsl
+<**/*.{opa_plugin,oppf}>: use_opabsl
+<lib/plugins/opabsl/opabsl.{opa_plugin,oppf}>: -use_opabsl

@@ -413,6 +413,13 @@ let opp_build opa_plugin opp oppf env build =
   let files_validation, files_lib = List.partition jschecker_file files in
   let files_lib = List.map (fun s -> P s) files_lib in
   let plugin_name = Pathname.basename (env "%") in
+  if Tags.mem "use_opabsl" (tags_of_pathname (env oppf)) then
+    (* HACK:
+       For some reason, I couldn't get the dep ocamlbuild function
+       to pull this dependency... *)
+    build_list build ["opabsl.opp"/"opabslMLRuntime.cmx"]
+  else
+    ();
   let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
   let preprocess_js =
     List.fold_left
@@ -474,6 +481,8 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
+dep ["plugin_opabsl"] ["lib"/"plugins"/"opabsl"/"opabsl.oppf"];
+
 let opabsl_files =
   (List.map (fun file -> "opabsl.opp"/file) [
     "opabslPlugin.ml"; "opabslMLRuntime.ml";
@@ -506,9 +515,6 @@ rule "opabsl files"
     ]
   )
 ;
-
-dep ["plugin_opabsl"] ["plugins/opabsl/opabsl.oppf"];
-(*dep ["file:opatop/opatop.native"] ["opabsl.cma"];*)
 
 (* -- BSL compilation (using bslregister) -- *)
 (* let ml_sources_bsl = dir_sources_bsl "lib/opabsl/mlbsl" in *)
