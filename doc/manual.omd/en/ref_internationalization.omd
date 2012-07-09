@@ -1,25 +1,24 @@
 Internationalization
 ====================
 
-#FUTUR indicates not ready features
+//FUTUR indicates not ready features
 
 What it is about?
 -----------------
 
 Opa internationalization (aka i18n) mecanism works by creating and using translation packages, and associating language to server user and to the server.
 
-The compiler offers some helpfull command line functionalities:
--template package generation for i18n (using --i18n-opa-template)
-#FUTUR - template .po file generation (--i18n-po-template)
-#FUTUR - .po to opa package compilation
-and
-add support for the directive @i18n.
+The compiler offers some helpful command line functionalities:
+- template package generation for i18n (using --i18n-opa-template)
+//FUTUR - template .po file generation (--i18n-po-template)
+//FUTUR - .po to opa package compilation
+- add support for the directive @i18n.
 
 
 What's new on langage side?
 ---------------------------
 
-The directive @i18n indicates that its parameter expression will be subject to internationalisation.
+The directive `@i18n` indicates that its parameter expression will be subject to internationalisation.
 It comes in two flavours:
 - on syntactical string and soon on html, it indicates a string that will be handled later in the translation package. (see example/hello_i18n.opa)
 - on any other expression, it indicates the use of a custom translation, i.e. the expressions require the context lang as a parameter. (see example/custom.opa)
@@ -36,39 +35,44 @@ The new compilations options are:
 --i18n-template-po  [ -o ]
 --i18n-dir
 --i18n-pkg
-#FUTUR --i18n-template-opa [ -o ]
-#FUTUR --i18n-every-string // @i18n is not needed
+//FUTUR --i18n-template-opa [ -o ]
+//FUTUR --i18n-every-string // @i18n is not needed
 
 Most users will use only --i18n-template-po and --i18n-dir
 
 
+```
 opa --i18n-template-opa source.opa [-o mypack.translation.opa]
-# create package mypack.translations in mypack.translations.opa
-# eventual merge if existing
+// create package mypack.translations in mypack.translations.opa
+// eventual merge if existing
 opa mypack.translations.opa
+```
 
+```
 opa --i18n-pkg mypack.translation source.opa
-#compile with translations enable, will use mypack.translation.opa
+// compile with translations enable, will use mypack.translation.opa
+```
 
+```
 opa source.opa
-#compile with translations disabled, as now
+// compile with translations disabled, as now
+```
 
 
-FUTUR
-opa --i18n-template-po source.opa [-o mypack.translation.po]
-# eventual merge
-po2opa mypack.translation.po
-opa mypack.translations.opa
+//FUTUR opa --i18n-template-po source.opa [-o mypack.translation.po]
+//# eventual merge
+//po2opa mypack.translation.po
+//opa mypack.translations.opa
 
 
 How to make a whole project support i18n?
 -----------------------------------------
 
- Create a 'translation' directory in your project hierarchy.
- On an already compiled project. Redo all the compilation command adding --i18n-opa-template --i18n-dir translation
- It will creates translation packages for all your project packages (aka standard packages).
- Edit all this translations packages in 'translation' to add new languages.
- Recompiles everything with --i18n-dir translation
+Create a 'translation' directory in your project hierarchy.
+On an already compiled project. Redo all the compilation command adding --i18n-opa-template --i18n-dir translation
+It will creates translation packages for all your project packages (aka standard packages).
+Edit all this translations packages in 'translation' to add new languages.
+Recompiles everything with --i18n-dir translation
 
 
 How to evolves a project and maintain i18n?
@@ -90,8 +94,8 @@ What is the format of translations package?
 
 A translation package is formed of plain opa code, containing one declaration for each @i18n occurence in the corrsponding standard package.
 
-Where can I found an example?
-In ./example.
+//Where can I found an example?
+//In ./example.
 
 
 What are the current limitations ?
