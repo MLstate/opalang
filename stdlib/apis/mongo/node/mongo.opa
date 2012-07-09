@@ -25,6 +25,8 @@ type Mongo.db = {
   server : NodeMongo.server;
   db : option((string, NodeMongo.db));
   collection : option((string, NodeMongo.collection));
+
+  auth : Mongo.auths
 }
 
 
@@ -44,6 +46,8 @@ NodeMongo = {{
 
   open = %% BslMongo.NodeMongo.open %%
     : NodeMongo.db -> (string, NodeMongo.db)
+
+  authenticate = %% BslMongo.NodeMongo.authenticate %% : NodeMongo.db, string, string -> (string,bool)
 
   get_database = %%BslMongo.NodeMongo.get_database%%
     : NodeMongo.server, string, bool -> (string, NodeMongo.db)
@@ -202,7 +206,7 @@ MongoDriver = {{
 
   // Note that we don't open any connection here, we just instantiate a Server object
   // Actually opening the connection is done by the namespace checks on each command
-    open(_bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, _:Mongo.auths) // TODO - auths
+    open(_bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, auth:Mongo.auths)
      : outcome(Mongo.db,Mongo.failure) =
     do if log then MongoLog.info("MongoDriver.open","{addr}:{port}",void)
     {success =
@@ -211,9 +215,13 @@ MongoDriver = {{
         collection=none;
         ~log;
         ~allow_slaveok
+        ~auth
         name="";
       }
     }
+
+  @private
+  authenticate(db:NodeMongo.db, auth:Mongo.auth):bool = NodeMongo.authenticate(db,auth.user,auth.password).f2
 
   close(db:Mongo.db): outcome(Mongo.db,Mongo.failure) =
     match db.db with
@@ -228,7 +236,10 @@ MongoDriver = {{
     match close(db) with
     | {success=db} ->
       match NodeMongo.get_database(db.server, dbname, db.allow_slaveok) with
-      | ("", ndb) -> {success={db with db={some=(dbname, ndb)}}}
+      | ("", ndb) ->
+        authentified = List.for_all(authenticate(ndb, _), db.auth)
+        if authentified then {success={db with db={some=(dbname, ndb)}}}
+        else {failure={Error="Authentification fails"}}
       | (err, _) -> {failure={Error=err}}
       end
     | {~failure} -> {~failure}
@@ -347,7 +358,7 @@ MongoDriver = {{
 
 MongoReplicaSet = {{
 
-    init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, _:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db = // TODO - auths
+    init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db =
     do if log then MongoLog.info("MongoReplicaSet.init","seeds={seeds}",void)
     servers = List.map((((host, port)) -> NodeMongo.server(host, port, true, pool_max)), seeds)
     replset = NodeMongo.replset(servers)
@@ -357,6 +368,7 @@ MongoReplicaSet = {{
       ~log;
       name=name;
       ~allow_slaveok
+      ~auth
     }
 
   connect(m:Mongo.db): outcome((bool,Mongo.db),Mongo.failure) =

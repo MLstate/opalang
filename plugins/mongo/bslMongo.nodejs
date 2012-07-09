@@ -463,4 +463,16 @@ exports.dropIndex = BslMongo_NodeMongo_dropIndex
   return js_void;
 }
 
+##register [cps-bypass] authenticate : NodeMongo.db, string, string,  continuation(tuple_2(string,bool)) -> void
+##args(db, name, password, cont)
+{
+  db.authenticate(name,password,
+        function (err, res) {
+                 var auth = err === null || err === undefined
+                 return_(cont, {f1:auth ? "" : err.message, f2: auth})
+                    }
+  );
+  return js_void;
+}
+
 ##endmodule
