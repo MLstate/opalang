@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -304,10 +304,12 @@ struct
     match side with
     | `server -> S.assign server_memo (M.add key value (S.extract server_memo))
     | `client -> S.assign client_memo (M.add key value (S.extract client_memo))
+  let hash x = String.sub (Digest.to_hex (Digest.string x)) 0 6
   let ident ~side t =
     match side with
     | `client ->
         let s = Format.to_string S.pp t in
+        let s = if String.length s > 6 then hash s else s in
         Ident.fake_source ("ei_" ^ s) (* fake source because we want collisions between different packages
                                        * (in the js only, because in caml, identifiers are in different
                                        * scopes anyway) *)
