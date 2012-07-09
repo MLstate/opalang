@@ -7,10 +7,10 @@ set -u
 INSTALLDIR=$PWD/release_install_root
 
 # VERSION_MAJOR must be a version number, not text !!
-VERSION_MAJOR=$(cat buildinfos/version_major.txt)
-OFFICIAL_VERSION_NAME=$(cat<buildinfos/version_name.txt)
+VERSION_MAJOR=$(cat compiler/buildinfos/version_major.txt)
+OFFICIAL_VERSION_NAME=$(cat<compiler/buildinfos/version_name.txt)
 # VERSION_NAME shall be a string of alphanumeric characters or . + ~ (Debian guidelines)
-VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <buildinfos/version_name.txt)
+VERSION_NAME=$(tr '[:upper:]' '[:lower:]' <compiler/buildinfos/version_name.txt)
 VERSION_BUILD=build
 
 # the version string will be MAJORNAME+BUILDnnnn with nnnn the build number
@@ -23,7 +23,7 @@ msg () {
     esac
 }
 
-. platform_helper.sh
+. tools/platform_helper.sh
 
 MYDIR=$PWD
 

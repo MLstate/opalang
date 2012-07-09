@@ -3,7 +3,7 @@
 set -e
 set -u
 
-. ./platform_helper.sh
+. tools/platform_helper.sh
 
 # these must be absolute
 PREFIX=/usr
