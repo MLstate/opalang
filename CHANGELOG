@@ -1,3 +1,51 @@
+2012.07.03, Version 1.0.4 (stable), v2403
+
+Bug fixes:
+- install.sh is not installed in /usr by debian package anymore
+
+Improvements:
+- Reduced the generated JS code size
+- Split final JS object in several parts
+- Load standard library packages dynamically
+- Detection of node and node_modules dependencies at launch
+
+
+2012.06.26, Version 1.0.3 (stable), v2309
+
+Dropped OCaml back-end from the release package
+- Reduced the package size from more than 66%
+
+Removed node and node_modules inclusion from the release package
+- You have to install node and npm yourself
+- You will need to install node modules: mongodb, formidable, nodemailer, imap
+
+2012.06.25, Version 1.0.2 (stable), v2276
+
+Bug fixes:
+- Debian package installer when OCaml was already present
+
+Improvements:
+- iconv, formbuilder and xls for node.js backend
+
+
+2012.06.21, Version 1.0.1 (stable), v2258
+
+New features:
+- opa create myapp now available for node.js backend
+
+Improvements:
+- SSL for node.js backend
+
+Bug fixes:
+- MongoDB fields decoding
+
+
+2012.06.20, Version 1.0.0 (stable), v2242
+
+New features:
+
+- Node.js backend by default
+
 Updated APIs:
 
   * Bootstrap
