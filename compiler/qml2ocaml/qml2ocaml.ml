@@ -578,8 +578,15 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     let substitute_lib_extension_native = File.subst ["", "cmxa" ; "cmo", "cmx" ; "cma", "cmxa"] in
     let substitute_lib_extension_bytecode = File.subst ["", "cma" ; "cmx", "cmo" ; "cmxa", "cma"] in
 
-    let extra_lib_native = String.concat_map " " substitute_lib_extension_native options.O.extra_lib in
-    let extra_lib_bytecode = String.concat_map " " substitute_lib_extension_bytecode options.O.extra_lib in
+    (* HACK: avoid having opabsl runtime being linked unnecessarily *)
+    let re = Str.regexp "opabslMLRuntime" in
+    let extra_lib = List.filter (fun file ->
+      not (Str.string_match re file 0)
+    ) options.O.extra_lib
+    in
+
+    let extra_lib_native = String.concat_map " " substitute_lib_extension_native extralib in
+    let extra_lib_bytecode = String.concat_map " " substitute_lib_extension_bytecode extra_lib in
 
     (* options for compiler & linker *)
     let options_compiler = String.concat " " ((if options.O.hacker_mode then "-annot" else "")::(if options.O.profile then "-p" else "")::options.O.mlcopt) in
