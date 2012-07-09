@@ -6,7 +6,7 @@ set -e
 #
 #   Copyright © 2011 MLstate
 #
-#   This file is part of OPA.
+#   This file is part of Opa.
 #
 #   OPA is free software: you can redistribute it and/or modify it under the
 #   terms of the GNU Affero General Public License, version 3, as published by
