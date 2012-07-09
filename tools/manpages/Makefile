@@ -43,7 +43,7 @@ $(TARGETDIR)/opa.1: $(BLDDIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 
-$(BLDDIR)/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
+$(BLDDIR)/compiler/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
 	cd ../..; $(OCAMLBUILD) compiler/opatop/gen_opatop_manpage.native
 
 $(TARGETDIR)/opatop.1: $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native
