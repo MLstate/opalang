@@ -960,7 +960,7 @@ let dir_rec_all_files dir =
 in
 
 rule "opa application creator"
-  ~deps:((dir_rec_all_files "tools/opa-create"))
+  ~deps:("opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
