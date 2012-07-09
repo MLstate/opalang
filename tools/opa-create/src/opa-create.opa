@@ -54,7 +54,7 @@ function write(file, content) {
 function iter(file, f_content) {
 	n = String.length(SRC_DIR)
 	file = "{options.name}{String.sub(n, String.length(file) - n, file)}"
-	if (File.exists(file)) { warning("File {file} already exists. \nPlease delete it and try again."); System.exit(1) }
+        if (File.exists(file)) { Log.warning("OpaCreate", "File {file} already exists. \nPlease delete it and try again."); System.exit(1) }
 	jlog("Generating {file}")
     content = String.replace("application_name", options.name, string_of_binary(f_content()))
 	write(file, content)
