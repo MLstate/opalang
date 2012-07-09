@@ -335,7 +335,7 @@ function check-node-dependencies() (
         fi
     done
     if [ \"$MISSING\" != \"\" ]; then
-        echo \"--> some node modules are missing, please run: npm install$MISSING\"
+        echo \"--> some node modules are missing, please run: npm install -g$MISSING\"
         exit 1;
     fi
 )
