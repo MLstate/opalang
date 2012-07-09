@@ -231,7 +231,7 @@ let plugin t path =
   { BslPluginInterface.
 
     basename                = t.basename ;
-    path                    = path ;
+    path                    = Some path ;
     self_module_name        = t.self_module_name ;
     uniq_id                 = t.uniq_id ;
     conf                    = t.conf ;

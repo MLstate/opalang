@@ -109,8 +109,8 @@ struct
       let fold acc loader =
         (* TODO figure out what filter_bsl was being used for *)
         let filename =
-          Filename.concat
-            loader.BslPluginInterface.path
+          let path = Option.default "." loader.BslPluginInterface.path in
+          Filename.concat path
             (loader.BslPluginInterface.basename ^
                BslConvention.Suffix.nodejspackage ^
                ".js") in

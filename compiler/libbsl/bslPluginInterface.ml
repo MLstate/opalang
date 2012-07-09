@@ -298,6 +298,7 @@ struct
   let b = FBuffer.add b static_part in
 
   let b = ~> b    "let basename             = %S\n"  basename                             in
+  let b = ~> b    "let path                 = %s\n"  "None"                               in
   let b = ~> b    "let self_module_name     = %S\n"  self_module_name                     in
   let b = ~> b    "let uniq_id              = %S\n"  uniq_id                              in
   let b = ~> b    "let conf                 = %a\n"  pp_conf conf                         in
@@ -339,6 +340,7 @@ let meta_plugin__03 = "
   (* Back there, the code in staticly known, cf BslPluginInterface.meta_plugin__03 *)
   let self =  {
     basename ;
+    path = None ;
     self_module_name ;
     uniq_id ;
     conf ;
@@ -369,7 +371,7 @@ let _ = Self.self_store ()
 *)
 type plugin = {
   basename              : plugin_basename ;
-  path                  : pathname ;
+  path                  : pathname option ;
   self_module_name      : ocaml_module_name ;
   uniq_id               : uniq_id ;
   conf                  : BslConf.conf ;
@@ -405,7 +407,7 @@ sig
   (**
      Where this plugin was loaded from
   *)
-  val path : pathname
+  val path : pathname option
 
   (**
      The name of the Ocaml module corresponding to this plugin.
