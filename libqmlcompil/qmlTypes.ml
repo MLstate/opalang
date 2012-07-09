@@ -502,7 +502,7 @@ struct
     let to_map gamma = gamma.ident
     let pp f gamma =
       iter (fun ident tsc ->
-              Format.fprintf f "@[<2> %s -> %a@]@\n" (try Ident.to_uniq_string ident with _ -> "erro") QmlPrint.pp#tsc tsc
+              Format.fprintf f "@[<2> %s -> %a@]@\n" (try Ident.to_uniq_string ident with _ -> Ident.original_name ident) QmlPrint.pp#tsc tsc
            ) gamma
   end
 
