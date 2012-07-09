@@ -337,7 +337,7 @@ EOF
     cat > debian/DEBIAN/postinst <<EOF
 #!/usr/bin/env sh
 
-# npm install -g mongodb formidable nodemailer imap
+# npm install -g mongodb formidable nodemailer simplesmtp imap
 EOF
     chmod 755 debian/DEBIAN/postinst
 

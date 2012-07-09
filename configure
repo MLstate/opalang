@@ -356,6 +356,7 @@ fi
 # )
 
 # check-node-dependency "nodemailer"
+# check-node-dependency "simplesmtp"
 # check-node-dependency "imap"
 # check-node-dependency "mongodb"
 # check-node-dependency "formidable"

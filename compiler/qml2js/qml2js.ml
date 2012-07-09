@@ -340,7 +340,7 @@ function check-node-dependencies() (
     fi
 )
 
-check-node-dependencies \"mongodb formidable nodemailer imap\" || exit $?
+check-node-dependencies \"mongodb formidable nodemailer simplesmtp imap\" || exit $?
 
 EOF
 

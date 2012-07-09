@@ -336,6 +336,7 @@ package_install (){
 	    node)
 		vcbuild.bat
 		npm install -g nodemailer
+		npm install -g simplesmtp
 		npm install -g imap
 		npm install -g mongodb
 		npm install -g formidable
