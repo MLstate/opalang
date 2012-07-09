@@ -245,9 +245,9 @@ fi
 $SRCDIR/tools/utils/install.sh --uninstall --dir $INSTALLDIR
 install -m 0755 -v $SRCDIR/tools/utils/install.sh $INSTALLDIR/share/opa
 mkdir -p $INSTALLDIR/share/opa/emacs
-install -m 0644 -v $SRCDIR/utils/emacs/{opa-mode.el,opa-js-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
+install -m 0644 -v $SRCDIR/tools/editors/emacs/{opa-mode.el,opa-js-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs
 mkdir -p $INSTALLDIR/share/opa/vim
-cp -r $SRCDIR/utils/vim/* $INSTALLDIR/share/opa/vim/
+cp -r $SRCDIR/tools/editors/vim/* $INSTALLDIR/share/opa/vim/
 
 # installing changelog (follows standard conventions)
 gzip -c -9 CHANGELOG > $INSTALLDIR/share/doc/opa/changelog.gz
