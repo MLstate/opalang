@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 #
-#                           TOOLS TAGS
+# TOOLS TAGS
 #
 
 <dependencies>: -include, -traverse
@@ -15,10 +15,6 @@
 
 # linking
 <ofile.{byte,native}>: use_unix, use_str, thread, use_ulex, use_libbase, use_zip
-
-# TODO(Rudy, you are on the git blame)
-# this look like weird. Correct the code, and reactivate the warning
-<ofile.ml>: warn_error_z
 
 ###
 # jschecker

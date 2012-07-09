@@ -1,10 +1,12 @@
 # -*- conf -*- (for emacs)
 #
-#                           GLOBAL TAGS
+# GLOBAL OCAMLBUILD TAGS
 #
 # <!> PLEASE BE VERY VERY (VERY) RESTRICTED WITH DEPENDENCIES
-# if you are adding a flag 'use_something' in this file, you are probably doing something wrong
-# this file should only contain restricted traverse directives, sorted by repos, and warning-error directives
+# if you are adding a flag 'use_something' in this file,
+# you are probably doing something wrong
+# this file should only contain restricted traverse directives,
+# sorted by repos, and warning-error directives
 
 # Default : do not include or traverse anything
 # <**/*>: -include, -traverse

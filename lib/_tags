@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 #
-#                           LIB TAGS
+# LIB TAGS
 #
 
 <{experimental,opabsl,plugins,stdlib}>: traverse

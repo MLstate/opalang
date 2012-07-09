@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 #
-#                           COMPILER TAGS
+# COMPILER TAGS
 #
 
 <{buildinfos,compilerlib,jslang,libbsl,libqmlcompil,libtrx,ocamllang,opa,opacapi,opalang,opalib,opatop,passes,passlib,pplib,protocols,qml2js,qml2ocaml,qmlcompilers,qmlcps,qmlflat,qmljsimp,qmlpasses,qmlslicer/}>: traverse

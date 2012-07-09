@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 #
-#                           OCAMLLIB TAGS
+# OCAMLLIB TAGS
 #
 
 <{appruntime,database,libbase,libirc,libnet,libruntime,libsecurity,libsession,libtools,oparuntime}>: traverse
