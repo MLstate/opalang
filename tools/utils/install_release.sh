@@ -253,16 +253,16 @@ cp -r $SRCDIR/tools/editors/vim/* $INSTALLDIR/share/opa/vim/
 gzip -c -9 CHANGELOG > $INSTALLDIR/share/doc/opa/changelog.gz
 
 # installing copyright
-if ! grep -q "Copyright.*\<$(date +%Y)\>" copyright/copyright; then
+if ! grep -q "Copyright.*\<$(date +%Y)\>" doc/copyright/copyright; then
     echo "[31mWARNING[0m: copyright doesn't appear to be up-to-date (doesn't mention current year)"
 fi
 # Careful: copyright file mentions that it must be along <AGPL> and <other_licenses>
 # (which _must_ both be included for legal reasons)
-install -m 0644 -v $SRCDIR/copyright/copyright $INSTALLDIR/share/doc/opa/
+install -m 0644 -v $SRCDIR/doc/copyright/copyright $INSTALLDIR/share/doc/opa/
 {
     echo "OPA includes parts of the following software, with the given licenses:"
     echo
-    for f in $SRCDIR/copyright/[0-9][0-9]_*; do
+    for f in $SRCDIR/doc/copyright/[0-9][0-9]_*; do
         name=$(basename $f)
         name=${name#??_}
         echo
