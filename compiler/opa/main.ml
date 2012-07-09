@@ -1,22 +1,22 @@
 (*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of Opa.
+    This file is part of OPA.
 
-    Opa is free software: you can redistribute it and/or modify it under the
+    OPA is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+    along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** The main program for the Opa compiler. S3 version. *)
+(** The main program for the OPA compiler. S3 version. *)
 
 (* Opening the generic pass system. *)
 module PH = PassHandler
@@ -260,11 +260,11 @@ let () =
 
       |+> ("ServerQmlCpsRewriter", S3.pass_ServerCpsRewriter)
 
-      |> PH.old_if_handler ~if_:If.closure (* ~precond:[check_ident_final] *)
-          "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
-
       |?| (Switch.back_end, function
            | `qmlflat -> ("QmlFlatCompilation", (PassHandler.make_pass (fun e -> e
+
+             |> PH.old_if_handler ~if_:If.closure
+                 "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
 
              |?> (If.constant_sharing,
                  "QmlConstantSharing", S3.pass_QmlConstantSharing)
@@ -285,7 +285,12 @@ let () =
 
              )))
            | `qmljs -> ("QmlJsCompilation", (PassHandler.make_pass (fun e -> e
+
+             |> PH.old_handler
+                 "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
+
              |+> ("ServerJavascriptCompilation", S3.pass_ServerJavascriptCompilation)
+
              )))
           )
       |+> ("CleanUp", S3.pass_CleanUp)
