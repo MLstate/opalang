@@ -27,7 +27,7 @@ msg () {
 
 MYDIR=$PWD
 
-OPAGENERAL=$(dirname $0)
+OPAGENERAL=`pwd` #$(dirname $0)
 
 TBZ2=""
 AUTOINSTALL=""
@@ -260,7 +260,7 @@ if [ "$PKG" = "true" ]; then
     # if [ $NOOCAML = "true" ]; then
     # 	 MOREOPTS="--filter lib/opa/static/*"
     # fi
-    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/installer/Mac/Resources/ --scripts $OPAGENERAL/installer/Mac/Scripts --info $OPAGENERAL/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
+    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/tools/installer/Mac/Resources/ --scripts $OPAGENERAL/tools/installer/Mac/Scripts --info $OPAGENERAL/tools/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
     echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
     if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
 	rm "$MYDIR/$PKG_NAME.dmg"
