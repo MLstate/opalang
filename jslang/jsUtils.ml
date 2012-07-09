@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of OPA.
 
@@ -80,7 +80,9 @@ let globalize_native_ident stm =
           (ident, expr, traverse_stm local_vars body)
         ) catches
       in
-      J.Js_trycatch (label, body, fcatches, finally)
+      let fbody = traverse_stm local_vars body in
+      let ffinally = Option.map (traverse_stm local_vars) finally in
+      J.Js_trycatch (label, fbody, fcatches, ffinally)
     | _ ->
       traverse_stm local_vars stm
   and aux_expr local_vars expr =
