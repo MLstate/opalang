@@ -41,7 +41,7 @@ ServerLog = {{
   @publish warning = wrap(Logger.warning )
   @publish notice  = wrap(Logger.notice  )
   @publish info    = wrap(Logger.info    )
-  @publish debug(t, x) = wrap(Logger.debug   )(t, "{x}")
+  @publish debug(t, x) = wrap(Logger.debug   )(t, Debug.dump(x))
 }}
 
 @private
