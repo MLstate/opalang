@@ -497,7 +497,6 @@ rule "opabsl_sources"
                A"--no-opp";
                A"--no-build";
                A"--static";
-               A"--verbose";
               ]
               @special_bsl_options@
                 List.map (fun s -> P (".."/".."/s)) (
@@ -725,7 +724,6 @@ let opacomp build src dst_ext opt =
   Cmd(S[
         Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin"; opt;
-        A"--verbose";(* A"--no-opa-walker"; *)
         opaopt;
         A"-o"; P dst; P src
       ])
