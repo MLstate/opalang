@@ -248,7 +248,7 @@ install-bld:
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
 	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
-	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
+	@$(INSTALL) tools/build/gen_myocamlbuild.sh tools/build/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
